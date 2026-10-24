@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/datasource"
+	"github.com/Usir233/GENYEE/internal/datasource"
 )
 
 func TestFetchIncrementalSearchFailure(t *testing.T) {

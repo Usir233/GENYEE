@@ -7,8 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tencent/WeKnora/internal/application/service"
-	"github.com/Tencent/WeKnora/internal/background"
+	"github.com/Usir233/GENYEE/internal/application/service"
+	"github.com/Usir233/GENYEE/internal/background"
 )
 
 func TestDesktopWithoutHostManagerStaysRemoteOnly(t *testing.T) {

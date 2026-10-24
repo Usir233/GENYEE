@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/application/service"
-	"github.com/Tencent/WeKnora/internal/middleware"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/application/service"
+	"github.com/Usir233/GENYEE/internal/middleware"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/gin-gonic/gin"
 )
 

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/utils"
 )
 
 func TestNewMinerUReaderResolvesParseMethod(t *testing.T) {

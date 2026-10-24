@@ -6,7 +6,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/utils"
 )
 
 func whitelistOnly(t *testing.T, whitelist, only string) {

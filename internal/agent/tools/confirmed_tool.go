@@ -7,12 +7,12 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/agent/approval"
-	"github.com/Tencent/WeKnora/internal/agent/hitl"
-	"github.com/Tencent/WeKnora/internal/agent/operations"
-	"github.com/Tencent/WeKnora/internal/agent/policy"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/approval"
+	"github.com/Usir233/GENYEE/internal/agent/hitl"
+	"github.com/Usir233/GENYEE/internal/agent/operations"
+	"github.com/Usir233/GENYEE/internal/agent/policy"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // ConfirmedTool asks the user before running a tool that changes data, the

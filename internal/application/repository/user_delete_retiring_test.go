@@ -12,8 +12,8 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // openRetireDB is the allocation SQLite pool plus a users table, so account

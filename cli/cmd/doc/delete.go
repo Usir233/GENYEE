@@ -6,11 +6,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	sdk "github.com/Tencent/WeKnora/client"
+	sdk "github.com/Usir233/GENYEE/client"
 
-	"github.com/Tencent/WeKnora/cli/internal/cmdutil"
-	"github.com/Tencent/WeKnora/cli/internal/iostreams"
-	"github.com/Tencent/WeKnora/cli/internal/prompt"
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/prompt"
 )
 
 // docDeleteFields enumerates the fields surfaced for `--format json` discovery

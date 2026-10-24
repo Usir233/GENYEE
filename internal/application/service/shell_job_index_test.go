@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/sandbox"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // BuildContentSignature creates a normalized MD5 signature for content to detect duplicates.

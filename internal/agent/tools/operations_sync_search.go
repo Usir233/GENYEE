@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/agent/operations"
+	"github.com/Usir233/GENYEE/internal/agent/operations"
 )
 
 func syncAndSearchDetail(op operations.Operation, params map[string]json.RawMessage) []string {

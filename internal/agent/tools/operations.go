@@ -11,11 +11,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/agent/approval"
-	"github.com/Tencent/WeKnora/internal/agent/operations"
-	"github.com/Tencent/WeKnora/internal/agent/policy"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/approval"
+	"github.com/Usir233/GENYEE/internal/agent/operations"
+	"github.com/Usir233/GENYEE/internal/agent/policy"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // Operation catalog tool names.

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Tencent/WeKnora/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/sandbox"
 )
 
 // SessionBusyGate is process-local exclusion between send and rewind when

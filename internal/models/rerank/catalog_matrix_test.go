@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	modelruntime "github.com/Tencent/WeKnora/internal/models/runtime"
-	"github.com/Tencent/WeKnora/internal/types"
+	modelruntime "github.com/Usir233/GENYEE/internal/models/runtime"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/require"
 )
 

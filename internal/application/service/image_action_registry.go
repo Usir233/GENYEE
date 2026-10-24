@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/models/vlm"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/models/vlm"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // imagePipeline is one image pipeline: a function over actions, not a data

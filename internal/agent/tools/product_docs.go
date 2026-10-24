@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/productdocs"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/productdocs"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // WeKnora documentation tool names.

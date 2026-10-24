@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/Tencent/WeKnora/internal/application/repository/retriever/opensearch"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/application/repository/retriever/opensearch"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // auditSinkAdapter bridges the OpenSearch driver's AuditSink (which the driver

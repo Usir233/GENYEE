@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/cli/internal/cmdutil"
-	"github.com/Tencent/WeKnora/cli/internal/output"
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/internal/output"
 )
 
 func TestEmit_WrapsInEnvelope(t *testing.T) {

@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/models/api"
-	"github.com/Tencent/WeKnora/internal/models/api/openaicompletions"
-	"github.com/Tencent/WeKnora/internal/models/chat"
+	"github.com/Usir233/GENYEE/internal/models/api"
+	"github.com/Usir233/GENYEE/internal/models/api/openaicompletions"
+	"github.com/Usir233/GENYEE/internal/models/chat"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

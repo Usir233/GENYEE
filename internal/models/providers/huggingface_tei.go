@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/models/api"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/models/api"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // HuggingFaceTEIID is the provider ID for self-hosted TEI rerank models.

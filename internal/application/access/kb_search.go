@@ -3,9 +3,9 @@ package access
 import (
 	"context"
 
-	apperrors "github.com/Tencent/WeKnora/internal/errors"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
+	apperrors "github.com/Usir233/GENYEE/internal/errors"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // AuthorizeKBAccess rejects multi-KB searches whose scope includes a KB

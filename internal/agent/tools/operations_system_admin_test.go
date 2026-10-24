@@ -3,8 +3,8 @@ package tools
 import (
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/agent/operations"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/operations"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

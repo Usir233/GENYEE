@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/models/limiter"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/models/limiter"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // fakeChat is a minimal Chat whose stream emits continuously until ctx is done,

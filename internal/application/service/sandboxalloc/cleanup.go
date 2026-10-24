@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/sandbox"
-	"github.com/Tencent/WeKnora/internal/sandbox/allocation"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/sandbox/allocation"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // UserMachineOps is the slice of *sandbox.SessionBoundManager the cleaner and

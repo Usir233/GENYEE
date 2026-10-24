@@ -4,12 +4,12 @@ import (
 	stderrors "errors"
 	"net/http"
 
-	"github.com/Tencent/WeKnora/internal/application/service"
-	"github.com/Tencent/WeKnora/internal/errors"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/application/service"
+	"github.com/Usir233/GENYEE/internal/errors"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/gin-gonic/gin"
 )
 

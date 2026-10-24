@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 // fillerReader streams size bytes without allocating them, so a test can offer

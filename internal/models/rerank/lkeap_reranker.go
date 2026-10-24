@@ -3,9 +3,9 @@ package rerank
 import (
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/models/api"
-	"github.com/Tencent/WeKnora/internal/models/api/tencentlkeap"
-	modelruntime "github.com/Tencent/WeKnora/internal/models/runtime"
+	"github.com/Usir233/GENYEE/internal/models/api"
+	"github.com/Usir233/GENYEE/internal/models/api/tencentlkeap"
+	modelruntime "github.com/Usir233/GENYEE/internal/models/runtime"
 )
 
 // Tencent action defaults retained for existing callers.

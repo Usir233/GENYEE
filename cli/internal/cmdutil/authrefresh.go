@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 
-	"github.com/Tencent/WeKnora/cli/internal/secrets"
-	sdk "github.com/Tencent/WeKnora/client"
+	"github.com/Usir233/GENYEE/cli/internal/secrets"
+	sdk "github.com/Usir233/GENYEE/client"
 )
 
 // Refresher is the narrow SDK surface RefreshAndPersist depends on.

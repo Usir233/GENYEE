@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"strings"
 
-	filesvc "github.com/Tencent/WeKnora/internal/application/service/file"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	filesvc "github.com/Usir233/GENYEE/internal/application/service/file"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/google/uuid"
 )
 

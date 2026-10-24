@@ -11,7 +11,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Usir233/GENYEE/internal/logger"
 )
 
 // Strategy values for SplitterConfig.Strategy.

@@ -12,8 +12,8 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/logger"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 // ToInterfaceSlice converts a slice of strings to a slice of empty interfaces.

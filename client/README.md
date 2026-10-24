@@ -26,7 +26,7 @@
 ```go
 import (
     "context"
-    "github.com/Tencent/WeKnora/client"
+    "github.com/Usir233/GENYEE/client"
     "time"
 )
 

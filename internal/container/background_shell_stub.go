@@ -5,8 +5,8 @@ package container
 import (
 	"github.com/redis/go-redis/v9"
 
-	"github.com/Tencent/WeKnora/internal/application/service"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/application/service"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // newShellJobService is the web constructor dig provides. Host wiring and the

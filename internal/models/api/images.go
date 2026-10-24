@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // ResolveImageURLForLLM converts stored image paths to a format that LLM APIs can consume.

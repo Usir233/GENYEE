@@ -3,7 +3,7 @@ package service
 import (
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // fieldGroupRank orders the three runs a pipeline declares its fields in. The

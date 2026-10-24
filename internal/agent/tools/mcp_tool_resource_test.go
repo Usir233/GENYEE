@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/mcp"
+	"github.com/Usir233/GENYEE/internal/mcp"
 	"github.com/stretchr/testify/assert"
 )
 

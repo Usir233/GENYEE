@@ -5,12 +5,12 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Tencent/WeKnora/internal/models"
-	"github.com/Tencent/WeKnora/internal/models/api"
-	"github.com/Tencent/WeKnora/internal/models/catalog"
-	"github.com/Tencent/WeKnora/internal/models/internal/configcopy"
-	"github.com/Tencent/WeKnora/internal/models/providers"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/models"
+	"github.com/Usir233/GENYEE/internal/models/api"
+	"github.com/Usir233/GENYEE/internal/models/catalog"
+	"github.com/Usir233/GENYEE/internal/models/internal/configcopy"
+	"github.com/Usir233/GENYEE/internal/models/providers"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // Provider combines a provider definition with a catalog from the same runtime

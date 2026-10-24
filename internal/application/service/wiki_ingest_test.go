@@ -13,9 +13,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tencent/WeKnora/internal/agent"
-	"github.com/Tencent/WeKnora/internal/models/chat"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent"
+	"github.com/Usir233/GENYEE/internal/models/chat"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 func TestWikiInflightSlotReleasedWhenTaskContextCanceled(t *testing.T) {

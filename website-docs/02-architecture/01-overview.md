@@ -204,6 +204,6 @@ sequenceDiagram
 | `packages/` | 独立发布的集成包，如 DeepSeek Harness 插件 `packages/dsh-weknora`，见 [DeepSeek Harness](../05-clients/08-deepseek-harness.md) |
 | `docs/` | 停止维护的旧文档；暂存 Swagger 生成包、发布资源和历史图片 |
 
-> 说明：Go 模块路径为 `github.com/Tencent/WeKnora`；根目录还包含 `docker-compose.yml`（生产编排）与 `docker-compose.dev.yml`（开发编排）、`Makefile`、`VERSION` 等。
+> 说明：Go 模块路径为 `github.com/Usir233/GENYEE`；根目录还包含 `docker-compose.yml`（生产编排）与 `docker-compose.dev.yml`（开发编排）、`Makefile`、`VERSION` 等。
 
 下一篇《Go 后端设计》将深入 `internal/` 内部：分层架构、dig 依赖注入、启动流程、路由与 RBAC、中间件、领域模型与错误/日志规范。

@@ -3,8 +3,8 @@ package agent
 import (
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/agent/skills"
-	"github.com/Tencent/WeKnora/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/agent/skills"
+	"github.com/Usir233/GENYEE/internal/sandbox"
 	"github.com/stretchr/testify/require"
 )
 

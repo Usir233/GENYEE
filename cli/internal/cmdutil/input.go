@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tencent/WeKnora/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 )
 
 // rfc3339Example is the canonical hint shown when a time-flag value isn't RFC3339.

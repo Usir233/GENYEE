@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/utils"
 )
 
 // ValidateConnectorBaseURL checks a connector API base URL against the SSRF policy.

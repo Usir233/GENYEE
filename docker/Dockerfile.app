@@ -156,7 +156,7 @@ COPY --from=builder /app/scripts ./scripts
 COPY --from=builder /app/migrations ./migrations
 COPY --from=builder /app/dataset/samples ./dataset/samples
 COPY --from=builder /root/.duckdb /home/appuser/.duckdb
-COPY --from=builder /app/WeKnora .
+COPY --from=builder /app/GENYEE .
 COPY --from=builder /license-bundle/ ./
 
 # Copy and make entrypoint script executable
@@ -170,4 +170,4 @@ EXPOSE 8080
 
 
 ENTRYPOINT ["./scripts/docker-entrypoint.sh"]
-CMD ["./WeKnora"]
+CMD ["./GENYEE"]

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/Tencent/WeKnora/internal/datasource"
+	"github.com/Usir233/GENYEE/internal/datasource"
 )
 
 // knowledgeFileName maps a library file to the knowledge base folder

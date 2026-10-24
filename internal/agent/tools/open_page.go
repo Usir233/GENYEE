@@ -11,9 +11,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/Tencent/WeKnora/internal/agent/approval"
-	"github.com/Tencent/WeKnora/internal/agent/operations"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/approval"
+	"github.com/Usir233/GENYEE/internal/agent/operations"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // ToolOpenPage offers the user a link to a WeKnora page, optionally with a

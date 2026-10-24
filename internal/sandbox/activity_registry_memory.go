@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // MemoryActivityRegistry shares the binding store's background leases and lock,

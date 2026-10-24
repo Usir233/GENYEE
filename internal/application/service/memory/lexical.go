@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // Situational recall is lexical rather than vector-based. One subject holds a

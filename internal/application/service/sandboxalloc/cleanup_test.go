@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tencent/WeKnora/internal/sandbox"
-	"github.com/Tencent/WeKnora/internal/sandbox/allocation"
+	"github.com/Usir233/GENYEE/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/sandbox/allocation"
 )
 
 type fakeMachineOps struct {

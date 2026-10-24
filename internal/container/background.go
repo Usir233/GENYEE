@@ -9,12 +9,12 @@ import (
 
 	"github.com/redis/go-redis/v9"
 
-	"github.com/Tencent/WeKnora/internal/application/service"
-	"github.com/Tencent/WeKnora/internal/application/service/sandboxalloc"
-	"github.com/Tencent/WeKnora/internal/background"
-	"github.com/Tencent/WeKnora/internal/sandbox"
-	"github.com/Tencent/WeKnora/internal/stream"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/application/service"
+	"github.com/Usir233/GENYEE/internal/application/service/sandboxalloc"
+	"github.com/Usir233/GENYEE/internal/background"
+	"github.com/Usir233/GENYEE/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/stream"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // newBackgroundActivityRegistry returns the registry of live background work.

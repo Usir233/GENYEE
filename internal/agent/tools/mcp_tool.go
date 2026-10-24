@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/agent/approval"
-	"github.com/Tencent/WeKnora/internal/agent/hitl"
-	"github.com/Tencent/WeKnora/internal/agent/policy"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/mcp"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/approval"
+	"github.com/Usir233/GENYEE/internal/agent/hitl"
+	"github.com/Usir233/GENYEE/internal/agent/policy"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/mcp"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 

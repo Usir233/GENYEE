@@ -3,7 +3,7 @@ package allocation
 import (
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/sandbox/workspace"
+	"github.com/Usir233/GENYEE/internal/sandbox/workspace"
 )
 
 // Assignment is the persisted placement of one session. Only the config

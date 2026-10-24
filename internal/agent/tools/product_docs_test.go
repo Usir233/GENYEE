@@ -7,7 +7,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/Tencent/WeKnora/internal/productdocs"
+	"github.com/Usir233/GENYEE/internal/productdocs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/Tencent/WeKnora/cli/cmd"
-	"github.com/Tencent/WeKnora/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/cmd"
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 )
 
 var (
@@ -91,11 +91,16 @@ func TestSkillsReferenceLiveCommandsAndFlags(t *testing.T) {
 		rel, _ := filepath.Rel(skillsRoot(t), path)
 		for _, block := range codeFence.FindAllStringSubmatch(content, -1) {
 			for _, line := range strings.Split(block[1], "\n") {
+				prefixLen := len("weknora")
 				idx := strings.Index(line, "weknora ")
+				if idx < 0 {
+					idx = strings.Index(line, "genyee ")
+					prefixLen = len("genyee")
+				}
 				if idx < 0 {
 					continue
 				}
-				inv := line[idx+len("weknora"):]
+				inv := line[idx+prefixLen:]
 				toks := strings.Fields(inv)
 				if len(toks) == 0 {
 					continue

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // Lifecycle combines the shared parts in the only orders that are safe.

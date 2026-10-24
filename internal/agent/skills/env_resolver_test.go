@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/sandbox"
 	"github.com/stretchr/testify/require"
 )
 

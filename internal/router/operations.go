@@ -3,7 +3,7 @@ package router
 import (
 	"fmt"
 
-	"github.com/Tencent/WeKnora/internal/agent/operations"
+	"github.com/Usir233/GENYEE/internal/agent/operations"
 	"github.com/gin-gonic/gin"
 )
 

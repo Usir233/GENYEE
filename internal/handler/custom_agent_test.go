@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tencent/WeKnora/internal/agent/tools"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/tools"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 func TestValidateAgentSandboxConfigRejectsAnyConfigOnLite(t *testing.T) {

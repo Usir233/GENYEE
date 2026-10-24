@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // userEnvReader is the slice of the repository this resolver needs. Narrowing it

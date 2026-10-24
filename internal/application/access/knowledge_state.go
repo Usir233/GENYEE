@@ -3,8 +3,8 @@ package access
 import (
 	"encoding/json"
 
-	apperrors "github.com/Tencent/WeKnora/internal/errors"
-	"github.com/Tencent/WeKnora/internal/types"
+	apperrors "github.com/Usir233/GENYEE/internal/errors"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // RejectMovingKnowledge is shared by admission and persisted service checks.

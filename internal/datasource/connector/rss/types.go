@@ -30,8 +30,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/datasource"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/datasource"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/mmcdole/gofeed"
 )
 

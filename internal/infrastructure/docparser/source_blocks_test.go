@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tencent/WeKnora/docreader/proto"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/docreader/proto"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 const minerUContentListJSON = `[

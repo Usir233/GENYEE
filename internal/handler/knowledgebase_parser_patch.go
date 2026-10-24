@@ -6,8 +6,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/Tencent/WeKnora/internal/errors"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/errors"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // applyParserRoutingPatch changes only the explicitly named file types. Splitting

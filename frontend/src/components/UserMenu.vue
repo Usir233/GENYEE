@@ -520,7 +520,7 @@ const openDocs = () => {
 // 打开 GitHub
 const openGithub = () => {
   menuVisible.value = false
-  window.open('https://github.com/Tencent/WeKnora', '_blank')
+  window.open('https://github.com/Usir233/GENYEE', '_blank')
 }
 
 // 注销

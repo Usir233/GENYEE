@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/datasource"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/datasource"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // DefaultBaseURL is the IMA OpenAPI base URL. The Path prefix is baked into

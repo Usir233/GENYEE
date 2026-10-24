@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tencent/WeKnora/cli/internal/testutil"
+	"github.com/Usir233/GENYEE/cli/internal/testutil"
 )
 
 func TestLoad_FileMissing(t *testing.T) {

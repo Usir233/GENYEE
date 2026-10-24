@@ -3,7 +3,7 @@ package tools
 import (
 	"html"
 
-	"github.com/Tencent/WeKnora/internal/models/chat"
+	"github.com/Usir233/GENYEE/internal/models/chat"
 )
 
 // SanitizeMessages validates and fixes a message array for LLM compatibility.

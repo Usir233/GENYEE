@@ -3,8 +3,8 @@ package handler
 import (
 	"context"
 
-	"github.com/Tencent/WeKnora/internal/config"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/config"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 const (

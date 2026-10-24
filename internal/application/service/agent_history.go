@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/agent"
-	"github.com/Tencent/WeKnora/internal/agent/compaction"
-	agenttoken "github.com/Tencent/WeKnora/internal/agent/token"
-	agenttools "github.com/Tencent/WeKnora/internal/agent/tools"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/models/chat"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/agent"
+	"github.com/Usir233/GENYEE/internal/agent/compaction"
+	agenttoken "github.com/Usir233/GENYEE/internal/agent/token"
+	agenttools "github.com/Usir233/GENYEE/internal/agent/tools"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/models/chat"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // agentHistoryPageSize is how many rows one backwards page reads. A turn is

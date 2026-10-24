@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 func validateASRBaseURL(baseURL string) error {

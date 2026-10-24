@@ -10,7 +10,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	sdk "github.com/Tencent/WeKnora/client"
+	sdk "github.com/Usir233/GENYEE/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

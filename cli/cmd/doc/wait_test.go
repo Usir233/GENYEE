@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	sdk "github.com/Tencent/WeKnora/client"
+	sdk "github.com/Usir233/GENYEE/client"
 
-	"github.com/Tencent/WeKnora/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 )
 
 func TestWaitCmd_Shape(t *testing.T) {

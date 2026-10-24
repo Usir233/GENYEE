@@ -3,7 +3,7 @@ package repository
 import (
 	"context"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // IsReferencedByKnowledgeBase accepts only explicit bindings to live documents.

@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/datasource/connector/feishu/core"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // fakeFeishuFailingExport serves the auth/spaces/nodes endpoints normally but

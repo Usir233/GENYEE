@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
+	"github.com/Usir233/GENYEE/internal/infrastructure/chunker"
 	"github.com/gin-gonic/gin"
 )
 

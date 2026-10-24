@@ -8,13 +8,13 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/application/access"
-	filesvc "github.com/Tencent/WeKnora/internal/application/service/file"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/storageurl"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/application/access"
+	filesvc "github.com/Usir233/GENYEE/internal/application/service/file"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/storageurl"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 

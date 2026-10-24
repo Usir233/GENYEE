@@ -4,12 +4,12 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/application/access"
-	"github.com/Tencent/WeKnora/internal/application/repository"
-	apperrors "github.com/Tencent/WeKnora/internal/errors"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/application/access"
+	"github.com/Usir233/GENYEE/internal/application/repository"
+	apperrors "github.com/Usir233/GENYEE/internal/errors"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/stretchr/testify/require"
 )
 

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Usir233/GENYEE/internal/logger"
 )
 
 func TestListDocumentBlocks_Paginates(t *testing.T) {

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/application/repository"
-	"github.com/Tencent/WeKnora/internal/application/service"
-	modelruntime "github.com/Tencent/WeKnora/internal/models/runtime"
+	"github.com/Usir233/GENYEE/internal/application/repository"
+	"github.com/Usir233/GENYEE/internal/application/service"
+	modelruntime "github.com/Usir233/GENYEE/internal/models/runtime"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"

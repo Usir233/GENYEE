@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Tencent/WeKnora/cli/internal/cmdutil"
-	"github.com/Tencent/WeKnora/cli/internal/config"
-	"github.com/Tencent/WeKnora/cli/internal/iostreams"
-	sdk "github.com/Tencent/WeKnora/client"
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/internal/config"
+	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	sdk "github.com/Usir233/GENYEE/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

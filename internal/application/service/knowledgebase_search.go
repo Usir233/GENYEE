@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Tencent/WeKnora/internal/application/service/retriever"
-	apperrors "github.com/Tencent/WeKnora/internal/errors"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/models/embedding"
-	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
-	"github.com/Tencent/WeKnora/internal/types"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/application/service/retriever"
+	apperrors "github.com/Usir233/GENYEE/internal/errors"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/models/embedding"
+	"github.com/Usir233/GENYEE/internal/tracing/langfuse"
+	"github.com/Usir233/GENYEE/internal/types"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 // maxRetrievalPoolSize bounds every retrieval depth derived from MatchCount:

@@ -3,10 +3,10 @@ package providers_test
 import (
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/models/api"
-	"github.com/Tencent/WeKnora/internal/models/providers"
-	modelruntime "github.com/Tencent/WeKnora/internal/models/runtime"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/models/api"
+	"github.com/Usir233/GENYEE/internal/models/providers"
+	modelruntime "github.com/Usir233/GENYEE/internal/models/runtime"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/docreader/proto"
+	"github.com/Usir233/GENYEE/docreader/proto"
 	"google.golang.org/grpc/resolver"
 )
 

@@ -3,7 +3,7 @@ package vlm
 import (
 	"testing"
 
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 func withVLMSSRFWhitelist(t *testing.T, raw string) {

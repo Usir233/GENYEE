@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	agenttoken "github.com/Tencent/WeKnora/internal/agent/token"
-	"github.com/Tencent/WeKnora/internal/models/chat"
-	"github.com/Tencent/WeKnora/internal/types"
+	agenttoken "github.com/Usir233/GENYEE/internal/agent/token"
+	"github.com/Usir233/GENYEE/internal/models/chat"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 const (

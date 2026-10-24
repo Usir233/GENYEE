@@ -8,10 +8,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/application/repository"
-	"github.com/Tencent/WeKnora/internal/config"
-	"github.com/Tencent/WeKnora/internal/middleware"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/application/repository"
+	"github.com/Usir233/GENYEE/internal/config"
+	"github.com/Usir233/GENYEE/internal/middleware"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

@@ -14,7 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Tencent/WeKnora/cli/internal/xdg"
+	"github.com/Usir233/GENYEE/cli/internal/xdg"
 )
 
 // ErrNotFound is returned when the requested secret does not exist.

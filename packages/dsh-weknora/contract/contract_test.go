@@ -16,8 +16,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/handler/session"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/handler/session"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 type contractCall struct {

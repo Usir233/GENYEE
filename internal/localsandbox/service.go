@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/utils"
 )
 
 // defaultRunTimeout matches the shell_exec tool default so behaviour does not

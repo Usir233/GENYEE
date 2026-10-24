@@ -9,10 +9,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/application/repository"
-	"github.com/Tencent/WeKnora/internal/sandbox"
-	"github.com/Tencent/WeKnora/internal/types"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/application/repository"
+	"github.com/Usir233/GENYEE/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/types"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 type stagedSessionAttachment struct {

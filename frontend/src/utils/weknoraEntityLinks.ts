@@ -10,8 +10,8 @@ export type WeKnoraEntityLinkLabels = Record<WeKnoraEntityKind, string>
 export const WEKNORA_ENTITY_LINK_CLASS = 'weknora-entity-link'
 
 const URI_BODY = '(kb|doc|chunk)/([0-9A-Za-z][0-9A-Za-z_-]*)'
-const URI_EXACT_RE = new RegExp(`^weknora://${URI_BODY}$`, 'i')
-const URI_IN_TEXT_RE = new RegExp(`weknora://${URI_BODY}`, 'gi')
+const URI_EXACT_RE = new RegExp(`^(?:weknora|genyee)://${URI_BODY}$`, 'i')
+const URI_IN_TEXT_RE = new RegExp(`(?:weknora|genyee)://${URI_BODY}`, 'gi')
 const HREF_RE = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')/i
 const SKIPPED_TAGS = new Set(['code', 'pre', 'a', 'button', 'svg', 'math'])
 
@@ -39,7 +39,7 @@ function entityOpenTag(ref: WeKnoraEntityRef, labels: WeKnoraEntityLinkLabels): 
  * DOMPurify, whose URI allowlist would otherwise strip the `weknora:` scheme.
  */
 export function renderWeKnoraEntityLinks(html: string, labels: WeKnoraEntityLinkLabels): string {
-  if (!html || !/weknora:\/\//i.test(html)) return html
+  if (!html || !/(?:weknora|genyee):\/\//i.test(html)) return html
   const parts = html.split(/(<[^>]*>)/)
   const skipDepth = new Map<string, number>()
   let skipping = 0

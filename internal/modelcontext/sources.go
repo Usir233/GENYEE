@@ -15,8 +15,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Tencent/WeKnora/internal/models/chat"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/models/chat"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 type ChunkReference struct {

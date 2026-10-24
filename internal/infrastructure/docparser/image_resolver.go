@@ -31,11 +31,11 @@ import (
 	_ "golang.org/x/image/bmp"  // Register BMP decoding for image.Decode and DecodeConfig.
 	_ "golang.org/x/image/webp" // Register WebP decoding for image.Decode and DecodeConfig.
 
-	"github.com/Tencent/WeKnora/internal/searchutil"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/searchutil"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/google/uuid"
 )
 

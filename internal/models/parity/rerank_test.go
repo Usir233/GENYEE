@@ -8,12 +8,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/models"
-	"github.com/Tencent/WeKnora/internal/models/api"
-	"github.com/Tencent/WeKnora/internal/models/providers"
-	"github.com/Tencent/WeKnora/internal/models/rerank"
-	modelruntime "github.com/Tencent/WeKnora/internal/models/runtime"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/models"
+	"github.com/Usir233/GENYEE/internal/models/api"
+	"github.com/Usir233/GENYEE/internal/models/providers"
+	"github.com/Usir233/GENYEE/internal/models/rerank"
+	modelruntime "github.com/Usir233/GENYEE/internal/models/runtime"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

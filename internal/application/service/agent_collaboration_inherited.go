@@ -8,9 +8,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/agent/collaboration"
-	"github.com/Tencent/WeKnora/internal/agent/tools"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/collaboration"
+	"github.com/Usir233/GENYEE/internal/agent/tools"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // childSource is set only after AgentQA has resolved the actual model. It is

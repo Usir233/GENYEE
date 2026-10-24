@@ -2,7 +2,7 @@
   <a href="https://weknora.weixin.qq.com">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="./docs/images/readme/hero-en-dark.svg">
-      <img src="./docs/images/readme/hero-en-light.svg" alt="WeKnora: find the answers, and put knowledge to work. Tencent's open-source knowledge management framework for Q&A, tasks and wikis." width="100%">
+      <img src="./docs/images/readme/hero-en-light.svg" alt="GENYEE: find the answers, and put knowledge to work. Open-source knowledge management framework for Q&A, tasks and wikis." width="100%">
     </picture>
   </a>
 </p>
@@ -12,7 +12,7 @@
   <a href="https://weknora.weixin.qq.com/docs/"><img alt="Docs" src="https://img.shields.io/badge/docs-read-b8863b?style=flat-square&labelColor=101f38"></a>
   <a href="./CHANGELOG.md"><img alt="Release" src="https://img.shields.io/badge/release-v0.8.3-b8863b?style=flat-square&labelColor=101f38"></a>
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-MIT-b8863b?style=flat-square&labelColor=101f38"></a>
-  <a href="https://github.com/Tencent/WeKnora/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Tencent/WeKnora?style=flat-square&labelColor=101f38&color=b8863b"></a>
+  <a href="https://github.com/Usir233/GENYEE/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Usir233/GENYEE?style=flat-square&labelColor=101f38&color=b8863b"></a>
   <br/>
   <a href="https://chatbot.weixin.qq.com"><img alt="WeChat Dialog Open Platform" src="https://img.shields.io/badge/WeChat_Dialog-Open_Platform-07c160?style=flat-square&labelColor=101f38&logo=wechat&logoColor=white"></a>
   <a href="https://chromewebstore.google.com/detail/jpemjbopikggjlmikmclgbmkhhopjdgd"><img alt="Chrome Extension" src="https://img.shields.io/badge/Chrome-extension-4285f4?style=flat-square&labelColor=101f38&logo=googlechrome&logoColor=white"></a>
@@ -35,12 +35,12 @@
 </p>
 
 <p align="center">
-  <a href="https://trendshift.io/repositories/15289"><img src="https://trendshift.io/api/badge/repositories/15289" alt="Tencent/WeKnora | Trendshift" width="220" height="48"/></a>
+  <a href="https://trendshift.io/repositories/15289"><img src="https://trendshift.io/api/badge/repositories/15289" alt="GENYEE | Trendshift" width="220" height="48"/></a>
 </p>
 
 ## Overview
 
-[WeKnora](https://weknora.weixin.qq.com) is an open-source, LLM-powered knowledge framework for enterprise document understanding, semantic retrieval and reasoning. It brings a team's documents together so they can be searched, reasoned over and kept up to date.
+[GENYEE](https://weknora.weixin.qq.com) is an open-source, LLM-powered knowledge framework for enterprise document understanding, semantic retrieval and reasoning. It brings a team's documents together so they can be searched, reasoned over and kept up to date.
 
 https://github.com/user-attachments/assets/5722b10d-d04d-49ed-a6cc-635a8c77d91f
 
@@ -79,7 +79,7 @@ Beyond the three modes:
       <img src="./website-docs/homepage/public/docs/_home/brands/tencent-cloud.ico" width="28" height="28" alt=""><br/>
       <sub>CLOUD</sub><br/>
       <b>Tencent Cloud Lighthouse</b><br/>
-      Deploy WeKnora from an application template and run it on your own cloud server.<br/><br/>
+      Deploy GENYEE from an application template and run it on your own cloud server.<br/><br/>
       <a href="https://mc.tencent.com/s69nKCVz">Deploy on Tencent Cloud →</a>
     </td>
     <td width="33%" valign="top">
@@ -97,8 +97,8 @@ Beyond the three modes:
 Requires [Docker](https://www.docker.com/), [Docker Compose](https://docs.docker.com/compose/) and [Git](https://git-scm.com/).
 
 ```bash
-git clone https://github.com/Tencent/WeKnora.git
-cd WeKnora
+git clone https://github.com/Usir233/GENYEE.git
+cd GENYEE
 cp .env.example .env    # Edit .env as needed, see comments in the file
 docker compose pull     # Pull the latest images
 docker compose up -d    # Start core services
@@ -135,7 +135,7 @@ docker compose down     # Stop services
 
 ### Upgrading
 
-If you already have WeKnora running and downloaded a newer release:
+If you already have GENYEE running and downloaded a newer release:
 
 ```bash
 # Set WEKNORA_VERSION in .env to the target release (e.g. 0.8.3), or keep latest
@@ -158,7 +158,7 @@ docker compose up -d    # Recreate containers with new images
 All options, hardware requirements and deployment topologies: [Installation guide](https://weknora.weixin.qq.com/docs/01-getting-started/02-installation).
 
 > [!WARNING]
-> WeKnora ships with login authentication, but for production deployments we strongly recommend that you:
+> GENYEE ships with login authentication, but for production deployments we strongly recommend that you:
 > - deploy it in an internal / private network rather than on the public internet;
 > - avoid exposing the service directly to public networks, to prevent information leakage;
 > - configure proper firewall rules and access controls for the deployment environment;
@@ -215,7 +215,7 @@ Agents can operate the browser on your computer, knowledge bases can be publishe
 - **v0.5.2** — Wiki ingest scales to 40k-document KBs (task queue + DLQ); MCP human-in-the-loop tool approval; Anthropic / Apache Doris / Tencent VectorDB / KS3 / SearXNG backends; adaptive 3-tier chunking with live preview; global ⌘K command palette; Yuque connector + WeChat Mini Program; `weknora` CLI preview.
 - **v0.5.1** — Knowledge-base batch management; workspace-wide IM channels overview; session search + user-scoped pinning; unified Model / Web Search / MCP settings cards; per-agent LLM timeout; desktop workspace switching.
 - **v0.5.0** — Wiki Mode GA — agents auto-generate structured, interlinked Markdown wiki pages with a knowledge graph; wiki browser + visual graph in the UI.
-- **v0.4.0** — WeKnora Cloud (hosted LLM + parsing); Chrome Extension; ClawHub Skill; WeChat IM; attachment processing; Azure OpenAI / Alibaba OSS; Notion connector; Baidu + Ollama web search; VectorStore management.
+- **v0.4.0** — GENYEE Cloud (hosted LLM + parsing); Chrome Extension; ClawHub Skill; WeChat IM; attachment processing; Azure OpenAI / Alibaba OSS; Notion connector; Baidu + Ollama web search; VectorStore management.
 - **v0.3.6** — ASR (audio); Feishu data-source auto-sync; OIDC; IM quote-reply context + thread-based sessions; document summarization; Tavily search; parallel tool calling; agent @mention scope restriction.
 - **v0.3.5** — Telegram / DingTalk / Mattermost IM; IM slash commands + QA queue; suggested questions; VLM auto-describe MCP tool images; Novita AI; channel tracking.
 - **v0.3.4** — WeCom / Feishu / Slack IM; multimodal image support; NVIDIA model API; Weaviate; AWS S3; AES-256-GCM API-key encryption; built-in MCP service; hybrid-search optimization; `final_answer` tool.
@@ -276,7 +276,7 @@ Full history: [`CHANGELOG.md`](./CHANGELOG.md).
 
 ### Automatic wiki
 
-**Documents organized into a browsable wiki.** With Wiki enabled, WeKnora extracts people, products and concepts from knowledge-base documents into pages with source citations, organized by directory. The knowledge graph shows how pages relate; pages can be edited directly and every change can be rolled back. [Docs →](https://weknora.weixin.qq.com/docs/03-features/14-wiki)
+**Documents organized into a browsable wiki.** With Wiki enabled, GENYEE extracts people, products and concepts from knowledge-base documents into pages with source citations, organized by directory. The knowledge graph shows how pages relate; pages can be edited directly and every change can be rolled back. [Docs →](https://weknora.weixin.qq.com/docs/03-features/14-wiki)
 
 <a href="./docs/images/readme/spotlight-wiki-light.webp">
 <picture>
@@ -301,7 +301,7 @@ Full history: [`CHANGELOG.md`](./CHANGELOG.md).
 <a href="./docs/images/readme/architecture-en-light.svg">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./docs/images/readme/architecture-en-dark.svg">
-  <img src="./docs/images/readme/architecture-en-light.svg" alt="WeKnora architecture: clients and channels connect to the WeKnora app, where RAG Q&A, agent reasoning and auto wiki share one knowledge pipeline; the app calls runtime services and stores data in PostgreSQL, Redis and optional stores" width="100%">
+  <img src="./docs/images/readme/architecture-en-light.svg" alt="GENYEE architecture: clients and channels connect to the GENYEE app, where RAG Q&A, agent reasoning and auto wiki share one knowledge pipeline; the app calls runtime services and stores data in PostgreSQL, Redis and optional stores" width="100%">
 </picture>
 </a>
 
@@ -337,28 +337,28 @@ A modular pipeline from document parsing, vectorization and retrieval to LLM inf
 
 | | Client | What it does |
 |:-:|--------|--------------|
-| <img src="./docs/images/readme/icons/terminal.svg" width="22" height="22" alt=""> | [**CLI `weknora`**](./cli/README.md) | Agent-first command line for the full API, with a curated MCP tool surface and bundled Agent Skills |
+| <img src="./docs/images/readme/icons/terminal.svg" width="22" height="22" alt=""> | [**CLI `genyee`**](./cli/README.md) | Agent-first command line for the full API, with a curated MCP tool surface and bundled Agent Skills |
 | <img src="./docs/images/readme/icons/plug.svg" width="22" height="22" alt=""> | [**Built-in MCP Server**](https://weknora.weixin.qq.com/docs/03-features/08-mcp) | Publishes knowledge bases to Cursor, Claude and other MCP clients over Streamable HTTP; the Python [`mcp-server/`](./mcp-server/MCP_CONFIG.md) is deprecated |
 | <img src="./website-docs/homepage/public/docs/_home/brands/browserskill.png" width="22" height="22" alt=""> | [**Local Browser (BrowserSkill)**](https://weknora.weixin.qq.com/docs/05-clients/09-local-browser) | Lets agents operate the user's own Chrome / Edge |
 | <img src="./website-docs/homepage/public/docs/_home/brands/chrome.svg" width="22" height="22" alt=""> | [**Chrome Extension**](https://chromewebstore.google.com/detail/jpemjbopikggjlmikmclgbmkhhopjdgd) | Select text, images, or entire pages in the browser and save them as knowledge entries with one click, without copy-paste or file upload |
 | <img src="./docs/images/readme/icons/phone.svg" width="22" height="22" alt=""> | [**WeChat Mini Program**](./miniprogram/README.md) | Lightweight mobile client: configure API access, select knowledge bases, import URLs, and ask knowledge chat from WeChat |
-| <img src="./docs/images/readme/icons/skills.svg" width="22" height="22" alt=""> | [**ClawHub Skill**](https://clawhub.ai/lyingbug/weknora) | A WeKnora skill on ClawHub for document import, hybrid search and knowledge management via the REST API |
+| <img src="./docs/images/readme/icons/skills.svg" width="22" height="22" alt=""> | [**ClawHub Skill**](https://clawhub.ai/lyingbug/weknora) | A GENYEE skill on ClawHub for document import, hybrid search and knowledge management via the REST API |
 | <img src="./website-docs/homepage/public/docs/_home/brands/deepseek-color.svg" width="22" height="22" alt=""> | [**DeepSeek Harness plugin**](https://www.npmjs.com/package/@wxg-prc-cpg/dsh-weknora) | Gives `dsh` coding agents four read-only tools: search, read document, ask and list knowledge bases |
 | <img src="./docs/images/readme/icons/code.svg" width="22" height="22" alt=""> | [**Website Embed Widget**](https://weknora.weixin.qq.com/docs/03-features/13-embed-channel) | Publishes agents on external sites |
 | <img src="./docs/images/readme/icons/braces.svg" width="22" height="22" alt=""> | [**Go SDK**](https://weknora.weixin.qq.com/docs/05-clients/03-go-sdk) | CRUD for knowledge bases, documents and sessions, plus SSE streaming Q&A |
-| <img src="./website-docs/homepage/public/docs/_home/brands/wechat-dialog.png" width="22" height="22" alt=""> | [**WeChat Dialog Open Platform**](https://chatbot.weixin.qq.com) | Hosted Q&A built on WeKnora: upload knowledge and publish a Q&A service in WeChat without writing code |
+| <img src="./website-docs/homepage/public/docs/_home/brands/wechat-dialog.png" width="22" height="22" alt=""> | [**WeChat Dialog Open Platform**](https://chatbot.weixin.qq.com) | Hosted Q&A built on GENYEE: upload knowledge and publish a Q&A service in WeChat without writing code |
 
 ### Command-Line Interface
 
-`weknora` is the official CLI for driving the API from a terminal or an AI agent. It is **agent-first**: every command emits a stable JSON envelope by default (with typed error codes mapped to exit codes), and `--format text` renders for humans. It also serves a curated MCP tool surface (`weknora mcp serve`) and ships bundled Agent Skills.
+`genyee` is the official CLI for driving the API from a terminal or an AI agent. It is **agent-first**: every command emits a stable JSON envelope by default (with typed error codes mapped to exit codes), and `--format text` renders for humans. It also serves a curated MCP tool surface (`genyee mcp serve`) and ships bundled Agent Skills.
 
 ```bash
-weknora profile add prod --host https://kb.example.com --use
-weknora auth login
-weknora kb list
-weknora link --kb my-knowledge-base    # bind the current directory
-weknora doc upload notes.md
-weknora chat "summarise the design doc"
+genyee profile add prod --host https://kb.example.com --use
+genyee auth login
+genyee kb list
+genyee link --kb my-knowledge-base    # bind the current directory
+genyee doc upload notes.md
+genyee chat "summarise the design doc"
 ```
 
 For headless / CI use, set `WEKNORA_API_KEY` + `WEKNORA_HOST` and skip `auth login`; no credentials are written to disk. See [`cli/README.md`](./cli/README.md) for install + 5-minute quickstart and [`cli/AGENTS.md`](./cli/AGENTS.md) for the operational contract AI agents rely on.
@@ -397,7 +397,7 @@ The documentation site and product homepage are built from [`website-docs/`](./w
 
 ## Contributing
 
-Welcome to submit [Issues](https://github.com/Tencent/WeKnora/issues) or Pull Requests.
+Welcome to submit [Issues](https://github.com/Usir233/GENYEE/issues) or Pull Requests.
 
 - **Process:** Fork → Create branch → Commit changes → Open PR
 - **Standards:** Format code with `gofmt`, follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:` / `fix:` / `docs:` / `test:` / `refactor:`)
@@ -434,7 +434,7 @@ make test
 
 Thanks to everyone who has contributed:
 
-[![Contributors](https://contrib.rocks/image?repo=Tencent/WeKnora)](https://github.com/Tencent/WeKnora/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=Usir233/GENYEE)](https://github.com/Usir233/GENYEE/graphs/contributors)
 
 ## License
 

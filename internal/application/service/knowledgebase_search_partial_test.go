@@ -6,8 +6,8 @@ import (
 	stderrors "errors"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/application/service/retriever"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/application/service/retriever"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

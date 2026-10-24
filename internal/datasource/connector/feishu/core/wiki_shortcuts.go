@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Usir233/GENYEE/internal/logger"
 )
 
 // ListWikiNodesWithShortcuts supplements the existing traversal with descendants

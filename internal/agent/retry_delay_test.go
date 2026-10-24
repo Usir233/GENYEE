@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/models/api"
+	"github.com/Usir233/GENYEE/internal/models/api"
 	"github.com/stretchr/testify/require"
 )
 

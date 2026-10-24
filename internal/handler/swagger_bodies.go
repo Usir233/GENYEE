@@ -6,9 +6,9 @@ package handler
 import (
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/handler/dto"
-	"github.com/Tencent/WeKnora/internal/im"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/handler/dto"
+	"github.com/Usir233/GENYEE/internal/im"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // RefreshTokenResponse is the JSON body written by this handler.

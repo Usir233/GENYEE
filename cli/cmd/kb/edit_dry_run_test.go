@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tencent/WeKnora/cli/internal/cmdutil"
-	"github.com/Tencent/WeKnora/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 )
 
 // TestKBEdit_DryRun_RejectsNoMutationFlag: --dry-run must reject the same

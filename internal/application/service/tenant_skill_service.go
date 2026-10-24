@@ -11,10 +11,10 @@ import (
 	"github.com/robfig/cron/v3"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/Tencent/WeKnora/internal/application/repository"
-	"github.com/Tencent/WeKnora/internal/common/redislock"
-	"github.com/Tencent/WeKnora/internal/sandbox"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/application/repository"
+	"github.com/Usir233/GENYEE/internal/common/redislock"
+	"github.com/Usir233/GENYEE/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // skillImageLockLease bounds how long one install/remove may hold the config

@@ -3,8 +3,8 @@ package wiki
 import (
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/datasource/connector/feishu/core"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // This file implements the P1 directory mapping: FetchedItem.FileName becomes

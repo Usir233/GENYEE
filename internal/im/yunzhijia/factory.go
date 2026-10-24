@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/Tencent/WeKnora/internal/im"
-	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Usir233/GENYEE/internal/im"
+	"github.com/Usir233/GENYEE/internal/logger"
 )
 
 // NewFactory returns an im.AdapterFactory for Yunzhijia channels.

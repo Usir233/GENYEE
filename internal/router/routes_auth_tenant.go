@@ -5,9 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Tencent/WeKnora/internal/handler"
-	"github.com/Tencent/WeKnora/internal/middleware"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/handler"
+	"github.com/Usir233/GENYEE/internal/middleware"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // RegisterTenantRoutes 注册空间相关的路由

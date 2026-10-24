@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/types"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/types"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 // ValidateServiceOutboundURLs validates every URL that the MCP transport or

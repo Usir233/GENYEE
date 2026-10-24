@@ -3,7 +3,7 @@ package text_test
 import (
 	"testing"
 
-	"github.com/Tencent/WeKnora/cli/internal/text"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 )
 
 func TestTruncate(t *testing.T) {

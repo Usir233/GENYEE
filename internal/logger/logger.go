@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/trace"
 	"gopkg.in/natefinch/lumberjack.v2"

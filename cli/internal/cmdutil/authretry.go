@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	sdk "github.com/Tencent/WeKnora/client"
+	sdk "github.com/Usir233/GENYEE/client"
 )
 
 // AuthRetryTransport wraps a base http.RoundTripper with transparent

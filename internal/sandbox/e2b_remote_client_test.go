@@ -19,7 +19,7 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 	e2b "github.com/matiasinsaurralde/go-e2b"
 	"github.com/stretchr/testify/require"
 )

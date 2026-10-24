@@ -3,7 +3,7 @@ package asr
 import (
 	"context"
 
-	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
+	"github.com/Usir233/GENYEE/internal/tracing/langfuse"
 )
 
 // langfuseASR wraps an ASR implementation and reports each Transcribe call

@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tencent/WeKnora/internal/localsandbox/core"
+	"github.com/Usir233/GENYEE/internal/localsandbox/core"
 )
 
 func seatbeltPolicy() core.Policy {

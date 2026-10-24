@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 // ErrSkillSourceInvalid marks every rejection of a registry / git / URL
@@ -24,7 +24,7 @@ var ErrSkillSourceInvalid = errors.New("skill source is invalid")
 
 const (
 	defaultSkillRegistryOrigin = "https://clawhub.ai"
-	skillSourceUserAgent       = "WeKnora-SkillInstaller (+https://github.com/Tencent/WeKnora)"
+	skillSourceUserAgent       = "GENYEE-SkillInstaller (+https://github.com/Usir233/GENYEE)"
 	skillSourceFetchTimeout    = 5 * time.Minute
 	skillSourceMaxHops         = 3
 )

@@ -10,15 +10,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/models/api"
-	"github.com/Tencent/WeKnora/internal/models/api/anthropicmessages"
-	"github.com/Tencent/WeKnora/internal/models/api/googlegenai"
-	"github.com/Tencent/WeKnora/internal/models/api/openaicompletions"
-	"github.com/Tencent/WeKnora/internal/models/api/openairesponses"
-	modelruntime "github.com/Tencent/WeKnora/internal/models/runtime"
-	"github.com/Tencent/WeKnora/internal/models/utils/ollama"
-	"github.com/Tencent/WeKnora/internal/types"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/models/api"
+	"github.com/Usir233/GENYEE/internal/models/api/anthropicmessages"
+	"github.com/Usir233/GENYEE/internal/models/api/googlegenai"
+	"github.com/Usir233/GENYEE/internal/models/api/openaicompletions"
+	"github.com/Usir233/GENYEE/internal/models/api/openairesponses"
+	modelruntime "github.com/Usir233/GENYEE/internal/models/runtime"
+	"github.com/Usir233/GENYEE/internal/models/utils/ollama"
+	"github.com/Usir233/GENYEE/internal/types"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 // Message and the other aliases below re-export the request model defined

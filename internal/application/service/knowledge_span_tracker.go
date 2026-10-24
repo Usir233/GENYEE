@@ -32,14 +32,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/application/repository"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/application/repository"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
 
-	"github.com/Tencent/WeKnora/internal/common"
+	"github.com/Usir233/GENYEE/internal/common"
 )
 
 // maxSpanNameLen matches knowledge_processing_spans.name (varchar(255)).

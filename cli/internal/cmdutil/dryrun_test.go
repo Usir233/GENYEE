@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tencent/WeKnora/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 )
 
 func TestAddDryRunFlag_RegistersFlag(t *testing.T) {

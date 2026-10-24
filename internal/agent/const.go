@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/agent/compaction"
-	agenttools "github.com/Tencent/WeKnora/internal/agent/tools"
-	"github.com/Tencent/WeKnora/internal/browserskill"
-	webfetch "github.com/Tencent/WeKnora/internal/infrastructure/web_fetch"
-	"github.com/Tencent/WeKnora/internal/models/api"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/compaction"
+	agenttools "github.com/Usir233/GENYEE/internal/agent/tools"
+	"github.com/Usir233/GENYEE/internal/browserskill"
+	webfetch "github.com/Usir233/GENYEE/internal/infrastructure/web_fetch"
+	"github.com/Usir233/GENYEE/internal/models/api"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/google/uuid"
 )
 

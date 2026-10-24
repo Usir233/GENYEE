@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 func TestIsValidFileTypeHTML(t *testing.T) {

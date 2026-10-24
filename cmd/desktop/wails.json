@@ -1,20 +1,20 @@
 {
   "$schema": "https://wails.io/schemas/config.v2.json",
-  "name": "WeKnora Lite",
-  "outputfilename": "WeKnora Lite",
+  "name": "GENYEE Lite",
+  "outputfilename": "GENYEE Lite",
   "frontend:dir": "../../frontend",
   "wailsjsdir": "../../frontend/src",
   "build:tags": "desktop",
   "author": {
-    "name": "WeKnora Team",
+    "name": "GENYEE Team",
     "email": ""
   },
   "info": {
     "companyName": "Tencent",
-    "productName": "WeKnora Lite",
+    "productName": "GENYEE Lite",
     "productVersion": "1.0.0",
     "copyright": "Copyright 2026 Tencent",
-    "comments": "WeKnora Desktop Edition"
+    "comments": "GENYEE Desktop Edition"
   },
   "mac": {
     "category": "public.app-category.productivity",

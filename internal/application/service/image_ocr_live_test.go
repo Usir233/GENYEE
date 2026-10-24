@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/models/vlm"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/models/vlm"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/require"
 )
 

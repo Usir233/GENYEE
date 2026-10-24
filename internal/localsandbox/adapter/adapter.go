@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/localsandbox"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/localsandbox"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/sandbox"
 )
 
 // Adapter presents the local sandbox through the session-scoped capability

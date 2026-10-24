@@ -13,7 +13,10 @@ const DOC_ID = '00000001-0000-4000-8000-000000000001'
 test('parseWeKnoraEntityURI accepts only whole durable URIs', () => {
   assert.deepEqual(parseWeKnoraEntityURI(`weknora://kb/${KB_ID}`), { kind: 'kb', id: KB_ID })
   assert.deepEqual(parseWeKnoraEntityURI(`WeKnora://DOC/${DOC_ID}`), { kind: 'doc', id: DOC_ID })
+  assert.deepEqual(parseWeKnoraEntityURI(`genyee://kb/${KB_ID}`), { kind: 'kb', id: KB_ID })
+  assert.deepEqual(parseWeKnoraEntityURI(`GENYEE://DOC/${DOC_ID}`), { kind: 'doc', id: DOC_ID })
   assert.equal(parseWeKnoraEntityURI('weknora://kb/'), null)
+  assert.equal(parseWeKnoraEntityURI('genyee://kb/'), null)
   assert.equal(parseWeKnoraEntityURI('weknora://user/1'), null)
   assert.equal(parseWeKnoraEntityURI(`see weknora://kb/${KB_ID}`), null)
   assert.equal(parseWeKnoraEntityURI('javascript:alert(1)'), null)

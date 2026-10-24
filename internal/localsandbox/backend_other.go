@@ -6,8 +6,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Tencent/WeKnora/internal/localsandbox/core"
-	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Usir233/GENYEE/internal/localsandbox/core"
+	"github.com/Usir233/GENYEE/internal/logger"
 )
 
 // NewBackend has no implementation outside macOS and Windows.

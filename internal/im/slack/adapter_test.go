@@ -3,7 +3,7 @@ package slack
 import (
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/im"
+	"github.com/Usir233/GENYEE/internal/im"
 	slacklib "github.com/slack-go/slack"
 )
 

@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/config"
-	"github.com/Tencent/WeKnora/internal/handler"
+	"github.com/Usir233/GENYEE/internal/config"
+	"github.com/Usir233/GENYEE/internal/handler"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

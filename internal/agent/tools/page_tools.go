@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/agent/approval"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/approval"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // Tools that read and fill the WeKnora page the user has open beside the

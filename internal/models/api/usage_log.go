@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // LogUsage emits the standard "[LLM Usage]" line shared by every Chat

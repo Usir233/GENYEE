@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/localsandbox"
+	"github.com/Usir233/GENYEE/internal/localsandbox"
 )
 
 const desktopPrefsFileName = "desktop-prefs.json"

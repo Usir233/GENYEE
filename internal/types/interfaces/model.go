@@ -3,12 +3,12 @@ package interfaces
 import (
 	"context"
 
-	"github.com/Tencent/WeKnora/internal/models/asr"
-	"github.com/Tencent/WeKnora/internal/models/chat"
-	"github.com/Tencent/WeKnora/internal/models/embedding"
-	"github.com/Tencent/WeKnora/internal/models/rerank"
-	"github.com/Tencent/WeKnora/internal/models/vlm"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/models/asr"
+	"github.com/Usir233/GENYEE/internal/models/chat"
+	"github.com/Usir233/GENYEE/internal/models/embedding"
+	"github.com/Usir233/GENYEE/internal/models/rerank"
+	"github.com/Usir233/GENYEE/internal/models/vlm"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // ModelService defines the model service interface

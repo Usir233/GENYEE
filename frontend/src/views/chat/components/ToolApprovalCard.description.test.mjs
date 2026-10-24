@@ -14,7 +14,7 @@ const evaluate = (description, serviceName = 'docs-mcp', delegatedTask = '') => 
     props: { description, serviceName, delegatedTask },
     argsText: { value: '{"period":2,"limit":3}' },
     computed: fn => ({ value: fn() }),
-    isOperation: { value: serviceName === 'WeKnora' },
+    isOperation: { value: serviceName === 'GENYEE' || serviceName === 'WeKnora' },
     targetLabel: { value: serviceName + ' › tool' },
     t: (key, params) => key.split('.').pop() + ' ' + JSON.stringify(params),
   },
@@ -64,7 +64,7 @@ test('setting lines render as labeled fields and the title stays the headline', 
   assert.match(styles, /\.prompt-fields \{/)
 })
 
-test('a WeKnora operation asks with its summary and target, and counts move out of labels', () => {
+test('a WeKnora or GENYEE operation asks with its summary and target, and counts move out of labels', () => {
   const description = [
     '创建MCP服务',
     '汇率查询 MCP',
@@ -72,18 +72,20 @@ test('a WeKnora operation asks with its summary and target, and counts move out 
     'URL: https://example.com/mcp',
     'Usage instructions (92 characters): 查询汇率',
   ].join('\n')
-  const { descriptionParts, question } = evaluate(description, 'WeKnora')
-  assert.deepEqual(JSON.parse(JSON.stringify(descriptionParts.value)), {
-    head: 'This replaces the stored credentials.',
-    fields: [
-      { label: 'URL', value: 'https://example.com/mcp' },
-      { label: 'Usage instructions', value: '查询汇率', count: '92' },
-    ],
-    items: [],
-    action: '创建MCP服务',
-    target: '汇率查询 MCP',
-  })
-  assert.equal(question.value, 'operationQuestion {"action":"创建MCP服务","target":"汇率查询 MCP"}')
+  for (const svc of ['WeKnora', 'GENYEE']) {
+    const { descriptionParts, question } = evaluate(description, svc)
+    assert.deepEqual(JSON.parse(JSON.stringify(descriptionParts.value)), {
+      head: 'This replaces the stored credentials.',
+      fields: [
+        { label: 'URL', value: 'https://example.com/mcp' },
+        { label: 'Usage instructions', value: '查询汇率', count: '92' },
+      ],
+      items: [],
+      action: '创建MCP服务',
+      target: '汇率查询 MCP',
+    })
+    assert.equal(question.value, 'operationQuestion {"action":"创建MCP服务","target":"汇率查询 MCP"}')
+  }
   assert.match(styles, /\.prompt-field \{\s*display: contents/)
 })
 

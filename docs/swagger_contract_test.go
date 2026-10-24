@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	docs "github.com/Tencent/WeKnora/docs"
-	"github.com/Tencent/WeKnora/internal/types"
+	docs "github.com/Usir233/GENYEE/docs"
+	"github.com/Usir233/GENYEE/internal/types"
 	"gopkg.in/yaml.v3"
 )
 

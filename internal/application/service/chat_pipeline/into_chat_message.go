@@ -6,11 +6,11 @@ import (
 	"html"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/reranking"
-	"github.com/Tencent/WeKnora/internal/searchutil"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
-	"github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/reranking"
+	"github.com/Usir233/GENYEE/internal/searchutil"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/utils"
 )
 
 // PluginIntoChatMessage handles the transformation of search results into chat messages

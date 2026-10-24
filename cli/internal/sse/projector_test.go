@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/cli/internal/sse"
-	sdk "github.com/Tencent/WeKnora/client"
+	"github.com/Usir233/GENYEE/cli/internal/sse"
+	sdk "github.com/Usir233/GENYEE/client"
 )
 
 func TestProjector_DefaultKeepsOnlyAnswerEvents(t *testing.T) {

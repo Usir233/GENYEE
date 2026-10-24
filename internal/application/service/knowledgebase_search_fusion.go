@@ -5,8 +5,8 @@ import (
 	"math"
 	"slices"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // classifyRetrievalResults separates retrieval results by retriever type

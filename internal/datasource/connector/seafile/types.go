@@ -13,8 +13,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/Tencent/WeKnora/internal/datasource"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/datasource"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // config is the parsed credential set. The selection lives entirely in

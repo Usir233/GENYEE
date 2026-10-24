@@ -31,9 +31,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/Tencent/WeKnora/internal/im"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/im"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/utils"
 	"github.com/gin-gonic/gin"
 	larkim "github.com/larksuite/oapi-sdk-go/v3/service/im/v1"
 )

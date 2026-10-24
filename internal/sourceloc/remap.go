@@ -8,7 +8,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // Remapper translates rune offsets in one version of a text to the matching

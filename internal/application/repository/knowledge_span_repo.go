@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/common"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/common"
+	"github.com/Usir233/GENYEE/internal/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )

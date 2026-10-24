@@ -3,7 +3,7 @@ package handler
 import (
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // TestNormalizeAgentReasoningEffortRejectsUnknownLevel pins the create/update

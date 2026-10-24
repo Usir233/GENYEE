@@ -5,9 +5,9 @@ import (
 	"io"
 	"testing"
 
-	filesvc "github.com/Tencent/WeKnora/internal/application/service/file"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	filesvc "github.com/Usir233/GENYEE/internal/application/service/file"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/stretchr/testify/require"
 )
 

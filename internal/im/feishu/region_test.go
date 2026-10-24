@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/im"
+	"github.com/Usir233/GENYEE/internal/im"
 )
 
 // The two regions must stay distinct in every dimension that reaches the

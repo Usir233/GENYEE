@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/gorilla/websocket"
 	cubesandbox "github.com/tencentcloud/CubeSandbox/sdk/go"
 )

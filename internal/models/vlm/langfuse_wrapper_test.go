@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
+	"github.com/Usir233/GENYEE/internal/tracing/langfuse"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/codes"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"

@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/Tencent/WeKnora/cli/internal/cmdutil"
-	"github.com/Tencent/WeKnora/cli/internal/iostreams"
-	"github.com/Tencent/WeKnora/cli/internal/output"
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/output"
 )
 
 // schemaRisk mirrors the destructive-write risk annotation in the schema view.
@@ -134,9 +134,9 @@ func resolveSchemaTarget(root *cobra.Command, args []string) (*cobra.Command, er
 	// deeper path was requested that doesn't exist (e.g. `schema kb bogus`).
 	if len(rest) > 0 && target.HasSubCommands() {
 		return nil, cmdutil.NewError(cmdutil.CodeInputUnknownSubcommand,
-			fmt.Sprintf("no subcommand %q under %q", rest[0], strings.TrimPrefix(target.CommandPath(), "weknora "))).
+			fmt.Sprintf("no subcommand %q under %q", rest[0], trimRootPrefix(target.CommandPath()))).
 			WithHint(fmt.Sprintf("available: %s", strings.Join(availableSubcommandNames(target), ", "))).
-			WithRetryArgv(append([]string{"weknora", "schema"}, strings.Fields(strings.TrimPrefix(target.CommandPath(), "weknora "))...))
+			WithRetryArgv(append([]string{"genyee", "schema"}, strings.Fields(trimRootPrefix(target.CommandPath()))...))
 	}
 	return target, nil
 }
@@ -150,10 +150,14 @@ func emitCommandSchema(target *cobra.Command, fopts *cmdutil.FormatOptions) erro
 	return writeCommandSchemaText(iostreams.IO.Out, cs)
 }
 
+func trimRootPrefix(path string) string {
+	return strings.TrimPrefix(strings.TrimPrefix(path, "genyee "), "weknora ")
+}
+
 // buildCommandSchema assembles the schema view from the command's AgentHelp,
 // risk annotation, and local (non-inherited) flags.
 func buildCommandSchema(target *cobra.Command) commandSchema {
-	cs := commandSchema{Command: strings.TrimPrefix(target.CommandPath(), "weknora ")}
+	cs := commandSchema{Command: trimRootPrefix(target.CommandPath())}
 	if ah, ok := cmdutil.AgentHelpFor(target); ok {
 		cs.UsedFor = ah.UsedFor
 		cs.RequiredFlags = ah.RequiredFlags
@@ -240,7 +244,7 @@ func emitSchemaIndex(root *cobra.Command, fopts *cmdutil.FormatOptions) error {
 				walk(sub)
 				continue
 			}
-			e := schemaIndexEntry{Command: strings.TrimPrefix(sub.CommandPath(), "weknora ")}
+			e := schemaIndexEntry{Command: trimRootPrefix(sub.CommandPath())}
 			if ah, ok := cmdutil.AgentHelpFor(sub); ok {
 				e.UsedFor = ah.UsedFor
 			} else {

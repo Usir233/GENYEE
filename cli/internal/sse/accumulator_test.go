@@ -3,8 +3,8 @@ package sse_test
 import (
 	"testing"
 
-	"github.com/Tencent/WeKnora/cli/internal/sse"
-	sdk "github.com/Tencent/WeKnora/client"
+	"github.com/Usir233/GENYEE/cli/internal/sse"
+	sdk "github.com/Usir233/GENYEE/client"
 )
 
 // terminator is the canonical "stream is done" event the accumulator

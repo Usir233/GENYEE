@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Tencent/WeKnora/cli/cmd"
+	"github.com/Usir233/GENYEE/cli/cmd"
 )
 
 func main() {

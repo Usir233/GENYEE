@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/datasource"
+	"github.com/Usir233/GENYEE/internal/datasource"
 )
 
 // A data source that names resources syncs those resources, so Validate has to

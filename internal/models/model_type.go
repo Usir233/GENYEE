@@ -3,7 +3,7 @@ package models
 import (
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 var frontendTypes = map[string]types.ModelType{

@@ -7,9 +7,9 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/searchutil"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/searchutil"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // Pre-filtering candidate existing pages before the dedup LLM call.

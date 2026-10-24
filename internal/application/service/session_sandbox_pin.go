@@ -25,11 +25,11 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/Tencent/WeKnora/internal/application/service/sandboxalloc"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/sandbox"
-	"github.com/Tencent/WeKnora/internal/sandbox/allocation"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/application/service/sandboxalloc"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/sandbox/allocation"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // SandboxPin addresses the backend a session's live sandbox runs on.

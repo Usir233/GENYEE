@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // MessageService defines the message service interface

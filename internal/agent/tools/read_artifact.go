@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // ArtifactFileSource authorizes persisted files independently of sandbox paths.

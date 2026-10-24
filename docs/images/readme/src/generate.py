@@ -141,7 +141,7 @@ def wordmark(theme):
 
 COPY = {
     "cn": dict(
-        eyebrow="TENCENT OPEN SOURCE · WEKNORA",
+        eyebrow="TENCENT OPEN SOURCE · GENYEE",
         h1=["帮你找到答案，", "并将知识付诸实践。"], h1_size=88,
         desc=["腾讯开源的企业级知识管理框架。", "汇集团队资料，用于知识问答、任务执行和 Wiki 整理。"],
         highlights=["RAG 问答", "Agent 推理", "自动 Wiki", "本机浏览器", "技能与沙箱", "MCP Server", "长期记忆", "数据源与 IM"],
@@ -153,7 +153,7 @@ COPY = {
         ],
     ),
     "en": dict(
-        eyebrow="TENCENT OPEN SOURCE · WEKNORA",
+        eyebrow="TENCENT OPEN SOURCE · GENYEE",
         h1=["Find the answers,", "and put knowledge to work."], h1_size=68,
         desc=["Tencent's open-source knowledge management framework.", "Bring team documents together for Q&A, tasks and wikis."],
         highlights=["RAG Q&A", "Agent reasoning", "Auto Wiki", "Local browser", "Skills & sandbox", "MCP Server", "Long-term memory", "Sources & IM"],
@@ -165,7 +165,7 @@ COPY = {
         ],
     ),
     "ja": dict(
-        eyebrow="TENCENT OPEN SOURCE · WEKNORA",
+        eyebrow="TENCENT OPEN SOURCE · GENYEE",
         h1=["答えを見つけ、", "知識を実践に活かす。"], h1_size=88,
         desc=["Tencent が公開するオープンソースのエンタープライズ向けナレッジ管理フレームワーク。", "チームの資料を集約し、Q&A・タスク実行・Wiki 整理に活用します。"],
         highlights=["RAG Q&A", "Agent 推論", "自動 Wiki", "ローカルブラウザ", "サンドボックス", "MCP Server", "長期メモリ", "データ連携 · IM"],
@@ -177,7 +177,7 @@ COPY = {
         ],
     ),
     "ko": dict(
-        eyebrow="TENCENT OPEN SOURCE · WEKNORA",
+        eyebrow="TENCENT OPEN SOURCE · GENYEE",
         h1=["답을 찾고,", "지식을 실천으로."], h1_size=88,
         desc=["Tencent가 오픈소스로 공개한 엔터프라이즈 지식 관리 프레임워크입니다.", "팀 자료를 모아 Q&A, 작업 실행, Wiki 정리에 활용합니다."],
         highlights=["RAG Q&A", "Agent 추론", "자동 Wiki", "로컬 브라우저", "스킬과 샌드박스", "MCP Server", "장기 메모리", "데이터 소스와 IM"],
@@ -198,7 +198,7 @@ def hero(lang, theme):
     desc_y = l2 + 72
     rule_y = desc_y + 42 * (len(c["desc"]) - 1) + 56
     H = rule_y + 104
-    o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="WeKnora">',
+    o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="GENYEE">',
          f'<rect x="1" y="1" width="{W-2}" height="{H-2}" rx="20" fill="{t["panel"]}" stroke="{t["rule"]}" stroke-width="2"/>',
          f'<image href="{wordmark(theme)}" x="72" y="60" width="226" height="52"/>']
     # eyebrow + headline + description
@@ -303,7 +303,7 @@ ICONS.update({
 
 ARCH = {
     "cn": dict(
-        heads=["客户端与渠道", "WeKnora 主服务", "运行时服务", "存储"],
+        heads=["客户端与渠道", "GENYEE 主服务", "运行时服务", "存储"],
         access=[("monitor", "Web UI", "Vue 3 · HTTP / SSE"), ("terminal", "API · CLI · SDK", "API Key 按能力授权"),
                 ("channels", "IM 频道", "企业微信 · 飞书 · Slack 等"), ("code", "网站嵌入", "Widget · 域名白名单"),
                 ("plug", "MCP 客户端", "Streamable HTTP"), ("browser", "本机浏览器", "BrowserSkill · WebSocket")],
@@ -324,7 +324,7 @@ ARCH = {
                 ("Neo4j", "知识图谱（可选）"), ("Langfuse", "链路追踪（可选）")],
     ),
     "en": dict(
-        heads=["Clients and channels", "WeKnora app", "Runtime services", "Storage"],
+        heads=["Clients and channels", "GENYEE app", "Runtime services", "Storage"],
         access=[("monitor", "Web UI", "Vue 3 · HTTP / SSE"), ("terminal", "API · CLI · SDK", "Scoped API keys"),
                 ("channels", "IM channels", "WeCom · Feishu · Slack …"), ("code", "Website embed", "Widget · domain allowlist"),
                 ("plug", "MCP clients", "Streamable HTTP"), ("browser", "Local browser", "BrowserSkill · WebSocket")],
@@ -345,7 +345,7 @@ ARCH = {
                 ("Neo4j", "Knowledge graph (optional)"), ("Langfuse", "Tracing (optional)")],
     ),
     "ja": dict(
-        heads=["クライアントとチャネル", "WeKnora アプリ", "ランタイムサービス", "ストレージ"],
+        heads=["クライアントとチャネル", "GENYEE アプリ", "ランタイムサービス", "ストレージ"],
         access=[("monitor", "Web UI", "Vue 3 · HTTP / SSE"), ("terminal", "API · CLI · SDK", "スコープ付き API キー"),
                 ("channels", "IM チャネル", "Feishu · Slack など"), ("code", "ウェブ埋め込み", "Widget · ドメイン許可"),
                 ("plug", "MCP クライアント", "Streamable HTTP"), ("browser", "ローカルブラウザ", "BrowserSkill · WebSocket")],
@@ -366,7 +366,7 @@ ARCH = {
                 ("Neo4j", "ナレッジグラフ（任意）"), ("Langfuse", "トレーシング（任意）")],
     ),
     "ko": dict(
-        heads=["클라이언트와 채널", "WeKnora 앱", "런타임 서비스", "스토리지"],
+        heads=["클라이언트와 채널", "GENYEE 앱", "런타임 서비스", "스토리지"],
         access=[("monitor", "Web UI", "Vue 3 · HTTP / SSE"), ("terminal", "API · CLI · SDK", "범위 지정 API 키"),
                 ("channels", "IM 채널", "Feishu · Slack 등"), ("code", "웹사이트 임베드", "Widget · 도메인 허용"),
                 ("plug", "MCP 클라이언트", "Streamable HTTP"), ("browser", "로컬 브라우저", "BrowserSkill · WebSocket")],
@@ -387,7 +387,7 @@ ARCH = {
                 ("Neo4j", "지식 그래프(선택)"), ("Langfuse", "추적(선택)")],
     ),
 }
-EYEBROWS = ["01 / ACCESS", "02 / WEKNORA APP", "03 / SERVICES", "04 / STORAGE"]
+EYEBROWS = ["01 / ACCESS", "02 / GENYEE APP", "03 / SERVICES", "04 / STORAGE"]
 
 
 def wrap_sep(s, size, width, sep=" · "):
@@ -571,7 +571,7 @@ def architecture(lang, theme):
     o.append(arrowhead(x0, gy + 17, "down"))
 
     H = gy + gh + 40
-    head = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="WeKnora architecture">'
+    head = (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" role="img" aria-label="GENYEE architecture">'
             f'<rect width="{W}" height="{H}" fill="none"/>')
     return head + "\n" + "\n".join(o) + "\n</svg>"
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Usir233/GENYEE/internal/logger"
 )
 
 // RetryPolicy describes how often to retry a failed request and how long to

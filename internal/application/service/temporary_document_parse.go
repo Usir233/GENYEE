@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/common"
-	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
-	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/common"
+	"github.com/Usir233/GENYEE/internal/infrastructure/chunker"
+	"github.com/Usir233/GENYEE/internal/infrastructure/docparser"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/hibiken/asynq"
 )
 

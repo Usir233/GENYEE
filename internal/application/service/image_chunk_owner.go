@@ -1,8 +1,8 @@
 package service
 
 import (
-	"github.com/Tencent/WeKnora/internal/searchutil"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/searchutil"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // A missing association is preferable to attaching evidence to an unrelated

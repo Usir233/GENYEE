@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // Delivery is background-work context for the model at one round boundary.

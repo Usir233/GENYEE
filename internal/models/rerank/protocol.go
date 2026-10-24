@@ -7,8 +7,8 @@ import (
 	"sort"
 	"unicode/utf8"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/models/api"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/models/api"
 	"golang.org/x/sync/errgroup"
 )
 

@@ -7,10 +7,10 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/models/imageprep"
-	"github.com/Tencent/WeKnora/internal/models/rerank"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/models/imageprep"
+	"github.com/Usir233/GENYEE/internal/models/rerank"
+	"github.com/Usir233/GENYEE/internal/types"
 	"golang.org/x/sync/errgroup"
 )
 

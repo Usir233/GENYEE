@@ -3,7 +3,7 @@ package gitlab
 import (
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 func TestParseConfigCollapsesDirectories(t *testing.T) {

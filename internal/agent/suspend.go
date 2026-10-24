@@ -8,9 +8,9 @@ import (
 	"maps"
 	"sync"
 
-	"github.com/Tencent/WeKnora/internal/agent/collaboration"
-	agenttools "github.com/Tencent/WeKnora/internal/agent/tools"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/collaboration"
+	agenttools "github.com/Usir233/GENYEE/internal/agent/tools"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // RunSnapshotVersion is the format version written into RunSnapshot.

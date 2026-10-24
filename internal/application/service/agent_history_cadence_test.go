@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/agent"
-	"github.com/Tencent/WeKnora/internal/agent/compaction"
-	agenttoken "github.com/Tencent/WeKnora/internal/agent/token"
-	"github.com/Tencent/WeKnora/internal/models/chat"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent"
+	"github.com/Usir233/GENYEE/internal/agent/compaction"
+	agenttoken "github.com/Usir233/GENYEE/internal/agent/token"
+	"github.com/Usir233/GENYEE/internal/models/chat"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/require"
 )
 

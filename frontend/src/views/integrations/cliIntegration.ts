@@ -12,5 +12,5 @@ export function buildCLIConnectCommand(apiBaseUrl: string, origin: string): stri
   }
   // POSIX shell quoting prevents URL characters from becoming shell syntax.
   const quotedHost = `'${host.replace(/'/g, `'"'"'`)}'`
-  return `weknora profile add weknora --host ${quotedHost} --use &&\nweknora auth login`
+  return `genyee profile add genyee --host ${quotedHost} --use &&\ngenyee auth login`
 }

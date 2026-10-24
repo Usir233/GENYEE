@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/sandbox/admission"
-	"github.com/Tencent/WeKnora/internal/stream"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/sandbox/admission"
+	"github.com/Usir233/GENYEE/internal/stream"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/require"
 )
 

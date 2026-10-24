@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/agent/operations"
-	"github.com/Tencent/WeKnora/internal/config"
-	"github.com/Tencent/WeKnora/internal/handler"
-	"github.com/Tencent/WeKnora/internal/handler/session"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/operations"
+	"github.com/Usir233/GENYEE/internal/config"
+	"github.com/Usir233/GENYEE/internal/handler"
+	"github.com/Usir233/GENYEE/internal/handler/session"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/gin-gonic/gin"
 )
 

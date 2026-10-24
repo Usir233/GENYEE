@@ -5,10 +5,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/background/backgroundtest"
-	"github.com/Tencent/WeKnora/internal/sandbox/admission"
-	"github.com/Tencent/WeKnora/internal/sandbox/allocation"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/background/backgroundtest"
+	"github.com/Usir233/GENYEE/internal/sandbox/admission"
+	"github.com/Usir233/GENYEE/internal/sandbox/allocation"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/alicebob/miniredis/v2"
 	"github.com/stretchr/testify/require"
 )

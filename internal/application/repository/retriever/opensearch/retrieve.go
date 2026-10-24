@@ -9,8 +9,8 @@ import (
 
 	osapi "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // Retrieve dispatches to vectorRetrieve or keywordsRetrieve based on

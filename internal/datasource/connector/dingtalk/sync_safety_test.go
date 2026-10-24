@@ -6,8 +6,8 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/datasource"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/datasource"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 func twoFolderFixture(t *testing.T) (*Connector, *fakeAPI, *types.DataSourceConfig, string, string) {

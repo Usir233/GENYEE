@@ -1,9 +1,9 @@
-module github.com/Tencent/WeKnora/cli
+module github.com/Usir233/GENYEE/cli
 
 go 1.26.0
 
 require (
-	github.com/Tencent/WeKnora/client v0.0.0-00010101000000-000000000000
+	github.com/Usir233/GENYEE/client v0.0.0-00010101000000-000000000000
 	github.com/charmbracelet/huh v1.0.0
 	github.com/itchyny/gojq v0.12.19
 	github.com/mattn/go-isatty v0.0.24
@@ -58,4 +58,4 @@ require (
 
 // In-repo SDK module: cli pulls the local client/ until both modules ship
 // independent tagged versions.
-replace github.com/Tencent/WeKnora/client => ../client
+replace github.com/Usir233/GENYEE/client => ../client

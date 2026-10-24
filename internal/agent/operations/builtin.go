@@ -3,7 +3,7 @@ package operations
 import (
 	"sync"
 
-	docs "github.com/Tencent/WeKnora/docs"
+	docs "github.com/Usir233/GENYEE/docs"
 )
 
 var (

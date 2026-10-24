@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	sdk "github.com/Tencent/WeKnora/client"
+	sdk "github.com/Usir233/GENYEE/client"
 )
 
 // Info is the cached server version snapshot.

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/localsandbox/core"
+	"github.com/Usir233/GENYEE/internal/localsandbox/core"
 )
 
 //go:embed base.sbpl

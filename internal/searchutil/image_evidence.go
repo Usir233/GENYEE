@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/models/imageprep"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/models/imageprep"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // MaxContextImages caps the retrieved images shown to a vision chat model in

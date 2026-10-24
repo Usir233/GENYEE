@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	agenttoken "github.com/Tencent/WeKnora/internal/agent/token"
-	"github.com/Tencent/WeKnora/internal/models/chat"
+	agenttoken "github.com/Usir233/GENYEE/internal/agent/token"
+	"github.com/Usir233/GENYEE/internal/models/chat"
 )
 
 const (

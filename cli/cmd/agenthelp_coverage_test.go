@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/Tencent/WeKnora/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 )
 
 // TestEveryLeafCommandHasAgentHelp enforces the agent-first contract: every

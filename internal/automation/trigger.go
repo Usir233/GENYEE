@@ -13,7 +13,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // DefaultMinInterval is the shortest gap allowed between two runs.

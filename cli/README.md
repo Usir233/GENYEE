@@ -48,8 +48,8 @@ For contributing to the CLI source, see [AGENTS.md](AGENTS.md).
 Requires Go 1.26+.
 
 ```bash
-git clone https://github.com/Tencent/WeKnora.git
-cd WeKnora/cli
+git clone https://github.com/Usir233/GENYEE.git
+cd GENYEE/cli
 go build -o weknora .
 sudo mv weknora /usr/local/bin/   # or anywhere on $PATH
 ```
@@ -450,7 +450,7 @@ macOS / Windows × Go 1.26, path-filtered to changes under `cli/`.
 ## Contributing / Reporting issues
 
 - **Bugs and feature requests**: file an issue at
-  [github.com/Tencent/WeKnora/issues](https://github.com/Tencent/WeKnora/issues).
+  [github.com/Usir233/GENYEE/issues](https://github.com/Usir233/GENYEE/issues).
 - **Security disclosures**: see the repository-level
   [SECURITY.md](../SECURITY.md). Do not file public issues for
   security findings.

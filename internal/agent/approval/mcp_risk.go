@@ -3,9 +3,9 @@ package approval
 import (
 	"context"
 
-	"github.com/Tencent/WeKnora/internal/agent/policy"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/policy"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // RiskChecker reads and records the risk policy of MCP tools. A Checker that

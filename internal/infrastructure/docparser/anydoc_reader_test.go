@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/infrastructure/docparser/anydoc"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 func TestAnydocReaderRejectsUnsupportedFileType(t *testing.T) {

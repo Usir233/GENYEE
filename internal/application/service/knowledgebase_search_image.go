@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/models/embedding"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/models/embedding"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // Image vectors share one vector search with text, but they do not score

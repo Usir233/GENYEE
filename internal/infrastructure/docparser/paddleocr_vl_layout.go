@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/sourceloc"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/sourceloc"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // paddleOCRVLPage is one page of a PaddleOCR-VL layout-parsing result.

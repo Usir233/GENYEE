@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	apperrors "github.com/Tencent/WeKnora/internal/errors"
+	apperrors "github.com/Usir233/GENYEE/internal/errors"
 	"github.com/gin-gonic/gin"
 )
 

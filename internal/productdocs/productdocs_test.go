@@ -9,7 +9,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	websitedocs "github.com/Tencent/WeKnora/website-docs"
+	websitedocs "github.com/Usir233/GENYEE/website-docs"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

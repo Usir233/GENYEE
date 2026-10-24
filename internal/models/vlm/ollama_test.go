@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/models/utils/ollama"
+	"github.com/Usir233/GENYEE/internal/models/utils/ollama"
 	"github.com/stretchr/testify/require"
 )
 

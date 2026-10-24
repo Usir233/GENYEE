@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/background/backgroundtest"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/background/backgroundtest"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 type fakeClock struct {

@@ -6,9 +6,9 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Tencent/WeKnora/cli/internal/secrets"
-	"github.com/Tencent/WeKnora/cli/internal/testutil"
-	sdk "github.com/Tencent/WeKnora/client"
+	"github.com/Usir233/GENYEE/cli/internal/secrets"
+	"github.com/Usir233/GENYEE/cli/internal/testutil"
+	sdk "github.com/Usir233/GENYEE/client"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

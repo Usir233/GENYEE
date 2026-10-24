@@ -5,7 +5,7 @@ import (
 	"math"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 func TestEngineAwareNormalizer_KeywordPassthrough(t *testing.T) {

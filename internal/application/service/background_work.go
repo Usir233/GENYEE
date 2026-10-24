@@ -1,9 +1,9 @@
 package service
 
 import (
-	"github.com/Tencent/WeKnora/internal/background"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/background"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // BackgroundWork bundles the shared background-work parts the agent, the

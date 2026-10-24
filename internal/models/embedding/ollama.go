@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/models/utils/ollama"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/models/utils/ollama"
 	ollamaapi "github.com/ollama/ollama/api"
 )
 

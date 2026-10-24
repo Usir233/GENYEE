@@ -2,7 +2,7 @@
 
 WeKnora CLI（命令名 `weknora`）用于管理知识库与文档、执行检索和流式问答。交互使用可选择可读输出，脚本和 AI Agent 可使用 JSON 响应、类型化错误、`--dry-run` 预演及 `weknora schema` 契约查询；`weknora mcp serve` 提供 MCP 服务。
 
-源码位于 `cli/`，是独立的 Go module（`github.com/Tencent/WeKnora/cli`），源码构建需要 Go 1.26+。命令入口为 `cli/cmd/root.go`。
+源码位于 `cli/`，是独立的 Go module（`github.com/Usir233/GENYEE/cli`），源码构建需要 Go 1.26+。命令入口为 `cli/cmd/root.go`。
 
 自 v0.8.2 起，控制台「设置 → 发布集成 → CLI」提供接入引导页，按当前部署生成可复制的命令：
 
@@ -50,7 +50,7 @@ flowchart TB
     F --> S
     F --> P
     groups --> O
-    F -->|"SDK client (github.com/Tencent/WeKnora/client)"| SRV
+    F -->|"SDK client (github.com/Usir233/GENYEE/client)"| SRV
 ```
 
 ---
@@ -62,10 +62,10 @@ flowchart TB
 目前受支持的安装方式是从源码构建，尚未提供预编译二进制或 `go install` 安装方式。
 
 ```bash
-git clone https://github.com/Tencent/WeKnora.git
-cd WeKnora/cli
-go build -o weknora .
-sudo mv weknora /usr/local/bin/   # 或放到任意 $PATH 目录
+git clone https://github.com/Usir233/GENYEE.git
+cd GENYEE/cli
+go build -o genyee .
+sudo mv genyee /usr/local/bin/   # 或放到任意 $PATH 目录
 ```
 
 ### 使用 cli/Makefile

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
-	"github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/utils"
 )
 
 type graphConfigSummary struct {

@@ -6,7 +6,7 @@ import (
 	"path"
 	"strings"
 
-	"github.com/Tencent/WeKnora/internal/sandbox/workspace"
+	"github.com/Usir233/GENYEE/internal/sandbox/workspace"
 )
 
 const (

@@ -6,8 +6,8 @@ import (
 	"io"
 	"testing"
 
-	filesvc "github.com/Tencent/WeKnora/internal/application/service/file"
-	"github.com/Tencent/WeKnora/internal/types"
+	filesvc "github.com/Usir233/GENYEE/internal/application/service/file"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 func TestIngestItem_QuotedFilename(t *testing.T) {

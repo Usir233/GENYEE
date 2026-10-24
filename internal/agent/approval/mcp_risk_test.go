@@ -6,8 +6,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tencent/WeKnora/internal/agent/policy"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/agent/policy"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 type riskChecker struct {

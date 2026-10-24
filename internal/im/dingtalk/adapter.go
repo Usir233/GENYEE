@@ -17,9 +17,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/open-dingtalk/dingtalk-stream-sdk-go/chatbot"
 
-	"github.com/Tencent/WeKnora/internal/im"
-	"github.com/Tencent/WeKnora/internal/logger"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/im"
+	"github.com/Usir233/GENYEE/internal/logger"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 // httpClient is a shared HTTP client with a reasonable timeout for DingTalk API calls.

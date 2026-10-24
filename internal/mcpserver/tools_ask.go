@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/event"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/event"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
 )

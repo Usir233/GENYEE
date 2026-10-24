@@ -2,7 +2,7 @@
   <a href="https://weknora.weixin.qq.com">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="./docs/images/readme/hero-ja-dark.svg">
-      <img src="./docs/images/readme/hero-ja-light.svg" alt="WeKnora：答えを見つけ、知識を実践に活かす。Tencent が公開するオープンソースのエンタープライズ向けナレッジ管理フレームワーク。チームの資料を集約し、Q&A・タスク実行・Wiki 整理に活用します。" width="100%">
+      <img src="./docs/images/readme/hero-ja-light.svg" alt="GENYEE：答えを見つけ、知識を実践に活かす。オープンソースのエンタープライズ向けナレッジ管理フレームワーク。チームの資料を集約し、Q&A・タスク実行・Wiki 整理に活用します。" width="100%">
     </picture>
   </a>
 </p>
@@ -12,7 +12,7 @@
   <a href="https://weknora.weixin.qq.com/docs/"><img alt="ドキュメント" src="https://img.shields.io/badge/docs-中国語-b8863b?style=flat-square&labelColor=101f38"></a>
   <a href="./CHANGELOG.md"><img alt="リリース" src="https://img.shields.io/badge/release-v0.8.3-b8863b?style=flat-square&labelColor=101f38"></a>
   <a href="./LICENSE"><img alt="ライセンス" src="https://img.shields.io/badge/license-MIT-b8863b?style=flat-square&labelColor=101f38"></a>
-  <a href="https://github.com/Tencent/WeKnora/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Tencent/WeKnora?style=flat-square&labelColor=101f38&color=b8863b"></a>
+  <a href="https://github.com/Usir233/GENYEE/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Usir233/GENYEE?style=flat-square&labelColor=101f38&color=b8863b"></a>
   <br/>
   <a href="https://chatbot.weixin.qq.com"><img alt="WeChat 対話オープンプラットフォーム" src="https://img.shields.io/badge/WeChat_Dialog-Open_Platform-07c160?style=flat-square&labelColor=101f38&logo=wechat&logoColor=white"></a>
   <a href="https://chromewebstore.google.com/detail/jpemjbopikggjlmikmclgbmkhhopjdgd"><img alt="Chrome 拡張機能" src="https://img.shields.io/badge/Chrome-extension-4285f4?style=flat-square&labelColor=101f38&logo=googlechrome&logoColor=white"></a>
@@ -35,12 +35,12 @@
 </p>
 
 <p align="center">
-  <a href="https://trendshift.io/repositories/15289"><img src="https://trendshift.io/api/badge/repositories/15289" alt="Tencent/WeKnora | Trendshift" width="220" height="48"/></a>
+  <a href="https://trendshift.io/repositories/15289"><img src="https://trendshift.io/api/badge/repositories/15289" alt="GENYEE | Trendshift" width="220" height="48"/></a>
 </p>
 
 ## プロジェクト紹介
 
-**[WeKnora（ウィーノラ）](https://weknora.weixin.qq.com)** は、大規模言語モデル（LLM）をベースとしたオープンソースのナレッジフレームワークで、エンタープライズ向けの文書理解、セマンティック検索、推論に対応します。チームに散在する文書を集約し、検索・推論に使えるようにし、資料の更新に合わせて維持します。
+**[GENYEE](https://weknora.weixin.qq.com)** は、大規模言語モデル（LLM）をベースとしたオープンソースのナレッジフレームワークで、エンタープライズ向けの文書理解、セマンティック検索、推論に対応します。チームに散在する文書を集約し、検索・推論に使えるようにし、資料の更新に合わせて維持します。
 
 https://github.com/user-attachments/assets/5722b10d-d04d-49ed-a6cc-635a8c77d91f
 
@@ -79,7 +79,7 @@ https://github.com/user-attachments/assets/5722b10d-d04d-49ed-a6cc-635a8c77d91f
       <img src="./website-docs/homepage/public/docs/_home/brands/tencent-cloud.ico" width="28" height="28" alt=""><br/>
       <sub>クラウド</sub><br/>
       <b>Tencent Cloud Lighthouse</b><br/>
-      アプリケーションテンプレートから WeKnora をデプロイし、自分のクラウドサーバーで運用します。<br/><br/>
+      アプリケーションテンプレートから GENYEE をデプロイし、自分のクラウドサーバーで運用します。<br/><br/>
       <a href="https://mc.tencent.com/s69nKCVz">Tencent Cloud でデプロイ →</a>
     </td>
     <td width="33%" valign="top">
@@ -97,8 +97,8 @@ https://github.com/user-attachments/assets/5722b10d-d04d-49ed-a6cc-635a8c77d91f
 [Docker](https://www.docker.com/)、[Docker Compose](https://docs.docker.com/compose/)、[Git](https://git-scm.com/) が必要です。
 
 ```bash
-git clone https://github.com/Tencent/WeKnora.git
-cd WeKnora
+git clone https://github.com/Usir233/GENYEE.git
+cd GENYEE
 cp .env.example .env    # 必要に応じて .env を編集（詳細はファイル内のコメント参照）
 docker compose pull     # 最新イメージを取得
 docker compose up -d    # コアサービスを起動
@@ -158,8 +158,8 @@ docker compose up -d    # 新しいイメージでコンテナを再作成
 すべてのデプロイ形態、ハードウェア要件、構成例は[インストールガイド](https://weknora.weixin.qq.com/docs/01-getting-started/02-installation)を参照してください。
 
 > [!WARNING]
-> WeKnora にはログイン認証がありますが、本番環境でのデプロイでは以下を強く推奨します：
-> - WeKnora サービスはパブリックインターネットではなく、内部 / プライベートネットワーク環境にデプロイする
+> GENYEE にはログイン認証がありますが、本番環境でのデプロイでは以下を強く推奨します：
+> - GENYEE サービスはパブリックインターネットではなく、内部 / プライベートネットワーク環境にデプロイする
 > - 情報漏洩を防ぐため、サービスを直接パブリックネットワークに公開しない
 > - デプロイ環境に適切なファイアウォールルールとアクセス制御を設定する
 > - セキュリティパッチと改善のため、定期的に最新バージョンに更新する
@@ -215,7 +215,7 @@ docker compose up -d    # 新しいイメージでコンテナを再作成
 - **v0.5.2** — Wiki インジェストが万件規模 KB に対応（タスクキュー + DLQ）；MCP 工具人機審批；Anthropic / Apache Doris / Tencent VectorDB / 金山雲 KS3 / SearXNG バックエンド；適応型 3 段階チャンキング + ライブプレビュー；グローバル ⌘K コマンドパレット；Yuque コネクタ + WeChat ミニプログラム；`weknora` CLI プレビュー版。
 - **v0.5.1** — KB 一括管理；テナント全体の IM チャネル概観；セッション検索 + ユーザー単位ピン留め；モデル / Web 検索 / MCP 統一カード設定；Agent ごとの LLM タイムアウト；デスクトップ版テナント切替。
 - **v0.5.0** — Wiki モード GA — Agent が原文書から構造化・相互リンクされた Markdown Wiki ページとナレッジグラフを自動生成、Wiki ブラウザと可視化グラフを UI に搭載。
-- **v0.4.0** — WeKnora Cloud（ホスティング LLM + 解析）；Chrome 拡張機能；ClawHub Skill；WeChat IM；添付ファイル処理；Azure OpenAI / Alibaba OSS；Notion コネクタ；Baidu + Ollama Web 検索；VectorStore 管理。
+- **v0.4.0** — GENYEE Cloud（ホスティング LLM + 解析）；Chrome 拡張機能；ClawHub Skill；WeChat IM；添付ファイル処理；Azure OpenAI / Alibaba OSS；Notion コネクタ；Baidu + Ollama Web 検索；VectorStore 管理。
 - **v0.3.6** — ASR（音声）；Feishu データソース自動同期；OIDC；IM 引用返信 + スレッドベースセッション；ドキュメント自動要約；Tavily 検索；並列ツール呼び出し；Agent @メンション範囲制限。
 - **v0.3.5** — Telegram / DingTalk / Mattermost IM；IM スラッシュコマンド + QA キュー；推奨質問；VLM による MCP ツール画像自動説明；Novita AI；チャネルトラッキング。
 - **v0.3.4** — 企業 WeChat / Feishu / Slack IM；マルチモーダル画像；NVIDIA モデル API；Weaviate；AWS S3；AES-256-GCM API キー暗号化；組み込み MCP サービス；ハイブリッド検索最適化；`final_answer` ツール。
@@ -301,7 +301,7 @@ docker compose up -d    # 新しいイメージでコンテナを再作成
 <a href="./docs/images/readme/architecture-ja-light.svg">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./docs/images/readme/architecture-ja-dark.svg">
-  <img src="./docs/images/readme/architecture-ja-light.svg" alt="WeKnora アーキテクチャ：クライアントとチャネルが WeKnora アプリに接続し、RAG Q&A・Agent 推論・自動 Wiki が同じナレッジ処理パイプラインを共有。アプリはランタイムサービスを呼び出し、PostgreSQL・Redis と任意のストレージにデータを保存" width="100%">
+  <img src="./docs/images/readme/architecture-ja-light.svg" alt="GENYEE アーキテクチャ：クライアントとチャネルが GENYEE アプリに接続し、RAG Q&A・Agent 推論・自動 Wiki が同じナレッジ処理パイプラインを共有。アプリはランタイムサービスを呼び出し、PostgreSQL・Redis と任意のストレージにデータを保存" width="100%">
 </picture>
 </a>
 
@@ -337,31 +337,31 @@ docker compose up -d    # 新しいイメージでコンテナを再作成
 
 | | クライアント | 用途 |
 |:-:|------------|------|
-| <img src="./docs/images/readme/icons/terminal.svg" width="22" height="22" alt=""> | [**CLI `weknora`**](./cli/README.md) | Agent ファーストのコマンドライン。API 全体を扱え、厳選した MCP ツールと同梱の Agent Skills を提供 |
+| <img src="./docs/images/readme/icons/terminal.svg" width="22" height="22" alt=""> | [**CLI `genyee`**](./cli/README.md) | Agent ファーストのコマンドライン。API 全体を扱え、厳選した MCP ツールと同梱の Agent Skills を提供 |
 | <img src="./docs/images/readme/icons/plug.svg" width="22" height="22" alt=""> | [**組み込み MCP Server**](https://weknora.weixin.qq.com/docs/03-features/08-mcp) | Streamable HTTP でナレッジベースを Cursor、Claude などの MCP クライアントに公開。[`mcp-server/`](./mcp-server/MCP_CONFIG.md) の Python サーバーは非推奨 |
 | <img src="./website-docs/homepage/public/docs/_home/brands/browserskill.png" width="22" height="22" alt=""> | [**ローカルブラウザ（BrowserSkill）**](https://weknora.weixin.qq.com/docs/05-clients/09-local-browser) | エージェントがユーザー自身の Chrome / Edge を操作 |
 | <img src="./website-docs/homepage/public/docs/_home/brands/chrome.svg" width="22" height="22" alt=""> | [**Chrome 拡張機能**](https://chromewebstore.google.com/detail/jpemjbopikggjlmikmclgbmkhhopjdgd) | テキスト、画像、ページ全体を選択してワンクリックでナレッジエントリとして保存。コピペやファイルアップロードは不要 |
 | <img src="./docs/images/readme/icons/phone.svg" width="22" height="22" alt=""> | [**WeChat ミニプログラム**](./miniprogram/README.md) | 軽量なモバイルクライアント。API の設定、ナレッジベースの選択、URL のインポート、WeChat からのナレッジ Q&A |
-| <img src="./docs/images/readme/icons/skills.svg" width="22" height="22" alt=""> | [**ClawHub Skill**](https://clawhub.ai/lyingbug/weknora) | ClawHub で公開された WeKnora スキル。REST API でドキュメントのインポート、ハイブリッド検索、ナレッジ管理 |
+| <img src="./docs/images/readme/icons/skills.svg" width="22" height="22" alt=""> | [**ClawHub Skill**](https://clawhub.ai/lyingbug/weknora) | ClawHub で公開された GENYEE スキル。REST API でドキュメントのインポート、ハイブリッド検索、ナレッジ管理 |
 | <img src="./website-docs/homepage/public/docs/_home/brands/deepseek-color.svg" width="22" height="22" alt=""> | [**DeepSeek Harness プラグイン**](https://www.npmjs.com/package/@wxg-prc-cpg/dsh-weknora) | `dsh` のコーディングエージェントに 4 つの読み取り専用ツール（検索、ドキュメント読み取り、質問、ナレッジベース一覧）を提供 |
 | <img src="./docs/images/readme/icons/code.svg" width="22" height="22" alt=""> | [**ウェブ埋め込み Widget**](https://weknora.weixin.qq.com/docs/03-features/13-embed-channel) | エージェントを外部サイトに公開 |
 | <img src="./docs/images/readme/icons/braces.svg" width="22" height="22" alt=""> | [**Go SDK**](https://weknora.weixin.qq.com/docs/05-clients/03-go-sdk) | ナレッジベース・ドキュメント・セッションなどの CRUD と SSE ストリーミング Q&A |
-| <img src="./website-docs/homepage/public/docs/_home/brands/wechat-dialog.png" width="22" height="22" alt=""> | [**WeChat 対話オープンプラットフォーム**](https://chatbot.weixin.qq.com) | WeKnora をベースにしたホスティング型 Q&A。ナレッジをアップロードするだけで WeChat 内に Q&A サービスを公開 |
+| <img src="./website-docs/homepage/public/docs/_home/brands/wechat-dialog.png" width="22" height="22" alt=""> | [**WeChat 対話オープンプラットフォーム**](https://chatbot.weixin.qq.com) | GENYEE をベースにしたホスティング型 Q&A。ナレッジをアップロードするだけで WeChat 内に Q&A サービスを公開 |
 
 ### コマンドラインツール
 
-`weknora` は、ターミナルや AI エージェントから API を操作するための公式 CLI です。**Agent ファースト**の設計で、すべてのコマンドは既定で安定した JSON エンベロープを出力し（型付きエラーコードは終了コードに対応）、`--format text` で人間向けに表示します。厳選した MCP ツール（`weknora mcp serve`）も提供し、Agent Skills を同梱しています。
+`genyee` は、ターミナルや AI エージェントから API を操作するための公式 CLI です。**Agent ファースト**の設計で、すべてのコマンドは既定で安定した JSON エンベロープを出力し（型付きエラーコードは終了コードに対応）、`--format text` で人間向けに表示します。厳選した MCP ツール（`genyee mcp serve`）も提供し、Agent Skills を同梱しています。
 
 ```bash
-weknora profile add prod --host https://kb.example.com --use
-weknora auth login
-weknora kb list
-weknora link --kb my-knowledge-base    # 現在のディレクトリを紐づけ
-weknora doc upload notes.md
-weknora chat "設計ドキュメントを要約して"
+genyee profile add prod --host https://kb.example.com --use
+genyee auth login
+genyee kb list
+genyee link --kb my-knowledge-base    # 現在のディレクトリを紐づけ
+genyee doc upload notes.md
+genyee chat "設計ドキュメントを要約して"
 ```
 
-ヘッドレス / CI 環境では `WEKNORA_API_KEY` と `WEKNORA_HOST` を設定すれば `auth login` は不要で、資格情報はディスクに書き込まれません。インストールと 5 分間のクイックスタートは [`cli/README.md`](./cli/README.md)、AI エージェントが依存する運用上の約束は [`cli/AGENTS.md`](./cli/AGENTS.md) を参照してください。
+ホットレス / CI 環境では `WEKNORA_API_KEY` と `WEKNORA_HOST` を設定すれば `auth login` は不要で、資格情報はディスクに書き込まれません。インストールと 5 分間のクイックスタートは [`cli/README.md`](./cli/README.md)、AI エージェントが依存する運用上の約束は [`cli/AGENTS.md`](./cli/AGENTS.md) を参照してください。
 
 ## ドキュメント
 
@@ -397,7 +397,7 @@ make dev-frontend   # フロントエンドを起動（新しいターミナル�
 
 ## 貢献ガイド
 
-[Issue](https://github.com/Tencent/WeKnora/issues) や Pull Request の提出を歓迎します。
+[Issue](https://github.com/Usir233/GENYEE/issues) や Pull Request の提出を歓迎します。
 
 - **フロー：** Fork → ブランチ作成 → 変更をコミット → PR を作成
 - **規約：** `gofmt` でコードをフォーマットし、[Conventional Commits](https://www.conventionalcommits.org/) に従う（`feat:` / `fix:` / `docs:` / `test:` / `refactor:`）
@@ -434,7 +434,7 @@ make test
 
 すべてのコントリビューターに感謝します：
 
-[![Contributors](https://contrib.rocks/image?repo=Tencent/WeKnora)](https://github.com/Tencent/WeKnora/graphs/contributors)
+[![Contributors](https://contrib.rocks/image?repo=Usir233/GENYEE)](https://github.com/Usir233/GENYEE/graphs/contributors)
 
 ## ライセンス
 

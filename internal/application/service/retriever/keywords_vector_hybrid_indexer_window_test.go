@@ -9,8 +9,8 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/models/embedding"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/models/embedding"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // The fake refuses to embed the next window before the previous one is saved.

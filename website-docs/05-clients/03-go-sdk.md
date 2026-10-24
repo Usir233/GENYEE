@@ -7,7 +7,7 @@ Go SDK 封装知识库、文档、会话等主要资源的 CRUD 操作，以及 
 SDK 的 module 路径定义在 `client/go.mod`：
 
 ```
-module github.com/Tencent/WeKnora/client
+module github.com/Usir233/GENYEE/client
 
 go 1.24.2
 ```
@@ -15,13 +15,13 @@ go 1.24.2
 安装方式：
 
 ```bash
-go get github.com/Tencent/WeKnora/client
+go get github.com/Usir233/GENYEE/client
 ```
 
 导入：
 
 ```go
-import "github.com/Tencent/WeKnora/client"
+import "github.com/Usir233/GENYEE/client"
 ```
 
 ## 初始化与认证
@@ -490,7 +490,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/Tencent/WeKnora/client"
+    "github.com/Usir233/GENYEE/client"
 )
 
 func main() {
@@ -543,7 +543,7 @@ import (
     "fmt"
     "strings"
 
-    "github.com/Tencent/WeKnora/client"
+    "github.com/Usir233/GENYEE/client"
 )
 
 func main() {
@@ -602,7 +602,7 @@ import (
     "context"
     "fmt"
 
-    "github.com/Tencent/WeKnora/client"
+    "github.com/Usir233/GENYEE/client"
 )
 
 func main() {

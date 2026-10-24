@@ -12,7 +12,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 // Client calls Mattermost REST API v4.

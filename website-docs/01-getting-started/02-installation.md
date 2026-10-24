@@ -50,7 +50,7 @@ Compose 默认 ParadeDB 镜像自 `v0.22.6-pg17` 起 x86 CPU 基线为 `x86-64-v
 最快路径：
 
 ```bash
-git clone https://github.com/Tencent/WeKnora.git && cd WeKnora
+git clone https://github.com/Usir233/GENYEE.git && cd GENYEE
 cp .env.example .env              # 编辑必填项：DB_USER/DB_PASSWORD/DB_NAME、REDIS_PASSWORD、JWT_SECRET、SYSTEM_AES_KEY
 make start-all                # 等价 ./scripts/start_all.sh（默认拉取最新镜像）
 # 或直接：

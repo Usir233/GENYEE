@@ -12,12 +12,12 @@ import (
 	"regexp"
 	"strings"
 
-	filesvc "github.com/Tencent/WeKnora/internal/application/service/file"
+	filesvc "github.com/Usir233/GENYEE/internal/application/service/file"
 
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
-	"github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/utils"
 	pg_query "github.com/pganalyze/pg_query_go/v6"
 )
 

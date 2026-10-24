@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/utils"
 )
 
 const (

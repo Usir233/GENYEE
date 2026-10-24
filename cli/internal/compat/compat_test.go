@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/cli/internal/compat"
+	"github.com/Usir233/GENYEE/cli/internal/compat"
 )
 
 func TestCompat(t *testing.T) {

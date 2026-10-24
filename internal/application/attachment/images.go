@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/models/imageprep"
-	"github.com/Tencent/WeKnora/internal/searchutil"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/models/imageprep"
+	"github.com/Usir233/GENYEE/internal/searchutil"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"golang.org/x/sync/singleflight"
 )
 

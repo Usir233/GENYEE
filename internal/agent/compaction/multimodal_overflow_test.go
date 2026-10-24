@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	agenttools "github.com/Tencent/WeKnora/internal/agent/tools"
-	"github.com/Tencent/WeKnora/internal/models/chat"
+	agenttools "github.com/Usir233/GENYEE/internal/agent/tools"
+	"github.com/Usir233/GENYEE/internal/models/chat"
 	"github.com/stretchr/testify/require"
 )
 

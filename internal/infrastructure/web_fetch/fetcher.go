@@ -18,8 +18,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/PuerkitoBio/goquery"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/utils"
 	"github.com/chromedp/chromedp"
 	"golang.org/x/net/html/charset"
 	"golang.org/x/text/encoding"

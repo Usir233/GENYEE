@@ -10,26 +10,26 @@ import (
 
 	"github.com/spf13/cobra"
 
-	agentcmd "github.com/Tencent/WeKnora/cli/cmd/agent"
-	apicmd "github.com/Tencent/WeKnora/cli/cmd/api"
-	"github.com/Tencent/WeKnora/cli/cmd/auth"
-	chatcmd "github.com/Tencent/WeKnora/cli/cmd/chat"
-	chunkcmd "github.com/Tencent/WeKnora/cli/cmd/chunk"
-	configcmd "github.com/Tencent/WeKnora/cli/cmd/config"
-	"github.com/Tencent/WeKnora/cli/cmd/doc"
-	"github.com/Tencent/WeKnora/cli/cmd/doctor"
-	"github.com/Tencent/WeKnora/cli/cmd/kb"
-	linkcmd "github.com/Tencent/WeKnora/cli/cmd/link"
-	messagecmd "github.com/Tencent/WeKnora/cli/cmd/message"
-	mcpcmd "github.com/Tencent/WeKnora/cli/cmd/mcp"
-	modelcmd "github.com/Tencent/WeKnora/cli/cmd/model"
-	profilecmd "github.com/Tencent/WeKnora/cli/cmd/profile"
-	"github.com/Tencent/WeKnora/cli/cmd/search"
-	sessioncmd "github.com/Tencent/WeKnora/cli/cmd/session"
-	skillscmd "github.com/Tencent/WeKnora/cli/cmd/skills"
-	"github.com/Tencent/WeKnora/cli/internal/build"
-	"github.com/Tencent/WeKnora/cli/internal/cmdutil"
-	"github.com/Tencent/WeKnora/cli/internal/iostreams"
+	agentcmd "github.com/Usir233/GENYEE/cli/cmd/agent"
+	apicmd "github.com/Usir233/GENYEE/cli/cmd/api"
+	"github.com/Usir233/GENYEE/cli/cmd/auth"
+	chatcmd "github.com/Usir233/GENYEE/cli/cmd/chat"
+	chunkcmd "github.com/Usir233/GENYEE/cli/cmd/chunk"
+	configcmd "github.com/Usir233/GENYEE/cli/cmd/config"
+	"github.com/Usir233/GENYEE/cli/cmd/doc"
+	"github.com/Usir233/GENYEE/cli/cmd/doctor"
+	"github.com/Usir233/GENYEE/cli/cmd/kb"
+	linkcmd "github.com/Usir233/GENYEE/cli/cmd/link"
+	messagecmd "github.com/Usir233/GENYEE/cli/cmd/message"
+	mcpcmd "github.com/Usir233/GENYEE/cli/cmd/mcp"
+	modelcmd "github.com/Usir233/GENYEE/cli/cmd/model"
+	profilecmd "github.com/Usir233/GENYEE/cli/cmd/profile"
+	"github.com/Usir233/GENYEE/cli/cmd/search"
+	sessioncmd "github.com/Usir233/GENYEE/cli/cmd/session"
+	skillscmd "github.com/Usir233/GENYEE/cli/cmd/skills"
+	"github.com/Usir233/GENYEE/cli/internal/build"
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 )
 
 // resolveFormatEarly scans raw argv for --format before cobra's command
@@ -134,9 +134,10 @@ var cobraFlagErrorPrefixes = []string{
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	v, commit, date := build.Info()
 	cmd := &cobra.Command{
-		Use:   "weknora",
-		Short: "WeKnora CLI",
-		Long: `Command-line client for the WeKnora RAG server. Manage knowledge bases
+		Use:     "genyee",
+		Aliases: []string{"weknora"},
+		Short:   "GENYEE CLI",
+		Long: `Command-line client for the GENYEE RAG server. Manage knowledge bases
 and documents, run hybrid search, chat with grounded answers, or expose
 a curated read-only MCP tool surface for AI agents.`,
 		Example: `  weknora profile add prod --host=https://kb.example.com --use
@@ -185,8 +186,8 @@ a curated read-only MCP tool surface for AI agents.`,
 			return f.ApplyLogLevel(c, iostreams.IO.Err)
 		},
 	}
-	// Match `weknora version` line format so both forms output the same.
-	cmd.SetVersionTemplate("weknora {{.Version}}\n")
+	// Match `genyee version` line format so both forms output the same.
+	cmd.SetVersionTemplate("genyee {{.Version}}\n")
 	addGlobalFlags(cmd)
 	// Wrap cobra's flag-parsing errors as FlagError so cmdutil.ExitCode maps
 	// them to exit 2. "unknown command" errors are detected by message prefix
@@ -267,7 +268,7 @@ func newVersionCmd(f *cmdutil.Factory) *cobra.Command {
 					"date":    date,
 				}, nil)
 			}
-			fmt.Fprintf(c.OutOrStdout(), "weknora %s (commit %s, built %s)\n", v, commit, date)
+			fmt.Fprintf(c.OutOrStdout(), "genyee %s (commit %s, built %s)\n", v, commit, date)
 			return nil
 		},
 	}

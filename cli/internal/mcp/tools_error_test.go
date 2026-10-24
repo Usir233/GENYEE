@@ -7,9 +7,9 @@ import (
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/Tencent/WeKnora/cli/internal/cmdutil"
-	"github.com/Tencent/WeKnora/cli/internal/output"
-	sdk "github.com/Tencent/WeKnora/client"
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/internal/output"
+	sdk "github.com/Usir233/GENYEE/client"
 )
 
 // TestToolErrorResult_TypedError_PopulatesStructuredContent verifies the

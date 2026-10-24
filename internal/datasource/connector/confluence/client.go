@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/datasource"
+	"github.com/Usir233/GENYEE/internal/datasource"
 )
 
 const (

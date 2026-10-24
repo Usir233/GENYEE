@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/Tencent/WeKnora/internal/sandbox/allocation"
+	"github.com/Usir233/GENYEE/internal/sandbox/allocation"
 )
 
 func validSessionSandboxBinding(key SessionSandboxKey, sandboxID string) SessionSandboxBinding {

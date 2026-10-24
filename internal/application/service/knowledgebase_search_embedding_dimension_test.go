@@ -6,10 +6,10 @@ import (
 	"sync"
 	"testing"
 
-	chatpipeline "github.com/Tencent/WeKnora/internal/application/service/chat_pipeline"
-	apperrors "github.com/Tencent/WeKnora/internal/errors"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	chatpipeline "github.com/Usir233/GENYEE/internal/application/service/chat_pipeline"
+	apperrors "github.com/Usir233/GENYEE/internal/errors"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

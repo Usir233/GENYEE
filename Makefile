@@ -2,7 +2,7 @@
 
 # Show help
 help:
-	@echo "WeKnora Makefile 帮助"
+	@echo "GENYEE Makefile 帮助"
 	@echo ""
 	@echo "基础命令:"
 	@echo "  build             构建应用"
@@ -73,7 +73,7 @@ help:
 	@echo "  package-mac-app   构建并打包 macOS 桌面应用 (.app)"
 
 # Go related variables
-BINARY_NAME=WeKnora
+BINARY_NAME=GENYEE
 MAIN_PATH=./cmd/server
 
 # Docker related variables
@@ -289,7 +289,7 @@ build-prod:
 	CGO_LDFLAGS="$$(if [ "$$(uname)" = 'Darwin' ]; then echo '-Wl,-no_warn_duplicate_libraries'; fi)" \
 	BUILD_TIME=$${BUILD_TIME:-unknown}; \
 	GO_VERSION=$${GO_VERSION:-unknown}; \
-	LDFLAGS="-X 'github.com/Tencent/WeKnora/internal/handler.Version=$$VERSION' -X 'github.com/Tencent/WeKnora/internal/handler.Edition=standard' -X 'github.com/Tencent/WeKnora/internal/handler.CommitID=$$COMMIT_ID' -X 'github.com/Tencent/WeKnora/internal/handler.BuildTime=$$BUILD_TIME' -X 'github.com/Tencent/WeKnora/internal/handler.GoVersion=$$GO_VERSION' -X 'google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn'"; \
+	LDFLAGS="-X 'github.com/Usir233/GENYEE/internal/handler.Version=$$VERSION' -X 'github.com/Usir233/GENYEE/internal/handler.Edition=standard' -X 'github.com/Usir233/GENYEE/internal/handler.CommitID=$$COMMIT_ID' -X 'github.com/Usir233/GENYEE/internal/handler.BuildTime=$$BUILD_TIME' -X 'github.com/Usir233/GENYEE/internal/handler.GoVersion=$$GO_VERSION' -X 'google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn'"; \
 	go build -tags "$(GO_BUILD_TAGS)" -ldflags="-w -s $$LDFLAGS" -o $(BINARY_NAME) $(MAIN_PATH)
 
 # Build Lite version (single binary, SQLite + in-memory queue)

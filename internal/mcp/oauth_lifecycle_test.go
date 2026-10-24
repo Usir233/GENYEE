@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/mark3labs/mcp-go/client/transport"
 	"github.com/stretchr/testify/require"
 )

@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/gin-gonic/gin"
 )
 

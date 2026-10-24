@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/Tencent/WeKnora/internal/models/internal/configcopy"
+	"github.com/Usir233/GENYEE/internal/models/internal/configcopy"
 )
 
 // ApplyCompat writes the set fields of an overlay struct onto a settings struct

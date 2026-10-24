@@ -3,7 +3,7 @@ package router
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/Tencent/WeKnora/internal/handler"
+	"github.com/Usir233/GENYEE/internal/handler"
 )
 
 // RegisterAutomationRoutes registers the caller's automations and in-app

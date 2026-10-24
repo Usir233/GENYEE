@@ -67,7 +67,7 @@ test("getLocale reads stored language preference", () => {
   }
 });
 
-test("API helpers send WeKnora auth headers", async () => {
+test("API helpers send GENYEE auth headers", async () => {
   let capturedRequest;
   global.wx = {
     getStorageSync() {
@@ -116,12 +116,12 @@ test("URL import helper posts the selected URL payload", async () => {
     }
   };
 
-  await createKnowledgeFromURL("kb-1", "https://github.com/Tencent/WeKnora", true);
+  await createKnowledgeFromURL("kb-1", "https://github.com/Usir233/GENYEE", true);
 
   assert.equal(capturedRequest.method, "POST");
   assert.equal(capturedRequest.url, "https://weknora.example.com/api/v1/knowledge-bases/kb-1/knowledge/url");
   assert.deepEqual(capturedRequest.data, {
-    url: "https://github.com/Tencent/WeKnora",
+    url: "https://github.com/Usir233/GENYEE",
     enable_multimodel: true
   });
 });
@@ -187,7 +187,7 @@ test("knowledge page skips API loading until settings are configured", async () 
     await pageDefinitions[0].onShow.call(page);
 
     assert.equal(page.data.needsSettings, true);
-    assert.equal(page.data.knowledgeTitle, "WeKnora 知识库");
+    assert.equal(page.data.knowledgeTitle, "GENYEE 知识库");
     assert.deepEqual(calls, []);
   } finally {
     global.Page = originalPage;

@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/agent/collaboration"
-	"github.com/Tencent/WeKnora/internal/agent/tools"
-	fileService "github.com/Tencent/WeKnora/internal/application/service/file"
-	"github.com/Tencent/WeKnora/internal/types"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/agent/collaboration"
+	"github.com/Usir233/GENYEE/internal/agent/tools"
+	fileService "github.com/Usir233/GENYEE/internal/application/service/file"
+	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/stretchr/testify/require"
 )
 

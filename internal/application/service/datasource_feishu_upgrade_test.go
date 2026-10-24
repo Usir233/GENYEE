@@ -7,12 +7,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/datasource"
-	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
-	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/drive"
-	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/wiki"
-	"github.com/Tencent/WeKnora/internal/types"
-	secutils "github.com/Tencent/WeKnora/internal/utils"
+	"github.com/Usir233/GENYEE/internal/datasource"
+	"github.com/Usir233/GENYEE/internal/datasource/connector/feishu/core"
+	"github.com/Usir233/GENYEE/internal/datasource/connector/feishu/drive"
+	"github.com/Usir233/GENYEE/internal/datasource/connector/feishu/wiki"
+	"github.com/Usir233/GENYEE/internal/types"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
 func TestStreamingFetch_FeishuUpgradeKeepsDeletionBaseline(t *testing.T) {

@@ -5,9 +5,9 @@ package localsandbox
 import (
 	"context"
 
-	"github.com/Tencent/WeKnora/internal/localsandbox/core"
-	"github.com/Tencent/WeKnora/internal/localsandbox/seatbelt"
-	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Usir233/GENYEE/internal/localsandbox/core"
+	"github.com/Usir233/GENYEE/internal/localsandbox/seatbelt"
+	"github.com/Usir233/GENYEE/internal/logger"
 )
 
 // NewBackend returns the platform backend. The build tag on this file is the

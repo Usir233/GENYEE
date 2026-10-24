@@ -1,4 +1,4 @@
-module github.com/Tencent/WeKnora
+module github.com/Usir233/GENYEE
 
 go 1.26.0
 

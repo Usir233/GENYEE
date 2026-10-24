@@ -1,13 +1,13 @@
-// Package main is the main package for the WeKnora server
+// Package main is the main package for the GENYEE server
 // It contains the main function and the entry point for the server
 //
-// @title           WeKnora API
+// @title           GENYEE API
 // @version         1.0
-// @description     WeKnora 知识库管理系统 API 文档
+// @description     GENYEE 知识库管理系统 API 文档
 // @termsOfService  http://swagger.io/terms/
 //
-// @contact.name   WeKnora Github
-// @contact.url    https://github.com/Tencent/WeKnora
+// @contact.name   GENYEE Github
+// @contact.url    https://github.com/Usir233/GENYEE
 //
 // @BasePath  /api/v1
 //
@@ -32,12 +32,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/Tencent/WeKnora/internal/application/service"
-	"github.com/Tencent/WeKnora/internal/config"
-	"github.com/Tencent/WeKnora/internal/container"
-	"github.com/Tencent/WeKnora/internal/logger"
-	"github.com/Tencent/WeKnora/internal/runtime"
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/application/service"
+	"github.com/Usir233/GENYEE/internal/config"
+	"github.com/Usir233/GENYEE/internal/container"
+	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/runtime"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 func main() {

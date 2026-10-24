@@ -3,8 +3,8 @@ package chat
 import (
 	"context"
 
-	"github.com/Tencent/WeKnora/internal/models/limiter"
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/models/limiter"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // Model provider budgets are the real bottleneck shared by every LLM-backed

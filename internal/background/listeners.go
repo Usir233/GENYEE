@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 // Listeners is the ordered set of session lifecycle listeners. Feature

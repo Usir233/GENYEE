@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // TestConfigFromModelCarriesSpecOverride pins the per-row catalog override on

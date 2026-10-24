@@ -7,7 +7,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Tencent/WeKnora/internal/sandbox"
+	"github.com/Usir233/GENYEE/internal/sandbox"
 )
 
 // artifactOutputEnvVar is the name of the environment variable that WeKnora

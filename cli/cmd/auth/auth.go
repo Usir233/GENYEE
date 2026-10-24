@@ -5,7 +5,7 @@ package auth
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/Tencent/WeKnora/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 )
 
 // Credential-mode tokens used in the JSON output of auth list / login /

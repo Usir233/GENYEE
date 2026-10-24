@@ -1,7 +1,7 @@
 package tools
 
 import (
-	"github.com/Tencent/WeKnora/internal/agent/skills"
+	"github.com/Usir233/GENYEE/internal/agent/skills"
 	"sort"
 	"strings"
 )

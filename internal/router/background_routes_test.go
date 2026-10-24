@@ -4,9 +4,9 @@ package router
 import (
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/config"
-	"github.com/Tencent/WeKnora/internal/handler"
-	sessionhandler "github.com/Tencent/WeKnora/internal/handler/session"
+	"github.com/Usir233/GENYEE/internal/config"
+	"github.com/Usir233/GENYEE/internal/handler"
+	sessionhandler "github.com/Usir233/GENYEE/internal/handler/session"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )

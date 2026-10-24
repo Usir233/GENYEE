@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // The stats endpoint reports the feature as enabled based on
