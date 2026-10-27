@@ -10,6 +10,7 @@ import (
 	"testing/iotest"
 
 	werrors "github.com/Usir233/GENYEE/internal/errors"
+	"github.com/Usir233/GENYEE/internal/infrastructure/docparser"
 	"github.com/Usir233/GENYEE/internal/infrastructure/docparser/anydoc"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
@@ -61,6 +62,10 @@ func TestConvertFailureSpanMatchesTaskOutcome(t *testing.T) {
 		{name: "file fetch fails", getErr: transient, retryable: true, code: werrors.ErrCodeDocReaderParseFailed},
 		{name: "file read fails", readErr: transient, retryable: true, code: werrors.ErrCodeDocReaderParseFailed},
 		{name: "reader call fails", rpcErr: transient, retryable: true, code: werrors.ErrCodeDocReaderParseFailed},
+		{
+			name: "CSV expansion budget exceeded", rpcErr: docparser.ErrCSVMarkdownTooLarge,
+			code: werrors.ErrCodeDocReaderParseFailed,
+		},
 	} {
 		for _, retried := range []int{0, 3} {
 			name := tc.name + "/retry_available"

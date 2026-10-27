@@ -35,12 +35,25 @@ import (
 	"github.com/Usir233/GENYEE/internal/application/service"
 	"github.com/Usir233/GENYEE/internal/config"
 	"github.com/Usir233/GENYEE/internal/container"
+	"github.com/Usir233/GENYEE/internal/envfile"
+	"github.com/Usir233/GENYEE/internal/handler"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/runtime"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
 func main() {
+	// Load dotenv configuration before any container provider reads it.
+	// Explicit ENV_FILE is honored on every build; automatic .env.lite
+	// discovery is scoped to Lite builds (internal/handler.Edition is
+	// injected at build time), so a standard binary built in the repo root
+	// never picks up Lite defaults. Process variables remain authoritative.
+	if err := envfile.Load(handler.Edition == "lite"); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: %v\n", err)
+	}
+	// Dotenv loading happens after the logger package initialized, so
+	// re-apply file-based LOG_LEVEL / LOG_PATH (mirrors cmd/desktop).
+	logger.ConfigureFromEnv()
 	// Set Gin mode
 	if os.Getenv("GIN_MODE") == "release" {
 		gin.SetMode(gin.ReleaseMode)
