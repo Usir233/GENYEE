@@ -1,6 +1,6 @@
 # QA Dataset Sampling Tool
 
-A comprehensive tool for sampling QA datasets and generating answers using OpenAI's GPT models. This tool helps you create high-quality question-answering datasets from large-scale collections like MS MARCO.
+A comprehensive tool for sampling QA datasets and generating answers using OpenAI's GPT models. This tool helps you create high-quality question-answering datasets from large-scale collections and domain knowledge corpora.
 
 ## Features
 
@@ -31,11 +31,14 @@ export OPENAI_API_KEY="your-openai-api-key"
 export OPENAI_BASE_URL="https://api.openai.com/v1"
 ```
 
-### Parpare dataset
+### Prepare dataset
 
-We provide pre-processed samples from popular QA datasets:
-
-MarkrAI/msmarco_sample_autorag
+Pre-processed evaluation samples are provided in `./dataset/samples`:
+- `queries.parquet` (columns: id, text)
+- `corpus.parquet` (columns: id, text)
+- `answers.parquet` (columns: id, text)
+- `qrels.parquet` (columns: qid, pid, score)
+- `qas.parquet` (columns: qid, aid)
 
 ## Quick Start
 
@@ -45,9 +48,9 @@ First, sample a subset of queries, documents, and relevance judgments from your 
 
 ```bash
 python dataset/qa_dataset.py sample \
-  --queries ~/dataset/mmarco-queries.parquet \
-  --corpus ~/dataset/mmarco-corpus.parquet \
-  --qrels ~/dataset/mmarco-qrels.parquet \
+  --queries data/queries.parquet \
+  --corpus data/corpus.parquet \
+  --qrels data/qrels.parquet \
   --nq 100 \
   --output_dir ./dataset/samples
 ```
@@ -247,22 +250,22 @@ python -m pdb dataset/qa_dataset.py sample --queries ...
 # 1. Setup environment
 export OPENAI_API_KEY="sk-..."
 
-# 2. Sample 200 queries from MS MARCO
+# 2. Sample 200 queries from dataset
 python dataset/qa_dataset.py sample \
-  --queries ~/mmarco/queries.parquet \
-  --corpus ~/mmarco/corpus.parquet \
-  --qrels ~/mmarco/qrels.parquet \
+  --queries data/queries.parquet \
+  --corpus data/corpus.parquet \
+  --qrels data/qrels.parquet \
   --nq 200 \
-  --output_dir ./marco_sample
+  --output_dir ./sample_output
 
 # 3. Generate answers (may take time depending on API rate limits)
 python dataset/qa_dataset.py generate \
-  --input_dir ./marco_sample \
-  --output_dir ./marco_sample
+  --input_dir ./sample_output \
+  --output_dir ./sample_output
 
 # 4. Review results
 python dataset/qa_dataset.py show \
-  --input_dir ./marco_sample \
+  --input_dir ./sample_output \
   -n 10
 ```
 

@@ -1,6 +1,6 @@
 # QA数据集采样工具
 
-一个全面的QA数据集采样工具，使用OpenAI的GPT模型生成答案。该工具帮助您从大规模数据集（如MS MARCO）创建高质量的问答数据集。
+一个全面的QA数据集采样工具，使用OpenAI的GPT模型生成答案。该工具帮助您从大规模文本集合或领域知识库创建高质量的问答数据集。
 
 ## 功能特性
 
@@ -33,14 +33,15 @@ export OPENAI_BASE_URL="https://api.openai.com/v1"
 
 ### 准备数据集
 
-您可以使用任何符合格式要求的QA数据集，或下载预处理好的样本：
+您可以使用任何符合格式要求的QA数据集，或使用项目提供的预处理评估样本：
 
-**使用HuggingFace/ModelScope样本**
-我们提供了来自流行QA数据集的预处理样本：
-- MarkrAI/eli5_sample_autorag
-- MarkrAI/msmarco_sample_autorag
-- MarkrAI/triviaqa_sample_autorag
-- gnekt/hotpotqa_small_sample_autorag
+**预处理评估样本**
+项目在 `./dataset/samples` 目录下提供了合规的评估样本：
+- `queries.parquet`（列：id, text）
+- `corpus.parquet`（列：id, text）
+- `answers.parquet`（列：id, text）
+- `qrels.parquet`（列：qid, pid, score）
+- `qas.parquet`（列：qid, aid）
 
 **使用您自己的数据集**
 确保您的数据集包含以下文件：
@@ -56,9 +57,9 @@ export OPENAI_BASE_URL="https://api.openai.com/v1"
 
 ```bash
 python dataset/qa_dataset.py sample \
-  --queries ~/dataset/mmarco-queries.parquet \
-  --corpus ~/dataset/mmarco-corpus.parquet \
-  --qrels ~/dataset/mmarco-qrels.parquet \
+  --queries data/queries.parquet \
+  --corpus data/corpus.parquet \
+  --qrels data/qrels.parquet \
   --nq 100 \
   --output_dir ./dataset/samples
 ```
@@ -258,22 +259,22 @@ python -m pdb dataset/qa_dataset.py sample --queries ...
 # 1. 设置环境
 export OPENAI_API_KEY="sk-..."
 
-# 2. 从MS MARCO采样200个查询
+# 2. 从数据集采样200个查询
 python dataset/qa_dataset.py sample \
-  --queries ~/mmarco/queries.parquet \
-  --corpus ~/mmarco/corpus.parquet \
-  --qrels ~/mmarco/qrels.parquet \
+  --queries data/queries.parquet \
+  --corpus data/corpus.parquet \
+  --qrels data/qrels.parquet \
   --nq 200 \
-  --output_dir ./marco_sample
+  --output_dir ./sample_output
 
 # 3. 生成答案（根据API速率限制可能需要一些时间）
 python dataset/qa_dataset.py generate \
-  --input_dir ./marco_sample \
-  --output_dir ./marco_sample
+  --input_dir ./sample_output \
+  --output_dir ./sample_output
 
 # 4. 查看结果
 python dataset/qa_dataset.py show \
-  --input_dir ./marco_sample \
+  --input_dir ./sample_output \
   -n 10
 ```
 

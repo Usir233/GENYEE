@@ -53,6 +53,7 @@ RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate
 # so that module's go.mod must exist before `go mod download`.
 COPY go.mod go.sum ./
 COPY third_party/anydoc-go/go.mod third_party/anydoc-go/go.mod
+COPY third_party/vectordatabase-sdk-go/go.mod third_party/vectordatabase-sdk-go/go.mod
 RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY cmd/download cmd/download
 RUN go run cmd/download/duckdb/duckdb.go

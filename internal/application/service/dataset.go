@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
@@ -53,6 +54,13 @@ func (d *DatasetService) GetDatasetByID(ctx context.Context, datasetID string) (
 // DefaultDataset loads and initializes the default dataset from parquet files
 func DefaultDataset() dataset {
 	datasetDir := "./dataset/samples"
+	if _, err := os.Stat(datasetDir); os.IsNotExist(err) {
+		if _, err := os.Stat("../../dataset/samples"); err == nil {
+			datasetDir = "../../dataset/samples"
+		} else if _, err := os.Stat("../../../dataset/samples"); err == nil {
+			datasetDir = "../../../dataset/samples"
+		}
+	}
 	queries, err := loadParquet[TextInfo](fmt.Sprintf("%s/queries.parquet", datasetDir))
 	if err != nil {
 		panic(err)

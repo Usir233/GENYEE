@@ -8,9 +8,9 @@ pip install openai
 
 # 采样数据
 python dataset/qa_dataset.py sample \
-  --queries ~/dataset/mmarco-queries.parquet \
-  --corpus ~/dataset/mmarco-corpus.parquet \
-  --qrels ~/dataset/mmarco-qrels.parquet \
+  --queries ~/dataset/queries.parquet \
+  --corpus ~/dataset/corpus.parquet \
+  --qrels ~/dataset/qrels.parquet \
   --nq 100 \
   --output_dir ./dataset/samples
 

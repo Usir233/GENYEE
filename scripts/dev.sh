@@ -55,7 +55,7 @@ show_help() {
     echo "用法: $0 [命令] [选项]"
     echo ""
     echo "命令:"
-    echo "  start      启动基础设施服务（postgres, redis, docreader, langfuse）"
+    echo "  start      启动基础设施服务（postgres, redis, docreader）"
     echo "  stop       停止所有服务"
     echo "  restart    重启所有服务"
     echo "  logs       查看服务日志"
@@ -69,8 +69,6 @@ show_help() {
     echo "  --qdrant      启动 Qdrant 向量数据库"
     echo "  --neo4j       启动 Neo4j 图数据库"
     echo "  --dex         启动 Dex（OIDC 身份认证）"
-    echo "  --langfuse    启动 Langfuse（默认已开启）"
-    echo "  --no-langfuse 不启动 Langfuse"
     echo "  --odl-hybrid  启动 OpenDataLoader hybrid（Docling，镜像较大，按需启用）"
     echo "  --full        启动所有可选服务（不含 odl-hybrid，需另加 --odl-hybrid）"
     echo ""
@@ -201,17 +199,17 @@ start_services() {
 
     if [ -n "${DEV_REMOTE_HOST:-}" ]; then
         log_warning "已配置 DEV_REMOTE_HOST=${DEV_REMOTE_HOST}，跳过本地 Docker 基础设施启动"
-        log_info "远程服务: PostgreSQL/Redis/DocReader/Langfuse → ${DEV_REMOTE_HOST}"
+        log_info "远程服务: PostgreSQL/Redis/DocReader → ${DEV_REMOTE_HOST}"
         log_info "接下来: make dev-app（本地后端）或 make dev-frontend（前端）"
         return 0
     fi
     
     # 解析 profile 参数
     shift  # 移除 "start" 命令本身
-    # 默认启动基础设施（postgres / redis / docreader）+ langfuse，
+    # 默认启动基础设施（postgres / redis / docreader），
     # 其余可选服务通过 --minio / --qdrant / --neo4j / --dex / --full 按需开启。
-    PROFILES="--profile langfuse"
-    ENABLED_SERVICES="langfuse"
+    PROFILES=""
+    ENABLED_SERVICES=""
     while [ $# -gt 0 ]; do
         case "$1" in
             --minio)
@@ -229,14 +227,6 @@ start_services() {
             --dex)
                 PROFILES="$PROFILES --profile dex"
                 ENABLED_SERVICES="$ENABLED_SERVICES dex"
-                ;;
-            --langfuse)
-                PROFILES="$PROFILES --profile langfuse"
-                ENABLED_SERVICES="$ENABLED_SERVICES langfuse"
-                ;;
-            --no-langfuse)
-                PROFILES="${PROFILES//--profile langfuse/}"
-                ENABLED_SERVICES="${ENABLED_SERVICES//langfuse/}"
                 ;;
             --odl-hybrid)
                 if [[ "$ENABLED_SERVICES" != *"odl-hybrid"* ]]; then
@@ -289,9 +279,6 @@ start_services() {
         fi
         if [[ "$ENABLED_SERVICES" == *"dex"* ]]; then
             echo "  - Dex:           localhost:5556"
-        fi
-        if [[ "$ENABLED_SERVICES" == *"langfuse"* ]]; then
-            echo "  - Langfuse:      http://localhost:${LANGFUSE_WEB_PORT:-3000}"
         fi
         if [[ "$ENABLED_SERVICES" == *"odl-hybrid"* ]]; then
             echo "  - ODL Hybrid:    http://localhost:${ODL_HYBRID_PORT:-5002} (health: /health)"
@@ -475,9 +462,6 @@ start_app() {
         export MILVUS_ADDRESS="${MILVUS_ADDRESS:-$DEV_REMOTE_HOST:19530}"
         export NEO4J_URI="${NEO4J_URI:-bolt://$DEV_REMOTE_HOST:7687}"
         export QDRANT_HOST="${QDRANT_HOST:-$DEV_REMOTE_HOST}"
-        if [ -z "${LANGFUSE_HOST:-}" ] || [ "$LANGFUSE_HOST" = "http://langfuse-web:3000" ]; then
-            export LANGFUSE_HOST="http://${DEV_REMOTE_HOST}:3000"
-        fi
     else
         export DB_HOST=127.0.0.1
         export DOCREADER_ADDR=127.0.0.1:50051
