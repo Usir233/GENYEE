@@ -2255,59 +2255,6 @@ export default {
       desc: '現在のロールではこの設定ページにアクセスできません。このワークスペースの管理者に必要なロールの付与を依頼してください。'
     },
     capabilityUnavailable: 'この機能は現在のデプロイでは利用できません。利用可能なページに戻りました。',
-    weknoraCloud: {
-      title: 'GENYEE Cloud',
-      description: 'GENYEE CloudのAPPIDとAPPSECRETを設定します。この認証情報はモデルサービスとドキュメント解析エンジンで使用されます。',
-      viewDocs: 'ドキュメントを表示',
-      unconfigured: '認証情報が未設定です。APPIDとAPPSECRETを入力してください。',
-      configured: '認証情報は設定済みで、正常に動作しています。',
-      expired: 'GENYEE Cloudの認証情報が無効になりました',
-      expiredDefault: 'サービス再起動後に暗号化キーが変更されました。保存済みの認証情報を復号できません。認証情報を再入力してください。',
-      reconfigure: '再設定',
-      appIdLabel: 'APPID',
-      appIdDesc: 'GENYEE CloudのアプリケーションID',
-      appIdPlaceholder: 'APPIDを入力',
-      appSecretLabel: 'APPSECRET',
-      appSecretDesc: 'GENYEE Cloudのアプリケーションシークレット',
-      appSecretPlaceholder: 'APPSECRETを入力',
-      saveHint: '認証情報は検証・暗号化されたうえで保存されます。',
-      saveBtn: '認証情報を保存',
-      usageTitle: '利用ガイド',
-      usageSteps: '1. APPIDとAPPSECRETを保存\\\n2. 下の「クラウドモデル」でチャット、埋め込み、リランク、vlmを登録\\\n3. 解析エンジン: ナレッジベース設定 → 解析エンジン → GENYEE Cloud',
-      fillRequired: 'APPIDとAPPSECRETを入力してください',
-      saveSuccess: '認証情報を保存しました',
-      saveFailed: '認証情報の保存に失敗しました',
-      credentialConfigured: 'GENYEECloudの認証情報は設定済みです。',
-      credentialExpired: '認証情報が無効になりました。再設定してください。',
-      credentialUnconfigured: 'GENYEECloudの認証情報が未設定です。先にAPPIDとAPPSECRETを設定してください。',
-      checkingStatus: '認証情報のステータスを確認中...',
-      goToSettings: '設定へ移動',
-      modelHintConfigured: 'GENYEECloudの認証情報は設定済みです。対応モデルは以下を参照してください:',
-      modelHintDocsLink: 'APIドキュメント',
-      modelsSection: {
-        title: 'クラウドモデル',
-        descReady: 'チャット、検索、リランク、画像理解（VLM）の4種類のGENYEE Cloud標準モデルを登録します。',
-        descPending: 'クラウドモデルを追加する前に、上の認証情報を保存してください。',
-        statusAdded: '追加済み',
-        statusPending: '認証情報が必要',
-        addOne: '追加',
-        addAllBtn: '未追加をすべて追加（{count}）',
-        addAllConfirm: '確認',
-        confirmAddOne: '{type}モデル「{name}」を追加しますか？',
-        confirmAddAll: '未追加のクラウドモデル{count}個をまとめて追加しますか？',
-        allReady: '4つのクラウドモデルはすべて準備完了です'
-      },
-      addModelsSuccess: 'モデルを{count}個追加しました',
-      addModelsPartial: '{success}個を追加し、{failed}個が失敗しました',
-      addModelsFailed: 'モデルの追加に失敗しました',
-      addModelsEmbeddingFailed: '埋め込みモデルの接続テストに失敗し、ベクトルの次元数を検出できませんでした',
-      addModelsDisplayName: {
-        chat: 'GENYEECloud Chat',
-        embedding: 'GENYEECloud Embedding',
-        rerank: 'GENYEECloud ReRank',
-        vllm: 'GENYEECloud Vision'
-      }
-    },
     system: 'システム設定',
     parser: {
       title: '解析エンジン',
@@ -3039,7 +2986,6 @@ export default {
     all: 'すべて',
     clear: 'クリア',
     website: '公式サイト',
-    clawhubSkill: 'Claw Skill',
     github: 'GitHub',
     githubStarTip: 'GitHubでリポジトリを開きます。役に立ったらStarをお願いします',
     on: 'オン',
@@ -6506,12 +6452,6 @@ export default {
             q2: 'How do I add its models to this workspace after connecting?',
             q3: 'What should I check if Ollama will not connect?',
           },
-          weknoracloud: {
-            description: 'I can explain which models GENYEE Cloud offers, and how to bind and choose them.',
-            q1: 'Which models does GENYEE Cloud provide?',
-            q2: 'How do I enable or bind a Cloud account?',
-            q3: 'When should I use Cloud models versus ones I connect myself?',
-          },
           vectorstore: {
             description: 'I can explain the current vector engine, what changing it does, and how to check it.',
             q1: 'Which vector search engine is in use now?',
@@ -6637,24 +6577,6 @@ export default {
             q1: 'How do I offer GENYEE as an MCP server?',
             q2: 'How does an external client connect?',
             q3: 'Which tools does this server expose?',
-          },
-          'integration-cli': {
-            description: 'I can walk you through installing and signing in to the CLI, and the common commands.',
-            q1: 'How do I install and sign in to the GENYEE CLI?',
-            q2: 'What knowledge-base and chat operations can the CLI do?',
-            q3: 'What are the most useful commands?',
-          },
-          'integration-chrome': {
-            description: 'I can explain what the browser extension does, how to install it, and where selected text goes.',
-            q1: 'What can the browser extension do?',
-            q2: 'How do I install and sign in to the extension?',
-            q3: 'Where does text I select in the extension get sent?',
-          },
-          'integration-claw': {
-            description: 'I can explain how to connect GENYEE to Claw, and which skill to install.',
-            q1: 'How do I connect GENYEE to Claw?',
-            q2: 'Which skill do I need to install?',
-            q3: 'What can I do in Claw after it is connected?',
           },
         },
       startFailed: 'アシスタントを起動できませんでした。もう一度お試しください。',
@@ -7033,10 +6955,6 @@ export default {
         paddleocr_vl_cloud: {
           name: 'PaddleOCR-VL Cloud',
           desc: 'PaddleOCR-VL Cloud API'
-        },
-        weknoracloud: {
-          name: 'GENYEE Cloud',
-          desc: 'GENYEE Cloudによるドキュメント解析'
         },
         markitdown: {
           name: 'MarkItDown',
@@ -8401,25 +8319,6 @@ export default {
     }
   },
   integrations: {
-    cli: {
-      title: 'GENYEE CLI',
-      subtitle: 'ターミナルからナレッジベースとドキュメントの管理、コンテンツの検索、質問ができます。CLIやMCPを通じてスクリプトやAIツールと連携できます。',
-      docs: 'CLIドキュメント',
-      docsHint: 'インストール手順と完全なコマンドリファレンス',
-      quickstart: 'クイックスタート',
-      installTitle: 'CLIをインストール',
-      installDesc: 'GitとGo 1.26以上を使ってソースからビルドします。このmacOS / Linuxの例ではPATHの設定は現在のターミナルでのみ有効です。継続的に使う場合は、バイナリをPATH上のディレクトリに配置してください。',
-      connectTitle: 'このサーバに接続',
-      connectDesc: 'weknoraという名前のプロファイルを作成して有効化し、メールアドレスとパスワードでサインインします。同名のプロファイルが既にある場合は別の名前を選び、MCPの例もそれに合わせて変更してください。',
-      verifyTitle: '接続を確認',
-      verifyDesc: 'サーバと認証の状態を確認し、アカウントがアクセスできるナレッジベースを一覧表示します。',
-      commandsTitle: 'よく使うコマンド',
-      commandsDesc: 'KB_IDをナレッジベースIDに置き換え、ファイルパス・検索語・質問を必要に応じて変更してください。アップロードしたドキュメントは解析が完了するまで検索できません。',
-      mcpTitle: 'MCPクライアントに接続',
-      mcpDesc: 'サインイン後、この設定をstdio対応のMCPクライアントに追加してください。クライアントがweknoraを見つけられない場合は、commandをバイナリの絶対パスに変更してください。',
-      copy: 'コピー',
-      copied: 'コピーしました',
-    },
     title: '公開と連携',
     mcpserver: {
       title: 'MCP サーバー',
@@ -8531,9 +8430,6 @@ export default {
       im: 'IM連携',
       embed: 'Web埋め込み',
       api: 'API連携',
-      chrome: 'Chrome拡張機能',
-      cli: 'CLI',
-      claw: 'Clawスキル',
       mcpserver: 'MCP サーバー'
     },
     api: {
@@ -8708,114 +8604,6 @@ export default {
     agentEditor: {
       label: '公開チャネル',
       desc: 'このエージェントをIMプラットフォームやWebサイトに公開します。管理は「公開と連携」から行います。'
-    },
-    chrome: {
-      title: 'ナレッジアシスタント',
-      subtitle: 'セルフホスト版GENYEE向け: ブラウジング中にサイドバーで質問したり、Webページをクリップしたり、Markdownメモをナレッジベースに保存したりできます。',
-      capabilitiesTitle: '主な機能',
-      capabilities: {
-        qa: {
-          title: 'ナレッジベースQ&A',
-          desc: '複数のナレッジベースを切り替えられるサイドバーチャット。高速・詳細・高精度の回答モードで、ページを離れずに質問できます。'
-        },
-        clip: {
-          title: 'ワンクリックWebクリップ',
-          desc: 'ページのURLの保存、AIによる本文抽出、範囲の手動選択で、対象のナレッジベースに保存します。'
-        },
-        notes: {
-          title: 'Markdownクイックメモ',
-          desc: 'アイデアやメモを書けるMarkdownエディタを内蔵。ワンクリックでナレッジベースに保存します。'
-        },
-        shortcuts: {
-          title: 'キーボードショートカット',
-          desc: 'ショートカットをカスタマイズして質問やサイドバーの表示を素早く行い、日々の作業を効率化します。'
-        }
-      },
-      scenarios: {
-        research: '日常の情報リサーチ',
-        learning: '学習ノートの整理',
-        tech: '技術資料の収集',
-        work: '業務ナレッジの蓄積'
-      },
-      stepsTitle: '設定手順',
-      steps: {
-        api: {
-          title: 'API認証情報を取得',
-          desc: '「設定 → API情報」からAPIキーとベースURLをコピーします。'
-        },
-        port: {
-          title: 'デスクトップ版: 固定ポートの設定（推奨）',
-          desc: 'GENYEEデスクトップ版では、API情報で固定ポート（例: 37841）を設定すると、再起動してもURLが変わりません。'
-        },
-        install: {
-          title: '拡張機能をインストール',
-          desc: 'Chromeウェブストアから「ナレッジアシスタント」をインストールします。'
-        },
-        connect: {
-          title: '拡張機能で接続',
-          desc: '拡張機能の設定を開き、企業/開発者モードを選択して、サービスのAPI URLとAPIキーを入力します。現在のAPI URLは下記のとおりです。'
-        }
-      },
-      openApiSettings: 'API情報を開く',
-      copy: 'コピー',
-      copySuccess: 'API URLをコピーしました',
-      installCta: 'Chromeウェブストア',
-      installCtaHint: '公式拡張機能 · 新しいタブで開きます',
-      storeMeta: 'Chromeウェブストア · v1.0.0'
-    },
-    claw: {
-      title: 'GENYEE Skill',
-      subtitle: 'GENYEE REST API経由でドキュメントをインポートし、ハイブリッド検索（ベクトル＋キーワード）を実行します。ファイルのアップロード、URLインポート、Markdownでの登録、ナレッジベース横断検索に対応します。',
-      capabilitiesTitle: 'スキルの機能',
-      capabilities: {
-        upload: {
-          title: 'ファイルのアップロード',
-          desc: 'PDF、Word、Excelなどをアップロードし、自動で解析・ベクトル化します。'
-        },
-        url: {
-          title: 'URLのインポート',
-          desc: 'URLからWebページを取得してナレッジベースに取り込み、解析ステータスをポーリングします。'
-        },
-        manual: {
-          title: 'Markdownで作成',
-          desc: 'ナレッジをMarkdownとして作成・編集します。議事録の記録に最適です。'
-        },
-        search: {
-          title: 'ハイブリッド検索',
-          desc: 'ベクトルとキーワードのリコールを組み合わせて、ナレッジベース単位のハイブリッド検索とナレッジベース横断検索を行います。'
-        },
-        browse: {
-          title: 'ナレッジの閲覧',
-          desc: 'ナレッジベースとナレッジの一覧表示、詳細の確認、インポート済みコンテンツの管理を行います。'
-        }
-      },
-      stepsTitle: '設定手順',
-      steps: {
-        api: {
-          title: 'API認証情報を取得',
-          desc: '「設定 → API情報」からAPIキーとベースURLをコピーします。'
-        },
-        env: {
-          title: '環境変数を設定',
-          desc: 'シェルまたは~/.zshrc / ~/.bashrcでWEKNORA_BASE_URLとWEKNORA_API_KEYを設定します。下記の例では現在のAPIベースURLを使用しています。APIキーは実際の値に置き換えてください。'
-        },
-        install: {
-          title: 'スキルをインストール',
-          desc: 'OpenClaw CLIをインストール済みの環境で下記のコマンドを実行するか、ClawHubページの手順に従ってください。'
-        },
-        verify: {
-          title: '接続を確認',
-          desc: 'エージェントにナレッジベースの一覧表示や検索を実行させ、認証情報と接続を確認します。'
-        }
-      },
-      openApiSettings: 'API情報を開く',
-      copy: 'コピー',
-      copyEnvSuccess: '環境変数の例をコピーしました',
-      copyCmdSuccess: 'インストールコマンドをコピーしました',
-      ecosystemNote: 'スキルはClawHub（{\'@\'}lyingbug/weknora）でホストされています。完全なAPIドキュメントとバージョン履歴はClawHubページをご覧ください。',
-      installCta: 'ClawHubを開く',
-      installCtaHint: 'GENYEE Skillをインストール · 新しいタブで開きます',
-      hubMeta: 'ClawHub · {\'@\'}lyingbug/weknora · MIT-0'
     }
   },
   credential: {

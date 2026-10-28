@@ -15,8 +15,6 @@
   <a href="https://github.com/Usir233/GENYEE/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Usir233/GENYEE?style=flat-square&labelColor=101f38&color=b8863b"></a>
   <br/>
   <a href="https://chatbot.weixin.qq.com"><img alt="WeChat 대화 오픈 플랫폼" src="https://img.shields.io/badge/WeChat_Dialog-Open_Platform-07c160?style=flat-square&labelColor=101f38&logo=wechat&logoColor=white"></a>
-  <a href="https://chromewebstore.google.com/detail/jpemjbopikggjlmikmclgbmkhhopjdgd"><img alt="Chrome 확장 프로그램" src="https://img.shields.io/badge/Chrome-extension-4285f4?style=flat-square&labelColor=101f38&logo=googlechrome&logoColor=white"></a>
-  <a href="https://clawhub.ai/lyingbug/weknora"><img alt="ClawHub Skill" src="https://img.shields.io/badge/ClawHub-skill-ff6b35?style=flat-square&labelColor=101f38"></a>
   <a href="https://www.npmjs.com/package/@wxg-prc-cpg/dsh-weknora"><img alt="npm @wxg-prc-cpg/dsh-weknora" src="https://img.shields.io/npm/v/@wxg-prc-cpg/dsh-weknora?style=flat-square&label=dsh-weknora&labelColor=101f38&color=cb3837&logo=npm&logoColor=white"></a>
 </p>
 
@@ -184,7 +182,7 @@ docker compose up -d    # 새 이미지로 컨테이너 재생성
 - **[원문 인용](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#conversation)**: 답변에서 원문의 인용 부분으로 바로 이동.
 - **[대화와 도구](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#tools)**: 샌드박스 없이 첨부 파일을 필요할 때 읽기, 읽지 않은 답변 표시, @ 검색, Docker 터미널, Lite 로컬 스킬과 MCP 호환성 개선.
 - **[관리와 연동](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#administration)**: 플랫폼 사용자 관리, 초대 등록 모드, 관리자 모델 카탈로그, WeMM, TEI/Pinecone/Cohere, Seafile과 번체 중국어.
-- **[안정성](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#other-changes)**: 검색, 파싱, 동기화, Wiki, OAuth와 CLI 수정. 등록 모드, 빈 도구 목록, DB 마이그레이션과 재색인은 [업그레이드 안내](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#upgrade-notes)를 확인하세요.
+- **[안정성](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#other-changes)**: 검색, 파싱, 동기화, Wiki, OAuth 수정. 등록 모드, 빈 도구 목록, DB 마이그레이션과 재색인은 [업그레이드 안내](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#upgrade-notes)를 확인하세요.
 
 ### v0.8.2 <sub>· 2026-09-24 · [릴리스 노트](https://weknora.weixin.qq.com/docs/07-releases/v0.8.2)</sub>
 
@@ -347,31 +345,13 @@ docker compose up -d    # 새 이미지로 컨테이너 재생성
 
 | | 클라이언트 | 용도 |
 |:-:|----------|------|
-| <img src="./docs/images/readme/icons/terminal.svg" width="22" height="22" alt=""> | [**CLI `genyee`**](./cli/README.md) | Agent 우선 명령줄 도구. 전체 API를 다루며 엄선한 MCP 도구와 내장 Agent Skills 제공 |
 | <img src="./docs/images/readme/icons/plug.svg" width="22" height="22" alt=""> | [**내장 MCP Server**](https://weknora.weixin.qq.com/docs/03-features/08-mcp) | Streamable HTTP로 지식베이스를 Cursor, Claude 등 MCP 클라이언트에 공개. [`mcp-server/`](./mcp-server/MCP_CONFIG.md)의 Python 서버는 지원 중단 |
 | <img src="./website-docs/homepage/public/docs/_home/brands/browserskill.png" width="22" height="22" alt=""> | [**로컬 브라우저(BrowserSkill)**](https://weknora.weixin.qq.com/docs/05-clients/09-local-browser) | 에이전트가 사용자 자신의 Chrome / Edge를 조작 |
-| <img src="./website-docs/homepage/public/docs/_home/brands/chrome.svg" width="22" height="22" alt=""> | [**Chrome 확장 프로그램**](https://chromewebstore.google.com/detail/jpemjbopikggjlmikmclgbmkhhopjdgd) | 텍스트, 이미지 또는 전체 페이지를 선택해 원클릭으로 지식 항목으로 저장. 복사/붙여넣기나 파일 업로드 불필요 |
 | <img src="./docs/images/readme/icons/phone.svg" width="22" height="22" alt=""> | [**WeChat 미니 프로그램**](./miniprogram/README.md) | 경량 모바일 클라이언트. API 설정, 지식베이스 선택, URL 임포트, WeChat에서 지식 Q&A |
-| <img src="./docs/images/readme/icons/skills.svg" width="22" height="22" alt=""> | [**ClawHub Skill**](https://clawhub.ai/lyingbug/weknora) | ClawHub에 게시된 GENYEE 스킬. REST API로 문서 임포트, 하이브리드 검색, 지식 관리 |
 | <img src="./website-docs/homepage/public/docs/_home/brands/deepseek-color.svg" width="22" height="22" alt=""> | [**DeepSeek Harness 플러그인**](https://www.npmjs.com/package/@wxg-prc-cpg/dsh-weknora) | `dsh` 코딩 에이전트에 읽기 전용 도구 4개(검색, 문서 읽기, 질문, 지식베이스 목록) 제공 |
 | <img src="./docs/images/readme/icons/code.svg" width="22" height="22" alt=""> | [**웹사이트 임베드 Widget**](https://weknora.weixin.qq.com/docs/03-features/13-embed-channel) | 에이전트를 외부 사이트에 게시 |
 | <img src="./docs/images/readme/icons/braces.svg" width="22" height="22" alt=""> | [**Go SDK**](https://weknora.weixin.qq.com/docs/05-clients/03-go-sdk) | 지식베이스·문서·세션 등의 CRUD와 SSE 스트리밍 Q&A |
 | <img src="./website-docs/homepage/public/docs/_home/brands/wechat-dialog.png" width="22" height="22" alt=""> | [**WeChat 대화 오픈 플랫폼**](https://chatbot.weixin.qq.com) | GENYEE 기반 호스팅 Q&A. 지식을 업로드하면 코드 없이 WeChat에 Q&A 서비스 게시 |
-
-### 명령줄 도구
-
-`genyee`는 터미널이나 AI 에이전트에서 API를 다루기 위한 공식 CLI입니다. **Agent 우선**으로 설계되어 모든 명령이 기본적으로 안정적인 JSON 엔벨로프를 출력하고(타입이 지정된 오류 코드는 종료 코드에 매핑), `--format text`로 사람이 읽기 좋은 형태로 표시합니다. 엄선한 MCP 도구(`genyee mcp serve`)를 제공하며 Agent Skills를 내장하고 있습니다.
-
-```bash
-genyee profile add prod --host https://kb.example.com --use
-genyee auth login
-genyee kb list
-genyee link --kb my-knowledge-base    # 현재 디렉터리 연결
-genyee doc upload notes.md
-genyee chat "설계 문서를 요약해 줘"
-```
-
-헤드리스 / CI 환경에서는 `WEKNORA_API_KEY`와 `WEKNORA_HOST`를 설정하면 `auth login` 없이 사용할 수 있으며, 자격 증명이 디스크에 기록되지 않습니다. 설치와 5분 빠른 시작은 [`cli/README.md`](./cli/README.md), AI 에이전트가 의존하는 운영 규약은 [`cli/AGENTS.md`](./cli/AGENTS.md)를 참고하세요.
 
 ## 문서
 

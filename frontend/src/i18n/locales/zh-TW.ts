@@ -752,25 +752,6 @@ export default {
     confirmRemove: '確認移除'
   },
   integrations: {
-    cli: {
-      title: 'GENYEE CLI',
-      subtitle: '在終端中管理知識庫和文件、檢索內容併發起問答，也可透過指令碼或 MCP 接入 AI 工具。',
-      docs: '查看 CLI 文件',
-      docsHint: '安裝說明與完整命令參考',
-      quickstart: '快速開始',
-      installTitle: '安裝 CLI',
-      installDesc: '目前支持源碼建構，需要 Git 和 Go 1.26+。以下示例適用於 macOS / Linux，PATH 設定僅在當前終端生效；長期使用請將二進位放入 PATH 目錄。',
-      connectTitle: '連結當前服務',
-      connectDesc: '建立並啟用名為 weknora 的連結設定，然後使用電子信箱和密碼登入。如果已有同名設定，請更換名稱，並同步修改 MCP 示例中的設定名。',
-      verifyTitle: '驗證連結',
-      verifyDesc: '檢查服務與認證狀態，並列出當前帳號可存取的知識庫。',
-      commandsTitle: '常用命令',
-      commandsDesc: '將 KB_ID 取代為知識庫 ID，按需取代檔案路徑、檢索詞和問題。上傳後的文件需解析完成才能檢索。',
-      mcpTitle: '接入 MCP 用戶端',
-      mcpDesc: '完成登入後，將以下設定新增到支持 stdio 的 MCP 用戶端。若用戶端無法找到 weknora，請將 command 改為二進位的絕對路徑。',
-      copy: '複製',
-      copied: '已複製',
-    },
     title: '發布集成',
     selectAgentPlaceholder: '請選擇智慧代理',
     selectAgentHint: '請先選擇一個智慧代理',
@@ -778,114 +759,6 @@ export default {
     filterByAgent: '按智慧代理篩選',
     filterByAgentWithName: '按智慧代理篩選：{name}',
     filterAllAgents: '全部智慧代理',
-    claw: {
-      title: 'GENYEE Skill',
-      subtitle: '透過 GENYEE REST API 匯入文件並執行混合檢索（向量 + 關鍵字）。適用於上傳檔案/URL/Markdown 到知識庫、跨庫檢索與瀏覽知識內容。',
-      capabilitiesTitle: 'Skill 能力',
-      stepsTitle: '設定步驟',
-      openApiSettings: '打開 API 資訊',
-      copy: '複製',
-      copyEnvSuccess: '已複製環境變數示例',
-      copyCmdSuccess: '已複製安裝命令',
-      ecosystemNote: 'Skill 託管於 ClawHub（{\'@\'}lyingbug/weknora），完整 API 說明與版本歷史請參見 ClawHub 頁面。',
-      installCta: '前往 ClawHub',
-      installCtaHint: '安裝 GENYEE Skill · 將在新分頁打開',
-      hubMeta: 'ClawHub · {\'@\'}lyingbug/weknora · MIT-0',
-      steps: {
-        verify: {
-          title: '驗證連結',
-          desc: '安裝後讓 Agent 列出知識庫或執行一次檢索，確認 API 憑證與網路可達。'
-        },
-        install: {
-          title: '安裝 Skill',
-          desc: '在已安裝 OpenClaw CLI 的環境中執行下方命令，或前往 ClawHub 頁面按指引安裝。'
-        },
-        env: {
-          title: '設定環境變數',
-          desc: '在終端或 ~/.zshrc、~/.bashrc 中設定 WEKNORA_BASE_URL 與 WEKNORA_API_KEY。下方示例已填入當前 API 地址，請將 API Key 取代為實際值。'
-        },
-        api: {
-          title: '獲取 API 憑證',
-          desc: '在「設定 → API 資訊」中複製 API Key 與 API 地址。'
-        }
-      },
-      capabilities: {
-        browse: {
-          title: '瀏覽知識庫',
-          desc: '列出知識庫與條目、查看詳情，管理已匯入的知識內容。'
-        },
-        search: {
-          title: '混合檢索',
-          desc: '單庫 hybrid-search 與跨庫 knowledge-search，結合向量與關鍵字召回。'
-        },
-        manual: {
-          title: '寫入 Markdown',
-          desc: '以 Markdown 形式建立或編輯知識條目，適合會議記錄與結構化筆記。'
-        },
-        url: {
-          title: '匯入網頁',
-          desc: '透過 URL 抓取網頁內容並寫入知識庫，支持解析狀態輪詢。'
-        },
-        upload: {
-          title: '上傳檔案',
-          desc: '將 PDF、Word、Excel 等文件上傳至知識庫，自動解析與向量化。'
-        }
-      }
-    },
-    chrome: {
-      title: '知識管理助手',
-      subtitle: '配合 GENYEE 自建服務使用：在任意網頁側邊欄提問、剪藏內容、Markdown 速記，將瀏覽中的知識沉澱到你的知識庫。',
-      capabilitiesTitle: '核心能力',
-      stepsTitle: '設定步驟',
-      openApiSettings: '打開 API 資訊',
-      copy: '複製',
-      copySuccess: '已複製 API 地址',
-      installCta: '前往 Chrome 應用商店',
-      installCtaHint: '官方擴展 · 將在新分頁打開',
-      storeMeta: 'Chrome 應用商店 · v1.0.0',
-      steps: {
-        connect: {
-          title: '在外掛中完成連結',
-          desc: '打開外掛設定，選擇「企業/開發者」模式，填入服務 API 地址與 API Key。下方為當前服務地址。'
-        },
-        install: {
-          title: '安裝 Chrome 外掛',
-          desc: '前往 Chrome 應用商店安裝「知識管理助手」。'
-        },
-        port: {
-          title: '桌面版設定固定連接埠（推薦）',
-          desc: '使用 GENYEE 桌面版時，在 API 資訊中設定固定連接埠（如 37841），避免每次啟動後地址變化導致外掛斷連。'
-        },
-        api: {
-          title: '獲取 API 憑證',
-          desc: '在「設定 → API 資訊」中複製 API Key 與 API 地址。'
-        }
-      },
-      scenarios: {
-        research: '日常資料調研',
-        learning: '學習筆記整理',
-        tech: '技術資料收集',
-        work: '工作知識沉澱'
-      },
-      capabilities: {
-        shortcuts: {
-          title: '高效快速鍵',
-          desc: '可自定義快速鍵快速提問、打開側邊欄等操作，提升日常效率。'
-        },
-        notes: {
-          title: 'Markdown 速記',
-          desc: '內建 Markdown 編輯器，隨時記錄靈感與筆記，一鍵儲存到知識庫。'
-        },
-        clip: {
-          title: '網頁內容一鍵採集',
-          desc: '儲存頁面 URL、AI 智慧剪藏正文，或手動框選區域，精準寫入指定知識庫。'
-        },
-        qa: {
-          title: '知識庫智慧問答',
-          desc: '側邊欄對話面板，支持多知識庫切換與快速/深度/精確三種回答模式，邊瀏覽邊提問不打斷工作流程。'
-        }
-      }
-    },
     agentEditor: {
       label: '發布通路',
       desc: '將智慧代理發布到 IM 平台或網站，在集成中心統一管理'
@@ -1163,9 +1036,6 @@ export default {
       im: 'IM 集成',
       embed: '網頁內嵌',
       api: 'API 集成',
-      chrome: 'Chrome 外掛',
-      cli: 'CLI',
-      claw: 'Claw Skill',
       mcpserver: 'MCP Server'
     }
   },
@@ -2552,10 +2422,6 @@ export default {
           name: 'MarkItDown',
           desc: 'Microsoft MarkItDown 文件轉換工具（支持 PDF/Office/HTML 等）'
         },
-        weknoracloud: {
-          name: 'GENYEE Cloud',
-          desc: '使用 GENYEE Cloud 進行文件解析'
-        },
         paddleocr_vl_cloud: {
           name: 'PaddleOCR-VL Cloud',
           desc: 'PaddleOCR-VL 雲 API'
@@ -2740,12 +2606,6 @@ export default {
         q2: '连上之后要怎樣把模型加到空間里？',
         q3: 'Ollama 连不上时通常要檢查什麼？',
       },
-      weknoracloud: {
-        description: '我可以說明 GENYEE Cloud 能提供哪些模型，以及怎樣开通和选用。',
-        q1: 'GENYEE Cloud 能提供哪些模型？',
-        q2: '怎樣开通或绑定 Cloud 帳號？',
-        q3: 'Cloud 模型和我自己接入的模型怎么选？',
-      },
       vectorstore: {
         description: '我可以說明当前向量檢索引擎、换引擎的影响，以及怎樣檢查是否正常。',
         q1: '当前用的是哪套向量檢索引擎？',
@@ -2871,24 +2731,6 @@ export default {
         q1: '怎樣把 GENYEE 作为 MCP 服务提供出去？',
         q2: '外部客户端要怎樣連接？',
         q3: '這個服务会暴露哪些工具？',
-      },
-      'integration-cli': {
-        description: '我可以指導你安装并登入 CLI，并列出常用的知识库和對話命令。',
-        q1: '怎樣安装并登入 GENYEE CLI？',
-        q2: 'CLI 能做哪些知识库和對話操作？',
-        q3: '最常用的几条命令是什麼？',
-      },
-      'integration-chrome': {
-        description: '我可以說明瀏覽器擴充功能能做什麼、怎樣安装登入，以及選取内容会发到哪裡。',
-        q1: '瀏覽器擴充功能能做什麼？',
-        q2: '怎樣安装并登入這個擴充功能？',
-        q3: '擴充功能里選取的内容会发到哪裡？',
-      },
-      'integration-claw': {
-        description: '我可以說明怎樣把 GENYEE 接到 Claw，以及需要安装哪个技能。',
-        q1: '怎樣把 GENYEE 接到 Claw？',
-        q2: '需要安装哪个技能？',
-        q3: '连上之后能在 Claw 里做什麼？',
       },
     },
     startFailed: '啟動助手失敗，請重試',
@@ -6547,7 +6389,6 @@ export default {
     all: '全部',
     clear: '清空',
     website: '官方網站',
-    clawhubSkill: 'Claw Skill',
     github: 'GitHub',
     githubStarTip: '在 GitHub 打開倉庫，若覺得有用歡迎點個 Star',
     on: '開啟',
@@ -7792,59 +7633,6 @@ export default {
       paddleocrVlEndpointPlaceholder: '如 http://your-paddleocr-vl:8080',
       paddleocrVlEndpointHint: '填寫 PaddleOCR-VL 完整服務（pipeline）地址，無需 /layout-parsing 後綴',
       paddleocrVlCloudTokenPlaceholder: 'PaddleOCR-VL 飛槳星河社區 Token'
-    },
-    weknoraCloud: {
-      title: 'GENYEE Cloud',
-      description: '設定 GENYEE Cloud 的 APPID 和 APPSECRET 憑證。憑證用於模型服務和文件解析引擎。',
-      viewDocs: '查看文件',
-      unconfigured: '尚未設定憑證，請填寫 APPID 和 APPSECRET',
-      configured: '憑證已設定，狀態正常',
-      expired: 'GENYEE Cloud 憑證已失效',
-      expiredDefault: '服務重啟後加密金鑰已變更，已儲存的憑證無法解密。請重新填寫憑證。',
-      reconfigure: '重新設定',
-      appIdLabel: 'APPID',
-      appIdDesc: 'GENYEE Cloud 的應用 ID',
-      appIdPlaceholder: '請輸入 APPID',
-      appSecretLabel: 'APPSECRET',
-      appSecretDesc: 'GENYEE Cloud 的應用金鑰',
-      appSecretPlaceholder: '請輸入 APPSECRET',
-      saveHint: '儲存後將驗證服務可達性並加密存儲憑證',
-      saveBtn: '儲存憑證',
-      usageTitle: '使用說明',
-      usageSteps: '1. 填寫並儲存 APPID / APPSECRET\n2. 在下方「雲模型接入」中按行新增 chat、embedding、rerank、vlm\n3. 文件解析：知識庫設定 → 解析引擎，選擇 GENYEE Cloud 引擎',
-      fillRequired: '請填寫 APPID 和 APPSECRET',
-      saveSuccess: '憑證已儲存',
-      saveFailed: '憑證儲存失敗',
-      credentialConfigured: 'GENYEECloud 憑證已設定',
-      credentialExpired: '憑證已失效，請重新設定。',
-      credentialUnconfigured: '尚未設定 GENYEECloud 憑證，請先填寫 APPID 和 APPSECRET。',
-      checkingStatus: '正在檢查憑證狀態...',
-      goToSettings: '前往設定中設定',
-      modelHintConfigured: 'GENYEECloud 憑證已設定。支持的模型可參考',
-      modelHintDocsLink: '介面文件',
-      addModelsSuccess: '已成功新增 {count} 個模型',
-      addModelsPartial: '已新增 {success} 個，{failed} 個失敗',
-      addModelsFailed: '新增模型失敗',
-      addModelsEmbeddingFailed: 'Embedding 模型連結測試失敗，無法獲取向量維度',
-      addModelsDisplayName: {
-        chat: 'GENYEECloud 對話',
-        embedding: 'GENYEECloud Embedding',
-        rerank: 'GENYEECloud ReRank',
-        vllm: 'GENYEECloud 視覺'
-      },
-      modelsSection: {
-        title: '雲模型接入',
-        descReady: '將 GENYEE Cloud 提供的四類標準模型註冊到當前空間，用於對話、向量檢索、重排序與多模態理解。',
-        descPending: '請先儲存上方憑證，再在此新增雲模型。',
-        statusAdded: '已新增',
-        statusPending: '待設定憑證',
-        addOne: '新增',
-        addAllBtn: '新增全部缺失（{count}）',
-        addAllConfirm: '確認新增',
-        confirmAddOne: '新增 {type} 模型「{name}」？',
-        confirmAddAll: '免洗新增 {count} 個缺失的雲模型？',
-        allReady: '四類雲模型均已就緒'
-      }
     },
     roleDenied: {
       title: '權限不足',

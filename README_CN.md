@@ -15,8 +15,6 @@
   <a href="https://github.com/Usir233/GENYEE/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Usir233/GENYEE?style=flat-square&labelColor=101f38&color=b8863b"></a>
   <br/>
   <a href="https://chatbot.weixin.qq.com"><img alt="微信对话开放平台" src="https://img.shields.io/badge/微信对话-开放平台-07c160?style=flat-square&labelColor=101f38&logo=wechat&logoColor=white"></a>
-  <a href="https://chromewebstore.google.com/detail/jpemjbopikggjlmikmclgbmkhhopjdgd"><img alt="Chrome 插件" src="https://img.shields.io/badge/Chrome-插件-4285f4?style=flat-square&labelColor=101f38&logo=googlechrome&logoColor=white"></a>
-  <a href="https://clawhub.ai/lyingbug/weknora"><img alt="ClawHub Skill" src="https://img.shields.io/badge/ClawHub-skill-ff6b35?style=flat-square&labelColor=101f38"></a>
   <a href="https://www.npmjs.com/package/@wxg-prc-cpg/dsh-weknora"><img alt="npm @wxg-prc-cpg/dsh-weknora" src="https://img.shields.io/npm/v/@wxg-prc-cpg/dsh-weknora?style=flat-square&label=dsh-weknora&labelColor=101f38&color=cb3837&logo=npm&logoColor=white"></a>
 </p>
 
@@ -174,7 +172,7 @@ docker compose up -d    # 用新镜像重建容器
 - **[原文引用](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#conversation)**：从回答直接定位原始文档中的引用片段。
 - **[对话与工具](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#tools)**：无需沙箱即可按需读取附件，未读回答标记、@ 全局搜索、Docker 终端、Lite 本机技能与 MCP 兼容性更新。
 - **[管理与集成](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#administration)**：平台用户管理、仅限邀请注册、管理员模型目录、WeMM 向量、TEI/Pinecone/Cohere 重排、Seafile 数据源与繁体中文。
-- **[稳定性](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#other-changes)**：集中修复检索、解析、数据源、Wiki、OAuth 和 CLI。注册模式、空工具列表、数据库迁移与向量重建要求见[升级须知](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#upgrade-notes)。
+- **[稳定性](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#other-changes)**：集中修复检索、解析、数据源、Wiki 和 OAuth。注册模式、空工具列表、数据库迁移与向量重建要求见[升级须知](https://weknora.weixin.qq.com/docs/07-releases/v0.8.3#upgrade-notes)。
 
 ### v0.8.2 <sub>· 2026-09-24 · [版本说明](https://weknora.weixin.qq.com/docs/07-releases/v0.8.2)</sub>
 
@@ -337,31 +335,13 @@ docker compose up -d    # 用新镜像重建容器
 
 | | 客户端 | 用途 |
 |:-:|--------|------|
-| <img src="./docs/images/readme/icons/terminal.svg" width="22" height="22" alt=""> | [**命令行 `genyee`**](./cli/README.md) | Agent 优先的命令行，覆盖完整 API，附带精选 MCP 工具面与内置 Agent Skills |
 | <img src="./docs/images/readme/icons/plug.svg" width="22" height="22" alt=""> | [**内置 MCP Server**](https://weknora.weixin.qq.com/docs/03-features/08-mcp) | 通过 Streamable HTTP 把知识库开放给 Cursor、Claude 等 MCP 客户端；[`mcp-server/`](./mcp-server/MCP_CONFIG.md) 下的 Python 服务已弃用 |
 | <img src="./website-docs/homepage/public/docs/_home/brands/browserskill.png" width="22" height="22" alt=""> | [**本地浏览器（BrowserSkill）**](https://weknora.weixin.qq.com/docs/05-clients/09-local-browser) | 让智能体操作用户自己的 Chrome / Edge |
-| <img src="./website-docs/homepage/public/docs/_home/brands/chrome.svg" width="22" height="22" alt=""> | [**Chrome 插件**](https://chromewebstore.google.com/detail/jpemjbopikggjlmikmclgbmkhhopjdgd) | 在浏览器中选中文本、图片或整个页面，一键保存为知识条目，无需复制粘贴或手动上传文件 |
 | <img src="./docs/images/readme/icons/phone.svg" width="22" height="22" alt=""> | [**微信小程序**](./miniprogram/README.md) | 轻量移动端：配置 GENYEE API、选择知识库、导入 URL，并在微信内向知识库提问 |
-| <img src="./docs/images/readme/icons/skills.svg" width="22" height="22" alt=""> | [**ClawHub Skill**](https://clawhub.ai/lyingbug/weknora) | 发布在 ClawHub 上的 GENYEE 技能，通过 REST API 导入文档、混合检索与管理知识条目 |
 | <img src="./website-docs/homepage/public/docs/_home/brands/deepseek-color.svg" width="22" height="22" alt=""> | [**DeepSeek Harness 插件**](https://www.npmjs.com/package/@wxg-prc-cpg/dsh-weknora) | 为 `dsh` 编码 Agent 提供四个只读工具：检索、读取文档、提问、列出知识库 |
 | <img src="./docs/images/readme/icons/code.svg" width="22" height="22" alt=""> | [**网站嵌入 Widget**](https://weknora.weixin.qq.com/docs/03-features/13-embed-channel) | 将智能体发布到外部站点 |
 | <img src="./docs/images/readme/icons/braces.svg" width="22" height="22" alt=""> | [**Go SDK**](https://weknora.weixin.qq.com/docs/05-clients/03-go-sdk) | 知识库、文档、会话等资源的 CRUD 与 SSE 流式问答 |
 | <img src="./website-docs/homepage/public/docs/_home/brands/wechat-dialog.png" width="22" height="22" alt=""> | [**微信对话开放平台**](https://chatbot.weixin.qq.com) | 基于 GENYEE 的托管问答平台，上传知识即可在微信内发布问答服务，无需写代码 |
-
-### 命令行工具
-
-`genyee` 是官方命令行工具，可在终端或 AI Agent 中驱动 API。它**以 Agent 为先**：每条命令默认输出稳定的 JSON 信封（带类型化错误码并映射到退出码），`--format text` 则面向人类阅读。它还提供精选的 MCP 工具面（`genyee mcp serve`），并内置 Agent Skills。
-
-```bash
-genyee profile add prod --host https://kb.example.com --use
-genyee auth login
-genyee kb list
-genyee link --kb my-knowledge-base    # 绑定当前目录
-genyee doc upload notes.md
-genyee chat "总结一下设计文档"
-```
-
-在无界面 / CI 场景下，设置 `WEKNORA_API_KEY` 与 `WEKNORA_HOST` 即可跳过 `auth login`，不会有凭据写入磁盘。安装与 5 分钟上手见 [`cli/README.md`](./cli/README.md)，AI Agent 依赖的操作约定见 [`cli/AGENTS.md`](./cli/AGENTS.md)。
 
 ## 文档
 

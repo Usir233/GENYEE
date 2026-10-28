@@ -201,7 +201,7 @@ type ModelResponse struct {
 
 // ModelParametersDTO carries every parameter field EXCEPT the two secret
 // ones (APIKey, AppSecret). AppID is non-secret and stays — it's an account
-// identifier the WeKnora Cloud frontend renders. CustomHeaders is also kept
+// identifier the frontend renders. CustomHeaders is also kept
 // (structural metadata, not a credential).
 type ModelParametersDTO struct {
 	// BaseURL is empty for callers who may not view integration detail, and

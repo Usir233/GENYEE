@@ -87,17 +87,11 @@ docker push ${REGISTRY}/genyee-sandbox:main
 
 ---
 
-## 二、浏览器抓取插件与第三方扩展保留项
+## 二、浏览器连接插件保留项
 
-由于目前尚未单独打包上架专属的 Chrome/Edge 浏览器扩展和 ClawHub 技能包，以下外部插件商店链接与通信标识已保留原状，确保现有网页抓取与浏览器连接功能可直接使用：
+由于目前尚未单独打包上架专属的 BrowserSkill 浏览器连接扩展，以下外部插件商店链接与通信标识已保留原状，确保现有浏览器连接功能可直接使用：
 
-### 1. 网页剪藏 / 浏览器连接扩展商店地址
-- **`frontend/src/config/integrations.ts`**
-  - 第 `3-4` 行：
-    ```ts
-    export const CHROME_EXTENSION_URL =
-      'https://chromewebstore.google.com/detail/jpemjbopikggjlmikmclgbmkhhopjdgd?utm_source=item-share-cb'
-    ```
+### 1. 本地浏览器连接扩展商店地址
 - **`frontend/src/views/settings/BrowserConnectionSettings.vue`**
   - 第 `188-191` 行（BrowserSkill 本地浏览器连接插件的 Chrome / Edge 商店安装地址）：
     ```ts
@@ -108,12 +102,5 @@ docker push ${REGISTRY}/genyee-sandbox:main
     ```
   - 第 `82`、`89` 行：BrowserSkill 插件图标（`browserskill-logo.svg`）及上游说明链接保留原状。
 
-### 2. 第三方 ClawHub 技能包地址
-- **`frontend/src/config/integrations.ts`**
-  - 第 `6` 行：
-    ```ts
-    export const CLAWHUB_SKILL_URL = 'https://clawhub.ai/lyingbug/weknora'
-    ```
-
-### 3. 环境变量与兼容标识保留说明
-- 为保证升级平滑与脚本兼容，`docker-compose.yml` 和 `.env.example` 中的环境变量名（如 `WEKNORA_VERSION`、`WEKNORA_API_KEY` 等内部配置键名）以及 CLI 配置文件回退读取逻辑予以保留，不会影响用户侧展示的 **GENYEE** 品牌。
+### 2. 环境变量与兼容标识保留说明
+- 为保证升级平滑与脚本兼容，`docker-compose.yml` 和 `.env.example` 中的环境变量名（如 `WEKNORA_VERSION`、`WEKNORA_API_KEY` 等内部配置键名）予以保留，不会影响用户侧展示的 **GENYEE** 品牌。

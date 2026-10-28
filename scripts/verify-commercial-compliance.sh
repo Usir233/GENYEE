@@ -5,11 +5,12 @@
 # Unified Commercial Compliance & Dependency Hygiene Verification Suite
 # Enforces 100% commercial permissiveness and clean source code delivery.
 #
-# Covers 4 Tiers:
+# Covers 5 Tiers:
 #   Tier 1: Feature Coverage (Core Sanity & Acceptance)
 #   Tier 2: Boundary & Corner Cases (Defensive Guards, Schema Strictness, Subprocess Reaping)
 #   Tier 3: Cross-Feature Interactions (Inter-module Contracts & Working Dir Independence)
 #   Tier 4: Real-World Scenarios (Enterprise Client Compliance Audit & Offline Readiness)
+#   Tier 5: Commercial Compliance Removal Verification (AC1 & AC2: WeKnora Cloud, CLI, Chrome, Claw)
 # ==============================================================================
 
 set -uo pipefail
@@ -54,8 +55,8 @@ Usage: $(basename "$0") [OPTIONS]
 Unified Commercial Compliance & Dependency Hygiene Verification Suite
 
 Options:
-  --tier <1|2|3|4>   Run tests only for the specified Tier (1-4)
-  --all              Run all 4 tiers (default)
+  --tier <1|2|3|4|5> Run tests only for the specified Tier (1-5)
+  --all              Run all 5 tiers (default)
   -v, --verbose      Display command stdout and stderr during test execution
   -b, --bail         Stop execution immediately on first test failure
   -h, --help         Show this help message and exit
@@ -63,6 +64,7 @@ Options:
 Examples:
   bash scripts/verify-commercial-compliance.sh
   bash scripts/verify-commercial-compliance.sh --tier 1
+  bash scripts/verify-commercial-compliance.sh --tier 5
   bash scripts/verify-commercial-compliance.sh --verbose --bail
 EOF
 }
@@ -71,21 +73,21 @@ EOF
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --tier)
-            if [[ -n "${2:-}" ]] && [[ "$2" =~ ^[1-4]$ ]]; then
+            if [[ -n "${2:-}" ]] && [[ "$2" =~ ^[1-5]$ ]]; then
                 TARGET_TIER="$2"
                 shift 2
             else
-                echo -e "${C_RED}Error: --tier requires an argument between 1 and 4${C_RESET}" >&2
+                echo -e "${C_RED}Error: --tier requires an argument between 1 and 5${C_RESET}" >&2
                 exit 2
             fi
             ;;
         --tier=*)
             tier_val="${1#*=}"
-            if [[ "$tier_val" =~ ^[1-4]$ ]]; then
+            if [[ "$tier_val" =~ ^[1-5]$ ]]; then
                 TARGET_TIER="$tier_val"
                 shift
             else
-                echo -e "${C_RED}Error: --tier requires an argument between 1 and 4${C_RESET}" >&2
+                echo -e "${C_RED}Error: --tier requires an argument between 1 and 5${C_RESET}" >&2
                 exit 2
             fi
             ;;
@@ -628,6 +630,234 @@ run_tier_4() {
 }
 
 # ==============================================================================
+# TIER 5: Commercial Compliance Removal Verification (AC1 & AC2)
+# ==============================================================================
+
+# TC-T5-01: Check A: Frontend WeKnora Cloud settings & model helper removal
+test_t5_wkc_frontend_files_absent() {
+    local forbidden_files=(
+        "frontend/src/views/settings/WeKnoraCloudSettings.vue"
+        "frontend/src/utils/weknoraCloudModels.ts"
+    )
+    local found=0
+    for f in "${forbidden_files[@]}"; do
+        if [[ -e "${f}" ]]; then
+            echo "Forbidden WeKnora Cloud frontend file exists: ${f}" >&2
+            found=1
+        fi
+    done
+    return $found
+}
+
+# TC-T5-02: Check B: Backend WeKnora Cloud provider, parser, handler & service removal
+test_t5_wkc_backend_files_absent() {
+    local forbidden_files=(
+        "internal/models/providers/weknoracloud.go"
+        "internal/infrastructure/docparser/weknoracloud_http_reader.go"
+        "internal/handler/weknoracloud.go"
+        "internal/application/service/weknoracloud.go"
+        "internal/types/weknoracloud.go"
+        "internal/types/interfaces/weknoracloud.go"
+        "internal/models/vlm/weknoracloud.go"
+        "internal/models/providers/assets/weknoracloud.svg"
+    )
+    local found=0
+    for f in "${forbidden_files[@]}"; do
+        if [[ -e "${f}" ]]; then
+            echo "Forbidden WeKnora Cloud backend file exists: ${f}" >&2
+            found=1
+        fi
+    done
+    return $found
+}
+
+# TC-T5-03: Check C: Zero occurrences of "weknoracloud" across frontend/src and internal/
+test_t5_wkc_zero_occurrences() {
+    local matches=""
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        matches=$(git grep -in "weknoracloud" -- frontend/src internal/ 2>/dev/null || true)
+    fi
+    if [[ -z "${matches}" ]]; then
+        matches=$(grep -rin "weknoracloud" frontend/src internal/ 2>/dev/null || true)
+    fi
+
+    if [[ -n "${matches}" ]]; then
+        echo "Forbidden references to 'weknoracloud' detected:" >&2
+        echo "${matches}" | head -n 25 >&2
+        return 1
+    fi
+    return 0
+}
+
+# TC-T5-04: Check D: Frontend CLI, Chrome extension, and Claw skill landing removal
+test_t5_integrations_frontend_files_absent() {
+    local forbidden_files=(
+        "frontend/src/views/integrations/CliIntegrationLanding.vue"
+        "frontend/src/views/integrations/cliIntegration.ts"
+        "frontend/src/views/integrations/cliIntegration.test.ts"
+        "frontend/src/views/integrations/ChromeExtensionLanding.vue"
+        "frontend/src/views/integrations/ClawSkillLanding.vue"
+        "frontend/src/views/integrations/IntegrationLandingLayout.vue"
+        "frontend/src/views/integrations/IntegrationExternalCta.vue"
+        "frontend/src/views/integrations/integration-landing.less"
+    )
+    local found=0
+    for f in "${forbidden_files[@]}"; do
+        if [[ -e "${f}" ]]; then
+            echo "Forbidden integration frontend file exists: ${f}" >&2
+            found=1
+        fi
+    done
+    return $found
+}
+
+# TC-T5-05: Check E: INTEGRATION_TABS strictly restricted to ['im', 'embed', 'api', 'mcpserver']
+test_t5_integration_tabs_whitelist() {
+    local config_file="frontend/src/config/integrations.ts"
+    if [[ ! -f "${config_file}" ]]; then
+        echo "Missing configuration file: ${config_file}" >&2
+        return 1
+    fi
+
+    python3 - <<'EOF'
+import re
+import ast
+import sys
+
+with open("frontend/src/config/integrations.ts", "r", encoding="utf-8") as f:
+    content = f.read()
+
+match = re.search(r"export\s+const\s+INTEGRATION_TABS\s*(?::\s*[^=]+)?=\s*(\[[^\]]+\])", content)
+if not match:
+    sys.stderr.write("Could not locate INTEGRATION_TABS array in frontend/src/config/integrations.ts\n")
+    sys.exit(1)
+
+raw_array = match.group(1)
+try:
+    tabs = ast.literal_eval(raw_array)
+except Exception as e:
+    sys.stderr.write(f"Failed to parse INTEGRATION_TABS array: {e}\n")
+    sys.exit(1)
+
+expected_tabs = ['im', 'embed', 'api', 'mcpserver']
+if tabs != expected_tabs:
+    sys.stderr.write(f"INTEGRATION_TABS violation: expected {expected_tabs}, found {tabs}\n")
+    sys.exit(1)
+
+type_match = re.search(r"export\s+type\s+IntegrationTab\s*=\s*([^;\n]+)", content)
+if type_match:
+    type_str = type_match.group(1).replace(" ", "").replace('"', "'")
+    expected_type = "'im'|'embed'|'api'|'mcpserver'"
+    if type_str != expected_type:
+        sys.stderr.write(f"IntegrationTab type definition violation: expected {expected_type}, found {type_str}\n")
+        sys.exit(1)
+
+# Ensure no mention of cli, chrome, claw tabs
+forbidden_tab_tokens = ["'cli'", '"cli"', "'chrome'", '"chrome"', "'claw'", '"claw"']
+for tok in forbidden_tab_tokens:
+    if tok in content:
+        sys.stderr.write(f"Found forbidden token {tok} in frontend/src/config/integrations.ts\n")
+        sys.exit(1)
+
+print("INTEGRATION_TABS is strictly configured with ['im', 'embed', 'api', 'mcpserver'].")
+EOF
+}
+
+# TC-T5-06: Check F: Standalone CLI directory (/Users/cy/GENYEE/cli) absence
+test_t5_cli_directory_absent() {
+    if [[ -e "${REPO_ROOT}/cli" ]] || [[ -d "${REPO_ROOT}/cli" ]]; then
+        echo "Standalone cli directory still exists at ${REPO_ROOT}/cli" >&2
+        return 1
+    fi
+    return 0
+}
+
+# TC-T5-07: Check G: CLI CI/CD workflows (.github/workflows/cli*.yml) absence
+test_t5_cli_workflows_absent() {
+    local found=0
+    for wf in ".github/workflows/cli.yml" ".github/workflows/cli-e2e.yml"; do
+        if [[ -e "${wf}" ]]; then
+            echo "Forbidden CLI workflow file exists: ${wf}" >&2
+            found=1
+        fi
+    done
+    return $found
+}
+
+# TC-T5-08: Check H: OpenPage tool navigation clean of WKC and removed integration routes
+test_t5_open_page_navigation_clean() {
+    local target_file="internal/agent/tools/open_page.go"
+    if [[ ! -f "${target_file}" ]]; then
+        echo "Missing agent tool file: ${target_file}" >&2
+        return 1
+    fi
+
+    local forbidden_regex="(weknoracloud|integration-cli|integration-chrome|integration-claw)"
+    local matches
+    matches=$(grep -E -n -i "${forbidden_regex}" "${target_file}" || true)
+    if [[ -n "${matches}" ]]; then
+        echo "Forbidden navigation routes found in ${target_file}:" >&2
+        echo "${matches}" >&2
+        return 1
+    fi
+    return 0
+}
+
+# TC-T5-09: Check I: BrowserSkill ("本机浏览器连接", internal/browserskill/) integrity and tests
+test_t5_browserskill_intact() {
+    local bsk_dir="internal/browserskill"
+    if [[ ! -d "${bsk_dir}" ]]; then
+        echo "BrowserSkill directory missing: ${bsk_dir}" >&2
+        return 1
+    fi
+
+    local required_files=(
+        "authorization.go"
+        "cluster.go"
+        "daemon.go"
+        "errors.go"
+        "focus.go"
+        "human.go"
+        "manager.go"
+        "result.go"
+        "stop.go"
+        "store.go"
+    )
+    for f in "${required_files[@]}"; do
+        if [[ ! -s "${bsk_dir}/${f}" ]]; then
+            echo "BrowserSkill core source missing or empty: ${bsk_dir}/${f}" >&2
+            return 1
+        fi
+    done
+
+    local go_test_output
+    local go_test_status=0
+    go_test_output=$(go test -count=1 ./internal/browserskill 2>&1) || go_test_status=$?
+    if [[ $go_test_status -ne 0 ]]; then
+        echo "BrowserSkill unit tests failed:" >&2
+        echo "${go_test_output}" >&2
+        return 1
+    fi
+    return 0
+}
+
+run_tier_5() {
+    echo -e "\n${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
+    echo -e "${C_BOLD}${C_BLUE}[TIER 5] Commercial Compliance Removal Verification (AC1 & AC2)${C_RESET}"
+    echo -e "${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
+
+    run_test "TC-T5-01" "Check A: Frontend WeKnora Cloud settings & model helper removal" test_t5_wkc_frontend_files_absent
+    run_test "TC-T5-02" "Check B: Backend WeKnora Cloud provider, parser, handler & service removal" test_t5_wkc_backend_files_absent
+    run_test "TC-T5-03" "Check C: Zero occurrences of 'weknoracloud' in frontend/src & internal/" test_t5_wkc_zero_occurrences
+    run_test "TC-T5-04" "Check D: Frontend CLI, Chrome extension & Claw skill landing removal" test_t5_integrations_frontend_files_absent
+    run_test "TC-T5-05" "Check E: INTEGRATION_TABS restricted to ['im', 'embed', 'api', 'mcpserver']" test_t5_integration_tabs_whitelist
+    run_test "TC-T5-06" "Check F: Standalone CLI directory (/Users/cy/GENYEE/cli) absence" test_t5_cli_directory_absent
+    run_test "TC-T5-07" "Check G: CLI CI/CD workflows (.github/workflows/cli*.yml) absence" test_t5_cli_workflows_absent
+    run_test "TC-T5-08" "Check H: OpenPage tool navigation clean of WKC and removed integration routes" test_t5_open_page_navigation_clean
+    run_test "TC-T5-09" "Check I: BrowserSkill ('本机浏览器连接') core package integrity and tests" test_t5_browserskill_intact
+}
+
+# ==============================================================================
 # Summary & Execution Dispatcher
 # ==============================================================================
 
@@ -650,7 +880,7 @@ print_summary() {
         return 1
     else
         echo -e "\n${C_GREEN}${C_BOLD}  Result: 100% COMMERCIALLY COMPLIANT${C_RESET}"
-        echo -e "  All acceptance criteria for R1, R2, R3, and R4 verified."
+        echo -e "  All acceptance criteria for R1-R4 and AC1/AC2 (WeKnora Cloud, CLI, Chrome, Claw) verified."
         echo -e "${C_BOLD}================================================================================${C_RESET}\n"
         return 0
     fi
@@ -665,7 +895,7 @@ main() {
     if [[ -n "${TARGET_TIER}" ]]; then
         echo -e "  Target:     Tier ${TARGET_TIER} only"
     else
-        echo -e "  Target:     All Tiers (1-4)"
+        echo -e "  Target:     All Tiers (1-5)"
     fi
 
     case "${TARGET_TIER}" in
@@ -673,11 +903,13 @@ main() {
         2) run_tier_2 ;;
         3) run_tier_3 ;;
         4) run_tier_4 ;;
+        5) run_tier_5 ;;
         *)
             run_tier_1
             run_tier_2
             run_tier_3
             run_tier_4
+            run_tier_5
             ;;
     esac
 

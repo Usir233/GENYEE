@@ -2255,59 +2255,6 @@ export default {
       desc: 'Your role can\'t access this settings page. Ask an admin of this workspace to grant the required role.'
     },
     capabilityUnavailable: 'This feature is not supported by the current deployment. You have been returned to an available page.',
-    weknoraCloud: {
-      title: 'GENYEE Cloud',
-      description: 'Configure GENYEE Cloud APPID and APPSECRET credentials. Credentials are used for model services and document parsing engine.',
-      viewDocs: 'View Docs',
-      unconfigured: 'Credentials not configured. Please fill in APPID and APPSECRET.',
-      configured: 'Credentials configured and working.',
-      expired: 'GENYEE Cloud credentials expired',
-      expiredDefault: 'Encryption key changed after service restart. Saved credentials cannot be decrypted. Please re-enter credentials.',
-      reconfigure: 'Reconfigure',
-      appIdLabel: 'APPID',
-      appIdDesc: 'GENYEE Cloud application ID',
-      appIdPlaceholder: 'Enter APPID',
-      appSecretLabel: 'APPSECRET',
-      appSecretDesc: 'GENYEE Cloud application secret',
-      appSecretPlaceholder: 'Enter APPSECRET',
-      saveHint: 'Credentials will be validated and encrypted before saving.',
-      saveBtn: 'Save Credentials',
-      usageTitle: 'Usage Guide',
-      usageSteps: '1. Save APPID and APPSECRET\n2. Register chat, embedding, rerank, and vlm in Cloud Models below\n3. Parser: Knowledge Base Settings → Parser Engine → GENYEE Cloud',
-      fillRequired: 'Please fill in APPID and APPSECRET',
-      saveSuccess: 'Credentials saved successfully',
-      saveFailed: 'Failed to save credentials',
-      credentialConfigured: 'GENYEECloud credentials configured.',
-      credentialExpired: 'Credentials expired. Please reconfigure.',
-      credentialUnconfigured: 'GENYEECloud credentials not configured. Please set up APPID and APPSECRET first.',
-      checkingStatus: 'Checking credential status...',
-      goToSettings: 'Go to Settings',
-      modelHintConfigured: 'GENYEECloud credentials configured. See supported models in',
-      modelHintDocsLink: 'API docs',
-      modelsSection: {
-        title: 'Cloud Models',
-        descReady: 'Register the four standard GENYEE Cloud models for chat, retrieval, reranking, and vision.',
-        descPending: 'Save credentials above before adding cloud models here.',
-        statusAdded: 'Added',
-        statusPending: 'Credentials required',
-        addOne: 'Add',
-        addAllBtn: 'Add all missing ({count})',
-        addAllConfirm: 'Confirm',
-        confirmAddOne: 'Add {type} model "{name}"?',
-        confirmAddAll: 'Add all {count} missing cloud models at once?',
-        allReady: 'All four cloud models are ready'
-      },
-      addModelsSuccess: 'Successfully added {count} model(s)',
-      addModelsPartial: 'Added {success}, {failed} failed',
-      addModelsFailed: 'Failed to add models',
-      addModelsEmbeddingFailed: 'Embedding connection test failed; could not detect vector dimension',
-      addModelsDisplayName: {
-        chat: 'GENYEECloud Chat',
-        embedding: 'GENYEECloud Embedding',
-        rerank: 'GENYEECloud ReRank',
-        vllm: 'GENYEECloud Vision'
-      }
-    },
     system: 'System Settings',
     parser: {
       title: 'Parser Engine',
@@ -3039,7 +2986,6 @@ export default {
     all: 'All',
     clear: 'Clear',
     website: 'Official Website',
-    clawhubSkill: 'Claw Skill',
     github: 'GitHub',
     githubStarTip: 'Open the repo on GitHub — star it if you find it useful',
     on: 'On',
@@ -6506,12 +6452,6 @@ export default {
           q2: 'How do I add its models to this workspace after connecting?',
           q3: 'What should I check if Ollama will not connect?',
         },
-        weknoracloud: {
-          description: 'I can explain which models GENYEE Cloud offers, and how to bind and choose them.',
-          q1: 'Which models does GENYEE Cloud provide?',
-          q2: 'How do I enable or bind a Cloud account?',
-          q3: 'When should I use Cloud models versus ones I connect myself?',
-        },
         vectorstore: {
           description: 'I can explain the current vector engine, what changing it does, and how to check it.',
           q1: 'Which vector search engine is in use now?',
@@ -6637,24 +6577,6 @@ export default {
           q1: 'How do I offer GENYEE as an MCP server?',
           q2: 'How does an external client connect?',
           q3: 'Which tools does this server expose?',
-        },
-        'integration-cli': {
-          description: 'I can walk you through installing and signing in to the CLI, and the common commands.',
-          q1: 'How do I install and sign in to the GENYEE CLI?',
-          q2: 'What knowledge-base and chat operations can the CLI do?',
-          q3: 'What are the most useful commands?',
-        },
-        'integration-chrome': {
-          description: 'I can explain what the browser extension does, how to install it, and where selected text goes.',
-          q1: 'What can the browser extension do?',
-          q2: 'How do I install and sign in to the extension?',
-          q3: 'Where does text I select in the extension get sent?',
-        },
-        'integration-claw': {
-          description: 'I can explain how to connect GENYEE to Claw, and which skill to install.',
-          q1: 'How do I connect GENYEE to Claw?',
-          q2: 'Which skill do I need to install?',
-          q3: 'What can I do in Claw after it is connected?',
         },
       },
       startFailed: 'Failed to start the assistant. Please try again.',
@@ -7033,10 +6955,6 @@ export default {
         paddleocr_vl_cloud: {
           name: 'PaddleOCR-VL Cloud',
           desc: 'PaddleOCR-VL Cloud API'
-        },
-        weknoracloud: {
-          name: 'GENYEE Cloud',
-          desc: 'Document parsing via GENYEE Cloud'
         },
         markitdown: {
           name: 'MarkItDown',
@@ -8401,25 +8319,6 @@ export default {
     }
   },
   integrations: {
-    cli: {
-      title: 'GENYEE CLI',
-      subtitle: 'Manage knowledge bases and documents, search content, and ask questions from your terminal. Connect scripts and AI tools through the CLI or MCP.',
-      docs: 'CLI documentation',
-      docsHint: 'Installation and complete command reference',
-      quickstart: 'Quick start',
-      installTitle: 'Install the CLI',
-      installDesc: 'Build from source with Git and Go 1.26+. This macOS / Linux example updates PATH for the current terminal only. For regular use, place the binary in a directory on PATH.',
-      connectTitle: 'Connect to this server',
-      connectDesc: 'Create and activate a profile named weknora, then sign in with your email and password. If that profile already exists, choose another name and update the MCP example to match.',
-      verifyTitle: 'Verify the connection',
-      verifyDesc: 'Check server and authentication status, then list the knowledge bases your account can access.',
-      commandsTitle: 'Common commands',
-      commandsDesc: 'Replace KB_ID with a knowledge base ID and adapt the file path, query, and question. Uploaded documents must finish processing before they can be searched.',
-      mcpTitle: 'Connect an MCP client',
-      mcpDesc: 'After signing in, add this configuration to an MCP client that supports stdio. If the client cannot find weknora, set command to the absolute path of the binary.',
-      copy: 'Copy',
-      copied: 'Copied',
-    },
     title: 'Publish & Integrations',
     mcpserver: {
       title: 'MCP Server',
@@ -8531,9 +8430,6 @@ export default {
       im: 'IM Integration',
       embed: 'Web Embed',
       api: 'API Integration',
-      chrome: 'Chrome Extension',
-      cli: 'CLI',
-      claw: 'Claw Skill',
       mcpserver: 'MCP Server'
     },
     api: {
@@ -8708,114 +8604,6 @@ export default {
     agentEditor: {
       label: 'Publish channels',
       desc: 'Publish this agent to IM platforms or websites. Manage in Integrations.'
-    },
-    chrome: {
-      title: 'Knowledge Assistant',
-      subtitle: 'For self-hosted GENYEE: ask questions in a sidebar, clip web pages, and save Markdown notes into your knowledge bases while you browse.',
-      capabilitiesTitle: 'Core capabilities',
-      capabilities: {
-        qa: {
-          title: 'Knowledge-base Q&A',
-          desc: 'Sidebar chat with multi-KB switching and fast/deep/precise answer modes—ask without leaving the page.'
-        },
-        clip: {
-          title: 'One-click web capture',
-          desc: 'Save page URLs, AI-extract main content, or manually select regions into a target knowledge base.'
-        },
-        notes: {
-          title: 'Markdown quick notes',
-          desc: 'Built-in Markdown editor for ideas and notes, saved to your knowledge base in one click.'
-        },
-        shortcuts: {
-          title: 'Keyboard shortcuts',
-          desc: 'Customize shortcuts to ask questions, open the sidebar, and speed up daily workflows.'
-        }
-      },
-      scenarios: {
-        research: 'Daily research',
-        learning: 'Study notes',
-        tech: 'Technical references',
-        work: 'Work knowledge'
-      },
-      stepsTitle: 'Setup steps',
-      steps: {
-        api: {
-          title: 'Get API credentials',
-          desc: 'Copy your API Key and base URL from Settings → API Info.'
-        },
-        port: {
-          title: 'Desktop: fixed port (recommended)',
-          desc: 'On GENYEE Desktop, set a fixed API port (e.g. 37841) in API Info so the URL stays stable across restarts.'
-        },
-        install: {
-          title: 'Install the extension',
-          desc: 'Install “Knowledge Assistant” from the Chrome Web Store.'
-        },
-        connect: {
-          title: 'Connect in the extension',
-          desc: 'Open extension settings, choose enterprise/developer mode, and enter the service API URL and API Key. Your current API URL is shown below.'
-        }
-      },
-      openApiSettings: 'Open API Info',
-      copy: 'Copy',
-      copySuccess: 'API URL copied',
-      installCta: 'Chrome Web Store',
-      installCtaHint: 'Official extension · opens in a new tab',
-      storeMeta: 'Chrome Web Store · v1.0.0'
-    },
-    claw: {
-      title: 'GENYEE Skill',
-      subtitle: 'Import documents and run hybrid retrieval (vector + keyword) via the GENYEE REST API—for uploads, URL imports, Markdown entries, and cross-KB search.',
-      capabilitiesTitle: 'Skill capabilities',
-      capabilities: {
-        upload: {
-          title: 'Upload files',
-          desc: 'Upload PDF, Word, Excel, and more; automatic parsing and vectorization.'
-        },
-        url: {
-          title: 'Import URLs',
-          desc: 'Fetch web pages by URL into a knowledge base with parse-status polling.'
-        },
-        manual: {
-          title: 'Write Markdown',
-          desc: 'Create or edit knowledge entries as Markdown—ideal for meeting notes.'
-        },
-        search: {
-          title: 'Hybrid search',
-          desc: 'Per-KB hybrid-search and cross-KB knowledge-search combining vector and keyword recall.'
-        },
-        browse: {
-          title: 'Browse knowledge',
-          desc: 'List knowledge bases and entries, view details, and manage imported content.'
-        }
-      },
-      stepsTitle: 'Setup steps',
-      steps: {
-        api: {
-          title: 'Get API credentials',
-          desc: 'Copy API Key and base URL from Settings → API Info.'
-        },
-        env: {
-          title: 'Configure environment',
-          desc: 'Set WEKNORA_BASE_URL and WEKNORA_API_KEY in your shell or ~/.zshrc / ~/.bashrc. The example below uses your current API base URL—replace the API Key with your actual value.'
-        },
-        install: {
-          title: 'Install the skill',
-          desc: 'Run the command below in an environment with the OpenClaw CLI installed, or follow the ClawHub page instructions.'
-        },
-        verify: {
-          title: 'Verify connection',
-          desc: 'Ask the agent to list knowledge bases or run a search to confirm credentials and connectivity.'
-        }
-      },
-      openApiSettings: 'Open API Info',
-      copy: 'Copy',
-      copyEnvSuccess: 'Environment example copied',
-      copyCmdSuccess: 'Install command copied',
-      ecosystemNote: 'Skill hosted on ClawHub ({\'@\'}lyingbug/weknora). See the ClawHub page for full API docs and version history.',
-      installCta: 'Open ClawHub',
-      installCtaHint: 'Install GENYEE Skill · opens in a new tab',
-      hubMeta: 'ClawHub · {\'@\'}lyingbug/weknora · MIT-0'
     }
   },
   credential: {

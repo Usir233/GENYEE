@@ -10,6 +10,7 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/middleware"
 	"github.com/Usir233/GENYEE/internal/types"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,12 +57,10 @@ func (s *stubTenantService) GetTenantByIDForUser(context.Context, uint64, string
 	return s.tenant, nil
 }
 
-func (s *stubTenantService) GetWeKnoraCloudCredentials(context.Context) *types.WeKnoraCloudCredentials {
-	return nil
-}
-
 func newTenantHandlerTestEngine(t *testing.T, role types.TenantRole, tenant *types.Tenant) *gin.Engine {
 	t.Helper()
+	secutils.SetSSRFWhitelistFromRaw("127.0.0.1,198.18.0.0/15")
+	t.Cleanup(func() { secutils.SetSSRFWhitelistFromRaw("") })
 	gin.SetMode(gin.TestMode)
 	h := &TenantHandler{service: &stubTenantService{tenant: tenant}}
 

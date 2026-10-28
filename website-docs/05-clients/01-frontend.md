@@ -145,7 +145,7 @@ flowchart TB
 | 账户 | `general`（个人偏好）、`userprofile`、`mymemory`（个人记忆）、`envvars`（个人变量） |
 | 空间 | `tenant`（空间信息）、`members`（成员）、`chathistory`、`memory`（空间记忆） |
 | 模型与运行 | `models`、`ollama`、`weknoracloud` |
-| 发布集成 | `integration-im`、`integration-embed`、`integration-api`、`integration-mcpserver`、`integration-cli`、`integration-chrome`、`integration-claw` |
+| 发布集成 | `integration-im`、`integration-embed`、`integration-api`、`integration-mcpserver` |
 | 数据与扩展 | `vectorstore`、`parser`、`storage`、`sandbox`、`websearch` |
 | 系统管理 | `system-global`、`runtime-queues`、`platform-api-keys`、`system-audit-log` |
 | 平台 | `system`（版本信息） |
@@ -377,6 +377,6 @@ RAG 流水线的可视化进度（`views/chat/components/RagPipelineProgress.vue
 
 ## 设置导航与部署能力
 
-设置入口按任务分组，发布集成中包含 IM、网页嵌入、API、MCP Server、CLI、Chrome 插件、Claw Skill 等接入页；沙箱配置、个人变量与空间 / 个人记忆在设置中心各有管理界面；技能、MCP 服务与浏览器连接在工具箱。新增入口应复用 `frontend/src/config/integrations.ts`、`frontend/src/config/toolbox.ts`、`frontend/src/config/settingsAccess.ts` 等现有注册信息，并同时检查侧栏分组。
+设置入口按任务分组，发布集成中包含 IM、网页嵌入、API、MCP Server 等接入页；沙箱配置、个人变量与空间 / 个人记忆在设置中心各有管理界面；技能、MCP 服务与浏览器连接在工具箱。新增入口应复用 `frontend/src/config/integrations.ts`、`frontend/src/config/toolbox.ts`、`frontend/src/config/settingsAccess.ts` 等现有注册信息，并同时检查侧栏分组。
 
 `GET /api/v1/system/capabilities` 返回 edition 及能力 supported/reason。前端据实际部署能力隐藏或禁用入口（路由守卫、左侧菜单、设置分区、工具箱标签页都读同一份快照）：能力探测失败或旧版后端缺少某个键时默认保持可见；`organizations` 在 Lite 版始终隐藏；`settings.sandbox.docker` / `settings.sandbox.host` 只有后端明确返回 `supported: true` 才显示。前端可见性只改善操作体验，后端路由继续执行角色与能力检查。接口见[系统 API](../04-api/02-api-system.md)。

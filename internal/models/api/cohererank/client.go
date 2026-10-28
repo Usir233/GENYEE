@@ -4,7 +4,7 @@
 // A bare array of the same result objects is accepted too: self-hosted
 // runtimes such as SGLang return that shape instead of the envelope.
 //
-// Jina, Zhipu, SiliconFlow, Qianfan, GPUStack, WeKnora Cloud and any
+// Jina, Zhipu, SiliconFlow, Qianfan, GPUStack and any
 // OpenAI-compatible gateway that serves rerank all speak it. Their
 // differences — which optional fields are accepted, where the endpoint sits,
 // what the documented ceilings are — arrive as api.RerankSettings; this

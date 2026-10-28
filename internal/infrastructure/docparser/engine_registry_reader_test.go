@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/Usir233/GENYEE/internal/infrastructure/docparser/anydoc"
-	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
@@ -62,14 +61,6 @@ func TestNewReaderReportsDisconnectedDocReader(t *testing.T) {
 	}
 }
 
-func TestNewReaderRequiresWeKnoraCloudCredentials(t *testing.T) {
-	_, err := NewReader(context.Background(), WeKnoraCloudEngineName, "docx", false, ReaderDeps{
-		WeKnoraCloudCredentials: func(context.Context) *types.WeKnoraCloudCredentials { return nil },
-	})
-	if err == nil {
-		t.Fatal("NewReader succeeded without credentials, want an error")
-	}
-}
 
 // The anydoc engine is only linked into builds tagged `anydoc`; everywhere
 // else it must be listed as unavailable and refuse to build a reader, so a
