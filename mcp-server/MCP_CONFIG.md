@@ -1,8 +1,8 @@
-# 使用 uv 运行 WeKnora MCP 服务器
+# 使用 uv 运行 GENYEE MCP 服务器
 
 > 更推荐使用`uv`来运行基于python的MCP服务。
 >
-> 也可通过 PyPI 安装：`pip install tencent-weknora-mcp`，或使用 `uvx --from tencent-weknora-mcp weknora-mcp-server`（官方包名 `tencent-weknora-mcp`，由 [Tencent/WeKnora](https://github.com/Tencent/WeKnora) 维护）。
+> 也可通过 PyPI 安装：`pip install genyee-mcp`，或使用 `uvx --from genyee-mcp genyee-mcp-server`（官方包名 `genyee-mcp`，由 [Usir233/GENYEE](https://github.com/Usir233/GENYEE) 维护）。
 
 ## 1. 安装 uv
 
@@ -29,7 +29,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
     "weknora": {
       "args": [
         "--directory",
-        "/path/WeKnora/mcp-server",
+        "/path/GENYEE/mcp-server",
         "run",
         "run_server.py"
       ],
@@ -54,7 +54,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
       "command": "uv",
       "args": [
         "--directory",
-        "/path/WeKnora/mcp-server",
+        "/path/GENYEE/mcp-server",
         "run",
         "run_server.py"
       ],
@@ -78,7 +78,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
       "command": "uv",
       "args": [
         "--directory",
-        "/path/WeKnora/mcp-server",
+        "/path/GENYEE/mcp-server",
         "run",
         "run_server.py"
       ],
@@ -102,7 +102,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
       "command": "uv",
       "args": [
         "--directory",
-        "/path/WeKnora/mcp-server",
+        "/path/GENYEE/mcp-server",
         "run",
         "run_server.py"
       ],

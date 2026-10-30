@@ -141,7 +141,7 @@ type Session struct {
 	SandboxConfigTenantID uint64 `json:"-" gorm:"column:sandbox_config_tenant_id;type:bigint;default:0"`
 
 	// HostWorkspaceDir is the user-selected project directory this session
-	// operates in, for the WeKnora Lite host sandbox only. Empty means the session
+	// operates in, for the GENYEE Lite host sandbox only. Empty means the session
 	// gets an auto-allocated workspace instead.
 	//
 	// Written once at creation and never updated: re-pointing a live session

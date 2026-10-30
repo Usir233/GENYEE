@@ -1,4 +1,4 @@
-# WeKnora MCP Server 安装和使用指南
+# GENYEE MCP Server 安装和使用指南
 
 ## 快速开始
 
@@ -55,7 +55,7 @@ pip install -e .
 
 安装后可以使用命令行工具：
 ```bash
-weknora-mcp-server
+genyee-mcp-server
 # 或
 weknora-server
 ```
@@ -94,7 +94,7 @@ python main.py --check-only
 ```
 
 这将显示：
-- WeKnora API 基础 URL 配置
+- GENYEE API 基础 URL 配置
 - API 密钥设置状态
 - 依赖包安装状态
 
@@ -107,9 +107,9 @@ python main.py --check-only
 - 没有文件名冲突
 
 ### 2. 连接错误
-如果无法连接到 WeKnora API：
+如果无法连接到 GENYEE API：
 - 检查 `WEKNORA_BASE_URL` 是否正确
-- 确认 WeKnora 服务正在运行
+- 确认 GENYEE 服务正在运行
 - 验证网络连接
 
 ### 3. 认证错误
@@ -122,14 +122,14 @@ python main.py --check-only
 
 ### 项目结构
 ```
-WeKnora/mcp-server/
+GENYEE/mcp-server/
 ├── __init__.py              # 包初始化文件
 ├── main.py                  # 主入口点
 ├── run_server.py           # 原始启动脚本
 ├── weknora_mcp_server.py   # MCP 服务器实现
 ├── requirements.txt        # 依赖列表
 ├── setup.py               # 安装脚本
-├── pyproject.toml         # 项目元数据（PyPI: tencent-weknora-mcp）
+├── pyproject.toml         # 项目元数据（PyPI: genyee-mcp）
 ├── MANIFEST.in            # 包含文件清单
 ├── LICENSE                # 许可证
 ├── README.md              # 项目说明
@@ -137,7 +137,7 @@ WeKnora/mcp-server/
 ```
 
 ### 添加新功能
-1. 在 `WeKnoraClient` 类中添加新的 API 方法
+1. 在 `GENYEEClient` 类中添加新的 API 方法
 2. 用 `@mcp.tool()` 装饰器注册一个新工具函数：参数用类型标注（schema 自动生成），描述写在 docstring 里，函数体调用上面新增的客户端方法
 3. 更新文档和测试
 
@@ -170,14 +170,14 @@ RUN pip install -e .
 ENV WEKNORA_BASE_URL=http://localhost:8080/api/v1
 EXPOSE 8000
 
-CMD ["weknora-mcp-server"]
+CMD ["genyee-mcp-server"]
 ```
 
 ### 系统服务
 创建 systemd 服务文件 `/etc/systemd/system/weknora-mcp.service`：
 ```ini
 [Unit]
-Description=WeKnora MCP Server
+Description=GENYEE MCP Server
 After=network.target
 
 [Service]
@@ -186,7 +186,7 @@ User=weknora
 WorkingDirectory=/opt/weknora-mcp
 Environment=WEKNORA_BASE_URL=http://localhost:8080/api/v1
 Environment=WEKNORA_API_KEY=your_api_key
-ExecStart=/usr/local/bin/weknora-mcp-server
+ExecStart=/usr/local/bin/genyee-mcp-server
 Restart=always
 
 [Install]
@@ -205,4 +205,4 @@ sudo systemctl start weknora-mcp
 1. 查看日志输出
 2. 检查环境配置
 3. 参考故障排除部分
-4. 提交 Issue 到项目仓库: https://github.com/Tencent/WeKnora/issues
+4. 提交 Issue 到项目仓库: https://github.com/Usir233/GENYEE/issues

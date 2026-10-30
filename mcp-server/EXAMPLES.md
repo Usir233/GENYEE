@@ -1,6 +1,6 @@
-# WeKnora MCP Server 使用示例
+# GENYEE MCP Server 使用示例
 
-本文档提供了 WeKnora MCP Server 的详细使用示例。
+本文档提供了 GENYEE MCP Server 的详细使用示例。
 
 ## 基本使用
 
@@ -425,7 +425,7 @@ python main.py --verbose
 }
 ```
 
-项目仓库: https://github.com/Tencent/WeKnora/tree/main/mcp-server
+项目仓库: https://github.com/Usir233/GENYEE/tree/main/mcp-server
 
 ### 与其他 MCP 客户端集成
 参考各客户端的文档，配置服务器启动命令和环境变量。
@@ -435,5 +435,5 @@ python main.py --verbose
 如果遇到问题：
 1. 运行 `python main.py --check-only` 检查环境
 2. 使用 `python main.py --verbose` 查看详细日志
-3. 检查 WeKnora 服务是否正常运行
+3. 检查 GENYEE 服务是否正常运行
 4. 验证网络连接和防火墙设置

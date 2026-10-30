@@ -340,6 +340,7 @@ import FieldControl from './ModelCatalogFieldControl.vue'
 import { getModelCatalog, previewModelCatalog, publishModelCatalog, type CatalogModel, type CatalogOverlay, type CatalogPreview, type CatalogState } from '@/api/system/modelCatalog'
 import { useModelProvidersStore } from '@/stores/modelProviders'
 import { useChatResourcesStore } from '@/stores/chatResources'
+import { isWeKnoraCloudEnabled } from '@/utils/weknoraCloudModels'
 import {
   EDITABLE_INPUTS, THINKING_LEVELS, catalogChanges, catalogRows, catalogSource, composeInput, formatTokens,
   hasModelOverride, patchCatalogModel, removeCatalogModelOverride, sameMembers, stableJSON, summarizeChanges,
@@ -378,8 +379,9 @@ const page = ref(1)
 const layerIndexes = computed(() => Object.fromEntries((['builtin', 'deployment', 'effective'] as const).map(layer => [
   layer, new Map(catalogRows(state.value?.[layer] || []).map(row => [row.key, row.model])),
 ])) as Record<Layer, Map<string, CatalogModel>>)
+const visibleProviders = computed(() => (state.value?.effective || []).filter(p => isWeKnoraCloudEnabled() || p.id !== 'weknoracloud'))
 // Concrete models first within each provider; patterns only supply defaults.
-const allRows = computed(() => catalogRows(state.value?.effective || [])
+const allRows = computed(() => catalogRows(visibleProviders.value)
   .map((row, index) => ({ row, index }))
   .sort((a, b) => a.row.provider.localeCompare(b.row.provider) || Number(!a.row.model.id) - Number(!b.row.model.id) || a.index - b.index)
   .map(({ row }) => row))
@@ -411,7 +413,7 @@ const typeLabel = (type?: string) => {
   const key = TYPE_LABEL_KEYS[type || 'KnowledgeQA']
   return key ? t(`modelSettings.typeShort.${key}`) : type || ''
 }
-const providerOptions = computed(() => (state.value?.effective || []).map(p => ({ label: providerLabel(p.id), value: p.id })))
+const providerOptions = computed(() => visibleProviders.value.map(p => ({ label: providerLabel(p.id), value: p.id })))
 const typeOptions = computed(() => [...new Set(allRows.value.map(row => row.model.type || 'KnowledgeQA'))]
   .map(type => ({ label: typeLabel(type), value: type })))
 

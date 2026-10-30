@@ -155,7 +155,7 @@ func (h *SkillHandler) registerCatalogFromSource(c *gin.Context) {
 }
 
 type catalogInstallRequest struct {
-	// Sandbox config ids to install onto: an agent's sandbox_config_id, or host on WeKnora Lite
+	// Sandbox config ids to install onto: an agent's sandbox_config_id, or host on GENYEE Lite
 	SandboxConfigIDs []string `json:"sandbox_config_ids" validate:"required" extensions:"x-agent,x-agent-maximum=20"`
 }
 

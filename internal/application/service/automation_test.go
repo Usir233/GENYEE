@@ -110,7 +110,7 @@ type automationAgents struct {
 
 func (f *automationAgents) GetAgentByID(_ context.Context, id string) (*types.CustomAgent, error) {
 	if id != types.BuiltinWeKnoraAssistantID {
-		return nil, errors.New("automations must load the WeKnora assistant")
+		return nil, errors.New("automations must load the GENYEE assistant")
 	}
 	return f.agent, nil
 }
@@ -341,7 +341,7 @@ func TestAutomationPausesWhenAssistantUnavailable(t *testing.T) {
 	require.NoError(t, err)
 	run := f.settleRun(t, queued.ID)
 	require.Equal(t, types.AutomationRunFailed, run.Status)
-	require.Contains(t, run.Error, "WeKnora assistant is unavailable")
+	require.Contains(t, run.Error, "GENYEE assistant is unavailable")
 	require.False(t, f.reload(t, a.ID).Enabled)
 	require.Empty(t, f.sessions.calls)
 }

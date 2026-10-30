@@ -155,7 +155,7 @@ Examples:
 	cmdutil.AddFormatFlag(cmd, apiFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "raw HTTP passthrough to weknora-server API endpoints when typed subcommands are insufficient",
+		UsedFor:       "raw HTTP passthrough to genyee-server API endpoints when typed subcommands are insufficient",
 		RequiredFlags: []string{"path (positional)"},
 		Examples: []string{
 			"weknora api /api/v1/knowledge-bases",

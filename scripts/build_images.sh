@@ -34,6 +34,8 @@ show_help() {
     echo "  -d, --docreader 仅构建文档读取器镜像"
     echo "  -f, --frontend 仅构建前端镜像"
     echo "  -s, --sandbox  仅构建沙箱镜像"
+    echo "  --odl-hybrid   仅构建混合文档解析器镜像 (odl-hybrid)"
+    echo "  --mcp          仅构建 MCP Server 镜像"
     echo "  -c, --clean    清理所有本地镜像"
     echo "  -v, --version  显示版本信息"
     exit 0
@@ -301,6 +303,51 @@ build_sandbox_image() {
     fi
 }
 
+# 构建混合文档解析器镜像 (odl-hybrid)
+build_odl_hybrid_image() {
+    log_info "构建混合文档解析器镜像 (${GENYEE_REGISTRY}/genyee-odl-hybrid:${IMAGE_TAG})..."
+
+    cd "$PROJECT_ROOT"
+
+    docker build \
+        --platform $PLATFORM \
+        --build-arg PRELOAD_MODELS=${PRELOAD_MODELS:-false} \
+        -f docker/Dockerfile.odl-hybrid \
+        -t "${GENYEE_REGISTRY}/genyee-odl-hybrid:${IMAGE_TAG}" \
+        -t "${GENYEE_REGISTRY}/genyee-odl-hybrid:latest" \
+        .
+
+    if [ $? -eq 0 ]; then
+        log_success "混合文档解析器镜像构建成功"
+        return 0
+    else
+        log_error "混合文档解析器镜像构建失败"
+        return 1
+    fi
+}
+
+# 构建 MCP Server 镜像
+build_mcp_image() {
+    log_info "构建 MCP Server 镜像 (${GENYEE_REGISTRY}/genyee-mcp:${IMAGE_TAG})..."
+
+    cd "$PROJECT_ROOT"
+
+    docker build \
+        --platform $PLATFORM \
+        -f mcp-server/Dockerfile \
+        -t "${GENYEE_REGISTRY}/genyee-mcp:${IMAGE_TAG}" \
+        -t "${GENYEE_REGISTRY}/genyee-mcp:latest" \
+        mcp-server/
+
+    if [ $? -eq 0 ]; then
+        log_success "MCP Server 镜像构建成功"
+        return 0
+    else
+        log_error "MCP Server 镜像构建失败"
+        return 1
+    fi
+}
+
 # 构建所有镜像
 build_all_images() {
     log_info "开始构建所有镜像..."
@@ -309,6 +356,8 @@ build_all_images() {
     local docreader_result=0
     local frontend_result=0
     local sandbox_result=0
+    local odl_hybrid_result=0
+    local mcp_result=0
 
     # 构建应用镜像
     build_app_image
@@ -325,6 +374,14 @@ build_all_images() {
     # 构建沙箱镜像
     build_sandbox_image
     sandbox_result=$?
+
+    # 构建混合文档解析器镜像
+    build_odl_hybrid_image
+    odl_hybrid_result=$?
+
+    # 构建 MCP Server 镜像
+    build_mcp_image
+    mcp_result=$?
 
     # 显示构建结果
     echo ""
@@ -353,7 +410,19 @@ build_all_images() {
         log_error "✗ 沙箱镜像构建失败"
     fi
 
-    if [ $app_result -eq 0 ] && [ $docreader_result -eq 0 ] && [ $frontend_result -eq 0 ] && [ $sandbox_result -eq 0 ]; then
+    if [ $odl_hybrid_result -eq 0 ]; then
+        log_success "✓ 混合文档解析器镜像构建成功"
+    else
+        log_error "✗ 混合文档解析器镜像构建失败"
+    fi
+
+    if [ $mcp_result -eq 0 ]; then
+        log_success "✓ MCP Server 镜像构建成功"
+    else
+        log_error "✗ MCP Server 镜像构建失败"
+    fi
+
+    if [ $app_result -eq 0 ] && [ $docreader_result -eq 0 ] && [ $frontend_result -eq 0 ] && [ $sandbox_result -eq 0 ] && [ $odl_hybrid_result -eq 0 ] && [ $mcp_result -eq 0 ]; then
         log_success "所有镜像构建完成！"
         return 0
     else
@@ -371,18 +440,24 @@ clean_images() {
     docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-app:latest" 2>/dev/null) 2>/dev/null || true
     docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-docreader:latest" 2>/dev/null) 2>/dev/null || true
     docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-ui:latest" 2>/dev/null) 2>/dev/null || true
+    docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-odl-hybrid:latest" 2>/dev/null) 2>/dev/null || true
+    docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-mcp:latest" 2>/dev/null) 2>/dev/null || true
     
     # 删除相关容器
     log_info "删除相关容器..."
     docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-app:latest" 2>/dev/null) 2>/dev/null || true
     docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-docreader:latest" 2>/dev/null) 2>/dev/null || true
     docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-ui:latest" 2>/dev/null) 2>/dev/null || true
+    docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-odl-hybrid:latest" 2>/dev/null) 2>/dev/null || true
+    docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-mcp:latest" 2>/dev/null) 2>/dev/null || true
     
     # 删除镜像
     log_info "删除本地镜像..."
     docker rmi "${GENYEE_REGISTRY}/genyee-app:latest" "${GENYEE_REGISTRY}/genyee-app:${IMAGE_TAG}" 2>/dev/null || true
     docker rmi "${GENYEE_REGISTRY}/genyee-docreader:latest" "${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG}" 2>/dev/null || true
     docker rmi "${GENYEE_REGISTRY}/genyee-ui:latest" "${GENYEE_REGISTRY}/genyee-ui:${IMAGE_TAG}" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-odl-hybrid:latest" "${GENYEE_REGISTRY}/genyee-odl-hybrid:${IMAGE_TAG}" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-mcp:latest" "${GENYEE_REGISTRY}/genyee-mcp:${IMAGE_TAG}" 2>/dev/null || true
     docker rmi "${GENYEE_REGISTRY}/genyee-sandbox:latest" "${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}" 2>/dev/null || true
     docker rmi "${GENYEE_REGISTRY}/genyee-sandbox:latest-cube" 2>/dev/null || true
     docker rmi "${GENYEE_REGISTRY}/genyee-sandbox:desktop" "${GENYEE_REGISTRY}/genyee-sandbox:latest-desktop" 2>/dev/null || true
@@ -404,6 +479,8 @@ BUILD_APP=false
 BUILD_DOCREADER=false
 BUILD_FRONTEND=false
 BUILD_SANDBOX=false
+BUILD_ODL_HYBRID=false
+BUILD_MCP=false
 CLEAN_IMAGES=false
 
 # 没有参数时默认构建所有镜像
@@ -424,6 +501,10 @@ while [ "$1" != "" ]; do
         -f | --frontend )   BUILD_FRONTEND=true
                             ;;
         -s | --sandbox )    BUILD_SANDBOX=true
+                            ;;
+        --odl-hybrid )      BUILD_ODL_HYBRID=true
+                            ;;
+        --mcp )             BUILD_MCP=true
                             ;;
         -c | --clean )      CLEAN_IMAGES=true
                             ;;
@@ -474,6 +555,16 @@ fi
 
 if [ "$BUILD_SANDBOX" = true ]; then
     build_sandbox_image
+    exit $?
+fi
+
+if [ "$BUILD_ODL_HYBRID" = true ]; then
+    build_odl_hybrid_image
+    exit $?
+fi
+
+if [ "$BUILD_MCP" = true ]; then
+    build_mcp_image
     exit $?
 fi
 

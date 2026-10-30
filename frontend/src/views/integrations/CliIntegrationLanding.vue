@@ -74,15 +74,19 @@
 import { computed } from 'vue'
 import { useApiBaseUrlDisplay } from '@/composables/useApiBaseUrlDisplay'
 import { copyWithToast } from '@/utils/clipboard'
+import { docsUrl } from '@/utils/docsUrl'
 import IntegrationLandingLayout from './IntegrationLandingLayout.vue'
 import IntegrationExternalCta from './IntegrationExternalCta.vue'
 import { buildCLIConnectCommand } from './cliIntegration'
 
 const { apiBaseUrlDisplay } = useApiBaseUrlDisplay()
+const githubUrl = computed(() => ((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim().replace(/\/+$/, ''))
 const steps = computed(() => [
   {
     key: 'install',
-    command: 'git clone https://github.com/Usir233/GENYEE.git\ncd GENYEE/cli\ngo build -o genyee .\nexport PATH="$PWD:$PATH"',
+    command: githubUrl.value
+      ? `git clone ${githubUrl.value}.git\ncd GENYEE/cli\ngo build -o genyee .\nexport PATH="$PWD:$PATH"`
+      : 'cd ./cli\ngo build -o genyee .\nexport PATH="$PWD:$PATH"',
   },
   { key: 'connect', command: buildCLIConnectCommand(apiBaseUrlDisplay.value, window.location.origin) },
   { key: 'verify', command: 'genyee doctor\ngenyee kb list' },
@@ -104,6 +108,7 @@ const examples = [
 
 const copy = (command: string) => copyWithToast(command, 'integrations.cli.copied')
 const openDocs = () => {
-  window.open('https://github.com/Usir233/GENYEE/blob/main/cli/README.md', '_blank', 'noopener,noreferrer')
+  const url = githubUrl.value ? `${githubUrl.value}/blob/main/cli/README.md` : docsUrl('clients/cli')
+  window.open(url, '_blank', 'noopener,noreferrer')
 }
 </script>

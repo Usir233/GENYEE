@@ -145,8 +145,9 @@
                 target="_blank"
                 rel="noopener noreferrer"
               >{{ $t('system.dbMigrationViewDocs') }}</t-link>
-              <span class="migration-error-actions-sep">·</span>
+              <span v-if="githubUrl" class="migration-error-actions-sep">·</span>
               <t-link
+                v-if="githubUrl"
                 theme="primary"
                 :href="reportIssueURL"
                 target="_blank"
@@ -253,8 +254,11 @@ const troubleshootingDocsURL = docsUrl('troubleshootingMigrations')
 // Pre-fills a new issue with the current migration error so users don't have to
 // paste it manually. Body is intentionally minimal — the bug template will fill
 // in the rest. Encode aggressively to survive newlines / quotes.
+const githubUrl = computed(() => ((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim().replace(/\/+$/, ''))
+
 const reportIssueURL = computed(() => {
-  const base = 'https://github.com/Usir233/GENYEE/issues/new'
+  if (!githubUrl.value) return ''
+  const base = `${githubUrl.value}/issues/new`
   const params = new URLSearchParams({
     template: 'bug_report.yml',
     title: '[Bug]: Database migration failed at startup',

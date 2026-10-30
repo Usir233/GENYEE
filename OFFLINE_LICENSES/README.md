@@ -7,11 +7,11 @@
 ## 一、架构隔离与许可证传染性说明
 
 1. **进程与网络隔离（Aggregate / Mere Aggregation）**：
-   - GENYEE 后端主程序（`genyee-app`）与前端（`genyee-ui`）采用 **MIT 许可证**授权。
+   - GENYEE 后端主程序（`genyee-app`）、前端（`genyee-ui`）及自研组件镜像采用 **GENYEE Commercial License**（基于 Tencent WeKnora MIT 二次开发，详见 `THIRD_PARTY_NOTICES.md`；OCI 标识为 `LicenseRef-GENYEE-Commercial AND MIT`）授权。
    - 基础设施容器（PostgreSQL/ParadeDB、Redis、MinIO、Qdrant、Neo4j、SearXNG 等）作为独立容器进程运行，仅通过标准网络协议（SQL wire protocol、RESP、S3 HTTP API、gRPC、Bolt、REST JSON）与 `genyee-app` 通信。
    - 依据 GPLv3 / AGPLv3 第 5 条关于“纯粹聚合（Mere Aggregation）”之规定，将未修改的第三方基础设施镜像与 GENYEE 镜像置于同一离线压缩包或介质中分发，不会将 GENYEE 自研代码传染为 GPL/AGPL。
 2. **完整合规配套**：
-   - 对于离线包中包含的所有采用 **AGPLv3 / GPLv3 / GPLv2 / LGPL** 许可的组件（包括未修改的第三方基础设施容器，以及 `genyee-docreader` / `genyee-sandbox` 容器内的系统级开源工具包），本目录随附对应的许可证全文引用及有效期不少于三（3）年的书面源代码提供要约（详见 [WRITTEN_OFFER.md](WRITTEN_OFFER.md)）。
+   - 对于离线包中包含的所有采用 **AGPLv3 / GPLv3 / GPLv2 / LGPL / MPL** 许可的组件（包括未修改的第三方基础设施容器，以及 `genyee-app` / `genyee-docreader` / `genyee-sandbox` / `genyee-odl-hybrid` 容器内的系统级开源工具包），本目录随附对应的许可证全文引用及有效期不少于三（3）年的书面源代码提供要约（详见 [WRITTEN_OFFER.md](WRITTEN_OFFER.md)）。
 
 ---
 
@@ -19,14 +19,14 @@
 
 ### 1. GENYEE 自研组件镜像
 
-| 镜像名称 | 默认标签 | 角色说明 | 自研代码许可证 | 容器内含第三方系统工具说明 |
+| 镜像名称 | 默认标签 | 角色说明 | 镜像许可证标识 | 容器内含第三方系统工具说明 |
 | :--- | :--- | :--- | :--- | :--- |
-| `${GENYEE_REGISTRY}/genyee-app` | `latest` | Go 后端 API 与任务引擎 | MIT | Debian 基础运行库 + ONNX Runtime (MIT) |
-| `${GENYEE_REGISTRY}/genyee-ui` | `latest` | Vue 3 前端 Web 界面 | MIT | Nginx (BSD-2-Clause) + 前端依赖 (见 `THIRD_PARTY_NOTICES.md`) |
-| `${GENYEE_REGISTRY}/genyee-docreader` | `latest` | 文档解析 gRPC 服务 | MIT | 含未修改的 LibreOffice (MPL-2.0)、Poppler (`pdftoppm`, GPL-2.0/3.0)、Antiword (GPL) 等系统包，仅通过独立子进程 CLI 调用 |
-| `${GENYEE_REGISTRY}/genyee-sandbox` | `latest` | 代码执行沙箱容器 | MIT | 含 Debian 系统工具、Python/Node 运行时及文档处理 CLI 工具 |
-| `${GENYEE_REGISTRY}/genyee-odl-hybrid` | `latest` | 可选混合文档解析服务 | MIT | Python / Docling 运行时环境 |
-| `${GENYEE_REGISTRY}/genyee-mcp` | `latest` | 可选 MCP Server | MIT | Python MCP SDK (MIT) |
+| `${GENYEE_REGISTRY}/genyee-app` | `latest` | Go 后端 API 与任务引擎 | GENYEE Commercial License (基于 Tencent WeKnora MIT 二次开发，详见 `THIRD_PARTY_NOTICES.md`) | Debian 基础运行库 + `ffmpeg` (LGPLv2.1+/GPLv2+)、`default-mysql-client` (GPL-2.0) 等 CLI |
+| `${GENYEE_REGISTRY}/genyee-ui` | `latest` | Vue 3 前端 Web 界面 | GENYEE Commercial License (基于 Tencent WeKnora MIT 二次开发，详见 `THIRD_PARTY_NOTICES.md`) | Nginx (BSD-2-Clause) + 前端依赖 (见 `THIRD_PARTY_NOTICES.md`) |
+| `${GENYEE_REGISTRY}/genyee-docreader` | `latest` | 文档解析 gRPC 服务 | GENYEE Commercial License (基于 Tencent WeKnora MIT 二次开发，详见 `THIRD_PARTY_NOTICES.md`) | 含未修改的 LibreOffice (MPL-2.0)、Poppler (`pdftoppm`, GPL-2.0+)、Antiword (GPL-2.0)、OpenJDK 17 JRE (GPL-2.0-with-Classpath-Exception) 等系统包，仅通过独立子进程 CLI 调用 |
+| `${GENYEE_REGISTRY}/genyee-sandbox` | `latest` | 代码执行沙箱容器 | GENYEE Commercial License (基于 Tencent WeKnora MIT 二次开发，详见 `THIRD_PARTY_NOTICES.md`) | 含 Debian 系统工具、Python/Node 运行时及文档处理 CLI 工具 (`libreoffice`, `poppler-utils`, `antiword`, `tesseract-ocr`) |
+| `${GENYEE_REGISTRY}/genyee-odl-hybrid` | `latest` | 可选混合文档解析服务 | GENYEE Commercial License (基于 Tencent WeKnora MIT 二次开发，详见 `THIRD_PARTY_NOTICES.md`) | Debian Python / Docling 运行时环境及系统共享库 |
+| `${GENYEE_REGISTRY}/genyee-mcp` | `latest` | 可选 MCP Server | GENYEE Commercial License (基于 Tencent WeKnora MIT 二次开发，详见 `THIRD_PARTY_NOTICES.md`) | Python MCP SDK (MIT) |
 
 ### 2. 核心与可选基础设施镜像
 
@@ -51,7 +51,7 @@
 
 ## 三、相关合规文件索引
 
-- 根目录 [`LICENSE`](../LICENSE)：GENYEE 项目 MIT 许可证全文
-- 根目录 [`NOTICE`](../NOTICE)：项目归属与演进声明
-- 根目录 [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md)：Go、前端 npm、Python 及 Rust 第三方依赖许可证清单
-- 本目录 [`WRITTEN_OFFER.md`](WRITTEN_OFFER.md)：GPL / AGPL / LGPL 对应源代码（Corresponding Source）书面获取要约
+- 根目录 [`LICENSE`](../LICENSE)：GENYEE Commercial License（基于 Tencent WeKnora MIT 二次开发，详见 `THIRD_PARTY_NOTICES.md`）
+- 根目录 [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md)：上游 Tencent WeKnora (MIT) 声明及 Go、前端 npm、Python、Rust 第三方依赖许可证清单
+- 根目录 [`licenses/`](../licenses/)：随附第三方组件许可证全文及 MPL-2.0 组件对应源码包清单
+- 本目录 [`WRITTEN_OFFER.md`](WRITTEN_OFFER.md)：GPL / AGPL / LGPL / MPL 对应源代码（Corresponding Source）书面获取要约

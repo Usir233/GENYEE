@@ -12,6 +12,7 @@ logs
 *.tsbuildinfo
 package.json.md5
 *.md
+!THIRD_PARTY_NOTICES.md
 .env
 .env.*
 .gitignore

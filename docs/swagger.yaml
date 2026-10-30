@@ -1104,7 +1104,7 @@ definitions:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.ModelType'
         description: |-
-          Type is the WeKnora model type this entry describes. Chat models with
+          Type is the GENYEE model type this entry describes. Chat models with
           image input are still KnowledgeQA; the UI derives VLM eligibility from
           Input. Embedding / Rerank / ASR entries exist for the model picker.
     type: object
@@ -2786,7 +2786,7 @@ definitions:
         description: |-
           AccessLevel is the highest access level a run of this agent gets: how
           far it may change data (MCP tools, Wiki writes) without asking. Empty
-          means auto_write. The WeKnora assistant uses the workspace's assistant
+          means auto_write. The GENYEE assistant uses the workspace's assistant
           ceiling instead.
       agent_mode:
         description: |-
@@ -7958,7 +7958,7 @@ definitions:
       host_workspace_dir:
         description: |-
           HostWorkspaceDir is the user-selected project directory this session
-          operates in, for the WeKnora Lite host sandbox only. Empty means the session
+          operates in, for the GENYEE Lite host sandbox only. Empty means the session
           gets an auto-allocated workspace instead.
 
           Written once at creation and never updated: re-pointing a live session
@@ -8103,7 +8103,7 @@ definitions:
       host_workspace_dir:
         description: |-
           HostWorkspaceDir is the user-selected project directory this session
-          operates in, for the WeKnora Lite host sandbox only. Empty means the session
+          operates in, for the GENYEE Lite host sandbox only. Empty means the session
           gets an auto-allocated workspace instead.
 
           Written once at creation and never updated: re-pointing a live session
@@ -8771,7 +8771,7 @@ definitions:
       assistant_config:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantConfig'
-        description: 'Assistant config: display name and access ceiling of the WeKnora
+        description: 'Assistant config: display name and access ceiling of the GENYEE
           assistant'
       business:
         description: Business
@@ -13807,7 +13807,7 @@ definitions:
     properties:
       sandbox_config_ids:
         description: 'Sandbox config ids to install onto: an agent''s sandbox_config_id,
-          or host on WeKnora Lite'
+          or host on GENYEE Lite'
         items:
           type: string
         type: array
@@ -14260,7 +14260,7 @@ definitions:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel'
         description: |-
-          AssistantAccess is the WeKnora assistant access level: read_only,
+          AssistantAccess is the GENYEE assistant access level: read_only,
           confirm or auto_write. The workspace ceiling caps it; other agents
           ignore it.
       attachment_ids:
@@ -14310,7 +14310,7 @@ definitions:
       page_context:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.PageContext'
-        description: PageContext is the WeKnora page the user has open (agent mode
+        description: PageContext is the GENYEE page the user has open (agent mode
           only).
       query:
         description: Query text; may be empty only when an image or file is attached
@@ -25410,7 +25410,7 @@ paths:
       description: List the agent skills installed onto one sandbox config's image.
       parameters:
       - description: 'Sandbox config ID: the agent''s sandbox_config_id, or host on
-          WeKnora Lite'
+          GENYEE Lite'
         in: path
         name: id
         required: true
@@ -25473,7 +25473,7 @@ paths:
         via the install-events stream.
       parameters:
       - description: 'Sandbox config ID: the agent''s sandbox_config_id, or host on
-          WeKnora Lite'
+          GENYEE Lite'
         in: path
         name: id
         required: true
@@ -26964,7 +26964,7 @@ paths:
         id: skill.list
         risk: read
       x-agent-hint: Lists usable skills, chosen by name. Pass sandbox_config_id from
-        agent.get; when the agent has none, pass host (WeKnora Lite runs skills locally).
+        agent.get; when the agent has none, pass host (GENYEE Lite runs skills locally).
         An empty list means there are no usable skills there; if the agent has no
         sandbox, tell the user to choose one in the agent editor.
   /skills/catalog:

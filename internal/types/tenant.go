@@ -118,7 +118,7 @@ type Tenant struct {
 	RetrievalConfig *RetrievalConfig `yaml:"retrieval_config" json:"retrieval_config" gorm:"type:jsonb"`
 	// Memory config: workspace switch for cross-session long-term memory
 	MemoryConfig *MemoryConfig `yaml:"memory_config" json:"memory_config" gorm:"type:jsonb"`
-	// Assistant config: display name and access ceiling of the WeKnora assistant
+	// Assistant config: display name and access ceiling of the GENYEE assistant
 	AssistantConfig *AssistantConfig `yaml:"assistant_config" json:"assistant_config" gorm:"type:jsonb"`
 	// Default settings: the workspace's default model for each type and purpose
 	DefaultSettings *DefaultSettings `yaml:"default_settings" json:"default_settings" gorm:"type:jsonb"`

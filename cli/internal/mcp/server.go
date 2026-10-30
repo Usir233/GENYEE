@@ -52,7 +52,7 @@ func RunStdio(ctx context.Context, svc ServiceClient) error {
 	v, _, _ := build.Info()
 	server := mcpsdk.NewServer(
 		&mcpsdk.Implementation{
-			Name:    "weknora",
+			Name:    "genyee",
 			Version: v,
 		},
 		nil,

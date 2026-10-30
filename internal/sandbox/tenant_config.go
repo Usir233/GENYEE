@@ -44,6 +44,9 @@ func ResolveEffectiveConfig(
 	}
 	effective := *global
 	if tenantCfg == nil {
+		if effective.Type == SandboxTypeDocker && strings.TrimSpace(effective.DockerImage) == "" {
+			effective.DockerImage = EffectiveDefaultDockerImage()
+		}
 		effective.Network = resolveNetworkPolicy(nil)
 		return &effective, nil
 	}

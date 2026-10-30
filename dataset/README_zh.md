@@ -43,7 +43,7 @@ export OPENAI_BASE_URL="https://api.openai.com/v1"
 - `qrels.parquet`（列：qid, pid, score）
 - `qas.parquet`（列：qid, aid）
 
-> **数据来源说明：** `dataset/samples/` 目录下的评估样本（`corpus.parquet`、`queries.parquet`、`qrels.parquet`、`answers.parquet`）是由 GENYEE 编写的合成评估样本（已替换上游 MS MARCO 样本），受仓库根目录 [`LICENSE`](../LICENSE) 约束。
+> **数据来源说明：** `dataset/samples/` 目录下的评估样本（`corpus.parquet`、`queries.parquet`、`qrels.parquet`、`answers.parquet`、`qas.parquet`）是由 GENYEE 编写的合成评估样本（已替换上游 MS MARCO 样本），受仓库根目录 [`LICENSE`](../LICENSE) 约束。
 
 **使用您自己的数据集**
 确保您的数据集包含以下文件：

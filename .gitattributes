@@ -6,16 +6,6 @@
 *.go text eol=lf
 cli/acceptance/testdata/**/*.json text eol=lf
 
-# Trellis: append-only developer journals should merge cleanly across
-# parallel sessions/worktrees — each session only appends a new block, so
-# there is nothing to actually conflict on.
-#
-# Do NOT add a rule for workspace/*/index.md here — it is fully regenerated
-# every session, so a real conflict there is expected and safe to resolve by
-# picking either side (task state lives in task.json, not index.md). See
-# .trellis/spec/cli/backend/directory-structure.md for details.
-.trellis/workspace/*/journal-*.md merge=union
-
 # Unified diffs use a space to mark empty context lines.
 patches/browserskill/*.patch whitespace=-blank-at-eol
 
@@ -36,7 +26,20 @@ BRANCH_GUIDE.md export-ignore
 docs/superpowers export-ignore
 docs/release-* export-ignore
 docs/poc export-ignore
+docs/design export-ignore
+docs/images/readme/src export-ignore
 misc/intro-video export-ignore
 misc/release-v0.9.0-* export-ignore
 scripts/verify-commercial-compliance.sh export-ignore
+scripts/update-homebrew-formula.sh export-ignore
+scripts/test-homebrew.sh export-ignore
+scripts/git-hooks export-ignore
+scripts/install-git-hooks.sh export-ignore
+scripts/test-git-hooks.sh export-ignore
+scripts/verify_frontend_pr.sh export-ignore
+scripts/model_catalog_diff.py export-ignore
 Formula export-ignore
+deploy export-ignore
+cli/AGENTS.md export-ignore
+test_agent_config.sh export-ignore
+rerank_server_demo.py export-ignore

@@ -136,7 +136,7 @@
             </svg>
           </span>
         </div>
-        <div class="menu-item" :title="$t('common.githubStarTip')" @click="openGithub">
+        <div v-if="githubUrl" class="menu-item" :title="$t('common.githubStarTip')" @click="openGithub">
           <t-icon name="logo-github" class="menu-icon" />
           <span class="menu-text-with-icon">
             <span>{{ $t('common.github') }}</span>
@@ -517,10 +517,14 @@ const openDocs = () => {
   window.open(docsUrl('home'), '_blank')
 }
 
+const githubUrl = computed(() => ((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim())
+
 // 打开 GitHub
 const openGithub = () => {
   menuVisible.value = false
-  window.open('https://github.com/Usir233/GENYEE', '_blank')
+  if (githubUrl.value) {
+    window.open(githubUrl.value, '_blank', 'noopener,noreferrer')
+  }
 }
 
 // 注销

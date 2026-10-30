@@ -44,7 +44,7 @@ flowchart LR
 
 `main.go` 的 `configureDesktopStorage()` 在检测到从 `.app/Contents/MacOS` 运行时：
 
-- 数据目录定为 `~/Library/Application Support/WeKnora Lite/`（名称取自 .app bundle 名）。
+- 数据目录定为 `~/Library/Application Support/GENYEE Lite/`（名称取自 .app bundle 名）。
 - SQLite 数据库：`.../data/weknora.db`（通过设置 `DB_PATH` 环境变量注入）。
 - 本地文件存储：`.../data/files`（`LOCAL_STORAGE_BASE_DIR`）。
 - `migrateLegacyDesktopData()` 会把旧版存放在 `.app/Contents/Resources/data` 里的数据一次性迁移到 Application Support。
@@ -101,11 +101,11 @@ flowchart LR
 
 ## 偏好设置存储（cmd/desktop/prefs.go） {#_5-偏好设置存储-cmd-desktop-prefs-go}
 
-偏好保存为 JSON 文件 `desktop-prefs.json`，路径为 `os.UserConfigDir()/WeKnora Lite/desktop-prefs.json`：
+偏好保存为 JSON 文件 `desktop-prefs.json`，路径为 `os.UserConfigDir()/GENYEE Lite/desktop-prefs.json`：
 
-- macOS：`~/Library/Application Support/WeKnora Lite/desktop-prefs.json`
-- Windows：`%AppData%\WeKnora Lite\desktop-prefs.json`
-- Linux：`~/.config/WeKnora Lite/desktop-prefs.json`
+- macOS：`~/Library/Application Support/GENYEE Lite/desktop-prefs.json`
+- Windows：`%AppData%\GENYEE Lite\desktop-prefs.json`
+- Linux：`~/.config/GENYEE Lite/desktop-prefs.json`
 
 文件权限 `0600`，字段如下：
 
@@ -130,7 +130,7 @@ flowchart LR
 `checkUpdate(ctx, currentVersion, showUpToDate, autoDownload)` 在 goroutine 中执行：
 
 1. **版本来源**：`desktopAboutVersion()` 优先使用构建时 ldflags 注入的 `handler.Version`，否则向上查找仓库根目录的 `VERSION` 文件；无法确定版本时放弃检查。
-2. **检查**：GET `https://api.github.com/repos/Usir233/GENYEE/releases/latest`（超时 10s，带 `User-Agent: WeKnora-Lite-Desktop-App`；若设置了环境变量 `GITHUB_TOKEN` 则附带 `Authorization` 头以提升速率限制）。用 `golang.org/x/mod/semver` 比较 `tag_name` 与当前版本。
+2. **检查**：GET `https://api.github.com/repos/Usir233/GENYEE/releases/latest`（超时 10s，带 `User-Agent: GENYEE-Lite-Desktop-App`；若设置了环境变量 `GITHUB_TOKEN` 则附带 `Authorization` 头以提升速率限制）。用 `golang.org/x/mod/semver` 比较 `tag_name` 与当前版本。
 3. **选择资产**：`findBestAsset()` 按 `runtime.GOOS/GOARCH` 匹配 release assets 文件名——OS 关键词（`mac`/`win`/`linux`）+ 架构关键词（`amd64`/`arm64`，兼容 `universal`/`aarch64`），逐级回退：OS+Arch → 仅 OS → macOS 的 `.dmg` → Windows 的 `.exe`；均无匹配时打开 release 页面。
 4. **下载**：`downloadAndInstall()` 下载到系统临时目录；`autoDownload` 模式静默下载，手动模式先弹 "Update Available" 对话框。下载完成后询问 "Restart Now / Later"。
 5. **安装与重启**（`applyUpdateAndRestart()`，平台差异）：
@@ -144,12 +144,12 @@ flowchart LR
 
 ```json
 {
-  "name": "WeKnora Lite",
-  "outputfilename": "WeKnora Lite",
+  "name": "GENYEE Lite",
+  "outputfilename": "GENYEE Lite",
   "frontend:dir": "../../frontend",
   "wailsjsdir": "../../frontend/src",
   "build:tags": "desktop",
-  "info": { "companyName": "Tencent", "productName": "WeKnora Lite", "productVersion": "1.0.0" },
+  "info": { "companyName": "GENYEE", "productName": "GENYEE Lite", "productVersion": "1.0.0" },
   "mac": { "category": "public.app-category.productivity", "titlebar": "hiddenInset" }
 }
 ```
@@ -159,7 +159,7 @@ flowchart LR
 - `build:tags` 为 `desktop`：只有带该标签编译的程序才包含 Lite 本机沙箱，`wails build -tags ...` 传入的标签会与它合并。
 - `frontend:dir` 指向仓库的 `frontend/`；`wailsjsdir` 指向 `frontend/src`，因此 Wails 自动生成的绑定输出在 `frontend/src/wailsjs/`（`go/main/App.js`、`App.d.ts` 及 `runtime/`）。
 - **前端构建**：打包脚本单独构建前端，Wails 配置中不设置 `frontend:build`。WebView 通过反向代理访问内嵌后端。
-- `cmd/desktop/build/` 包含 `appicon.png`（应用图标）、`darwin/Info.plist`（macOS bundle 的 Go template，声明 `CFBundleIdentifier: com.wails.WeKnora Lite`、最低系统版本 10.13、Retina 支持等）和 Windows 安装器模板 `windows/installer/project.nsi`（额外安装第三方许可证文件）；`wails build` 的产物输出到 `cmd/desktop/build/bin/`。
+- `cmd/desktop/build/` 包含 `appicon.png`（应用图标）、`darwin/Info.plist`（macOS bundle 的 Go template，声明 `CFBundleIdentifier: com.genyee.lite`、最低系统版本 10.13、Retina 支持等）和 Windows 安装器模板 `windows/installer/project.nsi`（额外安装第三方许可证文件）；`wails build` 的产物输出到 `cmd/desktop/build/bin/`。
 
 ## 前端如何感知桌面环境 {#_8-前端如何感知桌面环境}
 
@@ -185,10 +185,10 @@ SKIP_FRONTEND=1 ./scripts/package-mac-app.sh
 2. **Wails 构建**：需先安装 Wails CLI（`go install github.com/wailsapp/wails/v2/cmd/wails@latest`），设置 `EDITION=lite`、`GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn`（规避 Milvus 与 Qdrant gRPC 生成代码的 `common.proto` 描述符注册冲突）等环境变量，从 `scripts/get_version.sh` 取版本号注入 ldflags，然后执行真实构建命令：
 
    ```bash
-   cd cmd/desktop && wails build -clean -tags "sqlite_fts5" -ldflags="$LDFLAGS" -o "WeKnora Lite"
+   cd cmd/desktop && wails build -clean -tags "sqlite_fts5" -ldflags="$LDFLAGS" -o "GENYEE Lite"
    ```
 
    实际生效的构建标签为 `wails.json` 中的 `desktop` 加上命令行的 `sqlite_fts5`。该命令的"生成绑定"阶段使用 `-tags bindings` 单独编译 `main_bindings.go`（不连接数据库），并刷新 `frontend/src/wailsjs/` 下的绑定文件。
-3. **组装产物**：将 `cmd/desktop/build/bin/WeKnora Lite.app` 复制到 `dist/`，并向 `.app/Contents/Resources/` 内放置第三方许可证（`scripts/copy-licenses.sh`）、`.env`（来自 `.env.lite.example`）、`config/`、`migrations/sqlite/` 与 `web/` 前端资源。
+3. **组装产物**：将 `cmd/desktop/build/bin/GENYEE Lite.app` 复制到 `dist/`，并向 `.app/Contents/Resources/` 内放置第三方许可证（`scripts/copy-licenses.sh`）、`.env`（来自 `.env.lite.example`）、`config/`、`migrations/sqlite/` 与 `web/` 前端资源。
 
-最终产物为 `dist/WeKnora Lite.app`，双击即可运行。Windows/Linux 亦可在 `cmd/desktop` 下用 `wails build` 自行构建（更新机制已按 `.exe` / `xdg-open` 做了平台适配），但仓库当前仅提供 macOS 打包脚本与 `build/darwin` 资源。
+最终产物为 `dist/GENYEE Lite.app`，双击即可运行。Windows/Linux 亦可在 `cmd/desktop` 下用 `wails build` 自行构建（更新机制已按 `.exe` / `xdg-open` 做了平台适配），但仓库当前仅提供 macOS 打包脚本与 `build/darwin` 资源。

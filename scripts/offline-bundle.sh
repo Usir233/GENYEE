@@ -4,9 +4,10 @@
 #
 # 功能:
 #   1. 导出 GENYEE 核心服务与可选 Profile 的全部固定版本 Docker 镜像
-#   2. 收集部署编排文件 (docker-compose.yml, .env.example, helm/)
-#   3. 收集开源合规声明与 AGPL/GPL 书面要约 (LICENSE, NOTICE,
-#      THIRD_PARTY_NOTICES.md, OFFLINE_LICENSES/)
+#   2. 收集部署编排文件 (docker-compose.yml, .env.example, config/config.yaml,
+#      docker/searxng/settings.yml, misc/dex-config.yaml, helm/)
+#   3. 收集商业与开源合规声明及 AGPL/GPL 书面要约 (LICENSE,
+#      THIRD_PARTY_NOTICES.md, licenses/, OFFLINE_LICENSES/)
 #   4. 生成 MANIFEST.json 镜像与许可证清单及 SHA256SUMS 校验文件
 #
 # 用法:
@@ -94,17 +95,23 @@ profile_enabled() {
 
 # 格式: "category|profile|image|license|source_offer_required"
 IMAGES=(
-    "self-built|core|${GENYEE_REGISTRY}/genyee-app:${IMAGE_TAG}|MIT|false"
-    "self-built|core|${GENYEE_REGISTRY}/genyee-ui:${IMAGE_TAG}|MIT|false"
-    "self-built|core|${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG}|MIT (contains GPL/LGPL system tools in container)|true"
-    "self-built|core|${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}|MIT (contains GPL/LGPL system tools in container)|true"
+    "self-built|core|${GENYEE_REGISTRY}/genyee-app:${IMAGE_TAG}|LicenseRef-GENYEE-Commercial AND MIT|true"
+    "self-built|core|${GENYEE_REGISTRY}/genyee-ui:${IMAGE_TAG}|LicenseRef-GENYEE-Commercial AND MIT|false"
+    "self-built|core|${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG}|LicenseRef-GENYEE-Commercial AND MIT|true"
+    "self-built|core|${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}|LicenseRef-GENYEE-Commercial AND MIT|true"
     "third-party|core|paradedb/paradedb:v0.25.11-pg17|AGPL-3.0-only|true"
     "third-party|core|redis:7.0-alpine|BSD-3-Clause|false"
     "third-party|helm|redis:7.2-alpine|BSD-3-Clause|false"
 )
 
 if profile_enabled "minio"; then
-    IMAGES+=("third-party|minio|pgsty/minio:RELEASE.2026-08-04T00-00-00Z|AGPL-3.0-only|true")
+    if profile_enabled "langfuse"; then
+        IMAGES+=("third-party|minio,langfuse|pgsty/minio:RELEASE.2026-08-04T00-00-00Z|AGPL-3.0-only|true")
+    else
+        IMAGES+=("third-party|minio|pgsty/minio:RELEASE.2026-08-04T00-00-00Z|AGPL-3.0-only|true")
+    fi
+elif profile_enabled "langfuse"; then
+    IMAGES+=("third-party|langfuse|pgsty/minio:RELEASE.2026-08-04T00-00-00Z|AGPL-3.0-only|true")
 fi
 if profile_enabled "qdrant"; then
     IMAGES+=("third-party|qdrant|qdrant/qdrant:v1.16.2|Apache-2.0|false")
@@ -136,26 +143,42 @@ fi
 if profile_enabled "langfuse"; then
     IMAGES+=(
         "third-party|langfuse|clickhouse/clickhouse-server:24.8.14.39|Apache-2.0|false"
-        "third-party|langfuse|pgsty/minio:RELEASE.2026-08-04T00-00-00Z|AGPL-3.0-only|true"
         "third-party|langfuse|langfuse/langfuse:3.29.0|MIT (core) / Langfuse Commercial (ee)|false"
         "third-party|langfuse|langfuse/langfuse-worker:3.29.0|MIT (core) / Langfuse Commercial (ee)|false"
     )
 fi
 if profile_enabled "odl-hybrid"; then
-    IMAGES+=("self-built|odl-hybrid|${GENYEE_REGISTRY}/genyee-odl-hybrid:${IMAGE_TAG}|MIT|false")
+    IMAGES+=("self-built|odl-hybrid|${GENYEE_REGISTRY}/genyee-odl-hybrid:${IMAGE_TAG}|LicenseRef-GENYEE-Commercial AND MIT|true")
 fi
 if profile_enabled "mcp"; then
-    IMAGES+=("self-built|mcp|${GENYEE_REGISTRY}/genyee-mcp:${IMAGE_TAG}|MIT|false")
+    IMAGES+=("self-built|mcp|${GENYEE_REGISTRY}/genyee-mcp:${IMAGE_TAG}|LicenseRef-GENYEE-Commercial AND MIT|false")
 fi
 
-mkdir -p "${OUTPUT_DIR}/images" "${OUTPUT_DIR}/OFFLINE_LICENSES" "${OUTPUT_DIR}/scripts"
+mkdir -p "${OUTPUT_DIR}/images" "${OUTPUT_DIR}/OFFLINE_LICENSES" "${OUTPUT_DIR}/scripts" \
+         "${OUTPUT_DIR}/config" "${OUTPUT_DIR}/docker/searxng" "${OUTPUT_DIR}/misc" "${OUTPUT_DIR}/licenses"
 
 echo "[INFO] 复制编排配置与合规许可证文件到 ${OUTPUT_DIR} ..."
-for f in docker-compose.yml .env.example LICENSE NOTICE THIRD_PARTY_NOTICES.md; do
+for f in docker-compose.yml .env.example LICENSE THIRD_PARTY_NOTICES.md; do
     if [[ -f "${PROJECT_ROOT}/${f}" ]]; then
         cp "${PROJECT_ROOT}/${f}" "${OUTPUT_DIR}/"
     fi
 done
+
+if [[ -f "${PROJECT_ROOT}/config/config.yaml" ]]; then
+    cp "${PROJECT_ROOT}/config/config.yaml" "${OUTPUT_DIR}/config/config.yaml"
+fi
+
+if [[ -f "${PROJECT_ROOT}/docker/searxng/settings.yml" ]]; then
+    cp "${PROJECT_ROOT}/docker/searxng/settings.yml" "${OUTPUT_DIR}/docker/searxng/settings.yml"
+fi
+
+if [[ -f "${PROJECT_ROOT}/misc/dex-config.yaml" ]]; then
+    cp "${PROJECT_ROOT}/misc/dex-config.yaml" "${OUTPUT_DIR}/misc/dex-config.yaml"
+fi
+
+if [[ -d "${PROJECT_ROOT}/licenses" ]]; then
+    cp -R "${PROJECT_ROOT}/licenses/." "${OUTPUT_DIR}/licenses/"
+fi
 
 if [[ -d "${PROJECT_ROOT}/OFFLINE_LICENSES" ]]; then
     cp -R "${PROJECT_ROOT}/OFFLINE_LICENSES/." "${OUTPUT_DIR}/OFFLINE_LICENSES/"

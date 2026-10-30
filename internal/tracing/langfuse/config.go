@@ -64,7 +64,7 @@ type Config struct {
 // variables, mirroring the official Python / JS SDK conventions.
 func LoadConfigFromEnv() Config {
 	cfg := Config{
-		Host:           firstNonEmpty(os.Getenv("LANGFUSE_HOST"), "https://cloud.langfuse.com"),
+		Host:           strings.TrimSpace(os.Getenv("LANGFUSE_HOST")),
 		PublicKey:      strings.TrimSpace(os.Getenv("LANGFUSE_PUBLIC_KEY")),
 		SecretKey:      strings.TrimSpace(os.Getenv("LANGFUSE_SECRET_KEY")),
 		Release:        strings.TrimSpace(os.Getenv("LANGFUSE_RELEASE")),
@@ -77,9 +77,9 @@ func LoadConfigFromEnv() Config {
 	}
 
 	if v := strings.TrimSpace(os.Getenv("LANGFUSE_ENABLED")); v != "" {
-		cfg.Enabled = parseBool(v)
-	} else if cfg.PublicKey != "" && cfg.SecretKey != "" {
-		// Auto-enable when credentials are present — matches the Python SDK.
+		cfg.Enabled = parseBool(v) && cfg.Host != ""
+	} else if cfg.Host != "" && cfg.PublicKey != "" && cfg.SecretKey != "" {
+		// Auto-enable when host and credentials are present.
 		cfg.Enabled = true
 	}
 

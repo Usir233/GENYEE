@@ -66,7 +66,6 @@ var SettingsSections = map[string]openPageSection{
 	"memory":                {"长期记忆", "Long-term memory"},
 	"models":                {"模型管理", "Model Management"},
 	"ollama":                {"Ollama", "Ollama"},
-	"weknoracloud":          {"WeKnora Cloud", "WeKnora Cloud"},
 	"websearch":             {"网络搜索", "Web Search"},
 	"vectorstore":           {"向量数据库引擎", "Vector DB Engine"},
 	"parser":                {"解析引擎", "Parser Engine"},
@@ -83,8 +82,18 @@ var SettingsSections = map[string]openPageSection{
 	"integration-api":       {"API 集成", "API Integration"},
 	"integration-mcpserver": {"MCP Server", "MCP Server"},
 	"integration-cli":       {"CLI", "CLI"},
-	"integration-chrome":    {"Chrome 插件", "Chrome Extension"},
-	"integration-claw":      {"Claw Skill", "Claw Skill"},
+}
+
+func activeSettingsSections() map[string]openPageSection {
+	if !types.IsWeKnoraCloudEnabled() {
+		return SettingsSections
+	}
+	out := make(map[string]openPageSection, len(SettingsSections)+1)
+	for k, v := range SettingsSections {
+		out[k] = v
+	}
+	out["weknoracloud"] = openPageSection{"WeKnora Cloud", "WeKnora Cloud"}
+	return out
 }
 
 // SystemSettingsPanels are the tabs inside settings section system-global.
@@ -120,7 +129,7 @@ var (
 	openPageAuthTypes    = []string{"", "api_key", "oauth"}
 )
 
-// ToolViewPage opens a WeKnora page in the user's browser and returns what it
+// ToolViewPage opens a GENYEE page in the user's browser and returns what it
 // shows, so the model can answer about it.
 const ToolViewPage = "view_page"
 
@@ -206,10 +215,10 @@ const openPageSchema = `{
 	`agent_editor: basic, prompts, model, multimodal, conversation, suggestions, tools, mcp, skills, ` +
 	`knowledge, websearch, retrieval, share. ` +
 	`settings: general (personal preferences: language, theme, font), userprofile, assistant, mymemory, ` +
-	`envvars, tenant, members, chathistory, memory, models, ollama, weknoracloud, websearch, vectorstore, ` +
+	`envvars, tenant, members, chathistory, memory, models, ollama, websearch, vectorstore, ` +
 	`parser, storage, sandbox, system (version), system-global, model-catalog, runtime-queues, ` +
 	`platform-api-keys, system-audit-log, integration-im, integration-embed, integration-api, ` +
-	`integration-mcpserver, integration-cli, integration-chrome, integration-claw; ` +
+	`integration-mcpserver, integration-cli; ` +
 	`a section the user may not see opens their first one. toolbox: skills, mcp, browserconnection."
     },
     "panel": {
@@ -422,7 +431,7 @@ func validateOpenPageInput(in openPageInput) error {
 		}
 		return validateMCPServiceDraft(in.MCPServiceDraft)
 	case openPageSettings, openPageToolbox:
-		sections := SettingsSections
+		sections := activeSettingsSections()
 		if in.Page == openPageToolbox {
 			sections = ToolboxSections
 		}
@@ -662,7 +671,7 @@ func (t *OpenPageTool) resolve(ctx context.Context, in openPageInput) (*OpenPage
 		}
 	case openPageSettings:
 		link.Label = pick("设置", "Settings")
-		if s, ok := SettingsSections[in.Section]; ok {
+		if s, ok := activeSettingsSections()[in.Section]; ok {
 			link.Section, link.Detail = in.Section, pick(s.zh, s.en)
 		}
 		if p, ok := SystemSettingsPanels[in.Panel]; ok {

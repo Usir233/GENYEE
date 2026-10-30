@@ -465,4 +465,4 @@ macOS / Windows × Go 1.26, path-filtered to changes under `cli/`.
 
 ## License
 
-MIT — see the repository [LICENSE](../LICENSE).
+GENYEE Commercial License — see the repository [LICENSE](../LICENSE) and [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).

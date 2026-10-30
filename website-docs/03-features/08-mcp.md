@@ -518,10 +518,10 @@ claude mcp add --transport http weknora-docs https://your-weknora.example.com/mc
 :::
 
 
-`mcp-server/` 是一个独立的 Python 包，PyPI 名 **`tencent-weknora-mcp`**（当前 1.1.1，Python ≥ 3.10，依赖 `mcp>=2,<3`、`requests>=2.31.0`、`starlette`、`uvicorn`），核心实现在 `mcp-server/weknora_mcp_server.py`：`WeKnoraClient` 用 `requests.Session` 携带 `X-API-Key` 调 WeKnora REST API，`MCPServer("weknora-server", version="1.1.1")` 注册工具并通过所选传输对外服务。
+`mcp-server/` 是一个独立的 Python 包，PyPI 名 **`genyee-mcp`**（当前 1.1.1，Python ≥ 3.10，依赖 `mcp>=2,<3`、`requests>=2.31.0`、`starlette`、`uvicorn`），核心实现在 `mcp-server/weknora_mcp_server.py`：`WeKnoraClient` 用 `requests.Session` 携带 `X-API-Key` 调 WeKnora REST API，`MCPServer("genyee-server", version="1.1.1")` 注册工具并通过所选传输对外服务。
 
 ::: warning 包名与 API 变更（v1.1.x）
-- 官方包名是 `tencent-weknora-mcp`（由 Tencent/WeKnora 通过 Trusted Publishing 发布）；社区早期的 `weknora-mcp` 已不再使用。命令行入口仍是 `weknora-mcp-server` / `weknora-server`。
+- 官方包名是 `genyee-mcp`（由 Tencent/WeKnora 通过 Trusted Publishing 发布）；社区早期的 `weknora-mcp` 已不再使用。命令行入口仍是 `genyee-mcp-server` / `weknora-server`。
 - 实现已迁移到 mcp 2.x 的高层 API：工具是加了 `@mcp.tool()` 装饰器的普通函数，入参 JSON Schema 由类型标注自动推导，描述取自 docstring，返回值自动序列化。旧的 `handle_list_tools()` / `handle_call_tool()` 分发写法已移除——扩展工具时只需新增一个带装饰器的函数。
 - 阻塞式网络 I/O（`chat` / `agent_chat`）被投递到线程池执行，不阻塞 asyncio 事件循环。
 :::
@@ -538,14 +538,14 @@ pip install -r requirements.txt
 python main.py            # 或 python run.py / python run_server.py
 ```
 
-**从 PyPI 安装**（提供两个 console 入口 `weknora-mcp-server` 与 `weknora-server`）：
+**从 PyPI 安装**（提供两个 console 入口 `genyee-mcp-server` 与 `weknora-server`）：
 
 ```bash
-pip install tencent-weknora-mcp
-weknora-mcp-server
+pip install genyee-mcp
+genyee-mcp-server
 
 # 或者不预装，直接用 uvx 运行
-uvx --from tencent-weknora-mcp weknora-mcp-server
+uvx --from genyee-mcp genyee-mcp-server
 ```
 
 **本地开发安装**：
@@ -553,7 +553,7 @@ uvx --from tencent-weknora-mcp weknora-mcp-server
 ```bash
 cd mcp-server
 pip install -e .          # 开发模式；或 pip install .
-weknora-mcp-server
+genyee-mcp-server
 ```
 
 **Docker**（`mcp-server/Dockerfile`，基于 `python:3.11-slim`，默认以 Streamable HTTP 传输启动并暴露 8000 端口）：
@@ -563,7 +563,7 @@ ENV MCP_HOST=0.0.0.0
 ENV MCP_PORT=8000
 ENV WEKNORA_BASE_URL=http://app:8080/api/v1
 EXPOSE 8000
-CMD ["weknora-mcp-server", "--transport", "http", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["genyee-mcp-server", "--transport", "http", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 运行容器时必须注入 `MCP_SERVER_AUTH_TOKEN`（HTTP 传输没有它会拒绝启动，见 2.3）。
@@ -700,14 +700,14 @@ stdio 传输（Claude Desktop 的 `claude_desktop_config.json`）：
 }
 ```
 
-已从 PyPI 安装时，`command` 可直接写 `weknora-mcp-server`，或者用 `uvx` 免安装运行：
+已从 PyPI 安装时，`command` 可直接写 `genyee-mcp-server`，或者用 `uvx` 免安装运行：
 
 ```json
 {
   "mcpServers": {
     "weknora": {
       "command": "uvx",
-      "args": ["--from", "tencent-weknora-mcp", "weknora-mcp-server"],
+      "args": ["--from", "genyee-mcp", "genyee-mcp-server"],
       "env": {
         "WEKNORA_BASE_URL": "http://localhost:8080/api/v1",
         "WEKNORA_API_KEY": "your-weknora-api-key"

@@ -42,6 +42,10 @@ type weKnoraCloudCredentialsRequest struct {
 // @Security     ApiKeyAuth
 // @Router       /weknoracloud/credentials [post]
 func (h *WeKnoraCloudHandler) SaveCredentials(c *gin.Context) {
+	if !types.IsWeKnoraCloudEnabled() {
+		c.JSON(http.StatusForbidden, gin.H{"error": "WeKnoraCloud is disabled"})
+		return
+	}
 	var req weKnoraCloudCredentialsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

@@ -1,6 +1,6 @@
 # GENYEE Helm Chart
 
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License: GENYEE Commercial](https://img.shields.io/badge/License-GENYEE_Commercial-blue.svg)](../LICENSE)
 
 Helm chart for deploying [GENYEE](https://github.com/Usir233/GENYEE) - an AI-powered Knowledge RAG Platform.
 
@@ -469,4 +469,4 @@ This Helm chart follows best practices from:
 
 ## License
 
-This chart is licensed under the MIT License - see the [LICENSE](https://github.com/Usir233/GENYEE/blob/main/LICENSE) file for details.
+This chart is licensed under the GENYEE Commercial License (`LicenseRef-GENYEE-Commercial`) — see the root [LICENSE](../LICENSE) and [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md) files for details.

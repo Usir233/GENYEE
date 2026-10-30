@@ -29,17 +29,21 @@
 | **Neo4j Community & APOC** | `neo4j:2025.10.1` | GPL-3.0-or-later / AGPL-3.0 | `https://github.com/neo4j/neo4j/tree/2025.10.1` |
 | **BusyBox** | `busybox:1.36` | GPL-2.0-only | `https://git.busybox.net/busybox/tag/?h=1_36_0` |
 
-### 2. 容器内系统级开源软件包（`genyee-docreader` 与 `genyee-sandbox`）
+### 2. 容器内系统级开源软件包（`genyee-app`、`genyee-docreader`、`genyee-sandbox` 与 `genyee-odl-hybrid`）
 
-`genyee-docreader` 与 `genyee-sandbox` 基于 Debian GNU/Linux 官方镜像构建，通过 `apt-get` 安装了以下未修改的系统级开源工具包（仅通过进程间 CLI 或系统动态库调用）：
+`genyee-app`、`genyee-docreader`、`genyee-sandbox` 与 `genyee-odl-hybrid` 基于 Debian GNU/Linux（或 Alpine Linux）官方镜像构建，通过系统包管理器安装了以下未修改的系统级开源工具包与运行库（仅通过进程间 CLI 或标准系统动态库调用）：
 
-| 软件包名称 | 用途说明 | 许可证 | Debian 官方源码获取方式 |
-| :--- | :--- | :--- | :--- |
-| **LibreOffice** (`libreoffice-writer`, `libreoffice-impress` 等) | `.doc` / `.ppt` 转换子进程 | MPL-2.0 / LGPL-3.0+ | `apt-get source libreoffice` 或 `https://sources.debian.org/src/libreoffice/` |
-| **Poppler** (`poppler-utils` / `pdftoppm`) | PDF 页面渲染工具 | GPL-2.0 / GPL-3.0 | `apt-get source poppler` 或 `https://sources.debian.org/src/poppler/` |
-| **Ghostscript** | PostScript / PDF 处理 | AGPL-3.0 | `apt-get source ghostscript` 或 `https://sources.debian.org/src/ghostscript/` |
-| **FFmpeg** (`ffmpeg`) | 音视频格式转码 CLI | LGPL-2.1+ / GPL-2.0+ | `apt-get source ffmpeg` 或 `https://sources.debian.org/src/ffmpeg/` |
-| **GNU Coreutils / Bash / Glibc** | 基础容器运行环境 | GPL-3.0+ / LGPL-2.1+ | `https://snapshot.debian.org/` |
+| 软件包名称 | 所在镜像 | 用途说明 | 许可证 | Debian 官方源码获取方式 |
+| :--- | :--- | :--- | :--- | :--- |
+| **FFmpeg** (`ffmpeg`) | `genyee-app`, `genyee-docreader` | 音视频格式转码 CLI | LGPL-2.1+ / GPL-2.0+ | `apt-get source ffmpeg` 或 `https://sources.debian.org/src/ffmpeg/` |
+| **MariaDB / MySQL Client** (`default-mysql-client`) | `genyee-app` | 数据库连通性诊断 CLI | GPL-2.0 | `apt-get source mariadb` 或 `https://sources.debian.org/src/mariadb/` |
+| **LibreOffice** (`libreoffice`, `libreoffice-writer`, `libreoffice-impress` 等) | `genyee-docreader`, `genyee-sandbox` | `.doc` / `.ppt` 转换子进程 | MPL-2.0 / LGPL-3.0+ | `apt-get source libreoffice` 或 `https://sources.debian.org/src/libreoffice/` |
+| **OpenJDK 17 JRE Headless** (`openjdk-17-jre-headless`) | `genyee-docreader` | OpenDataLoader PDF Java 运行时 | GPL-2.0-with-Classpath-Exception | `apt-get source openjdk-17` 或 `https://sources.debian.org/src/openjdk-17/` |
+| **Poppler** (`poppler-utils` / `pdftoppm`) | `genyee-docreader`, `genyee-sandbox` | PDF 页面渲染与文本提取工具 | GPL-2.0+ / GPL-3.0+ | `apt-get source poppler` 或 `https://sources.debian.org/src/poppler/` |
+| **Antiword** (`antiword`) | `genyee-docreader`, `genyee-sandbox` | 旧版 `.doc` 文本提取 CLI | GPL-2.0 | `apt-get source antiword` 或 `https://sources.debian.org/src/antiword/` |
+| **Tesseract OCR** (`tesseract-ocr`) | `genyee-docreader`, `genyee-sandbox` | OCR 识别 CLI 工具 | Apache-2.0 | `apt-get source tesseract` 或 `https://sources.debian.org/src/tesseract/` |
+| **Ghostscript** (`ghostscript`) | `genyee-docreader`, `genyee-sandbox` | PostScript / PDF 处理 | AGPL-3.0 | `apt-get source ghostscript` 或 `https://sources.debian.org/src/ghostscript/` |
+| **GNU Coreutils / Bash / Glibc / GCC Runtime** (`libstdc++6`, `libgomp1`, `libglib2.0-0`) | `genyee-app`, `genyee-docreader`, `genyee-sandbox`, `genyee-odl-hybrid` | 基础容器运行环境与系统动态库 | GPL-3.0+ / LGPL-2.1+ / GPL-3.0-with-GCC-Exception | `https://snapshot.debian.org/` |
 
 ---
 
@@ -50,8 +54,10 @@
 2. **获取容器内安装的 Debian 软件包精确版本清单**：
    可在加载镜像后执行以下命令导出精确包版本，并通过 `https://snapshot.debian.org/` 或 `apt-get source <package>=<version>` 获取对应源码包（`.dsc`、`.orig.tar.*`、`.debian.tar.*`）：
    ```bash
+   docker run --rm --entrypoint dpkg-query genyee/genyee-app:latest -W -f='${Package}=${Version} (${Source})\n'
    docker run --rm --entrypoint dpkg-query genyee/genyee-docreader:latest -W -f='${Package}=${Version} (${Source})\n'
    docker run --rm --entrypoint dpkg-query genyee/genyee-sandbox:latest -W -f='${Package}=${Version} (${Source})\n'
+   docker run --rm --entrypoint dpkg-query genyee/genyee-odl-hybrid:latest -W -f='${Package}=${Version} (${Source})\n'
    ```
 3. **向分发方申请离线源码归档介质**：
    如您处于完全断网（Air-Gapped）环境、无法访问上述上游代码仓库或 Debian Snapshot 源，请凭本交付包的 `MANIFEST.json` 联系向您提供本软件包的商业交付团队或通过项目官方仓库提交工单，我们将在收到请求后提供与本交付包镜像 Digest 完全对应的源码归档包（Source Tarball Bundle）。

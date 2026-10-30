@@ -89,7 +89,7 @@ func TestNewRouterFrontendStaticEditionOptIn(t *testing.T) {
 					require.Equal(t, http.StatusUnauthorized, recorder.Code)
 					require.Contains(t, recorder.Header().Get("Content-Type"), "application/json")
 					if request.method == http.MethodGet && request.path == "/mcp/endpoint" {
-						require.Equal(t, `Bearer realm="weknora-mcp"`, recorder.Header().Get("WWW-Authenticate"))
+						require.Equal(t, `Bearer realm="genyee-mcp"`, recorder.Header().Get("WWW-Authenticate"))
 						require.Contains(t, recorder.Body.String(), "missing bearer token")
 					}
 				})

@@ -86,9 +86,9 @@ type CreateKnowledgeQARequest struct {
 	SuggestionAttribution *types.SuggestionAttribution `json:"suggestion_attribution,omitempty"`
 	// QuestionOrigin is the knowledge source of a picked suggested question.
 	QuestionOrigin *types.QuestionOrigin `json:"question_origin,omitempty"`
-	// PageContext is the WeKnora page the user has open (agent mode only).
+	// PageContext is the GENYEE page the user has open (agent mode only).
 	PageContext *types.PageContext `json:"page_context,omitempty"`
-	// AssistantAccess is the WeKnora assistant access level: read_only,
+	// AssistantAccess is the GENYEE assistant access level: read_only,
 	// confirm or auto_write. The workspace ceiling caps it; other agents
 	// ignore it.
 	AssistantAccess types.AssistantAccessLevel `json:"assistant_access,omitempty"`

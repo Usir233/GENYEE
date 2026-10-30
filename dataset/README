@@ -40,7 +40,7 @@ Pre-processed evaluation samples are provided in `./dataset/samples`:
 - `qrels.parquet` (columns: qid, pid, score)
 - `qas.parquet` (columns: qid, aid)
 
-> **Provenance Note:** The evaluation parquet samples in `dataset/samples/` (`corpus.parquet`, `queries.parquet`, `qrels.parquet`, `answers.parquet`) are synthetic evaluation samples authored by GENYEE (replacing upstream MS MARCO samples) and are covered by the root [`LICENSE`](../LICENSE).
+> **Provenance Note:** The evaluation parquet samples in `dataset/samples/` (`corpus.parquet`, `queries.parquet`, `qrels.parquet`, `answers.parquet`, `qas.parquet`) are synthetic evaluation samples authored by GENYEE (replacing upstream MS MARCO samples) and are covered by the root [`LICENSE`](../LICENSE).
 
 ## Quick Start
 

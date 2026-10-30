@@ -28,7 +28,7 @@ flowchart TB
         LOCALFE["宿主机 npm run dev 前端"] --> LOCALAPP
     end
     subgraph lite["Lite / 桌面 (单进程)"]
-        BIN["WeKnora-lite 二进制 (内嵌 web/ 前端)"]
+        BIN["GENYEE-lite 二进制 (内嵌 web/ 前端)"]
         BIN --> SQLITE[("SQLite: FTS5 + sqlite-vec")]
         BIN --> MEMQ[("内存流管理")]
         BIN -. "可选" .-> DR3["docreader 127.0.0.1:50051"]
@@ -85,9 +85,9 @@ docker compose up -d
 
 | 服务 | 镜像 | 端口（宿主:容器） | 依赖 | 说明 |
 | --- | --- | --- | --- | --- |
-| `frontend` | `wechatopenai/weknora-ui:${WEKNORA_VERSION:-latest}` | `${FRONTEND_PORT:-80}:80` | app（healthy） | Nginx 托管 SPA 并反代到 app；`APP_HOST`/`APP_BACKEND_PORT`/`APP_SCHEME` 可指向远程后端 |
-| `app` | `wechatopenai/weknora-app` | `${APP_PORT:-8080}:8080` | postgres（healthy）、redis、docreader（healthy） | Go 后端；挂载 `./config/config.yaml`、`data-files` 卷；健康检查 `GET /health` |
-| `docreader` | `wechatopenai/weknora-docreader` | 仅 `expose: 50051`（不发布到宿主机） | — | 文档解析 gRPC 服务；健康检查 `grpc_health_probe`；与 app 共享 `docreader-tmp` 卷传递图片 |
+| `frontend` | `genyee/genyee-ui:${WEKNORA_VERSION:-latest}` | `${FRONTEND_PORT:-80}:80` | app（healthy） | Nginx 托管 SPA 并反代到 app；`APP_HOST`/`APP_BACKEND_PORT`/`APP_SCHEME` 可指向远程后端 |
+| `app` | `genyee/genyee-app` | `${APP_PORT:-8080}:8080` | postgres（healthy）、redis、docreader（healthy） | Go 后端；挂载 `./config/config.yaml`、`data-files` 卷；健康检查 `GET /health` |
+| `docreader` | `genyee/genyee-docreader` | 仅 `expose: 50051`（不发布到宿主机） | — | 文档解析 gRPC 服务；健康检查 `grpc_health_probe`；与 app 共享 `docreader-tmp` 卷传递图片 |
 | `postgres` | `paradedb/paradedb:v0.25.11-pg17` | 不映射宿主端口 | — | ParadeDB = PostgreSQL 17 + BM25/向量扩展，默认检索引擎 |
 | `redis` | `redis:7.0-alpine` | 不映射宿主端口 | — | `--appendonly yes --requirepass ${REDIS_PASSWORD}` |
 
@@ -132,11 +132,11 @@ make dev-logs / dev-status / dev-stop / dev-restart
 
 | Dockerfile | 产物镜像 | 要点 |
 | --- | --- | --- |
-| `docker/Dockerfile.app` | `wechatopenai/weknora-app` | 三阶段：先构建 BrowserSkill 的 `bsk` 与配套 Chrome 扩展（装入 `/opt/weknora/browserskill/`，见[本机浏览器](../05-clients/09-local-browser.md)）；再用 `golang:1.26-bookworm` 编译（`make build-prod`，默认 `WITH_ANYDOC=1` 链接进程内 office 解析引擎，注入版本信息，预下载 DuckDB 扩展 `cmd/download/duckdb`）→ `debian:12.12-slim` 运行层（含 `migrate` 迁移工具、python3/node/uvx（供 stdio MCP 使用）、ffmpeg（ASR）、gosu 降权，以及第三方许可证文本）。入口 `scripts/docker-entrypoint.sh`：修复挂载目录属主；若挂载了 docker.sock，按 socket GID 把 appuser 加入对应组（compose `group_add` 在 gosu 后无效），再以 appuser 运行 `./WeKnora`。`EXPOSE 8080` |
-| `docker/Dockerfile.docreader` | `wechatopenai/weknora-docreader` | Python 3.10 + uv 依赖锁定；生成 protobuf；运行层安装 LibreOffice、OpenJDK 17、antiword、Playwright（webkit）与 `grpc_health_probe`。轻量版不含 PaddleOCR。`EXPOSE 50051`。支持 `APT_MIRROR`、`PLAYWRIGHT_DOWNLOAD_HOST` 和 `PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST` 构建参数 |
-| `docker/Dockerfile.odl-hybrid` | `weknora-odl-hybrid:local` | 安装 `opendataloader-pdf[hybrid]`（Docling），监听 5002，默认 `--no-ocr`；仅本地构建不发布 |
-| `docker/Dockerfile.sandbox` | `wechatopenai/weknora-sandbox` | Agent 会话沙箱镜像。基础环境为 Python 3.12-slim + Node 20 + uv/pnpm，默认 `root` 执行，保留 `user`(UID 1000) 供显式选择。默认构建目标 `sandbox` 供 Docker 后端使用；另有 `cube`（含 Cube envd）、`desktop` / `desktop-cube`（带图形桌面）等目标，见[沙箱部署](../06-development/04-sandbox-deployment.md) |
-| `frontend/Dockerfile` | `wechatopenai/weknora-ui` | 两阶段：digest 锁定的 `node:24-bookworm-slim`（`$BUILDPLATFORM`，避免多架构 CI 用 QEMU 跑 Vite）内 `npm ci` + `npm run build`（`VITE_IS_DOCKER` / `VITE_FRONTEND_COMMIT`），可选 `NPM_REGISTRY` / `NODE_MAX_OLD_SPACE_SIZE`；运行层为按 digest 固定的 `nginx:1.30.3-alpine`（兼容 CentOS 7 旧内核）。无需宿主机预构建 `dist/` |
+| `docker/Dockerfile.app` | `genyee/genyee-app` | 三阶段：先构建 BrowserSkill 的 `bsk` 与配套 Chrome 扩展（装入 `/opt/weknora/browserskill/`，见[本机浏览器](../05-clients/09-local-browser.md)）；再用 `golang:1.26-bookworm` 编译（`make build-prod`，默认 `WITH_ANYDOC=1` 链接进程内 office 解析引擎，注入版本信息，预下载 DuckDB 扩展 `cmd/download/duckdb`）→ `debian:12.12-slim` 运行层（含 `migrate` 迁移工具、python3/node/uvx（供 stdio MCP 使用）、ffmpeg（ASR）、gosu 降权，以及第三方许可证文本）。入口 `scripts/docker-entrypoint.sh`：修复挂载目录属主；若挂载了 docker.sock，按 socket GID 把 appuser 加入对应组（compose `group_add` 在 gosu 后无效），再以 appuser 运行 `./WeKnora`。`EXPOSE 8080` |
+| `docker/Dockerfile.docreader` | `genyee/genyee-docreader` | Python 3.10 + uv 依赖锁定；生成 protobuf；运行层安装 LibreOffice、OpenJDK 17、antiword、Playwright（webkit）与 `grpc_health_probe`。轻量版不含 PaddleOCR。`EXPOSE 50051`。支持 `APT_MIRROR`、`PLAYWRIGHT_DOWNLOAD_HOST` 和 `PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST` 构建参数 |
+| `docker/Dockerfile.odl-hybrid` | `genyee/genyee-odl-hybrid:local` | 安装 `opendataloader-pdf[hybrid]`（Docling），监听 5002，默认 `--no-ocr`；仅本地构建不发布 |
+| `docker/Dockerfile.sandbox` | `genyee/genyee-sandbox` | Agent 会话沙箱镜像。基础环境为 Python 3.12-slim + Node 20 + uv/pnpm，默认 `root` 执行，保留 `user`(UID 1000) 供显式选择。默认构建目标 `sandbox` 供 Docker 后端使用；另有 `cube`（含 Cube envd）、`desktop` / `desktop-cube`（带图形桌面）等目标，见[沙箱部署](../06-development/04-sandbox-deployment.md) |
+| `frontend/Dockerfile` | `genyee/genyee-ui` | 两阶段：digest 锁定的 `node:24-bookworm-slim`（`$BUILDPLATFORM`，避免多架构 CI 用 QEMU 跑 Vite）内 `npm ci` + `npm run build`（`VITE_IS_DOCKER` / `VITE_FRONTEND_COMMIT`），可选 `NPM_REGISTRY` / `NODE_MAX_OLD_SPACE_SIZE`；运行层为按 digest 固定的 `nginx:1.30.3-alpine`（兼容 CentOS 7 旧内核）。无需宿主机预构建 `dist/` |
 
 从源码构建全部镜像：
 
@@ -192,7 +192,7 @@ PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST=https://your-playwright-mirror.example.com \
 
 `helm/Chart.yaml`：apiVersion v2，chart 名 `weknora`，appVersion 跟随版本（如 v0.9.0），要求 Kubernetes >= 1.25.0。
 
-Chart 内包含五个组件：`app`（`wechatopenai/weknora-app`）、`frontend`（`wechatopenai/weknora-ui`）、`docreader`、`postgresql`（ParadeDB 镜像，chart 默认 `paradedb/paradedb:v0.18.9-pg17`，与 Compose 的版本不同）、`redis`（`redis:7-alpine`），并可选启用 `minio` 与 `neo4j`。
+Chart 内包含五个组件：`app`（`genyee/genyee-app`）、`frontend`（`genyee/genyee-ui`）、`docreader`、`postgresql`（ParadeDB 镜像，chart 默认 `paradedb/paradedb:v0.18.9-pg17`，与 Compose 的版本不同）、`redis`（`redis:7-alpine`），并可选启用 `minio` 与 `neo4j`。
 
 `helm/values.yaml` 关键配置：
 
@@ -246,7 +246,7 @@ Lite 模式通过编译期 `EDITION=lite` 与运行期 `.env.lite` 环境实现�
 
 ```bash
 cp .env.lite.example .env.lite      # 填写 SYSTEM_AES_KEY（openssl rand -hex 16）与 JWT_SECRET
-make run-lite                       # 构建并以 .env.lite 环境启动 ./WeKnora-lite
+make run-lite                       # 构建并以 .env.lite 环境启动 ./GENYEE-lite
 make package-lite                   # 打包发行 tarball（scripts/package-lite.sh）
 ```
 
@@ -261,7 +261,7 @@ make package-lite                   # 打包发行 tarball（scripts/package-lit
 :::
 
 - 入口 `cmd/desktop/main.go` + `cmd/desktop/wails.json`；`cmd/desktop/app.go` 向前端暴露 `GetAPIBaseURL`（返回 `http://127.0.0.1:PORT/api/v1`）、HTTP 端口与「绑定到局域网」设置、`CheckForUpdates` 自动更新检查等绑定方法。
-- `scripts/package-mac-app.sh`：先构建前端到 `web/`，再 `wails build -tags "sqlite_fts5"`，最后组装 `.app` 包 —— `Contents/MacOS/WeKnora Lite` 为主程序，`Contents/Resources` 内嵌 `.env`、config、`migrations/sqlite`、web 前端；相对路径数据自动重定向到 `~/Library/Application Support/WeKnora Lite/data/`，日志写 `~/Library/Logs/WeKnora Lite/`。
+- `scripts/package-mac-app.sh`：先构建前端到 `web/`，再 `wails build -tags "sqlite_fts5"`，最后组装 `.app` 包 —— `Contents/MacOS/GENYEE Lite` 为主程序，`Contents/Resources` 内嵌 `.env`、config、`migrations/sqlite`、web 前端；相对路径数据自动重定向到 `~/Library/Application Support/GENYEE Lite/data/`，日志写 `~/Library/Logs/GENYEE Lite/`。
 
 ```bash
 make package-mac-app
@@ -319,7 +319,7 @@ flowchart TB
     end
     subgraph laptop["个人：Lite / 桌面"]
         direction LR
-        U3["用户"] --> L1["WeKnora-lite 单进程 (内嵌前端 + SQLite + 内存队列)"]
+        U3["用户"] --> L1["GENYEE-lite 单进程 (内嵌前端 + SQLite + 内存队列)"]
         L1 --> O3["Ollama / 远程 OpenAI 兼容 API"]
     end
 ```

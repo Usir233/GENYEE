@@ -214,7 +214,7 @@ type CustomAgentConfig struct {
 	MCPAuthWaitTimeout int `yaml:"mcp_auth_wait_timeout,omitempty" json:"mcp_auth_wait_timeout,omitempty"`
 	// AccessLevel is the highest access level a run of this agent gets: how
 	// far it may change data (MCP tools, Wiki writes) without asking. Empty
-	// means auto_write. The WeKnora assistant uses the workspace's assistant
+	// means auto_write. The GENYEE assistant uses the workspace's assistant
 	// ceiling instead.
 	AccessLevel AssistantAccessLevel `yaml:"access_level,omitempty" json:"access_level,omitempty"`
 

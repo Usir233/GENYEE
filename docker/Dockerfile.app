@@ -159,6 +159,10 @@ COPY --from=builder /root/.duckdb /home/appuser/.duckdb
 COPY --from=builder /app/GENYEE .
 COPY --from=builder /license-bundle/ ./
 
+LABEL org.opencontainers.image.vendor="GENYEE" \
+      org.opencontainers.image.title="genyee-app" \
+      org.opencontainers.image.licenses="LicenseRef-GENYEE-Commercial AND MIT"
+
 # Copy and make entrypoint script executable
 COPY --from=builder /app/scripts/docker-entrypoint.sh ./scripts/docker-entrypoint.sh
 

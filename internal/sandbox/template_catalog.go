@@ -128,7 +128,7 @@ func classifyWeKnoraTemplate(name, image string) (standard, desktop bool) {
 // yet another one.
 func isStandardTemplateImage(image string) bool {
 	candidate := normalizeImageRepository(image)
-	return candidate != "" && (candidate == normalizeImageRepository(DefaultDockerImage) || candidate == "wechatopenai/weknora-sandbox")
+	return candidate != "" && (candidate == normalizeImageRepository(EffectiveDefaultDockerImage()) || candidate == normalizeImageRepository(DefaultDockerImage) || candidate == "wechatopenai/weknora-sandbox")
 }
 
 func isDesktopTemplateImage(image string) bool {

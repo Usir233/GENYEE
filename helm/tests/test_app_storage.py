@@ -44,7 +44,7 @@ class AppStorageTests(unittest.TestCase):
     def app(self, documents):
         return next(doc for doc in documents
                     if doc["kind"] == "Deployment"
-                    and doc["metadata"]["name"] == "audit-weknora-app")
+                    and doc["metadata"]["name"] == "audit-genyee-app")
 
     def assert_data_claim(self, app, name):
         volumes = app["spec"]["template"]["spec"]["volumes"]
@@ -111,10 +111,10 @@ class AppStorageTests(unittest.TestCase):
         app = self.app(documents)
         self.assertEqual(app["spec"]["replicas"], 1)
         self.assertEqual(app["spec"]["strategy"], {"type": "Recreate"})
-        self.assert_data_claim(app, "audit-weknora-data-files")
+        self.assert_data_claim(app, "audit-genyee-data-files")
         pvc = next(doc for doc in documents
                    if doc["kind"] == "PersistentVolumeClaim"
-                   and doc["metadata"]["name"] == "audit-weknora-data-files")
+                   and doc["metadata"]["name"] == "audit-genyee-data-files")
         self.assertEqual(pvc["spec"]["accessModes"], ["ReadWriteOnce"])
         env = app["spec"]["template"]["spec"]["containers"][0]["env"]
         self.assertIn({"name": "STORAGE_TYPE", "value": "local"}, env)
@@ -122,7 +122,7 @@ class AppStorageTests(unittest.TestCase):
     def data_files_claim(self, documents):
         return next(doc for doc in documents
                     if doc["kind"] == "PersistentVolumeClaim"
-                    and doc["metadata"]["name"] == "audit-weknora-data-files")
+                    and doc["metadata"]["name"] == "audit-genyee-data-files")
 
     def test_data_files_claim_defaults_to_read_write_once(self):
         pvc = self.data_files_claim(self.documents())
@@ -152,9 +152,9 @@ class AppStorageTests(unittest.TestCase):
         app = self.app(documents)
         self.assertEqual(app["spec"]["replicas"], 3)
         self.assertEqual(app["spec"]["strategy"]["type"], "RollingUpdate")
-        self.assert_data_claim(app, "weknora-shared-files")
+        self.assert_data_claim(app, "genyee-shared-files")
         self.assertFalse(any(doc["kind"] == "PersistentVolumeClaim"
-                             and doc["metadata"]["name"] == "audit-weknora-data-files"
+                             and doc["metadata"]["name"] == "audit-genyee-data-files"
                              for doc in documents))
 
 

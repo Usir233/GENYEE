@@ -5,7 +5,7 @@ DeepSeek Harness（dsh）插件通过 REST API 连接已有 GENYEE 部署，支�
 ## 安装与连接
 
 ```sh
-dsh plugin --profile web add @wxg-prc-cpg/dsh-weknora
+dsh plugin --profile web add @genyee/dsh-genyee
 
 export WEKNORA_BASE_URL=https://weknora.example.com
 export WEKNORA_API_KEY='<api-key>'

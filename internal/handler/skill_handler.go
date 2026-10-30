@@ -76,7 +76,7 @@ type SkillInfoResponse struct {
 // @Security     Bearer
 // @Security     ApiKeyAuth
 // @x-agent      {"id":"skill.list","risk":"read"}
-// @x-agent-hint "Lists usable skills, chosen by name. Pass sandbox_config_id from agent.get; when the agent has none, pass host (WeKnora Lite runs skills locally). An empty list means there are no usable skills there; if the agent has no sandbox, tell the user to choose one in the agent editor."
+// @x-agent-hint "Lists usable skills, chosen by name. Pass sandbox_config_id from agent.get; when the agent has none, pass host (GENYEE Lite runs skills locally). An empty list means there are no usable skills there; if the agent has no sandbox, tell the user to choose one in the agent editor."
 // @Router       /skills [get]
 func (h *SkillHandler) ListSkills(c *gin.Context) {
 	// A shared agent runs its skills in its OWNER's workspace, on the sandbox

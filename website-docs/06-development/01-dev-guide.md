@@ -94,7 +94,7 @@ VITE_DEV_PROXY_TARGET=https://kb.example.com npm run dev
 | `dex` | `dexidp/dex:latest`（OIDC 测试身份源，配置 `misc/dex-config.yaml`） | `5556` | `--dex` / `--full` |
 | `langfuse-web` / `langfuse-worker` / `langfuse-clickhouse` / `langfuse-minio` / `langfuse-db-init` | Langfuse v3 自建栈，复用 dev 的 postgres（独立 `langfuse` 库）与 redis（DB 1） | web `3000`、minio `9100/9101` | `--langfuse`（`dev.sh` 默认开启，`--no-langfuse` 关闭） |
 | `odl-hybrid` | 本地构建 `docker/Dockerfile.odl-hybrid`（Docling PDF 后端） | `5002` | `--odl-hybrid`（镜像较大，按需） |
-| `sandbox` | `wechatopenai/weknora-sandbox`（Skills 脚本执行沙箱，仅 build/pull，非常驻） | - | profile `full` |
+| `sandbox` | `genyee/genyee-sandbox`（Skills 脚本执行沙箱，仅 build/pull，非常驻） | - | profile `full` |
 
 `dev.sh start` 的可选参数：`--minio`、`--qdrant`、`--neo4j`、`--dex`、`--langfuse`（默认开）、`--no-langfuse`、`--odl-hybrid`、`--full`（全部可选服务，不含 odl-hybrid）。通过 Makefile 传参：`make dev-start DEV_ARGS=--odl-hybrid`。
 
@@ -116,7 +116,7 @@ Lite 模式把 SQLite（+sqlite-vec）与内存队列编译进单个二进制，
 
 ```bash
 make build-lite     # 先构建前端到 web/，再 CGO 构建 Go（tags: sqlite_fts5）；SKIP_FRONTEND=1 跳过前端
-make run-lite       # 依赖 .env.lite，构建并启动 WeKnora-lite
+make run-lite       # 依赖 .env.lite，构建并启动 GENYEE-lite
 make package-lite   # 打 tarball 发行包（scripts/package-lite.sh）
 make package-mac-app  # 打 macOS .app（scripts/package-mac-app.sh）
 ```
@@ -144,9 +144,9 @@ make package-mac-app  # 打 macOS .app（scripts/package-mac-app.sh）
 
 | 目标 | 作用 |
 | --- | --- |
-| `docker-build-app` | 构建 `wechatopenai/weknora-app`（`docker/Dockerfile.app`，注入 `scripts/get_version.sh` 的版本信息） |
-| `docker-build-docreader` | 构建 `wechatopenai/weknora-docreader`（`docker/Dockerfile.docreader`） |
-| `docker-build-frontend` | 多阶段构建 `wechatopenai/weknora-ui`（builder 内 `npm ci` + `npm run build`，无需宿主机预构建 dist；自动从 git 注入 `VITE_FRONTEND_COMMIT`） |
+| `docker-build-app` | 构建 `genyee/genyee-app`（`docker/Dockerfile.app`，注入 `scripts/get_version.sh` 的版本信息） |
+| `docker-build-docreader` | 构建 `genyee/genyee-docreader`（`docker/Dockerfile.docreader`） |
+| `docker-build-frontend` | 多阶段构建 `genyee/genyee-ui`（builder 内 `npm ci` + `npm run build`，无需宿主机预构建 dist；自动从 git 注入 `VITE_FRONTEND_COMMIT`） |
 | `docker-build-all` | 以上三个镜像 |
 | `docker-run` | 确保 `.env` 存在（缺失时从 `.env.example` 复制或 touch）后 `docker-compose up` |
 | `docker-stop` / `docker-restart` | `docker-compose down` / `stop -t 60` + `up` |
@@ -364,10 +364,10 @@ chunker 提供 `SplitWithDiagnostics()`（`internal/infrastructure/chunker/strat
 
 `scripts/cloud-image/` 用于在专用、可丢弃的 Linux 制作机上准备分发镜像。常规部署使用[安装部署](../01-getting-started/02-installation.md)，不需要运行这些脚本。
 
-- `prepare.sh` 下载 `WEKNORA_REF` 对应的运行文件、拉取镜像并安装 systemd 服务。该引用还用于设置镜像版本，必须确认对应镜像标签存在。随仓库提供的 systemd 单元固定使用 `/opt/WeKnora`，只修改脚本的目录变量不足以迁移安装位置。
+- `prepare.sh` 下载 `WEKNORA_REF` 对应的运行文件、拉取镜像并安装 systemd 服务。该引用还用于设置镜像版本，必须确认对应镜像标签存在。随仓库提供的 systemd 单元固定使用 `/opt/GENYEE`，只修改脚本的目录变量不足以迁移安装位置。
 - `cleanup.sh` 清除制镜像机的数据、密钥、SSH 授权、日志与 Docker 缓存并关机；其影响不限于 GENYEE 目录，只能用于检查过的专用制作机。
 - `firstboot.sh` 在新实例上生成密钥、写入 `.env` 并启动 Compose；完成后禁用首启服务，不会自删除脚本。
 
 制镜像前需检查脚本与所选版本是否匹配。分发前必须用新实例验证启动、服务健康和密钥独立性；本说明不代表当前脚本已通过特定云平台的部署或上架验收。
 
-首启排障查看 `journalctl -u weknora-firstboot`、`/var/log/weknora-firstboot.log` 与 `/opt/WeKnora` 下的 Compose 状态。`.firstboot.done` 在生成密钥之后、启动 Compose 之前写入，标记存在不代表服务健康。启动失败时保留已生成的 `.env` 和标记，修复原因后重新启动 Compose；删除标记重新生成密钥可能造成配置与已初始化数据库不一致。
+首启排障查看 `journalctl -u weknora-firstboot`、`/var/log/weknora-firstboot.log` 与 `/opt/GENYEE` 下的 Compose 状态。`.firstboot.done` 在生成密钥之后、启动 Compose 之前写入，标记存在不代表服务健康。启动失败时保留已生成的 `.env` 和标记，修复原因后重新启动 Compose；删除标记重新生成密钥可能造成配置与已初始化数据库不一致。

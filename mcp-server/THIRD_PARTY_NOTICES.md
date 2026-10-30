@@ -311,10 +311,10 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ## BrowserSkill
 
 - Component: `BrowserSkill` ([`https://github.com/Tencent/BrowserSkill`](https://github.com/Tencent/BrowserSkill)).
-- Files: `frontend/src/assets/browserskill/` (including `frontend/src/assets/browserskill/LICENSE` and `website-docs/homepage/public/docs/_home/brands/browserskill.LICENSE`).
+- Files: `frontend/src/assets/browserskill/` (including `frontend/src/assets/browserskill/LICENSE` and `website-docs/homepage/public/docs/_home/brands/BROWSERSKILL-LICENSE`).
 - License: MIT License.
 - Copyright: `Copyright (c) 2026 Tencent`.
-- Notice: Kept intact in `frontend/src/assets/browserskill/LICENSE` under the MIT terms reproduced above.
+- Notice: Kept intact in `frontend/src/assets/browserskill/LICENSE` and `website-docs/homepage/public/docs/_home/brands/BROWSERSKILL-LICENSE` under the MIT terms reproduced above.
 
 ## mcp-server
 
@@ -365,6 +365,29 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Only dictionary data is retained. The application uses its own standard-library lookup
   implementation; the upstream Go converter, `liuzl/da`, and GPL-licensed
   `cedar-go` code are not included.
+
+## go-ego/gse
+
+- Component: `github.com/go-ego/gse`, version `v0.80.3`.
+- Used for Chinese and multilingual text segmentation in the Go backend.
+- License: Apache License 2.0 (see the Apache-2.0 terms reproduced above).
+- Copyright: `Copyright (c) go-ego/gse authors`.
+- Modifications by WeKnora / GENYEE: none.
+- Corresponding source: [Go module proxy](https://proxy.golang.org/github.com/go-ego/gse/@v/v0.80.3.zip)
+  and [upstream repository](https://github.com/go-ego/gse/tree/v0.80.3).
+
+## vcaesar/cedar
+
+- Component: `github.com/vcaesar/cedar`, version `v0.20.2`.
+- Used as a double-array trie library by `github.com/go-ego/gse` and the Tencent
+  VectorDB SDK (`github.com/tencent/vectordatabase-sdk-go/tcvdbtext/tokenizer`);
+  this is a permissive BSD-2-Clause module distinct from the GPL-licensed
+  `cedar-go` package.
+- License: BSD 2-Clause License.
+- Copyright: `Copyright (c) vcaesar/cedar authors`.
+- Modifications by WeKnora / GENYEE: none.
+- Corresponding source: [Go module proxy](https://proxy.golang.org/github.com/vcaesar/cedar/@v/v0.20.2.zip)
+  and [upstream repository](https://github.com/vcaesar/cedar/tree/v0.20.2).
 
 ## Build-only component
 

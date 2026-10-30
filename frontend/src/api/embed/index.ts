@@ -632,19 +632,19 @@ export function buildWidgetSnippet(
   const base = safeBaseUrl(opts?.baseUrl)
   const position = opts?.position || 'bottom-right'
   const attrs = [
-    `src="${escapeHtmlAttr(`${base}/weknora-widget.js`)}"`,
+    `src="${escapeHtmlAttr(`${base}/genyee-widget.js`)}"`,
     `data-channel="${escapeHtmlAttr(channelId)}"`,
     `data-token="${escapeHtmlAttr(token)}"`,
     `data-position="${escapeHtmlAttr(position)}"`,
   ]
   if (opts?.primaryColor) attrs.push(`data-primary-color="${escapeHtmlAttr(opts.primaryColor)}"`)
   if (opts?.title) attrs.push(`data-title="${escapeHtmlAttr(opts.title)}"`)
-  // Cross-origin embed: add data-sandbox="true" when using a dedicated embed subdomain.
+  // Cross-origin embed: add data-sandbox="true" when using a dedicated embed subdomain; programmatic API on window.GENYEE.
   return `<script ${attrs.join('\n        ')}></script>`
 }
 
 /** Default placeholder for the integrator's own token-minting endpoint. */
-export const SECURE_TOKEN_ENDPOINT_PLACEHOLDER = 'https://your-backend.example.com/weknora/embed-token'
+export const SECURE_TOKEN_ENDPOINT_PLACEHOLDER = 'https://your-backend.example.com/genyee/embed-token'
 
 /**
  * Secure-mode widget snippet: the page references an endpoint on the
@@ -659,7 +659,7 @@ export function buildSecureWidgetSnippet(
   const position = opts?.position || 'bottom-right'
   const endpoint = opts?.tokenEndpoint || SECURE_TOKEN_ENDPOINT_PLACEHOLDER
   const attrs = [
-    `src="${escapeHtmlAttr(`${base}/weknora-widget.js`)}"`,
+    `src="${escapeHtmlAttr(`${base}/genyee-widget.js`)}"`,
     `data-channel="${escapeHtmlAttr(channelId)}"`,
     `data-token-endpoint="${escapeHtmlAttr(endpoint)}"`,
     `data-position="${escapeHtmlAttr(position)}"`,
@@ -679,7 +679,7 @@ export function buildSecureServerNodeExample(channelId: string, opts?: { baseUrl
   const exchangeUrl = `${base}/api/v1/embed/${channelId}/exchange`
   return [
     `// Node/Express — keep GENYEE_PUBLISH_TOKEN (or WEKNORA_PUBLISH_TOKEN) only on the server (env var).`,
-    `app.get('/weknora/embed-token', async (req, res) => {`,
+    `app.get('/genyee/embed-token', async (req, res) => {`,
     `  // Only mint for logged-in visitors — e.g. session cookie or Bearer token.`,
     `  const auth = req.headers.authorization || ''`,
     `  const hasSession = Boolean(req.cookies?.session_id)`,

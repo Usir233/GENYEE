@@ -41,6 +41,8 @@ git -C "$PROJECT_ROOT" archive \
 echo "[INFO] 正在校验导出的源码包是否已剔除内部维护文件..."
 FORBIDDEN_PATTERNS=(
     "^genyee-${VERSION_STR}/\.git/"
+    "^genyee-${VERSION_STR}/\.gitattributes$"
+    "^genyee-${VERSION_STR}/\.gitignore$"
     "^genyee-${VERSION_STR}/COMMERCIAL_COMPLIANCE_AUDIT\.md$"
     "^genyee-${VERSION_STR}/REBRAND_RESERVED\.md$"
     "^genyee-${VERSION_STR}/BRANCH_GUIDE\.md$"
@@ -50,10 +52,13 @@ FORBIDDEN_PATTERNS=(
     "^genyee-${VERSION_STR}/docs/superpowers/"
     "^genyee-${VERSION_STR}/docs/release-"
     "^genyee-${VERSION_STR}/docs/poc/"
+    "^genyee-${VERSION_STR}/docs/design/"
     "^genyee-${VERSION_STR}/misc/intro-video/"
     "^genyee-${VERSION_STR}/misc/release-v0\.9\.0-"
     "^genyee-${VERSION_STR}/scripts/verify-commercial-compliance\.sh$"
     "^genyee-${VERSION_STR}/Formula/"
+    "^genyee-${VERSION_STR}/deploy/"
+    "^genyee-${VERSION_STR}/cli/AGENTS\.md$"
 )
 
 TAR_LIST="$(tar -tzf "$OUTPUT_TAR")"
@@ -70,6 +75,7 @@ REQUIRED_PATTERNS=(
     "^genyee-${VERSION_STR}/LICENSE$"
     "^genyee-${VERSION_STR}/THIRD_PARTY_NOTICES\.md$"
     "^genyee-${VERSION_STR}/licenses/"
+    "^genyee-${VERSION_STR}/OFFLINE_LICENSES/"
 )
 
 for pattern in "${REQUIRED_PATTERNS[@]}"; do

@@ -462,7 +462,7 @@ Python 依赖（`pyproject.toml` + `uv.lock` 锁定）：`grpcio`、`pypdfium2`�
 
 #### 启用方式 {#_8-1-启用方式}
 
-解析库是 Rust 静态库，需要 Rust 工具链构建。官方 Docker 镜像（`wechatopenai/weknora-app`）和 `docker compose build` **默认链接** anydoc，设置页可直接选用。本地 `go build` 默认不链接：未加 `-tags anydoc` 时该引擎在「解析引擎」列表里显示为不可用，其它引擎不受影响。
+解析库是 Rust 静态库，需要 Rust 工具链构建。官方 Docker 镜像（`genyee/genyee-app`）和 `docker compose build` **默认链接** anydoc，设置页可直接选用。本地 `go build` 默认不链接：未加 `-tags anydoc` 时该引擎在「解析引擎」列表里显示为不可用，其它引擎不受影响。
 
 ```bash
 make build-anydoc                  # 构建静态库 + 带 anydoc 标签的二进制

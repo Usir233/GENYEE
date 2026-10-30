@@ -208,7 +208,7 @@ func respondSkillServiceError(c *gin.Context, err error) {
 // @Description  List the agent skills installed onto one sandbox config's image.
 // @Tags         SandboxConfig
 // @Produce      json
-// @Param        id   path      string  true  "Sandbox config ID: the agent's sandbox_config_id, or host on WeKnora Lite"  extensions(x-agent=sandbox_config_id)
+// @Param        id   path      string  true  "Sandbox config ID: the agent's sandbox_config_id, or host on GENYEE Lite"  extensions(x-agent=sandbox_config_id)
 // @Success      200  {object}  handler.DataResponse{data=[]handler.skillResponse}  "Installed skills"
 // @Failure      401  {object}  map[string]interface{}  "Unauthorized"
 // @Failure      404  {object}  apperrors.AppError      "Sandbox config not found"
@@ -322,7 +322,7 @@ func (h *SandboxSkillHandler) GetFile(c *gin.Context) {
 // @Accept       json
 // @Accept       multipart/form-data
 // @Produce      json
-// @Param        id      path      string              true   "Sandbox config ID: the agent's sandbox_config_id, or host on WeKnora Lite"  extensions(x-agent=sandbox_config_id)
+// @Param        id      path      string              true   "Sandbox config ID: the agent's sandbox_config_id, or host on GENYEE Lite"  extensions(x-agent=sandbox_config_id)
 // @Param        file    formData  file                false  "Skill bundle (zip)"
 // @Param        request body      skillSourceRequest  false  "Install from a registry, git host, or archive URL"
 // @Success      202     {object}  handler.DataResponse{data=handler.skillAccepted}  "Install accepted"

@@ -481,9 +481,9 @@ pull_images() {
         return 1
     fi
 
-    # 拉取 sandbox 镜像（sandbox 在 profile 中，需要单独拉取）
+    # 拉取 sandbox 镜像（sandbox 在 full profile 中，需要单独拉取）
     log_info "拉取沙箱镜像..."
-    PLATFORM=$PLATFORM "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD --profile sandbox pull sandbox 2>/dev/null || \
+    PLATFORM=$PLATFORM "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD --profile full pull sandbox 2>/dev/null || \
         log_warning "沙箱镜像拉取失败（非必需，跳过）"
 
     log_success "所有镜像已成功拉取到最新版本"

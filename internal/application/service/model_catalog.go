@@ -289,6 +289,9 @@ func (s *ModelCatalogService) Publish(ctx context.Context, req CatalogUpdate) (*
 func catalogProviderViews(runtime *modelruntime.Runtime) []CatalogProviderView {
 	out := []CatalogProviderView{}
 	for _, p := range runtime.List() {
+		if p.ID == "weknoracloud" && !types.IsWeKnoraCloudEnabled() {
+			continue
+		}
 		view := CatalogProviderView{
 			ID: p.ID, Name: p.Name, API: string(p.API), ModelTypes: p.ModelTypes, Models: p.Models(),
 			Settings: map[string]any{

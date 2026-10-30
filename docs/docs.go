@@ -16871,7 +16871,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "x-agent": "sandbox_config_id",
-                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on WeKnora Lite",
+                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on GENYEE Lite",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -16946,7 +16946,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "x-agent": "sandbox_config_id",
-                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on WeKnora Lite",
+                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on GENYEE Lite",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -19243,7 +19243,7 @@ const docTemplate = `{
                     "id": "skill.list",
                     "risk": "read"
                 },
-                "x-agent-hint": "Lists usable skills, chosen by name. Pass sandbox_config_id from agent.get; when the agent has none, pass host (WeKnora Lite runs skills locally). An empty list means there are no usable skills there; if the agent has no sandbox, tell the user to choose one in the agent editor."
+                "x-agent-hint": "Lists usable skills, chosen by name. Pass sandbox_config_id from agent.get; when the agent has none, pass host (GENYEE Lite runs skills locally). An empty list means there are no usable skills there; if the agent has no sandbox, tell the user to choose one in the agent editor."
             }
         },
         "/skills/catalog": {
@@ -25658,7 +25658,7 @@ const docTemplate = `{
                     ]
                 },
                 "type": {
-                    "description": "Type is the WeKnora model type this entry describes. Chat models with\nimage input are still KnowledgeQA; the UI derives VLM eligibility from\nInput. Embedding / Rerank / ASR entries exist for the model picker.",
+                    "description": "Type is the GENYEE model type this entry describes. Chat models with\nimage input are still KnowledgeQA; the UI derives VLM eligibility from\nInput. Embedding / Rerank / ASR entries exist for the model picker.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelType"
@@ -27752,7 +27752,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "access_level": {
-                    "description": "AccessLevel is the highest access level a run of this agent gets: how\nfar it may change data (MCP tools, Wiki writes) without asking. Empty\nmeans auto_write. The WeKnora assistant uses the workspace's assistant\nceiling instead.",
+                    "description": "AccessLevel is the highest access level a run of this agent gets: how\nfar it may change data (MCP tools, Wiki writes) without asking. Empty\nmeans auto_write. The GENYEE assistant uses the workspace's assistant\nceiling instead.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel"
@@ -34248,7 +34248,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "host_workspace_dir": {
-                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the WeKnora Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
+                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the GENYEE Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
                     "type": "string"
                 },
                 "id": {
@@ -34395,7 +34395,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "host_workspace_dir": {
-                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the WeKnora Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
+                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the GENYEE Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
                     "type": "string"
                 },
                 "id": {
@@ -35235,7 +35235,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "assistant_config": {
-                    "description": "Assistant config: display name and access ceiling of the WeKnora assistant",
+                    "description": "Assistant config: display name and access ceiling of the GENYEE assistant",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantConfig"
@@ -41966,7 +41966,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "sandbox_config_ids": {
-                    "description": "Sandbox config ids to install onto: an agent's sandbox_config_id, or host on WeKnora Lite",
+                    "description": "Sandbox config ids to install onto: an agent's sandbox_config_id, or host on GENYEE Lite",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -42588,7 +42588,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "assistant_access": {
-                    "description": "AssistantAccess is the WeKnora assistant access level: read_only,\nconfirm or auto_write. The workspace ceiling caps it; other agents\nignore it.",
+                    "description": "AssistantAccess is the GENYEE assistant access level: read_only,\nconfirm or auto_write. The workspace ceiling caps it; other agents\nignore it.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel"
@@ -42657,7 +42657,7 @@ const docTemplate = `{
                     }
                 },
                 "page_context": {
-                    "description": "PageContext is the WeKnora page the user has open (agent mode only).",
+                    "description": "PageContext is the GENYEE page the user has open (agent mode only).",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PageContext"

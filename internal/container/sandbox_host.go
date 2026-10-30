@@ -171,8 +171,17 @@ func defaultHostSkillsRoot(homeDir string) string {
 }
 
 func hostAppDataDir(home string) string {
+	base := filepath.Join(home, "Library", "Application Support")
 	if dir, err := os.UserConfigDir(); err == nil && strings.TrimSpace(dir) != "" {
-		return filepath.Join(dir, "WeKnora Lite")
+		base = dir
 	}
-	return filepath.Join(home, "Library", "Application Support", "WeKnora Lite")
+	primary := filepath.Join(base, "GENYEE Lite")
+	if _, err := os.Stat(primary); err == nil {
+		return primary
+	}
+	legacy := filepath.Join(base, "WeKnora Lite")
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	return primary
 }

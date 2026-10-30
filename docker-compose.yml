@@ -567,10 +567,13 @@ services:
 
   # OpenDataLoader hybrid backend (optional). Default --no-ocr (no EasyOCR/libGL).
   # Local build only — not published to Docker Hub; use --profile odl-hybrid --build.
+  # For air-gapped deployments, set PRELOAD_MODELS=true when building to bake Docling models into the image.
   odl-hybrid:
     build:
       context: .
       dockerfile: docker/Dockerfile.odl-hybrid
+      args:
+        - PRELOAD_MODELS=${PRELOAD_MODELS:-false}
     image: ${GENYEE_REGISTRY:-genyee}/genyee-odl-hybrid:${WEKNORA_VERSION:-latest}
     container_name: GENYEE-odl-hybrid
     profiles:

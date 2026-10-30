@@ -286,7 +286,7 @@ WeMM 的模板已经包含所需特殊 token，保留 vLLM 的 `add_special_toke
 | 厂商 | ID | 对话 | 向量 | 重排 | 视觉 | 语音 |
 | --- | --- | :-: | :-: | :-: | :-: | :-: |
 | 自定义（OpenAI 兼容接口） | `generic` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| GENYEE 云服务 | `weknoracloud` | ✓ | ✓ | ✓ | ✓ | |
+| GENYEE 云服务（默认关闭，需 `WEKNORA_WEKNORACLOUD_ENABLED=true`） | `weknoracloud` | ✓ | ✓ | ✓ | ✓ | |
 | 阿里云 DashScope | `aliyun` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 智谱 BigModel | `zhipu` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 火山引擎 | `volcengine` | ✓ | ✓ | ✓ | ✓ | |
@@ -316,7 +316,7 @@ WeMM 的模板已经包含所需特殊 token，保留 vLLM 的 `add_special_toke
 | Pinecone | `pinecone` | | | ✓ | | |
 | Cohere | `cohere` | | | ✓ | | |
 
-表中的「视觉」指可在视觉模型类型下选择该厂商；对话模型本身是否接受图片，以模型目录和「支持视觉/多模态」开关为准。GENYEE 云服务需先在设置中保存云服务凭证，模型名称可选 `chat`、`embedding`、`rerank`、`vlm`。
+表中的「视觉」指可在视觉模型类型下选择该厂商；对话模型本身是否接受图片，以模型目录和「支持视觉/多模态」开关为准。GENYEE 云服务（`weknoracloud`）默认关闭，仅在显式配置 `WEKNORA_WEKNORACLOUD_ENABLED=true` 时启用；启用后需先在设置中保存云服务凭证，模型名称可选 `chat`、`embedding`、`rerank`、`vlm`。
 
 厂商列表、默认地址和模型目录由服务端下发（`GET /api/v1/models/providers`），运维可以通过[部署叠加](#部署叠加-config-models-json)修改或新增厂商。
 
@@ -420,7 +420,7 @@ const (
 | `context_window` | int | 0（回落到 200000） | 对话/VLM 上下文窗口（token）。智能体按此上限加载与压缩历史；应填写服务实际支持的窗口大小，过高会导致压缩无法及时触发 |
 | `max_output_tokens` | int | 0（沿用目录默认） | 对话/VLM 单次回复的输出上限 |
 | `max_concurrency` | int | 0（回落到全局 `model.max_concurrency`） | 该模型后台任务并发上限（仅 chat/vlm/embedding 生效） |
-| `app_id` / `app_secret` | string | 空 | GENYEE 云服务凭证；LKEAP / 火山引擎重排的第二段密钥也存于 `app_secret`。`app_secret` AES 加密存储 |
+| `app_id` / `app_secret` | string | 空 | GENYEE 云服务凭证（`weknoracloud` 默认关闭，需 `WEKNORA_WEKNORACLOUD_ENABLED=true`）；LKEAP / 火山引擎重排的第二段密钥也存于 `app_secret`。`app_secret` AES 加密存储 |
 
 模型级字段还包括 `name`（运行期实际调用的模型名）、`display_name`、`type`、`source`、`is_default`（同一 `(tenant_id, type)` 桶内唯一默认）、`is_builtin`、`managed_by`、`status`（`active` / `downloading` / `download_failed`）。
 
@@ -447,7 +447,7 @@ const (
 | `POST /models` / `GET /models` / `GET /models/:id` / `PUT /models/:id` / `DELETE /models/:id` | 模型 CRUD |
 | `PUT /models/:id/credentials`、`DELETE /models/:id/credentials/:field` | 凭证子资源；`PUT /models/:id` 请求体中的 `api_key` 会被强制忽略并告警 |
 | `POST /models/:id/debug` | 模型调试（见下文） |
-| `GET /models/weknoracloud/status` | GENYEE 云服务凭证状态 |
+| `GET /models/weknoracloud/status` | GENYEE 云服务凭证状态（`weknoracloud` 默认关闭，需 `WEKNORA_WEKNORACLOUD_ENABLED=true`） |
 
 完整请求与响应见 [API 参考：模型与初始化](../04-api/02-api-model-system.md)。
 
