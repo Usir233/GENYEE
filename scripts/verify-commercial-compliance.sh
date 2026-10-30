@@ -333,7 +333,7 @@ test_t1_license_and_notices() {
     return 0
 }
 
-# TC-T1-13: All 6 Dockerfiles copy LICENSE and THIRD_PARTY_NOTICES.md
+# TC-T1-13: All 7 Dockerfiles copy LICENSE and THIRD_PARTY_NOTICES.md
 test_t1_dockerfiles_copy_notices() {
     if ! grep -q "copy-licenses.sh /license-bundle" docker/Dockerfile.app || \
        ! grep -q "COPY --from=builder /license-bundle/ ./" docker/Dockerfile.app || \
@@ -348,6 +348,7 @@ test_t1_dockerfiles_copy_notices() {
         "docker/Dockerfile.odl-hybrid"
         "frontend/Dockerfile"
         "mcp-server/Dockerfile"
+        "website-docs/Dockerfile"
     )
     local missing=0
     for df in "${dockerfiles[@]}"; do
@@ -381,7 +382,7 @@ run_tier_1() {
     run_test "TC-T1-10" "License bundle checker guards shakinm/xlsReader & passes" test_t1_check_license_bundle
     run_test "TC-T1-11" "License packaging test execution (scripts/test-license-bundle.sh)" test_t1_test_license_bundle
     run_test "TC-T1-12" "Root LICENSE & THIRD_PARTY_NOTICES.md upstream MIT + Written Offer" test_t1_license_and_notices
-    run_test "TC-T1-13" "All 6 Dockerfiles copy LICENSE and THIRD_PARTY_NOTICES.md" test_t1_dockerfiles_copy_notices
+    run_test "TC-T1-13" "All 7 Dockerfiles copy LICENSE and THIRD_PARTY_NOTICES.md" test_t1_dockerfiles_copy_notices
 }
 
 # ==============================================================================

@@ -352,7 +352,7 @@ func TestAgentEdit_RetryArgvPreservesAddKB(t *testing.T) {
 	assert.Equal(t, cmdutil.CodeInputConfirmationRequired, ce.Code)
 	// pflag Visit is lexicographical among changed flags.
 	assert.Equal(t, []string{
-		"weknora", "agent", "update", "ag_abc",
+		"genyee", "agent", "update", "ag_abc",
 		"--add-kb", "kb_new",
 		"--format", "json",
 		"--remove-kb", "kb_old",

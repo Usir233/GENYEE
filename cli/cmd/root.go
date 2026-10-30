@@ -140,11 +140,11 @@ func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 		Long: `Command-line client for the GENYEE RAG server. Manage knowledge bases
 and documents, run hybrid search, chat with grounded answers, or expose
 a curated read-only MCP tool surface for AI agents.`,
-		Example: `  weknora profile add prod --host=https://kb.example.com --use
-  weknora auth login
-  weknora kb list
-  weknora chat "summarise the design doc"
-  weknora doctor --format json`,
+		Example: `  genyee profile add prod --host=https://kb.example.com --use
+  genyee auth login
+  genyee kb list
+  genyee chat "summarise the design doc"
+  genyee doctor --format json`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		// Version makes cobra auto-register a `--version` global flag that
@@ -235,7 +235,7 @@ func addGlobalFlags(cmd *cobra.Command) {
 	// --log-level applies uniformly to all SDK calls.
 	cmdutil.AddLogLevelFlag(cmd)
 	// --format and --jq are persistent globals so unknown-subcommand paths
-	// (e.g. `weknora fooo --format json`) reach the typed-envelope guard
+	// (e.g. `genyee fooo --format json`) reach the typed-envelope guard
 	// instead of being rejected as "unknown flag" exit 2 by cobra. Commands
 	// that don't produce JSON output (e.g. `completion bash`) ignore the flag
 	// rather than error — the unified agent contract is worth the trade.
@@ -275,7 +275,7 @@ func newVersionCmd(f *cmdutil.Factory) *cobra.Command {
 	cmdutil.AddFormatFlag(cmd, versionFields...)
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
 		UsedFor:  "show CLI build metadata (version, commit, build date)",
-		Examples: []string{"weknora version --format json"},
+		Examples: []string{"genyee version --format json"},
 		Output:   "envelope.data is {version, commit, date}",
 	})
 	return cmd
@@ -283,7 +283,7 @@ func newVersionCmd(f *cmdutil.Factory) *cobra.Command {
 
 // installUnknownSubcommandGuard recursively attaches a RunE that emits a typed
 // envelope error when a parent command is invoked with no matching subcommand
-// (e.g. `weknora kb bogus`). Without this, cobra falls back to a free-form
+// (e.g. `genyee kb bogus`). Without this, cobra falls back to a free-form
 // "unknown command" string error via legacyArgs validation.
 //
 // cobra's legacyArgs (args.go) fires at Find() time when Args == nil:
@@ -301,7 +301,7 @@ func installUnknownSubcommandGuard(cmd *cobra.Command) {
 }
 
 func unknownSubcommandRunE(cmd *cobra.Command, args []string) error {
-	// Group command invoked with no subcommand (e.g. `weknora kb`):
+	// Group command invoked with no subcommand (e.g. `genyee kb`):
 	// show help rather than emit a confusing `unknown ""` error.
 	if len(args) == 0 {
 		return cmd.Help()

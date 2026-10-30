@@ -30,6 +30,8 @@ logs/
 
 WeKnora
 WeKnora-lite
+GENYEE
+GENYEE-lite
 cmd/desktop/build/bin/
 /models/
 test/data/mswag.txt
@@ -37,6 +39,9 @@ data/files/
 data/weknora.db
 data/weknora.db-wal
 data/weknora.db-shm
+data/genyee.db
+data/genyee.db-wal
+data/genyee.db-shm
 skills-lock.json
 
 web/
@@ -47,6 +52,7 @@ web/
 frontend/.vite
 frontend/chrome-extension/
 WeKnora-Chrome-Extension
+GENYEE-Chrome-Extension
 packages/protoc-3.19.4-linux-x86_64.zip
 
 Claude.md
@@ -60,6 +66,11 @@ miniprogram/project.private.config.json
 
 # Staging dir for the Docker sandbox self-check probe (removed after each run)
 .weknora-sandbox-check-*
+.genyee-sandbox-check-*
 
 # Locally built BrowserSkill runtime and extension bundles
 /artifacts/browserskill/
+
+# 本地测试与业务归档数据
+储能业务知识库归档档案/
+储能设备采购供应商明细_含图片.xlsx

@@ -229,7 +229,7 @@ docker compose up -d    # 새 이미지로 컨테이너 재생성
 
 ### 로컬 브라우저
 
-**사용자 컴퓨터의 브라우저 조작.** Tencent가 오픈소스로 공개한 BrowserSkill 확장 프로그램으로 에이전트가 사용자의 Chrome이나 Edge에서 페이지를 열고 양식을 입력합니다. 로그인이나 CAPTCHA는 사용자에게 넘깁니다. [문서 →](./website-docs/05-clients/09-local-browser.md)
+**사용자 컴퓨터의 브라우저 조작.** 오픈소스 BrowserSkill 확장 프로그램으로 에이전트가 사용자의 Chrome이나 Edge에서 페이지를 열고 양식을 입력합니다. 로그인이나 CAPTCHA는 사용자에게 넘깁니다. [문서 →](./website-docs/05-clients/09-local-browser.md)
 
 <a href="./docs/images/readme/spotlight-browser-light.webp">
 <picture>

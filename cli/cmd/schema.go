@@ -45,13 +45,13 @@ type commandSchema struct {
 	Flags         []schemaFlag `json:"flags,omitempty"`
 }
 
-// schemaIndexEntry is one row of the no-argument `weknora schema` index.
+// schemaIndexEntry is one row of the no-argument `genyee schema` index.
 type schemaIndexEntry struct {
 	Command string `json:"command"`
 	UsedFor string `json:"used_for,omitempty"`
 }
 
-// newCmdSchema builds the `weknora schema` introspection command. With no args
+// newCmdSchema builds the `genyee schema` introspection command. With no args
 // it lists every leaf command and its purpose; with a command path it prints
 // that command's full contract. This makes the structured help (otherwise only
 // reachable via WEKNORA_AGENT_HELP=1 on --help) a first-class, discoverable
@@ -63,9 +63,9 @@ func newCmdSchema() *cobra.Command {
 		Long: `Print the machine-readable contract for a command, or — with no argument —
 an index of every command and what it is used for.
 
-  weknora schema                 # index: every leaf command + used_for
-  weknora schema kb create       # the contract for one command
-  weknora schema doc update      # used_for, flags, examples, output, risk
+  genyee schema                 # index: every leaf command + used_for
+  genyee schema kb create       # the contract for one command
+  genyee schema doc update      # used_for, flags, examples, output, risk
 
 This is the discoverable form of WEKNORA_AGENT_HELP=1 <cmd> --help: an agent
 can enumerate the surface and learn how to call any command without scraping
@@ -92,9 +92,9 @@ human help prose.`,
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
 		UsedFor: "introspect the CLI surface: list every command (no args) or print one command's contract (used_for, flags, examples, output, risk).",
 		Examples: []string{
-			"weknora schema",
-			"weknora schema kb create",
-			"weknora schema doc update --format json",
+			"genyee schema",
+			"genyee schema kb create",
+			"genyee schema doc update --format json",
 		},
 		Output: "with no args, envelope.data is an array of {command, used_for}; with a command path, envelope.data is {command, used_for, required_flags, examples, output, warnings, risk, flags}",
 	})
@@ -123,12 +123,12 @@ func resolveSchemaTarget(root *cobra.Command, args []string) (*cobra.Command, er
 		available := availableSubcommandNames(root)
 		hint := fmt.Sprintf("available top-level commands: %s", strings.Join(available, ", "))
 		if sug := cmdutil.SuggestClosest(unknown, available); len(sug) > 0 {
-			hint = fmt.Sprintf("did you mean: %s? (run `weknora schema` to list all)", strings.Join(sug, ", "))
+			hint = fmt.Sprintf("did you mean: %s? (run `genyee schema` to list all)", strings.Join(sug, ", "))
 		}
 		return nil, cmdutil.NewError(cmdutil.CodeInputUnknownSubcommand,
 			fmt.Sprintf("no command named %q", strings.Join(args, " "))).
 			WithHint(hint).
-			WithRetryArgv([]string{"weknora", "schema"})
+			WithRetryArgv([]string{"genyee", "schema"})
 	}
 	// Leftover args that are not the command's own resource positionals mean a
 	// deeper path was requested that doesn't exist (e.g. `schema kb bogus`).
@@ -188,7 +188,7 @@ func buildCommandSchema(target *cobra.Command) commandSchema {
 // writeCommandSchemaText renders one command's contract as readable prose for
 // the human (--format text) path.
 func writeCommandSchemaText(w io.Writer, cs commandSchema) error {
-	fmt.Fprintf(w, "weknora %s\n", cs.Command)
+	fmt.Fprintf(w, "genyee %s\n", cs.Command)
 	if cs.UsedFor != "" {
 		fmt.Fprintf(w, "\n%s\n", cs.UsedFor)
 	}

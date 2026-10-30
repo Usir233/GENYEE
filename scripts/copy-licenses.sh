@@ -31,6 +31,9 @@ cp "${source_stage}/"*.zip "${license_dest}/licenses/sources/"
 if [ -d "${license_root}/frontend" ]; then
     cp "${license_root}/LICENSE" "${license_root}/THIRD_PARTY_NOTICES.md" "${license_root}/frontend/"
 fi
+if [ -d "${license_root}/website-docs" ]; then
+    cp "${license_root}/LICENSE" "${license_root}/THIRD_PARTY_NOTICES.md" "${license_root}/website-docs/"
+fi
 if [ -d "${license_root}/mcp-server" ]; then
     cp "${license_root}/LICENSE" "${license_root}/mcp-server/LICENSE.GENYEE"
     cp "${license_root}/THIRD_PARTY_NOTICES.md" "${license_root}/mcp-server/THIRD_PARTY_NOTICES.md"

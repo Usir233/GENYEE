@@ -1,8 +1,8 @@
-// Package mcpcmd holds the `weknora mcp` command tree.
+// Package mcpcmd holds the `genyee mcp` command tree.
 //
 // MCP (Model Context Protocol; https://spec.modelcontextprotocol.io/) is
 // the JSON-RPC 2.0 wire protocol agentic IDEs use to call external tools.
-// `weknora mcp serve` exposes a curated subset of the CLI as MCP tools so
+// `genyee mcp serve` exposes a curated subset of the CLI as MCP tools so
 // an IDE-side agent can list / view / search / chat against the user's
 // active WeKnora profile without shelling out to the CLI per call. Most
 // tools are read-only; chat and session_ask create conversation/message
@@ -19,7 +19,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 )
 
-// NewCmd builds the `weknora mcp` parent. Called from cli/cmd/root.go.
+// NewCmd builds the `genyee mcp` parent. Called from cli/cmd/root.go.
 func NewCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "mcp",

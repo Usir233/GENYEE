@@ -945,8 +945,8 @@ const TOOL_NAME_KEYS: Record<string, string> = {
   read_page: 'agentStream.tools.readPage',
   select_tab: 'agentStream.tools.selectTab',
   fill_page: 'agentStream.tools.fillPage',
-  search_weknora_docs: 'agentStream.tools.searchWeKnoraDocs',
-  read_weknora_doc: 'agentStream.tools.readWeKnoraDoc',
+  search_weknora_docs: 'agentStream.tools.searchGENYEEDocs',
+  read_weknora_doc: 'agentStream.tools.readGENYEEDoc',
 };
 
 const getLocalizedToolName = (toolName?: string | null): string => {

@@ -219,7 +219,7 @@ docker compose up -d    # 新しいイメージでコンテナを再作成
 
 ### ローカルブラウザ
 
-**コンピューターのブラウザを操作。** Tencent がオープンソースで公開する BrowserSkill 拡張機能を通じて、エージェントがあなたの Chrome や Edge でページを開き、フォームに入力します。ログインや CAPTCHA ではあなたに引き継ぎます。 [ドキュメント →](./website-docs/05-clients/09-local-browser.md)
+**コンピューターのブラウザを操作。** オープンソースの BrowserSkill 拡張機能を通じて、エージェントがあなたの Chrome や Edge でページを開き、フォームに入力します。ログインや CAPTCHA ではあなたに引き継ぎます。 [ドキュメント →](./website-docs/05-clients/09-local-browser.md)
 
 <a href="./docs/images/readme/spotlight-browser-light.webp">
 <picture>

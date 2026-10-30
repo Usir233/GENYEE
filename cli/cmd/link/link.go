@@ -1,4 +1,4 @@
-// Package linkcmd implements `weknora link` - binds the current working
+// Package linkcmd implements `genyee link` - binds the current working
 // directory to a knowledge base by writing .weknora/project.yaml. Always
 // overwrites an existing link silently rather than refusing when one is
 // already present. The cobra Long: text covers the user-facing modes
@@ -36,7 +36,7 @@ type linkResult struct {
 	ProjectLinkPath string `json:"project_link_path"`
 }
 
-// NewCmd builds the `weknora link` command.
+// NewCmd builds the `genyee link` command.
 func NewCmd(f *cmdutil.Factory) *cobra.Command {
 	opts := &Options{}
 	cmd := &cobra.Command{
@@ -47,17 +47,17 @@ at the supplied knowledge base. Subsequent commands run from this directory
 (or any subdirectory) automatically resolve --kb from the link unless
 overridden by the --kb flag or WEKNORA_KB_ID env var.
 
-Pass the knowledge base as a positional argument (weknora link <id-or-name>) or
+Pass the knowledge base as a positional argument (genyee link <id-or-name>) or
 via --kb — the two are equivalent — for non-interactive use (scripts, CI). Run
 on a TTY without either to be prompted from the list of available KBs. Always
 overwrites any existing link - re-run to switch.
 
 AI agents: link writes to the user's working directory. Only run it when the
 user explicitly asked to bind this directory; don't run it as a side effect.`,
-		Example: `  weknora link a32a63ff-fb36-4874-bcaa-30f48570a694         # positional UUID
-  weknora link engineering                                  # positional name → id
-  weknora link --kb engineering                             # --kb form (equivalent)
-  weknora link                                              # interactive (TTY)`,
+		Example: `  genyee link a32a63ff-fb36-4874-bcaa-30f48570a694         # positional UUID
+  genyee link engineering                                  # positional name → id
+  genyee link --kb engineering                             # --kb form (equivalent)
+  genyee link                                              # interactive (TTY)`,
 		// The knowledge base may be given as a positional arg (matching every
 		// other <id> command) or via --kb; the two are equivalent.
 		Args: cobra.MaximumNArgs(1),
@@ -103,7 +103,7 @@ user explicitly asked to bind this directory; don't run it as a side effect.`,
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
 		UsedFor:       "Bind the current directory to a knowledge base by writing .weknora/project.yaml. Give the KB as a positional arg or --kb (non-interactive); only run when the user explicitly asks to link this directory.",
 		RequiredFlags: []string{"<kb> positional or --kb (required when no TTY)"},
-		Examples:      []string{"weknora link engineering", "weknora link --kb a32a63ff-fb36-4874-bcaa-30f48570a694"},
+		Examples:      []string{"genyee link engineering", "genyee link --kb a32a63ff-fb36-4874-bcaa-30f48570a694"},
 		Output:        "envelope.data has profile, kb_id, kb_name, project_link_path",
 	})
 	return cmd
@@ -153,7 +153,7 @@ func runLink(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, f
 }
 
 // resolveProfile picks the active profile to record in the link. There is no
-// per-invocation override flag on `weknora link` itself - to record under a
+// per-invocation override flag on `genyee link` itself - to record under a
 // different profile, use the global persistent flag (`weknora --profile
 // staging link --kb my-kb`); the active profile at link time is what gets
 // written.
@@ -170,8 +170,8 @@ func resolveProfile(f *cmdutil.Factory) (string, error) {
 		// stranded on a misleading hint.
 		return "", cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
 			"`link` records an active profile, but none is configured").
-			WithHint("register one with `weknora profile add <name> --host <url> --use`; for a headless (WEKNORA_API_KEY) workflow, skip `link` and pass --kb per command or set WEKNORA_KB_ID").
-			WithRetryArgv([]string{"weknora", "profile", "add", "--help"})
+			WithHint("register one with `genyee profile add <name> --host <url> --use`; for a headless (WEKNORA_API_KEY) workflow, skip `link` and pass --kb per command or set WEKNORA_KB_ID").
+			WithRetryArgv([]string{"genyee", "profile", "add", "--help"})
 	}
 	return cfg.CurrentProfile, nil
 }

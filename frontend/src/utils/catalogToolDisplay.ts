@@ -301,11 +301,11 @@ export function getCatalogToolTitle(t: ComposerTranslation, event: ToolEventLike
     const operation = stringField(args, 'operation') || stringField(data, 'operation')
     title = operation ? `${base}：${getOperationLabel(t, operation)}` : base
   } else if (type === 'search_weknora_docs') {
-    const base = t('agentStream.tools.searchWeKnoraDocs')
+    const base = t('agentStream.tools.searchGENYEEDocs')
     const detail = stringField(args, 'query') || stringField(args, 'category')
     title = detail ? `${base}：「${detail}」` : base
   } else {
-    const base = t('agentStream.tools.readWeKnoraDoc')
+    const base = t('agentStream.tools.readGENYEEDoc')
     const detail = stringField(data, 'section') || stringField(data, 'title') || stringField(args, 'path')
     title = detail ? `${base}：「${detail}」` : base
   }

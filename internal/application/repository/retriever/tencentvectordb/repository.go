@@ -540,6 +540,10 @@ func (r *repository) retrieveResult(results []*types.IndexWithScore, retrieverTy
 
 func (r *repository) bm25Encoder() (encoder.SparseEncoder, error) {
 	r.bm25Once.Do(func() {
+		if err := EnsureDefaultStopwords(); err != nil {
+			r.bm25Err = fmt.Errorf("tencent vectordb pre-seed stopwords: %w", err)
+			return
+		}
 		r.bm25, r.bm25Err = encoder.NewBM25Encoder(&encoder.BM25EncoderParams{
 			Bm25Language: encoder.BM25_ZH_CONTENT,
 		})

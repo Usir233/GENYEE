@@ -27,6 +27,7 @@ export const DOC_PAGES = {
   apiOverview: '04-api/01-api-overview',
   troubleshootingMigrations: '01-getting-started/05-troubleshooting#database-migrations',
   sandboxDeployment: '06-development/04-sandbox-deployment',
+  'clients/cli': '05-clients/02-cli',
 } as const
 
 export type DocPage = keyof typeof DOC_PAGES

@@ -21,10 +21,10 @@ type tokenResult struct {
 	Profile string `json:"profile"`
 }
 
-// NewCmdToken builds `weknora auth token`. Prints the active profile's
+// NewCmdToken builds `genyee auth token`. Prints the active profile's
 // credential to stdout for use in shell pipelines, e.g.
 //
-//	WEKNORA_TOKEN=$(weknora auth token)
+//	WEKNORA_TOKEN=$(genyee auth token)
 //	curl -H "Authorization: Bearer $WEKNORA_TOKEN" ...     # JWT mode
 //	curl -H "X-API-Key: $WEKNORA_TOKEN" ...                # api-key mode
 //
@@ -41,16 +41,16 @@ func NewCmdToken(f *cmdutil.Factory) *cobra.Command {
 newline, suitable for shell command substitution.
 
 The credential is the long-lived API key (mode: api-key) or the access JWT
-(mode: bearer), depending on how the profile was created. Run ` + "`weknora auth list`" + `
+(mode: bearer), depending on how the profile was created. Run ` + "`genyee auth list`" + `
 to see which mode each profile uses, and construct the matching HTTP header:
 
   Authorization: Bearer <token>    # bearer mode
   X-API-Key: <token>               # api-key mode
 
 ` + "`--profile <name>`" + ` (global flag) selects a non-active profile to read from.`,
-		Example: `  WEKNORA_TOKEN=$(weknora auth token)
-  weknora auth token --profile staging
-  weknora auth token --format json`,
+		Example: `  WEKNORA_TOKEN=$(genyee auth token)
+  genyee auth token --profile staging
+  genyee auth token --format json`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(c)
@@ -79,9 +79,9 @@ to see which mode each profile uses, and construct the matching HTTP header:
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
 		UsedFor: "print the active profile's raw credential to stdout for shell capture",
 		Examples: []string{
-			"WEKNORA_TOKEN=$(weknora auth token)",
-			"weknora auth token --profile staging",
-			"weknora auth token --format json",
+			"WEKNORA_TOKEN=$(genyee auth token)",
+			"genyee auth token --profile staging",
+			"genyee auth token --format json",
 		},
 		Output: "raw token on stdout (no envelope, no trailing newline) by default; --format json emits {token, mode, profile}",
 		Warnings: []string{
@@ -103,7 +103,7 @@ func runToken(f *cmdutil.Factory, fopts *cmdutil.FormatOptions) error {
 		// EnvCredential gates on the trimmed value and buildClientFromEnv
 		// trims before authenticating - emit the same trimmed credential, or
 		// stray padding/newlines (common in CI secret stores) only break the
-		// captured $(weknora auth token) output, not the CLI's own calls.
+		// captured $(genyee auth token) output, not the CLI's own calls.
 		return emitToken(fopts, strings.TrimSpace(os.Getenv(kind)), mode, "(env)")
 	}
 	cfg, err := f.Config()
@@ -148,12 +148,12 @@ func runToken(f *cmdutil.Factory, fopts *cmdutil.FormatOptions) error {
 		token, mode = v, ModeAPIKey
 	default:
 		return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
-			fmt.Sprintf("profile %q has no stored credential; run `weknora auth login`", profileName))
+			fmt.Sprintf("profile %q has no stored credential; run `genyee auth login`", profileName))
 	}
 
 	if token == "" {
 		return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
-			fmt.Sprintf("profile %q credential is empty in keyring; run `weknora auth login`", profileName))
+			fmt.Sprintf("profile %q credential is empty in keyring; run `genyee auth login`", profileName))
 	}
 
 	return emitToken(fopts, token, mode, profileName)
@@ -161,7 +161,7 @@ func runToken(f *cmdutil.Factory, fopts *cmdutil.FormatOptions) error {
 
 // emitToken renders a resolved credential: the {token, mode, profile} envelope
 // under --format json, else the raw token on stdout (no trailing newline, for
-// clean $(weknora auth token) capture) with a TTY-only leak hint on stderr.
+// clean $(genyee auth token) capture) with a TTY-only leak hint on stderr.
 func emitToken(fopts *cmdutil.FormatOptions, token, mode, profile string) error {
 	if token == "" {
 		return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated, "active credential is empty")
@@ -170,7 +170,7 @@ func emitToken(fopts *cmdutil.FormatOptions, token, mode, profile string) error 
 		return fopts.Emit(iostreams.IO.Out, tokenResult{Token: token, Mode: mode, Profile: profile}, nil)
 	}
 
-	// No trailing newline - clean $(weknora auth token) substitution.
+	// No trailing newline - clean $(genyee auth token) substitution.
 	fmt.Fprint(iostreams.IO.Out, token)
 	// Defensive hint to stderr when stdout is an interactive terminal:
 	// the user likely didn't mean to display the secret on screen.
@@ -179,7 +179,7 @@ func emitToken(fopts *cmdutil.FormatOptions, token, mode, profile string) error 
 	// recourse on leak - bearer tokens self-expire via refresh.
 	if iostreams.IO.IsStdoutTTY() {
 		fmt.Fprintln(iostreams.IO.Err)
-		fmt.Fprintln(iostreams.IO.Err, "hint: pipe to $(weknora auth token) to capture; this terminal scrollback now contains the secret")
+		fmt.Fprintln(iostreams.IO.Err, "hint: pipe to $(genyee auth token) to capture; this terminal scrollback now contains the secret")
 		if mode == ModeAPIKey {
 			fmt.Fprintln(iostreams.IO.Err, "note: api-key credentials are long-lived - rotate via your auth provider if exposed (no `auth refresh` path)")
 		}

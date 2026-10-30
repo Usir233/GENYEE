@@ -180,3 +180,35 @@ func TestResolveAPIPrincipalSignedTokenRejectsLongLifetime(t *testing.T) {
 		t.Fatalf("resolveAPIPrincipal error = nil, want error")
 	}
 }
+
+func TestResolveAPIPrincipalSignedToken_AcceptsGenyeeAndWeknoraAudiences(t *testing.T) {
+	secret := "test-secret"
+	for _, aud := range []string{"genyee", "weknora"} {
+		t.Run("audience_"+aud, func(t *testing.T) {
+			header := http.Header{}
+			header.Set("X-External-User-Token", signedExternalUserToken(t, secret, jwt.MapClaims{
+				"sub":       "external-u1",
+				"tenant_id": float64(7),
+				"aud":       aud,
+				"exp":       time.Now().Add(time.Minute).Unix(),
+			}))
+
+			p, src, err := resolveAPIPrincipal(context.Background(), &types.Tenant{
+				ID: 7,
+				APIPrincipalConfig: &types.APIPrincipalConfig{
+					Mode:       types.APIPrincipalModeSignedToken,
+					HMACSecret: secret,
+				},
+			}, header)
+			if err != nil {
+				t.Fatalf("resolveAPIPrincipal with aud=%s error = %v", aud, err)
+			}
+			if p.Type != types.PrincipalAPIExternalUser || p.ID != "7:external-u1" {
+				t.Fatalf("principal = %#v", p)
+			}
+			if src != types.AuthSourceAPISignedToken {
+				t.Fatalf("source = %q", src)
+			}
+		})
+	}
+}

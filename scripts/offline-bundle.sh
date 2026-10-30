@@ -164,6 +164,62 @@ for f in docker-compose.yml .env.example LICENSE THIRD_PARTY_NOTICES.md; do
     fi
 done
 
+# 生成/复制政企推荐的离线部署环境模版 (.env.offline 与 .env)
+if [[ -f "${PROJECT_ROOT}/.env.offline" ]]; then
+    cp "${PROJECT_ROOT}/.env.offline" "${OUTPUT_DIR}/.env.offline"
+else
+    cat <<'EOF' > "${OUTPUT_DIR}/.env.offline"
+# =====================================================================
+# GENYEE 政企断网离线交付环境配置模版 (.env.offline)
+# 适用场景：完全断网离线环境 (Air-Gapped / Isolated Private Network)
+# =====================================================================
+
+# ========== 1. 基础运行配置 ==========
+GIN_MODE=release
+TZ=Asia/Shanghai
+AUTO_MIGRATE=true
+AUTO_RECOVER_DIRTY=true
+WEKNORA_VERSION=latest
+
+# ========== 2. 默认离线 Docker 镜像仓库配置（如内网 Harbor） ==========
+# GENYEE_REGISTRY=harbor.internal.corp/genyee
+
+# ========== 3. 推荐启用离线 Profile (对象存储 MinIO + 向量库 Qdrant) ==========
+COMPOSE_PROFILES=minio,qdrant
+
+# ========== 4. 数据存储服务配置 ==========
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres_offline_secret
+POSTGRES_DB=genyee
+REDIS_HOST=redis
+REDIS_PORT=6379
+
+# ========== 5. 对象存储 (内置 MinIO 离线实例) ==========
+MINIO_ROOT_USER=genyeeadmin
+MINIO_ROOT_PASSWORD=genyeeadmin_offline_secret
+MINIO_ENDPOINT=minio:9000
+MINIO_BUCKET=genyee-data
+MINIO_USE_SSL=false
+
+# ========== 6. 本地/内网离线大模型与嵌入服务 (Ollama / vLLM) ==========
+DEFAULT_LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://host.docker.internal:11434
+DEFAULT_EMBEDDING_PROVIDER=ollama
+OLLAMA_EMBEDDING_BASE_URL=http://host.docker.internal:11434
+
+# ========== 7. 网络与安全边界 (断网隔离) ==========
+SSRF_DNS_WHITELIST_ONLY=false
+SSRF_WHITELIST_EXTRA=minio,qdrant,searxng,redis,paradedb
+
+# ========== 8. 默认管理员自举 (首次启动自动创建/提权) ==========
+# WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL=admin@internal.corp
+EOF
+fi
+
+if [[ ! -f "${OUTPUT_DIR}/.env" ]]; then
+    cp "${OUTPUT_DIR}/.env.offline" "${OUTPUT_DIR}/.env"
+fi
+
 if [[ -f "${PROJECT_ROOT}/config/config.yaml" ]]; then
     cp "${PROJECT_ROOT}/config/config.yaml" "${OUTPUT_DIR}/config/config.yaml"
 fi

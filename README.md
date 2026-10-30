@@ -219,7 +219,7 @@ Full history: [`CHANGELOG.md`](./CHANGELOG.md).
 
 ### Local browser
 
-**Operate the browser on your computer.** Through Tencent's open-source BrowserSkill extension, the agent opens pages and fills in forms in your own Chrome or Edge, and hands over to you for logins and CAPTCHAs. [Docs →](./website-docs/05-clients/09-local-browser.md)
+**Operate the browser on your computer.** Through the open-source BrowserSkill extension, the agent opens pages and fills in forms in your own Chrome or Edge, and hands over to you for logins and CAPTCHAs. [Docs →](./website-docs/05-clients/09-local-browser.md)
 
 <a href="./docs/images/readme/spotlight-browser-light.webp">
 <picture>

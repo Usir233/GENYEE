@@ -1,7 +1,7 @@
 # Build from the repository root with:
 #   docker build --platform=linux/amd64 \
 #     --build-arg WEBSITE_NGINX_PORT=8080 \
-#     -t weknora-site website-docs
+#     -t genyee/genyee-docs website-docs
 # No host Node.js installation or prebuilt static-site/ is required.
 # WEBSITE_NGINX_PORT is written into default.conf at build time. The intranet
 # platform starts `nginx; sleep infinity` and does not run docker-entrypoint.sh.
@@ -26,6 +26,14 @@ RUN npm run build
 # This digest is nginx 1.30.3 / Alpine 3.23.5, the same base as the frontend
 # image that still starts there. apk stays on the 3.23 repos.
 FROM nginx:1.30.3-alpine@sha256:0d3b80406a13a767339fbe2f41406d6c7da727ab89cf8fae399e81f780f814d1 AS runtime
+
+LABEL org.opencontainers.image.vendor="GENYEE" \
+      org.opencontainers.image.title="genyee-docs" \
+      org.opencontainers.image.licenses="LicenseRef-GENYEE-Commercial AND MIT"
+
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/licenses/genyee/
+COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/
+
 # Some deployment platforms wrap the startup command with /bin/bash -c.
 RUN apk add --no-cache bash
 # Baked into default.conf below. Entrypoint still honors a runtime override

@@ -39,6 +39,9 @@ class TestSandboxExecutorProcessGroup(unittest.TestCase):
             deadline = time.monotonic() + 1
             while True:
                 try:
+                    status_path = Path(f"/proc/{child_pid}/status")
+                    if status_path.exists() and "State:\tZ (zombie)" in status_path.read_text():
+                        break
                     os.kill(child_pid, 0)
                 except ProcessLookupError:
                     break

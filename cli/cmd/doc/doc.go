@@ -1,4 +1,4 @@
-// Package doc implements the `weknora doc` subtree (list / view / upload /
+// Package doc implements the `genyee doc` subtree (list / view / upload /
 // fetch / create / download / delete / wait). Upload supports --recursive /
 // --glob for bulk ingestion from local files. Fetch ingests a remote URL.
 // Create adds a knowledge entry from inline text content.
@@ -15,7 +15,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 )
 
-// NewCmd builds the `weknora doc` parent command.
+// NewCmd builds the `genyee doc` parent command.
 func NewCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doc",

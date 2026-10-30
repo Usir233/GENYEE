@@ -1,9 +1,9 @@
-// Package modelcmd holds the `weknora model` command tree: list / view.
+// Package modelcmd holds the `genyee model` command tree: list / view.
 //
 // These are read-only discovery commands. The model id is a required input to
-// `weknora agent create --model <id>` and to a knowledge base's embedding /
+// `genyee agent create --model <id>` and to a knowledge base's embedding /
 // summary model settings, so the CLI must offer a first-class way to find it
-// rather than forcing callers down to the raw `weknora api` escape hatch.
+// rather than forcing callers down to the raw `genyee api` escape hatch.
 //
 // The directory is named `model/` to match the cobra subcommand; the Go
 // package is `modelcmd` to avoid colliding with the SDK's Model type.
@@ -16,15 +16,15 @@ import (
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
-// NewCmd builds the `weknora model` parent and registers leaves. Called from
+// NewCmd builds the `genyee model` parent and registers leaves. Called from
 // cli/cmd/root.go.
 func NewCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "model",
 		Short: "Manage models (list / view / create / update / delete)",
 		Long: `List, inspect, register, and delete the models configured on the server. Use
-the model id to back a knowledge base's embedding / summary config ('weknora kb
-init') or an agent ('weknora agent create --model <id>').`,
+the model id to back a knowledge base's embedding / summary config ('genyee kb
+init') or an agent ('genyee agent create --model <id>').`,
 	}
 	cmd.AddCommand(NewCmdList(f))
 	cmd.AddCommand(NewCmdView(f))

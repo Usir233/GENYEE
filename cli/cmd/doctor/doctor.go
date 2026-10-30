@@ -1,4 +1,4 @@
-// Package doctor implements `weknora doctor` - 4-item self-check.
+// Package doctor implements `genyee doctor` - 4-item self-check.
 //
 // Status semantics (4-tier):
 //
@@ -94,7 +94,7 @@ type Services interface {
 	GetSystemInfo(ctx context.Context) (*sdk.SystemInfo, error)
 }
 
-// NewCmd builds `weknora doctor`.
+// NewCmd builds `genyee doctor`.
 func NewCmd(f *cmdutil.Factory) *cobra.Command {
 	opts := &Options{}
 	cmd := &cobra.Command{
@@ -130,9 +130,9 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
 		UsedFor: "run self-checks: base-url reachability, auth credential, server version, credential storage",
 		Examples: []string{
-			"weknora doctor",
-			"weknora doctor --offline",
-			"weknora doctor --no-cache --format json",
+			"genyee doctor",
+			"genyee doctor --offline",
+			"genyee doctor --no-cache --format json",
 		},
 		Output: "envelope.data is {summary:{all_passed,passed,warned,failed,skipped}, checks:[{name,status,details,hint?}]}",
 	})
@@ -175,7 +175,7 @@ func runChecks(ctx context.Context, opts *Options, svc Services, cliVer string) 
 		t0 := time.Now()
 		if err := svc.PingBaseURL(ctx); err != nil {
 			checks[0].Status = StatusFail
-			checks[0].Hint = "verify the host configured for the active profile (run `weknora profile list` / `weknora profile add <n> --host=...`) and network reachability"
+			checks[0].Hint = "verify the host configured for the active profile (run `genyee profile list` / `genyee profile add <n> --host=...`) and network reachability"
 			checks[0].Details = err.Error()
 		} else {
 			checks[0].Status = StatusOK
@@ -187,7 +187,7 @@ func runChecks(ctx context.Context, opts *Options, svc Services, cliVer string) 
 	if !cascade(&checks[1], opts.Offline, &checks[0]) {
 		if _, err := svc.GetCurrentUser(ctx); err != nil {
 			checks[1].Status = StatusFail
-			checks[1].Hint = "run `weknora auth login`"
+			checks[1].Hint = "run `genyee auth login`"
 			checks[1].Details = err.Error()
 		} else {
 			checks[1].Status = StatusOK
@@ -389,7 +389,7 @@ func marker(s Status) string {
 //
 // Critically: this does NOT pre-resolve f.Client(). doctor's package promise
 // (top comment) is that credential_storage runs even when no auth is set up -
-// e.g. first-time `weknora doctor` to diagnose setup. Pre-resolving Client
+// e.g. first-time `genyee doctor` to diagnose setup. Pre-resolving Client
 // here would early-exit with auth.unauthenticated before any check runs,
 // contradicting the docs. Instead, GetCurrentUser / GetSystemInfo lazily
 // resolve and surface their own failure as a per-check StatusFail.
@@ -410,7 +410,7 @@ func buildServices(f *cmdutil.Factory) (Services, error) {
 //     command uses. Kept for test/dev harnesses; leave unset in normal use.
 //  2. WEKNORA_HOST — when stateless env credentials (WEKNORA_TOKEN /
 //     WEKNORA_API_KEY) are in effect, i.e. the headless agent path. Without
-//     this, `WEKNORA_API_KEY=… WEKNORA_HOST=… weknora doctor` falsely reported
+//     this, `WEKNORA_API_KEY=… WEKNORA_HOST=… genyee doctor` falsely reported
 //     "no host configured" and exited 1 while every other command worked.
 //  3. active profile host — the configured default.
 func resolveDoctorHost(cfg *config.Config) string {

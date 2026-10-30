@@ -27,7 +27,13 @@ func TestDesktopSigningKeyKeepsExistingAESHMAC(t *testing.T) {
 }
 
 func TestDesktopLocalFilesDir(t *testing.T) {
-	require.Equal(t, filepath.Join("/Users/dev", ".weknora", "data", "files"), desktopLocalFilesDir("/Users/dev"))
+	require.Equal(t, filepath.Join("/Users/dev", ".genyee", "data", "files"), desktopLocalFilesDir("/Users/dev"))
+
+	// Fallback to legacy .weknora when it exists
+	base := t.TempDir()
+	legacyDir := filepath.Join(base, ".weknora", "data", "files")
+	require.NoError(t, os.MkdirAll(legacyDir, 0o755))
+	require.Equal(t, legacyDir, desktopLocalFilesDir(base))
 }
 
 func TestUseDesktopFilesDirReplacesDockerDefault(t *testing.T) {
@@ -42,7 +48,7 @@ func TestConfigureDesktopFileStorageUsesHomeWeKnora(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("LOCAL_STORAGE_BASE_DIR", "/data/files")
 	configureDesktopFileStorage("")
-	require.Equal(t, filepath.Join(home, ".weknora", "data", "files"), os.Getenv("LOCAL_STORAGE_BASE_DIR"))
+	require.Equal(t, filepath.Join(home, ".genyee", "data", "files"), os.Getenv("LOCAL_STORAGE_BASE_DIR"))
 	info, err := os.Stat(os.Getenv("LOCAL_STORAGE_BASE_DIR"))
 	require.NoError(t, err)
 	require.True(t, info.IsDir())
@@ -65,7 +71,7 @@ func TestConfigureDesktopFileStorageMigratesFromTheBundleDir(t *testing.T) {
 
 	configureDesktopFileStorage("/Applications/WeKnora.app/Contents/MacOS/WeKnora")
 
-	require.FileExists(t, filepath.Join(home, ".weknora", "data", "files", "1", "a.txt"))
+	require.FileExists(t, filepath.Join(home, ".genyee", "data", "files", "1", "a.txt"))
 }
 
 func TestEnsureDesktopLiteEditionOverridesDefaultStandard(t *testing.T) {

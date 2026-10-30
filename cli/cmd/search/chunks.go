@@ -47,7 +47,7 @@ type ChunksService interface {
 
 var _ ChunksService = (*sdk.Client)(nil)
 
-// NewCmdChunks builds `weknora search chunks "<query>" --kb <id-or-name>`.
+// NewCmdChunks builds `genyee search chunks "<query>" --kb <id-or-name>`.
 // Uses a positional query argument with the KB selected via flag.
 //
 // The `--kb` flag accepts either a KB UUID (passed through unchanged) or a
@@ -57,9 +57,9 @@ func NewCmdChunks(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   `chunks "<query>"`,
 		Short: "Hybrid (vector + keyword) chunk retrieval against a knowledge base",
-		Example: `  weknora search chunks "what is RAG?" --kb engineering
-  weknora search chunks "embedding model" --kb kb_abc --limit 20
-  weknora search chunks "retry policy" --kb engineering --no-keyword  # vector-only`,
+		Example: `  genyee search chunks "what is RAG?" --kb engineering
+  genyee search chunks "embedding model" --kb kb_abc --limit 20
+  genyee search chunks "retry policy" --kb engineering --no-keyword  # vector-only`,
 		Long: `Hybrid (vector + keyword) retrieval against the knowledge base. Pass
 --no-vector or --no-keyword to disable one channel; you cannot disable both.
 --limit caps the returned slice client-side.`,
@@ -98,7 +98,7 @@ func NewCmdChunks(f *cmdutil.Factory) *cobra.Command {
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
 		UsedFor:       "Hybrid (vector + keyword) chunk retrieval against a knowledge base. The KB comes from --kb (id or name), else WEKNORA_KB_ID, else the linked directory. Results come with meta.count; use --limit to cap (default 8, tuned for RAG context). Pass --no-vector or --no-keyword to disable one channel.",
 		RequiredFlags: []string{"<query> (positional)", "--kb (or WEKNORA_KB_ID / linked directory)"},
-		Examples:      []string{`weknora search chunks "what is RAG?" --kb engineering --format json`},
+		Examples:      []string{`genyee search chunks "what is RAG?" --kb engineering --format json`},
 		Output:        "envelope.data is an array of SearchResult objects with id, content, score, knowledge_id; meta.count is the returned count; meta.has_more=true if more matched than --limit",
 	})
 	return cmd

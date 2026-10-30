@@ -97,10 +97,10 @@
 
     <!-- Logo - Top Left -->
     <a v-if="githubUrl || websiteUrl" :href="githubUrl || websiteUrl" target="_blank" class="header-logo" :title="$t('common.website')">
-      <img src="@/assets/img/weknora.png" alt="GENYEE" class="logo-image" />
+      <img src="@/assets/img/genyee.png" alt="GENYEE" class="logo-image" />
     </a>
     <div v-else class="header-logo">
-      <img src="@/assets/img/weknora.png" alt="GENYEE" class="logo-image" />
+      <img src="@/assets/img/genyee.png" alt="GENYEE" class="logo-image" />
     </div>
 
     <!-- Header Links - Top Right -->

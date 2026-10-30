@@ -219,7 +219,7 @@ docker compose up -d    # 用新镜像重建容器
 
 ### 本机浏览器
 
-**操作你电脑上的浏览器。** 借助腾讯开源的 BrowserSkill 扩展，智能体直接在你的 Chrome 或 Edge 中打开网页、填写表单；遇到登录或验证码时交给你。 [文档 →](./website-docs/05-clients/09-local-browser.md)
+**操作你电脑上的浏览器。** 借助开源 BrowserSkill 扩展，智能体直接在你的 Chrome 或 Edge 中打开网页、填写表单；遇到登录或验证码时交给你。 [文档 →](./website-docs/05-clients/09-local-browser.md)
 
 <a href="./docs/images/readme/spotlight-browser-light.webp">
 <picture>

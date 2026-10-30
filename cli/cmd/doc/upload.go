@@ -66,7 +66,7 @@ type UploadService interface {
 	) (*sdk.Knowledge, error)
 }
 
-// NewCmdUpload builds `weknora doc upload <file>`.
+// NewCmdUpload builds `genyee doc upload <file>`.
 func NewCmdUpload(f *cmdutil.Factory) *cobra.Command {
 	opts := &UploadOptions{}
 	cmd := &cobra.Command{
@@ -85,8 +85,8 @@ The two input modes (positional file / --recursive directory walk) are
 mutually exclusive - pass exactly one. Use --recursive --glob to upload a
 directory tree (see Examples); subdirectories are preserved as knowledge-base
 folders, so a nested file lands at its path relative to the walked directory.
-To ingest a remote URL use "weknora doc fetch";
-to create an entry from inline text use "weknora doc create".
+To ingest a remote URL use "genyee doc fetch";
+to create an entry from inline text use "genyee doc create".
 
 Server-side ingestion knobs:
 
@@ -99,12 +99,12 @@ Server-side ingestion knobs:
                            input.invalid_argument.
   --channel <name>         Override the ingestion-channel tag (default "api").
                            Applies to file / --recursive.`,
-		Example: `  weknora doc upload report.pdf
-  weknora doc upload notes.md --kb a32a63ff-fb36-4874-bcaa-30f48570a694
-  weknora doc upload notes.md --kb my-kb
-  weknora doc upload q3.pdf --name "Q3 Marketing Report.pdf"
-  weknora doc upload report.pdf --enable-multimodel --metadata team=alpha --metadata sprint=Q4
-  weknora doc upload ./docs --recursive --glob '*.pdf' --metadata team=alpha`,
+		Example: `  genyee doc upload report.pdf
+  genyee doc upload notes.md --kb a32a63ff-fb36-4874-bcaa-30f48570a694
+  genyee doc upload notes.md --kb my-kb
+  genyee doc upload q3.pdf --name "Q3 Marketing Report.pdf"
+  genyee doc upload report.pdf --enable-multimodel --metadata team=alpha --metadata sprint=Q4
+  genyee doc upload ./docs --recursive --glob '*.pdf' --metadata team=alpha`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(c)
@@ -195,8 +195,8 @@ Server-side ingestion knobs:
 		UsedFor:       "Upload a local file to the resolved knowledge base. KB resolved via --kb flag, WEKNORA_KB_ID env, or project link. Emits the created Knowledge object with its id.",
 		RequiredFlags: []string{"<file> (positional)", "--kb (or WEKNORA_KB_ID / project link)"},
 		Examples: []string{
-			`weknora doc upload report.pdf --kb kb_eng`,
-			`weknora doc upload report.pdf --kb kb_eng --jq .data.id   # then: doc wait <id>`,
+			`genyee doc upload report.pdf --kb kb_eng`,
+			`genyee doc upload report.pdf --kb kb_eng --jq .data.id   # then: doc wait <id>`,
 		},
 		Output: "envelope.data is the created Knowledge object with id, knowledge_base_id, file_name, parse_status",
 	})
@@ -250,7 +250,7 @@ func validateUploadFlags(opts *UploadOptions, args []string) error {
 		// MinimumNArgs(1) would emit — consistent with every other command
 		// that requires a positional argument.
 		return cmdutil.NewFlagError(errors.New(
-			"a file path is required (or use `weknora doc fetch` for URLs, `weknora doc create` for inline text)"))
+			"a file path is required (or use `genyee doc fetch` for URLs, `genyee doc create` for inline text)"))
 	}
 	return nil
 }

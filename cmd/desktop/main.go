@@ -360,7 +360,7 @@ func main() {
 		choice, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
 			Type:          wailsruntime.InfoDialog,
 			Title:         "GENYEE Lite",
-			Message:       fmt.Sprintf("GENYEE Lite — Desktop Edition\n\nA RAG framework for document understanding and semantic Q&A over complex, heterogeneous content.\n\nVersion %s\n© 2026 GENYEE. Based on Tencent WeKnora (MIT)\n\nGitHub:\n%s", desktopAboutVersion(), weknoraGitHubRepoURL),
+			Message:       fmt.Sprintf("GENYEE Lite — Desktop Edition\n\nA RAG framework for document understanding and semantic Q&A over complex, heterogeneous content.\n\nVersion %s\n© 2026 GENYEE.\n\nGitHub:\n%s", desktopAboutVersion(), weknoraGitHubRepoURL),
 			Buttons:       []string{"Open GitHub", "OK"},
 			DefaultButton: "OK",
 		})
@@ -435,7 +435,7 @@ func main() {
 			WindowIsTranslucent:  false,
 			About: &mac.AboutInfo{
 				Title:   "GENYEE Lite",
-				Message: "© 2026 GENYEE. Based on Tencent WeKnora (MIT)",
+				Message: "© 2026 GENYEE.",
 			},
 		},
 	})
@@ -459,7 +459,14 @@ func configureDesktopStorage(execPath string) {
 	targetDataDir := filepath.Join(appSupportDir, "data")
 	migrateLegacyDesktopData(legacyResourcesDir, targetDataDir)
 
-	dbPath := resolveDesktopDataPath(os.Getenv("DB_PATH"), filepath.Join("data", "weknora.db"), appSupportDir)
+	defaultDB := filepath.Join("data", "genyee.db")
+	if _, err := os.Stat(filepath.Join(appSupportDir, defaultDB)); err != nil {
+		legacyDB := filepath.Join("data", "weknora.db")
+		if _, errLegacy := os.Stat(filepath.Join(appSupportDir, legacyDB)); errLegacy == nil {
+			defaultDB = legacyDB
+		}
+	}
+	dbPath := resolveDesktopDataPath(os.Getenv("DB_PATH"), defaultDB, appSupportDir)
 
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
 		logger.Warnf(context.Background(), "Failed to create desktop DB directory %s: %v", filepath.Dir(dbPath), err)
@@ -468,7 +475,7 @@ func configureDesktopStorage(execPath string) {
 	_ = os.Setenv("DB_PATH", dbPath)
 }
 
-// configureDesktopFileStorage points Lite file uploads at ~/.weknora/data/files.
+// configureDesktopFileStorage points Lite file uploads at ~/.genyee/data/files.
 // wails dev is not always inside a packaged .app, so this runs for every
 // desktop process. An explicit absolute directory is kept; the Docker default
 // /data/files is not writable on macOS and is replaced. Uploads move over from
@@ -495,7 +502,15 @@ func configureDesktopFileStorage(execPath string) {
 }
 
 func desktopLocalFilesDir(home string) string {
-	return filepath.Join(home, ".weknora", "data", "files")
+	primary := filepath.Join(home, ".genyee", "data", "files")
+	legacy := filepath.Join(home, ".weknora", "data", "files")
+	if _, err := os.Stat(primary); err == nil {
+		return primary
+	}
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	return primary
 }
 
 func useDesktopFilesDir(raw string) bool {
@@ -558,7 +573,7 @@ func defaultMacAppSupportDir(execPath string) (string, error) {
 		}
 	}
 
-	return resolveDesktopAppSupportDir(baseDir, filepath.Join("data", "weknora.db"), filepath.Join("data", "files")), nil
+	return resolveDesktopAppSupportDir(baseDir, filepath.Join("data", "genyee.db"), filepath.Join("data", "weknora.db"), filepath.Join("data", "files")), nil
 }
 
 func resolveDesktopDataPath(rawPath, defaultRelativePath, appSupportDir string) string {

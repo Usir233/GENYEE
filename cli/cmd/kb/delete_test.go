@@ -185,5 +185,5 @@ func TestKbDelete_NoYes_JSONMode_AttachesRiskAndRetry(t *testing.T) {
 	require.NotNil(t, ce.Risk, "expected risk metadata on confirmation_required error")
 	assert.Equal(t, "kb.delete", ce.Risk.Action, "expected risk.action == kb.delete")
 	assert.Equal(t, "destructive", ce.Risk.Level, "expected risk.level == destructive")
-	assert.Equal(t, []string{"weknora", "kb", "delete", "kb_x", "-y"}, ce.RetryArgv, "expected retry_argv")
+	assert.Equal(t, []string{"genyee", "kb", "delete", "kb_x", "-y"}, ce.RetryArgv, "expected retry_argv")
 }

@@ -2,12 +2,15 @@ package tencentvectordb
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tencent/vectordatabase-sdk-go/tcvdbtext/encoder"
+	"github.com/tencent/vectordatabase-sdk-go/tcvdbtext/tokenizer"
 )
 
 func TestSupportIncludesKeywordAndVectorRetrieval(t *testing.T) {
@@ -122,4 +125,44 @@ func TestCollectionAlreadyExistsErrorDetection(t *testing.T) {
 	assert.True(t, isCollectionAlreadyExistsErr(errors.New("Collection Already Exist")))
 	assert.False(t, isCollectionAlreadyExistsErr(errors.New("permission denied")))
 	assert.False(t, isCollectionAlreadyExistsErr(nil))
+}
+
+func TestEnsureDefaultStopwordsOfflinePreSeeding(t *testing.T) {
+	// Verify that calling EnsureDefaultStopwords ensures the file exists and is populated
+	err := EnsureDefaultStopwords()
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(DefaultStopwordsFilePath)
+	require.NoError(t, err)
+	assert.True(t, len(content) > 0)
+	assert.Equal(t, embeddedDefaultStopwords, content)
+
+	// Test idempotency and re-creation if deleted
+	err = os.Remove(DefaultStopwordsFilePath)
+	require.NoError(t, err)
+
+	err = EnsureDefaultStopwords()
+	require.NoError(t, err)
+
+	contentAfter, err := os.ReadFile(DefaultStopwordsFilePath)
+	require.NoError(t, err)
+	assert.Equal(t, embeddedDefaultStopwords, contentAfter)
+}
+
+func TestNewJiebaTokenizerOfflineOperation(t *testing.T) {
+	// Ensure default stopwords file exists
+	err := EnsureDefaultStopwords()
+	require.NoError(t, err)
+
+	// Calling NewJiebaTokenizer(nil) will use DefaultStopwordsFilePath without COS network download
+	jbt, err := tokenizer.NewJiebaTokenizer(nil)
+	require.NoError(t, err)
+	require.NotNil(t, jbt)
+
+	tokens := jbt.Tokenize("企业知识库与政企离线交付测试")
+	assert.NotEmpty(t, tokens)
+	assert.Contains(t, tokens, "企业")
+	assert.Contains(t, tokens, "知识库")
+	assert.Contains(t, tokens, "交付")
+	assert.Contains(t, tokens, "测试")
 }

@@ -48,6 +48,8 @@ FORBIDDEN_PATTERNS=(
     "^genyee-${VERSION_STR}/BRANCH_GUIDE\.md$"
     "^genyee-${VERSION_STR}/\.trellis/"
     "^genyee-${VERSION_STR}/\.claude/"
+    "^genyee-${VERSION_STR}/\.agents/"
+    "^genyee-${VERSION_STR}/\.agents$"
     "^genyee-${VERSION_STR}/\.github/"
     "^genyee-${VERSION_STR}/docs/superpowers/"
     "^genyee-${VERSION_STR}/docs/release-"

@@ -1069,7 +1069,7 @@ func signExternalUserToken(hmacSecret, externalUserID string, tenantID uint64) (
 	claims := jwt.MapClaims{
 		"sub":       externalUserID, // e.g. "user_123"
 		"tenant_id": float64(tenantID),
-		"aud":       "weknora",
+		"aud":       "genyee",
 		"exp":       time.Now().Add(time.Hour).Unix(),
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).
