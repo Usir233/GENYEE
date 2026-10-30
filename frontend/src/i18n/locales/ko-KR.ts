@@ -752,6 +752,25 @@ export default {
     confirmRemove: '제거 확인'
   },
   integrations: {
+    cli: {
+      title: 'GENYEE CLI',
+      subtitle: '터미널에서 지식 베이스와 문서를 관리하고, 콘텐츠를 검색하고, 질문하세요. CLI 또는 MCP로 스크립트와 AI 도구를 연결할 수 있습니다.',
+      docs: 'CLI 문서 보기',
+      docsHint: '설치 안내 및 전체 명령어 참조',
+      quickstart: '빠른 시작',
+      installTitle: 'CLI 설치',
+      installDesc: 'Git과 Go 1.26+로 소스에서 빌드합니다. 아래 macOS / Linux 예제의 PATH 설정은 현재 터미널에만 적용됩니다. 계속 사용하려면 바이너리를 PATH에 포함된 디렉터리에 배치하세요.',
+      connectTitle: '현재 서버에 연결',
+      connectDesc: 'genyee 프로필을 생성하고 활성화한 후 이메일과 비밀번호로 로그인하세요. 같은 이름의 프로필이 있다면 다른 이름을 사용하고 MCP 예제의 프로필 이름도 변경하세요.',
+      verifyTitle: '연결 확인',
+      verifyDesc: '서버 및 인증 상태를 확인하고 현재 계정으로 접근할 수 있는 지식 베이스를 조회합니다.',
+      commandsTitle: '주요 명령어',
+      commandsDesc: 'KB_ID를 지식 베이스 ID로 바꾸고 파일 경로, 검색어, 질문을 수정하세요. 업로드한 문서는 처리가 완료되어야 검색할 수 있습니다.',
+      mcpTitle: 'MCP 클라이언트 연결',
+      mcpDesc: '로그인 후 stdio를 지원하는 MCP 클라이언트에 아래 설정을 추가하세요. 클라이언트가 genyee를 찾지 못하면 command를 바이너리의 절대 경로로 변경하세요.',
+      copy: '복사',
+      copied: '복사됨',
+    },
     title: '게시 및 통합',
     selectAgentPlaceholder: '에이전트를 선택하세요',
     selectAgentHint: '먼저 에이전트를 선택하세요',
@@ -759,6 +778,114 @@ export default {
     filterByAgent: '에이전트별 필터',
     filterByAgentWithName: '에이전트별 필터: {name}',
     filterAllAgents: '전체 에이전트',
+    claw: {
+      title: 'GENYEE Skill',
+      subtitle: 'GENYEE REST API로 문서를 가져오고 하이브리드 검색(벡터+키워드)을 수행합니다. 파일/URL/Markdown 업로드 및 검색에 사용.',
+      capabilitiesTitle: 'Skill 기능',
+      stepsTitle: '구성 단계',
+      openApiSettings: 'API 정보 열기',
+      copy: '복사',
+      copyEnvSuccess: '환경 변수 예시가 복사되었습니다',
+      copyCmdSuccess: '설치 명령이 복사되었습니다',
+      ecosystemNote: '전체 API 문서와 버전 기록은 GENYEE Skill 문서를 참고하세요.',
+      installCta: 'ClawHub 열기',
+      installCtaHint: 'GENYEE Skill 설치 · 새 탭에서 열림',
+      hubMeta: 'GENYEE Skill · MIT-0',
+      steps: {
+        verify: {
+          title: '연결 확인',
+          desc: '에이전트로 지식베이스 목록 또는 검색을 실행해 연결을 확인하세요.'
+        },
+        install: {
+          title: 'Skill 설치',
+          desc: 'GENYEE CLI가 설치된 환경에서 아래 명령을 실행하거나 스킬 레지스트리 안내를 따르세요.'
+        },
+        env: {
+          title: '환경 변수 설정',
+          desc: '셸 또는 ~/.zshrc, ~/.bashrc에 WEKNORA_BASE_URL과 WEKNORA_API_KEY를 설정하세요. 아래 예시는 현재 API 주소를 사용하며, API Key는 실제 값으로 바꾸세요.'
+        },
+        api: {
+          title: 'API 자격 증명',
+          desc: '설정 → API 정보에서 API Key와 주소를 복사하세요.'
+        }
+      },
+      capabilities: {
+        browse: {
+          title: '지식 탐색',
+          desc: '지식베이스·항목 목록, 상세 보기 및 관리.'
+        },
+        search: {
+          title: '하이브리드 검색',
+          desc: '단일 KB hybrid-search 및 교차 KB knowledge-search.'
+        },
+        manual: {
+          title: 'Markdown 작성',
+          desc: 'Markdown으로 지식 항목을 생성·편집.'
+        },
+        url: {
+          title: 'URL 가져오기',
+          desc: 'URL로 웹 페이지를 지식베이스에 가져오고 파싱 상태를 확인.'
+        },
+        upload: {
+          title: '파일 업로드',
+          desc: 'PDF, Word, Excel 등을 업로드하고 자동 파싱·벡터화.'
+        }
+      }
+    },
+    chrome: {
+      title: '지식 관리 어시스턴트',
+      subtitle: '자체 호스팅 GENYEE와 함께: 사이드바에서 질문하고, 웹 페이지를 클리핑하며, Markdown 메모를 지식베이스에 저장하세요.',
+      capabilitiesTitle: '핵심 기능',
+      stepsTitle: '구성 단계',
+      openApiSettings: 'API 정보 열기',
+      copy: '복사',
+      copySuccess: 'API 주소가 복사되었습니다',
+      installCta: 'Chrome 웹 스토어',
+      installCtaHint: '공식 확장 · 새 탭에서 열림',
+      storeMeta: 'Chrome 웹 스토어 · v1.0.0',
+      steps: {
+        connect: {
+          title: '확장에서 연결',
+          desc: '확장 설정에서 기업/개발자 모드를 선택하고 서비스 API 주소와 API Key를 입력하세요. 아래는 현재 서비스 주소입니다.'
+        },
+        install: {
+          title: 'Chrome 확장 설치',
+          desc: 'Chrome 웹 스토어에서 「지식 관리 어시스턴트」를 설치하세요.'
+        },
+        port: {
+          title: '데스크톱: 고정 포트(권장)',
+          desc: 'GENYEE 데스크톱에서는 API 정보에서 고정 포트(예: 37841)를 설정하세요.'
+        },
+        api: {
+          title: 'API 자격 증명',
+          desc: '설정 → API 정보에서 API Key와 API 주소를 복사하세요.'
+        }
+      },
+      scenarios: {
+        research: '자료 조사',
+        learning: '학습 노트',
+        tech: '기술 자료 수집',
+        work: '업무 지식 축적'
+      },
+      capabilities: {
+        shortcuts: {
+          title: '단축키',
+          desc: '질문, 사이드바 열기 등 단축키를 사용자 지정해 효율을 높이세요.'
+        },
+        notes: {
+          title: 'Markdown 빠른 메모',
+          desc: '내장 Markdown 편집기로 아이디어를 기록하고 한 번에 지식베이스에 저장.'
+        },
+        clip: {
+          title: '원클릭 웹 수집',
+          desc: 'URL 저장, AI 본문 추출, 영역 선택으로 지식베이스에 정확히 저장.'
+        },
+        qa: {
+          title: '지식베이스 Q&A',
+          desc: '사이드바 대화, 다중 지식베이스 전환, 빠름/심층/정밀 모드로 페이지를 떠나지 않고 질문.'
+        }
+      }
+    },
     agentEditor: {
       label: '게시 채널',
       desc: 'IM 플랫폼 또는 웹사이트에 에이전트를 게시합니다. 통합 센터에서 관리하세요.'
@@ -1036,6 +1163,9 @@ export default {
       im: 'IM 통합',
       embed: '웹 임베드',
       api: 'API 연동',
+      chrome: 'Chrome 확장',
+      cli: 'CLI',
+      claw: 'Claw Skill',
       mcpserver: 'MCP 서버'
     }
   },
@@ -2420,6 +2550,10 @@ export default {
           name: 'MarkItDown',
           desc: 'Microsoft MarkItDown 변환기 (PDF/Office/HTML 등)'
         },
+        weknoracloud: {
+          name: 'GENYEE Cloud',
+          desc: 'GENYEE Cloud를 통한 문서 파싱'
+        },
         paddleocr_vl_cloud: {
           name: 'PaddleOCR-VL Cloud',
           desc: 'PaddleOCR-VL Cloud API'
@@ -2604,6 +2738,12 @@ export default {
           q2: 'How do I add its models to this workspace after connecting?',
           q3: 'What should I check if Ollama will not connect?',
         },
+        weknoracloud: {
+          description: 'I can explain which models GENYEE Cloud offers, and how to bind and choose them.',
+          q1: 'Which models does GENYEE Cloud provide?',
+          q2: 'How do I enable or bind a Cloud account?',
+          q3: 'When should I use Cloud models versus ones I connect myself?',
+        },
         vectorstore: {
           description: 'I can explain the current vector engine, what changing it does, and how to check it.',
           q1: 'Which vector search engine is in use now?',
@@ -2729,6 +2869,24 @@ export default {
           q1: 'How do I offer GENYEE as an MCP server?',
           q2: 'How does an external client connect?',
           q3: 'Which tools does this server expose?',
+        },
+        'integration-cli': {
+          description: 'I can walk you through installing and signing in to the CLI, and the common commands.',
+          q1: 'How do I install and sign in to the GENYEE CLI?',
+          q2: 'What knowledge-base and chat operations can the CLI do?',
+          q3: 'What are the most useful commands?',
+        },
+        'integration-chrome': {
+          description: 'I can explain what the browser extension does, how to install it, and where selected text goes.',
+          q1: 'What can the browser extension do?',
+          q2: 'How do I install and sign in to the extension?',
+          q3: 'Where does text I select in the extension get sent?',
+        },
+        'integration-claw': {
+          description: 'I can explain how to connect GENYEE to Claw, and which skill to install.',
+          q1: 'How do I connect GENYEE to Claw?',
+          q2: 'Which skill do I need to install?',
+          q3: 'What can I do in Claw after it is connected?',
         },
       },
     startFailed: '어시스턴트를 시작하지 못했습니다. 다시 시도해 주세요.',
@@ -6388,6 +6546,7 @@ export default {
     all: '전체',
     clear: '지우기',
     website: '공식 웹사이트',
+    clawhubSkill: 'Claw Skill',
     github: 'GitHub',
     githubStarTip: 'GitHub에서 저장소로 이동합니다. 유용하다면 Star를 부탁드립니다',
     on: '켜기',
@@ -7694,6 +7853,59 @@ export default {
       paddleocrVlEndpointPlaceholder: '예: http://your-paddleocr-vl:8080',
       paddleocrVlEndpointHint: 'PaddleOCR-VL 전체 서비스(pipeline) 주소를 입력하세요. /layout-parsing 접미사는 불필요합니다',
       paddleocrVlCloudTokenPlaceholder: 'PaddleOCR-VL AI Studio Token'
+    },
+    weknoraCloud: {
+      title: 'GENYEE Cloud',
+      description: 'GENYEE Cloud APPID 및 APPSECRET 자격 증명을 설정합니다. 자격 증명은 모델 서비스와 문서 파싱 엔진에 사용됩니다.',
+      viewDocs: '문서 보기',
+      unconfigured: '자격 증명이 설정되지 않았습니다. APPID와 APPSECRET을 입력하세요.',
+      configured: '자격 증명이 설정되었으며 정상 작동 중입니다.',
+      expired: 'GENYEE Cloud 자격 증명 만료',
+      expiredDefault: '서비스 재시작 후 암호화 키가 변경되어 저장된 자격 증명을 복호화할 수 없습니다. 다시 입력하세요.',
+      reconfigure: '재설정',
+      appIdLabel: 'APPID',
+      appIdDesc: 'GENYEE Cloud 애플리케이션 ID',
+      appIdPlaceholder: 'APPID 입력',
+      appSecretLabel: 'APPSECRET',
+      appSecretDesc: 'GENYEE Cloud 애플리케이션 비밀키',
+      appSecretPlaceholder: 'APPSECRET 입력',
+      saveHint: '저장 전 서비스 연결 가능 여부를 확인하고 암호화하여 저장합니다.',
+      saveBtn: '자격 증명 저장',
+      usageTitle: '사용 가이드',
+      usageSteps: '1. APPID / APPSECRET 저장\n2. 아래 「클라우드 모델」에서 chat, embedding, rerank, vlm 추가\n3. 문서 파싱: 지식 베이스 설정 → 파싱 엔진 → GENYEE Cloud',
+      fillRequired: 'APPID와 APPSECRET을 입력하세요',
+      saveSuccess: '자격 증명 저장 완료',
+      saveFailed: '자격 증명 저장 실패',
+      credentialConfigured: 'GENYEECloud 자격 증명이 설정되었습니다.',
+      credentialExpired: '자격 증명이 만료되었습니다. 재설정하세요.',
+      credentialUnconfigured: 'GENYEECloud 자격 증명이 설정되지 않았습니다. APPID와 APPSECRET을 먼저 설정하세요.',
+      checkingStatus: '자격 증명 상태 확인 중...',
+      goToSettings: '설정으로 이동',
+      modelHintConfigured: 'GENYEECloud 자격 증명이 설정되었습니다. 지원 모델은',
+      modelHintDocsLink: 'API 문서',
+      addModelsSuccess: '{count}개 모델이 추가되었습니다',
+      addModelsPartial: '{success}개 추가, {failed}개 실패',
+      addModelsFailed: '모델 추가 실패',
+      addModelsEmbeddingFailed: 'Embedding 연결 테스트 실패, 벡터 차원을 가져올 수 없습니다',
+      addModelsDisplayName: {
+        chat: 'GENYEECloud 대화',
+        embedding: 'GENYEECloud Embedding',
+        rerank: 'GENYEECloud ReRank',
+        vllm: 'GENYEECloud 비전'
+      },
+      modelsSection: {
+        title: '클라우드 모델',
+        descReady: 'GENYEE Cloud의 네 가지 표준 모델을 등록하여 대화, 검색, 재정렬, 비전에 사용합니다.',
+        descPending: '위에서 자격 증명을 먼저 저장한 후 여기서 모델을 추가하세요.',
+        statusAdded: '추가됨',
+        statusPending: '자격 증명 필요',
+        addOne: '추가',
+        addAllBtn: '누락 모델 모두 추가 ({count})',
+        addAllConfirm: '확인',
+        confirmAddOne: '{type} 모델 "{name}"을(를) 추가하시겠습니까?',
+        confirmAddAll: '누락된 클라우드 모델 {count}개를 한 번에 추가하시겠습니까?',
+        allReady: '네 가지 클라우드 모델이 모두 준비되었습니다'
+      }
     },
     roleDenied: {
       title: '권한 없음',

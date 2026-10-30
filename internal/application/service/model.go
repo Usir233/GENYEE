@@ -13,6 +13,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/models/asr"
 	"github.com/Usir233/GENYEE/internal/models/chat"
 	"github.com/Usir233/GENYEE/internal/models/embedding"
+	"github.com/Usir233/GENYEE/internal/models/providers"
 	"github.com/Usir233/GENYEE/internal/models/rerank"
 	"github.com/Usir233/GENYEE/internal/models/utils/ollama"
 	"github.com/Usir233/GENYEE/internal/models/vlm"
@@ -65,12 +66,33 @@ func (s *modelService) decryptAppSecret(encrypted string) string {
 	return encrypted
 }
 
-// resolveAppCredentials 解密 AppID/AppSecret。
-func (s *modelService) resolveAppCredentials(params *types.ModelParameters) (appID, appSecret string) {
-	if params == nil {
-		return "", ""
+// resolveWeKnoraCloudCredentials 为 WeKnoraCloud 厂商模型补全 AppID/AppSecret。
+// 当模型自身参数中未存储凭证时，自动从空间配置中获取（SaveCredentials 保存的凭证）。
+func (s *modelService) resolveWeKnoraCloudCredentials(ctx context.Context, params *types.ModelParameters) (appID, appSecret string) {
+	appID = params.AppID
+	appSecret = s.decryptAppSecret(params.AppSecret)
+
+	if params.Provider != providers.WeKnoraCloudID {
+		return
 	}
-	return params.AppID, s.decryptAppSecret(params.AppSecret)
+	if appID != "" && appSecret != "" {
+		return
+	}
+
+	if s.tenantService == nil {
+		return
+	}
+	creds := s.tenantService.GetWeKnoraCloudCredentials(ctx)
+	if creds == nil {
+		return
+	}
+	if appID == "" {
+		appID = creds.AppID
+	}
+	if appSecret == "" {
+		appSecret = creds.AppSecret
+	}
+	return
 }
 
 // CreateModel creates a new model in the repository
@@ -584,7 +606,7 @@ func (s *modelService) GetEmbeddingModel(ctx context.Context, modelId string) (e
 
 	logger.Infof(ctx, "Getting embedding model: %s, source: %s", model.Name, model.Source)
 
-	appID, appSecret := s.resolveAppCredentials(&model.Parameters)
+	appID, appSecret := s.resolveWeKnoraCloudCredentials(ctx, &model.Parameters)
 
 	embedder, err := embedding.NewEmbedder(embedding.ConfigFromModel(model, appID, appSecret), s.pooler, s.ollamaService)
 	if err != nil {
@@ -631,7 +653,7 @@ func (s *modelService) GetEmbeddingModelForTenant(ctx context.Context, modelId s
 
 	logger.Infof(ctx, "Getting cross-tenant embedding model: %s, source: %s, tenant: %d", model.Name, model.Source, tenantID)
 
-	appID, appSecret := s.resolveAppCredentials(&model.Parameters)
+	appID, appSecret := s.resolveWeKnoraCloudCredentials(ctx, &model.Parameters)
 
 	embedder, err := embedding.NewEmbedder(embedding.ConfigFromModel(model, appID, appSecret), s.pooler, s.ollamaService)
 	if err != nil {
@@ -661,7 +683,7 @@ func (s *modelService) GetRerankModel(ctx context.Context, modelId string) (rera
 
 	logger.Infof(ctx, "Getting rerank model: %s, source: %s", model.Name, model.Source)
 
-	appID, appSecret := s.resolveAppCredentials(&model.Parameters)
+	appID, appSecret := s.resolveWeKnoraCloudCredentials(ctx, &model.Parameters)
 
 	reranker, err := rerank.NewReranker(rerank.ConfigFromModel(model, appID, appSecret))
 	if err != nil {
@@ -704,7 +726,7 @@ func (s *modelService) GetChatModel(ctx context.Context, modelId string) (chat.C
 
 	logger.Infof(ctx, "Getting chat model: %s, source: %s", model.Name, model.Source)
 
-	appID, appSecret := s.resolveAppCredentials(&model.Parameters)
+	appID, appSecret := s.resolveWeKnoraCloudCredentials(ctx, &model.Parameters)
 
 	chatModel, err := chat.NewChat(chat.ConfigFromModel(model, appID, appSecret), s.ollamaService)
 	if err != nil {
@@ -741,7 +763,7 @@ func (s *modelService) GetVLMModel(ctx context.Context, modelId string) (vlm.VLM
 
 	logger.Infof(ctx, "Getting VLM model: %s, source: %s", model.Name, model.Source)
 
-	appID, appSecret := s.resolveAppCredentials(&model.Parameters)
+	appID, appSecret := s.resolveWeKnoraCloudCredentials(ctx, &model.Parameters)
 
 	vlmModel, err := vlm.NewVLM(vlm.ConfigFromModel(model, appID, appSecret), s.ollamaService)
 	if err != nil {

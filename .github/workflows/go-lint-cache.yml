@@ -40,7 +40,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: [".", "client"]
+        module: [".", "cli", "client"]
     steps:
       - uses: actions/checkout@v6
 

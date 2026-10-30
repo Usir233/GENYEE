@@ -78,7 +78,7 @@ func TestConversationHeadersAcrossTurnsAndToolResults(t *testing.T) {
 			require.Len(t, headers, 3)
 			for i, h := range headers {
 				assert.Equal(t, "business-session", h.Get("X-Conversation-ID"))
-				assert.Equal(t, "WeKnora", h.Get("User-Agent"))
+				assert.Equal(t, "GENYEE/1.0", h.Get("User-Agent"))
 				if cacheKeyEnabled {
 					assert.Equal(t, "business-session", h.Get("x-session-affinity"))
 					assert.Equal(t, "shared-cache-prefix", requests[i]["prompt_cache_key"])

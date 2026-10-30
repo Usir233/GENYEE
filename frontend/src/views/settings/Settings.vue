@@ -21,6 +21,14 @@
               <line x1="2.94" y1="12.5" x2="15.06" y2="12.5" stroke="currentColor" stroke-width="1.2"
                 stroke-linecap="round" />
             </svg>
+            <!-- WeKnora Cloud 使用自定义 W 图标 -->
+            <svg v-else-if="item.key === 'weknoracloud'" width="17" height="17" viewBox="0 0 18 18"
+              fill="none" xmlns="http://www.w3.org/2000/svg" class="nav-icon">
+              <rect x="1.5" y="1.5" width="15" height="15" rx="3.5" stroke="currentColor" stroke-width="1.2"
+                fill="none" />
+              <path d="M4.5 5.5L6.5 12.5L9 7.5L11.5 12.5L13.5 5.5" stroke="currentColor" stroke-width="1.3"
+                stroke-linecap="round" stroke-linejoin="round" fill="none" />
+            </svg>
             <!-- 沙箱：隔离运行窗口，避免和 Ollama / 系统设置共用 server -->
             <svg v-else-if="item.key === 'sandbox'" width="17" height="17" viewBox="0 0 18 18" fill="none"
               xmlns="http://www.w3.org/2000/svg" class="nav-icon">
@@ -78,6 +86,10 @@
           <OllamaSettings />
         </div>
 
+        <!-- WeKnora Cloud -->
+        <div v-if="currentSection === 'weknoracloud'" class="section">
+          <WeKnoraCloudSettings />
+        </div>
 
         <!-- 模型配置 -->
         <div v-if="currentSection === 'models'" class="section">
@@ -222,6 +234,7 @@ import VectorStoreSettings from './VectorStoreSettings.vue'
 import ParserEngineSettings from './ParserEngineSettings.vue'
 import StorageBackendSettings from './StorageBackendSettings.vue'
 import SandboxSettings from './SandboxSettings.vue'
+import WeKnoraCloudSettings from './WeKnoraCloudSettings.vue'
 import TenantMembers from './TenantMembers.vue'
 import SystemSettings from '@/views/system/SystemSettings.vue'
 import RuntimeQueues from '@/views/system/RuntimeQueues.vue'
@@ -232,6 +245,7 @@ import {
   INTEGRATION_PREVIEW_ITEMS,
   INTEGRATION_TAB_CAPABILITY,
   INTEGRATION_TAB_MIN_ROLE,
+  isIntegrationTabEnabled,
 } from '@/config/integrations'
 import {
   SETTINGS_SECTION_MIN_ROLE,
@@ -316,9 +330,21 @@ const syncSettingsRoute = (sectionKey: string) => {
 
 const isSectionSupported = (key: string): boolean => {
   if (isIntegrationSection(key)) {
+    const tab = integrationTabFromSection(key)
+    if (!isIntegrationTabEnabled(tab)) {
+      return false
+    }
     return deploymentCapabilities.isSupported(
-      INTEGRATION_TAB_CAPABILITY[integrationTabFromSection(key)],
+      INTEGRATION_TAB_CAPABILITY[tab],
     )
+  }
+  if (key === 'weknoracloud') {
+    const val = typeof window !== 'undefined'
+      ? (window as any).__RUNTIME_CONFIG__?.WEKNORA_WEKNORACLOUD_ENABLED
+      : undefined
+    if (String(val || '').trim().toLowerCase() !== 'true') {
+      return false
+    }
   }
   if (key === 'skills' || key === 'envvars') {
     return skillSettingsSupported(deploymentCapabilities.capabilities)
@@ -356,6 +382,7 @@ const navItems = computed(() => {
   const all: NavItem[] = [
     { key: 'general', icon: 'setting', label: t('general.title') },
     { key: 'ollama', icon: 'server', label: 'Ollama' },
+    { key: 'weknoracloud', icon: '', label: 'WeKnora Cloud' },
     { key: 'models', icon: 'control-platform', label: t('settings.modelManagement') },
     { key: 'websearch', icon: 'search', label: t('settings.webSearchConfig') },
     { key: 'chathistory', icon: 'chat', label: t('chatHistorySettings.title') },
@@ -409,7 +436,7 @@ const navGroups = computed<NavGroup[]>(() => {
     {
       key: 'models_runtime',
       label: t('settings.navGroups.modelsRuntime'),
-      items: pickItems(['models', 'ollama']),
+      items: pickItems(['models', 'ollama', 'weknoracloud']),
     },
     {
       key: 'integrations',
@@ -455,7 +482,7 @@ const handleNavClick = (item: any) => {
     currentSubSection.value = ''
   }
 
-  // 切换到对应页面，并同步 URL 为 ?section=<navKey>（如 integration-im、integration-mcpserver）。
+  // 切换到对应页面，并同步 URL 为 ?section=<navKey>（含 integration-claw）。
   // 否则从其它 section 点进来时 query 不变，路由监听会把内容拉回去。
   currentSection.value = item.key
   syncSettingsRoute(item.key)

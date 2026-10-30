@@ -62,7 +62,7 @@ func TestPostJSONWithRetrySucceedsAfterATransportFailure(t *testing.T) {
 	assert.Equal(t, 2, attempts)
 	for _, h := range headers {
 		assert.Equal(t, "retry-session", h.Get("X-Conversation-ID"))
-		assert.Equal(t, "WeKnora", h.Get("User-Agent"))
+		assert.Equal(t, "GENYEE/1.0", h.Get("User-Agent"))
 	}
 }
 

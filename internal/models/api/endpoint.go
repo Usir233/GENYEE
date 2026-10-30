@@ -49,7 +49,7 @@ type Endpoint struct {
 	BaseURL string
 	// URL, when set, is the complete request URL and overrides the protocol
 	// default of BaseURL + protocol path. Vendors with non-standard paths
-	// (e.g. Azure deployments) set it.
+	// (Azure deployments, WeKnora Cloud) set it.
 	URL string
 	// Query is appended to the final URL (Azure api-version).
 	Query map[string]string
@@ -132,7 +132,7 @@ func (e Endpoint) newPost(ctx context.Context, url string, data []byte, contentT
 	secutils.ApplyCustomHeaders(req, e.Headers)
 	// Identity belongs to this call, not the shared model configuration or
 	// a per-request UUID. Derived contexts retain it across turns and retries.
-	req.Header.Set("User-Agent", "WeKnora")
+	req.Header.Set("User-Agent", "GENYEE/1.0")
 	req.Header.Del("X-Conversation-ID")
 	if sessionID, ok := types.SessionIDFromContext(ctx); ok {
 		req.Header.Set("X-Conversation-ID", sessionID)

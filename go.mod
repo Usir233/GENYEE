@@ -164,6 +164,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.12 // indirect
 	github.com/getsentry/sentry-go v0.30.0 // indirect
 	github.com/gin-contrib/sse v1.1.0 // indirect
+	github.com/go-ego/gse v0.80.3 // indirect
 	github.com/go-ini/ini v1.67.0 // indirect
 	github.com/go-json-experiment/json v0.0.0-20260214004413-d219187c3433 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
@@ -303,6 +304,7 @@ require (
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
+	github.com/vcaesar/cedar v0.20.2 // indirect
 	github.com/volcengine/volc-sdk-golang v1.0.252 // indirect
 	github.com/wailsapp/go-webview2 v1.0.22 // indirect
 	github.com/wailsapp/mimetype v1.4.1 // indirect
@@ -358,8 +360,4 @@ replace go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelg
 // The anydoc Go bindings are not published yet (firecrawl/anydoc#30 is still
 // open), so they are vendored. Drop this replace once upstream tags go/vX.Y.Z.
 replace github.com/firecrawl/anydoc/go => ./third_party/anydoc-go
-
-// Upstream Tencent VectorDB Go SDK pulls non-permissive/deprecated tokenizer dependencies.
-// Decoupled in third_party to ensure strict commercial compliance.
-replace github.com/tencent/vectordatabase-sdk-go => ./third_party/vectordatabase-sdk-go
 

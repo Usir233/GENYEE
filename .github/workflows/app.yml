@@ -8,6 +8,7 @@ on:
     branches: [main]
     paths:
       - "**/*.go"
+      - "!cli/**"
       - "!client/**"
       - "!docreader/**"
       - "!third_party/anydoc-go/**"
@@ -39,6 +40,7 @@ on:
   pull_request:
     paths:
       - "**/*.go"
+      - "!cli/**"
       - "!client/**"
       - "!docreader/**"
       - "!third_party/anydoc-go/**"
@@ -124,7 +126,7 @@ jobs:
             diff_range="$base..$GITHUB_SHA"
           fi
           unformatted=$(
-            git diff --name-only --diff-filter=ACMR -z "$diff_range" -- '*.go' |
+            git diff --name-only --diff-filter=ACMR -z "$diff_range" -- '*.go' ':!cli/**' |
               xargs -0 -r gofmt -l
           )
           if [ -n "$unformatted" ]; then

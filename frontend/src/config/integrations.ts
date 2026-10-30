@@ -1,8 +1,28 @@
 import type { DeploymentCapabilityKey } from './deploymentCapabilities'
 
-export type IntegrationTab = 'im' | 'embed' | 'api' | 'mcpserver'
+export function getChromeExtensionUrl(): string {
+  if (typeof window === 'undefined') return ''
+  return String((window as any).__RUNTIME_CONFIG__?.GENYEE_CHROME_EXTENSION_URL || '').trim()
+}
 
-export const INTEGRATION_TABS: IntegrationTab[] = ['im', 'embed', 'api', 'mcpserver']
+export function getClawhubSkillUrl(): string {
+  if (typeof window === 'undefined') return ''
+  return String((window as any).__RUNTIME_CONFIG__?.GENYEE_CLAWHUB_SKILL_URL || '').trim()
+}
+
+export const CHROME_EXTENSION_URL = getChromeExtensionUrl()
+
+export const CLAWHUB_SKILL_URL = getClawhubSkillUrl()
+
+export type IntegrationTab = 'im' | 'embed' | 'api' | 'mcpserver' | 'cli' | 'chrome' | 'claw'
+
+export const INTEGRATION_TABS: IntegrationTab[] = ['im', 'embed', 'api', 'mcpserver', 'cli', 'chrome', 'claw']
+
+export function isIntegrationTabEnabled(tab: IntegrationTab): boolean {
+  if (tab === 'chrome') return Boolean(getChromeExtensionUrl())
+  if (tab === 'claw') return Boolean(getClawhubSkillUrl())
+  return true
+}
 
 /** Aligns with Settings.vue SECTION_MIN_ROLE.api and router.go g.Owner() on /api-principal-config. */
 export type IntegrationTabRole = 'viewer' | 'contributor' | 'admin' | 'owner'
@@ -31,4 +51,9 @@ export const INTEGRATION_PREVIEW_ITEMS: Array<{
   { key: 'embed', icon: { type: 'icon', name: 'code' } },
   { key: 'api', icon: { type: 'icon', name: 'secured' } },
   { key: 'mcpserver', icon: { type: 'icon', name: 'tools' } },
+  { key: 'cli', icon: { type: 'icon', name: 'code' } },
+  { key: 'chrome', icon: { type: 'icon', name: 'extension' } },
+  { key: 'claw', icon: { type: 'emoji', value: '🦞' } },
 ]
+
+export const INTEGRATION_ITEMS = INTEGRATION_PREVIEW_ITEMS

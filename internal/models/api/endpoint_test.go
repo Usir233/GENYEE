@@ -30,7 +30,7 @@ func TestEndpointRequestIdentity(t *testing.T) {
 				req, _, err := ep.NewRequest(ctx, "http://127.0.0.1/v1/chat/completions", map[string]any{}, stream)
 				require.NoError(t, err)
 				require.Equal(t, sessionID, req.Header.Get("X-Conversation-ID"))
-				require.Equal(t, "WeKnora", req.UserAgent())
+				require.Equal(t, "GENYEE/1.0", req.UserAgent())
 				require.Equal(t, "preserved", req.Header.Get("X-Custom"))
 				require.Equal(t, "Bearer test-key", req.Header.Get("Authorization"))
 				if sessionID == "" {

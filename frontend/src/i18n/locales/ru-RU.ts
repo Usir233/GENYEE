@@ -752,6 +752,25 @@ export default {
     confirmRemove: 'Подтвердить удаление'
   },
   integrations: {
+    cli: {
+      title: 'GENYEE CLI',
+      subtitle: 'Управляйте базами знаний и документами, ищите информацию и задавайте вопросы из терминала. Подключайте скрипты и инструменты ИИ через CLI или MCP.',
+      docs: 'Документация CLI',
+      docsHint: 'Установка и полный справочник команд',
+      quickstart: 'Быстрый старт',
+      installTitle: 'Установка CLI',
+      installDesc: 'Соберите из исходного кода с помощью Git и Go 1.26+. В этом примере для macOS / Linux PATH меняется только для текущего терминала. Для постоянного использования поместите бинарный файл в каталог из PATH.',
+      connectTitle: 'Подключение к этому серверу',
+      connectDesc: 'Создайте и активируйте профиль genyee, затем войдите с электронной почтой и паролем. Если такой профиль уже существует, выберите другое имя и измените имя профиля в примере MCP.',
+      verifyTitle: 'Проверка подключения',
+      verifyDesc: 'Проверьте состояние сервера и авторизации, затем выведите базы знаний, доступные вашей учётной записи.',
+      commandsTitle: 'Основные команды',
+      commandsDesc: 'Замените KB_ID на ID базы знаний и измените путь к файлу, поисковый запрос и вопрос. Загруженные документы доступны для поиска после завершения обработки.',
+      mcpTitle: 'Подключение клиента MCP',
+      mcpDesc: 'После входа добавьте эту конфигурацию в клиент MCP с поддержкой stdio. Если клиент не находит genyee, укажите в command абсолютный путь к бинарному файлу.',
+      copy: 'Копировать',
+      copied: 'Скопировано',
+    },
     title: 'Публикация и интеграция',
     selectAgentPlaceholder: 'Выберите агента',
     selectAgentHint: 'Сначала выберите агента',
@@ -759,6 +778,114 @@ export default {
     filterByAgent: 'Фильтр по агенту',
     filterByAgentWithName: 'Фильтр по агенту: {name}',
     filterAllAgents: 'Все агенты',
+    claw: {
+      title: 'GENYEE Skill',
+      subtitle: 'Импорт документов и гибридный поиск (вектор + ключевые слова) через REST API GENYEE — загрузки, URL, Markdown и поиск.',
+      capabilitiesTitle: 'Возможности Skill',
+      stepsTitle: 'Шаги настройки',
+      openApiSettings: 'Открыть API-информацию',
+      copy: 'Копировать',
+      copyEnvSuccess: 'Пример переменных скопирован',
+      copyCmdSuccess: 'Команда установки скопирована',
+      ecosystemNote: 'Полная документация API и история версий — в документации GENYEE Skill.',
+      installCta: 'Открыть ClawHub',
+      installCtaHint: 'Установка GENYEE Skill · откроется в новой вкладке',
+      hubMeta: 'GENYEE Skill · MIT-0',
+      steps: {
+        verify: {
+          title: 'Проверка',
+          desc: 'Попросите агента вывести список БЗ или выполнить поиск.'
+        },
+        install: {
+          title: 'Установка Skill',
+          desc: 'Выполните команду ниже в среде с GENYEE CLI или следуйте инструкциям реестра навыков.'
+        },
+        env: {
+          title: 'Переменные окружения',
+          desc: 'Задайте WEKNORA_BASE_URL и WEKNORA_API_KEY в shell или ~/.zshrc / ~/.bashrc. Пример ниже использует текущий API URL — замените API Key на фактическое значение.'
+        },
+        api: {
+          title: 'API-учётные данные',
+          desc: 'Скопируйте API Key и URL в «Настройки → API-информация».'
+        }
+      },
+      capabilities: {
+        browse: {
+          title: 'Просмотр знаний',
+          desc: 'Списки БЗ и записей, детали и управление контентом.'
+        },
+        search: {
+          title: 'Гибридный поиск',
+          desc: 'hybrid-search по одной БЗ и knowledge-search по нескольким.'
+        },
+        manual: {
+          title: 'Markdown',
+          desc: 'Создание и правка записей в формате Markdown.'
+        },
+        url: {
+          title: 'Импорт URL',
+          desc: 'Загрузка веб-страниц по URL с отслеживанием parse_status.'
+        },
+        upload: {
+          title: 'Загрузка файлов',
+          desc: 'PDF, Word, Excel и др. с автоматическим разбором.'
+        }
+      }
+    },
+    chrome: {
+      title: 'Помощник по знаниям',
+      subtitle: 'Для self-hosted GENYEE: вопросы в боковой панели, клиппинг страниц и Markdown-заметки в базы знаний прямо при просмотре.',
+      capabilitiesTitle: 'Возможности',
+      stepsTitle: 'Шаги настройки',
+      openApiSettings: 'Открыть API-информацию',
+      copy: 'Копировать',
+      copySuccess: 'URL API скопирован',
+      installCta: 'Chrome Web Store',
+      installCtaHint: 'Официальное расширение · откроется в новой вкладке',
+      storeMeta: 'Chrome Web Store · v1.0.0',
+      steps: {
+        connect: {
+          title: 'Подключите в расширении',
+          desc: 'В настройках расширения выберите режим enterprise/developer и введите API URL и API Key. Ниже — текущий URL сервиса.'
+        },
+        install: {
+          title: 'Установите расширение',
+          desc: 'Установите «Помощник по знаниям» из Chrome Web Store.'
+        },
+        port: {
+          title: 'Десктоп: фиксированный порт',
+          desc: 'В GENYEE Desktop задайте фиксированный порт API (например 37841) в API-информации.'
+        },
+        api: {
+          title: 'Получите API-учётные данные',
+          desc: 'Скопируйте API Key и базовый URL в «Настройки → API-информация».'
+        }
+      },
+      scenarios: {
+        research: 'Исследования',
+        learning: 'Учёба',
+        tech: 'Техдокументация',
+        work: 'Рабочие знания'
+      },
+      capabilities: {
+        shortcuts: {
+          title: 'Горячие клавиши',
+          desc: 'Настраиваемые сочетания для вопросов, панели и ускорения работы.'
+        },
+        notes: {
+          title: 'Markdown-заметки',
+          desc: 'Встроенный редактор Markdown с сохранением в базу знаний в один клик.'
+        },
+        clip: {
+          title: 'Сбор веб-контента',
+          desc: 'Сохранение URL, AI-извлечение текста или выбор области на странице.'
+        },
+        qa: {
+          title: 'Q&A по базе знаний',
+          desc: 'Боковая панель, несколько БЗ, режимы быстрый/глубокий/точный — без смены вкладки.'
+        }
+      }
+    },
     agentEditor: {
       label: 'Каналы публикации',
       desc: 'Публикуйте агента в IM или на сайт. Управление — в разделе «Интеграции».'
@@ -1036,6 +1163,9 @@ export default {
       im: 'IM-интеграция',
       embed: 'Веб-встраивание',
       api: 'API-интеграция',
+      chrome: 'Расширение Chrome',
+      cli: 'CLI',
+      claw: 'Claw Skill',
       mcpserver: 'MCP-сервер'
     }
   },
@@ -2420,6 +2550,10 @@ export default {
           name: 'MarkItDown',
           desc: 'Конвертер Microsoft MarkItDown (PDF/Office/HTML и др.)'
         },
+        weknoracloud: {
+          name: 'GENYEE Cloud',
+          desc: 'Парсинг документов через GENYEE Cloud'
+        },
         paddleocr_vl_cloud: {
           name: 'PaddleOCR-VL Cloud',
           desc: 'PaddleOCR-VL Cloud API'
@@ -2604,6 +2738,12 @@ export default {
           q2: 'How do I add its models to this workspace after connecting?',
           q3: 'What should I check if Ollama will not connect?',
         },
+        weknoracloud: {
+          description: 'I can explain which models GENYEE Cloud offers, and how to bind and choose them.',
+          q1: 'Which models does GENYEE Cloud provide?',
+          q2: 'How do I enable or bind a Cloud account?',
+          q3: 'When should I use Cloud models versus ones I connect myself?',
+        },
         vectorstore: {
           description: 'I can explain the current vector engine, what changing it does, and how to check it.',
           q1: 'Which vector search engine is in use now?',
@@ -2729,6 +2869,24 @@ export default {
           q1: 'How do I offer GENYEE as an MCP server?',
           q2: 'How does an external client connect?',
           q3: 'Which tools does this server expose?',
+        },
+        'integration-cli': {
+          description: 'I can walk you through installing and signing in to the CLI, and the common commands.',
+          q1: 'How do I install and sign in to the GENYEE CLI?',
+          q2: 'What knowledge-base and chat operations can the CLI do?',
+          q3: 'What are the most useful commands?',
+        },
+        'integration-chrome': {
+          description: 'I can explain what the browser extension does, how to install it, and where selected text goes.',
+          q1: 'What can the browser extension do?',
+          q2: 'How do I install and sign in to the extension?',
+          q3: 'Where does text I select in the extension get sent?',
+        },
+        'integration-claw': {
+          description: 'I can explain how to connect GENYEE to Claw, and which skill to install.',
+          q1: 'How do I connect GENYEE to Claw?',
+          q2: 'Which skill do I need to install?',
+          q3: 'What can I do in Claw after it is connected?',
         },
       },
     startFailed: 'Не удалось запустить ассистента. Попробуйте ещё раз.',
@@ -6388,6 +6546,7 @@ export default {
     all: 'Все',
     clear: 'Очистить',
     website: 'Официальный сайт',
+    clawhubSkill: 'Claw Skill',
     github: 'GitHub',
     githubStarTip: 'Открыть репозиторий на GitHub — поставьте Star, если проект полезен',
     on: 'Вкл',
@@ -7694,6 +7853,59 @@ export default {
       paddleocrVlEndpointPlaceholder: 'напр. http://your-paddleocr-vl:8080',
       paddleocrVlEndpointHint: 'Адрес полного сервиса PaddleOCR-VL (pipeline); суффикс /layout-parsing не требуется',
       paddleocrVlCloudTokenPlaceholder: 'Токен PaddleOCR-VL AI Studio'
+    },
+    weknoraCloud: {
+      title: 'GENYEE Cloud',
+      description: 'Настройте учётные данные APPID и APPSECRET для GENYEE Cloud. Данные используются для модельных сервисов и движка парсинга документов.',
+      viewDocs: 'Документация',
+      unconfigured: 'Учётные данные не настроены. Заполните APPID и APPSECRET.',
+      configured: 'Учётные данные настроены, статус в норме.',
+      expired: 'Учётные данные GENYEE Cloud истекли',
+      expiredDefault: 'Ключ шифрования изменился после перезапуска. Сохранённые данные не могут быть расшифрованы. Введите данные заново.',
+      reconfigure: 'Перенастроить',
+      appIdLabel: 'APPID',
+      appIdDesc: 'ID приложения GENYEE Cloud',
+      appIdPlaceholder: 'Введите APPID',
+      appSecretLabel: 'APPSECRET',
+      appSecretDesc: 'Секрет приложения GENYEE Cloud',
+      appSecretPlaceholder: 'Введите APPSECRET',
+      saveHint: 'Данные будут проверены и зашифрованы перед сохранением.',
+      saveBtn: 'Сохранить',
+      usageTitle: 'Инструкция',
+      usageSteps: '1. Сохраните APPID и APPSECRET\n2. Добавьте chat, embedding, rerank и vlm в разделе «Облачные модели» ниже\n3. Парсинг: Настройки БЗ → Движок парсинга → GENYEE Cloud',
+      fillRequired: 'Заполните APPID и APPSECRET',
+      saveSuccess: 'Учётные данные сохранены',
+      saveFailed: 'Не удалось сохранить данные',
+      credentialConfigured: 'Учётные данные GENYEECloud настроены.',
+      credentialExpired: 'Данные истекли. Перенастройте.',
+      credentialUnconfigured: 'Учётные данные GENYEECloud не настроены. Заполните APPID и APPSECRET.',
+      checkingStatus: 'Проверка статуса...',
+      goToSettings: 'Перейти в настройки',
+      modelHintConfigured: 'Учётные данные GENYEECloud настроены. Поддерживаемые модели см. в',
+      modelHintDocsLink: 'документации API',
+      addModelsSuccess: 'Успешно добавлено моделей: {count}',
+      addModelsPartial: 'Добавлено: {success}, ошибок: {failed}',
+      addModelsFailed: 'Не удалось добавить модели',
+      addModelsEmbeddingFailed: 'Тест подключения Embedding не пройден; не удалось определить размерность вектора',
+      addModelsDisplayName: {
+        chat: 'GENYEECloud Chat',
+        embedding: 'GENYEECloud Embedding',
+        rerank: 'GENYEECloud ReRank',
+        vllm: 'GENYEECloud Vision'
+      },
+      modelsSection: {
+        title: 'Облачные модели',
+        descReady: 'Зарегистрируйте четыре стандартные модели GENYEE Cloud для чата, поиска, реранкинга и зрения.',
+        descPending: 'Сначала сохраните учётные данные выше, затем добавьте модели здесь.',
+        statusAdded: 'Добавлена',
+        statusPending: 'Нужны учётные данные',
+        addOne: 'Добавить',
+        addAllBtn: 'Добавить все отсутствующие ({count})',
+        addAllConfirm: 'Подтвердить',
+        confirmAddOne: 'Добавить модель {type} «{name}»?',
+        confirmAddAll: 'Добавить все {count} отсутствующих облачных моделей сразу?',
+        allReady: 'Все четыре облачные модели готовы'
+      }
     },
     roleDenied: {
       title: 'Недостаточно прав',

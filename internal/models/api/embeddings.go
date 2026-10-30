@@ -15,7 +15,7 @@ type EmbeddingAPI string
 const (
 	// EmbeddingOpenAI is POST {base}/embeddings with {model, input[]} answering
 	// {data: [{embedding, index}]} — the shape OpenAI defined and every
-	// compatible gateway copied. Jina, NVIDIA, and Azure speak
+	// compatible gateway copied. Jina, NVIDIA, Azure and WeKnora Cloud speak
 	// it too, with their own optional fields, URL or credential.
 	EmbeddingOpenAI EmbeddingAPI = "openai-embeddings"
 	// EmbeddingDashScope is Alibaba Model Studio's native multimodal shape:

@@ -39,7 +39,8 @@ import (
 //	      uniformly.
 //
 //	NO  — Tenant-wide infrastructure: Model, VectorStore, IM channel,
-//	      WebSearchProvider, DataSource, MCPService.
+//	      WebSearchProvider, DataSource, MCPService, WeKnoraCloud
+//	      credentials.
 //	      => Mutating routes use Admin().
 //	      There is no "creator-of-the-vector-store" concept; configuring
 //	      it affects everyone, so only Admin+ may touch it.
