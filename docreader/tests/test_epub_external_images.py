@@ -1,12 +1,10 @@
 import base64
 from html import escape
-from io import BytesIO
 import unittest
 from unittest.mock import patch
 
-from ebooklib import epub
-
 from docreader.parser.epub_parser import EPUBParser
+from docreader.tests.epub_builder import NAV, NCX, Chapter, Item, build_epub
 
 
 _LOCAL_PNG = base64.b64decode(
@@ -16,34 +14,31 @@ _LOCAL_PNG = base64.b64decode(
 
 
 def _epub_with_external_image(src: str) -> bytes:
-    book = epub.EpubBook()
-    book.set_identifier("external-image-collision")
-    book.set_title("External and local images")
-    book.set_language("en")
-    chapter = epub.EpubHtml(title="Images", file_name="text/chapter.xhtml", lang="en")
-    chapter.properties.append("remote-resources")
-    chapter.content = (
-        "<html><body><h1>Images</h1><p>Different image sources.</p>"
-        f'<img alt="external" src="{escape(src, quote=True)}"/>'
-        '<img alt="local" src="../images/pic.png"/>'
-        "</body></html>"
+    chapter = Chapter(
+        title="Images",
+        file_name="text/chapter.xhtml",
+        properties=["remote-resources"],
+        content=(
+            "<html><body><h1>Images</h1><p>Different image sources.</p>"
+            f'<img alt="external" src="{escape(src, quote=True)}"/>'
+            '<img alt="local" src="../images/pic.png"/>'
+            "</body></html>"
+        ),
     )
-    book.add_item(chapter)
-    book.add_item(
-        epub.EpubItem(
-            uid="local-image",
-            file_name="images/pic.png",
-            media_type="image/png",
-            content=_LOCAL_PNG,
-        )
+    local_image = Item(
+        uid="local-image",
+        file_name="images/pic.png",
+        media_type="image/png",
+        content=_LOCAL_PNG,
     )
-    book.spine = [chapter]
-    book.toc = [chapter]
-    book.add_item(epub.EpubNcx())
-    book.add_item(epub.EpubNav())
-    output = BytesIO()
-    epub.write_epub(output, book)
-    return output.getvalue()
+    return build_epub(
+        identifier="external-image-collision",
+        title="External and local images",
+        language="en",
+        items=[chapter, local_image, NCX, NAV],
+        spine=[chapter],
+        toc=[chapter],
+    )
 
 
 class EPUBExternalImageTest(unittest.TestCase):
@@ -62,7 +57,7 @@ class EPUBExternalImageTest(unittest.TestCase):
                 content = _epub_with_external_image(src)
                 if fallback:
                     with patch(
-                        "docreader.parser.epub_parser.epub.read_epub",
+                        "docreader.parser.epub_parser._read_package",
                         side_effect=ValueError("exercise ZIP fallback"),
                     ):
                         document = parser.parse(content)

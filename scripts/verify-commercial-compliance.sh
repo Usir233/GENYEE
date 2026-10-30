@@ -356,6 +356,32 @@ test_t1_docreader_unit_tests() {
     PYTHONPATH="${REPO_ROOT}" uv --directory docreader run --with pytest pytest tests/test_sandbox_executor.py tests/test_parser_routing.py tests/test_docx_tables.py
 }
 
+# TC-T1-15: No GPL-3.0 xlsReader in the statically linked Go binaries
+test_t1_go_no_gpl_xlsreader() {
+    local matches
+    matches=$(grep -n "shakinm/xlsReader" go.mod go.sum || true)
+    matches+=$(git grep -n "shakinm/xlsReader" -- '*.go' || true)
+    if [[ -n "${matches}" ]]; then
+        echo "GPL-3.0 github.com/shakinm/xlsReader is referenced:" >&2
+        echo "${matches}" >&2
+        return 1
+    fi
+    return 0
+}
+
+# TC-T1-16: No AGPL-3.0 ebooklib in the docreader service
+test_t1_docreader_no_agpl_ebooklib() {
+    local matches
+    matches=$(grep -n -i "ebooklib" docreader/pyproject.toml docreader/uv.lock || true)
+    matches+=$(git grep -n -E "^\s*(import|from)\s+ebooklib" -- 'docreader/*.py' || true)
+    if [[ -n "${matches}" ]]; then
+        echo "AGPL-3.0 ebooklib is referenced by docreader:" >&2
+        echo "${matches}" >&2
+        return 1
+    fi
+    return 0
+}
+
 run_tier_1() {
     echo -e "\n${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
     echo -e "${C_BOLD}${C_BLUE}[TIER 1] Feature Coverage (Core Sanity & Acceptance Verification)${C_RESET}"
@@ -375,6 +401,8 @@ run_tier_1() {
     run_test "TC-T1-12" "License packaging test execution (scripts/test-license-bundle.sh)" test_t1_test_license_bundle
     run_test "TC-T1-13" "Docreader textract absence in config, lock & parser" test_t1_docreader_no_textract
     run_test "TC-T1-14" "Docreader parser & sandbox unit tests (32 tests)" test_t1_docreader_unit_tests
+    run_test "TC-T1-15" "Go modules exclude GPL-3.0 shakinm/xlsReader" test_t1_go_no_gpl_xlsreader
+    run_test "TC-T1-16" "Docreader excludes AGPL-3.0 ebooklib" test_t1_docreader_no_agpl_ebooklib
 }
 
 # ==============================================================================

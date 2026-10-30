@@ -8,66 +8,49 @@ from unittest.mock import patch
 from urllib.parse import quote
 import zipfile
 
-from ebooklib import epub
 from PIL import Image
 
 from docreader.parser.epub_parser import EPUBParser
 from docreader.parser.registry import registry
+from docreader.tests.epub_builder import NAV, NCX, Chapter, Item, TocLink, build_epub
 
 
 def _minimal_epub_bytes() -> bytes:
-    book = epub.EpubBook()
-    book.set_identifier("test-epub")
-    book.set_title("Tiny EPUB")
-    book.set_language("en")
-    book.add_author("WeKnora")
-
-    chapter = epub.EpubHtml(
-        title="Chapter One", file_name="text/chapter_01.xhtml", lang="en"
+    chapter = Chapter(
+        title="Chapter One",
+        file_name="text/chapter_01.xhtml",
+        content=(
+            "<html><body><h1>Chapter One</h1>"
+            "<p>Hello EPUB world.</p>"
+            '<p><a href="chapter_02.xhtml#sec2">Chapter 2</a> '
+            '<a href="#footnote1">note</a> '
+            '<a href="https://example.com">the site</a></p>'
+            '<img alt="cover" src="../images/pic.png">'
+            "</body></html>"
+        ),
     )
-    chapter.content = (
-        "<html><body><h1>Chapter One</h1>"
-        "<p>Hello EPUB world.</p>"
-        '<p><a href="chapter_02.xhtml#sec2">Chapter 2</a> '
-        '<a href="#footnote1">note</a> '
-        '<a href="https://example.com">the site</a></p>'
-        '<img alt="cover" src="../images/pic.png">'
-        "</body></html>"
+    picture = Item(
+        uid="pic",
+        file_name="images/pic.png",
+        media_type="image/png",
+        content=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
     )
-    book.add_item(chapter)
-    book.add_item(
-        epub.EpubItem(
-            uid="pic",
-            file_name="images/pic.png",
-            media_type="image/png",
-            content=b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR",
-        )
+    return build_epub(
+        identifier="test-epub",
+        title="Tiny EPUB",
+        language="en",
+        authors=["WeKnora"],
+        items=[chapter, picture, NCX, NAV],
+        spine=[NAV, chapter],
+        toc=[TocLink("text/chapter_01.xhtml", "Chapter One", "chapter-one")],
     )
-    book.toc = (epub.Link("text/chapter_01.xhtml", "Chapter One", "chapter-one"),)
-    book.spine = ["nav", chapter]
-    book.add_item(epub.EpubNcx())
-    book.add_item(epub.EpubNav())
-
-    with tempfile.NamedTemporaryFile(suffix=".epub", delete=False) as handle:
-        path = handle.name
-    try:
-        epub.write_epub(path, book)
-        with open(path, "rb") as handle:
-            return handle.read()
-    finally:
-        if os.path.exists(path):
-            os.unlink(path)
 
 
 def _epub_with_colliding_image_names(
     image_src: str, *, root_image_first: bool = False
 ) -> tuple[bytes, dict[str, bytes]]:
-    book = epub.EpubBook()
-    book.set_identifier("colliding-images")
-    book.set_title("Images in separate directories")
-    book.set_language("en")
-
     image_data = {}
+    items = []
     chapters = []
     directories = (
         ("root", "first", "second")
@@ -79,8 +62,8 @@ def _epub_with_colliding_image_names(
         image = BytesIO()
         Image.new("RGB", (1, 1), (index * 100, 0, 0)).save(image, format="PNG")
         image_data[directory] = image.getvalue()
-        book.add_item(
-            epub.EpubItem(
+        items.append(
+            Item(
                 uid=f"{directory}-image",
                 file_name="pic.png" if directory == "root" else f"{directory}/pic.png",
                 media_type="image/png",
@@ -90,27 +73,30 @@ def _epub_with_colliding_image_names(
         chapter_path = (
             "root.xhtml" if directory == "root" else f"{directory}/chapter.xhtml"
         )
-        chapter = epub.EpubHtml(
-            title=directory, file_name=chapter_path, lang="en"
-        )
         src = (
             "pic.png" if directory == "root" else image_src.format(directory=directory)
         )
-        chapter.content = (
-            f'<html><body><h1>{directory}</h1>'
-            f'<img alt="{directory}" src="{src}">'
-            "</body></html>"
+        chapter = Chapter(
+            title=directory,
+            file_name=chapter_path,
+            content=(
+                f'<html><body><h1>{directory}</h1>'
+                f'<img alt="{directory}" src="{src}">'
+                "</body></html>"
+            ),
         )
-        book.add_item(chapter)
+        items.append(chapter)
         chapters.append(chapter)
     # The root-level pic.png also collides with chapter-relative references.
-    book.toc = tuple(chapters)
-    book.spine = chapters
-    book.add_item(epub.EpubNcx())
-    book.add_item(epub.EpubNav())
-    output = BytesIO()
-    epub.write_epub(output, book)
-    return output.getvalue(), image_data
+    content = build_epub(
+        identifier="colliding-images",
+        title="Images in separate directories",
+        language="en",
+        items=items + [NCX, NAV],
+        spine=chapters,
+        toc=chapters,
+    )
+    return content, image_data
 
 
 def _epub_with_literal_path_characters(
@@ -206,7 +192,7 @@ class EPUBParserTest(unittest.TestCase):
                 parser = EPUBParser(file_name="literal-paths.epub", file_type="epub")
                 if use_fallback:
                     with patch(
-                        "docreader.parser.epub_parser.epub.read_epub",
+                        "docreader.parser.epub_parser._read_package",
                         side_effect=ValueError("exercise ZIP fallback"),
                     ):
                         document = parser.parse(content)
@@ -258,7 +244,7 @@ class EPUBParserTest(unittest.TestCase):
                     "pic.png", root_image_first=root_image_first
                 )
                 with patch(
-                    "docreader.parser.epub_parser.epub.read_epub",
+                    "docreader.parser.epub_parser._read_package",
                     side_effect=ValueError("exercise ZIP fallback"),
                 ):
                     document = EPUBParser(
@@ -369,7 +355,7 @@ class EPUBParserTest(unittest.TestCase):
                 parser = EPUBParser(file_name="structured.epub", file_type="epub")
                 if use_fallback:
                     with patch(
-                        "docreader.parser.epub_parser.epub.read_epub",
+                        "docreader.parser.epub_parser._read_package",
                         side_effect=ValueError("exercise ZIP fallback"),
                     ):
                         document = parser.parse(content)
@@ -390,24 +376,144 @@ class EPUBParserTest(unittest.TestCase):
                 # Directly below a table, GFM reads a line as another row.
                 self.assertIn("| Apple | 3 |\n\nAfter the table.", document.content)
 
+    def parse_without_fallback(self, content: bytes):
+        parser = EPUBParser(file_name="package.epub", file_type="epub")
+        with patch.object(parser, "_parse_epub_fallback") as fallback:
+            document = parser.parse(content)
+        fallback.assert_not_called()
+        return document
+
+    def test_missing_manifest_file_skips_only_that_file(self):
+        content = _epub_with_package(
+            manifest=(
+                '<item id="one" href="one.xhtml" media-type="application/xhtml+xml"/>'
+                '<item id="gone" href="gone.xhtml" media-type="application/xhtml+xml"/>'
+                '<item id="lost" href="lost.png" media-type="image/png"/>'
+            ),
+            spine='<itemref idref="one"/><itemref idref="gone"/>',
+            files={"OEBPS/one.xhtml": _xhtml("<h1>One</h1><p>Still here.</p>")},
+        )
+        document = self.parse_without_fallback(content)
+
+        self.assertIn("## One\n\nStill here.", document.content)
+        self.assertEqual(document.images, {})
+        self.assertEqual(document.metadata["title"], "Package")
+        self.assertEqual(document.metadata["chapter_count"], 1)
+
+    def test_namespace_less_package_is_read(self):
+        content = _epub_with_package(
+            manifest=(
+                '<item id="one" href="one.xhtml" media-type="application/xhtml+xml"/>'
+            ),
+            spine='<itemref idref="one"/>',
+            files={"OEBPS/one.xhtml": _xhtml("<h1>One</h1><p>Bare OPF.</p>")},
+            namespaced=False,
+        )
+        document = self.parse_without_fallback(content)
+
+        self.assertIn("## One\n\nBare OPF.", document.content)
+        self.assertEqual(document.metadata["title"], "Package")
+        self.assertEqual(document.metadata["author"], "Ann, Bo")
+
+    def test_cover_image_is_extracted(self):
+        content = _epub_with_package(
+            manifest=(
+                '<item id="cover" href="cover.png" media-type="image/png"'
+                ' properties="cover-image"/>'
+                '<item id="one" href="one.xhtml" media-type="application/xhtml+xml"/>'
+            ),
+            spine='<itemref idref="one"/>',
+            files={
+                "OEBPS/cover.png": b"\x89PNG cover",
+                "OEBPS/one.xhtml": _xhtml('<h1>One</h1><img alt="c" src="cover.png"/>'),
+            },
+        )
+        document = self.parse_without_fallback(content)
+
+        self.assertEqual(len(document.images), 1)
+        image_ref, encoded = next(iter(document.images.items()))
+        self.assertEqual(base64.b64decode(encoded), b"\x89PNG cover")
+        self.assertIn(f"![c]({image_ref})", document.content)
+
+    def test_package_entities_are_not_resolved(self):
+        with tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False) as secret:
+            secret.write("TOP-SECRET")
+        self.addCleanup(os.unlink, secret.name)
+        content = _epub_with_package(
+            manifest=(
+                '<item id="one" href="one.xhtml" media-type="application/xhtml+xml"/>'
+            ),
+            spine='<itemref idref="one"/>',
+            files={"OEBPS/one.xhtml": _xhtml("<h1>One</h1><p>Body.</p>")},
+            doctype=(
+                f'<!DOCTYPE package [<!ENTITY xxe SYSTEM "file://{secret.name}">]>'
+            ),
+            title="&xxe;",
+        )
+        document = self.parse_without_fallback(content)
+
+        self.assertNotIn("TOP-SECRET", str(document.metadata))
+        self.assertNotIn("TOP-SECRET", document.content)
+
+
+def _xhtml(body: str) -> str:
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>'
+        '<html xmlns="http://www.w3.org/1999/xhtml"><head><title>t</title></head>'
+        f"<body>{body}</body></html>"
+    )
+
+
+def _epub_with_package(
+    *,
+    manifest: str,
+    spine: str,
+    files: dict,
+    namespaced: bool = True,
+    doctype: str = "",
+    title: str = "Package",
+) -> bytes:
+    """Write an EPUB around a hand-written OPF package at OEBPS/content.opf."""
+    opf_ns = ' xmlns="http://www.idpf.org/2007/opf"' if namespaced else ""
+    dc_ns = ' xmlns:dc="http://purl.org/dc/elements/1.1/"' if namespaced else ""
+    dc = "dc:" if namespaced else ""
+    package = (
+        f'<?xml version="1.0" encoding="utf-8"?>{doctype}'
+        f'<package{opf_ns} version="3.0" unique-identifier="id">'
+        f"<metadata{dc_ns}><{dc}identifier id=\"id\">pkg</{dc}identifier>"
+        f"<{dc}title>{title}</{dc}title><{dc}creator>Ann</{dc}creator>"
+        f"<{dc}creator>Bo</{dc}creator><{dc}language>en</{dc}language></metadata>"
+        f"<manifest>{manifest}</manifest><spine>{spine}</spine></package>"
+    )
+    output = BytesIO()
+    with zipfile.ZipFile(output, "w") as archive:
+        archive.writestr("mimetype", "application/epub+zip")
+        archive.writestr(
+            "META-INF/container.xml",
+            '<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"'
+            ' version="1.0"><rootfiles><rootfile full-path="OEBPS/content.opf"'
+            ' media-type="application/oebps-package+xml"/></rootfiles></container>',
+        )
+        archive.writestr("OEBPS/content.opf", package)
+        for path, data in files.items():
+            archive.writestr(path, data)
+    return output.getvalue()
+
 
 def _epub_with_chapter_body(body: str) -> bytes:
     """Write an EPUB with a single chapter whose body is ``body``."""
-    book = epub.EpubBook()
-    book.set_identifier("structured-epub")
-    book.set_title("Structured EPUB")
-    book.set_language("en")
-
-    chapter = epub.EpubHtml(title="Chapter", file_name="text/chapter.xhtml", lang="en")
-    chapter.content = f"<html><body><h1>Chapter</h1>{body}</body></html>"
-    book.add_item(chapter)
-    book.add_item(epub.EpubNcx())
-    book.add_item(epub.EpubNav())
-    book.spine = ["nav", chapter]
-
-    output = BytesIO()
-    epub.write_epub(output, book)
-    return output.getvalue()
+    chapter = Chapter(
+        title="Chapter",
+        file_name="text/chapter.xhtml",
+        content=f"<html><body><h1>Chapter</h1>{body}</body></html>",
+    )
+    return build_epub(
+        identifier="structured-epub",
+        title="Structured EPUB",
+        language="en",
+        items=[chapter, NCX, NAV],
+        spine=[NAV, chapter],
+    )
 
 
 def _ordered_epub_bytes(
@@ -415,22 +521,18 @@ def _ordered_epub_bytes(
 ) -> bytes:
     """Write an EPUB whose manifest lists the documents in ``manifest`` order
     and whose spine reads them in ``spine`` order."""
-    book = epub.EpubBook()
-    book.set_identifier("ordered-epub")
-    book.set_title("Ordered EPUB")
-    book.set_language("en")
-
-    chapters = {}
-    for name in manifest:
-        chapter = epub.EpubHtml(title=name, file_name=f"text/{name}.xhtml", lang="en")
-        chapter.content = f"<html><body><p>Body of {name}.</p></body></html>"
-        book.add_item(chapter)
-        chapters[name] = chapter
-    book.add_item(epub.EpubNcx())
-    book.add_item(epub.EpubNav())
-    book.spine = ["nav"] + [chapters[name] for name in spine]
+    chapters = {
+        name: Chapter(
+            title=name,
+            file_name=f"text/{name}.xhtml",
+            content=f"<html><body><p>Body of {name}.</p></body></html>",
+        )
+        for name in manifest
+    }
+    items = list(chapters.values()) + [NCX, NAV]
+    reading_order = [NAV] + [chapters[name] for name in spine]
     if svg_cover_in_spine:
-        cover = epub.EpubItem(
+        cover = Item(
             uid="cover-svg",
             file_name="images/cover.svg",
             media_type="image/svg+xml",
@@ -439,18 +541,16 @@ def _ordered_epub_bytes(
                 b"<text>COVER ART</text></svg>"
             ),
         )
-        book.add_item(cover)
-        book.spine.insert(1, cover)
+        items.append(cover)
+        reading_order.insert(1, cover)
 
-    with tempfile.NamedTemporaryFile(suffix=".epub", delete=False) as handle:
-        path = handle.name
-    try:
-        epub.write_epub(path, book)
-        with open(path, "rb") as handle:
-            return handle.read()
-    finally:
-        if os.path.exists(path):
-            os.unlink(path)
+    return build_epub(
+        identifier="ordered-epub",
+        title="Ordered EPUB",
+        language="en",
+        items=items,
+        spine=reading_order,
+    )
 
 
 if __name__ == "__main__":

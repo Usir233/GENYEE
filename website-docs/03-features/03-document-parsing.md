@@ -264,7 +264,7 @@ PPT 系列**没有独立解析器**，由 `MarkitdownParser` 处理，这两个�
 
 #### epub_parser.py — EPUBParser（.epub 电子书） {#_3-11-epub-parser-py-—-epubparser-epub-电子书}
 
-主路径用 **ebooklib**（经临时文件读入）：提取 DC 元数据（title/author/publisher/language/description/date/isbn），优先按 TOC 顺序逐章处理（每章取首个 h1/h2 作章题，输出 `## 章题` + markdownify 转换的正文），`ITEM_IMAGE` 全部抽为 `images/<uuid>.<ext>` 并按路径多变体别名回写 `<img src>`；EPUB 内部链接（章节间跳转、`#fragment`）unwrap 只留文本。ebooklib 失败时回退 **ZIP 直读**：按 `chapter(\d+)` 排序 html/xhtml 文件逐个转换。metadata 含 `chapter_count`/`image_count`。
+主路径直接在内存中用标准库 **zipfile** 打开 EPUB，再用 **lxml** 解析 `META-INF/container.xml` → 首个 rootfile 指向的 OPF（禁用 DTD、外部实体和网络访问，按元素本地名匹配，兼容 OPF2/OPF3 和缺少命名空间的包）：提取 DC 元数据（title/author/publisher/language/description/date/isbn），按 OPF **spine** 阅读顺序逐章处理，spine 未列出的文档按 manifest 顺序追加，同一文档只读一次（每章取首个 h1/h2 作章题，输出 `## 章题` + markdownify 转换的正文），manifest 中的图片（`image/*`，含封面）按 manifest 顺序全部抽为 `images/<uuid>.<ext>` 并按路径多变体别名回写 `<img src>`；EPUB 内部链接（章节间跳转、`#fragment`）unwrap 只留文本。manifest 里个别文件缺失时只跳过该文件并记录日志。container 或 OPF 损坏时回退 **ZIP 直读**：按 `chapter(\d+)` 排序 html/xhtml 文件逐个转换。metadata 含 `chapter_count`/`image_count`。
 
 #### markitdown_parser.py — MarkitdownParser（markitdown 引擎） {#_3-12-markitdown-parser-py-—-markitdownparser-markitdown-引擎}
 
@@ -296,7 +296,7 @@ flowchart TD
     H -- "doc" --> Y["DocParser: LibreOffice 转 docx → antiword 兜底"]
     H -- "xlsx / xls" --> Z["ExcelParser (repair + 合并单元格填充 + 逐行键值对)"]
     H -- "md / markdown" --> M["MarkdownParser (表格规范化 + base64 图抽取)"]
-    H -- "epub" --> EP["EPUBParser (ebooklib → ZIP 回退)"]
+    H -- "epub" --> EP["EPUBParser (zipfile + OPF spine → ZIP 回退)"]
     H -- "html / htm" --> HT["HTMLParser (BeautifulSoup + markdownify)"]
     H -- "mhtml" --> MH["MHTMLParser"]
     H -- "pptx / ppt" --> PT["MarkitdownParser (LibreOffice 归一化 + 媒体补图)"]
@@ -441,7 +441,7 @@ gRPC 响应中不再返回 chunks（`ReadResponse` 没有 chunk 字段）；`Exc
 
 `scripts/` 下另有两个工具：`generate_proto.sh`（grpc_tools.protoc 生成 Python/Go 代码并修复 import 路径）与 `parse_local.py`（本地直接调 Parser 调试解析结果，不经 gRPC，支持 `--engine`、`--scanned`、`--out` 导出 markdown 与图片）。
 
-Python 依赖（`pyproject.toml` + `uv.lock` 锁定）：`grpcio`、`pypdfium2`、`markitdown[docx,pdf,xls,xlsx]`、`opendataloader-pdf`、`python-docx`、`pandas`/`openpyxl`/`xlrd`、`playwright`、`trafilatura`、`beautifulsoup4`/`markdownify`/`lxml`、`ebooklib`、`pillow`、`pydantic`、`textract`（已禁用路径）等。
+Python 依赖（`pyproject.toml` + `uv.lock` 锁定）：`grpcio`、`pypdfium2`、`markitdown[docx,pdf,xls,xlsx]`、`opendataloader-pdf`、`python-docx`、`pandas`/`openpyxl`/`xlrd`、`playwright`、`trafilatura`、`beautifulsoup4`/`markdownify`/`lxml`（EPUB 的 OPF 也用它解析）、`pillow`、`pydantic`、`textract`（已禁用路径）等。
 
 #### 扩容与调优 {#_7-2-扩容与调优}
 
