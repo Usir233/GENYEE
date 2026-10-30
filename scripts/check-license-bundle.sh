@@ -10,7 +10,7 @@ cd "${license_root}"
 
 # A retained build-graph dependency would bring the GPL converter back even if
 # application code no longer imported it directly.
-if grep -Eq 'github.com/(longbridgeapp/opencc|liuzl/(da|cedar-go)|adamzy/cedar-go|vcaesar/cedar|go-ego/gse)([[:space:]]|$)' go.mod go.sum; then
+if grep -Eq 'github.com/(longbridgeapp/opencc|liuzl/(da|cedar-go)|adamzy/cedar-go|shakinm/xlsReader)([[:space:]]|$)' go.mod go.sum; then
     echo "Removed conversion dependencies have reappeared in go.mod/go.sum" >&2
     exit 1
 fi

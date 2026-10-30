@@ -2,7 +2,7 @@ class WeknoraLite < Formula
   desc "Knowledge base management system — single-binary Lite edition"
   homepage "https://github.com/Usir233/GENYEE"
   version "0.3.6-test"
-  license "Apache-2.0"
+  license "LicenseRef-GENYEE-Commercial"
 
   on_macos do
     on_arm do

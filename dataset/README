@@ -40,6 +40,8 @@ Pre-processed evaluation samples are provided in `./dataset/samples`:
 - `qrels.parquet` (columns: qid, pid, score)
 - `qas.parquet` (columns: qid, aid)
 
+> **Provenance Note:** The evaluation parquet samples in `dataset/samples/` (`corpus.parquet`, `queries.parquet`, `qrels.parquet`, `answers.parquet`) are synthetic evaluation samples authored by GENYEE (replacing upstream MS MARCO samples) and are covered by the root [`LICENSE`](../LICENSE).
+
 ## Quick Start
 
 ### 1. Sample Data from Large Dataset
@@ -275,4 +277,4 @@ Feel free to submit issues and enhancement requests!
 
 ## License
 
-MIT License - feel free to use this tool for your research and projects.
+This directory and the synthetic evaluation samples in `dataset/samples/` are covered by the root [`LICENSE`](../LICENSE) (GENYEE Commercial License); upstream WeKnora code and third-party notices are documented in [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).

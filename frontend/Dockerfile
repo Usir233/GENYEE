@@ -58,6 +58,13 @@ RUN npm run build
 # nginx 1.30.3 / Alpine 3.23.5, the same base as the working v0.6.3 image.
 FROM nginx:1.30.3-alpine@sha256:0d3b80406a13a767339fbe2f41406d6c7da727ab89cf8fae399e81f780f814d1
 
+LABEL org.opencontainers.image.vendor="GENYEE" \
+      org.opencontainers.image.title="genyee-ui" \
+      org.opencontainers.image.licenses="LicenseRef-GENYEE-Commercial AND MIT"
+
+COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/licenses/genyee/
+COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/
+
 COPY --from=builder /frontend/dist /usr/share/nginx/html
 
 COPY nginx.conf /etc/nginx/templates/default.conf.template

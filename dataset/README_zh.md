@@ -43,6 +43,8 @@ export OPENAI_BASE_URL="https://api.openai.com/v1"
 - `qrels.parquet`（列：qid, pid, score）
 - `qas.parquet`（列：qid, aid）
 
+> **数据来源说明：** `dataset/samples/` 目录下的评估样本（`corpus.parquet`、`queries.parquet`、`qrels.parquet`、`answers.parquet`）是由 GENYEE 编写的合成评估样本（已替换上游 MS MARCO 样本），受仓库根目录 [`LICENSE`](../LICENSE) 约束。
+
 **使用您自己的数据集**
 确保您的数据集包含以下文件：
 - `queries.parquet`（列：id, text）
@@ -284,4 +286,4 @@ python dataset/qa_dataset.py show \
 
 ## 许可证
 
-MIT许可证 - 可自由用于研究和项目。
+本目录及 `dataset/samples/` 下的合成评估样本受仓库根目录 [`LICENSE`](../LICENSE)（GENYEE 商业许可证）约束；上游 WeKnora 代码及第三方开源声明详见 [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md)。

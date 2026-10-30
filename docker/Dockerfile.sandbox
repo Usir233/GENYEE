@@ -112,6 +112,12 @@ RUN echo '. /etc/weknora/pty-prompt.sh' > /etc/profile.d/zz-weknora-prompt.sh &&
     echo '. /etc/weknora/pty-prompt.sh' >> /root/.bashrc && \
     echo '. /etc/weknora/pty-prompt.sh' >> /home/user/.bashrc
 
+LABEL org.opencontainers.image.vendor="GENYEE" \
+      org.opencontainers.image.title="genyee-sandbox" \
+      org.opencontainers.image.licenses="LicenseRef-GENYEE-Commercial AND MIT"
+COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/
+COPY licenses/ /licenses/licenses/
+
 WORKDIR /workspace
 USER root
 
