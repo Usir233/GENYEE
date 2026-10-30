@@ -8,7 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/shakinm/xlsReader/xls"
+	"github.com/Usir233/GENYEE/internal/infrastructure/legacyxls"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -54,54 +54,34 @@ func isOLECompoundFile(filename string) (bool, error) {
 }
 
 func convertLegacyXLSToXLSX(filename string) (string, error) {
-	workbook, err := xls.OpenFile(filename)
+	workbook, err := legacyxls.Open(filename)
 	if err != nil {
 		return "", fmt.Errorf("read xls workbook: %w", err)
+	}
+	if len(workbook.Sheets) == 0 {
+		return "", fmt.Errorf("xls workbook %s has no sheets", filename)
 	}
 	out := excelize.NewFile()
 	defer func() { _ = out.Close() }()
 
+	// Create every sheet first: a stream writer must be flushed before the
+	// workbook structure changes again.
 	used := map[string]struct{}{}
-	wrote := false
-	for i := 0; i < workbook.GetNumberSheets(); i++ {
-		sheet, err := workbook.GetSheet(i)
-		if err != nil || sheet == nil {
-			continue
-		}
-		name := uniqueExcelSheetName(sheet.GetName(), i, used)
-		if !wrote {
-			if err := out.SetSheetName("Sheet1", name); err != nil {
+	names := make([]string, len(workbook.Sheets))
+	for i, sheet := range workbook.Sheets {
+		names[i] = uniqueExcelSheetName(sheet.Name, i, used)
+		if i == 0 {
+			if err := out.SetSheetName("Sheet1", names[i]); err != nil {
 				return "", err
 			}
-			wrote = true
-		} else if _, err := out.NewSheet(name); err != nil {
+		} else if _, err := out.NewSheet(names[i]); err != nil {
 			return "", err
 		}
-		for r := 0; r < sheet.GetNumberRows(); r++ {
-			row, err := sheet.GetRow(r)
-			if err != nil || row == nil {
-				continue
-			}
-			for c, col := range row.GetCols() {
-				if col == nil {
-					continue
-				}
-				value := col.GetString()
-				if value == "" {
-					continue
-				}
-				cell, err := excelize.CoordinatesToCellName(c+1, r+1)
-				if err != nil {
-					return "", err
-				}
-				if err := out.SetCellValue(name, cell, value); err != nil {
-					return "", err
-				}
-			}
-		}
 	}
-	if !wrote {
-		return "", fmt.Errorf("xls workbook %s has no sheets", filename)
+	for i, sheet := range workbook.Sheets {
+		if err := writeSheetCells(out, names[i], sheet.Cells); err != nil {
+			return "", err
+		}
 	}
 
 	tmp, err := os.CreateTemp("", "weknora-xls-*.xlsx")
@@ -118,6 +98,39 @@ func convertLegacyXLSToXLSX(filename string) (string, error) {
 		return "", err
 	}
 	return tmpPath, nil
+}
+
+// writeSheetCells streams cells, sorted by row then column, into sheet as
+// text. Streaming keeps large workbooks fast and their memory use flat.
+func writeSheetCells(out *excelize.File, sheet string, cells []legacyxls.Cell) error {
+	sw, err := out.NewStreamWriter(sheet)
+	if err != nil {
+		return err
+	}
+	var values []interface{}
+	for start := 0; start < len(cells); {
+		row, first := cells[start].Row, cells[start].Col
+		end := start
+		for end < len(cells) && cells[end].Row == row {
+			end++
+		}
+		values = values[:0]
+		for _, c := range cells[start:end] {
+			for first+len(values) < c.Col {
+				values = append(values, nil)
+			}
+			values = append(values, c.Value)
+		}
+		cell, err := excelize.CoordinatesToCellName(first+1, row+1)
+		if err != nil {
+			return err
+		}
+		if err := sw.SetRow(cell, values); err != nil {
+			return err
+		}
+		start = end
+	}
+	return sw.Flush()
 }
 
 func uniqueExcelSheetName(name string, index int, used map[string]struct{}) string {
