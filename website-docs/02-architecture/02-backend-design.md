@@ -46,7 +46,7 @@ graph TD
 
 ## 依赖注入：internal/container（uber/dig） {#_2-依赖注入-internal-container-uber-dig}
 
-WeKnora 使用 **`go.uber.org/dig` v1.19.0**（构造函数注入容器，非代码生成的 wire）。入口是 `internal/container/container.go` 的 `BuildContainer`：
+GENYEE 使用 **`go.uber.org/dig` v1.19.0**（构造函数注入容器，非代码生成的 wire）。入口是 `internal/container/container.go` 的 `BuildContainer`：
 
 ```go
 // cmd/server/main.go

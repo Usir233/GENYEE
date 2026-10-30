@@ -353,14 +353,14 @@ func main() {
 	// macOS app menu
 	AppMenu := menu.NewMenu()
 	FileMenu := AppMenu.AddSubmenu("GENYEE Lite")
-	FileMenu.AddText("About GENYEE", keys.CmdOrCtrl("i"), func(_ *menu.CallbackData) {
+	FileMenu.AddText("About GENYEE Lite", keys.CmdOrCtrl("i"), func(_ *menu.CallbackData) {
 		if app.ctx == nil {
 			return
 		}
 		choice, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
 			Type:          wailsruntime.InfoDialog,
 			Title:         "GENYEE Lite",
-			Message:       fmt.Sprintf("GENYEE Lite — Desktop Edition\n\nA RAG framework for document understanding and semantic Q&A over complex, heterogeneous content.\n\nVersion %s\n© 2026 Tencent\n\nGitHub:\n%s", desktopAboutVersion(), weknoraGitHubRepoURL),
+			Message:       fmt.Sprintf("GENYEE Lite — Desktop Edition\n\nA RAG framework for document understanding and semantic Q&A over complex, heterogeneous content.\n\nVersion %s\n© 2026 GENYEE. Based on Tencent WeKnora (MIT)\n\nGitHub:\n%s", desktopAboutVersion(), weknoraGitHubRepoURL),
 			Buttons:       []string{"Open GitHub", "OK"},
 			DefaultButton: "OK",
 		})
@@ -400,7 +400,7 @@ func main() {
 	// Start Wails application
 	// We use a Reverse Proxy to seamlessly proxy Wails' frontend to our Go backend
 	err := wails.Run(&options.App{
-		Title:         "WeKnora Lite",
+		Title:         "GENYEE Lite",
 		Width:         1280,
 		Height:        800,
 		DisableResize: false,
@@ -433,6 +433,10 @@ func main() {
 			TitleBar:             mac.TitleBarHiddenInset(),
 			WebviewIsTransparent: false,
 			WindowIsTranslucent:  false,
+			About: &mac.AboutInfo{
+				Title:   "GENYEE Lite",
+				Message: "© 2026 GENYEE. Based on Tencent WeKnora (MIT)",
+			},
 		},
 	})
 	if err != nil {
@@ -546,15 +550,15 @@ func defaultMacAppSupportDir(execPath string) (string, error) {
 		return "", err
 	}
 
-	appName := "WeKnora Lite"
+	baseDir := filepath.Join(homeDir, "Library", "Application Support")
 	if idx := strings.Index(execPath, ".app/Contents/MacOS"); idx >= 0 {
 		bundleName := filepath.Base(execPath[:idx+4])
 		if trimmed := strings.TrimSuffix(bundleName, ".app"); trimmed != "" {
-			appName = trimmed
+			return filepath.Join(baseDir, trimmed), nil
 		}
 	}
 
-	return filepath.Join(homeDir, "Library", "Application Support", appName), nil
+	return resolveDesktopAppSupportDir(baseDir, filepath.Join("data", "weknora.db"), filepath.Join("data", "files")), nil
 }
 
 func resolveDesktopDataPath(rawPath, defaultRelativePath, appSupportDir string) string {

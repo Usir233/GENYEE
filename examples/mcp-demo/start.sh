@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-export MCP_SERVER_AUTH_TOKEN="${MCP_SERVER_AUTH_TOKEN:-weknora-demo-token}"
+export MCP_SERVER_AUTH_TOKEN="${MCP_SERVER_AUTH_TOKEN:-genyee-demo-token}"
 export MCP_HOST="${MCP_HOST:-127.0.0.1}"
 export MCP_PORT="${MCP_PORT:-8010}"
 export MCP_TRANSPORT="${MCP_TRANSPORT:-http}"
@@ -26,7 +26,7 @@ echo "  transport : ${MCP_TRANSPORT}"
 echo "  endpoint  : http://${MCP_HOST}:${MCP_PORT}/$([ "$MCP_TRANSPORT" = http ] && echo mcp || echo sse)"
 echo "  auth token: ${MCP_SERVER_AUTH_TOKEN}"
 echo
-echo "WeKnora UI → 设置 → MCP 服务 → 新建"
+echo "GENYEE UI → 设置 → MCP 服务 → 新建"
 echo "  传输: HTTP Streamable"
 echo "  URL : http://${MCP_HOST}:${MCP_PORT}/mcp"
 echo "  认证: Bearer / ${MCP_SERVER_AUTH_TOKEN}"

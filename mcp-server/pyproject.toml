@@ -3,18 +3,18 @@ requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "tencent-weknora-mcp"
+name = "genyee-mcp"
 version = "1.1.1"
-description = "WeKnora MCP Server - Model Context Protocol server for WeKnora API"
+description = "GENYEE MCP Server - Model Context Protocol server for GENYEE API"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "WeKnora Team", email = "support@weknora.com"}
+    {name = "GENYEE Team", email = "support@genyee.com"}
 ]
 maintainers = [
-    {name = "WeKnora Team", email = "support@weknora.com"}
+    {name = "GENYEE Team", email = "support@genyee.com"}
 ]
-keywords = ["mcp", "model-context-protocol", "weknora", "knowledge-management", "api-server"]
+keywords = ["mcp", "model-context-protocol", "genyee", "knowledge-management", "api-server"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -51,14 +51,16 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/Tencent/WeKnora"
-Documentation = "https://docs.weknora.com"
-Repository = "https://github.com/Tencent/WeKnora/tree/main/mcp-server"
-"Bug Reports" = "https://github.com/Tencent/WeKnora/issues"
-Changelog = "https://github.com/Tencent/WeKnora/blob/main/mcp-server/CHANGELOG.md"
+Homepage = "https://github.com/Usir233/GENYEE"
+Documentation = "https://github.com/Usir233/GENYEE/tree/main/website-docs"
+Repository = "https://github.com/Usir233/GENYEE/tree/main/mcp-server"
+"Bug Reports" = "https://github.com/Usir233/GENYEE/issues"
+Changelog = "https://github.com/Usir233/GENYEE/blob/main/mcp-server/CHANGELOG.md"
 
 [project.scripts]
-weknora-mcp-server = "main:sync_main"
+genyee-mcp-server = "main:run"
+weknora-mcp-server = "main:run"
+genyee-server = "run_server:main"
 weknora-server = "run_server:main"
 
 [tool.setuptools]

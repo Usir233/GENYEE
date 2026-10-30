@@ -1,17 +1,18 @@
 /**
- * WeKnora embed widget SDK — floating chat launcher.
+ * GENYEE embed widget SDK — floating chat launcher.
+ * (Also exposed as window.WeKnora for backwards compatibility.)
  *
  * Programmatic:
- *   WeKnora.init({ channel, token, position, primaryColor, title, baseUrl })
- *   WeKnora.open() | close() | toggle() | destroy()
- *   WeKnora.on('ready', fn) | off('ready', fn)
+ *   GENYEE.init({ channel, token, position, primaryColor, title, baseUrl })
+ *   GENYEE.open() | close() | toggle() | destroy()
+ *   GENYEE.on('ready', fn) | off('ready', fn)
  *
  * Host context & actions (postMessage to iframe):
- *   WeKnora.setContext({ userId, page, ... })
+ *   GENYEE.setContext({ userId, page, ... })
  *     Inject visitor/page context merged into each chat query.
- *   WeKnora.openWithQuery('How do I reset my password?')
+ *   GENYEE.openWithQuery('How do I reset my password?')
  *     Opens the panel (if closed) and sends the query when the iframe is ready.
- *   WeKnora.setLocale('en-US')
+ *   GENYEE.setLocale('en-US')
  *     Switch embed UI language (zh-CN | zh-TW | en-US | ko-KR | ja-JP | ru-RU).
  *
  * Secure mode (recommended): instead of `token`, pass `tokenEndpoint` — a URL on
@@ -132,7 +133,7 @@
     if (!baseUrl) {
       var script = document.currentScript;
       if (script && script.src) {
-        baseUrl = script.src.replace(/\/weknora-widget\.js.*$/, '');
+        baseUrl = script.src.replace(/\/(genyee|weknora)-widget\.js.*$/, '');
       } else {
         baseUrl = global.location ? global.location.origin : '';
       }
@@ -409,7 +410,7 @@
     setLocale: function (locale) { if (instance) instance.setLocale(locale); },
   };
 
-  global.WeKnora = api;
+  global.GENYEE = global.WeKnora = api;
 
   var legacyScript = document.currentScript;
   if (legacyScript) {

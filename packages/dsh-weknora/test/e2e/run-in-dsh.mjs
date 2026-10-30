@@ -131,7 +131,7 @@ async function scenario(options) {
 
     const dump = await run(dsh, ['--profile', 'headless', '--dump-config'], { env })
     assert.equal(dump.code, 0, `--dump-config must succeed:\n${dump.stderr}`)
-    assert.match(dump.stdout, /name: ["']?@wxg-prc-cpg\/dsh-weknora/, 'the composed tree must mount the plugin')
+    assert.match(dump.stdout, /name: ["']?@genyee\/dsh-genyee/, 'the composed tree must mount the plugin')
 
     log(`\n=== ${label} ===`)
     log(`$ dsh --profile headless "${QUESTION}"`)
@@ -214,7 +214,7 @@ async function main() {
     const manifest = JSON.parse(await readFile(join(home, 'profiles', 'headless', 'package.json'), 'utf8'))
     log(`# profile bundles: ${JSON.stringify(manifest.dsh.profile.bundles)}`)
     assert.ok(
-      manifest.dsh.profile.bundles.includes('@wxg-prc-cpg/dsh-weknora'),
+      manifest.dsh.profile.bundles.includes('@genyee/dsh-genyee'),
       'the bundle must join the profile layer list',
     )
 

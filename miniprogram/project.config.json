@@ -27,9 +27,9 @@
     },
     "compileType": "miniprogram",
     "libVersion": "latest",
-    "projectname": "GENYEE Mini Program",
+    "projectname": "genyee-miniprogram",
     "condition": {},
-    "appid": "wxbaf7dc10724effab",
+    "appid": "",
     "simulatorPluginLibVersion": {},
     "packOptions": {
         "ignore": [],

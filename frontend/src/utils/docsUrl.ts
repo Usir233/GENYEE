@@ -1,5 +1,17 @@
-/** Public deployment of website-docs (VitePress, base `/docs/`). */
-export const DOCS_BASE_URL = 'https://weknora.weixin.qq.com/docs/'
+/** Default base path of website-docs (VitePress, base `/docs/`). */
+export const DOCS_BASE_URL = '/docs/'
+
+function resolveDocsBaseUrl(): string {
+  const configured =
+    typeof window !== 'undefined'
+      ? (window as any).__RUNTIME_CONFIG__?.DOCS_BASE_URL
+      : undefined
+  if (typeof configured === 'string' && configured.trim() !== '') {
+    const trimmed = configured.trim()
+    return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
+  }
+  return DOCS_BASE_URL
+}
 
 /**
  * Doc pages linked from the UI, as website-docs paths without the `.md`
@@ -20,5 +32,5 @@ export const DOC_PAGES = {
 export type DocPage = keyof typeof DOC_PAGES
 
 export function docsUrl(page: DocPage): string {
-  return DOCS_BASE_URL + DOC_PAGES[page]
+  return resolveDocsBaseUrl() + DOC_PAGES[page]
 }

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
-WeKnora 本地 MCP Demo Server
+GENYEE 本地 MCP Demo Server
 
-最小可运行的外部 MCP 服务，用于在 WeKnora「设置 → MCP 服务」里测试客户端接入。
+最小可运行的外部 MCP 服务，用于在 GENYEE「设置 → MCP 服务」里测试客户端接入。
 默认以 Streamable HTTP 监听 http://127.0.0.1:8010/mcp
 
 启动：
-  export MCP_SERVER_AUTH_TOKEN=weknora-demo-token
+  export MCP_SERVER_AUTH_TOKEN=genyee-demo-token
   python server.py
 
-WeKnora 配置：
+GENYEE 配置：
   传输：HTTP Streamable
   URL：http://127.0.0.1:8010/mcp
   认证：Bearer，令牌与 MCP_SERVER_AUTH_TOKEN 一致
@@ -31,7 +31,7 @@ from mcp.server import MCPServer
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger("mcp-demo")
 
-mcp = MCPServer("weknora-mcp-demo", version="0.1.0")
+mcp = MCPServer("genyee-mcp-demo", version="0.1.0")
 
 # 与 website-docs/sample-data/ 配套的演示语料，方便 Agent 调用后对照知识库答案。
 DEMO_POLICIES: dict[str, str] = {
@@ -63,7 +63,7 @@ def require_network_transport_auth(transport: str) -> str:
     if transport in ("sse", "http") and not token:
         logger.error(
             "MCP_SERVER_AUTH_TOKEN is required for %s transport. "
-            "Example: export MCP_SERVER_AUTH_TOKEN=weknora-demo-token",
+            "Example: export MCP_SERVER_AUTH_TOKEN=genyee-demo-token",
             transport,
         )
         sys.exit(1)
@@ -189,7 +189,7 @@ def list_team_contacts(department: str = "") -> dict[str, Any]:
 def send_demo_alert(channel: str, message: str) -> dict[str, Any]:
     """模拟向外部渠道发送通知（演示用，不会真正外发）。
 
-    适合在 WeKnora 里测试 MCP 工具人工审批：建议把此工具标记为需要审批。
+    适合在 GENYEE 里测试 MCP 工具人工审批：建议把此工具标记为需要审批。
     """
     return {
         "ok": True,
@@ -235,7 +235,7 @@ async def run_sse(host: str, port: int) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="WeKnora local MCP demo server")
+    parser = argparse.ArgumentParser(description="GENYEE local MCP demo server")
     parser.add_argument(
         "--transport",
         choices=["http", "sse"],

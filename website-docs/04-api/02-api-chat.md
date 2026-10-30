@@ -28,7 +28,7 @@
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `title` | string | 否 | 标题 |
-| `kind` | string | 否 | 空值（默认）为普通会话；`assistant` 为 WeKnora 助手会话；其他值返回 400 |
+| `kind` | string | 否 | 空值（默认）为普通会话；`assistant` 为 GENYEE 助手会话；其他值返回 400 |
 | `description` | string | 否 | 描述 |
 | `project_dir` | string | 否 | 仅桌面版：把会话绑定到用户已批准的本机项目目录（绝对路径，须与批准列表完全一致），否则返回 400 |
 
@@ -411,7 +411,7 @@ Handler: `internal/handler/session/qa.go`。API key：聊天需 `chat`/full；`k
 | `suggestion_attribution` | object | 否 | 点击建议的归因信息 |
 | `question_origin` | object | 否 | 用户点选的建议问题来自哪里：`knowledge_base_id`、可选 `knowledge_id`。仅智能推理模式使用，智能体会先检索该来源；来源不在本轮检索范围内时忽略，不会扩大范围 |
 | `page_context` | object | 否 | 当前页面：`knowledge_base_id`、可选 `knowledge_id`、`wiki_slug`、`wiki_issue_ids`（最多保留 20 项），或 `agent_id`。知识库必须属于本轮检索范围；智能体独立校验，必须在当前租户可见（支持内置智能体）。无效部分丢弃，不扩大检索权限 |
-| `assistant_access` | string | 否 | WeKnora 助手权限等级：`read_only`、`confirm`、`auto_write`，默认 `confirm`，受空间上限约束 |
+| `assistant_access` | string | 否 | GENYEE 助手权限等级：`read_only`、`confirm`、`auto_write`，默认 `confirm`，受空间上限约束 |
 
 所选 `reasoning_effort` 会写入会话的 `last_request_state.reasoning_effort`，重新打开会话时前端据此恢复。
 

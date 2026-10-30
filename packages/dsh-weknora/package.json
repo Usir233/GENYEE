@@ -1,31 +1,31 @@
 {
-  "name": "@wxg-prc-cpg/dsh-weknora",
+  "name": "@genyee/dsh-genyee",
   "version": "0.1.0",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "description": "WeKnora knowledge retrieval tools for DeepSeek Harness (dsh): semantic search, document reading and RAG/agent answers over your own knowledge bases.",
+  "description": "GENYEE knowledge retrieval tools for DeepSeek Harness (dsh): semantic search, document reading and RAG/agent answers over your own knowledge bases.",
   "keywords": [
     "dsh",
     "dsh-plugin",
     "deepseek-harness",
     "cordis",
-    "weknora",
+    "genyee",
     "rag",
     "retrieval",
     "knowledge-base"
   ],
   "license": "MIT",
-  "author": "WeKnora",
-  "homepage": "https://github.com/Tencent/WeKnora/tree/main/packages/dsh-weknora",
+  "author": "GENYEE",
+  "homepage": "https://github.com/Usir233/GENYEE/tree/main/packages/dsh-weknora",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Tencent/WeKnora.git",
+    "url": "git+https://github.com/Usir233/GENYEE.git",
     "directory": "packages/dsh-weknora"
   },
   "bugs": {
-    "url": "https://github.com/Tencent/WeKnora/issues"
+    "url": "https://github.com/Usir233/GENYEE/issues"
   },
   "type": "module",
   "main": "./dist/index.js",

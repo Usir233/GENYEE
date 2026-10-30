@@ -30,8 +30,49 @@ type githubRelease struct {
 	Assets  []githubAsset `json:"assets"`
 }
 
+// resolveUpdateReleaseURL returns the release metadata endpoint configured via
+// GENYEE_UPDATE_URL or GENYEE_UPDATE_REPO (e.g. "owner/repo"). When neither is
+// set, it returns ("", false) so customer desktops never phone home by default.
+func resolveUpdateReleaseURL() (string, bool) {
+	if u := strings.TrimSpace(os.Getenv("GENYEE_UPDATE_URL")); u != "" {
+		return u, true
+	}
+	if repo := strings.Trim(strings.TrimSpace(os.Getenv("GENYEE_UPDATE_REPO")), "/"); repo != "" {
+		return fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo), true
+	}
+	return "", false
+}
+
+// isAutoUpdateEnabled reports whether background update checks should run.
+// Defaults to false when no custom update endpoint is configured, or when
+// GENYEE_AUTO_UPDATE is not explicitly enabled.
+func isAutoUpdateEnabled() bool {
+	_, configured := resolveUpdateReleaseURL()
+	if !configured {
+		return false
+	}
+	if v := strings.TrimSpace(os.Getenv("GENYEE_AUTO_UPDATE")); v != "" {
+		return strings.EqualFold(v, "true") || v == "1"
+	}
+	return false
+}
+
 func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, autoDownload bool) {
 	go func() {
+		releaseURL, configured := resolveUpdateReleaseURL()
+		if !configured {
+			if showUpToDate {
+				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+					Type:          wailsruntime.InfoDialog,
+					Title:         "Check for Updates",
+					Message:       "Online update checks are disabled by default. Configure GENYEE_UPDATE_URL or GENYEE_UPDATE_REPO to enable update checks.",
+					Buttons:       []string{"OK"},
+					DefaultButton: "OK",
+				})
+			}
+			return
+		}
+
 		if currentVersion == "unknown" || currentVersion == "" {
 			if showUpToDate {
 				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
@@ -50,7 +91,7 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 		}
 
 		client := &http.Client{Timeout: 10 * time.Second}
-		req, err := http.NewRequest("GET", "https://api.github.com/repos/Usir233/GENYEE/releases/latest", nil)
+		req, err := http.NewRequest("GET", releaseURL, nil)
 		if err != nil {
 			logger.Warnf(context.Background(), "Check update failed: %v", err)
 			return

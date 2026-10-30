@@ -2,6 +2,7 @@ package productdocs
 
 import (
 	"fmt"
+	"os"
 	"path"
 	"regexp"
 	"strings"
@@ -9,8 +10,18 @@ import (
 	"golang.org/x/text/unicode/norm"
 )
 
-// PublicBaseURL is where the documentation site serves these pages.
-const PublicBaseURL = "https://weknora.weixin.qq.com/docs/"
+// PublicBaseURL is the default path where the documentation site serves these pages.
+const PublicBaseURL = "/docs/"
+
+func publicBaseURL() string {
+	if v := strings.TrimSpace(os.Getenv("PRODUCT_DOCS_BASE_URL")); v != "" {
+		if !strings.HasSuffix(v, "/") {
+			v += "/"
+		}
+		return v
+	}
+	return PublicBaseURL
+}
 
 // maxSectionLevel is the deepest heading that starts its own section; deeper
 // headings stay in their section's text. The site anchors every level, and
@@ -43,7 +54,7 @@ type Doc struct {
 }
 
 // URL is the page's public address.
-func (d *Doc) URL() string { return PublicBaseURL + d.Path }
+func (d *Doc) URL() string { return publicBaseURL() + d.Path }
 
 // Span returns the section at anchor followed by its subsections; "" is the
 // whole page.
@@ -283,14 +294,15 @@ func rewriteLinks(docPath, line string) string {
 }
 
 func resolveLink(docPath, target string) string {
+	base := publicBaseURL()
 	switch {
 	case strings.HasPrefix(target, "http://"), strings.HasPrefix(target, "https://"),
 		strings.HasPrefix(target, "mailto:"):
 		return target
 	case strings.HasPrefix(target, "#"):
-		return PublicBaseURL + docPath + target
+		return base + docPath + target
 	case strings.HasPrefix(target, "/"):
-		return PublicBaseURL + strings.TrimPrefix(target, "/")
+		return base + strings.TrimPrefix(target, "/")
 	}
 	file, anchor, _ := strings.Cut(target, "#")
 	resolved := path.Clean(path.Join(path.Dir(docPath), strings.TrimSuffix(file, ".md")))
@@ -300,5 +312,5 @@ func resolveLink(docPath, target string) string {
 	if anchor != "" {
 		resolved += "#" + anchor
 	}
-	return PublicBaseURL + resolved
+	return base + resolved
 }

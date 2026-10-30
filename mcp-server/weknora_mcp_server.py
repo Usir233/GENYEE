@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-WeKnora MCP Server
+GENYEE MCP Server
 
-A Model Context Protocol server that provides access to the WeKnora knowledge management API.
+A Model Context Protocol server that provides access to the GENYEE knowledge management API.
 """
 
 import argparse
@@ -27,15 +27,24 @@ from upload_paths import resolve_upload_file_path, set_active_transport
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configuration - Load from environment variables with defaults
-WEKNORA_BASE_URL = os.getenv("WEKNORA_BASE_URL", "http://localhost:8080/api/v1")
-WEKNORA_API_KEY = os.getenv("WEKNORA_API_KEY", "")
+# Configuration - Load from environment variables with defaults (GENYEE_* primary, WEKNORA_* fallback)
+WEKNORA_BASE_URL = (
+    os.getenv("GENYEE_BASE_URL")
+    or os.getenv("WEKNORA_BASE_URL")
+    or "http://localhost:8080/api/v1"
+)
+GENYEE_BASE_URL = WEKNORA_BASE_URL
+WEKNORA_API_KEY = os.getenv("GENYEE_API_KEY") or os.getenv("WEKNORA_API_KEY") or ""
+GENYEE_API_KEY = WEKNORA_API_KEY
 # Chat SSE read timeout in seconds. LLM responses can be slow; default 300s.
 try:
-    WEKNORA_CHAT_TIMEOUT = int(os.getenv("WEKNORA_CHAT_TIMEOUT", "300"))
+    WEKNORA_CHAT_TIMEOUT = int(
+        os.getenv("GENYEE_CHAT_TIMEOUT") or os.getenv("WEKNORA_CHAT_TIMEOUT") or "300"
+    )
 except ValueError:
-    logger.warning("WEKNORA_CHAT_TIMEOUT is not a valid integer; falling back to 300s.")
+    logger.warning("GENYEE_CHAT_TIMEOUT / WEKNORA_CHAT_TIMEOUT is not a valid integer; falling back to 300s.")
     WEKNORA_CHAT_TIMEOUT = 300
+GENYEE_CHAT_TIMEOUT = WEKNORA_CHAT_TIMEOUT
 
 # Bound the data accumulated while waiting for an SSE event's blank line.
 MAX_SSE_EVENT_BYTES = 8 * 1024 * 1024
@@ -127,18 +136,19 @@ def _normalize_kb_entries(resp: object) -> list[Dict]:
 
 
 class WeKnoraClient:
-    """Client for interacting with WeKnora API"""
+    """Client for interacting with GENYEE API"""
 
     def __init__(self, base_url: str, api_key: str):
-        """Initialize the WeKnora API client with base URL and authentication"""
+        """Initialize the GENYEE API client with base URL and authentication"""
         self.base_url = base_url
         self.api_key = api_key
-        # SSL verification: enabled by default. Set WEKNORA_VERIFY_SSL=false to disable
+        # SSL verification: enabled by default. Set GENYEE_VERIFY_SSL=false (or WEKNORA_VERIFY_SSL=false) to disable
         # (e.g. for self-signed certs in dev environments — NOT recommended for production).
-        self.verify_ssl = os.getenv("WEKNORA_VERIFY_SSL", "true").lower() != "false"
+        verify_env = os.getenv("GENYEE_VERIFY_SSL") or os.getenv("WEKNORA_VERIFY_SSL") or "true"
+        self.verify_ssl = verify_env.lower() != "false"
         if not self.verify_ssl:
             logger.warning(
-                "SSL certificate verification is DISABLED (WEKNORA_VERIFY_SSL=false). "
+                "SSL certificate verification is DISABLED (GENYEE_VERIFY_SSL=false). "
                 "This is insecure and should not be used in production."
             )
             urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -685,8 +695,9 @@ class WeKnoraClient:
 # Initialize MCP server instance (mcp 2.x high-level API).
 # MCPServer (formerly FastMCP) builds input schemas from function type hints
 # and serializes plain return values automatically.
-mcp = MCPServer("weknora-server", version="1.1.1")
-# Initialize WeKnora API client with configuration
+mcp = MCPServer("genyee-server", version="1.1.1")
+GenyeeClient = WeKnoraClient
+# Initialize GENYEE API client with configuration
 client = WeKnoraClient(WEKNORA_BASE_URL, WEKNORA_API_KEY)
 
 
@@ -709,7 +720,7 @@ def create_tenant(
     business: str,
     retriever_engines: dict | None = None,
 ) -> dict:
-    """Create a new tenant in WeKnora."""
+    """Create a new tenant in GENYEE."""
     engines = retriever_engines or {
         "engines": [
             {"retriever_type": "keywords", "retriever_engine_type": "postgres"},
@@ -1198,7 +1209,7 @@ def main():
       2. MCP_TRANSPORT environment variable
       3. Default: stdio
     """
-    parser = argparse.ArgumentParser(description="WeKnora MCP Server")
+    parser = argparse.ArgumentParser(description="GENYEE MCP Server")
     parser.add_argument(
         "--transport",
         choices=["stdio", "sse", "http"],

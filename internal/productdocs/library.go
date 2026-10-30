@@ -1,4 +1,4 @@
-// Package productdocs indexes the WeKnora documentation bundled with the
+// Package productdocs indexes the GENYEE documentation bundled with the
 // server, so the built-in assistant can answer how the product works from
 // the docs of the running version.
 package productdocs
@@ -202,14 +202,23 @@ func inCategory(d *Doc, category string) bool {
 	return strings.HasPrefix(d.Path, category+"/") || d.Category == category
 }
 
+const legacyWeKnoraDocsURL = "https://weknora.weixin.qq.com/docs/"
+
 // normalizeRef accepts "03-features/14-wiki", "03-features/14-wiki.md",
 // "/docs/03-features/14-wiki" or the public URL, each with an optional
 // "#anchor" that may be percent-encoded as a browser copies it.
 func normalizeRef(ref string) (string, string) {
 	ref = strings.TrimSpace(ref)
 	ref, anchor, _ := strings.Cut(ref, "#")
+	if base := publicBaseURL(); base != "" {
+		ref = strings.TrimPrefix(ref, base)
+		if strings.HasPrefix(base, "https://") {
+			ref = strings.TrimPrefix(ref, "http://"+strings.TrimPrefix(base, "https://"))
+		}
+	}
 	ref = strings.TrimPrefix(ref, PublicBaseURL)
-	ref = strings.TrimPrefix(ref, "http://"+strings.TrimPrefix(PublicBaseURL, "https://"))
+	ref = strings.TrimPrefix(ref, legacyWeKnoraDocsURL)
+	ref = strings.TrimPrefix(ref, "http://"+strings.TrimPrefix(legacyWeKnoraDocsURL, "https://"))
 	ref = strings.TrimPrefix(ref, "/")
 	ref = strings.TrimPrefix(ref, "docs/")
 	ref = strings.TrimSuffix(strings.TrimSuffix(ref, "/"), ".md")

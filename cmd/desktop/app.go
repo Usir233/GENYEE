@@ -88,8 +88,12 @@ func (a *App) CheckForUpdates() {
 	}
 }
 
-// AutoCheckForUpdates silently checks for updates and downloads them.
+// AutoCheckForUpdates silently checks for updates and downloads them when a
+// custom update endpoint is configured and auto-update is enabled.
 func (a *App) AutoCheckForUpdates() {
+	if !isAutoUpdateEnabled() {
+		return
+	}
 	if a.ctx != nil {
 		checkUpdate(a.ctx, desktopAboutVersion(), false, true)
 	}

@@ -347,7 +347,7 @@ curl -X POST $BASE/api/v1/mcp-services/mcp-1/oauth/authorize-url -H "Authorizati
 
 ### POST /api/v1/mcp-services/:id/oauth/assertion
 
-用途：以 JWT Bearer 授权（RFC 7523）为本人获取 OAuth token，无需浏览器跳转。适用于 WeKnora 部署在其他应用之后、由该应用负责登录并代用户调用 WeKnora 的场景：该应用签发代表当前用户的断言（如 MCP Enterprise-Managed Authorization 使用的 ID-JAG），WeKnora 原样提交给授权服务器，由授权服务器校验。使用该服务已注册的 OAuth 客户端（不会进行动态客户端注册；尚无客户端时返回 400）。获得的 token 与授权回调保存的 token 相同，后续刷新、状态查询与吊销不变。权限：Viewer+。
+用途：以 JWT Bearer 授权（RFC 7523）为本人获取 OAuth token，无需浏览器跳转。适用于 GENYEE 部署在其他应用之后、由该应用负责登录并代用户调用 GENYEE 的场景：该应用签发代表当前用户的断言（如 MCP Enterprise-Managed Authorization 使用的 ID-JAG），GENYEE 原样提交给授权服务器，由授权服务器校验。使用该服务已注册的 OAuth 客户端（不会进行动态客户端注册；尚无客户端时返回 400）。获得的 token 与授权回调保存的 token 相同，后续刷新、状态查询与吊销不变。权限：Viewer+。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |

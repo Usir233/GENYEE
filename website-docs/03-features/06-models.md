@@ -59,7 +59,7 @@
 
 ### 协议兼容覆盖 compat JSON
 
-同样是「OpenAI 兼容」接口，各家对请求字段的要求并不一致：有的只认 `max_tokens`，有的用不同字段开关思考，推理模型可能拒绝 `temperature`。内置厂商和已收录模型的这些差异已写在模型目录里，通常不需要填写这一项。该选项位于远程模型（WeKnora 云服务除外）的「高级选项 → 高级」中，以下情况才需要手动覆盖：
+同样是「OpenAI 兼容」接口，各家对请求字段的要求并不一致：有的只认 `max_tokens`，有的用不同字段开关思考，推理模型可能拒绝 `temperature`。内置厂商和已收录模型的这些差异已写在模型目录里，通常不需要填写这一项。该选项位于远程模型（云服务除外）的「高级选项 → 高级」中，以下情况才需要手动覆盖：
 
 - 自建推理服务（vLLM、SGLang 等）或中转网关，接口行为和厂商默认值不一致；
 - 厂商新发布的模型尚未收录，「实际调用方式」面板显示「厂商通用默认（未收录此模型）」，且调用报错；
@@ -74,7 +74,7 @@
 
 这里的覆盖优先级高于厂商默认值和模型目录；旧配置中的「思考参数格式」和「远端模型名」仍然最后生效。模型目录标注为不支持思考的模型，思考相关字段会被忽略。
 
-`extra_body` 只补充 WeKnora 没有写入的字段，不能覆盖 `model`、`messages`、`max_tokens` 这类由 WeKnora 生成的字段。
+`extra_body` 只补充 GENYEE 没有写入的字段，不能覆盖 `model`、`messages`、`max_tokens` 这类由 GENYEE 生成的字段。
 
 #### 常见场景
 
@@ -117,13 +117,13 @@ vllm serve "$MODEL_PATH" \
   --served-model-name tencent/WeMM-Embedding-2B
 ```
 
-4B、9B 分别替换模型路径与服务名称。在 WeKnora 中选择「自定义」厂商，Base URL 填写服务的 `http://主机:端口/v1`，选择对应向量模型，初次接入保持「自定义输出维度」关闭。若服务没有设置 `--served-model-name`，模型名称须填写服务实际返回的本地路径；短名称 `WeMM-Embedding-2B` 及以 `/WeMM-Embedding-2B` 结尾的路径也能识别预设，4B、9B 同理。任意自定义别名需要另行配置模型能力和协议覆盖。
+4B、9B 分别替换模型路径与服务名称。在 GENYEE 中选择「自定义」厂商，Base URL 填写服务的 `http://主机:端口/v1`，选择对应向量模型，初次接入保持「自定义输出维度」关闭。若服务没有设置 `--served-model-name`，模型名称须填写服务实际返回的本地路径；短名称 `WeMM-Embedding-2B` 及以 `/WeMM-Embedding-2B` 结尾的路径也能识别预设，4B、9B 同理。任意自定义别名需要另行配置模型能力和协议覆盖。
 
-预设让文本和图片都通过 `messages` 进入模型模板，由模板追加取向量所需的 `<embedding>` 标记；启用 `batch_messages`，将同一批内的独立 conversations 合并请求，每条仍返回各自的向量。图片批量调用最多每批 5 张，超出自动拆分；这是 WeKnora 选择的批量大小，与现有 Qwen3-VL-Embedding 预设一致，不代表模型或 vLLM 的官方上限，可用 `max_image_batch_size` 按服务承载能力调整。当前知识库图片索引任务仍逐张调用，不会因该配置自动合并多个任务。不发送历史默认的 `truncate_prompt_tokens: 511`；超出服务上下文上限时由服务报错，不会静默截断。无需额外填写兼容 JSON 或图片提示词。若此前用普通文本 `input` 为该模型建立过索引，需要重建向量。
+预设让文本和图片都通过 `messages` 进入模型模板，由模板追加取向量所需的 `<embedding>` 标记；启用 `batch_messages`，将同一批内的独立 conversations 合并请求，每条仍返回各自的向量。图片批量调用最多每批 5 张，超出自动拆分；这是 GENYEE 选择的批量大小，与现有 Qwen3-VL-Embedding 预设一致，不代表模型或 vLLM 的官方上限，可用 `max_image_batch_size` 按服务承载能力调整。当前知识库图片索引任务仍逐张调用，不会因该配置自动合并多个任务。不发送历史默认的 `truncate_prompt_tokens: 511`；超出服务上下文上限时由服务报错，不会静默截断。无需额外填写兼容 JSON 或图片提示词。若此前用普通文本 `input` 为该模型建立过索引，需要重建向量。
 
 WeMM 的模板已经包含所需特殊 token，保留 vLLM 的 `add_special_tokens: false`、`add_generation_prompt: false` 默认行为，不要照搬 Qwen3-VL-Embedding 预设的 `add_special_tokens: true`。vLLM 的 Embedding 默认使用末尾 token 并做 L2 归一化，无需额外发送 `normalize` 或关闭 `use_activation`。
 
-需要降维时，开启「自定义输出维度」并选择模型配置中的合法维度，WeKnora 会给文本和图片请求发送相同的 `dimensions`；vLLM 会先截取对应维度，再归一化：
+需要降维时，开启「自定义输出维度」并选择模型配置中的合法维度，GENYEE 会给文本和图片请求发送相同的 `dimensions`；vLLM 会先截取对应维度，再归一化：
 
 | 模型 | 可选维度 |
 | --- | --- |
@@ -286,7 +286,7 @@ WeMM 的模板已经包含所需特殊 token，保留 vLLM 的 `add_special_toke
 | 厂商 | ID | 对话 | 向量 | 重排 | 视觉 | 语音 |
 | --- | --- | :-: | :-: | :-: | :-: | :-: |
 | 自定义（OpenAI 兼容接口） | `generic` | ✓ | ✓ | ✓ | ✓ | ✓ |
-| WeKnora 云服务 | `weknoracloud` | ✓ | ✓ | ✓ | ✓ | |
+| GENYEE 云服务 | `weknoracloud` | ✓ | ✓ | ✓ | ✓ | |
 | 阿里云 DashScope | `aliyun` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 智谱 BigModel | `zhipu` | ✓ | ✓ | ✓ | ✓ | ✓ |
 | 火山引擎 | `volcengine` | ✓ | ✓ | ✓ | ✓ | |
@@ -316,7 +316,7 @@ WeMM 的模板已经包含所需特殊 token，保留 vLLM 的 `add_special_toke
 | Pinecone | `pinecone` | | | ✓ | | |
 | Cohere | `cohere` | | | ✓ | | |
 
-表中的「视觉」指可在视觉模型类型下选择该厂商；对话模型本身是否接受图片，以模型目录和「支持视觉/多模态」开关为准。WeKnora 云服务需先在设置中保存云服务凭证，模型名称可选 `chat`、`embedding`、`rerank`、`vlm`。
+表中的「视觉」指可在视觉模型类型下选择该厂商；对话模型本身是否接受图片，以模型目录和「支持视觉/多模态」开关为准。GENYEE 云服务需先在设置中保存云服务凭证，模型名称可选 `chat`、`embedding`、`rerank`、`vlm`。
 
 厂商列表、默认地址和模型目录由服务端下发（`GET /api/v1/models/providers`），运维可以通过[部署叠加](#部署叠加-config-models-json)修改或新增厂商。
 
@@ -341,7 +341,7 @@ WeMM 的模板已经包含所需特殊 token，保留 vLLM 的 `add_special_toke
 }
 ```
 
-请求仅发送文本查询和文档，按响应索引恢复原文。WeKnora 遵循
+请求仅发送文本查询和文档，按响应索引恢复原文。GENYEE 遵循
 [Cohere API 建议](https://docs.cohere.com/v2/reference/rerank)，将超过 1000 篇的候选集
 拆成多个请求；1000 是采用的推荐批次大小。省略 `top_n` 以获取全部候选的分数，
 超长文档沿用服务端默认截断行为。本接入仅提供 Cohere 文本重排。
@@ -420,7 +420,7 @@ const (
 | `context_window` | int | 0（回落到 200000） | 对话/VLM 上下文窗口（token）。智能体按此上限加载与压缩历史；应填写服务实际支持的窗口大小，过高会导致压缩无法及时触发 |
 | `max_output_tokens` | int | 0（沿用目录默认） | 对话/VLM 单次回复的输出上限 |
 | `max_concurrency` | int | 0（回落到全局 `model.max_concurrency`） | 该模型后台任务并发上限（仅 chat/vlm/embedding 生效） |
-| `app_id` / `app_secret` | string | 空 | WeKnora 云服务凭证；LKEAP / 火山引擎重排的第二段密钥也存于 `app_secret`。`app_secret` AES 加密存储 |
+| `app_id` / `app_secret` | string | 空 | GENYEE 云服务凭证；LKEAP / 火山引擎重排的第二段密钥也存于 `app_secret`。`app_secret` AES 加密存储 |
 
 模型级字段还包括 `name`（运行期实际调用的模型名）、`display_name`、`type`、`source`、`is_default`（同一 `(tenant_id, type)` 桶内唯一默认）、`is_builtin`、`managed_by`、`status`（`active` / `downloading` / `download_failed`）。
 
@@ -447,7 +447,7 @@ const (
 | `POST /models` / `GET /models` / `GET /models/:id` / `PUT /models/:id` / `DELETE /models/:id` | 模型 CRUD |
 | `PUT /models/:id/credentials`、`DELETE /models/:id/credentials/:field` | 凭证子资源；`PUT /models/:id` 请求体中的 `api_key` 会被强制忽略并告警 |
 | `POST /models/:id/debug` | 模型调试（见下文） |
-| `GET /models/weknoracloud/status` | WeKnora 云服务凭证状态 |
+| `GET /models/weknoracloud/status` | GENYEE 云服务凭证状态 |
 
 完整请求与响应见 [API 参考：模型与初始化](../04-api/02-api-model-system.md)。
 

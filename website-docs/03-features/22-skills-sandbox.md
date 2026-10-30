@@ -75,7 +75,7 @@
 
 Docker 后端默认关闭。系统管理员在「系统设置 → 网络安全」启用，或用 `WEKNORA_SANDBOX_DOCKER_ENABLED=true` 作为未落库时的回退。本机连接还需要把实际 Docker socket 挂给 app；这授予 app 控制宿主机 Docker 的能力。远端 TCP daemon 要配置 TLS 证书目录，其中包括 `ca.pem`、`cert.pem`、`key.pem`。Docker 网络仅接受 `bridge` 或 `none`，可选 `runsc` 等已安装 OCI runtime。
 
-自托管 E2B/Cube 的 `proxy_url` 指向数据面网关：WeKnora 连接网关但保留沙箱 Host，用于没有泛域名 DNS 的集群。`allow_private_endpoints` 允许连接私网/回环的集群地址，仍不放行 link-local/云元数据地址；它与沙箱里脚本能否出网是不同配置。
+自托管 E2B/Cube 的 `proxy_url` 指向数据面网关：GENYEE 连接网关但保留沙箱 Host，用于没有泛域名 DNS 的集群。`allow_private_endpoints` 允许连接私网/回环的集群地址，仍不放行 link-local/云元数据地址；它与沙箱里脚本能否出网是不同配置。
 
 脚本默认以沙箱内的 `root` 账号执行，模板中的 `user` 账号需显式选择。执行隔离由容器或远端沙箱提供，`/workspace` 只约定工作目录，不限制 root 命令的文件访问权限。
 

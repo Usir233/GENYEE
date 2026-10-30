@@ -1,6 +1,6 @@
-# WeKnora 本地 MCP Demo
+# GENYEE 本地 MCP Demo
 
-最小外部 MCP 服务，用来测试 WeKnora **作为 MCP 客户端**接入第三方工具。
+最小外部 MCP 服务，用来测试 GENYEE **作为 MCP 客户端**接入第三方工具。
 
 提供 6 个演示工具：
 
@@ -21,7 +21,7 @@ chmod +x start.sh
 ./start.sh
 ```
 
-`start.sh` 会自动创建 `.venv` 并安装依赖。默认监听 `http://127.0.0.1:8010/mcp`，鉴权令牌 `weknora-demo-token`。
+`start.sh` 会自动创建 `.venv` 并安装依赖。默认监听 `http://127.0.0.1:8010/mcp`，鉴权令牌 `genyee-demo-token`。
 
 自定义：
 
@@ -43,7 +43,7 @@ python test_tools.py
 
 应列出 6 个工具。
 
-## 3. 接入 WeKnora
+## 3. 接入 GENYEE
 
 1. 打开 **设置 → MCP 服务 → 新建**
 2. 填写：
@@ -54,7 +54,7 @@ python test_tools.py
 | 传输 | **HTTP Streamable** |
 | URL | `http://127.0.0.1:8010/mcp` |
 | 认证 | **Bearer** |
-| 令牌 | `weknora-demo-token`（与 `MCP_SERVER_AUTH_TOKEN` 一致） |
+| 令牌 | `genyee-demo-token`（与 `MCP_SERVER_AUTH_TOKEN` 一致） |
 
 3. 保存后点 **测试连接**，应发现 6 个工具。
 4. 在 **智能体** 配置里勾选该 MCP 服务（或选全部工具）。
@@ -72,7 +72,7 @@ python test_tools.py
 
 ## 5. 注意事项
 
-- WeKnora UI **不支持 stdio** 传输；必须用 **HTTP Streamable** 或 **SSE**。
+- GENYEE UI **不支持 stdio** 传输；必须用 **HTTP Streamable** 或 **SSE**。
 - Demo 只绑定 `127.0.0.1`，不要暴露到公网。
 - `send_demo_alert` 不会真正发送消息，仅返回模拟结果。
 
@@ -82,4 +82,4 @@ python test_tools.py
 MCP_TRANSPORT=sse MCP_PORT=8011 ./start.sh
 ```
 
-WeKnora 里传输选 **SSE**，URL 填 `http://127.0.0.1:8011/sse`。
+GENYEE 里传输选 **SSE**，URL 填 `http://127.0.0.1:8011/sse`。

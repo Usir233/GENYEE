@@ -678,7 +678,7 @@ export function buildSecureServerNodeExample(channelId: string, opts?: { baseUrl
   const base = safeBaseUrl(opts?.baseUrl)
   const exchangeUrl = `${base}/api/v1/embed/${channelId}/exchange`
   return [
-    `// Node/Express — keep WEKNORA_PUBLISH_TOKEN only on the server (env var).`,
+    `// Node/Express — keep GENYEE_PUBLISH_TOKEN (or WEKNORA_PUBLISH_TOKEN) only on the server (env var).`,
     `app.get('/weknora/embed-token', async (req, res) => {`,
     `  // Only mint for logged-in visitors — e.g. session cookie or Bearer token.`,
     `  const auth = req.headers.authorization || ''`,
@@ -689,7 +689,7 @@ export function buildSecureServerNodeExample(channelId: string, opts?: { baseUrl
     `  const r = await fetch('${exchangeUrl}', {`,
     `    method: 'POST',`,
     `    headers: {`,
-    `      Authorization: 'Embed ' + process.env.WEKNORA_PUBLISH_TOKEN,`,
+    `      Authorization: 'Embed ' + (process.env.GENYEE_PUBLISH_TOKEN || process.env.WEKNORA_PUBLISH_TOKEN),`,
     `      Origin: 'https://your-site.example.com', // must match channel allowed_origins`,
     `    },`,
     `  })`,
@@ -704,14 +704,16 @@ export function buildSecureServerGoExample(channelId: string, opts?: { baseUrl?:
   const base = safeBaseUrl(opts?.baseUrl)
   const exchangeUrl = `${base}/api/v1/embed/${channelId}/exchange`
   return [
-    `// Go net/http — keep WEKNORA_PUBLISH_TOKEN only on the server (env var).`,
+    `// Go net/http — keep GENYEE_PUBLISH_TOKEN (or WEKNORA_PUBLISH_TOKEN) only on the server (env var).`,
     `func embedTokenHandler(w http.ResponseWriter, r *http.Request) {`,
     `  if r.Header.Get("Authorization") == "" && r.Header.Get("Cookie") == "" {`,
     `    http.Error(w, \`{"error":"unauthorized"}\`, http.StatusUnauthorized)`,
     `    return`,
     `  }`,
     `  req, _ := http.NewRequest(http.MethodPost, "${exchangeUrl}", nil)`,
-    `  req.Header.Set("Authorization", "Embed "+os.Getenv("WEKNORA_PUBLISH_TOKEN"))`,
+    `  token := os.Getenv("GENYEE_PUBLISH_TOKEN")`,
+    `  if token == "" { token = os.Getenv("WEKNORA_PUBLISH_TOKEN") }`,
+    `  req.Header.Set("Authorization", "Embed "+token)`,
     `  req.Header.Set("Origin", "https://your-site.example.com") // must match channel allowed_origins`,
     `  resp, err := http.DefaultClient.Do(req)`,
     `  if err != nil || resp.StatusCode >= 300 {`,

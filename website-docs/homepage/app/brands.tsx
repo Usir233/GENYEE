@@ -23,9 +23,11 @@ export const clients: Integration[] = [
   { name: "钉钉", logo: "dingtalk.svg" },
   { name: "Slack", logo: "slack.svg" },
   { name: "Telegram", logo: "telegram.svg" },
+  { name: "Chrome", logo: "chrome.svg" },
   { name: "BrowserSkill", logo: "browserskill.png" },
   { name: "MCP Server", logo: "mcp.svg" },
   { name: "API", icon: "code" },
+  { name: "CLI", icon: "terminal" },
   { name: "DeepSeek Harness", logo: "deepseek-color.svg" },
 ];
 

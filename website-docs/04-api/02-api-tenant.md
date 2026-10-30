@@ -102,7 +102,7 @@ curl -X DELETE $BASE/api/v1/tenants/1 -H "Authorization: Bearer $TOKEN"
 
 `:key` 为配置键而非空间 ID（空间取自认证上下文），可选值：`web-search-config`、`prompt-templates`、`parser-engine-config`、`storage-engine-config`、`chat-history-config`、`retrieval-config`、`memory-config`、`assistant-config`、`default-settings`。
 
-`assistant-config` 是 WeKnora 助手的空间设置：`display_name`（界面上的助手名称，最多 24 字，空表示默认名称）和 `max_access_level`（成员可选的最高权限等级：`read_only` 只读、`confirm` 修改前确认、`auto_write` 可恢复的修改直接执行，删除类仍需确认；默认 `confirm`）。成员在对话请求里用 `assistant_access` 选择自己的等级，服务端按空间上限截断。
+`assistant-config` 是 GENYEE 助手的空间设置：`display_name`（界面上的助手名称，最多 24 字，空表示默认名称）和 `max_access_level`（成员可选的最高权限等级：`read_only` 只读、`confirm` 修改前确认、`auto_write` 可恢复的修改直接执行，删除类仍需确认；默认 `confirm`）。成员在对话请求里用 `assistant_access` 选择自己的等级，服务端按空间上限截断。
 
 `default-settings` 是空间默认模型配置，字段与替换语义见[下方说明](#default-settings)。默认搜索引擎仍由网络搜索服务的 `is_default` 决定（`PATCH /api/v1/web-search-providers/:id`）。
 

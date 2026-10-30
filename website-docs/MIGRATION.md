@@ -38,7 +38,7 @@
 | `Langfuse集成.md`、`日志配置.md` | [可观测性](03-features/16-observability.md)、[配置参考](01-getting-started/04-configuration.md) |
 | `agent-skills.md`、`agent-tools-design.md` | [技能与沙箱](03-features/22-skills-sandbox.md)、[Agent 引擎](03-features/07-agent.md)、新增沙箱部署页；旧工具名、local 配置及过时的普通用户/只读镜像契约不迁移 |
 | `chat-steering.md` | [会话体验](03-features/18-chat-experience.md)、[会话 API](04-api/02-api-chat.md) |
-| `client-integration-upgrade-notes.md` | [Go SDK](05-clients/03-go-sdk.md)、[小程序](05-clients/04-miniprogram.md)、[文件访问](03-features/21-file-access.md) |
+| `client-integration-upgrade-notes.md` | [CLI](05-clients/02-cli.md)、[Go SDK](05-clients/03-go-sdk.md)、[小程序](05-clients/04-miniprogram.md)、[文件访问](03-features/21-file-access.md) |
 | `api/*.md` | [API 概览](04-api/01-api-overview.md)及同目录各主题；补缺失的 MCP metadata 与沙箱桌面接口，不再维护第二套手写 API |
 | `wiki/` 中其他页面 | 上述主题的摘要副本，不整套迁移；其中旧导航、反向链接与图谱不进入新站 |
 

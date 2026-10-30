@@ -165,3 +165,46 @@ func TestSetProjectDirsIsNotAWailsMethod(t *testing.T) {
 	_, ok = typ.MethodByName("PickProjectDir")
 	require.True(t, ok)
 }
+
+func TestDesktopAppSupportDirUsesGENYEELiteWithLegacyFallback(t *testing.T) {
+	base := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", base)
+
+	// Fresh install defaults to "GENYEE Lite"
+	dir, err := desktopPrefsDir()
+	require.NoError(t, err)
+	require.Equal(t, filepath.Join(base, "GENYEE Lite"), dir)
+
+	// If legacy "WeKnora Lite" has prefs file and "GENYEE Lite" does not, fallback to legacy
+	baseLegacy := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", baseLegacy)
+	legacyDir := filepath.Join(baseLegacy, "WeKnora Lite")
+	require.NoError(t, os.MkdirAll(legacyDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(legacyDir, desktopPrefsFileName), []byte(`{"http_port":18080}`), 0o600))
+	require.Equal(t, 18080, LoadDesktopPrefsHTTPPort())
+}
+
+func TestUpdateEndpointAndAutoUpdateDefaults(t *testing.T) {
+	t.Setenv("GENYEE_UPDATE_URL", "")
+	t.Setenv("GENYEE_UPDATE_REPO", "")
+	t.Setenv("GENYEE_AUTO_UPDATE", "")
+
+	url, ok := resolveUpdateReleaseURL()
+	require.False(t, ok)
+	require.Empty(t, url)
+	require.False(t, isAutoUpdateEnabled())
+
+	t.Setenv("GENYEE_UPDATE_REPO", "acme/genyee")
+	url, ok = resolveUpdateReleaseURL()
+	require.True(t, ok)
+	require.Equal(t, "https://api.github.com/repos/acme/genyee/releases/latest", url)
+	require.False(t, isAutoUpdateEnabled(), "auto-update remains off unless GENYEE_AUTO_UPDATE is enabled")
+
+	t.Setenv("GENYEE_AUTO_UPDATE", "true")
+	require.True(t, isAutoUpdateEnabled())
+
+	t.Setenv("GENYEE_UPDATE_URL", "https://updates.example.com/releases/latest")
+	url, ok = resolveUpdateReleaseURL()
+	require.True(t, ok)
+	require.Equal(t, "https://updates.example.com/releases/latest", url)
+}

@@ -40,7 +40,23 @@ test('every linked doc page and anchor exists in website-docs', () => {
   }
 })
 
-test('docsUrl points at the public docs site', () => {
-  assert.equal(docsUrl('home'), 'https://weknora.weixin.qq.com/docs/')
-  assert.equal(docsUrl('models'), 'https://weknora.weixin.qq.com/docs/03-features/06-models')
+test('docsUrl defaults to /docs/ and respects __RUNTIME_CONFIG__.DOCS_BASE_URL', () => {
+  const prevWindow = (globalThis as any).window
+  try {
+    delete (globalThis as any).window
+    assert.equal(docsUrl('home'), '/docs/')
+    assert.equal(docsUrl('models'), '/docs/03-features/06-models')
+
+    ;(globalThis as any).window = {
+      __RUNTIME_CONFIG__: { DOCS_BASE_URL: 'https://docs.example.com/docs' },
+    }
+    assert.equal(docsUrl('home'), 'https://docs.example.com/docs/')
+    assert.equal(docsUrl('models'), 'https://docs.example.com/docs/03-features/06-models')
+  } finally {
+    if (prevWindow === undefined) {
+      delete (globalThis as any).window
+    } else {
+      ;(globalThis as any).window = prevWindow
+    }
+  }
 })

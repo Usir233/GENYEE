@@ -27,7 +27,7 @@
 
 ## 助手、协作与执行权限
 
-v0.9.0 新增内置 [WeKnora 助手](26-weknora-assistant.md)，可查阅产品文档并在授权范围内处理知识库、配置和管理任务。需要重复执行的工作可创建[自动化](27-automations.md)。
+v0.9.0 新增内置 [GENYEE 助手](26-weknora-assistant.md)，可查阅产品文档并在授权范围内处理知识库、配置和管理任务。需要重复执行的工作可创建[自动化](27-automations.md)。
 
 智能推理任务支持[多智能体协作](26-weknora-assistant.md#collaboration)，分别处理子任务并汇总结果。读取、写入和破坏性操作受[执行权限与审批](28-agent-permissions.md)控制；资源权限不会因为协作或授权而扩大。
 

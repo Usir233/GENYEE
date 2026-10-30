@@ -12,7 +12,7 @@
 | 修改前确认 `confirm` | 读取和探测类操作 | 写入前请求确认；删除等破坏性操作也需要确认 |
 | 自动执行 `auto_write` | 读取、探测和一般写入 | 破坏性操作仍需要确认；被标记为始终审批的工具仍逐次确认 |
 
-助手会话中的选择受空间设置的上限限制，普通智能体通过自身的 `config.access_level` 配置执行权限。WeKnora 助手默认上限是 `confirm`，普通智能体未配置上限时默认 `auto_write`，升级后应按实际使用场景核对配置。
+助手会话中的选择受空间设置的上限限制，普通智能体通过自身的 `config.access_level` 配置执行权限。GENYEE 助手默认上限是 `confirm`，普通智能体未配置上限时默认 `auto_write`，升级后应按实际使用场景核对配置。
 
 ## 查看和处理审批 {#prompts}
 
@@ -32,4 +32,4 @@
 
 不要把「自动执行」理解为无限权限。涉及外部系统、技能安装或本机文件的任务，还会受到对应工具、本机沙箱与资源授权的限制。
 
-相关内容：[WeKnora 助手](26-weknora-assistant.md) · [自动化](27-automations.md) · [技能与沙箱](22-skills-sandbox.md)
+相关内容：[GENYEE 助手](26-weknora-assistant.md) · [自动化](27-automations.md) · [技能与沙箱](22-skills-sandbox.md)

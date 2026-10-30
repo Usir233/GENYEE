@@ -17,11 +17,11 @@ import (
 // The JWT secret is never that AES key: a leaked session secret must not
 // decrypt stored credentials.
 func ensureDesktopSigningKey() error {
-	dir, err := os.UserConfigDir()
+	dir, err := desktopConfigDir()
 	if err != nil {
 		return err
 	}
-	return ensureDesktopSigningKeyInDir(filepath.Join(dir, "WeKnora Lite"))
+	return ensureDesktopSigningKeyInDir(resolveDesktopAppSupportDir(dir, "signing.key", "jwt.key"))
 }
 
 func ensureDesktopSigningKeyInDir(dir string) error {

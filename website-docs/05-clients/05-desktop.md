@@ -1,10 +1,10 @@
-# 桌面客户端（WeKnora Lite Desktop）
+# 桌面客户端（GENYEE Lite Desktop）
 
 ::: warning 尚未正式发布
 桌面应用目前没有随 Release 提供安装包，需按[安装部署](../01-getting-started/02-installation.md)自行构建。
 :::
 
-WeKnora Lite 桌面应用基于 [Wails v2](https://wails.io)，在桌面进程中运行 Go 后端，使用 SQLite 和本地文件存储。启动后可管理知识库并进行检索问答，无需 Docker 或外部数据库。源码位于 `cmd/desktop/`，基础能力与[单二进制 Lite](../01-getting-started/02-installation.md)一致；桌面版另外提供免登录启动，以及在 macOS 上运行智能体命令的[本机沙箱](../03-features/22-skills-sandbox.md#lite-host)。
+GENYEE Lite 桌面应用基于 [Wails v2](https://wails.io)，在桌面进程中运行 Go 后端，使用 SQLite 和本地文件存储。启动后可管理知识库并进行检索问答，无需 Docker 或外部数据库。源码位于 `cmd/desktop/`，基础能力与[单二进制 Lite](../01-getting-started/02-installation.md)一致；桌面版另外提供免登录启动，以及在 macOS 上运行智能体命令的[本机沙箱](../03-features/22-skills-sandbox.md#lite-host)。
 
 v0.8.3 起，macOS 桌面版可在工具箱安装、升级并运行本机技能，详见[本机技能](../03-features/22-skills-sandbox.md#在-lite-桌面版安装本机技能)。
 
@@ -21,7 +21,7 @@ v0.9.0 默认临时会话目录使用 `~/.weknora/sessions/session-*`。本机�
 
 ```mermaid
 flowchart LR
-    subgraph D["WeKnora Lite 桌面进程"]
+    subgraph D["GENYEE Lite 桌面进程"]
         W["Wails WebView (前端 SPA)"]
         P["Reverse Proxy (assetserver)"]
         B["内嵌 Gin 后端 (127.0.0.1:随机或固定端口)"]
@@ -67,7 +67,7 @@ flowchart LR
 
 `wails.Run(&options.App{...})` 的关键配置（见 `cmd/desktop/main.go`）：
 
-- 标题 `WeKnora Lite`，初始尺寸 **1280 × 800**，可调整大小，启动即显示。
+- 标题 `GENYEE Lite`，初始尺寸 **1280 × 800**，可调整大小，启动即显示。
 - `AssetServer.Handler` 使用反向代理指向内嵌后端 —— **前端资源并非 Go embed，而是后端 `./web` 目录（打包在 `.app/Contents/Resources/web`）提供的 SPA**。
 - macOS 专属：`mac.TitleBarHiddenInset()` 隐藏式标题栏，WebView 不透明。
 - 应用菜单：`About GENYEE`（含 "Open GitHub" 按钮，指向 `https://github.com/Usir233/GENYEE`）、`Check for Updates...`、`Quit`（Cmd+Q）、标准 Edit 菜单、`View > Reload`（Cmd+R，向前端发送 `app:reload` 事件）。
@@ -122,7 +122,7 @@ flowchart LR
 
 桌面版启动时不需要注册或登录：
 
-- 每次启动生成一个随机凭据，只通过 Wails 绑定 `GetAutoSetupToken` 交给内置前端。前端在请求头 `X-WeKnora-Desktop-Token` 中携带它调用 `POST /api/v1/auth/auto-setup`，首次调用创建默认用户 `admin@weknora.local` 和空间，之后直接签发登录令牌。没有该凭据的请求（包括局域网内的其他设备和普通浏览器）会被拒绝。
+- 每次启动生成一个随机凭据，只通过 Wails 绑定 `GetAutoSetupToken` 交给内置前端。前端在请求头 `X-WeKnora-Desktop-Token` 中携带它调用 `POST /api/v1/auth/auto-setup`，首次调用创建默认用户 `admin@genyee.local` 和空间，之后直接签发登录令牌。没有该凭据的请求（包括局域网内的其他设备和普通浏览器）会被拒绝。
 - 未配置有效的 `SYSTEM_SIGNING_KEY`（或非默认值的 `SYSTEM_AES_KEY`）时，首次启动在偏好目录生成 `signing.key`（权限 `0600`）并作为 `SYSTEM_SIGNING_KEY` 使用，供文件预签名链接、网页嵌入会话等签名，重启后仍然有效。它只用于签名，不会替换加密已存凭据的 AES 密钥。
 
 ## 自动更新机制（cmd/desktop/update.go） {#_6-自动更新机制-cmd-desktop-update-go}

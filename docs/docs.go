@@ -79,7 +79,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -120,7 +120,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -161,7 +161,7 @@ const docTemplate = `{
                     "404": {
                         "description": "授权不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -214,13 +214,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "用户尚未完成授权",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -260,7 +260,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -317,13 +317,13 @@ const docTemplate = `{
                     "400": {
                         "description": "回答不合法或交互已结束",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "交互不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -380,13 +380,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "待审批记录不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -436,7 +436,7 @@ const docTemplate = `{
                     "500": {
                         "description": "服务器错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -488,7 +488,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -576,7 +576,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_agent_tools.AgentToolCatalog"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_agent_tools.AgentToolCatalog"
                                         }
                                     }
                                 }
@@ -621,7 +621,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AgentTypePresetEntry"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AgentTypePresetEntry"
                                             }
                                         }
                                     }
@@ -675,7 +675,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CustomAgent"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CustomAgent"
                                         }
                                     }
                                 }
@@ -685,13 +685,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "智能体不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -749,13 +749,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无法修改内置智能体",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -800,19 +800,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无法删除内置智能体",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "智能体不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -873,19 +873,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权修改该智能体",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "智能体不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -942,7 +942,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CustomAgent"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CustomAgent"
                                         }
                                     }
                                 }
@@ -952,13 +952,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "智能体不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -1015,7 +1015,7 @@ const docTemplate = `{
                     "403": {
                         "description": "无权限",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1097,13 +1097,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "智能体不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1230,7 +1230,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1253,13 +1253,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.LoginResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.LoginResponse"
                         }
                     },
                     "403": {
                         "description": "非 Lite 版本",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1312,7 +1312,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1375,7 +1375,7 @@ const docTemplate = `{
                     "410": {
                         "description": "链接无效或已撤销",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1401,7 +1401,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.LoginRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.LoginRequest"
                         }
                     }
                 ],
@@ -1409,13 +1409,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.LoginResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.LoginResponse"
                         }
                     },
                     "401": {
                         "description": "认证失败",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1449,7 +1449,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1495,7 +1495,7 @@ const docTemplate = `{
                     "401": {
                         "description": "未授权",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1542,7 +1542,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserPreferences"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserPreferences"
                                         }
                                     }
                                 }
@@ -1552,13 +1552,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
                         "description": "未授权",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1621,7 +1621,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OIDCConfigResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OIDCConfigResponse"
                         }
                     }
                 }
@@ -1667,19 +1667,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OIDCAuthURLResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OIDCAuthURLResponse"
                         }
                     },
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "OIDC未启用",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1724,7 +1724,7 @@ const docTemplate = `{
                     "401": {
                         "description": "令牌无效",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1750,7 +1750,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RegisterRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RegisterRequest"
                         }
                     }
                 ],
@@ -1758,19 +1758,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RegisterResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RegisterResponse"
                         }
                     },
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "注册功能已禁用",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1804,31 +1804,31 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.LoginResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.LoginResponse"
                         }
                     },
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "注册功能已禁用",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "邮箱已注册",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "410": {
                         "description": "链接无效或已撤销",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1875,19 +1875,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.LoginResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.LoginResponse"
                         }
                     },
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无该空间成员关系或偏好写入失败",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1921,7 +1921,7 @@ const docTemplate = `{
                     "401": {
                         "description": "令牌无效",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -1962,7 +1962,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationRun"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationRun"
                                         }
                                     }
                                 }
@@ -2008,7 +2008,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationRun"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationRun"
                                         }
                                     }
                                 }
@@ -2047,7 +2047,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Automation"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Automation"
                                             }
                                         }
                                     }
@@ -2103,7 +2103,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Automation"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Automation"
                                         }
                                     }
                                 }
@@ -2113,7 +2113,7 @@ const docTemplate = `{
                     "400": {
                         "description": "参数不合法",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -2163,7 +2163,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Automation"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Automation"
                                         }
                                     }
                                 }
@@ -2173,7 +2173,7 @@ const docTemplate = `{
                     "404": {
                         "description": "不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -2230,7 +2230,7 @@ const docTemplate = `{
                     "400": {
                         "description": "触发器不合法",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -2277,7 +2277,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Automation"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Automation"
                                         }
                                     }
                                 }
@@ -2287,7 +2287,7 @@ const docTemplate = `{
                     "404": {
                         "description": "不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -2329,7 +2329,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationPatch"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationPatch"
                         }
                     }
                 ],
@@ -2345,7 +2345,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Automation"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Automation"
                                         }
                                     }
                                 }
@@ -2355,7 +2355,7 @@ const docTemplate = `{
                     "400": {
                         "description": "参数不合法",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -2403,7 +2403,7 @@ const docTemplate = `{
                     "404": {
                         "description": "不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -2569,7 +2569,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Automation"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Automation"
                                         }
                                     }
                                 }
@@ -2624,7 +2624,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Automation"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Automation"
                                         }
                                     }
                                 }
@@ -2680,7 +2680,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationRun"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationRun"
                                         }
                                     }
                                 }
@@ -2690,7 +2690,7 @@ const docTemplate = `{
                     "409": {
                         "description": "已有运行",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -2758,7 +2758,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationRun"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationRun"
                                             }
                                         }
                                     }
@@ -2890,13 +2890,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "分块不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -2961,13 +2961,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "分块不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -3065,7 +3065,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Chunk"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Chunk"
                                             }
                                         }
                                     }
@@ -3076,7 +3076,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -3125,7 +3125,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -3189,13 +3189,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "分块不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -3254,13 +3254,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "分块不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -3325,7 +3325,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Chunk"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Chunk"
                                         }
                                     }
                                 }
@@ -3394,7 +3394,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChunkRevision"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkRevision"
                                             }
                                         }
                                     }
@@ -3436,7 +3436,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.DataSourceResponse"
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.DataSourceResponse"
                             }
                         }
                     },
@@ -3475,7 +3475,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.DataSource"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.DataSource"
                         }
                     }
                 ],
@@ -3483,7 +3483,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.DataSource"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.DataSource"
                         }
                     },
                     "400": {
@@ -3522,7 +3522,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SyncLog"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SyncLog"
                         }
                     },
                     "404": {
@@ -3558,7 +3558,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_datasource.ConnectorMetadata"
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_datasource.ConnectorMetadata"
                             }
                         }
                     }
@@ -3635,7 +3635,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.DataSourceResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.DataSourceResponse"
                         }
                     },
                     "404": {
@@ -3680,7 +3680,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.DataSource"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.DataSource"
                         }
                     }
                 ],
@@ -3688,7 +3688,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.DataSource"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.DataSource"
                         }
                     },
                     "400": {
@@ -3778,7 +3778,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SyncLog"
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SyncLog"
                             }
                         }
                     },
@@ -3932,7 +3932,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Resource"
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Resource"
                             }
                         }
                     },
@@ -4020,7 +4020,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SyncLog"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SyncLog"
                         }
                     },
                     "400": {
@@ -4086,7 +4086,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.DataSourceResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.DataSourceResponse"
                         }
                     }
                 },
@@ -4184,7 +4184,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.EvaluationDetail"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.EvaluationDetail"
                                         }
                                     }
                                 }
@@ -4194,7 +4194,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -4242,7 +4242,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.EvaluationDetail"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.EvaluationDetail"
                                         }
                                     }
                                 }
@@ -4252,7 +4252,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -4300,7 +4300,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQImportProgress"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQImportProgress"
                                         }
                                     }
                                 }
@@ -4310,7 +4310,7 @@ const docTemplate = `{
                     "404": {
                         "description": "任务不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -4655,7 +4655,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -4702,7 +4702,7 @@ const docTemplate = `{
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -4755,13 +4755,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -4810,7 +4810,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -4905,7 +4905,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -4965,7 +4965,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -5021,7 +5021,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -5101,7 +5101,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -5159,7 +5159,7 @@ const docTemplate = `{
                     "404": {
                         "description": "任务不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -5243,7 +5243,7 @@ const docTemplate = `{
                     "500": {
                         "description": "服务器错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -5300,7 +5300,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -5354,7 +5354,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -5427,7 +5427,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -5476,7 +5476,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -5546,13 +5546,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "500": {
                         "description": "服务器错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -5590,7 +5590,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBase"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBase"
                         }
                     }
                 ],
@@ -5616,13 +5616,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "500": {
                         "description": "服务器错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -5688,19 +5688,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
                         "description": "未认证",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权限",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -5756,7 +5756,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KBCloneProgress"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KBCloneProgress"
                                         }
                                     }
                                 }
@@ -5766,13 +5766,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "任务不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -5842,19 +5842,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权访问知识库",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -5924,19 +5924,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权限",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -5981,19 +5981,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "仅所有者可删除",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -6066,19 +6066,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权限",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -6172,13 +6172,13 @@ const docTemplate = `{
                     "403": {
                         "description": "非创建者或管理员，或知识库来自其他空间",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -6240,19 +6240,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权限",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -6386,7 +6386,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -6431,7 +6431,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQBatchUpsertPayload"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQBatchUpsertPayload"
                         }
                     }
                 ],
@@ -6457,7 +6457,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -6511,7 +6511,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -6578,7 +6578,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -6644,7 +6644,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -6685,7 +6685,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntryFieldsBatchUpdate"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntryFieldsBatchUpdate"
                         }
                     }
                 ],
@@ -6699,7 +6699,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -6754,7 +6754,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -6811,7 +6811,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntry"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntry"
                                         }
                                     }
                                 }
@@ -6821,13 +6821,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "条目不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -6879,7 +6879,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntryPayload"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntryPayload"
                         }
                     }
                 ],
@@ -6895,7 +6895,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntry"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntry"
                                         }
                                     }
                                 }
@@ -6905,7 +6905,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -6979,7 +6979,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntry"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntry"
                                         }
                                     }
                                 }
@@ -6989,13 +6989,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "条目不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -7044,7 +7044,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntryPayload"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntryPayload"
                         }
                     }
                 ],
@@ -7060,7 +7060,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntry"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntry"
                                         }
                                     }
                                 }
@@ -7070,7 +7070,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -7132,13 +7132,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在或无导入记录",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -7179,7 +7179,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQSearchRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQSearchRequest"
                         }
                     }
                 ],
@@ -7197,7 +7197,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntry"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntry"
                                             }
                                         }
                                     }
@@ -7208,7 +7208,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -7261,7 +7261,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphSearchRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphSearchRequest"
                         }
                     }
                 ],
@@ -7277,7 +7277,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphSearchResult"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphSearchResult"
                                         }
                                     }
                                 }
@@ -7287,43 +7287,43 @@ const docTemplate = `{
                     "400": {
                         "description": "参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
                         "description": "未登录",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权访问知识库",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "知识图谱未启用",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "500": {
                         "description": "来源校验失败",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "503": {
                         "description": "图谱服务不可用",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -7365,7 +7365,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SearchParams"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SearchParams"
                         }
                     },
                     {
@@ -7390,13 +7390,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -7443,7 +7443,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SearchParams"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SearchParams"
                         }
                     },
                     {
@@ -7468,13 +7468,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -7591,7 +7591,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImageAsset"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImageAsset"
                                             }
                                         }
                                     }
@@ -7602,7 +7602,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -7658,7 +7658,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImageAsset"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImageAsset"
                                             }
                                         }
                                     }
@@ -7669,7 +7669,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -7835,7 +7835,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Knowledge"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
                                             }
                                         }
                                     }
@@ -7846,13 +7846,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权访问知识库",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -7901,13 +7901,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -7962,37 +7962,37 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "429": {
                         "description": "Too Many Requests",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -8077,7 +8077,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Knowledge"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
                                         }
                                     }
                                 }
@@ -8087,7 +8087,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
@@ -8143,7 +8143,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeFolderTree"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeFolderTree"
                                         }
                                     }
                                 }
@@ -8153,7 +8153,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -8226,13 +8226,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -8281,7 +8281,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ManualKnowledgePayload"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ManualKnowledgePayload"
                         }
                     }
                 ],
@@ -8297,7 +8297,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Knowledge"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
                                         }
                                     }
                                 }
@@ -8307,7 +8307,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -8372,7 +8372,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Knowledge"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
                                         }
                                     }
                                 }
@@ -8382,7 +8382,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
@@ -8444,7 +8444,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBase"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBase"
                                             }
                                         }
                                     }
@@ -8455,25 +8455,25 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
                         "description": "未认证",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权限",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -8536,19 +8536,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "500": {
                         "description": "服务器错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -8594,7 +8594,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseProfile"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseProfile"
                                         }
                                     }
                                 }
@@ -8604,19 +8604,19 @@ const docTemplate = `{
                     "400": {
                         "description": "知识库类型不支持或未配置模型",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权限",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识库不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -8627,6 +8627,67 @@ const docTemplate = `{
                     "target": "knowledge_base.get"
                 },
                 "x-agent-hint": "Regenerates the AI summary of what the knowledge base covers, with one model call. A description the user wrote is kept."
+            }
+        },
+        "/knowledge-bases/{id}/rebuild-index": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "索引策略变更后，把知识库下全部文档提交重新解析。前端知识库设置弹窗\n(KnowledgeBaseEditorModal) 在保存新策略后调用此接口，此前该路由在后端缺失，调用返回 404。",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "知识管理"
+                ],
+                "summary": "重建整个知识库的索引",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "知识库ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "任务已提交",
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler.DataResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "请求参数错误",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "403": {
+                        "description": "权限不足",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "404": {
+                        "description": "知识库不存在",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    },
+                    "409": {
+                        "description": "有文档正在迁移中",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
             }
         },
         "/knowledge-bases/{id}/shares": {
@@ -8657,7 +8718,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ListSharesResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ListSharesResponse"
                         }
                     }
                 }
@@ -8693,7 +8754,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ShareKnowledgeBaseRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ShareKnowledgeBaseRequest"
                         }
                     }
                 ],
@@ -8709,7 +8770,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseShare"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseShare"
                                         }
                                     }
                                 }
@@ -8719,7 +8780,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -8764,7 +8825,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UpdateSharePermissionRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UpdateSharePermissionRequest"
                         }
                     }
                 ],
@@ -8778,7 +8839,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -8820,7 +8881,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -8904,7 +8965,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -8967,7 +9028,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeTag"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeTag"
                                         }
                                     }
                                 }
@@ -8977,7 +9038,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -9050,7 +9111,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeTag"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeTag"
                                         }
                                     }
                                 }
@@ -9060,7 +9121,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -9140,7 +9201,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -9213,7 +9274,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -9273,7 +9334,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -9339,7 +9400,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Knowledge"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
                                             }
                                         }
                                     }
@@ -9350,7 +9411,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -9398,13 +9459,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -9465,13 +9526,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -9538,13 +9599,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -9618,7 +9679,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -9660,7 +9721,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ManualKnowledgePayload"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ManualKnowledgePayload"
                         }
                     }
                 ],
@@ -9676,7 +9737,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Knowledge"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
                                         }
                                     }
                                 }
@@ -9686,7 +9747,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -9753,7 +9814,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -9812,7 +9873,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeMoveProgress"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeMoveProgress"
                                         }
                                     }
                                 }
@@ -9822,7 +9883,7 @@ const docTemplate = `{
                     "404": {
                         "description": "任务不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -9904,7 +9965,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -9952,7 +10013,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -10014,7 +10075,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Knowledge"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
                                         }
                                     }
                                 }
@@ -10024,19 +10085,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权访问所属知识库",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -10094,7 +10155,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -10158,19 +10219,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误或知识正在移动",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "需要编辑权限",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -10226,7 +10287,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Knowledge"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
                                         }
                                     }
                                 }
@@ -10236,19 +10297,19 @@ const docTemplate = `{
                     "400": {
                         "description": "状态不支持取消",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -10300,7 +10361,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -10349,7 +10410,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -10406,7 +10467,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Knowledge"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
                                         }
                                     }
                                 }
@@ -10416,19 +10477,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -10501,13 +10562,13 @@ const docTemplate = `{
                     "403": {
                         "description": "无权访问所属知识库",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "知识不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -10588,13 +10649,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiFolderListResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderListResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -10638,7 +10699,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiFolderCreateRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderCreateRequest"
                         }
                     }
                 ],
@@ -10646,19 +10707,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiFolder"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolder"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -10710,7 +10771,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiFolderUpdateRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderUpdateRequest"
                         }
                     }
                 ],
@@ -10718,25 +10779,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiFolder"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolder"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -10775,13 +10836,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -10845,7 +10906,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiGraphData"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiGraphData"
                         }
                     }
                 }
@@ -10897,7 +10958,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiIndexResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiIndexResponse"
                         }
                     }
                 }
@@ -10953,7 +11014,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPageIssue"
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageIssue"
                             }
                         }
                     },
@@ -11033,7 +11094,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -11068,7 +11129,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.WikiLintReport"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.WikiLintReport"
                         }
                     },
                     "400": {
@@ -11125,7 +11186,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPageMoveRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageMoveRequest"
                         }
                     }
                 ],
@@ -11133,13 +11194,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPage"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -11222,13 +11283,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPageListResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageListResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -11264,7 +11325,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPage"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
                         }
                     }
                 ],
@@ -11272,13 +11333,13 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPage"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -11321,13 +11382,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPageDetail"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageDetail"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -11376,7 +11437,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPageUpdateRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageUpdateRequest"
                         }
                     }
                 ],
@@ -11384,25 +11445,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPage"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -11441,7 +11502,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -11534,7 +11595,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPageRevertRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageRevertRequest"
                         }
                     }
                 ],
@@ -11542,25 +11603,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPage"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -11640,13 +11701,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPageRevisionListResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageRevisionListResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -11702,7 +11763,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPage"
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
                             }
                         }
                     }
@@ -11738,7 +11799,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiStats"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiStats"
                         }
                     },
                     "400": {
@@ -12105,7 +12166,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.MCPServiceResponse"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.MCPServiceResponse"
                                             }
                                         }
                                     }
@@ -12116,13 +12177,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "无权使用该共享智能体",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -12176,7 +12237,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.MCPServiceResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.MCPServiceResponse"
                                         }
                                     }
                                 }
@@ -12186,7 +12247,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -12277,7 +12338,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.MCPServiceResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.MCPServiceResponse"
                                         }
                                     }
                                 }
@@ -12287,7 +12348,7 @@ const docTemplate = `{
                     "404": {
                         "description": "服务不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -12347,7 +12408,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.MCPServiceResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.MCPServiceResponse"
                                         }
                                     }
                                 }
@@ -12357,7 +12418,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -12410,7 +12471,7 @@ const docTemplate = `{
                     "500": {
                         "description": "服务器错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -12476,7 +12537,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.CredentialsResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.CredentialsResponse"
                                         }
                                     }
                                 }
@@ -12486,13 +12547,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "服务不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -12539,13 +12600,13 @@ const docTemplate = `{
                     "400": {
                         "description": "字段名非法",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "服务不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -12592,19 +12653,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
                         "description": "OAuth 目录缺少授权主体",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "服务不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -12656,37 +12717,37 @@ const docTemplate = `{
                     "400": {
                         "description": "目录不完整或校验失败",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
                         "description": "OAuth 目录缺少授权主体",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "静态认证目录需要管理员刷新",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "服务不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "刷新期间连接配置已变更",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "503": {
                         "description": "元数据存储不可用",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -12749,7 +12810,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_mcp.OAuthAuthorizationStatus"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_mcp.OAuthAuthorizationStatus"
                                         }
                                     }
                                 }
@@ -12759,13 +12820,13 @@ const docTemplate = `{
                     "400": {
                         "description": "断言无效或被授权服务器拒绝",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -12819,7 +12880,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -12941,7 +13002,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPResource"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPResource"
                                             }
                                         }
                                     }
@@ -12952,7 +13013,7 @@ const docTemplate = `{
                     "500": {
                         "description": "服务器错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -13001,7 +13062,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPTestResult"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPTestResult"
                                         }
                                     }
                                 }
@@ -13011,7 +13072,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -13080,13 +13141,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "MCP 服务或工具不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -13137,7 +13198,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPTool"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPTool"
                                             }
                                         }
                                     }
@@ -13148,7 +13209,7 @@ const docTemplate = `{
                     "500": {
                         "description": "服务器错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -13189,7 +13250,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.ConfigEnvGroup"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.ConfigEnvGroup"
                                             }
                                         }
                                     }
@@ -13246,7 +13307,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -13289,7 +13350,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not set",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -13334,7 +13395,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -13377,7 +13438,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not set",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -13457,7 +13518,7 @@ const docTemplate = `{
                     "410": {
                         "description": "链接无效或已撤销",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -13585,7 +13646,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemoryConsolidationResult"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemoryConsolidationResult"
                                         }
                                     }
                                 }
@@ -13785,7 +13846,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemoryItem"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemoryItem"
                                         }
                                     }
                                 }
@@ -13866,7 +13927,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemoryItem"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemoryItem"
                                         }
                                     }
                                 }
@@ -13944,7 +14005,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemoryItem"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemoryItem"
                                         }
                                     }
                                 }
@@ -14015,7 +14076,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemorySettings"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemorySettings"
                                         }
                                     }
                                 }
@@ -14064,7 +14125,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemorySettings"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemorySettings"
                                         }
                                     }
                                 }
@@ -14184,7 +14245,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemoryItem"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemoryItem"
                                         }
                                     }
                                 }
@@ -14227,7 +14288,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChatHistoryKBStats"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChatHistoryKBStats"
                                         }
                                     }
                                 }
@@ -14286,7 +14347,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MessageSearchResult"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageSearchResult"
                                         }
                                     }
                                 }
@@ -14296,7 +14357,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -14382,7 +14443,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Message"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Message"
                                             }
                                         }
                                     }
@@ -14393,7 +14454,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -14451,7 +14512,7 @@ const docTemplate = `{
                     "500": {
                         "description": "服务器错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -14492,7 +14553,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.ModelResponse"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.ModelResponse"
                                             }
                                         }
                                     }
@@ -14503,7 +14564,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -14557,7 +14618,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.ModelResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.ModelResponse"
                                         }
                                     }
                                 }
@@ -14567,7 +14628,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -14774,13 +14835,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "厂商不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -14801,19 +14862,19 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "检查当前空间的 GENYEECloud 凭证是否完好；needs_reinit=true 表示需要重新保存",
+                "description": "检查当前空间的 WeKnoraCloud 凭证是否完好；needs_reinit=true 表示需要重新保存",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "GENYEECloud"
+                    "WeKnoraCloud"
                 ],
-                "summary": "检查 GENYEECloud 凭证状态",
+                "summary": "检查 WeKnoraCloud 凭证状态",
                 "responses": {
                     "200": {
                         "description": "凭证状态",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GENYEECloudStatusResult"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WeKnoraCloudStatusResult"
                         }
                     },
                     "500": {
@@ -14869,7 +14930,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.ModelResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.ModelResponse"
                                         }
                                     }
                                 }
@@ -14879,7 +14940,7 @@ const docTemplate = `{
                     "404": {
                         "description": "模型不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -14938,7 +14999,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.ModelResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.ModelResponse"
                                         }
                                     }
                                 }
@@ -14948,7 +15009,7 @@ const docTemplate = `{
                     "404": {
                         "description": "模型不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -14993,13 +15054,13 @@ const docTemplate = `{
                     "400": {
                         "description": "模型仍被知识库、智能体或长期记忆引用",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "模型不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -15063,7 +15124,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.ModelResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.ModelResponse"
                                         }
                                     }
                                 }
@@ -15073,19 +15134,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "内置模型只能由系统管理员修改",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "模型不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -15151,7 +15212,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.ModelResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.ModelResponse"
                                         }
                                     }
                                 }
@@ -15161,13 +15222,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "模型不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -15307,7 +15368,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ListOrganizationsResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ListOrganizationsResponse"
                         }
                     }
                 }
@@ -15336,7 +15397,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CreateOrganizationRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CreateOrganizationRequest"
                         }
                     }
                 ],
@@ -15352,7 +15413,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrganizationResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrganizationResponse"
                                         }
                                     }
                                 }
@@ -15362,7 +15423,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -15393,7 +15454,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.JoinOrganizationRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.JoinOrganizationRequest"
                         }
                     }
                 ],
@@ -15409,7 +15470,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrganizationResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrganizationResponse"
                                         }
                                     }
                                 }
@@ -15419,7 +15480,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -15450,7 +15511,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.JoinByOrganizationIDRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.JoinByOrganizationIDRequest"
                         }
                     }
                 ],
@@ -15466,7 +15527,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrganizationResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrganizationResponse"
                                         }
                                     }
                                 }
@@ -15476,7 +15537,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -15507,7 +15568,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SubmitJoinRequestRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SubmitJoinRequestRequest"
                         }
                     }
                 ],
@@ -15523,7 +15584,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrganizationJoinRequest"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrganizationJoinRequest"
                                         }
                                     }
                                 }
@@ -15533,7 +15594,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -15574,7 +15635,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -15656,7 +15717,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrganizationResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrganizationResponse"
                                         }
                                     }
                                 }
@@ -15666,7 +15727,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -15702,7 +15763,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UpdateOrganizationRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UpdateOrganizationRequest"
                         }
                     }
                 ],
@@ -15718,7 +15779,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrganizationResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrganizationResponse"
                                         }
                                     }
                                 }
@@ -15728,7 +15789,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -15763,7 +15824,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -15807,7 +15868,7 @@ const docTemplate = `{
                     "403": {
                         "description": "非组织成员",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -15845,7 +15906,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.InviteMemberRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.InviteMemberRequest"
                         }
                     }
                 ],
@@ -15859,13 +15920,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -15906,7 +15967,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -15948,7 +16009,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ListJoinRequestsResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ListJoinRequestsResponse"
                                         }
                                     }
                                 }
@@ -15958,7 +16019,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -16003,7 +16064,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ReviewJoinRequestRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ReviewJoinRequestRequest"
                         }
                     }
                 ],
@@ -16017,7 +16078,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -16054,7 +16115,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -16088,7 +16149,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ListMembersResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ListMembersResponse"
                         }
                     }
                 }
@@ -16133,7 +16194,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UpdateMemberRoleRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UpdateMemberRoleRequest"
                         }
                     }
                 ],
@@ -16147,7 +16208,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -16189,7 +16250,7 @@ const docTemplate = `{
                     "403": {
                         "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -16227,7 +16288,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RequestRoleUpgradeRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RequestRoleUpgradeRequest"
                         }
                     }
                 ],
@@ -16243,7 +16304,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrganizationJoinRequest"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrganizationJoinRequest"
                                         }
                                     }
                                 }
@@ -16253,7 +16314,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -16303,7 +16364,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantInviteCandidate"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantInviteCandidate"
                                             }
                                         }
                                     }
@@ -16416,7 +16477,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ListSharesResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ListSharesResponse"
                         }
                     }
                 }
@@ -16510,7 +16571,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request or validation failure",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -16579,7 +16640,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Sandbox config not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -16644,7 +16705,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request or validation failure",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -16657,7 +16718,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Sandbox config not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
@@ -16771,7 +16832,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.SandboxInventory"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.SandboxInventory"
                                         }
                                     }
                                 }
@@ -16810,7 +16871,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "x-agent": "sandbox_config_id",
-                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on GENYEE Lite",
+                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on WeKnora Lite",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -16848,7 +16909,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Sandbox config not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -16885,7 +16946,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "x-agent": "sandbox_config_id",
-                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on GENYEE Lite",
+                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on WeKnora Lite",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -16927,7 +16988,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Missing, oversized or invalid bundle or source",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -16940,7 +17001,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Sandbox config not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -17019,7 +17080,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Skill not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -17094,7 +17155,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Skill not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -17176,7 +17237,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -17189,7 +17250,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Skill not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -17251,7 +17312,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.SkillFileEntry"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.SkillFileEntry"
                                             }
                                         }
                                     }
@@ -17269,7 +17330,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Skill or files not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -17328,7 +17389,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.SkillFileContent"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.SkillFileContent"
                                         }
                                     }
                                 }
@@ -17338,7 +17399,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid path",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -17351,7 +17412,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Skill or file not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -17408,7 +17469,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Skill not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -17459,7 +17520,7 @@ const docTemplate = `{
                     "400": {
                         "description": "The stored archive is gone",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -17472,7 +17533,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Skill not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -17534,7 +17595,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Skill is not installing",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -17547,7 +17608,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Skill not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -17610,7 +17671,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Skill or transcript not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -17801,7 +17862,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -17853,7 +17914,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -17902,7 +17963,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -17972,13 +18033,13 @@ const docTemplate = `{
                     "404": {
                         "description": "会话或消息不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "审批恢复后的事件流尚未就绪",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18025,7 +18086,7 @@ const docTemplate = `{
                     "404": {
                         "description": "会话不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18064,7 +18125,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Session"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Session"
                         }
                     }
                 ],
@@ -18079,7 +18140,7 @@ const docTemplate = `{
                     "404": {
                         "description": "会话不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18124,7 +18185,7 @@ const docTemplate = `{
                     "404": {
                         "description": "会话不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18171,13 +18232,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "会话不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18221,7 +18282,7 @@ const docTemplate = `{
                     "404": {
                         "description": "会话不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18265,13 +18326,13 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "503": {
                         "description": "活 turn 查询失败，可重试",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18322,13 +18383,13 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "503": {
                         "description": "活 turn 查询失败，可重试",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18369,7 +18430,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18425,19 +18486,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误 / 分叉点角色不支持",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "会话或消息不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "源会话正在生成中",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18503,7 +18564,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18559,7 +18620,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MessageSuggestionSet"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageSuggestionSet"
                                         }
                                     }
                                 }
@@ -18624,7 +18685,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MessageSuggestionSet"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageSuggestionSet"
                                         }
                                     }
                                 }
@@ -18642,7 +18703,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MessageSuggestionSet"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageSuggestionSet"
                                         }
                                     }
                                 }
@@ -18690,7 +18751,7 @@ const docTemplate = `{
                     "404": {
                         "description": "会话不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18746,25 +18807,25 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误 / 回滚点角色不支持",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "会话或消息不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "409": {
                         "description": "会话正在生成中 / 无检查点 / 沙箱已更换",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "500": {
                         "description": "工作区回滚失败",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18820,19 +18881,19 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "会话不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "503": {
                         "description": "活 turn 查询失败，可重试",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18883,19 +18944,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "503": {
                         "description": "活 turn 查询失败，可重试",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -18951,7 +19012,7 @@ const docTemplate = `{
                     "404": {
                         "description": "会话或消息不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -19050,7 +19111,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -19084,7 +19145,7 @@ const docTemplate = `{
                     "500": {
                         "description": "服务器错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -19174,7 +19235,7 @@ const docTemplate = `{
                     "403": {
                         "description": "无权使用该共享智能体",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -19182,7 +19243,7 @@ const docTemplate = `{
                     "id": "skill.list",
                     "risk": "read"
                 },
-                "x-agent-hint": "Lists usable skills, chosen by name. Pass sandbox_config_id from agent.get; when the agent has none, pass host (GENYEE Lite runs skills locally). An empty list means there are no usable skills there; if the agent has no sandbox, tell the user to choose one in the agent editor."
+                "x-agent-hint": "Lists usable skills, chosen by name. Pass sandbox_config_id from agent.get; when the agent has none, pass host (WeKnora Lite runs skills locally). An empty list means there are no usable skills there; if the agent has no sandbox, tell the user to choose one in the agent editor."
             }
         },
         "/skills/catalog": {
@@ -19217,7 +19278,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.SkillCatalogView"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.SkillCatalogView"
                                             }
                                         }
                                     }
@@ -19297,7 +19358,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.SkillCatalogView"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.SkillCatalogView"
                                         }
                                     }
                                 }
@@ -19307,7 +19368,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Skill not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 },
@@ -19374,7 +19435,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.SkillFileEntry"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.SkillFileEntry"
                                             }
                                         }
                                     }
@@ -19422,7 +19483,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.SkillFileContent"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.SkillFileContent"
                                         }
                                     }
                                 }
@@ -19569,7 +19630,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageBackend"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageBackend"
                                         }
                                     }
                                 }
@@ -19579,7 +19640,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request, validation, or connectivity test failure",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -19592,7 +19653,7 @@ const docTemplate = `{
                     "409": {
                         "description": "A storage backend with this name already exists",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -19640,7 +19701,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request or validation error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -19735,7 +19796,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageBackend"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageBackend"
                                         }
                                     }
                                 }
@@ -19752,7 +19813,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Storage backend not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -19807,7 +19868,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageBackend"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageBackend"
                                         }
                                     }
                                 }
@@ -19817,7 +19878,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Immutable field change, read-only backend, validation, or connectivity failure",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -19830,7 +19891,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Storage backend not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -19871,7 +19932,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Backend is default, bound, read-only, or legacy alias",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -19884,7 +19945,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Storage backend not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -19927,7 +19988,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Backend is not active",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -19940,7 +20001,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Storage backend not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -19990,7 +20051,7 @@ const docTemplate = `{
                     "404": {
                         "description": "Storage backend not found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -20179,7 +20240,7 @@ const docTemplate = `{
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -20262,7 +20323,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.CatalogState"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.CatalogState"
                         }
                     },
                     "401": {
@@ -20312,7 +20373,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.CatalogUpdate"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.CatalogUpdate"
                         }
                     }
                 ],
@@ -20320,7 +20381,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.CatalogState"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.CatalogState"
                         }
                     },
                     "400": {
@@ -20386,7 +20447,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.CatalogUpdate"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.CatalogUpdate"
                         }
                     }
                 ],
@@ -20394,7 +20455,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.CatalogState"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.CatalogState"
                         }
                     },
                     "400": {
@@ -20463,7 +20524,7 @@ const docTemplate = `{
                     "200": {
                         "description": "User promoted successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserInfo"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserInfo"
                         }
                     },
                     "400": {
@@ -20518,7 +20579,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Privileges revoked successfully",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserInfo"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserInfo"
                         }
                     },
                     "400": {
@@ -20745,7 +20806,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SystemSettingSummary"
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SystemSettingSummary"
                             }
                         }
                     }
@@ -20782,7 +20843,7 @@ const docTemplate = `{
                     "200": {
                         "description": "the setting row",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SystemSetting"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SystemSetting"
                         }
                     },
                     "400": {
@@ -20835,7 +20896,7 @@ const docTemplate = `{
                     "200": {
                         "description": "the updated row",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SystemSetting"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SystemSetting"
                         }
                     },
                     "400": {
@@ -20998,7 +21059,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AdminCreateUserRequest"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AdminCreateUserRequest"
                         }
                     }
                 ],
@@ -21421,7 +21482,7 @@ const docTemplate = `{
                     "500": {
                         "description": "服务器错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21465,7 +21526,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21511,7 +21572,7 @@ const docTemplate = `{
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21696,7 +21757,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplatesConfig"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplatesConfig"
                                         }
                                     }
                                 }
@@ -21706,7 +21767,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21745,7 +21806,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchConfig"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchConfig"
                                         }
                                     }
                                 }
@@ -21755,7 +21816,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21771,7 +21832,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "获取空间级别的KV配置（支持web-search-config、prompt-templates、parser-engine-config、storage-engine-config、chat-history-config、retrieval-config）",
+                "description": "获取空间级别的KV配置。支持 web-search-config、prompt-templates、parser-engine-config、\nstorage-engine-config、chat-history-config、retrieval-config、memory-config、\nassistant-config、default-settings。",
                 "consumes": [
                     "application/json"
                 ],
@@ -21802,7 +21863,7 @@ const docTemplate = `{
                     "400": {
                         "description": "不支持的键",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21816,7 +21877,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "更新空间级别的KV配置（支持web-search-config、parser-engine-config、storage-engine-config、chat-history-config、retrieval-config）",
+                "description": "更新空间级别的KV配置。支持 web-search-config、parser-engine-config、storage-engine-config、\nchat-history-config、retrieval-config、memory-config、assistant-config、default-settings。",
                 "consumes": [
                     "application/json"
                 ],
@@ -21856,7 +21917,7 @@ const docTemplate = `{
                     "400": {
                         "description": "不支持的键",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21935,7 +21996,7 @@ const docTemplate = `{
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -21983,7 +22044,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.TenantResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.TenantResponse"
                                         }
                                     }
                                 }
@@ -21993,13 +22054,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "404": {
                         "description": "空间不存在",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22051,7 +22112,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.TenantResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.TenantResponse"
                                         }
                                     }
                                 }
@@ -22061,7 +22122,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22102,7 +22163,7 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22157,13 +22218,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22225,13 +22286,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22295,13 +22356,13 @@ const docTemplate = `{
                     "400": {
                         "description": "请求参数错误",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "403": {
                         "description": "权限不足",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22374,7 +22435,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -22481,7 +22542,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantInvitationResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantInvitationResponse"
                                         }
                                     }
                                 }
@@ -22580,7 +22641,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantInvitationResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantInvitationResponse"
                                         }
                                     }
                                 }
@@ -22845,7 +22906,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserResourceFavorite"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserResourceFavorite"
                                             }
                                         }
                                     }
@@ -22945,7 +23006,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VectorStoreResponse"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VectorStoreResponse"
                                             }
                                         }
                                     }
@@ -23005,7 +23066,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VectorStoreResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VectorStoreResponse"
                                         }
                                     }
                                 }
@@ -23015,7 +23076,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request or validation error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -23028,7 +23089,7 @@ const docTemplate = `{
                     "409": {
                         "description": "Duplicate endpoint and index",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -23076,7 +23137,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     },
                     "401": {
@@ -23113,7 +23174,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VectorStoreTypeInfo"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VectorStoreTypeInfo"
                                             }
                                         }
                                     }
@@ -23163,7 +23224,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VectorStoreResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VectorStoreResponse"
                                         }
                                     }
                                 }
@@ -23394,7 +23455,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.WebSearchProviderResponse"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.WebSearchProviderResponse"
                                             }
                                         }
                                     }
@@ -23492,7 +23553,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchProviderTypeInfo"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderTypeInfo"
                                             }
                                         }
                                     }
@@ -23547,7 +23608,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.WebSearchProviderResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.WebSearchProviderResponse"
                                         }
                                     }
                                 }
@@ -23610,7 +23671,7 @@ const docTemplate = `{
                     "200": {
                         "description": "更新后的 Provider",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchProviderEntity"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderEntity"
                         }
                     },
                     "400": {
@@ -23730,7 +23791,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.WebSearchProviderResponse"
+                                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.WebSearchProviderResponse"
                                         }
                                     }
                                 }
@@ -23831,7 +23892,7 @@ const docTemplate = `{
                                         "data": {
                                             "type": "array",
                                             "items": {
-                                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchProviderTypeInfo"
+                                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderTypeInfo"
                                             }
                                         }
                                     }
@@ -23954,9 +24015,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "GENYEECloud"
+                    "WeKnoraCloud"
                 ],
-                "summary": "保存 GENYEECloud 凭证",
+                "summary": "保存 WeKnoraCloud 凭证",
                 "parameters": [
                     {
                         "description": "{app_id, app_secret}",
@@ -24043,7 +24104,7 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.AppError"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
                         }
                     }
                 }
@@ -24051,7 +24112,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_Tencent_GENYEE_internal_agent_tools.AgentToolCatalog": {
+        "github_com_Usir233_GENYEE_internal_agent_tools.AgentToolCatalog": {
             "type": "object",
             "properties": {
                 "default_tools": {
@@ -24072,12 +24133,12 @@ const docTemplate = `{
                     "description": "Tools are the selectable tools, in display order.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_agent_tools.AgentToolInfo"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_agent_tools.AgentToolInfo"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_agent_tools.AgentToolInfo": {
+        "github_com_Usir233_GENYEE_internal_agent_tools.AgentToolInfo": {
             "type": "object",
             "properties": {
                 "danger": {
@@ -24097,28 +24158,28 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "requirement": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_agent_tools.AgentToolRequirement"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_agent_tools.AgentToolRequirement"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_agent_tools.AgentToolRequirement": {
+        "github_com_Usir233_GENYEE_internal_agent_tools.AgentToolRequirement": {
             "type": "object",
             "properties": {
                 "all_of": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_agent_tools.KBCapability"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_agent_tools.KBCapability"
                     }
                 },
                 "any_of": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_agent_tools.KBCapability"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_agent_tools.KBCapability"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_agent_tools.KBCapability": {
+        "github_com_Usir233_GENYEE_internal_agent_tools.KBCapability": {
             "type": "string",
             "enum": [
                 "vector",
@@ -24135,7 +24196,7 @@ const docTemplate = `{
                 "CapFAQ"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_application_service.CatalogProviderView": {
+        "github_com_Usir233_GENYEE_internal_application_service.CatalogProviderView": {
             "type": "object",
             "properties": {
                 "api": {
@@ -24150,20 +24211,20 @@ const docTemplate = `{
                     "additionalProperties": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_api.ReasoningEffort"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_api.ReasoningEffort"
                         }
                     }
                 },
                 "model_types": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelType"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelType"
                     }
                 },
                 "models": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models.ModelSpec"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models.ModelSpec"
                     }
                 },
                 "name": {
@@ -24177,12 +24238,12 @@ const docTemplate = `{
                     "description": "VendorThinkingLevels is what a chat model without its own map offers.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_api.ReasoningEffort"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_api.ReasoningEffort"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.CatalogRevision": {
+        "github_com_Usir233_GENYEE_internal_application_service.CatalogRevision": {
             "type": "object",
             "properties": {
                 "overlay": {
@@ -24199,7 +24260,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.CatalogState": {
+        "github_com_Usir233_GENYEE_internal_application_service.CatalogState": {
             "type": "object",
             "properties": {
                 "applied_version": {
@@ -24211,13 +24272,13 @@ const docTemplate = `{
                 "builtin": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.CatalogProviderView"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.CatalogProviderView"
                     }
                 },
                 "deployment": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.CatalogProviderView"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.CatalogProviderView"
                     }
                 },
                 "deployment_error": {
@@ -24226,13 +24287,13 @@ const docTemplate = `{
                 "effective": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.CatalogProviderView"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.CatalogProviderView"
                     }
                 },
                 "history": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.CatalogRevision"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.CatalogRevision"
                     }
                 },
                 "overlay": {
@@ -24246,7 +24307,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.CatalogUpdate": {
+        "github_com_Usir233_GENYEE_internal_application_service.CatalogUpdate": {
             "type": "object",
             "properties": {
                 "baseline": {
@@ -24260,7 +24321,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.ConfigEnvGroup": {
+        "github_com_Usir233_GENYEE_internal_application_service.ConfigEnvGroup": {
             "type": "object",
             "properties": {
                 "description": {
@@ -24275,18 +24336,18 @@ const docTemplate = `{
                 "skills": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.SkillEnvGroup"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.SkillEnvGroup"
                     }
                 },
                 "vars": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.EnvVarView"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.EnvVarView"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.EnvVarView": {
+        "github_com_Usir233_GENYEE_internal_application_service.EnvVarView": {
             "type": "object",
             "properties": {
                 "description": {
@@ -24307,7 +24368,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.SandboxInventory": {
+        "github_com_Usir233_GENYEE_internal_application_service.SandboxInventory": {
             "type": "object",
             "properties": {
                 "agent_names": {
@@ -24335,7 +24396,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.SkillCatalogInstallView": {
+        "github_com_Usir233_GENYEE_internal_application_service.SkillCatalogInstallView": {
             "type": "object",
             "properties": {
                 "bundle_sha256": {
@@ -24360,7 +24421,7 @@ const docTemplate = `{
                     "description": "Served is set while a newer install of this skill is in flight or has\nfailed and the image still runs the previous version.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.SkillServedInfo"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.SkillServedInfo"
                         }
                     ]
                 },
@@ -24378,7 +24439,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.SkillCatalogView": {
+        "github_com_Usir233_GENYEE_internal_application_service.SkillCatalogView": {
             "type": "object",
             "properties": {
                 "bundle_sha256": {
@@ -24398,7 +24459,7 @@ const docTemplate = `{
                 "installations": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.SkillCatalogInstallView"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.SkillCatalogInstallView"
                     }
                 },
                 "installed_on": {
@@ -24422,7 +24483,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.SkillEnvGroup": {
+        "github_com_Usir233_GENYEE_internal_application_service.SkillEnvGroup": {
             "type": "object",
             "properties": {
                 "description": {
@@ -24437,12 +24498,12 @@ const docTemplate = `{
                 "vars": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.EnvVarView"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.EnvVarView"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.SkillFileContent": {
+        "github_com_Usir233_GENYEE_internal_application_service.SkillFileContent": {
             "type": "object",
             "properties": {
                 "binary": {
@@ -24468,7 +24529,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.SkillFileEntry": {
+        "github_com_Usir233_GENYEE_internal_application_service.SkillFileEntry": {
             "type": "object",
             "properties": {
                 "path": {
@@ -24479,7 +24540,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.SkillServedInfo": {
+        "github_com_Usir233_GENYEE_internal_application_service.SkillServedInfo": {
             "type": "object",
             "properties": {
                 "version": {
@@ -24487,7 +24548,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.WikiLintIssue": {
+        "github_com_Usir233_GENYEE_internal_application_service.WikiLintIssue": {
             "type": "object",
             "properties": {
                 "auto_fixable": {
@@ -24505,7 +24566,7 @@ const docTemplate = `{
                 "severity": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.WikiLintIssueSeverity"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.WikiLintIssueSeverity"
                         }
                     ],
                     "x-agent": true
@@ -24518,14 +24579,14 @@ const docTemplate = `{
                 "type": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.WikiLintIssueType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.WikiLintIssueType"
                         }
                     ],
                     "x-agent": true
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_application_service.WikiLintIssueSeverity": {
+        "github_com_Usir233_GENYEE_internal_application_service.WikiLintIssueSeverity": {
             "type": "string",
             "enum": [
                 "info",
@@ -24538,7 +24599,7 @@ const docTemplate = `{
                 "SeverityError"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_application_service.WikiLintIssueType": {
+        "github_com_Usir233_GENYEE_internal_application_service.WikiLintIssueType": {
             "type": "string",
             "enum": [
                 "orphan_page",
@@ -24557,7 +24618,7 @@ const docTemplate = `{
                 "LintIssueDuplicateSlug"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_application_service.WikiLintReport": {
+        "github_com_Usir233_GENYEE_internal_application_service.WikiLintReport": {
             "type": "object",
             "properties": {
                 "health_score": {
@@ -24568,14 +24629,14 @@ const docTemplate = `{
                 "issues": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.WikiLintIssue"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.WikiLintIssue"
                     }
                 },
                 "knowledge_base_id": {
                     "type": "string"
                 },
                 "stats": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiStats"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiStats"
                 },
                 "summary": {
                     "type": "string",
@@ -24583,7 +24644,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_config.PromptTemplate": {
+        "github_com_Usir233_GENYEE_internal_config.PromptTemplate": {
             "type": "object",
             "properties": {
                 "content": {
@@ -24615,88 +24676,88 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_config.PromptTemplatesConfig": {
+        "github_com_Usir233_GENYEE_internal_config.PromptTemplatesConfig": {
             "type": "object",
             "properties": {
                 "agent_system_prompt": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 },
                 "context_template": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 },
                 "fallback": {
                     "description": "Fallback 合并了固定回复模板和模型兜底 prompt（通过 mode:\"model\" 区分）",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 },
                 "generate_kb_description": {
                     "description": "GenerateKBDescription writes the knowledge-base gist from the document profile aggregate.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 },
                 "generate_questions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 },
                 "generate_session_title": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 },
                 "generate_summary": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 },
                 "graph_extraction": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 },
                 "intent_prompts": {
                     "description": "IntentPrompts holds per-intent system prompt overrides (template ID = intent value).",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 },
                 "keywords_extraction": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 },
                 "rewrite": {
                     "description": "Rewrite 合并了前端可选模板和运行时默认模板，每个模板同时包含 content + user",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 },
                 "system_prompt": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_config.PromptTemplate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_config.PromptTemplate"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_datasource.ConnectorMetadata": {
+        "github_com_Usir233_GENYEE_internal_datasource.ConnectorMetadata": {
             "type": "object",
             "properties": {
                 "auth_type": {
@@ -24728,11 +24789,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_errors.AppError": {
+        "github_com_Usir233_GENYEE_internal_errors.AppError": {
             "type": "object",
             "properties": {
                 "code": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_errors.ErrorCode"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.ErrorCode"
                 },
                 "details": {},
                 "message": {
@@ -24740,7 +24801,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_errors.ErrorCode": {
+        "github_com_Usir233_GENYEE_internal_errors.ErrorCode": {
             "type": "integer",
             "enum": [
                 1000,
@@ -24795,7 +24856,7 @@ const docTemplate = `{
                 "ErrModelInUse"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.CredentialFieldMetadata": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.CredentialFieldMetadata": {
             "type": "object",
             "properties": {
                 "configured": {
@@ -24803,18 +24864,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.CredentialsResponse": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.CredentialsResponse": {
             "type": "object",
             "properties": {
                 "fields": {
                     "type": "object",
                     "additionalProperties": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.CredentialFieldMetadata"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.CredentialFieldMetadata"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.DataSourceConfigDTO": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.DataSourceConfigDTO": {
             "type": "object",
             "properties": {
                 "resource_ids": {
@@ -24833,13 +24894,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.DataSourceResponse": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.DataSourceResponse": {
             "type": "object",
             "properties": {
                 "config": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.DataSourceConfigDTO"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.DataSourceConfigDTO"
                         }
                     ],
                     "x-agent": true
@@ -24855,7 +24916,7 @@ const docTemplate = `{
                     "description": "Single logical credential field — DataSource credentials are a\nper-connector atomic map, so \"configured?\" applies to the whole set.",
                     "type": "object",
                     "additionalProperties": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.CredentialFieldMetadata"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.CredentialFieldMetadata"
                     }
                 },
                 "error_message": {
@@ -24880,7 +24941,7 @@ const docTemplate = `{
                     "type": "object"
                 },
                 "latest_sync_log": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SyncLog"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SyncLog"
                 },
                 "name": {
                     "type": "string",
@@ -24921,7 +24982,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.MCPAuthConfigResponse": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.MCPAuthConfigResponse": {
             "type": "object",
             "properties": {
                 "api_key_header": {
@@ -24933,7 +24994,7 @@ const docTemplate = `{
                 "auth_type": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPAuthType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPAuthType"
                         }
                     ],
                     "x-agent": true
@@ -24955,7 +25016,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.MCPCatalogSummary": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.MCPCatalogSummary": {
             "type": "object",
             "properties": {
                 "stale": {
@@ -24969,16 +25030,16 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.MCPServiceResponse": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.MCPServiceResponse": {
             "type": "object",
             "properties": {
                 "advanced_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPAdvancedConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPAdvancedConfig"
                 },
                 "auth_config": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.MCPAuthConfigResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.MCPAuthConfigResponse"
                         }
                     ],
                     "x-agent": true
@@ -24987,7 +25048,7 @@ const docTemplate = `{
                     "description": "Catalog is the persisted tool-directory summary for list cards.\nOmitted when this principal has never synchronized the service.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.MCPCatalogSummary"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.MCPCatalogSummary"
                         }
                     ]
                 },
@@ -24998,7 +25059,7 @@ const docTemplate = `{
                     "description": "Credentials is the per-field \"configured?\" map. Embedded on the main\nresponse so the credential UI doesn't need a follow-up GET. The\nfrontend never sees the actual secret value — only whether one is\nstored. Omitted entirely for builtin services (they can't have\nper-tenant credentials).",
                     "type": "object",
                     "additionalProperties": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.CredentialFieldMetadata"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.CredentialFieldMetadata"
                     }
                 },
                 "description": {
@@ -25010,10 +25071,10 @@ const docTemplate = `{
                     "x-agent": true
                 },
                 "env_vars": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPEnvVars"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPEnvVars"
                 },
                 "headers": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPHeaders"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPHeaders"
                 },
                 "id": {
                     "type": "string",
@@ -25028,7 +25089,7 @@ const docTemplate = `{
                     "x-agent": true
                 },
                 "stdio_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPStdioConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPStdioConfig"
                 },
                 "tenant_id": {
                     "type": "integer"
@@ -25036,7 +25097,7 @@ const docTemplate = `{
                 "transport_type": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPTransportType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPTransportType"
                         }
                     ],
                     "x-agent": true
@@ -25052,7 +25113,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.ModelParametersDTO": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.ModelParametersDTO": {
             "type": "object",
             "properties": {
                 "app_id": {
@@ -25073,7 +25134,7 @@ const docTemplate = `{
                     }
                 },
                 "embedding_parameters": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.EmbeddingParameters"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.EmbeddingParameters"
                 },
                 "extra_config": {
                     "type": "object",
@@ -25101,21 +25162,21 @@ const docTemplate = `{
                     "x-agent": true
                 },
                 "spec": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelSpecOverride"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelSpecOverride"
                 },
                 "supports_vision": {
                     "type": "boolean"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.ModelResponse": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.ModelResponse": {
             "type": "object",
             "properties": {
                 "capabilities": {
                     "description": "Capabilities is the catalog view of the model. Chat models get the\nprotocol, thinking levels and context window; embedding and rerank\nmodels get input modalities, including support for image input.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_runtime.Capabilities"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_runtime.Capabilities"
                         }
                     ],
                     "x-agent": true,
@@ -25128,8 +25189,15 @@ const docTemplate = `{
                     "description": "Per-field \"configured?\" map. Omitted for builtin models unless the\ncaller is a system administrator. See MCPServiceResponse.Credentials.",
                     "type": "object",
                     "additionalProperties": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.CredentialFieldMetadata"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.CredentialFieldMetadata"
                     }
+                },
+                "default_for": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "x-agent": true
                 },
                 "description": {
                     "type": "string",
@@ -25158,7 +25226,7 @@ const docTemplate = `{
                 "parameters": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.ModelParametersDTO"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.ModelParametersDTO"
                         }
                     ],
                     "x-agent": true
@@ -25166,7 +25234,7 @@ const docTemplate = `{
                 "source": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelSource"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelSource"
                         }
                     ],
                     "x-agent": true
@@ -25174,7 +25242,7 @@ const docTemplate = `{
                 "status": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelStatus"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelStatus"
                         }
                     ],
                     "x-agent": true
@@ -25185,7 +25253,7 @@ const docTemplate = `{
                 "type": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelType"
                         }
                     ],
                     "x-agent": true
@@ -25195,27 +25263,27 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.TenantResponse": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.TenantResponse": {
             "type": "object",
             "properties": {
                 "assistant_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AssistantConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantConfig"
                 },
                 "business": {
                     "type": "string"
                 },
                 "chat_history_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChatHistoryConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChatHistoryConfig"
                 },
                 "context_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ContextConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ContextConfig"
                 },
                 "created_at": {
                     "type": "string",
                     "x-agent": true
                 },
                 "credentials": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CredentialsConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CredentialsConfig"
                 },
                 "deleted_at": {
                     "$ref": "#/definitions/gorm.DeletedAt"
@@ -25229,27 +25297,27 @@ const docTemplate = `{
                     "x-agent": "workspace_id"
                 },
                 "memory_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemoryConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemoryConfig"
                 },
                 "name": {
                     "type": "string",
                     "x-agent": true
                 },
                 "parser_engine_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ParserEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ParserEngineConfig"
                 },
                 "retrieval_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrievalConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrievalConfig"
                 },
                 "retriever_engines": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrieverEngines"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrieverEngines"
                 },
                 "status": {
                     "type": "string",
                     "x-agent": true
                 },
                 "storage_engine_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageEngineConfig"
                 },
                 "storage_quota": {
                     "type": "integer",
@@ -25264,11 +25332,11 @@ const docTemplate = `{
                     "x-agent": true
                 },
                 "web_search_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchConfig"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.WebSearchProviderParametersDTO": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.WebSearchProviderParametersDTO": {
             "type": "object",
             "properties": {
                 "base_url": {
@@ -25288,7 +25356,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_handler_dto.WebSearchProviderResponse": {
+        "github_com_Usir233_GENYEE_internal_handler_dto.WebSearchProviderResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -25298,7 +25366,7 @@ const docTemplate = `{
                     "description": "Per-field \"configured?\" map. See MCPServiceResponse.Credentials.",
                     "type": "object",
                     "additionalProperties": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.CredentialFieldMetadata"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.CredentialFieldMetadata"
                     }
                 },
                 "description": {
@@ -25318,12 +25386,12 @@ const docTemplate = `{
                     "x-agent": true
                 },
                 "parameters": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.WebSearchProviderParametersDTO"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.WebSearchProviderParametersDTO"
                 },
                 "provider": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchProviderType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderType"
                         }
                     ],
                     "x-agent": true
@@ -25336,7 +25404,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_im.IMChannel": {
+        "github_com_Usir233_GENYEE_internal_im.IMChannel": {
             "type": "object",
             "properties": {
                 "agent_id": {
@@ -25389,7 +25457,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_infrastructure_chunker.DocProfile": {
+        "github_com_Usir233_GENYEE_internal_infrastructure_chunker.DocProfile": {
             "type": "object",
             "properties": {
                 "all_caps_short_line_count": {
@@ -25461,7 +25529,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_infrastructure_chunker.StrategyTier": {
+        "github_com_Usir233_GENYEE_internal_infrastructure_chunker.StrategyTier": {
             "type": "string",
             "enum": [
                 "heading",
@@ -25474,18 +25542,18 @@ const docTemplate = `{
                 "TierLegacy"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_infrastructure_chunker.TierRejection": {
+        "github_com_Usir233_GENYEE_internal_infrastructure_chunker.TierRejection": {
             "type": "object",
             "properties": {
                 "reason": {
                     "type": "string"
                 },
                 "tier": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_infrastructure_chunker.StrategyTier"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_infrastructure_chunker.StrategyTier"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_mcp.OAuthAuthorizationStatus": {
+        "github_com_Usir233_GENYEE_internal_mcp.OAuthAuthorizationStatus": {
             "type": "object",
             "properties": {
                 "authorized": {
@@ -25502,7 +25570,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_models.ModelCost": {
+        "github_com_Usir233_GENYEE_internal_models.ModelCost": {
             "type": "object",
             "properties": {
                 "cache_read": {
@@ -25522,7 +25590,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_models.ModelSpec": {
+        "github_com_Usir233_GENYEE_internal_models.ModelSpec": {
             "type": "object",
             "properties": {
                 "aliases": {
@@ -25533,7 +25601,7 @@ const docTemplate = `{
                     }
                 },
                 "api": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_api.API"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_api.API"
                 },
                 "compat": {
                     "description": "Compat is the protocol-specific overlay for this model (flat object,\nfields depend on API). Decoded lazily by Resolve.",
@@ -25543,7 +25611,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "cost": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models.ModelCost"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models.ModelCost"
                 },
                 "deprecated": {
                     "description": "Deprecated hides the entry from pickers but keeps resolution working.",
@@ -25585,21 +25653,21 @@ const docTemplate = `{
                     "description": "ThinkingLevels maps protocol-neutral levels to vendor values; missing\nkeys inherit the vendor map. See api.ThinkingLevelMap.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_api.ThinkingLevelMap"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_api.ThinkingLevelMap"
                         }
                     ]
                 },
                 "type": {
-                    "description": "Type is the GENYEE model type this entry describes. Chat models with\nimage input are still KnowledgeQA; the UI derives VLM eligibility from\nInput. Embedding / Rerank / ASR entries exist for the model picker.",
+                    "description": "Type is the WeKnora model type this entry describes. Chat models with\nimage input are still KnowledgeQA; the UI derives VLM eligibility from\nInput. Embedding / Rerank / ASR entries exist for the model picker.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelType"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_models_api.API": {
+        "github_com_Usir233_GENYEE_internal_models_api.API": {
             "type": "string",
             "enum": [
                 "openai-completions",
@@ -25616,7 +25684,7 @@ const docTemplate = `{
                 "APIOllama"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_models_api.ReasoningEffort": {
+        "github_com_Usir233_GENYEE_internal_models_api.ReasoningEffort": {
             "type": "string",
             "enum": [
                 "off",
@@ -25639,13 +25707,13 @@ const docTemplate = `{
                 "ReasoningMax"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_models_api.ThinkingLevelMap": {
+        "github_com_Usir233_GENYEE_internal_models_api.ThinkingLevelMap": {
             "type": "object",
             "additionalProperties": {
                 "type": "string"
             }
         },
-        "github_com_Tencent_GENYEE_internal_models_limiter.RuntimeStat": {
+        "github_com_Usir233_GENYEE_internal_models_limiter.RuntimeStat": {
             "type": "object",
             "properties": {
                 "active": {
@@ -25670,7 +25738,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_models_providers.AuthStyle": {
+        "github_com_Usir233_GENYEE_internal_models_providers.AuthStyle": {
             "type": "string",
             "enum": [
                 "bearer",
@@ -25689,7 +25757,7 @@ const docTemplate = `{
                 "AuthSigned"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_models_providers.CredentialLabel": {
+        "github_com_Usir233_GENYEE_internal_models_providers.CredentialLabel": {
             "type": "object",
             "properties": {
                 "hint": {
@@ -25715,7 +25783,7 @@ const docTemplate = `{
                     "description": "ModelTypes restricts the override; empty means every type.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelType"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelType"
                     }
                 },
                 "placeholder": {
@@ -25733,7 +25801,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_models_providers.ExtraField": {
+        "github_com_Usir233_GENYEE_internal_models_providers.ExtraField": {
             "type": "object",
             "properties": {
                 "default": {
@@ -25755,13 +25823,13 @@ const docTemplate = `{
                     "description": "ModelTypes restricts the field to some model types; empty means all.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelType"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelType"
                     }
                 },
                 "options": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_providers.ExtraFieldOption"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_providers.ExtraFieldOption"
                     }
                 },
                 "placeholder": {
@@ -25787,7 +25855,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_models_providers.ExtraFieldOption": {
+        "github_com_Usir233_GENYEE_internal_models_providers.ExtraFieldOption": {
             "type": "object",
             "properties": {
                 "label": {
@@ -25804,13 +25872,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_models_runtime.Capabilities": {
+        "github_com_Usir233_GENYEE_internal_models_runtime.Capabilities": {
             "type": "object",
             "properties": {
                 "api": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_api.API"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_api.API"
                         }
                     ],
                     "x-agent": true
@@ -25850,13 +25918,13 @@ const docTemplate = `{
                 "thinking_levels": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_api.ReasoningEffort"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_api.ReasoningEffort"
                     },
                     "x-agent": true
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.APIKeyScopeType": {
+        "github_com_Usir233_GENYEE_internal_types.APIKeyScopeType": {
             "type": "string",
             "enum": [
                 "tenant",
@@ -25867,7 +25935,7 @@ const docTemplate = `{
                 "APIKeyScopePlatform"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.APIPrincipalMode": {
+        "github_com_Usir233_GENYEE_internal_types.APIPrincipalMode": {
             "type": "string",
             "enum": [
                 "tenant",
@@ -25880,7 +25948,7 @@ const docTemplate = `{
                 "APIPrincipalModeSignedToken"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.ASRConfig": {
+        "github_com_Usir233_GENYEE_internal_types.ASRConfig": {
             "type": "object",
             "properties": {
                 "enabled": {
@@ -25900,7 +25968,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AdminCreateUserRequest": {
+        "github_com_Usir233_GENYEE_internal_types.AdminCreateUserRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -25920,14 +25988,21 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AgentStep": {
+        "github_com_Usir233_GENYEE_internal_types.AgentStep": {
             "type": "object",
             "properties": {
+                "approvals": {
+                    "description": "Approvals is the user decision for tools in this step. It is stored with\nthe step so a reloaded transcript can show what was allowed or refused.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ToolApprovalRecord"
+                    }
+                },
                 "background_injections": {
                     "description": "BackgroundInjections are background-work messages delivered before this\nmodel response, after the step's steered messages, in delivery order.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.BackgroundInjection"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.BackgroundInjection"
                     }
                 },
                 "background_seen_ids": {
@@ -25957,7 +26032,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "reasoning_metadata": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ProviderMetadata"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ProviderMetadata"
                 },
                 "reasoning_signature": {
                     "description": "ReasoningSignature / ReasoningMetadata are the provider artifacts that\nmust accompany ReasoningContent on replay (Anthropic signatures,\nOpenAI Responses encrypted reasoning items).",
@@ -25975,7 +26050,7 @@ const docTemplate = `{
                     "description": "Tools called in this step (Act phase)",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ToolCall"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ToolCall"
                     }
                 },
                 "truncated": {
@@ -25991,7 +26066,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AgentTypeKBFilter": {
+        "github_com_Usir233_GENYEE_internal_types.AgentTypeKBFilter": {
             "type": "object",
             "properties": {
                 "all_of": {
@@ -26017,7 +26092,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AgentTypePresetConfig": {
+        "github_com_Usir233_GENYEE_internal_types.AgentTypePresetConfig": {
             "type": "object",
             "properties": {
                 "allowed_tools": {
@@ -26056,27 +26131,27 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AgentTypePresetEntry": {
+        "github_com_Usir233_GENYEE_internal_types.AgentTypePresetEntry": {
             "type": "object",
             "properties": {
                 "config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AgentTypePresetConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AgentTypePresetConfig"
                 },
                 "i18n": {
                     "type": "object",
                     "additionalProperties": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AgentTypePresetI18n"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AgentTypePresetI18n"
                     }
                 },
                 "id": {
                     "type": "string"
                 },
                 "kb_filter": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AgentTypeKBFilter"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AgentTypeKBFilter"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AgentTypePresetI18n": {
+        "github_com_Usir233_GENYEE_internal_types.AgentTypePresetI18n": {
             "type": "object",
             "properties": {
                 "description": {
@@ -26087,7 +26162,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AnswerStrategy": {
+        "github_com_Usir233_GENYEE_internal_types.AnswerStrategy": {
             "type": "string",
             "enum": [
                 "all",
@@ -26098,7 +26173,7 @@ const docTemplate = `{
                 "AnswerStrategyRandom"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.ArtifactLibraryItem": {
+        "github_com_Usir233_GENYEE_internal_types.ArtifactLibraryItem": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -26146,7 +26221,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AssistantAccessLevel": {
+        "github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel": {
             "type": "string",
             "enum": [
                 "read_only",
@@ -26159,7 +26234,7 @@ const docTemplate = `{
                 "AssistantAccessAutoWrite"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.AssistantConfig": {
+        "github_com_Usir233_GENYEE_internal_types.AssistantConfig": {
             "type": "object",
             "properties": {
                 "display_name": {
@@ -26170,13 +26245,13 @@ const docTemplate = `{
                     "description": "MaxAccessLevel is the highest level a member may pick; empty means\nAssistantAccessConfirm.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AssistantAccessLevel"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AttrInject": {
+        "github_com_Usir233_GENYEE_internal_types.AttrInject": {
             "type": "string",
             "enum": [
                 "always",
@@ -26187,7 +26262,7 @@ const docTemplate = `{
                 "AttrInjectOnDemand"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.AttrSpec": {
+        "github_com_Usir233_GENYEE_internal_types.AttrSpec": {
             "type": "object",
             "properties": {
                 "consumers": {
@@ -26205,7 +26280,7 @@ const docTemplate = `{
                     "description": "Inject says whether this attribute is always part of the describe round's\nstanding questions, or only asked when something is going to act on it.\nAn empty value means AttrInjectAlways, so attributes registered before\nthis field existed keep their behaviour.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AttrInject"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AttrInject"
                         }
                     ]
                 },
@@ -26229,7 +26304,7 @@ const docTemplate = `{
                     "description": "extent | presence",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AttrType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AttrType"
                         }
                     ]
                 },
@@ -26237,12 +26312,12 @@ const docTemplate = `{
                     "description": "ordered low-\u003ehigh for extent attrs",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AttrValue"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AttrValue"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AttrType": {
+        "github_com_Usir233_GENYEE_internal_types.AttrType": {
             "type": "string",
             "enum": [
                 "extent",
@@ -26253,7 +26328,7 @@ const docTemplate = `{
                 "AttrTypePresence"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.AttrValue": {
+        "github_com_Usir233_GENYEE_internal_types.AttrValue": {
             "type": "object",
             "properties": {
                 "description": {
@@ -26270,7 +26345,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AuditAction": {
+        "github_com_Usir233_GENYEE_internal_types.AuditAction": {
             "type": "string",
             "enum": [
                 "rbac.member_added",
@@ -26401,13 +26476,13 @@ const docTemplate = `{
                 "AuditActionFAQImportFailed"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.AuditLog": {
+        "github_com_Usir233_GENYEE_internal_types.AuditLog": {
             "type": "object",
             "properties": {
                 "action": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AuditAction"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AuditAction"
                         }
                     ],
                     "x-agent": true
@@ -26435,7 +26510,7 @@ const docTemplate = `{
                 "outcome": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AuditOutcome"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AuditOutcome"
                         }
                     ],
                     "x-agent": true
@@ -26467,7 +26542,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AuditOutcome": {
+        "github_com_Usir233_GENYEE_internal_types.AuditOutcome": {
             "type": "string",
             "enum": [
                 "success",
@@ -26486,7 +26561,7 @@ const docTemplate = `{
                 "AuditOutcomeCanceled"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.AutoTagConfig": {
+        "github_com_Usir233_GENYEE_internal_types.AutoTagConfig": {
             "type": "object",
             "properties": {
                 "enabled": {
@@ -26513,14 +26588,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.Automation": {
+        "github_com_Usir233_GENYEE_internal_types.Automation": {
             "type": "object",
             "properties": {
                 "access_level": {
                     "description": "AccessLevel is how far runs may change data without asking, capped by\nthe workspace's assistant ceiling.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AssistantAccessLevel"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel"
                         }
                     ],
                     "x-agent": true
@@ -26583,7 +26658,7 @@ const docTemplate = `{
                     "x-agent-response": true
                 },
                 "limits": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationLimits"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationLimits"
                 },
                 "misfire_policy": {
                     "type": "string",
@@ -26634,7 +26709,7 @@ const docTemplate = `{
                 "trigger": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationTrigger"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationTrigger"
                         }
                     ],
                     "x-agent": true
@@ -26644,7 +26719,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AutomationLimits": {
+        "github_com_Usir233_GENYEE_internal_types.AutomationLimits": {
             "type": "object",
             "properties": {
                 "max_duration_minutes": {
@@ -26654,7 +26729,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AutomationPatch": {
+        "github_com_Usir233_GENYEE_internal_types.AutomationPatch": {
             "type": "object",
             "properties": {
                 "access_level": {
@@ -26666,7 +26741,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AssistantAccessLevel"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel"
                         }
                     ],
                     "x-agent": true
@@ -26697,7 +26772,7 @@ const docTemplate = `{
                     "x-agent-max-bytes": "32000"
                 },
                 "limits": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationLimits"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationLimits"
                 },
                 "misfire_policy": {
                     "description": "What happens to runs missed while the service was down or paused",
@@ -26745,14 +26820,14 @@ const docTemplate = `{
                     "description": "When it runs",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationTrigger"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationTrigger"
                         }
                     ],
                     "x-agent": true
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AutomationRun": {
+        "github_com_Usir233_GENYEE_internal_types.AutomationRun": {
             "type": "object",
             "properties": {
                 "answer": {
@@ -26834,7 +26909,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.AutomationTrigger": {
+        "github_com_Usir233_GENYEE_internal_types.AutomationTrigger": {
             "type": "object",
             "properties": {
                 "at": {
@@ -26859,7 +26934,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.BackgroundInjection": {
+        "github_com_Usir233_GENYEE_internal_types.BackgroundInjection": {
             "type": "object",
             "properties": {
                 "ack_ids": {
@@ -26873,7 +26948,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.COSEngineConfig": {
+        "github_com_Usir233_GENYEE_internal_types.COSEngineConfig": {
             "type": "object",
             "properties": {
                 "app_id": {
@@ -26902,7 +26977,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ChatHistoryConfig": {
+        "github_com_Usir233_GENYEE_internal_types.ChatHistoryConfig": {
             "type": "object",
             "properties": {
                 "embedding_model_id": {
@@ -26919,7 +26994,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ChatHistoryKBStats": {
+        "github_com_Usir233_GENYEE_internal_types.ChatHistoryKBStats": {
             "type": "object",
             "properties": {
                 "embedding_model_id": {
@@ -26951,7 +27026,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ChatManage": {
+        "github_com_Usir233_GENYEE_internal_types.ChatManage": {
             "type": "object",
             "properties": {
                 "chat_model_id": {
@@ -26986,16 +27061,16 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "fallback_strategy": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FallbackStrategy"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FallbackStrategy"
                 },
                 "history": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.History"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.History"
                     }
                 },
                 "intent": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.QueryIntent"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.QueryIntent"
                 },
                 "keyword_threshold": {
                     "type": "number"
@@ -27046,7 +27121,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "summary_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SummaryConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SummaryConfig"
                 },
                 "user_id": {
                     "type": "string"
@@ -27059,7 +27134,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.Chunk": {
+        "github_com_Usir233_GENYEE_internal_types.Chunk": {
             "type": "object",
             "properties": {
                 "chunk_index": {
@@ -27071,7 +27146,7 @@ const docTemplate = `{
                     "description": "Chunk 类型，用于区分不同类型的 Chunk",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChunkType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkType"
                         }
                     ],
                     "x-agent": true
@@ -27111,7 +27186,7 @@ const docTemplate = `{
                     "description": "Flags 存储多个布尔状态的位标志（如推荐状态等）\n默认值为 ChunkFlagRecommended (1)，表示默认可推荐",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChunkFlags"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkFlags"
                         }
                     ]
                 },
@@ -27186,7 +27261,7 @@ const docTemplate = `{
                     "description": "SourceLocators point back into the original file (page and region,\nslide, sheet rows, ...) so citations can open the file at this chunk.\nEmpty when the parser reported no positions.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SourceLocator"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SourceLocator"
                     }
                 },
                 "start_at": {
@@ -27212,7 +27287,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ChunkFlags": {
+        "github_com_Usir233_GENYEE_internal_types.ChunkFlags": {
             "type": "integer",
             "enum": [
                 1
@@ -27221,7 +27296,7 @@ const docTemplate = `{
                 "ChunkFlagRecommended"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.ChunkRevision": {
+        "github_com_Usir233_GENYEE_internal_types.ChunkRevision": {
             "type": "object",
             "properties": {
                 "chunk_id": {
@@ -27268,7 +27343,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ChunkType": {
+        "github_com_Usir233_GENYEE_internal_types.ChunkType": {
             "type": "string",
             "enum": [
                 "text",
@@ -27299,7 +27374,7 @@ const docTemplate = `{
                 "ChunkTypeWikiPage"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.ChunkingConfig": {
+        "github_com_Usir233_GENYEE_internal_types.ChunkingConfig": {
             "type": "object",
             "properties": {
                 "child_chunk_size": {
@@ -27348,7 +27423,7 @@ const docTemplate = `{
                     "description": "ParserEngineRules configures which parser engine to use for each file type.\nWhen empty, DefaultParserEngine is used (builtin/simple routing, except\ntypes that only a specific engine can parse: ppt/pptx fall back to\nmarkitdown). A linked anydoc binding is preferred for every type it\nconverts.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ParserEngineRule"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ParserEngineRule"
                     },
                     "x-agent": true,
                     "x-agent-response": true
@@ -27390,7 +27465,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ConnectionConfig": {
+        "github_com_Usir233_GENYEE_internal_types.ConnectionConfig": {
             "type": "object",
             "properties": {
                 "addr": {
@@ -27447,7 +27522,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ContextCompressionStrategy": {
+        "github_com_Usir233_GENYEE_internal_types.ContextCompressionStrategy": {
             "type": "string",
             "enum": [
                 "sliding_window",
@@ -27458,14 +27533,14 @@ const docTemplate = `{
                 "ContextCompressionSmart"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.ContextConfig": {
+        "github_com_Usir233_GENYEE_internal_types.ContextConfig": {
             "type": "object",
             "properties": {
                 "compression_strategy": {
                     "description": "Compression strategy: \"sliding_window\" or \"smart\"",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ContextCompressionStrategy"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ContextCompressionStrategy"
                         }
                     ]
                 },
@@ -27483,7 +27558,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.CreateOrganizationRequest": {
+        "github_com_Usir233_GENYEE_internal_types.CreateOrganizationRequest": {
             "type": "object",
             "required": [
                 "name"
@@ -27513,15 +27588,15 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.CredentialsConfig": {
+        "github_com_Usir233_GENYEE_internal_types.CredentialsConfig": {
             "type": "object",
             "properties": {
                 "weknoracloud": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GENYEECloudCredentials"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WeKnoraCloudCredentials"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.CubeEgressRule": {
+        "github_com_Usir233_GENYEE_internal_types.CubeEgressRule": {
             "type": "object",
             "properties": {
                 "audit": {
@@ -27539,7 +27614,7 @@ const docTemplate = `{
                     "description": "Inject adds credential headers on allowed HTTPS requests.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CubeHeaderInject"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CubeHeaderInject"
                     }
                 },
                 "methods": {
@@ -27562,7 +27637,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.CubeHeaderInject": {
+        "github_com_Usir233_GENYEE_internal_types.CubeHeaderInject": {
             "type": "object",
             "properties": {
                 "format": {
@@ -27576,7 +27651,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.CubeSandboxConfig": {
+        "github_com_Usir233_GENYEE_internal_types.CubeSandboxConfig": {
             "type": "object",
             "properties": {
                 "api_key": {
@@ -27611,7 +27686,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.CustomAgent": {
+        "github_com_Usir233_GENYEE_internal_types.CustomAgent": {
             "type": "object",
             "properties": {
                 "avatar": {
@@ -27622,7 +27697,7 @@ const docTemplate = `{
                     "description": "Agent configuration",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CustomAgentConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CustomAgentConfig"
                         }
                     ],
                     "x-agent": true
@@ -27673,14 +27748,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.CustomAgentConfig": {
+        "github_com_Usir233_GENYEE_internal_types.CustomAgentConfig": {
             "type": "object",
             "properties": {
                 "access_level": {
-                    "description": "AccessLevel is the highest access level a run of this agent gets: how\nfar it may change data (MCP tools, Wiki writes) without asking. Empty\nmeans auto_write. The GENYEE assistant uses the workspace's assistant\nceiling instead.",
+                    "description": "AccessLevel is the highest access level a run of this agent gets: how\nfar it may change data (MCP tools, Wiki writes) without asking. Empty\nmeans auto_write. The WeKnora assistant uses the workspace's assistant\nceiling instead.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AssistantAccessLevel"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel"
                         }
                     ]
                 },
@@ -27727,7 +27802,7 @@ const docTemplate = `{
                     "description": "===== Chat Attachment Parsing Settings =====\nChatParserEngineRules selects parser engines for session-scoped chat\nattachments by file type. Takes precedence over the tenant-level\nParserEngineConfig.ChatParserEngineRules; an explicit per-request\nparser_engine still overrides both.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ParserEngineRule"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ParserEngineRule"
                     }
                 },
                 "citation_enabled": {
@@ -27872,7 +27947,7 @@ const docTemplate = `{
                     "description": "===== Conversation Question Suggestions =====\nQuestionSuggestions owns both the static/knowledge-backed prompts shown\nbefore the first user turn and the contextual follow-up questions shown\nafter a completed assistant answer.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.QuestionSuggestionConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.QuestionSuggestionConfig"
                         }
                     ]
                 },
@@ -27990,7 +28065,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.DataSource": {
+        "github_com_Usir233_GENYEE_internal_types.DataSource": {
             "type": "object",
             "properties": {
                 "config": {
@@ -28041,7 +28116,7 @@ const docTemplate = `{
                     "description": "Latest sync log (not stored in DB, populated on query)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SyncLog"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SyncLog"
                         }
                     ]
                 },
@@ -28087,7 +28162,36 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.DockerSandboxConfig": {
+        "github_com_Usir233_GENYEE_internal_types.DefaultSettings": {
+            "type": "object",
+            "properties": {
+                "asr_model_id": {
+                    "description": "ASRModelID is the default ASR model.",
+                    "type": "string"
+                },
+                "chat_model_id": {
+                    "description": "ChatModelID is the default KnowledgeQA model.",
+                    "type": "string"
+                },
+                "embedding_model_id": {
+                    "description": "EmbeddingModelID is the default Embedding model.",
+                    "type": "string"
+                },
+                "rerank_model_id": {
+                    "description": "RerankModelID is the default Rerank model.",
+                    "type": "string"
+                },
+                "utility_model_id": {
+                    "description": "UtilityModelID is the KnowledgeQA model for short generation tasks\nsuch as writing MCP usage instructions. Empty follows the chat default.",
+                    "type": "string"
+                },
+                "vlm_model_id": {
+                    "description": "VLMModelID is the default VLLM or vision-capable KnowledgeQA model.",
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Usir233_GENYEE_internal_types.DockerSandboxConfig": {
             "type": "object",
             "properties": {
                 "cpu_limit": {
@@ -28126,12 +28230,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tls_cert_path": {
-                    "description": "TLSCertPath is a directory on the GENYEE host containing ca.pem,\ncert.pem and key.pem. Required when Host is a TCP endpoint.",
+                    "description": "TLSCertPath is a directory on the WeKnora host containing ca.pem,\ncert.pem and key.pem. Required when Host is a TCP endpoint.",
                     "type": "string"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.E2BHostRule": {
+        "github_com_Usir233_GENYEE_internal_types.E2BHostRule": {
             "type": "object",
             "properties": {
                 "headers": {
@@ -28146,7 +28250,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.E2BSandboxConfig": {
+        "github_com_Usir233_GENYEE_internal_types.E2BSandboxConfig": {
             "type": "object",
             "properties": {
                 "api_key": {
@@ -28164,7 +28268,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "proxy_url": {
-                    "description": "ProxyURL is the data-plane gateway that fronts envd. E2B Cloud resolves\n\"\u003cport\u003e-\u003csandboxID\u003e.\u003csandbox_domain\u003e\" through public DNS and TLS, so it\nneeds no value here. Self-hosted E2B-compatible control planes usually\nserve every sandbox from one gateway address and expect the sandbox\nauthority in the Host header; setting this makes GENYEE dial the\ngateway directly instead of requiring wildcard DNS and a certificate\nfor the sandbox domain. An \"http://\" gateway also downgrades the\ndata-plane scheme, which the E2B SDK otherwise pins to https.",
+                    "description": "ProxyURL is the data-plane gateway that fronts envd. E2B Cloud resolves\n\"\u003cport\u003e-\u003csandboxID\u003e.\u003csandbox_domain\u003e\" through public DNS and TLS, so it\nneeds no value here. Self-hosted E2B-compatible control planes usually\nserve every sandbox from one gateway address and expect the sandbox\nauthority in the Host header; setting this makes WeKnora dial the\ngateway directly instead of requiring wildcard DNS and a certificate\nfor the sandbox domain. An \"http://\" gateway also downgrades the\ndata-plane scheme, which the E2B SDK otherwise pins to https.",
                     "type": "string"
                 },
                 "sandbox_domain": {
@@ -28175,7 +28279,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.EmbeddingParameters": {
+        "github_com_Usir233_GENYEE_internal_types.EmbeddingParameters": {
             "type": "object",
             "properties": {
                 "dimension": {
@@ -28189,14 +28293,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.EvaluationDetail": {
+        "github_com_Usir233_GENYEE_internal_types.EvaluationDetail": {
             "type": "object",
             "properties": {
                 "metric": {
                     "description": "Evaluation metrics",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MetricResult"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MetricResult"
                         }
                     ]
                 },
@@ -28204,7 +28308,7 @@ const docTemplate = `{
                     "description": "Evaluation parameters",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChatManage"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChatManage"
                         }
                     ]
                 },
@@ -28212,13 +28316,13 @@ const docTemplate = `{
                     "description": "Evaluation task info",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.EvaluationTask"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.EvaluationTask"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.EvaluationStatue": {
+        "github_com_Usir233_GENYEE_internal_types.EvaluationStatue": {
             "type": "integer",
             "enum": [
                 0,
@@ -28245,7 +28349,7 @@ const docTemplate = `{
                 "EvaluationStatueFailed"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.EvaluationTask": {
+        "github_com_Usir233_GENYEE_internal_types.EvaluationTask": {
             "type": "object",
             "properties": {
                 "dataset_id": {
@@ -28272,7 +28376,7 @@ const docTemplate = `{
                     "description": "Current task status",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.EvaluationStatue"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.EvaluationStatue"
                         }
                     ]
                 },
@@ -28286,7 +28390,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ExtractConfig": {
+        "github_com_Usir233_GENYEE_internal_types.ExtractConfig": {
             "type": "object",
             "properties": {
                 "custom_instructions": {
@@ -28304,13 +28408,13 @@ const docTemplate = `{
                 "nodes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphNode"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphNode"
                     }
                 },
                 "relations": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphRelation"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphRelation"
                     }
                 },
                 "tags": {
@@ -28331,7 +28435,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQBatchUpsertPayload": {
+        "github_com_Usir233_GENYEE_internal_types.FAQBatchUpsertPayload": {
             "type": "object",
             "required": [
                 "entries"
@@ -28344,7 +28448,7 @@ const docTemplate = `{
                 "entries": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntryPayload"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntryPayload"
                     }
                 },
                 "knowledge_id": {
@@ -28363,7 +28467,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQConfig": {
+        "github_com_Usir233_GENYEE_internal_types.FAQConfig": {
             "type": "object",
             "properties": {
                 "index_mode": {
@@ -28374,7 +28478,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQIndexMode"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQIndexMode"
                         }
                     ],
                     "x-agent": "faq_index_mode"
@@ -28387,20 +28491,20 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQQuestionIndexMode"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQQuestionIndexMode"
                         }
                     ],
                     "x-agent": "faq_question_index_mode"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQEntry": {
+        "github_com_Usir233_GENYEE_internal_types.FAQEntry": {
             "type": "object",
             "properties": {
                 "answer_strategy": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AnswerStrategy"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AnswerStrategy"
                         }
                     ],
                     "x-agent": true
@@ -28417,7 +28521,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "chunk_type": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChunkType"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkType"
                 },
                 "created_at": {
                     "type": "string"
@@ -28427,7 +28531,7 @@ const docTemplate = `{
                     "x-agent": "entry_id"
                 },
                 "index_mode": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQIndexMode"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQIndexMode"
                 },
                 "is_enabled": {
                     "type": "boolean",
@@ -28444,7 +28548,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "match_type": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MatchType"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MatchType"
                 },
                 "matched_question": {
                     "description": "MatchedQuestion is the actual question text that was matched in FAQ search\nCould be the standard question or one of the similar questions",
@@ -28488,21 +28592,21 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQEntryFieldsBatchUpdate": {
+        "github_com_Usir233_GENYEE_internal_types.FAQEntryFieldsBatchUpdate": {
             "type": "object",
             "properties": {
                 "by_id": {
                     "description": "ByID 按条目ID更新，key为条目ID (seq_id)",
                     "type": "object",
                     "additionalProperties": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntryFieldsUpdate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntryFieldsUpdate"
                     }
                 },
                 "by_tag": {
                     "description": "ByTag 按Tag批量更新，key为TagID (seq_id)",
                     "type": "object",
                     "additionalProperties": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntryFieldsUpdate"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntryFieldsUpdate"
                     }
                 },
                 "exclude_ids": {
@@ -28514,7 +28618,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQEntryFieldsUpdate": {
+        "github_com_Usir233_GENYEE_internal_types.FAQEntryFieldsUpdate": {
             "type": "object",
             "properties": {
                 "is_enabled": {
@@ -28528,7 +28632,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQEntryPayload": {
+        "github_com_Usir233_GENYEE_internal_types.FAQEntryPayload": {
             "type": "object",
             "required": [
                 "standard_question"
@@ -28542,7 +28646,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AnswerStrategy"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AnswerStrategy"
                         }
                     ],
                     "x-agent": true,
@@ -28609,7 +28713,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQFailedEntry": {
+        "github_com_Usir233_GENYEE_internal_types.FAQFailedEntry": {
             "type": "object",
             "properties": {
                 "answer_all": {
@@ -28681,7 +28785,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQImportProgress": {
+        "github_com_Usir233_GENYEE_internal_types.FAQImportProgress": {
             "type": "object",
             "properties": {
                 "added_count": {
@@ -28712,7 +28816,7 @@ const docTemplate = `{
                     "description": "失败条目详情（少量时直接返回）",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQFailedEntry"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQFailedEntry"
                     }
                 },
                 "failed_entries_url": {
@@ -28739,7 +28843,7 @@ const docTemplate = `{
                     "description": "合并详情",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQMergeDetail"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQMergeDetail"
                     }
                 },
                 "merge_entry_indices": {
@@ -28781,7 +28885,7 @@ const docTemplate = `{
                     "description": "Task status",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQImportTaskStatus"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQImportTaskStatus"
                         }
                     ]
                 },
@@ -28793,7 +28897,7 @@ const docTemplate = `{
                     "description": "成功条目简单信息（少量时直接返回）",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQSuccessEntry"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQSuccessEntry"
                     }
                 },
                 "task_id": {
@@ -28817,7 +28921,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQImportTaskStatus": {
+        "github_com_Usir233_GENYEE_internal_types.FAQImportTaskStatus": {
             "type": "string",
             "enum": [
                 "pending",
@@ -28832,7 +28936,7 @@ const docTemplate = `{
                 "FAQImportStatusFailed"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQIndexMode": {
+        "github_com_Usir233_GENYEE_internal_types.FAQIndexMode": {
             "type": "string",
             "enum": [
                 "question_only",
@@ -28843,7 +28947,7 @@ const docTemplate = `{
                 "FAQIndexModeQuestionAnswer"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQMergeDetail": {
+        "github_com_Usir233_GENYEE_internal_types.FAQMergeDetail": {
             "type": "object",
             "properties": {
                 "answer_changed": {
@@ -28868,7 +28972,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQQuestionIndexMode": {
+        "github_com_Usir233_GENYEE_internal_types.FAQQuestionIndexMode": {
             "type": "string",
             "enum": [
                 "combined",
@@ -28879,7 +28983,7 @@ const docTemplate = `{
                 "FAQQuestionIndexModeSeparate"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQSearchRequest": {
+        "github_com_Usir233_GENYEE_internal_types.FAQSearchRequest": {
             "type": "object",
             "required": [
                 "query_text"
@@ -28914,7 +29018,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FAQSuccessEntry": {
+        "github_com_Usir233_GENYEE_internal_types.FAQSuccessEntry": {
             "type": "object",
             "properties": {
                 "index": {
@@ -28939,7 +29043,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.FallbackStrategy": {
+        "github_com_Usir233_GENYEE_internal_types.FallbackStrategy": {
             "type": "string",
             "enum": [
                 "fixed",
@@ -28958,7 +29062,7 @@ const docTemplate = `{
                 "FallbackStrategyModel"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.FollowUpSuggestionConfig": {
+        "github_com_Usir233_GENYEE_internal_types.FollowUpSuggestionConfig": {
             "type": "object",
             "properties": {
                 "additional_instruction": {
@@ -28999,7 +29103,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GalleryUserPrefs": {
+        "github_com_Usir233_GENYEE_internal_types.GalleryUserPrefs": {
             "type": "object",
             "properties": {
                 "mode": {
@@ -29015,7 +29119,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GenerationMetrics": {
+        "github_com_Usir233_GENYEE_internal_types.GenerationMetrics": {
             "type": "object",
             "properties": {
                 "bleu1": {
@@ -29044,7 +29148,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GraphNode": {
+        "github_com_Usir233_GENYEE_internal_types.GraphNode": {
             "type": "object",
             "properties": {
                 "attributes": {
@@ -29064,7 +29168,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GraphRelation": {
+        "github_com_Usir233_GENYEE_internal_types.GraphRelation": {
             "type": "object",
             "properties": {
                 "node1": {
@@ -29078,7 +29182,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GraphSearchEntity": {
+        "github_com_Usir233_GENYEE_internal_types.GraphSearchEntity": {
             "type": "object",
             "properties": {
                 "attributes": {
@@ -29104,7 +29208,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GraphSearchMeta": {
+        "github_com_Usir233_GENYEE_internal_types.GraphSearchMeta": {
             "type": "object",
             "properties": {
                 "max_nodes": {
@@ -29127,7 +29231,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GraphSearchRelation": {
+        "github_com_Usir233_GENYEE_internal_types.GraphSearchRelation": {
             "type": "object",
             "properties": {
                 "id": {
@@ -29150,7 +29254,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GraphSearchRequest": {
+        "github_com_Usir233_GENYEE_internal_types.GraphSearchRequest": {
             "type": "object",
             "required": [
                 "query"
@@ -29181,20 +29285,20 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GraphSearchResult": {
+        "github_com_Usir233_GENYEE_internal_types.GraphSearchResult": {
             "type": "object",
             "properties": {
                 "entities": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphSearchEntity"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphSearchEntity"
                     }
                 },
                 "knowledge_base_id": {
                     "type": "string"
                 },
                 "meta": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphSearchMeta"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphSearchMeta"
                 },
                 "query": {
                     "type": "string"
@@ -29202,18 +29306,18 @@ const docTemplate = `{
                 "relationships": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphSearchRelation"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphSearchRelation"
                     }
                 },
                 "source_chunks": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphSearchSourceChunk"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphSearchSourceChunk"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GraphSearchSourceChunk": {
+        "github_com_Usir233_GENYEE_internal_types.GraphSearchSourceChunk": {
             "type": "object",
             "properties": {
                 "chunk_index": {
@@ -29245,7 +29349,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.History": {
+        "github_com_Usir233_GENYEE_internal_types.History": {
             "type": "object",
             "properties": {
                 "answer": {
@@ -29260,7 +29364,7 @@ const docTemplate = `{
                     "description": "Knowledge references used in the answer",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SearchResult"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SearchResult"
                     }
                 },
                 "query": {
@@ -29269,15 +29373,50 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ImageActionsConfig": {
+        "github_com_Usir233_GENYEE_internal_types.HostApprovalSnapshot": {
             "type": "object",
             "properties": {
-                "ocr": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImageOCRAction"
+                "allow_session": {
+                    "type": "boolean"
+                },
+                "command": {
+                    "type": "string"
+                },
+                "cwd": {
+                    "type": "string"
+                },
+                "denial_snippet": {
+                    "type": "string"
+                },
+                "first_attempt_ran": {
+                    "type": "boolean"
+                },
+                "grant_access": {
+                    "type": "string"
+                },
+                "grant_path": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "session_rules": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ImageAsset": {
+        "github_com_Usir233_GENYEE_internal_types.ImageActionsConfig": {
+            "type": "object",
+            "properties": {
+                "ocr": {
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImageOCRAction"
+                }
+            }
+        },
+        "github_com_Usir233_GENYEE_internal_types.ImageAsset": {
             "type": "object",
             "properties": {
                 "attrs": {
@@ -29339,7 +29478,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ImageAttrCondition": {
+        "github_com_Usir233_GENYEE_internal_types.ImageAttrCondition": {
             "type": "object",
             "properties": {
                 "is": {
@@ -29350,19 +29489,19 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ImageOCRAction": {
+        "github_com_Usir233_GENYEE_internal_types.ImageOCRAction": {
             "type": "object",
             "properties": {
                 "on": {
                     "description": "On is the list of attribute conditions that enable OCR. Matching any one\nturns OCR on.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImageAttrCondition"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImageAttrCondition"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ImagePipelineID": {
+        "github_com_Usir233_GENYEE_internal_types.ImagePipelineID": {
             "type": "string",
             "enum": [
                 "smartocr",
@@ -29377,14 +29516,14 @@ const docTemplate = `{
                 "ImagePipelineLegacyCaptionOCR"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.ImageProcessingConfig": {
+        "github_com_Usir233_GENYEE_internal_types.ImageProcessingConfig": {
             "type": "object",
             "properties": {
                 "image_actions": {
                     "description": "ImageActions overrides the built-in attribute→work table (see\nDefaultImageActions). A nil value keeps the conservative default: run OCR\nfor block text and data visuals. What to do about an image whose\nattributes were NOT observed is deliberately not part of this table — it\nis a scheduling decision, so it belongs to the pipeline that observes\n(` + "`" + `ocr_on_unobserved` + "`" + ` in that pipeline's slot).",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImageActionsConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImageActionsConfig"
                         }
                     ]
                 },
@@ -29422,7 +29561,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.IndexConfig": {
+        "github_com_Usir233_GENYEE_internal_types.IndexConfig": {
             "type": "object",
             "properties": {
                 "buckets_num": {
@@ -29491,7 +29630,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.IndexingStrategy": {
+        "github_com_Usir233_GENYEE_internal_types.IndexingStrategy": {
             "type": "object",
             "properties": {
                 "graph_enabled": {
@@ -29516,7 +29655,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.InviteMemberRequest": {
+        "github_com_Usir233_GENYEE_internal_types.InviteMemberRequest": {
             "type": "object",
             "required": [
                 "role"
@@ -29530,7 +29669,7 @@ const docTemplate = `{
                     "description": "Role to assign: admin/editor/viewer",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                         }
                     ]
                 },
@@ -29544,11 +29683,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.JSONMap": {
+        "github_com_Usir233_GENYEE_internal_types.JSONMap": {
             "type": "object",
             "additionalProperties": {}
         },
-        "github_com_Tencent_GENYEE_internal_types.JoinByOrganizationIDRequest": {
+        "github_com_Usir233_GENYEE_internal_types.JoinByOrganizationIDRequest": {
             "type": "object",
             "required": [
                 "organization_id"
@@ -29566,13 +29705,13 @@ const docTemplate = `{
                     "description": "Optional: requested role (admin/editor/viewer); default viewer",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.JoinOrganizationRequest": {
+        "github_com_Usir233_GENYEE_internal_types.JoinOrganizationRequest": {
             "type": "object",
             "required": [
                 "invite_code"
@@ -29585,7 +29724,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.JoinRequestResponse": {
+        "github_com_Usir233_GENYEE_internal_types.JoinRequestResponse": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -29626,7 +29765,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.JoinRequestStatus": {
+        "github_com_Usir233_GENYEE_internal_types.JoinRequestStatus": {
             "type": "string",
             "enum": [
                 "pending",
@@ -29639,7 +29778,7 @@ const docTemplate = `{
                 "JoinRequestStatusRejected"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.JoinRequestType": {
+        "github_com_Usir233_GENYEE_internal_types.JoinRequestType": {
             "type": "string",
             "enum": [
                 "join",
@@ -29650,7 +29789,7 @@ const docTemplate = `{
                 "JoinRequestTypeUpgrade"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.KBCapabilities": {
+        "github_com_Usir233_GENYEE_internal_types.KBCapabilities": {
             "type": "object",
             "properties": {
                 "faq": {
@@ -29675,7 +29814,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KBCloneProgress": {
+        "github_com_Usir233_GENYEE_internal_types.KBCloneProgress": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -29709,7 +29848,7 @@ const docTemplate = `{
                 "status": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KBCloneTaskStatus"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KBCloneTaskStatus"
                         }
                     ],
                     "x-agent": true
@@ -29733,7 +29872,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KBCloneTaskStatus": {
+        "github_com_Usir233_GENYEE_internal_types.KBCloneTaskStatus": {
             "type": "string",
             "enum": [
                 "pending",
@@ -29748,7 +29887,7 @@ const docTemplate = `{
                 "KBCloneStatusFailed"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.KS3EngineConfig": {
+        "github_com_Usir233_GENYEE_internal_types.KS3EngineConfig": {
             "type": "object",
             "properties": {
                 "access_key": {
@@ -29771,7 +29910,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.Knowledge": {
+        "github_com_Usir233_GENYEE_internal_types.Knowledge": {
             "type": "object",
             "properties": {
                 "channel": {
@@ -29888,7 +30027,7 @@ const docTemplate = `{
                     "description": "Profile is the structured companion of Description: a one-line gist,\ntopic keywords, a document type and one typical question. It is produced\nby the same model call as the summary and feeds the knowledge-base\nlevel description aggregation. nil when no summary has been generated.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeProfile"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeProfile"
                         }
                     ]
                 },
@@ -29915,7 +30054,7 @@ const docTemplate = `{
                     "description": "Tags holds the tags associated with this knowledge (populated on query, not persisted directly).",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeTag"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeTag"
                     },
                     "x-agent": true
                 },
@@ -29940,7 +30079,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeBase": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeBase": {
             "type": "object",
             "required": [
                 "name"
@@ -29950,7 +30089,7 @@ const docTemplate = `{
                     "description": "ASR config (Automatic Speech Recognition)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ASRConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ASRConfig"
                         }
                     ],
                     "x-agent": true,
@@ -29960,7 +30099,7 @@ const docTemplate = `{
                     "description": "AutoTagConfig controls asynchronous association of existing tags after parsing.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutoTagConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutoTagConfig"
                         }
                     ],
                     "x-agent": true,
@@ -29976,7 +30115,7 @@ const docTemplate = `{
                     "description": "Chunking configuration",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChunkingConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkingConfig"
                         }
                     ],
                     "x-agent": true,
@@ -30016,7 +30155,7 @@ const docTemplate = `{
                     "description": "Extract config",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ExtractConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ExtractConfig"
                         }
                     ],
                     "x-agent": true,
@@ -30026,7 +30165,7 @@ const docTemplate = `{
                     "description": "FAQConfig stores FAQ specific configuration such as indexing strategy",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQConfig"
                         }
                     ],
                     "x-agent": true,
@@ -30036,7 +30175,7 @@ const docTemplate = `{
                     "description": "GeneratedProfile is the machine-generated description: a gist, merged\ntopics, typical questions and the aggregate snapshot they came from. It\nnever overwrites the user-authored Description; both are shown to agents.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseProfile"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseProfile"
                         }
                     ]
                 },
@@ -30050,7 +30189,7 @@ const docTemplate = `{
                     "description": "Image processing configuration",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImageProcessingConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImageProcessingConfig"
                         }
                     ],
                     "x-agent": true,
@@ -30060,7 +30199,7 @@ const docTemplate = `{
                     "description": "IndexingStrategy controls which indexing pipelines are active for this knowledge base.\nPipelines: vector search, keyword search, wiki generation, knowledge graph extraction.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.IndexingStrategy"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.IndexingStrategy"
                         }
                     ],
                     "x-agent": true,
@@ -30106,7 +30245,7 @@ const docTemplate = `{
                     "description": "ProfileConfig controls automatic generation of the knowledge-base\ndescription from per-document profiles (document knowledge bases only).",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseProfileConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseProfileConfig"
                         }
                     ],
                     "x-agent": true,
@@ -30116,7 +30255,7 @@ const docTemplate = `{
                     "description": "QuestionGenerationConfig stores question generation configuration for document knowledge bases",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.QuestionGenerationConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.QuestionGenerationConfig"
                         }
                     ],
                     "x-agent": true,
@@ -30135,7 +30274,7 @@ const docTemplate = `{
                     "description": "Deprecated: legacy COS config column. Kept for backward compatibility with old data.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageConfig"
                         }
                     ]
                 },
@@ -30143,7 +30282,7 @@ const docTemplate = `{
                     "description": "Storage provider config (new): only stores provider selection; credentials from workspace StorageEngineConfig",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageProviderConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageProviderConfig"
                         }
                     ]
                 },
@@ -30181,7 +30320,7 @@ const docTemplate = `{
                     "description": "VLM config",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VLMConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VLMConfig"
                         }
                     ],
                     "x-agent": true,
@@ -30191,7 +30330,7 @@ const docTemplate = `{
                     "description": "WikiConfig stores wiki-specific configuration (only for wiki type knowledge bases)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiConfig"
                         }
                     ],
                     "x-agent": true,
@@ -30199,14 +30338,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeBaseConfig": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeBaseConfig": {
             "type": "object",
             "properties": {
                 "asr_config": {
                     "description": "ASRConfig replaces speech-recognition settings when set. nil means no change.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ASRConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ASRConfig"
                         }
                     ]
                 },
@@ -30214,7 +30353,7 @@ const docTemplate = `{
                     "description": "AutoTagConfig controls optional automatic association of existing KB tags.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutoTagConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutoTagConfig"
                         }
                     ]
                 },
@@ -30222,7 +30361,7 @@ const docTemplate = `{
                     "description": "Chunking configuration",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChunkingConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkingConfig"
                         }
                     ]
                 },
@@ -30234,7 +30373,7 @@ const docTemplate = `{
                     "description": "ExtractConfig replaces graph extraction settings when set. nil means no change.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ExtractConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ExtractConfig"
                         }
                     ]
                 },
@@ -30242,7 +30381,7 @@ const docTemplate = `{
                     "description": "FAQ configuration (only for FAQ type knowledge bases)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQConfig"
                         }
                     ]
                 },
@@ -30250,7 +30389,7 @@ const docTemplate = `{
                     "description": "Image processing configuration.\n\nnil means \"no change\" when updating, the same contract IndexingStrategy\nuses. A request that does not mention this field must leave the image\nsettings alone: the attribute-observation switch and the attribute policy\nare things a knowledge base accumulates, and a client that predates them\nwould otherwise reset the lot on any save. Sending an object — empty\nincluded — replaces the whole configuration.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImageProcessingConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImageProcessingConfig"
                         }
                     ]
                 },
@@ -30258,7 +30397,7 @@ const docTemplate = `{
                     "description": "IndexingStrategy controls which indexing pipelines are active.\nnil means \"no change\" when updating (preserves existing strategy).",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.IndexingStrategy"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.IndexingStrategy"
                         }
                     ]
                 },
@@ -30266,7 +30405,7 @@ const docTemplate = `{
                     "description": "ProfileConfig controls optional automatic knowledge-base description\ngeneration. nil means \"no change\" when updating.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseProfileConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseProfileConfig"
                         }
                     ]
                 },
@@ -30274,7 +30413,7 @@ const docTemplate = `{
                     "description": "QuestionGenerationConfig replaces generated-question settings when set. nil means no change.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.QuestionGenerationConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.QuestionGenerationConfig"
                         }
                     ]
                 },
@@ -30290,13 +30429,13 @@ const docTemplate = `{
                     "description": "Wiki configuration (only for wiki-enabled knowledge bases)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiConfig"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeBaseProfile": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeBaseProfile": {
             "type": "object",
             "properties": {
                 "aggregate_hash": {
@@ -30326,7 +30465,7 @@ const docTemplate = `{
                     "description": "Stats is the aggregate snapshot the text was generated from.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseProfileStats"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseProfileStats"
                         }
                     ]
                 },
@@ -30353,7 +30492,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeBaseProfileConfig": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeBaseProfileConfig": {
             "type": "object",
             "properties": {
                 "custom_instructions": {
@@ -30375,14 +30514,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeBaseProfileStats": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeBaseProfileStats": {
             "type": "object",
             "properties": {
                 "doc_types": {
                     "description": "DocTypes counts documents per model-assigned document type.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.NamedCount"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.NamedCount"
                     }
                 },
                 "document_count": {
@@ -30397,7 +30536,7 @@ const docTemplate = `{
                     "description": "FileTypes counts documents per file extension.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.NamedCount"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.NamedCount"
                     }
                 },
                 "folders": {
@@ -30418,19 +30557,19 @@ const docTemplate = `{
                     "description": "RawTopics counts documents per normalized topic keyword before merging.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.NamedCount"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.NamedCount"
                     }
                 },
                 "tags": {
                     "description": "Tags counts documents per knowledge-base tag.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.NamedCount"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.NamedCount"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeBaseShare": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeBaseShare": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -30453,7 +30592,7 @@ const docTemplate = `{
                     "description": "Associations (not stored in database)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBase"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBase"
                         }
                     ]
                 },
@@ -30462,7 +30601,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "organization": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Organization"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Organization"
                 },
                 "organization_id": {
                     "description": "Organization ID receiving the share",
@@ -30472,7 +30611,7 @@ const docTemplate = `{
                     "description": "Permission level (admin/editor/viewer)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                         }
                     ]
                 },
@@ -30490,7 +30629,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeBaseShareResponse": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeBaseShareResponse": {
             "type": "object",
             "properties": {
                 "chunk_count": {
@@ -30546,14 +30685,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeFolderNode": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeFolderNode": {
             "type": "object",
             "properties": {
                 "children": {
                     "description": "Children are the direct sub-folders, sorted by name.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeFolderNode"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeFolderNode"
                     }
                 },
                 "document_count": {
@@ -30578,14 +30717,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeFolderTree": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeFolderTree": {
             "type": "object",
             "properties": {
                 "folders": {
                     "description": "Folders are the top-level folders, sorted by name.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeFolderNode"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeFolderNode"
                     }
                 },
                 "root_document_count": {
@@ -30600,7 +30739,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeMoveProgress": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeMoveProgress": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -30638,7 +30777,7 @@ const docTemplate = `{
                 "status": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KBCloneTaskStatus"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KBCloneTaskStatus"
                         }
                     ],
                     "x-agent": true
@@ -30660,20 +30799,20 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeProcessOverrides": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeProcessOverrides": {
             "type": "object",
             "properties": {
                 "asr_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ASRConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ASRConfig"
                 },
                 "chunking_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChunkingConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkingConfig"
                 },
                 "enable_multimodel": {
                     "type": "boolean"
                 },
                 "extract_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ExtractConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ExtractConfig"
                 },
                 "graph_enabled": {
                     "type": "boolean"
@@ -30682,7 +30821,7 @@ const docTemplate = `{
                     "description": "ImageActions overrides rows of the attribute-\u003ework table for this document\n(merged per action key on top of the knowledge base's table).\nnil keeps the knowledge base's setting.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImageActionsConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImageActionsConfig"
                         }
                     ]
                 },
@@ -30694,7 +30833,7 @@ const docTemplate = `{
                     "description": "ImagePipelineID overrides which image pipeline runs for this one\ndocument. nil keeps the knowledge base's resolved pipeline. When set,\nImagePipelineParams travels with it: the params of one pipeline are\nmeaningless to another, so the pair is replaced as a unit.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImagePipelineID"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImagePipelineID"
                         }
                     ]
                 },
@@ -30717,22 +30856,22 @@ const docTemplate = `{
                 "parser_engine_rules": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ParserEngineRule"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ParserEngineRule"
                     }
                 },
                 "question_generation_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.QuestionGenerationConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.QuestionGenerationConfig"
                 },
                 "summary_enabled": {
                     "description": "SummaryEnabled defaults to true when omitted for backward compatibility.",
                     "type": "boolean"
                 },
                 "vlm_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VLMConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VLMConfig"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeProfile": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeProfile": {
             "type": "object",
             "properties": {
                 "doc_type": {
@@ -30756,7 +30895,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeTag": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeTag": {
             "type": "object",
             "properties": {
                 "color": {
@@ -30800,7 +30939,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.KnowledgeTagWithStats": {
+        "github_com_Usir233_GENYEE_internal_types.KnowledgeTagWithStats": {
             "type": "object",
             "properties": {
                 "chunk_count": {
@@ -30851,13 +30990,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ListJoinRequestsResponse": {
+        "github_com_Usir233_GENYEE_internal_types.ListJoinRequestsResponse": {
             "type": "object",
             "properties": {
                 "requests": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.JoinRequestResponse"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.JoinRequestResponse"
                     }
                 },
                 "total": {
@@ -30865,13 +31004,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ListMembersResponse": {
+        "github_com_Usir233_GENYEE_internal_types.ListMembersResponse": {
             "type": "object",
             "properties": {
                 "members": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrganizationMemberResponse"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrganizationMemberResponse"
                     }
                 },
                 "total": {
@@ -30879,20 +31018,20 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ListOrganizationsResponse": {
+        "github_com_Usir233_GENYEE_internal_types.ListOrganizationsResponse": {
             "type": "object",
             "properties": {
                 "organizations": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrganizationResponse"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrganizationResponse"
                     }
                 },
                 "resource_counts": {
                     "description": "各空间内知识库/智能体数量，供列表侧栏展示",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ResourceCountsByOrgResponse"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ResourceCountsByOrgResponse"
                         }
                     ]
                 },
@@ -30901,13 +31040,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ListSharesResponse": {
+        "github_com_Usir233_GENYEE_internal_types.ListSharesResponse": {
             "type": "object",
             "properties": {
                 "shares": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseShareResponse"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseShareResponse"
                     }
                 },
                 "total": {
@@ -30915,7 +31054,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.LocalEngineConfig": {
+        "github_com_Usir233_GENYEE_internal_types.LocalEngineConfig": {
             "type": "object",
             "properties": {
                 "path_prefix": {
@@ -30923,7 +31062,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.LoginRequest": {
+        "github_com_Usir233_GENYEE_internal_types.LoginRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -30939,14 +31078,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.LoginResponse": {
+        "github_com_Usir233_GENYEE_internal_types.LoginResponse": {
             "type": "object",
             "properties": {
                 "active_tenant": {
                     "description": "ActiveTenant is the workspace whose ID is encoded in the issued JWT;\nfuture requests are scoped to it until the client calls /auth/switch-tenant.\nDefaults to the user's home workspace on a fresh login.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Tenant"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Tenant"
                         }
                     ]
                 },
@@ -30954,7 +31093,7 @@ const docTemplate = `{
                     "description": "Memberships lists every workspace the user can authenticate into,\nalong with their role in each. Always populated (length 1 for users\nwho only belong to their home workspace) so frontends can render a\nworkspace switcher without a follow-up request. Serialised without\nomitempty so the field is always present as a JSON array (possibly\nempty) — the \"always populated\" contract relies on the server side\nguaranteeing a non-nil slice.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Membership"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Membership"
                     }
                 },
                 "message": {
@@ -30970,11 +31109,11 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.User"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.User"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MCPAdvancedConfig": {
+        "github_com_Usir233_GENYEE_internal_types.MCPAdvancedConfig": {
             "type": "object",
             "properties": {
                 "retry_count": {
@@ -30991,7 +31130,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MCPAuthType": {
+        "github_com_Usir233_GENYEE_internal_types.MCPAuthType": {
             "type": "string",
             "enum": [
                 "",
@@ -31006,19 +31145,19 @@ const docTemplate = `{
                 "MCPAuthOAuth"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.MCPEnvVars": {
+        "github_com_Usir233_GENYEE_internal_types.MCPEnvVars": {
             "type": "object",
             "additionalProperties": {
                 "type": "string"
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MCPHeaders": {
+        "github_com_Usir233_GENYEE_internal_types.MCPHeaders": {
             "type": "object",
             "additionalProperties": {
                 "type": "string"
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MCPMetadata": {
+        "github_com_Usir233_GENYEE_internal_types.MCPMetadata": {
             "type": "object",
             "properties": {
                 "instructions": {
@@ -31050,13 +31189,13 @@ const docTemplate = `{
                 "tools": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPTool"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPTool"
                     },
                     "x-agent": true
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MCPResource": {
+        "github_com_Usir233_GENYEE_internal_types.MCPResource": {
             "type": "object",
             "properties": {
                 "description": {
@@ -31073,7 +31212,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MCPStdioConfig": {
+        "github_com_Usir233_GENYEE_internal_types.MCPStdioConfig": {
             "type": "object",
             "properties": {
                 "args": {
@@ -31089,7 +31228,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MCPTestResult": {
+        "github_com_Usir233_GENYEE_internal_types.MCPTestResult": {
             "type": "object",
             "properties": {
                 "description": {
@@ -31108,7 +31247,7 @@ const docTemplate = `{
                 "resources": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPResource"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPResource"
                     }
                 },
                 "success": {
@@ -31118,19 +31257,19 @@ const docTemplate = `{
                 "tools": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPTool"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPTool"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MCPTool": {
+        "github_com_Usir233_GENYEE_internal_types.MCPTool": {
             "type": "object",
             "properties": {
                 "annotations": {
                     "description": "Annotations are the hints the service declares in tools/list. They come\nfrom outside and only seed the tool's risk.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPToolAnnotations"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPToolAnnotations"
                         }
                     ]
                 },
@@ -31154,7 +31293,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MCPToolAnnotations": {
+        "github_com_Usir233_GENYEE_internal_types.MCPToolAnnotations": {
             "type": "object",
             "properties": {
                 "destructiveHint": {
@@ -31165,7 +31304,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MCPTransportType": {
+        "github_com_Usir233_GENYEE_internal_types.MCPTransportType": {
             "type": "string",
             "enum": [
                 "sse",
@@ -31188,7 +31327,7 @@ const docTemplate = `{
                 "MCPTransportStdio"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.ManualKnowledgePayload": {
+        "github_com_Usir233_GENYEE_internal_types.ManualKnowledgePayload": {
             "type": "object",
             "properties": {
                 "channel": {
@@ -31202,7 +31341,7 @@ const docTemplate = `{
                     "x-agent-required": true
                 },
                 "process_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeProcessOverrides"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeProcessOverrides"
                 },
                 "status": {
                     "description": "draft keeps the document out of search; publish indexes it.",
@@ -31227,7 +31366,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MatchType": {
+        "github_com_Usir233_GENYEE_internal_types.MatchType": {
             "type": "integer",
             "enum": [
                 0,
@@ -31273,7 +31412,7 @@ const docTemplate = `{
                 "MatchTypeDataAnalysis"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.MatchedImage": {
+        "github_com_Usir233_GENYEE_internal_types.MatchedImage": {
             "type": "object",
             "properties": {
                 "chunk_id": {
@@ -31287,11 +31426,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.Membership": {
+        "github_com_Usir233_GENYEE_internal_types.Membership": {
             "type": "object",
             "properties": {
                 "role": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantRole"
                 },
                 "tenant_id": {
                     "type": "integer"
@@ -31301,7 +31440,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MemoryConfig": {
+        "github_com_Usir233_GENYEE_internal_types.MemoryConfig": {
             "type": "object",
             "properties": {
                 "embedding_model_id": {
@@ -31350,7 +31489,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MemoryConsolidationResult": {
+        "github_com_Usir233_GENYEE_internal_types.MemoryConsolidationResult": {
             "type": "object",
             "properties": {
                 "candidates": {
@@ -31376,7 +31515,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MemoryDocView": {
+        "github_com_Usir233_GENYEE_internal_types.MemoryDocView": {
             "type": "object",
             "properties": {
                 "hits": {
@@ -31399,7 +31538,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MemoryItem": {
+        "github_com_Usir233_GENYEE_internal_types.MemoryItem": {
             "type": "object",
             "properties": {
                 "content": {
@@ -31470,7 +31609,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MemorySettings": {
+        "github_com_Usir233_GENYEE_internal_types.MemorySettings": {
             "type": "object",
             "properties": {
                 "effective": {
@@ -31499,7 +31638,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MemoryTopicView": {
+        "github_com_Usir233_GENYEE_internal_types.MemoryTopicView": {
             "type": "object",
             "properties": {
                 "aliases": {
@@ -31525,7 +31664,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MentionedItem": {
+        "github_com_Usir233_GENYEE_internal_types.MentionedItem": {
             "type": "object",
             "properties": {
                 "id": {
@@ -31560,7 +31699,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.Message": {
+        "github_com_Usir233_GENYEE_internal_types.Message": {
             "type": "object",
             "properties": {
                 "agent_duration_ms": {
@@ -31575,21 +31714,21 @@ const docTemplate = `{
                     "description": "Agent execution steps (only for assistant messages generated by agent)\nThis contains the detailed reasoning process and tool calls made by the agent\nStored for user history display, but NOT included in LLM context to avoid redundancy",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AgentStep"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AgentStep"
                     }
                 },
                 "artifacts": {
                     "description": "Skill-generated files produced during this assistant turn (assistant messages only).\nPopulated by ArtifactCollector after the sandbox finishes, referenced by the\nartifact download endpoint. Empty for user messages and turns without skills.\n\nStored in the message_artifacts table, not on the message row: the message\nrepository loads it with every message it returns and writes it whenever it\nis non-nil on create or update. A nil slice leaves the stored rows alone.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MessageArtifact"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageArtifact"
                     }
                 },
                 "attachments": {
                     "description": "Attached files (documents, audio, etc., for user messages)",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MessageAttachment"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageAttachment"
                     }
                 },
                 "channel": {
@@ -31616,7 +31755,7 @@ const docTemplate = `{
                 "delegated_prompts": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PendingPromptView"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PendingPromptView"
                     }
                 },
                 "deleted_at": {
@@ -31637,7 +31776,7 @@ const docTemplate = `{
                     "description": "Attached images with OCR/Caption text (for user messages)",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MessageImage"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageImage"
                     }
                 },
                 "is_completed": {
@@ -31656,14 +31795,14 @@ const docTemplate = `{
                     "description": "References to knowledge chunks used in the response",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SearchResult"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SearchResult"
                     }
                 },
                 "mentioned_items": {
                     "description": "Mentioned knowledge bases and files (for user messages)\nStores the @mentioned items when user sends a message",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MentionedItem"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MentionedItem"
                     }
                 },
                 "model_id": {
@@ -31671,13 +31810,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "pending_prompt": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PendingPromptView"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PendingPromptView"
                 },
                 "prompt_history": {
                     "description": "PendingPrompt is the prompt an awaiting_input message waits on. The\nmessage list fills it in for the prompt's owner; it is never stored.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PendingPromptView"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PendingPromptView"
                     }
                 },
                 "request_id": {
@@ -31700,7 +31839,7 @@ const docTemplate = `{
                     "description": "SandboxCheckpoint is the git commit this assistant turn produced in the\nsession sandbox's /workspace. Nil for user messages, for turns that ran\nwithout a sandbox, and for turns whose commit failed (best-effort — a\nfailed checkpoint must never block the reply). A message without a\ncheckpoint cannot serve as a fork point with sandbox state.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SandboxCheckpoint"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SandboxCheckpoint"
                         }
                     ]
                 },
@@ -31716,7 +31855,7 @@ const docTemplate = `{
                     "description": "LLM token usage aggregated across every round of the turn that produced this\nassistant message. Persisted so history reads can attribute cost after the\nlive stream is gone; NULL (nil) for user messages and pre-feature rows.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TokenUsage"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TokenUsage"
                         }
                     ]
                 },
@@ -31724,12 +31863,12 @@ const docTemplate = `{
                     "description": "UsedMemories records which long-term memories were injected into this\nanswer, so the chat UI can show them and let the user delete one on the\nspot. Persisted rather than only streamed so reopening a conversation\nstill explains what the answer saw.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UsedMemory"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UsedMemory"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MessageArtifact": {
+        "github_com_Usir233_GENYEE_internal_types.MessageArtifact": {
             "type": "object",
             "properties": {
                 "content_hash": {
@@ -31737,7 +31876,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "When GENYEE persisted the blob",
+                    "description": "When WeKnora persisted the blob",
                     "type": "string"
                 },
                 "deleted_at": {
@@ -31770,7 +31909,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MessageAttachment": {
+        "github_com_Usir233_GENYEE_internal_types.MessageAttachment": {
             "type": "object",
             "properties": {
                 "content": {
@@ -31819,7 +31958,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MessageImage": {
+        "github_com_Usir233_GENYEE_internal_types.MessageImage": {
             "type": "object",
             "properties": {
                 "caption": {
@@ -31830,7 +31969,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MessageSearchGroupItem": {
+        "github_com_Usir233_GENYEE_internal_types.MessageSearchGroupItem": {
             "type": "object",
             "properties": {
                 "answer_content": {
@@ -31875,14 +32014,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MessageSearchResult": {
+        "github_com_Usir233_GENYEE_internal_types.MessageSearchResult": {
             "type": "object",
             "properties": {
                 "items": {
                     "description": "List of merged Q\u0026A pairs",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MessageSearchGroupItem"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MessageSearchGroupItem"
                     }
                 },
                 "total": {
@@ -31892,7 +32031,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MessageSuggestionSet": {
+        "github_com_Usir233_GENYEE_internal_types.MessageSuggestionSet": {
             "type": "object",
             "properties": {
                 "agent_id": {
@@ -31940,7 +32079,7 @@ const docTemplate = `{
                 "questions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SuggestionItem"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SuggestionItem"
                     }
                 },
                 "session_id": {
@@ -31960,14 +32099,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MetricResult": {
+        "github_com_Usir233_GENYEE_internal_types.MetricResult": {
             "type": "object",
             "properties": {
                 "generation_metrics": {
                     "description": "Text generation quality metrics",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GenerationMetrics"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GenerationMetrics"
                         }
                     ]
                 },
@@ -31975,13 +32114,13 @@ const docTemplate = `{
                     "description": "Retrieval performance metrics",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrievalMetrics"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrievalMetrics"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.MinIOEngineConfig": {
+        "github_com_Usir233_GENYEE_internal_types.MinIOEngineConfig": {
             "type": "object",
             "properties": {
                 "access_key_id": {
@@ -32008,14 +32147,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ModelParameters": {
+        "github_com_Usir233_GENYEE_internal_types.ModelParameters": {
             "type": "object",
             "properties": {
                 "api_key": {
                     "type": "string"
                 },
                 "app_id": {
-                    "description": "GENYEECloud 厂商专用凭证",
+                    "description": "WeKnoraCloud 厂商专用凭证",
                     "type": "string"
                 },
                 "app_secret": {
@@ -32037,7 +32176,7 @@ const docTemplate = `{
                     }
                 },
                 "embedding_parameters": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.EmbeddingParameters"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.EmbeddingParameters"
                 },
                 "extra_config": {
                     "description": "Provider-specific configuration",
@@ -32068,7 +32207,7 @@ const docTemplate = `{
                     "description": "Spec overrides the catalog entry for this row: protocol, capability\nflags and the flat protocol compat object. Everything omitted is\ninherited from the vendor catalog (see internal/models/catalog).",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelSpecOverride"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelSpecOverride"
                         }
                     ]
                 },
@@ -32078,7 +32217,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ModelSource": {
+        "github_com_Usir233_GENYEE_internal_types.ModelSource": {
             "type": "string",
             "enum": [
                 "local",
@@ -32165,7 +32304,7 @@ const docTemplate = `{
                 "ModelSourceAzureOpenAI"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.ModelSpecOverride": {
+        "github_com_Usir233_GENYEE_internal_types.ModelSpecOverride": {
             "type": "object",
             "properties": {
                 "api": {
@@ -32199,7 +32338,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ModelStatus": {
+        "github_com_Usir233_GENYEE_internal_types.ModelStatus": {
             "type": "string",
             "enum": [
                 "active",
@@ -32222,7 +32361,7 @@ const docTemplate = `{
                 "ModelStatusDownloadFailed"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.ModelType": {
+        "github_com_Usir233_GENYEE_internal_types.ModelType": {
             "type": "string",
             "enum": [
                 "Embedding",
@@ -32253,7 +32392,7 @@ const docTemplate = `{
                 "ModelTypeASR"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.NamedCount": {
+        "github_com_Usir233_GENYEE_internal_types.NamedCount": {
             "type": "object",
             "properties": {
                 "count": {
@@ -32264,7 +32403,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.OBSEngineConfig": {
+        "github_com_Usir233_GENYEE_internal_types.OBSEngineConfig": {
             "type": "object",
             "properties": {
                 "access_key": {
@@ -32290,7 +32429,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.OIDCAuthURLResponse": {
+        "github_com_Usir233_GENYEE_internal_types.OIDCAuthURLResponse": {
             "type": "object",
             "properties": {
                 "authorization_url": {
@@ -32307,7 +32446,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.OIDCConfigResponse": {
+        "github_com_Usir233_GENYEE_internal_types.OIDCConfigResponse": {
             "type": "object",
             "properties": {
                 "enabled": {
@@ -32321,7 +32460,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.OSSEngineConfig": {
+        "github_com_Usir233_GENYEE_internal_types.OSSEngineConfig": {
             "type": "object",
             "properties": {
                 "access_key": {
@@ -32353,7 +32492,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.OrgMemberRole": {
+        "github_com_Usir233_GENYEE_internal_types.OrgMemberRole": {
             "type": "string",
             "enum": [
                 "admin",
@@ -32366,7 +32505,7 @@ const docTemplate = `{
                 "OrgRoleViewer"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.Organization": {
+        "github_com_Usir233_GENYEE_internal_types.Organization": {
             "type": "object",
             "properties": {
                 "avatar": {
@@ -32412,7 +32551,7 @@ const docTemplate = `{
                 "members": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrganizationTenantMember"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrganizationTenantMember"
                     }
                 },
                 "name": {
@@ -32423,7 +32562,7 @@ const docTemplate = `{
                     "description": "Associations (not stored in database)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.User"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.User"
                         }
                     ]
                 },
@@ -32446,7 +32585,7 @@ const docTemplate = `{
                 "shares": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseShare"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseShare"
                     }
                 },
                 "updated_at": {
@@ -32455,7 +32594,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.OrganizationJoinRequest": {
+        "github_com_Usir233_GENYEE_internal_types.OrganizationJoinRequest": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -32474,7 +32613,7 @@ const docTemplate = `{
                     "description": "Associations (not stored in database)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Organization"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Organization"
                         }
                     ]
                 },
@@ -32486,7 +32625,7 @@ const docTemplate = `{
                     "description": "Previous role before upgrade (only for upgrade requests)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                         }
                     ]
                 },
@@ -32494,7 +32633,7 @@ const docTemplate = `{
                     "description": "Type of request: 'join' for new member, 'upgrade' for role upgrade",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.JoinRequestType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.JoinRequestType"
                         }
                     ]
                 },
@@ -32502,7 +32641,7 @@ const docTemplate = `{
                     "description": "Role requested by the applicant (admin/editor/viewer)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                         }
                     ]
                 },
@@ -32519,13 +32658,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "reviewer": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.User"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.User"
                 },
                 "status": {
                     "description": "Status of the request",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.JoinRequestStatus"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.JoinRequestStatus"
                         }
                     ]
                 },
@@ -32538,7 +32677,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.User"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.User"
                 },
                 "user_id": {
                     "description": "User ID of the requester",
@@ -32546,7 +32685,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.OrganizationMemberResponse": {
+        "github_com_Usir233_GENYEE_internal_types.OrganizationMemberResponse": {
             "type": "object",
             "properties": {
                 "avatar": {
@@ -32581,7 +32720,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.OrganizationResponse": {
+        "github_com_Usir233_GENYEE_internal_types.OrganizationResponse": {
             "type": "object",
             "properties": {
                 "agent_share_count": {
@@ -32655,11 +32794,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.OrganizationSharedAgentItem": {
+        "github_com_Usir233_GENYEE_internal_types.OrganizationSharedAgentItem": {
             "type": "object",
             "properties": {
                 "agent": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CustomAgent"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CustomAgent"
                 },
                 "disabled_by_me": {
                     "description": "DisabledByMe: current tenant has hidden this shared agent from their conversation dropdown (per-user preference)",
@@ -32675,7 +32814,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "permission": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                 },
                 "share_id": {
                     "type": "string"
@@ -32698,7 +32837,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.OrganizationTenantMember": {
+        "github_com_Usir233_GENYEE_internal_types.OrganizationTenantMember": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -32711,19 +32850,19 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "organization": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Organization"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Organization"
                 },
                 "organization_id": {
                     "type": "string"
                 },
                 "representative_user": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.User"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.User"
                 },
                 "representative_user_id": {
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                 },
                 "tenant_id": {
                     "type": "integer"
@@ -32733,7 +32872,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.PageContext": {
+        "github_com_Usir233_GENYEE_internal_types.PageContext": {
             "type": "object",
             "properties": {
                 "agent_id": {
@@ -32765,7 +32904,7 @@ const docTemplate = `{
                     "description": "Selection is the text the user selected on the page. Assistant only.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PageSelection"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PageSelection"
                         }
                     ]
                 },
@@ -32791,7 +32930,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.PageSelection": {
+        "github_com_Usir233_GENYEE_internal_types.PageSelection": {
             "type": "object",
             "properties": {
                 "end_line": {
@@ -32814,14 +32953,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ParserEngineConfig": {
+        "github_com_Usir233_GENYEE_internal_types.ParserEngineConfig": {
             "type": "object",
             "properties": {
                 "chat_parser_engine_rules": {
                     "description": "ChatParserEngineRules selects parser engines for session-scoped chat\ndocuments. Knowledge bases keep their own rules in ChunkingConfig.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ParserEngineRule"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ParserEngineRule"
                     }
                 },
                 "mineru_api_key": {
@@ -32924,7 +33063,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ParserEngineInfo": {
+        "github_com_Usir233_GENYEE_internal_types.ParserEngineInfo": {
             "type": "object",
             "properties": {
                 "Available": {
@@ -32952,7 +33091,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ParserEngineRule": {
+        "github_com_Usir233_GENYEE_internal_types.ParserEngineRule": {
             "type": "object",
             "properties": {
                 "engine": {
@@ -32973,7 +33112,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.PendingPromptView": {
+        "github_com_Usir233_GENYEE_internal_types.PendingPromptView": {
             "type": "object",
             "properties": {
                 "close_reason": {
@@ -33008,7 +33147,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.PromptCacheStatus": {
+        "github_com_Usir233_GENYEE_internal_types.PromptCacheStatus": {
             "type": "string",
             "enum": [
                 "unsupported",
@@ -33023,7 +33162,7 @@ const docTemplate = `{
                 "PromptCacheStatusHit"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.PromptPlaceholder": {
+        "github_com_Usir233_GENYEE_internal_types.PromptPlaceholder": {
             "type": "object",
             "properties": {
                 "description": {
@@ -33040,13 +33179,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ProviderMetadata": {
+        "github_com_Usir233_GENYEE_internal_types.ProviderMetadata": {
             "type": "object",
             "additionalProperties": {
                 "type": "object"
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.QueryIntent": {
+        "github_com_Usir233_GENYEE_internal_types.QueryIntent": {
             "type": "string",
             "enum": [
                 "kb_search",
@@ -33071,7 +33210,7 @@ const docTemplate = `{
                 "IntentClarification"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.QuestionGenerationConfig": {
+        "github_com_Usir233_GENYEE_internal_types.QuestionGenerationConfig": {
             "type": "object",
             "properties": {
                 "custom_instructions": {
@@ -33095,7 +33234,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.QuestionOrigin": {
+        "github_com_Usir233_GENYEE_internal_types.QuestionOrigin": {
             "type": "object",
             "properties": {
                 "knowledge_base_id": {
@@ -33106,18 +33245,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.QuestionSuggestionConfig": {
+        "github_com_Usir233_GENYEE_internal_types.QuestionSuggestionConfig": {
             "type": "object",
             "properties": {
                 "follow_ups": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FollowUpSuggestionConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FollowUpSuggestionConfig"
                 },
                 "starters": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StarterSuggestionConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StarterSuggestionConfig"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.QueueStat": {
+        "github_com_Usir233_GENYEE_internal_types.QueueStat": {
             "type": "object",
             "properties": {
                 "active": {
@@ -33188,7 +33327,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RegisterRequest": {
+        "github_com_Usir233_GENYEE_internal_types.RegisterRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -33210,7 +33349,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RegisterResponse": {
+        "github_com_Usir233_GENYEE_internal_types.RegisterResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -33220,14 +33359,14 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "tenant": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Tenant"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Tenant"
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.User"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.User"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RequestRoleUpgradeRequest": {
+        "github_com_Usir233_GENYEE_internal_types.RequestRoleUpgradeRequest": {
             "type": "object",
             "required": [
                 "requested_role"
@@ -33242,13 +33381,13 @@ const docTemplate = `{
                     "description": "The role user wants to upgrade to",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RerankDiagnostics": {
+        "github_com_Usir233_GENYEE_internal_types.RerankDiagnostics": {
             "type": "object",
             "properties": {
                 "applied": {
@@ -33280,7 +33419,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "outcome": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RerankOutcome"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RerankOutcome"
                 },
                 "result_count": {
                     "type": "integer"
@@ -33295,7 +33434,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RerankOptions": {
+        "github_com_Usir233_GENYEE_internal_types.RerankOptions": {
             "type": "object",
             "properties": {
                 "enabled": {
@@ -33316,7 +33455,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RerankOutcome": {
+        "github_com_Usir233_GENYEE_internal_types.RerankOutcome": {
             "type": "string",
             "enum": [
                 "ok",
@@ -33341,7 +33480,7 @@ const docTemplate = `{
                 "RerankOutcomeNoCandidates"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.Resource": {
+        "github_com_Usir233_GENYEE_internal_types.Resource": {
             "type": "object",
             "properties": {
                 "description": {
@@ -33389,7 +33528,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ResourceCountsByOrgResponse": {
+        "github_com_Usir233_GENYEE_internal_types.ResourceCountsByOrgResponse": {
             "type": "object",
             "properties": {
                 "agents": {
@@ -33416,7 +33555,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RetrievalConfig": {
+        "github_com_Usir233_GENYEE_internal_types.RetrievalConfig": {
             "type": "object",
             "properties": {
                 "embedding_top_k": {
@@ -33457,15 +33596,15 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RetrievalMeta": {
+        "github_com_Usir233_GENYEE_internal_types.RetrievalMeta": {
             "type": "object",
             "properties": {
                 "rerank": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RerankDiagnostics"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RerankDiagnostics"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RetrievalMetrics": {
+        "github_com_Usir233_GENYEE_internal_types.RetrievalMetrics": {
             "type": "object",
             "properties": {
                 "map": {
@@ -33494,14 +33633,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RetrieverEngineParams": {
+        "github_com_Usir233_GENYEE_internal_types.RetrieverEngineParams": {
             "type": "object",
             "properties": {
                 "retriever_engine_type": {
                     "description": "Retriever engine type",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrieverEngineType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrieverEngineType"
                         }
                     ]
                 },
@@ -33509,13 +33648,13 @@ const docTemplate = `{
                     "description": "Retriever type",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrieverType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrieverType"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RetrieverEngineType": {
+        "github_com_Usir233_GENYEE_internal_types.RetrieverEngineType": {
             "type": "string",
             "enum": [
                 "postgres",
@@ -33544,18 +33683,18 @@ const docTemplate = `{
                 "OpenSearchRetrieverEngineType"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.RetrieverEngines": {
+        "github_com_Usir233_GENYEE_internal_types.RetrieverEngines": {
             "type": "object",
             "properties": {
                 "engines": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrieverEngineParams"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrieverEngineParams"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RetrieverType": {
+        "github_com_Usir233_GENYEE_internal_types.RetrieverType": {
             "type": "string",
             "enum": [
                 "keywords",
@@ -33578,7 +33717,7 @@ const docTemplate = `{
                 "WebSearchRetrieverType"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.ReviewJoinRequestRequest": {
+        "github_com_Usir233_GENYEE_internal_types.ReviewJoinRequestRequest": {
             "type": "object",
             "properties": {
                 "approved": {
@@ -33592,13 +33731,13 @@ const docTemplate = `{
                     "description": "Optional: role to assign when approving; overrides applicant's requested role",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RuntimeTaskAction": {
+        "github_com_Usir233_GENYEE_internal_types.RuntimeTaskAction": {
             "type": "string",
             "enum": [
                 "cancel",
@@ -33611,13 +33750,13 @@ const docTemplate = `{
                 "RuntimeTaskActionDelete"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.RuntimeTaskInfo": {
+        "github_com_Usir233_GENYEE_internal_types.RuntimeTaskInfo": {
             "type": "object",
             "properties": {
                 "allowed_actions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RuntimeTaskAction"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RuntimeTaskAction"
                     }
                 },
                 "completed_at": {
@@ -33696,7 +33835,7 @@ const docTemplate = `{
                 "state": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RuntimeTaskState"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RuntimeTaskState"
                         }
                     ],
                     "x-agent": true
@@ -33728,7 +33867,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.RuntimeTaskState": {
+        "github_com_Usir233_GENYEE_internal_types.RuntimeTaskState": {
             "type": "string",
             "enum": [
                 "pending",
@@ -33747,7 +33886,7 @@ const docTemplate = `{
                 "RuntimeTaskCompleted"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.S3EngineConfig": {
+        "github_com_Usir233_GENYEE_internal_types.S3EngineConfig": {
             "type": "object",
             "properties": {
                 "access_key": {
@@ -33776,7 +33915,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SandboxCheckpoint": {
+        "github_com_Usir233_GENYEE_internal_types.SandboxCheckpoint": {
             "type": "object",
             "properties": {
                 "background_active": {
@@ -33794,7 +33933,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SandboxNetworkPolicy": {
+        "github_com_Usir233_GENYEE_internal_types.SandboxNetworkPolicy": {
             "type": "object",
             "properties": {
                 "allow_out": {
@@ -33812,7 +33951,7 @@ const docTemplate = `{
                     "description": "CubeRules are validated whenever present and consumed only by the Cube\nprovider adapter.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CubeEgressRule"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CubeEgressRule"
                     }
                 },
                 "deny_egress_by_default": {
@@ -33830,12 +33969,12 @@ const docTemplate = `{
                     "description": "E2BHostRules are validated whenever present and consumed only by the E2B\nprovider adapter.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.E2BHostRule"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.E2BHostRule"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SearchParams": {
+        "github_com_Usir233_GENYEE_internal_types.SearchParams": {
             "type": "object",
             "properties": {
                 "disable_keywords_match": {
@@ -33894,7 +34033,7 @@ const docTemplate = `{
                     "description": "Rerank, when present and enabled, reranks the fused candidates before\ntruncating to MatchCount. Only the hybrid-search API reads it; internal\ncallers rerank on their own.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RerankOptions"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RerankOptions"
                         }
                     ]
                 },
@@ -33922,7 +34061,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SearchResult": {
+        "github_com_Usir233_GENYEE_internal_types.SearchResult": {
             "type": "object",
             "properties": {
                 "chunk_index": {
@@ -33996,7 +34135,7 @@ const docTemplate = `{
                     "description": "Match type",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MatchType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MatchType"
                         }
                     ],
                     "x-agent": true
@@ -34009,7 +34148,7 @@ const docTemplate = `{
                     "description": "MatchedImages survives merging, deduplication and stored reference replay.\nIt contains storage references, never image bytes.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MatchedImage"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MatchedImage"
                     }
                 },
                 "metadata": {
@@ -34036,7 +34175,7 @@ const docTemplate = `{
                     "description": "SourceLocators point back into the original file for citation\nnavigation. Merged results carry the union of their chunks' locators.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SourceLocator"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SourceLocator"
                     }
                 },
                 "start_at": {
@@ -34052,7 +34191,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SearchableOrganizationItem": {
+        "github_com_Usir233_GENYEE_internal_types.SearchableOrganizationItem": {
             "type": "object",
             "properties": {
                 "agent_share_count": {
@@ -34089,7 +34228,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.Session": {
+        "github_com_Usir233_GENYEE_internal_types.Session": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -34109,7 +34248,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "host_workspace_dir": {
-                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the GENYEE Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
+                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the WeKnora Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
                     "type": "string"
                 },
                 "id": {
@@ -34136,7 +34275,7 @@ const docTemplate = `{
                     "description": "LastRequestState records the input-bar state used the last time this\nsession sent a question (agent, model, KB scope, web search, MCPs).\nPersisted on every successful POST to /knowledge-chat or /agent-chat so\nthat reopening the session can restore the original request context to\nthe chat UI. Stored in the legacy sessions.agent_config JSONB column to\navoid a new migration; the shape used today is ` + "`" + `SessionLastRequestState` + "`" + `.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SessionLastRequestState"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SessionLastRequestState"
                         }
                     ]
                 },
@@ -34172,12 +34311,12 @@ const docTemplate = `{
                     "x-agent-response": true
                 },
                 "user_id": {
-                    "description": "UserID is the owner scope for this session. GENYEE user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
+                    "description": "UserID is the owner scope for this session. WeKnora user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
                     "type": "string"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SessionLastRequestState": {
+        "github_com_Usir233_GENYEE_internal_types.SessionLastRequestState": {
             "type": "object",
             "properties": {
                 "agent_enabled": {
@@ -34210,7 +34349,7 @@ const docTemplate = `{
                 "mentioned_items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MentionedItem"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MentionedItem"
                     }
                 },
                 "model_id": {
@@ -34236,7 +34375,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SessionListItem": {
+        "github_com_Usir233_GENYEE_internal_types.SessionListItem": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -34256,7 +34395,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "host_workspace_dir": {
-                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the GENYEE Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
+                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the WeKnora Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
                     "type": "string"
                 },
                 "id": {
@@ -34297,7 +34436,7 @@ const docTemplate = `{
                     "description": "LastRequestState records the input-bar state used the last time this\nsession sent a question (agent, model, KB scope, web search, MCPs).\nPersisted on every successful POST to /knowledge-chat or /agent-chat so\nthat reopening the session can restore the original request context to\nthe chat UI. Stored in the legacy sessions.agent_config JSONB column to\navoid a new migration; the shape used today is ` + "`" + `SessionLastRequestState` + "`" + `.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SessionLastRequestState"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SessionLastRequestState"
                         }
                     ]
                 },
@@ -34333,12 +34472,12 @@ const docTemplate = `{
                     "x-agent-response": true
                 },
                 "user_id": {
-                    "description": "UserID is the owner scope for this session. GENYEE user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
+                    "description": "UserID is the owner scope for this session. WeKnora user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
                     "type": "string"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ShareKnowledgeBaseRequest": {
+        "github_com_Usir233_GENYEE_internal_types.ShareKnowledgeBaseRequest": {
             "type": "object",
             "required": [
                 "organization_id",
@@ -34349,15 +34488,15 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "permission": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SharedAgentInfo": {
+        "github_com_Usir233_GENYEE_internal_types.SharedAgentInfo": {
             "type": "object",
             "properties": {
                 "agent": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CustomAgent"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CustomAgent"
                 },
                 "disabled_by_me": {
                     "description": "DisabledByMe: current tenant has hidden this shared agent from their conversation dropdown (per-user preference)",
@@ -34370,7 +34509,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "permission": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                 },
                 "share_id": {
                     "type": "string"
@@ -34393,7 +34532,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SkillImageConfig": {
+        "github_com_Usir233_GENYEE_internal_types.SkillImageConfig": {
             "type": "object",
             "properties": {
                 "base_template_id": {
@@ -34418,7 +34557,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SourceLocator": {
+        "github_com_Usir233_GENYEE_internal_types.SourceLocator": {
             "type": "object",
             "properties": {
                 "bbox": {
@@ -34497,7 +34636,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SpanTreeNode": {
+        "github_com_Usir233_GENYEE_internal_types.SpanTreeNode": {
             "type": "object",
             "properties": {
                 "attempt": {
@@ -34506,7 +34645,7 @@ const docTemplate = `{
                 "children": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SpanTreeNode"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SpanTreeNode"
                     }
                 },
                 "created_at": {
@@ -34525,7 +34664,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "input": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.JSONMap"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.JSONMap"
                 },
                 "kind": {
                     "type": "string"
@@ -34534,13 +34673,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "metadata": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.JSONMap"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.JSONMap"
                 },
                 "name": {
                     "type": "string"
                 },
                 "output": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.JSONMap"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.JSONMap"
                 },
                 "parent_span_id": {
                     "type": "string"
@@ -34559,7 +34698,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.StarterSuggestionConfig": {
+        "github_com_Usir233_GENYEE_internal_types.StarterSuggestionConfig": {
             "type": "object",
             "properties": {
                 "count": {
@@ -34579,11 +34718,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.StorageBackend": {
+        "github_com_Usir233_GENYEE_internal_types.StorageBackend": {
             "type": "object",
             "properties": {
                 "config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageBackendConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageBackendConfig"
                 },
                 "created_at": {
                     "type": "string"
@@ -34617,7 +34756,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.StorageBackendConfig": {
+        "github_com_Usir233_GENYEE_internal_types.StorageBackendConfig": {
             "type": "object",
             "properties": {
                 "access_key_id": {
@@ -34661,7 +34800,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.StorageConfig": {
+        "github_com_Usir233_GENYEE_internal_types.StorageConfig": {
             "type": "object",
             "properties": {
                 "app_id": {
@@ -34706,40 +34845,40 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.StorageEngineConfig": {
+        "github_com_Usir233_GENYEE_internal_types.StorageEngineConfig": {
             "type": "object",
             "properties": {
                 "cos": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.COSEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.COSEngineConfig"
                 },
                 "default_provider": {
                     "description": "\"local\", \"minio\", \"cos\", \"tos\", \"s3\", \"oss\", \"ks3\", \"obs\"",
                     "type": "string"
                 },
                 "ks3": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KS3EngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KS3EngineConfig"
                 },
                 "local": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.LocalEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.LocalEngineConfig"
                 },
                 "minio": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MinIOEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MinIOEngineConfig"
                 },
                 "obs": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OBSEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OBSEngineConfig"
                 },
                 "oss": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OSSEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OSSEngineConfig"
                 },
                 "s3": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.S3EngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.S3EngineConfig"
                 },
                 "tos": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TOSEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TOSEngineConfig"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.StorageProviderConfig": {
+        "github_com_Usir233_GENYEE_internal_types.StorageProviderConfig": {
             "type": "object",
             "properties": {
                 "provider": {
@@ -34748,7 +34887,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SubmitJoinRequestRequest": {
+        "github_com_Usir233_GENYEE_internal_types.SubmitJoinRequestRequest": {
             "type": "object",
             "required": [
                 "invite_code"
@@ -34767,13 +34906,13 @@ const docTemplate = `{
                     "description": "Optional: role the applicant requests (admin/editor/viewer); default viewer",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SuggestedQuestion": {
+        "github_com_Usir233_GENYEE_internal_types.SuggestedQuestion": {
             "type": "object",
             "properties": {
                 "knowledge_base_id": {
@@ -34794,7 +34933,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SuggestionAttribution": {
+        "github_com_Usir233_GENYEE_internal_types.SuggestionAttribution": {
             "type": "object",
             "properties": {
                 "question_id": {
@@ -34805,7 +34944,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SuggestionItem": {
+        "github_com_Usir233_GENYEE_internal_types.SuggestionItem": {
             "type": "object",
             "properties": {
                 "category": {
@@ -34828,7 +34967,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SummaryConfig": {
+        "github_com_Usir233_GENYEE_internal_types.SummaryConfig": {
             "type": "object",
             "properties": {
                 "context_template": {
@@ -34889,7 +35028,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SyncLog": {
+        "github_com_Usir233_GENYEE_internal_types.SyncLog": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -34969,7 +35108,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SystemSetting": {
+        "github_com_Usir233_GENYEE_internal_types.SystemSetting": {
             "type": "object",
             "properties": {
                 "category": {
@@ -35022,7 +35161,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.SystemSettingSummary": {
+        "github_com_Usir233_GENYEE_internal_types.SystemSettingSummary": {
             "type": "object",
             "properties": {
                 "category": {
@@ -35063,7 +35202,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.TOSEngineConfig": {
+        "github_com_Usir233_GENYEE_internal_types.TOSEngineConfig": {
             "type": "object",
             "properties": {
                 "access_key": {
@@ -35092,14 +35231,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.Tenant": {
+        "github_com_Usir233_GENYEE_internal_types.Tenant": {
             "type": "object",
             "properties": {
                 "assistant_config": {
-                    "description": "Assistant config: display name and access ceiling of the GENYEE assistant",
+                    "description": "Assistant config: display name and access ceiling of the WeKnora assistant",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AssistantConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantConfig"
                         }
                     ]
                 },
@@ -35111,7 +35250,7 @@ const docTemplate = `{
                     "description": "Chat history config: knowledge base configuration for indexing and searching chat messages via vector search",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChatHistoryConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChatHistoryConfig"
                         }
                     ]
                 },
@@ -35119,7 +35258,7 @@ const docTemplate = `{
                     "description": "Global Context configuration for this workspace (default for all sessions)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ContextConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ContextConfig"
                         }
                     ]
                 },
@@ -35128,10 +35267,18 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "credentials": {
-                    "description": "Credentials config: third-party provider credentials (e.g. GENYEECloud AppID/AppSecret)",
+                    "description": "Credentials config: third-party provider credentials (e.g. WeKnoraCloud AppID/AppSecret)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CredentialsConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CredentialsConfig"
+                        }
+                    ]
+                },
+                "default_settings": {
+                    "description": "Default settings: the workspace's default model for each type and purpose",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.DefaultSettings"
                         }
                     ]
                 },
@@ -35159,7 +35306,7 @@ const docTemplate = `{
                     "description": "Memory config: workspace switch for cross-session long-term memory",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemoryConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemoryConfig"
                         }
                     ]
                 },
@@ -35171,7 +35318,7 @@ const docTemplate = `{
                     "description": "Parser engine config overrides (MinerU endpoint, API key, etc.). Used when parsing documents; overrides env.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ParserEngineConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ParserEngineConfig"
                         }
                     ]
                 },
@@ -35179,7 +35326,7 @@ const docTemplate = `{
                     "description": "Retrieval config: global search/retrieval parameters shared by knowledge search and message search",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrievalConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrievalConfig"
                         }
                     ]
                 },
@@ -35187,7 +35334,7 @@ const docTemplate = `{
                     "description": "Retriever engines",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrieverEngines"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrieverEngines"
                         }
                     ]
                 },
@@ -35199,7 +35346,7 @@ const docTemplate = `{
                     "description": "Storage engine config: parameters for Local, MinIO, COS. Used for document/file storage and docreader.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageEngineConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageEngineConfig"
                         }
                     ]
                 },
@@ -35219,13 +35366,13 @@ const docTemplate = `{
                     "description": "Global WebSearch configuration for this workspace",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchConfig"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.TenantInvitationResponse": {
+        "github_com_Usir233_GENYEE_internal_types.TenantInvitationResponse": {
             "type": "object",
             "properties": {
                 "accepted_count": {
@@ -35274,10 +35421,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantRole"
                 },
                 "status": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantInvitationStatus"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantInvitationStatus"
                 },
                 "tenant_id": {
                     "type": "integer"
@@ -35287,7 +35434,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.TenantInvitationStatus": {
+        "github_com_Usir233_GENYEE_internal_types.TenantInvitationStatus": {
             "type": "string",
             "enum": [
                 "pending",
@@ -35304,7 +35451,7 @@ const docTemplate = `{
                 "TenantInvitationStatusExpired"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.TenantInviteCandidate": {
+        "github_com_Usir233_GENYEE_internal_types.TenantInviteCandidate": {
             "type": "object",
             "properties": {
                 "representative_avatar": {
@@ -35327,7 +35474,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.TenantMemberResponse": {
+        "github_com_Usir233_GENYEE_internal_types.TenantMemberResponse": {
             "type": "object",
             "properties": {
                 "avatar": {
@@ -35347,7 +35494,7 @@ const docTemplate = `{
                 "role": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantRole"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantRole"
                         }
                     ],
                     "x-agent": true
@@ -35355,7 +35502,7 @@ const docTemplate = `{
                 "status": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantMemberStatus"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantMemberStatus"
                         }
                     ],
                     "x-agent": true
@@ -35370,7 +35517,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.TenantMemberStatus": {
+        "github_com_Usir233_GENYEE_internal_types.TenantMemberStatus": {
             "type": "string",
             "enum": [
                 "active",
@@ -35383,7 +35530,7 @@ const docTemplate = `{
                 "TenantMemberStatusSuspended"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.TenantRole": {
+        "github_com_Usir233_GENYEE_internal_types.TenantRole": {
             "type": "string",
             "enum": [
                 "owner",
@@ -35398,7 +35545,7 @@ const docTemplate = `{
                 "TenantRoleViewer"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.TenantSandboxConfig": {
+        "github_com_Usir233_GENYEE_internal_types.TenantSandboxConfig": {
             "type": "object",
             "properties": {
                 "allocation_mode": {
@@ -35410,7 +35557,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "cube": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CubeSandboxConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CubeSandboxConfig"
                 },
                 "default_timeout_sec": {
                     "description": "DefaultTimeoutSec is the per-execution timeout in seconds. 0 uses the\nprogram's built-in default.",
@@ -35421,10 +35568,10 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "docker": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.DockerSandboxConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.DockerSandboxConfig"
                 },
                 "e2b": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.E2BSandboxConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.E2BSandboxConfig"
                 },
                 "env_vars": {
                     "description": "EnvVars are additional environment variables injected into every\nsandbox created for this tenant. 🔒 Values are encrypted at rest.\nThese become visible to all scripts running in the tenant's\nsandboxes — do not place secrets here that scripts must not access.",
@@ -35437,7 +35584,7 @@ const docTemplate = `{
                     "description": "Network is the outbound/inbound network policy applied to every sandbox\ncreated from this config — chat sessions, skill installs and deep\nconnectivity probes alike. nil and the zero value mean the same thing:\noutbound egress allowed, inbound public access closed.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SandboxNetworkPolicy"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SandboxNetworkPolicy"
                         }
                     ]
                 },
@@ -35449,7 +35596,7 @@ const docTemplate = `{
                     "description": "SkillImage points at the snapshot that carries this config's installed\nskills. Empty means \"use the base template\". Written only by the skill\ninstall/remove path: MergeSandboxConfigForUpdate ignores client values\nso a settings-form save cannot wipe or plant the pointer.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SkillImageConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SkillImageConfig"
                         }
                     ]
                 },
@@ -35458,7 +35605,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "terminal_idle_disconnect_sec": {
-                    "description": "TerminalIdleDisconnectSec is how long an interactive terminal or\ndesktop may go without user activity before GENYEE closes the\nconnection so the sandbox can pause on its provider TTL. Terminal\ncounts keystrokes and PTY output; desktop counts mouse and keyboard.\n0 uses the built-in default (15 minutes). Not an identity field.",
+                    "description": "TerminalIdleDisconnectSec is how long an interactive terminal or\ndesktop may go without user activity before WeKnora closes the\nconnection so the sandbox can pause on its provider TTL. Terminal\ncounts keystrokes and PTY output; desktop counts mouse and keyboard.\n0 uses the built-in default (15 minutes). Not an identity field.",
                     "type": "integer"
                 },
                 "user_sandbox_empty_retention_days": {
@@ -35469,13 +35616,13 @@ const docTemplate = `{
                     "description": "VolumeMount configures an optional shared volume mounted into every\nsandbox created for this tenant. Currently used for tenant-installed\nskills, but the configuration itself is skill-agnostic and can serve\nany volume-mount use case (shared datasets, pre-installed toolchains,\netc.).",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VolumeMountConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VolumeMountConfig"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.TokenUsage": {
+        "github_com_Usir233_GENYEE_internal_types.TokenUsage": {
             "type": "object",
             "properties": {
                 "cache_miss_tokens": {
@@ -35488,7 +35635,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "cache_status": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PromptCacheStatus"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PromptCacheStatus"
                 },
                 "cache_write_tokens": {
                     "type": "integer"
@@ -35512,7 +35659,60 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ToolCall": {
+        "github_com_Usir233_GENYEE_internal_types.ToolApprovalRecord": {
+            "type": "object",
+            "properties": {
+                "approved": {
+                    "type": "boolean"
+                },
+                "args_json": {
+                    "type": "string"
+                },
+                "canceled": {
+                    "type": "boolean"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "host": {
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.HostApprovalSnapshot"
+                },
+                "kind": {
+                    "type": "string"
+                },
+                "mcp_tool_name": {
+                    "type": "string"
+                },
+                "pending_id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "requested_at": {
+                    "type": "integer"
+                },
+                "resolved": {
+                    "type": "boolean"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "service_name": {
+                    "type": "string"
+                },
+                "timed_out": {
+                    "type": "boolean"
+                },
+                "timeout_seconds": {
+                    "type": "integer"
+                },
+                "tool_call_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_Usir233_GENYEE_internal_types.ToolCall": {
             "type": "object",
             "properties": {
                 "args": {
@@ -35536,7 +35736,7 @@ const docTemplate = `{
                     "description": "Provider-specific tool-call state for replay",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ToolCallMetadata"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ToolCallMetadata"
                         }
                     ]
                 },
@@ -35548,7 +35748,7 @@ const docTemplate = `{
                     "description": "Execution result (contains Output)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ToolResult"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ToolResult"
                         }
                     ]
                 },
@@ -35556,19 +35756,19 @@ const docTemplate = `{
                     "description": "Target identifies the actual proxy target; Name/Args retain the model call for replay.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ToolCallTarget"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ToolCallTarget"
                         }
                     ]
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ToolCallMetadata": {
+        "github_com_Usir233_GENYEE_internal_types.ToolCallMetadata": {
             "type": "object",
             "additionalProperties": {
                 "type": "object"
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ToolCallTarget": {
+        "github_com_Usir233_GENYEE_internal_types.ToolCallTarget": {
             "type": "object",
             "properties": {
                 "args": {
@@ -35586,7 +35786,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.ToolResult": {
+        "github_com_Usir233_GENYEE_internal_types.ToolResult": {
             "type": "object",
             "properties": {
                 "data": {
@@ -35615,18 +35815,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.UpdateMemberRoleRequest": {
+        "github_com_Usir233_GENYEE_internal_types.UpdateMemberRoleRequest": {
             "type": "object",
             "required": [
                 "role"
             ],
             "properties": {
                 "role": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.UpdateOrganizationRequest": {
+        "github_com_Usir233_GENYEE_internal_types.UpdateOrganizationRequest": {
             "type": "object",
             "properties": {
                 "avatar": {
@@ -35660,18 +35860,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.UpdateSharePermissionRequest": {
+        "github_com_Usir233_GENYEE_internal_types.UpdateSharePermissionRequest": {
             "type": "object",
             "required": [
                 "permission"
             ],
             "properties": {
                 "permission": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.UsedMemory": {
+        "github_com_Usir233_GENYEE_internal_types.UsedMemory": {
             "type": "object",
             "properties": {
                 "content": {
@@ -35685,7 +35885,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.User": {
+        "github_com_Usir233_GENYEE_internal_types.User": {
             "type": "object",
             "properties": {
                 "avatar": {
@@ -35728,7 +35928,7 @@ const docTemplate = `{
                     "description": "Per-user UI/feature preferences.\nStored as JSON (jsonb on Postgres, TEXT on SQLite) via the\ndriver.Valuer / sql.Scanner methods on UserPreferences.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserPreferences"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserPreferences"
                         }
                     ]
                 },
@@ -35736,7 +35936,7 @@ const docTemplate = `{
                     "description": "Association relationship, not stored in the database",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Tenant"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Tenant"
                         }
                     ]
                 },
@@ -35754,7 +35954,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.UserInfo": {
+        "github_com_Usir233_GENYEE_internal_types.UserInfo": {
             "type": "object",
             "properties": {
                 "avatar": {
@@ -35784,7 +35984,7 @@ const docTemplate = `{
                     "x-agent": true
                 },
                 "preferences": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserPreferences"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserPreferences"
                 },
                 "tenant_id": {
                     "type": "integer",
@@ -35799,7 +35999,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.UserPreferences": {
+        "github_com_Usir233_GENYEE_internal_types.UserPreferences": {
             "type": "object",
             "properties": {
                 "browser_search_instructions": {
@@ -35810,7 +36010,7 @@ const docTemplate = `{
                     "description": "Gallery holds the user's image-gallery UI state: the search\nactivation mode and the per-attribute search-field toggles. Written\nby the gallery's mode / checkbox interactions via the preferences\nPUT; read back by GET /knowledge-bases/:id/gallery-config so the\ngallery renders the same activation state on every device. Nil = the\nuser never touched the gallery controls (mode defaults to \"all\").",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GalleryUserPrefs"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GalleryUserPrefs"
                         }
                     ]
                 },
@@ -35824,7 +36024,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.UserResourceFavorite": {
+        "github_com_Usir233_GENYEE_internal_types.UserResourceFavorite": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -35844,7 +36044,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.VLMConfig": {
+        "github_com_Usir233_GENYEE_internal_types.VLMConfig": {
             "type": "object",
             "properties": {
                 "api_key": {
@@ -35887,7 +36087,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.VectorStoreFieldInfo": {
+        "github_com_Usir233_GENYEE_internal_types.VectorStoreFieldInfo": {
             "type": "object",
             "properties": {
                 "default": {},
@@ -35927,14 +36127,14 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.VectorStoreResponse": {
+        "github_com_Usir233_GENYEE_internal_types.VectorStoreResponse": {
             "type": "object",
             "properties": {
                 "connection_config": {
                     "description": "Driver-specific connection parameters (sensitive fields encrypted with AES-GCM)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ConnectionConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ConnectionConfig"
                         }
                     ]
                 },
@@ -35949,7 +36149,7 @@ const docTemplate = `{
                     "description": "Engine type: postgres, elasticsearch, qdrant, milvus, weaviate, sqlite",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrieverEngineType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrieverEngineType"
                         }
                     ]
                 },
@@ -35961,7 +36161,7 @@ const docTemplate = `{
                     "description": "Optional index/collection configuration (engine-specific defaults if empty)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.IndexConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.IndexConfig"
                         }
                     ]
                 },
@@ -35986,13 +36186,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.VectorStoreTypeInfo": {
+        "github_com_Usir233_GENYEE_internal_types.VectorStoreTypeInfo": {
             "type": "object",
             "properties": {
                 "connection_fields": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VectorStoreFieldInfo"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VectorStoreFieldInfo"
                     }
                 },
                 "display_name": {
@@ -36001,7 +36201,7 @@ const docTemplate = `{
                 "index_fields": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VectorStoreFieldInfo"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VectorStoreFieldInfo"
                     }
                 },
                 "type": {
@@ -36009,7 +36209,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.VolumeMountConfig": {
+        "github_com_Usir233_GENYEE_internal_types.VolumeMountConfig": {
             "type": "object",
             "properties": {
                 "enabled": {
@@ -36038,7 +36238,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GENYEECloudCredentials": {
+        "github_com_Usir233_GENYEE_internal_types.WeKnoraCloudCredentials": {
             "type": "object",
             "properties": {
                 "app_id": {
@@ -36049,11 +36249,15 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.GENYEECloudStatusResult": {
+        "github_com_Usir233_GENYEE_internal_types.WeKnoraCloudStatusResult": {
             "type": "object",
             "properties": {
+                "enabled": {
+                    "description": "是否已启用 WeKnoraCloud 集成",
+                    "type": "boolean"
+                },
                 "has_models": {
-                    "description": "是否已配置 GENYEECloud 凭证",
+                    "description": "是否已配置 WeKnoraCloud 凭证",
                     "type": "boolean"
                 },
                 "needs_reinit": {
@@ -36066,7 +36270,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WebSearchConfig": {
+        "github_com_Usir233_GENYEE_internal_types.WebSearchConfig": {
             "type": "object",
             "properties": {
                 "api_key": {
@@ -36118,7 +36322,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WebSearchProviderConfigField": {
+        "github_com_Usir233_GENYEE_internal_types.WebSearchProviderConfigField": {
             "type": "object",
             "properties": {
                 "default": {
@@ -36142,7 +36346,7 @@ const docTemplate = `{
                 "options": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchProviderConfigFieldOption"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderConfigFieldOption"
                     }
                 },
                 "required": {
@@ -36153,7 +36357,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WebSearchProviderConfigFieldOption": {
+        "github_com_Usir233_GENYEE_internal_types.WebSearchProviderConfigFieldOption": {
             "type": "object",
             "properties": {
                 "label": {
@@ -36167,7 +36371,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WebSearchProviderEntity": {
+        "github_com_Usir233_GENYEE_internal_types.WebSearchProviderEntity": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -36197,7 +36401,7 @@ const docTemplate = `{
                     "description": "Provider-specific parameters (API key, engine ID, etc.) stored as encrypted JSON",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchProviderParameters"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderParameters"
                         }
                     ]
                 },
@@ -36205,7 +36409,7 @@ const docTemplate = `{
                     "description": "Provider type: bing, google, duckduckgo, tavily",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchProviderType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderType"
                         }
                     ]
                 },
@@ -36218,7 +36422,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WebSearchProviderParameters": {
+        "github_com_Usir233_GENYEE_internal_types.WebSearchProviderParameters": {
             "type": "object",
             "properties": {
                 "api_key": {
@@ -36246,7 +36450,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WebSearchProviderType": {
+        "github_com_Usir233_GENYEE_internal_types.WebSearchProviderType": {
             "type": "string",
             "enum": [
                 "brave",
@@ -36281,14 +36485,14 @@ const docTemplate = `{
                 "WebSearchProviderTypeSerply"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.WebSearchProviderTypeInfo": {
+        "github_com_Usir233_GENYEE_internal_types.WebSearchProviderTypeInfo": {
             "type": "object",
             "properties": {
                 "config_fields": {
                     "description": "Provider-specific non-secret configuration rendered dynamically by the frontend.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchProviderConfigField"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderConfigField"
                     }
                 },
                 "description": {
@@ -36335,7 +36539,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiConfig": {
+        "github_com_Usir233_GENYEE_internal_types.WikiConfig": {
             "type": "object",
             "properties": {
                 "content_instructions": {
@@ -36354,7 +36558,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiExtractionGranularity"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiExtractionGranularity"
                         }
                     ],
                     "x-agent": "wiki_granularity"
@@ -36396,7 +36600,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiExtractionGranularity": {
+        "github_com_Usir233_GENYEE_internal_types.WikiExtractionGranularity": {
             "type": "string",
             "enum": [
                 "focused",
@@ -36409,7 +36613,7 @@ const docTemplate = `{
                 "WikiExtractionExhaustive"
             ]
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiFolder": {
+        "github_com_Usir233_GENYEE_internal_types.WikiFolder": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -36451,7 +36655,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiFolderCreateRequest": {
+        "github_com_Usir233_GENYEE_internal_types.WikiFolderCreateRequest": {
             "type": "object",
             "properties": {
                 "name": {
@@ -36466,13 +36670,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiFolderListResponse": {
+        "github_com_Usir233_GENYEE_internal_types.WikiFolderListResponse": {
             "type": "object",
             "properties": {
                 "folders": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiFolderNode"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiFolderNode"
                     }
                 },
                 "parent_id": {
@@ -36480,7 +36684,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiFolderNode": {
+        "github_com_Usir233_GENYEE_internal_types.WikiFolderNode": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -36530,7 +36734,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiFolderUpdateRequest": {
+        "github_com_Usir233_GENYEE_internal_types.WikiFolderUpdateRequest": {
             "type": "object",
             "properties": {
                 "move_parent": {
@@ -36544,27 +36748,27 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiGraphData": {
+        "github_com_Usir233_GENYEE_internal_types.WikiGraphData": {
             "type": "object",
             "properties": {
                 "edges": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiGraphEdge"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiGraphEdge"
                     }
                 },
                 "meta": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiGraphMeta"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiGraphMeta"
                 },
                 "nodes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiGraphNode"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiGraphNode"
                     }
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiGraphEdge": {
+        "github_com_Usir233_GENYEE_internal_types.WikiGraphEdge": {
             "type": "object",
             "properties": {
                 "source": {
@@ -36577,7 +36781,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiGraphMeta": {
+        "github_com_Usir233_GENYEE_internal_types.WikiGraphMeta": {
             "type": "object",
             "properties": {
                 "center": {
@@ -36609,7 +36813,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiGraphNode": {
+        "github_com_Usir233_GENYEE_internal_types.WikiGraphNode": {
             "type": "object",
             "properties": {
                 "familiar": {
@@ -36631,7 +36835,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiIndexEntry": {
+        "github_com_Usir233_GENYEE_internal_types.WikiIndexEntry": {
             "type": "object",
             "properties": {
                 "category_path": {
@@ -36663,13 +36867,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiIndexGroup": {
+        "github_com_Usir233_GENYEE_internal_types.WikiIndexGroup": {
             "type": "object",
             "properties": {
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiIndexEntry"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiIndexEntry"
                     }
                 },
                 "next_cursor": {
@@ -36683,13 +36887,13 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiIndexResponse": {
+        "github_com_Usir233_GENYEE_internal_types.WikiIndexResponse": {
             "type": "object",
             "properties": {
                 "groups": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiIndexGroup"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiIndexGroup"
                     }
                 },
                 "intro": {
@@ -36700,7 +36904,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiPage": {
+        "github_com_Usir233_GENYEE_internal_types.WikiPage": {
             "type": "object",
             "properties": {
                 "aliases": {
@@ -36843,7 +37047,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiPageDetail": {
+        "github_com_Usir233_GENYEE_internal_types.WikiPageDetail": {
             "type": "object",
             "properties": {
                 "aliases": {
@@ -36992,7 +37196,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiPageIssue": {
+        "github_com_Usir233_GENYEE_internal_types.WikiPageIssue": {
             "type": "object",
             "properties": {
                 "created_at": {
@@ -37044,7 +37248,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiPageListResponse": {
+        "github_com_Usir233_GENYEE_internal_types.WikiPageListResponse": {
             "type": "object",
             "properties": {
                 "page": {
@@ -37056,7 +37260,7 @@ const docTemplate = `{
                 "pages": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPage"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
                     }
                 },
                 "total": {
@@ -37067,7 +37271,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiPageMoveRequest": {
+        "github_com_Usir233_GENYEE_internal_types.WikiPageMoveRequest": {
             "type": "object",
             "required": [
                 "slug"
@@ -37085,7 +37289,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiPageRevertRequest": {
+        "github_com_Usir233_GENYEE_internal_types.WikiPageRevertRequest": {
             "type": "object",
             "required": [
                 "slug",
@@ -37105,7 +37309,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiPageRevision": {
+        "github_com_Usir233_GENYEE_internal_types.WikiPageRevision": {
             "type": "object",
             "properties": {
                 "aliases": {
@@ -37170,7 +37374,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiPageRevisionListResponse": {
+        "github_com_Usir233_GENYEE_internal_types.WikiPageRevisionListResponse": {
             "type": "object",
             "properties": {
                 "current_version": {
@@ -37180,7 +37384,7 @@ const docTemplate = `{
                 "revisions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPageRevision"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPageRevision"
                     }
                 },
                 "total": {
@@ -37189,7 +37393,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiPageUpdateRequest": {
+        "github_com_Usir233_GENYEE_internal_types.WikiPageUpdateRequest": {
             "type": "object",
             "properties": {
                 "aliases": {
@@ -37219,7 +37423,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Tencent_GENYEE_internal_types.WikiStats": {
+        "github_com_Usir233_GENYEE_internal_types.WikiStats": {
             "type": "object",
             "properties": {
                 "is_active": {
@@ -37253,7 +37457,7 @@ const docTemplate = `{
                     "description": "last N updated pages",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiPage"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiPage"
                     }
                 },
                 "total_links": {
@@ -37301,7 +37505,7 @@ const docTemplate = `{
                     "description": "Chunk 类型，用于区分不同类型的 Chunk",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChunkType"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkType"
                         }
                     ],
                     "x-agent": true
@@ -37341,7 +37545,7 @@ const docTemplate = `{
                     "description": "Flags 存储多个布尔状态的位标志（如推荐状态等）\n默认值为 ChunkFlagRecommended (1)，表示默认可推荐",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChunkFlags"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkFlags"
                         }
                     ]
                 },
@@ -37416,7 +37620,7 @@ const docTemplate = `{
                     "description": "SourceLocators point back into the original file (page and region,\nslide, sheet rows, ...) so citations can open the file at this chunk.\nEmpty when the parser reported no positions.",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SourceLocator"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SourceLocator"
                     }
                 },
                 "start_at": {
@@ -37449,7 +37653,7 @@ const docTemplate = `{
                     "$ref": "#/definitions/internal_handler.AllowedToolsWarningsDoc"
                 },
                 "data": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CustomAgent"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CustomAgent"
                 },
                 "success": {
                     "type": "boolean",
@@ -37613,7 +37817,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CustomAgentConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CustomAgentConfig"
                 },
                 "description": {
                     "description": "What the agent is for",
@@ -37644,7 +37848,7 @@ const docTemplate = `{
                     ],
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AssistantAccessLevel"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel"
                         }
                     ],
                     "x-agent": true
@@ -37671,7 +37875,7 @@ const docTemplate = `{
                     "x-agent-max-bytes": "32000"
                 },
                 "limits": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationLimits"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationLimits"
                 },
                 "misfire_policy": {
                     "description": "What happens to runs missed while the service was down; default skip",
@@ -37719,7 +37923,7 @@ const docTemplate = `{
                     "description": "When it runs",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationTrigger"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationTrigger"
                         }
                     ],
                     "x-agent": true
@@ -37745,7 +37949,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "process_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeProcessOverrides"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeProcessOverrides"
                 },
                 "tag_ids": {
                     "type": "array",
@@ -37774,7 +37978,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "advanced_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPAdvancedConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPAdvancedConfig"
                 },
                 "auth_config": {
                     "$ref": "#/definitions/internal_handler.MCPServiceAuthRequest"
@@ -37837,13 +38041,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "parameters": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelParameters"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelParameters"
                 },
                 "source": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelSource"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelSource"
                 },
                 "type": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelType"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelType"
                 }
             }
         },
@@ -37856,13 +38060,13 @@ const docTemplate = `{
             ],
             "properties": {
                 "connection_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ConnectionConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ConnectionConfig"
                 },
                 "engine_type": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrieverEngineType"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrieverEngineType"
                 },
                 "index_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.IndexConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.IndexConfig"
                 },
                 "name": {
                     "type": "string"
@@ -37877,7 +38081,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserInfo"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserInfo"
                 }
             }
         },
@@ -37920,20 +38124,20 @@ const docTemplate = `{
                 "memberships": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Membership"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Membership"
                     }
                 },
                 "preference_defaults": {
                     "$ref": "#/definitions/internal_handler.PreferenceDefaults"
                 },
                 "tenant": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.TenantResponse"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.TenantResponse"
                 },
                 "tenant_required": {
                     "type": "boolean"
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserInfo"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserInfo"
                 }
             }
         },
@@ -38088,7 +38292,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemoryItem"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemoryItem"
                     }
                 },
                 "success": {
@@ -38144,7 +38348,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQEntry"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQEntry"
                     }
                 },
                 "page": {
@@ -38316,6 +38520,11 @@ const docTemplate = `{
                 "version": {
                     "type": "string",
                     "x-agent": true
+                },
+                "weknoracloud_enabled": {
+                    "description": "WeKnoraCloudEnabled reports whether optional WeKnoraCloud integration is enabled via WEKNORA_WEKNORACLOUD_ENABLED=true.",
+                    "type": "boolean",
+                    "x-agent": true
                 }
             }
         },
@@ -38325,11 +38534,11 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SearchResult"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SearchResult"
                     }
                 },
                 "meta": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrievalMeta"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrievalMeta"
                 },
                 "success": {
                     "type": "boolean",
@@ -38343,11 +38552,11 @@ const docTemplate = `{
                 "attributes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AttrSpec"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AttrSpec"
                     }
                 },
                 "default_actions": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImageActionsConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImageActionsConfig"
                 },
                 "prompt": {
                     "type": "string"
@@ -38587,7 +38796,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "asr_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ASRConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ASRConfig"
                 },
                 "documentSplitting": {
                     "description": "文档分块配置",
@@ -38617,7 +38826,7 @@ const docTemplate = `{
                         "parserEngineRules": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ParserEngineRule"
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ParserEngineRule"
                             }
                         },
                         "separators": {
@@ -38667,13 +38876,13 @@ const docTemplate = `{
                         "nodes": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphNode"
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphNode"
                             }
                         },
                         "relations": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphRelation"
+                                "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphRelation"
                             }
                         },
                         "tags": {
@@ -38710,7 +38919,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "vlm_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VLMConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VLMConfig"
                 }
             }
         },
@@ -38724,7 +38933,7 @@ const docTemplate = `{
                     "description": "ASR config (Automatic Speech Recognition)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ASRConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ASRConfig"
                         }
                     ],
                     "x-agent": true,
@@ -38734,14 +38943,14 @@ const docTemplate = `{
                     "description": "AutoTagConfig controls asynchronous association of existing tags after parsing.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutoTagConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutoTagConfig"
                         }
                     ],
                     "x-agent": true,
                     "x-agent-detail": true
                 },
                 "capabilities": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KBCapabilities"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KBCapabilities"
                 },
                 "chunk_count": {
                     "description": "Chunk count (not stored in database, calculated on query)",
@@ -38753,7 +38962,7 @@ const docTemplate = `{
                     "description": "Chunking configuration",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChunkingConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkingConfig"
                         }
                     ],
                     "x-agent": true,
@@ -38793,7 +39002,7 @@ const docTemplate = `{
                     "description": "Extract config",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ExtractConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ExtractConfig"
                         }
                     ],
                     "x-agent": true,
@@ -38803,7 +39012,7 @@ const docTemplate = `{
                     "description": "FAQConfig stores FAQ specific configuration such as indexing strategy",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQConfig"
                         }
                     ],
                     "x-agent": true,
@@ -38813,7 +39022,7 @@ const docTemplate = `{
                     "description": "GeneratedProfile is the machine-generated description: a gist, merged\ntopics, typical questions and the aggregate snapshot they came from. It\nnever overwrites the user-authored Description; both are shown to agents.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseProfile"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseProfile"
                         }
                     ]
                 },
@@ -38827,7 +39036,7 @@ const docTemplate = `{
                     "description": "Image processing configuration",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImageProcessingConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImageProcessingConfig"
                         }
                     ],
                     "x-agent": true,
@@ -38837,7 +39046,7 @@ const docTemplate = `{
                     "description": "IndexingStrategy controls which indexing pipelines are active for this knowledge base.\nPipelines: vector search, keyword search, wiki generation, knowledge graph extraction.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.IndexingStrategy"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.IndexingStrategy"
                         }
                     ],
                     "x-agent": true,
@@ -38893,7 +39102,7 @@ const docTemplate = `{
                     "description": "ProfileConfig controls automatic generation of the knowledge-base\ndescription from per-document profiles (document knowledge bases only).",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseProfileConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseProfileConfig"
                         }
                     ],
                     "x-agent": true,
@@ -38903,7 +39112,7 @@ const docTemplate = `{
                     "description": "QuestionGenerationConfig stores question generation configuration for document knowledge bases",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.QuestionGenerationConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.QuestionGenerationConfig"
                         }
                     ],
                     "x-agent": true,
@@ -38922,7 +39131,7 @@ const docTemplate = `{
                     "description": "Deprecated: legacy COS config column. Kept for backward compatibility with old data.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageConfig"
                         }
                     ]
                 },
@@ -38930,7 +39139,7 @@ const docTemplate = `{
                     "description": "Storage provider config (new): only stores provider selection; credentials from workspace StorageEngineConfig",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageProviderConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageProviderConfig"
                         }
                     ]
                 },
@@ -38980,7 +39189,7 @@ const docTemplate = `{
                     "description": "VLM config",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VLMConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VLMConfig"
                         }
                     ],
                     "x-agent": true,
@@ -38990,7 +39199,7 @@ const docTemplate = `{
                     "description": "WikiConfig stores wiki-specific configuration (only for wiki type knowledge bases)",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiConfig"
                         }
                     ],
                     "x-agent": true,
@@ -39004,7 +39213,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Knowledge"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
                     }
                 },
                 "has_more": {
@@ -39095,7 +39304,7 @@ const docTemplate = `{
                     "x-agent": true
                 },
                 "trace": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SpanTreeNode"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SpanTreeNode"
                 }
             }
         },
@@ -39146,7 +39355,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CustomAgent"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CustomAgent"
                     }
                 },
                 "disabled_own_agent_ids": {
@@ -39179,7 +39388,7 @@ const docTemplate = `{
                 "users": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserInfo"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserInfo"
                     }
                 }
             }
@@ -39190,7 +39399,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemoryDocView"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemoryDocView"
                     }
                 },
                 "success": {
@@ -39208,7 +39417,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemoryItem"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemoryItem"
                     }
                 },
                 "success": {
@@ -39226,7 +39435,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrganizationSharedAgentItem"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrganizationSharedAgentItem"
                     }
                 },
                 "success": {
@@ -39269,7 +39478,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ParserEngineInfo"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ParserEngineInfo"
                     }
                 },
                 "docreader_addr": {
@@ -39289,7 +39498,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageBackend"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageBackend"
                     }
                 },
                 "default_storage_backend_id": {
@@ -39307,7 +39516,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SharedAgentInfo"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SharedAgentInfo"
                     }
                 },
                 "success": {
@@ -39363,7 +39572,7 @@ const docTemplate = `{
                 "admins": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserInfo"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserInfo"
                     }
                 },
                 "total": {
@@ -39378,7 +39587,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MemoryTopicView"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MemoryTopicView"
                     }
                 },
                 "success": {
@@ -39394,7 +39603,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPMetadata"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPMetadata"
                 },
                 "success": {
                     "type": "boolean"
@@ -39501,14 +39710,14 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "api": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_api.API"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_api.API"
                 },
                 "context_window": {
                     "type": "integer",
                     "x-agent": true
                 },
                 "cost": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models.ModelCost"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models.ModelCost"
                 },
                 "dimension": {
                     "type": "integer"
@@ -39542,7 +39751,7 @@ const docTemplate = `{
                 "thinking_levels": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_api.ReasoningEffort"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_api.ReasoningEffort"
                     }
                 },
                 "type": {
@@ -39555,16 +39764,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "api": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_api.API"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_api.API"
                 },
                 "auth": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_providers.AuthStyle"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_providers.AuthStyle"
                 },
                 "credentialLabels": {
                     "description": "CredentialLabels rename the primary credential input for the model\ntypes that do not take a plain API key (signed rerank APIs).",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_providers.CredentialLabel"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_providers.CredentialLabel"
                     }
                 },
                 "defaultUrls": {
@@ -39587,7 +39796,7 @@ const docTemplate = `{
                 "extraFields": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_providers.ExtraField"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_providers.ExtraField"
                     }
                 },
                 "icon": {
@@ -39687,7 +39896,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "spec": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelSpecOverride"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelSpecOverride"
                 },
                 "supportsDimensionOverride": {
                     "type": "boolean"
@@ -39961,7 +40170,7 @@ const docTemplate = `{
                     "description": "Speech transcription.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ASRConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ASRConfig"
                         }
                     ]
                 },
@@ -39969,7 +40178,7 @@ const docTemplate = `{
                     "description": "Automatic tagging.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutoTagConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutoTagConfig"
                         }
                     ]
                 },
@@ -39977,7 +40186,7 @@ const docTemplate = `{
                     "description": "Chunking settings. Only the fields present are changed.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ChunkingConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ChunkingConfig"
                         }
                     ]
                 },
@@ -39995,7 +40204,7 @@ const docTemplate = `{
                     "description": "Graph extraction. Node types stay in the knowledge base editor.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ExtractConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ExtractConfig"
                         }
                     ]
                 },
@@ -40003,7 +40212,7 @@ const docTemplate = `{
                     "description": "FAQ indexing. Only for an FAQ knowledge base.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.FAQConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.FAQConfig"
                         }
                     ]
                 },
@@ -40021,7 +40230,7 @@ const docTemplate = `{
                     "description": "Image description settings.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ImageProcessingConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ImageProcessingConfig"
                         }
                     ]
                 },
@@ -40029,7 +40238,7 @@ const docTemplate = `{
                     "description": "Indexing pipelines. A flag left out stays as it is.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.IndexingStrategy"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.IndexingStrategy"
                         }
                     ]
                 },
@@ -40061,7 +40270,7 @@ const docTemplate = `{
                     "description": "AI description of the knowledge base.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseProfileConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseProfileConfig"
                         }
                     ]
                 },
@@ -40069,7 +40278,7 @@ const docTemplate = `{
                     "description": "Generated questions for each chunk.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.QuestionGenerationConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.QuestionGenerationConfig"
                         }
                     ]
                 },
@@ -40087,7 +40296,7 @@ const docTemplate = `{
                     "description": "Image captions.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VLMConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VLMConfig"
                         }
                     ]
                 },
@@ -40095,7 +40304,7 @@ const docTemplate = `{
                     "description": "Wiki page settings.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WikiConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WikiConfig"
                         }
                     ]
                 }
@@ -40142,43 +40351,43 @@ const docTemplate = `{
                 "agent_system_prompt": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PromptPlaceholder"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PromptPlaceholder"
                     }
                 },
                 "all": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PromptPlaceholder"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PromptPlaceholder"
                     }
                 },
                 "context_template": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PromptPlaceholder"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PromptPlaceholder"
                     }
                 },
                 "fallback_prompt": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PromptPlaceholder"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PromptPlaceholder"
                     }
                 },
                 "rewrite_prompt": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PromptPlaceholder"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PromptPlaceholder"
                     }
                 },
                 "rewrite_system_prompt": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PromptPlaceholder"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PromptPlaceholder"
                     }
                 },
                 "system_prompt": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PromptPlaceholder"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PromptPlaceholder"
                     }
                 }
             }
@@ -40276,16 +40485,16 @@ const docTemplate = `{
                     }
                 },
                 "profile": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_infrastructure_chunker.DocProfile"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_infrastructure_chunker.DocProfile"
                 },
                 "rejected": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_infrastructure_chunker.TierRejection"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_infrastructure_chunker.TierRejection"
                     }
                 },
                 "selected_tier": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_infrastructure_chunker.StrategyTier"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_infrastructure_chunker.StrategyTier"
                 },
                 "stats": {
                     "$ref": "#/definitions/internal_handler.PreviewChunkingStats"
@@ -40293,7 +40502,7 @@ const docTemplate = `{
                 "tier_chain": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_infrastructure_chunker.StrategyTier"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_infrastructure_chunker.StrategyTier"
                     }
                 }
             }
@@ -40342,7 +40551,7 @@ const docTemplate = `{
                 "levels": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_api.ReasoningEffort"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_api.ReasoningEffort"
                     }
                 }
             }
@@ -40426,7 +40635,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "spec": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelSpecOverride"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelSpecOverride"
                 },
                 "supportsDimensionOverride": {
                     "type": "boolean"
@@ -40459,7 +40668,7 @@ const docTemplate = `{
                     "description": "ProcessConfig overrides the processing options stored at upload time.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeProcessOverrides"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeProcessOverrides"
                         }
                     ]
                 }
@@ -40534,7 +40743,7 @@ const docTemplate = `{
                 "models": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_models_limiter.RuntimeStat"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_models_limiter.RuntimeStat"
                     },
                     "x-agent": true
                 },
@@ -40556,7 +40765,7 @@ const docTemplate = `{
                 "queues": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.QueueStat"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.QueueStat"
                     },
                     "x-agent": true
                 },
@@ -40604,7 +40813,7 @@ const docTemplate = `{
                 "tasks": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RuntimeTaskInfo"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RuntimeTaskInfo"
                     }
                 }
             }
@@ -40674,7 +40883,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantSandboxConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantSandboxConfig"
                 },
                 "config_id": {
                     "description": "ConfigID lets an edit form test stored credentials while overriding only\nthe fields the admin changed in the drawer.",
@@ -40746,7 +40955,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SearchableOrganizationItem"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SearchableOrganizationItem"
                     }
                 },
                 "success": {
@@ -40806,7 +41015,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserInfo"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserInfo"
                 }
             }
         },
@@ -40831,7 +41040,7 @@ const docTemplate = `{
                 "permission": {
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OrgMemberRole"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OrgMemberRole"
                         }
                     ],
                     "x-agent": true
@@ -40864,29 +41073,29 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cos": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.COSEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.COSEngineConfig"
                 },
                 "ks3": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KS3EngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KS3EngineConfig"
                 },
                 "minio": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MinIOEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MinIOEngineConfig"
                 },
                 "obs": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OBSEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OBSEngineConfig"
                 },
                 "oss": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.OSSEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.OSSEngineConfig"
                 },
                 "provider": {
                     "description": "\"minio\", \"cos\", \"tos\", \"s3\", \"oss\", \"ks3\", \"obs\"",
                     "type": "string"
                 },
                 "s3": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.S3EngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.S3EngineConfig"
                 },
                 "tos": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TOSEngineConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TOSEngineConfig"
                 }
             }
         },
@@ -40983,7 +41192,7 @@ const docTemplate = `{
                 "questions": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SuggestedQuestion"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SuggestedQuestion"
                     }
                 }
             }
@@ -41012,7 +41221,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeTagWithStats"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeTagWithStats"
                     }
                 },
                 "page": {
@@ -41044,7 +41253,7 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.TenantResponse"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.TenantResponse"
                     }
                 }
             }
@@ -41055,7 +41264,7 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.TenantResponse"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.TenantResponse"
                     }
                 },
                 "page": {
@@ -41076,7 +41285,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "parameters": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchProviderParameters"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderParameters"
                 },
                 "provider": {
                     "type": "string"
@@ -41121,10 +41330,10 @@ const docTemplate = `{
             ],
             "properties": {
                 "connection_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ConnectionConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ConnectionConfig"
                 },
                 "engine_type": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RetrieverEngineType"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RetrieverEngineType"
                 }
             }
         },
@@ -41156,13 +41365,13 @@ const docTemplate = `{
                 "nodes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphNode"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphNode"
                     }
                 },
                 "relations": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.GraphRelation"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GraphRelation"
                     }
                 }
             }
@@ -41175,7 +41384,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.CustomAgentConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CustomAgentConfig"
                 },
                 "description": {
                     "type": "string"
@@ -41212,7 +41421,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Chunk"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Chunk"
                 },
                 "description": {
                     "type": "string"
@@ -41230,7 +41439,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_im.IMChannel"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_im.IMChannel"
                 }
             }
         },
@@ -41241,7 +41450,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeBaseConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeBaseConfig"
                 },
                 "description": {
                     "type": "string"
@@ -41253,7 +41462,7 @@ const docTemplate = `{
                     "description": "VLMConfig updates the knowledge base's multimodal (vision) config.\nOptional: nil means \"no change\", mirroring how CreateKnowledgeBase\naccepts a top-level vlm_config.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.VLMConfig"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VLMConfig"
                         }
                     ]
                 }
@@ -41281,7 +41490,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Knowledge"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Knowledge"
                 },
                 "message": {
                     "type": "string"
@@ -41296,7 +41505,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "advanced_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.MCPAdvancedConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.MCPAdvancedConfig"
                 },
                 "auth_config": {
                     "$ref": "#/definitions/internal_handler.MCPServiceAuthUpdateRequest"
@@ -41355,13 +41564,13 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "parameters": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelParameters"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelParameters"
                 },
                 "source": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelSource"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelSource"
                 },
                 "type": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ModelType"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelType"
                 }
             }
         },
@@ -41378,7 +41587,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "parameters": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.WebSearchProviderParameters"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WebSearchProviderParameters"
                 }
             }
         },
@@ -41428,7 +41637,7 @@ const docTemplate = `{
                     "example": true
                 },
                 "user": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.UserInfo"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.UserInfo"
                 }
             }
         },
@@ -41442,7 +41651,7 @@ const docTemplate = `{
                     "description": "The trigger to check",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AutomationTrigger"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AutomationTrigger"
                         }
                     ],
                     "x-agent": true
@@ -41530,7 +41739,7 @@ const docTemplate = `{
                 "members": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantMemberResponse"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantMemberResponse"
                     }
                 },
                 "page": {
@@ -41551,7 +41760,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "data": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_handler_dto.TenantResponse"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.TenantResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -41580,7 +41789,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantRole"
                 }
             }
         },
@@ -41611,7 +41820,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "mode": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.APIPrincipalMode"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.APIPrincipalMode"
                 },
                 "require_direct_header": {
                     "type": "boolean"
@@ -41632,7 +41841,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "mode": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.APIPrincipalMode"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.APIPrincipalMode"
                 },
                 "require_direct_header": {
                     "type": "boolean"
@@ -41679,7 +41888,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AuditLog"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AuditLog"
                     }
                 },
                 "next_cursor": {
@@ -41713,7 +41922,7 @@ const docTemplate = `{
                     "x-agent": "knowledge_base_id"
                 },
                 "process_config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.KnowledgeProcessOverrides"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.KnowledgeProcessOverrides"
                 }
             }
         },
@@ -41757,7 +41966,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "sandbox_config_ids": {
-                    "description": "Sandbox config ids to install onto: an agent's sandbox_config_id, or host on GENYEE Lite",
+                    "description": "Sandbox config ids to install onto: an agent's sandbox_config_id, or host on WeKnora Lite",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -41799,7 +42008,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantRole"
                 }
             }
         },
@@ -41813,7 +42022,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantRole"
                 }
             }
         },
@@ -41928,7 +42137,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantRole"
                 },
                 "tenant_id": {
                     "type": "integer"
@@ -42015,7 +42224,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantSandboxConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantSandboxConfig"
                 },
                 "description": {
                     "type": "string"
@@ -42029,7 +42238,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantSandboxConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantSandboxConfig"
                 },
                 "created_at": {
                     "type": "string"
@@ -42151,7 +42360,7 @@ const docTemplate = `{
                     "description": "Served is the previous version that keeps running while this install\nis in flight or after it failed.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_application_service.SkillServedInfo"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_application_service.SkillServedInfo"
                         }
                     ]
                 },
@@ -42191,7 +42400,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "config": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.StorageBackendConfig"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.StorageBackendConfig"
                 },
                 "name": {
                     "type": "string"
@@ -42241,7 +42450,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "scope_type": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.APIKeyScopeType"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.APIKeyScopeType"
                 },
                 "token": {
                     "type": "string"
@@ -42285,7 +42494,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "scope_type": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.APIKeyScopeType"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.APIKeyScopeType"
                 }
             }
         },
@@ -42311,7 +42520,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "role": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.TenantRole"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.TenantRole"
                 }
             }
         },
@@ -42379,10 +42588,10 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "assistant_access": {
-                    "description": "AssistantAccess is the GENYEE assistant access level: read_only,\nconfirm or auto_write. The workspace ceiling caps it; other agents\nignore it.",
+                    "description": "AssistantAccess is the WeKnora assistant access level: read_only,\nconfirm or auto_write. The workspace ceiling caps it; other agents\nignore it.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.AssistantAccessLevel"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel"
                         }
                     ]
                 },
@@ -42448,10 +42657,10 @@ const docTemplate = `{
                     }
                 },
                 "page_context": {
-                    "description": "PageContext is the GENYEE page the user has open (agent mode only).",
+                    "description": "PageContext is the WeKnora page the user has open (agent mode only).",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.PageContext"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PageContext"
                         }
                     ]
                 },
@@ -42463,7 +42672,7 @@ const docTemplate = `{
                     "description": "QuestionOrigin is the knowledge source of a picked suggested question.",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.QuestionOrigin"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.QuestionOrigin"
                         }
                     ]
                 },
@@ -42479,7 +42688,7 @@ const docTemplate = `{
                     }
                 },
                 "suggestion_attribution": {
-                    "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SuggestionAttribution"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SuggestionAttribution"
                 },
                 "summary_model_id": {
                     "description": "Optional summary model ID for this request (overrides session default)",
@@ -42548,7 +42757,7 @@ const docTemplate = `{
                     "description": "Messages to use as context for title generation",
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.Message"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.Message"
                     }
                 }
             }
@@ -42672,7 +42881,7 @@ const docTemplate = `{
                     "description": "Rerank override",
                     "allOf": [
                         {
-                            "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.RerankOptions"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.RerankOptions"
                         }
                     ]
                 },
@@ -42737,7 +42946,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.ArtifactLibraryItem"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ArtifactLibraryItem"
                     }
                 },
                 "page": {
@@ -42777,7 +42986,7 @@ const docTemplate = `{
                 "data": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_Tencent_GENYEE_internal_types.SessionListItem"
+                        "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.SessionListItem"
                     }
                 },
                 "page": {

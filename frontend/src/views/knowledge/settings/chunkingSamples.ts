@@ -116,12 +116,12 @@ const FAQ_SAMPLE = `# GENYEE 部署与使用 FAQ
 ## 安装与启动
 
 ### Q1: Docker 镜像在哪里下载？
-官方镜像通过 daocloud 加速分发：
+可拉取官方交付镜像或导入离线镜像包：
 
 \`\`\`
-docker pull docker.m.daocloud.io/wechatopenai/weknora-app:v0.5.0
-docker pull docker.m.daocloud.io/wechatopenai/weknora-docreader:v0.5.0
-docker pull docker.m.daocloud.io/wechatopenai/weknora-ui:v0.5.0
+docker pull genyee/genyee-app:latest
+docker pull genyee/genyee-docreader:latest
+docker pull genyee/genyee-ui:latest
 \`\`\`
 
 ### Q2: 启动后访问 5173 显示旧界面？
@@ -148,7 +148,7 @@ docker pull docker.m.daocloud.io/wechatopenai/weknora-ui:v0.5.0
 在知识库的"多模态配置"中开启，并选择一个 VLM 模型（如 GPT-4o、Qwen2.5-VL）。开启后，文档中的图片会被 VLM 描述并参与检索。
 
 ### Q9: 如何自定义日志格式？
-设置 \`WEKNORA_LOG_FORMAT="%d %level %msg" LOG_LEVEL=info\`。模板必须包含 \`%msg\`；留空使用默认格式，\`json\` 不是受支持的格式关键字。
+设置 \`GENYEE_LOG_FORMAT="%d %level %msg" LOG_LEVEL=info\`。模板必须包含 \`%msg\`；留空使用默认格式，\`json\` 不是受支持的格式关键字。
 
 ## 检索与召回
 

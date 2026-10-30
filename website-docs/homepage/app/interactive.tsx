@@ -10,7 +10,7 @@ const productFilms = [
     id: "v090",
     label: "v0.9.0 发布",
     title: "v0.9.0 工作助手",
-    summary: "WeKnora 助手、多智能体协作、自动化与执行权限",
+    summary: "GENYEE 助手、多智能体协作、自动化与执行权限",
     duration: "02:45",
     durationLabel: "2 分 45 秒",
     quality: "1080P · 60 FPS",
@@ -22,7 +22,7 @@ const productFilms = [
   {
     id: "overview",
     label: "产品全览",
-    title: "WeKnora 产品全览",
+    title: "GENYEE 产品全览",
     summary: "知识问答、Agent 推理与 Wiki 整理",
     duration: "02:25",
     durationLabel: "2 分 25 秒",
@@ -47,7 +47,7 @@ export function Header() {
   const menu = useRef<HTMLButtonElement>(null);
   return <header className="wk-header" onKeyDown={event => { if (event.key === "Escape" && open) { setOpen(false); menu.current?.focus(); } }}>
     <div className="wk-header-inner">
-      <a className="wk-brand" href="/" target="_self" aria-label="WeKnora 首页"><BrandLogo priority /></a>
+      <a className="wk-brand" href="/" target="_self" aria-label="GENYEE 首页"><BrandLogo priority /></a>
       <nav id="main-navigation" className={`wk-navigation ${open ? "is-open" : ""}`} aria-label="主导航" onClick={() => setOpen(false)}>
         {siteNavigation.map(item => {
           if (item.children?.length) {

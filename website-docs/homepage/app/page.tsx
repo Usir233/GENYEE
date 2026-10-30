@@ -1,6 +1,5 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import Image from "next/image";
 import { BrandLogo } from "./brand-logo";
 import { Icon } from "./ui";
 import { homeAssets } from "../../shared/header";
@@ -36,13 +35,13 @@ const withAvailability = (slide: SlideSource): GallerySlide => {
   return { name: slide.name, icon: slide.icon, title: slide.title, description: slide.description, link: slide.link, external: slide.external, shots: shots.map(shot => ({ ...shot, available: productShotExists(`${homeAssets}/product/${shot.image}.png`) })) };
 };
 const releaseSlides = [
-  { name: "WeKnora 助手", icon: "agent", shots: [
-    { label: "产品问答", icon: "file", image: "assistant-release-guide", alt: "向 WeKnora 助手询问 v0.9.0 的更新，依据产品文档了解新增能力" },
+  { name: "GENYEE 助手", icon: "agent", shots: [
+    { label: "产品问答", icon: "file", image: "assistant-release-guide", alt: "向 GENYEE 助手询问 v0.9.0 的更新，依据产品文档了解新增能力" },
     { label: "任务协助", icon: "agent", image: "assistant-overview", alt: "在知识库卡片视图中，让助手阅读活动资料并给出可执行的筹备建议" },
-  ], title: "了解 WeKnora，也帮你处理任务", description: "询问版本更新、功能用法与配置问题。助手结合当前页面，以你的身份查资料、创建智能体、设置定时任务，或修改有权管理的内容。", link: guide("03-features/26-weknora-assistant") },
+  ], title: "了解 GENYEE，也帮你处理任务", description: "询问版本更新、功能用法与配置问题。助手结合当前页面，以你的身份查资料、创建智能体、设置定时任务，或修改有权管理的内容。", link: guide("03-features/26-weknora-assistant") },
   { name: "多智能体协作", icon: "channels", image: "agent-collaboration", title: "多个智能体同时处理任务", description: "把搜集、整理、核对分给多个智能体同时处理。子任务有独立对话，进度和结果都能查看。", alt: "多个智能体分别整理读书会资料并汇总结果", link: guide("03-features/26-weknora-assistant") + "#collaboration" },
   { name: "自动化", icon: "history", shots: [
-    { label: "一句话设置", icon: "agent", image: "automation-conversation", alt: "用一句话请 WeKnora 助手设置自动化，核对任务和执行时间" },
+    { label: "一句话设置", icon: "agent", image: "automation-conversation", alt: "用一句话请 GENYEE 助手设置自动化，核对任务和执行时间" },
     { label: "手动设置", icon: "history", image: "automation-setup", alt: "在自动化表单中手动设置重复频率、时间和时区，并预览后续运行时间" },
   ], title: "一句话安排，也能手动设置", description: "告诉助手要做什么、何时执行，或在表单中逐项设置。任务以你的身份按计划运行，结果和待审批事项会通知你。", link: guide("03-features/27-automations") },
   { name: "执行权限与审批", icon: "shield", image: "assistant-permissions", title: "决定哪些操作需要确认", description: "选择只读、修改前确认或自动执行。确认前可查看具体操作；删除等高影响操作仍须批准。", alt: "在卡片知识库中，核对助手要修改的文档和新标题后批准", link: guide("03-features/28-agent-permissions") },
@@ -54,7 +53,7 @@ const browserSlides = [
     link: guide("05-clients/09-local-browser"),
   },
   { name: "连接扩展", icon: "plug", title: "连接 Chrome 或 Edge，开始使用",
-    description: "安装腾讯开源的 BrowserSkill 扩展，在工具箱中连接本机浏览器，查看连接状态，再将网页操作交给智能体。",
+    description: "安装 BrowserSkill 扩展，在工具箱中连接本机浏览器，查看连接状态，再将网页操作交给智能体。",
     image: "browser-connection", alt: "工具箱的浏览器连接页，BrowserSkill 扩展已连接",
     link: guide("05-clients/09-local-browser"),
     external: { label: "BrowserSkill", href: "https://github.com/Tencent/BrowserSkill", logo: "browserskill.png" },
@@ -109,7 +108,7 @@ export default function Home() {
         </article>)}</div>
       </div></section>
       <section id="release" className={`${s.chapter} ${s.chapterTint}`} data-tone="subtle" aria-labelledby="release-title"><div className={s.shell}>
-        <div className={s.sectionHeading}><div><p className={s.eyebrow}>02 / INTRODUCING v0.9.0</p><h2 id="release-title">WeKnora 助手、多智能体协作与自动化</h2></div><a className={s.textLink} href={guide("07-releases/v0.9.0")}>版本说明与发布视频 <Icon name="arrow" /></a></div>
+        <div className={s.sectionHeading}><div><p className={s.eyebrow}>02 / INTRODUCING v0.9.0</p><h2 id="release-title">GENYEE 助手、多智能体协作与自动化</h2></div><a className={s.textLink} href={guide("07-releases/v0.9.0")}>版本说明与发布视频 <Icon name="arrow" /></a></div>
         <ProductGallery id="release-gallery" label="v0.9.0" slides={releaseSlides} layout="compact" />
         <div className={s.releaseExtras}><span>本次更新还包括</span>{releaseExtras.map(item => <a className={s.textLink} key={item.name} href={guide(item.link)}>{item.name} <Icon name="arrow" /></a>)}</div>
       </div></section>
@@ -149,22 +148,22 @@ export default function Home() {
         <div className={s.sectionHeading}><div><p className={s.eyebrow}>GET STARTED</p><h2 id="closing-title">选择适合你的使用方式。</h2></div></div>
         <div className={s.startGrid}>
           <article className={s.startCard}>
-            <div className={s.startLabel}><Image className={s.startBrand} src={`${homeAssets}/brands/wechat-dialog.png`} alt="微信对话开放平台 Logo" width={32} height={32} /><span>在线使用</span></div>
-            <h3>微信对话开放平台</h3>
-            <p>在线管理知识库，将问答服务接入公众号、小程序等微信场景。</p>
-            <a className={s.textLink} href="https://chatbot.weixin.qq.com/login" target="_blank" rel="noreferrer">进入平台 <Icon name="external" /></a>
-          </article>
-          <article className={s.startCard}>
-            <div className={s.startLabel}><Image className={s.startBrand} src={`${homeAssets}/brands/tencent-cloud.ico`} alt="腾讯云 Logo" width={32} height={32} /><span>云端部署</span></div>
-            <h3>腾讯云轻量应用服务器</h3>
-            <p>通过应用模板部署 GENYEE，在自己的云服务器上运行。</p>
-            <a className={s.textLink} href="https://mc.tencent.com/s69nKCVz" target="_blank" rel="noreferrer">前往腾讯云部署 <Icon name="external" /></a>
-          </article>
-          <article className={s.startCard}>
-            <div className={s.startLabel}><BrandLogo /><span>自行部署</span></div>
+            <div className={s.startLabel}><BrandLogo /><span>容器与集群</span></div>
             <h3>部署到自己的环境</h3>
-            <p>使用 Docker 或 Kubernetes 部署，自行配置模型、存储和网络。</p>
+            <p>使用 Docker Compose 或 Kubernetes Helm 部署，自行配置模型、存储和网络。</p>
             <a className={s.textLink} href={guide("01-getting-started/02-installation")}>查看部署文档 <Icon name="arrow" /></a>
+          </article>
+          <article className={s.startCard}>
+            <div className={s.startLabel}><BrandLogo /><span>单机与桌面</span></div>
+            <h3>Lite 版与桌面客户端</h3>
+            <p>零外部依赖单二进制或 macOS 桌面应用，开箱体验知识库与本机沙箱。</p>
+            <a className={s.textLink} href={guide("05-clients/05-desktop")}>查看桌面端文档 <Icon name="arrow" /></a>
+          </article>
+          <article className={s.startCard}>
+            <div className={s.startLabel}><BrandLogo /><span>开发者工具</span></div>
+            <h3>CLI、MCP 与 SDK 集成</h3>
+            <p>通过命令行工具、MCP Server 端点或 Go SDK 接入现有工作流。</p>
+            <a className={s.textLink} href={guide("05-clients/02-cli")}>查看 CLI 文档 <Icon name="arrow" /></a>
           </article>
         </div>
       </div></section>

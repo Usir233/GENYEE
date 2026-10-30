@@ -141,11 +141,11 @@ def wordmark(theme):
 
 COPY = {
     "cn": dict(
-        eyebrow="TENCENT OPEN SOURCE · GENYEE",
+        eyebrow="企业级智能知识库 · GENYEE",
         h1=["帮你找到答案，", "并将知识付诸实践。"], h1_size=88,
-        desc=["腾讯开源的企业级知识管理框架。", "汇集团队资料，用于知识问答、任务执行和 Wiki 整理。"],
+        desc=["新一代企业级智能知识管理与智能体框架。", "汇集团队资料，用于知识问答、任务执行和 Wiki 整理。"],
         highlights=["RAG 问答", "Agent 推理", "自动 Wiki", "本机浏览器", "技能与沙箱", "MCP Server", "长期记忆", "数据源与 IM"],
-        trust=[("github", "腾讯开源 · MIT License"), ("server", "支持私有化部署"), ("model", "自由选择模型与存储")],
+        trust=[("github", "企业级智能知识库 · GENYEE"), ("server", "支持私有化部署"), ("model", "自由选择模型与存储")],
         cards=[
             ("search", "01 / RAG", "回答有据可查", "结合语义与关键词检索查找相关资料，回答附带来源引用，可打开原文核对。", ["混合检索", "多模态解析", "原文引用"]),
             ("agent", "02 / AGENT", "用知识和工具完成任务", "智能体根据任务检索知识库、搜索网页、调用 MCP 工具与技能，在沙箱中处理文件、运行脚本，还能操作你电脑上的浏览器，并跨会话记住你确认过的偏好。", ["多步推理", "技能与沙箱", "本机浏览器", "MCP 工具", "长期记忆"]),
@@ -153,11 +153,11 @@ COPY = {
         ],
     ),
     "en": dict(
-        eyebrow="TENCENT OPEN SOURCE · GENYEE",
+        eyebrow="ENTERPRISE AI · GENYEE",
         h1=["Find the answers,", "and put knowledge to work."], h1_size=68,
-        desc=["Tencent's open-source knowledge management framework.", "Bring team documents together for Q&A, tasks and wikis."],
+        desc=["Enterprise knowledge management and agent framework.", "Bring team documents together for Q&A, tasks and wikis."],
         highlights=["RAG Q&A", "Agent reasoning", "Auto Wiki", "Local browser", "Skills & sandbox", "MCP Server", "Long-term memory", "Sources & IM"],
-        trust=[("github", "Tencent Open Source · MIT License"), ("server", "Self-hosted deployment"), ("model", "Your choice of models and storage")],
+        trust=[("github", "Enterprise AI · GENYEE"), ("server", "Self-hosted deployment"), ("model", "Your choice of models and storage")],
         cards=[
             ("search", "01 / RAG", "Answers you can check", "Semantic and keyword search find the relevant material. Every answer cites its sources, and you can open the original to verify.", ["Hybrid search", "Multimodal parsing", "Citations"]),
             ("agent", "02 / AGENT", "Tasks done with knowledge and tools", "The agent searches knowledge bases and the web, calls MCP tools and skills, handles files and scripts in a sandbox, operates the browser on your computer, and remembers preferences you have confirmed.", ["Multi-step", "Skills & sandbox", "Local browser", "MCP tools", "Memory"]),
@@ -165,11 +165,11 @@ COPY = {
         ],
     ),
     "ja": dict(
-        eyebrow="TENCENT OPEN SOURCE · GENYEE",
+        eyebrow="エンタープライズ AI · GENYEE",
         h1=["答えを見つけ、", "知識を実践に活かす。"], h1_size=88,
-        desc=["Tencent が公開するオープンソースのエンタープライズ向けナレッジ管理フレームワーク。", "チームの資料を集約し、Q&A・タスク実行・Wiki 整理に活用します。"],
+        desc=["エンタープライズ向けナレッジ管理・エージェントフレームワーク。", "チームの資料を集約し、Q&A・タスク実行・Wiki 整理に活用します。"],
         highlights=["RAG Q&A", "Agent 推論", "自動 Wiki", "ローカルブラウザ", "サンドボックス", "MCP Server", "長期メモリ", "データ連携 · IM"],
-        trust=[("github", "Tencent オープンソース · MIT License"), ("server", "プライベートデプロイ対応"), ("model", "モデルとストレージを自由に選択")],
+        trust=[("github", "エンタープライズ AI · GENYEE"), ("server", "プライベートデプロイ対応"), ("model", "モデルとストレージを自由に選択")],
         cards=[
             ("search", "01 / RAG", "根拠のある回答", "セマンティック検索とキーワード検索を組み合わせて関連資料を探し、回答には出典が付きます。原文を開いて確認できます。", ["ハイブリッド検索", "マルチモーダル解析", "原文引用"]),
             ("agent", "02 / AGENT", "知識とツールでタスクを完了", "エージェントがナレッジベースや Web を検索し、MCP ツールやスキルを呼び出し、サンドボックスでファイル処理やスクリプト実行を行い、お使いのパソコンのブラウザも操作します。確認済みの好みはセッションをまたいで記憶します。", ["マルチステップ推論", "サンドボックス", "ローカルブラウザ", "MCP ツール", "長期メモリ"]),
@@ -177,11 +177,11 @@ COPY = {
         ],
     ),
     "ko": dict(
-        eyebrow="TENCENT OPEN SOURCE · GENYEE",
+        eyebrow="엔터프라이즈 AI · GENYEE",
         h1=["답을 찾고,", "지식을 실천으로."], h1_size=88,
-        desc=["Tencent가 오픈소스로 공개한 엔터프라이즈 지식 관리 프레임워크입니다.", "팀 자료를 모아 Q&A, 작업 실행, Wiki 정리에 활용합니다."],
+        desc=["엔터프라이즈 지식 관리 및 에이전트 프레임워크입니다.", "팀 자료를 모아 Q&A, 작업 실행, Wiki 정리에 활용합니다."],
         highlights=["RAG Q&A", "Agent 추론", "자동 Wiki", "로컬 브라우저", "스킬과 샌드박스", "MCP Server", "장기 메모리", "데이터 소스와 IM"],
-        trust=[("github", "Tencent 오픈소스 · MIT License"), ("server", "프라이빗 배포 지원"), ("model", "모델과 스토리지 자유 선택")],
+        trust=[("github", "엔터프라이즈 AI · GENYEE"), ("server", "프라이빗 배포 지원"), ("model", "모델과 스토리지 자유 선택")],
         cards=[
             ("search", "01 / RAG", "근거 있는 답변", "시맨틱 검색과 키워드 검색으로 관련 자료를 찾고, 답변에 출처를 표시합니다. 원문을 열어 확인할 수 있습니다.", ["하이브리드 검색", "멀티모달 파싱", "원문 인용"]),
             ("agent", "02 / AGENT", "지식과 도구로 작업 완료", "에이전트가 작업에 맞춰 지식베이스와 웹을 검색하고 MCP 도구와 스킬을 호출하며, 샌드박스에서 파일을 처리하고 스크립트를 실행하고, 사용자 컴퓨터의 브라우저도 조작합니다. 확인한 선호는 세션을 넘어 기억합니다.", ["다단계 추론", "스킬과 샌드박스", "로컬 브라우저", "MCP 도구", "장기 메모리"]),

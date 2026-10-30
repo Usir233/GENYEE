@@ -1,12 +1,12 @@
 # WeMM Transformers 部署
 
-使用 [WeMM 官方 Transformers 推理代码](https://github.com/Tencent/WeMM-Embedding#transformers)加载模型，由仓库内的 `scripts/wemm-transformers/serve.py` 提供 HTTP Embedding 服务。服务可以与 WeKnora 部署在同一机器，也可以部署在独立 GPU 服务器上，通过 Base URL 接入。
+使用 [WeMM 官方 Transformers 推理代码](https://github.com/Tencent/WeMM-Embedding#transformers)加载模型，由仓库内的 `scripts/wemm-transformers/serve.py` 提供 HTTP Embedding 服务。服务可以与 GENYEE 部署在同一机器，也可以部署在独立 GPU 服务器上，通过 Base URL 接入。
 
-CUDA、Apple MPS 和 CPU 是可选的计算设备，使用同一份脚本和请求协议。此 HTTP 适配层由 WeKnora 提供，支持文本和图片；模型本身支持的视频等能力尚未在此接口开放。官方 vLLM 部署方式见[模型配置](../03-features/06-models.md#wemm-embedding)。
+CUDA、Apple MPS 和 CPU 是可选的计算设备，使用同一份脚本和请求协议。此 HTTP 适配层由 GENYEE 提供，支持文本和图片；模型本身支持的视频等能力尚未在此接口开放。官方 vLLM 部署方式见[模型配置](../03-features/06-models.md#wemm-embedding)。
 
 ## 安装依赖
 
-以下命令在 WeKnora 仓库根目录执行，使用 Python 3.12。虚拟环境和模型文件放在仓库外：
+以下命令在 GENYEE 仓库根目录执行，使用 Python 3.12。虚拟环境和模型文件放在仓库外：
 
 ```bash
 python3.12 -m venv "$HOME/.venvs/weknora-wemm"
@@ -52,7 +52,7 @@ python scripts/wemm-transformers/serve.py \
 
 首次启动会从 Hugging Face 下载模型到标准缓存，后续复用缓存。`--revision` 可固定模型代码与权重版本；示例 SHA 属于 2B，切换 4B、9B 时应选取对应仓库的版本，不能沿用此 SHA。未指定时使用该仓库默认版本。
 
-已有模型目录时可以离线启动，并指定 WeKnora 调用时使用的模型名称：
+已有模型目录时可以离线启动，并指定 GENYEE 调用时使用的模型名称：
 
 ```bash
 python scripts/wemm-transformers/serve.py \
@@ -94,11 +94,11 @@ python scripts/wemm-transformers/serve.py \
 
 ### 独立服务器与鉴权
 
-跨机器部署时使用 `--host 0.0.0.0`，并在服务进程环境中设置 `WEMM_API_KEY`。`/v1/models` 与 `/v1/embeddings` 会验证 `Authorization: Bearer <key>`；WeKnora 的 API Key 填写相同值。服务不直接终止 TLS，跨不可信网络时通过 HTTPS 反向代理访问。`/health` 仅提供运行状态和非敏感模型元数据，不要求 API Key。
+跨机器部署时使用 `--host 0.0.0.0`，并在服务进程环境中设置 `WEMM_API_KEY`。`/v1/models` 与 `/v1/embeddings` 会验证 `Authorization: Bearer <key>`；GENYEE 的 API Key 填写相同值。服务不直接终止 TLS，跨不可信网络时通过 HTTPS 反向代理访问。`/health` 仅提供运行状态和非敏感模型元数据，不要求 API Key。
 
-默认监听回环地址、未设置 API Key。WeKnora 若运行在 Docker 中，`127.0.0.1` 指向 WeKnora 容器自身，应填写容器能够访问的推理服务地址，例如同一容器网络的服务名，或已配置的宿主机地址。私网地址还需符合 WeKnora 的 SSRF 访问策略，配置方法见[安全说明](../01-getting-started/04-configuration.md)。
+默认监听回环地址、未设置 API Key。GENYEE 若运行在 Docker 中，`127.0.0.1` 指向 GENYEE 容器自身，应填写容器能够访问的推理服务地址，例如同一容器网络的服务名，或已配置的宿主机地址。私网地址还需符合 GENYEE 的 SSRF 访问策略，配置方法见[安全说明](../01-getting-started/04-configuration.md)。
 
-## WeKnora 接入
+## GENYEE 接入 {#weknora-接入}
 
 在「设置 → 模型管理」添加：
 
@@ -169,7 +169,7 @@ HTTP 支持批量输入，但模型逐条执行，并串行处理推理请求，
 | `--dtype` | `auto` | CUDA 支持 BF16 时用 BF16，否则 FP16；MPS 用 BF16；CPU 用 FP32。可显式指定 `bfloat16`、`float16`、`float32` |
 | `--max-tokens` | 8192 | 每个输入经过模板和图片处理后的总 token 上限，超限拒绝，不静默截断 |
 | `--max-pixels` | 1048576 | 每张图片缩放后的像素上限，至少 65536；较小上限会影响高分辨率文档效果 |
-| `--max-batch-size` | 32 | 每个 HTTP 请求的独立输入数上限；WeKnora 的批量设置不应超过它 |
+| `--max-batch-size` | 32 | 每个 HTTP 请求的独立输入数上限；GENYEE 的批量设置不应超过它 |
 | `--cpu-threads` | 8 | PyTorch CPU 线程数 |
 | `--mps-fallback` | 关闭 | 允许 PyTorch 将不支持的 MPS 算子放到 CPU 执行 |
 | `--local-files-only` | 关闭 | 仅使用本机文件或已有缓存，不下载权重 |
@@ -200,6 +200,6 @@ python scripts/wemm-transformers/smoke_test.py \
 
 - **CUDA/MPS 不可用**：检查 PyTorch wheel、驱动与设备，或显式改为 `--device cpu`；脚本不会将显式设备要求静默降级。
 - **MPS 算子不支持**：尝试 `--mps-fallback`；BF16 不可用时可使用 `--dtype float32`，同时检查内存余量。
-- **显存不足或超时**：减小模型规格、图片像素、输入长度和 WeKnora 批量。该服务为单 worker，增加 HTTP 并发不会自动增加推理吞吐。
+- **显存不足或超时**：减小模型规格、图片像素、输入长度和 GENYEE 批量。该服务为单 worker，增加 HTTP 并发不会自动增加推理吞吐。
 - **模型加载缓慢**：首次需要下载权重；先预下载并固定版本，离线启动时检查目录中同时包含权重、tokenizer、processor 和官方 Python 模型代码。
 - **模型名不匹配**：检查 `/v1/models`；使用自定义目录时建议显式设置 `--served-model-name`。
