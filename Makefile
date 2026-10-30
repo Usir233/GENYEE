@@ -13,9 +13,9 @@ help:
 	@echo "  clean             清理构建文件"
 	@echo ""
 	@echo "Docker 命令:"
-	@echo "  docker-build-app       构建应用 Docker 镜像 (wechatopenai/weknora-app)"
-	@echo "  docker-build-docreader 构建文档读取器镜像 (wechatopenai/weknora-docreader)"
-	@echo "  docker-build-frontend  构建前端镜像 (wechatopenai/weknora-ui)"
+	@echo "  docker-build-app       构建应用 Docker 镜像 ($(GENYEE_REGISTRY)/genyee-app)"
+	@echo "  docker-build-docreader 构建文档读取器镜像 ($(GENYEE_REGISTRY)/genyee-docreader)"
+	@echo "  docker-build-frontend  构建前端镜像 ($(GENYEE_REGISTRY)/genyee-ui)"
 	@echo "  docker-build-all       构建所有 Docker 镜像"
 	@echo "  docker-run            运行 Docker 容器"
 	@echo "  docker-stop           停止 Docker 容器"
@@ -77,7 +77,8 @@ BINARY_NAME=GENYEE
 MAIN_PATH=./cmd/server
 
 # Docker related variables
-DOCKER_IMAGE=wechatopenai/weknora-app
+GENYEE_REGISTRY ?= genyee
+DOCKER_IMAGE=$(GENYEE_REGISTRY)/genyee-app
 DOCKER_TAG=latest
 
 # Platform detection
@@ -149,14 +150,14 @@ docker-build-app:
 
 # Build docreader Docker image
 docker-build-docreader:
-	docker build --platform $(PLATFORM) -f docker/Dockerfile.docreader -t wechatopenai/weknora-docreader:latest .
+	docker build --platform $(PLATFORM) -f docker/Dockerfile.docreader -t $(GENYEE_REGISTRY)/genyee-docreader:$(DOCKER_TAG) .
 
 # Build frontend Docker image (multi-stage: npm runs inside the builder stage)
 docker-build-frontend:
 	@eval $$(./scripts/get_version.sh env); \
 	docker build --platform $(PLATFORM) \
 		--build-arg VITE_FRONTEND_COMMIT="$$COMMIT_ID" \
-		-f frontend/Dockerfile -t wechatopenai/weknora-ui:latest frontend/
+		-f frontend/Dockerfile -t $(GENYEE_REGISTRY)/genyee-ui:$(DOCKER_TAG) frontend/
 
 # Build all Docker images
 docker-build-all: docker-build-app docker-build-docreader docker-build-frontend
@@ -333,15 +334,17 @@ download_spatial:
 
 clean-db:
 	@echo "Cleaning database..."
-	@if [ $$(docker volume ls -q -f name=weknora_postgres-data) ]; then \
-		docker volume rm weknora_postgres-data; \
-	fi
-	@if [ $$(docker volume ls -q -f name=weknora_minio_data) ]; then \
-		docker volume rm weknora_minio_data; \
-	fi
-	@if [ $$(docker volume ls -q -f name=weknora_redis_data) ]; then \
-		docker volume rm weknora_redis_data; \
-	fi
+	@for prefix in genyee weknora; do \
+		if [ $$(docker volume ls -q -f name=$${prefix}_postgres-data) ]; then \
+			docker volume rm $${prefix}_postgres-data; \
+		fi; \
+		if [ $$(docker volume ls -q -f name=$${prefix}_minio_data) ]; then \
+			docker volume rm $${prefix}_minio_data; \
+		fi; \
+		if [ $$(docker volume ls -q -f name=$${prefix}_redis_data) ]; then \
+			docker volume rm $${prefix}_redis_data; \
+		fi; \
+	done
 
 # Environment check
 check-env:

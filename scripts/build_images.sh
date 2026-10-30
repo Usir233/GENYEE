@@ -1,5 +1,5 @@
 #!/bin/bash
-# 该脚本用于从源码构建WeKnora的所有Docker镜像
+# 该脚本用于从源码构建GENYEE的所有Docker镜像
 
 # 设置颜色
 GREEN='\033[0;32m'
@@ -15,13 +15,17 @@ PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 # 启用 BuildKit
 export DOCKER_BUILDKIT=1
 
+# 镜像仓库前缀（默认 genyee，可通过 GENYEE_REGISTRY 覆盖为私有仓库，如 registry.internal.corp/genyee）
+GENYEE_REGISTRY="${GENYEE_REGISTRY:-genyee}"
+IMAGE_TAG="${WEKNORA_VERSION:-latest}"
+
 # 版本信息
 VERSION="1.0.0"
 SCRIPT_NAME=$(basename "$0")
 
 # 显示帮助信息
 show_help() {
-    echo -e "${GREEN}WeKnora 镜像构建脚本 v${VERSION}${NC}"
+    echo -e "${GREEN}GENYEE 镜像构建脚本 v${VERSION}${NC}"
     echo -e "${GREEN}用法:${NC} $0 [选项]"
     echo "选项:"
     echo "  -h, --help     显示帮助信息"
@@ -37,7 +41,7 @@ show_help() {
 
 # 显示版本信息
 show_version() {
-    echo -e "${GREEN}WeKnora 镜像构建脚本 v${VERSION}${NC}"
+    echo -e "${GREEN}GENYEE 镜像构建脚本 v${VERSION}${NC}"
     exit 0
 }
 
@@ -129,7 +133,7 @@ get_version_info() {
 
 # 构建应用镜像
 build_app_image() {
-    log_info "构建应用镜像 (weknora-app)..."
+    log_info "构建应用镜像 (${GENYEE_REGISTRY}/genyee-app:${IMAGE_TAG})..."
     
     cd "$PROJECT_ROOT"
     
@@ -148,7 +152,8 @@ build_app_image() {
         --build-arg GO_VERSION_ARG="$GO_VERSION" \
         --build-arg WITH_ANYDOC=${WITH_ANYDOC:-1} \
         -f docker/Dockerfile.app \
-        -t wechatopenai/weknora-app:latest \
+        -t "${GENYEE_REGISTRY}/genyee-app:${IMAGE_TAG}" \
+        -t "${GENYEE_REGISTRY}/genyee-app:latest" \
         .
     
     if [ $? -eq 0 ]; then
@@ -162,7 +167,7 @@ build_app_image() {
 
 # 构建文档读取器镜像
 build_docreader_image() {
-    log_info "构建文档读取器镜像 (weknora-docreader)..."
+    log_info "构建文档读取器镜像 (${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG})..."
     
     cd "$PROJECT_ROOT"
     
@@ -174,7 +179,8 @@ build_docreader_image() {
         --build-arg PLAYWRIGHT_DOWNLOAD_HOST="${PLAYWRIGHT_DOWNLOAD_HOST:-}" \
         --build-arg PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST="${PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST:-}" \
         -f docker/Dockerfile.docreader \
-        -t wechatopenai/weknora-docreader:latest \
+        -t "${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG}" \
+        -t "${GENYEE_REGISTRY}/genyee-docreader:latest" \
         .
     
     if [ $? -eq 0 ]; then
@@ -188,7 +194,7 @@ build_docreader_image() {
 
 # 构建前端镜像（多阶段：npm 在 builder 内执行，无需宿主机预构建 dist）
 build_frontend_image() {
-    log_info "构建前端镜像 (weknora-ui)..."
+    log_info "构建前端镜像 (${GENYEE_REGISTRY}/genyee-ui:${IMAGE_TAG})..."
     
     cd "$PROJECT_ROOT"
     
@@ -201,7 +207,8 @@ build_frontend_image() {
         ${NPM_REGISTRY:+--build-arg NPM_REGISTRY="$NPM_REGISTRY"} \
         ${NODE_MAX_OLD_SPACE_SIZE:+--build-arg NODE_MAX_OLD_SPACE_SIZE="$NODE_MAX_OLD_SPACE_SIZE"} \
         -f frontend/Dockerfile \
-        -t wechatopenai/weknora-ui:latest \
+        -t "${GENYEE_REGISTRY}/genyee-ui:${IMAGE_TAG}" \
+        -t "${GENYEE_REGISTRY}/genyee-ui:latest" \
         frontend/
     
     if [ $? -eq 0 ]; then
@@ -215,19 +222,20 @@ build_frontend_image() {
 
 # 构建沙箱镜像
 build_sandbox_image() {
-    log_info "构建沙箱镜像 (weknora-sandbox)..."
+    log_info "构建沙箱镜像 (${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG})..."
 
     cd "$PROJECT_ROOT"
 
-    # 同时打上 main：默认镜像跟的是 main（见 sandbox.go 的 DefaultDockerImage），
-    # 而 Docker 后端只在本地缺失时才去拉，本地不打这个标签就等于白构建。
+    # 同时打上 latest 与 main：默认镜像跟的是 latest（见 sandbox.go 的 DefaultDockerImage），
+    # 而 Docker 后端只在本地缺失时才去拉，本地不打对应标签就等于白构建。
     docker build \
         --platform $PLATFORM \
         --build-arg TARGETPLATFORM=$PLATFORM \
         -f docker/Dockerfile.sandbox \
         --target sandbox \
-        -t wechatopenai/weknora-sandbox:latest \
-        -t wechatopenai/weknora-sandbox:main \
+        -t "${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}" \
+        -t "${GENYEE_REGISTRY}/genyee-sandbox:latest" \
+        -t "${GENYEE_REGISTRY}/genyee-sandbox:main" \
         .
 
     if [ $? -ne 0 ]; then
@@ -237,15 +245,15 @@ build_sandbox_image() {
 
     # Cube 从镜像直接构建模板，并以 :49983/health 探活，缺 envd 必然失败，
     # 因此 Cube 用的是注入了 envd 的变体镜像。详见 website-docs/06-development/04-sandbox-deployment.md。
-    log_info "构建沙箱镜像 Cube 变体 (weknora-sandbox:main-cube)..."
+    log_info "构建沙箱镜像 Cube 变体 (${GENYEE_REGISTRY}/genyee-sandbox:latest-cube)..."
 
     docker build \
         --platform $PLATFORM \
         --build-arg TARGETPLATFORM=$PLATFORM \
         -f docker/Dockerfile.sandbox \
         --target cube \
-        -t wechatopenai/weknora-sandbox:latest-cube \
-        -t wechatopenai/weknora-sandbox:main-cube \
+        -t "${GENYEE_REGISTRY}/genyee-sandbox:latest-cube" \
+        -t "${GENYEE_REGISTRY}/genyee-sandbox:main-cube" \
         .
 
     if [ $? -ne 0 ]; then
@@ -255,15 +263,16 @@ build_sandbox_image() {
 
     # Desktop variant: XFCE + x11vnc + websockify. Tagged for E2B template
     # builds; the Docker backend does not consume this image yet.
-    log_info "构建沙箱镜像桌面变体 (weknora-sandbox:main-desktop)..."
+    log_info "构建沙箱镜像桌面变体 (${GENYEE_REGISTRY}/genyee-sandbox:desktop)..."
 
     docker build \
         --platform $PLATFORM \
         --build-arg TARGETPLATFORM=$PLATFORM \
         -f docker/Dockerfile.sandbox \
         --target desktop \
-        -t wechatopenai/weknora-sandbox:latest-desktop \
-        -t wechatopenai/weknora-sandbox:main-desktop \
+        -t "${GENYEE_REGISTRY}/genyee-sandbox:desktop" \
+        -t "${GENYEE_REGISTRY}/genyee-sandbox:latest-desktop" \
+        -t "${GENYEE_REGISTRY}/genyee-sandbox:main-desktop" \
         .
 
     if [ $? -ne 0 ]; then
@@ -271,15 +280,16 @@ build_sandbox_image() {
         return 1
     fi
 
-    log_info "构建沙箱镜像桌面 Cube 变体 (weknora-sandbox:main-desktop-cube)..."
+    log_info "构建沙箱镜像桌面 Cube 变体 (${GENYEE_REGISTRY}/genyee-sandbox:desktop-cube)..."
 
     docker build \
         --platform $PLATFORM \
         --build-arg TARGETPLATFORM=$PLATFORM \
         -f docker/Dockerfile.sandbox \
         --target desktop-cube \
-        -t wechatopenai/weknora-sandbox:latest-desktop-cube \
-        -t wechatopenai/weknora-sandbox:main-desktop-cube \
+        -t "${GENYEE_REGISTRY}/genyee-sandbox:desktop-cube" \
+        -t "${GENYEE_REGISTRY}/genyee-sandbox:latest-desktop-cube" \
+        -t "${GENYEE_REGISTRY}/genyee-sandbox:main-desktop-cube" \
         .
 
     if [ $? -eq 0 ]; then
@@ -354,33 +364,33 @@ build_all_images() {
 
 # 清理本地镜像
 clean_images() {
-    log_info "清理本地WeKnora镜像..."
+    log_info "清理本地GENYEE镜像..."
     
     # 停止相关容器
     log_info "停止相关容器..."
-    docker stop $(docker ps -q --filter "ancestor=wechatopenai/weknora-app:latest" 2>/dev/null) 2>/dev/null || true
-    docker stop $(docker ps -q --filter "ancestor=wechatopenai/weknora-docreader:latest" 2>/dev/null) 2>/dev/null || true
-    docker stop $(docker ps -q --filter "ancestor=wechatopenai/weknora-ui:latest" 2>/dev/null) 2>/dev/null || true
+    docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-app:latest" 2>/dev/null) 2>/dev/null || true
+    docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-docreader:latest" 2>/dev/null) 2>/dev/null || true
+    docker stop $(docker ps -q --filter "ancestor=${GENYEE_REGISTRY}/genyee-ui:latest" 2>/dev/null) 2>/dev/null || true
     
     # 删除相关容器
     log_info "删除相关容器..."
-    docker rm $(docker ps -aq --filter "ancestor=wechatopenai/weknora-app:latest" 2>/dev/null) 2>/dev/null || true
-    docker rm $(docker ps -aq --filter "ancestor=wechatopenai/weknora-docreader:latest" 2>/dev/null) 2>/dev/null || true
-    docker rm $(docker ps -aq --filter "ancestor=wechatopenai/weknora-ui:latest" 2>/dev/null) 2>/dev/null || true
+    docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-app:latest" 2>/dev/null) 2>/dev/null || true
+    docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-docreader:latest" 2>/dev/null) 2>/dev/null || true
+    docker rm $(docker ps -aq --filter "ancestor=${GENYEE_REGISTRY}/genyee-ui:latest" 2>/dev/null) 2>/dev/null || true
     
     # 删除镜像
     log_info "删除本地镜像..."
-    docker rmi wechatopenai/weknora-app:latest 2>/dev/null || true
-    docker rmi wechatopenai/weknora-docreader:latest 2>/dev/null || true
-    docker rmi wechatopenai/weknora-ui:latest 2>/dev/null || true
-    docker rmi wechatopenai/weknora-sandbox:latest 2>/dev/null || true
-    docker rmi wechatopenai/weknora-sandbox:latest-cube 2>/dev/null || true
-    docker rmi wechatopenai/weknora-sandbox:latest-desktop 2>/dev/null || true
-    docker rmi wechatopenai/weknora-sandbox:latest-desktop-cube 2>/dev/null || true
-    docker rmi wechatopenai/weknora-sandbox:main 2>/dev/null || true
-    docker rmi wechatopenai/weknora-sandbox:main-cube 2>/dev/null || true
-    docker rmi wechatopenai/weknora-sandbox:main-desktop 2>/dev/null || true
-    docker rmi wechatopenai/weknora-sandbox:main-desktop-cube 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-app:latest" "${GENYEE_REGISTRY}/genyee-app:${IMAGE_TAG}" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-docreader:latest" "${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG}" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-ui:latest" "${GENYEE_REGISTRY}/genyee-ui:${IMAGE_TAG}" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-sandbox:latest" "${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-sandbox:latest-cube" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-sandbox:desktop" "${GENYEE_REGISTRY}/genyee-sandbox:latest-desktop" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-sandbox:desktop-cube" "${GENYEE_REGISTRY}/genyee-sandbox:latest-desktop-cube" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-sandbox:main" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-sandbox:main-cube" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-sandbox:main-desktop" 2>/dev/null || true
+    docker rmi "${GENYEE_REGISTRY}/genyee-sandbox:main-desktop-cube" 2>/dev/null || true
     
     docker image prune -f
     

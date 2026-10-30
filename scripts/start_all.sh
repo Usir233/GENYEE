@@ -18,7 +18,7 @@ SCRIPT_NAME=$(basename "$0")
 
 # 显示帮助信息
 show_help() {
-    printf "%b\n" "${GREEN}WeKnora 启动脚本 v${VERSION}${NC}"
+    printf "%b\n" "${GREEN}GENYEE 启动脚本 v${VERSION}${NC}"
     printf "%b\n" "${GREEN}用法:${NC} $0 [选项]"
     echo "选项:"
     echo "  -h, --help     显示帮助信息"
@@ -37,7 +37,7 @@ show_help() {
 
 # 显示版本信息
 show_version() {
-    printf "%b\n" "${GREEN}WeKnora 启动脚本 v${VERSION}${NC}"
+    printf "%b\n" "${GREEN}GENYEE 启动脚本 v${VERSION}${NC}"
     exit 0
 }
 
@@ -329,7 +329,7 @@ check_platform() {
 
 # 预拉取沙箱镜像（Agent Skills 执行所需，仅拉取不启动）
 ensure_sandbox_image() {
-    local sandbox_image="wechatopenai/weknora-sandbox:${WEKNORA_VERSION:-latest}"
+    local sandbox_image="${WEKNORA_SANDBOX_DOCKER_IMAGE:-${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${WEKNORA_VERSION:-latest}}"
 
     # 检查本地是否已存在沙箱镜像
     if docker image inspect "$sandbox_image" &> /dev/null; then
@@ -342,11 +342,11 @@ ensure_sandbox_image() {
 
     # 后台拉取，不阻塞主流程
     (
-        if PLATFORM=$PLATFORM "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD --profile sandbox pull sandbox 2>/dev/null; then
+        if PLATFORM=$PLATFORM "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD --profile full pull sandbox 2>/dev/null; then
             log_success "沙箱镜像拉取完成: $sandbox_image"
         else
             log_warning "沙箱镜像拉取失败，Agent Skills 功能可能不可用"
-            log_warning "可稍后手动拉取: $DOCKER_COMPOSE_BIN $DOCKER_COMPOSE_SUBCMD --profile sandbox pull sandbox"
+            log_warning "可稍后手动拉取/构建: ./scripts/build_images.sh --sandbox 或 $DOCKER_COMPOSE_BIN $DOCKER_COMPOSE_SUBCMD --profile full pull sandbox"
         fi
     ) &
 
@@ -588,12 +588,12 @@ check_environment() {
     
     # 检查沙箱镜像
     log_info "检查沙箱镜像..."
-    local sandbox_image="wechatopenai/weknora-sandbox:${WEKNORA_VERSION:-latest}"
+    local sandbox_image="${WEKNORA_SANDBOX_DOCKER_IMAGE:-${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${WEKNORA_VERSION:-latest}}"
     if docker image inspect "$sandbox_image" &> /dev/null; then
         log_success "沙箱镜像已就绪: $sandbox_image"
     else
         log_warning "沙箱镜像未找到: $sandbox_image (Agent Skills 功能需要此镜像)"
-        log_info "可通过以下命令拉取: $0 -p 或 docker pull $sandbox_image"
+        log_info "可通过以下命令构建或拉取: ./scripts/build_images.sh --sandbox 或 $0 -p"
     fi
 
     # 检查磁盘空间

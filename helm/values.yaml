@@ -11,6 +11,10 @@
 # -- Global configuration shared across all components
 # @default -- See values.yaml
 global:
+  # -- Global Docker registry prefix for GENYEE images (e.g. "registry.internal.corp").
+  # When set, prepended as "<imageRegistry>/<repository>:<tag>".
+  imageRegistry: ""
+
   # -- Storage class for all PersistentVolumeClaims
   # Set to "-" to use cluster default, or specify a storage class name
   storageClass: ""
@@ -75,7 +79,7 @@ app:
 
   image:
     # -- Image repository
-    repository: wechatopenai/weknora-app
+    repository: genyee/genyee-app
     # -- Image tag (defaults to Chart.appVersion if empty)
     tag: ""
     # -- Image pull policy
@@ -184,7 +188,7 @@ frontend:
 
   image:
     # -- Image repository
-    repository: wechatopenai/weknora-ui
+    repository: genyee/genyee-ui
     # -- Image tag (defaults to Chart.appVersion if empty)
     tag: ""
     # -- Image pull policy
@@ -233,7 +237,7 @@ docreader:
 
   image:
     # -- Image repository
-    repository: wechatopenai/weknora-docreader
+    repository: genyee/genyee-docreader
     # -- Image tag (defaults to Chart.appVersion if empty)
     tag: ""
     # -- Image pull policy
@@ -288,7 +292,7 @@ postgresql:
     # -- Image repository (ParadeDB for vector search)
     repository: paradedb/paradedb
     # -- Image tag
-    tag: v0.18.9-pg17
+    tag: v0.25.11-pg17
 
   # -- Resource requests and limits
   resources:
@@ -337,8 +341,8 @@ redis:
   image:
     # -- Image repository
     repository: redis
-    # -- Image tag
-    tag: 7-alpine
+    # -- Image tag (pinned to 7.2-alpine under BSD-3-Clause; Redis 7.4+ changed license to RSALv2/SSPLv1)
+    tag: 7.2-alpine
 
   # -- Resource requests and limits
   resources:
@@ -402,7 +406,7 @@ ingress:
   className: nginx
 
   # -- Ingress hostname
-  host: weknora.example.com
+  host: genyee.example.com
 
   # -- TLS configuration
   tls:
@@ -426,7 +430,7 @@ ingress:
 # Use --set or external secret management (External Secrets Operator, Vault, etc.)
 #
 # Example installation:
-#   helm install weknora ./helm \
+#   helm install genyee ./helm \
 #     --set secrets.dbPassword=<secure-password> \
 #     --set secrets.redisPassword=<secure-password> \
 #     --set secrets.jwtSecret=<secure-random-string>
@@ -446,7 +450,7 @@ secrets:
   jwtSecret: ""
   # -- System AES-256 key for database field encryption (must be exactly 32 bytes).
   # Encrypts: tenants.api_key, model API keys, vector store credentials,
-  # web search provider keys.
+  # web search provider keys, WeKnoraCloud.AppSecret.
   # STRONGLY RECOMMENDED to set this explicitly in production. If left empty, a
   # random 32-char value is generated on first install and reused on subsequent
   # `helm upgrade` via Secret lookup. However, if the Secret is ever
@@ -474,7 +478,7 @@ minio:
   enabled: false
   image:
     repository: pgsty/minio
-    tag: latest
+    tag: RELEASE.2026-08-04T00-00-00Z
   # -- Root user
   rootUser: minioadmin
   # -- Root password (REQUIRED if enabled)
@@ -543,7 +547,7 @@ qdrant:
   enabled: false
   image:
     repository: qdrant/qdrant
-    tag: latest
+    tag: v1.16.2
   persistence:
     enabled: true
     size: 10Gi

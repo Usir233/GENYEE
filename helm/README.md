@@ -1,6 +1,5 @@
 # GENYEE Helm Chart
 
-[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/weknora)](https://artifacthub.io/packages/helm/weknora/weknora)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
 Helm chart for deploying [GENYEE](https://github.com/Usir233/GENYEE) - an AI-powered Knowledge RAG Platform.
@@ -24,8 +23,8 @@ GENYEE is an intelligent knowledge base platform that combines:
 
 ```bash
 # Add required secrets
-helm install weknora ./helm \
-  --namespace weknora \
+helm install genyee ./helm \
+  --namespace genyee \
   --create-namespace \
   --set secrets.dbPassword=<your-db-password> \
   --set secrets.redisPassword=<your-redis-password> \
@@ -61,8 +60,8 @@ helm install weknora ./helm \
 ### Basic Installation
 
 ```bash
-helm install weknora ./helm \
-  --namespace weknora \
+helm install genyee ./helm \
+  --namespace genyee \
   --create-namespace \
   --set secrets.dbPassword=secure-password \
   --set secrets.redisPassword=secure-password \
@@ -72,13 +71,13 @@ helm install weknora ./helm \
 ### With Ingress
 
 ```bash
-helm install weknora ./helm \
-  --namespace weknora \
+helm install genyee ./helm \
+  --namespace genyee \
   --create-namespace \
   --set ingress.enabled=true \
-  --set ingress.host=weknora.example.com \
+  --set ingress.host=genyee.example.com \
   --set ingress.tls.enabled=true \
-  --set ingress.tls.secretName=weknora-tls \
+  --set ingress.tls.secretName=genyee-tls \
   --set secrets.dbPassword=secure-password \
   --set secrets.redisPassword=secure-password \
   --set secrets.jwtSecret=$(openssl rand -base64 32)
@@ -87,8 +86,8 @@ helm install weknora ./helm \
 ### With External LLM (Ollama)
 
 ```bash
-helm install weknora ./helm \
-  --namespace weknora \
+helm install genyee ./helm \
+  --namespace genyee \
   --create-namespace \
   --set app.extraEnv[0].name=OLLAMA_BASE_URL \
   --set app.extraEnv[0].value=http://ollama.ollama:11434 \
@@ -128,18 +127,18 @@ postgresql:
 
 ingress:
   enabled: true
-  host: weknora.company.com
+  host: genyee.company.com
   tls:
     enabled: true
-    secretName: weknora-tls
+    secretName: genyee-tls
 
 secrets:
-  existingSecret: weknora-secrets  # Use pre-created secret
+  existingSecret: genyee-secrets  # Use pre-created secret
 ```
 
 ```bash
-helm install weknora ./helm \
-  --namespace weknora \
+helm install genyee ./helm \
+  --namespace genyee \
   --create-namespace \
   -f values-production.yaml
 ```
@@ -168,12 +167,12 @@ app:
 dataFiles:
   persistence:
     enabled: true
-    existingClaim: weknora-shared-files  # Pre-provisioned, verified RWX PVC
+    existingClaim: genyee-shared-files  # Pre-provisioned, verified RWX PVC
 ```
 
 ```bash
-helm install weknora ./helm \
-  --namespace weknora \
+helm install genyee ./helm \
+  --namespace genyee \
   --create-namespace \
   -f values-production.yaml \
   -f values-shared-storage.yaml
@@ -225,7 +224,7 @@ Both lists are rendered verbatim, so any field Kubernetes accepts in
 - `dataFiles.persistence.enabled` still governs only the built-in `data-files`
   volume. Extra volumes are unaffected by it.
 - Verify the rendering before applying:
-  `helm template weknora ./helm -f values-production.yaml | grep -A5 extraVolume`
+  `helm template genyee ./helm -f values-production.yaml | grep -A5 extraVolume`
 
 ## Configuration
 
@@ -245,12 +244,12 @@ Optional Service name overrides preserve the following defaults:
 For example, save this as `service-names.yaml`:
 
 ```yaml
-app:        {service: {name: weknora-app}}
-frontend:   {service: {name: weknora-frontend}}
-postgresql: {service: {name: weknora-postgres}}
-redis:      {service: {name: weknora-redis}}
-docreader:  {service: {name: weknora-docreader}}
-neo4j:      {service: {name: weknora-neo4j}}
+app:        {service: {name: genyee-app}}
+frontend:   {service: {name: genyee-frontend}}
+postgresql: {service: {name: genyee-postgres}}
+redis:      {service: {name: genyee-redis}}
+docreader:  {service: {name: genyee-docreader}}
+neo4j:      {service: {name: genyee-neo4j}}
 ```
 
 Pass `-f service-names.yaml` alongside your other values. Names must be valid
@@ -270,6 +269,7 @@ pre-existing Service name does not automatically transfer its ownership to Helm.
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
+| `global.imageRegistry` | Optional private registry prefix for images | `""` |
 | `global.storageClass` | Storage class for PVCs | `""` |
 | `global.imagePullSecrets` | Image pull secrets | `[]` |
 | `global.maxFileSizeMB` | Maximum upload size in MB (frontend, app, docreader) | `50` |
@@ -293,7 +293,7 @@ pre-existing Service name does not automatically transfer its ownership to Helm.
 | `app.strategy.type` | App update strategy: `RollingUpdate` or `Recreate`; empty selects `Recreate` for persistent non-RWX data-files storage and `RollingUpdate` otherwise | `""` |
 | `app.strategy.rollingUpdate.maxSurge` | Extra Pods during rolling updates (integer or percentage); ignored with `Recreate` | `1` |
 | `app.strategy.rollingUpdate.maxUnavailable` | Unavailable Pods during rolling updates (integer or percentage); ignored with `Recreate` | `0` |
-| `app.image.repository` | Image repository | `wechatopenai/weknora-app` |
+| `app.image.repository` | Image repository | `genyee/genyee-app` |
 | `app.image.tag` | Image tag | `""` (uses appVersion) |
 | `app.resources` | Resource limits | See values.yaml |
 | `app.env` | Environment variables | See values.yaml |
@@ -315,7 +315,7 @@ pre-existing Service name does not automatically transfer its ownership to Helm.
 |-----------|-------------|---------|
 | `frontend.enabled` | Enable frontend | `true` |
 | `frontend.replicaCount` | Number of replicas | `1` |
-| `frontend.image.repository` | Image repository | `wechatopenai/weknora-ui` |
+| `frontend.image.repository` | Image repository | `genyee/genyee-ui` |
 | `frontend.image.tag` | Image tag | `""` (uses appVersion) |
 
 ### DocReader
@@ -324,7 +324,7 @@ pre-existing Service name does not automatically transfer its ownership to Helm.
 |-----------|-------------|---------|
 | `docreader.enabled` | Enable DocReader | `true` |
 | `docreader.replicaCount` | Number of replicas | `1` |
-| `docreader.image.repository` | Image repository | `wechatopenai/weknora-docreader` |
+| `docreader.image.repository` | Image repository | `genyee/genyee-docreader` |
 | `docreader.image.tag` | Image tag | `""` (uses appVersion) |
 
 ### PostgreSQL (ParadeDB)
@@ -333,7 +333,7 @@ pre-existing Service name does not automatically transfer its ownership to Helm.
 |-----------|-------------|---------|
 | `postgresql.enabled` | Enable PostgreSQL | `true` |
 | `postgresql.image.repository` | Image repository | `paradedb/paradedb` |
-| `postgresql.image.tag` | Image tag | `v0.18.9-pg17` |
+| `postgresql.image.tag` | Image tag | `v0.25.11-pg17` |
 | `postgresql.persistence.enabled` | Enable persistence | `true` |
 | `postgresql.persistence.size` | PVC size | `10Gi` |
 
@@ -343,7 +343,7 @@ pre-existing Service name does not automatically transfer its ownership to Helm.
 |-----------|-------------|---------|
 | `redis.enabled` | Enable Redis | `true` |
 | `redis.image.repository` | Image repository | `redis` |
-| `redis.image.tag` | Image tag | `7-alpine` |
+| `redis.image.tag` | Image tag | `7.2-alpine` |
 | `redis.persistence.enabled` | Enable persistence | `true` |
 | `redis.persistence.size` | PVC size | `1Gi` |
 
@@ -353,7 +353,7 @@ pre-existing Service name does not automatically transfer its ownership to Helm.
 |-----------|-------------|---------|
 | `ingress.enabled` | Enable ingress | `false` |
 | `ingress.className` | Ingress class | `nginx` |
-| `ingress.host` | Hostname | `weknora.example.com` |
+| `ingress.host` | Hostname | `genyee.example.com` |
 | `ingress.tls.enabled` | Enable TLS | `false` |
 | `ingress.tls.secretName` | TLS secret name | `""` |
 
@@ -386,13 +386,13 @@ These map to docker-compose profiles:
 
 1. **Helm --set flags** (for testing)
    ```bash
-   helm install weknora ./helm --set secrets.dbPassword=xxx
+   helm install genyee ./helm --set secrets.dbPassword=xxx
    ```
 
 2. **External Secrets Operator** (recommended for production)
    ```yaml
    secrets:
-     existingSecret: weknora-external-secret
+     existingSecret: genyee-external-secret
    ```
 
 3. **Sealed Secrets** (for GitOps)
@@ -411,49 +411,49 @@ The chart follows CNCF security best practices:
 ## Upgrading
 
 ```bash
-helm upgrade weknora ./helm \
-  --namespace weknora \
+helm upgrade genyee ./helm \
+  --namespace genyee \
   --reuse-values
 ```
 
 ## Uninstalling
 
 ```bash
-helm uninstall weknora --namespace weknora
+helm uninstall genyee --namespace genyee
 
 # Optional: Remove PVCs
-kubectl delete pvc -n weknora -l app.kubernetes.io/instance=weknora
+kubectl delete pvc -n genyee -l app.kubernetes.io/instance=genyee
 ```
 
 ## Troubleshooting
 
 ### Check Pod Status
 ```bash
-kubectl get pods -n weknora
+kubectl get pods -n genyee
 ```
 
 ### View Logs
 ```bash
 # Backend logs
-kubectl logs -n weknora -l app.kubernetes.io/component=app -f
+kubectl logs -n genyee -l app.kubernetes.io/component=app -f
 
 # Frontend logs
-kubectl logs -n weknora -l app.kubernetes.io/component=frontend -f
+kubectl logs -n genyee -l app.kubernetes.io/component=frontend -f
 ```
 
 ### Common Issues
 
 **Pod stuck in Pending**
-- Check if PVCs are bound: `kubectl get pvc -n weknora`
+- Check if PVCs are bound: `kubectl get pvc -n genyee`
 - Verify storage class exists: `kubectl get sc`
 
 **Connection refused errors**
 - Wait for all pods to be Ready
-- Check service endpoints: `kubectl get endpoints -n weknora`
+- Check service endpoints: `kubectl get endpoints -n genyee`
 
 **Database connection errors**
 - Verify secrets are correct
-- Check PostgreSQL logs: `kubectl logs -n weknora -l app.kubernetes.io/component=database`
+- Check PostgreSQL logs: `kubectl logs -n genyee -l app.kubernetes.io/component=database`
 
 ## Contributing
 

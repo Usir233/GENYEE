@@ -17,7 +17,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsm6 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir "opendataloader-pdf[hybrid]>=2.4.7"
+RUN pip install --no-cache-dir "opendataloader-pdf[hybrid]==2.4.7"
+
+# Optional build-time model preloading for offline / air-gapped deployments:
+# pass --build-arg PRELOAD_MODELS=true to bake Docling layout/table models into the image.
+ARG PRELOAD_MODELS=false
+RUN if [ "$PRELOAD_MODELS" = "true" ]; then \
+        docling-tools models download; \
+    fi
+
+LABEL org.opencontainers.image.vendor="GENYEE" \
+      org.opencontainers.image.title="genyee-odl-hybrid" \
+      org.opencontainers.image.licenses="LicenseRef-GENYEE-Commercial AND MIT"
+COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/
+COPY licenses/ /licenses/licenses/
 
 EXPOSE 5002
 

@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 )
 
@@ -53,12 +55,10 @@ const (
 	DefaultTimeout     = 60 * time.Second
 	DefaultMemoryLimit = 256 * 1024 * 1024 // 256MB
 	DefaultCPULimit    = 1.0               // 1 CPU core
-	// DefaultDockerImage tracks main rather than latest. The latest tag only
-	// moves when a version is released, so it still carries the image from
-	// before /workspace and its input/output directories were handed to the
-	// sandbox account — a sandbox built from it cannot write its own artifact
-	// directory. Point this back at latest once a release ships that fix.
-	DefaultDockerImage = "wechatopenai/weknora-sandbox:main"
+	// DefaultDockerImage is the standard GENYEE Docker sandbox image.
+	DefaultDockerImage = "genyee/genyee-sandbox:latest"
+	// DefaultSandboxDockerImage is an alias for DefaultDockerImage.
+	DefaultSandboxDockerImage = DefaultDockerImage
 
 	// DefaultCubeTemplateImage is the same environment with Cube's envd daemon
 	// baked in (target "cube" of docker/Dockerfile.sandbox).
@@ -68,17 +68,24 @@ const (
 	// DefaultDockerImage therefore always fails the probe with "connection
 	// refused" — E2B gets away with that image because its own builder injects
 	// envd, and the Docker backend never needs one.
-	DefaultCubeTemplateImage = "wechatopenai/weknora-sandbox:main-cube"
+	DefaultCubeTemplateImage = "genyee/genyee-sandbox:latest-cube"
 
 	// DefaultDesktopDockerImage is the XFCE/x11vnc/websockify variant of
 	// DefaultDockerImage (target "desktop" of docker/Dockerfile.sandbox).
 	// E2B desktop templates are built from it. The Docker backend does not
 	// consume this tag yet.
-	DefaultDesktopDockerImage = "wechatopenai/weknora-sandbox:main-desktop"
+	DefaultDesktopDockerImage = "genyee/genyee-sandbox:desktop"
+	// DefaultDesktopSandboxImage is an alias for DefaultDesktopDockerImage.
+	DefaultDesktopSandboxImage = DefaultDesktopDockerImage
 
 	// DefaultCubeDesktopTemplateImage is DefaultDesktopDockerImage plus Cube
 	// envd (target "desktop-cube").
-	DefaultCubeDesktopTemplateImage = "wechatopenai/weknora-sandbox:main-desktop-cube"
+	DefaultCubeDesktopTemplateImage = "genyee/genyee-sandbox:desktop-cube"
+
+	// EnvSandboxDockerImage allows deployments (including private registries
+	// and air-gapped environments) to override the default Docker sandbox image
+	// via environment variable.
+	EnvSandboxDockerImage = "WEKNORA_SANDBOX_DOCKER_IMAGE"
 
 	// DesktopWebsockifyPort is websockify inside the sandbox. WeKnora dials
 	// it through the provider gateway (Host "{port}-{id}.{domain}"), not by
@@ -449,6 +456,15 @@ type Config struct {
 	E2BHTTPTimeout time.Duration
 }
 
+// EffectiveDefaultDockerImage returns the default Docker sandbox image,
+// honoring the WEKNORA_SANDBOX_DOCKER_IMAGE environment variable when set.
+func EffectiveDefaultDockerImage() string {
+	if override := strings.TrimSpace(os.Getenv(EnvSandboxDockerImage)); override != "" {
+		return override
+	}
+	return DefaultDockerImage
+}
+
 // DefaultConfig returns a default sandbox configuration.
 //
 // It deliberately carries no Cube or E2B endpoint, credential or template:
@@ -458,7 +474,7 @@ func DefaultConfig() *Config {
 	return &Config{
 		Type:            SandboxTypeDisabled,
 		DefaultTimeout:  DefaultTimeout,
-		DockerImage:     DefaultDockerImage,
+		DockerImage:     EffectiveDefaultDockerImage(),
 		MaxMemory:       DefaultMemoryLimit,
 		MaxCPU:          DefaultCPULimit,
 		CubeSandboxTTL:  DefaultCubeSandboxTTL,

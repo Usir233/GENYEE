@@ -128,7 +128,7 @@ func classifyWeKnoraTemplate(name, image string) (standard, desktop bool) {
 // yet another one.
 func isStandardTemplateImage(image string) bool {
 	candidate := normalizeImageRepository(image)
-	return candidate != "" && candidate == normalizeImageRepository(DefaultDockerImage)
+	return candidate != "" && (candidate == normalizeImageRepository(DefaultDockerImage) || candidate == "wechatopenai/weknora-sandbox")
 }
 
 func isDesktopTemplateImage(image string) bool {
@@ -136,7 +136,7 @@ func isDesktopTemplateImage(image string) bool {
 		return false
 	}
 	tag := strings.ToLower(imageTag(image))
-	return tag == "main-desktop" || strings.HasSuffix(tag, "-desktop") || strings.HasSuffix(tag, "-desktop-cube")
+	return tag == "desktop" || tag == "desktop-cube" || tag == "main-desktop" || strings.HasSuffix(tag, "-desktop") || strings.HasSuffix(tag, "-desktop-cube")
 }
 
 func imageTag(image string) string {

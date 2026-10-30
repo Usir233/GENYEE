@@ -2,7 +2,7 @@
 Copyright 2025 Tencent
 SPDX-License-Identifier: MIT
 
-WeKnora Helm Chart Template Helpers
+GENYEE Helm Chart Template Helpers
 
 Best Practices References:
 - https://helm.sh/docs/chart_best_practices/templates/
@@ -117,12 +117,28 @@ Secret name - supports existing secret
 {{- end }}
 
 {{/*
+Format an image reference with optional global.imageRegistry prefix.
+Usage: include "weknora.formatImage" (dict "repository" .Values.app.image.repository "tag" $tag "global" .Values.global)
+*/}}
+{{- define "weknora.formatImage" -}}
+{{- $registry := "" -}}
+{{- if and .global .global.imageRegistry -}}
+{{- $registry = trimSuffix "/" .global.imageRegistry -}}
+{{- end -}}
+{{- if $registry -}}
+{{- printf "%s/%s:%s" $registry .repository .tag -}}
+{{- else -}}
+{{- printf "%s:%s" .repository .tag -}}
+{{- end -}}
+{{- end }}
+
+{{/*
 Return the app image with tag.
 Defaults to Chart.appVersion if tag is not specified.
 */}}
 {{- define "weknora.app.image" -}}
 {{- $tag := default .Chart.AppVersion .Values.app.image.tag }}
-{{- printf "%s:%s" .Values.app.image.repository $tag }}
+{{- include "weknora.formatImage" (dict "repository" .Values.app.image.repository "tag" $tag "global" .Values.global) }}
 {{- end }}
 
 {{/*
@@ -131,7 +147,7 @@ Defaults to Chart.appVersion if tag is not specified.
 */}}
 {{- define "weknora.frontend.image" -}}
 {{- $tag := default .Chart.AppVersion .Values.frontend.image.tag }}
-{{- printf "%s:%s" .Values.frontend.image.repository $tag }}
+{{- include "weknora.formatImage" (dict "repository" .Values.frontend.image.repository "tag" $tag "global" .Values.global) }}
 {{- end }}
 
 {{/*
@@ -140,28 +156,28 @@ Defaults to Chart.appVersion if tag is not specified.
 */}}
 {{- define "weknora.docreader.image" -}}
 {{- $tag := default .Chart.AppVersion .Values.docreader.image.tag }}
-{{- printf "%s:%s" .Values.docreader.image.repository $tag }}
+{{- include "weknora.formatImage" (dict "repository" .Values.docreader.image.repository "tag" $tag "global" .Values.global) }}
 {{- end }}
 
 {{/*
 Return the PostgreSQL image with tag.
 */}}
 {{- define "weknora.postgresql.image" -}}
-{{- printf "%s:%s" .Values.postgresql.image.repository .Values.postgresql.image.tag }}
+{{- include "weknora.formatImage" (dict "repository" .Values.postgresql.image.repository "tag" .Values.postgresql.image.tag "global" .Values.global) }}
 {{- end }}
 
 {{/*
 Return the Redis image with tag.
 */}}
 {{- define "weknora.redis.image" -}}
-{{- printf "%s:%s" .Values.redis.image.repository .Values.redis.image.tag }}
+{{- include "weknora.formatImage" (dict "repository" .Values.redis.image.repository "tag" .Values.redis.image.tag "global" .Values.global) }}
 {{- end }}
 
 {{/*
 Return the Neo4j image with tag.
 */}}
 {{- define "weknora.neo4j.image" -}}
-{{- printf "%s:%s" .Values.neo4j.image.repository .Values.neo4j.image.tag }}
+{{- include "weknora.formatImage" (dict "repository" .Values.neo4j.image.repository "tag" .Values.neo4j.image.tag "global" .Values.global) }}
 {{- end }}
 
 {{/*

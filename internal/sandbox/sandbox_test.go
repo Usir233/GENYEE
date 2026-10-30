@@ -9,6 +9,7 @@ import (
 )
 
 func TestDefaultConfig(t *testing.T) {
+	t.Setenv(EnvSandboxDockerImage, "")
 	config := DefaultConfig()
 
 	if config.Type != SandboxTypeDisabled {
@@ -18,6 +19,20 @@ func TestDefaultConfig(t *testing.T) {
 	if config.DefaultTimeout != DefaultTimeout {
 		t.Errorf("Expected default timeout %v, got %v", DefaultTimeout, config.DefaultTimeout)
 	}
+
+	if config.DockerImage != DefaultDockerImage {
+		t.Errorf("Expected default docker image %q, got %q", DefaultDockerImage, config.DockerImage)
+	}
+	require.Equal(t, "genyee/genyee-sandbox:latest", DefaultSandboxDockerImage)
+	require.Equal(t, "genyee/genyee-sandbox:desktop", DefaultDesktopSandboxImage)
+}
+
+func TestDefaultConfigEnvOverride(t *testing.T) {
+	customImg := "registry.internal.corp/genyee/genyee-sandbox:v1.0.0"
+	t.Setenv(EnvSandboxDockerImage, customImg)
+
+	config := DefaultConfig()
+	require.Equal(t, customImg, config.DockerImage)
 }
 
 func TestValidateConfig(t *testing.T) {

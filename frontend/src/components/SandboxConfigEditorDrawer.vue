@@ -214,7 +214,7 @@
 
       <section v-if="currentStepKey === 'connection' && !isRemoteBackend" class="setting-drawer__section">
         <h4 class="setting-drawer__section-title">{{ $t('settings.sandbox.sectionRuntimeEnvironment') }}</h4>
-        <div class="weknora-template-card is-active">
+        <div class="weknora-template-card" :class="{ 'is-active': isStandardTemplateImage(docker.image) }">
           <SandboxBackendBadge type="docker" />
           <div class="weknora-template-card__content">
             <div class="weknora-template-card__title-row">
@@ -837,10 +837,23 @@ const userAllocationSupported = computed(() =>
 const secretPlaceholder = '***'
 const isMaskedSecret = (value?: string) => value === secretPlaceholder
 
-// Mirrors DefaultDockerImage on the server, including why it tracks main
-// instead of latest: the latest tag still carries an image whose /workspace
-// the sandbox account cannot write.
-const defaultDockerImage = 'wechatopenai/weknora-sandbox:main'
+// Mirrors DefaultDockerImage on the server.
+const defaultDockerImage = 'genyee/genyee-sandbox:latest'
+
+const standardDockerRepositories = new Set([
+  'genyee/genyee-sandbox',
+  'wechatopenai/weknora-sandbox',
+])
+
+function isStandardTemplateImage(image?: string): boolean {
+  const raw = (image ?? '').trim()
+  if (!raw) return true
+  const withoutDigest = raw.split('@')[0] ?? ''
+  const lastSlash = withoutDigest.lastIndexOf('/')
+  const lastColon = withoutDigest.lastIndexOf(':')
+  const repo = (lastColon > lastSlash ? withoutDigest.slice(0, lastColon) : withoutDigest).toLowerCase()
+  return standardDockerRepositories.has(repo) || repo.endsWith('/genyee-sandbox') || repo.endsWith('/weknora-sandbox')
+}
 
 const clusterGuideUrl = docsUrl('sandboxDeployment')
 const e2bApiKeysUrl = 'https://e2b.dev/dashboard?tab=keys'

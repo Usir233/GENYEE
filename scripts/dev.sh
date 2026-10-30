@@ -51,7 +51,7 @@ detect_compose_cmd() {
 
 # 显示帮助信息
 show_help() {
-    printf "%b\n" "${GREEN}WeKnora 开发环境脚本${NC}"
+    printf "%b\n" "${GREEN}GENYEE 开发环境脚本${NC}"
     echo "用法: $0 [命令] [选项]"
     echo ""
     echo "命令:"
@@ -69,6 +69,8 @@ show_help() {
     echo "  --qdrant      启动 Qdrant 向量数据库"
     echo "  --neo4j       启动 Neo4j 图数据库"
     echo "  --dex         启动 Dex（OIDC 身份认证）"
+    echo "  --langfuse    启动 Langfuse 自建可观测栈（默认关闭，需显式启用）"
+    echo "  --no-langfuse 不启动 Langfuse"
     echo "  --odl-hybrid  启动 OpenDataLoader hybrid（Docling，镜像较大，按需启用）"
     echo "  --full        启动所有可选服务（不含 odl-hybrid，需另加 --odl-hybrid）"
     echo ""
@@ -76,6 +78,7 @@ show_help() {
     echo "  $0 start                    # 启动基础服务"
     echo "  $0 start --qdrant           # 启动基础服务 + Qdrant"
     echo "  $0 start --dex             # 启动基础服务 + Dex"
+    echo "  $0 start --langfuse        # 启动基础服务 + Langfuse"
     echo "  $0 start --odl-hybrid       # 启动基础服务 + OpenDataLoader hybrid"
     echo "  $0 start --full             # 启动所有服务"
     echo "  make dev-start DEV_ARGS=--odl-hybrid   # 同上（Makefile 传参）"
@@ -170,7 +173,7 @@ _wait_odl_hybrid_ready() {
         sleep "$interval"
         waited=$((waited + interval))
     done
-    log_warning "odl-hybrid 在 ${max_wait}s 内未就绪，请查看: docker logs WeKnora-odl-hybrid"
+    log_warning "odl-hybrid 在 ${max_wait}s 内未就绪，请查看: docker logs GENYEE-odl-hybrid"
     return 1
 }
 
@@ -206,8 +209,8 @@ start_services() {
     
     # 解析 profile 参数
     shift  # 移除 "start" 命令本身
-    # 默认启动基础设施（postgres / redis / docreader），
-    # 其余可选服务通过 --minio / --qdrant / --neo4j / --dex / --full 按需开启。
+    # 默认仅启动基础设施（postgres / redis / docreader），不默认启用 langfuse。
+    # 其余可选服务通过 --minio / --qdrant / --neo4j / --dex / --langfuse / --full 按需开启。
     PROFILES=""
     ENABLED_SERVICES=""
     while [ $# -gt 0 ]; do
@@ -227,6 +230,14 @@ start_services() {
             --dex)
                 PROFILES="$PROFILES --profile dex"
                 ENABLED_SERVICES="$ENABLED_SERVICES dex"
+                ;;
+            --langfuse)
+                PROFILES="$PROFILES --profile langfuse"
+                ENABLED_SERVICES="$ENABLED_SERVICES langfuse"
+                ;;
+            --no-langfuse)
+                PROFILES="${PROFILES//--profile langfuse/}"
+                ENABLED_SERVICES="${ENABLED_SERVICES//langfuse/}"
                 ;;
             --odl-hybrid)
                 if [[ "$ENABLED_SERVICES" != *"odl-hybrid"* ]]; then
@@ -279,6 +290,9 @@ start_services() {
         fi
         if [[ "$ENABLED_SERVICES" == *"dex"* ]]; then
             echo "  - Dex:           localhost:5556"
+        fi
+        if [[ "$ENABLED_SERVICES" == *"langfuse"* ]]; then
+            echo "  - Langfuse:      http://localhost:${LANGFUSE_WEB_PORT:-3000}"
         fi
         if [[ "$ENABLED_SERVICES" == *"odl-hybrid"* ]]; then
             echo "  - ODL Hybrid:    http://localhost:${ODL_HYBRID_PORT:-5002} (health: /health)"
@@ -462,6 +476,9 @@ start_app() {
         export MILVUS_ADDRESS="${MILVUS_ADDRESS:-$DEV_REMOTE_HOST:19530}"
         export NEO4J_URI="${NEO4J_URI:-bolt://$DEV_REMOTE_HOST:7687}"
         export QDRANT_HOST="${QDRANT_HOST:-$DEV_REMOTE_HOST}"
+        if [ -n "${LANGFUSE_HOST:-}" ] && [ "$LANGFUSE_HOST" = "http://langfuse-web:3000" ]; then
+            export LANGFUSE_HOST="http://${DEV_REMOTE_HOST}:3000"
+        fi
     else
         export DB_HOST=127.0.0.1
         export DOCREADER_ADDR=127.0.0.1:50051

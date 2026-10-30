@@ -40,7 +40,7 @@ To expose GENYEE externally, enable Ingress:
 
   helm upgrade {{ .Release.Name }} ./helm \
     --set ingress.enabled=true \
-    --set ingress.host=weknora.example.com
+    --set ingress.host=genyee.example.com
 
 {{- end }}
 

@@ -586,6 +586,9 @@ func TestCubeTemplateImageIsRecognisedAsStandard(t *testing.T) {
 func TestIsStandardTemplateImage(t *testing.T) {
 	for _, image := range []string{
 		DefaultDockerImage,
+		"genyee/genyee-sandbox",
+		"docker.io/genyee/genyee-sandbox:latest",
+		"registry.internal:5000/genyee/genyee-sandbox:v1",
 		"wechatopenai/weknora-sandbox",
 		"docker.io/wechatopenai/weknora-sandbox:latest",
 		"docker.io/wechatopenai/weknora-sandbox@sha256:abc",
