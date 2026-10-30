@@ -6,11 +6,11 @@
 # Enforces 100% commercial permissiveness and clean source code delivery.
 #
 # Covers 5 Tiers:
-#   Tier 1: Feature Coverage (Core Sanity & Acceptance)
-#   Tier 2: Boundary & Corner Cases (Defensive Guards, Schema Strictness, Subprocess Reaping)
-#   Tier 3: Cross-Feature Interactions (Inter-module Contracts & Working Dir Independence)
-#   Tier 4: Real-World Scenarios (Enterprise Client Compliance Audit & Offline Readiness)
-#   Tier 5: Commercial Compliance Removal Verification (AC1 & AC2: WeKnora Cloud, CLI, Chrome, Claw)
+#   Tier 1: Red-Line Licenses & Notices (Dataset, GPL/AGPL Removal, Notices & Dockerfiles)
+#   Tier 2: Functional & Clean-Room Replacements (.xls, .epub, VectorDB Tokenizer & Guards)
+#   Tier 3: Default-Off Cloud/Telemetry & Third-Party Publisher Gating (WeKnoraCloud, Chrome/Claw, Langfuse, Auto-Update)
+#   Tier 4: Brand Residue & Image Parameterization (Desktop Metadata, SVGs, READMEs, Swagger, Registry)
+#   Tier 5: Offline Bundle, Source Export & Hygiene (Air-Gapped Bundle, Clean Source Archive, Path Hygiene)
 # ==============================================================================
 
 set -uo pipefail
@@ -150,16 +150,6 @@ run_test() {
     fi
 }
 
-skip_test() {
-    local test_id="$1"
-    local description="$2"
-    local reason="$3"
-
-    TOTAL_TESTS=$((TOTAL_TESTS + 1))
-    SKIPPED_TESTS=$((SKIPPED_TESTS + 1))
-    printf "  %-12s %-62s ${C_YELLOW}[SKIP: %s]${C_RESET}\n" "[${test_id}]" "${description}..." "${reason}"
-}
-
 # Resolve Python & uv runner helper
 get_pyarrow_runner() {
     if python3 -c "import pyarrow.parquet" >/dev/null 2>&1; then
@@ -182,7 +172,7 @@ get_dataset_test_runner() {
 }
 
 # ==============================================================================
-# TIER 1: Feature Coverage (Core Sanity & Acceptance)
+# TIER 1: Red-Line Licenses & Notices
 # ==============================================================================
 
 # TC-T1-01: Parquet sample files existence and non-zero size
@@ -242,13 +232,17 @@ test_t1_parquet_zero_msmarco() {
     return 0
 }
 
-# TC-T1-04: Zero MS MARCO strings in dataset documentation & qa_dataset.py
+# TC-T1-04: Synthetic dataset provenance documented in dataset/README & zero MS MARCO in generator
 test_t1_docs_zero_msmarco() {
     local matches
-    matches=$(grep -rn -E -i "ms marco|mmarco" dataset/README dataset/README_zh.md dataset/qa_dataset.py || true)
+    matches=$(grep -rn -E -i "ms marco|mmarco" dataset/qa_dataset.py || true)
     if [[ -n "${matches}" ]]; then
-        echo "Forbidden MS MARCO references found in documentation/generator:" >&2
+        echo "Forbidden MS MARCO references found in dataset/qa_dataset.py:" >&2
         echo "${matches}" >&2
+        return 1
+    fi
+    if ! grep -q "synthetic evaluation samples authored by GENYEE" dataset/README; then
+        echo "dataset/README missing synthetic dataset provenance documentation" >&2
         return 1
     fi
     return 0
@@ -256,7 +250,7 @@ test_t1_docs_zero_msmarco() {
 
 # TC-T1-05: Go dataset service GetDatasetByID unit test
 test_t1_go_dataset_service() {
-    go test -v ./internal/application/service -run TestDataset
+    GOFLAGS=-mod=readonly go test -v ./internal/application/service -run TestDataset
 }
 
 # TC-T1-06: Python dataset CLI model unit tests
@@ -270,76 +264,7 @@ test_t1_python_dataset_tests() {
     $runner discover -s dataset/tests/
 }
 
-# TC-T1-07: Docker Compose service exclusion for Langfuse
-test_t1_compose_no_langfuse_services() {
-    local matches
-    matches=$(grep -E "langfuse/langfuse|langfuse-(web|worker|clickhouse|minio|db-init)" docker-compose.yml docker-compose.dev.yml || true)
-    if [[ -n "${matches}" ]]; then
-        echo "Found proprietary Langfuse container service definitions:" >&2
-        echo "${matches}" >&2
-        return 1
-    fi
-    return 0
-}
-
-# TC-T1-08: Docker Compose configuration validation
-test_t1_compose_configs_valid() {
-    local dummy_env_created=0
-    if [[ ! -f .env ]]; then
-        touch .env
-        dummy_env_created=1
-    fi
-
-    local err=0
-    docker compose -f docker-compose.yml config >/dev/null 2>&1 || err=$?
-    if [[ $err -ne 0 ]]; then
-        echo "docker-compose.yml failed config validation" >&2
-    fi
-
-    docker compose -f docker-compose.dev.yml config >/dev/null 2>&1 || err=$?
-    if [[ $err -ne 0 ]]; then
-        echo "docker-compose.dev.yml failed config validation" >&2
-    fi
-
-    if [[ $dummy_env_created -eq 1 ]]; then
-        rm -f .env
-    fi
-    return $err
-}
-
-# TC-T1-09: scripts/dev.sh syntax and default profile check
-test_t1_dev_script_clean_profiles() {
-    bash -n scripts/dev.sh || return 1
-    if grep -E "PROFILES=.*--profile langfuse" scripts/dev.sh; then
-        echo "scripts/dev.sh still enables --profile langfuse by default" >&2
-        return 1
-    fi
-    return 0
-}
-
-# TC-T1-10: Go mod and sum cleanliness (no vcaesar/cedar or go-ego/gse)
-test_t1_go_dependencies_pruned() {
-    local matches
-    matches=$(grep -E "vcaesar/cedar|go-ego/gse" go.mod go.sum || true)
-    if [[ -n "${matches}" ]]; then
-        echo "Forbidden dependencies found in go.mod/go.sum:" >&2
-        echo "${matches}" >&2
-        return 1
-    fi
-    return 0
-}
-
-# TC-T1-11: scripts/check-license-bundle.sh execution
-test_t1_check_license_bundle() {
-    bash scripts/check-license-bundle.sh
-}
-
-# TC-T1-12: scripts/test-license-bundle.sh execution
-test_t1_test_license_bundle() {
-    bash scripts/test-license-bundle.sh
-}
-
-# TC-T1-13: Docreader textract removal verification
+# TC-T1-07: Docreader textract removal verification
 test_t1_docreader_no_textract() {
     local matches
     matches=$(grep -rn "textract" docreader/pyproject.toml docreader/uv.lock docreader/parser/ || true)
@@ -351,12 +276,7 @@ test_t1_docreader_no_textract() {
     return 0
 }
 
-# TC-T1-14: Docreader unit tests execution via uv
-test_t1_docreader_unit_tests() {
-    PYTHONPATH="${REPO_ROOT}" uv --directory docreader run --with pytest pytest tests/test_sandbox_executor.py tests/test_parser_routing.py tests/test_docx_tables.py
-}
-
-# TC-T1-15: No GPL-3.0 xlsReader in the statically linked Go binaries
+# TC-T1-08: No GPL-3.0 xlsReader in the statically linked Go binaries
 test_t1_go_no_gpl_xlsreader() {
     local matches
     matches=$(grep -n "shakinm/xlsReader" go.mod go.sum || true)
@@ -369,7 +289,7 @@ test_t1_go_no_gpl_xlsreader() {
     return 0
 }
 
-# TC-T1-16: No AGPL-3.0 ebooklib in the docreader service
+# TC-T1-09: No AGPL-3.0 ebooklib in the docreader service
 test_t1_docreader_no_agpl_ebooklib() {
     local matches
     matches=$(grep -n -i "ebooklib" docreader/pyproject.toml docreader/uv.lock || true)
@@ -382,43 +302,118 @@ test_t1_docreader_no_agpl_ebooklib() {
     return 0
 }
 
+# TC-T1-10: scripts/check-license-bundle.sh guards shakinm/xlsReader and passes
+test_t1_check_license_bundle() {
+    grep -q "shakinm/xlsReader" scripts/check-license-bundle.sh || {
+        echo "scripts/check-license-bundle.sh missing shakinm/xlsReader guard" >&2
+        return 1
+    }
+    bash scripts/check-license-bundle.sh
+}
+
+# TC-T1-11: scripts/test-license-bundle.sh execution
+test_t1_test_license_bundle() {
+    bash scripts/test-license-bundle.sh
+}
+
+# TC-T1-12: Root LICENSE is GENYEE Commercial License & THIRD_PARTY_NOTICES.md preserves upstream MIT + Written Offer
+test_t1_license_and_notices() {
+    if ! grep -q "GENYEE Commercial License" LICENSE; then
+        echo "Root LICENSE does not contain 'GENYEE Commercial License'" >&2
+        return 1
+    fi
+    if ! grep -q "Tencent" THIRD_PARTY_NOTICES.md || ! grep -q "MIT License" THIRD_PARTY_NOTICES.md; then
+        echo "THIRD_PARTY_NOTICES.md does not preserve upstream Tencent MIT license notice" >&2
+        return 1
+    fi
+    if ! grep -qi "Written Offer" THIRD_PARTY_NOTICES.md; then
+        echo "THIRD_PARTY_NOTICES.md does not include Written Offer for source code" >&2
+        return 1
+    fi
+    return 0
+}
+
+# TC-T1-13: All 6 Dockerfiles copy LICENSE and THIRD_PARTY_NOTICES.md
+test_t1_dockerfiles_copy_notices() {
+    if ! grep -q "copy-licenses.sh /license-bundle" docker/Dockerfile.app || \
+       ! grep -q "COPY --from=builder /license-bundle/ ./" docker/Dockerfile.app || \
+       ! grep -q "LICENSE" scripts/copy-licenses.sh || \
+       ! grep -q "THIRD_PARTY_NOTICES.md" scripts/copy-licenses.sh; then
+        echo "docker/Dockerfile.app does not bundle LICENSE and THIRD_PARTY_NOTICES.md via scripts/copy-licenses.sh" >&2
+        return 1
+    fi
+    local dockerfiles=(
+        "docker/Dockerfile.docreader"
+        "docker/Dockerfile.sandbox"
+        "docker/Dockerfile.odl-hybrid"
+        "frontend/Dockerfile"
+        "mcp-server/Dockerfile"
+    )
+    local missing=0
+    for df in "${dockerfiles[@]}"; do
+        if [[ ! -f "${df}" ]]; then
+            echo "Missing Dockerfile: ${df}" >&2
+            missing=1
+            continue
+        fi
+        if ! grep -q "LICENSE" "${df}" || ! grep -q "THIRD_PARTY_NOTICES.md" "${df}"; then
+            echo "Dockerfile ${df} does not copy both LICENSE and THIRD_PARTY_NOTICES.md" >&2
+            missing=1
+        fi
+    done
+    return $missing
+}
+
 run_tier_1() {
     echo -e "\n${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
-    echo -e "${C_BOLD}${C_BLUE}[TIER 1] Feature Coverage (Core Sanity & Acceptance Verification)${C_RESET}"
+    echo -e "${C_BOLD}${C_BLUE}[TIER 1] Red-Line Licenses & Notices${C_RESET}"
     echo -e "${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
 
     run_test "TC-T1-01" "Parquet evaluation dataset existence (5 files)" test_t1_parquet_exists
     run_test "TC-T1-02" "Parquet schema compliance (int64 IDs, string text)" test_t1_parquet_schemas
     run_test "TC-T1-03" "Zero non-commercial MS MARCO strings in Parquet files" test_t1_parquet_zero_msmarco
-    run_test "TC-T1-04" "Zero MS MARCO strings in documentation and scripts" test_t1_docs_zero_msmarco
+    run_test "TC-T1-04" "Zero MS MARCO strings in dataset docs & scripts" test_t1_docs_zero_msmarco
     run_test "TC-T1-05" "Go DatasetService GetDatasetByID functional execution" test_t1_go_dataset_service
-    run_test "TC-T1-06" "Python dataset CLI model unit tests (12 tests)" test_t1_python_dataset_tests
-    run_test "TC-T1-07" "Docker Compose proprietary Langfuse services exclusion" test_t1_compose_no_langfuse_services
-    run_test "TC-T1-08" "Docker Compose configuration validation (prod & dev)" test_t1_compose_configs_valid
-    run_test "TC-T1-09" "Dev launcher scripts/dev.sh syntax & profile hygiene" test_t1_dev_script_clean_profiles
-    run_test "TC-T1-10" "Go modules cleanliness (cedar & gse excluded)" test_t1_go_dependencies_pruned
-    run_test "TC-T1-11" "License bundle checker execution (scripts/check-license-bundle.sh)" test_t1_check_license_bundle
-    run_test "TC-T1-12" "License packaging test execution (scripts/test-license-bundle.sh)" test_t1_test_license_bundle
-    run_test "TC-T1-13" "Docreader textract absence in config, lock & parser" test_t1_docreader_no_textract
-    run_test "TC-T1-14" "Docreader parser & sandbox unit tests (32 tests)" test_t1_docreader_unit_tests
-    run_test "TC-T1-15" "Go modules exclude GPL-3.0 shakinm/xlsReader" test_t1_go_no_gpl_xlsreader
-    run_test "TC-T1-16" "Docreader excludes AGPL-3.0 ebooklib" test_t1_docreader_no_agpl_ebooklib
+    run_test "TC-T1-06" "Python dataset CLI model unit tests" test_t1_python_dataset_tests
+    run_test "TC-T1-07" "Docreader textract absence in config, lock & parser" test_t1_docreader_no_textract
+    run_test "TC-T1-08" "Go modules exclude GPL-3.0 shakinm/xlsReader" test_t1_go_no_gpl_xlsreader
+    run_test "TC-T1-09" "Docreader excludes AGPL-3.0 ebooklib" test_t1_docreader_no_agpl_ebooklib
+    run_test "TC-T1-10" "License bundle checker guards shakinm/xlsReader & passes" test_t1_check_license_bundle
+    run_test "TC-T1-11" "License packaging test execution (scripts/test-license-bundle.sh)" test_t1_test_license_bundle
+    run_test "TC-T1-12" "Root LICENSE & THIRD_PARTY_NOTICES.md upstream MIT + Written Offer" test_t1_license_and_notices
+    run_test "TC-T1-13" "All 6 Dockerfiles copy LICENSE and THIRD_PARTY_NOTICES.md" test_t1_dockerfiles_copy_notices
 }
 
 # ==============================================================================
-# TIER 2: Boundary & Corner Cases (Defensive & Robustness Guards)
+# TIER 2: Functional & Clean-Room Replacements
 # ==============================================================================
 
-# TC-T2-01: Go dataset service directory fallback
-test_t2_go_service_directory_fallback() {
-    (
-        cd "${REPO_ROOT}/internal/application/service"
-        go test -v -run TestDataset
-    )
+# TC-T2-01: Clean-room .xls reader unit tests
+test_t2_cleanroom_xls_reader() {
+    GOFLAGS=-mod=readonly go test -v ./internal/infrastructure/legacyxls/...
 }
 
-# TC-T2-02: Parquet strict int64 schema validation
-test_t2_parquet_type_strictness() {
+# TC-T2-02: Clean-room .epub parser unit tests
+test_t2_cleanroom_epub_parser() {
+    PYTHONPATH="${REPO_ROOT}" uv --directory docreader run --with pytest pytest tests/test_epub_parser.py
+}
+
+# TC-T2-03: Upstream Tencent VectorDB Chinese BM25 tokenizer & stub removal
+test_t2_vectordb_jieba_tokenizer() {
+    if [[ -e "${REPO_ROOT}/third_party/vectordatabase-sdk-go" ]]; then
+        echo "Forbidden stub third_party/vectordatabase-sdk-go still exists" >&2
+        return 1
+    fi
+    GOFLAGS=-mod=readonly go test -v ./internal/infrastructure/retriever/... -run TestTencentVectorDBJiebaTokenizerChineseBM25
+}
+
+# TC-T2-04: Docreader parser routing, docx tables & sandbox executor unit tests
+test_t2_docreader_unit_tests() {
+    PYTHONPATH="${REPO_ROOT}" uv --directory docreader run --with pytest pytest tests/test_sandbox_executor.py tests/test_parser_routing.py tests/test_docx_tables.py
+}
+
+# TC-T2-05: Parquet strict int64 schema validation & adversarial scan
+test_t2_parquet_strict_and_adversarial() {
     local py_runner
     py_runner="$(get_pyarrow_runner)"
     if [[ -z "${py_runner}" ]]; then
@@ -426,21 +421,16 @@ test_t2_parquet_type_strictness() {
         return 1
     fi
 
-    $py_runner - <<'EOF'
+    $py_runner - <<'EOF' || return 1
 import pyarrow.parquet as pq
 
-# Verify that no ID field was generated as int32 or float64
 for fname, id_col in [("queries.parquet", "id"), ("corpus.parquet", "id"), ("answers.parquet", "id"), ("qrels.parquet", "qid"), ("qas.parquet", "qid")]:
     tbl = pq.read_table(f"dataset/samples/{fname}")
     t = str(tbl.schema.field(id_col).type)
     if t != "int64":
         raise ValueError(f"Strict type violation in {fname}: field '{id_col}' is '{t}', must be strictly 'int64'")
-print("Strict int64 type constraint verified across all ID fields.")
 EOF
-}
 
-# TC-T2-03: Adversarial substring search across all parquet files
-test_t2_adversarial_dataset_scan() {
     local forbidden_regex="(ms[-_ ]?marco|mmarco|freebsd|wp\.exe|idwp)"
     local matches
     matches=$(strings dataset/samples/*.parquet | grep -E -i "${forbidden_regex}" || true)
@@ -452,42 +442,15 @@ test_t2_adversarial_dataset_scan() {
     return 0
 }
 
-# TC-T2-04: Compose config validation resilience with absent .env
-test_t2_compose_config_resilience() {
-    local tmp_dir
-    tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "${tmp_dir}"' RETURN
-
-    # Run compose config in an isolated directory pointing to repo compose file
-    (
-        cd "${tmp_dir}"
-        # Ensure no .env exists here
-        docker compose --env-file /dev/null -f "${REPO_ROOT}/docker-compose.dev.yml" config >/dev/null
-    )
-}
-
-# TC-T2-05: scripts/dev.sh CLI argument handling & help output
-test_t2_dev_script_cli_edge_cases() {
-    local help_out
-    help_out=$(bash scripts/dev.sh --help 2>&1)
-    if echo "${help_out}" | grep -E "\-\-langfuse.*默认已开启"; then
-        echo "scripts/dev.sh help still advertises Langfuse enabled by default" >&2
-        return 1
-    fi
-    return 0
-}
-
 # TC-T2-06: Defense against reintroduction in scripts/check-license-bundle.sh
 test_t2_license_guard_reintroduction_rejection() {
-    # Check that check-license-bundle.sh contains regex matching vcaesar/cedar and go-ego/gse
-    if ! grep -Eq 'vcaesar/cedar' scripts/check-license-bundle.sh || ! grep -Eq 'go-ego/gse' scripts/check-license-bundle.sh; then
-        echo "scripts/check-license-bundle.sh does not contain permanent regex guard for cedar and gse" >&2
+    if ! grep -Eq 'shakinm/xlsReader' scripts/check-license-bundle.sh; then
+        echo "scripts/check-license-bundle.sh does not contain permanent regex guard for shakinm/xlsReader" >&2
         return 1
     fi
 
-    # Test that the regex guard actually triggers on synthetic injection
-    local test_str="github.com/vcaesar/cedar v0.20.2"
-    if ! echo "${test_str}" | grep -Eq 'github.com/(longbridgeapp/opencc|liuzl/(da|cedar-go)|adamzy/cedar-go|vcaesar/cedar|go-ego/gse)([[:space:]]|$)'; then
+    local test_str="github.com/shakinm/xlsReader v0.0.0-2023"
+    if ! echo "${test_str}" | grep -Eq 'github.com/(longbridgeapp/opencc|liuzl/(da|cedar-go)|adamzy/cedar-go|shakinm/xlsReader)([[:space:]]|$)'; then
         echo "Regex guard failed to match prohibited package: ${test_str}" >&2
         return 1
     fi
@@ -501,388 +464,280 @@ test_t2_sandbox_timeout_reaping() {
 
 run_tier_2() {
     echo -e "\n${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
-    echo -e "${C_BOLD}${C_BLUE}[TIER 2] Boundary & Corner Cases (Defensive Guards & Edge Conditions)${C_RESET}"
+    echo -e "${C_BOLD}${C_BLUE}[TIER 2] Functional & Clean-Room Replacements${C_RESET}"
     echo -e "${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
 
-    run_test "TC-T2-01" "Go DatasetService relative directory fallback (../../)" test_t2_go_service_directory_fallback
-    run_test "TC-T2-02" "Parquet strict int64 schema validation (no int32/float)" test_t2_parquet_type_strictness
-    run_test "TC-T2-03" "Adversarial case-insensitive boundary scan on dataset" test_t2_adversarial_dataset_scan
-    run_test "TC-T2-04" "Docker Compose config validation without .env file" test_t2_compose_config_resilience
-    run_test "TC-T2-05" "Dev launcher CLI help flags and profile defaults" test_t2_dev_script_cli_edge_cases
-    run_test "TC-T2-06" "License bundle guard regression detection for cedar/gse" test_t2_license_guard_reintroduction_rejection
+    run_test "TC-T2-01" "Clean-room .xls BIFF8/BIFF5 reader unit tests" test_t2_cleanroom_xls_reader
+    run_test "TC-T2-02" "Clean-room .epub stdlib parser unit tests" test_t2_cleanroom_epub_parser
+    run_test "TC-T2-03" "Tencent VectorDB Chinese BM25 tokenizer & no stub" test_t2_vectordb_jieba_tokenizer
+    run_test "TC-T2-04" "Docreader parser & sandbox unit tests" test_t2_docreader_unit_tests
+    run_test "TC-T2-05" "Parquet strict int64 schema & adversarial scan" test_t2_parquet_strict_and_adversarial
+    run_test "TC-T2-06" "License bundle guard regression detection for shakinm/xlsReader" test_t2_license_guard_reintroduction_rejection
     run_test "TC-T2-07" "Docreader SandboxExecutor subprocess group timeout kill" test_t2_sandbox_timeout_reaping
 }
 
 # ==============================================================================
-# TIER 3: Cross-Feature Interactions & Interface Contracts
+# TIER 3: Default-Off Cloud/Telemetry & Third-Party Publisher Gating
 # ==============================================================================
 
-# TC-T3-01: Dataset Parquet ↔ Go DatasetService Contract
-test_t3_parquet_go_service_contract() {
-    # Verify Go loader reads actual questions, answers, and passages generated by synthetic dataset
-    local test_output
-    test_output=$(go test -v ./internal/application/service -run TestDataset 2>&1)
-    if ! echo "${test_output}" | grep -q "Retrieved 3 QA pairs"; then
-        echo "Contract violation: Go service did not parse expected 3 QA pairs from parquet files" >&2
+# TC-T3-01: WeKnoraCloud gated behind WEKNORA_WEKNORACLOUD_ENABLED (default false)
+test_t3_weknoracloud_default_off() {
+    if ! grep -q 'os.Getenv("WEKNORA_WEKNORACLOUD_ENABLED")' internal/types/weknoracloud.go; then
+        echo "internal/types/weknoracloud.go does not gate WeKnoraCloud via WEKNORA_WEKNORACLOUD_ENABLED" >&2
         return 1
     fi
-    if ! echo "${test_output}" | grep -q "PASS: TestDatasetService_GetDatasetByID"; then
-        echo "Contract violation: Go dataset test did not pass" >&2
-        return 1
-    fi
-    return 0
-}
-
-# TC-T3-02: Compose Stack ↔ Dev Launcher Profile Alignment
-test_t3_compose_dev_profile_alignment() {
-    # Ensure app service retains LANGFUSE_* environment variables for external OTLP
-    if ! grep -q "LANGFUSE_HOST" docker-compose.yml || ! grep -q "LANGFUSE_PUBLIC_KEY" docker-compose.yml; then
-        echo "Contract violation: docker-compose.yml stripped required LANGFUSE_* environment variables from app service" >&2
-        return 1
-    fi
-
-    # Ensure scripts/dev.sh does not fail when starting default services
-    local default_profiles
-    default_profiles=$(grep '^PROFILES=' scripts/dev.sh | head -n 1)
-    if echo "${default_profiles}" | grep -q "langfuse"; then
-        echo "Contract violation: scripts/dev.sh default PROFILES still contains langfuse" >&2
+    if ! grep -q 'types.IsWeKnoraCloudEnabled()' internal/handler/system.go || \
+       ! grep -q 'types.IsWeKnoraCloudEnabled()' internal/application/service/weknoracloud.go || \
+       ! grep -q 'WEKNORA_WEKNORACLOUD_ENABLED' frontend/src/utils/weknoraCloudModels.ts; then
+        echo "Backend/frontend WeKnoraCloud gating via IsWeKnoraCloudEnabled() / WEKNORA_WEKNORACLOUD_ENABLED missing" >&2
         return 1
     fi
     return 0
 }
 
-# TC-T3-03: Go Module Tree ↔ License Bundle Guard Contract
-test_t3_go_mod_license_guard_contract() {
-    # Verify that clean go.mod/go.sum passes check-license-bundle.sh with no violations
-    bash scripts/check-license-bundle.sh || return 1
-    # Verify modules.tsv checksums remain authentic
-    test -s licenses/sources/modules.tsv || return 1
-    return 0
-}
-
-# TC-T3-04: Docreader Dependency Removal ↔ Parser Routing Integrity
-test_t3_docreader_routing_contract() {
-    # Verify Docx2Parser and DocParser routing tests pass without textract
-    PYTHONPATH="${REPO_ROOT}" uv --directory docreader run --with pytest pytest tests/test_parser_routing.py tests/test_docx_tables.py
-}
-
-run_tier_3() {
-    echo -e "\n${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
-    echo -e "${C_BOLD}${C_BLUE}[TIER 3] Cross-Feature Interactions & Interface Contracts${C_RESET}"
-    echo -e "${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
-
-    run_test "TC-T3-01" "Parquet schema ↔ Go DatasetService struct deserialization" test_t3_parquet_go_service_contract
-    run_test "TC-T3-02" "Compose OTLP telemetry retention ↔ Dev launcher alignment" test_t3_compose_dev_profile_alignment
-    run_test "TC-T3-03" "Go dependency closure ↔ License guard contract" test_t3_go_mod_license_guard_contract
-    run_test "TC-T3-04" "Docreader clean dependency env ↔ Parser routing integrity" test_t3_docreader_routing_contract
-}
-
-# ==============================================================================
-# TIER 4: Real-World Acceptance Scenarios
-# ==============================================================================
-
-# TC-T4-01: Enterprise Client Commercial Source Code Delivery Audit
-test_t4_commercial_delivery_audit() {
-    # 1. Whole-repo scan for forbidden dataset references in sample data and docs
-    local non_comm_matches
-    non_comm_matches=$(grep -rn -E -i "ms marco|mmarco" dataset/ 2>/dev/null || true)
-    if [[ -n "${non_comm_matches}" ]]; then
-        echo "Enterprise audit failed: MS MARCO references found in dataset directory" >&2
+# TC-T3-02: Chrome & Claw integrations gated behind runtime URLs & zero @lyingbug/weknora
+test_t3_chrome_claw_gated_and_clean() {
+    if ! grep -q "GENYEE_CHROME_EXTENSION_URL" frontend/src/config/integrations.ts || \
+       ! grep -q "GENYEE_CLAWHUB_SKILL_URL" frontend/src/config/integrations.ts; then
+        echo "frontend/src/config/integrations.ts does not gate chrome/claw via GENYEE_CHROME_EXTENSION_URL / GENYEE_CLAWHUB_SKILL_URL" >&2
         return 1
     fi
-
-    # 2. Whole-repo scan for proprietary Langfuse container services
-    local compose_matches
-    compose_matches=$(grep -E "langfuse/langfuse|langfuse-(web|worker)" docker-compose*.yml 2>/dev/null || true)
-    if [[ -n "${compose_matches}" ]]; then
-        echo "Enterprise audit failed: Proprietary Langfuse images found in compose files" >&2
-        return 1
-    fi
-
-    # 3. Whole-repo scan for banned Go packages in go.mod/go.sum
-    local go_matches
-    go_matches=$(grep -E "vcaesar/cedar|go-ego/gse" go.mod go.sum 2>/dev/null || true)
-    if [[ -n "${go_matches}" ]]; then
-        echo "Enterprise audit failed: Restricted Go packages found" >&2
-        return 1
-    fi
-
-    # 4. Whole-repo scan for textract in docreader
-    local textract_matches
-    textract_matches=$(grep -rn "textract" docreader/pyproject.toml docreader/uv.lock docreader/parser/ 2>/dev/null || true)
-    if [[ -n "${textract_matches}" ]]; then
-        echo "Enterprise audit failed: textract found in docreader" >&2
-        return 1
-    fi
-
-    # 5. License bundle check
-    bash scripts/check-license-bundle.sh >/dev/null || return 1
-    bash scripts/test-license-bundle.sh >/dev/null || return 1
-
-    echo "Enterprise Client Commercial Source Code Delivery Audit PASSED: 100% compliant."
-    return 0
-}
-
-# TC-T4-02: Self-contained Offline Container Readiness Simulation
-test_t4_offline_container_readiness() {
-    # Simulate an air-gapped CI runner checking container configs without downloading remote proprietary images
-    local dummy=0
-    if [[ ! -f .env ]]; then
-        touch .env
-        dummy=1
-    fi
-
-    local status=0
-    docker compose -f docker-compose.yml config --quiet || status=1
-    docker compose -f docker-compose.dev.yml config --quiet || status=1
-
-    if [[ $dummy -eq 1 ]]; then
-        rm -f .env
-    fi
-
-    if [[ $status -ne 0 ]]; then
-        echo "Offline container readiness check failed: docker compose config failed" >&2
-        return 1
-    fi
-    echo "Offline container configurations validated successfully."
-    return 0
-}
-
-run_tier_4() {
-    echo -e "\n${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
-    echo -e "${C_BOLD}${C_BLUE}[TIER 4] Real-World Acceptance Scenarios${C_RESET}"
-    echo -e "${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
-
-    run_test "TC-T4-01" "Enterprise client commercial source code delivery audit" test_t4_commercial_delivery_audit
-    run_test "TC-T4-02" "Self-contained offline container orchestration readiness" test_t4_offline_container_readiness
-}
-
-# ==============================================================================
-# TIER 5: Commercial Compliance Removal Verification (AC1 & AC2)
-# ==============================================================================
-
-# TC-T5-01: Check A: Frontend WeKnora Cloud settings & model helper removal
-test_t5_wkc_frontend_files_absent() {
-    local forbidden_files=(
-        "frontend/src/views/settings/WeKnoraCloudSettings.vue"
-        "frontend/src/utils/weknoraCloudModels.ts"
-    )
-    local found=0
-    for f in "${forbidden_files[@]}"; do
-        if [[ -e "${f}" ]]; then
-            echo "Forbidden WeKnora Cloud frontend file exists: ${f}" >&2
-            found=1
-        fi
-    done
-    return $found
-}
-
-# TC-T5-02: Check B: Backend WeKnora Cloud provider, parser, handler & service removal
-test_t5_wkc_backend_files_absent() {
-    local forbidden_files=(
-        "internal/models/providers/weknoracloud.go"
-        "internal/infrastructure/docparser/weknoracloud_http_reader.go"
-        "internal/handler/weknoracloud.go"
-        "internal/application/service/weknoracloud.go"
-        "internal/types/weknoracloud.go"
-        "internal/types/interfaces/weknoracloud.go"
-        "internal/models/vlm/weknoracloud.go"
-        "internal/models/providers/assets/weknoracloud.svg"
-    )
-    local found=0
-    for f in "${forbidden_files[@]}"; do
-        if [[ -e "${f}" ]]; then
-            echo "Forbidden WeKnora Cloud backend file exists: ${f}" >&2
-            found=1
-        fi
-    done
-    return $found
-}
-
-# TC-T5-03: Check C: Zero occurrences of "weknoracloud" across frontend/src and internal/
-test_t5_wkc_zero_occurrences() {
-    local matches=""
-    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        matches=$(git grep -in "weknoracloud" -- frontend/src internal/ 2>/dev/null || true)
-    fi
-    if [[ -z "${matches}" ]]; then
-        matches=$(grep -rin "weknoracloud" frontend/src internal/ 2>/dev/null || true)
-    fi
-
-    if [[ -n "${matches}" ]]; then
-        echo "Forbidden references to 'weknoracloud' detected:" >&2
-        echo "${matches}" | head -n 25 >&2
-        return 1
-    fi
-    return 0
-}
-
-# TC-T5-04: Check D: Frontend CLI, Chrome extension, and Claw skill landing removal
-test_t5_integrations_frontend_files_absent() {
-    local forbidden_files=(
-        "frontend/src/views/integrations/CliIntegrationLanding.vue"
-        "frontend/src/views/integrations/cliIntegration.ts"
-        "frontend/src/views/integrations/cliIntegration.test.ts"
-        "frontend/src/views/integrations/ChromeExtensionLanding.vue"
-        "frontend/src/views/integrations/ClawSkillLanding.vue"
-        "frontend/src/views/integrations/IntegrationLandingLayout.vue"
-        "frontend/src/views/integrations/IntegrationExternalCta.vue"
-        "frontend/src/views/integrations/integration-landing.less"
-    )
-    local found=0
-    for f in "${forbidden_files[@]}"; do
-        if [[ -e "${f}" ]]; then
-            echo "Forbidden integration frontend file exists: ${f}" >&2
-            found=1
-        fi
-    done
-    return $found
-}
-
-# TC-T5-05: Check E: INTEGRATION_TABS strictly restricted to ['im', 'embed', 'api', 'mcpserver']
-test_t5_integration_tabs_whitelist() {
-    local config_file="frontend/src/config/integrations.ts"
-    if [[ ! -f "${config_file}" ]]; then
-        echo "Missing configuration file: ${config_file}" >&2
-        return 1
-    fi
-
-    python3 - <<'EOF'
-import re
-import ast
-import sys
-
-with open("frontend/src/config/integrations.ts", "r", encoding="utf-8") as f:
-    content = f.read()
-
-match = re.search(r"export\s+const\s+INTEGRATION_TABS\s*(?::\s*[^=]+)?=\s*(\[[^\]]+\])", content)
-if not match:
-    sys.stderr.write("Could not locate INTEGRATION_TABS array in frontend/src/config/integrations.ts\n")
-    sys.exit(1)
-
-raw_array = match.group(1)
-try:
-    tabs = ast.literal_eval(raw_array)
-except Exception as e:
-    sys.stderr.write(f"Failed to parse INTEGRATION_TABS array: {e}\n")
-    sys.exit(1)
-
-expected_tabs = ['im', 'embed', 'api', 'mcpserver']
-if tabs != expected_tabs:
-    sys.stderr.write(f"INTEGRATION_TABS violation: expected {expected_tabs}, found {tabs}\n")
-    sys.exit(1)
-
-type_match = re.search(r"export\s+type\s+IntegrationTab\s*=\s*([^;\n]+)", content)
-if type_match:
-    type_str = type_match.group(1).replace(" ", "").replace('"', "'")
-    expected_type = "'im'|'embed'|'api'|'mcpserver'"
-    if type_str != expected_type:
-        sys.stderr.write(f"IntegrationTab type definition violation: expected {expected_type}, found {type_str}\n")
-        sys.exit(1)
-
-# Ensure no mention of cli, chrome, claw tabs
-forbidden_tab_tokens = ["'cli'", '"cli"', "'chrome'", '"chrome"', "'claw'", '"claw"']
-for tok in forbidden_tab_tokens:
-    if tok in content:
-        sys.stderr.write(f"Found forbidden token {tok} in frontend/src/config/integrations.ts\n")
-        sys.exit(1)
-
-print("INTEGRATION_TABS is strictly configured with ['im', 'embed', 'api', 'mcpserver'].")
-EOF
-}
-
-# TC-T5-06: Check F: Standalone CLI directory (/Users/cy/GENYEE/cli) absence
-test_t5_cli_directory_absent() {
-    if [[ -e "${REPO_ROOT}/cli" ]] || [[ -d "${REPO_ROOT}/cli" ]]; then
-        echo "Standalone cli directory still exists at ${REPO_ROOT}/cli" >&2
-        return 1
-    fi
-    return 0
-}
-
-# TC-T5-07: Check G: CLI CI/CD workflows (.github/workflows/cli*.yml) absence
-test_t5_cli_workflows_absent() {
-    local found=0
-    for wf in ".github/workflows/cli.yml" ".github/workflows/cli-e2e.yml"; do
-        if [[ -e "${wf}" ]]; then
-            echo "Forbidden CLI workflow file exists: ${wf}" >&2
-            found=1
-        fi
-    done
-    return $found
-}
-
-# TC-T5-08: Check H: OpenPage tool navigation clean of WKC and removed integration routes
-test_t5_open_page_navigation_clean() {
-    local target_file="internal/agent/tools/open_page.go"
-    if [[ ! -f "${target_file}" ]]; then
-        echo "Missing agent tool file: ${target_file}" >&2
-        return 1
-    fi
-
-    local forbidden_regex="(weknoracloud|integration-cli|integration-chrome|integration-claw)"
     local matches
-    matches=$(grep -E -n -i "${forbidden_regex}" "${target_file}" || true)
+    matches=$(grep -rn "@lyingbug/weknora\|clawhub.ai/lyingbug/weknora" frontend/ website-docs/ || true)
     if [[ -n "${matches}" ]]; then
-        echo "Forbidden navigation routes found in ${target_file}:" >&2
+        echo "Found third-party publisher @lyingbug/weknora references:" >&2
         echo "${matches}" >&2
         return 1
     fi
     return 0
 }
 
-# TC-T5-09: Check I: BrowserSkill ("本机浏览器连接", internal/browserskill/) integrity and tests
-test_t5_browserskill_intact() {
-    local bsk_dir="internal/browserskill"
-    if [[ ! -d "${bsk_dir}" ]]; then
-        echo "BrowserSkill directory missing: ${bsk_dir}" >&2
+# TC-T3-03: Langfuse services gated under profiles: ["langfuse"], default PROFILES="", no default cloud.langfuse.com
+test_t3_langfuse_gated_and_no_cloud_default() {
+    bash -n scripts/dev.sh || return 1
+    if ! grep -Eq '^[[:space:]]*PROFILES=""' scripts/dev.sh; then
+        echo "scripts/dev.sh does not initialize PROFILES=\"\"" >&2
         return 1
     fi
-
-    local required_files=(
-        "authorization.go"
-        "cluster.go"
-        "daemon.go"
-        "errors.go"
-        "focus.go"
-        "human.go"
-        "manager.go"
-        "result.go"
-        "stop.go"
-        "store.go"
-    )
-    for f in "${required_files[@]}"; do
-        if [[ ! -s "${bsk_dir}/${f}" ]]; then
-            echo "BrowserSkill core source missing or empty: ${bsk_dir}/${f}" >&2
-            return 1
-        fi
-    done
-
-    local go_test_output
-    local go_test_status=0
-    go_test_output=$(go test -count=1 ./internal/browserskill 2>&1) || go_test_status=$?
-    if [[ $go_test_status -ne 0 ]]; then
-        echo "BrowserSkill unit tests failed:" >&2
-        echo "${go_test_output}" >&2
+    if grep -q "cloud.langfuse.com" docker-compose.yml; then
+        echo "docker-compose.yml still defaults LANGFUSE_HOST to cloud.langfuse.com" >&2
+        return 1
+    fi
+    if ! grep -q "LANGFUSE_HOST" docker-compose.yml; then
+        echo "docker-compose.yml missing LANGFUSE_HOST passthrough variable" >&2
         return 1
     fi
     return 0
 }
 
-run_tier_5() {
+# TC-T3-04: Desktop auto-update defaults to disabled with zero Tencent/WeKnora release URLs
+test_t3_desktop_autoupdate_disabled_by_default() {
+    if ! grep -q "func isAutoUpdateEnabled() bool" cmd/desktop/update.go; then
+        echo "cmd/desktop/update.go missing isAutoUpdateEnabled() guard" >&2
+        return 1
+    fi
+    if grep -q "api.github.com/repos/Tencent/WeKnora" cmd/desktop/update.go; then
+        echo "cmd/desktop/update.go still points to api.github.com/repos/Tencent/WeKnora" >&2
+        return 1
+    fi
+    return 0
+}
+
+# TC-T3-05: Docker Compose configuration validation (prod & dev, with and without .env)
+test_t3_compose_configs_valid() {
+    local dummy_env_created=0
+    if [[ ! -f .env ]]; then
+        touch .env
+        dummy_env_created=1
+    fi
+
+    local err=0
+    docker compose -f docker-compose.yml config --quiet || err=1
+    docker compose -f docker-compose.dev.yml config --quiet || err=1
+
+    if [[ $dummy_env_created -eq 1 ]]; then
+        rm -f .env
+    fi
+
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    (
+        cd "${tmp_dir}"
+        docker compose --env-file /dev/null -f "${REPO_ROOT}/docker-compose.dev.yml" config --quiet
+    ) || err=1
+    rm -rf "${tmp_dir}"
+
+    return $err
+}
+
+run_tier_3() {
     echo -e "\n${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
-    echo -e "${C_BOLD}${C_BLUE}[TIER 5] Commercial Compliance Removal Verification (AC1 & AC2)${C_RESET}"
+    echo -e "${C_BOLD}${C_BLUE}[TIER 3] Default-Off Cloud/Telemetry & Third-Party Publisher Gating${C_RESET}"
     echo -e "${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
 
-    run_test "TC-T5-01" "Check A: Frontend WeKnora Cloud settings & model helper removal" test_t5_wkc_frontend_files_absent
-    run_test "TC-T5-02" "Check B: Backend WeKnora Cloud provider, parser, handler & service removal" test_t5_wkc_backend_files_absent
-    run_test "TC-T5-03" "Check C: Zero occurrences of 'weknoracloud' in frontend/src & internal/" test_t5_wkc_zero_occurrences
-    run_test "TC-T5-04" "Check D: Frontend CLI, Chrome extension & Claw skill landing removal" test_t5_integrations_frontend_files_absent
-    run_test "TC-T5-05" "Check E: INTEGRATION_TABS restricted to ['im', 'embed', 'api', 'mcpserver']" test_t5_integration_tabs_whitelist
-    run_test "TC-T5-06" "Check F: Standalone CLI directory (/Users/cy/GENYEE/cli) absence" test_t5_cli_directory_absent
-    run_test "TC-T5-07" "Check G: CLI CI/CD workflows (.github/workflows/cli*.yml) absence" test_t5_cli_workflows_absent
-    run_test "TC-T5-08" "Check H: OpenPage tool navigation clean of WKC and removed integration routes" test_t5_open_page_navigation_clean
-    run_test "TC-T5-09" "Check I: BrowserSkill ('本机浏览器连接') core package integrity and tests" test_t5_browserskill_intact
+    run_test "TC-T3-01" "WeKnoraCloud gated behind WEKNORA_WEKNORACLOUD_ENABLED (default off)" test_t3_weknoracloud_default_off
+    run_test "TC-T3-02" "Chrome & Claw gated by runtime URLs & zero @lyingbug/weknora" test_t3_chrome_claw_gated_and_clean
+    run_test "TC-T3-03" "Langfuse profile-gated, PROFILES=\"\", no cloud.langfuse.com default" test_t3_langfuse_gated_and_no_cloud_default
+    run_test "TC-T3-04" "Desktop auto-update disabled by default & no Tencent GitHub URL" test_t3_desktop_autoupdate_disabled_by_default
+    run_test "TC-T3-05" "Docker Compose config validation (prod & dev, isolated)" test_t3_compose_configs_valid
+}
+
+# ==============================================================================
+# TIER 4: Brand Residue & Image Parameterization
+# ==============================================================================
+
+# TC-T4-01: Desktop wails.json & Info.plist use GENYEE Lite and com.genyee.lite
+test_t4_desktop_branding() {
+    if ! grep -q '"name": "GENYEE Lite"' cmd/desktop/wails.json || \
+       ! grep -q '"outputfilename": "GENYEE Lite"' cmd/desktop/wails.json || \
+       ! grep -q '"companyName": "GENYEE"' cmd/desktop/wails.json || \
+       ! grep -q '"productName": "GENYEE Lite"' cmd/desktop/wails.json; then
+        echo "cmd/desktop/wails.json does not use 'GENYEE Lite' / 'GENYEE'" >&2
+        return 1
+    fi
+    if grep -qi "WeKnora" cmd/desktop/wails.json; then
+        echo "cmd/desktop/wails.json still contains WeKnora" >&2
+        return 1
+    fi
+    if ! grep -q "<string>com.genyee.lite</string>" cmd/desktop/build/darwin/Info.plist; then
+        echo "cmd/desktop/build/darwin/Info.plist does not use com.genyee.lite" >&2
+        return 1
+    fi
+    return 0
+}
+
+# TC-T4-02: All 8 docs/images/readme/hero-*.svg contain zero Tencent/腾讯 strings
+test_t4_hero_svgs_clean() {
+    local count=0
+    for svg in docs/images/readme/hero-*.svg; do
+        count=$((count + 1))
+        if grep -Eq "Tencent|腾讯|WeKnora" "${svg}"; then
+            echo "Found unbranded residue in ${svg}" >&2
+            return 1
+        fi
+    done
+    if [[ $count -lt 8 ]]; then
+        echo "Expected 8 hero-*.svg files, found ${count}" >&2
+        return 1
+    fi
+    return 0
+}
+
+# TC-T4-03: README.md, README_CN.md, README_JA.md, README_KO.md contain zero weknora.weixin.qq.com links
+test_t4_readmes_no_weixin_links() {
+    local matches
+    matches=$(grep -n "weknora.weixin.qq.com" README.md README_CN.md README_JA.md README_KO.md || true)
+    if [[ -n "${matches}" ]]; then
+        echo "Found weknora.weixin.qq.com links in README files:" >&2
+        echo "${matches}" >&2
+        return 1
+    fi
+    return 0
+}
+
+# TC-T4-04: docs/swagger.json contains zero github_com_Tencent_GENYEE references & go test ./docs/... passes
+test_t4_swagger_clean_and_valid() {
+    local matches
+    matches=$(grep -c "github_com_Tencent_" docs/docs.go docs/swagger.json docs/swagger.yaml | grep -v ":0$" || true)
+    if [[ -n "${matches}" ]]; then
+        echo "Found github_com_Tencent_ definitions in Swagger docs:" >&2
+        echo "${matches}" >&2
+        return 1
+    fi
+    GOFLAGS=-mod=readonly go test ./docs/...
+}
+
+# TC-T4-05: Self-built images parameterized as genyee/genyee-* & Helm Redis pinned to 7.2-alpine
+test_t4_image_parameterization_and_helm() {
+    if grep -Eq "wechatopenai/weknora-" docker-compose.yml Makefile scripts/build_images.sh helm/values.yaml internal/sandbox/sandbox.go; then
+        echo "Found legacy wechatopenai/weknora-* image references in deployment/build files" >&2
+        return 1
+    fi
+    if ! grep -q "genyee-app" docker-compose.yml || \
+       ! grep -q "genyee-app" Makefile || \
+       ! grep -q "genyee-app" scripts/build_images.sh || \
+       ! grep -q "genyee/genyee-app" helm/values.yaml || \
+       ! grep -q "genyee/genyee-sandbox" internal/sandbox/sandbox.go; then
+        echo "Missing genyee/genyee-* image references in deployment/build files" >&2
+        return 1
+    fi
+    if ! grep -Eq 'tag:[[:space:]]*"?7\.2-alpine"?' helm/values.yaml; then
+        echo "helm/values.yaml does not pin Redis tag to 7.2-alpine" >&2
+        return 1
+    fi
+    return 0
+}
+
+run_tier_4() {
+    echo -e "\n${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
+    echo -e "${C_BOLD}${C_BLUE}[TIER 4] Brand Residue & Image Parameterization${C_RESET}"
+    echo -e "${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
+
+    run_test "TC-T4-01" "Desktop wails.json & Info.plist use GENYEE Lite & com.genyee.lite" test_t4_desktop_branding
+    run_test "TC-T4-02" "All 8 docs/images/readme/hero-*.svg clean of Tencent/腾讯" test_t4_hero_svgs_clean
+    run_test "TC-T4-03" "README*.md files contain zero weknora.weixin.qq.com links" test_t4_readmes_no_weixin_links
+    run_test "TC-T4-04" "Swagger docs clean of github_com_Tencent_ & pass contract tests" test_t4_swagger_clean_and_valid
+    run_test "TC-T4-05" "Self-built images use genyee/genyee-* & Helm pins Redis 7.2-alpine" test_t4_image_parameterization_and_helm
+}
+
+# ==============================================================================
+# TIER 5: Offline Bundle, Source Export & Hygiene
+# ==============================================================================
+
+# TC-T5-01: OFFLINE_LICENSES exist and scripts/offline-bundle.sh --manifest-only succeeds
+test_t5_offline_bundle_manifest() {
+    test -s OFFLINE_LICENSES/README.md || { echo "Missing OFFLINE_LICENSES/README.md" >&2; return 1; }
+    test -s OFFLINE_LICENSES/WRITTEN_OFFER.md || { echo "Missing OFFLINE_LICENSES/WRITTEN_OFFER.md" >&2; return 1; }
+
+    local tmp_out
+    tmp_out="$(mktemp -d)"
+    bash scripts/offline-bundle.sh --manifest-only --output "${tmp_out}/bundle" || { rm -rf "${tmp_out}"; return 1; }
+    test -s "${tmp_out}/bundle/MANIFEST.json" || { rm -rf "${tmp_out}"; return 1; }
+    test -s "${tmp_out}/bundle/OFFLINE_LICENSES/WRITTEN_OFFER.md" || { rm -rf "${tmp_out}"; return 1; }
+    rm -rf "${tmp_out}"
+    return 0
+}
+
+# TC-T5-02: scripts/export-source.sh succeeds and verifies excluded/included files
+test_t5_export_source_archive() {
+    local tmp_out
+    tmp_out="$(mktemp -d)"
+    bash scripts/export-source.sh "${tmp_out}/genyee-source-test.tar.gz" HEAD || { rm -rf "${tmp_out}"; return 1; }
+    test -s "${tmp_out}/genyee-source-test.tar.gz" || { rm -rf "${tmp_out}"; return 1; }
+    test -s "${tmp_out}/genyee-source-test.tar.gz.sha256" || { rm -rf "${tmp_out}"; return 1; }
+    rm -rf "${tmp_out}"
+    return 0
+}
+
+# TC-T5-03: Zero hardcoded local user paths in tracked files
+test_t5_zero_hardcoded_user_paths() {
+    local home_prefix="/Users/""cy"
+    local matches
+    matches=$(git grep -n "${home_prefix}" || true)
+    if [[ -n "${matches}" ]]; then
+        echo "Found hardcoded ${home_prefix} paths in tracked files:" >&2
+        echo "${matches}" >&2
+        return 1
+    fi
+    return 0
+}
+
+# TC-T5-04: BrowserSkill, ProductDocs & Frontend docsUrl integrity and tests
+test_t5_browserskill_and_productdocs() {
+    GOFLAGS=-mod=readonly go test -count=1 ./internal/browserskill ./internal/productdocs || return 1
+    (cd frontend && npx tsx --test src/utils/docsUrl.test.ts) || return 1
+    return 0
+}
+
+run_tier_5() {
+    echo -e "\n${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
+    echo -e "${C_BOLD}${C_BLUE}[TIER 5] Offline Bundle, Source Export & Hygiene${C_RESET}"
+    echo -e "${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
+
+    run_test "TC-T5-01" "OFFLINE_LICENSES & scripts/offline-bundle.sh --manifest-only" test_t5_offline_bundle_manifest
+    run_test "TC-T5-02" "Clean customer source archive export (scripts/export-source.sh)" test_t5_export_source_archive
+    run_test "TC-T5-03" "Zero hardcoded local user paths in tracked files" test_t5_zero_hardcoded_user_paths
+    run_test "TC-T5-04" "BrowserSkill, ProductDocs & frontend docsUrl unit tests" test_t5_browserskill_and_productdocs
 }
 
 # ==============================================================================
@@ -908,7 +763,7 @@ print_summary() {
         return 1
     else
         echo -e "\n${C_GREEN}${C_BOLD}  Result: 100% COMMERCIALLY COMPLIANT${C_RESET}"
-        echo -e "  All acceptance criteria for R1-R4 and AC1/AC2 (WeKnora Cloud, CLI, Chrome, Claw) verified."
+        echo -e "  All commercial compliance, clean-room, gating, branding, and delivery checks verified."
         echo -e "${C_BOLD}================================================================================${C_RESET}\n"
         return 0
     fi

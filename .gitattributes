@@ -18,3 +18,25 @@ cli/acceptance/testdata/**/*.json text eol=lf
 
 # Unified diffs use a space to mark empty context lines.
 patches/browserskill/*.patch whitespace=-blank-at-eol
+
+# Keep deleted non-commercial sample parquet files deleted when merging upstream.
+dataset/samples/*.parquet merge=ours
+
+# Exclude internal compliance audit, rebrand notes, branch maintenance guides,
+# AI assistant workspaces, release PoC notes, and CI/git metadata when exporting
+# customer source archives via `git archive` (see scripts/export-source.sh).
+COMMERCIAL_COMPLIANCE_AUDIT.md export-ignore
+REBRAND_RESERVED.md export-ignore
+BRANCH_GUIDE.md export-ignore
+.trellis export-ignore
+.claude export-ignore
+.github export-ignore
+.gitattributes export-ignore
+.gitignore export-ignore
+docs/superpowers export-ignore
+docs/release-* export-ignore
+docs/poc export-ignore
+misc/intro-video export-ignore
+misc/release-v0.9.0-* export-ignore
+scripts/verify-commercial-compliance.sh export-ignore
+Formula export-ignore
