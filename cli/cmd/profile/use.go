@@ -23,14 +23,14 @@ func NewCmdUse(f *cmdutil.Factory) *cobra.Command {
 		Long: `Switches the default profile written in config.yaml. Names are case-sensitive.
 
 The active profile is what every subsequent command uses for auth + host. The
-global --profile flag (e.g. weknora --profile staging kb list) overrides for
+global --profile flag (e.g. genyee --profile staging kb list) overrides for
 one command without writing to disk.
 
 AI agents: Do NOT switch the active profile unless the user explicitly asked
 you to. Profile selection is a user preference; one-shot overrides should use
 the global --profile flag instead, which writes nothing to disk.`,
 		Example: `  genyee profile use staging               # persist switch
-  weknora --profile staging kb list         # one-shot override (no disk write)
+  genyee --profile staging kb list         # one-shot override (no disk write)
   genyee profile use staging --format json        # {current_profile, previous_profile}`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {

@@ -37,13 +37,13 @@ func NewCmdLogout(f *cmdutil.Factory) *cobra.Command {
 		Use:   "logout",
 		Short: "Remove stored credentials for a profile",
 		Long: `Clear keyring + file-fallback secrets for one profile (or all of
-them with --all) and drop the profile entry from ~/.config/weknora/config.yaml.
+them with --all) and drop the profile entry from ~/.config/genyee/config.yaml.
 
 Note: this does NOT revoke the credential server-side - for API keys, you
 must rotate them in the server UI; for JWT, the token will continue to be
 accepted until it expires.`,
 		Example: `  genyee auth logout                       # active profile
-  weknora --profile staging auth logout     # specific profile
+  genyee --profile staging auth logout     # specific profile
   genyee auth logout --all`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
@@ -93,7 +93,7 @@ accepted until it expires.`,
 		UsedFor: "clear stored credentials for the active profile (or --all); the profile itself stays registered (host preserved) so `auth login` can re-auth it — use `profile remove` to delete the profile entirely",
 		Examples: []string{
 			"genyee auth logout",
-			"weknora --profile staging auth logout",
+			"genyee --profile staging auth logout",
 			"genyee auth logout --all",
 		},
 		Output: "envelope.data is {removed: [profile names cleared]}",

@@ -45,7 +45,7 @@ Both new tokens replace the existing entries in the OS keyring.
 API-key profiles are rejected with input.invalid_argument - they have no
 refresh semantic. Rotate the key in the server UI instead.`,
 		Example: `  genyee auth refresh                      # refresh the active profile
-  weknora --profile staging auth refresh   # refresh a specific profile`,
+  genyee --profile staging auth refresh   # refresh a specific profile`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, _ []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(c)
@@ -105,7 +105,7 @@ refresh semantic. Rotate the key in the server UI instead.`,
 		Output:  "envelope.data has profile name that was refreshed",
 		Examples: []string{
 			"genyee auth refresh",
-			"weknora --profile staging auth refresh",
+			"genyee --profile staging auth refresh",
 		},
 	})
 	return cmd

@@ -132,8 +132,8 @@ func buildClient(f *Factory) (*sdk.Client, error) {
 		// an active profile) — an agent that execs retry_argv would loop. Point
 		// hint + retry_argv at the real first step: create a profile.
 		return nil, NewError(CodeAuthUnauthenticated, "no profile configured").
-			WithHint("add one first: `weknora profile add <name> --host <url> --use`, then `weknora auth login` (or set WEKNORA_API_KEY + WEKNORA_HOST for headless use)").
-			WithRetryArgv([]string{"weknora", "profile", "add", "--help"})
+			WithHint("add one first: `genyee profile add <name> --host <url> --use`, then `genyee auth login` (or set WEKNORA_API_KEY + WEKNORA_HOST for headless use)").
+			WithRetryArgv([]string{"genyee", "profile", "add", "--help"})
 	}
 	prof, ok := cfg.Profiles[profileName]
 	if !ok {
@@ -143,8 +143,8 @@ func buildClient(f *Factory) (*sdk.Client, error) {
 		if f.ProfileOverride != "" {
 			return nil, NewError(CodeInputInvalidArgument,
 				fmt.Sprintf("profile %q not configured", profileName)).
-				WithHint("list available profiles with `weknora profile list`").
-				WithRetryArgv([]string{"weknora", "profile", "list"})
+				WithHint("list available profiles with `genyee profile list`").
+				WithRetryArgv([]string{"genyee", "profile", "list"})
 		}
 		// ProfileOverride is empty: config.CurrentProfile points at a missing entry.
 		// That's a genuinely corrupt config file.

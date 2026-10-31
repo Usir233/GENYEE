@@ -27,8 +27,8 @@ under "mcpServers":
 
     {
       "mcpServers": {
-        "weknora": {
-          "command": "weknora",
+        "genyee": {
+          "command": "genyee",
           "args": ["mcp", "serve"]
         }
       }

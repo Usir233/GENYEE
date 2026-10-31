@@ -35,7 +35,7 @@ func RefreshAndPersist(ctx context.Context, store secrets.Store, refresher Refre
 		return "", &Error{
 			Code:    CodeAuthTokenExpired,
 			Message: "refresh token missing for profile " + profileName,
-			Hint:    "run `weknora auth login` to re-authenticate",
+			Hint:    "run `genyee auth login` to re-authenticate",
 		}
 	}
 
@@ -54,7 +54,7 @@ func RefreshAndPersist(ctx context.Context, store secrets.Store, refresher Refre
 		return "", &Error{
 			Code:    CodeAuthTokenExpired,
 			Message: msg,
-			Hint:    "run `weknora auth login` to re-authenticate",
+			Hint:    "run `genyee auth login` to re-authenticate",
 		}
 	}
 
