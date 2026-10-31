@@ -6,7 +6,6 @@ import time
 import uuid
 from pathlib import Path
 from typing import List, Optional
-
 from docreader.config import CONFIG
 from docreader.models.document import Document
 from docreader.parser.docx2_parser import Docx2Parser

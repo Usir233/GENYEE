@@ -240,6 +240,9 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.docreader
+      args:
+        VERSION_ARG: ${DOCREADER_VERSION:-unknown}
+        COMMIT_ID_ARG: ${DOCREADER_COMMIT_ID:-unknown}
     image: ${GENYEE_REGISTRY:-genyee}/genyee-docreader:${WEKNORA_VERSION:-latest}
     container_name: GENYEE-docreader-dev
     ports:

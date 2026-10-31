@@ -389,6 +389,14 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Corresponding source: [Go module proxy](https://proxy.golang.org/github.com/vcaesar/cedar/@v/v0.20.2.zip)
   and [upstream repository](https://github.com/vcaesar/cedar/tree/v0.20.2).
 
+## Goldmark
+
+- Component: `github.com/yuin/goldmark`, version `v1.8.2`.
+- Used to identify GFM tables for Wiki machine-write row preservation.
+- License: MIT, reproduced in [`licenses/goldmark-MIT.txt`](licenses/goldmark-MIT.txt).
+- Copyright: 2019 Yusuke Inuzuka. Modifications by WeKnora / GENYEE: none.
+- Source: [upstream repository](https://github.com/yuin/goldmark/tree/v1.8.2).
+
 ## Build-only component
 
 The Windows installer template in `cmd/desktop/build/windows/installer/project.nsi`

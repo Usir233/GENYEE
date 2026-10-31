@@ -120,17 +120,9 @@ get_version_info() {
     # 获取构建时间
     BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
     
-    # 获取Go版本
-    if command -v go >/dev/null 2>&1; then
-        GO_VERSION=$(go version 2>/dev/null || echo "unknown")
-    else
-        GO_VERSION="unknown"
-    fi
-    
     log_info "版本信息: $VERSION"
     log_info "Commit ID: $COMMIT_ID"
     log_info "构建时间: $BUILD_TIME"
-    log_info "Go版本: $GO_VERSION"
 }
 
 # 构建应用镜像
@@ -151,7 +143,6 @@ build_app_image() {
         --build-arg VERSION_ARG="$VERSION" \
         --build-arg COMMIT_ID_ARG="$COMMIT_ID" \
         --build-arg BUILD_TIME_ARG="$BUILD_TIME" \
-        --build-arg GO_VERSION_ARG="$GO_VERSION" \
         --build-arg WITH_ANYDOC=${WITH_ANYDOC:-1} \
         -f docker/Dockerfile.app \
         -t "${GENYEE_REGISTRY}/genyee-app:${IMAGE_TAG}" \
@@ -172,6 +163,9 @@ build_docreader_image() {
     log_info "构建文档读取器镜像 (${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG})..."
     
     cd "$PROJECT_ROOT"
+
+    # 与 app 镜像使用同一份 VERSION 和 Git 提交信息。
+    get_version_info
     
     docker build \
         --platform $PLATFORM \
@@ -180,6 +174,8 @@ build_docreader_image() {
         --build-arg APT_MIRROR="${APT_MIRROR:-}" \
         --build-arg PLAYWRIGHT_DOWNLOAD_HOST="${PLAYWRIGHT_DOWNLOAD_HOST:-}" \
         --build-arg PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST="${PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST:-}" \
+        --build-arg VERSION_ARG="$VERSION" \
+        --build-arg COMMIT_ID_ARG="$COMMIT_ID" \
         -f docker/Dockerfile.docreader \
         -t "${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-docreader:latest" \

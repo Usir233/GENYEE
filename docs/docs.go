@@ -14862,19 +14862,19 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "检查当前空间的 WeKnoraCloud 凭证是否完好；needs_reinit=true 表示需要重新保存",
+                "description": "检查当前空间的 GENYEECloud 凭证是否完好；needs_reinit=true 表示需要重新保存",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "WeKnoraCloud"
+                    "GENYEECloud"
                 ],
-                "summary": "检查 WeKnoraCloud 凭证状态",
+                "summary": "检查 GENYEECloud 凭证状态",
                 "responses": {
                     "200": {
                         "description": "凭证状态",
                         "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WeKnoraCloudStatusResult"
+                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GENYEECloudStatusResult"
                         }
                     },
                     "500": {
@@ -18040,6 +18040,73 @@ const docTemplate = `{
                         "description": "审批恢复后的事件流尚未就绪",
                         "schema": {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_errors.AppError"
+                        }
+                    }
+                }
+            }
+        },
+        "/sessions/transcriptions": {
+            "post": {
+                "security": [
+                    {
+                        "Bearer": []
+                    },
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "使用当前智能体配置的 ASR 模型将一段录音转写为文本，用于填充对话输入框。智能体需开启音频上传并选择 ASR 模型。",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "会话"
+                ],
+                "summary": "语音输入转写",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "录音文件（推荐 16kHz 单声道 WAV）",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "智能体ID",
+                        "name": "agent_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "共享智能体所属空间ID",
+                        "name": "agent_source_tenant_id",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "string",
+                        "description": "界面语言（如 zh-CN、ja-JP）；取主语言（zh、ja）作为识别语言提示",
+                        "name": "locale",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "data: VoiceTranscriptionResponse",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "智能体未启用语音识别或文件无效",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     }
                 }
@@ -21832,7 +21899,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "获取空间级别的KV配置。支持 web-search-config、prompt-templates、parser-engine-config、\nstorage-engine-config、chat-history-config、retrieval-config、memory-config、\nassistant-config、default-settings。",
+                "description": "获取空间级别的KV配置（支持web-search-config、prompt-templates、parser-engine-config、storage-engine-config、chat-history-config、retrieval-config）",
                 "consumes": [
                     "application/json"
                 ],
@@ -21877,7 +21944,7 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "更新空间级别的KV配置。支持 web-search-config、parser-engine-config、storage-engine-config、\nchat-history-config、retrieval-config、memory-config、assistant-config、default-settings。",
+                "description": "更新空间级别的KV配置（支持web-search-config、parser-engine-config、storage-engine-config、chat-history-config、retrieval-config）",
                 "consumes": [
                     "application/json"
                 ],
@@ -24015,9 +24082,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "WeKnoraCloud"
+                    "GENYEECloud"
                 ],
-                "summary": "保存 WeKnoraCloud 凭证",
+                "summary": "保存 GENYEECloud 凭证",
                 "parameters": [
                     {
                         "description": "{app_id, app_secret}",
@@ -25191,13 +25258,6 @@ const docTemplate = `{
                     "additionalProperties": {
                         "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_handler_dto.CredentialFieldMetadata"
                     }
-                },
-                "default_for": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    },
-                    "x-agent": true
                 },
                 "description": {
                     "type": "string",
@@ -27592,7 +27652,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "weknoracloud": {
-                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WeKnoraCloudCredentials"
+                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.GENYEECloudCredentials"
                 }
             }
         },
@@ -28162,35 +28222,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Usir233_GENYEE_internal_types.DefaultSettings": {
-            "type": "object",
-            "properties": {
-                "asr_model_id": {
-                    "description": "ASRModelID is the default ASR model.",
-                    "type": "string"
-                },
-                "chat_model_id": {
-                    "description": "ChatModelID is the default KnowledgeQA model.",
-                    "type": "string"
-                },
-                "embedding_model_id": {
-                    "description": "EmbeddingModelID is the default Embedding model.",
-                    "type": "string"
-                },
-                "rerank_model_id": {
-                    "description": "RerankModelID is the default Rerank model.",
-                    "type": "string"
-                },
-                "utility_model_id": {
-                    "description": "UtilityModelID is the KnowledgeQA model for short generation tasks\nsuch as writing MCP usage instructions. Empty follows the chat default.",
-                    "type": "string"
-                },
-                "vlm_model_id": {
-                    "description": "VLMModelID is the default VLLM or vision-capable KnowledgeQA model.",
-                    "type": "string"
-                }
-            }
-        },
         "github_com_Usir233_GENYEE_internal_types.DockerSandboxConfig": {
             "type": "object",
             "properties": {
@@ -28230,7 +28261,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tls_cert_path": {
-                    "description": "TLSCertPath is a directory on the WeKnora host containing ca.pem,\ncert.pem and key.pem. Required when Host is a TCP endpoint.",
+                    "description": "TLSCertPath is a directory on the GENYEE host containing ca.pem,\ncert.pem and key.pem. Required when Host is a TCP endpoint.",
                     "type": "string"
                 }
             }
@@ -28268,7 +28299,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "proxy_url": {
-                    "description": "ProxyURL is the data-plane gateway that fronts envd. E2B Cloud resolves\n\"\u003cport\u003e-\u003csandboxID\u003e.\u003csandbox_domain\u003e\" through public DNS and TLS, so it\nneeds no value here. Self-hosted E2B-compatible control planes usually\nserve every sandbox from one gateway address and expect the sandbox\nauthority in the Host header; setting this makes WeKnora dial the\ngateway directly instead of requiring wildcard DNS and a certificate\nfor the sandbox domain. An \"http://\" gateway also downgrades the\ndata-plane scheme, which the E2B SDK otherwise pins to https.",
+                    "description": "ProxyURL is the data-plane gateway that fronts envd. E2B Cloud resolves\n\"\u003cport\u003e-\u003csandboxID\u003e.\u003csandbox_domain\u003e\" through public DNS and TLS, so it\nneeds no value here. Self-hosted E2B-compatible control planes usually\nserve every sandbox from one gateway address and expect the sandbox\nauthority in the Host header; setting this makes GENYEE dial the\ngateway directly instead of requiring wildcard DNS and a certificate\nfor the sandbox domain. An \"http://\" gateway also downgrades the\ndata-plane scheme, which the E2B SDK otherwise pins to https.",
                     "type": "string"
                 },
                 "sandbox_domain": {
@@ -31876,7 +31907,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "When WeKnora persisted the blob",
+                    "description": "When GENYEE persisted the blob",
                     "type": "string"
                 },
                 "deleted_at": {
@@ -32154,7 +32185,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "app_id": {
-                    "description": "WeKnoraCloud 厂商专用凭证",
+                    "description": "GENYEECloud 厂商专用凭证",
                     "type": "string"
                 },
                 "app_secret": {
@@ -33224,6 +33255,11 @@ const docTemplate = `{
                     "description": "Enabled turns question generation on. Generated questions are indexed beside the chunk.",
                     "type": "boolean",
                     "x-agent": "question_generation_enabled"
+                },
+                "model_id": {
+                    "description": "ModelID selects a chat model for questions. Empty inherits the summary model.",
+                    "type": "string",
+                    "x-agent": "question_model_id"
                 },
                 "question_count": {
                     "description": "QuestionCount is how many questions to write per chunk, from 1 to 10.",
@@ -34311,7 +34347,7 @@ const docTemplate = `{
                     "x-agent-response": true
                 },
                 "user_id": {
-                    "description": "UserID is the owner scope for this session. WeKnora user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
+                    "description": "UserID is the owner scope for this session. GENYEE user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
                     "type": "string"
                 }
             }
@@ -34472,7 +34508,7 @@ const docTemplate = `{
                     "x-agent-response": true
                 },
                 "user_id": {
-                    "description": "UserID is the owner scope for this session. WeKnora user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
+                    "description": "UserID is the owner scope for this session. GENYEE user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
                     "type": "string"
                 }
             }
@@ -35267,18 +35303,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "credentials": {
-                    "description": "Credentials config: third-party provider credentials (e.g. WeKnoraCloud AppID/AppSecret)",
+                    "description": "Credentials config: third-party provider credentials (e.g. GENYEECloud AppID/AppSecret)",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CredentialsConfig"
-                        }
-                    ]
-                },
-                "default_settings": {
-                    "description": "Default settings: the workspace's default model for each type and purpose",
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.DefaultSettings"
                         }
                     ]
                 },
@@ -35605,7 +35633,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "terminal_idle_disconnect_sec": {
-                    "description": "TerminalIdleDisconnectSec is how long an interactive terminal or\ndesktop may go without user activity before WeKnora closes the\nconnection so the sandbox can pause on its provider TTL. Terminal\ncounts keystrokes and PTY output; desktop counts mouse and keyboard.\n0 uses the built-in default (15 minutes). Not an identity field.",
+                    "description": "TerminalIdleDisconnectSec is how long an interactive terminal or\ndesktop may go without user activity before GENYEE closes the\nconnection so the sandbox can pause on its provider TTL. Terminal\ncounts keystrokes and PTY output; desktop counts mouse and keyboard.\n0 uses the built-in default (15 minutes). Not an identity field.",
                     "type": "integer"
                 },
                 "user_sandbox_empty_retention_days": {
@@ -36238,7 +36266,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Usir233_GENYEE_internal_types.WeKnoraCloudCredentials": {
+        "github_com_Usir233_GENYEE_internal_types.GENYEECloudCredentials": {
             "type": "object",
             "properties": {
                 "app_id": {
@@ -36249,15 +36277,11 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_Usir233_GENYEE_internal_types.WeKnoraCloudStatusResult": {
+        "github_com_Usir233_GENYEE_internal_types.GENYEECloudStatusResult": {
             "type": "object",
             "properties": {
-                "enabled": {
-                    "description": "是否已启用 WeKnoraCloud 集成",
-                    "type": "boolean"
-                },
                 "has_models": {
-                    "description": "是否已配置 WeKnoraCloud 凭证",
+                    "description": "是否已配置 GENYEECloud 凭证",
                     "type": "boolean"
                 },
                 "needs_reinit": {
@@ -36466,7 +36490,8 @@ const docTemplate = `{
                 "exa",
                 "metaso",
                 "bocha",
-                "serply"
+                "serply",
+                "deepseek"
             ],
             "x-enum-varnames": [
                 "WebSearchProviderTypeBrave",
@@ -36482,7 +36507,8 @@ const docTemplate = `{
                 "WebSearchProviderTypeExa",
                 "WebSearchProviderTypeMetaso",
                 "WebSearchProviderTypeBocha",
-                "WebSearchProviderTypeSerply"
+                "WebSearchProviderTypeSerply",
+                "WebSearchProviderTypeDeepSeek"
             ]
         },
         "github_com_Usir233_GENYEE_internal_types.WebSearchProviderTypeInfo": {
@@ -36542,6 +36568,12 @@ const docTemplate = `{
         "github_com_Usir233_GENYEE_internal_types.WikiConfig": {
             "type": "object",
             "properties": {
+                "auto_generate": {
+                    "description": "AutoGenerate disables background Wiki generation when false. Omitted means true.\nManual page APIs and Wiki retrieval remain available while Wiki is enabled.",
+                    "type": "boolean",
+                    "default": true,
+                    "x-agent": "wiki_auto_generate"
+                },
                 "content_instructions": {
                     "description": "ContentInstructions sets tone and emphasis for generated Wiki prose. Citations stay fixed.",
                     "type": "string",
@@ -38520,11 +38552,6 @@ const docTemplate = `{
                 "version": {
                     "type": "string",
                     "x-agent": true
-                },
-                "weknoracloud_enabled": {
-                    "description": "WeKnoraCloudEnabled reports whether optional WeKnoraCloud integration is enabled via WEKNORA_WEKNORACLOUD_ENABLED=true.",
-                    "type": "boolean",
-                    "x-agent": true
                 }
             }
         },
@@ -38905,6 +38932,9 @@ const docTemplate = `{
                         },
                         "enabled": {
                             "type": "boolean"
+                        },
+                        "modelId": {
+                            "type": "string"
                         },
                         "questionCount": {
                             "type": "integer"
