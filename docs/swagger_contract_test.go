@@ -90,7 +90,7 @@ func TestImagePipelineAgentKeysContract(t *testing.T) {
 			if err := tt.parse(tt.loadSpec(t), &spec); err != nil {
 				t.Fatal(err)
 			}
-			got := spec.Definitions["github_com_Tencent_WeKnora_internal_types.ImageProcessingConfig"].
+			got := spec.Definitions["github_com_Usir233_GENYEE_internal_types.ImageProcessingConfig"].
 				Properties["image_pipeline_params"].AgentKeys
 			if got != want {
 				t.Errorf("image_pipeline_params agent keys = %q, want %q", got, want)
@@ -112,8 +112,8 @@ func TestAutomationAssistantContract(t *testing.T) {
 			}
 			for _, name := range []string{
 				"internal_handler.CreateAutomationRequest",
-				"github_com_Tencent_WeKnora_internal_types.AutomationPatch",
-				"github_com_Tencent_WeKnora_internal_types.Automation",
+				"github_com_Usir233_GENYEE_internal_types.AutomationPatch",
+				"github_com_Usir233_GENYEE_internal_types.Automation",
 			} {
 				properties := spec.Definitions[name].Properties
 				if _, ok := properties["agent_id"]; ok {
@@ -169,7 +169,7 @@ func TestReleaseAPIContracts(t *testing.T) {
 				}
 			}
 			for _, name := range []string{"CatalogUpdate", "CatalogState", "CatalogRevision"} {
-				definition := "github_com_Tencent_WeKnora_internal_application_service." + name
+				definition := "github_com_Usir233_GENYEE_internal_application_service." + name
 				if spec.Definitions[definition].Properties["overlay"].Type != "object" {
 					t.Errorf("%s.overlay must be a JSON object", name)
 				}
@@ -194,7 +194,7 @@ func TestGraphSearchContract(t *testing.T) {
 			if methods["post"] == nil || len(methods) != 1 {
 				t.Fatal("graph-search must be documented as a POST-only endpoint")
 			}
-			const prefix = "github_com_Tencent_WeKnora_internal_types."
+			const prefix = "github_com_Usir233_GENYEE_internal_types."
 			for definition, fields := range map[string][]string{
 				"GraphSearchResult":      {"entities", "relationships", "source_chunks", "meta"},
 				"GraphSearchEntity":      {"id", "knowledge_id", "source_chunk_ids"},
@@ -252,7 +252,7 @@ func TestWikiPageBacklinkTitlesContract(t *testing.T) {
 			if err := tt.parse(tt.loadSpec(t), &spec); err != nil {
 				t.Fatal(err)
 			}
-			const detail = "github_com_Tencent_WeKnora_internal_types.WikiPageDetail"
+			const detail = "github_com_Usir233_GENYEE_internal_types.WikiPageDetail"
 			get := spec.Paths["/knowledgebase/{kb_id}/wiki/pages/{slug}"]["get"]
 			if get.Responses["200"].Schema.Ref != "#/definitions/"+detail {
 				t.Fatal("page detail response must expose backlink titles")
@@ -263,7 +263,7 @@ func TestWikiPageBacklinkTitlesContract(t *testing.T) {
 			if titles["type"] != "object" || !ok || values["type"] != "string" {
 				t.Fatal("in_link_titles must be a string-valued map")
 			}
-			for field := range spec.Definitions["github_com_Tencent_WeKnora_internal_types.WikiPage"].Properties {
+			for field := range spec.Definitions["github_com_Usir233_GENYEE_internal_types.WikiPage"].Properties {
 				if _, ok := properties[field]; !ok {
 					t.Errorf("page detail dropped existing field %s", field)
 				}
@@ -332,7 +332,7 @@ func assertModelDeleteUsageContract(t *testing.T, data []byte, parse func([]byte
 		t.Fatal("model DELETE Swagger contract does not document the model-in-use 400 response")
 	}
 
-	const errorCodeDefinition = "github_com_Tencent_WeKnora_internal_errors.ErrorCode"
+	const errorCodeDefinition = "github_com_Usir233_GENYEE_internal_errors.ErrorCode"
 	errorCodes, ok := spec.Definitions[errorCodeDefinition]
 	if !ok {
 		t.Fatalf("generated Swagger document does not expose %s", errorCodeDefinition)

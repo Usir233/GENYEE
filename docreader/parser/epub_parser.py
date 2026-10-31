@@ -13,8 +13,12 @@ import uuid
 from typing import Dict
 
 from bs4 import BeautifulSoup
-import ebooklib
-from ebooklib import epub
+try:
+    import ebooklib
+    from ebooklib import epub
+except ImportError:
+    ebooklib = None
+    epub = None
 
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
@@ -34,6 +38,8 @@ class EPUBParser(BaseParser):
         logger.info(
             "Parsing EPUB file: %s, size: %d bytes", self.file_name, len(content)
         )
+        if epub is None:
+            return self._parse_epub_fallback(content)
         try:
             with tempfile.NamedTemporaryFile(
                 suffix=".epub", delete=False, mode="wb"

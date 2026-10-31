@@ -7,7 +7,10 @@ import uuid
 from pathlib import Path
 from typing import List, Optional
 
-import textract
+try:
+    import textract
+except ImportError:
+    textract = None
 
 from docreader.config import CONFIG
 from docreader.models.document import Document

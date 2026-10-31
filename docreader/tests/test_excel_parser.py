@@ -1,11 +1,13 @@
+import base64
 import io
 import os
+import re
 import shutil
 import subprocess
 import tempfile
 import unittest
 import zipfile
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import openpyxl
 import pandas as pd
@@ -711,8 +713,629 @@ class ExcelParserTest(unittest.TestCase):
         self.assertGreater(len(document.chunks), 0)
 
 
-if __name__ == "__main__":
-    unittest.main()
+DUMMY_PNG_BYTES = (
+    b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02"
+    b"\x00\x00\x00\x90wS\xde\x00\x00\x00\x0cIDATx\x9cc\xf8\xcf\xc0\x00\x00\x03\x01"
+    b"\x01\x00\xc9\xfe\x92\xef\x00\x00\x00\x00IEND\xaeB`\x82"
+)
+
+
+def _build_synthetic_dispimg_xlsx(
+    rows: list, cellimages: list[tuple[str, str, bytes]]
+) -> bytes:
+    """Build in-memory XLSX with WPS cellimages.xml and DISPIMG formulas.
+
+    cellimages: list of (image_id, descr, image_bytes)
+    """
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    for r_idx, row in enumerate(rows, start=1):
+        for c_idx, val in enumerate(row, start=1):
+            ws.cell(row=r_idx, column=c_idx, value=val)
+    bio = io.BytesIO()
+    wb.save(bio)
+
+    pics_xml = []
+    rels_xml = []
+    media_map = {}
+
+    for idx, (img_id, descr, img_data) in enumerate(cellimages, start=1):
+        r_id = f"rId{idx}"
+        target_name = f"media/image_{idx}.png"
+        media_map[f"xl/{target_name}"] = img_data
+        pics_xml.append(f"""
+        <etc:cellImage>
+          <xdr:pic>
+            <xdr:nvPicPr>
+              <xdr:cNvPr id="{idx}" name="{img_id}" descr="{descr}"/>
+              <xdr:cNvSpPr/>
+            </xdr:nvPicPr>
+            <xdr:blipFill>
+              <a:blip r:embed="{r_id}"/>
+            </xdr:blipFill>
+          </xdr:pic>
+        </etc:cellImage>
+        """)
+        rels_xml.append(
+            f'<Relationship Id="{r_id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="{target_name}"/>'
+        )
+
+    cellimages_content = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <etc:cellImages xmlns:etc="http://www.wps.cn/officeDocument/2017/etCustomData"
+                    xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+                    xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+                    xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+      {"".join(pics_xml)}
+    </etc:cellImages>"""
+
+    rels_content = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      {"".join(rels_xml)}
+    </Relationships>"""
+
+    out = io.BytesIO()
+    with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(
+        out, "w", zipfile.ZIP_DEFLATED
+    ) as zout:
+        for item in zin.infolist():
+            zout.writestr(item, zin.read(item.filename))
+        zout.writestr("xl/cellimages.xml", cellimages_content)
+        zout.writestr("xl/_rels/cellimages.xml.rels", rels_content)
+        for path, data in media_map.items():
+            zout.writestr(path, data)
+    return out.getvalue()
+
+
+def _build_synthetic_drawings_xlsx(rows: list, anchors: list[dict]) -> bytes:
+    """Build in-memory XLSX with standard floating drawings (oneCell/twoCell)."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    for r_idx, row in enumerate(rows, start=1):
+        for c_idx, val in enumerate(row, start=1):
+            ws.cell(row=r_idx, column=c_idx, value=val)
+    bio = io.BytesIO()
+    wb.save(bio)
+
+    anchors_xml = []
+    drawing_rels = []
+    media_map = {}
+
+    for idx, anc in enumerate(anchors, start=1):
+        r_id = f"rIdD{idx}"
+        target = f"../media/drawing_img_{idx}.png"
+        media_map[f"xl/media/drawing_img_{idx}.png"] = anc.get(
+            "data", DUMMY_PNG_BYTES
+        )
+        drawing_rels.append(
+            f'<Relationship Id="{r_id}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="{target}"/>'
+        )
+
+        c = anc["col"]
+        r = anc["row"]
+        name = anc.get("name", f"Picture {idx}")
+        descr_attr = f'descr="{anc["descr"]}"' if "descr" in anc else ""
+
+        if anc.get("type") == "oneCellAnchor":
+            anchors_xml.append(f"""
+            <xdr:oneCellAnchor>
+              <xdr:from>
+                <xdr:col>{c}</xdr:col><xdr:colOff>0</xdr:colOff>
+                <xdr:row>{r}</xdr:row><xdr:rowOff>0</xdr:rowOff>
+              </xdr:from>
+              <xdr:ext cx="50000" cy="50000"/>
+              <xdr:pic>
+                <xdr:nvPicPr>
+                  <xdr:cNvPr id="{idx}" name="{name}" {descr_attr}/>
+                  <xdr:cNvSpPr/>
+                </xdr:nvPicPr>
+                <xdr:blipFill><a:blip r:embed="{r_id}"/></xdr:blipFill>
+              </xdr:pic>
+              <xdr:clientData/>
+            </xdr:oneCellAnchor>""")
+        else:
+            anchors_xml.append(f"""
+            <xdr:twoCellAnchor editAs="oneCell">
+              <xdr:from>
+                <xdr:col>{c}</xdr:col><xdr:colOff>0</xdr:colOff>
+                <xdr:row>{r}</xdr:row><xdr:rowOff>0</xdr:rowOff>
+              </xdr:from>
+              <xdr:to>
+                <xdr:col>{c + 1}</xdr:col><xdr:colOff>0</xdr:colOff>
+                <xdr:row>{r + 1}</xdr:row><xdr:rowOff>0</xdr:rowOff>
+              </xdr:to>
+              <xdr:pic>
+                <xdr:nvPicPr>
+                  <xdr:cNvPr id="{idx}" name="{name}" {descr_attr}/>
+                  <xdr:cNvSpPr/>
+                </xdr:nvPicPr>
+                <xdr:blipFill><a:blip r:embed="{r_id}"/></xdr:blipFill>
+              </xdr:pic>
+              <xdr:clientData/>
+            </xdr:twoCellAnchor>""")
+
+    ws_rels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      <Relationship Id="rIdDrawing1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/>
+    </Relationships>"""
+
+    drawing_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+              xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+              xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+      {"".join(anchors_xml)}
+    </xdr:wsDr>"""
+
+    draw_rels_xml = f"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+      {"".join(drawing_rels)}
+    </Relationships>"""
+
+    out = io.BytesIO()
+    with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(
+        out, "w", zipfile.ZIP_DEFLATED
+    ) as zout:
+        for item in zin.infolist():
+            zout.writestr(item, zin.read(item.filename))
+        zout.writestr("xl/worksheets/_rels/sheet1.xml.rels", ws_rels)
+        zout.writestr("xl/drawings/drawing1.xml", drawing_xml)
+        zout.writestr("xl/drawings/_rels/drawing1.xml.rels", draw_rels_xml)
+        for path, data in media_map.items():
+            zout.writestr(path, data)
+    return out.getvalue()
+
+
+class ExcelRealWorkloadImageTest(unittest.TestCase):
+    """Tier 4 Workload: Validate real-world Excel supplier sheet with embedded images."""
+
+    SAMPLE_PATH = "/root/.cursor/projects/home-cursor/uploads/ee547e04-d882-41d6-ae25-f9088c077369/储能设备采购供应商明细_含图片.xlsx"
+
+    def setUp(self):
+        if not os.path.isfile(self.SAMPLE_PATH):
+            self.skipTest(f"Sample file not found at {self.SAMPLE_PATH}")
+        with open(self.SAMPLE_PATH, "rb") as f:
+            self.content = f.read()
+
+    def test_real_xlsx_image_extraction_and_deduplication(self):
+        """Extracts 36 unique deduplicated images from 2560 cell references."""
+        parser = ExcelParser(
+            file_name="supplier.xlsx", file_type="xlsx", xlsx_ocr_enabled=False
+        )
+        doc = parser.parse_into_text(self.content)
+
+        # 1. Total deduplicated image count must match the 36 media files
+        self.assertEqual(len(doc.images), 36)
+
+        # 2. Key format must strictly follow images/{uuid}.{ext}
+        for ref_path, b64_data in doc.images.items():
+            self.assertTrue(
+                ref_path.startswith("images/"),
+                f"Invalid ref prefix: {ref_path}",
+            )
+            self.assertTrue(
+                ref_path.endswith((".jpeg", ".jpg", ".png")),
+                f"Invalid ext: {ref_path}",
+            )
+
+            # Base64 data must decode to valid JPEG magic header
+            decoded = base64.b64decode(b64_data)
+            self.assertGreater(len(decoded), 0)
+            self.assertEqual(
+                decoded[:3], b"\xff\xd8\xff", f"Image {ref_path} is not valid JPEG"
+            )
+
+    def test_real_xlsx_row_chunks_contain_markdown_refs(self):
+        """Row chunks contain markdown image references linked to doc.images."""
+        parser = ExcelParser(
+            file_name="supplier.xlsx", file_type="xlsx", xlsx_ocr_enabled=False
+        )
+        doc = parser.parse_into_text(self.content)
+
+        self.assertEqual(len(doc.chunks), 1281)
+
+        # Row 1 is header (Chunk 0)
+        self.assertIn("A: 产品图片", doc.chunks[0].content)
+        self.assertIn("C: 组件图片", doc.chunks[0].content)
+
+        # Row 2 (Chunk 1) must contain image markdown for columns A and C
+        chunk1 = doc.chunks[1].content
+        self.assertIn("A: ![", chunk1)
+        self.assertIn("C: ![", chunk1)
+        self.assertIn("B: 随行储能 300W/256Wh", chunk1)
+
+        # Verify all markdown image references in chunks point to keys in doc.images
+        img_refs_in_chunks = re.findall(r"\((images/[^\)]+)\)", doc.content)
+        self.assertGreater(len(img_refs_in_chunks), 0)
+        for ref in img_refs_in_chunks:
+            self.assertIn(ref, doc.images, f"Chunk referenced unknown image {ref}")
+
+    def test_real_xlsx_header_mode_image_labels(self):
+        """When first row is header, image markdown uses column names."""
+        parser = ExcelParser(
+            file_name="supplier.xlsx",
+            file_type="xlsx",
+            xlsx_first_row_as_header=True,
+            xlsx_ocr_enabled=False,
+        )
+        doc = parser.parse_into_text(self.content)
+
+        # 1280 data rows
+        self.assertEqual(len(doc.chunks), 1280)
+        chunk0 = doc.chunks[0].content
+        self.assertIn("产品图片: ![", chunk0)
+        self.assertIn("组件图片: ![", chunk0)
+        self.assertIn("产品: 随行储能 300W/256Wh", chunk0)
+
+
+class ExcelWPSDispimgTest(unittest.TestCase):
+    """Tests for WPS embedded cell images via DISPIMG formulas (#1779)."""
+
+    def test_wps_dispimg_single_cell_extraction(self):
+        rows = [
+            ["Item", "Thumbnail", "Price"],
+            ["Inverter 5kW", '=_xlfn.DISPIMG("ID_WPS_01",1)', "399.00"],
+        ]
+        cellimages = [("ID_WPS_01", "5kW Inverter Photo", DUMMY_PNG_BYTES)]
+        xlsx_bytes = _build_synthetic_dispimg_xlsx(rows, cellimages)
+
+        doc = ExcelParser(file_name="wps.xlsx", file_type="xlsx").parse_into_text(
+            xlsx_bytes
+        )
+
+        self.assertEqual(len(doc.images), 1)
+        self.assertNotIn("DISPIMG", doc.content)
+        self.assertNotIn("ID_WPS_01", doc.content)
+
+        # Verify markdown chunk contains image tag
+        chunk1 = doc.chunks[1].content
+        self.assertIn("A: Inverter 5kW", chunk1)
+        self.assertIn("B: ![5kW Inverter Photo](images/", chunk1)
+        self.assertIn("C: 399.00", chunk1)
+
+    def test_wps_dispimg_multiple_cells_deduplication(self):
+        rows = [
+            ["Model", "Photo"],
+            ["Mod A", '=_xlfn.DISPIMG("ID_WPS_SAME",1)'],
+            ["Mod B", '=_xlfn.DISPIMG("ID_WPS_SAME",1)'],
+        ]
+        cellimages = [("ID_WPS_SAME", "Standard Battery", DUMMY_PNG_BYTES)]
+        xlsx_bytes = _build_synthetic_dispimg_xlsx(rows, cellimages)
+
+        doc = ExcelParser(file_name="wps.xlsx", file_type="xlsx").parse_into_text(
+            xlsx_bytes
+        )
+
+        # Deduplicated to 1 image entry
+        self.assertEqual(len(doc.images), 1)
+        self.assertEqual(len(doc.chunks), 3)
+        self.assertIn("B: ![Standard Battery](images/", doc.chunks[1].content)
+        self.assertIn("B: ![Standard Battery](images/", doc.chunks[2].content)
+
+    def test_wps_dispimg_unresolved_id_graceful_skip(self):
+        """Unresolved DISPIMG ID must not crash the parser."""
+        rows = [
+            ["Model", "Photo"],
+            ["Mod X", '=_xlfn.DISPIMG("ID_NONEXISTENT",1)'],
+        ]
+        xlsx_bytes = _build_synthetic_dispimg_xlsx(rows, [])
+
+        doc = ExcelParser(file_name="wps.xlsx", file_type="xlsx").parse_into_text(
+            xlsx_bytes
+        )
+        self.assertEqual(len(doc.images), 0)
+        self.assertIn("Mod X", doc.content)
+        self.assertNotIn("DISPIMG", doc.content)
+
+
+class ExcelFloatingDrawingsTest(unittest.TestCase):
+    """Tests for standard floating drawing anchors (twoCellAnchor & oneCellAnchor)."""
+
+    def test_floating_drawing_two_cell_anchor(self):
+        rows = [
+            ["Name", "Diagram"],
+            ["Transformer", ""],
+        ]
+        anchors = [
+            {
+                "type": "twoCellAnchor",
+                "col": 1,  # Col B
+                "row": 1,  # Row 2 (0-based 1)
+                "name": "Trans1",
+                "descr": "Wiring Diagram",
+                "data": DUMMY_PNG_BYTES,
+            }
+        ]
+        xlsx_bytes = _build_synthetic_drawings_xlsx(rows, anchors)
+
+        doc = ExcelParser(file_name="draw.xlsx", file_type="xlsx").parse_into_text(
+            xlsx_bytes
+        )
+
+        self.assertEqual(len(doc.images), 1)
+        chunk1 = doc.chunks[1].content
+        self.assertIn("A: Transformer", chunk1)
+        self.assertIn("B: ![Wiring Diagram](images/", chunk1)
+
+    def test_floating_drawing_one_cell_anchor(self):
+        rows = [
+            ["Header Logo", "Title"],
+            ["Data Row", "Info"],
+        ]
+        anchors = [
+            {
+                "type": "oneCellAnchor",
+                "col": 0,  # Col A
+                "row": 0,  # Row 1 (0-based 0)
+                "name": "Logo",
+                "descr": "Company Brand",
+                "data": DUMMY_PNG_BYTES,
+            }
+        ]
+        xlsx_bytes = _build_synthetic_drawings_xlsx(rows, anchors)
+
+        doc = ExcelParser(file_name="draw.xlsx", file_type="xlsx").parse_into_text(
+            xlsx_bytes
+        )
+
+        self.assertEqual(len(doc.images), 1)
+        chunk0 = doc.chunks[0].content
+        self.assertIn("A: ", chunk0)
+        self.assertIn("![Company Brand](images/", chunk0)
+        self.assertIn("B: Title", chunk0)
+
+    def test_floating_drawing_fallback_alt_text(self):
+        """When descr attribute is missing, alt text falls back to name."""
+        rows = [["Item", "Pic"], ["Sensor", ""]]
+        anchors = [
+            {
+                "type": "twoCellAnchor",
+                "col": 1,
+                "row": 1,
+                "name": "FallbackName",
+                "data": DUMMY_PNG_BYTES,
+            }
+        ]
+        xlsx_bytes = _build_synthetic_drawings_xlsx(rows, anchors)
+
+        doc = ExcelParser().parse_into_text(xlsx_bytes)
+        self.assertIn("B: ![FallbackName](images/", doc.chunks[1].content)
+
+
+class ExcelPureTextNumericalTest(unittest.TestCase):
+    """Pure text and numerical workbooks must have zero images and exact baseline chunks."""
+
+    def test_pure_text_and_numerical_xlsx_zero_images(self):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Data"
+        ws.append(["ID", "Revenue", "Margin", "Active"])
+        ws.append([101, 150000.50, 0.23, True])
+        ws.append([102, 89000.00, 0.15, False])
+        bio = io.BytesIO()
+        wb.save(bio)
+
+        doc = ExcelParser(file_name="pure.xlsx", file_type="xlsx").parse_into_text(
+            bio.getvalue()
+        )
+
+        self.assertEqual(len(doc.images), 0)
+        self.assertNotIn("![", doc.content)
+        self.assertNotIn("images/", doc.content)
+        self.assertEqual(len(doc.chunks), 3)
+        self.assertEqual(
+            doc.chunks[0].content.strip(),
+            "A: ID,B: Revenue,C: Margin,D: Active",
+        )
+
+    def test_legacy_xls_zero_images_compatibility(self):
+        xls_paths = [
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "internal",
+                "infrastructure",
+                "docparser",
+                "anydoc",
+                "testdata",
+                "upstream",
+                "xls",
+                "sheet.xls",
+            ),
+            os.path.join(
+                os.path.dirname(__file__),
+                "..",
+                "..",
+                "internal",
+                "agent",
+                "tools",
+                "testdata",
+                "legacy.xls",
+            ),
+        ]
+        found = None
+        for p in xls_paths:
+            if os.path.isfile(p):
+                found = p
+                break
+        if not found:
+            self.skipTest("No legacy .xls fixture found")
+        with open(found, "rb") as f:
+            data = f.read()
+        doc = ExcelParser(file_name="test.xls", file_type="xls").parse_into_text(
+            data
+        )
+        self.assertEqual(len(doc.images), 0)
+        self.assertNotIn("images/", doc.content)
+        self.assertGreater(len(doc.chunks), 0)
+
+
+class ExcelCorruptResilienceTest(unittest.TestCase):
+    """Graceful error handling for corrupted zip and malformed XML."""
+
+    def test_corrupt_zip_bytes_returns_gracefully(self):
+        corrupt_data = b"PK\x03\x04random_corrupt_stream_not_a_valid_archive"
+        # Must not raise unhandled BadZipFile or KeyError
+        doc = ExcelParser(
+            file_name="corrupt.xlsx", file_type="xlsx"
+        ).parse_into_text(corrupt_data)
+        self.assertEqual(len(doc.images), 0)
+
+    def test_truncated_xlsx_bytes_handled(self):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws["A1"] = "Test"
+        bio = io.BytesIO()
+        wb.save(bio)
+        truncated = bio.getvalue()[:150]
+
+        doc = ExcelParser(file_name="trunc.xlsx", file_type="xlsx").parse_into_text(
+            truncated
+        )
+        self.assertEqual(len(doc.images), 0)
+
+    def test_corrupted_drawing_xml_resilience(self):
+        rows = [["Col1", "Col2"], ["Val1", "Val2"]]
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        for row in rows:
+            ws.append(row)
+        bio = io.BytesIO()
+        wb.save(bio)
+
+        out = io.BytesIO()
+        with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(
+            out, "w", zipfile.ZIP_DEFLATED
+        ) as zout:
+            for item in zin.infolist():
+                zout.writestr(item, zin.read(item.filename))
+            zout.writestr(
+                "xl/worksheets/_rels/sheet1.xml.rels",
+                '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing" Target="../drawings/drawing1.xml"/></Relationships>',
+            )
+            zout.writestr(
+                "xl/drawings/drawing1.xml", "<xdr:wsDr><unclosed_malformed_xml"
+            )
+
+        doc = ExcelParser().parse_into_text(out.getvalue())
+        # Should gracefully ignore corrupted drawing and parse regular table rows
+        self.assertEqual(len(doc.images), 0)
+        self.assertIn("Val1", doc.content)
+
+    def test_corrupted_cellimages_xml_resilience(self):
+        rows = [["Col1", "Col2"], ["Val1", "Val2"]]
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        for row in rows:
+            ws.append(row)
+        bio = io.BytesIO()
+        wb.save(bio)
+
+        out = io.BytesIO()
+        with zipfile.ZipFile(bio, "r") as zin, zipfile.ZipFile(
+            out, "w", zipfile.ZIP_DEFLATED
+        ) as zout:
+            for item in zin.infolist():
+                zout.writestr(item, zin.read(item.filename))
+            zout.writestr(
+                "xl/cellimages.xml", "<etc:cellImages><unclosed_malformed_xml"
+            )
+
+        doc = ExcelParser().parse_into_text(out.getvalue())
+        self.assertEqual(len(doc.images), 0)
+        self.assertIn("Val1", doc.content)
+
+
+class ExcelOCRGracefulDegradationTest(unittest.TestCase):
+    """OCR degradation when RapidOCR succeeds, times out, or throws exceptions."""
+
+    def setUp(self):
+        rows = [["Device", "Plate"], ["Inverter", ""]]
+        anchors = [
+            {
+                "type": "twoCellAnchor",
+                "col": 1,
+                "row": 1,
+                "name": "PlateImg",
+                "descr": "Nameplate",
+                "data": DUMMY_PNG_BYTES,
+            }
+        ]
+        self.xlsx_bytes = _build_synthetic_drawings_xlsx(rows, anchors)
+
+    def test_ocr_success_appends_recognition_text(self):
+        """When RapidOCR succeeds, chunk includes OCR recognition text."""
+        mock_output = MagicMock()
+        mock_output.txts = ("SN123456", "220V 50Hz")
+
+        with patch("rapidocr.RapidOCR") as MockOCR:
+            mock_instance = MockOCR.return_value
+            mock_instance.return_value = mock_output
+
+            doc = ExcelParser().parse_into_text(self.xlsx_bytes)
+
+            chunk1 = doc.chunks[1].content
+            self.assertIn("images/", chunk1)
+            # OCR text must be appended to the chunk
+            self.assertTrue(
+                "SN123456" in chunk1 or "识别结果" in chunk1,
+                f"OCR text not found in chunk: {chunk1}",
+            )
+
+    def test_ocr_runtime_exception_degrades_to_plain_tag(self):
+        """When RapidOCR raises an exception, parser falls back to plain image link."""
+        with patch("rapidocr.RapidOCR") as MockOCR:
+            mock_instance = MockOCR.return_value
+            mock_instance.side_effect = RuntimeError(
+                "ONNX Runtime execution failed: GPU OOM"
+            )
+
+            doc = ExcelParser().parse_into_text(self.xlsx_bytes)
+
+            # Must not crash; plain image tag must be present
+            self.assertEqual(len(doc.images), 1)
+            chunk1 = doc.chunks[1].content
+            self.assertIn("B: ![Nameplate](images/", chunk1)
+            self.assertNotIn("GPU OOM", chunk1)
+
+    def test_ocr_timeout_degrades_to_plain_tag(self):
+        """When RapidOCR times out, parser falls back to plain image link."""
+        with patch("rapidocr.RapidOCR") as MockOCR:
+            mock_instance = MockOCR.return_value
+            mock_instance.side_effect = TimeoutError(
+                "OCR inference timed out after 5.0s"
+            )
+
+            doc = ExcelParser().parse_into_text(self.xlsx_bytes)
+
+            self.assertEqual(len(doc.images), 1)
+            chunk1 = doc.chunks[1].content
+            self.assertIn("B: ![Nameplate](images/", chunk1)
+
+    def test_ocr_import_error_degrades_gracefully(self):
+        """When rapidocr import fails, parser falls back to plain image link."""
+        with patch(
+            "docreader.parser.excel_parser._get_ocr_engine", return_value=None
+        ):
+            doc = ExcelParser().parse_into_text(self.xlsx_bytes)
+            self.assertEqual(len(doc.images), 1)
+            chunk1 = doc.chunks[1].content
+            self.assertIn("B: ![Nameplate](images/", chunk1)
+            self.assertNotIn("识别结果", chunk1)
+
+    def test_ocr_empty_text_omits_ocr_suffix(self):
+        """When RapidOCR detects no text, no empty suffix is appended."""
+        mock_output = MagicMock()
+        mock_output.txts = ()
+
+        with patch("rapidocr.RapidOCR") as MockOCR:
+            mock_instance = MockOCR.return_value
+            mock_instance.return_value = mock_output
+
+            doc = ExcelParser().parse_into_text(self.xlsx_bytes)
+
+            chunk1 = doc.chunks[1].content
+            self.assertIn("B: ![Nameplate](images/", chunk1)
+            self.assertNotIn("(识别结果: )", chunk1)
 
 
 class ExcelSourceBlocksTest(unittest.TestCase):
@@ -731,8 +1354,17 @@ class ExcelSourceBlocksTest(unittest.TestCase):
         buf = io.BytesIO()
         wb.save(buf)
 
-        doc = ExcelParser(file_name="a.xlsx", file_type="xlsx").parse_into_text(buf.getvalue())
-        rows = [(b["locator"]["sheet"], b["locator"]["row_start"]) for b in doc.source_blocks]
+        doc = ExcelParser(file_name="a.xlsx", file_type="xlsx").parse_into_text(
+            buf.getvalue()
+        )
+        rows = [
+            (b["locator"]["sheet"], b["locator"]["row_start"])
+            for b in doc.source_blocks
+        ]
         self.assertEqual(rows, [("明细", 3), ("明细", 5)])
         first = doc.source_blocks[0]
-        self.assertEqual(doc.content[first["start"]:first["end"]], "B: 螺栓\n")
+        self.assertEqual(doc.content[first["start"] : first["end"]], "B: 螺栓\n")
+
+
+if __name__ == "__main__":
+    unittest.main()
