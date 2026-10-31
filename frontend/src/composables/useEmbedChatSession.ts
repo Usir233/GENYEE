@@ -400,6 +400,10 @@ export function useEmbedChatSession(options: {
   })
 
   onChunk((data) => {
+    const chunkSessionId = data.session_id || (data.data as { session_id?: string })?.session_id
+    if (chunkSessionId && chunkSessionId !== options.sessionId.value) {
+      return
+    }
     if (data.response_type === 'session_title') {
       const title = String(data.content || (data.data as { title?: string })?.title || '').trim()
       if (title) {
@@ -412,6 +416,7 @@ export function useEmbedChatSession(options: {
 
   const resetAndLoad = (sid: string) => {
     stopResumePoll()
+    stopStream()
     messagesList.splice(0)
     historyLoading.value = true
     historyLoadingMore.value = false

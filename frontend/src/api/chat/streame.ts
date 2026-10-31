@@ -261,7 +261,13 @@ export function useStream() {
 
         onmessage: (ev) => {
           if (myGeneration !== streamGeneration) return
-          const parsed = JSON.parse(ev.data);
+          let parsed: any;
+          try {
+            parsed = JSON.parse(ev.data);
+          } catch (e) {
+            console.warn('[SSE] Failed to parse message data as JSON:', ev.data, e);
+            return;
+          }
           reconnectAttempts = 0;
           if (parsed?.response_type === 'agent_query' && typeof parsed.assistant_message_id === 'string') {
             receivedAssistantId = parsed.assistant_message_id;

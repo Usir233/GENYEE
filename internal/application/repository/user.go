@@ -441,8 +441,29 @@ func (r *authTokenRepository) GetTokensByUserID(ctx context.Context, userID stri
 	return tokens, nil
 }
 
-// UpdateToken updates a token
+// UpdateToken updates a token. When revoking a token, it enforces Compare-And-Swap (CAS)
+// semantics (WHERE id = ? AND is_revoked = false) to prevent race conditions and token reuse.
 func (r *authTokenRepository) UpdateToken(ctx context.Context, token *types.AuthToken) error {
+	if token.IsRevoked {
+		updatedAt := token.UpdatedAt
+		if updatedAt.IsZero() {
+			updatedAt = time.Now()
+			token.UpdatedAt = updatedAt
+		}
+		result := r.db.WithContext(ctx).Model(&types.AuthToken{}).
+			Where("id = ? AND is_revoked = ?", token.ID, false).
+			Updates(map[string]interface{}{
+				"is_revoked": true,
+				"updated_at": updatedAt,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("token already revoked or not found")
+		}
+		return nil
+	}
 	return r.db.WithContext(ctx).Save(token).Error
 }
 
@@ -453,7 +474,7 @@ func (r *authTokenRepository) DeleteToken(ctx context.Context, id string) error 
 
 // DeleteExpiredTokens deletes all expired tokens
 func (r *authTokenRepository) DeleteExpiredTokens(ctx context.Context) error {
-	return r.db.WithContext(ctx).Where("expires_at < NOW()").Delete(&types.AuthToken{}).Error
+	return r.db.WithContext(ctx).Where("expires_at < ?", time.Now()).Delete(&types.AuthToken{}).Error
 }
 
 // RevokeTokensByUserID revokes all tokens for a user

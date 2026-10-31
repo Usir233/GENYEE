@@ -234,6 +234,16 @@ class DocxParser(BaseParser):
         logger.info(f"Parsing DOCX document, content size: {len(content)} bytes")
         logger.info(f"Max pages limit set to: {self.max_pages}")
 
+        if content.startswith(b"PK"):
+            import zipfile
+            from docreader.parser.docx_merge import _validate_zip_archive
+
+            try:
+                with zipfile.ZipFile(BytesIO(content)) as archive:
+                    _validate_zip_archive(archive)
+            except zipfile.BadZipFile:
+                pass
+
         start_time = time.time()
         # Use concurrent processing to handle the document
         max_workers = min(
@@ -705,7 +715,7 @@ class Docx:
         """Get current request ID"""
         current_request_id = None
         try:
-            from utils.request import get_request_id
+            from docreader.utils.request import get_request_id
 
             current_request_id = get_request_id()
             logger.info(
@@ -794,21 +804,21 @@ class Docx:
             )
 
         temp_file_path = self._prepare_document_sharing(binary)
+        try:
+            # Prepare multiprocess processing arguments
+            args_list = self._prepare_multiprocess_args(
+                pages_to_process,
+                from_page,
+                to_page,
+                doc_contains_images,
+                temp_file_path,
+            )
 
-        # Prepare multiprocess processing arguments
-        args_list = self._prepare_multiprocess_args(
-            pages_to_process,
-            from_page,
-            to_page,
-            doc_contains_images,
-            temp_file_path,
-        )
-
-        # Execute multiprocess tasks
-        self._execute_multiprocess_tasks(args_list, max_workers)
-
-        # Clean up temporary file
-        self._cleanup_temp_file(temp_file_path)
+            # Execute multiprocess tasks
+            self._execute_multiprocess_tasks(args_list, max_workers)
+        finally:
+            # Clean up temporary file
+            self._cleanup_temp_file(temp_file_path)
 
     def _check_document_has_images(self):
         """Check if the document contains images
@@ -933,6 +943,28 @@ class Docx:
                     future_to_idx, args_list, batch_start_time
                 )
 
+    @staticmethod
+    def _is_docx_temp_img_path(path: str) -> bool:
+        """Check if path points to a temporary image created for docx processing."""
+        if not path:
+            return False
+        try:
+            temp_dir = os.path.dirname(os.path.abspath(path))
+            base_dir = os.path.abspath(tempfile.gettempdir())
+            if not os.path.basename(temp_dir).startswith("docx_img_"):
+                return False
+            parent = os.path.dirname(temp_dir)
+            try:
+                return (
+                    os.path.samefile(parent, base_dir)
+                    or parent == "/tmp"
+                    or temp_dir.startswith("/tmp/docx_img_")
+                )
+            except OSError:
+                return parent == base_dir or parent == "/tmp" or temp_dir.startswith("/tmp/docx_img_")
+        except Exception:
+            return "docx_img_" in path
+
     def _collect_process_results(self, future_to_idx, args_list, batch_start_time):
         """Collect multiprocess processing results
 
@@ -958,8 +990,8 @@ class Docx:
                 # Collect temporary image paths for later cleanup
                 for line in page_lines:
                     for image_data in line.images:
-                        if image_data.local_path and image_data.local_path.startswith(
-                            "/tmp/docx_img_"
+                        if image_data.local_path and self._is_docx_temp_img_path(
+                            image_data.local_path
                         ):
                             temp_img_paths.add(image_data.local_path)
 
@@ -1132,7 +1164,7 @@ class Docx:
                     # Delete temporary directory (if empty)
                     try:
                         temp_dir = os.path.dirname(path)
-                        if temp_dir.startswith("/tmp/docx_img_") and os.path.exists(
+                        if self._is_docx_temp_img_path(path) and os.path.exists(
                             temp_dir
                         ):
                             os.rmdir(temp_dir)

@@ -29,6 +29,34 @@ function reloadUserPreferences() {
   reloadThemeFromStorage()
 }
 
+const tokenListeners = new Set<(newToken: string) => void>()
+const refreshTokenListeners = new Set<(newRefreshToken: string) => void>()
+
+if (typeof globalThis !== 'undefined' && globalThis.localStorage) {
+  const storage = globalThis.localStorage
+  if (!(storage as any).__weknora_token_sync_installed) {
+    ;(storage as any).__weknora_token_sync_installed = true
+    const origSetItem = storage.setItem.bind(storage)
+    storage.setItem = function (key: string, value: string) {
+      origSetItem(key, value)
+      if (key === 'weknora_token') {
+        tokenListeners.forEach((fn) => fn(value))
+      } else if (key === 'weknora_refresh_token') {
+        refreshTokenListeners.forEach((fn) => fn(value))
+      }
+    }
+    const origRemoveItem = storage.removeItem.bind(storage)
+    storage.removeItem = function (key: string) {
+      origRemoveItem(key)
+      if (key === 'weknora_token') {
+        tokenListeners.forEach((fn) => fn(''))
+      } else if (key === 'weknora_refresh_token') {
+        refreshTokenListeners.forEach((fn) => fn(''))
+      }
+    }
+  }
+}
+
 export const useAuthStore = defineStore('auth', () => {
   // 状态
   const user = ref<UserInfo | null>(null)
@@ -283,6 +311,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
     if (tenantChanged) {
       clearTenantScopedClientState()
+      clearSessionResourceCaches()
     }
   }
 
@@ -569,6 +598,29 @@ export const useAuthStore = defineStore('auth', () => {
   // 初始化时从localStorage恢复状态
   initFromStorage()
 
+  // Synchronize Pinia token ref whenever background token rotation writes to localStorage
+  tokenListeners.add((val) => {
+    token.value = val
+  })
+  refreshTokenListeners.add((val) => {
+    refreshToken.value = val
+  })
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (e: StorageEvent) => {
+      if (e.key === 'weknora_token') {
+        token.value = e.newValue || ''
+      } else if (e.key === 'weknora_refresh_token') {
+        refreshToken.value = e.newValue || ''
+      }
+    })
+  }
+
+  const syncTokenFromStorage = () => {
+    token.value = localStorage.getItem('weknora_token') || ''
+    refreshToken.value = localStorage.getItem('weknora_refresh_token') || ''
+  }
+
   return {
     // 状态
     user,
@@ -618,6 +670,7 @@ export const useAuthStore = defineStore('auth', () => {
     getSelectedTenant,
     setLiteMode,
     logout,
-    initFromStorage
+    initFromStorage,
+    syncTokenFromStorage
   }
 })

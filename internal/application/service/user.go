@@ -77,11 +77,26 @@ const (
 	DetailSamePassword       = "same_password"
 )
 
-// getJwtSecret retrieves the JWT secret from the environment, falling back to a securely generated random secret.
+// isProductionEnv returns true if running in a production or release environment.
+func isProductionEnv() bool {
+	for _, envKey := range []string{"GIN_MODE", "APP_ENV", "ENV"} {
+		v := strings.ToLower(strings.TrimSpace(os.Getenv(envKey)))
+		if v == "release" || v == "production" || v == "prod" {
+			return true
+		}
+	}
+	return false
+}
+
+// getJwtSecret retrieves the JWT secret from the environment, falling back to a securely generated random secret in development.
 func getJwtSecret() string {
 	jwtSecretOnce.Do(func() {
 		envSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
-		if envSecret != "" && envSecret != "weknora-jwt-secret" && envSecret != "CHANGE-ME-jwt-secret" {
+		isPlaceholder := envSecret == "" || envSecret == "weknora-jwt-secret" || envSecret == "CHANGE-ME-jwt-secret"
+		if isProductionEnv() && isPlaceholder {
+			panic("JWT_SECRET must be explicitly configured in production environment and cannot be empty or default placeholder")
+		}
+		if !isPlaceholder {
 			jwtSecret = envSecret
 			return
 		}
@@ -1530,9 +1545,12 @@ func (s *userService) RefreshToken(
 		return "", "", err
 	}
 
-	// Revoke old refresh token
+	// Revoke old refresh token atomically via CAS
 	tokenRecord.IsRevoked = true
-	_ = s.tokenRepo.UpdateToken(ctx, tokenRecord)
+	tokenRecord.UpdatedAt = time.Now()
+	if err := s.tokenRepo.UpdateToken(ctx, tokenRecord); err != nil {
+		return "", "", fmt.Errorf("failed to revoke refresh token: %w", err)
+	}
 
 	// Generate new tokens
 	return s.GenerateTokens(ctx, user)

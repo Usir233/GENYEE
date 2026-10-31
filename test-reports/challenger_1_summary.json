@@ -1,0 +1,375 @@
+{
+  "total": 46,
+  "passed": 46,
+  "failed": 0,
+  "cases": [
+    {
+      "name": "Baseline Valid Login",
+      "category": "Auth-Boundary",
+      "passed": true,
+      "status_code": 200,
+      "details": "Returns HTTP 200 with JWT token",
+      "response_sample": "{\"success\":true,\"message\":\"Login successful\",\"user\":{\"id\":\"8a18ad5e-eb1b-411f-9e6b-5490991c7d8c\",\"username\":\"zhanshun.bao\",\"email\":\"zhanshun.bao@gamil.com\",\"avatar\":\"\",\"tenant_id\":10000,\"is_active\":tr"
+    },
+    {
+      "name": "Wrong Password",
+      "category": "Auth-Boundary",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects with HTTP 401 and structured JSON",
+      "response_sample": "{\"success\":false,\"message\":\"Invalid email or password\",\"memberships\":null}"
+    },
+    {
+      "name": "Non-existent User",
+      "category": "Auth-Boundary",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects with HTTP 401 and structured JSON",
+      "response_sample": "{\"success\":false,\"message\":\"Invalid email or password\",\"memberships\":null}"
+    },
+    {
+      "name": "Malformed Email Syntax",
+      "category": "Auth-Boundary",
+      "passed": true,
+      "status_code": 400,
+      "details": "Rejects with HTTP 400 validation error",
+      "response_sample": "{\"error\":{\"code\":1010,\"details\":\"Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'email' tag\",\"message\":\"Invalid login parameters\"},\"success\":false}"
+    },
+    {
+      "name": "Short Password (< 6 chars)",
+      "category": "Auth-Boundary",
+      "passed": true,
+      "status_code": 400,
+      "details": "Rejects with HTTP 400 validation error",
+      "response_sample": "{\"error\":{\"code\":1010,\"details\":\"Key: 'LoginRequest.Password' Error:Field validation for 'Password' failed on the 'min' tag\",\"message\":\"Invalid login parameters\"},\"success\":false}"
+    },
+    {
+      "name": "Empty JSON Payload",
+      "category": "Auth-Boundary",
+      "passed": true,
+      "status_code": 400,
+      "details": "Rejects with HTTP 400 validation error",
+      "response_sample": "{\"error\":{\"code\":1010,\"details\":\"Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'required' tag\\nKey: 'LoginRequest.Password' Error:Field validation for 'Password' failed on"
+    },
+    {
+      "name": "Malformed JSON Syntax",
+      "category": "Auth-Boundary",
+      "passed": true,
+      "status_code": 400,
+      "details": "Rejects with HTTP 400 JSON parse error",
+      "response_sample": "{\"error\":{\"code\":1010,\"details\":\"unexpected EOF\",\"message\":\"Invalid login parameters\"},\"success\":false}"
+    },
+    {
+      "name": "SQL Injection Attack Payload",
+      "category": "Auth-Boundary",
+      "passed": true,
+      "status_code": 400,
+      "details": "Safely handled without 500 crash (code 400)",
+      "response_sample": "{\"error\":{\"code\":1010,\"details\":\"Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'email' tag\",\"message\":\"Invalid login parameters\"},\"success\":false}"
+    },
+    {
+      "name": "XSS Attack Payload",
+      "category": "Auth-Boundary",
+      "passed": true,
+      "status_code": 400,
+      "details": "Safely handled without 500 crash (code 400)",
+      "response_sample": "{\"error\":{\"code\":1010,\"details\":\"Key: 'LoginRequest.Email' Error:Field validation for 'Email' failed on the 'email' tag\",\"message\":\"Invalid login parameters\"},\"success\":false}"
+    },
+    {
+      "name": "Oversized 64KB Payload Stress",
+      "category": "Auth-Boundary",
+      "passed": true,
+      "status_code": 401,
+      "details": "Handled cleanly without 500 crash (code 401)",
+      "response_sample": "{\"success\":false,\"message\":\"Invalid email or password\",\"memberships\":null}"
+    },
+    {
+      "name": "Missing Auth Header (/api/v1/auth/me)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects with HTTP 401 Unauthorized",
+      "response_sample": "{\"error\":\"Unauthorized: missing authentication\"}"
+    },
+    {
+      "name": "Empty Bearer Token (/api/v1/auth/me)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects with HTTP 401 Unauthorized",
+      "response_sample": "{\"error\":\"Unauthorized: missing authentication\"}"
+    },
+    {
+      "name": "Garbage JWT (/api/v1/auth/me)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects with HTTP 401 Unauthorized",
+      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
+    },
+    {
+      "name": "Alg None Attack (/api/v1/auth/me)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects unsigned alg=none JWT with HTTP 401",
+      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
+    },
+    {
+      "name": "Attacker Secret Signed JWT (/api/v1/auth/me)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects forged signature with HTTP 401",
+      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
+    },
+    {
+      "name": "Bit-flipped Signature Tampering (/api/v1/auth/me)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects tampered signature with HTTP 401",
+      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
+    },
+    {
+      "name": "Expired JWT (/api/v1/auth/me)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects expired JWT with HTTP 401",
+      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
+    },
+    {
+      "name": "Missing Auth Header (/api/v1/sessions)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects with HTTP 401 Unauthorized",
+      "response_sample": "{\"error\":\"Unauthorized: missing authentication\"}"
+    },
+    {
+      "name": "Empty Bearer Token (/api/v1/sessions)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects with HTTP 401 Unauthorized",
+      "response_sample": "{\"error\":\"Unauthorized: missing authentication\"}"
+    },
+    {
+      "name": "Garbage JWT (/api/v1/sessions)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects with HTTP 401 Unauthorized",
+      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
+    },
+    {
+      "name": "Alg None Attack (/api/v1/sessions)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects unsigned alg=none JWT with HTTP 401",
+      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
+    },
+    {
+      "name": "Attacker Secret Signed JWT (/api/v1/sessions)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects forged signature with HTTP 401",
+      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
+    },
+    {
+      "name": "Bit-flipped Signature Tampering (/api/v1/sessions)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects tampered signature with HTTP 401",
+      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
+    },
+    {
+      "name": "Expired JWT (/api/v1/sessions)",
+      "category": "Auth-JWT",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects expired JWT with HTTP 401",
+      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
+    },
+    {
+      "name": "Middleware External JWT aud=genyee Accepted",
+      "category": "Auth-Audience",
+      "passed": true,
+      "status_code": null,
+      "details": "Audience 'genyee' successfully validated & accepted",
+      "response_sample": null
+    },
+    {
+      "name": "Middleware External JWT aud=weknora Accepted (Compat)",
+      "category": "Auth-Audience",
+      "passed": true,
+      "status_code": null,
+      "details": "Audience 'weknora' accepted for backward compatibility",
+      "response_sample": null
+    },
+    {
+      "name": "Middleware External JWT aud=fake Rejected",
+      "category": "Auth-Audience",
+      "passed": true,
+      "status_code": null,
+      "details": "Audience 'fake' strictly rejected with invalid audience error",
+      "response_sample": null
+    },
+    {
+      "name": "Middleware External JWT aud='' (Empty) Rejected",
+      "category": "Auth-Audience",
+      "passed": true,
+      "status_code": null,
+      "details": "Empty audience strictly rejected",
+      "response_sample": null
+    },
+    {
+      "name": "Middleware External JWT Malicious aud Rejected",
+      "category": "Auth-Audience",
+      "passed": true,
+      "status_code": null,
+      "details": "Arbitrary attacker audience strictly rejected",
+      "response_sample": null
+    },
+    {
+      "name": "Overall Middleware Audience Go Test Suite",
+      "category": "Auth-Audience",
+      "passed": true,
+      "status_code": null,
+      "details": "Suite exit code 0",
+      "response_sample": null
+    },
+    {
+      "name": "Zero 'Tencent WeKnora' Combos in Frontend Bundle",
+      "category": "Brand-Compliance",
+      "passed": true,
+      "status_code": null,
+      "details": "Found matches count: 0",
+      "response_sample": null
+    },
+    {
+      "name": "Frontend HTML Title is 'GENYEE'",
+      "category": "Brand-Compliance",
+      "passed": true,
+      "status_code": null,
+      "details": "index.html has <title>GENYEE</title>",
+      "response_sample": null
+    },
+    {
+      "name": "Frontend Favicon is properly referenced",
+      "category": "Brand-Compliance",
+      "passed": true,
+      "status_code": null,
+      "details": "Favicon referenced correctly",
+      "response_sample": null
+    },
+    {
+      "name": "Zero Legacy 'weknora.png' in Frontend Assets",
+      "category": "Brand-Compliance",
+      "passed": true,
+      "status_code": null,
+      "details": "Matches: None",
+      "response_sample": null
+    },
+    {
+      "name": "HTTP GET / Live Title is GENYEE",
+      "category": "Brand-Compliance",
+      "passed": true,
+      "status_code": null,
+      "details": "Live root HTML title verified",
+      "response_sample": null
+    },
+    {
+      "name": "Auth Error Message Free of Vendor Residue",
+      "category": "Brand-Compliance",
+      "passed": true,
+      "status_code": 400,
+      "details": "Login error message is generic and clean",
+      "response_sample": "{\"error\":{\"code\":1010,\"details\":\"Key: 'LoginRequest.Password' Error:Field validation for 'Password' failed on the 'min' tag\",\"message\":\"Invalid login parameters\"},\"success\":false}"
+    },
+    {
+      "name": "GET /api/v1/auth/me Payload Free of Vendor Brand",
+      "category": "Brand-Compliance",
+      "passed": true,
+      "status_code": 200,
+      "details": "User profile JSON is clean",
+      "response_sample": null
+    },
+    {
+      "name": "GET /api/v1/sessions Payload Free of Vendor Brand",
+      "category": "Brand-Compliance",
+      "passed": true,
+      "status_code": 200,
+      "details": "Sessions list JSON is clean",
+      "response_sample": null
+    },
+    {
+      "name": "Memory Export Unauthenticated Rejection",
+      "category": "Negative-Export",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects with HTTP 401 Unauthorized",
+      "response_sample": "{\"error\":\"Unauthorized: missing authentication\"}"
+    },
+    {
+      "name": "Memory Export Forged Token Rejection",
+      "category": "Negative-Export",
+      "passed": true,
+      "status_code": 401,
+      "details": "Rejects with HTTP 401 Unauthorized",
+      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
+    },
+    {
+      "name": "Memory Export Unauthorized Tenant (99999)",
+      "category": "Negative-Export",
+      "passed": true,
+      "status_code": 403,
+      "details": "Rejects with HTTP 403 Forbidden",
+      "response_sample": "{\"error\":\"Forbidden: insufficient permissions to access target workspace\"}"
+    },
+    {
+      "name": "Memory Export Malformed Tenant Header ('invalid-tenant')",
+      "category": "Negative-Export",
+      "passed": true,
+      "status_code": 400,
+      "details": "Rejects with HTTP 400 Bad Request",
+      "response_sample": "{\"error\":\"Invalid X-Tenant-ID header\"}"
+    },
+    {
+      "name": "Memory Export Negative Tenant Header ('-1')",
+      "category": "Negative-Export",
+      "passed": true,
+      "status_code": 400,
+      "details": "Rejects with HTTP 400 Bad Request",
+      "response_sample": "{\"error\":\"Invalid X-Tenant-ID header\"}"
+    },
+    {
+      "name": "Memory Export Zero Tenant Header ('0')",
+      "category": "Negative-Export",
+      "passed": true,
+      "status_code": 400,
+      "details": "Rejects with HTTP 400 Bad Request",
+      "response_sample": "{\"error\":\"Invalid X-Tenant-ID header\"}"
+    },
+    {
+      "name": "Memory Export Invalid Method (POST)",
+      "category": "Negative-Export",
+      "passed": true,
+      "status_code": 404,
+      "details": "Rejects with HTTP 404",
+      "response_sample": null
+    },
+    {
+      "name": "Memory Export Positive Control (Valid)",
+      "category": "Negative-Export",
+      "passed": true,
+      "status_code": 200,
+      "details": "Returns HTTP 200 with genyee-memories.json attachment header",
+      "response_sample": "attachment; filename=\"genyee-memories.json\""
+    }
+  ]
+}

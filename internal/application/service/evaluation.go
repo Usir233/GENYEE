@@ -283,6 +283,13 @@ func (e *EvaluationService) Evaluation(ctx context.Context,
 	go func() {
 		// Create new context with logger for background task
 		newCtx := logger.CloneContext(ctx)
+		defer func() {
+			if r := recover(); r != nil {
+				detail.Task.Status = types.EvaluationStatueFailed
+				detail.Task.ErrMsg = fmt.Sprintf("panic in background evaluation: %v", r)
+				logger.Errorf(newCtx, "Evaluation task panicked: %v, task ID: %s", r, taskID)
+			}
+		}()
 		logger.Infof(newCtx, "Background evaluation started for task ID: %s", taskID)
 
 		// Update task status to running
@@ -312,6 +319,29 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 	logger.Info(ctx, "Start evaluating dataset")
 	logger.Infof(ctx, "Task ID: %s, Dataset ID: %s", detail.Task.ID, detail.Task.DatasetID)
 
+	var createdKnowledgeID string
+	// Setup cleanup of temporary resources immediately upon entry
+	defer func() {
+		if createdKnowledgeID != "" {
+			logger.Infof(ctx, "Cleaning up resources - deleting knowledge: %s", createdKnowledgeID)
+			if err := deleteReferencedKnowledge(ctx,
+				e.knowledgeService,
+				knowledgeBaseID,
+				[]string{createdKnowledgeID}); err != nil {
+				logger.Errorf(ctx, "Failed to delete knowledge: %v, knowledge ID: %s", err, createdKnowledgeID)
+			}
+		}
+
+		logger.Infof(ctx, "Cleaning up resources - deleting knowledge base: %s", knowledgeBaseID)
+		if err := e.knowledgeBaseService.DeleteKnowledgeBase(ctx, knowledgeBaseID); err != nil {
+			logger.Errorf(
+				ctx,
+				"Failed to delete knowledge base: %v, knowledge base ID: %s",
+				err, knowledgeBaseID,
+			)
+		}
+	}()
+
 	// Retrieve dataset from storage
 	dataset, err := e.dataset.GetDatasetByID(ctx, detail.Task.DatasetID)
 	if err != nil {
@@ -336,27 +366,8 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 		logger.Errorf(ctx, "Failed to create knowledge from passages: %v", err)
 		return err
 	}
+	createdKnowledgeID = knowledge.ID
 	logger.Infof(ctx, "Knowledge created and indexed successfully, ID: %s", knowledge.ID)
-
-	// Setup cleanup of temporary resources
-	defer func() {
-		logger.Infof(ctx, "Cleaning up resources - deleting knowledge: %s", knowledge.ID)
-		if err := deleteReferencedKnowledge(ctx,
-			e.knowledgeService,
-			knowledgeBaseID,
-			[]string{knowledge.ID}); err != nil {
-			logger.Errorf(ctx, "Failed to delete knowledge: %v, knowledge ID: %s", err, knowledge.ID)
-		}
-
-		logger.Infof(ctx, "Cleaning up resources - deleting knowledge base: %s", knowledgeBaseID)
-		if err := e.knowledgeBaseService.DeleteKnowledgeBase(ctx, knowledgeBaseID); err != nil {
-			logger.Errorf(
-				ctx,
-				"Failed to delete knowledge base: %v, knowledge base ID: %s",
-				err, knowledgeBaseID,
-			)
-		}
-	}()
 
 	// Initialize parallel evaluation metrics
 	var finished int

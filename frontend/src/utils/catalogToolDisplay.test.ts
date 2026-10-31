@@ -84,13 +84,13 @@ test('titles name the operation, query, or page instead of the raw tool id', () 
   )
   assert.equal(
     getCatalogToolTitle(t, { tool_name: 'search_weknora_docs', arguments: { query: 'Wiki' }, pending: true }),
-    'agentStream.toolStatus.calling agentStream.tools.searchWeKnoraDocs：「Wiki」',
+    'agentStream.toolStatus.calling agentStream.tools.searchGENYEEDocs：「Wiki」',
   )
   assert.equal(
     getCatalogToolTitle(t, {
       tool_name: 'read_weknora_doc', success: false, arguments: { path: '03-features/14-wiki' },
     }),
-    'agentStream.toolStatus.calledFailed agentStream.tools.readWeKnoraDoc：「03-features/14-wiki」',
+    'agentStream.toolStatus.calledFailed agentStream.tools.readGENYEEDoc：「03-features/14-wiki」',
   )
   assert.equal(getCatalogToolTitle(t, { tool_name: 'web_search' }), '')
 })

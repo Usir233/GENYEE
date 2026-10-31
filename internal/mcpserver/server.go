@@ -58,8 +58,9 @@ type Server struct {
 	db               *gorm.DB
 	cfg              *config.Config
 
-	limiter   *ratelimit.Limiter
-	lastTouch sync.Map // endpoint id -> time.Time of the last last_used_at write
+	limiter       *ratelimit.Limiter
+	limiterStopCh chan struct{}
+	lastTouch     sync.Map // endpoint id -> time.Time of the last last_used_at write
 
 	mcp     *server.MCPServer
 	handler http.Handler
@@ -84,6 +85,7 @@ func NewServer(
 	fileService interfaces.FileService,
 	storageResolver interfaces.StorageBackendResolver,
 ) *Server {
+	limiterStopCh := make(chan struct{})
 	s := &Server{
 		kbService:        kbService,
 		knowledgeService: knowledgeService,
@@ -101,10 +103,11 @@ func NewServer(
 		fileService:      fileService,
 		storageResolver:  storageResolver,
 		limiter:          ratelimit.New(redisClient, rateLimitKeyPrefix, time.Minute, ""),
+		limiterStopCh:    limiterStopCh,
 	}
-	// The local fallback map only grows without periodic eviction; the server
-	// lives for the whole process so the cleanup goroutine never stops.
-	go s.limiter.StartCleanup(make(chan struct{}))
+	// The local fallback map only grows without periodic eviction;
+	// start cleanup with the tracked stop channel for lifecycle management.
+	go s.limiter.StartCleanup(limiterStopCh)
 	s.mcp = server.NewMCPServer(
 		serverName,
 		serverVersion,
@@ -126,6 +129,23 @@ func NewServer(
 // caller must run MCPEndpointAuth first; the handler trusts the context.
 func (s *Server) Handler() http.Handler {
 	return s.handler
+}
+
+// Close stops background tasks associated with the MCP server, including the rate limiter cleanup goroutine.
+func (s *Server) Close() {
+	if s.limiterStopCh != nil {
+		select {
+		case <-s.limiterStopCh:
+			// already closed
+		default:
+			close(s.limiterStopCh)
+		}
+	}
+}
+
+// LimiterStopCh returns the stop channel used for rate limiter cleanup.
+func (s *Server) LimiterStopCh() chan struct{} {
+	return s.limiterStopCh
 }
 
 const serverInstructions = "GENYEE knowledge workspace. Start with list_knowledge_bases to see what is in scope, " +

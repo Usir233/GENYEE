@@ -59,6 +59,14 @@ class FirstParser(BaseParser):
             logger.info(f"FirstParser: using parser {p.__class__.__name__}")
             try:
                 document = p.parse_into_text(content)
+            except ValueError as e:
+                if any(msg in str(e).lower() for msg in ("exceeds limit", "compression ratio", "suspicious compression")):
+                    raise
+                logger.exception(
+                    "FirstParser: parser %s raised exception; trying next parser",
+                    p.__class__.__name__,
+                )
+                continue
             except Exception:
                 logger.exception(
                     "FirstParser: parser %s raised exception; trying next parser",

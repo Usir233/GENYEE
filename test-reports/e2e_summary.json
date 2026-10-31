@@ -1,0 +1,166 @@
+{
+  "test_suite": "GENYEE Browser E2E Automation Test Suite",
+  "environment": {
+    "base_url": "http://127.0.0.1:80",
+    "browser": "Google Chrome (Headless)",
+    "test_user": "zhanshun.bao@gamil.com",
+    "playwright_version": "1.55.0"
+  },
+  "execution": {
+    "start_time": "2026-10-31T10:53:21.873529+00:00",
+    "end_time": "2026-10-31T10:53:42.159443+00:00",
+    "duration_seconds": 20.29,
+    "total_stages": 6,
+    "passed": 6,
+    "failed": 0,
+    "status": "PASSED"
+  },
+  "stages": [
+    {
+      "stage_id": 1,
+      "name": "Login Page Navigation & Brand Assertion",
+      "passed": true,
+      "duration_ms": 3521.84,
+      "screenshot": "01_login_page.png",
+      "details": {
+        "page_title": "GENYEE",
+        "logo_alt": "GENYEE",
+        "logo_src": "/assets/genyee-CzENVNNW.png",
+        "form_fields_present": true,
+        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/01_login_page.png"
+      },
+      "error": null,
+      "timestamp": "2026-10-31T10:53:27.528052+00:00"
+    },
+    {
+      "stage_id": 2,
+      "name": "Authentication & Token Persistence",
+      "passed": true,
+      "duration_ms": 1518.89,
+      "screenshot": "02_auth_success.png",
+      "details": {
+        "login_http_status": 200,
+        "user_id": "8a18ad5e-eb1b-411f-9e6b-5490991c7d8c",
+        "username": "zhanshun.bao",
+        "tenant_id": 10000,
+        "current_url": "http://127.0.0.1/platform/knowledge-bases",
+        "token_length": 283,
+        "user_json_preview": "{\"id\":\"8a18ad5e-eb1b-411f-9e6b-5490991c7d8c\",\"username\":\"zha...",
+        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/02_auth_success.png"
+      },
+      "error": null,
+      "timestamp": "2026-10-31T10:53:29.047154+00:00"
+    },
+    {
+      "stage_id": 3,
+      "name": "Workspace Dashboard & Knowledge Bases Overview",
+      "passed": true,
+      "duration_ms": 391.91,
+      "screenshot": "03_dashboard_workspace.png",
+      "details": {
+        "header_logo_visible": true,
+        "user_menu_text": "Z zhanshun.bao zhanshun.bao@gamil.com",
+        "nav_items": [
+          "新对话",
+          "知识库",
+          "产物",
+          "智能体",
+          "自动化",
+          "工具箱",
+          "共享空间"
+        ],
+        "has_kb_lyzl": true,
+        "has_kb_cpxx": true,
+        "has_kb_faq": true,
+        "has_55_docs": true,
+        "has_15_docs": true,
+        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/03_dashboard_workspace.png"
+      },
+      "error": null,
+      "timestamp": "2026-10-31T10:53:29.439222+00:00"
+    },
+    {
+      "stage_id": 4,
+      "name": "Settings Modal & Compliance Inspection",
+      "passed": true,
+      "duration_ms": 3569.87,
+      "screenshot": "04_settings_compliance.png",
+      "details": {
+        "settings_modal_visible": true,
+        "modal_title": "设置",
+        "total_sections_count": 28,
+        "sample_nav_sections": [
+          "常规设置",
+          "用户信息",
+          "助手",
+          "我的记忆",
+          "沙箱密钥",
+          "空间信息",
+          "成员管理",
+          "默认配置",
+          "消息管理",
+          "长期记忆"
+        ],
+        "has_system_settings_header": true,
+        "has_language_setting": true,
+        "has_theme_setting": true,
+        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/04_settings_compliance.png"
+      },
+      "error": null,
+      "timestamp": "2026-10-31T10:53:33.009275+00:00"
+    },
+    {
+      "stage_id": 5,
+      "name": "Chat Conversation Workflow & Model Interaction",
+      "passed": true,
+      "duration_ms": 5944.7,
+      "screenshot": "05_chat_interaction.png",
+      "details": {
+        "greeting_text": "Hi，我是 GENYEE，让你的知识触手可及",
+        "composer_ready": true,
+        "suggested_questions_count": 6,
+        "selected_question": "年6月公司长库龄库存的分布情况及",
+        "session_creation_status": 201,
+        "created_session_id": "a085213c-b108-4f9b-9418-792c09c2fefd",
+        "chat_url": "http://127.0.0.1/platform/chat/a085213c-b108-4f9b-9418-792c09c2fefd",
+        "messages_rendered_count": 2,
+        "sample_messages": [
+          "年6月公司长库龄库存的分布情况及 10:53 图片无法显示 预览",
+          "正在理解问题... 图片无法显示 预览"
+        ],
+        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/05_chat_interaction.png"
+      },
+      "error": null,
+      "timestamp": "2026-10-31T10:53:38.954191+00:00"
+    },
+    {
+      "stage_id": 6,
+      "name": "Knowledge Base Detail & Document Indexing Inspection",
+      "passed": true,
+      "duration_ms": 3000.67,
+      "screenshot": "06_kb_detail_documents.png",
+      "details": {
+        "breadcrumb_text": "知识库 历年资料 文档 Wiki 图谱 画廊",
+        "tabs": [
+          "文档",
+          "Wiki",
+          "图谱",
+          "画廊"
+        ],
+        "document_count_indicator": "55 个文档",
+        "visible_rows_count": 35,
+        "has_completed_status": true,
+        "sample_documents": [
+          "PDF 2025年12月-月度经营分析报告 上传 · 1.2 MB · 26-10-26 09:26 添加标签 已完成",
+          "XLSX 20241231-父ASIN与SKU月度明细(2024Q4) 上传 · 121.9 KB · 26-10-26 09:41 添加标签 已完成",
+          "XLSX 经营分析报告2025全年(1-12月) 上传 · 58.0 KB · 26-10-26 08:06 添加标签 已完成",
+          "MD 2025年12月-月度经营分析报告 上传 · 17.3 KB · 26-10-26 09:26 添加标签 已完成",
+          "MD 2026年10月-月度经营分析报告 上传 · 17.3 KB · 26-10-26 09:05 添加标签 已完成"
+        ],
+        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/06_kb_detail_documents.png"
+      },
+      "error": null,
+      "timestamp": "2026-10-31T10:53:41.955086+00:00"
+    }
+  ]
+}

@@ -497,7 +497,7 @@ export function renderChatMarkdown(rawMarkdown: unknown, options: RenderChatMark
   const { content: markdownWithPlaceholders, htmlSnippets } =
     extractCitationHtmlPlaceholders(flankingSafeMarkdown, options.knowledgeReferences)
   const escapedMarkdown = options.escapeMarkdown(markdownWithPlaceholders)
-  const html = marked.parse(markdownWithPlaceholders, {
+  const html = marked.parse(escapedMarkdown, {
     renderer: options.renderer,
     breaks: true,
     async: false,

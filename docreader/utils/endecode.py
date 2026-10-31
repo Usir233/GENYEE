@@ -189,6 +189,133 @@ def decode_bytes(
                     return content.decode(encoding)
                 except UnicodeDecodeError:
                     break
+        # First try strict UTF-8
+        try:
+            return content.decode("utf-8")
+        except UnicodeDecodeError:
+            pass
+
+        # Try charset-normalizer statistical detection
+        try:
+            from charset_normalizer import from_bytes
+
+            matches = from_bytes(content)
+            best_match = matches.best()
+            if best_match is not None and best_match.encoding:
+                # Disambiguate tied/spurious matches (e.g. GBK/GB18030 misclassified as CP949/Big5, EUC-JP as Big5)
+                detected_encoding = best_match.encoding
+
+                # 1. Japanese disambiguation:
+                jp_match = next(
+                    (
+                        m
+                        for m in matches
+                        if "Hiragana" in getattr(m, "alphabets", [])
+                        and m.encoding in ("euc_jis_2004", "euc_jp", "shift_jis", "cp932")
+                    ),
+                    None,
+                )
+                if jp_match is not None and (
+                    best_match.encoding in ("big5", "big5hkscs")
+                    or "Hiragana" not in getattr(best_match, "alphabets", [])
+                ):
+                    detected_encoding = jp_match.encoding
+                else:
+                    # 2. CJK Chinese vs Korean (CP949/EUC-KR/Johab):
+                    # Mathematical discriminator:
+                    # When Chinese GBK text is decoded as CP949, it decodes into a mixture of CJK Unified Ideographs AND Hangul syllables.
+                    # When genuine Korean text is decoded as CP949, it contains ONLY Hangul syllables (and basic Latin/punctuation) and ZERO CJK Unified Ideographs.
+                    gb_match = next(
+                        (m for m in matches if m.chaos == 0.0 and m.encoding in ("gb18030", "gbk")),
+                        None,
+                    )
+                    cp_match = next(
+                        (
+                            m
+                            for m in matches
+                            if m.chaos == 0.0
+                            and m.encoding in ("cp949", "euc_kr")
+                            and "Hangul Syllables" in getattr(m, "alphabets", [])
+                            and "CJK Unified Ideographs" not in getattr(m, "alphabets", [])
+                        ),
+                        None,
+                    )
+
+                    if (
+                        best_match.encoding in ("cp949", "euc_kr", "johab")
+                        and "Hangul Syllables" in getattr(best_match, "alphabets", [])
+                    ):
+                        # If best_match has CJK ideographs mixed with Hangul, it is Chinese GBK misdecoded as CP949
+                        if (
+                            gb_match is not None
+                            and "CJK Unified Ideographs" in getattr(best_match, "alphabets", [])
+                        ):
+                            detected_encoding = gb_match.encoding
+                        else:
+                            detected_encoding = best_match.encoding
+                    elif cp_match is not None and best_match.encoding in (
+                        "big5", "big5hkscs", "utf_16_be", "utf_16_le", "cp874", "cp1252", "iso8859_1"
+                    ):
+                        # If charset-normalizer misidentifies short Korean text as Big5, UTF-16, CP874, etc., recover pure Korean CP949
+                        if best_match.encoding in ("big5", "big5hkscs") and gb_match is not None:
+                            from charset_normalizer.constant import COMMON_CHINESE_CHARACTERS
+
+                            text_gb = content.decode(gb_match.encoding, errors="ignore")
+                            cjk_chars = [ch for ch in text_gb if "\u4e00" <= ch <= "\u9fff"]
+                            gb_ratio = (
+                                sum(ch in COMMON_CHINESE_CHARACTERS for ch in cjk_chars) / len(cjk_chars)
+                                if cjk_chars
+                                else 0.0
+                            )
+                            if gb_ratio >= 0.5:
+                                detected_encoding = gb_match.encoding
+                            else:
+                                detected_encoding = cp_match.encoding
+                        else:
+                            detected_encoding = cp_match.encoding
+                    elif (
+                        gb_match is not None
+                        and best_match.encoding in ("big5", "big5hkscs", "euc_jis_2004")
+                    ):
+                        if (
+                            "Hiragana" in getattr(gb_match, "alphabets", [])
+                            and "Hiragana" not in getattr(best_match, "alphabets", [])
+                        ):
+                            detected_encoding = best_match.encoding
+                        else:
+                            detected_encoding = gb_match.encoding
+                    else:
+                        # 3. Western encodings disambiguation:
+                        # Prefer Windows-1252 / ISO-8859-1 over Central European (CP1250) or legacy DOS/Mac codepages.
+                        cp1252_match = next(
+                            (m for m in matches if m.chaos == 0.0 and m.encoding in ("cp1252", "windows-1252")),
+                            None,
+                        )
+                        if cp1252_match is not None and best_match.encoding in (
+                            "cp1250", "cp1257", "cp775", "iso8859_10", "iso8859_16", "iso8859_4", "iso8859_3"
+                        ):
+                            detected_encoding = "cp1252"
+                        elif best_match.encoding in (
+                            "mac_iceland", "cp852", "cp775", "cp437", "cp1250", "cp1251", "koi8_t", "mac_greek", "ptcp154", "cp864"
+                        ):
+                            try:
+                                text_cp1252 = content.decode("cp1252")
+                                if any(ch in text_cp1252 for ch in "\u201c\u201d\u2018\u2019\u2014\u2013\u20ac\u2026\u2122\u2022"):
+                                    detected_encoding = "cp1252"
+                            except Exception:
+                                pass
+
+                try:
+                    text = content.decode(detected_encoding)
+                    logger.debug(
+                        f"Decode content with charset-normalizer ({detected_encoding}): {len(text)} characters"
+                    )
+                    return text
+                except UnicodeDecodeError:
+                    pass
+        except Exception as e:
+            logger.debug(f"Charset detection failed: {e}")
+
         encodings = [
             "utf-8",
             "gb18030",

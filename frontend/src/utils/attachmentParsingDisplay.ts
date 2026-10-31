@@ -36,6 +36,15 @@ function parseAttachmentOutput(output?: string): { parsed: number; skipped: numb
   }
 }
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export function getAttachmentParsingSummaryHtml(
   t: ComposerTranslation,
   event: AttachmentParsingEvent,
@@ -44,7 +53,7 @@ export function getAttachmentParsingSummaryHtml(
     const err = String(event.error || event.output || '').trim()
     if (!err) return ''
     const normalized = err.replace(/^附件解析失败:\s*/i, '').trim()
-    return normalized || err
+    return escapeHtml(normalized || err)
   }
 
   const { parsed, skipped } = resolveAttachmentParsingCounts(event)

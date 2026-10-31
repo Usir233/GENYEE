@@ -37,6 +37,7 @@ def repair_xlsx_bytes(content: bytes) -> bytes | None:
         return None
 
     with zipfile.ZipFile(io.BytesIO(content), "r") as zin:
+        _validate_zip_archive(zin)
         names = _normalized_names(zin.namelist())
         sst_path = _find_shared_strings_path(names)
         if sst_path:
@@ -82,6 +83,7 @@ def strip_unreadable_ranges_xlsx(content: bytes) -> bytes | None:
         return None
 
     with zipfile.ZipFile(io.BytesIO(content), "r") as zin:
+        _validate_zip_archive(zin)
         sheets = sorted(
             name
             for name in _normalized_names(zin.namelist())
@@ -213,14 +215,52 @@ def _strip_shared_strings_manifest(files: Dict[str, bytes]) -> Dict[str, bytes]:
     return updated
 
 
+MAX_UNCOMPRESSED_ARCHIVE_BYTES = 100 * 1024 * 1024  # 100 MB
+MAX_COMPRESSION_RATIO = 100.0
+
+
+def _validate_zip_archive(
+    archive: zipfile.ZipFile,
+    max_bytes: int = MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    max_ratio: float = MAX_COMPRESSION_RATIO,
+) -> None:
+    total_uncompressed = 0
+    for info in archive.infolist():
+        if info.file_size > max_bytes:
+            raise ValueError(
+                f"Archive entry {info.filename} uncompressed size ({info.file_size}) exceeds limit ({max_bytes})"
+            )
+        if (
+            info.compress_size > 0
+            and info.file_size > 1024 * 1024
+            and (info.file_size / info.compress_size) > max_ratio
+        ):
+            raise ValueError(
+                f"Suspicious compression ratio for entry {info.filename}: {info.file_size / info.compress_size:.1f} > {max_ratio}"
+            )
+        total_uncompressed += info.file_size
+        if total_uncompressed > max_bytes:
+            raise ValueError(
+                f"Archive cumulative uncompressed size ({total_uncompressed}) exceeds limit ({max_bytes})"
+            )
+
+
 def _rewrite_zip(
     zin: zipfile.ZipFile,
     transform: Callable[[Dict[str, bytes]], Dict[str, bytes]],
 ) -> bytes:
+    _validate_zip_archive(zin)
     files: Dict[str, bytes] = {}
+    total_read = 0
     for info in zin.infolist():
         name = info.filename.replace("\\", "/")
-        files[name] = zin.read(info.filename)
+        data = zin.read(info.filename)
+        total_read += len(data)
+        if total_read > MAX_UNCOMPRESSED_ARCHIVE_BYTES:
+            raise ValueError(
+                f"Archive cumulative uncompressed size ({total_read}) exceeds limit ({MAX_UNCOMPRESSED_ARCHIVE_BYTES})"
+            )
+        files[name] = data
     files = transform(files)
 
     out = io.BytesIO()
@@ -263,6 +303,23 @@ def sanitize_xlsx_styles(content: bytes) -> bytes | None:
     """
     try:
         return _sanitize_xlsx_styles(content)
+    except ValueError as exc:
+        msg = str(exc).lower()
+        if any(
+            term in msg
+            for term in (
+                "exceeds limit",
+                "compression ratio",
+                "suspicious compression",
+                "zip bomb",
+            )
+        ):
+            raise
+        logger.warning(
+            "XLSX styles sanitize failed; passing original bytes through",
+            exc_info=True,
+        )
+        return None
     except Exception:
         logger.warning(
             "XLSX styles sanitize failed; passing original bytes through",
@@ -276,6 +333,7 @@ def _sanitize_xlsx_styles(content: bytes) -> bytes | None:
         return None
 
     with zipfile.ZipFile(io.BytesIO(content)) as zin:
+        _validate_zip_archive(zin)
         if STYLES_PART not in zin.namelist():
             return None
         styles = zin.read(STYLES_PART)

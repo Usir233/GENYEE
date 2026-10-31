@@ -25,6 +25,17 @@ const router = createRouter({
 // Runtime-only Vue build cannot compile string templates — use a render fn.
 const app = createApp({ render: () => [h(RouterView), h(ProtectedResourcePreview)] })
 
+// 全局错误处理：捕获未处理的嵌入组件错误与未处理 Promise 拒绝，防止白屏
+app.config.errorHandler = (err, instance, info) => {
+  console.error('[GENYEE Embed] Unhandled Vue error:', err, '\nComponent:', instance, '\nInfo:', info)
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    console.error('[GENYEE Embed] Unhandled Promise rejection:', event.reason)
+  })
+}
+
 app.use(TDesign)
 app.use(createPinia())
 app.use(router)

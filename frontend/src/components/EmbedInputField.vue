@@ -174,6 +174,14 @@ const triggerFileUpload = () => {
   fileInputRef.value?.click()
 }
 
+const MAX_TOTAL_UPLOAD_SIZE = 50 * 1024 * 1024
+
+const getCurrentTotalUploadSize = (): number => {
+  const imagesSize = uploadedImages.value.reduce((sum, item) => sum + (item.file?.size || 0), 0)
+  const attachmentsSize = uploadedAttachments.value.reduce((sum, item) => sum + (item.file?.size || 0), 0)
+  return imagesSize + attachmentsSize
+}
+
 const addImageFiles = (files: File[]) => {
   const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
   const maxSize = 10 * 1024 * 1024
@@ -187,7 +195,7 @@ const addImageFiles = (files: File[]) => {
       embedToast(t('chat.imageTypeSizeError'))
       continue
     }
-    if (file.size > maxSize) {
+    if (file.size > maxSize || getCurrentTotalUploadSize() + file.size > MAX_TOTAL_UPLOAD_SIZE) {
       embedToast(t('chat.imageTypeSizeError'))
       continue
     }
@@ -227,7 +235,7 @@ const addAttachmentFiles = (files: File[]) => {
       embedToast(t('input.fileUpload.tooMany'))
       break
     }
-    if (file.size > maxSize) {
+    if (file.size > maxSize || getCurrentTotalUploadSize() + file.size > MAX_TOTAL_UPLOAD_SIZE) {
       embedToast(t('input.fileUpload.tooLarge'))
       continue
     }

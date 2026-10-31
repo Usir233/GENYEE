@@ -1,6 +1,7 @@
 import io
 import logging
 import time
+import zipfile
 
 from markitdown import MarkItDown
 
@@ -17,6 +18,7 @@ from docreader.parser.pptx_media import (
     markdown_needs_pptx_media_attach,
 )
 from docreader.parser.xlsx_repair import (
+    _validate_zip_archive,
     sanitize_xlsx_styles,
     strip_unreadable_ranges_xlsx,
 )
@@ -47,6 +49,14 @@ class StdMarkitdownParser(BaseParser):
         pptx_bytes: bytes | None = None
         preprocess_started = time.monotonic()
         xlsx = ft in ("xlsx", "xlsm")
+
+        if ft in ("xlsx", "xlsm", "pptx", "docx") or xlsx or (content and content.startswith(b"PK")):
+            try:
+                if zipfile.is_zipfile(io.BytesIO(content)):
+                    with zipfile.ZipFile(io.BytesIO(content), "r") as archive:
+                        _validate_zip_archive(archive)
+            except zipfile.BadZipFile:
+                pass
         if ft in ("ppt", "pptx"):
             content, ext = normalize_ppt_bytes(content, ft)
             pptx_bytes = content
@@ -66,6 +76,11 @@ class StdMarkitdownParser(BaseParser):
             sanitized = sanitize_xlsx_styles(content)
             if sanitized is not None:
                 content = sanitized
+        elif ft == "csv":
+            from docreader.utils.endecode import decode_bytes
+
+            decoded_text = decode_bytes(content)
+            content = decoded_text.encode("utf-8")
         if xlsx:
             logger.info(
                 "MarkItDown XLSX preprocessing completed in %.3fs (bytes=%d)",

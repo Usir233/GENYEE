@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -189,33 +190,49 @@ func concurrentRetrieve(
 }
 
 // concurrentExecWithError is a generic function for concurrent execution of operations
-// and handling errors
+// and handling errors across all registered retrieval engines with error aggregation and drift warnings.
 func (c *CompositeRetrieveEngine) concurrentExecWithError(
 	ctx context.Context,
 	fn func(ctx context.Context, engineInfo *engineInfo) error,
 ) error {
 	var wg sync.WaitGroup
-	errCh := make(chan error, len(c.engineInfos))
+	var (
+		mu        sync.Mutex
+		errs      []error
+		succeeded []string
+		failed    []string
+	)
 
 	for _, engineInfo := range c.engineInfos {
 		wg.Add(1)
 		eng := engineInfo // Create local copy for safe use in closure
 		go func() {
 			defer wg.Done()
+			engType := string(eng.retrieveEngine.EngineType())
 			if err := fn(ctx, eng); err != nil {
-				errCh <- err
+				mu.Lock()
+				errs = append(errs, err)
+				failed = append(failed, engType)
+				mu.Unlock()
+			} else {
+				mu.Lock()
+				succeeded = append(succeeded, engType)
+				mu.Unlock()
 			}
 		}()
 	}
 
 	wg.Wait()
-	close(errCh)
 
-	// Return the first error (if any)
-	for err := range errCh {
-		if err != nil {
-			return err
+	if len(errs) > 0 {
+		if len(succeeded) > 0 {
+			logger.Warnf(ctx, "Composite retriever partial write failure detected: succeeded on [%s], failed on [%s]. Potential index drift requires reconciliation.",
+				strings.Join(succeeded, ", "), strings.Join(failed, ", "))
 		}
+		if len(errs) == 1 {
+			return errs[0]
+		}
+		return errors.Join(errs...)
 	}
 	return nil
 }

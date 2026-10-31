@@ -405,7 +405,10 @@ class MarkdownImageUtil:
             # Decode base64 string to bytes
             image_byte = endecode.encode_image(img_b64, errors="ignore")
             if not image_byte:
-                logger.error(f"Failed to decode base64 image skip it: {img_b64}")
+                preview = img_b64[:100] + ("..." if len(img_b64) > 100 else "")
+                logger.error(
+                    f"Failed to decode base64 image (len={len(img_b64)}) skip it: {preview}"
+                )
                 return title  # Return just the alt text if decode fails
 
             # Generate unique filename with original extension

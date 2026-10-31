@@ -41,13 +41,14 @@ export function highlightText(text: string, query: string): string {
   const q = (query || '').trim()
   const escaped = escapeHtml(text || '')
   if (!q) return escaped
-  const keywords = q.split(/\s+/).filter(Boolean)
-  let result = escaped
-  for (const kw of keywords) {
-    const escapedKw = escapeHtml(kw).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    if (!escapedKw) continue
-    const regex = new RegExp(`(${escapedKw})`, 'gi')
-    result = result.replace(regex, '<mark class="search-highlight">$1</mark>')
-  }
-  return result
+  const rawKeywords = Array.from(new Set(q.split(/\s+/).filter(Boolean)))
+  if (rawKeywords.length === 0) return escaped
+  const escapedKws = rawKeywords
+    .map((kw) => escapeHtml(kw).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)
+  if (escapedKws.length === 0) return escaped
+
+  const regex = new RegExp(`(${escapedKws.join('|')})`, 'gi')
+  return escaped.replace(regex, '<mark class="search-highlight">$1</mark>')
 }

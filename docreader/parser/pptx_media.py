@@ -36,22 +36,60 @@ def _find_convert() -> str | None:
     return None
 
 
+MAX_UNCOMPRESSED_ARCHIVE_BYTES = 100 * 1024 * 1024  # 100 MB
+MAX_COMPRESSION_RATIO = 100.0
+ALLOWED_CONVERT_FORMATS = {
+    "wmf", "emf", "svg", "eps", "tif", "tiff", "png", "jpg", "jpeg", "bmp", "gif", "webp"
+}
+
+
+def _validate_zip_archive(
+    archive: zipfile.ZipFile,
+    max_bytes: int = MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    max_ratio: float = MAX_COMPRESSION_RATIO,
+) -> None:
+    total_uncompressed = 0
+    for info in archive.infolist():
+        if info.file_size > max_bytes:
+            raise ValueError(
+                f"Archive entry {info.filename} uncompressed size ({info.file_size}) exceeds limit ({max_bytes})"
+            )
+        if (
+            info.compress_size > 0
+            and info.file_size > 1024 * 1024
+            and (info.file_size / info.compress_size) > max_ratio
+        ):
+            raise ValueError(
+                f"Suspicious compression ratio for entry {info.filename}: {info.file_size / info.compress_size:.1f} > {max_ratio}"
+            )
+        total_uncompressed += info.file_size
+        if total_uncompressed > max_bytes:
+            raise ValueError(
+                f"Archive cumulative uncompressed size ({total_uncompressed}) exceeds limit ({max_bytes})"
+            )
+
+
 def _rasterize_with_imagemagick(data: bytes, suffix: str) -> bytes | None:
     convert = _find_convert()
     if not convert:
         return None
+    fmt = suffix.lstrip(".").lower()
+    if fmt not in ALLOWED_CONVERT_FORMATS:
+        logger.warning("Disallowed or untrusted media format for convert: %s", fmt)
+        return None
     with tempfile.TemporaryDirectory() as temp_dir:
-        src = os.path.join(temp_dir, f"input{suffix}")
+        src = os.path.join(temp_dir, f"input.{fmt}")
         dst = os.path.join(temp_dir, "output.png")
         with open(src, "wb") as handle:
             handle.write(data)
         try:
+            # Prefix format explicitly to prevent delegate execution exploits
             result = subprocess.run(
-                [convert, src, dst],
+                [convert, f"{fmt}:{src}", f"png:{dst}"],
                 capture_output=True,
                 timeout=60,
             )
-        except (OSError, subprocess.TimeoutExpired) as exc:
+        except (OSError, subprocess.TimeoutExpired, subprocess.SubprocessError) as exc:
             logger.warning("ImageMagick convert failed: %s", exc)
             return None
         if result.returncode != 0 or not os.path.isfile(dst):
@@ -87,21 +125,35 @@ def rasterize_media_bytes(name: str, data: bytes) -> bytes | None:
         if png:
             return png
     if ext in _VECTOR_EXT or ext in _RASTER_EXT:
-        return _rasterize_with_imagemagick(data, ext or ".bin")
-    return _rasterize_with_imagemagick(data, ext or ".bin")
+        converted = _rasterize_with_imagemagick(data, ext or ".bin")
+        if converted:
+            return converted
+        # Safe fallback to Pillow if ImageMagick is missing or fails
+        return _rasterize_with_pillow(data)
+    # Unknown extension: try Pillow safely
+    return _rasterize_with_pillow(data)
 
 
 def list_pptx_media(pptx_bytes: bytes) -> List[Tuple[str, bytes]]:
     """Return (zip path, raw bytes) for each file under ppt/media/, in archive order."""
     items: List[Tuple[str, bytes]] = []
     with zipfile.ZipFile(io.BytesIO(pptx_bytes)) as archive:
-        for name in archive.namelist():
+        _validate_zip_archive(archive)
+        total_read = 0
+        for info in archive.infolist():
+            name = info.filename
             if not name.startswith("ppt/media/"):
                 continue
             base = os.path.basename(name)
             if not base or base.startswith("."):
                 continue
-            items.append((name, archive.read(name)))
+            data = archive.read(name)
+            total_read += len(data)
+            if total_read > MAX_UNCOMPRESSED_ARCHIVE_BYTES:
+                raise ValueError(
+                    f"PPTX media uncompressed size ({total_read}) exceeds limit ({MAX_UNCOMPRESSED_ARCHIVE_BYTES})"
+                )
+            items.append((name, data))
     return items
 
 

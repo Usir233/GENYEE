@@ -30,10 +30,16 @@ initFont();
 async function bootstrap() {
   const app = createApp(App);
 
-  // 全局错误处理：捕获未处理的组件错误，防止白屏
+  // 全局错误处理：捕获未处理的组件错误与未处理 Promise 拒绝，防止白屏
   app.config.errorHandler = (err, instance, info) => {
-    console.error("[WeKnora] Unhandled Vue error:", err, "\nComponent:", instance, "\nInfo:", info);
+    console.error("[GENYEE] Unhandled Vue error:", err, "\nComponent:", instance, "\nInfo:", info);
   };
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("unhandledrejection", (event) => {
+      console.error("[GENYEE] Unhandled Promise rejection:", event.reason);
+    });
+  }
 
   app.use(TDesign);
   const pinia = createPinia();

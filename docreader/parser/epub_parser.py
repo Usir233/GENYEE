@@ -32,6 +32,35 @@ _XHTML_MEDIA_TYPE = "application/xhtml+xml"
 # are still treated as images when the file name says so.
 _IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff")
 
+MAX_UNCOMPRESSED_ARCHIVE_BYTES = 100 * 1024 * 1024  # 100 MB
+MAX_COMPRESSION_RATIO = 100.0
+
+
+def _validate_zip_archive(
+    archive: zipfile.ZipFile,
+    max_bytes: int = MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    max_ratio: float = MAX_COMPRESSION_RATIO,
+) -> None:
+    total_uncompressed = 0
+    for info in archive.infolist():
+        if info.file_size > max_bytes:
+            raise ValueError(
+                f"Archive entry {info.filename} uncompressed size ({info.file_size}) exceeds limit ({max_bytes})"
+            )
+        if (
+            info.compress_size > 0
+            and info.file_size > 1024 * 1024
+            and (info.file_size / info.compress_size) > max_ratio
+        ):
+            raise ValueError(
+                f"Suspicious compression ratio for entry {info.filename}: {info.file_size / info.compress_size:.1f} > {max_ratio}"
+            )
+        total_uncompressed += info.file_size
+        if total_uncompressed > max_bytes:
+            raise ValueError(
+                f"Archive cumulative uncompressed size ({total_uncompressed}) exceeds limit ({max_bytes})"
+            )
+
 
 @dataclass(eq=False)
 class _ManifestItem:
@@ -218,6 +247,7 @@ class EPUBParser(BaseParser):
         )
         try:
             with zipfile.ZipFile(BytesIO(content), "r") as epub_zip:
+                _validate_zip_archive(epub_zip)
                 package = _read_package(epub_zip)
                 metadata = self._extract_metadata(package)
                 markdown_content, images = self._extract_content(epub_zip, package)
@@ -229,6 +259,13 @@ class EPUBParser(BaseParser):
             )
             metadata["image_count"] = len(images)
             return Document(content=markdown_content, images=images, metadata=metadata)
+        except ValueError as e:
+            if "uncompressed size" in str(e).lower() or "compression ratio" in str(e).lower():
+                raise
+            logger.warning(
+                "EPUB package parsing failed: %s, trying ZIP fallback", str(e)
+            )
+            return self._parse_epub_fallback(content)
         except Exception as e:
             logger.warning(
                 "EPUB package parsing failed: %s, trying ZIP fallback", str(e)
@@ -247,6 +284,7 @@ class EPUBParser(BaseParser):
         markdown_parts = []
 
         with zipfile.ZipFile(BytesIO(content), "r") as epub_zip:
+            _validate_zip_archive(epub_zip)
             html_files = [
                 f
                 for f in epub_zip.namelist()

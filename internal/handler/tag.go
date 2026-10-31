@@ -90,16 +90,18 @@ func (h *TagHandler) ListTags(c *gin.Context) {
 	ctx := c.Request.Context()
 	kbID := secutils.SanitizeForLog(c.Param("id"))
 
-	var page types.Pagination
-	if err := c.ShouldBindQuery(&page); err != nil {
-		logger.Error(ctx, "Failed to bind pagination query", err)
-		c.Error(errors.NewBadRequestError("分页参数不合法").WithDetails(err.Error()))
+	page, pageSize, ok := parseListPagination(c)
+	if !ok {
 		return
+	}
+	pagination := types.Pagination{
+		Page:     page,
+		PageSize: pageSize,
 	}
 
 	keyword := secutils.SanitizeForLog(c.Query("keyword"))
 
-	tags, err := h.tagService.ListTags(ctx, kbID, &page, keyword)
+	tags, err := h.tagService.ListTags(ctx, kbID, &pagination, keyword)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
 		c.Error(err)

@@ -46,9 +46,13 @@ func (n *Neo4jRepository) Labels(namespace types.NameSpace) []string {
 	return res
 }
 
-// Label returns the label for a namespace
+// Label returns the label for a namespace, escaping each identifier with backticks
+// to prevent Cypher injection when interpolated into queries.
 func (n *Neo4jRepository) Label(namespace types.NameSpace) string {
 	labels := n.Labels(namespace)
+	for i, label := range labels {
+		labels[i] = "`" + strings.ReplaceAll(label, "`", "``") + "`"
+	}
 	return strings.Join(labels, ":")
 }
 

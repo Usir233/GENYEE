@@ -29,7 +29,7 @@ from typing import Iterator
 from docreader.config import CONFIG
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
-from docreader.parser.concurrency import parser_worker_limit
+from docreader.parser.concurrency import check_cancellation, parser_worker_limit
 from docreader.parser.source_locator import PageGeometry, page_blocks
 from docreader.parser.stream import ParsedDocumentStream, StreamedImage
 
@@ -2039,7 +2039,20 @@ class PDFScannedParser(BaseParser):
     performs OCR on the extracted page images.
     """
 
+    def __init__(self, *args, **kwargs):
+        self.context = kwargs.pop("context", None)
+        super().__init__(*args, **kwargs)
+
     def parse_into_text(self, content: bytes) -> Document:
+        if not content or len(content.strip()) == 0:
+            logger.warning("PDFScannedParser received empty content for %s", self.file_name)
+            return Document(content="", metadata={"page_count": 0})
+        if len(content) < 8 or b"%PDF-" not in content[:1024]:
+            logger.error("PDFScannedParser failed to parse PDF: invalid PDF header")
+            raise ValueError(
+                f"Invalid PDF file {self.file_name or 'document'}: missing %PDF- signature"
+            )
+
         import pypdfium2 as pdfium
 
         images = {}
@@ -2055,7 +2068,7 @@ class PDFScannedParser(BaseParser):
             # pdfium lock first, then the render worker limit — same order as
             # PDFParser._route so the two never deadlock against each other.
             with _PDFIUM_LOCK, parser_worker_limit(
-                "pdf_render", CONFIG.pdf_render_max_workers
+                "pdf_render", CONFIG.pdf_render_max_workers, context=self.context
             ):
                 pdf = pdfium.PdfDocument(content)
                 try:
@@ -2105,19 +2118,40 @@ class PDFScannedParser(BaseParser):
             )
         except Exception as e:
             logger.exception("PDFScannedParser failed to parse PDF: %s", e)
+            import pypdfium2 as pdfium
+            if isinstance(e, (pdfium.PdfiumError, ValueError)):
+                raise ValueError(
+                    f"Failed to load PDF document: invalid or corrupt PDF structure ({e})"
+                ) from e
             raise e
 
     def parse_stream(self, content: bytes) -> ParsedDocumentStream:
         """Return metadata first and lazily render each scanned page."""
+        if not content or len(content.strip()) == 0:
+            return ParsedDocumentStream(
+                document=Document(content="", metadata={"page_count": 0}),
+                image_count=0,
+            )
+        if len(content) < 8 or b"%PDF-" not in content[:1024]:
+            logger.error("PDFScannedParser failed to parse PDF: invalid PDF header")
+            raise ValueError(
+                f"Invalid PDF file {self.file_name or 'document'}: missing %PDF- signature"
+            )
+
         import pypdfium2 as pdfium
 
         base_name = os.path.splitext(self.file_name or "document")[0]
         with _PDFIUM_LOCK:
-            pdf = pdfium.PdfDocument(content)
             try:
-                page_count = len(pdf)
-            finally:
-                _close_pdfium_resource(pdf)
+                pdf = pdfium.PdfDocument(content)
+                try:
+                    page_count = len(pdf)
+                finally:
+                    _close_pdfium_resource(pdf)
+            except pdfium.PdfiumError as e:
+                raise ValueError(
+                    f"Failed to load PDF document: invalid or corrupt PDF structure ({e})"
+                ) from e
 
         markdown_lines = []
         source_blocks = []
@@ -2187,6 +2221,7 @@ class PDFParser(BaseParser):
     def __init__(self, file_name: str = "", file_type=None, **kwargs):
         # Capture per-upload override before BaseParser consumes kwargs.
         raw = kwargs.pop("pdf_force_scanned", None)
+        self.context = kwargs.pop("context", None)
         super().__init__(file_name=file_name, file_type=file_type, **kwargs)
         # Priority: per-upload override > global env > default (False).
         if raw is not None:
@@ -2197,6 +2232,15 @@ class PDFParser(BaseParser):
             self._force_scanned = FORCE_SCANNED_PDF
 
     def parse_into_text(self, content: bytes) -> Document:
+        if not content or len(content.strip()) == 0:
+            logger.warning("PDFParser received empty content for %s", self.file_name)
+            return Document(content="", metadata={"page_count": 0})
+        if len(content) < 8 or b"%PDF-" not in content[:1024]:
+            logger.error("PDFParser failed to parse PDF: invalid PDF header")
+            raise ValueError(
+                f"Invalid PDF file {self.file_name or 'document'}: missing %PDF- signature"
+            )
+
         # Force-scanned short-circuit: render every page as an image.
         if self._force_scanned:
             logger.info(
@@ -2204,7 +2248,7 @@ class PDFParser(BaseParser):
                 self.file_name,
             )
             doc = PDFScannedParser(
-                file_name=self.file_name, file_type=self.file_type
+                file_name=self.file_name, file_type=self.file_type, context=self.context
             ).parse_into_text(content)
 
             # Align metadata fields with automatic scanned route
@@ -2225,15 +2269,32 @@ class PDFParser(BaseParser):
                 "falling back to full image rendering",
                 self.file_name,
             )
-            return PDFScannedParser(
-                file_name=self.file_name, file_type=self.file_type
-            ).parse_into_text(content)
+            import pypdfium2 as pdfium
+            try:
+                return PDFScannedParser(
+                    file_name=self.file_name, file_type=self.file_type, context=self.context
+                ).parse_into_text(content)
+            except (pdfium.PdfiumError, ValueError) as scan_exc:
+                raise ValueError(
+                    f"Failed to load PDF document: invalid or corrupt PDF structure ({scan_exc})"
+                ) from scan_exc
 
     def parse_stream(self, content: bytes) -> ParsedDocumentStream:
         """Prepare PDF metadata, then render scanned pages only as consumed."""
+        if not content or len(content.strip()) == 0:
+            return ParsedDocumentStream(
+                document=Document(content="", metadata={"page_count": 0}),
+                image_count=0,
+            )
+        if len(content) < 8 or b"%PDF-" not in content[:1024]:
+            logger.error("PDFParser failed to parse PDF: invalid PDF header")
+            raise ValueError(
+                f"Invalid PDF file {self.file_name or 'document'}: missing %PDF- signature"
+            )
+
         if self._force_scanned:
             stream = PDFScannedParser(
-                file_name=self.file_name, file_type=self.file_type
+                file_name=self.file_name, file_type=self.file_type, context=self.context
             ).parse_stream(content)
             page_count = stream.document.metadata.get("page_count", 0)
             stream.document.metadata.update(
@@ -2247,19 +2308,24 @@ class PDFParser(BaseParser):
             return stream
 
         try:
-            with _PDFIUM_LOCK:
-                document, scanned_indices = self._route_locked(
-                    content, include_scanned_images=False
-                )
+            document, scanned_indices = self._route_locked(
+                content, include_scanned_images=False
+            )
         except Exception:
             logger.exception(
                 "PDFParser: per-page streaming preparation failed for %s; "
                 "falling back to full image rendering",
                 self.file_name,
             )
-            return PDFScannedParser(
-                file_name=self.file_name, file_type=self.file_type
-            ).parse_stream(content)
+            import pypdfium2 as pdfium
+            try:
+                return PDFScannedParser(
+                    file_name=self.file_name, file_type=self.file_type, context=self.context
+                ).parse_stream(content)
+            except (pdfium.PdfiumError, ValueError) as scan_exc:
+                raise ValueError(
+                    f"Failed to load PDF document: invalid or corrupt PDF structure ({scan_exc})"
+                ) from scan_exc
 
         image_count = len(document.images or {}) + len(scanned_indices)
         if not scanned_indices:
@@ -2289,12 +2355,7 @@ class PDFParser(BaseParser):
         )
 
     def _route(self, content: bytes) -> Document:
-        # Serialize all pdfium work: see _PDFIUM_LOCK. Holding it for the whole
-        # route (both the text pass and the render pass) is what prevents the
-        # concurrent-upload deadlock; the trailing markdown assembly is cheap
-        # pure-Python so keeping it inside the lock costs nothing meaningful.
-        with _PDFIUM_LOCK:
-            document, _scanned_indices = self._route_locked(content)
+        document, _scanned_indices = self._route_locked(content)
         return document
 
     def _route_locked(
@@ -2307,11 +2368,11 @@ class PDFParser(BaseParser):
         scale = max(1, CONFIG.pdf_render_dpi) / 72
         quality = _normalize_image_quality(CONFIG.pdf_jpeg_quality)
 
-        pdf = pdfium.PdfDocument(content)
+        with _PDFIUM_LOCK:
+            pdf = pdfium.PdfDocument(content)
+            page_count = len(pdf)
         images: dict = {}
         try:
-            page_count = len(pdf)
-
             # Pass 1: cheap text extraction + image-area classification.
             texts: list = []
             classes: list = []
@@ -2319,62 +2380,68 @@ class PDFParser(BaseParser):
             line_boxes: dict = {}
             geometries: dict = {}
             for i in range(page_count):
-                page = pdf[i]
-                try:
-                    geometries[i] = _page_geometry(page)
-                    plain = _extract_page_text(page)
-                    ratio = _page_image_area_ratio(page, pdfium_r)
-                    cls = _classify_page(ratio, len(plain.strip()))
-                    # Layout reconstruction only pays off (and is only spent) on
-                    # native text pages; scanned pages are rendered, not read.
-                    if cls == "text" and LAYOUT_ORDERING:
-                        plain_well_formed = _plain_is_well_formed(plain)
-                        if plain_well_formed and not _page_has_filtered_text(
-                            page, pdfium_r
-                        ):
-                            text = plain
-                        else:
-                            layout, filtered_text, table_hint = _extract_layout_text(
-                                page, pdfium_r, return_metadata=True
+                check_cancellation(self.context)
+                layout_data = None
+                clips = None
+                with _PDFIUM_LOCK:
+                    page = pdf[i]
+                    try:
+                        geometries[i] = _page_geometry(page)
+                        plain = _extract_page_text(page)
+                        ratio = _page_image_area_ratio(page, pdfium_r)
+                        cls = _classify_page(ratio, len(plain.strip()))
+                        plain_well_formed = False
+                        has_filtered = False
+                        if cls == "text" and LAYOUT_ORDERING:
+                            plain_well_formed = _plain_is_well_formed(plain)
+                            has_filtered = _page_has_filtered_text(page, pdfium_r)
+                            if not plain_well_formed or has_filtered:
+                                layout_data = _extract_layout_text(
+                                    page, pdfium_r, return_metadata=True
+                                )
+                        if cls == "text":
+                            clips = _extract_vector_figure_clips(
+                                page,
+                                i,
+                                plain,
+                                pdfium_r,
+                                base_name,
+                                scale,
+                                quality,
+                                CONFIG.pdf_render_max_edge,
                             )
-                            if filtered_text:
-                                # The plain layer may contain hidden or
-                                # off-page prompt-injection text.  Once the
-                                # layout path proves that filtering occurred,
-                                # never re-introduce that layer as a fallback.
-                                text = layout
-                            elif layout and not _should_prefer_plain(
-                                plain, layout, allow_structured_rows=table_hint
-                            ):
-                                text = layout
-                            else:
-                                text = plain
-                    else:
+                        if cls == "text" and SOURCE_BOXES:
+                            line_boxes[i] = _page_line_boxes(page, pdfium_r)
+                    finally:
+                        _close_pdfium_resource(page)
+
+                if cls == "text" and LAYOUT_ORDERING:
+                    if plain_well_formed and not has_filtered:
                         text = plain
-                    if cls == "text":
-                        clips = _extract_vector_figure_clips(
-                            page,
-                            i,
-                            plain,
-                            pdfium_r,
-                            base_name,
-                            scale,
-                            quality,
-                            CONFIG.pdf_render_max_edge,
-                        )
-                        if clips:
-                            vector_clips[i] = clips
-                            for ref_path, b64, _y, _cap in clips:
-                                images[ref_path] = b64
-                    text = _postprocess_pdf_text(text)
-                    if cls == "text" and SOURCE_BOXES:
-                        line_boxes[i] = _page_line_boxes(page, pdfium_r)
-                    if cls == "text" and vector_clips.get(i):
-                        text = _inject_figure_markdown_before_captions(
-                            text, vector_clips[i]
-                        )
-                finally:
-                    _close_pdfium_resource(page)
+                    else:
+                        layout, filtered_text, table_hint = layout_data
+                        if filtered_text:
+                            text = layout
+                        elif layout and not _should_prefer_plain(
+                            plain, layout, allow_structured_rows=table_hint
+                        ):
+                            text = layout
+                        else:
+                            text = plain
+                else:
+                    text = plain
+
+                if cls == "text" and clips:
+                    vector_clips[i] = clips
+                    for ref_path, b64, _y, _cap in clips:
+                        images[ref_path] = b64
+
+                text = _postprocess_pdf_text(text)
+                if cls == "text" and vector_clips.get(i):
+                    text = _inject_figure_markdown_before_captions(
+                        text, vector_clips[i]
+                    )
+
                 texts.append(text)
                 classes.append(cls)
 
@@ -2386,7 +2453,9 @@ class PDFParser(BaseParser):
             # renders pages incrementally; unary Read keeps the materialized
             # response path for compatibility.
             if scanned_indices and include_scanned_images:
-                with parser_worker_limit("pdf_render", CONFIG.pdf_render_max_workers):
+                with parser_worker_limit(
+                    "pdf_render", CONFIG.pdf_render_max_workers, context=self.context
+                ):
                     rendered = _render_scanned_pages(
                         pdf,
                         content,
@@ -2401,14 +2470,16 @@ class PDFParser(BaseParser):
             # App can OCR/caption them (logos/watermarks/tiny images filtered).
             embedded: dict = {}
             if EXTRACT_EMBEDDED_IMAGES:
-                embedded = _extract_embedded_images(
-                    pdf, classes, pdfium_r, base_name, quality
-                )
+                with _PDFIUM_LOCK:
+                    embedded = _extract_embedded_images(
+                        pdf, classes, pdfium_r, base_name, quality
+                    )
                 for refs in embedded.values():
                     for ref_path, b64, _y in refs:
                         images[ref_path] = b64
         finally:
-            _close_pdfium_resource(pdf)
+            with _PDFIUM_LOCK:
+                _close_pdfium_resource(pdf)
 
         # Assemble markdown in reading order, recording where each page's
         # text lands so citations can point back at the page (and paragraph).

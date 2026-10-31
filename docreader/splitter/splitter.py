@@ -137,7 +137,8 @@ class TextSplitter(BaseModel, Generic[T]):
         splits = self._join(splits, protect)
 
         # Verify that joining all splits reconstructs the original text
-        assert "".join(splits) == text
+        if "".join(splits) != text:
+            raise ValueError("Split text does not reconstruct original text")
 
         # Step 4: Merge splits into final chunks with overlap
         chunks = self._merge(splits)
@@ -300,7 +301,8 @@ class TextSplitter(BaseModel, Generic[T]):
             cur_start = cur_end
 
         # Handle the last chunk (there should always be at least one)
-        assert cur_chunk
+        if not cur_chunk:
+            raise RuntimeError("Unexpected empty chunk during text splitting")
         chunks.append(
             (
                 cur_chunk[0][0],

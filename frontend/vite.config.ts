@@ -88,7 +88,10 @@ function pdfJsWasmAssets(): Plugin {
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  esbuild: mode === 'production' ? {
+    drop: ['console', 'debugger'],
+  } : undefined,
   define: {
     __FRONTEND_VERSION__: JSON.stringify(FRONTEND_VERSION),
     __FRONTEND_COMMIT__: JSON.stringify(FRONTEND_COMMIT),
@@ -211,4 +214,4 @@ export default defineConfig({
       }
     }
   }
-})
+}))

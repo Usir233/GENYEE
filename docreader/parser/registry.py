@@ -164,6 +164,8 @@ def _build_default_registry() -> ParserEngineRegistry:
             "pdf": PDFParser,
             "md": MarkdownParser,
             "markdown": MarkdownParser,
+            "txt": MarkdownParser,
+            "text": MarkdownParser,
             "xlsx": ExcelParser,
             "xls": ExcelParser,
             "pptx": MarkitdownParser,
@@ -183,6 +185,8 @@ def _build_default_registry() -> ParserEngineRegistry:
         {
             "md": MarkitdownParser,
             "markdown": MarkitdownParser,
+            "txt": MarkdownParser,
+            "text": MarkdownParser,
             "pdf": MarkitdownParser,
             "docx": MarkitdownParser,
             "doc": MarkitdownParser,

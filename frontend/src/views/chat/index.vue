@@ -980,6 +980,7 @@ watch([() => route.params], async (newvalue) => {
     if (props.embeddedMode) return;
     isFirstEnter.value = true;
     if (newvalue[0].chatid) {
+        stopStream();
         if (!firstQuery.value) {
             scrollLock.value = false;
         }
@@ -1876,6 +1877,10 @@ watch(error, (newError) => {
 });
 
 onChunk((data) => {
+    const chunkSessionId = data.session_id || data.data?.session_id;
+    if (chunkSessionId && chunkSessionId !== session_id.value) {
+        return;
+    }
     if (data.response_type === 'session_title') {
         const title = data.content || data.data?.title;
         if (title && data.data?.session_id) {

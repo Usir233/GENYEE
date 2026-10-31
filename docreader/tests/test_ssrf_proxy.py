@@ -92,7 +92,12 @@ class TestSSRFProxy(unittest.IsolatedAsyncioTestCase):
             with patch.dict(os.environ, {'SSRF_WHITELIST': '127.0.0.1', 'SSRF_WHITELIST_EXTRA': ''}):
                 reset_ssrf_whitelist_cache_for_test()
                 async with SSRFProxy() as proxy, async_playwright() as p:
-                    browser = await p.webkit.launch(proxy={'server': proxy.url, 'bypass': ''})
+                    try:
+                        browser = await p.webkit.launch(proxy={'server': proxy.url, 'bypass': ''})
+                    except Exception as e:
+                        if "Host system is missing dependencies" in str(e) or "Executable doesn't exist" in str(e):
+                            self.skipTest(f"WebKit missing host dependencies: {e}")
+                        raise
                     try:
                         page = await browser.new_page(service_workers='block')
                         # Intentionally no page.route: the proxy must cover hops
