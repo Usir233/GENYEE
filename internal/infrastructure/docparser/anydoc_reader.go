@@ -56,6 +56,14 @@ func (r *AnydocReader) Read(ctx context.Context, req *types.ReadRequest) (*types
 	if r.extractImages && fileTypeOf(req) == "pptx" && pptxHasVectorMedia(req.FileContent) {
 		return r.readVectorPPTX(ctx, req)
 	}
+	// Anydoc converts spreadsheet cells as plain text and does not extract
+	// embedded workbook media (Excel 365 xl/richData/, WPS xl/cellimages.xml
+	// DISPIMG, and xl/drawings/ anchors), leaving cached "#VALUE!" or
+	// "=DISPIMG(...)" placeholders in cells. Route .xlsx workbooks carrying
+	// embedded media to the builtin docreader (ExcelParser + XLSXImageExtractor).
+	if r.extractImages && fileTypeOf(req) == "xlsx" && xlsxHasEmbeddedMedia(req.FileContent) {
+		return r.readEmbeddedMediaXLSX(ctx, req)
+	}
 
 	converted, err := anydoc.Convert(req.FileContent, anydoc.Options{
 		Format:     format,
@@ -129,6 +137,54 @@ func (r *AnydocReader) readVectorPPTX(ctx context.Context, req *types.ReadReques
 		result.Metadata["parser"] = "markitdown"
 	}
 	result.Metadata["anydoc_fallback"] = "pptx_vector_media"
+	return result, nil
+}
+
+// xlsxHasEmbeddedMedia inspects the ZIP central directory of an .xlsx workbook
+// to detect embedded media parts (xl/media/, xl/richData/, xl/cellimages.xml)
+// without decompressing image payloads.
+func xlsxHasEmbeddedMedia(data []byte) bool {
+	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return false
+	}
+	for _, file := range archive.File {
+		if file.FileInfo().IsDir() {
+			continue
+		}
+		name := strings.ToLower(strings.TrimPrefix(file.Name, "/"))
+		if strings.HasPrefix(name, "xl/media/") ||
+			strings.HasPrefix(name, "xl/richdata/") ||
+			name == "xl/cellimages.xml" {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *AnydocReader) readEmbeddedMediaXLSX(ctx context.Context, req *types.ReadRequest) (*types.ReadResult, error) {
+	if !r.canFallback() {
+		return nil, fmt.Errorf(
+			"anydoc conversion of %q with embedded images requires a connected docreader",
+			req.FileName)
+	}
+	logger.Infof(ctx, "[anydoc] %q contains embedded media, falling back to builtin docreader for image extraction", req.FileName)
+	fallbackReq := *req
+	fallbackReq.ParserEngine = BuiltinEngineName
+	result, err := r.fallback.Read(ctx, &fallbackReq)
+	if err != nil {
+		return nil, fmt.Errorf("anydoc XLSX embedded-media fallback failed for %q: %w", req.FileName, err)
+	}
+	if result == nil {
+		return nil, fmt.Errorf("anydoc XLSX embedded-media fallback returned no result for %q", req.FileName)
+	}
+	if result.Metadata == nil {
+		result.Metadata = map[string]string{}
+	}
+	if result.Metadata["parser"] == "" {
+		result.Metadata["parser"] = BuiltinEngineName
+	}
+	result.Metadata["anydoc_fallback"] = "xlsx_embedded_media"
 	return result, nil
 }
 
