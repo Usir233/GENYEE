@@ -42,6 +42,7 @@ import {
   scrollRectIntoContainer,
 } from '@/utils/sourceLocatorDom';
 import { renderEpubPreview } from '@/utils/epubPreview';
+import { extractXlsxCellImages, injectSheetHtmlImages, type SheetCellImageMap } from '@/utils/xlsxPreviewImages';
 
 
 const VueOfficePptx = defineAsyncComponent(() => import('@vue-office/pptx'));
@@ -291,6 +292,7 @@ async function renderExcel(blob: Blob, fileType?: string) {
   const arrayBuffer = await blob.arrayBuffer();
 
   let workbook;
+  let sheetImageMap: SheetCellImageMap | null = null;
   const lowerType = fileType?.toLowerCase();
   if (lowerType === 'csv') {
     const csvText = decodeCSVBlob(arrayBuffer);
@@ -300,13 +302,26 @@ async function renderExcel(blob: Blob, fileType?: string) {
     workbook = XLSX.read(tsvText, { type: 'string', FS: '\t' });
   } else {
     workbook = XLSX.read(arrayBuffer, { type: 'array' });
+    if (typeof extractXlsxCellImages === 'function') {
+      try {
+        sheetImageMap = await extractXlsxCellImages(arrayBuffer);
+      } catch {
+        sheetImageMap = null;
+      }
+    }
   }
 
   excelSheetNames = [...workbook.SheetNames];
   let html = '';
   workbook.SheetNames.forEach((name, sheetIdx) => {
     const sheet = workbook.Sheets[name];
-    const sheetHtml = XLSX.utils.sheet_to_html(sheet, { id: `sheet-${sheetIdx}` });
+    let sheetHtml = XLSX.utils.sheet_to_html(sheet, { id: `sheet-${sheetIdx}` });
+    if (sheetImageMap && typeof injectSheetHtmlImages === 'function') {
+      const cellImages =
+        sheetImageMap.get(name) ||
+        (workbook.SheetNames.length === 1 ? sheetImageMap.values().next().value : undefined);
+      sheetHtml = injectSheetHtmlImages(sheetHtml, sheetIdx, cellImages);
+    }
     html += `<div class="excel-sheet">`;
     if (workbook.SheetNames.length > 1) {
       html += `<div class="excel-sheet-name">${name}</div>`;
@@ -1643,6 +1658,17 @@ onUnmounted(() => {
       max-width: 300px;
       overflow: hidden;
       text-overflow: ellipsis;
+      vertical-align: middle;
+    }
+    .excel-cell-image {
+      max-width: 112px;
+      max-height: 76px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      display: block;
+      margin: 2px auto;
+      border-radius: 4px;
     }
   }
 }

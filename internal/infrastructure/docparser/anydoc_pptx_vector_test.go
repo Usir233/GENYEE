@@ -161,3 +161,61 @@ func TestAnydocReaderDoesNotRouteOtherInputsToMarkitdown(t *testing.T) {
 		})
 	}
 }
+
+func TestAnydocReaderRoutesXLSXEmbeddedMediaToBuiltin(t *testing.T) {
+	for _, entry := range []string{
+		"xl/media/image1.png",
+		"xl/media/photo.jpeg",
+		"xl/richData/rdrichvalue.xml",
+		"xl/cellimages.xml",
+	} {
+		t.Run(entry, func(t *testing.T) {
+			req := &types.ReadRequest{
+				FileName:     "suppliers.xlsx",
+				FileType:     "xlsx",
+				ParserEngine: AnydocEngineName,
+				FileContent:  presentationArchive(t, entry),
+				Title:        "Suppliers",
+				RequestID:    "xlsx-media-routing",
+			}
+			original := *req
+			want := &types.ReadResult{
+				MarkdownContent: "A: ![img](images/img1.png)",
+				ImageRefs: []types.ImageRef{{
+					Filename: "img1.png", OriginalRef: "images/img1.png", ImageData: []byte("png"),
+				}},
+			}
+			fallback := &stubDocReader{result: want}
+			got, err := NewAnydocReader(nil, fallback).Read(context.Background(), req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != want || !reflect.DeepEqual(got.ImageRefs, want.ImageRefs) {
+				t.Fatalf("fallback result was not preserved: %+v", got)
+			}
+			if fallback.got == nil {
+				t.Fatal("xlsx with embedded media did not reach builtin docreader")
+			}
+			expected := original
+			expected.ParserEngine = BuiltinEngineName
+			if !reflect.DeepEqual(*fallback.got, expected) || !reflect.DeepEqual(*req, original) {
+				t.Fatal("fallback must change only its copied request's engine")
+			}
+			if got.Metadata["anydoc_fallback"] != "xlsx_embedded_media" || got.Metadata["parser"] != BuiltinEngineName {
+				t.Fatalf("missing fallback metadata: %+v", got.Metadata)
+			}
+		})
+	}
+}
+
+func TestXLSXEmbeddedMediaDetection(t *testing.T) {
+	if xlsxHasEmbeddedMedia([]byte("not a ZIP")) {
+		t.Fatal("invalid ZIP reported embedded media")
+	}
+	if xlsxHasEmbeddedMedia(presentationArchive(t, "xl/media/")) {
+		t.Fatal("directory reported as embedded media")
+	}
+	if xlsxHasEmbeddedMedia(presentationArchive(t, "xl/worksheets/sheet1.xml")) {
+		t.Fatal("plain worksheet without media reported as embedded media")
+	}
+}
