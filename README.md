@@ -306,7 +306,7 @@ A modular pipeline from document parsing, vectorization and retrieval to LLM inf
 | [Document formats](./website-docs/03-features/03-document-parsing.md) | PDF / Word / PPT / Excel / CSV / TXT / Markdown / HTML / EPUB / MHTML / JSON / XMind / images |
 | [Data sources](./website-docs/03-features/10-datasource.md) | Feishu wiki / Feishu Drive / Lark / Confluence / GitLab / Tencent IMA / Notion / Yuque / DingTalk Docs / Seafile / RSS |
 | [IM channels](./website-docs/03-features/12-im-integration.md) | WeCom / Feishu / Lark / QQBot / Slack / Telegram / DingTalk / Mattermost / WeChat / Yunzhijia |
-| [Web search](./website-docs/03-features/11-web-search.md) | DuckDuckGo / Bing / Google / Tavily / Baidu / Ollama / SearXNG / Keenable / Zhipu AI / Exa / Metaso / Bocha / Serply |
+| [Web search](./website-docs/03-features/11-web-search.md) | DuckDuckGo / Bing / Google / Tavily / Baidu / Ollama / SearXNG / Keenable / Zhipu AI / Exa / Metaso / Bocha / Serply / SearchApi |
 | Deployment | Docker Compose / Kubernetes (Helm) / Lite single binary / desktop app; offline and private-cloud installs; UI in Chinese, English, Japanese, Korean and Russian |
 
 ## Clients and Integrations

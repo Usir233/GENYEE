@@ -89,6 +89,7 @@ function pdfJsWasmAssets(): Plugin {
 }
 
 export default defineConfig(({ mode }) => ({
+  base: process.env.VITE_BASE_PATH || '/',
   esbuild: mode === 'production' ? {
     drop: ['console', 'debugger'],
   } : undefined,

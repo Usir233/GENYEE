@@ -306,7 +306,7 @@ docker compose up -d    # 新しいイメージでコンテナを再作成
 | [文書フォーマット](./website-docs/03-features/03-document-parsing.md) | PDF / Word / PPT / Excel / CSV / TXT / Markdown / HTML / EPUB / MHTML / JSON / XMind / 画像 |
 | [データソース](./website-docs/03-features/10-datasource.md) | Feishu ナレッジベース / Feishu クラウドドライブ / Lark / Confluence / GitLab / Tencent IMA / Notion / Yuque / DingTalk Docs / Seafile / RSS |
 | [IM 統合](./website-docs/03-features/12-im-integration.md) | WeChat Work / Feishu / Lark / QQBot / Slack / Telegram / DingTalk / Mattermost / WeChat / Yunzhijia |
-| [Web 検索](./website-docs/03-features/11-web-search.md) | DuckDuckGo / Bing / Google / Tavily / Baidu / Ollama / SearXNG / Keenable / Zhipu AI / Exa / Metaso / Bocha / Serply |
+| [Web 検索](./website-docs/03-features/11-web-search.md) | DuckDuckGo / Bing / Google / Tavily / Baidu / Ollama / SearXNG / Keenable / Zhipu AI / Exa / Metaso / Bocha / Serply / SearchApi |
 | デプロイ | Docker Compose / Kubernetes (Helm) / Lite シングルバイナリ / デスクトップアプリ。オフライン・プライベートクラウドに対応。UI は中国語 / 英語 / 日本語 / 韓国語 / ロシア語 |
 
 ## クライアントとエコシステム
