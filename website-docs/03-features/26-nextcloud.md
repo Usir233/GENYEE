@@ -2,19 +2,19 @@
 
 The `nextcloud` connector imports selected folders and files from a Nextcloud account over WebDAV. It supports scheduled, incremental and resumable synchronization, including deletion reconciliation. See [Data source synchronization](10-datasource.md) for common scheduling and conflict settings.
 
-<Screenshot src="/screenshots/datasource-nextcloud.png" caption="Nextcloud connection settings" hint="The real WeKnora component with example credentials and a stubbed API; the app password is masked." />
+<Screenshot src="/screenshots/datasource-nextcloud.png" caption="Nextcloud connection settings" hint="The real GENYEE component with example credentials and a stubbed API; the app password is masked." />
 
 ## Account and app password
 
 1. Sign in to Nextcloud with an account that can read the intended folders.
-2. Open **Personal settings → Security → Devices & sessions**, name a new app password (for example, `WeKnora`), and create it. Copy the generated username and app password; the password is displayed only once.
-3. Use those credentials in WeKnora. Use an app password rather than the account's login password, including when two-factor authentication or an external login provider is enabled. Revoke or rotate it from the same Nextcloud settings page.
+2. Open **Personal settings → Security → Devices & sessions**, name a new app password (for example, `GENYEE`), and create it. Copy the generated username and app password; the password is displayed only once.
+3. Use those credentials in GENYEE. Use an app password rather than the account's login password, including when two-factor authentication or an external login provider is enabled. Revoke or rotate it from the same Nextcloud settings page.
 
 The connector uses HTTP Basic authentication for both PROPFIND and GET requests. Use HTTPS for connections outside a trusted network. Credentials use the existing encrypted data-source credential JSON; API responses expose only whether credentials are configured. Replacing credentials requires entering the whole credential set again.
 
 Official references: [Nextcloud app passwords](https://docs.nextcloud.com/server/stable/user_manual/en/session_management.html) and [WebDAV file operations](https://docs.nextcloud.com/server/stable/developer_manual/client_apis/WebDAV/basic.html).
 
-## Configure in WeKnora
+## Configure in GENYEE
 
 1. Open **Knowledge base settings → Data sources → Add**, then choose **Nextcloud**.
 2. Enter the installation's base URL, username and app password. Use `https://nextcloud.example.com`, or `https://nextcloud.example.com/cloud` for an installation with a path prefix. Do **not** append `/remote.php/dav`, `/files/alice`, or a folder path. The connector constructs `/remote.php/dav/files/{username}/` itself.

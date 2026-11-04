@@ -44,7 +44,7 @@ GENYEE 通过 BrowserSkill daemon 和 [BrowserSkill](https://github.com/Tencent/
 
 ## 单实例部署
 
-配套 app 镜像包含 daemon、扩展 ZIP 和许可证，并预设文件路径；配套 frontend Nginx 处理 WebSocket。更新时同时更新 app、frontend 和用户的扩展。
+官方 Docker `genyee/genyee-app` 镜像已内置 `bsk` daemon、扩展 ZIP 和许可证，并预设文件路径；配套 frontend Nginx 处理 WebSocket。**单二进制 Lite 与 Lite Desktop 桌面安装包默认不内置 `bsk` 二进制与扩展包**：若需在原生/Lite/桌面环境启用本机浏览器，需按下方脚本自行构建并配置路径，或显式设置 `BROWSERSKILL_BINARY=` 保持关闭。更新时同时更新 app、frontend 和用户的扩展。
 
 原生部署在仓库根目录构建：
 
@@ -63,7 +63,7 @@ BROWSERSKILL_MAX_CONNECTIONS=32
 默认从用户当前页面 origin 生成配对 WSS 地址，保留端口。仅在独立网关域名或特殊路径部署时设置覆盖项：
 
 ```dotenv
-BROWSERSKILL_PUBLIC_URL=wss://weknora.example.com/api/v1/local-browser/extension
+BROWSERSKILL_PUBLIC_URL=wss://genyee.example.com/api/v1/local-browser/extension
 ```
 
 本机可用 localhost WS，远端要求浏览器信任的 WSS 证书。内网可以使用受信任的企业 CA。显式设置 `BROWSERSKILL_BINARY=` 可关闭能力；修改 Docker 环境变量后使用 `docker compose up -d app frontend` 重建容器。

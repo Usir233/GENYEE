@@ -38,13 +38,13 @@ export function AdopterShowcase() {
     onKeyDown={event => { if (event.key === "Escape") setActive(null); }}>
     <div ref={inner} className={`${s.shell} ${a.inner}`}>
       <div className={a.heading} onPointerEnter={event => { if (event.pointerType === "mouse") setActive(null); }}>
-        <h2 id="adopters-title">谁在使用 GENYEE</h2>
+        <h2 id="adopters-title">典型行业与落地场景</h2>
         <a className={a.join} href={adopterIssue} target="_blank" rel="noreferrer">分享你的实践 <Icon name="arrow" /></a>
       </div>
       <div id="adopter-logos" className={a.viewport}>
         <div className={a.track}>
           {/* Equal-width copies make the linear animation loop without a jump. */}
-          {[0, 1].map(copy => <ul className={a.group} key={copy} aria-hidden={copy === 1 ? true : undefined} aria-label={copy === 0 ? "使用 GENYEE 的团队与产品" : undefined}>
+          {[0, 1].map(copy => <ul className={a.group} key={copy} aria-hidden={copy === 1 ? true : undefined} aria-label={copy === 0 ? "GENYEE 典型行业与应用场景" : undefined}>
             {adopters.map((adopter, index) => <li key={adopter.name}>
               <button className={a.logo} data-variant={adopter.variant} type="button" tabIndex={copy === 1 ? -1 : 0} aria-label={`了解${adopter.name}的应用场景`} aria-expanded={active?.index === index} aria-controls={`adopter-details-${index}`}
                 onPointerDown={event => { if (copy === 1) event.preventDefault(); }}

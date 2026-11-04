@@ -19,9 +19,9 @@ from PIL import Image
 from docreader.parser.excel_parser import ExcelParser, _ocr_local
 from docreader.parser.xlsx_media import XLSXImageExtractor
 
-REAL_SAMPLE_PATH = (
-    "/root/.cursor/projects/home-cursor/uploads/ee547e04-d882-41d6-ae25-f9088c077369/"
-    "储能设备采购供应商明细_含图片.xlsx"
+REAL_SAMPLE_PATH = os.environ.get(
+    "EXCEL_OCR_SAMPLE_PATH",
+    "local-test-data/supplier_sample_with_images.xlsx",
 )
 
 # 1x1 8-bit PNG payload for synthetic test workbooks
@@ -200,7 +200,7 @@ class TestExcelOCRGracefulDegradationChallenger(unittest.TestCase):
 
 
 class TestRealWorldSampleVerificationChallenger(unittest.TestCase):
-    """Empirical verification of real-world sample 储能设备采购供应商明细_含图片.xlsx."""
+    """Empirical verification of real-world sample enterprise_equipment_supplier_sample_with_images.xlsx."""
 
     def setUp(self):
         if not os.path.isfile(REAL_SAMPLE_PATH):

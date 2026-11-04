@@ -91,7 +91,7 @@ kb, err := apiClient.GetKnowledgeBase(ctx, kbID)
 
 ### Raw 逃生舱
 
-`Client.Raw(ctx, method, path, body)`（Experimental）以客户端已配置的认证头直接发起任意 HTTP 请求，用于一次性集成与 `weknora api` CLI 透传；有类型化方法时应优先使用类型化方法。
+`Client.Raw(ctx, method, path, body)`（Experimental）以客户端已配置的认证头直接发起任意 HTTP 请求，用于一次性集成与 `genyee api` CLI 透传；有类型化方法时应优先使用类型化方法。
 
 ## 资源与方法总览
 

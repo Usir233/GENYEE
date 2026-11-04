@@ -1,8 +1,8 @@
 {{/*
-Copyright 2025 Tencent
+Copyright 2026 GENYEE
 SPDX-License-Identifier: MIT
 
-Ingress resource for WeKnora.
+Ingress resource for GENYEE.
 Routes /api to backend, / to frontend.
 */}}
 {{- if .Values.ingress.enabled }}

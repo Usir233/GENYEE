@@ -536,8 +536,8 @@ flowchart LR
 ```json
 {
   "mcpServers": {
-    "weknora-docs": {
-      "url": "https://your-weknora.example.com/mcp/<endpoint_id>",
+    "genyee-docs": {
+      "url": "https://your-genyee.example.com/mcp/<endpoint_id>",
       "headers": { "Authorization": "Bearer mcp_xxxxxxxx" }
     }
   }
@@ -547,7 +547,7 @@ flowchart LR
 Claude Code：
 
 ```bash
-claude mcp add --transport http weknora-docs https://your-weknora.example.com/mcp/<endpoint_id> --header "Authorization: Bearer mcp_xxxxxxxx"
+claude mcp add --transport http genyee-docs https://your-genyee.example.com/mcp/<endpoint_id> --header "Authorization: Bearer mcp_xxxxxxxx"
 ```
 
 仅支持 stdio 的客户端：
@@ -555,9 +555,9 @@ claude mcp add --transport http weknora-docs https://your-weknora.example.com/mc
 ```json
 {
   "mcpServers": {
-    "weknora-docs": {
+    "genyee-docs": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "https://your-weknora.example.com/mcp/<endpoint_id>", "--header", "Authorization: Bearer mcp_xxxxxxxx"]
+      "args": ["-y", "mcp-remote", "https://your-genyee.example.com/mcp/<endpoint_id>", "--header", "Authorization: Bearer mcp_xxxxxxxx"]
     }
   }
 }
@@ -570,10 +570,10 @@ claude mcp add --transport http weknora-docs https://your-weknora.example.com/mc
 :::
 
 
-`mcp-server/` 是一个独立的 Python 包，PyPI 名 **`genyee-mcp`**（当前 1.1.1，Python ≥ 3.10，依赖 `mcp>=2,<3`、`requests>=2.31.0`、`starlette`、`uvicorn`），核心实现在 `mcp-server/weknora_mcp_server.py`：`WeKnoraClient` 用 `requests.Session` 携带 `X-API-Key` 调 WeKnora REST API，`MCPServer("genyee-server", version="1.1.1")` 注册工具并通过所选传输对外服务。
+`mcp-server/` 是一个独立的 Python 包，包名 **`genyee-mcp`**（当前 1.1.1，Python ≥ 3.10，依赖 `mcp>=2,<3`、`requests>=2.31.0`、`starlette`、`uvicorn`），核心实现在 `mcp-server/weknora_mcp_server.py`：`WeKnoraClient` 用 `requests.Session` 携带 `X-API-Key` 调 GENYEE REST API，`MCPServer("genyee-server", version="1.1.1")` 注册工具并通过所选传输对外服务。
 
 ::: warning 包名与 API 变更（v1.1.x）
-- 官方包名是 `genyee-mcp`（由 Tencent/WeKnora 通过 Trusted Publishing 发布）；社区早期的 `weknora-mcp` 已不再使用。命令行入口仍是 `genyee-mcp-server` / `weknora-server`。
+- 包名为 `genyee-mcp`，命令行入口为 `genyee-mcp-server`（同时保留 `weknora-server` 兼容别名）。
 - 实现已迁移到 mcp 2.x 的高层 API：工具是加了 `@mcp.tool()` 装饰器的普通函数，入参 JSON Schema 由类型标注自动推导，描述取自 docstring，返回值自动序列化。旧的 `handle_list_tools()` / `handle_call_tool()` 分发写法已移除——扩展工具时只需新增一个带装饰器的函数。
 - 阻塞式网络 I/O（`chat` / `agent_chat`）被投递到线程池执行，不阻塞 asyncio 事件循环。
 :::
@@ -740,12 +740,12 @@ stdio 传输（Claude Desktop 的 `claude_desktop_config.json`）：
 ```json
 {
   "mcpServers": {
-    "weknora": {
+    "genyee": {
       "command": "python",
-      "args": ["/path/to/WeKnora/mcp-server/main.py"],
+      "args": ["/path/to/GENYEE/mcp-server/main.py"],
       "env": {
         "WEKNORA_BASE_URL": "http://localhost:8080/api/v1",
-        "WEKNORA_API_KEY": "your-weknora-api-key"
+        "WEKNORA_API_KEY": "your-genyee-api-key"
       }
     }
   }
@@ -757,12 +757,12 @@ stdio 传输（Claude Desktop 的 `claude_desktop_config.json`）：
 ```json
 {
   "mcpServers": {
-    "weknora": {
+    "genyee": {
       "command": "uvx",
       "args": ["--from", "genyee-mcp", "genyee-mcp-server"],
       "env": {
         "WEKNORA_BASE_URL": "http://localhost:8080/api/v1",
-        "WEKNORA_API_KEY": "your-weknora-api-key"
+        "WEKNORA_API_KEY": "your-genyee-api-key"
       }
     }
   }

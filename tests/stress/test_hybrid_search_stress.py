@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 """
 Empirical Adversarial Stress Test Suite for Live Knowledge Base Hybrid Search
-Target Knowledge Base: 历年资料 (ID: 6459d8b2-9059-49f9-83a9-ea5d65ec8bca)
+Target Knowledge Base: 企业资料归档 (ID: 6459d8b2-9059-49f9-83a9-ea5d65ec8bca)
 Engines: PostgreSQL ParadeDB BM25 + Vector Search (RRF Hybrid Fusion)
 """
 
 import json
+import os
 import time
 import subprocess
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-BASE_URL = "http://127.0.0.1:8080"
-KB_ID = "6459d8b2-9059-49f9-83a9-ea5d65ec8bca"  # 历年资料
-TEST_EMAIL = "zhanshun.bao@gamil.com"
-TEST_PASS = "mkRI3z$L5w%J#D&VxqeM"
+BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:8080")
+KB_ID = os.environ.get("TEST_KB_ID", "6459d8b2-9059-49f9-83a9-ea5d65ec8bca")  # 企业资料归档
+TEST_EMAIL = os.environ.get("TEST_EMAIL", "qa-test@example.com")
+TEST_PASS = os.environ.get("TEST_PASSWORD", "ChangeMe_TestPass123!")
 
 def get_auth_token():
     payload = json.dumps({"email": TEST_EMAIL, "password": TEST_PASS}).encode()
@@ -29,11 +30,13 @@ def get_auth_token():
         assert data.get("success") is True, f"Login failed: {data}"
         return data["token"]
 
+DB_NAME = os.environ.get("DB_NAME", "GENYEE")
+
 def get_pg_stats():
     cmd = [
         "docker", "exec", "GENYEE-postgres",
-        "psql", "-U", "postgres", "-d", "WeKnora", "-t", "-A", "-c",
-        "SELECT state, count(*) FROM pg_stat_activity WHERE datname='WeKnora' GROUP BY state;"
+        "psql", "-U", "postgres", "-d", DB_NAME, "-t", "-A", "-c",
+        f"SELECT state, count(*) FROM pg_stat_activity WHERE datname='{DB_NAME}' GROUP BY state;"
     ]
     out = subprocess.check_output(cmd).decode().strip()
     stats = {}
@@ -125,57 +128,57 @@ def run_stress_suite():
     test_cases = [
         {
             "name": "TC-HS-01: Baseline Chinese Domain Query (Hybrid)",
-            "query": "2025年6月月度经营分析报告核心财务指标与毛利率变动",
+            "query": "GENYEE系统架构规范中混合检索与重排序的核心机制",
             "disable_vector": False, "disable_kw": False, "expect_min": 1
         },
         {
             "name": "TC-HS-02: Pure BM25 Keyword Search (Vector Disabled)",
-            "query": "经营分析报告 营业收入 净利润",
+            "query": "知识库 文档分块 向量检索",
             "disable_vector": True, "disable_kw": False, "expect_min": 1
         },
         {
             "name": "TC-HS-03: Pure Vector Search (BM25 Disabled)",
-            "query": "公司上一年度各季度的经营状况与盈利水平趋势",
+            "query": "企业级私有化部署的高可用与多租户安全隔离策略",
             "disable_vector": False, "disable_kw": True, "expect_min": 1
         },
         {
             "name": "TC-HS-04: Boundary: Long Chinese Text (>600 characters)",
             "query": (
-                "根据公司历年发布的月度与季度经营分析报告，请详细梳理自2024年1月至2025年6月期间，"
-                "各个业务部门的主营业务收入、营业利润、各项成本费用的变动趋势以及在不同供应链周期下的"
-                "毛利表现，重点分析报告中涉及的原材料采购价格波动、渠道拓展策略、团队扩张人效比以及"
-                "针对下一季度的经营风险应对方案和管理层总结。" * 3
+                "根据企业知识库技术架构手册与运维指南，请详细梳理在私有化容器集群部署环境下，"
+                "文档解析服务、向量检索引擎、混合重排序流水线以及智能体沙箱各组件之间的协同调用关系，"
+                "重点说明在大规模并发检索场景下的连接池配置、缓存淘汰策略、多模态图文解析吞吐调优以及"
+                "针对跨租户权限隔离与接口高可用容灾的运维保障方案。" * 3
             ),
             "disable_vector": False, "disable_kw": False, "expect_min": 1
         },
         {
             "name": "TC-HS-05: Boundary: Complex Punctuation & BM25 Syntax Characters",
-            "query": '!(月度) AND "经营分析" OR [报告] +指标 -亏损 ~5 ^2 (AND OR NOT: / \\ * ? < > = % $ # @ !)',
+            "query": '!(草稿) AND "架构规范" OR [手册] +检索 -废弃 ~5 ^2 (AND OR NOT: / \\ * ? < > = % $ # @ !)',
             "disable_vector": False, "disable_kw": False, "expect_min": 1
         },
         {
             "name": "TC-HS-06: Boundary: SQL Injection Payload in Search Query",
-            "query": "月度经营分析' OR '1'='1' UNION SELECT NULL, NULL, NULL --",
+            "query": "系统架构规范' OR '1'='1' UNION SELECT NULL, NULL, NULL --",
             "disable_vector": False, "disable_kw": False, "expect_min": 1
         },
         {
             "name": "TC-HS-07: Boundary: ParadeDB BM25 Lucene/Tantivy Syntax Breakers",
-            "query": 'title:("经营分析" AND "报告") AND content:\\* OR id:[0 TO 999999] && || !',
+            "query": 'title:("架构规范" AND "手册") AND content:\\* OR id:[0 TO 999999] && || !',
             "disable_vector": False, "disable_kw": False, "expect_min": 0
         },
         {
             "name": "TC-HS-08: Boundary: Unicode Emojis & Zero-Width Spaces",
-            "query": "📊📈2025年经营分析报告\u200B\u200C\u200D💰年度营收增长🚀💡",
+            "query": "📊📈GENYEE系统架构规范\u200B\u200C\u200D💰混合检索性能调优🚀💡",
             "disable_vector": False, "disable_kw": False, "expect_min": 1
         },
         {
             "name": "TC-HS-09: Boundary: Rare Chinese Characters & Heterogeneous Script",
-            "query": "财务朏朒朤曚运营氍毹营收分析报告 2024-2025 FY Q1-Q4",
+            "query": "架构朏朒朤曚检索氍毹技术规范手册 v1.0-v2.0 SLA",
             "disable_vector": False, "disable_kw": False, "expect_min": 0
         },
         {
             "name": "TC-HS-10: Boundary: High match_count limit (30 chunks)",
-            "query": "经营分析 财务报告 总结",
+            "query": "系统架构 混合检索 部署指南",
             "match_count": 30,
             "disable_vector": False, "disable_kw": False, "expect_min": 5
         }
@@ -214,21 +217,21 @@ def run_stress_suite():
     print("  Phase 2: Concurrent Multi-Thread Stress Test (15 Concurrent Hybrid Searches)")
     print("--------------------------------------------------------------------------------")
     concurrent_queries = [
-        "2025年6月经营分析报告",
-        "2024年10月度总结",
-        "2025年1月财务分析",
-        "原材料采购与供应链成本",
-        "季度主营业务毛利率",
-        "月度经营分析 与管理层决策",
-        "现金流量表与资产负债",
-        "销售渠道拓展与人效",
-        "财务预算与年度决算对比",
-        "2024年第四季度营收汇总",
-        "2025年上半年业绩简报",
-        "经营风险应对及策略规划",
-        "核心指标月度变动明细",
-        "毛利分析与费用控制",
-        "年度总结与展望"
+        "系统架构与模块划分",
+        "向量数据库索引配置",
+        "BM25全文检索分词机制",
+        "多模态文档OCR解析流程",
+        "混合检索重排序阈值",
+        "智能体工具调用与沙箱隔离",
+        "PostgreSQL连接池参数调优",
+        "多租户API密钥权限控制",
+        "知识图谱实体关系抽取",
+        "大文件分块上传与切片策略",
+        "高可用集群部署与容灾备份",
+        "私有化内网离线镜像导入",
+        "检索召回率与评估指标说明",
+        "流式问答SSE会话状态管理",
+        "运维监控日志与审计规范"
     ]
     
     concurrent_start = time.perf_counter()

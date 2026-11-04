@@ -1,10 +1,11 @@
-# WeKnora Sandbox Image
+# GENYEE Sandbox Image
 # Pre-built environment for executing agent skill scripts in Docker sandbox
 # Multi-stage build, minimal dependencies
 #
 # Targets that ship from this file:
-#   runtime          - the plain environment. Used by the Docker backend and
-#                      as the base image of E2B templates, whose builder
+#   runtime / sandbox - the plain environment (`sandbox` is the default final
+#                      stage alias for `runtime`). Used by the Docker backend
+#                      and as the base image of E2B templates, whose builder
 #                      injects its own envd.
 #   cube             - the same environment plus Cube's envd daemon. Cube
 #                      builds templates straight from the image and probes

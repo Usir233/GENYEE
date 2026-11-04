@@ -648,7 +648,7 @@ test_t4_swagger_clean_and_valid() {
     GOFLAGS=-mod=readonly go test ./docs/...
 }
 
-# TC-T4-05: Self-built images parameterized as genyee/genyee-* & Helm Redis pinned to 7.2-alpine
+# TC-T4-05: Self-built images parameterized as genyee/genyee-* & Helm/Homepage clean of legacy branding
 test_t4_image_parameterization_and_helm() {
     if grep -Eq "wechatopenai/weknora-" docker-compose.yml Makefile scripts/build_images.sh helm/values.yaml internal/sandbox/sandbox.go; then
         echo "Found legacy wechatopenai/weknora-* image references in deployment/build files" >&2
@@ -664,6 +664,15 @@ test_t4_image_parameterization_and_helm() {
     fi
     if ! grep -Eq 'tag:[[:space:]]*"?7\.2-alpine"?' helm/values.yaml; then
         echo "helm/values.yaml does not pin Redis tag to 7.2-alpine" >&2
+        return 1
+    fi
+    if grep -Eq "Copyright 2025 Tencent|dbName:[[:space:]]*weknora" helm/values.yaml || \
+       grep -Eq "Copyright 2025 Tencent|part-of:[[:space:]]*weknora" helm/templates/_helpers.tpl; then
+        echo "Found legacy Tencent/weknora residue in helm/values.yaml or helm/templates/_helpers.tpl" >&2
+        return 1
+    fi
+    if grep -Eq "光子工作室群|腾讯客服|微信游戏|腾讯云 ClawPro|腾讯云轻量应用服务器" website-docs/homepage/app/adopters.ts; then
+        echo "Found false Tencent adopter claims in website-docs/homepage/app/adopters.ts" >&2
         return 1
     fi
     return 0
@@ -701,6 +710,19 @@ test_t5_offline_bundle_manifest() {
 
 # TC-T5-02: scripts/export-source.sh succeeds and verifies excluded/included files
 test_t5_export_source_archive() {
+    if ! grep -q "AUDIT_REPORT.md export-ignore" .gitattributes || \
+       ! grep -q "test-reports export-ignore" .gitattributes || \
+       ! grep -q "tests/adversarial export-ignore" .gitattributes; then
+        echo ".gitattributes missing export-ignore rules for AUDIT_REPORT.md, test-reports, or tests/adversarial" >&2
+        return 1
+    fi
+    if ! grep -q "AUDIT_REPORT" scripts/export-source.sh || \
+       ! grep -q "test-reports" scripts/export-source.sh || \
+       ! grep -q "tests/(adversarial|e2e|stress)" scripts/export-source.sh; then
+        echo "scripts/export-source.sh FORBIDDEN_PATTERNS missing AUDIT_REPORT.md, test-reports, or tests/(adversarial|e2e|stress)" >&2
+        return 1
+    fi
+
     local tmp_out
     tmp_out="$(mktemp -d)"
     bash scripts/export-source.sh "${tmp_out}/genyee-source-test.tar.gz" HEAD || { rm -rf "${tmp_out}"; return 1; }
@@ -710,13 +732,27 @@ test_t5_export_source_archive() {
     return 0
 }
 
-# TC-T5-03: Zero hardcoded local user paths in tracked files
+# TC-T5-03: Zero hardcoded local user paths, leaked test credentials, or rebranding giveaway strings in tracked files
 test_t5_zero_hardcoded_user_paths() {
-    local home_prefix="/Users/""cy"
+    local p1="/Users/""cy"
+    local p2="/home/""cursor"
+    local p3="/root/"".cursor"
+    local p4="zhanshun"".bao"
+    local p5="mkRI3z"
+    local p6="去腾讯""化"
+    local p7="品牌""重塑"
+    local p8="储能设备""采购"
+    local p9="父""ASIN"
+    local p10="历年""资料"
+    local p11="长库""龄"
+    local p12="月度经营""分析"
+    local p13="reconstructed ""GENYEE"
+    local p14="commercial ""rebranding"
+    local pattern="${p1}|${p2}|${p3}|${p4}|${p5}|${p6}|${p7}|${p8}|${p9}|${p10}|${p11}|${p12}|${p13}|${p14}"
     local matches
-    matches=$(git grep -n "${home_prefix}" || true)
+    matches=$(git grep -n -E "${pattern}" -- . ':!scripts/verify-commercial-compliance.sh' || true)
     if [[ -n "${matches}" ]]; then
-        echo "Found hardcoded ${home_prefix} paths in tracked files:" >&2
+        echo "Found hardcoded host paths, test credentials, or internal giveaway strings in tracked files:" >&2
         echo "${matches}" >&2
         return 1
     fi
@@ -737,7 +773,7 @@ run_tier_5() {
 
     run_test "TC-T5-01" "OFFLINE_LICENSES & scripts/offline-bundle.sh --manifest-only" test_t5_offline_bundle_manifest
     run_test "TC-T5-02" "Clean customer source archive export (scripts/export-source.sh)" test_t5_export_source_archive
-    run_test "TC-T5-03" "Zero hardcoded local user paths in tracked files" test_t5_zero_hardcoded_user_paths
+    run_test "TC-T5-03" "Zero hardcoded host paths, credentials & internal strings" test_t5_zero_hardcoded_user_paths
     run_test "TC-T5-04" "BrowserSkill, ProductDocs & frontend docsUrl unit tests" test_t5_browserskill_and_productdocs
 }
 

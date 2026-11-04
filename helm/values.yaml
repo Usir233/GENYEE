@@ -1,4 +1,4 @@
-# Copyright 2025 Tencent
+# Copyright 2026 GENYEE
 # SPDX-License-Identifier: MIT
 #
 # GENYEE Helm Chart Values
@@ -441,7 +441,7 @@ secrets:
   # -- Database password (REQUIRED: change in production)
   dbPassword: ""
   # -- Database name
-  dbName: weknora
+  dbName: genyee
   # -- Redis username (OPTIONAL: for Redis 6.0+ ACL)
   redisUsername: ""
   # -- Redis password (REQUIRED: change in production)
@@ -450,7 +450,7 @@ secrets:
   jwtSecret: ""
   # -- System AES-256 key for database field encryption (must be exactly 32 bytes).
   # Encrypts: tenants.api_key, model API keys, vector store credentials,
-  # web search provider keys, WeKnoraCloud.AppSecret.
+  # web search provider keys, and vendor cloud credentials.
   # STRONGLY RECOMMENDED to set this explicitly in production. If left empty, a
   # random 32-char value is generated on first install and reused on subsequent
   # `helm upgrade` via Secret lookup. However, if the Secret is ever

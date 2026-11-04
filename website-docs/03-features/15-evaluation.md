@@ -10,7 +10,7 @@
 
 ## 运行一次评估
 
-1. 使用内置样例数据集，或按下方格式准备 Parquet 文件并替换服务工作目录下 `dataset/samples/` 中的同名文件（容器内为 `/app/dataset/samples/`）。
+1. 使用内置样例数据集（`dataset_id` 留空或填 `default`），或按下方格式在 `dataset/<dataset_id>/`（容器内为 `/app/dataset/<dataset_id>/`，或通过 `EVALUATION_DATASET_DIR` 指定根目录）准备 5 个 Parquet 文件。
 2. 选择参考知识库、对话模型和重排模型，通过 `POST /api/v1/evaluation` 创建任务。参考知识库用于复制配置，评估会使用单独的知识库。
 3. 记录返回的任务 ID，通过 `GET /api/v1/evaluation?task_id=...` 查询状态和进度。
 4. 任务成功后比较检索与生成指标；失败时先检查任务错误，再调整配置并重新运行。
@@ -19,7 +19,7 @@
 
 ## 数据集格式
 
-数据集服务（`internal/application/service/dataset.go`）从 `./dataset/samples/` 加载 5 个 **Parquet** 文件：
+数据集服务（`internal/application/service/dataset.go`）从数据集目录（默认为 `./dataset/samples/`，指定自定义 `dataset_id` 时为 `./dataset/<dataset_id>/` 或 `$EVALUATION_DATASET_DIR/<dataset_id>/`）加载 5 个 **Parquet** 文件：
 
 | 文件 | Schema | 含义 |
 | --- | --- | --- |
@@ -59,7 +59,7 @@ type QAPair struct {
 }
 ```
 
-服务始终从 `./dataset/samples/` 读取这 5 个文件，`dataset_id` 目前只用于组成任务 ID，不会切换到其他目录。使用自定义数据集时，按上述 Schema 生成同名 Parquet 文件替换该目录内容（Docker 部署可挂载到 `/app/dataset/samples/`）。加载时服务会打印统计信息（问题数、语料数、平均相关段落数、答案覆盖率等）。
+`dataset_id` 为空、`default` 或 `samples` 时读取 `./dataset/samples/`；传入其他合法子目录名（禁止包含 `..` 或路径分隔符）时读取 `./dataset/<dataset_id>/`（或 `$EVALUATION_DATASET_DIR/<dataset_id>/`）。使用自定义数据集时，可挂载到 `/app/dataset/<dataset_id>/` 或直接替换 `/app/dataset/samples/`。加载时服务会打印统计信息（问题数、语料数、平均相关段落数、答案覆盖率等）。
 
 ## 结果查询
 
@@ -94,7 +94,7 @@ type QAPair struct {
 
 任务运行期间可轮询该接口获取 `finished / total` 进度；`status = 3` 时 `err_msg` 携带失败原因。
 
-> **注意**：评估结果存储在**内存**（`evaluationMemoryStorage`：`map[string]*EvaluationDetail` + `sync.RWMutex`，见 `internal/application/service/evaluation.go`），服务重启后任务与结果会丢失，需重新发起评估。
+> **注意**：评估任务与结果在内存（`evaluationMemoryStorage`）维护的同时，会自动落盘保存 JSON 快照（路径优先取 `EVALUATION_STORAGE_PATH`，其次为 `<LOCAL_STORAGE_BASE_DIR>/evaluation_tasks.json`，默认 `./data/evaluation_tasks.json`）。已完成或失败的历史评估结果在单实例重启后仍可查询；若服务重启时尚处于 `Pending` / `Running` 状态，重启加载时会自动标记为 `Failed`（`evaluation task interrupted by service restart`），需重新发起评估。
 
 ## 指标清单
 
@@ -181,7 +181,7 @@ type EvaluationRequest struct {
 
 | 参数 | 必填 | 默认行为 |
 | --- | --- | --- |
-| `dataset_id` | 否 | 缺省为 `default`；仅用于任务 ID，数据始终读取 `dataset/samples/` |
+| `dataset_id` | 否 | 缺省为 `default`（读取 `dataset/samples/`）；传入自定义名称时读取 `dataset/<dataset_id>/` 或 `$EVALUATION_DATASET_DIR/<dataset_id>/` |
 | `knowledge_base_id` | 否 | 未提供则新建评估专用知识库；提供则复制其配置创建评估 KB |
 | `chat_id` | 否 | 缺省自动选择默认 Chat 模型 |
 | `rerank_id` | 否 | 缺省自动选择默认 Rerank 模型 |

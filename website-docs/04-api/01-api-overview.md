@@ -43,7 +43,7 @@ X-API-Key: <api_key>
   - 受限（scoped）key：按 capability 放行，并受 `knowledge_base_ids` 白名单约束。Capability 常量见 `internal/types/tenant_api_key.go`：`retrieve`、`ingest`、`chat`、`read_agents`、`manage_kbs`、`manage_agents`、`message_history`、`manage_models`、`manage_mcp_services`、`manage_datasources`、`manage_channels`、`manage_vector_stores`、`manage_storage_backends`、`manage_web_search`、`run_evaluations`、`manage_members`、`manage_spaces`、`manage_tenant_settings`；平台能力：`system_tenants_read/manage`、`system_settings_read/manage`、`system_runtime_read/manage`、`system_audit_read`。
 - 外部用户主体（可选，按空间 `api-principal-config` 配置）：
   - `direct` 模式：`X-External-User-ID: <外部用户ID>`（≤128 字符）。
-  - `signed_token` 模式：`X-External-User-Token: <HS256 JWT>`，要求 `aud=weknora`、`exp`（生存期 ≤24h）、`tenant_id` claim 与目标空间一致、`sub` 为外部用户 ID。
+  - `signed_token` 模式：`X-External-User-Token: <HS256 JWT>`，要求 `aud=genyee`（同时兼容 `aud=weknora`）、`exp`（生存期 ≤24h）、`tenant_id` claim 与目标空间一致、`sub` 为外部用户 ID。
 
 ### Embed publish token（匿名嵌入端） {#_3-embed-publish-token-匿名嵌入端}
 

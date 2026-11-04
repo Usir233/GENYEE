@@ -1,7 +1,9 @@
 # 桌面客户端（GENYEE Lite Desktop）
 
-::: warning 尚未正式发布
-桌面应用目前没有随 Release 提供安装包，需按[安装部署](../01-getting-started/02-installation.md)自行构建。
+::: warning 桌面端交付与能力边界
+- **安装包构建**：桌面应用需通过仓库脚本 `./scripts/package-mac-app.sh`（macOS）或在 `cmd/desktop` 下执行 `wails build` 构建，产出 `dist/GENYEE Lite.app`。
+- **本机沙箱（`host`）平台范围**：仅 macOS 支持基于系统 `sandbox-exec`（Seatbelt）的本机沙箱与本机技能执行；Windows 与 Linux 桌面构建暂不提供 `host` 本机沙箱（报告不可用，不会退化为无隔离裸跑）。
+- **本机浏览器（BrowserSkill）**：`bsk` 守护进程仅内置于服务器版 Docker `app` 镜像，Lite 单二进制与桌面版默认不包含 `bsk`，如需使用需按[本机浏览器](09-local-browser.md)单独构建并配置 `BROWSERSKILL_BINARY`。
 :::
 
 GENYEE Lite 桌面应用基于 [Wails v2](https://wails.io)，在桌面进程中运行 Go 后端，使用 SQLite 和本地文件存储。启动后可管理知识库并进行检索问答，无需 Docker 或外部数据库。源码位于 `cmd/desktop/`，基础能力与[单二进制 Lite](../01-getting-started/02-installation.md)一致；桌面版另外提供免登录启动，以及在 macOS 上运行智能体命令的[本机沙箱](../03-features/22-skills-sandbox.md#lite-host)。

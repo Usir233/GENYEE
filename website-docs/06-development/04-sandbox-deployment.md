@@ -6,11 +6,15 @@
 
 空间命名配置可选择 Docker、CubeSandbox、E2B，本文说明这三类后端的部署。Lite 桌面客户端另有依赖操作系统隔离能力的 `host` 后端，不属于服务端命名配置，构建要求见下文 [Lite 本机沙箱](#lite-本机沙箱)；旧 `local` 宿主机进程后端已移除。Docker 直接使用 Engine API；E2B 使用控制面 REST 与 envd 数据面；Cube 保留专用适配器处理模板和网络策略。
 
-标准镜像由 `docker/Dockerfile.sandbox` 定义，包含 Python 3.12、Node.js 20、Bash、jq 与 `/workspace`。命令和文件操作默认使用沙箱内 root；保留 UID 1000 的 `user` 供显式按账号执行。每会话分配时，跨会话隔离由容器或远端沙箱提供；开启按用户复用后，同一机器内的会话没有操作系统级隔离。不能把工作目录约定解释为 root 的文件权限限制。
+标准镜像由 `docker/Dockerfile.sandbox` 定义，包含 Python 3.12、Node.js 22、Bash、jq 与 `/workspace`。命令和文件操作默认使用沙箱内 `root`（以便智能体按需安装系统/语言包并写入任意路径）；镜像同时预置 UID 1000 的 `user` 供显式按账号执行。安全边界说明：
+
+- **容器内 `root` 与跨会话隔离**：默认「每会话分配（per-session）」模式下，跨会话与跨租户隔离由容器或远端沙箱实例边界提供，不能把 `/workspace` 工作目录约定当作容器内 `root` 的文件权限限制；
+- **按用户复用（`WEKNORA_SANDBOX_USER_ALLOCATION=enabled`）**：开启后同一用户的多个会话共享同一沙箱实例，会话之间不再有操作系统级隔离；
+- **组织共享智能体的技能环境变量**：启用技能的智能体共享给组织后，技能在来源空间的沙箱中执行，并注入管理员为该技能配置的环境变量，接收方成员可通过提示词或脚本读取这些环境变量值，因此切勿在可跨空间共享的技能环境变量中存放高权限主密钥。
 
 | 构建 target | 镜像标签后缀 | 用途 |
 | --- | --- | --- |
-| `sandbox` | 无 | Docker 会话镜像；E2B CLI 模板基础镜像 |
+| `sandbox`（或 `runtime`） | 无 | Docker 会话镜像；E2B CLI 模板基础镜像 |
 | `cube` | `-cube` | Cube CLI 模板，含 envd |
 | `desktop` | `-desktop` | E2B 图形桌面模板基础镜像 |
 | `desktop-cube` | `-desktop-cube` | Cube 图形桌面模板，含 envd |

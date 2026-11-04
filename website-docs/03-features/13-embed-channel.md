@@ -15,13 +15,13 @@
 
 ## 前端挂件接入
 
-挂件 SDK 是一个无依赖的 loader 脚本 `frontend/public/weknora-widget.js`（部署后从 GENYEE 服务根路径提供），负责渲染悬浮按钮 + iframe 面板，iframe 指向嵌入页 SPA `/embed/{channel_id}`（入口 `frontend/src/embed-main.ts`）。
+挂件 SDK 是一个无依赖的 loader 脚本 `frontend/public/genyee-widget.js`（同时兼容 `/weknora-widget.js`，部署后从 GENYEE 服务根路径提供），负责渲染悬浮按钮 + iframe 面板，iframe 指向嵌入页 SPA `/embed/{channel_id}`（入口 `frontend/src/embed-main.ts`）。
 
 ### 方式一：静态 Token 模式（token 对访客可见） {#方式一-静态-token-模式-最简单-token-暴露在页面}
 
 ```html
 <script
-  src="https://your-weknora.example.com/weknora-widget.js"
+  src="https://your-genyee.example.com/genyee-widget.js"
   data-channel="你的渠道UUID"
   data-token="em_你的publish_token"
   data-position="bottom-right"
@@ -38,14 +38,14 @@ publish token 只保存在业务后端，页面通过 `data-token-endpoint` 指�
 
 ```html
 <script
-  src="https://your-weknora.example.com/weknora-widget.js"
+  src="https://your-genyee.example.com/genyee-widget.js"
   data-channel="你的渠道UUID"
-  data-token-endpoint="https://your-backend.example.com/weknora/embed-token"
+  data-token-endpoint="https://your-backend.example.com/genyee/embed-token"
   data-position="bottom-right"
 ></script>
 ```
 
-业务后端实现该 endpoint：服务端持有 `em_` token，调用 `POST /api/v1/embed/{channel_id}/exchange` 换取 `ems_` 短效 token 并返回 `{ "token": "ems_...", "expiresIn": 1800 }`。挂件会在约 80% TTL 时（不早于 30 秒）自动刷新 token（见 `weknora-widget.js` 中的 `scheduleRefresh`）。**publish token 永不到达浏览器。**
+业务后端实现该 endpoint：服务端持有 `em_` token，调用 `POST /api/v1/embed/{channel_id}/exchange` 换取 `ems_` 短效 token 并返回 `{ "token": "ems_...", "expiresIn": 1800 }`。挂件会在约 80% TTL 时（不早于 30 秒）自动刷新 token（见 `genyee-widget.js` 中的 `scheduleRefresh`）。**publish token 永不到达浏览器。**
 
 换取接口必须先验证业务侧 Session/JWT 的有效性和访客访问权；仅判断 Cookie 或 Authorization 头是否存在不构成身份验证。服务端调用 exchange 时须手动发送与渠道白名单一致的业务宿主 `Origin`，例如 `Origin: https://shop.example.com`；不要把 GENYEE 的管理 Token 暴露给访客。
 
@@ -54,21 +54,21 @@ publish token 只保存在业务后端，页面通过 `data-token-endpoint` 指�
 ### 方式三：编程式 API
 
 ```html
-<script src="https://your-weknora.example.com/weknora-widget.js"></script>
+<script src="https://your-genyee.example.com/genyee-widget.js"></script>
 <script>
-  WeKnora.init({
+  GENYEE.init({
     channel: '渠道UUID',
-    tokenEndpoint: 'https://your-backend.example.com/weknora/embed-token', // 或 token: 'em_...'
+    tokenEndpoint: 'https://your-backend.example.com/genyee/embed-token', // 或 token: 'em_...'
     position: 'bottom-right',
     primaryColor: '#07C05F',
     title: 'AI Assistant',
-    baseUrl: 'https://your-weknora.example.com',
+    baseUrl: 'https://your-genyee.example.com',
   });
-  WeKnora.setContext({ userId: 'u_123', page: location.pathname }); // 上下文随每次提问注入
-  WeKnora.setLocale('en-US');
-  WeKnora.openWithQuery('如何重置密码？');   // 打开面板并自动发送提问
-  WeKnora.on('ready', () => console.log('widget ready'));
-  // 其他：WeKnora.open() / close() / toggle() / destroy() / off(event, fn)
+  GENYEE.setContext({ userId: 'u_123', page: location.pathname }); // 上下文随每次提问注入
+  GENYEE.setLocale('en-US');
+  GENYEE.openWithQuery('如何重置密码？');   // 打开面板并自动发送提问
+  GENYEE.on('ready', () => console.log('widget ready'));
+  // 其他：GENYEE.open() / close() / toggle() / destroy() / off(event, fn)（同时兼容 window.WeKnora）
 </script>
 ```
 
@@ -77,7 +77,7 @@ publish token 只保存在业务后端，页面通过 `data-token-endpoint` 指�
 也可以不用 loader，直接内嵌 iframe（此时需要通过 URL/postMessage 提供 token，通常建议使用 loader）：
 
 ```html
-<iframe src="https://your-weknora.example.com/embed/渠道UUID"
+<iframe src="https://your-genyee.example.com/embed/渠道UUID"
         width="400" height="600" style="border:none"></iframe>
 ```
 
@@ -127,7 +127,7 @@ A 网站嵌入 B 的 GENYEE 时，白名单填 A。标准 Nginx 使用 `/api/v1/
 
 管理端通过 `frontend/public/config.js` 的 `window.__RUNTIME_CONFIG__.EMBED_BASE_URL` 指定 embed 源站，或使用构建期 `VITE_EMBED_BASE_URL`；留空则跟随当前页面 origin。修改后确认生成的 Widget/iframe 代码指向新地址。
 
-独立 Nginx server 只提供 `/embed/*`、`/weknora-widget.js`、`/assets/*` 和必要的后端代理，不挂管理端 `index.html`。保留标准 `frontend/nginx.conf` 中 `/embed/` 的 `auth_request`、内部 `/_embed-frame-policy` 和 CSP 响应头：获取策略失败时必须拒绝返回页面，网关/CDN 不应缓存或丢弃该策略。
+独立 Nginx server 只提供 `/embed/*`、`/genyee-widget.js`（及兼容路径 `/weknora-widget.js`）、`/assets/*` 和必要的后端代理，不挂管理端 `index.html`。保留标准 `frontend/nginx.conf` 中 `/embed/` 的 `auth_request`、内部 `/_embed-frame-policy` 和 CSP 响应头：获取策略失败时必须拒绝返回页面，网关/CDN 不应缓存或丢弃该策略。
 
 白名单仍填写实际业务宿主 `https://shop.example.com`，安全模式 exchange 声明相同 Origin；不需要为正常同源聊天请求额外加入 embed 源站。Widget 在宿主与 embed 不同源时自动添加 iframe sandbox。验证时从实际宿主打开页面，检查 iframe、API、CSP 和生成代码，不能只在管理端预览。
 
@@ -279,7 +279,7 @@ embed := r.Group("/api/v1/embed/:channel_id", middleware.EmbedAuth(embedService,
 sequenceDiagram
     autonumber
     participant Visitor as "访客浏览器"
-    participant Host as "宿主页面 (weknora-widget.js)"
+    participant Host as "宿主页面 (genyee-widget.js)"
     participant Backend as "业务后端 (安全模式可选)"
     participant Iframe as "嵌入页 SPA (/embed/:channel_id)"
     participant API as "GENYEE API (/api/v1/embed/:channel_id)"
@@ -289,7 +289,7 @@ sequenceDiagram
     Host->>Iframe: 创建 iframe (悬浮面板)
     Iframe-->>Host: postMessage "bootstrap_request"
     alt 安全模式 (data-token-endpoint)
-        Host->>Backend: GET /weknora/embed-token
+        Host->>Backend: GET /genyee/embed-token
         Backend->>API: POST /exchange (Authorization: Embed em_...)
         API-->>Backend: "{ session_token: ems_..., expires_in: 1800 }"
         Backend-->>Host: "{ token: ems_... }"
@@ -304,7 +304,7 @@ sequenceDiagram
     Note over Iframe: session id + sig 存入 localStorage
     Visitor->>Iframe: 输入问题
     Iframe->>API: POST /agent-chat/:session_id (X-Embed-Session: sig)
-    API-->>Webhook: 异步 POST message_sent (X-WeKnora-Signature)
+    API-->>Webhook: 异步 POST message_sent (X-GENYEE-Signature)
     API-->>Iframe: SSE 流式回复
     API-->>Webhook: 异步 POST message_received
     Iframe-->>Host: postMessage "message_received"
@@ -332,6 +332,6 @@ sequenceDiagram
 | 鉴权中间件 | `internal/middleware/embed_auth.go` |
 | 路由注册 | `internal/router/routes_agent.go`（`RegisterEmbedPublicRoutes` / `RegisterEmbedChannelRoutes` / 嵌入页 CSP 策略） |
 | 宿主来源规则 | `internal/embedpolicy/origin.go` |
-| 挂件加载器（SDK） | `frontend/public/weknora-widget.js` |
+| 挂件加载器（SDK） | `frontend/public/genyee-widget.js`（兼容 `frontend/public/weknora-widget.js`） |
 | 嵌入页 SPA 入口 | `frontend/src/embed-main.ts`、`frontend/src/composables/useEmbedBridge.ts`、`useEmbedChatSession.ts` |
 | 数据库迁移 | `migrations/versioned/000060_embed_channels.up.sql` |

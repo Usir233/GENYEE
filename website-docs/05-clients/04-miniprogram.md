@@ -76,7 +76,7 @@ npm test    # 实际执行 node --test ../tests/miniprogram/*.test.js
 - `miniprogram/app.js` — 标准的 `App({...})` 入口，`onLaunch` 时向本地存储写入默认设置；
 - `miniprogram/app.json` — 标准小程序全局配置（`pages`、`window`、`tabBar`）；
 - `miniprogram/app.wxss` — 全局样式；页面均为 `js / wxml / wxss / json` 四件套；
-- `miniprogram/package.json` — 包名 `weknora-miniprogram`（version `0.1.0`），`description` 为 "WeChat Mini Program plugin for WeKnora"，**没有 `dependencies`**，仅有一个测试脚本（见下文「测试」）；
+- `miniprogram/package.json` — 包名 `genyee-miniprogram`（version `0.1.0`），`description` 为 "WeChat Mini Program plugin for GENYEE"，**没有 `dependencies`**，仅有一个测试脚本（见下文「测试」）；
 - `miniprogram/project.config.json` — `compileType: "miniprogram"`，`libVersion: "latest"`（基础库使用最新版），编译选项开启 `es6`、`enhance`、`postcss`、`minified`、`minifyWXSS`、`minifyWXML`，并开启 `urlCheck: true`（合法域名校验）。该文件目前带有 `appid` 字段，自己的 AppID 通过私有配置文件提供（见「构建与发布流程」）。
 
 全局窗口样式：导航栏标题 `GENYEE`，背景色 `#0d3b2a`（深绿），文字白色。

@@ -181,6 +181,7 @@ agent_type_presets:
       supported_file_types:
         - "csv"
         - "xlsx"
+        - "xls"
       kb_selection_mode: "all"
     # data_schema / data_analysis tools read ChunkTypeTableSummary /
     # ChunkTypeTableColumn chunks, which are produced by the normal RAG

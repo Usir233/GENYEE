@@ -1,4 +1,4 @@
-# WeKnora 官网与文档
+# GENYEE 官网与文档
 
 `website-docs/` 包含官网、文档、共享样式和全部构建部署脚本，可独立复制和构建，不依赖仓库外层文件。官网和文档共用一个域名、一次构建和一份部署产物。
 
@@ -31,13 +31,13 @@ npm run package:site
 
 ### 2. 上传并解压
 
-只需把压缩包上传到服务器。服务器不需要 Node.js，也不需要 WeKnora 后端或独立文档服务。
+只需把压缩包上传到服务器。服务器不需要 Node.js，也不需要 GENYEE 后端或独立文档服务。
 
 每次发布使用一个新的空目录，避免混入旧站点文件。下面的 `20261027-v090` 是示例发布编号，后续发布换一个编号：
 
 ```bash
-sudo mkdir -p /srv/www/weknora/releases/20261027-v090
-sudo tar -xzf weknora-site-v0.9.0.tar.gz -C /srv/www/weknora/releases/20261027-v090
+sudo mkdir -p /srv/www/genyee/releases/20261027-v090
+sudo tar -xzf genyee-site-v0.9.0.tar.gz -C /srv/www/genyee/releases/20261027-v090
 ```
 
 解压后该目录下应直接有 `index.html`、`404.html`、`docs/`，无需再套一层 `static-site/`。
@@ -48,12 +48,12 @@ sudo tar -xzf weknora-site-v0.9.0.tar.gz -C /srv/www/weknora/releases/20261027-v
 
 ```nginx
 server_name 你的域名;
-root /srv/www/weknora/releases/20261027-v090;
+root /srv/www/genyee/releases/20261027-v090;
 ```
 
 如果域名已有 HTTPS 配置，保留原来的证书及监听设置，把模板中的 `root`、`index` 和 `location` 规则合入现有站点配置。域名应指向这台服务器。
 
-必须保留文档的 `.html` 路由解析规则；不要把所有未知路径回退到官网 `index.html`。当前构建部署在域名根路径，不支持直接放进 `/weknora/` 等子目录。
+必须保留文档的 `.html` 路由解析规则；不要把所有未知路径回退到官网 `index.html`。当前构建部署在域名根路径，不支持直接放进 `/genyee/` 等子目录。
 
 检查配置后重载：
 
@@ -82,8 +82,8 @@ sudo nginx -s reload
 在仓库根目录执行：
 
 ```bash
-docker build -t weknora-site:0.9.0 website-docs
-docker run -d --name weknora-site --restart unless-stopped -p 8080:80 weknora-site:0.9.0
+docker build -t genyee-site:0.9.0 website-docs
+docker run -d --name genyee-site --restart unless-stopped -p 8080:80 genyee-site:0.9.0
 ```
 
 访问 `http://服务器地址:8080/`。如使用域名和 HTTPS，让现有反向代理转发到该端口即可。镜像内已经包含官网、文档和 Nginx 路由配置。
@@ -91,12 +91,12 @@ docker run -d --name weknora-site --restart unless-stopped -p 8080:80 weknora-si
 容器内的 Nginx 默认监听 80 端口，可以用环境变量 `WEBSITE_NGINX_PORT` 修改，无需重新构建。使用 `--network host`，或者部署平台要求容器监听指定端口时，这样设置：
 
 ```bash
-docker run -d --name weknora-site --restart unless-stopped -e WEBSITE_NGINX_PORT=8080 -p 8080:8080 weknora-site:0.9.0
+docker run -d --name genyee-site --restart unless-stopped -e WEBSITE_NGINX_PORT=8080 -p 8080:8080 genyee-site:0.9.0
 ```
 
 只是想换一个对外端口时，改 `-p` 左侧的宿主机端口就够了，例如 `-p 9000:80`。
 
-也可以只复制 `website-docs/` 目录，在该目录执行 `docker build -t weknora-site:0.9.0 .`。构建上下文必须是 `website-docs/`，宿主机的依赖、旧构建产物和部署包由 `.dockerignore` 排除。
+也可以只复制 `website-docs/` 目录，在该目录执行 `docker build -t genyee-site:0.9.0 .`。构建上下文必须是 `website-docs/`，宿主机的依赖、旧构建产物和部署包由 `.dockerignore` 排除。
 
 从旧文档镜像迁移时，将容器端口映射或反向代理目标端口从 `8081` 改为 `80`（宿主机端口可自行选择，例如 `-p 8081:80`）。域名根路径 `/` 现在提供官网，`/docs/` 提供文档，反向代理需覆盖整个站点并保留请求路径。容器使用 Nginx 官方镜像的默认入口，无需额外的 `docker-entrypoint.sh`。
 
@@ -104,7 +104,7 @@ docker run -d --name weknora-site --restart unless-stopped -e WEBSITE_NGINX_PORT
 
 ```bash
 cd website-docs
-npm run test:docker -- weknora-site:0.9.0
+npm run test:docker -- genyee-site:0.9.0
 ```
 
 ## 本地开发
@@ -142,7 +142,7 @@ npm run test:integration
 - `static-site/`：唯一的部署目录，由构建生成。
 - `deploy/`、`Dockerfile`：Nginx 和 Docker 部署配置。
 - `releases/`：生成的部署压缩包。
-- `embed.go`：把 `01-getting-started/` 至 `07-releases/` 的正文编进 WeKnora 服务端，供内置的 WeKnora 助手检索和引用。新增分类目录时，同步更新 `embed.go` 和 `internal/productdocs/library.go` 中的分类列表。服务端测试会检查每篇正文能否解析、站内链接与锚点是否有效。
+- `embed.go`：把 `01-getting-started/` 至 `07-releases/` 的正文编进 GENYEE 服务端，供内置的 GENYEE 助手检索和引用。新增分类目录时，同步更新 `embed.go` 和 `internal/productdocs/library.go` 中的分类列表。服务端测试会检查每篇正文能否解析、站内链接与锚点是否有效。
 
 品牌素材来源见 [homepage/BRAND-ASSETS.md](homepage/BRAND-ASSETS.md)。v0.9.0 视频、页面、文档和截图随包部署；保留的旧版产品全览使用 GitHub 原始附件，播放需要访问 GitHub。
 
@@ -182,7 +182,7 @@ v0.8.3 首页内容按两层维护：当期版本区以左侧功能导航、右�
 
 v0.9.0 发布日期统一为 2026-10-29。正式 tag、镜像和官网部署的执行状态以主仓库 `docs/release-v0.9.0-audit.md` 为准；发布前完成其中的构建验收与上线检查。
 
-当前首页重点为 WeKnora 助手、多智能体协作、自动化和执行权限。画廊、Wiki、原文引用与浏览器等长期能力保留在对应章节；视频区优先展示 v0.9.0，通过横向标签切换旧版产品全览，共用一个播放器。
+当前首页重点为 GENYEE 助手、多智能体协作、自动化和执行权限。画廊、Wiki、原文引用与浏览器等长期能力保留在对应章节；视频区优先展示 v0.9.0，通过横向标签切换旧版产品全览，共用一个播放器。
 
 - 文档与发布说明：`07-releases/v0.9.0.md`，新增助手、自动化和执行权限三篇指南。
 - 发布截图：助手「产品问答 / 任务协助」使用 `assistant-release-guide.png` 与 `assistant-overview.png`；自动化「一句话设置 / 手动设置」使用 `automation-conversation.png` 与 `automation-setup.png`；另有 `agent-collaboration.png` 和 `assistant-permissions.png`。实际浏览器采集，1920 × 1056，与上一版 3840 × 2112 保持相同宽高比，未放大像素或重绘界面。知识库使用卡片视图。

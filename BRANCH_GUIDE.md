@@ -51,7 +51,7 @@
   4. **上游品牌残留清理与自研镜像参数化**：清除源码、脚本、OpenAPI/Swagger、Helm Chart 及构建产物中的上游品牌残留；将全部自研镜像切换为 `${GENYEE_REGISTRY:-genyee}/genyee-*`，并固定第三方基础设施镜像版本（如 `redis:7.2-alpine` BSD-3-Clause）。
   5. **私有化离线交付包与纯净源码导出机制**：
      - 离线镜像交付包：使用 `./scripts/offline-bundle.sh` 导出全量固定版本镜像、`MANIFEST.json`、`SHA256SUMS` 与 `OFFLINE_LICENSES/`，客户侧通过 `./scripts/offline-load.sh --registry <private-registry>` 一键校验并导入内网仓库。
-     - 客户源码交付规范：**严禁直接将包含 `.git/` 历史与内部审计文档的工作目录打包发给客户**；向客户交付源码时，**必须**运行 `./scripts/export-source.sh`（基于 `.gitattributes` 中的 `export-ignore` 规则自动剔除 `.git/`、`COMMERCIAL_COMPLIANCE_AUDIT.md`、`REBRAND_RESERVED.md`、`BRANCH_GUIDE.md`、`.trellis/`、`.claude/`、`.github/` 等内部维护文件）。
+     - 客户源码交付规范：**严禁直接将包含 `.git/` 历史与内部审计文档的工作目录打包发给客户**；向客户交付源码时，**必须**运行 `./scripts/export-source.sh`（基于 `.gitattributes` 中的 `export-ignore` 规则自动剔除 `.git/`、`COMMERCIAL_COMPLIANCE_AUDIT.md`、`AUDIT_REPORT.md`、`REBRAND_RESERVED.md`、`BRANCH_GUIDE.md`、`test-reports/`、`.trellis/`、`.claude/`、`.github/` 等内部维护文件）。
 - **规则**：
   - 所有商业合规裁剪与默认关闭策略**仅限在此分支进行**，严禁混入 `main` 分支。
   - 当 `main` 分支合并了上游新功能后，如需同步到此分支，应从更新后的 `main` 分支向此分支合并（`main` $\rightarrow$ `chore/commercial-compliance-cleanup`）。

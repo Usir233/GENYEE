@@ -16,8 +16,14 @@ dataset/samples/*.parquet merge=ours
 # AI assistant workspaces, release PoC notes, and CI/git metadata when exporting
 # customer source archives via `git archive` (see scripts/export-source.sh).
 COMMERCIAL_COMPLIANCE_AUDIT.md export-ignore
+AUDIT_REPORT.md export-ignore
 REBRAND_RESERVED.md export-ignore
 BRANCH_GUIDE.md export-ignore
+test-reports export-ignore
+test-reports/** export-ignore
+tests/adversarial export-ignore
+tests/e2e export-ignore
+tests/stress export-ignore
 .trellis export-ignore
 .claude export-ignore
 .agents export-ignore

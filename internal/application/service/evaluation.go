@@ -2,9 +2,13 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
@@ -33,7 +37,7 @@ type EvaluationService struct {
 	sessionService       interfaces.SessionService       // Service for chat sessions
 	modelService         interfaces.ModelService         // Service for model operations
 
-	evaluationMemoryStorage *evaluationMemoryStorage // In-memory storage for evaluation tasks
+	evaluationMemoryStorage *evaluationMemoryStorage // In-memory + local JSON snapshot storage for evaluation tasks
 }
 
 func NewEvaluationService(
@@ -56,25 +60,118 @@ func NewEvaluationService(
 	}
 }
 
-// evaluationMemoryStorage stores evaluation tasks in memory with thread-safe access
+// evaluationMemoryStorage stores evaluation tasks in memory with thread-safe access and optional local JSON persistence
 type evaluationMemoryStorage struct {
-	store map[string]*types.EvaluationDetail // Map of taskID to evaluation details
-	mu    *sync.RWMutex                      // Read-write lock for concurrent access
+	store    map[string]*types.EvaluationDetail // Map of taskID to evaluation details
+	mu       *sync.RWMutex                      // Read-write lock for concurrent access
+	filePath string                             // Optional JSON snapshot file path
+}
+
+func resolveEvaluationStoragePath() string {
+	if p := strings.TrimSpace(os.Getenv("EVALUATION_STORAGE_PATH")); p != "" {
+		return p
+	}
+	if base := strings.TrimSpace(os.Getenv("LOCAL_STORAGE_BASE_DIR")); base != "" {
+		return filepath.Join(base, "evaluation_tasks.json")
+	}
+	return filepath.Join("./data", "evaluation_tasks.json")
 }
 
 func newEvaluationMemoryStorage() *evaluationMemoryStorage {
+	return newEvaluationMemoryStorageWithPath(resolveEvaluationStoragePath())
+}
+
+func newEvaluationMemoryStorageWithPath(filePath string) *evaluationMemoryStorage {
 	res := &evaluationMemoryStorage{
-		store: make(map[string]*types.EvaluationDetail),
-		mu:    &sync.RWMutex{},
+		store:    make(map[string]*types.EvaluationDetail),
+		mu:       &sync.RWMutex{},
+		filePath: filePath,
 	}
+	res.loadFromDisk()
 	return res
+}
+
+func (e *evaluationMemoryStorage) loadFromDisk() {
+	if e.filePath == "" {
+		return
+	}
+	raw, err := os.ReadFile(e.filePath)
+	if err != nil {
+		return
+	}
+	var loaded map[string]*types.EvaluationDetail
+	if err := json.Unmarshal(raw, &loaded); err != nil {
+		logger.Warnf(context.Background(), "Failed to parse evaluation storage file %s: %v", e.filePath, err)
+		return
+	}
+	mutated := false
+	for id, detail := range loaded {
+		if detail == nil || detail.Task == nil {
+			continue
+		}
+		if detail.Task.Status == types.EvaluationStatuePending || detail.Task.Status == types.EvaluationStatueRunning {
+			detail.Task.Status = types.EvaluationStatueFailed
+			if detail.Task.ErrMsg == "" {
+				detail.Task.ErrMsg = "evaluation task interrupted by service restart"
+			}
+			mutated = true
+		}
+		e.store[id] = detail
+	}
+	if mutated {
+		e.persistLocked()
+	}
+}
+
+func (e *evaluationMemoryStorage) persistLocked() {
+	if e.filePath == "" {
+		return
+	}
+	dir := filepath.Dir(e.filePath)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		logger.Warnf(context.Background(), "Failed to create evaluation storage dir %s: %v", dir, err)
+		return
+	}
+	raw, err := json.MarshalIndent(e.store, "", "  ")
+	if err != nil {
+		logger.Warnf(context.Background(), "Failed to serialize evaluation tasks: %v", err)
+		return
+	}
+	tmpPath := e.filePath + ".tmp"
+	if err := os.WriteFile(tmpPath, raw, 0o600); err != nil {
+		logger.Warnf(context.Background(), "Failed to write evaluation snapshot %s: %v", tmpPath, err)
+		return
+	}
+	if err := os.Rename(tmpPath, e.filePath); err != nil {
+		logger.Warnf(context.Background(), "Failed to commit evaluation snapshot %s: %v", e.filePath, err)
+	}
+}
+
+func cloneEvaluationDetail(src *types.EvaluationDetail) *types.EvaluationDetail {
+	if src == nil {
+		return nil
+	}
+	dst := &types.EvaluationDetail{}
+	if src.Task != nil {
+		taskCopy := *src.Task
+		dst.Task = &taskCopy
+	}
+	if src.Params != nil {
+		dst.Params = src.Params.Clone()
+	}
+	if src.Metric != nil {
+		metricCopy := *src.Metric
+		dst.Metric = &metricCopy
+	}
+	return dst
 }
 
 func (e *evaluationMemoryStorage) register(params *types.EvaluationDetail) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	logger.Infof(context.Background(), "Registering evaluation task: %s", params.Task.ID)
-	e.store[params.Task.ID] = params
+	e.store[params.Task.ID] = cloneEvaluationDetail(params)
+	e.persistLocked()
 }
 
 func (e *evaluationMemoryStorage) get(taskID string) (*types.EvaluationDetail, error) {
@@ -85,7 +182,7 @@ func (e *evaluationMemoryStorage) get(taskID string) (*types.EvaluationDetail, e
 	if !ok {
 		return nil, errors.New("task not found")
 	}
-	return res, nil
+	return cloneEvaluationDetail(res), nil
 }
 
 func (e *evaluationMemoryStorage) update(taskID string, fn func(params *types.EvaluationDetail)) error {
@@ -96,6 +193,7 @@ func (e *evaluationMemoryStorage) update(taskID string, fn func(params *types.Ev
 		return errors.New("task not found")
 	}
 	fn(params)
+	e.persistLocked()
 	return nil
 }
 
@@ -285,28 +383,36 @@ func (e *EvaluationService) Evaluation(ctx context.Context,
 		newCtx := logger.CloneContext(ctx)
 		defer func() {
 			if r := recover(); r != nil {
-				detail.Task.Status = types.EvaluationStatueFailed
-				detail.Task.ErrMsg = fmt.Sprintf("panic in background evaluation: %v", r)
+				_ = e.evaluationMemoryStorage.update(taskID, func(params *types.EvaluationDetail) {
+					params.Task.Status = types.EvaluationStatueFailed
+					params.Task.ErrMsg = fmt.Sprintf("panic in background evaluation: %v", r)
+				})
 				logger.Errorf(newCtx, "Evaluation task panicked: %v, task ID: %s", r, taskID)
 			}
 		}()
 		logger.Infof(newCtx, "Background evaluation started for task ID: %s", taskID)
 
 		// Update task status to running
-		detail.Task.Status = types.EvaluationStatueRunning
+		_ = e.evaluationMemoryStorage.update(taskID, func(params *types.EvaluationDetail) {
+			params.Task.Status = types.EvaluationStatueRunning
+		})
 		logger.Info(newCtx, "Evaluation task status set to running")
 
 		// Execute actual evaluation
 		if err := e.EvalDataset(newCtx, detail, knowledgeBaseID); err != nil {
-			detail.Task.Status = types.EvaluationStatueFailed
-			detail.Task.ErrMsg = err.Error()
+			_ = e.evaluationMemoryStorage.update(taskID, func(params *types.EvaluationDetail) {
+				params.Task.Status = types.EvaluationStatueFailed
+				params.Task.ErrMsg = err.Error()
+			})
 			logger.Errorf(newCtx, "Evaluation task failed: %v, task ID: %s", err, taskID)
 			return
 		}
 
 		// Mark task as completed successfully
 		logger.Infof(newCtx, "Evaluation task completed successfully, task ID: %s", taskID)
-		detail.Task.Status = types.EvaluationStatueSuccess
+		_ = e.evaluationMemoryStorage.update(taskID, func(params *types.EvaluationDetail) {
+			params.Task.Status = types.EvaluationStatueSuccess
+		})
 	}()
 
 	logger.Infof(ctx, "Evaluation task created successfully, task ID: %s", taskID)
@@ -371,7 +477,6 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 
 	// Initialize parallel evaluation metrics
 	var finished int
-	var mu sync.Mutex
 	var g errgroup.Group
 	metricHook := NewHookMetric(len(dataset))
 
@@ -416,13 +521,10 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 			metricHook.recordChatResponse(i, chatManage.ChatResponse)
 			metricHook.recordFinish(i)
 
-			// Update progress metrics
-			mu.Lock()
-			finished += 1
-			metricResult := metricHook.MetricResult()
-			mu.Unlock()
-			e.evaluationMemoryStorage.update(detail.Task.ID, func(params *types.EvaluationDetail) {
-				params.Metric = metricResult
+			// Update progress metrics atomically under storage lock
+			_ = e.evaluationMemoryStorage.update(detail.Task.ID, func(params *types.EvaluationDetail) {
+				finished += 1
+				params.Metric = metricHook.MetricResult()
 				params.Task.Finished = finished
 				logger.Infof(ctx, "Updated task progress: %d/%d completed", finished, params.Task.Total)
 			})
@@ -438,7 +540,7 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 	}
 
 	// Final update of evaluation metrics
-	e.evaluationMemoryStorage.update(detail.Task.ID, func(params *types.EvaluationDetail) {
+	_ = e.evaluationMemoryStorage.update(detail.Task.ID, func(params *types.EvaluationDetail) {
 		params.Metric = metricHook.MetricResult()
 		params.Task.Finished = finished
 	})

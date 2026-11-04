@@ -92,18 +92,18 @@ try {
   assert.equal(context.pages().length, 1);
 
   // Navigation to the current release feature docs, returning through the explicit home link.
-  await page.locator('#release').getByRole('button', { name: 'WeKnora 助手 了解 WeKnora，也帮你处理任务', exact: true }).click();
+  await page.locator('#release').getByRole('button', { name: 'GENYEE 助手 了解 GENYEE，也帮你处理任务', exact: true }).click();
   await page.locator('#release a[href="/docs/03-features/26-weknora-assistant.html"]').click();
   await page.waitForSelector('.VPDoc h1');
   assert.equal(new URL(page.url()).pathname, '/docs/03-features/26-weknora-assistant.html');
-  assert.match(await page.locator('.VPDoc h1').innerText(), /WeKnora 助手/);
+  assert.match(await page.locator('.VPDoc h1').innerText(), /GENYEE 助手/);
   await page.locator('.wk-brand').click();
   await homepage();
   assert.equal(context.pages().length, 1);
 
   // Release and overview films share a player and load only after a playback gesture.
   const releaseFilm = page.getByRole('button', { name: /^v0\.9\.0 工作助手/ });
-  const overviewFilm = page.getByRole('button', { name: /^WeKnora 产品全览/ });
+  const overviewFilm = page.getByRole('button', { name: /^GENYEE 产品全览/ });
   assert.equal(await page.locator('#demo video').count(), 1);
   assert.equal(await releaseFilm.getAttribute('aria-pressed'), 'true');
   assert.equal(await page.locator('#demo video').getAttribute('src'), null);
@@ -119,7 +119,7 @@ try {
   assert.equal(await overviewFilm.getAttribute('aria-pressed'), 'true');
   assert.equal(await page.locator('#demo video').getAttribute('src'), null);
   assert.equal(await page.locator('#video-caption a').getAttribute('href'), 'https://github.com/user-attachments/assets/2819598d-3140-4623-814a-8162a22b653c');
-  assert.ok(await page.getByRole('button', { name: '播放 WeKnora 产品全览视频，2 分 25 秒', exact: true }).isVisible());
+  assert.ok(await page.getByRole('button', { name: '播放 GENYEE 产品全览视频，2 分 25 秒', exact: true }).isVisible());
   await releaseFilm.focus();
   await page.keyboard.press('Enter');
   assert.equal(await releaseFilm.getAttribute('aria-pressed'), 'true');

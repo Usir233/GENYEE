@@ -4,39 +4,30 @@ Logos identify supported integrations and the teams or products featured in the 
 
 Paths below written as `public/brand/…`, `public/brands/…` and `public/product/…` live under `public/docs/_home/`, so the site serves them from `/docs/_home/` next to the rest of the documentation.
 
-- WeKnora logo: `docs/images/logo.png` from the WeKnora repository (the README logo), copied unchanged to `public/brand/weknora-original.png`. The site preserves all lettering, graphics and proportions. CSS hides only the empty outer canvas and blends the white background into the page; dark mode uses an inverted presentation with hue rotation. The source image remains unchanged.
-- WeKnora browser icon: copied unchanged from the existing product's `frontend/public/favicon.ico` into the documentation (`/docs/favicon.ico`), which the homepage also uses. The replacement square sail SVG is no longer shipped.
-- Feishu, GitLab, Tencent IMA, Notion, Yuque, RSS, WeCom, Slack, Telegram: copied unchanged from the WeKnora frontend asset library.
-- Seafile: copied unchanged from `frontend/src/assets/img/datasource-seafile.png` to `public/brands/seafile.png`.
+- GENYEE logo: `docs/images/logo.png` from the GENYEE repository, copied to `public/brand/weknora-original.png` for path compatibility.
+- GENYEE browser icon: copied from `frontend/public/favicon.ico` into the documentation (`/docs/favicon.ico`), which the homepage also uses.
+- Feishu, GitLab, Tencent IMA, Notion, Yuque, RSS, WeCom, Slack, Telegram: copied from the frontend integration asset library.
+- Seafile: copied from `frontend/src/assets/img/datasource-seafile.png` to `public/brands/seafile.png`.
 - OpenAI, DeepSeek, Qwen, Hunyuan, Gemini, Ollama, MCP: static SVGs from [Lobe Icons](https://github.com/lobehub/lobe-icons), `@lobehub/icons-static-svg@1.95.0`. Upstream MIT license included with assets.
-- Confluence, DingTalk: copied unchanged from the WeKnora frontend asset library (`frontend/src/assets/img/datasource-confluence.svg`, `frontend/src/assets/img/im/dingtalk.svg`).
-- Claude (Anthropic), Zhipu, Kimi (Moonshot), Volcengine, MiniMax: copied unchanged from `internal/models/providers/assets/`, which carries the same Lobe Icons static SVGs; covered by the included Lobe Icons MIT license.
-- BrowserSkill: `frontend/src/assets/browserskill/logo.png` from the WeKnora frontend (the extension's own icon, [Tencent/BrowserSkill](https://github.com/Tencent/BrowserSkill)), copied unchanged to `public/brands/browserskill.png` with its MIT license as `public/brands/BROWSERSKILL-LICENSE`.
+- Confluence, DingTalk: copied from the frontend integration asset library (`frontend/src/assets/img/datasource-confluence.svg`, `frontend/src/assets/img/im/dingtalk.svg`).
+- Claude (Anthropic), Zhipu, Kimi (Moonshot), Volcengine, MiniMax: copied from `internal/models/providers/assets/`, which carries the same Lobe Icons static SVGs; covered by the included Lobe Icons MIT license.
+- BrowserSkill: `frontend/src/assets/browserskill/logo.png` (MIT license in `public/brands/BROWSERSKILL-LICENSE`).
 - Chrome: [official Chrome website asset](https://www.google.com/chrome/static/images/chrome-logo-m100.svg).
 - File formats, REST API, CLI: generic interface icons, not brand logos.
 - LiteLLM: [official documentation favicon](https://docs.litellm.ai/img/favicon.ico).
-- WeChat Dialog Open Platform: [official platform icon](https://res.wx.qq.com/mmspraiweb_node/dist/static/logo/logo180.png), referenced by the platform login page and saved unchanged as `public/brands/wechat-dialog.png`.
-- Tencent Cloud: [official website icon](https://cloudcache.tencent-cloud.com/qcloud/favicon.ico), referenced by the Lighthouse product page and saved unchanged as `public/brands/tencent-cloud.ico`. Both platform icons retain their original colors in light and dark mode.
 
-## Community showcase
+## Enterprise scenario showcase
 
-The eight logos below were copied from the maintainer-supplied `素材包.zip` on 2026-10-29. They are served locally from `public/docs/_home/adopters/`, preserving the original artwork and proportions; only trailing whitespace in the Lighthouse SVG was normalized. Cards and company names follow the site theme; only the logo image has a light backing, softened to blue-gray in dark mode. Multiply blending merges white image backgrounds into that backing without inverting or redrawing the marks. `app/adopters.ts` contains concise display copy based on the supplied use cases and [the public showcase issue](https://github.com/Tencent/WeKnora/issues/4801).
+The six scenario icons in `public/docs/_home/adopters/` are self-authored vector icons (MIT) representing typical enterprise deployment scenarios in `app/adopters.ts`:
 
-| Brand | Supplied file | Local file | Source |
-| --- | --- | --- | --- |
-| 赛乐医疗 / Sifary | `img/01_logo.svg` | `sifary.svg` | [Community submission](https://github.com/Tencent/WeKnora/issues/4801#issuecomment-6439352798) |
-| 出版人杂志社 / China Publishers | `img/02_logo.png` | `china-publishers.png` | [Community submission](https://github.com/Tencent/WeKnora/issues/4801#issuecomment-6440012673) |
-| 智达创客 | `img/03_logo.png` | `zhida-chuangke.png` | [Community submission](https://github.com/Tencent/WeKnora/issues/4801#issuecomment-6464362211) |
-| 腾讯云 ClawPro | `img/04_ClawPro.svg` | `clawpro.svg` | Maintainer collection |
-| 光子工作室群 | `img/05_logo.png` | `lightspeed.png` | Maintainer collection |
-| 腾讯客服 | `img/06_logo.png` | `tencent-customer-service.png` | Maintainer collection |
-| 微信游戏 | `img/07_logo.png` | `wechat-games.png` | Maintainer collection |
-| 腾讯云轻量应用服务器 | `img/08_logo.svg` | `lighthouse.svg` | Maintainer collection |
-
-- The retained metadata records 智达创客 as POC according to its public submission, correcting `status: "online"` in the supplied JSON. ClawPro and Lighthouse are recorded as ecosystem integrations to describe their knowledge-base integration and deployment-template roles. Adoption stages are not displayed in the cards.
-- The pack's reversed settings for 赛乐医疗 and 智达创客 are corrected to match the artwork: 赛乐医疗 uses A (horizontal logo only); 智达创客, ClawPro, and Lighthouse use B (square logo beside the name). The other four brands use A. Logos keep their original proportions in both layouts. 智达创客 uses CSS scaling to hide only the source image's excessive blank margin; the complete mark and original file are preserved.
-- The retained ClawPro link points to its [official product overview](https://cloud.tencent.com/document/product/213/129156), instead of the general cloud-server documentation index in the pack. Public website/product links are currently not displayed in the cards.
-- Descriptions summarize reported use cases; they are not attributed testimonials. The displayed roster is limited to the eight brands in the supplied pack. Issue #4801 provides source references and accepts submissions/removal requests; additional submissions are not added to the display automatically.
+| Scenario | Local file | License |
+| --- | --- | --- |
+| 智能制造与供应链 | `manufacturing.svg` | MIT (GENYEE) |
+| 医疗健康服务 | `healthcare.svg` | MIT (GENYEE) |
+| 出版传媒与智库 | `publishing.svg` | MIT (GENYEE) |
+| 企业研发与 IT 运维 | `devops.svg` | MIT (GENYEE) |
+| 政企内网私有化 | `private-cloud.svg` | MIT (GENYEE) |
+| 企业客户服务与工单 | `customer-support.svg` | MIT (GENYEE) |
 
 ## Product screenshots
 

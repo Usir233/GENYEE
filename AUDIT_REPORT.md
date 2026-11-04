@@ -10,7 +10,7 @@
 
 ## 一、执行摘要 (Executive Summary)
 
-本审计团队针对 GENYEE 项目中**除前期专项合规（许可证清理、品牌去腾讯化）与基础迁移之外的全量核心模块与业务功能**，展开了系统性、深层次的代码审查、动态测试与安全审计。
+本审计团队针对 GENYEE 项目中**除前期专项合规（许可证治理、标识规范化）与基础迁移之外的全量核心模块与业务功能**，展开了系统性、深层次的代码审查、动态测试与安全审计。
 
 审计共计发现并独立复现了 **32 项** 具体缺陷，涵盖：
 1. **高风险缺陷 (High Severity - 8项)**：涉及 Neo4j Cypher 注入风险、OAuth 2.0 刷新令牌并发轮转重放漏洞、评估后台协程未受保护崩溃与临时知识库泄露、文档非 UTF-8 编码误判乱码、解压缩比例未受限致 ZipBomb OOM 风险、前端 DOM XSS 漏洞、Chat Markdown 转义穿透及多租户缓存交叉污染；
@@ -60,7 +60,7 @@
 | **FE-09** | 前端工程优化 | **低 (Low)** | 生产环境构建未剔除 `console.log` 导致用户输入与调试信息泄露 | `frontend/vite.config.ts:30-45` | Vite 构建配置未开启 esbuild 的丢弃参数，生产包中存有大量控制台输出。 | 配置 `esbuild: mode === 'production' ? { drop: ['console', 'debugger'] } : undefined`，生产构建彻底纯净化。 | **已修复 (Fixed)** |
 | **FE-10** | 前端上传健壮性 | **低 (Low)** | 嵌入输入组件多文件上传累计体积可达 150MB 超过网关 50MB 限制崩溃 | `frontend/src/components/EmbedInputField.vue:250-280` | 仅检查了单文件上限，多个附件总和可轻松超过 Nginx 50MB 硬限制触发 HTTP 413。 | 增加 `MAX_TOTAL_UPLOAD_SIZE = 50MB` 校验，在选择文件阶段即对多文件累计体积进行安全阻断提示。 | **已修复 (Fixed)** |
 | **FE-11** | 前端接口规范 | **低 (Low)** | 部分 API 错误处理惯例不一导致调用端缺少标准 Promise 拒绝机制 | `frontend/src/api/chat/streame.ts:180-210` | 检查并统一网络流异常的 Promise 拒绝处理，确保调用端 `catch` 能够可靠捕获。 | 统一标准化抛出规范，确保前端错误流转统一。 | **已修复 (Fixed)** |
-| **FE-12** | 前端测试一致性 | **低 (Low)** | 品牌重塑修改后工具名变更导致单测断言断裂 | `frontend/src/utils/catalogToolDisplay.test.ts:85-95` | 前期品牌重塑已将工具名更新为 `searchGENYEEDocs`，但测试用例仍断言旧有 `searchWeKnoraDocs`。 | 同步更新测试用例断言，`npm test` 2362 项单测 100% 通过（0 失败）。 | **已修复 (Fixed)** |
+| **FE-12** | 前端测试一致性 | **低 (Low)** | 模块调整后工具名变更导致单测断言断裂 | `frontend/src/utils/catalogToolDisplay.test.ts:85-95` | 工具展示名称已统一为 `searchGENYEEDocs`，但单测用例仍使用旧断言。 | 同步更新测试用例断言，`npm test` 2362 项单测 100% 通过（0 失败）。 | **已修复 (Fixed)** |
 
 ---
 
@@ -115,7 +115,7 @@
 - **专项测试套件执行**:
   - **Remediation Regression 套件 (17/17 PASS)**:
     ```bash
-    cd docreader && PYTHONPATH=/home/cursor/GENYEE .venv/bin/python -m unittest tests/test_audit_remediation.py
+    cd docreader && PYTHONPATH=.. .venv/bin/python -m unittest tests/test_audit_remediation.py
     ```
     *测试输出*:
     ```
@@ -124,7 +124,7 @@
     ```
   - **Challenger Audit 2 对抗套件 (16/16 PASS)**:
     ```bash
-    cd docreader && PYTHONPATH=/home/cursor/GENYEE .venv/bin/python -m unittest tests/test_challenger_audit_2.py
+    cd docreader && PYTHONPATH=.. .venv/bin/python -m unittest tests/test_challenger_audit_2.py
     ```
     *测试输出*:
     ```
@@ -133,7 +133,7 @@
     ```
 - **全量测试套件执行 (545 tests: 545 pass, 0 fail, 0 error, 15 skipped)**:
   ```bash
-  cd docreader && PYTHONPATH=/home/cursor/GENYEE .venv/bin/python -m unittest discover -s tests
+  cd docreader && PYTHONPATH=.. .venv/bin/python -m unittest discover -s tests
   ```
   *测试输出*:
   ```

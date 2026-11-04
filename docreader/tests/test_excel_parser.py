@@ -887,7 +887,10 @@ def _build_synthetic_drawings_xlsx(rows: list, anchors: list[dict]) -> bytes:
 class ExcelRealWorkloadImageTest(unittest.TestCase):
     """Tier 4 Workload: Validate real-world Excel supplier sheet with embedded images."""
 
-    SAMPLE_PATH = "/root/.cursor/projects/home-cursor/uploads/ee547e04-d882-41d6-ae25-f9088c077369/储能设备采购供应商明细_含图片.xlsx"
+    SAMPLE_PATH = os.environ.get(
+        "EXCEL_WORKLOAD_SAMPLE_PATH",
+        "local-test-data/supplier_sample_with_images.xlsx",
+    )
 
     def setUp(self):
         if not os.path.isfile(self.SAMPLE_PATH):

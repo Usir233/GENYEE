@@ -85,13 +85,13 @@ curl -X DELETE "$BASE/api/v1/memory/documents/affinity-1" \
 
 ## 导出与立即整理
 
-`GET /memory/export` 返回 `{success,total,truncated,data}`，带下载文件名 `weknora-memories.json`。最多导出 20,000 条，触及上限时检查 truncated。
+`GET /memory/export` 返回 `{success,total,truncated,data}`，带下载文件名 `genyee-memories.json`。最多导出 20,000 条，触及上限时检查 truncated。
 
 `POST /memory/consolidate` 返回 `{success,data:{merged,demoted,expired,reviewed,candidates,skipped?}}`，立即合并近义条目、归档到期事项。没有变化时 skipped 说明原因。
 
 ```bash
 curl "$BASE/api/v1/memory/export" -H "Authorization: Bearer $TOKEN" \
-  -o weknora-memories.json
+  -o genyee-memories.json
 curl -X POST "$BASE/api/v1/memory/consolidate" -H "Authorization: Bearer $TOKEN"
 ```
 

@@ -1,5 +1,5 @@
 {{/*
-Copyright 2025 Tencent
+Copyright 2026 GENYEE
 SPDX-License-Identifier: MIT
 
 GENYEE Helm Chart Template Helpers
@@ -64,7 +64,7 @@ helm.sh/chart: {{ include "weknora.chart" . }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
-app.kubernetes.io/part-of: weknora
+app.kubernetes.io/part-of: genyee
 {{- end }}
 
 {{/*

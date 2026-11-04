@@ -1,8 +1,8 @@
 {{/*
-Copyright 2025 Tencent
+Copyright 2026 GENYEE
 SPDX-License-Identifier: MIT
 
-WeKnora Backend API Server Deployment and Service.
+GENYEE Backend API Server Deployment and Service.
 */}}
 {{- if .Values.app.enabled }}
 apiVersion: apps/v1

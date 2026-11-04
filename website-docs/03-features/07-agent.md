@@ -38,9 +38,9 @@ v0.9.0 新增内置 [GENYEE 助手](26-weknora-assistant.md)，可查阅产品�
 3. 根据任务启用联网搜索或选择 MCP 工具；运行技能脚本时还需绑定已安装技能的沙箱。
 4. 保存后在对话页选择该智能体，完成一次提问，检查回答来源与工具结果。
 
-初次使用可直接选择内置智能体。快速问答适用于文档查询；数据分析智能体面向 CSV 和 Excel；Wiki 智能体用于浏览和维护 Wiki 内容。
+初次使用可直接选择内置智能体。快速问答适用于文档查询；数据分析智能体面向 CSV 和 Excel（`.csv`、`.xlsx`、`.xls`）；Wiki 智能体用于浏览和维护 Wiki 内容。
 
-XLSX 表格分析和表格摘要会跳过只有格式、没有单元格内容的工作表，避免空表被解析为大量虚假列。包含表头、公式、零值或布尔值的工作表仍交由原解析器处理；若所有已枚举工作表都没有内容，会返回明确错误。此处理不修改源文件，也不自动重建已生成的摘要。
+XLSX / XLS 表格分析和表格摘要会跳过只有格式、没有单元格内容的工作表，避免空表被解析为大量虚假列（旧版 BIFF8 `.xls` 文件会先由内置 `legacyxls` 自动转换为 `.xlsx` 再载入 DuckDB）。包含表头、公式、零值或布尔值的工作表仍交由原解析器处理；若所有已枚举工作表都没有内容，会返回明确错误。此处理不修改源文件，也不自动重建已生成的摘要。
 
 智能体配置的思考强度（`reasoning_effort`）是默认值，对话时可在输入框临时调整；智能推理回答生成期间还可以继续补充要求。见[会话与对话体验](18-chat-experience.md)。
 
@@ -87,7 +87,7 @@ smart-reasoning 下还可选**类型预设**（`Config.AgentType`，定义在 `c
 | `rag-qa` | `progressive_rag_agent` | 0.7 | 30 | search_knowledge、read_document、list_documents | 由工具派生：any_of vector/keyword |
 | `wiki-qa` | `wiki_researcher` | 0.7 | 30 | wiki_search、wiki_read_page、read_document、wiki_flag_issue | 由工具派生：any_of wiki |
 | `hybrid-rag-wiki` | `hybrid_rag_wiki_agent` | 0.7 | 40 | wiki_search、wiki_read_page、search_knowledge、read_document、list_documents、wiki_flag_issue | any_of vector/keyword/wiki |
-| `data-analysis` | `data_analyst` | 0.3 | 30 | data_schema、data_analysis；关闭 web 搜索；限定文件类型 csv/xlsx | 显式 `none_of: [faq]` |
+| `data-analysis` | `data_analyst` | 0.3 | 30 | data_schema、data_analysis；关闭 web 搜索；限定文件类型 csv/xlsx/xls | 显式 `none_of: [faq]` |
 | `custom` | 无 | — | — | 不预填 | 不限制 |
 
 `thinking` 和 `todo_write` 默认不包含在预设工具中，使用时需手动选择；启用会增加 token 开销。
@@ -112,7 +112,7 @@ smart-reasoning 下还可选**类型预设**（`Config.AgentType`，定义在 `c
 | 记忆 | `memory_enabled` | nil 继承空间，false 禁用本智能体的记忆读写 |
 | 知识库 | `kb_selection_mode`（all/selected/none）、`knowledge_bases`、`retrieve_kb_only_when_mentioned`、`retain_retrieval_history` | retain=true 时历史 KB 检索结果不脱敏 |
 | 多模态 | `image_upload_enabled`、`vlm_model_id`、`audio_upload_enabled`、`asr_model_id`、`image_storage_provider` | VLM 也用于 MCP 工具返回图片的描述 |
-| 文件 | `supported_file_types`、`chat_parser_engine_rules`、`attachment_image_understanding`、`attachment_ocr_max_pages`、`attachment_parse_wait_timeout_sec` | 数据分析型 Agent 常限定 csv/xlsx |
+| 文件 | `supported_file_types`、`chat_parser_engine_rules`、`attachment_image_understanding`、`attachment_ocr_max_pages`、`attachment_parse_wait_timeout_sec` | 数据分析型 Agent 常限定 csv/xlsx/xls |
 | FAQ | `faq_priority_enabled`、`faq_direct_answer_threshold`、`faq_score_boost` | — |
 | Web | `web_search_enabled`、`web_search_max_results`、`web_search_provider_id`、`web_fetch_enabled`、`web_fetch_top_n` | max_results 默认 5；`web_fetch_*` 只作用于 quick-answer 管道，智能推理由模型自行调用 `web_fetch` |
 | 多轮 | `multi_turn_enabled`、`history_turns` | history_turns 默认 5，只约束普通模式（KnowledgeQA）；smart-reasoning 强制 multi_turn，历史按上下文窗口加载，不读 history_turns |
@@ -142,7 +142,7 @@ Handler 层（`internal/handler/custom_agent.go`）提供 `CreateAgent`、`GetAg
 | --- | --- | --- | --- |
 | `builtin-quick-answer` | 快速问答 | `quick-answer` | 模板 `default_kb` + `default_context`；temperature 0.7；FAQ 优先（直接回答阈值 0.9、加权 1.2）；query expansion + rewrite；web 搜索开、5 条；不进 Agent 引擎 |
 | `builtin-smart-reasoning` | 智能推理 | `smart-reasoning` / `rag-qa` | `max_iterations: 50`；工具：search_knowledge、read_document、list_documents、query_knowledge_graph；web 搜索开；多轮（历史按上下文窗口加载） |
-| `builtin-data-analyst` | 数据分析师 | `smart-reasoning` / `data-analysis` | 模板 `data_analyst`；temperature 0.3；`max_iterations: 30`；工具仅 data_schema + data_analysis；限定 csv/xlsx；关闭 web 搜索；多轮（历史按上下文窗口加载） |
+| `builtin-data-analyst` | 数据分析师 | `smart-reasoning` / `data-analysis` | 模板 `data_analyst`；temperature 0.3；`max_iterations: 30`；工具仅 data_schema + data_analysis；限定 csv/xlsx/xls；关闭 web 搜索；多轮（历史按上下文窗口加载） |
 | `builtin-wiki-researcher` | 维基问答 | `smart-reasoning` / `wiki-qa` | 模板 `wiki_researcher`；`max_iterations: 30`；工具：wiki_search、wiki_read_page、read_document、wiki_flag_issue（只读 + 报障）；关闭 web 搜索 |
 | `builtin-wiki-fixer` | 维基修订 | `smart-reasoning` / `custom` | 模板 `wiki_fixer`；`retain_retrieval_history: true`（修订需要跨轮记住页面内容）；工具共 9 个：wiki_search、wiki_read_page、read_document、wiki_write_page、wiki_replace_text、wiki_rename_page、wiki_delete_page、wiki_read_issue、wiki_update_issue（不含 wiki_flag_issue）；`kb_selection_mode: selected` |
 | `builtin-skill-installer` | 技能安装器 | `smart-reasoning` / `custom` | 模板 `skill_installer`；temperature 0.2；`max_completion_tokens: 24576`；`max_iterations: 30`；工具：shell_exec、write_skill_file、edit_skill_file；`kb_selection_mode: none`；由沙箱配置的技能上传流程调用 |
@@ -422,8 +422,8 @@ flowchart TD
 | `list_documents` | `knowledge_base_id`\*（`bN`）、`keyword`（按标题或文件名子串过滤）、`page`（默认 1）、`page_size`（默认 20，上限 100） | 分页列出单个知识库的文档，返回可直接交给 `read_document` 的 `dN` 句柄 |
 | `query_knowledge_graph` | `knowledge_base_ids[]`\*（1–10 个 `bN`）、`query`\*（实体名或包含实体名的问题） | 并发查询各 KB 知识图谱：用查询本身及其分词后的较长词条在图存储中按名称匹配实体，返回实体间关系（`relations`，模型视图中为 `<relation>`）与实体来源分块（排在最前），再附上文本检索命中；各 KB 的失败以 `<error>` 告知模型；只有当作用域内存在启用图谱的 KB 时才会提供给模型（`agent_service.go` 装配白名单时移除），能力要求 `all_of: [graph]` |
 | `database_query` | `sql`\*（仅 SELECT） | 只读查询白名单表（`knowledge_bases`/`knowledges`/`chunks`），自动注入 tenant_id 过滤与 `deleted_at IS NULL`；SQL 参数在 UI/Langfuse 中脱敏 |
-| `data_schema` | `knowledge_id`\*（`dN`） | 读取 CSV/Excel 文件的 `table_summary` + `table_column` 类型分块，返回列信息与行数；并告知模型该文档在 `data_analysis` 中固定以表名 `dataset` 访问 |
-| `data_analysis` | `knowledge_id`\*、`sql`\* | 把 CSV/Excel 载入 DuckDB 后执行 SQL。文档由 `knowledge_id` 选定，SQL 中固定以表名 `dataset` 引用它（每次查询在独立连接上建临时视图映射到物理表，模型永远不需要在 SQL 里写文档 ID）；多 Sheet Excel 合并为一张表并暴露 `__sheet_name` 列；自动纠正列名大小写/空格差异；会话结束 Cleanup 时 DROP 所建表 |
+| `data_schema` | `knowledge_id`\*（`dN`） | 读取 CSV/Excel（`.csv`/`.xlsx`/`.xls`）文件的 `table_summary` + `table_column` 类型分块，返回列信息与行数；并告知模型该文档在 `data_analysis` 中固定以表名 `dataset` 访问 |
+| `data_analysis` | `knowledge_id`\*、`sql`\* | 把 CSV/Excel（`.csv`/`.xlsx`/`.xls`，其中 `.xls` 自动经 `legacyxls` 转换为 `.xlsx`）载入 DuckDB 后执行 SQL。文档由 `knowledge_id` 选定，SQL 中固定以表名 `dataset` 引用它（每次查询在独立连接上建临时视图映射到物理表，模型永远不需要在 SQL 里写文档 ID）；多 Sheet Excel 合并为一张表并暴露 `__sheet_name` 列；自动纠正列名大小写/空格差异；会话结束 Cleanup 时 DROP 所建表 |
 | `web_search` | `query`\*，可选 `count`（不超过配置上限，最多 20）、`country`（两位国家码或 `ALL`）、`freshness`（`pd`/`pw`/`pm`/`py`，Brave 另支持日期区间）、`content` | 联网搜索，直接返回提供商的标题、摘要和 `wN` 页面短 ID；按任务需要选择知识库或联网检索，Agent 搜索不再自动进行 RAG 压缩；`country`/`freshness` 仅出现在 Brave、Serply 与 SearchApi 的 schema 中；`content=true` 在 15 秒内并行抓取前 3 条结果、各取 5000 字符正文摘录（DeepSeek 经其 Fetch API 读取） |
 | `web_fetch` | `items[]`\*（每项 `url`\*=`wN` 或 HTTP(S) URL，可选 `offset`、`limit`；`limit` 按字符计，默认且最多 8000，多项共享输出预算） | 并发抓取最多 8 个网页（SSRF 安全客户端 + DNS pinning，必要时 chromedp 渲染），直接返回 Markdown 或支持的文本正文；单页预算默认 3 分钟（`WEKNORA_WEB_FETCH_TIMEOUT`，HTTP 与 chromedp 共用）。按字符分页，使用 `next_offset` 续读；完整正文保存在 `full_output_path`（`web://` 地址，仅同一会话可读），可用 `read_file` 跨轮按行读取；逐 URL 返回 `success`/`failed`/`skipped` 状态与可重试错误码（如快照已过期的 `snapshot_expired`），部分失败不影响其它页面 |
 | `read_file` | `path`\*、`offset`（从 1 开始的行号）、`limit`（默认 2000 行）、`max_bytes`（上限 64 KiB，网页快照 50 KiB）；网页可带 `line_offset` | 读取工作区文本、skill:// 资源、web:// 网页快照及 attachment:// 会话附件，按结果续读；附件支持按需阅读、等待后台解析及指定图片读取，见[会话体验](18-chat-experience.md#使用临时附件提问) |

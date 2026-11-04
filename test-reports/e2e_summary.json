@@ -3,7 +3,7 @@
   "environment": {
     "base_url": "http://127.0.0.1:80",
     "browser": "Google Chrome (Headless)",
-    "test_user": "zhanshun.bao@gamil.com",
+    "test_user": "admin@example.com",
     "playwright_version": "1.55.0"
   },
   "execution": {
@@ -27,7 +27,7 @@
         "logo_alt": "GENYEE",
         "logo_src": "/assets/genyee-CzENVNNW.png",
         "form_fields_present": true,
-        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/01_login_page.png"
+        "screenshot_saved": "test-reports/screenshots/01_login_page.png"
       },
       "error": null,
       "timestamp": "2026-10-31T10:53:27.528052+00:00"
@@ -41,12 +41,12 @@
       "details": {
         "login_http_status": 200,
         "user_id": "8a18ad5e-eb1b-411f-9e6b-5490991c7d8c",
-        "username": "zhanshun.bao",
+        "username": "admin",
         "tenant_id": 10000,
         "current_url": "http://127.0.0.1/platform/knowledge-bases",
         "token_length": 283,
-        "user_json_preview": "{\"id\":\"8a18ad5e-eb1b-411f-9e6b-5490991c7d8c\",\"username\":\"zha...",
-        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/02_auth_success.png"
+        "user_json_preview": "{\"id\":\"8a18ad5e-eb1b-411f-9e6b-5490991c7d8c\",\"username\":\"adm...",
+        "screenshot_saved": "test-reports/screenshots/02_auth_success.png"
       },
       "error": null,
       "timestamp": "2026-10-31T10:53:29.047154+00:00"
@@ -59,7 +59,7 @@
       "screenshot": "03_dashboard_workspace.png",
       "details": {
         "header_logo_visible": true,
-        "user_menu_text": "Z zhanshun.bao zhanshun.bao@gamil.com",
+        "user_menu_text": "A admin admin@example.com",
         "nav_items": [
           "新对话",
           "知识库",
@@ -69,12 +69,12 @@
           "工具箱",
           "共享空间"
         ],
-        "has_kb_lyzl": true,
-        "has_kb_cpxx": true,
+        "has_kb_docs": true,
+        "has_kb_ops": true,
         "has_kb_faq": true,
         "has_55_docs": true,
         "has_15_docs": true,
-        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/03_dashboard_workspace.png"
+        "screenshot_saved": "test-reports/screenshots/03_dashboard_workspace.png"
       },
       "error": null,
       "timestamp": "2026-10-31T10:53:29.439222+00:00"
@@ -104,7 +104,7 @@
         "has_system_settings_header": true,
         "has_language_setting": true,
         "has_theme_setting": true,
-        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/04_settings_compliance.png"
+        "screenshot_saved": "test-reports/screenshots/04_settings_compliance.png"
       },
       "error": null,
       "timestamp": "2026-10-31T10:53:33.009275+00:00"
@@ -119,16 +119,16 @@
         "greeting_text": "Hi，我是 GENYEE，让你的知识触手可及",
         "composer_ready": true,
         "suggested_questions_count": 6,
-        "selected_question": "年6月公司长库龄库存的分布情况及",
+        "selected_question": "系统支持哪些核心检索与文档解析能力",
         "session_creation_status": 201,
         "created_session_id": "a085213c-b108-4f9b-9418-792c09c2fefd",
         "chat_url": "http://127.0.0.1/platform/chat/a085213c-b108-4f9b-9418-792c09c2fefd",
         "messages_rendered_count": 2,
         "sample_messages": [
-          "年6月公司长库龄库存的分布情况及 10:53 图片无法显示 预览",
-          "正在理解问题... 图片无法显示 预览"
+          "系统支持哪些核心检索与文档解析能力 10:53",
+          "正在理解问题..."
         ],
-        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/05_chat_interaction.png"
+        "screenshot_saved": "test-reports/screenshots/05_chat_interaction.png"
       },
       "error": null,
       "timestamp": "2026-10-31T10:53:38.954191+00:00"
@@ -140,7 +140,7 @@
       "duration_ms": 3000.67,
       "screenshot": "06_kb_detail_documents.png",
       "details": {
-        "breadcrumb_text": "知识库 历年资料 文档 Wiki 图谱 画廊",
+        "breadcrumb_text": "知识库 企业知识文档库 文档 Wiki 图谱 画廊",
         "tabs": [
           "文档",
           "Wiki",
@@ -151,13 +151,11 @@
         "visible_rows_count": 35,
         "has_completed_status": true,
         "sample_documents": [
-          "PDF 2025年12月-月度经营分析报告 上传 · 1.2 MB · 26-10-26 09:26 添加标签 已完成",
-          "XLSX 20241231-父ASIN与SKU月度明细(2024Q4) 上传 · 121.9 KB · 26-10-26 09:41 添加标签 已完成",
-          "XLSX 经营分析报告2025全年(1-12月) 上传 · 58.0 KB · 26-10-26 08:06 添加标签 已完成",
-          "MD 2025年12月-月度经营分析报告 上传 · 17.3 KB · 26-10-26 09:26 添加标签 已完成",
-          "MD 2026年10月-月度经营分析报告 上传 · 17.3 KB · 26-10-26 09:05 添加标签 已完成"
+          "PDF GENYEE-技术架构白皮书-v1 上传 · 1.2 MB · 26-10-26 09:26 添加标签 已完成",
+          "XLSX 企业知识库指标统计样例表 上传 · 121.9 KB · 26-10-26 09:41 添加标签 已完成",
+          "MD GENYEE-私有化部署指南 上传 · 17.3 KB · 26-10-26 09:26 添加标签 已完成"
         ],
-        "screenshot_saved": "/home/cursor/GENYEE/test-reports/screenshots/06_kb_detail_documents.png"
+        "screenshot_saved": "test-reports/screenshots/06_kb_detail_documents.png"
       },
       "error": null,
       "timestamp": "2026-10-31T10:53:41.955086+00:00"

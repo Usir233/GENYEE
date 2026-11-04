@@ -129,8 +129,8 @@ make package-mac-app  # 打 macOS .app（scripts/package-mac-app.sh）
 
 | 目标 | 作用 |
 | --- | --- |
-| `build` | `go build -o WeKnora ./cmd/server` |
-| `run` | 先 `build` 再运行 `./WeKnora` |
+| `build` | `go build -o GENYEE ./cmd/server` |
+| `run` | 先 `build` 再运行 `./GENYEE` |
 | `test` | `go test -v ./...` |
 | `clean` | `go clean` 并删除二进制 |
 | `build-prod` | 生产构建：CGO_ENABLED=1，`-ldflags "-w -s"` 注入 Version/CommitID/BuildTime/GoVersion（`internal/handler` 包变量），并设置 protobuf `conflictPolicy=warn`（规避 qdrant/milvus proto 冲突） |

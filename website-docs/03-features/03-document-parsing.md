@@ -473,7 +473,7 @@ scripts/build-anydoc-lib.sh && go build -tags anydoc ./cmd/server
 Docker 镜像默认 `WITH_ANYDOC=1`。若要跳过 Rust 工具链、缩短构建：
 
 ```bash
-docker build -f docker/Dockerfile.app --build-arg WITH_ANYDOC=0 -t weknora-app .
+docker build -f docker/Dockerfile.app --build-arg WITH_ANYDOC=0 -t genyee-app .
 # 或在 .env 里设 WITH_ANYDOC=0 再 docker compose build
 ```
 

@@ -9,7 +9,7 @@
       "passed": true,
       "status_code": 200,
       "details": "Returns HTTP 200 with JWT token",
-      "response_sample": "{\"success\":true,\"message\":\"Login successful\",\"user\":{\"id\":\"8a18ad5e-eb1b-411f-9e6b-5490991c7d8c\",\"username\":\"zhanshun.bao\",\"email\":\"zhanshun.bao@gamil.com\",\"avatar\":\"\",\"tenant_id\":10000,\"is_active\":tr"
+      "response_sample": "{\"success\":true,\"message\":\"Login successful\",\"user\":{\"id\":\"8a18ad5e-eb1b-411f-9e6b-5490991c7d8c\",\"username\":\"admin\",\"email\":\"admin@example.com\",\"avatar\":\"\",\"tenant_id\":10000,\"is_active\":tr"
     },
     {
       "name": "Wrong Password",

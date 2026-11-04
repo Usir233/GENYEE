@@ -149,7 +149,7 @@ flowchart LR
 | `AUTO_RECOVER_DIRTY` | true | 自动修复 golang-migrate 的 dirty 状态（上次迁移中断留下的）。手工排查迁移问题时应临时设为 false，否则启动会自动改写迁移版本记录，见[数据库与迁移](../06-development/02-database-schema.md) |
 | `WEKNORA_TRUSTED_PROXIES` | 空 | gin 信任代理 CIDR（逗号分隔） |
 | `MAX_SKILL_BUNDLE_SIZE_MB` | 256 MiB（默认不小于 MAX_FILE_SIZE_MB，上限 512 MiB） | 技能 ZIP 上传与来源下载上限；反向代理请求体限制也需足够大 |
-| `MAX_FILE_SIZE_MB` | 50 | 上传文件大小限制（app/frontend/docreader 三处共用）；Helm 部署使用 `global.maxFileSizeMB` |
+| `MAX_FILE_SIZE_MB` | 50 | 上传文件大小限制（`app` 请求校验、`frontend` Nginx `client_max_body_size`、`docreader` gRPC 消息上限三处共用；调大超长财报/标书上限时需同时重启这三项服务并同步调整外层 Ingress；Helm 部署使用 `global.maxFileSizeMB`） |
 | `CONCURRENCY_POOL_SIZE` | 5 | 通用并发池 |
 | `APP_EXTERNAL_URL` / `FRONTEND_BASE_URL` | 空 | IM 渠道图片/文件外链的外部可达 URL / 前端外部 origin |
 | `WEKNORA_MCP_ASK_TIMEOUT` | `4m` | MCP Server 内置 `ask` 的单次服务端时限；支持 Go duration（如 `10m`）或纯秒数（如 `600`），非法或非正值回退到 `4m`。客户端与反向代理的独立超时需另行配置 |
@@ -424,7 +424,7 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 | `rag-qa` | `progressive_rag_agent` | search_knowledge、read_document、list_documents | temperature 0.7、max_iterations 30、FAQ 优先 |
 | `wiki-qa` | `wiki_researcher` | wiki_search、wiki_read_page、read_document、wiki_flag_issue | 需 Wiki 已启用的知识库 |
 | `hybrid-rag-wiki` | `hybrid_rag_wiki_agent` | Wiki + RAG 工具全集 | max_iterations 40，最灵活的预设 |
-| `data-analysis` | `data_analyst` | data_schema、data_analysis | temperature 0.3；`kb_filter: none_of: [faq]`；支持 csv/xlsx |
+| `data-analysis` | `data_analyst` | data_schema、data_analysis | temperature 0.3；`kb_filter: none_of: [faq]`；支持 csv/xlsx/xls |
 | `custom` | 无 | 无预填 | 完全手动配置 |
 
 已保存配置里出现的旧工具名（`knowledge_search`、`grep_chunks` → `search_knowledge`；`list_knowledge_chunks`、`get_document_info`、`wiki_read_source_doc` → `read_document`）会在运行时自动映射为新工具，无需手动改写。

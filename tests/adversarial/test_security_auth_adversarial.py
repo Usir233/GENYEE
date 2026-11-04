@@ -25,10 +25,13 @@ import hashlib
 import subprocess
 import requests
 
+from pathlib import Path
+
 BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:80")
-VALID_EMAIL = "zhanshun.bao@gamil.com"
-VALID_PASSWORD = "mkRI3z$L5w%J#D&VxqeM"
-VALID_TENANT_ID = 10000
+VALID_EMAIL = os.environ.get("TEST_EMAIL", "qa-test@example.com")
+VALID_PASSWORD = os.environ.get("TEST_PASSWORD", "ChangeMe_TestPass123!")
+VALID_TENANT_ID = int(os.environ.get("TEST_TENANT_ID", "10000"))
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 test_results = {
     "total": 0,
@@ -202,7 +205,7 @@ def test_protected_endpoints_tampered_jwt(valid_token):
 def test_jwt_audience_validation_in_middleware():
     print("\n--- 1.3 External JWT Audience Validation in Middleware ---")
     cmd = ["go", "test", "-v", "./internal/middleware", "-run", "TestAudienceValidation_AdversarialChallenge"]
-    p = subprocess.run(cmd, cwd="/home/cursor/GENYEE", capture_output=True, text=True)
+    p = subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True, text=True)
     out = p.stdout + p.stderr
     
     genyee_pass = "Accepted_audience:_genyee" in out and "PASS" in out
@@ -344,7 +347,7 @@ def main():
     print("=" * 70)
 
     # Write summary json
-    summary_path = "/home/cursor/GENYEE/test-reports/challenger_1_summary.json"
+    summary_path = str(REPO_ROOT / "test-reports" / "challenger_1_summary.json")
     os.makedirs(os.path.dirname(summary_path), exist_ok=True)
     with open(summary_path, "w") as f:
         json.dump(test_results, f, indent=2)

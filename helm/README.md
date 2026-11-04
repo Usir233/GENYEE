@@ -363,7 +363,7 @@ pre-existing Service name does not automatically transfer its ownership to Helm.
 |-----------|-------------|---------|
 | `secrets.dbUser` | Database username | `postgres` |
 | `secrets.dbPassword` | Database password | `""` (required) |
-| `secrets.dbName` | Database name | `weknora` |
+| `secrets.dbName` | Database name | `genyee` |
 | `secrets.redisPassword` | Redis password | `""` (required) |
 | `secrets.jwtSecret` | JWT signing secret | `""` (required) |
 | `secrets.existingSecret` | Use existing secret | `""` |

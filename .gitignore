@@ -71,6 +71,6 @@ miniprogram/project.private.config.json
 # Locally built BrowserSkill runtime and extension bundles
 /artifacts/browserskill/
 
-# 本地测试与业务归档数据
-储能业务知识库归档档案/
-储能设备采购供应商明细_含图片.xlsx
+# 本地测试与临时数据归档
+/local-test-data/
+*.local.xlsx

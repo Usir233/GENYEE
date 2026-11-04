@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"os"
 
+	"path/filepath"
+	"strings"
+
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
@@ -43,9 +46,12 @@ func (d *DatasetService) GetDatasetByID(ctx context.Context, datasetID string) (
 	logger.Info(ctx, "Start getting dataset by ID")
 	logger.Infof(ctx, "Getting dataset with ID: %s", datasetID)
 
-	dataset := DefaultDataset()
-	dataset.PrintStats(ctx)
-	qaPairs := dataset.Iterate()
+	ds, err := loadDatasetByID(datasetID)
+	if err != nil {
+		return nil, err
+	}
+	ds.PrintStats(ctx)
+	qaPairs := ds.Iterate()
 
 	logger.Infof(ctx, "Retrieved %d QA pairs from dataset", len(qaPairs))
 	return qaPairs, nil
@@ -53,33 +59,69 @@ func (d *DatasetService) GetDatasetByID(ctx context.Context, datasetID string) (
 
 // DefaultDataset loads and initializes the default dataset from parquet files
 func DefaultDataset() dataset {
-	datasetDir := "./dataset/samples"
-	if _, err := os.Stat(datasetDir); os.IsNotExist(err) {
-		if _, err := os.Stat("../../dataset/samples"); err == nil {
-			datasetDir = "../../dataset/samples"
-		} else if _, err := os.Stat("../../../dataset/samples"); err == nil {
-			datasetDir = "../../../dataset/samples"
+	ds, err := loadDatasetByID("default")
+	if err != nil {
+		panic(err)
+	}
+	return ds
+}
+
+func resolveDatasetDir(datasetID string) (string, error) {
+	trimmed := strings.TrimSpace(datasetID)
+	if strings.Contains(trimmed, "..") || strings.ContainsAny(trimmed, `/\`) {
+		return "", fmt.Errorf("invalid dataset_id %q", datasetID)
+	}
+
+	subDir := "samples"
+	if trimmed != "" && trimmed != "default" && trimmed != "samples" {
+		subDir = trimmed
+	}
+
+	var candidates []string
+	if envDir := strings.TrimSpace(os.Getenv("EVALUATION_DATASET_DIR")); envDir != "" {
+		candidates = append(candidates, filepath.Join(envDir, subDir))
+		if subDir == "samples" {
+			candidates = append(candidates, envDir)
 		}
 	}
-	queries, err := loadParquet[TextInfo](fmt.Sprintf("%s/queries.parquet", datasetDir))
-	if err != nil {
-		panic(err)
+	candidates = append(candidates,
+		filepath.Join("./dataset", subDir),
+		filepath.Join("../../dataset", subDir),
+		filepath.Join("../../../dataset", subDir),
+	)
+
+	for _, dir := range candidates {
+		if info, err := os.Stat(filepath.Join(dir, "queries.parquet")); err == nil && !info.IsDir() {
+			return dir, nil
+		}
 	}
-	corpus, err := loadParquet[TextInfo](fmt.Sprintf("%s/corpus.parquet", datasetDir))
+	return candidates[0], fmt.Errorf("dataset %q not found (expected parquet files under %s)", datasetID, candidates[0])
+}
+
+func loadDatasetByID(datasetID string) (dataset, error) {
+	datasetDir, err := resolveDatasetDir(datasetID)
 	if err != nil {
-		panic(err)
+		return dataset{}, err
 	}
-	answers, err := loadParquet[TextInfo](fmt.Sprintf("%s/answers.parquet", datasetDir))
+	queries, err := loadParquet[TextInfo](filepath.Join(datasetDir, "queries.parquet"))
 	if err != nil {
-		panic(err)
+		return dataset{}, fmt.Errorf("load queries.parquet: %w", err)
 	}
-	qrels, err := loadParquet[RelsInfo](fmt.Sprintf("%s/qrels.parquet", datasetDir))
+	corpus, err := loadParquet[TextInfo](filepath.Join(datasetDir, "corpus.parquet"))
 	if err != nil {
-		panic(err)
+		return dataset{}, fmt.Errorf("load corpus.parquet: %w", err)
 	}
-	qas, err := loadParquet[QaInfo](fmt.Sprintf("%s/qas.parquet", datasetDir))
+	answers, err := loadParquet[TextInfo](filepath.Join(datasetDir, "answers.parquet"))
 	if err != nil {
-		panic(err)
+		return dataset{}, fmt.Errorf("load answers.parquet: %w", err)
+	}
+	qrels, err := loadParquet[RelsInfo](filepath.Join(datasetDir, "qrels.parquet"))
+	if err != nil {
+		return dataset{}, fmt.Errorf("load qrels.parquet: %w", err)
+	}
+	qas, err := loadParquet[QaInfo](filepath.Join(datasetDir, "qas.parquet"))
+	if err != nil {
+		return dataset{}, fmt.Errorf("load qas.parquet: %w", err)
 	}
 
 	res := dataset{
@@ -104,7 +146,7 @@ func DefaultDataset() dataset {
 	for _, qi := range qas {
 		res.qas[qi.QID] = qi.AID
 	}
-	return res
+	return res, nil
 }
 
 // dataset represents the in-memory dataset structure
@@ -181,12 +223,18 @@ func (d *dataset) PrintStats(ctx context.Context) {
 	for _, pids := range d.qrels {
 		totalRelations += len(pids)
 	}
-	avgPassages := float64(totalRelations) / float64(len(d.qrels))
+	avgPassages := 0.0
+	if len(d.qrels) > 0 {
+		avgPassages = float64(totalRelations) / float64(len(d.qrels))
+	}
 	logger.Infof(ctx, "- Average passages per query: %.2f", avgPassages)
 
 	// Calculate coverage
 	coveredQueries := len(d.qas)
-	coverage := float64(coveredQueries) / float64(len(d.queries)) * 100
+	coverage := 0.0
+	if len(d.queries) > 0 {
+		coverage = float64(coveredQueries) / float64(len(d.queries)) * 100
+	}
 	logger.Infof(ctx, "- Answer coverage: %.2f%% (%d/%d)", coverage, coveredQueries, len(d.queries))
 }
 

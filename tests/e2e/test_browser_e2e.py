@@ -19,10 +19,11 @@ from playwright.sync_api import Browser, BrowserContext, Error, Page, sync_playw
 
 BASE_URL = os.environ.get("BASE_URL", "http://127.0.0.1:80")
 CHROME_PATH = os.environ.get("CHROME_PATH", "/usr/bin/google-chrome")
-TEST_EMAIL = os.environ.get("TEST_EMAIL", "zhanshun.bao@gamil.com")
+TEST_EMAIL = os.environ.get("TEST_EMAIL", "qa-test@example.com")
 # Raw password string without shell expansion
-TEST_PASSWORD = os.environ.get("TEST_PASSWORD", "mkRI3z$L5w%J#D&VxqeM")
-REPORTS_DIR = Path(os.environ.get("REPORTS_DIR", "/home/cursor/GENYEE/test-reports"))
+TEST_PASSWORD = os.environ.get("TEST_PASSWORD", "ChangeMe_TestPass123!")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+REPORTS_DIR = Path(os.environ.get("REPORTS_DIR", str(REPO_ROOT / "test-reports")))
 SCREENSHOTS_DIR = REPORTS_DIR / "screenshots"
 
 
@@ -290,9 +291,10 @@ class E2ETestRunner:
             # 2. Assert user identity
             user_menu_text = page.locator(".menu_bottom").inner_text()
             details["user_menu_text"] = user_menu_text.replace("\n", " ").strip()
+            expected_user_prefix = TEST_EMAIL.split("@")[0]
             assert (
-                "zhanshun.bao" in user_menu_text
-            ), f"Expected 'zhanshun.bao' in user menu, got: {user_menu_text}"
+                expected_user_prefix in user_menu_text
+            ), f"Expected '{expected_user_prefix}' in user menu, got: {user_menu_text}"
             assert (
                 TEST_EMAIL in user_menu_text
             ), f"Expected '{TEST_EMAIL}' in user menu, got: {user_menu_text}"
@@ -315,23 +317,25 @@ class E2ETestRunner:
                 ), f"Expected navigation item '{nav}' not found in: {nav_titles}"
 
             # 4. Assert knowledge bases cards
+            primary_kb_name = os.environ.get("TEST_PRIMARY_KB_NAME", "企业资料归档")
+            secondary_kb_name = os.environ.get("TEST_SECONDARY_KB_NAME", "产品文档库")
             outlet_text = page.locator(".platform-route-outlet").inner_text()
-            details["has_kb_lyzl"] = "历年资料" in outlet_text
-            details["has_kb_cpxx"] = "产品信息与供应链" in outlet_text
+            details["has_kb_primary"] = primary_kb_name in outlet_text
+            details["has_kb_secondary"] = secondary_kb_name in outlet_text
             details["has_kb_faq"] = "FAQ" in outlet_text
             details["has_55_docs"] = "55 个文档" in outlet_text
             details["has_15_docs"] = "15 个文档" in outlet_text
 
             assert (
-                "历年资料" in outlet_text
-            ), "Knowledge base '历年资料' not found on dashboard"
+                primary_kb_name in outlet_text
+            ), f"Knowledge base '{primary_kb_name}' not found on dashboard"
             assert (
-                "产品信息与供应链" in outlet_text
-            ), "Knowledge base '产品信息与供应链' not found on dashboard"
+                secondary_kb_name in outlet_text
+            ), f"Knowledge base '{secondary_kb_name}' not found on dashboard"
             assert "FAQ" in outlet_text, "Knowledge base 'FAQ' not found on dashboard"
             assert (
                 "55 个文档" in outlet_text
-            ), "Expected '55 个文档' for 历年资料 card"
+            ), f"Expected '55 个文档' for {primary_kb_name} card"
 
             # Capture stage screenshot
             page.screenshot(path=screenshot_path, full_page=True)
@@ -560,7 +564,7 @@ class E2ETestRunner:
             return False
 
     def run_stage_6_kb_detail_documents(self, page: Page) -> bool:
-        """Stage 6: Knowledge base details (历年资料, tabs, 55 documents, indexing status)"""
+        """Stage 6: Knowledge base details (tabs, 55 documents, indexing status)"""
         stage_name = "Knowledge Base Detail & Document Indexing Inspection"
         screenshot_name = "06_kb_detail_documents.png"
         screenshot_path = str(SCREENSHOTS_DIR / screenshot_name)
@@ -576,14 +580,15 @@ class E2ETestRunner:
             dismiss_guides_if_present(page)
 
             # 1. Assert breadcrumb and title
+            primary_kb_name = os.environ.get("TEST_PRIMARY_KB_NAME", "企业资料归档")
             breadcrumb_el = page.wait_for_selector(
                 ".document-breadcrumb", timeout=8000
             )
             breadcrumb_text = breadcrumb_el.inner_text().replace("\n", " ")
             details["breadcrumb_text"] = breadcrumb_text
             assert (
-                "历年资料" in breadcrumb_text
-            ), f"Expected '历年资料' in breadcrumb, got: {breadcrumb_text}"
+                primary_kb_name in breadcrumb_text
+            ), f"Expected '{primary_kb_name}' in breadcrumb, got: {breadcrumb_text}"
 
             # 2. Assert tabs
             page.wait_for_selector(".kb-view-tabs", timeout=8000)
@@ -700,7 +705,7 @@ class E2ETestRunner:
             "",
             "## 1. Executive Summary",
             "",
-            "This automated browser test suite verifies the end-to-end user workflows of the reconstructed GENYEE platform using Python Playwright and headless Google Chrome. All commercial rebranding assertions (GENYEE branding, compliance settings), authentication token persistence, workspace dashboard navigation, streaming chat conversations, and knowledge base document indexing verification have executed genuinely against live application containers.",
+            "This automated browser test suite verifies the end-to-end user workflows of the GENYEE platform using Python Playwright and headless Google Chrome. All commercial compliance assertions (GENYEE branding, compliance settings), authentication token persistence, workspace dashboard navigation, streaming chat conversations, and knowledge base document indexing verification have executed genuinely against live application containers.",
             "",
             "| Stage # | Stage Name | Status | Latency (ms) | Screenshot |",
             "| --- | --- | --- | --- | --- |",
@@ -757,7 +762,7 @@ class E2ETestRunner:
                 "  3. `test-reports/screenshots/03_dashboard_workspace.png` — Workspace dashboard, user info, nav menu, KB cards",
                 "  4. `test-reports/screenshots/04_settings_compliance.png` — Settings modal, system-global & general compliance sections",
                 "  5. `test-reports/screenshots/05_chat_interaction.png` — Chat creation, greeting assertion, suggested prompt turn",
-                "  6. `test-reports/screenshots/06_kb_detail_documents.png` — 历年资料 KB detail, view tabs, 55 documents completed status",
+                "  6. `test-reports/screenshots/06_kb_detail_documents.png` — 企业资料归档 KB detail, view tabs, 55 documents completed status",
                 "",
             ]
         )
