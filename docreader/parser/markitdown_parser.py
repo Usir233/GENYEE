@@ -95,7 +95,7 @@ class StdMarkitdownParser(BaseParser):
         # them disabled; all other formats retain the historical image-first
         # behavior and its single bounded fallback.
         first_keep_data_uris = not xlsx
-        with parser_worker_limit("markitdown", CONFIG.markitdown_max_workers):
+        with parser_worker_limit("markitdown", CONFIG.markitdown_max_workers, context=self.context):
             started = time.monotonic()
             try:
                 result = self._convert_markitdown(

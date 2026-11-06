@@ -30,7 +30,9 @@ from typing import Iterator
 from docreader.config import CONFIG
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
-from docreader.parser.concurrency import check_cancellation, parser_worker_limit
+from docreader.parser.concurrency import (
+    ParserCancelled, cancellable_result, check_cancellation, parser_worker_limit,
+)
 from docreader.parser.source_locator import PageGeometry, page_blocks
 from docreader.parser.stream import ParsedDocumentStream, StreamedImage
 
@@ -42,9 +44,9 @@ logger = logging.getLogger(__name__)
 # as requests stuck in "Parsing document with PDFParser" forever, taking down
 # all subsequent uploads too). Every pdfium touch — text extraction, page
 # rendering, image extraction — must be serialized behind this single global
-# lock. Concurrent PDF uploads are then processed one at a time instead of
-# hanging. Non-PDF parsers (docx, xlsx, ...) are unaffected and still run
-# concurrently across the gRPC thread pool.
+# lock. Acquire the render semaphore before this lock whenever both are
+# needed; never wait for render capacity while holding the PDFium lock.
+# CPU-only markdown work and separate render processes may run concurrently.
 _PDFIUM_LOCK = threading.Lock()
 
 
@@ -1524,7 +1526,8 @@ def _select_mp_context():
 
 
 def _render_pages_parallel(
-    content: bytes, indices: list, scale: float, quality: int, max_edge: int, workers: int
+    content: bytes, indices: list, scale: float, quality: int, max_edge: int, workers: int,
+    context=None,
 ) -> dict | None:
     """Render ``indices`` in parallel. Returns ``{index: jpeg_bytes}`` or None.
 
@@ -1558,9 +1561,26 @@ def _render_pages_parallel(
             initializer=_render_pool_init,
             initargs=(tmp_path,),
         ) as ex:
-            for index, jpeg in ex.map(_render_pool_task, tasks, chunksize=4):
-                result[index] = jpeg
+            tasks_iter = iter(tasks)
+            pending = deque()
+            try:
+                for _ in range(max_workers * 2):
+                    task = next(tasks_iter, None)
+                    if task is not None:
+                        pending.append(ex.submit(_render_pool_task, task))
+                while pending:
+                    index, jpeg = cancellable_result(pending.popleft(), context)
+                    result[index] = jpeg
+                    task = next(tasks_iter, None)
+                    if task is not None:
+                        check_cancellation(context)
+                        pending.append(ex.submit(_render_pool_task, task))
+            finally:
+                for future in pending:
+                    future.cancel()
         return result
+    except ParserCancelled:
+        raise
     except Exception:
         logger.warning(
             "parallel page rendering failed; falling back to serial",
@@ -1608,12 +1628,15 @@ def _iter_scanned_pages_from_open_pdf(
     scale: float,
     quality: int,
     max_edge: int,
+    context=None,
 ) -> Iterator[StreamedImage]:
     """Render one page at a time from an already-open PdfDocument."""
     for index in indices:
-        with _PDFIUM_LOCK, parser_worker_limit(
-            "pdf_render", CONFIG.pdf_render_max_workers
-        ):
+        # Acquire capacity before the native-library lock on every render path.
+        with parser_worker_limit(
+            "pdf_render", CONFIG.pdf_render_max_workers, context=context
+        ), _PDFIUM_LOCK:
+            check_cancellation(context)
             page = pdf[index]
             try:
                 image_bytes = _render_page_to_jpeg(page, scale, quality, max_edge)
@@ -1632,14 +1655,16 @@ def _iter_scanned_pages_serial_batch(
     scale: float,
     quality: int,
     max_edge: int,
+    context=None,
 ) -> Iterator[StreamedImage]:
     import pypdfium2 as pdfium
 
+    check_cancellation(context)
     with _PDFIUM_LOCK:
         pdf = pdfium.PdfDocument(pdf_path)
     try:
         yield from _iter_scanned_pages_from_open_pdf(
-            pdf, indices, base_name, scale, quality, max_edge
+            pdf, indices, base_name, scale, quality, max_edge, context
         )
     finally:
         with _PDFIUM_LOCK:
@@ -1655,6 +1680,7 @@ def _iter_scanned_pages_parallel_batch(
     max_edge: int,
     workers: int,
     mp_context,
+    context=None,
 ) -> Iterator[StreamedImage]:
     from concurrent.futures import ProcessPoolExecutor
 
@@ -1668,7 +1694,7 @@ def _iter_scanned_pages_parallel_batch(
     # Hold the limiter until the executor has shut down, including when the
     # consumer cancels mid-batch. Otherwise another request could start a new
     # pool while the old worker processes still hold their PDFium documents.
-    with parser_worker_limit("pdf_render", CONFIG.pdf_render_max_workers):
+    with parser_worker_limit("pdf_render", CONFIG.pdf_render_max_workers, context=context):
         try:
             executor = ProcessPoolExecutor(
                 max_workers=max_workers,
@@ -1690,8 +1716,10 @@ def _iter_scanned_pages_parallel_batch(
                 )
 
             while pending:
+                check_cancellation(context)
                 future = pending.popleft()
-                index, image_bytes = future.result()
+                index, image_bytes = cancellable_result(future, context)
+                check_cancellation(context)
                 try:
                     next_index = next(indices_iter)
                 except StopIteration:
@@ -1708,6 +1736,8 @@ def _iter_scanned_pages_parallel_batch(
                     ref_path=f"images/{base_name}_page_{index + 1}.jpg",
                     image_data=image_bytes,
                 )
+        except ParserCancelled:
+            raise
         except Exception:
             if sent:
                 raise
@@ -1726,7 +1756,7 @@ def _iter_scanned_pages_parallel_batch(
 
     if fallback:
         yield from _iter_scanned_pages_serial_batch(
-            pdf_path, indices, base_name, scale, quality, max_edge
+            pdf_path, indices, base_name, scale, quality, max_edge, context
         )
 
 
@@ -1738,9 +1768,11 @@ def _iter_scanned_pages_from_path(
     quality: int,
     max_edge: int,
     workers: int,
+    context=None,
 ) -> Iterator[StreamedImage]:
     """Yield images in fixed-size batches to cap PDFium and result memory."""
     for start in range(0, len(indices), PDF_STREAM_RENDER_BATCH_PAGES):
+        check_cancellation(context)
         batch = indices[start : start + PDF_STREAM_RENDER_BATCH_PAGES]
         mp_context = _select_mp_context() if workers > 1 and len(batch) > 1 else None
         if workers > 1 and len(batch) > 1 and mp_context is not None:
@@ -1753,15 +1785,17 @@ def _iter_scanned_pages_from_path(
                 max_edge,
                 workers,
                 mp_context,
+                context,
             )
         else:
             yield from _iter_scanned_pages_serial_batch(
-                pdf_path, batch, base_name, scale, quality, max_edge
+                pdf_path, batch, base_name, scale, quality, max_edge, context
             )
 
 
 def _render_scanned_pages(
-    pdf, content: bytes, indices: list, scale: float, quality: int, max_edge: int
+    pdf, content: bytes, indices: list, scale: float, quality: int, max_edge: int,
+    context=None,
 ) -> dict:
     """Render the given (scanned) page indices to JPEG bytes.
 
@@ -1769,19 +1803,23 @@ def _render_scanned_pages(
     transparently falling back to serial rendering on the already-open ``pdf``
     handle when parallelism is unavailable or fails.
     """
+    check_cancellation(context)
     parallel = _render_pages_parallel(
-        content, indices, scale, quality, max_edge, CONFIG.pdf_render_parallelism
+        content, indices, scale, quality, max_edge, CONFIG.pdf_render_parallelism, context
     )
     if parallel is not None:
         return parallel
 
     out: dict = {}
     for i in indices:
-        page = pdf[i]
-        try:
-            out[i] = _render_page_to_jpeg(page, scale, quality, max_edge)
-        finally:
-            _close_pdfium_resource(page)
+        check_cancellation(context)
+        with _PDFIUM_LOCK:
+            check_cancellation(context)
+            page = pdf[i]
+            try:
+                out[i] = _render_page_to_jpeg(page, scale, quality, max_edge)
+            finally:
+                _close_pdfium_resource(page)
     return out
 
 
@@ -2040,11 +2078,8 @@ class PDFScannedParser(BaseParser):
     performs OCR on the extracted page images.
     """
 
-    def __init__(self, *args, **kwargs):
-        self.context = kwargs.pop("context", None)
-        super().__init__(*args, **kwargs)
-
     def parse_into_text(self, content: bytes) -> Document:
+        check_cancellation(self.context)
         if not content or len(content.strip()) == 0:
             logger.warning("PDFScannedParser received empty content for %s", self.file_name)
             return Document(content="", metadata={"page_count": 0})
@@ -2066,14 +2101,14 @@ class PDFScannedParser(BaseParser):
         )
 
         try:
-            # pdfium lock first, then the render worker limit — same order as
-            # PDFParser._route so the two never deadlock against each other.
-            with _PDFIUM_LOCK, parser_worker_limit(
+            with parser_worker_limit(
                 "pdf_render", CONFIG.pdf_render_max_workers, context=self.context
             ):
-                pdf = pdfium.PdfDocument(content)
-                try:
+                with _PDFIUM_LOCK:
+                    check_cancellation(self.context)
+                    pdf = pdfium.PdfDocument(content)
                     page_count = len(pdf)
+                try:
                     scale = max(1, CONFIG.pdf_render_dpi) / 72
                     quality = _normalize_image_quality(CONFIG.pdf_jpeg_quality)
 
@@ -2084,9 +2119,11 @@ class PDFScannedParser(BaseParser):
                         scale,
                         quality,
                         CONFIG.pdf_render_max_edge,
+                        self.context,
                     )
                 finally:
-                    _close_pdfium_resource(pdf)
+                    with _PDFIUM_LOCK:
+                        _close_pdfium_resource(pdf)
 
             source_blocks = []
             offset = 0
@@ -2128,6 +2165,7 @@ class PDFScannedParser(BaseParser):
 
     def parse_stream(self, content: bytes) -> ParsedDocumentStream:
         """Return metadata first and lazily render each scanned page."""
+        check_cancellation(self.context)
         if not content or len(content.strip()) == 0:
             return ParsedDocumentStream(
                 document=Document(content="", metadata={"page_count": 0}),
@@ -2198,6 +2236,7 @@ class PDFScannedParser(BaseParser):
                 quality,
                 CONFIG.pdf_render_max_edge,
                 CONFIG.pdf_render_parallelism,
+                self.context,
             ),
             _cleanup=lambda: _unlink_pdf_temp_file(pdf_path),
         )
@@ -2222,7 +2261,6 @@ class PDFParser(BaseParser):
     def __init__(self, file_name: str = "", file_type=None, **kwargs):
         # Capture per-upload override before BaseParser consumes kwargs.
         raw = kwargs.pop("pdf_force_scanned", None)
-        self.context = kwargs.pop("context", None)
         super().__init__(file_name=file_name, file_type=file_type, **kwargs)
         # Priority: per-upload override > global env > default (False).
         if raw is not None:
@@ -2233,6 +2271,7 @@ class PDFParser(BaseParser):
             self._force_scanned = FORCE_SCANNED_PDF
 
     def parse_into_text(self, content: bytes) -> Document:
+        check_cancellation(self.context)
         if not content or len(content.strip()) == 0:
             logger.warning("PDFParser received empty content for %s", self.file_name)
             return Document(content="", metadata={"page_count": 0})
@@ -2264,6 +2303,8 @@ class PDFParser(BaseParser):
 
         try:
             return self._route(content)
+        except ParserCancelled:
+            raise
         except Exception:
             logger.exception(
                 "PDFParser: per-page routing failed for %s; "
@@ -2282,6 +2323,7 @@ class PDFParser(BaseParser):
 
     def parse_stream(self, content: bytes) -> ParsedDocumentStream:
         """Prepare PDF metadata, then render scanned pages only as consumed."""
+        check_cancellation(self.context)
         if not content or len(content.strip()) == 0:
             return ParsedDocumentStream(
                 document=Document(content="", metadata={"page_count": 0}),
@@ -2312,6 +2354,8 @@ class PDFParser(BaseParser):
             document, scanned_indices = self._route_locked(
                 content, include_scanned_images=False
             )
+        except ParserCancelled:
+            raise
         except Exception:
             logger.exception(
                 "PDFParser: per-page streaming preparation failed for %s; "
@@ -2351,6 +2395,7 @@ class PDFParser(BaseParser):
                 quality,
                 CONFIG.pdf_render_max_edge,
                 CONFIG.pdf_render_parallelism,
+                self.context,
             ),
             _cleanup=lambda: _unlink_pdf_temp_file(pdf_path),
         )
@@ -2464,6 +2509,7 @@ class PDFParser(BaseParser):
                         scale,
                         quality,
                         CONFIG.pdf_render_max_edge,
+                        self.context,
                     )
                 images.update(_encode_rendered_page_images(rendered, base_name))
 

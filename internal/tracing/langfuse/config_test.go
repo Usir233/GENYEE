@@ -6,6 +6,7 @@ import (
 )
 
 func TestLoadConfigFromEnv_AutoEnablesWithCredentials(t *testing.T) {
+	t.Setenv("LANGFUSE_ENABLED", "")
 	t.Setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
 	t.Setenv("LANGFUSE_SECRET_KEY", "sk-test")
 	t.Setenv("LANGFUSE_HOST", "https://example.langfuse.com")
@@ -20,6 +21,19 @@ func TestLoadConfigFromEnv_AutoEnablesWithCredentials(t *testing.T) {
 	}
 	if cfg.SampleRate != 1.0 {
 		t.Errorf("expected default SampleRate=1.0, got %v", cfg.SampleRate)
+	}
+}
+
+func TestLoadConfigFromEnv_CredentialsNeverSelectAnImplicitHost(t *testing.T) {
+	t.Setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
+	t.Setenv("LANGFUSE_SECRET_KEY", "sk-test")
+	t.Setenv("LANGFUSE_HOST", "")
+	for _, enabled := range []string{"", "false", "true"} {
+		t.Setenv("LANGFUSE_ENABLED", enabled)
+		cfg := LoadConfigFromEnv()
+		if cfg.Enabled || cfg.Host != "" {
+			t.Fatalf("flag %q selected an implicit tracing destination: enabled=%v host=%q", enabled, cfg.Enabled, cfg.Host)
+		}
 	}
 }
 

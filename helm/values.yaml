@@ -11,8 +11,9 @@
 # -- Global configuration shared across all components
 # @default -- See values.yaml
 global:
-  # -- Global Docker registry prefix for GENYEE images (e.g. "registry.internal.corp").
-  # When set, prepended as "<imageRegistry>/<repository>:<tag>".
+  # -- Private registry prefix, matching scripts/offline-load.sh --registry.
+  # GENYEE images use <prefix>/<image-name>:<tag>; third-party images retain
+  # their repository path as <prefix>/<repository>:<tag>.
   imageRegistry: ""
 
   # -- Storage class for all PersistentVolumeClaims
@@ -185,6 +186,16 @@ frontend:
 
   # -- Number of replicas
   replicaCount: 1
+
+  # -- Optional public UI integration links. Empty values keep integrations off.
+  # The cloud integration switch is shared with app.env.WEKNORA_WEKNORACLOUD_ENABLED.
+  env:
+    DEFAULT_LOCALE: ""
+    GENYEE_CHROME_EXTENSION_URL: ""
+    GENYEE_CLAWHUB_SKILL_URL: ""
+    DOCS_BASE_URL: ""
+    WEBSITE_URL: ""
+    GITHUB_URL: ""
 
   image:
     # -- Image repository

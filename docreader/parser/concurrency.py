@@ -1,6 +1,7 @@
 import logging
 import threading
 import time
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from contextlib import contextmanager
 from typing import Any, Dict, Iterator, Optional
 
@@ -10,16 +11,41 @@ _LIMITERS: Dict[str, threading.BoundedSemaphore] = {}
 _LIMITERS_LOCK = threading.Lock()
 
 
+class ParserCancelled(TimeoutError):
+    """Abort parsing without retrying another parser or rendering strategy."""
+
+
 def check_cancellation(context: Any = None) -> None:
     """Check if the given gRPC context has been cancelled or deadline exceeded."""
     if context is None:
         return
     if hasattr(context, "is_active") and not context.is_active():
-        raise TimeoutError("gRPC call was cancelled by client")
+        raise ParserCancelled("gRPC call was cancelled by client")
     if hasattr(context, "time_remaining"):
         rem = context.time_remaining()
         if rem is not None and rem <= 0:
-            raise TimeoutError("gRPC call deadline exceeded")
+            raise ParserCancelled("gRPC call deadline exceeded")
+
+
+def cancellable_result(future, context: Any = None):
+    """Wait for a render result while noticing cancellation between polls."""
+    if context is None:
+        return future.result()
+    try:
+        while True:
+            check_cancellation(context)
+            try:
+                result = future.result(timeout=0.1)
+            except FutureTimeoutError:
+                if future.done():
+                    # The task itself raised TimeoutError; preserve that failure.
+                    raise
+                continue
+            check_cancellation(context)
+            return result
+    except ParserCancelled:
+        future.cancel()
+        raise
 
 
 def _get_limiter(name: str, max_workers: int) -> threading.BoundedSemaphore:
@@ -59,7 +85,7 @@ def parser_worker_limit(
         rem = context.time_remaining()
         if rem is not None:
             if rem <= 0:
-                raise TimeoutError("gRPC call deadline exceeded")
+                raise ParserCancelled("gRPC call deadline exceeded")
             acquire_timeout = rem if acquire_timeout is None else min(acquire_timeout, rem)
 
     if context is not None:
@@ -71,13 +97,13 @@ def parser_worker_limit(
             if acquire_timeout is not None:
                 left = acquire_timeout - (time.monotonic() - start_time)
                 if left <= 0:
-                    raise TimeoutError(f"Timed out waiting for {name} parser slot")
+                    raise ParserCancelled(f"Timed out waiting for {name} parser slot")
                 step_timeout = min(step_timeout, left)
             acquired = limiter.acquire(timeout=step_timeout)
     else:
         if acquire_timeout is not None:
             if not limiter.acquire(timeout=acquire_timeout):
-                raise TimeoutError(f"Timed out waiting for {name} parser slot")
+                raise ParserCancelled(f"Timed out waiting for {name} parser slot")
         else:
             limiter.acquire()
 

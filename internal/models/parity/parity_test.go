@@ -19,8 +19,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -30,6 +32,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/models/chat"
 	"github.com/Usir233/GENYEE/internal/models/providers"
 	modelruntime "github.com/Usir233/GENYEE/internal/models/runtime"
+	"github.com/Usir233/GENYEE/internal/testutil/dnstest"
 	"github.com/Usir233/GENYEE/internal/types"
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/stretchr/testify/assert"
@@ -41,9 +44,27 @@ import (
 // SSRF guard rejects before any request is built. Those cases are re-pointed
 // at 127.0.0.1 by reachableBaseURL.
 func TestMain(m *testing.M) {
+	// Catalog request-shape tests build clients without contacting vendors.
+	// Resolve their public hosts deterministically while retaining SSRF checks.
+	records := make(map[string][]string)
+	for _, vendor := range providers.Builtins() {
+		for _, rawURL := range vendor.DefaultBaseURLs {
+			u, err := url.Parse(reachableBaseURL(rawURL))
+			if err == nil && u.Hostname() != "" && u.Hostname() != "127.0.0.1" {
+				records[u.Hostname()] = []string{"93.184.216.34"}
+			}
+		}
+	}
+	restore, err := dnstest.Install(records)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 	secutils.SetSSRFWhitelistFromRaw("127.0.0.1")
-	defer secutils.ResetSSRFWhitelistForTest()
-	os.Exit(m.Run())
+	code := m.Run()
+	secutils.ResetSSRFWhitelistForTest()
+	restore()
+	os.Exit(code)
 }
 
 // reachableBaseURL replaces a placeholder or templated vendor URL with a

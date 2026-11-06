@@ -339,7 +339,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ## go-m1cpu
 
-- Component: `github.com/shoenig/go-m1cpu`, version `v0.1.6`.
+- Component: `github.com/shoenig/go-m1cpu`, version `v0.2.4`.
 - Used by the macOS backend/desktop dependency chain through gopsutil. It is
   absent from Linux backend build dependencies. Its source is included in all
   notice bundles for consistent packaging; this does not imply Linux linkage.
@@ -349,9 +349,9 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
   source and notices are preserved in the accompanying archive.
 - Modifications by WeKnora / GENYEE: none.
 - Corresponding source, available under MPL-2.0, is included in binary releases
-  as `licenses/sources/go-m1cpu-v0.1.6.zip`. Source repository users can obtain it from the
-  [Go module proxy](https://proxy.golang.org/github.com/shoenig/go-m1cpu/@v/v0.1.6.zip)
-  and [upstream repository](https://github.com/shoenig/go-m1cpu/tree/v0.1.6).
+  as `licenses/sources/go-m1cpu-v0.2.4.zip`. Source repository users can obtain it from the
+  [Go module proxy](https://proxy.golang.org/github.com/shoenig/go-m1cpu/@v/v0.2.4.zip)
+  and [upstream repository](https://github.com/shoenig/go-m1cpu/tree/v0.2.4).
 
 ## OpenCC dictionary data
 
@@ -389,6 +389,14 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 - Corresponding source: [Go module proxy](https://proxy.golang.org/github.com/vcaesar/cedar/@v/v0.20.2.zip)
   and [upstream repository](https://github.com/vcaesar/cedar/tree/v0.20.2).
 
+## Goldmark
+
+- Component: `github.com/yuin/goldmark`, version `v1.8.2`.
+- Used to identify GFM tables for Wiki machine-write row preservation.
+- License: MIT, reproduced in [`licenses/goldmark-MIT.txt`](licenses/goldmark-MIT.txt).
+- Copyright: 2019 Yusuke Inuzuka. Modifications by WeKnora / GENYEE: none.
+- Source: [upstream repository](https://github.com/yuin/goldmark/tree/v1.8.2).
+
 ## Build-only component
 
 The Windows installer template in `cmd/desktop/build/windows/installer/project.nsi`
@@ -403,6 +411,25 @@ tool's implementation into the product. If distributing build environments or
 the tool itself, retain its license and provide its corresponding source too.
 
 ## Maintaining this bundle
+
+Backend and desktop packaging also generates `licenses/go/go-dependencies.json`
+and `licenses/go/go-third-party-notices.txt` from the packages selected for each
+binary, target operating system, architecture, CGO setting, and build tags.
+The bundle retains original license/copyright files, module versions and Go
+checksums, and notices from the Go runtime. Pass each actual build entry point
+to `scripts/copy-licenses.sh` using `--target PACKAGE=TAGS`; do not substitute
+the entire module download graph for the code included in the release.
+
+When the `anydoc` engine is selected, `scripts/build-anydoc-lib.sh` additionally
+generates `third_party/anydoc-go/licenses/rust/` before compiling the native
+archive. That directory contains the selected Cargo graph's original notices,
+including build dependencies, Rust standard-library notices, the target triple,
+Cargo.lock hash, and verified crate archive checksums. Go packaging includes
+this directory and rejects a missing or mismatched native notice manifest.
+The upstream AnyDoc source archive is pinned in `licenses/sources/anydoc.tsv`;
+the local serializer/ZIP changes remain in the build script. Reviewed supplements
+for crates that omit their license text are kept in
+`licenses/rust-supplemental/`, with exact source revisions and checksums.
 
 When upgrading either MPL module, update the version, license, and SHA-256 pin in
 `licenses/sources/modules.tsv` together. Archives are unmodified Go module proxy
@@ -504,6 +531,41 @@ terms. None of these packages are modified by GENYEE:
 - **`jszip`** (Node.js, `frontend`): Dual-licensed under `MIT OR GPL-3.0-or-later`.
   GENYEE elects the **MIT License**; corresponding source is available at
   [https://github.com/Stuk/jszip](https://github.com/Stuk/jszip).
+
+- **`python-bidi` 0.6.12** (Python, optional `odl-hybrid` service): Licensed under
+  `LGPL-3.0-or-later`, as stated in `bidi/__init__.py` and `bidi/algorithm.py`.
+  Its unmodified wheel includes `COPYING`, `COPYING.LESSER`,
+  `LICENSE-THIRD-PARTY.yml`, and `AUTHORS.rst` in its distribution metadata.
+  These files and the replaceable Python environment are retained in the image.
+  Source: [python-bidi](https://github.com/MeirKriheli/python-bidi).
+
+Exact versions, original source-distribution URLs and SHA-256 checksums for
+`certifi`, `tld`, `tqdm`, and `python-bidi` are recorded in
+[`licenses/sources/python.json`](licenses/sources/python.json). The same file
+identifies `pathspec` as a development-only MCP dependency; it is excluded from
+the production `--no-dev` installation. Python images retain installed
+packages' original license files and distribution metadata. The optional ODL
+image uses the locked official CPU PyTorch distributions; CUDA/NVIDIA packages
+are not part of that image's requirements.
+
+## Generated npm distribution notices
+
+Frontend and documentation-site builds generate `npm-third-party-notices.txt`
+and `npm-dependencies.json` from the installed lockfile-verified dependency
+trees. They contain original copyright/license/notice texts, exact versions,
+source archive URLs and integrity values. These accompany frontend assets in
+`dist/licenses/` and the unified documentation site at `/docs/licenses/`.
+The two web images also install them in `/licenses/npm/` and
+`/usr/share/licenses/genyee/npm/`.
+
+The manifests include explicit platform and native build-tool exclusions;
+these exclusions apply only to static web distributions without native
+binaries. Missing source metadata, version drift or missing license texts
+fail the build. Version-specific supplemental texts and their source hashes
+are maintained in each build context's `scripts/npm-license-policy.json`.
+Where upstream supplies an MIT declaration and attribution in a README but no
+separate full license file, the original README is retained together with the
+complete SPDX MIT text, and the exception is recorded in that policy.
 
 ## Written Offer for Corresponding Source (Service Containers & System Packages)
 

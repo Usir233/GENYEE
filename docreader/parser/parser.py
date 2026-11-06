@@ -5,6 +5,8 @@ from docreader.models.document import Document
 from docreader.parser.registry import registry
 from docreader.parser.stream import ParsedDocumentStream
 from docreader.parser.web_parser import WebParser
+from docreader.parser.archive import validate_zip_content
+from docreader.parser.concurrency import check_cancellation
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +54,7 @@ class Parser:
         content: bytes,
         parser_engine: Optional[str] = None,
         engine_overrides: Optional[dict[str, Any]] = None,
+        context: Any = None,
     ) -> Document:
         """Parse file content to markdown."""
         engine = parser_engine or ""
@@ -63,6 +66,8 @@ class Parser:
             engine or "builtin",
         )
 
+        check_cancellation(context)
+        validate_zip_content(content)
         effective_file_type = detect_effective_file_type(file_type, content)
         cls = self.registry.get_parser_class(engine, effective_file_type)
         logger.info(
@@ -73,7 +78,7 @@ class Parser:
         parser = cls(
             file_name=file_name,
             file_type=effective_file_type,
-            **overrides,
+            **{**overrides, "context": context},
         )
 
         logger.info("Starting to parse file content, size: %d bytes", len(content))
@@ -91,16 +96,19 @@ class Parser:
         content: bytes,
         parser_engine: Optional[str] = None,
         engine_overrides: Optional[dict[str, Any]] = None,
+        context: Any = None,
     ) -> ParsedDocumentStream:
         """Parse a file for ReadStream, using a parser's lazy image path when available."""
         engine = parser_engine or ""
         overrides = engine_overrides or {}
+        check_cancellation(context)
+        validate_zip_content(content)
         effective_file_type = detect_effective_file_type(file_type, content)
         cls = self.registry.get_parser_class(engine, effective_file_type)
         parser = cls(
             file_name=file_name,
             file_type=effective_file_type,
-            **overrides,
+            **{**overrides, "context": context},
         )
 
         parse_stream = getattr(parser, "parse_stream", None)
@@ -122,11 +130,13 @@ class Parser:
         title: str,
         parser_engine: Optional[str] = None,
         engine_overrides: Optional[dict[str, Any]] = None,
+        context: Any = None,
     ) -> Document:
         """Parse content from a URL to markdown."""
         logger.info("Parsing URL: %s, title: %s", url, title)
 
-        parser = WebParser(title=title)
+        check_cancellation(context)
+        parser = WebParser(title=title, context=context)
         logger.info("Starting to parse URL content")
         result = parser.parse(url.encode())
 

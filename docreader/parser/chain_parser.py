@@ -11,6 +11,8 @@ from typing import Dict, List, Tuple, Type
 
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
+from docreader.parser.archive import ArchiveLimitError
+from docreader.parser.concurrency import ParserCancelled, check_cancellation
 from docreader.utils import endecode
 
 logger = logging.getLogger(__name__)
@@ -56,9 +58,12 @@ class FirstParser(BaseParser):
                      or an empty Document if all parsers fail
         """
         for p in self._parsers:
+            check_cancellation(self.context)
             logger.info(f"FirstParser: using parser {p.__class__.__name__}")
             try:
                 document = p.parse_into_text(content)
+            except (ArchiveLimitError, ParserCancelled):
+                raise
             except ValueError as e:
                 if any(msg in str(e).lower() for msg in ("exceeds limit", "compression ratio", "suspicious compression")):
                     raise
@@ -145,6 +150,7 @@ class PipelineParser(BaseParser):
         metadata: Dict = {}
         document = Document()
         for p in self._parsers:
+            check_cancellation(self.context)
             logger.info(f"PipelineParser: using parser {p.__class__.__name__}")
             # Parse content with current parser
             document = p.parse_into_text(content)

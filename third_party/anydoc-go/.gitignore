@@ -1,3 +1,4 @@
 target/
 lib/
 patched-anydoc/
+licenses/rust/

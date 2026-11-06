@@ -21,6 +21,7 @@ import uuid
 import xml.etree.ElementTree as ET
 import zipfile
 from typing import Dict, List, Optional, Set, Tuple
+from docreader.parser.archive import ArchiveLimitError, validate_zip_archive
 
 logger = logging.getLogger(__name__)
 
@@ -143,6 +144,8 @@ class XLSXImageExtractor:
                 # 3. Extract standard floating drawings
                 self._extract_floating_drawings(zf, sheet_xml_map)
 
+        except ArchiveLimitError:
+            raise
         except Exception as exc:
             logger.warning("Gracefully failed to extract XLSX images: %s", exc)
             return {}, {}
@@ -150,24 +153,7 @@ class XLSXImageExtractor:
         return self.cell_images_by_sheet, self.doc_images
 
     def _validate_zip(self, zf: zipfile.ZipFile) -> None:
-        """Validate zip against zip bomb attacks and corrupt headers."""
-        total_uncompressed = 0
-        for info in zf.infolist():
-            if info.file_size > self.max_uncompressed_bytes:
-                raise ValueError(
-                    f"Entry {info.filename} uncompressed size ({info.file_size}) exceeds limit"
-                )
-            if (
-                info.compress_size > 0
-                and info.file_size > 1024 * 1024
-                and (info.file_size / info.compress_size) > self.max_compression_ratio
-            ):
-                raise ValueError(
-                    f"Suspicious compression ratio for entry {info.filename}"
-                )
-            total_uncompressed += info.file_size
-            if total_uncompressed > self.max_uncompressed_bytes:
-                raise ValueError("Cumulative uncompressed size exceeds safety limit")
+        validate_zip_archive(zf, self.max_uncompressed_bytes, self.max_compression_ratio)
 
     def _load_sheet_mapping(self, zf: zipfile.ZipFile) -> Dict[str, str]:
         """Map sheet name to its worksheet xml zip path."""

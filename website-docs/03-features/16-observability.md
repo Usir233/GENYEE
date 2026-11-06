@@ -93,8 +93,8 @@ return &lumberjack.Logger{
 
 | 环境变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `LANGFUSE_ENABLED` | 有公私钥时自动启用 | 总开关（与 Python SDK 约定一致） |
-| `LANGFUSE_HOST` | `https://cloud.langfuse.com` | Langfuse/LiteFuse 基址（可自建） |
+| `LANGFUSE_ENABLED` | `false`（部署模板） | 总开关；启用时显式改为 `true` 并填写基址与两项凭证 |
+| `LANGFUSE_HOST` | 空 | 必须显式配置 Langfuse/LiteFuse 基址，例如自建服务 `http://langfuse-web:3000` |
 | `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` | — | Basic Auth 项目凭证 |
 | `LANGFUSE_RELEASE` / `LANGFUSE_ENVIRONMENT` | — | 附加到每条 trace 用于 UI 过滤 |
 | `LANGFUSE_FLUSH_AT` | 15 | 批量导出批大小（BatchSpanProcessor `MaxExportBatchSize`） |
@@ -103,6 +103,8 @@ return &lumberjack.Logger{
 | `LANGFUSE_REQUEST_TIMEOUT` | 10s | 单次 ingestion HTTP 超时 |
 | `LANGFUSE_SAMPLE_RATE` | 1.0 | `ParentBased(TraceIDRatioBased)` 采样率，0..1 |
 | `LANGFUSE_DEBUG` | false | 批量发送错误的详细日志 |
+
+`.env.example`、`.env.lite.example` 与 Compose 均显式关闭追踪。原生进程若完全不设置 `LANGFUSE_ENABLED`，仍兼容“显式提供 HOST、公钥、私钥后启用”的方式；只提供凭证不会自动选择云端地址。
 
 #### 导出器（`exporter.go`） {#_3-2-导出器-exporter-go}
 

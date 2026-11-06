@@ -24,3 +24,26 @@ Lite 面向希望快速在本地使用、部署尽量简单的场景；标准版
 - 如需指定其他文件，可设置 `ENV_FILE` 环境变量（标准版同样生效）。
 - 命令行或服务管理器中已经设置的环境变量优先于配置文件。
 - 写在 `.env.lite` 里的 `LOG_LEVEL` / `LOG_PATH` 会生效（加载后会重新应用日志配置）。
+
+## 构建 Windows 安装包
+
+Windows NSIS 安装包需要随二进制附带该目标的第三方许可证和对应源码材料。
+在已安装 Go、Node.js、Wails v2.13.0、NSIS 与支持 CGO 的 C 编译器的 Windows 构建环境中，从仓库根目录的 Bash 运行：
+
+```bash
+(cd frontend && npm ci && npm run build)
+rm -rf web
+cp -r frontend/dist web
+export CGO_ENABLED=1
+export GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn
+bash scripts/copy-licenses.sh cmd/desktop/build/license-bundle \
+  --goos windows --goarch amd64 --cgo 1 \
+  --target './cmd/desktop=desktop,production,sqlite_fts5'
+cd cmd/desktop
+wails build -clean -tags sqlite_fts5 -platform windows/amd64 -nsis -o 'GENYEE Lite'
+```
+
+安装器从 `cmd/desktop/build/license-bundle/` 收集材料；缺失时构建失败。
+仓库发布工作流会先生成该目录，再构建安装器。该目录是生成物，不应手动维护。
+安装器同时附带 `web/`、`config/`、SQLite 迁移和 `.env.lite`；前端产物必须先生成。
+`wails build -clean` 只清理 `cmd/desktop/build/bin/`，不会删除相邻的许可证目录。

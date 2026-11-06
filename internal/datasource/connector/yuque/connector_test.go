@@ -3,12 +3,14 @@ package yuque
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 
+	"github.com/Usir233/GENYEE/internal/testutil/dnstest"
 	"github.com/Usir233/GENYEE/internal/types"
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
@@ -17,9 +19,16 @@ import (
 // host so parseYuqueConfig does not resolve www.yuque.com over live DNS during
 // a unit test. Production keeps the default strict SSRF policy.
 func TestMain(m *testing.M) {
+	restore, err := dnstest.Install(map[string][]string{"company.yuque.com": {"93.184.216.34"}})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 	_ = os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost,www.yuque.com")
 	secutils.ResetSSRFWhitelistForTest()
-	os.Exit(m.Run())
+	code := m.Run()
+	restore()
+	os.Exit(code)
 }
 
 func makeDSConfig(f *fakeYuque, resourceIDs []string) *types.DataSourceConfig {

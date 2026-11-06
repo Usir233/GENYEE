@@ -9,6 +9,11 @@ import zipfile
 
 from lxml import etree
 
+from docreader.parser.archive import (
+    MAX_COMPRESSION_RATIO, MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    validate_zip_archive as _validate_zip_archive,
+)
+
 logger = logging.getLogger(__name__)
 
 _WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -19,36 +24,6 @@ _GRID_SPAN = f"{_W}gridSpan"
 _TR_PR = f"{_W}trPr"
 _GRID_BEFORE = f"{_W}gridBefore"
 _VAL = f"{_W}val"
-
-
-MAX_UNCOMPRESSED_ARCHIVE_BYTES = 100 * 1024 * 1024  # 100 MB
-MAX_COMPRESSION_RATIO = 100.0
-
-
-def _validate_zip_archive(
-    archive: zipfile.ZipFile,
-    max_bytes: int = MAX_UNCOMPRESSED_ARCHIVE_BYTES,
-    max_ratio: float = MAX_COMPRESSION_RATIO,
-) -> None:
-    total_uncompressed = 0
-    for info in archive.infolist():
-        if info.file_size > max_bytes:
-            raise ValueError(
-                f"Archive entry {info.filename} uncompressed size ({info.file_size}) exceeds limit ({max_bytes})"
-            )
-        if (
-            info.compress_size > 0
-            and info.file_size > 1024 * 1024
-            and (info.file_size / info.compress_size) > max_ratio
-        ):
-            raise ValueError(
-                f"Suspicious compression ratio for entry {info.filename}: {info.file_size / info.compress_size:.1f} > {max_ratio}"
-            )
-        total_uncompressed += info.file_size
-        if total_uncompressed > max_bytes:
-            raise ValueError(
-                f"Archive cumulative uncompressed size ({total_uncompressed}) exceeds limit ({max_bytes})"
-            )
 
 
 def fill_vertical_merged_cells_docx(content: bytes) -> bytes:

@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "nativeBuildOnlyPrefixes": [
+    "@esbuild/",
+    "@napi-rs/canvas-",
+    "@pagefind/",
+    "@rollup/rollup-",
+    "@img/sharp-",
+    "@next/swc-",
+    "@unrs/resolver-binding-"
+  ],
+  "packages": {
+    "khroma@2.1.0": {
+      "license": "MIT",
+      "reason": "The published package.json omits license metadata; its original bundled license file explicitly supplies the complete MIT terms and copyright."
+    },
+    "agent-base@6.0.2": {
+      "readme": "README.md",
+      "reason": "The npm package embeds its complete license and copyright text in README.md."
+    },
+    "errno@0.1.8": {
+      "readme": "README.md",
+      "reason": "The npm package embeds its complete license and copyright text in README.md."
+    },
+    "esrecurse@4.3.0": {
+      "readme": "README.md",
+      "reason": "The npm package embeds its complete license and copyright text in README.md."
+    },
+    "fastdom@1.0.12": {
+      "readme": "README.md",
+      "reason": "The npm package embeds its complete license and copyright text in README.md."
+    },
+    "glob-to-regexp@0.4.1": {
+      "readme": "README.md",
+      "reason": "The npm package embeds its complete license and copyright text in README.md."
+    },
+    "https-proxy-agent@5.0.1": {
+      "readme": "README.md",
+      "reason": "The npm package embeds its complete license and copyright text in README.md."
+    },
+    "isarray@1.0.0": {
+      "readme": "README.md",
+      "reason": "The npm package embeds its complete license and copyright text in README.md."
+    },
+    "strictdom@1.0.1": {
+      "readme": "README.md",
+      "reason": "The npm package embeds its complete license and copyright text in README.md."
+    },
+    "@vue-office/pptx@1.0.1": {
+      "files": [
+        {
+          "path": "npm-license-sources/vue-office.txt",
+          "source": "https://raw.githubusercontent.com/501351981/vue-office/d20568113bec480f6ca72924f6d0c1e3b0f1fe15/LICENSE",
+          "sha256": "cc9e81750722992ec980fca164b58e6ae56e54f4ea7c788b71d58aab02fd2720"
+        }
+      ],
+      "reason": "The npm archive omits LICENSE; preserve the original license from the upstream release source."
+    },
+    "less@4.6.4": {
+      "files": [
+        {
+          "path": "npm-license-sources/less.txt",
+          "source": "https://raw.githubusercontent.com/less/less.js/1df9072ee9ebdadc791bf35dfb1dbc3ef9f1948f/LICENSE",
+          "sha256": "39445b459f86621683f9731fb6a7d070819dc379840e8ef52f62bb1c68942291"
+        }
+      ],
+      "reason": "The npm archive omits LICENSE; preserve the original license from the upstream release source."
+    },
+    "@vue/devtools-api@6.6.4": {
+      "files": [
+        {
+          "path": "npm-license-sources/vue-devtools.txt",
+          "source": "https://raw.githubusercontent.com/vuejs/devtools-v6/v6.6.4/LICENSE",
+          "sha256": "050bbca6960784db52ff387271bf2ecc5cbed7cf8581b415d528a6ecb6585015"
+        }
+      ],
+      "reason": "The npm archive omits LICENSE; preserve the original license from the upstream release source."
+    },
+    "mitt@2.1.0": {
+      "files": [
+        {
+          "path": "npm-license-sources/mit-terms.txt",
+          "source": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      ],
+      "reason": "The release has only an MIT declaration and Jason Miller attribution in README.md. Preserve that original statement alongside the complete canonical MIT terms; do not invent a copyright year.",
+      "attributions": [
+        {
+          "path": "README.md",
+          "sha256": "f57a62589e29dd909c7a6b4130b5c35bd123d557fe8a0e57844a506f7c9d8b13"
+        }
+      ]
+    }
+  }
+}

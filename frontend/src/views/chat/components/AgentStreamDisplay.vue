@@ -839,7 +839,7 @@ import { useSettingsStore } from '@/stores/settings';
 import { useAuthStore } from '@/stores/auth';
 import { useI18n } from 'vue-i18n';
 import i18n from '@/i18n';
-import { hydrateProtectedFileImages, sanitizeMarkdownHTML } from '@/utils/security';
+import { hydrateProtectedFileImages, safeMarkdownToHTML, sanitizeMarkdownHTML } from '@/utils/security';
 import { useProtectedImageRecovery } from '@/composables/useProtectedImageRecovery';
 import {
   artifactIndexFromEventTarget,
@@ -2975,7 +2975,9 @@ const renderAgentMarkdown = (
 
 // 单次渲染 Markdown 内容（替代 token-by-token，修复 KaTeX 公式在 streaming 时闪烁消失的问题）
 const renderMarkdownContent = (content: unknown): string => {
-  return renderAgentMarkdown(content, sanitizeForDisplay);
+  // Keep IDs, links and code verbatim. Display-label cleanup is only suitable
+  // for short plain-text summaries; the final HTML is sanitized below.
+  return renderAgentMarkdown(content, safeMarkdownToHTML);
 };
 
 // Renders an answer event's content. Strips final-answer wrappers

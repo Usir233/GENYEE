@@ -1,6 +1,8 @@
 include README.md
 include requirements.txt
 include LICENSE
+include LICENSE.GENYEE
+include THIRD_PARTY_NOTICES.md
 include *.py
 recursive-include * *.py
 recursive-include * *.md

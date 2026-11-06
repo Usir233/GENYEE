@@ -18,6 +18,12 @@ services:
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
       - MAX_SKILL_BUNDLE_SIZE_MB=${MAX_SKILL_BUNDLE_SIZE_MB:-256}
       - DEFAULT_LOCALE=${DEFAULT_LOCALE:-}
+      - WEKNORA_WEKNORACLOUD_ENABLED=${WEKNORA_WEKNORACLOUD_ENABLED:-false}
+      - GENYEE_CHROME_EXTENSION_URL=${GENYEE_CHROME_EXTENSION_URL:-}
+      - GENYEE_CLAWHUB_SKILL_URL=${GENYEE_CLAWHUB_SKILL_URL:-}
+      - DOCS_BASE_URL=${DOCS_BASE_URL:-}
+      - WEBSITE_URL=${WEBSITE_URL:-}
+      - GITHUB_URL=${GITHUB_URL:-}
       - APP_HOST=${APP_HOST:-app}
       # APP_BACKEND_PORT: the port NGINX proxies to (default 8080).
       # For local deployment this is the App container's listening port, independent of host-mapped APP_PORT.
@@ -159,7 +165,7 @@ services:
       # SQLite 驱动时使用（DB_DRIVER=sqlite）；postgres 驱动忽略
       # - DB_PATH=${DB_PATH:-}
       # ========== Langfuse (optional observability) ==========
-      # Disabled by default; enable via LANGFUSE_ENABLED=true or by setting LANGFUSE_PUBLIC_KEY + LANGFUSE_SECRET_KEY + LANGFUSE_HOST.
+      # Enable explicitly with LANGFUSE_ENABLED=true plus both keys and LANGFUSE_HOST.
       # See website-docs/03-features/16-observability.md for the full list of tuning knobs.
       - LANGFUSE_ENABLED=${LANGFUSE_ENABLED:-false}
       - LANGFUSE_HOST=${LANGFUSE_HOST:-}
@@ -868,7 +874,7 @@ services:
   # 启用后：
   #   1. Langfuse UI: http://localhost:3000 （首次访问注册管理员并在 Settings → API Keys 生成 key）
   #   2. 在 .env 里把 LANGFUSE_HOST 改成 http://langfuse-web:3000（容器间通信）
-  #      并填入刚生成的 LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY，或设置 LANGFUSE_ENABLED=true
+  #      并填入刚生成的 LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY，设置 LANGFUSE_ENABLED=true
   #   3. 重启 app 容器：docker compose up -d app
   # 相关默认密码已写成占位符，生产部署务必用 openssl rand 重新生成！
   # ---------------------------------------------------------------------------
@@ -1094,6 +1100,7 @@ services:
       - GENYEE-network
     restart: unless-stopped
     profiles:
+      - mcp
       - full
 
 networks:

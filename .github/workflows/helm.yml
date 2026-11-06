@@ -48,7 +48,7 @@ jobs:
           render_image() {
             local template="$1"
             shift
-            helm template weknora ./helm \
+            helm template genyee ./helm \
               --show-only "$template" \
               --set secrets.dbPassword=test \
               --set secrets.redisPassword=test \
@@ -68,5 +68,5 @@ jobs:
           frontend_override="$(render_image templates/frontend.yaml --set frontend.image.tag=ui-test)"
           docreader_override="$(render_image templates/docreader.yaml --set docreader.image.tag=reader-test)"
 
-          test "$frontend_override" = "wechatopenai/weknora-ui:ui-test"
-          test "$docreader_override" = "wechatopenai/weknora-docreader:reader-test"
+          test "$frontend_override" = "genyee/genyee-ui:ui-test"
+          test "$docreader_override" = "genyee/genyee-docreader:reader-test"

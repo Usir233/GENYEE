@@ -234,9 +234,10 @@ func TestSandboxIdentityChangedJudgesUnreachableOldEndpoint(t *testing.T) {
 // that prevents old credentials from being overwritten while they still own
 // provider resources.
 type fakeConfigRepo struct {
-	entity *types.TenantSandboxConfigEntity
-	policy *types.TenantSandboxConfigEntity
-	others []*types.TenantSandboxConfigEntity
+	eventMu sync.Mutex
+	entity  *types.TenantSandboxConfigEntity
+	policy  *types.TenantSandboxConfigEntity
+	others  []*types.TenantSandboxConfigEntity
 
 	events  []string
 	updated *types.TenantSandboxConfigEntity
@@ -248,6 +249,12 @@ type fakeConfigRepo struct {
 
 	clearCordonCtxErr error
 	cordonedAt        *time.Time
+}
+
+func (f *fakeConfigRepo) recordEvent(event string) {
+	f.eventMu.Lock()
+	defer f.eventMu.Unlock()
+	f.events = append(f.events, event)
 }
 
 func (f *fakeConfigRepo) Create(_ context.Context, e *types.TenantSandboxConfigEntity) error {
@@ -262,7 +269,7 @@ func (f *fakeConfigRepo) Create(_ context.Context, e *types.TenantSandboxConfigE
 func (f *fakeConfigRepo) GetByID(
 	_ context.Context, _ uint64, _ string,
 ) (*types.TenantSandboxConfigEntity, error) {
-	f.events = append(f.events, "get")
+	f.recordEvent("get")
 	return f.entity, nil
 }
 
@@ -287,7 +294,7 @@ func (f *fakeConfigRepo) ListAll(context.Context) ([]*types.TenantSandboxConfigE
 func (f *fakeConfigRepo) Update(
 	_ context.Context, e *types.TenantSandboxConfigEntity,
 ) error {
-	f.events = append(f.events, "write")
+	f.recordEvent("write")
 	f.updated = e
 	if f.onUpdate != nil {
 		f.onUpdate()
@@ -299,7 +306,7 @@ func (f *fakeConfigRepo) Update(
 }
 
 func (f *fakeConfigRepo) SoftDelete(_ context.Context, _ uint64, id string) error {
-	f.events = append(f.events, "delete")
+	f.recordEvent("delete")
 	if f.policy != nil && f.policy.ID == id {
 		f.policy = nil
 	}
@@ -308,7 +315,7 @@ func (f *fakeConfigRepo) SoftDelete(_ context.Context, _ uint64, id string) erro
 }
 
 func (f *fakeConfigRepo) SetCordon(_ context.Context, _ uint64, _ string, at time.Time) error {
-	f.events = append(f.events, "cordon")
+	f.recordEvent("cordon")
 	stamped := at
 	f.cordonedAt = &stamped
 	if f.onSetCordon != nil {
@@ -329,7 +336,7 @@ func (f *fakeConfigRepo) RefreshCordon(
 }
 
 func (f *fakeConfigRepo) ClearCordon(ctx context.Context, _ uint64, _ string) error {
-	f.events = append(f.events, "uncordon")
+	f.recordEvent("uncordon")
 	f.cordonedAt = nil
 	f.clearCordonCtxErr = ctx.Err()
 	return nil

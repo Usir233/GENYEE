@@ -24,7 +24,7 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 from docreader.config import CONFIG
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
-from docreader.parser.concurrency import parser_worker_limit
+from docreader.parser.concurrency import check_cancellation, parser_worker_limit
 from docreader.utils.ssrf import is_ssrf_safe_url
 
 logger = logging.getLogger(__name__)
@@ -328,7 +328,7 @@ class OpenDataLoaderParser(BaseParser):
         pdf_stem = os.path.splitext(safe_name)[0]
 
         max_workers = CONFIG.odl_max_workers
-        with parser_worker_limit("opendataloader", max_workers):
+        with parser_worker_limit("opendataloader", max_workers, context=self.context):
             with tempfile.TemporaryDirectory(prefix="weknora-odl-") as tmp_dir:
                 pdf_path = os.path.join(tmp_dir, safe_name)
                 with open(pdf_path, "wb") as f:
@@ -350,6 +350,7 @@ class OpenDataLoaderParser(BaseParser):
                 images = _collect_images_under_output(tmp_dir)
                 text = _rewrite_markdown_image_refs(text, images)
 
+        check_cancellation(self.context)
         if len(text.strip()) < _MIN_CHARS_PER_PAGE:
             logger.info(
                 "OpenDataLoaderParser: %s yielded little text; "
@@ -359,7 +360,7 @@ class OpenDataLoaderParser(BaseParser):
             from docreader.parser.pdf_parser import PDFScannedParser
 
             return PDFScannedParser(
-                file_name=self.file_name, file_type=self.file_type
+                file_name=self.file_name, file_type=self.file_type, context=self.context
             ).parse_into_text(content)
 
         logger.info(

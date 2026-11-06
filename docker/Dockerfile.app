@@ -24,14 +24,14 @@ ARG TARGETARCH
 RUN bash scripts/build_browserskill.sh /opt/weknora/browserskill "${TARGETOS}/${TARGETARCH}"
 
 # Build stage
-FROM golang:1.26-bookworm AS builder
+FROM golang:1.27.3-bookworm AS builder
 
 WORKDIR /app
 
 # 通过构建参数接收敏感信息
 ARG GOPRIVATE_ARG
 ARG GOPROXY_ARG
-ARG GOSUMDB_ARG=off
+ARG GOSUMDB_ARG=sum.golang.org
 ARG APK_MIRROR_ARG
 
 # 设置Go环境变量
@@ -46,9 +46,6 @@ RUN if [ -n "$APK_MIRROR_ARG" ]; then \
     apt-get update && \
     apt-get install -y git build-essential libsqlite3-dev curl
 
-# Install migrate tool
-RUN go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-
 # Copy go mod files. go.mod replace-points anydoc at ./third_party/anydoc-go,
 # so that module's go.mod must exist before `go mod download`.
 COPY go.mod go.sum ./
@@ -57,7 +54,9 @@ RUN --mount=type=cache,target=/go/pkg/mod go mod download
 COPY cmd/download cmd/download
 RUN go run cmd/download/duckdb/duckdb.go
 COPY . .
-RUN --mount=type=cache,target=/go/pkg/mod bash ./scripts/copy-licenses.sh /license-bundle
+# Build the migration CLI from the same audited module graph as the app.
+# An @latest installation would ignore go.mod and resolve an unrelated graph.
+RUN --mount=type=cache,target=/go/pkg/mod go install -mod=readonly -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate
 
 # Get version and commit info for build injection
 ARG VERSION_ARG
@@ -83,6 +82,12 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
             | sh -s -- -y --profile minimal --default-toolchain stable && \
         ./scripts/build-anydoc-lib.sh; \
     fi
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    if [ "$WITH_ANYDOC" = "1" ]; then app_tags=anydoc; else app_tags=; fi && \
+    bash ./scripts/copy-licenses.sh /license-bundle --cgo 1 \
+        --target "./cmd/server=${app_tags}" \
+        --target 'github.com/golang-migrate/migrate/v4/cmd/migrate=postgres'
 
 # Build the application with version info. Mount the Go build cache as well as
 # the module cache: `COPY . .` invalidates this layer on every source change,

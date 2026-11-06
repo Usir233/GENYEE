@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag (e.g. v0.2.0)"
+        description: "Existing release tag to build (e.g. v0.2.0)"
         required: true
 
 concurrency:
@@ -18,8 +18,9 @@ permissions:
   contents: write
 
 env:
-  GO_VERSION: "1.24"
+  GO_VERSION: "1.27.3"
   NODE_VERSION: "22"
+  RELEASE_TAG: ${{ inputs.tag }}
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
@@ -28,6 +29,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
 
       - uses: actions/setup-node@v6
         with:
@@ -69,8 +72,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CGO_ENABLED: 1
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
 
       - uses: actions/setup-go@v6
         with:
@@ -85,32 +92,33 @@ jobs:
       - name: Resolve version
         id: ver
         run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            VERSION="${{ inputs.tag }}"
+          if [ -n "${RELEASE_TAG}" ]; then
+            VERSION="${RELEASE_TAG}"
           else
             VERSION="${GITHUB_REF#refs/tags/}"
           fi
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]] || { echo "Invalid release tag" >&2; exit 1; }
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "Building ${VERSION} for ${{ matrix.goos }}/${{ matrix.goarch }}"
 
       - name: Build
         run: |
           export EDITION=lite
-          eval "$(./scripts/get_version.sh env)"
-          LDFLAGS="-w -s $(./scripts/get_version.sh ldflags)"
+          export GITHUB_SHA="$(git rev-parse HEAD)"
+          LDFLAGS="-w -s $(./scripts/get_version.sh ldflags) -X 'github.com/Usir233/GENYEE/internal/handler.Version=${RELEASE_TAG#v}'"
           export CGO_CFLAGS="-Wno-deprecated-declarations"
           if [ "${{ matrix.goos }}" = "darwin" ]; then
             export CGO_LDFLAGS="-Wl,-no_warn_duplicate_libraries"
           fi
           go build -tags "sqlite_fts5" -ldflags="${LDFLAGS}" \
-            -o WeKnora-lite ./cmd/server
+            -o GENYEE-lite ./cmd/server
 
       - name: Package tarball
         run: |
-          ARCHIVE="WeKnora-lite_${{ steps.ver.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}"
+          ARCHIVE="GENYEE-lite_${{ steps.ver.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}"
           mkdir -p "${ARCHIVE}/web"
-          cp WeKnora-lite "${ARCHIVE}/"
-          bash ./scripts/copy-licenses.sh "${ARCHIVE}"
+          cp GENYEE-lite "${ARCHIVE}/"
+          bash ./scripts/copy-licenses.sh "${ARCHIVE}" --goos "${{ matrix.goos }}" --goarch "${{ matrix.goarch }}" --cgo 1 --target './cmd/server=sqlite_fts5'
           cp -r web/* "${ARCHIVE}/web/"
           cp .env.lite.example "${ARCHIVE}/"
           cp docs/LITE.md "${ARCHIVE}/README.md"
@@ -131,12 +139,13 @@ jobs:
         with:
           name: release-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
-            WeKnora-lite_*.tar.gz
-            WeKnora-lite_*.tar.gz.sha256
+            GENYEE-lite_*.tar.gz
+            GENYEE-lite_*.tar.gz.sha256
           retention-days: 3
 
   # ── 2b. Build Desktop APP per platform (Wails) ──
   build-desktop-app:
+    needs: build-frontend
     strategy:
       fail-fast: false
       matrix:
@@ -166,6 +175,8 @@ jobs:
       CGO_ENABLED: 1
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
 
       - uses: actions/setup-go@v6
         with:
@@ -178,8 +189,13 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: frontend-dist
+          path: web/
+
       - name: Install Wails CLI
-        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -195,11 +211,12 @@ jobs:
         id: ver
         shell: bash
         run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            VERSION="${{ inputs.tag }}"
+          if [ -n "${RELEASE_TAG}" ]; then
+            VERSION="${RELEASE_TAG}"
           else
             VERSION="${GITHUB_REF#refs/tags/}"
           fi
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]] || { echo "Invalid release tag" >&2; exit 1; }
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Pre-compile Go packages (Windows)
@@ -217,8 +234,8 @@ jobs:
         run: |
           export EDITION=lite
           export GOLANG_PROTOBUF_REGISTRATION_CONFLICT=warn
-          eval "$(./scripts/get_version.sh env)"
-          LDFLAGS="$(./scripts/get_version.sh ldflags) -X 'google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn'"
+          export GITHUB_SHA="$(git rev-parse HEAD)"
+          LDFLAGS="$(./scripts/get_version.sh ldflags) -X 'github.com/Usir233/GENYEE/internal/handler.Version=${RELEASE_TAG#v}' -X 'google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn'"
           export CGO_CFLAGS="-Wno-deprecated-declarations"
 
           BUILD_TAGS="sqlite_fts5"
@@ -232,6 +249,7 @@ jobs:
           fi
           if [ "${{ runner.os }}" = "Windows" ]; then
             NSIS_FLAG="-nsis"
+            bash ./scripts/copy-licenses.sh cmd/desktop/build/license-bundle --goos windows --goarch amd64 --cgo 1 --target './cmd/desktop=desktop,production,sqlite_fts5'
           fi
 
           bash ./scripts/check-license-bundle.sh
@@ -241,19 +259,26 @@ jobs:
             -platform "${{ matrix.platform }}" \
             ${NSIS_FLAG} \
             -ldflags="${LDFLAGS}" \
-            -o "WeKnora Lite"
+            -o "GENYEE Lite"
 
       # ── macOS: bundle .app with resources, then create DMG ──
       - name: Package macOS app
         if: runner.os == 'macOS'
         run: |
-          APP_BUNDLE="WeKnora Lite.app"
+          APP_BUNDLE="GENYEE Lite.app"
           SRC="cmd/desktop/build/bin/${APP_BUNDLE}"
           RESOURCES="${SRC}/Contents/Resources"
 
           mkdir -p "${RESOURCES}/config"
           mkdir -p "${RESOURCES}/migrations/sqlite"
-          bash ./scripts/copy-licenses.sh "${RESOURCES}"
+          TARGET_ARCH="${{ matrix.platform }}"
+          TARGET_ARCH="${TARGET_ARCH#*/}"
+          if [ "$TARGET_ARCH" = universal ]; then
+            bash ./scripts/copy-licenses.sh "${RESOURCES}" --goos darwin --goarch amd64 --cgo 1 --target './cmd/desktop=desktop,production,sqlite_fts5'
+            bash ./scripts/copy-licenses.sh "${RESOURCES}/licenses/platforms/darwin-arm64" --goos darwin --goarch arm64 --cgo 1 --target './cmd/desktop=desktop,production,sqlite_fts5'
+          else
+            bash ./scripts/copy-licenses.sh "${RESOURCES}" --goos darwin --goarch "$TARGET_ARCH" --cgo 1 --target './cmd/desktop=desktop,production,sqlite_fts5'
+          fi
 
           if [ -f .env.lite.example ]; then
             cp .env.lite.example "${RESOURCES}/.env"
@@ -264,15 +289,16 @@ jobs:
           if [ -d config ]; then
             cp -r config/* "${RESOURCES}/config/"
           fi
+          cp -r web "${RESOURCES}/web"
 
-          DMG_NAME="WeKnora-Lite-App_${{ steps.ver.outputs.version }}_${{ matrix.arch_label }}"
+          DMG_NAME="GENYEE-Lite-App_${{ steps.ver.outputs.version }}_${{ matrix.arch_label }}"
 
           DMG_SRC="dmg_staging"
           mkdir -p "${DMG_SRC}"
           cp -R "cmd/desktop/build/bin/${APP_BUNDLE}" "${DMG_SRC}/"
           ln -s /Applications "${DMG_SRC}/Applications"
 
-          hdiutil create -volname "WeKnora Lite" \
+          hdiutil create -volname "GENYEE Lite" \
             -srcfolder "${DMG_SRC}" \
             -ov -format UDZO \
             "${DMG_NAME}.dmg"
@@ -283,10 +309,11 @@ jobs:
       - name: Package Linux app
         if: runner.os == 'Linux'
         run: |
-          ARCHIVE="WeKnora-Lite-App_${{ steps.ver.outputs.version }}_${{ matrix.arch_label }}"
+          ARCHIVE="GENYEE-Lite-App_${{ steps.ver.outputs.version }}_${{ matrix.arch_label }}"
           mkdir -p "${ARCHIVE}"
-          cp "cmd/desktop/build/bin/WeKnora Lite" "${ARCHIVE}/"
-          bash ./scripts/copy-licenses.sh "${ARCHIVE}"
+          cp "cmd/desktop/build/bin/GENYEE Lite" "${ARCHIVE}/"
+          cp -r web "${ARCHIVE}/web"
+          bash ./scripts/copy-licenses.sh "${ARCHIVE}" --goos linux --goarch amd64 --cgo 1 --target './cmd/desktop=desktop,production,sqlite_fts5,webkit2_41'
           if [ -f .env.lite.example ]; then
             cp .env.lite.example "${ARCHIVE}/"
           fi
@@ -306,8 +333,8 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          ARCHIVE="WeKnora-Lite-App_${{ steps.ver.outputs.version }}_${{ matrix.arch_label }}"
-          INSTALLER="cmd/desktop/build/bin/WeKnora Lite-amd64-installer.exe"
+          ARCHIVE="GENYEE-Lite-App_${{ steps.ver.outputs.version }}_${{ matrix.arch_label }}"
+          INSTALLER="cmd/desktop/build/bin/GENYEE Lite-amd64-installer.exe"
           # Do not publish a bare executable if NSIS was unavailable: the
           # installer also carries the notices/source and supports auto-update.
           test -f "$INSTALLER"
@@ -318,7 +345,12 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: |
-            WeKnora-Lite-App_*
+            GENYEE-Lite-App_*.dmg
+            GENYEE-Lite-App_*.dmg.sha256
+            GENYEE-Lite-App_*.tar.gz
+            GENYEE-Lite-App_*.tar.gz.sha256
+            GENYEE-Lite-App_*_setup.exe
+            GENYEE-Lite-App_*_setup.exe.sha256
           retention-days: 3
 
   # ── 3. Create GitHub Release ──
@@ -327,6 +359,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ inputs.tag }}
 
       - uses: actions/download-artifact@v8
         with:
@@ -341,18 +375,19 @@ jobs:
       - name: Resolve version
         id: ver
         run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            VERSION="${{ inputs.tag }}"
+          if [ -n "${RELEASE_TAG}" ]; then
+            VERSION="${RELEASE_TAG}"
           else
             VERSION="${GITHUB_REF#refs/tags/}"
           fi
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]] || { echo "Invalid release tag" >&2; exit 1; }
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Generate release notes
         id: notes
         run: |
           cat > notes.md << 'NOTES'
-          ## WeKnora Lite ${{ steps.ver.outputs.version }}
+          ## GENYEE Lite ${{ steps.ver.outputs.version }}
 
           ### Web CLI 版（命令行 / 服务器部署）
 
@@ -360,8 +395,8 @@ jobs:
 
           ```bash
           # 1. 解压
-          tar xzf WeKnora-lite_${{ steps.ver.outputs.version }}_<os>_<arch>.tar.gz
-          cd WeKnora-lite_${{ steps.ver.outputs.version }}_<os>_<arch>
+          tar xzf GENYEE-lite_${{ steps.ver.outputs.version }}_<os>_<arch>.tar.gz
+          cd GENYEE-lite_${{ steps.ver.outputs.version }}_<os>_<arch>
 
           # 2. 配置
           cp .env.lite.example .env.lite
@@ -374,16 +409,16 @@ jobs:
 
           # 4. 运行
           set -a && source .env.lite && set +a
-          ./WeKnora-lite
+          ./GENYEE-lite
           # 访问 http://localhost:8080
           ```
 
           | 文件 | 平台 |
           |------|------|
-          | `WeKnora-lite_*_linux_amd64.tar.gz` | Linux x86_64 |
-          | `WeKnora-lite_*_linux_arm64.tar.gz` | Linux ARM64 |
-          | `WeKnora-lite_*_darwin_amd64.tar.gz` | macOS Intel |
-          | `WeKnora-lite_*_darwin_arm64.tar.gz` | macOS Apple Silicon |
+          | `GENYEE-lite_*_linux_amd64.tar.gz` | Linux x86_64 |
+          | `GENYEE-lite_*_linux_arm64.tar.gz` | Linux ARM64 |
+          | `GENYEE-lite_*_darwin_amd64.tar.gz` | macOS Intel |
+          | `GENYEE-lite_*_darwin_arm64.tar.gz` | macOS Apple Silicon |
 
           ---
 
@@ -393,11 +428,11 @@ jobs:
 
           | 文件 | 平台 |
           |------|------|
-          | `WeKnora-Lite-App_*_macOS_universal.dmg` | macOS (Intel + Apple Silicon) |
-          | `WeKnora-Lite-App_*_macOS_amd64.dmg` | macOS Intel |
-          | `WeKnora-Lite-App_*_macOS_arm64.dmg` | macOS Apple Silicon |
-          | `WeKnora-Lite-App_*_linux_amd64.tar.gz` | Linux x86_64 |
-          | `WeKnora-Lite-App_*_windows_amd64_setup.exe` | Windows x86_64 (安装包) |
+          | `GENYEE-Lite-App_*_macOS_universal.dmg` | macOS (Intel + Apple Silicon) |
+          | `GENYEE-Lite-App_*_macOS_amd64.dmg` | macOS Intel |
+          | `GENYEE-Lite-App_*_macOS_arm64.dmg` | macOS Apple Silicon |
+          | `GENYEE-Lite-App_*_linux_amd64.tar.gz` | Linux x86_64 |
+          | `GENYEE-Lite-App_*_windows_amd64_setup.exe` | Windows x86_64 (安装包) |
 
           详细文档见 [LITE.md](docs/LITE.md)。
           NOTES
@@ -407,14 +442,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ steps.ver.outputs.version }}" \
-            --title "WeKnora Lite ${{ steps.ver.outputs.version }}" \
+            --title "GENYEE Lite ${{ steps.ver.outputs.version }}" \
             --notes-file notes.md \
-            WeKnora-lite_*.tar.gz \
-            WeKnora-lite_*.tar.gz.sha256 \
-            WeKnora-Lite-App_* || true
+            GENYEE-lite_*.tar.gz \
+            GENYEE-lite_*.tar.gz.sha256 \
+            GENYEE-Lite-App_*
 
   # ── 4. Update Homebrew Formula ──
   update-homebrew:
+    # Compliance-branch releases must never mutate the pure-rebrand main branch.
+    if: github.ref == 'refs/heads/main'
     needs: release
     runs-on: ubuntu-latest
     steps:
@@ -426,11 +463,12 @@ jobs:
       - name: Resolve version
         id: ver
         run: |
-          if [ -n "${{ inputs.tag }}" ]; then
-            VERSION="${{ inputs.tag }}"
+          if [ -n "${RELEASE_TAG}" ]; then
+            VERSION="${RELEASE_TAG}"
           else
             VERSION="${GITHUB_REF#refs/tags/}"
           fi
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][A-Za-z0-9.-]+)?$ ]] || { echo "Invalid release tag" >&2; exit 1; }
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Wait for release assets to be available

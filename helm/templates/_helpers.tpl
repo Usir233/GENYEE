@@ -126,7 +126,11 @@ Usage: include "weknora.formatImage" (dict "repository" .Values.app.image.reposi
 {{- $registry = trimSuffix "/" .global.imageRegistry -}}
 {{- end -}}
 {{- if $registry -}}
-{{- printf "%s/%s:%s" $registry .repository .tag -}}
+{{- $repository := .repository -}}
+{{- if .selfBuilt -}}
+{{- $repository = base $repository -}}
+{{- end -}}
+{{- printf "%s/%s:%s" $registry $repository .tag -}}
 {{- else -}}
 {{- printf "%s:%s" .repository .tag -}}
 {{- end -}}
@@ -138,7 +142,7 @@ Defaults to Chart.appVersion if tag is not specified.
 */}}
 {{- define "weknora.app.image" -}}
 {{- $tag := default .Chart.AppVersion .Values.app.image.tag }}
-{{- include "weknora.formatImage" (dict "repository" .Values.app.image.repository "tag" $tag "global" .Values.global) }}
+{{- include "weknora.formatImage" (dict "repository" .Values.app.image.repository "tag" $tag "global" .Values.global "selfBuilt" true) }}
 {{- end }}
 
 {{/*
@@ -147,7 +151,7 @@ Defaults to Chart.appVersion if tag is not specified.
 */}}
 {{- define "weknora.frontend.image" -}}
 {{- $tag := default .Chart.AppVersion .Values.frontend.image.tag }}
-{{- include "weknora.formatImage" (dict "repository" .Values.frontend.image.repository "tag" $tag "global" .Values.global) }}
+{{- include "weknora.formatImage" (dict "repository" .Values.frontend.image.repository "tag" $tag "global" .Values.global "selfBuilt" true) }}
 {{- end }}
 
 {{/*
@@ -156,7 +160,7 @@ Defaults to Chart.appVersion if tag is not specified.
 */}}
 {{- define "weknora.docreader.image" -}}
 {{- $tag := default .Chart.AppVersion .Values.docreader.image.tag }}
-{{- include "weknora.formatImage" (dict "repository" .Values.docreader.image.repository "tag" $tag "global" .Values.global) }}
+{{- include "weknora.formatImage" (dict "repository" .Values.docreader.image.repository "tag" $tag "global" .Values.global "selfBuilt" true) }}
 {{- end }}
 
 {{/*

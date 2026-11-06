@@ -45,25 +45,33 @@ show_help() {
     exit 0
 }
 
+fail() { echo "[ERROR] $*" >&2; exit 1; }
+require_value() { [[ $# -ge 2 && -n "$2" && "$2" != --* ]] || fail "$1 requires a value"; }
+
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -o|--output)
+            require_value "$@"
             OUTPUT_DIR="$2"
             shift 2
             ;;
         -p|--profiles)
+            [[ $# -ge 2 ]] || fail "$1 requires a value (use an empty string for core only)"
             PROFILES="$2"
             shift 2
             ;;
         -r|--registry)
+            require_value "$@"
             GENYEE_REGISTRY="$2"
             shift 2
             ;;
         -t|--tag|--version)
+            require_value "$@"
             IMAGE_TAG="$2"
             shift 2
             ;;
         --platform)
+            require_value "$@"
             PLATFORM="$2"
             shift 2
             ;;
@@ -79,16 +87,39 @@ while [[ $# -gt 0 ]]; do
             show_help
             ;;
         *)
-            echo "[ERROR] 未知选项: $1" >&2
-            show_help
+            fail "未知选项: $1"
             ;;
     esac
 done
 
+GENYEE_REGISTRY="${GENYEE_REGISTRY%/}"
+[[ "$GENYEE_REGISTRY" =~ ^[a-z0-9][a-z0-9._:/-]*$ ]] || fail "Invalid image registry prefix"
+[[ "$IMAGE_TAG" =~ ^[a-zA-Z0-9_][a-zA-Z0-9_.-]*$ && ${#IMAGE_TAG} -le 128 ]] || fail "Invalid image tag"
+[[ "$PLATFORM" =~ ^linux/(amd64|arm64|arm/v7)$ ]] || fail "Unsupported image platform: $PLATFORM"
+if [[ -n "$PROFILES" ]]; then
+    IFS=',' read -r -a selected_profiles <<< "$PROFILES"
+    for profile in "${selected_profiles[@]}"; do
+        case "$profile" in
+            minio|qdrant|neo4j|milvus|weaviate|doris|searxng|dex|langfuse|odl-hybrid|mcp|all|full) ;;
+            *) fail "Unknown profile: $profile" ;;
+        esac
+    done
+fi
+# Never silently mix a previous package's images or credentials into a new one.
+[[ ! -e "$OUTPUT_DIR" || ( -d "$OUTPUT_DIR" && -z "$(ls -A "$OUTPUT_DIR")" ) ]] || fail "Output directory must be empty: $OUTPUT_DIR"
+command -v openssl >/dev/null || fail "openssl is required to generate deployment secrets"
+if [[ "$MANIFEST_ONLY" == false ]]; then
+    command -v docker >/dev/null || fail "docker is required to export images"
+fi
+
 profile_enabled() {
     local target="$1"
-    if [[ ",${PROFILES}," == *",all,"* ]] || [[ ",${PROFILES}," == *",full,"* ]]; then
+    if [[ ",${PROFILES}," == *",all,"* ]]; then
         return 0
+    fi
+    # Match Compose's full profile. Langfuse remains an explicit opt-in.
+    if [[ ",${PROFILES}," == *",full,"* ]]; then
+        case "$target" in minio|qdrant|neo4j|searxng|dex|mcp) return 0 ;; esac
     fi
     [[ ",${PROFILES}," == *",${target},"* ]]
 }
@@ -164,61 +195,77 @@ for f in docker-compose.yml .env.example LICENSE THIRD_PARTY_NOTICES.md; do
     fi
 done
 
-# 生成/复制政企推荐的离线部署环境模版 (.env.offline 与 .env)
+# Start from the complete deployment template; use the same variable names as
+# docker-compose.yml. A custom .env.offline is an explicit deployment override.
+bundle_umask="$(umask)"
+umask 077
 if [[ -f "${PROJECT_ROOT}/.env.offline" ]]; then
     cp "${PROJECT_ROOT}/.env.offline" "${OUTPUT_DIR}/.env.offline"
 else
-    cat <<'EOF' > "${OUTPUT_DIR}/.env.offline"
-# =====================================================================
-# GENYEE 政企断网离线交付环境配置模版 (.env.offline)
-# 适用场景：完全断网离线环境 (Air-Gapped / Isolated Private Network)
-# =====================================================================
-
-# ========== 1. 基础运行配置 ==========
-GIN_MODE=release
-TZ=Asia/Shanghai
-AUTO_MIGRATE=true
-AUTO_RECOVER_DIRTY=true
-WEKNORA_VERSION=latest
-
-# ========== 2. 默认离线 Docker 镜像仓库配置（如内网 Harbor） ==========
-# GENYEE_REGISTRY=harbor.internal.corp/genyee
-
-# ========== 3. 推荐启用离线 Profile (对象存储 MinIO + 向量库 Qdrant) ==========
-COMPOSE_PROFILES=minio,qdrant
-
-# ========== 4. 数据存储服务配置 ==========
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres_offline_secret
-POSTGRES_DB=genyee
-REDIS_HOST=redis
-REDIS_PORT=6379
-
-# ========== 5. 对象存储 (内置 MinIO 离线实例) ==========
-MINIO_ROOT_USER=genyeeadmin
-MINIO_ROOT_PASSWORD=genyeeadmin_offline_secret
-MINIO_ENDPOINT=minio:9000
-MINIO_BUCKET=genyee-data
-MINIO_USE_SSL=false
-
-# ========== 6. 本地/内网离线大模型与嵌入服务 (Ollama / vLLM) ==========
-DEFAULT_LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://host.docker.internal:11434
-DEFAULT_EMBEDDING_PROVIDER=ollama
-OLLAMA_EMBEDDING_BASE_URL=http://host.docker.internal:11434
-
-# ========== 7. 网络与安全边界 (断网隔离) ==========
-SSRF_DNS_WHITELIST_ONLY=false
-SSRF_WHITELIST_EXTRA=minio,qdrant,searxng,redis,paradedb
-
-# ========== 8. 默认管理员自举 (首次启动自动创建/提权) ==========
-# WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL=admin@internal.corp
-EOF
+    cp "${PROJECT_ROOT}/.env.example" "${OUTPUT_DIR}/.env.offline"
 fi
 
-if [[ ! -f "${OUTPUT_DIR}/.env" ]]; then
-    cp "${OUTPUT_DIR}/.env.offline" "${OUTPUT_DIR}/.env"
+set_bundle_env() {
+    local key="$1" value="$2" file="${OUTPUT_DIR}/.env.offline"
+    awk -v key="$key" -v value="$value" '
+        index($0, key "=") == 1 { if (!found++) print key "=" value; next }
+        { print }
+        END { if (!found) print key "=" value }
+    ' "$file" > "${file}.tmp"
+    mv "${file}.tmp" "$file"
+}
+
+set_secret_env() {
+    local key="$1" bytes="$2" secret
+    # Do not hide openssl's exit status in an argument to another command.
+    secret="$(openssl rand -hex "$bytes")" || fail "Cannot generate secret for $key"
+    [[ "$secret" =~ ^[0-9a-f]+$ && ${#secret} -eq $((bytes * 2)) ]] || fail "Invalid random output for $key"
+    set_bundle_env "$key" "$secret"
+}
+
+if [[ ! -f "${PROJECT_ROOT}/.env.offline" ]]; then
+    set_bundle_env DB_NAME genyee
+    set_secret_env DB_PASSWORD 24
+    set_secret_env REDIS_PASSWORD 24
+    set_secret_env JWT_SECRET 32
+    set_secret_env SYSTEM_AES_KEY 16
+    set_bundle_env WEKNORA_WEKNORACLOUD_ENABLED false
+    set_bundle_env LANGFUSE_ENABLED false
+    if profile_enabled mcp; then
+        set_secret_env MCP_SERVER_AUTH_TOKEN 32
+    fi
+    if profile_enabled neo4j; then
+        set_secret_env NEO4J_PASSWORD 24
+    fi
+    if profile_enabled langfuse; then
+        for key in LANGFUSE_NEXTAUTH_SECRET LANGFUSE_SALT LANGFUSE_CLICKHOUSE_PASSWORD LANGFUSE_MINIO_PASSWORD; do
+            set_secret_env "$key" 24
+        done
+        set_secret_env LANGFUSE_ENCRYPTION_KEY 32
+    fi
+    if profile_enabled minio; then
+        set_bundle_env STORAGE_TYPE minio
+        set_bundle_env MINIO_ENDPOINT minio:9000
+        set_bundle_env MINIO_ACCESS_KEY_ID genyeeadmin
+        set_secret_env MINIO_SECRET_ACCESS_KEY 24
+        set_bundle_env MINIO_BUCKET_NAME genyee-data
+        set_bundle_env MINIO_USE_SSL false
+    fi
+    if profile_enabled qdrant; then
+        set_bundle_env RETRIEVE_DRIVER qdrant
+    fi
 fi
+set_bundle_env WEKNORA_VERSION "$IMAGE_TAG"
+set_bundle_env GENYEE_REGISTRY "$GENYEE_REGISTRY"
+set_bundle_env WEKNORA_SANDBOX_DOCKER_IMAGE "${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}"
+if [[ ",${PROFILES}," == *",all,"* ]]; then
+    set_bundle_env COMPOSE_PROFILES full,minio,qdrant,neo4j,milvus,weaviate,doris,searxng,dex,langfuse,odl-hybrid,mcp
+else
+    set_bundle_env COMPOSE_PROFILES "$PROFILES"
+fi
+cp "${OUTPUT_DIR}/.env.offline" "${OUTPUT_DIR}/.env"
+chmod 600 "${OUTPUT_DIR}/.env" "${OUTPUT_DIR}/.env.offline"
+umask "$bundle_umask"
 
 if [[ -f "${PROJECT_ROOT}/config/config.yaml" ]]; then
     cp "${PROJECT_ROOT}/config/config.yaml" "${OUTPUT_DIR}/config/config.yaml"
@@ -245,12 +292,53 @@ if [[ -d "${PROJECT_ROOT}/helm" ]]; then
     cp -R "${PROJECT_ROOT}/helm" "${OUTPUT_DIR}/helm"
 fi
 
-for s in offline-load.sh start_all.sh get_version.sh; do
+for s in offline-load.sh; do
     if [[ -f "${PROJECT_ROOT}/scripts/${s}" ]]; then
         cp "${PROJECT_ROOT}/scripts/${s}" "${OUTPUT_DIR}/scripts/"
         chmod +x "${OUTPUT_DIR}/scripts/${s}"
     fi
 done
+
+# The source checkout's start_all.sh can pull or build images and is not an
+# offline launcher. Ship explicit commands that use the already imported images.
+cat > "${OUTPUT_DIR}/DEPLOYMENT.txt" <<'EOF'
+GENYEE offline deployment
+
+This package targets the architecture and image versions in MANIFEST.json.
+The target needs Docker Engine and Docker Compose v2. A --manifest-only package
+contains no image archives and cannot be deployed.
+
+1. On the target, from this directory:
+     bash scripts/offline-load.sh
+   The loader verifies the original deployment files and image archives before
+   importing any images. SHA256SUMS detects file corruption; obtain this package
+   from your trusted distribution channel.
+
+2. Review the generated .env (credentials are unique to this package), ports,
+   storage and COMPOSE_PROFILES. Keep .env private and backed up. Verify the
+   original package before editing configuration; retain an unmodified copy for
+   repeat integrity checks. WeKnoraCloud and Langfuse tracing default to disabled.
+
+3. Start local imported images without pulling or rebuilding:
+     docker compose -f docker-compose.yml up -d --no-build --pull never
+   The source checkout's scripts/start_all.sh is not an offline launcher.
+
+Private registry alternative (requires access to that registry):
+     bash scripts/offline-load.sh --registry harbor.example/project --push
+     docker compose -f docker-compose.yml -f docker-compose.registry.yml up -d --no-build
+   The generated override includes both self-built and infrastructure images.
+   It is not part of the original checksummed package.
+
+Optional profiles must have been included at packaging time. Local model assets
+and model endpoints must also be prepared for an air-gapped environment; this
+package does not download model weights on the target. For odl-hybrid, build the
+image with PRELOAD_MODELS=true before packaging if local layout models are needed.
+
+License and source-delivery terms: LICENSE, THIRD_PARTY_NOTICES.md, licenses/
+and OFFLINE_LICENSES/. This image package does not contain the project source
+archive; export customer source separately using scripts/export-source.sh in
+the source checkout.
+EOF
 
 sanitize_filename() {
     echo "$1" | sed -E 's|[/:@]+|_|g'
@@ -260,9 +348,24 @@ BUILD_TIMESTAMP="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 GIT_COMMIT="$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 
 MANIFEST_FILE="${OUTPUT_DIR}/MANIFEST.json"
+# A simple validated index lets the air-gapped loader avoid a jq/Python runtime
+# dependency. Both the human-readable JSON and this index are checksummed.
+printf 'category\timage\tarchive\n' > "${OUTPUT_DIR}/IMAGES.tsv"
+# Record the service/image mapping while the source Compose file is available.
+# The loader uses it to generate an override for ALL packaged services, including
+# third-party infrastructure, without requiring Compose or a YAML library.
+awk -v registry="$GENYEE_REGISTRY" -v tag="$IMAGE_TAG" '
+    /^  [a-zA-Z0-9_-]+:$/ { service=$1; sub(/:$/, "", service) }
+    /^    image: / {
+        image=$2;
+        gsub(/\$\{GENYEE_REGISTRY:-genyee\}/, registry, image);
+        gsub(/\$\{WEKNORA_VERSION:-latest\}/, tag, image);
+        print service "\t" image;
+    }
+' "${PROJECT_ROOT}/docker-compose.yml" > "${OUTPUT_DIR}/COMPOSE_IMAGES.tsv"
 {
     echo "{"
-    echo "  \"bundle_format_version\": \"1.0\","
+    echo "  \"bundle_format_version\": \"1.1\","
     echo "  \"product\": \"GENYEE\","
     echo "  \"version\": \"${IMAGE_TAG}\","
     echo "  \"git_commit\": \"${GIT_COMMIT}\","
@@ -279,14 +382,19 @@ MANIFEST_FILE="${OUTPUT_DIR}/MANIFEST.json"
         idx=$((idx + 1))
         IFS='|' read -r category profile image license offer_req <<< "$entry"
         archive_name="images/$(sanitize_filename "$image").tar.gz"
+        printf '%s\t%s\t%s\n' "$category" "$image" "$archive_name" >> "${OUTPUT_DIR}/IMAGES.tsv"
         digest="pending"
 
         if [[ "$MANIFEST_ONLY" == "false" ]]; then
             if [[ "$SKIP_PULL" == "false" ]] && [[ "$category" == "third-party" ]]; then
-                echo "[INFO] 拉取镜像 (${PLATFORM}): ${image}"
-                docker pull --platform "${PLATFORM}" "${image}"
+                echo "[INFO] 拉取镜像 (${PLATFORM}): ${image}" >&2
+                docker pull --platform "${PLATFORM}" "${image}" >&2
             fi
-            echo "[INFO] 导出镜像: ${image} -> ${archive_name}"
+            actual_platform="$(docker image inspect --format '{{.Os}}/{{.Architecture}}{{if .Variant}}/{{.Variant}}{{end}}' "$image")"
+            if [[ "$actual_platform" != "$PLATFORM" && !( "$PLATFORM" == linux/arm64 && "$actual_platform" == linux/arm64/v8 ) ]]; then
+                fail "Image $image is $actual_platform; requested $PLATFORM. Build/pull the matching architecture before packaging."
+            fi
+            echo "[INFO] 导出镜像: ${image} -> ${archive_name}" >&2
             docker save "${image}" | gzip -c > "${OUTPUT_DIR}/${archive_name}"
             digest="$(docker image inspect --format '{{index .RepoDigests 0}}' "${image}" 2>/dev/null || docker image inspect --format '{{.Id}}' "${image}" 2>/dev/null || echo "local")"
         fi

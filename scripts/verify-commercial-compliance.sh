@@ -3,7 +3,8 @@
 # verify-commercial-compliance.sh
 #
 # Unified Commercial Compliance & Dependency Hygiene Verification Suite
-# Enforces 100% commercial permissiveness and clean source code delivery.
+# Checks selected license, configuration and source-delivery requirements.
+# This engineering suite is not a legal determination or a full runtime audit.
 #
 # Covers 5 Tiers:
 #   Tier 1: Red-Line Licenses & Notices (Dataset, GPL/AGPL Removal, Notices & Dockerfiles)
@@ -162,10 +163,12 @@ get_pyarrow_runner() {
 }
 
 get_dataset_test_runner() {
-    if python3 -c "import pandas, pyarrow, openai" >/dev/null 2>&1; then
-        echo "python3 -m unittest"
+    if python3 -c "import pandas, pyarrow, openai, pytest" >/dev/null 2>&1; then
+        echo "python3 -m pytest"
+    elif [ -x docreader/.venv/bin/python ] && docreader/.venv/bin/python -c "import pandas, pyarrow, openai, pytest" >/dev/null 2>&1; then
+        echo "docreader/.venv/bin/python -m pytest"
     elif command -v uv >/dev/null 2>&1; then
-        echo "uv run --with pandas --with pyarrow --with openai python3 -m unittest"
+        echo "uv run --with pandas --with pyarrow --with openai --with pytest python3 -m pytest"
     else
         echo ""
     fi
@@ -261,7 +264,7 @@ test_t1_python_dataset_tests() {
         echo "Neither python3 with test dependencies nor uv found" >&2
         return 1
     fi
-    $runner discover -s dataset/tests/
+    $runner dataset/tests/ -q
 }
 
 # TC-T1-07: Docreader textract removal verification
@@ -335,6 +338,12 @@ test_t1_license_and_notices() {
 
 # TC-T1-13: All 7 Dockerfiles copy LICENSE and THIRD_PARTY_NOTICES.md
 test_t1_dockerfiles_copy_notices() {
+    # COPY sources must exist in each Docker build context, not just appear as
+    # words in a Dockerfile. Keep distributed notices synchronized.
+    for context in frontend mcp-server website-docs; do
+        test -s "${context}/LICENSE" || return 1
+        cmp THIRD_PARTY_NOTICES.md "${context}/THIRD_PARTY_NOTICES.md" || return 1
+    done
     if ! grep -q "copy-licenses.sh /license-bundle" docker/Dockerfile.app || \
        ! grep -q "COPY --from=builder /license-bundle/ ./" docker/Dockerfile.app || \
        ! grep -q "LICENSE" scripts/copy-licenses.sh || \
@@ -515,6 +524,12 @@ test_t3_chrome_claw_gated_and_clean() {
 
 # TC-T3-03: Langfuse services gated under profiles: ["langfuse"], default PROFILES="", no default cloud.langfuse.com
 test_t3_langfuse_gated_and_no_cloud_default() {
+    for env_template in .env.example .env.lite.example; do
+        if ! grep -Eq '^LANGFUSE_ENABLED=false[[:space:]]*$' "$env_template"; then
+            echo "$env_template must explicitly default Langfuse tracing to false" >&2
+            return 1
+        fi
+    done
     bash -n scripts/dev.sh || return 1
     if ! grep -Eq '^[[:space:]]*PROFILES=""' scripts/dev.sh; then
         echo "scripts/dev.sh does not initialize PROFILES=\"\"" >&2
@@ -546,26 +561,22 @@ test_t3_desktop_autoupdate_disabled_by_default() {
 
 # TC-T3-05: Docker Compose configuration validation (prod & dev, with and without .env)
 test_t3_compose_configs_valid() {
-    local dummy_env_created=0
-    if [[ ! -f .env ]]; then
-        touch .env
-        dummy_env_created=1
+    local compose_cmd=(docker compose)
+    if [[ -n "${COMPOSE_BIN:-}" ]]; then
+        compose_cmd=("${COMPOSE_BIN}")
+    elif command -v docker-compose >/dev/null 2>&1; then
+        compose_cmd=(docker-compose)
     fi
-
     local err=0
-    docker compose -f docker-compose.yml config --quiet || err=1
-    docker compose -f docker-compose.dev.yml config --quiet || err=1
-
-    if [[ $dummy_env_created -eq 1 ]]; then
-        rm -f .env
-    fi
-
     local tmp_dir
     tmp_dir="$(mktemp -d)"
-    (
-        cd "${tmp_dir}"
-        docker compose --env-file /dev/null -f "${REPO_ROOT}/docker-compose.dev.yml" config --quiet
-    ) || err=1
+    cp .env.example "${tmp_dir}/.env"
+    for config in docker-compose.yml docker-compose.dev.yml; do
+        "${compose_cmd[@]}" --project-directory "${tmp_dir}" --env-file "${tmp_dir}/.env" \
+            -f "${REPO_ROOT}/${config}" config --quiet || err=1
+        "${compose_cmd[@]}" --project-directory "${tmp_dir}" --env-file /dev/null \
+            -f "${REPO_ROOT}/${config}" config --quiet || err=1
+    done
     rm -rf "${tmp_dir}"
 
     return $err
@@ -703,9 +714,12 @@ test_t5_offline_bundle_manifest() {
     tmp_out="$(mktemp -d)"
     bash scripts/offline-bundle.sh --manifest-only --output "${tmp_out}/bundle" || { rm -rf "${tmp_out}"; return 1; }
     test -s "${tmp_out}/bundle/MANIFEST.json" || { rm -rf "${tmp_out}"; return 1; }
+    python3 -m json.tool "${tmp_out}/bundle/MANIFEST.json" >/dev/null || { rm -rf "${tmp_out}"; return 1; }
     test -s "${tmp_out}/bundle/OFFLINE_LICENSES/WRITTEN_OFFER.md" || { rm -rf "${tmp_out}"; return 1; }
     rm -rf "${tmp_out}"
-    return 0
+    # Exercise real export/load code with Docker command fixtures, including
+    # checksums, corrupt/incomplete packages, configuration and registry paths.
+    python3 -m unittest discover -s scripts/tests -p 'test_offline_delivery.py'
 }
 
 # TC-T5-02: scripts/export-source.sh succeeds and verifies excluded/included files
@@ -723,9 +737,15 @@ test_t5_export_source_archive() {
         return 1
     fi
 
-    local tmp_out
+    local tmp_out source_tree
     tmp_out="$(mktemp -d)"
-    bash scripts/export-source.sh "${tmp_out}/genyee-source-test.tar.gz" HEAD || { rm -rf "${tmp_out}"; return 1; }
+    # Test the proposed worktree, including new files, without staging changes
+    # in the user's index or creating a commit. Testing HEAD misses local fixes.
+    source_tree="$(
+        export GIT_INDEX_FILE="${tmp_out}/source.index"
+        git read-tree HEAD && git add -A -- . && git write-tree
+    )" || { rm -rf "${tmp_out}"; return 1; }
+    bash scripts/export-source.sh "${tmp_out}/genyee-source-test.tar.gz" "$source_tree" || { rm -rf "${tmp_out}"; return 1; }
     test -s "${tmp_out}/genyee-source-test.tar.gz" || { rm -rf "${tmp_out}"; return 1; }
     test -s "${tmp_out}/genyee-source-test.tar.gz.sha256" || { rm -rf "${tmp_out}"; return 1; }
     rm -rf "${tmp_out}"
@@ -799,8 +819,8 @@ print_summary() {
         echo -e "${C_BOLD}================================================================================${C_RESET}\n"
         return 1
     else
-        echo -e "\n${C_GREEN}${C_BOLD}  Result: 100% COMMERCIALLY COMPLIANT${C_RESET}"
-        echo -e "  All commercial compliance, clean-room, gating, branding, and delivery checks verified."
+        echo -e "\n${C_GREEN}${C_BOLD}  Result: SELECTED ENGINEERING CHECKS PASSED${C_RESET}"
+        echo -e "  This verifies the checks above; it is not a legal opinion or a full deployment acceptance test."
         echo -e "${C_BOLD}================================================================================${C_RESET}\n"
         return 0
     fi

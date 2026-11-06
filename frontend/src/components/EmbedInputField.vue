@@ -119,6 +119,8 @@ import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { embedToast } from '@/utils/embedToast'
 import { isEmbedImageFile } from '@/utils/embedFile'
+import { MAX_FILE_SIZE_BYTES } from '@/utils/index'
+import { inlineUploadsFitRequest } from '@/utils/inlineUploadSize'
 
 const props = defineProps<{
   isReplying: boolean
@@ -174,13 +176,12 @@ const triggerFileUpload = () => {
   fileInputRef.value?.click()
 }
 
-const MAX_TOTAL_UPLOAD_SIZE = 50 * 1024 * 1024
-
-const getCurrentTotalUploadSize = (): number => {
-  const imagesSize = uploadedImages.value.reduce((sum, item) => sum + (item.file?.size || 0), 0)
-  const attachmentsSize = uploadedAttachments.value.reduce((sum, item) => sum + (item.file?.size || 0), 0)
-  return imagesSize + attachmentsSize
-}
+const uploadFits = (file: File, image: boolean) => inlineUploadsFitRequest(
+  [...uploadedImages.value.map(item => item.file), ...(image ? [file] : [])],
+  [...uploadedAttachments.value.map(item => item.file), ...(image ? [] : [file])],
+  MAX_FILE_SIZE_BYTES,
+  query.value,
+)
 
 const addImageFiles = (files: File[]) => {
   const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
@@ -195,7 +196,7 @@ const addImageFiles = (files: File[]) => {
       embedToast(t('chat.imageTypeSizeError'))
       continue
     }
-    if (file.size > maxSize || getCurrentTotalUploadSize() + file.size > MAX_TOTAL_UPLOAD_SIZE) {
+    if (file.size > maxSize || !uploadFits(file, true)) {
       embedToast(t('chat.imageTypeSizeError'))
       continue
     }
@@ -235,7 +236,7 @@ const addAttachmentFiles = (files: File[]) => {
       embedToast(t('input.fileUpload.tooMany'))
       break
     }
-    if (file.size > maxSize || getCurrentTotalUploadSize() + file.size > MAX_TOTAL_UPLOAD_SIZE) {
+    if (file.size > maxSize || !uploadFits(file, false)) {
       embedToast(t('input.fileUpload.tooLarge'))
       continue
     }

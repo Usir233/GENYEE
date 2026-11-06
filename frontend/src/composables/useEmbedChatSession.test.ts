@@ -53,6 +53,8 @@ test('embedded history remains retryable after a transient page failure', async 
       if (id === '@/utils/embedToast') return { embedToast: () => {} }
       if (id === '@/utils/embedContext') return { buildQueryWithHostContext: (value: string) => value }
       if (id === '@/utils/embedFile') return { fileToDataURI: async () => '' }
+      if (id === '@/utils/index') return { MAX_FILE_SIZE_BYTES: 50 * 1024 * 1024, MAX_FILE_SIZE_MB: 50 }
+      if (id === '@/utils/inlineUploadSize') return require('../utils/inlineUploadSize.ts')
       if (id === '@/composables/useStickyBottomOnResize') return { useStickyBottomOnResize: () => {} }
       if (id === '@/api/chat/streame') {
         return {

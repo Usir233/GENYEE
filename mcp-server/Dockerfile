@@ -1,11 +1,11 @@
-FROM python:3.11-slim
+FROM python:3.11.18-slim-bookworm
 
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
+RUN pip install --no-cache-dir "uv==0.13.0"
 COPY . .
-RUN pip install --no-cache-dir -e .
+ENV UV_PYTHON_DOWNLOADS=never
+RUN uv sync --locked --no-dev --no-editable --no-cache
+ENV PATH="/app/.venv/bin:${PATH}"
 
 LABEL org.opencontainers.image.vendor="GENYEE" \
       org.opencontainers.image.title="genyee-mcp-server" \

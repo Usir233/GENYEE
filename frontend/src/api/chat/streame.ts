@@ -1,6 +1,6 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source';
 import { ref, onUnmounted } from 'vue';
-import { generateRandomString } from '@/utils/index';
+import { generateRandomString, MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from '@/utils/index';
 import i18n from '@/i18n';
 import { getApiBaseUrl } from '@/utils/api-base';
 import type { AssistantAccessLevel } from '@/api/assistant';
@@ -204,6 +204,12 @@ export function useStream() {
         postBody.assistant_access = params.assistant_access;
       }
       postBody.channel = embedToken ? "embed" : "web";
+      const requestBody = params.method === 'POST' ? JSON.stringify(postBody) : null;
+      // Inline files travel as Base64 inside JSON; their original byte sizes
+      // cannot be compared directly with nginx's request-body limit.
+      if (requestBody !== null && new TextEncoder().encode(requestBody).byteLength > MAX_FILE_SIZE_BYTES) {
+        throw new Error(i18n.global.t('error.fileSizeExceeded', { size: MAX_FILE_SIZE_MB }));
+      }
 
       lastStreamRequest.value = {
         requestId: requestID,
@@ -246,7 +252,7 @@ export function useStream() {
         },
         body:
           streamMethod == "POST"
-            ? JSON.stringify(postBody)
+            ? requestBody
             : null,
         signal: connection.signal,
         openWhenHidden: true,

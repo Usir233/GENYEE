@@ -8,6 +8,7 @@ import { renderToString } from 'vue/server-renderer'
 let server: ViteDevServer
 let useStream: typeof import('./streame').useStream
 let transport: { requests: Array<{ url: string; options: { body: string } }> }
+let uploadLimit: { setRequestLimit: (bytes: number) => void }
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
 before(async () => {
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
@@ -15,7 +16,7 @@ before(async () => {
   } })
   const mocks: Record<string, string> = {
     '@microsoft/fetch-event-source': `export const requests = []; export async function fetchEventSource(url, options) { requests.push({url, options}); }`,
-    '@/utils/index': `export const generateRandomString = () => 'test-request';`,
+    '@/utils/index': `export const generateRandomString = () => 'test-request'; export let MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; export const MAX_FILE_SIZE_MB = 50; export const setRequestLimit = bytes => { MAX_FILE_SIZE_BYTES = bytes; };`,
     '@/i18n': `export default { global: { t: key => key, locale: { value: 'zh-CN' } } };`,
   }
   server = await createServer({
@@ -33,11 +34,31 @@ before(async () => {
   })
   ;({ useStream } = await server.ssrLoadModule('/src/api/chat/streame.ts'))
   transport = await server.ssrLoadModule('\0mock:@microsoft/fetch-event-source') as typeof transport
+  uploadLimit = await server.ssrLoadModule('\0mock:@/utils/index') as typeof uploadLimit
 })
 after(async () => {
   await server?.close()
   if (originalStorage) Object.defineProperty(globalThis, 'localStorage', originalStorage)
   else Reflect.deleteProperty(globalThis, 'localStorage')
+})
+
+test('oversized UTF-8 JSON is rejected before the SSE transport sends a request', async () => {
+  let stream!: ReturnType<typeof useStream>
+  await renderToString(createSSRApp({ setup() { stream = useStream(); return () => null } }))
+  const requestsBefore = transport.requests.length
+  uploadLimit.setRequestLimit(256)
+  try {
+    await stream.startStream({
+      session_id: 'session', query: '汉'.repeat(100), method: 'POST', url: '/api/v1/agent-chat',
+    })
+    assert.equal(transport.requests.length, requestsBefore)
+    assert.equal(stream.error.value, 'error.fileSizeExceeded')
+    assert.equal(stream.isStreaming.value, false)
+    assert.equal(stream.isLoading.value, false)
+  } finally {
+    uploadLimit.setRequestLimit(50 * 1024 * 1024)
+    stream.stopStream()
+  }
 })
 
 test('approval reattach identifies the resumed segment without changing ordinary replay', async () => {

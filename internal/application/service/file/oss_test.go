@@ -2,9 +2,15 @@ package file
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Usir233/GENYEE/internal/utils"
+	"github.com/aliyun/alibabacloud-oss-go-sdk-v2/oss"
+	"github.com/aliyun/alibabacloud-oss-go-sdk-v2/oss/credentials"
 )
 
 func TestParseOssFilePath(t *testing.T) {
@@ -169,41 +175,113 @@ func TestCheckOssConnectivity_InvalidEndpoint(t *testing.T) {
 	}
 }
 
-func TestOssEnsureBucket_NonExistent(t *testing.T) {
-	client, err := newOSSClient(
-		"https://oss-cn-hangzhou.aliyuncs.com",
-		"cn-hangzhou",
-		"test-invalid-key",
-		"test-invalid-secret",
-	)
-	if err != nil {
-		t.Fatalf("newOSSClient() error: %v", err)
+func TestOssEnsureBucket_AccessDenied(t *testing.T) {
+	methods := make(chan string, 4)
+	client := ossBucketTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		methods <- r.Method
+		w.Header().Set("x-oss-request-id", "fixture-request")
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("<Error><Code>AccessDenied</Code><Message>denied</Message></Error>"))
+	}))
+	err := ossEnsureBucket(client, "private-bucket")
+	if err == nil || !strings.Contains(err.Error(), "failed to check OSS bucket") {
+		t.Fatalf("expected bucket ACL permission error, got %v", err)
 	}
-
-	// Bucket that definitely doesn't exist - should return error
-	err = ossEnsureBucket(client, "this-bucket-definitely-does-not-exist-12345")
-	if err == nil {
-		t.Error("ossEnsureBucket with non-existent bucket should return an error")
+	if len(methods) != 1 || <-methods != http.MethodGet {
+		t.Fatal("expected exactly one ACL request, without bucket creation")
 	}
 }
 
 func TestOssEnsureBucket_CreateFails(t *testing.T) {
-	client, err := newOSSClient(
-		"https://oss-cn-hangzhou.aliyuncs.com",
-		"cn-hangzhou",
-		"test-invalid-key",
-		"test-invalid-secret",
-	)
-	if err != nil {
-		t.Fatalf("newOSSClient() error: %v", err)
+	methods := make(chan string, 4)
+	client := ossBucketTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		methods <- r.Method
+		w.Header().Set("x-oss-request-id", "fixture-request")
+		if r.Method == http.MethodGet {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte("<Error><Code>NoSuchBucket</Code><Message>missing</Message></Error>"))
+			return
+		}
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("<Error><Code>AccessDenied</Code><Message>denied</Message></Error>"))
+	}))
+	err := ossEnsureBucket(client, "new-bucket")
+	if err == nil || !strings.Contains(err.Error(), "failed to create OSS bucket") {
+		t.Fatalf("expected bucket creation error, got %v", err)
 	}
+	if len(methods) != 2 || <-methods != http.MethodGet || <-methods != http.MethodPut {
+		t.Fatal("expected missing bucket ACL request followed by creation")
+	}
+}
 
-	// Use a bucket that does not exist so IsBucketExist returns false and the
-	// create path is exercised; with invalid credentials PutBucket then fails.
-	// A common name like "test-bucket" already exists globally on OSS, which
-	// would short-circuit at IsBucketExist and make this assertion flaky.
-	err = ossEnsureBucket(client, "weknora-nonexistent-bucket-create-fails-12345")
-	if err == nil {
-		t.Error("ossEnsureBucket with invalid credentials should return an error")
+func TestOssConnectivityRejectsInvalidCredentials(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("<Error><Code>InvalidAccessKeyId</Code><Message>invalid key</Message></Error>"))
+	}))
+	defer server.Close()
+	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
+	utils.ResetSSRFWhitelistForTest()
+	t.Cleanup(utils.ResetSSRFWhitelistForTest)
+	if err := CheckOssConnectivity(context.Background(), server.URL, "cn-hangzhou", "bad-key", "bad-secret", "bucket"); err == nil {
+		t.Fatal("invalid credentials must fail the configuration connectivity check")
 	}
+	client := ossBucketTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+		_, _ = w.Write([]byte("<Error><Code>AccessDenied</Code><Message>denied</Message></Error>"))
+	}))
+	service := &ossFileService{client: client, bucketName: "bucket"}
+	if err := service.CheckConnectivity(context.Background()); err == nil {
+		t.Fatal("permission error must fail the existing service connectivity check")
+	}
+}
+
+func TestOssEnsureBucketConflictRequiresAccess(t *testing.T) {
+	for _, accessible := range []bool{false, true} {
+		t.Run(map[bool]string{false: "another_owner", true: "concurrent_creation"}[accessible], func(t *testing.T) {
+			methods := make(chan string, 4)
+			requests := 0
+			client := ossBucketTestClient(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				methods <- r.Method
+				switch requests {
+				case 1:
+					w.WriteHeader(http.StatusNotFound)
+					_, _ = w.Write([]byte("<Error><Code>NoSuchBucket</Code></Error>"))
+				case 2:
+					w.WriteHeader(http.StatusConflict)
+					_, _ = w.Write([]byte("<Error><Code>BucketAlreadyExists</Code></Error>"))
+				default:
+					if accessible {
+						_, _ = w.Write([]byte("<AccessControlPolicy><AccessControlList><Grant>private</Grant></AccessControlList></AccessControlPolicy>"))
+					} else {
+						w.WriteHeader(http.StatusForbidden)
+						_, _ = w.Write([]byte("<Error><Code>AccessDenied</Code></Error>"))
+					}
+				}
+			}))
+			err := ossEnsureBucket(client, "bucket")
+			if (err == nil) != accessible {
+				t.Fatalf("accessible=%v, got error %v", accessible, err)
+			}
+			if len(methods) != 3 || <-methods != http.MethodGet || <-methods != http.MethodPut || <-methods != http.MethodGet {
+				t.Fatal("expected ACL check, create, then ACL recheck")
+			}
+		})
+	}
+}
+
+// Exercise the real SDK protocol without external credentials or network calls.
+// Endpoint SSRF validation is covered by TestNewOSSClientRejectsUnsafeEndpoint.
+func ossBucketTestClient(t *testing.T, handler http.Handler) *oss.Client {
+	t.Helper()
+	server := httptest.NewServer(handler)
+	t.Cleanup(server.Close)
+	return oss.NewClient(oss.LoadDefaultConfig().
+		WithEndpoint(server.URL).
+		WithRegion("cn-hangzhou").
+		WithCredentialsProvider(credentials.NewStaticCredentialsProvider("fixture-key", "fixture-secret", "")).
+		WithUsePathStyle(true).
+		WithRetryMaxAttempts(1).
+		WithHttpClient(server.Client()))
 }

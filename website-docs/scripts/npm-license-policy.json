@@ -1,0 +1,284 @@
+{
+  "schemaVersion": 1,
+  "nativeBuildOnlyPrefixes": [
+    "@esbuild/",
+    "@napi-rs/canvas-",
+    "@pagefind/",
+    "@rollup/rollup-",
+    "@img/sharp-",
+    "@next/swc-",
+    "@unrs/resolver-binding-"
+  ],
+  "packages": {
+    "khroma@2.1.0": {
+      "license": "MIT",
+      "reason": "The published package.json omits license metadata; its original bundled license file explicitly supplies the complete MIT terms and copyright."
+    },
+    "@algolia/autocomplete-core@1.17.7": {
+      "files": [
+        {
+          "path": "npm-license-sources/algolia-autocomplete.txt",
+          "source": "https://raw.githubusercontent.com/algolia/autocomplete/v1.17.7/LICENSE",
+          "sha256": "1e605499213e06118cc81abc00b32bbb33ead185d9b0e190f2662588e8806f02"
+        }
+      ]
+    },
+    "@algolia/autocomplete-plugin-algolia-insights@1.17.7": {
+      "files": [
+        {
+          "path": "npm-license-sources/algolia-autocomplete.txt",
+          "source": "https://raw.githubusercontent.com/algolia/autocomplete/v1.17.7/LICENSE",
+          "sha256": "1e605499213e06118cc81abc00b32bbb33ead185d9b0e190f2662588e8806f02"
+        }
+      ]
+    },
+    "@algolia/autocomplete-preset-algolia@1.17.7": {
+      "files": [
+        {
+          "path": "npm-license-sources/algolia-autocomplete.txt",
+          "source": "https://raw.githubusercontent.com/algolia/autocomplete/v1.17.7/LICENSE",
+          "sha256": "1e605499213e06118cc81abc00b32bbb33ead185d9b0e190f2662588e8806f02"
+        }
+      ]
+    },
+    "@algolia/autocomplete-shared@1.17.7": {
+      "files": [
+        {
+          "path": "npm-license-sources/algolia-autocomplete.txt",
+          "source": "https://raw.githubusercontent.com/algolia/autocomplete/v1.17.7/LICENSE",
+          "sha256": "1e605499213e06118cc81abc00b32bbb33ead185d9b0e190f2662588e8806f02"
+        }
+      ]
+    },
+    "@docsearch/css@3.8.2": {
+      "files": [
+        {
+          "path": "npm-license-sources/docsearch.txt",
+          "source": "https://raw.githubusercontent.com/algolia/docsearch/a425f6f4e5714e9454ea172dc5ada5e4a0da27af/LICENSE",
+          "sha256": "1e605499213e06118cc81abc00b32bbb33ead185d9b0e190f2662588e8806f02"
+        }
+      ]
+    },
+    "@docsearch/js@3.8.2": {
+      "files": [
+        {
+          "path": "npm-license-sources/docsearch.txt",
+          "source": "https://raw.githubusercontent.com/algolia/docsearch/a425f6f4e5714e9454ea172dc5ada5e4a0da27af/LICENSE",
+          "sha256": "1e605499213e06118cc81abc00b32bbb33ead185d9b0e190f2662588e8806f02"
+        }
+      ]
+    },
+    "@docsearch/react@3.8.2": {
+      "files": [
+        {
+          "path": "npm-license-sources/docsearch.txt",
+          "source": "https://raw.githubusercontent.com/algolia/docsearch/a425f6f4e5714e9454ea172dc5ada5e4a0da27af/LICENSE",
+          "sha256": "1e605499213e06118cc81abc00b32bbb33ead185d9b0e190f2662588e8806f02"
+        }
+      ]
+    },
+    "@iconify-json/simple-icons@1.2.92": {
+      "files": [
+        {
+          "path": "npm-license-sources/simple-icons.txt",
+          "source": "https://raw.githubusercontent.com/simple-icons/simple-icons/16.27.1/LICENSE.md",
+          "sha256": "9046848b63a5c92bff14e4accca80bd987e0623b74adf9226ce5198d312b79d5"
+        }
+      ]
+    },
+    "@mermaid-js/mermaid-mindmap@9.3.0": {
+      "files": [
+        {
+          "path": "npm-license-sources/mermaid.txt",
+          "source": "https://raw.githubusercontent.com/mermaid-js/mermaid/5735efacbe58634dcff91317170be2e010b7283e/LICENSE",
+          "sha256": "ec9fb67dcb25eccc416ed56e1aab819222c805a2a4bfe4cb19e7556bf2ffde80"
+        }
+      ]
+    },
+    "saxes@6.0.0": {
+      "files": [
+        {
+          "path": "npm-license-sources/saxes.txt",
+          "source": "https://raw.githubusercontent.com/lddubeau/saxes/211fa0ebec9b628affc09219199639887174bfc3/LICENSE",
+          "sha256": "0fac2374380621b22e6b50451057721a9c52935b02d16d106a9f04897f061d0e"
+        }
+      ]
+    },
+    "@humanfs/types@0.15.0": {
+      "files": [
+        {
+          "path": "npm-license-sources/humanfs.txt",
+          "source": "https://raw.githubusercontent.com/humanwhocodes/humanfs/85069f193cbacc371c3beb649ce746f8c5a493be/packages/core/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4"
+        }
+      ]
+    },
+    "unrs-resolver@1.12.2": {
+      "files": [
+        {
+          "path": "npm-license-sources/unrs-resolver.txt",
+          "source": "https://raw.githubusercontent.com/unrs/unrs-resolver/ccb26d205e2938b16069c64a28996b48ee97ff94/LICENSE",
+          "sha256": "a9e35996693bd619302922c731fa2f620ad12d5f50b19a37c8a3e0e078c9bd2f"
+        }
+      ]
+    },
+    "fastdom@1.0.12": {
+      "readme": "README.md",
+      "reason": "The package embeds its complete license and copyright text in README.md."
+    },
+    "strictdom@1.0.1": {
+      "readme": "README.md",
+      "reason": "The package embeds its complete license and copyright text in README.md."
+    },
+    "esrecurse@4.3.0": {
+      "readme": "README.md",
+      "reason": "The package embeds its complete license and copyright text in README.md."
+    },
+    "imurmurhash@0.1.4": {
+      "readme": "README.md",
+      "reason": "The package embeds its complete license and copyright text in README.md."
+    },
+    "@next/env@16.4.5": {
+      "files": [
+        {
+          "path": "npm-license-sources/next.txt",
+          "source": "https://registry.npmjs.org/next/-/next-16.4.5.tgz#package/license.md",
+          "sha256": "ee765244e2d59f5234d474f62e0766fa0c8b99af967fdd4c0cb8dcb0c76ea224"
+        }
+      ],
+      "reason": "The subpackage shares the Next.js repository MIT license, retained from the matching next@16.4.5 archive."
+    },
+    "@next/eslint-plugin-next@16.4.5": {
+      "files": [
+        {
+          "path": "npm-license-sources/next.txt",
+          "source": "https://registry.npmjs.org/next/-/next-16.4.5.tgz#package/license.md",
+          "sha256": "ee765244e2d59f5234d474f62e0766fa0c8b99af967fdd4c0cb8dcb0c76ea224"
+        }
+      ],
+      "reason": "The subpackage shares the Next.js repository MIT license, retained from the matching next@16.4.5 archive."
+    },
+    "eslint-config-next@16.4.5": {
+      "files": [
+        {
+          "path": "npm-license-sources/next.txt",
+          "source": "https://registry.npmjs.org/next/-/next-16.4.5.tgz#package/license.md",
+          "sha256": "ee765244e2d59f5234d474f62e0766fa0c8b99af967fdd4c0cb8dcb0c76ea224"
+        }
+      ],
+      "reason": "The subpackage shares the Next.js repository MIT license, retained from the matching next@16.4.5 archive."
+    },
+    "@types/json5@0.0.29": {
+      "attributions": [
+        {
+          "path": "index.d.ts",
+          "sha256": "c5a14bdeb170e0e67fb4200c54e0e02fd0ec94aca894c212c9d43c2916891542"
+        }
+      ],
+      "files": [
+        {
+          "path": "npm-license-sources/definitely-typed.txt",
+          "source": "https://raw.githubusercontent.com/DefinitelyTyped/DefinitelyTyped/master/LICENSE",
+          "sha256": "0a48f63d7d32a49d196dce4b2e0cbc236c2cc8fef42cb20e005e4d5f813cc8f6"
+        }
+      ],
+      "reason": "Preserve the DefinitelyTyped license and original type-definition author attribution omitted from this old package archive."
+    },
+    "client-only@0.0.1": {
+      "attributions": [
+        {
+          "path": "package.json",
+          "sha256": "4d6342705767832f299b9a59c28e4275bcf02db19472732f93f67d979441df8f"
+        }
+      ],
+      "files": [
+        {
+          "path": "npm-license-sources/react.txt",
+          "source": "https://raw.githubusercontent.com/facebook/react/v18.2.0/LICENSE",
+          "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85"
+        }
+      ],
+      "reason": "The React marker package declares MIT and identifies the React project in package.json; preserve the original React license and package declaration."
+    },
+    "keyv@4.5.4": {
+      "attributions": [
+        {
+          "path": "README.md",
+          "sha256": "c39e1b3f735bb9302eb3cbd84aeb48c4311db64381f9e0a1aa4a61ddf59ce890"
+        }
+      ],
+      "files": [
+        {
+          "path": "npm-license-sources/mit-terms.txt",
+          "source": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      ],
+      "reason": "The upstream release provides an MIT declaration and original author/copyright attribution but no separate license text. Preserve its README verbatim alongside the complete canonical MIT terms."
+    },
+    "language-tags@1.0.9": {
+      "attributions": [
+        {
+          "path": "README.md",
+          "sha256": "53598f8f8440708d14c85396cb53213682b8018fc19151323e5a621102527adb"
+        }
+      ],
+      "files": [
+        {
+          "path": "npm-license-sources/mit-terms.txt",
+          "source": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      ],
+      "reason": "The upstream release provides an MIT declaration and original author/copyright attribution but no separate license text. Preserve its README verbatim alongside the complete canonical MIT terms."
+    },
+    "natural-compare@1.4.0": {
+      "attributions": [
+        {
+          "path": "README.md",
+          "sha256": "ced6cb1fe6ee15a32c63ea8c7e0425454e80456a890c6df3909429530566d40a"
+        }
+      ],
+      "files": [
+        {
+          "path": "npm-license-sources/mit-terms.txt",
+          "source": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      ],
+      "reason": "The upstream release provides an MIT declaration and original author/copyright attribution but no separate license text. Preserve its README verbatim alongside the complete canonical MIT terms."
+    },
+    "stable-hash@0.0.5": {
+      "attributions": [
+        {
+          "path": "README.md",
+          "sha256": "391a9af6f5d0caf5f9437c339ce7927d2fb9a83142563e8f6abb6a4da5563345"
+        }
+      ],
+      "files": [
+        {
+          "path": "npm-license-sources/mit-terms.txt",
+          "source": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/MIT.txt",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5"
+        }
+      ],
+      "reason": "The upstream release provides an MIT declaration and original author/copyright attribution but no separate license text. Preserve its README verbatim alongside the complete canonical MIT terms."
+    },
+    "language-subtag-registry@0.3.23": {
+      "attributions": [
+        {
+          "path": "README.md",
+          "sha256": "98daea92387ea6066cff42edf7a3bd4c1a2d2b148082eaca91c85afdc1c3392f"
+        }
+      ],
+      "files": [
+        {
+          "path": "npm-license-sources/cc0-terms.txt",
+          "source": "https://raw.githubusercontent.com/spdx/license-list-data/v3.27.0/text/CC0-1.0.txt",
+          "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+        }
+      ],
+      "reason": "The original README dedicates the database under CC0-1.0; preserve that dedication and the complete canonical CC0 terms."
+    }
+  }
+}

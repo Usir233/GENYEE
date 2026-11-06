@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Optional
 
 from docreader.models.document import Document
+from docreader.parser.concurrency import check_cancellation
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -26,6 +27,7 @@ class BaseParser(ABC):
     ):
         self.file_name = file_name
         self.file_type = file_type or os.path.splitext(file_name)[1].lstrip(".")
+        self.context = kwargs.get("context")
 
         logger.info(
             "Initializing parser for file=%s, type=%s",
@@ -52,7 +54,9 @@ class BaseParser(ABC):
             self.__class__.__name__,
             len(content),
         )
+        check_cancellation(self.context)
         document = self.parse_into_text(content)
+        check_cancellation(self.context)
         logger.info(
             "Extracted %d characters from %s",
             len(document.content),

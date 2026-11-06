@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import codecs
 import os
 import subprocess
 import tempfile
@@ -110,6 +111,24 @@ def normalize_excel_bytes(content: bytes, file_type: str | None = None) -> bytes
     ext = detect_excel_format(content)
     if ext is not None:
         return content
+
+    # LibreOffice's text import accepts arbitrary binary junk as a one-cell
+    # workbook. Only offer unrecognized *text* formats (CSV, HTML, SpreadsheetML)
+    # to that fallback; known binary XLS/XLSX formats were handled above.
+    sample = content[:8192]
+    for bom, encoding in (
+        (codecs.BOM_UTF32_LE, "utf-32"), (codecs.BOM_UTF32_BE, "utf-32"),
+        (codecs.BOM_UTF16_LE, "utf-16"), (codecs.BOM_UTF16_BE, "utf-16"),
+    ):
+        if content.startswith(bom):
+            try:
+                sample = content.decode(encoding).encode("utf-8")[:8192]
+            except UnicodeError as exc:
+                raise ValueError("Invalid Unicode spreadsheet text") from exc
+            break
+    control_count = sum(byte < 32 and byte not in (9, 10, 12, 13) for byte in sample)
+    if control_count > max(4, len(sample) // 100):
+        raise ValueError("Unrecognized binary spreadsheet format")
 
     suffixes = []
     if file_type:

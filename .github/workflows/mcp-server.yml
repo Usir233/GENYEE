@@ -4,19 +4,18 @@ name: Build & Publish (mcp-server)
 # Publishing uses PyPI Trusted Publishing (OIDC) — no API token required,
 # only the GitHub→PyPI OIDC trust configured on the repo.
 #
-# Release policy: publishing does NOT depend on tags. Bump the version in
-# mcp-server/pyproject.toml (and the synced version strings in setup.py,
-# __init__.py, weknora_mcp_server.py server_version, main.py --version),
-# merge to main, and the pipeline builds + publishes automatically.
-# A pre-publish check queries PyPI and skips upload if that version is
-# already published, so re-running on an unchanged version stays green.
-# Releases also still trigger on mcp-server-v* tags (back-compat).
+# This commercial branch runs tests/builds only on manual dispatch. Publishing
+# stays disabled below; enabling it requires a separate release decision.
+# The dormant pre-publish check uses the package name/version from pyproject.toml.
 
 on:
   workflow_dispatch:
 
 permissions:
   contents: read
+
+env:
+  UV_PYTHON_DOWNLOADS: never
 
 jobs:
   test:
@@ -25,7 +24,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.11.18", "3.12.16"]
     defaults:
       run:
         working-directory: mcp-server
@@ -34,23 +33,27 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.13.0"
 
       - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies (test extras)
-        run: uv sync --python ${{ matrix.python-version }} --extra test
+        run: uv sync --locked --python '${{ steps.python.outputs.python-path }}' --extra test
 
       - name: Run tests
-        # unittest avoids pytest importing __init__.py as a broken package root.
-        # Manual diagnostics live in check_imports.py (not matched by test_*.py).
-        run: uv run --python ${{ matrix.python-version }} python -m unittest discover -s . -p "test_*.py" -v
+        # Include both unittest cases and pytest functions (auth/CLI regressions).
+        run: uv run --frozen --python '${{ steps.python.outputs.python-path }}' python -m pytest
 
   build:
     name: Build sdist + wheel
     needs: test
     runs-on: ubuntu-latest
-    # Build on push to main, manual runs, and release tags — but never on PRs.
+    # Keep the existing non-PR build gate; dispatch remains the only trigger.
     if: github.event_name != 'pull_request'
     defaults:
       run:
@@ -60,12 +63,16 @@ jobs:
 
       - name: Install uv
         uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.13.0"
 
       - name: Set up Python
-        run: uv python install 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12.16"
 
       - name: Build package
-        run: uv build
+        run: uv build --python python
 
       - name: Verify wheel contains upload_paths.py (regression guard)
         run: |
@@ -103,22 +110,27 @@ jobs:
         # version stay green instead of failing with "File already exists").
         run: |
           set -e
+          project="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["name"])')"
           version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
           echo "packaged version: $version"
           exists="$(python3 -c '
           import json, sys, urllib.request
-          v = sys.argv[1]
+          from urllib.error import HTTPError
+          from urllib.parse import quote
+          name, v = sys.argv[1:]
           try:
-              d = json.load(urllib.request.urlopen("https://pypi.org/pypi/tencent-weknora-mcp/json"))
+              d = json.load(urllib.request.urlopen("https://pypi.org/pypi/" + quote(name, safe="") + "/json", timeout=30))
               print("true" if v in d.get("releases", {}) else "false")
-          except Exception:
-              # If PyPI is unreachable or the project is brand-new (404), treat as unpublished.
+          except HTTPError as error:
+              if error.code != 404:
+                  raise
+              # A brand-new package has no release metadata yet.
               print("false")
-          ' "$version")"
+          ' "$project" "$version")"
           echo "already on PyPI: $exists"
           if [ "$exists" = "true" ]; then
             echo "should_publish=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::tencent-weknora-mcp $version is already on PyPI; skipping publish. Bump pyproject.toml (and synced version strings) to release new changes."
+            echo "::warning::$project $version is already on PyPI; skipping publish. Bump pyproject.toml (and synced version strings) to release new changes."
           else
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
           fi

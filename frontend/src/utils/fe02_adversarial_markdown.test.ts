@@ -37,7 +37,7 @@ test('FE-02: options.escapeMarkdown is actively executed and fed into marked.par
   assert.doesNotMatch(html, /ATTACK_TOKEN/, 'Original unescaped token must NOT appear in output HTML')
 })
 
-test('FE-02: safeMarkdownToHTML strips dangerous tags before markdown parsing', () => {
+test('FE-02: the final sanitizer removes dangerous HTML after markdown parsing', () => {
   const dangerousPayloads = [
     '<script>alert("xss1")</script>',
     '<iframe src="https://evil.com"></iframe>',

@@ -19,6 +19,8 @@ import {
 import { embedToast } from '@/utils/embedToast'
 import { buildQueryWithHostContext } from '@/utils/embedContext'
 import { fileToDataURI } from '@/utils/embedFile'
+import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from '@/utils/index'
+import { inlineUploadsFitRequest } from '@/utils/inlineUploadSize'
 import { historyHasMoreAfterAttempt } from '@/utils/historyPagination'
 import { useI18n } from 'vue-i18n'
 import { useChatStreamHandler, isPromptCard } from '@/composables/useChatStreamHandler'
@@ -270,12 +272,16 @@ export function useEmbedChatSession(options: {
       onPrepared?: () => void
     } = {},
   ) => {
-    stopStream()
-    prepareForNewOutgoingMessage()
     const outboundQuery = buildQueryWithHostContext(value, options.hostContext?.value)
     const visitorWebSearchEnabled = opts.webSearchEnabled ?? false
     const imageFiles = (options.allowFileUpload ? opts.imageFiles : undefined) || []
     const attachmentFiles = (options.allowFileUpload ? opts.attachmentFiles : undefined) || []
+    if (!inlineUploadsFitRequest(imageFiles, attachmentFiles, MAX_FILE_SIZE_BYTES, outboundQuery)) {
+      embedToast(t('error.fileSizeExceeded', { size: MAX_FILE_SIZE_MB }))
+      return
+    }
+    stopStream()
+    prepareForNewOutgoingMessage()
     isReplying.value = true
     loading.value = true
 

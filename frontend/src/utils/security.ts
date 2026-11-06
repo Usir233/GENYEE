@@ -356,23 +356,19 @@ export function isValidURL(url: string): boolean {
 }
 
 /**
- * 安全地处理 Markdown 内容
+ * Preserve Markdown source until it has been parsed.
  * @param markdown Markdown 文本
- * @returns 安全的 HTML 字符串
+ * @returns Markdown source, NOT safe HTML. Always sanitize the rendered HTML.
  */
 export function safeMarkdownToHTML(markdown: string): string {
   if (!markdown || typeof markdown !== 'string') {
     return '';
   }
   
-  // 首先转义可能的 HTML 标签
-  const escapedMarkdown = markdown
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '')
-    .replace(/<object\b[^<]*(?:(?!<\/object>)<[^<]*)*<\/object>/gi, '')
-    .replace(/<embed\b[^<]*(?:(?!<\/embed>)<[^<]*)*<\/embed>/gi, '');
-  
-  return escapedMarkdown;
+  // Regex removal cannot distinguish literal HTML in code examples from live
+  // HTML. Marked escapes code; sanitizeHTML/sanitizeMarkdownHTML then remove
+  // executable elements and attributes from the rendered result.
+  return markdown;
 }
 
 /**

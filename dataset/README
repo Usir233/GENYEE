@@ -14,7 +14,7 @@ A comprehensive tool for sampling QA datasets and generating answers using OpenA
 
 ### Prerequisites
 
-- Python 3.7+
+- Python 3.10+
 - OpenAI API key
 
 ### Install Dependencies
@@ -68,6 +68,8 @@ python dataset/qa_dataset.py generate \
 ```
 
 The script uses `gpt-5.6-sol` by default.
+Pass `--model <model-name>` to select a model supported by your configured provider.
+Existing answers are reused on resume; use a new output directory when changing models.
 
 ### 3. View Results
 
@@ -78,6 +80,14 @@ python dataset/qa_dataset.py show \
   --input_dir ./dataset/samples \
   -n 5
 ```
+
+`show` does not require API credentials and displays all available pairs when
+`-n` exceeds the dataset size. The bundled sample contains three questions.
+
+The bundled samples use Parquet `int64` for `id`, `qid`, `pid`, and `aid`, matching
+the Go evaluation loader. The Python tool also accepts string IDs for standalone
+workflows; convert those IDs consistently to integers before loading that output
+into GENYEE evaluation.
 
 ## Detailed Usage
 

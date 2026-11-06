@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "project": "docreader",
+      "name": "certifi",
+      "version": "2026.10.23",
+      "scope": "runtime",
+      "license": "MPL-2.0",
+      "source": "https://files.pythonhosted.org/packages/fd/11/b524cbd9bbdaca58608e4cf4053fd463417549e1959fa8d3aa18319f9555/certifi-2026.10.23.tar.gz",
+      "sha256": "a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd"
+    },
+    {
+      "project": "docreader",
+      "name": "tld",
+      "version": "0.13.1",
+      "scope": "runtime",
+      "license": "MPL-1.1",
+      "source": "https://files.pythonhosted.org/packages/df/a1/5723b07a70c1841a80afc9ac572fdf53488306848d844cd70519391b0d26/tld-0.13.1.tar.gz",
+      "sha256": "75ec00936cbcf564f67361c41713363440b6c4ef0f0c1592b5b0fbe72c17a350"
+    },
+    {
+      "project": "docreader",
+      "name": "tqdm",
+      "version": "4.70.1",
+      "scope": "runtime",
+      "license": "MIT AND MPL-2.0",
+      "source": "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz",
+      "sha256": "cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4"
+    },
+    {
+      "project": "mcp-server",
+      "name": "certifi",
+      "version": "2026.10.23",
+      "scope": "runtime",
+      "license": "MPL-2.0",
+      "source": "https://files.pythonhosted.org/packages/fd/11/b524cbd9bbdaca58608e4cf4053fd463417549e1959fa8d3aa18319f9555/certifi-2026.10.23.tar.gz",
+      "sha256": "a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd"
+    },
+    {
+      "project": "mcp-server",
+      "name": "pathspec",
+      "version": "1.1.1",
+      "scope": "development-only",
+      "license": "MPL-2.0",
+      "source": "https://files.pythonhosted.org/packages/5a/82/42f767fc1c1143d6fd36efb827202a2d997a375e160a71eb2888a925aac1/pathspec-1.1.1.tar.gz",
+      "sha256": "17db5ecd524104a120e173814c90367a96a98d07c45b2e10c2f3919fff91bf5a"
+    },
+    {
+      "project": "docker/odl-hybrid",
+      "name": "certifi",
+      "version": "2026.10.23",
+      "scope": "runtime",
+      "license": "MPL-2.0",
+      "source": "https://files.pythonhosted.org/packages/fd/11/b524cbd9bbdaca58608e4cf4053fd463417549e1959fa8d3aa18319f9555/certifi-2026.10.23.tar.gz",
+      "sha256": "a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd"
+    },
+    {
+      "project": "docker/odl-hybrid",
+      "name": "python-bidi",
+      "version": "0.6.12",
+      "scope": "runtime",
+      "license": "LGPL-3.0-or-later",
+      "source": "https://files.pythonhosted.org/packages/3d/9d/b7ede7e25102f9e52c6cd5ffcd660eea659c2584001df84a352c76f62d74/python_bidi-0.6.12.tar.gz",
+      "sha256": "bef41af9bfd16fc6cfc31d8b72a87023b52b5ebd468d9ff2f331a6843b2dad82"
+    },
+    {
+      "project": "docker/odl-hybrid",
+      "name": "tqdm",
+      "version": "4.70.1",
+      "scope": "runtime",
+      "license": "MIT AND MPL-2.0",
+      "source": "https://files.pythonhosted.org/packages/0d/ea/b2a5bd54b28a324dae8211928b2d730b6547500342c7e6c6dea08bd0a485/tqdm-4.70.1.tar.gz",
+      "sha256": "cefd0eca11b2a37a3aee776544d4f4ae913f02688135b5556b8788dfa474afc4"
+    }
+  ]
+}

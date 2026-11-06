@@ -96,7 +96,9 @@ class MCPAuthMiddleware:
         elif "x-mcp-auth-token" in headers:
             provided = headers["x-mcp-auth-token"]
 
-        if not provided or not secrets.compare_digest(provided, self.token):
+        if not provided or not secrets.compare_digest(
+            provided.encode("utf-8"), self.token.encode("utf-8")
+        ):
             body = b'{"error":"unauthorized"}'
             await send(
                 {

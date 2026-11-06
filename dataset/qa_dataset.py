@@ -30,6 +30,8 @@ python dataset/qa_dataset.py show \
 import os
 from pathlib import Path
 import argparse
+import numbers
+import uuid
 
 import pandas as pd
 import openai
@@ -45,7 +47,17 @@ def read_parquet(path):
 def save_to_parquet(df: pd.DataFrame, path: str):
     """Save DataFrame to parquet file"""
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    df.to_parquet(path)
+    # A stopped process must not leave a half-written resume checkpoint.
+    temporary_path = Path(path).with_name(f".{Path(path).name}.{uuid.uuid4().hex}.tmp")
+    descriptor = os.open(temporary_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o666)
+    os.close(descriptor)
+    try:
+        if Path(path).exists():
+            os.chmod(temporary_path, Path(path).stat().st_mode & 0o777)
+        df.to_parquet(temporary_path, index=False)
+        os.replace(temporary_path, path)
+    finally:
+        temporary_path.unlink(missing_ok=True)
     print(f"Saved to {path}")
 
 
@@ -76,6 +88,8 @@ def sample_data(
     Returns:
         Tuple of (sampled_queries, sampled_corpus, sampled_qrels)
     """
+    if nq <= 0:
+        raise ValueError("nq must be positive")
     # 1. Filter qrels to only include qids that exist in queries
     valid_qids = set(queries["id"])
     qrels = qrels[qrels["qid"].isin(valid_qids)]
@@ -119,10 +133,9 @@ class QAAnsweringSystem:
         self.queries = queries
         self.corpus = corpus
         self.qrels = qrels
-        self.client = openai.Client(
-            api_key=os.getenv("OPENAI_API_KEY"),
-            base_url=os.getenv("OPENAI_BASE_URL"),
-        )
+        # Sampling, showing results and a completed resume are fully offline.
+        # Credentials are only required when an answer actually needs generating.
+        self.client = None
 
         # Create lookup dictionaries
         self.qid_to_text = dict(zip(queries["id"], queries["text"]))
@@ -177,6 +190,11 @@ Question: {question}
 Context: {context}
 
 Answer:"""
+        if self.client is None:
+            self.client = openai.Client(
+                api_key=os.getenv("OPENAI_API_KEY"),
+                base_url=os.getenv("OPENAI_BASE_URL"),
+            )
         response = self.client.chat.completions.create(
             model=model,
             messages=[{"role": "user", "content": prompt}],
@@ -184,7 +202,10 @@ Answer:"""
         )
         if not response.choices or response.choices[0].message is None:
             raise ValueError("LLM returned empty or filtered response")
-        return response.choices[0].message.content
+        answer = response.choices[0].message.content
+        if not isinstance(answer, str) or not answer.strip():
+            raise ValueError("LLM returned empty or filtered response")
+        return answer
 
 
 def sample_command(args):
@@ -249,22 +270,37 @@ def generate_answers(
     answers_path = f"{output_dir}/answers.parquet"
     qa_pairs_path = f"{output_dir}/qas.parquet"
 
-    try:
-        existing_answers = read_parquet(answers_path)
-        existing_qas = read_parquet(qa_pairs_path)
-        processed_qids = set(existing_qas["qid"])
-        print(f"\nFound {len(processed_qids)} previously processed queries")
-    except (FileNotFoundError, KeyError):
-        print("No existing answers found, use empty state")
-        existing_answers = pd.DataFrame(columns=["id", "text"])
-        existing_qas = pd.DataFrame(columns=["qid", "aid"])
-        processed_qids = set()
+    def load_checkpoint(path, columns):
+        try:
+            frame = read_parquet(path)
+        except FileNotFoundError:
+            return pd.DataFrame(columns=columns)
+        if not set(columns).issubset(frame.columns):
+            raise ValueError(f"Invalid checkpoint columns in {path}: expected {columns}")
+        return frame[columns]
+
+    existing_answers = load_checkpoint(answers_path, ["id", "text"])
+    existing_qas = load_checkpoint(qa_pairs_path, ["qid", "aid"])
+    if existing_answers["id"].isna().any() or existing_answers["id"].duplicated().any():
+        raise ValueError("Answer checkpoint IDs must be non-null and unique")
+    # If a write was interrupted between the two files, retry dangling pairs
+    # and retain any orphan answers so a previously assigned ID is never reused.
+    valid_answers = existing_answers["text"].map(
+        lambda text: isinstance(text, str) and bool(text.strip())
+    )
+    existing_qas = existing_qas[existing_qas["aid"].isin(existing_answers.loc[valid_answers, "id"])]
+    processed_qids = set(existing_qas["qid"])
+    print(f"\nFound {len(processed_qids)} previously processed queries")
 
     qa_system = QAAnsweringSystem(queries, corpus, qrels)
 
     answers = existing_answers.to_dict("records")
     qa_pairs = existing_qas.to_dict("records")
-    answer_id_counter = len(answers) + 1
+    answer_ids = existing_answers["id"].tolist()
+    string_ids = bool(answer_ids) and all(isinstance(aid, str) for aid in answer_ids)
+    if not string_ids and not all(isinstance(aid, numbers.Integral) for aid in answer_ids):
+        raise ValueError("Answer IDs must consistently be integers or strings")
+    answer_id_counter = max(answer_ids, default=0) + 1 if not string_ids else None
 
     for qid in queries["id"]:
         if qid in processed_qids:
@@ -274,10 +310,12 @@ def generate_answers(
         while retry_count <= max_retries:
             try:
                 answer_text = qa_system.answer_question(qid, model=model)
-                aid = answer_id_counter
+                aid = str(uuid.uuid4()) if string_ids else answer_id_counter
                 answers.append({"id": aid, "text": answer_text})
                 qa_pairs.append({"qid": qid, "aid": aid})
-                answer_id_counter += 1
+                if not string_ids:
+                    answer_id_counter += 1
+                processed_qids.add(qid)
 
                 # Save progress after each successful answer
                 save_to_parquet(pd.DataFrame(answers), answers_path)
@@ -291,8 +329,8 @@ def generate_answers(
                         f"\nFailed to process qid {qid} after {max_retries} attempts: {str(e)}"
                     )
                     # Save failed state
-                    save_to_parquet(pd.DataFrame(answers), answers_path)
-                    save_to_parquet(pd.DataFrame(qa_pairs), qa_pairs_path)
+                    save_to_parquet(pd.DataFrame(answers, columns=["id", "text"]), answers_path)
+                    save_to_parquet(pd.DataFrame(qa_pairs, columns=["qid", "aid"]), qa_pairs_path)
                 else:
                     print(f"\nRetry {retry_count} for qid {qid}...")
 
@@ -310,7 +348,9 @@ def show_results(input_dir: str, n: int = 5):
         input_dir: Directory containing the QA data
         n: Number of results to show (default: 5)
     """
-    print(f"\nShowing {n} random results:")
+    if n < 0:
+        raise ValueError("n must not be negative")
+    print(f"\nShowing up to {n} random results:")
 
     # Load data
     queries = read_parquet(f"{input_dir}/queries.parquet")
@@ -323,7 +363,7 @@ def show_results(input_dir: str, n: int = 5):
     qa_system = QAAnsweringSystem(queries, corpus, qrels)
 
     # Get first n QA pairs
-    for _, row in qa_pairs.sample(n).iterrows():
+    for _, row in qa_pairs.sample(min(n, len(qa_pairs))).iterrows():
         qid = row["qid"]
         aid = row["aid"]
 

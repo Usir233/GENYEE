@@ -24,10 +24,16 @@ def read_requirements():
             ]
     except FileNotFoundError:
         return [
-            "mcp>=2,<3",
-            "requests>=2.31.0",
-            "starlette>=0.27.0",
-            "uvicorn>=0.24.0",
+            "mcp>=2.2,<3",
+            "requests>=2.34.2",
+            "starlette>=1.3.1",
+            "uvicorn>=0.51.0",
+            "certifi>=2026.10.18",
+            "cryptography>=50.0.0",
+            "httpx2>=2.12.0",
+            "opentelemetry-api>=1.45.1",
+            "pyjwt>=2.15.0",
+            "urllib3>=2.8.0",
         ]
 
 
@@ -44,7 +50,6 @@ setup(
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.10",
@@ -66,7 +71,7 @@ setup(
     },
     include_package_data=True,
     data_files=[
-        ("", ["README.md", "requirements.txt", "LICENSE"]),
+        ("", ["README.md", "requirements.txt", "LICENSE", "LICENSE.GENYEE", "THIRD_PARTY_NOTICES.md"]),
     ],
     keywords="mcp model-context-protocol genyee knowledge-management api-server",
 )

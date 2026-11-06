@@ -10,12 +10,18 @@ on:
     paths:
       - "third_party/anydoc-go/**"
       - "scripts/build-anydoc-lib.sh"
+      - "scripts/rust-notices/**"
+      - "licenses/rust-supplemental/**"
+      - "licenses/sources/anydoc.tsv"
       - "internal/infrastructure/docparser/**"
       - ".github/workflows/anydoc.yml"
   pull_request:
     paths:
       - "third_party/anydoc-go/**"
       - "scripts/build-anydoc-lib.sh"
+      - "scripts/rust-notices/**"
+      - "licenses/rust-supplemental/**"
+      - "licenses/sources/anydoc.tsv"
       - "internal/infrastructure/docparser/**"
       - ".github/workflows/anydoc.yml"
   workflow_dispatch:
@@ -28,7 +34,7 @@ permissions:
   contents: read
 
 env:
-  GO_VERSION: "1.26"
+  GO_VERSION: "1.27.3"
   GOPROXY: https://proxy.golang.org,direct
 
 jobs:

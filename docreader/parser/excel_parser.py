@@ -17,7 +17,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import pandas as pd
 
 from docreader.models.document import Chunk, Document
+from docreader.parser.archive import ArchiveLimitError, validate_zip_content, validate_zip_archive
 from docreader.parser.base_parser import BaseParser
+from docreader.parser.concurrency import check_cancellation
 from docreader.parser.excel_convert import (
     convert_excel_to_xlsx_bytes,
     detect_excel_format,
@@ -234,6 +236,7 @@ class ExcelParser(BaseParser):
         Returns:
             Document: Parsed document containing text, chunks, source_blocks, and images.
         """
+        validate_zip_content(content)
         from openpyxl.utils import get_column_letter
 
         chunks: List[Chunk] = []
@@ -252,6 +255,8 @@ class ExcelParser(BaseParser):
 
                 image_extractor = XLSXImageExtractor(content)
                 cell_images_by_sheet, doc_images = image_extractor.extract_cell_images()
+            except ArchiveLimitError:
+                raise
             except Exception as exc:
                 logger.warning("Failed to extract images from XLSX workbook: %s", exc)
                 cell_images_by_sheet, doc_images = {}, {}
@@ -266,6 +271,8 @@ class ExcelParser(BaseParser):
                 file_type=self.file_type,
                 percent_as_text=self.xlsx_percent_as_text,
             )
+        except ArchiveLimitError:
+            raise
         except Exception as exc:
             logger.warning("Failed to open excel workbook: %s", exc)
             return Document(
@@ -277,6 +284,7 @@ class ExcelParser(BaseParser):
 
         # Step 3: Process each sheet
         for excel_sheet_name in excel_file.sheet_names:
+            check_cancellation(self.context)
             sheet_images = cell_images_by_sheet.get(str(excel_sheet_name), {})
             consumed_cells: set[Tuple[int, str]] = set()
 
@@ -565,6 +573,7 @@ def _sanitize_corrupted_drawings_xlsx(data: bytes) -> bytes:
             return data
         needs_fix = False
         with zipfile.ZipFile(bio, "r") as zf:
+            validate_zip_archive(zf)
             names = zf.namelist()
             corrupt_drawings = set()
             for name in names:
@@ -590,6 +599,8 @@ def _sanitize_corrupted_drawings_xlsx(data: bytes) -> bytes:
                     else:
                         zout.writestr(item, zf.read(item.filename))
             return out.getvalue()
+    except ArchiveLimitError:
+        raise
     except Exception as exc:
         logger.debug("Failed to sanitize corrupted drawings: %s", exc)
         return data

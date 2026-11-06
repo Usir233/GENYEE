@@ -8,7 +8,12 @@
 # Usage:
 #   scripts/build-anydoc-lib.sh              # host platform
 #   TARGET=aarch64-unknown-linux-musl scripts/build-anydoc-lib.sh
+#   scripts/build-anydoc-lib.sh --prepare-only  # verified source, no compilation
 set -euo pipefail
+
+prepare_only=0
+if [ "${1:-}" = --prepare-only ]; then prepare_only=1; shift; fi
+if [ "$#" -ne 0 ]; then echo "Unexpected argument: $1" >&2; exit 2; fi
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 crate_dir="$repo_root/third_party/anydoc-go"
@@ -51,7 +56,12 @@ fi
 
 # Include a patch revision so changes to our patches invalidate existing copies
 # even when the upstream anydoc version stays the same.
-anydoc_patch_id="$anydoc_version-zip9-v1"
+anydoc_sha=$(awk -v version="$anydoc_version" '$1 == version {print $2}' "$repo_root/licenses/sources/anydoc.tsv")
+if [[ ! "$anydoc_sha" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "error: missing reviewed source checksum for anydoc $anydoc_version" >&2
+  exit 1
+fi
+anydoc_patch_id="$anydoc_version-zip9-v2-$anydoc_sha"
 
 # Copy the pinned version, expose the official serializer, and upgrade zip to
 # the fixed major version (upstream anydoc 0.2.4 still requires zip ^8.6.0).
@@ -67,24 +77,37 @@ prepare_patched_anydoc() {
   fi
 
   local src=""
+  local tarball=""
   local cargo_home="${CARGO_HOME:-$HOME/.cargo}"
-  src=$(find "$cargo_home/registry/src" -maxdepth 2 -type d -name "anydoc-$anydoc_version" 2>/dev/null | head -1 || true)
-
-  if [ -z "$src" ]; then
-    local tarball="$crate_dir/.anydoc-$anydoc_version.crate"
+  local cached
+  for cached in "$cargo_home"/registry/cache/*/"anydoc-$anydoc_version.crate"; do
+    if [ -f "$cached" ]; then tarball="$cached"; break; fi
+  done
+  if [ -z "$tarball" ]; then
+    tarball="$crate_dir/.anydoc-$anydoc_version.crate"
     echo "Fetching anydoc $anydoc_version to patch document_to_markdown into the public API"
     if ! curl -fsSL "https://rsproxy.cn/api/v1/crates/anydoc/$anydoc_version/download" -o "$tarball"; then
       curl -fsSL "https://static.crates.io/crates/anydoc/anydoc-$anydoc_version.crate" -o "$tarball"
     fi
-    local unpack="$crate_dir/.anydoc-unpack"
-    rm -rf "$unpack"
-    mkdir -p "$unpack"
-    tar -xzf "$tarball" -C "$unpack"
-    src=$(find "$unpack" -maxdepth 1 -type d -name "anydoc-$anydoc_version" | head -1)
-    if [ -z "$src" ]; then
-      echo "error: unpacked anydoc-$anydoc_version crate is missing" >&2
-      exit 1
-    fi
+  fi
+  local actual_sha
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual_sha=$(sha256sum "$tarball" | awk '{print $1}')
+  else
+    actual_sha=$(shasum -a 256 "$tarball" | awk '{print $1}')
+  fi
+  if [ "$actual_sha" != "$anydoc_sha" ]; then
+    echo "error: anydoc $anydoc_version source checksum mismatch" >&2
+    exit 1
+  fi
+  local unpack="$crate_dir/.anydoc-unpack"
+  rm -rf "$unpack"
+  mkdir -p "$unpack"
+  tar -xzf "$tarball" -C "$unpack"
+  src=$(find "$unpack" -maxdepth 1 -type d -name "anydoc-$anydoc_version" | head -1)
+  if [ -z "$src" ]; then
+    echo "error: unpacked anydoc-$anydoc_version crate is missing" >&2
+    exit 1
   fi
 
   rm -rf "$dest"
@@ -127,6 +150,14 @@ fi
 
 echo "Building anydoc $anydoc_version archive for $target"
 prepare_patched_anydoc
+if [ "$prepare_only" = 1 ]; then exit 0; fi
+
+# Collect original Cargo and Rust standard-library notices before compilation.
+# Go executes on the build host even when TARGET selects a cross build.
+cargo_target_dir=$(GOOS="$(go env GOHOSTOS)" GOARCH="$(go env GOHOSTARCH)" CGO_ENABLED=0 \
+  go run -mod=readonly "$repo_root/scripts/rust-notices/main.go" \
+    --manifest "$crate_dir/Cargo.toml" --target "$target" \
+    --output "$crate_dir/licenses/rust" --print-target-dir)
 
 # --locked: build exactly the dependency versions in the committed Cargo.lock.
 # That lockfile is what pins the patched pdf-inspector/lopdf, so a silent
@@ -135,7 +166,10 @@ cargo build --release --locked --manifest-path "$crate_dir/Cargo.toml" --target 
 
 dest="$crate_dir/lib/$lib_dir"
 mkdir -p "$dest"
-cp "$crate_dir/target/$target/release/$lib_name" "$dest/$lib_name"
+# Cargo may resolve a shared target directory from CARGO_TARGET_DIR or config.
+# Reuse its metadata path so a stale archive in the default directory can never
+# overwrite the fresh build (and absolute paths with spaces remain intact).
+cp "$cargo_target_dir/$target/release/$lib_name" "$dest/$lib_name"
 
 echo "Wrote $dest/$lib_name"
 echo "Build WeKnora with the archive: go build -tags anydoc ./cmd/server"

@@ -14,7 +14,7 @@
 
 ### 系统要求
 
-- Python 3.7+
+- Python 3.10+
 - OpenAI API密钥
 
 ### 安装依赖
@@ -77,6 +77,8 @@ python dataset/qa_dataset.py generate \
 ```
 
 脚本默认使用 `gpt-5.6-sol`。
+可通过 `--model <模型名称>` 选择已配置服务支持的模型。断点续跑会复用已有答案，
+更换模型并重新生成全部答案时请使用新的输出目录。
 
 ### 3. 查看结果
 
@@ -87,6 +89,12 @@ python dataset/qa_dataset.py show \
   --input_dir ./dataset/samples \
   -n 5
 ```
+
+`show` 不需要 API 密钥。当 `-n` 大于实际问答数时显示全部可用结果；内置样本有三个问题。
+
+内置样本的 `id`、`qid`、`pid`、`aid` 均为 Parquet `int64`，与 Go 评估加载器一致。
+Python 工具也允许独立工作流使用字符串 ID；将这类输出用于 GENYEE 评估前，
+需要把各文件中的关联 ID 一致转换为整数。
 
 ## 详细使用说明
 

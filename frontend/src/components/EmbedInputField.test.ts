@@ -20,7 +20,7 @@ const compiled = ts.transpileModule(compileScript(descriptor, {
 type Node = { tag: string; props: Record<string, any>; children: Node[]; parent?: Node; querySelector: () => null }
 const node = (tag: string): Node => ({ tag, props: {}, children: [], querySelector: () => null })
 
-async function fixture(showFileUploadToggle = true) {
+async function fixture(showFileUploadToggle = true, maxFileSize = 50 * 1024 * 1024) {
   const sent: any[][] = [], alerts: string[] = [], revoked: string[] = []
   const exports: any = {}
   runInNewContext(compiled, {
@@ -31,6 +31,8 @@ async function fixture(showFileUploadToggle = true) {
       if (name === 'vue-i18n') return { useI18n: () => ({ t: (key: string) => key }) }
       if (name === '@/utils/embedToast') return { embedToast: (message: string) => alerts.push(message) }
       if (name === '@/utils/embedFile') return require('../utils/embedFile.ts')
+      if (name === '@/utils/index') return { MAX_FILE_SIZE_BYTES: maxFileSize }
+      if (name === '@/utils/inlineUploadSize') return require('../utils/inlineUploadSize.ts')
       if (name.endsWith('.svg')) return 'send.svg'
       throw new Error(`Unexpected import: ${name}`)
     },
@@ -72,7 +74,13 @@ async function fixture(showFileUploadToggle = true) {
     await nextTick()
     return prevented
   }
-  return { sent, alerts, revoked, images, click, paste, dispose: () => app.unmount() }
+  const selectAttachments = async (files: File[]) => {
+    const input = all().find(el => el.tag === 'input' && String(el.props.accept).includes('.pdf'))
+    assert.ok(input)
+    input.props.onChange({ target: { files, value: '' } })
+    await nextTick()
+  }
+  return { sent, alerts, revoked, images, click, paste, selectAttachments, dispose: () => app.unmount() }
 }
 const file = (type = 'image/png', size = 10) => new File([new Uint8Array(size)], 'screenshot', { type })
 
@@ -119,4 +127,18 @@ test('pasted images use the existing type, size and count limits', async () => {
     assert.equal(f.images().length, 5)
   } finally { f.dispose() }
   assert.equal(f.revoked.length, 6)
+})
+
+test('attachment selection accounts for Base64 expansion and the deployment limit', async () => {
+  for (const limit of [50 * 1024 * 1024, 1024 * 1024]) {
+    const f = await fixture(true, limit)
+    try {
+      const size = limit === 1024 * 1024 ? 500 * 1024 : 20 * 1024 * 1024
+      await f.selectAttachments([file('application/pdf', size), file('application/pdf', size)])
+      assert.deepEqual(f.alerts, ['input.fileUpload.tooLarge'])
+      await f.click('embed-send-btn')
+      assert.equal(f.sent.length, 1)
+      assert.equal(f.sent[0][2].length, 1)
+    } finally { f.dispose() }
+  }
 })

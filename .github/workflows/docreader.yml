@@ -30,8 +30,8 @@ permissions:
   contents: read
 
 env:
-  PYTHON_VERSION: "3.10.18"
-  GO_VERSION: "1.26"
+  PYTHON_VERSION: "3.12.16"
+  GO_VERSION: "1.27.3"
   GOPROXY: https://proxy.golang.org,direct
 
 jobs:
@@ -70,7 +70,8 @@ jobs:
         run: uv run --project docreader --python ${{ env.PYTHON_VERSION }} python -m playwright install --with-deps webkit
 
       - name: Run Python tests
-        run: uv run --project docreader --python ${{ env.PYTHON_VERSION }} python -m unittest discover -s docreader/tests -p "test_*.py" -v
+        # Collect both unittest classes and pytest function regressions.
+        run: uv run --project docreader --python ${{ env.PYTHON_VERSION }} --with pytest python -m pytest docreader/tests -v
 
       - uses: actions/setup-go@v6
         with:

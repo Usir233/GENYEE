@@ -107,17 +107,26 @@ func (s *tenantAPIKeyService) AuthenticateAPIKey(ctx context.Context, token stri
 // latency is not tied to an UPDATE on the hot path.
 func (s *tenantAPIKeyService) touchAPIKeyLastUsedAsync(keyID uint64) {
 	now := time.Now().UTC()
-	if v, ok := s.lastUsedTouch.Load(keyID); ok {
-		if now.Sub(v.(time.Time)) < apiKeyLastUsedMinInterval {
+	for {
+		previous, loaded := s.lastUsedTouch.LoadOrStore(keyID, now)
+		if !loaded {
+			break
+		}
+		if now.Sub(previous.(time.Time)) < apiKeyLastUsedMinInterval {
 			return
 		}
+		// Claim an expired window atomically, so concurrent requests launch
+		// only one update instead of all passing a separate Load/Store pair.
+		if s.lastUsedTouch.CompareAndSwap(keyID, previous, now) {
+			break
+		}
 	}
-	s.lastUsedTouch.Store(keyID, now)
 	go func(id uint64, at time.Time) {
 		if err := s.repo.UpdateAPIKeyLastUsed(context.Background(), id, at); err != nil {
 			logger.Warnf(context.Background(),
 				"failed to update tenant api key last_used_at (id=%d): %v", id, err)
-			s.lastUsedTouch.Delete(id)
+			// A slow failed write must not erase a newer window's claim.
+			s.lastUsedTouch.CompareAndDelete(id, at)
 		}
 	}(keyID, now)
 }

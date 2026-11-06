@@ -4,18 +4,22 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	apprepo "github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
+	"github.com/stretchr/testify/require"
 )
 
 type fakeTenantAPIKeyRepo struct {
+	mu                  sync.Mutex
 	byHash              map[string]*types.TenantAPIKey
 	nextID              uint64
-	lastUsedUpdateCount int
+	lastUsedUpdateCount atomic.Int32
 }
 
 func TestTenantAPIKeyServiceCreateAPIKeyUsesSKPrefix(t *testing.T) {
@@ -43,6 +47,8 @@ func newFakeTenantAPIKeyRepo() *fakeTenantAPIKeyRepo {
 }
 
 func (r *fakeTenantAPIKeyRepo) CreateAPIKey(_ context.Context, key *types.TenantAPIKey) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if _, ok := r.byHash[key.KeyHash]; ok {
 		return errors.New("duplicate key hash")
 	}
@@ -55,6 +61,8 @@ func (r *fakeTenantAPIKeyRepo) CreateAPIKey(_ context.Context, key *types.Tenant
 }
 
 func (r *fakeTenantAPIKeyRepo) GetAPIKeyByHash(_ context.Context, hash string) (*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	key, ok := r.byHash[hash]
 	if !ok {
 		return nil, apprepo.ErrTenantAPIKeyNotFound
@@ -64,6 +72,8 @@ func (r *fakeTenantAPIKeyRepo) GetAPIKeyByHash(_ context.Context, hash string) (
 }
 
 func (r *fakeTenantAPIKeyRepo) ListAPIKeys(_ context.Context, tenantID uint64) ([]*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	out := []*types.TenantAPIKey{}
 	for _, key := range r.byHash {
 		if key.TenantIDValue() == tenantID && key.RevokedAt == nil {
@@ -75,6 +85,8 @@ func (r *fakeTenantAPIKeyRepo) ListAPIKeys(_ context.Context, tenantID uint64) (
 }
 
 func (r *fakeTenantAPIKeyRepo) ListPlatformAPIKeys(_ context.Context) ([]*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	out := []*types.TenantAPIKey{}
 	for _, key := range r.byHash {
 		if key.IsPlatform() && key.RevokedAt == nil {
@@ -86,6 +98,8 @@ func (r *fakeTenantAPIKeyRepo) ListPlatformAPIKeys(_ context.Context) ([]*types.
 }
 
 func (r *fakeTenantAPIKeyRepo) RevokeAPIKey(_ context.Context, tenantID uint64, id uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	now := time.Now()
 	for _, key := range r.byHash {
 		if key.ID == id && key.TenantIDValue() == tenantID && key.RevokedAt == nil {
@@ -101,6 +115,8 @@ func (r *fakeTenantAPIKeyRepo) RevokeAPIKey(_ context.Context, tenantID uint64, 
 func (r *fakeTenantAPIKeyRepo) UpdateAPIKey(
 	_ context.Context, tenantID uint64, id uint64, update *types.TenantAPIKey,
 ) (*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for _, key := range r.byHash {
 		if key.ID == id && key.TenantIDValue() == tenantID && key.RevokedAt == nil {
 			key.Name = update.Name
@@ -177,6 +193,8 @@ func apiKeyEqualStrings(a, b []string) bool {
 }
 
 func (r *fakeTenantAPIKeyRepo) RevokePlatformAPIKey(_ context.Context, id uint64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	now := time.Now()
 	for _, key := range r.byHash {
 		if key.ID == id && key.IsPlatform() && key.RevokedAt == nil {
@@ -188,6 +206,8 @@ func (r *fakeTenantAPIKeyRepo) RevokePlatformAPIKey(_ context.Context, id uint64
 }
 
 func (r *fakeTenantAPIKeyRepo) UpdateAPIKeyHash(_ context.Context, id uint64, hash string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for oldHash, key := range r.byHash {
 		if key.ID == id && key.RevokedAt == nil {
 			delete(r.byHash, oldHash)
@@ -200,6 +220,8 @@ func (r *fakeTenantAPIKeyRepo) UpdateAPIKeyHash(_ context.Context, id uint64, ha
 }
 
 func (r *fakeTenantAPIKeyRepo) HasKeysWithPlaceholderHash(_ context.Context) (bool, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	for _, key := range r.byHash {
 		if key.RevokedAt == nil && strings.HasPrefix(key.KeyHash, "migrated-tenant-") {
 			return true, nil
@@ -209,6 +231,8 @@ func (r *fakeTenantAPIKeyRepo) HasKeysWithPlaceholderHash(_ context.Context) (bo
 }
 
 func (r *fakeTenantAPIKeyRepo) ListKeysWithPlaceholderHash(_ context.Context) ([]*types.TenantAPIKey, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	out := []*types.TenantAPIKey{}
 	for _, key := range r.byHash {
 		if key.RevokedAt == nil && strings.HasPrefix(key.KeyHash, "migrated-tenant-") {
@@ -220,7 +244,9 @@ func (r *fakeTenantAPIKeyRepo) ListKeysWithPlaceholderHash(_ context.Context) ([
 }
 
 func (r *fakeTenantAPIKeyRepo) UpdateAPIKeyLastUsed(_ context.Context, id uint64, at time.Time) error {
-	r.lastUsedUpdateCount++
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.lastUsedUpdateCount.Add(1)
 	for _, key := range r.byHash {
 		if key.ID == id && key.RevokedAt == nil {
 			key.LastUsedAt = &at
@@ -333,12 +359,53 @@ func TestTenantAPIKeyServiceAuthenticateThrottlesLastUsedUpdates(t *testing.T) {
 	}
 
 	deadline := time.Now().Add(500 * time.Millisecond)
-	for repo.lastUsedUpdateCount == 0 && time.Now().Before(deadline) {
+	for repo.lastUsedUpdateCount.Load() == 0 && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
-	if repo.lastUsedUpdateCount != 1 {
-		t.Fatalf("last_used update count = %d, want 1 (throttled async write)", repo.lastUsedUpdateCount)
+	if count := repo.lastUsedUpdateCount.Load(); count != 1 {
+		t.Fatalf("last_used update count = %d, want 1 (throttled async write)", count)
 	}
+}
+
+func TestTenantAPIKeyServiceConcurrentTouchesShareOneWrite(t *testing.T) {
+	const rounds, callers = 64, 32
+	repos := make([]*fakeTenantAPIKeyRepo, rounds)
+	for round := range rounds {
+		repos[round] = newFakeTenantAPIKeyRepo()
+		svc := NewTenantAPIKeyService(repos[round]).(*tenantAPIKeyService)
+		// An expired throttle entry must be claimed by only one caller too.
+		if round%2 == 0 {
+			svc.lastUsedTouch.Store(uint64(7), time.Now().Add(-2*apiKeyLastUsedMinInterval))
+		}
+		start := make(chan struct{})
+		var callersDone sync.WaitGroup
+		callersDone.Add(callers)
+		for range callers {
+			go func() {
+				defer callersDone.Done()
+				<-start
+				svc.touchAPIKeyLastUsedAsync(7)
+			}()
+		}
+		close(start)
+		callersDone.Wait()
+	}
+	require.Eventually(t, func() bool {
+		for _, repo := range repos {
+			if repo.lastUsedUpdateCount.Load() == 0 {
+				return false
+			}
+		}
+		return true
+	}, time.Second, time.Millisecond)
+	require.Never(t, func() bool {
+		for _, repo := range repos {
+			if repo.lastUsedUpdateCount.Load() > 1 {
+				return true
+			}
+		}
+		return false
+	}, 50*time.Millisecond, time.Millisecond, "simultaneous requests must share one last_used write")
 }
 
 func TestTenantAPIKeyServiceAuthenticateRejectsExpiredKey(t *testing.T) {

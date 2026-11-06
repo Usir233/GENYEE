@@ -9,6 +9,8 @@ from typing import List, Optional
 from docreader.config import CONFIG
 from docreader.models.document import Document
 from docreader.parser.docx2_parser import Docx2Parser
+from docreader.parser.archive import ArchiveLimitError
+from docreader.parser.concurrency import ParserCancelled, check_cancellation
 from docreader.utils.tempfile import TempDirContext, TempFileContext
 
 logger = logging.getLogger(__name__)
@@ -186,10 +188,13 @@ class DocParser(Docx2Parser):
         # Save byte content as a temporary file
         with TempFileContext(content, ".doc") as temp_file_path:
             for handle in handle_chain:
+                check_cancellation(self.context)
                 try:
                     document = handle(temp_file_path)
                     if document:
                         return document
+                except (ArchiveLimitError, ParserCancelled):
+                    raise
                 except Exception as e:
                     logger.warning(f"Failed to parse DOC with {handle.__name__} {e}")
 
@@ -204,7 +209,7 @@ class DocParser(Docx2Parser):
 
         logger.info("Successfully converted DOC to DOCX, using DocxParser")
         # Use existing DocxParser to parse the converted docx
-        document = super(Docx2Parser, self).parse_into_text(docx_content)
+        document = super().parse_into_text(docx_content)
         logger.info(f"Extracted {len(document.content)} characters using DocxParser")
         return document
 

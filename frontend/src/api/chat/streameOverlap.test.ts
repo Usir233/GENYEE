@@ -29,7 +29,7 @@ before(async () => {
       export function fetchEventSource(url, options) {
         return new Promise((resolve, reject) => { calls.push({ url, options, resolve, reject }) })
       }`,
-    '@/utils/index': `export const generateRandomString = () => 'test-request';`,
+    '@/utils/index': `export const generateRandomString = () => 'test-request'; export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; export const MAX_FILE_SIZE_MB = 50;`,
     '@/i18n': `export default { global: { t: key => key, locale: { value: 'zh-CN' } } };`,
   }
   server = await createServer({

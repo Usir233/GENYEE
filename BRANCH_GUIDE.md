@@ -47,7 +47,7 @@
 - **本分支实施的五项核心商业合规工程**：
   1. **架构去耦与无用高风险依赖清理**：移除非可商用数据集、未使用的受限依赖及未自建专有组件，确保主模块仅保留可商用开源依赖。
   2. **可选云服务与可观测栈默认关闭（Opt-in）**：保留 `WeKnoraCloud` 与 `Langfuse` 代码及编排能力以维持与 `main` 分支合并零冲突，但在代码、`.env.example` 与 `docker-compose*.yml` 中**默认关闭**（`WEKNORA_WEKNORACLOUD_ENABLED=false`、`LANGFUSE_ENABLED=false`、Langfuse 容器置于 `--profile langfuse` 下按需启用）。
-  3. **全套开源合规法律文件齐备**：在仓库根目录配备完整的 [`LICENSE`](LICENSE)（MIT，保留上游与衍生版权声明）、[`NOTICE`](NOTICE)、[`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)，并在 [`OFFLINE_LICENSES/`](OFFLINE_LICENSES/README.md) 下提供离线镜像许可证矩阵与三年期 GPL/AGPL [`WRITTEN_OFFER.md`](OFFLINE_LICENSES/WRITTEN_OFFER.md)。
+  3. **商业授权与开源声明配套**：根目录 [`LICENSE`](LICENSE) 为 GENYEE Commercial License，仅约束其声明范围内的自有材料；上游 MIT 与第三方原始授权、版权声明保留在 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 和 [`licenses/`](licenses/)，不受商业授权条款限制。镜像交付配套位于 [`OFFLINE_LICENSES/`](OFFLINE_LICENSES/README.md)，含许可证矩阵与 [`WRITTEN_OFFER.md`](OFFLINE_LICENSES/WRITTEN_OFFER.md)。
   4. **上游品牌残留清理与自研镜像参数化**：清除源码、脚本、OpenAPI/Swagger、Helm Chart 及构建产物中的上游品牌残留；将全部自研镜像切换为 `${GENYEE_REGISTRY:-genyee}/genyee-*`，并固定第三方基础设施镜像版本（如 `redis:7.2-alpine` BSD-3-Clause）。
   5. **私有化离线交付包与纯净源码导出机制**：
      - 离线镜像交付包：使用 `./scripts/offline-bundle.sh` 导出全量固定版本镜像、`MANIFEST.json`、`SHA256SUMS` 与 `OFFLINE_LICENSES/`，客户侧通过 `./scripts/offline-load.sh --registry <private-registry>` 一键校验并导入内网仓库。

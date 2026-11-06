@@ -68,6 +68,8 @@ COPY LICENSE THIRD_PARTY_NOTICES.md /usr/share/licenses/genyee/
 COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/
 
 COPY --from=builder /frontend/dist /usr/share/nginx/html
+COPY --from=builder /frontend/dist/licenses/ /licenses/npm/
+COPY --from=builder /frontend/dist/licenses/ /usr/share/licenses/genyee/npm/
 
 COPY nginx.conf /etc/nginx/templates/default.conf.template
 

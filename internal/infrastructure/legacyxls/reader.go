@@ -414,7 +414,16 @@ func (p *parser) parseSheet(offset int) ([]Cell, int) {
 			}
 		case recLabel, recRString:
 			if len(d) >= 8 {
-				sheet.set(cellRef(d), cellCol(d), p.readString(d[6:]))
+				segments := [][]byte{d[6:]}
+				for {
+					cont, after, ok := nextRecord(p.stream, pos)
+					if !ok || cont.id != recContinue {
+						break
+					}
+					segments = append(segments, cont.data)
+					pos = after
+				}
+				sheet.set(cellRef(d), cellCol(d), p.readContinuedString(segments))
 			}
 		case recNumber:
 			if len(d) >= 14 {

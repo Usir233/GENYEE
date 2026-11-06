@@ -74,3 +74,5 @@ miniprogram/project.private.config.json
 # 本地测试与临时数据归档
 /local-test-data/
 *.local.xlsx
+# Generated binary-distribution notices for the Windows installer.
+/cmd/desktop/build/license-bundle/

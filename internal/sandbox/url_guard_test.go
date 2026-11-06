@@ -2,7 +2,6 @@ package sandbox
 
 import (
 	"errors"
-	"net"
 	"testing"
 )
 
@@ -114,9 +113,6 @@ func TestPolicyAllowsPublicLiteralAddresses(t *testing.T) {
 
 func TestPolicyAllowsPublicHostname(t *testing.T) {
 	const host = "api.e2b.dev"
-	if _, err := net.LookupIP(host); err != nil {
-		t.Skipf("no DNS available in this environment: %v", err)
-	}
 	if err := denyPrivate.Validate("https://" + host); err != nil {
 		t.Fatalf("denyPrivate.Validate(%q) = %v, want nil", host, err)
 	}

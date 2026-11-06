@@ -14,7 +14,7 @@ async function walk(dir) {
   }
   return result;
 }
-for (const retired of ['/demo/', '/demo/1/', '/redesign/', '/redesign/1/', '/demo6/preview.html', '/brand/weknora.svg', '/icon.svg', '/docs/favicon.svg', '/docs/README.html', '/docs/homepage/README.html', '/docs/homepage/BRAND-ASSETS.html', '/docs/static-site/', '/docs/releases/']) {
+for (const retired of ['/demo/', '/demo/1/', '/redesign/', '/redesign/1/', '/demo6/preview.html', '/brand/weknora.svg', '/icon.svg', '/docs/favicon.svg', '/docs/README.html', '/docs/THIRD_PARTY_NOTICES.html', '/docs/homepage/README.html', '/docs/homepage/BRAND-ASSETS.html', '/docs/static-site/', '/docs/releases/']) {
   assert.equal(await resolveSiteFile(root, retired), null, `Retired demo must not be published: ${retired}`);
 }
 const failures = [];
@@ -26,6 +26,9 @@ for (const entry of await readdir(root)) {
 const pendingShots = new Set();
 const checked = new Map();
 const targetIds = new Map();
+for (const name of ['npm-third-party-notices.txt', 'npm-dependencies.json']) {
+  assert.ok(await resolveSiteFile(root, `/docs/licenses/${name}`), `Missing distributed dependency notices: ${name}`);
+}
 const pages = await walk(root);
 for (const file of pages) {
   const html = await readFile(file, 'utf8');

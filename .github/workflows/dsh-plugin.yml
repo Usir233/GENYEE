@@ -31,7 +31,7 @@ env:
   # The contract's Go half lives in this repository's module. app.yml runs it
   # only for a Go diff, so a change to the fixture or to the plugin alone would
   # otherwise skip the side that checks WeKnora still serves those calls.
-  GO_VERSION: "1.26"
+  GO_VERSION: "1.27.3"
   # `dsh plugin add` shells out to pnpm to install into the profile, and the
   # runner image ships only npm and yarn. The profile it writes carries its
   # settings in pnpm-workspace.yaml, which pnpm 10 is the first to read.

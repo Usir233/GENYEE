@@ -7,6 +7,7 @@
  */
 
 import { getApiBaseUrl } from './api-base'
+import { notifyAuthTokensChanged, writeAuthTokens } from './authTokens'
 
 const AUTH_STORAGE_KEYS = [
   'weknora_token',
@@ -114,6 +115,7 @@ export function clearAuthStorage() {
       // allow callers to reject waiting requests and redirect to login.
     }
   }
+  notifyAuthTokensChanged({ token: '', refreshToken: '' })
 }
 
 export function forceReloginRedirect() {
@@ -169,8 +171,7 @@ export async function refreshAccessTokenShared(
 
       const { token, refreshToken: newRefreshToken } = response.data
       committing = true
-      localStorage.setItem('weknora_token', token)
-      if (newRefreshToken) localStorage.setItem('weknora_refresh_token', newRefreshToken)
+      writeAuthTokens({ token, ...(newRefreshToken ? { refreshToken: newRefreshToken } : {}) })
       return token
     } catch (error) {
       if (error instanceof AuthSessionChangedError) throw error

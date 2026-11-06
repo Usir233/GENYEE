@@ -90,11 +90,23 @@ Section
 
     !insertmacro wails.files
 
-    ; Paths are relative to cmd/desktop/build/windows/installer.
-    File "..\..\..\..\..\LICENSE"
-    File "..\..\..\..\..\THIRD_PARTY_NOTICES.md"
+    ; The desktop shell serves the SPA through the local backend. Wails does
+    ; not embed these files, so install them alongside its executable.
+    File /oname=.env.lite "..\..\..\..\..\.env.lite.example"
+    SetOutPath "$INSTDIR\config"
+    File /r "..\..\..\..\..\config\*"
+    SetOutPath "$INSTDIR\migrations\sqlite"
+    File /r "..\..\..\..\..\migrations\sqlite\*"
+    SetOutPath "$INSTDIR\web"
+    File /r "..\..\..\..\..\web\*"
+    SetOutPath $INSTDIR
+
+    ; Generated before the NSIS build by scripts/copy-licenses.sh. Include the
+    ; actual Windows dependency notices and verified corresponding sources.
+    File "..\..\license-bundle\LICENSE"
+    File "..\..\license-bundle\THIRD_PARTY_NOTICES.md"
     SetOutPath "$INSTDIR\licenses"
-    File /r "..\..\..\..\..\licenses\*"
+    File /r "..\..\license-bundle\licenses\*"
     SetOutPath $INSTDIR
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"

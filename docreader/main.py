@@ -17,6 +17,7 @@ from docreader import config
 from docreader.config import CONFIG
 from docreader.parser import Parser
 from docreader.parser.stream import ParsedDocumentStream
+from docreader.parser.concurrency import check_cancellation
 from docreader.preprocess import PreprocessLimits, PreprocessRunner
 from docreader.proto import docreader_pb2_grpc
 from docreader.parser.registry import registry
@@ -200,11 +201,12 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
             commit_id=os.getenv("DOCREADER_COMMIT_ID", "unknown"),
         )
 
-    def _parse_request(self, request: ReadRequest):
+    def _parse_request(self, request: ReadRequest, context=None):
         """Run the parser for a ReadRequest, returning (result, source_desc).
 
         Shared by the unary Read and streaming ReadStream RPCs.
         """
+        check_cancellation(context)
         cfg = request.config
         parser_engine = cfg.parser_engine if cfg else ""
         engine_overrides = dict(cfg.parser_engine_overrides) if cfg else {}
@@ -216,6 +218,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                 request.title,
                 parser_engine=parser_engine,
                 engine_overrides=engine_overrides,
+                context=context,
             )
             return result, request.url
 
@@ -235,6 +238,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
             file_content,
             parser_engine=parser_engine,
             engine_overrides=engine_overrides,
+            context=context,
         )
         return result, request.file_name
 
@@ -244,7 +248,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
 
         with request_id_context(request_id):
             try:
-                result, source_desc = self._parse_request(request)
+                result, source_desc = self._parse_request(request, context)
 
                 if not result or not result.content:
                     error_msg = f"Failed to parse: {source_desc}"
@@ -287,7 +291,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                 if request.url or not callable(
                     getattr(self.parser, "parse_file_stream", None)
                 ):
-                    result, source_desc = self._parse_request(request)
+                    result, source_desc = self._parse_request(request, context)
                     parsed_stream = ParsedDocumentStream(
                         document=result,
                         image_count=len(result.images or {}),
@@ -317,6 +321,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                             file_content,
                             parser_engine=parser_engine,
                             engine_overrides=engine_overrides,
+                            context=context,
                         )
                     finally:
                         del file_content
@@ -359,10 +364,12 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                 )
 
                 for ref in _iter_image_refs(images):
+                    check_cancellation(context)
                     yield ReadStreamResponse(image=ref)
                     sent += 1
 
                 for image in parsed_stream.images:
+                    check_cancellation(context)
                     yield ReadStreamResponse(
                         image=_image_ref_from_streamed_data(
                             image.ref_path, image.image_data

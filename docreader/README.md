@@ -2,6 +2,9 @@
 
 DocReader 是 GENYEE 项目中负责文档解析和处理的 gRPC 服务。它支持多种文档格式的读取、OCR 识别、多模态处理等功能。
 
+本地运行需要 Python 3.11 或更新版本。图片解析使用修复已知安全问题的 Pillow 13，
+不再支持 Python 3.10。使用 `uv sync --frozen` 安装已锁定依赖。
+
 ## Docker Compose 环境变量配置
 
 在 `docker-compose.yml` 文件中，docreader 服务配置了以下环境变量：

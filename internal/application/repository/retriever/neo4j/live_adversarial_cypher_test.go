@@ -3,6 +3,8 @@ package neo4j
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,10 +18,18 @@ import (
 // directly against the live Neo4j database engine to verify that Cypher parser
 // treats all escaped labels as literal identifiers without clause breakout.
 func TestLive_AdversarialCypherInjectionEngine(t *testing.T) {
+	uri := strings.TrimSpace(os.Getenv("GENYEE_TEST_NEO4J_URI"))
+	if uri == "" {
+		t.Skip("optional integration test: set GENYEE_TEST_NEO4J_URI, GENYEE_TEST_NEO4J_USER and GENYEE_TEST_NEO4J_PASSWORD for an isolated test database")
+	}
+	user := strings.TrimSpace(os.Getenv("GENYEE_TEST_NEO4J_USER"))
+	password := os.Getenv("GENYEE_TEST_NEO4J_PASSWORD")
+	require.NotEmpty(t, user, "GENYEE_TEST_NEO4J_USER is required for the integration test")
+	require.NotEmpty(t, password, "GENYEE_TEST_NEO4J_PASSWORD is required for the integration test")
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	driver, err := neo4j.NewDriver("bolt://127.0.0.1:7687", neo4j.BasicAuth("neo4j", "1b6973e40151b8ce9c89f7f66a5e938cf0e845b9b6030010", ""))
+	driver, err := neo4j.NewDriver(uri, neo4j.BasicAuth(user, password, ""))
 	require.NoError(t, err)
 	defer driver.Close(ctx)
 

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
+import { ref, computed, onScopeDispose } from 'vue'
 import type { UserInfo, TenantInfo, KnowledgeBaseInfo } from '@/api/auth'
 import { userInfoFromApi } from '@/api/auth'
 import type { TenantInfo as TenantInfoFromAPI } from '@/api/tenant'
@@ -13,6 +13,7 @@ import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useOrganizationStore } from '@/stores/organization'
 import { createSequencedRefresh } from '@/stores/sequencedRefresh'
 import { invalidateAuthRefresh } from '@/utils/authRefresh'
+import { notifyAuthTokensChanged, readAuthTokens, subscribeAuthTokens, writeAuthTokens } from '@/utils/authTokens'
 
 /** 登出时丢弃 Pinia 内的空间级资源缓存，避免 SPA 重登复用上一账号数据。 */
 function clearSessionResourceCaches() {
@@ -28,34 +29,6 @@ function reloadUserPreferences() {
   resetMigrationLatch()
   reloadFontFromStorage()
   reloadThemeFromStorage()
-}
-
-const tokenListeners = new Set<(newToken: string) => void>()
-const refreshTokenListeners = new Set<(newRefreshToken: string) => void>()
-
-if (typeof globalThis !== 'undefined' && globalThis.localStorage) {
-  const storage = globalThis.localStorage
-  if (!(storage as any).__weknora_token_sync_installed) {
-    ;(storage as any).__weknora_token_sync_installed = true
-    const origSetItem = storage.setItem.bind(storage)
-    storage.setItem = function (key: string, value: string) {
-      origSetItem(key, value)
-      if (key === 'weknora_token') {
-        tokenListeners.forEach((fn) => fn(value))
-      } else if (key === 'weknora_refresh_token') {
-        refreshTokenListeners.forEach((fn) => fn(value))
-      }
-    }
-    const origRemoveItem = storage.removeItem.bind(storage)
-    storage.removeItem = function (key: string) {
-      origRemoveItem(key)
-      if (key === 'weknora_token') {
-        tokenListeners.forEach((fn) => fn(''))
-      } else if (key === 'weknora_refresh_token') {
-        refreshTokenListeners.forEach((fn) => fn(''))
-      }
-    }
-  }
 }
 
 export const useAuthStore = defineStore('auth', () => {
@@ -238,12 +211,12 @@ export const useAuthStore = defineStore('auth', () => {
 
   const setToken = (tokenValue: string) => {
     token.value = tokenValue
-    localStorage.setItem('weknora_token', tokenValue)
+    writeAuthTokens({ token: tokenValue })
   }
 
   const setRefreshToken = (refreshTokenValue: string) => {
     refreshToken.value = refreshTokenValue
-    localStorage.setItem('weknora_refresh_token', refreshTokenValue)
+    writeAuthTokens({ refreshToken: refreshTokenValue })
   }
 
   const setKnowledgeBases = (kbList: KnowledgeBaseInfo[]) => {
@@ -498,6 +471,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('weknora_tenant')
     localStorage.removeItem('weknora_token')
     localStorage.removeItem('weknora_refresh_token')
+    notifyAuthTokensChanged({ token: '', refreshToken: '' })
     localStorage.removeItem('weknora_knowledge_bases')
     localStorage.removeItem('weknora_current_kb')
     localStorage.removeItem('weknora_selected_tenant_id')
@@ -600,27 +574,26 @@ export const useAuthStore = defineStore('auth', () => {
   // 初始化时从localStorage恢复状态
   initFromStorage()
 
-  // Synchronize Pinia token ref whenever background token rotation writes to localStorage
-  tokenListeners.add((val) => {
-    token.value = val
+  const syncTokenFromStorage = () => {
+    const tokens = readAuthTokens()
+    token.value = tokens.token
+    refreshToken.value = tokens.refreshToken
+  }
+  const unsubscribeTokens = subscribeAuthTokens((tokens) => {
+    token.value = tokens.token
+    refreshToken.value = tokens.refreshToken
   })
-  refreshTokenListeners.add((val) => {
-    refreshToken.value = val
-  })
+  onScopeDispose(unsubscribeTokens)
 
   if (typeof window !== 'undefined') {
-    window.addEventListener('storage', (e: StorageEvent) => {
-      if (e.key === 'weknora_token') {
-        token.value = e.newValue || ''
-      } else if (e.key === 'weknora_refresh_token') {
-        refreshToken.value = e.newValue || ''
+    const onStorage = (e: StorageEvent) => {
+      if (e.storageArea && e.storageArea !== localStorage) return
+      if (e.key === null || e.key === 'weknora_token' || e.key === 'weknora_refresh_token') {
+        syncTokenFromStorage()
       }
-    })
-  }
-
-  const syncTokenFromStorage = () => {
-    token.value = localStorage.getItem('weknora_token') || ''
-    refreshToken.value = localStorage.getItem('weknora_refresh_token') || ''
+    }
+    window.addEventListener('storage', onStorage)
+    onScopeDispose(() => window.removeEventListener('storage', onStorage))
   }
 
   return {

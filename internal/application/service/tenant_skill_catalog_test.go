@@ -360,14 +360,17 @@ func TestRegisterCatalogDoesNotMoveTheDefinitionWhenPinFails(t *testing.T) {
 	})
 	skillID, err := fx.svc.InstallSkill(ctx, 7, "cfg-1", first)
 	require.NoError(t, err)
+	fx.awaitSkillSettled(t, skillID)
 	installed, err := fx.skillRepo.GetSkill(ctx, 7, "cfg-1", skillID)
 	require.NoError(t, err)
 	catalogID := installed.CatalogID
 	firstRef := fx.catalogRefFor(t, catalogID)
 
+	fx.skillRepo.mu.Lock()
 	fx.skillRepo.updateFailsWhen = func(e *types.TenantSkillEntity) bool {
 		return strings.TrimSpace(e.BundleRef) == firstRef
 	}
+	fx.skillRepo.mu.Unlock()
 
 	second := zipBundle(t, map[string]string{
 		"SKILL.md":           validSkillMD,
@@ -620,7 +623,11 @@ func (f *installFixture) awaitSkillSettled(t *testing.T, skillID string) {
 	t.Helper()
 	require.Eventually(t, func() bool {
 		row, err := f.skillRepo.GetSkill(context.Background(), 7, "cfg-1", skillID)
-		return err == nil && row != nil && row.Status != types.SkillStatusInstalling
+		// Ready is written before retired archives and sandbox bindings are
+		// cleaned up. Unbinding the run happens after all that work; its mutex
+		// also synchronizes subsequent assertions on the fixture's state.
+		return err == nil && row != nil && row.Status != types.SkillStatusInstalling &&
+			f.svc.lookupSkillRun(7, "cfg-1", skillID) == nil
 	}, 5*time.Second, 10*time.Millisecond)
 }
 

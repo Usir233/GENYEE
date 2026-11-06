@@ -5,7 +5,7 @@
 # No host Node.js installation or prebuilt static-site/ is required.
 # WEBSITE_NGINX_PORT is written into default.conf at build time. The intranet
 # platform starts `nginx; sleep infinity` and does not run docker-entrypoint.sh.
-FROM node:24-bookworm-slim AS builder
+FROM node:24-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS builder
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
@@ -50,6 +50,8 @@ RUN mkdir -p /etc/nginx/templates \
     && grep -q "listen ${WEBSITE_NGINX_PORT};" /etc/nginx/conf.d/default.conf \
     && rm -rf /usr/share/nginx/html/*
 COPY --from=builder /build/static-site/ /usr/share/nginx/html/
+COPY --from=builder /build/static-site/docs/licenses/ /licenses/npm/
+COPY --from=builder /build/static-site/docs/licenses/ /usr/share/licenses/genyee/npm/
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 EXPOSE ${WEBSITE_NGINX_PORT}

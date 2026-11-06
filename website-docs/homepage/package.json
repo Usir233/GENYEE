@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "node ../scripts/generate-npm-notices.mjs --root . --output out/docs/_home/licenses --distribution out",
     "lint": "eslint",
     "audit:content": "node scripts/audit-content.mjs",
     "prebuild": "node scripts/sync-product-screenshots.mjs",
@@ -12,9 +13,14 @@
     "test:assets": "node --test scripts/sync-product-screenshots.test.mjs"
   },
   "dependencies": {
-    "next": "16.2.9",
+    "next": "16.4.5",
     "react": "19.2.4",
     "react-dom": "19.2.4"
+  },
+  "overrides": {
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "^11.0.1"
+    }
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -22,7 +28,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.2.9",
+    "eslint-config-next": "16.4.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import test from 'node:test'
+import { subscribeAuthTokens } from './authTokens.ts'
 
 import {
   StreamAuthError,
@@ -75,6 +76,25 @@ test('concurrent 401s share a single refresh call', async () => {
   assert.equal(store.weknora_token, 'access-2')
   assert.equal(store.weknora_refresh_token, 'rt-2')
   assert.equal(calls, 1)
+})
+
+test('refresh publishes the rotated pair and a failed session publishes cleared tokens', async () => {
+  const { store } = installBrowser()
+  store.weknora_token = 'expired'
+  store.weknora_refresh_token = 'refresh-1'
+  store.__weknora_token_sync_installed = 'true'
+  const received: Array<{ token: string; refreshToken: string }> = []
+  const unsubscribe = subscribeAuthTokens(tokens => received.push(tokens))
+  try {
+    await refreshAccessTokenShared({
+      refresh: async () => ({ success: true, data: { token: 'access-2', refreshToken: 'refresh-2' } }),
+    })
+    assert.deepEqual(received, [{ token: 'access-2', refreshToken: 'refresh-2' }])
+    await assert.rejects(refreshAccessTokenShared({ refresh: async () => ({ success: false }) }))
+    assert.deepEqual(received.at(-1), { token: '', refreshToken: '' })
+  } finally {
+    unsubscribe()
+  }
 })
 
 test('missing refresh token clears credentials, redirects, and throws an Error', async () => {

@@ -27,6 +27,12 @@ for (const entry of readdirSync(output)) {
   if (!['index.html', '404.html', 'docs'].includes(entry)) rmSync(resolve(output, entry), { recursive: true, force: true });
 }
 cpSync(resolve(root, '.vitepress/dist'), resolve(output, 'docs'), { recursive: true });
+// Publish one combined dependency inventory with complete original license text.
+const notices = spawnSync(process.execPath, ['scripts/generate-npm-notices.mjs',
+  '--root', '.', '--root', 'homepage', '--output', resolve(output, 'docs/licenses'),
+  '--distribution', output], { cwd: root, stdio: 'inherit' });
+if (notices.error) throw notices.error;
+if (notices.status !== 0) process.exit(notices.status || 1);
 // The leaderboard is a homepage JSX page exported to /docs/models/. Keep a
 // sibling .html file so /docs/models resolves without a trailing slash.
 const modelsIndex = resolve(output, 'docs/models/index.html');

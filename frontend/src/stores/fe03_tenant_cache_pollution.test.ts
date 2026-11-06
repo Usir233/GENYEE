@@ -8,8 +8,9 @@ import * as pinia from 'pinia'
 
 const BUILTIN_QUICK_ANSWER_ID = 'builtin-quick-answer'
 
-function setupTest() {
+function setupTest(legacyTokenMarker = false) {
   const memoryStorage = new Map<string, string>()
+  if (legacyTokenMarker) memoryStorage.set('__weknora_token_sync_installed', 'true')
   const mockLocalStorage = {
     getItem: (key: string) => memoryStorage.get(key) ?? null,
     setItem: (key: string, value: string) => {
@@ -43,6 +44,12 @@ function setupTest() {
 
   const authSource = readFileSync(new URL('./auth.ts', import.meta.url), 'utf8')
   const compiled = compile(authSource)
+  const tokenExports: any = {}
+  runInNewContext(compile(readFileSync(new URL('../utils/authTokens.ts', import.meta.url), 'utf8')), {
+    exports: tokenExports,
+    localStorage: mockLocalStorage,
+  })
+  const storageListeners = new Set<(event: { key: string | null }) => void>()
 
   const exports: any = {}
   runInNewContext(compiled, {
@@ -51,8 +58,12 @@ function setupTest() {
     globalThis: { localStorage: mockLocalStorage },
     localStorage: mockLocalStorage,
     window: {
-      addEventListener() {},
-      removeEventListener() {},
+      addEventListener(type: string, fn: (event: { key: string | null }) => void) {
+        if (type === 'storage') storageListeners.add(fn)
+      },
+      removeEventListener(type: string, fn: (event: { key: string | null }) => void) {
+        if (type === 'storage') storageListeners.delete(fn)
+      },
     },
     require(name: string) {
       if (name === 'vue') return vue
@@ -60,6 +71,8 @@ function setupTest() {
       if (name === '@/i18n') return { default: { global: { t: (k: string) => k } } }
       if (name === '@/api/auth') return { userInfoFromApi: (u: any) => u }
       if (name === '@/api/agent') return { BUILTIN_QUICK_ANSWER_ID }
+      if (name === '@/utils/authRefresh') return { invalidateAuthRefresh() {} }
+      if (name === '@/utils/authTokens') return tokenExports
       if (name === '@/composables/useFont') return { reloadFontFromStorage() {} }
       if (name === '@/composables/useTheme') return { reloadThemeFromStorage() {} }
       if (name === '@/composables/preferenceStorage') return { resetMigrationLatch() {} }
@@ -87,6 +100,9 @@ function setupTest() {
   return {
     authStore,
     mockLocalStorage,
+    writeAuthTokens: tokenExports.writeAuthTokens as (tokens: { token: string; refreshToken: string }) => void,
+    dispatchStorage: (key: string | null) => storageListeners.forEach(fn => fn({ key })),
+    storageListeners,
     getInvalidations: () => ({
       chatInvalidated,
       editorInvalidated,
@@ -200,4 +216,27 @@ test('FE-03: Resilient error handling when WeKnora_settings contains malformed J
   assert.doesNotThrow(() => {
     authStore.setSelectedTenant(60002, 'Tenant 60002')
   })
+})
+
+test('background token rotation synchronizes the store after reload and unsubscribes on disposal', () => {
+  const f = setupTest(true)
+  // A legacy persistent marker must never suppress a fresh store's subscription.
+  f.writeAuthTokens({ token: 'access-2', refreshToken: 'refresh-2' })
+  assert.equal(f.authStore.token, 'access-2')
+  assert.equal(f.authStore.refreshToken, 'refresh-2')
+
+  f.mockLocalStorage.setItem('weknora_token', 'other-tab-access')
+  f.mockLocalStorage.setItem('weknora_refresh_token', 'other-tab-refresh')
+  f.dispatchStorage('weknora_token')
+  assert.equal(f.authStore.token, 'other-tab-access')
+  assert.equal(f.authStore.refreshToken, 'other-tab-refresh')
+  f.mockLocalStorage.clear()
+  f.dispatchStorage(null)
+  assert.equal(f.authStore.token, '')
+  assert.equal(f.authStore.refreshToken, '')
+
+  f.authStore.$dispose()
+  f.writeAuthTokens({ token: 'later', refreshToken: 'later-refresh' })
+  assert.equal(f.authStore.token, '')
+  assert.equal(f.storageListeners.size, 0)
 })

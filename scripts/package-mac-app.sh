@@ -13,6 +13,16 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
 
+if [ "$(uname)" != Darwin ]; then
+    echo "This packager requires macOS." >&2
+    exit 1
+fi
+TARGET_ARCH="$(go env GOARCH)"
+case "$TARGET_ARCH" in
+    amd64|arm64) ;;
+    *) echo "Unsupported macOS architecture: $TARGET_ARCH" >&2; exit 1 ;;
+esac
+
 APP_NAME="GENYEE Lite"
 APP_BUNDLE="${APP_NAME}.app"
 DIST_DIR="dist/${APP_BUNDLE}"
@@ -45,13 +55,14 @@ echo ">> Building Wails Desktop App..."
 # 如果没有 wails 命令行工具，提醒安装
 if ! command -v wails >/dev/null 2>&1; then
     echo "Wails CLI not found. Please install it first:"
-    echo "go install github.com/wailsapp/wails/v2/cmd/wails@latest"
+    echo "go install github.com/wailsapp/wails/v2/cmd/wails@v2.13.0"
     exit 1
 fi
 
 # 使用 Wails 打包 (需要先处理依赖代理问题)
-export GONOSUMDB="git.sr.ht/*"
-export GOPROXY="https://goproxy.cn,direct"
+export GOPROXY="${GOPROXY:-https://proxy.golang.org,direct}"
+export GOSUMDB="${GOSUMDB:-sum.golang.org}"
+export CGO_ENABLED=1
 export CGO_CFLAGS="-Wno-deprecated-declarations"
 export CGO_LDFLAGS="-Wl,-no_warn_duplicate_libraries"
 export EDITION=lite
@@ -66,7 +77,7 @@ eval "$(./scripts/get_version.sh env)"
 LDFLAGS="$(./scripts/get_version.sh ldflags) -X 'google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn'"
 
 # 默认生成 Wails 绑定（供 window.go.main.App.* 等）；若加 -skipbindings 则需在 OnDomReady 注入 __WEKNORA_API_BASE__
-(cd cmd/desktop && wails build -clean -tags "sqlite_fts5" -ldflags="$LDFLAGS" -o "${APP_NAME}")
+(cd cmd/desktop && wails build -clean -tags "sqlite_fts5" -platform "darwin/${TARGET_ARCH}" -ldflags="$LDFLAGS" -o "${APP_NAME}")
 
 # ── Step 3: Copy generated .app to dist ──
 echo ">> Assembling package..."
@@ -78,7 +89,7 @@ cp -R "cmd/desktop/build/bin/${APP_BUNDLE}" "dist/"
 RESOURCES_DIR="${DIST_DIR}/Contents/Resources"
 mkdir -p "${RESOURCES_DIR}/config"
 mkdir -p "${RESOURCES_DIR}/migrations/sqlite"
-bash ./scripts/copy-licenses.sh "${RESOURCES_DIR}"
+bash ./scripts/copy-licenses.sh "${RESOURCES_DIR}" --goos darwin --goarch "$TARGET_ARCH" --cgo 1 --target './cmd/desktop=desktop,production,sqlite_fts5'
 
 if [ -f .env.lite.example ]; then
     cp .env.lite.example "${RESOURCES_DIR}/.env"

@@ -32,8 +32,7 @@ import (
 )
 
 var (
-	jwtSecretOnce sync.Once
-	jwtSecret     string
+	jwtSecretValue = sync.OnceValues(loadJWTSecret)
 
 	// ErrUserEmailExists is returned by Register when the target entity's
 	// email already exists.
@@ -89,27 +88,36 @@ func isProductionEnv() bool {
 	return false
 }
 
-// getJwtSecret retrieves the JWT secret from the environment, falling back to a securely generated random secret in development.
+// loadJWTSecret resolves the process-wide signing key once. Initialization
+// errors are cached too, so recovering an HTTP panic cannot leave an empty key.
+func loadJWTSecret() (string, error) {
+	envSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
+	isPlaceholder := envSecret == "" || envSecret == "weknora-jwt-secret" || envSecret == "CHANGE-ME-jwt-secret"
+	if isProductionEnv() && isPlaceholder {
+		return "", errors.New("JWT_SECRET must be explicitly configured in production environment and cannot be empty or default placeholder")
+	}
+	if !isPlaceholder {
+		return envSecret, nil
+	}
+
+	randomBytes := make([]byte, 32)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", fmt.Errorf("failed to generate JWT secret: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(randomBytes), nil
+}
+
+// getJwtSecret always fails closed when initialization failed. The loaded key
+// is immutable for the process lifetime, including in development.
 func getJwtSecret() string {
-	jwtSecretOnce.Do(func() {
-		envSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
-		isPlaceholder := envSecret == "" || envSecret == "weknora-jwt-secret" || envSecret == "CHANGE-ME-jwt-secret"
-		if isProductionEnv() && isPlaceholder {
-			panic("JWT_SECRET must be explicitly configured in production environment and cannot be empty or default placeholder")
-		}
-		if !isPlaceholder {
-			jwtSecret = envSecret
-			return
-		}
-
-		randomBytes := make([]byte, 32)
-		if _, err := rand.Read(randomBytes); err != nil {
-			panic(fmt.Sprintf("failed to generate JWT secret: %v", err))
-		}
-		jwtSecret = base64.StdEncoding.EncodeToString(randomBytes)
-	})
-
-	return jwtSecret
+	secret, err := jwtSecretValue()
+	if err != nil {
+		panic(err)
+	}
+	if secret == "" {
+		panic("JWT signing key is unavailable")
+	}
+	return secret
 }
 
 // userService implements the UserService interface
@@ -132,6 +140,8 @@ func NewUserService(
 	memberService interfaces.TenantMemberService,
 	systemSettingSvc interfaces.SystemSettingService,
 ) interfaces.UserService {
+	// Validate before serving requests, rather than on the first login.
+	_ = getJwtSecret()
 	return &userService{
 		userRepo:         userRepo,
 		tokenRepo:        tokenRepo,
@@ -1174,8 +1184,13 @@ func (s *userService) generateTokensForTenant(
 	user *types.User,
 	activeTenantID uint64,
 ) (accessToken, refreshToken string, err error) {
+	// JWT timestamps have second precision. Unique IDs keep rapid logins and
+	// refresh rotations distinct, even when every other claim is identical.
+	accessTokenID := uuid.New().String()
+	refreshTokenID := uuid.New().String()
 	// Generate access token (expires in 24 hours)
 	accessClaims := jwt.MapClaims{
+		"jti":       accessTokenID,
 		"user_id":   user.ID,
 		"email":     user.Email,
 		"tenant_id": activeTenantID,
@@ -1192,6 +1207,7 @@ func (s *userService) generateTokensForTenant(
 
 	// Generate refresh token (expires in 7 days)
 	refreshClaims := jwt.MapClaims{
+		"jti":     refreshTokenID,
 		"user_id": user.ID,
 		"exp":     time.Now().Add(7 * 24 * time.Hour).Unix(),
 		"iat":     time.Now().Unix(),
@@ -1206,7 +1222,7 @@ func (s *userService) generateTokensForTenant(
 
 	// Store tokens in database
 	accessTokenRecord := &types.AuthToken{
-		ID:        uuid.New().String(),
+		ID:        accessTokenID,
 		UserID:    user.ID,
 		Token:     accessToken,
 		TokenType: "access_token",
@@ -1216,7 +1232,7 @@ func (s *userService) generateTokensForTenant(
 	}
 
 	refreshTokenRecord := &types.AuthToken{
-		ID:        uuid.New().String(),
+		ID:        refreshTokenID,
 		UserID:    user.ID,
 		Token:     refreshToken,
 		TokenType: "refresh_token",

@@ -22,6 +22,7 @@ elif command -v git >/dev/null 2>&1; then
 else
     VERSION="dev"
 fi
+[[ "$VERSION" =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*$ ]] || { echo "Invalid package version" >&2; exit 1; }
 
 GOOS=$(go env GOOS)
 GOARCH=$(go env GOARCH)
@@ -53,8 +54,7 @@ fi
 # ── Step 2: Build Go binary ──
 echo ">> Building GENYEE-lite binary..."
 export EDITION=lite
-eval "$(./scripts/get_version.sh env)"
-LDFLAGS="-w -s $(./scripts/get_version.sh ldflags)"
+LDFLAGS="-w -s $(./scripts/get_version.sh ldflags) -X 'github.com/Usir233/GENYEE/internal/handler.Version=${VERSION#v}'"
 export CGO_CFLAGS="-Wno-deprecated-declarations"
 if [ "$(uname)" = "Darwin" ]; then
     export CGO_LDFLAGS="-Wl,-no_warn_duplicate_libraries"
@@ -68,7 +68,7 @@ rm -rf "${DIST_DIR}"
 mkdir -p "${DIST_DIR}/web"
 
 cp GENYEE-lite "${DIST_DIR}/"
-bash ./scripts/copy-licenses.sh "${DIST_DIR}"
+bash ./scripts/copy-licenses.sh "${DIST_DIR}" --goos "$GOOS" --goarch "$GOARCH" --cgo 1 --target './cmd/server=sqlite_fts5'
 if [ -d web ] && [ -f web/index.html ]; then
     cp -r web/* "${DIST_DIR}/web/"
 fi

@@ -93,7 +93,7 @@ export default withMermaid(
     cleanUrls: true,
     appearance: { storageKey: 'vitepress-theme-appearance' },
     lastUpdated: true,
-    srcExclude: ['README.md', 'MIGRATION.md', 'homepage/**', 'shared/**', 'scripts/**', 'deploy/**', 'static-site/**', 'releases/**'],
+    srcExclude: ['README.md', 'MIGRATION.md', 'THIRD_PARTY_NOTICES.md', 'homepage/**', 'shared/**', 'scripts/**', 'deploy/**', 'static-site/**', 'releases/**'],
     metaChunk: true,
     transformPageData(pageData) {
       // The shared masthead replaces the default documentation navbar.

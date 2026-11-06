@@ -1,0 +1,59 @@
+GENYEE Commercial License
+
+Copyright (c) 2026 GENYEE. All rights reserved.
+
+1. Proprietary Rights and Grant of License
+--------------------------------------------------------------------
+This license governs GENYEE's original software code, proprietary
+modifications, branding, documentation, synthetic evaluation datasets,
+and the GENYEE product compilation as a whole ("GENYEE Proprietary
+Material").
+
+Subject to the terms of a separate, valid written commercial license or
+subscription agreement executed between you (or your organization) and
+GENYEE ("Commercial Agreement"), GENYEE grants you a limited,
+non-exclusive, non-transferable, non-sublicensable license to install
+and use the GENYEE software solely within the scope, deployment tier,
+and duration authorized under that Commercial Agreement.
+
+Absent a valid Commercial Agreement with GENYEE, no right or license
+(express or implied) is granted to copy, modify, host, distribute,
+redistribute, sublicense, or commercially exploit any GENYEE Proprietary
+Material.
+
+2. Preservation of Upstream & Third-Party Open-Source Rights
+--------------------------------------------------------------------
+GENYEE is built upon the open-source Tencent WeKnora project
+(Copyright (C) 2026 Tencent, licensed under the MIT License) and
+incorporates other third-party open-source software components.
+
+All upstream Tencent WeKnora code and third-party open-source software
+components included in or distributed alongside GENYEE remain licensed
+under their respective original open-source licenses. The complete
+upstream Tencent WeKnora MIT license notice, third-party attributions,
+license texts, and Written Offer for Corresponding Source are set forth
+in:
+  - THIRD_PARTY_NOTICES.md
+  - licenses/
+  - Per-file and per-directory license headers and LICENSE files
+    (including mcp-server/LICENSE and
+    frontend/src/assets/browserskill/LICENSE)
+
+3. No Restriction of Open-Source Grants
+--------------------------------------------------------------------
+Nothing in this GENYEE Commercial License, any Commercial Agreement, or
+any external authorization or licensing platform restricts, limits,
+conditions, or alters any rights granted to you by the copyright holders
+of Tencent WeKnora under the MIT License or by the respective copyright
+holders of any third-party open-source software component under its
+applicable open-source license (including, without limitation, any
+unmodified AGPL/GPL service containers and GPL/LGPL/MPL system packages
+or libraries).
+
+4. Disclaimer of Warranty
+--------------------------------------------------------------------
+EXCEPT AS EXPRESSLY WARRANTED IN A SEPARATE COMMERCIAL AGREEMENT
+EXECUTED BY GENYEE, THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY
+OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND
+NONINFRINGEMENT.

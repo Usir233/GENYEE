@@ -318,9 +318,8 @@ class AdversarialZipAndXmlBombsTest(unittest.TestCase):
         with zipfile.ZipFile(bio, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr("xl/media/huge.png", b"\x00" * (105 * 1024 * 1024))
         extractor = XLSXImageExtractor(bio.getvalue())
-        cell_images, doc_images = extractor.extract_cell_images()
-        self.assertEqual(cell_images, {})
-        self.assertEqual(doc_images, {})
+        with self.assertRaisesRegex(ValueError, "exceeds limit"):
+            extractor.extract_cell_images()
 
     def test_zip_bomb_high_compression_ratio_rejected(self):
         """A zip archive with > 100:1 compression ratio on > 1MB entry is rejected."""
@@ -328,9 +327,8 @@ class AdversarialZipAndXmlBombsTest(unittest.TestCase):
         with zipfile.ZipFile(bio, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr("xl/media/ratio_bomb.png", b"\x00" * (5 * 1024 * 1024))
         extractor = XLSXImageExtractor(bio.getvalue())
-        cell_images, doc_images = extractor.extract_cell_images()
-        self.assertEqual(cell_images, {})
-        self.assertEqual(doc_images, {})
+        with self.assertRaisesRegex(ValueError, "compression ratio"):
+            extractor.extract_cell_images()
 
     def test_xml_bomb_billion_laughs_in_cellimages(self):
         """Billion Laughs entity expansion attack in xl/cellimages.xml is safely stopped."""

@@ -48,10 +48,25 @@ func newOSSClient(endpoint, region, accessKey, secretKey string) (*oss.Client, e
 	return oss.NewClient(cfg), nil
 }
 
+// ossBucketExists checks both existence and access. The SDK's IsBucketExist
+// treats every service error except NoSuchBucket (including invalid credentials)
+// as success, so it must not be used for connectivity or configuration checks.
+func ossBucketExists(ctx context.Context, client *oss.Client, bucketName string) (bool, error) {
+	_, err := client.GetBucketAcl(ctx, &oss.GetBucketAclRequest{Bucket: oss.Ptr(bucketName)})
+	if err == nil {
+		return true, nil
+	}
+	var serviceErr *oss.ServiceError
+	if errors.As(err, &serviceErr) && serviceErr.Code == "NoSuchBucket" {
+		return false, nil
+	}
+	return false, err
+}
+
 // ossEnsureBucket checks if the bucket exists and creates it if missing.
 func ossEnsureBucket(client *oss.Client, bucketName string) error {
 	headCtx, cancel := objectStorageSetupContext()
-	exists, err := client.IsBucketExist(headCtx, bucketName)
+	exists, err := ossBucketExists(headCtx, client, bucketName)
 	cancel()
 	if err != nil {
 		return fmt.Errorf("failed to check OSS bucket: %w", err)
@@ -68,7 +83,11 @@ func ossEnsureBucket(client *oss.Client, bucketName string) error {
 	if err != nil {
 		var svcErr *oss.ServiceError
 		if errors.As(err, &svcErr) && svcErr.StatusCode == http.StatusConflict {
-			return nil
+			// A concurrent initializer may have created our bucket, but 409
+			// also covers names owned by somebody else. Verify access again.
+			if exists, checkErr := ossBucketExists(createCtx, client, bucketName); checkErr == nil && exists {
+				return nil
+			}
 		}
 		return fmt.Errorf("failed to create OSS bucket: %w", err)
 	}
@@ -129,7 +148,7 @@ func CheckOssConnectivity(ctx context.Context, endpoint, region, accessKey, secr
 
 	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	exists, err := client.IsBucketExist(checkCtx, bucketName)
+	exists, err := ossBucketExists(checkCtx, client, bucketName)
 	if err != nil {
 		return fmt.Errorf("failed to check OSS bucket: %w", err)
 	}
@@ -161,7 +180,7 @@ func (s *ossFileService) CheckConnectivity(ctx context.Context) error {
 	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	exists, err := s.client.IsBucketExist(checkCtx, s.bucketName)
+	exists, err := ossBucketExists(checkCtx, s.client, s.bucketName)
 	if err != nil {
 		return fmt.Errorf("failed to check OSS bucket: %w", err)
 	}

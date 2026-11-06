@@ -9,6 +9,11 @@ import xml.etree.ElementTree as ET
 import zipfile
 from typing import Callable, Dict, Iterable, Set
 
+from docreader.parser.archive import (
+    ArchiveLimitError, MAX_COMPRESSION_RATIO, MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    validate_zip_archive as _validate_zip_archive,
+)
+
 logger = logging.getLogger(__name__)
 
 SST_PART = "xl/sharedStrings.xml"
@@ -215,36 +220,6 @@ def _strip_shared_strings_manifest(files: Dict[str, bytes]) -> Dict[str, bytes]:
     return updated
 
 
-MAX_UNCOMPRESSED_ARCHIVE_BYTES = 100 * 1024 * 1024  # 100 MB
-MAX_COMPRESSION_RATIO = 100.0
-
-
-def _validate_zip_archive(
-    archive: zipfile.ZipFile,
-    max_bytes: int = MAX_UNCOMPRESSED_ARCHIVE_BYTES,
-    max_ratio: float = MAX_COMPRESSION_RATIO,
-) -> None:
-    total_uncompressed = 0
-    for info in archive.infolist():
-        if info.file_size > max_bytes:
-            raise ValueError(
-                f"Archive entry {info.filename} uncompressed size ({info.file_size}) exceeds limit ({max_bytes})"
-            )
-        if (
-            info.compress_size > 0
-            and info.file_size > 1024 * 1024
-            and (info.file_size / info.compress_size) > max_ratio
-        ):
-            raise ValueError(
-                f"Suspicious compression ratio for entry {info.filename}: {info.file_size / info.compress_size:.1f} > {max_ratio}"
-            )
-        total_uncompressed += info.file_size
-        if total_uncompressed > max_bytes:
-            raise ValueError(
-                f"Archive cumulative uncompressed size ({total_uncompressed}) exceeds limit ({max_bytes})"
-            )
-
-
 def _rewrite_zip(
     zin: zipfile.ZipFile,
     transform: Callable[[Dict[str, bytes]], Dict[str, bytes]],
@@ -257,7 +232,7 @@ def _rewrite_zip(
         data = zin.read(info.filename)
         total_read += len(data)
         if total_read > MAX_UNCOMPRESSED_ARCHIVE_BYTES:
-            raise ValueError(
+            raise ArchiveLimitError(
                 f"Archive cumulative uncompressed size ({total_read}) exceeds limit ({MAX_UNCOMPRESSED_ARCHIVE_BYTES})"
             )
         files[name] = data
@@ -303,6 +278,8 @@ def sanitize_xlsx_styles(content: bytes) -> bytes | None:
     """
     try:
         return _sanitize_xlsx_styles(content)
+    except ArchiveLimitError:
+        raise
     except ValueError as exc:
         msg = str(exc).lower()
         if any(

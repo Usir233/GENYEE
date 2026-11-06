@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -291,6 +292,16 @@ func (e *EvaluationService) Evaluation(ctx context.Context,
 		knowledgeBaseID = kb.ID
 		logger.Infof(ctx, "Created new knowledge base with ID: %s based on existing one", knowledgeBaseID)
 	}
+	// Until the background task takes ownership, failures in model resolution
+	// or task registration must still remove the temporary knowledge base.
+	backgroundStarted := false
+	defer func() {
+		if !backgroundStarted {
+			if err := e.cleanupEvaluation(ctx, knowledgeBaseID, ""); err != nil {
+				logger.Errorf(ctx, "Failed to clean up unstarted evaluation: %v", err)
+			}
+		}
+	}()
 
 	// Set default values for optional parameters
 	if datasetID == "" {
@@ -378,75 +389,70 @@ func (e *EvaluationService) Evaluation(ctx context.Context,
 
 	// Start evaluation in background goroutine
 	logger.Info(ctx, "Starting evaluation in background")
-	go func() {
-		// Create new context with logger for background task
-		newCtx := logger.CloneContext(ctx)
-		defer func() {
-			if r := recover(); r != nil {
-				_ = e.evaluationMemoryStorage.update(taskID, func(params *types.EvaluationDetail) {
-					params.Task.Status = types.EvaluationStatueFailed
-					params.Task.ErrMsg = fmt.Sprintf("panic in background evaluation: %v", r)
-				})
-				logger.Errorf(newCtx, "Evaluation task panicked: %v, task ID: %s", r, taskID)
-			}
-		}()
-		logger.Infof(newCtx, "Background evaluation started for task ID: %s", taskID)
-
-		// Update task status to running
-		_ = e.evaluationMemoryStorage.update(taskID, func(params *types.EvaluationDetail) {
-			params.Task.Status = types.EvaluationStatueRunning
-		})
-		logger.Info(newCtx, "Evaluation task status set to running")
-
-		// Execute actual evaluation
-		if err := e.EvalDataset(newCtx, detail, knowledgeBaseID); err != nil {
-			_ = e.evaluationMemoryStorage.update(taskID, func(params *types.EvaluationDetail) {
-				params.Task.Status = types.EvaluationStatueFailed
-				params.Task.ErrMsg = err.Error()
-			})
-			logger.Errorf(newCtx, "Evaluation task failed: %v, task ID: %s", err, taskID)
-			return
-		}
-
-		// Mark task as completed successfully
-		logger.Infof(newCtx, "Evaluation task completed successfully, task ID: %s", taskID)
-		_ = e.evaluationMemoryStorage.update(taskID, func(params *types.EvaluationDetail) {
-			params.Task.Status = types.EvaluationStatueSuccess
-		})
-	}()
+	newCtx := logger.CloneContext(ctx)
+	backgroundStarted = true
+	go e.runEvaluation(newCtx, detail, knowledgeBaseID)
 
 	logger.Infof(ctx, "Evaluation task created successfully, task ID: %s", taskID)
 	return detail, nil
 }
 
+func (e *EvaluationService) runEvaluation(ctx context.Context, detail *types.EvaluationDetail, knowledgeBaseID string) {
+	var runErr error
+	defer func() {
+		if r := recover(); r != nil {
+			runErr = fmt.Errorf("panic in background evaluation: %v", r)
+		}
+		_ = e.evaluationMemoryStorage.update(detail.Task.ID, func(params *types.EvaluationDetail) {
+			if runErr != nil {
+				params.Task.Status = types.EvaluationStatueFailed
+				params.Task.ErrMsg = runErr.Error()
+			} else {
+				params.Task.Status = types.EvaluationStatueSuccess
+				params.Task.ErrMsg = ""
+			}
+		})
+		if runErr != nil {
+			logger.Errorf(ctx, "Evaluation task failed: %v, task ID: %s", runErr, detail.Task.ID)
+		}
+	}()
+	_ = e.evaluationMemoryStorage.update(detail.Task.ID, func(params *types.EvaluationDetail) {
+		params.Task.Status = types.EvaluationStatueRunning
+	})
+	runErr = e.EvalDataset(ctx, detail, knowledgeBaseID)
+}
+
+func (e *EvaluationService) cleanupEvaluation(ctx context.Context, knowledgeBaseID, knowledgeID string) error {
+	// Failed/cancelled work must not cancel cleanup. Keep the caller's scope,
+	// but bound cleanup independently so shutdown cannot wait forever.
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Minute)
+	defer cancel()
+	var cleanupErr error
+	if knowledgeID != "" {
+		if err := deleteReferencedKnowledge(cleanupCtx, e.knowledgeService, knowledgeBaseID, []string{knowledgeID}); err != nil {
+			cleanupErr = fmt.Errorf("delete evaluation knowledge %s: %w", knowledgeID, err)
+		}
+	}
+	if err := e.knowledgeBaseService.DeleteKnowledgeBase(cleanupCtx, knowledgeBaseID); err != nil {
+		cleanupErr = errors.Join(cleanupErr, fmt.Errorf("delete evaluation knowledge base %s: %w", knowledgeBaseID, err))
+	}
+	return cleanupErr
+}
+
 // EvalDataset performs the actual evaluation of a dataset
 // Processes each QA pair in parallel and records metrics
-func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.EvaluationDetail, knowledgeBaseID string) error {
+func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.EvaluationDetail, knowledgeBaseID string) (err error) {
 	logger.Info(ctx, "Start evaluating dataset")
 	logger.Infof(ctx, "Task ID: %s, Dataset ID: %s", detail.Task.ID, detail.Task.DatasetID)
 
 	var createdKnowledgeID string
 	// Setup cleanup of temporary resources immediately upon entry
 	defer func() {
-		if createdKnowledgeID != "" {
-			logger.Infof(ctx, "Cleaning up resources - deleting knowledge: %s", createdKnowledgeID)
-			if err := deleteReferencedKnowledge(ctx,
-				e.knowledgeService,
-				knowledgeBaseID,
-				[]string{createdKnowledgeID}); err != nil {
-				logger.Errorf(ctx, "Failed to delete knowledge: %v, knowledge ID: %s", err, createdKnowledgeID)
-			}
-		}
-
-		logger.Infof(ctx, "Cleaning up resources - deleting knowledge base: %s", knowledgeBaseID)
-		if err := e.knowledgeBaseService.DeleteKnowledgeBase(ctx, knowledgeBaseID); err != nil {
-			logger.Errorf(
-				ctx,
-				"Failed to delete knowledge base: %v, knowledge base ID: %s",
-				err, knowledgeBaseID,
-			)
-		}
+		err = errors.Join(err, e.cleanupEvaluation(ctx, knowledgeBaseID, createdKnowledgeID))
 	}()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	// Retrieve dataset from storage
 	dataset, err := e.dataset.GetDatasetByID(ctx, detail.Task.DatasetID)
@@ -455,6 +461,9 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 		return err
 	}
 	logger.Infof(ctx, "Dataset retrieved successfully with %d QA pairs", len(dataset))
+	if len(dataset) == 0 {
+		return errors.New("evaluation dataset contains no QA pairs")
+	}
 
 	// Update total QA pairs count in task details
 	e.evaluationMemoryStorage.update(detail.Task.ID, func(params *types.EvaluationDetail) {
@@ -463,7 +472,10 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 	})
 
 	// Extract and organize passages from dataset
-	passages := getPassageList(dataset)
+	passages, err := getPassageList(dataset)
+	if err != nil {
+		return err
+	}
 	logger.Infof(ctx, "Creating knowledge from %d passages", len(passages))
 
 	// Create knowledge base from passages (sync: wait for indexing to complete before querying)
@@ -477,7 +489,7 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 
 	// Initialize parallel evaluation metrics
 	var finished int
-	var g errgroup.Group
+	g, workerCtx := errgroup.WithContext(ctx)
 	metricHook := NewHookMetric(len(dataset))
 
 	// Set worker limit based on available CPUs
@@ -486,9 +498,22 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 
 	// Process each QA pair in parallel
 	for i, qaPair := range dataset {
+		if workerCtx.Err() != nil {
+			break
+		}
 		qaPair := qaPair
 		i := i
-		g.Go(func() error {
+		g.Go(func() (workerErr error) {
+			// recover only protects its own goroutine: the task-level guard
+			// cannot catch a panic raised by an errgroup worker.
+			defer func() {
+				if r := recover(); r != nil {
+					workerErr = fmt.Errorf("panic evaluating QA pair %d: %v", i, r)
+				}
+			}()
+			if err := workerCtx.Err(); err != nil {
+				return err
+			}
 			logger.Infof(ctx, "Processing QA pair %d, question: %s", i, qaPair.Question)
 
 			// Prepare chat management parameters for this QA pair
@@ -506,9 +531,12 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 
 			// Execute knowledge QA pipeline
 			logger.Infof(ctx, "Running knowledge QA for question: %s", qaPair.Question)
-			err = e.sessionService.KnowledgeQAByEvent(ctx, chatManage, types.Pipline["rag"])
+			err := e.sessionService.KnowledgeQAByEvent(workerCtx, chatManage, types.Pipline["rag"])
 			if err != nil {
 				logger.Errorf(ctx, "Failed to process question %d: %v", i, err)
+				return err
+			}
+			if err := workerCtx.Err(); err != nil {
 				return err
 			}
 
@@ -538,6 +566,9 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 		logger.Errorf(ctx, "Evaluation error: %v", err)
 		return err
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	// Final update of evaluation metrics
 	_ = e.evaluationMemoryStorage.update(detail.Task.ID, func(params *types.EvaluationDetail) {
@@ -550,21 +581,26 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 }
 
 // getPassageList extracts and organizes passages from QA pairs
-// Returns a slice of passages indexed by their passage IDs
-func getPassageList(dataset []*types.QAPair) []string {
+// Passage IDs are identifiers, not array offsets. Custom datasets can use
+// sparse or large IDs; metrics associate retrieval results by content.
+func getPassageList(dataset []*types.QAPair) ([]string, error) {
 	pIDMap := make(map[int]string)
-	maxPID := 0
-	for _, qaPair := range dataset {
+	for i, qaPair := range dataset {
+		if qaPair == nil || len(qaPair.PIDs) != len(qaPair.Passages) {
+			return nil, fmt.Errorf("invalid passages in QA pair %d", i)
+		}
 		for i := 0; i < len(qaPair.PIDs); i++ {
 			pIDMap[qaPair.PIDs[i]] = qaPair.Passages[i]
-			maxPID = max(maxPID, qaPair.PIDs[i])
 		}
 	}
-	passages := make([]string, maxPID+1)
-	for i := 0; i <= maxPID; i++ {
-		if _, ok := pIDMap[i]; ok {
-			passages[i] = pIDMap[i]
-		}
+	ids := make([]int, 0, len(pIDMap))
+	for id := range pIDMap {
+		ids = append(ids, id)
 	}
-	return passages
+	slices.Sort(ids)
+	passages := make([]string, 0, len(ids))
+	for _, id := range ids {
+		passages = append(passages, pIDMap[id])
+	}
+	return passages, nil
 }

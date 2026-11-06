@@ -21,6 +21,11 @@ from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
 from docreader.parser.mhtml_parser import MHTMLParser
 
+from docreader.parser.archive import (
+    ArchiveLimitError, MAX_COMPRESSION_RATIO, MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    validate_zip_archive as _validate_zip_archive,
+)
+
 logger = logging.getLogger(__name__)
 
 # OCF / OPF constants (EPUB 3.3 OCF section 4.2, OPF 2.0.1 / EPUB 3.3 Packages).
@@ -31,35 +36,6 @@ _XHTML_MEDIA_TYPE = "application/xhtml+xml"
 # Manifest items whose media type is not image/* (e.g. application/octet-stream)
 # are still treated as images when the file name says so.
 _IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif", ".tif", ".tiff")
-
-MAX_UNCOMPRESSED_ARCHIVE_BYTES = 100 * 1024 * 1024  # 100 MB
-MAX_COMPRESSION_RATIO = 100.0
-
-
-def _validate_zip_archive(
-    archive: zipfile.ZipFile,
-    max_bytes: int = MAX_UNCOMPRESSED_ARCHIVE_BYTES,
-    max_ratio: float = MAX_COMPRESSION_RATIO,
-) -> None:
-    total_uncompressed = 0
-    for info in archive.infolist():
-        if info.file_size > max_bytes:
-            raise ValueError(
-                f"Archive entry {info.filename} uncompressed size ({info.file_size}) exceeds limit ({max_bytes})"
-            )
-        if (
-            info.compress_size > 0
-            and info.file_size > 1024 * 1024
-            and (info.file_size / info.compress_size) > max_ratio
-        ):
-            raise ValueError(
-                f"Suspicious compression ratio for entry {info.filename}: {info.file_size / info.compress_size:.1f} > {max_ratio}"
-            )
-        total_uncompressed += info.file_size
-        if total_uncompressed > max_bytes:
-            raise ValueError(
-                f"Archive cumulative uncompressed size ({total_uncompressed}) exceeds limit ({max_bytes})"
-            )
 
 
 @dataclass(eq=False)
@@ -259,6 +235,8 @@ class EPUBParser(BaseParser):
             )
             metadata["image_count"] = len(images)
             return Document(content=markdown_content, images=images, metadata=metadata)
+        except ArchiveLimitError:
+            raise
         except ValueError as e:
             if "uncompressed size" in str(e).lower() or "compression ratio" in str(e).lower():
                 raise

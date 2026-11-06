@@ -6,6 +6,13 @@
 *.go text eol=lf
 cli/acceptance/testdata/**/*.json text eol=lf
 
+# Preserve upstream notice bytes: release collectors verify their SHA-256,
+# including original CRLF and trailing whitespace, on every platform.
+licenses/** -text whitespace=-blank-at-eol,-blank-at-eof
+THIRD_PARTY_NOTICES.md -text whitespace=-blank-at-eol
+frontend/scripts/npm-license-sources/** -text
+website-docs/scripts/npm-license-sources/** -text
+
 # Unified diffs use a space to mark empty context lines.
 patches/browserskill/*.patch whitespace=-blank-at-eol
 
@@ -48,7 +55,9 @@ scripts/test-git-hooks.sh export-ignore
 scripts/verify_frontend_pr.sh export-ignore
 scripts/model_catalog_diff.py export-ignore
 Formula export-ignore
-deploy export-ignore
+# Exclude internal root deployment automation, while keeping runtime files such
+# as website-docs/deploy/nginx.conf needed to build the customer source archive.
+/deploy export-ignore
 cli/AGENTS.md export-ignore
 test_agent_config.sh export-ignore
 rerank_server_demo.py export-ignore

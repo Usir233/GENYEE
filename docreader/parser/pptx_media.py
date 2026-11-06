@@ -14,6 +14,11 @@ import zipfile
 from collections import deque
 from typing import Dict, List, Tuple
 
+from docreader.parser.archive import (
+    ArchiveLimitError, MAX_COMPRESSION_RATIO, MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    validate_zip_archive as _validate_zip_archive,
+)
+
 logger = logging.getLogger(__name__)
 
 _MARKDOWN_IMAGE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
@@ -36,37 +41,9 @@ def _find_convert() -> str | None:
     return None
 
 
-MAX_UNCOMPRESSED_ARCHIVE_BYTES = 100 * 1024 * 1024  # 100 MB
-MAX_COMPRESSION_RATIO = 100.0
 ALLOWED_CONVERT_FORMATS = {
     "wmf", "emf", "svg", "eps", "tif", "tiff", "png", "jpg", "jpeg", "bmp", "gif", "webp"
 }
-
-
-def _validate_zip_archive(
-    archive: zipfile.ZipFile,
-    max_bytes: int = MAX_UNCOMPRESSED_ARCHIVE_BYTES,
-    max_ratio: float = MAX_COMPRESSION_RATIO,
-) -> None:
-    total_uncompressed = 0
-    for info in archive.infolist():
-        if info.file_size > max_bytes:
-            raise ValueError(
-                f"Archive entry {info.filename} uncompressed size ({info.file_size}) exceeds limit ({max_bytes})"
-            )
-        if (
-            info.compress_size > 0
-            and info.file_size > 1024 * 1024
-            and (info.file_size / info.compress_size) > max_ratio
-        ):
-            raise ValueError(
-                f"Suspicious compression ratio for entry {info.filename}: {info.file_size / info.compress_size:.1f} > {max_ratio}"
-            )
-        total_uncompressed += info.file_size
-        if total_uncompressed > max_bytes:
-            raise ValueError(
-                f"Archive cumulative uncompressed size ({total_uncompressed}) exceeds limit ({max_bytes})"
-            )
 
 
 def _rasterize_with_imagemagick(data: bytes, suffix: str) -> bytes | None:
@@ -150,7 +127,7 @@ def list_pptx_media(pptx_bytes: bytes) -> List[Tuple[str, bytes]]:
             data = archive.read(name)
             total_read += len(data)
             if total_read > MAX_UNCOMPRESSED_ARCHIVE_BYTES:
-                raise ValueError(
+                raise ArchiveLimitError(
                     f"PPTX media uncompressed size ({total_read}) exceeds limit ({MAX_UNCOMPRESSED_ARCHIVE_BYTES})"
                 )
             items.append((name, data))
