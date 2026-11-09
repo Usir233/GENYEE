@@ -698,6 +698,9 @@ func (s *userService) UpdateUserPreferences(
 	if err != nil {
 		return types.UserPreferences{}, err
 	}
+	if user == nil {
+		return types.UserPreferences{}, apprepo.ErrUserNotFound
+	}
 
 	merged := user.Preferences
 	if patch.BrowserSearchInstructions != nil {
@@ -809,6 +812,9 @@ func (s *userService) ChangePassword(ctx context.Context, userID, oldPassword, n
 	if err != nil {
 		return err
 	}
+	if user == nil {
+		return apprepo.ErrUserNotFound
+	}
 
 	// Verify old password before policy checks so callers with a wrong
 	// current credential get a clear failure instead of a policy error.
@@ -858,6 +864,9 @@ func (s *userService) AdminResetPassword(ctx context.Context, userID, newPasswor
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		return err
+	}
+	if user == nil {
+		return apprepo.ErrUserNotFound
 	}
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(newPassword), bcrypt.DefaultCost)
 	if err != nil {
@@ -979,6 +988,9 @@ func (s *userService) ValidatePassword(ctx context.Context, userID string, passw
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
 		return err
+	}
+	if user == nil {
+		return apprepo.ErrUserNotFound
 	}
 
 	return bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
@@ -1249,7 +1261,18 @@ func (s *userService) generateTokensForTenant(
 		return "", "", fmt.Errorf("persist access token: %w", err)
 	}
 	if err := s.tokenRepo.CreateToken(ctx, refreshTokenRecord); err != nil {
-		return "", "", fmt.Errorf("persist refresh token: %w", err)
+		refreshErr := fmt.Errorf("persist refresh token: %w", err)
+
+		// Compensate by revoking the already-persisted access token.
+		// Use context.WithoutCancel to ensure compensation executes even if
+		// the parent context was canceled or timed out, bounded by a short timeout.
+		revokeCtx, revokeCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		defer revokeCancel()
+
+		if revokeErr := s.tokenRepo.RevokeToken(revokeCtx, accessTokenRecord.ID); revokeErr != nil {
+			return "", "", errors.Join(refreshErr, fmt.Errorf("compensate access token revocation: %w", revokeErr))
+		}
+		return "", "", refreshErr
 	}
 
 	return accessToken, refreshToken, nil
@@ -1412,6 +1435,9 @@ func (s *userService) ValidateToken(ctx context.Context, tokenString string) (*t
 	if err != nil {
 		return nil, 0, err
 	}
+	if user == nil {
+		return nil, 0, errors.New("user not found")
+	}
 
 	// Defence in depth: a token minted before the account was disabled must
 	// stop working even if revocation missed it. Login also rejects disabled
@@ -1448,6 +1474,9 @@ func (s *userService) GetAccessTokenByValue(ctx context.Context, tokenString str
 	if err != nil {
 		return nil, err
 	}
+	if token == nil {
+		return nil, apprepo.ErrTokenNotFound
+	}
 	return redactAuthToken(token), nil
 }
 
@@ -1460,6 +1489,9 @@ func (s *userService) GetAccessTokenByID(ctx context.Context, id string) (*types
 	token, err := s.tokenRepo.GetTokenByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if token == nil {
+		return nil, apprepo.ErrTokenNotFound
 	}
 	return redactAuthToken(token), nil
 }
@@ -1576,6 +1608,12 @@ func (s *userService) RefreshToken(
 	if err != nil {
 		return "", "", err
 	}
+	if user == nil {
+		return "", "", errors.New("user not found")
+	}
+	if !user.IsActive {
+		return "", "", errors.New("account is disabled")
+	}
 
 	// Revoke old refresh token atomically via CAS
 	tokenRecord.IsRevoked = true
@@ -1605,6 +1643,9 @@ func (s *userService) RevokeToken(ctx context.Context, tokenString string) error
 	tokenRecord, err := s.tokenRepo.GetTokenByValue(ctx, tokenString)
 	if err != nil {
 		return err
+	}
+	if tokenRecord == nil {
+		return apprepo.ErrTokenNotFound
 	}
 
 	tokenRecord.IsRevoked = true

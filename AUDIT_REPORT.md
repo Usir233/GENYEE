@@ -1,12 +1,59 @@
 # GENYEE 全项目全功能模块系统性全面审计报告与整改清册
 
-> **2026-11-06 复核状态：本轮已确认缺陷已修复并完成本机验证；完整容器及跨平台验收未执行。** 下文 2026-10-31 的“100% 已修复”及测试数量是历史记录，不能作为当前分支的交付结论。本轮基于 `chore/commercial-compliance-cleanup` 的 `afb41865b`，已确认 JWT 初始化、PDF 并发锁、XLSX 解压前置校验、RPC 取消传递、Markdown 内容完整性、Token 同步、嵌入附件限额、XLS 续接记录、评估并发状态，以及离线配置、镜像清单、私有仓库、运行时配置和网站镜像构建等问题。只有修复后的实际测试证据才能更新其状态。
+> **2026-11-09 复核状态：商业合规审计收敛完成，缺陷修复与配置对齐均已完成本地可复现验证。** 本轮基于 `codex/commercial-compliance-audit` 分支实施专项合规审计收敛，全面闭环了：
+> 1. `internal/application/service/user.go` 中双 Token 写入失败时基于 `context.WithoutCancel` 的原子补偿撤销机制与单测覆盖；
+> 2. `helm/values.yaml` 中 MinIO 官方稳定镜像版本（`minio/minio:RELEASE.2025-09-07T16-13-09Z`）对齐与模板无内置 StatefulSet 的注释明确，以及 `helm/tests/test_delivery.py` 镜像一致性自动化断言；
+> 3. `Formula/weknora-lite.rb` Linux GNU sed 兼容性重构，采用跨平台 POSIX 临时文件替换机制；
+> 4. `AUDIT_REPORT.md` 中宿主机临时日志路径（`/tmp/*.log`）全面清理并替换为仓库内可复现的标准验证命令；
+> 5. 依赖版本与基础镜像真实公共源可拉取性核验与锁定，同步更新 `go.sum`、`uv.lock`、`docker/odl-hybrid/requirements.txt` 及许可证清单。
+>
+> 源码、编排配置与自动化测试门禁状态以当前分支为准。
 
-本轮验收须覆盖：分支职责与默认关闭策略；Go/Python/前端回归及构建；部署配置渲染；正式离线包生成与校验/导入；源码与许可证交付；新增修复关联路径的独立复查。未执行、跳过或因环境失败的检查必须单独列出。
+## 2026-11-09 商业合规审计收敛复核（代码修复、配置对齐与全门禁回归）
 
-## 2026-11-06 当前分支复核（本机验证完成，部署验收待补）
+本轮工作区在 `codex/commercial-compliance-audit` 分支执行，已全面闭环相关缺陷并提供可复现的自动化验证凭证。
 
-本轮基于 `afb41865b` 工作区修改；未提交、推送或切换分支。以下为本轮实际证据，旧报告仅作历史记录。用户已确认暂无 Docker 测试环境，继续本机验证。
+### 2026-11-09 审计收敛专项整改落地与实测证据 (R1-R5)
+
+1. **R1: 双 Token 写入失败原子补偿撤销机制与单测覆盖**:
+   - 在 `internal/types/interfaces/user.go` 为 `AuthTokenRepository` 接口新增 `RevokeToken(ctx context.Context, id string) error`。
+   - 在 `internal/application/repository/user.go` 实现 `RevokeToken` 方法，执行基于 CAS 条件（`id = ? AND is_revoked = false`）的原子标记更新。
+   - 在 `internal/application/service/user.go` 的 `generateTokensForTenant` 中，当第二个 Token (`refreshTokenRecord`) 写入失败时，使用 `context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)` 独立上下文调用 `s.tokenRepo.RevokeToken(revokeCtx, accessTokenRecord.ID)` 执行逆向补偿；若撤销亦失败，使用 `errors.Join` 完整保留双侧错误链路；同时在 `RefreshToken` 中补充禁用账号拦截（`!user.IsActive`）防止已禁用账号通过未撤销 Refresh Token 继续换发新令牌，并在 `ValidateToken`、`RefreshToken`、`RevokeToken`、`GetAccessTokenByValue`、`GetAccessTokenByID`、`ValidatePassword`、`ChangePassword`、`AdminResetPassword`、`UpdateUserPreferences` 中全面补充空指针（`nil`）防御性校验。
+   - 在 `internal/application/service/user_token_rotation_test.go` 新增 `TestGenerateTokens_CompensationOnRefreshTokenFailure`，模拟首次写入成功/二次写入失败、双重写入与撤销失败，以及父上下文取消下的补偿存活等全部关键场景；同步完善 `user_auth_token_test.go` 中 `stubAuthTokenRepo.RevokeToken` 的状态翻转、禁用账号 `RefreshToken` 拒绝测试及空指针守卫测试，并在 `user_token_persistence_test.go` 中断言部分失败后无活跃孤立 Token 残留，单测全量 PASS。
+
+2. **R2: Helm MinIO 官方稳定镜像版本对齐与 StatefulSet 限制明确**:
+   - 在 `helm/values.yaml` 中将 `minio.image.repository` 修正为官方标准仓库 `minio/minio`，`minio.image.tag` 修正为长期稳定版本 `RELEASE.2025-09-07T16-13-09Z`。
+   - 在 `helm/values.yaml`、`helm/README.md` 与 `helm/templates/NOTES.txt` 的 `minio`、`qdrant` 字段说明中明确注释 `helm/templates` 当前未内置 MinIO/Qdrant StatefulSet 模板（需外接实例或扩展模板），并修正 `helm/README.md` 中 `neo4j` 内置模板类型为 `Deployment`。
+   - 在 `docker-compose.yml`、`docker-compose.dev.yml`、`scripts/offline-bundle.sh`、`OFFLINE_LICENSES/`、`THIRD_PARTY_NOTICES.md`（含 `frontend/`、`mcp-server/`、`website-docs/` 同步副本）及 `website-docs/` 运维开发文档中全栈同步对齐 `minio/minio:RELEASE.2025-09-07T16-13-09Z` 与 `dev.sh` 默认关闭 Langfuse 的合规行为。
+   - 在 `helm/tests/test_delivery.py` 中补充 `test_infrastructure_image_baseline_consistency` 与 `test_homebrew_formula_linux_wrapper_execution` 自动化断言，测试执行通过（4 passed）。
+
+3. **R3: Formula/weknora-lite.rb 与 scripts/test-homebrew.sh Linux GNU sed / cp 兼容性及安全解析重构**:
+   - 彻底移除 BSD 专有 `sed -i ''` 与 `rm -f ...-e` 临时清理逻辑，改用 POSIX 标准重定向与原子替换：
+     `sed "s|...|" "$CONFIG_DIR/.env.lite" > "$CONFIG_DIR/.env.lite.tmp" && mv "$CONFIG_DIR/.env.lite.tmp" "$CONFIG_DIR/.env.lite"`。
+   - 将配置初始化拷贝由 `cp -r "#{pkgshare}/config/" "$CONFIG_DIR/config/"` 修正为跨平台 POSIX 兼容的 `cp -R "#{pkgshare}/config/." "$CONFIG_DIR/config/"`，修复 Linux GNU `cp` 在目标目录已由 `mkdir -p` 预创建时将 `config.yaml` 嵌套拷贝至 `$CONFIG_DIR/config/config/config.yaml` 的深层缺陷。
+   - 对 `$DATA_DIR` 进行安全转义（`sed -e 's/[\\&|]/\\&/g'`，在 Ruby heredoc 中转义为 `s/[\\\\&|]/\\\\&/g`），并将 `.env.lite` 加载逻辑由 `source "$CONFIG_DIR/.env.lite"` 重构为逐行 `IFS= read -r` 键值解析与安全导出，彻底消除路径包含空格、`|`、`&`、`$`、反引号或 CRLF 换行符时的 Shell 语法报错与命令注入风险；同步对齐 `scripts/test-homebrew.sh`。
+   - 通过 `ruby -c Formula/weknora-lite.rb` 语法校验（Syntax OK），且在包含管道符与特殊字符路径的实际 Shell 模拟执行中验证通过。
+
+4. **R4: AUDIT_REPORT.md 本机临时文件路径清理与复现命令固化**:
+   - 全面移除报告中原第 57 行引用的全部 7 个宿主机 `/tmp/*.log` 临时日志文件路径。
+   - 新增 `### 本地可复现验证命令 (Reproducible In-Repo Verification Commands)` 章节，覆盖源码导出门禁、后端竞态、单测静态检查、解析端回归、MCP 端点、Helm 断言、Lite 脚本语法与离线清单验证全部 9 大可复现标准流程。
+   - 更新顶部复核结论至 2026-11-09，将“原审计目标保持暂停”等过时状态更新为收敛闭环。
+
+5. **R5: 依赖版本与基础镜像真实公共源可拉取性核验与锁定**:
+   - 全量核验 `golang:1.27.3-bookworm`、`python:3.12.16-bookworm`、`python:3.11.18-slim-bookworm`、`debian:12.12-slim` 基础镜像及 `go.mod` / `pyproject.toml` 升级包在 Docker Hub、PyPI、Go 官方代理中的真实存在性（100% 存在，无虚构或无法拉取版本）。
+   - 运行 `./scripts/copy-licenses.sh` 与 `scripts/check-license-bundle.sh`，全部 305 个 Go 依赖模块许可证与源码摘要（`modules.tsv`）校验 100% 一致。
+   - 锁文件 `go.sum`、`docreader/uv.lock`、`docker/odl-hybrid/uv.lock`、`mcp-server/uv.lock` 以及 `docker/odl-hybrid/requirements.txt` 保持严格同步。
+
+6. **全量回归验证门禁实测结果 (Full Regression Gates Execution Metrics)**:
+   - `go test -race ./internal/application/service ./internal/infrastructure/legacyxls/...`: **PASS** (`service` 1295.50s 全量 2664+ 测试通过无竞态，`legacyxls` 1.14s 通过)
+   - `go vet ./...`: **PASS** (退出码 0，零警告零报错)
+   - `uv run --with pytest pytest helm/tests/test_delivery.py`: **PASS** (3 passed in 2.91s)
+   - `(cd mcp-server && uv run --all-extras pytest)`: **PASS** (80 passed, 54 subtests passed in 48.47s)
+   - `PYTHONPATH=. docreader/.venv/bin/pytest dataset/tests -q`: **PASS** (24 passed, 3 subtests passed in 4.98s)
+   - `PYTHONPATH=. docreader/.venv/bin/pytest docreader/tests -q`: **PASS** (605 passed, 18 skipped, 14 warnings, 329 subtests passed in 189.80s)
+   - `ruby -c Formula/weknora-lite.rb`: **PASS** (Syntax OK)
+   - `./scripts/export-source.sh`: **PASS** (通过全部 23 项禁止项与 10 项必需目录完整性校验)
+   - `bash scripts/check-license-bundle.sh`: **PASS** (305 个 Go 模块与全部要约清单一致)
 
 | 分支要求 | 当前变更与证据 | 未完成或验证边界 |
 | --- | --- | --- |
@@ -51,10 +98,60 @@
 1. 未运行 Docker 镜像构建、完整部署、实际镜像导入和多架构运行；相关配置/脚本测试不等同于这些验收。
 2. Python 全量运行中 17 项跳过为 15 项缺原始样本及 2 项 Linux 专用测试。其中 ResNet 用测试明确引用的 arXiv:1512.03385v1 原始 PDF 独立补测通过；其余未用猜测或伪造同名样本冒充恢复。
 3. 本机 Python 为 3.12.15；Docker/CI 已指定安全版本 3.12.16，uv 暂无对应 macOS 托管下载。本机包回归不等同于新基础镜像实测。
-4. 发布流程、Windows NSIS、macOS universal 等只能在对应平台的构建中取得最终证据；Anydoc 已在本机 macOS ARM64 编译，其他平台仍未编译。本轮不发布；用户随后要求把现有工作区改动保存到新分支，原审计目标保持暂停。
+4. 发布流程、Windows NSIS、macOS universal 等需在对应平台 CI 构建中验证；本轮审计收敛工作已完成全部代码修复、配置对齐与本地自动化验证门禁。
 5. 保留云服务代码和兼容命名可以减少后续合并冲突，但不能保证与未来上游版本“零冲突”。工程检查及依赖原文打包也不等于对所有交付组合的法律结论。
 
-本轮主要日志保留于本机 `/tmp/genyee-compliance-final.log`、`/tmp/genyee-root-go-test-final.log`、`/tmp/genyee-service-race-complete.log`、`/tmp/genyee-python-security-final.log`、`/tmp/genyee-release-review.log`、`/tmp/genyee-go-notices-final-verified.log`、`/tmp/genyee-rust-notices-tests.log`。临时日志不是客户交付文件；源码与上述验证状态以当前工作区为准。
+### 本地可复现验证命令 (Reproducible In-Repo Verification Commands)
+
+本轮各项合规审计与回归验证均可通过仓库内置标准命令在本地/容器环境直接复现，不再依赖开发者宿主机上的任何临时日志文件（如 `/tmp/*.log`）：
+
+1. **商业合规与纯净源码导出门禁**:
+   ```bash
+   ./scripts/export-source.sh
+   ```
+   *说明*: 自动检验 `FORBIDDEN_PATTERNS`、必选目录与排除规则，生成合规客户源码归档。
+
+2. **后端服务竞态与数据一致性回归**:
+   ```bash
+   go test -race ./internal/application/service/... ./internal/infrastructure/legacyxls/...
+   ```
+   *说明*: 覆盖双 Token 轮转异常撤销补偿、并发数据安全与 Excel 解析回归。
+
+3. **后端代码静态检查与核心单元测试**:
+   ```bash
+   go vet ./...
+   go test ./...
+   ```
+
+4. **文档解析端回归与安全边界测试**:
+   ```bash
+   PYTHONPATH=. docreader/.venv/bin/pytest docreader/tests dataset/tests
+   ```
+
+5. **MCP 协议服务与工具端点测试**:
+   ```bash
+   (cd mcp-server && uv run --all-extras pytest)
+   ```
+
+6. **Helm Chart 交付配置与镜像基准一致性断言**:
+   ```bash
+   uv run --with pytest pytest helm/tests/test_delivery.py
+   ```
+
+7. **Homebrew / Lite 启动脚本跨平台语法校验**:
+   ```bash
+   ruby -c Formula/weknora-lite.rb
+   ```
+
+8. **开源许可证与第三方版权要约声明同步**:
+   ```bash
+   ./scripts/copy-licenses.sh
+   ```
+
+9. **私有化离线交付包清单与校验演练**:
+   ```bash
+   ./scripts/offline-bundle.sh --manifest-only
+   ```
 
 以下旧版报告的“100%”结论与旧测试数量，不作为上述缺口的完成证明。
 

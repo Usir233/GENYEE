@@ -42,7 +42,7 @@ class WeknoraLite < Formula
       mkdir -p "$DATA_DIR/files" "$CONFIG_DIR/config" 2>/dev/null
 
       if [ ! -f "$CONFIG_DIR/config/config.yaml" ]; then
-        cp -r "#{pkgshare}/config/" "$CONFIG_DIR/config/"
+        cp -R "#{pkgshare}/config/." "$CONFIG_DIR/config/"
       fi
 
       if [ ! -d "$CONFIG_DIR/migrations" ] && [ -d "#{pkgshare}/migrations" ]; then
@@ -51,18 +51,31 @@ class WeknoraLite < Formula
 
       if [ ! -f "$CONFIG_DIR/.env.lite" ]; then
         cp "#{pkgshare}/.env.lite.example" "$CONFIG_DIR/.env.lite"
-        sed -i '' "s|DB_PATH=.*|DB_PATH=$DATA_DIR/weknora.db|" "$CONFIG_DIR/.env.lite"
-        sed -i '' "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$DATA_DIR/files|" "$CONFIG_DIR/.env.lite"
-        rm -f "$CONFIG_DIR/.env.lite-e"
+        ESCAPED_DB_PATH=$(printf '%s\n' "$DATA_DIR/weknora.db" | sed -e 's/[\\\\&|]/\\\\&/g')
+        ESCAPED_STORAGE_DIR=$(printf '%s\n' "$DATA_DIR/files" | sed -e 's/[\\\\&|]/\\\\&/g')
+        sed "s|DB_PATH=.*|DB_PATH=$ESCAPED_DB_PATH|" "$CONFIG_DIR/.env.lite" > "$CONFIG_DIR/.env.lite.tmp" && mv "$CONFIG_DIR/.env.lite.tmp" "$CONFIG_DIR/.env.lite"
+        sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "$CONFIG_DIR/.env.lite" > "$CONFIG_DIR/.env.lite.tmp" && mv "$CONFIG_DIR/.env.lite.tmp" "$CONFIG_DIR/.env.lite"
         echo ""
         echo "已创建配置文件: $CONFIG_DIR/.env.lite"
         echo "请根据需要编辑（如修改 LLM 地址、安全密钥等）。"
         echo ""
       fi
 
-      set -a
-      source "$CONFIG_DIR/.env.lite"
-      set +a
+      CR=$(printf "\\r")
+      while IFS= read -r line || [ -n "$line" ]; do
+        line="${line%"$CR"}"
+        case "$line" in
+          ""|"#"*|[[:space:]]*"#"*) continue ;;
+          *=*)
+            key="${line%%=*}"
+            val="${line#*=}"
+            case "$val" in
+              '"'*'"'|"'"*"'") val="${val#?}"; val="${val%?}" ;;
+            esac
+            export "$key=$val"
+            ;;
+        esac
+      done < "$CONFIG_DIR/.env.lite"
 
       export DB_PATH="${DB_PATH:-$DATA_DIR/weknora.db}"
       export LOCAL_STORAGE_BASE_DIR="${LOCAL_STORAGE_BASE_DIR:-$DATA_DIR/files}"

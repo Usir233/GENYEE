@@ -69,13 +69,13 @@ Components deployed:
 
 Optional components enabled:
 {{- if .Values.minio.enabled }}
-  - MinIO (S3-compatible storage)
+  - MinIO (S3-compatible storage; external/in-cluster endpoint required, no built-in StatefulSet)
 {{- end }}
 {{- if .Values.neo4j.enabled }}
   - Neo4j (Knowledge Graph)
 {{- end }}
 {{- if .Values.qdrant.enabled }}
-  - Qdrant (Vector Database)
+  - Qdrant (Vector Database; external/in-cluster endpoint required, no built-in StatefulSet)
 {{- end }}
 {{- end }}
 

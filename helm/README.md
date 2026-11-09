@@ -374,9 +374,9 @@ These map to docker-compose profiles:
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `minio.enabled` | Enable MinIO storage | `false` |
-| `neo4j.enabled` | Enable Neo4j (GraphRAG) | `false` |
-| `qdrant.enabled` | Enable Qdrant vector DB | `false` |
+| `minio.enabled` | Enable MinIO storage (note: `helm/templates` does not bundle a built-in MinIO StatefulSet; connect to an external/in-cluster instance or supply custom templates) | `false` |
+| `neo4j.enabled` | Enable Neo4j (GraphRAG; includes built-in `templates/neo4j.yaml` Deployment) | `false` |
+| `qdrant.enabled` | Enable Qdrant vector DB (note: `helm/templates` does not bundle a built-in Qdrant StatefulSet; connect to an external/in-cluster instance or supply custom templates) | `false` |
 
 ## Security Best Practices
 

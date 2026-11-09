@@ -34,7 +34,7 @@
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | `paradedb/paradedb` | `v0.25.11-pg17` | 核心必选 | **AGPL-3.0-only** | 是（见 `WRITTEN_OFFER.md`） | 仅通过 PostgreSQL 5432 协议通信；未修改上游镜像 |
 | `redis` | `7.0-alpine` / `7.2-alpine` | 核心必选 | **BSD-3-Clause** | 否 | 固定在 7.2 及以下版本（Redis 7.4+ 变更为 RSALv2/SSPLv1） |
-| `pgsty/minio` | `RELEASE.2026-08-04T00-00-00Z` | `minio` / `langfuse` | **AGPL-3.0-only** | 是（见 `WRITTEN_OFFER.md`） | 仅通过标准 S3 HTTP API 通信；未修改上游镜像 |
+| `minio/minio` | `RELEASE.2025-09-07T16-13-09Z` | `minio` / `langfuse` | **AGPL-3.0-only** | 是（见 `WRITTEN_OFFER.md`） | 仅通过标准 S3 HTTP API 通信；未修改上游镜像 |
 | `qdrant/qdrant` | `v1.16.2` | `qdrant` | **Apache-2.0** | 否 | 向量数据库，gRPC/REST 通信 |
 | `neo4j` | `2025.10.1` | `neo4j` | **GPL-3.0 / AGPL-3.0** | 是（见 `WRITTEN_OFFER.md`） | 图数据库，Bolt 协议通信 |
 | `milvusdb/milvus` | `v2.6.11` | `milvus` | **Apache-2.0** | 否 | 向量数据库 |

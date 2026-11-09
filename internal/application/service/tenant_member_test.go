@@ -323,6 +323,7 @@ func (r *cleanupTokenRepo) GetTokensByUserID(context.Context, string) ([]*types.
 func (r *cleanupTokenRepo) UpdateToken(context.Context, *types.AuthToken) error { return nil }
 func (r *cleanupTokenRepo) DeleteToken(context.Context, string) error           { return nil }
 func (r *cleanupTokenRepo) DeleteExpiredTokens(context.Context) error           { return nil }
+func (r *cleanupTokenRepo) RevokeToken(context.Context, string) error           { return nil }
 func (r *cleanupTokenRepo) RevokeTokensByUserID(_ context.Context, userID string) error {
 	r.revoked = append(r.revoked, userID)
 	return nil

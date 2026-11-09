@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 
+	apprepo "github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/types"
 )
 
@@ -18,8 +19,9 @@ func init() {
 }
 
 type stubAuthTokenRepo struct {
-	tokens         map[string]*types.AuthToken
-	revokedUserIDs []string
+	tokens          map[string]*types.AuthToken
+	revokedTokenIDs []string
+	revokedUserIDs  []string
 	// getErr, when set, is returned by every GetTokenByValue call, standing in
 	// for a database error rather than for a missing row.
 	getErr error
@@ -67,7 +69,16 @@ func (s *stubAuthTokenRepo) GetTokensByUserID(context.Context, string) ([]*types
 }
 func (s *stubAuthTokenRepo) UpdateToken(context.Context, *types.AuthToken) error { return nil }
 func (s *stubAuthTokenRepo) DeleteToken(context.Context, string) error           { return nil }
-func (s *stubAuthTokenRepo) DeleteExpiredTokens(context.Context) error           { return nil }
+func (s *stubAuthTokenRepo) DeleteExpiredTokens(context.Context) error { return nil }
+func (s *stubAuthTokenRepo) RevokeToken(_ context.Context, id string) error {
+	s.revokedTokenIDs = append(s.revokedTokenIDs, id)
+	for _, token := range s.tokens {
+		if token != nil && token.ID == id {
+			token.IsRevoked = true
+		}
+	}
+	return nil
+}
 func (s *stubAuthTokenRepo) RevokeTokensByUserID(_ context.Context, userID string) error {
 	s.revokedUserIDs = append(s.revokedUserIDs, userID)
 	return nil
@@ -426,5 +437,54 @@ func TestValidateTokenRejectsDisabledAccount(t *testing.T) {
 	_, _, err := svc.ValidateToken(context.Background(), access)
 	if err == nil || err.Error() != "account is disabled" {
 		t.Fatalf("disabled account with unrevoked token: got %v", err)
+	}
+}
+
+func TestRefreshTokenRejectsDisabledAccount(t *testing.T) {
+	tokenRepo := &stubAuthTokenRepo{tokens: map[string]*types.AuthToken{}}
+	svc := newAuthTestUserService(tokenRepo)
+	user := svc.userRepo.(*stubUserRepoForAuth).users["user-1"]
+	refresh := signTestJWT(jwt.MapClaims{"user_id": user.ID, "type": "refresh", "exp": time.Now().Add(time.Hour).Unix()})
+	tokenRepo.tokens[refresh] = &types.AuthToken{
+		ID:        "rt-disabled-1",
+		UserID:    user.ID,
+		Token:     refresh,
+		TokenType: "refresh_token",
+	}
+	user.IsActive = false
+	newAccess, newRefresh, err := svc.RefreshToken(context.Background(), refresh)
+	if err == nil || err.Error() != "account is disabled" {
+		t.Fatalf("RefreshToken for disabled account: got access=%q refresh=%q err=%v, want 'account is disabled'", newAccess, newRefresh, err)
+	}
+	if len(tokenRepo.tokens) != 1 {
+		t.Fatalf("RefreshToken for disabled account must not mint new tokens, got %d tokens", len(tokenRepo.tokens))
+	}
+}
+
+func TestNilUserAndTokenDefensiveGuards(t *testing.T) {
+	tokenRepo := &stubAuthTokenRepo{tokens: map[string]*types.AuthToken{
+		"nil-token": nil,
+	}}
+	svc := newAuthTestUserService(tokenRepo)
+	svc.userRepo.(*stubUserRepoForAuth).users["nil-user"] = nil
+	ctx := context.Background()
+
+	if err := svc.RevokeToken(ctx, "nil-token"); !errors.Is(err, apprepo.ErrTokenNotFound) {
+		t.Fatalf("RevokeToken(nil-token) = %v, want ErrTokenNotFound", err)
+	}
+	if _, err := svc.GetAccessTokenByValue(ctx, "nil-token"); !errors.Is(err, apprepo.ErrTokenNotFound) {
+		t.Fatalf("GetAccessTokenByValue(nil-token) = %v, want ErrTokenNotFound", err)
+	}
+	if err := svc.ValidatePassword(ctx, "nil-user", "secret"); !errors.Is(err, apprepo.ErrUserNotFound) {
+		t.Fatalf("ValidatePassword(nil-user) = %v, want ErrUserNotFound", err)
+	}
+	if err := svc.ChangePassword(ctx, "nil-user", "old", "NewPass!123"); !errors.Is(err, apprepo.ErrUserNotFound) {
+		t.Fatalf("ChangePassword(nil-user) = %v, want ErrUserNotFound", err)
+	}
+	if err := svc.AdminResetPassword(ctx, "nil-user", "NewPass!123"); !errors.Is(err, apprepo.ErrUserNotFound) {
+		t.Fatalf("AdminResetPassword(nil-user) = %v, want ErrUserNotFound", err)
+	}
+	if _, err := svc.UpdateUserPreferences(ctx, "nil-user", types.UserPreferences{}); !errors.Is(err, apprepo.ErrUserNotFound) {
+		t.Fatalf("UpdateUserPreferences(nil-user) = %v, want ErrUserNotFound", err)
 	}
 }

@@ -484,12 +484,15 @@ secrets:
 
 # -- MinIO configuration (S3-compatible storage)
 # Equivalent to: docker compose --profile minio
+# NOTE: helm/templates currently does not bundle a built-in MinIO StatefulSet.
+# When enabled, connect to an external MinIO/S3 instance or an existing in-cluster
+# deployment, or add custom templates as needed.
 minio:
-  # -- Enable MinIO
+  # -- Enable MinIO (requires external/existing instance; no built-in StatefulSet template)
   enabled: false
   image:
-    repository: pgsty/minio
-    tag: RELEASE.2026-08-04T00-00-00Z
+    repository: minio/minio
+    tag: RELEASE.2025-09-07T16-13-09Z
   # -- Root user
   rootUser: minioadmin
   # -- Root password (REQUIRED if enabled)
@@ -553,8 +556,11 @@ neo4j:
 
 # -- Qdrant configuration (Vector Database)
 # Equivalent to: docker compose --profile qdrant
+# NOTE: helm/templates currently does not bundle a built-in Qdrant StatefulSet.
+# When enabled, connect to an external Qdrant instance or an existing in-cluster
+# deployment, or add custom templates as needed.
 qdrant:
-  # -- Enable Qdrant as alternative vector store
+  # -- Enable Qdrant as alternative vector store (requires external/existing instance; no built-in StatefulSet template)
   enabled: false
   image:
     repository: qdrant/qdrant

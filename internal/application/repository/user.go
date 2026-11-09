@@ -477,6 +477,20 @@ func (r *authTokenRepository) DeleteExpiredTokens(ctx context.Context) error {
 	return r.db.WithContext(ctx).Where("expires_at < ?", time.Now()).Delete(&types.AuthToken{}).Error
 }
 
+// RevokeToken revokes a single token by its primary key
+func (r *authTokenRepository) RevokeToken(ctx context.Context, id string) error {
+	result := r.db.WithContext(ctx).Model(&types.AuthToken{}).
+		Where("id = ? AND is_revoked = ?", id, false).
+		Updates(map[string]interface{}{
+			"is_revoked": true,
+			"updated_at": time.Now(),
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
+
 // RevokeTokensByUserID revokes all tokens for a user
 func (r *authTokenRepository) RevokeTokensByUserID(ctx context.Context, userID string) error {
 	return r.db.WithContext(ctx).Model(&types.AuthToken{}).Where("user_id = ?", userID).Update("is_revoked", true).Error

@@ -137,12 +137,12 @@ IMAGES=(
 
 if profile_enabled "minio"; then
     if profile_enabled "langfuse"; then
-        IMAGES+=("third-party|minio,langfuse|pgsty/minio:RELEASE.2026-08-04T00-00-00Z|AGPL-3.0-only|true")
+        IMAGES+=("third-party|minio,langfuse|minio/minio:RELEASE.2025-09-07T16-13-09Z|AGPL-3.0-only|true")
     else
-        IMAGES+=("third-party|minio|pgsty/minio:RELEASE.2026-08-04T00-00-00Z|AGPL-3.0-only|true")
+        IMAGES+=("third-party|minio|minio/minio:RELEASE.2025-09-07T16-13-09Z|AGPL-3.0-only|true")
     fi
 elif profile_enabled "langfuse"; then
-    IMAGES+=("third-party|langfuse|pgsty/minio:RELEASE.2026-08-04T00-00-00Z|AGPL-3.0-only|true")
+    IMAGES+=("third-party|langfuse|minio/minio:RELEASE.2025-09-07T16-13-09Z|AGPL-3.0-only|true")
 fi
 if profile_enabled "qdrant"; then
     IMAGES+=("third-party|qdrant|qdrant/qdrant:v1.16.2|Apache-2.0|false")

@@ -24,7 +24,7 @@
 | 组件名称 | 离线包固定镜像标签 | 许可证 | 对应上游源码仓库与精确版本 Tag |
 | :--- | :--- | :--- | :--- |
 | **ParadeDB** (PostgreSQL + pg_search) | `paradedb/paradedb:v0.25.11-pg17` | AGPL-3.0-only | `https://github.com/paradedb/paradedb/tree/v0.25.11` |
-| **MinIO** (pgsty 发行构建) | `pgsty/minio:RELEASE.2026-08-04T00-00-00Z` | AGPL-3.0-only | `https://github.com/minio/minio/tree/RELEASE.2026-08-04T00-00-00Z` |
+| **MinIO** (官方稳定构建) | `minio/minio:RELEASE.2025-09-07T16-13-09Z` | AGPL-3.0-only | `https://github.com/minio/minio/tree/RELEASE.2025-09-07T16-13-09Z` |
 | **SearXNG** | `searxng/searxng:2025.5.18-5286903` | AGPL-3.0-or-later | `https://github.com/searxng/searxng/commit/5286903` |
 | **Neo4j Community & APOC** | `neo4j:2025.10.1` | GPL-3.0-or-later / AGPL-3.0 | `https://github.com/neo4j/neo4j/tree/2025.10.1` |
 | **BusyBox** | `busybox:1.36` | GPL-2.0-only | `https://git.busybox.net/busybox/tag/?h=1_36_0` |

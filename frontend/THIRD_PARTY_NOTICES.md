@@ -580,7 +580,7 @@ GNU Lesser General Public License (LGPL), GNU Affero General Public License
    - **ParadeDB** (`paradedb/paradedb` — `pg_search` extension under `AGPL-3.0`,
      PostgreSQL and `pgvector` under the PostgreSQL License):
      [https://github.com/paradedb/paradedb](https://github.com/paradedb/paradedb)
-   - **MinIO** (`pgsty/minio` / MinIO object storage server under `AGPL-3.0`):
+   - **MinIO** (`minio/minio` / MinIO object storage server under `AGPL-3.0`):
      [https://github.com/minio/minio](https://github.com/minio/minio)
    - **SearXNG** (`searxng/searxng` metasearch service under `AGPL-3.0`):
      [https://github.com/searxng/searxng](https://github.com/searxng/searxng)

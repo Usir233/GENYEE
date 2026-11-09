@@ -685,7 +685,7 @@ services:
       - full
 
   minio:
-    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: GENYEE-minio
     ports:
       - "${MINIO_PORT:-9000}:9000"
@@ -937,7 +937,7 @@ services:
       - langfuse
 
   langfuse-minio:
-    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: GENYEE-langfuse-minio
     restart: unless-stopped
     entrypoint: sh

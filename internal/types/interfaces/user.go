@@ -169,6 +169,8 @@ type AuthTokenRepository interface {
 	DeleteToken(ctx context.Context, id string) error
 	// DeleteExpiredTokens deletes all expired tokens
 	DeleteExpiredTokens(ctx context.Context) error
+	// RevokeToken revokes a single token by its primary key
+	RevokeToken(ctx context.Context, id string) error
 	// RevokeTokensByUserID revokes all tokens for a user
 	RevokeTokensByUserID(ctx context.Context, userID string) error
 }
