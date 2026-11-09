@@ -154,6 +154,7 @@
       <p class="section-description">
         {{ $t('tenantMember.sectionDescription') }}
         <a
+          v-if="docsUrl('tenantAuth')"
           class="doc-link"
           :href="docsUrl('tenantAuth')"
           target="_blank"

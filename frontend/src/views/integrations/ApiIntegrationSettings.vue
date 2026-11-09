@@ -75,7 +75,7 @@
           </div>
         </template>
 
-        <div class="row row--doc">
+        <div v-if="docsUrl('apiOverview')" class="row row--doc">
           <div class="row-info">
             <label>{{ $t('tenant.api.docLabel') }}</label>
             <p>
@@ -1432,7 +1432,10 @@ const saveDesktopPort = async () => {
 }
 
 function openApiDoc() {
-  window.open(docsUrl('apiOverview'), '_blank')
+  const url = docsUrl('apiOverview')
+  if (url) {
+    window.open(url, '_blank')
+  }
 }
 
 function openCreateAPIKeyDialog() {

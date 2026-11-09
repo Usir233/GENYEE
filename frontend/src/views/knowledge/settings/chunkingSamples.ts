@@ -12,7 +12,7 @@ export interface ChunkingSample {
 
 const MARKDOWN_SAMPLE = `# GENYEE 知识框架
 
-GENYEE 是一个基于 LLM 的开源企业知识框架，集 RAG 问答、ReAct 智能体、Wiki 知识图谱于一体。本文介绍其设计动机、架构与典型用法。
+GENYEE 是一个基于 LLM 的企业级知识问答系统，集 RAG 问答、ReAct 智能体、Wiki 知识图谱于一体。本文介绍其设计动机、架构与典型用法。
 
 ## 设计动机
 
@@ -21,7 +21,7 @@ GENYEE 是一个基于 LLM 的开源企业知识框架，集 RAG 问答、ReAct 
 - **多源接入**：把分散内容统一抽取、清洗、向量化
 - **多策略检索**：稠密、稀疏、知识图谱多路召回 + RRF 融合
 - **可解释推理**：ReAct Agent 让推理链条可追踪、可干预
-- **可观测**：原生集成 Langfuse，每一步推理、每一次工具调用都有 trace
+- **可观测**：支持标准 OpenTelemetry / 链路追踪，每一步推理、每一次工具调用都有 trace
 
 ## 核心特性
 
@@ -60,7 +60,7 @@ GENYEE 是一个基于 LLM 的开源企业知识框架，集 RAG 问答、ReAct 
 ### 启动命令
 
 \`\`\`bash
-git clone https://github.com/Usir233/GENYEE && cd GENYEE
+git clone <repository-url> && cd GENYEE
 cp .env.example .env       # 修改你的模型与数据库配置
 make dev-start             # 启动 postgres / redis / qdrant
 make dev-app               # 启动后端，热重载
@@ -100,7 +100,7 @@ Agent 引擎执行经典 ReAct 循环：
 3. **Observe**：把工具返回值塞回上下文
 4. 重复 1-3 直到产出最终答案或达到最大迭代
 
-每一步都通过 SSE 流式返回前端，并写入 Langfuse trace 便于排查。
+每一步都通过 SSE 流式返回前端，并记录调用 trace 便于排查。
 
 ## 进一步阅读
 
@@ -176,7 +176,7 @@ docker pull genyee/genyee-ui:latest
 检查代理网络与 \`OPENAI_BASE_URL\` 配置；本地无外网时切换到 Ollama 或国内大模型。
 
 ### Q14: token 用量在哪里看？
-开启 Langfuse 后，每个会话、每次推理、每个工具调用的 token 消耗都有完整 trace，可按时间、空间、模型聚合。
+开启链路追踪后，每个会话、每次推理、每个工具调用的 token 消耗都有完整 trace，可按时间、空间、模型聚合。
 
 ### Q15: 如何接入私有 LLM？
 实现 \`internal/models/chat/provider/Provider\` 接口，注册到 provider 工厂，配置文件中加一条记录即可，约 100-200 行代码。
@@ -269,7 +269,7 @@ PG 全量每日备份 + WAL 增量；MinIO/对象存储依赖云端版本管理�
 
 4.3 故障排查
 
-按"网关 → 业务 → 存储 → 模型"四个维度逐层排查。每层都有健康检查接口与 Langfuse trace 入口，组合起来可在 5 分钟内定位 80% 问题。`
+按"网关 → 业务 → 存储 → 模型"四个维度逐层排查。每层都有健康检查接口与链路追踪入口，组合起来可在 5 分钟内定位 80% 问题。`
 
 const PLAIN_SAMPLE = `知识库的检索质量受多个因素影响，最直接的是切分策略与嵌入模型的匹配度。切分过粗会导致单段语义混杂、相关度被稀释；切分过细则丢失上下文，单独检索某一段无法回答跨段问题。一般建议切分大小落在嵌入模型推荐窗口的 50%–80%，既保证语义完整又留出余量。常见嵌入模型如 BGE、Cohere 的 embed-v3 推荐窗口为 512 tokens，对应字符大致在 300–800 之间，因为中文一个字约 0.5–1.2 个 token，英文一个词约 1.3 个 token。
 

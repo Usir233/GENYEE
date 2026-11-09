@@ -11,7 +11,6 @@
   <a href="./website-docs/01-getting-started/01-introduction.md"><img alt="Docs" src="https://img.shields.io/badge/docs-read-b8863b?style=flat-square&labelColor=101f38"></a>
   <a href="./CHANGELOG.md"><img alt="Release" src="https://img.shields.io/badge/release-v0.9.0-b8863b?style=flat-square&labelColor=101f38"></a>
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Commercial-b8863b?style=flat-square&labelColor=101f38"></a>
-  <a href="https://github.com/Usir233/GENYEE/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Usir233/GENYEE?style=flat-square&labelColor=101f38&color=b8863b"></a>
 </p>
 
 <p align="center">
@@ -63,7 +62,7 @@ Deploy GENYEE in your own environment with Docker Compose or Kubernetes and conf
 Requires [Docker](https://www.docker.com/), [Docker Compose](https://docs.docker.com/compose/) and [Git](https://git-scm.com/).
 
 ```bash
-git clone https://github.com/Usir233/GENYEE.git
+git clone <repository-url>
 cd GENYEE
 cp .env.example .env    # Edit .env as needed, see comments in the file
 docker compose pull     # Pull the latest images
@@ -354,7 +353,7 @@ The documentation site and product homepage are built from [`website-docs/`](./w
 
 ## Contributing
 
-Welcome to submit [Issues](https://github.com/Usir233/GENYEE/issues) or Pull Requests.
+Welcome to submit issues or pull requests.
 
 - **Process:** Fork → Create branch → Commit changes → Open PR
 - **Standards:** Format code with `gofmt`, follow [Conventional Commits](https://www.conventionalcommits.org/) (`feat:` / `fix:` / `docs:` / `test:` / `refactor:`)
@@ -386,12 +385,6 @@ make test
 `make fmt` formats the entire Go repository, so run it only with a clean worktree and review the resulting diff. Some full-suite tests require local infrastructure or service configuration. If a full check fails for an unrelated baseline or environment reason, include the exact command and failure in the PR while still providing passing targeted tests for your change.
 
 </details>
-
-### Contributors
-
-Thanks to everyone who has contributed:
-
-[![Contributors](https://contrib.rocks/image?repo=Usir233/GENYEE)](https://github.com/Usir233/GENYEE/graphs/contributors)
 
 ## License
 

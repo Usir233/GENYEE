@@ -62,7 +62,7 @@ flowchart TB
 目前受支持的安装方式是从源码构建，尚未提供预编译二进制或 `go install` 安装方式。
 
 ```bash
-git clone https://github.com/Usir233/GENYEE.git
+git clone <repository-url>
 cd GENYEE/cli
 go build -o genyee .
 sudo mv genyee /usr/local/bin/   # 或放到任意 $PATH 目录

@@ -14688,8 +14688,7 @@ definitions:
     type: object
 info:
   contact:
-    name: GENYEE Github
-    url: https://github.com/Usir233/GENYEE
+    name: GENYEE Support
   description: GENYEE 知识库管理系统 API 文档
   termsOfService: http://swagger.io/terms/
   title: GENYEE API

@@ -27,17 +27,17 @@ async function replayCalls() {
 
   const ragConfig = resolveConfig({ baseUrl: mock.url, knowledgeBaseIds: ['kb-product'] })
   const ragTools = new Map(createTools(new WeknoraClient(ragConfig), ragConfig).map(tool => [tool.name, tool]))
-  await ragTools.get('weknora_list_knowledge_bases').execute({}, exec)
-  await ragTools.get('weknora_search').execute({ query: '默认的检索阈值是多少' }, exec)
-  await ragTools.get('weknora_read_document').execute(
+  await ragTools.get('genyee_list_knowledge_bases').execute({}, exec)
+  await ragTools.get('genyee_search').execute({ query: '默认的检索阈值是多少' }, exec)
+  await ragTools.get('genyee_read_document').execute(
     { knowledge_id: 'doc-retrieval-pipeline', page: 1, page_size: 5 },
     exec,
   )
-  await ragTools.get('weknora_ask').execute({ query: '默认的检索阈值是多少' }, exec)
+  await ragTools.get('genyee_ask').execute({ query: '默认的检索阈值是多少' }, exec)
 
   const agentConfig = resolveConfig({ baseUrl: mock.url, agentId: 'agent-42' })
   const agentAsk = createTools(new WeknoraClient(agentConfig), agentConfig)
-    .find(tool => tool.name === 'weknora_ask')
+    .find(tool => tool.name === 'genyee_ask')
   await agentAsk.execute({ query: '部署方式', session_id: 's1', web_search: true }, exec)
 
   return mock.requests.map(request => ({
@@ -112,7 +112,7 @@ test('the plugin only reads response fields the fixture declares', async () => {
     Object.entries(result).filter(([key]) => declared.has(key)),
   ))
   const tools = createTools(new WeknoraClient(config), config)
-  const search = tools.find(tool => tool.name === 'weknora_search')
+  const search = tools.find(tool => tool.name === 'genyee_search')
   // Feed the trimmed shape back through the projection the tool uses.
   const projected = search.output.render({ query: '混合检索' }, {
     query: '混合检索',

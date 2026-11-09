@@ -126,7 +126,7 @@
           <span>{{ $t('settings.navGroups.systemAdministration') }}</span>
         </div>
         <div class="menu-divider"></div>
-        <div class="menu-item" @click="openDocs">
+        <div v-if="docsUrl('home')" class="menu-item" @click="openDocs">
           <t-icon name="help-circle" class="menu-icon" />
           <span class="menu-text-with-icon">
             <span>{{ $t('general.helpAndDocs') }}</span>
@@ -514,7 +514,10 @@ const reopenGuide = () => {
 
 const openDocs = () => {
   menuVisible.value = false
-  window.open(docsUrl('home'), '_blank')
+  const url = docsUrl('home')
+  if (url) {
+    window.open(url, '_blank')
+  }
 }
 
 const githubUrl = computed(() => ((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim())

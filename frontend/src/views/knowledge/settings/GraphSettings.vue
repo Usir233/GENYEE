@@ -26,7 +26,7 @@
         {{ t('common.retry') }}
       </t-button>
       <t-button
-        v-if="graphAvailability === 'disabled' && !embedded"
+        v-if="graphAvailability === 'disabled' && !embedded && graphGuideUrl"
         size="small"
         theme="primary"
         variant="outline"
@@ -609,7 +609,9 @@ const graphGuideUrl =
 
 // Open guide documentation to show how to enable graph database
 const handleOpenGraphGuide = () => {
-  window.open(graphGuideUrl, '_blank', 'noopener')
+  if (graphGuideUrl) {
+    window.open(graphGuideUrl, '_blank', 'noopener')
+  }
 }
 
 // 初始化

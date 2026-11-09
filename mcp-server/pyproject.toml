@@ -57,13 +57,6 @@ test = [
     "pytest-cov>=4.0",
 ]
 
-[project.urls]
-Homepage = "https://github.com/Usir233/GENYEE"
-Documentation = "https://github.com/Usir233/GENYEE/tree/main/website-docs"
-Repository = "https://github.com/Usir233/GENYEE/tree/main/mcp-server"
-"Bug Reports" = "https://github.com/Usir233/GENYEE/issues"
-Changelog = "https://github.com/Usir233/GENYEE/blob/main/mcp-server/CHANGELOG.md"
-
 [project.scripts]
 genyee-mcp-server = "main:run"
 weknora-mcp-server = "main:run"

@@ -7,7 +7,7 @@
   ],
   "calls": [
     {
-      "tool": "weknora_list_knowledge_bases",
+      "tool": "genyee_list_knowledge_bases",
       "method": "GET",
       "path": "/api/v1/knowledge-bases",
       "query": { "resource_urls": "public" },
@@ -15,7 +15,7 @@
       "goRequestType": null
     },
     {
-      "tool": "weknora_search",
+      "tool": "genyee_search",
       "method": "POST",
       "path": "/api/v1/knowledge-search",
       "query": { "resource_urls": "public" },
@@ -26,7 +26,7 @@
       "goRequestType": "session.SearchKnowledgeRequest"
     },
     {
-      "tool": "weknora_search",
+      "tool": "genyee_search",
       "method": "GET",
       "path": "/api/v1/knowledge/search",
       "query": { "keyword": "默认的检索阈值是多少", "limit": "8", "resource_urls": "public" },
@@ -34,7 +34,7 @@
       "goRequestType": null
     },
     {
-      "tool": "weknora_read_document",
+      "tool": "genyee_read_document",
       "method": "GET",
       "path": "/api/v1/chunks/doc-retrieval-pipeline",
       "query": { "page": "1", "page_size": "5", "resource_urls": "public" },
@@ -42,7 +42,7 @@
       "goRequestType": "types.Pagination"
     },
     {
-      "tool": "weknora_read_document",
+      "tool": "genyee_read_document",
       "method": "GET",
       "path": "/api/v1/knowledge/doc-retrieval-pipeline",
       "query": { "resource_urls": "public" },
@@ -50,7 +50,7 @@
       "goRequestType": null
     },
     {
-      "tool": "weknora_ask",
+      "tool": "genyee_ask",
       "method": "POST",
       "path": "/api/v1/sessions",
       "query": { "resource_urls": "public" },
@@ -60,7 +60,7 @@
       "goRequestType": "session.CreateSessionRequest"
     },
     {
-      "tool": "weknora_ask",
+      "tool": "genyee_ask",
       "method": "POST",
       "path": "/api/v1/knowledge-chat/session-mock-1",
       "query": { "resource_urls": "public" },
@@ -72,7 +72,7 @@
       "goRequestType": "session.CreateKnowledgeQARequest"
     },
     {
-      "tool": "weknora_ask",
+      "tool": "genyee_ask",
       "method": "POST",
       "path": "/api/v1/agent-chat/s1",
       "query": { "resource_urls": "public" },

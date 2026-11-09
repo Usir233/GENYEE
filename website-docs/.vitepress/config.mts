@@ -81,7 +81,7 @@ function tokenize(text: string): string[] {
   return tokens
 }
 
-const repo = 'https://github.com/Usir233/GENYEE'
+const repo = ''
 
 export default withMermaid(
   defineConfig({
@@ -138,7 +138,7 @@ export default withMermaid(
 
       sidebar,
 
-      socialLinks: [{ icon: 'github', link: repo }],
+      socialLinks: repo ? [{ icon: 'github', link: repo }] : [],
 
       outline: { level: [2, 3], label: '本页目录' },
 
@@ -154,10 +154,12 @@ export default withMermaid(
         formatOptions: { dateStyle: 'medium', timeStyle: undefined },
       },
 
-      editLink: {
-        pattern: `${repo}/edit/main/website-docs/:path`,
-        text: '在 GitHub 上编辑此页',
-      },
+      ...(repo ? {
+        editLink: {
+          pattern: `${repo}/edit/main/website-docs/:path`,
+          text: '在 GitHub 上编辑此页',
+        },
+      } : {}),
 
       search: {
         provider: 'local',

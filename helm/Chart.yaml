@@ -7,10 +7,6 @@ type: application
 version: 0.1.0
 appVersion: "0.9.0"
 kubeVersion: ">=1.25.0-0"
-home: https://github.com/Usir233/GENYEE
-icon: https://raw.githubusercontent.com/Usir233/GENYEE/main/docs/images/logo.png
-sources:
-  - https://github.com/Usir233/GENYEE
 keywords:
   - ai
   - rag
@@ -20,7 +16,6 @@ keywords:
   - vector-search
   - chatbot
 maintainers:
-  - name: GENYEE Community
-    url: https://github.com/Usir233/GENYEE
+  - name: GENYEE Team
 annotations:
   artifacthub.io/license: LicenseRef-GENYEE-Commercial

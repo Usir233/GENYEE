@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { DOC_PAGES, docsUrl } from './docsUrl'
+import { DOC_PAGES, docsUrl, isDocsAvailable } from './docsUrl'
 
 const WEBSITE_DOCS = resolve(dirname(fileURLToPath(import.meta.url)), '../../../website-docs')
 
@@ -40,18 +40,44 @@ test('every linked doc page and anchor exists in website-docs', () => {
   }
 })
 
-test('docsUrl defaults to /docs/ and respects __RUNTIME_CONFIG__.DOCS_BASE_URL', () => {
+test('docsUrl defaults to empty string and respects __RUNTIME_CONFIG__.DOCS_BASE_URL', () => {
   const prevWindow = (globalThis as any).window
   try {
     delete (globalThis as any).window
-    assert.equal(docsUrl('home'), '/docs/')
-    assert.equal(docsUrl('models'), '/docs/03-features/06-models')
+    assert.equal(docsUrl('home'), '')
+    assert.equal(docsUrl('models'), '')
+    assert.equal(isDocsAvailable(), false)
+
+    ;(globalThis as any).window = {}
+    assert.equal(docsUrl('home'), '')
+    assert.equal(docsUrl('models'), '')
+    assert.equal(isDocsAvailable(), false)
+
+    ;(globalThis as any).window = { __RUNTIME_CONFIG__: {} }
+    assert.equal(docsUrl('home'), '')
+    assert.equal(docsUrl('models'), '')
+    assert.equal(isDocsAvailable(), false)
 
     ;(globalThis as any).window = {
       __RUNTIME_CONFIG__: { DOCS_BASE_URL: 'https://docs.example.com/docs' },
     }
     assert.equal(docsUrl('home'), 'https://docs.example.com/docs/')
     assert.equal(docsUrl('models'), 'https://docs.example.com/docs/03-features/06-models')
+    assert.equal(isDocsAvailable(), true)
+
+    ;(globalThis as any).window = {
+      __RUNTIME_CONFIG__: { DOCS_BASE_URL: '' },
+    }
+    assert.equal(docsUrl('home'), '')
+    assert.equal(docsUrl('models'), '')
+    assert.equal(isDocsAvailable(), false)
+
+    ;(globalThis as any).window = {
+      __RUNTIME_CONFIG__: { DOCS_BASE_URL: '   ' },
+    }
+    assert.equal(docsUrl('home'), '')
+    assert.equal(docsUrl('models'), '')
+    assert.equal(isDocsAvailable(), false)
   } finally {
     if (prevWindow === undefined) {
       delete (globalThis as any).window

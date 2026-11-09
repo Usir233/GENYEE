@@ -63,7 +63,7 @@ echo "=== Step 3: Generate Formula ==="
 cat > "${TAP_DIR}/Formula/${FORMULA_NAME}.rb" << RUBY
 class WeknoraLiteTest < Formula
   desc "GENYEE Lite (local test)"
-  homepage "https://github.com/Usir233/GENYEE"
+  homepage "https://genyee.io"
   version "${VERSION}"
   license "LicenseRef-GENYEE-Commercial"
 

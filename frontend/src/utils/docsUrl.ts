@@ -1,7 +1,7 @@
 /** Default base path of website-docs (VitePress, base `/docs/`). */
 export const DOCS_BASE_URL = '/docs/'
 
-function resolveDocsBaseUrl(): string {
+export function resolveDocsBaseUrl(): string {
   const configured =
     typeof window !== 'undefined'
       ? (window as any).__RUNTIME_CONFIG__?.DOCS_BASE_URL
@@ -10,7 +10,11 @@ function resolveDocsBaseUrl(): string {
     const trimmed = configured.trim()
     return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
   }
-  return DOCS_BASE_URL
+  return ''
+}
+
+export function isDocsAvailable(): boolean {
+  return resolveDocsBaseUrl() !== ''
 }
 
 /**
@@ -33,5 +37,7 @@ export const DOC_PAGES = {
 export type DocPage = keyof typeof DOC_PAGES
 
 export function docsUrl(page: DocPage): string {
-  return resolveDocsBaseUrl() + DOC_PAGES[page]
+  const base = resolveDocsBaseUrl()
+  if (!base) return ''
+  return base + DOC_PAGES[page]
 }

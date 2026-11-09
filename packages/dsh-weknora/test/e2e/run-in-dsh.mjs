@@ -219,7 +219,7 @@ async function main() {
     )
 
     // A. The shipped bundle patch, configured only by environment variables.
-    await scenario({ label: 'A · shipped bundle defaults from env', dsh, home, env, weknora, patch: [], prefix: 'weknora' })
+    await scenario({ label: 'A · shipped bundle defaults from env', dsh, home, env, weknora, patch: [], prefix: 'genyee' })
 
     // B. A profile override, which also renames the tools.
     await scenario({
@@ -250,7 +250,7 @@ async function main() {
       home,
       env,
       weknora,
-      prefix: 'weknora',
+      prefix: 'genyee',
       autoScope: true,
       patch: [{
         id: 'weknora',

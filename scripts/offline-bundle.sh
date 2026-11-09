@@ -114,6 +114,11 @@ fi
 
 profile_enabled() {
     local target="$1"
+    # Langfuse is non-commercial/explicit-opt-in only; --profiles all must NOT bundle it.
+    if [[ "$target" == "langfuse" ]]; then
+        [[ ",${PROFILES}," == *",langfuse,"* ]]
+        return $?
+    fi
     if [[ ",${PROFILES}," == *",all,"* ]]; then
         return 0
     fi
@@ -259,7 +264,7 @@ set_bundle_env WEKNORA_VERSION "$IMAGE_TAG"
 set_bundle_env GENYEE_REGISTRY "$GENYEE_REGISTRY"
 set_bundle_env WEKNORA_SANDBOX_DOCKER_IMAGE "${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}"
 if [[ ",${PROFILES}," == *",all,"* ]]; then
-    set_bundle_env COMPOSE_PROFILES full,minio,qdrant,neo4j,milvus,weaviate,doris,searxng,dex,langfuse,odl-hybrid,mcp
+    set_bundle_env COMPOSE_PROFILES full,minio,qdrant,neo4j,milvus,weaviate,doris,searxng,dex,odl-hybrid,mcp
 else
     set_bundle_env COMPOSE_PROFILES "$PROFILES"
 fi

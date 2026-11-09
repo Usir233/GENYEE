@@ -176,8 +176,6 @@ window.open=function(url){
 // wailsThemeSyncJS：与 index.html 首屏一致，在 DomReady 再跑一遍，覆盖 Ctrl+R 后 runtime 就绪时机
 const wailsThemeSyncJS = `(function(){try{var t=localStorage.getItem('GENYEE_theme')||localStorage.getItem('WeKnora_theme')||'light';if(t==='system')t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';var bg=t==='dark'?'#181818':'#eee';document.documentElement.setAttribute('theme-mode',t);document.documentElement.style.background=bg;document.documentElement.style.minHeight='100%';document.documentElement.style.colorScheme=t==='dark'?'dark':'light';if(document.body){document.body.style.background=bg;document.body.style.minHeight='100%';}var w=window.runtime;if(!w)return;if(t==='dark'){if(w.WindowSetDarkTheme)w.WindowSetDarkTheme();if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(24,24,24,255);}else{if(w.WindowSetLightTheme)w.WindowSetLightTheme();if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(238,238,238,255);}}catch(e){}})()`
 
-const weknoraGitHubRepoURL = "https://github.com/Usir233/GENYEE"
-
 // ensureDesktopLiteEdition marks this process as Lite. cmd/desktop is the
 // Lite app; packaged builds also inject this via ldflags. wails dev often
 // does not, and auto-setup / the embedded SPA / capabilities still key off
@@ -344,27 +342,26 @@ func main() {
 		if app.ctx == nil {
 			return
 		}
-		choice, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
+		_, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
 			Type:          wailsruntime.InfoDialog,
 			Title:         "GENYEE Lite",
-			Message:       fmt.Sprintf("GENYEE Lite — Desktop Edition\n\nA RAG framework for document understanding and semantic Q&A over complex, heterogeneous content.\n\nVersion %s\n© 2026 GENYEE.\n\nGitHub:\n%s", desktopAboutVersion(), weknoraGitHubRepoURL),
-			Buttons:       []string{"Open GitHub", "OK"},
+			Message:       fmt.Sprintf("GENYEE Lite — Desktop Edition\n\nA RAG framework for document understanding and semantic Q&A over complex, heterogeneous content.\n\nVersion %s\n© 2026 GENYEE.", desktopAboutVersion()),
+			Buttons:       []string{"OK"},
 			DefaultButton: "OK",
 		})
 		if err != nil {
 			logger.Warnf(context.Background(), "About dialog: %v", err)
 			return
 		}
-		if choice == "Open GitHub" {
-			wailsruntime.BrowserOpenURL(app.ctx, weknoraGitHubRepoURL)
-		}
 	})
-	FileMenu.AddText("Check for Updates...", nil, func(_ *menu.CallbackData) {
-		if app.ctx == nil {
-			return
-		}
-		checkUpdate(app.ctx, desktopAboutVersion(), true, false)
-	})
+	if _, configured := resolveUpdateReleaseURL(); configured {
+		FileMenu.AddText("Check for Updates...", nil, func(_ *menu.CallbackData) {
+			if app.ctx == nil {
+				return
+			}
+			checkUpdate(app.ctx, desktopAboutVersion(), true, false)
+		})
+	}
 	FileMenu.AddSeparator()
 	FileMenu.AddText("Quit", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
 		app.shutdown(context.Background())

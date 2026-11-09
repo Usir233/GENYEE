@@ -272,7 +272,6 @@ python test_module.py            # 运行测试
 ---
 
 **项目状态**: ✅ 完成并可投入使用
-**项目仓库**: https://github.com/Usir233/GENYEE/tree/main/mcp-server
 **PyPI 包名**: `genyee-mcp`
 **最后更新**: 2025年10月
 **版本**: 1.0.0

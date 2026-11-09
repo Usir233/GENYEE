@@ -156,12 +156,13 @@
             <pre class="migration-error-detail">{{ systemInfo.db_migration_error }}</pre>
             <div class="migration-error-actions">
               <t-link
+                v-if="troubleshootingDocsURL"
                 theme="primary"
                 :href="troubleshootingDocsURL"
                 target="_blank"
                 rel="noopener noreferrer"
               >{{ $t('system.dbMigrationViewDocs') }}</t-link>
-              <span v-if="githubUrl" class="migration-error-actions-sep">·</span>
+              <span v-if="troubleshootingDocsURL && githubUrl" class="migration-error-actions-sep">·</span>
               <t-link
                 v-if="githubUrl"
                 theme="primary"

@@ -6,4 +6,7 @@ window.__RUNTIME_CONFIG__ = {
   EMBED_BASE_URL: '',
   // Optional: default UI locale for first-time visitors (zh-CN | zh-TW | en-US | ru-RU | ko-KR | ja-JP)
   DEFAULT_LOCALE: '',
+  // Default unhosted: set to valid URL when docs/website are published
+  DOCS_BASE_URL: '',
+  WEBSITE_URL: '',
 };

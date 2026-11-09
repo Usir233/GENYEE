@@ -116,12 +116,12 @@ test("URL import helper posts the selected URL payload", async () => {
     }
   };
 
-  await createKnowledgeFromURL("kb-1", "https://github.com/Usir233/GENYEE", true);
+  await createKnowledgeFromURL("kb-1", "https://example.com/article", true);
 
   assert.equal(capturedRequest.method, "POST");
   assert.equal(capturedRequest.url, "https://weknora.example.com/api/v1/knowledge-bases/kb-1/knowledge/url");
   assert.deepEqual(capturedRequest.data, {
-    url: "https://github.com/Usir233/GENYEE",
+    url: "https://example.com/article",
     enable_multimodel: true
   });
 });

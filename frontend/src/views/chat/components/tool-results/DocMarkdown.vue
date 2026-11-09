@@ -69,6 +69,7 @@
 import { computed } from 'vue'
 import { marked } from 'marked'
 import { safeDocUrl } from '@/utils/catalogToolDisplay'
+import { docsUrl } from '@/utils/docsUrl'
 
 type MdToken = {
   type: string
@@ -94,7 +95,8 @@ const headingTag = computed(() => {
   const depth = Math.min(6, Math.max(1, props.token?.depth || 2))
   return `h${depth}`
 })
-const linkHref = computed(() => safeDocUrl(props.token?.href || ''))
+const docsHosted = computed(() => Boolean(docsUrl('home')))
+const linkHref = computed(() => (docsHosted.value ? safeDocUrl(props.token?.href || '') : ''))
 
 function inline(token: MdToken): MdToken[] {
   if (token.tokens?.length) return token.tokens

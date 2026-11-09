@@ -11,8 +11,7 @@ const docTemplate = `{
         "title": "{{.Title}}",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
-            "name": "GENYEE Github",
-            "url": "https://github.com/Usir233/GENYEE"
+            "name": "GENYEE Support"
         },
         "version": "{{.Version}}"
     },

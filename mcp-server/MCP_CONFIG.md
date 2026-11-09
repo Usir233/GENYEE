@@ -2,7 +2,7 @@
 
 > 更推荐使用`uv`来运行基于python的MCP服务。
 >
-> 也可通过 PyPI 安装：`pip install genyee-mcp`，或使用 `uvx --from genyee-mcp genyee-mcp-server`（官方包名 `genyee-mcp`，由 [Usir233/GENYEE](https://github.com/Usir233/GENYEE) 维护）。
+> 也可通过 PyPI 安装：`pip install genyee-mcp`，或使用 `uvx --from genyee-mcp genyee-mcp-server`（官方包名 `genyee-mcp`）。
 
 ## 1. 安装 uv
 

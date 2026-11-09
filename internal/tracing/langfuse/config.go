@@ -121,7 +121,7 @@ func LoadConfigFromEnv() Config {
 	return cfg
 }
 
-// Validate verifies required fields are present when Langfuse is enabled.
+// Validate verifies required fields are present when Langfuse / standard OTLP is enabled.
 func (c Config) Validate() error {
 	if !c.Enabled {
 		return nil
@@ -129,8 +129,10 @@ func (c Config) Validate() error {
 	if strings.TrimSpace(c.Host) == "" {
 		return fmt.Errorf("langfuse: host is required when enabled")
 	}
-	if c.PublicKey == "" || c.SecretKey == "" {
-		return fmt.Errorf("langfuse: public_key and secret_key are required when enabled")
+	// Allow keyless standard OpenTelemetry / Jaeger collector connections.
+	// If credentials are provided, both public_key and secret_key are required.
+	if (c.PublicKey != "" && c.SecretKey == "") || (c.PublicKey == "" && c.SecretKey != "") {
+		return fmt.Errorf("langfuse: both public_key and secret_key are required when credentials are provided")
 	}
 	return nil
 }

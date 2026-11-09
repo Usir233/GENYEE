@@ -6,6 +6,7 @@
   >
     <template #actions>
       <IntegrationExternalCta
+        v-if="githubUrl || docsUrl('clients/cli')"
         :label="$t('integrations.cli.docs')"
         :hint="$t('integrations.cli.docsHint')"
         @click="openDocs"
@@ -109,6 +110,8 @@ const examples = [
 const copy = (command: string) => copyWithToast(command, 'integrations.cli.copied')
 const openDocs = () => {
   const url = githubUrl.value ? `${githubUrl.value}/blob/main/cli/README.md` : docsUrl('clients/cli')
-  window.open(url, '_blank', 'noopener,noreferrer')
+  if (url) {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
 }
 </script>

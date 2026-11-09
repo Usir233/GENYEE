@@ -6,8 +6,7 @@
 // @description     GENYEE 知识库管理系统 API 文档
 // @termsOfService  http://swagger.io/terms/
 //
-// @contact.name   GENYEE Github
-// @contact.url    https://github.com/Usir233/GENYEE
+// @contact.name   GENYEE Support
 //
 // @BasePath  /api/v1
 //

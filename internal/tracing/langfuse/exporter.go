@@ -19,16 +19,28 @@ import (
 // server returns 400 "requires Python SDK >= 4.0.0"). The x-langfuse-sdk-*
 // markers are sent for parity; WeKnora is a Go client, not the Python SDK.
 func newExporter(ctx context.Context, cfg Config) (sdktrace.SpanExporter, error) {
-	endpoint := strings.TrimRight(cfg.Host, "/") + "/api/public/otel/v1/traces"
-	creds := cfg.PublicKey + ":" + cfg.SecretKey
+	var endpoint string
+	trimmedHost := strings.TrimRight(cfg.Host, "/")
+	if strings.HasSuffix(trimmedHost, "/v1/traces") || strings.HasSuffix(trimmedHost, "/api/public/otel/v1/traces") {
+		endpoint = trimmedHost
+	} else if cfg.PublicKey != "" && cfg.SecretKey != "" {
+		endpoint = trimmedHost + "/api/public/otel/v1/traces"
+	} else {
+		// Keyless standard OTLP / Jaeger exporter endpoint
+		endpoint = trimmedHost + "/v1/traces"
+	}
+
 	opts := []otlptracehttp.Option{
 		otlptracehttp.WithEndpointURL(endpoint),
-		otlptracehttp.WithHeaders(map[string]string{
+	}
+	if cfg.PublicKey != "" && cfg.SecretKey != "" {
+		creds := cfg.PublicKey + ":" + cfg.SecretKey
+		opts = append(opts, otlptracehttp.WithHeaders(map[string]string{
 			"Authorization":                "Basic " + base64.StdEncoding.EncodeToString([]byte(creds)),
 			"x-langfuse-ingestion-version": "4",
 			"x-langfuse-sdk-name":          "python",
 			"x-langfuse-sdk-version":       langfuseScopeVersion,
-		}),
+		}))
 	}
 	if cfg.RequestTimeout > 0 {
 		opts = append(opts, otlptracehttp.WithTimeout(cfg.RequestTimeout))

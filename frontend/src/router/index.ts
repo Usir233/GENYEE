@@ -232,6 +232,11 @@ const router = createRouter({
       component: () => import('../views/dev/MarkdownTestPage.vue'),
       meta: { requiresAuth: false, requiresInit: false }
     }] : []),
+    // Fallback for unhosted docs paths to prevent empty router-view blank screens
+    {
+      path: "/docs/:pathMatch(.*)*",
+      redirect: "/platform/knowledge-bases",
+    },
   ],
 });
 

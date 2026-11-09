@@ -106,7 +106,7 @@ app:
     allowPrivilegeEscalation: false
 
   # -- Environment variables for the app container
-  # Ref: https://github.com/Usir233/GENYEE/blob/main/docker-compose.yml
+  # Ref: docker-compose.yml
   env:
     GIN_MODE: release
     # -- Retrieval driver: postgres, elasticsearch_v7, elasticsearch_v8, qdrant

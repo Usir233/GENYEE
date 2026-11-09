@@ -14,7 +14,7 @@ test('an empty config resolves to documented defaults', () => {
   const config = resolveConfig(undefined)
   assert.equal(config.baseUrl, 'http://localhost:8080/api/v1')
   assert.equal(config.maxResults, 8)
-  assert.equal(config.toolPrefix, 'weknora')
+  assert.equal(config.toolPrefix, 'genyee')
   assert.equal(config.resourceUrls, 'public')
   assert.deepEqual(config.knowledgeBaseIds, [])
   assert.deepEqual(config.tools, { listKnowledgeBases: true, search: true, readDocument: true, ask: true })

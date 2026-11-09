@@ -65,7 +65,7 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.InfoDialog,
 					Title:         "Check for Updates",
-					Message:       "Online update checks are disabled by default. Configure GENYEE_UPDATE_URL or GENYEE_UPDATE_REPO to enable update checks.",
+					Message:       "Online update checks are currently disabled.",
 					Buttons:       []string{"OK"},
 					DefaultButton: "OK",
 				})
@@ -112,7 +112,7 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.ErrorDialog,
 					Title:         "Check Update Failed",
-					Message:       fmt.Sprintf("Failed to connect to GitHub to check for updates:\n%v", err),
+					Message:       fmt.Sprintf("Failed to connect to update server:\n%v", err),
 					Buttons:       []string{"OK"},
 					DefaultButton: "OK",
 				})
@@ -122,11 +122,11 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
-			logger.Warnf(context.Background(), "GitHub API returned status code: %d", resp.StatusCode)
+			logger.Warnf(context.Background(), "Update server returned status code: %d", resp.StatusCode)
 			if showUpToDate {
-				msg := fmt.Sprintf("GitHub API returned an unexpected status code: %d", resp.StatusCode)
+				msg := fmt.Sprintf("Update server returned an unexpected status code: %d", resp.StatusCode)
 				if resp.StatusCode == 403 {
-					msg = "GitHub API rate limit exceeded. Please try again later."
+					msg = "Update server rate limit reached. Please try again later."
 				}
 				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.ErrorDialog,
@@ -171,7 +171,7 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 				if choice == "Download" {
 					if assetURL != "" {
 						downloadAndInstall(ctx, assetURL, assetName, currentVersion, latestVersion, false)
-					} else {
+					} else if release.HTMLURL != "" {
 						// Fallback to opening the release page if no specific asset is found
 						wailsruntime.BrowserOpenURL(ctx, release.HTMLURL)
 					}

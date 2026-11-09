@@ -74,6 +74,7 @@ import {
   parseCatalogPayload,
   safeDocUrl,
 } from '@/utils/catalogToolDisplay'
+import { docsUrl } from '@/utils/docsUrl'
 import DocMarkdown from './DocMarkdown.vue'
 
 const props = withDefaults(defineProps<{
@@ -84,11 +85,12 @@ const props = withDefaults(defineProps<{
 }>(), { output: '', success: undefined })
 
 const { t } = useI18n()
+const docsHosted = computed(() => Boolean(docsUrl('home')))
 const payload = computed(() => parseCatalogPayload(props.output, props.data))
 const pages = computed(() => docPages(payload.value))
 const hits = computed(() => docHits(payload.value))
 const read = computed(() => docReadView(payload.value))
-const readHref = computed(() => safeDocUrl(read.value.url))
+const readHref = computed(() => (docsHosted.value ? safeDocUrl(read.value.url) : ''))
 const listingPages = computed(() => Array.isArray(payload.value.pages))
 const rows = computed(() => {
   const source = listingPages.value
@@ -96,7 +98,7 @@ const rows = computed(() => {
     : hits.value
   return source.map((row) => ({
     ...row,
-    href: safeDocUrl(row.url),
+    href: docsHosted.value ? safeDocUrl(row.url) : '',
     locator: row.anchor ? `${row.path}#${row.anchor}` : row.path,
   }))
 })

@@ -15,9 +15,8 @@
 ## [1.1.1] - 2026-07-30
 
 ### 变更
-- 官方 PyPI 包名改为 **`genyee-mcp`**（由 Usir233/GENYEE 仓库 CI 通过 Trusted Publishing 发布）。
+- 官方 PyPI 包名改为 **`genyee-mcp`**。
   原社区包 `weknora-mcp` 非官方维护，请迁移安装命令。
-- 项目 URL 指向 [Usir233/GENYEE](https://github.com/Usir233/GENYEE) 官方仓库（`mcp-server/` 目录）。
 
 ### 修复
 - HTTP 传输恢复 `stateless_http=True`，与迁移前 `StreamableHTTPSessionManager(stateless=True)` 行为一致。

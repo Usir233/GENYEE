@@ -2,7 +2,7 @@
 
 [![License: GENYEE Commercial](https://img.shields.io/badge/License-GENYEE_Commercial-blue.svg)](../LICENSE)
 
-Helm chart for deploying [GENYEE](https://github.com/Usir233/GENYEE) - an AI-powered Knowledge RAG Platform.
+Helm chart for deploying GENYEE - an AI-powered Knowledge RAG Platform.
 
 ## Overview
 
@@ -457,7 +457,7 @@ kubectl logs -n genyee -l app.kubernetes.io/component=frontend -f
 
 ## Contributing
 
-See [CONTRIBUTING.md](https://github.com/Usir233/GENYEE/blob/main/CONTRIBUTING.md) in the main repository.
+See [CONTRIBUTING.md](../CONTRIBUTING.md) in the main repository.
 
 ## References
 

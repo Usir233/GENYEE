@@ -11,7 +11,7 @@ export type Adopter = {
   link?: { href: string; label: string };
 };
 
-export const adopterIssue = "https://github.com/Usir233/GENYEE/issues";
+export const adopterIssue = "";
 
 // Enterprise industry scenarios and typical deployment patterns. See BRAND-ASSETS.md for asset details.
 export const adopters: Adopter[] = [

@@ -50,7 +50,7 @@ For contributing to the CLI source, see [AGENTS.md](AGENTS.md).
 Requires Go 1.26+.
 
 ```bash
-git clone https://github.com/Usir233/GENYEE.git
+git clone <repository-url>
 cd GENYEE/cli
 go build -o genyee .
 sudo mv genyee /usr/local/bin/   # or anywhere on $PATH
@@ -147,10 +147,10 @@ For AI agents (any MCP-capable host) integrating GENYEE:
 **Bundled Agent Skills.** This CLI ships [Agent Skills](https://agentskills.io/specification)
 under [`skills/`](skills/) that teach an agent to drive GENYEE without trial and error:
 
-- [`weknora-shared`](skills/weknora-shared/SKILL.md) — **read first**: auth/profile
+- [`genyee-shared`](skills/genyee-shared/SKILL.md) — **read first**: auth/profile
   sequence, `--kb` resolution, the JSON-envelope + exit-code contract, the exit-10
   protocol, `--dry-run`, and CLI-vs-MCP selection.
-- [`weknora-rag-search`](skills/weknora-rag-search/SKILL.md) — when to use `chat`
+- [`genyee-rag-search`](skills/genyee-rag-search/SKILL.md) — when to use `chat`
   vs `session ask` vs `search chunks`, plus retrieval gotchas.
 
 Install them with the CLI (the skills are embedded in the binary, no checkout
@@ -451,8 +451,7 @@ macOS / Windows × Go 1.26, path-filtered to changes under `cli/`.
 
 ## Contributing / Reporting issues
 
-- **Bugs and feature requests**: file an issue at
-  [github.com/Usir233/GENYEE/issues](https://github.com/Usir233/GENYEE/issues).
+- **Bugs and feature requests**: please contact support or file an issue through your commercial support channels.
 - **Security disclosures**: see the repository-level
   [SECURITY.md](../SECURITY.md). Do not file public issues for
   security findings.

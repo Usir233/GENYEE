@@ -109,39 +109,73 @@ test('operation results show localized names and retain IDs as tooltips', async 
 })
 
 test('product docs render pages, sections, and markdown instead of raw JSON', async () => {
-  const search = await render({
-    displayType: 'search_weknora_docs',
-    success: true,
-    output: JSON.stringify({
-      results: [{
-        path: '03-features/14-wiki', anchor: 'setup', section: '安装',
-        url: 'javascript:alert(1)', snippet: '<script>alert(1)</script>',
-      }],
-    }),
-  })
-  assert.match(search, /安装/)
-  assert.match(search, /03-features\/14-wiki#setup/)
-  assert.match(search, /&lt;script&gt;/)
-  assert.doesNotMatch(search, /javascript:|fallback-output|<script>/)
+  const prevWindow = (globalThis as any).window
+  try {
+    ;(globalThis as any).window = {
+      __RUNTIME_CONFIG__: { DOCS_BASE_URL: 'https://docs.example' },
+    }
+    const search = await render({
+      displayType: 'search_weknora_docs',
+      success: true,
+      output: JSON.stringify({
+        results: [{
+          path: '03-features/14-wiki', anchor: 'setup', section: '安装',
+          url: 'javascript:alert(1)', snippet: '<script>alert(1)</script>',
+        }],
+      }),
+    })
+    assert.match(search, /安装/)
+    assert.match(search, /03-features\/14-wiki#setup/)
+    assert.match(search, /&lt;script&gt;/)
+    assert.doesNotMatch(search, /javascript:|fallback-output|<script>/)
 
-  const read = await render({
-    displayType: 'read_weknora_doc',
-    success: true,
-    output: JSON.stringify({
-      title: 'Wiki',
-      path: '03-features/14-wiki',
-      section: '安装',
-      url: 'https://docs.example/wiki#setup',
-      content: '# 安装\n\n先准备 [环境](https://docs.example/env)。',
-      outline: [{ anchor: 'setup', heading: '安装', level: 2 }],
-      truncated: true,
-    }),
-  })
-  assert.match(read, /<h1 class="doc-h doc-h-1"/)
-  assert.match(read, /安装/)
-  assert.match(read, /href="https:\/\/docs\.example\/env"/)
-  assert.match(read, /href="https:\/\/docs\.example\/wiki#setup"/)
-  assert.match(read, /Open in docs/)
-  assert.match(read, /The page continues/)
-  assert.doesNotMatch(read, /fallback-output|"content"/)
+    const read = await render({
+      displayType: 'read_weknora_doc',
+      success: true,
+      output: JSON.stringify({
+        title: 'Wiki',
+        path: '03-features/14-wiki',
+        section: '安装',
+        url: 'https://docs.example/wiki#setup',
+        content: '# 安装\n\n先准备 [环境](https://docs.example/env)。',
+        outline: [{ anchor: 'setup', heading: '安装', level: 2 }],
+        truncated: true,
+      }),
+    })
+    assert.match(read, /<h1 class="doc-h doc-h-1"/)
+    assert.match(read, /安装/)
+    assert.match(read, /href="https:\/\/docs\.example\/env"/)
+    assert.match(read, /href="https:\/\/docs\.example\/wiki#setup"/)
+    assert.match(read, /Open in docs/)
+    assert.match(read, /The page continues/)
+    assert.doesNotMatch(read, /fallback-output|"content"/)
+
+    // Unhosted mode: when DOCS_BASE_URL is empty, doc URLs and Open in docs are omitted
+    ;(globalThis as any).window = {
+      __RUNTIME_CONFIG__: { DOCS_BASE_URL: '' },
+    }
+    const unhosted = await render({
+      displayType: 'read_weknora_doc',
+      success: true,
+      output: JSON.stringify({
+        title: 'Wiki',
+        path: '03-features/14-wiki',
+        section: '安装',
+        url: 'https://docs.example/wiki#setup',
+        content: '# 安装\n\n先准备 [环境](https://docs.example/env)。',
+        outline: [{ anchor: 'setup', heading: '安装', level: 2 }],
+        truncated: true,
+      }),
+    })
+    assert.match(unhosted, /安装/)
+    assert.doesNotMatch(unhosted, /href="https:\/\/docs\.example\/env"/)
+    assert.doesNotMatch(unhosted, /href="https:\/\/docs\.example\/wiki#setup"/)
+    assert.doesNotMatch(unhosted, /Open in docs/)
+  } finally {
+    if (prevWindow === undefined) {
+      delete (globalThis as any).window
+    } else {
+      ;(globalThis as any).window = prevWindow
+    }
+  }
 })

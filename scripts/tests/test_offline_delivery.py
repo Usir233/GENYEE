@@ -153,6 +153,11 @@ else:
         self.assertFalse(any("langfuse" in row["profile"] for row in self.manifest()["images"]))
         self.assertEqual(self.environment()["COMPOSE_PROFILES"], "full")
 
+    def test_all_does_not_bundle_langfuse_images(self):
+        self.build("--manifest-only", "--profiles", "all")
+        self.assertFalse(any("langfuse" in row["profile"] for row in self.manifest()["images"]))
+        self.assertNotIn("langfuse", self.environment()["COMPOSE_PROFILES"].split(","))
+
     def test_core_only_bundle_and_manifest_only_dry_run(self):
         self.build("--manifest-only", "--profiles", "")
         self.assertEqual(self.environment()["COMPOSE_PROFILES"], "")

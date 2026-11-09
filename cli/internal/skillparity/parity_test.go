@@ -1,4 +1,4 @@
-// Package skillparity contains the K6 drift guard: every weknora command and
+// Package skillparity contains the K6 drift guard: every genyee command and
 // long flag referenced in a bundled Agent Skill (cli/skills/**) must still
 // exist in the live cobra command tree. A skill that references a renamed or
 // removed flag/command is worse than no skill, so this fails CI on drift.
@@ -145,7 +145,7 @@ func TestSkillsReferenceLiveCommandsAndFlags(t *testing.T) {
 		}
 	}
 	if !checkedAny {
-		t.Fatal("parser resolved no weknora commands from skills — check tokenizer")
+		t.Fatal("parser resolved no genyee commands from skills — check tokenizer")
 	}
 }
 

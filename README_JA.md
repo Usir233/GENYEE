@@ -11,7 +11,6 @@
   <a href="./website-docs/01-getting-started/01-introduction.md"><img alt="ドキュメント" src="https://img.shields.io/badge/docs-中国語-b8863b?style=flat-square&labelColor=101f38"></a>
   <a href="./CHANGELOG.md"><img alt="リリース" src="https://img.shields.io/badge/release-v0.9.0-b8863b?style=flat-square&labelColor=101f38"></a>
   <a href="./LICENSE"><img alt="ライセンス" src="https://img.shields.io/badge/license-Commercial-b8863b?style=flat-square&labelColor=101f38"></a>
-  <a href="https://github.com/Usir233/GENYEE/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Usir233/GENYEE?style=flat-square&labelColor=101f38&color=b8863b"></a>
 </p>
 
 <p align="center">
@@ -63,7 +62,7 @@ Docker Compose または Kubernetes を使用して自分の環境に GENYEE を
 [Docker](https://www.docker.com/)、[Docker Compose](https://docs.docker.com/compose/)、[Git](https://git-scm.com/) が必要です。
 
 ```bash
-git clone https://github.com/Usir233/GENYEE.git
+git clone <repository-url>
 cd GENYEE
 cp .env.example .env    # 必要に応じて .env を編集（詳細はファイル内のコメント参照）
 docker compose pull     # 最新イメージを取得
@@ -354,7 +353,7 @@ make dev-frontend   # フロントエンドを起動（新しいターミナル�
 
 ## 貢献ガイド
 
-[Issue](https://github.com/Usir233/GENYEE/issues) や Pull Request の提出を歓迎します。
+Issue や Pull Request の提出を歓迎します。
 
 - **フロー：** Fork → ブランチ作成 → 変更をコミット → PR を作成
 - **規約：** `gofmt` でコードをフォーマットし、[Conventional Commits](https://www.conventionalcommits.org/) に従う（`feat:` / `fix:` / `docs:` / `test:` / `refactor:`）
@@ -386,12 +385,6 @@ make test
 `make fmt` はリポジトリ全体の Go コードをフォーマットするため、ワークツリーがクリーンな状態でのみ実行し、生じた差分を確認してください。一部の全体テストはローカルのインフラやサービス設定を必要とします。無関係なベースラインや環境の理由で全体チェックが失敗した場合は、実行したコマンドとエラーを PR に記載し、変更範囲の対象テストが通ることを示してください。
 
 </details>
-
-### コントリビューター
-
-すべてのコントリビューターに感謝します：
-
-[![Contributors](https://contrib.rocks/image?repo=Usir233/GENYEE)](https://github.com/Usir233/GENYEE/graphs/contributors)
 
 ## ライセンス
 

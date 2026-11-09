@@ -18,7 +18,7 @@ export interface Config {
   tenantId?: string
   /** Default knowledge-base scope when a call names none. */
   knowledgeBaseIds?: string[]
-  /** Default custom agent for `weknora_ask`; omitted uses the RAG pipeline. */
+  /** Default custom agent for `genyee_ask`; omitted uses the RAG pipeline. */
   agentId?: string
   /** Default and maximum number of chunks a search returns. */
   maxResults?: number
@@ -63,7 +63,7 @@ const DEFAULTS = {
   requestTimeoutMs: 30_000,
   chatTimeoutMs: 300_000,
   resourceUrls: 'public',
-  toolPrefix: 'weknora',
+  toolPrefix: 'genyee',
 } as const
 
 /** Thrown when a patch row configures this plugin in a way it cannot serve. */

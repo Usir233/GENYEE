@@ -9,7 +9,7 @@ import { AdopterShowcase } from "./adopter-showcase";
 import { clients, dataSources, modelProviders, IntegrationMark } from "./brands";
 import s from "./home.module.css";
 
-const repo = "https://github.com/Usir233/GENYEE";
+const repo = "";
 const docs = "/docs/";
 const guide = (path: string) => `${docs}${path}.html`;
 const modes = [

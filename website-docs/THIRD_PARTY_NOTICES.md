@@ -608,5 +608,4 @@ upstream source archives and build scripts for the unmodified service images and
 Debian/Alpine packages) on a durable physical medium or via electronic download
 at no charge beyond the cost of physically performing the source distribution.
 To request Corresponding Source under this offer, please contact GENYEE support
-through the support channel specified in your commercial license agreement or
-at [`https://github.com/Usir233/GENYEE/issues`](https://github.com/Usir233/GENYEE/issues).
+through the support channel specified in your commercial license agreement.

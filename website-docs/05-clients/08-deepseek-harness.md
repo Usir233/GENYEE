@@ -22,12 +22,12 @@ dsh web
 
 | 工具 | 用途 |
 | --- | --- |
-| `weknora_list_knowledge_bases` | 列出可见知识库及 ID |
-| `weknora_search` | 混合检索片段，同时匹配文档标题；返回知识 ID、分块序号与得分 |
-| `weknora_read_document` | 按文档读取有序正文，首屏含标题/摘要，长文可翻页 |
-| `weknora_ask` | 在 GENYEE 创建或续接会话，返回答案、引用和服务端工具过程 |
+| `genyee_list_knowledge_bases` | 列出可见知识库及 ID |
+| `genyee_search` | 混合检索片段，同时匹配文档标题；返回知识 ID、分块序号与得分 |
+| `genyee_read_document` | 按文档读取有序正文，首屏含标题/摘要，长文可翻页 |
+| `genyee_ask` | 在 GENYEE 创建或续接会话，返回答案、引用和服务端工具过程 |
 
-`search` 返回检索证据，供 dsh 生成回答；`ask` 在 GENYEE 服务端调用模型并创建会话和消息，适合综合多篇资料。两者均不修改知识库内容。
+`genyee_search` 返回检索证据，供 dsh 生成回答；`genyee_ask` 在 GENYEE 服务端调用模型并创建会话和消息，适合综合多篇资料。两者均不修改知识库内容。
 
 未指定知识库范围时，插件解析该凭据可见的全部知识库，进程内缓存并供 search/ask 共用。配置 agentId 后 ask 走 Agent 流程，知识范围由该 Agent 在服务端解析。
 
@@ -47,7 +47,7 @@ dsh web
     requestTimeoutMs: 30000
     chatTimeoutMs: 300000
     resourceUrls: public
-    toolPrefix: weknora
+    toolPrefix: genyee
     tools:
       listKnowledgeBases: true
       search: true
@@ -55,7 +55,11 @@ dsh web
       ask: true
 ```
 
-配置更新会整体替换该行 `config`，应包含需要保留的字段。`tools.*` 默认全部启用。连接多个部署时，分别设置不同的 `toolPrefix`；名称须以小写字母开头，且仅含小写字母、数字和下划线。
+配置更新会整体替换该行 `config`，应包含需要保留的字段。`tools.*` 默认全部启用。
+
+插件默认工具前缀为 `genyee`，注册工具名称为 `genyee_list_knowledge_bases`、`genyee_search`、`genyee_read_document`、`genyee_ask`。
+
+`toolPrefix` 完整支持自定义重命名：连接多个部署或需避免命名冲突时，可设置不同的 `toolPrefix`（例如 `internal_kb`、`public_kb`，或配置 `toolPrefix: weknora` 以向后兼容旧版 Prompt/脚本）；前缀名称须以小写字母开头，且仅含小写字母、数字和下划线（正则 `^[a-z][a-z0-9_]*$`）。
 
 ## 引用图片与排查
 

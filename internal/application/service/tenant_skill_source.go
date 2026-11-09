@@ -38,7 +38,7 @@ func (e *skillSourceHTTPError) Unwrap() error {
 
 const (
 	defaultSkillRegistryOrigin = "https://clawhub.ai"
-	skillSourceUserAgent       = "GENYEE-SkillInstaller (+https://github.com/Usir233/GENYEE)"
+	skillSourceUserAgent       = "GENYEE-SkillInstaller/1.0"
 	skillSourceFetchTimeout    = 5 * time.Minute
 	skillSourceMaxHops         = 3
 )

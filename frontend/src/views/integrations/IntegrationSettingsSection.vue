@@ -7,6 +7,7 @@
           <p class="section-description">
             {{ $t('agentEditor.im.description') }}
             <a
+              v-if="docsUrl('imIntegration')"
               :href="docsUrl('imIntegration')"
               target="_blank"
               rel="noopener noreferrer"

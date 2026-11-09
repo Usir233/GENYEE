@@ -76,8 +76,8 @@ function calledTools(messages) {
  * @returns the base URL (with `/v1`), the recorded requests, and a close function.
  */
 export async function startFakeModel(options = {}) {
-  const searchTool = options.searchTool ?? 'weknora_search'
-  const readTool = options.readTool ?? 'weknora_read_document'
+  const searchTool = options.searchTool ?? 'genyee_search'
+  const readTool = options.readTool ?? 'genyee_read_document'
   const requests = []
 
   const server = createServer((request, response) => {
