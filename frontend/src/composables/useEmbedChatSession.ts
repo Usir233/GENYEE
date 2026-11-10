@@ -17,7 +17,7 @@ import {
   stopEmbedSession,
 } from '@/api/embed'
 import { embedToast } from '@/utils/embedToast'
-import { buildQueryWithHostContext } from '@/utils/embedContext'
+import { buildQueryWithHostContext, stripHostContextFromQuery } from '@/utils/embedContext'
 import { fileToDataURI } from '@/utils/embedFile'
 import { MAX_FILE_SIZE_BYTES, MAX_FILE_SIZE_MB } from '@/utils/index'
 import { inlineUploadsFitRequest } from '@/utils/inlineUploadSize'
@@ -81,7 +81,7 @@ export function useEmbedChatSession(options: {
     if (index <= 0) return ''
     const previous = messagesList[index - 1]
     if (previous && previous.role === 'user') {
-      return String(previous.content || '')
+      return stripHostContextFromQuery(String(previous.content || ''))
     }
     return ''
   }
