@@ -128,10 +128,11 @@ class DocReaderConfig:
     # Temp image output directory (shared with Go app via volume, local mode fallback)
     image_output_dir: str
 
-    # OpenDataLoader timeout & JVM memory bounds
+    # OpenDataLoader timeout, JVM memory bounds & hybrid service token
     odl_hybrid_timeout_ms: int = 30000
     odl_timeout_seconds: int = 120
     odl_java_max_heap_mb: int = 1024
+    odl_hybrid_auth_token: str = ""
 
     @property
     def grpc_max_message_size_bytes(self) -> int:
@@ -230,6 +231,9 @@ def load_config() -> DocReaderConfig:
         odl_hybrid_timeout_ms=_positive_int("DOCREADER_ODL_HYBRID_TIMEOUT_MS", 30000),
         odl_timeout_seconds=_positive_int("DOCREADER_ODL_TIMEOUT_SECONDS", 120),
         odl_java_max_heap_mb=_positive_int("DOCREADER_ODL_JAVA_MAX_HEAP_MB", 1024),
+        odl_hybrid_auth_token=_get_str(
+            ["ODL_HYBRID_AUTH_TOKEN", "DOCREADER_ODL_HYBRID_AUTH_TOKEN"], ""
+        ).strip(),
     )
 
 
@@ -253,6 +257,11 @@ def dump_config(mask_secrets: bool = True) -> Dict[str, Any]:
         "DOCREADER_ODL_HYBRID_TIMEOUT_MS": cfg.odl_hybrid_timeout_ms,
         "DOCREADER_ODL_TIMEOUT_SECONDS": cfg.odl_timeout_seconds,
         "DOCREADER_ODL_JAVA_MAX_HEAP_MB": cfg.odl_java_max_heap_mb,
+        "ODL_HYBRID_AUTH_TOKEN": (
+            _mask_secret(cfg.odl_hybrid_auth_token)
+            if mask_secrets
+            else cfg.odl_hybrid_auth_token
+        ),
         "DOCREADER_ODL_MARKDOWN_WITH_HTML": cfg.odl_markdown_with_html,
         "DOCREADER_HTML_MAIN_CONTENT": cfg.html_main_content,
         "DOCREADER_PDF_RENDER_MAX_WORKERS": cfg.pdf_render_max_workers,

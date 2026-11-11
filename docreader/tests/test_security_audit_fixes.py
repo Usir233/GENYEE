@@ -32,7 +32,7 @@ from PIL import Image
 import pytest
 
 from docreader.auth import AuthConfigError, AuthInterceptor
-from docreader.config import dump_config, mask_proxy_url
+from docreader.config import dump_config, load_config, mask_proxy_url
 from docreader.parser import pptx_media
 from docreader.parser.archive import (
     ArchiveLimitError,
@@ -46,7 +46,10 @@ from docreader.parser.docx_merge import (
     _grid_span,
     fill_vertical_merged_cells_docx,
 )
-from docreader.parser.opendataloader_parser import OpenDataLoaderParser
+from docreader.parser.opendataloader_parser import (
+    OpenDataLoaderParser,
+    _run_convert,
+)
 from docreader.parser.parser import sanitize_engine_overrides
 from docreader.parser.soffice_sandbox import (
     BLOCKING_LOCAL_PROXY,
@@ -323,6 +326,193 @@ def test_odl_hybrid_url_request_override_blocked_and_java_heap_bounded():
     )
     assert "-Xmx512m" in java_cmd
     assert "-Dhttp.followRedirects=false" in java_cmd
+
+
+def test_odl_run_convert_local_auth_forwarder_end_to_end(monkeypatch, tmp_path):
+    import hmac
+    import http.client
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import threading
+    from urllib.parse import urlsplit
+    import urllib.error
+    import urllib.request
+
+    secret_token = "odl-e2e-shared-bearer-secret-9876543210"
+    upstream_hits: list[tuple[str, str, bytes]] = []
+
+    class _MockAuthenticatedHybridHandler(BaseHTTPRequestHandler):
+        def log_message(self, format, *args):  # noqa: A002
+            pass
+
+        def do_POST(self):
+            self.close_connection = True
+            if self.path == "/v1/redirect-trap":
+                self.send_response(302)
+                self.send_header("Location", "http://169.254.169.254/latest/meta-data/")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+
+            auth = self.headers.get("Authorization", "")
+            expected = f"Bearer {secret_token}"
+            clen = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(clen) if clen > 0 else b""
+            upstream_hits.append((self.path, auth, raw_body))
+
+            if not hmac.compare_digest(auth.encode("utf-8"), expected.encode("utf-8")):
+                err = b'{"detail":"Invalid or missing authentication token"}'
+                self.send_response(401)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(err)))
+                self.end_headers()
+                self.wfile.write(err)
+                return
+
+            ok_body = json.dumps(
+                {"status": "success", "echo_len": len(raw_body)}
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(ok_body)))
+            self.end_headers()
+            self.wfile.write(ok_body)
+
+    upstream_srv = ThreadingHTTPServer(("127.0.0.1", 0), _MockAuthenticatedHybridHandler)
+    upstream_thread = threading.Thread(target=upstream_srv.serve_forever, daemon=True)
+    upstream_thread.start()
+    upstream_url = f"http://127.0.0.1:{upstream_srv.server_port}"
+
+    try:
+        # Direct unauthenticated call to upstream must return 401
+        direct_req = urllib.request.Request(
+            f"{upstream_url}/v1/convert/file",
+            data=b"pdf-bytes",
+            headers={"Connection": "close"},
+            method="POST",
+        )
+        with pytest.raises(urllib.error.HTTPError) as direct_err:
+            urllib.request.urlopen(direct_req, timeout=5)
+        assert direct_err.value.code == 401
+        direct_err.value.close()
+
+        monkeypatch.setenv("ODL_HYBRID_AUTH_TOKEN", secret_token)
+        monkeypatch.setenv("DOCREADER_ODL_HYBRID_URL", upstream_url)
+        monkeypatch.setenv("DOCREADER_ODL_HYBRID", "docling-fast")
+
+        reloaded_cfg = load_config()
+        assert reloaded_cfg.odl_hybrid_auth_token == secret_token
+        monkeypatch.setattr("docreader.config.CONFIG", reloaded_cfg)
+        monkeypatch.setattr(
+            "docreader.parser.opendataloader_parser.CONFIG", reloaded_cfg
+        )
+        assert secret_token not in json.dumps(dump_config(mask_secrets=True))
+
+        # Allow the test upstream loopback endpoint through SSRF guard while
+        # rejecting everything else.
+        monkeypatch.setattr(
+            "docreader.parser.opendataloader_parser.is_ssrf_safe_url",
+            lambda u: (
+                (True, "")
+                if u.startswith(upstream_url)
+                else (False, f"blocked test target: {u}")
+            ),
+        )
+
+        captured_local_url: list[str] = []
+
+        def _fake_odl_convert(**kwargs):
+            local_url = kwargs["hybrid_url"]
+            captured_local_url.append(local_url)
+            assert local_url.startswith("http://127.0.0.1:")
+            assert local_url != upstream_url
+            assert secret_token not in json.dumps(kwargs)
+
+            # Scrubbed Java child env must not leak ODL_HYBRID_AUTH_TOKEN
+            java_env = build_minimal_sandbox_env(proxy="")
+            assert "ODL_HYBRID_AUTH_TOKEN" not in java_env
+            assert secret_token not in json.dumps(java_env)
+
+            # 1. Standard Content-Length POST without Authorization header (simulating CLI JAR)
+            req = urllib.request.Request(
+                f"{local_url}/v1/convert/file",
+                data=b"%PDF-1.4-multipart-payload",
+                headers={"Content-Type": "multipart/form-data; boundary=xyz"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                assert resp.status == 200
+                payload = json.loads(resp.read().decode("utf-8"))
+                assert payload == {"status": "success", "echo_len": 26}
+
+            # 2. Transfer-Encoding: chunked POST (Java 11 HttpClient streaming mode)
+            parts = urlsplit(local_url)
+            conn = http.client.HTTPConnection(parts.hostname, parts.port, timeout=5)
+            try:
+                conn.putrequest("POST", "/v1/convert/file")
+                conn.putheader("Transfer-Encoding", "chunked")
+                conn.putheader("Authorization", "Bearer spoofed-client-token")
+                conn.endheaders()
+                for chunk in (b"chunk-one-", b"chunk-two"):
+                    conn.send(f"{len(chunk):x}\r\n".encode("ascii") + chunk + b"\r\n")
+                conn.send(b"0\r\n\r\n")
+                c_resp = conn.getresponse()
+                c_body = json.loads(c_resp.read().decode("utf-8"))
+                assert c_resp.status == 200
+                assert c_body == {"status": "success", "echo_len": 19}
+            finally:
+                conn.close()
+
+            # 3. Upstream 302 redirect is refused (502) and never followed
+            redir_req = urllib.request.Request(
+                f"{local_url}/v1/redirect-trap", data=b"x", method="POST"
+            )
+            with pytest.raises(urllib.error.HTTPError) as redir_err:
+                urllib.request.urlopen(redir_req, timeout=5)
+            assert redir_err.value.code == 502
+            redir_err.value.close()
+
+            # 4. Path traversal segment rejected locally with 400
+            trav_req = urllib.request.Request(
+                f"{local_url}/../admin", data=b"x", method="POST"
+            )
+            with pytest.raises(urllib.error.HTTPError) as trav_err:
+                urllib.request.urlopen(trav_req, timeout=5)
+            assert trav_err.value.code == 400
+            trav_err.value.close()
+
+        fake_pkg = mock.MagicMock()
+        fake_pkg.convert.side_effect = _fake_odl_convert
+        pdf_file = tmp_path / "sample.pdf"
+        pdf_file.write_bytes(b"%PDF-1.4\n%%EOF")
+
+        with mock.patch.dict(sys.modules, {"opendataloader_pdf": fake_pkg}):
+            _run_convert(
+                str(pdf_file),
+                str(tmp_path),
+                str(tmp_path / "images"),
+                overrides={"odl_hybrid": "docling-fast"},
+            )
+
+        assert len(captured_local_url) == 1
+        # Verify upstream saw our Bearer token on both forwarded requests
+        assert upstream_hits[-2] == (
+            "/v1/convert/file",
+            f"Bearer {secret_token}",
+            b"%PDF-1.4-multipart-payload",
+        )
+        assert upstream_hits[-1] == (
+            "/v1/convert/file",
+            f"Bearer {secret_token}",
+            b"chunk-one-chunk-two",
+        )
+
+        # Verify ephemeral local proxy shut down immediately after _run_convert exited
+        with pytest.raises(urllib.error.URLError):
+            urllib.request.urlopen(f"{captured_local_url[0]}/v1/convert/file", timeout=1)
+    finally:
+        upstream_srv.shutdown()
+        upstream_srv.server_close()
+        upstream_thread.join(timeout=2.0)
 
 
 # ---------------------------------------------------------------------------
