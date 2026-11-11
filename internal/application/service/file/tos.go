@@ -246,18 +246,32 @@ func (s *tosFileService) SaveBytes(ctx context.Context, data []byte, tenantID ui
 	return fmt.Sprintf("tos://%s/%s", targetBucket, objectName), nil
 }
 
+func (s *tosFileService) resolveTOSTarget(filePath string) (string, string, error) {
+	bucketName, objectName, err := parseTOSFilePath(filePath)
+	if err != nil {
+		return "", "", err
+	}
+	if err := utils.SafeObjectKey(objectName); err != nil {
+		return "", "", fmt.Errorf("invalid file path: %w", err)
+	}
+	if s.tempBucketName != "" && bucketName == s.tempBucketName {
+		return s.tempBucketName, objectName, nil
+	}
+	if s.bucketName != "" && bucketName != s.bucketName {
+		return "", "", fmt.Errorf("bucket mismatch in TOS path: got %s, want %s", bucketName, s.bucketName)
+	}
+	return s.bucketName, objectName, nil
+}
+
 // CopyFile copies an existing TOS object to a new knowledge-owned object using a
 // server-side CopyObject (no data leaves TOS). The destination uses the same
 // layout as SaveFile. Returns ErrCrossBackendCopy when srcPath is not a tos:// path.
 func (s *tosFileService) CopyFile(ctx context.Context,
 	srcPath string, tenantID uint64, knowledgeID string,
 ) (string, error) {
-	srcBucket, srcKey, err := parseTOSFilePath(srcPath)
+	srcBucket, srcKey, err := s.resolveTOSTarget(srcPath)
 	if err != nil {
 		return "", fmt.Errorf("tos copy rejected source %q: %w", srcPath, ErrCrossBackendCopy)
-	}
-	if err := utils.SafeObjectKey(srcKey); err != nil {
-		return "", fmt.Errorf("invalid source path: %w", err)
 	}
 
 	ext := filepath.Ext(srcPath)
@@ -284,12 +298,9 @@ func (s *tosFileService) CopyFile(ctx context.Context,
 }
 
 func (s *tosFileService) GetFile(ctx context.Context, filePath string) (io.ReadCloser, error) {
-	bucketName, objectName, err := parseTOSFilePath(filePath)
+	bucketName, objectName, err := s.resolveTOSTarget(filePath)
 	if err != nil {
 		return nil, err
-	}
-	if err := utils.SafeObjectKey(objectName); err != nil {
-		return nil, fmt.Errorf("invalid file path: %w", err)
 	}
 
 	output, err := s.client.GetObjectV2(ctx, &tos.GetObjectV2Input{
@@ -303,12 +314,9 @@ func (s *tosFileService) GetFile(ctx context.Context, filePath string) (io.ReadC
 }
 
 func (s *tosFileService) DeleteFile(ctx context.Context, filePath string) error {
-	bucketName, objectName, err := parseTOSFilePath(filePath)
+	bucketName, objectName, err := s.resolveTOSTarget(filePath)
 	if err != nil {
 		return err
-	}
-	if err := utils.SafeObjectKey(objectName); err != nil {
-		return fmt.Errorf("invalid file path: %w", err)
 	}
 
 	_, err = s.client.DeleteObjectV2(ctx, &tos.DeleteObjectV2Input{
@@ -322,12 +330,9 @@ func (s *tosFileService) DeleteFile(ctx context.Context, filePath string) error 
 }
 
 func (s *tosFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
-	bucketName, objectName, err := parseTOSFilePath(filePath)
+	bucketName, objectName, err := s.resolveTOSTarget(filePath)
 	if err != nil {
 		return "", err
-	}
-	if err := utils.SafeObjectKey(objectName); err != nil {
-		return "", fmt.Errorf("invalid file path: %w", err)
 	}
 
 	output, err := s.client.PreSignedURL(&tos.PreSignedURLInput{

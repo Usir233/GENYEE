@@ -14,8 +14,8 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/hmac"
 	"crypto/sha1"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -45,6 +46,7 @@ var httpClient = secutils.NewSSRFSafeHTTPClient(secutils.SSRFSafeHTTPClientConfi
 const (
 	defaultAPIBaseURL   = "https://qyapi.weixin.qq.com"
 	wecomPKCS7BlockSize = 32
+	wecomMaxClockSkew   = 5 * time.Minute
 )
 
 // extraHostFromEndpoint returns the lowercased hostname from endpoint if it
@@ -116,6 +118,10 @@ var _ im.FileDownloader = (*WebhookAdapter)(nil)
 // NewWebhookAdapter creates a new WeCom webhook adapter.
 // apiBaseURL overrides the default WeCom API base URL; empty uses the public cloud endpoint.
 func NewWebhookAdapter(corpID, agentSecret, token, encodingAESKey string, corpAgentID int, apiBaseURL string) (*WebhookAdapter, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return nil, fmt.Errorf("token is required for WeCom webhook mode")
+	}
 	// Decode the AES key from base64
 	aesKey, err := base64.StdEncoding.DecodeString(encodingAESKey + "=")
 	if err != nil {
@@ -148,11 +154,32 @@ func (a *WebhookAdapter) Platform() im.Platform {
 	return im.PlatformWeCom
 }
 
-// VerifyCallback verifies the WeCom callback signature.
+// VerifyCallback verifies the WeCom callback signature and timestamp window.
 func (a *WebhookAdapter) VerifyCallback(c *gin.Context) error {
-	timestamp := c.Query("timestamp")
-	nonce := c.Query("nonce")
-	msgSignature := c.Query("msg_signature")
+	if strings.TrimSpace(a.token) == "" {
+		return fmt.Errorf("webhook verification secret is required")
+	}
+
+	timestamp := strings.TrimSpace(c.Query("timestamp"))
+	nonce := strings.TrimSpace(c.Query("nonce"))
+	msgSignature := strings.TrimSpace(c.Query("msg_signature"))
+	if timestamp == "" || nonce == "" || msgSignature == "" {
+		return fmt.Errorf("missing callback signature parameters")
+	}
+
+	rawTS, err := strconv.ParseInt(timestamp, 10, 64)
+	if err != nil || rawTS <= 0 {
+		return fmt.Errorf("invalid callback timestamp")
+	}
+	var ts time.Time
+	if rawTS > 1e11 {
+		ts = time.UnixMilli(rawTS)
+	} else {
+		ts = time.Unix(rawTS, 0)
+	}
+	if skew := time.Since(ts); skew < -wecomMaxClockSkew || skew > wecomMaxClockSkew {
+		return fmt.Errorf("callback timestamp outside allowed window")
+	}
 
 	// For GET requests (URL verification), use echostr
 	// For POST requests (message callback), use request body's Encrypt field
@@ -171,6 +198,9 @@ func (a *WebhookAdapter) VerifyCallback(c *gin.Context) error {
 			return fmt.Errorf("unmarshal xml body: %w", err)
 		}
 		encrypt = body.Encrypt
+	}
+	if encrypt == "" {
+		return fmt.Errorf("missing encrypted callback payload")
 	}
 
 	if !a.verifySignature(msgSignature, timestamp, nonce, encrypt) {
@@ -447,6 +477,9 @@ func (a *WebhookAdapter) getAccessToken(ctx context.Context) (string, error) {
 
 // verifySignature verifies the WeCom callback signature using constant-time comparison.
 func (a *WebhookAdapter) verifySignature(signature, timestamp, nonce, encrypt string) bool {
+	if strings.TrimSpace(a.token) == "" {
+		return false
+	}
 	parts := []string{a.token, timestamp, nonce, encrypt}
 	sort.Strings(parts)
 	combined := strings.Join(parts, "")
@@ -455,7 +488,7 @@ func (a *WebhookAdapter) verifySignature(signature, timestamp, nonce, encrypt st
 	hash.Write([]byte(combined))
 	computed := fmt.Sprintf("%x", hash.Sum(nil))
 
-	return hmac.Equal([]byte(computed), []byte(signature))
+	return subtle.ConstantTimeCompare([]byte(computed), []byte(strings.ToLower(signature))) == 1
 }
 
 // decrypt decrypts a WeCom AES-encrypted message.

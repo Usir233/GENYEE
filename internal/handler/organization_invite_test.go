@@ -66,6 +66,13 @@ func (inviteRepUsers) GetUserByID(_ context.Context, id string) (*types.User, er
 	return &types.User{ID: id, TenantID: 42}, nil
 }
 
+func (inviteRepUsers) BuildLoginMemberships(_ context.Context, user *types.User, _ *types.Tenant) []types.Membership {
+	if user != nil && user.ID == "multi-workspace-admin" {
+		return []types.Membership{{TenantID: 42, Role: types.TenantRoleAdmin}}
+	}
+	return nil
+}
+
 func inviteRepContext(body string) (*gin.Context, *httptest.ResponseRecorder) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
@@ -74,6 +81,7 @@ func inviteRepContext(body string) (*gin.Context, *httptest.ResponseRecorder) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/", strings.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set(types.TenantIDContextKey.String(), uint64(7))
+	c.Set(types.UserContextKey.String(), &types.User{ID: "multi-workspace-admin", TenantID: 7})
 	return c, recorder
 }
 
@@ -91,6 +99,21 @@ func TestInviteMemberAttachesNoRepresentative(t *testing.T) {
 		require.Empty(t, c.Errors, body)
 		require.NotNil(t, org.representative, body)
 		require.Empty(t, *org.representative, body)
+	}
+}
+
+func TestInviteMemberRejectsUnmanagedTargetWorkspace(t *testing.T) {
+	for _, body := range []string{
+		`{"tenant_id":42,"role":"viewer"}`,
+		`{"user_id":"victim","role":"viewer"}`,
+	} {
+		org := &inviteRepOrg{}
+		h := &OrganizationHandler{orgService: org, tenantService: inviteRepTenants{}, userService: inviteRepUsers{}}
+		c, _ := inviteRepContext(body)
+		c.Set(types.UserContextKey.String(), &types.User{ID: "outsider-admin", TenantID: 7})
+		h.InviteMember(c)
+		require.NotEmpty(t, c.Errors, body)
+		require.Nil(t, org.representative, body)
 	}
 }
 

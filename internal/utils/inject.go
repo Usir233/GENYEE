@@ -114,8 +114,10 @@ type sqlValidator struct {
 	checkSingleStatement bool
 
 	// Table validation
-	allowedTables   map[string]bool
-	checkTableNames bool
+	allowedTables     map[string]bool
+	checkTableNames   bool
+	safeTableColumns  map[string]map[string]bool
+	checkTableColumns bool
 
 	// Function validation
 	allowedFunctions   map[string]bool
@@ -669,6 +671,82 @@ func WithSearchScopes(scopes []SearchScope) SQLValidationOption {
 	}
 }
 
+// DefaultSafeTableColumns returns the strict per-table column allowlist for
+// database_query / model-visible SQL queries, excluding credential/config JSON
+// columns (cos_config, vlm_config, extract_config, storage_provider_config,
+// etc.) and internal storage paths (file_path).
+func DefaultSafeTableColumns() map[string][]string {
+	return map[string][]string{
+		"knowledge_bases": {
+			"id", "name", "type", "is_temporary", "description", "tenant_id", "creator_id",
+			"embedding_model_id", "summary_model_id", "rerank_model_id",
+			"created_at", "updated_at", "deleted_at",
+		},
+		"knowledges": {
+			"id", "tenant_id", "knowledge_base_id", "tag_id", "type", "title", "description",
+			"source", "channel", "parse_status", "summary_status", "enable_status",
+			"embedding_model_id", "file_name", "folder_path", "file_type", "file_size",
+			"file_hash", "storage_size", "created_at", "updated_at", "processed_at",
+			"error_message", "deleted_at",
+		},
+		"chunks": {
+			"id", "seq_id", "tenant_id", "knowledge_id", "knowledge_base_id", "tag_id",
+			"content", "chunk_index", "is_enabled", "flags", "status", "start_at", "end_at",
+			"pre_chunk_id", "next_chunk_id", "chunk_type", "parent_chunk_id", "content_hash",
+			"index_status", "content_revision", "created_at", "updated_at", "deleted_at",
+		},
+	}
+}
+
+var defaultDisallowedSensitiveColumns = map[string]bool{
+	"cos_config":                 true,
+	"storage_config":             true,
+	"storage_provider_config":    true,
+	"storage_backend_id":         true,
+	"vlm_config":                 true,
+	"extract_config":             true,
+	"asr_config":                 true,
+	"chunking_config":            true,
+	"image_processing_config":    true,
+	"faq_config":                 true,
+	"question_generation_config": true,
+	"auto_tag_config":            true,
+	"profile_config":             true,
+	"generated_profile":          true,
+	"wiki_config":                true,
+	"vector_store_id":            true,
+	"file_path":                  true,
+	"metadata":                   true,
+	"meta_data":                  true,
+	"custom_metadata":            true,
+	"profile":                    true,
+	"last_faq_import_result":     true,
+	"source_content":             true,
+	"image_info":                 true,
+	"video_info":                 true,
+	"relation_chunks":            true,
+	"indirect_relation_chunks":   true,
+	"source_locators":            true,
+	"context_header":             true,
+}
+
+// WithSafeTableColumns enforces a per-table column allowlist across all SQL
+// clauses (SELECT, WHERE, GROUP BY, HAVING, ORDER BY, JOIN) and rejects bare
+// '*' / 'table.*' / whole-row composite references on restricted tables.
+func WithSafeTableColumns(tableColumns map[string][]string) SQLValidationOption {
+	return func(v *sqlValidator) {
+		v.checkTableColumns = true
+		v.safeTableColumns = make(map[string]map[string]bool, len(tableColumns))
+		for table, cols := range tableColumns {
+			colSet := make(map[string]bool, len(cols))
+			for _, col := range cols {
+				colSet[strings.ToLower(col)] = true
+			}
+			v.safeTableColumns[strings.ToLower(table)] = colSet
+		}
+	}
+}
+
 // WithSecurityDefaults applies a comprehensive set of security validations
 func WithSecurityDefaults(tenantID uint64) SQLValidationOption {
 	return func(v *sqlValidator) {
@@ -683,6 +761,7 @@ func WithSecurityDefaults(tenantID uint64) SQLValidationOption {
 		WithNoDangerousFunctions()(v)
 		WithDefaultSafeFunctions()(v)
 		WithTenantIsolation(tenantID)(v)
+		WithSafeTableColumns(DefaultSafeTableColumns())(v)
 
 		// Default allowed tables
 		// SECURITY: Only tables with tenant_id column should be listed here
@@ -895,8 +974,13 @@ func ValidateSQL(sql string, opts ...SQLValidationOption) (*SQLParseResult, *SQL
 // ValidateAndSecureSQL validates SQL and returns a secured version with tenant isolation
 // This is a convenience function that combines validation and SQL rewriting
 func ValidateAndSecureSQL(sql string, opts ...SQLValidationOption) (string, *SQLValidationResult, error) {
+	// Default-enforce safe table column allowlist on restricted tables unless overridden.
+	effectiveOpts := make([]SQLValidationOption, 0, len(opts)+1)
+	effectiveOpts = append(effectiveOpts, WithSafeTableColumns(DefaultSafeTableColumns()))
+	effectiveOpts = append(effectiveOpts, opts...)
+
 	// Parse and validate
-	_, validationResult := ValidateSQL(sql, opts...)
+	_, validationResult := ValidateSQL(sql, effectiveOpts...)
 
 	// If validation failed, return error
 	if !validationResult.Valid {
@@ -1501,6 +1585,345 @@ func (v *sqlValidator) validateSelectStmt(stmt *pg_query.SelectStmt, result *SQL
 		return fmt.Errorf("no valid table found in query")
 	}
 
+	if v.checkTableColumns && len(v.safeTableColumns) > 0 {
+		if err := v.validateSelectColumnAllowlist(stmt, nil, nil); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// validateSelectColumnAllowlist enforces v.safeTableColumns across all clauses of a SELECT
+// statement (including nested subqueries, JOIN ON/USING, NATURAL JOIN, wildcards, and
+// composite whole-row or field-indirection expressions).
+func (v *sqlValidator) validateSelectColumnAllowlist(
+	stmt *pg_query.SelectStmt,
+	outerAliases map[string]string,
+	outerTables []string,
+) error {
+	if stmt == nil {
+		return nil
+	}
+
+	localAliases := make(map[string]string)
+	localTables := make([]string, 0)
+
+	var collectFrom func(*pg_query.Node) ([]string, error)
+	collectFrom = func(node *pg_query.Node) ([]string, error) {
+		if node == nil {
+			return nil, nil
+		}
+		if rv := node.GetRangeVar(); rv != nil {
+			tableName := strings.ToLower(rv.Relname)
+			localTables = append(localTables, tableName)
+			alias := tableName
+			if rv.Alias != nil && rv.Alias.Aliasname != "" {
+				alias = strings.ToLower(rv.Alias.Aliasname)
+			}
+			localAliases[alias] = tableName
+			return []string{tableName}, nil
+		}
+		if je := node.GetJoinExpr(); je != nil {
+			leftTables, err := collectFrom(je.Larg)
+			if err != nil {
+				return nil, err
+			}
+			rightTables, err := collectFrom(je.Rarg)
+			if err != nil {
+				return nil, err
+			}
+			joined := append(append([]string(nil), leftTables...), rightTables...)
+			hasRestricted := false
+			for _, t := range joined {
+				if _, ok := v.safeTableColumns[t]; ok {
+					hasRestricted = true
+					break
+				}
+			}
+			if je.IsNatural && hasRestricted {
+				return nil, fmt.Errorf("NATURAL JOIN is not allowed on restricted tables")
+			}
+			for _, u := range je.UsingClause {
+				s := u.GetString_()
+				if s == nil {
+					continue
+				}
+				col := strings.ToLower(s.Sval)
+				for _, t := range joined {
+					if allowedCols, restricted := v.safeTableColumns[t]; restricted && !allowedCols[col] {
+						return nil, fmt.Errorf("column '%s' in USING clause is not allowed on table '%s'", col, t)
+					}
+				}
+			}
+			return joined, nil
+		}
+		if rss := node.GetRangeSubselect(); rss != nil && rss.Subquery != nil {
+			if err := v.validateSelectColumnAllowlist(rss.Subquery.GetSelectStmt(), nil, nil); err != nil {
+				return nil, err
+			}
+			if rss.Alias != nil && rss.Alias.Aliasname != "" {
+				// Derived subquery already validated against safeTableColumns; mark alias as unrestricted derived table.
+				alias := strings.ToLower(rss.Alias.Aliasname)
+				localAliases[alias] = "__subquery__"
+				localTables = append(localTables, "__subquery__")
+			}
+		}
+		return nil, nil
+	}
+
+	for _, fromItem := range stmt.FromClause {
+		if _, err := collectFrom(fromItem); err != nil {
+			return err
+		}
+	}
+
+	scopeAliases := make(map[string]string, len(outerAliases)+len(localAliases))
+	for k, val := range outerAliases {
+		scopeAliases[k] = val
+	}
+	for k, val := range localAliases {
+		scopeAliases[k] = val
+	}
+
+	combinedTables := append(append([]string(nil), localTables...), outerTables...)
+	hasRestrictedTable := false
+	for _, t := range combinedTables {
+		if _, ok := v.safeTableColumns[t]; ok {
+			hasRestrictedTable = true
+			break
+		}
+	}
+
+	outputAliases := make(map[string]bool)
+	for _, target := range stmt.TargetList {
+		if rt := target.GetResTarget(); rt != nil && rt.Name != "" {
+			outputAliases[strings.ToLower(rt.Name)] = true
+		}
+	}
+
+	var walkScopeExpr func(protoreflect.Message) error
+	walkScopeExpr = func(msg protoreflect.Message) error {
+		if subStmt, ok := msg.Interface().(*pg_query.SelectStmt); ok && subStmt != stmt {
+			return v.validateSelectColumnAllowlist(subStmt, scopeAliases, combinedTables)
+		}
+
+		var childErr error
+		msg.Range(func(field protoreflect.FieldDescriptor, value protoreflect.Value) bool {
+			if field.Message() == nil {
+				return true
+			}
+			if field.IsList() {
+				list := value.List()
+				for i := 0; i < list.Len(); i++ {
+					if childErr = walkScopeExpr(list.Get(i).Message()); childErr != nil {
+						return false
+					}
+				}
+			} else {
+				childErr = walkScopeExpr(value.Message())
+			}
+			return childErr == nil
+		})
+		if childErr != nil {
+			return childErr
+		}
+
+		switch n := msg.Interface().(type) {
+		case *pg_query.A_Indirection:
+			if hasRestrictedTable {
+				for _, ind := range n.Indirection {
+					if ind.GetAStar() != nil || ind.GetString_() != nil {
+						return fmt.Errorf("composite field indirection is not allowed on restricted tables")
+					}
+				}
+			}
+		case *pg_query.FieldSelect:
+			if hasRestrictedTable {
+				return fmt.Errorf("composite field selection is not allowed on restricted tables")
+			}
+		case *pg_query.ColumnRef:
+			return v.validateColumnRefAgainstAllowlist(n, scopeAliases, combinedTables, hasRestrictedTable)
+		}
+		return nil
+	}
+
+	checkNodeList := func(nodes []*pg_query.Node) error {
+		for _, n := range nodes {
+			if n != nil {
+				if err := walkScopeExpr(n.ProtoReflect()); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
+	var checkJoinQuals func(*pg_query.Node) error
+	checkJoinQuals = func(node *pg_query.Node) error {
+		if node == nil {
+			return nil
+		}
+		if je := node.GetJoinExpr(); je != nil {
+			if err := checkJoinQuals(je.Larg); err != nil {
+				return err
+			}
+			if err := checkJoinQuals(je.Rarg); err != nil {
+				return err
+			}
+			if je.Quals != nil {
+				if err := walkScopeExpr(je.Quals.ProtoReflect()); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
+	for _, fromItem := range stmt.FromClause {
+		if err := checkJoinQuals(fromItem); err != nil {
+			return err
+		}
+	}
+	if err := checkNodeList(stmt.DistinctClause); err != nil {
+		return err
+	}
+	if err := checkNodeList(stmt.TargetList); err != nil {
+		return err
+	}
+	if stmt.WhereClause != nil {
+		if err := walkScopeExpr(stmt.WhereClause.ProtoReflect()); err != nil {
+			return err
+		}
+	}
+	if err := checkNodeList(stmt.GroupClause); err != nil {
+		return err
+	}
+	if stmt.HavingClause != nil {
+		if err := walkScopeExpr(stmt.HavingClause.ProtoReflect()); err != nil {
+			return err
+		}
+	}
+	if err := checkNodeList(stmt.WindowClause); err != nil {
+		return err
+	}
+	for _, sortItem := range stmt.SortClause {
+		if sb := sortItem.GetSortBy(); sb != nil && sb.Node != nil {
+			if cr := sb.Node.GetColumnRef(); cr != nil && len(cr.Fields) == 1 {
+				if s := cr.Fields[0].GetString_(); s != nil {
+					col := strings.ToLower(s.Sval)
+					if outputAliases[col] && !defaultDisallowedSensitiveColumns[col] {
+						continue
+					}
+				}
+			}
+		}
+		if sortItem != nil {
+			if err := walkScopeExpr(sortItem.ProtoReflect()); err != nil {
+				return err
+			}
+		}
+	}
+	if stmt.LimitOffset != nil {
+		if err := walkScopeExpr(stmt.LimitOffset.ProtoReflect()); err != nil {
+			return err
+		}
+	}
+	if stmt.LimitCount != nil {
+		if err := walkScopeExpr(stmt.LimitCount.ProtoReflect()); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (v *sqlValidator) validateColumnRefAgainstAllowlist(
+	cr *pg_query.ColumnRef,
+	scopeAliases map[string]string,
+	combinedTables []string,
+	hasRestrictedTable bool,
+) error {
+	if cr == nil || !hasRestrictedTable {
+		return nil
+	}
+
+	for i, field := range cr.Fields {
+		if field.GetAStar() != nil {
+			if i == 0 {
+				return fmt.Errorf("wildcard '*' is not allowed on restricted tables; specify allowed columns explicitly")
+			}
+			qual := ""
+			if prev := cr.Fields[i-1].GetString_(); prev != nil {
+				qual = strings.ToLower(prev.Sval)
+			}
+			tableName, ok := scopeAliases[qual]
+			if !ok {
+				tableName = qual
+			}
+			if _, restricted := v.safeTableColumns[tableName]; restricted || tableName == "" {
+				return fmt.Errorf("wildcard '%s.*' is not allowed on restricted table '%s'", qual, tableName)
+			}
+			return nil
+		}
+	}
+
+	parts := make([]string, 0, len(cr.Fields))
+	for _, field := range cr.Fields {
+		s := field.GetString_()
+		if s == nil {
+			return fmt.Errorf("unsupported column reference expression on restricted table")
+		}
+		parts = append(parts, strings.ToLower(s.Sval))
+	}
+	if len(parts) == 0 {
+		return fmt.Errorf("empty column reference")
+	}
+	if len(parts) > 3 || (len(parts) == 3 && parts[0] != "public") {
+		return fmt.Errorf("invalid qualified column reference '%s'", strings.Join(parts, "."))
+	}
+
+	if len(parts) >= 2 {
+		qual := parts[len(parts)-2]
+		col := parts[len(parts)-1]
+		tableName, ok := scopeAliases[qual]
+		if !ok {
+			return fmt.Errorf("unknown table or alias '%s' in column reference '%s.%s'", qual, qual, col)
+		}
+		if allowedCols, restricted := v.safeTableColumns[tableName]; restricted {
+			if !allowedCols[col] {
+				return fmt.Errorf("access to column '%s' on table '%s' is not allowed", col, tableName)
+			}
+		}
+		return nil
+	}
+
+	col := parts[0]
+	if defaultDisallowedSensitiveColumns[col] {
+		return fmt.Errorf("access to sensitive column '%s' is not allowed", col)
+	}
+
+	allowedInAnyRestricted := false
+	hasUnrestrictedTable := false
+	for _, t := range combinedTables {
+		if allowedCols, restricted := v.safeTableColumns[t]; restricted {
+			if allowedCols[col] {
+				allowedInAnyRestricted = true
+			}
+		} else {
+			hasUnrestrictedTable = true
+		}
+	}
+
+	if aliasTable, isAlias := scopeAliases[col]; isAlias {
+		if allowedCols, restricted := v.safeTableColumns[aliasTable]; restricted && !allowedCols[col] {
+			return fmt.Errorf("whole-row reference to restricted table alias '%s' is not allowed", col)
+		}
+	}
+
+	if !allowedInAnyRestricted && !hasUnrestrictedTable {
+		return fmt.Errorf("access to column '%s' is not allowed", col)
+	}
 	return nil
 }
 

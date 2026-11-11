@@ -3,6 +3,7 @@ package mattermost
 import (
 	"bytes"
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -80,7 +81,7 @@ func (a *Adapter) VerifyCallback(c *gin.Context) error {
 		return fmt.Errorf("parse outgoing payload: %w", err)
 	}
 
-	if a.outgoingToken == "" || payload.Token != a.outgoingToken {
+	if a.outgoingToken == "" || subtle.ConstantTimeCompare([]byte(payload.Token), []byte(a.outgoingToken)) != 1 {
 		return fmt.Errorf("invalid outgoing webhook token")
 	}
 

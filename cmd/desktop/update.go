@@ -2,7 +2,13 @@ package main
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/sha256"
+	"crypto/subtle"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -19,15 +25,262 @@ import (
 	"golang.org/x/mod/semver"
 )
 
+const (
+	maxUpdateChecksumBytes = 1 << 20   // 1 MiB checksum manifest limit
+	maxUpdateBinaryBytes   = 2 << 30   // 2 GiB installer binary limit
+	windowsUpdateScript    = "@echo off\r\n" +
+		"setlocal DisableDelayedExpansion\r\n" +
+		"timeout /t 2 /nobreak >nul\r\n" +
+		"start /wait \"\" \"%GENYEE_UPDATER_INSTALLER%\" /S\r\n" +
+		"start \"\" \"%GENYEE_UPDATER_TARGET_EXE%\"\r\n" +
+		"del \"%~f0\"\r\n"
+	darwinUpdateScript = `#!/bin/bash
+set -euo pipefail
+APP_BUNDLE="$1"
+NEW_APP="$2"
+APP_DIR="$3"
+MOUNT_POINT="$4"
+STAGE_DIR="$5"
+
+sleep 2
+if ! (rm -rf -- "$APP_BUNDLE" && cp -a -- "$NEW_APP" "$APP_DIR"); then
+    osascript - "$APP_BUNDLE" "$NEW_APP" "$APP_DIR" <<'APPLESCRIPT'
+on run argv
+    set targetBundle to quoted form of (item 1 of argv)
+    set sourceBundle to quoted form of (item 2 of argv)
+    set destDir to quoted form of (item 3 of argv)
+    do shell script "rm -rf -- " & targetBundle & " && cp -a -- " & sourceBundle & " " & destDir with administrator privileges
+end run
+APPLESCRIPT
+fi
+hdiutil detach "$MOUNT_POINT" -force >/dev/null 2>&1 || true
+rmdir "$MOUNT_POINT" >/dev/null 2>&1 || true
+rm -rf -- "$STAGE_DIR" >/dev/null 2>&1 || true
+open -- "$APP_BUNDLE"
+rm -f -- "$0"
+`
+)
+
 type githubAsset struct {
 	Name               string `json:"name"`
 	BrowserDownloadURL string `json:"browser_download_url"`
+	Digest             string `json:"digest"`
 }
 
 type githubRelease struct {
 	TagName string        `json:"tag_name"`
 	HTMLURL string        `json:"html_url"`
 	Assets  []githubAsset `json:"assets"`
+}
+
+// sanitizeUpdateAssetFilename strips directory components via filepath.Base and
+// rejects empty, dot, or flag-like names to prevent path traversal writes.
+func sanitizeUpdateAssetFilename(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", errors.New("update asset filename is empty")
+	}
+	normalized := strings.ReplaceAll(trimmed, "\\", "/")
+	base := filepath.Base(normalized)
+	if base == "" || base == "." || base == ".." || base == "/" || strings.HasPrefix(base, "-") {
+		return "", fmt.Errorf("invalid update asset filename %q", raw)
+	}
+	if strings.ContainsAny(base, "/\\\x00\r\n") {
+		return "", fmt.Errorf("unsafe characters in update asset filename %q", raw)
+	}
+	return base, nil
+}
+
+// parseSHA256Digest validates and normalizes a "sha256:<hex>" or "<64-hex>" digest.
+func parseSHA256Digest(raw string) (string, error) {
+	s := strings.TrimSpace(raw)
+	if strings.HasPrefix(strings.ToLower(s), "sha256:") {
+		s = strings.TrimSpace(s[len("sha256:"):])
+	}
+	if len(s) != sha256.Size*2 {
+		return "", fmt.Errorf("invalid sha256 digest length: %d", len(s))
+	}
+	decoded, err := hex.DecodeString(s)
+	if err != nil || len(decoded) != sha256.Size {
+		return "", fmt.Errorf("invalid sha256 hex digest")
+	}
+	return strings.ToLower(s), nil
+}
+
+// extractChecksumForAsset finds the SHA-256 hex digest for safeFilename inside a
+// standard sha256sum manifest or a single-file .sha256 companion file.
+func extractChecksumForAsset(manifest string, safeFilename string) (string, error) {
+	lines := strings.Split(manifest, "\n")
+	for _, rawLine := range lines {
+		line := strings.TrimSpace(rawLine)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) == 1 {
+			// Companion <asset>.sha256 containing only the digest when unambiguous.
+			if len(lines) <= 2 {
+				if digest, err := parseSHA256Digest(fields[0]); err == nil {
+					return digest, nil
+				}
+			}
+			continue
+		}
+		candidateHash := fields[0]
+		targetPart := strings.TrimSpace(strings.TrimPrefix(line[len(fields[0]):], " "))
+		targetPart = strings.TrimSpace(targetPart)
+		targetPart = strings.TrimPrefix(targetPart, "*")
+		targetBase, err := sanitizeUpdateAssetFilename(targetPart)
+		if err != nil || targetBase != safeFilename {
+			continue
+		}
+		return parseSHA256Digest(candidateHash)
+	}
+	return "", fmt.Errorf("no sha256 entry found for %s", safeFilename)
+}
+
+func verifyManifestEd25519(manifest []byte, sigBytes []byte, pubKeyRaw string) error {
+	pubKeyStr := strings.TrimSpace(pubKeyRaw)
+	var pubBytes []byte
+	var err error
+	if decodedHex, hexErr := hex.DecodeString(pubKeyStr); hexErr == nil && len(decodedHex) == ed25519.PublicKeySize {
+		pubBytes = decodedHex
+	} else if decodedB64, b64Err := base64.StdEncoding.DecodeString(pubKeyStr); b64Err == nil && len(decodedB64) == ed25519.PublicKeySize {
+		pubBytes = decodedB64
+	} else {
+		return fmt.Errorf("invalid GENYEE_UPDATE_PUBLIC_KEY: %v", err)
+	}
+
+	sigTrimmed := strings.TrimSpace(string(sigBytes))
+	sig := sigBytes
+	if decodedHex, hexErr := hex.DecodeString(sigTrimmed); hexErr == nil && len(decodedHex) == ed25519.SignatureSize {
+		sig = decodedHex
+	} else if decodedB64, b64Err := base64.StdEncoding.DecodeString(sigTrimmed); b64Err == nil && len(decodedB64) == ed25519.SignatureSize {
+		sig = decodedB64
+	}
+	if len(sig) != ed25519.SignatureSize || !ed25519.Verify(ed25519.PublicKey(pubBytes), manifest, sig) {
+		return errors.New("update manifest Ed25519 signature verification failed")
+	}
+	return nil
+}
+
+func fetchSmallAssetBytes(client *http.Client, downloadURL string) ([]byte, error) {
+	req, err := http.NewRequest(http.MethodGet, downloadURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "GENYEE-Lite-Desktop-App")
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("manifest download returned HTTP %d", resp.StatusCode)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxUpdateChecksumBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxUpdateChecksumBytes {
+		return nil, errors.New("checksum manifest exceeds maximum size")
+	}
+	return data, nil
+}
+
+// resolveExpectedAssetSHA256 resolves the expected SHA-256 digest for selected.
+// Fails closed if no digest is present or if signature verification fails.
+func resolveExpectedAssetSHA256(client *http.Client, assets []githubAsset, selected githubAsset, safeFilename string) (string, error) {
+	pubKey := strings.TrimSpace(os.Getenv("GENYEE_UPDATE_PUBLIC_KEY"))
+	if pubKey == "" && strings.TrimSpace(selected.Digest) != "" {
+		return parseSHA256Digest(selected.Digest)
+	}
+
+	checksumNames := map[string]bool{
+		strings.ToLower(safeFilename + ".sha256"): true,
+		"sha256sums":                              true,
+		"sha256sums.txt":                          true,
+		"checksums.txt":                           true,
+		"checksums.sha256":                        true,
+	}
+	byLowerName := make(map[string]githubAsset, len(assets))
+	for _, a := range assets {
+		byLowerName[strings.ToLower(strings.TrimSpace(a.Name))] = a
+	}
+
+	for _, a := range assets {
+		lower := strings.ToLower(strings.TrimSpace(a.Name))
+		if !checksumNames[lower] || strings.TrimSpace(a.BrowserDownloadURL) == "" {
+			continue
+		}
+		manifestBytes, err := fetchSmallAssetBytes(client, a.BrowserDownloadURL)
+		if err != nil {
+			continue
+		}
+		if pubKey != "" {
+			sigAsset, ok := byLowerName[lower+".sig"]
+			if !ok || strings.TrimSpace(sigAsset.BrowserDownloadURL) == "" {
+				return "", errors.New("GENYEE_UPDATE_PUBLIC_KEY is set but manifest .sig asset is missing")
+			}
+			sigBytes, err := fetchSmallAssetBytes(client, sigAsset.BrowserDownloadURL)
+			if err != nil {
+				return "", fmt.Errorf("failed to download manifest signature: %w", err)
+			}
+			if err := verifyManifestEd25519(manifestBytes, sigBytes, pubKey); err != nil {
+				return "", err
+			}
+		}
+		if lower == strings.ToLower(safeFilename+".sha256") {
+			fields := strings.Fields(string(manifestBytes))
+			if len(fields) >= 1 {
+				if digest, err := parseSHA256Digest(fields[0]); err == nil {
+					return digest, nil
+				}
+			}
+		}
+		if digest, err := extractChecksumForAsset(string(manifestBytes), safeFilename); err == nil {
+			return digest, nil
+		}
+	}
+
+	if pubKey != "" {
+		return "", errors.New("signed checksum manifest required when GENYEE_UPDATE_PUBLIC_KEY is configured")
+	}
+	return "", errors.New("refusing update without SHA-256 digest verification")
+}
+
+// verifyFileSHA256 computes the SHA-256 of filePath and compares it in constant time
+// against expectedDigest. Fails closed if expectedDigest is empty or invalid.
+func verifyFileSHA256(filePath string, expectedDigest string) error {
+	normalizedExpected, err := parseSHA256Digest(expectedDigest)
+	if err != nil {
+		return fmt.Errorf("missing or invalid expected sha256 digest: %w", err)
+	}
+	f, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, f); err != nil {
+		return err
+	}
+	actualHex := hex.EncodeToString(hasher.Sum(nil))
+	if subtle.ConstantTimeCompare([]byte(actualHex), []byte(normalizedExpected)) != 1 {
+		return fmt.Errorf("update file sha256 mismatch: got %s, want %s", actualHex, normalizedExpected)
+	}
+	return nil
+}
+
+func validateSafeWindowsUpdatePath(p string) error {
+	if strings.TrimSpace(p) == "" {
+		return errors.New("empty update path")
+	}
+	if strings.ContainsAny(p, "\"%&|<>^\x00\r\n") {
+		return fmt.Errorf("unsafe characters in windows update path %q", p)
+	}
+	return nil
 }
 
 // resolveUpdateReleaseURL returns the release metadata endpoint configured via
@@ -140,7 +393,7 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 		}
 
 		var release githubRelease
-		if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		if err := json.NewDecoder(io.LimitReader(resp.Body, maxUpdateChecksumBytes)).Decode(&release); err != nil {
 			logger.Warnf(context.Background(), "Failed to parse release info: %v", err)
 			return
 		}
@@ -152,11 +405,25 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 
 		if semver.IsValid(latestVersion) && semver.IsValid(currentVersion) {
 			if semver.Compare(latestVersion, currentVersion) > 0 {
-				assetURL, assetName := findBestAsset(release.Assets, runtime.GOOS, runtime.GOARCH)
+				selectedAsset, foundAsset := findBestReleaseAsset(release.Assets, runtime.GOOS, runtime.GOARCH)
+				var safeName, expectedSHA256 string
+				if foundAsset && selectedAsset.BrowserDownloadURL != "" {
+					var nameErr, hashErr error
+					safeName, nameErr = sanitizeUpdateAssetFilename(selectedAsset.Name)
+					if nameErr != nil {
+						logger.Warnf(context.Background(), "Rejected unsafe update asset name %q: %v", selectedAsset.Name, nameErr)
+						foundAsset = false
+					} else {
+						expectedSHA256, hashErr = resolveExpectedAssetSHA256(client, release.Assets, selectedAsset, safeName)
+						if hashErr != nil {
+							logger.Warnf(context.Background(), "Rejected unverified update asset %q: %v", safeName, hashErr)
+							foundAsset = false
+						}
+					}
+				}
 
-				if autoDownload && assetURL != "" {
-					// Silent download in background
-					downloadAndInstall(ctx, assetURL, assetName, currentVersion, latestVersion, true)
+				if autoDownload && foundAsset && selectedAsset.BrowserDownloadURL != "" {
+					downloadAndInstall(ctx, selectedAsset.BrowserDownloadURL, safeName, expectedSHA256, currentVersion, latestVersion, true)
 					return
 				}
 
@@ -169,10 +436,9 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 					DefaultButton: "Download",
 				})
 				if choice == "Download" {
-					if assetURL != "" {
-						downloadAndInstall(ctx, assetURL, assetName, currentVersion, latestVersion, false)
+					if foundAsset && selectedAsset.BrowserDownloadURL != "" {
+						downloadAndInstall(ctx, selectedAsset.BrowserDownloadURL, safeName, expectedSHA256, currentVersion, latestVersion, false)
 					} else if release.HTMLURL != "" {
-						// Fallback to opening the release page if no specific asset is found
 						wailsruntime.BrowserOpenURL(ctx, release.HTMLURL)
 					}
 				}
@@ -192,7 +458,18 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 	}()
 }
 
-func findBestAsset(assets []githubAsset, goos, goarch string) (string, string) {
+func isChecksumMetadataAsset(name string) bool {
+	lower := strings.ToLower(strings.TrimSpace(name))
+	return strings.HasSuffix(lower, ".sha256") ||
+		strings.HasSuffix(lower, ".sig") ||
+		strings.HasSuffix(lower, ".asc") ||
+		lower == "sha256sums" ||
+		lower == "sha256sums.txt" ||
+		lower == "checksums.txt" ||
+		lower == "checksums.sha256"
+}
+
+func findBestReleaseAsset(assets []githubAsset, goos, goarch string) (githubAsset, bool) {
 	osKeyword := ""
 	switch goos {
 	case "darwin":
@@ -213,25 +490,34 @@ func findBestAsset(assets []githubAsset, goos, goarch string) (string, string) {
 
 	// 1. Try to match both OS and Arch
 	for _, asset := range assets {
+		if isChecksumMetadataAsset(asset.Name) {
+			continue
+		}
 		name := strings.ToLower(asset.Name)
 		if strings.Contains(name, osKeyword) && (strings.Contains(name, archKeyword) || strings.Contains(name, "universal") || strings.Contains(name, "aarch64")) {
-			return asset.BrowserDownloadURL, asset.Name
+			return asset, true
 		}
 	}
 
 	// 2. Try to match OS only (e.g. universal binaries without arch in name)
 	for _, asset := range assets {
+		if isChecksumMetadataAsset(asset.Name) {
+			continue
+		}
 		name := strings.ToLower(asset.Name)
 		if strings.Contains(name, osKeyword) {
-			return asset.BrowserDownloadURL, asset.Name
+			return asset, true
 		}
 	}
 
 	// 3. MacOS specific fallback (e.g. .dmg)
 	if goos == "darwin" {
 		for _, asset := range assets {
+			if isChecksumMetadataAsset(asset.Name) {
+				continue
+			}
 			if strings.HasSuffix(strings.ToLower(asset.Name), ".dmg") {
-				return asset.BrowserDownloadURL, asset.Name
+				return asset, true
 			}
 		}
 	}
@@ -239,22 +525,61 @@ func findBestAsset(assets []githubAsset, goos, goarch string) (string, string) {
 	// 4. Windows specific fallback (e.g. .exe)
 	if goos == "windows" {
 		for _, asset := range assets {
+			if isChecksumMetadataAsset(asset.Name) {
+				continue
+			}
 			if strings.HasSuffix(strings.ToLower(asset.Name), ".exe") {
-				return asset.BrowserDownloadURL, asset.Name
+				return asset, true
 			}
 		}
 	}
 
-	return "", ""
+	return githubAsset{}, false
 }
 
-func downloadAndInstall(ctx context.Context, url string, filename string, currentVersion string, latestVersion string, silent bool) {
-	tempDir := os.TempDir()
-	savePath := filepath.Join(tempDir, filename)
+func findBestAsset(assets []githubAsset, goos, goarch string) (string, string) {
+	asset, ok := findBestReleaseAsset(assets, goos, goarch)
+	if !ok {
+		return "", ""
+	}
+	return asset.BrowserDownloadURL, asset.Name
+}
+
+func downloadAndInstall(ctx context.Context, downloadURL string, filename string, expectedSHA256 string, currentVersion string, latestVersion string, silent bool) {
+	safeFilename, err := sanitizeUpdateAssetFilename(filename)
+	if err != nil {
+		logger.Warnf(context.Background(), "Refusing download with unsafe filename %q: %v", filename, err)
+		return
+	}
+	normalizedSHA256, err := parseSHA256Digest(expectedSHA256)
+	if err != nil {
+		logger.Warnf(context.Background(), "Refusing download without valid SHA-256 digest: %v", err)
+		return
+	}
+
+	stageDir, err := os.MkdirTemp("", "genyee-update-*")
+	if err != nil {
+		logger.Warnf(context.Background(), "Failed to create secure staging dir: %v", err)
+		return
+	}
+	savePath := filepath.Join(stageDir, safeFilename)
+	if filepath.Dir(savePath) != stageDir {
+		_ = os.RemoveAll(stageDir)
+		logger.Warnf(context.Background(), "Update path escaped staging dir: %s", savePath)
+		return
+	}
 
 	go func() {
-		logger.Infof(context.Background(), "Starting download from %s to %s", url, savePath)
-		resp, err := http.Get(url)
+		cleanupStage := true
+		defer func() {
+			if cleanupStage {
+				_ = os.RemoveAll(stageDir)
+			}
+		}()
+
+		logger.Infof(context.Background(), "Starting download from %s to %s", downloadURL, savePath)
+		client := &http.Client{Timeout: 30 * time.Minute}
+		resp, err := client.Get(downloadURL)
 		if err != nil {
 			logger.Warnf(context.Background(), "Download failed: %v", err)
 			if !silent {
@@ -284,7 +609,7 @@ func downloadAndInstall(ctx context.Context, url string, filename string, curren
 			return
 		}
 
-		out, err := os.Create(savePath)
+		out, err := os.OpenFile(savePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 		if err != nil {
 			logger.Warnf(context.Background(), "Failed to create file for download: %v", err)
 			if !silent {
@@ -298,16 +623,16 @@ func downloadAndInstall(ctx context.Context, url string, filename string, curren
 			}
 			return
 		}
-		defer out.Close()
 
-		_, err = io.Copy(out, resp.Body)
-		if err != nil {
-			logger.Warnf(context.Background(), "Error occurred during download copying: %v", err)
+		written, copyErr := io.Copy(out, io.LimitReader(resp.Body, maxUpdateBinaryBytes+1))
+		closeErr := out.Close()
+		if copyErr != nil || closeErr != nil || written > maxUpdateBinaryBytes {
+			logger.Warnf(context.Background(), "Error occurred during download copying: copyErr=%v closeErr=%v size=%d", copyErr, closeErr, written)
 			if !silent {
 				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
 					Type:          wailsruntime.ErrorDialog,
 					Title:         "Download Error",
-					Message:       fmt.Sprintf("An error occurred while downloading:\n%v", err),
+					Message:       "An error occurred while downloading the update.",
 					Buttons:       []string{"OK"},
 					DefaultButton: "OK",
 				})
@@ -315,19 +640,33 @@ func downloadAndInstall(ctx context.Context, url string, filename string, curren
 			return
 		}
 
-		logger.Infof(context.Background(), "Download completed successfully: %s", savePath)
+		if err := verifyFileSHA256(savePath, normalizedSHA256); err != nil {
+			logger.Warnf(context.Background(), "Update integrity verification failed: %v", err)
+			if !silent {
+				wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
+					Type:          wailsruntime.ErrorDialog,
+					Title:         "Update Verification Failed",
+					Message:       "The downloaded update failed SHA-256 integrity verification and has been discarded.",
+					Buttons:       []string{"OK"},
+					DefaultButton: "OK",
+				})
+			}
+			return
+		}
 
-		// Prompt user to restart
+		logger.Infof(context.Background(), "Download and SHA-256 verification completed successfully: %s", savePath)
+
 		choice, _ := wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
 			Type:          wailsruntime.InfoDialog,
 			Title:         "Update Ready",
-			Message:       fmt.Sprintf("GENYEE Lite %s has been downloaded successfully.\n\nWould you like to restart and install the new version now?", latestVersion),
+			Message:       fmt.Sprintf("GENYEE Lite %s has been downloaded and verified.\n\nWould you like to restart and install the new version now?", latestVersion),
 			Buttons:       []string{"Restart Now", "Later"},
 			DefaultButton: "Restart Now",
 		})
 
 		if choice == "Restart Now" {
-			applyUpdateAndRestart(ctx, savePath)
+			cleanupStage = false
+			applyUpdateAndRestart(ctx, savePath, stageDir)
 		}
 	}()
 }
@@ -353,25 +692,39 @@ func desktopAboutVersion() string {
 	return "unknown"
 }
 
-// applyUpdateAndRestart applies the downloaded update and restarts the application
-func applyUpdateAndRestart(ctx context.Context, savePath string) {
+// applyUpdateAndRestart applies the verified update and restarts the application.
+func applyUpdateAndRestart(ctx context.Context, savePath string, stageDir string) {
 	if runtime.GOOS == "windows" {
-		scriptPath := filepath.Join(os.TempDir(), "genyee_update.bat")
 		execPath, err := os.Executable()
 		if err != nil {
 			logger.Warnf(context.Background(), "Failed to get executable path: %v", err)
 			return
 		}
-		scriptContent := fmt.Sprintf(`@echo off
-timeout /t 2 /nobreak
-start /wait "" "%s" /S
-start "" "%s"
-del "%%%%~f0"
-`, savePath, execPath)
-		os.WriteFile(scriptPath, []byte(scriptContent), 0755)
+		if err := validateSafeWindowsUpdatePath(savePath); err != nil {
+			logger.Warnf(context.Background(), "Unsafe installer path: %v", err)
+			return
+		}
+		if err := validateSafeWindowsUpdatePath(execPath); err != nil {
+			logger.Warnf(context.Background(), "Unsafe executable path: %v", err)
+			return
+		}
+		scriptDir, err := os.MkdirTemp("", "genyee-win-upd-*")
+		if err != nil {
+			logger.Warnf(context.Background(), "Failed to create update script dir: %v", err)
+			return
+		}
+		scriptPath := filepath.Join(scriptDir, "genyee_update.bat")
+		if err := os.WriteFile(scriptPath, []byte(windowsUpdateScript), 0700); err != nil {
+			logger.Warnf(context.Background(), "Failed to write update script: %v", err)
+			return
+		}
 
-		cmd := exec.Command("cmd.exe", "/C", "start", "/b", scriptPath)
-		cmd.Start()
+		cmd := exec.Command("cmd.exe", "/d", "/c", scriptPath)
+		cmd.Env = append(os.Environ(),
+			"GENYEE_UPDATER_INSTALLER="+savePath,
+			"GENYEE_UPDATER_TARGET_EXE="+execPath,
+		)
+		_ = cmd.Start()
 		wailsruntime.Quit(ctx)
 
 	} else if runtime.GOOS == "darwin" {
@@ -380,75 +733,88 @@ del "%%%%~f0"
 				execPath, err := os.Executable()
 				if err != nil {
 					logger.Warnf(context.Background(), "Failed to get executable path: %v", err)
-					exec.Command("open", savePath).Start()
-					wailsruntime.Quit(ctx)
 					return
 				}
 
 				appBundlePath := filepath.Dir(filepath.Dir(filepath.Dir(execPath)))
 				if !strings.HasSuffix(appBundlePath, ".app") {
-					exec.Command("open", savePath).Start()
+					_ = exec.Command("open", "--", savePath).Start()
 					wailsruntime.Quit(ctx)
 					return
 				}
 
-				mountPoint := filepath.Join(os.TempDir(), "GENYEEUpdateMount")
-				os.MkdirAll(mountPoint, 0755)
+				mountPoint, err := os.MkdirTemp("", "genyee-dmg-mount-*")
+				if err != nil {
+					logger.Warnf(context.Background(), "Failed to create dmg mount point: %v", err)
+					return
+				}
 
-				cmdMount := exec.Command("hdiutil", "attach", savePath, "-mountpoint", mountPoint, "-nobrowse", "-quiet")
+				cmdMount := exec.Command("hdiutil", "attach", savePath, "-mountpoint", mountPoint, "-nobrowse", "-readonly", "-quiet")
 				if err := cmdMount.Run(); err != nil {
 					logger.Warnf(context.Background(), "Failed to mount dmg: %v", err)
-					exec.Command("open", savePath).Start()
-					wailsruntime.Quit(ctx)
+					_ = os.Remove(mountPoint)
 					return
 				}
 
 				entries, err := os.ReadDir(mountPoint)
 				if err != nil {
-					exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
-					exec.Command("open", savePath).Start()
-					wailsruntime.Quit(ctx)
+					_ = exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
+					_ = os.Remove(mountPoint)
 					return
 				}
 
 				var newAppPath string
 				for _, entry := range entries {
-					if strings.HasSuffix(entry.Name(), ".app") {
-						newAppPath = filepath.Join(mountPoint, entry.Name())
+					if entry.Type()&os.ModeSymlink != 0 {
+						continue
+					}
+					safeEntry, nameErr := sanitizeUpdateAssetFilename(entry.Name())
+					if nameErr == nil && strings.HasSuffix(safeEntry, ".app") {
+						newAppPath = filepath.Join(mountPoint, safeEntry)
 						break
 					}
 				}
 
 				if newAppPath == "" {
-					exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
-					exec.Command("open", savePath).Start()
-					wailsruntime.Quit(ctx)
+					_ = exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
+					_ = os.Remove(mountPoint)
+					return
+				}
+
+				if err := exec.Command("codesign", "--verify", "--deep", "--strict", newAppPath).Run(); err != nil {
+					logger.Warnf(context.Background(), "Rejected unsigned or tampered macOS app bundle: %v", err)
+					_ = exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
+					_ = os.Remove(mountPoint)
 					return
 				}
 
 				appDir := filepath.Dir(appBundlePath)
-				scriptPath := filepath.Join(os.TempDir(), "genyee_update.sh")
-				scriptContent := fmt.Sprintf(`#!/bin/bash
-sleep 2
-if ! (rm -rf "%s" && cp -a "%s" "%s"); then
-    osascript -e "do shell script \"rm -rf \\\"%s\\\" && cp -a \\\"%s\\\" \\\"%s\\\"\" with administrator privileges"
-fi
-hdiutil detach "%s" -force
-open "%s"
-rm "$0"
-`, appBundlePath, newAppPath, appDir, appBundlePath, newAppPath, appDir, mountPoint, appBundlePath)
+				scriptFile, err := os.CreateTemp("", "genyee-macos-upd-*.sh")
+				if err != nil {
+					_ = exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
+					_ = os.Remove(mountPoint)
+					return
+				}
+				scriptPath := scriptFile.Name()
+				if _, err := scriptFile.WriteString(darwinUpdateScript); err != nil {
+					_ = scriptFile.Close()
+					_ = os.Remove(scriptPath)
+					_ = exec.Command("hdiutil", "detach", mountPoint, "-force").Run()
+					_ = os.Remove(mountPoint)
+					return
+				}
+				_ = scriptFile.Chmod(0700)
+				_ = scriptFile.Close()
 
-				os.WriteFile(scriptPath, []byte(scriptContent), 0755)
-
-				exec.Command("bash", scriptPath).Start()
+				_ = exec.Command("/bin/bash", scriptPath, appBundlePath, newAppPath, appDir, mountPoint, stageDir).Start()
 				wailsruntime.Quit(ctx)
 			}()
 		} else {
-			exec.Command("open", savePath).Start()
+			_ = exec.Command("open", "--", savePath).Start()
 			wailsruntime.Quit(ctx)
 		}
 	} else {
-		exec.Command("xdg-open", savePath).Start()
+		_ = exec.Command("xdg-open", savePath).Start()
 		wailsruntime.Quit(ctx)
 	}
 }

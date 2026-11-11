@@ -12,6 +12,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/im/qqbot"
 	"github.com/Usir233/GENYEE/internal/im/slack"
 	"github.com/Usir233/GENYEE/internal/im/telegram"
+	"github.com/Usir233/GENYEE/internal/im/wecom"
 	"github.com/Usir233/GENYEE/internal/im/yunzhijia"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -20,7 +21,7 @@ import (
 func TestMissingWebhookSecretsFailClosed(t *testing.T) {
 	for _, adapter := range []im.Adapter{
 		&dingtalk.Adapter{}, &feishu.Adapter{}, &mattermost.Adapter{}, &qqbot.Adapter{},
-		&slack.Adapter{}, &telegram.Adapter{}, &yunzhijia.Adapter{},
+		&slack.Adapter{}, &telegram.Adapter{}, &wecom.WebhookAdapter{}, &yunzhijia.Adapter{},
 	} {
 		ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
 		ctx.Request = httptest.NewRequest("POST", "/callback", nil)

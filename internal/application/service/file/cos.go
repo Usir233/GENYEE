@@ -171,7 +171,7 @@ func (s *cosFileService) DeleteFile(ctx context.Context, filePath string) error 
 // through to the legacy-URL branch and is returned unchanged (#3151).
 func (s *cosFileService) parseCosObjectName(filePath string) (string, error) {
 	filePath = storageBackendInnerPath(filePath)
-	for _, other := range []string{"local://", "minio://", "s3://", "tos://", "oss://", "ks3://", "obs://"} {
+	for _, other := range []string{"local://", "minio://", "s3://", "tos://", "oss://", "ks3://", "obs://", "resource://", "storage://"} {
 		if strings.HasPrefix(filePath, other) {
 			return "", fmt.Errorf("cos file service cannot resolve %s path", strings.Split(other, "://")[0])
 		}
@@ -180,23 +180,29 @@ func (s *cosFileService) parseCosObjectName(filePath string) (string, error) {
 	if strings.HasPrefix(filePath, cosScheme) {
 		rest := strings.TrimPrefix(filePath, cosScheme)
 		parts := strings.SplitN(rest, "/", 3)
-		if len(parts) == 3 {
-			// Bucket and region are not part of the object key, but the
-			// tenant check (ParseTenantIDFromStoragePath) scans them too: an
-			// unchecked numeric bucket or region would pass as the caller's
-			// tenant while the key reads another tenant's object.
-			if s.bucketName != "" && parts[0] != s.bucketName {
-				return "", fmt.Errorf("bucket mismatch in path: got %s, want %s", parts[0], s.bucketName)
-			}
-			if s.region != "" && parts[1] != s.region {
-				return "", fmt.Errorf("region mismatch in path: got %s, want %s", parts[1], s.region)
-			}
-			return parts[2], nil
+		if len(parts) != 3 || parts[0] == "" || parts[1] == "" || parts[2] == "" {
+			return "", fmt.Errorf("invalid COS file path: %s", filePath)
 		}
-		return rest, nil
+		if s.bucketName != "" && parts[0] != s.bucketName {
+			return "", fmt.Errorf("bucket mismatch in path: got %s, want %s", parts[0], s.bucketName)
+		}
+		if s.region != "" && parts[1] != s.region {
+			return "", fmt.Errorf("region mismatch in path: got %s, want %s", parts[1], s.region)
+		}
+		if err := utils.SafeObjectKey(parts[2]); err != nil {
+			return "", fmt.Errorf("invalid COS object key: %w", err)
+		}
+		return parts[2], nil
 	}
 	// Legacy format: https://bucket.cos.region.myqcloud.com/{objectKey}
-	return strings.TrimPrefix(filePath, s.bucketURL), nil
+	if s.bucketURL != "" && strings.HasPrefix(filePath, s.bucketURL) {
+		key := strings.TrimPrefix(filePath, s.bucketURL)
+		if err := utils.SafeObjectKey(key); err != nil {
+			return "", fmt.Errorf("invalid COS object key: %w", err)
+		}
+		return key, nil
+	}
+	return "", fmt.Errorf("invalid COS file path: %s", filePath)
 }
 
 // CopyFile copies an existing COS object to a new knowledge-owned object using a

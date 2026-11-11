@@ -164,61 +164,120 @@ func unwrapStorageBackendPath(filePath string) string {
 	return parts[1]
 }
 
+// extractStorageObjectKeyParts unwraps storage://<backendID>/, validates that
+// the inner path uses a known storage provider scheme without traversal/encoding
+// tricks, strips provider bucket/region header segments, and returns (scheme, keyParts, ok).
+func extractStorageObjectKeyParts(filePath string) (string, []string, bool) {
+	inner := unwrapStorageBackendPath(filePath)
+	if strings.HasPrefix(inner, storageBackendScheme) {
+		return "", nil, false
+	}
+	if strings.ContainsAny(inner, "\\\x00?#%") {
+		return "", nil, false
+	}
+	scheme, rest, ok := strings.Cut(inner, "://")
+	if !ok || scheme == "" || rest == "" {
+		return "", nil, false
+	}
+	scheme = strings.ToLower(scheme)
+	parts := strings.Split(rest, "/")
+	for _, p := range parts {
+		if p == "" || p == "." || p == ".." {
+			return "", nil, false
+		}
+	}
+
+	switch scheme {
+	case "local":
+		if len(parts) < 2 {
+			return "", nil, false
+		}
+		return scheme, parts, true
+	case "cos":
+		// cos://{bucket}/{region}/{objectKey...}
+		if len(parts) < 4 {
+			return "", nil, false
+		}
+		return scheme, parts[2:], true
+	case "minio", "s3", "tos", "oss", "ks3", "obs":
+		// {scheme}://{bucket}/{objectKey...}
+		if len(parts) < 3 {
+			return "", nil, false
+		}
+		return scheme, parts[1:], true
+	default:
+		return "", nil, false
+	}
+}
+
+func parsePositiveTenantSegment(seg string) uint64 {
+	id, err := strconv.ParseUint(seg, 10, 64)
+	if err != nil || id == 0 {
+		return 0
+	}
+	return id
+}
+
 // storagePathHasExportsScope reports whether tenantID appears next to an
-// exports segment in either canonical layout:
-//   - {tenant}/exports/...  (local, minio, s3, most cloud backends)
-//   - exports/{tenant}/...  (OSS temp-bucket layout)
+// exports segment in either canonical object-key layout:
+//   - [prefix/]{tenant}/exports/...  (local, minio, s3, cos, tos, oss)
+//   - exports/{tenant}/...           (temp-bucket layout)
 func storagePathHasExportsScope(filePath string, tenantID uint64) bool {
-	_, rest, ok := strings.Cut(unwrapStorageBackendPath(filePath), "://")
+	_, keyParts, ok := extractStorageObjectKeyParts(filePath)
 	if !ok {
 		return false
 	}
 	tenantSeg := strconv.FormatUint(tenantID, 10)
-	parts := strings.Split(rest, "/")
-	for i, part := range parts {
+	for i, part := range keyParts {
 		if part != tenantSeg {
 			continue
 		}
-		if i+1 < len(parts) && parts[i+1] == kbScopedExportsSegment {
+		if i+1 < len(keyParts) && keyParts[i+1] == kbScopedExportsSegment {
 			return true
 		}
-		if i > 0 && parts[i-1] == kbScopedExportsSegment {
+		if i > 0 && keyParts[i-1] == kbScopedExportsSegment && i+1 < len(keyParts) {
 			return true
 		}
 	}
 	return false
 }
 
-// ParseTenantIDFromStoragePath extracts the tenant ID from a provider:// storage path.
-// Storage paths follow the convention: {scheme}://.../{tenantID}/...
-// Returns 0 if the path does not contain a valid tenant ID.
-//
-// NOTE: For cloud providers whose paths embed numeric bucket or region names
-// before the tenant segment, the first numeric segment may not be the tenant.
-// Callers that have an authoritative resource-owner tenant ID available
-// should pass it directly to SignFileURL instead of relying on this parser.
+// ParseTenantIDFromStoragePath extracts the tenant ID from a provider:// storage path,
+// strictly anchored at the managed root or configured prefix boundary after stripping
+// bucket/region header segments so numeric buckets, regions, or leaf filenames cannot
+// spoof tenant ownership.
 func ParseTenantIDFromStoragePath(filePath string) uint64 {
-	// Unwrap storage://<backendID>/ so the tenant scan is anchored on the inner
-	// provider path, not the (opaque) backend id.
-	filePath = unwrapStorageBackendPath(filePath)
-	// Strip scheme: "local://1/abc/img.png" → "1/abc/img.png"
-	_, rest, ok := strings.Cut(filePath, "://")
-	if !ok {
+	scheme, keyParts, ok := extractStorageObjectKeyParts(filePath)
+	if !ok || len(keyParts) < 2 {
 		return 0
 	}
 
-	// Storage path layouts vary by provider:
-	//   local://TENANT_ID/...
-	//   minio://bucket/TENANT_ID/...
-	//   s3://bucket/prefix/TENANT_ID/...
-	//   cos://bucket/region/prefix/TENANT_ID/...
-	//   tos://bucket/TENANT_ID/...
-	//   oss://bucket/prefix/TENANT_ID/...
-	// We try each slash-separated segment until we find a numeric tenant ID.
-	parts := strings.Split(rest, "/")
-	for _, part := range parts {
-		if id, err := strconv.ParseUint(part, 10, 64); err == nil {
+	// local:// and minio:// never prepend a pathPrefix before {tenantID}.
+	if scheme == "local" || scheme == "minio" {
+		return parsePositiveTenantSegment(keyParts[0])
+	}
+
+	// Root layout without pathPrefix: {tenantID}/{rest...}
+	if id := parsePositiveTenantSegment(keyParts[0]); id > 0 {
+		return id
+	}
+
+	// Temp / exports root layout: exports/{tenantID}/{file} or temp/{tenantID}/{file}
+	if keyParts[0] == kbScopedExportsSegment || keyParts[0] == "temp" {
+		if len(keyParts) >= 3 {
+			return parsePositiveTenantSegment(keyParts[1])
+		}
+		return 0
+	}
+
+	// Single-level configured pathPrefix: {prefix}/{tenantID}/{rest...}
+	// or {prefix}/temp/{tenantID}/{file}
+	if len(keyParts) >= 3 {
+		if id := parsePositiveTenantSegment(keyParts[1]); id > 0 {
 			return id
+		}
+		if (keyParts[1] == "temp" || keyParts[1] == kbScopedExportsSegment) && len(keyParts) >= 4 {
+			return parsePositiveTenantSegment(keyParts[2])
 		}
 	}
 

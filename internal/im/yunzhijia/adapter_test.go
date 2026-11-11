@@ -29,7 +29,7 @@ func TestVerifyCallbackSignature(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	msg := callbackMessage{
 		Type: 2, RobotID: "robot", RobotName: "WeKnora", OperatorOpenid: "user",
-		OperatorName: "User", Time: 123, MsgID: "message", Content: "@WeKnora hello",
+		OperatorName: "User", Time: time.Now().UnixMilli(), MsgID: "message", Content: "@WeKnora hello",
 	}
 	body, err := json.Marshal(msg)
 	if err != nil {
@@ -51,6 +51,28 @@ func TestVerifyCallbackSignature(t *testing.T) {
 	}
 	if parsed == nil || parsed.Content != "hello" {
 		t.Fatalf("parsed message = %#v, want content hello", parsed)
+	}
+}
+
+func TestVerifyCallbackRejectsStaleTimestamp(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	msg := callbackMessage{
+		Type: 2, RobotID: "robot", RobotName: "WeKnora", OperatorOpenid: "user",
+		OperatorName: "User", Time: time.Now().Add(-10 * time.Minute).UnixMilli(), MsgID: "message", Content: "@WeKnora hello",
+	}
+	body, err := json.Marshal(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/callback", bytes.NewReader(body))
+	req.Header.Set("Sign", computeSignature("secret", &msg))
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = req
+
+	adapter := NewAdapter("https://www.yunzhijia.com/send", "secret", "", "", 10, "yunzhijia.com")
+	if err := adapter.VerifyCallback(c); err == nil {
+		t.Fatal("VerifyCallback() succeeded for stale callback timestamp")
 	}
 }
 

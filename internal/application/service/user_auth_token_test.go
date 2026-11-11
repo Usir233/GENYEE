@@ -232,7 +232,7 @@ func TestRefreshTokenRejectsAccessTokenRecord(t *testing.T) {
 	}
 }
 
-func TestLogoutRevokesAllUserTokens(t *testing.T) {
+func TestLogoutValidatesActiveTokenAndRevokesOnlyCurrentToken(t *testing.T) {
 	ctx := context.Background()
 	tokenRepo := &stubAuthTokenRepo{tokens: map[string]*types.AuthToken{}}
 	svc := newAuthTestUserService(tokenRepo)
@@ -242,12 +242,59 @@ func TestLogoutRevokesAllUserTokens(t *testing.T) {
 		"type":    "access",
 		"exp":     time.Now().Add(-time.Hour).Unix(),
 	})
-
-	if err := svc.Logout(ctx, expiredAccess); err != nil {
-		t.Fatalf("Logout(expired access token) err = %v", err)
+	tokenRepo.tokens[expiredAccess] = &types.AuthToken{
+		ID:        "tok-expired",
+		UserID:    "user-1",
+		Token:     expiredAccess,
+		TokenType: "access_token",
 	}
-	if len(tokenRepo.revokedUserIDs) != 1 || tokenRepo.revokedUserIDs[0] != "user-1" {
-		t.Fatalf("RevokeTokensByUserID calls = %v, want [user-1]", tokenRepo.revokedUserIDs)
+
+	if err := svc.Logout(ctx, expiredAccess); err == nil {
+		t.Fatalf("Logout(expired access token) succeeded, want rejection")
+	}
+	if len(tokenRepo.revokedUserIDs) != 0 || len(tokenRepo.revokedTokenIDs) != 0 {
+		t.Fatalf("expired token logout caused revocations: users=%v tokens=%v", tokenRepo.revokedUserIDs, tokenRepo.revokedTokenIDs)
+	}
+
+	activeAccess := signTestJWT(jwt.MapClaims{
+		"jti":     "tok-active-1",
+		"user_id": "user-1",
+		"type":    "access",
+		"exp":     time.Now().Add(time.Hour).Unix(),
+	})
+	otherAccess := signTestJWT(jwt.MapClaims{
+		"jti":     "tok-active-2",
+		"user_id": "user-1",
+		"type":    "access",
+		"exp":     time.Now().Add(time.Hour).Unix(),
+	})
+	tokenRepo.tokens[activeAccess] = &types.AuthToken{
+		ID:        "tok-active-1",
+		UserID:    "user-1",
+		Token:     activeAccess,
+		TokenType: "access_token",
+	}
+	tokenRepo.tokens[otherAccess] = &types.AuthToken{
+		ID:        "tok-active-2",
+		UserID:    "user-1",
+		Token:     otherAccess,
+		TokenType: "access_token",
+	}
+
+	if err := svc.Logout(ctx, activeAccess); err != nil {
+		t.Fatalf("Logout(active access token) err = %v", err)
+	}
+	if len(tokenRepo.revokedUserIDs) != 0 {
+		t.Fatalf("RevokeTokensByUserID should not be called, got %v", tokenRepo.revokedUserIDs)
+	}
+	if len(tokenRepo.revokedTokenIDs) != 1 || tokenRepo.revokedTokenIDs[0] != "tok-active-1" {
+		t.Fatalf("RevokeToken calls = %v, want [tok-active-1]", tokenRepo.revokedTokenIDs)
+	}
+	if tokenRepo.tokens[otherAccess].IsRevoked {
+		t.Fatalf("other active session should remain valid after single-session logout")
+	}
+	if err := svc.Logout(ctx, activeAccess); err == nil {
+		t.Fatalf("Logout(already revoked token) succeeded, want rejection")
 	}
 }
 
@@ -370,22 +417,6 @@ func TestChangePasswordHonoursRuntimeComplexPolicy(t *testing.T) {
 	}
 	if err := svc.ChangePassword(ctx, "user-1", "OldSecure9", "NewSecure9!"); err != nil {
 		t.Fatalf("ChangePassword(complex new) err = %v", err)
-	}
-}
-
-func TestUserIDFromSignedTokenAcceptsExpiredToken(t *testing.T) {
-	expired := signTestJWT(jwt.MapClaims{
-		"user_id": "user-1",
-		"type":    "access",
-		"exp":     time.Now().Add(-time.Hour).Unix(),
-	})
-
-	userID, err := userIDFromSignedToken(expired)
-	if err != nil {
-		t.Fatalf("userIDFromSignedToken(expired) err = %v", err)
-	}
-	if userID != "user-1" {
-		t.Fatalf("userIDFromSignedToken(expired) = %q, want user-1", userID)
 	}
 }
 

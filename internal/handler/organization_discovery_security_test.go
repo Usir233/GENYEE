@@ -38,6 +38,7 @@ func TestInviteCandidatesRequireExactID(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(recorder)
 		c.Params = gin.Params{{Key: "id", Value: "org"}}
+		c.Set(types.UserContextKey.String(), &types.User{ID: "sysadmin", IsSystemAdmin: true})
 		c.Request = httptest.NewRequest("GET", "/search", nil)
 		q := c.Request.URL.Query()
 		q.Set("q", query)
@@ -52,4 +53,19 @@ func TestInviteCandidatesRequireExactID(t *testing.T) {
 			require.Contains(t, recorder.Body.String(), "Target workspace")
 		}
 	}
+}
+
+func TestInviteCandidatesRejectCrossTenantEnumerationForNonAdmin(t *testing.T) {
+	tenants := &inviteTestTenants{}
+	handler := &OrganizationHandler{orgService: &inviteTestOrg{}, tenantService: tenants}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Params = gin.Params{{Key: "id", Value: "org"}}
+	c.Set(types.TenantIDContextKey.String(), uint64(7))
+	c.Set(types.UserContextKey.String(), &types.User{ID: "regular-admin", TenantID: 7, IsSystemAdmin: false})
+	c.Request = httptest.NewRequest("GET", "/search?q=42", nil)
+	handler.SearchTenantsForInvite(c)
+	require.Empty(t, c.Errors)
+	require.Empty(t, tenants.queried)
+	require.Contains(t, recorder.Body.String(), `"data":[]`)
 }

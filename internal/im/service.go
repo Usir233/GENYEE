@@ -1642,6 +1642,8 @@ func sameChannelRuntimeConfig(cached, fresh *IMChannel) bool {
 }
 
 func equalChannelCredentials(left, right types.JSON) bool {
+	left = DecryptCredentialsJSON(left)
+	right = DecryptCredentialsJSON(right)
 	var leftValue, rightValue any
 	if err := json.Unmarshal(left, &leftValue); err != nil {
 		return string(left) == string(right)

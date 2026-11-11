@@ -460,6 +460,6 @@ func (h *MemoryHandler) fail(c *gin.Context, err error, message string) {
 		c.Error(apperrors.NewBadRequestError("memory is disabled"))
 	default:
 		logger.ErrorWithFields(c.Request.Context(), err, nil)
-		c.Error(apperrors.NewInternalServerError(message).WithDetails(err.Error()))
+		c.Error(apperrors.NewInternalServerError(message))
 	}
 }

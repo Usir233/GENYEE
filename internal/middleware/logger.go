@@ -3,6 +3,7 @@ package middleware
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/url"
@@ -50,24 +51,404 @@ func (r loggerResponseBodyWriter) Write(b []byte) (int, error) {
 	return r.ResponseWriter.Write(b)
 }
 
-// sensitiveFieldRegex 匹配 JSON 中的敏感字段（不区分大小写，兼容 snake_case / camelCase / PascalCase）。
-// $1 捕获原始字段名（包括两侧引号），保持日志中的字段名不变，仅将值替换为 "***"。
+// sensitiveFieldRegex is the fallback redactor for truncated or non-JSON text bodies.
+// Complete JSON payloads are redacted by redactJSONBytes first so nested maps
+// (values/envs/credentials/custom_headers), escaped quotes, and non-string secrets
+// are recursively masked while preserving key order.
 var sensitiveFieldRegex = regexp.MustCompile(
-	`(?i)("(?:new[_-]?password|old[_-]?password|password|passwd|ticket|token|access[_-]?token|` +
-		`refresh[_-]?token|next[_-]?token|device[_-]?token|pending[_-]?token|pairing[_-]?link|` +
-		`id[_-]?token|authorization|auth[_-]?token|api[_-]?key|` +
-		`api[_-]?secret|secret[_-]?key|client[_-]?secret|private[_-]?key|secret|` +
-		`authorization[_-]?url|authorization[_-]?attempt|assertion)")\s*:\s*"[^"]*"`,
+	`(?i)("(?P<k>value|values|envs|credentials|custom[_-]?headers|` +
+		`passwd|ticket|assertion|authorization|authorization[_-]?url|authorization[_-]?attempt|pairing[_-]?link|` +
+		`[a-z0-9_-]*secret[a-z0-9_-]*|[a-z0-9_-]*token[a-z0-9_-]*|` +
+		`[a-z0-9_-]*password[a-z0-9_-]*|[a-z0-9_-]*key[a-z0-9_-]*)")\s*:\s*"(?:\\.|[^"\\])*"`,
+)
+
+// sensitiveContainerFallbackRegex redacts truncated/non-parsed object maps on container keys.
+var sensitiveContainerFallbackRegex = regexp.MustCompile(
+	`(?i)("(?:values|envs|credentials|custom[_-]?headers)")\s*:\s*\{[^{}]*\}`,
 )
 
 // dataURIRegex matches an inline data URI whose payload is base64. Request logs
 // are capped at 10KB, and an image upload still fills that cap with file bytes.
 var dataURIRegex = regexp.MustCompile(`(?i)\bdata:[^\s"'<>]{0,128};base64,[A-Za-z0-9+/=\r\n]*`)
 
+func isSensitiveContainerKey(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "values", "envs", "credentials", "custom_headers", "customheaders", "custom-headers":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSensitiveFieldKey(key string) bool {
+	lower := strings.ToLower(strings.TrimSpace(key))
+	if lower == "" || lower == "keyword" || lower == "keywords" {
+		return false
+	}
+	switch lower {
+	case "value", "passwd", "ticket", "assertion", "authorization",
+		"authorization_url", "authorizationurl", "authorization-url",
+		"authorization_attempt", "authorizationattempt", "authorization-attempt",
+		"pairing_link", "pairinglink", "pairing-link":
+		return true
+	}
+	return strings.Contains(lower, "secret") ||
+		strings.Contains(lower, "token") ||
+		strings.Contains(lower, "password") ||
+		strings.Contains(lower, "key")
+}
+
+func isJSONSpace(b byte) bool {
+	return b == ' ' || b == '\t' || b == '\r' || b == '\n'
+}
+
+func readJSONStringToken(src []byte, pos *int) (raw []byte, decoded string, ok bool) {
+	i := *pos
+	if i >= len(src) || src[i] != '"' {
+		return nil, "", false
+	}
+	i++
+	for i < len(src) {
+		c := src[i]
+		if c == '\\' {
+			i += 2
+			if i > len(src) {
+				return nil, "", false
+			}
+			continue
+		}
+		if c == '"' {
+			i++
+			raw = src[*pos:i]
+			var s string
+			if err := json.Unmarshal(raw, &s); err != nil {
+				return nil, "", false
+			}
+			*pos = i
+			return raw, s, true
+		}
+		if c < 0x20 {
+			return nil, "", false
+		}
+		i++
+	}
+	return nil, "", false
+}
+
+func skipJSONScalar(src []byte, pos *int) bool {
+	start := *pos
+	i := start
+	for i < len(src) {
+		c := src[i]
+		if isJSONSpace(c) || c == ',' || c == '}' || c == ']' {
+			break
+		}
+		i++
+	}
+	if i == start || !json.Valid(src[start:i]) {
+		return false
+	}
+	*pos = i
+	return true
+}
+
+func skipJSONValue(src []byte, pos *int, depth int) bool {
+	if depth > 64 {
+		return false
+	}
+	for *pos < len(src) && isJSONSpace(src[*pos]) {
+		*pos++
+	}
+	if *pos >= len(src) {
+		return false
+	}
+	switch src[*pos] {
+	case '"':
+		_, _, ok := readJSONStringToken(src, pos)
+		return ok
+	case '{':
+		*pos++
+		for *pos < len(src) && isJSONSpace(src[*pos]) {
+			*pos++
+		}
+		if *pos < len(src) && src[*pos] == '}' {
+			*pos++
+			return true
+		}
+		for {
+			for *pos < len(src) && isJSONSpace(src[*pos]) {
+				*pos++
+			}
+			if _, _, ok := readJSONStringToken(src, pos); !ok {
+				return false
+			}
+			for *pos < len(src) && isJSONSpace(src[*pos]) {
+				*pos++
+			}
+			if *pos >= len(src) || src[*pos] != ':' {
+				return false
+			}
+			*pos++
+			if !skipJSONValue(src, pos, depth+1) {
+				return false
+			}
+			for *pos < len(src) && isJSONSpace(src[*pos]) {
+				*pos++
+			}
+			if *pos >= len(src) {
+				return false
+			}
+			if src[*pos] == ',' {
+				*pos++
+				continue
+			}
+			if src[*pos] == '}' {
+				*pos++
+				return true
+			}
+			return false
+		}
+	case '[':
+		*pos++
+		for *pos < len(src) && isJSONSpace(src[*pos]) {
+			*pos++
+		}
+		if *pos < len(src) && src[*pos] == ']' {
+			*pos++
+			return true
+		}
+		for {
+			if !skipJSONValue(src, pos, depth+1) {
+				return false
+			}
+			for *pos < len(src) && isJSONSpace(src[*pos]) {
+				*pos++
+			}
+			if *pos >= len(src) {
+				return false
+			}
+			if src[*pos] == ',' {
+				*pos++
+				continue
+			}
+			if src[*pos] == ']' {
+				*pos++
+				return true
+			}
+			return false
+		}
+	default:
+		return skipJSONScalar(src, pos)
+	}
+}
+
+func redactJSONBytes(src []byte) ([]byte, bool) {
+	trimmed := bytes.TrimSpace(src)
+	if len(trimmed) == 0 || (trimmed[0] != '{' && trimmed[0] != '[') {
+		return nil, false
+	}
+	var out bytes.Buffer
+	out.Grow(len(src))
+	pos := 0
+
+	var scanValue func(forceRedact bool, depth int) bool
+	scanObject := func(forceRedact bool, depth int) bool {
+		out.WriteByte('{')
+		pos++
+		wsStart := pos
+		for pos < len(src) && isJSONSpace(src[pos]) {
+			pos++
+		}
+		if pos < len(src) && src[pos] == '}' {
+			out.Write(src[wsStart:pos])
+			out.WriteByte('}')
+			pos++
+			return true
+		}
+		pos = wsStart
+		for {
+			wsKey := pos
+			for pos < len(src) && isJSONSpace(src[pos]) {
+				pos++
+			}
+			out.Write(src[wsKey:pos])
+			keyRaw, keyName, ok := readJSONStringToken(src, &pos)
+			if !ok {
+				return false
+			}
+			colonStart := pos
+			for pos < len(src) && isJSONSpace(src[pos]) {
+				pos++
+			}
+			if pos >= len(src) || src[pos] != ':' {
+				return false
+			}
+			pos++
+			for pos < len(src) && isJSONSpace(src[pos]) {
+				pos++
+			}
+			valStart := pos
+
+			out.Write(keyRaw)
+			switch {
+			case isSensitiveContainerKey(keyName):
+				out.WriteByte(':')
+				if !scanValue(true, depth+1) {
+					return false
+				}
+			case forceRedact || isSensitiveFieldKey(keyName):
+				if !skipJSONValue(src, &pos, depth+1) {
+					return false
+				}
+				out.WriteString(`:"***"`)
+			default:
+				out.Write(src[colonStart:valStart])
+				if !scanValue(false, depth+1) {
+					return false
+				}
+			}
+
+			wsEnd := pos
+			for pos < len(src) && isJSONSpace(src[pos]) {
+				pos++
+			}
+			out.Write(src[wsEnd:pos])
+			if pos >= len(src) {
+				return false
+			}
+			if src[pos] == ',' {
+				out.WriteByte(',')
+				pos++
+				continue
+			}
+			if src[pos] == '}' {
+				out.WriteByte('}')
+				pos++
+				return true
+			}
+			return false
+		}
+	}
+
+	scanArray := func(forceRedact bool, depth int) bool {
+		out.WriteByte('[')
+		pos++
+		wsStart := pos
+		for pos < len(src) && isJSONSpace(src[pos]) {
+			pos++
+		}
+		if pos < len(src) && src[pos] == ']' {
+			out.Write(src[wsStart:pos])
+			out.WriteByte(']')
+			pos++
+			return true
+		}
+		pos = wsStart
+		for {
+			wsElem := pos
+			for pos < len(src) && isJSONSpace(src[pos]) {
+				pos++
+			}
+			out.Write(src[wsElem:pos])
+			if !scanValue(forceRedact, depth+1) {
+				return false
+			}
+			wsAfter := pos
+			for pos < len(src) && isJSONSpace(src[pos]) {
+				pos++
+			}
+			out.Write(src[wsAfter:pos])
+			if pos >= len(src) {
+				return false
+			}
+			if src[pos] == ',' {
+				out.WriteByte(',')
+				pos++
+				continue
+			}
+			if src[pos] == ']' {
+				out.WriteByte(']')
+				pos++
+				return true
+			}
+			return false
+		}
+	}
+
+	scanValue = func(forceRedact bool, depth int) bool {
+		if depth > 64 {
+			return false
+		}
+		ws := pos
+		for pos < len(src) && isJSONSpace(src[pos]) {
+			pos++
+		}
+		out.Write(src[ws:pos])
+		if pos >= len(src) {
+			return false
+		}
+		switch src[pos] {
+		case '{':
+			return scanObject(forceRedact, depth)
+		case '[':
+			return scanArray(forceRedact, depth)
+		case '"':
+			raw, _, ok := readJSONStringToken(src, &pos)
+			if !ok {
+				return false
+			}
+			if forceRedact {
+				out.WriteString(`"***"`)
+			} else {
+				out.Write(raw)
+			}
+			return true
+		default:
+			start := pos
+			if !skipJSONScalar(src, &pos) {
+				return false
+			}
+			token := src[start:pos]
+			if forceRedact && !bytes.Equal(token, []byte("null")) {
+				out.WriteString(`"***"`)
+			} else {
+				out.Write(token)
+			}
+			return true
+		}
+	}
+
+	if !scanValue(false, 0) {
+		return nil, false
+	}
+	trail := pos
+	for pos < len(src) && isJSONSpace(src[pos]) {
+		pos++
+	}
+	if pos != len(src) {
+		return nil, false
+	}
+	out.Write(src[trail:pos])
+	return out.Bytes(), true
+}
+
 // sanitizeBody 清理敏感信息，并把 data URI 的 base64 载荷换成长度标记。
 func sanitizeBody(body string) string {
+	if redactedJSON, ok := redactJSONBytes([]byte(body)); ok {
+		return dataURIRegex.ReplaceAllStringFunc(string(redactedJSON), redactDataURI)
+	}
 	redacted := dataURIRegex.ReplaceAllStringFunc(body, redactDataURI)
-	return sensitiveFieldRegex.ReplaceAllString(redacted, `$1:"***"`)
+	redacted = sensitiveFieldRegex.ReplaceAllStringFunc(redacted, func(match string) string {
+		sub := sensitiveFieldRegex.FindStringSubmatch(match)
+		if len(sub) >= 3 && (strings.EqualFold(sub[2], "keyword") || strings.EqualFold(sub[2], "keywords")) {
+			return match
+		}
+		if len(sub) >= 2 {
+			return sub[1] + `:"***"`
+		}
+		return `"***"`
+	})
+	return sensitiveContainerFallbackRegex.ReplaceAllString(redacted, `$1:{"***":"***"}`)
 }
 
 func redactDataURI(match string) string {
@@ -191,15 +572,29 @@ func RequestID() gin.HandlerFunc {
 	}
 }
 
-// skipsBodyLogging reports routes whose bodies carry credentials, page
-// content or screenshots. Their access metadata is still logged; their
-// bodies are never read or buffered. sanitizeBody is no substitute: it only
-// knows fixed key names, and a value containing \" ends its match early.
+// skipsBodyLogging reports routes whose bodies carry credentials, write-only
+// vaults, page content or screenshots. Their access metadata is still logged;
+// their bodies are never read or buffered.
 func skipsBodyLogging(path string) bool {
-	return strings.HasPrefix(path, "/api/v1/local-browser/") ||
+	if strings.HasPrefix(path, "/api/v1/local-browser/") ||
 		path == "/api/v1/me/browser" || strings.HasSuffix(path, "/local-browser") ||
-		strings.HasPrefix(path, "/api/v1/agent/secure-forms/") ||
-		path == "/api/v1/me/credential-vault" || strings.HasPrefix(path, "/api/v1/me/credential-vault/")
+		path == "/api/v1/agent/secure-forms" || strings.HasPrefix(path, "/api/v1/agent/secure-forms/") ||
+		path == "/api/v1/me/credential-vault" || strings.HasPrefix(path, "/api/v1/me/credential-vault/") ||
+		path == "/api/v1/me/env-vars" || strings.HasPrefix(path, "/api/v1/me/env-vars/") ||
+		path == "/api/v1/im-channels" || strings.HasPrefix(path, "/api/v1/im-channels/") ||
+		path == "/api/v1/models" || strings.HasPrefix(path, "/api/v1/models/") ||
+		path == "/api/v1/initialization" || strings.HasPrefix(path, "/api/v1/initialization/") ||
+		path == "/api/v1/system/admin/api-keys" || strings.HasPrefix(path, "/api/v1/system/admin/api-keys/") ||
+		strings.HasPrefix(path, "/api/v1/auth/") {
+		return true
+	}
+	if strings.HasPrefix(path, "/api/v1/sandbox-configs/") && strings.Contains(path, "/skills") {
+		return true
+	}
+	if strings.HasPrefix(path, "/api/v1/tenants/") && strings.Contains(path, "/api-keys") {
+		return true
+	}
+	return false
 }
 
 // Logger middleware logs request details with request ID, input and output

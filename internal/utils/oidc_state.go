@@ -28,21 +28,33 @@ type OIDCStatePayload struct {
 var (
 	oidcStateSecretOnce sync.Once
 	oidcStateSecret     string
+	oidcStateSecretErr  error
 )
 
-func oidcStateSigningKey() string {
+func loadOIDCStateSigningKey() (string, error) {
+	envSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
+	isPlaceholder := envSecret == "" || envSecret == "weknora-jwt-secret" || envSecret == "CHANGE-ME-jwt-secret"
+	if IsProductionEnv() {
+		if err := ValidateProductionJWTSecret(envSecret); err != nil {
+			return "", err
+		}
+		return envSecret, nil
+	}
+	if !isPlaceholder {
+		return envSecret, nil
+	}
+	randomBytes := make([]byte, 32)
+	if _, err := rand.Read(randomBytes); err != nil {
+		return "", fmt.Errorf("failed to generate OIDC state signing key: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(randomBytes), nil
+}
+
+func oidcStateSigningKey() (string, error) {
 	oidcStateSecretOnce.Do(func() {
-		if envSecret := strings.TrimSpace(os.Getenv("JWT_SECRET")); envSecret != "" {
-			oidcStateSecret = envSecret
-			return
-		}
-		randomBytes := make([]byte, 32)
-		if _, err := rand.Read(randomBytes); err != nil {
-			panic(fmt.Sprintf("failed to generate OIDC state signing key: %v", err))
-		}
-		oidcStateSecret = base64.StdEncoding.EncodeToString(randomBytes)
+		oidcStateSecret, oidcStateSecretErr = loadOIDCStateSigningKey()
 	})
-	return oidcStateSecret
+	return oidcStateSecret, oidcStateSecretErr
 }
 
 // SignOIDCState returns a tamper-evident state token: base64url(payload).base64url(hmac).
@@ -63,7 +75,11 @@ func SignOIDCState(payload *OIDCStatePayload) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("marshal oidc state: %w", err)
 	}
-	mac := hmac.New(sha256.New, []byte(oidcStateSigningKey()))
+	signingKey, err := oidcStateSigningKey()
+	if err != nil {
+		return "", err
+	}
+	mac := hmac.New(sha256.New, []byte(signingKey))
 	mac.Write(raw)
 	sig := mac.Sum(nil)
 	return base64.RawURLEncoding.EncodeToString(raw) + "." + base64.RawURLEncoding.EncodeToString(sig), nil
@@ -84,7 +100,11 @@ func VerifyOIDCState(raw string) (*OIDCStatePayload, error) {
 	if err != nil {
 		return nil, fmt.Errorf("decode oidc state signature: %w", err)
 	}
-	mac := hmac.New(sha256.New, []byte(oidcStateSigningKey()))
+	signingKey, err := oidcStateSigningKey()
+	if err != nil {
+		return nil, err
+	}
+	mac := hmac.New(sha256.New, []byte(signingKey))
 	mac.Write(payloadBytes)
 	if !hmac.Equal(mac.Sum(nil), sigBytes) {
 		return nil, errors.New("oidc state signature mismatch")

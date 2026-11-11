@@ -327,11 +327,16 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 		kb.VLMConfig.Enabled = *req.Multimodal.Enabled
 	}
 	if req.VLMConfig != nil {
+		if req.VLMConfig.BaseURL != nil && strings.TrimSpace(*req.VLMConfig.BaseURL) != "" &&
+			strings.TrimSpace(*req.VLMConfig.BaseURL) != strings.TrimSpace(kb.VLMConfig.BaseURL) {
+			c.Error(errors.NewBadRequestError("vlm_config.base_url 不支持直接写入，请通过 model_id 绑定受管视觉模型"))
+			return
+		}
 		if req.VLMConfig.Enabled != nil {
 			kb.VLMConfig.Enabled = *req.VLMConfig.Enabled
 		}
 		if req.VLMConfig.ModelID != nil {
-			kb.VLMConfig.ModelID = *req.VLMConfig.ModelID
+			kb.VLMConfig.ModelID = strings.TrimSpace(*req.VLMConfig.ModelID)
 		}
 		if req.VLMConfig.DescriptionLanguage != nil {
 			kb.VLMConfig.DescriptionLanguage = strings.TrimSpace(*req.VLMConfig.DescriptionLanguage)
@@ -339,26 +344,23 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 		if req.VLMConfig.CustomInstructions != nil {
 			kb.VLMConfig.CustomInstructions = strings.TrimSpace(*req.VLMConfig.CustomInstructions)
 		}
-		if req.VLMConfig.ModelName != nil {
-			kb.VLMConfig.ModelName = *req.VLMConfig.ModelName
-		}
-		if req.VLMConfig.BaseURL != nil {
-			kb.VLMConfig.BaseURL = *req.VLMConfig.BaseURL
-		}
-		if req.VLMConfig.APIKey != nil {
-			kb.VLMConfig.APIKey = *req.VLMConfig.APIKey
-		}
-		if req.VLMConfig.InterfaceType != nil {
-			kb.VLMConfig.InterfaceType = *req.VLMConfig.InterfaceType
-		}
 
 		if req.VLMConfig.ModelID != nil && kb.VLMConfig.Enabled && kb.VLMConfig.ModelID != "" {
 			model, err := h.modelService.GetModelByID(ctx, kb.VLMConfig.ModelID)
 			if err != nil || model == nil {
 				logger.Warn(ctx, "VLM model not found")
-				kb.VLMConfig.Enabled = false
-				kb.VLMConfig.ModelID = ""
+				c.Error(errors.NewBadRequestError("vlm_config.model_id: 视觉模型不存在"))
+				return
 			}
+			if !model.SupportsType(types.ModelTypeVLLM) {
+				c.Error(errors.NewBadRequestError(
+					fmt.Sprintf("vlm_config.model_id: 模型类型为 %s，需要 %s", model.Type, types.ModelTypeVLLM)))
+				return
+			}
+			kb.VLMConfig.ModelName = ""
+			kb.VLMConfig.BaseURL = ""
+			kb.VLMConfig.APIKey = ""
+			kb.VLMConfig.InterfaceType = ""
 		}
 	}
 	if (req.Multimodal.Enabled != nil && !*req.Multimodal.Enabled) ||
@@ -368,6 +370,13 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 		kb.VLMConfig.ModelID = ""
 		kb.VLMConfig.ModelName = ""
 		kb.VLMConfig.BaseURL = ""
+		kb.VLMConfig.APIKey = ""
+		kb.VLMConfig.InterfaceType = ""
+	}
+	if kb.VLMConfig.Enabled && kb.VLMConfig.ModelID == "" &&
+		(kb.VLMConfig.ModelName == "" || kb.VLMConfig.BaseURL == "") {
+		c.Error(errors.NewBadRequestError("启用视觉多模态时必须指定有效的 vlm_config.model_id"))
+		return
 	}
 	if req.ASRConfig != nil {
 		if req.ASRConfig.Enabled != nil {
@@ -514,9 +523,9 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 	}
 
 	// 保存更新后的知识库
-	if err := h.kbRepository.UpdateKnowledgeBase(ctx, kb); err != nil {
+	if err := h.saveKnowledgeBaseEncrypted(ctx, kb); err != nil {
 		logger.Error(ctx, "Failed to update knowledge base", err)
-		c.Error(errors.NewInternalServerError("更新知识库失败: " + err.Error()))
+		c.Error(errors.NewInternalServerError("更新知识库失败"))
 		return
 	}
 
@@ -645,9 +654,8 @@ func (h *InitializationHandler) InitializeByKB(c *gin.Context) {
 
 	logger.Infof(
 		ctx,
-		"Starting knowledge base configuration update, kbId: %s, request: %s",
+		"Starting knowledge base configuration update, kbId: %s",
 		utils.SanitizeForLog(kbIdStr),
-		utils.SanitizeForLog(utils.ToJSON(req)),
 	)
 
 	kb, err := h.getKnowledgeBaseForInitialization(ctx, kbIdStr)
@@ -669,9 +677,9 @@ func (h *InitializationHandler) InitializeByKB(c *gin.Context) {
 
 	h.applyKnowledgeBaseInitialization(kb, req, processedModels)
 
-	if err := h.kbRepository.UpdateKnowledgeBase(ctx, kb); err != nil {
+	if err := h.saveKnowledgeBaseEncrypted(ctx, kb); err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kbId": utils.SanitizeForLog(kbIdStr)})
-		c.Error(errors.NewInternalServerError("更新知识库配置失败: " + err.Error()))
+		c.Error(errors.NewInternalServerError("更新知识库配置失败"))
 		return
 	}
 
@@ -1065,13 +1073,12 @@ func (h *InitializationHandler) applyKnowledgeBaseInitialization(
 		case "minio":
 			if req.Multimodal.Minio != nil {
 				kb.SetStorageProvider("minio")
-				// Legacy: also write to cos_config for backward compat with old code paths
+				// Store non-secret bucket/prefix metadata only; global MINIO_ACCESS_KEY_*
+				// environment credentials must never be persisted into the database.
 				kb.StorageConfig = types.StorageConfig{
 					Provider:   req.Multimodal.StorageType,
 					BucketName: req.Multimodal.Minio.BucketName,
 					PathPrefix: req.Multimodal.Minio.PathPrefix,
-					SecretID:   os.Getenv("MINIO_ACCESS_KEY_ID"),
-					SecretKey:  os.Getenv("MINIO_SECRET_ACCESS_KEY"),
 				}
 			}
 		}
@@ -1235,6 +1242,47 @@ func (h *InitializationHandler) CheckOllamaModels(c *gin.Context) {
 	})
 }
 
+func (h *InitializationHandler) saveKnowledgeBaseEncrypted(ctx context.Context, kb *types.KnowledgeBase) error {
+	if kb == nil {
+		return nil
+	}
+	toStore := *kb
+	if key := utils.GetAESKey(); key != nil {
+		var err error
+		if toStore.StorageConfig.SecretID != "" {
+			toStore.StorageConfig.SecretID, err = utils.EncryptAESGCM(toStore.StorageConfig.SecretID, key)
+			if err != nil {
+				return fmt.Errorf("encrypt storage secret_id: %w", err)
+			}
+		}
+		if toStore.StorageConfig.SecretKey != "" {
+			toStore.StorageConfig.SecretKey, err = utils.EncryptAESGCM(toStore.StorageConfig.SecretKey, key)
+			if err != nil {
+				return fmt.Errorf("encrypt storage secret_key: %w", err)
+			}
+		}
+		if toStore.VLMConfig.APIKey != "" {
+			toStore.VLMConfig.APIKey, err = utils.EncryptAESGCM(toStore.VLMConfig.APIKey, key)
+			if err != nil {
+				return fmt.Errorf("encrypt vlm api_key: %w", err)
+			}
+		}
+	}
+	if err := h.kbRepository.UpdateKnowledgeBase(ctx, &toStore); err != nil {
+		return err
+	}
+	kb.UpdatedAt = toStore.UpdatedAt
+	return nil
+}
+
+func (h *InitializationHandler) requireSystemAdminForOllamaDownload(c *gin.Context) bool {
+	if (h.config == nil || h.config.Tenant.IsRBACEnforced()) && !types.IsSystemAdminFromContext(c.Request.Context()) {
+		c.Error(errors.NewForbiddenError("仅系统管理员可执行该操作"))
+		return false
+	}
+	return true
+}
+
 // DownloadOllamaModel godoc
 // @Summary      下载Ollama模型
 // @Description  异步下载指定的Ollama模型
@@ -1248,6 +1296,9 @@ func (h *InitializationHandler) CheckOllamaModels(c *gin.Context) {
 // @Security     ApiKeyAuth
 // @Router       /initialization/ollama/models/download [post]
 func (h *InitializationHandler) DownloadOllamaModel(c *gin.Context) {
+	if !h.requireSystemAdminForOllamaDownload(c) {
+		return
+	}
 	ctx := c.Request.Context()
 
 	logger.Info(ctx, "Starting async Ollama model download")
@@ -1360,6 +1411,9 @@ func (h *InitializationHandler) DownloadOllamaModel(c *gin.Context) {
 // @Security     ApiKeyAuth
 // @Router       /initialization/ollama/download/progress/{taskId} [get]
 func (h *InitializationHandler) GetDownloadProgress(c *gin.Context) {
+	if !h.requireSystemAdminForOllamaDownload(c) {
+		return
+	}
 	taskID := c.Param("taskId")
 
 	if taskID == "" {
@@ -1393,6 +1447,9 @@ func (h *InitializationHandler) GetDownloadProgress(c *gin.Context) {
 // @Security     ApiKeyAuth
 // @Router       /initialization/ollama/download/tasks [get]
 func (h *InitializationHandler) ListDownloadTasks(c *gin.Context) {
+	if !h.requireSystemAdminForOllamaDownload(c) {
+		return
+	}
 	tasksMutex.RLock()
 	tasks := make([]*DownloadTask, 0, len(downloadTasks))
 	for _, task := range downloadTasks {

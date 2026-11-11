@@ -1,6 +1,7 @@
 package file
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -146,19 +147,45 @@ func (s *obsFileService) parseObsFilePath(filePath string) (string, error) {
 		// With proxy domain: path is {prefix}/{objectKey} (no bucket name)
 		if s.proxyDomain != "" {
 			rest = strings.TrimPrefix(rest, "/")
-			if rest != "" {
-				return rest, nil
+			if rest == "" {
+				return "", fmt.Errorf("invalid OBS file path: %s", filePath)
 			}
-			return "", fmt.Errorf("invalid OBS file path: %s", filePath)
+			if err := utils.SafeObjectKey(rest); err != nil {
+				return "", fmt.Errorf("invalid OBS object key: %w", err)
+			}
+			return rest, nil
 		}
 		// Without proxy domain: path is {prefix}/{bucketName}/{objectKey}
 		parts := strings.SplitN(rest, "/", 2)
-		if len(parts) == 2 && parts[0] == s.bucketName && parts[1] != "" {
-			return parts[1], nil
+		if len(parts) != 2 || parts[0] == "" || parts[1] == "" {
+			return "", fmt.Errorf("invalid OBS file path: %s", filePath)
 		}
-		return "", fmt.Errorf("invalid OBS file path: %s", filePath)
+		if s.bucketName != "" && parts[0] != s.bucketName {
+			return "", fmt.Errorf("bucket mismatch in OBS path: got %s, want %s", parts[0], s.bucketName)
+		}
+		if err := utils.SafeObjectKey(parts[1]); err != nil {
+			return "", fmt.Errorf("invalid OBS object key: %w", err)
+		}
+		return parts[1], nil
 	}
-	return filePath, nil
+	if s.proxyDomain == "" && (strings.HasPrefix(filePath, "http://") || strings.HasPrefix(filePath, "https://")) {
+		return filePath, nil
+	}
+	return "", fmt.Errorf("invalid OBS file path: %s", filePath)
+}
+
+func (s *obsFileService) resolveObsObjectKey(filePath string) (string, error) {
+	objectKey, err := s.parseObsFilePath(filePath)
+	if err != nil {
+		return "", err
+	}
+	if strings.HasPrefix(objectKey, "http://") || strings.HasPrefix(objectKey, "https://") {
+		return "", fmt.Errorf("invalid OBS object path: %s", filePath)
+	}
+	if err := utils.SafeObjectKey(objectKey); err != nil {
+		return "", fmt.Errorf("invalid OBS object key: %w", err)
+	}
+	return objectKey, nil
 }
 
 func (s *obsFileService) getPrifix() string {
@@ -212,7 +239,7 @@ func (s *obsFileService) SaveFile(ctx context.Context,
 }
 
 func (s *obsFileService) GetFile(ctx context.Context, filePath string) (io.ReadCloser, error) {
-	objectKey, err := s.parseObsFilePath(filePath)
+	objectKey, err := s.resolveObsObjectKey(filePath)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +258,7 @@ func (s *obsFileService) GetFile(ctx context.Context, filePath string) (io.ReadC
 }
 
 func (s *obsFileService) DeleteFile(ctx context.Context, filePath string) error {
-	objectKey, err := s.parseObsFilePath(filePath)
+	objectKey, err := s.resolveObsObjectKey(filePath)
 	if err != nil {
 		return err
 	}
@@ -285,13 +312,7 @@ func (s *obsFileService) GetFileURL(ctx context.Context, filePath string) (strin
 func (s *obsFileService) CopyFile(ctx context.Context,
 	srcPath string, tenantID uint64, knowledgeID string,
 ) (string, error) {
-	// Reject paths that do not use this service's prefix (proxy domain or obs://).
-	// parseObsFilePath falls back to returning the raw input for unknown prefixes,
-	// so guard explicitly here to detect cross-backend sources.
-	if !strings.HasPrefix(srcPath, s.getPrifix()) {
-		return "", fmt.Errorf("obs copy rejected source %q: %w", srcPath, ErrCrossBackendCopy)
-	}
-	srcKey, err := s.parseObsFilePath(srcPath)
+	srcKey, err := s.resolveObsObjectKey(srcPath)
 	if err != nil {
 		return "", fmt.Errorf("obs copy rejected source %q: %w", srcPath, ErrCrossBackendCopy)
 	}
@@ -329,7 +350,11 @@ func (s *obsFileService) CopyFile(ctx context.Context,
 }
 
 func (s *obsFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
-	ext := filepath.Ext(fileName)
+	safeName, err := utils.SafeFileName(fileName)
+	if err != nil {
+		return "", fmt.Errorf("invalid file name: %w", err)
+	}
+	ext := filepath.Ext(safeName)
 
 	var objectKey string
 	if temp {
@@ -348,12 +373,11 @@ func (s *obsFileService) SaveBytes(ctx context.Context, data []byte, tenantID ui
 
 	ctx, cancel := objectStorageTransferContext(ctx)
 	defer cancel()
-	_, err := s.client.PutObject(ctx, &s3.PutObjectInput{
+	_, err = s.client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket:      aws.String(s.bucketName),
 		Key:         aws.String(objectKey),
-		Body:        strings.NewReader(string(data)),
-		ContentType: aws.String("application/octet-stream"),
-		ACL:         "public-read",
+		Body:        bytes.NewReader(data),
+		ContentType: aws.String(utils.GetContentTypeByExt(ext)),
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to upload bytes to OBS: %w", err)

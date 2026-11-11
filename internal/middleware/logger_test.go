@@ -41,7 +41,7 @@ func TestSanitizeBody(t *testing.T) {
 		{
 			name: "secretKey camelCase",
 			in:   `{"secretKey":"abc","accessKeyId":"id"}`,
-			want: `{"secretKey":"***","accessKeyId":"id"}`,
+			want: `{"secretKey":"***","accessKeyId":"***"}`,
 		},
 		{
 			name: "refreshToken / accessToken camelCase",
@@ -269,6 +269,14 @@ func TestSkipsBodyLoggingForSecretRoutes(t *testing.T) {
 		"/api/v1/agent/secure-forms/p1",
 		"/api/v1/me/credential-vault",
 		"/api/v1/me/credential-vault/abc",
+		"/api/v1/me/env-vars",
+		"/api/v1/me/env-vars/skill",
+		"/api/v1/sandbox-configs/cfg-1/skills/sk-1",
+		"/api/v1/im-channels",
+		"/api/v1/models",
+		"/api/v1/initialization/kb/kb-1",
+		"/api/v1/tenants/1/api-keys",
+		"/api/v1/auth/login",
 		"/api/v1/local-browser/x",
 		"/api/v1/me/browser",
 	} {
@@ -276,7 +284,7 @@ func TestSkipsBodyLoggingForSecretRoutes(t *testing.T) {
 			t.Errorf("%s must not have its body logged", p)
 		}
 	}
-	for _, p := range []string{"/api/v1/agent/prompts/p1", "/api/v1/me/env-vars"} {
+	for _, p := range []string{"/api/v1/agent/prompts/p1", "/api/v1/knowledge-search"} {
 		if skipsBodyLogging(p) {
 			t.Errorf("%s keeps its body log", p)
 		}

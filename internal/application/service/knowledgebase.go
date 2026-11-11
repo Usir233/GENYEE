@@ -176,6 +176,18 @@ func (s *knowledgeBaseService) CreateKnowledgeBase(ctx context.Context,
 		}
 	}
 
+	if kb.VLMConfig != (types.VLMConfig{}) {
+		if strings.TrimSpace(kb.VLMConfig.BaseURL) != "" {
+			return nil, apperrors.NewBadRequestError(
+				"vlm_config.base_url is not supported; bind a managed VLM model via model_id")
+		}
+		resolvedVLM, err := s.resolveUpdatedVLMConfig(ctx, types.VLMConfig{}, kb.VLMConfig)
+		if err != nil {
+			return nil, err
+		}
+		kb.VLMConfig = resolvedVLM
+	}
+
 	// The image settings have to survive the same check the settings panel
 	// makes: a pipeline whose every action switch is off would process images
 	// by ignoring them.
@@ -193,7 +205,7 @@ func (s *knowledgeBaseService) CreateKnowledgeBase(ctx context.Context,
 
 	logger.Infof(ctx, "Creating knowledge base, ID: %s, tenant ID: %d, name: %s", kb.ID, kb.TenantID, kb.Name)
 
-	if err := s.repo.CreateKnowledgeBase(ctx, kb); err != nil {
+	if err := s.createKnowledgeBaseEncrypted(ctx, kb); err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"knowledge_base_id": kb.ID,
 			"tenant_id":         kb.TenantID,
@@ -330,7 +342,7 @@ func (s *knowledgeBaseService) GetKnowledgeBaseByID(ctx context.Context, id stri
 		return nil, errors.New("knowledge base ID cannot be empty")
 	}
 
-	kb, err := s.repo.GetKnowledgeBaseByID(ctx, id)
+	kb, err := s.getKnowledgeBaseByIDDecrypted(ctx, id)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"knowledge_base_id": id,
@@ -350,7 +362,7 @@ func (s *knowledgeBaseService) GetKnowledgeBaseByIDOnly(ctx context.Context, id 
 		return nil, errors.New("knowledge base ID cannot be empty")
 	}
 
-	kb, err := s.repo.GetKnowledgeBaseByID(ctx, id)
+	kb, err := s.getKnowledgeBaseByIDDecrypted(ctx, id)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"knowledge_base_id": id,
@@ -367,10 +379,11 @@ func (s *knowledgeBaseService) GetKnowledgeBasesByIDsOnly(ctx context.Context, i
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	kbs, err := s.repo.GetKnowledgeBaseByIDs(ctx, ids)
+	rawKBs, err := s.repo.GetKnowledgeBaseByIDs(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
+	kbs := decryptKBSlice(ctx, rawKBs)
 	for _, kb := range kbs {
 		if kb != nil {
 			kb.EnsureDefaults()
@@ -383,7 +396,8 @@ func (s *knowledgeBaseService) GetKnowledgeBasesByIDsOnly(ctx context.Context, i
 func (s *knowledgeBaseService) ListKnowledgeBases(ctx context.Context) ([]*types.KnowledgeBase, error) {
 	tenantID := types.MustTenantIDFromContext(ctx)
 
-	kbs, err := s.repo.ListKnowledgeBasesByTenantID(ctx, tenantID)
+	rawKBs, err := s.repo.ListKnowledgeBasesByTenantID(ctx, tenantID)
+	kbs := decryptKBSlice(ctx, rawKBs)
 	if err != nil {
 		for _, kb := range kbs {
 			kb.EnsureDefaults()
@@ -445,13 +459,14 @@ func (s *knowledgeBaseService) ListKnowledgeBases(ctx context.Context) ([]*types
 
 // ListKnowledgeBasesByTenantID returns all knowledge bases for the given tenant (e.g. for shared agent context).
 func (s *knowledgeBaseService) ListKnowledgeBasesByTenantID(ctx context.Context, tenantID uint64) ([]*types.KnowledgeBase, error) {
-	kbs, err := s.repo.ListKnowledgeBasesByTenantID(ctx, tenantID)
+	rawKBs, err := s.repo.ListKnowledgeBasesByTenantID(ctx, tenantID)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"tenant_id": tenantID,
 		})
 		return nil, err
 	}
+	kbs := decryptKBSlice(ctx, rawKBs)
 	for _, kb := range kbs {
 		kb.EnsureDefaults()
 		switch kb.Type {
@@ -605,7 +620,7 @@ func (s *knowledgeBaseService) UpdateKnowledgeBase(ctx context.Context,
 	logger.Infof(ctx, "Updating knowledge base, ID: %s, name: %s", id, name)
 
 	// Get existing knowledge base
-	kb, err := s.repo.GetKnowledgeBaseByID(ctx, id)
+	kb, err := s.getKnowledgeBaseByIDDecrypted(ctx, id)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"knowledge_base_id": id,
@@ -741,7 +756,7 @@ func (s *knowledgeBaseService) UpdateKnowledgeBase(ctx context.Context,
 	kb.EnsureDefaults()
 
 	logger.Info(ctx, "Saving knowledge base update")
-	if err := s.repo.UpdateKnowledgeBase(ctx, kb); err != nil {
+	if err := s.updateKnowledgeBaseEncrypted(ctx, kb); err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"knowledge_base_id": id,
 		})
@@ -868,7 +883,7 @@ func (s *knowledgeBaseService) TogglePinKnowledgeBase(
 	// org-shared, or agent-shared). Filtering by the caller's tenant
 	// here would 404 every legitimate pin against a shared KB whose
 	// owning tenant differs from the caller's active tenant.
-	kb, err := s.repo.GetKnowledgeBaseByID(ctx, id)
+	kb, err := s.getKnowledgeBaseByIDDecrypted(ctx, id)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"knowledge_base_id": id,
@@ -1396,7 +1411,7 @@ func (s *knowledgeBaseService) SetEmbeddingModel(ctx context.Context, id string,
 	logger.Infof(ctx, "Setting embedding model for knowledge base, knowledge base ID: %s, model ID: %s", id, modelID)
 
 	// Get the knowledge base
-	kb, err := s.repo.GetKnowledgeBaseByID(ctx, id)
+	kb, err := s.getKnowledgeBaseByIDDecrypted(ctx, id)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"knowledge_base_id": id,
@@ -1409,7 +1424,7 @@ func (s *knowledgeBaseService) SetEmbeddingModel(ctx context.Context, id string,
 	kb.UpdatedAt = time.Now()
 
 	logger.Info(ctx, "Saving knowledge base embedding model update")
-	err = s.repo.UpdateKnowledgeBase(ctx, kb)
+	err = s.updateKnowledgeBaseEncrypted(ctx, kb)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"knowledge_base_id":  id,
@@ -1444,7 +1459,7 @@ func (s *knowledgeBaseService) CopyKnowledgeBase(ctx context.Context,
 		return nil, nil, access.ErrForbidden
 	}
 	tenantID := types.MustTenantIDFromContext(ctx)
-	sourceKB, err := s.repo.GetKnowledgeBaseByIDAndTenant(ctx, srcKB, tenantID)
+	sourceKB, err := s.getKnowledgeBaseByIDAndTenantDecrypted(ctx, srcKB, tenantID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -1454,7 +1469,7 @@ func (s *knowledgeBaseService) CopyKnowledgeBase(ctx context.Context,
 	sourceCopy := *sourceKB
 	sourceKB = &sourceCopy
 	sourceKB.EnsureDefaults()
-	targetKB, err := s.repo.GetKnowledgeBaseByIDAndTenant(ctx, destinationID, tenantID)
+	targetKB, err := s.getKnowledgeBaseByIDAndTenantDecrypted(ctx, destinationID, tenantID)
 	if err != nil && (!create || !errors.Is(err, repository.ErrKnowledgeBaseNotFound)) {
 		return nil, nil, err
 	}
@@ -1520,7 +1535,7 @@ func (s *knowledgeBaseService) CopyKnowledgeBase(ctx context.Context,
 			targetKB.CreatorID = uid
 		}
 		targetKB.EnsureDefaults()
-		if err := s.repo.CreateKnowledgeBase(ctx, targetKB); err != nil {
+		if err := s.createKnowledgeBaseEncrypted(ctx, targetKB); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -1540,7 +1555,7 @@ func (s *knowledgeBaseService) DuplicateKnowledgeBase(
 	}
 
 	tenantID := types.MustTenantIDFromContext(ctx)
-	sourceKB, err := s.repo.GetKnowledgeBaseByIDAndTenant(ctx, srcKB, tenantID)
+	sourceKB, err := s.getKnowledgeBaseByIDAndTenantDecrypted(ctx, srcKB, tenantID)
 	if err != nil {
 		logger.Errorf(ctx, "Get source knowledge base failed: %v", err)
 		return nil, err
@@ -1586,7 +1601,7 @@ func (s *knowledgeBaseService) DuplicateKnowledgeBase(
 		}
 	}
 
-	if err := s.repo.CreateKnowledgeBase(ctx, targetKB); err != nil {
+	if err := s.createKnowledgeBaseEncrypted(ctx, targetKB); err != nil {
 		return nil, err
 	}
 	recordKBActivity(ctx, s.audit, tenantID, targetKB.ID, types.AuditActionKBDuplicated,
@@ -1676,4 +1691,131 @@ func cloneKnowledgeBaseConfiguration(sourceKB *types.KnowledgeBase) (*types.Know
 		return nil, err
 	}
 	return &targetKB, nil
+}
+
+// encryptKBSecretsClone returns a shallow copy of kb with StorageConfig and
+// VLMConfig credentials AES-256-GCM encrypted (enc:v1:) when SYSTEM_AES_KEY is set,
+// keeping the caller's in-memory struct decrypted.
+func encryptKBSecretsClone(kb *types.KnowledgeBase) (*types.KnowledgeBase, error) {
+	if kb == nil {
+		return nil, nil
+	}
+	key := secutils.GetAESKey()
+	if key == nil || (kb.StorageConfig.SecretID == "" && kb.StorageConfig.SecretKey == "" && kb.VLMConfig.APIKey == "") {
+		return kb, nil
+	}
+	clone := *kb
+	var err error
+	if clone.StorageConfig.SecretID != "" {
+		clone.StorageConfig.SecretID, err = secutils.EncryptAESGCM(clone.StorageConfig.SecretID, key)
+		if err != nil {
+			return nil, fmt.Errorf("encrypt storage secret_id: %w", err)
+		}
+	}
+	if clone.StorageConfig.SecretKey != "" {
+		clone.StorageConfig.SecretKey, err = secutils.EncryptAESGCM(clone.StorageConfig.SecretKey, key)
+		if err != nil {
+			return nil, fmt.Errorf("encrypt storage secret_key: %w", err)
+		}
+	}
+	if clone.VLMConfig.APIKey != "" {
+		clone.VLMConfig.APIKey, err = secutils.EncryptAESGCM(clone.VLMConfig.APIKey, key)
+		if err != nil {
+			return nil, fmt.Errorf("encrypt vlm api_key: %w", err)
+		}
+	}
+	return &clone, nil
+}
+
+// decryptKBSecretsClone returns a shallow copy of kb with any enc:v1: stored
+// credentials decrypted, seamlessly preserving historical plaintext values.
+func decryptKBSecretsClone(ctx context.Context, kb *types.KnowledgeBase) *types.KnowledgeBase {
+	if kb == nil {
+		return nil
+	}
+	if !strings.HasPrefix(kb.StorageConfig.SecretID, secutils.EncPrefix) &&
+		!strings.HasPrefix(kb.StorageConfig.SecretKey, secutils.EncPrefix) &&
+		!strings.HasPrefix(kb.VLMConfig.APIKey, secutils.EncPrefix) {
+		return kb
+	}
+	clone := *kb
+	if plain, ok := secutils.DecryptStoredSecretLenient(clone.StorageConfig.SecretID); ok {
+		clone.StorageConfig.SecretID = plain
+	} else {
+		logger.Warnf(ctx, "Failed to decrypt StorageConfig.SecretID for KB %s", clone.ID)
+		clone.StorageConfig.SecretID = ""
+	}
+	if plain, ok := secutils.DecryptStoredSecretLenient(clone.StorageConfig.SecretKey); ok {
+		clone.StorageConfig.SecretKey = plain
+	} else {
+		logger.Warnf(ctx, "Failed to decrypt StorageConfig.SecretKey for KB %s", clone.ID)
+		clone.StorageConfig.SecretKey = ""
+	}
+	if plain, ok := secutils.DecryptStoredSecretLenient(clone.VLMConfig.APIKey); ok {
+		clone.VLMConfig.APIKey = plain
+	} else {
+		logger.Warnf(ctx, "Failed to decrypt VLMConfig.APIKey for KB %s", clone.ID)
+		clone.VLMConfig.APIKey = ""
+	}
+	return &clone
+}
+
+func decryptKBSlice(ctx context.Context, kbs []*types.KnowledgeBase) []*types.KnowledgeBase {
+	if len(kbs) == 0 {
+		return kbs
+	}
+	out := make([]*types.KnowledgeBase, len(kbs))
+	for i, kb := range kbs {
+		out[i] = decryptKBSecretsClone(ctx, kb)
+	}
+	return out
+}
+
+func (s *knowledgeBaseService) createKnowledgeBaseEncrypted(ctx context.Context, kb *types.KnowledgeBase) error {
+	toStore, err := encryptKBSecretsClone(kb)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.CreateKnowledgeBase(ctx, toStore); err != nil {
+		return err
+	}
+	if kb != nil && toStore != nil {
+		kb.CreatedAt = toStore.CreatedAt
+		kb.UpdatedAt = toStore.UpdatedAt
+	}
+	return nil
+}
+
+func (s *knowledgeBaseService) updateKnowledgeBaseEncrypted(ctx context.Context, kb *types.KnowledgeBase) error {
+	toStore, err := encryptKBSecretsClone(kb)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.UpdateKnowledgeBase(ctx, toStore); err != nil {
+		return err
+	}
+	if kb != nil && toStore != nil {
+		kb.UpdatedAt = toStore.UpdatedAt
+	}
+	return nil
+}
+
+func (s *knowledgeBaseService) getKnowledgeBaseByIDDecrypted(
+	ctx context.Context, id string,
+) (*types.KnowledgeBase, error) {
+	kb, err := s.repo.GetKnowledgeBaseByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return decryptKBSecretsClone(ctx, kb), nil
+}
+
+func (s *knowledgeBaseService) getKnowledgeBaseByIDAndTenantDecrypted(
+	ctx context.Context, id string, tenantID uint64,
+) (*types.KnowledgeBase, error) {
+	kb, err := s.repo.GetKnowledgeBaseByIDAndTenant(ctx, id, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return decryptKBSecretsClone(ctx, kb), nil
 }

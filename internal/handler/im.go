@@ -373,7 +373,7 @@ func (h *IMHandler) ToggleIMChannel(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": channel})
+	c.JSON(http.StatusOK, gin.H{"data": im.SummarizeIMChannel(*channel)})
 }
 
 func writeIMCallbackACK(c *gin.Context, platform string) {
@@ -444,15 +444,17 @@ func (h *IMHandler) IMCallback(c *gin.Context) {
 
 	logger.Infof(ctx, "[IM] Callback received platform=%s path_channel_id=%s", channel.Platform, channelID)
 
-	// Handle URL verification
-	if adapter.HandleURLVerification(c) {
-		return
-	}
-
-	// Verify callback signature
+	// Verify callback signature BEFORE URL verification so unauthenticated
+	// callers cannot use challenge handlers as decryption oracles or spoof
+	// URL ownership handshakes.
 	if err := adapter.VerifyCallback(c); err != nil {
 		logger.Errorf(ctx, "[IM] Callback verification failed for channel %s: %v", channelID, err)
 		c.JSON(http.StatusForbidden, gin.H{"error": "verification failed"})
+		return
+	}
+
+	// Handle URL verification challenge after signature/token check passes
+	if adapter.HandleURLVerification(c) {
 		return
 	}
 

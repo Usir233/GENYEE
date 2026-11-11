@@ -2,11 +2,15 @@ package router
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 
+	apperrors "github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/handler"
 	"github.com/Usir233/GENYEE/internal/middleware"
+	"github.com/Usir233/GENYEE/internal/ratelimit"
 	"github.com/Usir233/GENYEE/internal/types"
 )
 
@@ -226,9 +230,43 @@ func RegisterMyCredentialVaultRoutes(r *gin.RouterGroup, h *handler.CredentialVa
 	}
 }
 
+func authEndpointRateLimit(limiter *ratelimit.Limiter, scope string, maxPerMin int) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ip := c.ClientIP()
+		if ip == "" {
+			ip = "_unknown_"
+		}
+		if !limiter.Allow(c.Request.Context(), scope+":"+ip, maxPerMin) {
+			_ = c.Error(&apperrors.AppError{
+				Code:     apperrors.ErrTooManyRequests,
+				Message:  "too many requests; please retry shortly",
+				HTTPCode: http.StatusTooManyRequests,
+			})
+			c.Abort()
+			return
+		}
+		c.Next()
+	}
+}
+
 // RegisterAuthRoutes registers authentication routes
-func RegisterAuthRoutes(r *gin.RouterGroup, handler *handler.AuthHandler, g *rbacGuards) {
-	r.POST("/auth/register", handler.Register)
+func RegisterAuthRoutes(
+	r *gin.RouterGroup,
+	handler *handler.AuthHandler,
+	g *rbacGuards,
+	redisClients ...*redis.Client,
+) {
+	var redisClient *redis.Client
+	if len(redisClients) > 0 {
+		redisClient = redisClients[0]
+	}
+	authLimiter := ratelimit.New(redisClient, "auth:ratelimit:", time.Minute, "")
+	loginRL := authEndpointRateLimit(authLimiter, "login", 20)
+	registerRL := authEndpointRateLimit(authLimiter, "register", 15)
+	refreshRL := authEndpointRateLimit(authLimiter, "refresh", 30)
+	oidcRL := authEndpointRateLimit(authLimiter, "oidc", 30)
+
+	r.POST("/auth/register", registerRL, handler.Register)
 	// Share-link surfaces are unauthenticated and accept a plaintext
 	// token from the caller; rate-limit by IP to bound brute-force /
 	// enumeration / abuse traffic. Limiter is shared across both
@@ -237,16 +275,16 @@ func RegisterAuthRoutes(r *gin.RouterGroup, handler *handler.AuthHandler, g *rba
 	publicAuthRL := middleware.PublicAuthRateLimit()
 	r.POST("/auth/register-by-invite", publicAuthRL, handler.RegisterByInvite)
 	r.POST("/auth/invitations/lookup", publicAuthRL, handler.LookupInvitationByToken)
-	r.POST("/auth/login", handler.Login)
-	r.POST("/auth/auto-setup", handler.AutoSetup)
+	r.POST("/auth/login", loginRL, handler.Login)
+	r.POST("/auth/auto-setup", loginRL, handler.AutoSetup)
 	r.GET("/auth/config", handler.GetAuthConfig)
 	r.POST("/auth/switch-tenant", handler.SwitchTenant)
 	r.GET("/auth/oidc/config", handler.GetOIDCConfig)
-	r.GET("/auth/oidc/url", handler.GetOIDCAuthorizationURL)
-	r.GET("/auth/oidc/callback", handler.OIDCRedirectCallback)
+	r.GET("/auth/oidc/url", oidcRL, handler.GetOIDCAuthorizationURL)
+	r.GET("/auth/oidc/callback", oidcRL, handler.OIDCRedirectCallback)
 	// /auth/oidc/start：直连 302 跳转到 OIDC 提供方，供前端无法走 JS 拉取 URL 的场景直接发起登录
-	r.GET("/auth/oidc/start", handler.OIDCStart)
-	r.POST("/auth/refresh", handler.RefreshToken)
+	r.GET("/auth/oidc/start", oidcRL, handler.OIDCStart)
+	r.POST("/auth/refresh", refreshRL, handler.RefreshToken)
 	r.GET("/auth/validate", handler.ValidateToken)
 	r.POST("/auth/logout", handler.Logout)
 	// auth/me returns only the caller's own identity/profile, so it is safe

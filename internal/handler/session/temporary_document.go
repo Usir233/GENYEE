@@ -126,7 +126,8 @@ func (h *Handler) ListTemporaryDocuments(c *gin.Context) {
 	}
 	documents, err := h.temporaryDocuments.List(ctx, c.GetUint64(types.TenantIDContextKey.String()), sessionID)
 	if err != nil {
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		logger.ErrorWithFields(ctx, err, nil)
+		c.Error(apperrors.NewInternalServerError("Failed to list attachments"))
 		return
 	}
 	for i := range documents {
@@ -144,7 +145,8 @@ func (h *Handler) GetTemporaryDocument(c *gin.Context) {
 	}
 	document, err := h.temporaryDocuments.Get(ctx, c.GetUint64(types.TenantIDContextKey.String()), sessionID, c.Param("attachment_id"))
 	if err != nil {
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		logger.ErrorWithFields(ctx, err, nil)
+		c.Error(apperrors.NewInternalServerError("Failed to retrieve attachment"))
 		return
 	}
 	if document == nil {
@@ -175,7 +177,7 @@ func (h *Handler) PreviewTemporaryDocument(c *gin.Context) {
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError("Failed to retrieve attachment").WithDetails(err.Error()))
+		c.Error(apperrors.NewInternalServerError("Failed to retrieve attachment"))
 		return
 	}
 	if err := filetransport.Serve(c.Writer, c.Request, file, filetransport.Options{
@@ -195,7 +197,8 @@ func (h *Handler) DeleteTemporaryDocument(c *gin.Context) {
 		return
 	}
 	if err := h.temporaryDocuments.Delete(ctx, c.GetUint64(types.TenantIDContextKey.String()), sessionID, c.Param("attachment_id")); err != nil {
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		logger.ErrorWithFields(ctx, err, nil)
+		c.Error(apperrors.NewInternalServerError("Failed to delete attachment"))
 		return
 	}
 	c.Status(http.StatusNoContent)
