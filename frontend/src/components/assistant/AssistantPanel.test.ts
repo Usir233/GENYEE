@@ -121,7 +121,7 @@ async function fixture(
       },
     },
     '@/components/sessionGrouping': evaluate(groupingScript, {}),
-    '@/api/agent': { BUILTIN_WEKNORA_ASSISTANT_ID: 'builtin-weknora-assistant' },
+    '@/api/agent': { BUILTIN_GENYEE_ASSISTANT_ID: 'builtin-weknora-assistant' },
     '@/stores/menu': { useMenuStore: () => ({ updataMenuChildren: (entry: unknown) => menuEntries.push(entry) }) },
     '@/stores/auth': { useAuthStore: () => auth },
     '@/stores/assistant': stores,

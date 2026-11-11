@@ -65,12 +65,12 @@ func (a *agentSessionAttachments) ReadImage(ctx context.Context, ref string) ([]
 }
 
 // agentAttachmentParseWait honours the agent's own timeout, then
-// WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC, then the default.
+// GENYEE_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC, then the default.
 func agentAttachmentParseWait(config *types.AgentConfig) time.Duration {
 	if config != nil && config.AttachmentParseWaitTimeoutSec > 0 {
 		return time.Duration(config.AttachmentParseWaitTimeoutSec) * time.Second
 	}
-	if raw := strings.TrimSpace(os.Getenv("WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC")); raw != "" {
+	if raw := strings.TrimSpace(os.Getenv("GENYEE_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC")); raw != "" {
 		if sec, err := strconv.Atoi(raw); err == nil && sec > 0 {
 			return time.Duration(sec) * time.Second
 		}

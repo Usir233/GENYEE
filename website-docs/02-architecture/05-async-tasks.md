@@ -34,7 +34,7 @@ GENYEE 有两种任务执行模式，通过部署形态选择：
 | 多模态子任务计数器 | 图片子任务完成计数（DECR），最后一个 attempt 触发 finalize；Lite 模式改用进程内计数器 | `image_multimodal` 相关服务 |
 | 限流 | 滑动窗口限流 ZSET（见可观测性文档） | `internal/ratelimit/limiter.go` |
 
-Redis 连接参数来自环境变量 `REDIS_ADDR` / `REDIS_USERNAME` / `REDIS_PASSWORD` / `REDIS_DB` / TLS 配置。读写超时由 `WEKNORA_REDIS_OP_TIMEOUT_MS` 控制，默认 500ms（写超时为其 2 倍以吸收队头阻塞）：
+Redis 连接参数来自环境变量 `REDIS_ADDR` / `REDIS_USERNAME` / `REDIS_PASSWORD` / `REDIS_DB` / TLS 配置。读写超时由 `GENYEE_REDIS_OP_TIMEOUT_MS` 控制，默认 500ms（写超时为其 2 倍以吸收队头阻塞）：
 
 ```go
 // internal/router/task.go
@@ -92,12 +92,12 @@ opt := &asynq.RedisClientOpt{
 
 | Pool | 默认并发 | 消费队列（权重） | 配置键 / 环境变量 |
 | --- | --- | --- | --- |
-| `core` | 8 | `default`(1)、`chat_attachment`(3) | `asynq.core_concurrency` / `WEKNORA_ASYNQ_CORE_CONCURRENCY` |
-| `postprocess` | 2 | `postprocess`(1) | `asynq.postprocess_concurrency` / `WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY` |
-| `enrichment` | 12 | `summary`(2)、`multimodal`(1)、`graph`(1)、`question`(1)、`memory`(1) | `asynq.enrichment_concurrency` / `WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY` |
-| `maintenance` | 4 | `sync`(2)、`low`(1) | `asynq.maintenance_concurrency` / `WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY` |
-| `shared`（弹性层） | 6 | core + enrichment 中 `SharedWeight > 0` 的队列 | `asynq.shared_concurrency` / `WEKNORA_ASYNQ_SHARED_CONCURRENCY` |
-| `wiki` | 8 | `wiki`(1) | `asynq.wiki_concurrency` / `WEKNORA_WIKI_ASYNQ_CONCURRENCY` |
+| `core` | 8 | `default`(1)、`chat_attachment`(3) | `asynq.core_concurrency` / `GENYEE_ASYNQ_CORE_CONCURRENCY` |
+| `postprocess` | 2 | `postprocess`(1) | `asynq.postprocess_concurrency` / `GENYEE_ASYNQ_POSTPROCESS_CONCURRENCY` |
+| `enrichment` | 12 | `summary`(2)、`multimodal`(1)、`graph`(1)、`question`(1)、`memory`(1) | `asynq.enrichment_concurrency` / `GENYEE_ASYNQ_ENRICHMENT_CONCURRENCY` |
+| `maintenance` | 4 | `sync`(2)、`low`(1) | `asynq.maintenance_concurrency` / `GENYEE_ASYNQ_MAINTENANCE_CONCURRENCY` |
+| `shared`（弹性层） | 6 | core + enrichment 中 `SharedWeight > 0` 的队列 | `asynq.shared_concurrency` / `GENYEE_ASYNQ_SHARED_CONCURRENCY` |
+| `wiki` | 8 | `wiki`(1) | `asynq.wiki_concurrency` / `GENYEE_WIKI_ASYNQ_CONCURRENCY` |
 
 设计要点（源码注释均可佐证）：
 
@@ -108,7 +108,7 @@ opt := &asynq.RedisClientOpt{
 
 ### 容量估算与扩容 {#capacity-planning}
 
-旧聚合配置 `asynq.concurrency` / `WEKNORA_ASYNQ_CONCURRENCY` 已停用，存量部署应改为上表的各池配置。设置修改后需要重启服务。默认前五个池合计每实例 32 个 worker，Wiki 的 8 个另外计算。
+旧聚合配置 `asynq.concurrency` / `GENYEE_ASYNQ_CONCURRENCY` 已停用，存量部署应改为上表的各池配置。设置修改后需要重启服务。默认前五个池合计每实例 32 个 worker，Wiki 的 8 个另外计算。
 
 可以用下面的估算作为起点，再以运行时面板和实际负载调整：
 
@@ -306,9 +306,9 @@ stateDiagram-v2
 
 ### 兜底：housekeeping 清扫 {#_7-3-兜底-housekeeping-清扫}
 
-`internal/application/service/knowledge_housekeeping.go`：cron 每 5 分钟（`0 */5 * * * *`）运行一轮，是 asynq 重试、死信回调、multimodal finalize 之外的最后防线（worker 被 kill 在 handler 中间、defer 没跑到等场景）。可用 `WEKNORA_HOUSEKEEPING_ENABLED=false` 关闭。
+`internal/application/service/knowledge_housekeeping.go`：cron 每 5 分钟（`0 */5 * * * *`）运行一轮，是 asynq 重试、死信回调、multimodal finalize 之外的最后防线（worker 被 kill 在 handler 中间、defer 没跑到等场景）。可用 `GENYEE_HOUSEKEEPING_ENABLED=false` 关闭。
 
-阈值为 `max(1h, WEKNORA_DOCUMENT_PROCESS_TIMEOUT) + 10min`。每轮包含：
+阈值为 `max(1h, GENYEE_DOCUMENT_PROCESS_TIMEOUT) + 10min`。每轮包含：
 
 | 清扫 | 对象 | 处理 |
 | --- | --- | --- |

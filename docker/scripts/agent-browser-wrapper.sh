@@ -3,10 +3,10 @@
 # a starting browser before navigation; capture it before closing the browser.
 set -u
 
-SID="${WEKNORA_SESSION_ID:-}"
-BROWSER_ROOT="${WEKNORA_BROWSER_ROOT:-}"
+SID="${GENYEE_SESSION_ID:-}"
+BROWSER_ROOT="${GENYEE_BROWSER_ROOT:-}"
 if [ -z "$SID" ] || [ -z "$BROWSER_ROOT" ]; then
-  echo "agent-browser: WEKNORA_SESSION_ID / WEKNORA_BROWSER_ROOT not set; refusing to run unisolated" >&2
+  echo "agent-browser: GENYEE_SESSION_ID / GENYEE_BROWSER_ROOT not set; refusing to run unisolated" >&2
   exit 70
 fi
 AB_REAL="${WK_AB_REAL:-/opt/agent-browser/bin/agent-browser}"

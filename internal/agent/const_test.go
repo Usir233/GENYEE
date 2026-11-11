@@ -38,20 +38,20 @@ func TestToolExecutionTimeout(t *testing.T) {
 	}
 
 	t.Run("default budget plus slack", func(t *testing.T) {
-		t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "")
+		t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "")
 		assert.Equal(t, 35*time.Second, toolExecutionTimeout("web_fetch"))
 	})
 	t.Run("go duration", func(t *testing.T) {
-		t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "150s")
+		t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "150s")
 		assert.Greater(t, toolExecutionTimeout("web_fetch"), 2*time.Minute+30*time.Second)
 		assert.Equal(t, 2*time.Minute+35*time.Second, toolExecutionTimeout("web_fetch"))
 	})
 	t.Run("bare seconds", func(t *testing.T) {
-		t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "180")
+		t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "180")
 		assert.Equal(t, 185*time.Second, toolExecutionTimeout("web_fetch"))
 	})
 	t.Run("invalid falls back", func(t *testing.T) {
-		t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "nope")
+		t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "nope")
 		assert.Equal(t, 35*time.Second, toolExecutionTimeout("web_fetch"))
 	})
 }

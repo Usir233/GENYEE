@@ -22,7 +22,7 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-FORMULA_PATH = REPO_ROOT / "Formula" / "weknora-lite.rb"
+FORMULA_PATH = REPO_ROOT / "Formula" / "genyee-lite.rb"
 ENV_EXAMPLE_PATH = REPO_ROOT / ".env.lite.example"
 HELM_VALUES_PATH = REPO_ROOT / "helm" / "values.yaml"
 COMPOSE_PATH = REPO_ROOT / "docker-compose.yml"
@@ -33,7 +33,7 @@ OFFLINE_LICENSES_OFFER = REPO_ROOT / "OFFLINE_LICENSES" / "WRITTEN_OFFER.md"
 
 
 class TestFormulaPosixSedAdversarial(unittest.TestCase):
-    """Adversarial stress tests for Formula/weknora-lite.rb POSIX sed logic."""
+    """Adversarial stress tests for Formula/genyee-lite.rb POSIX sed logic."""
 
     @classmethod
     def setUpClass(cls):
@@ -89,7 +89,7 @@ sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "
         return proc.returncode, proc.stdout, proc.stderr, tmp_dir
 
     def test_ruby_syntax_check(self):
-        """Verify Formula/weknora-lite.rb passes ruby -c."""
+        """Verify Formula/genyee-lite.rb passes ruby -c."""
         proc = subprocess.run(["ruby", "-c", str(FORMULA_PATH)], capture_output=True, text=True)
         self.assertEqual(proc.returncode, 0, f"ruby -c failed: {proc.stderr}")
         self.assertIn("Syntax OK", proc.stdout)
@@ -334,11 +334,11 @@ fi
                 pkgshare = '{pkgshare}'
                 libexec = '{libexec}'
                 script = eval("<<~SH\\n#{{heredoc_body}}SH\\n")
-                File.write('{bin_dir / "weknora-lite"}', script)
+                File.write('{bin_dir / "genyee-lite"}', script)
                 """
             ]
             subprocess.run(ruby_gen_cmd, check=True)
-            wrapper_script = bin_dir / "weknora-lite"
+            wrapper_script = bin_dir / "genyee-lite"
             wrapper_script.chmod(0o755)
 
             # Execute wrapper with adversarial paths
@@ -354,8 +354,8 @@ fi
                 with self.subTest(e2e_case=name):
                     conf_dir = tmp_root / f"conf_{name}"
                     env = os.environ.copy()
-                    env["WEKNORA_CONFIG_DIR"] = str(conf_dir)
-                    env["WEKNORA_DATA_DIR"] = str(test_data_dir)
+                    env["GENYEE_CONFIG_DIR"] = str(conf_dir)
+                    env["GENYEE_DATA_DIR"] = str(test_data_dir)
 
                     proc = subprocess.run([str(wrapper_script)], env=env, capture_output=True, text=True)
                     self.assertEqual(proc.returncode, 0, f"Wrapper execution failed on {name}: {proc.stderr}")
@@ -369,10 +369,10 @@ fi
                     self.assertFalse((conf_dir / ".env.lite-e").exists())
 
                     content = env_file.read_text(encoding="utf-8")
-                    self.assertIn(f"DB_PATH={test_data_dir}/weknora.db", content)
+                    self.assertIn(f"DB_PATH={test_data_dir}/genyee.db", content)
                     self.assertIn(f"LOCAL_STORAGE_BASE_DIR={test_data_dir}/files", content)
                     self.assertIn(
-                        f"LITE_MOCK_SUCCESS: DB={test_data_dir}/weknora.db STORAGE={test_data_dir}/files",
+                        f"LITE_MOCK_SUCCESS: DB={test_data_dir}/genyee.db STORAGE={test_data_dir}/files",
                         proc.stdout,
                     )
         finally:

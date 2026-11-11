@@ -49,7 +49,7 @@ func (q *progressTestQueue) Enqueue(task *asynq.Task, options ...asynq.Option) (
 
 func progressTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	if dsn := os.Getenv("WEKNORA_TEST_POSTGRES_DSN"); dsn != "" {
+	if dsn := os.Getenv("GENYEE_TEST_POSTGRES_DSN"); dsn != "" {
 		require.Contains(t, dsn, "dbname=weknora_task_progress_test", "use a disposable task-progress database")
 		config := &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}
 		base, err := gorm.Open(postgres.Open(dsn), config)

@@ -17,23 +17,23 @@ import (
 //
 // The name is stable across releases; skills reference it via os.getenv(...)
 // so they never hard-code the path.
-const artifactOutputEnvVar = "WEKNORA_SKILL_OUTPUT_DIR"
+const artifactOutputEnvVar = "GENYEE_SKILL_OUTPUT_DIR"
 
 // sessionInputEnvVar points skill scripts at user-uploaded files restored into
 // the current session's Cube. Inputs are separate from generated artifacts.
-const sessionInputEnvVar = "WEKNORA_SESSION_INPUT_DIR"
+const sessionInputEnvVar = "GENYEE_SESSION_INPUT_DIR"
 
 // artifactHistoryEnvVar is the name of the environment variable that points
 // to the root artifact output directory (/workspace/output). Skill scripts
 // can use this to self-discover artifacts from prior runs when they need to
 // chain without LLM mediation.
-const artifactHistoryEnvVar = "WEKNORA_SKILL_HISTORY_ROOT"
+const artifactHistoryEnvVar = "GENYEE_SKILL_HISTORY_ROOT"
 
 // skillDirEnvVar points a script at its own directory inside the sandbox
 // image. Installed skills run with /workspace as WorkDir, so this is how a
 // script reaches the data and helpers that were installed beside it. The
 // install-time verification pass exports the same name.
-const skillDirEnvVar = "WEKNORA_SKILL_DIR"
+const skillDirEnvVar = "GENYEE_SKILL_DIR"
 
 // nodePathEnvVar carries the skill's own node_modules. pythonPathEnvVar is
 // never injected — a skill's Python packages arrive through its venv
@@ -45,7 +45,7 @@ const nodePathEnvVar = "NODE_PATH"
 // InjectedSandboxEnvVars is every name skill environment preparation writes into the sandbox
 // environment. The skill-env declaration blacklist must reject these so a
 // stored value cannot redirect artifacts, the skill directory, or the session
-// input tree. Credential names such as WEKNORA_API_KEY are not in this list.
+// input tree. Credential names such as GENYEE_API_KEY are not in this list.
 func InjectedSandboxEnvVars() []string {
 	return []string{
 		artifactOutputEnvVar,
@@ -58,7 +58,7 @@ func InjectedSandboxEnvVars() []string {
 }
 
 // defaultArtifactOutputDir is used when neither the environment variable
-// (WEKNORA_SKILL_OUTPUT_DIR) nor the ExecuteConfig.Env has an override.
+// (GENYEE_SKILL_OUTPUT_DIR) nor the ExecuteConfig.Env has an override.
 // /workspace/output sits inside the base sandbox image's writable tree and
 // is guaranteed to survive across Execute calls for the same session (Cube
 // SessionBoundManager keeps the MicroVM alive between calls).
@@ -70,7 +70,7 @@ const defaultArtifactOutputDir = "/workspace/output"
 // draining artifacts after Execute returns.
 //
 // Resolution order (first usable wins):
-//  1. WEKNORA_SKILL_OUTPUT_DIR from the host environment (ops override), when
+//  1. GENYEE_SKILL_OUTPUT_DIR from the host environment (ops override), when
 //     it names a directory inside the session workspace.
 //  2. defaultArtifactOutputDir.
 //

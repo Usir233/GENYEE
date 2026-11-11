@@ -11,7 +11,7 @@ DocReader 是 GENYEE 项目中负责文档解析和处理的 gRPC 服务。它�
 
 ```yaml
 docreader:
-  image: genyee/genyee-docreader:${WEKNORA_VERSION:-latest}
+  image: genyee/genyee-docreader:${GENYEE_VERSION:-latest}
   environment:
     - MINIO_ENDPOINT=minio:9000
     - MINIO_PUBLIC_ENDPOINT=http://localhost:${MINIO_PORT:-9000}
@@ -113,7 +113,7 @@ docreader:
 
 内存预算按子进程计算，部署时还需为主进程和普通解析预留空间。Linux 的地址空间上限包含共享库与映射文件，可能在 RSS 达到预算前拒绝分配；这类失败也会回退原图。macOS 开发环境使用 RSS 监测，监测间隔约 50 ms，不能代替容器的总内存限制。提高并发会同时放大模型内存和 CPU 开销。
 
-`PreprocessImageResponse.status` 会区分 `busy`、`timeout`、`cancelled`、`memory_limit`、`image_too_large`、`worker_failed` 等回退原因。Go 侧沿用原图 OCR 的降级路径。几何阈值 `WEKNORA_PREPROCESS_*` 在预处理子进程启动时记录。
+`PreprocessImageResponse.status` 会区分 `busy`、`timeout`、`cancelled`、`memory_limit`、`image_too_large`、`worker_failed` 等回退原因。Go 侧沿用原图 OCR 的降级路径。几何阈值 `GENYEE_PREPROCESS_*` 在预处理子进程启动时记录。
 
 ### 存储配置
 

@@ -28,7 +28,7 @@ import (
 
 // pubsubChannelBase is the Redis channel prefix used to wake the replica that
 // holds a waiter after another replica recorded the answer. The actual
-// channel is suffixed with WEKNORA_REDIS_NAMESPACE (when set) so multiple
+// channel is suffixed with GENYEE_REDIS_NAMESPACE (when set) so multiple
 // deployments sharing the same Redis don't cross-talk.
 const pubsubChannelBase = "weknora:agent_prompt:wake"
 
@@ -706,7 +706,7 @@ type wakeMessage struct {
 }
 
 func pubsubChannel() string {
-	if ns := strings.TrimSpace(os.Getenv("WEKNORA_REDIS_NAMESPACE")); ns != "" {
+	if ns := strings.TrimSpace(os.Getenv("GENYEE_REDIS_NAMESPACE")); ns != "" {
 		return pubsubChannelBase + ":" + ns
 	}
 	return pubsubChannelBase

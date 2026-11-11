@@ -18,7 +18,7 @@ docker run -d --name "$C" --entrypoint sleep "$IMG" infinity >/dev/null
 trap 'docker rm -f "$C" >/dev/null 2>&1' EXIT
 
 root() { echo "/var/lib/weknora/sessions/$1.browser"; }
-ab() { local s=$1; shift; docker exec -e WEKNORA_SESSION_ID="$s" -e WEKNORA_BROWSER_ROOT="$(root "$s")" "$C" agent-browser "$@"; }
+ab() { local s=$1; shift; docker exec -e GENYEE_SESSION_ID="$s" -e GENYEE_BROWSER_ROOT="$(root "$s")" "$C" agent-browser "$@"; }
 dx() { docker exec "$C" sh -c "$1"; }
 
 # Count Chrome MAIN processes for one session root.
@@ -102,7 +102,7 @@ assert_contains "B seat still held after close" "$B" "$(dx 'wk-display list')"
 # Explicit headless: with --headed false the session claims no seat and has
 # no DISPLAY env, so its browser runs headless regardless of what X servers
 # exist for other sessions.
-hl() { docker exec -e WEKNORA_SESSION_ID="$H" -e WEKNORA_BROWSER_ROOT="$(root "$H")" "$C" agent-browser "$@" 2>&1; }
+hl() { docker exec -e GENYEE_SESSION_ID="$H" -e GENYEE_BROWSER_ROOT="$(root "$H")" "$C" agent-browser "$@" 2>&1; }
 hl --headed false open "$URL" >/dev/null
 OUT="$(hl snapshot)"
 assert_contains "headless snapshot serves the page" "Directory listing" "$OUT"

@@ -2082,7 +2082,7 @@ export default {
       allocationModeHint: 'Only affects sessions that have not used a sandbox yet; existing sessions keep their placement and files are never moved.',
       allocationModeSession: 'One sandbox per session (default)',
       allocationModeUser: "Share one sandbox across a user's sessions",
-      allocationModeUnavailable: 'Shared sandboxes are not enabled on this deployment (set WEKNORA_SANDBOX_USER_ALLOCATION=enabled on every replica; Redis is required).',
+      allocationModeUnavailable: 'Shared sandboxes are not enabled on this deployment (set GENYEE_SANDBOX_USER_ALLOCATION=enabled on every replica; Redis is required).',
       userSandboxRetentionDays: 'Keep an empty shared sandbox for (days)',
       userSandboxRetentionHint: 'After every session on a shared sandbox is deleted, it is removed once it has been empty this long (1–90 days). This is not a minimum file retention: Docker idle cleanup or provider failures may remove it sooner.',
       userSandboxesInInventory: "{count} of them are shared user sandboxes; each affects all of that user's sessions on this config.",
@@ -2816,7 +2816,7 @@ export default {
       loadFailed: 'Could not load environment variables.',
       sandboxTitle: 'Always included on this computer',
       sandboxHint: 'Sent only with commands that run on this computer. Leave this empty unless you need it. You can also provide a value in chat.',
-      nameInvalid: 'This name cannot be used. Reserved names (for example PATH, or names starting with WEKNORA_) are rejected.',
+      nameInvalid: 'This name cannot be used. Reserved names (for example PATH, or names starting with GENYEE_) are rejected.',
       deleteConfirm: 'Delete {name}? Later runs on this computer will no longer include it.',
     },
     description: 'Personal keys for skills and sandboxes, not GENYEE system or deployment settings.',
@@ -2850,7 +2850,7 @@ export default {
     addRow: 'Add',
     namePlaceholder: 'VARIABLE_NAME',
     nameRule: 'Upper-case letters, digits and underscores, starting with a letter or an underscore.',
-    nameInvalid: 'That name cannot be used. Names the sandbox reserves, such as PATH or anything starting with WEKNORA_, are not accepted.',
+    nameInvalid: 'That name cannot be used. Names the sandbox reserves, such as PATH or anything starting with GENYEE_, are not accepted.',
     nameDuplicate: 'You already have a variable with that name here.',
     valuePlaceholder: 'Enter a value',
     storedPlaceholder: 'Stored, type to replace',
@@ -9106,7 +9106,7 @@ export default {
         },
         env: {
           title: 'Configure environment',
-          desc: 'Set WEKNORA_BASE_URL and WEKNORA_API_KEY in your shell or ~/.zshrc / ~/.bashrc. The example below uses your current API base URL—replace the API Key with your actual value.'
+          desc: 'Set GENYEE_BASE_URL and GENYEE_API_KEY in your shell or ~/.zshrc / ~/.bashrc. The example below uses your current API base URL—replace the API Key with your actual value.'
         },
         install: {
           title: 'Install the skill',

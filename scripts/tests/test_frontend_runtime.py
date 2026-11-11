@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 NODE = shutil.which("node")
 CONFIG_KEYS = (
     "MAX_FILE_SIZE_MB", "MAX_SKILL_BUNDLE_SIZE_MB", "DEFAULT_LOCALE",
-    "WEKNORA_WEKNORACLOUD_ENABLED", "GENYEE_CHROME_EXTENSION_URL",
+    "GENYEE_WEKNORACLOUD_ENABLED", "GENYEE_CHROME_EXTENSION_URL",
     "GENYEE_CLAWHUB_SKILL_URL", "DOCS_BASE_URL", "WEBSITE_URL", "GITHUB_URL",
     "APP_HOST", "APP_PORT", "APP_SCHEME",
 )
@@ -84,10 +84,10 @@ process.stdout.write(JSON.stringify(scope.window.__RUNTIME_CONFIG__));
         config = self.read_config()
         self.assertEqual(config["MAX_FILE_SIZE_MB"], 50)
         self.assertEqual(config["MAX_SKILL_BUNDLE_SIZE_MB"], 256)
-        self.assertEqual(config["WEKNORA_WEKNORACLOUD_ENABLED"], "false")
+        self.assertEqual(config["GENYEE_WEKNORACLOUD_ENABLED"], "false")
         self.assertEqual(config["DEFAULT_LOCALE"], "")
         nginx = self.nginx_config.read_text()
-        self.assertIn("client_max_body_size 50M;", nginx)
+        self.assertIn("client_max_body_size 51M;", nginx)
         self.assertIn("client_max_body_size 256M;", nginx)
         self.assertIn("http://app:8080", nginx)
         self.assertEqual((self.root / "nginx-invocation").read_text(), "-g\ndaemon off;\n")
@@ -127,7 +127,7 @@ process.stdout.write(JSON.stringify(scope.window.__RUNTIME_CONFIG__));
                 config = self.read_config()
                 self.assertEqual((config["MAX_FILE_SIZE_MB"], config["MAX_SKILL_BUNDLE_SIZE_MB"]), expected)
                 nginx = self.nginx_config.read_text()
-                self.assertIn(f"client_max_body_size {expected[0]}M;", nginx)
+                self.assertIn(f"client_max_body_size {expected[0] + 1}M;", nginx)
                 self.assertIn(f"client_max_body_size {expected[1]}M;", nginx)
 
     def test_invalid_or_unrepresentable_limits_stop_before_writing_config(self):

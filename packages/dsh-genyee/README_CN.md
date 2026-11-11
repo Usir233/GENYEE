@@ -17,16 +17,16 @@ dsh 本身没有任何检索、向量或知识库能力——它的 `grep`、`gl
 dsh plugin --profile web add @genyee/dsh-genyee
 
 # 或者从本仓库的检出目录安装
-dsh plugin --profile web add ./packages/dsh-weknora
+dsh plugin --profile web add ./packages/dsh-genyee
 ```
 
 然后把它指向你的部署。插件自带的配置层会读环境变量，所以最快的起步方式是：
 
 ```sh
-export WEKNORA_BASE_URL=https://genyee.example.com    # 或 http://localhost:8080
-export WEKNORA_API_KEY=sk-...                          # 需要 `retrieve` 能力（用 ask 还需要 `chat`）
-export WEKNORA_KNOWLEDGE_BASE_IDS=kb-123,kb-456        # 可选的默认知识库范围
-export WEKNORA_RESOURCE_URLS=public                    # 默认；改成 `handle` 则保留内部文件引用
+export GENYEE_BASE_URL=https://genyee.example.com    # 或 http://localhost:8080
+export GENYEE_API_KEY=sk-...                          # 需要 `retrieve` 能力（用 ask 还需要 `chat`）
+export GENYEE_KNOWLEDGE_BASE_IDS=kb-123,kb-456        # 可选的默认知识库范围
+export GENYEE_RESOURCE_URLS=public                    # 默认；改成 `handle` 则保留内部文件引用
 dsh web
 ```
 
@@ -36,7 +36,7 @@ dsh web
 - id: weknora
   config:
     baseUrl: https://genyee.example.com
-    apiKey: !!js process.env.WEKNORA_API_KEY
+    apiKey: !!js process.env.GENYEE_API_KEY
     knowledgeBaseIds:
       - kb-product-docs
     agentId: ''            # 填 GENYEE 自定义 Agent id，`genyee_ask` 就走 ReAct 流水线
@@ -110,7 +110,7 @@ Key 通过 `X-API-Key` 发送。如果用的是平台级 API Key，还需要配 
 图片写进回复，dsh 网页端就会把图画出来。限定知识库的 API Key 拿不到直链（GENYEE 会 403），插件会把这次调用改回
 handle 模式，之后也一直用 handle。
 
-配置层还会读 `WEKNORA_RESOURCE_URLS`（`public` 或 `handle`）。
+配置层还会读 `GENYEE_RESOURCE_URLS`（`public` 或 `handle`）。
 
 ## 配置项
 
@@ -125,7 +125,7 @@ handle 模式，之后也一直用 handle。
 | `maxChunkChars` | `1200` | 单个片段的字符预算 |
 | `requestTimeoutMs` | `30000` | 检索与读文档 |
 | `chatTimeoutMs` | `300000` | `genyee_ask`，要等 GENYEE 自己的模型调用 |
-| `resourceUrls` | `public` | `public` 返回可直接加载的文件直链；`handle` 保留内部 `resource://` 引用。限定知识库的 API Key 会自动回退到 `handle`。可用 `WEKNORA_RESOURCE_URLS` 覆盖。 |
+| `resourceUrls` | `public` | `public` 返回可直接加载的文件直链；`handle` 保留内部 `resource://` 引用。限定知识库的 API Key 会自动回退到 `handle`。可用 `GENYEE_RESOURCE_URLS` 覆盖。 |
 | `toolPrefix` | `genyee` | 工具名前缀，需匹配 `^[a-z][a-z0-9_]*$` |
 | `tools.*` | 全部 `true` | 少注册几个工具就少占几分 prompt |
 

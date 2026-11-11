@@ -856,7 +856,7 @@ export default {
         },
         env: {
           title: '配置环境变量',
-          desc: '在终端或 ~/.zshrc、~/.bashrc 中设置 WEKNORA_BASE_URL 与 WEKNORA_API_KEY。下方示例已填入当前 API 地址，请将 API Key 替换为实际值。'
+          desc: '在终端或 ~/.zshrc、~/.bashrc 中设置 GENYEE_BASE_URL 与 GENYEE_API_KEY。下方示例已填入当前 API 地址，请将 API Key 替换为实际值。'
         },
         api: {
           title: '获取 API 凭证',
@@ -7117,7 +7117,7 @@ export default {
       loadFailed: '环境变量加载失败。',
       sandboxTitle: '在这台电脑上始终带上的值',
       sandboxHint: '只带给你在这台电脑上跑的命令。多数情况用不到；需要时再加，对话里也可以当场提供。',
-      nameInvalid: '这个名字不能用。保留名（例如 PATH，或以 WEKNORA_ 开头的名字）不接受。',
+      nameInvalid: '这个名字不能用。保留名（例如 PATH，或以 GENYEE_ 开头的名字）不接受。',
       deleteConfirm: '删除 {name}？之后在这台电脑上运行的东西都不会再带上它。',
     },
     description: '给技能和沙箱用的个人密钥，不是 GENYEE 的系统或部署配置。',
@@ -7151,7 +7151,7 @@ export default {
     addRow: '添加',
     namePlaceholder: 'VARIABLE_NAME',
     nameRule: '只能用大写字母、数字和下划线，且以字母或下划线开头。',
-    nameInvalid: '这个名字不能用。沙箱保留的名字（例如 PATH，或以 WEKNORA_ 开头的名字）不接受。',
+    nameInvalid: '这个名字不能用。沙箱保留的名字（例如 PATH，或以 GENYEE_ 开头的名字）不接受。',
     nameDuplicate: '这里已经有同名变量了。',
     valuePlaceholder: '填入值',
     storedPlaceholder: '已存值，填入新值即替换',
@@ -7681,7 +7681,7 @@ export default {
       allocationModeHint: '只影响还没有用过沙箱的会话；已有会话保持原来的分配，不会搬迁文件。',
       allocationModeSession: '每个会话一台沙箱（默认）',
       allocationModeUser: '同一用户的会话共用一台沙箱',
-      allocationModeUnavailable: '当前部署未开启共用沙箱（需在所有实例设置 WEKNORA_SANDBOX_USER_ALLOCATION=enabled，并配置 Redis）。',
+      allocationModeUnavailable: '当前部署未开启共用沙箱（需在所有实例设置 GENYEE_SANDBOX_USER_ALLOCATION=enabled，并配置 Redis）。',
       userSandboxRetentionDays: '空置沙箱保留天数',
       userSandboxRetentionHint: '某台共用沙箱上的会话全部删除后，空置满这个天数会被自动删除（1–90 天）。这不是文件最少保留时间：Docker 空闲回收或服务商故障可能更早删除。',
       userSandboxesInInventory: '其中 {count} 台是用户共用沙箱，影响该用户在此配置下的全部会话。',

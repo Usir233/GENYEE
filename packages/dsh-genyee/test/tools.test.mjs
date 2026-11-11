@@ -271,7 +271,7 @@ test('ask reuses a given session instead of creating one', async () => {
 
 // The RAG pipeline retrieves only what the request scopes, so an unconfigured
 // deployment must resolve the visible set for ask exactly as it does for search.
-// Otherwise the quickstart's optional WEKNORA_KNOWLEDGE_BASE_IDS leaves ask
+// Otherwise the quickstart's optional GENYEE_KNOWLEDGE_BASE_IDS leaves ask
 // answering from nothing while search works.
 test('ask resolves its own scope when none is configured', async () => {
   const { byName, mock } = await toolset()
@@ -334,7 +334,7 @@ test('apply registers into ctx.tools and honours the prefix and toggles', () => 
 
 test('apply fails the plugin load on an invalid row', () => {
   const ctx = { tools: { register: () => () => undefined } }
-  assert.throws(() => apply(ctx, { baseUrl: 'ftp://kb.example.com' }), /dsh-weknora configuration is invalid/)
+  assert.throws(() => apply(ctx, { baseUrl: 'ftp://kb.example.com' }), /dsh-genyee configuration is invalid/)
 })
 
 test('search rewrites cited figures to public URLs in passage content', async () => {

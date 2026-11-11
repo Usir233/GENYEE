@@ -125,16 +125,16 @@ Make errors structured, actionable, and specific.
 
 | Variable | Purpose |
 |---|---|
-| `WEKNORA_PROFILE` | Active profile name. Equivalent to the global `--profile <name>` flag; overridden by `--profile`. Useful in CI scripts that cannot pass global flags. |
-| `WEKNORA_FORMAT` | Default `--format` value (`text \| json \| ndjson`). Overridden by explicit `--format`. Invalid values ignored silently. |
-| `WEKNORA_KB_ID` | Default KB ID for commands that accept `--kb`. Overridden by `--kb`. |
-| `WEKNORA_LOG_LEVEL` | SDK debug log level (`error \| warn \| info \| debug`). Overridden by `--log-level`. |
-| `WEKNORA_AGENT_HELP` | Set to `1` to emit structured JSON agent-help (machine-readable) instead of human help text when `--help` is invoked. |
+| `GENYEE_PROFILE` | Active profile name. Equivalent to the global `--profile <name>` flag; overridden by `--profile`. Useful in CI scripts that cannot pass global flags. |
+| `GENYEE_FORMAT` | Default `--format` value (`text \| json \| ndjson`). Overridden by explicit `--format`. Invalid values ignored silently. |
+| `GENYEE_KB_ID` | Default KB ID for commands that accept `--kb`. Overridden by `--kb`. |
+| `GENYEE_LOG_LEVEL` | SDK debug log level (`error \| warn \| info \| debug`). Overridden by `--log-level`. |
+| `GENYEE_AGENT_HELP` | Set to `1` to emit structured JSON agent-help (machine-readable) instead of human help text when `--help` is invoked. |
 
 > **Note for agents — machine-readable version and help:** The `--version` flag
 > and `--help` flag on the root command bypass `--format json` and always emit
 > prose (cobra built-in paths). For machine-readable output use the `version`
-> subcommand (`weknora version --format json`) or `WEKNORA_AGENT_HELP=1
+> subcommand (`weknora version --format json`) or `GENYEE_AGENT_HELP=1
 > weknora <cmd> --help`. Planned fix for v0.8.
 
 ## Design decisions worth flagging
@@ -586,7 +586,7 @@ Reasons hard-required-flags is the v0.5+ default:
 - **Agent help blob**: Commands MAY call
   `cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{...})` to expose a stable
   JSON used_for / required_flags / examples / output / warnings shape.
-  Activated by `WEKNORA_AGENT_HELP=1` at `--help` time. Warnings are
+  Activated by `GENYEE_AGENT_HELP=1` at `--help` time. Warnings are
   always rendered in human help (stderr, not env-gated). Applied to
   `chat`, `kb list`, `session ask`, and all destructive commands.
   Extending to another command requires touching only that command's `NewCmd`.

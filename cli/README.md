@@ -4,7 +4,7 @@ A command-line interface for the GENYEE RAG knowledge-base server. Lets you
 authenticate, manage knowledge bases and documents, run hybrid search, and
 ask streaming RAG questions from your terminal or from an AI agent.
 
-> **Compatibility note:** The CLI binary is `genyee` (`weknora` is supported as a command alias), and all `WEKNORA_*` environment variables (`WEKNORA_API_KEY`, `WEKNORA_TOKEN`, `WEKNORA_HOST`, `WEKNORA_PROFILE`, `WEKNORA_FORMAT`, `WEKNORA_KB_ID`, `WEKNORA_LOG_LEVEL`, `WEKNORA_AGENT_HELP`) remain supported for backward compatibility.
+> **Compatibility note:** The CLI binary is `genyee` (`weknora` is supported as a command alias), and all `GENYEE_*` environment variables (`GENYEE_API_KEY`, `GENYEE_TOKEN`, `GENYEE_HOST`, `GENYEE_PROFILE`, `GENYEE_FORMAT`, `GENYEE_KB_ID`, `GENYEE_LOG_LEVEL`, `GENYEE_AGENT_HELP`) remain supported for backward compatibility.
 
 ```bash
 $ genyee --help
@@ -126,8 +126,8 @@ For AI agents (any MCP-capable host) integrating GENYEE:
 2. Authenticate. In a sandbox / CI, the **stateless** path needs no `auth login`
    and writes nothing to disk — just set two env vars:
    ```bash
-   export WEKNORA_API_KEY="sk-…"   # or WEKNORA_TOKEN for a bearer JWT
-   export WEKNORA_HOST="https://kb.example.com"
+   export GENYEE_API_KEY="sk-…"   # or GENYEE_TOKEN for a bearer JWT
+   export GENYEE_HOST="https://kb.example.com"
    genyee kb list                  # already authenticated
    ```
    Or, for a persisted local profile:
@@ -437,7 +437,7 @@ flight; pipe through `xargs -P` for more).
 # Run unit + contract tests
 go test ./...
 
-# Run the real-server e2e suite (requires WEKNORA_E2E_HOST + token env vars)
+# Run the real-server e2e suite (requires GENYEE_E2E_HOST + token env vars)
 go test -tags acceptance_e2e ./acceptance/e2e/...
 
 # Static analysis

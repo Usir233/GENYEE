@@ -80,7 +80,7 @@ type Layout struct {
 	// does not version the workspace (host).
 	GitDir string
 	// BrowserRoot holds the session's agent-browser home and profile. Never
-	// under Root. Exported to the sandbox as WEKNORA_BROWSER_ROOT.
+	// under Root. Exported to the sandbox as GENYEE_BROWSER_ROOT.
 	BrowserRoot string
 	// WorkDirRoots limits shell work_dir on a shared machine. Empty means
 	// unrestricted for remote layouts; host layouts clamp to WriteRoots.

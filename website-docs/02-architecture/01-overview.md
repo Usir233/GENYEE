@@ -208,7 +208,7 @@ sequenceDiagram
 | `scripts/` | 构建/启动/迁移辅助脚本（如 `start_all.sh`；`build_frontend_dist.sh` 供 Lite / 桌面打包，UI 镜像由 `frontend/Dockerfile` 多阶段构建） |
 | `tests/`、`testdata/` | 集成测试与测试数据 |
 | `misc/` | 杂项（如 `dex-config.yaml` OIDC 测试配置） |
-| `packages/` | 独立发布的集成包，如 DeepSeek Harness 插件 `packages/dsh-weknora`，见 [DeepSeek Harness](../05-clients/08-deepseek-harness.md) |
+| `packages/` | 独立发布的集成包，如 DeepSeek Harness 插件 `packages/dsh-genyee`，见 [DeepSeek Harness](../05-clients/08-deepseek-harness.md) |
 | `docs/` | 停止维护的旧文档；暂存 Swagger 生成包、发布资源和历史图片 |
 
 > 说明：Go 模块路径为 `github.com/Usir233/GENYEE`；根目录还包含 `docker-compose.yml`（生产编排）与 `docker-compose.dev.yml`（开发编排）、`Makefile`、`VERSION` 等。

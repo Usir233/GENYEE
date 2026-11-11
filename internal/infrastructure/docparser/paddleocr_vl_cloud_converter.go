@@ -23,8 +23,8 @@ const (
 	paddleOCRVLCloudDefaultModel   = "PaddleOCR-VL-1.6"
 	paddleOCRVLCloudPollInterval   = 5 * time.Second
 	// paddleOCRVLCloudTimeout bounds how long one job is polled;
-	// WEKNORA_PADDLEOCR_VL_CLOUD_TIMEOUT overrides it for documents that take
-	// longer, mirroring WEKNORA_MINERU_CLOUD_TIMEOUT on the MinerU cloud reader.
+	// GENYEE_PADDLEOCR_VL_CLOUD_TIMEOUT overrides it for documents that take
+	// longer, mirroring GENYEE_MINERU_CLOUD_TIMEOUT on the MinerU cloud reader.
 	paddleOCRVLCloudTimeout = 600 * time.Second
 )
 
@@ -51,7 +51,7 @@ func NewPaddleOCRVLCloudReader(overrides map[string]string) *PaddleOCRVLCloudRea
 		model:        stringOr(overrides["paddleocr_vl_cloud_model"], paddleOCRVLCloudDefaultModel),
 		useSeal:      parseBoolOr(overrides["paddleocr_vl_cloud_use_seal_recognition"], true),
 		useChart:     parseBoolOr(overrides["paddleocr_vl_cloud_use_chart_recognition"], false),
-		timeout:      requestTimeoutFromEnv("WEKNORA_PADDLEOCR_VL_CLOUD_TIMEOUT", paddleOCRVLCloudTimeout),
+		timeout:      requestTimeoutFromEnv("GENYEE_PADDLEOCR_VL_CLOUD_TIMEOUT", paddleOCRVLCloudTimeout),
 		pollInterval: paddleOCRVLCloudPollInterval,
 	}
 }

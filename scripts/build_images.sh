@@ -17,7 +17,7 @@ export DOCKER_BUILDKIT=1
 
 # 镜像仓库前缀（默认 genyee，可通过 GENYEE_REGISTRY 覆盖为私有仓库，如 registry.internal.corp/genyee）
 GENYEE_REGISTRY="${GENYEE_REGISTRY:-genyee}"
-IMAGE_TAG="${WEKNORA_VERSION:-latest}"
+IMAGE_TAG="${GENYEE_VERSION:-latest}"
 
 # 版本信息
 VERSION="1.0.0"

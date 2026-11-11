@@ -48,12 +48,12 @@ Changes since v0.8.3. [Website release notes](./website-docs/07-releases/v0.9.0.
 - Workspace model defaults are stored in `tenants.default_settings` (PostgreSQL 000134 / SQLite 000051). Unset fields retain deployment fallback behavior; the utility model follows the chat default. Review the [default settings guide](./website-docs/03-features/06-models.md#workspace-defaults) after upgrading.
 - Existing Feishu/Lark sources are scheduled for resync. Review parsing mode and downstream workload; new sources default to blocks parsing while explicit export choices remain supported.
 - Migration 000125 (SQLite 000042) removes eligible empty image-derived chunks, not source documents or files.
-- Per-user sandbox reuse remains gated by `WEKNORA_SANDBOX_USER_ALLOCATION=enabled` and requires Redis. Upgrade every replica before enabling it; inspect active shared assignments before any downgrade.
+- Per-user sandbox reuse remains gated by `GENYEE_SANDBOX_USER_ALLOCATION=enabled` and requires Redis. Upgrade every replica before enabling it; inspect active shared assignments before any downgrade.
 - Review assistant and custom-agent access ceilings, MCP risk policies and automation grants. Ordinary writes and destructive actions have distinct approval rules.
-- Prefer `WEKNORA_LOG_FORMAT`; legacy `LOG_FORMAT` is used only when the new variable is unset. Nonempty templates must include `%msg`.
+- Prefer `GENYEE_LOG_FORMAT`; legacy `LOG_FORMAT` is used only when the new variable is unset. Nonempty templates must include `%msg`.
 - Review new-workspace quota defaults, OCR preprocessing limits and optional HTML/Excel parser switches. Existing documents are not automatically reparsed when these switches change.
 - MinerU Cloud defaults to a 30-minute budget per batch/shard; Agent web fetch uses one shared 3-minute budget. Check outer timeouts as well.
-- Set `WEKNORA_VERSION=0.9.0` only after the release images are available, pull images explicitly and verify migrations, UI version, parsing, retrieval, approvals and scheduled runs. See the [upgrade guide](./website-docs/07-releases/v0.9.0.md#upgrade-notes).
+- Set `GENYEE_VERSION=0.9.0` only after the release images are available, pull images explicitly and verify migrations, UI version, parsing, retrieval, approvals and scheduled runs. See the [upgrade guide](./website-docs/07-releases/v0.9.0.md#upgrade-notes).
 
 ## [0.8.3] - 2026-10-14
 
@@ -127,7 +127,7 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
 
 - Helm pins app/frontend/docreader images to appVersion by default, exposes Service-name overrides and rollout strategy, and documents shared-storage requirements (#3669, #4109, #4180).
 - Build real arm64 sandbox/Cube images; support app/docreader download mirrors (#4073); install CA certificates before BrowserSkill mirror substitution (#4104); fix dev-script exit propagation and MinIO image retrieval.
-- Make outbound dialing configurable with `WEKNORA_OUTBOUND_DIAL_TIMEOUT` (default 5s), including Compose forwarding (#4122, #4157). Keep existing migration objects tolerated where appropriate (#4164).
+- Make outbound dialing configurable with `GENYEE_OUTBOUND_DIAL_TIMEOUT` (default 5s), including Compose forwarding (#4122, #4157). Keep existing migration objects tolerated where appropriate (#4164).
 - Regenerate Swagger from current handlers, document system model-catalog endpoints, and correct the processing-trace route base path; retain reproducible generation (#3751); clarify frontend proxy configuration, upload folder paths, model copy, retrieval-scope semantics and API quickstart tenant extraction; refresh license notices (#4178).
 - Refresh website feature/API/deployment documentation, add this release page and real product screenshots, update homepage/navigation and the project version to 0.8.3. Preserve historical release notes.
 - Add or strengthen regressions for parsing/splitting, SSE, attachments, tool selection, multimodal protocols, connectors, index failures, OAuth, user management and platform configuration; synchronize host-skill and concurrent-schema tests to avoid timing-only failures.
@@ -147,7 +147,7 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
 - **NEW**: **Confluence & DingTalk Docs data sources** — Confluence Cloud and Server/Data Center spaces sync published pages incrementally with deletion protection (#3287); DingTalk Docs sync with localized setup (#2313). IMA sync traverses subfolders.
 - **NEW**: **Bocha and Serply web search** providers (#3036); `country` / `freshness` filters work with Brave and Serply.
 - **NEW**: **Japanese UI** (`ja-JP`), selectable at runtime or via `DEFAULT_LOCALE` (#3080).
-- **NEW**: **Per-channel IM reply language** — each IM channel can set its reply locale; unset channels follow `WEKNORA_LANGUAGE` (#3455).
+- **NEW**: **Per-channel IM reply language** — each IM channel can set its reply locale; unset channels follow `GENYEE_LANGUAGE` (#3455).
 - **NEW**: **Knowledge base workflow** — batch download of original files as a ZIP (#3300); configurable sorting for document and resource lists (#3318); documents that stop making progress are flagged as queued or stalled with a `TASK_STALLED` code (#3557); per-upload option to skip summary generation; knowledge base descriptions generated from document profiles (#3370); an upload panel with overall progress, cancel and retry (#3399); FAQ list filter by enabled status (#3157); activity records show the API key name (#3405).
 - **NEW**: **Whitelist-only outbound mode** — `SSRF_DNS_WHITELIST_ONLY=true` refuses any host outside `SSRF_WHITELIST` before DNS resolution, closing DNS-based exfiltration from offline deployments (#3393).
 - **NEW**: **Admin user creation UI** — system administrators create accounts from Settings with a one-time password and a copyable account summary (#3034, #3039).
@@ -164,7 +164,7 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
 - **IMPROVED**: **Chat UX** — rebuilt Markdown editor for saving answers to a knowledge base (#3467); in-progress status and API-session owner badges in the sidebar; full dates on older message timestamps (#3576); truncated answers are marked instead of silently cut; stored streams replay one segment at a time; the chat stream recovers from an expired access token (#3028).
 - **IMPROVED**: **Wiki** — whole-page rewrites continue when cut by the completion budget and are refused if still incomplete (#3582); same-title items reuse the existing page across types (#3547); cited chunks include image captions (#3292); ambiguous single-Han auto-links are skipped (#2860); taxonomy embeddings are batched.
 - **IMPROVED**: **Retrieval & graph** — Milvus supports multilingual BM25 (#3235); keyword-only BM25 scores are bounded before rerank (#3343); Neo4j node search caps seeds and rows (#3550); entity extraction gets a larger output budget (#2859) and uses OCR text of scanned pages (#3092).
-- **IMPROVED**: **Parsing** — PaddleOCR-VL request timeout is configurable via `WEKNORA_PADDLEOCR_VL_TIMEOUT` (#3537); timed-out converter process groups are killed (#2990); PDFs stay on the builtin parser even when anydoc is linked; inline HTML tables no longer produce oversized chunks (#3404); the OCR prompt no longer includes the knowledge base's image-caption instructions (#3291).
+- **IMPROVED**: **Parsing** — PaddleOCR-VL request timeout is configurable via `GENYEE_PADDLEOCR_VL_TIMEOUT` (#3537); timed-out converter process groups are killed (#2990); PDFs stay on the builtin parser even when anydoc is linked; inline HTML tables no longer produce oversized chunks (#3404); the OCR prompt no longer includes the knowledge base's image-caption instructions (#3291).
 - **IMPROVED**: **Performance** — faster chunk ingestion and batch updates (#3369); fewer redundant sandbox remote calls.
 - **IMPROVED**: **Storage** — OBS uses virtual-hosted addressing (#3273); object-storage transfers may exceed 30 seconds (#3368); the KS3 client keeps the SSRF redirect policy.
 - **IMPROVED**: **Frontend** — style consistency pass with shared shells, tokens and unified confirmations (#3376); list title icons and resource cards refined; embedded pages enforce host origin allowlists.
@@ -210,11 +210,11 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
 
 ### New Features
 
-- **NEW**: **Skill Sandbox Runtime (Docker / E2B / Cube)** — the headline of this release. Agent skills now run in a **session-persistent sandbox**: one sandbox per chat session, with `shell_exec`, file read/write/edit, attachment staging, and generated-file collection all landing in the same workspace. Three backends share one `RemoteSandboxClient` protocol: **Docker** (single-host / self-hosted, talking to the Engine API rather than `docker run --rm`), **E2B** (cloud or any E2B-compatible control plane, including self-hosted), and **CubeSandbox**. Per-workspace configs cover image, CPU/memory, TTL, DNS, templates and snapshots (migrations `000082_tenant_sandbox_config`, `000083_session_sandbox_config`). Admins can set a **network policy** per config (default-deny egress, allow/deny lists, Cube L7 rules, E2B host rules) (#2995). The old **Local host-process backend is removed**. The Docker backend is **opt-in** (`WEKNORA_SANDBOX_DOCKER_ENABLED` or System Settings → Network Security) because a mounted `docker.sock` is host root (#2936). See [Sandbox deployment and troubleshooting](./website-docs/06-development/04-sandbox-deployment.md).
+- **NEW**: **Skill Sandbox Runtime (Docker / E2B / Cube)** — the headline of this release. Agent skills now run in a **session-persistent sandbox**: one sandbox per chat session, with `shell_exec`, file read/write/edit, attachment staging, and generated-file collection all landing in the same workspace. Three backends share one `RemoteSandboxClient` protocol: **Docker** (single-host / self-hosted, talking to the Engine API rather than `docker run --rm`), **E2B** (cloud or any E2B-compatible control plane, including self-hosted), and **CubeSandbox**. Per-workspace configs cover image, CPU/memory, TTL, DNS, templates and snapshots (migrations `000082_tenant_sandbox_config`, `000083_session_sandbox_config`). Admins can set a **network policy** per config (default-deny egress, allow/deny lists, Cube L7 rules, E2B host rules) (#2995). The old **Local host-process backend is removed**. The Docker backend is **opt-in** (`GENYEE_SANDBOX_DOCKER_ENABLED` or System Settings → Network Security) because a mounted `docker.sock` is host root (#2936). See [Sandbox deployment and troubleshooting](./website-docs/06-development/04-sandbox-deployment.md).
 - **NEW**: **Tenant Skill Catalog** — skills are first-class workspace resources, not files dropped next to the process (migrations `000086_tenant_skills`, `000087_skill_install_transcript`, `000088_skill_snapshot_planned_name`, `000090_skill_catalog`). Install from **ClawHub**, **SkillHub / skills.sh**, **GitHub/GitLab URLs**, or a zip upload; each install is a snapshot on the chosen sandbox config, with live circular progress, install transcripts, stop/reinstall, and uninstall that keeps catalog archives. Browse and edit installed skill files from Settings; agents get `write_skill_file` / `edit_skill_file` plus `shell_exec` that no longer requires a skill to be installed. Personal and workspace **skill env vars** inject at execution without ever being read back (migration `000089_env_vars`). `@mention` no longer silently shrinks the skill whitelist.
 - **NEW**: **Cross-Session Long-Term Memory** — a new memory product (migration `000084_memory`), independent of the Neo4j conversation-memory that 0.7.1 removed. Workspaces opt in; each user can further turn it off. Memories are typed (`profile` / `preference` / `fact` / `task` / `interest`), written either explicitly or by a background extractor, and **inferred items stay pending until the user confirms**. Resident profile/preference blocks ride in every turn; situational facts are recalled lexically and (optionally) semantically; `search_memory` looks up on demand. Document affinity conditions retrieval toward sources the user keeps citing. Settings, items, topics, document affinity, confirm/reject, export and forced consolidation are exposed as `/api/v1/memory/*` (full-access API keys only; the subject is always the caller).
 - **NEW**: **In-Process anydoc Parser** — Office documents (doc/docx/ppt/pptx and the types anydoc converts) can be parsed **inside the Go app** via `third_party/anydoc-go`, without a round-trip to docreader. When the binding is linked, anydoc is preferred for every type it converts; PPT/PPTX still default to MarkItDown when no engine rule is set. The app image links anydoc by default.
-- **NEW**: **DeepSeek Harness Plugin** — local plugin package `@genyee/dsh-genyee` (`./packages/dsh-weknora`) exposes four read-only tools (`weknora_search`, `weknora_read_document`, `weknora_ask`, `weknora_list_knowledge_bases`) so a DeepSeek Harness coding agent can retrieve from a GENYEE deployment (#2759).
+- **NEW**: **DeepSeek Harness Plugin** — local plugin package `@genyee/dsh-genyee` (`./packages/dsh-genyee`) exposes four read-only tools (`weknora_search`, `weknora_read_document`, `weknora_ask`, `weknora_list_knowledge_bases`) so a DeepSeek Harness coding agent can retrieve from a GENYEE deployment (#2759).
 - **NEW**: **GitLab & Tencent IMA Data Sources** — GitLab projects sync as a knowledge source (#2656); Tencent IMA notes sync through the note OpenAPI, with retries on transient failures.
 - **NEW**: **LiteLLM Model Provider** — LiteLLM is a first-class chat/embedding/rerank provider, so one gateway URL can front many upstream models (#2923).
 - **NEW**: **Exa & Metaso Web Search** — two new web-search providers join the existing set (#2617).
@@ -223,7 +223,7 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
 - **NEW**: **Document Auto-Tagging** — after parse, a chat model may pick matching tags from the knowledge base's existing tag set and attach them incrementally, without creating tags or overwriting manual ones (migration `000080_knowledge_base_auto_tag_config`).
 - **NEW**: **Context Compaction & Prompt-Cache Markers** — long sandbox turns compact tool history instead of truncating or rewriting files; stable prompt prefixes plus provider cache markers improve cache hit rate on Anthropic/OpenAI-compatible backends. Per-turn LLM token usage is attributed and stored (migration `000085_message_usage`).
 - **NEW**: **OIDC JWKS Verification & `/auth/oidc/start`** — ID tokens are signature-verified via JWKS (#2799); a direct 302 start endpoint supports login without a pre-rendered SPA handshake.
-- **NEW**: **Optional Complex Passwords** — registration, self-service change-password and admin reset can require mixed-case, digits and special characters (`WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED` / system setting) (#2929).
+- **NEW**: **Optional Complex Passwords** — registration, self-service change-password and admin reset can require mixed-case, digits and special characters (`GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED` / system setting) (#2929).
 - **NEW**: **System-Admin User Creation** — platform admins can create users from the console without an invite link (#2722).
 - **NEW**: **Invitation Auto-Accept & Invite-Only Join** — inviting an already-registered user can auto-accept; in invite-only mode, share links send the visitor through login before joining the workspace.
 
@@ -238,7 +238,7 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
 - **IMPROVED**: **Auth / tenancy** — `SwitchTenant` records last-active-tenant preference; self-service change password in the profile; folder drag-and-drop upload preserves directory structure; document download action; editable document summaries; paginated document chunks; FAQ batch actions restored.
 - **IMPROVED**: **Observability** — sandbox operations emit product-level Langfuse spans; follow-up completions nest under the parent chat trace; prompt-cache markers stay stable across turns.
 - **IMPROVED**: **Deployment capabilities** — menus and settings hide modules the binary did not register (`GET /system/capabilities`), so Lite / trimmed builds stop advertising missing features (#2674).
-- **IMPROVED**: **CI** — golangci-lint workflow gates new PR code; path-filtered checks avoid triggering anydoc/unrelated lints; git pre-commit / pre-push hooks; Playwright WebKit for docreader URL tests; dsh-weknora e2e cache.
+- **IMPROVED**: **CI** — golangci-lint workflow gates new PR code; path-filtered checks avoid triggering anydoc/unrelated lints; git pre-commit / pre-push hooks; Playwright WebKit for docreader URL tests; dsh-genyee e2e cache.
 
 ### Bug Fixes
 
@@ -259,7 +259,7 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
 ### Breaking Changes
 
 - **BREAKING**: The **Local host-process sandbox backend is removed**. Existing Local configs must be recreated against Docker (opt-in), E2B, or Cube.
-- **BREAKING**: The Docker sandbox backend is **off by default**. Enable it in System Settings → Network Security, or set `WEKNORA_SANDBOX_DOCKER_ENABLED=true`.
+- **BREAKING**: The Docker sandbox backend is **off by default**. Enable it in System Settings → Network Security, or set `GENYEE_SANDBOX_DOCKER_ENABLED=true`.
 - **BREAKING**: Complex-password mode, when enabled, rejects registration / password-change payloads that do not mix upper, lower, digit and special characters.
 
 ### Infrastructure & Build
@@ -417,7 +417,7 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
 - **IMPROVED**: **Terminology** — user-facing "tenant" labels renamed to "workspace" across the UI and i18n.
 - **IMPROVED**: **Chat streaming** — unified streaming wait indicators across chat and embed, follow-up suggestion loading and answer-toolbar timing polished, references drawer closed on session switch, and enforced retrieved-image output in answers.
 - **IMPROVED**: **Frontend resilience** — hardened settings `localStorage` load to prevent white-screen from corrupted state; shared document action menu and card-view components extracted; Wiki badge on KB cards; responsive doc filter bar.
-- **IMPROVED**: **Infrastructure config** — infrastructure host/port configurable via env vars in docker-compose; remote infrastructure supported via `.env.local`; `WEKNORA_MODEL_MAX_CONCURRENCY` defaulted to 32.
+- **IMPROVED**: **Infrastructure config** — infrastructure host/port configurable via env vars in docker-compose; remote infrastructure supported via `.env.local`; `GENYEE_MODEL_MAX_CONCURRENCY` defaulted to 32.
 - **IMPROVED**: **docreader** — SSRF utility and safe HTTP client added; legacy doc-payload detection; parser routing tests.
 
 ### Bug Fixes
@@ -658,7 +658,7 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
   - **Per-KB resource ownership**: `chunk → knowledge → kb → creator_id`; same chain applies to FAQ entries, generated questions, KB tags and wiki pages. `custom_agents.creator_id` + `custom_agents.runnable_by_viewer` (default true) control agent ownership and viewer-callability.
   - **Two guard families**: role guards (`Viewer()` / `Contributor()` / `Admin()` / `Owner()`) for tenant-level infra (models, vector stores, IM channels, …) and ownership guards (`OwnedKBOrAdmin()`, `OwnedAgentOrAdmin()`, `OwnedChunkKBOrAdmin()`, …) for resource writes. KB-access guard wired at the route layer for chunk / knowledge / knowledgebase routes (no per-handler helpers).
   - **Tenant members**: invite / remove / role-change endpoints; new `/leave` endpoint; per-tenant audit log with daily retention sweep (default 90 days, `audit_logs.created_at` indexed); `tenant_members` table now drives membership (lifted from per-user to per-tenant in Plan 3); cross-tenant share managed by source-tenant Admin+.
-  - **Configurable**: `tenant.enable_rbac` (default `true`); `false` enters an "audit-only" grace window. New env knobs `WEKNORA_TENANT_ENABLE_RBAC`, `WEKNORA_TENANT_MAX_PER_USER`. RBAC state logged at startup. See [Authentication and authorization](./website-docs/03-features/01-tenant-auth.md).
+  - **Configurable**: `tenant.enable_rbac` (default `true`); `false` enters an "audit-only" grace window. New env knobs `GENYEE_TENANT_ENABLE_RBAC`, `GENYEE_TENANT_MAX_PER_USER`. RBAC state logged at startup. See [Authentication and authorization](./website-docs/03-features/01-tenant-auth.md).
 - **NEW**: **Tenant Member Management & Multi-Workspace UX** — invite-only gate, member listing UI with role chips, tenant identity surfaces reworked; tenant switcher in the user menu; tenant switch always redirects to KB list and clears tenant-scoped client state; last-active workspace persisted across logins; pending invitations dialog with polling + global invitation bell; rich workspace-aware notifications on login / tenant switch (raw-message handling, styled chips, survives page reload); QuickNav entry for members; "leave workspace" surfaced in i18n.
 - **NEW**: **Self-Service Workspaces** — any user can create their own tenant (capped per user via env knob); creation dialog with i18n; tenant name + description editable inline; cross-tenant superuser mirrored as Admin role chip in the UI.
 - **NEW**: **`weknora` CLI v0.3 / v0.4 (GA)** — graduates from preview to GA with comprehensive verb-noun subtree coverage:
@@ -708,7 +708,7 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
 - **IMPROVED**: `agent` exclude processing docs from prompt.
 - **IMPROVED**: LLM response — guard against empty `choices` and `message=None`.
 - **IMPROVED**: Configurable API proxy target for frontend dev environment.
-- **IMPROVED**: `DISABLE_REGISTRATION` now drives `registration_mode` too; removed redundant `WEKNORA_AUTH_REGISTRATION_MODE` env override.
+- **IMPROVED**: `DISABLE_REGISTRATION` now drives `registration_mode` too; removed redundant `GENYEE_AUTH_REGISTRATION_MODE` env override.
 - **IMPROVED**: Tenant RBAC + per-user tenant cap exposed as env knobs.
 - **IMPROVED**: Auth — JWT `tenant_id` claim honored in middleware; tenant-scoped client state cleared on tenant change.
 - **IMPROVED**: gin per-route logs silenced; env config banner emitted at startup.
@@ -991,7 +991,7 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
 - Refined parent-child chunk replacement logic to only apply to text chunks whose parent is a parent_text chunk
 - Optimized login page rendering performance: removed all backdrop-filter blur, reduced animated elements, added GPU compositing hints and prefers-reduced-motion support
 - Unified NVIDIA API for both chat and VLM model types
-- Prompt language fallback now uses WEKNORA_LANGUAGE environment variable instead of hardcoded zh-CN, with language propagated through document and image processing pipelines
+- Prompt language fallback now uses GENYEE_LANGUAGE environment variable instead of hardcoded zh-CN, with language propagated through document and image processing pipelines
 - Fixed enable_thinking for Aliyun Qwen models in streaming mode
 - Enhanced document processing with metadata extraction and handling
 - Added header tracking for Markdown tables during chunking to preserve table context
@@ -1330,7 +1330,7 @@ Changes since v0.8.2, through upstream main `31c605568` (2026-10-13; 282 commits
   - Enhanced KnowledgeQAStream parameters
   - Support for streaming response types and tool calls
 - **NEW**: System & Configuration
-  - Added `WEKNORA_VERSION` environment variable support
+  - Added `GENYEE_VERSION` environment variable support
   - APK mirror configuration support in Docker
   - Enhanced chunking separator options
   - FAQ two-level priority tag filtering

@@ -54,7 +54,7 @@ r.GET("/health", func(c *gin.Context) {
 
 - 底层为**私有** logrus 实例（`appLogger`，避免外部依赖改写全局 logrus 导致日志丢失），自定义 `CustomFormatter`。
 - 默认单行格式：`LEVEL[时间戳] [request_id 字段...] caller | message`，caller 为 `文件:行[函数名]`（`addCaller`）。
-- 可通过 `WEKNORA_LOG_FORMAT` 环境变量提供模板，占位符：`%d`=时间、`%level`=级别、`%thread`=goroutine ID（仅模板引用时才取，避免每条日志跑 `runtime.Stack`）、`%logger`=caller、`%traceId`=request_id、`%msg`=消息+结构化字段。单趟 `strings.NewReplacer` 替换避免二次替换问题。非空模板必须包含 `%msg`，否则输出警告并使用默认格式；`json` 不是受支持的格式关键字。新变量未设置时兼容旧 `LOG_FORMAT`（提示弃用），显式设为空则使用默认格式并禁用旧变量回退。
+- 可通过 `GENYEE_LOG_FORMAT` 环境变量提供模板，占位符：`%d`=时间、`%level`=级别、`%thread`=goroutine ID（仅模板引用时才取，避免每条日志跑 `runtime.Stack`）、`%logger`=caller、`%traceId`=request_id、`%msg`=消息+结构化字段。单趟 `strings.NewReplacer` 替换避免二次替换问题。非空模板必须包含 `%msg`，否则输出警告并使用默认格式；`json` 不是受支持的格式关键字。新变量未设置时兼容旧 `LOG_FORMAT`（提示弃用），显式设为空则使用默认格式并禁用旧变量回退。
 - 级别由 `LOG_LEVEL` 控制（`debug`/`info`/`warn`/`error`/`fatal`，未设置或非法时**默认 debug**）。
 - 颜色：stdout 是终端时启用 ANSI 颜色；非终端（Docker 采集）禁用；写文件时 `ansiStripWriter` 剥离 ANSI 序列保持纯文本。
 - 结构化字段 API：`logger.WithField(ctx, k, v)` / `WithFields` 把带字段的 entry 存进 context（`types.LoggerContextKey`），后续 `logger.Infof(ctx, ...)` 自动携带；`WarnWithFields` 专用于审计相关事件（跨租户探测、不变量破坏），便于日志聚合器按 tenant/资源索引。
@@ -83,7 +83,7 @@ return &lumberjack.Logger{
 
 - `RequestID()`：读取或生成 `X-Request-ID`，写回响应头，并把 request_id 与带字段的 logger 一起放入 gin context 与 `http.Request` context —— 全链路日志（含 asynq worker 侧透传的 session 标签）都能按 request_id 关联。
 - `Logger()`：记录 method、path（query 经 `sanitizeQuery` 抹掉 `token`/`code`/`state` 等 OAuth 敏感参数）、status_code、latency、client_ip、size，以及最多 10KB 的请求/响应体。请求/响应体经 `sensitiveFieldRegex` 脱敏（password/token/api_key/secret/private_key 等字段值替换为 `"***"`，兼容 snake_case/camelCase）；SSE 响应体记为 `[SSE流式响应，已跳过]`；`/assets/` 与 wiki stats 轮询路径直接跳过。
-- 信任代理：`r.SetTrustedProxies(...)`（`WEKNORA_TRUSTED_PROXIES`）防止伪造 `X-Forwarded-For` 绕过基于 `ClientIP` 的限流。
+- 信任代理：`r.SetTrustedProxies(...)`（`GENYEE_TRUSTED_PROXIES`）防止伪造 `X-Forwarded-For` 绕过基于 `ClientIP` 的限流。
 
 ### Langfuse 追踪（`internal/tracing/langfuse`） {#_3-langfuse-追踪-internal-tracing-langfuse}
 
@@ -229,7 +229,7 @@ X-Langfuse-Metadata: {"ticket_id":"T-123","biz_line":"order","priority":"P1"}
 
 #### 保留策略（`internal/application/service/audit_log_retention.go`） {#_4-5-保留策略-internal-application-service-audit-log-retention-go}
 
-- 配置：`audit.retention_days`（YAML）/ `WEKNORA_AUDIT_RETENTION_DAYS`（env 覆盖）；省略 `audit:` 段时默认 **90 天**；显式 0 表示禁用清扫（合规场景库外归档），负值在 config 校验时报错。
+- 配置：`audit.retention_days`（YAML）/ `GENYEE_AUDIT_RETENTION_DAYS`（env 覆盖）；省略 `audit:` 段时默认 **90 天**；显式 0 表示禁用清扫（合规场景库外归档），负值在 config 校验时报错。
 - `AuditLogRetentionRunner`：裸 `time.Ticker` 后台 goroutine（无 cron / asynq 依赖），启动延迟 10 分钟（避开迁移与启动流量），之后**每 24h** 执行一次 `Purge` → `DeleteOlderThan(now - retention_days)`（单条带索引 DELETE，30s 超时）。删除数量记 INFO，失败记 WARN（下轮再试）。由 `internal/container/container.go` 装配并注册 `ResourceCleaner` 优雅停止（`Stop` 幂等，未 Start 直接返回）。
 
 ### 限流（`internal/ratelimit` 与中间件） {#_5-限流-internal-ratelimit-与中间件}

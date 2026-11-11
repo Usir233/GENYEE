@@ -329,7 +329,7 @@ check_platform() {
 
 # 预拉取沙箱镜像（Agent Skills 执行所需，仅拉取不启动）
 ensure_sandbox_image() {
-    local sandbox_image="${WEKNORA_SANDBOX_DOCKER_IMAGE:-${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${WEKNORA_VERSION:-latest}}"
+    local sandbox_image="${GENYEE_SANDBOX_DOCKER_IMAGE:-${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${GENYEE_VERSION:-latest}}"
 
     # 检查本地是否已存在沙箱镜像
     if docker image inspect "$sandbox_image" &> /dev/null; then
@@ -588,7 +588,7 @@ check_environment() {
     
     # 检查沙箱镜像
     log_info "检查沙箱镜像..."
-    local sandbox_image="${WEKNORA_SANDBOX_DOCKER_IMAGE:-${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${WEKNORA_VERSION:-latest}}"
+    local sandbox_image="${GENYEE_SANDBOX_DOCKER_IMAGE:-${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${GENYEE_VERSION:-latest}}"
     if docker image inspect "$sandbox_image" &> /dev/null; then
         log_success "沙箱镜像已就绪: $sandbox_image"
     else

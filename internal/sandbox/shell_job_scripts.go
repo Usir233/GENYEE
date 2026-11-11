@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const shellJobMarkerPrefix = "__WEKNORA_SJ__"
+const shellJobMarkerPrefix = "__GENYEE_SJ__"
 
 // shellJobRotateFunc keeps an 8 KiB head and rotates a stream at 16 MiB.
 // Truncating with `: >` leaves no sparse hole; writers only append.

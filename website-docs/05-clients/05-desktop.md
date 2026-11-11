@@ -78,7 +78,7 @@ flowchart LR
 
 1. `wailsThemeSyncJS`：按 `localStorage` 的 `WeKnora_theme` 同步深浅色主题与窗口背景色。
 2. `dragHandlerJS`：自定义窗口拖拽处理（绕过 Wails 的 CSS 变量拖拽检测，改用 `el.closest()` DOM 遍历 + 顶部 38px 标题栏区域判定，通过 WKWebView 消息桥发送 `drag`）；同时拦截外部 `http(s)` 链接与 `window.open`，改用系统浏览器打开（`BrowserOpenURL`）。
-3. 注入 `window.__WEKNORA_API_BASE__`（真实 API 根路径 `http://127.0.0.1:<port>/api/v1`）以及可选的 `window.__WEKNORA_API_LAN_BASE__`（LAN 访问地址）。
+3. 注入 `window.__GENYEE_API_BASE__`（真实 API 根路径 `http://127.0.0.1:<port>/api/v1`）以及可选的 `window.__GENYEE_API_LAN_BASE__`（LAN 访问地址）。
 
 ## Wails 绑定方法（前端可调用） {#_4-wails-绑定方法-前端可调用}
 
@@ -166,7 +166,7 @@ flowchart LR
 ## 前端如何感知桌面环境 {#_8-前端如何感知桌面环境}
 
 - `dragHandlerJS` 会给 `document.documentElement` 加上 `wails-desktop` class，前端 CSS 可据此做桌面端样式适配。
-- Wails 注入的 `window.go.main.App.*`（生成绑定见 `frontend/src/wailsjs/go/main/`）与 `window.runtime`（`frontend/src/wailsjs/runtime/`，如 `BrowserOpenURL`、`EventsEmit`）只在桌面环境存在，前端通过特性检测判断：例如 `frontend/src/composables/useApiBaseUrlDisplay.ts` 轮询读取 `window.__WEKNORA_API_BASE__` 或调用 `window.go.main.App.GetAPIBaseURL()` 来获取真实 API 地址（浏览器环境则回退到配置值 / `window.location.origin`）；`frontend/src/App.vue` 检测到 `window.go.main.App.AutoCheckForUpdates` 存在时触发静默更新检查。
+- Wails 注入的 `window.go.main.App.*`（生成绑定见 `frontend/src/wailsjs/go/main/`）与 `window.runtime`（`frontend/src/wailsjs/runtime/`，如 `BrowserOpenURL`、`EventsEmit`）只在桌面环境存在，前端通过特性检测判断：例如 `frontend/src/composables/useApiBaseUrlDisplay.ts` 轮询读取 `window.__GENYEE_API_BASE__` 或调用 `window.go.main.App.GetAPIBaseURL()` 来获取真实 API 地址（浏览器环境则回退到配置值 / `window.location.origin`）；`frontend/src/App.vue` 检测到 `window.go.main.App.AutoCheckForUpdates` 存在时触发静默更新检查。
 - 设置页 `frontend/src/views/settings/GeneralSettings.vue` 与 `frontend/src/views/integrations/ApiIntegrationSettings.vue` 亦使用这些绑定展示/修改端口与 LAN 监听等桌面专属选项。
 
 ## 构建方式 {#_9-构建方式}

@@ -23,8 +23,8 @@ def main():
         sys.path.insert(0, str(current_dir))
 
     # 检查环境变量
-    base_url = os.getenv("GENYEE_BASE_URL") or os.getenv("WEKNORA_BASE_URL") or "http://localhost:8080/api/v1"
-    api_key = os.getenv("GENYEE_API_KEY") or os.getenv("WEKNORA_API_KEY") or ""
+    base_url = os.getenv("GENYEE_BASE_URL") or "http://localhost:8080/api/v1"
+    api_key = os.getenv("GENYEE_API_KEY") or ""
 
     print("GENYEE MCP Server", file=sys.stderr)
     print(f"Base URL: {base_url}", file=sys.stderr)

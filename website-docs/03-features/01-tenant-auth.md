@@ -114,7 +114,7 @@ func (c *AuthConfig) IsInviteOnly() bool {
 - `POST /auth/register`：`{username(2-50), email, password}`；按 `DefaultTenantMode` 决定是否自动创建个人租户（`TenantProvisioningCreatePersonal` / `TenantProvisioningTenantless`）。
 - `POST /auth/login`：`{email, password}`，返回 `LoginResponse{user, active_tenant, memberships[], token, refresh_token}`；激活租户按 `Preferences.LastActiveTenantID` 恢复。
 - 注册、邀请注册、修改密码及管理员设置新密码均执行统一密码策略：默认 8–32 位，至少字母和数字。`GET /auth/config` 返回当前的 complex_password_enabled；开启后还要求大小写字母和特殊字符。
-- 系统管理员可用 `auth.complex_password_enabled` 调整，未落库时回退 `WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED`。改变策略只约束之后创建或修改的密码，不强迫已有账号立即改密。
+- 系统管理员可用 `auth.complex_password_enabled` 调整，未落库时回退 `GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED`。改变策略只约束之后创建或修改的密码，不强迫已有账号立即改密。
 - 在个人资料中自助改密需提供旧密码，新密码不能相同；成功后撤销该用户全部会话，需重新登录。接口错误与参数见[认证 API](../04-api/02-api-auth.md)。
 
 #### 邀请注册（register-by-invite） {#_2-3-邀请注册-register-by-invite}
@@ -323,7 +323,7 @@ flowchart LR
 5. ownership 守卫执行 creator 查询：资源不存在 → 放行让 handler 返回 404；查询失败 → 503；creator == 当前用户 → 放行；
 6. 否则 403 + 审计日志（`AuditActionAccessDenied = "rbac.access_denied"`）。
 
-强制执行开关 `TenantConfig.EnableRBAC`：`nil` 或 `true` = 强制（当前默认），`false` = 只记日志不拒绝（发布过渡用）；可用环境变量 `WEKNORA_TENANT_ENABLE_RBAC` 覆盖。该开关只作用于空间内的角色检查，知识库访问守卫（`RequireKBAccess`）对跨空间访问始终拦截。
+强制执行开关 `TenantConfig.EnableRBAC`：`nil` 或 `true` = 强制（当前默认），`false` = 只记日志不拒绝（发布过渡用）；可用环境变量 `GENYEE_TENANT_ENABLE_RBAC` 覆盖。该开关只作用于空间内的角色检查，知识库访问守卫（`RequireKBAccess`）对跨空间访问始终拦截。
 
 `RequireSystemAdmin`：JWT 用户须 `IsSystemAdmin=true`；API Key 须为 platform key（tenant key 一律 403）。
 
@@ -596,7 +596,7 @@ type UserPreferences struct {
 
 两个特殊标志：
 
-- `CanAccessAllTenants`：跨空间超级用户。**必须两个开关同时为真**才生效——用户行上的 `CanAccessAllTenants`，以及部署级的 `tenant.enable_cross_tenant_access` / `WEKNORA_TENANT_ENABLE_CROSS_TENANT_ACCESS`（`middleware/access.go` 的 `IsCrossTenantSuperuser()` 先查配置再查用户；配置关掉时登录响应里这个字段也会被抹成 false）。生效后可绕过空间角色检查，访问 `/tenants/all`、`/tenants/search` 等跨空间端点。注意 `POST /tenants`（新建空间）**不属于**跨空间端点，任何已登录用户都能调（受自助创建策略与配额限制）。
+- `CanAccessAllTenants`：跨空间超级用户。**必须两个开关同时为真**才生效——用户行上的 `CanAccessAllTenants`，以及部署级的 `tenant.enable_cross_tenant_access` / `GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS`（`middleware/access.go` 的 `IsCrossTenantSuperuser()` 先查配置再查用户；配置关掉时登录响应里这个字段也会被抹成 false）。生效后可绕过空间角色检查，访问 `/tenants/all`、`/tenants/search` 等跨空间端点。注意 `POST /tenants`（新建空间）**不属于**跨空间端点，任何已登录用户都能调（受自助创建策略与配额限制）。
 - `IsSystemAdmin`：平台级管理员（system admin），独立于任何租户角色，用于 `/system/admin/*` 控制面。它管的是整个部署而不是某个空间，怎么产生第一个、能做什么见[平台管理与系统管理员](20-platform-admin.md)。
 
 #### TenantMember 与租户角色 {#_1-3-tenantmember-与租户角色}

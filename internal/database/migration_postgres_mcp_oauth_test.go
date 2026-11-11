@@ -22,9 +22,9 @@ import (
 // zone. A naive TIMESTAMP column drops that offset on write and returns a
 // value shifted by it.
 func TestPostgresMCPOAuthTimesKeepTheInstant(t *testing.T) {
-	dsn := os.Getenv("WEKNORA_MIGRATION_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("GENYEE_MIGRATION_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("set WEKNORA_MIGRATION_TEST_POSTGRES_DSN to run PostgreSQL migration tests")
+		t.Skip("set GENYEE_MIGRATION_TEST_POSTGRES_DSN to run PostgreSQL migration tests")
 	}
 	chdirAndRestore(t, sqliteRepoRoot(t))
 	require.NoError(t, RunMigrationsWithOptions(dsn, MigrationOptions{}))

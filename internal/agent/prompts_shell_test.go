@@ -38,7 +38,7 @@ func TestToolGuidanceDescribesTheDesktopOnlyWhenEnabled(t *testing.T) {
 	on := formatToolGuidanceWithDesktop(names, false, remote, true)
 	for _, want := range []string{
 		"Desktop tab", "1280x800", "scrot", "xdotool", "xwininfo", "xprop", "xdpyinfo",
-		`wk-display claim "$WEKNORA_SESSION_ID"`, "claim one only when you must",
+		`wk-display claim "$GENYEE_SESSION_ID"`, "claim one only when you must",
 		"Never set DISPLAY yourself",
 	} {
 		require.Contains(t, on, want)
@@ -97,7 +97,7 @@ func TestToolGuidanceOmitsHostWorkspaceWithUnsafeRoot(t *testing.T) {
 }
 
 func TestArtifactGuidanceUsesConfiguredOutputDirectory(t *testing.T) {
-	t.Setenv("WEKNORA_SKILL_OUTPUT_DIR", "/workspace/deliverables")
+	t.Setenv("GENYEE_SKILL_OUTPUT_DIR", "/workspace/deliverables")
 	guidance := formatToolGuidance([]string{"shell_exec", "read_file"})
 	require.Contains(t, guidance, "/workspace/deliverables is the only directory collected for download")
 	require.NotContains(t, guidance, "/workspace/output is the only directory collected")

@@ -19,7 +19,7 @@ pip install -r requirements.txt
 
 ### 2. 配置环境变量
 ```bash
-# Linux/macOS (同时兼容 WEKNORA_BASE_URL / WEKNORA_API_KEY)
+# Linux/macOS
 export GENYEE_BASE_URL="http://localhost:8080/api/v1"
 export GENYEE_API_KEY="your_api_key_here"
 

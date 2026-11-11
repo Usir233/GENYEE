@@ -168,7 +168,7 @@ export async function main(argv, {
   focus = focusRef,
   out = print,
 } = {}) {
-  const root = process.env.WEKNORA_BROWSER_ROOT;
+  const root = process.env.GENYEE_BROWSER_ROOT;
   if (argv[0] === "--probe") {
     let browser;
     try {

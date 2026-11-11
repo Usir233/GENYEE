@@ -53,13 +53,13 @@ var reservedEnvNames = map[string]bool{
 	"NODE_OPTIONS":    true,
 	// Reserved for the sandbox itself: the agent-browser wrapper reads them
 	// to isolate one session from its siblings on a shared machine.
-	"WEKNORA_SESSION_ID":   true,
-	"WEKNORA_BROWSER_ROOT": true,
+	"GENYEE_SESSION_ID":   true,
+	"GENYEE_BROWSER_ROOT": true,
 }
 
 func init() {
 	// The names skill environment preparation actually writes, not a guessed prefix. Output
-	// dir, history root and skill dir currently share WEKNORA_SKILL_, but
+	// dir, history root and skill dir currently share GENYEE_SKILL_, but
 	// SESSION_INPUT_DIR does not; pulling the list from skills keeps the
 	// blacklist aligned when a fifth injected name appears.
 	for _, name := range skills.InjectedSandboxEnvVars() {
@@ -67,10 +67,10 @@ func init() {
 	}
 }
 
-// reservedEnvPrefix covers future WEKNORA_SKILL_* names the sandbox may start
+// reservedEnvPrefix covers future GENYEE_SKILL_* names the sandbox may start
 // injecting before the exact list above is updated. Credential names a skill
-// reads — WEKNORA_API_KEY, WEKNORA_BASE_URL, WEKNORA_HOST — are outside it.
-const reservedEnvPrefix = "WEKNORA_SKILL_"
+// reads — GENYEE_API_KEY, GENYEE_BASE_URL, GENYEE_HOST — are outside it.
+const reservedEnvPrefix = "GENYEE_SKILL_"
 
 // declaredSkillEnv is one entry as the installer agent wrote it.
 //

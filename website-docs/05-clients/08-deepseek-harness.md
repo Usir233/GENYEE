@@ -1,20 +1,20 @@
 # DeepSeek Harness 插件
 
-DeepSeek Harness（dsh）插件通过 REST API 连接已有 GENYEE 部署，支持检索原文、读取完整文档和生成带引用的回答。插件源码位于 `packages/dsh-weknora`。
+DeepSeek Harness（dsh）插件通过 REST API 连接已有 GENYEE 部署，支持检索原文、读取完整文档和生成带引用的回答。插件源码位于 `packages/dsh-genyee`。
 
 ## 安装与连接
 
 ```sh
 dsh plugin --profile web add @genyee/dsh-genyee
 
-export WEKNORA_BASE_URL=https://genyee.example.com
-export WEKNORA_API_KEY='<api-key>'
-export WEKNORA_KNOWLEDGE_BASE_IDS=kb-123,kb-456
-export WEKNORA_RESOURCE_URLS=public
+export GENYEE_BASE_URL=https://genyee.example.com
+export GENYEE_API_KEY='<api-key>'
+export GENYEE_KNOWLEDGE_BASE_IDS=kb-123,kb-456
+export GENYEE_RESOURCE_URLS=public
 dsh web
 ```
 
-也可在仓库根目录运行 `dsh plugin --profile web add ./packages/dsh-weknora`。插件自身要求 Node ≥20.11；仓库验证的 dsh 运行环境需要带 zstd 的 Node（≥22.15 或 ≥24）和 pnpm ≥10。已验证版本为 dsh 0.1.0-rc.8 / GENYEE 0.8.0，其他版本需按其插件接口确认兼容性。
+也可在仓库根目录运行 `dsh plugin --profile web add ./packages/dsh-genyee`。插件自身要求 Node ≥20.11；仓库验证的 dsh 运行环境需要带 zstd 的 Node（≥22.15 或 ≥24）和 pnpm ≥10。已验证版本为 dsh 0.1.0-rc.8 / GENYEE 0.8.0，其他版本需按其插件接口确认兼容性。
 
 服务地址可包含 `/api/v1`，未包含时自动补全。API Key 通过 `X-API-Key` 发送，需要 `retrieve` 能力；调用 `ask` 还需 `chat`。使用平台 Key 时，需配置 `tenantId`，请求将其作为 `X-Tenant-ID` 发送。
 
@@ -39,7 +39,7 @@ dsh web
 - id: weknora
   config:
     baseUrl: https://genyee.example.com
-    apiKey: !!js process.env.WEKNORA_API_KEY
+    apiKey: !!js process.env.GENYEE_API_KEY
     knowledgeBaseIds: [kb-product-docs]
     agentId: ''
     maxResults: 8
@@ -75,4 +75,4 @@ dsh web
 
 ## 实现参考
 
-`packages/dsh-weknora/src/`、`test/fixtures/api-contract.json`、`contract/contract_test.go`。
+`packages/dsh-genyee/src/`、`test/fixtures/api-contract.json`、`contract/contract_test.go`。

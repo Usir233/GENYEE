@@ -54,7 +54,7 @@ git clone <repository-url> && cd GENYEE
 cp .env.example .env              # 编辑必填项：DB_USER/DB_PASSWORD/DB_NAME、REDIS_PASSWORD、JWT_SECRET、SYSTEM_AES_KEY
 make start-all                # 等价 ./scripts/start_all.sh（默认拉取最新镜像）
 # 或直接：
-docker compose pull           # 拉取与 WEKNORA_VERSION 匹配的镜像
+docker compose pull           # 拉取与 GENYEE_VERSION 匹配的镜像
 docker compose up -d
 docker compose ps                 # 等所有服务变成 healthy/running
 ```
@@ -74,7 +74,7 @@ docker compose ps                 # 等所有服务变成 healthy/running
 > 如果数据库仍为 ParadeDB `v0.22.2-pg17`，先按 [ParadeDB 升级说明](06-paradedb-upgrade.md) 停止写入、备份、保留数据卷更换镜像并完成 `pg_search` 扩展升级，再恢复应用。仅替换镜像不会更新已有数据库的扩展 SQL；迁移 `000099` 会处理 GENYEE 库中符合条件的 `0.22.2–0.22.5`，其他数据库仍需单独检查。
 
 ```bash
-# 在 .env 中将 WEKNORA_VERSION 设为目标版本（如 0.9.0），或保持 latest
+# 在 .env 中将 GENYEE_VERSION 设为目标版本（如 0.9.0），或保持 latest
 docker compose pull
 docker compose up -d
 ```
@@ -85,7 +85,7 @@ docker compose up -d
 
 | 服务 | 镜像 | 端口（宿主:容器） | 依赖 | 说明 |
 | --- | --- | --- | --- | --- |
-| `frontend` | `genyee/genyee-ui:${WEKNORA_VERSION:-latest}` | `${FRONTEND_PORT:-80}:80` | app（healthy） | Nginx 托管 SPA 并反代到 app；`APP_HOST`/`APP_BACKEND_PORT`/`APP_SCHEME` 可指向远程后端 |
+| `frontend` | `genyee/genyee-ui:${GENYEE_VERSION:-latest}` | `${FRONTEND_PORT:-80}:80` | app（healthy） | Nginx 托管 SPA 并反代到 app；`APP_HOST`/`APP_BACKEND_PORT`/`APP_SCHEME` 可指向远程后端 |
 | `app` | `genyee/genyee-app` | `${APP_PORT:-8080}:8080` | postgres（healthy）、redis、docreader（healthy） | Go 后端；挂载 `./config/config.yaml`、`data-files` 卷；健康检查 `GET /health` |
 | `docreader` | `genyee/genyee-docreader` | 仅 `expose: 50051`（不发布到宿主机） | — | 文档解析 gRPC 服务；健康检查 `grpc_health_probe`；与 app 共享 `docreader-tmp` 卷传递图片 |
 | `postgres` | `paradedb/paradedb:v0.25.11-pg17` | 不映射宿主端口 | — | ParadeDB = PostgreSQL 17 + BM25/向量扩展，默认检索引擎 |
@@ -107,7 +107,7 @@ docker compose up -d
 | `dex`（含 `full`） | `dex` | 5556 | OIDC 测试用 IdP（配置在 `misc/dex-config.yaml`） |
 | `langfuse`（含 `full`） | `langfuse-db-init`、`langfuse-clickhouse`、`langfuse-minio`、`langfuse-worker`、`langfuse-web` | 3000（UI）/ 9100/9101（专用 MinIO） | 自建 Langfuse 可观测栈，复用 GENYEE 的 postgres（新建 `langfuse` 库）与 redis（DB 1） |
 | `odl-hybrid` | `odl-hybrid` | expose 5002 | OpenDataLoader/Docling PDF 混合解析后端（仅本地构建，配 `DOCREADER_ODL_HYBRID` 使用） |
-| `full` | `sandbox`、`mcp` 及上述带 full 标记的服务 | mcp: `${MCP_PORT:-8082}:8000` | `sandbox` 仅用于 build/pull 镜像（`command: ["true"]`，非常驻）。Docker 沙箱默认关闭，需设 `WEKNORA_SANDBOX_DOCKER_ENABLED=true` 并挂载 `docker.sock`（等同宿主机 root）；Cube/E2B 不依赖本机 daemon。`mcp` 为 MCP Server |
+| `full` | `sandbox`、`mcp` 及上述带 full 标记的服务 | mcp: `${MCP_PORT:-8082}:8000` | `sandbox` 仅用于 build/pull 镜像（`command: ["true"]`，非常驻）。Docker 沙箱默认关闭，需设 `GENYEE_SANDBOX_DOCKER_ENABLED=true` 并挂载 `docker.sock`（等同宿主机 root）；Cube/E2B 不依赖本机 daemon。`mcp` 为 MCP Server |
 
 app 容器的 `environment` 段落是全量环境变量清单（数据库、向量库、对象存储、Docreader 调优、租户策略、OIDC 等），详见 [04-configuration.md](./04-configuration.md)。
 
@@ -240,7 +240,7 @@ Lite 模式通过编译期 `EDITION=lite` 与运行期 `.env.lite` 环境实现�
 - **数据库**：`DB_DRIVER=sqlite` + `DB_PATH=./data/genyee.db`，编译加 `-tags "sqlite_fts5"`；
 - **检索**：`RETRIEVE_DRIVER=sqlite`，走 SQLite FTS5 全文检索 + sqlite-vec 向量检索，无需任何向量数据库；
 - **队列/流**：`STREAM_MANAGER_TYPE=memory`（`internal/stream/factory.go`），不需要 Redis，Asynq 分布式队列在 Lite 模式下为内存/no-op；
-- **前端**：`make build-lite` 会把 `frontend/dist` 复制为仓库根的 `web/`，二进制直接内嵌托管静态资源（`WEKNORA_WEB_DIR` 可指定目录，router 的 `serveFrontendStatic` 提供服务）；
+- **前端**：`make build-lite` 会把 `frontend/dist` 复制为仓库根的 `web/`，二进制直接内嵌托管静态资源（`GENYEE_WEB_DIR` 可指定目录，router 的 `serveFrontendStatic` 提供服务）；
 - **文档解析**：仍可选连本地 docreader（`DOCREADER_ADDR=127.0.0.1:50051`）；
 - **沙箱**：单二进制启动时不预置后端，可在设置页按空间配置 Docker、CubeSandbox 或 E2B；桌面应用的会话在未指定远程沙箱时使用本机操作系统沙箱，见[桌面客户端](../05-clients/05-desktop.md)。
 
@@ -285,17 +285,17 @@ cd docreader && uv sync --locked && bash scripts/generate_proto.sh && uv run -m 
 
 ### 标准版可选托管前端
 
-标准版默认仅提供 API，前端由独立服务提供。若希望由同一个标准版进程提供 Web UI，可显式设置 `WEKNORA_WEB_DIR`，指向已构建的前端目录；该目录必须包含 `index.html`。未设置该变量时保持默认行为，目录不存在或缺少 `index.html` 时也不会启用前端托管。
+标准版默认仅提供 API，前端由独立服务提供。若希望由同一个标准版进程提供 Web UI，可显式设置 `GENYEE_WEB_DIR`，指向已构建的前端目录；该目录必须包含 `index.html`。未设置该变量时保持默认行为，目录不存在或缺少 `index.html` 时也不会启用前端托管。
 
 以下命令从仓库根目录执行，要求已安装 Go 1.26、CGO 所需工具与依赖、Node.js 和 npm，并已提供标准版所需的数据库、Redis、存储、模型服务及所用解析服务等配置与依赖：
 
 ```bash
 (cd frontend && npm ci && npm run build)
 make build-prod
-SERVER_HOST=127.0.0.1 WEKNORA_WEB_DIR="$PWD/frontend/dist" ./GENYEE
+SERVER_HOST=127.0.0.1 GENYEE_WEB_DIR="$PWD/frontend/dist" ./GENYEE
 ```
 
-启动后通过 `http://127.0.0.1:8080` 访问（使用默认 `SERVER_PORT` 时）。`WEKNORA_WEB_DIR` 目录仅应包含前端构建产物，不要放入数据、配置或密钥；其中的文件会作为静态资源提供。已注册的后端路由（包括 `/mcp/` 端点）优先于静态文件和 SPA 回退，现有 API 的认证与授权规则保持不变。
+启动后通过 `http://127.0.0.1:8080` 访问（使用默认 `SERVER_PORT` 时）。`GENYEE_WEB_DIR` 目录仅应包含前端构建产物，不要放入数据、配置或密钥；其中的文件会作为静态资源提供。已注册的后端路由（包括 `/mcp/` 端点）优先于静态文件和 SPA 回退，现有 API 的认证与授权规则保持不变。
 
 此选项可省去独立前端服务，不会替代数据库、Redis 等后端依赖。需要 SQLite + 内存队列的最小化无 Docker 部署时，请参考现有的 [Lite 运行时](#_7-1-lite-运行时-零外部依赖)。
 

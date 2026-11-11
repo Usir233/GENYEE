@@ -69,7 +69,7 @@ const DEFAULTS = {
 /** Thrown when a patch row configures this plugin in a way it cannot serve. */
 export class ConfigError extends Error {
   constructor(violations: string[]) {
-    super(`dsh-weknora configuration is invalid:\n  - ${violations.join('\n  - ')}`)
+    super(`dsh-genyee configuration is invalid:\n  - ${violations.join('\n  - ')}`)
     this.name = 'ConfigError'
   }
 }

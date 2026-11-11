@@ -40,12 +40,12 @@ class DeliveryTests(unittest.TestCase):
 
     def test_optional_cloud_switch_reaches_backend_and_frontend(self):
         for enabled in ("false", "true"):
-            deployments = self.deployments({"app": {"env": {"WEKNORA_WEKNORACLOUD_ENABLED": enabled}},
+            deployments = self.deployments({"app": {"env": {"GENYEE_WEKNORACLOUD_ENABLED": enabled}},
                                            "frontend": {"env": {"DOCS_BASE_URL": "/customer-docs/"}}})
             for component in ("app", "frontend"):
                 env = {e["name"]: e.get("value") for e in
                        deployments[component]["spec"]["template"]["spec"]["containers"][0]["env"]}
-                self.assertEqual(env["WEKNORA_WEKNORACLOUD_ENABLED"], enabled)
+                self.assertEqual(env["GENYEE_WEKNORACLOUD_ENABLED"], enabled)
                 if component == "frontend":
                     self.assertEqual(env["DOCS_BASE_URL"], "/customer-docs/")
 
@@ -108,14 +108,14 @@ class DeliveryTests(unittest.TestCase):
 
     def test_homebrew_formula_linux_wrapper_execution(self):
         repo_root = Path(__file__).resolve().parent.parent.parent
-        formula_path = repo_root / "Formula" / "weknora-lite.rb"
+        formula_path = repo_root / "Formula" / "genyee-lite.rb"
         content = formula_path.read_text(encoding="utf-8")
 
         self.assertNotIn("sed -i ''", content)
         self.assertNotIn(".env.lite-e", content)
         self.assertIn('cp -R "#{pkgshare}/config/." "$CONFIG_DIR/config/"', content)
 
-        start_marker = '(bin/"weknora-lite").write <<~SH\n'
+        start_marker = '(bin/"genyee-lite").write <<~SH\n'
         end_marker = "    SH\n"
         start_idx = content.index(start_marker) + len(start_marker)
         end_idx = content.index(end_marker, start_idx)
@@ -131,7 +131,7 @@ class DeliveryTests(unittest.TestCase):
             (pkgshare / "web").mkdir(parents=True)
             (pkgshare / "web" / "index.html").write_text("<html></html>\n", encoding="utf-8")
             (pkgshare / ".env.lite.example").write_text(
-                "DB_DRIVER=sqlite\nDB_PATH=./data/weknora.db\nLOCAL_STORAGE_BASE_DIR=./data/files\n",
+                "DB_DRIVER=sqlite\nDB_PATH=./data/genyee.db\nLOCAL_STORAGE_BASE_DIR=./data/files\n",
                 encoding="utf-8",
             )
             libexec_dir = Path(tmp_dir) / "libexec"
@@ -150,24 +150,24 @@ class DeliveryTests(unittest.TestCase):
                 .replace("#{libexec}", str(libexec_dir))
                 .replace(r"\\", "\\")
             )
-            script_file = Path(tmp_dir) / "weknora-lite.sh"
+            script_file = Path(tmp_dir) / "genyee-lite.sh"
             script_file.write_text(rendered + "\n", encoding="utf-8")
             script_file.chmod(0o755)
 
             data_dir = Path(tmp_dir) / "data&dir|special $var `uname`"
             config_dir = Path(tmp_dir) / "config_dir"
             env = os.environ.copy()
-            env["WEKNORA_DATA_DIR"] = str(data_dir)
-            env["WEKNORA_CONFIG_DIR"] = str(config_dir)
+            env["GENYEE_DATA_DIR"] = str(data_dir)
+            env["GENYEE_CONFIG_DIR"] = str(config_dir)
 
             res = subprocess.run(["bash", str(script_file)], env=env, capture_output=True, text=True, check=False)
             self.assertEqual(res.returncode, 0, f"stderr={res.stderr}\nstdout={res.stdout}")
             self.assertEqual(res.stderr, "", f"unexpected stderr: {res.stderr}")
-            self.assertIn(f"DB_PATH={data_dir}/weknora.db\nLOCAL_STORAGE_BASE_DIR={data_dir}/files", res.stdout)
+            self.assertIn(f"DB_PATH={data_dir}/genyee.db\nLOCAL_STORAGE_BASE_DIR={data_dir}/files", res.stdout)
             self.assertTrue((config_dir / "config" / "config.yaml").is_file())
             self.assertFalse((config_dir / "config" / "config").exists())
             env_lite = (config_dir / ".env.lite").read_text(encoding="utf-8")
-            self.assertIn(f"DB_PATH={data_dir}/weknora.db", env_lite)
+            self.assertIn(f"DB_PATH={data_dir}/genyee.db", env_lite)
             self.assertIn(f"LOCAL_STORAGE_BASE_DIR={data_dir}/files", env_lite)
             self.assertFalse((config_dir / ".env.lite.tmp").exists())
             self.assertFalse((config_dir / ".env.lite-e").exists())

@@ -23,7 +23,7 @@ import (
 )
 
 // integrationEnv returns an integration dependency's address. Missing, the
-// test is skipped — unless WEKNORA_REQUIRE_INTEGRATION=1, which turns the
+// test is skipped — unless GENYEE_REQUIRE_INTEGRATION=1, which turns the
 // skip into a failure so an enablement run cannot pass by skipping.
 func integrationEnv(t *testing.T, name string) string {
 	t.Helper()
@@ -31,8 +31,8 @@ func integrationEnv(t *testing.T, name string) string {
 	if v != "" {
 		return v
 	}
-	if os.Getenv("WEKNORA_REQUIRE_INTEGRATION") == "1" {
-		t.Fatalf("%s is required when WEKNORA_REQUIRE_INTEGRATION=1", name)
+	if os.Getenv("GENYEE_REQUIRE_INTEGRATION") == "1" {
+		t.Fatalf("%s is required when GENYEE_REQUIRE_INTEGRATION=1", name)
 	}
 	t.Skipf("set %s to run against a real dependency", name)
 	return ""
@@ -60,7 +60,7 @@ func (g *gatingReclaim) ReclaimUserMachine(
 }
 
 func TestMultiReplicaRealRedisGCRunsOnOneReplica(t *testing.T) {
-	addr := integrationEnv(t, "WEKNORA_TEST_REDIS_ADDR")
+	addr := integrationEnv(t, "GENYEE_TEST_REDIS_ADDR")
 	raw := redis.NewClient(&redis.Options{Addr: addr})
 	t.Cleanup(func() { _ = raw.Close() })
 	ctx := context.Background()
@@ -128,15 +128,15 @@ func TestMultiReplicaRealRedisGCRunsOnOneReplica(t *testing.T) {
 	require.Equal(t, 1, winner.report.Reclaimed)
 }
 
-// placementDatabase is Postgres when WEKNORA_REPOSITORY_TEST_POSTGRES_DSN is
+// placementDatabase is Postgres when GENYEE_REPOSITORY_TEST_POSTGRES_DSN is
 // set, and the shared-cache sqlite pool otherwise. The sqlite path is still a
-// regression test; only WEKNORA_REQUIRE_INTEGRATION=1 demands Postgres.
+// regression test; only GENYEE_REQUIRE_INTEGRATION=1 demands Postgres.
 func placementDatabase(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := strings.TrimSpace(os.Getenv("WEKNORA_REPOSITORY_TEST_POSTGRES_DSN"))
+	dsn := strings.TrimSpace(os.Getenv("GENYEE_REPOSITORY_TEST_POSTGRES_DSN"))
 	if dsn == "" {
-		if os.Getenv("WEKNORA_REQUIRE_INTEGRATION") == "1" {
-			t.Fatal("WEKNORA_REPOSITORY_TEST_POSTGRES_DSN is required when WEKNORA_REQUIRE_INTEGRATION=1")
+		if os.Getenv("GENYEE_REQUIRE_INTEGRATION") == "1" {
+			t.Fatal("GENYEE_REPOSITORY_TEST_POSTGRES_DSN is required when GENYEE_REQUIRE_INTEGRATION=1")
 		}
 		dsn = fmt.Sprintf("file:%s?mode=memory&cache=shared&_busy_timeout=5000", uuid.NewString())
 		db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})

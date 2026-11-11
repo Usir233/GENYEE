@@ -29,7 +29,7 @@ daemon_commit="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))
 [ "$daemon_commit" = "$source_commit" ] || { echo "BrowserSkill daemon/extension baseline mismatch" >&2; exit 1; }
 mkdir -p "$output_dir"
 output_dir="$(cd "$output_dir" && pwd)"
-build_dir="$(mktemp -d /tmp/weknora-bsk-build.XXXXXX)"
+build_dir="$(mktemp -d /tmp/genyee-bsk-build.XXXXXX)"
 trap 'rm -rf "$build_dir"' EXIT
 
 git clone --no-checkout https://github.com/Tencent/BrowserSkill.git "$build_dir/source"

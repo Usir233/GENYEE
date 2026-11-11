@@ -856,7 +856,7 @@ export default {
         },
         env: {
           title: '환경 변수 설정',
-          desc: '셸 또는 ~/.zshrc, ~/.bashrc에 WEKNORA_BASE_URL과 WEKNORA_API_KEY를 설정하세요. 아래 예시는 현재 API 주소를 사용하며, API Key는 실제 값으로 바꾸세요.'
+          desc: '셸 또는 ~/.zshrc, ~/.bashrc에 GENYEE_BASE_URL과 GENYEE_API_KEY를 설정하세요. 아래 예시는 현재 API 주소를 사용하며, API Key는 실제 값으로 바꾸세요.'
         },
         api: {
           title: 'API 자격 증명',
@@ -7116,7 +7116,7 @@ export default {
       loadFailed: '환경 변수를 불러오지 못했습니다.',
       sandboxTitle: '이 컴퓨터에서 항상 포함하는 값',
       sandboxHint: '이 컴퓨터에서 실행하는 명령에만 전달됩니다. 필요할 때만 추가하세요. 대화 중에 바로 제공할 수도 있습니다.',
-      nameInvalid: '이 이름은 사용할 수 없습니다. 예약된 이름(예: PATH, WEKNORA_로 시작하는 이름)은 거부됩니다.',
+      nameInvalid: '이 이름은 사용할 수 없습니다. 예약된 이름(예: PATH, GENYEE_로 시작하는 이름)은 거부됩니다.',
       deleteConfirm: '{name}을(를) 삭제할까요? 이후 이 컴퓨터에서 실행할 때 더 이상 포함되지 않습니다.',
     },
     description: '스킬과 샌드박스에 쓰는 개인 키이며, GENYEE 시스템이나 배포 설정이 아닙니다.',
@@ -7150,7 +7150,7 @@ export default {
     addRow: '추가',
     namePlaceholder: 'VARIABLE_NAME',
     nameRule: '대문자, 숫자, 밑줄만 사용하며 문자 또는 밑줄로 시작해야 합니다.',
-    nameInvalid: '이 이름은 사용할 수 없습니다. PATH처럼 샌드박스가 예약한 이름이나 WEKNORA_로 시작하는 이름은 허용되지 않습니다.',
+    nameInvalid: '이 이름은 사용할 수 없습니다. PATH처럼 샌드박스가 예약한 이름이나 GENYEE_로 시작하는 이름은 허용되지 않습니다.',
     nameDuplicate: '같은 이름의 변수가 이미 있습니다.',
     valuePlaceholder: '값 입력',
     storedPlaceholder: '저장됨, 입력하면 교체됩니다',
@@ -7680,7 +7680,7 @@ export default {
       allocationModeHint: 'Only affects sessions that have not used a sandbox yet; existing sessions keep their placement and files are never moved.',
       allocationModeSession: 'One sandbox per session (default)',
       allocationModeUser: "Share one sandbox across a user's sessions",
-      allocationModeUnavailable: 'Shared sandboxes are not enabled on this deployment (set WEKNORA_SANDBOX_USER_ALLOCATION=enabled on every replica; Redis is required).',
+      allocationModeUnavailable: 'Shared sandboxes are not enabled on this deployment (set GENYEE_SANDBOX_USER_ALLOCATION=enabled on every replica; Redis is required).',
       userSandboxRetentionDays: 'Keep an empty shared sandbox for (days)',
       userSandboxRetentionHint: 'After every session on a shared sandbox is deleted, it is removed once it has been empty this long (1–90 days). This is not a minimum file retention: Docker idle cleanup or provider failures may remove it sooner.',
       userSandboxesInInventory: "{count} of them are shared user sandboxes; each affects all of that user's sessions on this config.",

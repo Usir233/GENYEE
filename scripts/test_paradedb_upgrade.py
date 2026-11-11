@@ -159,7 +159,7 @@ def main():
     parser.add_argument('--output-dir', type=pathlib.Path)
     parser.add_argument('--to', choices=sorted(TARGETS), default='0.25.11', help='target pg_search version')
     args = parser.parse_args()
-    OUT = args.output_dir or pathlib.Path(tempfile.mkdtemp(prefix='weknora-pdb-upgrade-'))
+    OUT = args.output_dir or pathlib.Path(tempfile.mkdtemp(prefix='genyee-pdb-upgrade-'))
     OUT.mkdir(parents=True, exist_ok=True)
     if any(OUT.iterdir()):
         raise RuntimeError('Use an empty output directory')

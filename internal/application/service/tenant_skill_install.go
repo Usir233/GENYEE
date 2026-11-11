@@ -1987,9 +1987,9 @@ Hard requirements:
   a value you invent would be stored as this workspace's real credential. If one environment
   variable is required, set required to true; if it is optional, set required to false. If the
   skill needs no environment variables, write {"env":[]}.
-  Do not declare WEKNORA_SKILL_DIR, WEKNORA_SKILL_OUTPUT_DIR, WEKNORA_SKILL_HISTORY_ROOT or
-  WEKNORA_SESSION_INPUT_DIR: the sandbox injects those. Other WEKNORA_* names the skill reads
-  (WEKNORA_API_KEY, WEKNORA_BASE_URL, WEKNORA_HOST, WEKNORA_TOKEN, WEKNORA_KB_ID) MUST be declared.
+  Do not declare GENYEE_SKILL_DIR, GENYEE_SKILL_OUTPUT_DIR, GENYEE_SKILL_HISTORY_ROOT or
+  GENYEE_SESSION_INPUT_DIR: the sandbox injects those. Other GENYEE_* names the skill reads
+  (GENYEE_API_KEY, GENYEE_BASE_URL, GENYEE_HOST, GENYEE_TOKEN, GENYEE_KB_ID) MUST be declared.
 
 On-demand / optional extras MUST be installed now. Every chat session starts
 from the image this install produces, and whatever a session installs dies with

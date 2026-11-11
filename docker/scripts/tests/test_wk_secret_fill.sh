@@ -11,9 +11,9 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 printf '#!/bin/sh\necho "{\\"url\\":null}"\n' > "$TMP/node"
 chmod +x "$TMP/node"
-export WK_NODE="$TMP/node" WK_BROWSER_LIB_DIR="$TMP" WEKNORA_BROWSER_ROOT="$TMP/br"
-mkdir -p "$WEKNORA_BROWSER_ROOT"
-exec 9>"$WEKNORA_BROWSER_ROOT/.command.lock"
+export WK_NODE="$TMP/node" WK_BROWSER_LIB_DIR="$TMP" GENYEE_BROWSER_ROOT="$TMP/br"
+mkdir -p "$GENYEE_BROWSER_ROOT"
+exec 9>"$GENYEE_BROWSER_ROOT/.command.lock"
 flock 9
 out="$(timeout 5 bash "$HERE/../wk-secret-fill.sh" --probe)"
 test "$out" = '{"url":null}'

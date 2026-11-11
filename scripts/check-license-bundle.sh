@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-license_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+license_root="${LICENSE_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source_dir="${1:-}"
 if [ -n "${source_dir}" ]; then
     source_dir="$(cd "${source_dir}" && pwd)"

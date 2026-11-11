@@ -77,7 +77,7 @@ test('FE-02: the final sanitizer removes dangerous HTML after markdown parsing',
 
 test('FE-02: Adversarial fake citation placeholders cannot hijack citations or leak raw HTML', () => {
   // Attacker crafts fake internal placeholder tokens
-  const fakePlaceholderPayload = 'Hello @@WEKNORA_HTML_PLACEHOLDER_0@@ world and <!--CIT_PLACEHOLDER_0-->'
+  const fakePlaceholderPayload = 'Hello @@GENYEE_HTML_PLACEHOLDER_0@@ world and <!--CIT_PLACEHOLDER_0-->'
 
   const html = renderChatMarkdown(fakePlaceholderPayload, {
     renderer: defaultRenderer,

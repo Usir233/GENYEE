@@ -118,7 +118,7 @@ func TestClient_Ping_403WrapsInvalidCredentials(t *testing.T) {
 
 func TestClient_TokenNeverLoggedInFull(t *testing.T) {
 	t.Cleanup(func() { logger.ConfigureFromEnv() })
-	t.Setenv("WEKNORA_LOG_FORMAT", "")
+	t.Setenv("GENYEE_LOG_FORMAT", "")
 	logger.ConfigureFromEnv()
 
 	// Redirect the project's internal logger to an in-memory buffer so we can

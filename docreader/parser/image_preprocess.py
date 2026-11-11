@@ -41,7 +41,7 @@ logger = logging.getLogger(__name__)
 
 # The thresholds, tuned on the 17-image benchmark (see the R22 handover
 # document). Each one can be overridden for a debugging run through the
-# environment — WEKNORA_PREPROCESS_<NAME> — because re-tuning a constant meant
+# environment — GENYEE_PREPROCESS_<NAME> — because re-tuning a constant meant
 # rebuilding the image, which is a long way round to answer "what happens if
 # this page is scored a little differently".
 #
@@ -56,7 +56,7 @@ DEFAULT_ANG_TOL = 15.0
 DEFAULT_SIZE_MIN = 0.35
 DEFAULT_QUAD_TOL = -0.02
 
-_ENV_PREFIX = "WEKNORA_PREPROCESS_"
+_ENV_PREFIX = "GENYEE_PREPROCESS_"
 
 # name -> (default, low, high). The range is what the value has to mean
 # something in, not a second tuning: PAD is a fraction of the page side,

@@ -67,11 +67,18 @@ test('real DOMPurify preserves Markdown code and KaTeX while rejecting executabl
       define: { 'import.meta.env': '{}' }, logLevel: 'silent',
     })
     await writeFile(path.join(directory, 'index.html'), '<!doctype html><pre id="result">pending</pre><script src="bundle.js"></script>')
-    const { stdout } = await promisify(execFile)(chromium, [
+    const chromeArgs = [
       '--headless=new', '--no-first-run', '--no-default-browser-check', '--disable-background-networking',
-      `--user-data-dir=${path.join(directory, 'profile')}`, '--dump-dom',
+    ]
+    if ((typeof process.getuid === 'function' && process.getuid() === 0) || Boolean(process.env.CI)) {
+      chromeArgs.push('--no-sandbox')
+    }
+    chromeArgs.push(
+      `--user-data-dir=${path.join(directory, 'profile')}`,
+      '--dump-dom',
       pathToFileURL(path.join(directory, 'index.html')).href,
-    ], { timeout: 25_000, maxBuffer: 1024 * 1024 })
+    )
+    const { stdout } = await promisify(execFile)(chromium, chromeArgs, { timeout: 25_000, maxBuffer: 1024 * 1024 })
     const encoded = stdout.match(/<pre id="result">([^<]+)<\/pre>/)?.[1]
     assert.ok(encoded && encoded !== 'pending', 'browser fixture did not complete')
     const result = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8'))

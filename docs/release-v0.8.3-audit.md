@@ -293,7 +293,7 @@
 | 2026-10-10 | [6e2e5d8bb](https://github.com/Tencent/WeKnora/commit/6e2e5d8bb07cd9c8db360c03b80ca47ea2e81fd5) | fix(frontend): follow configured upload limit in hints (#4110) | 有效变更，按主题归纳 |
 | 2026-10-10 | [097bd475f](https://github.com/Tencent/WeKnora/commit/097bd475f601d48a82ed7aaa2f9676dd82f15d97) | fix(docker): install CA certificates before the browserskill mirror swap (#4104) | 有效变更，按主题归纳 |
 | 2026-10-10 | [8125ed250](https://github.com/Tencent/WeKnora/commit/8125ed250f5ea404445e7952359a6ac686d90afc) | fix(chat): keep custom metadata on knowledge-chat references (#4087) | 有效变更，按主题归纳 |
-| 2026-10-10 | [d6269994b](https://github.com/Tencent/WeKnora/commit/d6269994b33688c2b85488c24014d95db1948d52) | refactor: 出站拨号超时默认 5s 并改为 env 可配 (WEKNORA_OUTBOUND_DIAL_TIMEOUT) (#4122) | 有效变更，按主题归纳 |
+| 2026-10-10 | [d6269994b](https://github.com/Tencent/WeKnora/commit/d6269994b33688c2b85488c24014d95db1948d52) | refactor: 出站拨号超时默认 5s 并改为 env 可配 (GENYEE_OUTBOUND_DIAL_TIMEOUT) (#4122) | 有效变更，按主题归纳 |
 | 2026-10-10 | [03e2c47ae](https://github.com/Tencent/WeKnora/commit/03e2c47aecbf60120820216baaa8abb2e98844f7) | feat(mcp): support 2026-07-28 alongside legacy clients (#4095) | 有效变更，按主题归纳 |
 | 2026-10-10 | [e372b8e42](https://github.com/Tencent/WeKnora/commit/e372b8e42ef71f8ba9e1c4ada6546d79ec056f91) | perf(embedding): batch Qwen3-VL message inputs (#4126) | 有效变更，按主题归纳 |
 | 2026-10-10 | [8cb53fdbc](https://github.com/Tencent/WeKnora/commit/8cb53fdbc58e4c15aafdba973d65742551e4c9cd) | fix(observability): distinguish retrieval diagnostic spans (#4128) | 有效变更，按主题归纳 |
@@ -330,7 +330,7 @@
 | 2026-10-11 | [5343ac47b](https://github.com/Tencent/WeKnora/commit/5343ac47b730d451ad267004530084e08a5f599b) | fix(models): stop sending temperature to Claude models that reject it (#4155) | 有效变更，按主题归纳 |
 | 2026-10-11 | [00474f734](https://github.com/Tencent/WeKnora/commit/00474f734d6c7c0911d7485465d7c7286d0047cb) | fix: align settings layouts and tolerate existing migration objects (#4164) | 有效变更，按主题归纳 |
 | 2026-10-12 | [9efe94cc6](https://github.com/Tencent/WeKnora/commit/9efe94cc6f6d623590098f1fb355dd1f2e63b8f5) | feat(models): add Claude Opus 5.5, Sonnet 5.5 and Haiku 5.5 to the catalog (#4158) | 有效变更，按主题归纳 |
-| 2026-10-12 | [d272a83cf](https://github.com/Tencent/WeKnora/commit/d272a83cfc5d4a92aa3655f6a6c806aa40a34c70) | fix(deploy): pass WEKNORA_OUTBOUND_DIAL_TIMEOUT through to the app container (#4157) | 有效变更，按主题归纳 |
+| 2026-10-12 | [d272a83cf](https://github.com/Tencent/WeKnora/commit/d272a83cfc5d4a92aa3655f6a6c806aa40a34c70) | fix(deploy): pass GENYEE_OUTBOUND_DIAL_TIMEOUT through to the app container (#4157) | 有效变更，按主题归纳 |
 | 2026-10-12 | [be581c41e](https://github.com/Tencent/WeKnora/commit/be581c41e0f17db25fd50493c345a5c43a8db138) | fix(mcp): close only the authorizing user's connection after OAuth (#4138) | 有效变更，按主题归纳 |
 | 2026-10-12 | [21ef506fc](https://github.com/Tencent/WeKnora/commit/21ef506fc995259e48680477ce8eb06556bbd957) | fix(agent): scope database queries to authorized shared knowledge bases (#4136) | 有效变更，按主题归纳 |
 | 2026-10-12 | [3c36cb19a](https://github.com/Tencent/WeKnora/commit/3c36cb19a2bb4214835cf8e5d520d4aa64ac8f23) | fix(deploy): bump paradedb image to v0.25.11-pg17 (#4120) | 有效变更，按主题归纳 |

@@ -1,7 +1,7 @@
 import type { ModelConfig } from '@/api/model'
 
-export const WEKNORA_CLOUD_BASE_URL = 'https://weknora.weixin.qq.com'
-export const WEKNORA_CLOUD_PROVIDER = 'weknoracloud'
+export const GENYEE_CLOUD_BASE_URL = 'https://weknora.weixin.qq.com'
+export const GENYEE_CLOUD_PROVIDER = 'weknoracloud'
 
 export type WkcModelKind = 'chat' | 'embedding' | 'rerank' | 'vllm'
 
@@ -22,12 +22,12 @@ export const WKC_MODEL_NAME_BY_KIND: Record<WkcModelKind, string> = {
 export const WKC_MODEL_KINDS: WkcModelKind[] = ['chat', 'embedding', 'rerank', 'vllm']
 
 export function isWeKnoraCloudModel(model: ModelConfig): boolean {
-  return model.parameters?.provider === WEKNORA_CLOUD_PROVIDER
+  return model.parameters?.provider === GENYEE_CLOUD_PROVIDER
 }
 
 export function isWeKnoraCloudEnabled(): boolean {
   if (typeof window === 'undefined') return false
-  const val = (window as any).__RUNTIME_CONFIG__?.WEKNORA_WEKNORACLOUD_ENABLED
+  const val = (window as any).__RUNTIME_CONFIG__?.GENYEE_WEKNORACLOUD_ENABLED
   return String(val || '').trim().toLowerCase() === 'true'
 }
 
@@ -53,8 +53,8 @@ export function buildWkcModelConfig(
   const name = WKC_MODEL_NAME_BY_KIND[kind]
   const type = BACKEND_TYPE_BY_KIND[kind]
   const parameters: ModelConfig['parameters'] = {
-    base_url: WEKNORA_CLOUD_BASE_URL,
-    provider: WEKNORA_CLOUD_PROVIDER,
+    base_url: GENYEE_CLOUD_BASE_URL,
+    provider: GENYEE_CLOUD_PROVIDER,
   }
 
   if (kind === 'embedding' && dimension) {

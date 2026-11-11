@@ -13,9 +13,12 @@ from urllib.parse import unquote, urlsplit
 import uuid
 import zipfile
 from typing import Dict, List, Optional
+import warnings
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, XMLParsedAsHTMLWarning
 from lxml import etree
+
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
@@ -422,7 +425,9 @@ class EPUBParser(BaseParser):
         image_aliases: Dict[str, str] | None = None,
     ) -> str:
         try:
-            soup = BeautifulSoup(html_content, "lxml")
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
+                soup = BeautifulSoup(html_content, "lxml")
             title_tag = soup.find(["h1", "h2"])
             if title_tag:
                 chapter_title = title_tag.get_text().strip()
@@ -454,7 +459,9 @@ class EPUBParser(BaseParser):
             from bs4 import Comment
             from markdownify import markdownify as md
 
-            soup = BeautifulSoup(html_content, "lxml")
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
+                soup = BeautifulSoup(html_content, "lxml")
             for element in soup(["script", "style"]):
                 element.decompose()
             for comment in soup.find_all(

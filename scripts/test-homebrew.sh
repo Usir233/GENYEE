@@ -16,8 +16,8 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
 
-TAP_NAME="weknora/test"
-FORMULA_NAME="weknora-lite-test"
+TAP_NAME="genyee/test"
+FORMULA_NAME="genyee-lite-test"
 VERSION="test"
 GOOS=$(go env GOOS)
 GOARCH=$(go env GOARCH)
@@ -47,7 +47,7 @@ echo ""
 echo "=== Step 2: Set up local tap ==="
 
 # Create tap if it doesn't exist
-TAP_DIR="$(brew --repository)/Library/Taps/weknora/homebrew-test"
+TAP_DIR="$(brew --repository)/Library/Taps/genyee/homebrew-test"
 if [ ! -d "${TAP_DIR}" ]; then
     mkdir -p "${TAP_DIR}/Formula"
     (cd "${TAP_DIR}" && git init -q && git commit --allow-empty -m "init" -q)
@@ -61,7 +61,7 @@ echo ""
 echo "=== Step 3: Generate Formula ==="
 
 cat > "${TAP_DIR}/Formula/${FORMULA_NAME}.rb" << RUBY
-class WeknoraLiteTest < Formula
+class GenyeeLiteTest < Formula
   desc "GENYEE Lite (local test)"
   homepage "https://genyee.io"
   version "${VERSION}"
@@ -79,10 +79,10 @@ class WeknoraLiteTest < Formula
       pkgshare.install "migrations"
     end
 
-    (bin/"weknora-lite-test").write <<~SH
+    (bin/"genyee-lite-test").write <<~SH
       #!/bin/bash
-      CONFIG_DIR="\\\${WEKNORA_CONFIG_DIR:-\\\${XDG_CONFIG_HOME:-\\\$HOME/.config}/weknora-test}"
-      DATA_DIR="\\\${WEKNORA_DATA_DIR:-\\\${XDG_DATA_HOME:-\\\$HOME/.local/share}/weknora-test}"
+      CONFIG_DIR="\\\${GENYEE_CONFIG_DIR:-\\\${XDG_CONFIG_HOME:-\\\$HOME/.config}/genyee-test}"
+      DATA_DIR="\\\${GENYEE_DATA_DIR:-\\\${XDG_DATA_HOME:-\\\$HOME/.local/share}/genyee-test}"
 
       mkdir -p "\\\$DATA_DIR/files" "\\\$CONFIG_DIR/config" 2>/dev/null
 
@@ -96,7 +96,7 @@ class WeknoraLiteTest < Formula
 
       if [ ! -f "\\\$CONFIG_DIR/.env.lite" ]; then
         cp "#{pkgshare}/.env.lite.example" "\\\$CONFIG_DIR/.env.lite"
-        ESCAPED_DB_PATH=\\\$(printf '%s\\n' "\\\$DATA_DIR/weknora.db" | sed -e 's/[\\\\\\\\&|]/\\\\\\\\&/g')
+        ESCAPED_DB_PATH=\\\$(printf '%s\\n' "\\\$DATA_DIR/genyee.db" | sed -e 's/[\\\\\\\\&|]/\\\\\\\\&/g')
         ESCAPED_STORAGE_DIR=\\\$(printf '%s\\n' "\\\$DATA_DIR/files" | sed -e 's/[\\\\\\\\&|]/\\\\\\\\&/g')
         sed "s|DB_PATH=.*|DB_PATH=\\\$ESCAPED_DB_PATH|" "\\\$CONFIG_DIR/.env.lite" > "\\\$CONFIG_DIR/.env.lite.tmp" && mv "\\\$CONFIG_DIR/.env.lite.tmp" "\\\$CONFIG_DIR/.env.lite"
         sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=\\\$ESCAPED_STORAGE_DIR|" "\\\$CONFIG_DIR/.env.lite" > "\\\$CONFIG_DIR/.env.lite.tmp" && mv "\\\$CONFIG_DIR/.env.lite.tmp" "\\\$CONFIG_DIR/.env.lite"
@@ -121,9 +121,9 @@ class WeknoraLiteTest < Formula
         esac
       done < "\\\$CONFIG_DIR/.env.lite"
 
-      export DB_PATH="\\\${DB_PATH:-\\\$DATA_DIR/weknora.db}"
+      export DB_PATH="\\\${DB_PATH:-\\\$DATA_DIR/genyee.db}"
       export LOCAL_STORAGE_BASE_DIR="\\\${LOCAL_STORAGE_BASE_DIR:-\\\$DATA_DIR/files}"
-      export WEKNORA_WEB_DIR="\\\${WEKNORA_WEB_DIR:-#{pkgshare}/web}"
+      export GENYEE_WEB_DIR="\\\${GENYEE_WEB_DIR:-#{pkgshare}/web}"
 
       cd "\\\$CONFIG_DIR"
       exec "#{libexec}/GENYEE-lite" "\\\$@"
@@ -131,20 +131,20 @@ class WeknoraLiteTest < Formula
   end
 
   def post_install
-    (var/"weknora-test").mkpath
+    (var/"genyee-test").mkpath
     (var/"log").mkpath
   end
 
   service do
-    run [bin/"weknora-lite-test"]
+    run [bin/"genyee-lite-test"]
     keep_alive true
-    working_dir var/"weknora-test"
-    log_path var/"log/weknora-lite-test.log"
-    error_log_path var/"log/weknora-lite-test.log"
+    working_dir var/"genyee-test"
+    log_path var/"log/genyee-lite-test.log"
+    error_log_path var/"log/genyee-lite-test.log"
   end
 
   test do
-    assert_predicate bin/"weknora-lite-test", :executable?
+    assert_predicate bin/"genyee-lite-test", :executable?
   end
 end
 RUBY
@@ -162,20 +162,20 @@ echo ""
 echo "=== Step 5: Verify ==="
 echo ""
 echo "  which:"
-which weknora-lite-test || true
+which genyee-lite-test || true
 echo ""
 echo "  Installed files:"
 brew list "${TAP_NAME}/${FORMULA_NAME}"
 echo ""
 echo "  Test paths (isolated from production):"
-echo "    Config: ~/.config/weknora-test/.env.lite"
-echo "    Data:   ~/.local/share/weknora-test/"
+echo "    Config: ~/.config/genyee-test/.env.lite"
+echo "    Data:   ~/.local/share/genyee-test/"
 
 echo ""
 echo "=== Done ==="
 echo ""
 echo "前台运行:"
-echo "  weknora-lite-test"
+echo "  genyee-lite-test"
 echo ""
 echo "后台服务:"
 echo "  brew services start ${TAP_NAME}/${FORMULA_NAME}"
@@ -183,10 +183,10 @@ echo "  brew services info ${TAP_NAME}/${FORMULA_NAME}"
 echo "  brew services stop ${TAP_NAME}/${FORMULA_NAME}"
 echo ""
 echo "日志:"
-echo "  $(brew --prefix)/var/log/weknora-lite-test.log"
+echo "  $(brew --prefix)/var/log/genyee-lite-test.log"
 echo ""
 echo "卸载测试:"
 echo "  brew services stop ${FORMULA_NAME} 2>/dev/null"
 echo "  brew uninstall ${FORMULA_NAME}"
 echo "  brew untap ${TAP_NAME}"
-echo "  rm -rf ~/.config/weknora-test ~/.local/share/weknora-test"
+echo "  rm -rf ~/.config/genyee-test ~/.local/share/genyee-test"

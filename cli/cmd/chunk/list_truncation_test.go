@@ -58,7 +58,7 @@ func TestChunkList_HasMoreReportsActualLimitTruncation(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("WEKNORA_PROFILE", "")
+			t.Setenv("GENYEE_PROFILE", "")
 			out, _ := iostreams.SetForTest(t)
 			var requests atomic.Int32
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

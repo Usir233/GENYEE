@@ -56,8 +56,6 @@ def test_legacy_launcher_diagnostics_recognize_new_environment_names():
     with patch.dict(os.environ, {
         "GENYEE_BASE_URL": "http://example.invalid/api/v1",
         "GENYEE_API_KEY": "local-placeholder",
-        "WEKNORA_BASE_URL": "",
-        "WEKNORA_API_KEY": "",
     }), contextlib.redirect_stderr(out):
         run_server.check_environment()
     assert "example.invalid" in out.getvalue()

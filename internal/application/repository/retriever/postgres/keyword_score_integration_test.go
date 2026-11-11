@@ -13,13 +13,13 @@ import (
 
 // TestKeywordScoreCatalogCompatibility checks the actual PostgreSQL catalog
 // query, including preference and signatures, rather than mocking its result.
-// Set WEKNORA_RETRIEVER_TEST_POSTGRES_DSN to a disposable PostgreSQL database
+// Set GENYEE_RETRIEVER_TEST_POSTGRES_DSN to a disposable PostgreSQL database
 // without pg_search installed. Fixtures are rolled back after each subtest;
 // existing scoring schemas are never replaced or dropped.
 func TestKeywordScoreCatalogCompatibility(t *testing.T) {
-	dsn := os.Getenv("WEKNORA_RETRIEVER_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("GENYEE_RETRIEVER_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("set WEKNORA_RETRIEVER_TEST_POSTGRES_DSN to run PostgreSQL catalog tests")
+		t.Skip("set GENYEE_RETRIEVER_TEST_POSTGRES_DSN to run PostgreSQL catalog tests")
 	}
 	db, err := gorm.Open(gormpostgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),

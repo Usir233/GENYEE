@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -11,10 +12,27 @@ import (
 var embeddedDefaultStopwords []byte
 
 const (
-	// DefaultStorageDir is the default directory where tencentvectordb SDK caches data files.
-	DefaultStorageDir = "/tmp/tencent/vectordatabase/data"
-	// DefaultStopwordsFilePath is the target path the SDK checks for stopwords.
-	DefaultStopwordsFilePath = "/tmp/tencent/vectordatabase/data/default_stopwords.txt"
+	EnvVectorDBStorageDir = "GENYEE_VECTORDB_STORAGE_DIR"
+	legacyStorageDir      = "/tmp/tencent/vectordatabase/data"
+	legacyStopwordsPath   = "/tmp/tencent/vectordatabase/data/default_stopwords.txt"
+)
+
+func StorageDir() string {
+	if dir := os.Getenv(EnvVectorDBStorageDir); dir != "" {
+		return dir
+	}
+	return filepath.Join(os.TempDir(), fmt.Sprintf("genyee-vectordb-%d", os.Getuid()))
+}
+
+func StopwordsFilePath() string {
+	return filepath.Join(StorageDir(), "default_stopwords.txt")
+}
+
+var (
+	// DefaultStorageDir is the directory where vectordb data files are cached.
+	DefaultStorageDir = StorageDir()
+	// DefaultStopwordsFilePath is the target path where stopwords are stored.
+	DefaultStopwordsFilePath = StopwordsFilePath()
 )
 
 var stopwordsMu sync.Mutex
@@ -23,33 +41,38 @@ func init() {
 	_ = EnsureDefaultStopwords()
 }
 
-// EnsureDefaultStopwords guarantees that /tmp/tencent/vectordatabase/data/default_stopwords.txt
-// exists on the local filesystem.
-//
-// In an air-gapped / offline environment (--network none), github.com/tencent/vectordatabase-sdk-go
-// tokenizer.NewJiebaTokenizer attempts to download default_stopwords.txt from Tencent Cloud COS
-// if the local file does not exist. Pre-seeding this file ensures the SDK operates completely
-// offline with zero external network calls.
 func EnsureDefaultStopwords() error {
 	stopwordsMu.Lock()
 	defer stopwordsMu.Unlock()
 
-	fi, err := os.Stat(DefaultStopwordsFilePath)
-	if err == nil && fi.Size() > 0 {
-		return nil
+	targetDir := StorageDir()
+	targetPath := StopwordsFilePath()
+
+	// 1. Ensure user-scoped / configured directory has stopwords
+	fi, err := os.Stat(targetPath)
+	if err != nil || fi.Size() == 0 {
+		if err := os.MkdirAll(targetDir, 0755); err != nil {
+			return fmt.Errorf("create vectordb storage dir %s: %w", targetDir, err)
+		}
+		tmpFile := targetPath + ".tmp"
+		if err := os.WriteFile(tmpFile, embeddedDefaultStopwords, 0644); err != nil {
+			return fmt.Errorf("write temp stopwords file: %w", err)
+		}
+		if err := os.Rename(tmpFile, targetPath); err != nil {
+			return fmt.Errorf("seed stopwords file %s: %w", targetPath, err)
+		}
 	}
 
-	if err := os.MkdirAll(DefaultStorageDir, 0755); err != nil {
-		return fmt.Errorf("create vectordb storage dir %s: %w", DefaultStorageDir, err)
-	}
-
-	tmpFile := DefaultStopwordsFilePath + ".tmp"
-	if err := os.WriteFile(tmpFile, embeddedDefaultStopwords, 0644); err != nil {
-		return fmt.Errorf("write temp stopwords file: %w", err)
-	}
-
-	if err := os.Rename(tmpFile, DefaultStopwordsFilePath); err != nil {
-		return fmt.Errorf("seed stopwords file %s: %w", DefaultStopwordsFilePath, err)
+	// 2. Best-effort seeding to legacy /tmp/tencent/vectordatabase/data path
+	// to satisfy upstream SDK NewJiebaTokenizer(nil) check without failing
+	// on multi-user systems where /tmp/tencent is owned by another user.
+	if legacyFi, err := os.Stat(legacyStopwordsPath); err != nil || legacyFi.Size() == 0 {
+		if mkErr := os.MkdirAll(legacyStorageDir, 0755); mkErr == nil {
+			tmpLegacy := legacyStopwordsPath + ".tmp"
+			if wErr := os.WriteFile(tmpLegacy, embeddedDefaultStopwords, 0644); wErr == nil {
+				_ = os.Rename(tmpLegacy, legacyStopwordsPath)
+			}
+		}
 	}
 
 	return nil

@@ -178,7 +178,7 @@ func TestMinerUMaxImageBytes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("WEKNORA_MINERU_MAX_IMAGE_BYTES", tt.value)
+			t.Setenv("GENYEE_MINERU_MAX_IMAGE_BYTES", tt.value)
 			if got := minerUMaxImageBytes(); got != tt.want {
 				t.Errorf("minerUMaxImageBytes() = %d, want %d", got, tt.want)
 			}
@@ -207,13 +207,13 @@ func TestExtractMarkdownZipUsesConfiguredImageBudget(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("WEKNORA_MINERU_MAX_IMAGE_BYTES", tt.budget)
+			t.Setenv("GENYEE_MINERU_MAX_IMAGE_BYTES", tt.budget)
 			md, refs, err := extractMarkdownZip(data, "Test")
 			if tt.wantErr {
 				if !errors.Is(err, errResultPackageTooLarge) {
 					t.Fatalf("err = %v, want errResultPackageTooLarge", err)
 				}
-				for _, detail := range []string{"8 bytes", "7 bytes", "WEKNORA_MINERU_MAX_IMAGE_BYTES"} {
+				for _, detail := range []string{"8 bytes", "7 bytes", "GENYEE_MINERU_MAX_IMAGE_BYTES"} {
 					if !strings.Contains(err.Error(), detail) {
 						t.Errorf("error = %q, want it to contain %q", err, detail)
 					}

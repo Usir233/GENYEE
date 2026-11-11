@@ -723,7 +723,7 @@ export async function loadLocaleBundlesFromDisk(
 export async function loadFullLocaleBundlesFromGit(
   ref = 'HEAD',
 ): Promise<Record<LocaleName, LocaleTree>> {
-  const tempDir = mkdtempSync(join(tmpdir(), 'weknora-locales-'))
+  const tempDir = mkdtempSync(join(tmpdir(), 'genyee-locales-'))
   try {
     const bundles = {} as Record<LocaleName, LocaleTree>
     for (const localeName of LOCALE_ORDER) {

@@ -41,3 +41,9 @@ dependencies = [
     "soupsieve>=2.9.0",
     "urllib3>=2.8.0",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["..", "."]
+filterwarnings = [
+    "ignore::bs4.XMLParsedAsHTMLWarning",
+]

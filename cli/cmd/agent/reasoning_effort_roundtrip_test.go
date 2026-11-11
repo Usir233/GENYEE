@@ -37,7 +37,7 @@ func TestAgentUpdate_NamePreservesReasoningEffort(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("WEKNORA_PROFILE", "")
+			t.Setenv("GENYEE_PROFILE", "")
 			out, _ := iostreams.SetForTest(t)
 			config := map[string]any{
 				"thinking": tc.thinking, "agent_mode": "smart-reasoning",

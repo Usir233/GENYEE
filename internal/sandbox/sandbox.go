@@ -85,7 +85,7 @@ const (
 	// EnvSandboxDockerImage allows deployments (including private registries
 	// and air-gapped environments) to override the default Docker sandbox image
 	// via environment variable.
-	EnvSandboxDockerImage = "WEKNORA_SANDBOX_DOCKER_IMAGE"
+	EnvSandboxDockerImage = "GENYEE_SANDBOX_DOCKER_IMAGE"
 
 	// DesktopWebsockifyPort is websockify inside the sandbox. WeKnora dials
 	// it through the provider gateway (Host "{port}-{id}.{domain}"), not by
@@ -457,7 +457,7 @@ type Config struct {
 }
 
 // EffectiveDefaultDockerImage returns the default Docker sandbox image,
-// honoring the WEKNORA_SANDBOX_DOCKER_IMAGE environment variable when set.
+// honoring the GENYEE_SANDBOX_DOCKER_IMAGE environment variable when set.
 func EffectiveDefaultDockerImage() string {
 	if override := strings.TrimSpace(os.Getenv(EnvSandboxDockerImage)); override != "" {
 		return override

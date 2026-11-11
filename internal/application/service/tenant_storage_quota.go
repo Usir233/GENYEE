@@ -23,14 +23,14 @@ func ResolveDefaultTenantStorageQuota(ctx context.Context, settings interfaces.S
 	if settings == nil {
 		return defaultTenantStorageQuota
 	}
-	mb := settings.GetInt(ctx, "tenant.default_storage_quota_mb", "WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_MB", 0)
+	mb := settings.GetInt(ctx, "tenant.default_storage_quota_mb", "GENYEE_TENANT_DEFAULT_STORAGE_QUOTA_MB", 0)
 	if mb > 0 && mb <= math.MaxInt64/quotaMiB {
 		return mb * quotaMiB
 	}
 	if mb > math.MaxInt64/quotaMiB {
 		logger.Warn(ctx, "Default tenant storage quota in MB exceeds int64 bytes; falling back to GB")
 	}
-	gb := settings.GetInt(ctx, "tenant.default_storage_quota_gb", "WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_GB", 10)
+	gb := settings.GetInt(ctx, "tenant.default_storage_quota_gb", "GENYEE_TENANT_DEFAULT_STORAGE_QUOTA_GB", 10)
 	if gb <= 0 || gb > math.MaxInt64/quotaGiB {
 		return defaultTenantStorageQuota
 	}

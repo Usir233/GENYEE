@@ -39,8 +39,9 @@ pip install uv          # docreader 使用 uv sync 安装依赖
 # 1. 准备环境变量：dev.sh 会加载 .env（必须存在），再用 .env.local 覆盖（可选）
 cp .env.example .env
 
-# 2. 启动基础设施（ParadeDB/Postgres + Redis + docreader，默认还带 Langfuse）
+# 2. 启动基础设施（ParadeDB/Postgres + Redis + docreader，Langfuse 默认关闭）
 make dev-start                      # 等价 ./scripts/dev.sh start
+make dev-start DEV_ARGS=--langfuse  # 如需 LLM 链路观测，显式附加 langfuse profile
 make dev-start DEV_ARGS=--qdrant    # 附加可选 profile
 
 # 3. 另开终端：本地跑后端（内部执行 go run -ldflags=... ./cmd/server）
@@ -225,7 +226,7 @@ make lint            # go vet
 跨切面的契约/集成测试集中在 `cli/acceptance/`（见 `cli/acceptance/doc.go`）：
 
 - `cli/acceptance/contract/` — envelope JSON 输出形状 golden 测试 + error.code 注册表一致性；
-- `cli/acceptance/e2e/` — 对真实 GENYEE server 的黑盒测试（testscript 风格），需要环境变量指向测试服务器；CI 侧由 `.github/workflows/cli-e2e.yml` 承载，**按需触发**（`workflow_dispatch` 手动，或给 PR 打 `acceptance-e2e` 标签），使用 secrets `WEKNORA_E2E_HOST` / `WEKNORA_E2E_TOKEN`。
+- `cli/acceptance/e2e/` — 对真实 GENYEE server 的黑盒测试（testscript 风格），需要环境变量指向测试服务器；CI 侧由 `.github/workflows/cli-e2e.yml` 承载，**按需触发**（`workflow_dispatch` 手动，或给 PR 打 `acceptance-e2e` 标签），使用 secrets `GENYEE_E2E_HOST` / `GENYEE_E2E_TOKEN`。
 
 ### tests/ 目录与前端测试 {#_4-4-tests-目录与前端测试}
 
@@ -283,7 +284,7 @@ make fmt && make lint && make test
 | `workflows/docker-image.yml` | — | Docker 镜像构建发布 |
 | `workflows/release-lite.yml` | — | Lite 版本发布 |
 | `workflows/anydoc.yml` | `third_party/anydoc-go/`、`internal/infrastructure/docparser/` | 进程内 Office 解析引擎构建与测试 |
-| `workflows/dsh-plugin.yml` | `packages/dsh-weknora/` | DeepSeek Harness 插件测试与发布 |
+| `workflows/dsh-plugin.yml` | `packages/dsh-genyee/` | DeepSeek Harness 插件测试与发布 |
 | `pull_request_template.md` | — | PR 模板 |
 | `ISSUE_TEMPLATE/` | — | Issue 模板 |
 | `dependabot.yml` | — | 依赖升级机器人 |
@@ -342,7 +343,7 @@ curl -i http://localhost:8080/swagger/doc.json
 
 ### LLM 链路观测（Langfuse） {#_6-4-llm-链路观测-langfuse}
 
-`dev.sh start` 默认拉起自建 Langfuse（`http://localhost:3000`）。本地 `go run` 的 app 需要导出：
+在私有化部署与开发环境中，Langfuse 默认关闭。如需启动自建 Langfuse（`http://localhost:3000`），请使用 `./scripts/dev.sh start --langfuse`（或 `make dev-start DEV_ARGS=--langfuse`）。本地 `go run` 的 app 需要导出：
 
 ```bash
 export LANGFUSE_HOST=http://localhost:3000
@@ -364,7 +365,7 @@ chunker 提供 `SplitWithDiagnostics()`（`internal/infrastructure/chunker/strat
 
 `scripts/cloud-image/` 用于在专用、可丢弃的 Linux 制作机上准备分发镜像。常规部署使用[安装部署](../01-getting-started/02-installation.md)，不需要运行这些脚本。
 
-- `prepare.sh` 下载 `WEKNORA_REF` 对应的运行文件、拉取镜像并安装 systemd 服务。该引用还用于设置镜像版本，必须确认对应镜像标签存在。随仓库提供的 systemd 单元固定使用 `/opt/GENYEE`，只修改脚本的目录变量不足以迁移安装位置。
+- `prepare.sh` 下载 `GENYEE_REF` 对应的运行文件、拉取镜像并安装 systemd 服务。该引用还用于设置镜像版本，必须确认对应镜像标签存在。随仓库提供的 systemd 单元固定使用 `/opt/GENYEE`，只修改脚本的目录变量不足以迁移安装位置。
 - `cleanup.sh` 清除制镜像机的数据、密钥、SSH 授权、日志与 Docker 缓存并关机；其影响不限于 GENYEE 目录，只能用于检查过的专用制作机。
 - `firstboot.sh` 在新实例上生成密钥、写入 `.env` 并启动 Compose；完成后禁用首启服务，不会自删除脚本。
 

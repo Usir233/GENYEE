@@ -37,11 +37,11 @@ const (
 // The HTTP client, the fetch context, and chromedp all use this value.
 // Chromedp's deadline is a child of the fetch context, so the budgets do not add.
 //
-// WEKNORA_WEB_FETCH_TIMEOUT accepts a Go duration (150s, 3m) or a bare positive
-// number of seconds (180), the same pattern as WEKNORA_AGENT_LLM_TIMEOUT.
+// GENYEE_WEB_FETCH_TIMEOUT accepts a Go duration (150s, 3m) or a bare positive
+// number of seconds (180), the same pattern as GENYEE_AGENT_LLM_TIMEOUT.
 // Empty, invalid, and non-positive values use defaultPageFetchTimeout.
 func PageFetchTimeout() time.Duration {
-	value := strings.TrimSpace(os.Getenv("WEKNORA_WEB_FETCH_TIMEOUT"))
+	value := strings.TrimSpace(os.Getenv("GENYEE_WEB_FETCH_TIMEOUT"))
 	if value == "" {
 		return defaultPageFetchTimeout
 	}

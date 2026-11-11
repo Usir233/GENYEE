@@ -113,8 +113,8 @@ docker compose down     # 서비스 중지
 기존 배포가 있고 새 release를 다운로드한 경우:
 
 ```bash
-# .env에서 WEKNORA_VERSION을 대상 버전(예: 0.9.0)으로 설정하거나 latest 유지
-docker compose pull     # WEKNORA_VERSION에 맞는 이미지 가져오기
+# .env에서 GENYEE_VERSION을 대상 버전(예: 0.9.0)으로 설정하거나 latest 유지
+docker compose pull     # GENYEE_VERSION에 맞는 이미지 가져오기
 docker compose up -d    # 새 이미지로 컨테이너 재생성
 ```
 
@@ -181,7 +181,7 @@ docker compose up -d    # 새 이미지로 컨테이너 재생성
 - **테넌트 스킬 카탈로그**: ClawHub / SkillHub / git / zip에서 설치, 샌드박스별 스냅샷, 실시간 진행 상황, 파일 탐색 / 편집, 개인·워크스페이스 환경 변수.
 - **크로스 세션 장기 메모리**: profile / preference / fact / task / interest, 확인 기반 자동 추출, `search_memory`.
 - **파싱과 데이터 소스**: 프로세스 내 anydoc Office 파서, GitLab 및 Tencent IMA 데이터 소스, XMind 파싱.
-- **생태계**: DeepSeek Harness 플러그인(`./packages/dsh-weknora`), LiteLLM, Exa 및 Metaso 웹 검색.
+- **생태계**: DeepSeek Harness 플러그인(`./packages/dsh-genyee`), LiteLLM, Exa 및 Metaso 웹 검색.
 - **채팅**: 채팅 산출물, 질문 개요, 타임스탬프, 컨텍스트 압축과 프로바이더 Prompt Cache 마커.
 - **보안**: OIDC JWKS 검증, 선택적 복잡 비밀번호, 문서 자동 태깅, 광범위한 샌드박스 / 보안 강화.
 

@@ -11,7 +11,7 @@
 //     arbitrary session ID.
 //   - Paths are inside the current session's sandbox. Relative paths resolve
 //     from the workspace root. Omitting `path` lists the layout default
-//     (remote: `$WEKNORA_SKILL_OUTPUT_DIR` / `/workspace/output`; host: the
+//     (remote: `$GENYEE_SKILL_OUTPUT_DIR` / `/workspace/output`; host: the
 //     workspace root).
 //   - Read-only: this tool never creates, modifies or deletes anything
 //     inside the sandbox. Model-authored files go through write_sandbox_file.

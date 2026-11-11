@@ -10,16 +10,16 @@ pip install -r requirements.txt
 ### 2. 设置环境变量
 ```bash
 # Linux/macOS
-export WEKNORA_BASE_URL="http://localhost:8080/api/v1"
-export WEKNORA_API_KEY="your_api_key_here"
+export GENYEE_BASE_URL="http://localhost:8080/api/v1"
+export GENYEE_API_KEY="your_api_key_here"
 
 # Windows PowerShell
-$env:WEKNORA_BASE_URL="http://localhost:8080/api/v1"
-$env:WEKNORA_API_KEY="your_api_key_here"
+$env:GENYEE_BASE_URL="http://localhost:8080/api/v1"
+$env:GENYEE_API_KEY="your_api_key_here"
 
 # Windows CMD
-set WEKNORA_BASE_URL=http://localhost:8080/api/v1
-set WEKNORA_API_KEY=your_api_key_here
+set GENYEE_BASE_URL=http://localhost:8080/api/v1
+set GENYEE_API_KEY=your_api_key_here
 ```
 
 ### 3. 运行服务器
@@ -108,13 +108,13 @@ python main.py --check-only
 
 ### 2. 连接错误
 如果无法连接到 GENYEE API：
-- 检查 `WEKNORA_BASE_URL` 是否正确
+- 检查 `GENYEE_BASE_URL` 是否正确
 - 确认 GENYEE 服务正在运行
 - 验证网络连接
 
 ### 3. 认证错误
 如果遇到认证问题：
-- 检查 `WEKNORA_API_KEY` 是否设置
+- 检查 `GENYEE_API_KEY` 是否设置
 - 确认 API 密钥有效
 - 验证权限设置
 
@@ -167,7 +167,7 @@ RUN pip install -r requirements.txt
 COPY . .
 RUN pip install -e .
 
-ENV WEKNORA_BASE_URL=http://localhost:8080/api/v1
+ENV GENYEE_BASE_URL=http://localhost:8080/api/v1
 EXPOSE 8000
 
 CMD ["genyee-mcp-server"]
@@ -184,8 +184,8 @@ After=network.target
 Type=simple
 User=weknora
 WorkingDirectory=/opt/weknora-mcp
-Environment=WEKNORA_BASE_URL=http://localhost:8080/api/v1
-Environment=WEKNORA_API_KEY=your_api_key
+Environment=GENYEE_BASE_URL=http://localhost:8080/api/v1
+Environment=GENYEE_API_KEY=your_api_key
 ExecStart=/usr/local/bin/genyee-mcp-server
 Restart=always
 

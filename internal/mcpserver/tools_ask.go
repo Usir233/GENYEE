@@ -29,7 +29,7 @@ const (
 // remains four minutes for compatibility; operators can raise it for long
 // agentic MCP calls without changing unrelated chat endpoints.
 func askTimeoutFromEnv() time.Duration {
-	value := strings.TrimSpace(os.Getenv("WEKNORA_MCP_ASK_TIMEOUT"))
+	value := strings.TrimSpace(os.Getenv("GENYEE_MCP_ASK_TIMEOUT"))
 	if value == "" {
 		return defaultAskTimeout
 	}

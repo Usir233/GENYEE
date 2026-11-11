@@ -41,7 +41,7 @@ func TestNewRouterFrontendStaticEditionOptIn(t *testing.T) {
 			if tc.webDir != "" {
 				webDir = filepath.Join(root, tc.webDir)
 			}
-			t.Setenv("WEKNORA_WEB_DIR", webDir)
+			t.Setenv("GENYEE_WEB_DIR", webDir)
 			t.Setenv("LOCAL_STORAGE_BASE_DIR", filepath.Join(root, "files"))
 			previousEdition := handler.Edition
 			handler.Edition = tc.edition
@@ -104,7 +104,7 @@ func TestFrontendStaticDoesNotInterceptMatchedBackendRoute(t *testing.T) {
 	require.NoError(t, os.Mkdir(filepath.Join(webDir, "backend"), 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(webDir, "index.html"), []byte("spa"), 0o600))
 	require.NoError(t, os.WriteFile(filepath.Join(webDir, "backend", "collision"), []byte("static file"), 0o600))
-	t.Setenv("WEKNORA_WEB_DIR", webDir)
+	t.Setenv("GENYEE_WEB_DIR", webDir)
 
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
 		t.Run(method, func(t *testing.T) {
@@ -135,7 +135,7 @@ func TestFrontendStaticDoesNotInterceptResourceGrant(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	webDir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(webDir, "index.html"), []byte("spa"), 0o600))
-	t.Setenv("WEKNORA_WEB_DIR", webDir)
+	t.Setenv("GENYEE_WEB_DIR", webDir)
 
 	r := gin.New()
 	serveFrontendStatic(r)

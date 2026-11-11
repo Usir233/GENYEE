@@ -400,11 +400,11 @@ func main() {
 			// 注入真实 API 根路径（与 window.location.origin 不同）；无 Go 绑定时仍可显示。
 			if u := strings.TrimSpace(app.backendURL); u != "" {
 				apiRoot := strings.TrimRight(u, "/") + "/api/v1"
-				inject := fmt.Sprintf(`try{window.__WEKNORA_API_BASE__=%s}catch(e){}`, strconv.Quote(apiRoot))
+				inject := fmt.Sprintf(`try{window.__GENYEE_API_BASE__=%s}catch(e){}`, strconv.Quote(apiRoot))
 				wailsruntime.WindowExecJS(ctx, inject)
 			}
 			if lan := strings.TrimSpace(app.apiLanBaseURL); lan != "" {
-				injectLan := fmt.Sprintf(`try{window.__WEKNORA_API_LAN_BASE__=%s}catch(e){}`, strconv.Quote(lan))
+				injectLan := fmt.Sprintf(`try{window.__GENYEE_API_LAN_BASE__=%s}catch(e){}`, strconv.Quote(lan))
 				wailsruntime.WindowExecJS(ctx, injectLan)
 			}
 		},

@@ -345,7 +345,7 @@ const isSectionSupported = (key: string): boolean => {
   }
   if (key === 'weknoracloud') {
     const val = typeof window !== 'undefined'
-      ? (window as any).__RUNTIME_CONFIG__?.WEKNORA_WEKNORACLOUD_ENABLED
+      ? (window as any).__RUNTIME_CONFIG__?.GENYEE_WEKNORACLOUD_ENABLED
       : undefined
     if (String(val || '').trim().toLowerCase() !== 'true') {
       return false

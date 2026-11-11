@@ -28,12 +28,12 @@ const DesktopEnsureUnsupportedExit = 2
 // DesktopEnsureUnsupportedMarker is written to stderr immediately before
 // that exit 2. Go must see both or the failure is a broken wrapper, not
 // a BYO image without a desktop.
-const DesktopEnsureUnsupportedMarker = "WEKNORA_DESKTOP_UNSUPPORTED"
+const DesktopEnsureUnsupportedMarker = "GENYEE_DESKTOP_UNSUPPORTED"
 
 // DesktopNoFreeScreenMarker is wk-display claim when every seat is busy.
 // ensure.sh forwards it on stderr. The caller must not reset the shared
 // websockify in response: that listener carries every other session's desktop.
-const DesktopNoFreeScreenMarker = "WEKNORA_NO_FREE_SCREEN"
+const DesktopNoFreeScreenMarker = "GENYEE_NO_FREE_SCREEN"
 
 var desktopReadyLine = regexp.MustCompile(`^READY ([A-Za-z0-9]{32})(?: ([0-9]{1,2}))?$`)
 

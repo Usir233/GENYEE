@@ -20,9 +20,9 @@ import (
 
 // TestMemoryAdminPostgres 在独立 schema 验证真实行锁、分页 SQL 与并发状态变更。
 func TestMemoryAdminPostgres(t *testing.T) {
-	dsn := os.Getenv("WEKNORA_MEMORY_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("GENYEE_MEMORY_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("set WEKNORA_MEMORY_TEST_POSTGRES_DSN to run PostgreSQL integration tests")
+		t.Skip("set GENYEE_MEMORY_TEST_POSTGRES_DSN to run PostgreSQL integration tests")
 	}
 	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Discard})
 	require.NoError(t, err)

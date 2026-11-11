@@ -403,13 +403,13 @@ gRPC 响应中不再返回 chunks（`ReadResponse` 没有 chunk 字段）；`Exc
 
 | 环境变量 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
-| `WEKNORA_DOCUMENT_PROCESS_TIMEOUT` | Go duration | `2h` | 单个文档处理任务的总超时 |
-| `WEKNORA_DOCREADER_CALL_TIMEOUT` | Go duration | `30m` | 单次 docreader 调用超时，须小于文档处理超时 |
-| `WEKNORA_PADDLEOCR_VL_TIMEOUT` | Go duration | `1000s` | 自建 PaddleOCR-VL 引擎的 HTTP 请求超时；空值、无效值或非正数使用默认值 |
-| `WEKNORA_MINERU_TIMEOUT` | Go duration | `1000s` | 自建 MinerU 引擎的单次解析超时（V1 API 覆盖上传到下载的整个任务，旧版覆盖 `/file_parse` 请求）；空值、无效值或非正数使用默认值 |
-| `WEKNORA_MINERU_CLOUD_TIMEOUT` | Go duration | `30m` | MinerU 云端（mineru.net）每个批次/分片轮询解析结果的最长时间；空值、无效值或非正数使用默认值 |
-| `WEKNORA_PADDLEOCR_VL_CLOUD_TIMEOUT` | Go duration | `600s` | PaddleOCR-VL 云端（AI Studio）轮询解析结果的最长时间；空值、无效值或非正数使用默认值 |
-| `WEKNORA_WEKNORACLOUD_TIMEOUT` | Go duration | `20m` | WeKnoraCloud 托管 docreader 轮询任务结果的最长时间，应小于 `WEKNORA_DOCREADER_CALL_TIMEOUT`；空值、无效值或非正数使用默认值 |
+| `GENYEE_DOCUMENT_PROCESS_TIMEOUT` | Go duration | `2h` | 单个文档处理任务的总超时 |
+| `GENYEE_DOCREADER_CALL_TIMEOUT` | Go duration | `30m` | 单次 docreader 调用超时，须小于文档处理超时 |
+| `GENYEE_PADDLEOCR_VL_TIMEOUT` | Go duration | `1000s` | 自建 PaddleOCR-VL 引擎的 HTTP 请求超时；空值、无效值或非正数使用默认值 |
+| `GENYEE_MINERU_TIMEOUT` | Go duration | `1000s` | 自建 MinerU 引擎的单次解析超时（V1 API 覆盖上传到下载的整个任务，旧版覆盖 `/file_parse` 请求）；空值、无效值或非正数使用默认值 |
+| `GENYEE_MINERU_CLOUD_TIMEOUT` | Go duration | `30m` | MinerU 云端（mineru.net）每个批次/分片轮询解析结果的最长时间；空值、无效值或非正数使用默认值 |
+| `GENYEE_PADDLEOCR_VL_CLOUD_TIMEOUT` | Go duration | `600s` | PaddleOCR-VL 云端（AI Studio）轮询解析结果的最长时间；空值、无效值或非正数使用默认值 |
+| `GENYEE_WEKNORACLOUD_TIMEOUT` | Go duration | `20m` | WeKnoraCloud 托管 docreader 轮询任务结果的最长时间，应小于 `GENYEE_DOCREADER_CALL_TIMEOUT`；空值、无效值或非正数使用默认值 |
 
 处理大文件时从内到外逐级留出余量，例如 PaddleOCR-VL 或 MinerU `90m`、docreader `100m`、文档处理 `2h`。
 
@@ -449,7 +449,7 @@ Python 依赖（`pyproject.toml` + `uv.lock` 锁定）：`grpcio`、`pypdfium2`�
 - **单实例纵向调优**：CPU 富余时调大 `DOCREADER_PDF_RENDER_PARALLELISM`（单文档渲染提速近线性）与 `DOCREADER_GRPC_MAX_WORKERS`（非 PDF 格式可真并发）；内存受限时优先保证 Go 侧走 `ReadStream`（默认行为）。
 - **大文件**：`MAX_FILE_SIZE_MB` 需 Go 客户端与 docreader **两端同步调整**；扫描件页图大小受 `DOCREADER_PDF_RENDER_MAX_EDGE`/`_DPI`/`_JPEG_QUALITY` 三个旋钮控制。
 - **JVM/浏览器类负载隔离**：OpenDataLoader 每次解析拉起 JVM、WebParser 每次拉起 WebKit，均为重进程；`DOCREADER_ODL_MAX_WORKERS`、`DOCREADER_MARKITDOWN_MAX_WORKERS` 默认 1 是保守值，资源充足可放宽或设 ≤0 关闭限流。ODL hybrid 服务（`Dockerfile.odl-hybrid`）应独立部署并配置 `DOCREADER_ODL_HYBRID_URL`。
-- **超时保护**：Go 侧的 `WEKNORA_DOCREADER_CALL_TIMEOUT`（配置文件 `docreader_call_timeout`，默认 30 分钟）限制单次 docreader 调用，防止挂死的 docreader 长时间占用入库 worker；大文件解析需要更久时，同步调大文档处理超时（见 [Go 侧解析超时](#go-侧解析超时)）。
+- **超时保护**：Go 侧的 `GENYEE_DOCREADER_CALL_TIMEOUT`（配置文件 `docreader_call_timeout`，默认 30 分钟）限制单次 docreader 调用，防止挂死的 docreader 长时间占用入库 worker；大文件解析需要更久时，同步调大文档处理超时（见 [Go 侧解析超时](#go-侧解析超时)）。
 - **安全基线**：生产环境开启 `GRPC_AUTH_TOKEN`（≥16 字节）+ `GRPC_TLS_ENABLED`；不设置时服务会以明文 + 无鉴权模式启动并打印 WARNING。
 
 ---
@@ -519,13 +519,13 @@ V1 流程的几个细节：
 
 - 上传时附带 `sha256sum`，服务端已有相同文件时直接复用，不再传字节。
 - 只有 `upload_url` 与 `mineru_endpoint` 同源（scheme、host、端口都相同）时才附带 API Key；跨源地址（如官方 API 下发的预签名对象存储 URL）不带 Key，并照常经过 SSRF 校验。
-- 轮询从 2 秒开始指数退避，最长 30 秒一次；总时长与旧版一样默认 1000 秒，可用 `WEKNORA_MINERU_TIMEOUT` 调整。超时或调用方取消时，会发 `DELETE /v1/parse/jobs/{id}` 取消服务端任务。
+- 轮询从 2 秒开始指数退避，最长 30 秒一次；总时长与旧版一样默认 1000 秒，可用 `GENYEE_MINERU_TIMEOUT` 调整。超时或调用方取消时，会发 `DELETE /v1/parse/jobs/{id}` 取消服务端任务。
 - MinerU V1 服务的上传、任务状态都存在进程内存里，服务重启后正在轮询的任务会返回 404，本次解析直接失败。
 - 「测试连接」在 V1 服务上额外请求一次需要鉴权的 `GET /v1/parse/jobs?limit=1`，用来发现 API Key 缺失或错误（`/v1/health` 本身不校验 Key）。
 
 `mineru_cloud`（mineru.net）目前仍走 `/api/v4/file-urls/batch` 批量接口，不受 4.0 自建服务变化影响。
 
-MinerU Cloud 与自建 V1 共用结果 ZIP 的解压图片预算，默认每个结果包最多保留 **512 MiB** 的引用图片。大型扫描 PDF 可在 Go App 的环境变量中设置 `WEKNORA_MINERU_MAX_IMAGE_BYTES=2147483648`，将预算提高为 **2 GiB**。取值为十进制正整数字节数；空值、无效值、超过 int64 范围或非正数使用默认值，非法值会记录警告。修改 `.env` 后重新创建 app 容器。该配置不适用于旧版 `/file_parse` 的内联图片响应。
+MinerU Cloud 与自建 V1 共用结果 ZIP 的解压图片预算，默认每个结果包最多保留 **512 MiB** 的引用图片。大型扫描 PDF 可在 Go App 的环境变量中设置 `GENYEE_MINERU_MAX_IMAGE_BYTES=2147483648`，将预算提高为 **2 GiB**。取值为十进制正整数字节数；空值、无效值、超过 int64 范围或非正数使用默认值，非法值会记录警告。修改 `.env` 后重新创建 app 容器。该配置不适用于旧版 `/file_parse` 的内联图片响应。
 
 图片会全部驻留内存，调大预算时应按同时解析的任务数预留内存。下载结果包的 **1 GiB** 上限和解压单条目的 **64 MiB** 上限仍生效。引用图片累计超限时整个结果包解析失败，错误信息包含当前累计字节数、配置上限和环境变量名称。
 
@@ -556,9 +556,9 @@ Docker app 镜像包含 qpdf。独立部署和桌面应用必须在运行后端�
 超时分为不同层级：
 
 - 每个上传 PUT 和结果 ZIP 下载的 HTTP 超时由 120 秒提高为 10 分钟；ZIP 下载现在使用调用者 context，可被上层取消。
-- `WEKNORA_MINERU_CLOUD_TIMEOUT` 的默认值由 600 秒提高为 30 分钟，每个批次/分片重新开始轮询期限。申请上传 URL 和单次状态查询的 HTTP 超时仍为 30 秒。
-- 这些局部期限不会延长整个文档的 context。`WEKNORA_DOCREADER_CALL_TIMEOUT` 默认 30 分钟，覆盖完整解析调用（包括全部分片、上传、轮询、下载）；`WEKNORA_DOCUMENT_PROCESS_TIMEOUT` 默认 2 小时，覆盖整个文档处理任务。实际运行始终受最早的上层期限限制。轮询截止检查发生在请求之间，因此单个进行中的请求可能跨过轮询期限，但仍受 HTTP 超时与调用者 context 限制。
-- 大书可按实际耗时配置 `WEKNORA_DOCREADER_CALL_TIMEOUT=4h`、`WEKNORA_DOCUMENT_PROCESS_TIMEOUT=6h`，保留每片 Cloud 轮询 30 分钟。不要把每片的 30 分钟误认为整个文档获得相同或累计的执行时间；修改 .env 后重新创建 app 容器。
+- `GENYEE_MINERU_CLOUD_TIMEOUT` 的默认值由 600 秒提高为 30 分钟，每个批次/分片重新开始轮询期限。申请上传 URL 和单次状态查询的 HTTP 超时仍为 30 秒。
+- 这些局部期限不会延长整个文档的 context。`GENYEE_DOCREADER_CALL_TIMEOUT` 默认 30 分钟，覆盖完整解析调用（包括全部分片、上传、轮询、下载）；`GENYEE_DOCUMENT_PROCESS_TIMEOUT` 默认 2 小时，覆盖整个文档处理任务。实际运行始终受最早的上层期限限制。轮询截止检查发生在请求之间，因此单个进行中的请求可能跨过轮询期限，但仍受 HTTP 超时与调用者 context 限制。
+- 大书可按实际耗时配置 `GENYEE_DOCREADER_CALL_TIMEOUT=4h`、`GENYEE_DOCUMENT_PROCESS_TIMEOUT=6h`，保留每片 Cloud 轮询 30 分钟。不要把每片的 30 分钟误认为整个文档获得相同或累计的执行时间；修改 .env 后重新创建 app 容器。
 
 此功能不持久化云端 job ID 或完成结果。重试会重新提交分片，跨重启断点续传不属于此变更。
 

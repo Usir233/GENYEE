@@ -33,7 +33,7 @@
 ::: tip 空间与平台权限
 空间 Owner 管理所在空间的成员、模型和知识库。全局系统设置、平台任务队列及跨空间审计需要系统管理员身份，两类权限独立授予。
 
-首次设置系统管理员时，先注册账号，再为 app 服务配置 `WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL=<该账号邮箱>` 并重启。该流程仅在部署尚无系统管理员时生效。完整步骤与限制见[平台管理与系统管理员](../03-features/20-platform-admin.md)。
+首次设置系统管理员时，先注册账号，再为 app 服务配置 `GENYEE_BOOTSTRAP_SYSTEM_ADMIN_EMAIL=<该账号邮箱>` 并重启。该流程仅在部署尚无系统管理员时生效。完整步骤与限制见[平台管理与系统管理员](../03-features/20-platform-admin.md)。
 :::
 
 ## 创建知识库并配置模型 {#_3-创建知识库并配置模型}
@@ -213,7 +213,7 @@ sequenceDiagram
 
 | 现象 | 检查点 |
 | --- | --- |
-| 上传后一直 `processing` | `docker logs GENYEE-docreader`；大文件受 `MAX_FILE_SIZE_MB`（默认 50）与 `WEKNORA_DOCUMENT_PROCESS_TIMEOUT`（默认 2h）约束 |
+| 上传后一直 `processing` | `docker logs GENYEE-docreader`；大文件受 `MAX_FILE_SIZE_MB`（默认 50）与 `GENYEE_DOCUMENT_PROCESS_TIMEOUT`（默认 2h）约束 |
 | 初始化时 Ollama 检测失败 | 容器内默认地址 `http://host.docker.internal:11434`（`OLLAMA_BASE_URL`）；Linux 需确认 `extra_hosts: host.docker.internal:host-gateway` 生效 |
 | 问答无引用 / 召回为空 | 确认知识解析 `completed`；调低 `vector_threshold`；检查 embedding 模型与建库时一致 |
 | 注册页签消失 | 查 `GET /auth/config` 的 `registration_mode`。值可能来自「设置 → 系统」里的数据库设置，不只是 `DISABLE_REGISTRATION`；邀请链接与 OIDC 首次登录是另外两条通路，不受它影响 |

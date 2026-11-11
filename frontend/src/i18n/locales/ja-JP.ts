@@ -2082,7 +2082,7 @@ export default {
       allocationModeHint: 'Only affects sessions that have not used a sandbox yet; existing sessions keep their placement and files are never moved.',
       allocationModeSession: 'One sandbox per session (default)',
       allocationModeUser: "Share one sandbox across a user's sessions",
-      allocationModeUnavailable: 'Shared sandboxes are not enabled on this deployment (set WEKNORA_SANDBOX_USER_ALLOCATION=enabled on every replica; Redis is required).',
+      allocationModeUnavailable: 'Shared sandboxes are not enabled on this deployment (set GENYEE_SANDBOX_USER_ALLOCATION=enabled on every replica; Redis is required).',
       userSandboxRetentionDays: 'Keep an empty shared sandbox for (days)',
       userSandboxRetentionHint: 'After every session on a shared sandbox is deleted, it is removed once it has been empty this long (1–90 days). This is not a minimum file retention: Docker idle cleanup or provider failures may remove it sooner.',
       userSandboxesInInventory: "{count} of them are shared user sandboxes; each affects all of that user's sessions on this config.",
@@ -2816,7 +2816,7 @@ export default {
       loadFailed: '環境変数を読み込めませんでした。',
       sandboxTitle: 'このコンピューターで常に渡す値',
       sandboxHint: 'このコンピューターで実行するコマンドにだけ付きます。必要になったときだけ追加してください。対話中にその場で渡すこともできます。',
-      nameInvalid: 'この名前は使えません。予約名（PATH や WEKNORA_ で始まる名前）は受け付けません。',
+      nameInvalid: 'この名前は使えません。予約名（PATH や GENYEE_ で始まる名前）は受け付けません。',
       deleteConfirm: '{name} を削除しますか？これ以降、このコンピューターでの実行には含まれません。',
     },
     description: 'スキルとサンドボックスで使う個人用のキーです。GENYEEのシステム設定やデプロイ設定ではありません。',
@@ -2850,7 +2850,7 @@ export default {
     addRow: '追加',
     namePlaceholder: 'VARIABLE_NAME',
     nameRule: '英大文字、数字、アンダースコアが使用できます。先頭は英字またはアンダースコアにしてください。',
-    nameInvalid: 'この名前は使用できません。PATHやWEKNORA_で始まる名前など、サンドボックスが予約している名前は指定できません。',
+    nameInvalid: 'この名前は使用できません。PATHやGENYEE_で始まる名前など、サンドボックスが予約している名前は指定できません。',
     nameDuplicate: 'この名前の変数はすでにここに登録されています。',
     valuePlaceholder: '値を入力',
     storedPlaceholder: '保存済み。入力すると置き換わります',
@@ -9106,7 +9106,7 @@ export default {
         },
         env: {
           title: '環境変数を設定',
-          desc: 'シェルまたは~/.zshrc / ~/.bashrcでWEKNORA_BASE_URLとWEKNORA_API_KEYを設定します。下記の例では現在のAPIベースURLを使用しています。APIキーは実際の値に置き換えてください。'
+          desc: 'シェルまたは~/.zshrc / ~/.bashrcでGENYEE_BASE_URLとGENYEE_API_KEYを設定します。下記の例では現在のAPIベースURLを使用しています。APIキーは実際の値に置き換えてください。'
         },
         install: {
           title: 'スキルをインストール',

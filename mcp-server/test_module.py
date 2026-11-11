@@ -38,14 +38,14 @@ class ModuleIntegrationTest(unittest.TestCase):
         import main  # noqa: F401
 
     def test_environment_optional_vars(self):
-        os.getenv("WEKNORA_BASE_URL")
-        os.getenv("WEKNORA_API_KEY")
+        os.getenv("GENYEE_BASE_URL")
+        os.getenv("GENYEE_API_KEY")
 
     def test_client_creation(self):
         from weknora_mcp_server import WeKnoraClient
 
-        base_url = os.getenv("WEKNORA_BASE_URL", "http://localhost:8080/api/v1")
-        api_key = os.getenv("WEKNORA_API_KEY", "test_key")
+        base_url = os.getenv("GENYEE_BASE_URL", "http://localhost:8080/api/v1")
+        api_key = os.getenv("GENYEE_API_KEY", "test_key")
         client = WeKnoraClient(base_url, api_key)
         self.assertEqual(client.base_url, base_url)
         self.assertEqual(client.api_key, api_key)

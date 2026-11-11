@@ -103,8 +103,8 @@ docker compose down     # Stop services
 If you already have GENYEE running and downloaded a newer release:
 
 ```bash
-# Set WEKNORA_VERSION in .env to the target release (e.g. 0.9.0), or keep latest
-docker compose pull     # Pull images matching WEKNORA_VERSION
+# Set GENYEE_VERSION in .env to the target release (e.g. 0.9.0), or keep latest
+docker compose pull     # Pull images matching GENYEE_VERSION
 docker compose up -d    # Recreate containers with new images
 ```
 
@@ -171,7 +171,7 @@ Agents can operate the browser on your computer, knowledge bases can be publishe
 - **Tenant skill catalog**: install from ClawHub / SkillHub / git / zip, with per-sandbox snapshots, live progress, file browse/edit, and personal and workspace env vars.
 - **Cross-session long-term memory**: profile / preference / fact / task / interest, auto-extracted with user confirmation, plus `search_memory`.
 - **Parsing and sources**: in-process anydoc office parser; GitLab and Tencent IMA data sources; XMind parsing.
-- **Ecosystem**: DeepSeek Harness plugin (`./packages/dsh-weknora`); LiteLLM; Exa and Metaso web search.
+- **Ecosystem**: DeepSeek Harness plugin (`./packages/dsh-genyee`); LiteLLM; Exa and Metaso web search.
 - **Chat**: chat artifacts, question outline and timestamps; context compaction and provider prompt-cache markers.
 - **Security**: OIDC JWKS verification, optional complex passwords, document auto-tagging, and broad sandbox/security hardening.
 

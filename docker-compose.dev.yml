@@ -226,7 +226,7 @@ services:
 
   # Sandbox 镜像：仅用于 build/pull，非常驻服务；本地 app 执行 Skills 时按需 docker run 该镜像，用毕即释
   sandbox:
-    image: ${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${WEKNORA_VERSION:-latest}
+    image: ${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${GENYEE_VERSION:-latest}
     container_name: GENYEE-sandbox-dev
     build:
       context: .
@@ -243,7 +243,7 @@ services:
       args:
         VERSION_ARG: ${DOCREADER_VERSION:-unknown}
         COMMIT_ID_ARG: ${DOCREADER_COMMIT_ID:-unknown}
-    image: ${GENYEE_REGISTRY:-genyee}/genyee-docreader:${WEKNORA_VERSION:-latest}
+    image: ${GENYEE_REGISTRY:-genyee}/genyee-docreader:${GENYEE_VERSION:-latest}
     container_name: GENYEE-docreader-dev
     ports:
       - "${DOCREADER_PORT:-50051}:50051"
@@ -351,7 +351,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.odl-hybrid
-    image: ${GENYEE_REGISTRY:-genyee}/genyee-odl-hybrid:${WEKNORA_VERSION:-latest}
+    image: ${GENYEE_REGISTRY:-genyee}/genyee-odl-hybrid:${GENYEE_VERSION:-latest}
     container_name: GENYEE-odl-hybrid
     profiles:
       - odl-hybrid

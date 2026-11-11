@@ -7,7 +7,7 @@ export interface WeKnoraEntityRef {
 
 export type WeKnoraEntityLinkLabels = Record<WeKnoraEntityKind, string>
 
-export const WEKNORA_ENTITY_LINK_CLASS = 'weknora-entity-link'
+export const GENYEE_ENTITY_LINK_CLASS = 'weknora-entity-link'
 
 const URI_BODY = '(kb|doc|chunk)/([0-9A-Za-z][0-9A-Za-z_-]*)'
 const URI_EXACT_RE = new RegExp(`^(?:weknora|genyee)://${URI_BODY}$`, 'i')
@@ -27,7 +27,7 @@ function escapeHtml(text: string): string {
 }
 
 function entityOpenTag(ref: WeKnoraEntityRef, labels: WeKnoraEntityLinkLabels): string {
-  return `<span class="${WEKNORA_ENTITY_LINK_CLASS}" role="link" tabindex="0" ` +
+  return `<span class="${GENYEE_ENTITY_LINK_CLASS}" role="link" tabindex="0" ` +
     `title="${escapeHtml(labels[ref.kind])}" data-entity-kind="${ref.kind}" data-entity-id="${ref.id}">`
 }
 

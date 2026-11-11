@@ -14,7 +14,7 @@ type WeKnoraCloudStatusResult struct {
 }
 
 // IsWeKnoraCloudEnabled reports whether the optional WeKnoraCloud integration
-// is enabled via WEKNORA_WEKNORACLOUD_ENABLED=true (default: false).
+// is enabled via GENYEE_WEKNORACLOUD_ENABLED=true (default: false).
 func IsWeKnoraCloudEnabled() bool {
-	return strings.EqualFold(strings.TrimSpace(os.Getenv("WEKNORA_WEKNORACLOUD_ENABLED")), "true")
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("GENYEE_WEKNORACLOUD_ENABLED")), "true")
 }

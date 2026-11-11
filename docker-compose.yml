@@ -1,6 +1,6 @@
 services:
   frontend:
-    image: ${GENYEE_REGISTRY:-genyee}/genyee-ui:${WEKNORA_VERSION:-latest}
+    image: ${GENYEE_REGISTRY:-genyee}/genyee-ui:${GENYEE_VERSION:-latest}
     # Multi-stage Dockerfile builds dist inside the image (no host npm required).
     # Optional: NPM_REGISTRY=https://registry.npmmirror.com docker compose build frontend
     # VITE_FRONTEND_COMMIT: start_all.sh / make docker-build-frontend inject git;
@@ -18,7 +18,7 @@ services:
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
       - MAX_SKILL_BUNDLE_SIZE_MB=${MAX_SKILL_BUNDLE_SIZE_MB:-256}
       - DEFAULT_LOCALE=${DEFAULT_LOCALE:-}
-      - WEKNORA_WEKNORACLOUD_ENABLED=${WEKNORA_WEKNORACLOUD_ENABLED:-false}
+      - GENYEE_WEKNORACLOUD_ENABLED=${GENYEE_WEKNORACLOUD_ENABLED:-false}
       - GENYEE_CHROME_EXTENSION_URL=${GENYEE_CHROME_EXTENSION_URL:-}
       - GENYEE_CLAWHUB_SKILL_URL=${GENYEE_CLAWHUB_SKILL_URL:-}
       - DOCS_BASE_URL=${DOCS_BASE_URL:-}
@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   app:
-    image: ${GENYEE_REGISTRY:-genyee}/genyee-app:${WEKNORA_VERSION:-latest}
+    image: ${GENYEE_REGISTRY:-genyee}/genyee-app:${GENYEE_VERSION:-latest}
     build:
       context: .
       dockerfile: docker/Dockerfile.app
@@ -62,7 +62,7 @@ services:
       - data-files:/data/files
       - docreader-tmp:/tmp/docreader:ro
       - ./config/config.yaml:/app/config/config.yaml
-      # Docker 沙箱默认关闭（见 WEKNORA_SANDBOX_DOCKER_ENABLED）。需要本机 daemon 时
+      # Docker 沙箱默认关闭（见 GENYEE_SANDBOX_DOCKER_ENABLED）。需要本机 daemon 时
       # 同时设 true 并挂载实际 socket——这等同宿主机 root，仅私有化单机。
       # 入口脚本会按 socket GID 把 appuser 加入对应组（compose group_add 在 gosu 后无效）。
       # - /var/run/docker.sock:/var/run/docker.sock
@@ -98,7 +98,7 @@ services:
       # 日志文件路径（留空则只输出 stdout）；LLM_DEBUG_LOG 开启时同目录写 llm_debug.log
       - LOG_PATH=${LOG_PATH:-}
       # 自定义日志格式模板，必须包含 %msg；显式留空用默认格式，未设置时兼容旧变量
-      - WEKNORA_LOG_FORMAT=${WEKNORA_LOG_FORMAT-${LOG_FORMAT:-}}
+      - GENYEE_LOG_FORMAT=${GENYEE_LOG_FORMAT-${LOG_FORMAT:-}}
       # LLM 调试日志：true 写 LOG_PATH 同目录 llm_debug.log，或指定路径；留空关闭
       - LLM_DEBUG_LOG=${LLM_DEBUG_LOG:-false}
       # ========== 运行时基础 ==========
@@ -109,15 +109,15 @@ services:
       - TZ=${TZ:-Asia/Shanghai}
       # 文档处理语言（问题/摘要生成）。优先级：此环境变量（部署级覆盖，非空即生效）
       # > Accept-Language 请求头 > 内置默认值 (zh-CN)。留空则跟随请求方 Accept-Language。
-      - WEKNORA_LANGUAGE=${WEKNORA_LANGUAGE:-}
+      - GENYEE_LANGUAGE=${GENYEE_LANGUAGE:-}
       # Docker 沙箱默认关闭：本机 docker.sock 等同宿主机 root。
       # 系统管理员也可在「设置 → 系统设置」打开（立即生效）。未落库时读本变量。
-      - WEKNORA_SANDBOX_DOCKER_ENABLED=${WEKNORA_SANDBOX_DOCKER_ENABLED:-false}
+      - GENYEE_SANDBOX_DOCKER_ENABLED=${GENYEE_SANDBOX_DOCKER_ENABLED:-false}
       # 出站拨号超时（Go duration，默认 5s）：模型、连接器等外部端点在此时间内连不上即失败。留空使用默认值。
-      - WEKNORA_OUTBOUND_DIAL_TIMEOUT=${WEKNORA_OUTBOUND_DIAL_TIMEOUT:-}
+      - GENYEE_OUTBOUND_DIAL_TIMEOUT=${GENYEE_OUTBOUND_DIAL_TIMEOUT:-}
       # gin 信任的代理 CIDR（逗号分隔）；显式设为空字符串则禁用代理信任。
       # 默认信任 loopback + 私网段（容器网络内 nginx 已覆盖）
-      # - WEKNORA_TRUSTED_PROXIES=${WEKNORA_TRUSTED_PROXIES:-}
+      # - GENYEE_TRUSTED_PROXIES=${GENYEE_TRUSTED_PROXIES:-}
       # 启动时自动执行数据库迁移；设为 false 禁用，默认启用
       - AUTO_MIGRATE=${AUTO_MIGRATE:-true}
       # IM 渠道图片/文件外链的外部可达 URL。IM 显示知识库图片需二选一：
@@ -140,20 +140,20 @@ services:
       # 禁止新用户注册（生产建议 true）
       - DISABLE_REGISTRATION=${DISABLE_REGISTRATION:-false}
       # 开启后密码必须包含大小写字母、数字和特殊字符，特殊字符包含：!@#$%^&*()_+-=[]{}|;:,.<>?
-      - WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED=${WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED:-false}
+      - GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED=${GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED:-false}
       # 公开注册后的默认空间策略：create_personal（默认，自动创建个人空间）/ tenantless
-      - WEKNORA_AUTH_DEFAULT_TENANT_MODE=${WEKNORA_AUTH_DEFAULT_TENANT_MODE:-create_personal}
+      - GENYEE_AUTH_DEFAULT_TENANT_MODE=${GENYEE_AUTH_DEFAULT_TENANT_MODE:-create_personal}
       # 是否允许普通用户登录后主动创建空间（默认 true；false 仅能邀请加入，超管不受影响）
-      - WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED=${WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED:-true}
+      - GENYEE_TENANT_SELF_SERVICE_CREATION_ENABLED=${GENYEE_TENANT_SELF_SERVICE_CREATION_ENABLED:-true}
       # 启用跨空间访问（需配合用户的 CanAccessAllTenants 权限；默认 false
-      - WEKNORA_TENANT_ENABLE_CROSS_TENANT_ACCESS=${WEKNORA_TENANT_ENABLE_CROSS_TENANT_ACCESS:-false}
+      - GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS=${GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS:-false}
       # 新建空间默认存储配额（GB，默认 10）
-      - WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_GB=${WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_GB:-10}
-      - WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_MB=${WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_MB:-0}
+      - GENYEE_TENANT_DEFAULT_STORAGE_QUOTA_GB=${GENYEE_TENANT_DEFAULT_STORAGE_QUOTA_GB:-10}
+      - GENYEE_TENANT_DEFAULT_STORAGE_QUOTA_MB=${GENYEE_TENANT_DEFAULT_STORAGE_QUOTA_MB:-0}
       # 空间邀请链接 TTL（Go duration，默认 168h=7 天）
-      - WEKNORA_INVITATION_TTL=${WEKNORA_INVITATION_TTL:-168h}
+      - GENYEE_INVITATION_TTL=${GENYEE_INVITATION_TTL:-168h}
       # 审计日志保留天数（0 禁用清理，默认 90）
-      - WEKNORA_AUDIT_RETENTION_DAYS=${WEKNORA_AUDIT_RETENTION_DAYS:-90}
+      - GENYEE_AUDIT_RETENTION_DAYS=${GENYEE_AUDIT_RETENTION_DAYS:-90}
       # 数据库设置
       - DB_DRIVER=${DB_DRIVER:-postgres}
       - DB_HOST=${DB_HOST:-postgres}
@@ -294,8 +294,8 @@ services:
       # VLM 单次请求的补全 token 预算（默认 5000）
       - VLM_MAX_TOKENS=${VLM_MAX_TOKENS:-}
       # LLM 流原始转储（排查上下文问题；1 启用，默认目录 ~/.weknora/investigate/llm-stream）
-      - WEKNORA_LLM_STREAM_RAW_DUMP=${WEKNORA_LLM_STREAM_RAW_DUMP:-}
-      - WEKNORA_LLM_STREAM_RAW_DUMP_DIR=${WEKNORA_LLM_STREAM_RAW_DUMP_DIR:-}
+      - GENYEE_LLM_STREAM_RAW_DUMP=${GENYEE_LLM_STREAM_RAW_DUMP:-}
+      - GENYEE_LLM_STREAM_RAW_DUMP_DIR=${GENYEE_LLM_STREAM_RAW_DUMP_DIR:-}
       - STREAM_MANAGER_TYPE=${STREAM_MANAGER_TYPE:-}
       - REDIS_ADDR=${REDIS_ADDR:-redis:6379}
       - REDIS_USERNAME=${REDIS_USERNAME:-}
@@ -306,9 +306,9 @@ services:
       - REDIS_TLS_SERVER_NAME=${REDIS_TLS_SERVER_NAME:-}
       - REDIS_TLS_INSECURE_SKIP_VERIFY=${REDIS_TLS_INSECURE_SKIP_VERIFY:-}
       # Redis 频道命名空间后缀（多部署共享同一 Redis 时隔离用）
-      - WEKNORA_REDIS_NAMESPACE=${WEKNORA_REDIS_NAMESPACE:-}
+      - GENYEE_REDIS_NAMESPACE=${GENYEE_REDIS_NAMESPACE:-}
       # Asynq 客户端 Redis 读写超时（毫秒，默认 500）
-      - WEKNORA_REDIS_OP_TIMEOUT_MS=${WEKNORA_REDIS_OP_TIMEOUT_MS:-}
+      - GENYEE_REDIS_OP_TIMEOUT_MS=${GENYEE_REDIS_OP_TIMEOUT_MS:-}
       # 知识图谱唯一开关是 NEO4J_ENABLE（见下方）。ENABLE_GRAPH_RAG 自 v0.1.6 起已被
       # NEO4J_ENABLE 取代，Go 主应用不再读取，此处不再透传。
       - NEO4J_ENABLE=${NEO4J_ENABLE:-}
@@ -347,56 +347,56 @@ services:
       # Skill zip / GitHub source download cap (in MB); the GitHub zipball is the whole repo, not the skill subtree
       - MAX_SKILL_BUNDLE_SIZE_MB=${MAX_SKILL_BUNDLE_SIZE_MB:-256}
       # 文档处理任务总超时（Go duration，默认 2h）
-      - WEKNORA_DOCUMENT_PROCESS_TIMEOUT=${WEKNORA_DOCUMENT_PROCESS_TIMEOUT:-}
+      - GENYEE_DOCUMENT_PROCESS_TIMEOUT=${GENYEE_DOCUMENT_PROCESS_TIMEOUT:-}
       # 单次 DocReader RPC 超时（默认 30m，须小于上一项）
-      - WEKNORA_DOCREADER_CALL_TIMEOUT=${WEKNORA_DOCREADER_CALL_TIMEOUT:-}
+      - GENYEE_DOCREADER_CALL_TIMEOUT=${GENYEE_DOCREADER_CALL_TIMEOUT:-}
       # 自建 PaddleOCR-VL HTTP 请求超时（Go duration，默认 1000s）
-      - WEKNORA_PADDLEOCR_VL_TIMEOUT=${WEKNORA_PADDLEOCR_VL_TIMEOUT:-}
+      - GENYEE_PADDLEOCR_VL_TIMEOUT=${GENYEE_PADDLEOCR_VL_TIMEOUT:-}
       # 自建 MinerU 单次解析超时（Go duration，默认 1000s）
-      - WEKNORA_MINERU_TIMEOUT=${WEKNORA_MINERU_TIMEOUT:-}
+      - GENYEE_MINERU_TIMEOUT=${GENYEE_MINERU_TIMEOUT:-}
       # MinerU 云端每个批次/分片轮询解析结果的最长时间（Go duration，默认 30m）
-      - WEKNORA_MINERU_CLOUD_TIMEOUT=${WEKNORA_MINERU_CLOUD_TIMEOUT:-}
+      - GENYEE_MINERU_CLOUD_TIMEOUT=${GENYEE_MINERU_CLOUD_TIMEOUT:-}
       # MinerU Cloud / 自建 V1 结果 ZIP 中引用图片的解压总字节上限（默认 512 MiB）
-      - WEKNORA_MINERU_MAX_IMAGE_BYTES=${WEKNORA_MINERU_MAX_IMAGE_BYTES:-}
+      - GENYEE_MINERU_MAX_IMAGE_BYTES=${GENYEE_MINERU_MAX_IMAGE_BYTES:-}
       # PaddleOCR-VL 云端轮询解析结果的最长时间（Go duration，默认 600s）
-      - WEKNORA_PADDLEOCR_VL_CLOUD_TIMEOUT=${WEKNORA_PADDLEOCR_VL_CLOUD_TIMEOUT:-}
+      - GENYEE_PADDLEOCR_VL_CLOUD_TIMEOUT=${GENYEE_PADDLEOCR_VL_CLOUD_TIMEOUT:-}
       # WeKnoraCloud 引擎开关（默认关闭；设为 true 后才允许配置和使用 WeKnoraCloud 凭证）
-      - WEKNORA_WEKNORACLOUD_ENABLED=${WEKNORA_WEKNORACLOUD_ENABLED:-false}
+      - GENYEE_WEKNORACLOUD_ENABLED=${GENYEE_WEKNORACLOUD_ENABLED:-false}
       # WeKnoraCloud 每个分页分片轮询解析结果的最长时间（Go duration，默认 20m）
-      - WEKNORA_WEKNORACLOUD_TIMEOUT=${WEKNORA_WEKNORACLOUD_TIMEOUT:-}
+      - GENYEE_WEKNORACLOUD_TIMEOUT=${GENYEE_WEKNORACLOUD_TIMEOUT:-}
       # 知识库巡检回收（回收卡在 processing 的脏数据；false 禁用，不建议）
-      - WEKNORA_HOUSEKEEPING_ENABLED=${WEKNORA_HOUSEKEEPING_ENABLED:-}
-      - WEKNORA_CHAT_ATTACHMENT_TTL_HOURS=${WEKNORA_CHAT_ATTACHMENT_TTL_HOURS:-24}
-      - WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC=${WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC:-60}
-      - WEKNORA_CHAT_ATTACHMENT_OCR_CONCURRENCY=${WEKNORA_CHAT_ATTACHMENT_OCR_CONCURRENCY:-8}
-      - WEKNORA_CHAT_ATTACHMENT_OCR_MAX_PAGES=${WEKNORA_CHAT_ATTACHMENT_OCR_MAX_PAGES:-8}
+      - GENYEE_HOUSEKEEPING_ENABLED=${GENYEE_HOUSEKEEPING_ENABLED:-}
+      - GENYEE_CHAT_ATTACHMENT_TTL_HOURS=${GENYEE_CHAT_ATTACHMENT_TTL_HOURS:-24}
+      - GENYEE_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC=${GENYEE_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC:-60}
+      - GENYEE_CHAT_ATTACHMENT_OCR_CONCURRENCY=${GENYEE_CHAT_ATTACHMENT_OCR_CONCURRENCY:-8}
+      - GENYEE_CHAT_ATTACHMENT_OCR_MAX_PAGES=${GENYEE_CHAT_ATTACHMENT_OCR_MAX_PAGES:-8}
       # Agent LLM call timeout
-      - WEKNORA_AGENT_LLM_TIMEOUT=${WEKNORA_AGENT_LLM_TIMEOUT:-}
+      - GENYEE_AGENT_LLM_TIMEOUT=${GENYEE_AGENT_LLM_TIMEOUT:-}
       # web_fetch 单页抓取预算（Go duration 或纯数字秒，默认 3m；HTTP 与 chromedp 共用，不叠加）
-      - WEKNORA_WEB_FETCH_TIMEOUT=${WEKNORA_WEB_FETCH_TIMEOUT:-}
+      - GENYEE_WEB_FETCH_TIMEOUT=${GENYEE_WEB_FETCH_TIMEOUT:-}
       # Built-in MCP ask deadline (Go duration or bare seconds; defaults to 4m).
-      - WEKNORA_MCP_ASK_TIMEOUT=${WEKNORA_MCP_ASK_TIMEOUT:-}
-      - WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT=${WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT:-}
+      - GENYEE_MCP_ASK_TIMEOUT=${GENYEE_MCP_ASK_TIMEOUT:-}
+      - GENYEE_AGENT_TOOL_APPROVAL_TIMEOUT=${GENYEE_AGENT_TOOL_APPROVAL_TIMEOUT:-}
       # MCP 工具人工审批失败时是否放行（true 放行 / 默认 fail-close 拒绝）
-      - WEKNORA_AGENT_TOOL_APPROVAL_FAIL_OPEN=${WEKNORA_AGENT_TOOL_APPROVAL_FAIL_OPEN:-}
+      - GENYEE_AGENT_TOOL_APPROVAL_FAIL_OPEN=${GENYEE_AGENT_TOOL_APPROVAL_FAIL_OPEN:-}
       # Tenant / RBAC（详见 website-docs/03-features/01-tenant-auth.md 与 .env.example 注释）
-      # - WEKNORA_TENANT_ENABLE_RBAC: 是否启用空间角色强制鉴权（true / false），默认 true
-      # - WEKNORA_TENANT_MAX_OWNED_PER_USER: 单个非超管自助创建空间的上限
+      # - GENYEE_TENANT_ENABLE_RBAC: 是否启用空间角色强制鉴权（true / false），默认 true
+      # - GENYEE_TENANT_MAX_OWNED_PER_USER: 单个非超管自助创建空间的上限
       #   >0 强制限额；=0 走 handler 默认；<0 关闭限额（不建议共享部署使用）
-      # - WEKNORA_TENANT_AUTO_CREATE_API_KEY: 创建空间时自动生成 full_access API Key 并在响应中返回 token
+      # - GENYEE_TENANT_AUTO_CREATE_API_KEY: 创建空间时自动生成 full_access API Key 并在响应中返回 token
       #   （兼容旧版默认下发 API Key 行为，破坏性变更回退开关；true / false，默认 false）
-      - WEKNORA_TENANT_ENABLE_RBAC=${WEKNORA_TENANT_ENABLE_RBAC:-}
-      - WEKNORA_TENANT_MAX_OWNED_PER_USER=${WEKNORA_TENANT_MAX_OWNED_PER_USER:-}
-      - WEKNORA_TENANT_AUTO_CREATE_API_KEY=${WEKNORA_TENANT_AUTO_CREATE_API_KEY:-}
-      - WEKNORA_ASYNQ_CORE_CONCURRENCY=${WEKNORA_ASYNQ_CORE_CONCURRENCY:-8}
-      - WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY=${WEKNORA_ASYNQ_POSTPROCESS_CONCURRENCY:-2}
-      - WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY=${WEKNORA_ASYNQ_ENRICHMENT_CONCURRENCY:-12}
-      - WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY=${WEKNORA_ASYNQ_MAINTENANCE_CONCURRENCY:-4}
-      - WEKNORA_ASYNQ_SHARED_CONCURRENCY=${WEKNORA_ASYNQ_SHARED_CONCURRENCY:-6}
-      - WEKNORA_WIKI_ASYNQ_CONCURRENCY=${WEKNORA_WIKI_ASYNQ_CONCURRENCY:-8}
-      - WEKNORA_MODEL_MAX_CONCURRENCY=${WEKNORA_MODEL_MAX_CONCURRENCY:-32}
+      - GENYEE_TENANT_ENABLE_RBAC=${GENYEE_TENANT_ENABLE_RBAC:-}
+      - GENYEE_TENANT_MAX_OWNED_PER_USER=${GENYEE_TENANT_MAX_OWNED_PER_USER:-}
+      - GENYEE_TENANT_AUTO_CREATE_API_KEY=${GENYEE_TENANT_AUTO_CREATE_API_KEY:-}
+      - GENYEE_ASYNQ_CORE_CONCURRENCY=${GENYEE_ASYNQ_CORE_CONCURRENCY:-8}
+      - GENYEE_ASYNQ_POSTPROCESS_CONCURRENCY=${GENYEE_ASYNQ_POSTPROCESS_CONCURRENCY:-2}
+      - GENYEE_ASYNQ_ENRICHMENT_CONCURRENCY=${GENYEE_ASYNQ_ENRICHMENT_CONCURRENCY:-12}
+      - GENYEE_ASYNQ_MAINTENANCE_CONCURRENCY=${GENYEE_ASYNQ_MAINTENANCE_CONCURRENCY:-4}
+      - GENYEE_ASYNQ_SHARED_CONCURRENCY=${GENYEE_ASYNQ_SHARED_CONCURRENCY:-6}
+      - GENYEE_WIKI_ASYNQ_CONCURRENCY=${GENYEE_WIKI_ASYNQ_CONCURRENCY:-8}
+      - GENYEE_MODEL_MAX_CONCURRENCY=${GENYEE_MODEL_MAX_CONCURRENCY:-32}
       - APK_MIRROR_ARG=${APK_MIRROR_ARG:-}
-      - WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL=${WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL:-}
+      - GENYEE_BOOTSTRAP_SYSTEM_ADMIN_EMAIL=${GENYEE_BOOTSTRAP_SYSTEM_ADMIN_EMAIL:-}
       # ========== OIDC 认证（可选，OIDC_AUTH_ENABLE=true 启用，详见 .env.example）==========
       - OIDC_AUTH_ENABLE=${OIDC_AUTH_ENABLE:-false}
       - OIDC_AUTH_PKCE_ENABLED=${OIDC_AUTH_PKCE_ENABLED:-false}
@@ -429,9 +429,9 @@ services:
       - "host.docker.internal:host-gateway"
 
   # Sandbox 镜像：仅用于 build/pull，非常驻。Docker 沙箱默认关闭，需
-  # WEKNORA_SANDBOX_DOCKER_ENABLED=true 并挂载 docker.sock 后，app 才会按会话创建容器。
+  # GENYEE_SANDBOX_DOCKER_ENABLED=true 并挂载 docker.sock 后，app 才会按会话创建容器。
   sandbox:
-    image: ${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${WEKNORA_VERSION:-latest}
+    image: ${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${GENYEE_VERSION:-latest}
     container_name: GENYEE-sandbox
     build:
       context: .
@@ -443,7 +443,7 @@ services:
     restart: "no"
 
   docreader:
-    image: ${GENYEE_REGISTRY:-genyee}/genyee-docreader:${WEKNORA_VERSION:-latest}
+    image: ${GENYEE_REGISTRY:-genyee}/genyee-docreader:${GENYEE_VERSION:-latest}
     # start_all.sh supplies these when building from source; direct Compose
     # builds can set them explicitly to identify the resulting image.
     build:
@@ -515,11 +515,11 @@ services:
       - DOCREADER_XLSX_PCT_ROW_HINT_MIN=${DOCREADER_XLSX_PCT_ROW_HINT_MIN:-0}
       # 页面摆正（OCR 前的几何预处理）的阈值：留空即用 17 张图上调好的默认值，
       # 只有为了复现某次调试才需要覆盖；生效的一组会打在预处理子进程的启动日志里。
-      - WEKNORA_PREPROCESS_PAD=${WEKNORA_PREPROCESS_PAD:-}
-      - WEKNORA_PREPROCESS_MIN_SCORE=${WEKNORA_PREPROCESS_MIN_SCORE:-}
-      - WEKNORA_PREPROCESS_ANG_TOL=${WEKNORA_PREPROCESS_ANG_TOL:-}
-      - WEKNORA_PREPROCESS_SIZE_MIN=${WEKNORA_PREPROCESS_SIZE_MIN:-}
-      - WEKNORA_PREPROCESS_QUAD_TOL=${WEKNORA_PREPROCESS_QUAD_TOL:-}
+      - GENYEE_PREPROCESS_PAD=${GENYEE_PREPROCESS_PAD:-}
+      - GENYEE_PREPROCESS_MIN_SCORE=${GENYEE_PREPROCESS_MIN_SCORE:-}
+      - GENYEE_PREPROCESS_ANG_TOL=${GENYEE_PREPROCESS_ANG_TOL:-}
+      - GENYEE_PREPROCESS_SIZE_MIN=${GENYEE_PREPROCESS_SIZE_MIN:-}
+      - GENYEE_PREPROCESS_QUAD_TOL=${GENYEE_PREPROCESS_QUAD_TOL:-}
       # 出站 HTTP/HTTPS 代理（抓取网页 / 远程图片时）
       - DOCREADER_EXTERNAL_HTTP_PROXY=${DOCREADER_EXTERNAL_HTTP_PROXY:-}
       - DOCREADER_EXTERNAL_HTTPS_PROXY=${DOCREADER_EXTERNAL_HTTPS_PROXY:-}
@@ -590,7 +590,7 @@ services:
       dockerfile: docker/Dockerfile.odl-hybrid
       args:
         - PRELOAD_MODELS=${PRELOAD_MODELS:-false}
-    image: ${GENYEE_REGISTRY:-genyee}/genyee-odl-hybrid:${WEKNORA_VERSION:-latest}
+    image: ${GENYEE_REGISTRY:-genyee}/genyee-odl-hybrid:${GENYEE_VERSION:-latest}
     container_name: GENYEE-odl-hybrid
     profiles:
       - odl-hybrid
@@ -1076,21 +1076,21 @@ services:
       - langfuse
 
   mcp:
-    image: ${GENYEE_REGISTRY:-genyee}/genyee-mcp:${WEKNORA_VERSION:-latest}
+    image: ${GENYEE_REGISTRY:-genyee}/genyee-mcp:${GENYEE_VERSION:-latest}
     build:
       context: ./mcp-server
     container_name: GENYEE-mcp
     ports:
       - "${MCP_PORT:-8082}:8000"
     environment:
-      - WEKNORA_BASE_URL=http://app:8080/api/v1
-      - WEKNORA_API_KEY=${WEKNORA_API_KEY:-}
+      - GENYEE_BASE_URL=http://app:8080/api/v1
+      - GENYEE_API_KEY=${GENYEE_API_KEY:-}
       # HTTP/SSE 传输必填：mcp-server 启动时若缺少此项会拒绝启动（客户端以 Authorization: Bearer 携带）
       - MCP_SERVER_AUTH_TOKEN=${MCP_SERVER_AUTH_TOKEN:-}
       # 调用 GENYEE REST 的读超时（秒，默认 300）
-      - WEKNORA_CHAT_TIMEOUT=${WEKNORA_CHAT_TIMEOUT:-300}
+      - GENYEE_CHAT_TIMEOUT=${GENYEE_CHAT_TIMEOUT:-300}
       # 是否校验 GENYEE 后端 TLS 证书（默认 true；自签证书可设 false）
-      - WEKNORA_VERIFY_SSL=${WEKNORA_VERIFY_SSL:-true}
+      - GENYEE_VERIFY_SSL=${GENYEE_VERIFY_SSL:-true}
       # 允许上传的目录白名单（逗号分隔；留空禁用文件上传工具）
       - MCP_ALLOWED_UPLOAD_DIRS=${MCP_ALLOWED_UPLOAD_DIRS:-}
     depends_on:

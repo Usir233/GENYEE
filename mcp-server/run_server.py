@@ -14,17 +14,17 @@ import sys
 
 def check_environment():
     """检查环境配置"""
-    base_url = os.getenv("GENYEE_BASE_URL") or os.getenv("WEKNORA_BASE_URL")
-    api_key = os.getenv("GENYEE_API_KEY") or os.getenv("WEKNORA_API_KEY")
+    base_url = os.getenv("GENYEE_BASE_URL")
+    api_key = os.getenv("GENYEE_API_KEY")
 
     if not base_url:
         print(
-            "警告: GENYEE_BASE_URL / WEKNORA_BASE_URL 环境变量未设置，使用默认值: http://localhost:8080/api/v1",
+            "警告: GENYEE_BASE_URL 环境变量未设置，使用默认值: http://localhost:8080/api/v1",
             file=sys.stderr,
         )
 
     if not api_key:
-        print("警告: GENYEE_API_KEY / WEKNORA_API_KEY 环境变量未设置", file=sys.stderr)
+        print("警告: GENYEE_API_KEY 环境变量未设置", file=sys.stderr)
 
     print(f"GENYEE Base URL: {base_url or 'http://localhost:8080/api/v1'}", file=sys.stderr)
     print(f"API Key: {'已设置' if api_key else '未设置'}", file=sys.stderr)

@@ -16,7 +16,7 @@ import (
 // padding (common in CI secret stores) would otherwise only break the captured
 // $(weknora auth token) output, not the CLI's own calls.
 func TestAuthToken_EnvTokenTrimmed_Text(t *testing.T) {
-	t.Setenv("WEKNORA_TOKEN", "  jwt-env-xyz\n")
+	t.Setenv("GENYEE_TOKEN", "  jwt-env-xyz\n")
 	// No profiles: proves the value came from the env path, not the store.
 	cfg := &config.Config{}
 	out, _ := iostreams.SetForTest(t)
@@ -30,7 +30,7 @@ func TestAuthToken_EnvTokenTrimmed_Text(t *testing.T) {
 }
 
 func TestAuthToken_EnvAPIKeyTrimmed_Text(t *testing.T) {
-	t.Setenv("WEKNORA_API_KEY", "\tsk_env_42  ")
+	t.Setenv("GENYEE_API_KEY", "\tsk_env_42  ")
 	cfg := &config.Config{}
 	out, _ := iostreams.SetForTest(t)
 	f := tokenTestFactory(t, cfg, secrets.NewMemStore())
@@ -43,7 +43,7 @@ func TestAuthToken_EnvAPIKeyTrimmed_Text(t *testing.T) {
 }
 
 func TestAuthToken_EnvTokenTrimmed_JSON(t *testing.T) {
-	t.Setenv("WEKNORA_TOKEN", " jwt-env-xyz\n")
+	t.Setenv("GENYEE_TOKEN", " jwt-env-xyz\n")
 	cfg := &config.Config{}
 	out, _ := iostreams.SetForTest(t)
 	f := tokenTestFactory(t, cfg, secrets.NewMemStore())

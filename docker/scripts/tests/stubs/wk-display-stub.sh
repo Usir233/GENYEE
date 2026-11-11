@@ -29,7 +29,7 @@ case "$cmd" in
       fi
       n=$((n + 1))
     done
-    echo WEKNORA_NO_FREE_SCREEN >&2
+    echo GENYEE_NO_FREE_SCREEN >&2
     exit 1
     ;;
   release)

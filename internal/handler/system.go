@@ -306,7 +306,7 @@ type GetSystemInfoResponse struct {
 	StartedAt string `json:"started_at,omitempty" extensions:"x-agent"`
 	// UptimeSeconds is seconds elapsed since process start.
 	UptimeSeconds int64 `json:"uptime_seconds,omitempty" extensions:"x-agent"`
-	// WeKnoraCloudEnabled reports whether optional WeKnoraCloud integration is enabled via WEKNORA_WEKNORACLOUD_ENABLED=true.
+	// WeKnoraCloudEnabled reports whether optional WeKnoraCloud integration is enabled via GENYEE_WEKNORACLOUD_ENABLED=true.
 	WeKnoraCloudEnabled bool `json:"weknoracloud_enabled,omitempty" extensions:"x-agent"`
 }
 

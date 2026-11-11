@@ -672,11 +672,11 @@ var (
 
 func validateRedisNamespace(namespace string) error {
 	if strings.ContainsAny(namespace, "{}") {
-		return errors.New("WEKNORA_REDIS_NAMESPACE must not contain braces")
+		return errors.New("GENYEE_REDIS_NAMESPACE must not contain braces")
 	}
 	for _, r := range namespace {
 		if unicode.IsControl(r) {
-			return errors.New("WEKNORA_REDIS_NAMESPACE must not contain control characters")
+			return errors.New("GENYEE_REDIS_NAMESPACE must not contain control characters")
 		}
 	}
 	return nil

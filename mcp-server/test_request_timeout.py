@@ -4,7 +4,7 @@
 ``WeKnoraClient._request`` and the file-upload ``requests.post`` used to
 pass no ``timeout`` at all, so a hung backend blocked the calling MCP
 tool indefinitely (``requests`` waits forever by default). The chat SSE
-path already passes ``timeout=(10, WEKNORA_CHAT_TIMEOUT)``; these tests
+path already passes ``timeout=(10, GENYEE_CHAT_TIMEOUT)``; these tests
 pin the equivalent discipline for the plain JSON requests.
 
 unittest discover 会收集本文件中的 TestCase；也可直接运行:
@@ -29,7 +29,7 @@ class RequestTimeoutTest(unittest.TestCase):
         with mock.patch.object(client.session, "request") as req:
             req.return_value.json.return_value = {"ok": True}
             client._request("GET", "/tenants")
-        self.assertEqual(req.call_args.kwargs.get("timeout"), srv.WEKNORA_API_TIMEOUT)
+        self.assertEqual(req.call_args.kwargs.get("timeout"), srv.GENYEE_API_TIMEOUT)
 
     def test_request_respects_caller_supplied_timeout(self):
         client = srv.WeKnoraClient("http://example.test/api/v1", "k")
@@ -51,21 +51,21 @@ class RequestTimeoutTest(unittest.TestCase):
                 raise_for_status=lambda: None, json=lambda: {"id": "k1"}
             )
             client.create_knowledge_from_file("kb-1", "x.pdf")
-        self.assertEqual(post.call_args.kwargs.get("timeout"), srv.WEKNORA_API_TIMEOUT)
+        self.assertEqual(post.call_args.kwargs.get("timeout"), srv.GENYEE_API_TIMEOUT)
 
 
 def _import_api_timeout(env_value):
-    """Import the server module in a subprocess with WEKNORA_API_TIMEOUT set."""
+    """Import the server module in a subprocess with GENYEE_API_TIMEOUT set."""
     env = dict(os.environ)
     if env_value is None:
-        env.pop("WEKNORA_API_TIMEOUT", None)
+        env.pop("GENYEE_API_TIMEOUT", None)
     else:
-        env["WEKNORA_API_TIMEOUT"] = env_value
+        env["GENYEE_API_TIMEOUT"] = env_value
     result = subprocess.run(
         [
             sys.executable,
             "-c",
-            "import weknora_mcp_server as s; print(s.WEKNORA_API_TIMEOUT)",
+            "import weknora_mcp_server as s; print(s.GENYEE_API_TIMEOUT)",
         ],
         capture_output=True,
         text=True,

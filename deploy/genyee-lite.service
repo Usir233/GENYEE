@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=simple
-User=weknora
-Group=weknora
-WorkingDirectory=/opt/weknora
-EnvironmentFile=/opt/weknora/.env.lite
-ExecStart=/opt/weknora/GENYEE-lite
+User=genyee
+Group=genyee
+WorkingDirectory=/opt/genyee
+EnvironmentFile=/opt/genyee/.env.lite
+ExecStart=/opt/genyee/GENYEE-lite
 Restart=on-failure
 RestartSec=5
 LimitNOFILE=65536
@@ -17,7 +17,7 @@ LimitNOFILE=65536
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/weknora/data
+ReadWritePaths=/opt/genyee/data
 
 [Install]
 WantedBy=multi-user.target

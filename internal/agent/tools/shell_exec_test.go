@@ -648,8 +648,8 @@ func TestShellExecPackageRecoveryKeepsWorkspaceCWD(t *testing.T) {
 		require.True(t, result.Success, "%+v", result)
 		require.Equal(t, 1, executor.calls)
 		require.Equal(t, "/workspace", executor.workDir)
-		require.Equal(t, sandbox.SkillsImageRoot+"/pdf-tools", executor.env["WEKNORA_SKILL_DIR"])
-		require.Contains(t, executor.command, "${WEKNORA_SKILL_DIR:?}")
+		require.Equal(t, sandbox.SkillsImageRoot+"/pdf-tools", executor.env["GENYEE_SKILL_DIR"])
+		require.Contains(t, executor.command, "${GENYEE_SKILL_DIR:?}")
 	}
 }
 

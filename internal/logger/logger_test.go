@@ -35,24 +35,24 @@ func TestResolveLogFormatFromEnv(t *testing.T) {
 		{name: "trim template", setNew: true, preferred: "  " + preferred + "\n", want: preferred},
 		{
 			name: "legacy compatibility", legacy: legacy, want: legacy,
-			warning: "LOG_FORMAT is deprecated; use WEKNORA_LOG_FORMAT instead",
+			warning: "LOG_FORMAT is deprecated; use GENYEE_LOG_FORMAT instead",
 		},
 		{name: "legacy json preserves messages", legacy: "json", warning: "LOG_FORMAT must contain %msg"},
 		{
 			name: "preferred json preserves messages", setNew: true, preferred: "json", legacy: legacy,
-			warning: "WEKNORA_LOG_FORMAT must contain %msg",
+			warning: "GENYEE_LOG_FORMAT must contain %msg",
 		},
 		{
 			name: "metadata only preserves messages", setNew: true, preferred: "%d %level",
-			warning: "WEKNORA_LOG_FORMAT must contain %msg",
+			warning: "GENYEE_LOG_FORMAT must contain %msg",
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("LOG_FORMAT", tc.legacy)
-			t.Setenv("WEKNORA_LOG_FORMAT", tc.preferred)
+			t.Setenv("GENYEE_LOG_FORMAT", tc.preferred)
 			if !tc.setNew {
-				if err := os.Unsetenv("WEKNORA_LOG_FORMAT"); err != nil {
+				if err := os.Unsetenv("GENYEE_LOG_FORMAT"); err != nil {
 					t.Fatal(err)
 				}
 			}

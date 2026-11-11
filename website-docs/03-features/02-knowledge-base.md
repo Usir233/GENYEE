@@ -234,7 +234,7 @@ OCR 预处理默认关闭。可在管线中选择自动判断或对可处理页�
 OCR 会在入库前拒绝空响应、只有分隔符的内容，以及占据输出主体的长串重复内容；正常短标签、数字和表格仍可保留。OpenAI 兼容 VLM 返回 `finish_reason=length` 时，非空的截断输出也按失败处理。普通图片提示词按可见文字转录，截图中的按钮和标签逐行输出，仅真实表格使用 Markdown 表格；扫描 PDF 使用专用文档布局提示词。
 
 OCR 的模型调用和输出校验分别记录处理状态。失败、截断或异常重复内容不会作为有效 OCR 分块索引；图片描述等成功结果仍可保留，因此需要区分整图失败与部分步骤失败。对已有异常内容，应检查处理轨迹后重新解析相应文档。
-可通过 `WEKNORA_OCR_TEST_FIXTURE` 指定本地 JSON 文件（`{"model": <模型配置>, "image_paths": [<本地图片路径>]}`），运行 `go test ./internal/application/service -run '^TestLiveImageOCRValidation$' -v -count=1` 验证实际模型。私有端点需配置 `SSRF_WHITELIST`。该测试使用内存分块仓库，不写业务数据库；带凭证的配置和原图应放在版本控制之外。
+可通过 `GENYEE_OCR_TEST_FIXTURE` 指定本地 JSON 文件（`{"model": <模型配置>, "image_paths": [<本地图片路径>]}`），运行 `go test ./internal/application/service -run '^TestLiveImageOCRValidation$' -v -count=1` 验证实际模型。私有端点需配置 `SSRF_WHITELIST`。该测试使用内存分块仓库，不写业务数据库；带凭证的配置和原图应放在版本控制之外。
 
 单次上传 / 重新解析可在请求体的 `process_config`（`KnowledgeProcessOverrides`）里按文档覆盖 `image_pipeline`、`image_pipeline_params`、`image_attrs_enabled` 与 `image_actions`；未传的项沿用知识库设置。`image_actions` 按 action key 合并（`on` 整体替换）。接口字段见[知识库 API](../04-api/02-api-knowledge.md)，管线细节见[文档解析](03-document-parsing.md)。
 

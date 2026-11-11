@@ -206,10 +206,10 @@ func TestSentAttachmentRemainsReadableAfterExpiryAndFork(t *testing.T) {
 }
 
 func TestAgentAttachmentParseWaitConfiguration(t *testing.T) {
-	t.Setenv("WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC", "90")
+	t.Setenv("GENYEE_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC", "90")
 	assert.Equal(t, 90*time.Second, agentAttachmentParseWait(&types.AgentConfig{}))
 	assert.Equal(t, 120*time.Second, agentAttachmentParseWait(&types.AgentConfig{AttachmentParseWaitTimeoutSec: 120}))
-	t.Setenv("WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC", "invalid")
+	t.Setenv("GENYEE_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC", "invalid")
 	assert.Equal(t, defaultAgentAttachmentParseWait, agentAttachmentParseWait(nil))
 }
 

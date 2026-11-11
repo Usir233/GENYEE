@@ -121,7 +121,7 @@ defaults:
 Profile 的解析链在 `cli/internal/cmdutil/factory.go`（`Factory.ActiveProfile`）中实现，优先级从高到低：
 
 1. 全局 `--profile <name>` flag（仅本次调用生效，不写盘）；
-2. 环境变量 `WEKNORA_PROFILE`；
+2. 环境变量 `GENYEE_PROFILE`；
 3. `config.yaml` 中的 `current_profile`（由 `genyee profile use` 持久化切换）。
 
 ### 无状态环境变量凭证（headless / CI / Agent 路径）
@@ -130,21 +130,21 @@ Profile 的解析链在 `cli/internal/cmdutil/factory.go`（`Factory.ActiveProfi
 
 | 环境变量 | 作用 |
 |---|---|
-| `WEKNORA_TOKEN` | Bearer JWT（优先于 `WEKNORA_API_KEY`） |
-| `WEKNORA_API_KEY` | API key |
-| `WEKNORA_HOST` | 服务器地址（未设置时回退到激活 profile 的 host） |
-| `WEKNORA_PROFILE` | 覆盖激活 profile |
-| `WEKNORA_KB_ID` | 显式指定知识库 id |
-| `WEKNORA_FORMAT` | 默认输出格式（text / json / ndjson） |
-| `WEKNORA_LOG_LEVEL` | SDK 日志级别（error / warn / info / debug） |
-| `WEKNORA_AGENT_HELP=1` | `--help` 时输出机器可读的 AgentHelp JSON（`cli/internal/cmdutil/agenthelp.go`） |
+| `GENYEE_TOKEN` | Bearer JWT（优先于 `GENYEE_API_KEY`） |
+| `GENYEE_API_KEY` | API key |
+| `GENYEE_HOST` | 服务器地址（未设置时回退到激活 profile 的 host） |
+| `GENYEE_PROFILE` | 覆盖激活 profile |
+| `GENYEE_KB_ID` | 显式指定知识库 id |
+| `GENYEE_FORMAT` | 默认输出格式（text / json / ndjson） |
+| `GENYEE_LOG_LEVEL` | SDK 日志级别（error / warn / info / debug） |
+| `GENYEE_AGENT_HELP=1` | `--help` 时输出机器可读的 AgentHelp JSON（`cli/internal/cmdutil/agenthelp.go`） |
 
 ### 知识库（--kb）解析链
 
 需要知识库作用域的命令（chat、doc、chunk、search chunks/docs 等）通过 `Factory.ResolveKB` 按 4 级回退解析（`cli/internal/cmdutil/factory.go`）：
 
 1. `--kb` flag（UUID 直接透传；名称则经 `ListKnowledgeBases` 做名称 → id 查找，见 `cli/internal/cmdutil/kb.go`）；
-2. `WEKNORA_KB_ID` 环境变量；
+2. `GENYEE_KB_ID` 环境变量；
 3. 项目链接文件 `.weknora/project.yaml`（由 `genyee link` 写入，从当前目录向上逐级查找，最多 64 层，见 `cli/internal/projectlink/projectlink.go`）；
 4. 均未命中则报 `local.kb_id_required` 错误。
 
@@ -158,7 +158,7 @@ JWT profile（同时持有 access + refresh token）会自动获得 401 透明�
 
 | Flag | 简写 | 说明 |
 |---|---|---|
-| `--format` | | 输出格式：`text` \| `json` \| `ndjson`。**默认 `json`**（与是否 TTY 无关，agent-first 设计；人类可显式 `--format text`）。环境变量 `WEKNORA_FORMAT` 可设默认，优先级：`--format` > `WEKNORA_FORMAT` > 默认 json |
+| `--format` | | 输出格式：`text` \| `json` \| `ndjson`。**默认 `json`**（与是否 TTY 无关，agent-first 设计；人类可显式 `--format text`）。环境变量 `GENYEE_FORMAT` 可设默认，优先级：`--format` > `GENYEE_FORMAT` > 默认 json |
 | `--jq` | `-q` | 用 jq 表达式过滤 JSON 输出（要求 `--format json|ndjson`；与显式 `--format text` 组合报错） |
 | `--profile` | | 本次调用覆盖激活 profile（不写盘） |
 | `--log-level` | | SDK 调试日志级别：error \| warn \| info \| debug |
@@ -211,7 +211,7 @@ JWT profile（同时持有 access + refresh token）会自动获得 401 透明�
 ### 机器自省
 
 - `genyee schema`（`cli/cmd/schema.go`）：无参数列出所有叶子命令 + 用途索引；`genyee schema kb create` 输出单个命令的完整契约（used_for、flags、examples、output、risk）；
-- `WEKNORA_AGENT_HELP=1 genyee <cmd> --help`：输出同源的 AgentHelp JSON；
+- `GENYEE_AGENT_HELP=1 genyee <cmd> --help`：输出同源的 AgentHelp JSON；
 - 未知子命令输出类型化 `input.unknown_subcommand` envelope，含 `suggestions`（did-you-mean）与可用子命令列表。
 
 ---
@@ -249,7 +249,7 @@ genyee profile list --format json
 
 ```bash
 genyee auth login                                    # 交互式（TTY）
-echo "$WEKNORA_API_KEY" | genyee auth login --with-token   # 非交互 / agent
+echo "$GENYEE_API_KEY" | genyee auth login --with-token   # 非交互 / agent
 genyee auth status --format json
 ```
 
@@ -497,11 +497,11 @@ genyee doctor --format json --jq '.data.summary.all_passed'
 
 ```bash
 cd cli
-WEKNORA_E2E_HOST=https://kb.example.com WEKNORA_E2E_TOKEN=eyJ... \
+GENYEE_E2E_HOST=https://kb.example.com GENYEE_E2E_TOKEN=eyJ... \
   go test -tags=acceptance_e2e -v ./acceptance/e2e/...
 ```
 
-`TestRAGFullLoop` 编译真实 CLI 二进制，通过 `WEKNORA_HOST`/`WEKNORA_TOKEN` 环境变量凭证路径（验证了无钥匙串的 headless 认证链路）驱动完整 RAG 闭环：**kb create（带模型绑定）→ doc upload → doc wait（等待索引）→ search → chat**，每一步解析上一步的 JSON envelope 提取 id，同时校验功能行为与 wire 契约稳定性；临时 KB 通过 `t.Cleanup` 保证测试失败也会清理。
+`TestRAGFullLoop` 编译真实 CLI 二进制，通过 `GENYEE_HOST`/`GENYEE_TOKEN` 环境变量凭证路径（验证了无钥匙串的 headless 认证链路）驱动完整 RAG 闭环：**kb create（带模型绑定）→ doc upload → doc wait（等待索引）→ search → chat**，每一步解析上一步的 JSON envelope 提取 id，同时校验功能行为与 wire 契约稳定性；临时 KB 通过 `t.Cleanup` 保证测试失败也会清理。
 
 此外 `cli/cmd/` 下还有横切的树级测试（非 acceptance 目录，但同样约束整树行为）：`required_positional_coverage_test.go`、`dryrun_coverage_test.go`、`agenthelp_coverage_test.go`、`root_unknown_subcommand_test.go` 等，确保每个叶子命令的位置参数校验、`--dry-run` 支持、AgentHelp 元数据与未知子命令处理全覆盖。
 

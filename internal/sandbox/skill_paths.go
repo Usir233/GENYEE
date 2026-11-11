@@ -110,7 +110,7 @@ func RunnableWorkspaceScriptIn(l WorkspaceLayout, scriptPath string) (string, bo
 // ValidatedSessionOutputDir normalises a configured artifact directory and
 // reports whether it may be used.
 //
-// It is the single gate for every WEKNORA_SKILL_OUTPUT_DIR override, wherever
+// It is the single gate for every GENYEE_SKILL_OUTPUT_DIR override, wherever
 // it comes from: the host environment the app reads at startup, or a tenant's
 // sandbox config. Without it the two disagreed — execution validated the path
 // and fell back to SessionOutputRoot, while the tools and the artifact

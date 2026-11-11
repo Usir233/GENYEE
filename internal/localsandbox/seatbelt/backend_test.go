@@ -542,11 +542,11 @@ func TestSeatbeltAllowsTmpAndDeniesVarFolders(t *testing.T) {
 	workspace := filepath.Join(home, "Documents", "WeKnora", "s1")
 	require.NoError(t, os.MkdirAll(workspace, 0o755))
 
-	tmpSecret := filepath.Join("/tmp", "weknora-seatbelt-"+t.Name())
+	tmpSecret := filepath.Join("/tmp", "genyee-seatbelt-"+t.Name())
 	require.NoError(t, os.WriteFile(tmpSecret, []byte("TMPSECRET"), 0o600))
 	t.Cleanup(func() { _ = os.Remove(tmpSecret) })
 
-	vfSecret := filepath.Join(os.TempDir(), "weknora-seatbelt-"+t.Name())
+	vfSecret := filepath.Join(os.TempDir(), "genyee-seatbelt-"+t.Name())
 	require.NoError(t, os.WriteFile(vfSecret, []byte("VFSECRET"), 0o600))
 	t.Cleanup(func() { _ = os.Remove(vfSecret) })
 
@@ -568,7 +568,7 @@ func TestSeatbeltAllowsTmpAndDeniesVarFolders(t *testing.T) {
 	require.Equal(t, 0, status.Code, out)
 	require.Contains(t, out, "TMPSECRET")
 
-	tmpOut := filepath.Join("/tmp", "weknora-seatbelt-out-"+t.Name())
+	tmpOut := filepath.Join("/tmp", "genyee-seatbelt-out-"+t.Name())
 	t.Cleanup(func() { _ = os.Remove(tmpOut) })
 	status, out = runSandboxedArgv(t, backend, p, append(noProfile, `echo from-sandbox > `+tmpOut+` && cat `+tmpOut), env)
 	require.Equal(t, 0, status.Code, out)
@@ -593,7 +593,7 @@ func TestSeatbeltPrepareResolvesTmpAlias(t *testing.T) {
 	backend, err := New()
 	require.NoError(t, err)
 
-	logical, err := os.MkdirTemp("/tmp", "weknora-seatbelt-")
+	logical, err := os.MkdirTemp("/tmp", "genyee-seatbelt-")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = os.RemoveAll(logical) })
 

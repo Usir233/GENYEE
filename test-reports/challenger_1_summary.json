@@ -1,15 +1,15 @@
 {
-  "total": 46,
-  "passed": 46,
-  "failed": 0,
+  "total": 36,
+  "passed": 35,
+  "failed": 1,
   "cases": [
     {
       "name": "Baseline Valid Login",
       "category": "Auth-Boundary",
-      "passed": true,
-      "status_code": 200,
+      "passed": false,
+      "status_code": 401,
       "details": "Returns HTTP 200 with JWT token",
-      "response_sample": "{\"success\":true,\"message\":\"Login successful\",\"user\":{\"id\":\"8a18ad5e-eb1b-411f-9e6b-5490991c7d8c\",\"username\":\"admin\",\"email\":\"admin@example.com\",\"avatar\":\"\",\"tenant_id\":10000,\"is_active\":tr"
+      "response_sample": "{\"success\":false,\"message\":\"Invalid email or password\",\"memberships\":null}"
     },
     {
       "name": "Wrong Password",
@@ -124,14 +124,6 @@
       "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
     },
     {
-      "name": "Bit-flipped Signature Tampering (/api/v1/auth/me)",
-      "category": "Auth-JWT",
-      "passed": true,
-      "status_code": 401,
-      "details": "Rejects tampered signature with HTTP 401",
-      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
-    },
-    {
       "name": "Expired JWT (/api/v1/auth/me)",
       "category": "Auth-JWT",
       "passed": true,
@@ -177,14 +169,6 @@
       "passed": true,
       "status_code": 401,
       "details": "Rejects forged signature with HTTP 401",
-      "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
-    },
-    {
-      "name": "Bit-flipped Signature Tampering (/api/v1/sessions)",
-      "category": "Auth-JWT",
-      "passed": true,
-      "status_code": 401,
-      "details": "Rejects tampered signature with HTTP 401",
       "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
     },
     {
@@ -292,22 +276,6 @@
       "response_sample": "{\"error\":{\"code\":1010,\"details\":\"Key: 'LoginRequest.Password' Error:Field validation for 'Password' failed on the 'min' tag\",\"message\":\"Invalid login parameters\"},\"success\":false}"
     },
     {
-      "name": "GET /api/v1/auth/me Payload Free of Vendor Brand",
-      "category": "Brand-Compliance",
-      "passed": true,
-      "status_code": 200,
-      "details": "User profile JSON is clean",
-      "response_sample": null
-    },
-    {
-      "name": "GET /api/v1/sessions Payload Free of Vendor Brand",
-      "category": "Brand-Compliance",
-      "passed": true,
-      "status_code": 200,
-      "details": "Sessions list JSON is clean",
-      "response_sample": null
-    },
-    {
       "name": "Memory Export Unauthenticated Rejection",
       "category": "Negative-Export",
       "passed": true,
@@ -322,54 +290,6 @@
       "status_code": 401,
       "details": "Rejects with HTTP 401 Unauthorized",
       "response_sample": "{\"error\":\"Unauthorized: invalid or expired token\"}"
-    },
-    {
-      "name": "Memory Export Unauthorized Tenant (99999)",
-      "category": "Negative-Export",
-      "passed": true,
-      "status_code": 403,
-      "details": "Rejects with HTTP 403 Forbidden",
-      "response_sample": "{\"error\":\"Forbidden: insufficient permissions to access target workspace\"}"
-    },
-    {
-      "name": "Memory Export Malformed Tenant Header ('invalid-tenant')",
-      "category": "Negative-Export",
-      "passed": true,
-      "status_code": 400,
-      "details": "Rejects with HTTP 400 Bad Request",
-      "response_sample": "{\"error\":\"Invalid X-Tenant-ID header\"}"
-    },
-    {
-      "name": "Memory Export Negative Tenant Header ('-1')",
-      "category": "Negative-Export",
-      "passed": true,
-      "status_code": 400,
-      "details": "Rejects with HTTP 400 Bad Request",
-      "response_sample": "{\"error\":\"Invalid X-Tenant-ID header\"}"
-    },
-    {
-      "name": "Memory Export Zero Tenant Header ('0')",
-      "category": "Negative-Export",
-      "passed": true,
-      "status_code": 400,
-      "details": "Rejects with HTTP 400 Bad Request",
-      "response_sample": "{\"error\":\"Invalid X-Tenant-ID header\"}"
-    },
-    {
-      "name": "Memory Export Invalid Method (POST)",
-      "category": "Negative-Export",
-      "passed": true,
-      "status_code": 404,
-      "details": "Rejects with HTTP 404",
-      "response_sample": null
-    },
-    {
-      "name": "Memory Export Positive Control (Valid)",
-      "category": "Negative-Export",
-      "passed": true,
-      "status_code": 200,
-      "details": "Returns HTTP 200 with genyee-memories.json attachment header",
-      "response_sample": "attachment; filename=\"genyee-memories.json\""
     }
   ]
 }

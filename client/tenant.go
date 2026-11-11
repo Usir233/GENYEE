@@ -43,7 +43,7 @@ type Tenant struct {
 	// Storage used (Bytes)
 	StorageUsed int64 `yaml:"storage_used"      json:"storage_used"      gorm:"default:0"`
 	// APIKey is only populated by CreateTenant when the server has
-	// tenant.auto_create_api_key (env WEKNORA_TENANT_AUTO_CREATE_API_KEY)
+	// tenant.auto_create_api_key (env GENYEE_TENANT_AUTO_CREATE_API_KEY)
 	// enabled: it carries the plaintext token of an auto-created full_access
 	// key. Empty otherwise. Save it on receipt — it is never returned again.
 	APIKey string `yaml:"api_key,omitempty" json:"api_key,omitempty"`

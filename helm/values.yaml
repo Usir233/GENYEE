@@ -121,7 +121,7 @@ app:
     # Docker sandbox talks to a local Engine API (often docker.sock = host root).
     # Leave false unless this is a private single-node install that also mounts
     # the daemon socket or points at a remote tcp:// daemon with TLS.
-    WEKNORA_SANDBOX_DOCKER_ENABLED: "false"
+    GENYEE_SANDBOX_DOCKER_ENABLED: "false"
 
   # -- Additional environment variables
   extraEnv: []
@@ -194,7 +194,7 @@ frontend:
   replicaCount: 1
 
   # -- Optional public UI integration links. Empty values keep integrations off.
-  # The cloud integration switch is shared with app.env.WEKNORA_WEKNORACLOUD_ENABLED.
+  # The cloud integration switch is shared with app.env.GENYEE_WEKNORACLOUD_ENABLED.
   env:
     DEFAULT_LOCALE: ""
     GENYEE_CHROME_EXTENSION_URL: ""

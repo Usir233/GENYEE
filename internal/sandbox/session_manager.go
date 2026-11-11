@@ -55,21 +55,21 @@ const SessionInputRoot = workspace.InputDir
 // do not depend on the template user being able to mkdir under /workspace.
 const SessionOutputRoot = workspace.OutputDir
 
-// skillOutputEnvVar matches the skills manager's WEKNORA_SKILL_OUTPUT_DIR.
-const skillOutputEnvVar = "WEKNORA_SKILL_OUTPUT_DIR"
+// skillOutputEnvVar matches the skills manager's GENYEE_SKILL_OUTPUT_DIR.
+const skillOutputEnvVar = "GENYEE_SKILL_OUTPUT_DIR"
 
-// sessionInputEnvVar matches the skills manager's WEKNORA_SESSION_INPUT_DIR.
+// sessionInputEnvVar matches the skills manager's GENYEE_SESSION_INPUT_DIR.
 // Both names are injected into the sandbox environment itself, not only into
 // the skill-script Execute call, so an agent exploring with shell_exec reads
 // the same paths the skills framework uses.
-const sessionInputEnvVar = "WEKNORA_SESSION_INPUT_DIR"
+const sessionInputEnvVar = "GENYEE_SESSION_INPUT_DIR"
 
 // Injected into every exec so the agent-browser wrapper can isolate one
 // session from the others on a shared machine. Set last: neither config nor
 // model-supplied env may redirect them.
 const (
-	sessionIDEnvVar   = "WEKNORA_SESSION_ID"
-	browserRootEnvVar = "WEKNORA_BROWSER_ROOT"
+	sessionIDEnvVar   = "GENYEE_SESSION_ID"
+	browserRootEnvVar = "GENYEE_BROWSER_ROOT"
 )
 
 // SessionWorkspaceRoot is the writable workspace root inside remote sandboxes.
@@ -486,7 +486,7 @@ func withWorkspaceEnvDefaults(env map[string]string) map[string]string {
 }
 
 // executionOutputDir resolves the artifact directory for this Execute call.
-// It prefers WEKNORA_SKILL_OUTPUT_DIR from cfg.Env when the path stays under
+// It prefers GENYEE_SKILL_OUTPUT_DIR from cfg.Env when the path stays under
 // SessionWorkspaceRoot; otherwise it falls back to SessionOutputRoot.
 func executionOutputDir(cfg *ExecuteConfig) string {
 	if cfg != nil && cfg.Env != nil {
@@ -779,7 +779,7 @@ func (m *SessionBoundManager) WriteSessionWorkspaceFiles(
 	parents := make(map[string]struct{}, len(files))
 	for _, file := range files {
 		// Session mode keeps the historical cleaner, which is pinned to
-		// /workspace and ignores a host WEKNORA_SKILL_OUTPUT_DIR overlay.
+		// /workspace and ignores a host GENYEE_SKILL_OUTPUT_DIR overlay.
 		clean, err := cleanSessionWorkspaceWritePath(file.Path)
 		if sc.user {
 			clean, err = workspace.CleanWriteFileIn(sc.layout, file.Path)
@@ -1229,7 +1229,7 @@ func (m *SessionBoundManager) SessionInstallShellExecutor() SessionInstallShellE
 }
 
 // SessionWorkspaceLayout reports where sessionID's files live. A session-owned
-// machine keeps the /workspace contract (a validated WEKNORA_SKILL_OUTPUT_DIR
+// machine keeps the /workspace contract (a validated GENYEE_SKILL_OUTPUT_DIR
 // overlays OutputDir). A shared machine reports that session's directory.
 // Lookups do not admit and do not require a tenant: tool descriptions call
 // this before any provider operation.
@@ -2437,8 +2437,8 @@ func withSessionEnv(env map[string]string, layout WorkspaceLayout) map[string]st
 // already holds and refreshes that seat's idleness clock (mtime), so a
 // session that nobody watches never pays for a screen. A missing wk-display
 // (older image, local shell) leaves the command untouched.
-const sessionDisplayPrefix = `if command -v wk-display >/dev/null 2>&1 && [ -n "${WEKNORA_SESSION_ID:-}" ]; then
-  _wk_seat=$(wk-display where "$WEKNORA_SESSION_ID" 2>/dev/null) || true
+const sessionDisplayPrefix = `if command -v wk-display >/dev/null 2>&1 && [ -n "${GENYEE_SESSION_ID:-}" ]; then
+  _wk_seat=$(wk-display where "$GENYEE_SESSION_ID" 2>/dev/null) || true
   case "${_wk_seat:-}" in
     ''|*[!0-9]*) unset DISPLAY WK_SEAT ;;
     *) export DISPLAY=":$_wk_seat" WK_SEAT="$_wk_seat" ;;

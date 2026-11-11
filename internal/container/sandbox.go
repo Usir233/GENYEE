@@ -33,7 +33,7 @@ func newSandboxManager(
 // sandboxRedisNamespace is the Redis key prefix shared by session bindings
 // and user-machine digests. An empty env var means the historical default.
 func sandboxRedisNamespace() string {
-	namespace := strings.TrimSpace(os.Getenv("WEKNORA_REDIS_NAMESPACE"))
+	namespace := strings.TrimSpace(os.Getenv("GENYEE_REDIS_NAMESPACE"))
 	if namespace == "" {
 		namespace = "weknora"
 	}

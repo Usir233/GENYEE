@@ -133,7 +133,7 @@ const installCommand = 'genyee skills install'
 
 const envExample = computed(() => {
   const base = apiBaseUrlDisplay.value || 'https://your-server.com/api/v1'
-  return `export WEKNORA_BASE_URL="${base}"\nexport WEKNORA_API_KEY="sk-your-api-key"`
+  return `export GENYEE_BASE_URL="${base}"\nexport GENYEE_API_KEY="sk-your-api-key"`
 })
 
 const openClawHub = () => {

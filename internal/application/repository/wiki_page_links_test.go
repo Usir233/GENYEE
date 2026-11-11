@@ -39,9 +39,9 @@ func wikiInLinkBackends(t *testing.T, test func(*testing.T, *gorm.DB, wikiBackli
 				require.NoError(t, err)
 				require.NoError(t, db.Exec(wikiPagesTestDDL).Error)
 			} else {
-				dsn := os.Getenv("WEKNORA_REPOSITORY_TEST_POSTGRES_DSN")
+				dsn := os.Getenv("GENYEE_REPOSITORY_TEST_POSTGRES_DSN")
 				if dsn == "" {
-					t.Skip("设置 WEKNORA_REPOSITORY_TEST_POSTGRES_DSN 才运行隔离 PostgreSQL 反链测试")
+					t.Skip("设置 GENYEE_REPOSITORY_TEST_POSTGRES_DSN 才运行隔离 PostgreSQL 反链测试")
 				}
 				admin, openErr := gorm.Open(postgres.Open(dsn), config)
 				require.NoError(t, openErr)

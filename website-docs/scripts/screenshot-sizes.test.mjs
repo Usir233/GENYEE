@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { readScreenshotSizes } from '../.vitepress/screenshot-sizes.mjs';
 
 test('reserves each screenshot intrinsic ratio and picks up replacement dimensions', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'weknora-shot-sizes-'));
+  const dir = mkdtempSync(join(tmpdir(), 'genyee-shot-sizes-'));
   try {
     // IHDR bytes from a PNG header; the extractor deliberately does not decode pixels.
     const header = Buffer.from('89504e470d0a1a0a0000000d4948445200000f0000000840', 'hex');

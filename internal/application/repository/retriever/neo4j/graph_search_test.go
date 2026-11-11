@@ -51,9 +51,9 @@ func TestGraphSearchProjectionValidation(t *testing.T) {
 }
 
 func TestGraphSearchIntegration(t *testing.T) {
-	uri := os.Getenv("WEKNORA_NEO4J_TEST_URI")
+	uri := os.Getenv("GENYEE_NEO4J_TEST_URI")
 	if uri == "" {
-		t.Skip("set WEKNORA_NEO4J_TEST_URI to run the live public graph-query regression")
+		t.Skip("set GENYEE_NEO4J_TEST_URI to run the live public graph-query regression")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()

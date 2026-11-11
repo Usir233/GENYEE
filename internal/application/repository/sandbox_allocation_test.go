@@ -43,7 +43,7 @@ func newAllocationRepo(t *testing.T) (*sandboxAllocationRepository, *gorm.DB) {
 }
 
 // integrationEnv returns an integration dependency's address. Missing, the
-// test is skipped — unless WEKNORA_REQUIRE_INTEGRATION=1, which turns the
+// test is skipped — unless GENYEE_REQUIRE_INTEGRATION=1, which turns the
 // skip into a failure so an enablement run cannot pass by skipping.
 func integrationEnv(t *testing.T, name string) string {
 	t.Helper()
@@ -51,8 +51,8 @@ func integrationEnv(t *testing.T, name string) string {
 	if v != "" {
 		return v
 	}
-	if os.Getenv("WEKNORA_REQUIRE_INTEGRATION") == "1" {
-		t.Fatalf("%s is required when WEKNORA_REQUIRE_INTEGRATION=1", name)
+	if os.Getenv("GENYEE_REQUIRE_INTEGRATION") == "1" {
+		t.Fatalf("%s is required when GENYEE_REQUIRE_INTEGRATION=1", name)
 	}
 	t.Skipf("set %s to run against a real dependency", name)
 	return ""
@@ -68,7 +68,7 @@ func allocationBackends(t *testing.T, fn func(t *testing.T, repo *sandboxAllocat
 		fn(t, repo, db)
 	})
 	t.Run("postgres", func(t *testing.T) {
-		dsn := integrationEnv(t, "WEKNORA_REPOSITORY_TEST_POSTGRES_DSN")
+		dsn := integrationEnv(t, "GENYEE_REPOSITORY_TEST_POSTGRES_DSN")
 		db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 		require.NoError(t, err)
 		sqlDB, err := db.DB()
@@ -783,7 +783,7 @@ func TestSandboxAllocationOnTheMigratedSQLiteSchema(t *testing.T) {
 }
 
 func TestPostgresRetireRacingFirstPlacementNeverLeavesALiveAssignment(t *testing.T) {
-	dsn := integrationEnv(t, "WEKNORA_REPOSITORY_TEST_POSTGRES_DSN")
+	dsn := integrationEnv(t, "GENYEE_REPOSITORY_TEST_POSTGRES_DSN")
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
 	sqlDB, err := db.DB()

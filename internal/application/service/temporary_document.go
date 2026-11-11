@@ -77,7 +77,7 @@ func NewTemporaryDocumentService(
 }
 
 func temporaryDocumentTTL() time.Duration {
-	if raw := strings.TrimSpace(os.Getenv("WEKNORA_CHAT_ATTACHMENT_TTL_HOURS")); raw != "" {
+	if raw := strings.TrimSpace(os.Getenv("GENYEE_CHAT_ATTACHMENT_TTL_HOURS")); raw != "" {
 		if hours, err := strconv.Atoi(raw); err == nil && hours > 0 {
 			return time.Duration(hours) * time.Hour
 		}

@@ -23,7 +23,7 @@ import (
 const (
 	defaultPollInterval = 3 * time.Second
 	// defaultCloudTimeout bounds how long one batch is polled;
-	// WEKNORA_MINERU_CLOUD_TIMEOUT overrides it for documents that take longer.
+	// GENYEE_MINERU_CLOUD_TIMEOUT overrides it for documents that take longer.
 	defaultCloudTimeout = 30 * time.Minute
 	defaultBaseURL      = "https://mineru.net/api/v4"
 )
@@ -47,7 +47,7 @@ func NewMinerUCloudReader(overrides map[string]string) *MinerUCloudReader {
 	return &MinerUCloudReader{
 		apiKey:        strings.TrimSpace(overrides["mineru_api_key"]),
 		baseURL:       defaultBaseURL,
-		timeout:       requestTimeoutFromEnv("WEKNORA_MINERU_CLOUD_TIMEOUT", defaultCloudTimeout),
+		timeout:       requestTimeoutFromEnv("GENYEE_MINERU_CLOUD_TIMEOUT", defaultCloudTimeout),
 		pollInterval:  defaultPollInterval,
 		model:         stringOr(overrides["mineru_cloud_model"], "pipeline"),
 		formulaEnable: parseBoolOr(overrides["mineru_cloud_enable_formula"], true),

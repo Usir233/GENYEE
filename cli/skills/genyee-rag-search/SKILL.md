@@ -40,7 +40,7 @@ one wastes turns or returns the wrong shape. Use the decision table.
 ## Safety / Gotchas
 
 - `chat`, `search chunks`, `search docs` need a KB: pass `--kb <id-or-name>`, or
-  set `WEKNORA_KB_ID`, or `genyee link` the directory (resolved in that order).
+  set `GENYEE_KB_ID`, or `genyee link` the directory (resolved in that order).
   If none resolves it's exit 1 (`local.kb_id_required`); a bad name is exit 1
   (`local.kb_not_found`). Resolve names with `genyee kb list` / `search kb`.
   (`search kb` / `search sessions` are tenant-wide and take no `--kb`.)

@@ -155,10 +155,10 @@ IM、网页嵌入和 API 调用产生的会话，分别按 IM 身份、访客或
 
 | 配置项 | 默认值 | 作用 |
 | --- | --- | --- |
-| `WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC` | 60 秒 | 快速问答或智能体按需读取时，等待附件完成解析的上限 |
-| `WEKNORA_CHAT_ATTACHMENT_TTL_HOURS` | 24 小时 | 未被有效会话消息引用的附件清理期限，从上传时起计算 |
-| `WEKNORA_CHAT_ATTACHMENT_OCR_CONCURRENCY` | 8 | OCR 并发数 |
-| `WEKNORA_CHAT_ATTACHMENT_OCR_MAX_PAGES` | 8 | OCR 页数上限 |
+| `GENYEE_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC` | 60 秒 | 快速问答或智能体按需读取时，等待附件完成解析的上限 |
+| `GENYEE_CHAT_ATTACHMENT_TTL_HOURS` | 24 小时 | 未被有效会话消息引用的附件清理期限，从上传时起计算 |
+| `GENYEE_CHAT_ATTACHMENT_OCR_CONCURRENCY` | 8 | OCR 并发数 |
+| `GENYEE_CHAT_ATTACHMENT_OCR_MAX_PAGES` | 8 | OCR 页数上限 |
 
 智能体配置中的 `supported_file_types` 限定允许上传的类型，`attachment_image_understanding` 控制图片理解，`chat_parser_engine_rules` 指定附件解析引擎。
 

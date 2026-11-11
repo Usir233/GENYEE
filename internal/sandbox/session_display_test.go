@@ -17,7 +17,7 @@ func TestWithSessionDisplayPinsTheHeldSeat(t *testing.T) {
 	cmd := exec.Command("bash", "-c", WithSessionDisplay(`printf '%s %s\n' "$DISPLAY" "$WK_SEAT"`))
 	cmd.Env = append(os.Environ(),
 		"PATH="+dir,
-		"WEKNORA_SESSION_ID=sid-A",
+		"GENYEE_SESSION_ID=sid-A",
 		"DISPLAY=:0",
 	)
 	out, err := cmd.Output()
@@ -39,7 +39,7 @@ func TestWithSessionDisplayDoesNotClaimWhenTheSessionHoldsNothing(t *testing.T) 
 		WithSessionDisplay(`printf '%s %s\n' "${DISPLAY-unset}" "${WK_SEAT-unset}"`))
 	cmd.Env = append(os.Environ(),
 		"PATH="+dir,
-		"WEKNORA_SESSION_ID=sid-A",
+		"GENYEE_SESSION_ID=sid-A",
 		"CLAIM_MARKER="+marker,
 		"DISPLAY=:0", // a preset DISPLAY must be dropped, not reused
 	)
@@ -51,7 +51,7 @@ func TestWithSessionDisplayDoesNotClaimWhenTheSessionHoldsNothing(t *testing.T) 
 
 func TestWithSessionDisplayLeavesTheCommandAloneWithoutWkDisplay(t *testing.T) {
 	cmd := exec.Command("bash", "-c", WithSessionDisplay(`printf '%s\n' untouched`))
-	cmd.Env = append(os.Environ(), "PATH=/usr/bin:/bin", "WEKNORA_SESSION_ID=sid-A")
+	cmd.Env = append(os.Environ(), "PATH=/usr/bin:/bin", "GENYEE_SESSION_ID=sid-A")
 	out, err := cmd.Output()
 	require.NoError(t, err)
 	require.Equal(t, "untouched\n", string(out))

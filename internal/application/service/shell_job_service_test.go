@@ -17,7 +17,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
-var shellJobMarkerInScript = regexp.MustCompile(`__WEKNORA_SJ___[0-9a-f]{12}__`)
+var shellJobMarkerInScript = regexp.MustCompile(`__GENYEE_SJ___[0-9a-f]{12}__`)
 
 // fakeRemoteReader 模拟批量读取，签名与 remoteReadFunc 缝一致。它必须忠实
 // 履行契约：len(snapshots)==len(ids) 恒成立、缺席任务给 Missing 占位、

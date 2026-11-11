@@ -234,7 +234,7 @@ info, err := s.task.Enqueue(task)
 
 ### 失败重试语义 {#_4-3-失败重试语义}
 
-- `TypeDocumentProcess`：`MaxRetry(3)` → 初始 + 3 次重试共 4 次尝试；每次尝试受 `DocumentProcessTimeout`（默认 2 小时，环境变量 `WEKNORA_DOCUMENT_PROCESS_TIMEOUT`）约束，其中单次 docreader 调用另受 `WEKNORA_DOCREADER_CALL_TIMEOUT`（默认 30 分钟）约束。
+- `TypeDocumentProcess`：`MaxRetry(3)` → 初始 + 3 次重试共 4 次尝试；每次尝试受 `DocumentProcessTimeout`（默认 2 小时，环境变量 `GENYEE_DOCUMENT_PROCESS_TIMEOUT`）约束，其中单次 docreader 调用另受 `GENYEE_DOCREADER_CALL_TIMEOUT`（默认 30 分钟）约束。
 - 处理函数内的 panic 会被转换为错误交给重试与死信流程，最后一次失败时文档标为 `failed`；Lite 模式的执行器同样捕获 panic，不会导致进程退出。
 - Payload 携带 `Attempt`（重新解析时取历史最大 attempt+1）；Span Tracker 用 attempt 隔离每轮处理的进度树，新 attempt 会"取代"（supersede）旧任务的收尾动作。
 - 处理函数区分"是否最后一次 asynq 尝试"（`isLastRetry`）：非最后一次的失败直接返回错误让 asynq 重试，最后一次才把 `ParseStatus` 落为 `failed` 并写 `ErrorMessage`。读租户、读知识行或写 `processing` 状态时遇到数据库瞬时错误也返回错误重试，不再直接确认任务；只有知识行确实不存在时才静默结束。
@@ -456,7 +456,7 @@ stateDiagram-v2
 
 ## Housekeeping 自愈（knowledge_housekeeping.go） {#_8-housekeeping-自愈-knowledge-housekeeping-go}
 
-后台每 **5 分钟**一轮（`WEKNORA_HOUSEKEEPING_ENABLED` 可关闭），修复因 worker 崩溃 / Redis 丢任务导致的僵尸状态：
+后台每 **5 分钟**一轮（`GENYEE_HOUSEKEEPING_ENABLED` 可关闭），修复因 worker 崩溃 / Redis 丢任务导致的僵尸状态：
 
 **Sweep A —— 卡死知识恢复**，三阶段过滤：
 

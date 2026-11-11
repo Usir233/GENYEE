@@ -235,7 +235,7 @@ test_t1_parquet_zero_msmarco() {
     return 0
 }
 
-# TC-T1-04: Synthetic dataset provenance documented in dataset/README & zero MS MARCO in generator
+# TC-T1-04: Synthetic dataset provenance documented in README & zero MS MARCO in generator
 test_t1_docs_zero_msmarco() {
     local matches
     matches=$(grep -rn -E -i "ms marco|mmarco" dataset/qa_dataset.py || true)
@@ -246,6 +246,10 @@ test_t1_docs_zero_msmarco() {
     fi
     if ! grep -q "synthetic evaluation samples authored by GENYEE" dataset/README; then
         echo "dataset/README missing synthetic dataset provenance documentation" >&2
+        return 1
+    fi
+    if ! grep -q "由 GENYEE 编写的合成评估样本" dataset/README_zh.md; then
+        echo "dataset/README_zh.md missing synthetic dataset provenance documentation" >&2
         return 1
     fi
     return 0
@@ -382,7 +386,7 @@ run_tier_1() {
     run_test "TC-T1-01" "Parquet evaluation dataset existence (5 files)" test_t1_parquet_exists
     run_test "TC-T1-02" "Parquet schema compliance (int64 IDs, string text)" test_t1_parquet_schemas
     run_test "TC-T1-03" "Zero non-commercial MS MARCO strings in Parquet files" test_t1_parquet_zero_msmarco
-    run_test "TC-T1-04" "Zero MS MARCO strings in dataset docs & scripts" test_t1_docs_zero_msmarco
+    run_test "TC-T1-04" "Zero MS MARCO in dataset generator script & provenance documented in README" test_t1_docs_zero_msmarco
     run_test "TC-T1-05" "Go DatasetService GetDatasetByID functional execution" test_t1_go_dataset_service
     run_test "TC-T1-06" "Python dataset CLI model unit tests" test_t1_python_dataset_tests
     run_test "TC-T1-07" "Docreader textract absence in config, lock & parser" test_t1_docreader_no_textract
@@ -459,9 +463,28 @@ test_t2_license_guard_reintroduction_rejection() {
         return 1
     fi
 
-    local test_str="github.com/shakinm/xlsReader v0.0.0-2023"
-    if ! echo "${test_str}" | grep -Eq 'github.com/(longbridgeapp/opencc|liuzl/(da|cedar-go)|adamzy/cedar-go|shakinm/xlsReader)([[:space:]]|$)'; then
-        echo "Regex guard failed to match prohibited package: ${test_str}" >&2
+    local tmp_dir
+    tmp_dir=$(mktemp -d)
+    trap 'rm -rf "${tmp_dir}"' RETURN
+
+    cat << 'EOF' > "${tmp_dir}/go.mod"
+module testfixture
+
+go 1.22
+
+require github.com/shakinm/xlsReader v0.0.1
+EOF
+    touch "${tmp_dir}/go.sum"
+
+    local output
+    local status=0
+    output=$(LICENSE_ROOT="${tmp_dir}" "${REPO_ROOT}/scripts/check-license-bundle.sh" 2>&1) || status=$?
+    if [ "${status}" -eq 0 ]; then
+        echo "scripts/check-license-bundle.sh falsely accepted prohibited dependency shakinm/xlsReader" >&2
+        return 1
+    fi
+    if ! echo "${output}" | grep -q "Removed conversion dependencies have reappeared in go.mod/go.sum"; then
+        echo "scripts/check-license-bundle.sh failed with unexpected error: ${output}" >&2
         return 1
     fi
     return 0
@@ -490,16 +513,16 @@ run_tier_2() {
 # TIER 3: Default-Off Cloud/Telemetry & Third-Party Publisher Gating
 # ==============================================================================
 
-# TC-T3-01: WeKnoraCloud gated behind WEKNORA_WEKNORACLOUD_ENABLED (default false)
+# TC-T3-01: WeKnoraCloud gated behind GENYEE_WEKNORACLOUD_ENABLED (default false)
 test_t3_weknoracloud_default_off() {
-    if ! grep -q 'os.Getenv("WEKNORA_WEKNORACLOUD_ENABLED")' internal/types/weknoracloud.go; then
-        echo "internal/types/weknoracloud.go does not gate WeKnoraCloud via WEKNORA_WEKNORACLOUD_ENABLED" >&2
+    if ! grep -q 'os.Getenv("GENYEE_WEKNORACLOUD_ENABLED")' internal/types/weknoracloud.go; then
+        echo "internal/types/weknoracloud.go does not gate WeKnoraCloud via GENYEE_WEKNORACLOUD_ENABLED" >&2
         return 1
     fi
     if ! grep -q 'types.IsWeKnoraCloudEnabled()' internal/handler/system.go || \
        ! grep -q 'types.IsWeKnoraCloudEnabled()' internal/application/service/weknoracloud.go || \
-       ! grep -q 'WEKNORA_WEKNORACLOUD_ENABLED' frontend/src/utils/weknoraCloudModels.ts; then
-        echo "Backend/frontend WeKnoraCloud gating via IsWeKnoraCloudEnabled() / WEKNORA_WEKNORACLOUD_ENABLED missing" >&2
+       ! grep -q 'GENYEE_WEKNORACLOUD_ENABLED' frontend/src/utils/weknoraCloudModels.ts; then
+        echo "Backend/frontend WeKnoraCloud gating via IsWeKnoraCloudEnabled() / GENYEE_WEKNORACLOUD_ENABLED missing" >&2
         return 1
     fi
     return 0
@@ -587,7 +610,7 @@ run_tier_3() {
     echo -e "${C_BOLD}${C_BLUE}[TIER 3] Default-Off Cloud/Telemetry & Third-Party Publisher Gating${C_RESET}"
     echo -e "${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
 
-    run_test "TC-T3-01" "WeKnoraCloud gated behind WEKNORA_WEKNORACLOUD_ENABLED (default off)" test_t3_weknoracloud_default_off
+    run_test "TC-T3-01" "WeKnoraCloud gated behind GENYEE_WEKNORACLOUD_ENABLED (default off)" test_t3_weknoracloud_default_off
     run_test "TC-T3-02" "Chrome & Claw gated by runtime URLs & zero @lyingbug/weknora" test_t3_chrome_claw_gated_and_clean
     run_test "TC-T3-03" "Langfuse profile-gated, PROFILES=\"\", no cloud.langfuse.com default" test_t3_langfuse_gated_and_no_cloud_default
     run_test "TC-T3-04" "Desktop auto-update disabled by default & no Tencent GitHub URL" test_t3_desktop_autoupdate_disabled_by_default
@@ -635,12 +658,12 @@ test_t4_hero_svgs_clean() {
     return 0
 }
 
-# TC-T4-03: README.md, README_CN.md, README_JA.md, README_KO.md contain zero weknora.weixin.qq.com links
+# TC-T4-03: README*.md, docs/, and misc/ contain zero weknora.weixin.qq.com links
 test_t4_readmes_no_weixin_links() {
     local matches
-    matches=$(grep -n "weknora.weixin.qq.com" README.md README_CN.md README_JA.md README_KO.md || true)
+    matches=$(git grep -n "weknora\.weixin\.qq\.com" -- 'README*.md' 'docs/' 'misc/' || true)
     if [[ -n "${matches}" ]]; then
-        echo "Found weknora.weixin.qq.com links in README files:" >&2
+        echo "Found weknora.weixin.qq.com links in documentation and asset files:" >&2
         echo "${matches}" >&2
         return 1
     fi
@@ -696,7 +719,7 @@ run_tier_4() {
 
     run_test "TC-T4-01" "Desktop wails.json & Info.plist use GENYEE Lite & com.genyee.lite" test_t4_desktop_branding
     run_test "TC-T4-02" "All 8 docs/images/readme/hero-*.svg clean of Tencent/腾讯" test_t4_hero_svgs_clean
-    run_test "TC-T4-03" "README*.md files contain zero weknora.weixin.qq.com links" test_t4_readmes_no_weixin_links
+    run_test "TC-T4-03" "README*.md, docs/, and misc/ contain zero weknora.weixin.qq.com links" test_t4_readmes_no_weixin_links
     run_test "TC-T4-04" "Swagger docs clean of github_com_Tencent_ & pass contract tests" test_t4_swagger_clean_and_valid
     run_test "TC-T4-05" "Self-built images use genyee/genyee-* & Helm pins Redis 7.2-alpine" test_t4_image_parameterization_and_helm
 }
@@ -768,7 +791,10 @@ test_t5_zero_hardcoded_user_paths() {
     local p12="月度经营""分析"
     local p13="reconstructed ""GENYEE"
     local p14="commercial ""rebranding"
-    local pattern="${p1}|${p2}|${p3}|${p4}|${p5}|${p6}|${p7}|${p8}|${p9}|${p10}|${p11}|${p12}|${p13}|${p14}"
+    local p15="\.woa""\.com"
+    local p16="\.oa""\.com"
+    local p17="9月13日""周报"
+    local pattern="${p1}|${p2}|${p3}|${p4}|${p5}|${p6}|${p7}|${p8}|${p9}|${p10}|${p11}|${p12}|${p13}|${p14}|${p15}|${p16}|${p17}"
     local matches
     matches=$(git grep -n -E "${pattern}" -- . ':!scripts/verify-commercial-compliance.sh' || true)
     if [[ -n "${matches}" ]]; then

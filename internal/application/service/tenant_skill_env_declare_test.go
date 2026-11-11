@@ -19,7 +19,7 @@ func declareBundle() *SkillBundle {
 		Files: map[string][]byte{
 			"SKILL.md": []byte(
 				"Set DOC_ROOT before running. Do not touch PATH, path_prefix or " +
-					"WEKNORA_SKILL_DIR.\n",
+					"GENYEE_SKILL_DIR.\n",
 			),
 			"scripts/extract.py": []byte(
 				"import os\nkey = os.environ[\"TAVILY_API_KEY\"]\n",
@@ -91,19 +91,19 @@ func TestValidateUserEnvNameFormatLayer(t *testing.T) {
 
 func TestValidateUserEnvNameReservedLayer(t *testing.T) {
 	require.NoError(t, validateEnvNameNotReserved("TAVILY_API_KEY"))
-	require.NoError(t, validateEnvNameNotReserved("WEKNORA_API_KEY"),
+	require.NoError(t, validateEnvNameNotReserved("GENYEE_API_KEY"),
 		"credential names a WeKnora skill reads are not sandbox-injected")
-	require.NoError(t, validateEnvNameNotReserved("WEKNORA_BASE_URL"))
+	require.NoError(t, validateEnvNameNotReserved("GENYEE_BASE_URL"))
 	require.NoError(t, validateEnvNameNotReserved("lowercase-is-a-format-concern"),
 		"reserved-name validation must remain independent of name format")
 	require.Error(t, validateEnvNameNotReserved("PATH"))
 	require.Error(t, validateEnvNameNotReserved("LD_PRELOAD"))
-	require.Error(t, validateEnvNameNotReserved("WEKNORA_SKILL_DIR"))
-	require.Error(t, validateEnvNameNotReserved("WEKNORA_SKILL_OUTPUT_DIR"))
-	require.Error(t, validateEnvNameNotReserved("WEKNORA_SKILL_HISTORY_ROOT"))
-	require.Error(t, validateEnvNameNotReserved("WEKNORA_SESSION_INPUT_DIR"))
-	require.Error(t, validateEnvNameNotReserved("WEKNORA_SESSION_ID"))
-	require.Error(t, validateEnvNameNotReserved("WEKNORA_BROWSER_ROOT"))
+	require.Error(t, validateEnvNameNotReserved("GENYEE_SKILL_DIR"))
+	require.Error(t, validateEnvNameNotReserved("GENYEE_SKILL_OUTPUT_DIR"))
+	require.Error(t, validateEnvNameNotReserved("GENYEE_SKILL_HISTORY_ROOT"))
+	require.Error(t, validateEnvNameNotReserved("GENYEE_SESSION_INPUT_DIR"))
+	require.Error(t, validateEnvNameNotReserved("GENYEE_SESSION_ID"))
+	require.Error(t, validateEnvNameNotReserved("GENYEE_BROWSER_ROOT"))
 }
 
 // Every name skill environment preparation injects must be undeclarable. This is the lock that
@@ -150,8 +150,8 @@ func TestValidateEnvDeclarationsAppliesThreeLayers(t *testing.T) {
 			want:     nil,
 		},
 		{
-			name:     "sandbox-injected WEKNORA_SKILL_* names are reserved",
-			declared: []declaredSkillEnv{{Name: "WEKNORA_SKILL_DIR"}},
+			name:     "sandbox-injected GENYEE_SKILL_* names are reserved",
+			declared: []declaredSkillEnv{{Name: "GENYEE_SKILL_DIR"}},
 			want:     nil,
 		},
 		{
@@ -228,32 +228,32 @@ func TestValidateEnvDeclarationsNeverCarriesAValue(t *testing.T) {
 }
 
 // Official WeKnora skills (and the ClawHub weknora skill) authenticate with
-// WEKNORA_API_KEY / WEKNORA_BASE_URL. Those names must survive validation:
-// only the sandbox-injected WEKNORA_SKILL_* / WEKNORA_SESSION_INPUT_DIR
+// GENYEE_API_KEY / GENYEE_BASE_URL. Those names must survive validation:
+// only the sandbox-injected GENYEE_SKILL_* / GENYEE_SESSION_INPUT_DIR
 // names are reserved.
 func TestValidateEnvDeclarationsAllowsWeknoraCredentialNames(t *testing.T) {
 	bundle := &SkillBundle{
 		Name: "weknora",
 		Files: map[string][]byte{
 			"SKILL.md": []byte(
-				"export WEKNORA_BASE_URL WEKNORA_API_KEY WEKNORA_HOST WEKNORA_TOKEN WEKNORA_KB_ID; " +
-					"do not override WEKNORA_SKILL_DIR or WEKNORA_SESSION_INPUT_DIR.\n",
+				"export GENYEE_BASE_URL GENYEE_API_KEY GENYEE_HOST GENYEE_TOKEN GENYEE_KB_ID; " +
+					"do not override GENYEE_SKILL_DIR or GENYEE_SESSION_INPUT_DIR.\n",
 			),
 		},
 	}
 
 	got := validateEnvDeclarations([]declaredSkillEnv{
-		{Name: "WEKNORA_BASE_URL", Required: true, Description: "API origin"},
-		{Name: "WEKNORA_API_KEY", Required: true},
-		{Name: "WEKNORA_HOST"},
-		{Name: "WEKNORA_SKILL_DIR"},
-		{Name: "WEKNORA_SESSION_INPUT_DIR"},
+		{Name: "GENYEE_BASE_URL", Required: true, Description: "API origin"},
+		{Name: "GENYEE_API_KEY", Required: true},
+		{Name: "GENYEE_HOST"},
+		{Name: "GENYEE_SKILL_DIR"},
+		{Name: "GENYEE_SESSION_INPUT_DIR"},
 	}, bundle)
 
 	require.Equal(t, types.SkillEnvVars{
-		{Name: "WEKNORA_BASE_URL", Description: "API origin", Required: true},
-		{Name: "WEKNORA_API_KEY", Required: true},
-		{Name: "WEKNORA_HOST"},
+		{Name: "GENYEE_BASE_URL", Description: "API origin", Required: true},
+		{Name: "GENYEE_API_KEY", Required: true},
+		{Name: "GENYEE_HOST"},
 	}, got)
 }
 
@@ -299,10 +299,10 @@ func TestValidateUserEnvNameAcceptsAndRejects(t *testing.T) {
 	require.Error(t, validateUserEnvName("1LEADING_DIGIT"))
 	require.Error(t, validateUserEnvName("PATH"))
 	require.Error(t, validateUserEnvName("LD_PRELOAD"))
-	require.Error(t, validateUserEnvName("WEKNORA_SKILL_DIR"))
-	require.Error(t, validateUserEnvName("WEKNORA_SESSION_INPUT_DIR"))
-	require.NoError(t, validateUserEnvName("WEKNORA_API_KEY"))
-	require.NoError(t, validateUserEnvName("WEKNORA_BASE_URL"))
+	require.Error(t, validateUserEnvName("GENYEE_SKILL_DIR"))
+	require.Error(t, validateUserEnvName("GENYEE_SESSION_INPUT_DIR"))
+	require.NoError(t, validateUserEnvName("GENYEE_API_KEY"))
+	require.NoError(t, validateUserEnvName("GENYEE_BASE_URL"))
 }
 
 // The user path deliberately skips the bundle match: matching exists to catch

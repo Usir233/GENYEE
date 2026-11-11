@@ -1,7 +1,7 @@
 /**
- * dsh-weknora: a DeepSeek Harness plugin that gives the agent retrieval,
- * document reading and composed answers from a WeKnora knowledge base.
- * @module dsh-weknora
+ * dsh-genyee: a DeepSeek Harness plugin that gives the agent retrieval,
+ * document reading and composed answers from a GENYEE knowledge base.
+ * @module dsh-genyee
  */
 
 import { WeknoraClient } from './client.ts'
@@ -9,7 +9,7 @@ import { resolveConfig } from './config.ts'
 import type { HarnessContext } from './harness.ts'
 import { createTools } from './tools.ts'
 
-export const name = 'dsh-weknora'
+export const name = 'dsh-genyee'
 
 /** Cordis waits for the tool registry before applying this plugin. */
 export const inject = ['tools'] as const
@@ -33,5 +33,5 @@ export function apply(ctx: HarnessContext, config: unknown): void {
     ctx.tools.register(definition)
     registered.push(definition.name)
   }
-  ctx.logger?.info(`dsh-weknora: registered ${registered.join(', ')} against ${resolved.baseUrl}`)
+  ctx.logger?.info(`dsh-genyee: registered ${registered.join(', ')} against ${resolved.baseUrl}`)
 }

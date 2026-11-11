@@ -69,7 +69,7 @@ func NewHandleStore(rdb *redis.Client, vault *Vault) *HandleStore {
 	if rdb == nil || vault == nil {
 		return nil
 	}
-	ns := strings.TrimSpace(os.Getenv("WEKNORA_REDIS_NAMESPACE"))
+	ns := strings.TrimSpace(os.Getenv("GENYEE_REDIS_NAMESPACE"))
 	if ns == "" {
 		ns = "weknora"
 	}

@@ -8,11 +8,11 @@
 // requested. To run:
 //
 //	cd cli
-//	WEKNORA_E2E_HOST=https://kb.example.com \
-//	WEKNORA_E2E_TOKEN=eyJhbGc... \
+//	GENYEE_E2E_HOST=https://kb.example.com \
+//	GENYEE_E2E_TOKEN=eyJhbGc... \
 //	go test -tags=acceptance_e2e -v ./acceptance/e2e/...
 //
-// Optional WEKNORA_E2E_KB_NAME_PREFIX customizes the throwaway KB name (default
+// Optional GENYEE_E2E_KB_NAME_PREFIX customizes the throwaway KB name (default
 // "cli-e2e-"). Cleanup runs even on test failure via t.Cleanup so the server
 // doesn't accumulate test debris.
 package e2e_test
@@ -34,14 +34,14 @@ import (
 // step parses the CLI's bare JSON to extract IDs for the next step -
 // validating both functional behavior and wire-contract stability.
 func TestRAGFullLoop(t *testing.T) {
-	host := mustEnv(t, "WEKNORA_E2E_HOST")
-	token := mustEnv(t, "WEKNORA_E2E_TOKEN")
-	prefix := envOr("WEKNORA_E2E_KB_NAME_PREFIX", "cli-e2e-")
+	host := mustEnv(t, "GENYEE_E2E_HOST")
+	token := mustEnv(t, "GENYEE_E2E_TOKEN")
+	prefix := envOr("GENYEE_E2E_KB_NAME_PREFIX", "cli-e2e-")
 
 	bin := buildBinary(t)
 	xdg := t.TempDir()
 
-	// Inject host + token as WEKNORA_HOST / WEKNORA_TOKEN env vars. The
+	// Inject host + token as GENYEE_HOST / GENYEE_TOKEN env vars. The
 	// CLI's env-credential path (buildClientFromEnv) takes precedence
 	// over profile config, so this bypasses the secrets-store dance
 	// entirely — no keychain access, no file:// ref plumbing. This is
@@ -49,18 +49,18 @@ func TestRAGFullLoop(t *testing.T) {
 	env := append(os.Environ(),
 		"XDG_CONFIG_HOME="+xdg,
 		"XDG_CACHE_HOME="+filepath.Join(xdg, "cache"),
-		"WEKNORA_HOST="+host,
-		"WEKNORA_TOKEN="+token,
+		"GENYEE_HOST="+host,
+		"GENYEE_TOKEN="+token,
 		// SDK debug off - explicit so the CI run isn't noisy.
-		"WEKNORA_LOG_LEVEL=error",
+		"GENYEE_LOG_LEVEL=error",
 	)
 
 	// 1. kb create → KnowledgeBase object (envelope-wrapped: {ok, data})
 	// The CLI now requires explicit model binding so uploaded docs are
 	// immediately searchable. Use the server's builtin model IDs (they
 	// exist on every deployment that configures builtin_models.yaml).
-	embeddingModel := envOr("WEKNORA_E2E_EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-8B")
-	chatModel := envOr("WEKNORA_E2E_CHAT_MODEL", "deepseek-ai/DeepSeek-V3.2")
+	embeddingModel := envOr("GENYEE_E2E_EMBEDDING_MODEL", "Qwen/Qwen3-Embedding-8B")
+	chatModel := envOr("GENYEE_E2E_CHAT_MODEL", "deepseek-ai/DeepSeek-V3.2")
 	kbName := prefix + fmt.Sprintf("%d", time.Now().UnixNano())
 	var created struct {
 		OK   bool `json:"ok"`

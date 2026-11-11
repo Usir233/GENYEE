@@ -294,16 +294,16 @@ func TestExecShellCommandKeepsOrdinaryRemoteRequest(t *testing.T) {
 		Shell:   true,
 		Env: map[string]string{
 			"A":                    "B",
-			"WEKNORA_SESSION_ID":   "sess-1",
-			"WEKNORA_BROWSER_ROOT": "/var/lib/weknora/browser/session",
+			"GENYEE_SESSION_ID":   "sess-1",
+			"GENYEE_BROWSER_ROOT": "/var/lib/weknora/browser/session",
 		},
 		WorkDir: "/workspace/project",
 		User:    DefaultSandboxExecUser,
 		Timeout: time.Second,
 	}, last)
 	require.Equal(t, map[string]string{"A": "B"}, env, "caller map must not be mutated")
-	require.Equal(t, "/var/lib/weknora/browser/session", last.Env["WEKNORA_BROWSER_ROOT"])
-	require.NotEmpty(t, last.Env["WEKNORA_SESSION_ID"])
+	require.Equal(t, "/var/lib/weknora/browser/session", last.Env["GENYEE_BROWSER_ROOT"])
+	require.NotEmpty(t, last.Env["GENYEE_SESSION_ID"])
 }
 
 func TestExecShellCommandEmptyWorkDirUsesWorkspace(t *testing.T) {
@@ -534,7 +534,7 @@ func TestBuildSessionCreateRequestMarksSkillSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, request.FromSnapshot)
 	require.Equal(t, "secret", request.EnvVars["HF_TOKEN"])
-	require.NotEmpty(t, request.EnvVars["WEKNORA_SKILL_OUTPUT_DIR"])
+	require.NotEmpty(t, request.EnvVars["GENYEE_SKILL_OUTPUT_DIR"])
 }
 
 func newSessionManagerExecTestHarness(t *testing.T) (*SessionBoundManager, *fakeRemoteClient) {
@@ -1112,7 +1112,7 @@ func newUserManagerHarnessWithDirectory(
 }
 
 // integrationEnv returns an integration dependency's address. Missing, the
-// test is skipped — unless WEKNORA_REQUIRE_INTEGRATION=1, which turns the
+// test is skipped — unless GENYEE_REQUIRE_INTEGRATION=1, which turns the
 // skip into a failure so an enablement run cannot pass by skipping.
 func integrationEnv(t *testing.T, name string) string {
 	t.Helper()
@@ -1120,8 +1120,8 @@ func integrationEnv(t *testing.T, name string) string {
 	if v != "" {
 		return v
 	}
-	if os.Getenv("WEKNORA_REQUIRE_INTEGRATION") == "1" {
-		t.Fatalf("%s is required when WEKNORA_REQUIRE_INTEGRATION=1", name)
+	if os.Getenv("GENYEE_REQUIRE_INTEGRATION") == "1" {
+		t.Fatalf("%s is required when GENYEE_REQUIRE_INTEGRATION=1", name)
 	}
 	t.Skipf("set %s to run against a real dependency", name)
 	return ""
@@ -1173,7 +1173,7 @@ func TestUserSessionsShareOneMachineWithSeparateDirectories(t *testing.T) {
 	require.NoError(t, err)
 	reqA := lastExecRequest(t, h.client)
 	_, err = h.mgr.ExecShellCommand(ctx, userSessionB, "true", "", time.Second, map[string]string{
-		"WEKNORA_SKILL_OUTPUT_DIR": "/workspace/output", // a config value must not win
+		"GENYEE_SKILL_OUTPUT_DIR": "/workspace/output", // a config value must not win
 	})
 	require.NoError(t, err)
 	reqB := lastExecRequest(t, h.client)
@@ -1182,8 +1182,8 @@ func TestUserSessionsShareOneMachineWithSeparateDirectories(t *testing.T) {
 	require.Equal(t, 1, creates)
 	require.Equal(t, userSessionRoot(userSessionA), reqA.WorkDir)
 	require.Equal(t, userSessionRoot(userSessionB), reqB.WorkDir)
-	require.Equal(t, userSessionRoot(userSessionB)+"/output", reqB.Env["WEKNORA_SKILL_OUTPUT_DIR"])
-	require.Equal(t, userSessionRoot(userSessionB)+"/input", reqB.Env["WEKNORA_SESSION_INPUT_DIR"])
+	require.Equal(t, userSessionRoot(userSessionB)+"/output", reqB.Env["GENYEE_SKILL_OUTPUT_DIR"])
+	require.Equal(t, userSessionRoot(userSessionB)+"/input", reqB.Env["GENYEE_SESSION_INPUT_DIR"])
 
 	idA, ok := h.mgr.BoundSandboxID(ctx, userSessionA)
 	require.True(t, ok)
@@ -1766,7 +1766,7 @@ func TestUserModeTerminalNeverReattachesAClientPID(t *testing.T) {
 }
 
 func TestMultiReplicaRealRedisFirstAllocationCreatesOneMachine(t *testing.T) {
-	r1, r2, _ := multiReplicaPair(t, integrationEnv(t, "WEKNORA_TEST_REDIS_ADDR"),
+	r1, r2, _ := multiReplicaPair(t, integrationEnv(t, "GENYEE_TEST_REDIS_ADDR"),
 		userAssignmentFor(userSessionA), userAssignmentFor(userSessionB))
 	ctx := ownerCtx()
 	var wg sync.WaitGroup
@@ -1799,7 +1799,7 @@ func TestMultiReplicaRealRedisFirstAllocationCreatesOneMachine(t *testing.T) {
 }
 
 func TestMultiReplicaRealRedisLeaseBlocksReclaimAndKeepsSharedSandbox(t *testing.T) {
-	r1, r2, _ := multiReplicaPair(t, integrationEnv(t, "WEKNORA_TEST_REDIS_ADDR"),
+	r1, r2, _ := multiReplicaPair(t, integrationEnv(t, "GENYEE_TEST_REDIS_ADDR"),
 		userAssignmentFor(userSessionA), userAssignmentFor(userSessionB))
 	ctx := ownerCtx()
 	_, err := r1.mgr.ExecShellCommand(ctx, userSessionA, "true", "", time.Second, nil)
@@ -1829,7 +1829,7 @@ func TestMultiReplicaRealRedisLeaseBlocksReclaimAndKeepsSharedSandbox(t *testing
 }
 
 func TestMultiReplicaRealRedisLostLeaseStopsTheHolderAndFreesTheMachine(t *testing.T) {
-	r1, r2, raw := multiReplicaPair(t, integrationEnv(t, "WEKNORA_TEST_REDIS_ADDR"),
+	r1, r2, raw := multiReplicaPair(t, integrationEnv(t, "GENYEE_TEST_REDIS_ADDR"),
 		userAssignmentFor(userSessionA), userAssignmentFor(userSessionB))
 	ctx := ownerCtx()
 	_, err := r1.mgr.ExecShellCommand(ctx, userSessionA, "true", "", time.Second, nil)
@@ -1867,15 +1867,15 @@ func TestMultiReplicaRealRedisLostLeaseStopsTheHolderAndFreesTheMachine(t *testi
 
 func TestWithBrowserEnvOverridesCallerValues(t *testing.T) {
 	in := map[string]string{
-		"WEKNORA_SESSION_ID":   "spoofed",
-		"WEKNORA_BROWSER_ROOT": "/tmp/spoofed",
+		"GENYEE_SESSION_ID":   "spoofed",
+		"GENYEE_BROWSER_ROOT": "/tmp/spoofed",
 		"KEEP":                 "1",
 	}
 	out := withBrowserEnv(in, "sid-1", RemoteWorkspaceLayout())
-	require.Equal(t, "sid-1", out["WEKNORA_SESSION_ID"])
-	require.Equal(t, "/var/lib/weknora/browser/session", out["WEKNORA_BROWSER_ROOT"])
+	require.Equal(t, "sid-1", out["GENYEE_SESSION_ID"])
+	require.Equal(t, "/var/lib/weknora/browser/session", out["GENYEE_BROWSER_ROOT"])
 	require.Equal(t, "1", out["KEEP"])
-	require.Equal(t, "spoofed", in["WEKNORA_SESSION_ID"], "input map must not be mutated")
+	require.Equal(t, "spoofed", in["GENYEE_SESSION_ID"], "input map must not be mutated")
 }
 
 func TestWithBrowserEnvLeavesLayoutsWithoutBrowserRootAlone(t *testing.T) {
@@ -1887,12 +1887,12 @@ func TestUserSessionExecGetsItsOwnBrowserEnv(t *testing.T) {
 	h := newUserManagerHarness(t, userAssignmentFor(userSessionA), userAssignmentFor(userSessionB))
 	ctx := ownerCtx()
 	_, err := h.mgr.ExecShellCommand(ctx, userSessionB, "true", "", time.Second, map[string]string{
-		"WEKNORA_SESSION_ID": userSessionA, // a model-supplied value must not win
+		"GENYEE_SESSION_ID": userSessionA, // a model-supplied value must not win
 	})
 	require.NoError(t, err)
 	req := lastExecRequest(t, h.client)
-	require.Equal(t, userSessionB, req.Env["WEKNORA_SESSION_ID"])
-	require.Equal(t, "/var/lib/weknora/sessions/"+userSessionB+".browser", req.Env["WEKNORA_BROWSER_ROOT"])
+	require.Equal(t, userSessionB, req.Env["GENYEE_SESSION_ID"])
+	require.Equal(t, "/var/lib/weknora/sessions/"+userSessionB+".browser", req.Env["GENYEE_BROWSER_ROOT"])
 }
 
 func TestDesktopEnsureStyleExecCarriesTheSessionIdentity(t *testing.T) {
@@ -1902,6 +1902,6 @@ func TestDesktopEnsureStyleExecCarriesTheSessionIdentity(t *testing.T) {
 	})
 	require.NoError(t, err)
 	req := lastExecRequest(t, h.client)
-	require.Equal(t, userSessionB, req.Env["WEKNORA_SESSION_ID"],
+	require.Equal(t, userSessionB, req.Env["GENYEE_SESSION_ID"],
 		"ensure.sh reads it to choose this session's workspace")
 }

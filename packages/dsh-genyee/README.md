@@ -18,16 +18,16 @@ workspace, and `web_search` reads the internet. This plugin fills that gap with 
 dsh plugin --profile web add @genyee/dsh-genyee
 
 # or from a checkout of this repository
-dsh plugin --profile web add ./packages/dsh-weknora
+dsh plugin --profile web add ./packages/dsh-genyee
 ```
 
 Then point it at your deployment. The shipped configuration layer reads environment variables, so the quickest start is:
 
 ```sh
-export WEKNORA_BASE_URL=https://genyee.example.com    # or http://localhost:8080
-export WEKNORA_API_KEY=sk-...                          # a GENYEE API key with `retrieve` (+ `chat` for ask)
-export WEKNORA_KNOWLEDGE_BASE_IDS=kb-123,kb-456        # optional default scope
-export WEKNORA_RESOURCE_URLS=public                    # default; `handle` keeps internal file refs
+export GENYEE_BASE_URL=https://genyee.example.com    # or http://localhost:8080
+export GENYEE_API_KEY=sk-...                          # a GENYEE API key with `retrieve` (+ `chat` for ask)
+export GENYEE_KNOWLEDGE_BASE_IDS=kb-123,kb-456        # optional default scope
+export GENYEE_RESOURCE_URLS=public                    # default; `handle` keeps internal file refs
 dsh web
 ```
 
@@ -38,7 +38,7 @@ For anything beyond that, override the row from your profile's `cordis.patch.yml
 - id: weknora
   config:
     baseUrl: https://genyee.example.com
-    apiKey: !!js process.env.WEKNORA_API_KEY
+    apiKey: !!js process.env.GENYEE_API_KEY
     knowledgeBaseIds:
       - kb-product-docs
     agentId: ''            # a GENYEE custom agent id makes `genyee_ask` use the ReAct pipeline
@@ -120,7 +120,7 @@ URLs. Copy those Markdown images into the assistant reply and the dsh web UI wil
 knowledge-base-restricted API key cannot receive public URLs (GENYEE answers 403); the plugin retries that call in
 handle mode and keeps using handles afterwards.
 
-The shipped configuration layer also reads `WEKNORA_RESOURCE_URLS` (`public` or `handle`).
+The shipped configuration layer also reads `GENYEE_RESOURCE_URLS` (`public` or `handle`).
 
 ## Configuration reference
 
@@ -135,7 +135,7 @@ The shipped configuration layer also reads `WEKNORA_RESOURCE_URLS` (`public` or 
 | `maxChunkChars` | `1200` | Per-passage character budget |
 | `requestTimeoutMs` | `30000` | Retrieval and document reads |
 | `chatTimeoutMs` | `300000` | `genyee_ask`, which waits on GENYEE's own model calls |
-| `resourceUrls` | `public` | `public` returns directly loadable file URLs; `handle` keeps internal `resource://` refs. A knowledge-base-restricted API key is retried as `handle`. Override with `WEKNORA_RESOURCE_URLS`. |
+| `resourceUrls` | `public` | `public` returns directly loadable file URLs; `handle` keeps internal `resource://` refs. A knowledge-base-restricted API key is retried as `handle`. Override with `GENYEE_RESOURCE_URLS`. |
 | `toolPrefix` | `genyee` | Tool-name prefix, `^[a-z][a-z0-9_]*$` |
 | `tools.*` | all `true` | Register fewer tools to spend fewer prompt tokens |
 

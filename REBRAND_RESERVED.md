@@ -12,12 +12,12 @@
 
 | 组件说明 | 默认镜像名 | 对应 Dockerfile 路径 | 私有仓库 / 阿里云 ACR 目标镜像名示例 |
 | :--- | :--- | :--- | :--- |
-| **前端 Web UI** | `${GENYEE_REGISTRY:-genyee}/genyee-ui:${WEKNORA_VERSION:-latest}` | `frontend/Dockerfile` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-ui:latest` |
-| **后端主程序 (Go)** | `${GENYEE_REGISTRY:-genyee}/genyee-app:${WEKNORA_VERSION:-latest}` | `docker/Dockerfile.app` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-app:latest` |
-| **文档解析服务 (Python)** | `${GENYEE_REGISTRY:-genyee}/genyee-docreader:${WEKNORA_VERSION:-latest}` | `docker/Dockerfile.docreader` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-docreader:latest` |
-| **代码执行沙箱** | `${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${WEKNORA_VERSION:-latest}` | `docker/Dockerfile.sandbox` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-sandbox:latest` |
-| **OpenDataLoader 混合解析** | `${GENYEE_REGISTRY:-genyee}/genyee-odl-hybrid:${WEKNORA_VERSION:-latest}` | `docker/Dockerfile.odl-hybrid` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-odl-hybrid:latest` |
-| **MCP Server** | `${GENYEE_REGISTRY:-genyee}/genyee-mcp:${WEKNORA_VERSION:-latest}` | `mcp-server/Dockerfile` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-mcp:latest` |
+| **前端 Web UI** | `${GENYEE_REGISTRY:-genyee}/genyee-ui:${GENYEE_VERSION:-latest}` | `frontend/Dockerfile` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-ui:latest` |
+| **后端主程序 (Go)** | `${GENYEE_REGISTRY:-genyee}/genyee-app:${GENYEE_VERSION:-latest}` | `docker/Dockerfile.app` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-app:latest` |
+| **文档解析服务 (Python)** | `${GENYEE_REGISTRY:-genyee}/genyee-docreader:${GENYEE_VERSION:-latest}` | `docker/Dockerfile.docreader` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-docreader:latest` |
+| **代码执行沙箱** | `${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${GENYEE_VERSION:-latest}` | `docker/Dockerfile.sandbox` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-sandbox:latest` |
+| **OpenDataLoader 混合解析** | `${GENYEE_REGISTRY:-genyee}/genyee-odl-hybrid:${GENYEE_VERSION:-latest}` | `docker/Dockerfile.odl-hybrid` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-odl-hybrid:latest` |
+| **MCP Server** | `${GENYEE_REGISTRY:-genyee}/genyee-mcp:${GENYEE_VERSION:-latest}` | `mcp-server/Dockerfile` | `registry.cn-hangzhou.aliyuncs.com/<命名空间>/genyee-mcp:latest` |
 
 ---
 
@@ -27,10 +27,10 @@
 
 #### （1）Docker Compose 与环境变量
 - **`docker-compose.yml` / `docker-compose.dev.yml`**
-  - 所有自研服务镜像均使用 `${GENYEE_REGISTRY:-genyee}/genyee-*:${WEKNORA_VERSION:-latest}`。
+  - 所有自研服务镜像均使用 `${GENYEE_REGISTRY:-genyee}/genyee-*:${GENYEE_VERSION:-latest}`。
 - **`.env.example`**
   - 新增 `GENYEE_REGISTRY=genyee`（可覆盖为内网 Harbor 或阿里云 ACR 前缀）。
-  - 新增 `WEKNORA_SANDBOX_DOCKER_IMAGE=genyee/genyee-sandbox:latest`（可覆盖 Docker 沙箱默认镜像）。
+  - 新增 `GENYEE_SANDBOX_DOCKER_IMAGE=genyee/genyee-sandbox:latest`（可覆盖 Docker 沙箱默认镜像）。
 
 #### （2）代码内默认沙箱（Sandbox）镜像常量与环境变量覆盖
 - **后端默认常量**：`internal/sandbox/sandbox.go`
@@ -38,11 +38,11 @@
   - `DefaultCubeTemplateImage = "genyee/genyee-sandbox:latest-cube"`
   - `DefaultDesktopDockerImage` / `DefaultDesktopSandboxImage = "genyee/genyee-sandbox:desktop"`
   - `DefaultCubeDesktopTemplateImage = "genyee/genyee-sandbox:desktop-cube"`
-  - 支持通过环境变量 `WEKNORA_SANDBOX_DOCKER_IMAGE` 动态覆盖默认沙箱镜像。
+  - 支持通过环境变量 `GENYEE_SANDBOX_DOCKER_IMAGE` 动态覆盖默认沙箱镜像。
 - **前端沙箱设置抽屉默认值**：`frontend/src/components/SandboxConfigEditorDrawer.vue`
   - `defaultDockerImage = 'genyee/genyee-sandbox:latest'`，同时在 `isStandardTemplateImage` 中兼容识别 `genyee/genyee-sandbox` 与历史 `wechatopenai/weknora-sandbox`。
 - **启动脚本默认沙箱检测**：`scripts/start_all.sh`
-  - 自动读取 `${WEKNORA_SANDBOX_DOCKER_IMAGE:-${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${WEKNORA_VERSION:-latest}}`。
+  - 自动读取 `${GENYEE_SANDBOX_DOCKER_IMAGE:-${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${GENYEE_VERSION:-latest}}`。
 
 #### （3）构建脚本、Makefile、Helm 与离线交付包
 - **`Makefile` & `scripts/build_images.sh`**
@@ -90,4 +90,4 @@ docker push ${GENYEE_REGISTRY}/genyee-sandbox:latest
   - 第 `82`、`89` 行：BrowserSkill 插件图标（`browserskill-logo.svg`）及上游说明链接保留原状。
 
 ### 2. 环境变量与兼容标识保留说明
-- 为保证升级平滑与脚本兼容，`docker-compose.yml` 和 `.env.example` 中的环境变量名（如 `WEKNORA_VERSION`、`WEKNORA_API_KEY` 等内部配置键名）予以保留，不会影响用户侧展示的 **GENYEE** 品牌。
+- 为保证升级平滑与脚本兼容，`docker-compose.yml` 和 `.env.example` 中的环境变量名（如 `GENYEE_VERSION`、`GENYEE_API_KEY` 等内部配置键名）予以保留，不会影响用户侧展示的 **GENYEE** 品牌。

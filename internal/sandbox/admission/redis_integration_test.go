@@ -14,7 +14,7 @@ import (
 )
 
 // integrationEnv returns an integration dependency's address. Missing, the
-// test is skipped — unless WEKNORA_REQUIRE_INTEGRATION=1, which turns the
+// test is skipped — unless GENYEE_REQUIRE_INTEGRATION=1, which turns the
 // skip into a failure so an enablement run cannot pass by skipping.
 func integrationEnv(t *testing.T, name string) string {
 	t.Helper()
@@ -22,17 +22,17 @@ func integrationEnv(t *testing.T, name string) string {
 	if v != "" {
 		return v
 	}
-	if os.Getenv("WEKNORA_REQUIRE_INTEGRATION") == "1" {
-		t.Fatalf("%s is required when WEKNORA_REQUIRE_INTEGRATION=1", name)
+	if os.Getenv("GENYEE_REQUIRE_INTEGRATION") == "1" {
+		t.Fatalf("%s is required when GENYEE_REQUIRE_INTEGRATION=1", name)
 	}
 	t.Skipf("set %s to run against a real dependency", name)
 	return ""
 }
 
-// realRedisPair dials WEKNORA_TEST_REDIS_ADDR twice. prefix isolates this run.
+// realRedisPair dials GENYEE_TEST_REDIS_ADDR twice. prefix isolates this run.
 func realRedisPair(t *testing.T) (c1, c2 *admission.RedisRegistry, raw *redis.Client, prefix string) {
 	t.Helper()
-	addr := integrationEnv(t, "WEKNORA_TEST_REDIS_ADDR")
+	addr := integrationEnv(t, "GENYEE_TEST_REDIS_ADDR")
 	prefix = "it-" + uuid.NewString() + ":"
 	open := func() *redis.Client {
 		rc := redis.NewClient(&redis.Options{Addr: addr})

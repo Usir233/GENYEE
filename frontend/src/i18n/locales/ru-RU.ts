@@ -856,7 +856,7 @@ export default {
         },
         env: {
           title: 'Переменные окружения',
-          desc: 'Задайте WEKNORA_BASE_URL и WEKNORA_API_KEY в shell или ~/.zshrc / ~/.bashrc. Пример ниже использует текущий API URL — замените API Key на фактическое значение.'
+          desc: 'Задайте GENYEE_BASE_URL и GENYEE_API_KEY в shell или ~/.zshrc / ~/.bashrc. Пример ниже использует текущий API URL — замените API Key на фактическое значение.'
         },
         api: {
           title: 'API-учётные данные',
@@ -7116,7 +7116,7 @@ export default {
       loadFailed: 'Не удалось загрузить переменные среды.',
       sandboxTitle: 'Всегда передавать на этом компьютере',
       sandboxHint: 'Добавляется только к командам на этом компьютере. Оставьте пустым, если не нужно. Значение можно передать и в диалоге.',
-      nameInvalid: 'Это имя нельзя использовать. Зарезервированные имена (например PATH или начинающиеся с WEKNORA_) отклоняются.',
+      nameInvalid: 'Это имя нельзя использовать. Зарезервированные имена (например PATH или начинающиеся с GENYEE_) отклоняются.',
       deleteConfirm: 'Удалить {name}? Дальнейшие запуски на этом компьютере больше не будут его получать.',
     },
     description: 'Личные ключи для навыков и песочниц, а не системные или деплой-настройки GENYEE.',
@@ -7150,7 +7150,7 @@ export default {
     addRow: 'Добавить',
     namePlaceholder: 'VARIABLE_NAME',
     nameRule: 'Только заглавные латинские буквы, цифры и подчёркивания; первым символом должна быть буква или подчёркивание.',
-    nameInvalid: 'Это имя использовать нельзя. Имена, зарезервированные песочницей, например PATH или начинающиеся с WEKNORA_, не принимаются.',
+    nameInvalid: 'Это имя использовать нельзя. Имена, зарезервированные песочницей, например PATH или начинающиеся с GENYEE_, не принимаются.',
     nameDuplicate: 'Переменная с таким именем здесь уже есть.',
     valuePlaceholder: 'Введите значение',
     storedPlaceholder: 'Сохранено, введите новое значение для замены',
@@ -7680,7 +7680,7 @@ export default {
       allocationModeHint: 'Only affects sessions that have not used a sandbox yet; existing sessions keep their placement and files are never moved.',
       allocationModeSession: 'One sandbox per session (default)',
       allocationModeUser: "Share one sandbox across a user's sessions",
-      allocationModeUnavailable: 'Shared sandboxes are not enabled on this deployment (set WEKNORA_SANDBOX_USER_ALLOCATION=enabled on every replica; Redis is required).',
+      allocationModeUnavailable: 'Shared sandboxes are not enabled on this deployment (set GENYEE_SANDBOX_USER_ALLOCATION=enabled on every replica; Redis is required).',
       userSandboxRetentionDays: 'Keep an empty shared sandbox for (days)',
       userSandboxRetentionHint: 'After every session on a shared sandbox is deleted, it is removed once it has been empty this long (1–90 days). This is not a minimum file retention: Docker idle cleanup or provider failures may remove it sooner.',
       userSandboxesInInventory: "{count} of them are shared user sandboxes; each affects all of that user's sessions on this config.",

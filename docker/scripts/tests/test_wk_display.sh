@@ -82,7 +82,7 @@ t_full_machine_fails_loudly_when_every_seat_is_watched() {
   out="$("$DISP" claim s5 2>"$TMP/err")"; rc=$?
   assert_eq "exit 1" 1 "$rc"
   assert_eq "stdout empty" "" "$out"
-  assert_contains "marker on stderr" WEKNORA_NO_FREE_SCREEN "$(cat "$TMP/err")"
+  assert_contains "marker on stderr" GENYEE_NO_FREE_SCREEN "$(cat "$TMP/err")"
   for n in 1 2 3 4; do assert_eq "watched seat $n kept" "$n" "$("$DISP" where "s$n")"; done
   kill $watchers 2>/dev/null
   teardown_seats
@@ -339,11 +339,11 @@ t_watched_reports_a_viewer_on_the_sessions_seat
 
 t_claim_records_the_sessions_browser_root() {
   setup_seats
-  WEKNORA_BROWSER_ROOT=/var/lib/x/sid-a.browser "$DISP" claim sid-a >/dev/null
+  GENYEE_BROWSER_ROOT=/var/lib/x/sid-a.browser "$DISP" claim sid-a >/dev/null
   assert_eq "root recorded by claim" /var/lib/x/sid-a.browser "$("$DISP" browser-root sid-a)"
-  env -u WEKNORA_BROWSER_ROOT "$DISP" claim sid-a >/dev/null
+  env -u GENYEE_BROWSER_ROOT "$DISP" claim sid-a >/dev/null
   assert_eq "a claim without a root keeps the record" /var/lib/x/sid-a.browser "$("$DISP" browser-root sid-a)"
-  WEKNORA_BROWSER_ROOT=relative/root "$DISP" claim sid-b >/dev/null
+  GENYEE_BROWSER_ROOT=relative/root "$DISP" claim sid-b >/dev/null
   "$DISP" browser-root sid-b >/dev/null 2>&1; assert_eq "a relative root is not recorded" 1 "$?"
   "$DISP" release sid-a >/dev/null
   "$DISP" browser-root sid-a >/dev/null 2>&1; assert_eq "release drops the record" 1 "$?"

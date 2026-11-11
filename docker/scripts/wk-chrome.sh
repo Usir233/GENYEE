@@ -11,7 +11,7 @@
 # A held seat always reaches the session browser, even before the agent has
 # opened one: the wrapper creates the root and restores the login state before
 # the first page loads. The root is the one the backend exports as
-# WEKNORA_BROWSER_ROOT, which wk-display records when the session claims the
+# GENYEE_BROWSER_ROOT, which wk-display records when the session claims the
 # seat.
 #
 # Paths are WK_*-overridable for the tests, same convention as the wrapper.
@@ -51,7 +51,7 @@ if [ -z "$root" ]; then
   [ -d "$root" ] || [ -d "$SESSIONS_ROOT" ] || root="$SINGLE_ROOT"
 fi
 
-export WEKNORA_SESSION_ID="$sid" WEKNORA_BROWSER_ROOT="$root"
+export GENYEE_SESSION_ID="$sid" GENYEE_BROWSER_ROOT="$root"
 # WK_DESKTOP_CLICK keeps a click from navigating the page of a running browser.
 export WK_DESKTOP_CLICK=1
 # The wrapper finds the browser, waits for browser sync, and opens the URL on

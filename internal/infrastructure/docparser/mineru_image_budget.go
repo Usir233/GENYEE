@@ -9,7 +9,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/logger"
 )
 
-const mineruMaxImageBytesEnv = "WEKNORA_MINERU_MAX_IMAGE_BYTES"
+const mineruMaxImageBytesEnv = "GENYEE_MINERU_MAX_IMAGE_BYTES"
 
 // minerUMaxImageBytes returns the per-result-package image budget. A deployment
 // can raise it for large scanned documents while the bounded default remains in

@@ -52,7 +52,7 @@ func resolveFormatEarly(args []string) {
 		}
 	}
 	if mode == "" {
-		if v := os.Getenv("WEKNORA_FORMAT"); v != "" {
+		if v := os.Getenv("GENYEE_FORMAT"); v != "" {
 			mode = strings.ToLower(v)
 		}
 	}
@@ -161,12 +161,12 @@ a curated read-only MCP tool surface for AI agents.`,
 			if err := cmdutil.CheckSafeArgs(args, c.Flags()); err != nil {
 				return err
 			}
-			// Propagate the global --profile flag (or WEKNORA_PROFILE env) into
+			// Propagate the global --profile flag (or GENYEE_PROFILE env) into
 			// the Factory for this invocation only - single-shot override, no disk write.
 			// Flag takes precedence over env; env takes precedence over config file.
 			if v, _ := c.Flags().GetString("profile"); v != "" {
 				f.ProfileOverride = v
-			} else if v := os.Getenv("WEKNORA_PROFILE"); v != "" {
+			} else if v := os.Getenv("GENYEE_PROFILE"); v != "" {
 				f.ProfileOverride = v
 			}
 			// Pin --format mode for cmdutil.PrintError envelope vs prose decision.
@@ -179,7 +179,7 @@ a curated read-only MCP tool surface for AI agents.`,
 			}
 			// Record the resolved profile for envelope.profile and NDJSON init.profile.
 			cmdutil.SetProfile(f.ActiveProfile())
-			// Resolve --log-level / WEKNORA_LOG_LEVEL and apply to the SDK
+			// Resolve --log-level / GENYEE_LOG_LEVEL and apply to the SDK
 			// debug logger before any SDK call is made. Returns a typed error
 			// when --log-level was passed explicitly with an invalid value
 			// (matches --format validation strictness).
@@ -239,7 +239,7 @@ func addGlobalFlags(cmd *cobra.Command) {
 	// instead of being rejected as "unknown flag" exit 2 by cobra. Commands
 	// that don't produce JSON output (e.g. `completion bash`) ignore the flag
 	// rather than error — the unified agent contract is worth the trade.
-	pf.String("format", "", "Output format: text | json | ndjson (default: json; env: WEKNORA_FORMAT)")
+	pf.String("format", "", "Output format: text | json | ndjson (default: json; env: GENYEE_FORMAT)")
 	pf.StringP("jq", "q", "", "Filter JSON output using a jq `expression` (requires --format json|ndjson)")
 }
 

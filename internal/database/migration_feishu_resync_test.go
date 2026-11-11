@@ -91,9 +91,9 @@ func TestSQLiteFeishuResyncMigration(t *testing.T) {
 }
 
 func TestPostgresFeishuResyncMigration(t *testing.T) {
-	dsn := os.Getenv("WEKNORA_MIGRATION_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("GENYEE_MIGRATION_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("set WEKNORA_MIGRATION_TEST_POSTGRES_DSN to run PostgreSQL migration tests")
+		t.Skip("set GENYEE_MIGRATION_TEST_POSTGRES_DSN to run PostgreSQL migration tests")
 	}
 	db, err := sql.Open("postgres", dsn)
 	require.NoError(t, err)

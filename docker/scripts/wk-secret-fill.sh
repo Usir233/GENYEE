@@ -8,7 +8,7 @@ umask 077
 LIB="${WK_BROWSER_LIB_DIR:-/usr/local/lib/weknora}"
 NODE="${WK_NODE:-/usr/local/bin/node}"
 if [ "${1:-}" != "--probe" ]; then
-  root="${WEKNORA_BROWSER_ROOT:-}"
+  root="${GENYEE_BROWSER_ROOT:-}"
   if [ -z "$root" ]; then
     echo '{"error":"no_browser"}'
     exit 0

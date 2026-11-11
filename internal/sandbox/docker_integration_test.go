@@ -66,7 +66,7 @@ func newDockerIntegrationManager(t *testing.T, cfg *Config) *SessionBoundManager
 	probeCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 	if err := client.Health(probeCtx); err != nil {
-		if os.Getenv("WEKNORA_REQUIRE_INTEGRATION") == "1" {
+		if os.Getenv("GENYEE_REQUIRE_INTEGRATION") == "1" {
 			t.Fatalf("docker daemon unreachable: %v", err)
 		}
 		t.Skipf("docker daemon unreachable: %v", err)
@@ -592,7 +592,7 @@ func TestDockerSkillSnapshotIntegration(t *testing.T) {
 	probeCtx, cancelProbe := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelProbe()
 	if err := client.Health(probeCtx); err != nil {
-		if os.Getenv("WEKNORA_REQUIRE_INTEGRATION") == "1" {
+		if os.Getenv("GENYEE_REQUIRE_INTEGRATION") == "1" {
 			t.Fatalf("docker daemon unreachable: %v", err)
 		}
 		t.Skipf("docker daemon unreachable: %v", err)
@@ -1158,7 +1158,7 @@ func requireDockerContainerGone(t *testing.T, ctx context.Context, id string) {
 
 func TestDockerUserMachineSharesContainerAndIsolatesDirectories(t *testing.T) {
 	cfg := dockerIntegrationConfig(t)
-	redisAddr := integrationEnv(t, "WEKNORA_TEST_REDIS_ADDR")
+	redisAddr := integrationEnv(t, "GENYEE_TEST_REDIS_ADDR")
 	remote, err := NewDockerRemoteClient(cfg)
 	if err != nil {
 		t.Fatalf("build docker client: %v", err)
@@ -1167,7 +1167,7 @@ func TestDockerUserMachineSharesContainerAndIsolatesDirectories(t *testing.T) {
 	probeCtx, cancelProbe := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelProbe()
 	if err := remote.Health(probeCtx); err != nil {
-		if os.Getenv("WEKNORA_REQUIRE_INTEGRATION") == "1" {
+		if os.Getenv("GENYEE_REQUIRE_INTEGRATION") == "1" {
 			t.Fatalf("docker daemon unreachable: %v", err)
 		}
 		t.Skipf("docker daemon unreachable: %v", err)

@@ -3,6 +3,7 @@ package tencentvectordb
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -165,4 +166,16 @@ func TestNewJiebaTokenizerOfflineOperation(t *testing.T) {
 	assert.Contains(t, tokens, "知识库")
 	assert.Contains(t, tokens, "交付")
 	assert.Contains(t, tokens, "测试")
+}
+
+func TestEnsureDefaultStopwordsCustomDir(t *testing.T) {
+	customDir := t.TempDir()
+	t.Setenv("GENYEE_VECTORDB_STORAGE_DIR", customDir)
+
+	err := EnsureDefaultStopwords()
+	require.NoError(t, err)
+
+	content, err := os.ReadFile(filepath.Join(customDir, "default_stopwords.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, embeddedDefaultStopwords, content)
 }

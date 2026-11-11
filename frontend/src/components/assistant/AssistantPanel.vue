@@ -103,7 +103,7 @@
         </section>
         <ChatView v-if="assistant.sessionId && readySessionId === assistant.sessionId"
           :key="assistant.sessionId" :session_id="assistant.sessionId"
-          :agent-id="BUILTIN_WEKNORA_ASSISTANT_ID" :embedded-mode="true" :initial-query="initialQuery"
+          :agent-id="BUILTIN_GENYEE_ASSISTANT_ID" :embedded-mode="true" :initial-query="initialQuery"
           :host-scope="hostScope" :model-id="assistant.modelId" :default-model-id="defaultModelId"
           @update:model-id="assistant.setModel">
           <template v-if="assistant.pageSelection" #composer-chips>
@@ -182,7 +182,7 @@ import AssistantSelectionChip from './AssistantSelectionChip.vue'
 import AssistantAccessPicker from './AssistantAccessPicker.vue'
 import { createSessions, getSessionsList, getSession, type SessionSummary } from '@/api/chat'
 import { classifyDateBucket } from '@/components/sessionGrouping'
-import { BUILTIN_WEKNORA_ASSISTANT_ID } from '@/api/agent'
+import { BUILTIN_GENYEE_ASSISTANT_ID } from '@/api/agent'
 import { useAuthStore } from '@/stores/auth'
 import { useAssistantDataChange } from '@/utils/assistantDataChange'
 import {

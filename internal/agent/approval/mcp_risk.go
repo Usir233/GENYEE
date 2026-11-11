@@ -78,7 +78,7 @@ func (g *Gate) Action(ctx context.Context, tenantID uint64, serviceID string, to
 func (g *Gate) failedAction(ctx context.Context, err error) policy.Action {
 	// Default fail-close: a transient DB error must NOT silently allow a
 	// dangerous tool to run. Operators can opt into legacy behaviour via
-	// WEKNORA_AGENT_TOOL_APPROVAL_FAIL_OPEN=true.
+	// GENYEE_AGENT_TOOL_APPROVAL_FAIL_OPEN=true.
 	if g.failClose {
 		logger.GetLogger(ctx).Warnf("mcp tool approval check failed (fail-close: requiring approval): %v", err)
 		return policy.Action{Risk: policy.RiskWrite, Always: true}

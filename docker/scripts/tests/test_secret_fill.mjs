@@ -169,7 +169,7 @@ test("fillFields clears an input that did not keep the value", async () => {
 test("main --probe reports the page URL or null", async () => {
   const outputs = [];
   const out = (o) => outputs.push(o);
-  process.env.WEKNORA_BROWSER_ROOT = "/br";
+  process.env.GENYEE_BROWSER_ROOT = "/br";
   const browser = { close() {} };
   await main(["--probe"], { endpoint: () => ({ port: 1 }), connect: async () => browser,
     choose: async () => fakePage({ url: "https://a.com/x" }), out });
@@ -185,7 +185,7 @@ test("main fill decrypts, fills and never prints a value", async () => {
     writeFileSync(keyPath, key.toString("base64"));
     const sealed = seal(key, payload([{ name: "password", ref: "@e3", type: "password", value: "sentinel-pw" }]));
     const outputs = [];
-    process.env.WEKNORA_BROWSER_ROOT = "/br";
+    process.env.GENYEE_BROWSER_ROOT = "/br";
     await main(["--key-file", keyPath, sealed], {
       endpoint: () => ({ port: 1 }), connect: async () => ({ close() {} }),
       choose: async () => fakePage(), focus: () => true, out: (o) => outputs.push(o),

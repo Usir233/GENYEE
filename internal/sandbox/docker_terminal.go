@@ -57,7 +57,7 @@ const (
 // it — which is what lets teardown find and kill the shell's whole tree from
 // inside the container, without having to map ExecInspect's host PID into the
 // container's PID namespace.
-const dockerTerminalIDEnv = "WEKNORA_TERMINAL_ID"
+const dockerTerminalIDEnv = "GENYEE_TERMINAL_ID"
 
 // dockerTerminalToken mints a per-open marker. It only has to distinguish
 // concurrent terminals in one container, so a random 16-byte hex string is
@@ -373,7 +373,7 @@ func (s *dockerTerminalSession) terminate() {
 // It matches on the marker environment variable rather than a PID because
 // ExecInspect reports the *host* PID, which is meaningless inside the
 // container's PID namespace — a kill exec running there cannot see /proc/<pid>.
-// Every process the shell starts inherits WEKNORA_TERMINAL_ID, so walking
+// Every process the shell starts inherits GENYEE_TERMINAL_ID, so walking
 // /proc finds the shell and its whole job tree (a running foreground job is in
 // its own process group, so signalling the shell or its group alone would
 // orphan it). A shell that already exited has no carriers left, which is why

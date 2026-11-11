@@ -61,15 +61,15 @@ test('groupTools keeps backend order and drops empty groups', () => {
 test('stdio fallback pins the bridge and passes the bearer value through its env', () => {
   const token = 'mcp_SYNTHETIC_TOKEN_001'
   const config = JSON.parse(buildStdioBridgeSnippet('Docs', 'https://h/mcp/1', token)).mcpServers['genyee-docs']
-  assert.deepEqual(config.args, ['-y', 'mcp-remote@0.15.1', 'https://h/mcp/1', '--header', 'Authorization:${WEKNORA_MCP_AUTH}'])
-  assert.deepEqual(config.env, { WEKNORA_MCP_AUTH: `Bearer ${token}` })
+  assert.deepEqual(config.args, ['-y', 'mcp-remote@0.15.1', 'https://h/mcp/1', '--header', 'Authorization:${GENYEE_MCP_AUTH}'])
+  assert.deepEqual(config.env, { GENYEE_MCP_AUTH: `Bearer ${token}` })
   assert.equal(JSON.stringify(config.args).includes(token), false)
 })
 
 test('stdio fallback keeps the placeholder in env when the one-time token is unavailable', () => {
   const config = JSON.parse(buildStdioBridgeSnippet('Docs', 'https://h/mcp/1', '')).mcpServers['genyee-docs']
-  assert.deepEqual(config.env, { WEKNORA_MCP_AUTH: `Bearer ${MCP_TOKEN_PLACEHOLDER}` })
-  assert.equal(config.args.includes('Authorization:${WEKNORA_MCP_AUTH}'), true)
+  assert.deepEqual(config.env, { GENYEE_MCP_AUTH: `Bearer ${MCP_TOKEN_PLACEHOLDER}` })
+  assert.equal(config.args.includes('Authorization:${GENYEE_MCP_AUTH}'), true)
   assert.equal(JSON.stringify(config.args).includes(MCP_TOKEN_PLACEHOLDER), false)
 })
 

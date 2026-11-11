@@ -2,10 +2,10 @@
 # One Exec: prove the image has a desktop, start it, print the websockify secret.
 #
 # exit 2  — start-desktop.sh missing. stderr MUST contain
-#            WEKNORA_DESKTOP_UNSUPPORTED; POSIX sh also uses 2 for
+#            GENYEE_DESKTOP_UNSUPPORTED; POSIX sh also uses 2 for
 #            syntax errors, so Go ignores a bare 2.
 # exit 1  — start failed, listeners never came up, or no free seat.
-#            A full seat table also writes WEKNORA_NO_FREE_SCREEN.
+#            A full seat table also writes GENYEE_NO_FREE_SCREEN.
 # exit 0  — stdout is exactly one line:
 #            READY <32 alnum>            legacy image, shared :0
 #            READY <32 alnum> 0          new image, shared :0
@@ -17,7 +17,7 @@
 set -u
 
 if [ ! -x /usr/local/bin/start-desktop.sh ]; then
-  echo WEKNORA_DESKTOP_UNSUPPORTED >&2
+  echo GENYEE_DESKTOP_UNSUPPORTED >&2
   exit 2
 fi
 
@@ -58,7 +58,7 @@ read_secret() {
 # Seat path. The session id is injected by the backend; a value the agent
 # put in the command cannot override it. Images without wk-display, and
 # execs with no session id, keep the shared :0 desktop.
-if [ -n "${WEKNORA_SESSION_ID:-}" ] && command -v wk-display >/dev/null 2>&1; then
+if [ -n "${GENYEE_SESSION_ID:-}" ] && command -v wk-display >/dev/null 2>&1; then
   /usr/local/bin/start-desktop.sh --proxy-only </dev/null >>"$log" 2>&1
   rc=$?
   if [ "$rc" -ne 0 ]; then
@@ -71,8 +71,8 @@ if [ -n "${WEKNORA_SESSION_ID:-}" ] && command -v wk-display >/dev/null 2>&1; th
   fi
   read_secret || exit 1
   # claim prints only the seat number. Its stderr (including
-  # WEKNORA_NO_FREE_SCREEN) must reach the caller, not stdout.
-  seat=$(wk-display claim "$WEKNORA_SESSION_ID" 2>>"$log")
+  # GENYEE_NO_FREE_SCREEN) must reach the caller, not stdout.
+  seat=$(wk-display claim "$GENYEE_SESSION_ID" 2>>"$log")
   rc=$?
   if [ "$rc" -ne 0 ]; then
     tail -c 2000 "$log" >&2

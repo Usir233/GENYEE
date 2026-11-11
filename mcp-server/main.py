@@ -43,18 +43,18 @@ def check_dependencies():
 
 def check_environment_variables():
     """检查环境变量配置"""
-    base_url = os.getenv("GENYEE_BASE_URL") or os.getenv("WEKNORA_BASE_URL")
-    api_key = os.getenv("GENYEE_API_KEY") or os.getenv("WEKNORA_API_KEY")
+    base_url = os.getenv("GENYEE_BASE_URL")
+    api_key = os.getenv("GENYEE_API_KEY")
 
     print("=== GENYEE MCP Server 环境检查 ===", file=sys.stderr)
     print(f"Base URL: {base_url or 'http://localhost:8080/api/v1 (默认)'}", file=sys.stderr)
     print(f"API Key: {'已设置' if api_key else '未设置 (警告)'}", file=sys.stderr)
 
     if not base_url:
-        print("提示: 可以设置 GENYEE_BASE_URL (或 WEKNORA_BASE_URL) 环境变量", file=sys.stderr)
+        print("提示: 可以设置 GENYEE_BASE_URL 环境变量", file=sys.stderr)
 
     if not api_key:
-        print("警告: 建议设置 GENYEE_API_KEY (或 WEKNORA_API_KEY) 环境变量", file=sys.stderr)
+        print("警告: 建议设置 GENYEE_API_KEY 环境变量", file=sys.stderr)
 
     print("=" * 40, file=sys.stderr)
     return True
@@ -72,8 +72,8 @@ def parse_arguments():
   python main.py --verbose          # 启用详细日志
   
 环境变量:
-  GENYEE_BASE_URL        GENYEE API 基础 URL (默认: http://localhost:8080/api/v1，兼容 WEKNORA_BASE_URL)
-  GENYEE_API_KEY         GENYEE API 密钥 (兼容 WEKNORA_API_KEY)
+  GENYEE_BASE_URL        GENYEE API 基础 URL (默认: http://localhost:8080/api/v1)
+  GENYEE_API_KEY         GENYEE API 密钥
   MCP_SERVER_AUTH_TOKEN  SSE/HTTP 传输必填，客户端通过 Authorization: Bearer 传递
         """,
     )

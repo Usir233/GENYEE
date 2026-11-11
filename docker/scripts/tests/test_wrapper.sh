@@ -11,7 +11,7 @@ setup_wrapper() {
   mkdir -p "$STUB_STATE"; : > "$STUB_LOG"
   export WK_DISPLAY_STATE="$TMP/display" WK_DISPLAY_LOG="$TMP/display.log"
   mkdir -p "$WK_DISPLAY_STATE"; : > "$WK_DISPLAY_LOG"
-  export WEKNORA_SESSION_ID="sid-A" WEKNORA_BROWSER_ROOT="$TMP/br/A"
+  export GENYEE_SESSION_ID="sid-A" GENYEE_BROWSER_ROOT="$TMP/br/A"
   export WK_AB_REAL="$HERE/stubs/agent-browser-stub.sh" WK_DISPLAY="$DISP"
   # The sync stub acknowledges navigation requests and records close captures.
   cat > "$TMP/fake-sync" <<'EOF'
@@ -31,7 +31,7 @@ log() { cat "$STUB_LOG"; }
 dlog() { cat "$WK_DISPLAY_LOG"; }
 t_fails_closed_without_session_env() {
   setup_wrapper
-  env -u WEKNORA_SESSION_ID "$WRAP" snapshot 2>/dev/null; rc=$?
+  env -u GENYEE_SESSION_ID "$WRAP" snapshot 2>/dev/null; rc=$?
   assert_eq "exit 70" 70 "$rc"
   assert_eq "real binary never ran" "" "$(log)"
   teardown
@@ -40,9 +40,9 @@ t_fails_closed_without_session_env() {
 t_pins_home_profile_session_and_executable() {
   setup_wrapper
   "$WRAP" snapshot
-  assert_contains "HOME is the session's" "HOME=$WEKNORA_BROWSER_ROOT/home" "$(log)"
+  assert_contains "HOME is the session's" "HOME=$GENYEE_BROWSER_ROOT/home" "$(log)"
   assert_contains "fixed session name" "SESSION=main" "$(log)"
-  assert_contains "profile pinned" "--profile $WEKNORA_BROWSER_ROOT/profile" "$(log)"
+  assert_contains "profile pinned" "--profile $GENYEE_BROWSER_ROOT/profile" "$(log)"
   assert_contains "chrome shim pinned" "EXE=/usr/local/bin/chrome-wk" "$(log)"
   teardown
 }
@@ -126,7 +126,7 @@ t_desktop_click_on_a_cold_start_opens_the_browser() {
 t_two_sessions_get_different_displays() {
   setup_wrapper
   "$WRAP" --headed snapshot
-  WEKNORA_SESSION_ID=sid-B WEKNORA_BROWSER_ROOT="$TMP/br/B" "$WRAP" --headed snapshot
+  GENYEE_SESSION_ID=sid-B GENYEE_BROWSER_ROOT="$TMP/br/B" "$WRAP" --headed snapshot
   assert_contains "A home" "HOME=$TMP/br/A/home" "$(log)"
   assert_contains "B home" "HOME=$TMP/br/B/home" "$(log)"
   assert_contains "A on seat 1" "DISPLAY=:1 " "$(log)"
@@ -148,7 +148,7 @@ t_replaces_flags_that_would_escape_isolation() {
   "$WRAP" --cdp 9222 --session x --profile /tmp/p --state s.json \
     --executable-path /bin/x --auto-connect open https://x; rc=$?
   assert_eq "command still runs" 0 "$rc"
-  assert_contains "our profile" "--profile $WEKNORA_BROWSER_ROOT/profile" "$(log)"
+  assert_contains "our profile" "--profile $GENYEE_BROWSER_ROOT/profile" "$(log)"
   assert_contains "our session" "SESSION=main" "$(log)"
   assert_contains "our chrome" "EXE=/usr/local/bin/chrome-wk" "$(log)"
   assert_not_contains "cdp dropped" "9222" "$(log)"
@@ -230,7 +230,7 @@ t_navigation_waits_for_sync() {
   "$WRAP" open https://example.com
   assert_eq "first launch bootstraps one blank page" 1 "$(log | grep -c ' open about:blank')"
   assert_eq "requested URL opens once" 1 "$(log | grep -c ' open https://example.com')"
-  assert_contains "cold start restores targeted browser" "--restore-root $WEKNORA_BROWSER_ROOT" "$(cat "$WK_SYNC_LOG")"
+  assert_contains "cold start restores targeted browser" "--restore-root $GENYEE_BROWSER_ROOT" "$(cat "$WK_SYNC_LOG")"
   "$WRAP" open https://example.com/next
   assert_eq "existing browser does not revisit blank page" 1 "$(log | grep -c ' open about:blank')"
   assert_not_contains "CLI state loading is unused" "state load" "$(log)"
@@ -270,7 +270,7 @@ t_sessions_share_login_files_at_startup() {
   setup_wrapper
   export WK_LINK_CHROME="$HERE/../link-chrome-session.sh" WK_CHROME_SHARED="$TMP/shared"
   "$WRAP" open https://example.com
-  WEKNORA_SESSION_ID=sid-B WEKNORA_BROWSER_ROOT="$TMP/br/B" "$WRAP" open https://example.com
+  GENYEE_SESSION_ID=sid-B GENYEE_BROWSER_ROOT="$TMP/br/B" "$WRAP" open https://example.com
   for name in 'Login Data' 'Login Data For Account'; do
     a="$TMP/br/A/profile/Default/$name"
     b="$TMP/br/B/profile/Default/$name"
@@ -299,14 +299,14 @@ t_desktop_click_and_agent_reach_the_same_daemon() {
   assert_eq "one daemon socket directory for both callers" 1 \
     "$(log | grep '^SOCKDIR ' | sort -u | wc -l | tr -d ' ')"
   assert_contains "socket lives under the session root" \
-    "SOCKDIR $WEKNORA_BROWSER_ROOT/home/.agent-browser" "$(log)"
+    "SOCKDIR $GENYEE_BROWSER_ROOT/home/.agent-browser" "$(log)"
   teardown
 }
 
 t_lock_held_skips_the_command_lock() {
   setup_wrapper
-  mkdir -p "$WEKNORA_BROWSER_ROOT"
-  exec 9>"$WEKNORA_BROWSER_ROOT/.command.lock"
+  mkdir -p "$GENYEE_BROWSER_ROOT"
+  exec 9>"$GENYEE_BROWSER_ROOT/.command.lock"
   flock 9
   WK_AB_LOCK_HELD=1 timeout 5 "$WRAP" focus @e1; rc=$?
   exec 9>&-
@@ -356,7 +356,7 @@ t_close_harvests_cookies_into_the_vault() {
   "$WRAP" open http://a.example >/dev/null 2>&1
   assert_not_contains "no harvest on a non-close command" "--capture" "$(cat "$WK_SYNC_LOG")"
   "$WRAP" close >/dev/null 2>&1
-  assert_contains "close captures via sync service" "--capture $WEKNORA_BROWSER_ROOT" "$(cat "$WK_SYNC_LOG")"
+  assert_contains "close captures via sync service" "--capture $GENYEE_BROWSER_ROOT" "$(cat "$WK_SYNC_LOG")"
   # Capture must precede the final CLI call while Chrome is still alive.
   ab_line=$(grep -n '^ab "' "$WRAP" | head -1 | cut -d: -f1)
   harvest_line=$(grep -n 'timeout 10' "$WRAP" | head -1 | cut -d: -f1)
@@ -394,7 +394,7 @@ t_caller_config_cannot_reach_the_cli() {
   assert_not_contains "extension dropped" "/tmp/ext" "$(log)"
   assert_not_contains "init script dropped" "/tmp/init.js" "$(log)"
   assert_contains "harmless output switches pass" "AGENT_BROWSER_JSON=1" "$(log)"
-  cfg="$WEKNORA_BROWSER_ROOT/home/agent-browser-config.json"
+  cfg="$GENYEE_BROWSER_ROOT/home/agent-browser-config.json"
   assert_contains "config pinned to the wrapper's own file" "AGENT_BROWSER_CONFIG=$cfg" "$(log)"
   assert_eq "the pinned config is empty" "{}" "$(cat "$cfg")"
   teardown
@@ -502,12 +502,12 @@ t_an_orphaned_browser_is_replaced() {
   setup_wrapper
   "$WRAP" open https://example.com >/dev/null 2>&1
   old="$(cat "$STUB_STATE/chrome.pid")"
-  rm -f "$WEKNORA_BROWSER_ROOT/home/.agent-browser/main.pid"   # its daemon died
+  rm -f "$GENYEE_BROWSER_ROOT/home/.agent-browser/main.pid"   # its daemon died
   : > "$WK_SYNC_LOG"
   err="$("$WRAP" snapshot 2>&1 >/dev/null)"; rc=$?
   assert_eq "the command still runs" 0 "$rc"
   assert_eq "the orphaned browser is gone" 1 "$(kill -0 "$old" 2>/dev/null; echo $?)"
-  assert_contains "its login state is captured first" "--capture $WEKNORA_BROWSER_ROOT" "$(cat "$WK_SYNC_LOG")"
+  assert_contains "its login state is captured first" "--capture $GENYEE_BROWSER_ROOT" "$(cat "$WK_SYNC_LOG")"
   assert_contains "says what happened" "controller" "$err"
   assert_contains "the relaunch is headed" "--headed snapshot" "$(log)"
   teardown
@@ -524,8 +524,8 @@ t_a_browser_with_a_live_daemon_is_kept() {
 
 t_a_busy_command_lock_is_explained() {
   setup_wrapper
-  mkdir -p "$WEKNORA_BROWSER_ROOT"
-  ( exec 7>"$WEKNORA_BROWSER_ROOT/.command.lock"; flock 7; sleep 3 ) &
+  mkdir -p "$GENYEE_BROWSER_ROOT"
+  ( exec 7>"$GENYEE_BROWSER_ROOT/.command.lock"; flock 7; sleep 3 ) &
   holder=$!
   sleep 0.3
   err="$(WK_LOCK_WAIT_S=1 "$WRAP" snapshot 2>&1 >/dev/null)"; rc=$?

@@ -194,7 +194,7 @@ if [[ -n "$TARGET_REGISTRY" ]]; then
                 fi
                 printf '  %s:\n    image: %s\n' "$service" "$dst_img"
                 if [[ "$service" == app ]]; then
-                    printf '    environment:\n      WEKNORA_SANDBOX_DOCKER_IMAGE: %s/genyee-sandbox:%s\n' "$TARGET_REGISTRY" "$image_tag"
+                    printf '    environment:\n      GENYEE_SANDBOX_DOCKER_IMAGE: %s/genyee-sandbox:%s\n' "$TARGET_REGISTRY" "$image_tag"
                 fi
             done
         done < "${BUNDLE_DIR}/COMPOSE_IMAGES.tsv"

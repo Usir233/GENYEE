@@ -154,11 +154,11 @@ func TestFetcherReportsBrowserDeadlineAsRetryableTimeout(t *testing.T) {
 }
 
 func TestNewFetcherKeepsAgentCompatibleTimeout(t *testing.T) {
-	t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "")
+	t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "")
 	assert.Equal(t, 30*time.Second, NewFetcher().timeout)
 	assert.Equal(t, PageFetchTimeout(), NewFetcher().timeout)
 
-	t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "150s")
+	t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "150s")
 	assert.Equal(t, 150*time.Second, NewFetcher().timeout)
 }
 
@@ -169,7 +169,7 @@ func TestNewPipelineFetcherUsesHTTPOnlyAndLegacyTimeout(t *testing.T) {
 }
 
 func TestPipelineFetcherIgnoresWebFetchToolTimeout(t *testing.T) {
-	t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "180")
+	t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "180")
 	fetcher := NewPipelineFetcher()
 	assert.Equal(t, 15*time.Second, fetcher.timeout)
 	assert.Nil(t, fetcher.renderBrowser)
@@ -177,19 +177,19 @@ func TestPipelineFetcherIgnoresWebFetchToolTimeout(t *testing.T) {
 }
 
 func TestPageFetchTimeout(t *testing.T) {
-	t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "")
+	t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "")
 	assert.Equal(t, 30*time.Second, PageFetchTimeout())
 
-	t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "150s")
+	t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "150s")
 	assert.Equal(t, 150*time.Second, PageFetchTimeout())
-	t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "3m")
+	t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "3m")
 	assert.Equal(t, 3*time.Minute, PageFetchTimeout())
-	t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "180")
+	t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "180")
 	assert.Equal(t, 180*time.Second, PageFetchTimeout())
 
 	for _, raw := range []string{"", "0", "-1", "0s", "-5s", "nope", "   "} {
 		t.Run("fallback_"+raw, func(t *testing.T) {
-			t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", raw)
+			t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", raw)
 			assert.Equal(t, 30*time.Second, PageFetchTimeout())
 		})
 	}

@@ -93,8 +93,8 @@ flowchart LR
 | `chunk_overlap` | int | 50 | 分块重叠 |
 | `split_markers` | []string | `["\n\n", "\n", "。"]` | 分割标记 |
 | `keep_separator` | bool | false | 保留分隔符 |
-| `document_process_timeout` | duration | 2h | 单文档处理任务总超时（env `WEKNORA_DOCUMENT_PROCESS_TIMEOUT` 可覆盖） |
-| `docreader_call_timeout` | duration | 30m | 单次 DocReader RPC 超时（env `WEKNORA_DOCREADER_CALL_TIMEOUT`），须小于上一项 |
+| `document_process_timeout` | duration | 2h | 单文档处理任务总超时（env `GENYEE_DOCUMENT_PROCESS_TIMEOUT` 可覆盖） |
+| `docreader_call_timeout` | duration | 30m | 单次 DocReader RPC 超时（env `GENYEE_DOCREADER_CALL_TIMEOUT`），须小于上一项 |
 | `image_processing.enable_multimodal` | bool | true | 上传时启用图片多模态处理（OCR/Caption） |
 
 > 每个知识库的 `ChunkingConfig` 会覆盖这里的全局默认值。
@@ -108,9 +108,9 @@ flowchart LR
 | 名称 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `enable_cross_tenant_access` | bool | false | 允许具备 `CanAccessAllTenants` 的用户跨空间访问（内网可开） |
-| `enable_rbac` | *bool | true | 空间角色强制鉴权；显式 `false` 进入灰度模式，空间内的角色检查仅记录不拦截，跨空间访问仍然拦截（env `WEKNORA_TENANT_ENABLE_RBAC`） |
-| `max_owned_per_user` | int | 0（走 handler 默认） | 单个非超管可自建空间数上限；<0 关闭限制（env `WEKNORA_TENANT_MAX_OWNED_PER_USER`） |
-| `self_service_creation_enabled` | *bool | true | 普通用户能否自建空间（env `WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED`） |
+| `enable_rbac` | *bool | true | 空间角色强制鉴权；显式 `false` 进入灰度模式，空间内的角色检查仅记录不拦截，跨空间访问仍然拦截（env `GENYEE_TENANT_ENABLE_RBAC`） |
+| `max_owned_per_user` | int | 0（走 handler 默认） | 单个非超管可自建空间数上限；<0 关闭限制（env `GENYEE_TENANT_MAX_OWNED_PER_USER`） |
+| `self_service_creation_enabled` | *bool | true | 普通用户能否自建空间（env `GENYEE_TENANT_SELF_SERVICE_CREATION_ENABLED`） |
 | `default_session_name` / `default_session_title` / `default_session_description` | string | 空 | 新会话默认文案 |
 
 ### 结构体支持但默认文件未写出的段
@@ -120,9 +120,9 @@ flowchart LR
 | 段 | 结构体 | 关键字段与默认值 |
 | --- | --- | --- |
 | `auth` | `AuthConfig` | `registration_mode`：`self_serve`（默认，开放注册）/ `invite_register`（仅限邀请注册）/ `invite_only`（禁止注册，`DISABLE_REGISTRATION=true` 时使用）；`default_tenant_mode`：`create_personal`（默认）/ `tenantless` |
-| `audit` | `AuditConfig` | `retention_days`：审计日志保留天数，段落省略时默认 90；0 禁用清理；<0 校验报错（env `WEKNORA_AUDIT_RETENTION_DAYS`） |
+| `audit` | `AuditConfig` | `retention_days`：审计日志保留天数，段落省略时默认 90；0 禁用清理；<0 校验报错（env `GENYEE_AUDIT_RETENTION_DAYS`） |
 | `oidc_auth` | `OIDCAuthConfig` | `enable`、`issuer_url`、`jwks_uri`、`discovery_url`（缺省由 issuer 拼 `/.well-known/openid-configuration`）、`client_id`、`client_secret`、`authorization_endpoint`、`token_endpoint`、`user_info_endpoint`、`scopes`（默认 `openid profile email`）、`user_info_mapping.username`（默认 `name`）/`email`（默认 `email`）；全部可用 `OIDC_AUTH_*` 环境变量覆盖 |
-| `agent` | `AgentConfig` | `llm_call_timeout`：单次 LLM 调用超时秒数（默认 120，env `WEKNORA_AGENT_LLM_TIMEOUT`）；`tool_approval_timeout_seconds`：MCP 工具人工审批等待（默认 600，env `WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT`） |
+| `agent` | `AgentConfig` | `llm_call_timeout`：单次 LLM 调用超时秒数（默认 120，env `GENYEE_AGENT_LLM_TIMEOUT`）；`tool_approval_timeout_seconds`：MCP 工具人工审批等待（默认 600，env `GENYEE_AGENT_TOOL_APPROVAL_TIMEOUT`） |
 | `im` | `IMConfig` | IM 渠道 QA 并发：`workers`（5）、`global_max_workers`（0=不限，需 Redis）、`max_queue_size`（50）、`max_per_user`（3）、`rate_limit_window`（60s）、`rate_limit_max`（10） |
 | `docreader` | `DocReaderConfig` | `addr`（gRPC 地址如 `docreader:50051` 或 HTTP base URL）、`transport`：`grpc`（默认）/ `http`；通常用 env `DOCREADER_ADDR` / `DOCREADER_TRANSPORT` |
 | `vector_database` | `VectorDatabaseConfig` | `driver`（通常用 env `RETRIEVE_DRIVER`） |
@@ -140,19 +140,19 @@ flowchart LR
 | 名称 | 默认值 | 说明 |
 | --- | --- | --- |
 | `GIN_MODE` | release | `debug` 开发模式（启用 Swagger）/ `release` 生产 |
-| `LOG_LEVEL` / `LOG_PATH` / `WEKNORA_LOG_FORMAT` | debug / 空 / 空 | 日志级别、文件路径（空则仅 stdout）、自定义格式（非空须含 `%msg`；未设置时兼容旧 `LOG_FORMAT`，显式空值禁用回退；不支持 `json` 关键字） |
+| `LOG_LEVEL` / `LOG_PATH` / `GENYEE_LOG_FORMAT` | debug / 空 / 空 | 日志级别、文件路径（空则仅 stdout）、自定义格式（非空须含 `%msg`；未设置时兼容旧 `LOG_FORMAT`，显式空值禁用回退；不支持 `json` 关键字） |
 | `LLM_DEBUG_LOG` | false | true 时在 LOG_PATH 同目录写 `llm_debug.log` |
 | `TZ` | Asia/Shanghai | 时区 |
 | `DEFAULT_LOCALE` | 空 | 前端界面默认语言（frontend 容器读取）：`zh-CN` / `en-US` / `ru-RU` / `ko-KR` / `ja-JP`，非法值忽略。仅影响未手动切换过语言的用户，优先级：用户已选语言 > 本变量 > `zh-CN`；改完重启 frontend 容器即可，无需重建镜像 |
-| `WEKNORA_LANGUAGE` | 空 | 文档处理语言（问题/摘要生成）。优先级：本变量 > 请求的 `Accept-Language` > 内置 `zh-CN`。文档处理语言可独立于界面语言设置，例如使用英文界面处理韩文文档。未设置回复语言的 IM 渠道也以本变量（未设置时为 `zh-CN`）作为默认回复语言 |
+| `GENYEE_LANGUAGE` | 空 | 文档处理语言（问题/摘要生成）。优先级：本变量 > 请求的 `Accept-Language` > 内置 `zh-CN`。文档处理语言可独立于界面语言设置，例如使用英文界面处理韩文文档。未设置回复语言的 IM 渠道也以本变量（未设置时为 `zh-CN`）作为默认回复语言 |
 | `AUTO_MIGRATE` | true | 启动时自动执行数据库迁移。PostgreSQL 下也控制按维度后台建 HNSW 索引，设为 `false` 时两者都不做（见[检索引擎](../03-features/05-retrieval-engines.md)） |
 | `AUTO_RECOVER_DIRTY` | true | 自动修复 golang-migrate 的 dirty 状态（上次迁移中断留下的）。手工排查迁移问题时应临时设为 false，否则启动会自动改写迁移版本记录，见[数据库与迁移](../06-development/02-database-schema.md) |
-| `WEKNORA_TRUSTED_PROXIES` | 空 | gin 信任代理 CIDR（逗号分隔） |
+| `GENYEE_TRUSTED_PROXIES` | 空 | gin 信任代理 CIDR（逗号分隔） |
 | `MAX_SKILL_BUNDLE_SIZE_MB` | 256 MiB（默认不小于 MAX_FILE_SIZE_MB，上限 512 MiB） | 技能 ZIP 上传与来源下载上限；反向代理请求体限制也需足够大 |
 | `MAX_FILE_SIZE_MB` | 50 | 上传文件大小限制（`app` 请求校验、`frontend` Nginx `client_max_body_size`、`docreader` gRPC 消息上限三处共用；调大超长财报/标书上限时需同时重启这三项服务并同步调整外层 Ingress；Helm 部署使用 `global.maxFileSizeMB`） |
 | `CONCURRENCY_POOL_SIZE` | 5 | 通用并发池 |
 | `APP_EXTERNAL_URL` / `FRONTEND_BASE_URL` | 空 | IM 渠道图片/文件外链的外部可达 URL / 前端外部 origin |
-| `WEKNORA_MCP_ASK_TIMEOUT` | `4m` | MCP Server 内置 `ask` 的单次服务端时限；支持 Go duration（如 `10m`）或纯秒数（如 `600`），非法或非正值回退到 `4m`。客户端与反向代理的独立超时需另行配置 |
+| `GENYEE_MCP_ASK_TIMEOUT` | `4m` | MCP Server 内置 `ask` 的单次服务端时限；支持 Go duration（如 `10m`）或纯秒数（如 `600`），非法或非正值回退到 `4m`。客户端与反向代理的独立超时需另行配置 |
 | `RESOURCE_URL_MODE` | handle | API 响应里文件引用的默认形式：`handle` 返回内部 `resource://`，`public` 返回可直接加载的限时外链。单次请求可用 `?resource_urls=` 覆盖，详见 [API 总览](../04-api/01-api-overview.md) |
 
 `APP_EXTERNAL_URL` 影响 IM 渠道能否渲染知识库图片。IM 平台需要拿到公网 http(s) URL，二选一：
@@ -175,9 +175,9 @@ flowchart LR
 | `STREAM_MANAGER_TYPE` | 空（compose 实际走 redis） | `redis` / `memory` |
 | `REDIS_ADDR` / `REDIS_USERNAME` / `REDIS_PASSWORD` / `REDIS_DB` / `REDIS_PREFIX` | redis:6379 / … | Redis 连接 |
 | `REDIS_USE_TLS` | false | **启用 TLS 的总开关**，托管 Redis（如 AWS ElastiCache）需要打开；`REDIS_TLS_SERVER_NAME` 指定校验与 SNI 用的服务器名（地址是 IP 时有用），`REDIS_TLS_INSECURE_SKIP_VERIFY` 跳过证书校验（不安全，仅自签证书的开发环境用） |
-| `WEKNORA_REDIS_NAMESPACE` | 空 | 多部署共用 Redis 时的频道命名空间后缀 |
-| `WEKNORA_SANDBOX_USER_ALLOCATION` | 空 | 设为 `enabled` 后，沙箱配置可选择「同一用户的会话共用一台沙箱」。必须在所有实例升级完成后再在所有实例上设置，且需要 Redis；未满足时该选项不可保存，已保存的配置在分配时回退为每会话一台。 |
-| `WEKNORA_ASYNQ_CORE_CONCURRENCY` 等 | 8 / 2 / 12 / 4 / 6 | Asynq 各队列并发（core/postprocess/enrichment/maintenance/shared），另有 `WEKNORA_WIKI_ASYNQ_CONCURRENCY=8`、`WEKNORA_MODEL_MAX_CONCURRENCY=32` |
+| `GENYEE_REDIS_NAMESPACE` | 空 | 多部署共用 Redis 时的频道命名空间后缀 |
+| `GENYEE_SANDBOX_USER_ALLOCATION` | 空 | 设为 `enabled` 后，沙箱配置可选择「同一用户的会话共用一台沙箱」。必须在所有实例升级完成后再在所有实例上设置，且需要 Redis；未满足时该选项不可保存，已保存的配置在分配时回退为每会话一台。 |
+| `GENYEE_ASYNQ_CORE_CONCURRENCY` 等 | 8 / 2 / 12 / 4 / 6 | Asynq 各队列并发（core/postprocess/enrichment/maintenance/shared），另有 `GENYEE_WIKI_ASYNQ_CONCURRENCY=8`、`GENYEE_MODEL_MAX_CONCURRENCY=32` |
 
 ### 检索引擎与向量库
 
@@ -219,7 +219,7 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 | `VLM_MAX_TOKENS` | 5000 | 远程 VLM 单次请求的补全 token 预算（含模型隐藏的思考 token，整页扫描件被截断时报 `finish_reason=length` 可调大） |
 | `BUILTIN_MODELS_CONFIG` | config/builtin_models.yaml | 内置模型声明文件路径（见下文） |
 | `MODELS_CONFIG` | config/models.json | 模型厂商目录的部署叠加文件路径（补充厂商、覆盖地址或模型参数），格式见[模型管理](../03-features/06-models.md) |
-| `WEKNORA_LLM_STREAM_RAW_DUMP` / `_DIR` | 空 | LLM 流原始转储（排障用） |
+| `GENYEE_LLM_STREAM_RAW_DUMP` / `_DIR` | 空 | LLM 流原始转储（排障用） |
 
 向量模型名不由环境变量决定。在模型记录里把 `type=Embedding`、`source=local` 的 `name` 设为 Ollama 模型名（CLI 示例 `nomic-embed-text`，维度 768；快速开始用 `bge-m3`，维度 1024）。名为空时本地 embedder 回退到 `nomic-embed-text`。`EMBEDDING_MODEL_NAME` 只在 `builtin_models.yaml` 引用 `${EMBEDDING_MODEL_NAME}` 时生效（见下文「config/builtin_models.yaml.example：声明式内置模型」与仓库 `config/builtin_models.yaml.example`）。安装文档的 8GB 起点不含 Ollama 权重；Neo4j 默认关闭（`neo4j` profile）。
 
@@ -231,20 +231,20 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 | `SYSTEM_AES_KEY` | 空 | 敏感字段落盘加密的 AES-256 主密钥，**必须 32 字节**（可用 `openssl rand -hex 16` 生成）；丢失则已加密数据（租户 API Key、模型 key、向量库凭证等）不可恢复，升级时沿用原值。v0.4.0 起取代 `TENANT_AES_KEY`/`CRYPTO_MASTER_KEY`/`CRYPTO_SALT` |
 | `SYSTEM_SIGNING_KEY` | 空（回退到 `SYSTEM_AES_KEY`） | 嵌入会话与预签名文件链接的签名密钥（可用 `openssl rand -hex 32` 生成）。未设置时使用 `SYSTEM_AES_KEY`；两者都缺失、长度不足 16 或为示例值时无法签发签名链接与嵌入会话。更换后已签发的链接失效；多副本须使用同一个值 |
 | `DISABLE_REGISTRATION` | false | true 时启动配置使用 `invite_only`（禁止密码注册，包括邀请注册）；数据库运行时设置仍优先 |
-| `WEKNORA_AUTH_DEFAULT_TENANT_MODE` | create_personal | 注册后建空间策略（`create_personal` / `tenantless`） |
-| `WEKNORA_TENANT_ENABLE_RBAC` | （默认 true） | 空间角色强制鉴权开关 |
-| `WEKNORA_TENANT_ENABLE_CROSS_TENANT_ACCESS` | false | 跨空间访问 |
-| `WEKNORA_TENANT_SELF_SERVICE_CREATION_ENABLED` | true | 普通用户自建空间 |
-| `WEKNORA_TENANT_MAX_OWNED_PER_USER` | 空 | 自建空间上限 |
-| `WEKNORA_TENANT_AUTO_CREATE_API_KEY` | false | 建空间时自动下发 full_access API Key（兼容旧行为） |
-| `WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_GB` | 10 | 新空间默认存储配额（GB，兼容原有配置） |
-| `WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_MB` | 0 | 正数优先于 GB；0 或负数沿用 GB。支持如 `50` MB 的默认配额 |
-| `WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED` | false | 复杂密码策略：大小写字母、数字、特殊字符；系统设置 auth.complex_password_enabled 优先 |
-| `WEKNORA_TENANT_AUTO_ACCEPT_INVITATION` | false | 邮箱邀请已有账号直接加入；系统设置 tenant.auto_accept_invitation 优先 |
+| `GENYEE_AUTH_DEFAULT_TENANT_MODE` | create_personal | 注册后建空间策略（`create_personal` / `tenantless`） |
+| `GENYEE_TENANT_ENABLE_RBAC` | （默认 true） | 空间角色强制鉴权开关 |
+| `GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS` | false | 跨空间访问 |
+| `GENYEE_TENANT_SELF_SERVICE_CREATION_ENABLED` | true | 普通用户自建空间 |
+| `GENYEE_TENANT_MAX_OWNED_PER_USER` | 空 | 自建空间上限 |
+| `GENYEE_TENANT_AUTO_CREATE_API_KEY` | false | 建空间时自动下发 full_access API Key（兼容旧行为） |
+| `GENYEE_TENANT_DEFAULT_STORAGE_QUOTA_GB` | 10 | 新空间默认存储配额（GB，兼容原有配置） |
+| `GENYEE_TENANT_DEFAULT_STORAGE_QUOTA_MB` | 0 | 正数优先于 GB；0 或负数沿用 GB。支持如 `50` MB 的默认配额 |
+| `GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED` | false | 复杂密码策略：大小写字母、数字、特殊字符；系统设置 auth.complex_password_enabled 优先 |
+| `GENYEE_TENANT_AUTO_ACCEPT_INVITATION` | false | 邮箱邀请已有账号直接加入；系统设置 tenant.auto_accept_invitation 优先 |
 | `OIDC_AUTH_JWKS_URI` | 空 | id_token 验签公钥集；可经 discovery 补全，与 issuer/audience/有效期共同校验 |
-| `WEKNORA_INVITATION_TTL` | 168h | 邀请链接有效期 |
-| `WEKNORA_AUDIT_RETENTION_DAYS` | 90 | 审计日志保留天数 |
-| `WEKNORA_BOOTSTRAP_SYSTEM_ADMIN_EMAIL` | 空 | 引导第一个系统管理员。**不会创建用户**：该邮箱需先自行注册，下次启动时若部署内还没有任何系统管理员，才把它提升；已有管理员后本变量不再生效。详见[租户、用户与认证授权](../03-features/01-tenant-auth.md) |
+| `GENYEE_INVITATION_TTL` | 168h | 邀请链接有效期 |
+| `GENYEE_AUDIT_RETENTION_DAYS` | 90 | 审计日志保留天数 |
+| `GENYEE_BOOTSTRAP_SYSTEM_ADMIN_EMAIL` | 空 | 引导第一个系统管理员。**不会创建用户**：该邮箱需先自行注册，下次启动时若部署内还没有任何系统管理员，才把它提升；已有管理员后本变量不再生效。详见[租户、用户与认证授权](../03-features/01-tenant-auth.md) |
 | `OIDC_AUTH_ENABLE` 及 `OIDC_AUTH_*` / `OIDC_USER_INFO_MAPPING_*` | false / 空 | OIDC 单点登录全套配置 |
 | `SSRF_WHITELIST` / `SSRF_WHITELIST_EXTRA` | 空 / `searxng,qdrant,milvus,weaviate,doris-fe,doris-be,minio`（仅 app） | 出站请求 SSRF 白名单。`SSRF_WHITELIST` 为 app 与 docreader 共用；compose 只给 app 的 `SSRF_WHITELIST_EXTRA` 设了默认值，docreader 的同名变量默认为空 |
 | `SSRF_DNS_WHITELIST_ONLY` | false | 仅允许白名单出站（app 与 docreader 均读取）。开启后，不在白名单的主机在 **DNS 查询前**即被拒绝，URL 校验处不在白名单的 IP 直连也一并拒绝；域名只按名字匹配，写在白名单里的 CIDR 不再对域名生效。取值按布尔解析（`1/t/true` 开、`0/f/false` 关），**非空且无法解析的取值按「开」处理**。开启前的准备见下文 |
@@ -312,27 +312,27 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 | 环境变量 | 默认 | 作用 |
 | --- | --- | --- |
 | `KNOWLEDGE_BASE_PROFILE_MAX_TOKENS` | 2048 | 知识库描述生成的补全 token 预算；无效或非正值回退默认，推理模型出现 `no gist` 时可调大 |
-| `WEKNORA_OUTBOUND_DIAL_TIMEOUT` | 5s | SSRF 安全出站连接的拨号超时，使用 Go duration（如 `10s`）；不是整个请求或模型生成的总超时 |
+| `GENYEE_OUTBOUND_DIAL_TIMEOUT` | 5s | SSRF 安全出站连接的拨号超时，使用 Go duration（如 `10s`）；不是整个请求或模型生成的总超时 |
 
 ### Agent、Skills 与附件
 
 | 名称 | 默认值 | 说明 |
 | --- | --- | --- |
 | Sandbox 配置 | 设置页按空间维护 | 后端、凭据、模板、超时和私网访问策略按空间保存 |
-| `WEKNORA_SANDBOX_USER_ALLOCATION` | 未启用 | 设为 `enabled` 才开放按用户复用沙箱，需要 Redis；先升级全部副本，再开启并配置，见[分配方式](../03-features/22-skills-sandbox.md#user-sandbox) |
-| `WEKNORA_SANDBOX_DOCKER_ENABLED` | false | Docker 沙箱后端回退开关。系统管理员也可在「设置 → 系统设置 → 网络安全」打开（DB 优先，立即生效）。默认关闭，因为本机 `docker.sock` 等同宿主机 root |
-| `WEKNORA_AGENT_LLM_TIMEOUT` | 120s | Agent 单次 LLM 调用超时（Go duration 或纯数字秒） |
-| `WEKNORA_WEB_FETCH_TIMEOUT` | 3m | Agent `web_fetch` 单页抓取预算（Go duration 或纯数字秒）。HTTP 与 chromedp 共用这一预算，不叠加。空值、无效值或非正数使用默认值。工具包装层再多等 5 秒。快速回答管道仍为 15s，不使用此项 |
-| `WEKNORA_AGENT_TOOL_APPROVAL_TIMEOUT` / `_FAIL_OPEN` | 600s / fail-close | MCP 工具人工审批等待与失败策略 |
-| `WEKNORA_CHAT_ATTACHMENT_TTL_HOURS` / `_WAIT_TIMEOUT_SEC` / `_OCR_CONCURRENCY` / `_OCR_MAX_PAGES` | 24 / 60 / 8 / 8 | 未被有效会话消息引用的附件保留时长、读取解析等待超时与 OCR 并发/页数上限；已发送附件在原会话或分叉会话仍引用时不因 TTL 清理 |
-| `WEKNORA_HOUSEKEEPING_ENABLED` | 启用 | 回收卡在 processing 的脏数据 |
-| `WEKNORA_DOCUMENT_PROCESS_TIMEOUT` / `WEKNORA_DOCREADER_CALL_TIMEOUT` | 2h / 30m | 文档处理任务与单次 RPC 超时 |
-| `WEKNORA_PADDLEOCR_VL_TIMEOUT` | 1000s | 自建 PaddleOCR-VL HTTP 请求超时，支持正数 Go duration（如 `5400s`、`90m`）；空值、无效值或非正数使用默认值。外层超时需留余量，例如本项 `90m`、DocReader `100m`、文档任务 `2h` |
-| `WEKNORA_MINERU_TIMEOUT` | 1000s | 自建 MinerU 单次解析超时（V1 API 为整个解析任务，旧版为 `/file_parse` 请求），格式与默认值规则同上；超大 PDF 同样需要外层超时留余量 |
-| `WEKNORA_MINERU_CLOUD_TIMEOUT` | 30m | MinerU 云端（mineru.net）每个批次/分片轮询解析结果的最长时间，格式与默认值规则同上 |
-| `WEKNORA_MINERU_MAX_IMAGE_BYTES` | 536870912（512 MiB） | MinerU Cloud / 自建 V1 每个结果 ZIP 中引用图片的解压总字节上限（正整数）；空值、无效值、溢出或非正数使用默认值。大型扫描 PDF 可设为 `2147483648`（2 GiB），图片全部驻留内存，需为并发解析预留内存；下载 1 GiB、单条目 64 MiB 上限仍生效。修改后重新创建 app 容器 |
-| `WEKNORA_PADDLEOCR_VL_CLOUD_TIMEOUT` | 600s | PaddleOCR-VL 云端（AI Studio）轮询解析结果的最长时间，格式与默认值规则同上 |
-| `WEKNORA_WEKNORACLOUD_TIMEOUT` | 20m | WeKnoraCloud 托管 docreader 轮询任务结果的最长时间，格式与默认值规则同上；应小于 `WEKNORA_DOCREADER_CALL_TIMEOUT` |
+| `GENYEE_SANDBOX_USER_ALLOCATION` | 未启用 | 设为 `enabled` 才开放按用户复用沙箱，需要 Redis；先升级全部副本，再开启并配置，见[分配方式](../03-features/22-skills-sandbox.md#user-sandbox) |
+| `GENYEE_SANDBOX_DOCKER_ENABLED` | false | Docker 沙箱后端回退开关。系统管理员也可在「设置 → 系统设置 → 网络安全」打开（DB 优先，立即生效）。默认关闭，因为本机 `docker.sock` 等同宿主机 root |
+| `GENYEE_AGENT_LLM_TIMEOUT` | 120s | Agent 单次 LLM 调用超时（Go duration 或纯数字秒） |
+| `GENYEE_WEB_FETCH_TIMEOUT` | 3m | Agent `web_fetch` 单页抓取预算（Go duration 或纯数字秒）。HTTP 与 chromedp 共用这一预算，不叠加。空值、无效值或非正数使用默认值。工具包装层再多等 5 秒。快速回答管道仍为 15s，不使用此项 |
+| `GENYEE_AGENT_TOOL_APPROVAL_TIMEOUT` / `_FAIL_OPEN` | 600s / fail-close | MCP 工具人工审批等待与失败策略 |
+| `GENYEE_CHAT_ATTACHMENT_TTL_HOURS` / `_WAIT_TIMEOUT_SEC` / `_OCR_CONCURRENCY` / `_OCR_MAX_PAGES` | 24 / 60 / 8 / 8 | 未被有效会话消息引用的附件保留时长、读取解析等待超时与 OCR 并发/页数上限；已发送附件在原会话或分叉会话仍引用时不因 TTL 清理 |
+| `GENYEE_HOUSEKEEPING_ENABLED` | 启用 | 回收卡在 processing 的脏数据 |
+| `GENYEE_DOCUMENT_PROCESS_TIMEOUT` / `GENYEE_DOCREADER_CALL_TIMEOUT` | 2h / 30m | 文档处理任务与单次 RPC 超时 |
+| `GENYEE_PADDLEOCR_VL_TIMEOUT` | 1000s | 自建 PaddleOCR-VL HTTP 请求超时，支持正数 Go duration（如 `5400s`、`90m`）；空值、无效值或非正数使用默认值。外层超时需留余量，例如本项 `90m`、DocReader `100m`、文档任务 `2h` |
+| `GENYEE_MINERU_TIMEOUT` | 1000s | 自建 MinerU 单次解析超时（V1 API 为整个解析任务，旧版为 `/file_parse` 请求），格式与默认值规则同上；超大 PDF 同样需要外层超时留余量 |
+| `GENYEE_MINERU_CLOUD_TIMEOUT` | 30m | MinerU 云端（mineru.net）每个批次/分片轮询解析结果的最长时间，格式与默认值规则同上 |
+| `GENYEE_MINERU_MAX_IMAGE_BYTES` | 536870912（512 MiB） | MinerU Cloud / 自建 V1 每个结果 ZIP 中引用图片的解压总字节上限（正整数）；空值、无效值、溢出或非正数使用默认值。大型扫描 PDF 可设为 `2147483648`（2 GiB），图片全部驻留内存，需为并发解析预留内存；下载 1 GiB、单条目 64 MiB 上限仍生效。修改后重新创建 app 容器 |
+| `GENYEE_PADDLEOCR_VL_CLOUD_TIMEOUT` | 600s | PaddleOCR-VL 云端（AI Studio）轮询解析结果的最长时间，格式与默认值规则同上 |
+| `GENYEE_WEKNORACLOUD_TIMEOUT` | 20m | WeKnoraCloud 托管 docreader 轮询任务结果的最长时间，格式与默认值规则同上；应小于 `GENYEE_DOCREADER_CALL_TIMEOUT` |
 
 沙箱后端、网络策略、脚本开关与个人环境变量使用空间配置/API 管理，见[技能与沙箱](../03-features/22-skills-sandbox.md)。长期记忆与自动标签均默认关闭，分别使用租户 memory_config 和知识库 auto_tag_config，不用全局环境变量替代各空间配置。
 
@@ -372,10 +372,10 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 
 | 名称 | 默认值 | 说明 |
 | --- | --- | --- |
-| `WEKNORA_API_KEY` | 空 | mcp-server 反过来调 GENYEE REST 用的 Key，在「设置 → API Keys」生成 |
+| `GENYEE_API_KEY` | 空 | mcp-server 反过来调 GENYEE REST 用的 Key，在「设置 → API Keys」生成 |
 | `MCP_SERVER_AUTH_TOKEN` | 空 | **HTTP/SSE 传输必填**，缺失时进程直接拒绝启动；客户端以 `Authorization: Bearer` 携带 |
-| `WEKNORA_CHAT_TIMEOUT` | 300 | 调 GENYEE REST 的读超时（秒） |
-| `WEKNORA_VERIFY_SSL` | true | 是否校验后端 TLS 证书，自签证书可设 false |
+| `GENYEE_CHAT_TIMEOUT` | 300 | 调 GENYEE REST 的读超时（秒） |
+| `GENYEE_VERIFY_SSL` | true | 是否校验后端 TLS 证书，自签证书可设 false |
 | `MCP_ALLOWED_UPLOAD_DIRS` | 空 | 允许上传的目录白名单（逗号分隔），留空即禁用文件上传工具 |
 
 完整说明见 [MCP 集成](../03-features/08-mcp.md)。

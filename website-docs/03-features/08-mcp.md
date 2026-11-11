@@ -85,9 +85,9 @@ MCP 管理页支持按服务名称和卡片显示的用途说明搜索。搜索�
 
 在「设置 → 发布集成 → MCP Server」新建端点：填写名称、选择可访问的知识库（留空为全部）、勾选要暴露的工具，并按需指定 `ask` 使用的默认 Agent（留空时使用内置快速问答）和每分钟调用上限（默认 60 次）。创建后会一次性展示令牌和地址 `/mcp/<endpoint_id>`，页面给出 Cursor 可用的 `mcpServers` JSON、VS Code 专用的 `servers` JSON、Claude Code 的一行命令，以及 STDIO 备用配置。将 VS Code 选项卡中的 JSON 写入工作区的 `.vscode/mcp.json`；若已有配置，请将对应条目合并到现有 `servers` 对象中，保留其他服务。该配置使用 `type: "http"`、端点 URL 和 `Authorization` 请求头，无需桥接进程。Claude Desktop 需在自定义连接器中填写可访问的 HTTPS 地址，并在可用时选择「无需登录」和 Request headers；该请求头功能为有限开放的测试版，并非所有组织都可用。
 
-仅支持 stdio，或无法使用原生 HTTP/Bearer 配置的客户端，可使用固定版本 `mcp-remote@0.15.1`。STDIO 示例在 `args` 中保留字面量 `Authorization:${WEKNORA_MCP_AUTH}`，完整的 `Bearer <token>` 填入对应服务的 `env.WEKNORA_MCP_AUTH`，避免将令牌直接写入命令参数。令牌仍保存在客户端配置中，请按凭证妥善管理。
+仅支持 stdio，或无法使用原生 HTTP/Bearer 配置的客户端，可使用固定版本 `mcp-remote@0.15.1`。STDIO 示例在 `args` 中保留字面量 `Authorization:${GENYEE_MCP_AUTH}`，完整的 `Bearer <token>` 填入对应服务的 `env.GENYEE_MCP_AUTH`，避免将令牌直接写入命令参数。令牌仍保存在客户端配置中，请按凭证妥善管理。
 
-`ask` 是同步调用，服务端时限默认 4 分钟，可用 `WEKNORA_MCP_ASK_TIMEOUT` 调整（Go duration，如 `10m`，也接受纯秒数，如 `600`）。客户端在请求 `_meta.progressToken` 中提供 token 后，服务端会立即发送进度通知，并在运行期间约每 15 秒发送一次 `notifications/progress`；不提供 token 时不发通知。进度通知是尽力发送，不能替代客户端或反向代理自身的超时配置；超时值只控制 GENYEE 服务端等待本次问答的时长。
+`ask` 是同步调用，服务端时限默认 4 分钟，可用 `GENYEE_MCP_ASK_TIMEOUT` 调整（Go duration，如 `10m`，也接受纯秒数，如 `600`）。客户端在请求 `_meta.progressToken` 中提供 token 后，服务端会立即发送进度通知，并在运行期间约每 15 秒发送一次 `notifications/progress`；不提供 token 时不发通知。进度通知是尽力发送，不能替代客户端或反向代理自身的超时配置；超时值只控制 GENYEE 服务端等待本次问答的时长。
 
 使用自定义反向代理时，除 `/api/` 外，还需将 `/mcp/` 原路径转发到 GENYEE 后端，保留 `Authorization` 和 MCP 协议头，并关闭响应缓冲、为长连接设置足够的读写超时。仓库自带的 Nginx、Vite 开发及预览配置已包含该代理，可直接使用网站域名连接，无需另行暴露后端 8080 端口。
 
@@ -353,7 +353,7 @@ sequenceDiagram
 
 - **发现与动态注册**（`internal/mcp/oauth_manager.go`）：`StartAuthorization` 先构造 `transport.OAuthHandler`（`AuthServerMetadataURL` 为空时由 mcp-go 依据 MCP URL 自动发现授权服务器）；服务配置了预注册客户端（`auth_config.client_id`）时直接使用它，否则若 `mcp_oauth_clients` 表中该 `(tenant, service)` 尚无客户端，调用 `h.RegisterClient(ctx, "GENYEE")` 做一次性 RFC 7591 注册并 `SaveClient` 持久化，之后所有用户复用同一 client_id。
 - **PKCE**：`transport.GenerateCodeVerifier()` / `GenerateCodeChallenge()` / `GenerateState()`；`code_verifier` 是秘密，**只存服务端 state**（`internal/mcp/oauth_state.go` 注释明确禁止编码进 state 参数）。
-- **State 存储**（`oauth_state.go`）：有 Redis 时写 `weknora:mcp_oauth_state:<state>`（支持 `WEKNORA_REDIS_NAMESPACE` 命名空间，回调可落在任意后端副本）；Lite 模式退化为带 GC 的内存 map。TTL 固定 10 分钟；`Take` 为**取即删**的单次消费。另存一份不含秘密的 `OAuthAttempt` 记录，`CompleteAttempt` 仅在 token 成功落库后置 `Completed=true`——因此新弹窗的授权状态查询（`status?authorization_attempt=`）**绝不会被历史 token 误判为已完成**。
+- **State 存储**（`oauth_state.go`）：有 Redis 时写 `weknora:mcp_oauth_state:<state>`（支持 `GENYEE_REDIS_NAMESPACE` 命名空间，回调可落在任意后端副本）；Lite 模式退化为带 GC 的内存 map。TTL 固定 10 分钟；`Take` 为**取即删**的单次消费。另存一份不含秘密的 `OAuthAttempt` 记录，`CompleteAttempt` 仅在 token 成功落库后置 `Completed=true`——因此新弹窗的授权状态查询（`status?authorization_attempt=`）**绝不会被历史 token 误判为已完成**。
 - **回调**（`oauth_manager.go` 的 `CompleteAuthorization` + `internal/handler/mcp_oauth.go` 的 `Callback`）：回调路由公开无鉴权，靠单次 state 认证；由于浏览器收到重定向后 Gin 请求 ctx 即取消，token 交换用 `context.WithoutCancel + 60s` 超时（`oauthCallbackTimeout`）脱离请求生命周期。交换成功后 `CloseClientsAfterAuthorization(ctx, tenantID, serviceID, principal)` 回收当前授权主体的连接，以及同空间仍使用旧 client_id 的过期连接；其余用户的有效连接保留。注册信息读取失败时会保守清理该服务连接，请求已取消时仅清理当前主体，最后把结果编码在 URL fragment（`#mcp_oauth_result=success` / `#mcp_oauth_error=...`）重定向回前端。
 - **重建 handler 的 CSRF 检查**：回调请求里 handler 是重新构造的，需 `h.SetExpectedState(state)` 重新灌入期望 state，mcp-go 的 CSRF 校验才能通过。
 
@@ -465,7 +465,7 @@ flowchart LR
 - **参数修改**：approve 时可附 `modified_args`（必须是非 null JSON object，handler 侧显式拒绝 `"null"`），替换原始参数后执行。
 - **鉴权**：Resolve 校验 tenant 与 session 属主（`ErrTenantMismatch` / `ErrUserMismatch`，空 userID 按不匹配处理，fail-close）；重复决议返回 `ErrAlreadyResolved`。
 - **跨实例**：waiter 在发起等待的实例内存中；配置 Redis 时，落在其他副本的 Resolve 经 `weknora:mcp_approval:resolve` Pub/Sub 广播，属主实例投递决议并通过 per-pending 回复通道回 ack（3 秒窗口），使 HTTP 状态码跨实例仍准确；无 Redis 时退化为单实例（需 sticky session）。
-- **超时与失败策略**：等待超时默认 10 分钟，可由 `config.Agent.ToolApprovalTimeoutSeconds` 配置。审批检查默认 **fail-close**——查询 DB 出错时按「需要审批」处理，可设 `WEKNORA_AGENT_TOOL_APPROVAL_FAIL_OPEN=true` 恢复旧的 fail-open 行为。
+- **超时与失败策略**：等待超时默认 10 分钟，可由 `config.Agent.ToolApprovalTimeoutSeconds` 配置。审批检查默认 **fail-close**——查询 DB 出错时按「需要审批」处理，可设 `GENYEE_AGENT_TOOL_APPROVAL_FAIL_OPEN=true` 恢复旧的 fail-open 行为。
 
 #### 单工具启停
 
@@ -613,7 +613,7 @@ genyee-mcp-server
 ```dockerfile
 ENV MCP_HOST=0.0.0.0
 ENV MCP_PORT=8000
-ENV WEKNORA_BASE_URL=http://app:8080/api/v1
+ENV GENYEE_BASE_URL=http://app:8080/api/v1
 EXPOSE 8000
 CMD ["genyee-mcp-server", "--transport", "http", "--host", "0.0.0.0", "--port", "8000"]
 ```
@@ -632,10 +632,10 @@ stdio 传输把 stdout 当作协议通道，任何多余的 `print` 都会污染
 
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
-| `WEKNORA_BASE_URL` | `http://localhost:8080/api/v1` | WeKnora API 基础 URL |
-| `WEKNORA_API_KEY` | 空 | 租户 API Key，以 `X-API-Key` header 发送 |
-| `WEKNORA_CHAT_TIMEOUT` | `300` | chat / agent_chat 的 SSE 读超时（秒），非法值回退 300 |
-| `WEKNORA_VERIFY_SSL` | `true` | 设为 `false` 关闭 SSL 证书校验（仅限自签名证书的开发环境） |
+| `GENYEE_BASE_URL` | `http://localhost:8080/api/v1` | WeKnora API 基础 URL |
+| `GENYEE_API_KEY` | 空 | 租户 API Key，以 `X-API-Key` header 发送 |
+| `GENYEE_CHAT_TIMEOUT` | `300` | chat / agent_chat 的 SSE 读超时（秒），非法值回退 300 |
+| `GENYEE_VERIFY_SSL` | `true` | 设为 `false` 关闭 SSL 证书校验（仅限自签名证书的开发环境） |
 | `MCP_TRANSPORT` | `stdio` | 传输方式：`stdio` / `sse` / `http`（CLI `--transport` 优先） |
 | `MCP_HOST` | `127.0.0.1` | 网络传输绑定地址 |
 | `MCP_PORT` | `8000` | 网络传输绑定端口 |
@@ -744,8 +744,8 @@ stdio 传输（Claude Desktop 的 `claude_desktop_config.json`）：
       "command": "python",
       "args": ["/path/to/GENYEE/mcp-server/main.py"],
       "env": {
-        "WEKNORA_BASE_URL": "http://localhost:8080/api/v1",
-        "WEKNORA_API_KEY": "your-genyee-api-key"
+        "GENYEE_BASE_URL": "http://localhost:8080/api/v1",
+        "GENYEE_API_KEY": "your-genyee-api-key"
       }
     }
   }
@@ -761,8 +761,8 @@ stdio 传输（Claude Desktop 的 `claude_desktop_config.json`）：
       "command": "uvx",
       "args": ["--from", "genyee-mcp", "genyee-mcp-server"],
       "env": {
-        "WEKNORA_BASE_URL": "http://localhost:8080/api/v1",
-        "WEKNORA_API_KEY": "your-genyee-api-key"
+        "GENYEE_BASE_URL": "http://localhost:8080/api/v1",
+        "GENYEE_API_KEY": "your-genyee-api-key"
       }
     }
   }

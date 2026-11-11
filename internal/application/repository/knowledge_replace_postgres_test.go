@@ -14,9 +14,9 @@ import (
 )
 
 func TestReplaceKnowledgePostgresRollbackAndCommit(t *testing.T) {
-	dsn := os.Getenv("WEKNORA_REPOSITORY_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("GENYEE_REPOSITORY_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("set WEKNORA_REPOSITORY_TEST_POSTGRES_DSN for PostgreSQL replacement tests")
+		t.Skip("set GENYEE_REPOSITORY_TEST_POSTGRES_DSN for PostgreSQL replacement tests")
 	}
 	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)

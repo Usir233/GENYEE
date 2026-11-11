@@ -362,7 +362,7 @@ func sandboxDesktopGuidance() string {
 		"1280x800. Shell commands get DISPLAY only while this session holds a screen; without " +
 		"one, X tools fail rather than touch another session's screen. Screens are limited, so " +
 		"claim one only when you must see or drive a window: run " +
-		"`wk-display claim \"$WEKNORA_SESSION_ID\"` and use DISPLAY from the next command on. " +
+		"`wk-display claim \"$GENYEE_SESSION_ID\"` and use DISPLAY from the next command on. " +
 		"Work that needs no screen stays headless. agent-browser claims a screen by itself and " +
 		"always shows its window there.\n" +
 		"  - `scrot <file.png>` captures the screen; view the PNG with your image reading. " +
@@ -464,7 +464,7 @@ func formatToolGuidanceWithDesktop(
 		b.WriteString("For listed skills, run bundled scripts and your own scripts with " +
 			"shell_exec(skill_name=..., command=...). This selects an installed skill's runtime " +
 			"or stages host skill resources, and applies scoped credentials; " +
-			"use $WEKNORA_SKILL_DIR for bundled files.\n")
+			"use $GENYEE_SKILL_DIR for bundled files.\n")
 		b.WriteString("In older instructions, translate execute_skill_script(skill_name, script_path, ...) " +
 			"to shell_exec(skill_name=..., command=...).\n")
 	}

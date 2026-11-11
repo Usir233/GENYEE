@@ -426,7 +426,7 @@ func (f *deadlineWebContentFetcher) Fetch(ctx context.Context, _ string) (*types
 }
 
 func TestStorePageBudgetFollowsWebFetchTimeout(t *testing.T) {
-	t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "150s")
+	t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "150s")
 	fetcher := &deadlineWebContentFetcher{}
 	tool := NewWebFetchTool(fetcher)
 
@@ -494,7 +494,7 @@ func (f *selectiveSlowFetcher) Fetch(ctx context.Context, u string) (*types.WebP
 }
 
 func TestWebFetchTimeoutKeepsSuccessfulItemsAndCancelsSlowFetch(t *testing.T) {
-	t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "100ms")
+	t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "100ms")
 	fetcher := &selectiveSlowFetcher{canceled: make(chan struct{})}
 	tool := NewWebFetchTool(fetcher)
 	result, err := tool.Execute(t.Context(), webFetchArgs(
@@ -550,7 +550,7 @@ func TestWebFetchMixedResolvedAndUnknownReferences(t *testing.T) {
 }
 
 func TestWebFetchPartialBatchDoesNotWaitForFullPageBudget(t *testing.T) {
-	t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "1m")
+	t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "1m")
 	fetcher := &selectiveSlowFetcher{canceled: make(chan struct{})}
 	tool := NewWebFetchTool(fetcher)
 	tool.stragglerBudget = 200 * time.Millisecond
@@ -574,7 +574,7 @@ func TestWebFetchPartialBatchDoesNotWaitForFullPageBudget(t *testing.T) {
 // straggler budget, must finish. Cancelling a few seconds after the first
 // success drops healthy provider fetches.
 func TestWebFetchSlowerSiblingFinishesWithinStragglerBudget(t *testing.T) {
-	t.Setenv("WEKNORA_WEB_FETCH_TIMEOUT", "1m")
+	t.Setenv("GENYEE_WEB_FETCH_TIMEOUT", "1m")
 	fetcher := &delayedWebContentFetcher{delay: 400 * time.Millisecond}
 	tool := NewWebFetchTool(fetcher)
 	tool.stragglerBudget = time.Second

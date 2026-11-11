@@ -885,7 +885,7 @@ import {
   wrapChatMarkdownTables,
 } from '@/utils/chatMarkdownRenderer';
 import { getChunkByIdOnly, getKnowledgeDetails } from '@/api/knowledge-base';
-import { WEKNORA_ENTITY_LINK_CLASS, type WeKnoraEntityKind } from '@/utils/weknoraEntityLinks';
+import { GENYEE_ENTITY_LINK_CLASS, type WeKnoraEntityKind } from '@/utils/weknoraEntityLinks';
 import {
   appendMermaidSvgCache,
   createMermaidCodeRenderer,
@@ -2744,7 +2744,7 @@ const onRootClick = (e: Event) => {
     return;
   }
 
-  const entityEl = target.closest?.(`.${WEKNORA_ENTITY_LINK_CLASS}`) as HTMLElement | null;
+  const entityEl = target.closest?.(`.${GENYEE_ENTITY_LINK_CLASS}`) as HTMLElement | null;
   if (entityEl) {
     e.preventDefault();
     e.stopPropagation();
@@ -2840,7 +2840,7 @@ const onRootKeydown = (e: KeyboardEvent) => {
     return;
   }
 
-  const entityEl = target.closest?.(`.${WEKNORA_ENTITY_LINK_CLASS}`) as HTMLElement | null;
+  const entityEl = target.closest?.(`.${GENYEE_ENTITY_LINK_CLASS}`) as HTMLElement | null;
   if (entityEl) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();

@@ -528,7 +528,7 @@ const ENGINE_ORDER: Record<string, number> = {
 
 const isWeKnoraCloudEnabled = () => {
   if (typeof window === 'undefined') return false
-  const val = (window as any).__RUNTIME_CONFIG__?.WEKNORA_WEKNORACLOUD_ENABLED
+  const val = (window as any).__RUNTIME_CONFIG__?.GENYEE_WEKNORACLOUD_ENABLED
   return String(val || '').trim().toLowerCase() === 'true'
 }
 

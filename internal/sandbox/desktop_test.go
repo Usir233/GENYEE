@@ -245,7 +245,7 @@ func TestDesktopEnsureCmdDetachesDaemonStdio(t *testing.T) {
 	require.Contains(t, code, ">>\"$log\" 2>&1")
 	require.Contains(t, code, "tail -c")
 	require.Contains(t, code, `printf 'READY %s\n' "$secret"`)
-	require.Contains(t, code, "WEKNORA_DESKTOP_UNSUPPORTED")
+	require.Contains(t, code, "GENYEE_DESKTOP_UNSUPPORTED")
 	require.Contains(t, code, "exit 2")
 	require.NotContains(t, code, "pkill")
 }
@@ -302,13 +302,13 @@ func TestDesktopEnsureCmdClaimsASeat(t *testing.T) {
 	require.NotContains(t, code, "wk-desk")
 	require.Contains(t, code, "command -v wk-display")
 	require.Contains(t, code, `start-desktop.sh --proxy-only`)
-	claim := `seat=$(wk-display claim "$WEKNORA_SESSION_ID"`
+	claim := `seat=$(wk-display claim "$GENYEE_SESSION_ID"`
 	ready := `printf 'READY %s %s\n' "$secret" "$seat"`
 	require.Contains(t, code, claim)
 	require.Contains(t, code, ready)
 	require.Less(t, strings.Index(code, claim), strings.Index(code, ready),
 		"the seat is claimed before READY is printed")
-	require.NotContains(t, code, "wk-display claim \"$WEKNORA_SESSION_ID\"\n",
+	require.NotContains(t, code, "wk-display claim \"$GENYEE_SESSION_ID\"\n",
 		"claim stdout must be captured; a bare call would leak past the single READY line")
 }
 

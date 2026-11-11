@@ -84,7 +84,7 @@ func convertLegacyXLSToXLSX(filename string) (string, error) {
 		}
 	}
 
-	tmp, err := os.CreateTemp("", "weknora-xls-*.xlsx")
+	tmp, err := os.CreateTemp("", "genyee-xls-*.xlsx")
 	if err != nil {
 		return "", err
 	}

@@ -18,9 +18,9 @@ import (
 // before 000116, stores every kind of allowed_tools value, and checks that
 // the upgrade keeps each agent's effective tools.
 func TestPostgresMigrationsKeepAgentToolsWhenAnEmptyListMeansNone(t *testing.T) {
-	dsn := os.Getenv("WEKNORA_MIGRATION_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("GENYEE_MIGRATION_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("set WEKNORA_MIGRATION_TEST_POSTGRES_DSN to run PostgreSQL migration tests")
+		t.Skip("set GENYEE_MIGRATION_TEST_POSTGRES_DSN to run PostgreSQL migration tests")
 	}
 	root := sqliteRepoRoot(t)
 	chdirAndRestore(t, root)

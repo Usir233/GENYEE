@@ -73,7 +73,7 @@
 
 `local` 宿主机进程后端已移除：它在本机裸跑，没有任何隔离。Lite 的 `host` 不属于上述空间命名配置，也不是 `local` 的替代项。当前配置的完整字段见[沙箱与技能 API](../04-api/02-api-sandbox-skills.md)。
 
-Docker 后端默认关闭。系统管理员在「系统设置 → 网络安全」启用，或用 `WEKNORA_SANDBOX_DOCKER_ENABLED=true` 作为未落库时的回退。本机连接还需要把实际 Docker socket 挂给 app；这授予 app 控制宿主机 Docker 的能力。远端 TCP daemon 要配置 TLS 证书目录，其中包括 `ca.pem`、`cert.pem`、`key.pem`。Docker 网络仅接受 `bridge` 或 `none`，可选 `runsc` 等已安装 OCI runtime。
+Docker 后端默认关闭。系统管理员在「系统设置 → 网络安全」启用，或用 `GENYEE_SANDBOX_DOCKER_ENABLED=true` 作为未落库时的回退。本机连接还需要把实际 Docker socket 挂给 app；这授予 app 控制宿主机 Docker 的能力。远端 TCP daemon 要配置 TLS 证书目录，其中包括 `ca.pem`、`cert.pem`、`key.pem`。Docker 网络仅接受 `bridge` 或 `none`，可选 `runsc` 等已安装 OCI runtime。
 
 自托管 E2B/Cube 的 `proxy_url` 指向数据面网关：GENYEE 连接网关但保留沙箱 Host，用于没有泛域名 DNS 的集群。`allow_private_endpoints` 允许连接私网/回环的集群地址，仍不放行 link-local/云元数据地址；它与沙箱里脚本能否出网是不同配置。
 
@@ -120,11 +120,11 @@ macOS 桌面版可在「工具箱 → 技能管理」将技能安装到「本机
 
 技能变量解析中，**个人技能值 > 个人沙箱值 > 空间技能值**；未设置的名称才回退。空间沙箱环境是运行环境的一部分，不应在其中放脚本不应读取的秘密。删除个人覆盖后重新使用下层值；关闭技能不会删除个人凭据。
 
-个人技能变量只能使用技能已声明的名称，其中可包含技能所需的 `WEKNORA_*` 凭据。个人沙箱变量不接受 `WEKNORA_*`、`PATH` 等保留名。系统从执行命令中识别的变量只补充未设置的个人值，不覆盖已有个人或空间配置。字段和示例见[个人变量 API](../04-api/02-api-sandbox-skills.md#个人环境变量)。
+个人技能变量只能使用技能已声明的名称，其中可包含技能所需的 `GENYEE_*` 凭据。个人沙箱变量不接受 `GENYEE_*`、`PATH` 等保留名。系统从执行命令中识别的变量只补充未设置的个人值，不覆盖已有个人或空间配置。字段和示例见[个人变量 API](../04-api/02-api-sandbox-skills.md#个人环境变量)。
 
 ## 生成和下载文件 {#文件和交付}
 
-`read_file(path="skill://<name>/SKILL.md")` 读取说明；技能附带脚本通过 `shell_exec(skill_name=..., command=...)` 执行。命令中的 `$WEKNORA_SKILL_DIR` 指向技能实际安装目录；`skill://` 是读取地址，不能直接当作 shell 路径。
+`read_file(path="skill://<name>/SKILL.md")` 读取说明；技能附带脚本通过 `shell_exec(skill_name=..., command=...)` 执行。命令中的 `$GENYEE_SKILL_DIR` 指向技能实际安装目录；`skill://` 是读取地址，不能直接当作 shell 路径。
 
 每会话一台时，附件暂存到 `/workspace/input`，工作脚本放在 `/workspace`，可下载产物放在 `/workspace/output`。按用户复用时，以该会话的工作目录为基准，使用其中的 `input` 和 `output` 目录。用 `write_sandbox_file` 新建/续写，用 `edit_sandbox_file` 局部替换，用 `read_file` 分页读取。文件工具边界、输出预算和重建行为见[Agent 引擎](07-agent.md)，交付入口见[会话与对话体验](18-chat-experience.md)。
 
@@ -191,8 +191,8 @@ macOS 桌面版可在「工具箱 → 技能管理」将技能安装到「本机
 
 滚动升级按这个顺序做：
 
-1. 把新版本部署到所有实例，先不要设置 `WEKNORA_SANDBOX_USER_ALLOCATION`。新实例会给会话写下 `machine_digest` 为空的分配记录；还没升级的实例不读这张表，行为与升级前一致。
-2. 确认每个实例都是新版本之后，在所有实例上设置 `WEKNORA_SANDBOX_USER_ALLOCATION=enabled` 并滚动重启。需要 Redis。
+1. 把新版本部署到所有实例，先不要设置 `GENYEE_SANDBOX_USER_ALLOCATION`。新实例会给会话写下 `machine_digest` 为空的分配记录；还没升级的实例不读这张表，行为与升级前一致。
+2. 确认每个实例都是新版本之后，在所有实例上设置 `GENYEE_SANDBOX_USER_ALLOCATION=enabled` 并滚动重启。需要 Redis。
 3. 再由管理员把某一份沙箱配置改成共用。
 4. 回退到旧版本之前，先确认没有仍在使用的共用机器。分配表没有 `mode` 列，共用与否看 `machine_digest` 是否为空：
 

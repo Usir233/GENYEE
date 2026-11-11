@@ -6,7 +6,7 @@
 #   claim <sid>    take a seat (idempotent), make sure its screen stack runs, print N.
 #                  Full machine: reclaim fully idle seats; failing that, evict one seat
 #                  (no viewer, then no app, then longest idle). Only when every seat has
-#                  a viewer: exit 1 + stderr WEKNORA_NO_FREE_SCREEN, stdout empty.
+#                  a viewer: exit 1 + stderr GENYEE_NO_FREE_SCREEN, stdout empty.
 #   where <sid>    print the held seat N, refreshing that seat's idleness clock;
 #                  exit 1 (no output, no allocation) when none is held.
 #   watched <sid>  exit 0 when the session's seat has a VNC viewer, 1 otherwise.
@@ -334,10 +334,10 @@ alloc_seat() { # global flock protects allocation and any idle-seat reaping
 }
 
 # Every claim runs in a backend Exec that carries the session's
-# WEKNORA_BROWSER_ROOT. Recording it lets wk-chrome open that root instead of
+# GENYEE_BROWSER_ROOT. Recording it lets wk-chrome open that root instead of
 # guessing it from which directories happen to exist yet.
 record_browser_root() {
-  local root="${WEKNORA_BROWSER_ROOT:-}"
+  local root="${GENYEE_BROWSER_ROOT:-}"
   case "$root" in /*) ;; *) return 0 ;; esac
   case "$root" in *$'\n'*) return 0 ;; esac
   mkdir -p "$ROOTS_DIR" && chmod 0700 "$ROOTS_DIR" &&
@@ -347,7 +347,7 @@ record_browser_root() {
 cmd_claim() {
   valid_sid "${1:-}" || { echo "wk-display: bad session id" >&2; return 2; }
   local n
-  n=$(alloc_seat "$1") || { echo WEKNORA_NO_FREE_SCREEN >&2; return 1; }
+  n=$(alloc_seat "$1") || { echo GENYEE_NO_FREE_SCREEN >&2; return 1; }
   cmd_up "$n" || return 1
   record_browser_root "$1"
   echo "$n"

@@ -19,7 +19,7 @@
 #                            可选: minio,qdrant,neo4j,milvus,weaviate,doris,searxng,dex,langfuse,odl-hybrid,mcp,all
 #                            (默认: minio,qdrant)
 #   -r, --registry <prefix>  自研镜像仓库前缀 (默认读取 GENYEE_REGISTRY 或 genyee)
-#   -t, --tag <version>      自研镜像版本标签 (默认读取 WEKNORA_VERSION 或 latest)
+#   -t, --tag <version>      自研镜像版本标签 (默认读取 GENYEE_VERSION 或 latest)
 #   --platform <arch>        目标架构平台 (默认: linux/amd64)
 #   --skip-pull              仅打包本地已有镜像，不执行 docker pull
 #   --manifest-only          仅生成 MANIFEST.json、合规文档与脚本骨架（不拉取/导出镜像）
@@ -35,7 +35,7 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 OUTPUT_DIR="${PROJECT_ROOT}/dist/genyee-offline-bundle"
 PROFILES="minio,qdrant"
 GENYEE_REGISTRY="${GENYEE_REGISTRY:-genyee}"
-IMAGE_TAG="${WEKNORA_VERSION:-latest}"
+IMAGE_TAG="${GENYEE_VERSION:-latest}"
 PLATFORM="${PLATFORM:-linux/amd64}"
 SKIP_PULL=false
 MANIFEST_ONLY=false
@@ -234,7 +234,7 @@ if [[ ! -f "${PROJECT_ROOT}/.env.offline" ]]; then
     set_secret_env REDIS_PASSWORD 24
     set_secret_env JWT_SECRET 32
     set_secret_env SYSTEM_AES_KEY 16
-    set_bundle_env WEKNORA_WEKNORACLOUD_ENABLED false
+    set_bundle_env GENYEE_WEKNORACLOUD_ENABLED false
     set_bundle_env LANGFUSE_ENABLED false
     if profile_enabled mcp; then
         set_secret_env MCP_SERVER_AUTH_TOKEN 32
@@ -260,9 +260,9 @@ if [[ ! -f "${PROJECT_ROOT}/.env.offline" ]]; then
         set_bundle_env RETRIEVE_DRIVER qdrant
     fi
 fi
-set_bundle_env WEKNORA_VERSION "$IMAGE_TAG"
+set_bundle_env GENYEE_VERSION "$IMAGE_TAG"
 set_bundle_env GENYEE_REGISTRY "$GENYEE_REGISTRY"
-set_bundle_env WEKNORA_SANDBOX_DOCKER_IMAGE "${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}"
+set_bundle_env GENYEE_SANDBOX_DOCKER_IMAGE "${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}"
 if [[ ",${PROFILES}," == *",all,"* ]]; then
     set_bundle_env COMPOSE_PROFILES full,minio,qdrant,neo4j,milvus,weaviate,doris,searxng,dex,odl-hybrid,mcp
 else
@@ -364,7 +364,7 @@ awk -v registry="$GENYEE_REGISTRY" -v tag="$IMAGE_TAG" '
     /^    image: / {
         image=$2;
         gsub(/\$\{GENYEE_REGISTRY:-genyee\}/, registry, image);
-        gsub(/\$\{WEKNORA_VERSION:-latest\}/, tag, image);
+        gsub(/\$\{GENYEE_VERSION:-latest\}/, tag, image);
         print service "\t" image;
     }
 ' "${PROJECT_ROOT}/docker-compose.yml" > "${OUTPUT_DIR}/COMPOSE_IMAGES.tsv"

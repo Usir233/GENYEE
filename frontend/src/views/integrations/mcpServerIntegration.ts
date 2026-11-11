@@ -77,8 +77,8 @@ export function buildStdioBridgeSnippet(name: string, url: string, token: string
       mcpServers: {
         [mcpServerKey(name, id)]: {
           command: 'npx',
-          args: ['-y', 'mcp-remote@0.15.1', url, '--header', 'Authorization:${WEKNORA_MCP_AUTH}'],
-          env: { WEKNORA_MCP_AUTH: `Bearer ${token || MCP_TOKEN_PLACEHOLDER}` },
+          args: ['-y', 'mcp-remote@0.15.1', url, '--header', 'Authorization:${GENYEE_MCP_AUTH}'],
+          env: { GENYEE_MCP_AUTH: `Bearer ${token || MCP_TOKEN_PLACEHOLDER}` },
         },
       },
     },

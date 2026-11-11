@@ -59,9 +59,9 @@ func TestClaimKnowledgePreservesWholeKeyExclusion(t *testing.T) {
 
 func progressPostgresDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := os.Getenv("WEKNORA_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("GENYEE_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("WEKNORA_TEST_POSTGRES_DSN is not set")
+		t.Skip("GENYEE_TEST_POSTGRES_DSN is not set")
 	}
 	require.True(t, strings.Contains(dsn, "dbname=weknora_task_progress_test"),
 		"use a disposable task-progress test DB")

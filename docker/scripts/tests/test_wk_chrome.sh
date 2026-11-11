@@ -28,7 +28,7 @@ EOF
   # A recording agent-browser: proof we reached the session browser.
   cat > "$TMP/bin/agent-browser" <<'EOF'
 #!/bin/sh
-echo "agentbrowser sid=$WEKNORA_SESSION_ID root=$WEKNORA_BROWSER_ROOT click=${WK_DESKTOP_CLICK:-} args:$*" >> "$AB_LOG"
+echo "agentbrowser sid=$GENYEE_SESSION_ID root=$GENYEE_BROWSER_ROOT click=${WK_DESKTOP_CLICK:-} args:$*" >> "$AB_LOG"
 EOF
   chmod 0755 "$TMP/bin/agent-browser"
   export WK_CHROME_SHIM="$TMP/bin/chrome-wk" WK_DISPLAY="$TMP/bin/wk-display" \

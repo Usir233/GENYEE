@@ -119,7 +119,7 @@ func (s *timeoutAskSessionService) KnowledgeQA(ctx context.Context, _ *types.QAR
 }
 
 func TestAskUsesConfiguredTimeout(t *testing.T) {
-	t.Setenv("WEKNORA_MCP_ASK_TIMEOUT", "25ms")
+	t.Setenv("GENYEE_MCP_ASK_TIMEOUT", "25ms")
 	session := &askProgressTestSession{notifications: make(chan mcp.JSONRPCNotification, 1)}
 	f, ctx := newAskProgressTestFixture(t, session)
 	waiting := &timeoutAskSessionService{canceled: make(chan struct{})}
@@ -153,7 +153,7 @@ func TestAskTimeoutFromEnv(t *testing.T) {
 		{name: "negative falls back", value: "-1m", want: defaultAskTimeout},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("WEKNORA_MCP_ASK_TIMEOUT", tt.value)
+			t.Setenv("GENYEE_MCP_ASK_TIMEOUT", tt.value)
 			require.Equal(t, tt.want, askTimeoutFromEnv())
 		})
 	}

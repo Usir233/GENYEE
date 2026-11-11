@@ -99,11 +99,11 @@ func TestMarkerFilterHoldsPartialPrefixAcrossChunks(t *testing.T) {
 
 func TestMarkerFilterHoldsOnlyPrefixLengthTail(t *testing.T) {
 	s := NewShellJobMarkerStream(shellJobMarkerPrefix + "_xyz__")
-	body, tail := s.Feed([]byte("keep__WEK"))
+	body, tail := s.Feed([]byte("keep__GEN"))
 	require.Equal(t, "keep", string(body))
-	require.Equal(t, "__WEK", string(tail))
-	body, tail = s.Feed([]byte("NORA_SJ"))
-	require.Equal(t, "__WEKNORA_SJ", string(tail), "非标记前缀最终全部放行")
+	require.Equal(t, "__GEN", string(tail))
+	body, tail = s.Feed([]byte("YEE_SJ"))
+	require.Equal(t, "__GENYEE_SJ", string(tail), "非标记前缀最终全部放行")
 	require.Empty(t, body)
 }
 

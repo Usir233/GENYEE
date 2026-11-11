@@ -343,7 +343,7 @@ rerank 模型加载失败或调用出错时，请求不会失败，而是按召�
 | --- | --- | --- |
 | 公开分享链接接口（`/auth/invitations/lookup`、`/auth/register-by-invite`） | 每 IP 30 次/分钟（两个端点共享额度），超限 429（code 1006） | `internal/middleware/auth_public_ratelimit.go` |
 | Embed 公开路由 | 每 (channel, IP) `rate_limit_per_minute`（默认 30）/分钟；channel 级 `rate_limit_per_minute*20`（下限 120）/分钟；channel 级 `rate_limit_per_day`（默认 10000）/天；超限 429 | `internal/middleware/embed_auth.go` |
-| 反代信任 | 仅信任 `WEKNORA_TRUSTED_PROXIES`（默认回环+内网段）的 `X-Forwarded-For`，防止伪造 IP 绕过限流 | `router.go` `trustedProxies()` |
+| 反代信任 | 仅信任 `GENYEE_TRUSTED_PROXIES`（默认回环+内网段）的 `X-Forwarded-For`，防止伪造 IP 绕过限流 | `router.go` `trustedProxies()` |
 
 其余业务接口无全局限流；自助创建空间等配额类拒绝同样使用 429（code 1006）。
 

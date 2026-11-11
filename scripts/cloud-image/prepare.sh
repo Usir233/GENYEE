@@ -4,12 +4,12 @@
 # 兼容: Ubuntu / Debian / CentOS / Rocky / TencentOS 等带 systemd + Docker 的发行版。
 # 使用方式:  sudo bash prepare.sh
 # 可调环境变量:
-#   WEKNORA_REF              要拉取的 git ref (tag / branch / commit), 默认 main
-#   WEKNORA_DIR              部署目录, 默认 /opt/WeKnora
-#   WEKNORA_REPO             仓库地址, 默认 https://github.com/genyee/genyee
-#   WEKNORA_GH_PROXY         GitHub 加速前缀, 默认空。中国大陆机器可设
+#   GENYEE_REF              要拉取的 git ref (tag / branch / commit), 默认 main
+#   GENYEE_DIR              部署目录, 默认 /opt/WeKnora
+#   GENYEE_REPO             仓库地址, 默认 https://github.com/genyee/genyee
+#   GENYEE_GH_PROXY         GitHub 加速前缀, 默认空。中国大陆机器可设
 #                            https://gh-proxy.com/ 或 https://ghfast.top/
-#                            (实际下载地址变成 ${WEKNORA_GH_PROXY}${WEKNORA_REPO}/archive/...)
+#                            (实际下载地址变成 ${GENYEE_GH_PROXY}${GENYEE_REPO}/archive/...)
 #   DOCKER_INSTALL_MIRROR    Docker 安装包镜像源, 默认空 (走 get.docker.com)。
 #                            中国大陆机器境外 CDN 不通时设为, 例如:
 #                              https://mirrors.tencent.com/docker-ce/linux/ubuntu
@@ -22,14 +22,14 @@
 #                            (会写入 /etc/docker/daemon.json 并重启 docker)
 #   PRUNE_OLD_IMAGES         升级场景下是否清理旧版本 tag 镜像,
 #                            默认 false。设为 true 时在拉新镜像之后清理
-#                            旧 WEKNORA_VERSION 的 genyee/genyee-* 镜像,
+#                            旧 GENYEE_VERSION 的 genyee/genyee-* 镜像,
 #                            减少要打进云镜像的体积。
 set -euo pipefail
 
-WEKNORA_REF="${WEKNORA_REF:-main}"
-WEKNORA_DIR="${WEKNORA_DIR:-/opt/WeKnora}"
-WEKNORA_REPO="${WEKNORA_REPO:-https://github.com/genyee/genyee}"
-WEKNORA_GH_PROXY="${WEKNORA_GH_PROXY:-}"
+GENYEE_REF="${GENYEE_REF:-main}"
+GENYEE_DIR="${GENYEE_DIR:-/opt/WeKnora}"
+GENYEE_REPO="${GENYEE_REPO:-https://github.com/genyee/genyee}"
+GENYEE_GH_PROXY="${GENYEE_GH_PROXY:-}"
 DOCKER_INSTALL_MIRROR="${DOCKER_INSTALL_MIRROR:-}"
 DOCKER_REGISTRY_MIRROR="${DOCKER_REGISTRY_MIRROR:-}"
 PRUNE_OLD_IMAGES="${PRUNE_OLD_IMAGES:-false}"
@@ -119,14 +119,14 @@ EOF
   done
 fi
 
-echo "[prepare] 2/6 拉取 WeKnora 运行时文件 (ref=${WEKNORA_REF})"
+echo "[prepare] 2/6 拉取 WeKnora 运行时文件 (ref=${GENYEE_REF})"
 # 只下载实际需要的 4 个文件, 不 clone 整个仓库 (~MB 级 -> ~KB 级)
-mkdir -p "${WEKNORA_DIR}/config"
+mkdir -p "${GENYEE_DIR}/config"
 
 tmp=$(mktemp -d)
 trap 'rm -rf "${tmp}"' EXIT
 
-tarball_url="${WEKNORA_GH_PROXY}${WEKNORA_REPO}/archive/${WEKNORA_REF}.tar.gz"
+tarball_url="${GENYEE_GH_PROXY}${GENYEE_REPO}/archive/${GENYEE_REF}.tar.gz"
 echo "[prepare]   tarball: ${tarball_url}"
 curl -fsSL "${tarball_url}" -o "${tmp}/repo.tar.gz"
 # 仅解压需要的路径, 显著加速且省空间
@@ -141,35 +141,35 @@ if [[ -z "${src}" ]]; then
   exit 1
 fi
 
-cp    "${src}/docker-compose.yml" "${WEKNORA_DIR}/"
-cp    "${src}/.env.example"       "${WEKNORA_DIR}/"
-cp    "${src}/config/config.yaml" "${WEKNORA_DIR}/config/"
+cp    "${src}/docker-compose.yml" "${GENYEE_DIR}/"
+cp    "${src}/.env.example"       "${GENYEE_DIR}/"
+cp    "${src}/config/config.yaml" "${GENYEE_DIR}/config/"
 
 # 记录元信息, 供 firstboot / 升级时参考
-cat >"${WEKNORA_DIR}/.cloud-image-meta" <<EOF
-WEKNORA_REF=${WEKNORA_REF}
-WEKNORA_REPO=${WEKNORA_REPO}
+cat >"${GENYEE_DIR}/.cloud-image-meta" <<EOF
+GENYEE_REF=${GENYEE_REF}
+GENYEE_REPO=${GENYEE_REPO}
 PREPARED_AT=$(date -Iseconds)
 EOF
 
 echo "[prepare] 3/6 准备 .env (默认值, firstboot 会替换为随机密钥)"
-cd "${WEKNORA_DIR}"
+cd "${GENYEE_DIR}"
 [[ -f .env ]] || cp .env.example .env
 sed -i 's/^GIN_MODE=.*/GIN_MODE=release/' .env || true
 
-# 把 WEKNORA_VERSION 与 WEKNORA_REF 对齐, 让 docker compose 拉取与 ref 一致的
+# 把 GENYEE_VERSION 与 GENYEE_REF 对齐, 让 docker compose 拉取与 ref 一致的
 # 镜像 tag。无条件覆盖, 避免 .env 残留上一次 prepare 留下的旧版本号。
 # 镜像仓库上 genyee/genyee-* 的 tag 命名约定：
 #   - 浮动 tag：main / latest（持续指向最新构建）
 #   - 固定 release tag：v 前缀 + semver（如 v0.7.2、v0.5.2）
 # 因此这里不剥 v、也不映射到 latest。
-WEKNORA_VERSION_VAL="${WEKNORA_REF}"
-if grep -qE '^WEKNORA_VERSION=' .env; then
-  sed -i "s|^WEKNORA_VERSION=.*|WEKNORA_VERSION=${WEKNORA_VERSION_VAL}|" .env
+GENYEE_VERSION_VAL="${GENYEE_REF}"
+if grep -qE '^GENYEE_VERSION=' .env; then
+  sed -i "s|^GENYEE_VERSION=.*|GENYEE_VERSION=${GENYEE_VERSION_VAL}|" .env
 else
-  echo "WEKNORA_VERSION=${WEKNORA_VERSION_VAL}" >>.env
+  echo "GENYEE_VERSION=${GENYEE_VERSION_VAL}" >>.env
 fi
-echo "[prepare]   -> WEKNORA_VERSION=${WEKNORA_VERSION_VAL}"
+echo "[prepare]   -> GENYEE_VERSION=${GENYEE_VERSION_VAL}"
 
 echo "[prepare] 4/6 拉取并启动默认 5 个常驻容器 (frontend/app/docreader/postgres/redis)"
 docker compose pull
@@ -192,12 +192,12 @@ docker compose --profile full pull sandbox || true
 # 没有任何容器引用它, 一旦 `prune -a` 会把当前版本的 sandbox 一起删掉,
 # 反而违背 prepare.sh 4.5 步预拉 sandbox 的目的。
 # 这里精确按 tag 比对, 只删 genyee-* / weknora-* 仓库下、tag 不等于当前
-# WEKNORA_VERSION 的镜像, 基础设施镜像 (paradedb / redis) 不动。
+# GENYEE_VERSION 的镜像, 基础设施镜像 (paradedb / redis) 不动。
 if [[ "${PRUNE_OLD_IMAGES,,}" == "true" || "${PRUNE_OLD_IMAGES}" == "1" ]]; then
-  echo "[prepare] 4.6/6 清理 ${GENYEE_REGISTRY:-genyee}/genyee-* 仓库下旧版本镜像 (PRUNE_OLD_IMAGES=true, keep=${WEKNORA_VERSION_VAL})"
+  echo "[prepare] 4.6/6 清理 ${GENYEE_REGISTRY:-genyee}/genyee-* 仓库下旧版本镜像 (PRUNE_OLD_IMAGES=true, keep=${GENYEE_VERSION_VAL})"
   docker image ls --format '{{.Repository}}:{{.Tag}}' \
     | grep -E "^(${GENYEE_REGISTRY:-genyee}/genyee-|wechatopenai/weknora-)" \
-    | grep -vE ":${WEKNORA_VERSION_VAL}\$" \
+    | grep -vE ":${GENYEE_VERSION_VAL}\$" \
     | xargs -r docker rmi -f 2>/dev/null || true
 fi
 
@@ -223,9 +223,9 @@ systemctl enable weknora-firstboot.service
 
 echo "[prepare] 6/6 完成"
 echo
-echo "  WeKnora 运行时已部署到 ${WEKNORA_DIR}"
+echo "  WeKnora 运行时已部署到 ${GENYEE_DIR}"
 echo "    docker-compose.yml / config/config.yaml / .env"
-echo "  版本: ${WEKNORA_REF}  (见 ${WEKNORA_DIR}/.cloud-image-meta)"
+echo "  版本: ${GENYEE_REF}  (见 ${GENYEE_DIR}/.cloud-image-meta)"
 echo
 echo "  打开浏览器访问  http://<本机公网IP>  验证功能"
 echo

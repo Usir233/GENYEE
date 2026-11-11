@@ -23,10 +23,10 @@ func TestLoadConfigParsesExpandedYAML(t *testing.T) {
 			t.Cleanup(viper.Reset)
 			previousDir := resolvedConfigDir
 			t.Cleanup(func() { resolvedConfigDir = previousDir })
-			t.Setenv("WEKNORA_TEST_CONFIG_HOST", tc.value)
+			t.Setenv("GENYEE_TEST_CONFIG_HOST", tc.value)
 			t.Setenv("SERVER_HOST", "")
 			path := filepath.Join(t.TempDir(), "config.yaml")
-			contents := "server:\n  port: 8080\n  host: ${WEKNORA_TEST_CONFIG_HOST}\n" +
+			contents := "server:\n  port: 8080\n  host: ${GENYEE_TEST_CONFIG_HOST}\n" +
 				"knowledge_base:\n  chunk_size: 512\n  chunk_overlap: 80\n"
 			require.NoError(t, os.WriteFile(path, []byte(contents), 0o600))
 			viper.AddConfigPath(filepath.Dir(path))

@@ -16,9 +16,9 @@ import (
 // cannot catch this — it does not enforce VARCHAR lengths — so the guard is
 // PostgreSQL-only.
 func TestPostgresAuditLogActorUserIDFitsSyntheticPrincipals(t *testing.T) {
-	dsn := os.Getenv("WEKNORA_MIGRATION_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("GENYEE_MIGRATION_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("set WEKNORA_MIGRATION_TEST_POSTGRES_DSN to run PostgreSQL migration tests")
+		t.Skip("set GENYEE_MIGRATION_TEST_POSTGRES_DSN to run PostgreSQL migration tests")
 	}
 	root := sqliteRepoRoot(t)
 	chdirAndRestore(t, root)

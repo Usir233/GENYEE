@@ -13,8 +13,8 @@ output, not prose. Read this skill before any task-specific `genyee-*` skill.
 
 ## 1. Authenticate (do this first — order matters)
 
-**Agents usually skip profiles entirely:** set `WEKNORA_API_KEY` (or
-`WEKNORA_TOKEN`) + `WEKNORA_HOST` and every command authenticates statelessly and
+**Agents usually skip profiles entirely:** set `GENYEE_API_KEY` (or
+`GENYEE_TOKEN`) + `GENYEE_HOST` and every command authenticates statelessly and
 zero-disk — no `profile add` / `auth login` needed. `auth token` echoes that env
 credential; `auth status` / `doctor` confirm it. The steps below set up a
 **persistent named profile** instead (interactive / multi-environment use).
@@ -26,7 +26,7 @@ Authentication is a **two-step sequence**. `genyee auth login` operates on the
 # 1. register a connection target and make it active
 genyee profile add prod --host https://kb.example.com --use
 # 2a. API key (agent default — pipe the key on stdin, non-interactive):
-echo "$WEKNORA_API_KEY" | genyee auth login --with-token
+echo "$GENYEE_API_KEY" | genyee auth login --with-token
 # 2b. OR email+password (interactive prompt only — no flags; not for agents)
 genyee auth login
 
@@ -36,7 +36,7 @@ genyee auth status          # verify: who am I, which tenant
 - Target a *non-active* profile for one command with the global `--profile NAME`
   (e.g. `genyee --profile staging auth refresh`). There is no per-command
   `--name`/`--host` on auth commands.
-- Get the raw token for scripting with `WEKNORA_TOKEN=$(genyee auth token)`
+- Get the raw token for scripting with `GENYEE_TOKEN=$(genyee auth token)`
   (raw token by default; works with an env credential too; `--format json` gives
   the `{token, mode, profile}` envelope).
 - `genyee auth logout` clears a profile's stored credentials but **keeps the
@@ -47,7 +47,7 @@ genyee auth status          # verify: who am I, which tenant
 ## 2. Selecting a knowledge base (`--kb`)
 
 `--kb` accepts a **name or a UUID** (resolved server-side). Resolution order:
-`--kb` flag → `WEKNORA_KB_ID` env → directory link (`genyee link --kb X` binds
+`--kb` flag → `GENYEE_KB_ID` env → directory link (`genyee link --kb X` binds
 the cwd) → error. Read/create commands that operate "inside a project" inherit
 the link; **`search *` and destructive `--all` operations always require an
 explicit `--kb`** (so an agent never silently hits the wrong corpus).
@@ -196,7 +196,7 @@ take raw ids (no name resolution); resolve names via `kb_list` first.
 
 ## 10. Agent self-help
 
-Run `genyee <command> --help`. With `WEKNORA_AGENT_HELP=1` set, `--help` emits a
+Run `genyee <command> --help`. With `GENYEE_AGENT_HELP=1` set, `--help` emits a
 JSON blob (`used_for` / `required_flags` / `examples`) instead of prose — parse
 that to learn a command without scraping the human help table.
 
@@ -208,4 +208,4 @@ that to learn a command without scraping the human help table.
 | Passing `--host` or `--name` to `auth login` | `auth login` takes neither — host comes from the profile; use `profile add <n> --host <url> --use`, then `auth login` |
 | Auto-adding `-y` to clear an exit-10 | Never; get user approval first (§5) |
 | Need the raw `chat` event stream | pass `--format ndjson`; use `--format text` for a live projected transcript |
-| `search chunks "q"` → exit 1 `local.kb_id_required` | Pass `--kb <name-or-id>`, set `WEKNORA_KB_ID`, or `genyee link` the dir |
+| `search chunks "q"` → exit 1 `local.kb_id_required` | Pass `--kb <name-or-id>`, set `GENYEE_KB_ID`, or `genyee link` the dir |

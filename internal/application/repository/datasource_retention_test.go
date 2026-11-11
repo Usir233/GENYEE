@@ -18,9 +18,9 @@ func TestSyncLogRetentionPerSource(t *testing.T) {
 		t.Run(backend, func(t *testing.T) {
 			dialect := sqlite.Open(":memory:")
 			if backend == "postgres" {
-				dsn := os.Getenv("WEKNORA_REPOSITORY_TEST_POSTGRES_DSN")
+				dsn := os.Getenv("GENYEE_REPOSITORY_TEST_POSTGRES_DSN")
 				if dsn == "" {
-					t.Skip("set WEKNORA_REPOSITORY_TEST_POSTGRES_DSN for PostgreSQL sync log retention tests")
+					t.Skip("set GENYEE_REPOSITORY_TEST_POSTGRES_DSN for PostgreSQL sync log retention tests")
 				}
 				dialect = postgres.Open(dsn)
 			}

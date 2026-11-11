@@ -14,10 +14,10 @@ WeKnora v0.9.0 来了！这一版新增助手、多智能体协作、自动化�
 
 升级前请备份数据库与文件，重点核对数据库迁移、飞书重同步和沙箱复用条件。全量变化和升级要求：
 
-- 版本说明：https://weknora.weixin.qq.com/docs/07-releases/v0.9.0
-- 官网：https://weknora.weixin.qq.com/
+- 版本说明：https://genyee.ai/docs/07-releases/v0.9.0
+- 官网：https://genyee.ai/
 
-正式镜像可用后，将 `.env` 的 `WEKNORA_VERSION` 设为 `0.9.0`，更新同版本部署文件，再执行：
+正式镜像可用后，将 `.env` 的 `GENYEE_VERSION` 设为 `0.9.0`，更新同版本部署文件，再执行：
 
 ```bash
 docker compose --profile full pull --policy always
@@ -34,7 +34,7 @@ WeKnora v0.9.0 adds a workspace assistant. Open it beside the logo to ask about 
 
 https://github.com/user-attachments/assets/de0e490a-e738-405e-bb3a-64b63edd7278
 
-- [Release notes and upgrade guide](https://weknora.weixin.qq.com/docs/07-releases/v0.9.0)
+- [Release notes and upgrade guide](https://genyee.ai/docs/07-releases/v0.9.0)
 - [Full changelog](./CHANGELOG.md)
 
 Back up your database, files and sandbox deliverables before upgrading. Review PostgreSQL migrations 000119–000134 or SQLite 000037–000051, Feishu/Lark resync, permission ceilings and the explicit gate for shared sandbox allocation.

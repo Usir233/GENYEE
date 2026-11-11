@@ -85,7 +85,7 @@ REQUIRED_PATTERNS=(
     "^genyee-${VERSION_STR}/website-docs/LICENSE$"
     "^genyee-${VERSION_STR}/website-docs/THIRD_PARTY_NOTICES\\.md$"
     "^genyee-${VERSION_STR}/mcp-server/\\.dockerignore$"
-    "^genyee-${VERSION_STR}/packages/dsh-weknora/LICENSE$"
+    "^genyee-${VERSION_STR}/packages/dsh-genyee/LICENSE$"
 )
 
 for pattern in "${REQUIRED_PATTERNS[@]}"; do

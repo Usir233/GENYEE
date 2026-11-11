@@ -1,10 +1,10 @@
-// Package contract asserts that the WeKnora API surface the dsh-weknora plugin
+// Package contract asserts that the WeKnora API surface the dsh-genyee plugin
 // speaks still exists on this server: the request bodies it sends must decode
 // into the real handler request structs with no unknown fields, and the response
 // fields it reads must still be produced by the real response types.
 //
 // The fixture is shared with the plugin's own JavaScript tests
-// (packages/dsh-weknora/test/contract.test.mjs), which assert that the plugin
+// (packages/dsh-genyee/test/contract.test.mjs), which assert that the plugin
 // still emits exactly these calls. Together the two sides catch a rename on
 // either side at CI time instead of inside a user's agent.
 package contract
@@ -215,7 +215,7 @@ func TestResponseFieldsThePluginReadsStillExist(t *testing.T) {
 		}
 		for _, field := range fields {
 			if _, ok := asMap[field]; !ok {
-				t.Errorf("%s no longer serializes %q, which dsh-weknora reads", typeName, field)
+				t.Errorf("%s no longer serializes %q, which dsh-genyee reads", typeName, field)
 			}
 		}
 	}

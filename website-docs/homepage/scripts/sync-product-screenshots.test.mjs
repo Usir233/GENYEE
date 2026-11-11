@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { syncProductScreenshots } from './sync-product-screenshots.mjs';
 
 test('refreshes changed source images and aliases without replacing homepage-only assets', t => {
-  const root = mkdtempSync(join(tmpdir(), 'weknora-shots-'));
+  const root = mkdtempSync(join(tmpdir(), 'genyee-shots-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const source = join(root, 'source');
   const destination = join(root, 'product');

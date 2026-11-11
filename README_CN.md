@@ -103,8 +103,8 @@ docker compose down     # 停止服务
 若已有部署并下载了更新的 release：
 
 ```bash
-# 在 .env 中将 WEKNORA_VERSION 设为目标版本（如 0.9.0），或保持 latest
-docker compose pull     # 拉取与 WEKNORA_VERSION 匹配的镜像
+# 在 .env 中将 GENYEE_VERSION 设为目标版本（如 0.9.0），或保持 latest
+docker compose pull     # 拉取与 GENYEE_VERSION 匹配的镜像
 docker compose up -d    # 用新镜像重建容器
 ```
 
@@ -171,7 +171,7 @@ docker compose up -d    # 用新镜像重建容器
 - **空间技能目录**：从 ClawHub / SkillHub / git / zip 安装，按沙箱快照、实时进度、文件浏览/编辑、个人与空间环境变量。
 - **跨会话长期记忆**：profile / preference / fact / task / interest，自动抽取需确认，`search_memory`。
 - **解析与数据源**：进程内 anydoc Office 解析；GitLab 与腾讯 IMA 数据源；XMind 解析。
-- **生态**：DeepSeek Harness 插件（`./packages/dsh-weknora`）；LiteLLM；Exa 与 Metaso 网络搜索。
+- **生态**：DeepSeek Harness 插件（`./packages/dsh-genyee`）；LiteLLM；Exa 与 Metaso 网络搜索。
 - **对话**：对话产物、问题大纲与时间戳；上下文压缩与供应商 Prompt Cache 标记。
 - **安全**：OIDC JWKS 验签、可选复杂密码、文档自动打标签，以及大范围沙箱/安全加固。
 

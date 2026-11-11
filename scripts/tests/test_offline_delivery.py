@@ -40,7 +40,7 @@ else:
         self.env = dict(os.environ, PATH=str(binary) + os.pathsep + os.environ["PATH"],
                         DOCKER_CALL_LOG=str(self.log))
         # Never let the operator's deployment configuration change the fixture.
-        for key in ("GENYEE_REGISTRY", "WEKNORA_VERSION", "PLATFORM", "COMPOSE_PROFILES"):
+        for key in ("GENYEE_REGISTRY", "GENYEE_VERSION", "PLATFORM", "COMPOSE_PROFILES"):
             self.env.pop(key, None)
         self.bundle = self.path / "bundle"
 
@@ -80,22 +80,22 @@ else:
         self.assertIn(["tag", "build.example/customer/genyee-app:0.9.0",
                        "harbor.example/customer/genyee-app:0.9.0"], calls)
         self.assertIn(["push", "harbor.example/customer/paradedb/paradedb:v0.25.11-pg17"], calls)
-        self.assertEqual(self.environment()["WEKNORA_VERSION"], "0.9.0")
+        self.assertEqual(self.environment()["GENYEE_VERSION"], "0.9.0")
 
     def test_generated_env_matches_selected_images_and_secure_defaults(self):
         self.build("--manifest-only", "--profiles", "neo4j", "--tag", "customer-7",
                    "--registry", "registry.example/customer")
         env = self.environment()
         self.assertEqual(env["COMPOSE_PROFILES"], "neo4j")
-        self.assertEqual(env["WEKNORA_VERSION"], "customer-7")
+        self.assertEqual(env["GENYEE_VERSION"], "customer-7")
         self.assertEqual(env["GENYEE_REGISTRY"], "registry.example/customer")
-        self.assertEqual(env["WEKNORA_SANDBOX_DOCKER_IMAGE"], "registry.example/customer/genyee-sandbox:customer-7")
+        self.assertEqual(env["GENYEE_SANDBOX_DOCKER_IMAGE"], "registry.example/customer/genyee-sandbox:customer-7")
         self.assertEqual(env["DB_NAME"], "genyee")
         self.assertEqual(env["DB_USER"], "postgres")
         for key in ("DB_PASSWORD", "REDIS_PASSWORD", "JWT_SECRET", "NEO4J_PASSWORD"):
             self.assertGreaterEqual(len(env[key]), 32)
         self.assertEqual(len(env["SYSTEM_AES_KEY"]), 32)
-        self.assertEqual(env["WEKNORA_WEKNORACLOUD_ENABLED"], "false")
+        self.assertEqual(env["GENYEE_WEKNORACLOUD_ENABLED"], "false")
         self.assertEqual(env["LANGFUSE_ENABLED"], "false")
         self.assertFalse(self.calls())
 
@@ -212,7 +212,7 @@ else:
         self.assertEqual(services["postgres"]["environment"]["POSTGRES_PASSWORD"], env["DB_PASSWORD"])
         self.assertEqual(services["app"]["environment"]["JWT_SECRET"], env["JWT_SECRET"])
         self.assertEqual(services["minio"]["environment"]["MINIO_ROOT_PASSWORD"], env["MINIO_SECRET_ACCESS_KEY"])
-        self.assertEqual(services["frontend"]["environment"]["WEKNORA_WEKNORACLOUD_ENABLED"], "false")
+        self.assertEqual(services["frontend"]["environment"]["GENYEE_WEKNORACLOUD_ENABLED"], "false")
 
     def test_private_registry_override_covers_every_compose_image(self):
         compose = os.environ.get("COMPOSE_BIN") or shutil.which("docker-compose")
@@ -232,7 +232,7 @@ else:
         self.assertFalse({service["image"] for service in services.values()} - tagged)
         for service in services.values():
             self.assertTrue(service["image"].startswith("harbor.example/project/"))
-        self.assertEqual(services["app"]["environment"]["WEKNORA_SANDBOX_DOCKER_IMAGE"],
+        self.assertEqual(services["app"]["environment"]["GENYEE_SANDBOX_DOCKER_IMAGE"],
                          "harbor.example/project/genyee-sandbox:customer..7")
         self.assertEqual(checksum_before, hashlib.sha256((self.bundle / "SHA256SUMS").read_bytes()).digest())
         self.command("offline-load.sh", "--bundle-dir", self.bundle)

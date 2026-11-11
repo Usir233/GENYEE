@@ -22760,7 +22760,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "创建新的空间。任意已登录用户均可调用以建立自己的新工作区，\n调用方会被自动设为该空间的 Owner。跨空间超管仍可像以前一样\n通过本接口创建任意空间。\n当 tenant.auto_create_api_key（或 WEKNORA_TENANT_AUTO_CREATE_API_KEY）\n开启时，会自动创建一个 full_access API Key，并在响应体的 data.api_key 字段返回其明文 token。",
+                "description": "创建新的空间。任意已登录用户均可调用以建立自己的新工作区，\n调用方会被自动设为该空间的 Owner。跨空间超管仍可像以前一样\n通过本接口创建任意空间。\n当 tenant.auto_create_api_key（或 GENYEE_TENANT_AUTO_CREATE_API_KEY）\n开启时，会自动创建一个 full_access API Key，并在响应体的 data.api_key 字段返回其明文 token。",
                 "consumes": [
                     "application/json"
                 ],
@@ -29355,11 +29355,11 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "attachment_ocr_max_pages": {
-                    "description": "AttachmentOCRMaxPages caps how many pages of a scanned / image-only\ndocument this agent sends to the VLM for OCR. 0 falls back to the global\ndefault (WEKNORA_CHAT_ATTACHMENT_OCR_MAX_PAGES). More pages means higher\ncoverage but slower parsing and more VLM cost.",
+                    "description": "AttachmentOCRMaxPages caps how many pages of a scanned / image-only\ndocument this agent sends to the VLM for OCR. 0 falls back to the global\ndefault (GENYEE_CHAT_ATTACHMENT_OCR_MAX_PAGES). More pages means higher\ncoverage but slower parsing and more VLM cost.",
                     "type": "integer"
                 },
                 "attachment_parse_wait_timeout_sec": {
-                    "description": "AttachmentParseWaitTimeoutSec bounds, in seconds, how long a chat turn\nwaits for this agent's still-parsing attachments before proceeding with\nonly the finished ones. 0 falls back to the global default\n(WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC).",
+                    "description": "AttachmentParseWaitTimeoutSec bounds, in seconds, how long a chat turn\nwaits for this agent's still-parsing attachments before proceeding with\nonly the finished ones. 0 falls back to the global default\n(GENYEE_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC).",
                     "type": "integer"
                 },
                 "audio_upload_enabled": {

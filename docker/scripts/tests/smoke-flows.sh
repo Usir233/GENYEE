@@ -26,7 +26,7 @@ docker run -d --name "$C" --entrypoint sleep "$IMG" infinity >/dev/null
 trap 'docker rm -f "$C" >/dev/null 2>&1' EXIT
 
 root() { echo "/var/lib/weknora/sessions/$1.browser"; }
-ab() { local s=$1; shift; docker exec -e WEKNORA_SESSION_ID="$s" -e WEKNORA_BROWSER_ROOT="$(root "$s")" "$C" agent-browser "$@"; }
+ab() { local s=$1; shift; docker exec -e GENYEE_SESSION_ID="$s" -e GENYEE_BROWSER_ROOT="$(root "$s")" "$C" agent-browser "$@"; }
 dx() { docker exec "$C" sh -c "$1"; }
 say() { echo; echo "===== $1"; }
 ev() { echo "--- $1"; }
@@ -71,7 +71,7 @@ dxin /tmp/wk-place.sh <<'HELPER'
 # usage: wk-place.sh <sid> <url>; prints where the window landed at open time
 SID=$1; URL=$2
 R=/var/lib/weknora/sessions/$SID.browser
-export WEKNORA_SESSION_ID=$SID WEKNORA_BROWSER_ROOT=$R
+export GENYEE_SESSION_ID=$SID GENYEE_BROWSER_ROOT=$R
 s=$(date +%s%N)
 agent-browser --headed open "$URL" >/tmp/place.out 2>&1; rc=$?
 e=$(date +%s%N)
@@ -198,7 +198,7 @@ SET="$(ab "$A" cookies set vaultcookie v1 --url http://127.0.0.1:18080/ 2>&1)"; 
 assert_eq "cookies set through the wrapper exits 0" 0 "$RC"
 assert_contains "cookie visible in A" "vaultcookie=v1" "$(ab "$A" cookies get 2>&1)"
 ev "cookies set"; blk "$SET"
-SAVE="$(docker exec -e WEKNORA_SESSION_ID="$A" -e WEKNORA_BROWSER_ROOT="$(root "$A")" "$C" timeout 30 wk-auth save 2>&1)"; RC=$?
+SAVE="$(docker exec -e GENYEE_SESSION_ID="$A" -e GENYEE_BROWSER_ROOT="$(root "$A")" "$C" timeout 30 wk-auth save 2>&1)"; RC=$?
 assert_eq "wk-auth save exits 0" 0 "$RC"
 ev "wk-auth save"; blk "$SAVE"
 assert_eq "vault exists mode 600" "600" "$(dx 'stat -c %a /var/lib/weknora/browser/auth/chrome-cookie-seed.json 2>/dev/null')"
@@ -279,7 +279,7 @@ ab "$A" close >/dev/null 2>&1
 ev "seat table before the race"; blk "$(seat_map)"
 for i in 1 2 3 4; do
   s="5e5e5e5e-0000-4000-8000-00000000000$i"
-  ( docker exec -e WEKNORA_SESSION_ID="$s" -e WEKNORA_BROWSER_ROOT="$(root "$s")" "$C" \
+  ( docker exec -e GENYEE_SESSION_ID="$s" -e GENYEE_BROWSER_ROOT="$(root "$s")" "$C" \
       timeout 120 agent-browser open "$URL" --headed >"/tmp/race$i.log" 2>&1; echo $? >"/tmp/race$i.rc" ) &
 done
 wait

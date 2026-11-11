@@ -826,7 +826,7 @@ func (t *DataAnalysisTool) materializeKnowledgeFile(ctx context.Context, knowled
 		suffix = "." + ext
 	}
 
-	tmp, err := os.CreateTemp("", "weknora-data-analysis-*"+suffix)
+	tmp, err := os.CreateTemp("", "genyee-data-analysis-*"+suffix)
 	if err != nil {
 		return "", noop, fmt.Errorf("failed to create temp file: %w", err)
 	}

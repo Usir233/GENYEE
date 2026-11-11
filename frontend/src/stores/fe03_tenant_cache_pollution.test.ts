@@ -75,7 +75,13 @@ function setupTest(legacyTokenMarker = false) {
       if (name === '@/utils/authTokens') return tokenExports
       if (name === '@/composables/useFont') return { reloadFontFromStorage() {} }
       if (name === '@/composables/useTheme') return { reloadThemeFromStorage() {} }
-      if (name === '@/composables/preferenceStorage') return { resetMigrationLatch() {} }
+      if (name === '@/composables/preferenceStorage') {
+        return {
+          resetMigrationLatch() {},
+          safeRemoveItem: (key: string) => mockLocalStorage.removeItem(key),
+          userKey: (suffix: string) => `WeKnora_user_${suffix}`,
+        }
+      }
       if (name === '@/stores/chatResources') return { useChatResourcesStore: () => chatStoreMock }
       if (name === '@/stores/editorResources') return { useEditorResourcesStore: () => editorStoreMock }
       if (name === '@/stores/organization') return { useOrganizationStore: () => orgStoreMock }

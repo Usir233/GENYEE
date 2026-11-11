@@ -24,7 +24,7 @@ const (
 	FormatNDJSON FormatMode = "ndjson"
 )
 
-// DefaultFormatMode is the mode used when neither --format nor WEKNORA_FORMAT
+// DefaultFormatMode is the mode used when neither --format nor GENYEE_FORMAT
 // is set. Single source of truth shared by FormatOptions.ResolveDefault and
 // cmd.resolveFormatEarly (the early cobra-parse-error path) so the two cannot
 // drift on what "no flag" defaults to.
@@ -91,7 +91,7 @@ func CheckFormatFlag(cmd *cobra.Command) (*FormatOptions, error) {
 	// format error priority as an explicit text flag.
 	effectiveMode := fopts.Mode
 	if effectiveMode == "" {
-		effectiveMode = FormatMode(os.Getenv("WEKNORA_FORMAT"))
+		effectiveMode = FormatMode(os.Getenv("GENYEE_FORMAT"))
 	}
 	if fopts.JQ != "" && effectiveMode == FormatText {
 		return nil, NewFlagError(errors.New("--jq requires --format json|ndjson"))
@@ -169,9 +169,9 @@ func mapJQError(err error) error {
 // human-readable output with `--format text`.
 func (o *FormatOptions) ResolveDefault(tty bool) {
 	o.TTY = tty
-	// Apply WEKNORA_FORMAT before the hard default so the documented
+	// Apply GENYEE_FORMAT before the hard default so the documented
 	// precedence holds: explicit --format (already set on o.Mode by
-	// CheckFormatFlag) > WEKNORA_FORMAT > DefaultFormatMode. FromEnv is a
+	// CheckFormatFlag) > GENYEE_FORMAT > DefaultFormatMode. FromEnv is a
 	// no-op when --format was passed. Folded in here because nearly every
 	// command calls ResolveDefault but only a couple called FromEnv, so the
 	// env var was silently ignored on success output across the CLI.
@@ -181,7 +181,7 @@ func (o *FormatOptions) ResolveDefault(tty bool) {
 	}
 }
 
-// FromEnv reads WEKNORA_FORMAT and applies it when Mode hasn't been set
+// FromEnv reads GENYEE_FORMAT and applies it when Mode hasn't been set
 // by --format. ResolveDefault now calls this, so commands get the env var
 // applied automatically; explicit callers (e.g. the root PersistentPreRunE,
 // which resolves the error-envelope mode before any command RunE) remain
@@ -193,7 +193,7 @@ func (o *FormatOptions) FromEnv() {
 	if o.Mode != "" {
 		return
 	}
-	v := os.Getenv("WEKNORA_FORMAT")
+	v := os.Getenv("GENYEE_FORMAT")
 	switch v {
 	case "text", "json", "ndjson":
 		o.Mode = FormatMode(v)

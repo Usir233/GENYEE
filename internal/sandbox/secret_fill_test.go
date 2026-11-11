@@ -70,7 +70,7 @@ func TestFillSecretSplitsKeyAndCiphertext(t *testing.T) {
 	keyPath := r.Args[1]
 	assert.True(t, strings.HasPrefix(keyPath, "/dev/shm/wk-fill-"))
 	assert.NotContains(t, strings.Join(r.Args, " "), "sentinel-pw", "argv carries only ciphertext")
-	assert.NotEmpty(t, r.Env["WEKNORA_BROWSER_ROOT"])
+	assert.NotEmpty(t, r.Env["GENYEE_BROWSER_ROOT"])
 
 	inner.mu.Lock()
 	writes := append([]fakeRemoteWriteFile(nil), inner.writeFiles...)

@@ -19,9 +19,9 @@ import (
 // setupWikiSnapshotPostgresDB 只在显式指定的测试库里建独立 schema，不复用业务表。
 func setupWikiSnapshotPostgresDB(t *testing.T) *gorm.DB {
 	t.Helper()
-	dsn := os.Getenv("WEKNORA_REPOSITORY_TEST_POSTGRES_DSN")
+	dsn := os.Getenv("GENYEE_REPOSITORY_TEST_POSTGRES_DSN")
 	if dsn == "" {
-		t.Skip("set WEKNORA_REPOSITORY_TEST_POSTGRES_DSN for PostgreSQL wiki snapshot tests")
+		t.Skip("set GENYEE_REPOSITORY_TEST_POSTGRES_DSN for PostgreSQL wiki snapshot tests")
 	}
 	admin, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)

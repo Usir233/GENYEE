@@ -59,7 +59,7 @@ func TestDocWait_JQSyntaxCheckedBeforeClient(t *testing.T) {
 func TestDocWait_JQFormatPrecedenceBeforePolling(t *testing.T) {
 	for _, expression := range []string{"[", ".data.completed[]"} {
 		t.Run(expression, func(t *testing.T) {
-			t.Setenv("WEKNORA_FORMAT", "text")
+			t.Setenv("GENYEE_FORMAT", "text")
 			out, _ := iostreams.SetForTest(t)
 			var clientCalls int
 			f := &cmdutil.Factory{Client: func() (*sdk.Client, error) {

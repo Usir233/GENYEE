@@ -27,36 +27,24 @@ from upload_paths import resolve_upload_file_path, set_active_transport
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Configuration - Load from environment variables with defaults (GENYEE_* primary, WEKNORA_* fallback)
-WEKNORA_BASE_URL = (
-    os.getenv("GENYEE_BASE_URL")
-    or os.getenv("WEKNORA_BASE_URL")
-    or "http://localhost:8080/api/v1"
-)
-GENYEE_BASE_URL = WEKNORA_BASE_URL
-WEKNORA_API_KEY = os.getenv("GENYEE_API_KEY") or os.getenv("WEKNORA_API_KEY") or ""
-GENYEE_API_KEY = WEKNORA_API_KEY
+# Configuration - Load from environment variables with defaults
+GENYEE_BASE_URL = os.getenv("GENYEE_BASE_URL", "http://localhost:8080/api/v1")
+GENYEE_API_KEY = os.getenv("GENYEE_API_KEY", "")
 # Chat SSE read timeout in seconds. LLM responses can be slow; default 300s.
 try:
-    WEKNORA_CHAT_TIMEOUT = int(
-        os.getenv("GENYEE_CHAT_TIMEOUT") or os.getenv("WEKNORA_CHAT_TIMEOUT") or "300"
-    )
+    GENYEE_CHAT_TIMEOUT = int(os.getenv("GENYEE_CHAT_TIMEOUT", "300"))
 except ValueError:
-    logger.warning("GENYEE_CHAT_TIMEOUT / WEKNORA_CHAT_TIMEOUT is not a valid integer; falling back to 300s.")
-    WEKNORA_CHAT_TIMEOUT = 300
-GENYEE_CHAT_TIMEOUT = WEKNORA_CHAT_TIMEOUT
+    logger.warning("GENYEE_CHAT_TIMEOUT is not a valid integer; falling back to 300s.")
+    GENYEE_CHAT_TIMEOUT = 300
 
 # Timeout in seconds for the non-chat API requests (CRUD, search, uploads).
 # Without it requests waits forever, so a hung backend blocks the calling
 # tool indefinitely. Default 300s, matching the chat read timeout.
 try:
-    WEKNORA_API_TIMEOUT = int(
-        os.getenv("GENYEE_API_TIMEOUT") or os.getenv("WEKNORA_API_TIMEOUT") or "300"
-    )
+    GENYEE_API_TIMEOUT = int(os.getenv("GENYEE_API_TIMEOUT", "300"))
 except ValueError:
-    logger.warning("GENYEE_API_TIMEOUT / WEKNORA_API_TIMEOUT is not a valid integer; falling back to 300s.")
-    WEKNORA_API_TIMEOUT = 300
-GENYEE_API_TIMEOUT = WEKNORA_API_TIMEOUT
+    logger.warning("GENYEE_API_TIMEOUT is not a valid integer; falling back to 300s.")
+    GENYEE_API_TIMEOUT = 300
 
 # Bound the data accumulated while waiting for an SSE event's blank line.
 MAX_SSE_EVENT_BYTES = 8 * 1024 * 1024
@@ -179,9 +167,9 @@ class WeKnoraClient:
         """Initialize the GENYEE API client with base URL and authentication"""
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
-        # SSL verification: enabled by default. Set GENYEE_VERIFY_SSL=false (or WEKNORA_VERIFY_SSL=false) to disable
+        # SSL verification: enabled by default. Set GENYEE_VERIFY_SSL=false to disable
         # (e.g. for self-signed certs in dev environments — NOT recommended for production).
-        verify_env = os.getenv("GENYEE_VERIFY_SSL") or os.getenv("WEKNORA_VERIFY_SSL") or "true"
+        verify_env = os.getenv("GENYEE_VERIFY_SSL", "true")
         self.verify_ssl = verify_env.lower() != "false"
         if not self.verify_ssl:
             logger.warning(
@@ -224,7 +212,7 @@ class WeKnoraClient:
         url = f"{self.base_url}{endpoint}"
         # Bound the wait like the chat SSE path does; an explicit timeout
         # passed by the caller still wins.
-        kwargs.setdefault("timeout", WEKNORA_API_TIMEOUT)
+        kwargs.setdefault("timeout", GENYEE_API_TIMEOUT)
         try:
             # Execute HTTP request with the specified method
             response = self.session.request(method, url, **kwargs)
@@ -384,7 +372,7 @@ class WeKnoraClient:
                 files=files,
                 data=data,
                 verify=self.verify_ssl,
-                timeout=WEKNORA_API_TIMEOUT,
+                timeout=GENYEE_API_TIMEOUT,
             )
             response.raise_for_status()
             return response.json()
@@ -555,7 +543,7 @@ class WeKnoraClient:
         """POST to *url* with *body*, consume the SSE stream, and return the assembled result.
 
         Centralised helper used by both chat() and agent_chat().
-        Timeout: (10s connect, WEKNORA_CHAT_TIMEOUT read) — configurable via env var.
+        Timeout: (10s connect, GENYEE_CHAT_TIMEOUT read) — configurable via env var.
         
         Server-Sent Events (SSE) stream format:
           data: {"response_type": "answer", "content": "..."}
@@ -568,10 +556,10 @@ class WeKnoraClient:
         """
         try:
             # POST with stream=True to receive server-sent events incrementally
-            # Timeout: 10s to establish connection, WEKNORA_CHAT_TIMEOUT for reading response
+            # Timeout: 10s to establish connection, GENYEE_CHAT_TIMEOUT for reading response
             response = self.session.post(
                 url, json=body, stream=True,
-                timeout=(10, WEKNORA_CHAT_TIMEOUT),
+                timeout=(10, GENYEE_CHAT_TIMEOUT),
             )
 
             answer_chunks: list = []
@@ -741,7 +729,7 @@ class WeKnoraClient:
 mcp = MCPServer("genyee-server", version="1.1.1")
 GenyeeClient = WeKnoraClient
 # Initialize GENYEE API client with configuration
-client = WeKnoraClient(WEKNORA_BASE_URL, WEKNORA_API_KEY)
+client = WeKnoraClient(GENYEE_BASE_URL, GENYEE_API_KEY)
 
 
 # ---------------------------------------------------------------------------

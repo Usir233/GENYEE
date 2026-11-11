@@ -8,7 +8,7 @@ import (
 
 // UserModeEnvVar opts a deployment into user-mode allocation. It must be set
 // on every replica before any config is switched to "user".
-const UserModeEnvVar = "WEKNORA_SANDBOX_USER_ALLOCATION"
+const UserModeEnvVar = "GENYEE_SANDBOX_USER_ALLOCATION"
 
 var userModeAvailable atomic.Bool
 

@@ -103,8 +103,8 @@ docker compose down     # サービスを停止
 既存のデプロイがあり、新しい release をダウンロードした場合：
 
 ```bash
-# .env の WEKNORA_VERSION を対象バージョン（例: 0.9.0）に設定、または latest のまま
-docker compose pull     # WEKNORA_VERSION に一致するイメージを取得
+# .env の GENYEE_VERSION を対象バージョン（例: 0.9.0）に設定、または latest のまま
+docker compose pull     # GENYEE_VERSION に一致するイメージを取得
 docker compose up -d    # 新しいイメージでコンテナを再作成
 ```
 
@@ -171,7 +171,7 @@ docker compose up -d    # 新しいイメージでコンテナを再作成
 - **テナントスキルカタログ**：ClawHub / SkillHub / git / zip からインストール、サンドボックス単位のスナップショット、ライブ進捗、ファイル閲覧 / 編集、個人・ワークスペース環境変数。
 - **クロスセッション長期メモリ**：profile / preference / fact / task / interest、確認付き自動抽出、`search_memory`。
 - **解析とデータソース**：プロセス内 anydoc Office パーサー、GitLab と Tencent IMA データソース、XMind 解析。
-- **エコシステム**：DeepSeek Harness プラグイン（`./packages/dsh-weknora`）、LiteLLM、Exa と Metaso の Web 検索。
+- **エコシステム**：DeepSeek Harness プラグイン（`./packages/dsh-genyee`）、LiteLLM、Exa と Metaso の Web 検索。
 - **チャット**：チャット成果物、質問アウトライン、タイムスタンプ、コンテキスト圧縮とプロバイダー Prompt Cache マーカー。
 - **セキュリティ**：OIDC JWKS 検証、任意の複雑パスワード、ドキュメント自動タグ付け、広範なサンドボックス / セキュリティ強化。
 

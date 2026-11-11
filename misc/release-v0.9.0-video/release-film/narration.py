@@ -21,7 +21,7 @@ CACHE.mkdir(parents=True, exist_ok=True)
 os.environ.setdefault("HF_HOME", str(ROOT.parent / "media/hf-cache"))
 # espeak's wheel contains a build-machine default. Give it a short directory
 # containing espeak-ng-data, rather than the deeply nested workspace path.
-data_root = Path(tempfile.gettempdir()) / "weknora-voice-espeak"
+data_root = Path(tempfile.gettempdir()) / "genyee-voice-espeak"
 data_root.mkdir(exist_ok=True)
 data_link = data_root / "espeak-ng-data"
 if not data_link.exists():

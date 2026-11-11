@@ -89,16 +89,16 @@ genyee-mcp-server              # 全局命令
 ### 必需环境变量
 ```bash
 # Linux/macOS
-export WEKNORA_BASE_URL="http://localhost:8080/api/v1"
-export WEKNORA_API_KEY="your_api_key_here"
+export GENYEE_BASE_URL="http://localhost:8080/api/v1"
+export GENYEE_API_KEY="your_api_key_here"
 
 # Windows PowerShell
-$env:WEKNORA_BASE_URL="http://localhost:8080/api/v1"
-$env:WEKNORA_API_KEY="your_api_key_here"
+$env:GENYEE_BASE_URL="http://localhost:8080/api/v1"
+$env:GENYEE_API_KEY="your_api_key_here"
 
 # Windows CMD
-set WEKNORA_BASE_URL=http://localhost:8080/api/v1
-set WEKNORA_API_KEY=your_api_key_here
+set GENYEE_BASE_URL=http://localhost:8080/api/v1
+set GENYEE_API_KEY=your_api_key_here
 ```
 
 ## 🛠️ 功能特性
@@ -130,8 +130,8 @@ set WEKNORA_API_KEY=your_api_key_here
 pip install -r requirements.txt
 
 # 2. 设置环境变量
-export WEKNORA_BASE_URL="http://localhost:8080/api/v1"
-export WEKNORA_API_KEY="your_api_key"
+export GENYEE_BASE_URL="http://localhost:8080/api/v1"
+export GENYEE_API_KEY="your_api_key"
 
 # 3. 启动服务器
 python main.py
@@ -234,15 +234,15 @@ Description=GENYEE MCP Server
 
 [Service]
 ExecStart=/usr/local/bin/genyee-mcp-server
-Environment=WEKNORA_BASE_URL=http://localhost:8080/api/v1
+Environment=GENYEE_BASE_URL=http://localhost:8080/api/v1
 ```
 
 ## 🔧 故障排除
 
 ### 常见问题
 1. **导入错误**: 运行 `pip install -r requirements.txt`
-2. **连接错误**: 检查 `WEKNORA_BASE_URL` 设置
-3. **认证错误**: 验证 `WEKNORA_API_KEY` 配置
+2. **连接错误**: 检查 `GENYEE_BASE_URL` 设置
+3. **认证错误**: 验证 `GENYEE_API_KEY` 配置
 4. **环境检查**: 运行 `python main.py --check-only`
 
 ### 调试模式

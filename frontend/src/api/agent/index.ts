@@ -94,9 +94,9 @@ export interface CustomAgentConfig {
   asr_model_id?: string;            // ASR模型ID（音频转录用）
   // 附件图片理解 / 扫描件 OCR 开关（默认: false，开启会增加解析耗时）
   attachment_image_understanding?: boolean;
-  // 扫描件 OCR 最大页数（0 = 使用全局默认 WEKNORA_CHAT_ATTACHMENT_OCR_MAX_PAGES）
+  // 扫描件 OCR 最大页数（0 = 使用全局默认 GENYEE_CHAT_ATTACHMENT_OCR_MAX_PAGES）
   attachment_ocr_max_pages?: number;
-  // 单轮问答等待附件解析完成的最长时间（秒，0 = 使用全局默认 WEKNORA_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC）
+  // 单轮问答等待附件解析完成的最长时间（秒，0 = 使用全局默认 GENYEE_CHAT_ATTACHMENT_WAIT_TIMEOUT_SEC）
   attachment_parse_wait_timeout_sec?: number;
 
   // ===== 聊天附件解析引擎策略 =====
@@ -181,7 +181,7 @@ export interface UpdateAgentRequest {
 // 内置智能体 ID（常用的保留常量，便于代码引用）
 export const BUILTIN_QUICK_ANSWER_ID = 'builtin-quick-answer';
 export const BUILTIN_SMART_REASONING_ID = 'builtin-smart-reasoning';
-export const BUILTIN_WEKNORA_ASSISTANT_ID = 'builtin-weknora-assistant';
+export const BUILTIN_GENYEE_ASSISTANT_ID = 'builtin-weknora-assistant';
 
 // AgentMode 常量
 export const AGENT_MODE_QUICK_ANSWER = 'quick-answer';

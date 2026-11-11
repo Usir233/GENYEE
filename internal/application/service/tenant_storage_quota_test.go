@@ -51,8 +51,8 @@ func TestResolveDefaultTenantStorageQuota(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_MB", tt.mb)
-			t.Setenv("WEKNORA_TENANT_DEFAULT_STORAGE_QUOTA_GB", tt.gb)
+			t.Setenv("GENYEE_TENANT_DEFAULT_STORAGE_QUOTA_MB", tt.mb)
+			t.Setenv("GENYEE_TENANT_DEFAULT_STORAGE_QUOTA_GB", tt.gb)
 			got := ResolveDefaultTenantStorageQuota(context.Background(), quotaTestSettings(tt.settings))
 			require.Equal(t, tt.want, got)
 		})

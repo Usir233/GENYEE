@@ -404,7 +404,7 @@ API 文档、Swagger、`client/` SDK 同步更新（按 `weknora-api-docs-sync` 
 
 | 配置项 | 默认值 | 说明 |
 |---|---|---|
-| `agent.prompt_suspend_enabled` | 未配置时为 `true`（P4 起） | 设为 `false` 恢复为纯阻塞式（仍写数据库记录）；对所有可挂起类型生效。环境变量 `WEKNORA_AGENT_PROMPT_SUSPEND=true/false` 可覆盖 |
+| `agent.prompt_suspend_enabled` | 未配置时为 `true`（P4 起） | 设为 `false` 恢复为纯阻塞式（仍写数据库记录）；对所有可挂起类型生效。环境变量 `GENYEE_AGENT_PROMPT_SUSPEND=true/false` 可覆盖 |
 | `agent.prompt_hot_wait_seconds` | `120` | 短等待时长；`0` 取默认值 |
 | `agent.prompt_expire_seconds` | `604800`（7 天） | 挂起后的过期时间；`0` 取默认值，负数表示不过期 |
 | `agent.tool_approval_timeout_seconds` | `600` | 保留；仅在关闭挂起时作为阻塞上限 |

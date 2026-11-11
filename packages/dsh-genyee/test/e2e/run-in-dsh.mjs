@@ -98,7 +98,7 @@ function modelPatchRows(modelUrl) {
         providers: {
           'weknora-e2e': {
             displayName: 'WeKnora e2e gateway',
-            apiKeyEnv: 'WEKNORA_E2E_MODEL_KEY',
+            apiKeyEnv: 'GENYEE_E2E_MODEL_KEY',
             api: 'openai-completions',
             baseURL: modelUrl,
             models: [{
@@ -191,14 +191,14 @@ async function main() {
   }
 
   const weknora = await startMockWeknora({ apiKey: API_KEY })
-  const home = await mkdtemp(join(tmpdir(), 'dsh-weknora-home-'))
+  const home = await mkdtemp(join(tmpdir(), 'dsh-genyee-home-'))
   const dsh = await resolveDsh()
   const env = {
     DSH_HOME: home,
-    WEKNORA_E2E_MODEL_KEY: 'not-a-real-key',
-    WEKNORA_BASE_URL: weknora.url,
-    WEKNORA_API_KEY: API_KEY,
-    WEKNORA_KNOWLEDGE_BASE_IDS: 'kb-product',
+    GENYEE_E2E_MODEL_KEY: 'not-a-real-key',
+    GENYEE_BASE_URL: weknora.url,
+    GENYEE_API_KEY: API_KEY,
+    GENYEE_KNOWLEDGE_BASE_IDS: 'kb-product',
   }
 
   log(`# mock WeKnora   ${weknora.url}`)
@@ -243,7 +243,7 @@ async function main() {
     })
 
     // C. No configured scope at all, which is what the quickstart's optional
-    //    WEKNORA_KNOWLEDGE_BASE_IDS leaves behind.
+    //    GENYEE_KNOWLEDGE_BASE_IDS leaves behind.
     await scenario({
       label: 'C · no configured scope, resolved by the plugin',
       dsh,
