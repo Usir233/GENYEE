@@ -21,6 +21,10 @@ COPY docker/odl-hybrid/requirements.txt /tmp/odl-hybrid-requirements.txt
 RUN pip install --no-cache-dir --require-hashes -r /tmp/odl-hybrid-requirements.txt \
     && rm /tmp/odl-hybrid-requirements.txt
 
+COPY docker/odl-hybrid/opendataloader_pdf /app/opendataloader_pdf
+RUN chmod -R a+rX,go-w /app
+ENV PYTHONPATH=/app
+
 RUN groupadd -g 10001 appuser && \
     useradd -u 10001 -g 10001 -m -s /usr/sbin/nologin appuser
 ENV HOME=/home/appuser
@@ -49,4 +53,4 @@ ENV ODL_HYBRID_EXTRA_ARGS="--no-ocr"
 HEALTHCHECK --interval=30s --timeout=10s --retries=5 --start-period=120s \
     CMD curl -f http://localhost:5002/health || exit 1
 
-CMD ["bash", "-c", "exec opendataloader-pdf-hybrid --host 0.0.0.0 --port 5002 ${ODL_HYBRID_EXTRA_ARGS}"]
+CMD ["bash", "-c", "exec python -m opendataloader_pdf.hybrid_server --host 0.0.0.0 --port 5002 ${ODL_HYBRID_EXTRA_ARGS}"]
