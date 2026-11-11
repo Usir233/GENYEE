@@ -1,7 +1,9 @@
 import logging
 import os
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, Optional, Tuple
+from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -53,6 +55,40 @@ def _mask_secret(v: str) -> str:
     return f"{v[:2]}***{v[-2:]}"
 
 
+_RAW_URL_CRED_RE = re.compile(r"((?:[a-zA-Z][a-zA-Z0-9+.-]*://)?[^/\s@:]+:)([^/\s@]+)(@)")
+
+
+def mask_proxy_url(url: str) -> str:
+    """Mask userinfo credentials in proxy/endpoint URLs before logging."""
+    if not url:
+        return ""
+    raw = str(url).strip()
+    if not raw:
+        return ""
+    try:
+        has_scheme = "://" in raw
+        probe = raw if has_scheme else f"http://{raw}"
+        parts = urlsplit(probe)
+        if parts.username is None and parts.password is None:
+            return raw
+        masked_user = _mask_secret(parts.username) if parts.username else ""
+        if parts.password is not None:
+            userinfo = f"{masked_user}:***" if masked_user else "***"
+        else:
+            userinfo = masked_user
+        host = parts.hostname or ""
+        if ":" in host and not host.startswith("["):
+            host = f"[{host}]"
+        port_part = f":{parts.port}" if parts.port is not None else ""
+        netloc = f"{userinfo}@{host}{port_part}" if userinfo else f"{host}{port_part}"
+        rebuilt = urlunsplit((parts.scheme if has_scheme else "", netloc, parts.path, parts.query, parts.fragment))
+        if not has_scheme and rebuilt.startswith("//"):
+            return rebuilt[2:]
+        return rebuilt
+    except Exception:
+        return _RAW_URL_CRED_RE.sub(r"\1***\3", raw)
+
+
 @dataclass(frozen=True)
 class DocReaderConfig:
     # gRPC
@@ -91,6 +127,11 @@ class DocReaderConfig:
 
     # Temp image output directory (shared with Go app via volume, local mode fallback)
     image_output_dir: str
+
+    # OpenDataLoader timeout & JVM memory bounds
+    odl_hybrid_timeout_ms: int = 30000
+    odl_timeout_seconds: int = 120
+    odl_java_max_heap_mb: int = 1024
 
     @property
     def grpc_max_message_size_bytes(self) -> int:
@@ -186,6 +227,9 @@ def load_config() -> DocReaderConfig:
         external_http_proxy=external_http_proxy,
         external_https_proxy=external_https_proxy,
         image_output_dir=image_output_dir,
+        odl_hybrid_timeout_ms=_positive_int("DOCREADER_ODL_HYBRID_TIMEOUT_MS", 30000),
+        odl_timeout_seconds=_positive_int("DOCREADER_ODL_TIMEOUT_SECONDS", 120),
+        odl_java_max_heap_mb=_positive_int("DOCREADER_ODL_JAVA_MAX_HEAP_MB", 1024),
     )
 
 
@@ -194,6 +238,7 @@ CONFIG = load_config()
 
 def dump_config(mask_secrets: bool = True) -> Dict[str, Any]:
     cfg = CONFIG
+    mask_url = mask_proxy_url if mask_secrets else (lambda u: u)
     d: Dict[str, Any] = {
         "DOCREADER_GRPC_MAX_WORKERS": cfg.grpc_max_workers,
         "DOCREADER_GRPC_MAX_FILE_SIZE_MB": cfg.grpc_max_file_size_mb // (1024 * 1024),
@@ -202,9 +247,12 @@ def dump_config(mask_secrets: bool = True) -> Dict[str, Any]:
         "DOCREADER_MARKITDOWN_MAX_WORKERS": cfg.markitdown_max_workers,
         "DOCREADER_ODL_MAX_WORKERS": cfg.odl_max_workers,
         "DOCREADER_ODL_HYBRID": cfg.odl_hybrid,
-        "DOCREADER_ODL_HYBRID_URL": cfg.odl_hybrid_url,
+        "DOCREADER_ODL_HYBRID_URL": mask_url(cfg.odl_hybrid_url),
         "DOCREADER_ODL_HYBRID_MODE": cfg.odl_hybrid_mode,
         "DOCREADER_ODL_HYBRID_FALLBACK": cfg.odl_hybrid_fallback,
+        "DOCREADER_ODL_HYBRID_TIMEOUT_MS": cfg.odl_hybrid_timeout_ms,
+        "DOCREADER_ODL_TIMEOUT_SECONDS": cfg.odl_timeout_seconds,
+        "DOCREADER_ODL_JAVA_MAX_HEAP_MB": cfg.odl_java_max_heap_mb,
         "DOCREADER_ODL_MARKDOWN_WITH_HTML": cfg.odl_markdown_with_html,
         "DOCREADER_HTML_MAIN_CONTENT": cfg.html_main_content,
         "DOCREADER_PDF_RENDER_MAX_WORKERS": cfg.pdf_render_max_workers,
@@ -219,8 +267,8 @@ def dump_config(mask_secrets: bool = True) -> Dict[str, Any]:
         "DOCREADER_PREPROCESS_MAX_PIXELS": cfg.preprocess_max_pixels,
         "DOCREADER_PREPROCESS_MAX_EDGE": cfg.preprocess_max_edge,
         "DOCREADER_PREPROCESS_PROBE_EDGE": cfg.preprocess_probe_edge,
-        "DOCREADER_EXTERNAL_HTTP_PROXY": cfg.external_http_proxy,
-        "DOCREADER_EXTERNAL_HTTPS_PROXY": cfg.external_https_proxy,
+        "DOCREADER_EXTERNAL_HTTP_PROXY": mask_url(cfg.external_http_proxy),
+        "DOCREADER_EXTERNAL_HTTPS_PROXY": mask_url(cfg.external_https_proxy),
         "DOCREADER_IMAGE_OUTPUT_DIR": cfg.image_output_dir,
     }
     return d

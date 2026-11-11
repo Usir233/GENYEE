@@ -56,11 +56,9 @@ class TestPptConvert(unittest.TestCase):
         self.assertEqual(ext, ".pptx")
         self.assertTrue(is_zip_openxml(out))
 
-    def test_wmf_legacy_ppt_extracts_rasterized_image(self):
+    def test_wmf_legacy_ppt_skips_disallowed_vector_delegate(self):
         if not shutil.which("soffice"):
             self.skipTest("LibreOffice not available")
-        if not shutil.which("convert"):
-            self.skipTest("ImageMagick convert not available")
         if not WMF_IMAGE_PPT.is_file():
             self.skipTest("testdata missing")
 
@@ -69,9 +67,9 @@ class TestPptConvert(unittest.TestCase):
         doc = MarkitdownParser(file_type="ppt").parse_into_text(
             WMF_IMAGE_PPT.read_bytes()
         )
-        self.assertEqual(len(doc.images), 1)
-        self.assertNotIn("bd10496_.jpg", doc.content)
-        self.assertIn("images/", doc.content)
+        # MED-15 disables WMF/EMF/SVG/EPS delegate conversion while preserving slide text.
+        self.assertTrue(doc.content.strip())
+        self.assertEqual(len(doc.images), 0)
 
     def test_image_heavy_legacy_ppt_extracts_images(self):
         if not shutil.which("soffice"):

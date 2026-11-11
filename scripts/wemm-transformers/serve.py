@@ -7,6 +7,7 @@ import hmac
 import io
 import logging
 import os
+import re
 import threading
 import time
 from contextlib import asynccontextmanager
@@ -20,7 +21,40 @@ from fastapi.responses import JSONResponse
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel, ConfigDict, Field, StrictInt
 
+Image.MAX_IMAGE_PIXELS = 40_000_000
+
 log = logging.getLogger("uvicorn.error")
+
+_HF_REPO_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def _env_truthy(name: str, default: bool = False) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _is_local_filesystem_path(model_ref: str) -> bool:
+    ref = (model_ref or "").strip()
+    if not ref:
+        return False
+    if ref.startswith(("/", "./", "../", "~")) or "\\" in ref:
+        return True
+    if len(ref) >= 2 and ref[1] == ":":
+        return True
+    if Path(ref).exists():
+        return True
+    return not bool(_HF_REPO_ID_RE.match(ref))
+
+
+def _public_model_name(model_ref: str, served_model_name: str | None) -> str:
+    if served_model_name:
+        return served_model_name
+    if _is_local_filesystem_path(model_ref):
+        cleaned = model_ref.replace("\\", "/").rstrip("/")
+        return Path(cleaned).name or "local-model"
+    return model_ref
 
 
 @dataclass(frozen=True)
@@ -35,19 +69,22 @@ class Settings:
     max_batch_size: int = 32
     cpu_threads: int = 8
     local_files_only: bool = False
+    trust_remote_code: bool = False
+    use_safetensors: bool = True
     api_key: str = ""
+    allow_unauthenticated: bool = False
 
     def __post_init__(self):
         if min(self.max_tokens, self.max_pixels, self.max_batch_size, self.cpu_threads) <= 0:
             raise ValueError("Resource limits and cpu_threads must be positive.")
+        if self.max_batch_size > 256:
+            raise ValueError("max_batch_size must not exceed 256.")
         if self.max_pixels < 65536:
             raise ValueError("max_pixels must be at least 65536 (the model processor's minimum).")
 
     @property
     def name(self):
-        if self.served_model_name:
-            return self.served_model_name
-        return Path(self.model).name if Path(self.model).is_dir() else self.model
+        return _public_model_name(self.model, self.served_model_name)
 
 
 class StrictModel(BaseModel):
@@ -97,6 +134,8 @@ def parse_inputs(request, settings, dimensions, default_dimension):
         bad("Supply exactly one of input or messages.")
     if request.input is not None:
         texts = [request.input] if isinstance(request.input, str) else request.input
+        if not texts or len(texts) > settings.max_batch_size:
+            bad(f"Supply between 1 and {settings.max_batch_size} independent inputs.")
         conversations = [[Message(role="user", content=[TextPart(type="text", text=text)])] for text in texts]
     else:
         messages = request.messages
@@ -189,10 +228,23 @@ class Engine:
         import torch
         from transformers import AutoConfig, AutoModel, AutoProcessor
         self.settings, self.torch = settings, torch
+        if (
+            settings.trust_remote_code
+            and not settings.local_files_only
+            and not Path(settings.model).is_dir()
+            and not settings.revision
+        ):
+            raise ValueError(
+                "trust_remote_code=True for a remote Hugging Face repository requires "
+                "pinning --revision (commit SHA) or enabling --local-files-only."
+            )
         self.device, self.dtype = resolve_device_dtype(torch, settings)
         self.lock = threading.Lock()
         torch.set_num_threads(settings.cpu_threads)
-        options = {"trust_remote_code": True, "local_files_only": settings.local_files_only}
+        options = {
+            "trust_remote_code": settings.trust_remote_code,
+            "local_files_only": settings.local_files_only,
+        }
         if settings.revision:
             options["revision"] = settings.revision
         config = AutoConfig.from_pretrained(settings.model, **options)
@@ -202,7 +254,11 @@ class Engine:
             raise ValueError("The model must provide WeMM matryoshka_dimensions including its hidden size.")
         self.processor = AutoProcessor.from_pretrained(settings.model, **options)
         self.model = AutoModel.from_pretrained(
-            settings.model, dtype=self.dtype, attn_implementation="sdpa", **options,
+            settings.model,
+            dtype=self.dtype,
+            attn_implementation="sdpa",
+            use_safetensors=settings.use_safetensors,
+            **options,
         ).to(self.device).eval()
         if not callable(getattr(self.model, "embedding", None)):
             raise ValueError("The model must expose WeMM's embedding() method.")
@@ -286,8 +342,16 @@ def create_app(settings, engine_factory=Engine):
     app.add_middleware(BodyLimit)
 
     def authorize(authorization: str | None = Header(default=None)):
+        if not settings.api_key:
+            if settings.allow_unauthenticated:
+                return
+            raise HTTPException(
+                401,
+                "API key is required; set WEMM_API_KEY.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
         expected = "Bearer " + settings.api_key
-        if settings.api_key and not hmac.compare_digest((authorization or "").encode(), expected.encode()):
+        if not hmac.compare_digest((authorization or "").encode(), expected.encode()):
             raise HTTPException(401, "Invalid API key.", headers={"WWW-Authenticate": "Bearer"})
 
     @app.exception_handler(HTTPException)
@@ -304,8 +368,11 @@ def create_app(settings, engine_factory=Engine):
     @app.get("/health")
     def health():
         engine = app.state.engine
+        safe_revision = None
+        if settings.revision and not _is_local_filesystem_path(settings.revision):
+            safe_revision = settings.revision
         return {"status": "ok", "model": settings.name, "backend": "transformers",
-                "device": str(engine.device), "dtype": str(engine.dtype), "revision": settings.revision,
+                "device": str(engine.device), "dtype": str(engine.dtype), "revision": safe_revision,
                 "dimensions": engine.dimensions, "default_dimension": engine.default_dimension,
                 "max_tokens": settings.max_tokens, "max_image_pixels": settings.max_pixels}
 
@@ -340,24 +407,42 @@ def create_app(settings, engine_factory=Engine):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", default=Settings.model, help="WeMM Hugging Face ID or model directory")
-    parser.add_argument("--served-model-name", help="API model ID; defaults to the repo ID or directory basename")
-    parser.add_argument("--revision", help="Hugging Face revision (prefer a commit SHA for reproducibility)")
+    parser.add_argument("--model", default=os.environ.get("WEMM_MODEL", Settings.model), help="WeMM Hugging Face ID or model directory")
+    parser.add_argument("--served-model-name", default=os.environ.get("WEMM_SERVED_MODEL_NAME"), help="API model ID; defaults to the repo ID or directory basename")
+    parser.add_argument("--revision", default=os.environ.get("WEMM_MODEL_REVISION"), help="Hugging Face revision (commit SHA required when --trust-remote-code is used with a remote repo)")
     parser.add_argument("--device", default="auto", help="auto, cuda, cuda:N, mps or cpu")
     parser.add_argument("--dtype", choices=("auto", "bfloat16", "float16", "float32"), default="auto")
     parser.add_argument("--max-tokens", type=int, default=8192)
     parser.add_argument("--max-pixels", type=int, default=1048576)
     parser.add_argument("--max-batch-size", type=int, default=32)
     parser.add_argument("--cpu-threads", type=int, default=8)
-    parser.add_argument("--local-files-only", action="store_true")
+    parser.add_argument("--local-files-only", action="store_true", default=_env_truthy("WEMM_LOCAL_FILES_ONLY", False))
+    parser.add_argument(
+        "--trust-remote-code",
+        action="store_true",
+        default=_env_truthy("WEMM_TRUST_REMOTE_CODE", False),
+        help="Explicitly allow executing custom Python model code from the model repository",
+    )
+    parser.add_argument(
+        "--allow-unauthenticated",
+        action="store_true",
+        default=_env_truthy("WEMM_ALLOW_UNAUTHENTICATED", False),
+        help="Allow unauthenticated requests (isolated local development only)",
+    )
     parser.add_argument("--mps-fallback", action="store_true", help="Allow PyTorch CPU fallback for unsupported MPS ops")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=18080)
+    parser.add_argument("--host", default=os.environ.get("WEMM_HOST", "127.0.0.1"))
+    parser.add_argument("--port", type=int, default=int(os.environ.get("WEMM_PORT", "18080")))
     args = vars(parser.parse_args())
     host, port = args.pop("host"), args.pop("port")
     if args.pop("mps_fallback"):
         os.environ["PYTORCH_ENABLE_MPS_FALLBACK"] = "1"
-    settings = Settings(**args, api_key=os.environ.get("WEMM_API_KEY", ""))
+    api_key = os.environ.get("WEMM_API_KEY", "").strip()
+    if not api_key and not args["allow_unauthenticated"]:
+        raise SystemExit(
+            "Refusing to start WeMM embedding server without WEMM_API_KEY "
+            "(set WEMM_ALLOW_UNAUTHENTICATED=true only for isolated local development)."
+        )
+    settings = Settings(**args, api_key=api_key)
     import uvicorn
     # A single process owns the model; do not add workers without separate GPUs.
     uvicorn.run(create_app(settings), host=host, port=port, workers=1)

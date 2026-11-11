@@ -25,7 +25,10 @@ from docreader.parser.base_parser import BaseParser
 from docreader.parser.mhtml_parser import MHTMLParser
 
 from docreader.parser.archive import (
-    ArchiveLimitError, MAX_COMPRESSION_RATIO, MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    ArchiveLimitError,
+    MAX_COMPRESSION_RATIO,
+    MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    safe_read_zip_member,
     validate_zip_archive as _validate_zip_archive,
 )
 
@@ -129,7 +132,7 @@ def _find_member(members: set, *paths: str) -> Optional[str]:
 
 
 def _rootfile_path(epub_zip: zipfile.ZipFile, members: set) -> str:
-    container = _parse_xml(epub_zip.read(_CONTAINER_PATH))
+    container = _parse_xml(safe_read_zip_member(epub_zip, _CONTAINER_PATH))
     rootfiles = [
         rootfile
         for rootfile in _elements(container, "rootfile")
@@ -166,7 +169,7 @@ def _read_package(epub_zip: zipfile.ZipFile) -> _EpubPackage:
     members = set(epub_zip.namelist())
     opf_path = _rootfile_path(epub_zip, members)
     opf_dir = posixpath.dirname(opf_path)
-    package = _parse_xml(epub_zip.read(opf_path))
+    package = _parse_xml(safe_read_zip_member(epub_zip, opf_path))
     result = _EpubPackage()
 
     metadata = _first(package, "metadata")
@@ -283,13 +286,15 @@ class EPUBParser(BaseParser):
                 for img_file in epub_zip.namelist():
                     if img_file.lower().endswith(img_exts):
                         try:
-                            img_data = epub_zip.read(img_file)
+                            img_data = safe_read_zip_member(epub_zip, img_file)
                             ext = os.path.splitext(img_file)[1]
                             img_path = f"images/{uuid.uuid4().hex}{ext}"
                             images[img_path] = base64.b64encode(img_data).decode(
                                 "utf-8"
                             )
                             self._add_image_aliases(image_aliases, img_file, img_path)
+                        except ArchiveLimitError:
+                            raise
                         except Exception as e:
                             logger.warning(
                                 "Failed to extract image %s: %s", img_file, e
@@ -297,7 +302,7 @@ class EPUBParser(BaseParser):
 
             for html_file in html_files:
                 try:
-                    html_content = epub_zip.read(html_file).decode(
+                    html_content = safe_read_zip_member(epub_zip, html_file).decode(
                         "utf-8", errors="ignore"
                     )
                     chapter_md = self._html_to_markdown(
@@ -313,6 +318,8 @@ class EPUBParser(BaseParser):
                     title = title.replace("_", " ").replace("-", " ").title()
                     if chapter_md.strip():
                         markdown_parts.append(f"## {title}\n\n{chapter_md}")
+                except ArchiveLimitError:
+                    raise
                 except Exception as e:
                     logger.warning("Failed to process %s: %s", html_file, e)
 
@@ -392,7 +399,7 @@ class EPUBParser(BaseParser):
                 item.name,
             )
             return None
-        return epub_zip.read(item.zip_path)
+        return safe_read_zip_member(epub_zip, item.zip_path)
 
     @staticmethod
     def _documents_in_reading_order(package: _EpubPackage) -> list:

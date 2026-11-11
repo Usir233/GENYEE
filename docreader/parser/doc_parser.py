@@ -6,29 +6,34 @@ import time
 import uuid
 from pathlib import Path
 from typing import List, Optional
-from docreader.config import CONFIG
+from docreader.config import mask_proxy_url
 from docreader.models.document import Document
 from docreader.parser.docx2_parser import Docx2Parser
 from docreader.parser.archive import ArchiveLimitError
 from docreader.parser.concurrency import ParserCancelled, check_cancellation
+from docreader.parser.soffice_sandbox import (
+    BLOCKING_LOCAL_PROXY,
+    build_minimal_sandbox_env,
+    maybe_wrap_with_bwrap,
+    run_soffice_convert,
+)
 from docreader.utils.tempfile import TempDirContext, TempFileContext
 
 logger = logging.getLogger(__name__)
 
 
 class SandboxExecutor:
-    """Sandbox executor for running commands with proxy configuration"""
+    """Sandbox executor for running commands with isolated clean environment."""
 
     def __init__(self, proxy: Optional[str] = None, default_timeout: int = 60):
         """Initialize sandbox executor with configuration
 
         Args:
-            proxy: Proxy URL to use for network access. If None, will use WEB_PROXY environment variable
+            proxy: Proxy URL to use for network access. Defaults to dead loopback
+                127.0.0.1:1 so document converters never inherit external proxies.
             default_timeout: Default timeout in seconds for command execution
         """
-        # Get proxy from parameter, environment variable, or use default blocking proxy
-        # Use 'or None' to convert empty string to None, then apply default value
-        self.proxy = proxy or CONFIG.external_https_proxy or "http://128.0.0.1:1"
+        self.proxy = proxy or BLOCKING_LOCAL_PROXY
         self.default_timeout = default_timeout
 
     def execute_in_sandbox(self, cmd: List[str]) -> tuple:
@@ -55,7 +60,7 @@ class SandboxExecutor:
         raise RuntimeError("All sandbox methods failed")
 
     def _execute_with_proxy(self, cmd: List[str]) -> tuple:
-        """Execute command with proxy configuration
+        """Execute command with minimal clean environment and blocking proxy.
 
         Args:
             cmd: Command to execute
@@ -63,17 +68,11 @@ class SandboxExecutor:
         Returns:
             Tuple of (stdout, stderr, returncode)
         """
-        # Set up environment with proxy configuration
-        env = os.environ.copy()
-        if self.proxy:
-            env["http_proxy"] = self.proxy
-            env["https_proxy"] = self.proxy
-            env["HTTP_PROXY"] = self.proxy
-            env["HTTPS_PROXY"] = self.proxy
+        env = build_minimal_sandbox_env(proxy=self.proxy)
 
         logger.info(f"Executing command with proxy: {' '.join(cmd)}")
         if self.proxy:
-            logger.info(f"Using proxy: {self.proxy}")
+            logger.info(f"Using proxy: {mask_proxy_url(self.proxy)}")
 
         is_posix = os.name == "posix"
         process = subprocess.Popen(
@@ -222,10 +221,15 @@ class DocParser(Docx2Parser):
             raise RuntimeError("antiword not found in PATH")
 
         # Use antiword to extract text directly in sandbox
-        cmd = [antiword_path, temp_file_path]
-        logger.info("Executing antiword in sandbox with proxy configuration")
+        with TempDirContext() as work_dir:
+            cmd = maybe_wrap_with_bwrap(
+                [antiword_path, os.path.abspath(temp_file_path)],
+                work_dir=work_dir,
+                input_path=temp_file_path,
+            )
+            logger.info("Executing antiword in sandbox with proxy configuration")
 
-        stdout, stderr, returncode = self.sandbox_executor.execute_in_sandbox(cmd)
+            stdout, stderr, returncode = self.sandbox_executor.execute_in_sandbox(cmd)
 
         if returncode != 0:
             raise RuntimeError(
@@ -263,28 +267,27 @@ class DocParser(Docx2Parser):
         # lower-fidelity antiword path.
         max_attempts = 3
         for attempt in range(1, max_attempts + 1):
-            # Create a temporary directory to store the converted file
+            # Create isolated temporary directories for output and LibreOffice profile
             with TempDirContext() as temp_dir, TempDirContext() as profile_dir:
-                user_installation = Path(profile_dir).as_uri()
-                cmd = [
-                    soffice_path,
-                    "--headless",
-                    f"-env:UserInstallation={user_installation}",
-                    "--convert-to",
-                    "docx",
-                    "--outdir",
-                    temp_dir,
-                    doc_path,
-                ]
                 logger.info(
-                    f"Running command in sandbox (attempt {attempt}/{max_attempts}): "
-                    f"{' '.join(cmd)}"
+                    f"Running hardened soffice conversion in sandbox "
+                    f"(attempt {attempt}/{max_attempts})"
                 )
-
-                # Execute in sandbox with proxy configuration
-                stdout, stderr, returncode = self.sandbox_executor.execute_in_sandbox(
-                    cmd
-                )
+                try:
+                    stdout, stderr, returncode = run_soffice_convert(
+                        soffice_path,
+                        convert_to="docx",
+                        outdir=temp_dir,
+                        input_path=doc_path,
+                        profile_dir=profile_dir,
+                        executor=self.sandbox_executor,
+                    )
+                except RuntimeError as exc:
+                    logger.warning(
+                        f"Sandbox error converting DOC to DOCX (attempt {attempt}/"
+                        f"{max_attempts}): {exc}"
+                    )
+                    return None
 
                 if returncode != 0:
                     logger.warning(

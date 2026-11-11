@@ -5,12 +5,18 @@ from __future__ import annotations
 import io
 import logging
 import re
-import xml.etree.ElementTree as ET
 import zipfile
 from typing import Callable, Dict, Iterable, Set
 
+from defusedxml import ElementTree as ET
+from defusedxml.common import DefusedXmlException
+
 from docreader.parser.archive import (
-    ArchiveLimitError, MAX_COMPRESSION_RATIO, MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    ArchiveLimitError,
+    MAX_COMPRESSION_RATIO,
+    MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    ZipReadBudget,
+    safe_read_zip_member,
     validate_zip_archive as _validate_zip_archive,
 )
 
@@ -96,7 +102,7 @@ def strip_unreadable_ranges_xlsx(content: bytes) -> bytes | None:
         )
         dropped: Dict[str, int] = {}
         for name in sheets:
-            sheet = zin.read(name).decode("utf-8", errors="replace")
+            sheet = safe_read_zip_member(zin, name).decode("utf-8", errors="replace")
             count = sum(1 for m in _SQREF_ELEMENT_RE.finditer(sheet) if _unreadable(m.group(0)))
             if count:
                 dropped[name] = count
@@ -137,8 +143,8 @@ def _strip_unreadable_ranges(files: Dict[str, bytes], sheets: Dict[str, int]) ->
 def _has_existing_shared_strings_part(zin: zipfile.ZipFile) -> bool:
     """Respect the manifest's part name instead of renaming a valid table."""
     try:
-        manifest = ET.fromstring(zin.read("[Content_Types].xml"))
-    except (KeyError, ET.ParseError):
+        manifest = ET.fromstring(safe_read_zip_member(zin, "[Content_Types].xml"))
+    except (KeyError, ET.ParseError, DefusedXmlException):
         return False
     for part in manifest.findall(
         "{http://schemas.openxmlformats.org/package/2006/content-types}Override"
@@ -172,13 +178,13 @@ def _package_references_shared_strings(
 ) -> bool:
     content_types = "[Content_Types].xml"
     if content_types in names:
-        ct = zin.read(content_types).decode("utf-8", errors="replace")
+        ct = safe_read_zip_member(zin, content_types).decode("utf-8", errors="replace")
         if "sharedstrings.xml" in ct.lower():
             return True
 
     rels_path = "xl/_rels/workbook.xml.rels"
     if rels_path in names:
-        rels = zin.read(rels_path).decode("utf-8", errors="replace")
+        rels = safe_read_zip_member(zin, rels_path).decode("utf-8", errors="replace")
         if "sharedstrings" in rels.lower():
             return True
     return False
@@ -190,7 +196,7 @@ def _worksheets_use_shared_string_cells(
     for name in names:
         if not name.startswith("xl/worksheets/") or not name.endswith(".xml"):
             continue
-        sheet = zin.read(name).decode("utf-8", errors="replace")
+        sheet = safe_read_zip_member(zin, name).decode("utf-8", errors="replace")
         if re.search(r'\bt="s"', sheet):
             return True
     return False
@@ -226,15 +232,10 @@ def _rewrite_zip(
 ) -> bytes:
     _validate_zip_archive(zin)
     files: Dict[str, bytes] = {}
-    total_read = 0
+    rewrite_budget = ZipReadBudget()
     for info in zin.infolist():
         name = info.filename.replace("\\", "/")
-        data = zin.read(info.filename)
-        total_read += len(data)
-        if total_read > MAX_UNCOMPRESSED_ARCHIVE_BYTES:
-            raise ArchiveLimitError(
-                f"Archive cumulative uncompressed size ({total_read}) exceeds limit ({MAX_UNCOMPRESSED_ARCHIVE_BYTES})"
-            )
+        data = safe_read_zip_member(zin, info, budget=rewrite_budget)
         files[name] = data
     files = transform(files)
 
@@ -313,7 +314,7 @@ def _sanitize_xlsx_styles(content: bytes) -> bytes | None:
         _validate_zip_archive(zin)
         if STYLES_PART not in zin.namelist():
             return None
-        styles = zin.read(STYLES_PART)
+        styles = safe_read_zip_member(zin, STYLES_PART)
 
         block = _FILLS_BLOCK_RE.search(styles)
         if block is None:

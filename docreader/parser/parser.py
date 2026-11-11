@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Optional
+from typing import Any, Mapping, Optional
 
 from docreader.models.document import Document
 from docreader.parser.registry import registry
@@ -9,6 +9,62 @@ from docreader.parser.archive import validate_zip_content
 from docreader.parser.concurrency import check_cancellation
 
 logger = logging.getLogger(__name__)
+
+# Strict allowlist of request-level parser_engine_overrides keys accepted by docreader.
+# Outbound endpoint overrides such as odl_hybrid_url are never allowed from requests.
+ALLOWED_ENGINE_OVERRIDE_KEYS: frozenset[str] = frozenset(
+    {
+        "pdf_force_scanned",
+        "xlsx_percent_as_text",
+        "odl_hybrid",
+        "odl_hybrid_mode",
+        "odl_hybrid_fallback",
+        "odl_markdown_with_html",
+        "extract_images",
+        "enable_multimodal",
+        "parser_max_workers",
+    }
+)
+
+FORBIDDEN_ENGINE_OVERRIDE_KEYS: frozenset[str] = frozenset(
+    {
+        "odl_hybrid_url",
+    }
+)
+
+
+def sanitize_engine_overrides(
+    overrides: Optional[Mapping[str, Any]],
+    *,
+    reject_forbidden: bool = True,
+) -> dict[str, Any]:
+    """Validate and filter request-supplied parser_engine_overrides against allowlist."""
+    if not overrides:
+        return {}
+
+    cleaned: dict[str, Any] = {}
+    dropped: list[str] = []
+    for raw_key, value in overrides.items():
+        key = str(raw_key)
+        if key in FORBIDDEN_ENGINE_OVERRIDE_KEYS:
+            if value is not None and str(value).strip() != "":
+                if reject_forbidden:
+                    raise RuntimeError(
+                        f"Parser engine override '{key}' is disallowed by SSRF security policy"
+                    )
+                dropped.append(key)
+            continue
+        if key in ALLOWED_ENGINE_OVERRIDE_KEYS:
+            cleaned[key] = value
+        else:
+            dropped.append(key)
+
+    if dropped:
+        logger.warning(
+            "Dropped non-whitelisted parser_engine_overrides keys: %s",
+            ", ".join(sorted(dropped)),
+        )
+    return cleaned
 
 
 # OLE Compound File magic used by legacy binary Microsoft Office files.
@@ -58,7 +114,7 @@ class Parser:
     ) -> Document:
         """Parse file content to markdown."""
         engine = parser_engine or ""
-        overrides = engine_overrides or {}
+        overrides = sanitize_engine_overrides(engine_overrides, reject_forbidden=True)
         logger.info(
             "Parsing file: %s, type: %s, engine: %s",
             file_name,
@@ -100,7 +156,7 @@ class Parser:
     ) -> ParsedDocumentStream:
         """Parse a file for ReadStream, using a parser's lazy image path when available."""
         engine = parser_engine or ""
-        overrides = engine_overrides or {}
+        overrides = sanitize_engine_overrides(engine_overrides, reject_forbidden=True)
         check_cancellation(context)
         validate_zip_content(content)
         effective_file_type = detect_effective_file_type(file_type, content)

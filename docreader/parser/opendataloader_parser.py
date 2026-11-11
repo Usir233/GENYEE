@@ -11,20 +11,26 @@ Hybrid mode (``docling-fast``, etc.) needs a running
 from __future__ import annotations
 
 import base64
+import contextlib
 import html
+import importlib.resources as resources
 import logging
 import os
 import re
 import shutil
+import signal
+import subprocess
 import tempfile
+import time
 import urllib.error
 import urllib.request
-from typing import Any, Dict, Mapping, Optional, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from docreader.config import CONFIG
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
 from docreader.parser.concurrency import check_cancellation, parser_worker_limit
+from docreader.parser.soffice_sandbox import build_minimal_sandbox_env
 from docreader.utils.ssrf import is_ssrf_safe_url
 
 logger = logging.getLogger(__name__)
@@ -33,6 +39,15 @@ _MIN_CHARS_PER_PAGE = 20
 _IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp")
 _MD_IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 _IMAGE_FILE_NUM_RE = re.compile(r"^imageFile(\d+)\.", re.I)
+_JAR_NAME = "opendataloader-pdf-cli.jar"
+ALLOWED_ODL_OVERRIDE_KEYS: frozenset[str] = frozenset(
+    {
+        "odl_hybrid",
+        "odl_hybrid_mode",
+        "odl_hybrid_fallback",
+        "odl_markdown_with_html",
+    }
+)
 
 
 class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -109,6 +124,13 @@ def _ping_hybrid(
     return False, last_err + hint
 
 
+def _has_hybrid_url_override(overrides: Optional[Mapping[str, Any]]) -> bool:
+    if not overrides:
+        return False
+    raw = overrides.get("odl_hybrid_url")
+    return raw is not None and str(raw).strip() != ""
+
+
 def opendataloader_available(
     overrides: Optional[Mapping[str, Any]] = None,
     quick: bool = False,
@@ -120,6 +142,12 @@ def opendataloader_available(
     blocking on long retry/backoff loops. Parsing keeps the patient retry
     behavior to tolerate a hybrid service that is still starting up.
     """
+    if _has_hybrid_url_override(overrides):
+        return (
+            False,
+            "OpenDataLoader hybrid URL override is disallowed by SSRF security policy",
+        )
+
     ok, msg = _java_available()
     if not ok:
         return False, msg
@@ -142,7 +170,11 @@ def _resolve_hybrid(overrides: Optional[Mapping[str, Any]] = None) -> str:
 
 
 def _resolve_hybrid_url(overrides: Optional[Mapping[str, Any]] = None) -> str:
-    return _override_str(overrides, "odl_hybrid_url", CONFIG.odl_hybrid_url)
+    if _has_hybrid_url_override(overrides):
+        raise RuntimeError(
+            "OpenDataLoader hybrid URL override is disallowed by SSRF security policy"
+        )
+    return CONFIG.odl_hybrid_url
 
 
 def _find_markdown_file(output_dir: str, pdf_stem: str) -> str:
@@ -267,12 +299,128 @@ def _rewrite_markdown_image_refs(
     return _MD_IMAGE_RE.sub(repl, markdown)
 
 
+def _kill_process_group(process: subprocess.Popen, pgid: Optional[int]) -> None:
+    if pgid is None:
+        try:
+            process.kill()
+        except OSError:
+            pass
+    else:
+        for sig, wait_sec in ((signal.SIGTERM, 0.5), (signal.SIGKILL, 0.0)):
+            try:
+                os.killpg(pgid, sig)
+            except OSError:
+                pass
+            if wait_sec > 0:
+                deadline = time.monotonic() + wait_sec
+                try:
+                    process.wait(timeout=wait_sec)
+                    rem = deadline - time.monotonic()
+                    if rem > 0:
+                        time.sleep(rem)
+                except subprocess.TimeoutExpired:
+                    pass
+    try:
+        process.wait(timeout=1.0)
+    except subprocess.TimeoutExpired:
+        try:
+            process.kill()
+        except OSError:
+            pass
+    finally:
+        for pipe in (process.stdout, process.stderr):
+            if pipe is not None:
+                try:
+                    pipe.close()
+                except OSError:
+                    pass
+
+
+def _run_odl_jar_bounded(
+    args: List[str],
+    quiet: bool = True,
+    *,
+    timeout_seconds: Optional[int] = None,
+    max_heap_mb: Optional[int] = None,
+) -> str:
+    """Execute opendataloader-pdf CLI JAR with -Xmx cap, hard timeout, and killpg."""
+    effective_timeout = max(1, int(timeout_seconds or CONFIG.odl_timeout_seconds))
+    effective_heap_mb = max(128, int(max_heap_mb or CONFIG.odl_java_max_heap_mb))
+    jar_ref = resources.files("opendataloader_pdf").joinpath("jar", _JAR_NAME)
+    with resources.as_file(jar_ref) as jar_path:
+        command = [
+            "java",
+            f"-Xmx{effective_heap_mb}m",
+            "-Djava.awt.headless=true",
+            "-Dapple.awt.UIElement=true",
+            "-Dhttp.followRedirects=false",
+            "-jar",
+            str(jar_path),
+            *args,
+        ]
+        env = build_minimal_sandbox_env(proxy="")
+        is_posix = os.name == "posix"
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+            start_new_session=is_posix,
+        )
+        pgid = process.pid if is_posix else None
+        try:
+            stdout, stderr = process.communicate(timeout=effective_timeout)
+        except subprocess.TimeoutExpired as exc:
+            _kill_process_group(process, pgid)
+            raise RuntimeError(
+                f"OpenDataLoader CLI timed out after {effective_timeout}s"
+            ) from exc
+
+        if process.returncode != 0:
+            raise subprocess.CalledProcessError(
+                process.returncode,
+                command,
+                output=stdout,
+                stderr=stderr,
+            )
+        return stdout
+
+
+@contextlib.contextmanager
+def _patched_odl_runner():
+    """Patch opendataloader_pdf's JAR runner when backed by the real package."""
+    targets = []
+    for mod_name in ("opendataloader_pdf.runner", "opendataloader_pdf.convert_generated"):
+        try:
+            mod = __import__(mod_name, fromlist=["run_jar"])
+        except Exception:
+            mod = None
+        if mod is not None and hasattr(mod, "run_jar"):
+            targets.append((mod, getattr(mod, "run_jar")))
+
+    for mod, _orig in targets:
+        setattr(mod, "run_jar", _run_odl_jar_bounded)
+    try:
+        yield
+    finally:
+        for mod, orig in targets:
+            setattr(mod, "run_jar", orig)
+
+
 def _run_convert(
     pdf_path: str,
     output_dir: str,
     image_dir: str,
     overrides: Optional[Mapping[str, Any]] = None,
 ) -> None:
+    if _has_hybrid_url_override(overrides):
+        raise RuntimeError(
+            "OpenDataLoader hybrid URL override is disallowed by SSRF security policy"
+        )
+
     import opendataloader_pdf
 
     kwargs: Dict[str, Any] = {
@@ -297,24 +445,41 @@ def _run_convert(
                     f"OpenDataLoader hybrid URL 被 SSRF 防护拦截: {reason}"
                 )
             kwargs["hybrid_url"] = hybrid_url
+        kwargs["hybrid_timeout"] = str(max(1000, int(CONFIG.odl_hybrid_timeout_ms)))
         hybrid_mode = _override_str(overrides, "odl_hybrid_mode", CONFIG.odl_hybrid_mode)
         if hybrid_mode:
             kwargs["hybrid_mode"] = hybrid_mode
         if _override_bool(overrides, "odl_hybrid_fallback", CONFIG.odl_hybrid_fallback):
             kwargs["hybrid_fallback"] = True
 
-    opendataloader_pdf.convert(**kwargs)
+    with _patched_odl_runner():
+        opendataloader_pdf.convert(**kwargs)
 
 
 class OpenDataLoaderParser(BaseParser):
     """Parse PDFs with OpenDataLoader (layout-aware markdown + external images)."""
 
     def __init__(self, *args: Any, **kwargs: Any):
-        self._engine_overrides: Dict[str, Any] = {
-            k: v
-            for k, v in kwargs.items()
-            if k.startswith("odl_") or k in ("mineru_endpoint", "mineru_api_key")
-        }
+        nested_overrides = (
+            kwargs.get("overrides")
+            if isinstance(kwargs.get("overrides"), Mapping)
+            else None
+        )
+        if _has_hybrid_url_override(kwargs) or _has_hybrid_url_override(
+            nested_overrides
+        ):
+            raise RuntimeError(
+                "OpenDataLoader hybrid URL override is disallowed by SSRF security policy"
+            )
+        merged_overrides: Dict[str, Any] = {}
+        if nested_overrides:
+            for k, v in nested_overrides.items():
+                if k in ALLOWED_ODL_OVERRIDE_KEYS:
+                    merged_overrides[k] = v
+        for k, v in kwargs.items():
+            if k in ALLOWED_ODL_OVERRIDE_KEYS:
+                merged_overrides[k] = v
+        self._engine_overrides = merged_overrides
         super().__init__(*args, **kwargs)
 
     def parse_into_text(self, content: bytes) -> Document:

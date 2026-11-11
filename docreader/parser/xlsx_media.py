@@ -18,10 +18,17 @@ import os
 import posixpath
 import re
 import uuid
-import xml.etree.ElementTree as ET
 import zipfile
 from typing import Dict, List, Optional, Set, Tuple
-from docreader.parser.archive import ArchiveLimitError, validate_zip_archive
+from xml.etree.ElementTree import Element
+
+from defusedxml import ElementTree as ET
+
+from docreader.parser.archive import (
+    ArchiveLimitError,
+    safe_read_zip_member,
+    validate_zip_archive,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +43,7 @@ _DISPIMG_RE = re.compile(
 )
 
 
-def _local_tag(element: ET.Element) -> str:
+def _local_tag(element: Element) -> str:
     """Return XML element tag without namespace prefix."""
     tag = element.tag
     if "}" in tag:
@@ -155,6 +162,15 @@ class XLSXImageExtractor:
     def _validate_zip(self, zf: zipfile.ZipFile) -> None:
         validate_zip_archive(zf, self.max_uncompressed_bytes, self.max_compression_ratio)
 
+    def _read_zip_member(self, zf: zipfile.ZipFile, member_path: str) -> bytes:
+        return safe_read_zip_member(
+            zf,
+            member_path,
+            max_member_bytes=self.max_uncompressed_bytes,
+            max_total_bytes=self.max_uncompressed_bytes,
+            max_ratio=self.max_compression_ratio,
+        )
+
     def _load_sheet_mapping(self, zf: zipfile.ZipFile) -> Dict[str, str]:
         """Map sheet name to its worksheet xml zip path."""
         wb_path = "xl/workbook.xml"
@@ -166,18 +182,20 @@ class XLSXImageExtractor:
         rel_map: Dict[str, str] = {}
         if wb_rels_path in names:
             try:
-                rels_root = ET.fromstring(zf.read(wb_rels_path))
+                rels_root = ET.fromstring(self._read_zip_member(zf, wb_rels_path))
                 for r in rels_root:
                     r_id = r.attrib.get("Id") or r.attrib.get("id")
                     target = r.attrib.get("Target") or r.attrib.get("target")
                     if r_id and target:
                         rel_map[r_id] = _resolve_target_path("xl", target)
+            except ArchiveLimitError:
+                raise
             except Exception as exc:
                 logger.debug("Failed to parse workbook rels: %s", exc)
 
         sheet_map: Dict[str, str] = {}
         try:
-            wb_root = ET.fromstring(zf.read(wb_path))
+            wb_root = ET.fromstring(self._read_zip_member(zf, wb_path))
             sheet_index = 0
             for elem in wb_root.iter():
                 if _local_tag(elem) == "sheet":
@@ -191,6 +209,8 @@ class XLSXImageExtractor:
                             sheet_path = candidate
                     if name and sheet_path:
                         sheet_map[name] = sheet_path
+        except ArchiveLimitError:
+            raise
         except Exception as exc:
             logger.debug("Failed to parse workbook xml: %s", exc)
 
@@ -203,10 +223,12 @@ class XLSXImageExtractor:
             return []
         strings: List[str] = []
         try:
-            root = ET.fromstring(zf.read(sst_path))
+            root = ET.fromstring(self._read_zip_member(zf, sst_path))
             for elem in root:
                 if _local_tag(elem) == "si":
                     strings.append(_get_element_text(elem))
+        except ArchiveLimitError:
+            raise
         except Exception as exc:
             logger.debug("Failed to parse shared strings: %s", exc)
         return strings
@@ -218,7 +240,9 @@ class XLSXImageExtractor:
             return self.path_to_ref[clean_path]
 
         try:
-            data = zf.read(clean_path)
+            data = self._read_zip_member(zf, clean_path)
+        except ArchiveLimitError:
+            raise
         except Exception:
             alt_paths = []
             if not clean_path.startswith("xl/"):
@@ -229,9 +253,11 @@ class XLSXImageExtractor:
             data = None
             for ap in alt_paths:
                 try:
-                    data = zf.read(ap)
+                    data = self._read_zip_member(zf, ap)
                     clean_path = ap
                     break
+                except ArchiveLimitError:
+                    raise
                 except Exception:
                     continue
             if data is None:
@@ -247,8 +273,8 @@ class XLSXImageExtractor:
             return ref
 
         ext = posixpath.splitext(clean_path)[1].lower()
-        # Rasterize vector formats if needed
-        if ext in (".wmf", ".emf", ".svg", ".eps", ".tif", ".tiff"):
+        # Rasterize supported TIFF images if needed (unsafe vector formats disabled)
+        if ext in (".tif", ".tiff"):
             try:
                 from docreader.parser.pptx_media import rasterize_media_bytes
 
@@ -288,7 +314,7 @@ class XLSXImageExtractor:
         rel_to_target: Dict[str, str] = {}
         if rd_rels_path in names:
             try:
-                root = ET.fromstring(zf.read(rd_rels_path))
+                root = ET.fromstring(self._read_zip_member(zf, rd_rels_path))
                 for r in root:
                     r_id = r.attrib.get("Id") or r.attrib.get("id")
                     tgt = r.attrib.get("Target") or r.attrib.get("target")
@@ -296,13 +322,15 @@ class XLSXImageExtractor:
                         rel_to_target[r_id] = _resolve_target_path(
                             "xl/richData", tgt
                         )
+            except ArchiveLimitError:
+                raise
             except Exception as exc:
                 logger.debug("Failed to parse richValueRel rels: %s", exc)
 
         # 2. Parse richValueRel.xml (0-based rel_idx -> rId)
         rel_id_list: List[str] = []
         try:
-            root = ET.fromstring(zf.read(rd_rel_path))
+            root = ET.fromstring(self._read_zip_member(zf, rd_rel_path))
             for elem in root:
                 r_id = (
                     _get_attribute(elem, "id")
@@ -311,6 +339,8 @@ class XLSXImageExtractor:
                 )
                 if r_id:
                     rel_id_list.append(r_id)
+        except ArchiveLimitError:
+            raise
         except Exception as exc:
             logger.debug("Failed to parse richValueRel.xml: %s", exc)
             return
@@ -318,7 +348,7 @@ class XLSXImageExtractor:
         # 3. Parse rdrichvalue.xml (0-based rv_idx -> (target_path, alt_text))
         rv_items: List[Tuple[str, str]] = []
         try:
-            root = ET.fromstring(zf.read(rd_rv_path))
+            root = ET.fromstring(self._read_zip_member(zf, rd_rv_path))
             for elem in root.iter():
                 if _local_tag(elem) == "rv":
                     v_nodes = [v.text for v in elem if _local_tag(v) == "v"]
@@ -333,6 +363,8 @@ class XLSXImageExtractor:
                             rv_items.append((target, alt_text))
                         else:
                             rv_items.append(("", ""))
+        except ArchiveLimitError:
+            raise
         except Exception as exc:
             logger.debug("Failed to parse rdrichvalue.xml: %s", exc)
             return
@@ -340,7 +372,7 @@ class XLSXImageExtractor:
         # 4. Parse metadata.xml (valueMetadata 0-based bk index -> rv_idx)
         vm_indices: List[Optional[int]] = []
         try:
-            root = ET.fromstring(zf.read(meta_path))
+            root = ET.fromstring(self._read_zip_member(zf, meta_path))
             for child in root:
                 if _local_tag(child) == "valueMetadata":
                     for bk in child:
@@ -355,6 +387,8 @@ class XLSXImageExtractor:
                                     break
                             vm_indices.append(found_v)
                     break
+        except ArchiveLimitError:
+            raise
         except Exception as exc:
             logger.debug("Failed to parse metadata.xml: %s", exc)
             return
@@ -364,7 +398,7 @@ class XLSXImageExtractor:
             if sheet_path not in names:
                 continue
             try:
-                sheet_root = ET.fromstring(zf.read(sheet_path))
+                sheet_root = ET.fromstring(self._read_zip_member(zf, sheet_path))
                 sheet_dict = self.cell_images_by_sheet.setdefault(sheet_name, {})
                 for c in sheet_root.iter():
                     if _local_tag(c) == "c" and "vm" in c.attrib:
@@ -390,6 +424,8 @@ class XLSXImageExtractor:
                                             ref,
                                             alt,
                                         )
+            except ArchiveLimitError:
+                raise
             except Exception as exc:
                 logger.debug(
                     "Failed to parse sheet richData for %s: %s", sheet_name, exc
@@ -412,19 +448,21 @@ class XLSXImageExtractor:
         rel_to_target: Dict[str, str] = {}
         if ci_rels_path in names:
             try:
-                root = ET.fromstring(zf.read(ci_rels_path))
+                root = ET.fromstring(self._read_zip_member(zf, ci_rels_path))
                 for r in root:
                     r_id = r.attrib.get("Id") or r.attrib.get("id")
                     tgt = r.attrib.get("Target") or r.attrib.get("target")
                     if r_id and tgt:
                         rel_to_target[r_id] = _resolve_target_path("xl", tgt)
+            except ArchiveLimitError:
+                raise
             except Exception as exc:
                 logger.debug("Failed to parse cellimages rels: %s", exc)
 
         # 2. Parse cellimages.xml (dispimg_id -> (target, alt))
         dispimg_map: Dict[str, Tuple[str, str]] = {}
         try:
-            root = ET.fromstring(zf.read(ci_path))
+            root = ET.fromstring(self._read_zip_member(zf, ci_path))
             for elem in root.iter():
                 if _local_tag(elem) == "cellImage":
                     name = None
@@ -439,6 +477,8 @@ class XLSXImageExtractor:
                             embed_id = _get_attribute(sub, "embed")
                     if name and embed_id and embed_id in rel_to_target:
                         dispimg_map[name] = (rel_to_target[embed_id], alt)
+        except ArchiveLimitError:
+            raise
         except Exception as exc:
             logger.debug("Failed to parse cellimages.xml: %s", exc)
             return
@@ -451,7 +491,7 @@ class XLSXImageExtractor:
             if sheet_path not in names:
                 continue
             try:
-                sheet_root = ET.fromstring(zf.read(sheet_path))
+                sheet_root = ET.fromstring(self._read_zip_member(zf, sheet_path))
                 sheet_dict = self.cell_images_by_sheet.setdefault(sheet_name, {})
                 for c in sheet_root.iter():
                     if _local_tag(c) != "c":
@@ -502,6 +542,8 @@ class XLSXImageExtractor:
                             col_letter = m_coord.group(1).upper()
                             row_number = int(m_coord.group(2))
                             sheet_dict[(row_number, col_letter)] = (ref, alt)
+            except ArchiveLimitError:
+                raise
             except Exception as exc:
                 logger.debug(
                     "Failed to parse WPS DISPIMG for %s: %s", sheet_name, exc
@@ -522,12 +564,14 @@ class XLSXImageExtractor:
 
             drawing_paths: List[str] = []
             try:
-                rels_root = ET.fromstring(zf.read(sheet_rels_path))
+                rels_root = ET.fromstring(self._read_zip_member(zf, sheet_rels_path))
                 for r in rels_root:
                     if r.attrib.get("Type", "").endswith("/drawing"):
                         tgt = r.attrib.get("Target") or r.attrib.get("target")
                         if tgt:
                             drawing_paths.append(_resolve_target_path(sheet_dir, tgt))
+            except ArchiveLimitError:
+                raise
             except Exception as exc:
                 logger.debug("Failed to parse sheet rels for %s: %s", sheet_name, exc)
                 continue
@@ -543,7 +587,7 @@ class XLSXImageExtractor:
                 drawing_rels: Dict[str, str] = {}
                 if dp_rels_path in names:
                     try:
-                        d_rels_root = ET.fromstring(zf.read(dp_rels_path))
+                        d_rels_root = ET.fromstring(self._read_zip_member(zf, dp_rels_path))
                         for r in d_rels_root:
                             r_id = r.attrib.get("Id") or r.attrib.get("id")
                             tgt = r.attrib.get("Target") or r.attrib.get("target")
@@ -551,6 +595,8 @@ class XLSXImageExtractor:
                                 drawing_rels[r_id] = _resolve_target_path(
                                     dp_dir, tgt
                                 )
+                    except ArchiveLimitError:
+                        raise
                     except Exception as exc:
                         logger.debug(
                             "Failed to parse drawing rels %s: %s",
@@ -559,7 +605,7 @@ class XLSXImageExtractor:
                         )
 
                 try:
-                    dr_root = ET.fromstring(zf.read(dp))
+                    dr_root = ET.fromstring(self._read_zip_member(zf, dp))
                     sheet_dict = self.cell_images_by_sheet.setdefault(sheet_name, {})
                     for anchor in dr_root:
                         anchor_tag = _local_tag(anchor)
@@ -609,5 +655,7 @@ class XLSXImageExtractor:
                                             ref,
                                             alt,
                                         )
+                except ArchiveLimitError:
+                    raise
                 except Exception as exc:
                     logger.debug("Failed to parse drawing xml %s: %s", dp, exc)

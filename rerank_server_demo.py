@@ -1,121 +1,243 @@
+"""Standalone Reranker HTTP service (hardened defaults).
+
+Security defaults (GENYEE-MED-13 / GENYEE-MED-20):
+- Binds to ``127.0.0.1`` by default (override via ``RERANK_HOST``).
+- Fail-closed Bearer / ``X-API-Key`` authentication via ``RERANK_API_KEY`` using
+  constant-time ``hmac.compare_digest`` (opt-out only for isolated local dev via
+  ``RERANK_ALLOW_UNAUTHENTICATED=true``).
+- Bounds ``documents`` batch count and character lengths to prevent OOM DoS.
+- Lazy model loading (no hardcoded user path or import-time ``exit()``),
+  ``trust_remote_code=False`` by default, ``use_safetensors=True``, and optional
+  pinned ``RERANK_MODEL_REVISION``.
+"""
+
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
 import gc
-import torch
-import uvicorn
-from fastapi import FastAPI
+import hmac
+import logging
+import os
+from typing import List, Optional
+
+from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
-from typing import List
 
-# 使能 CUDA 调试
-# import os
-# os.environ['CUDA_LAUNCH_BLOCKING']='1'
+logger = logging.getLogger(__name__)
 
-# --- 1. 定义API的请求和响应数据结构 ---
+MAX_RERANK_DOCUMENTS = max(1, int(os.getenv("RERANK_MAX_DOCUMENTS", "128")))
+MAX_QUERY_CHARS = max(1, int(os.getenv("RERANK_MAX_QUERY_CHARS", "8192")))
+MAX_DOCUMENT_CHARS = max(1, int(os.getenv("RERANK_MAX_DOCUMENT_CHARS", "16384")))
+MIN_API_KEY_LENGTH = 16
 
-# 请求体结构保持不变
+
+def _env_truthy(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 class RerankRequest(BaseModel):
-    query: str
-    documents: List[str]
+    query: str = Field(..., min_length=1, max_length=MAX_QUERY_CHARS)
+    documents: List[str] = Field(
+        ..., min_length=1, max_length=MAX_RERANK_DOCUMENTS
+    )
 
-# --- 修改开始：定义测试用的响应结构，字段名为 "score" ---
 
-# DocumentInfo 结构保持不变
 class DocumentInfo(BaseModel):
     text: str
 
-# 将原来的 GoRankResult 修改为 TestRankResult
-# 核心改动：将 "relevance_score" 字段重命名为 "score"
+
 class TestRankResult(BaseModel):
     index: int
     document: DocumentInfo
-    score: float  # <--- 【关键修改点】字段名已从 relevance_score 改为 score
+    score: float
 
-# 最终响应体结构，其 "results" 列表包含的是 TestRankResult
+
 class TestFinalResponse(BaseModel):
     results: List[TestRankResult]
 
-# --- 修改结束 ---
+
+class _RerankRuntime:
+    def __init__(self) -> None:
+        self.model = None
+        self.tokenizer = None
+        self.device = None
+
+    def ensure_loaded(self) -> None:
+        if self.model is not None and self.tokenizer is not None:
+            return
+        model_path = os.getenv("RERANK_MODEL_PATH", "").strip()
+        if not model_path:
+            raise RuntimeError(
+                "RERANK_MODEL_PATH environment variable must be configured"
+            )
+        trust_remote_code = _env_truthy("RERANK_TRUST_REMOTE_CODE", default=False)
+        revision = os.getenv("RERANK_MODEL_REVISION", "").strip() or None
+        is_local_dir = os.path.isdir(model_path)
+        local_files_only = _env_truthy(
+            "RERANK_LOCAL_FILES_ONLY", default=is_local_dir
+        )
+        if trust_remote_code and not is_local_dir and not revision:
+            raise RuntimeError(
+                "RERANK_MODEL_REVISION (commit SHA) is required when "
+                "RERANK_TRUST_REMOTE_CODE=true for a remote repository"
+            )
+
+        import torch
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        common_kwargs = {
+            "trust_remote_code": trust_remote_code,
+            "local_files_only": local_files_only,
+        }
+        if revision:
+            common_kwargs["revision"] = revision
+
+        self.tokenizer = AutoTokenizer.from_pretrained(model_path, **common_kwargs)
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            model_path,
+            use_safetensors=True,
+            **common_kwargs,
+        )
+        self.model.to(self.device)
+        self.model.eval()
 
 
-# --- 2. 加载模型 (在服务启动时执行一次) ---
-print("正在加载模型，请稍候...")
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"使用的设备: {device}")
-try:
-    # 请确保这里的路径是正确的
-    model_path = '/data1/home/lwx/work/Download/rerank_model_weight'
-    tokenizer = AutoTokenizer.from_pretrained(model_path)
-    model = AutoModelForSequenceClassification.from_pretrained(model_path)
-    model.to(device)
-    model.eval()
-    print("模型加载成功！")
-except Exception as e:
-    print(f"模型加载失败: {e}")
-    # 在测试环境中，如果模型加载失败，可以考虑退出以避免运行一个无效的服务
-    exit()
+_runtime = _RerankRuntime()
 
-# --- 3. 创建FastAPI应用 ---
+
+def verify_rerank_auth(
+    authorization: Optional[str] = Header(default=None),
+    x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
+) -> None:
+    expected = os.getenv("RERANK_API_KEY", "").strip()
+    allow_unauth = _env_truthy("RERANK_ALLOW_UNAUTHENTICATED", default=False)
+    if not expected:
+        if allow_unauth:
+            return
+        raise HTTPException(
+            status_code=401,
+            detail="RERANK_API_KEY is not configured; unauthenticated access denied.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    provided = ""
+    if authorization and authorization.lower().startswith("bearer "):
+        provided = authorization[7:].strip()
+    elif x_api_key:
+        provided = x_api_key.strip()
+
+    if not provided or not hmac.compare_digest(
+        provided.encode("utf-8"), expected.encode("utf-8")
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing API key.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    if os.getenv("RERANK_MODEL_PATH", "").strip():
+        _runtime.ensure_loaded()
+    yield
+
+
 app = FastAPI(
-    title="Reranker API (Test Version)",
-    description="一个返回 'score' 字段以测试Go客户端兼容性的API服务",
-    version="1.0.2"
+    title="Reranker API",
+    description="Authenticated reranking service with bounded batch execution",
+    version="1.1.0",
+    lifespan=_lifespan,
 )
 
-# --- 4. 定义API端点 ---
-# --- 修改开始：将 response_model 指向新的测试用响应结构 ---
-@app.post("/rerank", response_model=TestFinalResponse) # <--- 【关键修改点】response_model 改为 TestFinalResponse
+
+@app.post(
+    "/rerank",
+    response_model=TestFinalResponse,
+    dependencies=[Depends(verify_rerank_auth)],
+)
 def rerank_endpoint(request: RerankRequest):
-    # --- 修改结束 ---
+    for doc in request.documents:
+        if len(doc) > MAX_DOCUMENT_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Document exceeds maximum length ({MAX_DOCUMENT_CHARS} chars).",
+            )
+
+    try:
+        _runtime.ensure_loaded()
+    except RuntimeError as exc:
+        logger.error("Rerank model unavailable: %s", exc)
+        raise HTTPException(status_code=503, detail="Reranker model is not loaded.") from None
+
+    import torch
 
     pairs = [[request.query, doc] for doc in request.documents]
-
     with torch.no_grad():
         inputs = outputs = logits = None
-
         try:
-            inputs = tokenizer(pairs, padding=True, truncation=True, return_tensors='pt', max_length=1024).to(device)
-            outputs = model(**inputs, return_dict=True)
-            logits = outputs.logits.view(-1, ).float()
-            scores = torch.sigmoid(logits)
+            inputs = _runtime.tokenizer(
+                pairs,
+                padding=True,
+                truncation=True,
+                return_tensors="pt",
+                max_length=1024,
+            ).to(_runtime.device)
+            outputs = _runtime.model(**inputs, return_dict=True)
+            logits = outputs.logits.view(-1).float()
+            scores = torch.sigmoid(logits).cpu().tolist()
         finally:
-            # 释放 GPU 资源占用
             del inputs, outputs, logits
             gc.collect()
-
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             elif hasattr(torch, "mps") and torch.mps.is_available():
                 torch.mps.empty_cache()
 
-
-    # --- 修改开始：按照测试用的结构来构建结果 ---
-    results = []
-    for i, (text, score_val) in enumerate(zip(request.documents, scores)):
-        
-        # 1. 创建嵌套的 document 对象
-        doc_info = DocumentInfo(text=text)
-        
-        # 2. 创建 TestRankResult 对象
-        #    注意字段名：index, document, score
-        test_result = TestRankResult(
+    results = [
+        TestRankResult(
             index=i,
-            document=doc_info,
-            score=score_val.item()  # <--- 【关键修改点】赋值给 "score" 字段
+            document=DocumentInfo(text=text),
+            score=float(score_val),
         )
-        results.append(test_result)
-
-    # 3. 排序 (key 也要相应修改为 score)
+        for i, (text, score_val) in enumerate(zip(request.documents, scores))
+    ]
     sorted_results = sorted(results, key=lambda x: x.score, reverse=True)
-    # --- 修改结束 ---
-    
-    # 返回一个字典，FastAPI 会根据 response_model (TestFinalResponse) 来验证和序列化它
-    # 最终生成的 JSON 会是 {"results": [{"index": ..., "document": ..., "score": ...}]}
     return {"results": sorted_results}
 
-@app.get("/")
-def read_root():
-    return {"status": "Reranker API (Test Version) is running"}
 
-# --- 5. 启动服务 ---
+@app.get("/health")
+def read_health():
+    return {"status": "ok", "model_loaded": _runtime.model is not None}
+
+
+@app.get("/", dependencies=[Depends(verify_rerank_auth)])
+def read_root():
+    return {"status": "Reranker API is running"}
+
+
+def main() -> None:
+    import uvicorn
+
+    host = os.getenv("RERANK_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    port = int(os.getenv("RERANK_PORT", "8000"))
+    api_key = os.getenv("RERANK_API_KEY", "").strip()
+    allow_unauth = _env_truthy("RERANK_ALLOW_UNAUTHENTICATED", default=False)
+    if not api_key and not allow_unauth:
+        raise SystemExit(
+            "Refusing to start rerank server without RERANK_API_KEY "
+            "(set RERANK_ALLOW_UNAUTHENTICATED=true only for isolated local testing)."
+        )
+    if api_key and len(api_key) < MIN_API_KEY_LENGTH:
+        raise SystemExit(
+            f"RERANK_API_KEY must be at least {MIN_API_KEY_LENGTH} characters."
+        )
+    uvicorn.run(app, host=host, port=port)
+
+
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    main()

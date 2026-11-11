@@ -153,7 +153,7 @@ class DocReaderEnvelopeStartupTest(unittest.TestCase):
 
         try:
             with patch.object(main, "CONFIG", cfg), \
-                    patch.dict(os.environ, {"GRPC_AUTH_TOKEN": ""}), \
+                    patch.dict(os.environ, {"GRPC_AUTH_TOKEN": "", "DOCREADER_ALLOW_UNAUTHENTICATED": "true"}), \
                     patch.object(main.grpc, "server", create_server), \
                     patch.object(main, "DocReaderServicer", return_value=service), \
                     patch.object(main, "load_tls_credentials", return_value=None), \

@@ -7,6 +7,7 @@ import io
 import logging
 import os
 import re
+import signal
 import subprocess
 import tempfile
 import uuid
@@ -14,16 +15,27 @@ import zipfile
 from collections import deque
 from typing import Dict, List, Tuple
 
+try:
+    from PIL import Image as _PILImage
+
+    _PILImage.MAX_IMAGE_PIXELS = 40_000_000
+except ImportError:  # pragma: no cover
+    pass
+
 from docreader.parser.archive import (
-    ArchiveLimitError, MAX_COMPRESSION_RATIO, MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    ArchiveLimitError,
+    MAX_COMPRESSION_RATIO,
+    MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    safe_read_zip_member,
     validate_zip_archive as _validate_zip_archive,
 )
 
 logger = logging.getLogger(__name__)
 
+MAX_IMAGE_PIXELS = 40_000_000
 _MARKDOWN_IMAGE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
-_RASTER_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp"}
-_VECTOR_EXT = {".wmf", ".emf", ".svg"}
+_RASTER_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+_VECTOR_EXT = {".wmf", ".emf", ".svg", ".eps"}
 
 
 def _find_convert() -> str | None:
@@ -41,8 +53,10 @@ def _find_convert() -> str | None:
     return None
 
 
+# MED-15: Exclude vector/delegate formats (eps/svg/wmf/emf) to block ImageMagick
+# Ghostscript / rsvg / libwmf delegate RCE, LFI, and memory-corruption vectors.
 ALLOWED_CONVERT_FORMATS = {
-    "wmf", "emf", "svg", "eps", "tif", "tiff", "png", "jpg", "jpeg", "bmp", "gif", "webp"
+    "tif", "tiff", "png", "jpg", "jpeg", "bmp", "gif", "webp"
 }
 
 
@@ -54,24 +68,48 @@ def _rasterize_with_imagemagick(data: bytes, suffix: str) -> bytes | None:
     if fmt not in ALLOWED_CONVERT_FORMATS:
         logger.warning("Disallowed or untrusted media format for convert: %s", fmt)
         return None
+    clean_env = {
+        "PATH": "/usr/local/bin:/usr/bin:/bin",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "MAGICK_THREAD_LIMIT": "2",
+        "MAGICK_AREA_LIMIT": "40MP",
+        "MAGICK_MEMORY_LIMIT": "256MiB",
+        "MAGICK_MAP_LIMIT": "512MiB",
+        "MAGICK_DISK_LIMIT": "512MiB",
+    }
     with tempfile.TemporaryDirectory() as temp_dir:
+        clean_env["TMPDIR"] = temp_dir
         src = os.path.join(temp_dir, f"input.{fmt}")
         dst = os.path.join(temp_dir, "output.png")
         with open(src, "wb") as handle:
             handle.write(data)
+        proc = None
         try:
             # Prefix format explicitly to prevent delegate execution exploits
-            result = subprocess.run(
+            proc = subprocess.Popen(
                 [convert, f"{fmt}:{src}", f"png:{dst}"],
-                capture_output=True,
-                timeout=60,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                env=clean_env,
+                start_new_session=True,
             )
-        except (OSError, subprocess.TimeoutExpired, subprocess.SubprocessError) as exc:
+            _, stderr_bytes = proc.communicate(timeout=60)
+        except subprocess.TimeoutExpired as exc:
+            if proc is not None:
+                try:
+                    os.killpg(proc.pid, signal.SIGKILL)
+                except OSError:
+                    proc.kill()
+                proc.wait()
+            logger.warning("ImageMagick convert timed out: %s", exc)
+            return None
+        except (OSError, subprocess.SubprocessError) as exc:
             logger.warning("ImageMagick convert failed: %s", exc)
             return None
-        if result.returncode != 0 or not os.path.isfile(dst):
-            stderr = (result.stderr or b"").decode("utf-8", errors="ignore")
-            logger.warning("ImageMagick convert exit %s: %s", result.returncode, stderr)
+        if proc.returncode != 0 or not os.path.isfile(dst):
+            stderr = (stderr_bytes or b"").decode("utf-8", errors="ignore")
+            logger.warning("ImageMagick convert exit %s: %s", proc.returncode, stderr)
             return None
         with open(dst, "rb") as handle:
             return handle.read()
@@ -82,8 +120,16 @@ def _rasterize_with_pillow(data: bytes) -> bytes | None:
         from PIL import Image
     except ImportError:
         return None
+    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
     try:
         img = Image.open(io.BytesIO(data))
+        if img.width * img.height > MAX_IMAGE_PIXELS:
+            logger.warning(
+                "Image pixel count (%d) exceeds MAX_IMAGE_PIXELS (%d)",
+                img.width * img.height,
+                MAX_IMAGE_PIXELS,
+            )
+            return None
         # These PNG-compatible modes retain alpha channels or palette transparency.
         if img.mode not in ("RGB", "RGBA", "L", "LA", "P"):
             img = img.convert("RGB")
@@ -97,17 +143,18 @@ def _rasterize_with_pillow(data: bytes) -> bytes | None:
 
 def rasterize_media_bytes(name: str, data: bytes) -> bytes | None:
     ext = os.path.splitext(name)[1].lower()
+    if ext in _VECTOR_EXT:
+        logger.warning("Skipping disallowed vector/delegate media format: %s", ext)
+        return None
     if ext in _RASTER_EXT:
         png = _rasterize_with_pillow(data)
         if png:
             return png
-    if ext in _VECTOR_EXT or ext in _RASTER_EXT:
         converted = _rasterize_with_imagemagick(data, ext or ".bin")
         if converted:
             return converted
-        # Safe fallback to Pillow if ImageMagick is missing or fails
-        return _rasterize_with_pillow(data)
-    # Unknown extension: try Pillow safely
+        return None
+    # Unknown extension: try Pillow safely (never delegate unknown extensions to ImageMagick)
     return _rasterize_with_pillow(data)
 
 
@@ -116,7 +163,6 @@ def list_pptx_media(pptx_bytes: bytes) -> List[Tuple[str, bytes]]:
     items: List[Tuple[str, bytes]] = []
     with zipfile.ZipFile(io.BytesIO(pptx_bytes)) as archive:
         _validate_zip_archive(archive)
-        total_read = 0
         for info in archive.infolist():
             name = info.filename
             if not name.startswith("ppt/media/"):
@@ -124,12 +170,13 @@ def list_pptx_media(pptx_bytes: bytes) -> List[Tuple[str, bytes]]:
             base = os.path.basename(name)
             if not base or base.startswith("."):
                 continue
-            data = archive.read(name)
-            total_read += len(data)
-            if total_read > MAX_UNCOMPRESSED_ARCHIVE_BYTES:
-                raise ArchiveLimitError(
-                    f"PPTX media uncompressed size ({total_read}) exceeds limit ({MAX_UNCOMPRESSED_ARCHIVE_BYTES})"
-                )
+            data = safe_read_zip_member(
+                archive,
+                info,
+                max_member_bytes=MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+                max_total_bytes=MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+                max_ratio=MAX_COMPRESSION_RATIO,
+            )
             items.append((name, data))
     return items
 

@@ -11,7 +11,16 @@ import torch
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from PIL import Image
-from serve import BodyLimit, Message, Settings, create_app, decode_image, prepare_messages, resolve_device_dtype
+from serve import (
+    BodyLimit,
+    Engine,
+    Message,
+    Settings,
+    create_app,
+    decode_image,
+    prepare_messages,
+    resolve_device_dtype,
+)
 
 
 class FakeEngine:
@@ -34,7 +43,7 @@ class FakeEngine:
 
 class ServiceTests(unittest.TestCase):
     def setUp(self):
-        self.settings = Settings()
+        self.settings = Settings(allow_unauthenticated=True)
         self.engine = FakeEngine(self.settings)
         self.client = self.enterContext(TestClient(create_app(self.settings, lambda _: self.engine)))
 
@@ -57,7 +66,7 @@ class ServiceTests(unittest.TestCase):
         for size, dimensions in [("2B", (64, 128, 256, 512, 1024, 2048)),
                                  ("4B", (64, 128, 256, 512, 1024, 2560)),
                                  ("9B", (64, 128, 256, 512, 1024, 2048, 4096))]:
-            settings = Settings(model="tencent/WeMM-Embedding-" + size)
+            settings = Settings(model="tencent/WeMM-Embedding-" + size, allow_unauthenticated=True)
             with self.subTest(size=size), TestClient(create_app(settings, lambda s: FakeEngine(s, dimensions))) as client:
                 for requested in (None, 1024):
                     payload = {"model": settings.name, "input": "hello"}
@@ -163,6 +172,33 @@ class ServiceTests(unittest.TestCase):
         received, sent = asyncio.run(run([b"12", b"345"]))
         self.assertEqual(received, [])
         self.assertEqual(sent[0]["status"], 413)
+
+    def test_default_settings_fail_closed_without_api_key(self):
+        settings = Settings()
+        self.assertFalse(settings.trust_remote_code)
+        self.assertTrue(settings.use_safetensors)
+        with TestClient(create_app(settings, lambda _: self.engine)) as client:
+            self.assertEqual(client.get("/v1/models").status_code, 401)
+            self.assertEqual(
+                client.post("/v1/embeddings", json={"model": settings.name, "input": "a"}).status_code,
+                401,
+            )
+
+    def test_health_redacts_local_filesystem_model_paths(self):
+        settings = Settings(
+            model="/srv/private/weights/wemm-2b-local",
+            revision="/srv/private/revisions/snap1",
+            allow_unauthenticated=True,
+        )
+        with TestClient(create_app(settings, lambda _: self.engine)) as client:
+            body = client.get("/health").json()
+            self.assertEqual(body["model"], "wemm-2b-local")
+            self.assertNotIn("/srv/private", str(body))
+            self.assertIsNone(body["revision"])
+
+    def test_remote_trust_remote_code_requires_pinned_revision(self):
+        with self.assertRaises(ValueError):
+            Engine(Settings(model="tencent/WeMM-Embedding-2B", trust_remote_code=True))
 
 
 if __name__ == "__main__":

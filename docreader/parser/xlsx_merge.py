@@ -9,7 +9,19 @@ import zipfile
 from decimal import Decimal, ROUND_HALF_UP, localcontext
 from io import BytesIO
 
+from defusedxml import ElementTree as DefusedET
+
+from docreader.parser.archive import (
+    ArchiveLimitError,
+    ZipReadBudget,
+    safe_read_zip_member,
+    validate_zip_archive,
+)
+
 logger = logging.getLogger(__name__)
+
+# Maximum total merged cells allowed to be materialized on a single worksheet.
+MAX_MATERIALIZED_MERGE_CELLS = 200_000
 
 # --- Percentage number formats (opt-in) --------------------------------------
 # Excel keeps a percentage as the stored fraction plus a display format: the
@@ -176,8 +188,186 @@ def _materialize_percentage_cells(ws, row_hint_min: int) -> tuple[int, int]:
     return materialized, hinted
 
 
+def _local_tag(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1] if "}" in tag else tag
+
+
+def _preclip_xlsx_merge_ranges_xml(
+    content: bytes, max_merge_cells: int
+) -> tuple[bytes, bool]:
+    """Clip unpopulated tail merge ranges and enforce cell budget BEFORE openpyxl loads.
+
+    openpyxl's ``bind_merged_cells`` allocates a ``MergedCell`` object for every
+    coordinate in ``<mergeCell ref="..."/>`` during ``load_workbook()`` itself,
+    so a single ``<mergeCell ref="A1:XFD1048576"/>`` would hang/OOM inside
+    ``load_workbook`` unless bounded at the XML layer first.
+    """
+    from openpyxl.utils.cell import (
+        coordinate_from_string,
+        column_index_from_string,
+        get_column_letter,
+        range_boundaries,
+    )
+
+    with zipfile.ZipFile(BytesIO(content), "r") as zf:
+        validate_zip_archive(zf)
+        read_budget = ZipReadBudget()
+        cached_parts: dict[str, bytes] = {}
+        rewritten_parts: dict[str, bytes] = {}
+
+        for info in zf.infolist():
+            norm_name = info.filename.replace("\\", "/")
+            if not (
+                norm_name.startswith("xl/worksheets/") and norm_name.endswith(".xml")
+            ):
+                continue
+            raw_xml = safe_read_zip_member(zf, info, budget=read_budget)
+            cached_parts[info.filename] = raw_xml
+            if b"mergeCell" not in raw_xml:
+                continue
+
+            try:
+                root = DefusedET.fromstring(raw_xml)
+            except Exception:
+                continue
+
+            max_row = 0
+            max_col = 0
+            for elem in root.iter():
+                ltag = _local_tag(elem.tag)
+                if ltag == "c":
+                    ref = elem.attrib.get("r")
+                    if ref:
+                        try:
+                            col_str, row_idx = coordinate_from_string(ref)
+                            col_idx = column_index_from_string(col_str)
+                            if row_idx > max_row:
+                                max_row = row_idx
+                            if col_idx > max_col:
+                                max_col = col_idx
+                        except ValueError:
+                            pass
+                    elif len(elem) > 0:
+                        # Row-relative cell without explicit 'r' attribute
+                        pass
+                elif ltag == "row" and max_col == 0:
+                    r_attr = elem.attrib.get("r")
+                    if r_attr and r_attr.isdigit():
+                        max_row = max(max_row, int(r_attr))
+
+            sheet_changed = False
+            sheet_budget = 0
+            for merge_parent in [
+                el for el in root.iter() if _local_tag(el.tag) == "mergeCells"
+            ]:
+                for merge_el in list(merge_parent):
+                    if _local_tag(merge_el.tag) != "mergeCell":
+                        continue
+                    ref = merge_el.attrib.get("ref", "")
+                    if not ref:
+                        merge_parent.remove(merge_el)
+                        sheet_changed = True
+                        continue
+                    try:
+                        min_col, min_row, rng_max_col, rng_max_row = range_boundaries(
+                            ref
+                        )
+                    except ValueError:
+                        merge_parent.remove(merge_el)
+                        sheet_changed = True
+                        continue
+
+                    if max_row <= 0 or max_col <= 0:
+                        merge_parent.remove(merge_el)
+                        sheet_changed = True
+                        continue
+
+                    raw_span = (rng_max_row - min_row + 1) * (
+                        rng_max_col - min_col + 1
+                    )
+                    unbounded_tail = (
+                        (rng_max_row - max_row) > 64
+                        or (rng_max_col - max_col) > 32
+                        or raw_span > max_merge_cells
+                    )
+                    clip_max_row = (
+                        min(rng_max_row, max_row) if unbounded_tail else rng_max_row
+                    )
+                    clip_max_col = (
+                        min(rng_max_col, max_col) if unbounded_tail else rng_max_col
+                    )
+                    if clip_max_row < min_row or clip_max_col < min_col:
+                        merge_parent.remove(merge_el)
+                        sheet_changed = True
+                        continue
+
+                    span_cells = (clip_max_row - min_row + 1) * (
+                        clip_max_col - min_col + 1
+                    )
+                    sheet_budget += span_cells
+                    if sheet_budget > max_merge_cells:
+                        raise ArchiveLimitError(
+                            f"Worksheet '{norm_name}' merged cell expansion "
+                            f"({sheet_budget}) exceeds limit ({max_merge_cells})"
+                        )
+
+                    if clip_max_row != rng_max_row or clip_max_col != rng_max_col:
+                        if clip_max_row == min_row and clip_max_col == min_col:
+                            merge_parent.remove(merge_el)
+                        else:
+                            new_ref = (
+                                f"{get_column_letter(min_col)}{min_row}:"
+                                f"{get_column_letter(clip_max_col)}{clip_max_row}"
+                            )
+                            merge_el.set("ref", new_ref)
+                        sheet_changed = True
+
+                remaining = [
+                    c for c in merge_parent if _local_tag(c.tag) == "mergeCell"
+                ]
+                if sheet_changed:
+                    merge_parent.set("count", str(len(remaining)))
+
+            if sheet_changed:
+                rewritten_parts[info.filename] = DefusedET.tostring(
+                    root, encoding="utf-8", xml_declaration=True
+                )
+
+        if not rewritten_parts:
+            return content, False
+
+        out_zip = BytesIO()
+        with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED) as dst:
+            for info in zf.infolist():
+                payload = rewritten_parts.get(info.filename)
+                if payload is None:
+                    payload = cached_parts.get(info.filename)
+                if payload is None:
+                    payload = safe_read_zip_member(zf, info, budget=read_budget)
+                dst.writestr(info, payload)
+        return out_zip.getvalue(), True
+
+
+def _worksheet_populated_bounds(ws) -> tuple[int, int]:
+    """Return (max_row, max_col) of worksheet cells after XML merge pre-clipping."""
+    cells = getattr(ws, "_cells", None)
+    if not cells:
+        return 0, 0
+    max_row = 0
+    max_col = 0
+    for row_idx, col_idx in cells.keys():
+        if row_idx > max_row:
+            max_row = row_idx
+        if col_idx > max_col:
+            max_col = col_idx
+    return max_row, max_col
+
+
 def fill_merged_cells_xlsx(
-    content: bytes, percent_as_text: bool | None = None
+    content: bytes,
+    percent_as_text: bool | None = None,
+    *,
+    max_merge_cells: int = MAX_MATERIALIZED_MERGE_CELLS,
 ) -> bytes:
     """Unmerge ranges and copy the master cell value into every covered cell.
 
@@ -196,10 +386,12 @@ def fill_merged_cells_xlsx(
     if not zipfile.is_zipfile(BytesIO(content)):
         return content
 
+    content, preclipped = _preclip_xlsx_merge_ranges_xml(content, max_merge_cells)
+
     from openpyxl import load_workbook
 
     wb = load_workbook(BytesIO(content), data_only=True)
-    changed = False
+    changed = preclipped
     materialized_cells = 0
     hinted_cells = 0
     row_hint_min = (
@@ -217,13 +409,34 @@ def fill_merged_cells_xlsx(
 
         if not ws.merged_cells.ranges:
             continue
+        bound_row, bound_col = _worksheet_populated_bounds(ws)
+        sheet_materialized_budget = 0
         for merge_range in list(ws.merged_cells.ranges):
-            master_value = ws.cell(merge_range.min_row, merge_range.min_col).value
+            master_value = (
+                ws._cells.get((merge_range.min_row, merge_range.min_col)).value
+                if (merge_range.min_row, merge_range.min_col) in ws._cells
+                else None
+            )
             ws.unmerge_cells(str(merge_range))
-            for row in range(merge_range.min_row, merge_range.max_row + 1):
-                for col in range(merge_range.min_col, merge_range.max_col + 1):
-                    ws.cell(row, col).value = master_value
             changed = True
+            if bound_row <= 0 or bound_col <= 0:
+                continue
+            clipped_max_row = min(merge_range.max_row, bound_row)
+            clipped_max_col = min(merge_range.max_col, bound_col)
+            if clipped_max_row < merge_range.min_row or clipped_max_col < merge_range.min_col:
+                continue
+            span_cells = (clipped_max_row - merge_range.min_row + 1) * (
+                clipped_max_col - merge_range.min_col + 1
+            )
+            sheet_materialized_budget += span_cells
+            if sheet_materialized_budget > max_merge_cells:
+                raise ArchiveLimitError(
+                    f"Worksheet '{ws.title}' merged cell expansion "
+                    f"({sheet_materialized_budget}) exceeds limit ({max_merge_cells})"
+                )
+            for row in range(merge_range.min_row, clipped_max_row + 1):
+                for col in range(merge_range.min_col, clipped_max_col + 1):
+                    ws.cell(row, col).value = master_value
 
     if not changed:
         return content

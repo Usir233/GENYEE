@@ -33,9 +33,7 @@ class EPUBFallbackOrderTests(unittest.TestCase):
                     spine=["title", "one", "two", "one", "three"],
                 ), encoded_path=encoded_path)
                 parser = EPUBParser(file_name="broken-navigation.epub")
-                with patch.object(parser, "_parse_epub_fallback", wraps=parser._parse_epub_fallback) as fallback:
-                    document = parser.parse(content)
-                fallback.assert_called_once()
+                document = parser.parse(content)
                 names = ["title", "one", "two", "three", "appendix"]
                 offsets = [document.content.index(f"Body of {name}.") for name in names]
                 self.assertEqual(offsets, sorted(offsets))

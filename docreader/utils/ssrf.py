@@ -100,6 +100,29 @@ def _normalize_url(raw_url: str) -> str:
     return raw_url
 
 
+def normalize_hostname(raw_hostname: Optional[str]) -> Tuple[str, str]:
+    """Canonicalize FQDN trailing root dot and reject empty DNS labels (MED-14).
+
+    Returns ``(normalized_hostname, error_reason)``. ``error_reason`` is empty
+    when ``normalized_hostname`` is syntactically safe for policy evaluation.
+    """
+    host = (raw_hostname or "").strip().lower()
+    if not host:
+        return "", "URL has no hostname"
+    if host.startswith(".") or ".." in host:
+        return "", f"invalid hostname with empty DNS label: {host}"
+    host = host.rstrip(".")
+    if not host:
+        return "", "URL has no hostname"
+    if any(ch.isspace() or ord(ch) < 33 or ord(ch) == 127 for ch in host):
+        return "", "invalid control character in hostname"
+    if ":" not in host:
+        labels = host.split(".")
+        if any(not label for label in labels):
+            return "", f"invalid hostname with empty DNS label: {host}"
+    return host, ""
+
+
 @lru_cache(maxsize=1)
 def _load_whitelist() -> Tuple[FrozenSet[str], Tuple[str, ...], Tuple[Union[ipaddress.IPv4Network, ipaddress.IPv6Network], ...]]:
     entries: list[str] = []
@@ -112,9 +135,13 @@ def _load_whitelist() -> Tuple[FrozenSet[str], Tuple[str, ...], Tuple[Union[ipad
     suffix_hosts: list[str] = []
     cidr_nets: list[Union[ipaddress.IPv4Network, ipaddress.IPv6Network]] = []
     for entry in entries:
-        lowered = entry.lower()
+        lowered = entry.lower().rstrip(".")
+        if not lowered:
+            continue
         if lowered.startswith("*."):
-            suffix_hosts.append(lowered[1:])
+            suffix = lowered[1:]
+            if suffix and suffix != "." and ".." not in suffix:
+                suffix_hosts.append(suffix)
             continue
         if "/" in lowered:
             try:
@@ -142,7 +169,9 @@ def _whitelist_only_enabled() -> bool:
 
 
 def _is_whitelisted(hostname: str) -> bool:
-    lowered = hostname.lower()
+    lowered, err = normalize_hostname(hostname)
+    if err or not lowered:
+        return False
     exact_hosts, suffix_hosts, cidr_nets = _load_whitelist()
     if lowered in exact_hosts:
         return True
@@ -253,11 +282,10 @@ def is_ssrf_safe_url(raw_url: str) -> Tuple[bool, str]:
     if scheme not in {"http", "https"}:
         return False, f"invalid scheme: {scheme or '(none)'} (only http/https allowed)"
 
-    hostname = (parsed.hostname or "").strip()
-    if not hostname:
-        return False, "URL has no hostname"
+    hostname_lower, host_err = normalize_hostname(parsed.hostname)
+    if host_err:
+        return False, host_err
 
-    hostname_lower = hostname.lower()
     if _is_whitelisted(hostname_lower):
         return True, ""
 

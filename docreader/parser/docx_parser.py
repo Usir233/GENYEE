@@ -44,6 +44,8 @@ from docx.table import Table
 from docx.text.run import Run
 from PIL import Image
 
+Image.MAX_IMAGE_PIXELS = 40_000_000
+
 from docreader.config import CONFIG
 from docreader.models.document import Document as DocumentModel
 from docreader.parser.base_parser import BaseParser
@@ -1262,12 +1264,14 @@ class Docx:
             logger.info(f"Attempting to concatenate {len(images)} images")
             from PIL import Image
 
+            Image.MAX_IMAGE_PIXELS = 40_000_000
+
             # Calculate the size of the concatenated image
             total_width = max(img.width for img in images if hasattr(img, "width"))
             total_height = sum(img.height for img in images if hasattr(img, "height"))
 
-            if total_width <= 0 or total_height <= 0:
-                logger.warning("Invalid image size, returning the first image")
+            if total_width <= 0 or total_height <= 0 or (total_width * total_height) > 40_000_000:
+                logger.warning("Invalid or oversized concatenated image dimensions, returning the first image")
                 return images[0]
 
             # Create a new image
