@@ -85,7 +85,7 @@ type UpdateChunkRequest struct {
 func (c *Client) ListKnowledgeChunks(ctx context.Context,
 	knowledgeID string, page int, pageSize int, chunkTypes ...string,
 ) ([]Chunk, int64, error) {
-	path := fmt.Sprintf("/api/v1/chunks/%s", knowledgeID)
+	path := fmt.Sprintf("/api/v1/chunks/%s", escapePathSegment(knowledgeID))
 
 	queryParams := url.Values{}
 	queryParams.Add("page", strconv.Itoa(page))
@@ -121,7 +121,7 @@ func (c *Client) ListKnowledgeChunks(ctx context.Context,
 func (c *Client) UpdateChunk(ctx context.Context,
 	knowledgeID string, chunkID string, request *UpdateChunkRequest,
 ) (*Chunk, error) {
-	path := fmt.Sprintf("/api/v1/chunks/%s/%s", knowledgeID, chunkID)
+	path := fmt.Sprintf("/api/v1/chunks/%s/%s", escapePathSegment(knowledgeID), escapePathSegment(chunkID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, request, nil)
 	if err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ func (c *Client) UpdateChunk(ctx context.Context,
 // Returns:
 //   - error: Error information
 func (c *Client) DeleteChunk(ctx context.Context, knowledgeID string, chunkID string) error {
-	path := fmt.Sprintf("/api/v1/chunks/%s/%s", knowledgeID, chunkID)
+	path := fmt.Sprintf("/api/v1/chunks/%s/%s", escapePathSegment(knowledgeID), escapePathSegment(chunkID))
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
@@ -161,7 +161,7 @@ func (c *Client) DeleteChunk(ctx context.Context, knowledgeID string, chunkID st
 
 // GetChunkByIDOnly retrieves a chunk by its ID without requiring knowledge ID
 func (c *Client) GetChunkByIDOnly(ctx context.Context, chunkID string) (*Chunk, error) {
-	path := fmt.Sprintf("/api/v1/chunks/by-id/%s", chunkID)
+	path := fmt.Sprintf("/api/v1/chunks/by-id/%s", escapePathSegment(chunkID))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -177,7 +177,7 @@ func (c *Client) GetChunkByIDOnly(ctx context.Context, chunkID string) (*Chunk, 
 
 // DeleteGeneratedQuestion deletes a generated question from a chunk
 func (c *Client) DeleteGeneratedQuestion(ctx context.Context, chunkID string, questionID string) error {
-	path := fmt.Sprintf("/api/v1/chunks/%s/delete-question", chunkID)
+	path := fmt.Sprintf("/api/v1/chunks/%s/delete-question", escapePathSegment(chunkID))
 	req := map[string]string{"question_id": questionID}
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, req, nil)
 	if err != nil {
@@ -201,7 +201,7 @@ func (c *Client) DeleteGeneratedQuestion(ctx context.Context, chunkID string, qu
 // Returns:
 //   - error: Error information
 func (c *Client) DeleteChunksByKnowledgeID(ctx context.Context, knowledgeID string) error {
-	path := fmt.Sprintf("/api/v1/chunks/%s", knowledgeID)
+	path := fmt.Sprintf("/api/v1/chunks/%s", escapePathSegment(knowledgeID))
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err

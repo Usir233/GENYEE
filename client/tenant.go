@@ -326,7 +326,7 @@ func (c *Client) DeleteTenantAPIKey(ctx context.Context, tenantID uint64, keyID 
 
 // GetTenantKV retrieves a tenant KV configuration by key
 func (c *Client) GetTenantKV(ctx context.Context, key string) (json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/tenants/kv/%s", key)
+	path := fmt.Sprintf("/api/v1/tenants/kv/%s", escapePathSegment(key))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -344,7 +344,7 @@ func (c *Client) GetTenantKV(ctx context.Context, key string) (json.RawMessage, 
 
 // UpdateTenantKV updates a tenant KV configuration by key
 func (c *Client) UpdateTenantKV(ctx context.Context, key string, value any) (json.RawMessage, error) {
-	path := fmt.Sprintf("/api/v1/tenants/kv/%s", key)
+	path := fmt.Sprintf("/api/v1/tenants/kv/%s", escapePathSegment(key))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, value, nil)
 	if err != nil {
 		return nil, err

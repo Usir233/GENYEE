@@ -64,7 +64,7 @@ func (c *Client) InstallSandboxSkillFromSource(
 		return "", fmt.Errorf("sandbox config ID is required")
 	}
 	body := map[string]string{"source": source}
-	path := "/api/v1/sandbox-configs/" + url.PathEscape(configID) + "/skills"
+	path := "/api/v1/sandbox-configs/" + escapePathSegment(configID) + "/skills"
 	resp, err := c.doRequest(ctx, http.MethodPost, path, body, nil)
 	if err != nil {
 		return "", err
@@ -99,7 +99,10 @@ func (c *Client) UploadSandboxSkill(
 		return "", fmt.Errorf("close skill upload form: %w", err)
 	}
 
-	path := "/api/v1/sandbox-configs/" + url.PathEscape(configID) + "/skills"
+	path := "/api/v1/sandbox-configs/" + escapePathSegment(configID) + "/skills"
+	if err := validateAPIPath(path); err != nil {
+		return "", err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(body.Bytes()))
 	if err != nil {
 		return "", err
@@ -132,8 +135,8 @@ func (c *Client) ReinstallSandboxSkill(
 	if skillID == "" {
 		return "", fmt.Errorf("skill ID is required")
 	}
-	path := "/api/v1/sandbox-configs/" + url.PathEscape(configID) +
-		"/skills/" + url.PathEscape(skillID) + "/reinstall"
+	path := "/api/v1/sandbox-configs/" + escapePathSegment(configID) +
+		"/skills/" + escapePathSegment(skillID) + "/reinstall"
 	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return "", err
@@ -158,8 +161,8 @@ func (c *Client) StopSandboxSkill(
 	if skillID == "" {
 		return nil, fmt.Errorf("skill ID is required")
 	}
-	path := "/api/v1/sandbox-configs/" + url.PathEscape(configID) +
-		"/skills/" + url.PathEscape(skillID) + "/stop"
+	path := "/api/v1/sandbox-configs/" + escapePathSegment(configID) +
+		"/skills/" + escapePathSegment(skillID) + "/stop"
 	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -231,8 +234,8 @@ func (c *Client) UpdateSandboxSkill(
 	if update.Enabled == nil && update.Envs == nil {
 		return nil, fmt.Errorf("enabled or envs is required")
 	}
-	path := "/api/v1/sandbox-configs/" + url.PathEscape(configID) +
-		"/skills/" + url.PathEscape(skillID)
+	path := "/api/v1/sandbox-configs/" + escapePathSegment(configID) +
+		"/skills/" + escapePathSegment(skillID)
 	resp, err := c.doRequest(ctx, http.MethodPatch, path, update, nil)
 	if err != nil {
 		return nil, err
@@ -299,8 +302,8 @@ func (c *Client) ListSandboxSkillFiles(
 	if skillID == "" {
 		return nil, fmt.Errorf("skill ID is required")
 	}
-	path := "/api/v1/sandbox-configs/" + url.PathEscape(configID) +
-		"/skills/" + url.PathEscape(skillID) + "/files"
+	path := "/api/v1/sandbox-configs/" + escapePathSegment(configID) +
+		"/skills/" + escapePathSegment(skillID) + "/files"
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -325,8 +328,8 @@ func (c *Client) GetSandboxSkillFile(
 	if filePath == "" {
 		return nil, fmt.Errorf("skill file path is required")
 	}
-	path := "/api/v1/sandbox-configs/" + url.PathEscape(configID) +
-		"/skills/" + url.PathEscape(skillID) + "/files/content"
+	path := "/api/v1/sandbox-configs/" + escapePathSegment(configID) +
+		"/skills/" + escapePathSegment(skillID) + "/files/content"
 	query := url.Values{}
 	query.Set("path", filePath)
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, query)

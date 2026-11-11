@@ -133,6 +133,10 @@ func (h *SystemHandler) CheckSandboxConfig(c *gin.Context) {
 	if !req.Deep {
 		incoming = sandboxConnectionCheckConfig(incoming)
 	}
+	if err := service.AuthorizeSandboxConfigPrivileges(ctx, incoming, stored); err != nil {
+		c.JSON(http.StatusForbidden, gin.H{"code": 1, "msg": err.Error()})
+		return
+	}
 	merged, err := service.SanitizeSandboxConfig(incoming, stored)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 1, "msg": err.Error()})

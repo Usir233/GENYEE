@@ -33,15 +33,25 @@ type fileServiceKey struct {
 //
 // Not safe for concurrent use; Rewriter drives it from one goroutine at a time.
 type FileServiceResolver struct {
-	tenant          *types.Tenant
-	defaultSvc      interfaces.FileService
-	storageResolver interfaces.StorageBackendResolver
-	resourceCatalog interfaces.ResourceCatalog
-	tenantService   interfaces.TenantService
-	ctx             context.Context
-	cache           map[fileServiceKey]interfaces.FileService
-	owners          map[uint64]*types.Tenant
-	authorize       func(context.Context, string) error
+	tenant                *types.Tenant
+	defaultSvc            interfaces.FileService
+	storageResolver       interfaces.StorageBackendResolver
+	resourceCatalog       interfaces.ResourceCatalog
+	tenantService         interfaces.TenantService
+	ctx                   context.Context
+	cache                 map[fileServiceKey]interfaces.FileService
+	owners                map[uint64]*types.Tenant
+	authorize             func(context.Context, string) error
+	crossTenantAuthorized map[string]struct{}
+}
+
+type crossTenantAuthorizedFileService struct {
+	interfaces.FileService
+	ref string
+}
+
+func (s *crossTenantAuthorizedFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
+	return s.FileService.GetFileURL(filesvc.WithCrossTenantResourceAccess(ctx, s.ref, filePath), filePath)
 }
 
 // NewFileServiceResolver builds a resolver for tenant. defaultSvc is the
@@ -84,6 +94,28 @@ func (r *FileServiceResolver) WithAuthorization(authorize func(context.Context, 
 	return r
 }
 
+// WithAuthorize is an alias for WithAuthorization.
+func (r *FileServiceResolver) WithAuthorize(authorize func(context.Context, string) error) *FileServiceResolver {
+	return r.WithAuthorization(authorize)
+}
+
+func (r *FileServiceResolver) markCrossTenantAuthorized(ref string) {
+	if r.crossTenantAuthorized == nil {
+		r.crossTenantAuthorized = make(map[string]struct{})
+	}
+	r.crossTenantAuthorized[ref] = struct{}{}
+}
+
+func (r *FileServiceResolver) wrapIfCrossTenantAuthorized(ref string, svc interfaces.FileService) interfaces.FileService {
+	if svc == nil || r.crossTenantAuthorized == nil {
+		return svc
+	}
+	if _, ok := r.crossTenantAuthorized[ref]; ok {
+		return &crossTenantAuthorizedFileService{FileService: svc, ref: ref}
+	}
+	return svc
+}
+
 // WithContext sets the context used for backend lookups and their logs.
 func (r *FileServiceResolver) WithContext(ctx context.Context) *FileServiceResolver {
 	if ctx != nil {
@@ -99,12 +131,13 @@ func (r *FileServiceResolver) ResolveFileService(filePath string) interfaces.Fil
 			logger.Warnf(r.ctx, "resource URL access denied: src=%s err=%v", filePath, err)
 			return nil
 		}
+		r.markCrossTenantAuthorized(filePath)
 	}
 	if _, ok := types.ParseResourcePath(filePath); ok {
 		if r.resourceCatalog != nil {
-			return r.resolveResource(filePath)
+			return r.wrapIfCrossTenantAuthorized(filePath, r.resolveResource(filePath))
 		}
-		return r.defaultSvc
+		return r.wrapIfCrossTenantAuthorized(filePath, r.defaultSvc)
 	}
 	backendID, _, _ := types.ParseStorageBackendPath(filePath)
 	provider := types.ParseProviderScheme(filePath)
@@ -116,7 +149,7 @@ func (r *FileServiceResolver) ResolveFileService(filePath string) interfaces.Fil
 			return nil
 		}
 	}
-	return r.resolveStorage(r.tenant, backendID, provider, backendID == "")
+	return r.wrapIfCrossTenantAuthorized(filePath, r.resolveStorage(r.tenant, backendID, provider, backendID == ""))
 }
 
 func (r *FileServiceResolver) resolveResource(reference string) interfaces.FileService {
@@ -147,7 +180,7 @@ func (r *FileServiceResolver) resolveResource(reference string) interfaces.FileS
 		backendID, _, _ = types.ParseStorageBackendPath(resource.PhysicalPath)
 	}
 	if backendID == "" {
-		return nil
+		return r.defaultSvc
 	}
 	provider := resource.Provider
 	if provider == "" {

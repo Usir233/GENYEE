@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
@@ -71,8 +70,10 @@ func (m *OAuthManager) newHandler(
 	if clientID, clientSecret, ok := preRegisteredClient(service); ok {
 		cfg.ClientID, cfg.ClientSecret = clientID, clientSecret
 	} else if existing, err := m.repo.GetClient(ctx, tenantID, service.ID); err == nil && existing != nil {
-		cfg.ClientID = existing.ClientID
-		cfg.ClientSecret = existing.ClientSecret
+		if existing.RedirectURI == "" || redirectURI == "" || existing.RedirectURI == redirectURI {
+			cfg.ClientID = existing.ClientID
+			cfg.ClientSecret = existing.ClientSecret
+		}
 	}
 	h := transport.NewOAuthHandler(cfg)
 	h.SetBaseURL(*service.URL)
@@ -118,6 +119,11 @@ func (m *OAuthManager) StartAuthorization(
 		return "", "", fmt.Errorf("principal context is required to authorize OAuth MCP service %s", service.ID)
 	}
 
+	redirectURI, err = ResolveOAuthCallbackURI(redirectURI, false)
+	if err != nil {
+		return "", "", err
+	}
+
 	frontendRedirect, err = validateFrontendRedirect(frontendRedirect)
 	if err != nil {
 		return "", "", err
@@ -129,9 +135,18 @@ func (m *OAuthManager) StartAuthorization(
 	}
 
 	// Register a client dynamically if the service has no pre-registered client
-	// and we don't have one yet.
+	// and we don't have one matching the trusted redirectURI yet.
 	existing, _ := m.repo.GetClient(ctx, tenantID, service.ID)
-	if _, _, preRegistered := preRegisteredClient(service); !preRegistered && existing == nil {
+	if existing != nil && existing.RedirectURI != "" && existing.RedirectURI != redirectURI {
+		existing = nil
+	}
+	_, _, preRegistered := preRegisteredClient(service)
+	needRegistration := !preRegistered && existing == nil
+	if _, err := validateOAuthServerMetadata(ctx, h, true, true, needRegistration); err != nil {
+		return "", "", err
+	}
+
+	if needRegistration {
 		if err := h.RegisterClient(ctx, clientRegistrationName); err != nil {
 			return "", "", fmt.Errorf("dynamic client registration failed: %w", err)
 		}
@@ -165,6 +180,9 @@ func (m *OAuthManager) StartAuthorization(
 	authURL, err := h.GetAuthorizationURL(ctx, state, challenge)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to build authorization URL: %w", err)
+	}
+	if err := ValidateOAuthEndpointURL(authURL, "authorization_url"); err != nil {
+		return "", "", err
 	}
 
 	if err := m.states.Put(ctx, state, OAuthState{
@@ -257,8 +275,16 @@ func (m *OAuthManager) CompleteAuthorization(
 		return result, fmt.Errorf("MCP service not found")
 	}
 
-	h, err := m.newHandler(ctx, service, st.TenantID, principal, st.RedirectURI)
+	validatedCallbackURI, err := ResolveOAuthCallbackURI(st.RedirectURI, false)
 	if err != nil {
+		return result, err
+	}
+
+	h, err := m.newHandler(ctx, service, st.TenantID, principal, validatedCallbackURI)
+	if err != nil {
+		return result, err
+	}
+	if _, err := validateOAuthServerMetadata(ctx, h, false, true, false); err != nil {
 		return result, err
 	}
 	// Re-prime the expected state so the library's CSRF check passes after
@@ -344,9 +370,9 @@ func validateFrontendRedirect(raw string) (string, error) {
 		return "", fmt.Errorf("invalid frontend_redirect")
 	}
 	if u.IsAbs() || u.Host != "" {
-		trusted, err := url.Parse(strings.TrimSpace(os.Getenv("APP_EXTERNAL_URL")))
+		trusted, err := url.Parse(trustedOAuthBaseURL())
 		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || trusted.Host == "" ||
-			!strings.EqualFold(u.Scheme, trusted.Scheme) || !strings.EqualFold(u.Host, trusted.Host) {
+			!sameHTTPOriginURL(u, trusted) {
 			return "", fmt.Errorf("frontend_redirect origin is not configured")
 		}
 	} else if !strings.HasPrefix(u.Path, "/") || strings.HasPrefix(u.Path, "//") {

@@ -2,6 +2,8 @@ package imageprep
 
 import (
 	"bytes"
+	"encoding/binary"
+	"hash/crc32"
 	"image"
 	"image/color"
 	"image/gif"
@@ -93,4 +95,37 @@ func TestPrepareImageRejectsWhatIsNotAnImage(t *testing.T) {
 	assert.ErrorContains(t, err, "not an image")
 	_, err = Prepare(nil, Limits{})
 	assert.ErrorContains(t, err, "empty")
+}
+
+func syntheticPNGHeader(width, height uint32) []byte {
+	// PNG signature + valid 13-byte IHDR chunk with IEEE CRC32 so png.DecodeConfig
+	// parses the dimensions without needing compressed IDAT pixel payload.
+	buf := []byte{
+		0x89, 'P', 'N', 'G', 0x0d, 0x0a, 0x1a, 0x0a,
+		0x00, 0x00, 0x00, 0x0d, // IHDR length = 13
+		'I', 'H', 'D', 'R',
+		byte(width >> 24), byte(width >> 16), byte(width >> 8), byte(width),
+		byte(height >> 24), byte(height >> 16), byte(height >> 8), byte(height),
+		0x08, // bit depth = 8
+		0x06, // color type = RGBA
+		0x00, 0x00, 0x00,
+		0x00, 0x00, 0x00, 0x00, // CRC32 placeholder
+	}
+	crc := crc32.ChecksumIEEE(buf[12:29])
+	binary.BigEndian.PutUint32(buf[29:33], crc)
+	return buf
+}
+
+func TestPrepareImageRejectsExcessivePixelDimensions(t *testing.T) {
+	// 10,000 x 10,000 = 100,000,000 pixels > 40,000,000 cap.
+	bomb := syntheticPNGHeader(10_000, 10_000)
+
+	// Rejected both on pass-through path and on re-encode path.
+	_, err := Prepare(bomb, Limits{})
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "exceed maximum")
+
+	_, err = Prepare(bomb, Limits{MIMETypes: []string{"image/jpeg"}})
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "exceed maximum")
 }

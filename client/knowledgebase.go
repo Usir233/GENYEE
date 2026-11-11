@@ -311,7 +311,7 @@ func (c *Client) CreateKnowledgeBase(ctx context.Context, knowledgeBase *Knowled
 
 // GetKnowledgeBase gets a knowledge base
 func (c *Client) GetKnowledgeBase(ctx context.Context, knowledgeBaseID string) (*KnowledgeBase, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -352,7 +352,7 @@ func (c *Client) UpdateKnowledgeBase(ctx context.Context,
 	knowledgeBaseID string,
 	request *UpdateKnowledgeBaseRequest,
 ) (*KnowledgeBase, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, request, nil)
 	if err != nil {
 		return nil, err
@@ -436,7 +436,7 @@ func (c *Client) PatchKnowledgeBase(ctx context.Context,
 	knowledgeBaseID string,
 	request *PatchKnowledgeBaseRequest,
 ) (*KnowledgeBase, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodPatch, path, request, nil)
 	if err != nil {
 		return nil, err
@@ -452,7 +452,7 @@ func (c *Client) PatchKnowledgeBase(ctx context.Context,
 
 // DeleteKnowledgeBase deletes a knowledge base
 func (c *Client) DeleteKnowledgeBase(ctx context.Context, knowledgeBaseID string) error {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
@@ -474,7 +474,7 @@ type ClearKnowledgeBaseContentsResponse struct {
 // ClearKnowledgeBaseContents deletes all knowledge entries in a knowledge base (async).
 // The knowledge base itself is preserved; only its contents are removed.
 func (c *Client) ClearKnowledgeBaseContents(ctx context.Context, knowledgeBaseID string) (*ClearKnowledgeBaseContentsResponse, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -536,7 +536,7 @@ func (c *Client) HybridSearchDetailed(
 	params *SearchParams,
 	opts ...ResourceURLOptions,
 ) (*HybridSearchResponse, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/hybrid-search", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/hybrid-search", escapePathSegment(knowledgeBaseID))
 
 	queryParams := url.Values{}
 	if len(opts) > 0 {
@@ -561,7 +561,7 @@ func (c *Client) HybridSearchDetailed(
 // 404s — the router treats unknown method on a known path as not-found,
 // not 405.
 func (c *Client) TogglePinKnowledgeBase(ctx context.Context, knowledgeBaseID string) (*KnowledgeBase, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/pin", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/pin", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -585,7 +585,7 @@ type MoveTarget struct {
 
 // ListMoveTargets lists knowledge bases eligible as move targets for the given source KB
 func (c *Client) ListMoveTargets(ctx context.Context, knowledgeBaseID string) ([]KnowledgeBase, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/move-targets", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/move-targets", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -625,7 +625,7 @@ func (c *Client) DuplicateKnowledgeBase(
 	ctx context.Context,
 	knowledgeBaseID string,
 ) (*DuplicateKnowledgeBaseResponse, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/duplicate", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/duplicate", escapePathSegment(knowledgeBaseID))
 
 	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
@@ -646,7 +646,7 @@ func (c *Client) DuplicateKnowledgeBase(
 
 // GetKBCloneProgress gets the progress of a knowledge base clone task
 func (c *Client) GetKBCloneProgress(ctx context.Context, taskID string) (*KBCloneProgress, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/copy/progress/%s", taskID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/copy/progress/%s", escapePathSegment(taskID))
 
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {

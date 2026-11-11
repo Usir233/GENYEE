@@ -230,6 +230,39 @@ func TestAdapterListSessionFilesStopsWalkingAtCap(t *testing.T) {
 	require.Equal(t, maxListSessionFiles, len(entries))
 }
 
+func TestAdapterListSessionFilesSkipsDeniedSymlinksAndDirs(t *testing.T) {
+	base := t.TempDir()
+	home := filepath.Join(base, "home")
+	appData := filepath.Join(home, "App Support", "GENYEE Lite")
+	secretDir := filepath.Join(home, ".ssh")
+	require.NoError(t, os.MkdirAll(secretDir, 0o700))
+	secretKey := filepath.Join(secretDir, "id_rsa")
+	require.NoError(t, os.WriteFile(secretKey, []byte("PRIVATE KEY"), 0o600))
+
+	sessionRoot := filepath.Join(home, "Documents", "GENYEE")
+	svc := localsandbox.NewService(
+		&stubBackend{},
+		localsandbox.NewWorkspaceResolver(localsandbox.DirLayout{SessionRoot: sessionRoot}, stubProjects{}),
+		localsandbox.NewPolicyBuilder(home, appData),
+		nil,
+	)
+	a := New(svc)
+	ctx := context.Background()
+
+	require.NoError(t, a.WriteSessionWorkspaceFile(ctx, "s1", "allowed.txt", []byte("ok")))
+	layout, err := a.SessionWorkspaceLayout(ctx, "s1")
+	require.NoError(t, err)
+
+	// Plant symlinks inside the workspace pointing to denied secret files and directories.
+	require.NoError(t, os.Symlink(secretKey, filepath.Join(layout.Root, "leak_key")))
+	require.NoError(t, os.Symlink(secretDir, filepath.Join(layout.Root, "leak_ssh_dir")))
+
+	entries, err := a.ListSessionFiles(ctx, "s1", ".")
+	require.NoError(t, err)
+	require.Len(t, entries, 1)
+	require.Equal(t, "allowed.txt", entries[0].Name)
+}
+
 type stubProjects struct{}
 
 func (stubProjects) ProjectDirForSession(context.Context, string) (string, bool, error) {

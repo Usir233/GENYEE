@@ -119,4 +119,8 @@ func TestResourceCatalogFileServiceReturnsShortExternalGrantURL(t *testing.T) {
 	externalURL, err := svc.GetFileURL(context.Background(), ref)
 	require.NoError(t, err)
 	require.Equal(t, "https://weknora.example.com/r/GrantTokenAbCdEfGhIjKl", externalURL)
+
+	otherTenantCtx := context.WithValue(context.Background(), types.TenantInfoContextKey, &types.Tenant{ID: 99})
+	_, err = svc.GetFileURL(otherTenantCtx, ref)
+	require.Error(t, err, "cross-tenant caller must not receive /r/<token> grant")
 }

@@ -37,14 +37,13 @@ func TestWebsocketDialerAttachesInboundTokenAndExtraHeaders(t *testing.T) {
 	defer srv.Close()
 
 	pool := NewSandboxGatewayTransportPoolWithPolicy(nil, OutboundURLPolicy{AllowPrivate: true})
-	pool.InboundTokens().Put("sbx-1", "tok-abc")
-
 	cfg := &Config{
 		Type:                  SandboxTypeCube,
 		CubeProxyURL:          srv.URL,
 		CubeSandboxDomain:     "cube.app",
 		AllowPrivateEndpoints: true,
 	}
+	pool.ScopedInboundTokens(cfg).Put("sbx-1", "tok-abc")
 	dialer := pool.WebsocketDialerFor(cfg)
 	require.NotNil(t, dialer)
 
@@ -78,8 +77,6 @@ func TestWebsocketDialerUsesItsOwnPoolRegistry(t *testing.T) {
 
 	publicPool := NewSandboxGatewayTransportPool(nil)
 	privatePool := NewSandboxGatewayTransportPoolWithPolicy(nil, OutboundURLPolicy{AllowPrivate: true})
-	publicPool.InboundTokens().Put("sbx-1", "public-token")
-	privatePool.InboundTokens().Put("sbx-1", "private-token")
 
 	cfg := &Config{
 		Type:                  SandboxTypeCube,
@@ -87,6 +84,8 @@ func TestWebsocketDialerUsesItsOwnPoolRegistry(t *testing.T) {
 		CubeSandboxDomain:     "cube.app",
 		AllowPrivateEndpoints: true,
 	}
+	publicPool.ScopedInboundTokens(cfg).Put("sbx-1", "public-token")
+	privatePool.ScopedInboundTokens(cfg).Put("sbx-1", "private-token")
 	conn, _, err := privatePool.WebsocketDialerFor(cfg).
 		Dial(context.Background(), "sbx-1", 6080, "/websockify", nil)
 	require.NoError(t, err)
@@ -102,13 +101,12 @@ func TestWebsocketDialerBlocksPrivateAddressWhenPolicyForbids(t *testing.T) {
 	defer srv.Close()
 
 	pool := NewSandboxGatewayTransportPool(nil) // DefaultOutboundURLPolicy
-	pool.InboundTokens().Put("sbx-1", "tok")
-
 	cfg := &Config{
 		Type:              SandboxTypeCube,
 		CubeProxyURL:      srv.URL,
 		CubeSandboxDomain: "cube.app",
 	}
+	pool.ScopedInboundTokens(cfg).Put("sbx-1", "tok")
 	_, _, err := pool.WebsocketDialerFor(cfg).
 		Dial(context.Background(), "sbx-1", 6080, "/websockify", nil)
 	require.Error(t, err, "SSRF guard must refuse a loopback gateway under the default policy")
@@ -131,13 +129,12 @@ func TestWebsocketDialerE2BEmptyDomainUsesSDKDefault(t *testing.T) {
 	defer srv.Close()
 
 	pool := NewSandboxGatewayTransportPoolWithPolicy(nil, OutboundURLPolicy{AllowPrivate: true})
-	pool.InboundTokens().Put("sbx-1", "tok")
-
 	cfg := &Config{
 		Type:                  SandboxTypeE2B,
 		E2BProxyURL:           srv.URL,
 		AllowPrivateEndpoints: true,
 	}
+	pool.ScopedInboundTokens(cfg).Put("sbx-1", "tok")
 	conn, _, err := pool.WebsocketDialerFor(cfg).
 		Dial(context.Background(), "sbx-1", 6080, "/websockify", nil)
 	require.NoError(t, err)
@@ -151,14 +148,13 @@ func TestWebsocketDialerE2BConfiguredDomainWinsOverDefault(t *testing.T) {
 	defer srv.Close()
 
 	pool := NewSandboxGatewayTransportPoolWithPolicy(nil, OutboundURLPolicy{AllowPrivate: true})
-	pool.InboundTokens().Put("sbx-1", "tok")
-
 	cfg := &Config{
 		Type:                  SandboxTypeE2B,
 		E2BProxyURL:           srv.URL,
 		E2BSandboxDomain:      "sandbox.internal",
 		AllowPrivateEndpoints: true,
 	}
+	pool.ScopedInboundTokens(cfg).Put("sbx-1", "tok")
 	conn, _, err := pool.WebsocketDialerFor(cfg).
 		Dial(context.Background(), "sbx-1", 6080, "/websockify", nil)
 	require.NoError(t, err)
@@ -188,8 +184,6 @@ func TestCubeDialDesktopReachesWebsockifyPath(t *testing.T) {
 	defer srv.Close()
 
 	pool := NewSandboxGatewayTransportPoolWithPolicy(nil, OutboundURLPolicy{AllowPrivate: true})
-	pool.InboundTokens().Put("sbx-9", "tok-9")
-
 	cfg := &Config{
 		Type:                  SandboxTypeCube,
 		CubeAPIURL:            "http://127.0.0.1:33000",
@@ -197,6 +191,7 @@ func TestCubeDialDesktopReachesWebsockifyPath(t *testing.T) {
 		CubeSandboxDomain:     "cube.app",
 		AllowPrivateEndpoints: true,
 	}
+	pool.ScopedInboundTokens(cfg).Put("sbx-9", "tok-9")
 	client, err := NewCubeRemoteClientWithPool(cfg, pool)
 	require.NoError(t, err)
 

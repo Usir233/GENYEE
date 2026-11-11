@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/Usir233/GENYEE/docreader/proto"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/utils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -46,19 +49,60 @@ type GRPCDocumentReader struct {
 func NewGRPCDocumentReader(addr string) (*GRPCDocumentReader, error) {
 	p := &GRPCDocumentReader{}
 	if addr != "" {
-		if err := p.connect(addr); err != nil {
+		if err := p.connect(addr, true); err != nil {
 			return nil, err
 		}
 	}
 	return p, nil
 }
 
-func (p *GRPCDocumentReader) connect(addr string) error {
-	authConfig := docclient.LoadAuthConfigFromEnv()
+// NewProbeGRPCDocumentReader builds an isolated temporary DocReader client for
+// connectivity and engine-discovery probes without mutating any shared global
+// singleton or attaching global GRPC_AUTH_TOKEN to untrusted external hosts.
+func NewProbeGRPCDocumentReader(addr string) (*GRPCDocumentReader, error) {
+	p := &GRPCDocumentReader{}
+	if strings.TrimSpace(addr) == "" {
+		return nil, fmt.Errorf("docreader address must not be empty")
+	}
+	allowGlobalToken := isOperatorConfiguredDocReaderAddr(addr)
+	if err := p.connect(addr, allowGlobalToken); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func isOperatorConfiguredDocReaderAddr(addr string) bool {
+	configured := strings.TrimSpace(os.Getenv("DOCREADER_ADDR"))
+	if configured == "" {
+		return false
+	}
+	return docclient.IsTrustedDocReaderAddr(addr)
+}
+
+func docReaderContextDialer(targetAddr string) func(context.Context, string) (net.Conn, error) {
+	if isOperatorConfiguredDocReaderAddr(targetAddr) {
+		expected := strings.TrimSpace(targetAddr)
+		return func(ctx context.Context, dialAddr string) (net.Conn, error) {
+			if strings.EqualFold(strings.TrimSpace(dialAddr), expected) {
+				d := &net.Dialer{Timeout: 10 * time.Second}
+				return d.DialContext(ctx, "tcp", dialAddr)
+			}
+			return utils.SSRFSafeGRPCDialer(ctx, dialAddr)
+		}
+	}
+	return utils.SSRFSafeGRPCDialer
+}
+
+func dialDocReader(addr string, allowGlobalToken bool) (*grpc.ClientConn, error) {
+	authConfig := docclient.LoadAuthConfigFromEnv().EffectiveForAddr(addr)
+	if !allowGlobalToken {
+		authConfig.AuthToken = ""
+	}
 	opts, err := authConfig.BuildDialOptions(getMaxMessageSize())
 	if err != nil {
-		return fmt.Errorf("failed to build docreader dial options: %w", err)
+		return nil, fmt.Errorf("failed to build docreader dial options: %w", err)
 	}
+	opts = append(opts, grpc.WithContextDialer(docReaderContextDialer(addr)))
 	if authConfig.TLSEnabled {
 		logger.Infof(context.Background(), "TLS enabled for docreader gRPC client")
 	}
@@ -72,10 +116,17 @@ func (p *GRPCDocumentReader) connect(addr string) error {
 	start := time.Now()
 	conn, err := grpc.Dial("dns:///"+addr, opts...)
 	if err != nil {
-		return fmt.Errorf("failed to connect to docreader: %w", err)
+		return nil, fmt.Errorf("failed to connect to docreader: %w", err)
 	}
 	logger.Infof(context.Background(), "Connected to docreader in %v", time.Since(start))
+	return conn, nil
+}
 
+func (p *GRPCDocumentReader) connect(addr string, allowGlobalToken bool) error {
+	conn, err := dialDocReader(addr, allowGlobalToken)
+	if err != nil {
+		return err
+	}
 	p.conn = conn
 	p.client = proto.NewDocReaderClient(conn)
 	p.addr = addr
@@ -83,16 +134,22 @@ func (p *GRPCDocumentReader) connect(addr string) error {
 }
 
 func (p *GRPCDocumentReader) Reconnect(addr string) error {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	if p.conn != nil {
-		_ = p.conn.Close()
-		p.conn = nil
-		p.client = nil
-		p.addr = ""
+	conn, err := dialDocReader(addr, isOperatorConfiguredDocReaderAddr(addr))
+	if err != nil {
+		return err
 	}
-	return p.connect(addr)
+
+	p.mu.Lock()
+	oldConn := p.conn
+	p.conn = conn
+	p.client = proto.NewDocReaderClient(conn)
+	p.addr = addr
+	p.mu.Unlock()
+
+	if oldConn != nil {
+		_ = oldConn.Close()
+	}
+	return nil
 }
 
 func (p *GRPCDocumentReader) IsConnected() bool {

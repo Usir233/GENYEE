@@ -77,7 +77,7 @@ type tagSimpleResponse struct {
 func (c *Client) ListTags(ctx context.Context,
 	knowledgeBaseID string, page, pageSize int, keyword string,
 ) (*TagsPage, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/tags", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/tags", escapePathSegment(knowledgeBaseID))
 	query := url.Values{}
 	if page > 0 {
 		query.Add("page", strconv.Itoa(page))
@@ -108,7 +108,7 @@ func (c *Client) ListTags(ctx context.Context,
 func (c *Client) CreateTag(ctx context.Context,
 	knowledgeBaseID string, payload *CreateTagPayload,
 ) (*Tag, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/tags", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/tags", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, payload, nil)
 	if err != nil {
 		return nil, err
@@ -126,7 +126,7 @@ func (c *Client) CreateTag(ctx context.Context,
 func (c *Client) UpdateTag(ctx context.Context,
 	knowledgeBaseID, tagID string, payload *UpdateTagPayload,
 ) (*Tag, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/tags/%s", knowledgeBaseID, tagID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/tags/%s", escapePathSegment(knowledgeBaseID), escapePathSegment(tagID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, payload, nil)
 	if err != nil {
 		return nil, err
@@ -154,7 +154,7 @@ func (c *Client) UpdateTagBySeqID(ctx context.Context,
 func (c *Client) DeleteTag(ctx context.Context,
 	knowledgeBaseID, tagID string, force bool, contentOnly bool, excludeIDs []int64,
 ) error {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/tags/%s", knowledgeBaseID, tagID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/tags/%s", escapePathSegment(knowledgeBaseID), escapePathSegment(tagID))
 	query := url.Values{}
 	if force {
 		query.Add("force", "true")

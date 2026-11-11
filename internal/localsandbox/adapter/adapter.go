@@ -220,6 +220,15 @@ func (a *Adapter) ListSessionFiles(
 
 	var out []sandbox.RemoteDirEntry
 	err = filepath.WalkDir(resolved, func(p string, d os.DirEntry, walkErr error) error {
+		if _, checkErr := guard.CheckRead(p); checkErr != nil {
+			if p == resolved {
+				return checkErr
+			}
+			if d != nil && d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
 		if walkErr != nil {
 			return walkErr
 		}

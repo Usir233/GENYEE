@@ -422,3 +422,42 @@ func TestMCPOAuthCallbackWithAPreRegisteredClientRecyclesOnlyTheAuthorizingUsers
 	require.False(t, aliceConn.IsConnected())
 	require.True(t, bobConn.IsConnected())
 }
+
+func TestMCPOAuthAuthorizeURLHandlerRejectsPoisonedRedirectAndUsesTrustedBase(t *testing.T) {
+	env := newMCPOAuthTestEnv(t)
+	env.registerClient(t, "client-1")
+	t.Setenv("APP_EXTERNAL_URL", "https://genyee.example.com")
+	alice := types.Principal{Type: types.PrincipalWebUser, ID: "alice"}
+
+	postAuthorize := func(body string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		c, engine := gin.CreateTestContext(w)
+		engine.Use(middleware.ErrorHandler())
+		engine.POST("/mcp-services/:id/oauth/authorize-url", func(c *gin.Context) {
+			c.Request = c.Request.WithContext(types.WithPrincipal(c.Request.Context(), alice))
+			c.Set(types.TenantIDContextKey.String(), mcpOAuthTestTenant)
+			env.handler.AuthorizeURL(c)
+		})
+		c.Request = httptest.NewRequest(http.MethodPost, "/mcp-services/svc-1/oauth/authorize-url", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		engine.HandleContext(c)
+		return w
+	}
+
+	// Attacker-supplied external redirect_uri is rejected with 400.
+	badResp := postAuthorize(`{"redirect_uri":"https://evil.attacker.example/steal","frontend_redirect":"/"}`)
+	require.Equal(t, http.StatusBadRequest, badResp.Code, badResp.Body.String())
+
+	// Omitted redirect_uri uses the fixed server callback URL derived from APP_EXTERNAL_URL.
+	okResp := postAuthorize(`{"frontend_redirect":"/"}`)
+	require.Equal(t, http.StatusOK, okResp.Code, okResp.Body.String())
+	var payload struct {
+		Data struct {
+			AuthorizationURL string `json:"authorization_url"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(okResp.Body.Bytes(), &payload))
+	parsed, err := url.Parse(payload.Data.AuthorizationURL)
+	require.NoError(t, err)
+	require.Equal(t, "https://genyee.example.com/api/v1/mcp-oauth/callback", parsed.Query().Get("redirect_uri"))
+}

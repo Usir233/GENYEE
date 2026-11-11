@@ -70,7 +70,7 @@ func (c *Client) LoadMessages(
 	beforeTime *time.Time,
 	opts ...ResourceURLOptions,
 ) ([]Message, error) {
-	path := fmt.Sprintf("/api/v1/messages/%s/load", sessionID)
+	path := fmt.Sprintf("/api/v1/messages/%s/load", escapePathSegment(sessionID))
 
 	queryParams := url.Values{}
 	queryParams.Add("limit", strconv.Itoa(limit))
@@ -207,7 +207,7 @@ func (c *Client) GetChatHistoryKBStats(ctx context.Context) (*ChatHistoryKBStats
 
 // DeleteMessage deletes a message
 func (c *Client) DeleteMessage(ctx context.Context, sessionID string, messageID string) error {
-	path := fmt.Sprintf("/api/v1/messages/%s/%s", sessionID, messageID)
+	path := fmt.Sprintf("/api/v1/messages/%s/%s", escapePathSegment(sessionID), escapePathSegment(messageID))
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err

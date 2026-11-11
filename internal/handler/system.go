@@ -490,22 +490,16 @@ func (h *SystemHandler) ReconnectDocReader(c *gin.Context) {
 		return
 	}
 
+	configuredAddr, docreaderTransport := h.getDocReaderConnInfo()
+	isConfiguredTarget := configuredAddr != "" && strings.EqualFold(addr, configuredAddr)
+
 	// SSRF validation for docreader address
-	if err := secutils.ValidateURLForSSRF(addr); err != nil {
-		logger.Warnf(c.Request.Context(), "SSRF validation failed for docreader addr: %v", err)
-		c.JSON(400, gin.H{"code": 1, "msg": secutils.FormatSSRFError("DocReader 地址", addr, err)})
-		return
-	}
-
-	if h.documentReader == nil {
-		c.JSON(500, gin.H{"code": 1, "msg": "document converter not initialized"})
-		return
-	}
-
-	if err := h.documentReader.Reconnect(addr); err != nil {
-		logger.Errorf(c.Request.Context(), "Failed to reconnect docreader to %s: %v", addr, err)
-		c.JSON(200, gin.H{"code": 1, "msg": fmt.Sprintf("连接失败: %v", err)})
-		return
+	if !isConfiguredTarget {
+		if err := secutils.ValidateURLForSSRF(addr); err != nil {
+			logger.Warnf(c.Request.Context(), "SSRF validation failed for docreader addr: %v", err)
+			c.JSON(400, gin.H{"code": 1, "msg": secutils.FormatSSRFError("DocReader 地址", addr, err)})
+			return
+		}
 	}
 
 	var overrides map[string]string
@@ -524,10 +518,36 @@ func (h *SystemHandler) ReconnectDocReader(c *gin.Context) {
 			}
 		}
 	}
-	remoteEngines := h.fetchRemoteEngines(c.Request.Context(), h.documentReader, overrides)
-	engines := filterParserEnginesForWeKnoraCloud(docparser.ListAllEngines(true, overrides, remoteEngines), hasWkcCreds)
 
-	_, docreaderTransport := h.getDocReaderConnInfo()
+	// Probe connectivity with an isolated temporary client that enforces
+	// connection-level SSRF dialing and never attaches global GRPC_AUTH_TOKEN to
+	// non-preconfigured external hosts, keeping the shared singleton untouched.
+	probeReader, err := docparser.NewProbeGRPCDocumentReader(addr)
+	if err != nil {
+		logger.Errorf(c.Request.Context(), "Failed to create probe docreader for %s: %v", addr, err)
+		c.JSON(200, gin.H{"code": 1, "msg": fmt.Sprintf("连接失败: %v", err)})
+		return
+	}
+	defer func() { _ = probeReader.Close() }()
+
+	probeCtx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+	remoteEngines, err := probeReader.ListEngines(probeCtx, overrides)
+	if err != nil {
+		logger.Warnf(c.Request.Context(), "DocReader probe failed for %s: %v", addr, err)
+		c.JSON(200, gin.H{"code": 1, "msg": fmt.Sprintf("连接失败: %v", err)})
+		return
+	}
+
+	if isConfiguredTarget && h.documentReader != nil {
+		if err := h.documentReader.Reconnect(addr); err != nil {
+			logger.Errorf(c.Request.Context(), "Failed to reconnect docreader to %s: %v", addr, err)
+			c.JSON(200, gin.H{"code": 1, "msg": fmt.Sprintf("连接失败: %v", err)})
+			return
+		}
+	}
+
+	engines := filterParserEnginesForWeKnoraCloud(docparser.ListAllEngines(true, overrides, remoteEngines), hasWkcCreds)
 	c.JSON(200, gin.H{"code": 0, "msg": "连接成功", "data": engines, "docreader_addr": addr, "docreader_transport": docreaderTransport, "connected": true})
 }
 

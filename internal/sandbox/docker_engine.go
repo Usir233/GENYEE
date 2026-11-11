@@ -16,6 +16,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -210,7 +211,10 @@ func newDockerEngineClient(endpoint dockerEndpoint) (*client.Client, error) {
 		// responses. The daemon certificate is always verified — a remote
 		// daemon accepts container creation, so an unauthenticated peer on
 		// that socket is a root shell on the sandbox host.
-		certPath := endpoint.TLSCertPath
+		if err := validateDockerTLSCertFiles(endpoint.TLSCertPath); err != nil {
+			return nil, err
+		}
+		certPath := filepath.Clean(strings.TrimSpace(endpoint.TLSCertPath))
 		opts = append(opts, client.WithTLSClientConfig(
 			filepath.Join(certPath, "ca.pem"),
 			filepath.Join(certPath, "cert.pem"),
@@ -275,6 +279,9 @@ func ValidateDockerHost(host string, allowPrivate bool) error {
 		if !strings.HasPrefix(address, "/") {
 			return fmt.Errorf("sandbox: docker unix socket path %q must be absolute", address)
 		}
+		if err := validateHostLocalPath("docker unix socket path", address); err != nil {
+			return err
+		}
 		return nil
 	case "tcp", "http", "https":
 		// The guard speaks HTTP; the daemon's TCP endpoint is an HTTP
@@ -284,6 +291,76 @@ func ValidateDockerHost(host string, allowPrivate bool) error {
 		)
 	default:
 		return fmt.Errorf("sandbox: unsupported docker host scheme %q", scheme)
+	}
+}
+
+// ValidateDockerTLSCertPath checks a Docker TLS certificate directory path
+// before it is persisted or used.
+func ValidateDockerTLSCertPath(certPath string) error {
+	trimmed := strings.TrimSpace(certPath)
+	if trimmed == "" {
+		return nil
+	}
+	if !filepath.IsAbs(trimmed) {
+		return fmt.Errorf("sandbox: docker TLS certificate path %q must be absolute", certPath)
+	}
+	return validateHostLocalPath("docker TLS certificate path", trimmed)
+}
+
+func validateHostLocalPath(label, rawPath string) error {
+	if strings.ContainsRune(rawPath, 0) {
+		return fmt.Errorf("sandbox: %s contains invalid NUL byte", label)
+	}
+	for _, seg := range strings.Split(filepath.ToSlash(rawPath), "/") {
+		if seg == ".." {
+			return fmt.Errorf("sandbox: %s %q must not contain path traversal segments", label, rawPath)
+		}
+	}
+	cleaned := filepath.Clean(rawPath)
+	if cleaned == "/" {
+		return fmt.Errorf("sandbox: %s %q cannot be filesystem root", label, rawPath)
+	}
+	for _, forbidden := range []string{"/proc", "/sys", "/dev"} {
+		if cleaned == forbidden || strings.HasPrefix(cleaned, forbidden+"/") {
+			return fmt.Errorf("sandbox: %s %q under %s is forbidden", label, rawPath, forbidden)
+		}
+	}
+	return nil
+}
+
+func validateDockerTLSCertFiles(certPath string) error {
+	if err := ValidateDockerTLSCertPath(certPath); err != nil {
+		return err
+	}
+	cleaned := filepath.Clean(strings.TrimSpace(certPath))
+	dirInfo, err := os.Lstat(cleaned)
+	if err != nil {
+		return fmt.Errorf("sandbox: stat docker TLS certificate directory %q: %w", cleaned, err)
+	}
+	if dirInfo.Mode()&os.ModeSymlink != 0 || !dirInfo.IsDir() {
+		return fmt.Errorf("sandbox: docker TLS certificate path %q must be a real directory", cleaned)
+	}
+	for _, name := range []string{"ca.pem", "cert.pem", "key.pem"} {
+		full := filepath.Join(cleaned, name)
+		fi, err := os.Lstat(full)
+		if err != nil {
+			return fmt.Errorf("sandbox: stat docker TLS file %q: %w", name, err)
+		}
+		if !fi.Mode().IsRegular() {
+			return fmt.Errorf("sandbox: docker TLS file %q must be a regular file", name)
+		}
+	}
+	return nil
+}
+
+// ValidateDockerRuntime restricts OCI runtimes to known-safe container runtimes.
+func ValidateDockerRuntime(runtime string) error {
+	trimmed := strings.TrimSpace(runtime)
+	switch trimmed {
+	case "", "runc", "runsc", "kata", "kata-runtime", "sysbox-runc":
+		return nil
+	default:
+		return fmt.Errorf("sandbox: docker runtime %q is not allowed", runtime)
 	}
 }
 

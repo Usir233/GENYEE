@@ -67,6 +67,7 @@ type Policy struct {
 	// user's data is what turns that back into a meaningful boundary.
 	PrivateRoots  []string
 	DenyRead      []string
+	DenyWrite     []string
 	Network       NetworkMode
 	LoopbackPorts []int
 	Cwd           string
@@ -83,6 +84,8 @@ var (
 	ErrRelativePath = errors.New("localsandbox: policy paths must be absolute")
 	// ErrDenyReadCoversRoot is returned when a deny-read entry covers a writable root.
 	ErrDenyReadCoversRoot = errors.New("localsandbox: deny-read entry covers a writable root")
+	// ErrDenyWriteCoversRoot is returned when a deny-write entry covers a writable root.
+	ErrDenyWriteCoversRoot = errors.New("localsandbox: deny-write entry covers a writable root")
 	// ErrWorkspaceTooBroad is returned when a workspace or grant is $HOME,
 	// an ancestor of $HOME, or another well-known wide root. Sandboxing
 	// those paths would re-open the private home (or every user) as the
@@ -220,6 +223,24 @@ func (p Policy) Validate() error {
 			}
 		}
 	}
+	if err := checkAbsolute(p.DenyWrite...); err != nil {
+		return err
+	}
+	for _, deny := range p.DenyWrite {
+		if isFilesystemRoot(deny) {
+			return fmt.Errorf("%w: deny-write %q", ErrFilesystemRoot, deny)
+		}
+		for _, root := range p.WritableRoots {
+			if PathUnder(root.Path, deny) {
+				return fmt.Errorf("%w: %q covers %q", ErrDenyWriteCoversRoot, deny, root.Path)
+			}
+		}
+		for _, file := range p.WritableFiles {
+			if PathUnder(file, deny) {
+				return fmt.Errorf("%w: %q covers %q", ErrDenyWriteCoversRoot, deny, file)
+			}
+		}
+	}
 	// Seatbelt resolves symlinks and then validates again. A writable file or
 	// root that now lands on a path a grant would refuse must not be compiled.
 	for _, root := range p.WritableRoots {
@@ -272,6 +293,7 @@ func (p Policy) canonical() Policy {
 		ReadableRoots: append([]string(nil), p.ReadableRoots...),
 		PrivateRoots:  append([]string(nil), p.PrivateRoots...),
 		DenyRead:      append([]string(nil), p.DenyRead...),
+		DenyWrite:     append([]string(nil), p.DenyWrite...),
 		Network:       p.Network,
 		LoopbackPorts: append([]int(nil), p.LoopbackPorts...),
 		Cwd:           p.Cwd,
@@ -291,6 +313,7 @@ func (p Policy) canonical() Policy {
 	sort.Strings(out.ReadableRoots)
 	sort.Strings(out.PrivateRoots)
 	sort.Strings(out.DenyRead)
+	sort.Strings(out.DenyWrite)
 	sort.Ints(out.LoopbackPorts)
 	return out
 }

@@ -473,6 +473,52 @@ func (s *TenantSandboxConfigService) ReleaseUserMachine(
 	return nil
 }
 
+// ErrSandboxSystemAdminRequired is returned when a non-SystemAdmin attempts to
+// enable private endpoint access or configure host-level Docker daemon/cert/runtime settings.
+var ErrSandboxSystemAdminRequired = stderrors.New(
+	"system administrator privileges are required for private sandbox endpoints or host Docker daemon settings",
+)
+
+func isSandboxSystemAdmin(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	if types.IsSystemAdminFromContext(ctx) {
+		return true
+	}
+	if u, ok := ctx.Value(types.UserContextKey).(*types.User); ok && u != nil && u.IsSystemAdmin {
+		return true
+	}
+	return false
+}
+
+// AuthorizeSandboxConfigPrivileges enforces that only a SystemAdmin may enable
+// AllowPrivateEndpoints or configure custom host Docker socket endpoints,
+// host filesystem TLS certificate directories, or custom OCI runtimes.
+func AuthorizeSandboxConfigPrivileges(
+	ctx context.Context,
+	incoming, existing *types.TenantSandboxConfig,
+) error {
+	if isSandboxSystemAdmin(ctx) {
+		return nil
+	}
+	merged := types.MergeSandboxConfigForUpdate(incoming, existing)
+	if merged == nil {
+		return nil
+	}
+	if merged.AllowPrivateEndpoints {
+		return apperrors.NewForbiddenError(ErrSandboxSystemAdminRequired.Error())
+	}
+	if merged.Docker != nil {
+		if strings.TrimSpace(merged.Docker.Host) != "" ||
+			strings.TrimSpace(merged.Docker.TLSCertPath) != "" ||
+			strings.TrimSpace(merged.Docker.Runtime) != "" {
+			return apperrors.NewForbiddenError(ErrSandboxSystemAdminRequired.Error())
+		}
+	}
+	return nil
+}
+
 // SanitizeSandboxConfig resolves redacted secrets and validates the payload
 // before it can be persisted.
 func SanitizeSandboxConfig(
@@ -652,6 +698,9 @@ func (s *TenantSandboxConfigService) Create(
 	if err := validateNamedSandboxBackend(in.Config); err != nil {
 		return nil, err
 	}
+	if err := AuthorizeSandboxConfigPrivileges(ctx, in.Config, nil); err != nil {
+		return nil, err
+	}
 	merged, err := SanitizeSandboxConfig(in.Config, nil)
 	if err != nil {
 		return nil, err
@@ -732,6 +781,9 @@ func (s *TenantSandboxConfigService) QueryTemplates(
 	}
 	if merged == nil {
 		return nil, apperrors.NewBadRequestError("sandbox config is required")
+	}
+	if err := AuthorizeSandboxConfigPrivileges(ctx, in.Config, existing); err != nil {
+		return nil, err
 	}
 	if in.ReplaceStandard || in.ReplaceDesktop {
 		if err := s.refuseClusterSkillTemplateReplace(ctx, tenantID, merged); err != nil {
@@ -1263,6 +1315,9 @@ func (s *TenantSandboxConfigService) Update(
 		if err := validateNamedSandboxBackend(in.Config); err != nil {
 			return nil, err
 		}
+	}
+	if err := AuthorizeSandboxConfigPrivileges(ctx, in.Config, entity.Config); err != nil {
+		return nil, err
 	}
 	merged, err := SanitizeSandboxConfig(in.Config, entity.Config)
 	if err != nil {
@@ -1933,8 +1988,12 @@ func sandboxConfigEndpoints(cfg *types.TenantSandboxConfig) []string {
 			}
 		}
 	}
-	if cfg.E2B != nil && cfg.E2B.APIURL != "" {
-		endpoints = append(endpoints, cfg.E2B.APIURL)
+	if cfg.E2B != nil {
+		for _, raw := range []string{cfg.E2B.APIURL, cfg.E2B.ProxyURL} {
+			if raw != "" {
+				endpoints = append(endpoints, raw)
+			}
+		}
 	}
 	return endpoints
 }

@@ -475,3 +475,43 @@ func TestJobsDirectoryCannotBecomeAWorkspace(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, p.DenyRead, jobs)
 }
+
+func TestBuildDeniesBrowserSkillRuntimeDirsForReadAndWrite(t *testing.T) {
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
+	home := filepath.Join(base, "home")
+	appData := filepath.Join(home, "AppData")
+	customBSK := filepath.Join(base, "custom-bsk")
+	require.NoError(t, os.MkdirAll(filepath.Join(home, "proj"), 0o755))
+	require.NoError(t, os.MkdirAll(customBSK, 0o700))
+	t.Setenv("GENYEE_BSK_RUNTIME_DIR", customBSK)
+
+	b := NewPolicyBuilder(home, appData)
+	ws := Workspace{Kind: WorkspaceProject, Root: filepath.Join(home, "proj")}
+	p, err := b.Build(ModeAuto, ws)
+	require.NoError(t, err)
+
+	expected := []string{
+		filepath.Join(home, ".genyee", "bsk"),
+		filepath.Join(appData, "bsk"),
+		customBSK,
+	}
+	guard := NewPathGuard(p)
+	for _, dir := range expected {
+		require.Contains(t, p.DenyRead, dir)
+		require.Contains(t, p.DenyWrite, dir)
+		sock := filepath.Join(dir, "d-123", "run", "daemon.sock")
+		_, err = guard.CheckRead(sock)
+		require.ErrorIs(t, err, ErrPathDenied, sock)
+		_, err = guard.CheckWrite(sock)
+		require.ErrorIs(t, err, ErrPathDenied, sock)
+	}
+
+	// BrowserSkill runtime directory cannot be opened as a workspace or via Relax.
+	_, err = b.Build(ModeAuto, Workspace{Root: customBSK})
+	require.ErrorIs(t, err, ErrWorkspaceTooBroad)
+	_, err = b.Relax(p, Grant{Path: customBSK, Access: AccessRead})
+	require.Error(t, err)
+	_, err = b.Relax(p, Grant{Path: customBSK, Access: AccessWrite})
+	require.Error(t, err)
+}

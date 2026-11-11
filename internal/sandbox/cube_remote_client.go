@@ -8,6 +8,8 @@ package sandbox
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net"
@@ -36,10 +38,10 @@ type CubeRemoteClient struct {
 	// dialer, which DialDesktop reports as unsupported.
 	wsDialer *WebsocketDialer
 
-	// inboundTokens is the same registry wsDialer reads. Cube's SDK already
-	// stamps envd HTTP with Sandbox.TrafficAccessToken, so exec never needed
-	// a Put here; DialDesktop does.
-	inboundTokens *InboundTokenRegistry
+	// inboundTokens is the same scoped registry view wsDialer reads. Cube's SDK
+	// already stamps envd HTTP with Sandbox.TrafficAccessToken, so exec never
+	// needed a Put here; DialDesktop does.
+	inboundTokens *ScopedInboundTokenRegistry
 }
 
 // NewCubeRemoteClient constructs a Cube-backed RemoteSandboxClient using the
@@ -112,7 +114,7 @@ func NewCubeRemoteClientWithPool(
 		sandboxDomain: config.CubeSandboxDomain,
 		httpTimeout:   httpTimeout,
 		wsDialer:      wsDialer,
-		inboundTokens: pool.InboundTokens(),
+		inboundTokens: pool.ScopedInboundTokens(&routingConfig),
 	}, nil
 }
 
@@ -859,11 +861,22 @@ func (c *CubeRemoteClient) Delete(ctx context.Context, sandboxID string) error {
 	}
 	sb, err := c.client.Connect(ctx, sandboxID)
 	if err != nil {
-		return normalizeCubeError("Delete", err)
+		normalized := normalizeCubeError("Delete", err)
+		var rErr *RemoteError
+		if errors.As(normalized, &rErr) && rErr.Kind == RemoteErrorKindNotFound {
+			c.deleteInboundToken(sandboxID)
+		}
+		return normalized
 	}
 	if err := sb.Kill(ctx); err != nil {
-		return normalizeCubeError("Delete", err)
+		normalized := normalizeCubeError("Delete", err)
+		var rErr *RemoteError
+		if errors.As(normalized, &rErr) && rErr.Kind == RemoteErrorKindNotFound {
+			c.deleteInboundToken(sandboxID)
+		}
+		return normalized
 	}
+	c.deleteInboundToken(sandboxID)
 	return nil
 }
 
@@ -1292,15 +1305,29 @@ func buildShellLine(cmd string, args []string) string {
 }
 
 // wrapWithStdin funnels a caller-supplied stdin payload into the child
-// process by prepending a heredoc. This keeps the SDK's Commands.Run contract
-// (which does not take an explicit stdin argument) usable in the rare case
-// callers actually need to pipe data.
+// process by prepending a heredoc using a per-call 128-bit cryptographic
+// random hex delimiter so nested double-write strings in stdin can never
+// forge the closing delimiter.
 func wrapWithStdin(line, stdin string) string {
-	// Use a heredoc delimiter unlikely to appear in caller data.
-	const delim = "GENYEE_STDIN_EOF"
-	// Escape lines containing the delimiter defensively.
-	safe := strings.ReplaceAll(stdin, delim, "")
-	return "cat <<'" + delim + "' | " + line + "\n" + safe + "\n" + delim
+	delim := randomStdinDelimiter(stdin)
+	return "cat <<'" + delim + "' | " + line + "\n" + stdin + "\n" + delim
+}
+
+func randomStdinDelimiter(stdin string) string {
+	var buf [16]byte
+	for attempt := 0; attempt < 8; attempt++ {
+		if _, err := rand.Read(buf[:]); err == nil {
+			candidate := "GENYEE_STDIN_EOF_" + hex.EncodeToString(buf[:])
+			if !strings.Contains(stdin, candidate) {
+				return candidate
+			}
+		}
+	}
+	candidate := "GENYEE_STDIN_EOF_FALLBACK"
+	for strings.Contains(stdin, candidate) {
+		candidate += "_X"
+	}
+	return candidate
 }
 
 func normalizeCubeState(state string) RemoteSandboxState {
@@ -1488,6 +1515,13 @@ func (c *CubeRemoteClient) registerInboundToken(sandboxID, token string) {
 		return
 	}
 	c.inboundTokens.Put(sandboxID, token)
+}
+
+func (c *CubeRemoteClient) deleteInboundToken(sandboxID string) {
+	if c == nil || c.inboundTokens == nil {
+		return
+	}
+	c.inboundTokens.Delete(sandboxID)
 }
 
 // toCubeEgressRules maps the neutral L7 rules onto the SDK's shape. Deny rules

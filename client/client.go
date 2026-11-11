@@ -106,15 +106,83 @@ func NewClient(baseURL string, options ...ClientOption) *Client {
 	client := &Client{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:       30 * time.Second,
+			CheckRedirect: crossOriginRedirectCredentialStripper,
 		},
 	}
 
 	for _, option := range options {
 		option(client)
 	}
+	if client.httpClient != nil && client.httpClient.CheckRedirect == nil {
+		client.httpClient.CheckRedirect = crossOriginRedirectCredentialStripper
+	}
 
 	return client
+}
+
+const emptyPathSegmentSentinel = "\x00empty_path_segment"
+
+// escapePathSegment percent-encodes a single URL path parameter and neutralizes
+// "." / ".." dot-segments (which stdlib url.PathEscape leaves literal) as well
+// as empty identifiers so untrusted IDs cannot traverse to sibling/parent API
+// routes.
+func escapePathSegment(seg string) string {
+	switch seg {
+	case "":
+		return emptyPathSegmentSentinel
+	case ".":
+		return "%2E"
+	case "..":
+		return "%2E%2E"
+	}
+	return url.PathEscape(seg)
+}
+
+func validateAPIPath(path string) error {
+	if path == "" || !strings.HasPrefix(path, "/") {
+		return fmt.Errorf("invalid API path %q: must start with '/'", path)
+	}
+	if strings.Contains(path, emptyPathSegmentSentinel) {
+		return fmt.Errorf("invalid API path: path parameter must not be empty")
+	}
+	for _, ch := range path {
+		if ch < 0x20 || ch == 0x7f {
+			return fmt.Errorf("invalid API path: contains control character")
+		}
+	}
+	rawPath := path
+	if q := strings.IndexByte(rawPath, '?'); q >= 0 {
+		rawPath = rawPath[:q]
+	}
+	if f := strings.IndexByte(rawPath, '#'); f >= 0 {
+		return fmt.Errorf("invalid API path %q: URL fragment is not allowed", path)
+	}
+	for _, seg := range strings.Split(rawPath, "/") {
+		if seg == "." || seg == ".." {
+			return fmt.Errorf("invalid API path %q: dot-segment traversal is not allowed", path)
+		}
+	}
+	return nil
+}
+
+func isSameSchemeAndHost(a, b *url.URL) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return strings.EqualFold(a.Scheme, b.Scheme) && strings.EqualFold(a.Host, b.Host)
+}
+
+func crossOriginRedirectCredentialStripper(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return fmt.Errorf("stopped after 10 redirects")
+	}
+	if len(via) > 0 && !isSameSchemeAndHost(via[0].URL, req.URL) {
+		req.Header.Del("Authorization")
+		req.Header.Del("X-API-Key")
+		req.Header.Del("X-Tenant-ID")
+	}
+	return nil
 }
 
 // buildRequest constructs the authenticated *http.Request shared by doRequest
@@ -123,6 +191,9 @@ func NewClient(baseURL string, options ...ClientOption) *Client {
 func (c *Client) buildRequest(ctx context.Context,
 	method, path string, body interface{}, query url.Values,
 ) (*http.Request, error) {
+	if err := validateAPIPath(path); err != nil {
+		return nil, err
+	}
 	var reqBody io.Reader
 	if body != nil {
 		jsonData, err := json.Marshal(body)

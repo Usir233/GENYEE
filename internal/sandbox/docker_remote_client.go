@@ -192,6 +192,15 @@ func dockerSettingsFromConfig(cfg *Config) (dockerRuntimeSettings, error) {
 	if err := ValidateDockerNetworkMode(settings.NetworkMode); err != nil {
 		return dockerRuntimeSettings{}, err
 	}
+	if err := ValidateDockerRuntime(settings.Runtime); err != nil {
+		return dockerRuntimeSettings{}, err
+	}
+	if err := ValidateDockerHost(settings.Endpoint.Host, settings.Endpoint.AllowPrivate); err != nil {
+		return dockerRuntimeSettings{}, err
+	}
+	if err := ValidateDockerTLSCertPath(settings.Endpoint.TLSCertPath); err != nil {
+		return dockerRuntimeSettings{}, err
+	}
 	if err := ValidateDockerRemoteTLS(settings.Endpoint.Host, settings.Endpoint.TLSCertPath); err != nil {
 		return dockerRuntimeSettings{}, err
 	}

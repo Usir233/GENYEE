@@ -84,7 +84,7 @@ func (c *Client) CreateSession(ctx context.Context, request *CreateSessionReques
 
 // GetSession gets a session
 func (c *Client) GetSession(ctx context.Context, sessionID string) (*Session, error) {
-	path := fmt.Sprintf("/api/v1/sessions/%s", sessionID)
+	path := fmt.Sprintf("/api/v1/sessions/%s", escapePathSegment(sessionID))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -128,7 +128,7 @@ func (c *Client) GetSessionsByTenant(
 
 // UpdateSession updates a session
 func (c *Client) UpdateSession(ctx context.Context, sessionID string, request *CreateSessionRequest) (*Session, error) {
-	path := fmt.Sprintf("/api/v1/sessions/%s", sessionID)
+	path := fmt.Sprintf("/api/v1/sessions/%s", escapePathSegment(sessionID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, request, nil)
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func (c *Client) UpdateSession(ctx context.Context, sessionID string, request *C
 
 // DeleteSession deletes a session
 func (c *Client) DeleteSession(ctx context.Context, sessionID string) error {
-	path := fmt.Sprintf("/api/v1/sessions/%s", sessionID)
+	path := fmt.Sprintf("/api/v1/sessions/%s", escapePathSegment(sessionID))
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
@@ -195,7 +195,7 @@ type StopSessionRequest struct {
 
 // GenerateTitle generates a session title
 func (c *Client) GenerateTitle(ctx context.Context, sessionID string, request *GenerateTitleRequest) (string, error) {
-	path := fmt.Sprintf("/api/v1/sessions/%s/generate_title", sessionID)
+	path := fmt.Sprintf("/api/v1/sessions/%s/generate_title", escapePathSegment(sessionID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, request, nil)
 	if err != nil {
 		return "", err
@@ -305,7 +305,7 @@ func (c *Client) KnowledgeQAStream(
 	callback func(*StreamResponse) error,
 	opts ...ResourceURLOptions,
 ) error {
-	path := fmt.Sprintf("/api/v1/knowledge-chat/%s", sessionID)
+	path := fmt.Sprintf("/api/v1/knowledge-chat/%s", escapePathSegment(sessionID))
 	debugLogger.Debug("knowledge_qa_stream_start", "session_id", sessionID, "query", request.Query)
 
 	queryParams := url.Values{}
@@ -406,7 +406,7 @@ func (c *Client) ContinueStream(
 	callback func(*StreamResponse) error,
 	opts ...ResourceURLOptions,
 ) error {
-	path := fmt.Sprintf("/api/v1/sessions/continue-stream/%s", sessionID)
+	path := fmt.Sprintf("/api/v1/sessions/continue-stream/%s", escapePathSegment(sessionID))
 
 	queryParams := url.Values{}
 	queryParams.Add("message_id", messageID)
@@ -485,7 +485,7 @@ func (c *Client) StopSession(ctx context.Context, sessionID string, messageID st
 		return fmt.Errorf("messageID cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/v1/sessions/%s/stop", sessionID)
+	path := fmt.Sprintf("/api/v1/sessions/%s/stop", escapePathSegment(sessionID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, &StopSessionRequest{
 		MessageID: messageID,
 	}, nil)

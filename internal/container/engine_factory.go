@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"net"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -283,33 +284,77 @@ func buildMilvusClientConfig(cc types.ConnectionConfig) milvusclient.ClientConfi
 	return milvusCfg
 }
 
-func createWeaviateEngine(store types.VectorStore) (interfaces.RetrieveEngineService, error) {
+func extractWeaviateEndpointHost(endpoint string) string {
+	s := strings.TrimSpace(endpoint)
+	if s == "" {
+		return ""
+	}
+	if strings.Contains(s, "://") {
+		if u, err := url.Parse(s); err == nil && u.Hostname() != "" {
+			return u.Hostname()
+		}
+	}
+	if h, _, err := net.SplitHostPort(s); err == nil {
+		return strings.Trim(h, "[]")
+	}
+	return strings.Trim(s, "[]")
+}
+
+func buildWeaviateClientConfig(store types.VectorStore) (weaviate.Config, error) {
 	cc := store.ConnectionConfig
-	host := cc.Host
+	isEnvStore := types.IsEnvStoreID(store.ID)
+
+	host := strings.TrimSpace(cc.Host)
 	if host == "" {
+		if !isEnvStore {
+			return weaviate.Config{}, fmt.Errorf("weaviate host is required for external vector store")
+		}
 		host = "weaviate:8080"
 	}
-	grpcAddress := cc.GrpcAddress
-	if grpcAddress == "" {
-		grpcAddress = "weaviate:50051"
-	}
-	scheme := cc.Scheme
+
+	scheme := strings.TrimSpace(cc.Scheme)
 	if scheme == "" {
-		scheme = "http"
+		if cc.UseTLS {
+			scheme = "https"
+		} else {
+			scheme = "http"
+		}
 	}
 
 	weaviateCfg := weaviate.Config{
 		Host:             host,
 		ConnectionClient: utils.NewSSRFSafeHTTPClient(utils.DefaultSSRFSafeHTTPClientConfig()),
-		GrpcConfig: &wgrpc.Config{
-			Host: grpcAddress,
-		},
-		Scheme: scheme,
+		Scheme:           scheme,
 	}
+
+	// weaviate-go-client/v5 does not accept a custom grpc.WithContextDialer on
+	// wgrpc.Config, leaving its raw gRPC channel vulnerable to DNS rebinding on
+	// untrusted tenant-configured endpoints. Only enable gRPC for operator env
+	// stores or endpoints whose host is explicitly operator-whitelisted; tenant
+	// external stores use the SSRF-pinned HTTP ConnectionClient exclusively.
+	grpcAddress := strings.TrimSpace(cc.GrpcAddress)
+	if isEnvStore && grpcAddress == "" {
+		grpcAddress = "weaviate:50051"
+	}
+	if grpcAddress != "" && (isEnvStore || utils.IsSSRFWhitelisted(extractWeaviateEndpointHost(grpcAddress))) {
+		weaviateCfg.GrpcConfig = &wgrpc.Config{
+			Host:    grpcAddress,
+			Secured: strings.EqualFold(scheme, "https") || cc.UseTLS,
+		}
+	}
+
 	// Unlike the env path (which checks WEAVIATE_AUTH_ENABLED), the factory uses
 	// APIKey directly — if a user provides it, they intend to use it.
 	if cc.APIKey != "" {
 		weaviateCfg.AuthConfig = auth.ApiKey{Value: cc.APIKey}
+	}
+	return weaviateCfg, nil
+}
+
+func createWeaviateEngine(store types.VectorStore) (interfaces.RetrieveEngineService, error) {
+	weaviateCfg, err := buildWeaviateClientConfig(store)
+	if err != nil {
+		return nil, err
 	}
 
 	client, err := weaviate.NewClient(weaviateCfg)

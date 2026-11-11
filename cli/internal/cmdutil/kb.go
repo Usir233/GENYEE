@@ -13,10 +13,31 @@ import (
 // user-supplied strings, so format-detection is unambiguous.
 var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
+// safeResourceIDPattern matches single-segment resource identifiers (UUIDs or
+// alphanumeric/hyphen/underscore IDs) free of slashes, dots, query/fragment
+// delimiters, percent-escapes, and whitespace.
+var safeResourceIDPattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$`)
+
 // IsKBID reports whether s looks like a KB id. Used by Factory.ResolveKB and
 // any caller that accepts a single id-or-name selector value (id vs name
 // auto-detection).
 func IsKBID(s string) bool { return uuidPattern.MatchString(s) }
+
+// IsValidResourceID reports whether s is a valid single-segment resource ID
+// (either canonical UUID via IsKBID or safe identifier without traversal).
+func IsValidResourceID(s string) bool {
+	return IsKBID(s) || safeResourceIDPattern.MatchString(s)
+}
+
+// ValidateResourceID rejects empty or path-traversing resource identifiers at
+// CLI / MCP input boundaries before any HTTP path is constructed.
+func ValidateResourceID(label, s string) error {
+	if !IsValidResourceID(s) {
+		return NewError(CodeInputInvalidArgument,
+			fmt.Sprintf("invalid %s %q: must be a valid resource identifier without path separators", label, s))
+	}
+	return nil
+}
 
 // KBLister is the narrow SDK surface ResolveKBNameToID depends on. The
 // production *sdk.Client satisfies it; tests inject fakes without standing

@@ -206,7 +206,7 @@ func (c *Client) UpdateMemoryItem(ctx context.Context, id, content string, impor
 		"content":    content,
 		"importance": importance,
 	}
-	path := "/api/v1/memory/items/" + url.PathEscape(id)
+	path := "/api/v1/memory/items/" + escapePathSegment(id)
 	resp, err := c.doRequest(ctx, http.MethodPut, path, body, nil)
 	if err != nil {
 		return nil, err
@@ -223,7 +223,7 @@ func (c *Client) DeleteMemoryItem(ctx context.Context, id string) error {
 	if id == "" {
 		return fmt.Errorf("memory id is required")
 	}
-	path := "/api/v1/memory/items/" + url.PathEscape(id)
+	path := "/api/v1/memory/items/" + escapePathSegment(id)
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
@@ -237,7 +237,7 @@ func (c *Client) ConfirmMemoryItem(ctx context.Context, id string) (*MemoryItem,
 	if id == "" {
 		return nil, fmt.Errorf("memory id is required")
 	}
-	path := "/api/v1/memory/items/" + url.PathEscape(id) + "/confirm"
+	path := "/api/v1/memory/items/" + escapePathSegment(id) + "/confirm"
 	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -255,7 +255,7 @@ func (c *Client) RejectMemoryItem(ctx context.Context, id string) error {
 	if id == "" {
 		return fmt.Errorf("memory id is required")
 	}
-	path := "/api/v1/memory/items/" + url.PathEscape(id) + "/reject"
+	path := "/api/v1/memory/items/" + escapePathSegment(id) + "/reject"
 	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return err
@@ -295,7 +295,7 @@ func (c *Client) PromoteMemoryTopic(ctx context.Context, id string) (*MemoryItem
 	if id == "" {
 		return nil, fmt.Errorf("topic id is required")
 	}
-	path := "/api/v1/memory/topics/" + url.PathEscape(id) + "/promote"
+	path := "/api/v1/memory/topics/" + escapePathSegment(id) + "/promote"
 	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -312,7 +312,7 @@ func (c *Client) DeleteMemoryTopic(ctx context.Context, id string) error {
 	if id == "" {
 		return fmt.Errorf("topic id is required")
 	}
-	path := "/api/v1/memory/topics/" + url.PathEscape(id)
+	path := "/api/v1/memory/topics/" + escapePathSegment(id)
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
@@ -338,7 +338,7 @@ func (c *Client) DeleteMemoryDocument(ctx context.Context, id string) error {
 	if id == "" {
 		return fmt.Errorf("document affinity id is required")
 	}
-	path := "/api/v1/memory/documents/" + url.PathEscape(id)
+	path := "/api/v1/memory/documents/" + escapePathSegment(id)
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err

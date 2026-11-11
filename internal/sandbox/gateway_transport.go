@@ -70,9 +70,19 @@ func NewSandboxGatewayTransportPoolWithPolicy(
 }
 
 // InboundTokens is the registry the data-plane transport consults to attach a
-// sandbox's inbound credential. Adapters register on create / connect.
+// sandbox's inbound credential. Adapters should prefer ScopedInboundTokens so
+// entries stay isolated per (tenantID, configID, gatewayOrigin).
 func (p *SandboxGatewayTransportPool) InboundTokens() *InboundTokenRegistry {
 	return p.inboundTokens
+}
+
+// ScopedInboundTokens returns a registry view isolated to cfg's tenant, config,
+// and gateway origin.
+func (p *SandboxGatewayTransportPool) ScopedInboundTokens(cfg *Config) *ScopedInboundTokenRegistry {
+	if p == nil || p.inboundTokens == nil {
+		return nil
+	}
+	return p.inboundTokens.ForScope(InboundTokenScopeFor(cfg))
 }
 
 // RoundTripperFor returns the transport a client built from cfg should use.
@@ -83,7 +93,7 @@ func (p *SandboxGatewayTransportPool) RoundTripperFor(cfg *Config) http.RoundTri
 	split := &gatewaySplitTransport{
 		control:      p.control,
 		controlHost:  hostOfURL(controlURL),
-		inboundToken: p.inboundTokens,
+		inboundToken: p.ScopedInboundTokens(cfg),
 	}
 	if host, port, scheme, ok := parseProxyURL(gatewayURL); ok {
 		split.data = p.dataTransport(net.JoinHostPort(host, strconv.Itoa(port)))
@@ -93,17 +103,17 @@ func (p *SandboxGatewayTransportPool) RoundTripperFor(cfg *Config) http.RoundTri
 }
 
 // attachInboundTokenTransport puts inbound-token injection on next. A pool
-// RoundTripperFor result already injects from the same registry and is
+// RoundTripperFor result already injects from the same scoped registry and is
 // returned unchanged. nil next becomes the default transport so RoundTrip
 // does not panic.
 func attachInboundTokenTransport(
 	next http.RoundTripper,
-	tokens *InboundTokenRegistry,
+	tokens *ScopedInboundTokenRegistry,
 ) http.RoundTripper {
 	if tokens == nil {
 		return next
 	}
-	if split, ok := next.(*gatewaySplitTransport); ok && split.inboundToken == tokens {
+	if split, ok := next.(*gatewaySplitTransport); ok && split.inboundToken.SameTarget(tokens) {
 		return next
 	}
 	if next == nil {
@@ -185,7 +195,7 @@ type gatewaySplitTransport struct {
 	// routing rule: the rule is the sandbox authority shape, and this only
 	// covers an API host that happens to wear that shape.
 	controlHost  string
-	inboundToken *InboundTokenRegistry
+	inboundToken *ScopedInboundTokenRegistry
 
 	// dataScheme is the gateway's scheme. When it differs from the scheme the
 	// SDK hardcoded, data-plane requests are rewritten before dialling.

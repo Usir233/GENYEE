@@ -138,7 +138,7 @@ func (c *Client) CreateModel(ctx context.Context, request *CreateModelRequest) (
 
 // GetModel gets a model
 func (c *Client) GetModel(ctx context.Context, modelID string) (*Model, error) {
-	path := fmt.Sprintf("/api/v1/models/%s", modelID)
+	path := fmt.Sprintf("/api/v1/models/%s", escapePathSegment(modelID))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -169,7 +169,7 @@ func (c *Client) ListModels(ctx context.Context) ([]Model, error) {
 
 // UpdateModel updates a model
 func (c *Client) UpdateModel(ctx context.Context, modelID string, request *UpdateModelRequest) (*Model, error) {
-	path := fmt.Sprintf("/api/v1/models/%s", modelID)
+	path := fmt.Sprintf("/api/v1/models/%s", escapePathSegment(modelID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, request, nil)
 	if err != nil {
 		return nil, err
@@ -185,7 +185,7 @@ func (c *Client) UpdateModel(ctx context.Context, modelID string, request *Updat
 
 // DeleteModel deletes a model
 func (c *Client) DeleteModel(ctx context.Context, modelID string) error {
-	path := fmt.Sprintf("/api/v1/models/%s", modelID)
+	path := fmt.Sprintf("/api/v1/models/%s", escapePathSegment(modelID))
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err

@@ -224,7 +224,8 @@ func (l *Loader) LoadSkillFile(skillName, relativePath string) (*SkillFile, erro
 	if err != nil {
 		return nil, err
 	}
-	if !strings.HasPrefix(absFilePath, absSkillPath) {
+	relPath, err := filepath.Rel(absSkillPath, absFilePath)
+	if err != nil || relPath == ".." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
 		return nil, fmt.Errorf("file path outside skill directory: %s", relativePath)
 	}
 

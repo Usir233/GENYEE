@@ -95,6 +95,16 @@ func (b *PolicyBuilder) rejectGrantPath(p Policy, path string) error {
 		}
 		p.DenyRead = denies
 	}
+	if len(p.DenyWrite) > 0 {
+		denies := append([]string(nil), p.DenyWrite...)
+		for _, deny := range p.DenyWrite {
+			resolved, err := resolveExistingPrefix(deny)
+			if err == nil && !samePath(resolved, deny) {
+				denies = append(denies, resolved)
+			}
+		}
+		p.DenyWrite = denies
+	}
 	if err := p.rejectResolvedGrant(path); err != nil {
 		return err
 	}
@@ -175,6 +185,11 @@ func (p Policy) rejectResolvedGrant(path string) error {
 	for _, deny := range p.DenyRead {
 		if PathUnder(path, deny) {
 			return fmt.Errorf("localsandbox: %q is read-denied and cannot be granted", path)
+		}
+	}
+	for _, deny := range p.DenyWrite {
+		if PathUnder(path, deny) {
+			return fmt.Errorf("localsandbox: %q is write-denied and cannot be granted", path)
 		}
 	}
 	if isFilesystemRoot(path) {

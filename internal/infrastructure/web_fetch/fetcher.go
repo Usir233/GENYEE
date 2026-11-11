@@ -412,23 +412,42 @@ func lookupPublicDNS(ctx context.Context, host string) ([]net.IP, error) {
 }
 
 func renderWithChromium(ctx context.Context, target pinnedTarget) (string, error) {
-	hostRule := fmt.Sprintf("MAP %s %s, MAP * ~NOTFOUND", target.Host, target.IP.String())
+	// Child of the fetch context: a full PageFetchTimeout here cannot outlive
+	// the parent budget, so HTTP, slot acquisition, and chromedp share one deadline.
+	renderCtx, cancelTimeout := context.WithTimeout(ctx, PageFetchTimeout())
+	defer cancelTimeout()
+
+	releaseSlot, err := acquireChromiumSlot(renderCtx)
+	if err != nil {
+		return "", fmt.Errorf("chromium concurrency gate canceled: %w", err)
+	}
+	defer releaseSlot()
+
+	proxy, err := startChromiumSSRFProxy(target)
+	if err != nil {
+		return "", fmt.Errorf("chromium SSRF proxy failed: %w", err)
+	}
+	defer proxy.Close()
+
+	minimalEnv := buildChromiumEnv(os.Environ())
 	opts := append(chromedp.DefaultExecAllocatorOptions[:],
-		chromedp.Flag("host-resolver-rules", hostRule),
+		chromedp.Env(minimalEnv...),
+		chromedp.ProxyServer(proxy.ProxyURL()),
+		// In Chromium, "<-loopback>" disables the implicit loopback bypass so
+		// 127.0.0.1, [::1], and localhost are forced through the SSRF proxy too.
+		chromedp.Flag("proxy-bypass-list", "<-loopback>"),
+		chromedp.Flag("force-webrtc-ip-handling-policy", "disable_non_proxied_udp"),
 		chromedp.Flag("headless", true),
 		chromedp.Flag("disable-setuid-sandbox", true),
 		chromedp.Flag("disable-dev-shm-usage", true),
 		chromedp.Flag("disable-gpu", true),
 		chromedp.Flag("disable-blink-features", "AutomationControlled"),
 	)
-	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(ctx, opts...)
+	allocatorCtx, cancelAllocator := chromedp.NewExecAllocator(renderCtx, opts...)
 	defer cancelAllocator()
 	browserCtx, cancelBrowser := chromedp.NewContext(allocatorCtx)
 	defer cancelBrowser()
-	// Child of the fetch context: a full PageFetchTimeout here cannot outlive
-	// the parent budget, so HTTP and chromedp share one deadline instead of stacking.
-	browserCtx, cancelTimeout := context.WithTimeout(browserCtx, PageFetchTimeout())
-	defer cancelTimeout()
+
 	var html string
 	if err := chromedp.Run(browserCtx,
 		chromedp.Navigate(target.URL.String()),
