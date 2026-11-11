@@ -124,6 +124,11 @@ function toggle(value: unknown, field: string, fallback: boolean, violations: st
   return value
 }
 
+function isLoopbackHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase()
+  return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '[::1]' || normalized === '::1'
+}
+
 /**
  * Apply defaults and reject an unusable row while the plugin loads, so a typo
  * surfaces at boot rather than inside the first tool call the model makes.
@@ -143,6 +148,8 @@ export function resolveConfig(raw: Config | undefined): ResolvedConfig {
     const url = new URL(normalizeBaseUrl(baseUrlInput))
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
       violations.push(`baseUrl must use http or https, received ${url.protocol}`)
+    } else if (url.protocol === 'http:' && !isLoopbackHostname(url.hostname)) {
+      violations.push(`baseUrl must use https for non-loopback hosts, received ${url.origin}`)
     }
     baseUrl = url.toString().replace(/\/+$/, '')
   } catch {

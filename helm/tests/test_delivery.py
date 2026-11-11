@@ -169,8 +169,84 @@ class DeliveryTests(unittest.TestCase):
             env_lite = (config_dir / ".env.lite").read_text(encoding="utf-8")
             self.assertIn(f"DB_PATH={data_dir}/genyee.db", env_lite)
             self.assertIn(f"LOCAL_STORAGE_BASE_DIR={data_dir}/files", env_lite)
+            self.assertEqual((config_dir / ".env.lite").stat().st_mode & 0o777, 0o600)
             self.assertFalse((config_dir / ".env.lite.tmp").exists())
             self.assertFalse((config_dir / ".env.lite-e").exists())
+
+    def test_security_hardening_secrets_probes_networkpolicy_and_ingress(self):
+        chart_dir = Path(__file__).resolve().parents[1]
+        secret_render = subprocess.run(
+            [
+                "helm", "template", "audit", str(chart_dir),
+                "--namespace", "audit",
+                "--set", "secrets.dbPassword=test-db-pw",
+                "--set", "secrets.redisPassword=test-redis-pw",
+                "--set", "secrets.jwtSecret=test-jwt-secret-0123456789abcdef",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(secret_render.returncode, 0, secret_render.stderr)
+        secret_docs = [d for d in yaml.safe_load_all(secret_render.stdout) if d]
+        secret = next(d for d in secret_docs if d["kind"] == "Secret")
+        self.assertIn("GRPC_AUTH_TOKEN", secret["stringData"])
+        self.assertIn("SYSTEM_SIGNING_KEY", secret["stringData"])
+        self.assertGreaterEqual(len(secret["stringData"]["GRPC_AUTH_TOKEN"]), 32)
+        self.assertGreaterEqual(len(secret["stringData"]["SYSTEM_SIGNING_KEY"]), 32)
+
+        docs = self.documents({
+            "ingress": {
+                "enabled": True,
+                "hosts": [{"host": "genyee.example.com", "paths": [{"path": "/", "pathType": "Prefix"}]}],
+            },
+        })
+        deployments = {
+            d["metadata"]["labels"]["app.kubernetes.io/component"]: d
+            for d in docs if d["kind"] == "Deployment"
+        }
+
+        app_env = {
+            e["name"]: e for e in deployments["app"]["spec"]["template"]["spec"]["containers"][0]["env"]
+        }
+        docreader_env = {
+            e["name"]: e for e in deployments["docreader"]["spec"]["template"]["spec"]["containers"][0]["env"]
+        }
+        self.assertEqual(app_env["GRPC_AUTH_TOKEN"]["valueFrom"]["secretKeyRef"]["key"], "GRPC_AUTH_TOKEN")
+        self.assertEqual(app_env["SYSTEM_SIGNING_KEY"]["valueFrom"]["secretKeyRef"]["key"], "SYSTEM_SIGNING_KEY")
+        self.assertEqual(docreader_env["GRPC_AUTH_TOKEN"]["valueFrom"]["secretKeyRef"]["key"], "GRPC_AUTH_TOKEN")
+        self.assertEqual(
+            app_env["GRPC_AUTH_TOKEN"]["valueFrom"]["secretKeyRef"]["name"],
+            docreader_env["GRPC_AUTH_TOKEN"]["valueFrom"]["secretKeyRef"]["name"],
+        )
+
+        # Redis probes must use REDISCLI_AUTH + direct argv instead of sh -c "$REDIS_PASSWORD"
+        redis_container = deployments["cache"]["spec"]["template"]["spec"]["containers"][0]
+        redis_env_names = {e["name"] for e in redis_container["env"]}
+        self.assertIn("REDISCLI_AUTH", redis_env_names)
+        for probe_name in ("livenessProbe", "readinessProbe"):
+            cmd = redis_container[probe_name]["exec"]["command"]
+            self.assertEqual(cmd, ["redis-cli", "-e", "--no-auth-warning", "ping"])
+
+        # NetworkPolicy baseline rendered by default
+        netpols = [d for d in docs if d["kind"] == "NetworkPolicy"]
+        self.assertGreaterEqual(len(netpols), 3)
+
+        # Ingress blocks external access to /api/v1/local-browser/internal
+        ingress = next(d for d in docs if d["kind"] == "Ingress")
+        ingress_paths = ingress["spec"]["rules"][0]["http"]["paths"]
+        self.assertEqual(ingress_paths[0]["path"], "/api/v1/local-browser/internal")
+
+        headless_docs = self.documents({
+            "frontend": {"enabled": False},
+            "ingress": {"enabled": True, "host": "api.genyee.example.com"},
+        })
+        headless_ingress = next(d for d in headless_docs if d["kind"] == "Ingress")
+        headless_annotations = headless_ingress["metadata"].get("annotations", {})
+        self.assertIn(
+            "/api/v1/local-browser/internal",
+            headless_annotations.get("nginx.ingress.kubernetes.io/server-snippet", ""),
+        )
 
 
 if __name__ == "__main__":

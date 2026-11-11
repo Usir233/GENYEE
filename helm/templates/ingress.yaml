@@ -13,7 +13,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "weknora.componentLabels" (dict "component" "ingress" "context" .) | nindent 4 }}
-  {{- with .Values.ingress.annotations }}
+  {{- $annotations := deepCopy (.Values.ingress.annotations | default dict) }}
+  {{- if and (not .Values.frontend.enabled) (not (hasKey $annotations "nginx.ingress.kubernetes.io/server-snippet")) }}
+    {{- $_ := set $annotations "nginx.ingress.kubernetes.io/server-snippet" "location ^~ /api/v1/local-browser/internal {\n  return 404;\n}\n" }}
+  {{- end }}
+  {{- with $annotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
   {{- end }}
@@ -29,11 +33,26 @@ spec:
       secretName: {{ .Values.ingress.tls.secretName }}
       {{- end }}
   {{- end }}
+  {{- $routeApiViaFrontend := true }}
+  {{- if hasKey .Values.ingress "routeApiViaFrontend" }}
+    {{- $routeApiViaFrontend = .Values.ingress.routeApiViaFrontend }}
+  {{- end }}
   rules:
     - host: {{ .Values.ingress.host | quote }}
       http:
         paths:
-          # API routes - must come first (more specific path)
+          {{- if .Values.frontend.enabled }}
+          # Block internal cluster-only BrowserSkill endpoints at the gateway edge (404 via frontend nginx)
+          - path: /api/v1/local-browser/internal
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "weknora.serviceName" (dict "component" "frontend" "context" .) | quote }}
+                port:
+                  name: http
+          {{- end }}
+          {{- if or (not .Values.frontend.enabled) (not $routeApiViaFrontend) }}
+          # Direct API routes when frontend gateway routing is disabled
           - path: /api
             pathType: Prefix
             backend:
@@ -41,6 +60,17 @@ spec:
                 name: {{ include "weknora.serviceName" (dict "component" "app" "context" .) | quote }}
                 port:
                   name: http
+          {{- else }}
+          # API routes forwarded through frontend Nginx gateway for upload limits & log redaction
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "weknora.serviceName" (dict "component" "frontend" "context" .) | quote }}
+                port:
+                  name: http
+          {{- end }}
+          {{- if .Values.frontend.enabled }}
           # Frontend routes - catch-all
           - path: /
             pathType: Prefix
@@ -49,4 +79,5 @@ spec:
                 name: {{ include "weknora.serviceName" (dict "component" "frontend" "context" .) | quote }}
                 port:
                   name: http
+          {{- end }}
 {{- end }}

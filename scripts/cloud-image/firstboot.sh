@@ -10,6 +10,7 @@
 #   2) 失败时 unit 标记 failed, 用户可手动 docker compose up -d 恢复;
 #      凭证仍可在 ${ENV_FILE} 中查到。
 set -euo pipefail
+umask 077
 
 GENYEE_DIR="${GENYEE_DIR:-/opt/WeKnora}"
 ENV_FILE="${GENYEE_DIR}/.env"
@@ -21,6 +22,8 @@ MARKER="${GENYEE_DIR}/.firstboot.done"
 # 提前打开 LOG_FILE, 同时把 stderr 也复制一份到 systemd journal 方便调试
 # (单纯 exec >> LOG_FILE 时, 脚本一开始的失败会因为 stderr 已被吞掉而看不到)
 mkdir -p "$(dirname "${LOG_FILE}")"
+touch "${LOG_FILE}"
+chmod 0600 "${LOG_FILE}"
 exec > >(tee -a "${LOG_FILE}") 2>&1
 echo "==== firstboot started at $(date -Iseconds) ===="
 
@@ -41,6 +44,7 @@ if [[ ! -f "${ENV_FILE}" ]]; then
     exit 1
   fi
 fi
+chmod 0600 "${ENV_FILE}"
 
 DOCKER_BIN="$(command -v docker || true)"
 if [[ -z "${DOCKER_BIN}" ]]; then
@@ -60,6 +64,9 @@ DB_PWD=$(genpw)
 REDIS_PWD=$(genpw)
 JWT=$(genpw)$(genpw)
 SYS_AES=$(gen32)
+SYS_SIGN=$(genpw)$(genpw)
+GRPC_TOKEN=$(genpw)$(genpw)
+ODL_TOKEN=$(genpw)$(genpw)
 
 # 用 | 作 sed 分隔符避免冲突; 仅替换以 KEY= 开头的行
 replace() {
@@ -71,11 +78,15 @@ replace() {
   fi
 }
 
-replace DB_PASSWORD     "${DB_PWD}"
-replace REDIS_PASSWORD  "${REDIS_PWD}"
-replace JWT_SECRET      "${JWT}"
-replace SYSTEM_AES_KEY  "${SYS_AES}"
-replace GIN_MODE        "release"
+replace DB_PASSWORD           "${DB_PWD}"
+replace REDIS_PASSWORD        "${REDIS_PWD}"
+replace JWT_SECRET            "${JWT}"
+replace SYSTEM_AES_KEY        "${SYS_AES}"
+replace SYSTEM_SIGNING_KEY    "${SYS_SIGN}"
+replace GRPC_AUTH_TOKEN       "${GRPC_TOKEN}"
+replace ODL_HYBRID_AUTH_TOKEN "${ODL_TOKEN}"
+replace GIN_MODE              "release"
+chmod 0600 "${ENV_FILE}"
 
 # 把 prepare.sh 阶段记录在 .cloud-image-meta 里的 GENYEE_REF 还原为 .env 的
 # GENYEE_VERSION, 否则 docker compose 会落回 :latest 默认值, 导致镜像版本
@@ -118,10 +129,13 @@ cat >"${CRED_FILE}" <<INFO
 然后执行:  cd ${GENYEE_DIR} && docker compose up -d
 
 下列随机凭证已写入 ${ENV_FILE}, 请妥善保存(仅 root 可读):
-  DB_PASSWORD     = ${DB_PWD}
-  REDIS_PASSWORD  = ${REDIS_PWD}
-  JWT_SECRET      = ${JWT}
-  SYSTEM_AES_KEY  = ${SYS_AES}
+  DB_PASSWORD           = ${DB_PWD}
+  REDIS_PASSWORD        = ${REDIS_PWD}
+  JWT_SECRET            = ${JWT}
+  SYSTEM_AES_KEY        = ${SYS_AES}
+  SYSTEM_SIGNING_KEY    = ${SYS_SIGN}
+  GRPC_AUTH_TOKEN       = ${GRPC_TOKEN}
+  ODL_HYBRID_AUTH_TOKEN = ${ODL_TOKEN}
 
 注意:
   - 本文件只反映首启时刻的密钥, 后续以 ${ENV_FILE} 为准。
@@ -129,6 +143,7 @@ cat >"${CRED_FILE}" <<INFO
   - 仅用 80 / 443 对外服务, 必要时配置反向代理 + HTTPS。
 
 INFO
+chmod 0600 "${CRED_FILE}"
 
 echo "credentials written to ${CRED_FILE}"
 

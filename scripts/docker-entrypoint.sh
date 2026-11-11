@@ -44,6 +44,10 @@ grant_docker_sock_to_appuser() {
         echo "weknora: $sock is not group-readable and group-writable; refusing to change socket permissions" >&2
         return 0
     fi
+    if [ "$gid" = "0" ] && [ "${GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID:-false}" != "true" ]; then
+        echo "weknora: refusing to add appuser to privileged root group (gid 0) for $sock; configure a non-root docker socket group or set GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID=true explicitly" >&2
+        return 0
+    fi
     if ! getent group "$gid" >/dev/null 2>&1; then
         if ! groupadd -g "$gid" dockersock >/dev/null 2>&1; then
             echo "weknora: failed to create group for $sock GID $gid; Docker sandbox may be unable to reach the daemon" >&2
@@ -61,12 +65,18 @@ grant_docker_sock_to_appuser() {
     fi
 }
 
+fix_mount_ownership() {
+    local dir="$1"
+    local owner="${2:-appuser:appuser}"
+    if [ -d "$dir" ] && [ ! -L "$dir" ]; then
+        find -P "$dir" -xdev ! -type l -exec chown -h "$owner" -- {} + 2>/dev/null || true
+    fi
+}
+
 main() {
     local dir
     for dir in "${MOUNT_DIRS[@]}"; do
-        if [ -d "$dir" ]; then
-            chown -R appuser:appuser "$dir" 2>/dev/null || true
-        fi
+        fix_mount_ownership "$dir" "appuser:appuser"
     done
 
     grant_docker_sock_to_appuser /var/run/docker.sock

@@ -171,7 +171,7 @@ docker-build-all: docker-build-app docker-build-docreader docker-build-frontend
 # to parse on fresh clones. `start-all` handles this via check_env_file; this
 # direct path needs its own guard.
 docker-run:
-	@[ -f .env ] || ([ -f .env.example ] && cp .env.example .env || touch .env)
+	@[ -f .env ] || (umask 077 && ([ -f .env.example ] && cp .env.example .env || touch .env) && chmod 0600 .env)
 	docker-compose up
 
 # 使用新脚本启动所有服务
@@ -212,7 +212,7 @@ clean-images:
 
 # Restart Docker container (stop, start)
 docker-restart:
-	@[ -f .env ] || ([ -f .env.example ] && cp .env.example .env || touch .env)
+	@[ -f .env ] || (umask 077 && ([ -f .env.example ] && cp .env.example .env || touch .env) && chmod 0600 .env)
 	docker-compose stop -t 60
 	docker-compose up
 

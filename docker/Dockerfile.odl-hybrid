@@ -21,18 +21,26 @@ COPY docker/odl-hybrid/requirements.txt /tmp/odl-hybrid-requirements.txt
 RUN pip install --no-cache-dir --require-hashes -r /tmp/odl-hybrid-requirements.txt \
     && rm /tmp/odl-hybrid-requirements.txt
 
+RUN groupadd -g 10001 appuser && \
+    useradd -u 10001 -g 10001 -m -s /usr/sbin/nologin appuser
+ENV HOME=/home/appuser
+
 # Optional build-time model preloading for offline / air-gapped deployments:
 # pass --build-arg PRELOAD_MODELS=true to bake Docling layout/table models into the image.
 ARG PRELOAD_MODELS=false
 RUN if [ "$PRELOAD_MODELS" = "true" ]; then \
         docling-tools models download; \
-    fi
+    fi && \
+    chown -R 10001:10001 /home/appuser
 
 LABEL org.opencontainers.image.vendor="GENYEE" \
       org.opencontainers.image.title="genyee-odl-hybrid" \
       org.opencontainers.image.licenses="LicenseRef-GENYEE-Commercial AND MIT"
 COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/
 COPY licenses/ /licenses/licenses/
+RUN chmod -R a+rX,go-w /licenses
+
+USER 10001:10001
 
 EXPOSE 5002
 

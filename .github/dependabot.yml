@@ -115,6 +115,32 @@ updates:
         applies-to: security-updates
         patterns: ["*"]
 
+  - package-ecosystem: npm
+    directory: "/packages/dsh-genyee"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+    groups:
+      dsh-genyee-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: "/website-docs"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+    groups:
+      website-docs-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
   # ─── Python ───
   - package-ecosystem: pip
     directory: "/docreader"
@@ -126,6 +152,46 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
     groups:
       docreader-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: "/mcp-server"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+    groups:
+      mcp-server-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: "/docker/odl-hybrid"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+    groups:
+      odl-hybrid-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # ─── Rust (Cargo) ───
+  - package-ecosystem: cargo
+    directory: "/third_party/anydoc-go"
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 0
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+    groups:
+      anydoc-rust-security:
         applies-to: security-updates
         patterns: ["*"]
 

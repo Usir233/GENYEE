@@ -9,7 +9,7 @@ import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
 import 'katex/dist/katex.min.css';
 import { useI18n } from 'vue-i18n';
-import { sanitizeHTML, sanitizeMarkdownHTML, hydrateProtectedFileImages } from '@/utils/security';
+import { sanitizeHTML, sanitizeMarkdownHTML, sanitizeSvgForDataUrl, hydrateProtectedFileImages } from '@/utils/security';
 import { preparePptxPreview, isCompletePptxRender } from '@/utils/pptxPreview';
 import { findMarkdownSourceRange } from '@/utils/markdownSourceLocate';
 import { renderDocumentPreviewMarkdown } from '@/utils/documentPreviewMarkdown';
@@ -21,9 +21,11 @@ import {
 import { buildHtmlPreview } from '@/utils/htmlPreview';
 import MermaidFilePreview from './mermaid-file/MermaidFilePreview.vue';
 import {
+  ensureSafePreviewBlob,
   FILE_PREVIEW_SNIFF_BYTES,
   getHighlightLang as resolveHighlightLang,
   getPreviewMimeType,
+  isSvgPreviewExt,
   prettyPrintJson,
   resolveFilePreviewExt,
   resolvePreviewKind,
@@ -259,9 +261,7 @@ onUnmounted(() => {
 
 
 function ensureBlobType(blob: Blob, ft: string): Blob {
-  const expected = getPreviewMimeType(ft);
-  if (blob.type === expected) return blob;
-  return new Blob([blob], { type: expected });
+  return ensureSafePreviewBlob(blob, ft);
 }
 
 function getHighlightLang(ft: string): string {
@@ -529,7 +529,19 @@ async function loadPreview() {
         }
         break;
       }
-      case 'image':
+      case 'image': {
+        if (isSvgPreviewExt(ft)) {
+          const safeSvgDataUrl = sanitizeSvgForDataUrl(await rawBlob.text());
+          if (!safeSvgDataUrl) {
+            previewType.value = 'unsupported';
+            break;
+          }
+          blobUrl.value = safeSvgDataUrl;
+          break;
+        }
+        blobUrl.value = URL.createObjectURL(blob);
+        break;
+      }
       case 'audio':
       case 'video': {
         blobUrl.value = URL.createObjectURL(blob);
@@ -599,7 +611,9 @@ function cleanup() {
   markdownImageGeneration += 1;
   revokeMarkdownImageUrls();
   if (blobUrl.value) {
-    URL.revokeObjectURL(blobUrl.value);
+    if (blobUrl.value.startsWith('blob:')) {
+      URL.revokeObjectURL(blobUrl.value);
+    }
     blobUrl.value = '';
   }
   textContent.value = '';

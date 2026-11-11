@@ -156,7 +156,7 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 5173,
-    host: true,
+    host: process.env.VITE_DEV_HOST || '127.0.0.1',
     // 代理配置，用于开发环境
     proxy: {
       '/mcp/': {
@@ -191,7 +191,7 @@ export default defineConfig(({ mode }) => ({
   // （如主题变量被打包顺序覆盖）。用法：npm run build && npm run preview
   preview: {
     port: 4173,
-    host: true,
+    host: process.env.VITE_DEV_HOST || '127.0.0.1',
     proxy: {
       '/mcp/': {
         target: DEV_PROXY_TARGET,

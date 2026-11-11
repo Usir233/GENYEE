@@ -1,4 +1,20 @@
-export const domPurifyForbidTags = ['script', 'style', 'object', 'embed', 'form', 'input'] as const;
+export const domPurifyForbidTags = [
+  'script',
+  'style',
+  'iframe',
+  'frame',
+  'frameset',
+  'object',
+  'embed',
+  'applet',
+  'form',
+  'input',
+  'textarea',
+  'select',
+  'base',
+  'meta',
+  'link',
+] as const;
 export const domPurifyForbidAttr = ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'] as const;
 
 export const domPurifyAllowedUriRegexp =
@@ -107,10 +123,8 @@ export const markdownDomPurifyConfig = {
     'display', 'pointer-events', 'cursor', 'data-emit', 'direction',
     'mathvariant', 'encoding', 'aria-hidden',
   ],
-  USE_PROFILES: { html: true, svg: true, mathMl: true },
-  // USE_PROFILES 会整体替换 ALLOWED_ATTR，而 html profile 默认不含 target，
-  // 导致 afterSanitizeElements hook 加上的 target="_blank" 在随后的
-  // _sanitizeAttributes 中被剥离。用 ADD_ATTR 在 profile 之上追加该属性。
+  // Do NOT set USE_PROFILES alongside ALLOWED_TAGS/ALLOWED_ATTR: DOMPurify's
+  // USE_PROFILES overwrites custom minimal allowlists with its full profile set.
   ADD_ATTR: ['target'],
   ...domPurifySecurityOptions,
 };

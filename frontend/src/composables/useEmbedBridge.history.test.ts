@@ -41,7 +41,7 @@ function setup(t: TestContext) {
       getEmbedMessageList: (...args: any[]) => { loads.push(args); return load(...args) },
       getOrCreateEmbedVisitorId: () => 'visitor', isEmbedSessionToken: () => true,
       onEmbedHostContext: () => () => {}, onEmbedHostLocale: () => () => {}, onEmbedHostToken: () => () => {},
-      parseEmbedTokenFromLocation: () => '', postEmbedBootstrapRequest() {}, postEmbedReady() {},
+      parseEmbedTokenFromLocation: () => '', postEmbedBootstrapRequest() {}, postEmbedReady() {}, setEmbedAllowedOrigins() {},
     },
   })
   let bridge!: ReturnType<typeof useEmbedBridge>

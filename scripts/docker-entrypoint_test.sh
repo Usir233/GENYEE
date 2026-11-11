@@ -98,11 +98,18 @@ assert_equal() {
 }
 
 reset_case 0 660
-grant_docker_sock_to_appuser "$SOCKET_PATH"
-assert_equal "-aG root appuser" "${USERMOD_CALLS[*]:-}" \
-    "Docker Desktop root:root 0660 socket should grant the existing root group"
+unset GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID
+grant_docker_sock_to_appuser "$SOCKET_PATH" 2>"$TEST_DIR/gid0-error"
+assert_equal "" "${USERMOD_CALLS[*]:-}" \
+    "root:root 0660 socket must refuse adding appuser to gid 0 by default"
+grep -q "privileged root group (gid 0)" "$TEST_DIR/gid0-error"
 assert_equal "appuser test -r $SOCKET_PATH" "${GOSU_CALLS[0]:-}" \
     "socket checks should pass paths as arguments, not through sh -c"
+
+reset_case 0 660
+GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID=true grant_docker_sock_to_appuser "$SOCKET_PATH"
+assert_equal "-aG root appuser" "${USERMOD_CALLS[*]:-}" \
+    "GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID=true should opt-in to root:root 0660 socket group"
 
 reset_case 0 600
 grant_docker_sock_to_appuser "$SOCKET_PATH" 2>"$TEST_DIR/mode-error"
@@ -119,5 +126,19 @@ reset_case 0 660 1
 grant_docker_sock_to_appuser "$SOCKET_PATH"
 assert_equal "" "${USERMOD_CALLS[*]:-}" \
     "an already-accessible socket should not change group membership"
+
+# Symlink safety tests for fix_mount_ownership
+MOUNT_ROOT="$TEST_DIR/mount_files"
+OUTSIDE_TARGET="$TEST_DIR/outside_secret"
+mkdir -p "$MOUNT_ROOT/sub"
+printf 'secret\n' > "$OUTSIDE_TARGET"
+ln -s "$OUTSIDE_TARGET" "$MOUNT_ROOT/sub/evil_link"
+ln -s "$MOUNT_ROOT" "$TEST_DIR/top_level_symlink"
+
+CUR_UID_GID="$(id -u):$(id -g)"
+fix_mount_ownership "$TEST_DIR/top_level_symlink" "$CUR_UID_GID"
+fix_mount_ownership "$MOUNT_ROOT" "99999:99999"
+assert_equal "$(id -u)" "$(command stat -c '%u' "$OUTSIDE_TARGET")" \
+    "fix_mount_ownership must never dereference symlinks inside mounted directories"
 
 echo "docker-entrypoint socket permission tests: PASS"

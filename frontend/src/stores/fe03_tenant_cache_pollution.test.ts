@@ -27,6 +27,8 @@ function setupTest(legacyTokenMarker = false) {
   let chatInvalidated = 0
   let editorInvalidated = 0
   let orgCleared = 0
+  let protectedCacheCleared = 0
+  let activeProtectedScope = ''
 
   const chatStoreMock = {
     invalidate: () => { chatInvalidated++ },
@@ -36,6 +38,12 @@ function setupTest(legacyTokenMarker = false) {
   }
   const orgStoreMock = {
     clearState: () => { orgCleared++ },
+  }
+  const securityMock = {
+    clearProtectedFileCache: () => { protectedCacheCleared++ },
+    setProtectedFileCacheScope: (uid?: string | number | null, tid?: string | number | null) => {
+      activeProtectedScope = uid || tid ? `${uid || 'anon'}:${tid || 'default'}` : ''
+    },
   }
 
   const compile = (source: string) => ts.transpileModule(source, {
@@ -73,6 +81,7 @@ function setupTest(legacyTokenMarker = false) {
       if (name === '@/api/agent') return { BUILTIN_QUICK_ANSWER_ID }
       if (name === '@/utils/authRefresh') return { invalidateAuthRefresh() {} }
       if (name === '@/utils/authTokens') return tokenExports
+      if (name === '@/utils/security') return securityMock
       if (name === '@/composables/useFont') return { reloadFontFromStorage() {} }
       if (name === '@/composables/useTheme') return { reloadThemeFromStorage() {} }
       if (name === '@/composables/preferenceStorage') {
@@ -113,6 +122,8 @@ function setupTest(legacyTokenMarker = false) {
       chatInvalidated,
       editorInvalidated,
       orgCleared,
+      protectedCacheCleared,
+      activeProtectedScope,
     }),
   }
 }
@@ -176,11 +187,13 @@ test('FE-03: Multi-tenant cache pollution: setSelectedTenant evicts chat models,
   assert.deepEqual(settings.selectedFileKbMap, {}, 'Selected file KB map must be emptied')
   assert.equal(settings.knowledgeBaseId, '', 'knowledgeBaseId must be reset')
 
-  // Verify Pinia resource stores were invalidated
+  // Verify Pinia resource stores and protected file blob cache were invalidated
   const inv = getInvalidations()
   assert.ok(inv.chatInvalidated >= 1, 'Chat resources store must be invalidated')
   assert.ok(inv.editorInvalidated >= 1, 'Editor resources store must be invalidated')
   assert.ok(inv.orgCleared >= 1, 'Organization store must be cleared')
+  assert.ok(inv.protectedCacheCleared >= 1, 'Protected file blob cache must be cleared on tenant switch')
+  assert.equal(inv.activeProtectedScope, 'anon:20002', 'Protected file cache scope must update to new tenant')
 })
 
 test('FE-03: Switching to null tenant clears selected tenant and purges cache', () => {
@@ -211,6 +224,21 @@ test('FE-03: Idempotent setSelectedTenant does NOT clear cache when switching to
   assert.equal(mockLocalStorage.getItem('weknora_last_chat_model_id'), 'preserve-this-model')
   const afterInv = getInvalidations()
   assert.equal(afterInv.chatInvalidated, beforeInv.chatInvalidated, 'No invalidation on idempotent tenant select')
+  assert.equal(afterInv.protectedCacheCleared, beforeInv.protectedCacheCleared, 'No protected cache wipe on idempotent tenant select')
+})
+
+test('MED-16: logout revokes protected file blob cache and resets user:tenant scope', () => {
+  const { authStore, getInvalidations } = setupTest()
+  authStore.setUser({ id: 'user-99', username: 'alice', email: 'alice@example.com' })
+  authStore.setSelectedTenant(30001, 'Tenant 30001')
+  assert.equal(getInvalidations().activeProtectedScope, 'user-99:30001')
+  const before = getInvalidations().protectedCacheCleared
+
+  authStore.logout()
+
+  const after = getInvalidations()
+  assert.ok(after.protectedCacheCleared > before, 'logout must clear protected file cache')
+  assert.equal(after.activeProtectedScope, '', 'logout must clear active user:tenant scope')
 })
 
 test('FE-03: Resilient error handling when WeKnora_settings contains malformed JSON', () => {

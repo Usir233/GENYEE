@@ -15,6 +15,7 @@ import {
   parseEmbedTokenFromLocation,
   postEmbedBootstrapRequest,
   postEmbedReady,
+  setEmbedAllowedOrigins,
   type EmbedChannelPublicConfig,
 } from '@/api/embed'
 import {
@@ -210,6 +211,7 @@ export function useEmbedBridge(channelId: Ref<string>) {
         return
       }
       config.value = res.data
+      setEmbedAllowedOrigins(res.data.allowed_origins)
 
       if (res.data.default_locale && !hostLocalePinned) {
         applyEmbedLocale(res.data.default_locale, activeLocale)
@@ -385,6 +387,7 @@ export function useEmbedBridge(channelId: Ref<string>) {
     removeHostListener?.()
     removeLocaleListener?.()
     removeTokenListener?.()
+    setEmbedAllowedOrigins(null)
   })
 
   return {

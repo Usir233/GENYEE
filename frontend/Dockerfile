@@ -79,7 +79,8 @@ COPY nginx-api-proxy.conf /etc/nginx/api-proxy.conf
 COPY nginx-http.conf /etc/nginx/conf.d/00-weknora-http.conf
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+RUN chmod -R a+rX,u+w,go-w /usr/share/nginx/html /licenses /usr/share/licenses/genyee && \
+    chmod 0755 /docker-entrypoint.sh
 
 ENV MAX_FILE_SIZE_MB=50
 

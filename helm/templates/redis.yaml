@@ -54,6 +54,11 @@ spec:
                 secretKeyRef:
                   name: {{ include "weknora.secretName" . }}
                   key: REDIS_PASSWORD
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "weknora.secretName" . }}
+                  key: REDIS_PASSWORD
           ports:
             - containerPort: 6379
               name: redis
@@ -66,9 +71,10 @@ spec:
           livenessProbe:
             exec:
               command:
-                - sh
-                - -c
-                - redis-cli -a $REDIS_PASSWORD ping | grep PONG
+                - redis-cli
+                - -e
+                - --no-auth-warning
+                - ping
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
@@ -76,9 +82,10 @@ spec:
           readinessProbe:
             exec:
               command:
-                - sh
-                - -c
-                - redis-cli -a $REDIS_PASSWORD ping | grep PONG
+                - redis-cli
+                - -e
+                - --no-auth-warning
+                - ping
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3

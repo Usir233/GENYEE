@@ -11,7 +11,9 @@ export DISPLAY=:0
 # so a wrapped older image still starts a UTF-8 session.
 export LANG="${LANG:-C.UTF-8}"
 export LC_ALL="${LC_ALL:-C.UTF-8}"
+umask 077
 mkdir -p /run/desktop
+chmod 0700 /run/desktop
 
 # Neutral cwd before any daemon spawns. This script runs from an Exec whose
 # cwd is a session's workspace (/workspace/sessions/<sid>); every daemon
@@ -26,8 +28,20 @@ cd /
 # --proxy-only starts websockify and nothing on :0. Per-session screens are
 # Xvfb :N, brought up by wk-display; this process only routes tokens to them.
 proxy_only=0
-if [ "${1:-}" = "--proxy-only" ]; then
-  proxy_only=1
+if [ "$#" -gt 1 ]; then
+  echo "usage: $0 [--proxy-only]" >&2
+  exit 2
+fi
+if [ "$#" -eq 1 ]; then
+  case "$1" in
+    --proxy-only)
+      proxy_only=1
+      ;;
+    *)
+      echo "usage: $0 [--proxy-only]" >&2
+      exit 2
+      ;;
+  esac
 fi
 
 # Readiness is a LISTEN check read out of /proc, never a connection. Dialling
@@ -95,8 +109,10 @@ if desktop_ready; then exit 0; fi
 if [ ! -f /run/desktop/secret ]; then
   umask 077
   tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32 > /run/desktop/secret.tmp
+  chmod 0600 /run/desktop/secret.tmp
   mv /run/desktop/secret.tmp /run/desktop/secret
 fi
+chmod 0600 /run/desktop/secret
 
 # dbus-uuidgen --ensure: XFCE/dbus fail on a missing /etc/machine-id, which
 # slim images often omit. Harmless when the file already exists.

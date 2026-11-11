@@ -44,7 +44,7 @@ register('pdf', ['pdf'])
 register('docx', ['docx'])
 register('pptx', ['pptx'])
 register('image', [
-  'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff', 'tif', 'svg', 'svgz',
+  'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'tiff', 'tif', 'svg',
   'ico', 'avif', 'apng', 'jfif', 'pjpeg', 'pjp', 'heic', 'heif',
 ])
 register('excel', ['xlsx', 'xls', 'csv', 'tsv', 'tab'])
@@ -100,8 +100,10 @@ const MIME_BY_EXT: Record<string, string> = {
   webp: 'image/webp',
   tiff: 'image/tiff',
   tif: 'image/tiff',
-  svg: 'image/svg+xml',
-  svgz: 'image/svg+xml',
+  // Never assign executable image/svg+xml MIME to untrusted preview blobs;
+  // same-origin blob: navigation would otherwise run embedded SVG scripts.
+  svg: 'application/octet-stream',
+  svgz: 'application/octet-stream',
   ico: 'image/x-icon',
   avif: 'image/avif',
   apng: 'image/apng',
@@ -260,8 +262,37 @@ export function isKnownPreviewableFile(fileName?: string, fileType?: string): bo
   return isKnownPreviewableExt(resolveFilePreviewExt(fileName, fileType))
 }
 
+const UNSAFE_EXECUTABLE_BLOB_MIME_RE =
+  /\b(?:image\/svg\+xml|text\/html|application\/xhtml\+xml|application\/xml|text\/xml)\b/i
+
+export function isSvgPreviewExt(ext: string): boolean {
+  const lower = String(ext || '').trim().replace(/^\./, '').toLowerCase()
+  return lower === 'svg' || lower === 'svgz'
+}
+
 export function getPreviewMimeType(ext: string): string {
-  return MIME_BY_EXT[ext?.toLowerCase()] || 'application/octet-stream'
+  const lower = ext?.toLowerCase() || ''
+  if (isSvgPreviewExt(lower)) return 'application/octet-stream'
+  return MIME_BY_EXT[lower] || 'application/octet-stream'
+}
+
+/**
+ * Re-wrap a preview Blob with a safe MIME type when needed, while refusing to
+ * promote `.svg`/`.svgz` or HTML/XML content into same-origin executable blobs.
+ */
+export function ensureSafePreviewBlob(blob: Blob, ext: string): Blob {
+  const lower = String(ext || '').trim().replace(/^\./, '').toLowerCase()
+  if (isSvgPreviewExt(lower)) {
+    return blob.type === 'application/octet-stream'
+      ? blob
+      : new Blob([blob], { type: 'application/octet-stream' })
+  }
+  const expected = getPreviewMimeType(lower)
+  const safeExpected = UNSAFE_EXECUTABLE_BLOB_MIME_RE.test(expected)
+    ? 'application/octet-stream'
+    : expected
+  if (blob.type === safeExpected) return blob
+  return new Blob([blob], { type: safeExpected })
 }
 
 export function getHighlightLang(ext: string): string {
