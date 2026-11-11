@@ -94,9 +94,10 @@ class HttpStatelessSmokeTest(unittest.TestCase):
         import time
 
         port = 19876
+        test_token = "test-token-0123456789abcdef01234567"
         env = {
             **os.environ,
-            "MCP_SERVER_AUTH_TOKEN": "test-token",
+            "MCP_SERVER_AUTH_TOKEN": test_token,
             "GENYEE_API_KEY": "test-key",
         }
         proc = subprocess.Popen(
@@ -130,7 +131,7 @@ class HttpStatelessSmokeTest(unittest.TestCase):
                         "POST",
                         f"http://127.0.0.1:{port}/mcp",
                         "-H",
-                        "Authorization: Bearer test-token",
+                        f"Authorization: Bearer {test_token}",
                         "-H",
                         "Content-Type: application/json",
                         "-H",

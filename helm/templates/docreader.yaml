@@ -29,7 +29,7 @@ spec:
     spec:
       {{- include "weknora.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ include "weknora.serviceAccountName" . }}
-      {{- with .Values.global.podSecurityContext }}
+      {{- with .Values.docreader.podSecurityContext | default .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -50,6 +50,25 @@ spec:
               value: {{ .Values.docreader.env.STORAGE_TYPE | quote }}
             - name: MAX_FILE_SIZE_MB
               value: {{ .Values.global.maxFileSizeMB | quote }}
+            - name: GRPC_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "weknora.secretName" . }}
+                  key: GRPC_AUTH_TOKEN
+            {{- if and .Values.docreader.tls .Values.docreader.tls.enabled }}
+            - name: GRPC_TLS_ENABLED
+              value: "true"
+            - name: GRPC_TLS_CERT
+              value: "/etc/docreader-tls/tls.crt"
+            - name: GRPC_TLS_KEY
+              value: "/etc/docreader-tls/tls.key"
+            {{- end }}
+          {{- if and .Values.docreader.tls .Values.docreader.tls.enabled .Values.docreader.tls.secretName }}
+          volumeMounts:
+            - name: docreader-tls
+              mountPath: /etc/docreader-tls
+              readOnly: true
+          {{- end }}
           resources:
             {{- toYaml .Values.docreader.resources | nindent 12 }}
           # gRPC health check using grpc_health_probe
@@ -71,6 +90,12 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
+      {{- if and .Values.docreader.tls .Values.docreader.tls.enabled .Values.docreader.tls.secretName }}
+      volumes:
+        - name: docreader-tls
+          secret:
+            secretName: {{ .Values.docreader.tls.secretName | quote }}
+      {{- end }}
       {{- with .Values.docreader.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

@@ -14,12 +14,55 @@ import (
 // EncPrefix marks a string as AES-256-GCM encrypted
 const EncPrefix = "enc:v1:"
 
+func isPlaceholderAESKey(raw string) bool {
+	return raw == "weknora-system-aes-key-32bytes!!" || raw == "your-32-byte-long-encryption-key!"
+}
+
+// IsReleaseMode reports whether GIN_MODE is explicitly set to release.
+func IsReleaseMode() bool {
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("GIN_MODE")), "release")
+}
+
+// IsProductionEnv reports whether GIN_MODE, APP_ENV, or ENV indicates production/release.
+func IsProductionEnv() bool {
+	for _, envKey := range []string{"GIN_MODE", "APP_ENV", "ENV"} {
+		v := strings.ToLower(strings.TrimSpace(os.Getenv(envKey)))
+		if v == "release" || v == "production" || v == "prod" {
+			return true
+		}
+	}
+	return false
+}
+
 // GetAESKey reads the 32-byte AES key from SYSTEM_AES_KEY env.
-// Returns nil if not set or not exactly 32 bytes.
+// Returns nil if not set, not exactly 32 bytes, or set to a known example placeholder.
 func GetAESKey() []byte {
-	key := []byte(os.Getenv("SYSTEM_AES_KEY"))
-	if len(key) == 32 {
-		return key
+	raw := os.Getenv("SYSTEM_AES_KEY")
+	if len(raw) == 32 && !isPlaceholderAESKey(raw) {
+		return []byte(raw)
+	}
+	return nil
+}
+
+// ValidateProductionAESKey verifies that SYSTEM_AES_KEY is explicitly configured
+// to a valid 32-byte non-placeholder secret for release deployments.
+func ValidateProductionAESKey() error {
+	raw := os.Getenv("SYSTEM_AES_KEY")
+	if len(raw) != 32 || isPlaceholderAESKey(raw) {
+		return errors.New("SYSTEM_AES_KEY must be explicitly configured as a 32-byte non-placeholder secret in release mode")
+	}
+	return nil
+}
+
+// ValidateProductionJWTSecret verifies that JWT_SECRET is explicitly configured
+// with at least 32 bytes and is not a known default placeholder.
+func ValidateProductionJWTSecret(secret string) error {
+	trimmed := strings.TrimSpace(secret)
+	if trimmed == "" || trimmed == "weknora-jwt-secret" || trimmed == "CHANGE-ME-jwt-secret" {
+		return errors.New("JWT_SECRET must be explicitly configured in production environment and cannot be empty or default placeholder")
+	}
+	if len(trimmed) < 32 {
+		return errors.New("JWT_SECRET must be at least 32 bytes in production environment")
 	}
 	return nil
 }

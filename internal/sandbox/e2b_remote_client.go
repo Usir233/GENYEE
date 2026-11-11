@@ -25,7 +25,7 @@ import (
 // E2BRemoteClient implements RemoteSandboxClient on top of the go-e2b client.
 type E2BRemoteClient struct {
 	client        *e2b.Client
-	inboundTokens *InboundTokenRegistry
+	inboundTokens *ScopedInboundTokenRegistry
 
 	// wsDialer reaches non-envd data-plane ports (the desktop's websockify
 	// on 6080). It is nil on the non-pool construction paths, which is what
@@ -100,12 +100,18 @@ func newE2BRemoteClient(
 	if timeout <= 0 {
 		timeout = DefaultE2BHTTPTimeout
 	}
+	routingCfg := *cfg
+	routingCfg.Type = SandboxTypeE2B
+	var scopedTokens *ScopedInboundTokenRegistry
+	if inboundTokens != nil {
+		scopedTokens = inboundTokens.ForScope(InboundTokenScopeFor(&routingCfg))
+	}
 	// Attach the inbound-token injector even when the caller did not go
 	// through the gateway pool. go-e2b stores TrafficAccessToken but never
 	// sends the header; without this wrap, NewE2BRemoteClient / WithTransport
 	// would register tokens that no HTTP stack consults. A pool-built split
 	// that already owns the same registry is left as-is.
-	transport = attachInboundTokenTransport(transport, inboundTokens)
+	transport = attachInboundTokenTransport(transport, scopedTokens)
 	// Every E2B client speaks to envd through the compatibility shim, whether
 	// or not a gateway is configured: the two details it rewrites belong to the
 	// envd protocol itself, not to any one deployment. See envd_compat_transport.go.
@@ -133,7 +139,7 @@ func newE2BRemoteClient(
 	}
 	return &E2BRemoteClient{
 		client:                  client,
-		inboundTokens:           inboundTokens,
+		inboundTokens:           scopedTokens,
 		wsDialer:                wsDialer,
 		desktopEnabled:          cfg.DesktopEnabled,
 		templateID:              strings.TrimSpace(cfg.E2BTemplate),
@@ -950,7 +956,12 @@ func (c *E2BRemoteClient) Delete(ctx context.Context, sandboxID string) error {
 	}
 	sandbox, err := c.client.Connect(ctx, sandboxID, timeoutSeconds)
 	if err != nil {
-		return normalizeE2BError("Delete", err)
+		normalized := normalizeE2BError("Delete", err)
+		var rErr *RemoteError
+		if errors.As(normalized, &rErr) && rErr.Kind == RemoteErrorKindNotFound {
+			c.inboundTokens.Delete(sandboxID)
+		}
+		return normalized
 	}
 	if sandbox == nil || strings.TrimSpace(sandbox.ID) == "" ||
 		sandbox.ID != sandboxID {
@@ -960,7 +971,12 @@ func (c *E2BRemoteClient) Delete(ctx context.Context, sandboxID string) error {
 		)
 	}
 	if err := sandbox.CloseWithContext(ctx); err != nil {
-		return normalizeE2BError("Delete", err)
+		normalized := normalizeE2BError("Delete", err)
+		var rErr *RemoteError
+		if errors.As(normalized, &rErr) && rErr.Kind == RemoteErrorKindNotFound {
+			c.inboundTokens.Delete(sandboxID)
+		}
+		return normalized
 	}
 	c.inboundTokens.Delete(sandboxID)
 	return nil

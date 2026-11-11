@@ -13,7 +13,11 @@ import ipaddress
 from urllib.parse import unquote, urlsplit
 
 from docreader.utils.ssrf import (
-    _is_restricted_ip, _is_whitelisted, _resolve_host_ips, is_ssrf_safe_url,
+    _is_restricted_ip,
+    _is_whitelisted,
+    _resolve_host_ips,
+    is_ssrf_safe_url,
+    normalize_hostname,
 )
 
 
@@ -21,10 +25,12 @@ async def checked_address(url: str) -> tuple[str, int]:
     parsed = urlsplit(url)
     if parsed.scheme not in {"http", "https"} or parsed.username is not None:
         raise ValueError("unsupported proxy target")
+    host, host_err = normalize_hostname(parsed.hostname)
+    if host_err:
+        raise ValueError(host_err)
     safe, reason = await asyncio.to_thread(is_ssrf_safe_url, url)
     if not safe:
         raise ValueError(reason)
-    host = parsed.hostname or ""
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     # Resolve once for the socket, recheck all answers, then dial a numeric IP.
     ips, error = await asyncio.to_thread(_resolve_host_ips, host)

@@ -26,46 +26,9 @@ RUN apt-get update && apt-get install -y \
     unzip \
     && rm -rf /var/lib/apt/lists/*
 
-# 检查是否存在本地protoc安装包，如果存在则离线安装，否则在线安装
-ARG TARGETARCH
-COPY packages/ /app/packages/
-RUN ls -lah /app/packages/
-# 兼容 BuildKit 和传统构建：如果 TARGETARCH 为空，使用 uname 检测
-RUN if [ -z "$TARGETARCH" ]; then \
-        case $(uname -m) in \
-            "x86_64") TARGETARCH="amd64" ;; \
-            "aarch64") TARGETARCH="arm64" ;; \
-            "armv7l") TARGETARCH="arm" ;; \
-            *) echo "Unsupported architecture: $(uname -m)" && exit 1 ;; \
-        esac; \
-        echo "[自动检测] 架构: $TARGETARCH"; \
-    else \
-        echo "[BuildKit] 架构: $TARGETARCH"; \
-    fi && \
-    case $TARGETARCH in \
-        "amd64") PROTOC_ARCH="x86_64" ;; \
-        "arm64") PROTOC_ARCH="aarch_64" ;; \
-        "arm") PROTOC_ARCH="arm" ;; \
-        *) echo "Unsupported architecture for protoc: $TARGETARCH" && exit 1 ;; \
-    esac && \
-    PROTOC_PACKAGE="protoc-3.19.4-linux-${PROTOC_ARCH}.zip" && \
-    if [ -f "/app/packages/${PROTOC_PACKAGE}" ]; then \
-        echo "发现本地protoc安装包，将进行离线安装"; \
-        cp /app/packages/${PROTOC_PACKAGE} /app/ && \
-        unzip -o /app/${PROTOC_PACKAGE} -d /usr/local && \
-        chmod +x /usr/local/bin/protoc && \
-        rm -f /app/${PROTOC_PACKAGE}; \
-    else \
-        echo "未发现本地protoc安装包，将进行在线安装"; \
-        curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v3.19.4/${PROTOC_PACKAGE} && \
-        unzip -o ${PROTOC_PACKAGE} -d /usr/local && \
-        chmod +x /usr/local/bin/protoc && \
-        rm -f ${PROTOC_PACKAGE}; \
-    fi
-
-# 复制依赖文件
+# 复制依赖文件（使用 venv 中的 grpc_tools.protoc 生成 protobuf 代码，无需外部 protoc 二进制）
 COPY docreader/pyproject.toml docreader/uv.lock ./
-RUN pip install uv==0.13.0 --break-system-packages && \
+RUN pip install --no-cache-dir uv==0.13.0 --break-system-packages && \
     python -m uv sync --locked --no-dev
 
 # 复制源代码和生成脚本
@@ -94,7 +57,7 @@ RUN if [ -n "$APT_MIRROR" ]; then \
 WORKDIR /app
 
 # 安装运行时依赖（已移除 OCR/PaddleOCR 相关依赖）
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg62-turbo \
     wget \
     gnupg \
@@ -102,6 +65,7 @@ RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0 \
     antiword \
+    bubblewrap \
     tar \
     dpkg \
     libxinerama1 \
@@ -115,9 +79,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# 安装 grpc_health_probe
+# 安装 grpc_health_probe（带固定版本与 SHA-256 哈希核验）
 ARG TARGETARCH
-# 兼容 BuildKit 和传统构建：如果 TARGETARCH 为空，使用 uname 检测
 RUN if [ -z "$TARGETARCH" ]; then \
         case $(uname -m) in \
             "x86_64") TARGETARCH="amd64" ;; \
@@ -131,22 +94,22 @@ RUN if [ -z "$TARGETARCH" ]; then \
     fi && \
     GRPC_HEALTH_PROBE_VERSION=v0.4.24 && \
     case $TARGETARCH in \
-        "amd64") ARCH="amd64" ;; \
-        "arm64") ARCH="arm64" ;; \
-        "arm") ARCH="arm" ;; \
+        "amd64") ARCH="amd64"; PROBE_SHA256="7e564681110ee4563637457b91e42f62f96b79618a835bb05ae2305acdcc3db0" ;; \
+        "arm64") ARCH="arm64"; PROBE_SHA256="3759148e22a494149a4abae269adee0d20c428b966683426e2319f9047da521d" ;; \
+        "arm") ARCH="arm"; PROBE_SHA256="997fa2dec02cea960c5fb74c67aa6dd3e79be14cd183b9221d43244a81564de7" ;; \
         *) echo "Unsupported architecture: $TARGETARCH" && exit 1 ;; \
     esac && \
-    wget -qO/bin/grpc_health_probe https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-${ARCH} && \
-    chmod +x /bin/grpc_health_probe
+    curl -fsSL -o /bin/grpc_health_probe "https://github.com/grpc-ecosystem/grpc-health-probe/releases/download/${GRPC_HEALTH_PROBE_VERSION}/grpc_health_probe-linux-${ARCH}" && \
+    echo "${PROBE_SHA256}  /bin/grpc_health_probe" | sha256sum -c - && \
+    chmod 0755 /bin/grpc_health_probe
 
 # 从构建阶段复制已安装的依赖和生成的代码
 ENV VIRTUAL_ENV=/app/.venv
 COPY --from=builder ${VIRTUAL_ENV} ${VIRTUAL_ENV}
 ENV PATH="${VIRTUAL_ENV}/bin:${PATH}"
 
-COPY --from=builder /usr/local/bin /usr/local/bin
-
-# 安装 Playwright 浏览器（网页解析）。可在构建时切换为内部制品库或镜像源。
+# 安装 Playwright 浏览器到共享只读目录（兼容非 root 用户运行）
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 ARG PLAYWRIGHT_DOWNLOAD_HOST=""
 ARG PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST=""
 RUN if [ -n "$PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST" ]; then \
@@ -156,7 +119,7 @@ RUN if [ -n "$PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST" ]; then \
     else \
         python -m playwright install webkit; \
     fi
-RUN python -m playwright install-deps webkit
+RUN python -m playwright install-deps webkit && rm -rf /var/lib/apt/lists/*
 
 COPY docreader/pyproject.toml docreader/uv.lock ./
 COPY --from=builder /app/docreader docreader
@@ -169,8 +132,15 @@ LABEL org.opencontainers.image.vendor="GENYEE" \
 COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/
 COPY licenses/ /licenses/licenses/
 
-# 创建共享临时图片目录
-RUN mkdir -p /tmp/docreader
+# 创建非特权运行用户与共享临时目录
+ENV HOME=/home/appuser
+RUN groupadd -g 10001 appuser && \
+    useradd -u 10001 -g 10001 -m -s /usr/sbin/nologin appuser && \
+    mkdir -p /tmp/docreader && \
+    chown -R 10001:10001 /tmp/docreader /home/appuser && \
+    chmod -R a+rX,go-w /app /ms-playwright /licenses
+
+USER 10001:10001
 
 # 暴露 gRPC 端口
 EXPOSE 50051

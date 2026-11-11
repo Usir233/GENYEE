@@ -154,6 +154,7 @@ func (b *PolicyBuilder) Build(mode ApprovalMode, ws Workspace) (Policy, error) {
 		ReadableRoots: b.readableRoots(ws),
 		PrivateRoots:  b.privateRoots(),
 		DenyRead:      b.denyRead(),
+		DenyWrite:     b.denyWrite(),
 	}
 
 	switch mode {
@@ -247,6 +248,7 @@ func (b *PolicyBuilder) BuildInstall(dir string) (Policy, error) {
 		ReadableRoots: b.readableRoots(Workspace{Root: dir}),
 		PrivateRoots:  b.privateRoots(),
 		DenyRead:      b.denyRead(),
+		DenyWrite:     b.denyWrite(),
 	}
 	if err := p.Validate(); err != nil {
 		return Policy{}, err
@@ -308,6 +310,11 @@ func (b *PolicyBuilder) rejectBroadWorkspace(root string) error {
 	if b.jobsRoot != "" && (PathUnder(b.jobsRoot, root) || PathUnder(root, b.jobsRoot)) {
 		return fmt.Errorf("%w: %q overlaps the background jobs directory", ErrWorkspaceTooBroad, root)
 	}
+	for _, bskRoot := range b.browserSkillRoots() {
+		if PathUnder(bskRoot, root) || PathUnder(root, bskRoot) {
+			return fmt.Errorf("%w: %q overlaps the BrowserSkill runtime directory", ErrWorkspaceTooBroad, root)
+		}
+	}
 	if isWellKnownWideRoot(root) {
 		return fmt.Errorf("%w: %q", ErrWorkspaceTooBroad, root)
 	}
@@ -321,8 +328,59 @@ func samePath(a, b string) bool {
 	return PathUnder(a, b) && PathUnder(b, a)
 }
 
+func (b *PolicyBuilder) browserSkillRoots() []string {
+	var roots []string
+	seen := make(map[string]struct{}, 6)
+	add := func(raw string) {
+		raw = strings.TrimSpace(raw)
+		if raw == "" || !filepath.IsAbs(raw) {
+			return
+		}
+		cleaned := filepath.Clean(raw)
+		if isFilesystemRoot(cleaned) || isWellKnownWideRoot(cleaned) {
+			return
+		}
+		if b.homeDir != "" && !isFilesystemRoot(b.homeDir) && PathUnder(b.homeDir, cleaned) {
+			return
+		}
+		if _, exists := seen[cleaned]; exists {
+			return
+		}
+		seen[cleaned] = struct{}{}
+		roots = append(roots, cleaned)
+	}
+	if b.homeDir != "" && !isFilesystemRoot(b.homeDir) {
+		add(filepath.Join(b.homeDir, ".genyee", "bsk"))
+		add(filepath.Join(b.homeDir, ".weknora", "bsk"))
+	}
+	if b.appDataDir != "" && !isFilesystemRoot(b.appDataDir) {
+		add(filepath.Join(b.appDataDir, "bsk"))
+	}
+	add(os.Getenv("GENYEE_BSK_RUNTIME_DIR"))
+	add(os.Getenv("BSK_HOME"))
+	return roots
+}
+
+func appendUniquePaths(dst []string, paths ...string) []string {
+	seen := make(map[string]struct{}, len(dst)+len(paths))
+	for _, existing := range dst {
+		seen[existing] = struct{}{}
+	}
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		if _, exists := seen[p]; exists {
+			continue
+		}
+		seen[p] = struct{}{}
+		dst = append(dst, p)
+	}
+	return dst
+}
+
 func (b *PolicyBuilder) denyRead() []string {
-	deny := make([]string, 0, len(credentialDirNames)+2)
+	deny := make([]string, 0, len(credentialDirNames)+6)
 	for _, name := range credentialDirNames {
 		deny = append(deny, filepath.Join(b.homeDir, filepath.FromSlash(name)))
 	}
@@ -330,11 +388,24 @@ func (b *PolicyBuilder) denyRead() []string {
 	// here would let the sandbox lift its own constraints. Validate
 	// rejects a workspace that sits inside this path.
 	if b.appDataDir != "" && b.appDataDir != string(filepath.Separator) {
-		deny = append(deny, b.appDataDir)
+		deny = appendUniquePaths(deny, b.appDataDir)
 	}
 	if b.jobsRoot != "" && !isFilesystemRoot(b.jobsRoot) {
-		deny = append(deny, b.jobsRoot)
+		deny = appendUniquePaths(deny, b.jobsRoot)
 	}
+	deny = appendUniquePaths(deny, b.browserSkillRoots()...)
+	return deny
+}
+
+func (b *PolicyBuilder) denyWrite() []string {
+	var deny []string
+	if b.appDataDir != "" && b.appDataDir != string(filepath.Separator) {
+		deny = appendUniquePaths(deny, b.appDataDir)
+	}
+	if b.jobsRoot != "" && !isFilesystemRoot(b.jobsRoot) {
+		deny = appendUniquePaths(deny, b.jobsRoot)
+	}
+	deny = appendUniquePaths(deny, b.browserSkillRoots()...)
 	return deny
 }
 

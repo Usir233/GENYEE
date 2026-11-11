@@ -32,6 +32,7 @@
   var POSITIONS = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
   var DEFAULT_POSITION = 'bottom-right';
   var DEFAULT_COLOR = '#07C05F';
+  var SAFE_COLOR_RE = /^(?:#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla)\(\s*[0-9.,%\s\/]+\)|[a-zA-Z]{3,20})$/;
   var DEFAULT_TITLE = 'AI Assistant';
   var DEFAULT_WIDTH = 400;
   var DEFAULT_HEIGHT = 600;
@@ -42,6 +43,12 @@
   function normalizePosition(pos) {
     if (!pos || POSITIONS.indexOf(pos) < 0) return DEFAULT_POSITION;
     return pos;
+  }
+
+  function normalizePrimaryColor(color) {
+    var raw = String(color || '').trim();
+    if (!raw || !SAFE_COLOR_RE.test(raw)) return DEFAULT_COLOR;
+    return raw;
   }
 
   function positionStyles(position, kind) {
@@ -127,7 +134,7 @@
     }
 
     var position = normalizePosition(opts.position);
-    var primaryColor = opts.primaryColor || opts.primary_color || DEFAULT_COLOR;
+    var primaryColor = normalizePrimaryColor(opts.primaryColor || opts.primary_color);
     var title = opts.title || DEFAULT_TITLE;
     var baseUrl = (opts.baseUrl || opts.base || '').replace(/\/$/, '');
     if (!baseUrl) {
@@ -206,13 +213,23 @@
       sandboxAttr = String(opts.scriptEl.getAttribute('data-sandbox') || '').trim();
     }
     if (sandboxAttr === 'true' || sandboxAttr === '1') {
-      sandboxAttr = 'allow-scripts allow-forms allow-popups allow-modals allow-same-origin';
+      sandboxAttr = crossOriginEmbed
+        ? 'allow-scripts allow-forms allow-popups allow-modals allow-same-origin'
+        : 'allow-scripts allow-forms allow-popups allow-modals';
     }
     if (!sandboxAttr && crossOriginEmbed) {
       sandboxAttr = 'allow-scripts allow-forms allow-popups allow-modals allow-same-origin';
     }
     if (sandboxAttr && sandboxAttr !== 'false' && sandboxAttr !== '0') {
-      iframe.setAttribute('sandbox', sandboxAttr);
+      // Never combine allow-scripts and allow-same-origin on a same-origin
+      // iframe: the child document could reach window.frameElement and remove
+      // its own sandbox attribute.
+      if (!crossOriginEmbed && /\ballow-scripts\b/.test(sandboxAttr) && /\ballow-same-origin\b/.test(sandboxAttr)) {
+        sandboxAttr = sandboxAttr.replace(/\ballow-same-origin\b/g, '').replace(/\s+/g, ' ').trim();
+      }
+      if (sandboxAttr) {
+        iframe.setAttribute('sandbox', sandboxAttr);
+      }
     }
     iframe.setAttribute('title', title);
     panel.appendChild(iframe);

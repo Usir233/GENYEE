@@ -334,6 +334,12 @@ type Config struct {
 	// connection. Link-local addresses are blocked regardless.
 	AllowPrivateEndpoints bool
 
+	// ConfigTenantID and ConfigID scope process-shared registries (such as
+	// per-sandbox inbound traffic tokens) to the workspace config that owns
+	// this client. Zero / empty indicates an unscoped local helper.
+	ConfigTenantID uint64
+	ConfigID       string
+
 	// DockerImage is the image every sandbox container is created from. It
 	// plays the same role as a Cube/E2B template ID.
 	DockerImage string

@@ -227,25 +227,72 @@ function downloadName(img: ImageAsset, type: string): string {
   return `${base}-${position.value}.${ext}`
 }
 
+const SAFE_RASTER_IMAGE_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/gif',
+  'image/webp',
+  'image/bmp',
+  'image/avif',
+  'image/apng',
+])
+const DANGEROUS_OPEN_EXT_RE = /\.(?:svgz?|x?html?|xml)(?:$|[?#])/i
+
+function triggerBlobDownload(blob: Blob, img: ImageAsset): void {
+  const safeBlob = blob.type === 'application/octet-stream'
+    ? blob
+    : new Blob([blob], { type: 'application/octet-stream' })
+  const url = URL.createObjectURL(safeBlob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = downloadName(img, blob.type)
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
 async function download(): Promise<void> {
   const img = current.value
   if (!img || !src.value) return
   try {
     const blob = await (await fetch(src.value)).blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = downloadName(img, blob.type)
-    a.click()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    triggerBlobDownload(blob, img)
   } catch {
-    // A cross-origin image the browser may not read back: let it open instead.
-    openOriginal()
+    // A cross-origin image the browser may not read back: let it open if safe.
+    await openOriginal()
   }
 }
 
-function openOriginal(): void {
-  if (src.value) window.open(src.value, '_blank', 'noopener')
+async function openOriginal(): Promise<void> {
+  const rawUrl = src.value.trim()
+  const img = current.value
+  if (!rawUrl) return
+  if (rawUrl.startsWith('blob:')) {
+    try {
+      const blob = await (await fetch(rawUrl)).blob()
+      if (!SAFE_RASTER_IMAGE_TYPES.has(blob.type.toLowerCase())) {
+        if (img) triggerBlobDownload(blob, img)
+        return
+      }
+      window.open(rawUrl, '_blank', 'noopener,noreferrer')
+    } catch {
+      // Refuse top-level navigation to unreadable blob: URLs.
+    }
+    return
+  }
+  try {
+    const parsed = new URL(rawUrl, window.location.origin)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return
+    if (
+      DANGEROUS_OPEN_EXT_RE.test(parsed.pathname) ||
+      (img?.url && DANGEROUS_OPEN_EXT_RE.test(img.url)) ||
+      (img?.source_name && DANGEROUS_OPEN_EXT_RE.test(img.source_name))
+    ) {
+      return
+    }
+    window.open(parsed.toString(), '_blank', 'noopener,noreferrer')
+  } catch {
+    // Ignore malformed URLs
+  }
 }
 
 const copyText = (text: string) => copyWithToast(text, 'common.copySuccess')

@@ -21,18 +21,30 @@ COPY docker/odl-hybrid/requirements.txt /tmp/odl-hybrid-requirements.txt
 RUN pip install --no-cache-dir --require-hashes -r /tmp/odl-hybrid-requirements.txt \
     && rm /tmp/odl-hybrid-requirements.txt
 
+COPY docker/odl-hybrid/opendataloader_pdf /app/opendataloader_pdf
+RUN chmod -R a+rX,go-w /app
+ENV PYTHONPATH=/app
+
+RUN groupadd -g 10001 appuser && \
+    useradd -u 10001 -g 10001 -m -s /usr/sbin/nologin appuser
+ENV HOME=/home/appuser
+
 # Optional build-time model preloading for offline / air-gapped deployments:
 # pass --build-arg PRELOAD_MODELS=true to bake Docling layout/table models into the image.
 ARG PRELOAD_MODELS=false
 RUN if [ "$PRELOAD_MODELS" = "true" ]; then \
         docling-tools models download; \
-    fi
+    fi && \
+    chown -R 10001:10001 /home/appuser
 
 LABEL org.opencontainers.image.vendor="GENYEE" \
       org.opencontainers.image.title="genyee-odl-hybrid" \
       org.opencontainers.image.licenses="LicenseRef-GENYEE-Commercial AND MIT"
 COPY LICENSE THIRD_PARTY_NOTICES.md /licenses/
 COPY licenses/ /licenses/licenses/
+RUN chmod -R a+rX,go-w /licenses
+
+USER 10001:10001
 
 EXPOSE 5002
 
@@ -41,4 +53,4 @@ ENV ODL_HYBRID_EXTRA_ARGS="--no-ocr"
 HEALTHCHECK --interval=30s --timeout=10s --retries=5 --start-period=120s \
     CMD curl -f http://localhost:5002/health || exit 1
 
-CMD ["bash", "-c", "exec opendataloader-pdf-hybrid --host 0.0.0.0 --port 5002 ${ODL_HYBRID_EXTRA_ARGS}"]
+CMD ["bash", "-c", "exec python -m opendataloader_pdf.hybrid_server --host 0.0.0.0 --port 5002 ${ODL_HYBRID_EXTRA_ARGS}"]

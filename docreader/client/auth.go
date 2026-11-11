@@ -9,7 +9,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -41,6 +44,66 @@ func LoadAuthConfigFromEnv() *AuthConfig {
 		ServerName: os.Getenv("GRPC_TLS_SERVER_NAME"),
 		AuthToken:  os.Getenv("GRPC_AUTH_TOKEN"),
 	}
+}
+
+// IsTrustedDocReaderAddr reports whether addr is eligible to receive the
+// platform-wide GRPC_AUTH_TOKEN. When DOCREADER_ADDR is configured, only that
+// preconfigured operator endpoint matches; when DOCREADER_ADDR is unset (local
+// standalone SDK usage), only loopback endpoints match.
+func IsTrustedDocReaderAddr(addr string) bool {
+	normalized := normalizeDocReaderAddr(addr)
+	if normalized == "" {
+		return false
+	}
+	configured := normalizeDocReaderAddr(os.Getenv("DOCREADER_ADDR"))
+	if configured != "" {
+		return strings.EqualFold(normalized, configured)
+	}
+	host := extractDocReaderHost(normalized)
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+func normalizeDocReaderAddr(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return ""
+	}
+	if strings.Contains(s, "://") {
+		if u, err := url.Parse(s); err == nil && u.Host != "" {
+			return strings.ToLower(strings.TrimSuffix(u.Host, "."))
+		}
+	}
+	return strings.ToLower(strings.TrimSuffix(s, "."))
+}
+
+func extractDocReaderHost(addr string) string {
+	if h, _, err := net.SplitHostPort(addr); err == nil {
+		return strings.Trim(h, "[]")
+	}
+	return strings.Trim(addr, "[]")
+}
+
+// EffectiveForAddr returns a copy of AuthConfig scoped to addr. Global bearer
+// credentials are never attached to non-preconfigured external hosts or to
+// untrusted plaintext endpoints.
+func (c *AuthConfig) EffectiveForAddr(addr string) *AuthConfig {
+	if c == nil {
+		return &AuthConfig{}
+	}
+	cp := *c
+	if cp.AuthToken != "" && !IsTrustedDocReaderAddr(addr) {
+		cp.AuthToken = ""
+	}
+	return &cp
+}
+
+// BuildDialOptionsForAddr applies EffectiveForAddr before building DialOptions.
+func (c *AuthConfig) BuildDialOptionsForAddr(addr string, maxMsgSize int) ([]grpc.DialOption, error) {
+	return c.EffectiveForAddr(addr).BuildDialOptions(maxMsgSize)
 }
 
 // BuildDialOptions returns the gRPC DialOptions that apply the configured

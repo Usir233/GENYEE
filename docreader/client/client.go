@@ -56,7 +56,7 @@ func NewClientWithAuth(addr string, authConfig *AuthConfig) (*Client, error) {
 		authConfig = &AuthConfig{}
 	}
 
-	opts, err := authConfig.BuildDialOptions(maxMsgSize)
+	opts, err := authConfig.BuildDialOptionsForAddr(addr, maxMsgSize)
 	if err != nil {
 		Logger.Printf("ERROR: Failed to build dial options: %v", err)
 		return nil, err

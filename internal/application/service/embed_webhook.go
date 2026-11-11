@@ -20,7 +20,12 @@ import (
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
-const embedWebhookTimeout = 5 * time.Second
+const (
+	embedWebhookTimeout       = 5 * time.Second
+	maxConcurrentEmbedWebhook = 32
+)
+
+var embedWebhookSem = make(chan struct{}, maxConcurrentEmbedWebhook)
 
 // ErrEmbedWebhookURLInvalid is returned when a webhook URL fails format or SSRF checks.
 var ErrEmbedWebhookURLInvalid = errors.New("invalid embed webhook URL")
@@ -82,8 +87,23 @@ func DispatchEmbedWebhook(ch *types.EmbedChannel, eventType, sessionID string, p
 	if err != nil {
 		return
 	}
-	secret := strings.TrimSpace(ch.WebhookSecret)
+	secret := ""
+	if rawSecret := strings.TrimSpace(ch.WebhookSecret); rawSecret != "" {
+		decrypted, decErr := secutils.DecryptStoredSecret(rawSecret)
+		if decErr != nil {
+			logger.Warnf(context.Background(), "[embed_webhook] skip dispatch %s: decrypt webhook secret failed: %v", eventType, decErr)
+			return
+		}
+		secret = strings.TrimSpace(decrypted)
+	}
+	select {
+	case embedWebhookSem <- struct{}{}:
+	default:
+		logger.Warnf(context.Background(), "[embed_webhook] drop dispatch %s: webhook queue full", eventType)
+		return
+	}
 	go func() {
+		defer func() { <-embedWebhookSem }()
 		ctx, cancel := context.WithTimeout(context.Background(), embedWebhookTimeout)
 		defer cancel()
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(raw))

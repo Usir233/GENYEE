@@ -254,7 +254,7 @@ func (c *Client) ListAgents(ctx context.Context) ([]Agent, error) {
 
 // GetAgent retrieves an agent by its ID
 func (c *Client) GetAgent(ctx context.Context, agentID string) (*Agent, error) {
-	path := fmt.Sprintf("/api/v1/agents/%s", agentID)
+	path := fmt.Sprintf("/api/v1/agents/%s", escapePathSegment(agentID))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -270,7 +270,7 @@ func (c *Client) GetAgent(ctx context.Context, agentID string) (*Agent, error) {
 
 // UpdateAgent updates an existing agent
 func (c *Client) UpdateAgent(ctx context.Context, agentID string, request *UpdateAgentRequest) (*Agent, error) {
-	path := fmt.Sprintf("/api/v1/agents/%s", agentID)
+	path := fmt.Sprintf("/api/v1/agents/%s", escapePathSegment(agentID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, request, nil)
 	if err != nil {
 		return nil, err
@@ -287,7 +287,7 @@ func (c *Client) UpdateAgent(ctx context.Context, agentID string, request *Updat
 // PatchAgent changes only the fields set in request, keeping the rest of the
 // agent, unlike UpdateAgent, which replaces the whole config.
 func (c *Client) PatchAgent(ctx context.Context, agentID string, request *PatchAgentRequest) (*Agent, error) {
-	path := fmt.Sprintf("/api/v1/agents/%s", agentID)
+	path := fmt.Sprintf("/api/v1/agents/%s", escapePathSegment(agentID))
 	resp, err := c.doRequest(ctx, http.MethodPatch, path, request, nil)
 	if err != nil {
 		return nil, err
@@ -303,7 +303,7 @@ func (c *Client) PatchAgent(ctx context.Context, agentID string, request *PatchA
 
 // DeleteAgent deletes a custom agent by its ID
 func (c *Client) DeleteAgent(ctx context.Context, agentID string) error {
-	path := fmt.Sprintf("/api/v1/agents/%s", agentID)
+	path := fmt.Sprintf("/api/v1/agents/%s", escapePathSegment(agentID))
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
@@ -319,7 +319,7 @@ func (c *Client) DeleteAgent(ctx context.Context, agentID string) error {
 
 // CopyAgent creates a copy of an existing agent
 func (c *Client) CopyAgent(ctx context.Context, agentID string) (*Agent, error) {
-	path := fmt.Sprintf("/api/v1/agents/%s/copy", agentID)
+	path := fmt.Sprintf("/api/v1/agents/%s/copy", escapePathSegment(agentID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -384,7 +384,7 @@ type SuggestedQuestionsResponse struct {
 //
 // When request is nil, uses the agent's default knowledge base configuration.
 func (c *Client) GetSuggestedQuestions(ctx context.Context, agentID string, request *SuggestedQuestionsRequest) ([]SuggestedQuestion, error) {
-	path := fmt.Sprintf("/api/v1/agents/%s/suggested-questions", agentID)
+	path := fmt.Sprintf("/api/v1/agents/%s/suggested-questions", escapePathSegment(agentID))
 
 	query := url.Values{}
 	if request != nil {

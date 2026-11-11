@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 env:
   GO_VERSION: "1.27.3"
@@ -28,11 +28,11 @@ jobs:
   build-frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: refs/tags/${{ inputs.tag }}
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -44,7 +44,7 @@ jobs:
           npm ci
           npm run build
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: frontend-dist
           path: frontend/dist/
@@ -75,16 +75,16 @@ jobs:
       GOOS: ${{ matrix.goos }}
       GOARCH: ${{ matrix.goarch }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: refs/tags/${{ inputs.tag }}
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: frontend-dist
           path: web/
@@ -135,7 +135,7 @@ jobs:
           tar czf "${ARCHIVE}.tar.gz" "${ARCHIVE}"
           shasum -a 256 "${ARCHIVE}.tar.gz" > "${ARCHIVE}.tar.gz.sha256"
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: release-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
@@ -174,22 +174,22 @@ jobs:
     env:
       CGO_ENABLED: 1
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: refs/tags/${{ inputs.tag }}
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
 
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: frontend-dist
           path: web/
@@ -341,7 +341,7 @@ jobs:
           cp "$INSTALLER" "${ARCHIVE}_setup.exe"
           sha256sum "${ARCHIVE}_setup.exe" > "${ARCHIVE}_setup.exe.sha256"
 
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ${{ matrix.artifact_name }}
           path: |
@@ -357,17 +357,19 @@ jobs:
   release:
     needs: [build-binary, build-desktop-app]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: refs/tags/${{ inputs.tag }}
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: release-*
           merge-multiple: true
 
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: desktop-*
           merge-multiple: true
@@ -454,8 +456,10 @@ jobs:
     if: github.ref == 'refs/heads/main'
     needs: release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}

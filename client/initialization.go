@@ -82,7 +82,7 @@ type ModelCheckResult struct {
 // parses ONLY the non-secret fields (apiKey/baseUrl are never read into the
 // struct, so they cannot leak through the CLI) and remaps to snake_case.
 func (c *Client) GetInitializationConfig(ctx context.Context, kbID string) (*KBModelConfigView, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/initialization/config/%s", kbID), nil, nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/initialization/config/%s", escapePathSegment(kbID)), nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (c *Client) GetInitializationConfig(ctx context.Context, kbID string) (*KBM
 
 // InitializeByKB initializes a knowledge base with model configuration
 func (c *Client) InitializeByKB(ctx context.Context, kbID string, config *InitializationConfig) error {
-	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/initialization/initialize/%s", kbID), config, nil)
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/initialization/initialize/%s", escapePathSegment(kbID)), config, nil)
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (c *Client) InitializeByKB(ctx context.Context, kbID string, config *Initia
 // (fields llmModelId / embeddingModelId), not InitializationConfig, so this
 // method sends a shape the server rejects. Use SetKBModelConfig instead.
 func (c *Client) UpdateKBConfig(ctx context.Context, kbID string, config *InitializationConfig) error {
-	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/initialization/config/%s", kbID), config, nil)
+	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/initialization/config/%s", escapePathSegment(kbID)), config, nil)
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ type KBModelConfig struct {
 // server rejects unknown model ids and refuses to change the embedding model of
 // a KB that already has documents.
 func (c *Client) SetKBModelConfig(ctx context.Context, kbID string, cfg *KBModelConfig) error {
-	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/initialization/config/%s", kbID), cfg, nil)
+	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/initialization/config/%s", escapePathSegment(kbID)), cfg, nil)
 	if err != nil {
 		return err
 	}
@@ -235,7 +235,7 @@ func (c *Client) DownloadOllamaModel(ctx context.Context, modelName string) (*Do
 
 // GetOllamaDownloadProgress gets the download progress of an Ollama model
 func (c *Client) GetOllamaDownloadProgress(ctx context.Context, taskID string) (*DownloadTask, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/initialization/ollama/download/progress/%s", taskID), nil, nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/initialization/ollama/download/progress/%s", escapePathSegment(taskID)), nil, nil)
 	if err != nil {
 		return nil, err
 	}

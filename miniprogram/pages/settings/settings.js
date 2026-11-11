@@ -95,11 +95,19 @@ Page({
   },
 
   save() {
-    saveSettings({
-      baseUrl: this.data.baseUrl,
-      apiKey: this.data.apiKey,
-      locale: LANGUAGE_VALUES[this.data.languageIndex] || getLocale()
-    });
+    try {
+      saveSettings({
+        baseUrl: this.data.baseUrl,
+        apiKey: this.data.apiKey,
+        locale: LANGUAGE_VALUES[this.data.languageIndex] || getLocale()
+      });
+    } catch (error) {
+      wx.showToast({
+        title: (error && error.message) || "Invalid HTTPS URL",
+        icon: "none"
+      });
+      return;
+    }
     this.refreshI18n();
     wx.showToast({ title: t("saved"), icon: "success" });
   }

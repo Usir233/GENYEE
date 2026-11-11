@@ -12,6 +12,7 @@ import (
 	apperrors "github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -54,6 +55,40 @@ func generateEmbedPublishToken() (string, error) {
 	return "em_" + base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
+func encryptEmbedChannelForStore(ch *types.EmbedChannel) (*types.EmbedChannel, error) {
+	if ch == nil {
+		return nil, nil
+	}
+	clone := *ch
+	if raw := strings.TrimSpace(clone.WebhookSecret); raw != "" {
+		if key := secutils.GetAESKey(); len(key) > 0 {
+			encrypted, err := secutils.EncryptAESGCM(raw, key)
+			if err != nil {
+				return nil, fmt.Errorf("encrypt embed webhook secret: %w", err)
+			}
+			clone.WebhookSecret = encrypted
+		}
+	}
+	return &clone, nil
+}
+
+func decryptEmbedChannelInPlace(ch *types.EmbedChannel) {
+	if ch == nil {
+		return
+	}
+	if strings.TrimSpace(ch.WebhookSecret) != "" {
+		if dec, ok := secutils.DecryptStoredSecretLenient(ch.WebhookSecret); ok {
+			ch.WebhookSecret = dec
+		}
+	}
+}
+
+func decryptEmbedChannelSlice(list []*types.EmbedChannel) {
+	for _, ch := range list {
+		decryptEmbedChannelInPlace(ch)
+	}
+}
+
 func (s *embedChannelService) Create(
 	ctx context.Context, tenantID uint64, agentID string, req *types.EmbedChannel,
 ) (*types.EmbedChannel, string, error) {
@@ -68,6 +103,10 @@ func (s *embedChannelService) Create(
 	originsJSON := req.AllowedOrigins
 	if len(originsJSON) == 0 {
 		originsJSON = []byte("[]")
+	}
+	webhookURL := strings.TrimSpace(req.WebhookURL)
+	if err := ValidateEmbedWebhookURL(webhookURL); err != nil {
+		return nil, "", err
 	}
 	ch := &types.EmbedChannel{
 		TenantID:               tenantID,
@@ -87,6 +126,8 @@ func (s *embedChannelService) Create(
 		AllowWebSearch:         req.AllowWebSearch,
 		AllowFileUpload:        req.AllowFileUpload,
 		DefaultLocale:          types.NormalizeEmbedDefaultLocale(req.DefaultLocale),
+		WebhookURL:             webhookURL,
+		WebhookSecret:          strings.TrimSpace(req.WebhookSecret),
 	}
 	if ch.RateLimitPerMinute <= 0 {
 		ch.RateLimitPerMinute = 30
@@ -94,9 +135,16 @@ func (s *embedChannelService) Create(
 	if ch.RateLimitPerDay <= 0 {
 		ch.RateLimitPerDay = types.DefaultEmbedRateLimitPerDay
 	}
-	if err := s.repo.Create(ctx, ch); err != nil {
+	toSave, err := encryptEmbedChannelForStore(ch)
+	if err != nil {
 		return nil, "", err
 	}
+	if err := s.repo.Create(ctx, toSave); err != nil {
+		return nil, "", err
+	}
+	ch.ID = toSave.ID
+	ch.CreatedAt = toSave.CreatedAt
+	ch.UpdatedAt = toSave.UpdatedAt
 	return ch, token, nil
 }
 
@@ -107,13 +155,23 @@ func (s *embedChannelService) ListByAgent(
 	if _, err := s.ensureAgentOwned(ctx, tenantID, agentID); err != nil {
 		return nil, err
 	}
-	return s.repo.ListByAgent(ctx, tenantID, agentID)
+	list, err := s.repo.ListByAgent(ctx, tenantID, agentID)
+	if err != nil {
+		return nil, err
+	}
+	decryptEmbedChannelSlice(list)
+	return list, nil
 }
 
 func (s *embedChannelService) ListByTenant(
 	ctx context.Context, tenantID uint64,
 ) ([]*types.EmbedChannel, error) {
-	return s.repo.ListByTenant(ctx, tenantID)
+	list, err := s.repo.ListByTenant(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	decryptEmbedChannelSlice(list)
+	return list, nil
 }
 
 func (s *embedChannelService) Update(
@@ -179,9 +237,14 @@ func (s *embedChannelService) Update(
 		}
 		ch.AgentID = trimmed
 	}
-	if err := s.repo.Update(ctx, ch); err != nil {
+	toSave, err := encryptEmbedChannelForStore(ch)
+	if err != nil {
 		return nil, err
 	}
+	if err := s.repo.Update(ctx, toSave); err != nil {
+		return nil, err
+	}
+	ch.UpdatedAt = toSave.UpdatedAt
 	return ch, nil
 }
 
@@ -204,9 +267,14 @@ func (s *embedChannelService) RotateToken(
 		return nil, "", err
 	}
 	ch.PublishToken = token
-	if err := s.repo.Update(ctx, ch); err != nil {
+	toSave, err := encryptEmbedChannelForStore(ch)
+	if err != nil {
 		return nil, "", err
 	}
+	if err := s.repo.Update(ctx, toSave); err != nil {
+		return nil, "", err
+	}
+	ch.UpdatedAt = toSave.UpdatedAt
 	return ch, token, nil
 }
 
@@ -230,6 +298,7 @@ func (s *embedChannelService) LookupForEmbed(
 	if subtle.ConstantTimeCompare([]byte(ch.PublishToken), []byte(token)) != 1 {
 		return nil, ErrEmbedTokenInvalid
 	}
+	decryptEmbedChannelInPlace(ch)
 	return ch, nil
 }
 
@@ -393,6 +462,7 @@ func (s *embedChannelService) getOwned(ctx context.Context, tenantID uint64, id 
 	if ch == nil || ch.TenantID != tenantID {
 		return nil, ErrEmbedChannelNotFound
 	}
+	decryptEmbedChannelInPlace(ch)
 	return ch, nil
 }
 

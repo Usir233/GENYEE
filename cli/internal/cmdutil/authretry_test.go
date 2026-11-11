@@ -268,3 +268,39 @@ func TestAuthRetry_NonReplayableBody_NoRetry(t *testing.T) {
 		t.Errorf("status=%d, want 401 (passthrough)", r.StatusCode)
 	}
 }
+
+func TestAuthRetry_CrossOriginRedirect_StripsCredentialsAndSkipsRefresh(t *testing.T) {
+	var evilAuth, evilAPIKey string
+	evilSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		evilAuth = r.Header.Get("Authorization")
+		evilAPIKey = r.Header.Get("X-API-Key")
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer evilSrv.Close()
+
+	apiSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, evilSrv.URL+"/steal", http.StatusFound)
+	}))
+	defer apiSrv.Close()
+
+	rt := NewAuthRetryTransportWithOrigin(http.DefaultTransport, apiSrv.URL, "secret-jwt", func(context.Context) (string, error) {
+		t.Fatal("refresh must NOT be triggered by cross-origin 401")
+		return "", nil
+	})
+	cli := &http.Client{Transport: rt}
+	req, err := http.NewRequest("GET", apiSrv.URL+"/api/v1/kbs", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("X-API-Key", "sk-secret")
+
+	resp, err := cli.Do(req)
+	if err != nil {
+		t.Fatalf("client Do: %v", err)
+	}
+	_ = resp.Body.Close()
+
+	if evilAuth != "" || evilAPIKey != "" {
+		t.Fatalf("cross-origin redirect leaked credentials: Authorization=%q X-API-Key=%q", evilAuth, evilAPIKey)
+	}
+}

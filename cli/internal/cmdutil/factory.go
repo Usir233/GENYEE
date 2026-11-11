@@ -135,6 +135,12 @@ func buildClient(f *Factory) (*sdk.Client, error) {
 			WithHint("add one first: `genyee profile add <name> --host <url> --use`, then `genyee auth login` (or set GENYEE_API_KEY + GENYEE_HOST for headless use)").
 			WithRetryArgv([]string{"genyee", "profile", "add", "--help"})
 	}
+	if err := ValidateProfileName(profileName); err != nil {
+		if f.ProfileOverride != "" {
+			return nil, err
+		}
+		return nil, Wrapf(CodeLocalConfigCorrupt, err, "invalid current_profile %q", profileName)
+	}
 	prof, ok := cfg.Profiles[profileName]
 	if !ok {
 		// If the user explicitly overrode the profile (via --profile flag or
@@ -153,6 +159,11 @@ func buildClient(f *Factory) (*sdk.Client, error) {
 	if prof.Host == "" {
 		return nil, NewError(CodeLocalConfigCorrupt, fmt.Sprintf("profile %q has no host", profileName))
 	}
+	normalizedHost, err := NormalizeHost(prof.Host)
+	if err != nil {
+		return nil, Wrapf(CodeLocalConfigCorrupt, err, "profile %q has invalid host", profileName)
+	}
+	prof.Host = normalizedHost
 
 	opts := []sdk.ClientOption{}
 	store, err := f.Secrets()
@@ -189,7 +200,7 @@ func buildClient(f *Factory) (*sdk.Client, error) {
 			return refreshAccessToken(rctx, store, prof.Host, profileName)
 		}
 		opts = append(opts, sdk.WithTransport(
-			NewAuthRetryTransport(http.DefaultTransport, accessToken, refreshFn),
+			NewAuthRetryTransportWithOrigin(http.DefaultTransport, prof.Host, accessToken, refreshFn),
 		))
 	}
 	// prof.TenantID is intentionally NOT injected as X-Tenant-ID. Servers derive
@@ -247,6 +258,11 @@ func buildClientFromEnv(f *Factory) (client *sdk.Client, handled bool, err error
 			"GENYEE_TOKEN / GENYEE_API_KEY is set but no host is available").
 			WithHint("set GENYEE_HOST (e.g. https://kb.example.com) or configure a profile host")
 	}
+	normalizedHost, err := NormalizeHost(host)
+	if err != nil {
+		return nil, true, err
+	}
+	host = normalizedHost
 	if token != "" {
 		return sdk.NewClient(host, sdk.WithBearerToken(token)), true, nil
 	}
@@ -308,6 +324,9 @@ func (f *Factory) ResolveKBLocal(cmd *cobra.Command) (string, error) {
 // CodeKBIDRequired when neither is set. Never calls the SDK.
 func (f *Factory) resolveKBFromEnvOrLink() (string, error) {
 	if v := os.Getenv("GENYEE_KB_ID"); v != "" {
+		if err := ValidateResourceID("GENYEE_KB_ID", v); err != nil {
+			return "", err
+		}
 		return v, nil
 	}
 	cwd, err := os.Getwd()
@@ -317,7 +336,15 @@ func (f *Factory) resolveKBFromEnvOrLink() (string, error) {
 			if lerr != nil {
 				return "", Wrapf(CodeProjectLinkCorrupt, lerr, "read project link")
 			}
+			if p.Profile != "" {
+				if perr := ValidateProfileName(p.Profile); perr != nil {
+					return "", Wrapf(CodeProjectLinkCorrupt, perr, "invalid profile in project link")
+				}
+			}
 			if p.KBID != "" {
+				if !IsValidResourceID(p.KBID) {
+					return "", NewError(CodeProjectLinkCorrupt, fmt.Sprintf("invalid kb_id %q in project link", p.KBID))
+				}
 				return p.KBID, nil
 			}
 		}

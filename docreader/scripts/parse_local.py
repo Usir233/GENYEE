@@ -17,6 +17,33 @@ import time
 from docreader.parser import Parser
 
 
+def resolve_safe_image_dest(out_dir: str, ref_path: str) -> str:
+    """Resolve an image destination strictly inside ``<out_dir>/images``."""
+    out_root = os.path.realpath(os.path.abspath(out_dir))
+    img_root = os.path.realpath(os.path.join(out_root, "images"))
+    raw_ref = ref_path or ""
+    if (
+        not raw_ref
+        or "\x00" in raw_ref
+        or raw_ref.startswith(("/", "\\"))
+        or os.path.isabs(raw_ref)
+        or (len(raw_ref) >= 2 and raw_ref[1] == ":")
+    ):
+        raise ValueError(f"Unsafe image reference path: {ref_path!r}")
+    normalized_ref = raw_ref.replace("\\", "/")
+    parts = [p for p in normalized_ref.split("/") if p]
+    if not parts or any(p in (".", "..") for p in parts):
+        raise ValueError(f"Path traversal in image reference path: {ref_path!r}")
+    if parts[0] == "images":
+        parts = parts[1:]
+    if not parts:
+        raise ValueError(f"Empty image filename in reference path: {ref_path!r}")
+    candidate = os.path.realpath(os.path.join(img_root, *parts))
+    if os.path.commonpath([img_root, candidate]) != img_root or candidate == img_root:
+        raise ValueError(f"Image destination escapes images directory: {ref_path!r}")
+    return candidate
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="解析本地文件并输出 markdown")
     parser.add_argument("path", help="待解析的本地文件路径")
@@ -104,7 +131,7 @@ def main() -> int:
                     raw = base64.b64decode(b64data)
                 except Exception:
                     raw = b64data if isinstance(b64data, bytes) else b64data.encode()
-                dest = os.path.join(out_dir, ref_path)
+                dest = resolve_safe_image_dest(out_dir, ref_path)
                 os.makedirs(os.path.dirname(dest), exist_ok=True)
                 with open(dest, "wb") as imgf:
                     imgf.write(raw)

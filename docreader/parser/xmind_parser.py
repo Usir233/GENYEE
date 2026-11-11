@@ -4,14 +4,24 @@ import io
 import json
 import zipfile
 from dataclasses import dataclass, field
-from xml.etree import ElementTree
 from xml.etree.ElementTree import Element
 
+from defusedxml import ElementTree
+from defusedxml.common import DefusedXmlException
+
 from docreader.models.document import Document
+from docreader.parser.archive import (
+    ArchiveLimitError,
+    MAX_ARCHIVE_ENTRIES,
+    MAX_COMPRESSION_RATIO,
+    ZIP_STREAM_CHUNK_BYTES,
+    validate_zip_archive,
+)
 from docreader.parser.base_parser import BaseParser
 
 
 MAX_CONTENT_BYTES = 32 * 1024 * 1024
+_RATIO_MIN_BYTES = 1024 * 1024
 
 
 @dataclass
@@ -122,7 +132,7 @@ def _topic_from_xml(element: Element) -> _Topic:
 def _parse_xml_sheets(payload: bytes) -> list[_Sheet]:
     try:
         root = ElementTree.fromstring(payload)
-    except ElementTree.ParseError as exc:
+    except (ElementTree.ParseError, DefusedXmlException) as exc:
         raise ValueError("invalid XMind content.xml") from exc
 
     sheets: list[_Sheet] = []
@@ -142,6 +152,7 @@ def _parse_xml_sheets(payload: bytes) -> list[_Sheet]:
 def _read_content_entry(content: bytes) -> tuple[str, bytes]:
     try:
         with zipfile.ZipFile(io.BytesIO(content)) as archive:
+            validate_zip_archive(archive, max_entries=MAX_ARCHIVE_ENTRIES)
             try:
                 info = archive.getinfo("content.json")
                 content_format = "json"
@@ -159,10 +170,28 @@ def _read_content_entry(content: bytes) -> tuple[str, bytes]:
             if info.file_size > MAX_CONTENT_BYTES:
                 raise ValueError("XMind content entry exceeds the 32 MiB limit")
 
+            chunks: list[bytes] = []
+            read_so_far = 0
             with archive.open(info) as entry:
-                payload = entry.read(MAX_CONTENT_BYTES + 1)
-            if len(payload) > MAX_CONTENT_BYTES:
-                raise ValueError("XMind content entry exceeds the 32 MiB limit")
+                while True:
+                    chunk = entry.read(ZIP_STREAM_CHUNK_BYTES)
+                    if not chunk:
+                        break
+                    read_so_far += len(chunk)
+                    if read_so_far > MAX_CONTENT_BYTES:
+                        raise ValueError(
+                            "XMind content entry exceeds the 32 MiB limit"
+                        )
+                    if (
+                        info.compress_size > 0
+                        and read_so_far > _RATIO_MIN_BYTES
+                        and (read_so_far / info.compress_size) > MAX_COMPRESSION_RATIO
+                    ):
+                        raise ArchiveLimitError(
+                            f"Suspicious compression ratio for XMind {info.filename}"
+                        )
+                    chunks.append(chunk)
+            payload = b"".join(chunks)
             return content_format, payload
     except zipfile.BadZipFile as exc:
         raise ValueError("invalid XMind archive") from exc

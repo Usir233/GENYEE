@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-import logging
 import codecs
+import logging
 import os
 import subprocess
 import tempfile
 import time
-from pathlib import Path
 from typing import Optional
+
+from docreader.parser.soffice_sandbox import (
+    run_soffice_convert,
+    sanitize_temp_suffix,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,37 +52,38 @@ def engine_for_format(ext: str | None) -> str:
 
 
 def convert_excel_to_xlsx_bytes(content: bytes, suffix: str = ".xlsx") -> bytes | None:
-    """Convert arbitrary spreadsheet bytes to XLSX using LibreOffice, if available."""
+    """Convert arbitrary spreadsheet bytes to XLSX using sandboxed LibreOffice."""
     soffice = find_soffice()
     if not soffice:
         return None
 
+    safe_suffix = sanitize_temp_suffix(suffix, default=".xlsx")
     max_attempts = 3
     for attempt in range(1, max_attempts + 1):
         with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as profile_dir:
-            src = os.path.join(temp_dir, f"input{suffix}")
+            src_dir = os.path.join(temp_dir, "in")
+            out_dir = os.path.join(temp_dir, "out")
+            os.makedirs(src_dir, exist_ok=True)
+            os.makedirs(out_dir, exist_ok=True)
+            src = os.path.join(src_dir, f"input{safe_suffix}")
             with open(src, "wb") as handle:
                 handle.write(content)
 
-            user_installation = Path(profile_dir).as_uri()
-            cmd = [
-                soffice,
-                "--headless",
-                f"-env:UserInstallation={user_installation}",
-                "--convert-to",
-                "xlsx",
-                "--outdir",
-                temp_dir,
-                src,
-            ]
             try:
-                result = subprocess.run(cmd, capture_output=True, timeout=120)
-            except (OSError, subprocess.TimeoutExpired) as exc:
-                logger.warning("LibreOffice convert failed to start: %s", exc)
+                _stdout, stderr_bytes, returncode = run_soffice_convert(
+                    soffice,
+                    convert_to="xlsx",
+                    outdir=out_dir,
+                    input_path=src,
+                    profile_dir=profile_dir,
+                    timeout=120,
+                )
+            except (OSError, RuntimeError) as exc:
+                logger.warning("LibreOffice convert failed: %s", exc)
                 return None
 
-            if result.returncode != 0:
-                stderr = result.stderr.decode("utf-8", errors="ignore")
+            if returncode != 0:
+                stderr = stderr_bytes.decode("utf-8", errors="ignore")
                 logger.warning(
                     "LibreOffice convert failed (attempt %s/%s): %s",
                     attempt,
@@ -90,13 +95,16 @@ def convert_excel_to_xlsx_bytes(content: bytes, suffix: str = ".xlsx") -> bytes 
                     continue
                 return None
 
-            for name in os.listdir(temp_dir):
+            for name in os.listdir(out_dir):
                 if name.endswith(".xlsx"):
-                    with open(os.path.join(temp_dir, name), "rb") as handle:
+                    out_path = os.path.join(out_dir, name)
+                    if os.path.islink(out_path) or not os.path.isfile(out_path):
+                        continue
+                    with open(out_path, "rb") as handle:
                         converted = handle.read()
                     logger.info(
                         "Converted spreadsheet via LibreOffice (%s -> xlsx, %d bytes)",
-                        suffix,
+                        safe_suffix,
                         len(converted),
                     )
                     return converted

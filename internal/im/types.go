@@ -118,11 +118,12 @@ func (ch *IMChannel) BeforeCreate(tx *gorm.DB) error {
 		return err
 	}
 	ch.BotIdentity = ch.computeBotIdentity()
+	ch.Credentials = EncryptCredentialsJSON(ch.Credentials)
 	return nil
 }
 
-// BeforeSave ensures bot_identity is recomputed and session_mode is validated
-// on every save (create + update).
+// BeforeSave ensures bot_identity is recomputed, session_mode is validated,
+// and credentials are encrypted at rest on every save (create + update).
 func (ch *IMChannel) BeforeSave(tx *gorm.DB) error {
 	if ch.SessionMode == "" {
 		ch.SessionMode = string(SessionModeUser)
@@ -134,6 +135,20 @@ func (ch *IMChannel) BeforeSave(tx *gorm.DB) error {
 		return err
 	}
 	ch.BotIdentity = ch.computeBotIdentity()
+	ch.Credentials = EncryptCredentialsJSON(ch.Credentials)
+	return nil
+}
+
+// AfterSave restores decrypted credentials on the in-memory struct after DB write.
+func (ch *IMChannel) AfterSave(tx *gorm.DB) error {
+	ch.Credentials = DecryptCredentialsJSON(ch.Credentials)
+	return nil
+}
+
+// AfterFind decrypts stored credentials after loading from the database while
+// seamlessly preserving legacy unencrypted JSON entries.
+func (ch *IMChannel) AfterFind(tx *gorm.DB) error {
+	ch.Credentials = DecryptCredentialsJSON(ch.Credentials)
 	return nil
 }
 
@@ -164,7 +179,7 @@ func (ch *IMChannel) validateSessionMode() error {
 // platform, mode, and credentials. Returns "" if no identity can be extracted.
 func (ch *IMChannel) computeBotIdentity() string {
 	creds := make(map[string]interface{})
-	if err := json.Unmarshal([]byte(ch.Credentials), &creds); err != nil {
+	if err := json.Unmarshal([]byte(DecryptCredentialsJSON(ch.Credentials)), &creds); err != nil {
 		return ""
 	}
 

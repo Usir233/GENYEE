@@ -200,6 +200,14 @@ func resolvePolicyPaths(p core.Policy) (core.Policy, error) {
 			return core.Policy{}, err
 		}
 	}
+	out.DenyWrite = make([]string, len(p.DenyWrite))
+	for i, deny := range p.DenyWrite {
+		var err error
+		out.DenyWrite[i], err = resolveExisting(deny)
+		if err != nil {
+			return core.Policy{}, err
+		}
+	}
 	cwd, err := resolveExisting(p.Cwd)
 	if err != nil {
 		return core.Policy{}, err

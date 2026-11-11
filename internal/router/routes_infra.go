@@ -119,9 +119,11 @@ func RegisterInitializationRoutes(r *gin.RouterGroup, handler *handler.Initializ
 	g.apiKeyRoute(r, http.MethodGet, "/initialization/ollama/status", apiKeyManageModels(apiKeyFullAccess()), g.Viewer(), handler.CheckOllamaStatus)
 	g.apiKeyRoute(r, http.MethodGet, "/initialization/ollama/models", apiKeyManageModels(apiKeyFullAccess()), g.Viewer(), handler.ListOllamaModels)
 	g.apiKeyRoute(r, http.MethodPost, "/initialization/ollama/models/check", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.CheckOllamaModels)
-	g.apiKeyRoute(r, http.MethodPost, "/initialization/ollama/models/download", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.DownloadOllamaModel)
-	g.apiKeyRoute(r, http.MethodGet, "/initialization/ollama/download/progress/:taskId", apiKeyManageModels(apiKeyFullAccess()), g.Viewer(), handler.GetDownloadProgress)
-	g.apiKeyRoute(r, http.MethodGet, "/initialization/ollama/download/tasks", apiKeyManageModels(apiKeyFullAccess()), g.Viewer(), handler.ListDownloadTasks)
+	// Shared Ollama model download and global download task inspection mutate/expose
+	// cluster-wide state, so they are restricted to authenticated SystemAdmin users.
+	r.POST("/initialization/ollama/models/download", g.SystemAdmin(), handler.DownloadOllamaModel)
+	r.GET("/initialization/ollama/download/progress/:taskId", g.SystemAdmin(), handler.GetDownloadProgress)
+	r.GET("/initialization/ollama/download/tasks", g.SystemAdmin(), handler.ListDownloadTasks)
 
 	// 远程API相关接口
 	g.apiKeyRoute(r, http.MethodPost, "/initialization/remote/check", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.CheckRemoteModel)

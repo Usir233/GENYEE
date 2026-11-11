@@ -27,12 +27,18 @@ class ResolveUploadFilePathTest(unittest.TestCase):
 
     def test_network_transport_blocks_path_outside_cwd(self):
         os.environ["MCP_TRANSPORT"] = "http"
+        os.environ.pop("MCP_ALLOWED_UPLOAD_DIRS", None)
         with tempfile.TemporaryDirectory() as tmp:
             os.chdir(tmp)
             allowed = os.path.join(tmp, "note.txt")
             with open(allowed, "w", encoding="utf-8") as handle:
                 handle.write("ok")
 
+            # GENYEE-HIGH-19: remote transport fails closed without MCP_ALLOWED_UPLOAD_DIRS
+            with self.assertRaises(ValueError):
+                resolve_upload_file_path("note.txt")
+
+            os.environ["MCP_ALLOWED_UPLOAD_DIRS"] = tmp
             resolved = resolve_upload_file_path("note.txt")
             self.assertEqual(resolved, os.path.realpath(allowed))
 
@@ -42,12 +48,17 @@ class ResolveUploadFilePathTest(unittest.TestCase):
     def test_active_transport_without_env_blocks_path_outside_cwd(self):
         """CLI --transport http sets active transport without MCP_TRANSPORT env."""
         set_active_transport("http")
+        os.environ.pop("MCP_ALLOWED_UPLOAD_DIRS", None)
         with tempfile.TemporaryDirectory() as tmp:
             os.chdir(tmp)
             allowed = os.path.join(tmp, "note.txt")
             with open(allowed, "w", encoding="utf-8") as handle:
                 handle.write("ok")
 
+            with self.assertRaises(ValueError):
+                resolve_upload_file_path("note.txt")
+
+            os.environ["MCP_ALLOWED_UPLOAD_DIRS"] = tmp
             resolved = resolve_upload_file_path("note.txt")
             self.assertEqual(resolved, os.path.realpath(allowed))
 

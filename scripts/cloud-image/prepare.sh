@@ -154,8 +154,21 @@ EOF
 
 echo "[prepare] 3/6 准备 .env (默认值, firstboot 会替换为随机密钥)"
 cd "${GENYEE_DIR}"
-[[ -f .env ]] || cp .env.example .env
+if [[ ! -f .env ]]; then
+  (umask 077 && cp .env.example .env)
+fi
+chmod 0600 .env
+gen_tmp_secret() ( set +o pipefail; LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$1" )
+for k in DB_PASSWORD REDIS_PASSWORD JWT_SECRET SYSTEM_SIGNING_KEY GRPC_AUTH_TOKEN ODL_HYBRID_AUTH_TOKEN; do
+  if grep -qE "^${k}=$" .env; then
+    sed -i "s|^${k}=$|${k}=$(gen_tmp_secret 32)|" .env
+  fi
+done
+if grep -qE '^SYSTEM_AES_KEY=$' .env; then
+  sed -i "s|^SYSTEM_AES_KEY=$|SYSTEM_AES_KEY=$(gen_tmp_secret 32)|" .env
+fi
 sed -i 's/^GIN_MODE=.*/GIN_MODE=release/' .env || true
+chmod 0600 .env
 
 # 把 GENYEE_VERSION 与 GENYEE_REF 对齐, 让 docker compose 拉取与 ref 一致的
 # 镜像 tag。无条件覆盖, 避免 .env 残留上一次 prepare 留下的旧版本号。

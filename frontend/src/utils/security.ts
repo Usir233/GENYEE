@@ -92,13 +92,64 @@ const DOMPurifyConfig = {
     // KaTeX MathML 支持的属性
     'mathvariant', 'encoding', 'aria-hidden'
   ],
-  USE_PROFILES: { html: true, svg: true, mathMl: true },
-  // USE_PROFILES 会整体替换 ALLOWED_ATTR，而 html profile 默认不含 target，
-  // 导致 afterSanitizeElements hook 加上的 target="_blank" 在随后的
-  // _sanitizeAttributes 中被剥离。用 ADD_ATTR 在 profile 之上追加该属性。
+  // Do NOT set USE_PROFILES alongside ALLOWED_TAGS/ALLOWED_ATTR: DOMPurify's
+  // USE_PROFILES overwrites custom minimal allowlists with its full profile set.
   ADD_ATTR: ['target'],
   ...domPurifySecurityOptions,
 };
+
+const STATIC_SVG_ALLOWED_TAGS = [
+  'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon',
+  'polyline', 'text', 'tspan', 'defs', 'marker', 'filter',
+  'clippath', 'lineargradient', 'radialgradient', 'stop', 'pattern',
+  'desc', 'title', 'switch', 'symbol', 'mask',
+];
+
+const STATIC_SVG_ALLOWED_ATTR = [
+  'id', 'class', 'width', 'height', 'viewbox', 'preserveaspectratio', 'xmlns',
+  'version', 'baseprofile', 'enable-background', 'overflow', 'visibility', 'display',
+  'd', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin',
+  'stroke-dasharray', 'stroke-dashoffset', 'stroke-miterlimit', 'stroke-opacity',
+  'fill-opacity', 'opacity', 'transform', 'x', 'y', 'x1', 'y1', 'x2', 'y2',
+  'cx', 'cy', 'rx', 'ry', 'r', 'dx', 'dy', 'text-anchor', 'dominant-baseline',
+  'font-family', 'font-size', 'font-weight', 'font-style', 'letter-spacing', 'word-spacing',
+  'marker-start', 'marker-mid', 'marker-end', 'markerunits', 'markerwidth', 'markerheight',
+  'refx', 'refy', 'orient', 'points', 'offset', 'gradientunits', 'gradienttransform',
+  'spreadmethod', 'stop-color', 'stop-opacity', 'patternunits', 'patterntransform',
+  'clippathunits', 'maskunits', 'filterunits', 'primitiveunits', 'direction',
+];
+
+/**
+ * Sanitize untrusted SVG markup to pure static vector elements and encode it as
+ * an opaque-origin `data:image/svg+xml` URI (never a same-origin `blob:` URL).
+ */
+export function sanitizeSvgForDataUrl(svgSource: string): string {
+  if (!svgSource || typeof svgSource !== 'string') return '';
+  try {
+    const cleaned = DOMPurify.sanitize(svgSource, {
+      ALLOWED_TAGS: STATIC_SVG_ALLOWED_TAGS,
+      ALLOWED_ATTR: STATIC_SVG_ALLOWED_ATTR,
+      FORBID_TAGS: [
+        ...domPurifySecurityOptions.FORBID_TAGS,
+        'foreignobject', 'a', 'use', 'image', 'animate', 'animatemotion', 'animatetransform', 'set', 'mpath',
+      ],
+      FORBID_ATTR: [
+        ...domPurifySecurityOptions.FORBID_ATTR,
+        'href', 'xlink:href', 'style',
+      ],
+      KEEP_CONTENT: false,
+      RETURN_DOM: false,
+      RETURN_DOM_FRAGMENT: false,
+      SANITIZE_DOM: true,
+      SANITIZE_NAMED_PROPS: true,
+    } as unknown as Config).trim();
+    if (!cleaned || !/<svg[\s>]/i.test(cleaned)) return '';
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleaned)}`;
+  } catch (error) {
+    console.error('SVG preview sanitization failed:', error);
+    return '';
+  }
+}
 
 /**
  * 安全地清理 HTML 内容
@@ -214,10 +265,10 @@ function buildProtectedImageTag(
   protectedSrc: string,
   after: string,
 ): string {
-  // Reuse the already-hydrated file if we have one, so repeated re-renders
-  // (typewriter streaming) keep the same stable image or download card
-  // instead of flashing back to the placeholder every frame.
-  const cached = protectedFileBySource.get(protectedSrc);
+  // Reuse the already-hydrated file if we have one under the current
+  // userId:tenantId scope, so repeated re-renders (typewriter streaming) keep
+  // the same stable image or download card without leaking across tenants.
+  const cached = protectedFileBySource.get(scopedProtectedSourceKey(protectedSrc));
   if (cached) {
     if (isRasterProtectedImage(cached)) {
       return `<img${before} src=${quote}${cached.blobURL}${quote} data-protected-src=${quote}${protectedSrc}${quote}${after}>`;
@@ -444,6 +495,7 @@ type ProtectedFileCacheState = {
   failures: Map<string, number>;
   inflight: Map<string, Promise<ProtectedFileLoadResult>>;
   retryGeneration: number;
+  activeScope: string;
   imageRequests: WeakMap<HTMLImageElement, string>;
   hiddenImages: WeakMap<HTMLImageElement, HiddenProtectedImage>;
 };
@@ -459,6 +511,7 @@ const protectedFileCacheState = (() => {
     failures: new Map(),
     inflight: new Map(),
     retryGeneration: 0,
+    activeScope: '',
     imageRequests: new WeakMap(),
     hiddenImages: new WeakMap(),
   });
@@ -467,13 +520,13 @@ const protectedFileCacheState = (() => {
     __weknoraProtectedFileCacheV4__?: ProtectedFileCacheState;
   };
   scope.__weknoraProtectedFileCacheV4__ ||= fresh();
+  scope.__weknoraProtectedFileCacheV4__.activeScope ||= '';
   return scope.__weknoraProtectedFileCacheV4__;
 })();
 
 const protectedFileBlobCache = protectedFileCacheState.blobByRequest;
-// File keyed by the protected source URL (e.g. `resource://...`). Once an
-// image or download card has been hydrated, re-renders of the same markdown
-// can emit the blob src / card HTML directly instead of the placeholder.
+// File keyed by `<userId>:<tenantId>|<sourceURL>` so multi-tenant / multi-user
+// switches in the same SPA session never read another principal's cached blob.
 const protectedFileBySource = protectedFileCacheState.fileBySource;
 // A 404 may mean a temporary message ID was not found, not that the resource
 // is missing in every message/workspace. Cache it only under that request.
@@ -489,6 +542,93 @@ const protectedFileInflight = protectedFileCacheState.inflight;
 const PROTECTED_FILE_RETRY_COOLDOWN_MS = 5000;
 const protectedImageRequests = protectedFileCacheState.imageRequests;
 const hiddenProtectedImages = protectedFileCacheState.hiddenImages;
+
+function readStorageScopeFallback(): string {
+  if (typeof localStorage === 'undefined') return 'anon:default';
+  try {
+    let userId = '';
+    const rawUser = localStorage.getItem('weknora_user');
+    if (rawUser) {
+      const parsedUser = JSON.parse(rawUser) as { id?: string | number } | null;
+      if (parsedUser?.id !== undefined && parsedUser?.id !== null) {
+        userId = String(parsedUser.id).trim();
+      }
+    }
+    let tenantId = (localStorage.getItem('weknora_selected_tenant_id') || '').trim();
+    if (!tenantId) {
+      const rawTenant = localStorage.getItem('weknora_tenant');
+      if (rawTenant) {
+        const parsedTenant = JSON.parse(rawTenant) as { id?: string | number } | null;
+        if (parsedTenant?.id !== undefined && parsedTenant?.id !== null) {
+          tenantId = String(parsedTenant.id).trim();
+        }
+      }
+    }
+    return `${userId || 'anon'}:${tenantId || 'default'}`;
+  } catch {
+    return 'anon:default';
+  }
+}
+
+/** Update the active `userId:tenantId` namespace for protected file caches. */
+export function setProtectedFileCacheScope(
+  userId?: string | number | null,
+  tenantId?: string | number | null,
+): void {
+  const uid = userId !== undefined && userId !== null ? String(userId).trim() : '';
+  const tid = tenantId !== undefined && tenantId !== null ? String(tenantId).trim() : '';
+  if (!uid && !tid) {
+    protectedFileCacheState.activeScope = '';
+    return;
+  }
+  protectedFileCacheState.activeScope = `${uid || 'anon'}:${tid || 'default'}`;
+}
+
+export function resolveProtectedFileCacheScope(access?: ProtectedFileAccessContext): string {
+  const base = protectedFileCacheState.activeScope || readStorageScopeFallback();
+  if (access && 'plane' in access && access.plane === 'embed') {
+    const channelId = 'channelId' in access && access.channelId ? String(access.channelId) : '';
+    return `${base}:embed:${channelId}`;
+  }
+  return base;
+}
+
+function scopedProtectedSourceKey(sourceURL: string, scope = resolveProtectedFileCacheScope()): string {
+  return `${scope}|${sourceURL}`;
+}
+
+/**
+ * Revoke all cached protected-file `blob:` Object URLs and wipe every cache map.
+ * Must be called on logout and tenant switch to prevent cross-tenant leakage.
+ */
+export function clearProtectedFileCache(): void {
+  const urlsToRevoke = new Set<string>();
+  for (const entry of protectedFileBlobCache.values()) {
+    if (entry?.blobURL && entry.blobURL.startsWith('blob:')) {
+      urlsToRevoke.add(entry.blobURL);
+    }
+  }
+  for (const entry of protectedFileBySource.values()) {
+    if (entry?.blobURL && entry.blobURL.startsWith('blob:')) {
+      urlsToRevoke.add(entry.blobURL);
+    }
+  }
+  if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+    for (const url of urlsToRevoke) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // Ignore already-revoked blob URLs
+      }
+    }
+  }
+  protectedFileCacheState.retryGeneration++;
+  protectedFileBlobCache.clear();
+  protectedFileBySource.clear();
+  protectedFileMissingRequests.clear();
+  protectedFileFailureCache.clear();
+  protectedFileInflight.clear();
+}
 
 /**
  * 将 Markdown 里通过 /files 代理的图片，改为用带鉴权 Header 的 fetch 拉取后再显示。
@@ -580,7 +720,7 @@ function ensureProtectedResourceCardClicks(): void {
     if (!(link instanceof HTMLAnchorElement)) return;
     if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     const source = link.dataset.protectedResource || '';
-    const file = protectedFileBySource.get(source);
+    const file = protectedFileBySource.get(scopedProtectedSourceKey(source));
     if (!file) return;
     const preview = new CustomEvent(RESOURCE_PREVIEW_EVENT, {
       detail: file,
@@ -617,6 +757,7 @@ export async function hydrateProtectedFileImages(
   }
 
   const resolvedAccess = resolveProtectedFileAccess(access);
+  const cacheScope = resolveProtectedFileCacheScope(resolvedAccess);
 
   await Promise.all(Array.from(images).map(async (img) => {
     const normalizedSourceURL = normalizeProtectedImageElement(img);
@@ -635,7 +776,7 @@ export async function hydrateProtectedFileImages(
       return;
     }
     const { url: requestURL, headers } = request;
-    const requestKey = JSON.stringify([requestURL, headers]);
+    const requestKey = JSON.stringify([cacheScope, requestURL, headers]);
     if (img.dataset.authHydrated === '1' && src.startsWith('blob:') && protectedImageRequests.get(img) === requestKey) {
       return;
     }
@@ -703,7 +844,7 @@ export async function hydrateProtectedFileImages(
     // image that has since been reauthorized under its persisted message ID.
     if (protectedImageRequests.get(img) !== requestKey) return;
     if (result.status === 'loaded') {
-      protectedFileBySource.set(sourceURL, result);
+      protectedFileBySource.set(scopedProtectedSourceKey(sourceURL, cacheScope), result);
       protectedFileMissingRequests.delete(requestKey);
       applyHydratedProtectedImage(root, sourceURL, result, requestKey);
       return;

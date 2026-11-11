@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 
-import { documentPreviewDomPurifyConfig, protectProviderImageSrcInHTML } from './security.ts'
+import {
+  clearProtectedFileCache,
+  documentPreviewDomPurifyConfig,
+  protectProviderImageSrcInHTML,
+  resolveProtectedFileCacheScope,
+  setProtectedFileCacheScope,
+} from './security.ts'
 
 test('protectProviderImageSrcInHTML uses a placeholder src for provider images', () => {
   const html = '<p><img alt="preview" src="local://10000/exports/a.jpg"></p>'
@@ -37,10 +43,25 @@ test('protectProviderImageSrcInHTML uses a placeholder src for resource referenc
   )
 })
 
-test('document preview sanitizer keeps target on links alongside image attributes', () => {
-  // USE_PROFILES replaces ALLOWED_ATTR, so target must come from ADD_ATTR or
-  // the hook-added target="_blank" is stripped again.
+test('document preview sanitizer keeps target on links alongside image attributes and avoids USE_PROFILES override', () => {
+  assert.equal('USE_PROFILES' in documentPreviewDomPurifyConfig, false)
   for (const attr of ['target', 'loading', 'decoding', 'fetchpriority']) {
     assert.ok(documentPreviewDomPurifyConfig.ADD_ATTR.includes(attr), attr)
   }
+  assert.equal(documentPreviewDomPurifyConfig.ALLOWED_TAGS.includes('iframe'), false)
+  assert.equal(documentPreviewDomPurifyConfig.ALLOWED_TAGS.includes('form'), false)
+})
+
+test('protected file cache scope isolates user:tenant namespaces and embed channels', () => {
+  setProtectedFileCacheScope('u-1', 10001)
+  assert.equal(resolveProtectedFileCacheScope(), 'u-1:10001')
+  assert.equal(
+    resolveProtectedFileCacheScope({ plane: 'embed', channelId: 'ch-abc', token: 'tok' } as any),
+    'u-1:10001:embed:ch-abc',
+  )
+  setProtectedFileCacheScope('u-1', 20002)
+  assert.equal(resolveProtectedFileCacheScope(), 'u-1:20002')
+  clearProtectedFileCache()
+  setProtectedFileCacheScope(null, null)
+  assert.equal(resolveProtectedFileCacheScope(), 'anon:default')
 })

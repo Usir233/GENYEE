@@ -15,6 +15,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 VERSION="${1:?Usage: $0 <version>  (e.g. v0.2.0)}"
+if [[ ! "${VERSION}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?$ ]]; then
+    echo "Error: Invalid version format '${VERSION}'" >&2
+    exit 1
+fi
 VERSION_BARE="${VERSION#v}"
 FORMULA="${ROOT_DIR}/Formula/genyee-lite.rb"
 REPO="${GENYEE_REPO:-genyee/genyee}"
@@ -31,12 +35,12 @@ fetch_sha256() {
     local file="$1"
     local url="${BASE_URL}/${file}.sha256"
     local sha
-    sha=$(curl -sSL "${url}" | awk '{print $1}')
-    if [ -z "${sha}" ] || [ "${#sha}" -ne 64 ]; then
-        echo "Error: Failed to fetch sha256 from ${url}" >&2
+    sha=$(curl -fsSL "${url}" | awk '{print $1}')
+    if [[ ! "${sha}" =~ ^[0-9a-fA-F]{64}$ ]]; then
+        echo "Error: Invalid or missing sha256 digest from ${url}" >&2
         exit 1
     fi
-    echo "${sha}"
+    printf '%s\n' "${sha,,}"
 }
 
 SHA_DARWIN_ARM64=$(fetch_sha256 "GENYEE-lite_${VERSION}_darwin_arm64.tar.gz")

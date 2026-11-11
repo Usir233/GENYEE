@@ -130,7 +130,7 @@ func (c *Client) ListMCPServices(ctx context.Context) ([]*MCPService, error) {
 
 // GetMCPService gets an MCP service by ID
 func (c *Client) GetMCPService(ctx context.Context, serviceID string) (*MCPService, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s", serviceID), nil, nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s", escapePathSegment(serviceID)), nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (c *Client) GetMCPService(ctx context.Context, serviceID string) (*MCPServi
 
 // UpdateMCPService updates an MCP service
 func (c *Client) UpdateMCPService(ctx context.Context, serviceID string, updates map[string]interface{}) (*MCPService, error) {
-	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/mcp-services/%s", serviceID), updates, nil)
+	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/mcp-services/%s", escapePathSegment(serviceID)), updates, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +164,7 @@ func (c *Client) UpdateMCPService(ctx context.Context, serviceID string, updates
 
 // DeleteMCPService deletes an MCP service
 func (c *Client) DeleteMCPService(ctx context.Context, serviceID string) error {
-	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/mcp-services/%s", serviceID), nil, nil)
+	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/mcp-services/%s", escapePathSegment(serviceID)), nil, nil)
 	if err != nil {
 		return err
 	}
@@ -173,7 +173,7 @@ func (c *Client) DeleteMCPService(ctx context.Context, serviceID string) error {
 
 // TestMCPService tests an MCP service connection
 func (c *Client) TestMCPService(ctx context.Context, serviceID string) (*MCPTestResult, error) {
-	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/mcp-services/%s/test", serviceID), nil, nil)
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/mcp-services/%s/test", escapePathSegment(serviceID)), nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +190,7 @@ func (c *Client) TestMCPService(ctx context.Context, serviceID string) (*MCPTest
 
 // GetMCPServiceTools gets the tools provided by an MCP service
 func (c *Client) GetMCPServiceTools(ctx context.Context, serviceID string) ([]*MCPTool, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s/tools", serviceID), nil, nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s/tools", escapePathSegment(serviceID)), nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ type MCPMetadata struct {
 // GetMCPMetadata reads the saved tool directory without connecting upstream.
 // Server route: GET /api/v1/mcp-services/{id}/metadata.
 func (c *Client) GetMCPMetadata(ctx context.Context, serviceID string) (*MCPMetadata, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s/metadata", serviceID), nil, nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s/metadata", escapePathSegment(serviceID)), nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +242,7 @@ func (c *Client) GetMCPMetadata(ctx context.Context, serviceID string) (*MCPMeta
 // can manage MCP services.
 // Server route: POST /api/v1/mcp-services/{id}/metadata/refresh.
 func (c *Client) RefreshMCPMetadata(ctx context.Context, serviceID string) (*MCPMetadata, error) {
-	path := fmt.Sprintf("/api/v1/mcp-services/%s/metadata/refresh", serviceID)
+	path := fmt.Sprintf("/api/v1/mcp-services/%s/metadata/refresh", escapePathSegment(serviceID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -259,7 +259,7 @@ func (c *Client) RefreshMCPMetadata(ctx context.Context, serviceID string) (*MCP
 
 // GetMCPServiceResources gets the resources provided by an MCP service
 func (c *Client) GetMCPServiceResources(ctx context.Context, serviceID string) ([]*MCPResource, error) {
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s/resources", serviceID), nil, nil)
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/mcp-services/%s/resources", escapePathSegment(serviceID)), nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +287,7 @@ type ResolveToolApprovalRequest struct {
 // ResolveToolApproval resolves a pending tool approval by id.
 // Server route: POST /api/v1/agent/tool-approvals/{pending_id}.
 func (c *Client) ResolveToolApproval(ctx context.Context, pendingID string, req *ResolveToolApprovalRequest) error {
-	path := fmt.Sprintf("/api/v1/agent/tool-approvals/%s", pendingID)
+	path := fmt.Sprintf("/api/v1/agent/tool-approvals/%s", escapePathSegment(pendingID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, req, nil)
 	if err != nil {
 		return err
@@ -317,7 +317,7 @@ type ResolveAgentPromptRequest struct {
 func (c *Client) ResolveAgentPrompt(
 	ctx context.Context, promptID string, req *ResolveAgentPromptRequest,
 ) (resumed bool, err error) {
-	path := fmt.Sprintf("/api/v1/agent/prompts/%s", promptID)
+	path := fmt.Sprintf("/api/v1/agent/prompts/%s", escapePathSegment(promptID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, req, nil)
 	if err != nil {
 		return false, err

@@ -4,9 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 const (
@@ -28,6 +30,28 @@ type SandboxTerminalTicketClaims struct {
 	TokenID   string
 }
 
+var (
+	consumedTerminalTicketsMu sync.Mutex
+	consumedTerminalTickets   = make(map[string]time.Time)
+)
+
+func consumeTerminalTicketJTI(jti string, expiresAt time.Time) error {
+	now := time.Now()
+	consumedTerminalTicketsMu.Lock()
+	defer consumedTerminalTicketsMu.Unlock()
+
+	for k, exp := range consumedTerminalTickets {
+		if !now.Before(exp) {
+			delete(consumedTerminalTickets, k)
+		}
+	}
+	if exp, exists := consumedTerminalTickets[jti]; exists && now.Before(exp) {
+		return errors.New("terminal ticket already used")
+	}
+	consumedTerminalTickets[jti] = expiresAt
+	return nil
+}
+
 // IssueSandboxTerminalTicket mints a short-lived JWT for the browser
 // WebSocket handshake. It is not an access token: ValidateToken rejects it.
 func IssueSandboxTerminalTicket(userID string, tenantID uint64, sessionID, tokenID string, ttl time.Duration) (string, error) {
@@ -40,20 +64,23 @@ func IssueSandboxTerminalTicket(userID string, tenantID uint64, sessionID, token
 	if ttl <= 0 {
 		ttl = DefaultSandboxTerminalTicketTTL
 	}
+	now := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"jti":        uuid.New().String(),
 		"user_id":    userID,
 		"tenant_id":  tenantID,
 		"session_id": sessionID,
 		"token_id":   tokenID,
 		"type":       sandboxTerminalTicketType,
-		"exp":        time.Now().Add(ttl).Unix(),
-		"iat":        time.Now().Unix(),
+		"exp":        now.Add(ttl).Unix(),
+		"iat":        now.Unix(),
 	})
 	return token.SignedString([]byte(getJwtSecret()))
 }
 
-// ParseSandboxTerminalTicket validates a handshake ticket. Access and
-// refresh tokens are rejected.
+// ParseSandboxTerminalTicket validates a handshake ticket and consumes its jti
+// so each ticket can redeem at most one WebSocket upgrade. Access and refresh
+// tokens are rejected.
 func ParseSandboxTerminalTicket(raw string) (*SandboxTerminalTicketClaims, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -76,12 +103,21 @@ func ParseSandboxTerminalTicket(raw string) (*SandboxTerminalTicketClaims, error
 	if tokenType != sandboxTerminalTicketType {
 		return nil, errors.New("not a terminal ticket")
 	}
+	jti, _ := claims["jti"].(string)
+	jti = strings.TrimSpace(jti)
+	expTime, expErr := claims.GetExpirationTime()
+	if jti == "" || expErr != nil || expTime == nil {
+		return nil, errors.New("invalid terminal ticket claims")
+	}
 	userID, _ := claims["user_id"].(string)
 	sessionID, _ := claims["session_id"].(string)
 	tokenID, _ := claims["token_id"].(string)
 	tenantID := tenantIDFromClaims(claims, 0)
 	if strings.TrimSpace(userID) == "" || strings.TrimSpace(sessionID) == "" || strings.TrimSpace(tokenID) == "" || tenantID == 0 {
 		return nil, errors.New("invalid terminal ticket claims")
+	}
+	if err := consumeTerminalTicketJTI(jti, expTime.Time); err != nil {
+		return nil, err
 	}
 	return &SandboxTerminalTicketClaims{
 		UserID:    userID,

@@ -119,25 +119,9 @@ func NewRouter(params RouterParams) *gin.Engine {
 	}
 
 	// CORS 中间件应放在最前面。
-	// 注意：通配符 AllowOrigins 下浏览器会拒绝一切带凭据（cookie）的跨域
-	// 请求（CORS 规范禁止 "*" 与 credentials 组合），因此 AllowCredentials
-	// 实际只对未来改为回显具体 Origin 时才生效；当前认证全部走显式的
-	// Authorization / X-API-Key 头，不依赖 ambient 凭据。若引入 cookie
-	// 认证，必须先把 AllowOrigins 换成受控清单。
-	r.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"*"},
-		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders: []string{
-			"Origin", "Content-Type", "Accept", "Authorization", "X-API-Key", "X-Request-ID", "X-Tenant-ID",
-			"X-Embed-Session", "X-External-User-ID", "X-External-User-Token", "X-WeKnora-Desktop-Token",
-			// Streamable HTTP MCP clients running in a browser send these on
-			// the /mcp/:endpoint_id surface.
-			"MCP-Protocol-Version", "Mcp-Method", "Mcp-Name", "Mcp-Session-Id", "Last-Event-ID",
-		},
-		ExposeHeaders:    []string{"Content-Length", "Access-Control-Allow-Origin", "Mcp-Session-Id"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
+	// 未显式配置 GENYEE_CORS_ALLOWED_ORIGINS 时退回通配符 "*" 并强制关闭
+	// AllowCredentials，避免违反 CORS 规范或放大跨域带凭据请求面。
+	r.Use(cors.New(buildCORSConfig()))
 
 	// 基础中间件（不需要认证）
 	r.Use(middleware.RequestID())
@@ -261,7 +245,7 @@ func NewRouter(params RouterParams) *gin.Engine {
 		// so that sub-groups inherit it.
 		v1.Use(rbacGuards.apiKeyAuthorizer.Middleware())
 
-		RegisterAuthRoutes(v1, params.AuthHandler, rbacGuards)
+		RegisterAuthRoutes(v1, params.AuthHandler, rbacGuards, params.RedisClient)
 		RegisterTenantRoutes(v1, params.TenantHandler, params.TenantMemberHandler, params.TenantInvitationHandler, params.AuditLogHandler, rbacGuards)
 		RegisterMyInvitationRoutes(v1, params.TenantInvitationHandler)
 		RegisterKnowledgeBaseRoutes(v1, params.KBHandler, rbacGuards)
@@ -351,21 +335,54 @@ func NewRouter(params RouterParams) *gin.Engine {
 	return r
 }
 
+func buildCORSConfig() cors.Config {
+	rawOrigins := strings.TrimSpace(os.Getenv("GENYEE_CORS_ALLOWED_ORIGINS"))
+	if rawOrigins == "" {
+		rawOrigins = strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS"))
+	}
+	var allowedOrigins []string
+	hasWildcard := false
+	for _, entry := range strings.Split(rawOrigins, ",") {
+		entry = strings.TrimSpace(entry)
+		if entry == "" {
+			continue
+		}
+		if entry == "*" {
+			hasWildcard = true
+		}
+		allowedOrigins = append(allowedOrigins, entry)
+	}
+	allowCredentials := true
+	if len(allowedOrigins) == 0 || hasWildcard {
+		allowedOrigins = []string{"*"}
+		allowCredentials = false
+	}
+	return cors.Config{
+		AllowOrigins: allowedOrigins,
+		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders: []string{
+			"Origin", "Content-Type", "Accept", "Authorization", "X-API-Key", "X-Request-ID", "X-Tenant-ID",
+			"X-Embed-Session", "X-External-User-ID", "X-External-User-Token", "X-WeKnora-Desktop-Token",
+			"MCP-Protocol-Version", "Mcp-Method", "Mcp-Name", "Mcp-Session-Id", "Last-Event-ID",
+		},
+		ExposeHeaders:    []string{"Content-Length", "Access-Control-Allow-Origin", "Mcp-Session-Id"},
+		AllowCredentials: allowCredentials,
+		MaxAge:           12 * time.Hour,
+	}
+}
+
 // trustedProxies returns the proxy CIDRs/IPs whose X-Forwarded-For headers
-// gin should trust when resolving the client IP. Defaults to loopback and
-// private ranges (covers the bundled nginx in a container network); override
-// with GENYEE_TRUSTED_PROXIES (comma-separated). An explicit empty value
-// disables proxy trust entirely so ClientIP() returns the direct peer.
+// gin should trust when resolving the client IP. Defaults strictly to loopback
+// so untrusted peers on shared container/VPC networks cannot spoof
+// X-Forwarded-For to bypass IP rate limiting; override with
+// GENYEE_TRUSTED_PROXIES (comma-separated). An explicit empty value disables
+// proxy trust entirely so ClientIP() returns the direct peer.
 func trustedProxies() []string {
 	raw, ok := os.LookupEnv("GENYEE_TRUSTED_PROXIES")
 	if !ok {
 		return []string{
 			"127.0.0.0/8",
 			"::1/128",
-			"10.0.0.0/8",
-			"172.16.0.0/12",
-			"192.168.0.0/16",
-			"fc00::/7",
 		}
 	}
 	proxies := make([]string, 0)

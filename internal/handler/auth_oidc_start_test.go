@@ -48,7 +48,7 @@ func TestOIDCStart_RedirectsToAuthProvider(t *testing.T) {
 			}, nil
 		},
 	}
-	h := NewAuthHandler(&config.Config{}, us, nil, nil, nil)
+	h := NewAuthHandler(&config.Config{FrontendBaseURL: "https://weknora.example.com"}, us, nil, nil, nil)
 	r := newOIDCStartTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/auth/oidc/start", nil)
@@ -73,10 +73,12 @@ func TestOIDCStart_RedirectsToAuthProvider(t *testing.T) {
 	}
 }
 
-// TestOIDCStart_BuildsCallbackURLFromRequestOrigin: redirect_uri handed to
-// the IdP is derived from the request's own origin (no caller-supplied
-// value needed); X-Forwarded-Proto upgrades the scheme to https.
-func TestOIDCStart_BuildsCallbackURLFromRequestOrigin(t *testing.T) {
+// TestOIDCStart_RejectsUntrustedHostWithoutFrontendBaseURL: when FRONTEND_BASE_URL
+// is unset, non-loopback Host headers must be rejected to prevent Host-header
+// redirect_uri poisoning, while loopback dev hosts remain usable outside release mode.
+func TestOIDCStart_RejectsUntrustedHostWithoutFrontendBaseURL(t *testing.T) {
+	t.Setenv("FRONTEND_BASE_URL", "")
+	t.Setenv("GIN_MODE", "test")
 	var captured string
 	us := &stubOIDCStartUserService{
 		getOIDCAuthorizationURL: func(_ context.Context, redirectURI string) (*types.OIDCAuthURLResponse, error) {
@@ -87,18 +89,27 @@ func TestOIDCStart_BuildsCallbackURLFromRequestOrigin(t *testing.T) {
 	h := NewAuthHandler(&config.Config{}, us, nil, nil, nil)
 	r := newOIDCStartTestRouter(h)
 
-	req := httptest.NewRequest(http.MethodGet, "/auth/oidc/start", nil)
-	req.Host = "weknora.example.com"
-	req.Header.Set("X-Forwarded-Proto", "https")
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
+	// Spoofed external Host must be rejected before calling UserService.
+	reqSpoof := httptest.NewRequest(http.MethodGet, "/auth/oidc/start", nil)
+	reqSpoof.Host = "attacker.example.com"
+	reqSpoof.Header.Set("X-Forwarded-Proto", "https")
+	wSpoof := httptest.NewRecorder()
+	r.ServeHTTP(wSpoof, reqSpoof)
+	if wSpoof.Code == http.StatusFound || captured != "" {
+		t.Fatalf("untrusted Host should be rejected, got status=%d captured=%q", wSpoof.Code, captured)
+	}
 
-	const want = "https://weknora.example.com/api/v1/auth/oidc/callback"
+	// Loopback host in non-release mode is allowed.
+	reqLocal := httptest.NewRequest(http.MethodGet, "/auth/oidc/start", nil)
+	reqLocal.Host = "127.0.0.1:8080"
+	wLocal := httptest.NewRecorder()
+	r.ServeHTTP(wLocal, reqLocal)
+	const want = "http://127.0.0.1:8080/api/v1/auth/oidc/callback"
 	if captured != want {
 		t.Errorf("callback URL passed to IdP = %q, want %q", captured, want)
 	}
-	if w.Code != http.StatusFound {
-		t.Fatalf("status = %d, want 302", w.Code)
+	if wLocal.Code != http.StatusFound {
+		t.Fatalf("status = %d, want 302", wLocal.Code)
 	}
 }
 
@@ -110,7 +121,7 @@ func TestOIDCStart_ServiceErrorReturnsNonRedirect(t *testing.T) {
 			return nil, fmt.Errorf("idp unavailable")
 		},
 	}
-	h := NewAuthHandler(&config.Config{}, us, nil, nil, nil)
+	h := NewAuthHandler(&config.Config{FrontendBaseURL: "https://app.example.com"}, us, nil, nil, nil)
 	r := newOIDCStartTestRouter(h)
 
 	req := httptest.NewRequest(http.MethodGet, "/auth/oidc/start", nil)

@@ -29,6 +29,7 @@ type PathGuard struct {
 	writableFiles []string
 	readable      []string
 	denyRead      []string
+	denyWrite     []string
 }
 
 // NewPathGuard builds a PathGuard from p. The guard copies the policy's path
@@ -39,6 +40,7 @@ func NewPathGuard(p Policy) *PathGuard {
 		writableFiles: append([]string(nil), p.WritableFiles...),
 		readable:      append([]string(nil), p.ReadableRoots...),
 		denyRead:      append([]string(nil), p.DenyRead...),
+		denyWrite:     append([]string(nil), p.DenyWrite...),
 	}
 	return g
 }
@@ -52,7 +54,7 @@ func (g *PathGuard) CheckWrite(path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if g.denied(resolved) {
+	if g.denied(resolved) || g.writeDenied(resolved) {
 		return "", fmt.Errorf("%w: %q", ErrPathDenied, path)
 	}
 	if g.readOnly(resolved) {
@@ -132,6 +134,15 @@ func (g *PathGuard) CheckRead(path string) (string, error) {
 
 func (g *PathGuard) denied(resolved string) bool {
 	for _, deny := range g.denyRead {
+		if PathUnder(resolved, deny) {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *PathGuard) writeDenied(resolved string) bool {
+	for _, deny := range g.denyWrite {
 		if PathUnder(resolved, deny) {
 			return true
 		}

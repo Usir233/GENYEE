@@ -264,3 +264,120 @@ func TestResolveMode_QueryWinsOverDeployment(t *testing.T) {
 	_, err = ResolveMode(ctx, "yes-please")
 	assert.Error(t, err, "an invalid query value is a client error")
 }
+
+func tenantRequestContext(tenantID uint64) context.Context {
+	ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, &types.Tenant{ID: tenantID})
+	ctx = context.WithValue(ctx, types.TenantIDContextKey, tenantID)
+	return ctx
+}
+
+func TestNewRequestRewriter_BlocksCrossTenantResourceAndProviderURIs(t *testing.T) {
+	t.Setenv("APP_EXTERNAL_URL", "https://genyee.example.com")
+	t.Setenv("SYSTEM_SIGNING_KEY", "")
+	t.Setenv("SYSTEM_AES_KEY", "genyee-test-aes-key-32bytes-ok!!")
+
+	const (
+		ownRef   = "resource://OwnTenantHandle1234567"
+		otherRef = "resource://OtherTenantHandle12345"
+	)
+	catalog := &resolverResourceCatalog{resources: map[string]*types.StoredResource{
+		ownRef: {
+			TenantID:     7,
+			Provider:     "local",
+			PhysicalPath: "local://7/exports/own.png",
+		},
+		otherRef: {
+			TenantID:     9,
+			Provider:     "local",
+			PhysicalPath: "local://9/exports/secret.png",
+		},
+	}}
+	ctx := tenantRequestContext(7)
+	w := NewRequestRewriter(ctx, ModePublic, &stubFileService{}, nil, WithRequestResources(catalog, nil))
+
+	assert.Equal(t, "https://cdn.example.com/"+ownRef, w.Ref(ctx, ownRef),
+		"same-tenant resource handle should resolve")
+	assert.Equal(t, otherRef, w.Ref(ctx, otherRef),
+		"cross-tenant resource handle must be denied")
+
+	// Same-tenant bare provider URIs succeed when tenant segment matches cleanly.
+	localSigned := w.Ref(ctx, "local://7/exports/a.png")
+	assert.Contains(t, localSigned, "https://genyee.example.com/api/v1/files/presigned")
+	assert.Contains(t, localSigned, "tenant_id=7")
+	assert.Equal(t, "https://cdn.example.com/minio://bucket/7/exports/a.png",
+		w.Ref(ctx, "minio://bucket/7/exports/a.png"))
+
+	// Cross-tenant, numeric-bucket spoof, and traversal URIs must all be rejected.
+	deniedRefs := []string{
+		"local://9/exports/a.png",
+		"local://7/../9/exports/a.png",
+		"minio://bucket/9/exports/a.png",
+		"minio://7/9/exports/a.png", // numeric bucket '7' must not impersonate tenant 7
+		"s3://my-bucket/9/doc/a.png",
+		"cos://my-bucket/ap-guangzhou/9/doc/a.png",
+		"oss://my-bucket/prefix/9/doc/a.png",
+		"tos://my-bucket/9/doc/a.png",
+		"obs://my-bucket/9/doc/a.png",
+	}
+	for _, ref := range deniedRefs {
+		assert.Equal(t, ref, w.Ref(ctx, ref), "must reject unauthorized ref %s", ref)
+	}
+
+	// Strict auth or missing tenant context must also fail closed.
+	strictNoCatalog := NewRequestRewriter(ctx, ModePublic, &stubFileService{}, nil, WithStrictAuth())
+	assert.Equal(t, ownRef, strictNoCatalog.Ref(ctx, ownRef),
+		"WithStrictAuth without catalog must fail closed")
+	noTenantRewriter := NewRequestRewriter(context.Background(), ModePublic, &stubFileService{}, nil, WithRequestResources(catalog, nil))
+	assert.Equal(t, ownRef, noTenantRewriter.Ref(context.Background(), ownRef),
+		"missing tenant context with catalog must fail closed")
+}
+
+func TestRewriteMessages_BlocksRawURIsInUserRoleMessages(t *testing.T) {
+	const (
+		ownRef   = "resource://OwnTenantHandle1234567"
+		otherRef = "resource://OtherTenantHandle12345"
+	)
+	catalog := &resolverResourceCatalog{resources: map[string]*types.StoredResource{
+		ownRef:   {TenantID: 7, Provider: "local", PhysicalPath: "local://7/exports/own.png"},
+		otherRef: {TenantID: 9, Provider: "local", PhysicalPath: "local://9/exports/other.png"},
+	}}
+	ctx := tenantRequestContext(7)
+	w := NewRequestRewriter(ctx, ModePublic, &stubFileService{}, nil, WithRequestResources(catalog, nil))
+
+	userContent := "check ![x](" + otherRef + ") and ![y](local://7/exports/a.png) and ![z](s3://b/7/a.png)"
+	userCaption := "cap ![c](minio://b/7/a.png)"
+	messages := []*types.Message{
+		{
+			Role:    "user",
+			Content: userContent,
+			Images: types.MessageImages{
+				{URL: ownRef, Caption: userCaption},
+				{URL: otherRef},
+				{URL: "local://7/exports/a.png"},
+				{URL: "oss://bucket/7/exports/a.png"},
+			},
+		},
+		{
+			Role:    "assistant",
+			Content: "here is ![own](" + ownRef + ") and ![other](" + otherRef + ")",
+		},
+	}
+
+	w.RewriteMessages(ctx, messages)
+
+	assert.Equal(t, userContent, messages[0].Content, "user prose must never be rewritten")
+	assert.Equal(t, userCaption, messages[0].Images[0].Caption, "user caption must never be rewritten")
+	assert.Equal(t, "https://cdn.example.com/"+ownRef, messages[0].Images[0].URL,
+		"authorized same-tenant resource:// attachment on user message may resolve")
+	assert.Equal(t, otherRef, messages[0].Images[1].URL,
+		"cross-tenant resource:// attachment on user message must not resolve")
+	assert.Equal(t, "local://7/exports/a.png", messages[0].Images[2].URL,
+		"bare local:// URI on user message must never resolve")
+	assert.Equal(t, "oss://bucket/7/exports/a.png", messages[0].Images[3].URL,
+		"bare oss:// URI on user message must never resolve")
+
+	assert.Equal(t,
+		"here is ![own](https://cdn.example.com/"+ownRef+") and ![other]("+otherRef+")",
+		messages[1].Content,
+	)
+}

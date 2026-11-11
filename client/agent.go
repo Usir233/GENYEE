@@ -104,7 +104,7 @@ func (c *Client) AgentQAStreamWithRequest(ctx context.Context,
 		return fmt.Errorf("agent QA query cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/v1/agent-chat/%s", sessionID)
+	path := fmt.Sprintf("/api/v1/agent-chat/%s", escapePathSegment(sessionID))
 	queryParams := url.Values{}
 	if len(opts) > 0 {
 		applyResourceURLQuery(queryParams, &opts[0])

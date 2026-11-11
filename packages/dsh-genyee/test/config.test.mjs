@@ -51,3 +51,12 @@ test('blank strings collapse to unset rather than empty headers', () => {
   assert.equal(config.tenantId, undefined)
   assert.equal(config.agentId, 'agent-7')
 })
+
+test('non-loopback http base URLs are rejected while loopback http and remote https succeed', () => {
+  assert.throws(
+    () => resolveConfig({ baseUrl: 'http://kb.example.com' }),
+    /baseUrl must use https for non-loopback hosts/,
+  )
+  assert.equal(resolveConfig({ baseUrl: 'http://127.0.0.1:8080' }).baseUrl, 'http://127.0.0.1:8080/api/v1')
+  assert.equal(resolveConfig({ baseUrl: 'https://kb.example.com' }).baseUrl, 'https://kb.example.com/api/v1')
+})

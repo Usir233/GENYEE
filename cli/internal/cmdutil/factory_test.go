@@ -475,3 +475,50 @@ func TestBuildClientFromEnv(t *testing.T) {
 		assert.NotNil(t, c)
 	})
 }
+
+func TestSecurity_RejectsPathTraversalInProfileAndProjectLink(t *testing.T) {
+	t.Run("corrupt current_profile with path traversal", func(t *testing.T) {
+		f := &Factory{
+			Config: func() (*config.Config, error) {
+				return &config.Config{
+					CurrentProfile: "../../etc",
+					Profiles: map[string]config.Profile{
+						"../../etc": {Host: "https://kb.example.com"},
+					},
+				}, nil
+			},
+			Secrets: memSecretsFn(secrets.NewMemStore()),
+		}
+		_, err := buildClient(f)
+		require.Error(t, err)
+		var typed *Error
+		require.ErrorAs(t, err, &typed)
+		assert.Equal(t, CodeLocalConfigCorrupt, typed.Code)
+	})
+
+	t.Run("project link kb_id traversal rejected", func(t *testing.T) {
+		t.Setenv("GENYEE_KB_ID", "")
+		dir := t.TempDir()
+		resolveKBChdir(t, dir)
+		require.NoError(t, projectlink.Save(
+			filepath.Join(dir, ".weknora", "project.yaml"),
+			&projectlink.Project{KBID: "../tenants/1/api-keys"},
+		))
+		f := &Factory{}
+		_, err := f.ResolveKB(makeResolveKBCmd(t, ""))
+		require.Error(t, err)
+		var typed *Error
+		require.ErrorAs(t, err, &typed)
+		assert.Equal(t, CodeProjectLinkCorrupt, typed.Code)
+	})
+
+	t.Run("GENYEE_KB_ID traversal rejected", func(t *testing.T) {
+		t.Setenv("GENYEE_KB_ID", "../tenants/1/api-keys")
+		f := &Factory{}
+		_, err := f.ResolveKB(makeResolveKBCmd(t, ""))
+		require.Error(t, err)
+		var typed *Error
+		require.ErrorAs(t, err, &typed)
+		assert.Equal(t, CodeInputInvalidArgument, typed.Code)
+	})
+}

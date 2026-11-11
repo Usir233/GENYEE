@@ -54,12 +54,46 @@ func defaultRoot() (string, error) {
 	return xdg.Path("XDG_CONFIG_HOME", ".config", "secrets")
 }
 
+func validateSecretSegment(label, seg string) error {
+	if seg == "" || seg == "." || seg == ".." ||
+		strings.ContainsAny(seg, `/\`) || strings.ContainsRune(seg, 0) {
+		return fmt.Errorf("invalid secret %s %q", label, seg)
+	}
+	return nil
+}
+
+func (f *FileStore) safePath(profile, key string) (string, error) {
+	if err := validateSecretSegment("profile", profile); err != nil {
+		return "", err
+	}
+	if err := validateSecretSegment("key", key); err != nil {
+		return "", err
+	}
+	absRoot, err := filepath.Abs(f.root)
+	if err != nil {
+		return "", err
+	}
+	target := filepath.Join(absRoot, profile, key)
+	rel, err := filepath.Rel(absRoot, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
+		return "", fmt.Errorf("secret path escapes store root")
+	}
+	return target, nil
+}
+
 func (f *FileStore) path(profile, key string) string {
-	return filepath.Join(f.root, profile, key)
+	if p, err := f.safePath(profile, key); err == nil {
+		return p
+	}
+	return filepath.Join(f.root, "_invalid_")
 }
 
 func (f *FileStore) Get(profile, key string) (string, error) {
-	data, err := os.ReadFile(f.path(profile, key))
+	p, err := f.safePath(profile, key)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(p)
 	if errors.Is(err, os.ErrNotExist) {
 		return "", ErrNotFound
 	}
@@ -70,18 +104,26 @@ func (f *FileStore) Get(profile, key string) (string, error) {
 }
 
 func (f *FileStore) Set(profile, key, value string) error {
-	dir := filepath.Join(f.root, profile)
+	p, err := f.safePath(profile, key)
+	if err != nil {
+		return err
+	}
+	dir := filepath.Dir(p)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("mkdir secrets dir: %w", err)
 	}
-	if err := os.WriteFile(f.path(profile, key), []byte(value), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte(value), 0o600); err != nil {
 		return fmt.Errorf("write secret: %w", err)
 	}
 	return nil
 }
 
 func (f *FileStore) Delete(profile, key string) error {
-	err := os.Remove(f.path(profile, key))
+	p, err := f.safePath(profile, key)
+	if err != nil {
+		return err
+	}
+	err = os.Remove(p)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}

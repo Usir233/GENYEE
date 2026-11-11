@@ -33,6 +33,7 @@ def _serve(control):
     # The 64 MiB fixture must fit both the raw-file and transport budgets.
     os.environ["DOCREADER_GRPC_MAX_FILE_SIZE_MB"] = "80"
     os.environ["GRPC_AUTH_TOKEN"] = ""
+    os.environ["DOCREADER_ALLOW_UNAUTHENTICATED"] = "true"
     os.environ["GRPC_TLS_ENABLED"] = "false"
     from docreader import main
 

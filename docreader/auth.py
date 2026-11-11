@@ -11,10 +11,12 @@
             存在自动判断（保留向后兼容）。
 
     认证相关：
-        GRPC_AUTH_TOKEN: 认证 Token，如果设置则启用认证
+        GRPC_AUTH_TOKEN: 认证 Token（生产环境必填，默认 fail-closed）
+        DOCREADER_ALLOW_UNAUTHENTICATED: 仅限本地隔离开发/测试显式设为 true 时放行无鉴权模式
 
 注意：当 GRPC_TLS_ENABLED=true 但任何 TLS 配置项缺失或加载失败时，
-本模块会抛出异常以触发 fail-fast，避免静默降级到明文。
+或未配置非空 GRPC_AUTH_TOKEN 且未显式开启 DOCREADER_ALLOW_UNAUTHENTICATED=true 时，
+本模块会抛出异常以触发 fail-fast，避免静默降级到明文或免鉴权运行。
 """
 
 import hmac
@@ -29,6 +31,10 @@ logger = logging.getLogger(__name__)
 
 class TLSConfigError(RuntimeError):
     """TLS 配置错误，用于 fail-fast。"""
+
+
+class AuthConfigError(RuntimeError):
+    """认证配置错误，用于 fail-closed 启动拦截。"""
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -154,10 +160,11 @@ def _make_abort_handler(original: Optional[grpc.RpcMethodHandler]) -> grpc.RpcMe
 
 
 class AuthInterceptor(grpc.ServerInterceptor):
-    """Token 认证拦截器
+    """Token 认证拦截器（默认 fail-closed）
 
     环境变量配置：
-        GRPC_AUTH_TOKEN: 认证 Token，如果设置则启用认证
+        GRPC_AUTH_TOKEN: 认证 Token（默认必填）
+        DOCREADER_ALLOW_UNAUTHENTICATED: 仅在本地隔离开发/测试显式设为 true 时允许免鉴权
 
     客户端需要在 metadata 中传递 Token：
         - key: "authorization"
@@ -165,24 +172,44 @@ class AuthInterceptor(grpc.ServerInterceptor):
     """
 
     def __init__(self) -> None:
-        token = os.getenv("GRPC_AUTH_TOKEN") or ""
+        token = (os.getenv("GRPC_AUTH_TOKEN") or "").strip()
+        allow_unauthenticated = _env_bool("DOCREADER_ALLOW_UNAUTHENTICATED", False)
         self.auth_token: Optional[bytes] = token.encode("utf-8") if token else None
+        self.allow_unauthenticated: bool = bool(
+            allow_unauthenticated and not self.auth_token
+        )
         if self.auth_token:
             if len(self.auth_token) < 16:
                 logger.warning(
                     "GRPC_AUTH_TOKEN is shorter than 16 bytes; consider a stronger token"
                 )
             logger.info("Token authentication enabled")
+        elif self.allow_unauthenticated:
+            logger.warning(
+                "Token authentication explicitly disabled via "
+                "DOCREADER_ALLOW_UNAUTHENTICATED=true (isolated local dev/test only)"
+            )
         else:
-            logger.warning("Token authentication disabled (GRPC_AUTH_TOKEN not set)")
+            raise AuthConfigError(
+                "GRPC_AUTH_TOKEN is not set; refusing to start unauthenticated gRPC "
+                "server (set DOCREADER_ALLOW_UNAUTHENTICATED=true only for isolated "
+                "local development/testing)"
+            )
 
     def intercept_service(self, continuation, handler_call_details):
-        if not self.auth_token:
-            return continuation(handler_call_details)
-
         method = handler_call_details.method
         if method in _HEALTH_METHODS:
             return continuation(handler_call_details)
+
+        if not self.auth_token:
+            if self.allow_unauthenticated:
+                return continuation(handler_call_details)
+            logger.warning(
+                "Authentication failed (no GRPC_AUTH_TOKEN configured) for method: %s",
+                method,
+            )
+            original = continuation(handler_call_details)
+            return _make_abort_handler(original)
 
         metadata = dict(handler_call_details.invocation_metadata or [])
         raw = metadata.get("authorization", "") or ""

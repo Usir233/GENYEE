@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 )
 
 type MessageSuggestionItem struct {
@@ -36,7 +35,7 @@ func (c *Client) EnsureMessageSuggestions(
 	messageID string,
 	regenerate bool,
 ) (*MessageSuggestionSet, error) {
-	path := fmt.Sprintf("/api/v1/sessions/%s/messages/%s/suggestions", url.PathEscape(sessionID), url.PathEscape(messageID))
+	path := fmt.Sprintf("/api/v1/sessions/%s/messages/%s/suggestions", escapePathSegment(sessionID), escapePathSegment(messageID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, map[string]bool{"regenerate": regenerate}, nil)
 	if err != nil {
 		return nil, err
@@ -53,7 +52,7 @@ func (c *Client) GetMessageSuggestions(
 	sessionID string,
 	messageID string,
 ) (*MessageSuggestionSet, error) {
-	path := fmt.Sprintf("/api/v1/sessions/%s/messages/%s/suggestions", url.PathEscape(sessionID), url.PathEscape(messageID))
+	path := fmt.Sprintf("/api/v1/sessions/%s/messages/%s/suggestions", escapePathSegment(sessionID), escapePathSegment(messageID))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -72,7 +71,7 @@ func (c *Client) RecordMessageSuggestionEvent(
 	questionID string,
 	eventType string,
 ) error {
-	path := fmt.Sprintf("/api/v1/sessions/%s/suggestion-events", url.PathEscape(sessionID))
+	path := fmt.Sprintf("/api/v1/sessions/%s/suggestion-events", escapePathSegment(sessionID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, map[string]string{
 		"suggestion_set_id": setID,
 		"question_id":       questionID,

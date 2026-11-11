@@ -692,7 +692,11 @@ func rpc(ctx context.Context, d *device, method string, params any) (json.RawMes
 	id := hex.EncodeToString(bytes)
 	stop := context.AfterFunc(ctx, func() { _ = conn.SetDeadline(time.Now()) })
 	defer stop()
-	if err = json.NewEncoder(conn).Encode(map[string]any{"id": id, "method": method, "params": params}); err != nil {
+	reqPayload := map[string]any{"id": id, "method": method, "params": params}
+	if d.runtime != nil && d.runtime.secret != "" {
+		reqPayload["auth_token"] = d.runtime.secret
+	}
+	if err = json.NewEncoder(conn).Encode(reqPayload); err != nil {
 		return nil, err
 	}
 	line, err := bufio.NewReader(io.LimitReader(conn, maxFrame)).ReadBytes('\n')

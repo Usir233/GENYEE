@@ -57,7 +57,7 @@ services:
         - GO_VERSION_ARG=${GO_VERSION_ARG:-}
     container_name: GENYEE-app
     ports:
-      - "${APP_PORT:-8080}:8080"
+      - "${APP_BIND:-127.0.0.1}:${APP_PORT:-8080}:8080"
     volumes:
       - data-files:/data/files
       - docreader-tmp:/tmp/docreader:ro
@@ -79,18 +79,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
-    # Source .env so deployment-specific variables (e.g. those referenced by
-    # config/builtin_models.yaml via ${ENV}, or any future feature) reach the
-    # app container without having to be enumerated under `environment:`.
-    #
-    # NOTE: the array form below is used instead of the map form
-    # (env_file: - path: .env, required: false) because the map syntax
-    # requires Docker Compose v2.24+ (Jan 2024) and would break parsing on
-    # older deploys. The trade-off is that Compose errors out if .env is
-    # absent — see scripts/start_all.sh for the pre-flight touch that keeps
-    # fresh clones working.
-    env_file:
-      - .env
+    # Explicit least-privilege environment allowlist: do NOT inject raw .env via
+    # env_file so unrelated host/profile credentials (e.g. Langfuse, MCP, CI keys)
+    # are never exposed to the app process or any child tool subprocess.
     environment:
       # ========== 日志 ==========
       # 日志级别，默认debug
@@ -113,19 +104,43 @@ services:
       # Docker 沙箱默认关闭：本机 docker.sock 等同宿主机 root。
       # 系统管理员也可在「设置 → 系统设置」打开（立即生效）。未落库时读本变量。
       - GENYEE_SANDBOX_DOCKER_ENABLED=${GENYEE_SANDBOX_DOCKER_ENABLED:-false}
+      - GENYEE_SANDBOX_DOCKER_IMAGE=${GENYEE_SANDBOX_DOCKER_IMAGE:-}
+      - GENYEE_SANDBOX_USER_ALLOCATION=${GENYEE_SANDBOX_USER_ALLOCATION:-}
       # 出站拨号超时（Go duration，默认 5s）：模型、连接器等外部端点在此时间内连不上即失败。留空使用默认值。
       - GENYEE_OUTBOUND_DIAL_TIMEOUT=${GENYEE_OUTBOUND_DIAL_TIMEOUT:-}
       # gin 信任的代理 CIDR（逗号分隔）；显式设为空字符串则禁用代理信任。
-      # 默认信任 loopback + 私网段（容器网络内 nginx 已覆盖）
-      # - GENYEE_TRUSTED_PROXIES=${GENYEE_TRUSTED_PROXIES:-}
+      - GENYEE_TRUSTED_PROXIES=${GENYEE_TRUSTED_PROXIES:-}
       # 启动时自动执行数据库迁移；设为 false 禁用，默认启用
       - AUTO_MIGRATE=${AUTO_MIGRATE:-true}
-      # IM 渠道图片/文件外链的外部可达 URL。IM 显示知识库图片需二选一：
-      # 存储后端公网可达（如 MINIO_ENDPOINT 设为公网），或设本变量走 <APP_EXTERNAL_URL>/r/<token>（需 nginx 代理 /r/）。
-      # 默认 MinIO 内网部署 / local 后端需设本变量。
-      # - APP_EXTERNAL_URL=${APP_EXTERNAL_URL:-}
+      # IM 渠道图片/文件外链的外部可达 URL。
+      - APP_EXTERNAL_URL=${APP_EXTERNAL_URL:-}
+      - RESOURCE_URL_MODE=${RESOURCE_URL_MODE:-}
       # 前端外部 origin，用于邀请链接等绝对 URL（留空走 host-relative）
       - FRONTEND_BASE_URL=${FRONTEND_BASE_URL:-}
+      - PRODUCT_DOCS_BASE_URL=${PRODUCT_DOCS_BASE_URL:-}
+      - BUILTIN_MODELS_CONFIG=${BUILTIN_MODELS_CONFIG:-}
+      - MODELS_CONFIG=${MODELS_CONFIG:-}
+      # Optional declarative built-in model placeholders (config/builtin_models.yaml)
+      - LLM_MODEL_NAME=${LLM_MODEL_NAME:-}
+      - LLM_BASE_URL=${LLM_BASE_URL:-}
+      - LLM_API_KEY=${LLM_API_KEY:-}
+      - LLM_PROVIDER=${LLM_PROVIDER:-}
+      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME:-}
+      - EMBEDDING_BASE_URL=${EMBEDDING_BASE_URL:-}
+      - EMBEDDING_API_KEY=${EMBEDDING_API_KEY:-}
+      - EMBEDDING_PROVIDER=${EMBEDDING_PROVIDER:-}
+      - RERANK_MODEL_NAME=${RERANK_MODEL_NAME:-}
+      - RERANK_BASE_URL=${RERANK_BASE_URL:-}
+      - RERANK_API_KEY=${RERANK_API_KEY:-}
+      - RERANK_PROVIDER=${RERANK_PROVIDER:-}
+      - TAVILY_API_KEY=${TAVILY_API_KEY:-}
+      - KNOWLEDGE_BASE_PROFILE_MAX_TOKENS=${KNOWLEDGE_BASE_PROFILE_MAX_TOKENS:-}
+      - GENERATE_QUESTIONS_MAX_TOKENS=${GENERATE_QUESTIONS_MAX_TOKENS:-}
+      - GENYEE_TENANT_AUTO_ACCEPT_INVITATION=${GENYEE_TENANT_AUTO_ACCEPT_INVITATION:-}
+      - BROWSERSKILL_PUBLIC_URL=${BROWSERSKILL_PUBLIC_URL:-}
+      - BROWSERSKILL_MAX_CONNECTIONS=${BROWSERSKILL_MAX_CONNECTIONS:-}
+      - BROWSERSKILL_INTERNAL_URL=${BROWSERSKILL_INTERNAL_URL:-}
+      - BROWSERSKILL_CLUSTER_SECRET=${BROWSERSKILL_CLUSTER_SECRET:-}
       # ========== 对象存储 - 腾讯云 COS ==========
       - COS_SECRET_ID=${COS_SECRET_ID:-}
       - COS_SECRET_KEY=${COS_SECRET_KEY:-}
@@ -226,6 +241,7 @@ services:
       - WEAVIATE_SCHEME=${WEAVIATE_SCHEME:-}
       - WEAVIATE_AUTH_ENABLED=${WEAVIATE_AUTH_ENABLED:-}
       - WEAVIATE_API_KEY=${WEAVIATE_API_KEY:-}
+      - WEAVIATE_COLLECTION=${WEAVIATE_COLLECTION:-}
       - DORIS_ADDR=${DORIS_ADDR:-}
       - DORIS_HTTP_PORT=${DORIS_HTTP_PORT:-}
       - DORIS_DATABASE=${DORIS_DATABASE:-}
@@ -243,8 +259,8 @@ services:
       - AUTO_RECOVER_DIRTY=${AUTO_RECOVER_DIRTY:-true}
       # ----- MinIO（STORAGE_TYPE=minio）-----
       - MINIO_ENDPOINT=${MINIO_ENDPOINT:-minio:9000}
-      - MINIO_ACCESS_KEY_ID=${MINIO_ACCESS_KEY_ID:-minioadmin}
-      - MINIO_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY:-minioadmin}
+      - MINIO_ACCESS_KEY_ID=${MINIO_ACCESS_KEY_ID:-}
+      - MINIO_SECRET_ACCESS_KEY=${MINIO_SECRET_ACCESS_KEY:-}
       - MINIO_BUCKET_NAME=${MINIO_BUCKET_NAME:-}
       - MINIO_PATH_PREFIX=${MINIO_PATH_PREFIX:-}
       - MINIO_USE_SSL=${MINIO_USE_SSL:-false}
@@ -303,6 +319,7 @@ services:
       - REDIS_DB=${REDIS_DB:-}
       - REDIS_PREFIX=${REDIS_PREFIX:-}
       # Redis TLS（托管 Redis 加密传输；REDIS_USE_TLS=true 时生效，详见 .env.example）
+      - REDIS_USE_TLS=${REDIS_USE_TLS:-}
       - REDIS_TLS_SERVER_NAME=${REDIS_TLS_SERVER_NAME:-}
       - REDIS_TLS_INSECURE_SKIP_VERIFY=${REDIS_TLS_INSECURE_SKIP_VERIFY:-}
       # Redis 频道命名空间后缀（多部署共享同一 Redis 时隔离用）
@@ -314,7 +331,7 @@ services:
       - NEO4J_ENABLE=${NEO4J_ENABLE:-}
       - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}
       - NEO4J_USERNAME=${NEO4J_USERNAME:-neo4j}
-      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-password}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD:-}
       # 数据库中 API Key 等敏感字段落盘加密的 AES-256 主密钥（必须为 32 字节）。
       # 加密范围：tenants.api_key、模型 API key、向量库凭证、web search provider key、
       # WeKnoraCloud.AppSecret 等。缺失或长度不对时，已加密字段无法解密（UI 显示为空，
@@ -415,6 +432,11 @@ services:
       # 已废弃：解析模式改在数据源编辑页按数据源配置（默认 blocks）。此变量仅在
       # 数据源未配置 parse_mode 时回退读取并打印弃用警告，后续版本将移除。
       - FEISHU_DOCX_PARSE_MODE=${FEISHU_DOCX_PARSE_MODE:-}
+      - FEISHU_API_REQUESTS_PER_MINUTE=${FEISHU_API_REQUESTS_PER_MINUTE:-}
+      - FEISHU_RATE_LIMIT_RETRY_WAIT=${FEISHU_RATE_LIMIT_RETRY_WAIT:-}
+      - FEISHU_RATE_LIMIT_MAX_WAIT=${FEISHU_RATE_LIMIT_MAX_WAIT:-}
+      - FEISHU_EXPORT_MAX_POLLS=${FEISHU_EXPORT_MAX_POLLS:-}
+      - FEISHU_EXPORT_POLL_INTERVAL=${FEISHU_EXPORT_POLL_INTERVAL:-}
     depends_on:
       redis:
         condition: service_started
@@ -530,6 +552,7 @@ services:
       - DOCREADER_ODL_HYBRID_MODE=${DOCREADER_ODL_HYBRID_MODE:-auto}
       - DOCREADER_ODL_HYBRID_FALLBACK=${DOCREADER_ODL_HYBRID_FALLBACK:-false}
       - DOCREADER_ODL_MARKDOWN_WITH_HTML=${DOCREADER_ODL_MARKDOWN_WITH_HTML:-false}
+      - ODL_HYBRID_AUTH_TOKEN=${ODL_HYBRID_AUTH_TOKEN:-}
       # ========== PDF 渲染 ==========
       - DOCREADER_PDF_RENDER_MAX_WORKERS=${DOCREADER_PDF_RENDER_MAX_WORKERS:-1}
       # 单个 PDF 内部扫描页渲染并行进程数（pdfium 非线程安全）。留空走代码默认 min(4,cpu)，
@@ -598,6 +621,7 @@ services:
       - "5002"
     environment:
       - ODL_HYBRID_EXTRA_ARGS=${ODL_HYBRID_EXTRA_ARGS:---no-ocr}
+      - ODL_HYBRID_AUTH_TOKEN=${ODL_HYBRID_AUTH_TOKEN:-}
     networks:
       - GENYEE-network
     restart: unless-stopped
@@ -688,11 +712,11 @@ services:
     image: minio/minio:RELEASE.2025-09-07T16-13-09Z
     container_name: GENYEE-minio
     ports:
-      - "${MINIO_PORT:-9000}:9000"
-      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+      - "${MINIO_BIND:-127.0.0.1}:${MINIO_PORT:-9000}:9000"
+      - "${MINIO_BIND:-127.0.0.1}:${MINIO_CONSOLE_PORT:-9001}:9001"
     environment:
-      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY_ID:-minioadmin}
-      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY_ID:-}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_ACCESS_KEY:-}
     command: server --console-address ":9001" /data
     volumes:
       - minio_data:/data
@@ -713,14 +737,14 @@ services:
     volumes:
       - neo4j-data:/data
     environment:
-      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-password}
+      - NEO4J_AUTH=${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-}
       - NEO4J_apoc_export_file_enabled=true
       - NEO4J_apoc_import_file_enabled=true
       - NEO4J_apoc_import_file_use__neo4j__config=true
       - NEO4JLABS_PLUGINS=["apoc"]
     ports:
-      - "127.0.0.1:7474:7474"
-      - "127.0.0.1:7687:7687"
+      - "${NEO4J_BIND:-127.0.0.1}:7474:7474"
+      - "${NEO4J_BIND:-127.0.0.1}:7687:7687"
     restart: always
     networks:
       - GENYEE-network
@@ -732,8 +756,8 @@ services:
     image: qdrant/qdrant:v1.16.2
     container_name: GENYEE-qdrant
     ports:
-      - "${QDRANT_REST_PORT:-6333}:6333"
-      - "${QDRANT_PORT:-6334}:6334"
+      - "${QDRANT_BIND:-127.0.0.1}:${QDRANT_REST_PORT:-6333}:6333"
+      - "${QDRANT_BIND:-127.0.0.1}:${QDRANT_PORT:-6334}:6334"
     volumes:
       - qdrant_data:/qdrant/storage
     networks:
@@ -761,8 +785,8 @@ services:
       timeout: 20s
       retries: 3
     ports:
-      - "19530:19530"
-      - "9091:9091"
+      - "${MILVUS_BIND:-127.0.0.1}:19530:19530"
+      - "${MILVUS_BIND:-127.0.0.1}:9091:9091"
     volumes:
       - milvus_data:/var/lib/milvus
     networks:
@@ -779,13 +803,16 @@ services:
       - CLUSTER_HOSTNAME=node1
       - DEFAULT_VECTORIZER_MODULE=none
       - ENABLE_MODULES=none
-      - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=true
+      - AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED=${WEAVIATE_ANONYMOUS_ACCESS_ENABLED:-false}
+      - AUTHENTICATION_APIKEY_ENABLED=${WEAVIATE_AUTH_ENABLED:-true}
+      - AUTHENTICATION_APIKEY_ALLOWED_KEYS=${WEAVIATE_API_KEY:-}
+      - AUTHENTICATION_APIKEY_USERS=genyee
       - CLUSTER_GOSSIP_BIND_PORT=7000
       - CLUSTER_DATA_BIND_PORT=7001
       - RAFT_BOOTSTRAP_EXPECT=1
     ports:
-      - "9035:8080"
-      - "50052:50051"
+      - "${WEAVIATE_BIND:-127.0.0.1}:9035:8080"
+      - "${WEAVIATE_BIND:-127.0.0.1}:50052:50051"
     volumes:
       - weaviate_data:/var/lib/weaviate
     networks:
@@ -818,8 +845,8 @@ services:
       - FE_SERVERS=fe1:doris-fe:9010
       - FE_ID=1
     ports:
-      - "${DORIS_FE_HTTP_PORT:-8030}:8030"
-      - "${DORIS_FE_MYSQL_PORT:-9030}:9030"
+      - "${DORIS_BIND:-127.0.0.1}:${DORIS_FE_HTTP_PORT:-8030}:8030"
+      - "${DORIS_BIND:-127.0.0.1}:${DORIS_FE_MYSQL_PORT:-9030}:9030"
     volumes:
       - doris_fe_meta:/opt/apache-doris/fe/doris-meta
       - doris_fe_log:/opt/apache-doris/fe/log
@@ -839,7 +866,7 @@ services:
     depends_on:
       - doris-fe
     ports:
-      - "${DORIS_BE_HTTP_PORT:-8040}:8040"
+      - "${DORIS_BIND:-127.0.0.1}:${DORIS_BE_HTTP_PORT:-8040}:8040"
     volumes:
       - doris_be_storage:/opt/apache-doris/be/storage
       - doris_be_log:/opt/apache-doris/be/log
@@ -853,10 +880,14 @@ services:
     image: dexidp/dex:v2.41.1
     container_name: GENYEE-dex
     ports:
-      - "5556:5556"
+      - "${DEX_BIND:-127.0.0.1}:5556:5556"
+    environment:
+      - DEX_CLIENT_SECRET=${OIDC_AUTH_CLIENT_SECRET:-}
     volumes:
-      - ./misc/dex-config.yaml:/etc/dex/config.yaml
+      - ./misc/dex-config.yaml:/etc/dex/config.yaml:ro
     command: ["dex", "serve", "/etc/dex/config.yaml"]
+    networks:
+      - GENYEE-network
     profiles:
       - dex
       - full
@@ -876,7 +907,7 @@ services:
   #   2. 在 .env 里把 LANGFUSE_HOST 改成 http://langfuse-web:3000（容器间通信）
   #      并填入刚生成的 LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY，设置 LANGFUSE_ENABLED=true
   #   3. 重启 app 容器：docker compose up -d app
-  # 相关默认密码已写成占位符，生产部署务必用 openssl rand 重新生成！
+  # 启动前必须在 .env 中使用 openssl rand 生成独立随机密钥（禁止为空或全零）。
   # ---------------------------------------------------------------------------
 
   # 一次性初始化脚本：在已有的 GENYEE-postgres 里创建 langfuse 数据库（幂等，数据库已存在则跳过）
@@ -921,7 +952,7 @@ services:
     environment:
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
-      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-}
     volumes:
       - langfuse_clickhouse_data:/var/lib/clickhouse
       - langfuse_clickhouse_logs:/var/log/clickhouse-server
@@ -941,16 +972,16 @@ services:
     container_name: GENYEE-langfuse-minio
     restart: unless-stopped
     entrypoint: sh
-    # 启动前创建 `langfuse` 桶，Langfuse 开箱即用
-    command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
+    # 启动前校验密钥强度并创建 `langfuse` 桶
+    command: -ec 'test -n "$$MINIO_ROOT_PASSWORD" && [ "$${#MINIO_ROOT_PASSWORD}" -ge 8 ] || { echo "[langfuse-minio] LANGFUSE_MINIO_PASSWORD (>=8 chars) is required" >&2; exit 1; }; mkdir -p /data/langfuse && exec minio server --address ":9000" --console-address ":9001" /data'
     environment:
       MINIO_ROOT_USER: ${LANGFUSE_MINIO_USER:-langfuseminio}
-      MINIO_ROOT_PASSWORD: ${LANGFUSE_MINIO_PASSWORD:-langfuseminiosecret}
+      MINIO_ROOT_PASSWORD: ${LANGFUSE_MINIO_PASSWORD:-}
     ports:
-      # 9100：S3 API（浏览器上传媒体时会直连此端口，必须对外暴露）
-      - "${LANGFUSE_MINIO_S3_PORT:-9100}:9000"
-      # 9101：MinIO 控制台（可选，方便排障）
-      - "${LANGFUSE_MINIO_CONSOLE_PORT:-9101}:9001"
+      # 9100：S3 API（默认仅绑定宿主机回环 127.0.0.1，跨主机需显式设置 LANGFUSE_BIND 并启用强凭证）
+      - "${LANGFUSE_BIND:-127.0.0.1}:${LANGFUSE_MINIO_S3_PORT:-9100}:9000"
+      # 9101：MinIO 控制台（默认仅绑定 127.0.0.1）
+      - "${LANGFUSE_BIND:-127.0.0.1}:${LANGFUSE_MINIO_CONSOLE_PORT:-9101}:9001"
     volumes:
       - langfuse_minio_data:/data
     healthcheck:
@@ -977,14 +1008,14 @@ services:
         condition: service_healthy
       langfuse-minio:
         condition: service_healthy
-    # 用 wrapper entrypoint：在容器启动时把 DB_PASSWORD / REDIS_PASSWORD 做 URL 编码，
-    # 避免 DB_PASSWORD 含 '@' / '#' 等字符导致 Prisma 无法解析 DATABASE_URL (P1013)。
-    # Langfuse 镜像基于 Node.js，直接用 node 的 encodeURIComponent，不引外部依赖。
-    # 注意：compose 覆盖 entrypoint 会清空镜像默认 CMD，因此在 wrapper 末尾写死 exec 的原始命令。
+    # 用 wrapper entrypoint：校验必填密钥（拒绝空值或全零密钥），并在容器启动时把
+    # DB_PASSWORD / REDIS_PASSWORD 做 URL 编码，避免特殊字符导致 Prisma 解析失败 (P1013)。
     entrypoint:
       - /bin/sh
       - -ec
       - |
+        case "$$ENCRYPTION_KEY" in ""|0000000000000000000000000000000000000000000000000000000000000000) echo "[langfuse] LANGFUSE_ENCRYPTION_KEY (64 non-zero hex chars) is required" >&2; exit 1 ;; esac
+        [ -n "$$NEXTAUTH_SECRET" ] && [ -n "$$SALT" ] && [ -n "$$CLICKHOUSE_PASSWORD" ] && [ -n "$$LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY" ] || { echo "[langfuse] LANGFUSE_NEXTAUTH_SECRET, LANGFUSE_SALT, LANGFUSE_CLICKHOUSE_PASSWORD, and LANGFUSE_MINIO_PASSWORD are required" >&2; exit 1; }
         _enc() { node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$$1"; }
         DU=$$(_enc "$$_LF_DB_USER")
         DP=$$(_enc "$$_LF_DB_PASSWORD")
@@ -1000,31 +1031,32 @@ services:
       _LF_DB_NAME: ${LANGFUSE_DB_NAME:-langfuse}
       _LF_REDIS_PASSWORD: ${REDIS_PASSWORD}
       _LF_REDIS_DB: ${LANGFUSE_REDIS_DB:-1}
-      # SALT / ENCRYPTION_KEY 生产环境务必重新生成：
+      # 必须在 .env 中显式生成高熵随机值（无弱默认回退）：
       #   SALT: openssl rand -base64 32
       #   ENCRYPTION_KEY: openssl rand -hex 32
-      SALT: ${LANGFUSE_SALT:-genyee-langfuse-dev-salt-change-me}
-      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-0000000000000000000000000000000000000000000000000000000000000000}
+      #   NEXTAUTH_SECRET: openssl rand -base64 32
+      SALT: ${LANGFUSE_SALT:-}
+      ENCRYPTION_KEY: ${LANGFUSE_ENCRYPTION_KEY:-}
       NEXTAUTH_URL: ${LANGFUSE_NEXTAUTH_URL:-http://localhost:3000}
-      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-genyee-langfuse-dev-nextauth-secret-change-me}
+      NEXTAUTH_SECRET: ${LANGFUSE_NEXTAUTH_SECRET:-}
       TELEMETRY_ENABLED: ${LANGFUSE_TELEMETRY_ENABLED:-false}
       LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: "false"
       CLICKHOUSE_URL: http://langfuse-clickhouse:8123
       CLICKHOUSE_MIGRATION_URL: clickhouse://langfuse-clickhouse:9000
       CLICKHOUSE_USER: ${LANGFUSE_CLICKHOUSE_USER:-clickhouse}
-      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-clickhouse}
+      CLICKHOUSE_PASSWORD: ${LANGFUSE_CLICKHOUSE_PASSWORD:-}
       CLICKHOUSE_CLUSTER_ENABLED: "false"
       LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
       LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
       LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_USER:-langfuseminio}
-      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_PASSWORD:-langfuseminiosecret}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_PASSWORD:-}
       LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://langfuse-minio:9000
       LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: "true"
       LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
       LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
       LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
       LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${LANGFUSE_MINIO_USER:-langfuseminio}
-      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_PASSWORD:-langfuseminiosecret}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${LANGFUSE_MINIO_PASSWORD:-}
       # 媒体上传用的外部 endpoint（浏览器直连），默认指向宿主机映射的 9100 端口
       LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: ${LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT:-http://localhost:9100}
       LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: "true"
@@ -1040,12 +1072,14 @@ services:
     restart: unless-stopped
     depends_on: *langfuse-depends-on
     ports:
-      - "${LANGFUSE_WEB_PORT:-3000}:3000"
+      - "${LANGFUSE_BIND:-127.0.0.1}:${LANGFUSE_WEB_PORT:-3000}:3000"
     # 同样走 wrapper entrypoint，末尾写死 web 的原始启动命令（见镜像 Dockerfile 的 CMD）
     entrypoint:
       - /bin/sh
       - -ec
       - |
+        case "$$ENCRYPTION_KEY" in ""|0000000000000000000000000000000000000000000000000000000000000000) echo "[langfuse] LANGFUSE_ENCRYPTION_KEY (64 non-zero hex chars) is required" >&2; exit 1 ;; esac
+        [ -n "$$NEXTAUTH_SECRET" ] && [ -n "$$SALT" ] && [ -n "$$CLICKHOUSE_PASSWORD" ] && [ -n "$$LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY" ] || { echo "[langfuse] LANGFUSE_NEXTAUTH_SECRET, LANGFUSE_SALT, LANGFUSE_CLICKHOUSE_PASSWORD, and LANGFUSE_MINIO_PASSWORD are required" >&2; exit 1; }
         _enc() { node -e 'process.stdout.write(encodeURIComponent(process.argv[1]))' "$$1"; }
         DU=$$(_enc "$$_LF_DB_USER")
         DP=$$(_enc "$$_LF_DB_PASSWORD")
@@ -1081,7 +1115,7 @@ services:
       context: ./mcp-server
     container_name: GENYEE-mcp
     ports:
-      - "${MCP_PORT:-8082}:8000"
+      - "${MCP_BIND:-127.0.0.1}:${MCP_PORT:-8082}:8000"
     environment:
       - GENYEE_BASE_URL=http://app:8080/api/v1
       - GENYEE_API_KEY=${GENYEE_API_KEY:-}

@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -248,29 +249,68 @@ func (s *localFileService) SaveBytes(ctx context.Context, data []byte, tenantID 
 	return localScheme + filepath.ToSlash(relPath), nil
 }
 
+// parseStrictLocalTenantID extracts the leading tenant ID segment from a
+// canonical local://<tenantID>/<object...> (or storage://<id>/local://...) path.
+// Rejects traversal segments and paths without a leading positive tenant ID.
+func parseStrictLocalTenantID(path string) (uint64, error) {
+	inner := strings.TrimSpace(trimStorageScope(strings.TrimSpace(path)))
+	if !strings.HasPrefix(inner, localScheme) {
+		return 0, fmt.Errorf("invalid local scheme in %q", path)
+	}
+	rest := strings.TrimPrefix(inner, localScheme)
+	if rest == "" || strings.Contains(rest, "\\") {
+		return 0, fmt.Errorf("empty or invalid local storage path")
+	}
+	parts := strings.Split(rest, "/")
+	if len(parts) < 2 {
+		return 0, fmt.Errorf("local storage path missing object segment")
+	}
+	for _, seg := range parts {
+		if seg == "" || seg == "." || seg == ".." {
+			return 0, fmt.Errorf("invalid segment in local storage path")
+		}
+	}
+	tenantID, err := strconv.ParseUint(parts[0], 10, 64)
+	if err != nil || tenantID == 0 {
+		return 0, fmt.Errorf("local storage path missing leading tenant segment")
+	}
+	return tenantID, nil
+}
+
 // GetFileURL returns a download URL for the file.
 // When externalURL is configured, returns a presigned HTTP URL suitable for external access.
 // Otherwise returns the local://... path for backward compatibility.
 func (s *localFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
+	candidate := s.normalizePathForBase(filePath)
+	resolved, err := secutils.SafePathUnderBase(s.baseDir, candidate)
+	if err != nil {
+		logger.Errorf(ctx, "Path traversal denied for GetFileURL: %v", err)
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
+
 	// Normalize to provider:// format.
-	normalized := filePath
-	if !strings.HasPrefix(filePath, localScheme) {
-		relPath, err := filepath.Rel(s.baseDir, filePath)
-		if err != nil {
-			normalized = filePath
-		} else {
-			normalized = localScheme + filepath.ToSlash(relPath)
+	normalized := strings.TrimSpace(filePath)
+	inner := trimStorageScope(normalized)
+	if !strings.HasPrefix(inner, localScheme) {
+		relPath, relErr := filepath.Rel(s.baseDir, resolved)
+		if relErr != nil {
+			return "", fmt.Errorf("invalid relative file path: %w", relErr)
 		}
+		normalized = localScheme + filepath.ToSlash(relPath)
+	}
+
+	tenantID, err := parseStrictLocalTenantID(normalized)
+	if err != nil {
+		return "", err
+	}
+	if callerTenantID := currentTenantIDFromContext(ctx); callerTenantID != 0 &&
+		callerTenantID != tenantID &&
+		!isCrossTenantResourceAuthorized(ctx, filePath, normalized) {
+		return "", fmt.Errorf("local storage path tenant mismatch: owner=%d caller=%d", tenantID, callerTenantID)
 	}
 
 	// If external URL is configured, generate a presigned HTTP URL.
 	if s.externalURL != "" {
-		// Tenant ID is parsed from the storage path, which encodes the
-		// resource owner's tenant (not the caller's). The verifier on
-		// /api/v1/files/presigned uses this ID to look up the owning
-		// tenant's StorageEngineConfig — using the caller's tenant would
-		// break cross-tenant shared resources (e.g. shared KB images).
-		tenantID := secutils.ParseTenantIDFromStoragePath(normalized)
 		presignedURL, err := secutils.SignFileURL(s.externalURL, normalized, tenantID, 0)
 		if err != nil {
 			logger.Warnf(ctx, "Failed to generate presigned URL for %s: %v, returning local:// path", normalized, err)

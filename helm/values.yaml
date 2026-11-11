@@ -42,6 +42,19 @@ global:
   # Note: readOnlyRootFilesystem disabled as images require writable filesystem
   containerSecurityContext:
     allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
+# -- NetworkPolicy isolation for internal services (docreader, postgres, redis, neo4j)
+networkPolicy:
+  # -- Create NetworkPolicy resources restricting ingress to internal components
+  enabled: true
+  # -- Optional namespace selector allowing external ingress controllers to reach frontend/app
+  # Leave empty ({}) to allow ingress to frontend (and app when direct routing is used) from any namespace
+  ingressNamespaceSelector: {}
+  # -- Optional pod selector combined with ingressNamespaceSelector for external ingress
+  ingressPodSelector: {}
 
 # -- ServiceAccount configuration
 # Ref: https://helm.sh/docs/chart_best_practices/rbac/
@@ -100,10 +113,18 @@ app:
   podSecurityContext: {}
 
   # -- Container security context override
-  # Note: App requires write access for file storage
+  # Note: App entrypoint drops privileges from root to appuser via gosu
   securityContext:
-    # runAsNonRoot: true  # Disabled - official images run as root
     allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - CHOWN
+        - DAC_OVERRIDE
+        - FOWNER
+        - SETGID
+        - SETUID
 
   # -- Environment variables for the app container
   # Ref: docker-compose.yml
@@ -221,10 +242,18 @@ frontend:
       memory: 256Mi
 
   # -- Container security context
+  # Master binds :80 then drops worker processes to unprivileged nginx user
   securityContext:
-    # runAsNonRoot: true  # Disabled - official images run as root
-    # readOnlyRootFilesystem: true  # Disabled - images require writable fs
     allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - CHOWN
+        - DAC_OVERRIDE
+        - NET_BIND_SERVICE
+        - SETGID
+        - SETUID
 
   # -- Service configuration
   service:
@@ -269,10 +298,30 @@ docreader:
       cpu: 500m
       memory: 512Mi
 
+  # -- Pod security context override
+  podSecurityContext:
+    fsGroup: 10001
+    seccompProfile:
+      type: RuntimeDefault
+
   # -- Container security context
   securityContext:
-    # runAsNonRoot: true  # Disabled - official images run as root
+    runAsNonRoot: true
+    runAsUser: 10001
+    runAsGroup: 10001
     allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+
+  # -- Optional gRPC TLS configuration for docreader
+  tls:
+    # -- Enable gRPC TLS on docreader and app client
+    enabled: false
+    # -- Kubernetes TLS Secret containing tls.crt, tls.key, and optional ca.crt
+    secretName: ""
+    # -- Optional TLS server name override for certificate verification
+    serverName: ""
 
   # -- Environment variables
   env:
@@ -321,10 +370,18 @@ postgresql:
       memory: 512Mi
 
   # -- Container security context
-  # Note: PostgreSQL requires specific user permissions
+  # Note: PostgreSQL entrypoint initializes PGDATA then drops to postgres user
   securityContext:
-    # runAsNonRoot: true  # Disabled - official images run as root
     allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - CHOWN
+        - DAC_OVERRIDE
+        - FOWNER
+        - SETGID
+        - SETUID
 
   # -- Persistence configuration
   persistence:
@@ -372,9 +429,16 @@ redis:
 
   # -- Container security context
   securityContext:
-    # runAsNonRoot: true  # Disabled - official images run as root
-    # readOnlyRootFilesystem: true  # Disabled - images require writable fs
     allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - CHOWN
+        - DAC_OVERRIDE
+        - FOWNER
+        - SETGID
+        - SETUID
 
   # -- Persistence configuration
   persistence:
@@ -425,10 +489,14 @@ ingress:
   # -- Ingress hostname
   host: genyee.example.com
 
+  # -- Route /api traffic through the frontend Nginx gateway when frontend is enabled
+  # so route-specific upload size limits, WS query redaction, and internal path blocking apply.
+  routeApiViaFrontend: true
+
   # -- TLS configuration
   tls:
-    # -- Enable TLS
-    enabled: false
+    # -- Enable TLS by default when ingress is enabled
+    enabled: true
     # -- TLS secret name
     secretName: ""
 
@@ -479,9 +547,16 @@ secrets:
   # SYSTEM_AES_KEY exclusively. The Go app no longer reads TENANT_AES_KEY and
   # it has been removed from the Secret.
   systemAesKey: ""
+  # -- Independent HMAC signing key for embed sessions and presigned URLs.
+  # Auto-generated (32 random alphanumeric chars) and preserved across upgrades if empty.
+  systemSigningKey: ""
+  # -- Shared gRPC authentication token between app and docreader.
+  # Auto-generated (32 random alphanumeric chars) and preserved across upgrades if empty.
+  grpcAuthToken: ""
 
   # -- Use existing secret instead of creating one
-  # The secret must contain keys: DB_USER, DB_PASSWORD, DB_NAME, REDIS_USERNAME, REDIS_PASSWORD, JWT_SECRET, SYSTEM_AES_KEY
+  # The secret must contain keys: DB_USER, DB_PASSWORD, DB_NAME, REDIS_USERNAME, REDIS_PASSWORD,
+  # JWT_SECRET, SYSTEM_AES_KEY, SYSTEM_SIGNING_KEY, GRPC_AUTH_TOKEN
   existingSecret: ""
 
 # -----------------------------------------------------------------------------
@@ -541,6 +616,15 @@ neo4j:
   # -- Container security context
   securityContext:
     allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - CHOWN
+        - DAC_OVERRIDE
+        - FOWNER
+        - SETGID
+        - SETUID
 
   # -- Persistence configuration
   persistence:

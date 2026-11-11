@@ -559,3 +559,20 @@ func TestResolveDoctorHost_EnvCredentials(t *testing.T) {
 		}
 	})
 }
+
+func TestDoctor_PingBaseURL_ValidatesHostAndUses10sTimeout(t *testing.T) {
+	if pingTimeout != 10*time.Second {
+		t.Fatalf("expected pingTimeout=10s, got %v", pingTimeout)
+	}
+	for _, bad := range []string{
+		"file:///etc/passwd",
+		"ftp://example.com",
+		"http://",
+		"not-a-url",
+	} {
+		svc := &realServices{f: cmdutil.New(), host: bad}
+		if err := svc.PingBaseURL(context.Background()); err == nil {
+			t.Fatalf("expected PingBaseURL(%q) to fail URL validation", bad)
+		}
+	}
+}

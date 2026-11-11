@@ -6,13 +6,13 @@ GENYEE 本地 MCP Demo Server
 默认以 Streamable HTTP 监听 http://127.0.0.1:8010/mcp
 
 启动：
-  export MCP_SERVER_AUTH_TOKEN=genyee-demo-token
+  export MCP_SERVER_AUTH_TOKEN="genyee-demo-token-0123456789abcdef"
   python server.py
 
 GENYEE 配置：
   传输：HTTP Streamable
   URL：http://127.0.0.1:8010/mcp
-  认证：Bearer，令牌与 MCP_SERVER_AUTH_TOKEN 一致
+  认证：Bearer，令牌与 MCP_SERVER_AUTH_TOKEN 一致（至少 32 字符）
 """
 
 from __future__ import annotations
@@ -27,9 +27,12 @@ from datetime import datetime, timezone
 from typing import Any
 
 from mcp.server import MCPServer
+from mcp.server.transport_security import TransportSecuritySettings
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger("mcp-demo")
+
+MIN_AUTH_TOKEN_LENGTH = 32
 
 mcp = MCPServer("genyee-mcp-demo", version="0.1.0")
 
@@ -60,14 +63,73 @@ def network_transport_auth_token() -> str:
 
 def require_network_transport_auth(transport: str) -> str:
     token = network_transport_auth_token()
-    if transport in ("sse", "http") and not token:
-        logger.error(
-            "MCP_SERVER_AUTH_TOKEN is required for %s transport. "
-            "Example: export MCP_SERVER_AUTH_TOKEN=genyee-demo-token",
-            transport,
-        )
-        sys.exit(1)
+    if transport in ("sse", "http"):
+        if not token:
+            logger.error(
+                "MCP_SERVER_AUTH_TOKEN is required for %s transport (>= %d chars).",
+                transport,
+                MIN_AUTH_TOKEN_LENGTH,
+            )
+            sys.exit(1)
+        if len(token) < MIN_AUTH_TOKEN_LENGTH:
+            logger.error(
+                "MCP_SERVER_AUTH_TOKEN is too short (%d chars); at least %d chars required.",
+                len(token),
+                MIN_AUTH_TOKEN_LENGTH,
+            )
+            sys.exit(1)
     return token
+
+
+def build_transport_security_settings(host: str, port: int) -> TransportSecuritySettings:
+    allowed_hosts = [
+        "127.0.0.1:*",
+        "localhost:*",
+        "[::1]:*",
+        "127.0.0.1",
+        "localhost",
+        "[::1]",
+    ]
+    allowed_origins = [
+        "http://127.0.0.1:*",
+        "https://127.0.0.1:*",
+        "http://localhost:*",
+        "https://localhost:*",
+        "http://[::1]:*",
+        "https://[::1]:*",
+    ]
+    clean_host = (host or "").strip()
+    if clean_host and clean_host not in {"0.0.0.0", "::", "*"}:
+        allowed_hosts.extend([f"{clean_host}:{port}", f"{clean_host}:*", clean_host])
+        allowed_origins.extend(
+            [f"http://{clean_host}:{port}", f"https://{clean_host}:{port}"]
+        )
+    extra_hosts = os.getenv("MCP_ALLOWED_HOSTS", "").strip()
+    if extra_hosts:
+        for entry in (h.strip() for h in extra_hosts.split(",") if h.strip()):
+            allowed_hosts.append(entry)
+            if ":" not in entry:
+                allowed_hosts.append(f"{entry}:*")
+    extra_origins = os.getenv("MCP_ALLOWED_ORIGINS", "").strip()
+    if extra_origins:
+        allowed_origins.extend(
+            o.strip() for o in extra_origins.split(",") if o.strip()
+        )
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=allowed_origins,
+    )
+
+
+def _uvicorn_tls_kwargs() -> dict[str, str]:
+    certfile = os.getenv("MCP_SSL_CERTFILE", "").strip()
+    keyfile = os.getenv("MCP_SSL_KEYFILE", "").strip()
+    if bool(certfile) != bool(keyfile):
+        raise ValueError("Both MCP_SSL_CERTFILE and MCP_SSL_KEYFILE must be set together.")
+    if certfile and keyfile:
+        return {"ssl_certfile": certfile, "ssl_keyfile": keyfile}
+    return {}
 
 
 class MCPAuthMiddleware:
@@ -93,7 +155,9 @@ class MCPAuthMiddleware:
         elif "x-mcp-auth-token" in headers:
             provided = headers["x-mcp-auth-token"]
 
-        if not provided or not secrets.compare_digest(provided, self.token):
+        if not provided or not secrets.compare_digest(
+            provided.encode("utf-8"), self.token.encode("utf-8")
+        ):
             body = b'{"error":"unauthorized"}'
             await send(
                 {
@@ -208,11 +272,21 @@ async def run_http(host: str, port: int) -> None:
         raise ImportError("HTTP transport requires: pip install starlette uvicorn") from e
 
     starlette_app = MCPAuthMiddleware(
-        mcp.streamable_http_app(host=host, stateless_http=True),
+        mcp.streamable_http_app(
+            host=host,
+            stateless_http=True,
+            transport_security=build_transport_security_settings(host, port),
+        ),
         auth_token,
     )
-    logger.info("Streamable HTTP MCP demo listening on http://%s:%d/mcp", host, port)
-    config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")
+    logger.info("Streamable HTTP MCP demo listening on %s:%d/mcp", host, port)
+    config = uvicorn.Config(
+        starlette_app,
+        host=host,
+        port=port,
+        log_level="info",
+        **_uvicorn_tls_kwargs(),
+    )
     server = uvicorn.Server(config)
     await server.serve()
 
@@ -225,11 +299,21 @@ async def run_sse(host: str, port: int) -> None:
         raise ImportError("SSE transport requires: pip install starlette uvicorn") from e
 
     starlette_app = MCPAuthMiddleware(
-        mcp.sse_app(host=host, message_path="/sse/messages/"),
+        mcp.sse_app(
+            host=host,
+            message_path="/sse/messages/",
+            transport_security=build_transport_security_settings(host, port),
+        ),
         auth_token,
     )
-    logger.info("SSE MCP demo listening on http://%s:%d/sse", host, port)
-    config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")
+    logger.info("SSE MCP demo listening on %s:%d/sse", host, port)
+    config = uvicorn.Config(
+        starlette_app,
+        host=host,
+        port=port,
+        log_level="info",
+        **_uvicorn_tls_kwargs(),
+    )
     server = uvicorn.Server(config)
     await server.serve()
 

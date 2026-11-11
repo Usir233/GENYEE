@@ -310,7 +310,8 @@ class TestPptxMediaRealFallback(unittest.TestCase):
 
         with self.assertLogs("docreader.parser.markitdown_parser", level="WARNING"):
             document = MarkitdownParser(file_type="pptx").parse(output.getvalue())
-        self.assertEqual(image_colors(document.content, document.images), [RED, BLUE])
+        # MED-15 blocks SVG delegate execution while keeping raster picture order intact.
+        self.assertEqual(image_colors(document.content, document.images), [RED, None])
 
 
 class TestPptxRasterTransparency(unittest.TestCase):

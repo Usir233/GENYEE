@@ -16,7 +16,60 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
+
+type crossTenantAuthKey struct{}
+
+// WithCrossTenantResourceAccess marks specific references (or resolved physical
+// paths) as explicitly authorized for cross-tenant URL signing in ctx (for
+// example after verifying a live shared-KB viewer grant).
+func WithCrossTenantResourceAccess(ctx context.Context, refs ...string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	allowed := make(map[string]struct{}, len(refs))
+	if prev, ok := ctx.Value(crossTenantAuthKey{}).(map[string]struct{}); ok {
+		for k, v := range prev {
+			allowed[k] = v
+		}
+	}
+	for _, r := range refs {
+		if r != "" {
+			allowed[r] = struct{}{}
+		}
+	}
+	return context.WithValue(ctx, crossTenantAuthKey{}, allowed)
+}
+
+func isCrossTenantResourceAuthorized(ctx context.Context, refs ...string) bool {
+	if ctx == nil {
+		return false
+	}
+	allowed, ok := ctx.Value(crossTenantAuthKey{}).(map[string]struct{})
+	if !ok || len(allowed) == 0 {
+		return false
+	}
+	for _, r := range refs {
+		if _, exists := allowed[r]; exists {
+			return true
+		}
+	}
+	return false
+}
+
+func currentTenantIDFromContext(ctx context.Context) uint64 {
+	if ctx == nil {
+		return 0
+	}
+	if tenant, ok := types.TenantInfoFromContext(ctx); ok && tenant != nil && tenant.ID != 0 {
+		return tenant.ID
+	}
+	if caller := types.CallerFromContext(ctx); caller.TenantID != 0 {
+		return caller.TenantID
+	}
+	return 0
+}
 
 // resourceCatalogFileService keeps provider drivers physical-path-only while
 // exposing stable resource:// references to the application layer.
@@ -58,6 +111,12 @@ func NewResourceCatalogFileService(
 
 func (s *resourceCatalogFileService) CheckConnectivity(ctx context.Context) error {
 	return s.inner.CheckConnectivity(ctx)
+}
+
+// ResourceCatalog exposes the underlying catalog so request-scoped URL
+// rewriters can enforce resource ownership before signing public links.
+func (s *resourceCatalogFileService) ResourceCatalog() interfaces.ResourceCatalog {
+	return s.catalog
 }
 
 func resourceKind(name string) (string, string) {
@@ -200,16 +259,39 @@ func (s *resourceCatalogFileService) GetFile(ctx context.Context, filePath strin
 }
 
 func (s *resourceCatalogFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
-	physical, isResource, err := s.resolve(ctx, filePath)
+	physical, resource, err := s.catalog.ResolvePath(ctx, filePath)
 	if err != nil {
 		return "", err
 	}
-	if isResource && s.externalURL != "" {
-		token, grantErr := s.catalog.CreateAccessGrant(ctx, filePath, 2*time.Hour)
-		if grantErr != nil {
-			return "", grantErr
+	callerTenantID := currentTenantIDFromContext(ctx)
+	if resource != nil {
+		if resource.TenantID == 0 {
+			return "", fmt.Errorf("stored resource missing owner tenant")
 		}
-		return s.externalURL + "/r/" + token, nil
+		if callerTenantID != 0 && callerTenantID != resource.TenantID &&
+			!isCrossTenantResourceAuthorized(ctx, filePath, physical) {
+			return "", fmt.Errorf("resource tenant mismatch: owner=%d caller=%d", resource.TenantID, callerTenantID)
+		}
+		if types.ParseProviderScheme(physical) != "" {
+			if err := secutils.ValidateStoragePathTenant(physical, resource.TenantID); err != nil {
+				return "", fmt.Errorf("invalid resource storage path: %w", err)
+			}
+		}
+		if s.externalURL != "" {
+			token, grantErr := s.catalog.CreateAccessGrant(ctx, filePath, 2*time.Hour)
+			if grantErr != nil {
+				return "", grantErr
+			}
+			return s.externalURL + "/r/" + token, nil
+		}
+		if callerTenantID != 0 && callerTenantID != resource.TenantID {
+			ctx = WithCrossTenantResourceAccess(ctx, filePath, physical)
+		}
+	} else if callerTenantID != 0 && types.ParseProviderScheme(physical) != "" &&
+		!isCrossTenantResourceAuthorized(ctx, filePath, physical) {
+		if err := secutils.ValidateStoragePathTenant(physical, callerTenantID); err != nil {
+			return "", fmt.Errorf("storage path tenant mismatch: %w", err)
+		}
 	}
 	return s.inner.GetFileURL(ctx, physical)
 }

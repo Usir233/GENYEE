@@ -240,7 +240,7 @@ func (h *Handler) CreateSession(c *gin.Context) {
 	createdSession, err := h.sessionService.CreateSession(ctx, createdSession)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to create session"))
 		return
 	}
 
@@ -287,7 +287,7 @@ func (h *Handler) GetSession(c *gin.Context) {
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to retrieve session"))
 		return
 	}
 
@@ -347,7 +347,7 @@ func (h *Handler) GetSessionsByTenant(c *gin.Context) {
 	})
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to list sessions"))
 		return
 	}
 
@@ -421,7 +421,7 @@ func (h *Handler) UpdateSession(c *gin.Context) {
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to update session"))
 		return
 	}
 
@@ -429,7 +429,7 @@ func (h *Handler) UpdateSession(c *gin.Context) {
 	updatedSession, err := h.sessionService.GetSession(ctx, id)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to update session"))
 		return
 	}
 
@@ -472,7 +472,7 @@ func (h *Handler) DeleteSession(c *gin.Context) {
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to delete session"))
 		return
 	}
 
@@ -517,7 +517,7 @@ func (h *Handler) ClearSessionMessages(c *gin.Context) {
 			return
 		}
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{"session_id": id})
-		c.Error(errors.NewInternalServerError(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to clear session messages"))
 		return
 	}
 
@@ -559,7 +559,7 @@ func (h *Handler) BatchDeleteSessions(c *gin.Context) {
 	if req.DeleteAll {
 		if err := h.sessionService.DeleteAllSessions(ctx); err != nil {
 			logger.ErrorWithFields(ctx, err, nil)
-			c.Error(errors.NewInternalServerError(err.Error()))
+			c.Error(errors.NewInternalServerError("Failed to delete sessions"))
 			return
 		}
 		h.browserSkill.ForgetAll(browserSkillScope(ctx))
@@ -596,7 +596,7 @@ func (h *Handler) BatchDeleteSessions(c *gin.Context) {
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to delete sessions"))
 		return
 	}
 
@@ -659,7 +659,7 @@ func (h *Handler) setSessionPinned(c *gin.Context, pinned bool) {
 			"session_id": id,
 			"pinned":     pinned,
 		})
-		c.Error(errors.NewInternalServerError(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to update session pin state"))
 		return
 	}
 	// Zero rows means the session doesn't exist or isn't visible to this user;

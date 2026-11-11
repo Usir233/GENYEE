@@ -25,10 +25,45 @@ if [[ -f "${PROJECT_ROOT}/VERSION" ]]; then
     VERSION_STR="$(tr -d '\n\r ' < "${PROJECT_ROOT}/VERSION")"
 fi
 
+usage() {
+    cat <<EOF
+用法:
+  $0 [输出文件路径.tar.gz] [git-ref]
+
+选项:
+  -h, --help    显示帮助信息并退出
+
+示例:
+  $0
+  $0 dist/genyee-source-v1.0.0.tar.gz HEAD
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        --)
+            shift
+            break
+            ;;
+        -*)
+            echo "[ERROR] 未知选项: $1" >&2
+            usage >&2
+            exit 1
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
 OUTPUT_TAR="${1:-${PROJECT_ROOT}/dist/genyee-source-${VERSION_STR}.tar.gz}"
 GIT_REF="${2:-HEAD}"
 
-mkdir -p "$(dirname "$OUTPUT_TAR")"
+mkdir -p -- "$(dirname -- "$OUTPUT_TAR")"
 
 echo "[INFO] 正在从 ${GIT_REF} 导出客户交付源码包: ${OUTPUT_TAR}"
 git -C "$PROJECT_ROOT" archive \

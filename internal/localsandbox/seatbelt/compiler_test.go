@@ -225,3 +225,20 @@ func TestCompileSeatbeltOpensAWritableFileByLiteral(t *testing.T) {
 		strings.Index(prog.Profile, `(deny file-read* (subpath (param "DENY_READ_0")))`),
 		"credential denies still win")
 }
+
+func TestCompileSeatbeltEmitsExplicitDenyWriteAfterEveryAllow(t *testing.T) {
+	p := seatbeltPolicy()
+	p.DenyWrite = []string{"/Users/dev/.genyee/bsk"}
+	prog, err := compileSeatbelt(p)
+	require.NoError(t, err)
+
+	require.Contains(t, prog.Params, "-DDENY_WRITE_0=/Users/dev/.genyee/bsk")
+	lastAllow := strings.LastIndex(prog.Profile, "(allow ")
+	for _, rule := range []string{
+		`(deny file-write* (subpath (param "DENY_WRITE_0")))`,
+		`(deny file-write* (literal (param "DENY_WRITE_0")))`,
+	} {
+		idx := strings.Index(prog.Profile, rule)
+		require.Greater(t, idx, lastAllow, rule)
+	}
+}

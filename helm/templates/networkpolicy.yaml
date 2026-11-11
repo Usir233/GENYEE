@@ -1,0 +1,164 @@
+{{/*
+Copyright 2026 GENYEE
+SPDX-License-Identifier: MIT
+
+Kubernetes NetworkPolicy isolation for GENYEE components.
+Restricts internal services (docreader, postgres, redis, neo4j) so only authorized
+in-cluster components can establish inbound connections.
+*/}}
+{{- if and .Values.networkPolicy .Values.networkPolicy.enabled }}
+{{- if .Values.docreader.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "weknora.fullname" . }}-docreader
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "weknora.componentLabels" (dict "component" "docreader" "context" .) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "weknora.componentSelectorLabels" (dict "component" "docreader" "context" .) | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 50051
+---
+{{- end }}
+{{- if .Values.postgresql.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "weknora.fullname" . }}-postgres
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "weknora.componentLabels" (dict "component" "database" "context" .) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "weknora.componentSelectorLabels" (dict "component" "database" "context" .) | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+{{- end }}
+{{- if .Values.redis.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "weknora.fullname" . }}-redis
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "weknora.componentLabels" (dict "component" "cache" "context" .) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "weknora.componentSelectorLabels" (dict "component" "cache" "context" .) | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+{{- end }}
+{{- if .Values.neo4j.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "weknora.fullname" . }}-neo4j
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "weknora.componentLabels" (dict "component" "graph" "context" .) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "weknora.componentSelectorLabels" (dict "component" "graph" "context" .) | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
+      ports:
+        - protocol: TCP
+          port: 7474
+        - protocol: TCP
+          port: 7687
+---
+{{- end }}
+{{- if .Values.app.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "weknora.fullname" . }}-app
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "weknora.componentLabels" (dict "component" "app" "context" .) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        {{- if .Values.frontend.enabled }}
+        - podSelector:
+            matchLabels:
+              {{- include "weknora.componentSelectorLabels" (dict "component" "frontend" "context" .) | nindent 14 }}
+        {{- end }}
+        {{- if or (not .Values.frontend.enabled) (and (hasKey .Values.ingress "routeApiViaFrontend") (not .Values.ingress.routeApiViaFrontend)) }}
+        - namespaceSelector: {{ toYaml (.Values.networkPolicy.ingressNamespaceSelector | default dict) | nindent 12 }}
+          {{- if .Values.networkPolicy.ingressPodSelector }}
+          podSelector: {{ toYaml .Values.networkPolicy.ingressPodSelector | nindent 12 }}
+          {{- end }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+{{- end }}
+{{- if .Values.frontend.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "weknora.fullname" . }}-frontend
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "weknora.componentLabels" (dict "component" "frontend" "context" .) | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "weknora.componentSelectorLabels" (dict "component" "frontend" "context" .) | nindent 6 }}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector: {{ toYaml (.Values.networkPolicy.ingressNamespaceSelector | default dict) | nindent 12 }}
+          {{- if .Values.networkPolicy.ingressPodSelector }}
+          podSelector: {{ toYaml .Values.networkPolicy.ingressPodSelector | nindent 12 }}
+          {{- end }}
+      ports:
+        - protocol: TCP
+          port: 80
+{{- end }}
+{{- end }}

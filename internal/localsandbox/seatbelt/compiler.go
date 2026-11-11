@@ -158,6 +158,14 @@ func compileSeatbelt(p core.Policy) (seatbeltProgram, error) {
 			fmt.Sprintf("(deny file-write* (literal (param %q)))", param),
 		)
 	}
+	for i, deny := range p.DenyWrite {
+		param := fmt.Sprintf("DENY_WRITE_%d", i)
+		params = append(params, fmt.Sprintf("-D%s=%s", param, deny))
+		denies = append(denies,
+			fmt.Sprintf("(deny file-write* (subpath (param %q)))", param),
+			fmt.Sprintf("(deny file-write* (literal (param %q)))", param),
+		)
+	}
 
 	sections := []string{seatbeltBasePolicy}
 	sections = append(sections, writeAllows...)

@@ -188,7 +188,10 @@ func (c *Client) CreateKnowledgeFromFile(ctx context.Context,
 
 	// Construct the request with its completed buffer so net/http can replay it
 	// after an authentication refresh or a redirect.
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/file", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/file", escapePathSegment(knowledgeBaseID))
+	if err := validateAPIPath(path); err != nil {
+		return nil, err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -246,7 +249,7 @@ func (c *Client) CreateKnowledgeFromURL(
 	knowledgeBaseID string,
 	req CreateKnowledgeFromURLRequest,
 ) (*Knowledge, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/url", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/url", escapePathSegment(knowledgeBaseID))
 
 	reqBody := req
 
@@ -271,7 +274,7 @@ func (c *Client) CreateKnowledgeFromURL(
 
 // GetKnowledge retrieves a knowledge entry by its ID
 func (c *Client) GetKnowledge(ctx context.Context, knowledgeID string) (*Knowledge, error) {
-	path := fmt.Sprintf("/api/v1/knowledge/%s", knowledgeID)
+	path := fmt.Sprintf("/api/v1/knowledge/%s", escapePathSegment(knowledgeID))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -345,7 +348,7 @@ func (c *Client) ListKnowledgeWithFilter(ctx context.Context,
 	pageSize int,
 	filter KnowledgeListFilter,
 ) ([]Knowledge, int64, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge", escapePathSegment(knowledgeBaseID))
 
 	queryParams := url.Values{}
 	queryParams.Add("page", strconv.Itoa(page))
@@ -409,7 +412,7 @@ type KnowledgeFolderTree struct {
 
 // ListKnowledgeFolders returns the folder hierarchy of a knowledge base.
 func (c *Client) ListKnowledgeFolders(ctx context.Context, knowledgeBaseID string) (*KnowledgeFolderTree, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/folders", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/folders", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -474,7 +477,7 @@ func (c *Client) RenameKnowledgeFolder(
 	knowledgeBaseID string,
 	req *RenameKnowledgeFolderRequest,
 ) (*RenameKnowledgeFolderResponse, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/folders", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/folders", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, req, nil)
 	if err != nil {
 		return nil, err
@@ -494,7 +497,7 @@ func (c *Client) RenameKnowledgeFolder(
 // The server returns 200 once the task has been submitted; the actual deletion is
 // performed by a background worker (same pipeline as BatchDeleteKnowledge).
 func (c *Client) DeleteKnowledge(ctx context.Context, knowledgeID string) error {
-	path := fmt.Sprintf("/api/v1/knowledge/%s", knowledgeID)
+	path := fmt.Sprintf("/api/v1/knowledge/%s", escapePathSegment(knowledgeID))
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
 	if err != nil {
 		return err
@@ -535,7 +538,7 @@ func (c *Client) DownloadKnowledgeFile(ctx context.Context, knowledgeID string, 
 // to a temp file just to discover the request would have been rejected
 // (overwrite without --force, missing --out for unnamed downloads, etc.).
 func (c *Client) OpenKnowledgeFile(ctx context.Context, knowledgeID string) (string, io.ReadCloser, error) {
-	path := fmt.Sprintf("/api/v1/knowledge/%s/download", knowledgeID)
+	path := fmt.Sprintf("/api/v1/knowledge/%s/download", escapePathSegment(knowledgeID))
 	resp, err := c.doRequestStream(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return "", nil, err
@@ -572,7 +575,7 @@ func (c *Client) DownloadKnowledgeFiles(ctx context.Context, knowledgeBaseID str
 // the returned reader. The request uses the streaming HTTP client so the
 // default 30s timeout does not cut off large archives.
 func (c *Client) OpenKnowledgeFilesArchive(ctx context.Context, knowledgeBaseID string, ids []string) (string, io.ReadCloser, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/batch-download", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/batch-download", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequestStream(ctx, http.MethodPost, path, BatchDownloadKnowledgeRequest{IDs: ids}, nil)
 	if err != nil {
 		return "", nil, err
@@ -601,7 +604,7 @@ func filenameFromContentDisposition(h string) string {
 }
 
 func (c *Client) UpdateKnowledge(ctx context.Context, knowledge *Knowledge) error {
-	path := fmt.Sprintf("/api/v1/knowledge/%s", knowledge.ID)
+	path := fmt.Sprintf("/api/v1/knowledge/%s", escapePathSegment(knowledge.ID))
 
 	resp, err := c.doRequest(ctx, http.MethodPut, path, knowledge, nil)
 	if err != nil {
@@ -641,7 +644,7 @@ func (c *Client) ReparseKnowledge(ctx context.Context, knowledgeID string) (*Kno
 		return nil, fmt.Errorf("knowledge ID cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/v1/knowledge/%s/reparse", knowledgeID)
+	path := fmt.Sprintf("/api/v1/knowledge/%s/reparse", escapePathSegment(knowledgeID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -691,7 +694,7 @@ func (c *Client) CancelKnowledgeParse(ctx context.Context, knowledgeID string) (
 		return nil, fmt.Errorf("knowledge ID cannot be empty")
 	}
 
-	path := fmt.Sprintf("/api/v1/knowledge/%s/cancel-parse", knowledgeID)
+	path := fmt.Sprintf("/api/v1/knowledge/%s/cancel-parse", escapePathSegment(knowledgeID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -788,7 +791,7 @@ func (c *Client) GetKnowledgeProcessingSpans(
 		queryParams.Add("attempt", strconv.Itoa(attempt))
 	}
 
-	path := fmt.Sprintf("/api/v1/knowledge/%s/spans", knowledgeID)
+	path := fmt.Sprintf("/api/v1/knowledge/%s/spans", escapePathSegment(knowledgeID))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, queryParams)
 	if err != nil {
 		return nil, err
@@ -816,7 +819,7 @@ func (c *Client) GetKnowledgeProcessingSpans(
 func (c *Client) UpdateImageInfo(ctx context.Context,
 	knowledgeID string, chunkID string, request *UpdateImageInfoRequest,
 ) error {
-	path := fmt.Sprintf("/api/v1/knowledge/image/%s/%s", knowledgeID, chunkID)
+	path := fmt.Sprintf("/api/v1/knowledge/image/%s/%s", escapePathSegment(knowledgeID), escapePathSegment(chunkID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, request, nil)
 	if err != nil {
 		return err
@@ -857,7 +860,7 @@ type BatchUpdateKnowledgeTagsRequest struct {
 
 // CreateManualKnowledge creates a knowledge entry from manual Markdown content.
 func (c *Client) CreateManualKnowledge(ctx context.Context, knowledgeBaseID string, request *CreateManualKnowledgeRequest) (*Knowledge, error) {
-	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/manual", knowledgeBaseID)
+	path := fmt.Sprintf("/api/v1/knowledge-bases/%s/knowledge/manual", escapePathSegment(knowledgeBaseID))
 	resp, err := c.doRequest(ctx, http.MethodPost, path, request, nil)
 	if err != nil {
 		return nil, err
@@ -873,7 +876,7 @@ func (c *Client) CreateManualKnowledge(ctx context.Context, knowledgeBaseID stri
 
 // UpdateManualKnowledge updates a manual Markdown knowledge entry.
 func (c *Client) UpdateManualKnowledge(ctx context.Context, knowledgeID string, request *UpdateManualKnowledgeRequest) (*Knowledge, error) {
-	path := fmt.Sprintf("/api/v1/knowledge/manual/%s", knowledgeID)
+	path := fmt.Sprintf("/api/v1/knowledge/manual/%s", escapePathSegment(knowledgeID))
 	resp, err := c.doRequest(ctx, http.MethodPut, path, request, nil)
 	if err != nil {
 		return nil, err
@@ -969,7 +972,7 @@ type KnowledgeMoveProgress struct {
 
 // GetKnowledgeMoveProgress gets the progress of a knowledge move task
 func (c *Client) GetKnowledgeMoveProgress(ctx context.Context, taskID string) (*KnowledgeMoveProgress, error) {
-	path := fmt.Sprintf("/api/v1/knowledge/move/progress/%s", taskID)
+	path := fmt.Sprintf("/api/v1/knowledge/move/progress/%s", escapePathSegment(taskID))
 	resp, err := c.doRequest(ctx, http.MethodGet, path, nil, nil)
 	if err != nil {
 		return nil, err
@@ -988,7 +991,7 @@ func (c *Client) GetKnowledgeMoveProgress(ctx context.Context, taskID string) (*
 // PreviewKnowledgeFile returns the file content for inline preview.
 // The caller is responsible for reading and closing the response body.
 func (c *Client) PreviewKnowledgeFile(ctx context.Context, knowledgeID string) (*http.Response, error) {
-	path := fmt.Sprintf("/api/v1/knowledge/%s/preview", knowledgeID)
+	path := fmt.Sprintf("/api/v1/knowledge/%s/preview", escapePathSegment(knowledgeID))
 	return c.doRequest(ctx, http.MethodGet, path, nil, nil)
 }
 

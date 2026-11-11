@@ -10,11 +10,18 @@ import zipfile
 from lxml import etree
 
 from docreader.parser.archive import (
-    MAX_COMPRESSION_RATIO, MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    ArchiveLimitError,
+    MAX_COMPRESSION_RATIO,
+    MAX_UNCOMPRESSED_ARCHIVE_BYTES,
+    ZipReadBudget,
+    safe_read_zip_member,
     validate_zip_archive as _validate_zip_archive,
 )
 
 logger = logging.getLogger(__name__)
+
+MAX_DOCX_GRID_SPAN = 256
+MAX_TABLE_CLONED_ELEMENTS = 50_000
 
 _WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 _W = f"{{{_WORD_NAMESPACE}}}"
@@ -49,13 +56,16 @@ def fill_vertical_merged_cells_docx(content: bytes) -> bytes:
             return content
 
         rewritten_parts: dict[str, bytes] = {}
+        cached_parts: dict[str, bytes] = {}
+        read_budget = ZipReadBudget()
         filled_count = 0
         for info in archive.infolist():
             name = info.filename.replace("\\", "/")
             if not name.startswith("word/") or not name.endswith(".xml"):
                 continue
 
-            data = archive.read(info.filename)
+            data = safe_read_zip_member(archive, info, budget=read_budget)
+            cached_parts[info.filename] = data
             if b"vMerge" not in data:
                 continue
             rewritten, part_filled_count = _fill_vertical_merges_in_xml(data)
@@ -71,7 +81,9 @@ def fill_vertical_merged_cells_docx(content: bytes) -> bytes:
             for info in archive.infolist():
                 data = rewritten_parts.get(info.filename)
                 if data is None:
-                    data = archive.read(info.filename)
+                    data = cached_parts.get(info.filename)
+                if data is None:
+                    data = safe_read_zip_member(archive, info, budget=read_budget)
                 rewritten_archive.writestr(info, data)
 
     logger.info(
@@ -101,10 +113,15 @@ def _fill_vertical_merges_in_xml(data: bytes) -> tuple[bytes | None, int]:
     return etree.tostring(root, xml_declaration=True, encoding="UTF-8"), filled_count
 
 
+def _count_elements(elements: tuple[etree._Element, ...]) -> int:
+    return sum(sum(1 for _ in elem.iter()) for elem in elements)
+
+
 def _fill_table_vertical_merges(table: etree._Element) -> tuple[bool, int]:
     active_merges: dict[int, tuple[etree._Element, ...]] = {}
     changed = False
     filled_count = 0
+    cloned_elements = 0
 
     for row in table.findall(f"{_W}tr"):
         next_active_merges: dict[int, tuple[etree._Element, ...]] = {}
@@ -121,9 +138,14 @@ def _fill_table_vertical_merges(table: etree._Element) -> tuple[bool, int]:
             if vertical_merge is not None:
                 merge_type = vertical_merge.get(_VAL, "continue")
                 if merge_type == "restart":
-                    template = tuple(
-                        copy.deepcopy(child) for child in cell if child.tag != _TC_PR
-                    )
+                    raw_children = tuple(child for child in cell if child.tag != _TC_PR)
+                    cloned_elements += _count_elements(raw_children)
+                    if cloned_elements > MAX_TABLE_CLONED_ELEMENTS:
+                        raise ArchiveLimitError(
+                            f"DOCX table vertical merge cloned element count "
+                            f"({cloned_elements}) exceeds limit ({MAX_TABLE_CLONED_ELEMENTS})"
+                        )
+                    template = tuple(copy.deepcopy(child) for child in raw_children)
                     for occupied_column in occupied_columns:
                         next_active_merges[occupied_column] = template
                     cell_properties.remove(vertical_merge)
@@ -138,6 +160,12 @@ def _fill_table_vertical_merges(table: etree._Element) -> tuple[bool, int]:
                         None,
                     )
                     if template is not None:
+                        cloned_elements += _count_elements(template)
+                        if cloned_elements > MAX_TABLE_CLONED_ELEMENTS:
+                            raise ArchiveLimitError(
+                                f"DOCX table vertical merge cloned element count "
+                                f"({cloned_elements}) exceeds limit ({MAX_TABLE_CLONED_ELEMENTS})"
+                            )
                         for child in list(cell):
                             if child.tag != _TC_PR:
                                 cell.remove(child)
@@ -162,7 +190,8 @@ def _grid_span(cell_properties: etree._Element | None) -> int:
     grid_span = cell_properties.find(_GRID_SPAN)
     if grid_span is None:
         return 1
-    return _positive_int(grid_span.get(_VAL), default=1)
+    parsed = _positive_int(grid_span.get(_VAL), default=1)
+    return min(max(parsed, 1), MAX_DOCX_GRID_SPAN)
 
 
 def _grid_before(row: etree._Element) -> int:
@@ -172,7 +201,7 @@ def _grid_before(row: etree._Element) -> int:
     grid_before = row_properties.find(_GRID_BEFORE)
     if grid_before is None:
         return 0
-    return _positive_int(grid_before.get(_VAL), default=0)
+    return min(_positive_int(grid_before.get(_VAL), default=0), MAX_DOCX_GRID_SPAN)
 
 
 def _positive_int(value: str | None, default: int) -> int:

@@ -9,15 +9,21 @@ import base64
 import logging
 import re
 import threading
-import xml.etree.ElementTree as ET
 import zipfile
 from io import BytesIO
 from typing import Any, Dict, List, Optional, Tuple
 
+from defusedxml import ElementTree as ET
 import pandas as pd
 
 from docreader.models.document import Chunk, Document
-from docreader.parser.archive import ArchiveLimitError, validate_zip_content, validate_zip_archive
+from docreader.parser.archive import (
+    ArchiveLimitError,
+    ZipReadBudget,
+    safe_read_zip_member,
+    validate_zip_archive,
+    validate_zip_content,
+)
 from docreader.parser.base_parser import BaseParser
 from docreader.parser.concurrency import check_cancellation
 from docreader.parser.excel_convert import (
@@ -579,12 +585,16 @@ def _sanitize_corrupted_drawings_xlsx(data: bytes) -> bytes:
         needs_fix = False
         with zipfile.ZipFile(bio, "r") as zf:
             validate_zip_archive(zf)
+            read_budget = ZipReadBudget()
+            cached_drawings: Dict[str, bytes] = {}
             names = zf.namelist()
             corrupt_drawings = set()
             for name in names:
                 if "drawings/drawing" in name and name.endswith(".xml"):
+                    raw_drawing = safe_read_zip_member(zf, name, budget=read_budget)
+                    cached_drawings[name] = raw_drawing
                     try:
-                        ET.fromstring(zf.read(name))
+                        ET.fromstring(raw_drawing)
                     except Exception:
                         corrupt_drawings.add(name)
                         needs_fix = True
@@ -602,7 +612,10 @@ def _sanitize_corrupted_drawings_xlsx(data: bytes) -> bytes:
                         )
                         zout.writestr(item.filename, empty_dr)
                     else:
-                        zout.writestr(item, zf.read(item.filename))
+                        payload = cached_drawings.get(item.filename)
+                        if payload is None:
+                            payload = safe_read_zip_member(zf, item, budget=read_budget)
+                        zout.writestr(item, payload)
             return out.getvalue()
     except ArchiveLimitError:
         raise

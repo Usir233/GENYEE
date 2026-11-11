@@ -1,20 +1,19 @@
-# config.yaml，reference https://github.com/dexidp/dex/blob/master/examples/config-dev.yaml
+# Local development Dex OIDC configuration (bound to 127.0.0.1:5556 by Compose).
+# Set OIDC_AUTH_CLIENT_SECRET in .env before starting `--profile dex`.
 issuer: http://127.0.0.1:5556/dex
 storage:
   type: memory
 web:
   http: 0.0.0.0:5556
 staticClients:
-  - id: weknora
+  - id: genyee
     redirectURIs:
       - 'http://127.0.0.1:5173/api/v1/auth/oidc/callback'
       - 'http://127.0.0.1/api/v1/auth/oidc/callback'
-    name: 'WeKnora'
-    # add a "secret" field here
-enablePasswordDB: true
+    name: 'GENYEE'
+    secretEnv: DEX_CLIENT_SECRET
+enablePasswordDB: false
 oauth2:
-  responseTypes: 
+  responseTypes:
     - code
-    - id_token
-    - token
-  skipApprovalScreen: true
+  skipApprovalScreen: false

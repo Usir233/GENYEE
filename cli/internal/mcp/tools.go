@@ -200,6 +200,9 @@ func addKBView(server *mcpsdk.Server, svc knowledgeBaseService) {
 		if in.KBID == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
 		}
+		if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
+			return toolErrorResult(err), nil, nil
+		}
 		kb, err := svc.GetKnowledgeBase(ctx, in.KBID)
 		if err != nil {
 			return toolErrorResult(cmdutil.WrapHTTP(err, "get knowledge base")), nil, nil
@@ -244,6 +247,14 @@ func addDocList(server *mcpsdk.Server, svc knowledgeService) {
 	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, in docListInput) (*mcpsdk.CallToolResult, any, error) {
 		if in.KBID == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
+		}
+		if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
+			return toolErrorResult(err), nil, nil
+		}
+		if in.TagID != "" {
+			if err := cmdutil.ValidateResourceID("tag_id", in.TagID); err != nil {
+				return toolErrorResult(err), nil, nil
+			}
 		}
 		page := in.Page
 		if page < 1 {
@@ -309,6 +320,9 @@ func addDocView(server *mcpsdk.Server, svc knowledgeService) {
 		if in.DocID == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "doc_id is required")), nil, nil
 		}
+		if err := cmdutil.ValidateResourceID("doc_id", in.DocID); err != nil {
+			return toolErrorResult(err), nil, nil
+		}
 		k, err := svc.GetKnowledge(ctx, in.DocID)
 		if err != nil {
 			return toolErrorResult(cmdutil.WrapHTTP(err, "get knowledge")), nil, nil
@@ -356,6 +370,9 @@ func addDocDownload(server *mcpsdk.Server, svc knowledgeService) {
 	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, in docDownloadInput) (*mcpsdk.CallToolResult, any, error) {
 		if in.DocID == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "doc_id is required")), nil, nil
+		}
+		if err := cmdutil.ValidateResourceID("doc_id", in.DocID); err != nil {
+			return toolErrorResult(err), nil, nil
 		}
 		name, body, err := svc.OpenKnowledgeFile(ctx, in.DocID)
 		if err != nil {
@@ -415,6 +432,9 @@ func addSearchChunks(server *mcpsdk.Server, svc knowledgeService) {
 	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, in searchChunksInput) (*mcpsdk.CallToolResult, any, error) {
 		if in.KBID == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
+		}
+		if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
+			return toolErrorResult(err), nil, nil
 		}
 		if strings.TrimSpace(in.Query) == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "query cannot be empty")), nil, nil
@@ -477,6 +497,14 @@ func addChat(server *mcpsdk.Server, svc chatService) {
 	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, in chatInput) (*mcpsdk.CallToolResult, any, error) {
 		if in.KBID == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb_id is required")), nil, nil
+		}
+		if err := cmdutil.ValidateResourceID("kb_id", in.KBID); err != nil {
+			return toolErrorResult(err), nil, nil
+		}
+		if in.SessionID != "" {
+			if err := cmdutil.ValidateResourceID("session_id", in.SessionID); err != nil {
+				return toolErrorResult(err), nil, nil
+			}
 		}
 		if strings.TrimSpace(in.Query) == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "query cannot be empty")), nil, nil
@@ -586,6 +614,14 @@ func addSessionAsk(server *mcpsdk.Server, svc sessionAskService) {
 		if in.AgentID == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "agent_id is required")), nil, nil
 		}
+		if err := cmdutil.ValidateResourceID("agent_id", in.AgentID); err != nil {
+			return toolErrorResult(err), nil, nil
+		}
+		if in.SessionID != "" {
+			if err := cmdutil.ValidateResourceID("session_id", in.SessionID); err != nil {
+				return toolErrorResult(err), nil, nil
+			}
+		}
 		if strings.TrimSpace(in.Query) == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "query cannot be empty")), nil, nil
 		}
@@ -664,6 +700,9 @@ func addChunkList(server *mcpsdk.Server, svc chunkListService) {
 	}, func(ctx context.Context, _ *mcpsdk.CallToolRequest, in chunkListInput) (*mcpsdk.CallToolResult, any, error) {
 		if in.DocID == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "doc_id is required")), nil, nil
+		}
+		if err := cmdutil.ValidateResourceID("doc_id", in.DocID); err != nil {
+			return toolErrorResult(err), nil, nil
 		}
 		// `limit` is typed as int by chunkListInput, so the SDK rejects
 		// non-numeric values at schema validation (e.g. "limit":"50")

@@ -113,6 +113,12 @@ func ResolveEffectiveConfig(
 		if err := ValidateDockerNetworkMode(docker.NetworkMode); err != nil {
 			return nil, err
 		}
+		if err := ValidateDockerRuntime(docker.Runtime); err != nil {
+			return nil, err
+		}
+		if err := ValidateDockerTLSCertPath(docker.TLSCertPath); err != nil {
+			return nil, err
+		}
 		overrideString(&effective.DockerHost, docker.Host)
 		overrideString(&effective.DockerTLSCertPath, docker.TLSCertPath)
 		overrideString(&effective.DockerNetworkMode, docker.NetworkMode)
@@ -203,6 +209,8 @@ func ResolveEffectiveConfig(
 // default rather than to whatever this deployment happens to run, otherwise
 // "inherits nothing" would still have an exception to explain.
 func clearProviderFields(cfg *Config) {
+	cfg.ConfigTenantID = 0
+	cfg.ConfigID = ""
 	cfg.DockerImage = ""
 	cfg.DockerHost = ""
 	cfg.DockerTLSCertPath = ""

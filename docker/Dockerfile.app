@@ -17,7 +17,17 @@ RUN if [ -n "$APK_MIRROR_ARG" ]; then \
     rm -rf /var/lib/apt/lists/*
 ENV RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo
 ENV PATH=/usr/local/cargo/bin:$PATH
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+RUN set -eux; \
+    case "$(uname -m)" in \
+        x86_64) rust_arch='x86_64-unknown-linux-gnu'; rustup_sha256='20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c' ;; \
+        aarch64) rust_arch='aarch64-unknown-linux-gnu'; rustup_sha256='e3853c5a252fca15252d07cb23a1bdd9377a8c6f3efa01531109281ae47f841c' ;; \
+        *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;; \
+    esac; \
+    curl --proto '=https' --tlsv1.2 -fsSL -o /tmp/rustup-init "https://static.rust-lang.org/rustup/archive/1.28.2/${rust_arch}/rustup-init"; \
+    echo "${rustup_sha256}  /tmp/rustup-init" | sha256sum -c -; \
+    chmod +x /tmp/rustup-init; \
+    /tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain stable; \
+    rm -f /tmp/rustup-init
 COPY scripts/build_browserskill.sh scripts/browserskill-release.json ./scripts/
 ARG TARGETOS
 ARG TARGETARCH
@@ -78,8 +88,16 @@ ENV PATH=/usr/local/cargo/bin:$PATH
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
     if [ "$WITH_ANYDOC" = "1" ]; then \
-        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-            | sh -s -- -y --profile minimal --default-toolchain stable && \
+        case "$(uname -m)" in \
+            x86_64) rust_arch='x86_64-unknown-linux-gnu'; rustup_sha256='20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c' ;; \
+            aarch64) rust_arch='aarch64-unknown-linux-gnu'; rustup_sha256='e3853c5a252fca15252d07cb23a1bdd9377a8c6f3efa01531109281ae47f841c' ;; \
+            *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;; \
+        esac && \
+        curl --proto '=https' --tlsv1.2 -fsSL -o /tmp/rustup-init "https://static.rust-lang.org/rustup/archive/1.28.2/${rust_arch}/rustup-init" && \
+        echo "${rustup_sha256}  /tmp/rustup-init" | sha256sum -c - && \
+        chmod +x /tmp/rustup-init && \
+        /tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain stable && \
+        rm -f /tmp/rustup-init && \
         ./scripts/build-anydoc-lib.sh; \
     fi
 
@@ -126,24 +144,23 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Then switch to mirror if specified and install other packages
+# Then switch to mirror if specified and install runtime-only packages (no C/C++ compiler toolchain)
 RUN if [ -n "$APK_MIRROR_ARG" ]; then \
         sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
     fi && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
-        build-essential postgresql-client default-mysql-client tzdata sed curl bash vim wget \
+        postgresql-client default-mysql-client tzdata sed curl bash wget \
         libsqlite3-0 \
-        python3 python3-pip python3-dev libffi-dev libssl-dev \
+        python3 python3-pip \
         nodejs npm \
         gosu \
         ffmpeg qpdf && \
-    python3 -m pip install --break-system-packages --upgrade pip setuptools wheel && \
+    python3 -m pip install --no-cache-dir --break-system-packages --upgrade pip setuptools wheel uv==0.13.0 && \
     mkdir -p /home/appuser/.local/bin && \
-    curl -LsSf https://astral.sh/uv/install.sh | CARGO_HOME=/home/appuser/.cargo UV_INSTALL_DIR=/home/appuser/.local/bin sh && \
+    ln -sf /usr/local/bin/uv /home/appuser/.local/bin/uv && \
+    ln -sf /usr/local/bin/uvx /home/appuser/.local/bin/uvx && \
     chown -R appuser:appuser /home/appuser && \
-    ln -sf /home/appuser/.local/bin/uvx /usr/local/bin/uvx && \
-    chmod +x /usr/local/bin/uvx && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

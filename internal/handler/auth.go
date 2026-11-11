@@ -8,7 +8,9 @@ import (
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -320,11 +322,16 @@ func (h *AuthHandler) GetOIDCAuthorizationURL(c *gin.Context) {
 		c.Error(appErr)
 		return
 	}
+	if err := validateOIDCRedirectURI(redirectURI, h.configInfo); err != nil {
+		appErr := errors.NewValidationError("invalid redirect_uri").WithDetails(err.Error())
+		c.Error(appErr)
+		return
+	}
 
 	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, redirectURI)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
-		appErr := errors.NewForbiddenError("OIDC authorization unavailable").WithDetails(err.Error())
+		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
 		c.Error(appErr)
 		return
 	}
@@ -358,18 +365,84 @@ func setOIDCPKCECookie(c *gin.Context, verifier string) {
 	c.SetCookie(oidcPKCECookieName, verifier, oidcNonceCookieMaxAge, "/", "", secure, true)
 }
 
-// oidcCallbackURL derives the absolute /auth/oidc/callback URL from the
-// request's own origin (scheme + host), so external platforms can deep-link
-// to /auth/oidc/start without supplying a redirect_uri.
-func oidcCallbackURL(c *gin.Context, cfg *config.Config) string {
+func isLoopbackHost(rawHost string) bool {
+	rawHost = strings.TrimSpace(rawHost)
+	if rawHost == "" || strings.ContainsAny(rawHost, `/\?#@"`+" \t\r\n") {
+		return false
+	}
+	host := rawHost
+	if h, port, err := net.SplitHostPort(rawHost); err == nil {
+		if port == "" {
+			return false
+		}
+		for _, ch := range port {
+			if ch < '0' || ch > '9' {
+				return false
+			}
+		}
+		host = h
+	} else {
+		host = strings.TrimPrefix(strings.TrimSuffix(rawHost, "]"), "[")
+	}
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+func validateOIDCRedirectURI(redirectURI string, cfg *config.Config) error {
+	redirectURI = strings.TrimSpace(redirectURI)
+	if redirectURI == "" || strings.ContainsAny(redirectURI, "\\\r\n\t ") {
+		return stderrors.New("invalid redirect_uri")
+	}
+	u, err := url.Parse(redirectURI)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.Fragment != "" {
+		return stderrors.New("redirect_uri must be an absolute http(s) URL without credentials or fragment")
+	}
 	if base := frontendBaseURLFor(cfg); base != "" {
-		return base + "/api/v1/auth/oidc/callback"
+		b, bErr := url.Parse(base)
+		if bErr != nil || b.Host == "" {
+			return stderrors.New("invalid FRONTEND_BASE_URL configuration")
+		}
+		if !strings.EqualFold(u.Scheme, b.Scheme) || !strings.EqualFold(u.Host, b.Host) {
+			return stderrors.New("redirect_uri origin does not match FRONTEND_BASE_URL")
+		}
+		return nil
+	}
+	if secutils.IsReleaseMode() {
+		return stderrors.New("FRONTEND_BASE_URL must be configured for OIDC in release mode")
+	}
+	if !isLoopbackHost(u.Host) {
+		return stderrors.New("redirect_uri must use loopback host when FRONTEND_BASE_URL is not configured")
+	}
+	return nil
+}
+
+// oidcCallbackURL derives the absolute /auth/oidc/callback URL from
+// FRONTEND_BASE_URL. When FRONTEND_BASE_URL is unset, only loopback Host
+// headers in non-release mode are accepted so attacker-controlled Host headers
+// cannot poison OIDC redirect_uri / state tokens.
+func oidcCallbackURL(c *gin.Context, cfg *config.Config) (string, error) {
+	if base := frontendBaseURLFor(cfg); base != "" {
+		u, err := url.Parse(base)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || strings.ContainsAny(base, "\\\r\n\t ") {
+			return "", stderrors.New("invalid FRONTEND_BASE_URL configuration")
+		}
+		return base + "/api/v1/auth/oidc/callback", nil
+	}
+	if secutils.IsReleaseMode() {
+		return "", stderrors.New("FRONTEND_BASE_URL must be configured for OIDC start in release mode")
+	}
+	rawHost := strings.TrimSpace(c.Request.Host)
+	if !isLoopbackHost(rawHost) {
+		return "", stderrors.New("untrusted Host header; configure FRONTEND_BASE_URL")
 	}
 	scheme := "http"
-	if c.Request.TLS != nil || strings.EqualFold(c.GetHeader("X-Forwarded-Proto"), "https") {
+	if c.Request.TLS != nil {
 		scheme = "https"
 	}
-	return scheme + "://" + c.Request.Host + "/api/v1/auth/oidc/callback"
+	return scheme + "://" + rawHost + "/api/v1/auth/oidc/callback", nil
 }
 
 // OIDCStart godoc
@@ -382,10 +455,17 @@ func oidcCallbackURL(c *gin.Context, cfg *config.Config) string {
 // @Router       /auth/oidc/start [get]
 func (h *AuthHandler) OIDCStart(c *gin.Context) {
 	ctx := c.Request.Context()
-	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, oidcCallbackURL(c, h.configInfo))
+	callbackURL, err := oidcCallbackURL(c, h.configInfo)
+	if err != nil {
+		logger.Warnf(ctx, "Rejected OIDC start callback URL derivation: %v", err)
+		appErr := errors.NewBadRequestError("OIDC callback URL unavailable").WithDetails(err.Error())
+		c.Error(appErr)
+		return
+	}
+	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, callbackURL)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
-		appErr := errors.NewForbiddenError("OIDC authorization unavailable").WithDetails(err.Error())
+		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
 		c.Error(appErr)
 		return
 	}
@@ -572,12 +652,12 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 	token := tokenParts[1]
 
-	// Revoke every outstanding session for this user so refresh tokens
-	// cannot keep working after logout.
+	// Revoke only the presented active access token after validating signature,
+	// expiration, and revocation state.
 	err := h.userService.Logout(ctx, token)
 	if err != nil {
-		logger.Errorf(ctx, "Failed to revoke token: %v", err)
-		appErr := errors.NewInternalServerError("Logout failed").WithDetails(err.Error())
+		logger.Warnf(ctx, "Failed to logout with presented token: %v", err)
+		appErr := errors.NewUnauthorizedError("Invalid or expired token")
 		c.Error(appErr)
 		return
 	}

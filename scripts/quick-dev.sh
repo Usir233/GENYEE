@@ -58,10 +58,11 @@ read -r start_backend
 
 if [ "$start_backend" = "y" ] || [ "$start_backend" = "Y" ]; then
     log_info "启动后端..."
-    # 在后台启动后端
-    nohup bash -c 'cd "'$PROJECT_ROOT'" && ./scripts/dev.sh app' > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
+    mkdir -p "$PROJECT_ROOT/logs" "$PROJECT_ROOT/tmp"
+    # 在后台启动后端（通过位置参数传递目录，避免路径特殊字符注入）
+    nohup bash -c 'cd -- "$1" && ./scripts/dev.sh app' _ "$PROJECT_ROOT" > "$PROJECT_ROOT/logs/backend.log" 2>&1 &
     BACKEND_PID=$!
-    echo $BACKEND_PID > "$PROJECT_ROOT/tmp/backend.pid"
+    echo "$BACKEND_PID" > "$PROJECT_ROOT/tmp/backend.pid"
     log_success "后端已在后台启动 (PID: $BACKEND_PID)"
     log_info "查看后端日志: tail -f $PROJECT_ROOT/logs/backend.log"
 else
@@ -77,10 +78,11 @@ read -r start_frontend
 
 if [ "$start_frontend" = "y" ] || [ "$start_frontend" = "Y" ]; then
     log_info "启动前端..."
-    # 在后台启动前端
-    nohup bash -c 'cd "'$PROJECT_ROOT'/frontend" && npm run dev' > "$PROJECT_ROOT/logs/frontend.log" 2>&1 &
+    mkdir -p "$PROJECT_ROOT/logs" "$PROJECT_ROOT/tmp"
+    # 在后台启动前端（通过位置参数传递目录，避免路径特殊字符注入）
+    nohup bash -c 'cd -- "$1/frontend" && npm run dev' _ "$PROJECT_ROOT" > "$PROJECT_ROOT/logs/frontend.log" 2>&1 &
     FRONTEND_PID=$!
-    echo $FRONTEND_PID > "$PROJECT_ROOT/tmp/frontend.pid"
+    echo "$FRONTEND_PID" > "$PROJECT_ROOT/tmp/frontend.pid"
     log_success "前端已在后台启动 (PID: $FRONTEND_PID)"
     log_info "查看前端日志: tail -f $PROJECT_ROOT/logs/frontend.log"
 else

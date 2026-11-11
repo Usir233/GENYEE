@@ -1,10 +1,13 @@
-const { getSettings } = require("./config");
+const { getSettings, isSecureBaseUrl } = require("./config");
 const { t } = require("./i18n");
 
 function request(path, options = {}) {
   const settings = getSettings();
   if (!settings.baseUrl) {
     return Promise.reject(new Error(t("missingBaseUrl")));
+  }
+  if (!isSecureBaseUrl(settings.baseUrl)) {
+    return Promise.reject(new Error("Base URL must use https:// for non-loopback hosts."));
   }
   if (!settings.apiKey) {
     return Promise.reject(new Error(t("missingApiKey")));
@@ -42,7 +45,7 @@ function listKnowledgeBases() {
 }
 
 function createKnowledgeFromURL(knowledgeBaseId, url, enableMultimodel = false) {
-  return request(`/api/v1/knowledge-bases/${knowledgeBaseId}/knowledge/url`, {
+  return request(`/api/v1/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/knowledge/url`, {
     method: "POST",
     data: {
       url,
@@ -64,7 +67,7 @@ function knowledgeChat(sessionId, query, knowledgeBaseId) {
     data.knowledge_base_ids = [knowledgeBaseId];
   }
 
-  return request(`/api/v1/knowledge-chat/${sessionId}`, {
+  return request(`/api/v1/knowledge-chat/${encodeURIComponent(sessionId)}`, {
     method: "POST",
     data
   });

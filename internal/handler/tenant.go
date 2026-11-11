@@ -641,7 +641,8 @@ func (h *TenantHandler) ListAPIKeys(c *gin.Context) {
 	}
 	keys, err := h.apiKeyService.ListAPIKeys(ctx, id)
 	if err != nil {
-		c.Error(errors.NewInternalServerError("Failed to list API keys").WithDetails(err.Error()))
+		logger.ErrorWithFields(ctx, err, nil)
+		c.Error(errors.NewInternalServerError("Failed to list API keys"))
 		return
 	}
 	resp := make([]tenantAPIKeyResponse, 0, len(keys))
@@ -756,6 +757,27 @@ func (h *TenantHandler) DeleteAPIKey(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
+func maskTenantAPIKey(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.Contains(trimmed, "****") {
+		return trimmed
+	}
+	if len(trimmed) <= 10 {
+		if strings.HasPrefix(trimmed, "sk-") {
+			return "sk-****"
+		}
+		return "****"
+	}
+	prefixLen := 7
+	if len(trimmed) < prefixLen+4 {
+		prefixLen = 3
+	}
+	return trimmed[:prefixLen] + "****" + trimmed[len(trimmed)-4:]
+}
+
 func tenantAPIKeyForResponse(key *types.TenantAPIKey) tenantAPIKeyResponse {
 	if key == nil {
 		return tenantAPIKeyResponse{}
@@ -764,7 +786,7 @@ func tenantAPIKeyForResponse(key *types.TenantAPIKey) tenantAPIKeyResponse {
 		ID:               key.ID,
 		ScopeType:        types.NormalizeAPIKeyScopeType(key.ScopeType),
 		Name:             key.Name,
-		APIKey:           key.APIKey,
+		APIKey:           maskTenantAPIKey(key.APIKey),
 		FullAccess:       key.FullAccess,
 		KnowledgeBaseIDs: key.KnowledgeBaseIDs,
 		Capabilities:     types.NormalizeAPIKeyCapabilities(key.Capabilities),
@@ -1927,9 +1949,7 @@ func validateParserEngineOutboundURLs(cfg *types.ParserEngineConfig) error {
 		}
 	}
 	if odlURL := strings.TrimSpace(cfg.ODLHybridURL); odlURL != "" {
-		if err := secutils.ValidateURLForSSRF(odlURL); err != nil {
-			return fmt.Errorf("odl_hybrid_url failed SSRF validation: %v", err)
-		}
+		return fmt.Errorf("odl_hybrid_url override is not allowed")
 	}
 	if endpoint := strings.TrimSpace(cfg.PaddleOCRVLEndpoint); endpoint != "" {
 		if err := secutils.ValidateURLForSSRF(endpoint); err != nil {

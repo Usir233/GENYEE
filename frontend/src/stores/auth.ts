@@ -15,9 +15,11 @@ import { useOrganizationStore } from '@/stores/organization'
 import { createSequencedRefresh } from '@/stores/sequencedRefresh'
 import { invalidateAuthRefresh } from '@/utils/authRefresh'
 import { notifyAuthTokensChanged, readAuthTokens, subscribeAuthTokens, writeAuthTokens } from '@/utils/authTokens'
+import { clearProtectedFileCache, setProtectedFileCacheScope } from '@/utils/security'
 
-/** 登出时丢弃 Pinia 内的空间级资源缓存，避免 SPA 重登复用上一账号数据。 */
+/** 登出或切换空间时丢弃 Pinia 内的空间级资源缓存与受保护文件 blob URL，避免 SPA 跨租户/跨账号复用。 */
 function clearSessionResourceCaches() {
+  clearProtectedFileCache()
   useChatResourcesStore().invalidate()
   useEditorResourcesStore().invalidate()
   useOrganizationStore().clearState()
@@ -189,12 +191,20 @@ export const useAuthStore = defineStore('auth', () => {
     return selectedTenantId.value || (tenant.value?.id ? Number(tenant.value.id) : null)
   })
 
+  const syncProtectedFileScope = () => {
+    setProtectedFileCacheScope(user.value?.id ?? '', effectiveTenantId.value ?? '')
+  }
+
   // 操作方法
   const setUser = (userData: UserInfo) => {
     const previousId = user.value?.id
     user.value = userData
     // 保存到localStorage
     localStorage.setItem('weknora_user', JSON.stringify(userData))
+    if (previousId && previousId !== userData.id) {
+      clearProtectedFileCache()
+    }
+    syncProtectedFileScope()
     if (previousId !== userData.id) {
       reloadUserPreferences()
     }
@@ -204,9 +214,11 @@ export const useAuthStore = defineStore('auth', () => {
     tenant.value = tenantData
     if (tenantData) {
       localStorage.setItem('weknora_tenant', JSON.stringify(tenantData))
+      syncProtectedFileScope()
     } else {
       localStorage.removeItem('weknora_tenant')
       setSelectedTenant(null, null)
+      syncProtectedFileScope()
     }
   }
 
@@ -293,6 +305,7 @@ export const useAuthStore = defineStore('auth', () => {
       clearTenantScopedClientState()
       clearSessionResourceCaches()
     }
+    syncProtectedFileScope()
   }
 
   const setAllTenants = (tenants: TenantInfoFromAPI[]) => {
@@ -470,6 +483,7 @@ export const useAuthStore = defineStore('auth', () => {
     authMeSynced = false
     // 飞行中的 /auth/me 作废：登出之后才返回的响应不能再 setUser / setTenant。
     authMeRequest.invalidate()
+    setProtectedFileCacheScope('', '')
     clearSessionResourceCaches()
 
     // 清空localStorage
@@ -575,6 +589,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     isLiteMode.value = localStorage.getItem('weknora_lite_mode') === 'true'
+    syncProtectedFileScope()
   }
 
   // 初始化时从localStorage恢复状态

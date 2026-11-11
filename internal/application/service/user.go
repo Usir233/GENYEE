@@ -34,6 +34,14 @@ import (
 var (
 	jwtSecretValue = sync.OnceValues(loadJWTSecret)
 
+	dummyBcryptHashOnce = sync.OnceValue(func() []byte {
+		h, err := bcrypt.GenerateFromPassword([]byte("genyee-dummy-timing-guard-password-01"), bcrypt.DefaultCost)
+		if err != nil {
+			return []byte("$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy")
+		}
+		return h
+	})
+
 	// ErrUserEmailExists is returned by Register when the target entity's
 	// email already exists.
 	ErrUserEmailExists = errors.New("user with this email already exists")
@@ -93,8 +101,11 @@ func isProductionEnv() bool {
 func loadJWTSecret() (string, error) {
 	envSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
 	isPlaceholder := envSecret == "" || envSecret == "weknora-jwt-secret" || envSecret == "CHANGE-ME-jwt-secret"
-	if isProductionEnv() && isPlaceholder {
-		return "", errors.New("JWT_SECRET must be explicitly configured in production environment and cannot be empty or default placeholder")
+	if isProductionEnv() {
+		if err := secutils.ValidateProductionJWTSecret(envSecret); err != nil {
+			return "", err
+		}
+		return envSecret, nil
 	}
 	if !isPlaceholder {
 		return envSecret, nil
@@ -142,6 +153,11 @@ func NewUserService(
 ) interfaces.UserService {
 	// Validate before serving requests, rather than on the first login.
 	_ = getJwtSecret()
+	if secutils.IsReleaseMode() {
+		if err := secutils.ValidateProductionAESKey(); err != nil {
+			panic(err)
+		}
+	}
 	return &userService{
 		userRepo:         userRepo,
 		tokenRepo:        tokenRepo,
@@ -258,6 +274,7 @@ func (s *userService) Login(ctx context.Context, req *types.LoginRequest) (*type
 	// Get user by email
 	user, err := s.userRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
+		_ = bcrypt.CompareHashAndPassword(dummyBcryptHashOnce(), []byte(req.Password))
 		logger.Errorf(ctx, "Failed to get user by email: %v", err)
 		return &types.LoginResponse{
 			Success: false,
@@ -265,6 +282,7 @@ func (s *userService) Login(ctx context.Context, req *types.LoginRequest) (*type
 		}, nil
 	}
 	if user == nil {
+		_ = bcrypt.CompareHashAndPassword(dummyBcryptHashOnce(), []byte(req.Password))
 		logger.Warn(ctx, "User not found for email")
 		return &types.LoginResponse{
 			Success: false,
@@ -274,6 +292,7 @@ func (s *userService) Login(ctx context.Context, req *types.LoginRequest) (*type
 
 	// Check if user is active
 	if !user.IsActive {
+		_ = bcrypt.CompareHashAndPassword(dummyBcryptHashOnce(), []byte(req.Password))
 		logger.Warn(ctx, "User account is disabled")
 		return &types.LoginResponse{
 			Success: false,
@@ -553,6 +572,9 @@ func (s *userService) LoginWithOIDC(
 	if strings.TrimSpace(userInfo.Email) == "" {
 		return nil, errors.New("OIDC provider did not return email")
 	}
+	if !isOIDCEmailVerified(userInfo.Claims) {
+		return nil, errors.New("OIDC email is not verified")
+	}
 
 	user, err := s.userRepo.GetUserByEmail(ctx, userInfo.Email)
 	if err != nil && !isUserLookupNotFound(err) {
@@ -560,11 +582,17 @@ func (s *userService) LoginWithOIDC(
 	}
 	isNewUser := false
 	if isUserLookupNotFound(err) || user == nil {
+		if s.resolveRegistrationMode(ctx) != config.AuthRegistrationModeSelfServe {
+			return nil, errors.New("public registration is disabled")
+		}
 		user, err = s.provisionOIDCUser(ctx, userInfo, provisioning)
 		if err != nil {
 			return nil, err
 		}
 		isNewUser = true
+	} else if (user.IsSystemAdmin || user.CanAccessAllTenants) &&
+		(user.Preferences.OidcOnlyLogin == nil || !*user.Preferences.OidcOnlyLogin) {
+		return nil, errors.New("OIDC login cannot automatically bind to privileged administrator accounts")
 	}
 
 	if !user.IsActive {
@@ -1389,6 +1417,11 @@ func (s *userService) recordLastActiveTenant(ctx context.Context, user *types.Us
 // call. Tokens minted before tenant-level RBAC don't carry the claim;
 // in that case we fall back to user.TenantID for backward compatibility.
 func (s *userService) ValidateToken(ctx context.Context, tokenString string) (*types.User, uint64, error) {
+	_, user, activeTenantID, err := s.validateAccessTokenRecord(ctx, tokenString)
+	return user, activeTenantID, err
+}
+
+func (s *userService) validateAccessTokenRecord(ctx context.Context, tokenString string) (*types.AuthToken, *types.User, uint64, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -1397,24 +1430,24 @@ func (s *userService) ValidateToken(ctx context.Context, tokenString string) (*t
 	})
 
 	if err != nil || !token.Valid {
-		return nil, 0, errors.New("invalid token")
+		return nil, nil, 0, errors.New("invalid token")
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return nil, 0, errors.New("invalid token claims")
+		return nil, nil, 0, errors.New("invalid token claims")
 	}
 
 	userID, ok := claims["user_id"].(string)
-	if !ok {
-		return nil, 0, errors.New("invalid user ID in token")
+	if !ok || strings.TrimSpace(userID) == "" {
+		return nil, nil, 0, errors.New("invalid user ID in token")
 	}
 
 	if isRefreshTokenClaims(claims) {
-		return nil, 0, errors.New("refresh token cannot be used as access token")
+		return nil, nil, 0, errors.New("refresh token cannot be used as access token")
 	}
 	if isSandboxTerminalTicketClaims(claims) {
-		return nil, 0, errors.New("terminal ticket cannot be used as access token")
+		return nil, nil, 0, errors.New("terminal ticket cannot be used as access token")
 	}
 
 	// Check if token is revoked. A failed lookup is an infrastructure error and
@@ -1422,28 +1455,31 @@ func (s *userService) ValidateToken(ctx context.Context, tokenString string) (*t
 	// revocation that never happened and sends operators down the wrong path.
 	tokenRecord, err := s.tokenRepo.GetTokenByValue(ctx, tokenString)
 	if err != nil {
-		return nil, 0, fmt.Errorf("look up token: %w", err)
+		return nil, nil, 0, fmt.Errorf("look up token: %w", err)
 	}
 	if tokenRecord == nil || tokenRecord.IsRevoked {
-		return nil, 0, errors.New("token is revoked")
+		return nil, nil, 0, errors.New("token is revoked")
 	}
 	if tokenRecord.TokenType == "refresh_token" {
-		return nil, 0, errors.New("refresh token cannot be used as access token")
+		return nil, nil, 0, errors.New("refresh token cannot be used as access token")
+	}
+	if tokenRecord.UserID != "" && tokenRecord.UserID != userID {
+		return nil, nil, 0, errors.New("invalid token")
 	}
 
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, 0, err
 	}
 	if user == nil {
-		return nil, 0, errors.New("user not found")
+		return nil, nil, 0, errors.New("user not found")
 	}
 
 	// Defence in depth: a token minted before the account was disabled must
 	// stop working even if revocation missed it. Login also rejects disabled
 	// accounts, but long-lived access tokens are checked here per request.
 	if !user.IsActive {
-		return nil, 0, errors.New("account is disabled")
+		return nil, nil, 0, errors.New("account is disabled")
 	}
 
 	// Extract active tenant from the JWT. Anything missing or unparseable
@@ -1451,7 +1487,7 @@ func (s *userService) ValidateToken(ctx context.Context, tokenString string) (*t
 	// by code paths that don't yet set the claim) keep working.
 	activeTenantID := tenantIDFromClaims(claims, user.TenantID)
 
-	return user, activeTenantID, nil
+	return tokenRecord, user, activeTenantID, nil
 }
 
 func redactAuthToken(token *types.AuthToken) *types.AuthToken {
@@ -1504,29 +1540,6 @@ func isRefreshTokenClaims(claims jwt.MapClaims) bool {
 func isSandboxTerminalTicketClaims(claims jwt.MapClaims) bool {
 	tokenType, ok := claims["type"].(string)
 	return ok && tokenType == sandboxTerminalTicketType
-}
-
-func userIDFromSignedToken(tokenString string) (string, error) {
-	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(getJwtSecret()), nil
-	}, jwt.WithoutClaimsValidation())
-	if err != nil || token == nil || !token.Valid {
-		return "", errors.New("invalid token")
-	}
-
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok {
-		return "", errors.New("invalid token claims")
-	}
-
-	userID, ok := claims["user_id"].(string)
-	if !ok || strings.TrimSpace(userID) == "" {
-		return "", errors.New("invalid user ID in token")
-	}
-	return userID, nil
 }
 
 // tenantIDFromClaims pulls the active tenant ID out of a parsed JWT
@@ -1626,16 +1639,20 @@ func (s *userService) RefreshToken(
 	return s.GenerateTokens(ctx, user)
 }
 
-// Logout invalidates every outstanding session for the user identified by
-// the presented JWT. Access and refresh tokens are both accepted so clients
-// can end the session without refreshing first; expired tokens are allowed
-// so logout still works after the access token TTL.
+// Logout validates that the presented token is a currently valid, unexpired,
+// unrevoked access token and revokes only that token so a leaked expired or
+// revoked token cannot terminate every active session of the user.
 func (s *userService) Logout(ctx context.Context, tokenString string) error {
-	userID, err := userIDFromSignedToken(tokenString)
+	tokenRecord, _, _, err := s.validateAccessTokenRecord(ctx, tokenString)
 	if err != nil {
 		return err
 	}
-	return s.tokenRepo.RevokeTokensByUserID(ctx, userID)
+	if strings.TrimSpace(tokenRecord.ID) != "" {
+		return s.tokenRepo.RevokeToken(ctx, tokenRecord.ID)
+	}
+	tokenRecord.IsRevoked = true
+	tokenRecord.UpdatedAt = time.Now()
+	return s.tokenRepo.UpdateToken(ctx, tokenRecord)
 }
 
 // RevokeToken revokes a token
@@ -1848,9 +1865,36 @@ func (s *userService) exchangeOIDCCode(
 	return &tokenResp, nil
 }
 
+func isOIDCEmailVerified(claims map[string]interface{}) bool {
+	if len(claims) == 0 {
+		return false
+	}
+	v, ok := claims["email_verified"].(bool)
+	return ok && v
+}
+
+func (s *userService) resolveRegistrationMode(ctx context.Context) string {
+	def := config.AuthRegistrationModeSelfServe
+	if s.config != nil && s.config.Auth != nil {
+		if m := strings.TrimSpace(s.config.Auth.RegistrationMode); m != "" {
+			def = m
+		}
+	}
+	if s.systemSettingSvc == nil {
+		return def
+	}
+	return s.systemSettingSvc.GetString(ctx, "auth.registration_mode", "", def)
+}
+
 func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCAuthConfig, tokenResp *oidcTokenResponse) (*types.OIDCUserInfo, error) {
 	claims := map[string]interface{}{}
 	verifiedFromIDToken := false
+	var idTokenSub, idTokenEmail string
+
+	emailClaimKey := "email"
+	if cfg.UserInfoMapping != nil && strings.TrimSpace(cfg.UserInfoMapping.Email) != "" {
+		emailClaimKey = strings.TrimSpace(cfg.UserInfoMapping.Email)
+	}
 
 	if idToken := strings.TrimSpace(tokenResp.IDToken); idToken != "" {
 		if strings.TrimSpace(cfg.JwksURI) == "" {
@@ -1866,6 +1910,8 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 			for k, v := range idTokenClaims {
 				claims[k] = v
 			}
+			idTokenSub = strings.TrimSpace(extractClaimAsString(idTokenClaims, "sub"))
+			idTokenEmail = strings.TrimSpace(extractClaimAsString(idTokenClaims, emailClaimKey))
 			verifiedFromIDToken = true
 		}
 	}
@@ -1878,7 +1924,20 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 			}
 			logger.Warnf(ctx, "Failed to fetch OIDC userinfo, using verified id_token claims: %v", err)
 		} else {
+			if verifiedFromIDToken {
+				uiSub := strings.TrimSpace(extractClaimAsString(userInfoClaims, "sub"))
+				if uiSub == "" || uiSub != idTokenSub {
+					return nil, errors.New("OIDC userinfo sub claim does not match verified id_token sub")
+				}
+				uiEmail := strings.TrimSpace(extractClaimAsString(userInfoClaims, emailClaimKey))
+				if uiEmail != "" && !strings.EqualFold(uiEmail, idTokenEmail) {
+					delete(claims, "email_verified")
+				}
+			}
 			for k, v := range userInfoClaims {
+				if verifiedFromIDToken && (k == "iss" || k == "aud" || k == "sub") {
+					continue
+				}
 				claims[k] = v
 			}
 		}
@@ -1889,8 +1948,9 @@ func (s *userService) resolveOIDCUserInfo(ctx context.Context, cfg *config.OIDCA
 	}
 
 	info := &types.OIDCUserInfo{Claims: claims}
-	if sub, _ := claims["sub"].(string); sub != "" {
-		info.Subject = sub
+	info.Subject = extractClaimAsString(claims, "sub")
+	if info.Subject == "" {
+		return nil, errors.New("OIDC provider did not return sub claim")
 	}
 	info.Username = extractClaimAsString(claims, cfg.UserInfoMapping.Username)
 	info.Email = extractClaimAsString(claims, cfg.UserInfoMapping.Email)

@@ -40,14 +40,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4
         with:
           enable-cache: true
           cache-dependency-glob: docreader/uv.lock
@@ -61,7 +61,7 @@ jobs:
       # Both the Python proxy integration tests and Go TestReadURL launch
       # WebKit, so install the browser and system libraries before either suite.
       - name: Cache Playwright browsers
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-webkit-${{ hashFiles('docreader/uv.lock') }}
@@ -73,7 +73,7 @@ jobs:
         # Collect both unittest classes and pytest function regressions.
         run: uv run --project docreader --python ${{ env.PYTHON_VERSION }} --with pytest python -m pytest docreader/tests -v
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true

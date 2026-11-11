@@ -234,8 +234,20 @@ if [[ ! -f "${PROJECT_ROOT}/.env.offline" ]]; then
     set_secret_env REDIS_PASSWORD 24
     set_secret_env JWT_SECRET 32
     set_secret_env SYSTEM_AES_KEY 16
+    set_secret_env SYSTEM_SIGNING_KEY 32
+    set_secret_env GRPC_AUTH_TOKEN 32
     set_bundle_env GENYEE_WEKNORACLOUD_ENABLED false
     set_bundle_env LANGFUSE_ENABLED false
+    if profile_enabled odl-hybrid; then
+        set_secret_env ODL_HYBRID_AUTH_TOKEN 32
+    fi
+    if profile_enabled weaviate; then
+        set_bundle_env WEAVIATE_AUTH_ENABLED true
+        set_secret_env WEAVIATE_API_KEY 24
+    fi
+    if profile_enabled dex; then
+        set_secret_env OIDC_AUTH_CLIENT_SECRET 24
+    fi
     if profile_enabled mcp; then
         set_secret_env MCP_SERVER_AUTH_TOKEN 32
     fi

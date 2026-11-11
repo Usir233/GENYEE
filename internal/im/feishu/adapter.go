@@ -18,6 +18,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -247,8 +249,49 @@ func (a *Adapter) SupportsFullOutputProgress() bool {
 	return true
 }
 
-// VerifyCallback verifies the Feishu event callback by checking the verification token.
-// If no verification token is configured (e.g., WebSocket mode), skip verification.
+const feishuMaxClockSkew = 5 * time.Minute
+
+func (a *Adapter) decodeCallbackPayload(bodyBytes []byte) ([]byte, error) {
+	var encryptedBody struct {
+		Encrypt string `json:"encrypt"`
+	}
+	hasEncryptField := json.Unmarshal(bodyBytes, &encryptedBody) == nil && encryptedBody.Encrypt != ""
+	if a.encryptKey != "" {
+		if !hasEncryptField {
+			return nil, fmt.Errorf("encrypted callback payload is required when encrypt_key is configured")
+		}
+		decrypted, err := a.decrypt(encryptedBody.Encrypt)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt callback payload: %w", err)
+		}
+		return decrypted, nil
+	}
+	if hasEncryptField {
+		return nil, fmt.Errorf("encrypt_key not configured")
+	}
+	return bodyBytes, nil
+}
+
+func verifyFeishuTimestamp(tsHeader string) error {
+	rawTS, err := strconv.ParseInt(tsHeader, 10, 64)
+	if err != nil || rawTS <= 0 {
+		return fmt.Errorf("invalid X-Lark-Request-Timestamp")
+	}
+	var ts time.Time
+	if rawTS > 1e11 {
+		ts = time.UnixMilli(rawTS)
+	} else {
+		ts = time.Unix(rawTS, 0)
+	}
+	skew := time.Since(ts)
+	if skew < -feishuMaxClockSkew || skew > feishuMaxClockSkew {
+		return fmt.Errorf("callback timestamp outside allowed window")
+	}
+	return nil
+}
+
+// VerifyCallback verifies the Feishu event callback by checking encryption,
+// verification token, X-Lark-Signature, and replay timestamp window.
 func (a *Adapter) VerifyCallback(c *gin.Context) error {
 	if a.verificationToken == "" {
 		return fmt.Errorf("webhook verification secret is required")
@@ -259,34 +302,57 @@ func (a *Adapter) VerifyCallback(c *gin.Context) error {
 	if err != nil {
 		return fmt.Errorf("read body: %w", err)
 	}
-	// Always restore body for subsequent reads (ParseCallback)
+	// Always restore body for subsequent reads (HandleURLVerification / ParseCallback)
 	defer func() { c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes)) }()
 
-	var raw []byte
-
-	// Handle encrypted events
-	var encryptedBody struct {
-		Encrypt string `json:"encrypt"`
-	}
-	if err := json.Unmarshal(bodyBytes, &encryptedBody); err == nil && encryptedBody.Encrypt != "" {
-		decrypted, err := a.decrypt(encryptedBody.Encrypt)
-		if err != nil {
-			return fmt.Errorf("decrypt event for verification: %w", err)
-		}
-		raw = decrypted
-	} else {
-		raw = bodyBytes
+	raw, err := a.decodeCallbackPayload(bodyBytes)
+	if err != nil {
+		return err
 	}
 
 	var eventBody struct {
+		Type   string             `json:"type"`
+		Token  string             `json:"token"`
 		Header *feishuEventHeader `json:"header"`
 	}
 	if err := json.Unmarshal(raw, &eventBody); err != nil {
 		return fmt.Errorf("unmarshal event header: %w", err)
 	}
 
-	if eventBody.Header == nil || eventBody.Header.Token != a.verificationToken {
+	callbackToken := ""
+	if eventBody.Header != nil && eventBody.Header.Token != "" {
+		callbackToken = eventBody.Header.Token
+	} else if eventBody.Type == "url_verification" {
+		callbackToken = eventBody.Token
+	}
+	if callbackToken == "" || subtle.ConstantTimeCompare([]byte(callbackToken), []byte(a.verificationToken)) != 1 {
 		return fmt.Errorf("invalid verification token")
+	}
+
+	tsHeader := strings.TrimSpace(c.GetHeader("X-Lark-Request-Timestamp"))
+	nonceHeader := c.GetHeader("X-Lark-Request-Nonce")
+	sigHeader := strings.TrimSpace(c.GetHeader("X-Lark-Signature"))
+
+	if a.encryptKey != "" && eventBody.Type != "url_verification" {
+		if tsHeader == "" || sigHeader == "" {
+			return fmt.Errorf("missing X-Lark-Request-Timestamp or X-Lark-Signature header")
+		}
+	}
+	if tsHeader != "" {
+		if err := verifyFeishuTimestamp(tsHeader); err != nil {
+			return err
+		}
+	}
+	if a.encryptKey != "" && (eventBody.Type != "url_verification" || sigHeader != "") {
+		h := sha256.New()
+		h.Write([]byte(tsHeader))
+		h.Write([]byte(nonceHeader))
+		h.Write([]byte(a.encryptKey))
+		h.Write(bodyBytes)
+		expectedSig := fmt.Sprintf("%x", h.Sum(nil))
+		if subtle.ConstantTimeCompare([]byte(expectedSig), []byte(strings.ToLower(sigHeader))) != 1 {
+			return fmt.Errorf("invalid X-Lark-Signature")
+		}
 	}
 
 	return nil
@@ -301,26 +367,16 @@ func (a *Adapter) HandleURLVerification(c *gin.Context) bool {
 	}
 	c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes))
 
+	raw, err := a.decodeCallbackPayload(bodyBytes)
+	if err != nil {
+		logger.Errorf(c.Request.Context(), "[%s] Failed to decode challenge body: %v", a.region.Label, err)
+		return false
+	}
+
 	// Try to parse as a challenge request
 	var body map[string]interface{}
-
-	// If encrypted, try to decrypt first
-	var encryptedBody struct {
-		Encrypt string `json:"encrypt"`
-	}
-	if err := json.Unmarshal(bodyBytes, &encryptedBody); err == nil && encryptedBody.Encrypt != "" {
-		decrypted, err := a.decrypt(encryptedBody.Encrypt)
-		if err != nil {
-			logger.Errorf(c.Request.Context(), "[%s] Failed to decrypt: %v", a.region.Label, err)
-			return false
-		}
-		if err := json.Unmarshal(decrypted, &body); err != nil {
-			return false
-		}
-	} else {
-		if err := json.Unmarshal(bodyBytes, &body); err != nil {
-			return false
-		}
+	if err := json.Unmarshal(raw, &body); err != nil {
+		return false
 	}
 
 	// Check if this is a URL verification challenge
@@ -377,20 +433,9 @@ func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 		return nil, fmt.Errorf("read body: %w", err)
 	}
 
-	var raw []byte
-
-	// Handle encrypted events
-	var encryptedBody struct {
-		Encrypt string `json:"encrypt"`
-	}
-	if err := json.Unmarshal(bodyBytes, &encryptedBody); err == nil && encryptedBody.Encrypt != "" {
-		decrypted, err := a.decrypt(encryptedBody.Encrypt)
-		if err != nil {
-			return nil, fmt.Errorf("decrypt event: %w", err)
-		}
-		raw = decrypted
-	} else {
-		raw = bodyBytes
+	raw, err := a.decodeCallbackPayload(bodyBytes)
+	if err != nil {
+		return nil, err
 	}
 
 	var eventBody feishuEventBody

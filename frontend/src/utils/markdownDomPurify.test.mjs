@@ -18,9 +18,13 @@ test('ALLOWED_URI_REGEXP allows s3:// and rejects javascript:', () => {
   assert.doesNotMatch('javascript:alert(1)', re);
 });
 
-test('markdownDomPurifyConfig keeps hook-added target attribute', () => {
-  // USE_PROFILES replaces ALLOWED_ATTR, so target must come from ADD_ATTR.
+test('markdownDomPurifyConfig keeps hook-added target attribute and omits USE_PROFILES so minimal allowlist is preserved', () => {
+  assert.equal('USE_PROFILES' in markdownDomPurifyConfig, false);
   assert.ok(markdownDomPurifyConfig.ADD_ATTR.includes('target'));
+  for (const forbidden of ['iframe', 'object', 'embed', 'form', 'input', 'base', 'meta', 'link']) {
+    assert.ok(markdownDomPurifyConfig.FORBID_TAGS.includes(forbidden), forbidden);
+    assert.equal(markdownDomPurifyConfig.ALLOWED_TAGS.includes(forbidden), false, forbidden);
+  }
 });
 
 test('author-supplied target never survives; only the hook adds _blank with noopener', () => {

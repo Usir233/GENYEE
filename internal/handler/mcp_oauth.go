@@ -90,9 +90,9 @@ func (h *MCPOAuthHandler) AuthorizeURL(c *gin.Context) {
 		c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
-	req.RedirectURI = strings.TrimSpace(req.RedirectURI)
-	if req.RedirectURI == "" {
-		c.Error(errors.NewValidationError("redirect_uri is required"))
+	resolvedRedirectURI, err := mcp.ResolveOAuthCallbackURI(req.RedirectURI, true)
+	if err != nil {
+		c.Error(errors.NewValidationError(err.Error()))
 		return
 	}
 	if req.FrontendRedirect == "" {
@@ -110,9 +110,13 @@ func (h *MCPOAuthHandler) AuthorizeURL(c *gin.Context) {
 	}
 
 	authURL, attemptID, err := h.oauth.StartAuthorization(
-		ctx, service, tenantID, principal, req.RedirectURI, req.FrontendRedirect,
+		ctx, service, tenantID, principal, resolvedRedirectURI, req.FrontendRedirect,
 	)
 	if err != nil {
+		if stderrors.Is(err, mcp.ErrInvalidOAuthRedirectURI) || stderrors.Is(err, mcp.ErrInvalidOAuthEndpoint) {
+			c.Error(errors.NewValidationError(err.Error()))
+			return
+		}
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"service_id": secutils.SanitizeForLog(serviceID),
 		})

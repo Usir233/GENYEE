@@ -280,18 +280,32 @@ func (s *ossFileService) SaveBytes(ctx context.Context, data []byte, tenantID ui
 	return fmt.Sprintf("oss://%s/%s", targetBucket, objectName), nil
 }
 
+func (s *ossFileService) resolveOssTarget(filePath string) (*oss.Client, string, string, error) {
+	bucketName, objectName, err := parseOssFilePath(filePath)
+	if err != nil {
+		return nil, "", "", err
+	}
+	if err := utils.SafeObjectKey(objectName); err != nil {
+		return nil, "", "", fmt.Errorf("invalid file path: %w", err)
+	}
+	if s.tempBucketName != "" && s.tempClient != nil && bucketName == s.tempBucketName {
+		return s.tempClient, s.tempBucketName, objectName, nil
+	}
+	if s.bucketName != "" && bucketName != s.bucketName {
+		return nil, "", "", fmt.Errorf("bucket mismatch in OSS path: got %s, want %s", bucketName, s.bucketName)
+	}
+	return s.client, s.bucketName, objectName, nil
+}
+
 // CopyFile copies an existing OSS object to a new knowledge-owned object using a
 // server-side CopyObject (no data leaves OSS). The destination uses the same
 // layout as SaveFile. Returns ErrCrossBackendCopy when srcPath is not an oss:// path.
 func (s *ossFileService) CopyFile(ctx context.Context,
 	srcPath string, tenantID uint64, knowledgeID string,
 ) (string, error) {
-	srcBucket, srcKey, err := parseOssFilePath(srcPath)
+	_, srcBucket, srcKey, err := s.resolveOssTarget(srcPath)
 	if err != nil {
 		return "", fmt.Errorf("oss copy rejected source %q: %w", srcPath, ErrCrossBackendCopy)
-	}
-	if err := utils.SafeObjectKey(srcKey); err != nil {
-		return "", fmt.Errorf("invalid source path: %w", err)
 	}
 
 	ext := filepath.Ext(srcPath)
@@ -316,19 +330,9 @@ func (s *ossFileService) CopyFile(ctx context.Context,
 
 // GetFile retrieves a file from OSS by its path.
 func (s *ossFileService) GetFile(ctx context.Context, filePath string) (io.ReadCloser, error) {
-	bucketName, objectName, err := parseOssFilePath(filePath)
+	client, bucketName, objectName, err := s.resolveOssTarget(filePath)
 	if err != nil {
 		return nil, err
-	}
-	if err := utils.SafeObjectKey(objectName); err != nil {
-		return nil, fmt.Errorf("invalid file path: %w", err)
-	}
-
-	var client *oss.Client
-	if bucketName == s.tempBucketName && s.tempClient != nil {
-		client = s.tempClient
-	} else {
-		client = s.client
 	}
 
 	ctx, cancel := objectStorageTransferContext(ctx)
@@ -346,19 +350,9 @@ func (s *ossFileService) GetFile(ctx context.Context, filePath string) (io.ReadC
 
 // DeleteFile removes a file from OSS.
 func (s *ossFileService) DeleteFile(ctx context.Context, filePath string) error {
-	bucketName, objectName, err := parseOssFilePath(filePath)
+	client, bucketName, objectName, err := s.resolveOssTarget(filePath)
 	if err != nil {
 		return err
-	}
-	if err := utils.SafeObjectKey(objectName); err != nil {
-		return fmt.Errorf("invalid file path: %w", err)
-	}
-
-	var client *oss.Client
-	if bucketName == s.tempBucketName && s.tempClient != nil {
-		client = s.tempClient
-	} else {
-		client = s.client
 	}
 
 	ctx, cancel := objectStorageTransferContext(ctx)
@@ -376,20 +370,9 @@ func (s *ossFileService) DeleteFile(ctx context.Context, filePath string) error 
 
 // GetFileURL returns a presigned download URL for the file.
 func (s *ossFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
-	bucketName, objectName, err := parseOssFilePath(filePath)
+	client, bucketName, objectName, err := s.resolveOssTarget(filePath)
 	if err != nil {
 		return "", err
-	}
-	if err := utils.SafeObjectKey(objectName); err != nil {
-		return "", fmt.Errorf("invalid file path: %w", err)
-	}
-
-	// Determine which client to use
-	var client *oss.Client
-	if bucketName == s.tempBucketName && s.tempClient != nil {
-		client = s.tempClient
-	} else {
-		client = s.client
 	}
 
 	// Generate presigned URL (valid for 24 hours)

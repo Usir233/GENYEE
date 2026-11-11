@@ -11,11 +11,21 @@ from typing import Optional
 import grpc
 from grpc_health.v1 import health_pb2_grpc
 from grpc_health.v1.health import HealthServicer
+from PIL import Image
 
-from docreader.auth import AuthInterceptor, TLSConfigError, load_tls_credentials
+from docreader.auth import (
+    AuthConfigError,
+    AuthInterceptor,
+    TLSConfigError,
+    load_tls_credentials,
+)
 from docreader import config
 from docreader.config import CONFIG
 from docreader.parser import Parser
+from docreader.parser.parser import sanitize_engine_overrides
+
+# Tighten Pillow decompression-bomb pixel ceiling across all in-process parsers.
+Image.MAX_IMAGE_PIXELS = 40_000_000
 from docreader.parser.stream import ParsedDocumentStream
 from docreader.parser.concurrency import check_cancellation
 from docreader.preprocess import PreprocessLimits, PreprocessRunner
@@ -389,7 +399,8 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
             )
 
     def ListEngines(self, request, context):
-        overrides = dict(getattr(request, "config_overrides", None) or {})
+        raw_overrides = dict(getattr(request, "config_overrides", None) or {})
+        overrides = sanitize_engine_overrides(raw_overrides, reject_forbidden=False)
         engines_data = registry.list_engines(overrides=overrides or None)
         engines = [
             ParserEngineInfo(
@@ -407,7 +418,11 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
 def main():
     config.print_config()
 
-    interceptors = [AuthInterceptor()]
+    try:
+        interceptors = [AuthInterceptor()]
+    except AuthConfigError as e:
+        logger.error("Refusing to start: %s", e)
+        sys.exit(1)
 
     server = grpc.server(
         RequestThreadPoolExecutor(max_workers=CONFIG.grpc_max_workers),

@@ -63,12 +63,18 @@ errors=0
 check_var() {
     local var_name=$1
     local var_value="${!var_name}"
+    local display_value="$var_value"
     
     if [ -z "$var_value" ]; then
         log_error "$var_name 未设置"
         errors=$((errors + 1))
     else
-        log_success "$var_name = $var_value"
+        case "$var_name" in
+            *PASSWORD*|*SECRET*|*ACCESS_KEY*|*API_KEY*|*TOKEN*|*PRIVATE_KEY*|*AES_KEY*|*SIGNING_KEY*)
+                display_value="<REDACTED>"
+                ;;
+        esac
+        log_success "$var_name = $display_value"
     fi
 }
 

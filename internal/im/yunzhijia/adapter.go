@@ -3,7 +3,7 @@ package yunzhijia
 import (
 	"bytes"
 	"context"
-	"crypto/hmac"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -107,8 +107,9 @@ func (a *Adapter) HandleURLVerification(c *gin.Context) bool {
 	return false
 }
 
-// VerifyCallback verifies the Yunzhijia callback signature (HmacSHA1).
-// If secret is not configured, verification is skipped.
+const yunzhijiaMaxClockSkew = 5 * time.Minute
+
+// VerifyCallback verifies the Yunzhijia callback signature (HmacSHA1) and timestamp freshness.
 func (a *Adapter) VerifyCallback(c *gin.Context) error {
 	if a.secret == "" {
 		return fmt.Errorf("webhook verification secret is required")
@@ -139,8 +140,21 @@ func (a *Adapter) VerifyCallback(c *gin.Context) error {
 	}
 
 	expected := computeSignature(a.secret, &msg)
-	if !hmac.Equal([]byte(sign), []byte(expected)) {
+	if subtle.ConstantTimeCompare([]byte(sign), []byte(expected)) != 1 {
 		return fmt.Errorf("invalid signature")
+	}
+
+	if msg.Time <= 0 {
+		return fmt.Errorf("missing callback timestamp")
+	}
+	var ts time.Time
+	if msg.Time > 1e11 {
+		ts = time.UnixMilli(msg.Time)
+	} else {
+		ts = time.Unix(msg.Time, 0)
+	}
+	if skew := time.Since(ts); skew < -yunzhijiaMaxClockSkew || skew > yunzhijiaMaxClockSkew {
+		return fmt.Errorf("callback timestamp outside allowed window")
 	}
 
 	return nil

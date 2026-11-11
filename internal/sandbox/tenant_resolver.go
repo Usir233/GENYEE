@@ -181,6 +181,8 @@ func (r *tenantSandboxResolver) Resolve(
 	if err != nil {
 		return nil, err
 	}
+	effective.ConfigTenantID = tenantID
+	effective.ConfigID = configID
 	if err := EnsureDockerBackendAllowed(effective.Type); err != nil {
 		return nil, err
 	}

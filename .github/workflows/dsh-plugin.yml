@@ -46,9 +46,9 @@ jobs:
       run:
         working-directory: packages/dsh-genyee
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
           cache: npm
@@ -66,7 +66,7 @@ jobs:
       - name: Unit and contract tests
         run: node --test "test/*.test.mjs"
 
-      - uses: actions/setup-go@v6
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -105,22 +105,22 @@ jobs:
       run:
         working-directory: packages/dsh-genyee
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: packages/dsh-genyee/package-lock.json
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: ${{ env.PNPM_VERSION }}
 
       # The e2e script installs @deepseek-ai/dsh on first run (~15 min uncached).
       # Reuse the install across workflow runs; bump DSH_PINNED_SPEC to refresh.
       - name: Cache pinned dsh install
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .cache/dsh-e2e-install
           key: dsh-e2e-${{ env.DSH_PINNED_SPEC }}
@@ -140,7 +140,7 @@ jobs:
 
       - name: Upload the transcript
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dsh-genyee-e2e-transcript
           path: ${{ runner.temp }}/dsh-genyee-e2e.log
@@ -156,15 +156,15 @@ jobs:
       run:
         working-directory: packages/dsh-genyee
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
           cache: npm
           cache-dependency-path: packages/dsh-genyee/package-lock.json
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           version: ${{ env.PNPM_VERSION }}
 
@@ -174,7 +174,7 @@ jobs:
 
       # dsh@latest moves; refresh the cache weekly.
       - name: Cache latest dsh install
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: .cache/dsh-e2e-install-latest
           key: dsh-e2e-latest-${{ steps.week.outputs.id }}
@@ -207,9 +207,9 @@ jobs:
       run:
         working-directory: packages/dsh-genyee
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"

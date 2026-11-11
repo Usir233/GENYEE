@@ -928,3 +928,17 @@ func TestParseSandboxTypeAcceptsHost(t *testing.T) {
 func TestHostConfigNeedsNoProviderFields(t *testing.T) {
 	require.Empty(t, MissingRequiredFields(&Config{Type: SandboxTypeHost}))
 }
+
+func TestDockerConfigRejectsUnsafeRuntimeSocketAndCertPaths(t *testing.T) {
+	require.NoError(t, ValidateDockerRuntime(""))
+	require.NoError(t, ValidateDockerRuntime("runc"))
+	require.NoError(t, ValidateDockerRuntime("runsc"))
+	require.Error(t, ValidateDockerRuntime("/bin/sh"))
+	require.Error(t, ValidateDockerRuntime("evil-runtime"))
+
+	require.Error(t, ValidateDockerHost("unix:///var/run/../../etc/shadow", true))
+	require.Error(t, ValidateDockerHost("unix:///proc/1/root/run/docker.sock", true))
+	require.Error(t, ValidateDockerTLSCertPath("relative/certs"))
+	require.Error(t, ValidateDockerTLSCertPath("/etc/../root/.ssh"))
+	require.Error(t, ValidateDockerTLSCertPath("/proc/self/fd"))
+}

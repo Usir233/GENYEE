@@ -56,6 +56,10 @@ type MessageHandler struct {
 	// handle mode is available.
 	FileService     interfaces.FileService
 	StorageResolver interfaces.StorageBackendResolver
+	ResourceCatalog interfaces.ResourceCatalog
+	TenantService   interfaces.TenantService
+	KBService       interfaces.KnowledgeBaseService
+	KBShareService  interfaces.KBShareService
 	// Prompts supplies the pending prompt of messages awaiting input. May be
 	// nil, in which case such messages carry none.
 	Prompts               interfaces.AgentPromptRepository
@@ -159,7 +163,14 @@ func (h *MessageHandler) resolveResourceRewriter(c *gin.Context) (*storageurl.Re
 		}
 		return nil, errors.NewBadRequestError(err.Error())
 	}
-	return storageurl.NewRequestRewriter(ctx, mode, h.FileService, h.StorageResolver), nil
+	return storageurl.NewRequestRewriter(
+		ctx,
+		mode,
+		h.FileService,
+		h.StorageResolver,
+		storageurl.WithRequestResources(h.ResourceCatalog, h.TenantService),
+		storageurl.WithRequestKBSharing(h.KBService, h.KBShareService),
+	), nil
 }
 
 // LoadMessages godoc

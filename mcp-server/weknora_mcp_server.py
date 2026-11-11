@@ -15,13 +15,18 @@ import re
 import secrets
 import sys
 import threading
+import urllib.parse
 from typing import Any, Dict, Iterator
 
 import urllib3
 import requests
 from mcp.server import MCPServer
 from requests.exceptions import RequestException
-from upload_paths import resolve_upload_file_path, set_active_transport
+from upload_paths import (
+    open_upload_file_nofollow,
+    resolve_upload_file_path,
+    set_active_transport,
+)
 
 # Set up logging configuration for the MCP server
 logging.basicConfig(level=logging.INFO)
@@ -54,22 +59,166 @@ SSE_MESSAGE_PATH = "/sse/messages/"
 STREAMABLE_HTTP_STATELESS = True
 
 
+MIN_NETWORK_AUTH_TOKEN_LENGTH = 32
+
+
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _safe_path_segment(value: str, name: str = "id") -> str:
+    """Validate and percent-encode a single REST URL path segment (GENYEE-HIGH-18)."""
+    if not isinstance(value, str):
+        raise ValueError(f"Invalid {name}: expected non-empty string")
+    if not value or not value.strip() or value != value.strip():
+        raise ValueError(
+            f"Invalid {name}: must not be empty or contain leading/trailing whitespace"
+        )
+    if len(value) > 256:
+        raise ValueError(f"Invalid {name}: exceeds maximum length (256)")
+    if value in (".", "..") or ".." in value:
+        raise ValueError(f"Invalid {name}: path traversal sequence is forbidden")
+    for ch in value:
+        code = ord(ch)
+        if code < 33 or code == 127 or ch in ("/", "\\", "?", "#", "%"):
+            raise ValueError(f"Invalid {name}: contains disallowed URL character")
+    return urllib.parse.quote(value, safe="")
+
+
+def admin_tools_enabled() -> bool:
+    """Whether high-privilege tenant/model management MCP tools are enabled (MED-12)."""
+    return _env_flag("MCP_ENABLE_ADMIN_TOOLS", default=False)
+
+
+def _require_admin_tools_enabled(tool_name: str) -> None:
+    if not admin_tools_enabled():
+        raise PermissionError(
+            f"Administrative MCP tool '{tool_name}' is disabled by default; "
+            "set MCP_ENABLE_ADMIN_TOOLS=true to enable it."
+        )
+
+
+def build_transport_security_settings(host: str, port: int):
+    """Build explicit Host/Origin allowlists for network MCP transports (MED-12).
+
+    Prevents MCP SDK from silently disabling DNS rebinding protection when
+    ``host`` is ``0.0.0.0`` or ``::``.
+    """
+    from mcp.server.transport_security import TransportSecuritySettings
+
+    if _env_flag("MCP_DISABLE_DNS_REBINDING_PROTECTION", default=False):
+        logger.warning(
+            "DNS rebinding Host/Origin validation is DISABLED via "
+            "MCP_DISABLE_DNS_REBINDING_PROTECTION=true."
+        )
+        return TransportSecuritySettings(enable_dns_rebinding_protection=False)
+
+    allowed_hosts: list[str] = [
+        "127.0.0.1:*",
+        "localhost:*",
+        "[::1]:*",
+        "127.0.0.1",
+        "localhost",
+        "[::1]",
+    ]
+    allowed_origins: list[str] = [
+        "http://127.0.0.1:*",
+        "https://127.0.0.1:*",
+        "http://localhost:*",
+        "https://localhost:*",
+        "http://[::1]:*",
+        "https://[::1]:*",
+        "http://127.0.0.1",
+        "https://127.0.0.1",
+        "http://localhost",
+        "https://localhost",
+    ]
+
+    clean_host = (host or "").strip()
+    if clean_host and clean_host not in {"0.0.0.0", "::", "*"}:
+        host_bracketed = (
+            f"[{clean_host}]"
+            if ":" in clean_host and not clean_host.startswith("[")
+            else clean_host
+        )
+        for candidate in (f"{host_bracketed}:{port}", f"{host_bracketed}:*", host_bracketed):
+            if candidate not in allowed_hosts:
+                allowed_hosts.append(candidate)
+        for scheme in ("http", "https"):
+            for candidate in (
+                f"{scheme}://{host_bracketed}:{port}",
+                f"{scheme}://{host_bracketed}",
+            ):
+                if candidate not in allowed_origins:
+                    allowed_origins.append(candidate)
+
+    extra_hosts = os.getenv("MCP_ALLOWED_HOSTS", "").strip()
+    if extra_hosts:
+        for raw_entry in extra_hosts.split(","):
+            entry = raw_entry.strip()
+            if not entry:
+                continue
+            if entry not in allowed_hosts:
+                allowed_hosts.append(entry)
+            if ":" not in entry and f"{entry}:*" not in allowed_hosts:
+                allowed_hosts.append(f"{entry}:*")
+
+    extra_origins = os.getenv("MCP_ALLOWED_ORIGINS", "").strip()
+    if extra_origins:
+        for raw_origin in extra_origins.split(","):
+            origin = raw_origin.strip()
+            if origin and origin not in allowed_origins:
+                allowed_origins.append(origin)
+
+    return TransportSecuritySettings(
+        enable_dns_rebinding_protection=True,
+        allowed_hosts=allowed_hosts,
+        allowed_origins=allowed_origins,
+    )
+
+
+def _uvicorn_tls_kwargs() -> Dict[str, str]:
+    certfile = os.getenv("MCP_SSL_CERTFILE", "").strip()
+    keyfile = os.getenv("MCP_SSL_KEYFILE", "").strip()
+    if bool(certfile) != bool(keyfile):
+        raise ValueError(
+            "Both MCP_SSL_CERTFILE and MCP_SSL_KEYFILE must be set together to enable TLS."
+        )
+    if certfile and keyfile:
+        return {"ssl_certfile": certfile, "ssl_keyfile": keyfile}
+    return {}
+
+
 def network_transport_auth_token() -> str:
     """Shared secret clients must present for SSE/HTTP transports."""
     return os.getenv("MCP_SERVER_AUTH_TOKEN", "").strip()
 
 
 def require_network_transport_auth(transport: str) -> str:
-    """SSE/HTTP must not start without a configured auth token."""
+    """SSE/HTTP must not start without a strong (>=32-char) configured auth token."""
     token = network_transport_auth_token()
-    if transport in ("sse", "http") and not token:
-        logger.error(
-            "MCP_SERVER_AUTH_TOKEN is required for %s transport. "
-            "Set a strong shared secret; clients must send "
-            "Authorization: Bearer <token> or X-MCP-Auth-Token.",
-            transport,
-        )
-        sys.exit(1)
+    if transport in ("sse", "http", "streamable-http"):
+        if not token:
+            logger.error(
+                "MCP_SERVER_AUTH_TOKEN is required for %s transport. "
+                "Set a strong shared secret (>= %d chars); clients must send "
+                "Authorization: Bearer <token> or X-MCP-Auth-Token.",
+                transport,
+                MIN_NETWORK_AUTH_TOKEN_LENGTH,
+            )
+            sys.exit(1)
+        if len(token) < MIN_NETWORK_AUTH_TOKEN_LENGTH:
+            logger.error(
+                "MCP_SERVER_AUTH_TOKEN is too short (%d chars); at least %d "
+                "characters are required for %s transport.",
+                len(token),
+                MIN_NETWORK_AUTH_TOKEN_LENGTH,
+                transport,
+            )
+            sys.exit(1)
     return token
 
 
@@ -239,7 +388,8 @@ class WeKnoraClient:
 
     def get_tenant(self, tenant_id: str) -> Dict:
         """Get tenant information"""
-        return self._request("GET", f"/tenants/{tenant_id}")
+        safe_tenant_id = _safe_path_segment(tenant_id, "tenant_id")
+        return self._request("GET", f"/tenants/{safe_tenant_id}")
 
     def list_tenants(self) -> Dict:
         """List all tenants"""
@@ -265,15 +415,18 @@ class WeKnoraClient:
 
     def get_knowledge_base(self, kb_id: str) -> Dict:
         """Get knowledge base details"""
-        return self._request("GET", f"/knowledge-bases/{kb_id}")
+        safe_kb_id = _safe_path_segment(kb_id, "kb_id")
+        return self._request("GET", f"/knowledge-bases/{safe_kb_id}")
 
     def update_knowledge_base(self, kb_id: str, updates: Dict) -> Dict:
         """Update knowledge base"""
-        return self._request("PUT", f"/knowledge-bases/{kb_id}", json=updates)
+        safe_kb_id = _safe_path_segment(kb_id, "kb_id")
+        return self._request("PUT", f"/knowledge-bases/{safe_kb_id}", json=updates)
 
     def delete_knowledge_base(self, kb_id: str) -> Dict:
         """Delete knowledge base"""
-        return self._request("DELETE", f"/knowledge-bases/{kb_id}")
+        safe_kb_id = _safe_path_segment(kb_id, "kb_id")
+        return self._request("DELETE", f"/knowledge-bases/{safe_kb_id}")
 
     # ── UUID pattern (8-4-4-4-12 hex) ──────────────────────────────────────
     _UUID_RE = re.compile(
@@ -334,12 +487,13 @@ class WeKnoraClient:
 
     def hybrid_search(self, kb_id: str, query: str, config: Dict) -> Dict:
         """Perform hybrid search combining vector and keyword search"""
+        safe_kb_id = _safe_path_segment(kb_id, "kb_id")
         data = {
             "query_text": query,
             **config,  # Include thresholds and match count
         }
         return self._request(
-            "POST", f"/knowledge-bases/{kb_id}/hybrid-search", json=data
+            "POST", f"/knowledge-bases/{safe_kb_id}/hybrid-search", json=data
         )
 
     # Knowledge Management - Methods for creating and managing knowledge entries
@@ -355,9 +509,10 @@ class WeKnoraClient:
         ``file_name`` may be a path-qualified name (``docs/spec/design.pdf``);
         the backend splits it into ``folder_path`` + display name.
         """
+        safe_kb_id = _safe_path_segment(kb_id, "kb_id")
         safe_path = resolve_upload_file_path(file_path)
-        with open(safe_path, "rb") as f:
-            files = {"file": f}
+        with open_upload_file_nofollow(safe_path) as f:
+            files = {"file": (os.path.basename(safe_path), f)}
             data = {"enable_multimodel": str(enable_multimodel).lower()}
             if file_name:
                 data["fileName"] = file_name
@@ -367,7 +522,7 @@ class WeKnoraClient:
             del headers["Content-Type"]
             # Use requests.post directly instead of session to avoid header conflicts
             response = requests.post(
-                f"{self.base_url}/knowledge-bases/{kb_id}/knowledge/file",
+                f"{self.base_url}/knowledge-bases/{safe_kb_id}/knowledge/file",
                 headers=headers,
                 files=files,
                 data=data,
@@ -381,12 +536,13 @@ class WeKnoraClient:
         self, kb_id: str, url: str, enable_multimodel: bool = True
     ) -> Dict:
         """Create knowledge from a web URL with optional multimodal processing"""
+        safe_kb_id = _safe_path_segment(kb_id, "kb_id")
         data = {
             "url": url,  # Web URL to fetch and process
             "enable_multimodel": enable_multimodel,  # Enable image/multimodal extraction
         }
         return self._request(
-            "POST", f"/knowledge-bases/{kb_id}/knowledge/url", json=data
+            "POST", f"/knowledge-bases/{safe_kb_id}/knowledge/url", json=data
         )
 
     def create_knowledge_from_text(
@@ -403,6 +559,7 @@ class WeKnoraClient:
         and made searchable immediately, which suits API/MCP callers that have
         no UI to publish drafts. Pass ``"draft"`` to save without indexing.
         """
+        safe_kb_id = _safe_path_segment(kb_id, "kb_id")
         data = {
             "title": title,
             "content": content,
@@ -411,7 +568,7 @@ class WeKnoraClient:
         if tag_ids:
             data["tag_ids"] = tag_ids
         return self._request(
-            "POST", f"/knowledge-bases/{kb_id}/knowledge/manual", json=data
+            "POST", f"/knowledge-bases/{safe_kb_id}/knowledge/manual", json=data
         )
 
     def update_knowledge_from_text(
@@ -427,12 +584,15 @@ class WeKnoraClient:
         ``"publish"`` so the updated content is re-indexed immediately; pass
         ``"draft"`` to save it without indexing.
         """
+        safe_knowledge_id = _safe_path_segment(knowledge_id, "knowledge_id")
         data = {
             "title": title,
             "content": content,
             "status": status,
         }
-        return self._request("PUT", f"/knowledge/manual/{knowledge_id}", json=data)
+        return self._request(
+            "PUT", f"/knowledge/manual/{safe_knowledge_id}", json=data
+        )
 
     def list_knowledge(
         self,
@@ -448,22 +608,25 @@ class WeKnoraClient:
         ``folder_scope`` is passed through when the backend supports
         scoped folder listing.
         """
+        safe_kb_id = _safe_path_segment(kb_id, "kb_id")
         params = {"page": page, "page_size": page_size}
         if folder_path is not None:
             params["folder_path"] = folder_path
         if folder_scope:
             params["folder_scope"] = folder_scope
         return self._request(
-            "GET", f"/knowledge-bases/{kb_id}/knowledge", params=params
+            "GET", f"/knowledge-bases/{safe_kb_id}/knowledge", params=params
         )
 
     def get_knowledge(self, knowledge_id: str) -> Dict:
         """Get knowledge details"""
-        return self._request("GET", f"/knowledge/{knowledge_id}")
+        safe_knowledge_id = _safe_path_segment(knowledge_id, "knowledge_id")
+        return self._request("GET", f"/knowledge/{safe_knowledge_id}")
 
     def delete_knowledge(self, knowledge_id: str) -> Dict:
         """Delete knowledge"""
-        return self._request("DELETE", f"/knowledge/{knowledge_id}")
+        safe_knowledge_id = _safe_path_segment(knowledge_id, "knowledge_id")
+        return self._request("DELETE", f"/knowledge/{safe_knowledge_id}")
 
     # Model Management - Methods for managing AI models (LLM, Embedding, Rerank)
     def create_model(
@@ -492,7 +655,8 @@ class WeKnoraClient:
 
     def get_model(self, model_id: str) -> Dict:
         """Get model details"""
-        return self._request("GET", f"/models/{model_id}")
+        safe_model_id = _safe_path_segment(model_id, "model_id")
+        return self._request("GET", f"/models/{safe_model_id}")
 
     # Session Management - Methods for managing chat sessions
     def create_session(
@@ -527,7 +691,8 @@ class WeKnoraClient:
 
     def get_session(self, session_id: str) -> Dict:
         """Get session details"""
-        return self._request("GET", f"/sessions/{session_id}")
+        safe_session_id = _safe_path_segment(session_id, "session_id")
+        return self._request("GET", f"/sessions/{safe_session_id}")
 
     def list_sessions(self, page: int = 1, page_size: int = 20) -> Dict:
         """List sessions"""
@@ -536,7 +701,8 @@ class WeKnoraClient:
 
     def delete_session(self, session_id: str) -> Dict:
         """Delete session"""
-        return self._request("DELETE", f"/sessions/{session_id}")
+        safe_session_id = _safe_path_segment(session_id, "session_id")
+        return self._request("DELETE", f"/sessions/{safe_session_id}")
 
     # Chat Functionality - Methods for conversational interactions
     def _consume_sse_stream(self, url: str, body: Dict[str, Any]) -> Dict:
@@ -646,7 +812,8 @@ class WeKnoraClient:
         relevant chunks before summarising with the LLM.
         For agentic tool-calling use agent_chat() instead.
         """
-        url = f"{self.base_url}/knowledge-chat/{session_id}"
+        safe_session_id = _safe_path_segment(session_id, "session_id")
+        url = f"{self.base_url}/knowledge-chat/{safe_session_id}"
         body: Dict[str, Any] = {"query": query, "channel": "api"}
         if knowledge_base_ids:
             body["knowledge_base_ids"] = knowledge_base_ids
@@ -671,7 +838,8 @@ class WeKnoraClient:
         The agent autonomously decides which knowledge bases to query;
         pass *knowledge_base_ids* to override or supplement the agent's default KBs.
         """
-        url = f"{self.base_url}/agent-chat/{session_id}"
+        safe_session_id = _safe_path_segment(session_id, "session_id")
+        url = f"{self.base_url}/agent-chat/{safe_session_id}"
         body: Dict[str, Any] = {"query": query, "agent_id": agent_id, "channel": "api"}
         if knowledge_base_ids:
             body["knowledge_base_ids"] = knowledge_base_ids
@@ -687,38 +855,46 @@ class WeKnoraClient:
 
     def get_agent(self, agent_id: str) -> Dict:
         """Get full config of a single agent by UUID."""
-        return self._request("GET", f"/agents/{agent_id}")
+        safe_agent_id = _safe_path_segment(agent_id, "agent_id")
+        return self._request("GET", f"/agents/{safe_agent_id}")
 
     # Chunk Management - Methods for managing knowledge chunks (text segments)
     def list_chunks(
         self, knowledge_id: str, page: int = 1, page_size: int = 20
     ) -> Dict:
         """List text chunks of a knowledge entry with pagination"""
+        safe_knowledge_id = _safe_path_segment(knowledge_id, "knowledge_id")
         params = {"page": page, "page_size": page_size}
-        return self._request("GET", f"/chunks/{knowledge_id}", params=params)
+        return self._request("GET", f"/chunks/{safe_knowledge_id}", params=params)
 
     def delete_chunk(self, knowledge_id: str, chunk_id: str) -> Dict:
         """Delete a chunk"""
-        return self._request("DELETE", f"/chunks/{knowledge_id}/{chunk_id}")
+        safe_knowledge_id = _safe_path_segment(knowledge_id, "knowledge_id")
+        safe_chunk_id = _safe_path_segment(chunk_id, "chunk_id")
+        return self._request("DELETE", f"/chunks/{safe_knowledge_id}/{safe_chunk_id}")
 
     # Wiki Read-Only - Methods for querying LLM-generated wiki pages
     def wiki_search(self, kb_id: str, query: str, limit: int = 10) -> Dict:
         """Search wiki pages by full-text query"""
+        safe_kb_id = _safe_path_segment(kb_id, "kb_id")
         return self._request(
             "GET",
-            f"/knowledgebase/{kb_id}/wiki/search",
+            f"/knowledgebase/{safe_kb_id}/wiki/search",
             params={"q": query, "limit": limit},
         )
 
     def wiki_read_page(self, kb_id: str, slug: str) -> Dict:
         """Read a wiki page by slug, returns full markdown + metadata + links"""
-        return self._request("GET", f"/knowledgebase/{kb_id}/wiki/pages/{slug}")
+        safe_kb_id = _safe_path_segment(kb_id, "kb_id")
+        safe_slug = _safe_path_segment(slug, "slug")
+        return self._request("GET", f"/knowledgebase/{safe_kb_id}/wiki/pages/{safe_slug}")
 
     def wiki_index_view(self, kb_id: str, limit: int = 50) -> Dict:
         """Get structured wiki index with per-type directory groups"""
+        safe_kb_id = _safe_path_segment(kb_id, "kb_id")
         return self._request(
             "GET",
-            f"/knowledgebase/{kb_id}/wiki/index",
+            f"/knowledgebase/{safe_kb_id}/wiki/index",
             params={"limit": limit},
         )
 
@@ -752,6 +928,7 @@ def create_tenant(
     retriever_engines: dict | None = None,
 ) -> dict:
     """Create a new tenant in GENYEE."""
+    _require_admin_tools_enabled("create_tenant")
     engines = retriever_engines or {
         "engines": [
             {"retriever_type": "keywords", "retriever_engine_type": "postgres"},
@@ -764,6 +941,7 @@ def create_tenant(
 @mcp.tool()
 def list_tenants() -> dict:
     """List all tenants."""
+    _require_admin_tools_enabled("list_tenants")
     return client.list_tenants()
 
 
@@ -944,6 +1122,7 @@ def create_model(
     is_default: bool = False,
 ) -> dict:
     """Create a new model configuration (type: KnowledgeQA, Embedding, or Rerank)."""
+    _require_admin_tools_enabled("create_model")
     parameters = {"base_url": base_url, "api_key": api_key}
     return client.create_model(name, type, source, description, parameters, is_default)
 
@@ -1192,15 +1371,24 @@ async def run_sse(host: str, port: int):
             f"SSE transport requires 'starlette' and 'uvicorn': pip install starlette uvicorn\n{e}"
         ) from e
 
+    transport_security = build_transport_security_settings(host, port)
+    tls_kwargs = _uvicorn_tls_kwargs()
+    scheme = "https" if tls_kwargs else "http"
     starlette_app = MCPAuthMiddleware(
-        mcp.sse_app(host=host, message_path=SSE_MESSAGE_PATH),
+        mcp.sse_app(
+            host=host,
+            message_path=SSE_MESSAGE_PATH,
+            transport_security=transport_security,
+        ),
         auth_token,
     )
 
     logger.info("Starting SSE MCP server on %s:%d", host, port)
-    logger.info("SSE endpoint:  http://%s:%d/sse", host, port)
-    logger.info("SSE messages: http://%s:%d%s", host, port, SSE_MESSAGE_PATH)
-    config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")
+    logger.info("SSE endpoint:  %s://%s:%d/sse", scheme, host, port)
+    logger.info("SSE messages: %s://%s:%d%s", scheme, host, port, SSE_MESSAGE_PATH)
+    config = uvicorn.Config(
+        starlette_app, host=host, port=port, log_level="info", **tls_kwargs
+    )
     server = uvicorn.Server(config)
     await server.serve()
 
@@ -1216,14 +1404,23 @@ async def run_http(host: str, port: int):
             f"HTTP transport requires 'starlette' and 'uvicorn': pip install starlette uvicorn\n{e}"
         ) from e
 
+    transport_security = build_transport_security_settings(host, port)
+    tls_kwargs = _uvicorn_tls_kwargs()
+    scheme = "https" if tls_kwargs else "http"
     starlette_app = MCPAuthMiddleware(
-        mcp.streamable_http_app(host=host, stateless_http=STREAMABLE_HTTP_STATELESS),
+        mcp.streamable_http_app(
+            host=host,
+            stateless_http=STREAMABLE_HTTP_STATELESS,
+            transport_security=transport_security,
+        ),
         auth_token,
     )
 
     logger.info("Starting Streamable HTTP MCP server on %s:%d", host, port)
-    logger.info("MCP endpoint:  http://%s:%d/mcp", host, port)
-    config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")
+    logger.info("MCP endpoint:  %s://%s:%d/mcp", scheme, host, port)
+    config = uvicorn.Config(
+        starlette_app, host=host, port=port, log_level="info", **tls_kwargs
+    )
     server = uvicorn.Server(config)
     await server.serve()
 

@@ -44,3 +44,44 @@ func TestBuildMilvusClientConfig_DefaultsAddressWhenMissing(t *testing.T) {
 		t.Fatalf("expected timeout and SSRF-safe dial options, got %d", len(cfg.DialOptions))
 	}
 }
+
+func TestBuildWeaviateClientConfig_DisablesUnguardedGRPCForExternalStores(t *testing.T) {
+	cfg, err := buildWeaviateClientConfig(types.VectorStore{
+		ID:         "store-tenant-custom-1",
+		EngineType: types.WeaviateRetrieverEngineType,
+		ConnectionConfig: types.ConnectionConfig{
+			Host:        "weaviate.customer.example.com:8080",
+			GrpcAddress: "weaviate.customer.example.com:50051",
+			Scheme:      "https",
+		},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.GrpcConfig != nil {
+		t.Fatalf("expected GrpcConfig to be nil for non-whitelisted external tenant store, got %+v", cfg.GrpcConfig)
+	}
+	if cfg.ConnectionClient == nil {
+		t.Fatal("expected SSRF-safe HTTP ConnectionClient to be configured")
+	}
+}
+
+func TestBuildWeaviateClientConfig_AllowsGRPCForEnvStoreAndRejectsEmptyExternalHost(t *testing.T) {
+	envCfg, err := buildWeaviateClientConfig(types.VectorStore{
+		ID:         types.EnvStoreIDPrefix + "weaviate",
+		EngineType: types.WeaviateRetrieverEngineType,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error for env store: %v", err)
+	}
+	if envCfg.GrpcConfig == nil || envCfg.GrpcConfig.Host != "weaviate:50051" {
+		t.Fatalf("expected env store to retain default GrpcConfig weaviate:50051, got %+v", envCfg.GrpcConfig)
+	}
+
+	if _, err := buildWeaviateClientConfig(types.VectorStore{
+		ID:         "store-tenant-empty-host",
+		EngineType: types.WeaviateRetrieverEngineType,
+	}); err == nil {
+		t.Fatal("expected empty host on external tenant store to be rejected rather than defaulting to internal weaviate:8080")
+	}
+}

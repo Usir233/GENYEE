@@ -1904,6 +1904,52 @@ func (h *OrganizationHandler) toOrgResponse(ctx context.Context, org *types.Orga
 	return resp
 }
 
+// callerManagesWorkspace reports whether the caller is a SystemAdmin or holds
+// Owner/Admin privileges on targetTenantID. Non-SystemAdmin callers may only
+// look up or directly enroll workspaces they administer; cross-tenant workspaces
+// must join via an organization invite code / join-request approval flow.
+func (h *OrganizationHandler) callerManagesWorkspace(c *gin.Context, targetTenantID uint64) bool {
+	if targetTenantID == 0 {
+		return false
+	}
+	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
+	if callerTenantID != 0 && callerTenantID == targetTenantID {
+		return true
+	}
+	ctx := c.Request.Context()
+	var caller *types.User
+	if u, ok := c.Get(types.UserContextKey.String()); ok {
+		if typed, ok := u.(*types.User); ok {
+			caller = typed
+		}
+	}
+	if caller == nil && h.userService != nil {
+		if userID := strings.TrimSpace(c.GetString(types.UserIDContextKey.String())); userID != "" {
+			caller, _ = h.userService.GetUserByID(ctx, userID)
+		}
+	}
+	if caller == nil {
+		return false
+	}
+	if caller.IsSystemAdmin || caller.CanAccessAllTenants {
+		return true
+	}
+	if h.userService != nil {
+		for _, m := range h.userService.BuildLoginMemberships(ctx, caller, nil) {
+			if m.TenantID == targetTenantID &&
+				(m.Role == types.TenantRoleOwner || m.Role == types.TenantRoleAdmin) {
+				return true
+			}
+		}
+		if caller.TenantID == targetTenantID {
+			if owner, err := h.userService.GetUserByTenantID(ctx, targetTenantID); err == nil && owner != nil && owner.ID == caller.ID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // SearchTenantsForInvite resolves one exact workspace ID for an organization
 // administrator. Workspace names are never searched across tenants.
 // @Summary Resolve a workspace ID for invitation
@@ -1938,7 +1984,7 @@ func (h *OrganizationHandler) SearchTenantsForInvite(c *gin.Context) {
 
 	candidates := []types.TenantInviteCandidate{}
 	targetID, parseErr := strconv.ParseUint(strings.TrimSpace(query), 10, 64)
-	if parseErr != nil || targetID == 0 {
+	if parseErr != nil || targetID == 0 || !h.callerManagesWorkspace(c, targetID) {
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": candidates})
 		return
 	}
@@ -2027,6 +2073,10 @@ func (h *OrganizationHandler) InviteMember(c *gin.Context) {
 	targetTenantID := req.TenantID
 	switch {
 	case targetTenantID != 0:
+		if !h.callerManagesWorkspace(c, targetTenantID) {
+			c.Error(apperrors.NewForbiddenError("Direct workspace enrollment requires administrator privileges on the target workspace; use an organization invite code instead"))
+			return
+		}
 		if _, err := h.tenantService.GetTenantByID(ctx, targetTenantID); err != nil {
 			c.Error(apperrors.NewNotFoundError("Workspace not found"))
 			return
@@ -2039,6 +2089,10 @@ func (h *OrganizationHandler) InviteMember(c *gin.Context) {
 			return
 		}
 		targetTenantID = invitedUser.TenantID
+		if !h.callerManagesWorkspace(c, targetTenantID) {
+			c.Error(apperrors.NewForbiddenError("Direct workspace enrollment requires administrator privileges on the target workspace; use an organization invite code instead"))
+			return
+		}
 	default:
 		c.Error(apperrors.NewValidationError("Either tenant_id or user_id is required"))
 		return

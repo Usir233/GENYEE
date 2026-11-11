@@ -4,8 +4,11 @@ package ratelimit
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,6 +45,7 @@ type Limiter struct {
 	keyPrefix  string
 	window     time.Duration
 	instanceID string
+	seq        atomic.Uint64
 }
 
 // New constructs a limiter. keyPrefix should include a trailing delimiter
@@ -76,11 +80,20 @@ func (l *Limiter) Allow(ctx context.Context, key string, max int) bool {
 	return l.local.allow(key, l.window, max)
 }
 
+func (l *Limiter) nextMember(nowMs int64) string {
+	seq := l.seq.Add(1)
+	var nonce [8]byte
+	if _, err := rand.Read(nonce[:]); err == nil {
+		return fmt.Sprintf("%s:%d:%d:%s", l.instanceID, nowMs, seq, hex.EncodeToString(nonce[:]))
+	}
+	return fmt.Sprintf("%s:%d:%d", l.instanceID, nowMs, seq)
+}
+
 func (l *Limiter) redisAllow(ctx context.Context, key string, max int) (bool, error) {
 	redisKey := l.keyPrefix + key
 	nowMs := time.Now().UnixMilli()
 	windowMs := l.window.Milliseconds()
-	member := fmt.Sprintf("%s:%d", l.instanceID, nowMs)
+	member := l.nextMember(nowMs)
 
 	result, err := rateLimitScript.Run(ctx, l.redis,
 		[]string{redisKey},

@@ -92,9 +92,9 @@ func (m *OAuthManager) AuthorizeWithAssertion(
 	if err != nil {
 		return err
 	}
-	metadata, err := h.GetServerMetadata(ctx)
+	metadata, err := validateOAuthServerMetadata(ctx, h, false, true, false)
 	if err != nil {
-		return fmt.Errorf("failed to get authorization server metadata: %w", err)
+		return err
 	}
 	if metadata.TokenEndpoint == "" {
 		return fmt.Errorf("authorization server metadata has no token_endpoint")

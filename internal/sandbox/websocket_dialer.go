@@ -31,8 +31,8 @@ import (
 // WebsocketDialer dials one data-plane port of one sandbox over
 // WebSocket. Build it with SandboxGatewayTransportPool.WebsocketDialerFor.
 type WebsocketDialer struct {
-	// tokens is the registry of the pool that built this dialer.
-	tokens *InboundTokenRegistry
+	// tokens is the scoped registry view of the pool that built this dialer.
+	tokens *ScopedInboundTokenRegistry
 	policy OutboundURLPolicy
 
 	// target is the gateway "host:port" every dial actually connects to,
@@ -58,7 +58,7 @@ func (p *SandboxGatewayTransportPool) WebsocketDialerFor(cfg *Config) *Websocket
 	}
 	gatewayURL, _ := gatewayEndpointFor(cfg)
 	d := &WebsocketDialer{
-		tokens:        p.inboundTokens,
+		tokens:        p.ScopedInboundTokens(cfg),
 		policy:        p.policy,
 		scheme:        "wss",
 		sandboxDomain: sandboxDomainFor(cfg),

@@ -1087,12 +1087,94 @@ func TestUpdateRefusesPrivateEndpointChangeWhenSkillSnapshotExists(t *testing.T)
 
 	next := e2bCfg("key-a", "https://api.e2b.app", "e2b.app", "t1", 300)
 	next.AllowPrivateEndpoints = true
-	_, err := svc.Update(context.Background(), 7, "cfg-a", UpdateSandboxConfigInput{
+	sysAdminCtx := context.WithValue(context.Background(), types.SystemAdminContextKey, true)
+	_, err := svc.Update(sysAdminCtx, 7, "cfg-a", UpdateSandboxConfigInput{
 		Name:   "prod",
 		Config: next,
 	})
 	require.ErrorIs(t, err, ErrSkillSnapshotBlocksTemplateChange)
 	require.Nil(t, repo.updated)
+}
+
+func TestSandboxConfigRejectsPrivilegedFieldsForNonSystemAdmin(t *testing.T) {
+	t.Setenv("SYSTEM_AES_KEY", strings.Repeat("k", 32))
+	sandbox.ClearDockerBackendEnabledOverride()
+	t.Cleanup(sandbox.ClearDockerBackendEnabledOverride)
+	t.Setenv(sandbox.DockerBackendEnabledEnv, "true")
+
+	repo := &fakeConfigRepo{entity: &types.TenantSandboxConfigEntity{
+		ID:          "cfg-existing",
+		TenantID:    7,
+		Name:        "existing",
+		SandboxType: "e2b",
+		Config:      e2bCfg("key-a", "https://203.0.113.10", "e2b.app", "t1", 300),
+	}}
+	svc := newTestConfigService(t, repo, &stubProviderClient{}, stubAgentRepo{})
+	nonAdminCtx := context.WithValue(context.Background(), types.SystemAdminContextKey, false)
+	sysAdminCtx := context.WithValue(context.Background(), types.SystemAdminContextKey, true)
+
+	privilegedConfigs := []*types.TenantSandboxConfig{
+		func() *types.TenantSandboxConfig {
+			cfg := e2bCfg("key-a", "https://203.0.113.10", "e2b.app", "t1", 300)
+			cfg.AllowPrivateEndpoints = true
+			return cfg
+		}(),
+		{
+			SandboxType: "docker",
+			Docker: &types.DockerSandboxConfig{
+				Image: "genyee/sandbox:test",
+				Host:  "unix:///var/run/docker.sock",
+			},
+		},
+		{
+			SandboxType: "docker",
+			Docker: &types.DockerSandboxConfig{
+				Image:       "genyee/sandbox:test",
+				TLSCertPath: "/etc/docker/certs",
+			},
+		},
+		{
+			SandboxType: "docker",
+			Docker: &types.DockerSandboxConfig{
+				Image:   "genyee/sandbox:test",
+				Runtime: "runsc",
+			},
+		},
+	}
+
+	for _, cfg := range privilegedConfigs {
+		_, err := svc.Create(nonAdminCtx, 7, CreateSandboxConfigInput{
+			Name:   "priv-cfg",
+			Config: cfg,
+		})
+		require.Error(t, err)
+		var appErr *apperrors.AppError
+		require.ErrorAs(t, err, &appErr)
+		require.Equal(t, 403, appErr.HTTPCode)
+
+		_, err = svc.Update(nonAdminCtx, 7, "cfg-existing", UpdateSandboxConfigInput{
+			Name:   "existing",
+			Config: cfg,
+		})
+		require.ErrorAs(t, err, &appErr)
+		require.Equal(t, 403, appErr.HTTPCode)
+
+		_, err = svc.QueryTemplates(nonAdminCtx, 7, SandboxTemplateQueryInput{
+			Config: cfg,
+		})
+		require.ErrorAs(t, err, &appErr)
+		require.Equal(t, 403, appErr.HTTPCode)
+	}
+
+	// SystemAdmin is allowed to configure private endpoints and safe OCI runtime.
+	privateCfg := e2bCfg("key-a", "http://127.0.0.1:18080", "e2b.app", "t1", 300)
+	privateCfg.AllowPrivateEndpoints = true
+	created, err := svc.Create(sysAdminCtx, 7, CreateSandboxConfigInput{
+		Name:   "sysadmin-private",
+		Config: privateCfg,
+	})
+	require.NoError(t, err)
+	require.True(t, created.Config.AllowPrivateEndpoints)
 }
 
 func TestQueryTemplatesDeduplicatesSameProviderTemplateID(t *testing.T) {

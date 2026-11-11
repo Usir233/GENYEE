@@ -32,7 +32,21 @@ const (
 	// prepMinSide is where shrinking stops: below it an image no longer
 	// carries anything worth a vector.
 	prepMinSide = 64
+	// maxImagePixels bounds total decoded pixels (~160 MiB RGBA) before
+	// allocating pixel buffers, blocking decompression-bomb OOMs.
+	maxImagePixels = 40_000_000
+	maxImageSide   = 32_768
 )
+
+func validateImageDimensions(width, height int) error {
+	if width <= 0 || height <= 0 {
+		return fmt.Errorf("invalid image dimensions %dx%d", width, height)
+	}
+	if width > maxImageSide || height > maxImageSide || int64(width)*int64(height) > maxImagePixels {
+		return fmt.Errorf("image dimensions %dx%d exceed maximum %d pixels", width, height, maxImagePixels)
+	}
+	return nil
+}
 
 // Limits describes what one image may be. Zero values mean the vendor
 // documents no limit.
@@ -58,10 +72,22 @@ func Prepare(data []byte, limits Limits) (api.EmbedImage, error) {
 	if !strings.HasPrefix(mime, "image/") {
 		return api.EmbedImage{}, fmt.Errorf("not an image (%s)", mime)
 	}
+	if cfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
+		if err := validateImageDimensions(cfg.Width, cfg.Height); err != nil {
+			return api.EmbedImage{}, err
+		}
+	}
 	if acceptsMIME(limits, mime) && fitsBytes(limits, len(data)) {
 		return api.EmbedImage{Data: data, MIMEType: mime}, nil
 	}
 
+	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err != nil {
+		return api.EmbedImage{}, fmt.Errorf("decode %s: %w", mime, err)
+	}
+	if err := validateImageDimensions(cfg.Width, cfg.Height); err != nil {
+		return api.EmbedImage{}, err
+	}
 	src, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {
 		return api.EmbedImage{}, fmt.Errorf("decode %s: %w", mime, err)

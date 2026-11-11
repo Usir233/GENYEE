@@ -10,6 +10,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/Usir233/GENYEE/internal/application/service"
 	"github.com/Usir233/GENYEE/internal/embedpolicy"
@@ -521,15 +523,75 @@ func (h *EmbedChannelHandler) EmbedCancelMCPOAuth(c *gin.Context) {
 	h.mcpOAuthHandler.CancelMCPOAuth(c)
 }
 
+type embedMCPOAuthAuthorizeBody struct {
+	RedirectURI      string `json:"redirect_uri"`
+	FrontendRedirect string `json:"frontend_redirect"`
+}
+
 func (h *EmbedChannelHandler) EmbedMCPOAuthAuthorizeURL(c *gin.Context) {
+	limitJSONBody(c, 16<<10)
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
 	}
-	if h.mcpOAuthHandler == nil {
+	if h.mcpOAuthHandler == nil || h.mcpOAuthHandler.svc == nil || h.mcpOAuthHandler.oauth == nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "oauth handler unavailable"})
 		return
 	}
-	h.mcpOAuthHandler.AuthorizeURL(c)
+	ctx := c.Request.Context()
+	serviceID := c.Param("id")
+	tenantID := c.GetUint64(types.TenantIDContextKey.String())
+	principal, _ := mcpOAuthPrincipalsFromContext(c)
+	if tenantID == 0 || !principal.Valid() {
+		c.Error(apperrors.NewUnauthorizedError("authentication required"))
+		return
+	}
+	var req embedMCPOAuthAuthorizeBody
+	if c.Request.Body != nil {
+		raw, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			if isRequestBodyTooLarge(err) {
+				c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "request body is too large"})
+				return
+			}
+			c.Error(apperrors.NewBadRequestError("invalid request body"))
+			return
+		}
+		if len(bytes.TrimSpace(raw)) > 0 {
+			if err := json.Unmarshal(raw, &req); err != nil {
+				c.Error(apperrors.NewBadRequestError("invalid json"))
+				return
+			}
+		}
+	}
+	// Never trust or forward client-supplied req.RedirectURI from public embed callers.
+	req.RedirectURI = ""
+	frontendRedirect := strings.TrimSpace(req.FrontendRedirect)
+	if frontendRedirect == "" {
+		frontendRedirect = "/"
+	}
+	mcpSvc, err := h.mcpOAuthHandler.svc.GetMCPServiceByID(ctx, tenantID, serviceID)
+	if err != nil || mcpSvc == nil {
+		c.Error(apperrors.NewNotFoundError("MCP service not found"))
+		return
+	}
+	if !mcpSvc.AuthConfig.IsOAuth() {
+		c.Error(apperrors.NewValidationError("MCP service is not configured to use OAuth"))
+		return
+	}
+	authURL, attemptID, err := h.mcpOAuthHandler.oauth.StartAuthorization(
+		ctx, mcpSvc, tenantID, principal, "", frontendRedirect,
+	)
+	if err != nil {
+		logger.ErrorWithFields(ctx, err, map[string]interface{}{
+			"service_id": secutils.SanitizeForLog(serviceID),
+		})
+		c.Error(apperrors.NewInternalServerError("failed to start authorization"))
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{
+		"authorization_url":     authURL,
+		"authorization_attempt": attemptID,
+	}})
 }
 
 func (h *EmbedChannelHandler) EmbedMCPOAuthStatus(c *gin.Context) {
@@ -573,8 +635,35 @@ type embedWebhookEventRequest struct {
 	Content   string `json:"content"`
 }
 
-// EmbedRelayWebhookEvent forwards a visitor chat event to the channel webhook URL.
+var embedRelayedMessageSeen struct {
+	mu      sync.Mutex
+	entries map[string]time.Time
+}
+
+func claimEmbedRelayedEventOnce(key string, now time.Time) bool {
+	const ttl = 30 * time.Minute
+	embedRelayedMessageSeen.mu.Lock()
+	defer embedRelayedMessageSeen.mu.Unlock()
+	if embedRelayedMessageSeen.entries == nil {
+		embedRelayedMessageSeen.entries = make(map[string]time.Time)
+	}
+	if len(embedRelayedMessageSeen.entries) > 4096 {
+		for k, exp := range embedRelayedMessageSeen.entries {
+			if now.After(exp) {
+				delete(embedRelayedMessageSeen.entries, k)
+			}
+		}
+	}
+	if exp, exists := embedRelayedMessageSeen.entries[key]; exists && now.Before(exp) {
+		return false
+	}
+	embedRelayedMessageSeen.entries[key] = now.Add(ttl)
+	return true
+}
+
+// EmbedRelayWebhookEvent forwards a verified session message event to the channel webhook URL.
 func (h *EmbedChannelHandler) EmbedRelayWebhookEvent(c *gin.Context) {
+	limitJSONBody(c, 16<<10)
 	ch, ok := middleware.EmbedChannelFromContext(c.Request.Context())
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
@@ -583,9 +672,19 @@ func (h *EmbedChannelHandler) EmbedRelayWebhookEvent(c *gin.Context) {
 	if err := h.ensureEmbedSession(c); err != nil {
 		return
 	}
+	pathSessionID := secutils.SanitizeForLog(c.Param("session_id"))
 	var req embedWebhookEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		if isRequestBodyTooLarge(err) {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "request body is too large"})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+	// Never allow the request body to override the authenticated path session_id.
+	if bodySessionID := strings.TrimSpace(req.SessionID); bodySessionID != "" && bodySessionID != pathSessionID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "session_id mismatch"})
 		return
 	}
 	eventType := strings.TrimSpace(req.Type)
@@ -595,18 +694,57 @@ func (h *EmbedChannelHandler) EmbedRelayWebhookEvent(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "unsupported event type"})
 		return
 	}
+	if h.messageHandler == nil || h.messageHandler.MessageService == nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "unverified client webhook relay is disabled"})
+		return
+	}
+	recentMsgs, err := h.messageHandler.MessageService.GetRecentMessagesBySession(c.Request.Context(), pathSessionID, 20)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify session messages"})
+		return
+	}
 	payload := map[string]any{}
-	if q := strings.TrimSpace(req.Query); q != "" {
-		payload["query"] = q
+	var matchedMsgID string
+	switch eventType {
+	case "message_sent":
+		q := strings.TrimSpace(req.Query)
+		if q == "" || strings.TrimSpace(req.Content) != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid message_sent payload"})
+			return
+		}
+		for i := len(recentMsgs) - 1; i >= 0; i-- {
+			m := recentMsgs[i]
+			if m != nil && m.SessionID == pathSessionID && m.Role == "user" && strings.TrimSpace(m.Content) == q {
+				matchedMsgID = m.ID
+				payload["query"] = m.Content
+				break
+			}
+		}
+	case "message_received":
+		content := strings.TrimSpace(req.Content)
+		if content == "" || strings.TrimSpace(req.Query) != "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid message_received payload"})
+			return
+		}
+		for i := len(recentMsgs) - 1; i >= 0; i-- {
+			m := recentMsgs[i]
+			if m != nil && m.SessionID == pathSessionID && m.Role == "assistant" && m.IsCompleted && strings.TrimSpace(m.Content) == content {
+				matchedMsgID = m.ID
+				payload["content"] = m.Content
+				break
+			}
+		}
 	}
-	if content := strings.TrimSpace(req.Content); content != "" {
-		payload["content"] = content
+	if matchedMsgID == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "webhook event does not match a persisted session message"})
+		return
 	}
-	sessionID := strings.TrimSpace(req.SessionID)
-	if sessionID == "" {
-		sessionID = secutils.SanitizeForLog(c.Param("session_id"))
+	dedupKey := ch.ID + "|" + pathSessionID + "|" + eventType + "|" + matchedMsgID
+	if !claimEmbedRelayedEventOnce(dedupKey, time.Now()) {
+		c.JSON(http.StatusOK, gin.H{"success": true})
+		return
 	}
-	service.DispatchEmbedWebhook(ch, eventType, sessionID, payload)
+	service.DispatchEmbedWebhook(ch, eventType, pathSessionID, payload)
 	c.JSON(http.StatusOK, gin.H{"success": true})
 }
 
@@ -821,7 +959,8 @@ func (h *EmbedChannelHandler) GetEmbedChannelStats(c *gin.Context) {
 		PageSize: 1,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		logger.ErrorWithFields(ctx, err, nil)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load channel stats"})
 		return
 	}
 	total := result

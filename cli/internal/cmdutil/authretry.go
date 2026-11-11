@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -40,6 +41,8 @@ type AuthRetryTransport struct {
 
 	mu           sync.Mutex
 	currentToken string
+	originScheme string
+	originHost   string
 	refreshFn    func(context.Context) (string, error)
 }
 
@@ -61,8 +64,72 @@ func NewAuthRetryTransport(base http.RoundTripper, initialToken string, refreshF
 	}
 }
 
+// NewAuthRetryTransportWithOrigin builds an AuthRetryTransport explicitly
+// pinned to the configured API base URL's scheme://host.
+func NewAuthRetryTransportWithOrigin(
+	base http.RoundTripper,
+	baseURL string,
+	initialToken string,
+	refreshFn func(context.Context) (string, error),
+) *AuthRetryTransport {
+	rt := NewAuthRetryTransport(base, initialToken, refreshFn)
+	if u, err := url.Parse(strings.TrimSpace(baseURL)); err == nil && u.Scheme != "" && u.Host != "" {
+		rt.originScheme = strings.ToLower(u.Scheme)
+		rt.originHost = strings.ToLower(u.Host)
+	}
+	return rt
+}
+
+func initialRequestOrigin(req *http.Request) *url.URL {
+	if req == nil {
+		return nil
+	}
+	cur := req
+	for cur.Response != nil && cur.Response.Request != nil {
+		cur = cur.Response.Request
+	}
+	return cur.URL
+}
+
+func sameOriginURL(a, b *url.URL) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return strings.EqualFold(a.Scheme, b.Scheme) && strings.EqualFold(a.Host, b.Host)
+}
+
+func (t *AuthRetryTransport) matchesTrustedOrigin(req *http.Request) bool {
+	if req == nil || req.URL == nil {
+		return false
+	}
+	if initial := initialRequestOrigin(req); initial != nil && !sameOriginURL(initial, req.URL) {
+		return false
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.originScheme == "" && t.originHost == "" {
+		if req.URL.Scheme != "" && req.URL.Host != "" {
+			t.originScheme = strings.ToLower(req.URL.Scheme)
+			t.originHost = strings.ToLower(req.URL.Host)
+		}
+		return true
+	}
+	return strings.EqualFold(req.URL.Scheme, t.originScheme) &&
+		strings.EqualFold(req.URL.Host, t.originHost)
+}
+
 // RoundTrip implements http.RoundTripper.
 func (t *AuthRetryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if !t.matchesTrustedOrigin(req) {
+		// Cross-origin redirect or foreign host: clone headers so we never
+		// mutate caller state, strip all credentials, and never replay/refresh.
+		clean := req.Clone(req.Context())
+		clean.Header.Del("Authorization")
+		clean.Header.Del("X-API-Key")
+		clean.Header.Del("X-Tenant-ID")
+		return t.base.RoundTrip(clean)
+	}
+
 	t.mu.Lock()
 	token := t.currentToken
 	t.mu.Unlock()

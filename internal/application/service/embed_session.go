@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"time"
@@ -32,7 +33,17 @@ func generateEmbedSessionToken() (string, error) {
 	return embedSessionTokenPrefix + base64.RawURLEncoding.EncodeToString(buf), nil
 }
 
-// IssueSessionToken mints a short-lived session token bound to channelID.
+func embedPublishTokenDigest(publishToken string) string {
+	trimmed := strings.TrimSpace(publishToken)
+	if trimmed == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte("embed-publish-v1|" + trimmed))
+	return hex.EncodeToString(sum[:16])
+}
+
+// IssueSessionToken mints a short-lived session token bound to channelID and
+// the current PublishToken digest so RotateToken invalidates old ems_ tokens.
 func (s *embedChannelService) IssueSessionToken(ctx context.Context, channelID string) (string, int, error) {
 	if s.redis == nil {
 		return "", 0, ErrEmbedSessionUnavailable
@@ -41,18 +52,38 @@ func (s *embedChannelService) IssueSessionToken(ctx context.Context, channelID s
 	if channelID == "" {
 		return "", 0, ErrEmbedTokenInvalid
 	}
+	value := channelID
+	if s.repo != nil {
+		ch, err := s.repo.GetByID(ctx, channelID)
+		if err != nil {
+			return "", 0, err
+		}
+		if ch == nil {
+			return "", 0, ErrEmbedTokenInvalid
+		}
+		if !ch.Enabled {
+			return "", 0, ErrEmbedChannelDisabled
+		}
+		digest := embedPublishTokenDigest(ch.PublishToken)
+		if digest == "" {
+			return "", 0, ErrEmbedTokenInvalid
+		}
+		value = channelID + "|" + digest
+	}
 	token, err := generateEmbedSessionToken()
 	if err != nil {
 		return "", 0, err
 	}
 	key := embedSessionRedisPrefix + token
-	if err := s.redis.Set(ctx, key, channelID, embedSessionTTL).Err(); err != nil {
+	if err := s.redis.Set(ctx, key, value, embedSessionTTL).Err(); err != nil {
 		return "", 0, err
 	}
 	return token, int(embedSessionTTL.Seconds()), nil
 }
 
-// ResolveSessionToken returns the channel ID stored for a session token.
+// ResolveSessionToken returns the channel ID stored for a session token,
+// verifying that the channel is still enabled and its PublishToken has not
+// been rotated since the ems_ token was minted.
 func (s *embedChannelService) ResolveSessionToken(ctx context.Context, token string) (string, error) {
 	token = strings.TrimSpace(token)
 	if !strings.HasPrefix(token, embedSessionTokenPrefix) {
@@ -61,16 +92,37 @@ func (s *embedChannelService) ResolveSessionToken(ctx context.Context, token str
 	if s.redis == nil {
 		return "", ErrEmbedSessionUnavailable
 	}
-	channelID, err := s.redis.Get(ctx, embedSessionRedisPrefix+token).Result()
+	redisKey := embedSessionRedisPrefix + token
+	stored, err := s.redis.Get(ctx, redisKey).Result()
 	if err == redis.Nil {
 		return "", ErrEmbedTokenInvalid
 	}
 	if err != nil {
 		return "", err
 	}
+	channelID, digest, hasDigest := strings.Cut(strings.TrimSpace(stored), "|")
 	channelID = strings.TrimSpace(channelID)
 	if channelID == "" {
 		return "", ErrEmbedTokenInvalid
+	}
+	if s.repo != nil {
+		ch, err := s.repo.GetByID(ctx, channelID)
+		if err != nil {
+			return "", err
+		}
+		if ch == nil {
+			_ = s.redis.Del(ctx, redisKey).Err()
+			return "", ErrEmbedTokenInvalid
+		}
+		if !ch.Enabled {
+			return "", ErrEmbedChannelDisabled
+		}
+		expectedDigest := embedPublishTokenDigest(ch.PublishToken)
+		if !hasDigest || expectedDigest == "" ||
+			subtle.ConstantTimeCompare([]byte(expectedDigest), []byte(strings.TrimSpace(digest))) != 1 {
+			_ = s.redis.Del(ctx, redisKey).Err()
+			return "", ErrEmbedTokenInvalid
+		}
 	}
 	return channelID, nil
 }
@@ -91,6 +143,7 @@ func (s *embedChannelService) LookupEnabledChannel(ctx context.Context, channelI
 	if !ch.Enabled {
 		return nil, ErrEmbedChannelDisabled
 	}
+	decryptEmbedChannelInPlace(ch)
 	return ch, nil
 }
 

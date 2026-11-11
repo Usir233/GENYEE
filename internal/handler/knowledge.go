@@ -2077,7 +2077,7 @@ func (h *KnowledgeHandler) DownloadKnowledgeFile(c *gin.Context) {
 	file, filename, err := h.kgService.GetKnowledgeFile(effCtx, id)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError("Failed to retrieve file").WithDetails(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to retrieve file"))
 		return
 	}
 	c.Header("Content-Description", "File Transfer")
@@ -2111,7 +2111,7 @@ func (h *KnowledgeHandler) PreviewKnowledgeFile(c *gin.Context) {
 		return
 	}
 
-	_, effCtx, err := h.resolveKnowledgeAndValidateKBAccess(c, id, types.OrgRoleViewer)
+	_, effCtx, err := h.resolveKnowledgeAndValidateKBAccess(c, id, types.OrgRoleEditor)
 	if err != nil {
 		c.Error(err)
 		return
@@ -2120,7 +2120,7 @@ func (h *KnowledgeHandler) PreviewKnowledgeFile(c *gin.Context) {
 	file, filename, err := h.kgService.GetKnowledgeFile(effCtx, id)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError("Failed to retrieve file").WithDetails(err.Error()))
+		c.Error(errors.NewInternalServerError("Failed to retrieve file"))
 		return
 	}
 	if err := filetransport.Serve(c.Writer, c.Request, file, filetransport.Options{

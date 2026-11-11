@@ -62,7 +62,14 @@ func (h *Handler) resolveResourceRewriter(c *gin.Context) (*storageurl.Rewriter,
 	if err != nil {
 		return nil, resourceModeError(err)
 	}
-	return storageurl.NewRequestRewriter(ctx, mode, h.fileService, h.storageResolver), nil
+	return storageurl.NewRequestRewriter(
+		ctx,
+		mode,
+		h.fileService,
+		h.storageResolver,
+		storageurl.WithRequestResources(h.resourceCatalog, h.tenantService),
+		storageurl.WithRequestKBSharing(h.knowledgebaseService, h.kbShareService),
+	), nil
 }
 
 // resolveStreamRewriter is resolveResourceRewriter plus the holdback buffer an

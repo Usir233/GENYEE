@@ -30,6 +30,7 @@ export interface EmbedChannelPublicConfig {
   channel_id: string
   name: string
   display_title?: string
+  allowed_origins?: string[]
   knowledge_base_ids?: string[]
   agent_id: string
   agent_name?: string
@@ -158,7 +159,7 @@ export function isEmbedSessionToken(token: string): boolean {
 }
 
 export async function listEmbedChannels(agentId: string) {
-  return get<{ success: boolean; data: EmbedChannel[] }>(`/api/v1/agents/${agentId}/embed-channels`)
+  return get<{ success: boolean; data: EmbedChannel[] }>(`/api/v1/agents/${encodeURIComponent(agentId)}/embed-channels`)
 }
 
 export async function listAllEmbedChannels() {
@@ -166,35 +167,35 @@ export async function listAllEmbedChannels() {
 }
 
 export async function createEmbedChannel(agentId: string, data: Partial<EmbedChannel>) {
-  return post<{ success: boolean; data: EmbedChannel }>(`/api/v1/agents/${agentId}/embed-channels`, data)
+  return post<{ success: boolean; data: EmbedChannel }>(`/api/v1/agents/${encodeURIComponent(agentId)}/embed-channels`, data)
 }
 
 export async function getEmbedChannel(channelId: string) {
-  return get<{ success: boolean; data: EmbedChannel }>(`/api/v1/embed-channels/${channelId}`)
+  return get<{ success: boolean; data: EmbedChannel }>(`/api/v1/embed-channels/${encodeURIComponent(channelId)}`)
 }
 
 export async function updateEmbedChannel(channelId: string, data: Partial<EmbedChannel>) {
-  return put<{ success: boolean; data: EmbedChannel }>(`/api/v1/embed-channels/${channelId}`, data)
+  return put<{ success: boolean; data: EmbedChannel }>(`/api/v1/embed-channels/${encodeURIComponent(channelId)}`, data)
 }
 
 export async function deleteEmbedChannel(channelId: string) {
-  return del(`/api/v1/embed-channels/${channelId}`)
+  return del(`/api/v1/embed-channels/${encodeURIComponent(channelId)}`)
 }
 
 export async function rotateEmbedToken(channelId: string) {
-  return post<{ success: boolean; data: EmbedChannel }>(`/api/v1/embed-channels/${channelId}/rotate-token`, {})
+  return post<{ success: boolean; data: EmbedChannel }>(`/api/v1/embed-channels/${encodeURIComponent(channelId)}/rotate-token`, {})
 }
 
 /** Short-lived session token for management UI preview (JWT auth, no publish token needed). */
 export async function getEmbedChannelStats(channelId: string) {
   return get<{ success: boolean; data: EmbedChannelStats }>(
-    `/api/v1/embed-channels/${channelId}/stats`,
+    `/api/v1/embed-channels/${encodeURIComponent(channelId)}/stats`,
   )
 }
 
 export async function issueEmbedPreviewSession(channelId: string) {
   return post<{ success: boolean; data: { session_token: string; expires_in: number } }>(
-    `/api/v1/embed-channels/${channelId}/preview-session`,
+    `/api/v1/embed-channels/${encodeURIComponent(channelId)}/preview-session`,
     {},
   )
 }
@@ -220,7 +221,7 @@ export interface EmbedMessageSuggestionSet {
 
 export async function getEmbedChunkById(channelId: string, token: string, chunkId: string) {
   return get<{ success: boolean; data: { content?: string } }>(
-    `/api/v1/embed/${channelId}/chunks/${chunkId}`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/chunks/${encodeURIComponent(chunkId)}`,
     { headers: { Authorization: `Embed ${token}` } },
   )
 }
@@ -229,7 +230,7 @@ export async function getEmbedSuggestedQuestions(channelId: string, token: strin
   // Omit limit to let the channel agent's configured starter count apply.
   const qs = typeof limit === 'number' && limit > 0 ? `?limit=${limit}` : ''
   return get<{ success: boolean; data: { questions: SuggestedQuestion[] } }>(
-    `/api/v1/embed/${channelId}/suggested-questions${qs}`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/suggested-questions${qs}`,
     { headers: { Authorization: `Embed ${token}` } },
   )
 }
@@ -259,7 +260,7 @@ export async function getEmbedMessageSuggestions(
   visitorId: string,
 ) {
   return get<{ success: boolean; data: EmbedMessageSuggestionSet }>(
-    `/api/v1/embed/${channelId}/sessions/${sessionId}/messages/${messageId}/suggestions`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/suggestions`,
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
   )
 }
@@ -275,7 +276,7 @@ export async function recordEmbedMessageSuggestionEvent(
   questionId = '',
 ) {
   return post(
-    `/api/v1/embed/${channelId}/sessions/${sessionId}/suggestion-events`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/suggestion-events`,
     { suggestion_set_id: suggestionSetId, question_id: questionId, event_type: eventType },
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
   )
@@ -283,14 +284,14 @@ export async function recordEmbedMessageSuggestionEvent(
 
 export async function getEmbedConfig(channelId: string, token: string) {
   return get<{ success: boolean; data: EmbedChannelPublicConfig }>(
-    `/api/v1/embed/${channelId}/config`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/config`,
     { headers: { Authorization: `Embed ${token}` } },
   )
 }
 
 export async function createEmbedSession(channelId: string, token: string) {
   return post<{ success: boolean; data: { id: string; sig: string } }>(
-    `/api/v1/embed/${channelId}/sessions`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions`,
     {},
     { headers: { Authorization: `Embed ${token}` } },
   )
@@ -298,7 +299,7 @@ export async function createEmbedSession(channelId: string, token: string) {
 
 export async function exchangeEmbedSession(channelId: string, publishToken: string) {
   return post<{ success: boolean; data: { session_token: string; expires_in: number } }>(
-    `/api/v1/embed/${channelId}/exchange`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/exchange`,
     {},
     { headers: { Authorization: `Embed ${publishToken}` } },
   )
@@ -315,7 +316,11 @@ export async function stopEmbedSession(
     Authorization: `Embed ${token}`,
     'X-Embed-Session': sessionSig,
   }
-  return post(`/api/v1/embed/${channelId}/sessions/${sessionId}/stop`, { message_id: messageId }, { headers })
+  return post(
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/stop`,
+    { message_id: messageId },
+    { headers },
+  )
 }
 
 function embedSessionHeaders(token: string, sessionSig: string, visitorId?: string): Record<string, string> {
@@ -338,7 +343,7 @@ export async function resolveEmbedMCPOAuth(
   body: { service_id: string; decision?: 'authorize' | 'cancel' },
 ): Promise<void> {
   await post(
-    `/api/v1/embed/${channelId}/sessions/${encodeURIComponent(sessionId)}/mcp-oauth-resolutions/${encodeURIComponent(pendingId)}`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/mcp-oauth-resolutions/${encodeURIComponent(pendingId)}`,
     body,
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
   )
@@ -353,7 +358,7 @@ export async function cancelEmbedMCPOAuth(
   pendingId: string,
 ): Promise<void> {
   await post(
-    `/api/v1/embed/${channelId}/sessions/${encodeURIComponent(sessionId)}/mcp-oauth-resolutions/${encodeURIComponent(pendingId)}/cancel`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/mcp-oauth-resolutions/${encodeURIComponent(pendingId)}/cancel`,
     {},
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
   )
@@ -369,7 +374,7 @@ export async function getEmbedMCPOAuthAuthorizeURL(
   body: { redirect_uri: string; frontend_redirect?: string },
 ): Promise<{ authorizationUrl: string; authorizationAttempt: string }> {
   const response: any = await post(
-    `/api/v1/embed/${channelId}/sessions/${encodeURIComponent(sessionId)}/mcp-services/${encodeURIComponent(serviceId)}/oauth/authorize-url`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/mcp-services/${encodeURIComponent(serviceId)}/oauth/authorize-url`,
     body,
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
   )
@@ -393,7 +398,7 @@ export async function getEmbedMCPOAuthStatus(
     ? `?authorization_attempt=${encodeURIComponent(authorizationAttempt)}`
     : ''
   const response: any = await get(
-    `/api/v1/embed/${channelId}/sessions/${encodeURIComponent(sessionId)}/mcp-services/${encodeURIComponent(serviceId)}/oauth/status${query}`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/mcp-services/${encodeURIComponent(serviceId)}/oauth/status${query}`,
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
   )
   return Boolean((response.data ?? response)?.authorized)
@@ -409,7 +414,7 @@ export async function resolveEmbedToolApproval(
   body: { decision: 'approve' | 'reject'; modified_args?: Record<string, unknown>; reason?: string; allow_in_session?: boolean },
 ): Promise<{ resumed: boolean }> {
   const res: any = await post(
-    `/api/v1/embed/${channelId}/sessions/${encodeURIComponent(sessionId)}/tool-approvals/${encodeURIComponent(pendingId)}`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/tool-approvals/${encodeURIComponent(pendingId)}`,
     body,
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
   )
@@ -427,7 +432,7 @@ export async function resolveEmbedAgentPrompt(
   response: Record<string, unknown>,
 ): Promise<{ resumed: boolean }> {
   const res: any = await post(
-    `/api/v1/embed/${channelId}/sessions/${encodeURIComponent(sessionId)}/prompts/${encodeURIComponent(promptId)}`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/prompts/${encodeURIComponent(promptId)}`,
     { kind, response },
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
   )
@@ -450,7 +455,7 @@ export async function getEmbedMessageList(
   // Signed session handle — sent as a header so it never lands in URL/access logs.
   if (sig) headers['X-Embed-Session'] = sig
   return get<{ success: boolean; data: unknown[] }>(
-    `/api/v1/embed/${channelId}/messages/${sessionId}/load?${params.toString()}`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/messages/${encodeURIComponent(sessionId)}/load?${params.toString()}`,
     { headers },
   )
 }
@@ -462,6 +467,83 @@ const EMBED_HOST_SOURCE = 'weknora-host'
 // (trust-on-first-use). Once known, every inbound/outbound message is pinned to
 // it so conversation content is never broadcast to an unexpected window.
 let verifiedParentOrigin = ''
+let observedDisallowedParentOrigin = false
+let configuredAllowedOrigins: string[] | null = null
+
+export function isOriginAllowedByEmbedPolicy(
+  origin: string,
+  allowedOrigins?: string[] | null,
+): boolean {
+  if (!origin || origin === 'null') return false
+  let candidateUrl: URL
+  try {
+    candidateUrl = new URL(origin)
+  } catch {
+    return false
+  }
+  if (candidateUrl.protocol !== 'http:' && candidateUrl.protocol !== 'https:') {
+    return false
+  }
+  if (!allowedOrigins || allowedOrigins.length === 0) {
+    return true
+  }
+  if (typeof window !== 'undefined' && window.location?.origin && candidateUrl.origin === window.location.origin) {
+    return true
+  }
+  const candidateHost = candidateUrl.hostname.toLowerCase()
+  for (const rawEntry of allowedOrigins) {
+    const entry = String(rawEntry || '').trim()
+    if (!entry) continue
+    if (entry === '*') return true
+    const schemeWildcard = entry.match(/^(https?):\/\/\*\.([^/:]+)(?::(\d+))?\/?$/i)
+    if (schemeWildcard) {
+      const expectedProtocol = `${schemeWildcard[1].toLowerCase()}:`
+      const baseDomain = schemeWildcard[2].toLowerCase()
+      const expectedPort = schemeWildcard[3] || ''
+      if (
+        candidateUrl.protocol === expectedProtocol
+        && candidateUrl.port === expectedPort
+        && candidateHost.length > baseDomain.length + 1
+        && candidateHost.endsWith(`.${baseDomain}`)
+      ) {
+        return true
+      }
+      continue
+    }
+    const hostWildcard = entry.match(/^\*\.([^/:]+)$/i)
+    if (hostWildcard) {
+      const baseDomain = hostWildcard[1].toLowerCase()
+      if (candidateHost.length > baseDomain.length + 1 && candidateHost.endsWith(`.${baseDomain}`)) {
+        return true
+      }
+      continue
+    }
+    try {
+      const allowedUrl = new URL(entry)
+      if (allowedUrl.origin === candidateUrl.origin) {
+        return true
+      }
+    } catch {
+      // Ignore malformed allowlist entries and fail closed if none match.
+    }
+  }
+  return false
+}
+
+export function setEmbedAllowedOrigins(origins?: string[] | null): void {
+  const normalized = Array.isArray(origins)
+    ? origins.map((item) => String(item || '').trim()).filter(Boolean)
+    : []
+  configuredAllowedOrigins = normalized.length > 0 ? normalized : null
+  observedDisallowedParentOrigin = false
+  if (configuredAllowedOrigins) {
+    const observed = verifiedParentOrigin || referrerParentOrigin()
+    if (observed && !isOriginAllowedByEmbedPolicy(observed, configuredAllowedOrigins)) {
+      verifiedParentOrigin = ''
+      observedDisallowedParentOrigin = true
+    }
+  }
+}
 
 function referrerParentOrigin(): string {
   if (window.parent === window) return ''
@@ -477,7 +559,11 @@ function referrerParentOrigin(): string {
 
 /** Best-known parent origin: verified handshake first, then referrer. */
 function knownParentOrigin(): string {
-  return verifiedParentOrigin || referrerParentOrigin()
+  const candidate = verifiedParentOrigin || referrerParentOrigin()
+  if (candidate && !isOriginAllowedByEmbedPolicy(candidate, configuredAllowedOrigins)) {
+    return ''
+  }
+  return candidate
 }
 
 function isTrustedParentMessage(event: MessageEvent): boolean {
@@ -485,6 +571,10 @@ function isTrustedParentMessage(event: MessageEvent): boolean {
   if (event.source !== window.parent) return false
   if (!event.data || event.data.source !== EMBED_HOST_SOURCE) return false
   if (typeof event.origin !== 'string' || event.origin === 'null') return false
+  if (!isOriginAllowedByEmbedPolicy(event.origin, configuredAllowedOrigins)) {
+    observedDisallowedParentOrigin = true
+    return false
+  }
   const expected = knownParentOrigin()
   if (expected) {
     if (event.origin !== expected) return false
@@ -500,13 +590,24 @@ function isTrustedParentMessage(event: MessageEvent): boolean {
  * `sensitive` payloads (conversation content) are dropped when the parent
  * origin is unknown rather than broadcast to '*'. Non-sensitive handshake
  * messages (bootstrap_request/ready) may fall back to '*' so token handoff can
- * still bootstrap when the referrer is stripped.
+ * still bootstrap when the referrer is stripped, unless the channel allowlist
+ * already rejected the observed parent origin.
  */
 function postToParent(payload: Record<string, unknown>, opts?: { sensitive?: boolean }) {
   if (window.parent === window) return
+  if (observedDisallowedParentOrigin) return
   const target = knownParentOrigin()
   if (!target) {
     if (opts?.sensitive) return
+    if (configuredAllowedOrigins && configuredAllowedOrigins.length === 1) {
+      try {
+        const singleOrigin = new URL(configuredAllowedOrigins[0]).origin
+        window.parent.postMessage({ source: EMBED_MSG_SOURCE, ...payload }, singleOrigin)
+        return
+      } catch {
+        // Wildcard or non-URL pattern: fall through.
+      }
+    }
     window.parent.postMessage({ source: EMBED_MSG_SOURCE, ...payload }, '*')
     return
   }
@@ -549,7 +650,7 @@ export function relayEmbedWebhookEvent(
     'X-Embed-Session': sessionSig,
   }
   void post(
-    `/api/v1/embed/${channelId}/sessions/${sessionId}/events`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/events`,
     { type: body.type, session_id: sessionId, query: body.query, content: body.content },
     { headers },
   ).catch(() => {
@@ -676,7 +777,7 @@ export function buildSecureWidgetSnippet(
  */
 export function buildSecureServerNodeExample(channelId: string, opts?: { baseUrl?: string }) {
   const base = safeBaseUrl(opts?.baseUrl)
-  const exchangeUrl = `${base}/api/v1/embed/${channelId}/exchange`
+  const exchangeUrl = `${base}/api/v1/embed/${encodeURIComponent(channelId)}/exchange`
   return [
     `// Node/Express — keep GENYEE_PUBLISH_TOKEN only on the server (env var).`,
     `app.get('/genyee/embed-token', async (req, res) => {`,
@@ -702,7 +803,7 @@ export function buildSecureServerNodeExample(channelId: string, opts?: { baseUrl
 
 export function buildSecureServerGoExample(channelId: string, opts?: { baseUrl?: string }) {
   const base = safeBaseUrl(opts?.baseUrl)
-  const exchangeUrl = `${base}/api/v1/embed/${channelId}/exchange`
+  const exchangeUrl = `${base}/api/v1/embed/${encodeURIComponent(channelId)}/exchange`
   return [
     `// Go net/http — keep GENYEE_PUBLISH_TOKEN only on the server (env var).`,
     `func embedTokenHandler(w http.ResponseWriter, r *http.Request) {`,

@@ -439,20 +439,25 @@ type realServices struct {
 
 // pingTimeout caps the HEAD /health probe so a wedged TCP connection
 // can't hang doctor indefinitely.
-const pingTimeout = 5 * time.Second
+const pingTimeout = 10 * time.Second
 
 func (s *realServices) PingBaseURL(ctx context.Context) error {
 	if s.host == "" {
 		return fmt.Errorf("no host configured for active profile")
 	}
-	url := s.host + "/health"
-	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodHead, url, nil)
+	normalizedHost, err := cmdutil.NormalizeHost(s.host)
 	if err != nil {
 		return err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	probeURL := normalizedHost + "/health"
+	ctx, cancel := context.WithTimeout(ctx, pingTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodHead, probeURL, nil)
+	if err != nil {
+		return err
+	}
+	probeClient := &http.Client{Timeout: pingTimeout}
+	resp, err := probeClient.Do(req)
 	if err != nil {
 		return err
 	}

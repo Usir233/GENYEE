@@ -17,8 +17,9 @@ fi
 DB_HOST=${DB_HOST:-localhost}
 DB_PORT=${DB_PORT:-5432}
 DB_USER=${DB_USER:-postgres}
-DB_PASSWORD=${DB_PASSWORD:-postgres}
+DB_PASSWORD=${DB_PASSWORD:-}
 DB_NAME=${DB_NAME:-WeKnora}
+DB_SSLMODE=${DB_SSLMODE:-disable}
 
 # Use versioned migrations directory
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-migrations/versioned}"
@@ -31,50 +32,43 @@ if ! command -v migrate &> /dev/null; then
 fi
 
 # Construct the database URL
-# If DB_URL is already set in .env, use it but ensure sslmode=disable is set
-# Otherwise, construct it from individual components
+# Preserve any explicit sslmode in DB_URL; otherwise default to DB_SSLMODE.
 if [ -n "$DB_URL" ]; then
-    # If DB_URL already exists, ensure sslmode=disable is set (unless sslmode is already specified)
     if [[ "$DB_URL" != *"sslmode="* ]]; then
-        # Add sslmode=disable if not present
         if [[ "$DB_URL" == *"?"* ]]; then
-            DB_URL="${DB_URL}&sslmode=disable"
+            DB_URL="${DB_URL}&sslmode=${DB_SSLMODE}"
         else
-            DB_URL="${DB_URL}?sslmode=disable"
+            DB_URL="${DB_URL}?sslmode=${DB_SSLMODE}"
         fi
-    elif [[ "$DB_URL" == *"sslmode=require"* ]] || [[ "$DB_URL" == *"sslmode=prefer"* ]]; then
-        # Replace sslmode=require/prefer with sslmode=disable for local dev
-        DB_URL="${DB_URL//sslmode=require/sslmode=disable}"
-        DB_URL="${DB_URL//sslmode=prefer/sslmode=disable}"
     fi
 else
-    # Use Python to properly URL encode password if it contains special characters
-    # This handles special characters in passwords correctly
+    # Pass DB_PASSWORD via environment variable to avoid Python code injection
     if command -v python3 &> /dev/null; then
-        ENCODED_PASSWORD=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$DB_PASSWORD', safe=''))")
+        ENCODED_PASSWORD=$(DB_PASSWORD="$DB_PASSWORD" python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ.get("DB_PASSWORD", ""), safe=""))')
     else
-        # Fallback: try to use printf for basic encoding (may not work for all special chars)
         ENCODED_PASSWORD="$DB_PASSWORD"
     fi
-    DB_URL="postgres://${DB_USER}:${ENCODED_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable"
+    DB_URL="postgres://${DB_USER}:${ENCODED_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}"
 fi
+
+REDACTED_DB_URL=$(printf '%s' "$DB_URL" | sed -E 's|(://[^:@/]+:)[^@/]+@|\1<REDACTED>@|')
 
 # Execute migration based on command
 case "$1" in
     up)
         echo "Running migrations up..."
-        echo "DB_URL: ${DB_URL}"
+        echo "DB_URL: ${REDACTED_DB_URL}"
         echo "DB_USER: ${DB_USER}"
-        echo "DB_PASSWORD: ${DB_PASSWORD}"
+        echo "DB_PASSWORD: <REDACTED>"
         echo "DB_HOST: ${DB_HOST}"
         echo "DB_PORT: ${DB_PORT}"
         echo "DB_NAME: ${DB_NAME}"
         echo "MIGRATIONS_DIR: ${MIGRATIONS_DIR}"
-        migrate -path ${MIGRATIONS_DIR} -database ${DB_URL} up
+        migrate -path "${MIGRATIONS_DIR}" -database "${DB_URL}" up
         ;;
     down)
         echo "Running migrations down..."
-        migrate -path ${MIGRATIONS_DIR} -database ${DB_URL} down
+        migrate -path "${MIGRATIONS_DIR}" -database "${DB_URL}" down
         ;;
     create)
         if [ -z "$2" ]; then
@@ -82,15 +76,19 @@ case "$1" in
             echo "Usage: $0 create <migration_name>"
             exit 1
         fi
+        if [[ ! "$2" =~ ^[A-Za-z0-9_-]+$ ]]; then
+            echo "Error: Invalid migration name '$2' (only A-Za-z0-9_- allowed)"
+            exit 1
+        fi
         echo "Creating migration files for $2..."
-        migrate create -ext sql -dir ${MIGRATIONS_DIR} -seq $2
+        migrate create -ext sql -dir "${MIGRATIONS_DIR}" -seq -- "$2"
         echo "Created:"
-        echo "  - ${MIGRATIONS_DIR}/$(ls -t ${MIGRATIONS_DIR} | head -1)"
-        echo "  - ${MIGRATIONS_DIR}/$(ls -t ${MIGRATIONS_DIR} | head -2 | tail -1)"
+        echo "  - ${MIGRATIONS_DIR}/$(ls -t "${MIGRATIONS_DIR}" | head -1)"
+        echo "  - ${MIGRATIONS_DIR}/$(ls -t "${MIGRATIONS_DIR}" | head -2 | tail -1)"
         ;;
     version)
         echo "Checking current migration version..."
-        migrate -path ${MIGRATIONS_DIR} -database ${DB_URL} version
+        migrate -path "${MIGRATIONS_DIR}" -database "${DB_URL}" version
         ;;
     force)
         if [ -z "$2" ]; then
@@ -110,8 +108,12 @@ case "$1" in
             echo "Usage: $0 goto <version>"
             exit 1
         fi
+        if [[ ! "$2" =~ ^[0-9]+$ ]]; then
+            echo "Error: goto version must be a non-negative integer"
+            exit 1
+        fi
         echo "Migrating to version $2..."
-        migrate -path ${MIGRATIONS_DIR} -database ${DB_URL} goto $2
+        migrate -path "${MIGRATIONS_DIR}" -database "${DB_URL}" goto "$2"
         ;;
     *)
         echo "Usage: $0 {up|down|create <migration_name>|version|force <version>|goto <version>}"

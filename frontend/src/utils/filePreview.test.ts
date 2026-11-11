@@ -2,9 +2,11 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 
 import {
+  ensureSafePreviewBlob,
   getHighlightLang,
   getPreviewMimeType,
   isKnownPreviewableExt,
+  isSvgPreviewExt,
   isValidUTF8,
   prettyPrintJson,
   resolveFilePreviewExt,
@@ -134,9 +136,21 @@ test('JSON preview preserves top-level values and leaves invalid JSON unchanged'
   }
 })
 
-test('mime and highlight maps cover skill-generated html/csv', () => {
+test('mime and highlight maps cover skill-generated html/csv and block executable svg blob mimes', () => {
   assert.equal(getPreviewMimeType('html'), 'text/html')
   assert.equal(getPreviewMimeType('csv'), 'text/csv')
+  assert.equal(getPreviewMimeType('svg'), 'application/octet-stream')
+  assert.equal(getPreviewMimeType('svgz'), 'application/octet-stream')
+  assert.equal(resolvePreviewKind('svgz'), 'unsupported')
+  assert.equal(isSvgPreviewExt('svg'), true)
+  assert.equal(isSvgPreviewExt('.SVGZ'), true)
+  assert.equal(isSvgPreviewExt('png'), false)
+
+  const rawSvgBlob = new Blob(['<svg xmlns="http://www.w3.org/2000/svg"></svg>'], { type: 'image/svg+xml' })
+  assert.equal(ensureSafePreviewBlob(rawSvgBlob, 'svg').type, 'application/octet-stream')
+  assert.equal(ensureSafePreviewBlob(rawSvgBlob, 'svgz').type, 'application/octet-stream')
+  assert.equal(ensureSafePreviewBlob(new Blob(['png'], { type: 'application/octet-stream' }), 'png').type, 'image/png')
+
   assert.equal(getHighlightLang('html'), 'xml')
   assert.equal(getHighlightLang('ts'), 'typescript')
 })

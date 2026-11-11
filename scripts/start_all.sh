@@ -106,13 +106,31 @@ check_env_file() {
     if [ ! -f "$PROJECT_ROOT/.env" ]; then
         log_warning ".env 文件不存在，将从模板创建"
         if [ -f "$PROJECT_ROOT/.env.example" ]; then
-            cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
-            log_success "已从 .env.example 创建 .env 文件"
+            (
+                umask 077
+                cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
+                chmod 0600 "$PROJECT_ROOT/.env"
+            )
+            local rand_pw rand_aes
+            gen_rand() { LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$1"; }
+            for secret_key in DB_PASSWORD REDIS_PASSWORD JWT_SECRET SYSTEM_SIGNING_KEY GRPC_AUTH_TOKEN ODL_HYBRID_AUTH_TOKEN; do
+                if grep -qE "^${secret_key}=$" "$PROJECT_ROOT/.env"; then
+                    rand_pw="$(gen_rand 32)"
+                    sed -i.bak "s|^${secret_key}=$|${secret_key}=${rand_pw}|" "$PROJECT_ROOT/.env" && rm -f "$PROJECT_ROOT/.env.bak"
+                fi
+            done
+            if grep -qE "^SYSTEM_AES_KEY=$" "$PROJECT_ROOT/.env"; then
+                rand_aes="$(gen_rand 32)"
+                sed -i.bak "s|^SYSTEM_AES_KEY=$|SYSTEM_AES_KEY=${rand_aes}|" "$PROJECT_ROOT/.env" && rm -f "$PROJECT_ROOT/.env.bak"
+            fi
+            chmod 0600 "$PROJECT_ROOT/.env"
+            log_success "已从 .env.example 创建 .env 文件 (权限 0600，已自动生成初始随机密钥)"
         else
             log_error "未找到 .env.example 模板文件，无法创建 .env 文件"
             return 1
         fi
     else
+        chmod 0600 "$PROJECT_ROOT/.env" 2>/dev/null || true
         log_info ".env 文件已存在"
     fi
     
