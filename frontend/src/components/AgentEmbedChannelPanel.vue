@@ -491,7 +491,7 @@ const agentImageUploadEnabledEffective = computed(() =>
   drawerAgent.value?.config?.image_upload_enabled === true,
 )
 
-const GENYEE_BRAND_COLOR = '#07C05F'
+const GENYEE_BRAND_COLOR = '#A8562E'
 
 function getDefaultEmbedPrimaryColor(): string {
   if (typeof window === 'undefined') return GENYEE_BRAND_COLOR

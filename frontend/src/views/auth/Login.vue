@@ -850,7 +850,7 @@ onMounted(async () => {
   min-height: 100%;
   overflow: hidden;
   position: relative;
-  background: linear-gradient(225deg, #022c22 0%, #064e3b 15%, #065f46 25%, #047857 38%, #059669 50%, #07C05F 65%, #10B981 78%, #34D399 90%, #6EE7B7 100%);
+  background: linear-gradient(225deg, #24110a 0%, #3a1c0f 15%, #562a17 25%, #6f361d 38%, #8c4524 50%, #a8562e 65%, #bc6539 78%, #c27047 90%, #d38f6b 100%);
 
   &::before {
     content: '';
@@ -886,7 +886,7 @@ onMounted(async () => {
   border: 2px solid rgba(255, 255, 255, 0.3);
   box-shadow:
     0 0 15px rgba(255, 255, 255, 0.35),
-    0 0 30px rgba(16, 185, 129, 0.2),
+    0 0 30px rgba(168, 86, 46, 0.2),
     inset 0 0 8px rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
@@ -1835,7 +1835,7 @@ onMounted(async () => {
 <style lang="less">
 html[theme-mode="dark"] {
   .login-layout {
-    background: linear-gradient(225deg, #011a14 0%, #032e22 15%, #043a2c 25%, #05503d 38%, #046647 50%, #038a56 65%, #049b60 78%, #06a06a 90%, #07b074 100%);
+    background: linear-gradient(225deg, #140a05 0%, #24110a 15%, #2f170c 25%, #3a1c0f 38%, #562a17 50%, #6f361d 65%, #8c4524 78%, #a8562e 90%, #bc6539 100%);
   }
 
   .knowledge-node {
@@ -1907,7 +1907,7 @@ html[theme-mode="dark"] {
   }
 
   .login-features .feature-icon {
-    background: rgba(6, 176, 77, 0.15);
+    background: rgba(194, 112, 71, 0.15);
   }
 }
 </style>
