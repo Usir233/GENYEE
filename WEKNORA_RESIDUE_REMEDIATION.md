@@ -4,7 +4,7 @@
 >
 > **文档性质**：内部维护文档，已在 `.gitattributes` 中标记 `export-ignore`，并在 `scripts/export-source.sh` 中加入禁止清单，不会进入客户源码包。
 >
-> **版本**：v2（2026-11-12）。v1 按“需兼容已上线客户”编写；经项目负责人确认，**目前没有已交付或正在使用的客户**，因此 v2 **取消全部向后兼容要求**，并基于提交 `a1079cbf7` 重新扫描。
+> **版本**：v2.1（2026-11-12）。v1 按“需兼容已上线客户”编写；经项目负责人确认，**目前没有已交付或正在使用的客户**，因此 v2 **取消全部向后兼容要求**，并基于提交 `a1079cbf7` 重新扫描。v2.1 补充：缩写 `wk` 经核实为 WeKnora 简写，统一改为 `gy`（5.5）；D1 版本历史处理的推荐方案（第十一节）；D3 结论为不需要自有品牌扩展。
 >
 > **状态**：B0 已完成；B1–B5 **尚未开始**。每完成一个批次，须更新第十节进度表。
 
@@ -47,6 +47,8 @@
 | **保留** | 上游 MIT 许可署名及其副本；第三方 vendored 代码的许可证；BrowserSkill 第三方开源项目信息 | 第三节 |
 | **删除** | WeKnora Cloud 全部功能（含“GENYEE Cloud”别名）；现有的上游兼容代码；无引用或无意义的上游素材 | 第四节 |
 | **改名** | 其余全部：代码标识符、存储键、协议头、数据默认名、路径、ID、工具名、注释、文档、测试、配置、文件名 | 第五节 |
+| **改名（缩写）** | WeKnora 的缩写 `wk`（约 1216 处、116 个文件、文件名 24 个）统一改为 `gy` | 5.5 |
+| **重写** | 上游版本历史（CHANGELOG、发布说明）改为 GENYEE 自己的版本历史（推荐方案，待确认） | 第十一节 D1 |
 
 ---
 
@@ -201,6 +203,48 @@
 | `frontend/public/weknora-widget.js`、`frontend/src/assets/img/weknora.png`、`website-docs/public/videos/weknora-v0.9.0-en.{mp4,srt}`、`weknora-v0.9.0-poster.png`、`website-docs/homepage/public/docs/_home/brand/weknora-original.png` | 删除（4.2、4.3） |
 | `frontend/src/utils/weknoraEntityLinks.ts`（及 `.test.ts`）、`frontend/src/views/chat/components/tool-results/WeKnoraDocResult.vue`、`packages/dsh-genyee/test/helpers/mock-weknora.mjs`、`website-docs/03-features/26-weknora-assistant.md`、`mcp-server/weknora_mcp_server.py`、`scripts/cloud-image/systemd/weknora.service`、`weknora-firstboot.service` | `git mv` 改名，同步修改全部引用 |
 
+### 5. 缩写 `wk` → `gy`（v2.1 新增）
+
+**结论：`wk` 是 WeKnora 的简写，不是 wiki 的简写。** 依据：
+- `docker/scripts/wk-display.sh` 文件头注释原文：“wk-display: one virtual screen ("seat") per **WeKnora** session”。
+- 文档站品牌变量命名为 `--wk-logo`、`.wk-logo`、`wk-brand`、`--wk-ink`、`--wk-gold`（`website-docs/shared/brand.css`），对应的是上游品牌视觉。
+- Wiki 功能相关文件中没有任何 `wk` 前缀。
+- 这些命名由上游提交引入（如沙箱桌面 #4785、前端样式统一 #3376）。
+
+按负责人决定，统一改为 `gy`（GENYEE 简写）。
+
+**规模**：约 **1216 处、116 个文件、147 个不同标识**，另有 **24 个文件名**含 `wk`。改名后与现有名字**无冲突**（代码中目前没有任何 `gy` 前缀的标识）。
+
+**映射规则**：
+
+| 原写法 | 改为 | 示例 |
+|---|---|---|
+| `wk-` | `gy-` | `wk-display` → `gy-display`；`wk-spin` → `gy-spin`；`wk-ui-` → `gy-ui-` |
+| `wk_` / `_wk_` | `gy_` / `_gy_` | `setup_wk_chrome` → `setup_gy_chrome`；`_wk_seat` → `_gy_seat` |
+| `WK_` | `GY_` | `WK_SEAT` → `GY_SEAT`；`WK_SEATS_DIR` → `GY_SEATS_DIR` |
+| `--wk-` / `.wk-` | `--gy-` / `.gy-` | `--wk-ink` → `--gy-ink`；`.wk-empty-state` → `.gy-empty-state` |
+| 后缀 `-wk` | `-gy` | `chrome-wk.sh` → `chrome-gy.sh` |
+| `wkb-`（WeKnora browser） | `gyb-` | `/tmp/wkb-chrome-` → `/tmp/gyb-chrome-` |
+
+**排除（不得改动）**：`WKWebView`（Apple WebKit 的 API 名，与 WeKnora 无关，出现 2 处）。替换时必须使用词边界匹配，并在提交前人工检查 diff，避免误伤其他含 `wk` 字母序列的单词或二进制资源。
+
+**分布与所属批次**：
+
+| 区域 | 内容 | 批次 |
+|---|---|---|
+| 沙箱镜像脚本 `docker/scripts/`（37 个文件）、`docker/Dockerfile.sandbox` | `wk-display`、`wk-chrome`、`wk-browser-sync`、`wk-secret-fill`、`wk-auth`、`wk-ua-governor`、`wk-machine-id` 等可执行脚本，环境变量 `WK_SEAT`、`WK_SEATS_DIR`、`WK_VNC_BASE`、`WK_CGROUP_DIR`、`WK_DISPLAY*`、`WK_SYNC_*`、`WK_MACHINE_ID*`、`WK_GOVERNOR_*` 等；以及 `docker/scripts/tests/` 下的测试 | **B3**（运行时契约，沙箱镜像与后端同批，P8） |
+| 后端沙箱 `internal/sandbox/`（9 个文件）、`internal/sandbox/desktopscripts/ensure.sh` | 调用 `wk-display claim/where/release`、`/usr/local/bin/wk-secret-fill`、密钥文件前缀 `wk-fill-`、`WK_SEAT` 等 | **B3** |
+| 智能体提示词 `internal/agent/prompts.go:365` 及测试 | 提示词中告诉模型执行 `wk-display claim` | **B3**（与沙箱脚本名一致） |
+| BrowserSkill 服务端 `internal/browserskill/focus.go:58,102` | 发给扩展的界面调用消息 ID 前缀 `wk-ui-` | **B3**（见第六节；扩展只原样回传 ID，不识别前缀，已核实） |
+| 测试与文档 | `scripts/test_browserskill_extension.mjs:11`（`/tmp/wkb-chrome-`）、`internal/browserskill/daemon_security_test.go:25`（`/tmp/wkb-`）、`scripts/browserskill.md:85` | **B3** |
+| 前端样式（44 个文件） | `wk-spin` 动画、`wk-popover`、`wk-empty-state` 等类名 | **B2** |
+| 文档站样式与脚本 `website-docs/`（16 个文件） | `--wk-ink`、`--wk-gold`、`--wk-paper`、`wk-header`、`wk-logo`、`wk-models` 等 | **B2** |
+| WeKnora Cloud 测试数据 | `internal/handler/dto/tenant_test.go` 中的 `wk-app-id-abc`、`wk-app-secret-def` | **B1**（随 Cloud 删除） |
+
+**文件改名（24 个）**：`docker/scripts/` 下 `wk-auth.sh`、`wk-browser-sync.{sh,mjs}`、`wk-chrome.sh`、`chrome-wk.sh`、`wk-cookie-plan.mjs`、`wk-display.sh`、`wk-egress-timezone.mjs`、`wk-fingerprint-profiles.mjs`、`wk-locale-match.mjs`、`wk-machine-id.sh`、`wk-page-sync.mjs`、`wk-secret-fill.{sh,mjs}`、`wk-ua-governor.{sh,mjs}`；`docker/scripts/tests/` 下 `test_wk_auth.sh`、`test_wk_browser_sync.sh`、`test_wk_chrome.sh`、`test_chrome_wk.sh`、`test_wk_display.sh`、`test_wk_machine_id.sh`、`test_wk_secret_fill.sh`、`stubs/wk-display-stub.sh`。同步修改 `Dockerfile.sandbox` 中的 `COPY` 与安装路径（如 `/usr/local/bin/wk-*`）。
+
+**附带修正**：`internal/browserskill/focus.go:102` 现为 `frame.ID[:6] == "wk-ui-"`（硬编码长度），改名时改用 `strings.HasPrefix(frame.ID, "gy-ui-")`。
+
 ---
 
 ## 六、BrowserSkill 浏览器连接（专项）
@@ -229,6 +273,8 @@
 | `internal/localsandbox/core/policy_builder.go:354` | `~/.weknora/bsk` | 删除（4.2，第 353 行已有 `~/.genyee/bsk`） |
 | `internal/agent/tools/browserskill_schema.go:596` | `urn:weknora:local-browser:input` | `urn:genyee:local-browser:input` |
 | `internal/agent/tools/browserskill_prompt.go:23` | 注释中的 WeKnora | GENYEE |
+| `internal/browserskill/focus.go:58,102`、`scripts/browserskill.md:85` | 界面调用消息 ID 前缀 `wk-ui-` | `gy-ui-`（5.5）。已核实扩展与 `bsk` 中均无 `wk-ui` 字样，扩展只原样回传 ID，前缀仅由服务端生成和识别 |
+| `scripts/test_browserskill_extension.mjs:11`、`internal/browserskill/daemon_security_test.go:25` | 测试用临时目录前缀 `/tmp/wkb-chrome-`、`/tmp/wkb-` | `/tmp/gyb-chrome-`、`/tmp/gyb-`（5.5） |
 | `.env.example:902,908`、`website-docs/05-clients/09-local-browser.md:62-63`、`website-docs/01-getting-started/04-configuration.md:345` | 文档中的路径与文件名 | 同上 |
 | 测试：`internal/browserskill/manager_test.go:27-28,66`、`internal/handler/session/browserskill_test.go:44-58` | `weknora.example` | `genyee.example` |
 
@@ -265,9 +311,9 @@ go test ./internal/browserskill/ -run TestRealExtension -count=1 -v
 3. “复制配对链接”可用；在扩展的“连接设置 → 远程连接”中粘贴后配对成功，页面状态变为“已配对”。
 4. 在对话中开启“本机浏览器”发送网页任务，任务能在独立窗口执行，对话中出现预览。
 
-### 5. 可选（不在本规范范围内）：发布 GENYEE 自有品牌扩展
+### 5. 不需要：GENYEE 自有品牌扩展（D3 已决定）
 
-目前用户安装的是商店中以 BrowserSkill 名义发布的第三方扩展。如果希望扩展本身也显示 GENYEE 品牌，需要另立项目：基于 Tencent/BrowserSkill（MIT）分叉并改品牌，以自己的开发者账号发布到 Chrome 应用商店与 Edge 加载项，再修改 `build_browserskill.sh` 的源码仓库地址和界面中的商店链接。协议保持不变，服务端无需改动。见第十一节 D3。
+2026-11-12 项目负责人确认：**不需要**发布 GENYEE 自有品牌的浏览器扩展，继续使用第三方开源扩展 BrowserSkill。本规范不包含分叉、改品牌或上架商店的工作。
 
 ---
 
@@ -294,10 +340,10 @@ go test ./internal/browserskill/ -run TestRealExtension -count=1 -v
 | 批次 | 内容 | 风险 |
 |---|---|---|
 | **B0** | 本规范；docreader gRPC 连接修复；`genyee-docreader` 文案修正 | 低（已完成） |
-| **B1** | 删除 WeKnora Cloud（4.1，含“GENYEE Cloud”别名）；删除现有上游兼容代码（4.2） | 中 |
-| **B2** | 不影响运行时契约的改名：注释、日志、错误信息、测试数据、内部代码标识符、产品文档与 CLI 文档、README（署名段落除外）、vendored 说明文字、Swagger 重新生成 | 低（量大） |
-| **B3** | 运行时契约改名（必须一次性完成，P8）：数据库与存储默认名、智能体 ID 与工具名、协议头、浏览器存储键、前端事件与 postMessage 标识、Redis 键、Docker 标签、沙箱镜像与路径、本地目录、导入占位符、Helm、MCP Server、云镜像服务、**BrowserSkill 打包路径（第六节）**、迁移文件字面值 | **高** |
-| **B4** | 文件改名与素材清理（4.3、5.4）、上游外链、CHANGELOG 处理（D1） | 中 |
+| **B1** | 删除 WeKnora Cloud（4.1，含“GENYEE Cloud”别名及其测试数据）；删除现有上游兼容代码（4.2） | 中 |
+| **B2** | 不影响运行时契约的改名：注释、日志、错误信息、测试数据、内部代码标识符、产品文档与 CLI 文档、README（署名段落除外）、vendored 说明文字、Swagger 重新生成；前端与文档站样式中的 `wk` → `gy`（5.5） | 低（量大） |
+| **B3** | 运行时契约改名（必须一次性完成，P8）：数据库与存储默认名、智能体 ID 与工具名、协议头、浏览器存储键、前端事件与 postMessage 标识、Redis 键、Docker 标签、沙箱镜像与路径、本地目录、导入占位符、Helm、MCP Server、云镜像服务、**BrowserSkill 打包路径与 `wk-ui-` 前缀（第六节）**、**沙箱脚本与环境变量的 `wk` → `gy`（5.5）**、迁移文件字面值 | **高** |
+| **B4** | 文件改名与素材清理（4.3、5.4）、上游外链、版本历史重写（D1，确认后执行） | 中 |
 | **B5** | 本机环境处理（第七节，需负责人确认）；重建并部署全部镜像；BrowserSkill 功能验收；最终审计（导出包扫描只剩白名单） | — |
 
 ---
@@ -339,6 +385,9 @@ find . -iname '*weknora*'
 grep -rlai 'weknora' . | xargs -r file | grep -v text
 # “GENYEE Cloud” 别名残留
 grep -rniE 'genyee[ _-]?cloud' .
+# 缩写 wk 残留（排除 Apple 的 WKWebView）
+grep -rnIE '\bwk[-_]|[-_]wk\b|[-_]wk[-_]|\bWK_[A-Z0-9_]+|\bwkb[-_]|--wk-|\.wk-' . | grep -v 'WKWebView'
+find . -regextype posix-extended -iregex '.*(^|[/_-])wk([_.-]|$).*'
 ```
 
 ### 3. 最终白名单（B5 完成后，扫描结果只允许出现以下内容）
@@ -351,7 +400,7 @@ grep -rniE 'genyee[ _-]?cloud' .
 | `dataset/README`、`dataset/README_zh.md` 许可段落中的上游署名 | 署名声明 |
 | `third_party/anydoc-go/LICENSE` | 第三方原始许可 |
 
-除上表外，**不允许任何 `weknora` 字样、文件名、目录名或“GENYEE Cloud”残留**。不再有任何“兼容期”例外。
+除上表外，**不允许任何 `weknora` 字样、文件名、目录名、“GENYEE Cloud”残留，以及 WeKnora 缩写 `wk`（`WKWebView` 除外）**。不再有任何“兼容期”例外。
 
 ### 4. 功能回归（B3、B5 必做）
 
@@ -366,7 +415,8 @@ grep -rniE 'genyee[ _-]?cloud' .
 | 批次 | 状态 | 提交 | 备注 |
 |---|---|---|---|
 | B0 | 已完成 | `a1079cbf7` | 规范 v1 + docreader gRPC 连接修复 + `genyee-docreader` 文案修正 + BRANCH_GUIDE 决策更新 |
-| — | 已完成 | 本文档 v2 提交 | 取消兼容要求；重新扫描；补充“GENYEE Cloud”别名、现有兼容代码、改名冲突、BrowserSkill 专项、本机环境处理 |
+| — | 已完成 | `f40d3b9a3` | 本文档 v2：取消兼容要求；重新扫描；补充“GENYEE Cloud”别名、现有兼容代码、改名冲突、BrowserSkill 专项、本机环境处理 |
+| — | 已完成 | 本文档 v2.1 提交 | 核实 `wk` 为 WeKnora 简写并制定 `wk` → `gy` 规则（5.5）；D1 推荐方案；D3 决定不做 |
 | B1 | 未开始 | | |
 | B2 | 未开始 | | |
 | B3 | 未开始 | | |
@@ -375,15 +425,46 @@ grep -rniE 'genyee[ _-]?cloud' .
 
 ---
 
-## 十一、待决策事项
+## 十一、决策记录
 
-v1 中关于“是否已有客户”“持久化默认名是否兼容”“智能体 ID 是否改”“签名头兼容多久”的问题已全部关闭（不兼容、直接改）。剩余：
+v1 中关于“是否已有客户”“持久化默认名是否兼容”“智能体 ID 是否改”“签名头兼容多久”的问题已全部关闭（不兼容、直接改）。
 
-| 编号 | 问题 | 选项（推荐在前） | 影响 |
+| 编号 | 问题 | 结论 | 状态 |
 |---|---|---|---|
-| D1 | `CHANGELOG.md`、`cli/CHANGELOG.md`、`mcp-server/CHANGELOG.md`、`website-docs/07-releases/` 中的上游版本历史怎么处理？ | ① 改为 GENYEE 自己的版本历史，从当前版本开始，删除上游历史条目（MIT 不要求保留）；② 保留历史，只做品牌替换 | ② 会保留大量“上游团队在什么时候做了什么”的记录，客户可见 |
-| D2 | 缩写 `wk`（推测源自 WeKnora，例如 `wk-display`、`WK_SEAT`、`wk-spin`、`setup_wk_chrome`、`/tmp/wkb-chrome-`，共约 1200 处、130 余个文件）是否处理？ | ① 不处理：不含品牌词，客户无法据此识别上游；② 另立批次统一改为 `gy`/`genyee` | ② 工作量大，且多数位于沙箱脚本与 CSS 动画名中 |
-| D3 | 是否发布 GENYEE 自有品牌的浏览器扩展？ | ① 暂不需要：继续使用第三方 BrowserSkill，功能不受影响；② 另立项目分叉并自行上架（见第六节第 5 条） | ② 需要商店开发者账号与审核周期 |
+| D1 | 上游版本历史怎么处理？ | 推荐方案见下文 | **待负责人确认** |
+| D2 | 缩写 `wk` 是否处理？ | 经核实 `wk` 是 WeKnora 的简写（不是 wiki），统一改为 `gy`，规则见 5.5 | **已决定**（2026-11-12） |
+| D3 | 是否发布 GENYEE 自有品牌的浏览器扩展？ | 不需要，继续使用第三方 BrowserSkill | **已决定**（2026-11-12） |
+
+### D1 推荐方案：改为 GENYEE 自己的版本历史，删除上游历史条目
+
+**涉及内容**
+
+| 位置 | 现状 |
+|---|---|
+| `CHANGELOG.md` | 1844 行，上游 v0.2.0 – v0.9.0 的完整历史；112 处上游 PR 编号（如 `#4302`）；比较链接 `https://github.com/Usir233/GENYEE/compare/v0.8.3...v0.9.0` |
+| `cli/CHANGELOG.md` | 575 行，65 处上游引用 |
+| `mcp-server/CHANGELOG.md` | 151 行，6 处上游引用 |
+| `website-docs/07-releases/` | `v0.8.0.md`、`v0.8.2.md`、`v0.8.3.md`、`v0.9.0.md` 四篇上游发布说明 |
+| 四种语言 README | 末尾的上游历史版本列表（v0.2.0 – v0.7.2） |
+
+**为什么不建议“保留历史、只做品牌替换”**
+
+1. **会变成不真实的记录**：历史条目描述的是上游团队在 GENYEE 存在之前做的事，改成 GENYEE 名义等于宣称这些工作由 GENYEE 完成、发生在那些日期。
+2. **链接全部失效**：`origin` 仓库目前**没有任何 tag**，`compare/v0.8.3...v0.9.0` 这类链接打不开；112 处 PR 编号在 GENYEE 仓库中对应的是不存在或无关的 PR。
+3. **无法律要求**：MIT 只要求保留版权与许可声明（第三节已保留），不要求保留变更日志。
+4. **维护者不丢信息**：上游完整历史仍保存在 git 历史和 `upstream` 分支中（这两者都不交付客户）。
+
+**具体做法（B4 执行）**
+
+1. `CHANGELOG.md`：清空上游条目，只保留一个以当前 `VERSION`（`0.9.0`）命名的 GENYEE 首个版本条目，按功能模块概述现有能力（知识库、Wiki、智能体、沙箱、IM 集成、嵌入渠道、浏览器连接、MCP 等），不写 PR 编号与比较链接，也不提及上游。今后从这个版本开始按 GENYEE 自己的发布记录追加。
+2. `cli/CHANGELOG.md`、`mcp-server/CHANGELOG.md`：同样处理，各保留一个首版条目。
+3. `website-docs/07-releases/`：删除四篇上游发布说明，新建一篇 GENYEE 首版发布说明（如 `v0.9.0.md`，内容与 `CHANGELOG.md` 首版条目一致）。注意以下依赖须同步修改，否则构建失败或出现死链：
+   - `website-docs/embed.go:11` 的 `//go:embed ... 07-releases/*.md` 要求该目录**至少保留一个 `.md` 文件**，否则 Go 编译报错；
+   - `website-docs/.vitepress/theme/SiteHeader.vue:15` 的“版本”菜单链接指向 `/docs/07-releases/v0.8.3`，需改为新页面；
+   - `website-docs/scripts/check-site.mjs:70` 的检查路径列表包含四个旧版本页面，需更新；
+   - `internal/productdocs/library.go:31` 的“版本发布”分类保留，内置助手会检索这篇新的发布说明。
+4. 四种语言 README：删除上游历史版本列表，改为指向 `CHANGELOG.md`。
+5. 版本号本身（`VERSION` 文件为 `0.9.0`）是否从 GENYEE 的角度重新编号（例如 `1.0.0`），不在本规范范围内，由负责人另行决定；本方案沿用现有版本号。
 
 ---
 
@@ -396,7 +477,9 @@ v1 中关于“是否已有客户”“持久化默认名是否兼容”“智�
 - `WEKNORACONFLUENCETABLE` 不是环境变量，而是 Confluence 导入时的文本内临时占位符。
 - 内置助手的文档检索工具不联网，检索编译进二进制的 `website-docs/`（`internal/productdocs/library.go:19`）。
 - CLI 实际命令名已是 `genyee`（`cli/cmd/root.go:137`），文档中仍有 `weknora ...` 示例。
-- BrowserSkill 扩展包与 `bsk` 守护进程中均无 `weknora` 字样；`TestRealExtension` 基线通过（2026-11-12，37.5 秒）。
+- BrowserSkill 扩展包与 `bsk` 守护进程中均无 `weknora`、`wk-ui`、`wk-` 字样；`TestRealExtension` 基线通过（2026-11-12，37.5 秒）。
+- `wk` 为 WeKnora 简写：`docker/scripts/wk-display.sh` 头注释写明 “per WeKnora session”；文档站品牌变量为 `--wk-logo` 等；Wiki 相关文件中没有 `wk` 前缀。代码中目前没有任何 `gy` 前缀，改名无冲突。
+- `origin` 仓库目前没有任何 git tag。
 - `frontend/nginx.conf` 同时提供 `/genyee-widget.js` 与 `/weknora-widget.js`（第 45、51 行）。
 - 本机数据库实际名为 `WeKnora`，本机 `.env` 中 `DB_NAME=WeKnora`；`models` 与 `tenants.credentials` 中无 WeKnora Cloud 数据；1 个会话引用 `builtin-weknora-assistant`。
 - `golang-migrate` 只记录已执行的版本号，不校验迁移文件内容。
