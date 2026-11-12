@@ -4482,7 +4482,7 @@ export default {
     goVersionLabel: 'Версия Go',
     goVersionDescription: 'Версия языка Go, используемая backend',
     docreaderVersionLabel: 'Версия Docreader',
-    docreaderVersionDescription: 'Версия сборки текущего сервиса обработки документов (weknora-docreader)',
+    docreaderVersionDescription: 'Версия сборки текущего сервиса обработки документов (genyee-docreader)',
     startedAtLabel: 'Время запуска сервиса',
     startedAtDescription: 'Момент последнего запуска текущего процесса backend',
     uptimeLabel: 'Время работы',

@@ -26,6 +26,7 @@ COMMERCIAL_COMPLIANCE_AUDIT.md export-ignore
 AUDIT_REPORT.md export-ignore
 REBRAND_RESERVED.md export-ignore
 BRANCH_GUIDE.md export-ignore
+WEKNORA_RESIDUE_REMEDIATION.md export-ignore
 test-reports export-ignore
 test-reports/** export-ignore
 tests/adversarial export-ignore

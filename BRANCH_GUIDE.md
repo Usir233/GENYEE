@@ -46,12 +46,14 @@
 - **定位**：**专门基于 `main`（纯换皮主分支）派生**的独立分支，用于在换皮基础上完成商业化合规改造、许可证风险清理与私有化交付配套。
 - **本分支实施的五项核心商业合规工程**：
   1. **架构去耦与无用高风险依赖清理**：移除非可商用数据集、未使用的受限依赖及未自建专有组件，确保主模块仅保留可商用开源依赖。
-  2. **可选云服务与可观测栈默认关闭（Opt-in）**：保留 `WeKnoraCloud` 与 `Langfuse` 代码及编排能力以维持与 `main` 分支合并零冲突，但在代码、`.env.example` 与 `docker-compose*.yml` 中**默认关闭**（`GENYEE_WEKNORACLOUD_ENABLED=false`、`LANGFUSE_ENABLED=false`、Langfuse 容器置于 `--profile langfuse` 下按需启用）。
+  2. **可选云服务与可观测栈默认关闭（Opt-in）**：`Langfuse` 保留代码及编排能力以维持与 `main` 分支合并零冲突，但在代码、`.env.example` 与 `docker-compose*.yml` 中**默认关闭**（`LANGFUSE_ENABLED=false`、Langfuse 容器置于 `--profile langfuse` 下按需启用）。
+     - **`WeKnoraCloud` 例外（2026-11-12 决策变更）**：该服务已停用，本分支**彻底删除** WeKnora Cloud 功能，不再沿用“保留代码、默认关闭”策略。今后 `main` → 本分支合并时，对 WeKnora Cloud 相关改动一律“**保持删除**”。删除范围、数据兼容与实施步骤见 [`WEKNORA_RESIDUE_REMEDIATION.md`](WEKNORA_RESIDUE_REMEDIATION.md) 第四节。
   3. **商业授权与开源声明配套**：根目录 [`LICENSE`](LICENSE) 为 GENYEE Commercial License，仅约束其声明范围内的自有材料；上游 MIT 与第三方原始授权、版权声明保留在 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 和 [`licenses/`](licenses/)，不受商业授权条款限制。镜像交付配套位于 [`OFFLINE_LICENSES/`](OFFLINE_LICENSES/README.md)，含许可证矩阵与 [`WRITTEN_OFFER.md`](OFFLINE_LICENSES/WRITTEN_OFFER.md)。
   4. **上游品牌残留清理与自研镜像参数化**：清除源码、脚本、OpenAPI/Swagger、Helm Chart 及构建产物中的上游品牌残留；将全部自研镜像切换为 `${GENYEE_REGISTRY:-genyee}/genyee-*`，并固定第三方基础设施镜像版本（如 `redis:7.2-alpine` BSD-3-Clause）。
+     - 源码中剩余的 `WeKnora` / `weknora` 标识（存储键、协议头、数据默认名、代码标识符等）的分类、处理规则、兼容要求与分批实施计划，统一遵循 [`WEKNORA_RESIDUE_REMEDIATION.md`](WEKNORA_RESIDUE_REMEDIATION.md)，**禁止全局查找替换**。
   5. **私有化离线交付包与纯净源码导出机制**：
      - 离线镜像交付包：使用 `./scripts/offline-bundle.sh` 导出全量固定版本镜像、`MANIFEST.json`、`SHA256SUMS` 与 `OFFLINE_LICENSES/`，客户侧通过 `./scripts/offline-load.sh --registry <private-registry>` 一键校验并导入内网仓库。
-     - 客户源码交付规范：**严禁直接将包含 `.git/` 历史与内部审计文档的工作目录打包发给客户**；向客户交付源码时，**必须**运行 `./scripts/export-source.sh`（基于 `.gitattributes` 中的 `export-ignore` 规则自动剔除 `.git/`、`COMMERCIAL_COMPLIANCE_AUDIT.md`、`AUDIT_REPORT.md`、`REBRAND_RESERVED.md`、`BRANCH_GUIDE.md`、`test-reports/`、`.trellis/`、`.claude/`、`.github/` 等内部维护文件）。
+     - 客户源码交付规范：**严禁直接将包含 `.git/` 历史与内部审计文档的工作目录打包发给客户**；向客户交付源码时，**必须**运行 `./scripts/export-source.sh`（基于 `.gitattributes` 中的 `export-ignore` 规则自动剔除 `.git/`、`COMMERCIAL_COMPLIANCE_AUDIT.md`、`AUDIT_REPORT.md`、`REBRAND_RESERVED.md`、`BRANCH_GUIDE.md`、`WEKNORA_RESIDUE_REMEDIATION.md`、`test-reports/`、`.trellis/`、`.claude/`、`.github/` 等内部维护文件）。
 - **规则**：
   - 所有商业合规裁剪与默认关闭策略**仅限在此分支进行**，严禁混入 `main` 分支。
   - 当 `main` 分支合并了上游新功能后，如需同步到此分支，应从更新后的 `main` 分支向此分支合并（`main` $\rightarrow$ `chore/commercial-compliance-cleanup`）。

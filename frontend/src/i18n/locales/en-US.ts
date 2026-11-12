@@ -4915,7 +4915,7 @@ export default {
     goVersionLabel: 'Go Version',
     goVersionDescription: 'Go language version used by the backend',
     docreaderVersionLabel: 'Docreader Version',
-    docreaderVersionDescription: 'Build version of the current document parsing service (weknora-docreader)',
+    docreaderVersionDescription: 'Build version of the current document parsing service (genyee-docreader)',
     startedAtLabel: 'Service started at',
     startedAtDescription: 'When the current backend process last started',
     uptimeLabel: 'Uptime',

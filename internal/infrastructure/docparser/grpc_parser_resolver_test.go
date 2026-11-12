@@ -119,3 +119,36 @@ func TestConfiguredDocReaderSendsTokenOnlyToConfiguredEndpoint(t *testing.T) {
 		t.Fatal("expected incoming ListEngines metadata")
 	}
 }
+
+// Regression: a hostname-based DOCREADER_ADDR (e.g. "docreader:50051" in
+// docker compose) must stay reachable. With the dns:/// resolver the dialer
+// only saw the resolved private IP, failed the trusted-address match and the
+// SSRF guard blocked the operator's own docreader.
+func TestGRPCDocumentReaderReachesHostnameConfiguredDocReader(t *testing.T) {
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lis.Close()
+	_, port, _ := net.SplitHostPort(lis.Addr().String())
+	addr := "localhost:" + port
+	t.Setenv("DOCREADER_ADDR", addr)
+
+	srv := grpc.NewServer()
+	capture := &authCaptureDocReaderServer{authHeaderCh: make(chan string, 1)}
+	proto.RegisterDocReaderServer(srv, capture)
+	go func() { _ = srv.Serve(lis) }()
+	defer srv.Stop()
+
+	reader, err := NewGRPCDocumentReader(addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reader.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	if _, err := reader.ListEngines(ctx, nil); err != nil {
+		t.Fatalf("operator-configured hostname docreader must be reachable, got: %v", err)
+	}
+}

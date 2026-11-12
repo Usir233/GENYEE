@@ -93,6 +93,21 @@ func docReaderContextDialer(targetAddr string) func(context.Context, string) (ne
 	return utils.SSRFSafeGRPCDialer
 }
 
+// docReaderDialTarget picks the gRPC resolver for a docreader address.
+//
+// The operator-configured DOCREADER_ADDR uses passthrough so the context
+// dialer receives the literal configured address (e.g. "docreader:50051")
+// and can match it against the trusted value. With dns:/// the dialer only
+// sees the resolved IP (a private compose-network address), the trusted match
+// fails and the SSRF guard blocks the operator's own docreader.
+// Any other (user-supplied) address keeps dns:/// plus SSRFSafeGRPCDialer.
+func docReaderDialTarget(addr string) string {
+	if isOperatorConfiguredDocReaderAddr(addr) {
+		return "passthrough:///" + strings.TrimSpace(addr)
+	}
+	return "dns:///" + addr
+}
+
 func dialDocReader(addr string, allowGlobalToken bool) (*grpc.ClientConn, error) {
 	authConfig := docclient.LoadAuthConfigFromEnv().EffectiveForAddr(addr)
 	if !allowGlobalToken {
@@ -114,7 +129,7 @@ func dialDocReader(addr string, allowGlobalToken bool) (*grpc.ClientConn, error)
 	}
 
 	start := time.Now()
-	conn, err := grpc.Dial("dns:///"+addr, opts...)
+	conn, err := grpc.Dial(docReaderDialTarget(addr), opts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to docreader: %w", err)
 	}
