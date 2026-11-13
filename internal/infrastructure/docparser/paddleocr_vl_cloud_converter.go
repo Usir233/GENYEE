@@ -82,14 +82,17 @@ func (c *PaddleOCRVLCloudReader) Read(ctx context.Context, req *types.ReadReques
 		return nil, fmt.Errorf("PaddleOCR-VL Cloud poll: %w", err)
 	}
 
-	mdContent, imagesURL, layoutUnits, err := c.fetchResults(jsonlURL)
+	mdContent, imagesURL, layoutUnits, err := c.fetchResults(ctx, jsonlURL)
 	if err != nil {
 		return nil, fmt.Errorf("PaddleOCR-VL Cloud fetch results: %w", err)
 	}
 
 	mdContent = NormalizeHTMLTables(mdContent)
 
-	imageRefs := c.downloadImages(mdContent, imagesURL)
+	imageRefs, err := c.downloadImages(ctx, mdContent, imagesURL)
+	if err != nil {
+		return nil, fmt.Errorf("PaddleOCR-VL Cloud fetch images: %w", err)
+	}
 	mdContent, imageRefs = ensureOriginalImageRef(req, mdContent, imageRefs)
 
 	logger.Infof(context.Background(), "[PaddleOCR-VL Cloud] Parsed successfully, markdown=%d chars, images=%d",
@@ -278,12 +281,16 @@ type paddleOCRVLCloudResultLine struct {
 	} `json:"result"`
 }
 
-func (c *PaddleOCRVLCloudReader) fetchResults(jsonlURL string) (string, map[string]string, []sourceloc.Unit, error) {
+func (c *PaddleOCRVLCloudReader) fetchResults(ctx context.Context, jsonlURL string) (string, map[string]string, []sourceloc.Unit, error) {
 	if err := utils.ValidateURLForSSRF(jsonlURL); err != nil {
 		return "", nil, nil, fmt.Errorf("jsonl URL blocked by SSRF check: %v", err)
 	}
 	client := utils.NewSSRFSafeHTTPClient(utils.SSRFSafeHTTPClientConfig{Timeout: 120 * time.Second, MaxRedirects: 5})
-	resp, err := client.Get(jsonlURL)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, jsonlURL, nil)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("create jsonl request: %w", err)
+	}
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("download jsonl: %w", err)
 	}
@@ -301,6 +308,9 @@ func (c *PaddleOCRVLCloudReader) fetchResults(jsonlURL string) (string, map[stri
 	var units []sourceloc.Unit
 	pageNumber := 0
 	for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+		if err := ctx.Err(); err != nil {
+			return "", nil, nil, err
+		}
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
@@ -329,11 +339,14 @@ func (c *PaddleOCRVLCloudReader) fetchResults(jsonlURL string) (string, map[stri
 }
 
 // downloadImages fetches each referenced image URL and builds ImageRef entries.
-func (c *PaddleOCRVLCloudReader) downloadImages(mdContent string, imagesURL map[string]string) []types.ImageRef {
+func (c *PaddleOCRVLCloudReader) downloadImages(ctx context.Context, mdContent string, imagesURL map[string]string) ([]types.ImageRef, error) {
 	var refs []types.ImageRef
 	client := utils.NewSSRFSafeHTTPClient(utils.SSRFSafeHTTPClientConfig{Timeout: 60 * time.Second, MaxRedirects: 5})
 
 	for ipath, u := range imagesURL {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		matchedRefs := mineruImageOriginalRefs(mdContent, ipath)
 		if len(matchedRefs) == 0 {
 			continue
@@ -342,7 +355,12 @@ func (c *PaddleOCRVLCloudReader) downloadImages(mdContent string, imagesURL map[
 			logger.Errorf(context.Background(), "[PaddleOCR-VL Cloud] image URL blocked %s: %v", ipath, err)
 			continue
 		}
-		resp, err := client.Get(u)
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+		if err != nil {
+			logger.Errorf(ctx, "[PaddleOCR-VL Cloud] create image request %s: %v", ipath, err)
+			continue
+		}
+		resp, err := client.Do(httpReq)
 		if err != nil {
 			logger.Errorf(context.Background(), "[PaddleOCR-VL Cloud] download image %s: %v", ipath, err)
 			continue
@@ -376,7 +394,12 @@ func (c *PaddleOCRVLCloudReader) downloadImages(mdContent string, imagesURL map[
 		}
 	}
 
-	return refs
+	// Individual unavailable images are optional, but cancellation must stop
+	// the parse instead of turning a canceled final download into success.
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	return refs, nil
 }
 
 // PingPaddleOCRVLCloud checks whether the cloud token is present (the API has

@@ -7741,7 +7741,9 @@
       "inspected_files": [
         "internal/infrastructure/docparser/image_resolver.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Caller cancellation aborts cloud result and image HTTP downloads without partial successful result."
+      ],
       "evidence": [
         {
           "report": "test-reports/module-audit-20261113/storage.json",
@@ -7755,9 +7757,12 @@
               "remote fetch/store result ownership"
             ]
           }
-        }
+        },
+        "test-reports/module-audit-20261113/parser-cloud-cancellation.json"
       ],
-      "findings": [],
+      "findings": [
+        "PARSE-002"
+      ],
       "commits": [],
       "limitations": [
         "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
@@ -12207,6 +12212,10 @@
     {
       "commit": "df2bbc996",
       "module": "automation remaining-budget test stability"
+    },
+    {
+      "commit": "71210c511",
+      "module": "parser error envelopes at attachment callers"
     }
   ],
   "frontend_final_gate": {
