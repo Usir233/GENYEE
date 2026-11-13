@@ -1,0 +1,37 @@
+{
+  "module": "Model-visible SQL validation",
+  "date": "2026-11-13",
+  "finding": {
+    "id": "SQL-RELATION-COLUMN-ALIAS-BYPASS",
+    "priority": "P1",
+    "scenario": "PostgreSQL positional relation column aliases can rename the restricted knowledge_bases.cos_config column to description. The allowed-column validator accepts description and security predicates still permit the authorized row, exposing stored provider credentials through database_query. Renaming owner/filter columns can also change the meaning of injected predicates.",
+    "before": "Actual ValidateAndSecureSQL with security defaults, soft delete, hidden KB and authorized scope accepted the crafted query. A network-disabled, tmpfs PostgreSQL16 fixture using the migration column order returned only the fake audit-canary secret. Three permanent relation-alias cases and the predicate-only option test failed before the change; ordinary SELECT result aliases passed.",
+    "logs": [
+      ".git/module-audit-20261113/sql-alias-before.json",
+      ".git/module-audit-20261113/sql-alias-postgres-before.log",
+      ".git/module-audit-20261113/sql-column-alias-before.log"
+    ],
+    "fix": "Reject relation column alias lists whenever column allowlists or canonical security predicates are enabled. Ordinary table aliases and SELECT expression AS output_label remain supported."
+  },
+  "validation": [
+    {
+      "command": "go test -mod=readonly -race ./internal/utils ./internal/agent/tools ./internal/localsandbox -count=1",
+      "result": "PASS",
+      "log": ".git/module-audit-20261113/utils-sql-shell-final-after.log"
+    },
+    {
+      "result": "The same real query now returns validation false, an explanatory detail, and no executable SQL. The real DatabaseQueryTool.Execute route rejects before reading its isolated empty database.",
+      "log": ".git/module-audit-20261113/sql-alias-after.json"
+    }
+  ],
+  "verification_note": "The first consumer test asserted the returned error included the tool-result wrapper text; production already rejected correctly. Corrected the fixture to assert the actual returned error and separately the result.Error wrapper; reran full packages successfully.",
+  "changed_sha256": {
+    "internal/utils/inject.go": "ee2351506938fe9598dabacd441df9f201585d970c0c8fc9669869a2b26ced6f",
+    "internal/utils/inject_column_alias_test.go": "3824cb8f41c813e0a03c24053a509c39066b74bc87e0e021f26123e4259a3a30",
+    "internal/agent/tools/database_query_alias_test.go": "a53f205e1ab71d3d1736efb8e997a6d2bd6d63fa364d8c4028f3fa8ca2ed587a"
+  },
+  "limits": [
+    "All 2898 baseline lines of inject.go read; outer join semantics and TABLESAMPLE handling are separate active investigations. No full SQL audit closure yet.",
+    "Only synthetic isolated fixtures used; no live GENYEE database read or changed. No remote repository operation."
+  ]
+}

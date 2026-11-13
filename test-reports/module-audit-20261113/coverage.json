@@ -10906,6 +10906,7 @@
         "internal/utils/fileutil.go",
         "internal/utils/httputil.go",
         "internal/utils/import_filetypes.go",
+        "internal/utils/inject.go",
         "internal/utils/json.go",
         "internal/utils/log_sanitize.go",
         "internal/utils/mysql_ssrf.go",
@@ -10919,18 +10920,24 @@
       ],
       "invariants_checked": [],
       "evidence": [
-        "test-reports/module-audit-20261113/ssrf-cache-reload.json"
+        "test-reports/module-audit-20261113/ssrf-cache-reload.json",
+        "test-reports/module-audit-20261113/sql-column-alias-security.json"
       ],
       "findings": [
         {
           "id": "SSRF-CACHE-CONCURRENT-RELOAD",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/ssrf-cache-reload.json"
+        },
+        {
+          "id": "SQL-RELATION-COLUMN-ALIAS-BYPASS",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/sql-column-alias-security.json"
         }
       ],
       "commits": [],
       "limitations": [
-        "17 of 18 production files completely read. inject.go remains unread. Shell assignment masking and DNS cancellation are being investigated separately; no all-utility closure yet."
+        "All 18 production utility files fully read. Shell assignment changes pending final independent review; SQL outer joins and TABLESAMPLE are active investigations. DNS cancellation remains a separate candidate."
       ],
       "source_sha256": {
         "internal/utils/crypto.go": "3f1a948d8fbe208f4c31327549d1284f3106189cf9b0b61b72873488ed2d2328",
@@ -10940,13 +10947,14 @@
         "internal/utils/fileutil.go": "75447bbb12912586e6b066cc11a5a1bb93d9460fecb199cbb187d5384666d0d2",
         "internal/utils/httputil.go": "7bcef5f05fb585ad0c4a376a57688ac0a93aeeb215796c8fb0b98030f9840c64",
         "internal/utils/import_filetypes.go": "051c1f9a8fe0d4d233e6dc3c2c64d22eda69670d21cdc4a3baa47aa0065c9794",
+        "internal/utils/inject.go": "ee2351506938fe9598dabacd441df9f201585d970c0c8fc9669869a2b26ced6f",
         "internal/utils/json.go": "b0cfcf08178bbbe303198eca6a6222d84e0ba805df043a7e6ebb6762dd0566ae",
         "internal/utils/log_sanitize.go": "e488a5e28d6314bb8b16b909f061e42316e10f881c42fe6da42c3837733ee3e4",
         "internal/utils/mysql_ssrf.go": "ddca20837df5446668a8cb43376715e2f3c03c9094a19a5ba107d30e40703f6c",
         "internal/utils/oidc_state.go": "786b8cae6157e874651f3c5319bdade51320d4d20e9ddc3a5f4e7827de25c269",
         "internal/utils/presign.go": "4fd8e0b8bbd21bec7cc529ae1eea1185974951e21e62f9feb0d56eeca4457c4f",
         "internal/utils/security.go": "8b96ffd0c1c9212321bc78b46de7ccdf209c0e6b134fbbf681967b65e7a70d99",
-        "internal/utils/shell_assignment.go": "21043d83f483f62d3ed960336a8f5c62243cfe6c880b713d563c62630d2b3c7c",
+        "internal/utils/shell_assignment.go": "224bdb6b2d45fc9877390cf89b748bf368ddee27559f2a2ac96f204836844e42",
         "internal/utils/ssrf_outbound_cache.go": "6b94963cbd6177ae03055b97b7b732ba5f3b5a5375612869d0b34332a2250d76",
         "internal/utils/storage_error.go": "8cda064d92979e1f5d38925febfdc9a6becfa4ad5b491f1a478f4365f3d39680",
         "internal/utils/taskid.go": "8eccc900e1c2df9893e89d7853d0e2a0961ff7e4d26be6d00b3d04c132a76715"
@@ -13173,6 +13181,10 @@
     {
       "commit": "849fc4d00",
       "module": "sparse builtin XLSX reading and physical image row ordering"
+    },
+    {
+      "commit": "2f4f5ecfe",
+      "module": "modelcontext JSON numeric precision"
     }
   ],
   "frontend_final_gate": {

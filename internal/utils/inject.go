@@ -876,6 +876,16 @@ func ValidateSQL(sql string, opts ...SQLValidationOption) (*SQLParseResult, *SQL
 	// CTEs, set-operation branches, scalar subqueries and window/limit clauses.
 	if err := walkSQLMessages(parseResult.ProtoReflect(), func(message protoreflect.Message) error {
 		switch node := message.Interface().(type) {
+		case *pg_query.Alias:
+			// A relation's positional column aliases can rename a credential
+			// column to an allowed name, or retarget tenant/deletion predicates.
+			// Security checks use canonical columns; ordinary table aliases and
+			// SELECT column AS label remain supported.
+			if len(node.Colnames) > 0 && (validator.checkTableColumns || validator.enableTenantInjection ||
+				validator.enableSoftDeleteInjection || validator.enableHiddenKBFilter ||
+				validator.enableChunkEnabledFilter || validator.enableSearchScopeFilter) {
+				return fmt.Errorf("relation column aliases are not supported by SQL security filters; use SELECT column AS label")
+			}
 		case *pg_query.SelectStmt:
 			if node.WithClause != nil {
 				return fmt.Errorf("WITH clause (CTEs) is not supported")
