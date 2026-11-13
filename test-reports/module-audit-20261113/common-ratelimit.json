@@ -1,0 +1,45 @@
+{
+  "module": "common utilities, Redis locks, environment loading and local rate limiting",
+  "status": "fixed_validated",
+  "inspected_sources": [
+    "internal/common/tools.go",
+    "internal/common/db_retry.go",
+    "internal/common/redis_tls.go",
+    "internal/common/redislock/token_lock.go",
+    "internal/envfile/envfile.go",
+    "internal/ratelimit/limiter.go"
+  ],
+  "invariants_checked": [
+    "UTF-8 truncation boundaries and JSON quote handling",
+    "Redis lock ownership tokens, release/renew atomicity, cancellation and bounded release",
+    "Environment file precedence and explicit file error propagation",
+    "TLS server verification default and explicit override",
+    "Redis/local rate budgets, per-key isolation, eviction generation ownership"
+  ],
+  "findings": [
+    {
+      "id": "RATE-LIMIT-REPLACEMENT-EVICTION",
+      "priority": "P2",
+      "function": "localLimiter.allow/startCleanup",
+      "before": "A waiter retained an expired entry while cleanup removed it and a new request installed a live bucket. The waiter unconditionally deleted the live replacement and allowed an over-budget request.",
+      "reproducer": "TestCleanupWaiterCannotRemoveReplacementBudget failed all 10 baseline runs.",
+      "fix": "CompareAndDelete only the exact retired entry generation in waiter and cleanup paths."
+    }
+  ],
+  "evidence": [
+    {
+      "command": "go test -mod=readonly ./internal/ratelimit -run '^TestCleanupWaiterCannotRemoveReplacementBudget$' -count=10",
+      "result": "10 failures before fix",
+      "log": ".git/module-audit-20261113/ratelimit-before.log"
+    },
+    {
+      "command": "go test -mod=readonly -race ./internal/ratelimit ./internal/common/... ./internal/envfile -count=1",
+      "result": "all passed",
+      "log": ".git/module-audit-20261113/common-ratelimit-after.log"
+    }
+  ],
+  "limitations": [
+    "Redis protocol behavior tested with miniredis; no production Redis used.",
+    "Audit covers these package sources; service integrations are tracked separately."
+  ]
+}

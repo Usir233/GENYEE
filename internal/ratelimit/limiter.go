@@ -136,7 +136,9 @@ func (l *localLimiter) allow(key string, window time.Duration, max int) bool {
 		entry.mu.Lock()
 		if entry.deleted {
 			entry.mu.Unlock()
-			l.entries.Delete(key)
+			// Cleanup may already have removed this generation and a later
+			// request installed a live bucket. Never erase that new budget.
+			l.entries.CompareAndDelete(key, entry)
 			continue
 		}
 
@@ -182,7 +184,7 @@ func (l *localLimiter) startCleanup(window time.Duration, stopCh <-chan struct{}
 				}
 				if allExpired {
 					entry.deleted = true
-					l.entries.Delete(key)
+					l.entries.CompareAndDelete(key, entry)
 				}
 				entry.mu.Unlock()
 				return true

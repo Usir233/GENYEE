@@ -5124,7 +5124,7 @@
     },
     {
       "id": "internal/common",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/common/db_retry.go",
         "internal/common/redis_tls.go",
@@ -5135,28 +5135,60 @@
         "internal/common/tools_test.go",
         "internal/common/truncate_utf8_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/common/db_retry.go",
+        "internal/common/redis_tls.go",
+        "internal/common/tools.go"
+      ],
+      "invariants_checked": [
+        "UTF-8 truncation boundaries and JSON quote handling",
+        "Redis lock ownership tokens, release/renew atomicity, cancellation and bounded release",
+        "Environment file precedence and explicit file error propagation",
+        "TLS server verification default and explicit override",
+        "Redis/local rate budgets, per-key isolation, eviction generation ownership"
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/common-ratelimit.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Redis protocol behavior tested with miniredis; no production Redis used.",
+        "Audit covers these package sources; service integrations are tracked separately."
+      ]
     },
     {
       "id": "internal/common/redislock",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/common/redislock/token_lock.go"
       ],
       "test_files": [
         "internal/common/redislock/token_lock_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/common/redislock/token_lock.go"
+      ],
+      "invariants_checked": [
+        "UTF-8 truncation boundaries and JSON quote handling",
+        "Redis lock ownership tokens, release/renew atomicity, cancellation and bounded release",
+        "Environment file precedence and explicit file error propagation",
+        "TLS server verification default and explicit override",
+        "Redis/local rate budgets, per-key isolation, eviction generation ownership"
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/common-ratelimit.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Redis protocol behavior tested with miniredis; no production Redis used.",
+        "Audit covers these package sources; service integrations are tracked separately."
+      ]
     },
     {
       "id": "internal/config",
@@ -5640,19 +5672,34 @@
     },
     {
       "id": "internal/envfile",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/envfile/envfile.go"
       ],
       "test_files": [
         "internal/envfile/envfile_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/envfile/envfile.go"
+      ],
+      "invariants_checked": [
+        "UTF-8 truncation boundaries and JSON quote handling",
+        "Redis lock ownership tokens, release/renew atomicity, cancellation and bounded release",
+        "Environment file precedence and explicit file error propagation",
+        "TLS server verification default and explicit override",
+        "Redis/local rate budgets, per-key isolation, eviction generation ownership"
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/common-ratelimit.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Redis protocol behavior tested with miniredis; no production Redis used.",
+        "Audit covers these package sources; service integrations are tracked separately."
+      ]
     },
     {
       "id": "internal/errors",
@@ -7708,7 +7755,7 @@
     },
     {
       "id": "internal/ratelimit",
-      "status": "pending",
+      "status": "audited_fixed_validated",
       "source_files": [
         "internal/ratelimit/limiter.go"
       ],
@@ -7716,12 +7763,27 @@
         "internal/ratelimit/limiter_security_test.go",
         "internal/ratelimit/limiter_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/ratelimit/limiter.go"
+      ],
+      "invariants_checked": [
+        "UTF-8 truncation boundaries and JSON quote handling",
+        "Redis lock ownership tokens, release/renew atomicity, cancellation and bounded release",
+        "Environment file precedence and explicit file error propagation",
+        "TLS server verification default and explicit override",
+        "Redis/local rate budgets, per-key isolation, eviction generation ownership"
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/common-ratelimit.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Redis protocol behavior tested with miniredis; no production Redis used.",
+        "Audit covers these package sources; service integrations are tracked separately."
+      ]
     },
     {
       "id": "internal/reranking",
@@ -10660,6 +10722,22 @@
       "commit": "8537a2e4d",
       "module": "frontend authenticated request retries",
       "result": "42 focused tests, full frontend tests (2739 passed/1 skipped), type check passed"
+    },
+    {
+      "commit": "c25f69aee",
+      "module": "automation cancellation/manual enqueue"
+    },
+    {
+      "commit": "048eb2222",
+      "module": "document preview"
+    },
+    {
+      "commit": "23bfeb208",
+      "module": "browser status polling"
+    },
+    {
+      "commit": "95f6dafdb",
+      "module": "protected file subpath"
     }
   ]
 }
