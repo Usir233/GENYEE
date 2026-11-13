@@ -8341,7 +8341,7 @@
     },
     {
       "id": "internal/middleware/asynqdl",
-      "status": "pending",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/middleware/asynqdl/asynqdl.go",
         "internal/middleware/asynqdl/recover.go"
@@ -8350,12 +8350,34 @@
         "internal/middleware/asynqdl/asynqdl_test.go",
         "internal/middleware/asynqdl/recover_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "internal/middleware/asynqdl/asynqdl.go",
+        "internal/middleware/asynqdl/recover.go"
+      ],
+      "invariants_checked": [
+        "Permanent archive bookkeeping follows actual worker terminal errors; revocation is not a failure; original errors and retry counts preserved.",
+        "Panic recovery remains inside the dead-letter wrapper; callback panic and repository failure cannot replace the original task error."
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/asynq-dead-letter.json"
+      ],
+      "findings": [
+        {
+          "id": "ASYNQ-A1",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/asynq-dead-letter.json"
+        },
+        {
+          "id": "ASYNQ-A2",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/asynq-dead-letter.json"
+        }
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Uses local miniredis rather than a production Redis server; Asynq worker scheduling, handler context and Inspector transitions are real.",
+        "No other middleware or all-router source audit claimed; router consumer tests were only executed."
+      ]
     },
     {
       "id": "internal/modelcontext",
@@ -12973,6 +12995,10 @@
     {
       "commit": "0b366911f",
       "module": "image/PDF filename references"
+    },
+    {
+      "commit": "6b2970ac7",
+      "module": "local model infrastructure audit closure"
     }
   ],
   "frontend_final_gate": {
