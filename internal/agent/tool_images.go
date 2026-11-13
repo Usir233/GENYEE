@@ -37,7 +37,7 @@ func (e *AgentEngine) appendToolImages(
 		if e.config != nil && e.config.ChatModelSupportsVision {
 			note := ""
 			if call.Name == tools.ToolSearchKnowledge {
-				note = e.modelContext.ToolImageSourcesNote(call.Result)
+				note = e.modelContext.ToolImageSourcesNote(call.Result, len(visionImages))
 			}
 			blocks = append(blocks, imageBlock{
 				text: fmt.Sprintf("Images returned by tool %s (call %s). "+

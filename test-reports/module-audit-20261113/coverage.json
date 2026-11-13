@@ -3693,7 +3693,7 @@
     },
     {
       "id": "internal/agent",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/agent/act.go",
         "internal/agent/background.go",
@@ -3764,8 +3764,16 @@
       ],
       "inspected_files": [],
       "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/agent-image-number.json"
+      ],
+      "findings": [
+        {
+          "id": "AGENT-TOOL-IMAGE-SOURCE-OFFSET",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/agent-image-number.json"
+        }
+      ],
       "commits": [],
       "limitations": []
     },
@@ -8499,7 +8507,8 @@
       "evidence": [
         "test-reports/module-audit-20261113/modelcontext-resource-identity.json",
         "test-reports/module-audit-20261113/modelcontext-stream-word-boundary.json",
-        "test-reports/module-audit-20261113/modelcontext-json-numbers.json"
+        "test-reports/module-audit-20261113/modelcontext-json-numbers.json",
+        "test-reports/module-audit-20261113/agent-image-number.json"
       ],
       "findings": [
         {
@@ -8516,11 +8525,16 @@
           "id": "MC-JSON-NUMERIC-PRECISION",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/modelcontext-json-numbers.json"
+        },
+        {
+          "id": "AGENT-TOOL-IMAGE-SOURCE-OFFSET",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/agent-image-number.json"
         }
       ],
       "commits": [],
       "limitations": [
-        "All 14 production files read by delegated investigator. Related image-source numbering is confirmed pending. Direct agent parameter replay and cancellation are separate pending findings; no aggregate audit closure yet."
+        "All 14 production files read. Four local fixes validated. Integrated parameter persistence/replay and agent cancellation review remain open in related audit units; final module report pending."
       ],
       "source_sha256": {
         "internal/modelcontext/citations.go": "f6bb8f77334ea307315c77e90d1b0b30d929d840e299998f7f23c9b1cb819d4a",
@@ -13210,6 +13224,10 @@
     {
       "commit": "049ec64d2",
       "module": "SQL relation column alias security boundary"
+    },
+    {
+      "commit": "70988e881",
+      "module": "knowledge clone revision, parser base and image coordinate preservation"
     }
   ],
   "frontend_final_gate": {

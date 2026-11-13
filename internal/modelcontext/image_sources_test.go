@@ -17,7 +17,7 @@ func TestImageSourcesUseOnlyKnownHandlesAndAccountForUserImages(t *testing.T) {
 	require.NotContains(t, note, "known-source")
 	require.Empty(t, registry.ChunkHandle("unverified-source"))
 	stored := &types.ToolResult{Data: map[string]interface{}{"context_images": []string{"known-source"}}}
-	require.Empty(t, registry.ToolImageSourcesNote(stored), "stored history has no image bytes")
+	require.Empty(t, registry.ToolImageSourcesNote(stored, 2), "stored history has no image bytes")
 	var missing *Registry
 	require.Contains(t, missing.ImageSourcesNote([]string{"known-source"}, 0), "source unavailable")
 }
