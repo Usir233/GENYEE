@@ -8457,7 +8457,7 @@
     {
       "id": "FE-PROTECTED-SUBPATH",
       "priority": "P2",
-      "status": "confirmed_reproduced_pending_fix",
+      "status": "fixed_validated",
       "module": "file_rendering_security",
       "location": {
         "path": "frontend/src/utils/security.ts",
@@ -8473,7 +8473,8 @@
       "scenario": "Build for documented VITE_BASE_PATH=/genyee/ and display resource/provider-backed image through the raw protected-file fetch pipeline. Gateway serves only prefixed routes.",
       "expected": "GET /genyee/files?file_path=... (or prefixed KB/message/embed route).",
       "actual": "GET /files?file_path=... drops prefix and returns gateway 404; image hidden. Unlike Axios and sandbox websocket builders, hydration never applies API base.",
-      "provenance": "Existing behavior from main/chore, not residue renaming."
+      "provenance": "Existing behavior from main/chore, not residue renaming.",
+      "fix_report": "test-reports/module-audit-20261113/frontend-files.json"
     }
   ],
   "pending_candidates": [

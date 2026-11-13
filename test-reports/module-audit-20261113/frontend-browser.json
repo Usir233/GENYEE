@@ -23,7 +23,15 @@
       "output": "✔ visibility refreshes retain one timer and the last unsubscribe removes every poll (3.937542ms)\n✔ visibility events during a poll share the pending status request (0.594417ms)\n✔ stopping and restarting polling ignores the old response and old scheduling continuation (0.650958ms)\n✔ two subscribers share a loop until the final unsubscribe (0.55925ms)\n✔ failed status polls keep one retry and resume after visibility changes (1.0535ms)\n✔ independent store instances do not cancel or orphan each other's timers and listeners (0.692208ms)\n✔ a late status poll does not undo a newer pairing response applied by settings (2.06675ms)\n✔ composer keeps the browser source available until account status loads (33.878666ms)\n✔ an offline or unpaired extension cannot stay selected as a live source (0.346375ms)\nℹ tests 9\nℹ suites 0\nℹ pass 9\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 333.498583\n"
     },
     "type_check": "npm run type-check exit 0",
-    "diff_check": "git diff --check exit 0"
+    "diff_check": "git diff --check exit 0",
+    "final_shared_frontend_suite": {
+      "command": "npm test",
+      "tests": 2758,
+      "pass": 2757,
+      "fail": 0,
+      "skip": 1,
+      "log": "/tmp/genyee-frontend-audit-20261113/frontend-followup-tests.log"
+    }
   },
   "limits": [
     "No live browser pairing or external account used. Browser connection settings and extension integration remain pending beyond this store lifecycle.",
