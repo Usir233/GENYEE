@@ -10956,7 +10956,8 @@
       "invariants_checked": [],
       "evidence": [
         "test-reports/module-audit-20261113/ssrf-cache-reload.json",
-        "test-reports/module-audit-20261113/sql-column-alias-security.json"
+        "test-reports/module-audit-20261113/sql-column-alias-security.json",
+        "test-reports/module-audit-20261113/sql-tablesample-security.json"
       ],
       "findings": [
         {
@@ -10968,6 +10969,11 @@
           "id": "SQL-RELATION-COLUMN-ALIAS-BYPASS",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/sql-column-alias-security.json"
+        },
+        {
+          "id": "SQL-TABLESAMPLE-FILTER-BYPASS",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/sql-tablesample-security.json"
         }
       ],
       "commits": [],
@@ -13228,6 +13234,10 @@
     {
       "commit": "70988e881",
       "module": "knowledge clone revision, parser base and image coordinate preservation"
+    },
+    {
+      "commit": "ecf692ac6",
+      "module": "combined tool message image source numbering"
     }
   ],
   "frontend_final_gate": {

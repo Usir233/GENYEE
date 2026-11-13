@@ -1,0 +1,60 @@
+{
+  "module": "SQL relation security",
+  "date": "2026-11-13",
+  "finding": {
+    "id": "SQL-R1",
+    "severity": "P1",
+    "status": "fixed_verified",
+    "summary": "TABLESAMPLE wraps its RangeVar in RangeTableSample; global table discovery sees permitted chunks but relation filter traversal skips the wrapper. Combining sampled chunks with an ordinary authorized KB allows an unfiltered count of tenant/scope/disabled/deleted rows.",
+    "provenance": "Root supplied candidate. Actual DatabaseQueryTool.validateAndSecureSQL accepted query and produced only KB filters; executed its exact secured SQL on parent-authorized isolated PostgreSQL16 container.",
+    "before": {
+      "real_db_log": ".git/module-audit-20261113/sql-sample-postgres-before.log",
+      "expected_authorized_count": 1,
+      "actual_secured_count": 5,
+      "fixture": "external temporary sample-fixture.sql alongside overlay path record",
+      "permanent_command": "go test -count=1 ./internal/agent/tools -run '^TestDatabaseQueryRejectsUnfilteredTableSample$'",
+      "permanent_log": ".git/module-audit-20261113/sql-sample-permanent-before.log",
+      "permanent_exit_code": 1,
+      "observed": "Singleton TABLESAMPLE already rejects for lack of known FROM table; SYSTEM with comma join and BERNOULLI with JOIN bypass validation and reach SQLite execution."
+    },
+    "fix": "Reject RangeTableSample during full AST validation because the existing relation validators and row filter rewriter do not support this input. Preserve existing alias-column guard.",
+    "owned_files": [
+      "internal/utils/inject.go",
+      "internal/agent/tools/database_query_sampling_test.go"
+    ]
+  },
+  "validation": {
+    "packages": {
+      "status": "passed",
+      "exit_code": 0,
+      "command": "go test -count=1 ./internal/utils ./internal/agent/tools",
+      "log": ".git/module-audit-20261113/sql-sample-after.log"
+    },
+    "race": {
+      "status": "passed",
+      "exit_code": 0,
+      "command": "go test -race -count=1 ./internal/utils ./internal/agent/tools -run 'DatabaseQuery|SQL|StructuredScope'",
+      "log": ".git/module-audit-20261113/sql-sample-race.log"
+    },
+    "vet": {
+      "status": "passed",
+      "exit_code": 0,
+      "command": "go vet ./internal/utils ./internal/agent/tools",
+      "log": ".git/module-audit-20261113/sql-sample-vet.log"
+    },
+    "diff_check": {
+      "status": "passed",
+      "exit_code": 0
+    }
+  },
+  "limits": [
+    "No live GENYEE services, production data, remote access, commits, push, fetch, deployment or subagents.",
+    "PostgreSQL evidence used parent-created network-none tmpfs Docker container genyee-audit-sql-20261113 and only independent schema audit_sample_eval_20261113. Root has removed the container after evidence capture.",
+    "Outer-join source fix is pending; tests remain external overlay to avoid introducing failing tests during root parallel gates.",
+    "Disabled exclusion concerns chunks.is_enabled, the configured tool policy. No new document enable_status policy is inferred."
+  ],
+  "changed_sha256": {
+    "internal/utils/inject.go": "05519218e8b343ca18c27b5fd49fd1e7b391419c60a6870c69763f865eacc280",
+    "internal/agent/tools/database_query_sampling_test.go": "4c82d67ec55c0e0b831f71aad930f24516458572ee69742395b479160a51ab7d"
+  }
+}

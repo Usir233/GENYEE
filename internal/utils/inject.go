@@ -904,6 +904,10 @@ func ValidateSQL(sql string, opts ...SQLValidationOption) (*SQLParseResult, *SQL
 			}
 		case *pg_query.RangeFunction:
 			return fmt.Errorf("functions in FROM clause are not allowed")
+		case *pg_query.RangeTableSample:
+			// The relation validators and security rewriter do not support
+			// sampled inputs. Never execute one without its row-level filters.
+			return fmt.Errorf("TABLESAMPLE is not supported by SQL security filters")
 		case *pg_query.FuncCall:
 			return validator.validateFuncCall(node, validationResult)
 		case *pg_query.SubLink:
