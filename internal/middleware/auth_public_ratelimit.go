@@ -64,45 +64,56 @@ func (l *ipRateLimiter) allow(ip string) bool {
 	if ip == "" {
 		ip = "_unknown_"
 	}
-	now := time.Now()
-	cutoff := now.Add(-l.window)
-
-	val, _ := l.buckets.LoadOrStore(ip, &ipBucket{})
-	b := val.(*ipBucket)
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	kept := b.timestamps[:0]
-	for _, t := range b.timestamps {
-		if t.After(cutoff) {
-			kept = append(kept, t)
+	for {
+		val, _ := l.buckets.LoadOrStore(ip, &ipBucket{})
+		b := val.(*ipBucket)
+		b.mu.Lock()
+		// Cleanup may have retired this bucket while this request waited for
+		// its lock. Charge the live generation, never a detached bucket.
+		if current, ok := l.buckets.Load(ip); !ok || current != b {
+			b.mu.Unlock()
+			continue
 		}
+		now := time.Now()
+		cutoff := now.Add(-l.window)
+		kept := b.timestamps[:0]
+		for _, t := range b.timestamps {
+			if t.After(cutoff) {
+				kept = append(kept, t)
+			}
+		}
+		b.timestamps = kept
+		if len(b.timestamps) >= l.max {
+			b.mu.Unlock()
+			return false
+		}
+		b.timestamps = append(b.timestamps, now)
+		b.mu.Unlock()
+		return true
 	}
-	b.timestamps = kept
-	if len(b.timestamps) >= l.max {
-		return false
-	}
-	b.timestamps = append(b.timestamps, now)
-	return true
 }
 
 func (l *ipRateLimiter) cleanupLoop() {
 	t := time.NewTicker(publicAuthRateLimitCleanupInterval)
 	defer t.Stop()
 	for range t.C {
-		cutoff := time.Now().Add(-l.window)
-		l.buckets.Range(func(k, v any) bool {
-			b := v.(*ipBucket)
-			b.mu.Lock()
-			drop := len(b.timestamps) == 0 ||
-				b.timestamps[len(b.timestamps)-1].Before(cutoff)
-			b.mu.Unlock()
-			if drop {
-				l.buckets.Delete(k)
-			}
-			return true
-		})
+		l.cleanupExpired(time.Now().Add(-l.window))
 	}
+}
+
+func (l *ipRateLimiter) cleanupExpired(cutoff time.Time) {
+	l.buckets.Range(func(k, v any) bool {
+		b := v.(*ipBucket)
+		b.mu.Lock()
+		drop := len(b.timestamps) == 0 ||
+			b.timestamps[len(b.timestamps)-1].Before(cutoff)
+		if drop {
+			// Keep the retirement atomic with budget updates under this lock.
+			l.buckets.CompareAndDelete(k, b)
+		}
+		b.mu.Unlock()
+		return true
+	})
 }
 
 // publicAuthLimiter — package-singleton so each route registration

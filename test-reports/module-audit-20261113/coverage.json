@@ -8259,7 +8259,7 @@
     },
     {
       "id": "internal/middleware",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/middleware/access.go",
         "internal/middleware/api_key_gate.go",
@@ -8317,10 +8317,17 @@
         "internal/middleware/recovery.go",
         "internal/middleware/ws_auth.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "JWT/header/internal dispatch identity and foreign workspace access use live role/membership and deployment privilege flags.",
+        "Machine-principal policies default-deny undeclared routes; capability scopes and KB guards remain independent of human roles.",
+        "Access log truncation does not expose partial secrets and does not consume request bodies.",
+        "Public IP limiter budget is retained across cleanup and concurrent request accounting.",
+        "Multipart cleanup, error/recovery, language and audit context adapters inspected; existing package tests executed."
+      ],
       "evidence": [
         "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json",
-        "test-reports/module-audit-20261113/logger-truncation.json"
+        "test-reports/module-audit-20261113/logger-truncation.json",
+        "test-reports/module-audit-20261113/public-auth-rate-limit.json"
       ],
       "findings": [
         {
@@ -8332,12 +8339,35 @@
           "id": "LOG-TRUNCATED-CREDENTIAL",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/logger-truncation.json"
+        },
+        {
+          "id": "PUBLIC-AUTH-CLEANUP-BUDGET",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/public-auth-rate-limit.json"
         }
       ],
       "commits": [],
       "limitations": [
-        "Source read completed for 16 production files; public-IP limiter cleanup candidate requires follow-up; logger truncation fixed in logger-truncation.json. Source read alone does not close all behavioral coverage."
-      ]
+        "16 direct production middleware files read. Local Gin/context/repository fixtures and package race tests cover the listed invariants; all route/handler implementations and live identity providers are separate audit units."
+      ],
+      "source_sha256": {
+        "internal/middleware/access.go": "40c7d6625790082e824d7e69ee74ffa8f7fd69c8ed5e5c1d78f91abed2207262",
+        "internal/middleware/api_key_gate.go": "f4295612657f5c4d85d1597f3dee464480dcfdcc1c972666b629f4f769c66412",
+        "internal/middleware/audit_provider.go": "eb2f00ad44749d7ef78d624d688304741d296e1d89e97ca45167b3fe5b34e37e",
+        "internal/middleware/auth.go": "f7a6dc495e68fbfeba63d392bdc67c7e4a9d40cc1f27b6c2b6e1bfc0c3910940",
+        "internal/middleware/auth_context.go": "9d5f14b5431c8d81487830cfc325538f92452c880fafcd483814dc332952f8cf",
+        "internal/middleware/auth_public_ratelimit.go": "699dde419d944b5c521f9e7c7e076c92ed7dbfcee171d96be52c515df837a8e7",
+        "internal/middleware/embed_auth.go": "e66e236d89d8e9872a8e5c6f776550a4e024512c5a76c3f46717f8491015af03",
+        "internal/middleware/error_handler.go": "9ad727740787221ecbaf3d8f0245b9f9c1d4100e5a41f67545906021baa0c519",
+        "internal/middleware/kb_access.go": "263280e3095c4bcd6b1847833541e6945c5fe7533233493d79bd258339a12f9f",
+        "internal/middleware/language.go": "24b23627088018917c66b41e8d9444bc12339819a837101470a139f892cbb8b7",
+        "internal/middleware/logger.go": "3d00d11778a8ad022b1404f0824056d8ab4b8b0ee9cbce371b7c2a0fbb931798",
+        "internal/middleware/mcp_endpoint_auth.go": "2d0de94bef9d46cb807ce2428502494125ad4f44fd0adaf75ef31c4bd9aca892",
+        "internal/middleware/multipart_cleanup.go": "28a4b340fa2bd81649d3c55421e80454641fe1d90bb49715f034959022cce9b3",
+        "internal/middleware/rbac.go": "ca0d9ef56ed3da93ab9fd39ef7f387cc0f93b204a8af7f2f6888dc9ecfbe6a71",
+        "internal/middleware/recovery.go": "b43e69ff7bd4cbfa4993e8c0ec5546f02caafc87bb33ffaddb9887c413c97077",
+        "internal/middleware/ws_auth.go": "b4804892127fdfc3f8fddbbc497183bfcb27464ab5957a16d7857a2f7bc27743"
+      }
     },
     {
       "id": "internal/middleware/asynqdl",
@@ -12999,6 +13029,10 @@
     {
       "commit": "6b2970ac7",
       "module": "local model infrastructure audit closure"
+    },
+    {
+      "commit": "b3a52759b",
+      "module": "asynq worker terminal failure semantics"
     }
   ],
   "frontend_final_gate": {
