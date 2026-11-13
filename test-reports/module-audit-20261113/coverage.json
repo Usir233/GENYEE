@@ -8270,7 +8270,7 @@
     },
     {
       "id": "internal/infrastructure/web_fetch",
-      "status": "pending",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/infrastructure/web_fetch/chromium_proxy.go",
         "internal/infrastructure/web_fetch/fetcher.go",
@@ -8282,14 +8282,37 @@
         "internal/infrastructure/web_fetch/fetcher_test.go",
         "internal/infrastructure/web_fetch/fetcher_whitelist_only_test.go",
         "internal/infrastructure/web_fetch/markdown_base_test.go",
-        "internal/infrastructure/web_fetch/markdown_test.go"
+        "internal/infrastructure/web_fetch/markdown_test.go",
+        "internal/infrastructure/web_fetch/fetcher_dns_cancellation_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/infrastructure/web_fetch/chromium_proxy.go",
+        "internal/infrastructure/web_fetch/fetcher.go",
+        "internal/infrastructure/web_fetch/markdown.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/ssrf-dns-cancellation.json",
+        "test-reports/module-audit-20261113/ssrf-redirect-context.json"
+      ],
+      "findings": [
+        {
+          "id": "SSRF-DNS-CANCELLATION",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/ssrf-dns-cancellation.json"
+        }
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Legacy context-free entrypoints retain Background compatibility; unrelated project preflight callers are not claimed migrated.",
+        "No live external DNS or real Chromium end-to-end validation is claimed by the new fixtures. Existing package tests and deterministic HTTP/DNS fixtures exercised local boundaries.",
+        "This does not alter whitelist policy, production services or live user data."
+      ],
+      "source_sha256": {
+        "internal/infrastructure/web_fetch/chromium_proxy.go": "4c2fee44074bbceac47fdfa3ad3fa96c28cb49effdbdedac6839ffe4b18edcee",
+        "internal/infrastructure/web_fetch/fetcher.go": "8a6805e26941df88faade3129578dbb1bb5d292eb7fb2b894ddb420a11f6e331",
+        "internal/infrastructure/web_fetch/markdown.go": "55ba2272b14f4420ebc2d1053e80867524e5cf35788ff681cad6ed702d11d341"
+      }
     },
     {
       "id": "internal/infrastructure/web_search",
@@ -11283,7 +11306,10 @@
         "internal/utils/security_whitelist_only_test.go",
         "internal/utils/shell_assignment_test.go",
         "internal/utils/ssrf_outbound_cache_test.go",
-        "internal/utils/taskid_test.go"
+        "internal/utils/taskid_test.go",
+        "internal/utils/ssrf_dns_cancellation_test.go",
+        "internal/utils/ssrf_outbound_context_test.go",
+        "internal/utils/security_redirect_context_test.go"
       ],
       "inspected_files": [
         "internal/utils/crypto.go",
@@ -11311,7 +11337,9 @@
         "test-reports/module-audit-20261113/sql-column-alias-security.json",
         "test-reports/module-audit-20261113/sql-tablesample-security.json",
         "test-reports/module-audit-20261113/shell-assignment-boundaries.json",
-        "test-reports/module-audit-20261113/sql-query-relations.json"
+        "test-reports/module-audit-20261113/sql-query-relations.json",
+        "test-reports/module-audit-20261113/ssrf-dns-cancellation.json",
+        "test-reports/module-audit-20261113/ssrf-redirect-context.json"
       ],
       "findings": [
         {
@@ -11343,11 +11371,16 @@
           "id": "SQL-R2",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/sql-query-relations.json"
+        },
+        {
+          "id": "SSRF-DNS-CANCELLATION",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/ssrf-dns-cancellation.json"
         }
       ],
       "commits": [],
       "limitations": [
-        "All 18 production files read. DNS cancellation fix pending consolidation; existing SQL-C1 tag alias candidate reproduced in isolated tool fixture, upstream reachability not yet traced."
+        "All 18 production files read. SQL-C1 tag alias issue has isolated tool evidence; upstream reachability remains untraced. No further audit expansion after user stop request."
       ],
       "source_sha256": {
         "internal/utils/crypto.go": "3f1a948d8fbe208f4c31327549d1284f3106189cf9b0b61b72873488ed2d2328",
@@ -11363,9 +11396,9 @@
         "internal/utils/mysql_ssrf.go": "ddca20837df5446668a8cb43376715e2f3c03c9094a19a5ba107d30e40703f6c",
         "internal/utils/oidc_state.go": "786b8cae6157e874651f3c5319bdade51320d4d20e9ddc3a5f4e7827de25c269",
         "internal/utils/presign.go": "4fd8e0b8bbd21bec7cc529ae1eea1185974951e21e62f9feb0d56eeca4457c4f",
-        "internal/utils/security.go": "8b96ffd0c1c9212321bc78b46de7ccdf209c0e6b134fbbf681967b65e7a70d99",
+        "internal/utils/security.go": "6c0f14a7f6d6b6d6c05d453f78519c22b9b2e37abe5d7c8d52d3ad09a054cb97",
         "internal/utils/shell_assignment.go": "bc574e9131a5902ab820c726647458052b990a3bc842adf57a308d5c7eebacf4",
-        "internal/utils/ssrf_outbound_cache.go": "6b94963cbd6177ae03055b97b7b732ba5f3b5a5375612869d0b34332a2250d76",
+        "internal/utils/ssrf_outbound_cache.go": "b011621b1abd27f668f9d68f76b0deb8a48be11da0f383f65b97a516761589e7",
         "internal/utils/storage_error.go": "8cda064d92979e1f5d38925febfdc9a6becfa4ad5b491f1a478f4365f3d39680",
         "internal/utils/taskid.go": "8eccc900e1c2df9893e89d7853d0e2a0961ff7e4d26be6d00b3d04c132a76715"
       }
@@ -13627,6 +13660,10 @@
     {
       "commit": "b3326f3e1",
       "module": "Markitdown XLSX cell expansion budget and parser audit closure"
+    },
+    {
+      "commit": "957015607",
+      "module": "interrupted agent reasoning persistence"
     }
   ],
   "frontend_final_gate": {

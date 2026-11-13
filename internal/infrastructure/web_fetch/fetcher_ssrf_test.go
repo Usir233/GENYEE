@@ -72,7 +72,7 @@ func TestChromiumSSRFProxyBlocksRawIPLiteralsAndDNSRebinding(t *testing.T) {
 			IP:   net.ParseIP("93.184.216.34"),
 		},
 		func(p *chromiumSSRFProxy) {
-			p.validateURL = func(raw string) error {
+			p.validateURL = func(_ context.Context, raw string) error {
 				u, err := url.Parse(raw)
 				if err != nil {
 					return err

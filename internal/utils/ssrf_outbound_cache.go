@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -47,13 +49,20 @@ type ssrfOutboundCacheEntry struct {
 // TTL so high-frequency clients do not repeat DNS lookups on every request.
 // Handler/input boundaries should keep calling ValidateURLForSSRF directly.
 func validateURLForSSRFForOutbound(rawURL string) error {
+	return validateURLForSSRFForOutboundContext(context.Background(), rawURL)
+}
+
+func validateURLForSSRFForOutboundContext(ctx context.Context, rawURL string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if rawURL == "" {
 		return nil
 	}
 
 	cacheKey, ok := outboundSSRFCacheKey(rawURL)
 	if !ok {
-		return ValidateURLForSSRF(rawURL)
+		return ValidateURLForSSRFContext(ctx, rawURL)
 	}
 
 	state := currentOutboundSSRFState()
@@ -66,29 +75,42 @@ func validateURLForSSRFForOutbound(rawURL string) error {
 		state.entries.CompareAndDelete(cacheKey, entry)
 	}
 
-	result, err, _ := state.group.Do(cacheKey, func() (any, error) {
-		if cached, ok := state.entries.Load(cacheKey); ok {
-			entry := cached.(*ssrfOutboundCacheEntry)
-			if time.Now().Before(entry.expiresAt) {
-				return entry.err, entry.err
-			}
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
 		}
+		result := state.group.DoChan(cacheKey, func() (any, error) {
+			if cached, ok := state.entries.Load(cacheKey); ok {
+				entry := cached.(*ssrfOutboundCacheEntry)
+				if time.Now().Before(entry.expiresAt) {
+					return entry.err, entry.err
+				}
+			}
 
-		ssrfOutboundValidateMisses.Add(1)
-		validationErr := ValidateURLForSSRF(rawURL)
-		state.entries.Store(cacheKey, &ssrfOutboundCacheEntry{
-			err:       validationErr,
-			expiresAt: time.Now().Add(outboundSSRFValidationTTL),
+			ssrfOutboundValidateMisses.Add(1)
+			validationErr := ValidateURLForSSRFContext(ctx, rawURL)
+			// Cancellation belongs to this caller, not the origin's SSRF policy.
+			if !errors.Is(validationErr, context.Canceled) && !errors.Is(validationErr, context.DeadlineExceeded) {
+				state.entries.Store(cacheKey, &ssrfOutboundCacheEntry{
+					err:       validationErr,
+					expiresAt: time.Now().Add(outboundSSRFValidationTTL),
+				})
+			}
+			return validationErr, validationErr
 		})
-		return validationErr, validationErr
-	})
-	if err != nil {
-		return err
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case settled := <-result:
+			// Another caller may have started the shared lookup and canceled
+			// it. A still-active waiter retries with its own context; no
+			// canceled result is cached or propagated to unrelated requests.
+			if errors.Is(settled.Err, context.Canceled) || errors.Is(settled.Err, context.DeadlineExceeded) {
+				continue
+			}
+			return settled.Err
+		}
 	}
-	if validationErr, ok := result.(error); ok {
-		return validationErr
-	}
-	return nil
 }
 
 func outboundSSRFCacheKey(rawURL string) (string, bool) {

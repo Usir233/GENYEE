@@ -201,7 +201,7 @@ type chromiumSSRFProxy struct {
 	listener    net.Listener
 	server      *http.Server
 	transport   *http.Transport
-	validateURL func(string) error
+	validateURL func(context.Context, string) error
 	resolveIPs  func(context.Context, string) ([]net.IP, error)
 	dialContext func(context.Context, string, string) (net.Conn, error)
 	pinned      map[string]net.IP
@@ -220,7 +220,7 @@ func startChromiumSSRFProxy(target pinnedTarget, opts ...chromiumProxyOption) (*
 	}
 	p := &chromiumSSRFProxy{
 		listener:    ln,
-		validateURL: utils.ValidateURLForSSRF,
+		validateURL: utils.ValidateURLForSSRFContext,
 		resolveIPs:  lookupPublicDNS,
 		pinned:      make(map[string]net.IP),
 		conns:       make(map[net.Conn]struct{}),
@@ -321,7 +321,7 @@ func (p *chromiumSSRFProxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 	p.handleHTTP(w, r)
 }
 
-func (p *chromiumSSRFProxy) validateTargetURL(rawURL string) error {
+func (p *chromiumSSRFProxy) validateTargetURL(ctx context.Context, rawURL string) error {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return fmt.Errorf("invalid proxy target URL: %w", err)
@@ -337,7 +337,10 @@ func (p *chromiumSSRFProxy) validateTargetURL(rawURL string) error {
 	if host == "" {
 		return fmt.Errorf("missing target hostname")
 	}
-	if !utils.IsSSRFWhitelisted(host) {
+	if !utils.IsSSRFWhitelistedContext(ctx, host) {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if err := utils.CheckSSRFWhitelistOnly(host); err != nil {
 			return err
 		}
@@ -346,7 +349,7 @@ func (p *chromiumSSRFProxy) validateTargetURL(rawURL string) error {
 		}
 	}
 	if p.validateURL != nil {
-		if err := p.validateURL(rawURL); err != nil {
+		if err := p.validateURL(ctx, rawURL); err != nil {
 			return err
 		}
 	}
@@ -368,7 +371,10 @@ func (p *chromiumSSRFProxy) dialTarget(ctx context.Context, network, address str
 		return nil, fmt.Errorf("invalid target port %q", port)
 	}
 
-	whitelisted := utils.IsSSRFWhitelisted(host)
+	whitelisted := utils.IsSSRFWhitelistedContext(ctx, host)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if !whitelisted {
 		if blockedProxyPorts[port] {
 			return nil, fmt.Errorf("connection blocked: port %s is restricted", port)
@@ -436,7 +442,7 @@ func (p *chromiumSSRFProxy) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	targetURL := r.URL.String()
-	if err := p.validateTargetURL(targetURL); err != nil {
+	if err := p.validateTargetURL(r.Context(), targetURL); err != nil {
 		http.Error(w, "blocked by SSRF policy", http.StatusForbidden)
 		return
 	}
@@ -478,7 +484,7 @@ func (p *chromiumSSRFProxy) handleConnect(w http.ResponseWriter, r *http.Request
 	}
 
 	syntheticURL := "https://" + net.JoinHostPort(host, port)
-	if err := p.validateTargetURL(syntheticURL); err != nil {
+	if err := p.validateTargetURL(r.Context(), syntheticURL); err != nil {
 		http.Error(w, "CONNECT target blocked by SSRF policy", http.StatusForbidden)
 		return
 	}

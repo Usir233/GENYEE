@@ -1,0 +1,69 @@
+{
+  "module": "ssrf redirect deadline follow-up",
+  "status": "fixed_verified",
+  "finding": {
+    "severity": "P2",
+    "summary": "http.Client.Timeout did not bound SSRF DNS inside CheckRedirect",
+    "provenance": "Independent readonly DNS review; Go1.27.3 net/http client.go redirect request uses original ireq.ctx, while send forks in Client.Timeout deadline",
+    "deterministic_reproduction": "Actual localhost httptest302 response redirects to net.DefaultResolver DNS blocker; configured client30ms remains blocked150ms before fix"
+  },
+  "changed_paths": [
+    "internal/utils/security.go",
+    "internal/utils/security_redirect_context_test.go"
+  ],
+  "change_scope": "Only redirect context deadline block in security.go was edited by this follow-up. Other pending DNS edits in security.go belong to parent; no cache/existing DNS test edits.",
+  "fix": "Derive validation-only context from current redirect request with previous response transport request deadline, preserving earlier current deadline and current cancellation; do not derive from previous context itself or mutate next request context.",
+  "before": {
+    "command": "go test ./internal/utils -run '^TestSSRFRedirect(DNS|Validation)' -count=1",
+    "exit_code": 1,
+    "failed_leaf_cases": 2,
+    "log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/dns-redirect-durable-before.log"
+  },
+  "regressions": [
+    "real HTTP302 client timeout",
+    "earlier current request deadline",
+    "earlier previous response deadline",
+    "current request cancellation during DNS",
+    "previous response canceled context with still-future deadline is ignored"
+  ],
+  "verification": [
+    {
+      "command": "go test -race ./internal/utils -run 'Test(SSRFRedirect|SSRFSinkDNS|SSRFDialCIDR|OutboundSSRF)' -count=10",
+      "exit_code": 0,
+      "log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/dns-redirect-race-after.log",
+      "result": "ok  \tgithub.com/Usir233/GENYEE/internal/utils\t2.635s"
+    },
+    {
+      "command": "go test -race ./internal/utils -count=1",
+      "exit_code": 0,
+      "log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/dns-redirect-utils-race-after.log",
+      "result": "ok  \tgithub.com/Usir233/GENYEE/internal/utils\t1.443s"
+    },
+    {
+      "command": "go test -race -overlay <temp>/dns-review-overlay.json ./internal/utils -run '^TestAuditDNS' -count=3",
+      "exit_code": 0,
+      "log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/dns-review-final-after.log",
+      "result": "ok  \tgithub.com/Usir233/GENYEE/internal/utils\t1.571s"
+    },
+    {
+      "command": "go vet ./internal/utils",
+      "exit_code": 0,
+      "log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/dns-redirect-vet-after.log"
+    },
+    {
+      "command": "git diff --check -- internal/utils/security.go internal/utils/security_redirect_context_test.go",
+      "exit_code": 0
+    }
+  ],
+  "independent_review": "Existing DNS/context diff retained URL/IP/CIDR/whitelist-only checks. Real local UDP DNS overlay passes canceled leader +4 active waiters for public and restricted answers; cancellation does not poison cache.",
+  "limits": [
+    "No live public DNS requests required by new fixtures",
+    "No browser fallback claims: parent owns web_fetch delta",
+    "Prior response cancellation regression manually cancels its context; actual response body close is represented by that identical canceled state",
+    "No new candidate expansion or commits/pushes performed"
+  ],
+  "paths_sha256": {
+    "internal/utils/security.go": "6c0f14a7f6d6b6d6c05d453f78519c22b9b2e37abe5d7c8d52d3ad09a054cb97",
+    "internal/utils/security_redirect_context_test.go": "c3b0dc0f5f4aef1339aebf015e24b223586a68a6855c295a02254b1ab80fdfa4"
+  }
+}

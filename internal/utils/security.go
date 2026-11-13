@@ -340,6 +340,10 @@ func isIPLikeHostname(hostname string) bool {
 // - Cloud metadata endpoints
 // - Reserved hostnames (localhost, *.local, etc.)
 func isSSRFSafeURL(rawURL string) (bool, string) {
+	return isSSRFSafeURLContext(context.Background(), rawURL)
+}
+
+func isSSRFSafeURLContext(ctx context.Context, rawURL string) (bool, string) {
 	if rawURL == "" {
 		return false, "URL is empty"
 	}
@@ -400,7 +404,7 @@ func isSSRFSafeURL(rawURL string) (bool, string) {
 
 	// Perform DNS resolution to check the resolved IP
 	// This prevents DNS rebinding attacks where a domain resolves to internal IPs
-	ips, err := net.LookupIP(hostname)
+	ips, err := net.DefaultResolver.LookupIP(ctx, "ip", hostname)
 	if err != nil {
 		return false, fmt.Sprintf("DNS resolution failed for hostname %s: cannot verify if it resolves to safe IP", hostname)
 	}
@@ -757,11 +761,20 @@ func newSSRFCheckRedirect(maxRedirects int) func(*http.Request, []*http.Request)
 		if redirectScheme != "http" && redirectScheme != "https" {
 			return fmt.Errorf("%w: invalid scheme %s", ErrSSRFRedirectBlocked, redirectScheme)
 		}
-		redirectHost := req.URL.Hostname()
-		if redirectHost != "" && IsSSRFWhitelisted(redirectHost) {
-			return nil
+		validationCtx := req.Context()
+		// net/http gives CheckRedirect the original request context, before
+		// adding Client.Timeout to the next transport request. Recover that
+		// overall deadline from the previous transport request, keeping any
+		// earlier caller deadline. Copy only the deadline: closing the previous
+		// response body may cancel its context independently of this redirect.
+		if req.Response != nil && req.Response.Request != nil {
+			if deadline, ok := req.Response.Request.Context().Deadline(); ok {
+				var cancel context.CancelFunc
+				validationCtx, cancel = context.WithDeadline(validationCtx, deadline)
+				defer cancel()
+			}
 		}
-		if err := validateURLForSSRFForOutbound(req.URL.String()); err != nil {
+		if err := validateURLForSSRFForOutboundContext(validationCtx, req.URL.String()); err != nil {
 			return fmt.Errorf("%w: %w", ErrSSRFRedirectBlocked, err)
 		}
 
@@ -785,7 +798,7 @@ func (t *SSRFValidatingRoundTripper) RoundTrip(req *http.Request) (*http.Respons
 	if t == nil || t.Base == nil {
 		return nil, fmt.Errorf("outbound request blocked: base transport is required")
 	}
-	if err := validateURLForSSRFForOutbound(req.URL.String()); err != nil {
+	if err := validateURLForSSRFForOutboundContext(req.Context(), req.URL.String()); err != nil {
 		return nil, fmt.Errorf("outbound request blocked by SSRF policy: %w", err)
 	}
 	return t.Base.RoundTrip(req)
@@ -860,6 +873,9 @@ func OutboundDialTimeout() time.Duration {
 // before establishing a connection. This provides an additional layer of SSRF protection
 // against DNS rebinding attacks during the connection phase.
 func SSRFSafeDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	// Parse host and port
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
@@ -870,12 +886,15 @@ func SSRFSafeDialContext(ctx context.Context, network, addr string) (net.Conn, e
 	// ValidateURLForSSRF which skips isSSRFSafeURL for whitelisted hosts.
 	// NOTE: This intentionally relaxes DNS-rebinding protection for whitelisted
 	// hosts. Admins must ensure whitelisted domains are under their control.
-	if IsSystemProxy(addr) || IsSSRFWhitelisted(host) {
+	if IsSystemProxy(addr) || IsSSRFWhitelistedContext(ctx, host) {
 		dialer := &net.Dialer{
 			Timeout:   OutboundDialTimeout(),
 			KeepAlive: 30 * time.Second,
 		}
 		return dialer.DialContext(ctx, network, addr)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	// Whitelist-only mode refuses a non-whitelisted NAME before the lookup
 	// below; an address is left to the checks that follow (#3378).
@@ -1141,6 +1160,15 @@ func mergeSSRFWhitelistRaws(primary, extra string) string {
 // IsSSRFWhitelisted checks whether the given hostname (or IP string) is
 // covered by the SSRF_WHITELIST environment variable.
 func IsSSRFWhitelisted(hostname string) bool {
+	return IsSSRFWhitelistedContext(context.Background(), hostname)
+}
+
+// IsSSRFWhitelistedContext also cancels DNS used to match a hostname to CIDRs.
+// A canceled lookup does not authorize the host.
+func IsSSRFWhitelistedContext(ctx context.Context, hostname string) bool {
+	if ctx.Err() != nil {
+		return false
+	}
 	// One read of the whitelist for the whole decision: SetSSRFWhitelistFromRaw
 	// can swap it between two loads, which would mix generations.
 	wl := loadSSRFWhitelist()
@@ -1153,7 +1181,7 @@ func IsSSRFWhitelisted(hostname string) bool {
 	if wl == nil || len(wl.cidrNets) == 0 || net.ParseIP(hostname) != nil || SSRFWhitelistOnlyEnabled() {
 		return false
 	}
-	if ips, err := net.LookupIP(hostname); err == nil {
+	if ips, err := net.DefaultResolver.LookupIP(ctx, "ip", hostname); err == nil {
 		for _, ip := range ips {
 			for _, cidr := range wl.cidrNets {
 				if cidr.Contains(ip) {
@@ -1330,6 +1358,15 @@ func parseHostForHint(rawURL string) (string, error) {
 //
 // Returns nil when the URL is safe, or an error describing the problem.
 func ValidateURLForSSRF(rawURL string) error {
+	return ValidateURLForSSRFContext(context.Background(), rawURL)
+}
+
+// ValidateURLForSSRFContext retains the URL policy while honoring the caller's
+// cancellation during both CIDR whitelist lookups and public-IP validation.
+func ValidateURLForSSRFContext(ctx context.Context, rawURL string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if rawURL == "" {
 		return nil // callers that require non-empty should validate separately
 	}
@@ -1358,8 +1395,11 @@ func ValidateURLForSSRF(rawURL string) error {
 	}
 
 	// If the host is whitelisted, skip the heavy checks.
-	if IsSSRFWhitelisted(hostname) {
+	if IsSSRFWhitelistedContext(ctx, hostname) {
 		return nil
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 
 	// Whitelist-only mode stops here: the validation below resolves the name,
@@ -1369,7 +1409,10 @@ func ValidateURLForSSRF(rawURL string) error {
 	}
 
 	// Delegate to the full SSRF validation (uses the normalised URL).
-	if safe, reason := isSSRFSafeURL(normalized); !safe {
+	if safe, reason := isSSRFSafeURLContext(ctx, normalized); !safe {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		return fmt.Errorf("SSRF validation failed: %s", reason)
 	}
 	return nil

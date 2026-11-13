@@ -124,7 +124,7 @@ type Fetcher struct {
 	client        *http.Client
 	timeout       time.Duration
 	maxBodySize   int64
-	validateURL   func(string) error
+	validateURL   func(context.Context, string) error
 	resolveIPs    func(context.Context, string) ([]net.IP, error)
 	dialContext   func(context.Context, string, string) (net.Conn, error)
 	renderBrowser func(context.Context, pinnedTarget) (string, error)
@@ -165,7 +165,7 @@ func newFetcher(timeout time.Duration, renderBrowser func(context.Context, pinne
 	fetcher := &Fetcher{
 		timeout:       timeout,
 		maxBodySize:   maxBodySize,
-		validateURL:   utils.ValidateURLForSSRF,
+		validateURL:   utils.ValidateURLForSSRFContext,
 		resolveIPs:    lookupPublicDNS,
 		renderBrowser: renderBrowser,
 	}
@@ -192,12 +192,12 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (string, error) {
 	if (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Hostname() == "" {
 		return "", newFetchError(ErrorInvalidURL, false, "invalid URL format")
 	}
-	if err := f.validateURL(rawURL); err != nil {
+	requestCtx, cancel := context.WithTimeout(ctx, f.timeout)
+	defer cancel()
+	if err := f.validateURL(requestCtx, rawURL); err != nil {
 		return "", classifyValidationError(err)
 	}
 
-	requestCtx, cancel := context.WithTimeout(ctx, f.timeout)
-	defer cancel()
 	httpResult, httpErr := f.fetchHTTP(requestCtx, rawURL, parsedURL)
 	if httpErr == nil {
 		content, parseErr := f.extractContent(httpResult)
@@ -322,7 +322,7 @@ func (f *Fetcher) pinnedDialContext() func(context.Context, string, string) (net
 		if err != nil {
 			return nil, fmt.Errorf("invalid address %s: %w", address, err)
 		}
-		if utils.IsSystemProxy(address) || utils.IsSSRFWhitelisted(host) {
+		if utils.IsSystemProxy(address) || utils.IsSSRFWhitelistedContext(ctx, host) {
 			return (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext(ctx, network, address)
 		}
 		// Whitelist-only mode refuses a non-whitelisted name before the
@@ -392,12 +392,18 @@ func (f *Fetcher) resolvePinnedTarget(ctx context.Context, rawURL string) (pinne
 	}
 	ips, err := f.resolveIPs(ctx, parsedURL.Hostname())
 	if err != nil {
-		return pinnedTarget{}, newFetchError(ErrorDNS, true, "DNS lookup failed for %s: %v", parsedURL.Hostname(), err)
+		if ctx.Err() != nil {
+			return pinnedTarget{}, classifyValidationError(ctx.Err())
+		}
+		return pinnedTarget{}, newFetchError(ErrorDNS, true, "DNS lookup failed for %s: %w", parsedURL.Hostname(), err)
 	}
 	if len(ips) == 0 {
 		return pinnedTarget{}, newFetchError(ErrorDNS, true, "DNS lookup returned no addresses for %s", parsedURL.Hostname())
 	}
-	if !utils.IsSSRFWhitelisted(parsedURL.Hostname()) {
+	if !utils.IsSSRFWhitelistedContext(ctx, parsedURL.Hostname()) {
+		if err := ctx.Err(); err != nil {
+			return pinnedTarget{}, classifyValidationError(err)
+		}
 		for _, ip := range ips {
 			if !utils.IsPublicIP(ip) {
 				return pinnedTarget{}, newFetchError(ErrorSSRFRejected, false, "host resolves to restricted IP %s", ip)
@@ -522,6 +528,12 @@ func classifyHTTPStatus(statusCode int, status string) error {
 }
 
 func classifyValidationError(err error) error {
+	if errors.Is(err, context.Canceled) {
+		return newFetchError(ErrorConnection, false, "fetch canceled: %w", err)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return newFetchError(ErrorTimeout, true, "fetch timed out: %w", err)
+	}
 	message := strings.ToLower(err.Error())
 	if strings.Contains(message, "dns resolution failed") || strings.Contains(message, "dns lookup failed") {
 		return newFetchError(ErrorDNS, true, "DNS lookup failed: %v", err)
@@ -533,19 +545,25 @@ func timeoutFetchError(err error) error {
 	if err == nil {
 		return nil
 	}
+	if errors.Is(err, context.Canceled) {
+		return newFetchError(ErrorConnection, false, "fetch canceled: %w", err)
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
-		return newFetchError(ErrorTimeout, true, "fetch timed out: %v", err)
+		return newFetchError(ErrorTimeout, true, "fetch timed out: %w", err)
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) && netErr.Timeout() {
-		return newFetchError(ErrorTimeout, true, "fetch timed out: %v", err)
+		return newFetchError(ErrorTimeout, true, "fetch timed out: %w", err)
 	}
 	return nil
 }
 
 func classifyRequestError(err error) error {
+	if errors.Is(err, context.Canceled) {
+		return newFetchError(ErrorConnection, false, "fetch canceled: %w", err)
+	}
 	if errors.Is(err, context.DeadlineExceeded) {
-		return newFetchError(ErrorTimeout, true, "fetch timed out: %v", err)
+		return newFetchError(ErrorTimeout, true, "fetch timed out: %w", err)
 	}
 	var dnsErr *net.DNSError
 	if errors.As(err, &dnsErr) {
@@ -553,7 +571,7 @@ func classifyRequestError(err error) error {
 	}
 	var netErr net.Error
 	if errors.As(err, &netErr) && netErr.Timeout() {
-		return newFetchError(ErrorTimeout, true, "fetch timed out: %v", err)
+		return newFetchError(ErrorTimeout, true, "fetch timed out: %w", err)
 	}
 	var unknownAuthority x509.UnknownAuthorityError
 	var certificateInvalid x509.CertificateInvalidError

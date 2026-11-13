@@ -90,7 +90,7 @@ func TestFetcherClassifiesNetworkFailures(t *testing.T) {
 
 func TestFetcherClassifiesDNSFailureDuringSSRFValidation(t *testing.T) {
 	fetcher := newTestFetcher(&http.Client{})
-	fetcher.validateURL = func(string) error {
+	fetcher.validateURL = func(context.Context, string) error {
 		return errors.New("SSRF validation failed: DNS resolution failed for hostname unavailable.example")
 	}
 
@@ -277,7 +277,7 @@ func TestFetcherKeepsOriginalHostForTLSAndHTTPRouting(t *testing.T) {
 		}, nil
 	})}
 	fetcher := newTestFetcher(client)
-	fetcher.validateURL = func(string) error { return nil }
+	fetcher.validateURL = func(context.Context, string) error { return nil }
 
 	_, err := fetcher.Fetch(context.Background(), "https://example.com/specs")
 
@@ -291,7 +291,7 @@ func newTestFetcher(client *http.Client) *Fetcher {
 		client:      client,
 		timeout:     time.Second,
 		maxBodySize: maxBodySize,
-		validateURL: func(string) error { return nil },
+		validateURL: func(context.Context, string) error { return nil },
 	}
 }
 
