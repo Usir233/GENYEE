@@ -4713,11 +4713,16 @@
         "internal/application/repository/retriever/sqlite/move.go",
         "internal/application/repository/retriever/sqlite/repository.go"
       ],
-      "invariants_checked": [],
-      "evidence": [
-        "test-reports/module-audit-20261113/retriever-estimate.json"
+      "invariants_checked": [
+        "Cloned vector rows carry destination chunk tags, including cleared mappings; failed sync cannot report completed clone and follows retry cleanup."
       ],
-      "findings": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/retriever-estimate.json",
+        "test-reports/module-audit-20261113/retriever-clone-tags.json"
+      ],
+      "findings": [
+        "RETRIEVER-R2"
+      ],
       "commits": [],
       "limitations": [
         "Source read; clone tag/index contract and backend-specific checks continue. Live PostgreSQL integration skipped without dedicated DSN."
@@ -5391,7 +5396,8 @@
       ],
       "invariants_checked": [
         "ReadResult.Error is a parse failure even when RPC transport succeeds; partial content must not become ready.",
-        "Wiki reconstruction excludes disabled text/image evidence and preserves complete manually edited bodies."
+        "Wiki reconstruction excludes disabled text/image evidence and preserves complete manually edited bodies.",
+        "Cloned vector rows carry destination chunk tags, including cleared mappings; failed sync cannot report completed clone and follows retry cleanup."
       ],
       "evidence": [
         {
@@ -5459,7 +5465,8 @@
           }
         },
         "test-reports/module-audit-20261113/parser-error-envelope.json",
-        "test-reports/module-audit-20261113/wiki-current-chunks.json"
+        "test-reports/module-audit-20261113/wiki-current-chunks.json",
+        "test-reports/module-audit-20261113/retriever-clone-tags.json"
       ],
       "findings": [
         {
@@ -5656,7 +5663,8 @@
           }
         },
         "PARSE-001",
-        "WIKI-CURRENT-CHUNKS"
+        "WIKI-CURRENT-CHUNKS",
+        "RETRIEVER-R2"
       ],
       "commits": [],
       "limitations": [
@@ -6072,13 +6080,16 @@
         "internal/application/service/retriever/registry.go"
       ],
       "invariants_checked": [
-        "Storage estimation uses SourceID, matching actual embedding persistence for generated and FAQ questions."
+        "Storage estimation uses SourceID, matching actual embedding persistence for generated and FAQ questions.",
+        "Cloned vector rows carry destination chunk tags, including cleared mappings; failed sync cannot report completed clone and follows retry cleanup."
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/retriever-estimate.json"
+        "test-reports/module-audit-20261113/retriever-estimate.json",
+        "test-reports/module-audit-20261113/retriever-clone-tags.json"
       ],
       "findings": [
-        "RETRIEVER-R1"
+        "RETRIEVER-R1",
+        "RETRIEVER-R2"
       ],
       "commits": [],
       "limitations": [
@@ -12326,6 +12337,10 @@
     {
       "commit": "ad50c218b",
       "module": "embedding pool cancellation"
+    },
+    {
+      "commit": "46396e6df",
+      "module": "Wiki enabled current source reconstruction"
     }
   ],
   "frontend_final_gate": {

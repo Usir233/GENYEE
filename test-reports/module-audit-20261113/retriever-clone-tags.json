@@ -1,0 +1,88 @@
+{
+  "module": "knowledge clone index tags",
+  "group": {
+    "id": 2,
+    "owned_files": [
+      "internal/application/service/knowledge_clone_move.go",
+      "internal/application/service/knowledge_clone_tags_test.go",
+      "internal/application/service/knowledge_transfer_test.go"
+    ],
+    "status": "frozen_waiting_root_commit",
+    "validation": {
+      "targeted": {
+        "status": "passed",
+        "exit_code": 0,
+        "command": "go test ./internal/application/service -run '^TestClone(IndicesUseDestinationTagForRetrieval|IndexTagFailureCleansDestinationAndCanRetry)$' -count=1",
+        "log": ".git/module-audit-20261113/retriever-clone-tag-after.log"
+      },
+      "service": {
+        "status": "passed",
+        "command": "go test ./internal/application/service -count=1",
+        "log": ".git/module-audit-20261113/retriever-clone-tag-service.log",
+        "exit_code": 0,
+        "duration_seconds": 74.239
+      },
+      "race": {
+        "status": "passed",
+        "command": "go test -race ./internal/application/service -run 'Clone|Transfer|Move' -count=1",
+        "log": ".git/module-audit-20261113/retriever-clone-tag-race.log",
+        "exit_code": 0
+      },
+      "fts5": {
+        "status": "passed",
+        "command": "go test -tags sqlite_fts5 ./internal/application/service -run '^TestClone(IndicesUseDestinationTagForRetrieval|IndexTagFailureCleansDestinationAndCanRetry)$' -count=1",
+        "log": ".git/module-audit-20261113/retriever-clone-tag-fts5.log",
+        "exit_code": 0
+      },
+      "diff_check": {
+        "status": "passed",
+        "command": "git diff --check -- internal/application/service/knowledge_clone_move.go internal/application/service/knowledge_transfer_test.go internal/application/service/knowledge_clone_tags_test.go"
+      }
+    }
+  },
+  "finding": {
+    "id": "R2",
+    "status": "fixed_validated_frozen",
+    "summary": "Document clone persists target chunk tags, but copied index rows retain source tags (SQLite) or omit them (PostgreSQL); filtering by destination tag misses cloned content.",
+    "paths": [
+      "internal/application/service/knowledge_clone_move.go",
+      "internal/application/repository/retriever/postgres/repository.go",
+      "internal/application/repository/retriever/sqlite/repository.go"
+    ],
+    "severity": "P2",
+    "before": {
+      "command": "go test ./internal/application/service -run '^TestClone(IndicesUseDestinationTagForRetrieval|IndexTagFailureCleansDestinationAndCanRetry)$' -count=1",
+      "exit_code": 1,
+      "log": ".git/module-audit-20261113/retriever-clone-tag-before.log",
+      "observed": [
+        "New/reused destination tag returns 0 actual SQLite vector hits, expected 2 sources.",
+        "Best-effort tag creation failure leaves target chunk untagged but copied index TagID remains source tag.",
+        "Injected tag-update failures do not fire because no tag synchronization occurs; clone wrongly succeeds."
+      ]
+    },
+    "fix": "After CopyIndices succeeds and before CloneChunk succeeds, synchronize every persisted destination chunk TagID (including empty) through the composite index API. Propagate update failure into existing destination cleanup; clone is not marked complete.",
+    "owned_files": [
+      "internal/application/service/knowledge_clone_move.go",
+      "internal/application/service/knowledge_clone_tags_test.go",
+      "internal/application/service/knowledge_transfer_test.go"
+    ],
+    "test_design": [
+      "Real temporary SQLite metadata/vector store with sqlite-vec and actual target-tag-filtered retrieval. Each chunk has body and generated-question rows.",
+      "New destination tag, reused tag, and unavailable mapping follow existing best-effort tag semantics; source rows unchanged.",
+      "SQLite triggers reject tag updates and optionally index deletion; verify failed state, successful cleanup or visibly retained references.",
+      "Normal executeKnowledgeClone retry removes failed clone, succeeds after outage, and repeated successful task delivery does not duplicate rows.",
+      "Existing image-vector copy fixture also asserts target tag map covers precisely copied chunk destinations."
+    ]
+  },
+  "changed_sha256": {
+    "internal/application/service/knowledge_clone_move.go": "3819b172c3bcac4c3e7bd4d0576de283fb23138ac0223994d965333fbce20aa6",
+    "internal/application/service/knowledge_clone_tags_test.go": "e0133ecb824af3d318701b17a179c6369a76d554b9d5df021c74f90c8052c024",
+    "internal/application/service/knowledge_transfer_test.go": "6b193d286daafecb904b7d015fe88786fce7ec3e9cf7fb419aae0f0c3ba514b1"
+  },
+  "root_review": "All production diff and new SQLite integration tests read; tag remapping/rollback context traced; validation logs checked.",
+  "limitations": [
+    "Actual sqlite-vec fixture tests target-tag retrieval. PostgreSQL/live vendor copy APIs not exercised by this group.",
+    "Copy completion now requires successful tag sync; visible failure follows existing cleanup and task retry.",
+    "Separate clone ContentRevision candidate remains under investigation; not covered by this fix."
+  ]
+}

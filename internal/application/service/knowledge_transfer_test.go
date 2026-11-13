@@ -476,7 +476,8 @@ func TestTableSummaryCleanupDoesNotFollowMovedDocument(t *testing.T) {
 // cloneCopyEngine records the chunk mapping CloneChunk hands to CopyIndices.
 type cloneCopyEngine struct {
 	parentChildRetrieveEngine
-	copied map[string]string
+	copied     map[string]string
+	copiedTags map[string]string
 }
 
 func (e *cloneCopyEngine) Support() []types.RetrieverType {
@@ -487,6 +488,11 @@ func (e *cloneCopyEngine) CopyIndices(
 	_ context.Context, _ string, _, chunks map[string]string, _ string, _ int, _ string,
 ) error {
 	e.copied = chunks
+	return nil
+}
+
+func (e *cloneCopyEngine) BatchUpdateChunkTagID(_ context.Context, tags map[string]string) error {
+	e.copiedTags = tags
 	return nil
 }
 
@@ -529,6 +535,10 @@ func TestCloneCopiesImageVectorsOnlyIntoKBsThatTakeThem(t *testing.T) {
 				kinds = append(kinds, c.ChunkType)
 			}
 			require.Contains(t, engine.copied, "chunk")
+			require.Len(t, engine.copiedTags, len(engine.copied))
+			for _, targetChunkID := range engine.copied {
+				require.Contains(t, engine.copiedTags, targetChunkID)
+			}
 			if targetOn {
 				require.ElementsMatch(t, []types.ChunkType{types.ChunkTypeText, types.ChunkTypeImageVector}, kinds)
 				require.Contains(t, engine.copied, "image-vector")

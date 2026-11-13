@@ -458,6 +458,16 @@ func (s *knowledgeService) CloneChunk(ctx context.Context, src, dst *types.Knowl
 	); err != nil {
 		return err
 	}
+	// Index copies cannot map KB-scoped tags themselves. Use the tags already
+	// persisted on the destination chunks, including an empty tag when mapping
+	// was unavailable. A failure follows the same cleanup path as a partial copy.
+	chunkTags := make(map[string]string, len(targetChunks))
+	for _, chunk := range targetChunks {
+		chunkTags[chunk.ID] = chunk.TagID
+	}
+	if err := retrieveEngine.BatchUpdateChunkTagID(ctx, chunkTags); err != nil {
+		return fmt.Errorf("failed to update cloned index tags: %w", err)
+	}
 	return nil
 }
 
