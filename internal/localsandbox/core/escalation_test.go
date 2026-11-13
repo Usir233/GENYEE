@@ -51,7 +51,7 @@ func TestProposeGrantDoesNotWalkUpPastAMissingDirectory(t *testing.T) {
 
 func TestProposeGrantRejectsTheApplicationTree(t *testing.T) {
 	env := proposeFixture(t)
-	app := filepath.Join(env.home, ".weknora")
+	app := filepath.Join(env.home, ".genyee")
 	skills := filepath.Join(app, "skills", "pdf")
 	otherSession := filepath.Join(app, "sessions", "2026", "10", "08", "session-other")
 	desktop := filepath.Join(env.home, "Desktop")

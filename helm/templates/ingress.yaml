@@ -9,10 +9,10 @@ Routes /api to backend, / to frontend.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: {{ include "weknora.fullname" . }}
+  name: {{ include "genyee.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "weknora.componentLabels" (dict "component" "ingress" "context" .) | nindent 4 }}
+    {{- include "genyee.componentLabels" (dict "component" "ingress" "context" .) | nindent 4 }}
   {{- $annotations := deepCopy (.Values.ingress.annotations | default dict) }}
   {{- if and (not .Values.frontend.enabled) (not (hasKey $annotations "nginx.ingress.kubernetes.io/server-snippet")) }}
     {{- $_ := set $annotations "nginx.ingress.kubernetes.io/server-snippet" "location ^~ /api/v1/local-browser/internal {\n  return 404;\n}\n" }}
@@ -47,7 +47,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "weknora.serviceName" (dict "component" "frontend" "context" .) | quote }}
+                name: {{ include "genyee.serviceName" (dict "component" "frontend" "context" .) | quote }}
                 port:
                   name: http
           {{- end }}
@@ -57,7 +57,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "weknora.serviceName" (dict "component" "app" "context" .) | quote }}
+                name: {{ include "genyee.serviceName" (dict "component" "app" "context" .) | quote }}
                 port:
                   name: http
           {{- else }}
@@ -66,7 +66,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "weknora.serviceName" (dict "component" "frontend" "context" .) | quote }}
+                name: {{ include "genyee.serviceName" (dict "component" "frontend" "context" .) | quote }}
                 port:
                   name: http
           {{- end }}
@@ -76,7 +76,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: {{ include "weknora.serviceName" (dict "component" "frontend" "context" .) | quote }}
+                name: {{ include "genyee.serviceName" (dict "component" "frontend" "context" .) | quote }}
                 port:
                   name: http
           {{- end }}

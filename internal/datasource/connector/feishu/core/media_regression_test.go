@@ -38,8 +38,8 @@ func TestTableViewKeepsFileAndBoard(t *testing.T) {
 				if len(atts) != 1 || len(imgs) != 1 {
 					t.Fatalf("table view media lost: attachments=%d images=%d markdown=%q", len(atts), len(imgs), md)
 				}
-				if strings.Count(string(md), "weknora-att://pdf") != 1 ||
-					strings.Count(string(md), "weknora-img://") != 1 {
+				if strings.Count(string(md), "genyee-att://pdf") != 1 ||
+					strings.Count(string(md), "genyee-img://") != 1 {
 					t.Fatalf("media must render exactly once: %s", md)
 				}
 			}

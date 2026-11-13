@@ -31,7 +31,7 @@ type Project struct {
 const FileName = "project.yaml"
 
 // DirName is the project-link directory name.
-const DirName = ".weknora"
+const DirName = ".genyee"
 
 const maxWalkDepth = 64
 

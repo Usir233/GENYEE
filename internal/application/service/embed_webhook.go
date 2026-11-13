@@ -117,7 +117,7 @@ func DispatchEmbedWebhook(ch *types.EmbedChannel, eventType, sessionID string, p
 			_, _ = mac.Write(raw)
 			sig := "sha256=" + hex.EncodeToString(mac.Sum(nil))
 			req.Header.Set("X-GENYEE-Signature", sig)
-			req.Header.Set("X-WeKnora-Signature", sig)
+			req.Header.Set("X-Genyee-Signature", sig)
 		}
 		resp, err := newEmbedWebhookHTTPClient().Do(req)
 		if err != nil {

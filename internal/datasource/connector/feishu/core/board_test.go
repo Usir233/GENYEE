@@ -92,7 +92,7 @@ func TestFetchDocxWithBlocks_BoardExportSuccess(t *testing.T) {
 	if !strings.Contains(string(main.Content), "![图片](data:image/png;base64,") {
 		t.Errorf("board not inlined as base64 data URI:\n%s", main.Content)
 	}
-	if strings.Contains(string(main.Content), "weknora-img://") {
+	if strings.Contains(string(main.Content), "genyee-img://") {
 		t.Errorf("internal marker leaked into stored markdown:\n%s", main.Content)
 	}
 	if main.Metadata["image_map"] != "" {
@@ -120,7 +120,7 @@ func TestFetchDocxWithBlocks_BoardExportForbiddenDegrades(t *testing.T) {
 	if !strings.Contains(string(main.Content), "![图片]()") {
 		t.Errorf("markdown missing board degrade note:\n%s", main.Content)
 	}
-	if strings.Contains(string(main.Content), "weknora-img") {
+	if strings.Contains(string(main.Content), "genyee-img") {
 		t.Errorf("unresolved board marker left in markdown:\n%s", main.Content)
 	}
 	if main.Metadata["image_map"] != "" {
@@ -438,7 +438,7 @@ func TestFetchDocxWithBlocks_MentionDocTitleBackfill(t *testing.T) {
 // A header can advertise dimensions far beyond the compressed download size.
 // The sentinel codec proves that the full pixel decoder is never invoked.
 func TestTrimBoardImageRejectsOversizeBeforeDecode(t *testing.T) {
-	const magic = "weknora-oversized-board-test"
+	const magic = "genyee-oversized-board-test"
 	image.RegisterFormat("png", magic,
 		func(io.Reader) (image.Image, error) {
 			panic("oversized board reached pixel decoder")

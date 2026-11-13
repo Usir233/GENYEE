@@ -52,7 +52,7 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		Long: `Create a new knowledge entry by passing Markdown content directly via --text.
 Useful for short snippets, agent-generated content, or structured notes that
 don't require a file upload or remote URL. KB resolution follows the standard
-4-level chain: --kb flag > GENYEE_KB_ID env > .weknora/project.yaml > error.
+4-level chain: --kb flag > GENYEE_KB_ID env > .genyee/project.yaml > error.
 
   --text <content>    Document text in Markdown format (required).
   --title <title>     Display title stored with the entry (matches doc update --title).

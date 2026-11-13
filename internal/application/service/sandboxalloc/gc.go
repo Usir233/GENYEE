@@ -17,12 +17,12 @@ import (
 
 const (
 	// UserMachineGCLockKey makes one replica scan at a time.
-	UserMachineGCLockKey = "weknora:sandbox:user-gc:lock"
+	UserMachineGCLockKey = "genyee:sandbox:user-gc:lock"
 	// UserMachineGCInterval is how often the container runs the scan.
 	UserMachineGCInterval = time.Hour
 	// UserMachineGCCursorKey remembers where a scan stopped, so the next one
 	// continues instead of rereading the same oldest candidates.
-	UserMachineGCCursorKey = "weknora:sandbox:user-gc:cursor"
+	UserMachineGCCursorKey = "genyee:sandbox:user-gc:cursor"
 	gcLockLease            = 5 * time.Minute
 	gcBatch                = 200
 	gcMaxPerRun            = 2000

@@ -9,17 +9,17 @@ if [ -z "$SID" ] || [ -z "$BROWSER_ROOT" ]; then
   echo "agent-browser: GENYEE_SESSION_ID / GENYEE_BROWSER_ROOT not set; refusing to run unisolated" >&2
   exit 70
 fi
-AB_REAL="${WK_AB_REAL:-/opt/agent-browser/bin/agent-browser}"
-WK_DISPLAY="${WK_DISPLAY:-/usr/local/bin/wk-display}"
-SYNC_CMD="${WK_SYNC_CMD:-/usr/local/bin/wk-browser-sync}"
-GOVERNOR_CMD="${WK_GOVERNOR_CMD:-/usr/local/bin/wk-ua-governor}"
-GOVERNOR_WAIT_S="${WK_GOVERNOR_WAIT_S:-5}"
-CHROME="${WK_CHROME:-/usr/local/bin/chrome-wk}"
-LINK_CHROME="${WK_LINK_CHROME:-/usr/local/bin/link-chrome-session}"
-IDLE_MS="${WK_IDLE_MS:-3600000}"
-KEEPALIVE_S="${WK_KEEPALIVE_S:-300}"
-LOCK_WAIT_S="${WK_LOCK_WAIT_S:-30}"
-CGROUP_DIR="${WK_CGROUP_DIR:-/sys/fs/cgroup}"
+AB_REAL="${GY_AB_REAL:-/opt/agent-browser/bin/agent-browser}"
+GY_DISPLAY="${GY_DISPLAY:-/usr/local/bin/gy-display}"
+SYNC_CMD="${GY_SYNC_CMD:-/usr/local/bin/gy-browser-sync}"
+GOVERNOR_CMD="${GY_GOVERNOR_CMD:-/usr/local/bin/gy-ua-governor}"
+GOVERNOR_WAIT_S="${GY_GOVERNOR_WAIT_S:-5}"
+CHROME="${GY_CHROME:-/usr/local/bin/chrome-gy}"
+LINK_CHROME="${GY_LINK_CHROME:-/usr/local/bin/link-chrome-session}"
+IDLE_MS="${GY_IDLE_MS:-3600000}"
+KEEPALIVE_S="${GY_KEEPALIVE_S:-300}"
+LOCK_WAIT_S="${GY_LOCK_WAIT_S:-30}"
+CGROUP_DIR="${GY_CGROUP_DIR:-/sys/fs/cgroup}"
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 # Output and network switches only; every other AGENT_BROWSER_* variable could
 # move the daemon, the profile or the browser away from this session's.
@@ -30,7 +30,7 @@ AGENT_BROWSER_COLOR_SCHEME AGENT_BROWSER_DOWNLOAD_PATH AGENT_BROWSER_PROXY \
 AGENT_BROWSER_PROXY_BYPASS AGENT_BROWSER_IGNORE_HTTPS_ERRORS "
 
 KEEPALIVE_MODE=0
-if [ "${1:-}" = __wk_keepalive ]; then KEEPALIVE_MODE=1; shift; fi
+if [ "${1:-}" = __gy_keepalive ]; then KEEPALIVE_MODE=1; shift; fi
 
 # Discard caller overrides that could escape the session's browser/profile.
 SUBCMD_NAV=0; CLOSE_SEEN=0; HEADED_REQUESTED=0; HEADED_FLAG_SEEN=0
@@ -149,9 +149,9 @@ SEAT=""
 if [ "$HEADED_REQUESTED" = 1 ]; then
   errf="$BROWSER_ROOT/.claim.err"
   if [ "$CLOSE_SEEN" = 0 ]; then
-    SEAT=$("$WK_DISPLAY" claim "$SID" 2>"$errf") || SEAT=""
+    SEAT=$("$GY_DISPLAY" claim "$SID" 2>"$errf") || SEAT=""
   else
-    SEAT=$("$WK_DISPLAY" where "$SID" 2>"$errf") || SEAT=""
+    SEAT=$("$GY_DISPLAY" where "$SID" 2>"$errf") || SEAT=""
   fi
   case "$SEAT" in
     ""|*[!0-9]*)
@@ -190,7 +190,7 @@ ab() {
       AGENT_BROWSER_*) case "$AB_ENV_KEEP" in *" $v "*) ;; *) unset_env+=(-u "$v") ;; esac ;;
     esac
   done
-  env "${unset_env[@]}" HOME="$BROWSER_ROOT/home" DISPLAY="$disp" WK_SEAT="$SEAT" \
+  env "${unset_env[@]}" HOME="$BROWSER_ROOT/home" DISPLAY="$disp" GY_SEAT="$SEAT" \
     AGENT_BROWSER_CONFIG="$AB_CONFIG" \
     AGENT_BROWSER_SOCKET_DIR="$BROWSER_ROOT/home/.agent-browser" \
     AGENT_BROWSER_EXECUTABLE_PATH="$CHROME" AGENT_BROWSER_SESSION=main \
@@ -205,7 +205,7 @@ keepalive() {
   exec 9>"$BROWSER_ROOT/.keepalive.lock"
   flock -n 9 || return 0
   while sleep "$KEEPALIVE_S" && browser_main_pid >/dev/null 2>&1; do
-    "$WK_DISPLAY" watched "$SID" >/dev/null 2>&1 || continue
+    "$GY_DISPLAY" watched "$SID" >/dev/null 2>&1 || continue
     # Re-checked under the lock: a command sent to a closed daemon relaunches it.
     ( flock -n 7 || exit 0; browser_main_pid >/dev/null 2>&1 || exit 0; ab get url >/dev/null 2>&1 ) \
       7>"$BROWSER_ROOT/.command.lock" 9>&-
@@ -243,7 +243,7 @@ explain_failure() {
 # Serialize commands per session; activity defers receiver reloads. The
 # secret-fill helper already holds this lock while it drives the browser.
 # The lock only orders commands, so honouring the flag opens no new access.
-if [ "${WK_AB_LOCK_HELD:-}" != 1 ]; then
+if [ "${GY_AB_LOCK_HELD:-}" != 1 ]; then
   exec 7>"$BROWSER_ROOT/.command.lock"
   if ! flock -w "$LOCK_WAIT_S" 7; then
     echo "agent-browser: another browser command of this session is still running (waited ${LOCK_WAIT_S}s); retry when it finishes" >&2
@@ -311,12 +311,12 @@ if [ "$SUBCMD_NAV" = 1 ]; then
         echo "[wrapper] fingerprint governor not attached; proceeding ungoverned" >&2
     fi
     rm -f "$BROWSER_ROOT/.launching"
-  elif [ "${WK_DESKTOP_CLICK:-}" = 1 ]; then
+  elif [ "${GY_DESKTOP_CLICK:-}" = 1 ]; then
     DESKTOP_JOIN=1
   fi
   # The active tab is the human's once a desktop click opened or joined the
   # browser; the agent's next navigation takes a tab of its own instead.
-  if [ "${WK_DESKTOP_CLICK:-}" = 1 ]; then
+  if [ "${GY_DESKTOP_CLICK:-}" = 1 ]; then
     touch "$HUMAN_TAB"
   elif [ "$cold" = 0 ] && [ -e "$HUMAN_TAB" ]; then
     rm -f "$HUMAN_TAB"
@@ -324,7 +324,7 @@ if [ "$SUBCMD_NAV" = 1 ]; then
   fi
   # Neutral cwd/stdio and no command lock inherited by machine daemons.
   (cd / && exec setsid "$SYNC_CMD") >>"$BROWSER_ROOT/.sync.log" 2>&1 </dev/null 7>&- &
-  (cd / && exec setsid "$SELF" __wk_keepalive) >/dev/null 2>&1 </dev/null 7>&- &
+  (cd / && exec setsid "$SELF" __gy_keepalive) >/dev/null 2>&1 </dev/null 7>&- &
 fi
 
 # A desktop click on a running browser must not navigate the page the agent
@@ -345,7 +345,7 @@ if [ "${DESKTOP_JOIN:-0}" = 1 ]; then
   url="${CLEAN[$((i + 1))]:-about:blank}"
   if [ "$url" = about:blank ]; then
     if [ -n "$SEAT" ]; then
-      DISPLAY=":$SEAT" timeout 3 "${WK_XDOTOOL:-xdotool}" \
+      DISPLAY=":$SEAT" timeout 3 "${GY_XDOTOOL:-xdotool}" \
         search --class google-chrome windowactivate %@ >/dev/null 2>&1 7>&- || true
     fi
     exit 0

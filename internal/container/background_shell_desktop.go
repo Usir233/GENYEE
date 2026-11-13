@@ -46,7 +46,7 @@ func newShellJobService(
 		return nil, err
 	}
 	local, err := service.NewLocalShellJobService(
-		provider.LocalSandboxService(), bg, events, filepath.Join(home, ".weknora", "jobs"),
+		provider.LocalSandboxService(), bg, events, filepath.Join(home, ".genyee", "jobs"),
 	)
 	if err != nil {
 		return nil, err

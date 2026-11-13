@@ -154,8 +154,8 @@ func TestRedisSessionSandboxBindingUsesHashTagAndNoTTL(t *testing.T) {
 	bindingKey := store.bindingKey(key)
 	lockKey := store.lockKey(key)
 
-	require.Equal(t, "weknora:sandbox:session:{test:42:session-a}:binding", bindingKey)
-	require.Equal(t, "weknora:sandbox:session:{test:42:session-a}:create-lock", lockKey)
+	require.Equal(t, "genyee:sandbox:session:{test:42:session-a}:binding", bindingKey)
+	require.Equal(t, "genyee:sandbox:session:{test:42:session-a}:create-lock", lockKey)
 
 	created, err := store.Create(context.Background(), key, validSessionSandboxBinding(key, "sandbox-a"))
 	require.NoError(t, err)
@@ -311,11 +311,11 @@ func TestRedisUserMachineKeysShareOneHashTag(t *testing.T) {
 	require.True(t, created)
 
 	digest := testUserMachine().Digest(store.namespace)
-	require.True(t, mini.Exists("weknora:sandbox:user:{"+digest+"}:binding"))
+	require.True(t, mini.Exists("genyee:sandbox:user:{"+digest+"}:binding"))
 
 	scoped := SessionSandboxKey{TenantID: 42, SessionID: userKeySessionID, User: testUserMachine()}
 	require.NoError(t, store.BeginTurn(ctx, scoped))
-	require.True(t, mini.Exists("weknora:sandbox:user:{"+digest+"}:session:"+userKeySessionID+":turn"))
+	require.True(t, mini.Exists("genyee:sandbox:user:{"+digest+"}:session:"+userKeySessionID+":turn"))
 
 	got, err := store.Get(ctx, key)
 	require.NoError(t, err)

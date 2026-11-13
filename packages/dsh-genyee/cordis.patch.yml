@@ -2,7 +2,7 @@
 # Override the row from the profile's own cordis.patch.yml to point the plugin
 # at your deployment; every field is documented in README.md.
 - insert:
-    - id: weknora
+    - id: genyee
       # Must be the published package name — the loader imports this specifier.
       # Quoted because YAML reserves a leading '@' in plain scalars.
       name: "@genyee/dsh-genyee"

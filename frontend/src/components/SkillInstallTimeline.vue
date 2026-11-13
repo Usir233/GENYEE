@@ -233,8 +233,8 @@ function stop() {
 // expired and the durable history is the only remaining source.
 async function follow(run: number): Promise<boolean> {
   const url = `${getApiBaseUrl()}${configSkillTranscriptUrl(props.configId, props.skillId)}`
-  const token = localStorage.getItem('weknora_token')
-  const tenantId = localStorage.getItem('weknora_selected_tenant_id')
+  const token = localStorage.getItem('genyee_token')
+  const tenantId = localStorage.getItem('genyee_selected_tenant_id')
   const ac = new AbortController()
   controller = ac
   if (run !== openRun) {

@@ -15,7 +15,7 @@ import {
   stripIncompleteCitationTag,
   type CitationKnowledgeRef,
 } from './citationMarkdown.ts'
-import { renderWeKnoraEntityLinks, type WeKnoraEntityLinkLabels } from './weknoraEntityLinks.ts'
+import { renderGENYEEEntityLinks, type GENYEEEntityLinkLabels } from './genyeeEntityLinks.ts'
 
 const STREAMING_IMAGE_PLACEHOLDER =
   '<span class="streaming-image-loading"><span class="streaming-image-loading__skeleton"></span></span>'
@@ -47,7 +47,7 @@ export type RenderChatMarkdownOptions = {
   injectCachedMermaidSvg?: (html: string, cachedSvgHtml?: CachedMermaidSvgHtml) => string
   prepareMarkdown?: (markdown: string, cachedSvgHtml?: CachedMermaidSvgHtml) => string
   /** Render `genyee://` URIs as clickable entity links with these labels. */
-  entityLinkLabels?: WeKnoraEntityLinkLabels
+  entityLinkLabels?: GENYEEEntityLinkLabels
 }
 
 export function configureMarkedForChatMarkdown(): void {
@@ -545,7 +545,7 @@ export function renderChatMarkdown(rawMarkdown: unknown, options: RenderChatMark
     ? restoredHtml
     : collapseStandaloneCitationParagraphs(restoredHtml)
   const entityHtml = options.entityLinkLabels
-    ? renderWeKnoraEntityLinks(citationHtml, options.entityLinkLabels)
+    ? renderGENYEEEntityLinks(citationHtml, options.entityLinkLabels)
     : citationHtml
   const tableWrappedHtml = wrapChatMarkdownTables(entityHtml)
   const strongTitleHtml = markStandaloneStrongParagraphs(tableWrappedHtml)

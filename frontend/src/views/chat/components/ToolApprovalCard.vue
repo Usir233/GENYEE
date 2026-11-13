@@ -183,7 +183,7 @@ const awaitingInDock = computed(() => open.value && props.variant !== 'dock' && 
 const hasArgs = computed(() => argsText.value.trim().length > 0)
 
 // The service name the backend gives its own operations (run_operation).
-const isOperation = computed(() => props.serviceName === 'GENYEE' || props.serviceName === 'WeKnora')
+const isOperation = computed(() => props.serviceName === 'GENYEE' || props.serviceName === 'GENYEE')
 
 // A batch operation ends its description with one "- " line per item it acts
 // on; those render as a list so every item stays visible. "Label: value"
@@ -215,7 +215,7 @@ const descriptionParts = computed(() => {
       ? { label: counted[1], value: match[2], count: counted[2] }
       : { label: match[1], value: match[2] })
   }
-  // A WeKnora operation's description opens with its summary, then the label
+  // A GENYEE operation's description opens with its summary, then the label
   // of what it acts on; they make the question instead of the raw operation id.
   let action = ''
   let target = ''

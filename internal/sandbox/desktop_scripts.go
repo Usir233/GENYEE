@@ -30,7 +30,7 @@ const DesktopEnsureUnsupportedExit = 2
 // a BYO image without a desktop.
 const DesktopEnsureUnsupportedMarker = "GENYEE_DESKTOP_UNSUPPORTED"
 
-// DesktopNoFreeScreenMarker is wk-display claim when every seat is busy.
+// DesktopNoFreeScreenMarker is gy-display claim when every seat is busy.
 // ensure.sh forwards it on stderr. The caller must not reset the shared
 // websockify in response: that listener carries every other session's desktop.
 const DesktopNoFreeScreenMarker = "GENYEE_NO_FREE_SCREEN"

@@ -32,4 +32,4 @@
 
 不要把「自动执行」理解为无限权限。涉及外部系统、技能安装或本机文件的任务，还会受到对应工具、本机沙箱与资源授权的限制。
 
-相关内容：[GENYEE 助手](26-weknora-assistant.md) · [自动化](27-automations.md) · [技能与沙箱](22-skills-sandbox.md)
+相关内容：[GENYEE 助手](26-genyee-assistant.md) · [自动化](27-automations.md) · [技能与沙箱](22-skills-sandbox.md)

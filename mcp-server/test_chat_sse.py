@@ -8,7 +8,7 @@ from unittest import mock
 
 import requests
 
-import weknora_mcp_server as srv
+import genyee_mcp_server as srv
 
 
 class ChatSSETest(unittest.TestCase):

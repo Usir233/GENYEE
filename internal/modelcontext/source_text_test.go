@@ -19,8 +19,8 @@ func TestOutputTextExpandsHandlesAnywhereWithoutTouchingProse(t *testing.T) {
 	got := registry.DecodeOutputText(
 		"维生素 B1 与 W6 型号; 入库 kb://1, 文档 doc://1, 来源 [榜单](url://1), 片段 chunk://1, 未知 kb://9.")
 	require.Equal(t,
-		"维生素 B1 与 W6 型号; 入库 weknora://kb/kb-real, 文档 weknora://doc/doc-real, "+
-			"来源 [榜单](https://example.com/hot), 片段 weknora://doc/doc-real, 未知 .",
+		"维生素 B1 与 W6 型号; 入库 genyee://kb/kb-real, 文档 genyee://doc/doc-real, "+
+			"来源 [榜单](https://example.com/hot), 片段 genyee://doc/doc-real, 未知 .",
 		got)
 }
 
@@ -48,7 +48,7 @@ func TestStreamDecoderExpandsHandlesSplitAtAnyByte(t *testing.T) {
 	registry.RegisterKnowledgeBase("kb-real")
 	registry.RegisterWeb("https://example.com/a", "")
 	text := "undo: kb://1 then url://1; doc text ends with k"
-	want := "undo: weknora://kb/kb-real then https://example.com/a; doc text ends with k"
+	want := "undo: genyee://kb/kb-real then https://example.com/a; doc text ends with k"
 	for split := 1; split < len(text); split++ {
 		decoder := registry.StreamDecoder()
 		got := decoder.Feed(text[:split]) + decoder.Feed(text[split:]) + decoder.Flush()
@@ -102,7 +102,7 @@ func TestSavedInstructionRoundTripsAcrossRequests(t *testing.T) {
 	instruction := stored.Params.Instruction
 	require.Equal(t,
 		"抓取 https://dataxapi.com/zh/tools/hot-search/zhihu.md 并用 knowledge.create_manual 写入 "+
-			"weknora://kb/kb-archive，参数 knowledge_base_id: weknora://kb/kb-archive",
+			"genyee://kb/kb-archive，参数 knowledge_base_id: genyee://kb/kb-archive",
 		instruction)
 
 	// The echo of the saved instruction reads back in the writer's own handles,
@@ -135,12 +135,12 @@ func TestDelegatedTaskCarriesDurableReferencesToTheChild(t *testing.T) {
 		Name: "spawn_agent", Arguments: `{"task":"Summarize doc://1 from kb://1"}`,
 	}}}
 	parent.DecodeToolCalls(calls)
-	require.JSONEq(t, `{"task":"Summarize weknora://doc/doc-a from weknora://kb/kb-a"}`, calls[0].Function.Arguments)
+	require.JSONEq(t, `{"task":"Summarize genyee://doc/doc-a from genyee://kb/kb-a"}`, calls[0].Function.Arguments)
 
 	child := NewRegistry(true)
 	child.RegisterKnowledgeBase("kb-child-bound")
 	encoded := child.EncodeMessages([]chat.Message{{
-		Role: "user", Content: "Summarize weknora://doc/doc-a from weknora://kb/kb-a",
+		Role: "user", Content: "Summarize genyee://doc/doc-a from genyee://kb/kb-a",
 	}})
 	require.Equal(t, "Summarize doc://1 from kb://2", encoded[0].Content)
 }
@@ -158,7 +158,7 @@ func TestUnknownHandleInFreeTextFailsClosed(t *testing.T) {
 func TestDurableURIInIDFieldDecodesToBareID(t *testing.T) {
 	registry := NewRegistry(true)
 	calls := []types.LLMToolCall{{Function: types.FunctionCall{
-		Name: "list_documents", Arguments: `{"knowledge_base_id":"weknora://kb/kb-real"}`,
+		Name: "list_documents", Arguments: `{"knowledge_base_id":"genyee://kb/kb-real"}`,
 	}}}
 	registry.DecodeToolCalls(calls)
 	require.JSONEq(t, `{"knowledge_base_id":"kb-real"}`, calls[0].Function.Arguments)
@@ -167,11 +167,11 @@ func TestDurableURIInIDFieldDecodesToBareID(t *testing.T) {
 func TestHistoryAnswerWithDurableURIsReplaysAsHandles(t *testing.T) {
 	registry := NewRegistry(true)
 	encoded := registry.EncodeMessages([]chat.Message{
-		{Role: "assistant", Content: "已写入 weknora://kb/kb-real", ReasoningContent: "target weknora://kb/kb-real"},
+		{Role: "assistant", Content: "已写入 genyee://kb/kb-real", ReasoningContent: "target genyee://kb/kb-real"},
 	})
 	require.Equal(t, "已写入 kb://1", encoded[0].Content)
 	require.Equal(t, "target kb://1", encoded[0].ReasoningContent)
-	require.Equal(t, "已写入 weknora://kb/kb-real", registry.DecodeOutputText(encoded[0].Content))
+	require.Equal(t, "已写入 genyee://kb/kb-real", registry.DecodeOutputText(encoded[0].Content))
 }
 
 func mustJSON(t *testing.T, value string) string {

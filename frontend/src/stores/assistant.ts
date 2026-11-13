@@ -105,14 +105,14 @@ export interface AssistantContextAction {
   disabled?: boolean
 }
 
-const SESSION_KEY_PREFIX = 'weknora:assistant-session'
-const VISIBLE_KEY_PREFIX = 'weknora:assistant-visible'
-const MODEL_KEY_PREFIX = 'weknora:assistant-model'
-const ACCESS_KEY_PREFIX = 'weknora:assistant-access'
-const PAGE_ACCESS_KEY_PREFIX = 'weknora:assistant-page-access'
-const LAYOUT_KEY = 'weknora:assistant-layout'
-const WIDTH_KEY = 'weknora:assistant-width'
-const ENTRY_KEY = 'weknora:assistant-entry'
+const SESSION_KEY_PREFIX = 'genyee:assistant-session'
+const VISIBLE_KEY_PREFIX = 'genyee:assistant-visible'
+const MODEL_KEY_PREFIX = 'genyee:assistant-model'
+const ACCESS_KEY_PREFIX = 'genyee:assistant-access'
+const PAGE_ACCESS_KEY_PREFIX = 'genyee:assistant-page-access'
+const LAYOUT_KEY = 'genyee:assistant-layout'
+const WIDTH_KEY = 'genyee:assistant-width'
+const ENTRY_KEY = 'genyee:assistant-entry'
 
 /** Docked pushes the page aside; floating hovers over it. Neither blocks it. */
 export type AssistantLayout = 'docked' | 'floating'

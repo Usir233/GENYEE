@@ -7,12 +7,12 @@ import (
 
 const (
 	// StandardTemplateName is the provider-side name of the CLI template.
-	StandardTemplateName = "weknora"
+	StandardTemplateName = "genyee"
 
 	// DesktopTemplateName is the provider-side name of the desktop template.
 	// It is a sibling of StandardTemplateName, not a replacement: a config
 	// uses one or the other, decided by Config.DesktopEnabled.
-	DesktopTemplateName = "weknora-desktop"
+	DesktopTemplateName = "genyee-desktop"
 )
 
 // DefaultE2BTemplateTag is the tag E2B resolves when a sandbox is created from a

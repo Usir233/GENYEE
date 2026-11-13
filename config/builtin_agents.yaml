@@ -274,7 +274,7 @@ builtin_agents:
       multi_turn_enabled: true
 
 
-  - id: "builtin-weknora-assistant"
+  - id: "builtin-genyee-assistant"
     avatar: "🧭"
     is_builtin: true
     i18n:
@@ -296,7 +296,7 @@ builtin_agents:
     config:
       agent_mode: "smart-reasoning"
       agent_type: "custom"
-      system_prompt_id: "weknora_assistant"
+      system_prompt_id: "genyee_assistant"
       temperature: 0.3
       max_completion_tokens: 24576
       max_iterations: -1
@@ -305,8 +305,8 @@ builtin_agents:
       kb_selection_mode: "all"
       retrieve_kb_only_when_mentioned: false
       retain_retrieval_history: true
-      # find_operations / run_operation and search_weknora_docs /
-      # read_weknora_doc are not listed: they are granted to this agent by ID
+      # find_operations / run_operation and search_genyee_docs /
+      # read_genyee_doc are not listed: they are granted to this agent by ID
       # at run time (types.GrantsOperationCatalog, types.GrantsProductDocs) and
       # can never be selected on a tenant-editable agent.
       allowed_tools:

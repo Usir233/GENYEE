@@ -362,7 +362,7 @@ func sandboxDesktopGuidance() string {
 		"1280x800. Shell commands get DISPLAY only while this session holds a screen; without " +
 		"one, X tools fail rather than touch another session's screen. Screens are limited, so " +
 		"claim one only when you must see or drive a window: run " +
-		"`wk-display claim \"$GENYEE_SESSION_ID\"` and use DISPLAY from the next command on. " +
+		"`gy-display claim \"$GENYEE_SESSION_ID\"` and use DISPLAY from the next command on. " +
 		"Work that needs no screen stays headless. agent-browser claims a screen by itself and " +
 		"always shows its window there.\n" +
 		"  - `scrot <file.png>` captures the screen; view the PNG with your image reading. " +

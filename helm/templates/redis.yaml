@@ -9,32 +9,32 @@ Redis is used for stream management and async task queuing.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "weknora.fullname" . }}-redis
+  name: {{ include "genyee.fullname" . }}-redis
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "weknora.componentLabels" (dict "component" "cache" "context" .) | nindent 4 }}
+    {{- include "genyee.componentLabels" (dict "component" "cache" "context" .) | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "weknora.componentSelectorLabels" (dict "component" "cache" "context" .) | nindent 6 }}
+      {{- include "genyee.componentSelectorLabels" (dict "component" "cache" "context" .) | nindent 6 }}
   # Use Recreate strategy to avoid data corruption
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        {{- include "weknora.componentSelectorLabels" (dict "component" "cache" "context" .) | nindent 8 }}
+        {{- include "genyee.componentSelectorLabels" (dict "component" "cache" "context" .) | nindent 8 }}
     spec:
-      {{- include "weknora.imagePullSecrets" . | nindent 6 }}
-      serviceAccountName: {{ include "weknora.serviceAccountName" . }}
+      {{- include "genyee.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "genyee.serviceAccountName" . }}
       {{- with .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: redis
-          image: {{ include "weknora.redis.image" . }}
+          image: {{ include "genyee.redis.image" . }}
           imagePullPolicy: IfNotPresent
           {{- with .Values.redis.securityContext }}
           securityContext:
@@ -52,12 +52,12 @@ spec:
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: REDIS_PASSWORD
             - name: REDISCLI_AUTH
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: REDIS_PASSWORD
           ports:
             - containerPort: 6379
@@ -94,7 +94,7 @@ spec:
         - name: redis-data
           {{- if .Values.redis.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ .Values.redis.persistence.existingClaim | default (printf "%s-redis" (include "weknora.fullname" .)) }}
+            claimName: {{ .Values.redis.persistence.existingClaim | default (printf "%s-redis" (include "genyee.fullname" .)) }}
           {{- else }}
           emptyDir: {}
           {{- end }}
@@ -114,14 +114,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "weknora.serviceName" (dict "component" "redis" "context" .) | quote }}
+  name: {{ include "genyee.serviceName" (dict "component" "redis" "context" .) | quote }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "weknora.componentLabels" (dict "component" "cache" "context" .) | nindent 4 }}
+    {{- include "genyee.componentLabels" (dict "component" "cache" "context" .) | nindent 4 }}
 spec:
   type: ClusterIP
   selector:
-    {{- include "weknora.componentSelectorLabels" (dict "component" "cache" "context" .) | nindent 4 }}
+    {{- include "genyee.componentSelectorLabels" (dict "component" "cache" "context" .) | nindent 4 }}
   ports:
     - name: redis
       port: 6379

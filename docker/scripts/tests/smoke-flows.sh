@@ -6,7 +6,7 @@
 # can be read without re-running anything:
 #   1 the CLI flow through the wrapper (open, snapshot -i, click, fill, press,
 #     screenshot, close) and the 0.39.1 command surface
-#   2 state vault: cookies set -> wk-auth save -> cookie fill in a fresh
+#   2 state vault: cookies set -> gy-auth save -> cookie fill in a fresh
 #     session (localStorage restoration is not asserted here)
 #   3 user closes the window (browser main killed, daemon alive) -> reopen
 #   4 seat isolation (distinct seats, window on own display) + placement latency
@@ -17,7 +17,7 @@ set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/lib.sh"
 IMG="${1:?usage: smoke-flows.sh IMAGE}"
-C=wk-flows-smoke
+C=gy-flows-smoke
 A=0f8fad5b-d9cb-469f-a165-70867728950e
 B=7c9e6679-7425-40de-944b-e07fc1f90ae7
 
@@ -25,7 +25,7 @@ docker rm -f "$C" >/dev/null 2>&1
 docker run -d --name "$C" --entrypoint sleep "$IMG" infinity >/dev/null
 trap 'docker rm -f "$C" >/dev/null 2>&1' EXIT
 
-root() { echo "/var/lib/weknora/sessions/$1.browser"; }
+root() { echo "/var/lib/genyee/sessions/$1.browser"; }
 ab() { local s=$1; shift; docker exec -e GENYEE_SESSION_ID="$s" -e GENYEE_BROWSER_ROOT="$(root "$s")" "$C" agent-browser "$@"; }
 dx() { docker exec "$C" sh -c "$1"; }
 say() { echo; echo "===== $1"; }
@@ -35,9 +35,9 @@ blk() { printf '%s\n' "$1" | sed 's/^/    | /'; }
 # ---- in-container helpers: kept in files of their own so the test's own argv
 # never matches the patterns being counted.
 dxin() { docker exec -i "$C" sh -c 'cat > "$1"' -- "$1"; }
-dxin /tmp/wk-mains.sh <<'HELPER'
+dxin /tmp/gy-mains.sh <<'HELPER'
 #!/bin/sh
-# usage: wk-mains.sh count|pid <session-browser-root>
+# usage: gy-mains.sh count|pid <session-browser-root>
 R=$2
 for p in $(ls /proc | grep -E '^[0-9]+$'); do
   [ -r "/proc/$p/cmdline" ] || continue
@@ -56,27 +56,27 @@ case "$1" in
   pid) exit 1 ;;
 esac
 HELPER
-dxin /tmp/wk-daemon.sh <<'HELPER'
+dxin /tmp/gy-daemon.sh <<'HELPER'
 #!/bin/sh
-# usage: wk-daemon.sh <sid> -> agent-browser-l if that session's daemon is alive
+# usage: gy-daemon.sh <sid> -> agent-browser-l if that session's daemon is alive
 for p in $(ls /proc | grep -E '^[0-9]+$'); do
   [ -r "/proc/$p/environ" ] || continue
-  tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null | grep -qx "HOME=/var/lib/weknora/sessions/$1.browser/home" || continue
+  tr '\0' '\n' < "/proc/$p/environ" 2>/dev/null | grep -qx "HOME=/var/lib/genyee/sessions/$1.browser/home" || continue
   tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null | grep -q agent-browser-linux && { echo agent-browser-l; exit 0; }
 done
 echo none
 HELPER
-dxin /tmp/wk-place.sh <<'HELPER'
+dxin /tmp/gy-place.sh <<'HELPER'
 #!/bin/sh
-# usage: wk-place.sh <sid> <url>; prints where the window landed at open time
+# usage: gy-place.sh <sid> <url>; prints where the window landed at open time
 SID=$1; URL=$2
-R=/var/lib/weknora/sessions/$SID.browser
+R=/var/lib/genyee/sessions/$SID.browser
 export GENYEE_SESSION_ID=$SID GENYEE_BROWSER_ROOT=$R
 s=$(date +%s%N)
 agent-browser --headed open "$URL" >/tmp/place.out 2>&1; rc=$?
 e=$(date +%s%N)
-pid=$(sh /tmp/wk-mains.sh pid "$R")
-seat=$(wk-display where "$SID")
+pid=$(sh /tmp/gy-mains.sh pid "$R")
+seat=$(gy-display where "$SID")
 wins=""
 [ -n "$seat" ] && wins=$(DISPLAY=:$seat xdotool search --pid "$pid" 2>/dev/null | head -1)
 echo "open rc=$rc open_ms=$(( (e - s) / 1000000 )) claimed_seat=$seat pid=$pid"
@@ -86,24 +86,24 @@ wins=$(DISPLAY=:$seat xdotool search --pid "$pid" 2>/dev/null | head -1)
 echo "after 1s:  win-on-seat=${wins:+yes}${wins:-no}"
 HELPER
 
-main_count() { dx "sh /tmp/wk-mains.sh count $(root "$1")"; }
-main_pid() { dx "sh /tmp/wk-mains.sh pid $(root "$1")"; }
-seat_of() { dx "wk-display where $1 2>/dev/null"; }
+main_count() { dx "sh /tmp/gy-mains.sh count $(root "$1")"; }
+main_pid() { dx "sh /tmp/gy-mains.sh pid $(root "$1")"; }
+seat_of() { dx "gy-display where $1 2>/dev/null"; }
 win_on_seat() { # pid seat -> window id on that seat's display, empty when none
   dx "DISPLAY=:$2 xdotool search --pid $1 2>/dev/null | head -1"
 }
-seat_map() { dx 'wk-display list'; }
+seat_map() { dx 'gy-display list'; }
 
 say "setup: desktop + a page with a link and a form"
 dx '/usr/local/bin/start-desktop.sh' || fail "desktop did not start"
-dx 'mkdir -p /var/www/wk
-cat > /var/www/wk/index.html <<EOF
-<!doctype html><html><head><title>WK Smoke</title></head><body>
+dx 'mkdir -p /var/www/gy
+cat > /var/www/gy/index.html <<EOF
+<!doctype html><html><head><title>GY Smoke</title></head><body>
 <h1>Smoke page</h1>
 <p><a id="lnk" href="/second.html">go to second</a></p>
 </body></html>
 EOF
-cat > /var/www/wk/second.html <<EOF
+cat > /var/www/gy/second.html <<EOF
 <!doctype html><html><head><title>Second</title></head><body>
 <h1>Second page</h1>
 <form action="/submitted.html" method="get">
@@ -111,8 +111,8 @@ cat > /var/www/wk/second.html <<EOF
 <button type="submit">Send</button></form>
 <a href="/index.html">back</a></body></html>
 EOF
-printf "%s" "<!doctype html><title>Submitted</title><h1>Submitted ok</h1>" > /var/www/wk/submitted.html
-cd /var/www/wk && nohup python3 -m http.server 18080 --bind 127.0.0.1 >/tmp/http.log 2>&1 &'
+printf "%s" "<!doctype html><title>Submitted</title><h1>Submitted ok</h1>" > /var/www/gy/submitted.html
+cd /var/www/gy && nohup python3 -m http.server 18080 --bind 127.0.0.1 >/tmp/http.log 2>&1 &'
 sleep 1
 URL=http://127.0.0.1:18080/index.html
 assert_eq "local page answers 200" 200 "$(dx 'python3 -c "import urllib.request;print(urllib.request.urlopen(\"http://127.0.0.1:18080/index.html\").status)"')"
@@ -198,14 +198,14 @@ SET="$(ab "$A" cookies set vaultcookie v1 --url http://127.0.0.1:18080/ 2>&1)"; 
 assert_eq "cookies set through the wrapper exits 0" 0 "$RC"
 assert_contains "cookie visible in A" "vaultcookie=v1" "$(ab "$A" cookies get 2>&1)"
 ev "cookies set"; blk "$SET"
-SAVE="$(docker exec -e GENYEE_SESSION_ID="$A" -e GENYEE_BROWSER_ROOT="$(root "$A")" "$C" timeout 30 wk-auth save 2>&1)"; RC=$?
-assert_eq "wk-auth save exits 0" 0 "$RC"
-ev "wk-auth save"; blk "$SAVE"
-assert_eq "vault exists mode 600" "600" "$(dx 'stat -c %a /var/lib/weknora/browser/auth/chrome-cookie-seed.json 2>/dev/null')"
-VAULT="$(dx 'cat /var/lib/weknora/browser/auth/chrome-cookie-seed.json 2>/dev/null')"
-assert_eq "vault is valid JSON" ok "$(dx 'python3 -c "import json;json.load(open(\"/var/lib/weknora/browser/auth/chrome-cookie-seed.json\"));print(\"ok\")" 2>&1')"
+SAVE="$(docker exec -e GENYEE_SESSION_ID="$A" -e GENYEE_BROWSER_ROOT="$(root "$A")" "$C" timeout 30 gy-auth save 2>&1)"; RC=$?
+assert_eq "gy-auth save exits 0" 0 "$RC"
+ev "gy-auth save"; blk "$SAVE"
+assert_eq "vault exists mode 600" "600" "$(dx 'stat -c %a /var/lib/genyee/browser/auth/chrome-cookie-seed.json 2>/dev/null')"
+VAULT="$(dx 'cat /var/lib/genyee/browser/auth/chrome-cookie-seed.json 2>/dev/null')"
+assert_eq "vault is valid JSON" ok "$(dx 'python3 -c "import json;json.load(open(\"/var/lib/genyee/browser/auth/chrome-cookie-seed.json\"));print(\"ok\")" 2>&1')"
 assert_contains "vault holds the cookie" '"vaultcookie"' "$VAULT"
-ev "vault"; blk "$(dx 'ls -l /var/lib/weknora/browser/auth/chrome-cookie-seed.json; cat /var/lib/weknora/browser/auth/chrome-cookie-seed.json')"
+ev "vault"; blk "$(dx 'ls -l /var/lib/genyee/browser/auth/chrome-cookie-seed.json; cat /var/lib/genyee/browser/auth/chrome-cookie-seed.json')"
 
 ab "$B" open "$URL" >/dev/null
 GOT="$(ab "$B" cookies get 2>&1)"
@@ -220,7 +220,7 @@ ab "$A" open "$URL" --headed >/dev/null
 OLD="$(main_pid "$A")"
 dx "kill $OLD"
 sleep 1
-DAEMON="$(dx "sh /tmp/wk-daemon.sh $A")"
+DAEMON="$(dx "sh /tmp/gy-daemon.sh $A")"
 assert_eq "browser main is gone after the kill" 0 "$(main_count "$A")"
 assert_eq "the session daemon survived the window close" "agent-browser-l" "$DAEMON"
 ev "daemon after the kill"; blk "$(dx 'ps -eo pid,args | grep "[a]gent-browser-linux" | cut -c1-80')"
@@ -266,7 +266,7 @@ ev "seat table"; blk "$(seat_map)"
 # Placement latency: the wrapper starts the browser on its claimed display,
 # so its window should already be there when 'open' exits.
 ab "$A" close >/dev/null 2>&1; sleep 1
-RES="$(dx "sh /tmp/wk-place.sh $A $URL")"
+RES="$(dx "sh /tmp/gy-place.sh $A $URL")"
 ev "open + immediate placement probe"; blk "$RES"
 D="$(printf '%s\n' "$RES" | sed -n 's/.*claimed_seat=\([0-9]*\).*/\1/p')"
 if printf '%s\n' "$RES" | sed -n 's/^at return: //p' | grep -q "win-on-seat=yes"

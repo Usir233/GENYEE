@@ -521,7 +521,7 @@ func TestGENYEEAssistantIsAHiddenBuiltinWithOperations(t *testing.T) {
 	require.NotContains(t, types.GetBuiltinAgentIDs(), types.BuiltinGENYEEAssistantID)
 	require.True(t, types.GrantsOperationCatalog(agent))
 	require.True(t, types.UsesWorkspaceModelFallback(agent))
-	require.Equal(t, "weknora_assistant", agent.Config.SystemPromptID)
+	require.Equal(t, "genyee_assistant", agent.Config.SystemPromptID)
 	require.Equal(t, "all", agent.Config.KBSelectionMode)
 	require.Equal(t, 24576, agent.Config.MaxCompletionTokens)
 	require.Equal(t, types.UnlimitedMaxIterations, agent.Config.MaxIterations)
@@ -915,7 +915,7 @@ func TestValidateConfigMaxIterationsUnlimited(t *testing.T) {
 }
 
 func TestValidInstallDirUsesTheHostVersionsRoot(t *testing.T) {
-	versions := "/Users/dev/.weknora/skills/.versions"
+	versions := "/Users/dev/.genyee/skills/.versions"
 	s := &agentService{hostSkillVersionsRoot: versions}
 
 	host := &types.AgentConfig{SandboxConfigID: sandbox.HostSkillTargetID}

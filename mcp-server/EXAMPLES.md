@@ -415,7 +415,7 @@ python main.py --verbose
 ```json
 {
   "mcpServers": {
-    "weknora": {
+    "genyee": {
       "command": "python",
       "args": ["path/to/main.py"],
       "env": {

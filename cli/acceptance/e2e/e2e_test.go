@@ -174,7 +174,7 @@ func envOr(key, fallback string) string {
 func buildBinary(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
-	out := filepath.Join(dir, "weknora")
+	out := filepath.Join(dir, "genyee")
 	// Repo layout: this test sits at cli/acceptance/e2e/, so cli/ is two levels up.
 	cmd := exec.Command("go", "build", "-o", out, ".")
 	cmd.Dir = filepath.Join("..", "..")
@@ -191,13 +191,13 @@ func buildBinary(t *testing.T) string {
 // window.
 func writeSampleDoc(t *testing.T) string {
 	t.Helper()
-	content := `WeKnora E2E Sample Document
+	content := `GENYEE E2E Sample Document
 
-This sample document is used by the WeKnora CLI acceptance test suite to
+This sample document is used by the GENYEE CLI acceptance test suite to
 validate the end-to-end retrieval-augmented generation pipeline.
 
 向量检索的核心思想是把文本通过 embedding 模型映射到高维向量空间,然后通过余弦相似度
-等度量找出语义最接近的内容片段。WeKnora 支持 vector + keyword 的混合检索模式。
+等度量找出语义最接近的内容片段。GENYEE 支持 vector + keyword 的混合检索模式。
 
 The hybrid search mode combines vector similarity (semantic) with keyword
 matching (lexical) to balance recall and precision.

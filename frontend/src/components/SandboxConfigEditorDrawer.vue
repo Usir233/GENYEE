@@ -214,14 +214,14 @@
 
       <section v-if="currentStepKey === 'connection' && !isRemoteBackend" class="setting-drawer__section">
         <h4 class="setting-drawer__section-title">{{ $t('settings.sandbox.sectionRuntimeEnvironment') }}</h4>
-        <div class="weknora-template-card" :class="{ 'is-active': isStandardTemplateImage(docker.image) }">
+        <div class="genyee-template-card" :class="{ 'is-active': isStandardTemplateImage(docker.image) }">
           <SandboxBackendBadge type="docker" />
-          <div class="weknora-template-card__content">
-            <div class="weknora-template-card__title-row">
-              <span class="weknora-template-card__title">{{ $t('settings.sandbox.weknoraDockerImage') }}</span>
+          <div class="genyee-template-card__content">
+            <div class="genyee-template-card__title-row">
+              <span class="genyee-template-card__title">{{ $t('settings.sandbox.genyeeDockerImage') }}</span>
               <t-tag theme="primary" variant="light" size="small">{{ $t('settings.sandbox.recommendedTag') }}</t-tag>
             </div>
-            <p>{{ $t('settings.sandbox.weknoraDockerImageHint') }}</p>
+            <p>{{ $t('settings.sandbox.genyeeDockerImageHint') }}</p>
           </div>
         </div>
         <t-form-item :label="requiredLabel('dockerImage')" :status="fieldStatus('image')"
@@ -240,7 +240,7 @@
         </t-form-item>
         <t-form-item :label="$t('settings.sandbox.dockerTlsCertPath')"
           :help="$t('settings.sandbox.dockerTlsCertPathHelp')">
-          <t-input v-model="docker.tls_cert_path" placeholder="/etc/weknora/docker-certs"
+          <t-input v-model="docker.tls_cert_path" placeholder="/etc/genyee/docker-certs"
             :disabled="retargetFrozen" @input="onFieldInput('tls_cert_path')" />
         </t-form-item>
         <t-alert theme="warning" class="compact-alert" :message="$t('settings.sandbox.dockerHostRisk')" />
@@ -277,7 +277,7 @@
           <div v-if="canCreateStandard" class="template-row template-row--offer">
             <div class="template-row__main">
               <div class="template-row__head">
-                <span class="template-row__title">{{ $t('settings.sandbox.weknoraStandardTemplate') }}</span>
+                <span class="template-row__title">{{ $t('settings.sandbox.genyeeStandardTemplate') }}</span>
                 <t-tag theme="primary" variant="outline" size="small">
                   {{ $t('settings.sandbox.recommendedTag') }}
                 </t-tag>
@@ -293,7 +293,7 @@
           <div v-if="canCreateDesktop" class="template-row template-row--offer">
             <div class="template-row__main">
               <div class="template-row__head">
-                <span class="template-row__title">{{ $t('settings.sandbox.weknoraDesktopTemplate') }}</span>
+                <span class="template-row__title">{{ $t('settings.sandbox.genyeeDesktopTemplate') }}</span>
                 <t-tag theme="warning" variant="outline" size="small">
                   {{ $t('settings.sandbox.desktopTemplateTag') }}
                 </t-tag>
@@ -1351,7 +1351,7 @@ function canRebuildTemplate(item: SandboxTemplate): boolean {
 }
 
 function templateDisplayName(item: SandboxTemplate): string {
-  if (item.standard) return t('settings.sandbox.weknoraStandardTemplate')
+  if (item.standard) return t('settings.sandbox.genyeeStandardTemplate')
   const name = item.name?.trim() || ''
   const id = item.id?.trim() || ''
   if (!name || name === id) return t('settings.sandbox.templateUnnamed')
@@ -2067,7 +2067,7 @@ onUnmounted(stopTemplatePolling)
   }
 }
 
-.weknora-template-card {
+.genyee-template-card {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2082,7 +2082,7 @@ onUnmounted(stopTemplatePolling)
   }
 }
 
-.weknora-template-card__content {
+.genyee-template-card__content {
   flex: 1;
   min-width: 0;
 
@@ -2094,13 +2094,13 @@ onUnmounted(stopTemplatePolling)
   }
 }
 
-.weknora-template-card__title-row {
+.genyee-template-card__title-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.weknora-template-card__title {
+.genyee-template-card__title {
   font-size: var(--app-text-md);
   font-weight: 600;
 }
@@ -2604,7 +2604,7 @@ onUnmounted(stopTemplatePolling)
 
 @media (max-width: 720px) {
   .form-grid--two,
-  .weknora-template-card {
+  .genyee-template-card {
     align-items: flex-start;
     flex-wrap: wrap;
   }

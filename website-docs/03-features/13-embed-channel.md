@@ -85,8 +85,8 @@ publish token 只保存在业务后端，页面通过 `data-token-endpoint` 指�
 
 宿主页（loader）与 iframe 内嵌入页之间通过 `postMessage` 通信，双方都做严格的 Origin 校验（loader 只向推导出的 `embedOrigin` 发消息，绝不使用 `*`；嵌入页对首个可信消息做 origin 固定 —— 见 `frontend/src/composables/useEmbedBridge.ts`）：
 
-- 宿主 → iframe（`source: "weknora-host"`）：`provide_token`（下发 token）、`set_context`、`set_locale`、`open_with_query`；
-- iframe → 宿主（`source: "weknora-embed"`）：`ready`、`bootstrap_request`（请求 token）、`message_sent`、`message_received`。
+- 宿主 → iframe（`source: "genyee-host"`）：`provide_token`（下发 token）、`set_context`、`set_locale`、`open_with_query`；
+- iframe → 宿主（`source: "genyee-embed"`）：`ready`、`bootstrap_request`（请求 token）、`message_sent`、`message_received`。
 
 ## 本浏览器的对话历史
 
@@ -165,7 +165,7 @@ A 网站嵌入 B 的 GENYEE 时，白名单填 A。标准 Nginx 使用 `/api/v1/
 
 安全与投递语义：
 
-- 配置了 `webhook_secret` 时附带签名头 `X-GENYEE-Signature` / `X-WeKnora-Signature: sha256=<hex(HMAC-SHA256(secret, raw_body))>`；
+- 配置了 `webhook_secret` 时附带签名头 `X-GENYEE-Signature` / `X-Genyee-Signature: sha256=<hex(HMAC-SHA256(secret, raw_body))>`；
 - URL 必须 HTTPS，出站请求走 SSRF 安全客户端（每次重定向重新校验，最多 5 跳），超时 5 秒，User-Agent 为 `GENYEE-Embed-Webhook/1.0`；
 - 异步 best-effort 投递，失败仅记录日志、**不重试**；
 - 前端也可通过 `POST /api/v1/embed/:channel_id/sessions/:session_id/events` 显式转发事件。

@@ -272,8 +272,8 @@ func TestRegistryDoesNotApplyBuiltInFieldPoliciesToDynamicTools(t *testing.T) {
 	// Dynamic tools own no ID fields: every handle becomes its durable text
 	// form, and tool-private iN handles stay opaque.
 	require.JSONEq(t,
-		`{"issue_id":"i1","knowledge_id":"weknora://doc/doc-real","url":"https://example.com",`+
-			`"sql":"SELECT 'weknora://doc/doc-real'"}`,
+		`{"issue_id":"i1","knowledge_id":"genyee://doc/doc-real","url":"https://example.com",`+
+			`"sql":"SELECT 'genyee://doc/doc-real'"}`,
 		calls[0].Function.Arguments)
 	require.Equal(t, ArgumentResolutionResolved, calls[0].ArgumentResolution)
 	require.Empty(t, calls[0].UnresolvedHandles)
@@ -368,7 +368,7 @@ func TestRegistryDecodesCanonicalArgumentsForEveryBuiltInReferenceTool(t *testin
 		{
 			"knowledge search KB", "knowledge_search",
 			`{"queries":["doc://1"],"knowledge_base_ids":["kb://1"]}`,
-			`{"queries":["weknora://doc/doc-real"],"knowledge_base_ids":["kb-real"]}`,
+			`{"queries":["genyee://doc/doc-real"],"knowledge_base_ids":["kb-real"]}`,
 		},
 		{"list document", "list_knowledge_chunks", `{"knowledge_id":"doc://1"}`, `{"knowledge_id":"doc-real"}`},
 		{"list chunk", "list_knowledge_chunks", `{"chunk_id":"chunk://1"}`, `{"chunk_id":"chunk-real"}`},
@@ -385,7 +385,7 @@ func TestRegistryDecodesCanonicalArgumentsForEveryBuiltInReferenceTool(t *testin
 		{
 			"data analysis SQL", "data_analysis",
 			`{"knowledge_id":"doc://1","sql":"SELECT COUNT(*) FROM dataset WHERE label = 'doc://1'"}`,
-			`{"knowledge_id":"doc-real","sql":"SELECT COUNT(*) FROM dataset WHERE label = 'weknora://doc/doc-real'"}`,
+			`{"knowledge_id":"doc-real","sql":"SELECT COUNT(*) FROM dataset WHERE label = 'genyee://doc/doc-real'"}`,
 		},
 		{"data schema", "data_schema", `{"knowledge_id":"doc://1"}`, `{"knowledge_id":"doc-real"}`},
 		{
@@ -564,7 +564,7 @@ func TestRegistryDecodesReadDocumentIDAgainstBothHandleTables(t *testing.T) {
 		{
 			"read document query decodes handles to durable text", "read_document",
 			`{"id":"doc://1","query":"doc://1 chunk://1"}`,
-			`{"id":"doc-real","query":"weknora://doc/doc-real weknora://chunk/chunk-real"}`,
+			`{"id":"doc-real","query":"genyee://doc/doc-real genyee://chunk/chunk-real"}`,
 		},
 		{
 			"search knowledge KB", "search_knowledge",
@@ -591,7 +591,7 @@ func TestRegistryDecodesReadDocumentIDAgainstBothHandleTables(t *testing.T) {
 	// field: the handle becomes durable text instead of a bare ID.
 	calls := []types.LLMToolCall{{Function: types.FunctionCall{Name: "thinking", Arguments: `{"id":"doc://1"}`}}}
 	registry.DecodeToolCalls(calls)
-	require.JSONEq(t, `{"id":"weknora://doc/doc-real"}`, calls[0].Function.Arguments)
+	require.JSONEq(t, `{"id":"genyee://doc/doc-real"}`, calls[0].Function.Arguments)
 
 	unknown := []types.LLMToolCall{{Function: types.FunctionCall{Name: "read_document", Arguments: `{"id":"doc://9"}`}}}
 	registry.DecodeToolCalls(unknown)

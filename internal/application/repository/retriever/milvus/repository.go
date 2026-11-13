@@ -23,7 +23,7 @@ import (
 const (
 	envMilvusCollection   = "MILVUS_COLLECTION"
 	envMilvusMetricType   = "MILVUS_METRIC_TYPE"
-	defaultCollectionName = "weknora_embeddings"
+	defaultCollectionName = "genyee_embeddings"
 	fieldSourceID         = "source_id"
 	fieldSourceType       = "source_type"
 	fieldChunkID          = "chunk_id"

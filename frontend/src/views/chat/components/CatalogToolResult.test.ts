@@ -12,7 +12,7 @@ import zh from '../../../i18n/locales/zh-CN'
 const REAL_COMPONENTS = [
   'ToolResultRenderer.vue',
   'OperationsResult.vue',
-  'WeKnoraDocResult.vue',
+  'GENYEEDocResult.vue',
   'CatalogValue.vue',
   'DocMarkdown.vue',
 ]
@@ -115,7 +115,7 @@ test('product docs render pages, sections, and markdown instead of raw JSON', as
       __RUNTIME_CONFIG__: { DOCS_BASE_URL: 'https://docs.example' },
     }
     const search = await render({
-      displayType: 'search_weknora_docs',
+      displayType: 'search_genyee_docs',
       success: true,
       output: JSON.stringify({
         results: [{
@@ -130,7 +130,7 @@ test('product docs render pages, sections, and markdown instead of raw JSON', as
     assert.doesNotMatch(search, /javascript:|fallback-output|<script>/)
 
     const read = await render({
-      displayType: 'read_weknora_doc',
+      displayType: 'read_genyee_doc',
       success: true,
       output: JSON.stringify({
         title: 'Wiki',
@@ -155,7 +155,7 @@ test('product docs render pages, sections, and markdown instead of raw JSON', as
       __RUNTIME_CONFIG__: { DOCS_BASE_URL: '' },
     }
     const unhosted = await render({
-      displayType: 'read_weknora_doc',
+      displayType: 'read_genyee_doc',
       success: true,
       output: JSON.stringify({
         title: 'Wiki',

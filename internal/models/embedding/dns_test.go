@@ -11,7 +11,7 @@ import (
 func TestMain(m *testing.M) {
 	// Credential validation constructs a client but never contacts the vendor.
 	restore, err := dnstest.Install(map[string][]string{
-		"weknora.weixin.qq.com": {"93.184.216.34"},
+		"genyee.weixin.qq.com": {"93.184.216.34"},
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)

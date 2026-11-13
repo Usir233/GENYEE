@@ -21,13 +21,13 @@ import (
 // would otherwise return ~/Library/Application Support.
 func Path(envVar, fallbackDir string, parts ...string) (string, error) {
 	if x := os.Getenv(envVar); x != "" {
-		return filepath.Join(append([]string{x, "weknora"}, parts...)...), nil
+		return filepath.Join(append([]string{x, "genyee"}, parts...)...), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("locate home dir: %w", err)
 	}
-	return filepath.Join(append([]string{home, fallbackDir, "weknora"}, parts...)...), nil
+	return filepath.Join(append([]string{home, fallbackDir, "genyee"}, parts...)...), nil
 }
 
 // WriteAtomicYAML marshals v to YAML and writes it atomically at p with mode

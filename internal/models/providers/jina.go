@@ -68,7 +68,7 @@ func newJinaProvider() *Definition {
 				// sent. task is deliberately not declared: the adapter it selects
 				// changes the document vectors, so turning it on would leave every
 				// existing index half in one space and half in another
-				// (Tencent/GENYEE#1401).
+				// (upstream issue #1401).
 				DimensionsField: api.Ptr("dimensions"),
 				TruncateField:   api.Ptr("truncate"),
 				TruncateValue:   api.Ptr("true"),

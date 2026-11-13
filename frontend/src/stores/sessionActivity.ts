@@ -9,7 +9,7 @@ import {
   type SessionActivity,
 } from './sessionActivityState'
 
-const STORAGE_PREFIX = 'weknora:session-activity'
+const STORAGE_PREFIX = 'genyee:session-activity'
 
 export const useSessionActivityStore = defineStore('sessionActivity', () => {
   const entries = reactive<Record<string, SessionActivity>>({})

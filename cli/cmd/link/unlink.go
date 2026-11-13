@@ -31,7 +31,7 @@ func NewCmdUnlink() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "unlink",
 		Short: "Remove the directory's knowledge-base binding",
-		Long: `Removes the .weknora/project.yaml that ` + "`genyee link`" + ` previously
+		Long: `Removes the .genyee/project.yaml that ` + "`genyee link`" + ` previously
 wrote, so subsequent commands no longer auto-resolve --kb from the link.
 
 Walks up from the current directory until a link is found, mirroring the
@@ -77,7 +77,7 @@ is present anywhere in the parent chain.`,
 	cmdutil.AddFormatFlag(cmd, unlinkFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor: "Remove the .weknora/project.yaml KB binding from the current directory tree. No flags required; walks up from cwd to find the link.",
+		UsedFor: "Remove the .genyee/project.yaml KB binding from the current directory tree. No flags required; walks up from cwd to find the link.",
 		Output:  "envelope.data has project_link_path of the removed file",
 		Examples: []string{
 			"genyee unlink",

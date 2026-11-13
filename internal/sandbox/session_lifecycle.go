@@ -17,23 +17,23 @@ import (
 )
 
 const (
-	remoteMetadataTenantID       = "weknora_tenant_id"
-	remoteMetadataSessionID      = "weknora_session_id"
-	remoteMetadataBindingVersion = "weknora_binding_version"
-	remoteMetadataProvider       = "weknora_provider"
+	remoteMetadataTenantID       = "genyee_tenant_id"
+	remoteMetadataSessionID      = "genyee_session_id"
+	remoteMetadataBindingVersion = "genyee_binding_version"
+	remoteMetadataProvider       = "genyee_provider"
 
 	// remoteMetadataConfigID records which sandbox config created the sandbox.
 	// Two configs in one workspace may share a provider account, so cleanup
 	// must filter by config as well as tenant/session ownership.
-	remoteMetadataConfigID = "weknora_sandbox_config_id"
+	remoteMetadataConfigID = "genyee_sandbox_config_id"
 
 	// User machines are identified by their allocation digest, never by a
 	// session. genyee_tenant_id on a user machine is the CONFIG owner, so
 	// the config inventory and the credential-change sweep include every
 	// borrower's machine; the owner tenant is recorded separately.
-	remoteMetadataOwnerTenantID = "weknora_owner_tenant_id"
-	remoteMetadataMachineDigest = "weknora_machine_digest"
-	remoteMetadataAllocation    = "weknora_allocation"
+	remoteMetadataOwnerTenantID = "genyee_owner_tenant_id"
+	remoteMetadataMachineDigest = "genyee_machine_digest"
+	remoteMetadataAllocation    = "genyee_allocation"
 )
 
 // ErrSandboxSessionDeleted reports that the owning GENYEE session no longer

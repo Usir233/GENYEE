@@ -12,14 +12,14 @@ Best Practices References:
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "weknora.name" -}}
+{{- define "genyee.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Create a default fully qualified app name.
 */}}
-{{- define "weknora.fullname" -}}
+{{- define "genyee.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -34,9 +34,9 @@ Create a default fully qualified app name.
 
 {{/*
 Resolve a component Service name while preserving names used by existing releases.
-Usage: include "weknora.serviceName" (dict "component" "postgresql" "context" .)
+Usage: include "genyee.serviceName" (dict "component" "postgresql" "context" .)
 */}}
-{{- define "weknora.serviceName" -}}
+{{- define "genyee.serviceName" -}}
 {{- $service := (index .context.Values .component).service | default dict -}}
 {{- $legacyName := .component -}}
 {{- if eq .component "postgresql" -}}
@@ -49,7 +49,7 @@ Usage: include "weknora.serviceName" (dict "component" "postgresql" "context" .)
 Create chart name and version as used by the chart label.
 Ref: https://helm.sh/docs/chart_best_practices/labels/
 */}}
-{{- define "weknora.chart" -}}
+{{- define "genyee.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -57,9 +57,9 @@ Ref: https://helm.sh/docs/chart_best_practices/labels/
 Common labels following Kubernetes recommended labels.
 Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/
 */}}
-{{- define "weknora.labels" -}}
-helm.sh/chart: {{ include "weknora.chart" . }}
-{{ include "weknora.selectorLabels" . }}
+{{- define "genyee.labels" -}}
+helm.sh/chart: {{ include "genyee.chart" . }}
+{{ include "genyee.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -70,26 +70,26 @@ app.kubernetes.io/part-of: genyee
 {{/*
 Selector labels
 */}}
-{{- define "weknora.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "weknora.name" . }}
+{{- define "genyee.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "genyee.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Component labels - use for individual components
-Usage: {{ include "weknora.componentLabels" (dict "component" "app" "context" .) }}
+Usage: {{ include "genyee.componentLabels" (dict "component" "app" "context" .) }}
 */}}
-{{- define "weknora.componentLabels" -}}
-{{ include "weknora.labels" .context }}
+{{- define "genyee.componentLabels" -}}
+{{ include "genyee.labels" .context }}
 app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
 {{/*
 Component selector labels
-Usage: {{ include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) }}
+Usage: {{ include "genyee.componentSelectorLabels" (dict "component" "app" "context" .) }}
 */}}
-{{- define "weknora.componentSelectorLabels" -}}
-{{ include "weknora.selectorLabels" .context }}
+{{- define "genyee.componentSelectorLabels" -}}
+{{ include "genyee.selectorLabels" .context }}
 app.kubernetes.io/component: {{ .component }}
 {{- end }}
 
@@ -97,9 +97,9 @@ app.kubernetes.io/component: {{ .component }}
 Create the name of the service account to use.
 Ref: https://helm.sh/docs/chart_best_practices/rbac/
 */}}
-{{- define "weknora.serviceAccountName" -}}
+{{- define "genyee.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "weknora.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "genyee.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -108,19 +108,19 @@ Ref: https://helm.sh/docs/chart_best_practices/rbac/
 {{/*
 Secret name - supports existing secret
 */}}
-{{- define "weknora.secretName" -}}
+{{- define "genyee.secretName" -}}
 {{- if .Values.secrets.existingSecret }}
 {{- .Values.secrets.existingSecret }}
 {{- else }}
-{{- include "weknora.fullname" . }}-secrets
+{{- include "genyee.fullname" . }}-secrets
 {{- end }}
 {{- end }}
 
 {{/*
 Format an image reference with optional global.imageRegistry prefix.
-Usage: include "weknora.formatImage" (dict "repository" .Values.app.image.repository "tag" $tag "global" .Values.global)
+Usage: include "genyee.formatImage" (dict "repository" .Values.app.image.repository "tag" $tag "global" .Values.global)
 */}}
-{{- define "weknora.formatImage" -}}
+{{- define "genyee.formatImage" -}}
 {{- $registry := "" -}}
 {{- if and .global .global.imageRegistry -}}
 {{- $registry = trimSuffix "/" .global.imageRegistry -}}
@@ -140,54 +140,54 @@ Usage: include "weknora.formatImage" (dict "repository" .Values.app.image.reposi
 Return the app image with tag.
 Defaults to Chart.appVersion if tag is not specified.
 */}}
-{{- define "weknora.app.image" -}}
+{{- define "genyee.app.image" -}}
 {{- $tag := default .Chart.AppVersion .Values.app.image.tag }}
-{{- include "weknora.formatImage" (dict "repository" .Values.app.image.repository "tag" $tag "global" .Values.global "selfBuilt" true) }}
+{{- include "genyee.formatImage" (dict "repository" .Values.app.image.repository "tag" $tag "global" .Values.global "selfBuilt" true) }}
 {{- end }}
 
 {{/*
 Return the frontend image with tag.
 Defaults to Chart.appVersion if tag is not specified.
 */}}
-{{- define "weknora.frontend.image" -}}
+{{- define "genyee.frontend.image" -}}
 {{- $tag := default .Chart.AppVersion .Values.frontend.image.tag }}
-{{- include "weknora.formatImage" (dict "repository" .Values.frontend.image.repository "tag" $tag "global" .Values.global "selfBuilt" true) }}
+{{- include "genyee.formatImage" (dict "repository" .Values.frontend.image.repository "tag" $tag "global" .Values.global "selfBuilt" true) }}
 {{- end }}
 
 {{/*
 Return the docreader image with tag.
 Defaults to Chart.appVersion if tag is not specified.
 */}}
-{{- define "weknora.docreader.image" -}}
+{{- define "genyee.docreader.image" -}}
 {{- $tag := default .Chart.AppVersion .Values.docreader.image.tag }}
-{{- include "weknora.formatImage" (dict "repository" .Values.docreader.image.repository "tag" $tag "global" .Values.global "selfBuilt" true) }}
+{{- include "genyee.formatImage" (dict "repository" .Values.docreader.image.repository "tag" $tag "global" .Values.global "selfBuilt" true) }}
 {{- end }}
 
 {{/*
 Return the PostgreSQL image with tag.
 */}}
-{{- define "weknora.postgresql.image" -}}
-{{- include "weknora.formatImage" (dict "repository" .Values.postgresql.image.repository "tag" .Values.postgresql.image.tag "global" .Values.global) }}
+{{- define "genyee.postgresql.image" -}}
+{{- include "genyee.formatImage" (dict "repository" .Values.postgresql.image.repository "tag" .Values.postgresql.image.tag "global" .Values.global) }}
 {{- end }}
 
 {{/*
 Return the Redis image with tag.
 */}}
-{{- define "weknora.redis.image" -}}
-{{- include "weknora.formatImage" (dict "repository" .Values.redis.image.repository "tag" .Values.redis.image.tag "global" .Values.global) }}
+{{- define "genyee.redis.image" -}}
+{{- include "genyee.formatImage" (dict "repository" .Values.redis.image.repository "tag" .Values.redis.image.tag "global" .Values.global) }}
 {{- end }}
 
 {{/*
 Return the Neo4j image with tag.
 */}}
-{{- define "weknora.neo4j.image" -}}
-{{- include "weknora.formatImage" (dict "repository" .Values.neo4j.image.repository "tag" .Values.neo4j.image.tag "global" .Values.global) }}
+{{- define "genyee.neo4j.image" -}}
+{{- include "genyee.formatImage" (dict "repository" .Values.neo4j.image.repository "tag" .Values.neo4j.image.tag "global" .Values.global) }}
 {{- end }}
 
 {{/*
 Create image pull secrets list.
 */}}
-{{- define "weknora.imagePullSecrets" -}}
+{{- define "genyee.imagePullSecrets" -}}
 {{- with .Values.global.imagePullSecrets }}
 imagePullSecrets:
 {{- toYaml . | nindent 2 }}
@@ -197,7 +197,7 @@ imagePullSecrets:
 {{/*
 Return the storage class name.
 */}}
-{{- define "weknora.storageClass" -}}
+{{- define "genyee.storageClass" -}}
 {{- if .Values.global.storageClass }}
 {{- if eq .Values.global.storageClass "-" }}
 storageClassName: ""
@@ -211,7 +211,7 @@ storageClassName: {{ .Values.global.storageClass | quote }}
 Pod security context.
 Merges global defaults with component-specific overrides.
 */}}
-{{- define "weknora.podSecurityContext" -}}
+{{- define "genyee.podSecurityContext" -}}
 {{- $global := .Values.global.podSecurityContext | default dict }}
 {{- $component := .componentSecurityContext | default dict }}
 {{- $merged := merge $component $global }}
@@ -224,7 +224,7 @@ securityContext:
 {{/*
 Container security context.
 */}}
-{{- define "weknora.containerSecurityContext" -}}
+{{- define "genyee.containerSecurityContext" -}}
 {{- if . }}
 securityContext:
 {{- toYaml . | nindent 2 }}

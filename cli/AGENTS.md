@@ -2,7 +2,7 @@
 
 This is the GENYEE CLI (`genyee`), a command-line client for the GENYEE RAG server. The module path is `github.com/Usir233/GENYEE/cli`.
 
-The wire contract for AI agents *consuming* `weknora` output (JSON shape, exit codes, error format) is documented below and in [README.md](README.md). Read this file if you're integrating with the CLI binary — build / test / architecture details follow the wire contract sections.
+The wire contract for AI agents *consuming* `genyee` output (JSON shape, exit codes, error format) is documented below and in [README.md](README.md). Read this file if you're integrating with the CLI binary — build / test / architecture details follow the wire contract sections.
 
 ## Wire contract for AI agents
 
@@ -55,8 +55,8 @@ Errors emit an error envelope on stderr (`--format json`) or prose
   "error": {
     "type": "auth.unauthenticated",
     "message": "fetch current user: HTTP error 401",
-    "hint": "run `weknora auth login`",
-    "retry_argv": ["weknora", "auth", "login"],
+    "hint": "run `genyee auth login`",
+    "retry_argv": ["genyee", "auth", "login"],
     "retry_after_seconds": 0,
     "risk": {"level": "destructive", "action": "noun.verb"},
     "detail": {}
@@ -134,8 +134,8 @@ Make errors structured, actionable, and specific.
 > **Note for agents — machine-readable version and help:** The `--version` flag
 > and `--help` flag on the root command bypass `--format json` and always emit
 > prose (cobra built-in paths). For machine-readable output use the `version`
-> subcommand (`weknora version --format json`) or `GENYEE_AGENT_HELP=1
-> weknora <cmd> --help`. Planned fix for v0.8.
+> subcommand (`genyee version --format json`) or `GENYEE_AGENT_HELP=1
+> genyee <cmd> --help`. Planned fix for v0.8.
 
 ## Design decisions worth flagging
 
@@ -148,9 +148,9 @@ is or isn't aligned with.
 | | |
 |---|---|
 | **GENYEE** | success envelope → stdout; error envelope → stderr |
-| **Rationale** | `weknora ... --format json \| jq '.data[]'` must not mix error objects into the data stream. Channel split lets pipeline consumers suppress errors with `2>/dev/null` and still get clean JSON on stdout. |
+| **Rationale** | `genyee ... --format json \| jq '.data[]'` must not mix error objects into the data stream. Channel split lets pipeline consumers suppress errors with `2>/dev/null` and still get clean JSON on stdout. |
 
-### 2. `weknora api DELETE` triggers exit-10 confirmation
+### 2. `genyee api DELETE` triggers exit-10 confirmation
 
 | | |
 |---|---|
@@ -177,7 +177,7 @@ is or isn't aligned with.
 |---|---|
 | **Mainstream** | some APIs (Anthropic / OpenAI) embed a `version` field in payload |
 | **GENYEE** | version identity via CLI binary semver + CHANGELOG `### BREAKING` + skill `tested_against` + CI parity tests |
-| **Rationale** | Mainstream CLIs don't embed version in payload. Agents have complete version awareness via `weknora --version` and skill version binding. |
+| **Rationale** | Mainstream CLIs don't embed version in payload. Agents have complete version awareness via `genyee --version` and skill version binding. |
 
 ## Pre-1.0 breaking policy
 
@@ -193,7 +193,7 @@ For agents: pin the CLI version in your skill's `tested_against` field; bump
 ## Build, Test, and Lint
 
 ```bash
-go build -o weknora .                              # build (from cli/)
+go build -o genyee .                              # build (from cli/)
 go test -count=1 ./...                             # unit + contract tests
 go test -run TestFoo ./internal/format/            # single test
 go test ./acceptance/contract/ -args -update       # refresh wire goldens
@@ -221,7 +221,7 @@ Key packages:
 
 ## Command Structure
 
-A command `weknora foo bar` lives in `cmd/foo/bar.go` with `bar_test.go`.
+A command `genyee foo bar` lives in `cmd/foo/bar.go` with `bar_test.go`.
 
 ### Canonical Examples
 
@@ -248,12 +248,12 @@ Key rules:
 
 ### Command Examples and Help Text
 
-Use a Go raw string with `weknora` as the example prefix. Keep one-line `Short` ≤ 70 chars; `Long` may run multi-paragraph; `Example` always includes `weknora` so copy-paste works:
+Use a Go raw string with `genyee` as the example prefix. Keep one-line `Short` ≤ 70 chars; `Long` may run multi-paragraph; `Example` always includes `genyee` so copy-paste works:
 
 ```go
-Example: `  weknora kb view <id>
-  weknora kb view kb_abc --format json
-  weknora kb view kb_abc --format json --jq '{id, name}'`,
+Example: `  genyee kb view <id>
+  genyee kb view kb_abc --format json
+  genyee kb view kb_abc --format json --jq '{id, name}'`,
 ```
 
 ### JSON Output
@@ -359,10 +359,10 @@ User-facing exit-code mapping lives in [README.md "Exit codes"](README.md#exit-c
 
 ## Error code reference
 
-> **Audience:** AI agents and scripted callers parsing `weknora` stderr.
+> **Audience:** AI agents and scripted callers parsing `genyee` stderr.
 > Code authors writing new error sites — see [`## Error Handling`](#error-handling) above.
 
-When `weknora` exits non-zero, stderr carries a structured triplet:
+When `genyee` exits non-zero, stderr carries a structured triplet:
 
 ```
 <code>: <message>
@@ -378,35 +378,35 @@ Agents parse the first colon to extract the typed code. The exit code class (see
 
 | Code | Exit | Retryable | Default hint |
 |---|---|---|---|
-| `auth.unauthenticated` | 3 | no (run `auth login`) | run `weknora auth login` |
-| `auth.token_expired` | 3 | yes (after refresh) | your session expired; run `weknora auth login` to re-authenticate |
-| `auth.bad_credential` | 3 | no (re-login) | run `weknora auth login` |
+| `auth.unauthenticated` | 3 | no (run `auth login`) | run `genyee auth login` |
+| `auth.token_expired` | 3 | yes (after refresh) | your session expired; run `genyee auth login` to re-authenticate |
+| `auth.bad_credential` | 3 | no (re-login) | run `genyee auth login` |
 | `auth.forbidden` | 3 | no | active profile lacks permission for this resource |
-| `auth.cross_tenant_blocked` | 3 | no | verify tenant context with `weknora auth status` |
-| `auth.tenant_mismatch` | 3 | no | verify tenant context with `weknora auth status` |
-| `input.invalid_argument` | 5 | no | see `weknora <command> --help` for valid usage |
-| `input.missing_flag` | 5 | no | see `weknora <command> --help` for valid usage |
+| `auth.cross_tenant_blocked` | 3 | no | verify tenant context with `genyee auth status` |
+| `auth.tenant_mismatch` | 3 | no | verify tenant context with `genyee auth status` |
+| `input.invalid_argument` | 5 | no | see `genyee <command> --help` for valid usage |
+| `input.missing_flag` | 5 | no | see `genyee <command> --help` for valid usage |
 | `input.confirmation_required` | 10 | **NO automatic retry** | high-risk write - re-run with `-y/--yes` after the user explicitly approves |
 | `input.unknown_subcommand` | 5 | no | invocation reached a command path with no matching subcommand. Detail includes `available` list; retry with `<path> --help`. |
 | `resource.not_found` | 4 | no | verify the resource ID and try again |
 | `resource.already_exists` | 1 | no | use a different name or fetch the existing resource |
 | `resource.locked` | 1 | maybe (transient lock) | (no canonical hint; check resource state) |
 | `server.error` | 7 | yes (with backoff for 5xx) | (no canonical hint) |
-| `server.timeout` | 7 | yes (with backoff) | request timed out; retry, or run `weknora doctor` to check connectivity |
+| `server.timeout` | 7 | yes (with backoff) | request timed out; retry, or run `genyee doctor` to check connectivity |
 | `server.rate_limited` | 6 | yes (back off, then retry) | rate-limited; retry after a few seconds |
 | `server.session_create_failed` | 1 | yes (with backoff) | could not create a chat session; pass `--session` to reuse an existing session |
-| `server.incompatible_version` | 7 | no (upgrade required) | run `weknora doctor` to see version skew details |
-| `network.error` | 7 | yes (with backoff) | check base URL reachability with `weknora doctor` |
+| `server.incompatible_version` | 7 | no (upgrade required) | run `genyee doctor` to see version skew details |
+| `network.error` | 7 | yes (with backoff) | check base URL reachability with `genyee doctor` |
 | `operation.timeout` | 124 | yes (raise `--timeout`) | wait timed out; raise `--timeout` or check the underlying job |
 | `operation.failed` | 1 | no (target reached terminal failure) | one or more targets reached a terminal failure (e.g. doc parse_status=failed) |
 | `operation.cancelled` | 1 (main overrides to 130) | no | command interrupted by SIGINT / SIGTERM. The typed code maps to exit 1, but `main` raises the exit to 130 when the root context was signal-cancelled so the user-visible exit follows Unix signal convention. |
-| `local.config_corrupt` | 1 | no (manual fix) | remove `~/.config/weknora/config.yaml` and re-run `weknora auth login` |
-| `local.profile_not_found` | 1 | no | (no canonical hint; check `weknora profile list`) |
-| `local.file_io` | 1 | no | check file permissions under `$XDG_CONFIG_HOME/weknora/` |
-| `local.kb_id_required` | 1 | no | run `weknora link` to bind this directory to a knowledge base, or pass `--kb` |
-| `local.kb_not_found` | 1 | no | list available with `weknora kb list` |
+| `local.config_corrupt` | 1 | no (manual fix) | remove `~/.config/genyee/config.yaml` and re-run `genyee auth login` |
+| `local.profile_not_found` | 1 | no | (no canonical hint; check `genyee profile list`) |
+| `local.file_io` | 1 | no | check file permissions under `$XDG_CONFIG_HOME/genyee/` |
+| `local.kb_id_required` | 1 | no | run `genyee link` to bind this directory to a knowledge base, or pass `--kb` |
+| `local.kb_not_found` | 1 | no | list available with `genyee kb list` |
 | `local.keychain_denied` | 1 | no (system-level) | verify keyring access; falls back to file storage |
-| `local.project_link_corrupt` | 1 | no | remove `.weknora/project.yaml` and run `weknora link` again |
+| `local.project_link_corrupt` | 1 | no | remove `.genyee/project.yaml` and run `genyee link` again |
 | `local.sse_stream_aborted` | 1 | yes (rerun chat / session ask) | the streaming answer was cut off mid-flight; retry, or pass `--format json` to buffer the full response |
 | `local.unimplemented` | 1 | no | (planned in a future release) |
 | `local.upload_file_not_found` | 1 | no | verify the path is correct and readable |
@@ -420,7 +420,7 @@ Agents parse the first colon to extract the typed code. The exit code class (see
 For common retry patterns, AI agents can hardcode:
 
 - `network.*` → retry with exponential backoff
-- `auth.token_expired` → run `weknora auth refresh`, then retry once
+- `auth.token_expired` → run `genyee auth refresh`, then retry once
 - `server.rate_limited` → back off (Retry-After if present) then retry
 - `operation.timeout` → raise `--timeout` and retry, or surface to user
 - `input.confirmation_required` → **NEVER** auto-pass `-y` without explicit user authorization
@@ -457,7 +457,7 @@ auto-retry this exit code — every exit 10 is a user-in-the-loop decision.
 
 ## Stream recovery
 
-The `weknora session resume <session-id> --message <msg-id>` command resumes an SSE event stream for an existing assistant message. Use cases: network-blip recovery, long-running agent invocation polling, completed-stream inspection.
+The `genyee session resume <session-id> --message <msg-id>` command resumes an SSE event stream for an existing assistant message. Use cases: network-blip recovery, long-running agent invocation polling, completed-stream inspection.
 
 ### Server semantics: replay-from-0, not cursor-resume
 
@@ -476,11 +476,11 @@ The server **replays all stored events from the start** of the assistant message
 | `STREAM_MANAGER_TYPE=redis` | **1 hour** (server-side; not configurable from the CLI) |
 | `STREAM_MANAGER_TYPE=memory` (default) | **Process lifetime** (server restart = data loss; no explicit cleanup logic) |
 
-After TTL, `weknora session resume` returns the typed error `local.sse_stream_aborted`, which maps to exit code 1 per the Error code reference.
+After TTL, `genyee session resume` returns the typed error `local.sse_stream_aborted`, which maps to exit code 1 per the Error code reference.
 
 ## Dry-run contract
 
-The `--dry-run` flag is available on every mutation cobra command (`kb create/edit/delete`, `agent create/edit/delete`, `doc create/upload/fetch/delete`, `chunk delete`, `session delete`, `auth refresh/logout`, `link/unlink`, `profile add/remove`) and on `weknora api` (POST/PUT/PATCH/DELETE only; GET rejected with FlagError exit 2).
+The `--dry-run` flag is available on every mutation cobra command (`kb create/edit/delete`, `agent create/edit/delete`, `doc create/upload/fetch/delete`, `chunk delete`, `session delete`, `auth refresh/logout`, `link/unlink`, `profile add/remove`) and on `genyee api` (POST/PUT/PATCH/DELETE only; GET rejected with FlagError exit 2).
 
 ### Envelope shape on dry-run
 
@@ -498,7 +498,7 @@ Success envelope (exit 0) with `data` field omitted (omitempty) and `meta.dry_ru
 
 ### Side effects suppressed
 
-The dry-run path is **offline** — no SDK calls, no Factory.Client() init, no ResolveKB network query, no writes (keyring / `.weknora/project.yaml` / files). Works without active profile or network access.
+The dry-run path is **offline** — no SDK calls, no Factory.Client() init, no ResolveKB network query, no writes (keyring / `.genyee/project.yaml` / files). Works without active profile or network access.
 
 ### Interactions
 
@@ -517,7 +517,7 @@ The dry-run path is **offline** — no SDK calls, no Factory.Client() init, no R
 `session ask` and `chat` do NOT support `--dry-run` (streaming and dry-run have a semantic mismatch). For prompt-formation preview, use:
 
 ```bash
-echo '{"query":"...","kb":"..."}' | weknora api -X POST /api/v1/sessions/<id>/agent-qa --input - --dry-run
+echo '{"query":"...","kb":"..."}' | genyee api -X POST /api/v1/sessions/<id>/agent-qa --input - --dry-run
 ```
 
 ## Risk metadata
@@ -526,9 +526,9 @@ Agents see the same `risk.action` string (in the form `noun.verb`) on three inde
 
 1. **Error envelope** — `envelope.error.risk.action` on an exit-10 confirmation-required error, so the agent can decide whether to escalate to the user. 11 unique values: `kb.delete`, `kb.edit`, `agent.delete`, `agent.edit`, `doc.delete`, `doc.delete_all`, `session.delete`, `chunk.delete`, `profile.remove`, `auth.logout`, `api.delete`.
 
-2. **Help text** — a `Risk: <action> (destructive)` line prepended to the top of `--help` output on the 9 destructive cobra commands. `weknora api` is intentionally excluded: it is a generic HTTP passthrough whose risk depends on the method, so a static Risk: line would mislead for non-DELETE methods.
+2. **Help text** — a `Risk: <action> (destructive)` line prepended to the top of `--help` output on the 9 destructive cobra commands. `genyee api` is intentionally excluded: it is a generic HTTP passthrough whose risk depends on the method, so a static Risk: line would mislead for non-DELETE methods.
 
-3. **MCP tool annotations** — `Tool.Annotations.destructiveHint` / `readOnlyHint` / `idempotentHint` / `openWorldHint` on every tool returned by `weknora mcp serve`.
+3. **MCP tool annotations** — `Tool.Annotations.destructiveHint` / `readOnlyHint` / `idempotentHint` / `openWorldHint` on every tool returned by `genyee mcp serve`.
 
 The three surfaces do not auto-sync: each is wired separately so agents that only consume one surface still get the signal, but contributors adding a new destructive command must touch all three.
 
@@ -562,7 +562,7 @@ Before specifying any CLI command, do this in order:
 3. For each field, decide: hot-path flag / config-file only / hidden / never-expose.
 4. Cross-check pagination signatures: an SDK `(ctx, id, page, pageSize)` shape demands `--limit` + `--all-pages` + `--page-size` on the CLI side.
 5. ONLY THEN consult mainstream CLI conventions to choose flag names, positionals, mutex, and confirm semantics.
-6. Decide which fields are "top use case" (flag) / "advanced" (`--config-file` or escape hatch via `weknora api`). Don't try to flag-cover every SDK field — mature CLIs that curate ship a tighter surface; CLIs that 1:1 mirror their API pay the UX cost.
+6. Decide which fields are "top use case" (flag) / "advanced" (`--config-file` or escape hatch via `genyee api`). Don't try to flag-cover every SDK field — mature CLIs that curate ship a tighter surface; CLIs that 1:1 mirror their API pay the UX cost.
 
 Rationale: earlier drafts produced three categories of schema errors — fields that didn't exist on the underlying SDK, wrong field counts in user-facing docs, and missing pagination flags — that all stemmed from "design from convention, not from SDK." The fix is canonical: the SDK schema is the ground truth; convention decides names and shapes around that ground truth.
 

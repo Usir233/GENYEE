@@ -12,7 +12,7 @@ let uploadLimit: { setRequestLimit: (bytes: number) => void }
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
 before(async () => {
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
-    getItem: (key: string) => key === 'weknora_token' ? 'test-token' : null,
+    getItem: (key: string) => key === 'genyee_token' ? 'test-token' : null,
   } })
   const mocks: Record<string, string> = {
     '@microsoft/fetch-event-source': `export const requests = []; export async function fetchEventSource(url, options) { requests.push({url, options}); }`,

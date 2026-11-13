@@ -3,8 +3,8 @@ import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
 
-const image = process.argv[2] || 'weknora-site:0.8.3';
-const name = `weknora-site-test-${randomUUID()}`;
+const image = process.argv[2] || 'genyee-site:0.8.3';
+const name = `genyee-site-test-${randomUUID()}`;
 function docker(...args) {
   const result = spawnSync('docker', args, { encoding: 'utf8' });
   if (result.error) throw result.error;

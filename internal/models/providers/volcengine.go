@@ -210,7 +210,7 @@ func newVolcengineProvider() *Definition {
 			// 1024; encoding_format defaults to float and the reference's own
 			// curl sends it. `instructions` is documented too and deliberately
 			// not declared: like Jina's task it changes the document vectors
-			// (Tencent/GENYEE#1401).
+			// (upstream issue #1401).
 			Embeddings: api.EmbeddingsCompat{
 				SendEncodingFormat: api.Ptr(true),
 				DimensionsField:    api.Ptr("dimensions"),

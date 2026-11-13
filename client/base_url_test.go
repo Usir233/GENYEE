@@ -8,11 +8,11 @@ import (
 )
 
 func TestNewClientBaseURLTrailingSlash(t *testing.T) {
-	for _, suffix := range []string{"", "/", "///", "/weknora", "/weknora/"} {
+	for _, suffix := range []string{"", "/", "///", "/genyee", "/genyee/"} {
 		t.Run(suffix, func(t *testing.T) {
 			wantPath := "/api/v1/knowledge-bases"
-			if suffix == "/weknora" || suffix == "/weknora/" {
-				wantPath = "/weknora" + wantPath
+			if suffix == "/genyee" || suffix == "/genyee/" {
+				wantPath = "/genyee" + wantPath
 			}
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path != wantPath {

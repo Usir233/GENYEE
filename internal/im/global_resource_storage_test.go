@@ -27,7 +27,7 @@ func configureIMGlobalOSS(t *testing.T, f *imResourceStorageFixture) interfaces.
 	f.catalog = appsvc.NewResourceCatalogWithStorage(repository.NewResourceRepository(f.db), repo)
 	f.storage = appsvc.NewStorageBackendService(repo, f.db, f.catalog)
 	driver, err := filesvc.NewOssFileService(f.baseURL, "cn-hangzhou", "global-key", "test-secret",
-		"global-artifacts", "weknora/")
+		"global-artifacts", "genyee/")
 	require.NoError(t, err)
 	f.global = filesvc.NewGlobalResourceCatalogFileService(driver, f.catalog)
 	return driver
@@ -72,7 +72,7 @@ func TestIMGlobalResourcesKeepTheirActualStorage(t *testing.T) {
 					require.NotContains(t, out, "resource://")
 					u, err := url.Parse(strings.TrimSuffix(strings.TrimPrefix(out, "![report]("), ")"))
 					require.NoError(t, err)
-					require.Contains(t, u.Path, "global-artifacts/weknora/7/exports/")
+					require.Contains(t, u.Path, "global-artifacts/genyee/7/exports/")
 					require.Contains(t, u.Query().Get("x-oss-credential"), "global-key/")
 					require.NotEmpty(t, u.Query().Get("x-oss-signature"))
 				}

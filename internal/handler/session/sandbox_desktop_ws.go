@@ -636,11 +636,11 @@ var (
 )
 
 func desktopSlotKey(sessionID string) string {
-	return "weknora:desktop-slot:" + sessionID
+	return "genyee:desktop-slot:" + sessionID
 }
 
 func desktopMachineSlotKey(machineID string) string {
-	return "weknora:desktop-slot:machine:" + machineID
+	return "genyee:desktop-slot:machine:" + machineID
 }
 
 // acquireSharedDesktopSlot takes the one-desktop-per-machine lock when this

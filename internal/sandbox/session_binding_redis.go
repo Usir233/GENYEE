@@ -331,7 +331,7 @@ func (s *RedisSessionSandboxBindingStore) listTenantBindingKeys(
 	tenantID uint64,
 ) ([]SessionSandboxKey, error) {
 	prefix := fmt.Sprintf(
-		"weknora:sandbox:session:{%s:%d:", s.namespace, tenantID,
+		"genyee:sandbox:session:{%s:%d:", s.namespace, tenantID,
 	)
 	const suffix = "}:binding"
 	pattern := escapeRedisGlob(prefix) + "*" + suffix
@@ -646,9 +646,9 @@ func (s *RedisSessionSandboxBindingStore) renewRewindLock(
 // carry the allocation digest, which already includes the namespace.
 func (s *RedisSessionSandboxBindingStore) keyBase(key SessionSandboxKey) string {
 	if key.IsUserScoped() {
-		return "weknora:sandbox:user:{" + key.User.Digest(s.namespace) + "}"
+		return "genyee:sandbox:user:{" + key.User.Digest(s.namespace) + "}"
 	}
-	return "weknora:sandbox:session:{" + s.hashTag(key) + "}"
+	return "genyee:sandbox:session:{" + s.hashTag(key) + "}"
 }
 
 func (s *RedisSessionSandboxBindingStore) bindingKey(key SessionSandboxKey) string {

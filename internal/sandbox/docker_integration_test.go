@@ -11,8 +11,8 @@
 //
 // Run with a reachable daemon and the standard sandbox image:
 //
-//	docker build -f docker/Dockerfile.sandbox -t wechatopenai/genyee-sandbox:dev .
-//	DOCKER_INTEGRATION_IMAGE=wechatopenai/genyee-sandbox:dev \
+//	docker build -f docker/Dockerfile.sandbox -t genyee/genyee-sandbox:dev .
+//	DOCKER_INTEGRATION_IMAGE=genyee/genyee-sandbox:dev \
 //	go test -tags=docker_integration ./internal/sandbox \
 //	  -run '^TestDocker.*Integration' -count=1 -v -timeout=15m
 package sandbox
@@ -609,7 +609,7 @@ func TestDockerSkillSnapshotIntegration(t *testing.T) {
 
 	builder, err := client.Create(ctx, RemoteCreateRequest{
 		TemplateID: cfg.DockerImage,
-		Metadata:   map[string]string{"weknora.test": "skill-snapshot"},
+		Metadata:   map[string]string{"genyee.test": "skill-snapshot"},
 	})
 	if err != nil {
 		t.Fatalf("Create builder: %v", err)
@@ -636,7 +636,7 @@ func TestDockerSkillSnapshotIntegration(t *testing.T) {
 		t.Fatalf("seed skill tree: err=%v result=%#v", err, seed)
 	}
 
-	ref, err := client.CreateSnapshot(ctx, builder.ID(), "weknora-sk-itest-g1")
+	ref, err := client.CreateSnapshot(ctx, builder.ID(), "genyee-sk-itest-g1")
 	if err != nil {
 		t.Fatalf("CreateSnapshot: %v", err)
 	}
@@ -655,7 +655,7 @@ func TestDockerSkillSnapshotIntegration(t *testing.T) {
 
 	booted, err := client.Create(ctx, RemoteCreateRequest{
 		TemplateID: ref.ID,
-		Metadata:   map[string]string{"weknora.test": "skill-snapshot-boot"},
+		Metadata:   map[string]string{"genyee.test": "skill-snapshot-boot"},
 	})
 	if err != nil {
 		t.Fatalf("Create from snapshot: %v", err)
@@ -892,7 +892,7 @@ func TestDockerBackendTerminalCloseTerminatesShellIntegration(t *testing.T) {
 
 	// Record the shell PID and start a long foreground job with a unique
 	// marker so the probe can find the job without matching itself.
-	if err := session.Write(ctx, []byte("echo $$ > /tmp/weknora-close.pid\n")); err != nil {
+	if err := session.Write(ctx, []byte("echo $$ > /tmp/genyee-close.pid\n")); err != nil {
 		t.Fatalf("write pid: %v", err)
 	}
 	// A job the user detached on purpose must outlive the hangup, as it would
@@ -909,7 +909,7 @@ func TestDockerBackendTerminalCloseTerminatesShellIntegration(t *testing.T) {
 	var shellPID string
 	for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline); {
 		shellPID = strings.TrimSpace(terminalProbeOutput(
-			t, ctx, executor, sessionID, "cat /tmp/weknora-close.pid 2>/dev/null || true"))
+			t, ctx, executor, sessionID, "cat /tmp/genyee-close.pid 2>/dev/null || true"))
 		if shellPID != "" && terminalProbeJobAlive(t, ctx, executor, sessionID, "sleep 3611") {
 			break
 		}
@@ -998,7 +998,7 @@ func TestDockerBackendTerminalContextCancelTerminatesShellIntegration(t *testing
 		}
 	}()
 
-	if err := session.Write(sessionCtx, []byte("echo $$ > /tmp/weknora-cancel.pid\n")); err != nil {
+	if err := session.Write(sessionCtx, []byte("echo $$ > /tmp/genyee-cancel.pid\n")); err != nil {
 		t.Fatalf("write pid: %v", err)
 	}
 	if err := session.Write(sessionCtx, []byte("sleep 3613\n")); err != nil {
@@ -1008,7 +1008,7 @@ func TestDockerBackendTerminalContextCancelTerminatesShellIntegration(t *testing
 	var shellPID string
 	for deadline := time.Now().Add(15 * time.Second); time.Now().Before(deadline); {
 		shellPID = strings.TrimSpace(terminalProbeOutput(
-			t, probeCtx, executor, sessionID, "cat /tmp/weknora-cancel.pid 2>/dev/null || true"))
+			t, probeCtx, executor, sessionID, "cat /tmp/genyee-cancel.pid 2>/dev/null || true"))
 		if shellPID != "" && terminalProbeJobAlive(t, probeCtx, executor, sessionID, "sleep 3613") {
 			break
 		}
@@ -1093,8 +1093,8 @@ func dockerCheckpointScript(l WorkspaceLayout, messageID string) string {
 git_ws rev-parse --git-dir >/dev/null 2>&1 || {
   mkdir -p "$(dirname "$GIT_DIR")"
   git_ws init -q
-  git_ws config user.email agent@weknora.local
-  git_ws config user.name 'WeKnora Agent'
+  git_ws config user.email agent@genyee.local
+  git_ws config user.name 'GENYEE Agent'
 }
 git_ws add -A
 git_ws commit -q --allow-empty -m 'turn:%s'
@@ -1174,7 +1174,7 @@ func TestDockerUserMachineSharesContainerAndIsolatesDirectories(t *testing.T) {
 	}
 
 	sessionA, sessionB, sessionC := uuid.NewString(), uuid.NewString(), uuid.NewString()
-	ns := "weknora-it-" + uuid.NewString()[:8]
+	ns := "genyee-it-" + uuid.NewString()[:8]
 	rc := redis.NewClient(&redis.Options{Addr: redisAddr})
 	t.Cleanup(func() { _ = rc.Close() })
 	store, err := NewRedisSessionSandboxBindingStore(rc, ns)
@@ -1188,7 +1188,7 @@ func TestDockerUserMachineSharesContainerAndIsolatesDirectories(t *testing.T) {
 		Config: cfg, Client: remote, Store: store,
 		Checker: PermissiveSessionExistenceChecker{}, SkipHealthProbe: true,
 		ConfigID: "docker-conformance", ConfigTenantID: dockerIntegrationTenantID,
-		Allocations: allocs, Admission: admission.NewRedis(rc, "weknora:sandbox:user:"),
+		Allocations: allocs, Admission: admission.NewRedis(rc, "genyee:sandbox:user:"),
 		Namespace: ns,
 	})
 	if err != nil {

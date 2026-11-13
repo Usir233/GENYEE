@@ -8,7 +8,7 @@ python test_create_knowledge_from_text.py
 import unittest
 from unittest import mock
 
-import weknora_mcp_server as srv
+import genyee_mcp_server as srv
 
 
 class CreateKnowledgeFromTextTest(unittest.TestCase):

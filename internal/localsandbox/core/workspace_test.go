@@ -31,7 +31,7 @@ func workspaceFixture(t *testing.T, projectDir string) WorkspaceResolver {
 	t.Helper()
 	base := t.TempDir()
 	return NewWorkspaceResolver(DirLayout{
-		SessionRoot: filepath.Join(base, "Documents", "WeKnora"),
+		SessionRoot: filepath.Join(base, "Documents", "GENYEE"),
 	}, fakeProjects{dir: projectDir})
 }
 
@@ -80,7 +80,7 @@ func TestResolveProjectWorkspaceIsSharedAcrossSessions(t *testing.T) {
 
 func TestResolveSessionWorkspaceSitsDirectlyUnderSessionRoot(t *testing.T) {
 	base := t.TempDir()
-	sessionRoot := filepath.Join(base, "Documents", "WeKnora")
+	sessionRoot := filepath.Join(base, "Documents", "GENYEE")
 	r := NewWorkspaceResolver(DirLayout{SessionRoot: sessionRoot}, fakeProjects{})
 	ws, err := r.Resolve(context.Background(), "session-abcdef123456")
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestResolveSessionWorkspaceSitsDirectlyUnderSessionRoot(t *testing.T) {
 func TestResolveSessionWorkspaceHasNoSpacesInCreatedNames(t *testing.T) {
 	base := t.TempDir()
 	r := NewWorkspaceResolver(DirLayout{
-		SessionRoot: filepath.Join(base, "Documents", "WeKnora"),
+		SessionRoot: filepath.Join(base, "Documents", "GENYEE"),
 	}, fakeProjects{})
 
 	ws, err := r.Resolve(context.Background(), "session-abcdef123456")
@@ -127,7 +127,7 @@ func TestResolveRejectsEmptySessionID(t *testing.T) {
 
 func TestResolveFailsClosedWhenBoundProjectIsRevoked(t *testing.T) {
 	base := t.TempDir()
-	sessionRoot := filepath.Join(base, "Documents", "WeKnora")
+	sessionRoot := filepath.Join(base, "Documents", "GENYEE")
 	r := NewWorkspaceResolver(DirLayout{SessionRoot: sessionRoot}, revokedProjects{})
 
 	_, err := r.Resolve(context.Background(), "sess-revoked")

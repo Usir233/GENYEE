@@ -10,7 +10,7 @@ const BUILTIN_QUICK_ANSWER_ID = 'builtin-quick-answer'
 
 function setupTest(legacyTokenMarker = false) {
   const memoryStorage = new Map<string, string>()
-  if (legacyTokenMarker) memoryStorage.set('__weknora_token_sync_installed', 'true')
+  if (legacyTokenMarker) memoryStorage.set('__genyee_token_sync_installed', 'true')
   const mockLocalStorage = {
     getItem: (key: string) => memoryStorage.get(key) ?? null,
     setItem: (key: string, value: string) => {
@@ -88,7 +88,7 @@ function setupTest(legacyTokenMarker = false) {
         return {
           resetMigrationLatch() {},
           safeRemoveItem: (key: string) => mockLocalStorage.removeItem(key),
-          userKey: (suffix: string) => `WeKnora_user_${suffix}`,
+          userKey: (suffix: string) => `GENYEE_user_${suffix}`,
         }
       }
       if (name === '@/stores/chatResources') return { useChatResourcesStore: () => chatStoreMock }
@@ -132,8 +132,8 @@ test('FE-03: Multi-tenant cache pollution: setSelectedTenant evicts chat models,
   const { authStore, mockLocalStorage, getInvalidations } = setupTest()
 
   // 1. Initial State for Tenant 10001
-  mockLocalStorage.setItem('weknora_last_chat_model_id', 'tenant-10001-custom-llm')
-  mockLocalStorage.setItem('weknora_current_kb', JSON.stringify({ id: 'kb-private-10001', name: 'Private KB' }))
+  mockLocalStorage.setItem('genyee_last_chat_model_id', 'tenant-10001-custom-llm')
+  mockLocalStorage.setItem('genyee_current_kb', JSON.stringify({ id: 'kb-private-10001', name: 'Private KB' }))
 
   const initialSettings = {
     selectedAgentId: 'agent-10001-custom',
@@ -149,30 +149,30 @@ test('FE-03: Multi-tenant cache pollution: setSelectedTenant evicts chat models,
     selectedFileKbMap: { 'secret-contract.pdf': 'kb-10001-a' },
     knowledgeBaseId: 'kb-10001-a',
   }
-  mockLocalStorage.setItem('WeKnora_settings', JSON.stringify(initialSettings))
+  mockLocalStorage.setItem('GENYEE_settings', JSON.stringify(initialSettings))
 
   // Establish active tenant 10001
   authStore.setSelectedTenant(10001, 'Tenant 10001')
   assert.equal(authStore.selectedTenantId, 10001)
 
   // Re-seed tenant-scoped keys to simulate active session work
-  mockLocalStorage.setItem('weknora_last_chat_model_id', 'tenant-10001-custom-llm')
-  mockLocalStorage.setItem('weknora_current_kb', JSON.stringify({ id: 'kb-private-10001' }))
-  mockLocalStorage.setItem('WeKnora_settings', JSON.stringify(initialSettings))
+  mockLocalStorage.setItem('genyee_last_chat_model_id', 'tenant-10001-custom-llm')
+  mockLocalStorage.setItem('genyee_current_kb', JSON.stringify({ id: 'kb-private-10001' }))
+  mockLocalStorage.setItem('GENYEE_settings', JSON.stringify(initialSettings))
 
   // 2. Switch to Tenant 20002
   authStore.setSelectedTenant(20002, 'Tenant 20002')
 
   // 3. Verify complete cache eviction
   assert.equal(authStore.selectedTenantId, 20002)
-  assert.equal(mockLocalStorage.getItem('weknora_selected_tenant_id'), '20002')
+  assert.equal(mockLocalStorage.getItem('genyee_selected_tenant_id'), '20002')
 
   // Tenant-scoped keys must be removed
-  assert.equal(mockLocalStorage.getItem('weknora_last_chat_model_id'), null, 'Chat model ID must be evicted')
-  assert.equal(mockLocalStorage.getItem('weknora_current_kb'), null, 'Current KB selection must be evicted')
+  assert.equal(mockLocalStorage.getItem('genyee_last_chat_model_id'), null, 'Chat model ID must be evicted')
+  assert.equal(mockLocalStorage.getItem('genyee_current_kb'), null, 'Current KB selection must be evicted')
 
-  // WeKnora_settings must be scrubbed of previous tenant references
-  const rawSettings = mockLocalStorage.getItem('WeKnora_settings')
+  // GENYEE_settings must be scrubbed of previous tenant references
+  const rawSettings = mockLocalStorage.getItem('GENYEE_settings')
   assert.ok(rawSettings)
   const settings = JSON.parse(rawSettings)
 
@@ -200,28 +200,28 @@ test('FE-03: Switching to null tenant clears selected tenant and purges cache', 
   const { authStore, mockLocalStorage, getInvalidations } = setupTest()
 
   authStore.setSelectedTenant(10001, 'Tenant 10001')
-  mockLocalStorage.setItem('weknora_last_chat_model_id', 'some-model')
+  mockLocalStorage.setItem('genyee_last_chat_model_id', 'some-model')
 
   authStore.setSelectedTenant(null, null)
 
   assert.equal(authStore.selectedTenantId, null)
-  assert.equal(mockLocalStorage.getItem('weknora_selected_tenant_id'), null)
-  assert.equal(mockLocalStorage.getItem('weknora_selected_tenant_name'), null)
-  assert.equal(mockLocalStorage.getItem('weknora_last_chat_model_id'), null)
+  assert.equal(mockLocalStorage.getItem('genyee_selected_tenant_id'), null)
+  assert.equal(mockLocalStorage.getItem('genyee_selected_tenant_name'), null)
+  assert.equal(mockLocalStorage.getItem('genyee_last_chat_model_id'), null)
 })
 
 test('FE-03: Idempotent setSelectedTenant does NOT clear cache when switching to same tenant', () => {
   const { authStore, mockLocalStorage, getInvalidations } = setupTest()
 
   authStore.setSelectedTenant(50001, 'Tenant 50001')
-  mockLocalStorage.setItem('weknora_last_chat_model_id', 'preserve-this-model')
+  mockLocalStorage.setItem('genyee_last_chat_model_id', 'preserve-this-model')
 
   const beforeInv = getInvalidations()
 
   // Select same tenant again
   authStore.setSelectedTenant(50001, 'Tenant 50001')
 
-  assert.equal(mockLocalStorage.getItem('weknora_last_chat_model_id'), 'preserve-this-model')
+  assert.equal(mockLocalStorage.getItem('genyee_last_chat_model_id'), 'preserve-this-model')
   const afterInv = getInvalidations()
   assert.equal(afterInv.chatInvalidated, beforeInv.chatInvalidated, 'No invalidation on idempotent tenant select')
   assert.equal(afterInv.protectedCacheCleared, beforeInv.protectedCacheCleared, 'No protected cache wipe on idempotent tenant select')
@@ -241,11 +241,11 @@ test('MED-16: logout revokes protected file blob cache and resets user:tenant sc
   assert.equal(after.activeProtectedScope, '', 'logout must clear active user:tenant scope')
 })
 
-test('FE-03: Resilient error handling when WeKnora_settings contains malformed JSON', () => {
+test('FE-03: Resilient error handling when GENYEE_settings contains malformed JSON', () => {
   const { authStore, mockLocalStorage } = setupTest()
 
   authStore.setSelectedTenant(60001, 'Tenant 60001')
-  mockLocalStorage.setItem('WeKnora_settings', 'CORRUPT_JSON{{{>>>')
+  mockLocalStorage.setItem('GENYEE_settings', 'CORRUPT_JSON{{{>>>')
 
   assert.doesNotThrow(() => {
     authStore.setSelectedTenant(60002, 'Tenant 60002')
@@ -259,9 +259,9 @@ test('background token rotation synchronizes the store after reload and unsubscr
   assert.equal(f.authStore.token, 'access-2')
   assert.equal(f.authStore.refreshToken, 'refresh-2')
 
-  f.mockLocalStorage.setItem('weknora_token', 'other-tab-access')
-  f.mockLocalStorage.setItem('weknora_refresh_token', 'other-tab-refresh')
-  f.dispatchStorage('weknora_token')
+  f.mockLocalStorage.setItem('genyee_token', 'other-tab-access')
+  f.mockLocalStorage.setItem('genyee_refresh_token', 'other-tab-refresh')
+  f.dispatchStorage('genyee_token')
   assert.equal(f.authStore.token, 'other-tab-access')
   assert.equal(f.authStore.refreshToken, 'other-tab-refresh')
   f.mockLocalStorage.clear()

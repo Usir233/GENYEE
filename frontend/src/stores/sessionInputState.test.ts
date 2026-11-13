@@ -60,8 +60,8 @@ test('a new chat clears prior KB and file mentions while keeping unrelated compo
   assert.deepEqual(store.settings.selectedTags, [])
   assert.equal(store.settings.selectedAgentId, 'agent-1')
   assert.deepEqual(store.settings.selectedMCPServices, ['mcp-1'])
-  assert.deepEqual(JSON.parse(items.get('WeKnora_settings')!).selectedKnowledgeBases, [])
-  assert.deepEqual(JSON.parse(items.get('WeKnora_settings')!).selectedFiles, [])
+  assert.deepEqual(JSON.parse(items.get('GENYEE_settings')!).selectedKnowledgeBases, [])
+  assert.deepEqual(JSON.parse(items.get('GENYEE_settings')!).selectedFiles, [])
 })
 
 test('search-started chat replaces old references and survives session default restoration', () => {
@@ -89,7 +89,7 @@ for (const state of [{ agent_enabled: true, knowledge_base_ids: [] }, emptySelec
   test(`session hydration clears stale file, tag, and tool selections when saved lists are ${'knowledge_ids' in state ? 'empty' : 'omitted'}`, () => {
     const store = useSettingsStore(createPinia())
     selectDefaults(store)
-    const storedDefaults = items.get('WeKnora_settings')
+    const storedDefaults = items.get('GENYEE_settings')
 
     store.hydrateSessionInputState(state)
 
@@ -102,7 +102,7 @@ for (const state of [{ agent_enabled: true, knowledge_base_ids: [] }, emptySelec
     assert.deepEqual(store.getSuggestedQuestionsParams(), {
       knowledge_base_ids: undefined, knowledge_ids: undefined, tag_scopes: undefined, limit: undefined,
     })
-    assert.equal(items.get('WeKnora_settings'), storedDefaults, 'hydration must not overwrite browser defaults')
+    assert.equal(items.get('GENYEE_settings'), storedDefaults, 'hydration must not overwrite browser defaults')
     store.restoreDefaultsIfSnapshotted()
     assert.deepEqual(JSON.parse(JSON.stringify(store.settings)), JSON.parse(storedDefaults!))
   })

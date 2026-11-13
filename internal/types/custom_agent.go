@@ -32,7 +32,7 @@ const (
 	BuiltinSkillInstallerID = "builtin-skill-installer"
 	// BuiltinGENYEEAssistantID is the built-in assistant that manages
 	// GENYEE itself (documents, parsing, Wiki health) for the signed-in user.
-	BuiltinGENYEEAssistantID = "builtin-weknora-assistant"
+	BuiltinGENYEEAssistantID = "builtin-genyee-assistant"
 )
 
 // GrantsOperationCatalog reports whether agent may run GENYEE management

@@ -22,7 +22,7 @@ const PREFERENCE_SUFFIXES = [
 
 export function readUserId(): string {
   try {
-    const raw = localStorage.getItem('weknora_user')
+    const raw = localStorage.getItem('genyee_user')
     if (!raw) return 'anon'
     const parsed = JSON.parse(raw)
     return parsed?.id ? String(parsed.id) : 'anon'
@@ -45,7 +45,7 @@ export function safeSetItem(key: string, value: string): void {
   } catch (err) {
     // Quota exceeded, disabled storage, private mode — surface in DevTools
     // so the issue is at least diagnosable, but don't break the UI.
-    console.warn(`[WeKnora] failed to persist preference "${key}":`, err)
+    console.warn(`[GENYEE] failed to persist preference "${key}":`, err)
   }
 }
 
@@ -58,7 +58,7 @@ export function safeRemoveItem(key: string): void {
 }
 
 export function userKey(suffix: string): string {
-  return `WeKnora_${readUserId()}_${suffix}`
+  return `GENYEE_${readUserId()}_${suffix}`
 }
 
 export function loadPreference(suffix: string): string | null {
@@ -84,10 +84,10 @@ export function migratePreferencesIntoUser(): void {
   migratedForUser = userId
 
   for (const suffix of PREFERENCE_SUFFIXES) {
-    const target = `WeKnora_${userId}_${suffix}`
+    const target = `GENYEE_${userId}_${suffix}`
     const targetExists = safeGetItem(target) !== null
 
-    const anonKey = `WeKnora_anon_${suffix}`
+    const anonKey = `GENYEE_anon_${suffix}`
 
     if (!targetExists) {
       const anonValue = safeGetItem(anonKey)

@@ -44,7 +44,7 @@ func (h *Handler) checkOwnedHostModeSession(c *gin.Context) (string, bool) {
 func (h *Handler) lookupHostModeSession(c *gin.Context, write bool) (string, bool) {
 	ctx := c.Request.Context()
 	if h.hostModes == nil {
-		_ = c.Error(errors.NewNotFoundError("host approval mode is only available in WeKnora Lite"))
+		_ = c.Error(errors.NewNotFoundError("host approval mode is only available in GENYEE Lite"))
 		return "", false
 	}
 	id := secutils.SanitizeForLog(c.Param("id"))

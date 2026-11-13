@@ -78,7 +78,7 @@ func gitWorkspaceEnsureRepo() string {
 	return `git_ws rev-parse --git-dir >/dev/null 2>&1 || {
   mkdir -p "$(dirname "$GIT_DIR")"
   git_ws init -q
-  git_ws config user.email agent@weknora.local
+  git_ws config user.email agent@genyee.local
   git_ws config user.name 'GENYEE Agent'
 }
 `

@@ -87,7 +87,7 @@ func (r *mdRenderer) nextImageNo(kind, token string) int {
 // text run) from ever matching the connector's patch needle — only this
 // renderer and the patcher share the derivation (imageMarkerNonce).
 func (r *mdRenderer) imageMarker(n int) string {
-	return fmt.Sprintf("![图片](weknora-img://%d-%s)", n, r.markerNonce)
+	return fmt.Sprintf("![图片](genyee-img://%d-%s)", n, r.markerNonce)
 }
 
 // imageMarkerNonce derives the per-document marker nonce from the doc URL.
@@ -271,7 +271,7 @@ func (r *mdRenderer) renderBlock(b DocxBlock) string {
 				// this exact line after the download attempt (name on success /
 				// tiny, degrade note over cap), so an identical earlier bullet
 				// can never be replaced by mistake.
-				return "- weknora-att://" + b.File.Token
+				return "- genyee-att://" + b.File.Token
 			}
 			// Not ingestible (wrong type / video): keep a visible reference with
 			// the source link when available.
@@ -543,7 +543,7 @@ func (r *mdRenderer) richText(bt *BlockText) string {
 					r.docNameSeen[ref.Token] = true
 					r.docNames = append(r.docNames, ref)
 				}
-				sb.WriteString("[weknora-docname://" + ref.Token + "](" + escapeURL(u) + ")")
+				sb.WriteString("[genyee-docname://" + ref.Token + "](" + escapeURL(u) + ")")
 			} else {
 				sb.WriteString("[" + u + "](" + escapeURL(u) + ")")
 			}

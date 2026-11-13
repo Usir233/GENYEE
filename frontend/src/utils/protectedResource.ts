@@ -4,7 +4,7 @@ export interface LoadedProtectedFile {
   fileName: string;
 }
 
-export const RESOURCE_PREVIEW_EVENT = 'weknora:resource-preview';
+export const RESOURCE_PREVIEW_EVENT = 'genyee:resource-preview';
 
 export function responseFileName(disposition: string | null, source: string): string {
   const encoded = disposition?.match(/(?:^|;)\s*filename\*\s*=\s*UTF-8'[^']*'([^;]+)/i)?.[1]?.trim();

@@ -80,7 +80,7 @@ pipe an API key with --with-token.
 ` + "`genyee profile add <name> --host <h> --use`" + `, then run ` + "`genyee auth login`" + `.
 
 Credentials are persisted to the OS keyring when available; otherwise to a
-0600 file under $XDG_CONFIG_HOME/weknora/secrets.`,
+0600 file under $XDG_CONFIG_HOME/genyee/secrets.`,
 		Args: cobra.NoArgs,
 		RunE: func(c *cobra.Command, args []string) error {
 			fopts, err := cmdutil.CheckFormatFlag(c)
@@ -381,7 +381,7 @@ func warnOnFileFallback(store secrets.Store) {
 	if _, isFile := store.(*secrets.FileStore); !isFile {
 		return
 	}
-	fmt.Fprintln(iostreams.IO.Err, "warning: OS keychain unavailable - credentials will be saved to a 0600 file under $XDG_CONFIG_HOME/weknora/secrets/.")
+	fmt.Fprintln(iostreams.IO.Err, "warning: OS keychain unavailable - credentials will be saved to a 0600 file under $XDG_CONFIG_HOME/genyee/secrets/.")
 	fmt.Fprintln(iostreams.IO.Err, "         install / unlock the keyring (or use `genyee doctor` to inspect) for OS-backed storage.")
 }
 

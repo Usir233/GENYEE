@@ -30,7 +30,7 @@ import (
 // holds a waiter after another replica recorded the answer. The actual
 // channel is suffixed with GENYEE_REDIS_NAMESPACE (when set) so multiple
 // deployments sharing the same Redis don't cross-talk.
-const pubsubChannelBase = "weknora:agent_prompt:wake"
+const pubsubChannelBase = "genyee:agent_prompt:wake"
 
 // instanceID identifies this process for pub/sub wake-up suppression.
 var instanceID = uuid.New().String()

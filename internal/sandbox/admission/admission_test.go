@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const prefix = "weknora:sandbox:user:"
+const prefix = "genyee:sandbox:user:"
 
 func newRedis(t *testing.T) (*RedisRegistry, *miniredis.Miniredis) {
 	t.Helper()

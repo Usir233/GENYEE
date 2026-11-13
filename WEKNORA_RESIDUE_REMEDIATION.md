@@ -6,7 +6,7 @@
 >
 > **版本**：v2.1（2026-11-12）。v1 按“需兼容已上线客户”编写；经项目负责人确认，**目前没有已交付或正在使用的客户**，因此 v2 **取消全部向后兼容要求**，并基于提交 `a1079cbf7` 重新扫描。v2.1 补充：缩写 `wk` 经核实为 WeKnora 简写，统一改为 `gy`（5.5）；D1 版本历史处理的推荐方案（第十一节）；D3 结论为不需要自有品牌扩展。
 >
-> **状态**：B0 已完成；B1 **已完成**；B2 主体已完成（字面值收尾与 B3 联动）；B3–B5 **尚未开始**。每完成一个批次，须更新第十节进度表。
+> **状态**：B0 已完成；B1 **已完成**；B2 已完成；B3 代码及专项测试已完成，部署回归在 B5 验收；B4–B5 **尚未完成**。每完成一个批次，须更新第十节进度表。
 
 ---
 
@@ -71,7 +71,7 @@
 
 | 对象 | 位置 | 原因 |
 |---|---|---|
-| 上游 MIT 署名 | `LICENSE`，以及其副本 `frontend/LICENSE`、`website-docs/LICENSE`、`mcp-server/LICENSE.GENYEE` | P1 |
+| 上游 MIT 署名 | `LICENSE`，以及其副本 `frontend/LICENSE`、`website-docs/LICENSE`、`mcp-server/LICENSE.GENYEE`，以及 MCP 原始 MIT 许可 `mcp-server/LICENSE` | P1 |
 | 第三方声明 | `THIRD_PARTY_NOTICES.md`，以及副本 `frontend/`、`website-docs/`、`mcp-server/` 下的 `THIRD_PARTY_NOTICES.md`；`licenses/`；`OFFLINE_LICENSES/` | P1 |
 | README 中的署名与非关联声明 | `README.md`、`README_CN.md`、`README_JA.md`、`README_KO.md` 中的 “Attribution & Non-Affiliation Notice” 段落（README 其余部分的 WeKnora 字样要改） | 署名声明，与 P1 一致 |
 | 数据集许可说明中的上游署名 | `dataset/README`、`dataset/README_zh.md` 的许可段落 | 同上 |
@@ -128,7 +128,7 @@
 | `frontend/src/assets/img/weknora.png` | 无任何引用 | 删除 |
 | `website-docs/public/videos/weknora-v0.9.0-en.srt` | 无任何引用 | 删除 |
 | `website-docs/public/videos/weknora-v0.9.0-en.mp4`、`weknora-v0.9.0-poster.png` | 上游产品发布视频（2 / 4 处引用） | 删除文件，同时删除引用处的视频区块；如需视频，另行制作 GENYEE 版本 |
-| `website-docs/homepage/public/docs/_home/brand/weknora-original.png` | 上游品牌原图（5 处引用） | 删除，引用处替换为 GENYEE 素材 |
+| `website-docs/homepage/public/docs/_home/brand/genyee-logo.png` | 上游品牌原图（5 处引用） | 删除，引用处替换为 GENYEE 素材 |
 | `third_party/anydoc-go/benchmarks/` | 上游团队的基准测试输出，含上游路径 | 删除（客户无需） |
 
 ---
@@ -200,7 +200,7 @@
 | 文件 | 处理 |
 |---|---|
 | `frontend/src/utils/weknoraCloudModels.ts`、`frontend/src/views/settings/WeKnoraCloudSettings.vue`、`internal/application/service/weknoracloud.go`、`internal/handler/weknoracloud.go`、`internal/infrastructure/docparser/weknoracloud_http_reader.go`、`internal/models/providers/assets/weknoracloud.svg`、`internal/models/providers/weknoracloud.go`、`internal/models/vlm/weknoracloud.go`、`internal/types/interfaces/weknoracloud.go`、`internal/types/weknoracloud.go` | 删除（4.1） |
-| `frontend/public/weknora-widget.js`、`frontend/src/assets/img/weknora.png`、`website-docs/public/videos/weknora-v0.9.0-en.{mp4,srt}`、`weknora-v0.9.0-poster.png`、`website-docs/homepage/public/docs/_home/brand/weknora-original.png` | 删除（4.2、4.3） |
+| `frontend/public/weknora-widget.js`、`frontend/src/assets/img/weknora.png`、`website-docs/public/videos/weknora-v0.9.0-en.{mp4,srt}`、`weknora-v0.9.0-poster.png`、`website-docs/homepage/public/docs/_home/brand/genyee-logo.png` | 删除（4.2、4.3） |
 | `frontend/src/utils/weknoraEntityLinks.ts`（及 `.test.ts`）、`frontend/src/views/chat/components/tool-results/WeKnoraDocResult.vue`、`packages/dsh-genyee/test/helpers/mock-weknora.mjs`、`website-docs/03-features/26-weknora-assistant.md`、`mcp-server/weknora_mcp_server.py`、`scripts/cloud-image/systemd/weknora.service`、`weknora-firstboot.service` | `git mv` 改名，同步修改全部引用 |
 
 ### 5. 缩写 `wk` → `gy`（v2.1 新增）
@@ -394,13 +394,15 @@ find . -regextype posix-extended -iregex '.*(^|[/_-])wk([_.-]|$).*'
 
 | 允许保留 | 原因 |
 |---|---|
-| `LICENSE`、`frontend/LICENSE`、`website-docs/LICENSE`、`mcp-server/LICENSE.GENYEE` 中的上游署名 | P1 |
+| `LICENSE`、`frontend/LICENSE`、`website-docs/LICENSE`、`mcp-server/LICENSE.GENYEE`、`mcp-server/LICENSE` 中的上游署名 | P1 |
 | 各处 `THIRD_PARTY_NOTICES.md`、`licenses/`、`OFFLINE_LICENSES/` 中的上游声明 | P1 |
 | 四种语言 README 的 “Attribution & Non-Affiliation Notice” 段落 | 署名声明 |
 | `dataset/README`、`dataset/README_zh.md` 许可段落中的上游署名 | 署名声明 |
 | `third_party/anydoc-go/LICENSE` | 第三方原始许可 |
 
-除上表外，**不允许任何 `weknora` 字样、文件名、目录名、“GENYEE Cloud”残留，以及 WeKnora 缩写 `wk`（`WKWebView` 除外）**。不再有任何“兼容期”例外。
+负责人于 2026-11-13 决定暂时保留版本历史（D1）；因此各语言 CHANGELOG、README 的历史折叠区和 `website-docs/07-releases/` 中的历史条目列为本次审计的临时例外。素材和失效链接按 B4 处理，不重写历史正文。
+
+除上述历史例外和上表外，**不允许任何 `weknora` 字样、文件名、目录名、“GENYEE Cloud”残留，以及 WeKnora 缩写 `wk`（`WKWebView` 除外）**。不再有任何“兼容期”例外。
 
 ### 4. 功能回归（B3、B5 必做）
 
@@ -418,8 +420,8 @@ find . -regextype posix-extended -iregex '.*(^|[/_-])wk([_.-]|$).*'
 | — | 已完成 | `f40d3b9a3` | 本文档 v2：取消兼容要求；重新扫描；补充“GENYEE Cloud”别名、现有兼容代码、改名冲突、BrowserSkill 专项、本机环境处理 |
 | — | 已完成 | 本文档 v2.1 提交 | 核实 `wk` 为 WeKnora 简写并制定 `wk` → `gy` 规则（5.5）；D1 推荐方案；D3 决定不做 |
 | B1 | 已完成 | `929cc59d6` | 已删除停用云服务（后端、前端、目录、部署开关、API/用户文档和专属测试）、旧品牌兼容入口、旧 Milvus 迁移与运行时旧 schema 分支。保留泛用附加模型凭证（LKEAP / 火山重排仍使用）。Go build/vet/test、CLI build/vet/test、前端类型/国际化/构建与 2719 项测试、浏览器交接测试、MCP 151 项测试（含 74 子测试）、DSH 60 项测试、脚本/Helm 26 项测试与 34 项合规检查均通过。D1 历史条目按负责人决定暂时保留。 |
-| B2 | 主体完成，字面值待 B3 联动 | 本批提交（B2） | 已改 Go 内部标识符、源码注释、文档正文与前端/文档站 `wk` 样式；诊断及测试字面值随 B3 契约统一替换。Go build/vet/test、CLI build/vet/test、前端类型/国际化/构建与 2719 项测试（零跳过）、官网/文档构建及链接/60 个 Mermaid/83 页站点检查通过。未改动许可声明与二进制资源；保留历史条目，仅修复历史说明中的 CHANGELOG 死链。 |
-| B3 | 未开始 | | |
+| B2 | 已完成（字面值由 B3 收尾） | `8ac5a32b0` | 已改 Go 内部标识符、源码注释、文档正文与前端/文档站 `wk` 样式；诊断及测试字面值随 B3 契约统一替换。Go build/vet/test、CLI build/vet/test、前端类型/国际化/构建与 2719 项测试（零跳过）、官网/文档构建及链接/60 个 Mermaid/83 页站点检查通过。未改动许可声明与二进制资源；保留历史条目，仅修复历史说明中的 CHANGELOG 死链。 |
+| B3 | 代码及专项测试完成 | 本批提交（B3） | 已统一运行时名称、协议头、工具/助手 ID、环境变量、存储键、数据库默认名、沙箱路径、Docker 标签和 MCP 入口；P8 关联文件提前在本批改名，B4 处理剩余素材。Go build/vet/test、CLI build/vet/test、前端类型/国际化/构建与 2719 项测试（零跳过）、文档站构建/链接/站点检查、docreader 664 项测试（18 个可选依赖用例跳过、381 子测试）、MCP/脚本/Helm 175 项测试、DSH 60 项测试、小程序 10 项测试、沙箱脚本与 37 项 Node 测试、真实 Docker 后端集成测试已通过。真实扩展 `TestRealExtension` 已通过（19.35 秒，含配对、任务窗口、暂停/人工介入和自动清理）；全新部署与界面验收在 B5 继续。 |
 | B4 | 未开始 | | |
 | B5 | 未开始 | | |
 

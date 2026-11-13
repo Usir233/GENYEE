@@ -35,7 +35,7 @@ func TestConvertPageHTMLPreservesTables(t *testing.T) {
 		strings.Index(got, "<table") > strings.Index(got, "表格之后") {
 		t.Errorf("table order changed:\n%s", got)
 	}
-	if strings.Contains(got, "WEKNORACONFLUENCETABLE") {
+	if strings.Contains(got, "GENYEECONFLUENCETABLE") {
 		t.Errorf("table placeholder leaked into Markdown:\n%s", got)
 	}
 }

@@ -11,10 +11,10 @@ import { dirname, join } from 'node:path'
 import { after, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { WeknoraClient } from '../dist/client.js'
+import { GenyeeClient } from '../dist/client.js'
 import { resolveConfig } from '../dist/config.js'
 import { createTools } from '../dist/tools.js'
-import { startMockWeknora } from './helpers/mock-weknora.mjs'
+import { startMockGenyee } from './helpers/mock-genyee.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const fixture = JSON.parse(await readFile(join(here, 'fixtures', 'api-contract.json'), 'utf8'))
@@ -22,11 +22,11 @@ const exec = { signal: new AbortController().signal }
 
 /** Replay every documented call against the mock and record what went out. */
 async function replayCalls() {
-  const mock = await startMockWeknora()
+  const mock = await startMockGenyee()
   after(() => mock.close())
 
   const ragConfig = resolveConfig({ baseUrl: mock.url, knowledgeBaseIds: ['kb-product'] })
-  const ragTools = new Map(createTools(new WeknoraClient(ragConfig), ragConfig).map(tool => [tool.name, tool]))
+  const ragTools = new Map(createTools(new GenyeeClient(ragConfig), ragConfig).map(tool => [tool.name, tool]))
   await ragTools.get('genyee_list_knowledge_bases').execute({}, exec)
   await ragTools.get('genyee_search').execute({ query: '默认的检索阈值是多少' }, exec)
   await ragTools.get('genyee_read_document').execute(
@@ -36,7 +36,7 @@ async function replayCalls() {
   await ragTools.get('genyee_ask').execute({ query: '默认的检索阈值是多少' }, exec)
 
   const agentConfig = resolveConfig({ baseUrl: mock.url, agentId: 'agent-42' })
-  const agentAsk = createTools(new WeknoraClient(agentConfig), agentConfig)
+  const agentAsk = createTools(new GenyeeClient(agentConfig), agentConfig)
     .find(tool => tool.name === 'genyee_ask')
   await agentAsk.execute({ query: '部署方式', session_id: 's1', web_search: true }, exec)
 
@@ -53,7 +53,7 @@ const observed = await replayCalls()
 /** Order-insensitive key: a tool that fires two calls at once may land either way round. */
 const callKey = call => `${call.method} ${call.path} ${JSON.stringify(call.query)} ${JSON.stringify(call.body)}`
 
-test('the plugin makes exactly the documented WeKnora calls', () => {
+test('the plugin makes exactly the documented GENYEE calls', () => {
   const expected = fixture.calls.map(call => ({
     method: call.method,
     path: call.path,
@@ -81,10 +81,10 @@ test('the fixture covers every endpoint the plugin touches', () => {
 })
 
 test('every stream event the plugin handles is declared in the fixture', async () => {
-  const mock = await startMockWeknora()
+  const mock = await startMockGenyee()
   after(() => mock.close())
   const config = resolveConfig({ baseUrl: mock.url, agentId: 'agent-42' })
-  const client = new WeknoraClient(config)
+  const client = new GenyeeClient(config)
   const answer = await client.ask(
     { sessionId: 's1', query: '默认的检索阈值是多少', knowledgeBaseIds: [], agentId: 'agent-42', webSearch: false },
     exec.signal,
@@ -100,10 +100,10 @@ test('every stream event the plugin handles is declared in the fixture', async (
 })
 
 test('the plugin only reads response fields the fixture declares', async () => {
-  const mock = await startMockWeknora()
+  const mock = await startMockGenyee()
   after(() => mock.close())
   const config = resolveConfig({ baseUrl: mock.url })
-  const client = new WeknoraClient(config)
+  const client = new GenyeeClient(config)
   // A backend that serves nothing but the declared fields must still produce a
   // complete tool result, which is what "these are the fields we depend on" means.
   const declared = new Set(fixture.responseFieldsRead['types.SearchResult'])
@@ -111,7 +111,7 @@ test('the plugin only reads response fields the fixture declares', async () => {
   const trimmed = results.map(result => Object.fromEntries(
     Object.entries(result).filter(([key]) => declared.has(key)),
   ))
-  const tools = createTools(new WeknoraClient(config), config)
+  const tools = createTools(new GenyeeClient(config), config)
   const search = tools.find(tool => tool.name === 'genyee_search')
   // Feed the trimmed shape back through the projection the tool uses.
   const projected = search.output.render({ query: '混合检索' }, {

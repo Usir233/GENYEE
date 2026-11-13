@@ -28,7 +28,7 @@ class AnydocBuildTests(unittest.TestCase):
         patched.mkdir()
         (patched / "Cargo.toml").write_text("fixture manifest\n")
         sha = "a" * 64
-        (patched / ".weknora-patched").write_text(f"0.2.4-zip9-v2-{sha}\n")
+        (patched / ".genyee-patched").write_text(f"0.2.4-zip9-v2-{sha}\n")
         sources = self.root / "licenses/sources"
         sources.mkdir(parents=True)
         (sources / "anydoc.tsv").write_text(f"0.2.4 {sha}\n")

@@ -63,7 +63,7 @@ func newRemoteServiceFixture(t *testing.T) (*ShellJobService, *fakeRemoteReader,
 	mr := miniredisRunT(t)
 	client := redisNewClient(mr)
 	t.Cleanup(func() { _ = client.Close() })
-	index := NewShellJobIndex(client, "weknora")
+	index := NewShellJobIndex(client, "genyee")
 	bg := NewBackgroundWork(background.NewMemoryActivityRegistry(nil), background.NewMemoryNoticeInbox(nil))
 	reader := &fakeRemoteReader{snapshots: map[string]sandbox.ShellJobSnapshot{}}
 	// keeper 经构造器注入（与生产同一条路径）；需要断言顺序的测试用
@@ -101,7 +101,7 @@ func TestSubmitKeepAlivesBeforeTheYieldWait(t *testing.T) {
 	mr := miniredisRunT(t)
 	client := redisNewClient(mr)
 	t.Cleanup(func() { _ = client.Close() })
-	index := NewShellJobIndex(client, "weknora")
+	index := NewShellJobIndex(client, "genyee")
 	bg := NewBackgroundWork(background.NewMemoryActivityRegistry(nil), background.NewMemoryNoticeInbox(nil))
 	// keeper 经构造器注入——与生产 provider 的接线路径一致，不是字段直塞。
 	svc := newRemoteServiceFixtureWithKeeper(t, bg, index, keeperFunc(
@@ -132,7 +132,7 @@ func TestSubmitFailsLoudlyWithoutKeepAliver(t *testing.T) {
 	mr := miniredisRunT(t)
 	client := redisNewClient(mr)
 	t.Cleanup(func() { _ = client.Close() })
-	index := NewShellJobIndex(client, "weknora")
+	index := NewShellJobIndex(client, "genyee")
 	bg := NewBackgroundWork(background.NewMemoryActivityRegistry(nil), background.NewMemoryNoticeInbox(nil))
 	svc := newRemoteServiceFixtureWithKeeper(t, bg, index, nil)
 	require.True(t, svc.lifecycle.Events == nil, "nil emitter must not become a typed-nil interface")
@@ -987,7 +987,7 @@ func TestSweepKillsOrphansWhenTheWatcherDies(t *testing.T) {
 	require.Contains(t, script, "kill -TERM")
 	require.Contains(t, script, "99")
 	require.Contains(t, script, "77")
-	require.Contains(t, script, "weknora-sandbox-activity")
+	require.Contains(t, script, "genyee-sandbox-activity")
 	require.Equal(t, "sbx1", opts.ExpectedSandboxID)
 	require.True(t, opts.SkipWorkspacePrep)
 	notices, err := bg.Inbox.Pending(context.Background(), ref)

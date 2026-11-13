@@ -88,7 +88,7 @@ type ImageEmbedder interface {
 // Both halves matter. A vendor is free to answer out of order, so the index
 // has to be honoured rather than assumed — and reading the wrong field for it
 // silently collapses a whole batch onto slot 0, which is what
-// Tencent/GENYEE#3484 was. An unfilled slot then reaches the index as an
+// upstream issue #3484 was. An unfilled slot then reaches the index as an
 // empty vector, where it is stored and poisons retrieval without anything
 // failing, so a gap is an error instead. So is an index reported twice: one
 // of the two vectors belongs to some other input.

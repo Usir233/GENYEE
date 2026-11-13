@@ -74,7 +74,7 @@ func NewCmdUpload(f *cmdutil.Factory) *cobra.Command {
 		Short: "Upload a local file to the knowledge base",
 		Long: `Uploads a file (PDF / DOCX / Markdown / TXT / etc.) to the resolved
 knowledge base. KB resolution follows the standard 4-level chain:
---kb flag > GENYEE_KB_ID env > .weknora/project.yaml > error. The --kb
+--kb flag > GENYEE_KB_ID env > .genyee/project.yaml > error. The --kb
 flag accepts either a KB UUID (passed through) or a name (resolved via list).
 
 Pass --name to override the recorded file name (useful when the local file

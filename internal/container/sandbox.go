@@ -35,7 +35,7 @@ func newSandboxManager(
 func sandboxRedisNamespace() string {
 	namespace := strings.TrimSpace(os.Getenv("GENYEE_REDIS_NAMESPACE"))
 	if namespace == "" {
-		namespace = "weknora"
+		namespace = "genyee"
 	}
 	return namespace
 }
@@ -191,5 +191,5 @@ func newAdmissionRegistry(redisClient *redis.Client) admission.Registry {
 	if redisClient == nil {
 		return admission.NewMemory()
 	}
-	return admission.NewRedis(redisClient, "weknora:sandbox:user:")
+	return admission.NewRedis(redisClient, "genyee:sandbox:user:")
 }

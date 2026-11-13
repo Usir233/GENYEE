@@ -12,7 +12,7 @@ const props = defineProps<{
 }>()
 
 const { theme } = useData()
-const size = computed(() => theme.value.weknoraScreenshotSizes?.[props.src])
+const size = computed(() => theme.value.genyeeScreenshotSizes?.[props.src])
 const failed = ref(false)
 const resolved = computed(() => withBase(props.src))
 watch(resolved, () => { failed.value = false })

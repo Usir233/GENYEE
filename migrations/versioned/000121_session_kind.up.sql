@@ -1,7 +1,7 @@
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS kind VARCHAR(32) NOT NULL DEFAULT '';
 
 UPDATE sessions SET kind = 'assistant'
-WHERE agent_config->>'agent_id' = 'builtin-weknora-assistant';
+WHERE agent_config->>'agent_id' = 'builtin-genyee-assistant';
 
 CREATE INDEX IF NOT EXISTS idx_sessions_tenant_kind_user_updated
     ON sessions (tenant_id, kind, user_id, updated_at DESC)

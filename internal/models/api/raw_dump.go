@@ -23,7 +23,7 @@ func streamRawDumpDir() string {
 		if err != nil {
 			return ""
 		}
-		return filepath.Join(home, ".weknora", "investigate", "llm-stream")
+		return filepath.Join(home, ".genyee", "investigate", "llm-stream")
 	}
 	return ""
 }

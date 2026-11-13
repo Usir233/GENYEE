@@ -26,12 +26,12 @@ function fixture(entries: [string, string][]) {
 
 test('adopts anonymous preferences once and removes their source', () => {
   const { values, api } = fixture([
-    ['weknora_user', JSON.stringify({ id: 'alice' })],
-    ['WeKnora_anon_theme', 'dark'],
+    ['genyee_user', JSON.stringify({ id: 'alice' })],
+    ['GENYEE_anon_theme', 'dark'],
   ])
   assert.equal(api.loadPreference('theme'), 'dark')
-  assert.equal(values.has('WeKnora_anon_theme'), false)
-  values.set('weknora_user', JSON.stringify({ id: 'bob' }))
+  assert.equal(values.has('GENYEE_anon_theme'), false)
+  values.set('genyee_user', JSON.stringify({ id: 'bob' }))
   api.resetMigrationLatch()
   api.migratePreferencesIntoUser()
   assert.equal(api.loadPreference('theme'), null)
@@ -39,13 +39,13 @@ test('adopts anonymous preferences once and removes their source', () => {
 
 test('does not adopt unscoped preferences or overwrite user choices', () => {
   const { values, api } = fixture([
-    ['weknora_user', JSON.stringify({ id: 'alice' })],
-    ['WeKnora_theme', 'unscoped'],
-    ['WeKnora_font_size', '99'],
-    ['WeKnora_anon_theme', 'dark'],
-    ['WeKnora_alice_theme', 'light'],
+    ['genyee_user', JSON.stringify({ id: 'alice' })],
+    ['GENYEE_theme', 'unscoped'],
+    ['GENYEE_font_size', '99'],
+    ['GENYEE_anon_theme', 'dark'],
+    ['GENYEE_alice_theme', 'light'],
   ])
   assert.equal(api.loadPreference('theme'), 'light')
   assert.equal(api.loadPreference('font_size'), null)
-  assert.equal(values.has('WeKnora_anon_theme'), false)
+  assert.equal(values.has('GENYEE_anon_theme'), false)
 })

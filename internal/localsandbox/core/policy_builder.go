@@ -129,7 +129,7 @@ func NewPolicyBuilder(homeDir, appDataDir string) *PolicyBuilder {
 	return &PolicyBuilder{
 		homeDir:    filepath.Clean(homeDir),
 		appDataDir: filepath.Clean(appDataDir),
-		jobsRoot:   filepath.Join(filepath.Clean(homeDir), ".weknora", "jobs"),
+		jobsRoot:   filepath.Join(filepath.Clean(homeDir), ".genyee", "jobs"),
 	}
 }
 

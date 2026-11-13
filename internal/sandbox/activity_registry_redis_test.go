@@ -30,8 +30,8 @@ func TestRedisActivityRegistryContract(t *testing.T) {
 func TestRedisActivityRegistryUsesBindingHashTag(t *testing.T) {
 	store, _, _ := newRedisBindingTestStore(t)
 	key := SessionSandboxKey{TenantID: 7, SessionID: "s1"}
-	require.Equal(t, "weknora:sandbox:session:{test:7:s1}:activity", store.activityKey(key))
-	require.Equal(t, "weknora:sandbox:session:{test:7:s1}:turn", store.turnKey(key))
+	require.Equal(t, "genyee:sandbox:session:{test:7:s1}:activity", store.activityKey(key))
+	require.Equal(t, "genyee:sandbox:session:{test:7:s1}:turn", store.turnKey(key))
 }
 
 func TestRedisActivityRegistryRejectsInvalidSession(t *testing.T) {
@@ -52,9 +52,9 @@ func newSharedActivityManagers(
 	allocs := newFakeAllocations(userAssignmentFor(userSessionA), userAssignmentFor(userSessionB))
 	remote := newFakeRemoteClient(SandboxTypeCube)
 	h1 := newUserManagerHarnessWithDirectory(t, remote, store,
-		admission.NewRedis(client, "weknora:sandbox:user:"), allocs, store.namespace)
+		admission.NewRedis(client, "genyee:sandbox:user:"), allocs, store.namespace)
 	h2 := newUserManagerHarnessWithDirectory(t, remote, other,
-		admission.NewRedis(client, "weknora:sandbox:user:"), allocs, store.namespace)
+		admission.NewRedis(client, "genyee:sandbox:user:"), allocs, store.namespace)
 	return h1, h2, NewRedisActivityRegistry(store).WithAllocations(allocs), mini
 }
 

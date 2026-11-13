@@ -57,7 +57,7 @@ import (
 // dockerActivityMarker is touched by every exec and read by the idle sweeper.
 // It lives outside /workspace so a script cannot mistake it for its own data,
 // and outside /tmp so a tmpfs mount cannot hide it.
-const dockerActivityMarker = "/var/lib/weknora-sandbox-activity"
+const dockerActivityMarker = "/var/lib/genyee-sandbox-activity"
 
 // dockerSandboxEntrypoint keeps the container alive without running anything —
 // the container is a place to exec into, not a service — and prepares the
@@ -838,13 +838,13 @@ func dockerExecCommand(req RemoteExecRequest, timeout time.Duration) []string {
 		return []string{
 			"/bin/sh", "-c",
 			touch + `exec timeout -s KILL ` + seconds + ` /bin/bash --noprofile --norc -c "$1"`,
-			"weknora-exec", req.Command,
+			"genyee-exec", req.Command,
 		}
 	}
 	argv := []string{
 		"/bin/sh", "-c",
 		touch + `exec timeout -s KILL ` + seconds + ` "$@"`,
-		"weknora-exec", req.Command,
+		"genyee-exec", req.Command,
 	}
 	return append(argv, req.Args...)
 }
@@ -914,7 +914,7 @@ func (c *DockerRemoteClient) WriteFile(
 	// metacharacters cannot change what the redirect targets.
 	result, err := c.Exec(ctx, &dockerSandboxHandle{id: id}, RemoteExecRequest{
 		Command: "sh",
-		Args:    []string{"-c", `cat > "$1"`, "weknora-write", clean},
+		Args:    []string{"-c", `cat > "$1"`, "genyee-write", clean},
 		Stdin:   string(content),
 		User:    remoteFileUser(ctx),
 		Timeout: dockerFilesystemOpTimeout,

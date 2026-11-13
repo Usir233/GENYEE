@@ -133,8 +133,8 @@ export default withMermaid(
 
       nav: [],
 
-      weknoraVersion: repoVersionLabel,
-      weknoraScreenshotSizes: readScreenshotSizes(resolve(root, 'public/screenshots')),
+      genyeeVersion: repoVersionLabel,
+      genyeeScreenshotSizes: readScreenshotSizes(resolve(root, 'public/screenshots')),
 
       sidebar,
 

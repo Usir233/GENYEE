@@ -75,11 +75,11 @@ func TestBuildRetryArgv_ScalarsAndSlices(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := cmdutil.BuildRetryArgv(cmd, []string{"weknora", "agent", "update", "ag_abc"},
+	got := cmdutil.BuildRetryArgv(cmd, []string{"genyee", "agent", "update", "ag_abc"},
 		"name", "add-kb", "format")
 	// Visit order is lexicographical among changed flags.
 	want := []string{
-		"weknora", "agent", "update", "ag_abc",
+		"genyee", "agent", "update", "ag_abc",
 		"--add-kb", "kb_new",
 		"--add-kb", "kb_old",
 		"--format", "json",
@@ -158,7 +158,7 @@ func TestBuildRetryArgv_BoolFlagsRoundTrip(t *testing.T) {
 			require.NoError(t, src.Flags().Parse(tt.typed))
 
 			argv := cmdutil.BuildRetryArgv(src,
-				[]string{"weknora", "model", "update", "mdl_abc"},
+				[]string{"genyee", "model", "update", "mdl_abc"},
 				"default", "format")
 
 			gotDefault, err := runRetryArgv(t, argv)
@@ -180,7 +180,7 @@ func TestBuildRetryArgv_BoolFlagUsesSingleToken(t *testing.T) {
 	require.NoError(t, src.Flags().Parse([]string{"--default=false", "--format", "json"}))
 
 	got := cmdutil.BuildRetryArgv(src,
-		[]string{"weknora", "model", "update", "mdl_abc"},
+		[]string{"genyee", "model", "update", "mdl_abc"},
 		"default", "format")
 
 	assert.Contains(t, got, "--default=false")
@@ -196,7 +196,7 @@ func TestBuildRetryArgv_NonBoolFlagsUnchanged(t *testing.T) {
 	require.NoError(t, src.Flags().Parse([]string{"--name", "Renamed", "--format", "json"}))
 
 	got := cmdutil.BuildRetryArgv(src,
-		[]string{"weknora", "model", "update", "mdl_abc"},
+		[]string{"genyee", "model", "update", "mdl_abc"},
 		"default", "format", "name")
 
 	assert.Contains(t, got, "--name")
@@ -213,8 +213,8 @@ func TestBuildRetryArgv_SkipsFlagsNotInAllow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got := cmdutil.BuildRetryArgv(cmd, []string{"weknora", "model", "update", "m1"}, "name", "format")
-	want := []string{"weknora", "model", "update", "m1", "--name", "x", "-y"}
+	got := cmdutil.BuildRetryArgv(cmd, []string{"genyee", "model", "update", "m1"}, "name", "format")
+	want := []string{"genyee", "model", "update", "m1", "--name", "x", "-y"}
 	if len(got) != len(want) {
 		t.Fatalf("len got=%d want=%d\ngot=%v\nwant=%v", len(got), len(want), got, want)
 	}

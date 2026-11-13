@@ -14,7 +14,7 @@ async function walk(dir) {
   }
   return result;
 }
-for (const retired of ['/demo/', '/demo/1/', '/redesign/', '/redesign/1/', '/demo6/preview.html', '/brand/weknora.svg', '/icon.svg', '/docs/favicon.svg', '/docs/README.html', '/docs/THIRD_PARTY_NOTICES.html', '/docs/homepage/README.html', '/docs/homepage/BRAND-ASSETS.html', '/docs/static-site/', '/docs/releases/']) {
+for (const retired of ['/demo/', '/demo/1/', '/redesign/', '/redesign/1/', '/demo6/preview.html', '/brand/genyee.svg', '/icon.svg', '/docs/favicon.svg', '/docs/README.html', '/docs/THIRD_PARTY_NOTICES.html', '/docs/homepage/README.html', '/docs/homepage/BRAND-ASSETS.html', '/docs/static-site/', '/docs/releases/']) {
   assert.equal(await resolveSiteFile(root, retired), null, `Retired demo must not be published: ${retired}`);
 }
 const failures = [];
@@ -33,7 +33,7 @@ const pages = await walk(root);
 for (const file of pages) {
   const html = await readFile(file, 'utf8');
   const route = '/' + relative(root, file).replaceAll('\\', '/');
-  const base = new URL(route, 'https://weknora.test');
+  const base = new URL(route, 'https://genyee.test');
   for (const match of html.matchAll(/<(?:a|link|img|script|source|video)\b[^>]*>/g)) {
     const tag = match[0];
     for (const [, raw] of tag.matchAll(/(?:href|src|poster)="([^"]+)"/g)) {
@@ -67,7 +67,7 @@ for (const file of pages) {
   if (/11\.141\.160\.83/.test(html)) failures.push(`${route}: stale private docs host`);
   if (route.startsWith('/docs/') && !route.endsWith('/404.html') && !/class="gy-brand"[^>]*href="\/"[^>]*target="_self"/.test(html)) failures.push(`${route}: documentation logo must navigate to the main site`);
 }
-for (const path of ['/docs/', '/docs/03-features/22-skills-sandbox.html', '/docs/03-features/23-memory.html', '/docs/07-releases/v0.9.0.html', '/docs/03-features/26-weknora-assistant.html', '/docs/03-features/27-automations.html', '/docs/03-features/28-agent-permissions.html', '/docs/07-releases/v0.8.3.html', '/docs/07-releases/v0.8.2.html', '/docs/07-releases/v0.8.0.html']) assert.ok(await resolveSiteFile(root, path), path);
+for (const path of ['/docs/', '/docs/03-features/22-skills-sandbox.html', '/docs/03-features/23-memory.html', '/docs/07-releases/v0.9.0.html', '/docs/03-features/26-genyee-assistant.html', '/docs/03-features/27-automations.html', '/docs/03-features/28-agent-permissions.html', '/docs/07-releases/v0.8.3.html', '/docs/07-releases/v0.8.2.html', '/docs/07-releases/v0.8.0.html']) assert.ok(await resolveSiteFile(root, path), path);
 assert.equal(failures.length, 0, [...new Set(failures)].join('\n'));
 if (pendingShots.size) console.warn(`Screenshots still pending (placeholder shown): ${[...pendingShots].sort().join(', ')}`);
 console.log(`Unified site check passed: ${pages.length} pages, ${checked.size} local routes/assets, fragment targets, screenshot dimensions, same-tab homepage links and documentation logos.`);

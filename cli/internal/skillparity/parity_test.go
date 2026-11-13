@@ -91,8 +91,8 @@ func TestSkillsReferenceLiveCommandsAndFlags(t *testing.T) {
 		rel, _ := filepath.Rel(skillsRoot(t), path)
 		for _, block := range codeFence.FindAllStringSubmatch(content, -1) {
 			for _, line := range strings.Split(block[1], "\n") {
-				prefixLen := len("weknora")
-				idx := strings.Index(line, "weknora ")
+				prefixLen := len("genyee")
+				idx := strings.Index(line, "genyee ")
 				if idx < 0 {
 					idx = strings.Index(line, "genyee ")
 					prefixLen = len("genyee")

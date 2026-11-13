@@ -388,20 +388,20 @@ func TestTraceparentPropagation(t *testing.T) {
 
 	// The HTTP middleware extracts the traceparent into the request context.
 	httpCtx := propagator.Extract(context.Background(), carrier)
-	_, trace := m.StartTrace(httpCtx, TraceOptions{Name: "weknora-root"})
+	_, trace := m.StartTrace(httpCtx, TraceOptions{Name: "genyee-root"})
 	trace.Finish(nil, nil)
 
 	for _, s := range exp.GetSpans() {
-		if s.Name != "weknora-root" {
+		if s.Name != "genyee-root" {
 			continue
 		}
 		if s.SpanContext.TraceID() != remoteTraceID {
-			t.Errorf("weknora root trace id = %s, want upstream %s (traceparent not inherited)",
+			t.Errorf("genyee root trace id = %s, want upstream %s (traceparent not inherited)",
 				s.SpanContext.TraceID(), remoteTraceID)
 		}
 		return
 	}
-	t.Fatal("weknora-root span not exported")
+	t.Fatal("genyee-root span not exported")
 }
 
 // TestAttachTraceparent_FollowUpJoinsOriginatingTrace is the follow-up

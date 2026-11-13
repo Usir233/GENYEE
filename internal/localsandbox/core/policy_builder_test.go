@@ -11,7 +11,7 @@ import (
 func builderFixture(t *testing.T) (*PolicyBuilder, Workspace) {
 	t.Helper()
 	home := filepath.Join(t.TempDir(), "home")
-	appData := filepath.Join(home, "App Support", "WeKnora Lite")
+	appData := filepath.Join(home, "App Support", "GENYEE Lite")
 	ws := Workspace{
 		Kind:       WorkspaceProject,
 		Root:       filepath.Join(home, "My Project"),
@@ -414,7 +414,7 @@ func TestRelaxRefusesToGrantAppData(t *testing.T) {
 func skillsBuilder(t *testing.T) (*PolicyBuilder, string) {
 	t.Helper()
 	b, _ := builderFixture(t)
-	root := filepath.Join(b.homeDir, ".weknora", "skills")
+	root := filepath.Join(b.homeDir, ".genyee", "skills")
 	return b.WithSkillsRoot(root), root
 }
 
@@ -459,14 +459,14 @@ func TestBuildInstallRejectsDirOutsideSkillsRoot(t *testing.T) {
 
 func TestBuildInstallRequiresASkillsRoot(t *testing.T) {
 	b, _ := builderFixture(t)
-	_, err := b.BuildInstall(filepath.Join(b.homeDir, ".weknora", "skills", ".versions", "pdf-1"))
+	_, err := b.BuildInstall(filepath.Join(b.homeDir, ".genyee", "skills", ".versions", "pdf-1"))
 	require.ErrorIs(t, err, ErrInstallDirOutsideSkillsRoot)
 }
 
 func TestJobsDirectoryCannotBecomeAWorkspace(t *testing.T) {
 	home := "/Users/local-test"
-	jobs := filepath.Join(home, ".weknora", "jobs")
-	b := NewPolicyBuilder(home, filepath.Join(home, "Library", "Application Support", "WeKnora Lite"))
+	jobs := filepath.Join(home, ".genyee", "jobs")
+	b := NewPolicyBuilder(home, filepath.Join(home, "Library", "Application Support", "GENYEE Lite"))
 	for _, root := range []string{filepath.Dir(jobs), jobs, filepath.Join(jobs, "sj_0123")} {
 		_, err := b.Build(ModeAuto, Workspace{Root: root})
 		require.Error(t, err, root)

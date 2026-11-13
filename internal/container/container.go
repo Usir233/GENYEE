@@ -1065,7 +1065,7 @@ func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 	case "sqlite":
 		dbPath := os.Getenv("DB_PATH")
 		if dbPath == "" {
-			dbPath = "./data/weknora.db"
+			dbPath = "./data/genyee.db"
 		}
 		if dir := filepath.Dir(dbPath); dir != "." && dir != "" {
 			if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -1446,7 +1446,7 @@ func initRawFileService(_ *config.Config) (interfaces.FileService, error) {
 		}
 		pathPrefix := os.Getenv("S3_PATH_PREFIX")
 		if pathPrefix == "" {
-			pathPrefix = "weknora/"
+			pathPrefix = "genyee/"
 		}
 		return file.NewS3FileService(
 			os.Getenv("S3_ENDPOINT"),
@@ -1466,7 +1466,7 @@ func initRawFileService(_ *config.Config) (interfaces.FileService, error) {
 		obsRegion := os.Getenv("OBS_REGION")
 		obsPathPrefix := os.Getenv("OBS_PATH_PREFIX")
 		if obsPathPrefix == "" {
-			obsPathPrefix = "weknora/"
+			obsPathPrefix = "genyee/"
 		}
 		return file.NewObsFileService(
 			os.Getenv("OBS_ENDPOINT"),
@@ -1486,7 +1486,7 @@ func initRawFileService(_ *config.Config) (interfaces.FileService, error) {
 		}
 		pathPrefix := os.Getenv("OSS_PATH_PREFIX")
 		if pathPrefix == "" {
-			pathPrefix = "weknora/"
+			pathPrefix = "genyee/"
 		}
 		return file.NewOssFileServiceWithTempBucket(
 			os.Getenv("OSS_ENDPOINT"),
@@ -1764,7 +1764,7 @@ func initRetrieveEngineRegistry(
 		}
 		dorisDatabase := os.Getenv("DORIS_DATABASE")
 		if dorisDatabase == "" {
-			dorisDatabase = "weknora"
+			dorisDatabase = "genyee"
 		}
 		dorisUsername := os.Getenv("DORIS_USERNAME")
 		if dorisUsername == "" {

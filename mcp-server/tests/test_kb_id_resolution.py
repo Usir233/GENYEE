@@ -1,4 +1,4 @@
-from weknora_mcp_server import GENYEEClient, _normalize_kb_entries
+from genyee_mcp_server import GENYEEClient, _normalize_kb_entries
 
 # Shapes mirror GET /knowledge-bases and GET /shared-knowledge-bases wire JSON.
 # See internal/handler/knowledgebase.go (buildKBListResponse) and

@@ -100,7 +100,7 @@ func isProductionEnv() bool {
 // errors are cached too, so recovering an HTTP panic cannot leave an empty key.
 func loadJWTSecret() (string, error) {
 	envSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
-	isPlaceholder := envSecret == "" || envSecret == "weknora-jwt-secret" || envSecret == "CHANGE-ME-jwt-secret"
+	isPlaceholder := envSecret == "" || envSecret == "genyee-jwt-secret" || envSecret == "CHANGE-ME-jwt-secret"
 	if isProductionEnv() {
 		if err := secutils.ValidateProductionJWTSecret(envSecret); err != nil {
 			return "", err

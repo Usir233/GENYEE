@@ -2,9 +2,9 @@
 # Fixed-seat stand-in for wrapper tests. Records every invocation.
 # Same session id keeps the same number. A full table exits 1.
 set -u
-DIR="${WK_DISPLAY_STATE:?}"
-LOG="${WK_DISPLAY_LOG:-$DIR/log}"
-MAX="${WK_DISPLAY_MAX:-8}"
+DIR="${GY_DISPLAY_STATE:?}"
+LOG="${GY_DISPLAY_LOG:-$DIR/log}"
+MAX="${GY_DISPLAY_MAX:-8}"
 mkdir -p "$DIR/seats"
 echo "$*" >> "$LOG"
 cmd="${1:-}"

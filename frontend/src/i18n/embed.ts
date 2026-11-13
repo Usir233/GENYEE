@@ -2720,7 +2720,7 @@ export const SUPPORTED_LOCALES = ['zh-CN', 'zh-TW', 'en-US', 'ko-KR', 'ja-JP', '
 export type EmbedLocale = (typeof SUPPORTED_LOCALES)[number]
 
 /** Isolated from the main app `locale` key so embed preview never hijacks admin UI language. */
-export const EMBED_LOCALE_STORAGE_KEY = 'weknora-embed-locale'
+export const EMBED_LOCALE_STORAGE_KEY = 'genyee-embed-locale'
 
 /** Map host-provided locale strings to a supported embed locale tag. */
 export function normalizeEmbedLocale(raw: string): EmbedLocale {

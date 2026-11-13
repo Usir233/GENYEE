@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Fake agent-browser for wrapper/wk-auth tests.
+# Fake agent-browser for wrapper/gy-auth tests.
 set -u
 STATE="${STUB_STATE:?}"; LOG="${STUB_LOG:?}"
 echo "ARGS $*" >> "$LOG"
-echo "ENV HOME=$HOME DISPLAY=${DISPLAY-} SESSION=${AGENT_BROWSER_SESSION:-} EXE=${AGENT_BROWSER_EXECUTABLE_PATH:-} SEAT=${WK_SEAT-}" >> "$LOG"
+echo "ENV HOME=$HOME DISPLAY=${DISPLAY-} SESSION=${AGENT_BROWSER_SESSION:-} EXE=${AGENT_BROWSER_EXECUTABLE_PATH:-} SEAT=${GY_SEAT-}" >> "$LOG"
 # The daemon socket directory the real CLI resolves (get_socket_dir).
 if [ -n "${AGENT_BROWSER_SOCKET_DIR:-}" ]; then sockdir="$AGENT_BROWSER_SOCKET_DIR"
 elif [ -n "${XDG_RUNTIME_DIR:-}" ]; then sockdir="$XDG_RUNTIME_DIR/agent-browser"

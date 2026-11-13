@@ -145,7 +145,7 @@ func newUserDeleteFixture(t *testing.T, mode string, retireErr error) *userDelet
 	if retireErr != nil {
 		repo = retireErrorRepo{SandboxAllocationRepository: repo, err: retireErr}
 	}
-	alloc := sandboxalloc.New(repo, allocationModeConfig(mode), repository.NewSessionRepository(db), "weknora")
+	alloc := sandboxalloc.New(repo, allocationModeConfig(mode), repository.NewSessionRepository(db), "genyee")
 	ops := &recordingUserMachine{t: t, rejectDestroy: mode == "user" && retireErr == nil}
 	resolver := stubSandboxResolver{mgr: ops}
 	svc := &sessionService{
@@ -284,7 +284,7 @@ func TestUserMachineReclaimCommitsWithRealManagerAndRepository(t *testing.T) {
 			mgr, err := sandbox.NewSessionBoundManager(sandbox.SessionBoundManagerConfig{
 				Config: cfg, Client: client, Store: sandbox.NewMemorySessionSandboxBindingStore(),
 				Checker: alwaysExistsChecker{}, SkipHealthProbe: true,
-				ConfigID: "cfg-a", ConfigTenantID: 7, Namespace: "weknora",
+				ConfigID: "cfg-a", ConfigTenantID: 7, Namespace: "genyee",
 				Allocations: f.alloc, Admission: admission.NewMemory(),
 			})
 			require.NoError(t, err)
@@ -345,7 +345,7 @@ func TestBatchDeleteSessionsReleasesUserModeAndStillDestroysSessionMode(t *testi
 	// Place the per-session row through a session-mode allocator that shares
 	// the repository. The cleaner keeps the user-mode service it was built with.
 	legacy := sandboxalloc.New(f.alloc.Repo(), allocationModeConfig("session"),
-		repository.NewSessionRepository(f.db), "weknora")
+		repository.NewSessionRepository(f.db), "genyee")
 	require.NoError(t, f.db.Session(&gorm.Session{SkipHooks: true}).Create(&types.Session{
 		ID: "s-1", TenantID: 7, UserID: "u-1", Title: "legacy", OwnerAuthSource: types.AuthSourceWeb,
 	}).Error)

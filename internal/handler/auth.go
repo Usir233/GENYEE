@@ -32,8 +32,8 @@ var liteSetupToken string
 func SetLiteSetupToken(token string) { liteSetupToken = token }
 
 const (
-	oidcNonceCookieName   = "weknora_oidc_nonce"
-	oidcPKCECookieName    = "weknora_oidc_pkce"
+	oidcNonceCookieName   = "genyee_oidc_nonce"
+	oidcPKCECookieName    = "genyee_oidc_pkce"
 	oidcNonceCookieMaxAge = 600
 )
 
@@ -1015,7 +1015,7 @@ func (h *AuthHandler) AutoSetup(c *gin.Context) {
 	}
 
 	if liteSetupToken == "" ||
-		subtle.ConstantTimeCompare([]byte(c.GetHeader("X-WeKnora-Desktop-Token")), []byte(liteSetupToken)) != 1 {
+		subtle.ConstantTimeCompare([]byte(c.GetHeader("X-Genyee-Desktop-Token")), []byte(liteSetupToken)) != 1 {
 		_ = c.Error(errors.NewUnauthorizedError("desktop authentication is required"))
 		return
 	}

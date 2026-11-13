@@ -29,7 +29,7 @@ func TestCache_RoundTrip(t *testing.T) {
 	}
 
 	// File should live at $XDG_CACHE_HOME/genyee/server-info.yaml
-	p := filepath.Join(dir, "weknora", "server-info.yaml")
+	p := filepath.Join(dir, "genyee", "server-info.yaml")
 	if _, err := filepath.Abs(p); err != nil {
 		t.Errorf("path resolution: %v", err)
 	}

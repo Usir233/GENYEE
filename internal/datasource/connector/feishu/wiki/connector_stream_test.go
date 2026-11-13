@@ -45,7 +45,7 @@ func fakeFeishuFailingExport(nodes []core.WikiNode) (*httptest.Server, *core.Con
 // A node whose core.Fetch fails must NOT have its new edit time recorded in the
 // returned cursor: recording it would make the next sync's unchanged fast-path
 // core.Skip it forever, silently dropping a document on a transient export failure
-// (Tencent/GENYEE#2136). With a prior edit time known, the prior value is
+// (upstream issue #2136). With a prior edit time known, the prior value is
 // retained so prev != current next run and the node is retried.
 func TestFetchStream_FailedFetchRetainsPriorCursor(t *testing.T) {
 	nodes := []core.WikiNode{{NodeToken: "nt1", ObjToken: "obj1", ObjType: "docx", Title: "Doc", ObjEditTime: "100"}}

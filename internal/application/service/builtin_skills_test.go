@@ -34,10 +34,10 @@ func TestAgentBrowserSkillTextMatchesTheWrapper(t *testing.T) {
 		"the skill must say where the visible browser window appears")
 	require.Contains(t, body, "skills get core",
 		"the skill is a discovery stub: it must point the model at the CLI's own guide")
-	require.NotContains(t, body, "wk-desk")
+	require.NotContains(t, body, "gy-desk")
 	require.NotContains(t, body, "/opt/agent-browser")
 	require.NotContains(t, body, "vault.json")
-	require.NotContains(t, agentBrowserSkillMD, "wk-auth")
+	require.NotContains(t, agentBrowserSkillMD, "gy-auth")
 }
 
 func TestBuiltinSkillRowsOnlyOnDesktopConfigs(t *testing.T) {

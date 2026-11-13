@@ -14,8 +14,8 @@ GENYEE 是企业级知识库问答系统，支持导入 PDF、Word、网页以�
 
 ## v0.9.0 新增能力
 
-- [GENYEE 助手](../03-features/26-weknora-assistant.md)：解答版本、功能与配置问题，结合当前页面，以你的身份检索资料并处理任务。
-- [多智能体协作](../03-features/26-weknora-assistant.md#collaboration)：独立处理子任务，再汇总结果。
+- [GENYEE 助手](../03-features/26-genyee-assistant.md)：解答版本、功能与配置问题，结合当前页面，以你的身份检索资料并处理任务。
+- [多智能体协作](../03-features/26-genyee-assistant.md#collaboration)：独立处理子任务，再汇总结果。
 - [自动化](../03-features/27-automations.md)：按一次性或周期计划执行重复工作。
 - [执行权限与审批](../03-features/28-agent-permissions.md)：选择只读、修改前确认或自动执行，管理有范围的授权。
 

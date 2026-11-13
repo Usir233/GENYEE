@@ -298,7 +298,7 @@ async function openOriginal(): Promise<void> {
 const copyText = (text: string) => copyWithToast(text, 'common.copySuccess')
 
 // The info panel is a per-viewer preference; storage may be unavailable.
-const INFO_KEY = 'weknora_gallery_viewer_info'
+const INFO_KEY = 'genyee_gallery_viewer_info'
 function readInfoPref(): boolean {
   try {
     return localStorage.getItem(INFO_KEY) !== '0'

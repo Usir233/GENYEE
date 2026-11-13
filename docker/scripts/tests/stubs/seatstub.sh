@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fake Xvfb / xfwm4 / x11vnc / xdpyinfo for wk-display tests.
+# Fake Xvfb / xfwm4 / x11vnc / xdpyinfo for gy-display tests.
 # The process comm is the symlink name (we never exec), so comm matches the real binary name.
 # Every process started from here inherits FAKE_X, which the test teardown uses to sweep them.
 set -u
@@ -9,7 +9,7 @@ set -u
 comm=$(basename "$0")
 printf '%s' "${comm:0:15}" > /proc/self/comm 2>/dev/null || true
 X="${FAKE_X:?}"
-LOCKDIR="${WK_X_LOCK_DIR:?}"
+LOCKDIR="${GY_X_LOCK_DIR:?}"
 
 hold() { # hold <cleanup-cmd>: block until TERM, then clean up
   sleep 3600 &

@@ -108,7 +108,7 @@ return &lumberjack.Logger{
 
 #### 导出器（`exporter.go`） {#_3-2-导出器-exporter-go}
 
-OTLP/HTTP exporter，`Authorization: Basic base64(public:secret)`；该 exporter 使用自己的 HTTP 客户端，不经过 SSRF 防护，开启 `SSRF_DNS_WHITELIST_ONLY` 后也不受白名单约束；`x-langfuse-ingestion-version: 4` 是 Langfuse v3/LiteFuse OTel 直写路径的必需门槛头（缺失会返回 400），`x-langfuse-sdk-name/version` 为兼容标记。`Manager`（`manager.go`）持有独立的 `TracerProvider`（`service.name=weknora` resource），不调用 `otel.SetTextMapPropagator` 等全局 OTel 变更，避免影响进程内其他 OTel 埋点；W3C `TraceContext` propagator 为包级私有值。
+OTLP/HTTP exporter，`Authorization: Basic base64(public:secret)`；该 exporter 使用自己的 HTTP 客户端，不经过 SSRF 防护，开启 `SSRF_DNS_WHITELIST_ONLY` 后也不受白名单约束；`x-langfuse-ingestion-version: 4` 是 Langfuse v3/LiteFuse OTel 直写路径的必需门槛头（缺失会返回 400），`x-langfuse-sdk-name/version` 为兼容标记。`Manager`（`manager.go`）持有独立的 `TracerProvider`（`service.name=genyee` resource），不调用 `otel.SetTextMapPropagator` 等全局 OTel 变更，避免影响进程内其他 OTel 埋点；W3C `TraceContext` propagator 为包级私有值。
 
 #### 观测模型与埋点点位 {#_3-3-观测模型与埋点点位}
 
@@ -215,7 +215,7 @@ X-Langfuse-Metadata: {"ticket_id":"T-123","biz_line":"order","priority":"P1"}
 
 - `auditLogService.Log`（`internal/application/service/audit_log.go`）是规范写入口：默认 `outcome=success`、填充 `CreatedAt`；**写失败只记 ERROR 日志不向上传播** —— 审计失败绝不能中断业务操作。
 - `LogDenied` 记录 RBAC 中间件拒绝：以 `(tenant_id, actor, action=rbac.access_denied, route 模板)` 为键做 **1 分钟滑动窗口去重**（`denyDedupWindow`，`repo.CountSinceForDedup`），防止探测客户端灌满表（100 RPS 打同一端点每分钟只产生 1 行）；用路由模板而非原始 URL 作为 dedup 键，防止遍历 UUID 绕过窗口。stderr 侧的 `[rbac] role insufficient` 日志不受去重影响，每次拒绝都打。
-- `middleware/audit_provider.go` 的 `AuditServiceProvider` 把 service 注入 gin context（键 `weknora.audit_service`），RBAC 中间件经 `AuditServiceFromContext` 取用，nil 安全（Lite 模式可不配审计）。
+- `middleware/audit_provider.go` 的 `AuditServiceProvider` 把 service 注入 gin context（键 `genyee.audit_service`），RBAC 中间件经 `AuditServiceFromContext` 取用，nil 安全（Lite 模式可不配审计）。
 
 #### 查询 API（`internal/handler/audit_log.go`） {#_4-4-查询-api-internal-handler-audit-log-go}
 

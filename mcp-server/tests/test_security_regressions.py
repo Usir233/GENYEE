@@ -19,7 +19,7 @@ from upload_paths import (
     resolve_upload_file_path,
     set_active_transport,
 )
-import weknora_mcp_server as srv
+import genyee_mcp_server as srv
 
 
 @pytest.fixture(autouse=True)
@@ -110,7 +110,7 @@ def test_safe_path_segment_allows_safe_identifiers():
         lambda c, bad: c.wiki_index_view(bad),
     ],
 )
-def test_all_weknora_client_path_methods_block_cspt_before_network_io(
+def test_all_genyee_client_path_methods_block_cspt_before_network_io(
     monkeypatch, call_fn
 ):
     client = srv.GENYEEClient("http://example.invalid/api/v1", "placeholder-key")

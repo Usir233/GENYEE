@@ -1,4 +1,4 @@
-from weknora_mcp_server import GENYEEClient
+from genyee_mcp_server import GENYEEClient
 
 
 def test_resolve_agent_id_accepts_non_uuid_agent_id(monkeypatch):

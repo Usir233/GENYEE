@@ -4,7 +4,7 @@
  * @module dsh-genyee
  */
 
-import { WeknoraClient } from './client.ts'
+import { GenyeeClient } from './client.ts'
 import { resolveConfig } from './config.ts'
 import type { HarnessContext } from './harness.ts'
 import { createTools } from './tools.ts'
@@ -16,7 +16,7 @@ export const inject = ['tools'] as const
 
 export type { Config } from './config.ts'
 export { ConfigError, normalizeBaseUrl, resolveConfig } from './config.ts'
-export { WeknoraApiError, WeknoraClient } from './client.ts'
+export { GenyeeApiError, GenyeeClient } from './client.ts'
 export { createTools } from './tools.ts'
 
 /**
@@ -27,7 +27,7 @@ export { createTools } from './tools.ts'
  */
 export function apply(ctx: HarnessContext, config: unknown): void {
   const resolved = resolveConfig(config as never)
-  const client = new WeknoraClient(resolved)
+  const client = new GenyeeClient(resolved)
   const registered: string[] = []
   for (const definition of createTools(client, resolved)) {
     ctx.tools.register(definition)

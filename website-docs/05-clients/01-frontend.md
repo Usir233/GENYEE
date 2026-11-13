@@ -204,8 +204,8 @@ flowchart TB
 1. **OIDC 回调放行**：URL hash 含 `oidc_result=` / `oidc_error=` 时直接放行，交由 `App.vue` 消费；
 2. **工具箱旧书签**：`/platform/settings?section=skills|mcp|browserconnection` 重定向到 `/platform/toolbox/<section>`；
 3. **Lite / 桌面端深链恢复**：Lite 模式硬刷新落在默认首页时，从 `sessionStorage` 恢复上次访问的 `/platform` 子路径（不恢复到组织页）；
-4. **会话恢复**：未登录时先用 `localStorage` 中的 `weknora_token` 调 `getCurrentUser()` 恢复会话（同时刷新 memberships，避免角色变更滞后）；
-5. **桌面端自动登录**：恢复失败则尝试一次 `autoSetup()`。自 v0.8.2 起它只在原生桌面端生效：先经 Wails 绑定 `GetAutoSetupToken()` 取得本进程的随机凭据，再以 `X-WeKnora-Desktop-Token` 请求头调用 `POST /api/v1/auth/auto-setup`；浏览器中打开的 Lite 版没有该绑定，直接走普通注册 / 登录。失败会在 `localStorage` 打标避免重复尝试；
+4. **会话恢复**：未登录时先用 `localStorage` 中的 `genyee_token` 调 `getCurrentUser()` 恢复会话（同时刷新 memberships，避免角色变更滞后）；
+5. **桌面端自动登录**：恢复失败则尝试一次 `autoSetup()`。自 v0.8.2 起它只在原生桌面端生效：先经 Wails 绑定 `GetAutoSetupToken()` 取得本进程的随机凭据，再以 `X-Genyee-Desktop-Token` 请求头调用 `POST /api/v1/auth/auto-setup`；浏览器中打开的 Lite 版没有该绑定，直接走普通注册 / 登录。失败会在 `localStorage` 打标避免重复尝试；
 6. **租户门槛**：已登录但无有效租户 → 跳 `/onboarding/workspace`；
 7. **部署能力门槛**：路由 `meta.requiredCapability`（如 `agents`、`organizations`、`settings.sandbox`）不被当前部署支持时，提示后跳回知识库列表；能力探测失败时放行，由后端接口兜底；
 8. **SystemAdmin 门槛**：`requiresSystemAdmin` 路由对非系统管理员跳回知识库列表（仅 UI 层拦截，服务端另有强校验）。
@@ -223,7 +223,7 @@ flowchart TB
 | `stores/organization.ts` | `useOrganizationStore` | 组织协作：组织列表、成员、共享知识库/Agent、加入申请与审核、角色升级等全套动作 |
 | `stores/organizationState.ts` | 纯函数模块 | 组织列表 upsert / merge、加入审核对成员数影响等纯逻辑（配套单测 `organizationState.test.ts`） |
 | `stores/settings.ts` | 设置 store | 会话与 Agent 配置：选中的知识库/文件/标签/MCP/Skill/工具、模型配置、Ollama 配置、Web 搜索开关等 |
-| `stores/settingsStorage.ts` | 纯函数模块 | 设置持久化（`WeKnora_settings` key）的读取、克隆与内建 Agent 模式修复（配套 `settingsStorage.test.mjs`） |
+| `stores/settingsStorage.ts` | 纯函数模块 | 设置持久化（`GENYEE_settings` key）的读取、克隆与内建 Agent 模式修复（配套 `settingsStorage.test.mjs`） |
 | `stores/menu.ts` | `useMenuStore` | 左侧导航菜单结构（新建对话、知识库、Agent 等条目）与 i18n 标题 |
 | `stores/knowledge.ts` | `knowledgeStore` | 知识卡片列表与总数（轻量） |
 | `stores/ui.ts` | `useUIStore` | 全局 UI 状态：设置模态、知识库编辑模态、手工文档编辑器、侧栏折叠等开关与参数 |
@@ -240,7 +240,7 @@ flowchart TB
 ### 请求基座
 
 - **axios 实例**：`frontend/src/utils/request.ts` 创建统一实例（`baseURL` 来自 `frontend/src/utils/api-base.ts` 的 `getApiBaseUrl()`，尊重 Vite `BASE_URL` 以支持子路径反代部署；普通请求超时 30s）。文件上传（`postUpload`）按载荷大小计算超时（`utils/requestTimeouts.ts` 的 `uploadTimeoutMs`，下限 5 分钟，按约 10MB/分钟放大），调大 `MAX_FILE_SIZE_MB` 后大文件不会被 30s 默认值中断；调用方显式传入的 `timeout` 优先。
-- **请求拦截器**：自动附加 `Authorization: Bearer <weknora_token>`（Embed 渠道的 `Embed ` token 不被覆盖）、`Accept-Language`（当前 i18n 语言）、`X-Request-ID`（随机串）、`X-Tenant-ID`（跨空间访问，始终携带激活空间 id 以避免切空间后 header 丢失）。
+- **请求拦截器**：自动附加 `Authorization: Bearer <genyee_token>`（Embed 渠道的 `Embed ` token 不被覆盖）、`Accept-Language`（当前 i18n 语言）、`X-Request-ID`（随机串）、`X-Tenant-ID`（跨空间访问，始终携带激活空间 id 以避免切空间后 header 丢失）。
 - **响应拦截器**：2xx 解包返回 `data`；401 触发单飞（single-flight）refresh token 刷新，失败队列重放；公开端点（`/auth/login`、`/auth/register`、`/auth/oidc/`、`/auth/auto-setup`、`/auth/invitations/lookup`、`/api/v1/embed/`，即 `PUBLIC_AUTH_PATHS`）的 401 直接抛给页面而不跳登录；Embed 页面永不重定向到 `/login`。
 - **HTTP 状态码（`$httpStatus`）**：`get` / `post` / `put` / `patch` / `del` / `postUpload` 的返回类型为 `WithStatus<T>`，JSON 对象或数组响应上挂有不可枚举的 `$httpStatus` 属性，可用来区分成功形状相同的结果（例如系统管理员创建用户：201 表示新建，200 表示幂等重试）。它不出现在对象展开、`JSON.stringify` 与 `Object.keys` 中；Blob、字符串与 SSE 响应不带该属性。
 - **SSE 流式**：`frontend/src/api/chat/streame.ts` 基于 `@microsoft/fetch-event-source` 封装 `useStream()`，支持流式输出、加载态、错误态与请求调试元数据；上层由 `frontend/src/composables/useChatStreamHandler.ts` 组织为聊天消息流。聊天流握手返回 401 时，会与 axios 共用 `utils/authRefresh.ts` 的单飞刷新，拿到新 token 后原样重放一次请求，因此 access token 过期不会打断正在发起的对话。
@@ -249,7 +249,7 @@ flowchart TB
 
 | 模块 | 职责 |
 | --- | --- |
-| `api/auth/` | 登录、注册、OIDC、`autoSetup`（仅原生桌面端，携带 Wails 提供的 `X-WeKnora-Desktop-Token`）、`getCurrentUser` 会话恢复 |
+| `api/auth/` | 登录、注册、OIDC、`autoSetup`（仅原生桌面端，携带 Wails 提供的 `X-Genyee-Desktop-Token`）、`getCurrentUser` 会话恢复 |
 | `api/tenant/`（`index` / `members` / `invitations` / `audit-log`） | 租户（工作空间）信息、成员管理、邀请、审计日志 |
 | `api/organization/` | 组织 CRUD、成员、共享知识库/Agent、加入申请 |
 | `api/knowledge-base/` | 知识库 CRUD 与文件/知识条目管理 |

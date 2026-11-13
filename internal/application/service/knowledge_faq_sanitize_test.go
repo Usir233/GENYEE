@@ -26,13 +26,13 @@ func TestSanitizeFAQEntryPayloadKeepsOriginalText(t *testing.T) {
 	// dropped, no lower-casing or punctuation stripping (that is Normalize,
 	// which is for hashing and indexing).
 	meta, err := sanitizeFAQEntryPayload(&types.FAQEntryPayload{
-		StandardQuestion: "What is WeKnora?",
-		SimilarQuestions: []string{"Tell me about WeKnora!"},
+		StandardQuestion: "What is GENYEE?",
+		SimilarQuestions: []string{"Tell me about GENYEE!"},
 		Answers:          []string{"A RAG framework."},
 	})
 	require.NoError(t, err)
-	require.Equal(t, "What is WeKnora?", meta.StandardQuestion)
-	require.Equal(t, []string{"Tell me about WeKnora!"}, meta.SimilarQuestions)
+	require.Equal(t, "What is GENYEE?", meta.StandardQuestion)
+	require.Equal(t, []string{"Tell me about GENYEE!"}, meta.SimilarQuestions)
 }
 
 func TestSanitizeFAQEntryPayloadRejectsBlankAnswers(t *testing.T) {

@@ -3,8 +3,8 @@ import type { ComposerTranslation } from 'vue-i18n'
 export type CatalogDisplayType =
   | 'find_operations'
   | 'run_operation'
-  | 'search_weknora_docs'
-  | 'read_weknora_doc'
+  | 'search_genyee_docs'
+  | 'read_genyee_doc'
 
 const PAYLOAD_KEYS = [
   'operations', 'unavailable',
@@ -115,7 +115,7 @@ function numberOrNull(value: unknown): number | null {
 
 export function getCatalogToolDisplayType(toolName?: string): CatalogDisplayType | undefined {
   if (toolName === 'find_operations' || toolName === 'run_operation' ||
-    toolName === 'search_weknora_docs' || toolName === 'read_weknora_doc') {
+    toolName === 'search_genyee_docs' || toolName === 'read_genyee_doc') {
     return toolName
   }
   return undefined
@@ -300,7 +300,7 @@ export function getCatalogToolTitle(t: ComposerTranslation, event: ToolEventLike
     const base = t('agentStream.tools.runOperation')
     const operation = stringField(args, 'operation') || stringField(data, 'operation')
     title = operation ? `${base}：${getOperationLabel(t, operation)}` : base
-  } else if (type === 'search_weknora_docs') {
+  } else if (type === 'search_genyee_docs') {
     const base = t('agentStream.tools.searchGENYEEDocs')
     const detail = stringField(args, 'query') || stringField(args, 'category')
     title = detail ? `${base}：「${detail}」` : base

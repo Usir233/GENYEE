@@ -199,7 +199,7 @@ func TestCubeDialDesktopReachesWebsockifyPath(t *testing.T) {
 	t.Cleanup(cancel)
 	conn, err := client.DialDesktop(ctx,
 		&cubeRemoteHandle{sb: &cubesandbox.Sandbox{SandboxID: "sbx-9"}},
-		RemoteDesktopOptions{BasicAuthUser: "weknora", BasicAuthPassword: "s3cret"})
+		RemoteDesktopOptions{BasicAuthUser: "genyee", BasicAuthPassword: "s3cret"})
 	require.NoError(t, err)
 	defer func() { _ = conn.Close() }()
 
@@ -208,7 +208,7 @@ func TestCubeDialDesktopReachesWebsockifyPath(t *testing.T) {
 	require.Equal(t, "tok-9", seen.Header.Get(InboundTokenHeader))
 	user, pass, ok := seen.BasicAuth()
 	require.True(t, ok)
-	require.Equal(t, "weknora", user)
+	require.Equal(t, "genyee", user)
 	require.Equal(t, "s3cret", pass)
 }
 
@@ -240,7 +240,7 @@ func TestCubeDialDesktopUsesHandleTokenWhenRegistryEmpty(t *testing.T) {
 			SandboxID:          "sbx-9",
 			TrafficAccessToken: "from-handle",
 		}},
-		RemoteDesktopOptions{BasicAuthUser: "weknora", BasicAuthPassword: "s3cret"})
+		RemoteDesktopOptions{BasicAuthUser: "genyee", BasicAuthPassword: "s3cret"})
 	require.NoError(t, err)
 	defer func() { _ = conn.Close() }()
 
@@ -248,7 +248,7 @@ func TestCubeDialDesktopUsesHandleTokenWhenRegistryEmpty(t *testing.T) {
 		"websockify dial must carry the handle's traffic token even when the registry is empty")
 	user, pass, ok := seen.BasicAuth()
 	require.True(t, ok)
-	require.Equal(t, "weknora", user)
+	require.Equal(t, "genyee", user)
 	require.Equal(t, "s3cret", pass)
 }
 
@@ -292,7 +292,7 @@ func TestCubeDialDesktopSendsSeatTokenAsQuery(t *testing.T) {
 
 	conn, err := client.DialDesktop(context.Background(),
 		&cubeRemoteHandle{sb: &cubesandbox.Sandbox{SandboxID: "sbx-9"}},
-		RemoteDesktopOptions{BasicAuthUser: "weknora", BasicAuthPassword: "s3cret", Token: "12"})
+		RemoteDesktopOptions{BasicAuthUser: "genyee", BasicAuthPassword: "s3cret", Token: "12"})
 	require.NoError(t, err)
 	defer func() { _ = conn.Close() }()
 

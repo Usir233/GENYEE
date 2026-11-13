@@ -7,7 +7,7 @@ GENYEE 由 Web 前端、Go 主服务和 Python 文档解析服务组成，使用
 
 内置 GENYEE 助手在现有 Agent 引擎之上使用管理操作目录和随应用打包的产品文档。页面上下文帮助理解任务，实际操作仍经过角色与资源授权。协作实例、审批及运行挂起状态会持久化；自动化调度器以任务所有者身份启动助手会话，并保存运行记录和站内通知。
 
-用户入口见[助手](../03-features/26-weknora-assistant.md)、[自动化](../03-features/27-automations.md)和[执行权限](../03-features/28-agent-permissions.md)。
+用户入口见[助手](../03-features/26-genyee-assistant.md)、[自动化](../03-features/27-automations.md)和[执行权限](../03-features/28-agent-permissions.md)。
 
 ## 系统组成 {#_1-系统组成}
 
@@ -196,7 +196,7 @@ sequenceDiagram
 | `docreader/` | Python gRPC 文档解析微服务：`main.py` 服务端入口、`parser/` 25+ 解析器、`splitter/` 分割器、`proto/` 协议定义、独立 `Dockerfile.docreader` 构建 |
 | `cli/` | `genyee` 命令行工具：知识库、文档、检索、会话、智能体、模型、MCP、技能等资源操作，以及 `doctor` 诊断，见 [CLI](../05-clients/02-cli.md) |
 | `client/` | Go SDK：以 HTTP 客户端形式封装 GENYEE API，供二次开发集成 |
-| `mcp-server/` | Python 实现的 MCP Server（`weknora_mcp_server.py`），把 GENYEE API 暴露为 MCP 工具给 Claude 等 MCP 客户端 |
+| `mcp-server/` | Python 实现的 MCP Server（`genyee_mcp_server.py`），把 GENYEE API 暴露为 MCP 工具给 Claude 等 MCP 客户端 |
 | `miniprogram/` | 微信小程序客户端（WXML/WXSS/JS） |
 | `migrations/` | golang-migrate 数据库迁移：`versioned/`（Postgres 主线 `NNNNNN_*.up/down.sql`）、`sqlite/`（Lite 模式）、`paradedb/`、`mysql/` |
 | `config/` | 运行配置：`config.yaml` 主配置、`builtin_agents.yaml` 内置 Agent、`agent_type_presets.yaml` Agent 预设、`builtin_models.yaml.example` 声明式内置模型、`models.json.example` 模型厂商目录叠加、`prompt_templates/` 提示词模板 |

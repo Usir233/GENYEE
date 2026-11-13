@@ -172,7 +172,7 @@ func TestResponseFieldsThePluginReadsStillExist(t *testing.T) {
 			ID:                "doc-1",
 			Title:             "检索流程.md",
 			FileName:          "检索流程.md",
-			Description:       "讲解 WeKnora 混合检索的召回与阈值。",
+			Description:       "讲解 GENYEE 混合检索的召回与阈值。",
 			KnowledgeBaseID:   "kb-product",
 			KnowledgeBaseName: "Product docs",
 		},

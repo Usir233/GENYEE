@@ -38,7 +38,7 @@ func TestContainerPreservesNestedListContent(t *testing.T) {
 			}
 			md, atts, imgs, _, err := blocksToMarkdown(context.Background(), nil, blocks, "", nil)
 			require.NoError(t, err)
-			for _, text := range []string{"parent", "nested content", "weknora-att://pdf", "weknora-img://"} {
+			for _, text := range []string{"parent", "nested content", "genyee-att://pdf", "genyee-img://"} {
 				require.Equal(t, 1, strings.Count(string(md), text), "content must appear exactly once: %s", md)
 			}
 			require.Len(t, atts, 1)
@@ -102,7 +102,7 @@ func TestBoardInNativeTableIsDownloaded(t *testing.T) {
 			md := string(items[0].Content)
 			require.Equal(t, 1, strings.Count(md, "data:image/png;base64,"))
 			require.Equal(t, 1, strings.Count(md, "board caption"))
-			require.NotContains(t, md, "weknora-img://")
+			require.NotContains(t, md, "genyee-img://")
 		})
 	}
 }

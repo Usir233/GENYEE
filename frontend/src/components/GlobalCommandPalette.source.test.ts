@@ -182,7 +182,7 @@ for (const kbId of ['', 'travel-kb']) {
     assert.equal(f.hasDrawer(), false)
     if (kbId) {
       assert.equal(f.events.length, 1)
-      assert.equal(f.events[0].type, 'weknora:open-knowledge')
+      assert.equal(f.events[0].type, 'genyee:open-knowledge')
       assert.equal(f.events[0].detail.kbId, 'travel-kb')
       assert.equal(f.events[0].detail.knowledgeId, 'handbook')
       assert.deepEqual(f.pushed, [])

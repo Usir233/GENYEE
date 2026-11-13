@@ -35,7 +35,7 @@ type AgentHelp struct {
 // `genyee schema` command can introspect any command's contract without
 // invoking its help func (and toggling GENYEE_AGENT_HELP). Shares the
 // annotations map with SetRisk (distinct keys).
-const agentHelpAnnotation = "weknora.agent_help"
+const agentHelpAnnotation = "genyee.agent_help"
 
 // SetAgentHelp attaches agent-targeted help metadata to a command.
 //

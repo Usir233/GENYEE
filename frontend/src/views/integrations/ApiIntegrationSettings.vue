@@ -904,7 +904,7 @@ function formatApiKeyAccessModeLabel(key: TenantAPIKey): string {
 
 type PlaygroundStatus = '' | 'running' | 'success' | 'failed' | 'stopped'
 
-type WeKnoraDesktopWindow = Window & {
+type GENYEEDesktopWindow = Window & {
   __GENYEE_API_BASE__?: string
   __GENYEE_API_LAN_BASE__?: string
   go?: {
@@ -1314,7 +1314,7 @@ async function copy(text: string) {
 }
 
 async function tryLoadWailsApiBaseURL() {
-  const win = window as WeKnoraDesktopWindow
+  const win = window as GENYEEDesktopWindow
   for (let i = 0; i < 40; i++) {
     const injected = win.__GENYEE_API_BASE__
     if (typeof injected === 'string' && injected.trim()) {
@@ -1340,7 +1340,7 @@ async function tryLoadWailsApiBaseURL() {
   await tryLoadWailsLanHints(win)
 }
 
-async function tryLoadWailsLanHints(win: WeKnoraDesktopWindow) {
+async function tryLoadWailsLanHints(win: GENYEEDesktopWindow) {
   const injectedLan = win.__GENYEE_API_LAN_BASE__
   if (typeof injectedLan === 'string' && injectedLan.trim()) {
     wailsApiLanBaseURL.value = injectedLan.trim().replace(/\/$/, '')
@@ -1366,12 +1366,12 @@ async function tryLoadWailsLanHints(win: WeKnoraDesktopWindow) {
   }
 }
 
-function desktopPortBindingsAvailable(win: WeKnoraDesktopWindow) {
+function desktopPortBindingsAvailable(win: GENYEEDesktopWindow) {
   const app = win.go?.main?.App
   return typeof app?.GetDesktopHTTPPortSetting === 'function' && typeof app?.SetDesktopHTTPPortSetting === 'function'
 }
 
-function desktopBindPublicBindingsAvailable(win: WeKnoraDesktopWindow) {
+function desktopBindPublicBindingsAvailable(win: GENYEEDesktopWindow) {
   const app = win.go?.main?.App
   return (
     typeof app?.GetDesktopHTTPBindPublicSetting === 'function' &&
@@ -1380,7 +1380,7 @@ function desktopBindPublicBindingsAvailable(win: WeKnoraDesktopWindow) {
 }
 
 async function loadDesktopApiPrefs() {
-  const win = window as WeKnoraDesktopWindow
+  const win = window as GENYEEDesktopWindow
   if (desktopPortBindingsAvailable(win)) {
     showDesktopPortSetting.value = true
     try {
@@ -1403,7 +1403,7 @@ async function loadDesktopApiPrefs() {
 
 const onDesktopBindPublicChange = async (value: boolean) => {
   const next = value === true
-  const fn = (window as WeKnoraDesktopWindow).go?.main?.App?.SetDesktopHTTPBindPublicSetting
+  const fn = (window as GENYEEDesktopWindow).go?.main?.App?.SetDesktopHTTPBindPublicSetting
   if (typeof fn !== 'function') return
   try {
     await Promise.resolve(fn(next))
@@ -1421,7 +1421,7 @@ const saveDesktopPort = async () => {
     MessagePlugin.warning(t('tenant.api.desktopPortInvalid'))
     return
   }
-  const fn = (window as WeKnoraDesktopWindow).go?.main?.App?.SetDesktopHTTPPortSetting
+  const fn = (window as GENYEEDesktopWindow).go?.main?.App?.SetDesktopHTTPPortSetting
   if (typeof fn !== 'function') return
   try {
     await Promise.resolve(fn(port))

@@ -59,8 +59,8 @@ GENYEE 通过 BrowserSkill daemon 和 [BrowserSkill](https://github.com/Tencent/
 需要 Git、Node.js、Python 3、Rust/Cargo 和 C 编译器，Linux 还需要 CMake。固定源码版本由 `scripts/browserskill-release.json` 管理，直接构建上游源码，不应用额外补丁，产物输出到 `artifacts/browserskill/`。使用对应操作系统与架构的 daemon，并按实际安装路径配置：
 
 ```dotenv
-BROWSERSKILL_BINARY=/opt/weknora/browserskill/bsk
-BROWSERSKILL_EXTENSION_PATH=/opt/weknora/browserskill/browser-skill-weknora-0.4.1.zip
+BROWSERSKILL_BINARY=/opt/genyee/browserskill/bsk
+BROWSERSKILL_EXTENSION_PATH=/opt/genyee/browserskill/browser-skill-genyee-0.4.1.zip
 BROWSERSKILL_MAX_CONNECTIONS=32
 ```
 

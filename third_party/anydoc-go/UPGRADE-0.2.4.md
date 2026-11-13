@@ -34,7 +34,7 @@
 - `go test -race -tags anydoc -count=1 ./internal/infrastructure/docparser/...`：通过。Go race 检测不覆盖 Rust 内存访问。
 - `go test -count=1 ./internal/infrastructure/docparser/...`：未链接引擎路径通过。
 - `go vet -tags anydoc ./internal/infrastructure/docparser/...`：通过。
-- `go build -tags anydoc -o /tmp/weknora-anydoc-server ./cmd/server`：完整服务编译通过。
+- `go build -tags anydoc -o /tmp/genyee-anydoc-server ./cmd/server`：完整服务编译通过。
 - 既有 4,000 次并发错误详情、恶意 PDF 深层嵌套和 TJ lookback 回归：通过。
 - `cargo audit --file third_party/anydoc-go/Cargo.lock`：无已知漏洞；保留 `ttf-parser 0.25.1` 的停止维护警告 `RUSTSEC-2026-0192`。
 

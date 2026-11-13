@@ -41,10 +41,10 @@ func TestPairingOriginUsesLoopbackListenerForWailsPage(t *testing.T) {
 	req.Host = "[::1]:8080"
 	require.Equal(t, "http://[::1]:8080", pairingOrigin(req, "wails://wails.localhost"))
 
-	req.Host = "weknora.example"
+	req.Host = "genyee.example"
 	require.Equal(t, "wails://wails.localhost", pairingOrigin(req, "wails://wails.localhost"))
-	require.Equal(t, "https://weknora.example", pairingOrigin(req, "https://weknora.example"))
-	require.Equal(t, "https://weknora.example:8443", pairingOrigin(req, "https://weknora.example:8443"))
+	require.Equal(t, "https://genyee.example", pairingOrigin(req, "https://genyee.example"))
+	require.Equal(t, "https://genyee.example:8443", pairingOrigin(req, "https://genyee.example:8443"))
 }
 
 func TestPairingOriginIgnoresForeignHostOnLoopback(t *testing.T) {
@@ -53,9 +53,9 @@ func TestPairingOriginIgnoresForeignHostOnLoopback(t *testing.T) {
 	require.Equal(t, "http://127.0.0.1:53124", pairingOrigin(req, "https://evil.example"))
 	require.Equal(t, "http://127.0.0.1:53124", pairingOrigin(req, "http://127.0.0.1:9"))
 
-	req.Host = "weknora.example"
+	req.Host = "genyee.example"
 	require.NotEqual(t, "https://evil.example", pairingOrigin(req, "https://evil.example"))
-	require.Equal(t, "http://weknora.example", pairingOrigin(req, "https://evil.example"))
+	require.Equal(t, "http://genyee.example", pairingOrigin(req, "https://evil.example"))
 }
 
 func TestBrowserAccountRequiresUser(t *testing.T) {

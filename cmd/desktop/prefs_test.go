@@ -15,7 +15,7 @@ func TestDesktopSigningKeyKeepsExistingAESHMAC(t *testing.T) {
 	dir := t.TempDir()
 	aes := "abcdefghijklmnopqrstuvwxyz123456"
 	t.Setenv("SYSTEM_SIGNING_KEY", "")
-	t.Setenv("JWT_SECRET", "weknora-jwt-secret")
+	t.Setenv("JWT_SECRET", "genyee-jwt-secret")
 	t.Setenv("SYSTEM_AES_KEY", aes)
 	require.Equal(t, aes, string(utils.SystemHMACKey()))
 	require.NoError(t, ensureDesktopSigningKeyInDir(dir))

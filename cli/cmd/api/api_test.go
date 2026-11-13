@@ -311,7 +311,7 @@ func TestAPI_PathWithoutSlash(t *testing.T) {
 // cmd/root.go). Required because api's NewCmd doesn't register --yes /
 // --format / --jq itself — it inherits them from root in production.
 func withRootHarness(api *cobra.Command, args ...string) *cobra.Command {
-	root := &cobra.Command{Use: "weknora"}
+	root := &cobra.Command{Use: "genyee"}
 	pf := root.PersistentFlags()
 	pf.BoolP("yes", "y", false, "")
 	pf.String("format", "", "")

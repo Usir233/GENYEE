@@ -35,7 +35,7 @@ function fixture(options: {
     getItem: (key: string) => {
       // The user record is always store-backed so userId seeding stays
       // deterministic even when a test overrides reads for other keys.
-      if (key === 'weknora_user') return store.get(key) ?? null
+      if (key === 'genyee_user') return store.get(key) ?? null
       const override = options.readStorage?.(key)
       if (override !== undefined) return override
       return store.get(key) ?? null
@@ -43,7 +43,7 @@ function fixture(options: {
     setItem: (key: string, value: string) => { store.set(key, value) },
     removeItem: (key: string) => { store.delete(key) },
   }
-  if (options.userId) store.set('weknora_user', JSON.stringify({ id: options.userId }))
+  if (options.userId) store.set('genyee_user', JSON.stringify({ id: options.userId }))
   const exports: { useSkillInstallerModel?: typeof useSkillInstallerModel } = {}
   const preferenceExports: Record<string, unknown> = {}
   runInNewContext(preferenceStorageCompiled, { exports: preferenceExports, localStorage, require: () => { throw new Error('preferenceStorage must stay dependency-free') } })
@@ -98,7 +98,7 @@ test('missing, empty and failed agent loads fall back to the last chat model wit
     assert.equal(f.model.installerModelId.value, 'last-chat')
     // With no user record the read is namespaced to "anon" — never the
     // un-scoped legacy key another account could inherit.
-    assert.deepEqual(keys, ['WeKnora_anon_last_chat_model'])
+    assert.deepEqual(keys, ['GENYEE_anon_last_chat_model'])
     assert.equal(f.writes.length, 0)
     assert.deepEqual(f.errors, [])
   }
@@ -106,17 +106,17 @@ test('missing, empty and failed agent loads fall back to the last chat model wit
 
 test('the last chat model is scoped per user: another account does not inherit the pick', async () => {
   const f = fixture({ userId: 'u1', load: async () => ({ data: null }) })
-  f.store.set('WeKnora_u1_last_chat_model', 'model-u1')
+  f.store.set('GENYEE_u1_last_chat_model', 'model-u1')
   await f.model.loadInstallerModel()
   assert.equal(f.model.installerModelId.value, 'model-u1')
 
   // Same browser, a different account signs in (session expiry / crash
   // recovery — no logout or tenant-switch handler ran).
-  f.store.set('weknora_user', JSON.stringify({ id: 'u2' }))
+  f.store.set('genyee_user', JSON.stringify({ id: 'u2' }))
   await f.model.loadInstallerModel()
   assert.equal(f.model.installerModelId.value, '', 'u2 must not inherit u1’s remembered model')
 
-  f.store.set('WeKnora_u2_last_chat_model', 'model-u2')
+  f.store.set('GENYEE_u2_last_chat_model', 'model-u2')
   await f.model.loadInstallerModel()
   assert.equal(f.model.installerModelId.value, 'model-u2')
 })

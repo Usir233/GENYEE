@@ -44,4 +44,4 @@
 
 默认每个空间最多 100 个任务，每个进程同时执行 4 个任务，每个任务保留最近 200 条运行记录。自动化调度属于应用运行能力，应保证应用持续运行，并做好数据库备份；个人电脑休眠或服务停止期间不能按时执行。
 
-相关内容：[GENYEE 助手](26-weknora-assistant.md) · [自动化 API](../04-api/02-api-automations.md)
+相关内容：[GENYEE 助手](26-genyee-assistant.md) · [自动化 API](../04-api/02-api-automations.md)

@@ -356,7 +356,7 @@ func TestChatHistoryClearCountFailureKeepsBindingForRetry(t *testing.T) {
 
 func TestChatHistoryClearCancelledWhileWaitingHasNoSideEffects(t *testing.T) {
 	ctx, s, tenants, knowledge := historyClearFixture(t, 2)
-	release, err := chatHistoryLocalLocks.lock(ctx, "weknora-chat-history-lock:1")
+	release, err := chatHistoryLocalLocks.lock(ctx, "genyee-chat-history-lock:1")
 	require.NoError(t, err)
 	defer release()
 	cancelled, cancel := context.WithCancel(ctx)

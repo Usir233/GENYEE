@@ -12,8 +12,8 @@ import (
 
 // GENYEE documentation tool names.
 const (
-	ToolSearchGENYEEDocs = "search_weknora_docs"
-	ToolReadGENYEEDoc    = "read_weknora_doc"
+	ToolSearchGENYEEDocs = "search_genyee_docs"
+	ToolReadGENYEEDoc    = "read_genyee_doc"
 )
 
 const (
@@ -35,7 +35,7 @@ const searchGENYEEDocsDescription = "" +
 	"of this workspace (use operations for that). The documentation is written in Chinese, so search " +
 	"with Chinese terms plus any product or setting names (e.g. \"Wiki 抽取粒度\", \"MinerU\", " +
 	"\"OLLAMA_BASE_URL\"). Returns matching sections with path, anchor, url and a snippet; read one " +
-	"with read_weknora_doc. Call with no query to list the pages, optionally of one category."
+	"with read_genyee_doc. Call with no query to list the pages, optionally of one category."
 
 const searchGENYEEDocsSchemaFormat = `{
   "type": "object",
@@ -61,7 +61,7 @@ const searchGENYEEDocsSchemaFormat = `{
 
 const readGENYEEDocDescription = "" +
 	"Read a GENYEE documentation page or one section of it, as Markdown. path is a page path or url " +
-	"from search_weknora_docs; anchor (or a #fragment in the url) selects a section and its " +
+	"from search_genyee_docs; anchor (or a #fragment in the url) selects a section and its " +
 	"subsections. A page too long to return whole comes back as its outline; read a section from it. " +
 	"A section too long for one read is cut at next_offset; pass it as offset to read on. " +
 	"Links in the text are public documentation URLs you can give the user. " +
@@ -218,7 +218,7 @@ func (t *ReadGENYEEDocTool) Execute(ctx context.Context, args json.RawMessage) (
 	}
 	doc, urlAnchor, ok := t.lib.Doc(input.Path)
 	if !ok {
-		return docsFailure(fmt.Sprintf("No documentation page %q. Use a path from search_weknora_docs.",
+		return docsFailure(fmt.Sprintf("No documentation page %q. Use a path from search_genyee_docs.",
 			input.Path)), nil
 	}
 	anchor := productdocs.UnescapeAnchor(strings.TrimPrefix(strings.TrimSpace(input.Anchor), "#"))

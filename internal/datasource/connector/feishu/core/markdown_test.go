@@ -51,7 +51,7 @@ func TestBlocksToMarkdown_EmbeddedSheetAndFile(t *testing.T) {
 	if !strings.Contains(string(md), "| 名称 | 数量 |") || !strings.Contains(string(md), "| 苹果 | 3 |") {
 		t.Errorf("sheet not inlined:\n%s", md)
 	}
-	if !strings.Contains(string(md), fmt.Sprintf("![图片](weknora-img://1-%s)", imageMarkerNonce(""))) {
+	if !strings.Contains(string(md), fmt.Sprintf("![图片](genyee-img://1-%s)", imageMarkerNonce(""))) {
 		t.Errorf("numbered image marker missing:\n%s", md)
 	}
 	if len(imgs) != 1 || imgs[0].N != 1 || imgs[0].Kind != "image" || imgs[0].Token != "img_t" {
@@ -63,7 +63,7 @@ func TestBlocksToMarkdown_EmbeddedSheetAndFile(t *testing.T) {
 	if len(atts) != 1 || atts[0].FileToken != "file_t" || atts[0].Name != "报表.pdf" {
 		t.Errorf("attachments = %+v", atts)
 	}
-	if !strings.Contains(string(md), "- weknora-att://file_t") {
+	if !strings.Contains(string(md), "- genyee-att://file_t") {
 		t.Errorf("attachment marker line missing:\n%s", md)
 	}
 }
@@ -498,7 +498,7 @@ func TestBlocksToMarkdown_UnsupportedBlocksPlaceholdersNoTokenLeak(t *testing.T)
 	// Board (43) now rides the image pipeline: a token-bearing board renders a
 	// numbered genyee-img:// marker and records a pendingImage for the
 	// connector's whiteboard download.
-	if !strings.Contains(s, fmt.Sprintf("![图片](weknora-img://1-%s)", imageMarkerNonce(""))) {
+	if !strings.Contains(s, fmt.Sprintf("![图片](genyee-img://1-%s)", imageMarkerNonce(""))) {
 		t.Errorf("board marker missing:\n%s", s)
 	}
 	if len(imgs) != 1 || imgs[0].Kind != "board" || imgs[0].Token != "brdSECRET" {
@@ -536,10 +536,10 @@ func TestBlocksToMarkdown_ViewContainerRendersChildren(t *testing.T) {
 	}
 	// Raw render emits unique per-token marker lines; FetchDocxWithBlocks
 	// patches them to the display names after the download attempt.
-	if n := strings.Count(s, "- weknora-att://ftok1"); n != 1 {
+	if n := strings.Count(s, "- genyee-att://ftok1"); n != 1 {
 		t.Errorf("file child rendered %d times, want exactly 1:\n%s", n, s)
 	}
-	if !strings.Contains(s, "- weknora-att://ftok1\n- weknora-att://ftok2") {
+	if !strings.Contains(s, "- genyee-att://ftok1\n- genyee-att://ftok2") {
 		t.Errorf("view children not rendered as one list:\n%s", s)
 	}
 	if len(atts) != 2 {
@@ -778,9 +778,9 @@ func TestBlocksToMarkdown_ImageNumberingStableOrder(t *testing.T) {
 	s := string(md)
 	nonce := imageMarkerNonce("")
 	for _, want := range []string{
-		fmt.Sprintf("![图片](weknora-img://1-%s)", nonce),
-		fmt.Sprintf("![图片](weknora-img://2-%s)", nonce),
-		fmt.Sprintf("![图片](weknora-img://3-%s)", nonce),
+		fmt.Sprintf("![图片](genyee-img://1-%s)", nonce),
+		fmt.Sprintf("![图片](genyee-img://2-%s)", nonce),
+		fmt.Sprintf("![图片](genyee-img://3-%s)", nonce),
 	} {
 		if !strings.Contains(s, want) {
 			t.Errorf("marker %q missing:\n%s", want, s)
@@ -1057,7 +1057,7 @@ func TestBlocksToMarkdown_MentionDocTitlePlaceholder(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 	url := "https://my.feishu.cn/docx/MHU6d4eixo1UdCxNzGbcspVSnfg"
-	if !strings.Contains(string(md), "[weknora-docname://MHU6d4eixo1UdCxNzGbcspVSnfg]("+escapeURL(url)+")") {
+	if !strings.Contains(string(md), "[genyee-docname://MHU6d4eixo1UdCxNzGbcspVSnfg]("+escapeURL(url)+")") {
 		t.Errorf("title placeholder missing, got:\n%s", md)
 	}
 	if len(docs) != 1 || docs[0].Token != "MHU6d4eixo1UdCxNzGbcspVSnfg" || docs[0].DocType != "docx" {

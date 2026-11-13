@@ -71,7 +71,7 @@ RUN npm install -g pnpm
 # curl is not optional: the sandbox connectivity check probes egress with it,
 # and skills that fetch a URL expect it to be there. The compression tools are
 # here because skill bundles and their assets arrive archived. git backs
-# per-turn workspace checkpoints (object store at /var/lib/weknora/workspace.git,
+# per-turn workspace checkpoints (object store at /var/lib/genyee/workspace.git,
 # work tree /workspace) that session fork and rewind roll back to.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
@@ -108,10 +108,10 @@ RUN mkdir -p /workspace/input /workspace/output && \
 # Classic user@host:path prompt (colored). E2B's provisioner later appends
 # `PS1='\w $ '`; the script reapplies this prompt via PROMPT_COMMAND so
 # Cube, Docker, and E2B all show the same Debian-style line.
-COPY docker/sandbox-pty-prompt.sh /etc/weknora/pty-prompt.sh
-RUN echo '. /etc/weknora/pty-prompt.sh' > /etc/profile.d/zz-weknora-prompt.sh && \
-    echo '. /etc/weknora/pty-prompt.sh' >> /root/.bashrc && \
-    echo '. /etc/weknora/pty-prompt.sh' >> /home/user/.bashrc
+COPY docker/sandbox-pty-prompt.sh /etc/genyee/pty-prompt.sh
+RUN echo '. /etc/genyee/pty-prompt.sh' > /etc/profile.d/zz-genyee-prompt.sh && \
+    echo '. /etc/genyee/pty-prompt.sh' >> /root/.bashrc && \
+    echo '. /etc/genyee/pty-prompt.sh' >> /home/user/.bashrc
 
 LABEL org.opencontainers.image.vendor="GENYEE" \
       org.opencontainers.image.title="genyee-sandbox" \
@@ -126,7 +126,7 @@ USER root
 #
 # envd is what Cube talks to for everything — the readiness probe that decides
 # whether a template build succeeds, plus every later exec and file call. It
-# runs as root and selects the account named in each request. WeKnora names
+# runs as root and selects the account named in each request. GENYEE names
 # root by default, matching the runtime stage.
 #
 # Built for amd64 and arm64: cubesandbox-base ships both, and Cube runs on
@@ -158,7 +158,7 @@ ENTRYPOINT ["/usr/local/bin/cube-entrypoint.sh"]
 #
 # Debian package names (runtime is python:3.12.16-slim-bookworm, not Ubuntu). Do not run
 # `yes | unminimize` — Debian has no such command. Do not clone noVNC; the
-# WeKnora frontend uses @novnc/novnc and the sandbox only needs websockify.
+# GENYEE frontend uses @novnc/novnc and the sandbox only needs websockify.
 # procps supplies pgrep for the start script; util-linux supplies flock.
 FROM runtime AS desktop-runtime
 
@@ -170,7 +170,7 @@ USER root
 ENV DEBIAN_FRONTEND=noninteractive
 # XFCE apps (mousepad, xfce4-terminal) decode files with the process locale.
 # python:slim defaults to POSIX/C, which is why the desktop shows mojibake
-# while the WeKnora terminal tab does not: that tab is xterm.js in the
+# while the GENYEE terminal tab does not: that tab is xterm.js in the
 # browser, and Cube/E2B already stamp LANG/LC_ALL on the envd PTY.
 # C.UTF-8 is built into glibc; do not pull locales-all.
 ENV LANG=C.UTF-8
@@ -209,9 +209,9 @@ RUN chmod 0755 /usr/local/bin/start-desktop.sh \
 # agent-browser: pinned CLI + Google Chrome from Google's apt repo, which
 # publishes native amd64 and arm64 debs at the same version. Debian chromium
 # is gone on purpose: Chrome adds the proprietary codecs (H.264/AAC), and the
-# change is invisible to every caller because chrome-wk execs whatever
-# WK_CHROME_REAL says. Never run "agent-browser install": it downloads
-# Chrome for Testing; chrome-wk pins the system browser instead.
+# change is invisible to every caller because chrome-gy execs whatever
+# GY_CHROME_REAL says. Never run "agent-browser install": it downloads
+# Chrome for Testing; chrome-gy pins the system browser instead.
 # The postinst rewrites the source list with its own arch-less line, so the
 # arch-pinned line is written again after the install.
 RUN install -d -m 0755 /etc/apt/keyrings \
@@ -223,27 +223,27 @@ RUN install -d -m 0755 /etc/apt/keyrings \
     && npm install -g --prefix /opt/agent-browser agent-browser@0.39.1 \
     && /opt/agent-browser/bin/agent-browser --version
 
-# Every browser in the image goes through the chrome-wk shim; this points it
+# Every browser in the image goes through the chrome-gy shim; this points it
 # at Chrome for session browsers and the GUI fallback.
-ENV WK_CHROME_REAL=/usr/bin/google-chrome
+ENV GY_CHROME_REAL=/usr/bin/google-chrome
 
 # Chrome shortcut on the desktop background of every screen (the shared :0 and
 # every seat): xfdesktop shows launchers from root's Desktop folder, and
 # root's XFCE config is what the per-seat seeding copies. Exec goes through
-# wk-chrome so a human clicking the icon opens THIS session's agent browser
-# (same profile, synced by wk-browser-sync), falling back to chrome-wk
+# gy-chrome so a human clicking the icon opens THIS session's agent browser
+# (same profile, synced by gy-browser-sync), falling back to chrome-gy
 # outside session context.
 COPY docker/desktop/google-chrome.desktop /root/Desktop/google-chrome.desktop
 # XFCE's bottom panel refers to this generic browser entry by filename.
 COPY docker/desktop/xfce4-web-browser.desktop /usr/share/applications/xfce4-web-browser.desktop
 RUN chmod 0755 /root/Desktop/google-chrome.desktop \
-    # Every GUI entry must reach wk-chrome, not the raw binary: the packaged
+    # Every GUI entry must reach gy-chrome, not the raw binary: the packaged
     # Applications menu entry (all its Exec lines, incl. the incognito/new
     # window actions) is rewritten, and it also becomes the default http/https
     # handler so links clicked anywhere on a seat screen land in the session
     # browser too. Prefix-only rewrite keeps each line's argument tail.
     && mkdir -p /usr/local/share/applications \
-    && sed -i 's|^Exec=/usr/bin/google-chrome-stable|Exec=/usr/local/bin/wk-chrome|' \
+    && sed -i 's|^Exec=/usr/bin/google-chrome-stable|Exec=/usr/local/bin/gy-chrome|' \
         /usr/share/applications/google-chrome.desktop \
     && printf '[Default Applications]\nx-scheme-handler/http=google-chrome.desktop\nx-scheme-handler/https=google-chrome.desktop\n' \
         > /usr/local/share/applications/defaults.list
@@ -261,34 +261,34 @@ RUN chmod 0755 /root/Desktop/google-chrome.desktop \
 # Password manager and autofill off: with --password-store=basic a saved
 # password sits in the profile's Login Data under a fixed key, readable by
 # every root process in the sandbox, including the agent's shell.
-COPY docker/desktop/chrome-managed-policies.json /etc/opt/chrome/policies/managed/weknora.json
+COPY docker/desktop/chrome-managed-policies.json /etc/opt/chrome/policies/managed/genyee.json
 
 # The command name "agent-browser" is the isolation wrapper; the real binary
 # stays under /opt and is only called by absolute path.
-# wk-machine-id pins the device identity across rebuilds (called by chrome-wk).
-# wk-browser-sync shares login state between session browsers and restores it
-# at launch; wk-auth save is a one-shot capture through it. Node supplies
+# gy-machine-id pins the device identity across rebuilds (called by chrome-gy).
+# gy-browser-sync shares login state between session browsers and restores it
+# at launch; gy-auth save is a one-shot capture through it. Node supplies
 # fetch/WebSocket.
-COPY docker/scripts/agent-browser-wrapper.sh docker/scripts/wk-display.sh /usr/local/lib/weknora/
-COPY docker/scripts/cdp-cookies.mjs docker/scripts/wk-browser-sync.mjs docker/scripts/wk-cookie-plan.mjs docker/scripts/wk-page-sync.mjs /usr/local/lib/weknora/
-COPY docker/scripts/wk-secret-fill.mjs /usr/local/lib/weknora/
-COPY docker/scripts/wk-secret-fill.sh /usr/local/bin/wk-secret-fill
-COPY docker/scripts/wk-ua-governor.mjs docker/scripts/wk-fingerprint-profiles.mjs docker/scripts/wk-egress-timezone.mjs docker/scripts/wk-locale-match.mjs /usr/local/lib/weknora/
+COPY docker/scripts/agent-browser-wrapper.sh docker/scripts/gy-display.sh /usr/local/lib/genyee/
+COPY docker/scripts/cdp-cookies.mjs docker/scripts/gy-browser-sync.mjs docker/scripts/gy-cookie-plan.mjs docker/scripts/gy-page-sync.mjs /usr/local/lib/genyee/
+COPY docker/scripts/gy-secret-fill.mjs /usr/local/lib/genyee/
+COPY docker/scripts/gy-secret-fill.sh /usr/local/bin/gy-secret-fill
+COPY docker/scripts/gy-ua-governor.mjs docker/scripts/gy-fingerprint-profiles.mjs docker/scripts/gy-egress-timezone.mjs docker/scripts/gy-locale-match.mjs /usr/local/lib/genyee/
 RUN node -e 'if (typeof WebSocket !== "function" || typeof fetch !== "function") process.exit(1)'
-COPY docker/scripts/wk-auth.sh /usr/local/bin/wk-auth
-COPY docker/scripts/chrome-wk.sh /usr/local/bin/chrome-wk
-COPY docker/scripts/wk-machine-id.sh /usr/local/bin/wk-machine-id
-COPY docker/scripts/wk-browser-sync.sh /usr/local/bin/wk-browser-sync
-COPY docker/scripts/wk-chrome.sh /usr/local/bin/wk-chrome
-COPY docker/scripts/wk-ua-governor.sh /usr/local/bin/wk-ua-governor
+COPY docker/scripts/gy-auth.sh /usr/local/bin/gy-auth
+COPY docker/scripts/chrome-gy.sh /usr/local/bin/chrome-gy
+COPY docker/scripts/gy-machine-id.sh /usr/local/bin/gy-machine-id
+COPY docker/scripts/gy-browser-sync.sh /usr/local/bin/gy-browser-sync
+COPY docker/scripts/gy-chrome.sh /usr/local/bin/gy-chrome
+COPY docker/scripts/gy-ua-governor.sh /usr/local/bin/gy-ua-governor
 COPY docker/scripts/link-chrome-session.sh /usr/local/bin/link-chrome-session
-RUN chmod 0755 /usr/local/lib/weknora/agent-browser-wrapper.sh /usr/local/lib/weknora/wk-display.sh \
-        /usr/local/bin/wk-auth /usr/local/bin/chrome-wk \
-        /usr/local/bin/wk-machine-id /usr/local/bin/wk-browser-sync /usr/local/bin/wk-chrome \
-        /usr/local/bin/wk-ua-governor /usr/local/bin/link-chrome-session /usr/local/bin/wk-secret-fill \
-    && ln -s /usr/local/lib/weknora/agent-browser-wrapper.sh /usr/local/bin/agent-browser \
-    && ln -s /usr/local/lib/weknora/wk-display.sh /usr/local/bin/wk-display \
-    && mkdir -p /var/lib/weknora/browser/auth && chmod 0700 /var/lib/weknora/browser
+RUN chmod 0755 /usr/local/lib/genyee/agent-browser-wrapper.sh /usr/local/lib/genyee/gy-display.sh \
+        /usr/local/bin/gy-auth /usr/local/bin/chrome-gy \
+        /usr/local/bin/gy-machine-id /usr/local/bin/gy-browser-sync /usr/local/bin/gy-chrome \
+        /usr/local/bin/gy-ua-governor /usr/local/bin/link-chrome-session /usr/local/bin/gy-secret-fill \
+    && ln -s /usr/local/lib/genyee/agent-browser-wrapper.sh /usr/local/bin/agent-browser \
+    && ln -s /usr/local/lib/genyee/gy-display.sh /usr/local/bin/gy-display \
+    && mkdir -p /var/lib/genyee/browser/auth && chmod 0700 /var/lib/genyee/browser
 
 # Stage 5: published desktop image (E2B / future Docker desktop).
 FROM desktop-runtime AS desktop

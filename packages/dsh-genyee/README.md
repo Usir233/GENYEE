@@ -35,7 +35,7 @@ For anything beyond that, override the row from your profile's `cordis.patch.yml
 (`$DSH_HOME/profiles/<name>/cordis.patch.yml`):
 
 ```yaml
-- id: weknora
+- id: genyee
   config:
     baseUrl: https://genyee.example.com
     apiKey: !!js process.env.GENYEE_API_KEY
@@ -62,10 +62,10 @@ Mounting two deployments is two rows with two prefixes:
 
 ```yaml
 - insert:
-    - id: weknora-internal
+    - id: genyee-internal
       name: "@genyee/dsh-genyee"
       config: { baseUrl: https://kb.internal.example.com, toolPrefix: internal_kb }
-    - id: weknora-public
+    - id: genyee-public
       name: "@genyee/dsh-genyee"
       config: { baseUrl: https://kb.public.example.com, toolPrefix: public_kb }
 ```

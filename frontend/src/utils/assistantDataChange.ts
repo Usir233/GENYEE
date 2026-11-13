@@ -1,6 +1,6 @@
 import { onMounted, onUnmounted } from 'vue'
 
-export const ASSISTANT_DATA_CHANGE_EVENT = 'weknora:assistant-data-change'
+export const ASSISTANT_DATA_CHANGE_EVENT = 'genyee:assistant-data-change'
 
 export interface AssistantDataChange {
   operation: string

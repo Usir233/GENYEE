@@ -22,7 +22,7 @@ func (s *messageService) withChatHistoryLock(
 	if tenantID == 0 {
 		return apperrors.NewBadRequestError("Workspace is empty")
 	}
-	key := fmt.Sprintf("weknora-chat-history-lock:%d", tenantID)
+	key := fmt.Sprintf("genyee-chat-history-lock:%d", tenantID)
 	if s.historyRedis != nil {
 		return redislock.WithRenewableLock(ctx, s.historyRedis, key, 30*time.Second, 10*time.Second, fn)
 	}

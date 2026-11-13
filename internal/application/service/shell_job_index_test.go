@@ -16,7 +16,7 @@ func newIndexFixture(t *testing.T) (*ShellJobIndex, *miniredis.Miniredis) {
 	t.Helper()
 	mr := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-	return NewShellJobIndex(client, "weknora"), mr
+	return NewShellJobIndex(client, "genyee"), mr
 }
 
 func TestShellJobIndexLifecycle(t *testing.T) {
@@ -130,7 +130,7 @@ func TestShellJobIndexOutcomeAndCursor(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, interfaces.WorkStateSucceeded, state)
-	ttl := mr.TTL("weknora:background:shelljob:outcome:weknora:7:s:sj_0123")
+	ttl := mr.TTL("genyee:background:shelljob:outcome:genyee:7:s:sj_0123")
 	require.Greater(t, ttl, 23*time.Hour)
 	_, ok, err = x.Outcome(ctx, ref, "sj_ab12")
 	require.NoError(t, err)

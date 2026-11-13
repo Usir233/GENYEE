@@ -275,7 +275,7 @@ func (c *Connector) walk(
 				// (existing docs) or drop it (new docs), so the next incremental
 				// sync re-fetches the doc once the endpoint recovers. Acking before
 				// the fetch succeeded made the doc silently skipped by every later
-				// incremental sync (Tencent/GENYEE#3690). The doc stays in
+				// incremental sync (upstream issue #3690). The doc stays in
 				// currentDocs, so deletion detection is unaffected.
 				if prev != nil && prev.BookDocTimes != nil {
 					newCursor.BookDocTimes[bookIDStr][docIDStr] = prev.BookDocTimes[bookIDStr][docIDStr]

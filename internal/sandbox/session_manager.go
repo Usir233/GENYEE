@@ -2361,19 +2361,19 @@ func (m *SessionBoundManager) DeleteSessionWorkspaces(
 		targets = append(targets, ShellQuote(l.Root), ShellQuote(l.GitDir), ShellQuote(l.BrowserRoot))
 		// Idle disconnect keeps the screen so the same session can resume.
 		// Delete is what drops it, so a removed session does not leave an X
-		// server on the shared machine. Missing wk-display is a no-op.
-		releases = append(releases, "wk-display release "+ShellQuote(id))
+		// server on the shared machine. Missing gy-display is a no-op.
+		releases = append(releases, "gy-display release "+ShellQuote(id))
 	}
 	// Refuse a symlinked parent instead of following it: an agent on this
 	// machine runs as root and may have replaced one.
 	script := `set -eu
-for p in /workspace /workspace/sessions /var/lib/weknora /var/lib/weknora/sessions; do
+for p in /workspace /workspace/sessions /var/lib/genyee /var/lib/genyee/sessions; do
   if [ -L "$p" ]; then echo "refusing to clean through symlinked $p" >&2; exit 4; fi
 done
 for t in ` + strings.Join(targets, " ") + `; do
   if [ -L "$t" ]; then rm -f -- "$t"; else rm -rf -- "$t"; fi
 done
-if command -v wk-display >/dev/null 2>&1; then
+if command -v gy-display >/dev/null 2>&1; then
   ` + strings.Join(releases, "\n  ") + `
 fi`
 	result, err := m.client.Exec(guarded, handle, RemoteExecRequest{
@@ -2432,18 +2432,18 @@ func withSessionEnv(env map[string]string, layout WorkspaceLayout) map[string]st
 // of time, and an unset DISPLAY makes X clients fail closed rather than open
 // the shared :0 screen. A seat is claimed only where screen intent exists:
 // agent-browser starting a browser (headed unless asked otherwise), the
-// Desktop tab connect (ensure.sh), or the model running wk-display claim
+// Desktop tab connect (ensure.sh), or the model running gy-display claim
 // itself. This prefix never claims; it pins the shell to the seat the session
 // already holds and refreshes that seat's idleness clock (mtime), so a
-// session that nobody watches never pays for a screen. A missing wk-display
+// session that nobody watches never pays for a screen. A missing gy-display
 // (older image, local shell) leaves the command untouched.
-const sessionDisplayPrefix = `if command -v wk-display >/dev/null 2>&1 && [ -n "${GENYEE_SESSION_ID:-}" ]; then
-  _wk_seat=$(wk-display where "$GENYEE_SESSION_ID" 2>/dev/null) || true
-  case "${_wk_seat:-}" in
-    ''|*[!0-9]*) unset DISPLAY WK_SEAT ;;
-    *) export DISPLAY=":$_wk_seat" WK_SEAT="$_wk_seat" ;;
+const sessionDisplayPrefix = `if command -v gy-display >/dev/null 2>&1 && [ -n "${GENYEE_SESSION_ID:-}" ]; then
+  _gy_seat=$(gy-display where "$GENYEE_SESSION_ID" 2>/dev/null) || true
+  case "${_gy_seat:-}" in
+    ''|*[!0-9]*) unset DISPLAY GY_SEAT ;;
+    *) export DISPLAY=":$_gy_seat" GY_SEAT="$_gy_seat" ;;
   esac
-  unset _wk_seat
+  unset _gy_seat
 fi
 `
 
@@ -2471,7 +2471,7 @@ func withBrowserEnv(env map[string]string, sessionID string, layout WorkspaceLay
 
 // userScriptDir is where an uploaded skill script lands on a shared machine.
 func userScriptDir(layout WorkspaceLayout) string {
-	return path.Join(layout.Root, ".weknora", "scripts")
+	return path.Join(layout.Root, ".genyee", "scripts")
 }
 
 // sessionKey resolves the tenant-scoped binding key. Tenant ID comes from the
@@ -2770,12 +2770,12 @@ SRC_GIT=%s
 DST_TREE=%s
 DST_GIT=%s
 SHA=%s
-for p in /workspace /workspace/sessions /var/lib/weknora /var/lib/weknora/sessions; do
+for p in /workspace /workspace/sessions /var/lib/genyee /var/lib/genyee/sessions; do
   if [ -L "$p" ]; then echo "refusing symlinked $p" >&2; exit 4; fi
 done
 if [ -e "$DST_TREE" ] || [ -e "$DST_GIT" ]; then echo "fork target exists" >&2; exit 5; fi
-mkdir -p /var/lib/weknora/sessions /workspace/sessions
-tmp=$(mktemp -d /var/lib/weknora/sessions/.fork.XXXXXX)
+mkdir -p /var/lib/genyee/sessions /workspace/sessions
+tmp=$(mktemp -d /var/lib/genyee/sessions/.fork.XXXXXX)
 trap 'rm -rf -- "$tmp"' EXIT
 g() { git -c safe.directory='*' -c core.hooksPath=/dev/null "$@"; }
 g --git-dir="$SRC_GIT" cat-file -e "$SHA^{commit}"
@@ -2786,7 +2786,7 @@ g init -q --bare "$tmp/repo.git"
 g -c uploadpack.allowAnySHA1InWant=true --git-dir="$tmp/repo.git" fetch -q --no-tags "$SRC_GIT" "$SHA:refs/heads/main"
 g --git-dir="$tmp/repo.git" symbolic-ref HEAD refs/heads/main
 g --git-dir="$tmp/repo.git" config core.bare false
-g --git-dir="$tmp/repo.git" config user.email agent@weknora.local
+g --git-dir="$tmp/repo.git" config user.email agent@genyee.local
 g --git-dir="$tmp/repo.git" config user.name 'GENYEE Agent'
 mkdir -p "$tmp/tree"
 g --git-dir="$tmp/repo.git" --work-tree="$tmp/tree" checkout -q -f main
@@ -2817,7 +2817,7 @@ func (f *workspaceFork) Remove(targetSessionID string) error {
 		return err
 	}
 	_, err = f.run(fmt.Sprintf(`set -eu
-for p in /workspace /workspace/sessions /var/lib/weknora /var/lib/weknora/sessions; do
+for p in /workspace /workspace/sessions /var/lib/genyee /var/lib/genyee/sessions; do
   if [ -L "$p" ]; then echo "refusing symlinked $p" >&2; exit 4; fi
 done
 rm -rf -- %s %s`, ShellQuote(target.Root), ShellQuote(target.GitDir)))

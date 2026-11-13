@@ -163,11 +163,11 @@ func finishHostSandbox(parts *hostSandboxParts, skillsRoot string) service.HostS
 }
 
 func defaultHostSessionRoot(homeDir string) string {
-	return filepath.Join(homeDir, ".weknora", "sessions")
+	return filepath.Join(homeDir, ".genyee", "sessions")
 }
 
 func defaultHostSkillsRoot(homeDir string) string {
-	return filepath.Join(homeDir, ".weknora", "skills")
+	return filepath.Join(homeDir, ".genyee", "skills")
 }
 
 func hostAppDataDir(home string) string {

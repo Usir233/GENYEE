@@ -42,7 +42,7 @@ func TestConvertEventKeepsGroupMessageThatMentionsBot(t *testing.T) {
 				Mentions: []*larkim.MentionEvent{{
 					Key:           stringPtr("@_user_1"),
 					MentionedType: stringPtr("bot"),
-					Name:          stringPtr("WeKnora"),
+					Name:          stringPtr("GENYEE"),
 					Id:            &larkim.UserId{OpenId: stringPtr("ou_bot")},
 				}},
 			},

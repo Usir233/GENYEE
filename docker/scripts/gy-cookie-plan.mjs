@@ -95,7 +95,7 @@ function cloneBlocked(blocked) {
  *
  * browsers: [{ id, browserId, jar: Map<key, cookie>, state, joinMode? }]
  *   joinMode "receive" (default): a browser seen for the first time takes the
- *   canonical values; "publish": its own values win, as for `wk-auth save`.
+ *   canonical values; "publish": its own values win, as for `gy-auth save`.
  *
  * Returns the next canonical map, the cookies to push into each browser, the
  * next per-browser state (the caller sets `view` from the jar after pushing),

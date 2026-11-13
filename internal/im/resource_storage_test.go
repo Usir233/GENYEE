@@ -229,9 +229,9 @@ func TestIMResourceStoragePreservesShortLinksAndRejectsUnavailableInstances(t *t
 	s, _, _, _ := newFullOutputHarness(f.answer)
 	f.wire(s)
 	ctx := f.context()
-	t.Setenv("APP_EXTERNAL_URL", "https://weknora.example")
+	t.Setenv("APP_EXTERNAL_URL", "https://genyee.example")
 	out := cleanIMContent(ctx, f.answer, s.newOutboundFileServiceResolver(f.tenant, nil, nil))
-	require.Equal(t, 3, strings.Count(out, "https://weknora.example/r/"))
+	require.Equal(t, 3, strings.Count(out, "https://genyee.example/r/"))
 	require.NotContains(t, out, "resource://")
 
 	t.Setenv("APP_EXTERNAL_URL", "")

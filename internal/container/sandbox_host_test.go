@@ -47,7 +47,7 @@ func TestFinishHostSandboxKeepsChatWhenSkillTreeCannotOpen(t *testing.T) {
 	parts := buildHostSandbox(hostSandboxDeps{
 		newBackend: func() (localsandbox.Backend, error) { return stubBackend{}, nil },
 		homeDir:    "/Users/dev",
-		appDataDir: "/Users/dev/App Support/WeKnora",
+		appDataDir: "/Users/dev/App Support/GENYEE",
 	})
 	require.NotNil(t, parts)
 	require.NotNil(t, parts.manager)
@@ -73,18 +73,18 @@ func TestHostSandboxManagerNilWhenAvailableFails(t *testing.T) {
 }
 
 func TestDefaultHostSessionRootUsesDotGenyee(t *testing.T) {
-	require.Equal(t, "/Users/dev/.weknora/sessions", defaultHostSessionRoot("/Users/dev"))
+	require.Equal(t, "/Users/dev/.genyee/sessions", defaultHostSessionRoot("/Users/dev"))
 }
 
 func TestDefaultHostSkillsRootIsDotGenyee(t *testing.T) {
-	require.Equal(t, "/Users/dev/.weknora/skills", defaultHostSkillsRoot("/Users/dev"))
+	require.Equal(t, "/Users/dev/.genyee/skills", defaultHostSkillsRoot("/Users/dev"))
 }
 
 func TestHostSandboxManagerEnabledWhenBackendAvailable(t *testing.T) {
 	mgr := buildHostSandboxManager(hostSandboxDeps{
 		newBackend: func() (localsandbox.Backend, error) { return stubBackend{}, nil },
 		homeDir:    "/Users/dev",
-		appDataDir: "/Users/dev/App Support/WeKnora",
+		appDataDir: "/Users/dev/App Support/GENYEE",
 	})
 	require.NotNil(t, mgr)
 	require.Equal(t, sandbox.SandboxTypeHost, mgr.GetType())

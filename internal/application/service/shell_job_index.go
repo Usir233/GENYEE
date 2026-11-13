@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	shellJobIndexKey    = "weknora:background:shelljob:index"
-	shellJobSweepKeyFmt = "weknora:background:shelljob:sweep:{%s}"
+	shellJobIndexKey    = "genyee:background:shelljob:index"
+	shellJobSweepKeyFmt = "genyee:background:shelljob:sweep:{%s}"
 	shellJobSweepTTL    = 15 * time.Second
 	shellJobHandoffSec  = 5 // index score = yield_until + 5s (D1)
 )
@@ -39,7 +39,7 @@ type ShellJobIndexEntry struct {
 // NewShellJobIndex schedules shell jobs in client. An empty namespace is "genyee".
 func NewShellJobIndex(client redis.UniversalClient, namespace string) *ShellJobIndex {
 	if strings.TrimSpace(namespace) == "" {
-		namespace = "weknora"
+		namespace = "genyee"
 	}
 	return &ShellJobIndex{client: client, namespace: namespace}
 }
@@ -76,7 +76,7 @@ func (x *ShellJobIndex) Add(ctx context.Context, e ShellJobIndexEntry) error {
 }
 
 func (x *ShellJobIndex) reservationKey(s interfaces.SessionRef, id string) string {
-	return fmt.Sprintf("weknora:background:shelljob:reserved:%s:%d:%s:%s", x.namespace, s.TenantID, s.SessionID, id)
+	return fmt.Sprintf("genyee:background:shelljob:reserved:%s:%d:%s:%s", x.namespace, s.TenantID, s.SessionID, id)
 }
 
 // ReserveID arbitrates submissions across replicas before Lifecycle.Begin can
@@ -111,12 +111,12 @@ func (x *ShellJobIndex) Entries(ctx context.Context) ([]ShellJobIndexEntry, erro
 func (x *ShellJobIndex) WithSessionLock(
 	ctx context.Context, s interfaces.SessionRef, fn func(context.Context) error,
 ) error {
-	key := fmt.Sprintf("weknora:background:shelljob:lifecycle:{%s}", x.hashTag(s))
+	key := fmt.Sprintf("genyee:background:shelljob:lifecycle:{%s}", x.hashTag(s))
 	return redislock.WithRenewableLock(ctx, x.client, key, time.Minute, 10*time.Second, fn)
 }
 
 func (x *ShellJobIndex) closedKey(s interfaces.SessionRef) string {
-	return fmt.Sprintf("weknora:background:shelljob:closed:{%s}", x.hashTag(s))
+	return fmt.Sprintf("genyee:background:shelljob:closed:{%s}", x.hashTag(s))
 }
 
 // SessionClosed reports whether deletion has closed the session's submission gate.
@@ -277,7 +277,7 @@ func (x *ShellJobIndex) hashTag(s interfaces.SessionRef) string {
 }
 
 func (x *ShellJobIndex) outcomeKey(s interfaces.SessionRef, workID string) string {
-	return fmt.Sprintf("weknora:background:shelljob:outcome:%s:%d:%s:%s",
+	return fmt.Sprintf("genyee:background:shelljob:outcome:%s:%d:%s:%s",
 		x.namespace, s.TenantID, s.SessionID, workID)
 }
 
@@ -310,17 +310,17 @@ func (x *ShellJobIndex) Outcome(ctx context.Context, s interfaces.SessionRef, wo
 }
 
 func (x *ShellJobIndex) cursorKey(s interfaces.SessionRef, runID, workID string) string {
-	return fmt.Sprintf("weknora:background:shelljob:cursor:%s:%d:%s:%s:%s",
+	return fmt.Sprintf("genyee:background:shelljob:cursor:%s:%d:%s:%s:%s",
 		x.namespace, s.TenantID, s.SessionID, runID, workID)
 }
 
 func (x *ShellJobIndex) cursorRunKey(s interfaces.SessionRef, runID string) string {
-	return fmt.Sprintf("weknora:background:shelljob:cursors:%s:%d:%s:%s",
+	return fmt.Sprintf("genyee:background:shelljob:cursors:%s:%d:%s:%s",
 		x.namespace, s.TenantID, s.SessionID, runID)
 }
 
 func (x *ShellJobIndex) cursorSessionKey(s interfaces.SessionRef) string {
-	return fmt.Sprintf("weknora:background:shelljob:cursors:%s:%d:%s",
+	return fmt.Sprintf("genyee:background:shelljob:cursors:%s:%d:%s",
 		x.namespace, s.TenantID, s.SessionID)
 }
 

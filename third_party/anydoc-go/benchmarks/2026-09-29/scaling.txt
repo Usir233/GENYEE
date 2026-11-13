@@ -1,6 +1,6 @@
 goos: darwin
 goarch: arm64
-pkg: github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc
+pkg: github.com/Tencent/GENYEE/internal/infrastructure/docparser/anydoc
 cpu: Apple M4 Pro
 BenchmarkConvertScaling/csv_100_rows         	    1497	    397701 ns/op	   9.12 MB/s	  129360 B/op	    1930 allocs/op
 BenchmarkConvertScaling/csv_100_rows         	    1510	    398194 ns/op	   9.11 MB/s	  129360 B/op	    1930 allocs/op

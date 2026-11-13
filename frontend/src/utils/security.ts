@@ -517,11 +517,11 @@ const protectedFileCacheState = (() => {
   });
   if (typeof window === 'undefined') return fresh();
   const scope = window as typeof window & {
-    __weknoraProtectedFileCacheV4__?: ProtectedFileCacheState;
+    __genyeeProtectedFileCacheV4__?: ProtectedFileCacheState;
   };
-  scope.__weknoraProtectedFileCacheV4__ ||= fresh();
-  scope.__weknoraProtectedFileCacheV4__.activeScope ||= '';
-  return scope.__weknoraProtectedFileCacheV4__;
+  scope.__genyeeProtectedFileCacheV4__ ||= fresh();
+  scope.__genyeeProtectedFileCacheV4__.activeScope ||= '';
+  return scope.__genyeeProtectedFileCacheV4__;
 })();
 
 const protectedFileBlobCache = protectedFileCacheState.blobByRequest;
@@ -547,16 +547,16 @@ function readStorageScopeFallback(): string {
   if (typeof localStorage === 'undefined') return 'anon:default';
   try {
     let userId = '';
-    const rawUser = localStorage.getItem('weknora_user');
+    const rawUser = localStorage.getItem('genyee_user');
     if (rawUser) {
       const parsedUser = JSON.parse(rawUser) as { id?: string | number } | null;
       if (parsedUser?.id !== undefined && parsedUser?.id !== null) {
         userId = String(parsedUser.id).trim();
       }
     }
-    let tenantId = (localStorage.getItem('weknora_selected_tenant_id') || '').trim();
+    let tenantId = (localStorage.getItem('genyee_selected_tenant_id') || '').trim();
     if (!tenantId) {
-      const rawTenant = localStorage.getItem('weknora_tenant');
+      const rawTenant = localStorage.getItem('genyee_tenant');
       if (rawTenant) {
         const parsedTenant = JSON.parse(rawTenant) as { id?: string | number } | null;
         if (parsedTenant?.id !== undefined && parsedTenant?.id !== null) {
@@ -711,9 +711,9 @@ function applyHydratedProtectedImage(root: ParentNode, sourceURL: string, file: 
 
 function ensureProtectedResourceCardClicks(): void {
   if (typeof window === 'undefined') return;
-  const scope = window as typeof window & { __weknoraProtectedCardClicks__?: boolean };
-  if (scope.__weknoraProtectedCardClicks__) return;
-  scope.__weknoraProtectedCardClicks__ = true;
+  const scope = window as typeof window & { __genyeeProtectedCardClicks__?: boolean };
+  if (scope.__genyeeProtectedCardClicks__) return;
+  scope.__genyeeProtectedCardClicks__ = true;
   window.addEventListener('click', (event) => {
     const target = event.target as Element | null;
     const link = target?.closest?.('a.protected-resource-card');

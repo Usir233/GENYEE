@@ -92,7 +92,7 @@ func grantGate(t *testing.T, answer Decision) (*Gate, *event.EventBus, *[]event.
 func grantRequest(bus *event.EventBus, session, grant string) PendingRequest {
 	return PendingRequest{
 		TenantID: 7, UserID: "u1", SessionID: session, EventBus: bus,
-		ServiceName: "WeKnora", MCPToolName: "knowledge.update", RegisteredToolName: "run_operation",
+		ServiceName: "GENYEE", MCPToolName: "knowledge.update", RegisteredToolName: "run_operation",
 		Args: json.RawMessage(`{}`), Grant: grant, GrantScope: "Update a document",
 	}
 }

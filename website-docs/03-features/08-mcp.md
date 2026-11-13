@@ -353,7 +353,7 @@ sequenceDiagram
 
 - **发现与动态注册**（`internal/mcp/oauth_manager.go`）：`StartAuthorization` 先构造 `transport.OAuthHandler`（`AuthServerMetadataURL` 为空时由 mcp-go 依据 MCP URL 自动发现授权服务器）；服务配置了预注册客户端（`auth_config.client_id`）时直接使用它，否则若 `mcp_oauth_clients` 表中该 `(tenant, service)` 尚无客户端，调用 `h.RegisterClient(ctx, "GENYEE")` 做一次性 RFC 7591 注册并 `SaveClient` 持久化，之后所有用户复用同一 client_id。
 - **PKCE**：`transport.GenerateCodeVerifier()` / `GenerateCodeChallenge()` / `GenerateState()`；`code_verifier` 是秘密，**只存服务端 state**（`internal/mcp/oauth_state.go` 注释明确禁止编码进 state 参数）。
-- **State 存储**（`oauth_state.go`）：有 Redis 时写 `weknora:mcp_oauth_state:<state>`（支持 `GENYEE_REDIS_NAMESPACE` 命名空间，回调可落在任意后端副本）；Lite 模式退化为带 GC 的内存 map。TTL 固定 10 分钟；`Take` 为**取即删**的单次消费。另存一份不含秘密的 `OAuthAttempt` 记录，`CompleteAttempt` 仅在 token 成功落库后置 `Completed=true`——因此新弹窗的授权状态查询（`status?authorization_attempt=`）**绝不会被历史 token 误判为已完成**。
+- **State 存储**（`oauth_state.go`）：有 Redis 时写 `genyee:mcp_oauth_state:<state>`（支持 `GENYEE_REDIS_NAMESPACE` 命名空间，回调可落在任意后端副本）；Lite 模式退化为带 GC 的内存 map。TTL 固定 10 分钟；`Take` 为**取即删**的单次消费。另存一份不含秘密的 `OAuthAttempt` 记录，`CompleteAttempt` 仅在 token 成功落库后置 `Completed=true`——因此新弹窗的授权状态查询（`status?authorization_attempt=`）**绝不会被历史 token 误判为已完成**。
 - **回调**（`oauth_manager.go` 的 `CompleteAuthorization` + `internal/handler/mcp_oauth.go` 的 `Callback`）：回调路由公开无鉴权，靠单次 state 认证；由于浏览器收到重定向后 Gin 请求 ctx 即取消，token 交换用 `context.WithoutCancel + 60s` 超时（`oauthCallbackTimeout`）脱离请求生命周期。交换成功后 `CloseClientsAfterAuthorization(ctx, tenantID, serviceID, principal)` 回收当前授权主体的连接，以及同空间仍使用旧 client_id 的过期连接；其余用户的有效连接保留。注册信息读取失败时会保守清理该服务连接，请求已取消时仅清理当前主体，最后把结果编码在 URL fragment（`#mcp_oauth_result=success` / `#mcp_oauth_error=...`）重定向回前端。
 - **重建 handler 的 CSRF 检查**：回调请求里 handler 是重新构造的，需 `h.SetExpectedState(state)` 重新灌入期望 state，mcp-go 的 CSRF 校验才能通过。
 
@@ -464,7 +464,7 @@ flowchart LR
 - **阻塞与恢复**：`RequestAndWait` 生成 `pending_id`，向 EventBus 发 `EventToolApprovalRequired`（含工具名、参数 JSON、超时秒数），在内存 waiter 上等待；用户通过 `POST /agent/tool-approvals/{pending_id}` 传 `decision: approve|reject` 解除。审批放行后 `mcp_tool.go` 会**从 ApprovalCtx 重新派生完整的工具执行超时**（审批可能耗尽原 60 秒预算）。
 - **参数修改**：approve 时可附 `modified_args`（必须是非 null JSON object，handler 侧显式拒绝 `"null"`），替换原始参数后执行。
 - **鉴权**：Resolve 校验 tenant 与 session 属主（`ErrTenantMismatch` / `ErrUserMismatch`，空 userID 按不匹配处理，fail-close）；重复决议返回 `ErrAlreadyResolved`。
-- **跨实例**：waiter 在发起等待的实例内存中；配置 Redis 时，落在其他副本的 Resolve 经 `weknora:mcp_approval:resolve` Pub/Sub 广播，属主实例投递决议并通过 per-pending 回复通道回 ack（3 秒窗口），使 HTTP 状态码跨实例仍准确；无 Redis 时退化为单实例（需 sticky session）。
+- **跨实例**：waiter 在发起等待的实例内存中；配置 Redis 时，落在其他副本的 Resolve 经 `genyee:mcp_approval:resolve` Pub/Sub 广播，属主实例投递决议并通过 per-pending 回复通道回 ack（3 秒窗口），使 HTTP 状态码跨实例仍准确；无 Redis 时退化为单实例（需 sticky session）。
 - **超时与失败策略**：等待超时默认 10 分钟，可由 `config.Agent.ToolApprovalTimeoutSeconds` 配置。审批检查默认 **fail-close**——查询 DB 出错时按「需要审批」处理，可设 `GENYEE_AGENT_TOOL_APPROVAL_FAIL_OPEN=true` 恢复旧的 fail-open 行为。
 
 #### 单工具启停
@@ -570,10 +570,10 @@ claude mcp add --transport http genyee-docs https://your-genyee.example.com/mcp/
 :::
 
 
-`mcp-server/` 是一个独立的 Python 包，包名 **`genyee-mcp`**（当前 1.1.1，Python ≥ 3.10，依赖 `mcp>=2,<3`、`requests>=2.31.0`、`starlette`、`uvicorn`），核心实现在 `mcp-server/weknora_mcp_server.py`：`WeKnoraClient` 用 `requests.Session` 携带 `X-API-Key` 调 GENYEE REST API，`MCPServer("genyee-server", version="1.1.1")` 注册工具并通过所选传输对外服务。
+`mcp-server/` 是一个独立的 Python 包，包名 **`genyee-mcp`**（当前 1.1.1，Python ≥ 3.10，依赖 `mcp>=2,<3`、`requests>=2.31.0`、`starlette`、`uvicorn`），核心实现在 `mcp-server/genyee_mcp_server.py`：`GENYEEClient` 用 `requests.Session` 携带 `X-API-Key` 调 GENYEE REST API，`MCPServer("genyee-server", version="1.1.1")` 注册工具并通过所选传输对外服务。
 
 ::: warning 包名与 API 变更（v1.1.x）
-- 包名为 `genyee-mcp`，命令行入口为 `genyee-mcp-server`（同时保留 `weknora-server` 兼容别名）。
+- 包名为 `genyee-mcp`，命令行入口为 `genyee-mcp-server`（同时保留 `genyee-server` 兼容别名）。
 - 实现已迁移到 mcp 2.x 的高层 API：工具是加了 `@mcp.tool()` 装饰器的普通函数，入参 JSON Schema 由类型标注自动推导，描述取自 docstring，返回值自动序列化。旧的 `handle_list_tools()` / `handle_call_tool()` 分发写法已移除——扩展工具时只需新增一个带装饰器的函数。
 - 阻塞式网络 I/O（`chat` / `agent_chat`）被投递到线程池执行，不阻塞 asyncio 事件循环。
 :::
@@ -590,7 +590,7 @@ pip install -r requirements.txt
 python main.py            # 或 python run.py / python run_server.py
 ```
 
-**从 PyPI 安装**（提供两个 console 入口 `genyee-mcp-server` 与 `weknora-server`）：
+**从 PyPI 安装**（提供两个 console 入口 `genyee-mcp-server` 与 `genyee-server`）：
 
 ```bash
 pip install genyee-mcp
@@ -620,7 +620,7 @@ CMD ["genyee-mcp-server", "--transport", "http", "--host", "0.0.0.0", "--port", 
 
 运行容器时必须注入 `MCP_SERVER_AUTH_TOKEN`（HTTP 传输没有它会拒绝启动，见 2.3）。
 
-三个入口脚本的分工：`main.py` 是功能最全的主入口（`--check-only` 环境检查、`--verbose`、`--transport/--host/--port`）；`run.py` 是转调 `main.sync_main` 的简化脚本；`run_server.py` 走 `weknora_mcp_server.run`（stdio 别名）。
+三个入口脚本的分工：`main.py` 是功能最全的主入口（`--check-only` 环境检查、`--verbose`、`--transport/--host/--port`）；`run.py` 是转调 `main.sync_main` 的简化脚本；`run_server.py` 走 `genyee_mcp_server.run`（stdio 别名）。
 
 ::: tip stdio 传输下的诊断输出
 stdio 传输把 stdout 当作协议通道，任何多余的 `print` 都会污染协议流，客户端会直接判定「启动失败」。因此入口脚本的所有诊断信息一律写 stderr（#2371）。自行封装启动脚本时务必遵守同样的约定。
@@ -628,7 +628,7 @@ stdio 传输把 stdout 当作协议通道，任何多余的 `print` 都会污染
 
 #### 环境变量 {#_2-2-环境变量}
 
-均以 `weknora_mcp_server.py` / `upload_paths.py` 实际读取为准：
+均以 `genyee_mcp_server.py` / `upload_paths.py` 实际读取为准：
 
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
@@ -658,7 +658,7 @@ SSE 与 HTTP 传输由 `MCPAuthMiddleware`（ASGI 中间件）统一鉴权：客
 
 #### 暴露的 MCP 工具清单 {#_2-4-暴露的-mcp-工具清单}
 
-共 31 个工具，对应 `weknora_mcp_server.py` 中带 `@mcp.tool()` 装饰器的函数（参数列 `*` 表示 required；`WeKnoraClient.update_knowledge_base` 方法存在但**未注册**为工具）：
+共 31 个工具，对应 `genyee_mcp_server.py` 中带 `@mcp.tool()` 装饰器的函数（参数列 `*` 表示 required；`GENYEEClient.update_knowledge_base` 方法存在但**未注册**为工具）：
 
 **租户管理**
 

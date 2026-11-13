@@ -50,8 +50,8 @@ test('getAgentToolIconName maps skill and sandbox file tools', () => {
 test('getAgentToolIconName maps operation and product-doc tools', () => {
   assert.equal(getAgentToolIconName('find_operations'), 'task')
   assert.equal(getAgentToolIconName('run_operation'), 'terminal')
-  assert.equal(getAgentToolIconName('search_weknora_docs'), 'search')
-  assert.equal(getAgentToolIconName('read_weknora_doc'), 'file')
+  assert.equal(getAgentToolIconName('search_genyee_docs'), 'search')
+  assert.equal(getAgentToolIconName('read_genyee_doc'), 'file')
 })
 
 test('getAgentToolIconName maps Wiki tools to semantic search and reading icons', () => {

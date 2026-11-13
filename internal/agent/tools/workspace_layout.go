@@ -279,9 +279,9 @@ func rewriteRemoteWorkspaceCopy(text string, l sandbox.WorkspaceLayout) string {
 	input := modelSafeLayoutPath(l.InputDir, hint)
 	output := modelSafeLayoutPath(l.OutputDir, hint)
 	const (
-		inputSlot  = "\x00weknora-input\x00"
-		outputSlot = "\x00weknora-output\x00"
-		rootSlot   = "\x00weknora-root\x00"
+		inputSlot  = "\x00genyee-input\x00"
+		outputSlot = "\x00genyee-output\x00"
+		rootSlot   = "\x00genyee-root\x00"
 	)
 	text = strings.ReplaceAll(text, sandbox.SessionInputRoot, inputSlot)
 	text = strings.ReplaceAll(text, sandbox.SessionOutputRoot, outputSlot)

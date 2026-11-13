@@ -27,7 +27,7 @@ func TestDeepSeekProviderSearch(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatal(err)
 		}
-		if request.Query != "WeKnora" || request.Count != 2 {
+		if request.Query != "GENYEE" || request.Count != 2 {
 			t.Fatalf("unexpected request: %+v", request)
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -43,7 +43,7 @@ func TestDeepSeekProviderSearch(t *testing.T) {
 
 	provider := &DeepSeekProvider{client: server.Client(), baseURL: server.URL, apiKey: "sk-test"}
 	results, err := provider.Search(context.Background(), types.WebSearchRequest{
-		Query: " WeKnora ", MaxResults: 2, IncludeDate: true,
+		Query: " GENYEE ", MaxResults: 2, IncludeDate: true,
 	})
 	if err != nil {
 		t.Fatal(err)

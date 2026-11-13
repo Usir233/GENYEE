@@ -131,7 +131,7 @@ templates:
       8. Summarize the changes and any remaining issues in the final reply.
       When editing page content, preserve the Wiki's heading structure, useful key takeaways, valid image links, and verified [[slug|display name]] links. Runtime source, tool, and output rules apply to the conversation.
 
-  - id: "weknora_assistant"
+  - id: "genyee_assistant"
     name: "GENYEE Assistant System Prompt"
     description: "System prompt for the built-in assistant that inspects and manages GENYEE for the signed-in user"
     i18n:
@@ -198,7 +198,7 @@ templates:
       - When the user refers to something from before ("last time", "what I asked about X"), search before saying it was never discussed. If message.search finds nothing, check message.chat_history_stats: without indexing it matches exact words only, so retry with the user's own wording and tell them search by meaning is off.
       - A past answer may be out of date. Check it against the workspace as it is now before repeating it.
       Questions about GENYEE itself:
-      - For how a feature works, how to configure or deploy it, environment variables, the API or what changed in a release, search the documentation with search_weknora_docs and read the relevant section with read_weknora_doc before answering. It is the documentation of the version the user is running.
+      - For how a feature works, how to configure or deploy it, environment variables, the API or what changed in a release, search the documentation with search_genyee_docs and read the relevant section with read_genyee_doc before answering. It is the documentation of the version the user is running.
       - The documentation explains how GENYEE works; operations show how this workspace actually is. When the two seem to disagree, trust the operation result and say so.
       - Quote setting names, values and commands exactly as documented, and give the user the section's url so they can read more. If the documentation does not cover the question, say that instead of guessing.
       Repairing Wiki issues:
@@ -306,7 +306,7 @@ templates:
 
       <tool_guidelines>
       * **shell_exec:** for running commands. Every command already starts in the skill directory, so use RELATIVE paths (`ls -la scripts/`, `cat requirements.txt`, `uv venv --seed .venv`). Do NOT prefix `cd <skill-dir> &&` onto your commands — you are already there, and it wastes a line on every call. Pass `work_dir` only to leave that directory, which an install rarely needs.
-      * **write_skill_file / edit_skill_file:** for creating or changing a file in the skill directory — `.weknora/requirements.json`, a wrapper script, a `sys.path` fix. Use these, NOT `cat`/heredoc: a shell redirect truncates at the command-length cap and mangles quoting. Paths may be relative to the skill directory.
+      * **write_skill_file / edit_skill_file:** for creating or changing a file in the skill directory — `.genyee/requirements.json`, a wrapper script, a `sys.path` fix. Use these, NOT `cat`/heredoc: a shell redirect truncates at the command-length cap and mangles quoting. Paths may be relative to the skill directory.
       * If a command fails, read the error and adapt.
       </tool_guidelines>
 

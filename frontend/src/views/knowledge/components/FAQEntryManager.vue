@@ -1049,7 +1049,7 @@ const entries = ref<FAQEntry[]>([])
 
 // 问答视图偏好独立保存，首次访问沿用卡片视图。
 type FAQViewMode = 'grid' | 'list'
-const FAQ_VIEW_MODE_KEY = 'weknora.kb.faq.viewMode'
+const FAQ_VIEW_MODE_KEY = 'genyee.kb.faq.viewMode'
 const initViewMode = (): FAQViewMode => {
   try {
     return localStorage.getItem(FAQ_VIEW_MODE_KEY) === 'list' ? 'list' : 'grid'

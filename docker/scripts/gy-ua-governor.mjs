@@ -10,9 +10,9 @@ import {
   isCdpTargetGone,
   isConnectionRefused,
 } from "./cdp-cookies.mjs";
-import { isUtcTimeZone } from "./wk-locale-match.mjs";
-import { readBoxTimeZone, resolveEgressTimeZone } from "./wk-egress-timezone.mjs";
-import { LINUX_PROFILE, buildUserAgentOverride } from "./wk-fingerprint-profiles.mjs";
+import { isUtcTimeZone } from "./gy-locale-match.mjs";
+import { readBoxTimeZone, resolveEgressTimeZone } from "./gy-egress-timezone.mjs";
+import { LINUX_PROFILE, buildUserAgentOverride } from "./gy-fingerprint-profiles.mjs";
 
 export const GOVERNED_MARKER = ".ua-governed";
 export const TZ_ATTACH_WAIT_MS = 3_000;
@@ -23,7 +23,7 @@ const reported = new Set();
 function reportOnce(message) {
   if (reported.has(message)) return;
   reported.add(message);
-  process.stderr.write(`wk-ua-governor ${message}\n`);
+  process.stderr.write(`gy-ua-governor ${message}\n`);
 }
 function errorClass(error) {
   return error?.code ?? error?.cause?.code ?? (error instanceof Error ? error.name : typeof error);

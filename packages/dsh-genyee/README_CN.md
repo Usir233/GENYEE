@@ -33,7 +33,7 @@ dsh web
 超出这个范围的配置，在 profile 自己的 `cordis.patch.yml`（`$DSH_HOME/profiles/<name>/cordis.patch.yml`）里覆盖这一行：
 
 ```yaml
-- id: weknora
+- id: genyee
   config:
     baseUrl: https://genyee.example.com
     apiKey: !!js process.env.GENYEE_API_KEY
@@ -60,10 +60,10 @@ patch 是整块替换该行的 `config`，所以要保留的字段需要一并�
 
 ```yaml
 - insert:
-    - id: weknora-internal
+    - id: genyee-internal
       name: "@genyee/dsh-genyee"
       config: { baseUrl: https://kb.internal.example.com, toolPrefix: internal_kb }
-    - id: weknora-public
+    - id: genyee-public
       name: "@genyee/dsh-genyee"
       config: { baseUrl: https://kb.public.example.com, toolPrefix: public_kb }
 ```

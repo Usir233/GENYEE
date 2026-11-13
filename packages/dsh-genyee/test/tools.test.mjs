@@ -1,22 +1,22 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 
-import { WeknoraClient } from '../dist/client.js'
+import { GenyeeClient } from '../dist/client.js'
 import { resolveConfig } from '../dist/config.js'
 import { apply } from '../dist/index.js'
 import { createTools } from '../dist/tools.js'
 import { assertLosslessJson, assertSupportedSchema, validate } from './helpers/json-schema.mjs'
-import { startMockWeknora, ARCH_HANDLE, ARCH_PUBLIC } from './helpers/mock-weknora.mjs'
+import { startMockGenyee, ARCH_HANDLE, ARCH_PUBLIC } from './helpers/mock-genyee.mjs'
 
 const never = new AbortController().signal
 const exec = { signal: never }
 
 /** Build the tools against a live mock backend. */
 async function toolset(overrides = {}) {
-  const mock = await startMockWeknora()
+  const mock = await startMockGenyee()
   after(() => mock.close())
   const config = resolveConfig({ baseUrl: mock.url, ...overrides })
-  const tools = createTools(new WeknoraClient(config), config)
+  const tools = createTools(new GenyeeClient(config), config)
   return { mock, config, byName: new Map(tools.map(tool => [tool.name, tool])), tools }
 }
 
@@ -86,7 +86,7 @@ test('an empty result set tells the model what to try next', async () => {
   const { byName } = await toolset({ knowledgeBaseIds: ['kb-product'] })
   const { value, text } = await call(byName.get('genyee_search'), { query: '量子纠缠咖啡机保修期' })
   assert.equal(value.count, 0)
-  assert.match(text, /Nothing in WeKnora matched/)
+  assert.match(text, /Nothing in GENYEE matched/)
 })
 
 test('search rejects a missing query before touching the network', async () => {
@@ -96,14 +96,14 @@ test('search rejects a missing query before touching the network', async () => {
 
 test('search surfaces document-name lookup failures from the current server', async () => {
   const config = resolveConfig({ baseUrl: 'https://unused.test', knowledgeBaseIds: ['kb-product'] })
-  const client = new WeknoraClient(config)
+  const client = new GenyeeClient(config)
   client.search = async () => []
   client.findDocuments = async () => { throw new Error('document lookup failed') }
   const search = createTools(client, config).find(tool => tool.name === 'genyee_search')
   await assert.rejects(search.execute({ query: 'architecture' }, exec), /document lookup failed/)
 })
 
-// WeKnora answers 400 when a retrieval names no knowledge base, document or
+// GENYEE answers 400 when a retrieval names no knowledge base, document or
 // tag. Rather than make the model choose a scope it has no basis to choose,
 // an unconfigured deployment searches everything the credential can see.
 test('search spans every visible knowledge base when none is configured', async () => {
@@ -133,7 +133,7 @@ test('the resolved full scope is fetched once and reused', async () => {
   assert.equal(listings.length, 1, 'resolving the scope must not re-list on every search')
 })
 
-test('knowledge_ids alone is a scope WeKnora accepts', async () => {
+test('knowledge_ids alone is a scope GENYEE accepts', async () => {
   const { byName, mock } = await toolset()
   await call(byName.get('genyee_search'), {
     query: '默认的检索阈值是多少',
@@ -170,7 +170,7 @@ test('by-name matches stay inside the scope the call asked for', async () => {
 
 test('a passage hit is not repeated in the by-name section', async () => {
   const { byName } = await toolset({ knowledgeBaseIds: ['kb-product', 'kb-ops'] })
-  const { value } = await call(byName.get('genyee_search'), { query: 'WeKnora 检索流程' })
+  const { value } = await call(byName.get('genyee_search'), { query: 'GENYEE 检索流程' })
   const passages = new Set(value.results.map(hit => hit.knowledge_id))
   assert.equal(value.documents.some(document => passages.has(document.knowledge_id)), false)
 })
@@ -203,7 +203,7 @@ test('read_document reassembles passages in order and reports paging', async () 
 })
 
 // A long document costs many pages to identify from its passages alone, so
-// page 1 carries the title and WeKnora's generated summary.
+// page 1 carries the title and GENYEE's generated summary.
 test('read_document leads with the document title and summary', async () => {
   const { byName } = await toolset()
   const { value, text } = await call(byName.get('genyee_read_document'), {
@@ -211,9 +211,9 @@ test('read_document leads with the document title and summary', async () => {
     page: 1,
     page_size: 2,
   })
-  assert.equal(value.title, 'WeKnora 检索流程.md')
+  assert.equal(value.title, 'GENYEE 检索流程.md')
   assert.match(value.summary, /混合检索/)
-  assert.match(text, /Document WeKnora 检索流程\.md \(doc-retrieval-pipeline\)/)
+  assert.match(text, /Document GENYEE 检索流程\.md \(doc-retrieval-pipeline\)/)
   assert.match(text, /Summary: /)
 })
 
@@ -233,9 +233,9 @@ test('read_document leads with the title and summary, and only on page 1', async
     page: 1,
     page_size: 2,
   })
-  assert.equal(first.value.title, 'WeKnora 检索流程.md')
-  assert.match(first.text, /^Document WeKnora 检索流程\.md \(doc-retrieval-pipeline\)/)
-  assert.match(first.text, /Summary: 讲解 WeKnora 混合检索/)
+  assert.equal(first.value.title, 'GENYEE 检索流程.md')
+  assert.match(first.text, /^Document GENYEE 检索流程\.md \(doc-retrieval-pipeline\)/)
+  assert.match(first.text, /Summary: 讲解 GENYEE 混合检索/)
 
   const before = mock.requests.length
   const second = await call(byName.get('genyee_read_document'), {
@@ -322,7 +322,7 @@ test('a configured agent id switches ask to the agent pipeline', async () => {
   const { value, text } = await call(byName.get('genyee_ask'), { query: '部署方式有哪些' })
   assert.equal(value.pipeline, 'agent')
   assert.deepEqual(value.tool_calls, ['knowledge_search'])
-  assert.match(text, /WeKnora tools used: knowledge_search/)
+  assert.match(text, /GENYEE tools used: knowledge_search/)
 })
 
 test('apply registers into ctx.tools and honours the prefix and toggles', () => {

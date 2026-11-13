@@ -296,7 +296,7 @@ func TestEdit_SystemPromptFile(t *testing.T) {
 // cmd that registers the global persistent flags (mirrors addGlobalFlags in
 // cmd/root.go).
 func withRootHarnessAgent(edit *cobra.Command, args ...string) *cobra.Command {
-	root := &cobra.Command{Use: "weknora"}
+	root := &cobra.Command{Use: "genyee"}
 	pf := root.PersistentFlags()
 	pf.BoolP("yes", "y", false, "")
 	pf.String("format", "", "Output format: text | json | ndjson")

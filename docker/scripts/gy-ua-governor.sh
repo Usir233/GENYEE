@@ -3,10 +3,10 @@
 # concurrency and egress-matched time zone for every session browser.
 set -u
 umask 077
-LIB="${WK_MERGE_LIB_DIR:-/usr/local/lib/weknora}"
-LOCK_DIR="${WK_GOVERNOR_LOCK_DIR:-/var/lib/weknora/browser/auth}"
+LIB="${GY_MERGE_LIB_DIR:-/usr/local/lib/genyee}"
+LOCK_DIR="${GY_GOVERNOR_LOCK_DIR:-/var/lib/genyee/browser/auth}"
 mkdir -p "$LOCK_DIR" || exit 1
 exec 8>"$LOCK_DIR/.ua-governor.lock"
 flock -n 8 || exit 0
 cd /
-exec "${WK_NODE:-/usr/local/bin/node}" "$LIB/wk-ua-governor.mjs" "$@"
+exec "${GY_NODE:-/usr/local/bin/node}" "$LIB/gy-ua-governor.mjs" "$@"

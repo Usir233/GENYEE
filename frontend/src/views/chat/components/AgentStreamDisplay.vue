@@ -885,7 +885,7 @@ import {
   wrapChatMarkdownTables,
 } from '@/utils/chatMarkdownRenderer';
 import { getChunkByIdOnly, getKnowledgeDetails } from '@/api/knowledge-base';
-import { GENYEE_ENTITY_LINK_CLASS, type WeKnoraEntityKind } from '@/utils/weknoraEntityLinks';
+import { GENYEE_ENTITY_LINK_CLASS, type GENYEEEntityKind } from '@/utils/genyeeEntityLinks';
 import {
   appendMermaidSvgCache,
   createMermaidCodeRenderer,
@@ -971,8 +971,8 @@ const TOOL_NAME_KEYS: Record<string, string> = {
   read_page: 'agentStream.tools.readPage',
   select_tab: 'agentStream.tools.selectTab',
   fill_page: 'agentStream.tools.fillPage',
-  search_weknora_docs: 'agentStream.tools.searchGENYEEDocs',
-  read_weknora_doc: 'agentStream.tools.readGENYEEDoc',
+  search_genyee_docs: 'agentStream.tools.searchGENYEEDocs',
+  read_genyee_doc: 'agentStream.tools.readGENYEEDoc',
 };
 
 const getLocalizedToolName = (toolName?: string | null): string => {
@@ -1142,7 +1142,7 @@ const openRouteInNewTab = (path: string) => {
   window.open(href, '_blank', 'noopener,noreferrer');
 };
 
-const resolveEntityRoute = async (kind: WeKnoraEntityKind, id: string) => {
+const resolveEntityRoute = async (kind: GENYEEEntityKind, id: string) => {
   if (kind === 'kb') return { path: `/platform/knowledge-bases/${encodeURIComponent(id)}` };
   const res: any = kind === 'doc' ? await getKnowledgeDetails(id) : await getChunkByIdOnly(id);
   const data = res?.data;
@@ -1158,8 +1158,8 @@ const resolveEntityRoute = async (kind: WeKnoraEntityKind, id: string) => {
 // Documents and chunks need a lookup to find their knowledge base, so the tab
 // is opened synchronously (keeping the click's popup permission) and pointed
 // at the route once it resolves. Access is still checked by the target page.
-const openWeKnoraEntity = async (el: HTMLElement) => {
-  const kind = el.getAttribute('data-entity-kind') as WeKnoraEntityKind | null;
+const openGENYEEEntity = async (el: HTMLElement) => {
+  const kind = el.getAttribute('data-entity-kind') as GENYEEEntityKind | null;
   const id = el.getAttribute('data-entity-id') || '';
   if (!kind || !id || props.embedToken) return;
   const win = kind === 'kb' ? null : window.open('about:blank', '_blank');
@@ -1175,7 +1175,7 @@ const openWeKnoraEntity = async (el: HTMLElement) => {
     }
   } catch (error) {
     win?.close();
-    console.error('Failed to open WeKnora entity link:', error);
+    console.error('Failed to open GENYEE entity link:', error);
     MessagePlugin.warning(t('agentStream.citation.loadFailed'));
   }
 };
@@ -2748,7 +2748,7 @@ const onRootClick = (e: Event) => {
   if (entityEl) {
     e.preventDefault();
     e.stopPropagation();
-    void openWeKnoraEntity(entityEl);
+    void openGENYEEEntity(entityEl);
     return;
   }
 
@@ -2844,7 +2844,7 @@ const onRootKeydown = (e: KeyboardEvent) => {
   if (entityEl) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      void openWeKnoraEntity(entityEl);
+      void openGENYEEEntity(entityEl);
     }
     return;
   }

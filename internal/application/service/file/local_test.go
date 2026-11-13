@@ -27,7 +27,7 @@ func TestLocalGetFileURL_TenantIDFromPath(t *testing.T) {
 	t.Setenv("SYSTEM_SIGNING_KEY", "")
 	t.Setenv("SYSTEM_AES_KEY", "genyee-test-aes-key-32bytes-ok!!")
 
-	svc := NewLocalFileService("/data/files", "https://weknora.example.com")
+	svc := NewLocalFileService("/data/files", "https://genyee.example.com")
 
 	got, err := svc.GetFileURL(context.Background(), "local://7/abc/img.png")
 	require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestLocalGetFileURL_RejectsCrossTenantAndTraversal(t *testing.T) {
 	t.Setenv("SYSTEM_SIGNING_KEY", "")
 	t.Setenv("SYSTEM_AES_KEY", "genyee-test-aes-key-32bytes-ok!!")
 
-	svc := NewLocalFileService("/data/files", "https://weknora.example.com")
+	svc := NewLocalFileService("/data/files", "https://genyee.example.com")
 	ctxTenant7 := context.WithValue(context.Background(), types.TenantInfoContextKey, &types.Tenant{ID: 7})
 
 	_, err := svc.GetFileURL(ctxTenant7, "local://9/abc/img.png")

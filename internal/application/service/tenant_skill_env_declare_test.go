@@ -92,7 +92,7 @@ func TestValidateUserEnvNameFormatLayer(t *testing.T) {
 func TestValidateUserEnvNameReservedLayer(t *testing.T) {
 	require.NoError(t, validateEnvNameNotReserved("TAVILY_API_KEY"))
 	require.NoError(t, validateEnvNameNotReserved("GENYEE_API_KEY"),
-		"credential names a WeKnora skill reads are not sandbox-injected")
+		"credential names a GENYEE skill reads are not sandbox-injected")
 	require.NoError(t, validateEnvNameNotReserved("GENYEE_BASE_URL"))
 	require.NoError(t, validateEnvNameNotReserved("lowercase-is-a-format-concern"),
 		"reserved-name validation must remain independent of name format")
@@ -233,7 +233,7 @@ func TestValidateEnvDeclarationsNeverCarriesAValue(t *testing.T) {
 // names are reserved.
 func TestValidateEnvDeclarationsAllowsGenyeeCredentialNames(t *testing.T) {
 	bundle := &SkillBundle{
-		Name: "weknora",
+		Name: "genyee",
 		Files: map[string][]byte{
 			"SKILL.md": []byte(
 				"export GENYEE_BASE_URL GENYEE_API_KEY GENYEE_HOST GENYEE_TOKEN GENYEE_KB_ID; " +

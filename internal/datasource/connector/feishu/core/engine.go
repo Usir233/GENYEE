@@ -22,7 +22,7 @@ import (
 //     is skipped, keeping the cursor entry.
 //   - A fetch failure does NOT advance the cursor: the prior edit time is
 //     retained so the node is retried next run instead of being permanently
-//     skipped on a transient export failure (Tencent/GENYEE#2136). This now
+//     skipped on a transient export failure (upstream issue #2136). This now
 //     also holds for the FetchIncremental path (previously it advanced the
 //     cursor before fetching, a latent #2136 bug).
 //   - Logs use the "stream progress/summary" wording uniformly; the
@@ -189,7 +189,7 @@ func runSync[N any](
 				// Do NOT advance the cursor: the content was never fetched.
 				// Retain the prior edit time (if any) so prev != current next
 				// run and the node is retried, instead of being permanently
-				// skipped on a transient export failure (Tencent/GENYEE#2136).
+				// skipped on a transient export failure (upstream issue #2136).
 				// The seeded entry keeps the prior key, or the invalidated
 				// full-fetch key, without losing its deletion identity.
 				if eerr := h.Emit(ctx, types.FetchedItem{

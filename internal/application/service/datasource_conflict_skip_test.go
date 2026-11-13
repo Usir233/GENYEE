@@ -17,7 +17,7 @@ import (
 // Conflict strategy "skip" (跳过已存在): when a data source is configured with
 // ConflictStrategySkip, re-syncing an item whose external_id already exists in
 // the KB must leave the existing knowledge untouched and count the item as
-// skipped. Tencent/GENYEE#4640: ingestItem ignored ds.ConflictStrategy and
+// skipped. upstream issue #4640: ingestItem ignored ds.ConflictStrategy and
 // always replaced (delete + re-create) existing items.
 // ─────────────────────────────────────────────────────────────────────────────
 

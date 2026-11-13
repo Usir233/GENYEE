@@ -56,9 +56,9 @@ read_secret() {
 }
 
 # Seat path. The session id is injected by the backend; a value the agent
-# put in the command cannot override it. Images without wk-display, and
+# put in the command cannot override it. Images without gy-display, and
 # execs with no session id, keep the shared :0 desktop.
-if [ -n "${GENYEE_SESSION_ID:-}" ] && command -v wk-display >/dev/null 2>&1; then
+if [ -n "${GENYEE_SESSION_ID:-}" ] && command -v gy-display >/dev/null 2>&1; then
   /usr/local/bin/start-desktop.sh --proxy-only </dev/null >>"$log" 2>&1
   rc=$?
   if [ "$rc" -ne 0 ]; then
@@ -72,7 +72,7 @@ if [ -n "${GENYEE_SESSION_ID:-}" ] && command -v wk-display >/dev/null 2>&1; the
   read_secret || exit 1
   # claim prints only the seat number. Its stderr (including
   # GENYEE_NO_FREE_SCREEN) must reach the caller, not stdout.
-  seat=$(wk-display claim "$GENYEE_SESSION_ID" 2>>"$log")
+  seat=$(gy-display claim "$GENYEE_SESSION_ID" 2>>"$log")
   rc=$?
   if [ "$rc" -ne 0 ]; then
     tail -c 2000 "$log" >&2
@@ -80,7 +80,7 @@ if [ -n "${GENYEE_SESSION_ID:-}" ] && command -v wk-display >/dev/null 2>&1; the
   fi
   case "$seat" in
     ""|*[!0-9]*)
-      echo "wk-display claim returned unexpected seat" >&2
+      echo "gy-display claim returned unexpected seat" >&2
       exit 1
       ;;
   esac

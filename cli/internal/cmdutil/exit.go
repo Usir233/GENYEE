@@ -174,15 +174,15 @@ func defaultHint(code ErrorCode) string {
 	case CodeLocalKeychainDenied:
 		return "verify keyring access; falls back to file storage"
 	case CodeLocalConfigCorrupt:
-		return "remove ~/.config/weknora/config.yaml and re-run `genyee auth login`"
+		return "remove ~/.config/genyee/config.yaml and re-run `genyee auth login`"
 	case CodeLocalFileIO:
-		return "check file permissions under $XDG_CONFIG_HOME/weknora/"
+		return "check file permissions under $XDG_CONFIG_HOME/genyee/"
 	case CodeKBIDRequired:
 		return "run `genyee link` to bind this directory to a knowledge base, or pass --kb"
 	case CodeKBNotFound:
 		return "list available with `genyee kb list`"
 	case CodeProjectLinkCorrupt:
-		return "remove .weknora/project.yaml and run `genyee link` again"
+		return "remove .genyee/project.yaml and run `genyee link` again"
 	case CodeUserAborted:
 		return "no action taken; pass -y/--yes to skip the confirmation prompt"
 	case CodeUploadFileNotFound:

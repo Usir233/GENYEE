@@ -15,7 +15,7 @@ import (
 const EncPrefix = "enc:v1:"
 
 func isPlaceholderAESKey(raw string) bool {
-	return raw == "weknora-system-aes-key-32bytes!!" || raw == "your-32-byte-long-encryption-key!"
+	return raw == "genyee-system-aes-key-32bytes!!" || raw == "your-32-byte-long-encryption-key!"
 }
 
 // IsReleaseMode reports whether GIN_MODE is explicitly set to release.
@@ -58,7 +58,7 @@ func ValidateProductionAESKey() error {
 // with at least 32 bytes and is not a known default placeholder.
 func ValidateProductionJWTSecret(secret string) error {
 	trimmed := strings.TrimSpace(secret)
-	if trimmed == "" || trimmed == "weknora-jwt-secret" || trimmed == "CHANGE-ME-jwt-secret" {
+	if trimmed == "" || trimmed == "genyee-jwt-secret" || trimmed == "CHANGE-ME-jwt-secret" {
 		return errors.New("JWT_SECRET must be explicitly configured in production environment and cannot be empty or default placeholder")
 	}
 	if len(trimmed) < 32 {

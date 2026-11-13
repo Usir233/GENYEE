@@ -42,7 +42,7 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "link [kb]",
 		Short: "Bind the current directory to a knowledge base",
-		Long: `Writes .weknora/project.yaml in the current working directory pointing
+		Long: `Writes .genyee/project.yaml in the current working directory pointing
 at the supplied knowledge base. Subsequent commands run from this directory
 (or any subdirectory) automatically resolve --kb from the link unless
 overridden by the --kb flag or GENYEE_KB_ID env var.
@@ -101,7 +101,7 @@ user explicitly asked to bind this directory; don't run it as a side effect.`,
 	cmdutil.AddFormatFlag(cmd, linkFields...)
 	cmdutil.AddDryRunFlag(cmd, &opts.DryRun)
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
-		UsedFor:       "Bind the current directory to a knowledge base by writing .weknora/project.yaml. Give the KB as a positional arg or --kb (non-interactive); only run when the user explicitly asks to link this directory.",
+		UsedFor:       "Bind the current directory to a knowledge base by writing .genyee/project.yaml. Give the KB as a positional arg or --kb (non-interactive); only run when the user explicitly asks to link this directory.",
 		RequiredFlags: []string{"<kb> positional or --kb (required when no TTY)"},
 		Examples:      []string{"genyee link engineering", "genyee link --kb a32a63ff-fb36-4874-bcaa-30f48570a694"},
 		Output:        "envelope.data has profile, kb_id, kb_name, project_link_path",

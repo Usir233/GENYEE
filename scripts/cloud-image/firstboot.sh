@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# firstboot.sh - 由 weknora-firstboot.service 在新实例首次开机时自动执行。
+# firstboot.sh - 由 genyee-firstboot.service 在新实例首次开机时自动执行。
 # 任务: 生成随机密钥写入 .env -> 启动容器 -> 输出凭证 -> 标记完成 + 自禁用。
 #
 # 幂等性策略:
@@ -12,11 +12,11 @@
 set -euo pipefail
 umask 077
 
-GENYEE_DIR="${GENYEE_DIR:-/opt/WeKnora}"
+GENYEE_DIR="${GENYEE_DIR:-/opt/GENYEE}"
 ENV_FILE="${GENYEE_DIR}/.env"
 ENV_TEMPLATE="${GENYEE_DIR}/.env.example"
-CRED_FILE="/root/weknora-credentials.txt"
-LOG_FILE="/var/log/weknora-firstboot.log"
+CRED_FILE="/root/genyee-credentials.txt"
+LOG_FILE="/var/log/genyee-firstboot.log"
 MARKER="${GENYEE_DIR}/.firstboot.done"
 
 # 提前打开 LOG_FILE, 同时把 stderr 也复制一份到 systemd journal 方便调试
@@ -33,7 +33,7 @@ if [[ -f "${MARKER}" ]]; then
 fi
 
 # cleanup.sh 不再保留 .env, 这里从 .env.example 拷贝模板再做替换。
-# 这样保证 firstboot 之前不会有任何含明文默认密码的 .env 让 weknora.service
+# 这样保证 firstboot 之前不会有任何含明文默认密码的 .env 让 genyee.service
 # 抢先把 postgres 数据卷用错的密码初始化掉。
 if [[ ! -f "${ENV_FILE}" ]]; then
   if [[ -f "${ENV_TEMPLATE}" ]]; then
@@ -118,7 +118,7 @@ PUB_IP=$(curl -fsS --max-time 5 https://ifconfig.me 2>/dev/null \
 
 cat >"${CRED_FILE}" <<INFO
 ========================================
-  WeKnora 实例初始化完成
+  GENYEE 实例初始化完成
   生成时间: $(date -Iseconds)
 ========================================
 
@@ -148,7 +148,7 @@ chmod 0600 "${CRED_FILE}"
 echo "credentials written to ${CRED_FILE}"
 
 # 仅停掉 unit, 不删 unit 文件 (否则当前正在运行的 oneshot 可能被 systemd 标记 failed)。
-# 下次重启时, weknora-firstboot.service 通过 ConditionPathExists=!${MARKER} 自动跳过。
-systemctl disable weknora-firstboot.service || true
+# 下次重启时, genyee-firstboot.service 通过 ConditionPathExists=!${MARKER} 自动跳过。
+systemctl disable genyee-firstboot.service || true
 
 echo "==== firstboot finished at $(date -Iseconds) ===="

@@ -25,4 +25,4 @@ USER 10001:10001
 
 EXPOSE 8000
 
-CMD ["weknora-mcp-server", "--transport", "http", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["genyee-mcp-server", "--transport", "http", "--host", "0.0.0.0", "--port", "8000"]

@@ -35,7 +35,7 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List configured profiles",
-		Long: `Show every profile registered in ~/.config/weknora/config.yaml. The
+		Long: `Show every profile registered in ~/.config/genyee/config.yaml. The
 active profile (used by subsequent commands when --profile is unset) is
 marked with a leading "*". No network requests are issued.
 

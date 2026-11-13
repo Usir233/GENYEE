@@ -33,8 +33,8 @@ func TestNewRouterFrontendStaticEditionOptIn(t *testing.T) {
 			t.Chdir(root)
 			require.NoError(t, os.MkdirAll(filepath.Join(root, "web", "assets"), 0o700))
 			require.NoError(t, os.Mkdir(filepath.Join(root, "empty"), 0o700))
-			index := "<!doctype html><html><body>WeKnora</body></html>"
-			asset := "console.log('WeKnora');"
+			index := "<!doctype html><html><body>GENYEE</body></html>"
+			asset := "console.log('GENYEE');"
 			require.NoError(t, os.WriteFile(filepath.Join(root, "web", "index.html"), []byte(index), 0o600))
 			require.NoError(t, os.WriteFile(filepath.Join(root, "web", "assets", "app-test.js"), []byte(asset), 0o600))
 			webDir := ""

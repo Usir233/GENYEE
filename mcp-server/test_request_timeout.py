@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for timeouts on the non-chat WeKnora API requests.
+"""Tests for timeouts on the non-chat GENYEE API requests.
 
 ``GENYEEClient._request`` and the file-upload ``requests.post`` used to
 pass no ``timeout`` at all, so a hung backend blocked the calling MCP
@@ -18,7 +18,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import weknora_mcp_server as srv
+import genyee_mcp_server as srv
 
 MCP_SERVER_DIR = Path(__file__).resolve().parent
 
@@ -65,7 +65,7 @@ def _import_api_timeout(env_value):
         [
             sys.executable,
             "-c",
-            "import weknora_mcp_server as s; print(s.GENYEE_API_TIMEOUT)",
+            "import genyee_mcp_server as s; print(s.GENYEE_API_TIMEOUT)",
         ],
         capture_output=True,
         text=True,

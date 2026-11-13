@@ -48,7 +48,7 @@ func (m UserMachine) Digest(namespace string) string {
 		h.Write(n[:])
 		h.Write([]byte(s))
 	}
-	write("weknora-user-sandbox/v1")
+	write("genyee-user-sandbox/v1")
 	write(namespace)
 	write(strconv.FormatUint(m.OwnerTenantID, 10))
 	write(m.OwnerID)

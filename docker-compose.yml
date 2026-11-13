@@ -201,11 +201,11 @@ services:
       - ELASTICSEARCH_INDEX=${ELASTICSEARCH_INDEX:-}
       - QDRANT_HOST=${QDRANT_HOST:-qdrant}
       - QDRANT_PORT=${QDRANT_PORT:-6334}
-      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-weknora_embeddings}
+      - QDRANT_COLLECTION=${QDRANT_COLLECTION:-genyee_embeddings}
       - QDRANT_API_KEY=${QDRANT_API_KEY:-}
       - QDRANT_USE_TLS=${QDRANT_USE_TLS:-false}
       - MILVUS_ADDRESS=${MILVUS_ADDRESS:-milvus:19530}
-      - MILVUS_COLLECTION=${MILVUS_COLLECTION:-weknora_embeddings}
+      - MILVUS_COLLECTION=${MILVUS_COLLECTION:-genyee_embeddings}
       - MILVUS_METRIC_TYPE=${MILVUS_METRIC_TYPE:-IP}
       - MILVUS_USERNAME=${MILVUS_USERNAME:-}
       - MILVUS_PASSWORD=${MILVUS_PASSWORD:-}
@@ -278,7 +278,7 @@ services:
       - S3_ACCESS_KEY=${S3_ACCESS_KEY:-}
       - S3_SECRET_KEY=${S3_SECRET_KEY:-}
       - S3_BUCKET_NAME=${S3_BUCKET_NAME:-}
-      - S3_PATH_PREFIX=${S3_PATH_PREFIX:-weknora/}
+      - S3_PATH_PREFIX=${S3_PATH_PREFIX:-genyee/}
       - S3_USE_SSL=${S3_USE_SSL:-true}
       - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE:-false}
       # ----- 华为云 OBS（STORAGE_TYPE=obs）-----
@@ -287,7 +287,7 @@ services:
       - OBS_ACCESS_KEY=${OBS_ACCESS_KEY:-}
       - OBS_SECRET_KEY=${OBS_SECRET_KEY:-}
       - OBS_BUCKET_NAME=${OBS_BUCKET_NAME:-}
-      - OBS_PATH_PREFIX=${OBS_PATH_PREFIX:-weknora/}
+      - OBS_PATH_PREFIX=${OBS_PATH_PREFIX:-genyee/}
       - OBS_USE_SSL=${OBS_USE_SSL:-true}
       - OBS_PROXY_DOMAIN=${OBS_PROXY_DOMAIN:-}
       # ----- 阿里云 OSS（STORAGE_TYPE=oss）-----
@@ -296,7 +296,7 @@ services:
       - OSS_ACCESS_KEY=${OSS_ACCESS_KEY:-}
       - OSS_SECRET_KEY=${OSS_SECRET_KEY:-}
       - OSS_BUCKET_NAME=${OSS_BUCKET_NAME:-}
-      - OSS_PATH_PREFIX=${OSS_PATH_PREFIX:-weknora/}
+      - OSS_PATH_PREFIX=${OSS_PATH_PREFIX:-genyee/}
       - OSS_TEMP_BUCKET_NAME=${OSS_TEMP_BUCKET_NAME:-}
       - OSS_TEMP_REGION=${OSS_TEMP_REGION:-}
       - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
@@ -308,7 +308,7 @@ services:
       - VLM_HTTP_TIMEOUT_SECONDS=${VLM_HTTP_TIMEOUT_SECONDS:-}
       # VLM 单次请求的补全 token 预算（默认 5000）
       - VLM_MAX_TOKENS=${VLM_MAX_TOKENS:-}
-      # LLM 流原始转储（排查上下文问题；1 启用，默认目录 ~/.weknora/investigate/llm-stream）
+      # LLM 流原始转储（排查上下文问题；1 启用，默认目录 ~/.genyee/investigate/llm-stream）
       - GENYEE_LLM_STREAM_RAW_DUMP=${GENYEE_LLM_STREAM_RAW_DUMP:-}
       - GENYEE_LLM_STREAM_RAW_DUMP_DIR=${GENYEE_LLM_STREAM_RAW_DUMP_DIR:-}
       - STREAM_MANAGER_TYPE=${STREAM_MANAGER_TYPE:-}

@@ -93,9 +93,9 @@ try {
 
   // Navigation to the current release feature docs, returning through the explicit home link.
   await page.locator('#release').getByRole('button', { name: 'GENYEE 助手 了解 GENYEE，也帮你处理任务', exact: true }).click();
-  await page.locator('#release a[href="/docs/03-features/26-weknora-assistant.html"]').click();
+  await page.locator('#release a[href="/docs/03-features/26-genyee-assistant.html"]').click();
   await page.waitForSelector('.VPDoc h1');
-  assert.equal(new URL(page.url()).pathname, '/docs/03-features/26-weknora-assistant.html');
+  assert.equal(new URL(page.url()).pathname, '/docs/03-features/26-genyee-assistant.html');
   assert.match(await page.locator('.VPDoc h1').innerText(), /GENYEE 助手/);
   await page.locator('.gy-brand').click();
   await homepage();

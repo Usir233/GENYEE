@@ -34,13 +34,13 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { startFakeModel } from './fake-model.mjs'
-import { startMockWeknora } from '../helpers/mock-weknora.mjs'
+import { startMockGenyee } from '../helpers/mock-genyee.mjs'
 
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const installDir = process.env.DSH_INSTALL_DIR ?? join(tmpdir(), 'dsh-e2e-install')
 const dshSpec = process.env.DSH_PACKAGE_SPEC ?? '@deepseek-ai/dsh@latest'
 const API_KEY = 'e2e-api-key'
-const QUESTION = 'WeKnora 的默认检索阈值是多少？请查知识库后回答。'
+const QUESTION = 'GENYEE 的默认检索阈值是多少？请查知识库后回答。'
 const transcript = []
 
 function log(line) {
@@ -90,20 +90,20 @@ function modelPatchRows(modelUrl) {
   return [
     {
       id: 'agent-default-model',
-      config: { provider: 'weknora-e2e', model: 'weknora-e2e-model' },
+      config: { provider: 'genyee-e2e', model: 'genyee-e2e-model' },
     },
     {
       id: 'llm-pi-ai',
       config: {
         providers: {
-          'weknora-e2e': {
-            displayName: 'WeKnora e2e gateway',
+          'genyee-e2e': {
+            displayName: 'GENYEE e2e gateway',
             apiKeyEnv: 'GENYEE_E2E_MODEL_KEY',
             api: 'openai-completions',
             baseURL: modelUrl,
             models: [{
-              id: 'weknora-e2e-model',
-              name: 'WeKnora e2e model',
+              id: 'genyee-e2e-model',
+              name: 'GENYEE e2e model',
               contextWindow: 65536,
               maxTokens: 4096,
             }],
@@ -116,13 +116,13 @@ function modelPatchRows(modelUrl) {
 
 /**
  * Boot the headless profile once and assert the whole path: the harness offered
- * the tools, the tools reached WeKnora, the retrieved passages reached the
+ * the tools, the tools reached GENYEE, the retrieved passages reached the
  * model, and the printed answer is grounded in them.
  */
 async function scenario(options) {
-  const { label, dsh, home, env, patch, prefix, weknora, autoScope = false } = options
+  const { label, dsh, home, env, patch, prefix, genyee, autoScope = false } = options
   const model = await startFakeModel({ searchTool: `${prefix}_search`, readTool: `${prefix}_read_document` })
-  const requestsBefore = weknora.requests.length
+  const requestsBefore = genyee.requests.length
   try {
     await writeFile(
       join(home, 'profiles', 'headless', 'cordis.patch.yml'),
@@ -146,12 +146,12 @@ async function scenario(options) {
       assert.ok(offered.includes(`${prefix}_${suffix}`), `${prefix}_${suffix} must appear in the model's tool schemas`)
     }
 
-    const calls = weknora.requests.slice(requestsBefore)
+    const calls = genyee.requests.slice(requestsBefore)
     const paths = calls.map(request => request.path)
-    log(`# WeKnora received: ${paths.join(', ')}`)
+    log(`# GENYEE received: ${paths.join(', ')}`)
     assert.ok(paths.includes('/api/v1/knowledge-search'), 'search must reach the retrieval endpoint')
     if (autoScope) {
-      // WeKnora rejects an unscoped retrieval, so with nothing configured the
+      // GENYEE rejects an unscoped retrieval, so with nothing configured the
       // plugin has to resolve the full visible set itself — the model asked a
       // plain question and never named a knowledge base.
       assert.ok(
@@ -168,7 +168,7 @@ async function scenario(options) {
     }
     assert.ok(paths.some(path => path.startsWith('/api/v1/chunks/')), 'read_document must reach the chunk endpoint')
     assert.equal(
-      weknora.requests.slice(requestsBefore).every(request => request.headers['x-api-key'] === API_KEY),
+      genyee.requests.slice(requestsBefore).every(request => request.headers['x-api-key'] === API_KEY),
       true,
       'every call must carry the configured API key',
     )
@@ -178,7 +178,7 @@ async function scenario(options) {
     assert.match(toolResults, /knowledge_id: doc-retrieval-pipeline/, 'search hits must carry a usable knowledge_id')
     assert.match(boot.stdout, /0\.5/, 'the printed answer must carry the retrieved threshold')
 
-    log(`# PASS (${label}): ${prefix}_search and ${prefix}_read_document ran inside dsh against WeKnora, `
+    log(`# PASS (${label}): ${prefix}_search and ${prefix}_read_document ran inside dsh against GENYEE, `
       + 'and the answer came from the retrieved passages.')
   } finally {
     await model.close()
@@ -190,18 +190,18 @@ async function main() {
     throw new Error('build the package first: npm run build')
   }
 
-  const weknora = await startMockWeknora({ apiKey: API_KEY })
+  const genyee = await startMockGenyee({ apiKey: API_KEY })
   const home = await mkdtemp(join(tmpdir(), 'dsh-genyee-home-'))
   const dsh = await resolveDsh()
   const env = {
     DSH_HOME: home,
     GENYEE_E2E_MODEL_KEY: 'not-a-real-key',
-    GENYEE_BASE_URL: weknora.url,
+    GENYEE_BASE_URL: genyee.url,
     GENYEE_API_KEY: API_KEY,
     GENYEE_KNOWLEDGE_BASE_IDS: 'kb-product',
   }
 
-  log(`# mock WeKnora   ${weknora.url}`)
+  log(`# mock GENYEE   ${genyee.url}`)
   log(`# DSH_HOME       ${home}`)
   log(`# dsh launcher   ${dsh}`)
 
@@ -219,7 +219,7 @@ async function main() {
     )
 
     // A. The shipped bundle patch, configured only by environment variables.
-    await scenario({ label: 'A · shipped bundle defaults from env', dsh, home, env, weknora, patch: [], prefix: 'genyee' })
+    await scenario({ label: 'A · shipped bundle defaults from env', dsh, home, env, genyee, patch: [], prefix: 'genyee' })
 
     // B. A profile override, which also renames the tools.
     await scenario({
@@ -227,12 +227,12 @@ async function main() {
       dsh,
       home,
       env,
-      weknora,
+      genyee,
       prefix: 'kb',
       patch: [{
-        id: 'weknora',
+        id: 'genyee',
         config: {
-          baseUrl: weknora.url,
+          baseUrl: genyee.url,
           apiKey: API_KEY,
           knowledgeBaseIds: ['kb-product'],
           toolPrefix: 'kb',
@@ -249,18 +249,18 @@ async function main() {
       dsh,
       home,
       env,
-      weknora,
+      genyee,
       prefix: 'genyee',
       autoScope: true,
       patch: [{
-        id: 'weknora',
-        config: { baseUrl: weknora.url, apiKey: API_KEY },
+        id: 'genyee',
+        config: { baseUrl: genyee.url, apiKey: API_KEY },
       }],
     })
 
     log('\n# ALL SCENARIOS PASSED')
   } finally {
-    await weknora.close()
+    await genyee.close()
     const logPath = process.env.DSH_E2E_LOG
     if (logPath !== undefined) await writeFile(logPath, `${transcript.join('\n')}\n`)
     if (process.env.DSH_E2E_KEEP_HOME === undefined) await rm(home, { recursive: true, force: true })

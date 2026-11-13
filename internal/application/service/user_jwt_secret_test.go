@@ -18,7 +18,7 @@ func isolateJWTSecret(t *testing.T) {
 }
 
 func TestJWTSecretProductionFailureRemainsClosed(t *testing.T) {
-	for _, placeholder := range []string{"", "weknora-jwt-secret", "CHANGE-ME-jwt-secret", "too-short-jwt-secret"} {
+	for _, placeholder := range []string{"", "genyee-jwt-secret", "CHANGE-ME-jwt-secret", "too-short-jwt-secret"} {
 		t.Run(placeholder, func(t *testing.T) {
 			isolateJWTSecret(t)
 			t.Setenv("GIN_MODE", "release")
@@ -35,7 +35,7 @@ func TestJWTSecretProductionFailureRemainsClosed(t *testing.T) {
 }
 
 func TestReleaseModeRejectsMissingOrPlaceholderAESKey(t *testing.T) {
-	for _, badAES := range []string{"", "short", "weknora-system-aes-key-32bytes!!", "your-32-byte-long-encryption-key!"} {
+	for _, badAES := range []string{"", "short", "genyee-system-aes-key-32bytes!!", "your-32-byte-long-encryption-key!"} {
 		t.Run(badAES, func(t *testing.T) {
 			isolateJWTSecret(t)
 			t.Setenv("GIN_MODE", "release")

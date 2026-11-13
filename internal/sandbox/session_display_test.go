@@ -11,10 +11,10 @@ import (
 
 func TestWithSessionDisplayPinsTheHeldSeat(t *testing.T) {
 	dir := t.TempDir()
-	stub := filepath.Join(dir, "wk-display")
+	stub := filepath.Join(dir, "gy-display")
 	require.NoError(t, os.WriteFile(stub, []byte("#!/bin/sh\nprintf '%s\\n' 3\n"), 0o755))
 
-	cmd := exec.Command("bash", "-c", WithSessionDisplay(`printf '%s %s\n' "$DISPLAY" "$WK_SEAT"`))
+	cmd := exec.Command("bash", "-c", WithSessionDisplay(`printf '%s %s\n' "$DISPLAY" "$GY_SEAT"`))
 	cmd.Env = append(os.Environ(),
 		"PATH="+dir,
 		"GENYEE_SESSION_ID=sid-A",
@@ -33,10 +33,10 @@ func TestWithSessionDisplayDoesNotClaimWhenTheSessionHoldsNothing(t *testing.T) 
 		"if [ \"$1\" = where ]; then exit 1; fi\n" +
 		"touch \"$CLAIM_MARKER\"\n" +
 		"printf '%s\\n' 2\n"
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "wk-display"), []byte(stub), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "gy-display"), []byte(stub), 0o755))
 
 	cmd := exec.Command("bash", "-c",
-		WithSessionDisplay(`printf '%s %s\n' "${DISPLAY-unset}" "${WK_SEAT-unset}"`))
+		WithSessionDisplay(`printf '%s %s\n' "${DISPLAY-unset}" "${GY_SEAT-unset}"`))
 	cmd.Env = append(os.Environ(),
 		"PATH="+dir,
 		"GENYEE_SESSION_ID=sid-A",

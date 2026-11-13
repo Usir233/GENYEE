@@ -14,14 +14,14 @@ export function notifyAuthTokensChanged(tokens: AuthTokens): void {
 
 export function readAuthTokens(): AuthTokens {
   return {
-    token: localStorage.getItem('weknora_token') || '',
-    refreshToken: localStorage.getItem('weknora_refresh_token') || '',
+    token: localStorage.getItem('genyee_token') || '',
+    refreshToken: localStorage.getItem('genyee_refresh_token') || '',
   }
 }
 
 /** Publish the pair only after both writes complete, including refresh rotation. */
 export function writeAuthTokens(tokens: Partial<AuthTokens>): void {
-  if (tokens.token !== undefined) localStorage.setItem('weknora_token', tokens.token)
-  if (tokens.refreshToken !== undefined) localStorage.setItem('weknora_refresh_token', tokens.refreshToken)
+  if (tokens.token !== undefined) localStorage.setItem('genyee_token', tokens.token)
+  if (tokens.refreshToken !== undefined) localStorage.setItem('genyee_refresh_token', tokens.refreshToken)
   notifyAuthTokensChanged(readAuthTokens())
 }

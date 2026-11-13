@@ -95,7 +95,7 @@ const imageUploading = ref(false);
 // Attachment upload state
 const attachmentUploadRef = ref<InstanceType<typeof AttachmentUpload>>();
 const uploadedAttachments = ref<AttachmentFile[]>([]);
-const CHAT_FILE_DROP_EVENT = 'weknora:chat-file-drop';
+const CHAT_FILE_DROP_EVENT = 'genyee:chat-file-drop';
 
 const isImageFile = (file: File) => {
   if (file.type.startsWith('image/')) {
@@ -3588,7 +3588,7 @@ const getImgSrc = (url: string) => {
 }
 
 .mention-chip--faq .mention-chip__icon-wrap {
-  color: var(--weknora-faq-color, #0052d9);
+  color: var(--genyee-faq-color, #0052d9);
 }
 
 .mention-chip--file {

@@ -169,8 +169,8 @@ func TestMultiReplicaPlacementAgreesAcrossServices(t *testing.T) {
 	configs := fakeConfigs{"cfg-a": "user"}
 	repo := repository.NewSandboxAllocationRepository(db)
 	sessions := repository.NewSessionRepository(db)
-	s1 := New(repo, configs, sessions, "weknora")
-	s2 := New(repo, configs, sessions, "weknora")
+	s1 := New(repo, configs, sessions, "genyee")
+	s2 := New(repo, configs, sessions, "genyee")
 	services := []*Service{s1, s2}
 
 	type placed struct {

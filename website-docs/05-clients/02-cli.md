@@ -1,6 +1,6 @@
 # GENYEE CLI（genyee 命令行工具）
 
-GENYEE CLI（命令名 `genyee` / `weknora`）用于管理知识库与文档、执行检索和流式问答。交互使用可选择可读输出，脚本和 AI Agent 可使用 JSON 响应、类型化错误、`--dry-run` 预演及 `genyee schema` 契约查询；`genyee mcp serve` 提供 MCP 服务。
+GENYEE CLI（命令名 `genyee` / `genyee`）用于管理知识库与文档、执行检索和流式问答。交互使用可选择可读输出，脚本和 AI Agent 可使用 JSON 响应、类型化错误、`--dry-run` 预演及 `genyee schema` 契约查询；`genyee mcp serve` 提供 MCP 服务。
 
 源码位于 `cli/`，是独立的 Go module（`github.com/Usir233/GENYEE/cli`），源码构建需要 Go 1.26+。命令入口为 `cli/cmd/root.go`。
 
@@ -38,7 +38,7 @@ flowchart TB
         F["cmdutil.Factory<br/>(惰性构建 Config / Client / Secrets / Prompter)"]
         C["config<br/>config.yaml 多 profile"]
         S["secrets<br/>OS keyring / 0600 文件回退"]
-        P["projectlink<br/>.weknora/project.yaml"]
+        P["projectlink<br/>.genyee/project.yaml"]
         O["output + format<br/>JSON envelope / NDJSON / jq"]
     end
 
@@ -89,7 +89,7 @@ sudo mv genyee /usr/local/bin/   # 或放到任意 $PATH 目录
 
 ### 配置文件与路径
 
-用户级配置由 `cli/internal/config/config.go` 管理，路径为 `$XDG_CONFIG_HOME/weknora/config.yaml`（`XDG_CONFIG_HOME` 未设置时为 `~/.config/weknora/config.yaml`；路径解析见 `cli/internal/xdg/xdg.go`，在所有操作系统上都遵循 XDG 变量，包括 macOS）。写入使用原子写（临时文件 + rename），权限 0600。
+用户级配置由 `cli/internal/config/config.go` 管理，路径为 `$XDG_CONFIG_HOME/genyee/config.yaml`（`XDG_CONFIG_HOME` 未设置时为 `~/.config/genyee/config.yaml`；路径解析见 `cli/internal/xdg/xdg.go`，在所有操作系统上都遵循 XDG 变量，包括 macOS）。写入使用原子写（临时文件 + rename），权限 0600。
 
 on-disk schema（`config.Config` / `config.Profile`）：
 
@@ -113,8 +113,8 @@ defaults:
 
 凭证**不写入 config.yaml**，只存引用（ref）。`cli/internal/secrets/` 提供两种后端：
 
-- **KeyringStore**：OS 钥匙串（macOS Keychain / Linux keyring），命名空间 `weknora:<profile>:<key>`，key 为 `access` / `refresh` / `api_key`；
-- **FileStore**：钥匙串不可用时（headless CI、无 DBus 的 WSL、容器）回退到 `$XDG_CONFIG_HOME/weknora/secrets/<profile>/<key>` 的 0600 明文文件，`auth login` 会在 stderr 打印一次性警告。
+- **KeyringStore**：OS 钥匙串（macOS Keychain / Linux keyring），命名空间 `genyee:<profile>:<key>`，key 为 `access` / `refresh` / `api_key`；
+- **FileStore**：钥匙串不可用时（headless CI、无 DBus 的 WSL、容器）回退到 `$XDG_CONFIG_HOME/genyee/secrets/<profile>/<key>` 的 0600 明文文件，`auth login` 会在 stderr 打印一次性警告。
 
 ### 多 Profile 切换与解析优先级
 
@@ -145,7 +145,7 @@ Profile 的解析链在 `cli/internal/cmdutil/factory.go`（`Factory.ActiveProfi
 
 1. `--kb` flag（UUID 直接透传；名称则经 `ListKnowledgeBases` 做名称 → id 查找，见 `cli/internal/cmdutil/kb.go`）；
 2. `GENYEE_KB_ID` 环境变量；
-3. 项目链接文件 `.weknora/project.yaml`（由 `genyee link` 写入，从当前目录向上逐级查找，最多 64 层，见 `cli/internal/projectlink/projectlink.go`）；
+3. 项目链接文件 `.genyee/project.yaml`（由 `genyee link` 写入，从当前目录向上逐级查找，最多 64 层，见 `cli/internal/projectlink/projectlink.go`）；
 4. 均未命中则报 `local.kb_id_required` 错误。
 
 JWT profile（同时持有 access + refresh token）会自动获得 401 透明刷新传输层（`AuthRetryTransport`）：首个 401 触发 `/api/v1/auth/refresh` 并重放原请求；API key profile 与环境变量凭证不做刷新。
@@ -271,7 +271,7 @@ genyee config view --format json --jq '.data.kb_source'
 
 | 命令 | Use | 说明 |
 |---|---|---|
-| link | `link [kb]` | 在当前目录写 `.weknora/project.yaml`，绑定 KB（位置参数或 `--kb`，等价；TTY 下不传参进入交互选择；已有链接直接覆盖）。支持 `--dry-run` |
+| link | `link [kb]` | 在当前目录写 `.genyee/project.yaml`，绑定 KB（位置参数或 `--kb`，等价；TTY 下不传参进入交互选择；已有链接直接覆盖）。支持 `--dry-run` |
 | unlink | `unlink` | 删除当前目录的 KB 绑定 |
 
 ```bash
@@ -466,7 +466,7 @@ genyee skills install --dir ~/.claude/skills --force
 
 单命令：`doctor`。运行 4 项检查：base URL 可达性、认证、服务器版本兼容、凭证存储。每项状态为 `ok / warn / fail / skip`；任一 `fail` → 退出码 1（JSON 数据仍会输出）；仅 warn → 退出码 0 但 `summary.all_passed=false`。
 
-flag：`--no-cache`（绕过 `$XDG_CACHE_HOME/weknora/server-info.yaml` 缓存强制重探测）、`--offline`（跳过网络检查，仅验本地钥匙串/文件存储）。
+flag：`--no-cache`（绕过 `$XDG_CACHE_HOME/genyee/server-info.yaml` 缓存强制重探测）、`--offline`（跳过网络检查，仅验本地钥匙串/文件存储）。
 
 ```bash
 genyee doctor --format json --jq '.data.summary.all_passed'

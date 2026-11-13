@@ -47,7 +47,7 @@ func PromptPrefixFingerprint(messages []Message, opts *Options) string {
 // BuildPromptCacheKey derives an opaque process-local coordination key.
 // Tenant and model identifiers are hashed rather than retained in memory.
 func BuildPromptCacheKey(tenantID uint64, modelID, purpose, prefixFingerprint string) string {
-	return "wk-" + FingerprintPromptPrefix(
+	return "gy-" + FingerprintPromptPrefix(
 		fmt.Sprintf("%d", tenantID), modelID, purpose, prefixFingerprint,
 	)
 }

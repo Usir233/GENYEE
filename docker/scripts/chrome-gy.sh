@@ -15,24 +15,24 @@
 #   --password-store=basic  there is no keyring in the image.
 #   --enable-unsafe-swiftshader  no GPU here; a broken WebGL context is its
 #       own bot tell, working software WebGL is not.
-#   --accept-lang=en-US,en  the language list wk-ua-governor also reports, so
+#   --accept-lang=en-US,en  the language list gy-ua-governor also reports, so
 #       the first request of a page agrees with what scripts see.
 #
 # $BASE below is expanded unquoted on purpose: the flags are plain words and
 # must split.
 #
-# A seat screen (WK_SEAT set) is a fixed framebuffer. Place the window at the
-# origin and size it to that screen. A launch without WK_SEAT (headless, or
+# A seat screen (GY_SEAT set) is a fixed framebuffer. Place the window at the
+# origin and size it to that screen. A launch without GY_SEAT (headless, or
 # the shared :0 desktop) keeps whatever size it was given.
 #
-# wk-machine-id pins the device identity across container rebuilds before any
+# gy-machine-id pins the device identity across container rebuilds before any
 # Chrome reads it. Guarded so the shim still works when the script is absent
 # (tests, non-desktop images).
-MACHINE_ID="${WK_MACHINE_ID_SCRIPT:-/usr/local/bin/wk-machine-id}"
+MACHINE_ID="${GY_MACHINE_ID_SCRIPT:-/usr/local/bin/gy-machine-id}"
 [ -x "$MACHINE_ID" ] && "$MACHINE_ID" 2>/dev/null || true
 
-BIN="${WK_CHROME_REAL:-/usr/bin/google-chrome}"
-geom="${WK_SCREEN:-1280x800x24}"
+BIN="${GY_CHROME_REAL:-/usr/bin/google-chrome}"
+geom="${GY_SCREEN:-1280x800x24}"
 w=$(printf '%s' "$geom" | cut -dx -f1)
 h=$(printf '%s' "$geom" | cut -dx -f2)
 case "$w" in ""|*[!0-9]*) w=1280 ;; esac
@@ -43,7 +43,7 @@ BASE="--no-sandbox --disable-dev-shm-usage \
 --no-first-run --no-default-browser-check --password-store=basic \
 --enable-unsafe-swiftshader --accept-lang=en-US,en"
 
-if [ -n "${WK_SEAT:-}" ]; then
+if [ -n "${GY_SEAT:-}" ]; then
   exec "$BIN" $BASE --window-position=0,0 --window-size="${w},${h}" "$@"
 fi
 exec "$BIN" $BASE "$@"

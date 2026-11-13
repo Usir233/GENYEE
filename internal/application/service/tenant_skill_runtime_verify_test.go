@@ -57,7 +57,7 @@ func TestRuntimePrerequisiteReportValidation(t *testing.T) {
 		t.Run(raw, func(t *testing.T) {
 			fx := newInstallFixture(t)
 			fx.sandboxMgr.files = map[string][]byte{
-				path.Join(installSkillDir, ".weknora/install-report.json"): []byte(raw),
+				path.Join(installSkillDir, ".genyee/install-report.json"): []byte(raw),
 			}
 			_, err := fx.svc.verifyRuntimePrerequisites(context.Background(), fx.sandboxMgr, "session", installSkillDir)
 			var gate *skillVerificationError
@@ -70,18 +70,18 @@ func TestRuntimePrerequisiteReportValidation(t *testing.T) {
 func TestRuntimePrerequisitesResolveSkillLocalCLI(t *testing.T) {
 	fx := newInstallFixture(t)
 	dir := path.Join(t.TempDir(), "skill with ' quotes")
-	binDir := path.Join(dir, ".weknora/bin")
+	binDir := path.Join(dir, ".genyee/bin")
 	require.NoError(t, os.MkdirAll(binDir, 0o755))
 	fx.sandboxMgr.files = map[string][]byte{
-		path.Join(dir, ".weknora/install-report.json"): []byte(`{"commands":["weknora-test-cli"],"blockers":[]}`),
+		path.Join(dir, ".genyee/install-report.json"): []byte(`{"commands":["genyee-test-cli"],"blockers":[]}`),
 	}
 	mgr := runtimeProbeManager{fx.sandboxMgr}
 	_, err := fx.svc.verifyRuntimePrerequisites(context.Background(), mgr, "session", dir)
 	var gate *skillVerificationError
 	require.ErrorAs(t, err, &gate)
 	require.True(t, gate.Repairable)
-	require.Contains(t, err.Error(), "weknora-test-cli")
-	require.NoError(t, os.WriteFile(path.Join(binDir, "weknora-test-cli"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+	require.Contains(t, err.Error(), "genyee-test-cli")
+	require.NoError(t, os.WriteFile(path.Join(binDir, "genyee-test-cli"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
 	_, err = fx.svc.verifyRuntimePrerequisites(context.Background(), mgr, "session", dir)
 	require.NoError(t, err)
 }
@@ -89,7 +89,7 @@ func TestRuntimePrerequisitesResolveSkillLocalCLI(t *testing.T) {
 func TestRuntimePrerequisiteNotesDoNotFailInstall(t *testing.T) {
 	fx := newInstallFixture(t)
 	fx.sandboxMgr.files = map[string][]byte{
-		path.Join(installSkillDir, ".weknora/install-report.json"): []byte(
+		path.Join(installSkillDir, ".genyee/install-report.json"): []byte(
 			`{"commands":[],"blockers":[],"notes":["SKILL.md CLI usage is a no-op; use the module API", "  "]}`,
 		),
 	}
@@ -101,7 +101,7 @@ func TestRuntimePrerequisiteNotesDoNotFailInstall(t *testing.T) {
 func TestRunInstallDoesNotSnapshotUnresolvedExternalPrerequisites(t *testing.T) {
 	fx := newInstallFixture(t)
 	fx.sandboxMgr.files = map[string][]byte{
-		path.Join(installSkillDir, ".weknora/install-report.json"): []byte(
+		path.Join(installSkillDir, ".genyee/install-report.json"): []byte(
 			`{"commands":["bsk"],"blockers":["The browser extension cannot reach the remote sandbox daemon."]}`,
 		),
 	}
@@ -124,7 +124,7 @@ func TestRuntimeReportPromptsDoNotPrescribeSkillSpecificValues(t *testing.T) {
 	}
 	for name, prompt := range prompts {
 		t.Run(name, func(t *testing.T) {
-			for _, field := range []string{".weknora/install-report.json", "commands:", "blockers:"} {
+			for _, field := range []string{".genyee/install-report.json", "commands:", "blockers:"} {
 				require.Contains(t, prompt, field)
 			}
 			for _, leakedExample := range []string{

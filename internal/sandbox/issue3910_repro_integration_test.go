@@ -21,7 +21,7 @@
 //
 // Run like the rest of the conformance suite:
 //
-//	DOCKER_INTEGRATION_IMAGE=wechatopenai/genyee-sandbox:dev \
+//	DOCKER_INTEGRATION_IMAGE=genyee/genyee-sandbox:dev \
 //	go test -tags=docker_integration ./internal/sandbox \
 //	  -run '^TestDocker3910' -count=1 -v -timeout=15m
 package sandbox
@@ -44,7 +44,7 @@ func TestDocker3910KilledMakeDirIntegration(t *testing.T) {
 
 	handle, err := docker.Create(ctx, RemoteCreateRequest{
 		TemplateID: cfg.DockerImage,
-		Metadata:   map[string]string{"weknora.test": "issue-3910-repro"},
+		Metadata:   map[string]string{"genyee.test": "issue-3910-repro"},
 	})
 	require.NoError(t, err, "create sandbox container")
 	t.Cleanup(func() {

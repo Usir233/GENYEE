@@ -1,4 +1,4 @@
-# Environment for the wk-display tests (sourced after lib.sh).
+# Environment for the gy-display tests (sourced after lib.sh).
 # Fake Xvfb/xfwm4/x11vnc/xdpyinfo live in stubs/seatstub.sh; every process they start inherits
 # FAKE_X (unique per test), which is how teardown finds and kills all of them.
 
@@ -48,11 +48,11 @@ setup_seats() {
   ln -s "$(command -v python3)" "$TMP/bin/x11vnc-l"   # listener child of the fake x11vnc, comm=x11vnc-l
   ln -s /bin/sleep "$TMP/bin/fakegui"                  # comm=fakegui: stands for a GUI client on a screen
   export PATH="$TMP/bin:$ORIG_PATH"
-  export WK_SEATS_DIR="$TMP/seats" WK_RUN_DIR="$TMP/run" WK_TOKENS_DIR="$TMP/run/tokens.d"
-  export WK_X_LOCK_DIR="$TMP/xlock" WK_X_SOCK_DIR="$TMP/xsock"
-  export WK_VNC_BASE; WK_VNC_BASE=$(_free_port_base)
-  export WK_SEAT_MAX=4 WK_SEAT_IDLE=600
-  unset WK_SCREEN WK_SEAT_VIEWONLY
+  export GY_SEATS_DIR="$TMP/seats" GY_RUN_DIR="$TMP/run" GY_TOKENS_DIR="$TMP/run/tokens.d"
+  export GY_X_LOCK_DIR="$TMP/xlock" GY_X_SOCK_DIR="$TMP/xsock"
+  export GY_VNC_BASE; GY_VNC_BASE=$(_free_port_base)
+  export GY_SEAT_MAX=4 GY_SEAT_IDLE=600
+  unset GY_SCREEN GY_SEAT_VIEWONLY
   trap teardown_seats EXIT
 }
 

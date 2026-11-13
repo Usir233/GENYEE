@@ -53,7 +53,7 @@ func NewCmdFetch(f *cmdutil.Factory) *cobra.Command {
 		Short: "Fetch a remote document into a knowledge base",
 		Long: `Server fetches the document at the given URL and ingests it into the resolved
 knowledge base. KB resolution follows the standard 4-level chain:
---kb flag > GENYEE_KB_ID env > .weknora/project.yaml > error.
+--kb flag > GENYEE_KB_ID env > .genyee/project.yaml > error.
 
 When the URL has a known file extension (.pdf, .docx, .md, .txt) the server
 automatically switches from web-page-crawl mode to file-download mode. Pass

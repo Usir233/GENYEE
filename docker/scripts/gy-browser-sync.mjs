@@ -19,20 +19,20 @@ import {
   ROOT_STATE_VERSION,
   siteOf,
   viewOf,
-} from "./wk-cookie-plan.mjs";
-import { PageSync } from "./wk-page-sync.mjs";
+} from "./gy-cookie-plan.mjs";
+import { PageSync } from "./gy-page-sync.mjs";
 
-export const DEFAULT_AUTH_DIR = "/var/lib/weknora/browser/auth";
+export const DEFAULT_AUTH_DIR = "/var/lib/genyee/browser/auth";
 export const SEED_FILE = "chrome-cookie-seed.json";
-export const ROOT_STATE_FILE = ".wk-sync-state.json";
+export const ROOT_STATE_FILE = ".gy-sync-state.json";
 export const SEED_VERSION = 1;
 export const BUSY_TTL_MS = 30_000;
 const LOCK_TIMEOUT_MS = 20_000;
 const LOCK_RETRY_MS = 50;
-const USAGE = "usage: wk-browser-sync [run|--once|--restore-root ROOT|--capture ROOT]\n";
+const USAGE = "usage: gy-browser-sync [run|--once|--restore-root ROOT|--capture ROOT]\n";
 
 function log(message) {
-  process.stderr.write(`wk-browser-sync ${message}\n`);
+  process.stderr.write(`gy-browser-sync ${message}\n`);
 }
 
 function errorCode(error) {
@@ -304,7 +304,7 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
     process.exitCode = 2;
     return;
   }
-  const sync = new BrowserSync({ authDir: env.WK_BROWSER_AUTH_DIR ?? DEFAULT_AUTH_DIR });
+  const sync = new BrowserSync({ authDir: env.GY_BROWSER_AUTH_DIR ?? DEFAULT_AUTH_DIR });
   if (rootMode || mode === "--once") {
     try {
       if (rootMode) await sync.runRoot(root, { publish: mode === "--capture" });
@@ -314,7 +314,7 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
     }
     return;
   }
-  const intervalMs = positiveInterval(env.WK_BROWSER_SYNC_INTERVAL_MS, 1500);
+  const intervalMs = positiveInterval(env.GY_BROWSER_SYNC_INTERVAL_MS, 1500);
   const controller = new AbortController();
   const stop = () => controller.abort();
   process.once("SIGTERM", stop);

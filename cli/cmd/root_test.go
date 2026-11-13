@@ -112,7 +112,7 @@ func TestMapCobraError(t *testing.T) {
 		assert.Equal(t, assert.AnError, err)
 	})
 	t.Run("unknown command wraps as FlagError", func(t *testing.T) {
-		err := MapCobraError(errors.New(`unknown command "bogus" for "weknora"`))
+		err := MapCobraError(errors.New(`unknown command "bogus" for "genyee"`))
 		var fe *cmdutil.FlagError
 		assert.True(t, errors.As(err, &fe))
 	})

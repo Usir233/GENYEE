@@ -64,7 +64,7 @@ func convertPageHTML(content string) (string, error) {
 			continue
 		}
 
-		marker := fmt.Sprintf("WEKNORACONFLUENCETABLE%dEND", len(tables))
+		marker := fmt.Sprintf("GENYEECONFLUENCETABLE%dEND", len(tables))
 		for strings.Contains(content, marker) {
 			marker += "X"
 		}

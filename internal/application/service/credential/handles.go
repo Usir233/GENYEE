@@ -71,7 +71,7 @@ func NewHandleStore(rdb *redis.Client, vault *Vault) *HandleStore {
 	}
 	ns := strings.TrimSpace(os.Getenv("GENYEE_REDIS_NAMESPACE"))
 	if ns == "" {
-		ns = "weknora"
+		ns = "genyee"
 	}
 	return &HandleStore{rdb: rdb, vault: vault, prefix: ns + ":cred:", ttl: HandleTTL}
 }

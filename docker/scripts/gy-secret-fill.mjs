@@ -1,4 +1,4 @@
-// docker/scripts/wk-secret-fill.mjs
+// docker/scripts/gy-secret-fill.mjs
 // Types credential values into the session browser for browser_fill_secret.
 // Every page read runs in an isolated world: page scripts can redefine
 // activeElement, type or value getters in the main world, not there.
@@ -19,7 +19,7 @@ export const STATUS = Object.freeze({
   verifyFailed: "verify_failed",
 });
 
-const WORLD = "wk-secret-fill";
+const WORLD = "gy-secret-fill";
 const FOCUS_TIMEOUT_MS = 10000;
 const NON_TEXT_INPUTS = ["hidden", "checkbox", "radio", "submit", "button", "image", "file", "reset", "range", "color"];
 
@@ -107,8 +107,8 @@ export async function choosePage(browser, open = openPage) {
   return open(browser, pages[0].targetId);
 }
 
-export function focusRef(ref, wrapper = process.env.WK_AB_WRAPPER ?? "/usr/local/bin/agent-browser") {
-  const env = { ...process.env, WK_AB_LOCK_HELD: "1" };
+export function focusRef(ref, wrapper = process.env.GY_AB_WRAPPER ?? "/usr/local/bin/agent-browser") {
+  const env = { ...process.env, GY_AB_LOCK_HELD: "1" };
   for (const command of ["focus", "click"]) {
     const r = spawnSync(wrapper, [command, ref], { env, stdio: "ignore", timeout: FOCUS_TIMEOUT_MS });
     if (r.status === 0) return true;

@@ -154,7 +154,7 @@ func (s *Server) handleAsk(ctx context.Context, req mcp.CallToolRequest) (*mcp.C
 			err := s.mcp.SendNotificationToClient(ctx, string(mcp.MethodNotificationProgress), map[string]any{
 				"progressToken": token,
 				"progress":      progress,
-				"message":       "WeKnora is still generating the answer.",
+				"message":       "GENYEE is still generating the answer.",
 			})
 			if err != nil {
 				// Progress is best effort: notification failure must never cancel QA.

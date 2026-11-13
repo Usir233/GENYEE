@@ -38,7 +38,7 @@ type response struct {
 			// The position field is `index`. DashScope's *text* embedding API
 			// one page over calls it `text_index`, and decoding that name
 			// here yields 0 for every element, collapsing a whole batch onto
-			// slot 0 (Tencent/GENYEE#3484).
+			// slot 0 (upstream issue #3484).
 			Index     int       `json:"index"`
 			Embedding []float32 `json:"embedding"`
 			Type      string    `json:"type"`

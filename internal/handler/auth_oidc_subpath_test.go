@@ -22,8 +22,8 @@ func TestOIDCRedirectCallback_SubpathAndRoot(t *testing.T) {
 		},
 		{
 			name:    "subpath deployment",
-			baseURL: "https://example.com/weknora/",
-			want:    "https://example.com/weknora/#oidc_error=access_denied",
+			baseURL: "https://example.com/genyee/",
+			want:    "https://example.com/genyee/#oidc_error=access_denied",
 		},
 	}
 

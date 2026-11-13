@@ -11,7 +11,7 @@ GENYEE Lite 桌面应用基于 [Wails v2](https://wails.io)，在桌面进程中
 v0.8.3 起，macOS 桌面版可在工具箱安装、升级并运行本机技能，详见[本机技能](../03-features/22-skills-sandbox.md#在-lite-桌面版安装本机技能)。
 
 
-v0.9.0 默认临时会话目录使用 `~/.weknora/sessions/session-*`。本机删除和扩大沙箱访问范围的操作可触发审批，卡片会说明命令、路径和影响。此审批与偏好中的 `approval_mode=auto` 不是同一配置；`ask`、`full` 仍不是可选的全局模式。详见[本机沙箱](../03-features/22-skills-sandbox.md#lite-host)。
+v0.9.0 默认临时会话目录使用 `~/.genyee/sessions/session-*`。本机删除和扩大沙箱访问范围的操作可触发审批，卡片会说明命令、路径和影响。此审批与偏好中的 `approval_mode=auto` 不是同一配置；`ask`、`full` 仍不是可选的全局模式。详见[本机沙箱](../03-features/22-skills-sandbox.md#lite-host)。
 
 ## 总体架构 {#_1-总体架构}
 
@@ -47,7 +47,7 @@ flowchart LR
 `main.go` 的 `configureDesktopStorage()` 在检测到从 `.app/Contents/MacOS` 运行时：
 
 - 数据目录定为 `~/Library/Application Support/GENYEE Lite/`（名称取自 .app bundle 名）。
-- SQLite 数据库：`.../data/weknora.db`（通过设置 `DB_PATH` 环境变量注入）。
+- SQLite 数据库：`.../data/genyee.db`（通过设置 `DB_PATH` 环境变量注入）。
 - 本地文件存储：`.../data/files`（`LOCAL_STORAGE_BASE_DIR`）。
 - `migrateLegacyDesktopData()` 会把旧版存放在 `.app/Contents/Resources/data` 里的数据一次性迁移到 Application Support。
 - 工作目录会切到 `.app/Contents/Resources`，以便读取打包进去的 `config/config.yaml`、`.env`、`migrations/sqlite` 与 `web/` 前端资源。
@@ -76,7 +76,7 @@ flowchart LR
 
 `OnDomReady` 时向 WebView 注入三段 JS：
 
-1. `wailsThemeSyncJS`：按 `localStorage` 的 `WeKnora_theme` 同步深浅色主题与窗口背景色。
+1. `wailsThemeSyncJS`：按 `localStorage` 的 `GENYEE_theme` 同步深浅色主题与窗口背景色。
 2. `dragHandlerJS`：自定义窗口拖拽处理（绕过 Wails 的 CSS 变量拖拽检测，改用 `el.closest()` DOM 遍历 + 顶部 38px 标题栏区域判定，通过 WKWebView 消息桥发送 `drag`）；同时拦截外部 `http(s)` 链接与 `window.open`，改用系统浏览器打开（`BrowserOpenURL`）。
 3. 注入 `window.__GENYEE_API_BASE__`（真实 API 根路径 `http://127.0.0.1:<port>/api/v1`）以及可选的 `window.__GENYEE_API_LAN_BASE__`（LAN 访问地址）。
 
@@ -124,7 +124,7 @@ flowchart LR
 
 桌面版启动时不需要注册或登录：
 
-- 每次启动生成一个随机凭据，只通过 Wails 绑定 `GetAutoSetupToken` 交给内置前端。前端在请求头 `X-WeKnora-Desktop-Token` 中携带它调用 `POST /api/v1/auth/auto-setup`，首次调用创建默认用户 `admin@genyee.local` 和空间，之后直接签发登录令牌。没有该凭据的请求（包括局域网内的其他设备和普通浏览器）会被拒绝。
+- 每次启动生成一个随机凭据，只通过 Wails 绑定 `GetAutoSetupToken` 交给内置前端。前端在请求头 `X-Genyee-Desktop-Token` 中携带它调用 `POST /api/v1/auth/auto-setup`，首次调用创建默认用户 `admin@genyee.local` 和空间，之后直接签发登录令牌。没有该凭据的请求（包括局域网内的其他设备和普通浏览器）会被拒绝。
 - 未配置有效的 `SYSTEM_SIGNING_KEY`（或非默认值的 `SYSTEM_AES_KEY`）时，首次启动在偏好目录生成 `signing.key`（权限 `0600`）并作为 `SYSTEM_SIGNING_KEY` 使用，供文件预签名链接、网页嵌入会话等签名，重启后仍然有效。它只用于签名，不会替换加密已存凭据的 AES 密钥。
 
 ## 自动更新机制（cmd/desktop/update.go） {#_6-自动更新机制-cmd-desktop-update-go}
@@ -136,8 +136,8 @@ flowchart LR
 3. **选择资产**：`findBestAsset()` 按 `runtime.GOOS/GOARCH` 匹配 release assets 文件名——OS 关键词（`mac`/`win`/`linux`）+ 架构关键词（`amd64`/`arm64`，兼容 `universal`/`aarch64`），逐级回退：OS+Arch → 仅 OS → macOS 的 `.dmg` → Windows 的 `.exe`；均无匹配时打开 release 页面。
 4. **下载**：`downloadAndInstall()` 下载到系统临时目录；`autoDownload` 模式静默下载，手动模式先弹 "Update Available" 对话框。下载完成后询问 "Restart Now / Later"。
 5. **安装与重启**（`applyUpdateAndRestart()`，平台差异）：
-   - **Windows**：写临时 `weknora_update.bat`（延时 2 秒 → 静默运行安装包 `/S` → 重启原程序 → 自删除），`cmd.exe /C start /b` 执行后退出应用。
-   - **macOS（.dmg）**：`hdiutil attach` 挂载到临时挂载点，找到其中的 `.app`，写临时 `weknora_update.sh`：`rm -rf` 旧 bundle 并 `cp -a` 新 bundle（失败时通过 `osascript … with administrator privileges` 提权重试）→ `hdiutil detach` → `open` 新应用 → 自删除；非 `.dmg` 或异常时回退为 `open` 下载文件。
+   - **Windows**：写临时 `genyee_update.bat`（延时 2 秒 → 静默运行安装包 `/S` → 重启原程序 → 自删除），`cmd.exe /C start /b` 执行后退出应用。
+   - **macOS（.dmg）**：`hdiutil attach` 挂载到临时挂载点，找到其中的 `.app`，写临时 `genyee_update.sh`：`rm -rf` 旧 bundle 并 `cp -a` 新 bundle（失败时通过 `osascript … with administrator privileges` 提权重试）→ `hdiutil detach` → `open` 新应用 → 自删除；非 `.dmg` 或异常时回退为 `open` 下载文件。
    - **Linux**：`xdg-open` 打开下载文件后退出。
 
 触发入口：macOS 菜单 `Check for Updates...`（手动，显示结果）、绑定方法 `CheckForUpdates()`（手动）与 `AutoCheckForUpdates()`（静默 + 自动下载，前端 `frontend/src/App.vue` 在检测到 `window.go.main.App.AutoCheckForUpdates` 存在时会调用）。

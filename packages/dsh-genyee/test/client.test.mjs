@@ -1,18 +1,18 @@
 import assert from 'node:assert/strict'
 import { after, test } from 'node:test'
 
-import { WeknoraApiError, WeknoraClient } from '../dist/client.js'
+import { GenyeeApiError, GenyeeClient } from '../dist/client.js'
 import { resolveConfig } from '../dist/config.js'
-import { startMockWeknora } from './helpers/mock-weknora.mjs'
+import { startMockGenyee } from './helpers/mock-genyee.mjs'
 
 const never = new AbortController().signal
 
 /** Start a mock backend and a client wired to it, closed after the test file. */
 async function harness(overrides = {}, mockOptions = {}) {
-  const mock = await startMockWeknora(mockOptions)
+  const mock = await startMockGenyee(mockOptions)
   after(() => mock.close())
   const config = resolveConfig({ baseUrl: mock.url, ...overrides })
-  return { mock, client: new WeknoraClient(config), config }
+  return { mock, client: new GenyeeClient(config), config }
 }
 
 test('lists knowledge bases and sends the API key header', async () => {
@@ -25,7 +25,7 @@ test('lists knowledge bases and sends the API key header', async () => {
 test('a rejected credential surfaces the status and the server reason', async () => {
   const { client } = await harness({ apiKey: 'wrong-key' }, { apiKey: 'right-key' })
   await assert.rejects(client.listKnowledgeBases(never), error => {
-    assert.ok(error instanceof WeknoraApiError)
+    assert.ok(error instanceof GenyeeApiError)
     assert.equal(error.status, 401)
     assert.match(error.message, /HTTP 401: invalid api key/)
     return true
@@ -125,7 +125,7 @@ test('a stream that ends before completing becomes a failed call', async () => {
       { sessionId: 's1', query: '默认的检索阈值是多少', knowledgeBaseIds: ['kb-product'], agentId: undefined, webSearch: false },
       never,
     ),
-    /ended before WeKnora completed the answer/,
+    /ended before GENYEE completed the answer/,
   )
 })
 
@@ -137,6 +137,6 @@ test('caller cancellation aborts an in-flight call', async () => {
 })
 
 test('an unreachable backend reports a transport failure', async () => {
-  const client = new WeknoraClient(resolveConfig({ baseUrl: 'http://127.0.0.1:1/api/v1', requestTimeoutMs: 1000 }))
-  await assert.rejects(client.listKnowledgeBases(never), WeknoraApiError)
+  const client = new GenyeeClient(resolveConfig({ baseUrl: 'http://127.0.0.1:1/api/v1', requestTimeoutMs: 1000 }))
+  await assert.rejects(client.listKnowledgeBases(never), GenyeeApiError)
 })

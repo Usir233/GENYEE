@@ -1,6 +1,6 @@
 """Verify a ParadeDB patch upgrade using disposable Docker volumes and real migrations.
 
-Requires Python 3 and Docker; no database credentials or running WeKnora needed.
+Requires Python 3 and Docker; no database credentials or running GENYEE needed.
 Run: python3 scripts/test_paradedb_upgrade.py [--to 0.25.11|0.22.6]
 Artifacts (snapshots, plans, logs and a synthetic-data backup) are kept in /tmp.
 """
@@ -16,7 +16,7 @@ import uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 OUT = None
-CONTAINER = 'weknora-pdb-upgrade-' + uuid.uuid4().hex[:12]
+CONTAINER = 'genyee-pdb-upgrade-' + uuid.uuid4().hex[:12]
 # target pg_search version -> (image, expected vector version or None if unchanged)
 TARGETS = {
     '0.22.6': ('paradedb/paradedb:v0.22.6-pg17', None),
@@ -24,7 +24,7 @@ TARGETS = {
 }
 UPGRADES = ['000099_pg_search_0226.up.sql', '000115_pg_search_02511.up.sql']
 
-def sql(query, db='weknora'):
+def sql(query, db='genyee'):
     p = subprocess.run(['docker', 'exec', '-i', CONTAINER, 'psql', '-X', '-qAt', '-U', 'postgres', '-d', db, '-v', 'ON_ERROR_STOP=1'], input=query, text=True, capture_output=True)
     if p.returncode:
         raise RuntimeError(p.stderr)
@@ -117,11 +117,11 @@ def docker(*args, **kwargs):
 
 def start(image, volume):
     docker('run', '-d', '--name', CONTAINER, '--network', 'none', '--shm-size=512m',
-           '-e', 'POSTGRES_PASSWORD=isolated-upgrade-test', '-e', 'POSTGRES_DB=weknora',
+           '-e', 'POSTGRES_PASSWORD=isolated-upgrade-test', '-e', 'POSTGRES_DB=genyee',
            '-v', volume+':/var/lib/postgresql/data', image)
     for _ in range(120):
         # Wait for the final server, not the bootstrap server that only uses a socket.
-        ready = subprocess.run(['docker', 'exec', CONTAINER, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres', '-d', 'weknora'], capture_output=True)
+        ready = subprocess.run(['docker', 'exec', CONTAINER, 'pg_isready', '-h', '127.0.0.1', '-U', 'postgres', '-d', 'genyee'], capture_output=True)
         if ready.returncode == 0:
             return
         time.sleep(1)
@@ -178,17 +178,17 @@ def main():
     docker('volume', 'create', volume)
     try:
         start(old, volume)
-        migrate('weknora', baseline, 'old-migrations')
+        migrate('genyee', baseline, 'old-migrations')
         assert sql(search_version) == '0.22.2'
         old_vector = sql(vector_version)
         # Older external servers without the target package must remain usable.
-        migrate('weknora', upgrade, 'unavailable-target')
+        migrate('genyee', upgrade, 'unavailable-target')
         assert sql(search_version) == '0.22.2'
         assert sql(vector_version) == old_vector
         seed()
         snapshot('before')
         with (OUT/'before.dump').open('wb') as backup:
-            subprocess.run(['docker', 'exec', CONTAINER, 'pg_dump', '-U', 'postgres', '-d', 'weknora', '-Fc'], check=True, stdout=backup)
+            subprocess.run(['docker', 'exec', CONTAINER, 'pg_dump', '-U', 'postgres', '-d', 'genyee', '-Fc'], check=True, stdout=backup)
         docker('stop', '-t', '60', CONTAINER)
         docker('rm', CONTAINER)
         start(new, volume)
@@ -196,7 +196,7 @@ def main():
         assert sql(search_version) == '0.22.2'
         sql("BEGIN; SET LOCAL app.skip_embedding='true';\n"+upgrade_sql+"\nCOMMIT;")
         assert sql(search_version) == '0.22.2'
-        migrate('weknora', upgrade + upgrade, 'extension-upgrade-and-idempotence')
+        migrate('genyee', upgrade + upgrade, 'extension-upgrade-and-idempotence')
         assert sql(search_version) == target
         assert sql(vector_version) == (vector_target or old_vector)
         # Calls into the shared library crash the server if the catalog lags behind it.

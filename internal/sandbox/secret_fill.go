@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	secretFillBinary   = "/usr/local/bin/wk-secret-fill"
+	secretFillBinary   = "/usr/local/bin/gy-secret-fill"
 	secretFillKeyDir   = "/dev/shm"
 	secretFillTimeout  = 30 * time.Second
 	secretProbeTimeout = 10 * time.Second
@@ -23,7 +23,7 @@ const (
 
 // ErrSecretFillHelperMissing means the session's image predates the helper.
 var ErrSecretFillHelperMissing = errors.New(
-	"sandbox: wk-secret-fill is not installed in this sandbox image; rebuild or upgrade the desktop image")
+	"sandbox: gy-secret-fill is not installed in this sandbox image; rebuild or upgrade the desktop image")
 
 // BrowserPage is the page a session browser shows. An empty URL means it
 // could not be read, including when no browser runs.
@@ -104,7 +104,7 @@ func (m *SessionBoundManager) FillSecret(
 	if _, err := rand.Read(name); err != nil {
 		return nil, err
 	}
-	keyPath := secretFillKeyDir + "/wk-fill-" + hex.EncodeToString(name)
+	keyPath := secretFillKeyDir + "/gy-fill-" + hex.EncodeToString(name)
 	out, err := m.runSecretHelper(ctx, sessionID, keyPath, key,
 		[]string{"--key-file", keyPath, sealed}, secretFillTimeout)
 	if err != nil {
@@ -115,7 +115,7 @@ func (m *SessionBoundManager) FillSecret(
 		Error  string            `json:"error"`
 	}
 	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &res); err != nil {
-		return nil, errors.New("sandbox: unreadable wk-secret-fill output")
+		return nil, errors.New("sandbox: unreadable gy-secret-fill output")
 	}
 	switch res.Error {
 	case "":
@@ -124,12 +124,12 @@ func (m *SessionBoundManager) FillSecret(
 	case "browser_busy":
 		return nil, errors.New("sandbox: the session browser stayed busy; retry")
 	default:
-		return nil, fmt.Errorf("sandbox: wk-secret-fill: %s", res.Error)
+		return nil, fmt.Errorf("sandbox: gy-secret-fill: %s", res.Error)
 	}
 	return &SecretFillResult{Fields: res.Fields}, nil
 }
 
-// runSecretHelper runs wk-secret-fill in the session's sandbox. With keyPath
+// runSecretHelper runs gy-secret-fill in the session's sandbox. With keyPath
 // set it stages key there first and always removes it afterwards.
 func (m *SessionBoundManager) runSecretHelper(
 	ctx context.Context, sessionID, keyPath string, key []byte, args []string, timeout time.Duration,
@@ -179,17 +179,17 @@ func (m *SessionBoundManager) runSecretHelper(
 		if strings.Contains(strings.ToLower(err.Error()), "no such file") {
 			return "", ErrSecretFillHelperMissing
 		}
-		return "", fmt.Errorf("sandbox: run wk-secret-fill: %w", err)
+		return "", fmt.Errorf("sandbox: run gy-secret-fill: %w", err)
 	}
 	switch {
 	case res == nil:
-		return "", errors.New("sandbox: wk-secret-fill returned no result")
+		return "", errors.New("sandbox: gy-secret-fill returned no result")
 	case res.ExitCode == 127:
 		return "", ErrSecretFillHelperMissing
 	case res.Killed:
-		return "", errors.New("sandbox: wk-secret-fill timed out")
+		return "", errors.New("sandbox: gy-secret-fill timed out")
 	case res.ExitCode != 0:
-		return "", fmt.Errorf("sandbox: wk-secret-fill exited with %d", res.ExitCode)
+		return "", fmt.Errorf("sandbox: gy-secret-fill exited with %d", res.ExitCode)
 	}
 	return res.Stdout, nil
 }

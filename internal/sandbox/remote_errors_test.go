@@ -134,7 +134,7 @@ func TestIsRemoteDirAlreadyExists(t *testing.T) {
 
 	cubeSeedErr := NewRemoteError(
 		SandboxTypeCube, "MakeDir", RemoteErrorKindInternal,
-		"failed to make dir /opt/weknora/tenant/skills/sk-1: directory already exists: /opt/weknora/tenant/skills/sk-1",
+		"failed to make dir /opt/genyee/tenant/skills/sk-1: directory already exists: /opt/genyee/tenant/skills/sk-1",
 		nil,
 	)
 	tests := []struct {

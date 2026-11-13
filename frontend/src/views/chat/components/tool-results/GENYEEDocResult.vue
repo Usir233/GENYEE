@@ -8,10 +8,10 @@
     <template v-else-if="mode === 'search'">
       <div class="doc-summary">
         {{ listingPages
-          ? $t('agentStream.weknoraDocs.pages', { count: pages.length })
-          : $t('agentStream.weknoraDocs.hits', { count: hits.length }) }}
+          ? $t('agentStream.genyeeDocs.pages', { count: pages.length })
+          : $t('agentStream.genyeeDocs.hits', { count: hits.length }) }}
       </div>
-      <p v-if="!rows.length" class="doc-empty">{{ $t('agentStream.weknoraDocs.empty') }}</p>
+      <p v-if="!rows.length" class="doc-empty">{{ $t('agentStream.genyeeDocs.empty') }}</p>
       <div v-else class="doc-list">
         <article v-for="(row, index) in rows" :key="`${row.path}-${index}`" class="doc-item">
           <div class="doc-item__head">
@@ -40,12 +40,12 @@
       <div v-if="read.title || read.url" class="doc-read__head">
         <span v-if="read.title" class="doc-read__title">{{ read.title }}</span>
         <a v-if="readHref" class="doc-read__link" :href="readHref" target="_blank" rel="noopener noreferrer">
-          {{ $t('agentStream.weknoraDocs.openDoc') }}
+          {{ $t('agentStream.genyeeDocs.openDoc') }}
         </a>
       </div>
       <p v-if="read.section" class="doc-read__section">{{ read.section }}</p>
       <div v-if="read.outline.length" class="doc-outline">
-        <div class="doc-summary">{{ $t('agentStream.weknoraDocs.outline') }}</div>
+        <div class="doc-summary">{{ $t('agentStream.genyeeDocs.outline') }}</div>
         <ul>
           <li
             v-for="(entry, index) in read.outline"
@@ -55,11 +55,11 @@
         </ul>
       </div>
       <div v-if="read.content" class="doc-read__content">
-        <div class="doc-summary">{{ $t('agentStream.weknoraDocs.content') }}</div>
+        <div class="doc-summary">{{ $t('agentStream.genyeeDocs.content') }}</div>
         <DocMarkdown :source="read.content" />
-        <p v-if="read.truncated" class="doc-note">{{ $t('agentStream.weknoraDocs.truncated') }}</p>
+        <p v-if="read.truncated" class="doc-note">{{ $t('agentStream.genyeeDocs.truncated') }}</p>
       </div>
-      <p v-else-if="!read.outline.length && !read.error" class="doc-empty">{{ $t('agentStream.weknoraDocs.empty') }}</p>
+      <p v-else-if="!read.outline.length && !read.error" class="doc-empty">{{ $t('agentStream.genyeeDocs.empty') }}</p>
     </template>
   </div>
 </template>
@@ -109,7 +109,7 @@ const structured = computed(() => (
 ))
 const plainError = computed(() => {
   if (props.success !== false || structured.value) return ''
-  return props.output.trim() || t('agentStream.weknoraDocs.failed')
+  return props.output.trim() || t('agentStream.genyeeDocs.failed')
 })
 </script>
 

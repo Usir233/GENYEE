@@ -452,7 +452,7 @@ func TestConnectorListResources(t *testing.T) {
 
 // TestConnectorListResources_LazyLoadsOneLevel verifies that ListResources loads
 // the wiki tree lazily — only the requested level — instead of recursing the whole
-// tree up front (Tencent/GENYEE#1672).
+// tree up front (upstream issue #1672).
 func TestConnectorListResources_LazyLoadsOneLevel(t *testing.T) {
 	topNodes := []core.WikiNode{
 		{NodeToken: "nt-root", ObjToken: "obj-root", ObjType: "docx", Title: "Root", HasChild: true, ObjEditTime: "100"},
@@ -1678,7 +1678,7 @@ func TestFetchDocxWithBlocks_EmbeddedImage(t *testing.T) {
 	if !strings.Contains(string(main.Content), wantURI) {
 		t.Errorf("image not inlined as base64 data URI:\n%s", main.Content[:min(len(main.Content), 400)])
 	}
-	if strings.Contains(string(main.Content), "weknora-img://") {
+	if strings.Contains(string(main.Content), "genyee-img://") {
 		t.Errorf("internal marker leaked into stored markdown:\n%s", main.Content[:400])
 	}
 	if main.Metadata["image_map"] != "" {
@@ -1740,7 +1740,7 @@ func TestFetchDocxWithBlocks_ImageDownloadFailure(t *testing.T) {
 	if !strings.Contains(string(main.Content), "![图片]()") {
 		t.Errorf("broken image must degrade to a placeholder:\n%s", main.Content)
 	}
-	if strings.Contains(string(main.Content), "weknora-img://") {
+	if strings.Contains(string(main.Content), "genyee-img://") {
 		t.Errorf("internal marker leaked into stored markdown:\n%s", main.Content)
 	}
 }

@@ -10,7 +10,7 @@
 GENYEE/mcp-server/
 ├── 📦 核心文件
 │   ├── __init__.py              # 包初始化文件
-│   ├── weknora_mcp_server.py   # MCP 服务器核心实现
+│   ├── genyee_mcp_server.py   # MCP 服务器核心实现
 │   └── requirements.txt        # 项目依赖
 │
 ├── 🚀 启动脚本 (多种方式)
@@ -63,19 +63,19 @@ python run.py
 
 ### 4. 直接运行服务器
 ```bash
-python weknora_mcp_server.py
+python genyee_mcp_server.py
 ```
 
 ### 5. 作为模块运行
 ```bash
-python -m weknora_mcp_server
+python -m genyee_mcp_server
 ```
 
 ### 6. 安装后命令行工具
 ```bash
 pip install -e .                  # 开发模式安装
 genyee-mcp-server               # 主命令
-weknora-server                   # 别名命令
+genyee-server                   # 别名命令
 ```
 
 ### 7. 生产环境安装

@@ -9,7 +9,7 @@ import (
 
 // keyringService is the namespace prefix passed to OS keyring backends.
 // Final keyring entries look like service="genyee:<profile>", account="<key>".
-const keyringService = "weknora"
+const keyringService = "genyee"
 
 // KeyringStore is the OS-backed credential store: macOS Keychain, GNOME
 // libsecret, KWallet, Windows Credential Manager. Falls back to ErrUnsupported

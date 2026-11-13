@@ -46,7 +46,7 @@ const (
 	// skillSeedArchivePath is the single remote write used to land a skill's
 	// files. Writing each file with MakeDir+WriteFile is two round trips per
 	// entry, which is why a 50-file skill crawled through "seeding 12/56".
-	skillSeedArchivePath = sandbox.SkillsImageRoot + "/.weknora-seed.tar"
+	skillSeedArchivePath = sandbox.SkillsImageRoot + "/.genyee-seed.tar"
 
 	// skillInstallVerifyRounds bounds the installer conversation.
 	//
@@ -1841,7 +1841,7 @@ func currentSnapshotID(cfgEntity *types.TenantSandboxConfigEntity) string {
 }
 
 func skillSnapshotNamePrefix(tenantID uint64, configID string) string {
-	return fmt.Sprintf("weknora-sk-t%d-%s", tenantID, compactConfigID(configID))
+	return fmt.Sprintf("genyee-sk-t%d-%s", tenantID, compactConfigID(configID))
 }
 
 // nextSnapshotGeneration is one past both the live pointer and every ledger
@@ -1899,7 +1899,7 @@ func genyeeSkillSnapshotName(raw string) string {
 	if cut := strings.IndexByte(s, ':'); cut >= 0 {
 		s = s[:cut]
 	}
-	if strings.HasPrefix(s, "weknora-sk-") {
+	if strings.HasPrefix(s, "genyee-sk-") {
 		return s
 	}
 	return ""

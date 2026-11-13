@@ -4,7 +4,7 @@
 import unittest
 from unittest import mock
 
-import weknora_mcp_server as srv
+import genyee_mcp_server as srv
 
 
 class UpdateKnowledgeFromTextTest(unittest.TestCase):

@@ -45,7 +45,7 @@ setup(
     description="GENYEE MCP Server - Model Context Protocol server for GENYEE API",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    py_modules=["weknora_mcp_server", "upload_paths", "main", "run_server", "run", "test_module"],
+    py_modules=["genyee_mcp_server", "upload_paths", "main", "run_server", "run", "test_module"],
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
@@ -63,9 +63,7 @@ setup(
     entry_points={
         "console_scripts": [
             "genyee-mcp-server=main:run",
-            "weknora-mcp-server=main:run",
             "genyee-server=run_server:main",
-            "weknora-server=run_server:main",
         ],
     },
     include_package_data=True,

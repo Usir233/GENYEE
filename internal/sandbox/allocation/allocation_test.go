@@ -112,9 +112,9 @@ func TestEligibleForUser(t *testing.T) {
 func TestUserMachineDigestIsStableAndUnambiguous(t *testing.T) {
 	m := UserMachine{OwnerTenantID: 7, OwnerID: "u-1", ConfigTenantID: 9, ConfigID: "cfg"}
 	require.NoError(t, m.Validate())
-	d := m.Digest("weknora")
+	d := m.Digest("genyee")
 	require.Len(t, d, 64)
-	require.Equal(t, d, m.Digest("weknora"))
+	require.Equal(t, d, m.Digest("genyee"))
 	require.NotEqual(t, d, m.Digest("other"))
 	// Length-prefixing keeps field boundaries: these two must not collide.
 	a := UserMachine{OwnerTenantID: 7, OwnerID: "ab", ConfigTenantID: 9, ConfigID: "c"}

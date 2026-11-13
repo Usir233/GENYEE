@@ -10,15 +10,15 @@ import { getApiBaseUrl } from './api-base'
 import { notifyAuthTokensChanged, writeAuthTokens } from './authTokens'
 
 const AUTH_STORAGE_KEYS = [
-  'weknora_token',
-  'weknora_refresh_token',
-  'weknora_user',
-  'weknora_tenant',
-  'weknora_knowledge_bases',
-  'weknora_current_kb',
-  'weknora_selected_tenant_id',
-  'weknora_selected_tenant_name',
-  'weknora_memberships',
+  'genyee_token',
+  'genyee_refresh_token',
+  'genyee_user',
+  'genyee_tenant',
+  'genyee_knowledge_bases',
+  'genyee_current_kb',
+  'genyee_selected_tenant_id',
+  'genyee_selected_tenant_name',
+  'genyee_memberships',
 ] as const
 
 type AuthSession = {
@@ -54,8 +54,8 @@ function assertCurrentSession(session: AuthSession) {
     throw new AuthSessionChangedError()
   }
   // Storage may have changed in another tab, without running our logout hook.
-  if (localStorage.getItem('weknora_refresh_token') !== session.refreshToken
-    || localStorage.getItem('weknora_token') !== session.accessToken) {
+  if (localStorage.getItem('genyee_refresh_token') !== session.refreshToken
+    || localStorage.getItem('genyee_token') !== session.accessToken) {
     throw new AuthSessionChangedError()
   }
 }
@@ -144,8 +144,8 @@ export async function refreshAccessTokenShared(
   try {
     session = {
       generation: sessionGeneration,
-      accessToken: localStorage.getItem('weknora_token'),
-      refreshToken: localStorage.getItem('weknora_refresh_token'),
+      accessToken: localStorage.getItem('genyee_token'),
+      refreshToken: localStorage.getItem('genyee_refresh_token'),
     }
   } catch (error) {
     forceReloginRedirect()

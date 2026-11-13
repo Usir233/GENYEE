@@ -63,8 +63,8 @@ test('every backend catalog operation has a label in every UI locale', () => {
 test('operation and product-doc tools have dedicated display types', () => {
   assert.equal(getCatalogToolDisplayType('find_operations'), 'find_operations')
   assert.equal(getCatalogToolDisplayType('run_operation'), 'run_operation')
-  assert.equal(getCatalogToolDisplayType('search_weknora_docs'), 'search_weknora_docs')
-  assert.equal(getCatalogToolDisplayType('read_weknora_doc'), 'read_weknora_doc')
+  assert.equal(getCatalogToolDisplayType('search_genyee_docs'), 'search_genyee_docs')
+  assert.equal(getCatalogToolDisplayType('read_genyee_doc'), 'read_genyee_doc')
   assert.equal(getCatalogToolDisplayType('web_search'), undefined)
 })
 
@@ -83,12 +83,12 @@ test('titles name the operation, query, or page instead of the raw tool id', () 
     'agentStream.tools.runOperation：knowledge.get',
   )
   assert.equal(
-    getCatalogToolTitle(t, { tool_name: 'search_weknora_docs', arguments: { query: 'Wiki' }, pending: true }),
+    getCatalogToolTitle(t, { tool_name: 'search_genyee_docs', arguments: { query: 'Wiki' }, pending: true }),
     'agentStream.toolStatus.calling agentStream.tools.searchGENYEEDocs：「Wiki」',
   )
   assert.equal(
     getCatalogToolTitle(t, {
-      tool_name: 'read_weknora_doc', success: false, arguments: { path: '03-features/14-wiki' },
+      tool_name: 'read_genyee_doc', success: false, arguments: { path: '03-features/14-wiki' },
     }),
     'agentStream.toolStatus.calledFailed agentStream.tools.readGENYEEDoc：「03-features/14-wiki」',
   )

@@ -49,7 +49,7 @@ function fixture(generate: () => Promise<string> = async () => 'Query logs by mo
     },
     URL, console,
     window: {
-      location: { origin: 'https://weknora.example' },
+      location: { origin: 'https://genyee.example' },
       setInterval: (callback: () => Promise<void>) => { timers.set(++nextTimer, callback); return nextTimer },
       clearInterval: (id: number) => timers.delete(id),
       open: () => {

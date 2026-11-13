@@ -57,8 +57,8 @@ async function fixture(
     '@/utils/request': { get: async () => ({ success: true, data: workspaceConfig }), put: assert.fail },
   })
   const sessionStorage = storage()
-  sessionStorage.setItem('weknora:assistant-session:user-a:2', 'workspace-b-session')
-  sessionStorage.setItem('weknora:assistant-session:user-b:1', 'user-b-session')
+  sessionStorage.setItem('genyee:assistant-session:user-a:2', 'workspace-b-session')
+  sessionStorage.setItem('genyee:assistant-session:user-b:1', 'user-b-session')
   const localStorage = storage()
   const stores = evaluate(storeScript, {
     vue, pinia, './auth': { useAuthStore: () => auth }, '@/api/assistant': assistantApi,
@@ -121,7 +121,7 @@ async function fixture(
       },
     },
     '@/components/sessionGrouping': evaluate(groupingScript, {}),
-    '@/api/agent': { BUILTIN_GENYEE_ASSISTANT_ID: 'builtin-weknora-assistant' },
+    '@/api/agent': { BUILTIN_GENYEE_ASSISTANT_ID: 'builtin-genyee-assistant' },
     '@/stores/menu': { useMenuStore: () => ({ updataMenuChildren: (entry: unknown) => menuEntries.push(entry) }) },
     '@/stores/auth': { useAuthStore: () => auth },
     '@/stores/assistant': stores,
@@ -317,12 +317,12 @@ test('layout and width persist, with the width kept within bounds', async () => 
   try {
     assert.equal(f.assistant.layout, 'docked')
     f.assistant.setLayout('floating')
-    assert.equal(f.localStorage.getItem('weknora:assistant-layout'), 'floating')
+    assert.equal(f.localStorage.getItem('genyee:assistant-layout'), 'floating')
     f.assistant.setWidth(10_000)
     assert.equal(f.assistant.width, 760)
     f.assistant.setWidth(12)
     assert.equal(f.assistant.width, 360)
-    assert.equal(f.localStorage.getItem('weknora:assistant-width'), '360')
+    assert.equal(f.localStorage.getItem('genyee:assistant-width'), '360')
   } finally { f.close() }
 })
 
@@ -524,7 +524,7 @@ test('a new conversation still sends its own first message after restoring a ses
     assert.equal(f.sent.length, 1)
     assert.equal(f.sent[0].sessionId, 'new-session')
     assert.equal(f.sent[0].query, 'New request')
-    assert.equal(f.sessionStorage.getItem('weknora:assistant-session:user-a:2'), 'new-session')
+    assert.equal(f.sessionStorage.getItem('genyee:assistant-session:user-a:2'), 'new-session')
   } finally { f.close() }
 })
 
@@ -539,7 +539,7 @@ test('session creation finishing after a workspace switch cannot replace the res
     resolve({ data: { id: 'old-workspace-session' } })
     await flush()
     assert.equal(f.assistant.sessionId, 'workspace-b-session')
-    assert.equal(f.sessionStorage.getItem('weknora:assistant-session:user-a:2'), 'workspace-b-session')
+    assert.equal(f.sessionStorage.getItem('genyee:assistant-session:user-a:2'), 'workspace-b-session')
     assert.equal(f.sent.length, 0)
     assert.equal(f.menuEntries.length, 0)
   } finally { f.close() }
@@ -606,7 +606,7 @@ test('deleting the current history session requires confirmation and returns to 
     await flush()
     assert.deepEqual(f.deleted, ['current'])
     assert.equal(f.assistant.sessionId, '')
-    assert.equal(f.sessionStorage.getItem('weknora:assistant-session:user-a:1'), null)
+    assert.equal(f.sessionStorage.getItem('genyee:assistant-session:user-a:1'), null)
     assert.equal(f.findAll(n => n.props.class === 'assistant-welcome').length, 1)
   } finally { f.close() }
 })
@@ -634,7 +634,7 @@ test('stored ordinary session is rejected instead of mounting it as assistant hi
     f.auth.effectiveTenantId = 2
     await flush()
     assert.equal(f.assistant.sessionId, '')
-    assert.equal(f.sessionStorage.getItem('weknora:assistant-session:user-a:2'), null)
+    assert.equal(f.sessionStorage.getItem('genyee:assistant-session:user-a:2'), null)
     assert.equal(f.mounted.length, 0)
   } finally { f.close() }
 })

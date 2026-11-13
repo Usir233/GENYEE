@@ -81,10 +81,10 @@ export function getAgentToolIconName(
   if (toolName === 'open_page' || toolName === 'view_page') {
     return 'jump'
   }
-  if (toolName === 'search_weknora_docs') {
+  if (toolName === 'search_genyee_docs') {
     return 'search'
   }
-  if (toolName === 'read_weknora_doc') {
+  if (toolName === 'read_genyee_doc') {
     return 'file'
   }
   return 'file-paste'

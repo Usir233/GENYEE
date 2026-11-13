@@ -21,14 +21,14 @@ func TestParseGeneratedQuestionsJSON(t *testing.T) {
 		},
 		{
 			name: "pretty printed array", count: 3,
-			content: "[\n  \"What is WeKnora?\",\n  \"How are chunks indexed?\"\n]",
-			want:    []string{"What is WeKnora?", "How are chunks indexed?"},
+			content: "[\n  \"What is GENYEE?\",\n  \"How are chunks indexed?\"\n]",
+			want:    []string{"What is GENYEE?", "How are chunks indexed?"},
 		},
 		{
 			name: "fenced JSON after reasoning", count: 3,
 			content: "<think>Decide what to ask.</think>\n```json\n" +
-				`{"questions":["What is WeKnora?"]}` + "\n```",
-			want: []string{"What is WeKnora?"},
+				`{"questions":["What is GENYEE?"]}` + "\n```",
+			want: []string{"What is GENYEE?"},
 		},
 		{
 			name: "unlabelled fence", count: 1,
@@ -42,9 +42,9 @@ func TestParseGeneratedQuestionsJSON(t *testing.T) {
 		},
 		{
 			name: "skip nonstring items", count: 2,
-			content: `{"questions":[{"type":"object"},null,42,true,"What is WeKnora?",` +
+			content: `{"questions":[{"type":"object"},null,42,true,"What is GENYEE?",` +
 				`["Nested question?"],"How are chunks indexed?"]}`,
-			want: []string{"What is WeKnora?", "How are chunks indexed?"},
+			want: []string{"What is GENYEE?", "How are chunks indexed?"},
 		},
 		{
 			name: "JSON escapes stay in one question", count: 3,
@@ -54,8 +54,8 @@ func TestParseGeneratedQuestionsJSON(t *testing.T) {
 		{name: "schema object", count: 3, content: `{"type":"object"}`, want: []string{}},
 		{name: "wrong envelope field type", count: 3, content: `{"questions":{"type":"array"}}`, want: []string{}},
 		{name: "empty envelope", count: 3, content: `{"questions":[]}`, want: []string{}},
-		{name: "truncated JSON", count: 3, content: "{\n\"questions\": [\"What is WeKnora?\"", want: []string{}},
-		{name: "trailing garbage", count: 3, content: `{"questions":["What is WeKnora?"]} garbage`, want: []string{}},
+		{name: "truncated JSON", count: 3, content: "{\n\"questions\": [\"What is GENYEE?\"", want: []string{}},
+		{name: "trailing garbage", count: 3, content: `{"questions":["What is GENYEE?"]} garbage`, want: []string{}},
 		{
 			name: "plain bracket prefix", count: 3,
 			content: "[RAG] How are chunks indexed?\n{name} is used for which setting?",

@@ -114,7 +114,7 @@ func NewRepository(
 		)
 	}
 
-	base := types.ResolveIndexName(indexCfg, "OPENSEARCH_INDEX", "weknora")
+	base := types.ResolveIndexName(indexCfg, "OPENSEARCH_INDEX", "genyee")
 	if storeID != "" {
 		// 12 hex chars → 48-bit collision space (UUID is 32 chars; using
 		// half gives strong-enough collision avoidance for the realistic

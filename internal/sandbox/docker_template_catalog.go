@@ -33,7 +33,7 @@ import (
 
 // dockerTemplateLabel marks an image as a GENYEE sandbox template. Images
 // built by an operator can opt into the catalog by carrying it.
-const dockerTemplateLabel = "com.weknora.sandbox.template"
+const dockerTemplateLabel = "com.genyee.sandbox.template"
 
 // dockerImagePulls tracks background pulls per daemon endpoint and image, so a
 // second refresh reports the in-flight pull instead of starting another one.

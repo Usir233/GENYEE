@@ -68,7 +68,7 @@ func TestFillSecretSplitsKeyAndCiphertext(t *testing.T) {
 	require.Len(t, r.Args, 3)
 	assert.Equal(t, "--key-file", r.Args[0])
 	keyPath := r.Args[1]
-	assert.True(t, strings.HasPrefix(keyPath, "/dev/shm/wk-fill-"))
+	assert.True(t, strings.HasPrefix(keyPath, "/dev/shm/gy-fill-"))
 	assert.NotContains(t, strings.Join(r.Args, " "), "sentinel-pw", "argv carries only ciphertext")
 	assert.NotEmpty(t, r.Env["GENYEE_BROWSER_ROOT"])
 

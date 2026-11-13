@@ -9,7 +9,7 @@ codec lives in this one package:
 | `registry.go` | `Registry` facade — the only type request lifecycles use |
 | `handle_table.go` | `handleTable[M]`, the generic bidirectional primitive behind every handle space |
 | `sources.go` | source handles (`chunk://N`/`doc://N`/`kb://N`/`url://N`) and the tool-argument codec |
-| `source_text.go` | handle syntax, `weknora://` durable URIs, and free-text / streaming handle rewriting |
+| `source_text.go` | handle syntax, `genyee://` durable URIs, and free-text / streaming handle rewriting |
 | `citations.go` | protocol prompts, `<ref/>` → `<kb/>`/`<web/>` expansion, citation stream expander |
 | `model_output.go` | compact source-centric renderings of tool results |
 | `resources.go` | durable-resource handles (`res://NNNN`) |
@@ -27,8 +27,8 @@ codec lives in this one package:
 - Request-local model handles: `chunk://N`, `doc://N`, `kb://N`, `url://N`,
   `msN`, `mtN`, and `res://NNNN`. The legacy bare `cN`/`dN`/`bN`/`wN` form is
   still accepted, but only as the whole value of a declared ID field.
-- Durable text forms of source handles: `weknora://kb/<id>`,
-  `weknora://doc/<id>`, `weknora://chunk/<id>`; a web page becomes its URL.
+- Durable text forms of source handles: `genyee://kb/<id>`,
+  `genyee://doc/<id>`, `genyee://chunk/<id>`; a web page becomes its URL.
 - Tool-private request handles: `iN` for Wiki issues.
 - Ingest-call handles: `cNNN` and `ref-N`, allocated with `HandleTable`.
 - Temporary handles are decoded before tool execution, persistence, or UI
@@ -102,13 +102,13 @@ rewrites handles in every string, not just declared fields:
 
 - Tool arguments (built-in and MCP): declared ID fields receive bare durable
   IDs, SQL fields receive bare IDs, and every other string receives the durable
-  text form (`weknora://kb/<id>`, `weknora://doc/<id>`, `weknora://chunk/<id>`,
+  text form (`genyee://kb/<id>`, `genyee://doc/<id>`, `genyee://chunk/<id>`,
   or the page URL). An unknown handle anywhere in the arguments fails closed.
 - Model output (complete and streaming, content and reasoning): `<ref/>`
-  citations expand as before; bare `kb://N`/`doc://N` become `weknora://` URIs,
+  citations expand as before; bare `kb://N`/`doc://N` become `genyee://` URIs,
   `url://N` becomes the URL, and `chunk://N` becomes a `<kb/>` citation when it
   is current evidence, otherwise its document URI. Unknown handles are dropped.
-- Input: `weknora://` URIs in any message, reasoning or replayed tool call are
+- Input: `genyee://` URIs in any message, reasoning or replayed tool call are
   registered as navigation-only handles and shown to the model as handles, so
   a saved instruction round-trips across requests and agents.
 

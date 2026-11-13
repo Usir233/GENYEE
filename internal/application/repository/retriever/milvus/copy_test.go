@@ -334,7 +334,7 @@ func newCopyMilvusHarness(t *testing.T, rows []copyTestRow) *copyMilvusHarness {
 	return &copyMilvusHarness{
 		repo: &milvusRepository{
 			client:             c,
-			collectionBaseName: "weknora_embeddings",
+			collectionBaseName: "genyee_embeddings",
 			metricType:         entity.IP,
 		},
 		fake: fake,

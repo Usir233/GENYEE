@@ -151,7 +151,7 @@ func emitCommandSchema(target *cobra.Command, fopts *cmdutil.FormatOptions) erro
 }
 
 func trimRootPrefix(path string) string {
-	return strings.TrimPrefix(strings.TrimPrefix(path, "genyee "), "weknora ")
+	return strings.TrimPrefix(strings.TrimPrefix(path, "genyee "), "genyee ")
 }
 
 // buildCommandSchema assembles the schema view from the command's AgentHelp,

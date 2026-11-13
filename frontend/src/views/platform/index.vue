@@ -182,7 +182,7 @@ const handleGlobalDrop = async (event: DragEvent) => {
 
     if (isChatDropRoute()) {
         event.stopPropagation();
-        window.dispatchEvent(new CustomEvent('weknora:chat-file-drop', {
+        window.dispatchEvent(new CustomEvent('genyee:chat-file-drop', {
             detail: { files: droppedFiles }
         }));
         return;
@@ -193,7 +193,7 @@ const handleGlobalDrop = async (event: DragEvent) => {
         return;
     }
 
-    window.dispatchEvent(new CustomEvent('weknora:knowledge-file-drop', {
+    window.dispatchEvent(new CustomEvent('genyee:knowledge-file-drop', {
         detail: { kbId: getCurrentKbId(), files: droppedFiles }
     }));
 }

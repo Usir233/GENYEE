@@ -12,7 +12,7 @@ import { normalizeSettingsSection } from '@/config/settingsRoute'
 import { isToolboxSection, toolboxLocation } from '@/config/toolbox'
 
 /** Lite /桌面 WebView 硬刷新时可能只打开 `/`，用 session 记住上次页面以便恢复 */
-const LITE_LAST_PATH_KEY = 'weknora_lite_last_path'
+const LITE_LAST_PATH_KEY = 'genyee_lite_last_path'
 
 // views/platform/index.vue always mounts the settings modal and opens it when
 // the path is /platform/settings, so this route only has to own the URL.
@@ -20,7 +20,7 @@ const LITE_LAST_PATH_KEY = 'weknora_lite_last_path'
 const SettingsRouteOutlet = defineComponent({ name: 'SettingsRouteOutlet', render: () => null })
 
 function isLiteEdition(authStore: ReturnType<typeof useAuthStore>) {
-  return authStore.isLiteMode || localStorage.getItem('weknora_lite_mode') === 'true'
+  return authStore.isLiteMode || localStorage.getItem('genyee_lite_mode') === 'true'
 }
 
 function isLiteSpaDefaultEntry(to: RouteLocationNormalized) {
@@ -269,14 +269,14 @@ function persistLoginResponse(authStore: ReturnType<typeof useAuthStore>, respon
 }
 
 async function hydrateSessionFromToken(authStore: ReturnType<typeof useAuthStore>) {
-  const token = localStorage.getItem('weknora_token')
+  const token = localStorage.getItem('genyee_token')
   if (!token) return false
 
   if (!authStore.token) {
     authStore.setToken(token)
   }
 
-  const storedRefreshToken = localStorage.getItem('weknora_refresh_token')
+  const storedRefreshToken = localStorage.getItem('genyee_refresh_token')
   if (storedRefreshToken && !authStore.refreshToken) {
     authStore.setRefreshToken(storedRefreshToken)
   }
@@ -365,7 +365,7 @@ router.beforeEach(async (to, from, next) => {
 
       if (!autoSetupAttempted) {
         autoSetupAttempted = true
-        localStorage.removeItem('weknora_auto_setup_failed')
+        localStorage.removeItem('genyee_auto_setup_failed')
         try {
           const response = await autoSetup()
           if (response.success) {

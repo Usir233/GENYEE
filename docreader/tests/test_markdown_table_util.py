@@ -57,7 +57,7 @@ class TestMarkdownTableUtil(unittest.TestCase):
     def test_malformed_unclosed_row_is_passthrough(self):
         """An unclosed ``|``-prefixed row must not hang the process.
 
-        Regression for Tencent/WeKnora#2768: the old line_pattern explored an
+        Regression for upstream issue #2768: the old line_pattern explored an
         exponential number of backtracking paths on such rows and stalled the
         single-threaded docreader event loop.
         """

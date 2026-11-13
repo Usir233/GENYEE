@@ -26,7 +26,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 ```json
 {
   "mcpServers": {
-    "weknora": {
+    "genyee": {
       "args": [
         "--directory",
         "/path/GENYEE/mcp-server",
@@ -50,7 +50,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 ```json
 {
   "mcpServers": {
-    "weknora": {
+    "genyee": {
       "command": "uv",
       "args": [
         "--directory",
@@ -74,7 +74,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 ```json
 {
   "mcpServers": {
-    "weknora": {
+    "genyee": {
       "command": "uv",
       "args": [
         "--directory",
@@ -98,7 +98,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 ```json
 {
   "mcpServers": {
-    "weknora": {
+    "genyee": {
       "command": "uv",
       "args": [
         "--directory",

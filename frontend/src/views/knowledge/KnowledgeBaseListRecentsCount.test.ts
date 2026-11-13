@@ -7,7 +7,7 @@ import { fixture, flush } from '../../test-utils/vueFixture.ts'
 // knowledge bases the page can actually see (own + shared) and silently drop
 // the ones that are gone — deleted KB, revoked share. The tab counts used to
 // be computed from the raw pin entries instead, so after deleting a KB the
-// header kept saying 「最近 4」 above a list of 1 (Tencent/GENYEE#5278).
+// header kept saying 「最近 4」 above a list of 1 (upstream issue #5278).
 //
 // The fixture mounts the real list page with 4 kb pins where only one KB (and
 // one shared KB) still resolves, and asserts both counts equal the resolved

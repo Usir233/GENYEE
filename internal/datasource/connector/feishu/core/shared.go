@@ -47,7 +47,7 @@ var FeishuStreamCheckpointMaxInterval = 30 * time.Second
 // fetchTally accumulates the outcome of fetching a wiki node subtree so the
 // connector can Emit a single actionable summary. Without it, unsupported nodes
 // (mindnote/slides/etc.) vanish with no item, no error and no log, leaving users
-// unable to explain why "13 documents synced only 3" (Tencent/GENYEE#2136).
+// unable to explain why "13 documents synced only 3" (upstream issue #2136).
 type fetchTally struct {
 	discovered    int
 	fetched       int
@@ -494,7 +494,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 	// ![图片]() placeholder or a degrade note on failure. Markers are unique
 	// per N, and N is assigned once per image/board block.
 	patchMarker := func(n int, replacement string) {
-		needle := fmt.Sprintf("![图片](weknora-img://%d-%s)", n, imageMarkerNonce(in.URL))
+		needle := fmt.Sprintf("![图片](genyee-img://%d-%s)", n, imageMarkerNonce(in.URL))
 		md = strings.Replace(md, needle, replacement, 1)
 	}
 
@@ -508,7 +508,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 		// end (newline or end of markdown) keeps a token that is a strict
 		// prefix of another attachment's token from matching inside it.
 		patchAtt := func(line string) {
-			needle := "- weknora-att://" + a.FileToken
+			needle := "- genyee-att://" + a.FileToken
 			if anchored := needle + "\n"; strings.Contains(md, anchored) {
 				md = strings.Replace(md, anchored, line+"\n", 1)
 				return
@@ -596,7 +596,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 	if len(docNames) > 0 {
 		titles := client.DocTitles(ctx, docNames)
 		for _, dn := range docNames {
-			needle := "[weknora-docname://" + dn.Token + "](" + escapeURL(dn.URL) + ")"
+			needle := "[genyee-docname://" + dn.Token + "](" + escapeURL(dn.URL) + ")"
 			repl := "[" + dn.URL + "](" + escapeURL(dn.URL) + ")"
 			if title := titles[dn.Token]; title != "" {
 				clean := strings.NewReplacer("[", "［", "]", "］", "\n", " ", "\r", "").Replace(title)

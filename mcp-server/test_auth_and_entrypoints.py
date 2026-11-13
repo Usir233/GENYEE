@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pytest
 
 import run_server
-import weknora_mcp_server as server
+import genyee_mcp_server as server
 
 
 @pytest.mark.parametrize("transport", ["http", "sse"])
@@ -64,9 +64,9 @@ def test_legacy_launcher_diagnostics_recognize_new_environment_names():
 
 
 @pytest.mark.parametrize("command", [
-    "genyee-mcp-server", "weknora-mcp-server", "genyee-server", "weknora-server",
+    "genyee-mcp-server", "genyee-server",
 ])
-def test_installed_new_and_legacy_commands_speak_mcp_stdio(command):
+def test_installed_commands_speak_mcp_stdio(command):
     async def run():
         from mcp import ClientSession, StdioServerParameters
         from mcp.client.stdio import stdio_client

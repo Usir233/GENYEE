@@ -156,7 +156,7 @@ make package-mac-app  # 打 macOS .app（scripts/package-mac-app.sh）
 | `build-images` / `build-images-app` / `build-images-docreader` / `build-images-frontend` / `clean-images` | `scripts/build_images.sh` 从源码构建/清理镜像 |
 | `check-env` / `list-containers` / `pull-images` | `start_all.sh --check / --list / --pull` |
 | `show-platform` | 显示 `uname -m` 与 Docker 构建平台（amd64/arm64 自动探测） |
-| `clean-db` | 删除 `weknora_postgres-data` / `weknora_minio_data` / `weknora_redis_data` 三个 Docker volume（**清空数据**） |
+| `clean-db` | 删除 `genyee_postgres-data` / `genyee_minio_data` / `genyee_redis_data` 三个 Docker volume（**清空数据**） |
 
 ### 数据库迁移（详见《数据库与迁移》一章） {#_3-3-数据库迁移-详见《数据库与迁移》一章}
 
@@ -371,4 +371,4 @@ chunker 提供 `SplitWithDiagnostics()`（`internal/infrastructure/chunker/strat
 
 制镜像前需检查脚本与所选版本是否匹配。分发前必须用新实例验证启动、服务健康和密钥独立性；本说明不代表当前脚本已通过特定云平台的部署或上架验收。
 
-首启排障查看 `journalctl -u weknora-firstboot`、`/var/log/weknora-firstboot.log` 与 `/opt/GENYEE` 下的 Compose 状态。`.firstboot.done` 在生成密钥之后、启动 Compose 之前写入，标记存在不代表服务健康。启动失败时保留已生成的 `.env` 和标记，修复原因后重新启动 Compose；删除标记重新生成密钥可能造成配置与已初始化数据库不一致。
+首启排障查看 `journalctl -u genyee-firstboot`、`/var/log/genyee-firstboot.log` 与 `/opt/GENYEE` 下的 Compose 状态。`.firstboot.done` 在生成密钥之后、启动 Compose 之前写入，标记存在不代表服务健康。启动失败时保留已生成的 `.env` 和标记，修复原因后重新启动 Compose；删除标记重新生成密钥可能造成配置与已初始化数据库不一致。

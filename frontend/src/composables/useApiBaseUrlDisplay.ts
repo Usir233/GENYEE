@@ -1,7 +1,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { getApiBaseUrl } from '@/utils/api-base'
 
-type WeKnoraDesktopWindow = Window & {
+type GENYEEDesktopWindow = Window & {
   __GENYEE_API_BASE__?: string
   go?: {
     main?: {
@@ -29,7 +29,7 @@ export function useApiBaseUrlDisplay() {
   })
 
   async function loadApiBaseUrl() {
-    const win = window as WeKnoraDesktopWindow
+    const win = window as GENYEEDesktopWindow
     for (let i = 0; i < 40; i++) {
       const injected = win.__GENYEE_API_BASE__
       if (typeof injected === 'string' && injected.trim()) {

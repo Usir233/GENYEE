@@ -20,7 +20,7 @@ const (
 	kbHandlePrefix    = "kb://"
 	webHandlePrefix   = "url://"
 
-	durableURIScheme = "weknora://"
+	durableURIScheme = "genyee://"
 )
 
 const (
@@ -46,7 +46,7 @@ var legacyHandlePrefixes = map[byte]string{
 	'c': chunkHandlePrefix, 'd': docHandlePrefix, 'b': kbHandlePrefix, 'w': webHandlePrefix,
 }
 
-var durableURIRE = regexp.MustCompile(`(?i)weknora://(kb|doc|chunk)/([0-9A-Za-z][0-9A-Za-z_\-]*)`)
+var durableURIRE = regexp.MustCompile(`(?i)genyee://(kb|doc|chunk)/([0-9A-Za-z][0-9A-Za-z_\-]*)`)
 
 // parseSourceHandleToken returns the canonical handle for one scheme-shaped
 // token, or "" when the token body is not a positive integer.

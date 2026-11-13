@@ -10,7 +10,7 @@ from pathlib import Path
 from unittest import mock
 from urllib.parse import urlsplit
 
-import weknora_mcp_server as srv
+import genyee_mcp_server as srv
 
 
 class BaseURLTest(unittest.TestCase):
@@ -22,7 +22,7 @@ class BaseURLTest(unittest.TestCase):
             'data: {"response_type":"complete"}\n\n'
         ).encode()
         routes = {}
-        for prefix in ("/api/v1", "/weknora/api/v1"):
+        for prefix in ("/api/v1", "/genyee/api/v1"):
             routes[("GET", prefix + "/agents")] = (
                 "application/json", json.dumps(listing).encode()
             )
@@ -67,7 +67,7 @@ class BaseURLTest(unittest.TestCase):
                         "no_proxy": "127.0.0.1",
                     },
                 ):
-                    for prefix in ("/api/v1", "/weknora/api/v1"):
+                    for prefix in ("/api/v1", "/genyee/api/v1"):
                         for suffix in ("", "/"):
                             base_url = f"http://127.0.0.1:{server.server_port}{prefix}{suffix}"
                             client = srv.GENYEEClient(base_url, "test-key")

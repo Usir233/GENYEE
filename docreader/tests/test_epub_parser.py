@@ -39,7 +39,7 @@ def _minimal_epub_bytes() -> bytes:
         identifier="test-epub",
         title="Tiny EPUB",
         language="en",
-        authors=["WeKnora"],
+        authors=["GENYEE"],
         items=[chapter, picture, NCX, NAV],
         spine=[NAV, chapter],
         toc=[TocLink("text/chapter_01.xhtml", "Chapter One", "chapter-one")],

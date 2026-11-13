@@ -6,9 +6,9 @@ import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { cookieKey } from "../cdp-cookies.mjs";
-import { DAY_MS, isCredential, planSync, siteOf, viewEntry } from "../wk-cookie-plan.mjs";
-import { BrowserSync, readSeed, ROOT_STATE_FILE, SEED_FILE } from "../wk-browser-sync.mjs";
-import { ReloadBreaker, RELOAD_MAX_PER_WINDOW, RELOAD_QUIET_MS } from "../wk-page-sync.mjs";
+import { DAY_MS, isCredential, planSync, siteOf, viewEntry } from "../gy-cookie-plan.mjs";
+import { BrowserSync, readSeed, ROOT_STATE_FILE, SEED_FILE } from "../gy-browser-sync.mjs";
+import { ReloadBreaker, RELOAD_MAX_PER_WINDOW, RELOAD_QUIET_MS } from "../gy-page-sync.mjs";
 
 const NOW = 1_800_000_000_000;
 const YEAR = NOW / 1000 + 365 * 86400;
@@ -21,7 +21,7 @@ const site = (domain, name, value, extra = {}) => ({ ...google(name, value, extr
 const jar = (cookies) => new Map(cookies.map((c) => [cookieKey(c), c]));
 
 function temporary(t) {
-  const dir = fs.mkdtempSync(join(tmpdir(), "wk-sync-"));
+  const dir = fs.mkdtempSync(join(tmpdir(), "gy-sync-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
@@ -395,10 +395,10 @@ test("planSync takes the later expiry when two browsers write the same key", () 
 
 test("CLI rejects invalid usage and --once exits with no browsers", (t) => {
   const dir = temporary(t);
-  const cli = fileURLToPath(new URL("../wk-browser-sync.mjs", import.meta.url));
-  const env = { ...process.env, WK_BROWSER_AUTH_DIR: join(dir, "auth"),
-    WK_BROWSER_SESSIONS_DIR: join(dir, "none"), WK_BROWSER_SHARED_ROOT: join(dir, "none2"),
-    WK_BROWSER_PROC_ROOT: join(dir, "no-proc") };
+  const cli = fileURLToPath(new URL("../gy-browser-sync.mjs", import.meta.url));
+  const env = { ...process.env, GY_BROWSER_AUTH_DIR: join(dir, "auth"),
+    GY_BROWSER_SESSIONS_DIR: join(dir, "none"), GY_BROWSER_SHARED_ROOT: join(dir, "none2"),
+    GY_BROWSER_PROC_ROOT: join(dir, "no-proc") };
   const run = (args) => spawnSync(process.execPath, [cli, ...args], { env, timeout: 5000, encoding: "utf8" });
   assert.equal(run(["bogus"]).status, 2);
   assert.equal(run(["--restore-root"]).status, 2);

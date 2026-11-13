@@ -4,7 +4,7 @@
 # 执行后请直接在云控制台「制作镜像 / 创建快照 / 创建 AMI」，不要再 SSH 进来。
 set -euo pipefail
 
-GENYEE_DIR="${GENYEE_DIR:-/opt/WeKnora}"
+GENYEE_DIR="${GENYEE_DIR:-/opt/GENYEE}"
 
 if [[ "${EUID}" -ne 0 ]]; then
   echo "[cleanup] 请使用 sudo 或 root 运行" >&2
@@ -17,17 +17,17 @@ if [[ "${ans}" != "YES" ]]; then
   exit 0
 fi
 
-echo "[cleanup] 1/8 停止 WeKnora 容器"
+echo "[cleanup] 1/8 停止 GENYEE 容器"
 COMPOSE_PROJECT=""
 if [[ -d "${GENYEE_DIR}" ]]; then
   cd "${GENYEE_DIR}"
-  # 优先用 compose ls 拿到真实 project 名 (默认是目录名小写, 如 weknora)
+  # 优先用 compose ls 拿到真实 project 名 (默认是目录名小写, 如 genyee)
   COMPOSE_PROJECT="$(docker compose ls --format json 2>/dev/null \
     | grep -oE '"Name":"[^"]+"' | head -1 | cut -d'"' -f4 || true)"
   docker compose down -v --remove-orphans || true
 fi
 
-echo "[cleanup] 2/8 清空 WeKnora 业务数据 + 首启 marker / 日志"
+echo "[cleanup] 2/8 清空 GENYEE 业务数据 + 首启 marker / 日志"
 if [[ -d "${GENYEE_DIR}" ]]; then
   rm -rf "${GENYEE_DIR}/data"/* "${GENYEE_DIR}/logs"/* 2>/dev/null || true
   # 故意不在这里重建 .env: 让镜像里 .env 缺失, 任何在 firstboot 之前
@@ -36,7 +36,7 @@ if [[ -d "${GENYEE_DIR}" ]]; then
   # firstboot.sh 自己会从 .env.example 拷贝并替换密钥。
   rm -f "${GENYEE_DIR}/.env" "${GENYEE_DIR}/.firstboot.done"
 fi
-rm -f /root/weknora-credentials.txt /var/log/weknora-firstboot.log
+rm -f /root/genyee-credentials.txt /var/log/genyee-firstboot.log
 
 echo "[cleanup] 3/8 清理残留 docker 卷与构建缓存"
 # 严格按 compose project 名前缀匹配, 避免误伤同宿主上其它 postgres/redis 卷。

@@ -51,7 +51,7 @@ func newEnv(t *testing.T, configs fakeConfigs, sessions ...*types.Session) *test
 	for _, s := range sessions {
 		require.NoError(t, db.Session(&gorm.Session{SkipHooks: true}).Create(s).Error)
 	}
-	svc := New(repository.NewSandboxAllocationRepository(db), configs, repository.NewSessionRepository(db), "weknora")
+	svc := New(repository.NewSandboxAllocationRepository(db), configs, repository.NewSessionRepository(db), "genyee")
 	return &testEnv{svc: svc, db: db}
 }
 

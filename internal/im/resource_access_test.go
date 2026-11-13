@@ -30,7 +30,7 @@ func TestIMResourceAccessFailsClosed(t *testing.T) {
 		"organization deleted", "catalog failure", "sharing failure", "missing identity",
 		"other selected KB", "no KBs", "explicit KB restriction",
 	}
-	for _, externalURL := range []string{"", "https://weknora.example"} {
+	for _, externalURL := range []string{"", "https://genyee.example"} {
 		for _, scenario := range cases {
 			t.Run(scenario+externalURL, func(t *testing.T) {
 				f := newIMResourceStorageFixture(t)

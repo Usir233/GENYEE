@@ -132,9 +132,9 @@ func serviceFixtureWithProjects(
 	t.Helper()
 	base := t.TempDir()
 	home := filepath.Join(base, "home")
-	appData := filepath.Join(home, "App Support", "WeKnora Lite")
+	appData := filepath.Join(home, "App Support", "GENYEE Lite")
 	resolver := NewWorkspaceResolver(DirLayout{
-		SessionRoot: filepath.Join(home, "Documents", "WeKnora"),
+		SessionRoot: filepath.Join(home, "Documents", "GENYEE"),
 	}, projects)
 	return NewService(backend, resolver, NewPolicyBuilder(home, appData), fixedMode(mode))
 }

@@ -50,43 +50,43 @@ func TestDesktopConfigRootIgnoresTheWorkingDirectory(t *testing.T) {
 func TestLoadDesktopEnvReadsTheRootNotTheWorkingDirectory(t *testing.T) {
 	root := t.TempDir()
 	untrusted := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(root, ".env.lite"), []byte("WK_A=lite\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(root, ".env"), []byte("WK_A=env\nWK_B=env\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(untrusted, ".env.lite"), []byte("WK_C=planted\n"), 0o644))
-	require.NoError(t, os.WriteFile(filepath.Join(untrusted, ".env"), []byte("WK_C=planted\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".env.lite"), []byte("GY_A=lite\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(root, ".env"), []byte("GY_A=env\nGY_B=env\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(untrusted, ".env.lite"), []byte("GY_C=planted\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(untrusted, ".env"), []byte("GY_C=planted\n"), 0o644))
 	t.Chdir(untrusted)
-	for _, name := range []string{"WK_A", "WK_B", "WK_C", "ENV_FILE"} {
+	for _, name := range []string{"GY_A", "GY_B", "GY_C", "ENV_FILE"} {
 		t.Setenv(name, "")
 		require.NoError(t, os.Unsetenv(name))
 	}
 
 	require.NoError(t, loadDesktopEnv(root, true))
-	require.Equal(t, "lite", os.Getenv("WK_A"), ".env.lite wins on shared keys")
-	require.Equal(t, "env", os.Getenv("WK_B"), ".env still fills in the rest")
-	require.Empty(t, os.Getenv("WK_C"))
+	require.Equal(t, "lite", os.Getenv("GY_A"), ".env.lite wins on shared keys")
+	require.Equal(t, "env", os.Getenv("GY_B"), ".env still fills in the rest")
+	require.Empty(t, os.Getenv("GY_C"))
 }
 
 func TestLoadDesktopEnvWithoutARootReadsNoFiles(t *testing.T) {
 	untrusted := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(untrusted, ".env"), []byte("WK_C=planted\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(untrusted, ".env"), []byte("GY_C=planted\n"), 0o644))
 	t.Chdir(untrusted)
-	t.Setenv("WK_C", "")
-	require.NoError(t, os.Unsetenv("WK_C"))
+	t.Setenv("GY_C", "")
+	require.NoError(t, os.Unsetenv("GY_C"))
 	t.Setenv("ENV_FILE", "")
 
 	require.NoError(t, loadDesktopEnv("", false))
-	require.Empty(t, os.Getenv("WK_C"))
+	require.Empty(t, os.Getenv("GY_C"))
 }
 
 func TestLoadDesktopEnvHonoursAnExplicitFile(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "custom.env")
-	require.NoError(t, os.WriteFile(file, []byte("WK_D=custom\n"), 0o644))
+	require.NoError(t, os.WriteFile(file, []byte("GY_D=custom\n"), 0o644))
 	t.Setenv("ENV_FILE", file)
-	t.Setenv("WK_D", "")
-	require.NoError(t, os.Unsetenv("WK_D"))
+	t.Setenv("GY_D", "")
+	require.NoError(t, os.Unsetenv("GY_D"))
 
 	require.NoError(t, loadDesktopEnv("", false))
-	require.Equal(t, "custom", os.Getenv("WK_D"))
+	require.Equal(t, "custom", os.Getenv("GY_D"))
 
 	t.Setenv("ENV_FILE", filepath.Join(t.TempDir(), "missing.env"))
 	require.Error(t, loadDesktopEnv("", false), "a file asked for by name must exist")

@@ -124,7 +124,7 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&opts.NoCache, "no-cache", false, "Bypass server-info cache (located at $XDG_CACHE_HOME/weknora/server-info.yaml); force re-probe")
+	cmd.Flags().BoolVar(&opts.NoCache, "no-cache", false, "Bypass server-info cache (located at $XDG_CACHE_HOME/genyee/server-info.yaml); force re-probe")
 	cmd.Flags().BoolVar(&opts.Offline, "offline", false, "Skip network checks; only verify local keyring/file storage (credential_storage check still runs)")
 	cmdutil.AddFormatFlag(cmd, doctorFields...)
 	cmdutil.SetAgentHelp(cmd, cmdutil.AgentHelp{
@@ -297,7 +297,7 @@ func fillCredentialStorageCheck(c *Check) {
 	if _, isFile := store.(*secrets.FileStore); isFile {
 		c.Status = StatusWarn
 		c.Details = "falling back to file store: keychain unavailable"
-		c.Hint = "secrets persist at 0600 under $XDG_CONFIG_HOME/weknora/secrets/; install / unlock keyring for OS-backed storage"
+		c.Hint = "secrets persist at 0600 under $XDG_CONFIG_HOME/genyee/secrets/; install / unlock keyring for OS-backed storage"
 		return
 	}
 	c.Status = StatusOK

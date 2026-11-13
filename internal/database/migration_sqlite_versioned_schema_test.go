@@ -476,7 +476,7 @@ func TestSQLiteSessionKindBackfillAndRollback(t *testing.T) {
 	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: dbPath}))
 	db := openSQLiteDB(t, dbPath)
 	configs := []any{
-		nil, "invalid JSON", `{"agent_id":"builtin-weknora-assistant"}`, `{}`, `null`, `[]`,
+		nil, "invalid JSON", `{"agent_id":"builtin-genyee-assistant"}`, `{}`, `null`, `[]`,
 		`{"agent_id":"another-agent"}`, `{"agent_id":`,
 	}
 	for i, config := range configs {

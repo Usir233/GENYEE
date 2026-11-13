@@ -78,7 +78,7 @@ func TestCheckpointKeepsAgentGitOnceGENYEERepoExists(t *testing.T) {
 
 	require.DirExists(t, filepath.Join(workspace, ".git"))
 	gotAgent := strings.TrimSpace(runGitAt(t, env, workspace, "rev-parse", "HEAD"))
-	require.Equal(t, agentHEAD, gotAgent, "WeKnora must not delete or rewrite the agent's work-tree git")
+	require.Equal(t, agentHEAD, gotAgent, "GENYEE must not delete or rewrite the agent's work-tree git")
 	require.FileExists(t, filepath.Join(gitDir, "HEAD"))
 	ls := runGitSplit(t, env, workspace, gitDir, "ls-files")
 	require.NotContains(t, ls, ".git/", "checkpoint must not ingest the agent's .git as tracked files")
@@ -89,8 +89,8 @@ func TestResetPrunesLaterCommitsFromExternalGitDir(t *testing.T) {
 	workspace, gitDir, env := splitGitDirs(t)
 
 	runGitSplit(t, env, workspace, gitDir, "init", "-q")
-	runGitSplit(t, env, workspace, gitDir, "config", "user.email", "agent@weknora.local")
-	runGitSplit(t, env, workspace, gitDir, "config", "user.name", "WeKnora Agent")
+	runGitSplit(t, env, workspace, gitDir, "config", "user.email", "agent@genyee.local")
+	runGitSplit(t, env, workspace, gitDir, "config", "user.name", "GENYEE Agent")
 	require.NoError(t, os.WriteFile(filepath.Join(workspace, "keep.txt"), []byte("early"), 0o644))
 	runGitSplit(t, env, workspace, gitDir, "add", "-A")
 	runGitSplit(t, env, workspace, gitDir, "commit", "-q", "-m", "early")
@@ -126,8 +126,8 @@ func TestEmptyResetWipesWorkTreeAndReinitializesGitDir(t *testing.T) {
 	workspace, gitDir, env := splitGitDirs(t)
 
 	runGitSplit(t, env, workspace, gitDir, "init", "-q")
-	runGitSplit(t, env, workspace, gitDir, "config", "user.email", "agent@weknora.local")
-	runGitSplit(t, env, workspace, gitDir, "config", "user.name", "WeKnora Agent")
+	runGitSplit(t, env, workspace, gitDir, "config", "user.email", "agent@genyee.local")
+	runGitSplit(t, env, workspace, gitDir, "config", "user.name", "GENYEE Agent")
 	require.NoError(t, os.WriteFile(filepath.Join(workspace, "keep.txt"), []byte("early"), 0o644))
 	runGitSplit(t, env, workspace, gitDir, "add", "-A")
 	runGitSplit(t, env, workspace, gitDir, "commit", "-q", "-m", "early")

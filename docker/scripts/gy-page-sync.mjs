@@ -7,7 +7,7 @@ import {
   reloadPage,
   setPageStorage,
 } from "./cdp-cookies.mjs";
-import { siteOf } from "./wk-cookie-plan.mjs";
+import { siteOf } from "./gy-cookie-plan.mjs";
 
 export const RELOAD_WINDOW_MS = 60_000;
 export const RELOAD_MAX_PER_WINDOW = 3;

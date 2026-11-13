@@ -81,7 +81,7 @@ async function navigate(
   return { ...snapshotPage(), return_path: returnPath }
 }
 
-const HANDLED_KEY = 'weknora:assistant-page-actions'
+const HANDLED_KEY = 'genyee:assistant-page-actions'
 // A replayed stream can repeat a prompt long after it ended; the server
 // rejects the late answer anyway, this only spares the page the work.
 const STALE_AFTER_SECONDS = 600

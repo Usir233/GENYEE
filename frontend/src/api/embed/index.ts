@@ -61,10 +61,10 @@ export type WidgetPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top
 export const EMBED_SESSION_TOKEN_PREFIX = 'ems_'
 
 /** localStorage key prefix for persisted embed chat sessions (per channel). */
-export const EMBED_CHAT_SESSION_STORAGE_PREFIX = 'weknora-embed-session:'
+export const EMBED_CHAT_SESSION_STORAGE_PREFIX = 'genyee-embed-session:'
 
 /** localStorage key prefix for anonymous embed visitor ids (per channel). */
-export const EMBED_VISITOR_STORAGE_PREFIX = 'weknora-embed-visitor:'
+export const EMBED_VISITOR_STORAGE_PREFIX = 'genyee-embed-visitor:'
 
 export function embedVisitorStorageKey(channelId: string): string {
   return `${EMBED_VISITOR_STORAGE_PREFIX}${channelId}`
@@ -460,8 +460,8 @@ export async function getEmbedMessageList(
   )
 }
 
-const EMBED_MSG_SOURCE = 'weknora-embed'
-const EMBED_HOST_SOURCE = 'weknora-host'
+const EMBED_MSG_SOURCE = 'genyee-embed'
+const EMBED_HOST_SOURCE = 'genyee-host'
 
 // The exact parent origin, learned from the first trusted host message
 // (trust-on-first-use). Once known, every inbound/outbound message is pinned to

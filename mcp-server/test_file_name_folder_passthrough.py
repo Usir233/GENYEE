@@ -27,7 +27,7 @@ if "mcp" not in sys.modules:
     sys.modules["mcp"] = mcp_pkg
     sys.modules["mcp.server"] = mcp_server
 
-import weknora_mcp_server as srv  # noqa: E402
+import genyee_mcp_server as srv  # noqa: E402
 
 
 class CreateKnowledgeFromFileTest(unittest.TestCase):

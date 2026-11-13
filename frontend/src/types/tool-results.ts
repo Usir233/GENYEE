@@ -36,8 +36,8 @@ export type DisplayType =
     | 'mcp_call'
     | 'find_operations'
     | 'run_operation'
-    | 'search_weknora_docs'
-    | 'read_weknora_doc'
+    | 'search_genyee_docs'
+    | 'read_genyee_doc'
     | 'work_wait';
 
 // Search result item

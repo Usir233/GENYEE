@@ -28,8 +28,8 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 func TestVerifyCallbackSignature(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	msg := callbackMessage{
-		Type: 2, RobotID: "robot", RobotName: "WeKnora", OperatorOpenid: "user",
-		OperatorName: "User", Time: time.Now().UnixMilli(), MsgID: "message", Content: "@WeKnora hello",
+		Type: 2, RobotID: "robot", RobotName: "GENYEE", OperatorOpenid: "user",
+		OperatorName: "User", Time: time.Now().UnixMilli(), MsgID: "message", Content: "@GENYEE hello",
 	}
 	body, err := json.Marshal(msg)
 	if err != nil {
@@ -57,8 +57,8 @@ func TestVerifyCallbackSignature(t *testing.T) {
 func TestVerifyCallbackRejectsStaleTimestamp(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	msg := callbackMessage{
-		Type: 2, RobotID: "robot", RobotName: "WeKnora", OperatorOpenid: "user",
-		OperatorName: "User", Time: time.Now().Add(-10 * time.Minute).UnixMilli(), MsgID: "message", Content: "@WeKnora hello",
+		Type: 2, RobotID: "robot", RobotName: "GENYEE", OperatorOpenid: "user",
+		OperatorName: "User", Time: time.Now().Add(-10 * time.Minute).UnixMilli(), MsgID: "message", Content: "@GENYEE hello",
 	}
 	body, err := json.Marshal(msg)
 	if err != nil {
@@ -78,7 +78,7 @@ func TestVerifyCallbackRejectsStaleTimestamp(t *testing.T) {
 
 func TestToIncomingMessageRequiresRobotMention(t *testing.T) {
 	msg := &callbackMessage{
-		Type: 2, RobotID: "robot", RobotName: "WeKnora", OperatorOpenid: "user",
+		Type: 2, RobotID: "robot", RobotName: "GENYEE", OperatorOpenid: "user",
 		OperatorName: "User", Time: 123, MsgID: "message", Content: "hello",
 	}
 	if got := toIncomingMessage(t.Context(), msg); got != nil {
@@ -87,10 +87,10 @@ func TestToIncomingMessageRequiresRobotMention(t *testing.T) {
 }
 
 func TestCleanAtMentionRequiresNameBoundary(t *testing.T) {
-	if _, mentioned := cleanAtMention("@WeKnoraPlus hello", "WeKnora"); mentioned {
+	if _, mentioned := cleanAtMention("@GENYEEPlus hello", "GENYEE"); mentioned {
 		t.Fatal("longer user name must not be treated as a robot mention")
 	}
-	if got, mentioned := cleanAtMention("@WeKnora：你好", "WeKnora"); !mentioned || got != "你好" {
+	if got, mentioned := cleanAtMention("@GENYEE：你好", "GENYEE"); !mentioned || got != "你好" {
 		t.Fatalf("cleanAtMention() = %q, %v; want 你好, true", got, mentioned)
 	}
 }

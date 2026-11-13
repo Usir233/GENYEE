@@ -84,8 +84,8 @@ export function useConfigSkillInstallProgress(options?: {
     const isCurrent = () => abortByKey.get(key) === controller
     const stopCurrent = () => { if (isCurrent()) stop(key) }
 
-    const token = localStorage.getItem('weknora_token')
-    const tenantId = localStorage.getItem('weknora_selected_tenant_id')
+    const token = localStorage.getItem('genyee_token')
+    const tenantId = localStorage.getItem('genyee_selected_tenant_id')
     const url = `${getApiBaseUrl()}${configSkillInstallEventsUrl(configId, skillId)}`
 
     void fetchEventSource(url, {

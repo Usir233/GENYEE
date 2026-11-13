@@ -8,15 +8,15 @@ GENYEE Backend API Server Deployment and Service.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "weknora.fullname" . }}-app
+  name: {{ include "genyee.fullname" . }}-app
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "weknora.componentLabels" (dict "component" "app" "context" .) | nindent 4 }}
+    {{- include "genyee.componentLabels" (dict "component" "app" "context" .) | nindent 4 }}
 spec:
   replicas: {{ .Values.app.replicaCount }}
   selector:
     matchLabels:
-      {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 6 }}
+      {{- include "genyee.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 6 }}
   strategy:
     {{- $strategy := .Values.app.strategy | default dict }}
     {{- $accessModes := .Values.dataFiles.persistence.accessModes | default (list "ReadWriteOnce") }}
@@ -36,21 +36,21 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 8 }}
+        {{- include "genyee.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 8 }}
       {{- with .Values.app.podAnnotations }}
       annotations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      {{- include "weknora.imagePullSecrets" . | nindent 6 }}
-      serviceAccountName: {{ include "weknora.serviceAccountName" . }}
+      {{- include "genyee.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "genyee.serviceAccountName" . }}
       {{- with .Values.app.podSecurityContext | default .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       containers:
         - name: app
-          image: {{ include "weknora.app.image" . }}
+          image: {{ include "genyee.app.image" . }}
           imagePullPolicy: {{ .Values.app.image.pullPolicy }}
           {{- with .Values.app.securityContext }}
           securityContext:
@@ -72,37 +72,37 @@ spec:
             - name: DB_DRIVER
               value: "postgres"
             - name: DB_HOST
-              value: {{ include "weknora.serviceName" (dict "component" "postgresql" "context" .) | quote }}
+              value: {{ include "genyee.serviceName" (dict "component" "postgresql" "context" .) | quote }}
             - name: DB_PORT
               value: "5432"
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: DB_USER
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: DB_PASSWORD
             - name: DB_NAME
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: DB_NAME
             # Redis configuration
             - name: REDIS_ADDR
-              value: {{ printf "%s:6379" (include "weknora.serviceName" (dict "component" "redis" "context" .)) | quote }}
+              value: {{ printf "%s:6379" (include "genyee.serviceName" (dict "component" "redis" "context" .)) | quote }}
             - name: REDIS_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: REDIS_USERNAME
                   optional: true
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: REDIS_PASSWORD
             - name: REDIS_DB
               value: "0"
@@ -114,23 +114,23 @@ spec:
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: JWT_SECRET
             - name: SYSTEM_AES_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: SYSTEM_AES_KEY
             - name: SYSTEM_SIGNING_KEY
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: SYSTEM_SIGNING_KEY
                   optional: true
             - name: GRPC_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: GRPC_AUTH_TOKEN
             {{- if and .Values.docreader.tls .Values.docreader.tls.enabled }}
             - name: GRPC_TLS_ENABLED
@@ -151,7 +151,7 @@ spec:
               value: {{ .Values.app.env.LOCAL_STORAGE_BASE_DIR | quote }}
             # Document reader
             - name: DOCREADER_ADDR
-              value: {{ printf "%s:50051" (include "weknora.serviceName" (dict "component" "docreader" "context" .)) | quote }}
+              value: {{ printf "%s:50051" (include "genyee.serviceName" (dict "component" "docreader" "context" .)) | quote }}
             # Processing
             - name: AUTO_RECOVER_DIRTY
               value: {{ .Values.app.env.AUTO_RECOVER_DIRTY | quote }}
@@ -169,16 +169,16 @@ spec:
             - name: NEO4J_ENABLE
               value: "true"
             - name: NEO4J_URI
-              value: {{ printf "bolt://%s:7687" (include "weknora.serviceName" (dict "component" "neo4j" "context" .)) | quote }}
+              value: {{ printf "bolt://%s:7687" (include "genyee.serviceName" (dict "component" "neo4j" "context" .)) | quote }}
             - name: NEO4J_USERNAME
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: NEO4J_USERNAME
             - name: NEO4J_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "weknora.secretName" . }}
+                  name: {{ include "genyee.secretName" . }}
                   key: NEO4J_PASSWORD
             {{- end }}
             {{- with .Values.app.extraEnv }}
@@ -211,7 +211,7 @@ spec:
         - name: data-files
           {{- if .Values.dataFiles.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ .Values.dataFiles.persistence.existingClaim | default (printf "%s-data-files" (include "weknora.fullname" .)) }}
+            claimName: {{ .Values.dataFiles.persistence.existingClaim | default (printf "%s-data-files" (include "genyee.fullname" .)) }}
           {{- else }}
           emptyDir: {}
           {{- end }}
@@ -240,14 +240,14 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "weknora.serviceName" (dict "component" "app" "context" .) | quote }}
+  name: {{ include "genyee.serviceName" (dict "component" "app" "context" .) | quote }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "weknora.componentLabels" (dict "component" "app" "context" .) | nindent 4 }}
+    {{- include "genyee.componentLabels" (dict "component" "app" "context" .) | nindent 4 }}
 spec:
   type: {{ .Values.app.service.type }}
   selector:
-    {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 4 }}
+    {{- include "genyee.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 4 }}
   ports:
     - name: http
       port: {{ .Values.app.service.port }}

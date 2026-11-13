@@ -185,7 +185,7 @@ func TestDecodeToolCallsGivesFreeTextDurableFormsAndIDFieldsBareIDs(t *testing.T
 	registry.DecodeToolCalls(calls)
 
 	require.JSONEq(t,
-		`{"query":"b1","content":"see weknora://kb/kb-uuid-1 for details","knowledge_base_ids":["kb-uuid-1"]}`,
+		`{"query":"b1","content":"see genyee://kb/kb-uuid-1 for details","knowledge_base_ids":["kb-uuid-1"]}`,
 		calls[0].Function.Arguments,
 	)
 }

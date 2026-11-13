@@ -29,11 +29,11 @@ func TestMatchesCollectionName(t *testing.T) {
 		want       bool
 	}{
 		{"minimum dimension", "embeddings", "embeddings_1", true},
-		{"typical dimension", "weknora_embeddings", "weknora_embeddings_768", true},
+		{"typical dimension", "genyee_embeddings", "genyee_embeddings_768", true},
 		{"custom base", "team_42_vectors", "team_42_vectors_1536", true},
 		{"base ending in underscore", "vectors_", "vectors__768", true},
 		{"longer base", "vectors", "vectors_extra_768", false},
-		{"backup collection", "weknora_embeddings", "weknora_embeddings_backup_768", false},
+		{"backup collection", "genyee_embeddings", "genyee_embeddings_backup_768", false},
 		{"backup suffix", "vectors", "vectors_768_backup", false},
 		{"missing separator", "vectors", "vectors768", false},
 		{"missing dimension", "vectors", "vectors_", false},

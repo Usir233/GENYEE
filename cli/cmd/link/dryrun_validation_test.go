@@ -41,7 +41,7 @@ func linkDryRunFactory(t *testing.T, cfg *config.Config) *cmdutil.Factory {
 // withRootHarnessLink wraps a link subcommand under a synthetic root cmd
 // that registers the global persistent flags.
 func withRootHarnessLink(sub *cobra.Command, args ...string) *cobra.Command {
-	root := &cobra.Command{Use: "weknora"}
+	root := &cobra.Command{Use: "genyee"}
 	pf := root.PersistentFlags()
 	pf.BoolP("yes", "y", false, "")
 	pf.String("format", "", "")

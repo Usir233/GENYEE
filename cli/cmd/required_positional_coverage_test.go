@@ -54,7 +54,7 @@ func TestLeafCommandsDeclareRequiredPositional(t *testing.T) {
 	sort.Strings(missing)
 	if len(missing) > 0 {
 		t.Errorf("leaf commands take a required positional but don't declare it in agent-help RequiredFlags "+
-			"(so `weknora schema <cmd>` under-reports the requirement). Add a \"<name> (positional)\" entry "+
+			"(so `genyee schema <cmd>` under-reports the requirement). Add a \"<name> (positional)\" entry "+
 			"to each SetAgentHelp RequiredFlags:\n  %s\n(%d commands)",
 			strings.Join(missing, "\n  "), len(missing))
 	}

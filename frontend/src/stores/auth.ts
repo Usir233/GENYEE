@@ -200,7 +200,7 @@ export const useAuthStore = defineStore('auth', () => {
     const previousId = user.value?.id
     user.value = userData
     // 保存到localStorage
-    localStorage.setItem('weknora_user', JSON.stringify(userData))
+    localStorage.setItem('genyee_user', JSON.stringify(userData))
     if (previousId && previousId !== userData.id) {
       clearProtectedFileCache()
     }
@@ -213,10 +213,10 @@ export const useAuthStore = defineStore('auth', () => {
   const setTenant = (tenantData: TenantInfo | null) => {
     tenant.value = tenantData
     if (tenantData) {
-      localStorage.setItem('weknora_tenant', JSON.stringify(tenantData))
+      localStorage.setItem('genyee_tenant', JSON.stringify(tenantData))
       syncProtectedFileScope()
     } else {
-      localStorage.removeItem('weknora_tenant')
+      localStorage.removeItem('genyee_tenant')
       setSelectedTenant(null, null)
       syncProtectedFileScope()
     }
@@ -235,15 +235,15 @@ export const useAuthStore = defineStore('auth', () => {
   const setKnowledgeBases = (kbList: KnowledgeBaseInfo[]) => {
     // 确保输入是数组
     knowledgeBases.value = Array.isArray(kbList) ? kbList : []
-    localStorage.setItem('weknora_knowledge_bases', JSON.stringify(knowledgeBases.value))
+    localStorage.setItem('genyee_knowledge_bases', JSON.stringify(knowledgeBases.value))
   }
 
   const setCurrentKnowledgeBase = (kb: KnowledgeBaseInfo | null) => {
     currentKnowledgeBase.value = kb
     if (kb) {
-      localStorage.setItem('weknora_current_kb', JSON.stringify(kb))
+      localStorage.setItem('genyee_current_kb', JSON.stringify(kb))
     } else {
-      localStorage.removeItem('weknora_current_kb')
+      localStorage.removeItem('genyee_current_kb')
     }
   }
 
@@ -260,9 +260,9 @@ export const useAuthStore = defineStore('auth', () => {
       // remembered pick. The un-namespaced legacy key is cleaned up for
       // browsers upgraded from before user scoping.
       safeRemoveItem(userKey('last_chat_model'))
-      safeRemoveItem('weknora_last_chat_model_id')
-      localStorage.removeItem('weknora_current_kb')
-      const raw = localStorage.getItem('WeKnora_settings')
+      safeRemoveItem('genyee_last_chat_model_id')
+      localStorage.removeItem('genyee_current_kb')
+      const raw = localStorage.getItem('GENYEE_settings')
       if (raw) {
         const parsed = JSON.parse(raw)
         if (parsed && typeof parsed === 'object') {
@@ -278,7 +278,7 @@ export const useAuthStore = defineStore('auth', () => {
           parsed.selectedFiles = []
           parsed.selectedFileKbMap = {}
           parsed.knowledgeBaseId = ''
-          localStorage.setItem('WeKnora_settings', JSON.stringify(parsed))
+          localStorage.setItem('GENYEE_settings', JSON.stringify(parsed))
         }
       }
     } catch (e) {
@@ -293,13 +293,13 @@ export const useAuthStore = defineStore('auth', () => {
     selectedTenantId.value = tenantId
     selectedTenantName.value = tenantName
     if (tenantId !== null) {
-      localStorage.setItem('weknora_selected_tenant_id', String(tenantId))
+      localStorage.setItem('genyee_selected_tenant_id', String(tenantId))
       if (tenantName) {
-        localStorage.setItem('weknora_selected_tenant_name', tenantName)
+        localStorage.setItem('genyee_selected_tenant_name', tenantName)
       }
     } else {
-      localStorage.removeItem('weknora_selected_tenant_id')
-      localStorage.removeItem('weknora_selected_tenant_name')
+      localStorage.removeItem('genyee_selected_tenant_id')
+      localStorage.removeItem('genyee_selected_tenant_name')
     }
     if (tenantChanged) {
       clearTenantScopedClientState()
@@ -316,7 +316,7 @@ export const useAuthStore = defineStore('auth', () => {
     list: Array<{ tenant_id: number; tenant_name?: string; role: string }>
   ) => {
     memberships.value = Array.isArray(list) ? list : []
-    localStorage.setItem('weknora_memberships', JSON.stringify(memberships.value))
+    localStorage.setItem('genyee_memberships', JSON.stringify(memberships.value))
   }
 
   // setPendingInvitationCount is the explicit setter used by the
@@ -458,9 +458,9 @@ export const useAuthStore = defineStore('auth', () => {
   const setLiteMode = (value: boolean) => {
     isLiteMode.value = value
     if (value) {
-      localStorage.setItem('weknora_lite_mode', 'true')
+      localStorage.setItem('genyee_lite_mode', 'true')
     } else {
-      localStorage.removeItem('weknora_lite_mode')
+      localStorage.removeItem('genyee_lite_mode')
     }
   }
 
@@ -487,20 +487,20 @@ export const useAuthStore = defineStore('auth', () => {
     clearSessionResourceCaches()
 
     // 清空localStorage
-    localStorage.removeItem('weknora_user')
-    localStorage.removeItem('weknora_tenant')
-    localStorage.removeItem('weknora_token')
-    localStorage.removeItem('weknora_refresh_token')
+    localStorage.removeItem('genyee_user')
+    localStorage.removeItem('genyee_tenant')
+    localStorage.removeItem('genyee_token')
+    localStorage.removeItem('genyee_refresh_token')
     notifyAuthTokensChanged({ token: '', refreshToken: '' })
-    localStorage.removeItem('weknora_knowledge_bases')
-    localStorage.removeItem('weknora_current_kb')
-    localStorage.removeItem('weknora_selected_tenant_id')
-    localStorage.removeItem('weknora_selected_tenant_name')
-    localStorage.removeItem('weknora_memberships')
-    localStorage.removeItem('weknora_lite_mode')
+    localStorage.removeItem('genyee_knowledge_bases')
+    localStorage.removeItem('genyee_current_kb')
+    localStorage.removeItem('genyee_selected_tenant_id')
+    localStorage.removeItem('genyee_selected_tenant_name')
+    localStorage.removeItem('genyee_memberships')
+    localStorage.removeItem('genyee_lite_mode')
     isLiteMode.value = false
     try {
-      sessionStorage.removeItem('weknora_lite_last_path')
+      sessionStorage.removeItem('genyee_lite_last_path')
     } catch {
       /* ignore */
     }
@@ -509,14 +509,14 @@ export const useAuthStore = defineStore('auth', () => {
 
   const initFromStorage = () => {
     // 从localStorage恢复状态
-    const storedUser = localStorage.getItem('weknora_user')
-    const storedTenant = localStorage.getItem('weknora_tenant')
-    const storedToken = localStorage.getItem('weknora_token')
-    const storedRefreshToken = localStorage.getItem('weknora_refresh_token')
-    const storedKnowledgeBases = localStorage.getItem('weknora_knowledge_bases')
-    const storedCurrentKb = localStorage.getItem('weknora_current_kb')
-    const storedSelectedTenantId = localStorage.getItem('weknora_selected_tenant_id')
-    const storedSelectedTenantName = localStorage.getItem('weknora_selected_tenant_name')
+    const storedUser = localStorage.getItem('genyee_user')
+    const storedTenant = localStorage.getItem('genyee_tenant')
+    const storedToken = localStorage.getItem('genyee_token')
+    const storedRefreshToken = localStorage.getItem('genyee_refresh_token')
+    const storedKnowledgeBases = localStorage.getItem('genyee_knowledge_bases')
+    const storedCurrentKb = localStorage.getItem('genyee_current_kb')
+    const storedSelectedTenantId = localStorage.getItem('genyee_selected_tenant_id')
+    const storedSelectedTenantName = localStorage.getItem('genyee_selected_tenant_name')
 
     if (storedUser) {
       try {
@@ -577,7 +577,7 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
 
-    const storedMemberships = localStorage.getItem('weknora_memberships')
+    const storedMemberships = localStorage.getItem('genyee_memberships')
     if (storedMemberships) {
       try {
         const parsed = JSON.parse(storedMemberships)
@@ -588,7 +588,7 @@ export const useAuthStore = defineStore('auth', () => {
       }
     }
 
-    isLiteMode.value = localStorage.getItem('weknora_lite_mode') === 'true'
+    isLiteMode.value = localStorage.getItem('genyee_lite_mode') === 'true'
     syncProtectedFileScope()
   }
 
@@ -609,7 +609,7 @@ export const useAuthStore = defineStore('auth', () => {
   if (typeof window !== 'undefined') {
     const onStorage = (e: StorageEvent) => {
       if (e.storageArea && e.storageArea !== localStorage) return
-      if (e.key === null || e.key === 'weknora_token' || e.key === 'weknora_refresh_token') {
+      if (e.key === null || e.key === 'genyee_token' || e.key === 'genyee_refresh_token') {
         syncTokenFromStorage()
       }
     }

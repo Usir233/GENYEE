@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -55,7 +56,7 @@ func (m *Manager) callUI(ctx context.Context, s Scope, session, method string) (
 		d.mu.Unlock()
 		return nil, errors.New("browser preview is busy")
 	}
-	id := "wk-ui-" + randomID()
+	id := "gy-ui-" + randomID()
 	reply := make(chan uiReply, 1)
 	if d.uiCalls == nil {
 		d.uiCalls = map[string]chan uiReply{}
@@ -99,7 +100,7 @@ func (m *Manager) receiveUI(d *device, data []byte) bool {
 	}
 	d.mu.Unlock()
 	if reply == nil {
-		return len(frame.ID) > 6 && frame.ID[:6] == "wk-ui-"
+		return strings.HasPrefix(frame.ID, "gy-ui-")
 	} // Late UI replies never reach native RPC.
 	var err error
 	if len(frame.Error) > 0 && string(frame.Error) != "null" {

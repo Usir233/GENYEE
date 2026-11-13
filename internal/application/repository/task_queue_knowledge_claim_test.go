@@ -63,7 +63,7 @@ func progressPostgresDB(t *testing.T) *gorm.DB {
 	if dsn == "" {
 		t.Skip("GENYEE_TEST_POSTGRES_DSN is not set")
 	}
-	require.True(t, strings.Contains(dsn, "dbname=weknora_task_progress_test"),
+	require.True(t, strings.Contains(dsn, "dbname=genyee_task_progress_test"),
 		"use a disposable task-progress test DB")
 	config := &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)}
 	base, err := gorm.Open(postgres.Open(dsn), config)

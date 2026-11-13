@@ -1385,7 +1385,7 @@ func newUserLifecycleFixture(t *testing.T) *userLifecycleFixture {
 			skillOutputEnvVar: SessionOutputRoot, sessionInputEnvVar: SessionInputRoot, "KEEP": "1",
 		}},
 		time.Minute, "cfg-1", nil,
-		withUserMachines("weknora", reg),
+		withUserMachines("genyee", reg),
 		withConfigCreateGate(reg, 42),
 	)
 	require.NoError(t, err)
@@ -1443,7 +1443,7 @@ func TestUserMachineIsSharedBySessions(t *testing.T) {
 
 	req := f.client.lastCreateRequest
 	require.Equal(t, "user", req.Metadata[remoteMetadataAllocation])
-	require.Equal(t, f.machine.Digest("weknora"), req.Metadata[remoteMetadataMachineDigest])
+	require.Equal(t, f.machine.Digest("genyee"), req.Metadata[remoteMetadataMachineDigest])
 	require.Equal(t, "42", req.Metadata[remoteMetadataTenantID])
 	require.NotContains(t, req.Metadata, remoteMetadataSessionID)
 	require.NotContains(t, req.EnvVars, skillOutputEnvVar, "session paths are per call on a shared machine")
@@ -1593,7 +1593,7 @@ func TestReclaimUserMachineRespectsAdmissionAndTheCheck(t *testing.T) {
 	h, err := f.lifecycle.Resolve(ctx, f.sessionKey(userSessionA))
 	require.NoError(t, err)
 	machine := f.sessionKey(userSessionA).Machine()
-	scope := admission.MachineScope(f.machine.Digest("weknora"))
+	scope := admission.MachineScope(f.machine.Digest("genyee"))
 
 	pty, err := f.admission.Hold(ctx, scope, admission.SessionMember(userSessionB, "pty", "t"), time.Minute)
 	require.NoError(t, err)
@@ -1625,7 +1625,7 @@ func TestReclaimUserMachineStopsWhenTheBarrierIsLost(t *testing.T) {
 	_, err := f.lifecycle.Resolve(ctx, f.sessionKey(userSessionA))
 	require.NoError(t, err)
 	machine := f.sessionKey(userSessionA).Machine()
-	scope := admission.MachineScope(f.machine.Digest("weknora"))
+	scope := admission.MachineScope(f.machine.Digest("genyee"))
 	f.client.deleteHook = func(context.Context, string) error {
 		f.admission.LoseBarrier(scope)
 		return nil
@@ -1648,7 +1648,7 @@ func TestReclaimUserMachineChecksTheBarrierBeforeEachMetadataDelete(t *testing.T
 	_, err = f.bindings.DeleteIfMatch(ctx, machine, SandboxTypeCube, first.ID())
 	require.NoError(t, err)
 	second := f.client.addSandboxWithMetadata(f.lifecycle.metadata(machine)) // a duplicate left by a failed create
-	scope := admission.MachineScope(f.machine.Digest("weknora"))
+	scope := admission.MachineScope(f.machine.Digest("genyee"))
 	deletes := 0
 	f.client.deleteHook = func(context.Context, string) error {
 		deletes++
@@ -1669,7 +1669,7 @@ func TestReclaimUserMachineMetadataDeleteStopsWhenTheBarrierIsLost(t *testing.T)
 	machine := f.sessionKey(userSessionA).Machine()
 	_, err = f.bindings.DeleteIfMatch(ctx, machine, SandboxTypeCube, first.ID())
 	require.NoError(t, err)
-	scope := admission.MachineScope(f.machine.Digest("weknora"))
+	scope := admission.MachineScope(f.machine.Digest("genyee"))
 
 	f.client.deleteHook = func(hookCtx context.Context, _ string) error {
 		f.admission.LoseBarrier(scope)

@@ -61,12 +61,12 @@ export interface StreamedAnswer {
 }
 
 /** Raised for any non-2xx response or transport failure, with the key redacted. */
-export class WeknoraApiError extends Error {
+export class GenyeeApiError extends Error {
   readonly status: number | undefined
 
   constructor(message: string, status?: number) {
     super(message)
-    this.name = 'WeknoraApiError'
+    this.name = 'GenyeeApiError'
     this.status = status
   }
 }
@@ -87,7 +87,7 @@ function snippet(body: string): string {
   return collapsed.length > 300 ? `${collapsed.slice(0, 300)}…` : collapsed
 }
 
-/** Extract a human-readable reason from WeKnora's error envelope. */
+/** Extract a human-readable reason from GENYEE's error envelope. */
 function reasonOf(body: string): string {
   try {
     const parsed = JSON.parse(body) as { error?: { message?: string } | string, message?: string }
@@ -109,7 +109,7 @@ function deadline(signal: AbortSignal, timeoutMs: number): AbortSignal {
   return AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
 }
 
-export class WeknoraClient {
+export class GenyeeClient {
   /**
    * A knowledge-base-restricted API key rejects `resource_urls=public` with
    * 403. After the first such refusal this client stays on handle mode so
@@ -143,7 +143,7 @@ export class WeknoraClient {
   }
 
   private isPublicModeForbidden(error: unknown): boolean {
-    return error instanceof WeknoraApiError
+    return error instanceof GenyeeApiError
       && this.config.resourceUrls === 'public'
       && !this.publicModeBlocked
       && error.status === 403
@@ -179,16 +179,16 @@ export class WeknoraClient {
         signal: deadline(signal, this.config.requestTimeoutMs),
       })
     } catch (cause) {
-      throw new WeknoraApiError(`${init.method} ${path} failed: ${describeTransportFailure(cause, signal)}`)
+      throw new GenyeeApiError(`${init.method} ${path} failed: ${describeTransportFailure(cause, signal)}`)
     }
     const text = await response.text()
     if (!response.ok) {
-      throw new WeknoraApiError(`${init.method} ${path} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status)
+      throw new GenyeeApiError(`${init.method} ${path} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status)
     }
     try {
       return JSON.parse(text) as Envelope<T>
     } catch {
-      throw new WeknoraApiError(`${init.method} ${path} returned a non-JSON body: ${snippet(text)}`, response.status)
+      throw new GenyeeApiError(`${init.method} ${path} returned a non-JSON body: ${snippet(text)}`, response.status)
     }
   }
 
@@ -230,7 +230,7 @@ export class WeknoraClient {
     return Array.isArray(envelope.data) ? envelope.data : []
   }
 
-  /** A document's metadata, including the generated summary WeKnora stores as `description`. */
+  /** A document's metadata, including the generated summary GENYEE stores as `description`. */
   async getDocument(knowledgeId: string, signal: AbortSignal): Promise<DocumentRecord> {
     const envelope = await this.fetchJson<DocumentRecord>(
       `/knowledge/${encodeURIComponent(knowledgeId)}`,
@@ -266,7 +266,7 @@ export class WeknoraClient {
     }, signal)
     const id = envelope.data?.id
     if (typeof id !== 'string' || id === '') {
-      throw new WeknoraApiError('POST /sessions returned no session id')
+      throw new GenyeeApiError('POST /sessions returned no session id')
     }
     return id
   }
@@ -305,23 +305,23 @@ export class WeknoraClient {
           signal: combined,
         })
       } catch (cause) {
-        throw new WeknoraApiError(`POST ${path} failed: ${describeTransportFailure(cause, signal)}`)
+        throw new GenyeeApiError(`POST ${path} failed: ${describeTransportFailure(cause, signal)}`)
       }
     }
     let response = await open()
     if (!response.ok) {
       const text = await response.text()
-      const error = new WeknoraApiError(`POST ${path} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status)
+      const error = new GenyeeApiError(`POST ${path} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status)
       if (!this.isPublicModeForbidden(error)) throw error
       this.publicModeBlocked = true
       response = await open()
     }
     if (!response.ok) {
       const text = await response.text()
-      throw new WeknoraApiError(`POST ${path} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status)
+      throw new GenyeeApiError(`POST ${path} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status)
     }
     if (response.body === null) {
-      throw new WeknoraApiError(`POST ${path} returned no response body`)
+      throw new GenyeeApiError(`POST ${path} returned no response body`)
     }
     return await assembleStream(response.body, input.sessionId, path, signal)
   }
@@ -336,7 +336,7 @@ function describeTransportFailure(cause: unknown, callerSignal: AbortSignal): st
   return cause instanceof Error ? cause.message : String(cause)
 }
 
-/** One decoded `data:` payload of the WeKnora stream. */
+/** One decoded `data:` payload of the GENYEE stream. */
 interface StreamEvent {
   response_type?: string
   content?: string
@@ -346,7 +346,7 @@ interface StreamEvent {
 }
 
 /**
- * Consume WeKnora's `text/event-stream` and assemble the parts a tool result
+ * Consume GENYEE's `text/event-stream` and assemble the parts a tool result
  * needs: the answer text, its citations, and the tool names the agent used.
  * Server-side `error` events become a thrown failure so the model is never
  * handed a silently empty answer.
@@ -391,7 +391,7 @@ async function assembleStream(
         }
         break
       case 'error':
-        throw new WeknoraApiError(`POST ${path} streamed an error: ${event.content ?? 'unknown error'}`)
+        throw new GenyeeApiError(`POST ${path} streamed an error: ${event.content ?? 'unknown error'}`)
       case 'complete':
         completed = true
         break
@@ -415,17 +415,17 @@ async function assembleStream(
     }
     if (!completed && buffer !== '') consumeLine(buffer.replace(/\r$/, ''))
   } catch (cause) {
-    if (cause instanceof WeknoraApiError) throw cause
-    throw new WeknoraApiError(`POST ${path} stream failed: ${describeTransportFailure(cause, callerSignal)}`)
+    if (cause instanceof GenyeeApiError) throw cause
+    throw new GenyeeApiError(`POST ${path} stream failed: ${describeTransportFailure(cause, callerSignal)}`)
   } finally {
     await reader.cancel().catch(() => undefined)
   }
 
-  // WeKnora ends every answer with a `complete` event. Without it the stream was
+  // GENYEE ends every answer with a `complete` event. Without it the stream was
   // cut short, and handing the model the partial text would present a truncated
   // answer as a whole one.
   if (!completed) {
-    throw new WeknoraApiError(`POST ${path} ended before WeKnora completed the answer; `
+    throw new GenyeeApiError(`POST ${path} ended before GENYEE completed the answer; `
       + `${answer.join('').length} character(s) had streamed`)
   }
 

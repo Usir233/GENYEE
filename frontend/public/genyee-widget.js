@@ -26,8 +26,8 @@
 (function (global) {
   'use strict';
 
-  var HOST_SOURCE = 'weknora-host';
-  var EMBED_SOURCE = 'weknora-embed';
+  var HOST_SOURCE = 'genyee-host';
+  var EMBED_SOURCE = 'genyee-embed';
   var POSITIONS = ['bottom-right', 'bottom-left', 'top-right', 'top-left'];
   var DEFAULT_POSITION = 'bottom-right';
   var DEFAULT_COLOR = '#A8562E';

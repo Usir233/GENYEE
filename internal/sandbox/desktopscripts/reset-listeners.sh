@@ -15,7 +15,7 @@ pkill -f '[x]11vnc.*-rfbport 5900([^0-9]|$)' >/dev/null 2>&1 || true
 pkill -f '[w]ebsockify.*6080' >/dev/null 2>&1 || true
 
 # Images built before the fd-close fixes leak the flock fd into daemons they
-# spawn (start-desktop.sh leaked fd 9; wk-display.sh's dbus-daemon --system
+# spawn (start-desktop.sh leaked fd 9; gy-display.sh's dbus-daemon --system
 # held a seat's fd 7 for the daemon's lifetime), so the next start or claim
 # blocks on flock until its Exec times out. Unlinking a lock file that some
 # process still holds gives the next run a fresh inode to lock. Safe here:

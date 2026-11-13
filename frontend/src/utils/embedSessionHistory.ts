@@ -16,7 +16,7 @@ export const EMBED_HISTORY_LIMIT = 30
 type HistoryStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
 export function embedHistoryStorageKey(scope: EmbedHistoryScope): string {
-  return `weknora-embed-history:${JSON.stringify([scope.channelId, scope.agentId, scope.visitorId])}`
+  return `genyee-embed-history:${JSON.stringify([scope.channelId, scope.agentId, scope.visitorId])}`
 }
 
 function browserStorage(): HistoryStorage | undefined {

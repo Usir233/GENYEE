@@ -48,10 +48,10 @@ python run_server.py
 python run.py
 
 # 直接运行服务器模块
-python weknora_mcp_server.py
+python genyee_mcp_server.py
 
 # 作为 Python 模块运行
-python -m weknora_mcp_server
+python -m genyee_mcp_server
 ```
 
 ### 4. 命令行选项
@@ -72,7 +72,7 @@ pip install genyee-mcp
 uvx --from genyee-mcp genyee-mcp-server
 ```
 
-> 包名为 **`genyee-mcp`**，安装后命令行入口为 `genyee-mcp-server` / `genyee-server`（同时保留兼容别名 `weknora-mcp-server` / `weknora-server`）。
+> 包名为 **`genyee-mcp`**，安装后命令行入口为 `genyee-mcp-server` / `genyee-server`。
 
 ### 开发模式安装
 ```bash

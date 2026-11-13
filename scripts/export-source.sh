@@ -82,7 +82,7 @@ FORBIDDEN_PATTERNS=(
     "^genyee-${VERSION_STR}/AUDIT_REPORT\.md$"
     "^genyee-${VERSION_STR}/REBRAND_RESERVED\.md$"
     "^genyee-${VERSION_STR}/BRANCH_GUIDE\.md$"
-    "^genyee-${VERSION_STR}/WEKNORA_RESIDUE_REMEDIATION\.md$"
+    "^genyee-${VERSION_STR}/[^/]*_RESIDUE_REMEDIATION\.md$"
     "^genyee-${VERSION_STR}/test-reports(/|$)"
     "^genyee-${VERSION_STR}/tests/(adversarial|e2e|stress)(/|$)"
     "^genyee-${VERSION_STR}/\.trellis/"

@@ -436,7 +436,7 @@ const openSourceDocument = () => {
   // listens for instead; this also avoids reloading the KB list on every click.
   if (currentKbId === target.knowledgeBaseId) {
     window.dispatchEvent(
-      new CustomEvent('weknora:open-knowledge', {
+      new CustomEvent('genyee:open-knowledge', {
         detail: { kbId: target.knowledgeBaseId, knowledgeId: target.knowledgeId },
       }),
     )

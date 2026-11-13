@@ -1,13 +1,13 @@
 ---
 name: genyee-shared
-description: Use when driving a GENYEE RAG server through the `genyee` (or `weknora`) CLI as an agent — authenticating, managing knowledge bases / documents / sessions / agents, running search or chat, or interpreting the CLI's JSON envelopes and exit codes. Read this before any other genyee-* skill.
+description: Use when driving a GENYEE RAG server through the `genyee` (or `genyee`) CLI as an agent — authenticating, managing knowledge bases / documents / sessions / agents, running search or chat, or interpreting the CLI's JSON envelopes and exit codes. Read this before any other genyee-* skill.
 metadata:
   tested_against: v0.10
 ---
 
 # GENYEE CLI — shared base
 
-`genyee` (alias `weknora`) is the agent-first CLI for a GENYEE RAG server. Every command prints
+`genyee` (alias `genyee`) is the agent-first CLI for a GENYEE RAG server. Every command prints
 a JSON envelope and uses a typed exit code, so you branch on machine-readable
 output, not prose. Read this skill before any task-specific `genyee-*` skill.
 

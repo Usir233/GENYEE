@@ -38,12 +38,12 @@ python run_server.py
 
 #### 方式 3: 直接运行服务器模块
 ```bash
-python weknora_mcp_server.py
+python genyee_mcp_server.py
 ```
 
 #### 方式 4: 作为 Python 模块运行
 ```bash
-python -m weknora_mcp_server
+python -m genyee_mcp_server
 ```
 
 ## 作为 Python 包安装
@@ -57,7 +57,7 @@ pip install -e .
 ```bash
 genyee-mcp-server
 # 或
-weknora-server
+genyee-server
 ```
 
 ### 生产模式安装
@@ -126,7 +126,7 @@ GENYEE/mcp-server/
 ├── __init__.py              # 包初始化文件
 ├── main.py                  # 主入口点
 ├── run_server.py           # 原始启动脚本
-├── weknora_mcp_server.py   # MCP 服务器实现
+├── genyee_mcp_server.py   # MCP 服务器实现
 ├── requirements.txt        # 依赖列表
 ├── setup.py               # 安装脚本
 ├── pyproject.toml         # 项目元数据（PyPI: genyee-mcp）
@@ -174,7 +174,7 @@ CMD ["genyee-mcp-server"]
 ```
 
 ### 系统服务
-创建 systemd 服务文件 `/etc/systemd/system/weknora-mcp.service`：
+创建 systemd 服务文件 `/etc/systemd/system/genyee-mcp.service`：
 ```ini
 [Unit]
 Description=GENYEE MCP Server
@@ -182,8 +182,8 @@ After=network.target
 
 [Service]
 Type=simple
-User=weknora
-WorkingDirectory=/opt/weknora-mcp
+User=genyee
+WorkingDirectory=/opt/genyee-mcp
 Environment=GENYEE_BASE_URL=http://localhost:8080/api/v1
 Environment=GENYEE_API_KEY=your_api_key
 ExecStart=/usr/local/bin/genyee-mcp-server
@@ -195,8 +195,8 @@ WantedBy=multi-user.target
 
 启用服务：
 ```bash
-sudo systemctl enable weknora-mcp
-sudo systemctl start weknora-mcp
+sudo systemctl enable genyee-mcp
+sudo systemctl start genyee-mcp
 ```
 
 ## 支持

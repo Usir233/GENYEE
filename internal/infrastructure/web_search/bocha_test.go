@@ -24,7 +24,7 @@ func TestBochaProviderSearch(t *testing.T) {
 		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 			t.Fatal(err)
 		}
-		if request.Query != "WeKnora" || request.Freshness != "oneWeek" || !request.Summary || request.Count != 2 {
+		if request.Query != "GENYEE" || request.Freshness != "oneWeek" || !request.Summary || request.Count != 2 {
 			t.Fatalf("unexpected request: %+v", request)
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -38,7 +38,7 @@ func TestBochaProviderSearch(t *testing.T) {
 
 	bocha := &BochaProvider{client: server.Client(), baseURL: server.URL, apiKey: "sk-test", freshness: "oneWeek", summary: true}
 	results, err := bocha.Search(context.Background(), types.WebSearchRequest{
-		Query: " WeKnora ", MaxResults: 2, IncludeDate: true,
+		Query: " GENYEE ", MaxResults: 2, IncludeDate: true,
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -1,12 +1,12 @@
 #!/bin/sh
-# Idempotent desktop stack for WeKnora sandbox images.
+# Idempotent desktop stack for GENYEE sandbox images.
 # Safe to re-run after pause/resume; serialised with flock so concurrent Exec
 # (dual tabs, retries, multiple replicas) cannot split the VNC secret.
 set -eu
 export DISPLAY=:0
 # UTF-8 for every daemon this script starts (XFCE session, xfce4-terminal,
 # mousepad). Without it they inherit POSIX/C from python:slim and UTF-8
-# files render as mojibake; the WeKnora terminal tab is unaffected because
+# files render as mojibake; the GENYEE terminal tab is unaffected because
 # it is drawn in the browser. Prefer an image-provided LANG, fall back here
 # so a wrapped older image still starts a UTF-8 session.
 export LANG="${LANG:-C.UTF-8}"
@@ -26,7 +26,7 @@ chmod 0700 /run/desktop
 cd /
 
 # --proxy-only starts websockify and nothing on :0. Per-session screens are
-# Xvfb :N, brought up by wk-display; this process only routes tokens to them.
+# Xvfb :N, brought up by gy-display; this process only routes tokens to them.
 proxy_only=0
 if [ "$#" -gt 1 ]; then
   echo "usage: $0 [--proxy-only]" >&2
@@ -181,7 +181,7 @@ port_open 5900 || \
          -forever -shared -wait 50 -noxdamage -repeat -bg \
          </dev/null >>/run/desktop/x11vnc.log 2>&1 9>&-
 
-# Token 0 is the shared :0 screen. Seat tokens are written by wk-display.
+# Token 0 is the shared :0 screen. Seat tokens are written by gy-display.
 mkdir -p /run/desktop/tokens.d
 printf '0: 127.0.0.1:5900\n' > /run/desktop/tokens.d/0.tmp
 mv /run/desktop/tokens.d/0.tmp /run/desktop/tokens.d/0
@@ -196,20 +196,20 @@ fi
 mkdir -p /run/desktop/tokens.d
 port_open 6080 || \
   spawn websockify websockify --auth-plugin BasicHTTPAuth \
-             --auth-source "weknora:$(cat /run/desktop/secret)" \
+             --auth-source "genyee:$(cat /run/desktop/secret)" \
              --token-plugin TokenFile \
              --token-source /run/desktop/tokens.d \
              --heartbeat 30 6080
 
 # 8b. Browser sync: shares login cookies and localStorage between the session
 #     browsers and saves them for the next launch. A second copy exits via flock.
-[ -x /usr/local/bin/wk-browser-sync ] && \
-  spawn browsersync /usr/local/bin/wk-browser-sync
+[ -x /usr/local/bin/gy-browser-sync ] && \
+  spawn browsersync /usr/local/bin/gy-browser-sync
 
 # 8c. Fingerprint governor: one UA / hardware / time zone identity for every
 #     session browser. A second copy exits via flock.
-[ -x /usr/local/bin/wk-ua-governor ] && \
-  spawn uagovernor /usr/local/bin/wk-ua-governor
+[ -x /usr/local/bin/gy-ua-governor ] && \
+  spawn uagovernor /usr/local/bin/gy-ua-governor
 
 # 9. Wait for ready (lock held so waiters queue instead of starting twice).
 i=0

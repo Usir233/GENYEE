@@ -8,7 +8,7 @@ import { join } from "node:path";
 import {
   ACTIVE_FIELD, CLEAR_FIELD, SELECT_FIELD, STATUS, VALUE_LENGTH,
   decryptPayload, fillFields, main, originStatus, readKeyFile,
-} from "../wk-secret-fill.mjs";
+} from "../gy-secret-fill.mjs";
 
 // Same layout as Go's sealSecretPayload: nonce(12) || ciphertext || tag(16).
 function seal(key, obj) {
@@ -60,7 +60,7 @@ test("decryptPayload opens what Go seals and rejects tampering", () => {
 });
 
 test("readKeyFile deletes the key file even when it is unreadable", () => {
-  const dir = mkdtempSync(join(tmpdir(), "wk-fill-"));
+  const dir = mkdtempSync(join(tmpdir(), "gy-fill-"));
   try {
     const path = join(dir, "k");
     writeFileSync(path, randomBytes(32).toString("base64"));
@@ -178,7 +178,7 @@ test("main --probe reports the page URL or null", async () => {
 });
 
 test("main fill decrypts, fills and never prints a value", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "wk-fill-"));
+  const dir = mkdtempSync(join(tmpdir(), "gy-fill-"));
   try {
     const key = randomBytes(32);
     const keyPath = join(dir, "k");

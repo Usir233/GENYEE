@@ -10,13 +10,13 @@ import { setTimeout as delay } from "node:timers/promises";
 // Run inside a disposable container with Chrome:
 //   node --experimental-websocket /work/tests/test_browser_sync_live.mjs
 const scripts = dirname(dirname(fileURLToPath(import.meta.url)));
-const scratch = fs.mkdtempSync(join(tmpdir(), "wk-sync-live-"));
+const scratch = fs.mkdtempSync(join(tmpdir(), "gy-sync-live-"));
 const sessions = join(scratch, "sessions");
 fs.mkdirSync(sessions);
-process.env.WK_BROWSER_SESSIONS_DIR = sessions;
-process.env.WK_BROWSER_SHARED_ROOT = join(scratch, "unused-single.browser");
-process.env.WK_BROWSER_AUTH_DIR = join(scratch, "auth");
-process.env.WK_CHROME_SHARED = join(scratch, "shared");
+process.env.GY_BROWSER_SESSIONS_DIR = sessions;
+process.env.GY_BROWSER_SHARED_ROOT = join(scratch, "unused-single.browser");
+process.env.GY_BROWSER_AUTH_DIR = join(scratch, "auth");
+process.env.GY_CHROME_SHARED = join(scratch, "shared");
 
 const processes = new Set();
 const connections = new Set();
@@ -124,10 +124,10 @@ function serveSite(req, res) {
 async function main() {
   assert.equal(typeof WebSocket, "function", "Use Node >=22 or Node 20 with --experimental-websocket");
   const { connectBrowser, readCookies } = await import("../cdp-cookies.mjs");
-  const { BrowserSync, readSeed } = await import("../wk-browser-sync.mjs");
-  const cli = join(scripts, "wk-browser-sync.mjs");
+  const { BrowserSync, readSeed } = await import("../gy-browser-sync.mjs");
+  const cli = join(scripts, "gy-browser-sync.mjs");
   const origin = "http://127.0.0.1:18091";
-  const seedPath = join(process.env.WK_BROWSER_AUTH_DIR, "chrome-cookie-seed.json");
+  const seedPath = join(process.env.GY_BROWSER_AUTH_DIR, "chrome-cookie-seed.json");
 
   server = createServer(serveSite);
   await new Promise((resolve, reject) => {
@@ -210,7 +210,7 @@ async function main() {
   const seedUser = () => readSeed(fs, seedPath).cookies.find((c) => c.name === "site_user")?.value;
   const tick = () => sync.tick();
 
-  sync = new BrowserSync({ authDir: process.env.WK_BROWSER_AUTH_DIR });
+  sync = new BrowserSync({ authDir: process.env.GY_BROWSER_AUTH_DIR });
   const a = await startChrome("a");
   const b = await startChrome("b");
   let c = await startChrome("c");

@@ -40,8 +40,8 @@ const releaseSlides = [
   { name: "GENYEE 助手", icon: "agent", shots: [
     { label: "产品问答", icon: "file", image: "assistant-release-guide", alt: "向 GENYEE 助手询问 v0.9.0 的更新，依据产品文档了解新增能力" },
     { label: "任务协助", icon: "agent", image: "assistant-overview", alt: "在知识库卡片视图中，让助手阅读活动资料并给出可执行的筹备建议" },
-  ], title: "了解 GENYEE，也帮你处理任务", description: "询问版本更新、功能用法与配置问题。助手结合当前页面，以你的身份查资料、创建智能体、设置定时任务，或修改有权管理的内容。", link: guide("03-features/26-weknora-assistant") },
-  { name: "多智能体协作", icon: "channels", image: "agent-collaboration", title: "多个智能体同时处理任务", description: "把搜集、整理、核对分给多个智能体同时处理。子任务有独立对话，进度和结果都能查看。", alt: "多个智能体分别整理读书会资料并汇总结果", link: guide("03-features/26-weknora-assistant") + "#collaboration" },
+  ], title: "了解 GENYEE，也帮你处理任务", description: "询问版本更新、功能用法与配置问题。助手结合当前页面，以你的身份查资料、创建智能体、设置定时任务，或修改有权管理的内容。", link: guide("03-features/26-genyee-assistant") },
+  { name: "多智能体协作", icon: "channels", image: "agent-collaboration", title: "多个智能体同时处理任务", description: "把搜集、整理、核对分给多个智能体同时处理。子任务有独立对话，进度和结果都能查看。", alt: "多个智能体分别整理读书会资料并汇总结果", link: guide("03-features/26-genyee-assistant") + "#collaboration" },
   { name: "自动化", icon: "history", shots: [
     { label: "一句话设置", icon: "agent", image: "automation-conversation", alt: "用一句话请 GENYEE 助手设置自动化，核对任务和执行时间" },
     { label: "手动设置", icon: "history", image: "automation-setup", alt: "在自动化表单中手动设置重复频率、时间和时区，并预览后续运行时间" },

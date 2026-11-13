@@ -39,7 +39,7 @@ DO $$ BEGIN RAISE NOTICE '[Migration 000103] Backfilling message_artifacts from 
 -- A single malformed value (a numeric string, an impossible date) must not fail
 -- the whole migration, so casts go through session-scoped helpers that return
 -- NULL instead of raising; pg_temp objects vanish with the connection.
-CREATE OR REPLACE FUNCTION pg_temp.wk_try_bigint(v TEXT) RETURNS BIGINT
+CREATE OR REPLACE FUNCTION pg_temp.gy_try_bigint(v TEXT) RETURNS BIGINT
 LANGUAGE plpgsql IMMUTABLE AS $$
 BEGIN
     RETURN v::NUMERIC::BIGINT;
@@ -47,7 +47,7 @@ EXCEPTION WHEN others THEN
     RETURN NULL;
 END $$;
 
-CREATE OR REPLACE FUNCTION pg_temp.wk_try_timestamptz(v TEXT) RETURNS TIMESTAMPTZ
+CREATE OR REPLACE FUNCTION pg_temp.gy_try_timestamptz(v TEXT) RETURNS TIMESTAMPTZ
 LANGUAGE plpgsql IMMUTABLE AS $$
 BEGIN
     RETURN v::TIMESTAMPTZ;
@@ -66,11 +66,11 @@ SELECT
     COALESCE(a.elem ->> 'url', ''),
     COALESCE(a.elem ->> 'file_name', ''),
     LEFT(COALESCE(a.elem ->> 'file_type', ''), 32),
-    COALESCE(pg_temp.wk_try_bigint(a.elem ->> 'file_size'), 0),
+    COALESCE(pg_temp.gy_try_bigint(a.elem ->> 'file_size'), 0),
     LEFT(COALESCE(a.elem ->> 'content_hash', ''), 64),
     COALESCE(a.elem ->> 'source_path', ''),
     LEFT(COALESCE(a.elem ->> 'mod_time', ''), 64),
-    COALESCE(pg_temp.wk_try_timestamptz(a.elem ->> 'created_at'), m.created_at, CURRENT_TIMESTAMP)
+    COALESCE(pg_temp.gy_try_timestamptz(a.elem ->> 'created_at'), m.created_at, CURRENT_TIMESTAMP)
 FROM messages m
 CROSS JOIN LATERAL jsonb_array_elements(
     CASE WHEN jsonb_typeof(m.artifacts) = 'array' THEN m.artifacts ELSE '[]'::jsonb END

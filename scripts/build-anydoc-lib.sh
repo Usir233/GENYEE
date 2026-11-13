@@ -72,7 +72,7 @@ prepare_patched_anydoc() {
   # fail deep inside cargo's patch resolution instead of here. Cargo.toml is
   # required too: a truncated leftover with only the marker would otherwise
   # skip the copy and fail with "failed to read .../Cargo.toml".
-  if [ -f "$dest/.weknora-patched" ] && [ "$(cat "$dest/.weknora-patched")" = "$anydoc_patch_id" ] && [ -f "$dest/Cargo.toml" ]; then
+  if [ -f "$dest/.genyee-patched" ] && [ "$(cat "$dest/.genyee-patched")" = "$anydoc_patch_id" ] && [ -f "$dest/Cargo.toml" ]; then
     return
   fi
 
@@ -135,7 +135,7 @@ prepare_patched_anydoc() {
     exit 1
   fi
   mv "$dest/Cargo.toml.tmp" "$dest/Cargo.toml"
-  printf '%s\n' "$anydoc_patch_id" > "$dest/.weknora-patched"
+  printf '%s\n' "$anydoc_patch_id" > "$dest/.genyee-patched"
   rm -rf "$crate_dir/.anydoc-unpack" "$crate_dir/.anydoc-$anydoc_version.crate"
 }
 
@@ -144,7 +144,7 @@ prepare_patched_anydoc() {
 go_version=$(sed -n 's/^const Version = "\([^"]*\)".*/\1/p' "$crate_dir/version.go" | head -1)
 if [ "$go_version" != "$anydoc_version" ]; then
   echo "error: version.go says '$go_version' but Cargo.toml pins anydoc '$anydoc_version'." >&2
-  echo "Bump both: the Go constant is the version WeKnora records for parsed documents." >&2
+  echo "Bump both: the Go constant is the version GENYEE records for parsed documents." >&2
   exit 1
 fi
 
@@ -172,4 +172,4 @@ mkdir -p "$dest"
 cp "$cargo_target_dir/$target/release/$lib_name" "$dest/$lib_name"
 
 echo "Wrote $dest/$lib_name"
-echo "Build WeKnora with the archive: go build -tags anydoc ./cmd/server"
+echo "Build GENYEE with the archive: go build -tags anydoc ./cmd/server"

@@ -3,7 +3,7 @@ set -eu
 HERE="$(cd "$(dirname "$0")" && pwd)"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-export WK_CHROME_SHARED="$TMP/shared"
+export GY_CHROME_SHARED="$TMP/shared"
 for profile in "$TMP/a" "$TMP/b"; do
   bash "$HERE/../link-chrome-session.sh" "$profile"
   for name in 'Login Data' 'Login Data For Account'; do

@@ -9,8 +9,8 @@ CUDA、Apple MPS 和 CPU 是可选的计算设备，使用同一份脚本和请�
 以下命令在 GENYEE 仓库根目录执行，使用 Python 3.12。虚拟环境和模型文件放在仓库外：
 
 ```bash
-python3.12 -m venv "$HOME/.venvs/weknora-wemm"
-source "$HOME/.venvs/weknora-wemm/bin/activate"
+python3.12 -m venv "$HOME/.venvs/genyee-wemm"
+source "$HOME/.venvs/genyee-wemm/bin/activate"
 python -m pip install --upgrade pip
 ```
 

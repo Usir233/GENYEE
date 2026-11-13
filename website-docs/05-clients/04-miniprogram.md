@@ -7,7 +7,7 @@
 
 ## 后端地址与认证配置
 
-小程序**不在代码中硬编码后端地址**，一切连接信息由用户在「设置」页填写，存储于 `wx.setStorageSync` 的本地存储键 `weknora_settings` 中，结构包含四个字段：
+小程序**不在代码中硬编码后端地址**，一切连接信息由用户在「设置」页填写，存储于 `wx.setStorageSync` 的本地存储键 `genyee_settings` 中，结构包含四个字段：
 
 ```js
 {
@@ -89,13 +89,13 @@ npm test    # 实际执行 node --test ../tests/miniprogram/*.test.js
 | --- | --- | --- |
 | `pages/index/index` | 知识库 / Knowledge | 首页。检测是否已配置 baseUrl / API Key，未配置时提示并可一键跳转设置页；调用 `GET /api/v1/knowledge-bases` 加载知识库列表，通过 `picker` 或列表点选知识库（选择结果持久化到本地存储）；输入网页 URL 后调用 `POST /api/v1/knowledge-bases/{id}/knowledge/url` 将该 URL 导入选中知识库（`enable_multimodel` 固定为 `false`） |
 | `pages/chat/chat` | 问答 / Chat | 知识问答页。首次提问时通过 `POST /api/v1/sessions` 懒创建会话（携带选中的 `knowledge_base_id`），随后调用 `POST /api/v1/knowledge-chat/{sessionId}` 提问；返回体为 SSE 文本，客户端用 `utils/sse.js` 解析并拼接 `response_type === "answer"` 的分片后整体展示（解析失败则回退展示原始响应） |
-| `pages/settings/settings` | 设置 / Settings | 连接配置页。填写 API Base URL 与 API Key（密码输入框），选择界面语言，保存到本地存储 `weknora_settings` |
+| `pages/settings/settings` | 设置 / Settings | 连接配置页。填写 API Base URL 与 API Key（密码输入框），选择界面语言，保存到本地存储 `genyee_settings` |
 
 ### utils/ 工具模块
 
 | 文件 | 职责 |
 | --- | --- |
-| `miniprogram/utils/config.js` | 设置的持久化层：定义存储键 `STORAGE_KEY = "weknora_settings"`，提供 `getSettings()`、`saveSettings()`（合并式更新）、`normalizeBaseUrl()`（trim 并去除末尾斜杠）与 `normalizeLocale()` |
+| `miniprogram/utils/config.js` | 设置的持久化层：定义存储键 `STORAGE_KEY = "genyee_settings"`，提供 `getSettings()`、`saveSettings()`（合并式更新）、`normalizeBaseUrl()`（trim 并去除末尾斜杠）与 `normalizeLocale()` |
 | `miniprogram/utils/i18n.js` | 中英文词条表与 `t()`、`getLocale()` / `setLocale()`、`applyTabBar()`（更新底部 tab 文案与图标）、`applyNavTitle()`（更新导航栏标题） |
 | `miniprogram/utils/request.js` | 基于 `wx.request` 的 Promise 化 HTTP 封装：拼接 `baseUrl + path`、注入 `X-API-Key` / `X-Request-ID` 头、统一 2xx 判定与错误消息提取（优先 `error.message`，其次 `message`，兜底 `HTTP <status>`）；并导出上表 4 个业务 API 函数 |
 | `miniprogram/utils/sse.js` | Server-Sent Events 文本解析器：`parseSSE(raw)` 按空行切分事件块、解析 `event:` / `data:` 行；`collectAnswerFromSSE(raw)` 将各事件的 `data` 按 JSON 解析并累加 `response_type === "answer"` 的 `content`，得到最终答案文本。注意小程序端**不做流式渲染**，而是等 `wx.request` 拿到完整 SSE 文本后一次性解析展示 |
@@ -104,7 +104,7 @@ npm test    # 实际执行 node --test ../tests/miniprogram/*.test.js
 
 ```mermaid
 flowchart LR
-    S["设置页<br/>(baseUrl + API Key + 语言)"] -->|"wx.setStorageSync(weknora_settings)"| C["utils/config.js"]
+    S["设置页<br/>(baseUrl + API Key + 语言)"] -->|"wx.setStorageSync(genyee_settings)"| C["utils/config.js"]
     K["知识库页<br/>(pages/index)"] -->|"listKnowledgeBases / createKnowledgeFromURL"| R["utils/request.js<br/>(X-API-Key 头)"]
     Q["问答页<br/>(pages/chat)"] -->|"createSession / knowledgeChat"| R
     R -->|"wx.request"| B["GENYEE 后端<br/>/api/v1/*"]

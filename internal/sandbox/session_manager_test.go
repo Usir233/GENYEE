@@ -47,7 +47,7 @@ func TestExecutionOutputDir(t *testing.T) {
 			name: "rejects path outside workspace",
 			cfg: &ExecuteConfig{
 				Env: map[string]string{
-					skillOutputEnvVar: "/tmp/weknora-skill-output",
+					skillOutputEnvVar: "/tmp/genyee-skill-output",
 				},
 			},
 			want: SessionOutputRoot,
@@ -295,14 +295,14 @@ func TestExecShellCommandKeepsOrdinaryRemoteRequest(t *testing.T) {
 		Env: map[string]string{
 			"A":                   "B",
 			"GENYEE_SESSION_ID":   "sess-1",
-			"GENYEE_BROWSER_ROOT": "/var/lib/weknora/browser/session",
+			"GENYEE_BROWSER_ROOT": "/var/lib/genyee/browser/session",
 		},
 		WorkDir: "/workspace/project",
 		User:    DefaultSandboxExecUser,
 		Timeout: time.Second,
 	}, last)
 	require.Equal(t, map[string]string{"A": "B"}, env, "caller map must not be mutated")
-	require.Equal(t, "/var/lib/weknora/browser/session", last.Env["GENYEE_BROWSER_ROOT"])
+	require.Equal(t, "/var/lib/genyee/browser/session", last.Env["GENYEE_BROWSER_ROOT"])
 	require.NotEmpty(t, last.Env["GENYEE_SESSION_ID"])
 }
 
@@ -918,7 +918,7 @@ func (b *clientBoundRecordingBootstrapper) AfterCreate(
 		return errors.New("AfterCreate must use the bound remote client")
 	}
 	_, err := b.client.Exec(ctx, handle, RemoteExecRequest{
-		Command: "echo weknora-fork-after-create",
+		Command: "echo genyee-fork-after-create",
 		Shell:   true,
 		WorkDir: SessionWorkspaceRoot,
 		Timeout: time.Second,
@@ -965,7 +965,7 @@ func TestNewSessionBoundManagerBindsBootstrapperToClient(t *testing.T) {
 	found := false
 	client.mu.Lock()
 	for _, req := range client.execRequests {
-		if strings.Contains(req.Command, "weknora-fork-after-create") {
+		if strings.Contains(req.Command, "genyee-fork-after-create") {
 			found = true
 			require.True(t, req.Shell)
 			require.Equal(t, SessionWorkspaceRoot, req.WorkDir)
@@ -1087,7 +1087,7 @@ func newUserManagerHarnessWith(
 	assignments ...allocation.Assignment,
 ) *userHarness {
 	t.Helper()
-	return newUserManagerHarnessWithDirectory(t, client, store, reg, newFakeAllocations(assignments...), "weknora")
+	return newUserManagerHarnessWithDirectory(t, client, store, reg, newFakeAllocations(assignments...), "genyee")
 }
 
 // newUserManagerHarnessWithDirectory is newUserManagerHarnessWith with the
@@ -1138,7 +1138,7 @@ func multiReplicaPair(
 	if redisAddr == "" {
 		redisAddr = miniredis.RunT(t).Addr()
 	}
-	ns := "weknora-it-" + uuid.NewString()[:8]
+	ns := "genyee-it-" + uuid.NewString()[:8]
 	client := newFakeRemoteClient(SandboxTypeCube)
 	allocs := newFakeAllocations(assignments...)
 	replica := func() *userHarness {
@@ -1162,7 +1162,7 @@ func machineDigest(t *testing.T, sessionID string) string {
 	t.Helper()
 	m, ok := userAssignmentFor(sessionID).UserMachine()
 	require.True(t, ok)
-	return m.Digest("weknora")
+	return m.Digest("genyee")
 }
 
 func TestUserSessionsShareOneMachineWithSeparateDirectories(t *testing.T) {
@@ -1507,7 +1507,7 @@ func TestUploadedScriptsStayInTheSessionDirectory(t *testing.T) {
 	h.client.mu.Lock()
 	defer h.client.mu.Unlock()
 	require.NotEmpty(t, h.client.writeFiles)
-	require.Equal(t, userSessionRoot(userSessionA)+"/.weknora/scripts/run.py",
+	require.Equal(t, userSessionRoot(userSessionA)+"/.genyee/scripts/run.py",
 		h.client.writeFiles[len(h.client.writeFiles)-1].path)
 }
 
@@ -1584,12 +1584,12 @@ func TestDeleteSessionWorkspacesAlsoRemovesTheBrowserRoot(t *testing.T) {
 	script := lastExecRequest(t, h.client).Command
 	require.Contains(t, script, ShellQuote(layout.BrowserRoot))
 	require.Contains(t, script, ShellQuote(layout.GitDir), "existing targets stay")
-	require.Contains(t, script, "command -v wk-display")
-	releaseAt := strings.Index(script, "wk-display release "+ShellQuote(userSessionA))
+	require.Contains(t, script, "command -v gy-display")
+	releaseAt := strings.Index(script, "gy-display release "+ShellQuote(userSessionA))
 	removeAt := strings.Index(script, ShellQuote(layout.BrowserRoot))
 	require.GreaterOrEqual(t, releaseAt, 0)
 	require.Less(t, removeAt, releaseAt, "release runs after the browser directory is removed")
-	require.NotContains(t, script, "wk-display release "+ShellQuote(userSessionB),
+	require.NotContains(t, script, "gy-display release "+ShellQuote(userSessionB),
 		"deleting A must not release B's seat")
 }
 
@@ -1641,7 +1641,7 @@ func TestDeleteSessionWorkspacesStopsTheCommandWhenALeaseIsLost(t *testing.T) {
 	m, _ := userAssignmentFor(userSessionA).UserMachine()
 	h.client.execHook = func(req RemoteExecRequest) (*RemoteExecResult, error) {
 		if strings.Contains(req.Command, "rm -rf") {
-			h.admission.LoseBarrier(admission.SessionScope(m.Digest("weknora"), userSessionA))
+			h.admission.LoseBarrier(admission.SessionScope(m.Digest("genyee"), userSessionA))
 			time.Sleep(50 * time.Millisecond) // the cancellation reaches the call
 			return nil, context.Canceled
 		}
@@ -1685,7 +1685,7 @@ func TestWorkspaceForkHoldsLeasesAndCopiesWithOneGuardedScript(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, fork.SandboxID())
 	machine, _ := userAssignmentFor(userSessionA).UserMachine()
-	active, err := h.admission.ActiveExcept(ctx, admission.MachineScope(machine.Digest("weknora")))
+	active, err := h.admission.ActiveExcept(ctx, admission.MachineScope(machine.Digest("genyee")))
 	require.NoError(t, err)
 	require.Equal(t, 1, active, "the fork holds the machine until Release")
 
@@ -1694,7 +1694,7 @@ func TestWorkspaceForkHoldsLeasesAndCopiesWithOneGuardedScript(t *testing.T) {
 	require.Equal(t, map[string]bool{sha: true, older: true}, reachable)
 	req := lastExecRequest(t, h.client)
 	require.Equal(t, "root", req.User)
-	require.Contains(t, req.Command, "/var/lib/weknora/sessions/c812e1edb644.git")
+	require.Contains(t, req.Command, "/var/lib/genyee/sessions/c812e1edb644.git")
 	require.Contains(t, req.Command, userSessionRoot(userSessionB))
 	require.Contains(t, req.Command, "core.hooksPath=/dev/null")
 	require.Contains(t, req.Command, `"160000"`, "gitlinks are refused")
@@ -1708,7 +1708,7 @@ func TestWorkspaceForkHoldsLeasesAndCopiesWithOneGuardedScript(t *testing.T) {
 	require.NoError(t, fork.Remove(userSessionB))
 	require.Contains(t, lastExecRequest(t, h.client).Command, userSessionRoot(userSessionB))
 	fork.Release()
-	active, _ = h.admission.ActiveExcept(ctx, admission.MachineScope(machine.Digest("weknora")))
+	active, _ = h.admission.ActiveExcept(ctx, admission.MachineScope(machine.Digest("genyee")))
 	require.Zero(t, active)
 }
 
@@ -1721,7 +1721,7 @@ func TestWorkspaceForkStopsAfterTheLeaseIsLost(t *testing.T) {
 	require.NoError(t, err)
 	defer fork.Release()
 	machine, _ := userAssignmentFor(userSessionA).UserMachine()
-	h.admission.ExpireMember(admission.MachineScope(machine.Digest("weknora")),
+	h.admission.ExpireMember(admission.MachineScope(machine.Digest("genyee")),
 		fork.(interface{ Member() string }).Member())
 
 	require.Eventually(t, func() bool {
@@ -1873,7 +1873,7 @@ func TestWithBrowserEnvOverridesCallerValues(t *testing.T) {
 	}
 	out := withBrowserEnv(in, "sid-1", RemoteWorkspaceLayout())
 	require.Equal(t, "sid-1", out["GENYEE_SESSION_ID"])
-	require.Equal(t, "/var/lib/weknora/browser/session", out["GENYEE_BROWSER_ROOT"])
+	require.Equal(t, "/var/lib/genyee/browser/session", out["GENYEE_BROWSER_ROOT"])
 	require.Equal(t, "1", out["KEEP"])
 	require.Equal(t, "spoofed", in["GENYEE_SESSION_ID"], "input map must not be mutated")
 }
@@ -1892,7 +1892,7 @@ func TestUserSessionExecGetsItsOwnBrowserEnv(t *testing.T) {
 	require.NoError(t, err)
 	req := lastExecRequest(t, h.client)
 	require.Equal(t, userSessionB, req.Env["GENYEE_SESSION_ID"])
-	require.Equal(t, "/var/lib/weknora/sessions/"+userSessionB+".browser", req.Env["GENYEE_BROWSER_ROOT"])
+	require.Equal(t, "/var/lib/genyee/sessions/"+userSessionB+".browser", req.Env["GENYEE_BROWSER_ROOT"])
 }
 
 func TestDesktopEnsureStyleExecCarriesTheSessionIdentity(t *testing.T) {

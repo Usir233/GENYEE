@@ -7,7 +7,7 @@ import {
   isUtcTimeZone,
   parseZoneTab,
   resolveTimeZone,
-} from "./wk-locale-match.mjs";
+} from "./gy-locale-match.mjs";
 
 const COUNTRY_CODE_RE = /^[A-Z]{2}$/;
 const REGION_CODE_RE = /^[A-Z0-9]{1,3}$/;
@@ -46,7 +46,7 @@ export const EGRESS_GEO_PROVIDERS = Object.freeze([
 
 export const EGRESS_GEO_REQUEST_TIMEOUT_MS = 5_000;
 const EGRESS_GEO_MAX_BODY_BYTES = 64 * 1024;
-const EGRESS_GEO_USER_AGENT = "wk-egress-timezone/1";
+const EGRESS_GEO_USER_AGENT = "gy-egress-timezone/1";
 const ZONEINFO_DIR = "zoneinfo/";
 const EGRESS_ERROR_CLASS_PREFIXES = ["no_provider(", "no_time_zone("];
 const PROC_ENTRY_GONE_CODES = new Set(["ENOENT", "ESRCH", "EACCES"]);

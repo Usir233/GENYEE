@@ -1250,7 +1250,7 @@ func (f *fakeForkAllocations) ForkAssignment(
 }
 
 func (f *fakeForkAllocations) Digest(m allocation.UserMachine) string {
-	return m.Digest("weknora")
+	return m.Digest("genyee")
 }
 
 func newSharedMachineFork(
@@ -1295,7 +1295,7 @@ func TestForkOnSharedMachineCopiesAndInheritsAssignment(t *testing.T) {
 	require.NotEqual(t, "src", sessions.assigned.SessionID)
 	machine, ok := userModeForkAssignment().UserMachine()
 	require.True(t, ok)
-	require.Equal(t, machine.Digest("weknora"), sessions.assigned.MachineDigest)
+	require.Equal(t, machine.Digest("genyee"), sessions.assigned.MachineDigest)
 	require.NotNil(t, sessions.assignedMachine)
 	require.Equal(t, sessions.assigned.MachineDigest, sessions.assignedMachine.MachineDigest)
 	require.Equal(t, "u1", sessions.assignedMachine.OwnerID)

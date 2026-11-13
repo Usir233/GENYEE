@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# wk-display: one virtual screen ("seat") per WeKnora session. Seat N <-> session id, screen :N.
+# gy-display: one virtual screen ("seat") per GENYEE session. Seat N <-> session id, screen :N.
 # Seats are numbered 1..SEAT_MAX. Display :0 (the shared legacy desktop) is not in the seat table.
 # No "set -e": exit codes are captured explicitly.
 #
@@ -17,7 +17,7 @@
 #   up <N>         internal: idempotently start/repair the screen stack of seat N.
 #   list           diagnostics.
 #
-# Every path/parameter can be overridden through WK_* environment variables (used by the tests).
+# Every path/parameter can be overridden through GY_* environment variables (used by the tests).
 set -u
 
 # Neutral cwd before any spawn. This script runs from an Exec whose cwd is a
@@ -26,18 +26,18 @@ set -u
 # as fd 7/8/9 below — websockify died exactly this way in start-desktop.sh).
 cd /
 
-SEATS_DIR="${WK_SEATS_DIR:-/var/lib/weknora/browser/.seats}"
-RUN_DIR="${WK_RUN_DIR:-/run/desktop}"
-TOKENS_DIR="${WK_TOKENS_DIR:-$RUN_DIR/tokens.d}"
-ROOTS_DIR="${WK_BROWSER_ROOTS_DIR:-$RUN_DIR/browser-roots}"
-X_LOCK_DIR="${WK_X_LOCK_DIR:-/tmp}"
-X_SOCK_DIR="${WK_X_SOCK_DIR:-/tmp/.X11-unix}"
-SEAT_MAX="${WK_SEAT_MAX:-8}"
-SEAT_IDLE="${WK_SEAT_IDLE:-600}"
-SCREEN="${WK_SCREEN:-1280x800x24}"
-VNC_BASE="${WK_VNC_BASE:-5900}"
-VIEWONLY="${WK_SEAT_VIEWONLY:-0}"
-WM="${WK_SEAT_WM:-xfwm4}"   # xfwm4 | none
+SEATS_DIR="${GY_SEATS_DIR:-/var/lib/genyee/browser/.seats}"
+RUN_DIR="${GY_RUN_DIR:-/run/desktop}"
+TOKENS_DIR="${GY_TOKENS_DIR:-$RUN_DIR/tokens.d}"
+ROOTS_DIR="${GY_BROWSER_ROOTS_DIR:-$RUN_DIR/browser-roots}"
+X_LOCK_DIR="${GY_X_LOCK_DIR:-/tmp}"
+X_SOCK_DIR="${GY_X_SOCK_DIR:-/tmp/.X11-unix}"
+SEAT_MAX="${GY_SEAT_MAX:-8}"
+SEAT_IDLE="${GY_SEAT_IDLE:-600}"
+SCREEN="${GY_SCREEN:-1280x800x24}"
+VNC_BASE="${GY_VNC_BASE:-5900}"
+VIEWONLY="${GY_SEAT_VIEWONLY:-0}"
+WM="${GY_SEAT_WM:-xfwm4}"   # xfwm4 | none
 
 case "$SEAT_MAX" in ""|*[!0-9]*) SEAT_MAX=8 ;; esac
 [ "$SEAT_MAX" -gt 99 ] && SEAT_MAX=99
@@ -68,13 +68,13 @@ self_chain() {
   echo "$out "
 }
 
-seat_pids() { # processes whose environment carries WK_SEAT=N or DISPLAY=:N[.S] (self chain excluded)
+seat_pids() { # processes whose environment carries GY_SEAT=N or DISPLAY=:N[.S] (self chain excluded)
   local n=$1 p skip; skip=$(self_chain)
   for p in /proc/[0-9]*; do
     p=${p#/proc/}
     case "$skip" in *" $p "*) continue ;; esac
     [ -r "/proc/$p/environ" ] || continue
-    grep -aqzE "^(WK_SEAT=$n|DISPLAY=:$n(\.[0-9]+)?)$" "/proc/$p/environ" 2>/dev/null && echo "$p"
+    grep -aqzE "^(GY_SEAT=$n|DISPLAY=:$n(\.[0-9]+)?)$" "/proc/$p/environ" 2>/dev/null && echo "$p"
   done
 }
 comm_of() { cat "/proc/$1/comm" 2>/dev/null; }
@@ -137,10 +137,10 @@ prepare_seat_home() {
   : > "$d/config/.seeded"
 }
 
-spawn() { # spawn N name cmd...  closes fd 7/8/9 (lock inheritance), owns stdio, tags WK_SEAT/DISPLAY
+spawn() { # spawn N name cmd...  closes fd 7/8/9 (lock inheritance), owns stdio, tags GY_SEAT/DISPLAY
   local n=$1 name=$2; shift 2
   prepare_seat_home "$n"
-  env WK_SEAT="$n" DISPLAY=":$n" \
+  env GY_SEAT="$n" DISPLAY=":$n" \
     XDG_RUNTIME_DIR="$RUN_DIR/seat-$n/xdg" \
     XDG_CONFIG_HOME="$RUN_DIR/seat-$n/config" \
     XDG_CACHE_HOME="$RUN_DIR/seat-$n/cache" \
@@ -206,7 +206,7 @@ up_locked() {
       rm -f "$X_LOCK_DIR/.X$n-lock" "$X_SOCK_DIR/X$n"
     fi
     spawn "$n" xvfb Xvfb ":$n" -ac -screen 0 "$SCREEN" -nolisten tcp
-    wait_for 40 timeout 2 xdpyinfo -display ":$n" || { echo "wk-display: Xvfb :$n did not come up" >&2; return 1; }
+    wait_for 40 timeout 2 xdpyinfo -display ":$n" || { echo "gy-display: Xvfb :$n did not come up" >&2; return 1; }
   fi
   # The shared :0 path starts the system bus. Seat screens are reached through
   # --proxy-only, which skips that, and the panel wants it for a11y.
@@ -224,7 +224,7 @@ up_locked() {
     vnc_args=(-display ":$n" -localhost -rfbport "$port" -nopw -forever -shared -wait 50 -noxdamage -repeat)
     [ "$VIEWONLY" = 1 ] && vnc_args+=(-viewonly)
     spawn "$n" x11vnc x11vnc "${vnc_args[@]}"
-    wait_for 80 port_open "$port" || { echo "wk-display: x11vnc :$n did not listen" >&2; return 1; }
+    wait_for 80 port_open "$port" || { echo "gy-display: x11vnc :$n did not listen" >&2; return 1; }
   fi
   # Write to a temp name and rename: websockify must never see a half-written token file.
   mkdir -p "$TOKENS_DIR"
@@ -233,7 +233,7 @@ up_locked() {
 }
 
 cmd_up() {
-  valid_seat "${1:-}" || { echo "wk-display: bad seat" >&2; return 2; }
+  valid_seat "${1:-}" || { echo "gy-display: bad seat" >&2; return 2; }
   mkdir -p "$RUN_DIR/seat-$1"
   ( exec 7>"$RUN_DIR/seat-$1.lock"; flock 7; up_locked "$1" )
 }
@@ -334,7 +334,7 @@ alloc_seat() { # global flock protects allocation and any idle-seat reaping
 }
 
 # Every claim runs in a backend Exec that carries the session's
-# GENYEE_BROWSER_ROOT. Recording it lets wk-chrome open that root instead of
+# GENYEE_BROWSER_ROOT. Recording it lets gy-chrome open that root instead of
 # guessing it from which directories happen to exist yet.
 record_browser_root() {
   local root="${GENYEE_BROWSER_ROOT:-}"
@@ -345,7 +345,7 @@ record_browser_root() {
 }
 
 cmd_claim() {
-  valid_sid "${1:-}" || { echo "wk-display: bad session id" >&2; return 2; }
+  valid_sid "${1:-}" || { echo "gy-display: bad session id" >&2; return 2; }
   local n
   n=$(alloc_seat "$1") || { echo GENYEE_NO_FREE_SCREEN >&2; return 1; }
   cmd_up "$n" || return 1
@@ -416,5 +416,5 @@ release) shift; cmd_release "$@" ;;
 reap)    cmd_reap ;;
 up)      shift; cmd_up "$@" ;;
 list)    cmd_list ;;
-*) echo "usage: wk-display {claim <sid>|where <sid>|watched <sid>|browser-root <sid>|sid-of <N>|release <sid>|reap|up <N>|list}" >&2; exit 64 ;;
+*) echo "usage: gy-display {claim <sid>|where <sid>|watched <sid>|browser-root <sid>|sid-of <N>|release <sid>|reap|up <N>|list}" >&2; exit 64 ;;
 esac

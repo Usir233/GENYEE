@@ -2,9 +2,9 @@
 HERE="$(cd "$(dirname "$0")" && pwd)"
 . "$HERE/lib.sh"
 . "$HERE/lib_seats.sh"
-DISP="$HERE/../wk-display.sh"
+DISP="$HERE/../gy-display.sh"
 
-vnc_args() { cat "$FAKE_X/x11vnc.args.$((WK_VNC_BASE + $1))"; }
+vnc_args() { cat "$FAKE_X/x11vnc.args.$((GY_VNC_BASE + $1))"; }
 listening() { port_listening "$1" && echo 1 || echo 0; }
 
 t_claim_is_idempotent_and_numbers_from_one() {
@@ -23,9 +23,9 @@ t_claim_brings_up_the_whole_stack() {
   assert_eq "xfce4-session runs" 1 "$(fake_x_pids xfce4-session | wc -l | tr -d ' ')"
   assert_eq "seat has its own session bus" 1 "$(fake_x_pids dbus-daemon | wc -l | tr -d ' ')"
   assert_eq "xfwm4 is left to the session" 0 "$(fake_x_pids xfwm4 | wc -l | tr -d ' ')"
-  assert_eq "vnc listens on base+N" 1 "$(listening $((WK_VNC_BASE + n)))"
-  assert_eq "token routes N to its own vnc port" "$n: 127.0.0.1:$((WK_VNC_BASE + n))" "$(cat "$WK_TOKENS_DIR/$n")"
-  assert_eq "no temp token left behind" "" "$(ls -A "$WK_RUN_DIR" | grep '^\.token\.')"
+  assert_eq "vnc listens on base+N" 1 "$(listening $((GY_VNC_BASE + n)))"
+  assert_eq "token routes N to its own vnc port" "$n: 127.0.0.1:$((GY_VNC_BASE + n))" "$(cat "$GY_TOKENS_DIR/$n")"
+  assert_eq "no temp token left behind" "" "$(ls -A "$GY_RUN_DIR" | grep '^\.token\.')"
   teardown_seats
 }
 
@@ -42,9 +42,9 @@ t_x11vnc_is_loopback_and_interactive_by_default() {
 
 t_viewonly_and_screen_are_opt_in_overrides() {
   setup_seats
-  n="$(WK_SEAT_VIEWONLY=1 WK_SCREEN=800x600x16 "$DISP" claim sid-a)"
-  assert_contains "WK_SEAT_VIEWONLY=1 adds -viewonly" "-viewonly" "$(vnc_args "$n")"
-  assert_contains "WK_SCREEN overrides the resolution" "-screen 0 800x600x16" "$(cat "$FAKE_X/xvfb.args.$n")"
+  n="$(GY_SEAT_VIEWONLY=1 GY_SCREEN=800x600x16 "$DISP" claim sid-a)"
+  assert_contains "GY_SEAT_VIEWONLY=1 adds -viewonly" "-viewonly" "$(vnc_args "$n")"
+  assert_contains "GY_SCREEN overrides the resolution" "-screen 0 800x600x16" "$(cat "$FAKE_X/xvfb.args.$n")"
   teardown_seats
 }
 
@@ -59,14 +59,14 @@ t_concurrent_claims_never_share_a_seat() {
 
 watch_seat() { # watch_seat N -> pid of a fake VNC viewer on seat N
   # stdout closed, or the caller's $(...) waits for the viewer to exit.
-  python3 -c "import socket,time; s=socket.create_connection(('127.0.0.1',$((WK_VNC_BASE + $1)))); time.sleep(300)" \
+  python3 -c "import socket,time; s=socket.create_connection(('127.0.0.1',$((GY_VNC_BASE + $1)))); time.sleep(300)" \
     >/dev/null 2>&1 &
   echo $!
 }
 wait_watched() { # wait_watched N...: until every seat shows an established viewer
   local n hex i
   for n in "$@"; do
-    hex=$(printf '%04X' $((WK_VNC_BASE + n)))
+    hex=$(printf '%04X' $((GY_VNC_BASE + n)))
     for i in $(seq 1 40); do
       awk -v hex="$hex" '$4=="01"{k=split($2,a,":"); if(toupper(a[k])==hex) f=1} END{exit !f}' /proc/net/tcp && break
       sleep 0.25
@@ -93,10 +93,10 @@ t_full_machine_fails_loudly_when_every_seat_is_watched() {
 t_full_machine_evicts_by_rank() {
   setup_seats
   for i in 1 2 3 4; do "$DISP" claim "s$i" >/dev/null; done
-  touch -d '9 minutes ago' "$WK_SEATS_DIR"/1-*   # no app, idle longest
-  touch -d '5 minutes ago' "$WK_SEATS_DIR"/2-*   # no app
-  touch -d '1 hour ago' "$WK_SEATS_DIR"/3-*      # app running, oldest
-  touch -d '2 hours ago' "$WK_SEATS_DIR"/4-*     # watched, oldest of all
+  touch -d '9 minutes ago' "$GY_SEATS_DIR"/1-*   # no app, idle longest
+  touch -d '5 minutes ago' "$GY_SEATS_DIR"/2-*   # no app
+  touch -d '1 hour ago' "$GY_SEATS_DIR"/3-*      # app running, oldest
+  touch -d '2 hours ago' "$GY_SEATS_DIR"/4-*     # watched, oldest of all
   env DISPLAY=:3 fakegui 300 & gui=$!
   viewer=$(watch_seat 4)
   wait_watched 4
@@ -114,8 +114,8 @@ t_full_machine_evicts_by_rank() {
 t_full_machine_evicts_an_app_seat_when_nothing_else_is_left() {
   setup_seats
   for i in 1 2 3 4; do "$DISP" claim "s$i" >/dev/null; done
-  touch -d '2 minutes ago' "$WK_SEATS_DIR"/1-* "$WK_SEATS_DIR"/3-* "$WK_SEATS_DIR"/4-*
-  touch -d '8 minutes ago' "$WK_SEATS_DIR"/2-*
+  touch -d '2 minutes ago' "$GY_SEATS_DIR"/1-* "$GY_SEATS_DIR"/3-* "$GY_SEATS_DIR"/4-*
+  touch -d '8 minutes ago' "$GY_SEATS_DIR"/2-*
   guis=""; for n in 1 2 3 4; do env DISPLAY=:$n fakegui 300 & guis="$guis $!"; done
   sleep 0.3
   assert_eq "the longest-idle seat with an app goes" 2 "$("$DISP" claim s5)"
@@ -130,7 +130,7 @@ t_where_allocates_nothing_on_a_miss() {
   out="$("$DISP" where nobody)"; rc=$?
   assert_eq "unknown session: exit 1" 1 "$rc"
   assert_eq "unknown session: no output" "" "$out"
-  assert_eq "where did not allocate" "" "$(ls -A "$WK_SEATS_DIR" 2>/dev/null | grep -v '^\.lock$')"
+  assert_eq "where did not allocate" "" "$(ls -A "$GY_SEATS_DIR" 2>/dev/null | grep -v '^\.lock$')"
   assert_eq "where started nothing" "" "$(fake_x_pids)"
   teardown_seats
 }
@@ -138,9 +138,9 @@ t_where_allocates_nothing_on_a_miss() {
 t_where_refreshes_the_seat_clock_on_a_hit() {
   setup_seats
   "$DISP" claim sid-a >/dev/null
-  touch -d '1 hour ago' "$WK_SEATS_DIR"/1-*
+  touch -d '1 hour ago' "$GY_SEATS_DIR"/1-*
   assert_eq "where finds the seat" 1 "$("$DISP" where sid-a)"
-  age=$(( $(date +%s) - $(stat -c %Y "$WK_SEATS_DIR"/1-*) ))
+  age=$(( $(date +%s) - $(stat -c %Y "$GY_SEATS_DIR"/1-*) ))
   if [ "$age" -lt 5 ]; then pass "where refreshed the idleness clock (age ${age}s)"; else fail "seat clock still stale (age ${age}s)"; fi
   teardown_seats
 }
@@ -152,11 +152,11 @@ t_release_kills_only_its_own_stack() {
   env DISPLAY=:2 fakegui 300 & g2=$!
   sleep 0.3
   "$DISP" release sid-a >/dev/null
-  assert_eq "seat 1 vnc port closed" 0 "$(listening $((WK_VNC_BASE + 1)))"
+  assert_eq "seat 1 vnc port closed" 0 "$(listening $((GY_VNC_BASE + 1)))"
   assert_eq "seat 1 X is gone" 1 "$(xdpyinfo -display :1 >/dev/null 2>&1; echo $?)"
   assert_eq "client on the released screen is gone" 1 "$(kill -0 "$g1" 2>/dev/null && echo 0 || echo 1)"
-  assert_eq "token removed" "" "$(ls "$WK_TOKENS_DIR" | grep -x 1)"
-  assert_eq "seat 2 vnc untouched" 1 "$(listening $((WK_VNC_BASE + 2)))"
+  assert_eq "token removed" "" "$(ls "$GY_TOKENS_DIR" | grep -x 1)"
+  assert_eq "seat 2 vnc untouched" 1 "$(listening $((GY_VNC_BASE + 2)))"
   assert_eq "seat 2 X untouched" 0 "$(xdpyinfo -display :2 >/dev/null 2>&1; echo $?)"
   assert_eq "client on the other screen survives" 0 "$(kill -0 "$g2" 2>/dev/null && echo 0 || echo 1)"
   assert_eq "seat 2 still owned" 2 "$("$DISP" where sid-b)"
@@ -168,18 +168,18 @@ t_release_kills_only_its_own_stack() {
 t_reap_only_takes_idle_unwatched_seats() {
   setup_seats
   for i in 1 2 3 4; do "$DISP" claim "s$i" >/dev/null; done
-  for n in 1 2 3 4; do touch -d '1 hour ago' "$WK_SEATS_DIR"/$n-*; done
+  for n in 1 2 3 4; do touch -d '1 hour ago' "$GY_SEATS_DIR"/$n-*; done
   env DISPLAY=:2 fakegui 300 & busy=$!   # seat 2: has a GUI client
-  python3 -c "import socket,time; s=socket.create_connection(('127.0.0.1',$((WK_VNC_BASE + 3)))); time.sleep(30)" & viewer=$!   # seat 3: has a viewer
+  python3 -c "import socket,time; s=socket.create_connection(('127.0.0.1',$((GY_VNC_BASE + 3)))); time.sleep(30)" & viewer=$!   # seat 3: has a viewer
   sleep 0.5
   out="$("$DISP" reap)"
   assert_eq "only seat 1 and 4 are reclaimed" 2 "$out"
   assert_eq "busy seat kept" 2 "$("$DISP" where s2)"
   assert_eq "watched seat kept" 3 "$("$DISP" where s3)"
   assert_eq "reclaimed seat has no table entry" "" "$("$DISP" where s1)"
-  assert_eq "reclaimed seat lost its token" "" "$(ls "$WK_TOKENS_DIR" | grep -x -e 1 -e 4)"
-  assert_eq "reclaimed seat vnc closed" 0 "$(listening $((WK_VNC_BASE + 4)))"
-  assert_eq "kept seat vnc still up" 1 "$(listening $((WK_VNC_BASE + 3)))"
+  assert_eq "reclaimed seat lost its token" "" "$(ls "$GY_TOKENS_DIR" | grep -x -e 1 -e 4)"
+  assert_eq "reclaimed seat vnc closed" 0 "$(listening $((GY_VNC_BASE + 4)))"
+  assert_eq "kept seat vnc still up" 1 "$(listening $((GY_VNC_BASE + 3)))"
   kill "$busy" "$viewer" 2>/dev/null
   teardown_seats
 }
@@ -195,7 +195,7 @@ t_young_seats_are_never_reaped() {
 t_idle_seat_with_only_a_shell_on_it_is_reaped() {
   setup_seats
   "$DISP" claim s1 >/dev/null
-  touch -d '1 hour ago' "$WK_SEATS_DIR"/1-*
+  touch -d '1 hour ago' "$GY_SEATS_DIR"/1-*
   env DISPLAY=:1 bash -c 'sleep 30' & sh_pid=$!   # a shell (and its sleep) is not a screen client
   sleep 0.3
   assert_eq "shell-only seat is reclaimed" 1 "$("$DISP" reap)"
@@ -206,9 +206,9 @@ t_idle_seat_with_only_a_shell_on_it_is_reaped() {
 t_full_machine_reaps_an_idle_seat_to_make_room() {
   setup_seats
   for i in 1 2 3 4; do "$DISP" claim "s$i" >/dev/null; done
-  touch -d '1 hour ago' "$WK_SEATS_DIR"/3-*
+  touch -d '1 hour ago' "$GY_SEATS_DIR"/3-*
   assert_eq "new session takes the reclaimed seat" 3 "$("$DISP" claim s5)"
-  assert_eq "its stack is up" 1 "$(listening $((WK_VNC_BASE + 3)))"
+  assert_eq "its stack is up" 1 "$(listening $((GY_VNC_BASE + 3)))"
   assert_eq "the evicted session lost its seat" "" "$("$DISP" where s3)"
   teardown_seats
 }
@@ -218,10 +218,10 @@ t_claim_repairs_a_half_dead_stack() {
   n="$("$DISP" claim sid-a)"
   for p in $(fake_x_pids x11vnc) $(fake_x_pids x11vnc-l); do kill -KILL "$p" 2>/dev/null; done
   sleep 0.5
-  assert_eq "vnc is down" 0 "$(listening $((WK_VNC_BASE + n)))"
+  assert_eq "vnc is down" 0 "$(listening $((GY_VNC_BASE + n)))"
   assert_eq "X survived" 0 "$(xdpyinfo -display ":$n" >/dev/null 2>&1; echo $?)"
   assert_eq "same seat on re-claim" "$n" "$("$DISP" claim sid-a)"
-  assert_eq "vnc restored by the next claim" 1 "$(listening $((WK_VNC_BASE + n)))"
+  assert_eq "vnc restored by the next claim" 1 "$(listening $((GY_VNC_BASE + n)))"
   assert_eq "no second Xvfb" 1 "$(fake_x_pids Xvfb | wc -l | tr -d ' ')"
   assert_eq "no second session" 1 "$(fake_x_pids xfce4-session | wc -l | tr -d ' ')"
   teardown_seats
@@ -229,7 +229,7 @@ t_claim_repairs_a_half_dead_stack() {
 
 t_claim_clears_a_stale_x_lock() {
   setup_seats
-  echo 999999 > "$WK_X_LOCK_DIR/.X1-lock"   # left behind by a crash; the fake Xvfb refuses to start over it
+  echo 999999 > "$GY_X_LOCK_DIR/.X1-lock"   # left behind by a crash; the fake Xvfb refuses to start over it
   n="$("$DISP" claim sid-a)"
   assert_eq "claim still succeeds" 1 "$n"
   assert_eq "X is up" 0 "$(xdpyinfo -display :1 >/dev/null 2>&1; echo $?)"
@@ -245,7 +245,7 @@ t_rejects_hostile_ids() {
   "$DISP" claim "$(printf 'a%.0s' $(seq 65))" 2>/dev/null; assert_eq "65 chars rejected" 2 $?
   "$DISP" where '../x' 2>/dev/null; assert_eq "where rejects too" 2 $?
   "$DISP" release 'a b' 2>/dev/null; assert_eq "release rejects too" 2 $?
-  assert_eq "nothing was allocated" "" "$(ls -A "$WK_SEATS_DIR" | grep -v '^\.lock$')"
+  assert_eq "nothing was allocated" "" "$(ls -A "$GY_SEATS_DIR" | grep -v '^\.lock$')"
   teardown_seats
 }
 
@@ -256,7 +256,7 @@ t_claim_releases_the_seat_lock() {
   # claim exits, and the system-dbus spawn must close the fd.
   setup_seats
   n="$("$DISP" claim sid-a)"
-  flock -n "$WK_RUN_DIR/seat-$n.lock" true; rc=$?
+  flock -n "$GY_RUN_DIR/seat-$n.lock" true; rc=$?
   assert_eq "seat lock free after claim" 0 "$rc"
   n2="$("$DISP" claim sid-a)"
   assert_eq "second claim still returns instantly" "$n" "$n2"
@@ -280,7 +280,7 @@ t_daemons_run_from_a_neutral_cwd() {
   # that session was deleted, every desktop dial on the machine died with
   # ENOENT before any HTTP response. Scripts must cd to a neutral cwd before
   # spawning daemons.
-  assert_eq "wk-display drops the client cwd" 1 \
+  assert_eq "gy-display drops the client cwd" 1 \
     "$(grep -c '^cd /$' "$DISP")"
 }
 

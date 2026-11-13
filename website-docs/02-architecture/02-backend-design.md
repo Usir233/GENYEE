@@ -198,7 +198,7 @@ kb.PUT("/:id", g.OwnedKBOrAdmin(), handler.UpdateKnowledgeBase)
 | 中间件 | 文件 | 职责与关键逻辑 |
 | --- | --- | --- |
 | `MultipartFormCleanup()` | multipart_cleanup.go | 请求结束（含失败与 panic 恢复）后删除 multipart 表单写入系统临时目录的文件，避免容器 `/tmp` 持续增长 |
-| `cors.New`（gin-contrib） | router.go | 允许 `Authorization`、`X-API-Key`、`X-Tenant-ID`、`X-Embed-Session`、`X-WeKnora-Desktop-Token` 及 MCP Streamable HTTP 所需的 `MCP-Protocol-Version`/`Mcp-Session-Id` 等头；MaxAge 12h |
+| `cors.New`（gin-contrib） | router.go | 允许 `Authorization`、`X-API-Key`、`X-Tenant-ID`、`X-Embed-Session`、`X-Genyee-Desktop-Token` 及 MCP Streamable HTTP 所需的 `MCP-Protocol-Version`/`Mcp-Session-Id` 等头；MaxAge 12h |
 | `RequestID()` | logger.go | 复用请求头 `X-Request-ID` 或生成 UUID，写入 gin context 与 `Request.Context()`，贯穿日志/追踪 |
 | `Language()` | language.go | 决定文档处理语言：`GENYEE_LANGUAGE` 环境变量 > `Accept-Language` 首个标签 > 默认 `zh-CN` |
 | `Logger()` | logger.go | 请求/响应全量日志；正则脱敏密码/令牌字段、截断 base64 图片 data URL、SSE 响应标记跳过、单条上限 10KB |

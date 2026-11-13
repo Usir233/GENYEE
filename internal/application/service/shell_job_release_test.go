@@ -41,8 +41,8 @@ func TestShellJobIndexReleaseKeepsSuccessorClaim(t *testing.T) {
 	client := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	otherClient := redis.NewClient(&redis.Options{Addr: mr.Addr()})
 	t.Cleanup(func() { _ = client.Close(); _ = otherClient.Close() })
-	first := NewShellJobIndex(client, "weknora")
-	second := NewShellJobIndex(otherClient, "weknora")
+	first := NewShellJobIndex(client, "genyee")
+	second := NewShellJobIndex(otherClient, "genyee")
 	ref := interfaces.SessionRef{TenantID: 7, SessionID: "handoff"}
 	now := time.Unix(1006, 0)
 	require.NoError(t, first.Add(ctx, ShellJobIndexEntry{

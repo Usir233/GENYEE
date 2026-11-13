@@ -348,7 +348,7 @@ class GENYEEClient:
         return self._session_local.session
 
     def _request(self, method: str, endpoint: str, **kwargs) -> Dict[str, Any]:
-        """Make a request to the WeKnora API
+        """Make a request to the GENYEE API
 
         Args:
             method: HTTP method (GET, POST, PUT, DELETE)

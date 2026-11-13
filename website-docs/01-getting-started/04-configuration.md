@@ -341,7 +341,7 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 
 | 名称 | 默认值 | 说明 |
 | --- | --- | --- |
-| `BROWSERSKILL_BINARY` | Docker 镜像内 `/opt/weknora/browserskill/bsk` | `bsk` 可执行文件绝对路径；原生部署需自行构建并配置，显式设为空可关闭本功能 |
+| `BROWSERSKILL_BINARY` | Docker 镜像内 `/opt/genyee/browserskill/bsk` | `bsk` 可执行文件绝对路径；原生部署需自行构建并配置，显式设为空可关闭本功能 |
 | `BROWSERSKILL_EXTENSION_PATH` | Docker 镜像内已预设 | 供用户在「工具箱 → 浏览器连接」的「手动安装（备用）」下载的扩展 ZIP 路径 |
 | `BROWSERSKILL_PUBLIC_URL` | 空（按页面地址生成） | 仅在网关使用独立域名或路径时覆盖；远程部署必须使用 `wss://` |
 | `BROWSERSKILL_MAX_CONNECTIONS` | 32 | 单个应用实例同时在线的浏览器设备上限 |

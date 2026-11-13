@@ -39,7 +39,7 @@ git -C "$build_dir/source" checkout --detach "$source_commit"
   npx --yes pnpm@10.17.0 install --frozen-lockfile
   npx --yes pnpm@10.17.0 ext:build:zip
 )
-cp "$build_dir/source/apps/extension/dist/browser-skillextension-${extension_version}-chrome.zip" "$output_dir/browser-skill-weknora-${extension_version}.zip"
+cp "$build_dir/source/apps/extension/dist/browser-skillextension-${extension_version}-chrome.zip" "$output_dir/browser-skill-genyee-${extension_version}.zip"
 cp "$build_dir/source/LICENSE" "$output_dir/BrowserSkill-LICENSE"
 
 # Build the daemon from the same pinned source as the bundled extension.

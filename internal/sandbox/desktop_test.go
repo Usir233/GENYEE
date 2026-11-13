@@ -116,7 +116,7 @@ func TestStartDesktopScriptBoundsXProbesUnderTheLock(t *testing.T) {
 	// A wedged X server (accepts the connection, never replies) makes an
 	// unbounded xdpyinfo/xset hang forever while fd 9 — the start lock — is
 	// held, so the next start blocks on flock until its Exec times out. The
-	// same lock-hang class as the dbus-daemon seat-lock leak in wk-display.
+	// same lock-hang class as the dbus-daemon seat-lock leak in gy-display.
 	src := shellCode(startDesktopScript(t))
 	require.Contains(t, src, "timeout 2 xdpyinfo -display :0")
 	require.Contains(t, src, "timeout 5 xset s off -dpms")
@@ -125,7 +125,7 @@ func TestStartDesktopScriptBoundsXProbesUnderTheLock(t *testing.T) {
 }
 
 func TestStartDesktopScriptClosesLockFDInEveryDaemon(t *testing.T) {
-	// Reproduced against wechatopenai/genyee-sandbox:main-desktop: Xvfb,
+	// Reproduced against genyee/genyee-sandbox:main-desktop: Xvfb,
 	// xfce4-session, dbus-launch, x11vnc and websockify all inherited fd 9
 	// and kept holding the flock after the script exited. Killing x11vnc and
 	// websockify then left Xvfb/XFCE holding it, so the next run blocked on
@@ -299,16 +299,16 @@ func TestDesktopResetListenersCmdClearsLeakedLock(t *testing.T) {
 
 func TestDesktopEnsureCmdClaimsASeat(t *testing.T) {
 	code := shellCode(DesktopEnsureCmd())
-	require.NotContains(t, code, "wk-desk")
-	require.Contains(t, code, "command -v wk-display")
+	require.NotContains(t, code, "gy-desk")
+	require.Contains(t, code, "command -v gy-display")
 	require.Contains(t, code, `start-desktop.sh --proxy-only`)
-	claim := `seat=$(wk-display claim "$GENYEE_SESSION_ID"`
+	claim := `seat=$(gy-display claim "$GENYEE_SESSION_ID"`
 	ready := `printf 'READY %s %s\n' "$secret" "$seat"`
 	require.Contains(t, code, claim)
 	require.Contains(t, code, ready)
 	require.Less(t, strings.Index(code, claim), strings.Index(code, ready),
 		"the seat is claimed before READY is printed")
-	require.NotContains(t, code, "wk-display claim \"$GENYEE_SESSION_ID\"\n",
+	require.NotContains(t, code, "gy-display claim \"$GENYEE_SESSION_ID\"\n",
 		"claim stdout must be captured; a bare call would leak past the single READY line")
 }
 

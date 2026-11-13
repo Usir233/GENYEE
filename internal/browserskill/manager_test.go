@@ -24,8 +24,8 @@ func TestPairInfersGatewayFromPageOrigin(t *testing.T) {
 	ctx := context.Background()
 	scope := Scope{1, "alice"}
 	for _, tt := range []struct{ origin, endpoint string }{
-		{"https://weknora.example", "wss://weknora.example/api/v1/local-browser/extension"},
-		{"https://weknora.example:8443", "wss://weknora.example:8443/api/v1/local-browser/extension"},
+		{"https://genyee.example", "wss://genyee.example/api/v1/local-browser/extension"},
+		{"https://genyee.example:8443", "wss://genyee.example:8443/api/v1/local-browser/extension"},
 		{"http://localhost:8080", "ws://localhost:8080/api/v1/local-browser/extension"},
 		{"http://127.0.0.1:5173", "ws://127.0.0.1:5173/api/v1/local-browser/extension"},
 		{"http://[::1]:8080", "ws://[::1]:8080/api/v1/local-browser/extension"},
@@ -63,7 +63,7 @@ func TestPairRejectsInvalidPageOrigin(t *testing.T) {
 		})
 	}
 	m.publicURL = "http://invalid-gateway.example"
-	_, err := m.pairingURL("https://weknora.example")
+	_, err := m.pairingURL("https://genyee.example")
 	require.Error(t, err, "an invalid explicit override must not silently fall back")
 }
 

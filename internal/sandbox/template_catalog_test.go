@@ -3,12 +3,12 @@ package sandbox
 import "testing"
 
 func TestIsStandardTemplateRecognizesProviderScopedName(t *testing.T) {
-	for _, name := range []string{"weknora", "team/weknora", "project-b89e/WeKnora"} {
+	for _, name := range []string{"genyee", "team/genyee", "project-b89e/GENYEE"} {
 		if !isStandardTemplate(name) {
-			t.Fatalf("expected %q to identify the WeKnora standard template", name)
+			t.Fatalf("expected %q to identify the GENYEE standard template", name)
 		}
 	}
-	if isStandardTemplate("weknora-custom") {
+	if isStandardTemplate("genyee-custom") {
 		t.Fatal("custom template must not be treated as the standard template")
 	}
 	if isStandardTemplate(DesktopTemplateName) {
@@ -17,15 +17,15 @@ func TestIsStandardTemplateRecognizesProviderScopedName(t *testing.T) {
 }
 
 func TestIsDesktopTemplateRecognizesProviderScopedName(t *testing.T) {
-	for _, name := range []string{"weknora-desktop", "team/weknora-desktop", "project-b89e/WeKnora-Desktop"} {
+	for _, name := range []string{"genyee-desktop", "team/genyee-desktop", "project-b89e/GENYEE-Desktop"} {
 		if !isDesktopTemplate(name) {
-			t.Fatalf("expected %q to identify the WeKnora desktop template", name)
+			t.Fatalf("expected %q to identify the GENYEE desktop template", name)
 		}
 	}
-	if isDesktopTemplate("weknora") {
+	if isDesktopTemplate("genyee") {
 		t.Fatal("the CLI template must not be classified as desktop")
 	}
-	if isDesktopTemplate("weknora-desktop-custom") {
+	if isDesktopTemplate("genyee-desktop-custom") {
 		t.Fatal("a similarly prefixed custom name must not be the desktop template")
 	}
 }

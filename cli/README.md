@@ -4,7 +4,7 @@ A command-line interface for the GENYEE RAG knowledge-base server. Lets you
 authenticate, manage knowledge bases and documents, run hybrid search, and
 ask streaming RAG questions from your terminal or from an AI agent.
 
-> **Compatibility note:** The CLI binary is `genyee` (`weknora` is supported as a command alias), and all `GENYEE_*` environment variables (`GENYEE_API_KEY`, `GENYEE_TOKEN`, `GENYEE_HOST`, `GENYEE_PROFILE`, `GENYEE_FORMAT`, `GENYEE_KB_ID`, `GENYEE_LOG_LEVEL`, `GENYEE_AGENT_HELP`) remain supported for backward compatibility.
+> **Compatibility note:** The CLI binary is `genyee` (`genyee` is supported as a command alias), and all `GENYEE_*` environment variables (`GENYEE_API_KEY`, `GENYEE_TOKEN`, `GENYEE_HOST`, `GENYEE_PROFILE`, `GENYEE_FORMAT`, `GENYEE_KB_ID`, `GENYEE_LOG_LEVEL`, `GENYEE_AGENT_HELP`) remain supported for backward compatibility.
 
 ```bash
 $ genyee --help
@@ -176,27 +176,27 @@ on the *active* profile (override per-invocation with the global `--profile`
 flag). Create a profile first, then authenticate it:
 
 ```bash
-weknora profile add prod    --host https://prod.example.com --use     # add + switch
-weknora auth login                                                    # authenticate active (prod)
+genyee profile add prod    --host https://prod.example.com --use     # add + switch
+genyee auth login                                                    # authenticate active (prod)
 
-weknora profile add staging --host https://staging.example.com        # add (stays inactive)
-echo "sk-..." | weknora --profile staging auth login --with-token     # authenticate staging
+genyee profile add staging --host https://staging.example.com        # add (stays inactive)
+echo "sk-..." | genyee --profile staging auth login --with-token     # authenticate staging
 
-weknora auth list
-weknora profile use prod                                              # switch back
+genyee auth list
+genyee profile use prod                                              # switch back
 ```
 
 Credentials are persisted to your OS keyring (Keychain on macOS, libsecret on
 Linux, Wincred on Windows) when available, otherwise to a 0600-mode file
-under `$XDG_CONFIG_HOME/weknora/secrets/`. The active profile lives in
-`~/.config/weknora/config.yaml`.
+under `$XDG_CONFIG_HOME/genyee/secrets/`. The active profile lives in
+`~/.config/genyee/config.yaml`.
 
 To remove a profile's stored credentials:
 
 ```bash
-weknora auth logout                       # active profile
-weknora --profile staging auth logout     # specific profile
-weknora auth logout --all
+genyee auth logout                       # active profile
+genyee --profile staging auth logout     # specific profile
+genyee auth logout --all
 ```
 
 ---
@@ -205,7 +205,7 @@ weknora auth logout --all
 
 Designed to be AI-agent-first. Stable across minor releases; breaking
 changes announced in the changelog and the corresponding
-`weknora --version` bump. This section is the human overview; the complete,
+`genyee --version` bump. This section is the human overview; the complete,
 authoritative contract (envelope field stability, error taxonomy, streaming,
 confirmation and dry-run protocols) lives in **[AGENTS.md](AGENTS.md)**.
 
@@ -224,16 +224,16 @@ symmetric envelope `{ok, data, meta?}` — `data` is an array for `list` /
 against the whole envelope, so reach into list items with `.data[]`:
 
 ```bash
-weknora kb list --format json                              # {"ok":true,"data":[{"id":"kb_x",…}],"meta":{"count":1,…}}
-weknora kb view kb_x --format json                         # {"ok":true,"data":{"id":"kb_x","name":"Eng",…}}
-weknora kb list --format json --jq '.data[] | {id, name}'  # project listed fields out of each item
-weknora kb list --format json --jq '.data[].id'            # ids only
-weknora kb list --format json --jq '.meta.count'           # number returned
+genyee kb list --format json                              # {"ok":true,"data":[{"id":"kb_x",…}],"meta":{"count":1,…}}
+genyee kb view kb_x --format json                         # {"ok":true,"data":{"id":"kb_x","name":"Eng",…}}
+genyee kb list --format json --jq '.data[] | {id, name}'  # project listed fields out of each item
+genyee kb list --format json --jq '.data[].id'            # ids only
+genyee kb list --format json --jq '.meta.count'           # number returned
 ```
 
 `--format ndjson` is also accepted for streaming list commands; each
 element is emitted as its own JSON line. `--format json` is the default
-regardless of TTY — running `weknora kb list | jq` works without an
+regardless of TTY — running `genyee kb list | jq` works without an
 explicit flag. Use `--format text` for human-readable output.
 
 ### Errors
@@ -250,7 +250,7 @@ Example:
 
 ```
 auth.unauthenticated: fetch current user: HTTP error 401: ...
-hint: run `weknora auth login`
+hint: run `genyee auth login`
 ```
 
 Under `--format json` the same failure is the typed error envelope on stderr
@@ -264,7 +264,7 @@ taxonomy.
 |---|---|---|
 | `0`   | success                                                | continue |
 | `1`   | typed `local.*` / `operation.failed` / unclassified    | read stderr, decide retry/abort |
-| `2`   | flag / argument validation error                       | re-check `weknora <cmd> --help` |
+| `2`   | flag / argument validation error                       | re-check `genyee <cmd> --help` |
 | `3`   | `auth.*` (token missing / expired / forbidden)         | re-auth, then retry |
 | `4`   | `resource.not_found`                                   | verify the resource id |
 | `5`   | `input.*` (other than `confirmation_required`)         | adjust args, retry |
@@ -274,7 +274,7 @@ taxonomy.
 | `124` | `operation.timeout` (e.g. `doc wait --timeout` reached) | raise `--timeout` or check the underlying job |
 | `130` | cancelled by signal — typed `operation.cancelled` errors exit 1; `main.go` promotes the process exit to 130 when the root context was signal-cancelled (SIGINT / SIGTERM) | stop, do not retry |
 
-Run `weknora exit-codes` for the machine-readable matrix (JSON); `weknora help exit-codes` for the human-readable table.
+Run `genyee exit-codes` for the machine-readable matrix (JSON); `genyee help exit-codes` for the human-readable table.
 
 **Exit 10** is the wire-level signal for "destructive write needs
 explicit confirmation". Pass `-y/--yes` on `kb delete` /
@@ -292,10 +292,10 @@ is the guard against unintended writes.
   the unmodified raw stream.
 - `--format json` composes with the global `--profile <name>` for
   single-shot profile overrides without disk writes.
-- `weknora mcp serve` exposes a curated read-only tool surface over
+- `genyee mcp serve` exposes a curated read-only tool surface over
   stdio MCP for any MCP-compatible client.
-- `weknora schema` enumerates every command with its `used_for`, and
-  `weknora schema <cmd path>` (e.g. `weknora schema doc update`) prints that
+- `genyee schema` enumerates every command with its `used_for`, and
+  `genyee schema <cmd path>` (e.g. `genyee schema doc update`) prints that
   command's full contract — `used_for`, `required_flags`, `examples`,
   `output`, `warnings`, `risk`, and local `flags` — as the standard envelope,
   so an agent can discover the surface without scraping `--help` prose.
@@ -311,7 +311,7 @@ operations that intentionally go through `genyee api`:
 
 - **Tuning a KB's nested config** — chunking strategy, summary model,
   multimodal extraction defaults, FAQ thresholds, VLM model. Use
-  `weknora api PUT /api/v1/knowledge-bases/<id> --input -` with a JSON
+  `genyee api PUT /api/v1/knowledge-bases/<id> --input -` with a JSON
   body matching the server's `UpdateKnowledgeBaseRequest`. (Note: the
   storage provider is set once at create time via
   `kb create --storage-provider <name>` and is not updatable.)
@@ -319,12 +319,12 @@ operations that intentionally go through `genyee api`:
   override, image attachments, web search toggle. Use `genyee api POST
   /api/v1/knowledge-chat/<session-id> --input -`.
 - **Per-request `session ask --agent` overrides** — same shape via
-  `weknora api POST /api/v1/agent-chat/<session-id> --input -`.
+  `genyee api POST /api/v1/agent-chat/<session-id> --input -`.
 - **Operations without a CLI verb** — register / change-password /
   OIDC flows, organization / sharing endpoints, tenant management.
 
-`weknora api --help` documents the raw passthrough. Run
-`weknora doctor` first to verify auth and base URL.
+`genyee api --help` documents the raw passthrough. Run
+`genyee doctor` first to verify auth and base URL.
 
 ---
 
@@ -334,7 +334,7 @@ Add `--dry-run` to any mutation command to preview the would-be action without e
 
 ```bash
 # Preview a kb create without actually creating
-weknora kb create --name "test-kb" --description "for review" --dry-run
+genyee kb create --name "test-kb" --description "for review" --dry-run
 
 # Output (single line; pretty-printed here for readability):
 # {
@@ -355,32 +355,32 @@ dry-run is **offline**: no network calls, no file IO, no credential touches. Wor
 For destructive commands, dry-run does NOT trigger the exit-10 confirmation flow:
 
 ```bash
-weknora kb delete kb_xxxx --dry-run   # exit 0, no prompt
-weknora kb delete kb_xxxx             # exit 10, prompts for -y
+genyee kb delete kb_xxxx --dry-run   # exit 0, no prompt
+genyee kb delete kb_xxxx             # exit 10, prompts for -y
 ```
 
 For the `api` command, dry-run requires explicit write method (POST/PUT/PATCH/DELETE); GET returns FlagError:
 
 ```bash
-echo '{"name":"foo"}' | weknora api -X POST /api/v1/knowledge-bases --input - --dry-run   # OK
-weknora api /api/v1/knowledge-bases --dry-run                                              # exit 2: requires explicit -X
+echo '{"name":"foo"}' | genyee api -X POST /api/v1/knowledge-bases --input - --dry-run   # OK
+genyee api /api/v1/knowledge-bases --dry-run                                              # exit 2: requires explicit -X
 ```
 
 ---
 
 ## Resuming streams
 
-The `weknora session resume` command resumes an SSE event stream for an existing assistant message. Useful for network-blip recovery or polling long-running agent invocations:
+The `genyee session resume` command resumes an SSE event stream for an existing assistant message. Useful for network-blip recovery or polling long-running agent invocations:
 
 ```bash
 # Original streaming call captures session_id + message_id from init event:
-weknora session ask "..." --agent ag_xxxx --format ndjson | tee /tmp/stream.ndjson
+genyee session ask "..." --agent ag_xxxx --format ndjson | tee /tmp/stream.ndjson
 # {"type":"init","session_id":"sess_abc","message_id":"msg_xyz"}
 # ... events flow ...
 # [network blip]
 
 # Resume the same stream:
-weknora session resume sess_abc --message msg_xyz
+genyee session resume sess_abc --message msg_xyz
 # Server REPLAYS all stored events from the start, then tails new ones.
 # Agent must dedupe (by message_id or event hash) to avoid double-processing.
 ```
@@ -392,10 +392,10 @@ An agent run may pause the stream on a tool-approval event until a human approve
 ```bash
 # 1. Stream pauses with a tool-approval event carrying a pending_id.
 # 2. Surface the pending tool call to the user; get explicit go-ahead.
-weknora session tool-approval resolve pend_xxx -y                      # approve
-# weknora session tool-approval resolve pend_xxx --reject --reason "..." -y  # reject
+genyee session tool-approval resolve pend_xxx -y                      # approve
+# genyee session tool-approval resolve pend_xxx --reject --reason "..." -y  # reject
 # 3. Resume the stream — server replays + tails from where the run was blocked.
-weknora session resume sess_abc --message msg_xyz
+genyee session resume sess_abc --message msg_xyz
 ```
 
 Pass `--modified-args '{"key":"value"}'` to replace tool arguments on approve (must be a non-empty JSON object). Never auto-pass `-y` — the approval is the exit-10 human-in-the-loop gate.
@@ -408,7 +408,7 @@ See `cli/AGENTS.md` "Stream recovery" section for the full agent contract.
 
 ## Health check
 
-Run `weknora doctor` for a 4-status diagnostic (OK / warn / fail /
+Run `genyee doctor` for a 4-status diagnostic (OK / warn / fail /
 skip) covering base URL reachability, authentication, server-CLI
 version skew, and credential storage backend. Add `--format json` for
 machine-readable output, `--offline` to skip network checks.
@@ -418,12 +418,12 @@ a fast vs deep choice:
 
 | Verb | Cost | Use |
 |---|---|---|
-| `weknora kb status <kb-id>`     | 1 HTTP    | live counts / processing flag |
-| `weknora kb check <kb-id>`      | 1+N HTTP  | adds `failed_count` via doc-list page-walk |
-| `weknora agent status <agent-id>` | 1 HTTP  | reachable / model_id |
-| `weknora agent check <agent-id>`  | 1+N HTTP | also probes every KB in the agent's scope |
+| `genyee kb status <kb-id>`     | 1 HTTP    | live counts / processing flag |
+| `genyee kb check <kb-id>`      | 1+N HTTP  | adds `failed_count` via doc-list page-walk |
+| `genyee agent status <agent-id>` | 1 HTTP  | reachable / model_id |
+| `genyee agent check <agent-id>`  | 1+N HTTP | also probes every KB in the agent's scope |
 
-`weknora doc wait <doc-id> [<doc-id>...]` blocks until each document
+`genyee doc wait <doc-id> [<doc-id>...]` blocks until each document
 reaches a terminal `parse_status` (completed or failed). Exit codes:
 0 (all completed), 1 (any failed), 124 (`--timeout` reached), 130
 (Ctrl-C / SIGTERM). Multi-target is polled concurrently (max 5 in

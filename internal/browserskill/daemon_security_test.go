@@ -22,7 +22,7 @@ func TestRuntimeBaseDirAvoidsWorldWritableTmp(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(home, ".genyee", "bsk"), dir)
 	require.NotEqual(t, "/tmp", dir)
-	require.False(t, strings.HasPrefix(dir, "/tmp/wkb-"))
+	require.False(t, strings.HasPrefix(dir, "/tmp/gyb-"))
 
 	for _, invalid := range []string{"relative/path", "/", "/tmp", "/private/tmp", "/var/tmp"} {
 		t.Setenv(RuntimeDirEnv, invalid)

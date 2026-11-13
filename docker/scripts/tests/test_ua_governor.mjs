@@ -4,14 +4,14 @@ import * as fs from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { discoverBrowserEndpoints } from "../cdp-cookies.mjs";
-import { buildUserAgentOverride } from "../wk-fingerprint-profiles.mjs";
-import { chromeProxyServerForProfile, readBoxTimeZone } from "../wk-egress-timezone.mjs";
+import { buildUserAgentOverride } from "../gy-fingerprint-profiles.mjs";
+import { chromeProxyServerForProfile, readBoxTimeZone } from "../gy-egress-timezone.mjs";
 import {
   GOVERNED_MARKER, TZ_ATTACH_WAIT_MS, governBrowser, startTimeZone, tick, tickTimeZone,
-} from "../wk-ua-governor.mjs";
+} from "../gy-ua-governor.mjs";
 
 function temporary(t) {
-  const dir = fs.mkdtempSync(join(tmpdir(), "wk-gov-"));
+  const dir = fs.mkdtempSync(join(tmpdir(), "gy-gov-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   return dir;
 }
@@ -35,9 +35,10 @@ const sent = (b, method) => b.calls.filter((c) => c.method === method);
 
 test("user agent is a Linux desktop Chrome at the running browser's major version", () => {
   const o = buildUserAgentOverride("142.0.7444.59");
-  assert.match(o.userAgent, /^Mozilla\/5\.0 \(X11; Linux x86_64\).* Chrome\/142\.0\.0\.0 Safari\/537\.36$/);
+  const cpu = process.arch === "arm64" ? "aarch64" : "x86_64";
+  assert.match(o.userAgent, new RegExp(`^Mozilla/5\\.0 \\(X11; Linux ${cpu}\\).* Chrome/142\\.0\\.0\\.0 Safari/537\\.36$`));
   assert.equal(o.acceptLanguage, "en-US,en");
-  assert.equal(o.platform, "Linux x86_64");
+  assert.equal(o.platform, `Linux ${cpu}`);
   const meta = o.userAgentMetadata;
   assert.equal(meta.platform, "Linux");
   assert.equal(meta.mobile, false);

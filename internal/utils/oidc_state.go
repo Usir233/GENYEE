@@ -33,7 +33,7 @@ var (
 
 func loadOIDCStateSigningKey() (string, error) {
 	envSecret := strings.TrimSpace(os.Getenv("JWT_SECRET"))
-	isPlaceholder := envSecret == "" || envSecret == "weknora-jwt-secret" || envSecret == "CHANGE-ME-jwt-secret"
+	isPlaceholder := envSecret == "" || envSecret == "genyee-jwt-secret" || envSecret == "CHANGE-ME-jwt-secret"
 	if IsProductionEnv() {
 		if err := ValidateProductionJWTSecret(envSecret); err != nil {
 			return "", err

@@ -31,36 +31,36 @@ grant_docker_sock_to_appuser() {
     gid="$(stat -c '%g' -- "$sock" 2>/dev/null || true)"
     mode="$(stat -c '%a' -- "$sock" 2>/dev/null || true)"
     if [ -z "$gid" ] || [ -z "$mode" ]; then
-        echo "weknora: cannot stat $sock; Docker sandbox may be unable to reach the daemon" >&2
+        echo "genyee: cannot stat $sock; Docker sandbox may be unable to reach the daemon" >&2
         return 0
     fi
     case "$mode" in
         *[!0-7]*)
-            echo "weknora: invalid mode $mode for $sock; Docker sandbox may be unable to reach the daemon" >&2
+            echo "genyee: invalid mode $mode for $sock; Docker sandbox may be unable to reach the daemon" >&2
             return 0
             ;;
     esac
     if (( (8#$mode & 0060) != 0060 )); then
-        echo "weknora: $sock is not group-readable and group-writable; refusing to change socket permissions" >&2
+        echo "genyee: $sock is not group-readable and group-writable; refusing to change socket permissions" >&2
         return 0
     fi
     if [ "$gid" = "0" ] && [ "${GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID:-false}" != "true" ]; then
-        echo "weknora: refusing to add appuser to privileged root group (gid 0) for $sock; configure a non-root docker socket group or set GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID=true explicitly" >&2
+        echo "genyee: refusing to add appuser to privileged root group (gid 0) for $sock; configure a non-root docker socket group or set GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID=true explicitly" >&2
         return 0
     fi
     if ! getent group "$gid" >/dev/null 2>&1; then
         if ! groupadd -g "$gid" dockersock >/dev/null 2>&1; then
-            echo "weknora: failed to create group for $sock GID $gid; Docker sandbox may be unable to reach the daemon" >&2
+            echo "genyee: failed to create group for $sock GID $gid; Docker sandbox may be unable to reach the daemon" >&2
             return 0
         fi
     fi
     grp="$(getent group "$gid" | cut -d: -f1)"
     if [ -z "$grp" ]; then
-        echo "weknora: no group name for GID $gid on $sock" >&2
+        echo "genyee: no group name for GID $gid on $sock" >&2
         return 0
     fi
     if ! usermod -aG "$grp" appuser >/dev/null 2>&1; then
-        echo "weknora: failed to add appuser to $grp for $sock; Docker sandbox may be unable to reach the daemon" >&2
+        echo "genyee: failed to add appuser to $grp for $sock; Docker sandbox may be unable to reach the daemon" >&2
         return 0
     fi
 }

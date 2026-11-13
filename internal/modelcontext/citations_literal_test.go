@@ -26,9 +26,9 @@ func TestLiteralRefTextSurvivesCitationExpansion(t *testing.T) {
 			want:     `引用标签的写法是 <kb doc="Doc" chunk_id="chunk-1" />。`,
 		},
 		{
-			name: "weknora attribute",
-			in:   `引用标签的写法是 <ref weknora_id="c1"/>。`,
-			want: `引用标签的写法是 <ref weknora_id="c1"/>。`,
+			name: "genyee attribute",
+			in:   `引用标签的写法是 <ref genyee_id="c1"/>。`,
+			want: `引用标签的写法是 <ref genyee_id="c1"/>。`,
 		},
 		{
 			name: "arbitrary text",
@@ -44,8 +44,8 @@ func TestLiteralRefTextSurvivesCitationExpansion(t *testing.T) {
 		{
 			name:     "fenced code keeps a literal tag",
 			register: true,
-			in:       "示例：\n```\n<ref weknora_id=\"c1\"/>\n```\n结束",
-			want:     "示例：\n```\n<ref weknora_id=\"c1\"/>\n```\n结束",
+			in:       "示例：\n```\n<ref genyee_id=\"c1\"/>\n```\n结束",
+			want:     "示例：\n```\n<ref genyee_id=\"c1\"/>\n```\n结束",
 		},
 		{
 			name:     "genuine citation still expands",
@@ -85,7 +85,7 @@ func TestLiteralRefTextSurvivesCitationExpansion(t *testing.T) {
 
 func TestLiteralRefSplitAcrossChunks(t *testing.T) {
 	registry := newSourceRegistry()
-	text := `写法是 <ref weknora_id="c1"/>，以及 <ref id="example"/>。`
+	text := `写法是 <ref genyee_id="c1"/>，以及 <ref id="example"/>。`
 	for split := 0; split <= len(text); split++ {
 		decoder := newCitationStreamExpander(registry)
 		got := decoder.Feed(text[:split]) + decoder.Feed(text[split:]) + decoder.Flush()
@@ -107,8 +107,8 @@ func TestFencedRefSplitAcrossChunksStaysLiteral(t *testing.T) {
 func TestDisabledCitationsStillDropProtocolRefs(t *testing.T) {
 	registry := newSourceRegistry(false)
 	registry.RegisterChunk(ChunkReference{ChunkID: "chunk-1", DocumentTitle: "Doc"})
-	require.Equal(t, "literal <ref weknora_id=\"c1\"/> done",
-		registry.ExpandText("literal <ref weknora_id=\"c1\"/> done"))
+	require.Equal(t, "literal <ref genyee_id=\"c1\"/> done",
+		registry.ExpandText("literal <ref genyee_id=\"c1\"/> done"))
 	require.Equal(t, "legacy  done",
 		registry.ExpandText("legacy <ref id=\"c1\"/> done"))
 	require.Equal(t, "protocol  done",

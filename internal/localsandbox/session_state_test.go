@@ -21,7 +21,7 @@ func approvalFixture(t *testing.T, backend *fakeBackend) (*Service, string, stri
 	require.NoError(t, os.MkdirAll(root, 0o755))
 	require.NoError(t, os.MkdirAll(other, 0o755))
 	resolver := NewWorkspaceResolver(DirLayout{
-		SessionRoot: filepath.Join(home, "Documents", "WeKnora"),
+		SessionRoot: filepath.Join(home, "Documents", "GENYEE"),
 	}, fixedProject(root))
 	builder := NewPolicyBuilder(home, filepath.Join(home, "AppData"))
 	return NewService(backend, resolver, builder, fixedMode(ModeAsk)), root, other

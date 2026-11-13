@@ -9,6 +9,6 @@ __version__ = "1.1.1"
 __author__ = "GENYEE Team"
 __description__ = "GENYEE MCP Server - Model Context Protocol server for GENYEE API"
 
-from weknora_mcp_server import GENYEEClient, run
+from genyee_mcp_server import GENYEEClient, run
 
 __all__ = ["GENYEEClient", "run"]

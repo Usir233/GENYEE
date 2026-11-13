@@ -529,9 +529,9 @@ func (c *E2BRemoteClient) DeleteSupersededStandardTemplates(ctx context.Context,
 // template provisioner appends `PS1='\w $ '` to bashrc. Harmless if the
 // image already sources /etc/genyee/pty-prompt.sh (PROMPT_COMMAND wins
 // either way); required when rebuilding from an older image that does not.
-const e2bPtyPromptOverrideCmd = `. /etc/weknora/pty-prompt.sh 2>/dev/null; ` +
-	`for f in /root/.bashrc /home/user/.bashrc /etc/profile.d/zz-weknora-prompt.sh; do ` +
-	`grep -q /etc/weknora/pty-prompt.sh "$f" 2>/dev/null || echo '. /etc/weknora/pty-prompt.sh' >> "$f"; ` +
+const e2bPtyPromptOverrideCmd = `. /etc/genyee/pty-prompt.sh 2>/dev/null; ` +
+	`for f in /root/.bashrc /home/user/.bashrc /etc/profile.d/zz-genyee-prompt.sh; do ` +
+	`grep -q /etc/genyee/pty-prompt.sh "$f" 2>/dev/null || echo '. /etc/genyee/pty-prompt.sh' >> "$f"; ` +
 	`done`
 
 func (c *E2BRemoteClient) buildStandardTemplate(ctx context.Context) (*RemoteTemplate, error) {

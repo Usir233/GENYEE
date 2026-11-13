@@ -11,21 +11,21 @@ in-cluster components can establish inbound connections.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "weknora.fullname" . }}-docreader
+  name: {{ include "genyee.fullname" . }}-docreader
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "weknora.componentLabels" (dict "component" "docreader" "context" .) | nindent 4 }}
+    {{- include "genyee.componentLabels" (dict "component" "docreader" "context" .) | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
-      {{- include "weknora.componentSelectorLabels" (dict "component" "docreader" "context" .) | nindent 6 }}
+      {{- include "genyee.componentSelectorLabels" (dict "component" "docreader" "context" .) | nindent 6 }}
   policyTypes:
     - Ingress
   ingress:
     - from:
         - podSelector:
             matchLabels:
-              {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
+              {{- include "genyee.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
       ports:
         - protocol: TCP
           port: 50051
@@ -35,21 +35,21 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "weknora.fullname" . }}-postgres
+  name: {{ include "genyee.fullname" . }}-postgres
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "weknora.componentLabels" (dict "component" "database" "context" .) | nindent 4 }}
+    {{- include "genyee.componentLabels" (dict "component" "database" "context" .) | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
-      {{- include "weknora.componentSelectorLabels" (dict "component" "database" "context" .) | nindent 6 }}
+      {{- include "genyee.componentSelectorLabels" (dict "component" "database" "context" .) | nindent 6 }}
   policyTypes:
     - Ingress
   ingress:
     - from:
         - podSelector:
             matchLabels:
-              {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
+              {{- include "genyee.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
       ports:
         - protocol: TCP
           port: 5432
@@ -59,21 +59,21 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "weknora.fullname" . }}-redis
+  name: {{ include "genyee.fullname" . }}-redis
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "weknora.componentLabels" (dict "component" "cache" "context" .) | nindent 4 }}
+    {{- include "genyee.componentLabels" (dict "component" "cache" "context" .) | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
-      {{- include "weknora.componentSelectorLabels" (dict "component" "cache" "context" .) | nindent 6 }}
+      {{- include "genyee.componentSelectorLabels" (dict "component" "cache" "context" .) | nindent 6 }}
   policyTypes:
     - Ingress
   ingress:
     - from:
         - podSelector:
             matchLabels:
-              {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
+              {{- include "genyee.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
       ports:
         - protocol: TCP
           port: 6379
@@ -83,21 +83,21 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "weknora.fullname" . }}-neo4j
+  name: {{ include "genyee.fullname" . }}-neo4j
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "weknora.componentLabels" (dict "component" "graph" "context" .) | nindent 4 }}
+    {{- include "genyee.componentLabels" (dict "component" "graph" "context" .) | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
-      {{- include "weknora.componentSelectorLabels" (dict "component" "graph" "context" .) | nindent 6 }}
+      {{- include "genyee.componentSelectorLabels" (dict "component" "graph" "context" .) | nindent 6 }}
   policyTypes:
     - Ingress
   ingress:
     - from:
         - podSelector:
             matchLabels:
-              {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
+              {{- include "genyee.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
       ports:
         - protocol: TCP
           port: 7474
@@ -109,14 +109,14 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "weknora.fullname" . }}-app
+  name: {{ include "genyee.fullname" . }}-app
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "weknora.componentLabels" (dict "component" "app" "context" .) | nindent 4 }}
+    {{- include "genyee.componentLabels" (dict "component" "app" "context" .) | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
-      {{- include "weknora.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 6 }}
+      {{- include "genyee.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 6 }}
   policyTypes:
     - Ingress
   ingress:
@@ -124,7 +124,7 @@ spec:
         {{- if .Values.frontend.enabled }}
         - podSelector:
             matchLabels:
-              {{- include "weknora.componentSelectorLabels" (dict "component" "frontend" "context" .) | nindent 14 }}
+              {{- include "genyee.componentSelectorLabels" (dict "component" "frontend" "context" .) | nindent 14 }}
         {{- end }}
         {{- if or (not .Values.frontend.enabled) (and (hasKey .Values.ingress "routeApiViaFrontend") (not .Values.ingress.routeApiViaFrontend)) }}
         - namespaceSelector: {{ toYaml (.Values.networkPolicy.ingressNamespaceSelector | default dict) | nindent 12 }}
@@ -141,14 +141,14 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: {{ include "weknora.fullname" . }}-frontend
+  name: {{ include "genyee.fullname" . }}-frontend
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "weknora.componentLabels" (dict "component" "frontend" "context" .) | nindent 4 }}
+    {{- include "genyee.componentLabels" (dict "component" "frontend" "context" .) | nindent 4 }}
 spec:
   podSelector:
     matchLabels:
-      {{- include "weknora.componentSelectorLabels" (dict "component" "frontend" "context" .) | nindent 6 }}
+      {{- include "genyee.componentSelectorLabels" (dict "component" "frontend" "context" .) | nindent 6 }}
   policyTypes:
     - Ingress
   ingress:

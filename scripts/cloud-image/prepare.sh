@@ -5,7 +5,7 @@
 # 使用方式:  sudo bash prepare.sh
 # 可调环境变量:
 #   GENYEE_REF              要拉取的 git ref (tag / branch / commit), 默认 main
-#   GENYEE_DIR              部署目录, 默认 /opt/WeKnora
+#   GENYEE_DIR              部署目录, 默认 /opt/GENYEE
 #   GENYEE_REPO             仓库地址, 默认 https://github.com/genyee/genyee
 #   GENYEE_GH_PROXY         GitHub 加速前缀, 默认空。中国大陆机器可设
 #                            https://gh-proxy.com/ 或 https://ghfast.top/
@@ -27,7 +27,7 @@
 set -euo pipefail
 
 GENYEE_REF="${GENYEE_REF:-main}"
-GENYEE_DIR="${GENYEE_DIR:-/opt/WeKnora}"
+GENYEE_DIR="${GENYEE_DIR:-/opt/GENYEE}"
 GENYEE_REPO="${GENYEE_REPO:-https://github.com/genyee/genyee}"
 GENYEE_GH_PROXY="${GENYEE_GH_PROXY:-}"
 DOCKER_INSTALL_MIRROR="${DOCKER_INSTALL_MIRROR:-}"
@@ -119,7 +119,7 @@ EOF
   done
 fi
 
-echo "[prepare] 2/6 拉取 WeKnora 运行时文件 (ref=${GENYEE_REF})"
+echo "[prepare] 2/6 拉取 GENYEE 运行时文件 (ref=${GENYEE_REF})"
 # 只下载实际需要的 4 个文件, 不 clone 整个仓库 (~MB 级 -> ~KB 级)
 mkdir -p "${GENYEE_DIR}/config"
 
@@ -135,9 +135,9 @@ tar -xzf "${tmp}/repo.tar.gz" -C "${tmp}" \
   '*/docker-compose.yml' \
   '*/.env.example' \
   '*/config/config.yaml'
-src=$(find "${tmp}" -maxdepth 1 -mindepth 1 -type d \( -name 'GENYEE-*' -o -name 'WeKnora-*' \) | head -1)
+src=$(find "${tmp}" -maxdepth 1 -mindepth 1 -type d \( -name 'GENYEE-*' -o -name 'GENYEE-*' \) | head -1)
 if [[ -z "${src}" ]]; then
-  echo "[prepare] 解压失败, 未找到 GENYEE-* 或 WeKnora-* 目录" >&2
+  echo "[prepare] 解压失败, 未找到 GENYEE-* 或 GENYEE-* 目录" >&2
   exit 1
 fi
 
@@ -195,21 +195,21 @@ docker compose --profile full pull sandbox || true
 
 # 其他向量库 / 可观测组件 (qdrant, milvus, weaviate, doris, neo4j, langfuse-*, minio, dex)
 # 不预拉, 体积可省 5-15GB. 用户如需启用:
-#   cd /opt/WeKnora && docker compose --profile <name> up -d
+#   cd /opt/GENYEE && docker compose --profile <name> up -d
 
-# 升级场景: 清理旧版本 tag 的 genyee/genyee-* (及兼容旧名 wechatopenai/weknora-*) 镜像。
+# 升级场景: 清理旧版本 tag 的 genyee/genyee-* (及兼容旧名 genyee/genyee-*) 镜像。
 # 默认关闭, 保留回滚路径; 制作镜像前显式打开以减小体积。
 #
 # 注意: 不用 `docker image prune -af`!
 # sandbox 镜像在 compose 里只 pull 不 up (Agent Skills 由 app 按需 docker run),
 # 没有任何容器引用它, 一旦 `prune -a` 会把当前版本的 sandbox 一起删掉,
 # 反而违背 prepare.sh 4.5 步预拉 sandbox 的目的。
-# 这里精确按 tag 比对, 只删 genyee-* / weknora-* 仓库下、tag 不等于当前
+# 这里精确按 tag 比对, 只删 genyee-* / genyee-* 仓库下、tag 不等于当前
 # GENYEE_VERSION 的镜像, 基础设施镜像 (paradedb / redis) 不动。
 if [[ "${PRUNE_OLD_IMAGES,,}" == "true" || "${PRUNE_OLD_IMAGES}" == "1" ]]; then
   echo "[prepare] 4.6/6 清理 ${GENYEE_REGISTRY:-genyee}/genyee-* 仓库下旧版本镜像 (PRUNE_OLD_IMAGES=true, keep=${GENYEE_VERSION_VAL})"
   docker image ls --format '{{.Repository}}:{{.Tag}}' \
-    | grep -E "^(${GENYEE_REGISTRY:-genyee}/genyee-|wechatopenai/weknora-)" \
+    | grep -E "^(${GENYEE_REGISTRY:-genyee}/genyee-|genyee/genyee-)" \
     | grep -vE ":${GENYEE_VERSION_VAL}\$" \
     | xargs -r docker rmi -f 2>/dev/null || true
 fi
@@ -223,20 +223,20 @@ if [[ -z "${DOCKER_BIN}" ]]; then
 fi
 echo "[prepare]   docker binary: ${DOCKER_BIN}"
 
-install -m 0644 "${SCRIPT_DIR}/systemd/weknora.service"           /etc/systemd/system/weknora.service
-install -m 0644 "${SCRIPT_DIR}/systemd/weknora-firstboot.service" /etc/systemd/system/weknora-firstboot.service
-install -m 0755 "${SCRIPT_DIR}/firstboot.sh"                      /usr/local/sbin/weknora-firstboot.sh
+install -m 0644 "${SCRIPT_DIR}/systemd/genyee.service"           /etc/systemd/system/genyee.service
+install -m 0644 "${SCRIPT_DIR}/systemd/genyee-firstboot.service" /etc/systemd/system/genyee-firstboot.service
+install -m 0755 "${SCRIPT_DIR}/firstboot.sh"                      /usr/local/sbin/genyee-firstboot.sh
 
 # 把 systemd 单元里的 docker 路径模板替换为实际路径
-sed -i "s|@DOCKER_BIN@|${DOCKER_BIN}|g" /etc/systemd/system/weknora.service
+sed -i "s|@DOCKER_BIN@|${DOCKER_BIN}|g" /etc/systemd/system/genyee.service
 
 systemctl daemon-reload
-systemctl enable weknora.service
-systemctl enable weknora-firstboot.service
+systemctl enable genyee.service
+systemctl enable genyee-firstboot.service
 
 echo "[prepare] 6/6 完成"
 echo
-echo "  WeKnora 运行时已部署到 ${GENYEE_DIR}"
+echo "  GENYEE 运行时已部署到 ${GENYEE_DIR}"
 echo "    docker-compose.yml / config/config.yaml / .env"
 echo "  版本: ${GENYEE_REF}  (见 ${GENYEE_DIR}/.cloud-image-meta)"
 echo

@@ -52,7 +52,7 @@ func newBackgroundNoticeInbox(streams interfaces.StreamManager) interfaces.Notic
 func redisNamespace() string {
 	namespace := strings.TrimSpace(os.Getenv("GENYEE_REDIS_NAMESPACE"))
 	if namespace == "" {
-		return "weknora"
+		return "genyee"
 	}
 	return namespace
 }

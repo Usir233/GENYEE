@@ -109,7 +109,7 @@ func (s *TenantSkillService) runHostInstall(ctx context.Context, r hostInstallRu
 		return err
 	}
 	declaredEnvs, envsDeclared := readHostEnvDeclaration(ctx, r.skillID, versionDir, r.bundle)
-	if cache, err := noSymlinkPath(versionDir, ".weknora", "cache"); err != nil {
+	if cache, err := noSymlinkPath(versionDir, ".genyee", "cache"); err != nil {
 		logger.Warnf(ctx, "[skill] clear install cache of %s refused: %v", versionDir, err)
 	} else if err := os.RemoveAll(cache); err != nil {
 		logger.Warnf(ctx, "[skill] clear install cache of %s failed: %v", versionDir, err)

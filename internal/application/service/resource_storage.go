@@ -26,7 +26,7 @@ func NewResourceCatalogWithStorage(
 			global.Config.PathPrefix = ""
 		case "s3", "oss", "obs":
 			if global.Config.PathPrefix == "" {
-				global.Config.PathPrefix = "weknora/"
+				global.Config.PathPrefix = "genyee/"
 			}
 		}
 		if global.Provider == "s3" {

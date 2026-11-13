@@ -108,7 +108,7 @@ func TestResourceURLsUseBoundStorageDespiteGlobalDefault(t *testing.T) {
 }
 
 func TestResourceURLsUseOwnerTenantAndPreserveShortLinks(t *testing.T) {
-	for _, externalURL := range []string{"", "https://weknora.example"} {
+	for _, externalURL := range []string{"", "https://genyee.example"} {
 		t.Run(externalURL, func(t *testing.T) {
 			t.Setenv("APP_EXTERNAL_URL", externalURL)
 			const ref = "resource://AbCdEfGhIjKlMnOpQrStUv"
