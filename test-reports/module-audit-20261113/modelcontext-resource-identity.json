@@ -1,0 +1,78 @@
+{
+  "id": "modelcontext-resource-identity",
+  "status": "fixed_verified",
+  "baseline_head": "b3a52759bb83fa7ac1ed85d02cc709847350f325",
+  "owned_files": [
+    "internal/modelcontext/resources.go",
+    "internal/modelcontext/stream.go",
+    "internal/modelcontext/resources_test.go",
+    "internal/modelcontext/resource_boundary_test.go"
+  ],
+  "finding_id": "MC-RESOURCE-PREFIX-RESOLUTION",
+  "before": {
+    "log": ".git/module-audit-20261113/agent-resource-before.jsonl",
+    "leaf_results": {
+      "pass": 79,
+      "fail": 43,
+      "skip": 0
+    },
+    "packages": [
+      {
+        "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+        "result": "fail"
+      }
+    ]
+  },
+  "after": {
+    "log": ".git/module-audit-20261113/agent-resource-after-corrected.jsonl",
+    "leaf_results": {
+      "pass": 647,
+      "fail": 0,
+      "skip": 0
+    },
+    "packages": [
+      {
+        "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+        "result": "pass"
+      },
+      {
+        "package": "github.com/Usir233/GENYEE/internal/agent",
+        "result": "pass"
+      }
+    ]
+  },
+  "compaction_validation": {
+    "log": ".git/module-audit-20261113/agent-resource-after.jsonl",
+    "leaf_results": {
+      "pass": 65,
+      "fail": 0,
+      "skip": 0
+    },
+    "packages": [
+      {
+        "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+        "result": "fail"
+      },
+      {
+        "package": "github.com/Usir233/GENYEE/internal/agent",
+        "result": "fail"
+      },
+      {
+        "package": "github.com/Usir233/GENYEE/internal/agent/compaction",
+        "result": "pass"
+      }
+    ]
+  },
+  "verification_note": "First after command had implementation compile error due to removed usage leaving strings import; corrected immediately. That log has modelcontext/agent build failures and successful unchanged compaction race suite; corrected after log has both affected packages passing.",
+  "behavior": "Resolve the complete res://numeric token exactly; unknown numeric extensions remain unresolved in tool calls and are removed from public output. Buffer the entire trailing numeric handle until its boundary/Flush. Markdown punctuation, adjacent known handles, all single split positions, bytewise streams, and five-digit handles covered.",
+  "limitations": [
+    "modelcontext full source read; two further confirmed candidates pending separate groups",
+    "No external models or accounts used"
+  ],
+  "changed_sha256": {
+    "internal/modelcontext/resources.go": "76cc86162d9bc6093e639fee01b97fb822ad2eaf765cc964d219de557992799f",
+    "internal/modelcontext/stream.go": "d4767fdef08206004ffd7e0bf7e0518fa9b33b3ad2bc96335c3f06db2f17eed9",
+    "internal/modelcontext/resources_test.go": "fd0ad522482cd3f392e00560e05e65c43506e201fc24d02a8aad364a2f6e262d",
+    "internal/modelcontext/resource_boundary_test.go": "c44d0bc56891e48868e00dbe3df8b56d26407e8be175703685079e167f4c3516"
+  }
+}

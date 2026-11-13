@@ -8418,7 +8418,7 @@
     },
     {
       "id": "internal/modelcontext",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/modelcontext/citations.go",
         "internal/modelcontext/handle_table.go",
@@ -8449,12 +8449,53 @@
         "internal/modelcontext/sources_test.go",
         "internal/modelcontext/tool_policy_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/modelcontext/citations.go",
+        "internal/modelcontext/handle_table.go",
+        "internal/modelcontext/handles.go",
+        "internal/modelcontext/image_sources.go",
+        "internal/modelcontext/leaks.go",
+        "internal/modelcontext/mcp.go",
+        "internal/modelcontext/mcp_sources.go",
+        "internal/modelcontext/model_output.go",
+        "internal/modelcontext/registry.go",
+        "internal/modelcontext/resources.go",
+        "internal/modelcontext/source_text.go",
+        "internal/modelcontext/sources.go",
+        "internal/modelcontext/stream.go",
+        "internal/modelcontext/tool_policy.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/modelcontext-resource-identity.json"
+      ],
+      "findings": [
+        {
+          "id": "MC-RESOURCE-PREFIX-RESOLUTION",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/modelcontext-resource-identity.json"
+        }
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "All 14 production files read by delegated investigator. Two further reproduced issues (stream left-boundary loss and JSON numeric precision) remain pending independent fix groups. Agent and compaction have separate audit units."
+      ],
+      "source_sha256": {
+        "internal/modelcontext/citations.go": "f6bb8f77334ea307315c77e90d1b0b30d929d840e299998f7f23c9b1cb819d4a",
+        "internal/modelcontext/handle_table.go": "af7e72ae6e35e72c100452f778c201bedd63abc655ba604336a4bbbf17ff5849",
+        "internal/modelcontext/handles.go": "24a75779c96d61a55768b17105f5dbb77e127c5751307d1cfa7a602bce25e411",
+        "internal/modelcontext/image_sources.go": "c3a3666099f98871fd69031b7eea9095cc130f9a45c7d0a2309697fea122ab9f",
+        "internal/modelcontext/leaks.go": "4e0d7d55fd47e02e4ee35b5217bfc3bb23ca52053a29f9f214b46e68e1686d22",
+        "internal/modelcontext/mcp.go": "db13570b7f4d6660cd90c1c96e4739b11e4ea7952033520c8bdb098497e531b9",
+        "internal/modelcontext/mcp_sources.go": "a2cf764f82658472650ad685b74cc3145f80dcff11f606793a1334f76ac7629a",
+        "internal/modelcontext/model_output.go": "fa14eef93c0f0c5ea292cecf03b27375057d5b7cc627ad7672c08ac9e5c18009",
+        "internal/modelcontext/registry.go": "bf8d96a67b361e48c4cd1a180578dd93a83defa750bf8d97de31283817a6459f",
+        "internal/modelcontext/resources.go": "76cc86162d9bc6093e639fee01b97fb822ad2eaf765cc964d219de557992799f",
+        "internal/modelcontext/source_text.go": "517b3d3ac439044f268698501b076da7461126ec04b3949147b6f87ee4e9015a",
+        "internal/modelcontext/sources.go": "06eedefc064374f700a2232e935d5476634693e0944972853e9b88192d856206",
+        "internal/modelcontext/stream.go": "d4767fdef08206004ffd7e0bf7e0518fa9b33b3ad2bc96335c3f06db2f17eed9",
+        "internal/modelcontext/tool_policy.go": "0a8665fd2e1630ebb00bbcf229fc308bc5bf3ad8e0ac1d8dcdc4e0cd97d409e4"
+      }
     },
     {
       "id": "internal/models/api/anthropicmessages",
@@ -13044,6 +13085,10 @@
     {
       "commit": "86b170ef0",
       "module": "public invitation rate limiter budget preservation"
+    },
+    {
+      "commit": "deabc4184",
+      "module": "sparse worksheet percentage conversion"
     }
   ],
   "frontend_final_gate": {

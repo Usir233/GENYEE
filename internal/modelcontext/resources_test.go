@@ -68,8 +68,8 @@ func TestStreamDecoderRestoresAliasSplitBeforeScheme(t *testing.T) {
 	require.Equal(t, "res://0001", r.EncodeText(ref))
 	d := newResourceStreamDecoder(r)
 	require.Equal(t, "see ", d.Feed("see re"))
-	require.Equal(t, ref, d.Feed("s://0001"))
-	require.Empty(t, d.Flush())
+	require.Empty(t, d.Feed("s://0001"))
+	require.Equal(t, ref, d.Flush())
 }
 
 func TestOrphanAliasesReportsUnresolvableTokens(t *testing.T) {

@@ -5,8 +5,6 @@ package modelcontext
 
 import (
 	"regexp"
-	"sort"
-	"strings"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
 	"github.com/Usir233/GENYEE/internal/models/chat"
@@ -65,19 +63,19 @@ func (r *resourceRegistry) EncodeText(value string) string {
 	})
 }
 
-// DecodeText restores every handle currently known to the registry. Handles are
-// replaced longest-first with no word-boundary check — this plain substring
-// behavior is load-bearing for handles adjacent to punctuation in Markdown.
+// DecodeText restores complete numeric handles. A known shorter prefix must
+// not resolve an unknown handle (res://00010 is not res://0001 followed by 0).
+// Matching the protocol shape still supports adjacent Markdown punctuation.
 func (r *resourceRegistry) DecodeText(value string) string {
 	if r == nil || value == "" {
 		return value
 	}
-	pairs := r.table.pairs()
-	sort.SliceStable(pairs, func(i, j int) bool { return len(pairs[i].handle) > len(pairs[j].handle) })
-	for _, item := range pairs {
-		value = strings.ReplaceAll(value, item.handle, item.value)
-	}
-	return value
+	return resourceHandleShapeRE.ReplaceAllStringFunc(value, func(handle string) string {
+		if durable, _, ok := r.table.resolve(handle); ok {
+			return durable
+		}
+		return handle
+	})
 }
 
 // StripOrphanHandles removes handle-shaped tokens after all known handles have
@@ -148,15 +146,6 @@ func (r *resourceRegistry) OrphanHandles(decoded string) []string {
 		orphans = append(orphans, match)
 	}
 	return orphans
-}
-
-func (r *resourceRegistry) handles() []string {
-	pairs := r.table.pairs()
-	handles := make([]string, 0, len(pairs))
-	for _, item := range pairs {
-		handles = append(handles, item.handle)
-	}
-	return handles
 }
 
 // dropStaleReasoningSignature clears a reasoning signature this registry just

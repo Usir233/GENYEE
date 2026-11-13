@@ -43,22 +43,12 @@ type resourceStreamDecoder struct {
 
 func newResourceStreamDecoder(registry *resourceRegistry) *resourceStreamDecoder {
 	return &resourceStreamDecoder{hold: streamHold{
-		holdLen: func(combined string) int {
-			hold := 0
-			for _, handle := range registry.handles() {
-				// A provider may split the token at any byte boundary, including
-				// "re" + "s://0001". Holding at most the short matching suffix is
-				// the only way to guarantee a request-local handle never leaks.
-				for n := 1; n < len(handle); n++ {
-					if n > hold && strings.HasSuffix(combined, handle[:n]) {
-						hold = n
-					}
-				}
-			}
-			return hold
-		},
-		emit:  registry.DecodeText,
-		flush: registry.DecodeText,
+		// A full known handle can still grow by another digit in the next
+		// chunk. Hold the entire numeric suffix, including unknown handles,
+		// until punctuation or Flush establishes its complete identity.
+		holdLen: orphanResourceHoldLen,
+		emit:    registry.DecodeText,
+		flush:   registry.DecodeText,
 	}}
 }
 
