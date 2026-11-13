@@ -21,6 +21,7 @@ type Chunk struct {
 	TenantID               uint64 `json:"tenant_id"`                // Tenant ID
 	TagID                  string `json:"tag_id"`                   // Optional tag ID for categorization
 	Content                string `json:"content"`                  // Text content of the chunk
+	ContentRevision        int    `json:"content_revision"`         // Version to pass as expected_revision when editing
 	ChunkIndex             int    `json:"chunk_index"`              // Index position of chunk in the document
 	IsEnabled              bool   `json:"is_enabled"`               // Whether this chunk is enabled
 	Status                 int    `json:"status"`                   // Status of the chunk
@@ -59,13 +60,9 @@ type ChunkListResponse struct {
 // UpdateChunkRequest represents the request structure for updating a chunk
 // Used for requesting chunk information updates
 type UpdateChunkRequest struct {
-	Content    string    `json:"content"`     // Chunk content
-	Embedding  []float32 `json:"embedding"`   // Vector embedding
-	ChunkIndex int       `json:"chunk_index"` // Chunk index
-	IsEnabled  bool      `json:"is_enabled"`  // Whether enabled
-	StartAt    int       `json:"start_at"`    // Start position
-	EndAt      int       `json:"end_at"`      // End position
-	ImageInfo  string    `json:"image_info"`  // Image information
+	Content          *string `json:"content,omitempty"`           // Complete replacement content; nil keeps existing content
+	IsEnabled        *bool   `json:"is_enabled,omitempty"`        // Nil keeps the current enabled state
+	ExpectedRevision *int    `json:"expected_revision,omitempty"` // content_revision returned by a prior read
 }
 
 // ListKnowledgeChunks lists all chunks under a knowledge document
@@ -177,7 +174,7 @@ func (c *Client) GetChunkByIDOnly(ctx context.Context, chunkID string) (*Chunk, 
 
 // DeleteGeneratedQuestion deletes a generated question from a chunk
 func (c *Client) DeleteGeneratedQuestion(ctx context.Context, chunkID string, questionID string) error {
-	path := fmt.Sprintf("/api/v1/chunks/%s/delete-question", escapePathSegment(chunkID))
+	path := fmt.Sprintf("/api/v1/chunks/by-id/%s/questions", escapePathSegment(chunkID))
 	req := map[string]string{"question_id": questionID}
 	resp, err := c.doRequest(ctx, http.MethodDelete, path, req, nil)
 	if err != nil {

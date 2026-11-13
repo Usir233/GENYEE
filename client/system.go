@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -147,7 +148,17 @@ func (c *Client) ReconnectDocReader(ctx context.Context, addr string) error {
 	if err != nil {
 		return err
 	}
-	return parseResponse(resp, nil)
+	var result struct {
+		Code int    `json:"code"`
+		Msg  string `json:"msg"`
+	}
+	if err := parseResponse(resp, &result); err != nil {
+		return err
+	}
+	if result.Code != 0 {
+		return fmt.Errorf("reconnect docreader: %s (code %d)", result.Msg, result.Code)
+	}
+	return nil
 }
 
 // GetStorageEngineStatus gets the availability status of all storage engines

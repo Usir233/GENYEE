@@ -72,6 +72,19 @@ func AllKBSelectionModes() []KBSelectionMode {
 // Field names and JSON tags mirror internal/types.CustomAgentConfig.
 // An empty ReasoningEffort retains the legacy Thinking boolean semantics.
 type AgentConfig struct {
+	// AccessLevel is the agent's write/approval ceiling; an empty value uses
+	// the server default. Preserve it when performing a read-modify-write.
+	AccessLevel                   string             `json:"access_level,omitempty"`
+	MCPAuthWaitTimeout            int                `json:"mcp_auth_wait_timeout,omitempty"`
+	SandboxConfigID               string             `json:"sandbox_config_id,omitempty"`
+	ChatParserEngineRules         []ParserEngineRule `json:"chat_parser_engine_rules,omitempty"`
+	AttachmentImageUnderstanding  bool               `json:"attachment_image_understanding"`
+	AttachmentOCRMaxPages         int                `json:"attachment_ocr_max_pages,omitempty"`
+	AttachmentParseWaitTimeoutSec int                `json:"attachment_parse_wait_timeout_sec,omitempty"`
+	// Nil inherits the workspace switch; false opts this agent out of memory.
+	MemoryEnabled *bool             `json:"memory_enabled,omitempty"`
+	IntentPrompts map[string]string `json:"intent_prompts,omitempty"`
+
 	AgentMode                   string                    `json:"agent_mode"`
 	AgentType                   string                    `json:"agent_type,omitempty"`
 	SystemPrompt                string                    `json:"system_prompt"`

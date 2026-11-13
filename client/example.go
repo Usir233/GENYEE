@@ -34,6 +34,14 @@ func ExampleUsage() {
 	// e.g. ctx := context.WithValue(context.Background(), "TenantID", &tenantID)
 	// then pass `ctx` to any client method to use tenant 2 for that request only.
 
+	// Organization members are workspaces. Use explicit tenant IDs, separate
+	// from user IDs. For example, after selecting an organization and a workspace
+	// you administer:
+	// candidates, err := apiClient.SearchTenantsForInvite(ctx, orgID, targetTenantID)
+	// err = apiClient.InviteTenantMember(ctx, orgID, candidates[0].TenantID, "viewer")
+	// err = apiClient.UpdateTenantMemberRole(ctx, orgID, targetTenantID, "editor")
+	// err = apiClient.RemoveTenantMember(ctx, orgID, targetTenantID)
+
 	// 1. Create a knowledge base
 	fmt.Println("1. Creating knowledge base...")
 	kb := &KnowledgeBase{
@@ -208,9 +216,11 @@ func ExampleUsage() {
 		if len(chunks) > 0 {
 			// Update the first chunk
 			chunkID := chunks[0].ID
+			content, enabled := "Updated chunk content - "+chunks[0].Content, true
 			updateRequest := &UpdateChunkRequest{
-				Content:   "Updated chunk content - " + chunks[0].Content,
-				IsEnabled: true,
+				Content:          &content,
+				IsEnabled:        &enabled,
+				ExpectedRevision: &chunks[0].ContentRevision,
 			}
 
 			updatedChunk, err := apiClient.UpdateChunk(context.Background(), knowledgeID, chunkID, updateRequest)

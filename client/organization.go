@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -71,14 +72,16 @@ type UpdateOrganizationRequest struct {
 
 // OrganizationMemberResponse represents a member in API responses
 type OrganizationMemberResponse struct {
-	ID       string    `json:"id"`
-	UserID   string    `json:"user_id"`
-	Username string    `json:"username"`
-	Email    string    `json:"email"`
-	Avatar   string    `json:"avatar"`
-	Role     string    `json:"role"`
-	TenantID uint64    `json:"tenant_id"`
-	JoinedAt time.Time `json:"joined_at"`
+	RepresentativeUserID string    `json:"representative_user_id"`
+	TenantName           string    `json:"tenant_name,omitempty"`
+	ID                   string    `json:"id"`
+	UserID               string    `json:"user_id"`
+	Username             string    `json:"username"`
+	Email                string    `json:"email"`
+	Avatar               string    `json:"avatar"`
+	Role                 string    `json:"role"`
+	TenantID             uint64    `json:"tenant_id"`
+	JoinedAt             time.Time `json:"joined_at"`
 }
 
 // KnowledgeBaseShareResponse represents a KB share record in API responses
@@ -128,22 +131,28 @@ type JoinRequestResponse struct {
 
 // SharedKnowledgeBaseInfo represents a shared knowledge base
 type SharedKnowledgeBaseInfo struct {
-	ShareID        string    `json:"share_id"`
-	OrganizationID string    `json:"organization_id"`
-	OrgName        string    `json:"org_name"`
-	Permission     string    `json:"permission"`
-	SourceTenantID uint64    `json:"source_tenant_id"`
-	SharedAt       time.Time `json:"shared_at"`
+	KnowledgeBase  *KnowledgeBase `json:"knowledge_base"`
+	ShareID        string         `json:"share_id"`
+	OrganizationID string         `json:"organization_id"`
+	OrgName        string         `json:"org_name"`
+	Permission     string         `json:"permission"`
+	SourceTenantID uint64         `json:"source_tenant_id"`
+	SharedAt       time.Time      `json:"shared_at"`
 }
 
 // SharedAgentInfo represents a shared agent
 type SharedAgentInfo struct {
-	ShareID        string    `json:"share_id"`
-	OrganizationID string    `json:"organization_id"`
-	OrgName        string    `json:"org_name"`
-	Permission     string    `json:"permission"`
-	SourceTenantID uint64    `json:"source_tenant_id"`
-	SharedAt       time.Time `json:"shared_at"`
+	Agent            *Agent    `json:"agent"`
+	SharedByUserID   string    `json:"shared_by_user_id,omitempty"`
+	SharedByUsername string    `json:"shared_by_username,omitempty"`
+	WebSearchReady   bool      `json:"web_search_ready"`
+	DisabledByMe     bool      `json:"disabled_by_me"`
+	ShareID          string    `json:"share_id"`
+	OrganizationID   string    `json:"organization_id"`
+	OrgName          string    `json:"org_name"`
+	Permission       string    `json:"permission"`
+	SourceTenantID   uint64    `json:"source_tenant_id"`
+	SharedAt         time.Time `json:"shared_at"`
 }
 
 // UserInfo represents user information for API responses
@@ -360,19 +369,25 @@ func (c *Client) GenerateInviteCode(ctx context.Context, orgID string) (string, 
 	return result.Data.InviteCode, nil
 }
 
-// SearchUsersForInvite searches users to invite into an organization (admin only)
-func (c *Client) SearchUsersForInvite(ctx context.Context, orgID, keyword string) ([]UserInfo, error) {
-	q := url.Values{}
-	if keyword != "" {
-		q.Set("keyword", keyword)
+// TenantInviteCandidate identifies a workspace eligible for organization membership.
+type TenantInviteCandidate struct {
+	TenantID   uint64 `json:"tenant_id"`
+	TenantName string `json:"tenant_name"`
+}
+
+// SearchTenantsForInvite resolves an exact workspace ID the caller administers.
+// It does not search user identities or workspace names.
+func (c *Client) SearchTenantsForInvite(ctx context.Context, orgID string, tenantID uint64) ([]TenantInviteCandidate, error) {
+	if tenantID == 0 {
+		return nil, fmt.Errorf("workspace ID must be nonzero")
 	}
-	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/organizations/%s/search-users", escapePathSegment(orgID)), nil, q)
+	q := url.Values{"q": {strconv.FormatUint(tenantID, 10)}}
+	resp, err := c.doRequest(ctx, http.MethodGet, fmt.Sprintf("/api/v1/organizations/%s/search-tenants", escapePathSegment(orgID)), nil, q)
 	if err != nil {
 		return nil, err
 	}
 	var result struct {
-		Success bool       `json:"success"`
-		Data    []UserInfo `json:"data"`
+		Data []TenantInviteCandidate `json:"data"`
 	}
 	if err := parseResponse(resp, &result); err != nil {
 		return nil, err
@@ -380,7 +395,31 @@ func (c *Client) SearchUsersForInvite(ctx context.Context, orgID, keyword string
 	return result.Data, nil
 }
 
-// InviteMember directly invites a user to an organization (admin only)
+// SearchUsersForInvite no longer sends a request because organization membership is workspace-based.
+// Deprecated: use SearchTenantsForInvite with an explicit workspace ID.
+func (c *Client) SearchUsersForInvite(ctx context.Context, orgID, keyword string) ([]UserInfo, error) {
+	return nil, fmt.Errorf("user invitation search is no longer supported; use SearchTenantsForInvite with a workspace ID")
+}
+
+// InviteTenantMember enrolls a workspace the caller administers into an organization.
+func (c *Client) InviteTenantMember(ctx context.Context, orgID string, tenantID uint64, role string) error {
+	if tenantID == 0 {
+		return fmt.Errorf("workspace ID must be nonzero")
+	}
+	req := struct {
+		TenantID uint64 `json:"tenant_id"`
+		Role     string `json:"role"`
+	}{tenantID, role}
+	resp, err := c.doRequest(ctx, http.MethodPost, fmt.Sprintf("/api/v1/organizations/%s/invite", escapePathSegment(orgID)), req, nil)
+	if err != nil {
+		return err
+	}
+	return parseResponse(resp, nil)
+}
+
+// InviteMember uses the legacy server lookup to enroll the workspace belonging to userID.
+// The caller must administer that workspace; the user is not added as a representative.
+// Deprecated: use InviteTenantMember with an explicit workspace ID.
 func (c *Client) InviteMember(ctx context.Context, orgID, userID, role string) error {
 	req := map[string]string{
 		"user_id": userID,
@@ -411,23 +450,41 @@ func (c *Client) ListOrgMembers(ctx context.Context, orgID string) ([]Organizati
 	return result.Data.Members, nil
 }
 
-// UpdateMemberRole updates a member's role in an organization
-func (c *Client) UpdateMemberRole(ctx context.Context, orgID, userID, role string) error {
+// UpdateTenantMemberRole updates the role of a workspace in an organization.
+func (c *Client) UpdateTenantMemberRole(ctx context.Context, orgID string, tenantID uint64, role string) error {
+	if tenantID == 0 {
+		return fmt.Errorf("workspace ID must be nonzero")
+	}
 	req := map[string]string{"role": role}
-	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/organizations/%s/members/%s", escapePathSegment(orgID), escapePathSegment(userID)), req, nil)
+	resp, err := c.doRequest(ctx, http.MethodPut, fmt.Sprintf("/api/v1/organizations/%s/members/%d", escapePathSegment(orgID), tenantID), req, nil)
 	if err != nil {
 		return err
 	}
 	return parseResponse(resp, nil)
 }
 
-// RemoveMember removes a member from an organization
-func (c *Client) RemoveMember(ctx context.Context, orgID, userID string) error {
-	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/organizations/%s/members/%s", escapePathSegment(orgID), escapePathSegment(userID)), nil, nil)
+// UpdateMemberRole refuses to reinterpret a user ID as a workspace ID.
+// Deprecated: use UpdateTenantMemberRole with an explicit workspace ID.
+func (c *Client) UpdateMemberRole(ctx context.Context, orgID, userID, role string) error {
+	return fmt.Errorf("user-based organization roles are no longer supported; use UpdateTenantMemberRole with a workspace ID")
+}
+
+// RemoveTenantMember removes a workspace from an organization.
+func (c *Client) RemoveTenantMember(ctx context.Context, orgID string, tenantID uint64) error {
+	if tenantID == 0 {
+		return fmt.Errorf("workspace ID must be nonzero")
+	}
+	resp, err := c.doRequest(ctx, http.MethodDelete, fmt.Sprintf("/api/v1/organizations/%s/members/%d", escapePathSegment(orgID), tenantID), nil, nil)
 	if err != nil {
 		return err
 	}
 	return parseResponse(resp, nil)
+}
+
+// RemoveMember refuses to reinterpret a user ID as a workspace ID.
+// Deprecated: use RemoveTenantMember with an explicit workspace ID.
+func (c *Client) RemoveMember(ctx context.Context, orgID, userID string) error {
+	return fmt.Errorf("user-based organization membership is no longer supported; use RemoveTenantMember with a workspace ID")
 }
 
 // --- Join request management ---

@@ -898,7 +898,7 @@
     },
     {
       "id": "client",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "client/agent.go",
         "client/agent_manage.go",
@@ -954,17 +954,235 @@
         "client/streaming_test.go"
       ],
       "inspected_files": [
+        "client/agent.go",
+        "client/agent_manage.go",
+        "client/auth.go",
+        "client/chunk.go",
         "client/client.go",
+        "client/env_var.go",
         "client/evaluation.go",
-        "client/session_test.go"
+        "client/example.go",
+        "client/faq.go",
+        "client/initialization.go",
+        "client/knowledge.go",
+        "client/knowledgebase.go",
+        "client/log.go",
+        "client/mcp_endpoint.go",
+        "client/mcp_service.go",
+        "client/memory.go",
+        "client/message.go",
+        "client/message_suggestion.go",
+        "client/model.go",
+        "client/organization.go",
+        "client/resource_urls.go",
+        "client/retrieval.go",
+        "client/session.go",
+        "client/session_test.go",
+        "client/skill.go",
+        "client/sse.go",
+        "client/stream_errors.go",
+        "client/system.go",
+        "client/tag.go",
+        "client/tenant.go",
+        "client/web_search.go"
       ],
       "invariants_checked": [],
       "evidence": [
         {
           "report": "test-reports/module-audit-20261113/evaluation.json"
+        },
+        {
+          "report": "test-reports/module-audit-20261113/client-sdk.json"
         }
       ],
-      "findings": [],
+      "findings": [
+        {
+          "id": "SDK-001",
+          "severity": "P2",
+          "title": "Initialization and Ollama contracts drifted from server",
+          "observed": "Model list/check tried to decode data instead of data.models; model checks discarded available/dimension; download sent model instead of modelName and lost data.taskId; initialization sent unsupported flat IDs.",
+          "fix": "Use nested connection/splitting settings, explicit existing-model binding wrapper, current model list/check envelopes, normalized available result and taskId.",
+          "provenance": {
+            "backend_sources": [
+              "internal/handler/initialization.go"
+            ],
+            "durable_tests": [
+              "TestInitializationReadWireContracts",
+              "TestOllamaDownloadWireContract",
+              "TestInitializationWriteWireContracts",
+              "TestModelCheckOutcomeDoesNotUseEnvelopeSuccess"
+            ],
+            "pre_fix_log": ".git/module-audit-20261113/client-contract-before.log",
+            "pre_fix_exit_code": 1
+          }
+        },
+        {
+          "id": "SDK-002",
+          "severity": "P2",
+          "title": "Multimodal model test could not supply required image",
+          "observed": "SDK sent JSON; handler requires multipart image and form values.",
+          "fix": "Accept exactly one local image path, build multipart image/form request, preserve auth/context and close response. Old image-less invocation fails with clear error before request.",
+          "provenance": {
+            "backend_sources": [
+              "internal/handler/initialization.go"
+            ],
+            "durable_tests": [
+              "TestMultimodalRequiresImageBeforeRequest",
+              "TestMultimodalUploadWireContract"
+            ],
+            "pre_fix_log": ".git/module-audit-20261113/client-multimodal-before.log",
+            "pre_fix_exit_code": 1
+          }
+        },
+        {
+          "id": "SDK-003",
+          "severity": "P2",
+          "title": "DocReader reconnect silently reports connection failures as success",
+          "observed": "Server returns HTTP 200 with code=1 on connection failure, SDK discarded body.",
+          "fix": "Decode code/msg and return application failure.",
+          "provenance": {
+            "backend_sources": [
+              "internal/handler/system.go"
+            ],
+            "durable_tests": [
+              "TestReconnectDocReaderReportsApplicationFailure"
+            ],
+            "pre_fix_log": ".git/module-audit-20261113/client-contract-before.log",
+            "pre_fix_exit_code": 1
+          }
+        },
+        {
+          "id": "SDK-004",
+          "severity": "P2",
+          "title": "Chunk updates write omitted fields and discard optimistic revision",
+          "observed": "Content-only edit sends is_enabled=false; toggle sends empty content; no expected_revision or returned content_revision retained.",
+          "fix": "Use pointer optional update fields; add expected/content revision; remove unsupported request fields; adapt only in-repo caller example.",
+          "provenance": {
+            "backend_sources": [
+              "internal/handler/chunk.go",
+              "internal/types/chunk.go"
+            ],
+            "durable_tests": [
+              "TestUpdateChunkPreservesOmittedFieldsAndRevision"
+            ],
+            "pre_fix_log": ".git/module-audit-20261113/client-contract-before.log",
+            "pre_fix_exit_code": 1
+          }
+        },
+        {
+          "id": "SDK-005",
+          "severity": "P2",
+          "title": "Generated-question deletion uses an unregistered route",
+          "observed": "DELETE /chunks/{id}/delete-question does not match the actual question-deletion handler.",
+          "fix": "Use DELETE /chunks/by-id/{id}/questions with question_id JSON body.",
+          "provenance": {
+            "backend_sources": [
+              "internal/router/routes_knowledge.go",
+              "internal/handler/chunk.go"
+            ],
+            "durable_tests": [
+              "TestDeleteGeneratedQuestionUsesRegisteredRoute"
+            ],
+            "pre_fix_log": ".git/module-audit-20261113/client-chunk-route-before.log",
+            "pre_fix_exit_code": 1
+          }
+        },
+        {
+          "id": "SDK-006",
+          "severity": "P2",
+          "title": "Shared-resource lists discard the actual resource",
+          "observed": "Returned entries retain share metadata but drop knowledge_base/agent identity; callers cannot identify or open returned shared resources.",
+          "fix": "Preserve typed embedded KB/agent and current agent availability/sharing metadata.",
+          "provenance": {
+            "backend_sources": [
+              "internal/types/organization.go",
+              "internal/handler/organization.go"
+            ],
+            "durable_tests": [
+              "TestSharedResourcesPreserveResourceIdentity"
+            ],
+            "pre_fix_log": ".git/module-audit-20261113/client-organization-before.log",
+            "pre_fix_exit_code": 1
+          }
+        },
+        {
+          "id": "SDK-007",
+          "severity": "P2",
+          "title": "Organization SDK still exposes user-based member semantics",
+          "observed": "Search sends keyword and parses UserInfo but backend compatibility route expects q=exact tenant ID and returns tenant candidates; old update/remove put userID into tenant_id path and can mutate a numerically matching workspace.",
+          "fix": "Add explicit uint64 SearchTenantsForInvite/InviteTenantMember/UpdateTenantMemberRole/RemoveTenantMember. Old user search/update/remove return migration errors without HTTP. Keep InviteMember only because backend deliberately resolves user_id to a workspace, with accurate deprecated docs. Add roster workspace metadata and examples.",
+          "provenance": {
+            "backend_sources": [
+              "internal/handler/organization.go",
+              "internal/types/organization.go"
+            ],
+            "durable_tests": [
+              "TestLegacyOrganizationUserMethodsDoNotTargetWorkspaces",
+              "TestOrganizationWorkspaceMemberWireContract"
+            ],
+            "pre_fix_log": ".git/module-audit-20261113/client-organization-before.log",
+            "pre_fix_exit_code": 1
+          }
+        },
+        {
+          "id": "SDK-008",
+          "severity": "P2",
+          "title": "Explicit handle resource mode inherits public server default",
+          "observed": "SDK omits resource_urls=handle, so RESOURCE_URL_MODE=public wins despite explicit client choice.",
+          "fix": "Only omit nil/empty option; send handle and public explicitly. Correct previous unit expectation and add response-level default-override fixture.",
+          "provenance": {
+            "backend_sources": [
+              "internal/storageurl/mode.go",
+              "internal/handler/message_resource_urls_test.go"
+            ],
+            "durable_tests": [
+              "TestExplicitHandleModeOverridesPublicServerDefault",
+              "TestApplyResourceURLQuery"
+            ],
+            "pre_fix_log": ".git/module-audit-20261113/client-config-before.log",
+            "pre_fix_exit_code": 1
+          }
+        },
+        {
+          "id": "SDK-009",
+          "severity": "P1",
+          "title": "Agent GET-to-PUT loses operational and permission settings",
+          "observed": "Nine server config fields absent from SDK: read_only access_level disappears (empty defaults auto_write), memory opt-out disappears, sandbox/parser/attachment/intent settings reset. CLI agent edit uses GET-to-PUT.",
+          "fix": "Add all nine current missing CustomAgentConfig fields with matching wire types and tags, including pointer memory opt-out. No handler/CLI changes.",
+          "provenance": {
+            "backend_sources": [
+              "internal/types/custom_agent.go",
+              "internal/types/assistant.go",
+              "internal/handler/custom_agent.go",
+              "cli/cmd/agent/edit.go"
+            ],
+            "durable_tests": [
+              "TestAgentReadModifyWritePreservesOperationalConfig"
+            ],
+            "pre_fix_log": ".git/module-audit-20261113/client-config-before.log",
+            "pre_fix_exit_code": 1
+          }
+        },
+        {
+          "id": "SDK-010",
+          "severity": "P2",
+          "title": "FAQ export returns HTTP failures as successful CSV",
+          "observed": "401/403/404/500 JSON error bodies are returned as []byte with nil error.",
+          "fix": "Check HTTP status before reading CSV and return bounded typed APIError; preserve successful CSV/BOM bytes.",
+          "provenance": {
+            "backend_sources": [
+              "internal/handler/faq.go",
+              "client/client.go"
+            ],
+            "durable_tests": [
+              "TestFAQExportPreservesHTTPFailures",
+              "TestFAQExportPreservesCSVBytes"
+            ],
+            "pre_fix_log": ".git/module-audit-20261113/client-faq-before.log",
+            "pre_fix_exit_code": 1
+          }
+        }
+      ],
       "commits": [],
       "limitations": []
     },
@@ -10800,6 +11018,10 @@
     {
       "commit": "26a736d72",
       "module": "local rate-limit eviction"
+    },
+    {
+      "commit": "88011cb80",
+      "module": "global event bus initialization and replacement"
     }
   ],
   "frontend_final_gate": {
