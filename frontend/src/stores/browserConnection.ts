@@ -13,9 +13,26 @@ type BrowserConnectionState = BrowserAccountStatus & {
   subscribers: number
 }
 
-let pollTimer: ReturnType<typeof setTimeout> | undefined
-let pollController: AbortController | undefined
-let visibilityHandler: (() => void) | undefined
+type PollState = {
+  timer?: ReturnType<typeof setTimeout>
+  controller?: AbortController
+  visibilityHandler?: () => void
+  inFlight?: Promise<void>
+  generation: number
+  requestSequence: number
+}
+
+// Polling belongs to one store instance, including when a new Pinia app is
+// mounted while an old one still has an HTTP response in flight.
+const polling = new WeakMap<object, PollState>()
+function pollState(store: object): PollState {
+  let state = polling.get(store)
+  if (!state) {
+    state = { generation: 0, requestSequence: 0 }
+    polling.set(store, state)
+  }
+  return state
+}
 
 export const useBrowserConnectionStore = defineStore('browserConnection', {
   state: (): BrowserConnectionState => ({
@@ -31,6 +48,7 @@ export const useBrowserConnectionStore = defineStore('browserConnection', {
   },
   actions: {
     apply(data: BrowserAccountStatus) {
+      pollState(this).requestSequence++
       this.enabled = data.enabled === true
       this.connected = data.connected === true
       this.device = data.device
@@ -38,41 +56,63 @@ export const useBrowserConnectionStore = defineStore('browserConnection', {
       this.loaded = true
     },
     async refresh() {
+      const state = pollState(this)
+      const generation = state.generation
+      const sequence = ++state.requestSequence
       const result = await get<{ data: BrowserAccountStatus }>('/api/v1/me/browser', {
-        signal: pollController?.signal,
+        signal: state.controller?.signal,
       })
-      this.apply(result.data)
+      if (generation === state.generation && sequence === state.requestSequence) this.apply(result.data)
     },
     watchStatus() {
       this.subscribers += 1
       if (this.subscribers !== 1) return
-      pollController = new AbortController()
-      visibilityHandler = () => {
+      const state = pollState(this)
+      state.generation++
+      state.controller = new AbortController()
+      state.visibilityHandler = () => {
         if (!document.hidden) void this.poll()
       }
-      document.addEventListener('visibilitychange', visibilityHandler)
+      document.addEventListener('visibilitychange', state.visibilityHandler)
       void this.poll()
     },
     unwatchStatus() {
       this.subscribers = Math.max(0, this.subscribers - 1)
       if (this.subscribers !== 0) return
-      if (visibilityHandler) {
-        document.removeEventListener('visibilitychange', visibilityHandler)
-        visibilityHandler = undefined
+      const state = pollState(this)
+      state.generation++
+      state.inFlight = undefined
+      if (state.visibilityHandler) {
+        document.removeEventListener('visibilitychange', state.visibilityHandler)
+        state.visibilityHandler = undefined
       }
-      pollController?.abort()
-      pollController = undefined
-      clearTimeout(pollTimer)
-      pollTimer = undefined
+      state.controller?.abort()
+      state.controller = undefined
+      clearTimeout(state.timer)
+      state.timer = undefined
     },
     async poll() {
+      if (this.subscribers === 0) return
+      const state = pollState(this)
+      if (state.inFlight) return state.inFlight
+      clearTimeout(state.timer)
+      state.timer = undefined
+      const generation = state.generation
+      const current = (async () => {
+        try {
+          if (!document.hidden) await this.refresh()
+        } catch {
+          // Keep the last known status; the composer stays conservative once loaded.
+        }
+        if (generation === state.generation && this.subscribers > 0) {
+          state.timer = setTimeout(() => { void this.poll() }, this.online ? 5000 : 3000)
+        }
+      })()
+      state.inFlight = current
       try {
-        if (!document.hidden) await this.refresh()
-      } catch {
-        // Keep the last known status; the composer stays conservative once loaded.
-      }
-      if (this.subscribers > 0) {
-        pollTimer = setTimeout(() => { void this.poll() }, this.online ? 5000 : 3000)
+        await current
+      } finally {
+        if (state.inFlight === current) state.inFlight = undefined
       }
     },
   },

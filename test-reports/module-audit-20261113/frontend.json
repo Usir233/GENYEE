@@ -8437,7 +8437,7 @@
     {
       "id": "FE-BROWSER-POLL-CHAINS",
       "priority": "P2",
-      "status": "confirmed_reproduced_pending_fix",
+      "status": "fixed_validated",
       "module": "browser_connection_pairing",
       "location": {
         "path": "frontend/src/stores/browserConnection.ts",
@@ -8451,7 +8451,8 @@
       "scenario": "Keep composer browser status subscribed and hide/show the browser tab several times before the existing poll timer fires.",
       "expected": "One scheduled poll, no scheduled polls after last unwatch.",
       "actual": "4 visibility cycles leave 5 timers; unwatch clears only one, leaving 4 more requests scheduled. Each surviving active-chain callback repeats.",
-      "provenance": "Byte-identical to both 74434f730 and d4fadf402; introduced 7a98a8e3de."
+      "provenance": "Byte-identical to both 74434f730 and d4fadf402; introduced 7a98a8e3de.",
+      "fix_report": "test-reports/module-audit-20261113/frontend-browser.json"
     },
     {
       "id": "FE-PROTECTED-SUBPATH",
