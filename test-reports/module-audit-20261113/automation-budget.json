@@ -1,0 +1,57 @@
+{
+  "module": "automation execution-budget test stability",
+  "date": "2026-11-13",
+  "status": "complete_frozen",
+  "owned_paths": [
+    "internal/application/service/automation_regression_test.go"
+  ],
+  "production_changes": false,
+  "baseline_failure": {
+    "log": ".git/module-audit-20261113/backend-full-test.log",
+    "line": 2934,
+    "test": "TestAutomationApprovalResumeUsesRemainingExecutionBudget",
+    "duration": "1.86s",
+    "assertion": "first suspension expected awaiting_approval, actual failed",
+    "source_line_before": 376
+  },
+  "diagnosis": {
+    "classification": "wall-clock-sensitive test; no production defect established",
+    "mechanism": "The original first attempt used a 600ms timer inside a total 1s real execution deadline. The 400ms margin also covered owner/config lookup, SQLite setup/persistence and scheduler delays. Under a full parallel backend gate it could exhaust its legitimate deadline before the first approval suspension; the restart/remaining-budget assertions were never reached.",
+    "evidence": [
+      "The failed assertion is before the service restart, approval transition and resumed execution.",
+      "automation_runner.go measures actual elapsed duration and subtracts persisted ExecutionDurationMS, consistent with the intended execution-only budget.",
+      "The unmodified test passed 15 consecutive isolated invocations (roughly 1.01-1.03s each, command package total16.393s) before the stabilization edit. This supports timing sensitivity but does not recover the exact unsaved first-run error from the failed full-gate log."
+    ]
+  },
+  "fix": "Use a 60s budget and immediate initial suspension. Persist exactly40s already-used execution time in the fixture SQLite row. Advance approval clock12h and restart service. The resumed fake records its real context deadline and completes; assert successful resume, 0<remaining<=20s, and persisted used duration retained. No wall-clock sleep or short deadline race.",
+  "regression_sensitivity": {
+    "method": "Temporary go -overlay copy of automation_runner.go only; tracked production file unchanged. Removed subtraction of persisted used time to simulate budget reset.",
+    "result": "Expected FAIL at new remaining<=20s assertion; observed59.999909207s.",
+    "log": ".git/module-audit-20261113/automation-budget-mutant.log",
+    "temporary_overlay": "automatically removed after test"
+  },
+  "validation": [
+    {
+      "command": "go test ./internal/application/service -run '^TestAutomation' -count=1",
+      "result": "PASS",
+      "log": ".git/module-audit-20261113/automation-budget-test.log"
+    },
+    {
+      "command": "go test -race ./internal/application/service -run '^TestAutomation' -count=1",
+      "result": "PASS",
+      "log": ".git/module-audit-20261113/automation-budget-race.log"
+    },
+    {
+      "command": "git diff --check -- internal/application/service/automation_regression_test.go",
+      "result": "PASS"
+    }
+  ],
+  "limits": [
+    "Full backend gate rerun belongs to root; this task ran the affected Automation tests and race subset.",
+    "Tests use the existing temporary SQLite fixture and in-memory broker/services; no real deployment/data/network mutation.",
+    "CLI25paths remain frozen; no client/models/parser or production automation file edited."
+  ],
+  "source_sha256": "91d4e1db10f625da5e751b5d813e634f2b07134604cd57e57dfd3dd5442eb747",
+  "commits_or_pushes_performed": false,
+  "root_review": "Diff and test/race logs reviewed; no production change; incorrect budget-reset mutant failed."
+}

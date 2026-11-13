@@ -357,23 +357,29 @@ func TestAutomationApprovalReconciliationVisitsEveryBatch(t *testing.T) {
 }
 
 func TestAutomationApprovalResumeUsesRemainingExecutionBudget(t *testing.T) {
+	const limit, spent = time.Minute, 40 * time.Second
 	f := newAutomationFixture(t)
-	f.svc.cfg.DefaultMaxDuration = time.Second
+	f.svc.cfg.DefaultMaxDuration = limit
 	a := f.create(t, types.AutomationPatch{})
 	f.suspendOnApproval(t, "op:x")
-	original := f.sessions.run
-	f.sessions.run = func(ctx context.Context, req *types.QARequest, bus *event.EventBus) error {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(600 * time.Millisecond):
-		}
-		return original(ctx, req, bus)
-	}
 	queued, err := f.svc.RunNow(f.ctx, a.ID)
 	require.NoError(t, err)
 	suspended := f.settleRun(t, queued.ID)
 	require.Equal(t, types.AutomationRunAwaitingApproval, suspended.Status)
+	// Seed actual persisted execution time without racing a sleep against the
+	// run deadline. A restarted service must subtract it from the next attempt.
+	require.NoError(t, f.db.Model(&types.AutomationRun{}).Where("id = ?", queued.ID).
+		Update("execution_duration_ms", spent.Milliseconds()).Error)
+	remaining := make(chan time.Duration, 1)
+	original := f.sessions.run
+	f.sessions.run = func(ctx context.Context, req *types.QARequest, bus *event.EventBus) error {
+		deadline, ok := ctx.Deadline()
+		if !ok {
+			return fmt.Errorf("resumed automation has no execution deadline")
+		}
+		remaining <- time.Until(deadline)
+		return original(ctx, req, bus)
+	}
 	// Approval waiting is free, even across service restarts.
 	f.now = f.now.Add(12 * time.Hour)
 	restarted := NewAutomationService(
@@ -387,7 +393,7 @@ func TestAutomationApprovalResumeUsesRemainingExecutionBudget(t *testing.T) {
 		f.svc.notices,
 		f.svc.models,
 	)
-	restarted.Configure(AutomationConfig{DefaultMaxDuration: time.Second})
+	restarted.Configure(AutomationConfig{DefaultMaxDuration: limit})
 	restarted.now = func() time.Time { return f.now }
 	restarted.Bind(f.sessions, f.broker, nil, nil)
 	f.svc = restarted
@@ -399,9 +405,13 @@ func TestAutomationApprovalResumeUsesRemainingExecutionBudget(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 	resumed := f.settleRun(t, queued.ID)
-	require.Equal(t, types.AutomationRunFailed, resumed.Status)
-	require.Contains(t, resumed.Error, "longer than 1s")
+	require.Equal(t, types.AutomationRunSucceeded, resumed.Status)
 	require.NotNil(t, f.sessions.last().req.Resume, "waiting time must not exhaust the execution budget")
+	require.Len(t, remaining, 1)
+	budget := <-remaining
+	require.Positive(t, budget, "approval waiting must not consume execution time")
+	require.LessOrEqual(t, budget, limit-spent, "resuming must not reset the execution budget")
+	require.GreaterOrEqual(t, resumed.ExecutionDurationMS, spent.Milliseconds())
 }
 
 func TestAutomationStaleFinalizerDoesNotCancelResumedDelegation(t *testing.T) {

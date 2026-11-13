@@ -12190,6 +12190,10 @@
     {
       "commit": "00a1e02ab",
       "module": "CLI credential, profile, confirmation and error contracts"
+    },
+    {
+      "commit": "90ba06d7c",
+      "module": "model rerank malformed response validation"
     }
   ],
   "frontend_final_gate": {
@@ -12215,6 +12219,7 @@
     "vet": "PASS",
     "build": "PASS (exit code lost from first process; cached confirmation exit 0 recorded)",
     "build_log": ".git/module-audit-20261113/backend-full-build-confirm.log",
-    "status": "failure under investigation; not final passing gate"
+    "status": "failure under investigation; not final passing gate",
+    "failure_resolution": "test-reports/module-audit-20261113/automation-budget.json"
   }
 }
