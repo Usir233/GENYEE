@@ -2,28 +2,31 @@ package event
 
 import (
 	"context"
-	"sync"
+	"sync/atomic"
 )
 
-var (
-	// globalEventBus is the global event bus instance
-	globalEventBus *EventBus
-	once           sync.Once
-)
+var globalEventBus atomic.Pointer[EventBus]
 
 // GetGlobalEventBus returns the global event bus instance
 // It uses singleton pattern to ensure only one instance exists
 func GetGlobalEventBus() *EventBus {
-	once.Do(func() {
-		globalEventBus = NewEventBus()
-	})
-	return globalEventBus
+	for {
+		if bus := globalEventBus.Load(); bus != nil {
+			return bus
+		}
+		// A configured bus (or another initializer) always wins over this lazy
+		// default. The pointer is published atomically to concurrent emitters.
+		bus := NewEventBus()
+		if globalEventBus.CompareAndSwap(nil, bus) {
+			return bus
+		}
+	}
 }
 
 // SetGlobalEventBus sets the global event bus instance
 // This is useful for testing or custom configurations
 func SetGlobalEventBus(bus *EventBus) {
-	globalEventBus = bus
+	globalEventBus.Store(bus)
 }
 
 // On registers an event handler on the global event bus

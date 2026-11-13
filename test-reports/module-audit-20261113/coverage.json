@@ -5703,23 +5703,40 @@
     },
     {
       "id": "internal/errors",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/errors/errors.go",
         "internal/errors/parse_error_codes.go",
         "internal/errors/session.go"
       ],
       "test_files": [],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/errors/errors.go",
+        "internal/errors/parse_error_codes.go",
+        "internal/errors/session.go"
+      ],
+      "invariants_checked": [
+        "Sync/async delivery, handler registration/removal snapshots, metadata cloning and panic recovery",
+        "Global bus initialization/replacement",
+        "Startup configuration logging avoids secret values; environment/TLS selectors",
+        "Shutdown budget/timeout behavior at operational durations; startup timestamp initialization",
+        "Error HTTP/status mappings and stable parse error constants"
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/event-runtime.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "The global bus defect affects custom installation/replacement; current application normally uses default initialization.",
+        "These library checks do not establish correctness of all handlers or full process shutdown integrations."
+      ]
     },
     {
       "id": "internal/event",
-      "status": "pending",
+      "status": "audited_fixed_validated",
       "source_files": [
         "internal/event/adapter.go",
         "internal/event/event.go",
@@ -5731,12 +5748,31 @@
         "internal/event/async_event_isolation_test.go",
         "internal/event/example_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/event/adapter.go",
+        "internal/event/event.go",
+        "internal/event/event_data.go",
+        "internal/event/global.go",
+        "internal/event/middleware.go"
+      ],
+      "invariants_checked": [
+        "Sync/async delivery, handler registration/removal snapshots, metadata cloning and panic recovery",
+        "Global bus initialization/replacement",
+        "Startup configuration logging avoids secret values; environment/TLS selectors",
+        "Shutdown budget/timeout behavior at operational durations; startup timestamp initialization",
+        "Error HTTP/status mappings and stable parse error constants"
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/event-runtime.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "The global bus defect affects custom installation/replacement; current application normally uses default initialization.",
+        "These library checks do not establish correctness of all handlers or full process shutdown integrations."
+      ]
     },
     {
       "id": "internal/filetransport",
@@ -7890,7 +7926,7 @@
     },
     {
       "id": "internal/runtime",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/runtime/container.go",
         "internal/runtime/server.go",
@@ -7901,12 +7937,30 @@
         "internal/runtime/server_test.go",
         "internal/runtime/shutdown_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/runtime/container.go",
+        "internal/runtime/server.go",
+        "internal/runtime/shutdown.go",
+        "internal/runtime/startup.go"
+      ],
+      "invariants_checked": [
+        "Sync/async delivery, handler registration/removal snapshots, metadata cloning and panic recovery",
+        "Global bus initialization/replacement",
+        "Startup configuration logging avoids secret values; environment/TLS selectors",
+        "Shutdown budget/timeout behavior at operational durations; startup timestamp initialization",
+        "Error HTTP/status mappings and stable parse error constants"
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/event-runtime.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "The global bus defect affects custom installation/replacement; current application normally uses default initialization.",
+        "These library checks do not establish correctness of all handlers or full process shutdown integrations."
+      ]
     },
     {
       "id": "internal/sandbox",
@@ -10738,6 +10792,30 @@
     {
       "commit": "95f6dafdb",
       "module": "protected file subpath"
+    },
+    {
+      "commit": "7cb7d054f",
+      "module": "COS/OBS storage identities"
+    },
+    {
+      "commit": "26a736d72",
+      "module": "local rate-limit eviction"
     }
-  ]
+  ],
+  "frontend_final_gate": {
+    "source_commit": "95f6dafdb",
+    "tests": {
+      "passed": 2757,
+      "skipped": 1,
+      "failed": 0
+    },
+    "type_check": "passed",
+    "i18n_tests": "16 passed",
+    "production_build": "passed including license generation",
+    "logs": [
+      ".git/module-audit-20261113/frontend-build.log",
+      ".git/module-audit-20261113/frontend-i18n.log",
+      "/tmp/genyee-frontend-audit-20261113/frontend-followup-tests.log"
+    ]
+  }
 }

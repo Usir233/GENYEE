@@ -1,0 +1,60 @@
+{
+  "module": "event bus and runtime primitives",
+  "status": "fixed_validated",
+  "inspected_sources": [
+    "internal/event/global.go",
+    "internal/event/event.go",
+    "internal/event/adapter.go",
+    "internal/event/middleware.go",
+    "internal/event/event_data.go",
+    "internal/runtime/startup.go",
+    "internal/runtime/server.go",
+    "internal/runtime/shutdown.go",
+    "internal/runtime/container.go",
+    "internal/errors/session.go",
+    "internal/errors/parse_error_codes.go",
+    "internal/errors/errors.go"
+  ],
+  "findings": [
+    {
+      "id": "EVENT-GLOBAL-INITIALIZATION",
+      "priority": "P2",
+      "before": "Installing a custom global bus before first Emit was overwritten by sync.Once initialization, dropping its registered handler.",
+      "fix": "Lazy atomic compare-and-swap preserves an already configured bus."
+    },
+    {
+      "id": "EVENT-GLOBAL-RACE",
+      "priority": "P2",
+      "before": "Concurrent SetGlobalEventBus and Emit produced race-detector failures on the singleton pointer.",
+      "fix": "Publish and load the pointer atomically; per-bus handler locking remains unchanged."
+    }
+  ],
+  "invariants_checked": [
+    "Sync/async delivery, handler registration/removal snapshots, metadata cloning and panic recovery",
+    "Global bus initialization/replacement",
+    "Startup configuration logging avoids secret values; environment/TLS selectors",
+    "Shutdown budget/timeout behavior at operational durations; startup timestamp initialization",
+    "Error HTTP/status mappings and stable parse error constants"
+  ],
+  "evidence": [
+    {
+      "command": "go test -mod=readonly -race ./internal/event -run 'Test(InstalledGlobalBus|GlobalBusReplacement)' -count=1",
+      "result": "handler loss assertion and data races reproduced",
+      "log": ".git/module-audit-20261113/event-global-before.log"
+    },
+    {
+      "command": "go test -mod=readonly -race ./internal/event -count=1",
+      "result": "passed after fix",
+      "log": ".git/module-audit-20261113/event-global-after.log"
+    },
+    {
+      "command": "go test -mod=readonly -race ./internal/runtime ./internal/event ./internal/errors -count=1",
+      "result": "passed; errors package has no test files",
+      "log": ".git/module-audit-20261113/runtime-event-after.log"
+    }
+  ],
+  "limitations": [
+    "The global bus defect affects custom installation/replacement; current application normally uses default initialization.",
+    "These library checks do not establish correctness of all handlers or full process shutdown integrations."
+  ]
+}
