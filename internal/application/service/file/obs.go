@@ -141,11 +141,15 @@ func (s *obsFileService) parseObsFilePath(filePath string) (string, error) {
 	// the raw passthrough below and is returned as the object key (#3151).
 	filePath = storageBackendInnerPath(filePath)
 	prefix := s.getPrifix()
+	canonical := strings.HasPrefix(filePath, "obs://")
+	if canonical {
+		prefix = "obs://"
+	}
 
 	if strings.HasPrefix(filePath, prefix) {
 		rest := strings.TrimPrefix(filePath, prefix)
 		// With proxy domain: path is {prefix}/{objectKey} (no bucket name)
-		if s.proxyDomain != "" {
+		if s.proxyDomain != "" && !canonical {
 			rest = strings.TrimPrefix(rest, "/")
 			if rest == "" {
 				return "", fmt.Errorf("invalid OBS file path: %s", filePath)
@@ -231,11 +235,7 @@ func (s *obsFileService) SaveFile(ctx context.Context,
 	if err != nil {
 		return "", fmt.Errorf("failed to upload file to OBS: %w", err)
 	}
-	prefix := s.getPrifix()
-	if s.proxyDomain != "" {
-		return fmt.Sprintf("%s%s", prefix, objectKey), nil
-	}
-	return fmt.Sprintf("%s%s/%s", prefix, s.bucketName, objectKey), nil
+	return fmt.Sprintf("obs://%s/%s", s.bucketName, objectKey), nil
 }
 
 func (s *obsFileService) GetFile(ctx context.Context, filePath string) (io.ReadCloser, error) {
@@ -338,13 +338,7 @@ func (s *obsFileService) CopyFile(ctx context.Context,
 		return "", fmt.Errorf("failed to copy file in OBS: %w", err)
 	}
 
-	prefix := s.getPrifix()
-	var newPath string
-	if s.proxyDomain != "" {
-		newPath = fmt.Sprintf("%s%s", prefix, destKey)
-	} else {
-		newPath = fmt.Sprintf("%s%s/%s", prefix, s.bucketName, destKey)
-	}
+	newPath := fmt.Sprintf("obs://%s/%s", s.bucketName, destKey)
 	logger.Infof(ctx, "Copied OBS object %s to %s", srcPath, newPath)
 	return newPath, nil
 }
@@ -383,9 +377,5 @@ func (s *obsFileService) SaveBytes(ctx context.Context, data []byte, tenantID ui
 		return "", fmt.Errorf("failed to upload bytes to OBS: %w", err)
 	}
 
-	prefix := s.getPrifix()
-	if s.proxyDomain != "" {
-		return fmt.Sprintf("%s%s", prefix, objectKey), nil
-	}
-	return fmt.Sprintf("%s%s/%s", prefix, s.bucketName, objectKey), nil
+	return fmt.Sprintf("obs://%s/%s", s.bucketName, objectKey), nil
 }

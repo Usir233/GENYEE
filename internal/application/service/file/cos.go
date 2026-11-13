@@ -21,13 +21,15 @@ import (
 
 // cosFileService implements the FileService interface for Tencent Cloud COS
 type cosFileService struct {
-	client        *cos.Client
-	bucketURL     string
-	cosPathPrefix string
-	tempClient    *cos.Client
-	tempBucketURL string
-	bucketName    string
-	region        string
+	client         *cos.Client
+	bucketURL      string
+	cosPathPrefix  string
+	tempClient     *cos.Client
+	tempBucketURL  string
+	tempBucketName string
+	tempRegion     string
+	bucketName     string
+	region         string
 }
 
 const cosScheme = "cos://"
@@ -83,6 +85,8 @@ func NewCosFileServiceWithTempBucket(bucketName, region, secretId, secretKey, co
 		}
 		svc.tempClient = cos.NewClient(&cos.BaseURL{BucketURL: tempU}, newCOSHTTPClient(secretId, secretKey))
 		svc.tempBucketURL = tempBucketURL
+		svc.tempBucketName = tempBucketName
+		svc.tempRegion = tempRegion
 	}
 
 	return svc, nil
@@ -129,7 +133,7 @@ func (s *cosFileService) SaveFile(ctx context.Context,
 
 // GetFile retrieves a file from COS storage by its path URL
 func (s *cosFileService) GetFile(ctx context.Context, filePathUrl string) (io.ReadCloser, error) {
-	objectName, err := s.parseCosObjectName(filePathUrl)
+	client, _, _, objectName, err := s.resolveCosTarget(filePathUrl)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +141,7 @@ func (s *cosFileService) GetFile(ctx context.Context, filePathUrl string) (io.Re
 		return nil, fmt.Errorf("invalid file path: %w", err)
 	}
 	ctx, cancel := objectStorageTransferContext(ctx)
-	resp, err := s.client.Object.Get(ctx, objectName, nil)
+	resp, err := client.Object.Get(ctx, objectName, nil)
 	if err != nil {
 		cancel()
 		return nil, fmt.Errorf("failed to get file from COS: %w", err)
@@ -147,7 +151,7 @@ func (s *cosFileService) GetFile(ctx context.Context, filePathUrl string) (io.Re
 
 // DeleteFile removes a file from COS storage
 func (s *cosFileService) DeleteFile(ctx context.Context, filePath string) error {
-	objectName, err := s.parseCosObjectName(filePath)
+	client, _, _, objectName, err := s.resolveCosTarget(filePath)
 	if err != nil {
 		return err
 	}
@@ -156,7 +160,7 @@ func (s *cosFileService) DeleteFile(ctx context.Context, filePath string) error 
 	}
 	ctx, cancel := objectStorageTransferContext(ctx)
 	defer cancel()
-	_, err = s.client.Object.Delete(ctx, objectName)
+	_, err = client.Object.Delete(ctx, objectName)
 	if err != nil {
 		return fmt.Errorf("failed to delete file: %w", err)
 	}
@@ -211,7 +215,7 @@ func (s *cosFileService) parseCosObjectName(filePath string) (string, error) {
 func (s *cosFileService) CopyFile(ctx context.Context,
 	srcPath string, tenantID uint64, knowledgeID string,
 ) (string, error) {
-	srcObjectKey, err := s.parseCosObjectName(srcPath)
+	_, sourceBucket, sourceRegion, srcObjectKey, err := s.resolveCosTarget(srcPath)
 	if err != nil {
 		return "", fmt.Errorf("cos copy rejected source %q: %w", srcPath, ErrCrossBackendCopy)
 	}
@@ -226,7 +230,7 @@ func (s *cosFileService) CopyFile(ctx context.Context,
 	ctx, cancel := objectStorageTransferContext(ctx)
 	defer cancel()
 
-	sourceURL := fmt.Sprintf("%s.cos.%s.myqcloud.com/%s", s.bucketName, s.region, srcObjectKey)
+	sourceURL := fmt.Sprintf("%s.cos.%s.myqcloud.com/%s", sourceBucket, sourceRegion, srcObjectKey)
 	_, _, err = s.client.Object.Copy(ctx, destKey, sourceURL, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to copy file in COS: %w", err)
@@ -257,8 +261,7 @@ func (s *cosFileService) SaveBytes(ctx context.Context, data []byte, tenantID ui
 		if err != nil {
 			return "", fmt.Errorf("failed to upload bytes to COS temp bucket: %w", err)
 		}
-		// Temp bucket still uses legacy URL format for backward compat (auto-expiring)
-		return fmt.Sprintf("%s%s", s.tempBucketURL, objectName), nil
+		return fmt.Sprintf("cos://%s/%s/%s", s.tempBucketName, s.tempRegion, objectName), nil
 	}
 
 	// ????
@@ -273,32 +276,33 @@ func (s *cosFileService) SaveBytes(ctx context.Context, data []byte, tenantID ui
 
 // GetFileURL returns a presigned download URL for the file
 func (s *cosFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
-	// ?????????
-	if s.tempClient != nil && strings.HasPrefix(filePath, s.tempBucketURL) {
-		objectName := strings.TrimPrefix(filePath, s.tempBucketURL)
-		if err := utils.SafeObjectKey(objectName); err != nil {
-			return "", fmt.Errorf("invalid file path: %w", err)
-		}
-		// Generate presigned URL (valid for 24 hours)
-		presignedURL, err := s.tempClient.Object.GetPresignedURL(ctx, http.MethodGet, objectName, s.tempClient.GetCredential().SecretID, s.tempClient.GetCredential().SecretKey, 24*time.Hour, nil)
-		if err != nil {
-			return "", fmt.Errorf("failed to generate presigned URL for temp bucket: %w", err)
-		}
-		return presignedURL.String(), nil
-	}
-
-	objectName, err := s.parseCosObjectName(filePath)
+	client, _, _, objectName, err := s.resolveCosTarget(filePath)
 	if err != nil {
 		return "", err
 	}
-	if err := utils.SafeObjectKey(objectName); err != nil {
-		return "", fmt.Errorf("invalid file path: %w", err)
-	}
-	// Generate presigned URL (valid for 24 hours)
-	presignedURL, err := s.client.Object.GetPresignedURL(ctx, http.MethodGet, objectName, s.client.GetCredential().SecretID, s.client.GetCredential().SecretKey, 24*time.Hour, nil)
+	presignedURL, err := client.Object.GetPresignedURL(ctx, http.MethodGet, objectName, client.GetCredential().SecretID, client.GetCredential().SecretKey, 24*time.Hour, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
 	}
-
 	return presignedURL.String(), nil
+}
+
+// resolveCosTarget keeps temporary objects on their actual bucket for reads,
+// signing, copies and cleanup. Persisted writes always use canonical COS paths.
+func (s *cosFileService) resolveCosTarget(filePath string) (*cos.Client, string, string, string, error) {
+	filePath = storageBackendInnerPath(filePath)
+	if s.tempClient != nil {
+		canonical := fmt.Sprintf("cos://%s/%s/", s.tempBucketName, s.tempRegion)
+		for _, prefix := range []string{canonical, s.tempBucketURL} {
+			if prefix != "" && strings.HasPrefix(filePath, prefix) {
+				key := strings.TrimPrefix(filePath, prefix)
+				if err := utils.SafeObjectKey(key); err != nil {
+					return nil, "", "", "", fmt.Errorf("invalid COS object key: %w", err)
+				}
+				return s.tempClient, s.tempBucketName, s.tempRegion, key, nil
+			}
+		}
+	}
+	key, err := s.parseCosObjectName(filePath)
+	return s.client, s.bucketName, s.region, key, err
 }
