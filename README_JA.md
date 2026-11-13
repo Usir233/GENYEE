@@ -31,7 +31,6 @@
 
 **[GENYEE](./website-docs/01-getting-started/01-introduction.md)** は、大規模言語モデル（LLM）をベースとしたエンタープライズ向けナレッジフレームワークで、文書理解、セマンティック検索、推論に対応します。チームに散在する文書を集約し、検索・推論に使えるようにし、資料の更新に合わせて維持します。
 
-https://github.com/user-attachments/assets/de0e490a-e738-405e-bb3a-64b63edd7278
 
 <p align="center"><sub>v0.9.0 · 2 分 45 秒 · 1080p60 · 英語ナレーション・字幕付き</sub></p>
 

@@ -29,7 +29,7 @@ onUnmounted(() => document.removeEventListener('keydown', closeMenu))
 <template>
   <header class="gy-header gy-docs-header">
     <div class="gy-header-inner">
-      <a class="gy-brand" href="/" target="_self" aria-label="GENYEE 首页"><span class="gy-logo"><img :src="`${homeAssets}/brand/weknora-original.png`" alt="GENYEE" width="945" height="650"></span></a>
+      <a class="gy-brand" href="/" target="_self" aria-label="GENYEE 首页"><span class="gy-logo"><img :src="`${homeAssets}/brand/genyee-logo.png`" alt="GENYEE" width="945" height="650"></span></a>
       <nav id="main-navigation" class="gy-navigation" :class="{ 'is-open': open }" aria-label="文档导航">
         <a v-for="item in docsNavigation" :key="item.href" :href="item.href" :aria-current="route.path.startsWith(item.section) ? 'page' : undefined" @click="open = false">{{ item.label }}</a>
         <div class="gy-header-search"><Search /></div>

@@ -12,16 +12,7 @@ for (const term of ['帮你找到答案', '并将知识付诸实践', 'v0.9.0', 
 for (const term of ['三套', '方案选择', '历史 Demo', '18K+', '成为行动力', '从零散文档', '到鲜活知识', '模型接入与目录管理']) {
   assert.ok(!visible.includes(term), `Retired content still visible: ${term}`);
 }
-const films = html.match(/<figure id="demo"[\s\S]*?<\/figure>/)?.[0];
-assert.ok(films, 'Keep the product film on the homepage');
-assert.equal((films.match(/<video\b/g) || []).length, 1, 'Films must share one player');
-const selectedFilm = films.match(/<button[^>]*aria-pressed="true"[^>]*>([\s\S]*?)<\/button>/)?.[1];
-assert.ok(selectedFilm?.includes('v0.9.0 发布'), 'Feature the current release first');
-assert.ok(films.includes('GENYEE 产品全览'), 'Keep the previous product film selectable');
-assert.match(films, /poster="\/docs\/videos\/weknora-v0.9.0-poster.png"/, 'Use the approved release cover');
-assert.match(films, /https:\/\/github.com\/user-attachments\/assets\/de0e490a-e738-405e-bb3a-64b63edd7278/, 'Link to the current README film');
-assert.match(films, /<video[^>]+preload="none"/, 'Video should not load before user interaction');
-assert.ok(!/<video[^>]+(?:autoplay|\bsrc=)/i.test(films), 'Load the selected film only after playback is requested');
+assert.doesNotMatch(html, /<video\b/i, 'Retired upstream product films must not be published');
 const adoptersSection = html.match(/<section[^>]+id="adopters"[\s\S]*?<\/section>/)?.[0];
 assert.ok(adoptersSection?.includes('典型行业与落地场景'), 'Homepage should present enterprise scenarios');
 for (const falseClaim of ['光子工作室群', '腾讯客服', '微信游戏', '腾讯云 ClawPro', '腾讯云轻量应用服务器']) {
@@ -69,5 +60,4 @@ const pendingShots = [...html.matchAll(/website-docs\/homepage\/public(\/docs\/_
 for (const [, image] of html.matchAll(/\\?"image\\?":\\?"([\w-]+)\\?"[^{}]*?\\?"available\\?":false/g)) pendingShots.push(`/docs/_home/product/${image}.png`);
 if (pendingShots.length) console.warn(`Product screenshots still pending (placeholder shown): ${[...new Set(pendingShots)].join(', ')}`);
 assert.match(html, /aria-controls="main-navigation"/);
-assert.match(html, /aria-label="播放 v0.9.0 工作助手视频/);
-console.log(`Homepage audit passed: product content, release-first video selection, navigation anchors, ${assets.size} local assets, and retired design choices.`);
+console.log(`Homepage audit passed: product content, retired film removal, navigation anchors, ${assets.size} local assets, and retired design choices.`);

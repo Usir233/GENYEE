@@ -121,9 +121,9 @@ Apple M4 Pro，64 GiB RAM，macOS arm64；Go 1.26.3、Rust 1.97.1，Rust release
 | xlsx_100_rows | 0.592 ms | 82,624 |
 | xlsx_10000_rows | 46.186 ms | 7,946,442 |
 
-CSV 为三列，XLSX 为两列；每种格式内按相同行结构扩展，生成及压缩输入不计入转换耗时。万行 XLSX 约 46.2 ms，校验最后一行未丢失。PDF 的裸 TJ token 从 4 万增到 20 万（5 倍输入），耗时约增至 4 倍，没有重现历史平方级退化。Go 分配不包括 Rust 原生堆。XLSX 原始结果见 [规模压测](benchmarks/2026-09-29/xlsx-scaling.txt)。
+CSV 为三列，XLSX 为两列；每种格式内按相同行结构扩展，生成及压缩输入不计入转换耗时。万行 XLSX 约 46.2 ms，校验最后一行未丢失。PDF 的裸 TJ token 从 4 万增到 20 万（5 倍输入），耗时约增至 4 倍，没有重现历史平方级退化。Go 分配不包括 Rust 原生堆。
 
-原始数据：[0.1.9](benchmarks/2026-09-29/baseline.txt)、[直接升级](benchmarks/2026-09-29/upgrade.txt)、[最终版](benchmarks/2026-09-29/optimized.txt)、[直接升级压力](benchmarks/2026-09-29/upgrade-stress.txt)、[最终版压力](benchmarks/2026-09-29/optimized-stress.txt)、[规模测试](benchmarks/2026-09-29/scaling.txt)、[审计](benchmarks/2026-09-29/audit.txt)。
+原始基准输出属于上游开发记录，未包含在本发行版中。
 
 ## 复现
 

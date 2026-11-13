@@ -31,7 +31,6 @@
 
 **[GENYEE](./website-docs/01-getting-started/01-introduction.md)** 是一款基于大语言模型（LLM）的企业级知识管理框架，面向企业级文档理解、语义检索与智能推理场景。它把团队分散的文档汇集起来，用于检索、推理，并随资料更新持续维护。
 
-https://github.com/user-attachments/assets/de0e490a-e738-405e-bb3a-64b63edd7278
 
 <p align="center"><sub>v0.9.0 · 2 分 45 秒 · 1080p60 · 英文配音与字幕</sub></p>
 

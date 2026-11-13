@@ -31,7 +31,6 @@
 
 [**GENYEE**](./website-docs/01-getting-started/01-introduction.md)는 엔터프라이즈 문서 이해, 시맨틱 검색, 추론을 위한 LLM 기반 지식 프레임워크입니다. 팀에 흩어진 문서를 한데 모아 검색하고 추론에 활용할 수 있게 하며, 자료가 바뀌면 함께 갱신합니다.
 
-https://github.com/user-attachments/assets/de0e490a-e738-405e-bb3a-64b63edd7278
 
 <p align="center"><sub>v0.9.0 · 2분 45초 · 1080p60 · 영어 내레이션 및 자막</sub></p>
 

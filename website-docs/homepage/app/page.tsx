@@ -4,7 +4,7 @@ import { BrandLogo } from "./brand-logo";
 import { Icon } from "./ui";
 import { homeAssets } from "../../shared/header";
 import { ProductGallery, type GalleryShot, type GallerySlide } from "./product-gallery";
-import { Header, ProductVideo } from "./interactive";
+import { Header } from "./interactive";
 import { AdopterShowcase } from "./adopter-showcase";
 import { clients, dataSources, modelProviders, IntegrationMark } from "./brands";
 import s from "./home.module.css";
@@ -95,7 +95,6 @@ export default function Home() {
             <p className={s.heroNote}>RAG 问答 / Agent 推理 / 自动 Wiki</p>
           </div>
         </div>
-        <ProductVideo />
         <div className={s.trustBar}><span><Icon name="github" /> 开源 · MIT License</span><span><Icon name="server" /> 支持私有化部署</span><span><Icon name="model" /> 自由选择模型与存储</span></div>
       </section>
       <AdopterShowcase />

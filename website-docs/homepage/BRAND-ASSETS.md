@@ -4,7 +4,7 @@ Logos identify supported integrations and the teams or products featured in the 
 
 Paths below written as `public/brand/…`, `public/brands/…` and `public/product/…` live under `public/docs/_home/`, so the site serves them from `/docs/_home/` next to the rest of the documentation.
 
-- GENYEE logo: `docs/images/logo.png` from the GENYEE repository, copied to `public/brand/weknora-original.png` for path compatibility.
+- GENYEE logo: `docs/images/logo.png` from the GENYEE repository, copied to `public/brand/genyee-logo.png`.
 - GENYEE browser icon: copied from `frontend/public/favicon.ico` into the documentation (`/docs/favicon.ico`), which the homepage also uses.
 - Feishu, GitLab, Tencent IMA, Notion, Yuque, RSS, WeCom, Slack, Telegram: copied from the frontend integration asset library.
 - Seafile: copied from `frontend/src/assets/img/datasource-seafile.png` to `public/brands/seafile.png`.

@@ -71,7 +71,7 @@ jobs:
         run: ./scripts/build-anydoc-lib.sh
 
       # The vendored bindings pull anydoc and its PDF stack from crates.io, and
-      # WeKnora parses untrusted uploads in-process. A Rust advisory there (as
+      # GENYEE parses untrusted uploads in-process. A Rust advisory there (as
       # in RUSTSEC-2026-0187, an uncatchable abort on a hostile PDF) has to
       # break the build, not wait for someone to notice. Vulnerabilities fail
       # the job; unmaintained-crate warnings only report, since a transitive

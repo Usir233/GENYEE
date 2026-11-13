@@ -6,7 +6,7 @@
 >
 > **版本**：v2.1（2026-11-12）。v1 按“需兼容已上线客户”编写；经项目负责人确认，**目前没有已交付或正在使用的客户**，因此 v2 **取消全部向后兼容要求**，并基于提交 `a1079cbf7` 重新扫描。v2.1 补充：缩写 `wk` 经核实为 WeKnora 简写，统一改为 `gy`（5.5）；D1 版本历史处理的推荐方案（第十一节）；D3 结论为不需要自有品牌扩展。
 >
-> **状态**：B0 已完成；B1 **已完成**；B2 已完成；B3 代码及专项测试已完成，部署回归在 B5 验收；B4–B5 **尚未完成**。每完成一个批次，须更新第十节进度表。
+> **状态**：B0 已完成；B1 **已完成**；B2 已完成；B3 代码及专项测试已完成，部署回归在 B5 验收；B4 已完成；B5 全新部署回归中。每完成一个批次，须更新第十节进度表。
 
 ---
 
@@ -321,10 +321,10 @@ go test ./internal/browserskill/ -run TestRealExtension -count=1 -v
 
 本机测试部署（`docker compose` 项目 `genyee`）已执行过旧迁移，并按旧名字存有数据。B3 发布到本机时，按下表处理。**涉及数据的操作在执行前需再次征得项目负责人同意。**
 
-| 对象 | 本机现状（2026-11-12 检查） | 处理 |
+| 对象 | 本机现状（2026-11-13 复查） | 处理 |
 |---|---|---|
-| 数据库名 | 实际库名为 `WeKnora`，本机 `.env` 中显式写了 `DB_NAME=WeKnora`（15 个知识库、353 个文档） | 二选一：① 停服务后 `ALTER DATABASE "WeKnora" RENAME TO genyee`，并把 `.env` 改为 `DB_NAME=genyee`（**保留数据，推荐**）；② 删除数据卷重建（数据全部丢失） |
-| 内置智能体 ID | 1 个会话引用 `builtin-weknora-assistant` | 执行一次 `UPDATE` 改为新 ID |
+| 数据库名 | 实际库名为 `WeKnora`，本机 `.env` 中显式写了 `DB_NAME=WeKnora`（当前库中 2 个用户、0 个知识库、0 个文档；保留全部账号） | 二选一：① 停服务后 `ALTER DATABASE "WeKnora" RENAME TO genyee`，并把 `.env` 改为 `DB_NAME=genyee`（**保留数据，推荐**）；② 删除数据卷重建（数据全部丢失） |
+| 内置智能体 ID | 当前 0 个会话引用 `builtin-weknora-assistant`（仍执行受限条件检查） | 执行一次 `UPDATE` 改为新 ID |
 | 向量库 / 对象存储 | `RETRIEVE_DRIVER=postgres`、`STORAGE_TYPE=local`，不使用 `weknora_embeddings` 集合与 `weknora/` 前缀 | 无需处理 |
 | 沙箱容器与快照 | 无带 `com.weknora.sandbox.*` 标签的容器或镜像 | 无需处理 |
 | Redis | 只存放短期状态 | 无需处理（重启后自动以新键重建） |
@@ -421,9 +421,9 @@ find . -regextype posix-extended -iregex '.*(^|[/_-])wk([_.-]|$).*'
 | — | 已完成 | 本文档 v2.1 提交 | 核实 `wk` 为 WeKnora 简写并制定 `wk` → `gy` 规则（5.5）；D1 推荐方案；D3 决定不做 |
 | B1 | 已完成 | `929cc59d6` | 已删除停用云服务（后端、前端、目录、部署开关、API/用户文档和专属测试）、旧品牌兼容入口、旧 Milvus 迁移与运行时旧 schema 分支。保留泛用附加模型凭证（LKEAP / 火山重排仍使用）。Go build/vet/test、CLI build/vet/test、前端类型/国际化/构建与 2719 项测试、浏览器交接测试、MCP 151 项测试（含 74 子测试）、DSH 60 项测试、脚本/Helm 26 项测试与 34 项合规检查均通过。D1 历史条目按负责人决定暂时保留。 |
 | B2 | 已完成（字面值由 B3 收尾） | `8ac5a32b0` | 已改 Go 内部标识符、源码注释、文档正文与前端/文档站 `wk` 样式；诊断及测试字面值随 B3 契约统一替换。Go build/vet/test、CLI build/vet/test、前端类型/国际化/构建与 2719 项测试（零跳过）、官网/文档构建及链接/60 个 Mermaid/83 页站点检查通过。未改动许可声明与二进制资源；保留历史条目，仅修复历史说明中的 CHANGELOG 死链。 |
-| B3 | 代码及专项测试完成 | 本批提交（B3） | 已统一运行时名称、协议头、工具/助手 ID、环境变量、存储键、数据库默认名、沙箱路径、Docker 标签和 MCP 入口；P8 关联文件提前在本批改名，B4 处理剩余素材。Go build/vet/test、CLI build/vet/test、前端类型/国际化/构建与 2719 项测试（零跳过）、文档站构建/链接/站点检查、docreader 664 项测试（18 个可选依赖用例跳过、381 子测试）、MCP/脚本/Helm 175 项测试、DSH 60 项测试、小程序 10 项测试、沙箱脚本与 37 项 Node 测试、真实 Docker 后端集成测试已通过。真实扩展 `TestRealExtension` 已通过（19.35 秒，含配对、任务窗口、暂停/人工介入和自动清理）；全新部署与界面验收在 B5 继续。 |
-| B4 | 未开始 | | |
-| B5 | 未开始 | | |
+| B3 | 代码及专项测试完成 | `776b59c94` | 已统一运行时名称、协议头、工具/助手 ID、环境变量、存储键、数据库默认名、沙箱路径、Docker 标签和 MCP 入口；P8 关联文件提前在本批改名，B4 处理剩余素材。Go build/vet/test、CLI build/vet/test、前端类型/国际化/构建与 2719 项测试（零跳过）、文档站构建/链接/站点检查、docreader 664 项测试（18 个可选依赖用例跳过、381 子测试）、MCP/脚本/Helm 175 项测试、DSH 60 项测试、小程序 10 项测试、沙箱脚本与 37 项 Node 测试、真实 Docker 后端集成测试已通过。真实扩展 `TestRealExtension` 已通过（19.35 秒，含配对、任务窗口、暂停/人工介入和自动清理）；全新部署与界面验收在 B5 继续。 |
+| B4 | 已完成（D1 历史重写暂缓） | 本批提交（B4） | 已删除无引用旧品牌图片、上游发布视频/字幕/海报及首页播放器和外链、vendored 基准输出；品牌图片路径改为自有 GENYEE logo，清理相关测试、样式和断链。P8 关联文件已在 B3 原子改名；版本历史正文与所有原始许可证保持不变。完整 Go build/vet/test、文档站构建/链接/60 个 Mermaid/83 页审计及真实浏览器桌面/手机交互测试通过；Docker 启动检查在 B5 汇总。 |
+| B5 | 进行中 | | 已完成真实 BrowserSkill 扩展测试与隔离沙箱 Docker 集成测试，已建立独立空数据卷测试栈（仅本机端口）；镜像与功能回归继续中。未修改原部署数据库或配置，原部署迁移仍须按第七节单独确认。 |
 
 ---
 
@@ -483,5 +483,5 @@ v1 中关于“是否已有客户”“持久化默认名是否兼容”“智�
 - `wk` 为 WeKnora 简写：`docker/scripts/wk-display.sh` 头注释写明 “per WeKnora session”；文档站品牌变量为 `--wk-logo` 等；Wiki 相关文件中没有 `wk` 前缀。代码中目前没有任何 `gy` 前缀，改名无冲突。
 - `origin` 仓库目前没有任何 git tag。
 - `frontend/nginx.conf` 同时提供 `/genyee-widget.js` 与 `/weknora-widget.js`（第 45、51 行）。
-- 本机数据库实际名为 `WeKnora`，本机 `.env` 中 `DB_NAME=WeKnora`；`models` 与 `tenants.credentials` 中无 WeKnora Cloud 数据；1 个会话引用 `builtin-weknora-assistant`。
+- 本机数据库实际名为 `WeKnora`，本机 `.env` 中 `DB_NAME=WeKnora`；`models` 与 `tenants.credentials` 中无 WeKnora Cloud 数据；当前 0 个会话引用 `builtin-weknora-assistant`（仍执行受限条件检查）。
 - `golang-migrate` 只记录已执行的版本号，不校验迁移文件内容。

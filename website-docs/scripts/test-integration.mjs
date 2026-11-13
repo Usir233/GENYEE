@@ -3,7 +3,7 @@ import { chromium } from 'playwright-core';
 
 const origin = process.env.SITE_TEST_URL || 'http://127.0.0.1:3000';
 const key = 'vitepress-theme-appearance';
-const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const browser = await chromium.launch({ ...(process.env.SITE_TEST_CHROMIUM ? { executablePath: process.env.SITE_TEST_CHROMIUM } : { channel: 'chrome' }), headless: true });
 const context = await browser.newContext({ colorScheme: 'light', viewport: { width: 1440, height: 1000 } });
 const page = await context.newPage();
 const errors = [];
@@ -101,30 +101,7 @@ try {
   await homepage();
   assert.equal(context.pages().length, 1);
 
-  // Release and overview films share a player and load only after a playback gesture.
-  const releaseFilm = page.getByRole('button', { name: /^v0\.9\.0 工作助手/ });
-  const overviewFilm = page.getByRole('button', { name: /^GENYEE 产品全览/ });
-  assert.equal(await page.locator('#demo video').count(), 1);
-  assert.equal(await releaseFilm.getAttribute('aria-pressed'), 'true');
-  assert.equal(await page.locator('#demo video').getAttribute('src'), null);
-  await page.getByRole('button', { name: '播放 v0.9.0 工作助手视频，2 分 45 秒', exact: true }).click();
-  await page.waitForFunction(() => {
-    const video = document.querySelector('#demo video');
-    return video && !video.paused && video.currentTime > 0 && video.duration === 165;
-  });
-  const previousPlayer = await page.locator('#demo video').elementHandle();
-  await overviewFilm.click();
-  assert.equal(await previousPlayer.evaluate(video => video.paused && !video.isConnected && !video.hasAttribute('src')), true);
-  await previousPlayer.dispose();
-  assert.equal(await overviewFilm.getAttribute('aria-pressed'), 'true');
-  assert.equal(await page.locator('#demo video').getAttribute('src'), null);
-  assert.equal(await page.locator('#video-caption a').getAttribute('href'), 'https://github.com/user-attachments/assets/2819598d-3140-4623-814a-8162a22b653c');
-  assert.ok(await page.getByRole('button', { name: '播放 GENYEE 产品全览视频，2 分 25 秒', exact: true }).isVisible());
-  await releaseFilm.focus();
-  await page.keyboard.press('Enter');
-  assert.equal(await releaseFilm.getAttribute('aria-pressed'), 'true');
-  assert.equal(await page.locator('#demo video').getAttribute('src'), null);
-  assert.equal(await page.locator('#demo video').getAttribute('poster'), '/docs/videos/weknora-v0.9.0-poster.png');
+  assert.equal(await page.locator('video').count(), 0, 'Retired upstream films are removed');
 
   // Preferences propagate between open homepage and docs tabs in both directions.
   const docs = await context.newPage();
@@ -155,11 +132,6 @@ try {
   // Switch and return links remain reachable on a narrow phone viewport.
   await page.setViewportSize({ width: 320, height: 800 });
   await page.goto(origin + '/');
-  const filmButtons = await page.getByRole('group', { name: '选择演示视频' }).getByRole('button').all();
-  const filmBounds = await Promise.all(filmButtons.map(button => button.boundingBox()));
-  assert.equal(filmBounds.length, 2);
-  assert.equal(Math.round(filmBounds[0].y), Math.round(filmBounds[1].y), 'Film choices remain side by side on mobile');
-  assert.ok(filmBounds.every(box => box.x >= 0 && box.x + box.width <= 320));
   await checkVisibleControl(page, 'button[role="switch"]');
   await page.getByRole('switch', { name: '切换到深色' }).click();
   await expectTheme(page, true);
@@ -210,12 +182,12 @@ try {
         const image = document.querySelector('.gy-brand img');
         return image?.complete && image.naturalWidth === 945 && image.naturalHeight === 650;
       });
-      assert.equal(await page.locator('.gy-brand img').getAttribute('src'), '/docs/_home/brand/weknora-original.png');
+      assert.equal(await page.locator('.gy-brand img').getAttribute('src'), '/docs/_home/brand/genyee-logo.png');
       await checkVisibleControl(page, '.gy-theme-toggle');
     }
   }
   assert.deepEqual(errors, []);
-  console.log('Integration checks passed: shared video playback and switching, release-first selection, side-by-side mobile choices, compact full-width mastheads, distinct product/docs navigation, quickstart entry, header search, theme toggle, reload, shared preferences, system theme, same-tab docs/home/logo navigation, mobile controls, and direct docs/404 routes.');
+  console.log('Integration checks passed: retired film removal, compact full-width mastheads, distinct product/docs navigation, quickstart entry, header search, theme toggle, reload, shared preferences, system theme, same-tab docs/home/logo navigation, mobile controls, and direct docs/404 routes.');
 } finally {
   await browser.close();
 }

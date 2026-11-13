@@ -31,9 +31,6 @@
 
 [GENYEE](./website-docs/01-getting-started/01-introduction.md) is an LLM-powered knowledge framework for enterprise document understanding, semantic retrieval and reasoning. It brings a team's documents together so they can be searched, reasoned over and kept up to date.
 
-https://github.com/user-attachments/assets/de0e490a-e738-405e-bb3a-64b63edd7278
-
-<p align="center"><sub>v0.9.0 · 2:45 · 1080p60 · English narration and subtitles</sub></p>
 
 Use RAG to look things up, the agent for multi-step tasks, and the wiki to organize knowledge. All three work on the same knowledge bases.
 
