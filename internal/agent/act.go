@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -70,7 +71,12 @@ func argKeys(args map[string]any) []string {
 // while preserving malformed payloads verbatim for diagnosis.
 func traceArgumentValue(raw string) interface{} {
 	var value interface{}
-	if err := json.Unmarshal([]byte(raw), &value); err != nil {
+	if !json.Valid([]byte(raw)) {
+		return raw
+	}
+	decoder := json.NewDecoder(bytes.NewReader([]byte(raw)))
+	decoder.UseNumber()
+	if err := decoder.Decode(&value); err != nil {
 		return raw
 	}
 	return value
@@ -477,9 +483,9 @@ func (e *AgentEngine) runToolCallAnswered(
 
 	var args map[string]any
 	argsStr := tc.Function.Arguments
-	if err := json.Unmarshal([]byte(argsStr), &args); err != nil {
+	if err := types.UnmarshalToolArguments([]byte(argsStr), &args); err != nil {
 		repaired, truncated := agenttools.RepairJSONDetail(argsStr)
-		if repairErr := json.Unmarshal([]byte(repaired), &args); repairErr != nil {
+		if repairErr := types.UnmarshalToolArguments([]byte(repaired), &args); repairErr != nil {
 			logger.Errorf(ctx, "%s Failed to parse arguments (repair failed): %v", toolTag, err)
 			return types.ToolCall{
 				ID:               tc.ID,
@@ -525,7 +531,7 @@ func (e *AgentEngine) runToolCallAnswered(
 		tc.Function.Arguments = decodedCalls[0].Function.Arguments
 		tc.ArgumentResolution = decodedCalls[0].ArgumentResolution
 		tc.UnresolvedHandles = decodedCalls[0].UnresolvedHandles
-		if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+		if err := types.UnmarshalToolArguments([]byte(tc.Function.Arguments), &args); err != nil {
 			return types.ToolCall{
 				ID:               tc.ID,
 				Name:             tc.Function.Name,

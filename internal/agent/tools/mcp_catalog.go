@@ -865,7 +865,7 @@ func decodeMCPCall(raw json.RawMessage) (string, json.RawMessage, error) {
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return "", nil, err
 	}
-	var object map[string]any
+	var object map[string]json.RawMessage
 	if args.ToolRef == "" || len(args.Arguments) == 0 || json.Unmarshal(args.Arguments, &object) != nil ||
 		object == nil {
 		return "", nil, fmt.Errorf("tool_ref and an arguments object are required.%s", mcpCallArgumentsHint)
@@ -952,7 +952,7 @@ func (r *ToolRegistry) MCPCallTarget(ctx context.Context, name string, raw json.
 			return nil
 		}
 		var args map[string]any
-		if json.Unmarshal(raw, &args) != nil {
+		if types.UnmarshalToolArguments(raw, &args) != nil {
 			return nil
 		}
 		return &types.ToolCallTarget{
@@ -979,7 +979,7 @@ func (r *ToolRegistry) MCPCallTarget(ctx context.Context, name string, raw json.
 		return nil
 	}
 	var input map[string]any
-	if json.Unmarshal(args, &input) != nil {
+	if types.UnmarshalToolArguments(args, &input) != nil {
 		return nil
 	}
 	return &types.ToolCallTarget{

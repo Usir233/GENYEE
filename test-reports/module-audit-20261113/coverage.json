@@ -3760,18 +3760,25 @@
         "internal/agent/tool_goroutine_panic_test.go",
         "internal/agent/tool_images_test.go",
         "internal/agent/tool_output_preview_test.go",
-        "internal/agent/turn_usage_test.go"
+        "internal/agent/turn_usage_test.go",
+        "internal/agent/tool_arguments_number_test.go"
       ],
       "inspected_files": [],
       "invariants_checked": [],
       "evidence": [
-        "test-reports/module-audit-20261113/agent-image-number.json"
+        "test-reports/module-audit-20261113/agent-image-number.json",
+        "test-reports/module-audit-20261113/agent-argument-number.json"
       ],
       "findings": [
         {
           "id": "AGENT-TOOL-IMAGE-SOURCE-OFFSET",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/agent-image-number.json"
+        },
+        {
+          "id": "AGENT-TOOL-HISTORY-NUMERIC-PRECISION",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/agent-argument-number.json"
         }
       ],
       "commits": [],
@@ -4250,12 +4257,14 @@
         "internal/agent/tools/wiki_write_page_test.go",
         "internal/agent/tools/work_test.go",
         "internal/agent/tools/workspace_layout_test.go",
-        "internal/agent/tools/workspace_reader_test.go"
+        "internal/agent/tools/workspace_reader_test.go",
+        "internal/agent/tools/mcp_catalog_number_test.go"
       ],
       "inspected_files": [],
       "invariants_checked": [],
       "evidence": [
-        "test-reports/module-audit-20261113/shell-assignment-boundaries.json"
+        "test-reports/module-audit-20261113/shell-assignment-boundaries.json",
+        "test-reports/module-audit-20261113/agent-argument-number.json"
       ],
       "findings": [
         {
@@ -4267,6 +4276,11 @@
           "id": "SHELL-ASSIGNMENT-WRONG-CAPTURE",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/shell-assignment-boundaries.json"
+        },
+        {
+          "id": "AGENT-TOOL-HISTORY-NUMERIC-PRECISION",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/agent-argument-number.json"
         }
       ],
       "commits": [],
@@ -5436,7 +5450,8 @@
         "internal/application/service/wiki_write_row_guard_markdown_test.go",
         "internal/application/service/wiki_write_row_guard_test.go",
         "internal/application/service/workspace_checkpointer_test.go",
-        "internal/application/service/workspace_git_layout_test.go"
+        "internal/application/service/workspace_git_layout_test.go",
+        "internal/application/service/agent_history_number_test.go"
       ],
       "inspected_files": [
         "internal/application/service/agent_web_pages.go",
@@ -5540,7 +5555,8 @@
         "test-reports/module-audit-20261113/retriever-clone-tags.json",
         "test-reports/module-audit-20261113/sourceloc.json",
         "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json",
-        "test-reports/module-audit-20261113/knowledge-clone-coordinates.json"
+        "test-reports/module-audit-20261113/knowledge-clone-coordinates.json",
+        "test-reports/module-audit-20261113/agent-argument-number.json"
       ],
       "findings": [
         {
@@ -5758,6 +5774,11 @@
           "id": "CLONE-R6",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/knowledge-clone-coordinates.json"
+        },
+        {
+          "id": "AGENT-TOOL-HISTORY-NUMERIC-PRECISION",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/agent-argument-number.json"
         }
       ],
       "commits": [],
@@ -10710,7 +10731,8 @@
         "internal/types/web_search_filters.go",
         "internal/types/web_search_provider.go",
         "internal/types/wiki_page.go",
-        "internal/types/wiki_page_write_snapshot.go"
+        "internal/types/wiki_page_write_snapshot.go",
+        "internal/types/tool_arguments.go"
       ],
       "test_files": [
         "internal/types/agent_grant_test.go",
@@ -10797,14 +10819,16 @@
         "internal/types/web_search_provider_test.go",
         "internal/types/web_search_test.go",
         "internal/types/wiki_page_test.go",
-        "internal/types/wiki_page_write_snapshot_test.go"
+        "internal/types/wiki_page_write_snapshot_test.go",
+        "internal/types/tool_arguments_test.go"
       ],
       "inspected_files": [
         "internal/types/chat_manage.go",
         "internal/types/dataset.go",
         "internal/types/evaluation.go",
         "internal/types/rerank.go",
-        "internal/types/resource.go"
+        "internal/types/resource.go",
+        "internal/types/tool_arguments.go"
       ],
       "invariants_checked": [],
       "evidence": [
@@ -10817,9 +10841,16 @@
             "internal/types/resource.go"
           ],
           "function_scoped_files": {}
+        },
+        "test-reports/module-audit-20261113/agent-argument-number.json"
+      ],
+      "findings": [
+        {
+          "id": "AGENT-TOOL-HISTORY-NUMERIC-PRECISION",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/agent-argument-number.json"
         }
       ],
-      "findings": [],
       "commits": [],
       "limitations": [
         "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
@@ -13279,6 +13310,10 @@
     {
       "commit": "efc83f38f",
       "module": "TABLESAMPLE SQL row filtering boundary"
+    },
+    {
+      "commit": "632c167a0",
+      "module": "shell assignment redaction and static extraction boundaries"
     }
   ],
   "frontend_final_gate": {

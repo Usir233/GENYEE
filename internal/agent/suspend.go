@@ -108,7 +108,7 @@ func (s *RunSnapshot) ClosedSteps(reason string) []types.AgentStep {
 	for i := len(step.ToolCalls); i < len(p.Calls); i++ {
 		c := p.Calls[i]
 		var args map[string]any
-		if err := json.Unmarshal([]byte(c.Arguments), &args); err != nil {
+		if err := types.UnmarshalToolArguments([]byte(c.Arguments), &args); err != nil {
 			args = map[string]any{"_raw": c.Arguments}
 		}
 		step.ToolCalls = append(step.ToolCalls, types.ToolCall{
