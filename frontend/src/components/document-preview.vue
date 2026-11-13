@@ -101,7 +101,7 @@ const highlightedCode = ref('');
 const markdownHtml = ref('');
 const excelHtml = ref('');
 const mermaidSource = ref<string | null>(null);
-let loadedMermaidBlob: Blob | undefined;
+let loadedSourceBlob: Blob | undefined;
 const htmlViewMode = ref<'render' | 'source'>('render');
 const pptxData = shallowRef<ArrayBuffer | null>(null);
 const pdfData = shallowRef<ArrayBuffer | null>(null);
@@ -121,6 +121,7 @@ const docxContainer = ref<HTMLElement | null>(null);
 const imageNaturalWidth = ref(0);
 const imageNaturalHeight = ref(0);
 let loadedForId = '';
+let previewGeneration = 0;
 let markdownImageGeneration = 0;
 let markdownImageUrls: string[] = [];
 
@@ -268,11 +269,13 @@ function getHighlightLang(ft: string): string {
   return resolveHighlightLang(ft);
 }
 
-async function renderDocx(blob: Blob) {
+async function renderDocx(blob: Blob, isCurrent: () => boolean) {
   const { renderAsync } = await import('docx-preview');
-  if (docxContainer.value) {
-    docxContainer.value.innerHTML = '';
-    await renderAsync(blob, docxContainer.value, undefined, {
+  if (isCurrent() && docxContainer.value) {
+    // docx-preview writes asynchronously into its target. Keep each render
+    // detached until it finishes so an old renderer cannot alter a new file.
+    const rendered = document.createElement('div');
+    await renderAsync(blob, rendered, undefined, {
       className: 'docx-preview-wrapper',
       inWrapper: true,
       ignoreWidth: false,
@@ -284,7 +287,10 @@ async function renderDocx(blob: Blob) {
       trimXmlDeclaration: true,
       useBase64URL: true,
     });
-    if (docxContainer.value) await indexEmbeddedSourceImages(docxContainer.value);
+    await indexEmbeddedSourceImages(rendered);
+    if (isCurrent() && docxContainer.value) {
+      docxContainer.value.replaceChildren(...rendered.childNodes);
+    }
   }
 }
 
@@ -299,7 +305,7 @@ function decodeCSVBlob(arrayBuffer: ArrayBuffer): string {
   return new TextDecoder('gbk').decode(bytes);
 }
 
-async function renderExcel(blob: Blob, fileType?: string) {
+async function renderExcel(blob: Blob, fileType: string, isCurrent: () => boolean) {
   const XLSX = await import('xlsx');
   const arrayBuffer = await blob.arrayBuffer();
 
@@ -323,6 +329,7 @@ async function renderExcel(blob: Blob, fileType?: string) {
     }
   }
 
+  if (!isCurrent()) return;
   excelSheetNames = [...workbook.SheetNames];
   let html = '';
   workbook.SheetNames.forEach((name, sheetIdx) => {
@@ -344,8 +351,9 @@ async function renderExcel(blob: Blob, fileType?: string) {
   excelHtml.value = sanitizeHTML(html);
 }
 
-async function renderText(blob: Blob, fileType: string) {
-  renderTextContent(await blob.text(), fileType);
+async function renderText(blob: Blob, fileType: string, isCurrent: () => boolean) {
+  const text = await blob.text();
+  if (isCurrent()) renderTextContent(text, fileType);
 }
 
 function renderTextContent(text: string, fileType: string) {
@@ -365,8 +373,9 @@ function renderTextContent(text: string, fileType: string) {
   highlightedCode.value = auto.value;
 }
 
-async function renderMarkdown(blob: Blob) {
+async function renderMarkdown(blob: Blob, isCurrent: () => boolean) {
   const text = await blob.text();
+  if (!isCurrent()) return;
 
   // 校验文本内容是否有效
   if (!text || typeof text !== 'string') {
@@ -414,7 +423,7 @@ async function renderMarkdown(blob: Blob) {
         },
         loadPreview: (id) => previewKnowledgeFile(id),
       });
-      if (generation !== markdownImageGeneration) {
+      if (!isCurrent() || generation !== markdownImageGeneration) {
         for (const url of rewritten.objectUrls) URL.revokeObjectURL(url);
         return;
       }
@@ -424,7 +433,7 @@ async function renderMarkdown(blob: Blob) {
       console.warn('Relative markdown images were left unresolved', err);
     }
   }
-  if (generation !== markdownImageGeneration) return;
+  if (!isCurrent() || generation !== markdownImageGeneration) return;
   markdownHtml.value = renderDocumentPreviewMarkdown(source, undefined, previewOptions);
 }
 
@@ -487,9 +496,12 @@ async function loadPreview() {
   const sourceKey = getPreviewSourceKey();
   if (!sourceKey) return;
   const sourceBlob = props.sourceBlob;
-  if (loadedForId === sourceKey && (!loadedMermaidBlob || loadedMermaidBlob === sourceBlob)) return;
+  if (loadedForId === sourceKey && loadedSourceBlob === sourceBlob) return;
 
   cleanup();
+  const generation = previewGeneration;
+  const isCurrent = () => generation === previewGeneration
+    && getPreviewSourceKey() === sourceKey && props.sourceBlob === sourceBlob;
   loading.value = true;
   error.value = '';
   htmlViewMode.value = allowsHtmlScriptPreview() ? 'render' : 'source';
@@ -499,6 +511,7 @@ async function loadPreview() {
 
   try {
     const rawBlob = await fetchPreviewBlob();
+    if (!isCurrent()) return;
     let kind = resolvePreviewKind(ft);
     if (kind === 'unsupported') {
       const sample = new Uint8Array(await rawBlob.slice(0, FILE_PREVIEW_SNIFF_BYTES).arrayBuffer());
@@ -506,6 +519,7 @@ async function loadPreview() {
       kind = sniffed.kind;
       if (sniffed.ext) ft = sniffed.ext;
     }
+    if (!isCurrent()) return;
     previewType.value = kind;
 
     if (kind === 'unsupported') {
@@ -514,16 +528,17 @@ async function loadPreview() {
     }
 
     const blob = ensureBlobType(rawBlob, ft);
-    loadedForId = sourceKey;
 
     loading.value = false;
     await nextTick();
+    if (!isCurrent()) return;
 
     previewExt = ft;
     switch (kind) {
       case 'pdf': {
         if (props.sourceMode) {
-          pdfData.value = await blob.arrayBuffer();
+          const data = await blob.arrayBuffer();
+          if (isCurrent()) pdfData.value = data;
         } else {
           blobUrl.value = URL.createObjectURL(blob);
         }
@@ -532,6 +547,7 @@ async function loadPreview() {
       case 'image': {
         if (isSvgPreviewExt(ft)) {
           const safeSvgDataUrl = sanitizeSvgForDataUrl(await rawBlob.text());
+          if (!isCurrent()) return;
           if (!safeSvgDataUrl) {
             previewType.value = 'unsupported';
             break;
@@ -549,6 +565,10 @@ async function loadPreview() {
       }
       case 'epub': {
         const rendered = await renderEpubPreview(await blob.arrayBuffer());
+        if (!isCurrent()) {
+          for (const url of rendered.objectUrls) URL.revokeObjectURL(url);
+          return;
+        }
         epubObjectUrls = rendered.objectUrls;
         epubHtml.value = sanitizeHTML(rendered.html);
         break;
@@ -556,58 +576,63 @@ async function loadPreview() {
       case 'html': {
         if (allowsHtmlScriptPreview()) {
           const previewHtml = buildHtmlPreview(await blob.text());
+          if (!isCurrent()) return;
           blobUrl.value = URL.createObjectURL(new Blob([previewHtml], { type: 'text/html;charset=utf-8' }));
         }
-        await renderText(blob, ft || 'html');
+        await renderText(blob, ft || 'html', isCurrent);
         break;
       }
       case 'docx': {
-        await renderDocx(blob);
+        await renderDocx(blob, isCurrent);
         break;
       }
       case 'excel': {
-        await renderExcel(blob, ft);
+        await renderExcel(blob, ft, isCurrent);
         break;
       }
       case 'text': {
-        await renderText(blob, ft);
+        await renderText(blob, ft, isCurrent);
         break;
       }
       case 'markdown': {
-        await renderMarkdown(blob);
+        await renderMarkdown(blob, isCurrent);
         // Markdown 里的 resource:// 等受保护图片需要带鉴权换 blob（无 override
         // 时走应用默认鉴权面：登录态 /files 代理）。已换过的元素幂等跳过。
         await nextTick();
-        await hydrateProtectedFileImages(previewContent.value);
+        if (isCurrent()) await hydrateProtectedFileImages(previewContent.value);
         break;
       }
       case 'pptx': {
         const prepared = await preparePptxPreview(await blob.arrayBuffer());
-        if (getPreviewSourceKey() !== sourceKey || !props.active) return;
+        if (!isCurrent()) return;
         pptxSlideCount = prepared.slideCount;
         pptxData.value = prepared.data;
         break;
       }
       case 'mermaid': {
         const source = await blob.text();
-        if (getPreviewSourceKey() === sourceKey && props.sourceBlob === sourceBlob && props.active) {
-          loadedMermaidBlob = sourceBlob;
+        if (isCurrent()) {
           mermaidSource.value = source;
         }
         break;
       }
     }
+    if (!isCurrent()) return;
+    loadedForId = sourceKey;
+    loadedSourceBlob = sourceBlob;
     // PPTX renders asynchronously and locates from its rendered event.
     if (kind !== 'pptx') scheduleLocate();
   } catch (err: any) {
+    if (!isCurrent()) return;
     console.error('Document preview failed:', err);
     error.value = err?.message || t('preview.loadFailed');
   } finally {
-    loading.value = false;
+    if (isCurrent()) loading.value = false;
   }
 }
 
 function cleanup() {
+  previewGeneration += 1;
   markdownImageGeneration += 1;
   revokeMarkdownImageUrls();
   if (blobUrl.value) {
@@ -621,7 +646,7 @@ function cleanup() {
   markdownHtml.value = '';
   excelHtml.value = '';
   mermaidSource.value = null;
-  loadedMermaidBlob = undefined;
+  loadedSourceBlob = undefined;
   htmlViewMode.value = 'render';
   pptxData.value = null;
   pdfData.value = null;

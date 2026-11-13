@@ -8401,7 +8401,7 @@
     {
       "id": "FE-PREVIEW-STALE-RESPONSE",
       "priority": "P2",
-      "status": "confirmed_reproduced_pending_fix",
+      "status": "fixed_validated",
       "module": "file_rendering_security",
       "location": {
         "path": "frontend/src/components/document-preview.vue",
@@ -8411,12 +8411,13 @@
       "scenario": "Select preview A, then B before A fetch completes. B resolves first, A resolves last.",
       "expected": "B content remains under B filename; old request cannot set loading/error/blob/render state.",
       "actual": "Active knowledgeId B, rendered text A-stale after B-current had rendered.",
-      "provenance": "Same file as d4fadf402. Main 74434f730 lacks later unrelated preview fixes, but unguarded fetch/load flow is inherited (ceb4d1a310 / 270b64f6ec)."
+      "provenance": "Same file as d4fadf402. Main 74434f730 lacks later unrelated preview fixes, but unguarded fetch/load flow is inherited (ceb4d1a310 / 270b64f6ec).",
+      "fix_report": "test-reports/module-audit-20261113/frontend-preview.json"
     },
     {
       "id": "FE-PREVIEW-SAME-SIZE-BLOB",
       "priority": "P2",
-      "status": "confirmed_reproduced_pending_fix",
+      "status": "fixed_validated",
       "module": "file_rendering_security",
       "location": {
         "path": "frontend/src/components/document-preview.vue",
@@ -8430,7 +8431,8 @@
       "scenario": "The reused preview receives a different sourceBlob whose name, MIME type and size match the previous blob.",
       "expected": "New Blob identity triggers preview refresh for every format.",
       "actual": "old then new both length 3 leaves old displayed; guard only compares Blob identity when loadedMermaidBlob is truthy.",
-      "provenance": "Same file as d4fadf402; key introduced d5cb842580, Mermaid-only identity guard a19c4ce4fd."
+      "provenance": "Same file as d4fadf402; key introduced d5cb842580, Mermaid-only identity guard a19c4ce4fd.",
+      "fix_report": "test-reports/module-audit-20261113/frontend-preview.json"
     },
     {
       "id": "FE-BROWSER-POLL-CHAINS",

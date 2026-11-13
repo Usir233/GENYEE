@@ -109,7 +109,7 @@ test('only executable artifact previews use the compatibility copy; source and s
   const htmlCase = source.slice(source.indexOf("case 'html':"), source.indexOf("case 'docx':"))
   assert.match(htmlCase, /if \(allowsHtmlScriptPreview\(\)\) \{\s*const previewHtml = buildHtmlPreview\(await blob\.text\(\)\)/)
   assert.match(htmlCase, /new Blob\(\[previewHtml\], \{ type: 'text\/html;charset=utf-8' \}\)/)
-  assert.match(htmlCase, /await renderText\(blob, ft \|\| 'html'\)/)
+  assert.match(htmlCase, /await renderText\(blob, ft \|\| 'html', isCurrent\)/)
   assert.match(source, /sandbox="allow-scripts"/)
   assert.doesNotMatch(source, /allow-same-origin/)
 })
