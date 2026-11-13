@@ -1,0 +1,49 @@
+{
+  "module": "document parser error envelope callers",
+  "date": "2026-11-13",
+  "group": {
+    "name": "parser-error-envelope",
+    "paths_sha256": {
+      "internal/application/service/temporary_document_parse.go": "182d01a67eab44b6d97f6bb42a7aa91105f448da08cdf375f7a7ace0ec030462",
+      "internal/application/service/temporary_document_parser_error_test.go": "f970da90073244eba4147a6698627a8621784e7493f323c8428ffdc7b0a41b31",
+      "internal/handler/session/attachment_processor.go": "93ed2f4dfb21d920c38ea9ffbb4f67dac158836db27173c5840a70c30ff561fa",
+      "internal/handler/session/attachment_parser_error_test.go": "e3b3176cfa95aea7146f88651e5a630dc931814dfe5749a5170795391a9a8998"
+    },
+    "status": "ready_for_parent_review_and_commit"
+  },
+  "finding": {
+    "id": "PARSE-001",
+    "severity": "P2",
+    "status": "fixed_verified_frozen_for_parent_commit",
+    "title": "TemporaryDocument.Process publishes parser Error envelope as empty ready document",
+    "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/overlay.json",
+    "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/error-result-before.log",
+    "actual_call_chain": "DocReaderServicer returns error meta -> GRPC/HTTP readers return ReadResult.Error,nil -> temporaryDocumentService.parse ignores Error -> Process MarkReady",
+    "fix_paths": [
+      "internal/application/service/temporary_document_parse.go",
+      "internal/application/service/temporary_document_parser_error_test.go",
+      "internal/handler/session/attachment_processor.go",
+      "internal/handler/session/attachment_parser_error_test.go"
+    ],
+    "caller_scope": [
+      "knowledge_process.go already handles Error (unchanged)",
+      "handler/initialization.go already handles Error (unchanged)",
+      "temporary_document_parse.go now propagates Error/nil before images or ready state",
+      "attachment_processor.go now uses existing nonfatal error placeholder"
+    ],
+    "provenance": "Actual Process and ProcessAttachment entry points; stub parser models production GRPC/HTTP ReadResult.Error,nil contract. Nil-result test is defensive coverage, not a separate observed remote-service defect.",
+    "failing_reproducer_command": "go test ./internal/application/service ./internal/handler/session -run '^(TestTemporaryDocumentParserResultFailures|TestAttachmentParserResultFailures)$' -count=1",
+    "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/error-envelope-durable-before.log",
+    "passing_logs": [
+      "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/error-envelope-durable-after.log",
+      "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/error-envelope-related-after.log"
+    ],
+    "passing_command": "go test ./internal/application/service ./internal/handler/session -run '^(TestTemporaryDocument|TestAttachment|TestProcessTextFile|TestApplyImageUnderstanding)' -count=1",
+    "validation": "Focused regressions and related parser/attachment/lifecycle tests pass in both packages; complete service package is not claimed for this group (parent owns unrelated automation failure)."
+  },
+  "root_review": "All production diffs and regression tests inspected; both package passing logs checked. Broader parser audit continues.",
+  "limitations": [
+    "No real encrypted documents or remote parser service used; actual caller entry points use a parser fixture reflecting the production response contract.",
+    "Overall document parsing scope is still in progress."
+  ]
+}

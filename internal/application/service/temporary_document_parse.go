@@ -212,7 +212,15 @@ func (s *temporaryDocumentService) parse(
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("parse document: %w", err)
 	}
-	if result != nil && result.MarkdownContent != "" {
+	if result == nil {
+		return "", nil, nil, fmt.Errorf("parse document: empty result")
+	}
+	// Remote readers return parser failures in the response envelope even when
+	// transport succeeds. Do not publish their partial text or store images.
+	if result.Error != "" {
+		return "", nil, nil, fmt.Errorf("parse document: %s", result.Error)
+	}
+	if result.MarkdownContent != "" {
 		result.MarkdownContent = chunker.NormalizeLineEndings(result.MarkdownContent)
 		result.MarkdownContent = docparser.NormalizeHTMLTables(result.MarkdownContent)
 	}

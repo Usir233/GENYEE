@@ -5373,7 +5373,9 @@
         "internal/application/service/tenant_sandbox_config.go",
         "internal/application/service/tenant_skill_remove.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "ReadResult.Error is a parse failure even when RPC transport succeeds; partial content must not become ready."
+      ],
       "evidence": [
         {
           "report": "test-reports/module-audit-20261113/evaluation.json"
@@ -5438,7 +5440,8 @@
               "release archive files"
             ]
           }
-        }
+        },
+        "test-reports/module-audit-20261113/parser-error-envelope.json"
       ],
       "findings": [
         {
@@ -5633,7 +5636,8 @@
             ],
             "evidence": "受影响 Delete/AddGrant/prune/dropRuns/runSession 函数与本轮修改前代码完全一致（runSession 仅归一 WeKnora→GENYEE 名称），不属于本轮残留整改引入。"
           }
-        }
+        },
+        "PARSE-001"
       ],
       "commits": [],
       "limitations": [
@@ -7303,7 +7307,9 @@
         "internal/handler/session/artifact_storage.go",
         "internal/handler/session/attachment_processor.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "ReadResult.Error is a parse failure even when RPC transport succeeds; partial content must not become ready."
+      ],
       "evidence": [
         {
           "report": "test-reports/module-audit-20261113/storage.json",
@@ -7324,9 +7330,12 @@
               "omitUnclaimedArtifactLinks"
             ]
           }
-        }
+        },
+        "test-reports/module-audit-20261113/parser-error-envelope.json"
       ],
-      "findings": [],
+      "findings": [
+        "PARSE-001"
+      ],
       "commits": [],
       "limitations": [
         "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
@@ -12194,6 +12203,10 @@
     {
       "commit": "90ba06d7c",
       "module": "model rerank malformed response validation"
+    },
+    {
+      "commit": "df2bbc996",
+      "module": "automation remaining-budget test stability"
     }
   ],
   "frontend_final_gate": {
