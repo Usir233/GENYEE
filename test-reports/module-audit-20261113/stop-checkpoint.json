@@ -1,0 +1,88 @@
+{
+  "date": "2026-11-13",
+  "branch": "codex/genyee-residue-remediation",
+  "audited_code_commit": "9bc5db8a4e1183328e37ac06639cc03e83fb7ba0",
+  "chore_base": "d4fadf402eef33cf641bd05e8a5e3b56f2d9ec01",
+  "stop_instruction": "这个模块审计完成后，就进行本地git 并推送到远程仓库。然后停止处理吧",
+  "status": "current_changes_validated_audit_stopped",
+  "backend_gate": {
+    "head": "9bc5db8a4e1183328e37ac06639cc03e83fb7ba0",
+    "working_tree": "Clean at gate start; all source and tests frozen during test/vet/build.",
+    "test": {
+      "command": "go test -mod=readonly ./... -count=1",
+      "exit": 0,
+      "log": ".git/module-audit-20261113/backend-9bc5db8a4-test.log",
+      "log_sha256": "7a204a0de009482027768aad5d2aab0a687833fc79f1a326989571bc1f6c30bd",
+      "wall_seconds": 125.737,
+      "packages_passed": 145,
+      "packages_without_tests": 13
+    },
+    "vet": {
+      "command": "go vet -mod=readonly ./...",
+      "exit": 0,
+      "log": ".git/module-audit-20261113/backend-9bc5db8a4-vet.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "wall_seconds": 22.718
+    },
+    "build": {
+      "command": "go build -mod=readonly ./...",
+      "exit": 0,
+      "log": ".git/module-audit-20261113/backend-9bc5db8a4-build.log",
+      "log_sha256": "a13e8ffbe748b092d09f28f4db47f6a25db8ef9da0139b1af0001b79d6619e58",
+      "wall_seconds": 50.883,
+      "warnings": "macOS linker duplicate -lc++ warnings only"
+    },
+    "limitations": [
+      "Root ./... excludes nested modules; no claim of rerunning frontend/CLI in this final gate.",
+      "Conditional external integration skips are not counted as executed integrations.",
+      "No live deployment or user data changed."
+    ]
+  },
+  "python_gate": {
+    "status": "passed",
+    "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/ian.cn/GENYEE /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/venv312/bin/python -m pytest -q docreader/tests --disable-warnings --maxfail=5 -p no:cacheprovider --basetemp /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/pytest-tmp",
+    "log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/python-full-after.log",
+    "results": {
+      "passed": 694,
+      "subtests_passed": 432,
+      "skipped": 18,
+      "warnings": 5,
+      "seconds": 34.56
+    },
+    "environment": "Dedicated audit Python3.12.15 venv with project frozen dependencies; pytest9.2.0 plus4 test packages installed only into this temp venv using temp uv cache. No existing user environment/deployment altered. Tests skipped by framework are not claimed as executed."
+  },
+  "remaining_work": [
+    {
+      "id": "COMPACTION-TOOL-NUMERIC-PRECISION",
+      "status": "confirmed_unfixed",
+      "file": "internal/agent/compaction/serialize.go",
+      "function": "renderToolArgs",
+      "summary": "Summary/archive argument rendering can round large integers through float64. Working-tree source unchanged when user requested stop.",
+      "report": "test-reports/module-audit-20261113/agent-core.json"
+    },
+    {
+      "id": "SQL-C1",
+      "status": "tool_fixture_confirmed_upstream_reachability_untraced",
+      "file": "internal/utils/inject.go",
+      "summary": "Tag-scope EXISTS fixed ktr alias can shadow an outer ktr alias and include an untagged chunk in the authorized tenant/KB. Upstream target construction not traced; no cross-tenant claim.",
+      "report": "test-reports/module-audit-20261113/sql-query-relations.json"
+    }
+  ],
+  "coverage_counts": {
+    "partially_audited": 30,
+    "pending": 150,
+    "audited": 36,
+    "audited_findings_fixed": 21,
+    "audited_no_actionable_findings": 47,
+    "audited_fixed_validated": 2
+  },
+  "limitations": [
+    "This is a completed current-work checkpoint, not a claim that the exhaustive all-module audit is complete.",
+    "Existing deploy, live accounts/data and ignored local .env remain untouched.",
+    "Push targets the current codex branch only; no force push, main/chore update, merge or new deployment."
+  ],
+  "initial_final_gate_issue": {
+    "report": "test-reports/module-audit-20261113/scheduler-test-recorder.json",
+    "resolution": "Actual stalled test fixture diagnosed from goroutine dump, deterministic failing regression added, test recorder fixed;10x race pass and subsequent entire backend gate pass."
+  }
+}

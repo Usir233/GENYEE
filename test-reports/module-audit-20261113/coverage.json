@@ -3,11 +3,12 @@
   "baseline_commit": "c5c68979276803bbd1b7134b0687b51dfa31ddd1",
   "branch": "codex/genyee-residue-remediation",
   "policy": {
-    "local_commits_only": true,
+    "local_commits_only": false,
     "preserve_existing_deployment": true,
     "per_module_reproduce_fix_validate_commit": true,
     "no_unreviewed_unit_may_be_marked_complete": true,
-    "tests_alone_do_not_prove_code_audit": true
+    "tests_alone_do_not_prove_code_audit": true,
+    "remote_push_authorization": "User explicitly requested commit and push current work, then stop, on2026-11-13."
   },
   "tracked_files": 6415,
   "units": [
@@ -13669,6 +13670,10 @@
     {
       "commit": "9f230a8f8",
       "module": "cancelable SSRF DNS, redirects and browser fallback"
+    },
+    {
+      "commit": "9bc5db8a4",
+      "module": "nonblocking scheduler test recorder and final backend checkpoint"
     }
   ],
   "frontend_final_gate": {
@@ -13723,5 +13728,44 @@
       "Root ./... excludes nested Go modules (CLI was validated separately); package tests may skip external service integration when credentials/DSN are absent.",
       "No live deployment or production data touched."
     ]
+  },
+  "backend_gate_9bc5db8a4": {
+    "head": "9bc5db8a4e1183328e37ac06639cc03e83fb7ba0",
+    "working_tree": "Clean at gate start; all source and tests frozen during test/vet/build.",
+    "test": {
+      "command": "go test -mod=readonly ./... -count=1",
+      "exit": 0,
+      "log": ".git/module-audit-20261113/backend-9bc5db8a4-test.log",
+      "log_sha256": "7a204a0de009482027768aad5d2aab0a687833fc79f1a326989571bc1f6c30bd",
+      "wall_seconds": 125.737,
+      "packages_passed": 145,
+      "packages_without_tests": 13
+    },
+    "vet": {
+      "command": "go vet -mod=readonly ./...",
+      "exit": 0,
+      "log": ".git/module-audit-20261113/backend-9bc5db8a4-vet.log",
+      "log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "wall_seconds": 22.718
+    },
+    "build": {
+      "command": "go build -mod=readonly ./...",
+      "exit": 0,
+      "log": ".git/module-audit-20261113/backend-9bc5db8a4-build.log",
+      "log_sha256": "a13e8ffbe748b092d09f28f4db47f6a25db8ef9da0139b1af0001b79d6619e58",
+      "wall_seconds": 50.883,
+      "warnings": "macOS linker duplicate -lc++ warnings only"
+    },
+    "limitations": [
+      "Root ./... excludes nested modules; no claim of rerunning frontend/CLI in this final gate.",
+      "Conditional external integration skips are not counted as executed integrations.",
+      "No live deployment or user data changed."
+    ]
+  },
+  "stop_request": {
+    "status": "audit_stopped_after_current_work",
+    "push_destination": "origin/codex/genyee-residue-remediation",
+    "scope": "No new modules or remediation groups beyond active work and final validation test-harness repair.",
+    "exhaustive_goal_complete": false
   }
 }
