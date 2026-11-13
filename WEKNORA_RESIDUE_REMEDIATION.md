@@ -6,7 +6,7 @@
 >
 > **版本**：v2.1（2026-11-12）。v1 按“需兼容已上线客户”编写；经项目负责人确认，**目前没有已交付或正在使用的客户**，因此 v2 **取消全部向后兼容要求**，并基于提交 `a1079cbf7` 重新扫描。v2.1 补充：缩写 `wk` 经核实为 WeKnora 简写，统一改为 `gy`（5.5）；D1 版本历史处理的推荐方案（第十一节）；D3 结论为不需要自有品牌扩展。
 >
-> **状态**：B0 已完成；B1 **已完成**；B2 已完成；B3 代码及专项测试已完成，部署回归在 B5 验收；B4 已完成；B5 隔离回归已通过，待原部署迁移确认。每完成一个批次，须更新第十节进度表。
+> **状态**：B0 已完成；B1 **已完成**；B2 已完成；B3 代码及专项测试已完成，部署回归在 B5 验收；B4 已完成；B5 已保留数据迁移并部署，最终镜像复验中。每完成一个批次，须更新第十节进度表。
 
 ---
 
@@ -128,7 +128,7 @@
 | `frontend/src/assets/img/weknora.png` | 无任何引用 | 删除 |
 | `website-docs/public/videos/weknora-v0.9.0-en.srt` | 无任何引用 | 删除 |
 | `website-docs/public/videos/weknora-v0.9.0-en.mp4`、`weknora-v0.9.0-poster.png` | 上游产品发布视频（2 / 4 处引用） | 删除文件，同时删除引用处的视频区块；如需视频，另行制作 GENYEE 版本 |
-| `website-docs/homepage/public/docs/_home/brand/genyee-logo.png` | 上游品牌原图（5 处引用） | 删除，引用处替换为 GENYEE 素材 |
+| `website-docs/homepage/public/docs/_home/brand/weknora-original.png` | 上游品牌原图（5 处引用） | 删除，引用处替换为 GENYEE 素材 |
 | `third_party/anydoc-go/benchmarks/` | 上游团队的基准测试输出，含上游路径 | 删除（客户无需） |
 
 ---
@@ -200,7 +200,7 @@
 | 文件 | 处理 |
 |---|---|
 | `frontend/src/utils/weknoraCloudModels.ts`、`frontend/src/views/settings/WeKnoraCloudSettings.vue`、`internal/application/service/weknoracloud.go`、`internal/handler/weknoracloud.go`、`internal/infrastructure/docparser/weknoracloud_http_reader.go`、`internal/models/providers/assets/weknoracloud.svg`、`internal/models/providers/weknoracloud.go`、`internal/models/vlm/weknoracloud.go`、`internal/types/interfaces/weknoracloud.go`、`internal/types/weknoracloud.go` | 删除（4.1） |
-| `frontend/public/weknora-widget.js`、`frontend/src/assets/img/weknora.png`、`website-docs/public/videos/weknora-v0.9.0-en.{mp4,srt}`、`weknora-v0.9.0-poster.png`、`website-docs/homepage/public/docs/_home/brand/genyee-logo.png` | 删除（4.2、4.3） |
+| `frontend/public/weknora-widget.js`、`frontend/src/assets/img/weknora.png`、`website-docs/public/videos/weknora-v0.9.0-en.{mp4,srt}`、`weknora-v0.9.0-poster.png`、`website-docs/homepage/public/docs/_home/brand/weknora-original.png` | 删除（4.2、4.3） |
 | `frontend/src/utils/weknoraEntityLinks.ts`（及 `.test.ts`）、`frontend/src/views/chat/components/tool-results/WeKnoraDocResult.vue`、`packages/dsh-genyee/test/helpers/mock-weknora.mjs`、`website-docs/03-features/26-weknora-assistant.md`、`mcp-server/weknora_mcp_server.py`、`scripts/cloud-image/systemd/weknora.service`、`weknora-firstboot.service` | `git mv` 改名，同步修改全部引用 |
 
 ### 5. 缩写 `wk` → `gy`（v2.1 新增）
@@ -423,7 +423,7 @@ find . -regextype posix-extended -iregex '.*(^|[/_-])wk([_.-]|$).*'
 | B2 | 已完成（字面值由 B3 收尾） | `8ac5a32b0` | 已改 Go 内部标识符、源码注释、文档正文与前端/文档站 `wk` 样式；诊断及测试字面值随 B3 契约统一替换。Go build/vet/test、CLI build/vet/test、前端类型/国际化/构建与 2719 项测试（零跳过）、官网/文档构建及链接/60 个 Mermaid/83 页站点检查通过。未改动许可声明与二进制资源；保留历史条目，仅修复历史说明中的 CHANGELOG 死链。 |
 | B3 | 代码及专项测试完成 | `776b59c94` | 已统一运行时名称、协议头、工具/助手 ID、环境变量、存储键、数据库默认名、沙箱路径、Docker 标签和 MCP 入口；P8 关联文件提前在本批改名，B4 处理剩余素材。Go build/vet/test、CLI build/vet/test、前端类型/国际化/构建与 2719 项测试（零跳过）、文档站构建/链接/站点检查、docreader 664 项测试（18 个可选依赖用例跳过、381 子测试）、MCP/脚本/Helm 175 项测试、DSH 60 项测试、小程序 10 项测试、沙箱脚本与 37 项 Node 测试、真实 Docker 后端集成测试已通过。真实扩展 `TestRealExtension` 已通过（19.35 秒，含配对、任务窗口、暂停/人工介入和自动清理）；全新部署与界面验收在 B5 继续。 |
 | B4 | 已完成（D1 历史重写暂缓） | `039eda698` | 已删除无引用旧品牌图片、上游发布视频/字幕/海报及首页播放器和外链、vendored 基准输出；品牌图片路径改为自有 GENYEE logo，清理相关测试、样式和断链。P8 关联文件已在 B3 原子改名；版本历史正文与所有原始许可证保持不变。完整 Go build/vet/test、文档站构建/链接/60 个 Mermaid/83 页审计及真实浏览器桌面/手机交互测试通过；Docker 启动检查在 B5 汇总。 |
-| B5 | 隔离回归完成，原部署迁移待确认 | 本批提交（B5） | 已构建全套本地镜像并在独立空数据卷启动，完成注册登录、知识库创建、TXT/PDF 上传解析、检索问答与引用、内置助手和两项文档工具、CLI 登录/完整 RAG、MCP HTTP、嵌入会话/问答及 HMAC 签名验证；浏览器设置、备用下载、配对剪贴板、真实扩展与容器 Linux daemon 执行均通过。问答使用本地确定性协议模拟模型，不调用外部模型服务。真实扩展专项、Docker 沙箱集成、文档站 Docker/浏览器检查及最终 Go/CLI/前端/文档检查通过。导出包 6279 文件，66 份许可证逐字节不变，除 D1 历史和法定署名外无旧品牌、旧文件名或缩写残留。收尾移除改名冲突造成的重复 URI 分支、主题键回退、审批品牌条件和大小写重复签名设置，并更新过期兼容说明。原部署数据库和配置尚未修改，按第七节等待确认后保留数据迁移。 |
+| B5 | 保留数据迁移完成，最终镜像复验中 | `6f22f35bd`（及收尾提交） | 已构建全套本地镜像并在独立空数据卷启动，完成注册登录、知识库创建、TXT/PDF 上传解析、检索问答与引用、内置助手和两项文档工具、CLI 登录/完整 RAG、MCP HTTP、嵌入会话/问答及 HMAC 签名验证；浏览器设置、备用下载、配对剪贴板、真实扩展与容器 Linux daemon 执行均通过。问答使用本地确定性协议模拟模型，不调用外部模型服务。真实扩展专项、Docker 沙箱集成、文档站 Docker/浏览器检查及最终 Go/CLI/前端/文档检查通过。导出包 6279 文件，66 份许可证逐字节不变，除 D1 历史和法定署名外无旧品牌、旧文件名或缩写残留。收尾移除改名冲突造成的重复 URI 分支、主题键回退、审批品牌条件和大小写重复签名设置，并更新过期兼容说明。负责人于 2026-11-13 明确同意保留数据迁移：已备份原库/文件/配置，将数据库改名为 genyee，保留 2 个用户且密码哈希与权限不变，原超管登录、Neo4j/docreader/数据库/前后端健康检查均通过；部署镜像为本地已验证版本，未推送远程。独立复核已删除旧云签名 AuthSigned/Signer、模型 AppID、传输层及 chat/embedding/vlm 无用 secret 透传和专属 DNS 测试；保留 LKEAP/Volcengine 重排的 AppSecret。云镜像脚本仅筛选当前 registry 的旧标签，4 项新行为测试及脚本/Compose/Helm 共 34 项测试通过。新增 signed overlay 拒绝用例；API 文档重生成、完整 Go build/vet/test、前端 2719 项测试与类型/国际化/构建、官网构建与检查通过。正在用最终代码更新镜像。 |
 
 ---
 

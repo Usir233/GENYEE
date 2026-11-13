@@ -66,8 +66,7 @@ func TestCatalogMigrationBaseline(t *testing.T) {
 								&chat.ChatConfig{
 									Provider:  vendor.ID,
 									ModelName: name,
-									AppID:     "app",
-									AppSecret: "secret",
+
 									BaseURL: reachableBaseURL(
 										vendor.GetDefaultURL(
 											types.ModelTypeKnowledgeQA,

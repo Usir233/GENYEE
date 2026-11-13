@@ -46,7 +46,7 @@ func newRemoteEmbedder(config Config, pooler EmbedderPooler) (Embedder, error) {
 	vendor := resolved.Vendor
 	endpoint, err := resolved.Endpoint(types.ModelTypeEmbedding, modelruntime.Connection{
 		ModelID:     config.ModelID,
-		Credentials: api.Credentials{APIKey: config.APIKey, AppID: config.AppID, AppSecret: config.AppSecret},
+		Credentials: api.Credentials{APIKey: config.APIKey},
 		Headers:     config.CustomHeaders,
 		Extra:       config.ExtraConfig,
 		Client:      newEmbeddingHTTPClient(time.Duration(resolved.Embeddings.RequestTimeout) * time.Second),

@@ -511,9 +511,6 @@ func TestCatalogInvariants(t *testing.T) {
 			if v.RequiresAuth {
 				assert.NotEmpty(t, v.Auth, "RequiresAuth without an auth style")
 			}
-			if v.Auth == providers.AuthSigned {
-				assert.NotNil(t, v.Signer, "signed auth without a Signer hook")
-			}
 
 			for _, field := range v.ExtraFields {
 				assert.NotEmpty(t, field.Key, "extra field without a key")
@@ -597,7 +594,6 @@ func TestEveryChatModelRequestShape(t *testing.T) {
 				cfg := &chat.ChatConfig{
 					Provider: v.ID, ModelName: m.ID,
 					BaseURL: reachableBaseURL(v.GetDefaultURL(types.ModelTypeKnowledgeQA)),
-					AppID:   "app", AppSecret: "secret", // only used by signing vendors
 				}
 				for _, thinking := range []bool{true, false} {
 					opts := &api.Options{MaxTokens: 256, Temperature: 0.5, Thinking: ptrBool(thinking)}

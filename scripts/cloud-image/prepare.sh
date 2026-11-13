@@ -6,7 +6,7 @@
 # 可调环境变量:
 #   GENYEE_REF              要拉取的 git ref (tag / branch / commit), 默认 main
 #   GENYEE_DIR              部署目录, 默认 /opt/GENYEE
-#   GENYEE_REPO             仓库地址, 默认 https://github.com/genyee/genyee
+#   GENYEE_REPO             仓库地址, 默认 https://github.com/Usir233/GENYEE
 #   GENYEE_GH_PROXY         GitHub 加速前缀, 默认空。中国大陆机器可设
 #                            https://gh-proxy.com/ 或 https://ghfast.top/
 #                            (实际下载地址变成 ${GENYEE_GH_PROXY}${GENYEE_REPO}/archive/...)
@@ -28,7 +28,7 @@ set -euo pipefail
 
 GENYEE_REF="${GENYEE_REF:-main}"
 GENYEE_DIR="${GENYEE_DIR:-/opt/GENYEE}"
-GENYEE_REPO="${GENYEE_REPO:-https://github.com/genyee/genyee}"
+GENYEE_REPO="${GENYEE_REPO:-https://github.com/Usir233/GENYEE}"
 GENYEE_GH_PROXY="${GENYEE_GH_PROXY:-}"
 DOCKER_INSTALL_MIRROR="${DOCKER_INSTALL_MIRROR:-}"
 DOCKER_REGISTRY_MIRROR="${DOCKER_REGISTRY_MIRROR:-}"
@@ -135,9 +135,9 @@ tar -xzf "${tmp}/repo.tar.gz" -C "${tmp}" \
   '*/docker-compose.yml' \
   '*/.env.example' \
   '*/config/config.yaml'
-src=$(find "${tmp}" -maxdepth 1 -mindepth 1 -type d \( -name 'GENYEE-*' -o -name 'GENYEE-*' \) | head -1)
+src=$(find "${tmp}" -maxdepth 1 -mindepth 1 -type d -name 'GENYEE-*' | head -1)
 if [[ -z "${src}" ]]; then
-  echo "[prepare] 解压失败, 未找到 GENYEE-* 或 GENYEE-* 目录" >&2
+  echo "[prepare] 解压失败, 未找到 GENYEE-* 目录" >&2
   exit 1
 fi
 
@@ -204,13 +204,12 @@ docker compose --profile full pull sandbox || true
 # sandbox 镜像在 compose 里只 pull 不 up (Agent Skills 由 app 按需 docker run),
 # 没有任何容器引用它, 一旦 `prune -a` 会把当前版本的 sandbox 一起删掉,
 # 反而违背 prepare.sh 4.5 步预拉 sandbox 的目的。
-# 这里精确按 tag 比对, 只删 genyee-* / genyee-* 仓库下、tag 不等于当前
-# GENYEE_VERSION 的镜像, 基础设施镜像 (paradedb / redis) 不动。
+# 这里精确按 registry 与 tag 比对, 只删当前仓库下、tag 不等于当前
+# GENYEE_VERSION 的 genyee-* 镜像, 基础设施镜像 (paradedb / redis) 不动。
 if [[ "${PRUNE_OLD_IMAGES,,}" == "true" || "${PRUNE_OLD_IMAGES}" == "1" ]]; then
   echo "[prepare] 4.6/6 清理 ${GENYEE_REGISTRY:-genyee}/genyee-* 仓库下旧版本镜像 (PRUNE_OLD_IMAGES=true, keep=${GENYEE_VERSION_VAL})"
   docker image ls --format '{{.Repository}}:{{.Tag}}' \
-    | grep -E "^(${GENYEE_REGISTRY:-genyee}/genyee-|genyee/genyee-)" \
-    | grep -vE ":${GENYEE_VERSION_VAL}\$" \
+    | sh "${SCRIPT_DIR}/select-old-images.sh" "${GENYEE_REGISTRY:-genyee}" "${GENYEE_VERSION_VAL}" \
     | xargs -r docker rmi -f 2>/dev/null || true
 fi
 

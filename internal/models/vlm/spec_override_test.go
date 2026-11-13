@@ -24,7 +24,7 @@ func TestConfigFromModelCarriesSpecOverride(t *testing.T) {
 			Spec:     override,
 		},
 	}
-	cfg := ConfigFromModel(m, "", "")
+	cfg := ConfigFromModel(m)
 	if cfg.Spec != override {
 		t.Fatalf("Spec not propagated: %+v", cfg.Spec)
 	}

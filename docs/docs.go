@@ -26584,9 +26584,6 @@ const docTemplate = `{
         "github_com_Usir233_GENYEE_internal_handler_dto.ModelParametersDTO": {
             "type": "object",
             "properties": {
-                "app_id": {
-                    "type": "string"
-                },
                 "base_url": {
                     "description": "BaseURL is empty for callers who may not view integration detail, and\nfor builtin models; see NewModelResponse.",
                     "type": "string",
@@ -27213,16 +27210,14 @@ const docTemplate = `{
                 "api-key",
                 "x-api-key",
                 "x-goog-api-key",
-                "none",
-                "signed"
+                "none"
             ],
             "x-enum-varnames": [
                 "AuthBearer",
                 "AuthAPIKeyHeader",
                 "AuthXAPIKey",
                 "AuthGoogleAPIKey",
-                "AuthNone",
-                "AuthSigned"
+                "AuthNone"
             ]
         },
         "github_com_Usir233_GENYEE_internal_models_providers.CredentialLabel": {
@@ -33680,12 +33675,8 @@ const docTemplate = `{
                 "api_key": {
                     "type": "string"
                 },
-                "app_id": {
-                    "description": "厂商附加凭证",
-                    "type": "string"
-                },
                 "app_secret": {
-                    "description": "AES-256 加密存储，实际承载上游 API Key",
+                    "description": "厂商附加凭证",
                     "type": "string"
                 },
                 "base_url": {

@@ -576,9 +576,7 @@ func (s *modelService) GetEmbeddingModel(ctx context.Context, modelId string) (e
 
 	logger.Infof(ctx, "Getting embedding model: %s, source: %s", model.Name, model.Source)
 
-	appID, appSecret := model.Parameters.AppID, s.decryptAppSecret(model.Parameters.AppSecret)
-
-	embedder, err := embedding.NewEmbedder(embedding.ConfigFromModel(model, appID, appSecret), s.pooler, s.ollamaService)
+	embedder, err := embedding.NewEmbedder(embedding.ConfigFromModel(model), s.pooler, s.ollamaService)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"model_id":   model.ID,
@@ -623,9 +621,7 @@ func (s *modelService) GetEmbeddingModelForTenant(ctx context.Context, modelId s
 
 	logger.Infof(ctx, "Getting cross-tenant embedding model: %s, source: %s, tenant: %d", model.Name, model.Source, tenantID)
 
-	appID, appSecret := model.Parameters.AppID, s.decryptAppSecret(model.Parameters.AppSecret)
-
-	embedder, err := embedding.NewEmbedder(embedding.ConfigFromModel(model, appID, appSecret), s.pooler, s.ollamaService)
+	embedder, err := embedding.NewEmbedder(embedding.ConfigFromModel(model), s.pooler, s.ollamaService)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"model_id":   model.ID,
@@ -653,9 +649,9 @@ func (s *modelService) GetRerankModel(ctx context.Context, modelId string) (rera
 
 	logger.Infof(ctx, "Getting rerank model: %s, source: %s", model.Name, model.Source)
 
-	appID, appSecret := model.Parameters.AppID, s.decryptAppSecret(model.Parameters.AppSecret)
+	appSecret := s.decryptAppSecret(model.Parameters.AppSecret)
 
-	reranker, err := rerank.NewReranker(rerank.ConfigFromModel(model, appID, appSecret))
+	reranker, err := rerank.NewReranker(rerank.ConfigFromModel(model, appSecret))
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"model_id":   model.ID,
@@ -696,9 +692,7 @@ func (s *modelService) GetChatModel(ctx context.Context, modelId string) (chat.C
 
 	logger.Infof(ctx, "Getting chat model: %s, source: %s", model.Name, model.Source)
 
-	appID, appSecret := model.Parameters.AppID, s.decryptAppSecret(model.Parameters.AppSecret)
-
-	chatModel, err := chat.NewChat(chat.ConfigFromModel(model, appID, appSecret), s.ollamaService)
+	chatModel, err := chat.NewChat(chat.ConfigFromModel(model), s.ollamaService)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"model_id":   model.ID,
@@ -733,9 +727,7 @@ func (s *modelService) GetVLMModel(ctx context.Context, modelId string) (vlm.VLM
 
 	logger.Infof(ctx, "Getting VLM model: %s, source: %s", model.Name, model.Source)
 
-	appID, appSecret := model.Parameters.AppID, s.decryptAppSecret(model.Parameters.AppSecret)
-
-	vlmModel, err := vlm.NewVLM(vlm.ConfigFromModel(model, appID, appSecret), s.ollamaService)
+	vlmModel, err := vlm.NewVLM(vlm.ConfigFromModel(model), s.ollamaService)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"model_id":   model.ID,

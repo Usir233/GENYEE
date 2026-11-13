@@ -31,7 +31,7 @@ func TestLiveImageOCRValidation(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal(raw, &fixture))
 	require.NotEmpty(t, fixture.ImagePaths)
-	model, err := vlm.NewRemoteAPIVLM(vlm.ConfigFromModel(&fixture.Model, "", ""))
+	model, err := vlm.NewRemoteAPIVLM(vlm.ConfigFromModel(&fixture.Model))
 	require.NoError(t, err)
 	for _, path := range fixture.ImagePaths {
 		t.Run(filepath.Base(path), func(t *testing.T) {

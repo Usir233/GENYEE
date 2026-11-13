@@ -1,8 +1,7 @@
 package types
 
-// Round-trip guards for the JSON columns this refactor touches. Each literal
-// below is a blob the pre-catalog code actually wrote, so a failure means an
-// existing deployment loses data the first time the row is read and saved.
+// Round-trip guards for supported model and agent JSON fields. These
+// fixtures pin the values expected to survive a row read and rewrite.
 
 import (
 	"encoding/json"
@@ -11,9 +10,9 @@ import (
 	"testing"
 )
 
-// legacyModelParametersJSON is a `models.parameters` value written by the old
-// code, carrying every field the pre-refactor ModelParameters struct had.
-const legacyModelParametersJSON = `{
+// modelParametersJSON covers the current `models.parameters` fields, including
+// the second credential used by rerank providers.
+const modelParametersJSON = `{
   "base_url": "https://api.deepseek.com/v1",
   "api_key": "sk-stored",
   "interface_type": "openai",
@@ -38,29 +37,26 @@ const legacyModelParametersJSON = `{
   "context_window": 128000,
   "max_output_tokens": 8192,
   "max_concurrency": 4,
-  "app_id": "app",
   "app_secret": "encrypted"
 }`
 
-// TestLegacyModelParametersRoundTrip proves that reading an old row and
-// writing it back preserves every field. The refactor added
-// ModelParameters.Spec; had it renamed or dropped anything, the re-marshalled
-// blob would differ from the stored one.
-func TestLegacyModelParametersRoundTrip(t *testing.T) {
+// TestModelParametersRoundTrip proves that supported persisted fields survive
+// reading and writing a row. Optional Spec remains omitted when not configured.
+func TestModelParametersRoundTrip(t *testing.T) {
 	var params ModelParameters
-	if err := json.Unmarshal([]byte(legacyModelParametersJSON), &params); err != nil {
-		t.Fatalf("an old parameters blob no longer unmarshals: %v", err)
+	if err := json.Unmarshal([]byte(modelParametersJSON), &params); err != nil {
+		t.Fatalf("stored parameters no longer unmarshal: %v", err)
 	}
 
-	// Strict decode: every key the old code wrote must still map to a field.
-	dec := json.NewDecoder(strings.NewReader(legacyModelParametersJSON))
+	// Strict decode: every supported persisted key must map to a field.
+	dec := json.NewDecoder(strings.NewReader(modelParametersJSON))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&ModelParameters{}); err != nil {
-		t.Fatalf("an old parameters key has no field on the new struct: %v", err)
+		t.Fatalf("a persisted parameters key has no field on the struct: %v", err)
 	}
 
 	if params.Spec != nil {
-		t.Errorf("Spec must default to nil on a row that predates it, got %+v", params.Spec)
+		t.Errorf("Spec must default to nil when absent, got %+v", params.Spec)
 	}
 
 	rewritten, err := json.Marshal(params)
@@ -68,7 +64,7 @@ func TestLegacyModelParametersRoundTrip(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 	var before, after map[string]any
-	if err := json.Unmarshal([]byte(legacyModelParametersJSON), &before); err != nil {
+	if err := json.Unmarshal([]byte(modelParametersJSON), &before); err != nil {
 		t.Fatal(err)
 	}
 	if err := json.Unmarshal(rewritten, &after); err != nil {

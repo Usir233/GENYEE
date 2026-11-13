@@ -37,14 +37,13 @@ func TestEveryCatalogEmbeddingTransport(t *testing.T) {
 					)
 					require.NoError(t, err)
 					cfg := Config{
-						Source:                    types.ModelSourceRemote,
-						Provider:                  v.ID,
-						ModelName:                 name,
-						ModelID:                   "row-id",
-						BaseURL:                   u.url + base.Path,
-						APIKey:                    "row-key",
-						AppID:                     "app",
-						AppSecret:                 "secret",
+						Source:    types.ModelSourceRemote,
+						Provider:  v.ID,
+						ModelName: name,
+						ModelID:   "row-id",
+						BaseURL:   u.url + base.Path,
+						APIKey:    "row-key",
+
 						Dimensions:                256,
 						SupportsDimensionOverride: true,
 					}
@@ -89,7 +88,7 @@ func TestStoredEmbeddingSpecReachesWire(t *testing.T) {
 			},
 		},
 	}
-	client, err := newRemoteEmbedder(ConfigFromModel(row, "", ""), nil)
+	client, err := newRemoteEmbedder(ConfigFromModel(row), nil)
 	require.NoError(t, err)
 	_, err = client.BatchEmbed(context.Background(), []string{"a", "b"})
 	require.NoError(t, err)
@@ -100,6 +99,6 @@ func TestStoredEmbeddingSpecReachesWire(t *testing.T) {
 		require.Equal(t, "Bearer model-key", req.header.Get("Authorization"))
 	}
 	row.Parameters.Spec.Compat = map[string]any{"misspelled_option": true}
-	_, err = newRemoteEmbedder(ConfigFromModel(row, "", ""), nil)
+	_, err = newRemoteEmbedder(ConfigFromModel(row), nil)
 	require.ErrorContains(t, err, "unknown field")
 }

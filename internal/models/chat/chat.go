@@ -87,8 +87,6 @@ type ChatConfig struct {
 	ExtraConfig    map[string]string
 	// CustomHeaders 允许在调用远程 API 时附加自定义 HTTP 请求头（类似 OpenAI Python SDK 的 extra_headers）。
 	CustomHeaders map[string]string
-	AppID         string
-	AppSecret     string // 加密值，由工厂函数调用方传入，在使用前已解密
 	// Spec carries per-row catalog overrides (protocol, compat, levels).
 	Spec *types.ModelSpecOverride
 }
@@ -96,8 +94,7 @@ type ChatConfig struct {
 // ConfigFromModel 根据 types.Model 构造 ChatConfig。
 // 保证生产路径（service 层根据 DB 中的模型配置拉起实例）和测试路径
 // （handler 层根据前端表单临时拉起实例）走完全相同的字段映射。
-// appID / appSecret 是已经解密/解析好的 模型附加凭证，调用方负责传入。
-func ConfigFromModel(m *types.Model, appID, appSecret string) *ChatConfig {
+func ConfigFromModel(m *types.Model) *ChatConfig {
 	if m == nil {
 		return nil
 	}
@@ -111,8 +108,6 @@ func ConfigFromModel(m *types.Model, appID, appSecret string) *ChatConfig {
 		MaxConcurrency: m.Parameters.MaxConcurrency,
 		ExtraConfig:    m.Parameters.ExtraConfig,
 		CustomHeaders:  m.Parameters.CustomHeaders,
-		AppID:          appID,
-		AppSecret:      appSecret,
 		Spec:           m.Parameters.Spec,
 	}
 }
@@ -181,7 +176,7 @@ func NewRemoteChat(config *ChatConfig) (Chat, error) {
 
 	endpoint, err := resolved.Endpoint(types.ModelTypeKnowledgeQA, modelruntime.Connection{
 		ModelID:     config.ModelID,
-		Credentials: api.Credentials{APIKey: config.APIKey, AppID: config.AppID, AppSecret: config.AppSecret},
+		Credentials: api.Credentials{APIKey: config.APIKey},
 		Headers:     config.CustomHeaders,
 		Extra:       config.ExtraConfig,
 	})

@@ -33,7 +33,6 @@ func TestEveryCatalogRerankTransport(t *testing.T) {
 						ModelID:   "row-id",
 						BaseURL:   u.url + base.Path,
 						APIKey:    "row-key",
-						AppID:     "app",
 						AppSecret: "secret",
 					}
 					client, err := newReranker(cfg)
@@ -74,7 +73,7 @@ func TestStoredRerankSpecReachesWire(t *testing.T) {
 			},
 		},
 	}
-	client, err := newReranker(ConfigFromModel(row, "", ""))
+	client, err := newReranker(ConfigFromModel(row, ""))
 	require.NoError(t, err)
 	_, err = client.Rerank(context.Background(), "q", []string{"a", "bb"})
 	require.NoError(t, err)
@@ -84,6 +83,6 @@ func TestStoredRerankSpecReachesWire(t *testing.T) {
 	require.Equal(t, true, req.body["custom_flag"])
 	require.Equal(t, float64(2), req.body["top_n"])
 	row.Parameters.Spec.Compat = map[string]any{"misspelled_option": true}
-	_, err = newReranker(ConfigFromModel(row, "", ""))
+	_, err = newReranker(ConfigFromModel(row, ""))
 	require.ErrorContains(t, err, "unknown field")
 }

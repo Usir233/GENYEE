@@ -109,9 +109,6 @@ func TestAllVendorsRegistered(t *testing.T) {
 		if v.RequiresAuth && v.Auth == "" {
 			t.Errorf("vendor %q: RequiresAuth without Auth style", id)
 		}
-		if v.Auth == providers.AuthSigned && v.Signer == nil {
-			t.Errorf("vendor %q: AuthSigned without Signer", id)
-		}
 		if !v.API.Known() {
 			t.Errorf("vendor %q: unknown default API %q", id, v.API)
 		}

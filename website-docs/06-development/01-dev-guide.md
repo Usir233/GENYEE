@@ -365,7 +365,7 @@ chunker 提供 `SplitWithDiagnostics()`（`internal/infrastructure/chunker/strat
 
 `scripts/cloud-image/` 用于在专用、可丢弃的 Linux 制作机上准备分发镜像。常规部署使用[安装部署](../01-getting-started/02-installation.md)，不需要运行这些脚本。
 
-- `prepare.sh` 下载 `GENYEE_REF` 对应的运行文件、拉取镜像并安装 systemd 服务。该引用还用于设置镜像版本，必须确认对应镜像标签存在。随仓库提供的 systemd 单元固定使用 `/opt/GENYEE`，只修改脚本的目录变量不足以迁移安装位置。
+- `prepare.sh` 下载 `GENYEE_REF` 对应的运行文件、拉取镜像并安装 systemd 服务。使用时保留完整脚本目录；可选旧镜像清理由同目录 `select-old-images.sh` 按当前 registry 和版本字面值筛选，不会清理其他 registry。该引用还用于设置镜像版本，必须确认对应镜像标签存在。随仓库提供的 systemd 单元固定使用 `/opt/GENYEE`，只修改脚本的目录变量不足以迁移安装位置。
 - `cleanup.sh` 清除制镜像机的数据、密钥、SSH 授权、日志与 Docker 缓存并关机；其影响不限于 GENYEE 目录，只能用于检查过的专用制作机。
 - `firstboot.sh` 在新实例上生成密钥、写入 `.env` 并启动 Compose；完成后禁用首启服务，不会自删除脚本。
 

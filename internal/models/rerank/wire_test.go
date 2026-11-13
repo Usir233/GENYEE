@@ -185,12 +185,12 @@ func TestRerankWireFormatPerVendor(t *testing.T) {
 	const volcInstruction = "Whether the document answers the query or matches the content retrieval intent"
 
 	cases := []struct {
-		name       string
-		provider   string
-		model      string
-		base       string // appended to the upstream URL
-		extra      map[string]string
-		appID      string
+		name     string
+		provider string
+		model    string
+		base     string // appended to the upstream URL
+		extra    map[string]string
+
 		appSecret  string
 		docs       []string
 		logitScale bool // the protocol answers raw logits (NIM)
@@ -359,7 +359,7 @@ func TestRerankWireFormatPerVendor(t *testing.T) {
 			reranker, err := NewReranker(&RerankerConfig{
 				Source: types.ModelSourceRemote, Provider: tc.provider, ModelName: tc.model,
 				BaseURL: up.url + tc.base, APIKey: "k", ExtraConfig: tc.extra,
-				AppID: tc.appID, AppSecret: tc.appSecret, CustomHeaders: headers,
+				AppSecret: tc.appSecret, CustomHeaders: headers,
 			})
 			require.NoError(t, err)
 

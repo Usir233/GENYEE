@@ -94,8 +94,6 @@ func NewRemoteAPIVLM(config *Config) (*RemoteAPIVLM, error) {
 		Provider:      config.Provider,
 		ExtraConfig:   extra,
 		CustomHeaders: config.CustomHeaders,
-		AppID:         config.AppID,
-		AppSecret:     config.AppSecret,
 		Spec:          config.Spec,
 	})
 	if err != nil {

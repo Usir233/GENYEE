@@ -63,9 +63,7 @@ func TestEveryProviderKeepsModelCredentialsIsolated(t *testing.T) {
 					modelruntime.Connection{
 						ModelID: key,
 						Credentials: api.Credentials{
-							APIKey:    key,
-							AppID:     key,
-							AppSecret: key,
+							APIKey: key,
 						},
 						Headers: map[string]string{
 							"X-Model": key,
@@ -85,8 +83,6 @@ func TestEveryProviderKeepsModelCredentialsIsolated(t *testing.T) {
 					require.Equal(t, key, req.Header.Get("x-api-key"))
 				case providers.AuthGoogleAPIKey:
 					require.Equal(t, key, req.Header.Get("x-goog-api-key"))
-				case providers.AuthSigned:
-					require.Equal(t, key, req.Header.Get("X-APPID"))
 				}
 				require.Equal(t, key, ep.ModelID)
 				require.Equal(t, key, ep.Headers["X-Model"])
@@ -191,6 +187,16 @@ func TestEveryProviderDefinitionCanBeReloaded(t *testing.T) {
 		),
 		"unknown field",
 	)
+	for _, style := range []string{"unknown", "signed"} {
+		t.Run("unsupported_auth_"+style, func(t *testing.T) {
+			data := []byte(`{"providers":{"openai":{"auth":"` + style + `"}}}`)
+			require.ErrorContains(t, modelruntime.Reload(data, ""), "unknown auth style")
+			current, ok := modelruntime.Get("openai")
+			require.True(t, ok)
+			require.Equal(t, providers.AuthBearer, current.Auth, "rejected auth must not replace the working catalog")
+		})
+	}
+
 	r, err := modelruntime.Resolve(modelruntime.Ref{Provider: "openai", Model: "gpt-5"})
 	require.NoError(t, err)
 	require.Equal(t, "gpt-5", r.RemoteModel)

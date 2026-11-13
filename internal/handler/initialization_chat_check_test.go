@@ -47,7 +47,7 @@ func TestCheckChatModelConnectionTreats400AsReachable(t *testing.T) {
 			`because max_tokens or model output limit was reached.","type":"invalid_request_error","code":"400"}}`)
 
 	h := &InitializationHandler{}
-	available, message := h.checkChatModelConnection(context.Background(), remoteChatModel(srv.URL), "", "")
+	available, message := h.checkChatModelConnection(context.Background(), remoteChatModel(srv.URL))
 
 	require.True(t, available, "message: %s", message)
 }
@@ -57,7 +57,7 @@ func TestCheckChatModelConnectionReportsAuthFailure(t *testing.T) {
 		`{"error":{"message":"Invalid API key","type":"invalid_request_error","code":"401"}}`)
 
 	h := &InitializationHandler{}
-	available, message := h.checkChatModelConnection(context.Background(), remoteChatModel(srv.URL), "", "")
+	available, message := h.checkChatModelConnection(context.Background(), remoteChatModel(srv.URL))
 
 	require.False(t, available)
 	require.Contains(t, message, "认证失败")
@@ -84,7 +84,7 @@ func TestCheckChatModelConnectionReportsGeminiInvalidKey(t *testing.T) {
 	model.Parameters.Provider = "gemini"
 
 	h := &InitializationHandler{}
-	available, message := h.checkChatModelConnection(context.Background(), model, "", "")
+	available, message := h.checkChatModelConnection(context.Background(), model)
 
 	require.Contains(t, gotPath, ":generateContent", "probe should use the native Gemini API")
 	require.False(t, available, "message: %s", message)

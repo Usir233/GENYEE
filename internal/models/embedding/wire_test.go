@@ -201,7 +201,6 @@ func TestEmbeddingWireFormatPerVendor(t *testing.T) {
 		truncate int  // embedding_parameters.truncate_prompt_tokens
 		query    bool
 		texts    []string
-		appID    string
 
 		wantPath     string
 		wantQuery    string
@@ -469,8 +468,6 @@ func TestEmbeddingWireFormatPerVendor(t *testing.T) {
 				SupportsDimensionOverride: tc.override,
 				TruncatePromptTokens:      tc.truncate,
 				ExtraConfig:               tc.extra,
-				AppID:                     tc.appID,
-				AppSecret:                 "secret",
 			}
 			embedder, err := newEmbedder(config, nil, nil)
 			require.NoError(t, err)

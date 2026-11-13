@@ -201,8 +201,7 @@ type ModelResponse struct {
 }
 
 // ModelParametersDTO carries every parameter field EXCEPT the two secret
-// ones (APIKey, AppSecret). AppID is non-secret and stays — it's an account
-// identifier exposed as provider metadata. CustomHeaders is also kept
+// ones (APIKey, AppSecret). CustomHeaders is kept
 // (structural metadata, not a credential).
 type ModelParametersDTO struct {
 	// BaseURL is empty for callers who may not view integration detail, and
@@ -218,7 +217,6 @@ type ModelParametersDTO struct {
 	ContextWindow       int                       `json:"context_window,omitempty"`
 	MaxOutputTokens     int                       `json:"max_output_tokens,omitempty"`
 	MaxConcurrency      int                       `json:"max_concurrency,omitempty"`
-	AppID               string                    `json:"app_id,omitempty"`
 	Spec                *types.ModelSpecOverride  `json:"spec,omitempty"`
 }
 
@@ -242,7 +240,6 @@ func NewModelResponse(ctx context.Context, m *types.Model) *ModelResponse {
 		ContextWindow:       m.Parameters.ContextWindow,
 		MaxOutputTokens:     m.Parameters.MaxOutputTokens,
 		MaxConcurrency:      m.Parameters.MaxConcurrency,
-		AppID:               m.Parameters.AppID,
 		Spec:                m.Parameters.Spec,
 	}
 	canManageBuiltin := m.IsBuiltin && types.IsSystemAdminFromContext(ctx)
@@ -265,7 +262,6 @@ func NewModelResponse(ctx context.Context, m *types.Model) *ModelResponse {
 		params.BaseURL = ""
 		params.ExtraConfig = nil
 		params.CustomHeaders = nil
-		params.AppID = ""
 		params.Spec = nil
 	}
 	// Vendor-declared secret extra fields are credentials that happen to be

@@ -453,7 +453,7 @@ func modelDebugChatAcceptsImages(model *types.Model) bool {
 	if model.Source == types.ModelSourceLocal {
 		return false
 	}
-	resolved, err := chat.Resolve(chat.ConfigFromModel(model, "", ""))
+	resolved, err := chat.Resolve(chat.ConfigFromModel(model))
 	return err == nil && resolved.Spec.AcceptsImages()
 }
 
@@ -596,7 +596,7 @@ func (h *ModelHandler) DebugModel(c *gin.Context) {
 		if level, _ := api.ParseReasoningEffort(opts.ReasoningEffort); level != "" {
 			chatOpts.ReasoningEffort = level
 		}
-		chatConfig := chat.ConfigFromModel(model, "", "")
+		chatConfig := chat.ConfigFromModel(model)
 		thinkingControl := chat.EffectiveThinkingControl(chatConfig)
 		requestedLevel, requested := chatOpts.Reasoning()
 		observations["stream"] = true
@@ -834,9 +834,6 @@ func (h *ModelHandler) UpdateModel(c *gin.Context) {
 	newParams.ParameterSize = model.Parameters.ParameterSize
 	if newParams.InterfaceType == "" {
 		newParams.InterfaceType = model.Parameters.InterfaceType
-	}
-	if newParams.AppID == "" {
-		newParams.AppID = model.Parameters.AppID
 	}
 	// extra_config is replaced wholesale here, but GET redacts the vendor's
 	// secret extra fields (dto.NewModelResponse), so a UI round-trip carries

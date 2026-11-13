@@ -22,9 +22,9 @@ func TestModelResponse_OmitsSecrets(t *testing.T) {
 		Parameters: types.ModelParameters{
 			APIKey:    "sk-real-api-key-do-not-leak",
 			AppSecret: "app-real-secret-do-not-leak",
-			AppID:     "appid-public-ok-to-show",
-			BaseURL:   "https://api.example.com",
-			Provider:  "openai",
+
+			BaseURL:  "https://api.example.com",
+			Provider: "openai",
 		},
 	}
 	body, err := json.Marshal(NewModelResponse(adminContext(), m))
@@ -43,7 +43,6 @@ func TestModelResponse_OmitsSecrets(t *testing.T) {
 	assert.Contains(t, s, `"api_key":{"configured":true}`)
 	assert.Contains(t, s, `"app_secret":{"configured":true}`)
 	// Non-secret fields pass through.
-	assert.Contains(t, s, "appid-public-ok-to-show")
 	assert.Contains(t, s, "api.example.com")
 	assert.Contains(t, s, `"display_name":"Support QA"`)
 }
@@ -53,9 +52,9 @@ func TestModelResponse_BuiltinStripsTenantConfig(t *testing.T) {
 		ID:        "builtin-1",
 		IsBuiltin: true,
 		Parameters: types.ModelParameters{
-			BaseURL:        "https://tenant-private.example.com",
-			APIKey:         "should-not-leak",
-			AppID:          "tenant-app-id",
+			BaseURL: "https://tenant-private.example.com",
+			APIKey:  "should-not-leak",
+
 			SupportsVision: true,
 			ExtraConfig:    map[string]string{"region": "cn-hangzhou"},
 		},
@@ -63,8 +62,6 @@ func TestModelResponse_BuiltinStripsTenantConfig(t *testing.T) {
 	resp := NewModelResponse(adminContext(), m)
 	assert.Empty(t, resp.Parameters.BaseURL,
 		"builtin must not leak per-tenant base URL")
-	assert.Empty(t, resp.Parameters.AppID,
-		"builtin must not leak per-tenant app_id")
 	assert.Nil(t, resp.Parameters.ExtraConfig,
 		"builtin must not leak per-tenant extra_config")
 	assert.True(t, resp.Parameters.SupportsVision,
@@ -81,10 +78,10 @@ func TestModelResponse_SystemAdminCanManageBuiltinConfig(t *testing.T) {
 		ID:        "builtin-1",
 		IsBuiltin: true,
 		Parameters: types.ModelParameters{
-			BaseURL:       "https://global-provider.example.com",
-			APIKey:        "should-never-be-returned",
-			AppSecret:     "also-never-returned",
-			AppID:         "global-app-id",
+			BaseURL:   "https://global-provider.example.com",
+			APIKey:    "should-never-be-returned",
+			AppSecret: "also-never-returned",
+
 			ExtraConfig:   map[string]string{"region": "ap-guangzhou"},
 			CustomHeaders: map[string]string{"X-Route": "global"},
 		},
@@ -92,7 +89,6 @@ func TestModelResponse_SystemAdminCanManageBuiltinConfig(t *testing.T) {
 
 	resp := NewModelResponse(ctx, m)
 	assert.Equal(t, "https://global-provider.example.com", resp.Parameters.BaseURL)
-	assert.Equal(t, "global-app-id", resp.Parameters.AppID)
 	assert.Equal(t, map[string]string{"region": "ap-guangzhou"}, resp.Parameters.ExtraConfig)
 	assert.Equal(t, map[string]string{"X-Route": "global"}, resp.Parameters.CustomHeaders)
 	assert.True(t, resp.Credentials["api_key"].Configured)
