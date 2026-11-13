@@ -8,6 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from docx import Document as WordDocument
+from PIL import Image
 
 
 @patch.dict(sys.modules)
@@ -42,7 +43,7 @@ DocxParser = docx_parser.DocxParser
 table_to_gfm_markdown = docx_parser.table_to_gfm_markdown
 
 
-def _parse(content):
+def _parse(content, max_pages=100):
     """Parse a DOCX through the real Docx processor.
 
     The production path uses a ProcessPoolExecutor backed by a multiprocessing
@@ -65,7 +66,7 @@ def _parse(content):
     with patch.object(docx_parser, "Manager", _FakeManager), patch.object(
         docx_parser, "ProcessPoolExecutor", ThreadPoolExecutor
     ):
-        return DocxParser(max_pages=100).parse_into_text(content)
+        return DocxParser(max_pages=max_pages).parse_into_text(content)
 
 
 def _docx_bytes(build):
@@ -415,6 +416,57 @@ class DocxNestedTableTextTest(unittest.TestCase):
 
         document = _parse(_docx_bytes(build))
         self.assertIn("| Before After |", document.content)
+
+
+class DocxImageOrderTest(unittest.TestCase):
+    @staticmethod
+    def _picture(doc, color):
+        image = io.BytesIO()
+        Image.new("RGB", (200, 150), color).save(image, format="PNG")
+        image.seek(0)
+        doc.add_picture(image)
+
+    def test_images_survive_body_order_composition_with_tables(self):
+        def build(doc):
+            doc.add_paragraph("Before the first diagram")
+            self._picture(doc, "red")
+            table = doc.add_table(rows=2, cols=1)
+            table.cell(0, 0).text = "Table heading"
+            table.cell(1, 0).text = "Table evidence"
+            self._picture(doc, "blue")
+            doc.add_paragraph("After the second diagram")
+
+        document = _parse(_docx_bytes(build))
+        self.assertEqual(len(document.images), 2)
+        image_positions = []
+        for ref in document.images:
+            self.assertIn(ref, document.content)
+            self.assertEqual(document.content.count(ref), 1)
+            image_positions.append(document.content.index(ref))
+        first, second = sorted(image_positions)
+        self.assertLess(document.content.index("Before the first diagram"), first)
+        self.assertLess(first, document.content.index("Table heading"))
+        self.assertLess(document.content.index("Table evidence"), second)
+        self.assertLess(second, document.content.index("After the second diagram"))
+
+    def test_image_references_respect_page_limit(self):
+        def build(doc):
+            doc.add_paragraph("First page")
+            self._picture(doc, "red")
+            doc.add_page_break()
+            doc.add_paragraph("Excluded second page")
+            self._picture(doc, "blue")
+
+        document = _parse(_docx_bytes(build), max_pages=1)
+        self.assertEqual(len(document.images), 1)
+        ref = next(iter(document.images))
+        self.assertIn(ref, document.content)
+        self.assertNotIn("Excluded second page", document.content)
+
+    def test_image_only_document_still_has_a_reference(self):
+        document = _parse(_docx_bytes(lambda doc: self._picture(doc, "red")))
+        self.assertEqual(len(document.images), 1)
+        self.assertIn(next(iter(document.images)), document.content)
 
 
 if __name__ == "__main__":

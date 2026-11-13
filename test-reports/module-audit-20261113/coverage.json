@@ -1841,7 +1841,7 @@
     },
     {
       "id": "docreader/parser",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "docreader/parser/__init__.py",
         "docreader/parser/archive.py",
@@ -1878,9 +1878,15 @@
       ],
       "test_files": [],
       "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "invariants_checked": [
+        "Extracted DOCX image references survive body-order composition in their source paragraph and respect page limits."
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/parser-docx-images.json"
+      ],
+      "findings": [
+        "PARSE-005"
+      ],
       "commits": [],
       "limitations": []
     },
@@ -12341,6 +12347,10 @@
     {
       "commit": "46396e6df",
       "module": "Wiki enabled current source reconstruction"
+    },
+    {
+      "commit": "3606bf34f",
+      "module": "knowledge clone target index tags"
     }
   ],
   "frontend_final_gate": {

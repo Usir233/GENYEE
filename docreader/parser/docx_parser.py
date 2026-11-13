@@ -192,6 +192,7 @@ class ImageData:
     local_path: str = ""
     object: Optional[Image.Image] = None
     url: str = ""
+    paragraph_index: int = -1
 
 
 @dataclass
@@ -1214,6 +1215,14 @@ class Docx:
         min_allowed = min(allowed) if allowed else 0
         max_allowed = max(allowed) if allowed else -1
 
+        images_by_paragraph: Dict[int, List[str]] = {}
+        for line in self.all_lines:
+            for image in line.images:
+                if image.url and image.paragraph_index in allowed:
+                    images_by_paragraph.setdefault(image.paragraph_index, []).append(
+                        f"![]({image.url})"
+                    )
+
         parts: List[str] = []
         # Counts the body's own paragraphs, the ones the page mapping indexes.
         para_i = 0
@@ -1226,12 +1235,14 @@ class Docx:
                 # Paragraphs inside a content control are not in the page
                 # mapping; they follow the range of the paragraphs around them.
                 include = para_i in allowed if direct else in_page_range()
-                if direct:
-                    para_i += 1
                 if include:
                     text = _paragraph_text(child).strip()
                     if text:
                         parts.append(text)
+                    if direct:
+                        parts.extend(images_by_paragraph.get(para_i, []))
+                if direct:
+                    para_i += 1
                 continue
             if in_page_range():
                 table = Table(child, self.doc._body)
@@ -1406,7 +1417,7 @@ def process_page_multiprocess(
 
         if enable_multimodal:
             # First pass: save all images to temporary files
-            for i, image_object in enumerate(image_objects):
+            for i, (paragraph_index, image_object) in enumerate(image_objects):
                 img_path = _save_image_to_temp(
                     process_logger, image_object, page_num, i
                 )
@@ -1415,6 +1426,7 @@ def process_page_multiprocess(
                     image_data = ImageData()
                     image_data.local_path = img_path
                     image_data.object = image_object
+                    image_data.paragraph_index = paragraph_index
                     image_data_list.append(image_data)
 
             process_logger.info(
@@ -1494,7 +1506,7 @@ def _extract_page_content_in_process(
     paragraphs: List[int],
     enable_multimodal: bool,
     max_image_size: int,
-) -> Tuple[str, List[Any], List[Tuple[str, Any]]]:
+) -> Tuple[str, List[Tuple[int, Any]], List[Tuple[str, Any]]]:
     """Extract page content in a process
 
     Args:
@@ -1506,7 +1518,7 @@ def _extract_page_content_in_process(
         max_image_size: Maximum image size
 
     Returns:
-        tuple: (Extracted text, List of extracted images, Content sequence)
+        tuple: (Extracted text, List of paragraph-index/image pairs, Content sequence)
     """
     logger.info(
         f"[PID:{os.getpid()}] Page {page_num}: Processing {len(paragraphs)} paragraphs, "
@@ -1551,7 +1563,7 @@ def _extract_page_content_in_process(
                     current_text = ""
 
                 # Add image to sequence
-                content_sequence.append(("image", image_object))
+                content_sequence.append(("image", (para_idx, image_object)))
                 paragraphs_with_images += 1
 
         if processed_paragraphs % 50 == 0:
