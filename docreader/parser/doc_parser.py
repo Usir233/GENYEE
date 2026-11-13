@@ -190,7 +190,7 @@ class DocParser(Docx2Parser):
                 check_cancellation(self.context)
                 try:
                     document = handle(temp_file_path)
-                    if document:
+                    if document and document.is_valid():
                         return document
                 except (ArchiveLimitError, ParserCancelled):
                     raise

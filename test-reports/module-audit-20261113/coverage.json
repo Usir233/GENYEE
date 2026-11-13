@@ -1877,15 +1877,23 @@
         "docreader/parser/xmind_parser.py"
       ],
       "test_files": [],
-      "inspected_files": [],
+      "inspected_files": [
+        "docreader/parser/doc_parser.py"
+      ],
       "invariants_checked": [
         "Extracted DOCX image references survive body-order composition in their source paragraph and respect page limits."
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/parser-docx-images.json"
+        "test-reports/module-audit-20261113/parser-docx-images.json",
+        "test-reports/module-audit-20261113/parser-doc-fallback.json"
       ],
       "findings": [
-        "PARSE-005"
+        "PARSE-005",
+        {
+          "id": "PARSE-004",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/parser-doc-fallback.json"
+        }
       ],
       "commits": [],
       "limitations": []
@@ -12385,6 +12393,10 @@
     {
       "commit": "53e86f881",
       "module": "stored image resolver authority and local fallback confinement"
+    },
+    {
+      "commit": "bf58ac00d",
+      "module": "source locator audit and full backend checkpoint"
     }
   ],
   "frontend_final_gate": {

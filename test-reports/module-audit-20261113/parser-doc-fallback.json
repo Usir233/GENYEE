@@ -1,0 +1,39 @@
+{
+  "module": "Legacy DOC fallback",
+  "date": "2026-11-13",
+  "finding": {
+    "id": "PARSE-004",
+    "severity": "P2",
+    "status": "fixed_verified",
+    "title": "Empty DOC conversion result suppresses antiword fallback",
+    "provenance": "Actual DocParser.parse with real tracked OLE DOC fixture and generated empty/nonempty DOCX; converter process boundaries substituted. See additional_provenance for separate real LibreOffice integration and antiword stand-in limit.",
+    "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-before.log",
+    "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc_fallback_test.py",
+    "additional_provenance": "Real generated 18,432-byte OLE DOC created by existing runtime soffice from generated DOCX; actual production LibreOffice conversion back to DOCX succeeds, both reader boundaries injected empty, temporary executable stand-in for antiword validates original SHA and emits expected generated text. Real antiword not installed or exercised. Separately, real repository DOC fixture + generated empty DOCX through actual parser chain reproduces empty-first-choice behavior with mocked converter process boundaries.",
+    "additional_failing_logs": [
+      "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-real-before.log",
+      "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-candidate-before.log"
+    ],
+    "fix_paths": [
+      "docreader/parser/doc_parser.py",
+      "docreader/tests/test_doc_fallback.py"
+    ],
+    "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-durable-before.log",
+    "failing_reproducer_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/ian.cn/GENYEE /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/venv312/bin/python -m unittest docreader.tests.test_doc_fallback",
+    "passing_logs": [
+      "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-related-after.log",
+      "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-real-after.log",
+      "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-go-after.log"
+    ],
+    "passing_commands": [
+      "python -m unittest docreader.tests.test_doc_fallback docreader.tests.test_docx_merge docreader.tests.test_docx_tables docreader.tests.test_parser_routing docreader.tests.test_sandbox_executor",
+      "python /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc_fallback_real_test.py",
+      "go test ./internal/infrastructure/docparser -count=1"
+    ],
+    "validation": "Minimal validity check matches FirstParser contract. Durable regression uses real tracked OLE DOC bytes and generated real empty/nonempty DOCX through actual reader cascade; conversion and antiword execution substituted at converter boundaries. 4 tests (2 failing before), validates fallback original input/temporary cleanup, nonempty first choice, empty final result, archive limits and cancellation. All 59 related Python tests pass (5.052s). Separate integration generates actual OLE DOC with existing runtime LibreOffice, invokes actual production LibreOffice conversion; DOCX reader empty outcomes injected and temporary executable stand-in validates original input SHA and returns text; now passes (1.257s). Real antiword not installed/exercised. Go docparser passes (2.937s). No environment changes or user document inputs."
+  },
+  "changed_sha256": {
+    "docreader/parser/doc_parser.py": "60f8d290def0668ae9212770f8edaa53ee92fd42e35aaaf39eba8787b224da20",
+    "docreader/tests/test_doc_fallback.py": "1e3ab9f2e6ef8d8cbeabe04ac86a0489d5e381f086569eaacaccd08bbe327fde"
+  }
+}
