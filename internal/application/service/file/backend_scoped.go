@@ -69,6 +69,22 @@ func (s *backendScopedFileService) SaveBytes(ctx context.Context, data []byte, t
 	}
 	return s.wrap(p), nil
 }
+
+func (s *backendScopedFileService) SaveBytesWithOwnership(ctx context.Context, data []byte, tenantID uint64, name string, temp bool) (string, bool, error) {
+	p, created, err := interfaces.SaveBytesWithOwnership(ctx, s.inner, data, tenantID, name, temp)
+	if err != nil {
+		return "", false, err
+	}
+	return s.wrap(p), created, nil
+}
+
+func (s *backendScopedFileService) DeleteUnboundFile(ctx context.Context, path string) error {
+	p, err := s.unwrap(path)
+	if err != nil {
+		return err
+	}
+	return interfaces.DeleteUnboundFile(ctx, s.inner, p)
+}
 func (s *backendScopedFileService) GetFile(ctx context.Context, path string) (io.ReadCloser, error) {
 	p, err := s.unwrap(path)
 	if err != nil {

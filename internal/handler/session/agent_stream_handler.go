@@ -941,8 +941,10 @@ func (h *AgentStreamHandler) handleComplete(ctx context.Context, evt event.Event
 		// message-owned artifact path as local files, even without a sandbox.
 		delegated, _ := data.Artifacts.(types.MessageArtifacts)
 		delegated = delegated.Live()
-		h.assistantMessage.Artifacts = mergeArtifactLists(h.assistantMessage.Artifacts, delegated)
-		h.artifactCollector.BindArtifactsToMessage(context.WithoutCancel(h.ctx), h.assistantMessageID, delegated)
+		claimedDelegated := h.artifactCollector.BindArtifactsToMessage(context.WithoutCancel(h.ctx), h.assistantMessageID, delegated)
+		h.assistantMessage.Content = omitUnclaimedArtifactLinks(h.assistantMessage.Content, delegated, claimedDelegated)
+		data.FinalAnswer = omitUnclaimedArtifactLinks(data.FinalAnswer, delegated, claimedDelegated)
+		h.assistantMessage.Artifacts = mergeArtifactLists(h.assistantMessage.Artifacts, claimedDelegated)
 
 		// Drain skill-generated files from the sandbox into persistent
 		// storage. Best-effort: any failure is logged and the turn is
@@ -999,6 +1001,11 @@ func (h *AgentStreamHandler) handleComplete(ctx context.Context, evt event.Event
 				mergeArtifactLists(artifacts, artifactsNewestFirst(known)),
 			)
 			previous = historyOnlyArtifacts(referenced, artifacts)
+			claimedPrevious := h.artifactCollector.BindArtifactsToMessage(collectCtx, h.assistantMessageID, previous)
+			h.assistantMessage.Content = omitUnclaimedArtifactLinks(h.assistantMessage.Content, previous, claimedPrevious)
+			data.FinalAnswer = omitUnclaimedArtifactLinks(data.FinalAnswer, previous, claimedPrevious)
+			previous = claimedPrevious
+			referenced = mergeArtifactLists(artifacts, claimedPrevious)
 
 			if attached := mergeArtifactLists(h.assistantMessage.Artifacts, artifacts, referenced); len(attached) > 0 {
 				h.assistantMessage.Artifacts = attached
@@ -1014,9 +1021,6 @@ func (h *AgentStreamHandler) handleComplete(ctx context.Context, evt event.Event
 					len(attached), h.assistantMessageID, h.sessionID,
 				)
 			}
-			// A reused reference is owned by this message too, so deleting the
-			// message that first produced the file cannot invalidate it.
-			h.artifactCollector.BindArtifactsToMessage(collectCtx, h.assistantMessageID, previous)
 		}
 		h.assistantMessage.Content = rewriteArtifactReferences(h.assistantMessage.Content, h.assistantMessage.Artifacts)
 		h.assistantMessage.Content = types.ClarifyArtifactVersions(h.assistantMessage.Content,

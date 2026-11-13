@@ -84,9 +84,9 @@ func (h *Handler) reclaimArtifactBlobs(ctx context.Context, tenantID uint64, ref
 			logger.Warnf(ctx, "artifact delete: storage unavailable for %s, blob kept", ref.URL)
 			continue
 		}
-		// DeleteFile takes the stored reference: the catalog-backed service
-		// resolves it and marks the resource deleted once the bytes are gone.
-		if err := fileService.DeleteFile(blobCtx, ref.URL); err != nil {
+		// The earlier binding count is advisory; cleanup rechecks under the
+		// same resource lock used by a concurrent new owner.
+		if err := interfaces.DeleteUnboundFile(blobCtx, fileService, ref.URL); err != nil {
 			logger.Warnf(ctx, "artifact delete: failed to remove blob %s: %v", ref.URL, err)
 		}
 	}
@@ -126,6 +126,16 @@ func (h *Handler) locateArtifactBlob(
 		return "", 0, "", false
 	}
 	resolved, resource, err := h.resourceCatalog.ResolvePath(ctx, ref.URL)
+	if err != nil {
+		// A previous provider deletion may have failed after the catalog
+		// tombstone committed. Retain the owning backend for safe retries.
+		if cleanup, supportsCleanup := h.resourceCatalog.(interfaces.UnboundResourceCatalog); supportsCleanup {
+			resource, err = cleanup.ResolveCleanupResource(ctx, ref.URL)
+			if err == nil && resource != nil {
+				resolved = resource.PhysicalPath
+			}
+		}
+	}
 	if err != nil {
 		logger.Warnf(ctx, "artifact delete: failed to resolve %s, blob kept: %v", ref.URL, err)
 		return "", 0, "", false

@@ -1241,7 +1241,7 @@ func (s *knowledgeBaseService) ProcessKBDelete(ctx context.Context, t *asynq.Tas
 		storageAdjust := int64(0)
 		for _, knowledge := range knowledgeList {
 			if knowledge.FilePath != "" {
-				if err := s.fileSvc.DeleteFile(ctx, knowledge.FilePath); err != nil {
+				if err := deleteKnowledgeSource(ctx, s.fileSvc, s.resourceCatalog, knowledge.ID, knowledge.FilePath); err != nil {
 					logger.Warnf(ctx, "Failed to delete file %s: %v", knowledge.FilePath, err)
 				}
 			}

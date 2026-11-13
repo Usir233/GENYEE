@@ -518,14 +518,26 @@ func (c *ArtifactCollector) persistBytes(
 	hash string,
 ) (types.MessageArtifact, bool) {
 	storageName := "artifact_" + uuid.NewString() + "_" + safeFileName(entry.Name)
-	storagePath, err := c.fileService.SaveBytes(ctx, data, tenantID, storageName, false)
+	storagePath, created, err := interfaces.SaveBytesWithOwnership(ctx, c.fileService, data, tenantID, storageName, false)
 	if err != nil {
 		logger.Warnf(ctx, "[ArtifactCollector] upload artifact failed: session=%s path=%s err=%v",
 			sessionID, entry.Path, err)
 		return types.MessageArtifact{}, false
 	}
 
-	c.bindArtifactResource(ctx, storagePath, messageID)
+	if err := c.bindArtifactResource(ctx, storagePath, messageID); err != nil {
+		// A deduplicated upload can disappear before this claim is acquired.
+		// Leave the source in the sandbox for a later collect; never publish
+		// an unowned or already-cleaned resource as a completed artifact.
+		if created {
+			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer cancel()
+			if err := interfaces.DeleteUnboundFile(cleanupCtx, c.fileService, storagePath); err != nil {
+				logger.Warnf(ctx, "[ArtifactCollector] failed to clean up unbound artifact %s: %v", storagePath, err)
+			}
+		}
+		return types.MessageArtifact{}, false
+	}
 
 	return types.MessageArtifact{
 		URL:         storagePath,
@@ -581,26 +593,27 @@ func (c *ArtifactCollector) hashStoredArtifact(ctx context.Context, art types.Me
 }
 
 // bindArtifactResource records that the freshly-persisted artifact resource
-// is owned by its assistant message. Best-effort: a binding failure never
-// discards the artifact, because the file is already stored and remains
-// downloadable through the /artifacts endpoint regardless of the binding.
+// is owned by its assistant message. New uploads must acquire this claim
+// before publication, because catalog cleanup can reclaim an unbound upload.
 //
 // The binding is only attempted when (a) the catalog is wired in, (b) we have
 // a message ID to own the resource, and (c) SaveBytes actually returned a
 // resource:// reference — i.e. the file service is resource-catalog-backed.
 // Raw provider paths (no catalog decorator) are left unbound rather than
 // generating spurious "invalid resource reference" errors.
-func (c *ArtifactCollector) bindArtifactResource(ctx context.Context, ref, messageID string) {
+func (c *ArtifactCollector) bindArtifactResource(ctx context.Context, ref, messageID string) error {
 	if c.catalog == nil || messageID == "" {
-		return
+		return nil
 	}
 	if _, ok := types.ParseResourcePath(ref); !ok {
-		return
+		return nil
 	}
 	if err := c.catalog.Bind(ctx, ref, artifactBindingOwnerType, messageID, artifactBindingRelation); err != nil {
 		logger.Warnf(ctx, "[ArtifactCollector] bind artifact resource failed: message=%s ref=%s err=%v",
 			messageID, ref, err)
+		return err
 	}
+	return nil
 }
 
 // SessionArtifacts returns every artifact already recorded against the session.
@@ -630,18 +643,22 @@ func (c *ArtifactCollector) SessionArtifacts(ctx context.Context, sessionID stri
 
 // BindArtifactsToMessage makes messageID an owner of each artifact's resource
 // handle as well. Deleting the message that originally produced the file then
-// cannot invalidate a reference made from a later one. Best-effort: a binding
-// failure never discards the artifact, which is already stored and downloadable
-// through the /artifacts endpoint.
+// cannot invalidate a reference made from a later one. Only successfully
+// claimed artifacts may be attached to the new message. A failed claim leaves
+// the original artifact and its existing owners intact for a later retry.
 func (c *ArtifactCollector) BindArtifactsToMessage(
 	ctx context.Context, messageID string, artifacts types.MessageArtifacts,
-) {
+) types.MessageArtifacts {
 	if c == nil || c.catalog == nil || messageID == "" {
-		return
+		return artifacts
 	}
+	claimed := make(types.MessageArtifacts, 0, len(artifacts))
 	for _, artifact := range artifacts {
-		c.bindArtifactResource(ctx, artifact.URL, messageID)
+		if err := c.bindArtifactResource(ctx, artifact.URL, messageID); err == nil {
+			claimed = append(claimed, artifact)
+		}
 	}
+	return claimed
 }
 
 // artifactKey is the string form of the (source_path, mtime) tuple used to

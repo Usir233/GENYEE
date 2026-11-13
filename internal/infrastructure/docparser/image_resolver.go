@@ -107,11 +107,10 @@ type StoredImage struct {
 	OriginalRef string // reference in the original markdown
 	ServingURL  string // provider:// URL (e.g. local://images/xxx.png, minio://bucket/key)
 	MimeType    string
-	// Inline marks Base64 images stored from inline document content, so only
-	// resources created by this resolver are eligible for partial-save cleanup.
+	// Inline marks Base64 images stored from inline document content.
 	Inline bool
-	// NewlyStored marks a resource created by this resolver invocation, including
-	// document-parser ImageRefs, so guard failures can clean up unbound uploads.
+	// NewlyStored identifies an upload actually created by this save. Deduplicated
+	// resources are reused and must not be rolled back by this invocation.
 	NewlyStored bool
 	// SkipMultimodal keeps a saved inline image out of OCR/caption fan-out once
 	// its syntax-specific legacy budget is exhausted. The image still remains in
@@ -155,7 +154,10 @@ func (r *ImageResolver) ResolveAndStore(
 		rollbackCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), inlineImageRollbackTimeout)
 		defer cancel()
 		for _, image := range inlineImages {
-			if deleteErr := fileSvc.DeleteFile(rollbackCtx, image.ServingURL); deleteErr != nil {
+			if !image.NewlyStored {
+				continue
+			}
+			if deleteErr := interfaces.DeleteUnboundFile(rollbackCtx, fileSvc, image.ServingURL); deleteErr != nil {
 				log.Printf("WARN: failed to rollback inline image %s: %v", image.ServingURL, deleteErr)
 			}
 		}
@@ -308,7 +310,7 @@ func (r *ImageResolver) saveReferencedImage(
 	}
 
 	fileName := uuid.New().String() + ext
-	servingURL, saveErr := fileSvc.SaveBytes(ctx, ref.ImageData, tenantID, fileName, false)
+	servingURL, created, saveErr := interfaces.SaveBytesWithOwnership(ctx, fileSvc, ref.ImageData, tenantID, fileName, false)
 	if saveErr != nil {
 		log.Printf("WARN: failed to save image %s: %v", refPath, saveErr)
 		return StoredImage{}, false
@@ -318,7 +320,7 @@ func (r *ImageResolver) saveReferencedImage(
 		OriginalRef: refPath,
 		ServingURL:  servingURL,
 		MimeType:    ref.MimeType,
-		NewlyStored: true,
+		NewlyStored: created,
 	}
 	savedRefs[refPath] = stored
 	if ref.Filename != "" {
@@ -609,7 +611,7 @@ func (r *ImageResolver) ResolveHTMLDataURIImages(
 			ext = ".png"
 		}
 		fileName := uuid.New().String() + ext
-		servingURL, saveErr := fileSvc.SaveBytes(ctx, data, tenantID, fileName, false)
+		servingURL, created, saveErr := interfaces.SaveBytesWithOwnership(ctx, fileSvc, data, tenantID, fileName, false)
 		if saveErr != nil {
 			return markdown, images, fmt.Errorf("save HTML data URI image: %w", saveErr)
 		}
@@ -618,6 +620,7 @@ func (r *ImageResolver) ResolveHTMLDataURIImages(
 			ServingURL:  servingURL,
 			MimeType:    mimeType,
 			Inline:      true,
+			NewlyStored: created,
 		})
 		rewrites = append(rewrites, inlineRewrite{m[0], m[1], fmt.Sprintf("![image](%s)", servingURL)})
 	}
@@ -1413,7 +1416,7 @@ func (r *ImageResolver) resolveBareDataURIs(
 			ext = ".png"
 		}
 		fileName := uuid.New().String() + ext
-		servingURL, saveErr := fileSvc.SaveBytes(ctx, data, tenantID, fileName, false)
+		servingURL, created, saveErr := interfaces.SaveBytesWithOwnership(ctx, fileSvc, data, tenantID, fileName, false)
 		if saveErr != nil {
 			return markdown, images, fmt.Errorf("save bare data URI image: %w", saveErr)
 		}
@@ -1422,6 +1425,7 @@ func (r *ImageResolver) resolveBareDataURIs(
 			ServingURL:  servingURL,
 			MimeType:    mimeType,
 			Inline:      true,
+			NewlyStored: created,
 		})
 		if insideWrapper {
 			// Inside a broken markdown ref like ![weird]alt](data:...) — replace data URI only
@@ -1512,7 +1516,7 @@ func (r *ImageResolver) resolveBareBase64Prefix(
 			ext = ".png"
 		}
 		fileName := uuid.New().String() + ext
-		servingURL, saveErr := fileSvc.SaveBytes(ctx, data, tenantID, fileName, false)
+		servingURL, created, saveErr := interfaces.SaveBytesWithOwnership(ctx, fileSvc, data, tenantID, fileName, false)
 		if saveErr != nil {
 			return markdown, images, fmt.Errorf("save bare base64 image: %w", saveErr)
 		}
@@ -1521,6 +1525,7 @@ func (r *ImageResolver) resolveBareBase64Prefix(
 			ServingURL:  servingURL,
 			MimeType:    mimeType,
 			Inline:      true,
+			NewlyStored: created,
 		})
 		rewrites = append(rewrites, inlineRewrite{m[0], m[1], fmt.Sprintf("![image](%s)", servingURL)})
 	}
@@ -1693,7 +1698,7 @@ func (r *ImageResolver) ResolveDataURIImages(
 			ext = ".png"
 		}
 		fileName := uuid.New().String() + ext
-		servingURL, saveErr := fileSvc.SaveBytes(ctx, data, tenantID, fileName, false)
+		servingURL, created, saveErr := interfaces.SaveBytesWithOwnership(ctx, fileSvc, data, tenantID, fileName, false)
 		if saveErr != nil {
 			return markdown, images, fmt.Errorf("save data URI image: %w", saveErr)
 		}
@@ -1702,6 +1707,7 @@ func (r *ImageResolver) ResolveDataURIImages(
 			ServingURL:  servingURL,
 			MimeType:    mimeType,
 			Inline:      true,
+			NewlyStored: created,
 		})
 		rewrites = append(rewrites, inlineRewrite{start, end, servingURL})
 	}
@@ -1720,8 +1726,9 @@ type remoteImageResult struct {
 	// with the normalized request URL — NOT the raw document bytes. Later stages
 	// both search the document for this string and fetch it, so a padded or
 	// entity-encoded value satisfies neither.
-	ServingURL string
-	MimeType   string
+	ServingURL  string
+	MimeType    string
+	NewlyStored bool
 	// KeepOriginalURL marks a whitelisted host. Its bytes are downloaded so that
 	// OCR/caption analysis can run, but it is not uploaded: the image keeps being
 	// served from its original host, reached through the normalized URL.
@@ -1769,11 +1776,11 @@ func fetchAndStoreRemoteImage(
 	if ext == "" {
 		ext = ".png" // safe default
 	}
-	servingURL, err := fileSvc.SaveBytes(ctx, data, tenantID, uuid.New().String()+ext, false)
+	servingURL, created, err := interfaces.SaveBytesWithOwnership(ctx, fileSvc, data, tenantID, uuid.New().String()+ext, false)
 	if err != nil {
 		return nil, fmt.Errorf("save: %w", err)
 	}
-	return &remoteImageResult{ServingURL: servingURL, MimeType: mimeType}, nil
+	return &remoteImageResult{ServingURL: servingURL, MimeType: mimeType, NewlyStored: created}, nil
 }
 
 // isRemoteHTTPURL reports whether raw is an absolute http(s) URL.
@@ -1886,6 +1893,7 @@ func resolveRemoteImagePass(
 			OriginalRef: imgURL,
 			ServingURL:  servingURL,
 			MimeType:    res.MimeType,
+			NewlyStored: res.NewlyStored,
 		})
 		markdown = markdown[:start] + servingURL + markdown[end:]
 	}

@@ -114,6 +114,21 @@ type resourceReleaser struct {
 	ownerIDs  []string
 }
 
+// deleteKnowledgeSource drops this document's claim before atomically checking
+// whether the source is still used by another document or conversation.
+func deleteKnowledgeSource(ctx context.Context, fileSvc interfaces.FileService, catalog interfaces.ResourceCatalog, knowledgeID, ref string) error {
+	if catalog != nil {
+		remaining, err := catalog.Release(ctx, ref, types.ResourceOwnerKnowledge, knowledgeID)
+		if err != nil {
+			return fmt.Errorf("release knowledge source: %w", err)
+		}
+		if remaining > 0 {
+			return nil
+		}
+	}
+	return interfaces.DeleteUnboundFile(ctx, fileSvc, ref)
+}
+
 // deletable drops this releaser's claims on ref and reports whether the bytes
 // are now unreferenced.
 //
@@ -162,7 +177,7 @@ func deleteExtractedImages(
 			logger.Infof(ctx, "Keeping extracted image %s: another owner may still reference it", url)
 			continue
 		}
-		if err := fileSvc.DeleteFile(ctx, url); err != nil {
+		if err := interfaces.DeleteUnboundFile(ctx, fileSvc, url); err != nil {
 			logger.Errorf(ctx, "Failed to delete extracted image %s: %v", url, err)
 		}
 	}
@@ -627,7 +642,7 @@ func (s *knowledgeService) executeKnowledgeDelete(plan *knowledgeDeletePlan, sin
 	for _, knowledge := range knowledgeList {
 		if knowledge.FilePath != "" {
 			fSvc := kbFileServices[knowledge.KnowledgeBaseID]
-			if err := fSvc.DeleteFile(ctx, knowledge.FilePath); err != nil {
+			if err := deleteKnowledgeSource(ctx, fSvc, s.resourceCatalog, knowledge.ID, knowledge.FilePath); err != nil {
 				logger.GetLogger(ctx).WithField("error", err).Errorf("DeleteKnowledge delete file failed")
 			}
 		}

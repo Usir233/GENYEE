@@ -200,7 +200,7 @@ func (s *knowledgeService) ReplaceKnowledgeFile(ctx context.Context,
 
 	if existing.FilePath != newPath {
 		oldFileSvc := s.resolveFileServiceForPath(cleanupCtx, kb, existing.FilePath)
-		if err := oldFileSvc.DeleteFile(cleanupCtx, existing.FilePath); err != nil {
+		if err := deleteKnowledgeSource(cleanupCtx, oldFileSvc, s.resourceCatalog, existing.ID, existing.FilePath); err != nil {
 			logger.Warnf(ctx, "Failed to delete replaced file %s of knowledge %s: %v",
 				existing.FilePath, existing.ID, err)
 		}
@@ -231,7 +231,7 @@ func (s *knowledgeService) discardReplacementFile(ctx context.Context, fileSvc i
 			filePath, knowledgeID, err)
 		return
 	}
-	if err := fileSvc.DeleteFile(ctx, filePath); err != nil {
+	if err := deleteKnowledgeSource(ctx, fileSvc, s.resourceCatalog, knowledgeID, filePath); err != nil {
 		logger.Warnf(ctx, "Failed to delete discarded replacement file %s: %v", filePath, err)
 	}
 }

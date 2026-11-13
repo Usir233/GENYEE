@@ -218,7 +218,7 @@ func (s *knowledgeService) createKnowledgeFromFile(ctx context.Context,
 	if err := s.persistKnowledgeForCreation(ctx, knowledge, replacement); err != nil {
 		logger.Errorf(ctx, "Failed to create knowledge record, ID: %s, error: %v", knowledge.ID, err)
 		if replacement == nil || !replacement.keepFile {
-			if deleteErr := fileSvc.DeleteFile(context.WithoutCancel(ctx), filePath); deleteErr != nil {
+			if deleteErr := deleteKnowledgeSource(context.WithoutCancel(ctx), fileSvc, s.resourceCatalog, knowledge.ID, filePath); deleteErr != nil {
 				logger.Errorf(ctx, "Failed to delete saved file after knowledge creation failed, path: %s, error: %v",
 					filePath, deleteErr)
 			}
@@ -1276,16 +1276,17 @@ func (s *knowledgeService) bindContentResources(
 // binding (#3342): an extracted image without one stays invisible to
 // cross-workspace viewers no matter what the retrieving chunk text says.
 //
-// Best-effort by design, mirroring bindContentResources: a parse is expensive
-// to redo, and a missed claim degrades to same-workspace rendering instead of
-// failing the document.
+// Catalog references must be claimed before the document can be published.
+// A reused upload can be cleaned up by its original attempt before this bind;
+// surfacing that race lets the parse retry instead of persisting a broken image.
 func (s *knowledgeService) bindStoredImages(
 	ctx context.Context, knowledge *types.Knowledge, images []docparser.StoredImage,
-) {
+) error {
 	if s.resourceCatalog == nil || knowledge == nil || len(images) == 0 {
-		return
+		return nil
 	}
 	bound := 0
+	var bindingErrors []error
 	for _, img := range images {
 		ref := strings.TrimSpace(img.ServingURL)
 		if ref == "" {
@@ -1293,17 +1294,19 @@ func (s *knowledgeService) bindStoredImages(
 		}
 		resource, err := s.resourceCatalog.Resolve(ctx, ref)
 		if err != nil || resource == nil {
-			logger.Warnf(ctx, "Skip binding unknown stored image %s to knowledge %s: %v", ref, knowledge.ID, err)
+			if strings.HasPrefix(ref, types.ResourceScheme) {
+				bindingErrors = append(bindingErrors, fmt.Errorf("resolve stored image %s: %v", ref, err))
+			}
 			continue
 		}
 		if resource.TenantID != knowledge.TenantID {
-			logger.Warnf(ctx, "Skip binding cross-workspace stored image %s to knowledge %s", ref, knowledge.ID)
+			bindingErrors = append(bindingErrors, fmt.Errorf("stored image %s belongs to another workspace", ref))
 			continue
 		}
 		if err := s.resourceCatalog.Bind(
 			ctx, ref, types.ResourceOwnerKnowledge, knowledge.ID, types.ResourceRelationExtractedImage,
 		); err != nil {
-			logger.Warnf(ctx, "Failed to bind stored image %s to knowledge %s: %v", ref, knowledge.ID, err)
+			bindingErrors = append(bindingErrors, fmt.Errorf("bind stored image %s: %w", ref, err))
 			continue
 		}
 		bound++
@@ -1311,6 +1314,7 @@ func (s *knowledgeService) bindStoredImages(
 	if bound > 0 {
 		logger.Infof(ctx, "Bound %d/%d stored images to knowledge %s", bound, len(images), knowledge.ID)
 	}
+	return errors.Join(bindingErrors...)
 }
 
 func (s *knowledgeService) bindChunkResources(
@@ -1330,6 +1334,23 @@ func (s *knowledgeService) bindChunkResources(
 		b.WriteByte('\n')
 	}
 	s.bindContentResources(ctx, tenantID, knowledgeID, b.String())
+}
+
+func (s *knowledgeService) manualImageFailure(ctx context.Context, knowledge *types.Knowledge, operation string, cause error) error {
+	retryCount, _ := asynq.GetRetryCount(ctx)
+	maxRetry, _ := asynq.GetMaxRetry(ctx)
+	if retried, limit, ok := types.TaskRetryMetadataFromContext(ctx); ok {
+		retryCount, maxRetry = retried, limit
+	}
+	if retryCount >= maxRetry {
+		knowledge.ParseStatus = types.ParseStatusFailed
+		knowledge.ErrorMessage = fmt.Sprintf("%s: %v", operation, cause)
+		knowledge.UpdatedAt = time.Now()
+		if err := s.updateKnowledgeUnlessSourceReplaced(ctx, knowledge); err != nil {
+			logger.Errorf(ctx, "Failed to persist manual image failure for %s: %v", knowledge.ID, err)
+		}
+	}
+	return fmt.Errorf("%s: %w", operation, cause)
 }
 
 func (s *knowledgeService) triggerManualProcessing(ctx context.Context,
@@ -1362,21 +1383,7 @@ func (s *knowledgeService) triggerManualProcessing(ctx context.Context,
 			inlineParseErr = resolveErr
 			inlineImages = nil // ResolveAndStore already rolled back this attempt's uploads.
 		} else if resolveErr != nil {
-			retryCount, _ := asynq.GetRetryCount(ctx)
-			maxRetry, _ := asynq.GetMaxRetry(ctx)
-			if retried, limit, ok := types.TaskRetryMetadataFromContext(ctx); ok {
-				retryCount, maxRetry = retried, limit
-			}
-			if retryCount >= maxRetry {
-				knowledge.ParseStatus = types.ParseStatusFailed
-				knowledge.ErrorMessage = fmt.Sprintf("store manual inline image: %v", resolveErr)
-				knowledge.UpdatedAt = time.Now()
-				if updateErr := s.updateKnowledgeUnlessSourceReplaced(ctx, knowledge); updateErr != nil {
-					logger.Errorf(ctx,
-						"Failed to persist manual inline image failure for %s: %v", knowledge.ID, updateErr)
-				}
-			}
-			return fmt.Errorf("store manual inline image: %w", resolveErr)
+			return s.manualImageFailure(ctx, knowledge, "store manual inline image", resolveErr)
 		}
 		if len(inlineImages) > 0 {
 			logger.Infof(ctx, "Resolved %d inline images for manual knowledge %s", len(inlineImages), knowledge.ID)
@@ -1420,7 +1427,10 @@ func (s *knowledgeService) triggerManualProcessing(ctx context.Context,
 	// bindContentResources only sees resource:// handles in the final text;
 	// freshly resolved images may still carry provider:// URLs, so claim them
 	// from the resolver's own list as well.
-	s.bindStoredImages(ctx, knowledge, resolvedImages)
+	if err := s.bindStoredImages(ctx, knowledge, resolvedImages); err != nil {
+		cleanupFailedImageBindings(ctx, fileSvc, s.resourceCatalog, types.ResourceOwnerKnowledge, knowledge.ID, resolvedImages)
+		return s.manualImageFailure(ctx, knowledge, "bind manual images", err)
+	}
 
 	// Keep manually entered CRLF text aligned with the LF values sent by the
 	// chunking preview endpoint.

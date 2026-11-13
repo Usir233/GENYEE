@@ -237,8 +237,13 @@ func (s *temporaryDocumentService) parse(
 					OriginalRef: image.OriginalRef, URL: image.ServingURL, MimeType: image.MimeType,
 				})
 				if s.resourceCatalog != nil {
-					_ = s.resourceCatalog.Bind(ctx, image.ServingURL, types.ResourceOwnerTemporaryDocument,
-						document.ID, types.ResourceRelationExtractedImage)
+					if _, managed := types.ParseResourcePath(image.ServingURL); managed {
+						if err := s.resourceCatalog.Bind(ctx, image.ServingURL, types.ResourceOwnerTemporaryDocument,
+							document.ID, types.ResourceRelationExtractedImage); err != nil {
+							cleanupFailedImageBindings(ctx, s.fileService, s.resourceCatalog, types.ResourceOwnerTemporaryDocument, document.ID, stored)
+							return "", nil, nil, fmt.Errorf("bind temporary document image: %w", err)
+						}
+					}
 				}
 			}
 		}

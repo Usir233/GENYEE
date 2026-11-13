@@ -437,3 +437,78 @@ func historyOnlyArtifacts(referenced, current types.MessageArtifacts) types.Mess
 	}
 	return out
 }
+
+// omitUnclaimedArtifactLinks keeps the answer's labels, but removes download
+// destinations whose new ownership claim failed. Code examples are untouched.
+func omitUnclaimedArtifactLinks(content string, candidates, claimed types.MessageArtifacts) string {
+	accepted := make(map[string]bool, len(claimed))
+	acceptedNames := make(map[string]bool, len(claimed))
+	for _, artifact := range claimed {
+		accepted[artifact.URL] = true
+		acceptedNames[artifact.FileName] = true
+	}
+	rejected := make(map[string]bool)
+	rejectedNames := make(map[string]string)
+	for _, artifact := range candidates {
+		if accepted[artifact.URL] {
+			continue
+		}
+		rejected[artifact.URL] = true
+		if !acceptedNames[artifact.FileName] {
+			rejectedNames[artifact.FileName] = artifact.URL
+		}
+	}
+	if len(rejected) == 0 {
+		return content
+	}
+	rewrite := func(segment string) string {
+		var out strings.Builder
+		cursor := 0
+		for cursor < len(segment) {
+			relative := strings.Index(segment[cursor:], "](")
+			if relative < 0 {
+				break
+			}
+			closeBracket := cursor + relative
+			inner, end, ok := scanLinkDestination(segment, closeBracket+1)
+			if !ok || !hasLinkLabelBefore(segment, closeBracket) {
+				out.WriteString(segment[cursor : closeBracket+2])
+				cursor = closeBracket + 2
+				continue
+			}
+			destination, _ := splitDestinationTitle(inner)
+			direct := strings.TrimSuffix(strings.TrimPrefix(destination, "<"), ">")
+			_, named := lookupArtifactRef(destination, rejectedNames, markdownImageBefore(segment, closeBracket))
+			if !rejected[direct] && !named {
+				out.WriteString(segment[cursor : end+1])
+				cursor = end + 1
+				continue
+			}
+			labelStart := strings.LastIndex(segment[:closeBracket], "[")
+			if labelStart < cursor {
+				out.WriteString(segment[cursor : end+1])
+				cursor = end + 1
+				continue
+			}
+			markupStart := labelStart
+			if markupStart > cursor && segment[markupStart-1] == '!' {
+				markupStart--
+			}
+			out.WriteString(segment[cursor:markupStart])
+			out.WriteString(segment[labelStart+1 : closeBracket])
+			cursor = end + 1
+		}
+		out.WriteString(segment[cursor:])
+		return out.String()
+	}
+	parts := fencedOrInlineCodeRE.Split(content, -1)
+	code := fencedOrInlineCodeRE.FindAllString(content, -1)
+	var out strings.Builder
+	for i, part := range parts {
+		out.WriteString(rewrite(part))
+		if i < len(code) {
+			out.WriteString(code[i])
+		}
+	}
+	return out.String()
+}

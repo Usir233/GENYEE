@@ -240,15 +240,45 @@ func cleanupUnboundInlineImages(
 	defer cancel()
 	deleted := make(map[string]struct{})
 	for _, image := range images {
-		if (!image.Inline && !image.NewlyStored) || image.ServingURL == "" {
+		if !image.NewlyStored || image.ServingURL == "" {
 			continue
 		}
 		if _, exists := deleted[image.ServingURL]; exists {
 			continue
 		}
 		deleted[image.ServingURL] = struct{}{}
-		if err := fileSvc.DeleteFile(cleanupCtx, image.ServingURL); err != nil {
+		if err := interfaces.DeleteUnboundFile(cleanupCtx, fileSvc, image.ServingURL); err != nil {
 			logger.Warnf(ctx, "Failed to clean up unbound inline image %s: %v", image.ServingURL, err)
+		}
+	}
+}
+
+// A failed binding batch may already own some of its newly uploaded images.
+// Drop only those claims before cleanup; a reused image can have a preexisting
+// claim from this document that must survive the failed attempt.
+func cleanupFailedImageBindings(
+	ctx context.Context, fileSvc interfaces.FileService, catalog interfaces.ResourceCatalog,
+	ownerType, ownerID string, images []docparser.StoredImage,
+) {
+	if fileSvc == nil {
+		return
+	}
+	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	cleaned := make(map[string]bool)
+	for _, image := range images {
+		if !image.NewlyStored || image.ServingURL == "" || cleaned[image.ServingURL] {
+			continue
+		}
+		cleaned[image.ServingURL] = true
+		if _, managed := types.ParseResourcePath(image.ServingURL); managed && catalog != nil {
+			if _, err := catalog.Release(cleanupCtx, image.ServingURL, ownerType, ownerID); err != nil {
+				logger.Warnf(ctx, "Failed to release image from failed binding batch %s: %v", image.ServingURL, err)
+				continue
+			}
+		}
+		if err := interfaces.DeleteUnboundFile(cleanupCtx, fileSvc, image.ServingURL); err != nil {
+			logger.Warnf(ctx, "Failed to clean image from failed binding batch %s: %v", image.ServingURL, err)
 		}
 	}
 }
@@ -4281,7 +4311,11 @@ func (s *knowledgeService) ProcessDocument(ctx context.Context, t *asynq.Task) e
 	// Claim the stored images for this document before chunking proceeds:
 	// the file proxies authorize images through resource bindings, and an
 	// unbound extracted image renders broken for org-shared KB viewers (#3342).
-	s.bindStoredImages(ctx, knowledge, storedImages)
+	if bindErr := s.bindStoredImages(ctx, knowledge, storedImages); bindErr != nil {
+		cleanupFailedImageBindings(ctx, imageFileSvc, s.resourceCatalog, types.ResourceOwnerKnowledge, knowledge.ID, storedImages)
+		_, err := s.failKnowledge(ctx, knowledge, isLastRetry, "bind stored images: %v", bindErr)
+		return err
+	}
 
 	var sourceIndex *sourceloc.Index
 	if convertResult != nil {
@@ -4588,8 +4622,8 @@ func (s *knowledgeService) resolveDocReader(
 	ctx context.Context, engine, fileType string, isURL bool, overrides map[string]string,
 ) interfaces.DocReader {
 	reader, err := docparser.NewReader(ctx, engine, fileType, isURL, docparser.ReaderDeps{
-		Overrides:               overrides,
-		Remote:                  s.documentReader,
+		Overrides: overrides,
+		Remote:    s.documentReader,
 	})
 	if err != nil {
 		logger.Warnf(ctx, "[resolveDocReader] engine=%q fileType=%q unusable: %v", engine, fileType, err)

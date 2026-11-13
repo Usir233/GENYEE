@@ -124,3 +124,47 @@ func TestResourceCatalogFileServiceReturnsShortExternalGrantURL(t *testing.T) {
 	_, err = svc.GetFileURL(otherTenantCtx, ref)
 	require.Error(t, err, "cross-tenant caller must not receive /r/<token> grant")
 }
+
+type canceledRegistrationCatalog struct {
+	catalogStub
+	cancel context.CancelFunc
+}
+
+func (c *canceledRegistrationCatalog) Register(context.Context, uint64, string, interfaces.ResourceRegistration) (string, error) {
+	c.cancel()
+	return "", context.Canceled
+}
+
+type cancellationAwareFileService struct {
+	interfaces.FileService
+	saved   string
+	deleted bool
+}
+
+func (f *cancellationAwareFileService) SaveBytes(ctx context.Context, data []byte, tenant uint64, name string, temp bool) (string, error) {
+	ref, err := f.FileService.SaveBytes(ctx, data, tenant, name, temp)
+	f.saved = ref
+	return ref, err
+}
+func (f *cancellationAwareFileService) DeleteFile(ctx context.Context, ref string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	f.deleted = true
+	return f.FileService.DeleteFile(ctx, ref)
+}
+func TestFailedResourceRegistrationCleansUploadAfterCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	physical := &cancellationAwareFileService{FileService: NewLocalFileService(t.TempDir(), "")}
+	catalog := &canceledRegistrationCatalog{cancel: cancel}
+	svc := NewResourceCatalogFileService(physical, catalog)
+	_, err := svc.SaveBytes(ctx, []byte("upload"), 7, "image.png", false)
+	require.Error(t, err)
+	require.True(t, physical.deleted, "cleanup must run after the upload request is cancelled")
+	reader, err := physical.GetFile(context.Background(), physical.saved)
+	if reader != nil {
+		_ = reader.Close()
+	}
+	require.Error(t, err, "an unregistered upload must not remain on disk")
+}

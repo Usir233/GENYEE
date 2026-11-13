@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/Usir233/GENYEE/internal/common"
@@ -86,7 +87,7 @@ func (p *AttachmentProcessor) ProcessAttachment(
 
 	uniqueFileName := fmt.Sprintf("attachment_%s%s", uuid.New().String()[:12], ext)
 
-	storageURL, err := p.fileService.SaveBytes(ctx, data, tenantID, uniqueFileName, false)
+	storageURL, err := p.fileService.SaveBytes(interfaces.WithIndependentFileWrites(ctx), data, tenantID, uniqueFileName, false)
 	if err != nil {
 		return nil, fmt.Errorf("failed to save attachment: %w", err)
 	}
@@ -186,10 +187,14 @@ func (p *AttachmentProcessor) processWithDocParser(
 
 	// Resolve embedded image refs to storage URLs.
 	if len(result.ImageRefs) > 0 && p.imageResolver != nil {
-		updatedMarkdown, _, err := p.imageResolver.ResolveAndStore(ctx, result, p.fileService, tenantID)
+		updatedMarkdown, images, err := p.imageResolver.ResolveAndStore(
+			interfaces.WithIndependentFileWrites(ctx), result, p.fileService, tenantID)
 		if err != nil {
 			logger.Warnf(ctx, "image resolution failed: %v", err)
 		} else {
+			if err := p.bindAttachmentImages(ctx, attachment.URL, images); err != nil {
+				return err
+			}
 			result.MarkdownContent = updatedMarkdown
 		}
 	}
@@ -279,15 +284,50 @@ func (p *AttachmentProcessor) processWithDocumentReader(
 
 	// Resolve embedded image refs to storage URLs.
 	if len(result.ImageRefs) > 0 && p.imageResolver != nil {
-		updatedMarkdown, _, err := p.imageResolver.ResolveAndStore(ctx, result, p.fileService, tenantID)
+		updatedMarkdown, images, err := p.imageResolver.ResolveAndStore(
+			interfaces.WithIndependentFileWrites(ctx), result, p.fileService, tenantID)
 		if err != nil {
 			logger.Warnf(ctx, "image resolution failed: %v", err)
 		} else {
+			if err := p.bindAttachmentImages(ctx, attachment.URL, images); err != nil {
+				return err
+			}
 			result.MarkdownContent = updatedMarkdown
 		}
 	}
 
 	p.applyLineTruncation(ctx, result.MarkdownContent, attachment)
+	return nil
+}
+
+func (p *AttachmentProcessor) bindAttachmentImages(ctx context.Context, parent string, images []docparser.StoredImage) error {
+	provider, ok := p.fileService.(interface {
+		ResourceCatalog() interfaces.ResourceCatalog
+	})
+	if !ok || provider.ResourceCatalog() == nil {
+		return nil // Raw drivers do not have catalog ownership.
+	}
+	catalog := provider.ResourceCatalog()
+	for _, image := range images {
+		if _, managed := types.ParseResourcePath(image.ServingURL); !managed {
+			continue
+		}
+		if err := catalog.Bind(ctx, image.ServingURL, types.ResourceOwnerResource, parent, types.ResourceRelationExtractedImage); err != nil {
+			cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			defer cancel()
+			for _, stored := range images {
+				if _, managed := types.ParseResourcePath(stored.ServingURL); managed {
+					if _, releaseErr := catalog.Release(cleanupCtx, stored.ServingURL, types.ResourceOwnerResource, parent); releaseErr != nil {
+						continue
+					}
+				}
+				if stored.NewlyStored {
+					_ = interfaces.DeleteUnboundFile(cleanupCtx, p.fileService, stored.ServingURL)
+				}
+			}
+			return fmt.Errorf("bind attachment images: %w", err)
+		}
+	}
 	return nil
 }
 

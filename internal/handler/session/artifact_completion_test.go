@@ -2,6 +2,7 @@ package session
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -180,6 +181,51 @@ func TestCompletionAttachesDelegatedFilesWithoutParentSandbox(t *testing.T) {
 			last := stream.events[len(stream.events)-1]
 			require.Equal(t, answer, last.Data["final_content"])
 			require.Equal(t, publicArtifactViews(files), last.Data["artifacts"])
+		})
+	}
+}
+
+type rejectingCompletionCatalog struct {
+	interfaces.ResourceCatalog
+	rejected string
+}
+
+func (c rejectingCompletionCatalog) Bind(_ context.Context, ref, _, _, _ string) error {
+	if ref == c.rejected {
+		return fmt.Errorf("resource disappeared before message binding")
+	}
+	return nil
+}
+
+func TestCompletionPublishesOnlyArtifactsWithSuccessfulClaims(t *testing.T) {
+	for _, origin := range []string{"delegated", "history"} {
+		t.Run(origin, func(t *testing.T) {
+			good := types.MessageArtifact{URL: types.BuildResourcePath(strings.Repeat("a", 22)), FileName: "good.png", SourcePath: "/workspace/output/good.png"}
+			lost := types.MessageArtifact{URL: types.BuildResourcePath(strings.Repeat("b", 22)), FileName: "lost.png", SourcePath: "/workspace/output/lost.png"}
+			history := completionHistory{}
+			data := event.AgentCompleteData{MessageID: "new-message"}
+			answer := "![good](" + good.URL + ")\n![lost](" + lost.URL + ")"
+			if origin == "history" {
+				history.previous = []types.MessageArtifact{good, lost}
+				answer = "![good](sandbox:good.png)\n![lost](sandbox:lost.png)"
+			} else {
+				data.Artifacts = types.MessageArtifacts{good, lost}
+			}
+			data.FinalAnswer = answer
+			stream := &completionEventRecorder{}
+			message := &types.Message{ID: "new-message"}
+			collector := service.NewArtifactCollector(nil, nil, history, rejectingCompletionCatalog{rejected: lost.URL}, service.ArtifactCollectorConfig{})
+			h := NewAgentStreamHandler(context.Background(), "session", message.ID, "request", 7, time.Time{}, message, stream, nil, collector, nil, nil)
+			require.NoError(t, h.handleComplete(context.Background(), event.Event{Data: data}))
+			require.Len(t, message.Artifacts, 1, "binding failure must not publish a broken inherited file")
+			require.Equal(t, good.URL, message.Artifacts[0].URL)
+			require.Contains(t, message.Content, good.URL)
+			require.NotContains(t, message.Content, lost.URL)
+			require.NotContains(t, message.Content, "sandbox:lost.png")
+			require.Contains(t, message.Content, "lost", "keep the answer's label when the download link is unavailable")
+			require.NoError(t, h.publishCompletion(context.Background()))
+			last := stream.events[len(stream.events)-1]
+			require.Equal(t, publicArtifactViews(types.MessageArtifacts{good}), last.Data["artifacts"])
 		})
 	}
 }

@@ -21,6 +21,12 @@ func (f *deleteRecorder) DeleteFile(_ context.Context, filePath string) error {
 	return nil
 }
 
+// This recorder stands in for the atomic file-cleanup capability; actual
+// bind/cleanup interleavings are covered with SQLite in image_storage_rollback_test.
+func (f *deleteRecorder) DeleteUnboundFile(ctx context.Context, filePath string) error {
+	return f.DeleteFile(ctx, filePath)
+}
+
 func handleRef(char string) string {
 	return types.BuildResourcePath(strings.Repeat(char, types.ResourceHandleLength))
 }

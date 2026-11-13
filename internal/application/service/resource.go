@@ -159,6 +159,26 @@ func (s *resourceCatalog) ReuseByContentHash(
 	return types.BuildResourcePath(existing.Handle), true, nil
 }
 
+func (s *resourceCatalog) ReuseByContentHashInStorage(
+	ctx context.Context, tenantID uint64, contentHash, backendID string, global bool,
+) (string, bool, error) {
+	if global {
+		if s.globalStorage == nil {
+			return "", false, nil
+		}
+		backendID = s.globalBackendSnapshot(tenantID).ID
+	}
+	repo, ok := s.repo.(interfaces.ScopedResourceContentRepository)
+	if !ok || tenantID == 0 || strings.TrimSpace(contentHash) == "" {
+		return "", false, nil
+	}
+	resource, err := repo.GetActiveByContentHashInStorage(ctx, tenantID, contentHash, backendID)
+	if err != nil || resource == nil {
+		return "", false, err
+	}
+	return types.BuildResourcePath(resource.Handle), true, nil
+}
+
 func (s *resourceCatalog) Resolve(ctx context.Context, reference string) (*types.StoredResource, error) {
 	handle, ok := types.ParseResourcePath(reference)
 	if !ok {
@@ -248,20 +268,22 @@ func (s *resourceCatalog) GetMessageFileBindings(
 
 // Release implements interfaces.ResourceCatalog.
 //
-// Unbinding and counting are deliberately not a single transaction. A racing
-// bind that lands between them makes the count too high, which keeps a live
-// file — the safe direction. The opposite ordering could delete bytes another
-// owner had just claimed.
+// The returned count is advisory: another owner can bind after it is read.
+// Deletion must go through ClaimUnboundDeletion to recheck under the bind lock.
 func (s *resourceCatalog) Release(
 	ctx context.Context, reference, ownerType, ownerID string,
 ) (int64, error) {
 	if strings.TrimSpace(ownerType) == "" || strings.TrimSpace(ownerID) == "" {
 		return -1, fmt.Errorf("resource release requires owner type and id")
 	}
-	if _, ok := types.ParseResourcePath(reference); !ok {
+	handle, managed := types.ParseResourcePath(reference)
+	if !managed {
 		// A raw provider path predates the catalog and has no bindings to
 		// account for; the caller keeps its previous delete behaviour.
 		return -1, nil
+	}
+	if repo, ok := s.repo.(interfaces.UnboundResourceRepository); ok {
+		return repo.ReleaseBindingByHandle(ctx, handle, ownerType, ownerID)
 	}
 	resource, err := s.Resolve(ctx, reference)
 	if err != nil {
@@ -311,6 +333,56 @@ func (s *resourceCatalog) MarkDeleted(ctx context.Context, reference string) err
 		return err
 	}
 	return s.repo.MarkDeleted(ctx, resource.ID)
+}
+
+func (s *resourceCatalog) ClaimUnboundDeletion(ctx context.Context, reference string) (string, error) {
+	handle, ok := types.ParseResourcePath(reference)
+	if !ok {
+		return "", fmt.Errorf("invalid resource reference")
+	}
+	repo, ok := s.repo.(interfaces.UnboundResourceRepository)
+	if !ok {
+		return "", fmt.Errorf("atomic resource cleanup is unavailable")
+	}
+	resource, err := repo.ClaimUnboundDeletion(ctx, handle)
+	if err != nil || resource == nil {
+		return "", err
+	}
+	return resource.PhysicalPath, nil
+}
+
+func (s *resourceCatalog) ResolveCleanupResource(ctx context.Context, reference string) (*types.StoredResource, error) {
+	repo, ok := s.repo.(interfaces.UnboundResourceRepository)
+	handle, valid := types.ParseResourcePath(reference)
+	if !ok || !valid {
+		return nil, fmt.Errorf("resource cleanup lookup is unavailable")
+	}
+	return repo.GetResourceForCleanup(ctx, handle)
+}
+
+func (s *resourceCatalog) ListDeletionDependents(ctx context.Context, parent string) ([]string, error) {
+	repo, ok := s.repo.(interfaces.UnboundResourceRepository)
+	if !ok {
+		return nil, fmt.Errorf("atomic resource cleanup is unavailable")
+	}
+	handles, err := repo.ListDeletionDependents(ctx, parent)
+	if err != nil {
+		return nil, err
+	}
+	refs := make([]string, 0, len(handles))
+	for _, handle := range handles {
+		refs = append(refs, types.BuildResourcePath(handle))
+	}
+	return refs, nil
+}
+
+func (s *resourceCatalog) ReleaseDeletionDependent(ctx context.Context, reference, parent string) error {
+	repo, ok := s.repo.(interfaces.UnboundResourceRepository)
+	handle, valid := types.ParseResourcePath(reference)
+	if !ok || !valid {
+		return fmt.Errorf("atomic resource cleanup is unavailable")
+	}
+	return repo.ReleaseDeletionDependent(ctx, handle, parent)
 }
 
 func (s *resourceCatalog) CreateAccessGrant(ctx context.Context, reference string, ttl time.Duration) (string, error) {

@@ -164,6 +164,10 @@ func (r *documentFileSpy) DeleteFile(_ context.Context, path string) error {
 	return nil
 }
 
+func (r *documentFileSpy) DeleteUnboundFile(ctx context.Context, path string) error {
+	return r.DeleteFile(ctx, path)
+}
+
 type documentWriteFixture struct {
 	svc       *knowledgeService
 	chunks    *chunkService

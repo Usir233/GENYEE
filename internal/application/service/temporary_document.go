@@ -302,7 +302,7 @@ func (s *temporaryDocumentService) releaseResource(ctx context.Context, document
 			return nil
 		}
 	}
-	return s.fileService.DeleteFile(ctx, ref)
+	return interfaces.DeleteUnboundFile(ctx, s.fileService, ref)
 }
 
 func temporaryDocumentImageRefs(raw types.JSON) []types.TemporaryDocumentImage {

@@ -1,0 +1,473 @@
+{
+  "module": "file-resource-storage-and-image-lifecycle",
+  "status": "lifecycle_findings_fixed_validated_local_commit",
+  "baseline_commit": "c5c689792",
+  "branch": "codex/genyee-residue-remediation",
+  "live_data_touched": false,
+  "instructions_read": [
+    "BRANCH_GUIDE.md",
+    "WEKNORA_RESIDUE_REMEDIATION.md"
+  ],
+  "preserved": [
+    "D1 version history",
+    "original license and copyright notices",
+    "no upstream-brand compatibility added"
+  ],
+  "source_review": {
+    "complete_files": [
+      "internal/application/service/file/resource_catalog.go",
+      "internal/application/service/file/backend_scoped.go",
+      "internal/application/service/file/local.go",
+      "internal/application/service/file/factory.go",
+      "internal/application/service/file/resolve_tenant.go",
+      "internal/application/service/file/object_storage_http.go",
+      "internal/application/service/resource.go",
+      "internal/application/service/resource_storage.go",
+      "internal/application/repository/resource.go",
+      "internal/application/repository/resource_references.go",
+      "internal/types/interfaces/resource.go",
+      "internal/types/interfaces/file.go",
+      "internal/types/resource.go",
+      "internal/handler/session/artifact_storage.go"
+    ],
+    "function_scoped_files": {
+      "internal/application/service/file/cos.go": [
+        "SaveFile",
+        "SaveBytes",
+        "GetFile",
+        "CopyFile",
+        "DeleteFile",
+        "provider-path target parsing"
+      ],
+      "internal/application/service/file/minio.go": [
+        "SaveFile",
+        "SaveBytes",
+        "GetFile",
+        "CopyFile",
+        "DeleteFile",
+        "provider-path target parsing"
+      ],
+      "internal/application/service/file/s3.go": [
+        "SaveFile",
+        "SaveBytes",
+        "GetFile",
+        "CopyFile",
+        "DeleteFile",
+        "provider-path target parsing"
+      ],
+      "internal/application/service/file/obs.go": [
+        "SaveFile",
+        "SaveBytes",
+        "GetFile",
+        "CopyFile",
+        "DeleteFile",
+        "provider-path target parsing"
+      ],
+      "internal/application/service/file/oss.go": [
+        "SaveFile",
+        "SaveBytes",
+        "GetFile",
+        "CopyFile",
+        "DeleteFile",
+        "provider-path target parsing"
+      ],
+      "internal/application/service/file/tos.go": [
+        "SaveFile",
+        "SaveBytes",
+        "GetFile",
+        "CopyFile",
+        "DeleteFile",
+        "provider-path target parsing"
+      ],
+      "internal/application/service/file/ks3.go": [
+        "SaveFile",
+        "SaveBytes",
+        "GetFile",
+        "CopyFile",
+        "DeleteFile",
+        "provider-path target parsing"
+      ],
+      "internal/infrastructure/docparser/image_resolver.go": [
+        "StoredImage ownership flags",
+        "ResolveAndStore rollback",
+        "saveReferencedImage",
+        "SaveBytes call sites for Markdown/HTML/bare Base64",
+        "remote fetch/store result ownership"
+      ],
+      "internal/application/service/knowledge_process.go": [
+        "cleanupUnboundInlineImages",
+        "ProcessDocument image resolution/binding/guard failure",
+        "cleanupFailedImageBindings and strict-bind error branch"
+      ],
+      "internal/application/service/knowledge_create.go": [
+        "source-file creation rollback",
+        "bindStoredImages",
+        "triggerManualProcessing image failures"
+      ],
+      "internal/application/service/knowledge_delete.go": [
+        "resourceReleaser",
+        "deleteExtractedImages",
+        "executeKnowledgeDelete source-file loop"
+      ],
+      "internal/application/service/knowledge_replace.go": [
+        "replaced source cleanup",
+        "discardReplacementFile"
+      ],
+      "internal/application/service/knowledgebase.go": [
+        "knowledge-base deletion source/derived-file cleanup"
+      ],
+      "internal/application/service/temporary_document.go": [
+        "Create ownership/failure cleanup",
+        "Delete",
+        "releaseResource"
+      ],
+      "internal/application/service/temporary_document_parse.go": [
+        "Process failure/retry handling",
+        "parse image resolver/binding"
+      ],
+      "internal/handler/session/attachment_processor.go": [
+        "ProcessAttachment storage",
+        "both resolver callers",
+        "parent-resource image binding"
+      ],
+      "internal/application/service/artifact_collector.go": [
+        "persistBytes",
+        "bindArtifactResource",
+        "BindArtifactsToMessage"
+      ],
+      "internal/application/service/agent_web_pages.go": [
+        "Save rollback"
+      ],
+      "internal/application/service/tenant_skill_remove.go": [
+        "deleteBundleBestEffort"
+      ],
+      "internal/application/service/tenant_sandbox_config.go": [
+        "release archive files"
+      ],
+      "internal/handler/session/agent_stream_handler.go": [
+        "handleComplete delegated, newly collected, and history artifact ownership/publication"
+      ],
+      "internal/handler/session/artifact_reference.go": [
+        "referencedArtifacts and supporting Markdown target scanner",
+        "omitUnclaimedArtifactLinks"
+      ]
+    },
+    "coverage_statement": "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
+  },
+  "findings": [
+    {
+      "id": "STO-001",
+      "severity": "P1",
+      "title": "Resolver/inline-guard rollback deletes reused images owned by another document",
+      "provenance": "Parent external reproducer promoted to durable real SQLite/files regression",
+      "reproducer": "go test ./internal/application/service -run ^TestSharedImageSurvivesResolverRollback$ -count=1",
+      "failing_log": ".git/storage-before.log",
+      "status": "fixed",
+      "fix": "Explicit created/reused save result; rollback cleans created uploads only through binding-aware atomic cleanup"
+    },
+    {
+      "id": "STO-002",
+      "severity": "P1",
+      "title": "Bind/cleanup race creates dangling bindings and manual ingestion swallows binding failure",
+      "provenance": "Source trace plus baseline overlay of repository and knowledge caller implementations",
+      "reproducer": "go test -overlay .git/module-audit-20261113/storage-baseline/overlay.json ./internal/application/service -run Test\\(StaleResourceBindingCannotReviveDeletedResource\\|ManualImageBindingFailureStopsChunkPersistence\\) -count=1",
+      "failing_log": ".git/storage-binding-before.log",
+      "status": "fixed",
+      "fix": "Common row lock; active state recheck; tombstone before physical deletion; image-binding failures stop knowledge/temporary persistence; ownerless attachment writes isolated and attached to parent resources"
+    },
+    {
+      "id": "STO-003",
+      "severity": "P1",
+      "title": "Content dedup returns a resource belonging to a different storage backend",
+      "provenance": "Two temporary physical roots, backend-scoped drivers and real SQLite catalog",
+      "reproducer": "go test ./internal/application/service -run ^TestImageDeduplicationDoesNotCrossStorageBackends$ -count=1",
+      "failing_log": ".git/storage-backend-before.log",
+      "status": "fixed",
+      "fix": "Persistent content lookup scoped to concrete storage backend, including the process-global backend identity"
+    },
+    {
+      "id": "STO-004",
+      "severity": "P2",
+      "title": "Cancellation during registration prevents cleanup of uploaded physical file",
+      "provenance": "Real temporary local file plus cancellation-aware driver and injected registration cancellation",
+      "reproducer": "go test ./internal/application/service/file -run ^TestFailedResourceRegistrationCleansUploadAfterCancellation$ -count=1",
+      "failing_log": ".git/storage-registration-before.log",
+      "status": "fixed",
+      "fix": "Bounded five-second cleanup context detached from request cancellation"
+    },
+    {
+      "id": "STO-005",
+      "severity": "P1",
+      "title": "Knowledge source-file deletion ignores shared owners and leaves stale source binding",
+      "provenance": "Real knowledge repository fixture, independent SQLite resource catalog and local file",
+      "reproducer": "go test ./internal/application/service -run ^TestKnowledgeSourceDeletionRespectsOtherOwners$ -count=1",
+      "failing_log": ".git/storage-source-before.log",
+      "status": "fixed",
+      "fix": "Source ownership released before atomic cleanup in document/KB deletion, replacement and creation rollback"
+    },
+    {
+      "id": "STO-006",
+      "severity": "P2",
+      "title": "COS temporary writes return an HTTPS path rejected by resource registration and cannot be read/deleted through the temporary client",
+      "provenance": "Real COS SDK with in-memory HTTP transport, no external cloud calls",
+      "reproducer": "go test -overlay .git/module-audit-20261113/storage-baseline/providers-overlay.json ./internal/application/service/file -run ^TestCOSTemporaryBytesUseResolvableResourcePaths$ -count=1",
+      "failing_log": ".git/storage-provider-before.log",
+      "status": "fixed_provider_group_frozen",
+      "fix": "Canonical cos:// identity and temporary-bucket target selection for reads, signing, copying and deletion"
+    },
+    {
+      "id": "STO-007",
+      "severity": "P2",
+      "title": "OBS proxy configuration turns write results into HTTPS presentation URLs rejected by catalog registration",
+      "provenance": "Real AWS SDK OBS adapter with in-memory HTTP transport, no external cloud calls",
+      "reproducer": "go test -overlay .git/module-audit-20261113/storage-baseline/providers-overlay.json ./internal/application/service/file -run ^TestOBSProxyBytesKeepProviderStorageIdentity$ -count=1",
+      "failing_log": ".git/storage-provider-before.log",
+      "status": "fixed_provider_group_frozen",
+      "fix": "Always persist obs:// bucket/key identity; keep CDN proxy only in presentation URL generation"
+    },
+    {
+      "id": "STO-008",
+      "severity": "P1",
+      "title": "Artifact cleanup trusts an advisory release count before a concurrent new binding",
+      "provenance": "Real SQLite/file catalog with injected new binding immediately after artifact location lookup",
+      "reproducer": "go test ./internal/handler/session -run ^TestArtifactCleanupRechecksBindingsAfterLocationLookup$ -count=1",
+      "failing_log": ".git/storage-artifact-before.log",
+      "status": "fixed",
+      "fix": "Atomic DeleteUnboundFile after advisory release/location lookup, tombstone-aware backend lookup for retries"
+    },
+    {
+      "id": "STO-009",
+      "severity": "P1",
+      "title": "Fresh artifact collection publishes a deduplicated resource deleted before its message binding",
+      "provenance": "Real SQLite/local file interleaving invoked through ArtifactCollector.persistBytes",
+      "reproducer": "go test ./internal/application/service -run '^TestNewArtifactCannotPublishAResourceRemovedBeforeBinding$' -count=1",
+      "failing_log": ".git/storage-artifact-publish-before.log",
+      "status": "fixed",
+      "fix": "Require successful message claim before publishing; keep sandbox source for retry; clean only newly created unbound uploads"
+    },
+    {
+      "id": "STO-010",
+      "severity": "P1",
+      "title": "Completion publishes delegated/history artifact references after their new owner binding fails",
+      "provenance": "Actual AgentStreamHandler.handleComplete caller with selectively failing binding catalog; delegated and history subcases",
+      "reproducer": "go test ./internal/handler/session -run '^TestCompletionPublishesOnlyArtifactsWithSuccessfulClaims$' -count=1",
+      "failing_log": ".git/storage-inherited-before.log",
+      "status": "fixed",
+      "fix": "BindArtifactsToMessage returns only successful claims; completion attaches only those and removes failed Markdown download targets while preserving labels and existing resource owners for retry"
+    }
+  ],
+  "intermediate_review_regressions": [
+    {
+      "title": "New parent-image cascade initially lost pending child on provider deletion failure",
+      "discovered_by": "parent review",
+      "baseline_product_bug": false,
+      "failing_log": ".git/storage-parent-before.log",
+      "test": "TestParentResourceCleanupRetainsFailedChildForRetry",
+      "resolution": "Keep deleted-parent dependency binding until child physical deletion succeeds; include tombstoned children on retry and make physical removal idempotent"
+    },
+    {
+      "title": "Strict image-binding failure initially stranded earlier successful claims from the same upload batch",
+      "discovered_by": "parent review",
+      "baseline_product_bug": false,
+      "failing_log": ".git/storage-partial-binding-before.log",
+      "passing_log": ".git/storage-partial-binding-after.log",
+      "test": "TestPartialImageBindingFailureCleansOnlyNewUploads",
+      "resolution": "Three strict-bind error branches release current owner claims only for newly created uploads, then perform atomic cleanup; reused images retain preexisting claims. Real manual knowledge and temporary parser callers verified."
+    }
+  ],
+  "validation": [
+    {
+      "command": "go test ./internal/application/service ./internal/application/service/file ./internal/application/repository ./internal/infrastructure/docparser ./internal/handler/session -count=1",
+      "result": "passed after all lifecycle changes including partial image binding rollback",
+      "log": ".git/storage-packages-final.log",
+      "packages_seconds": {
+        "internal/application/service": 73.812,
+        "internal/application/service/file": 0.654,
+        "internal/application/repository": 1.627,
+        "internal/infrastructure/docparser": 3.226,
+        "internal/handler/session": 3.143
+      },
+      "nonfatal_output": "macOS linker warning: ignoring duplicate libraries -lc++"
+    },
+    {
+      "command": "GENYEE_STORAGE_AUDIT_POSTGRES_DSN=<isolated storage_audit database> go test ./internal/application/repository -run ^TestResourceCleanup -count=10 -v",
+      "result": "passed, both SQLite and PostgreSQL subtests ran",
+      "log": ".git/storage-postgres.log"
+    },
+    {
+      "command": "GENYEE_STORAGE_AUDIT_POSTGRES_DSN=<isolated storage_audit database> go test -race ./internal/application/repository -run ^TestResourceCleanup -count=3",
+      "result": "passed",
+      "log": ".git/storage-postgres-race.log"
+    },
+    {
+      "command": "go test ./internal/application/service/file -count=1",
+      "result": "passed",
+      "log": ".git/storage-file.log"
+    },
+    {
+      "command": "GENYEE_STORAGE_AUDIT_POSTGRES_DSN=<isolated storage_audit database> go test -race ./internal/application/repository -run '^TestResourceCleanup' -count=10 -v",
+      "result": "passed; 10 repetitions each of SQLite and actual PostgreSQL locking and stale-binding rejection tests",
+      "duration_seconds": 4.379,
+      "log": ".git/storage-postgres-race-final.log"
+    },
+    {
+      "command": "git diff --check -- <29 lifecycle owned files>",
+      "result": "passed"
+    }
+  ],
+  "uncovered_conditions": [
+    "No live COS/OBS/S3/OSS/TOS/KS3/MinIO account or bucket was accessed; provider behavior uses existing unit tests plus SDK transports for COS/OBS.",
+    "MySQL concurrency not executed; SQLite and real PostgreSQL16 are covered.",
+    "No application deployment or current data was read or modified.",
+    "No blanket claim that all unrelated knowledge/attachment/artifact logic is audited."
+  ],
+  "temporary_infrastructure": {
+    "container": "genyee-storage-audit-20261113",
+    "database": "storage_audit",
+    "bind": "127.0.0.1:32773",
+    "storage": "tmpfs",
+    "removal": "removed after final PostgreSQL race checks; docker ps -a filter verified empty"
+  },
+  "provider_commit_group": [
+    "internal/application/service/file/cos.go",
+    "internal/application/service/file/obs.go",
+    "internal/application/service/file/provider_resource_lifecycle_test.go"
+  ],
+  "provider_commit": "7cb7d054f",
+  "lifecycle_owned_paths": [
+    "internal/application/repository/resource.go",
+    "internal/application/repository/resource_cleanup_test.go",
+    "internal/application/service/artifact_collector.go",
+    "internal/application/service/artifact_collector_test.go",
+    "internal/application/service/document_write_access_test.go",
+    "internal/application/service/file/backend_scoped.go",
+    "internal/application/service/file/resource_catalog.go",
+    "internal/application/service/file/resource_catalog_test.go",
+    "internal/application/service/image_storage_rollback_test.go",
+    "internal/application/service/knowledge_create.go",
+    "internal/application/service/knowledge_delete.go",
+    "internal/application/service/knowledge_process.go",
+    "internal/application/service/knowledge_replace.go",
+    "internal/application/service/knowledge_resource_release_test.go",
+    "internal/application/service/knowledgebase.go",
+    "internal/application/service/resource.go",
+    "internal/application/service/temporary_document.go",
+    "internal/application/service/temporary_document_parse.go",
+    "internal/handler/session/agent_stream_handler.go",
+    "internal/handler/session/artifact_completion_test.go",
+    "internal/handler/session/artifact_delete_test.go",
+    "internal/handler/session/artifact_reference.go",
+    "internal/handler/session/artifact_storage.go",
+    "internal/handler/session/attachment_image_lifecycle_test.go",
+    "internal/handler/session/attachment_processor.go",
+    "internal/infrastructure/docparser/image_resolver.go",
+    "internal/types/interfaces/file.go",
+    "internal/types/interfaces/resource.go",
+    "internal/types/resource.go"
+  ],
+  "fix_paths": [
+    "internal/application/repository/resource.go",
+    "internal/application/repository/resource_cleanup_test.go",
+    "internal/application/service/artifact_collector.go",
+    "internal/application/service/artifact_collector_test.go",
+    "internal/application/service/document_write_access_test.go",
+    "internal/application/service/file/backend_scoped.go",
+    "internal/application/service/file/resource_catalog.go",
+    "internal/application/service/file/resource_catalog_test.go",
+    "internal/application/service/image_storage_rollback_test.go",
+    "internal/application/service/knowledge_create.go",
+    "internal/application/service/knowledge_delete.go",
+    "internal/application/service/knowledge_process.go",
+    "internal/application/service/knowledge_replace.go",
+    "internal/application/service/knowledge_resource_release_test.go",
+    "internal/application/service/knowledgebase.go",
+    "internal/application/service/resource.go",
+    "internal/application/service/temporary_document.go",
+    "internal/application/service/temporary_document_parse.go",
+    "internal/handler/session/agent_stream_handler.go",
+    "internal/handler/session/artifact_completion_test.go",
+    "internal/handler/session/artifact_delete_test.go",
+    "internal/handler/session/artifact_reference.go",
+    "internal/handler/session/artifact_storage.go",
+    "internal/handler/session/attachment_image_lifecycle_test.go",
+    "internal/handler/session/attachment_processor.go",
+    "internal/infrastructure/docparser/image_resolver.go",
+    "internal/types/interfaces/file.go",
+    "internal/types/interfaces/resource.go",
+    "internal/types/resource.go",
+    "internal/application/service/file/cos.go",
+    "internal/application/service/file/obs.go",
+    "internal/application/service/file/provider_resource_lifecycle_test.go"
+  ],
+  "additional_validation": [
+    {
+      "command": "go test ./internal/handler/session -run 'Test(AttachmentImages|AttachmentRollback|ArtifactCleanup|CompletionPublishes)' -count=1",
+      "result": "passed",
+      "log": ".git/storage-lifecycle-final-focused.log",
+      "coverage": [
+        "actual ProcessAttachment twice with identical PNG bytes and a same-byte knowledge image: five independent physical objects",
+        "attachment partial upload rollback preserves another attachment and bound document",
+        "artifact physical deletion failure retries through tombstone and remains idempotent",
+        "concurrent owner added after advisory artifact count protects file",
+        "failed delegated/history claims are omitted from completion artifact list and links"
+      ]
+    },
+    {
+      "command": "go test ./internal/application/service -run '^TestPartialImageBindingFailureCleansOnlyNewUploads$' -count=1",
+      "result": "failed before correction; passed after correction",
+      "before_log": ".git/storage-partial-binding-before.log",
+      "after_log": ".git/storage-partial-binding-after.log"
+    },
+    {
+      "command": "go test ./internal/application/service -run '^TestKnowledgeSourceDeletionRespectsOtherOwners$' -count=1",
+      "result": "passed",
+      "log": ".git/storage-source-after.log"
+    },
+    {
+      "result": "passed before final partial-binding delta",
+      "log": ".git/storage-artifact-collection.log",
+      "coverage": "fresh artifact binding failure, retained sandbox file retry, and resource removed before binding"
+    }
+  ],
+  "ownership_design": {
+    "save_results": "NewlyStored means physical upload created by this save, not merely represented by a returned URL.",
+    "cleanup": "Resource tombstone commits before provider deletion; CreateBinding and ClaimUnboundDeletion share row lock and recheck active state; raw driver cleanup keeps previous DeleteFile behavior.",
+    "attachments": "Ownerless upload and previews use independent physical writes and are excluded from dedup lookup. Extracted preview binds to attachment parent resource; parent tombstone cascades child deletion; dependency retained until physical child delete succeeds.",
+    "dedup": "Persistent tenant image reuse retained and restricted to concrete storage backend; no blanket dedup disabling.",
+    "partial_failure": "Newly-created uploads release only this failed document owner then undergo atomic cleanup; reused resources retain original ownership.",
+    "retry": "Provider failures leave addressable catalog tombstones, retained parent-child work items, and artifact tombstone backend metadata; repeated physical not-found treated idempotently."
+  },
+  "frozen_source_sha256": {
+    "internal/application/repository/resource.go": "c1d10b6aa192f949a24d65387149cb9e3dda3d1e2287d34c657ffd9932457f52",
+    "internal/application/repository/resource_cleanup_test.go": "5193c0076a3f270d20d452752fd51b905b2dda11431056437301161f57ab50c1",
+    "internal/application/service/artifact_collector.go": "a6c7a9c7a6318f527b57e8a9628f55c72dd17f71f91755d815fc544d581e0abc",
+    "internal/application/service/artifact_collector_test.go": "f2861e878a33651589a9f650b5c6424dd2f9bcd20c3a0e0858a4ebb5114dc31b",
+    "internal/application/service/document_write_access_test.go": "428ecc8d334d6e0942b56974063a34400e959d58da9b21bc103a345c424b7318",
+    "internal/application/service/file/backend_scoped.go": "ac7c579f6547292a826e115a0a8a941322e0edf4cbf8d16a4973701e34b9ce91",
+    "internal/application/service/file/resource_catalog.go": "2426c21609fc598233e642d4b73323e8dca9410ef7dcb0009b738c7d6493b311",
+    "internal/application/service/file/resource_catalog_test.go": "e6bad5998709d93670022ac7198b3e73868f80eb24b00634a4bdc290fdae4405",
+    "internal/application/service/image_storage_rollback_test.go": "d2a98fd448012c9676466cd81c2235b6cccf9845aa0bc9d9d915bfe3a6215d02",
+    "internal/application/service/knowledge_create.go": "96717670026b8cd24efe27ef402d4a4f072fb088e0c3defc3bc8c099adfd12a4",
+    "internal/application/service/knowledge_delete.go": "cf5aaca0ddb188b92312e18262d25ec5310a07aaa600f084d21c352f1ea574ca",
+    "internal/application/service/knowledge_process.go": "b98ba9288eb48c98a1876acebe11e3f0c0269067c08eb81f7cb2ec9fcb065e42",
+    "internal/application/service/knowledge_replace.go": "23f10069d66315851a9b4946360f04f22be3ef128c41f16cf68d56b556a0d16c",
+    "internal/application/service/knowledge_resource_release_test.go": "514ff9f7fb24a2ea3aef711ab2866394dacf230c7978dfd637fb2948fdf97d30",
+    "internal/application/service/knowledgebase.go": "42defbe3c9ba9c09601bdc70283b3537d6a61111bf28d1e44aff8afa6902b36b",
+    "internal/application/service/resource.go": "805b356ca0a22891276d7bcfea201894e1722230ddb565ec68bd70fed105b426",
+    "internal/application/service/temporary_document.go": "9713f752569e0f442221ab1243b4025b601e31b3e41216c90484df1591f4a4b9",
+    "internal/application/service/temporary_document_parse.go": "df5f61377a182c042e2ac17d7c91efc6a36a55f58385e29513f66225428458d4",
+    "internal/handler/session/agent_stream_handler.go": "2aed086e3a78f0341750f14f6232b4b01366a4a6b58e28acd13e8318fab331a8",
+    "internal/handler/session/artifact_completion_test.go": "7beb40fd390d2b47171fce79f2d03f4c23b70a07562ae138f1c820e8c153174b",
+    "internal/handler/session/artifact_delete_test.go": "db4338d4683ee6328887d84a6518810ee3c1215ac264f7b2f17c88c11eda56e9",
+    "internal/handler/session/artifact_reference.go": "7454a6041abd3e38d5c87a6d332317cfc4cddd185d7512251f3e483372672add",
+    "internal/handler/session/artifact_storage.go": "11ffc5cf158256cc76b3feb105ef8f800a7a3f6b6c8753831b2c75254bc53e8f",
+    "internal/handler/session/attachment_image_lifecycle_test.go": "676000ddd8546c14173033fe03434bf0cc22522e3b3cfb12e3127b6e34b4e994",
+    "internal/handler/session/attachment_processor.go": "0766e45f950af6384faf36772d692807677b8cc29ecdf57c42a4a460bc9bef4a",
+    "internal/infrastructure/docparser/image_resolver.go": "824ca92f89a171b2342db75cadde113326f7f520675397dbc5317815f4bb4d3e",
+    "internal/types/interfaces/file.go": "d07e69ee5a430fa0c4b732576c321e3c1753bb552546018ed85e1dc69b8147fb",
+    "internal/types/interfaces/resource.go": "7caebb53adb3cd39f8e9acf36db59266ac55c4d2458f31e16e564302a74500a1",
+    "internal/types/resource.go": "8e0d79e32cf0adc485888cb9ea33d1d68a6174bb33bc179589bf286cdc0a4713"
+  },
+  "freeze_git_head": "115c96d1c8bed174c36500ba6c8edaaca8405341",
+  "commit_policy": "No commit, push, branch switch or deployment performed by this subagent; parent owns sequential local commits. Provider fixes were committed by parent as 7cb7d054f."
+}

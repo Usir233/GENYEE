@@ -4026,6 +4026,8 @@
         "internal/application/repository/wiki_page_write_snapshot_test.go"
       ],
       "inspected_files": [
+        "internal/application/repository/resource.go",
+        "internal/application/repository/resource_references.go",
         "internal/application/repository/task_queue.go"
       ],
       "invariants_checked": [],
@@ -4034,11 +4036,21 @@
           "command": "go test -mod=readonly -race ./internal/application/repository -run 'Test(TaskPendingOps|TaskDeadLetter|ClaimKnowledge)' -count=1",
           "result": "passed (PostgreSQL integration tests require separate configured DSN)",
           "log": ".git/module-audit-20261113/task-queue-baseline.log"
+        },
+        {
+          "report": "test-reports/module-audit-20261113/storage.json",
+          "complete_files": [
+            "internal/application/repository/resource.go",
+            "internal/application/repository/resource_references.go"
+          ],
+          "function_scoped_files": {}
         }
       ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
+      ]
     },
     {
       "id": "internal/application/repository/retriever/doris",
@@ -4908,6 +4920,8 @@
         "internal/application/service/workspace_git_layout_test.go"
       ],
       "inspected_files": [
+        "internal/application/service/agent_web_pages.go",
+        "internal/application/service/artifact_collector.go",
         "internal/application/service/automation.go",
         "internal/application/service/automation_lifecycle_postgres_test.go",
         "internal/application/service/automation_lifecycle_test.go",
@@ -4917,8 +4931,19 @@
         "internal/application/service/dataset_test.go",
         "internal/application/service/evaluation.go",
         "internal/application/service/evaluation_lifecycle_test.go",
+        "internal/application/service/knowledge_create.go",
+        "internal/application/service/knowledge_delete.go",
+        "internal/application/service/knowledge_process.go",
+        "internal/application/service/knowledge_replace.go",
+        "internal/application/service/knowledgebase.go",
         "internal/application/service/metric_hook.go",
-        "internal/application/service/session_knowledge_qa.go"
+        "internal/application/service/resource.go",
+        "internal/application/service/resource_storage.go",
+        "internal/application/service/session_knowledge_qa.go",
+        "internal/application/service/temporary_document.go",
+        "internal/application/service/temporary_document_parse.go",
+        "internal/application/service/tenant_sandbox_config.go",
+        "internal/application/service/tenant_skill_remove.go"
       ],
       "invariants_checked": [],
       "evidence": [
@@ -4931,6 +4956,60 @@
         },
         {
           "report": "test-reports/module-audit-20261113/automation-lifecycle.json"
+        },
+        {
+          "report": "test-reports/module-audit-20261113/storage.json",
+          "complete_files": [
+            "internal/application/service/resource.go",
+            "internal/application/service/resource_storage.go"
+          ],
+          "function_scoped_files": {
+            "internal/application/service/knowledge_process.go": [
+              "cleanupUnboundInlineImages",
+              "ProcessDocument image resolution/binding/guard failure",
+              "cleanupFailedImageBindings and strict-bind error branch"
+            ],
+            "internal/application/service/knowledge_create.go": [
+              "source-file creation rollback",
+              "bindStoredImages",
+              "triggerManualProcessing image failures"
+            ],
+            "internal/application/service/knowledge_delete.go": [
+              "resourceReleaser",
+              "deleteExtractedImages",
+              "executeKnowledgeDelete source-file loop"
+            ],
+            "internal/application/service/knowledge_replace.go": [
+              "replaced source cleanup",
+              "discardReplacementFile"
+            ],
+            "internal/application/service/knowledgebase.go": [
+              "knowledge-base deletion source/derived-file cleanup"
+            ],
+            "internal/application/service/temporary_document.go": [
+              "Create ownership/failure cleanup",
+              "Delete",
+              "releaseResource"
+            ],
+            "internal/application/service/temporary_document_parse.go": [
+              "Process failure/retry handling",
+              "parse image resolver/binding"
+            ],
+            "internal/application/service/artifact_collector.go": [
+              "persistBytes",
+              "bindArtifactResource",
+              "BindArtifactsToMessage"
+            ],
+            "internal/application/service/agent_web_pages.go": [
+              "Save rollback"
+            ],
+            "internal/application/service/tenant_skill_remove.go": [
+              "deleteBundleBestEffort"
+            ],
+            "internal/application/service/tenant_sandbox_config.go": [
+              "release archive files"
+            ]
+          }
         }
       ],
       "findings": [
@@ -5129,7 +5208,9 @@
         }
       ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
+      ]
     },
     {
       "id": "internal/application/service/chat_pipeline",
@@ -5271,7 +5352,7 @@
     },
     {
       "id": "internal/application/service/file",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/application/service/file/backend_scoped.go",
         "internal/application/service/file/cos.go",
@@ -5307,12 +5388,98 @@
         "internal/application/service/file/resource_content_dedup_test.go",
         "internal/application/service/file/s3_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/application/service/file/backend_scoped.go",
+        "internal/application/service/file/cos.go",
+        "internal/application/service/file/factory.go",
+        "internal/application/service/file/ks3.go",
+        "internal/application/service/file/local.go",
+        "internal/application/service/file/minio.go",
+        "internal/application/service/file/object_storage_http.go",
+        "internal/application/service/file/obs.go",
+        "internal/application/service/file/oss.go",
+        "internal/application/service/file/resolve_tenant.go",
+        "internal/application/service/file/resource_catalog.go",
+        "internal/application/service/file/s3.go",
+        "internal/application/service/file/tos.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/storage.json",
+          "complete_files": [
+            "internal/application/service/file/resource_catalog.go",
+            "internal/application/service/file/backend_scoped.go",
+            "internal/application/service/file/local.go",
+            "internal/application/service/file/factory.go",
+            "internal/application/service/file/resolve_tenant.go",
+            "internal/application/service/file/object_storage_http.go"
+          ],
+          "function_scoped_files": {
+            "internal/application/service/file/cos.go": [
+              "SaveFile",
+              "SaveBytes",
+              "GetFile",
+              "CopyFile",
+              "DeleteFile",
+              "provider-path target parsing"
+            ],
+            "internal/application/service/file/minio.go": [
+              "SaveFile",
+              "SaveBytes",
+              "GetFile",
+              "CopyFile",
+              "DeleteFile",
+              "provider-path target parsing"
+            ],
+            "internal/application/service/file/s3.go": [
+              "SaveFile",
+              "SaveBytes",
+              "GetFile",
+              "CopyFile",
+              "DeleteFile",
+              "provider-path target parsing"
+            ],
+            "internal/application/service/file/obs.go": [
+              "SaveFile",
+              "SaveBytes",
+              "GetFile",
+              "CopyFile",
+              "DeleteFile",
+              "provider-path target parsing"
+            ],
+            "internal/application/service/file/oss.go": [
+              "SaveFile",
+              "SaveBytes",
+              "GetFile",
+              "CopyFile",
+              "DeleteFile",
+              "provider-path target parsing"
+            ],
+            "internal/application/service/file/tos.go": [
+              "SaveFile",
+              "SaveBytes",
+              "GetFile",
+              "CopyFile",
+              "DeleteFile",
+              "provider-path target parsing"
+            ],
+            "internal/application/service/file/ks3.go": [
+              "SaveFile",
+              "SaveBytes",
+              "GetFile",
+              "CopyFile",
+              "DeleteFile",
+              "provider-path target parsing"
+            ]
+          }
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
+      ]
     },
     {
       "id": "internal/application/service/memory",
@@ -6605,7 +6772,7 @@
     },
     {
       "id": "internal/handler/session",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/handler/session/agent_stream_handler.go",
         "internal/handler/session/artifact_delete.go",
@@ -6702,12 +6869,40 @@
         "internal/handler/session/wiki_fixer_scope_test.go",
         "internal/handler/session/workspace_checkpoint_completion_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/handler/session/agent_stream_handler.go",
+        "internal/handler/session/artifact_reference.go",
+        "internal/handler/session/artifact_storage.go",
+        "internal/handler/session/attachment_processor.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/storage.json",
+          "complete_files": [
+            "internal/handler/session/artifact_storage.go"
+          ],
+          "function_scoped_files": {
+            "internal/handler/session/attachment_processor.go": [
+              "ProcessAttachment storage",
+              "both resolver callers",
+              "parent-resource image binding"
+            ],
+            "internal/handler/session/agent_stream_handler.go": [
+              "handleComplete delegated, newly collected, and history artifact ownership/publication"
+            ],
+            "internal/handler/session/artifact_reference.go": [
+              "referencedArtifacts and supporting Markdown target scanner",
+              "omitUnclaimedArtifactLinks"
+            ]
+          }
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
+      ]
     },
     {
       "id": "internal/im",
@@ -7039,7 +7234,7 @@
     },
     {
       "id": "internal/infrastructure/docparser",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/infrastructure/docparser/anydoc_reader.go",
         "internal/infrastructure/docparser/builtin_converter.go",
@@ -7106,12 +7301,30 @@
         "internal/infrastructure/docparser/text_decode_test.go",
         "internal/infrastructure/docparser/zip_limits_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/infrastructure/docparser/image_resolver.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/storage.json",
+          "complete_files": [],
+          "function_scoped_files": {
+            "internal/infrastructure/docparser/image_resolver.go": [
+              "StoredImage ownership flags",
+              "ResolveAndStore rollback",
+              "saveReferencedImage",
+              "SaveBytes call sites for Markdown/HTML/bare Base64",
+              "remote fetch/store result ownership"
+            ]
+          }
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
+      ]
     },
     {
       "id": "internal/infrastructure/legacyxls",
@@ -9167,17 +9380,27 @@
         "internal/types/chat_manage.go",
         "internal/types/dataset.go",
         "internal/types/evaluation.go",
-        "internal/types/rerank.go"
+        "internal/types/rerank.go",
+        "internal/types/resource.go"
       ],
       "invariants_checked": [],
       "evidence": [
         {
           "report": "test-reports/module-audit-20261113/evaluation.json"
+        },
+        {
+          "report": "test-reports/module-audit-20261113/storage.json",
+          "complete_files": [
+            "internal/types/resource.go"
+          ],
+          "function_scoped_files": {}
         }
       ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
+      ]
     },
     {
       "id": "internal/types/interfaces",
@@ -9242,17 +9465,29 @@
         "internal/types/interfaces/background_test.go"
       ],
       "inspected_files": [
-        "internal/types/interfaces/evaluation.go"
+        "internal/types/interfaces/evaluation.go",
+        "internal/types/interfaces/file.go",
+        "internal/types/interfaces/resource.go"
       ],
       "invariants_checked": [],
       "evidence": [
         {
           "report": "test-reports/module-audit-20261113/evaluation.json"
+        },
+        {
+          "report": "test-reports/module-audit-20261113/storage.json",
+          "complete_files": [
+            "internal/types/interfaces/resource.go",
+            "internal/types/interfaces/file.go"
+          ],
+          "function_scoped_files": {}
         }
       ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
+      ]
     },
     {
       "id": "internal/utils",
@@ -11413,6 +11648,10 @@
     {
       "commit": "115c96d1c",
       "module": "automation deletion/grant/conversation lifecycle"
+    },
+    {
+      "commit": "cd1bb98fc",
+      "module": "saved-credential handle destination revocation"
     }
   ],
   "frontend_final_gate": {

@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/types"
@@ -84,16 +85,35 @@ func (r *resourceRepository) GetActiveByContentHash(
 	tenantID uint64,
 	contentHash string,
 ) (*types.StoredResource, error) {
+	return r.getActiveByContentHash(ctx, tenantID, contentHash, nil)
+}
+
+func (r *resourceRepository) GetActiveByContentHashInStorage(
+	ctx context.Context, tenantID uint64, contentHash, backendID string,
+) (*types.StoredResource, error) {
+	return r.getActiveByContentHash(ctx, tenantID, contentHash, &backendID)
+}
+
+func (r *resourceRepository) getActiveByContentHash(
+	ctx context.Context, tenantID uint64, contentHash string, backendID *string,
+) (*types.StoredResource, error) {
 	var resource types.StoredResource
-	err := r.db.WithContext(ctx).
+	query := r.db.WithContext(ctx).
 		Where(
 			"tenant_id = ? AND content_hash = ? AND content_hash <> '' "+
 				"AND state = ? AND deleted_at IS NULL",
 			tenantID,
 			contentHash,
 			types.ResourceStateActive,
-		).
-		Order("created_at ASC, id ASC").
+		).Where("lifecycle = ?", types.ResourceLifecyclePersistent)
+	if backendID != nil {
+		if *backendID == "" {
+			query = query.Where("storage_backend_id = '' OR storage_backend_id IS NULL")
+		} else {
+			query = query.Where("storage_backend_id = ?", *backendID)
+		}
+	}
+	err := query.Order("created_at ASC, id ASC").
 		First(&resource).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -107,7 +127,122 @@ func (r *resourceRepository) MarkDeleted(ctx context.Context, id string) error {
 }
 
 func (r *resourceRepository) CreateBinding(ctx context.Context, binding *types.ResourceBinding) error {
-	return r.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(binding).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if binding.OwnerType == types.ResourceOwnerResource {
+			handle, ok := types.ParseResourcePath(binding.OwnerID)
+			if !ok {
+				return fmt.Errorf("invalid parent resource reference")
+			}
+			// Always lock the parent before its derived image. A deleted parent
+			// cannot acquire new children after its cleanup has listed them.
+			if err := tx.Model(&types.StoredResource{}).Where("handle = ?", handle).
+				UpdateColumn("updated_at", gorm.Expr("updated_at")).Error; err != nil {
+				return err
+			}
+			var parent types.StoredResource
+			if err := tx.Where("handle = ? AND tenant_id = ? AND state = ?", handle, binding.TenantID, types.ResourceStateActive).
+				First(&parent).Error; err != nil {
+				return err
+			}
+		}
+		// The write obtains the same resource-row lock as cleanup, including on
+		// SQLite, where SELECT FOR UPDATE is not supported. Recheck after locking:
+		// the catalog's earlier Resolve may have raced a cleanup transaction.
+		if err := tx.Model(&types.StoredResource{}).Where("id = ?", binding.ResourceID).
+			UpdateColumn("updated_at", gorm.Expr("updated_at")).Error; err != nil {
+			return err
+		}
+		var resource types.StoredResource
+		if err := tx.Where("id = ? AND state = ?", binding.ResourceID, types.ResourceStateActive).
+			First(&resource).Error; err != nil {
+			return err
+		}
+		return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(binding).Error
+	})
+}
+
+func (r *resourceRepository) ClaimUnboundDeletion(ctx context.Context, handle string) (*types.StoredResource, error) {
+	var claimed *types.StoredResource
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Unscoped().Model(&types.StoredResource{}).Where("handle = ?", handle).
+			UpdateColumn("updated_at", gorm.Expr("updated_at")).Error; err != nil {
+			return err
+		}
+		var resource types.StoredResource
+		if err := tx.Unscoped().Where("handle = ?", handle).First(&resource).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil
+			}
+			return err
+		}
+		if resource.State != types.ResourceStateDeleted {
+			var bindings []types.ResourceBinding
+			if err := tx.Where("resource_id = ?", resource.ID).Find(&bindings).Error; err != nil {
+				return err
+			}
+			for _, binding := range bindings {
+				// A deleted parent keeps its dependency binding as a durable
+				// cleanup work item until the provider deletion succeeds.
+				if binding.OwnerType != types.ResourceOwnerResource {
+					return nil
+				}
+				handle, valid := types.ParseResourcePath(binding.OwnerID)
+				if !valid {
+					return nil
+				}
+				var parent types.StoredResource
+				if err := tx.Unscoped().Where("handle = ?", handle).First(&parent).Error; err != nil {
+					return err
+				}
+				if parent.State != types.ResourceStateDeleted {
+					return nil
+				}
+			}
+			if err := tx.Model(&types.StoredResource{}).Where("id = ?", resource.ID).
+				Updates(map[string]interface{}{"state": types.ResourceStateDeleted, "deleted_at": time.Now()}).Error; err != nil {
+				return err
+			}
+		}
+		claimed = &resource
+		return nil
+	})
+	return claimed, err
+}
+
+func (r *resourceRepository) GetResourceForCleanup(ctx context.Context, handle string) (*types.StoredResource, error) {
+	var resource types.StoredResource
+	if err := r.db.WithContext(ctx).Unscoped().Where("handle = ?", handle).First(&resource).Error; err != nil {
+		return nil, err
+	}
+	return &resource, nil
+}
+
+func (r *resourceRepository) ListDeletionDependents(ctx context.Context, parent string) ([]string, error) {
+	var handles []string
+	err := r.db.WithContext(ctx).Table("resource_bindings AS b").
+		Joins("JOIN resources AS r ON r.id = b.resource_id").
+		Where("b.owner_type = ? AND b.owner_id = ?", types.ResourceOwnerResource, parent).
+		Distinct("r.handle").Pluck("r.handle", &handles).Error
+	return handles, err
+}
+
+func (r *resourceRepository) ReleaseDeletionDependent(ctx context.Context, handle, parent string) error {
+	return r.db.WithContext(ctx).Where("resource_id IN (?) AND owner_type = ? AND owner_id = ?",
+		r.db.Unscoped().Model(&types.StoredResource{}).Select("id").Where("handle = ?", handle),
+		types.ResourceOwnerResource, parent).Delete(&types.ResourceBinding{}).Error
+}
+
+// ReleaseBindingByHandle includes tombstones so a failed physical deletion can
+// be retried through the same owner-release API after its first attempt.
+func (r *resourceRepository) ReleaseBindingByHandle(ctx context.Context, handle, ownerType, ownerID string) (int64, error) {
+	var resource types.StoredResource
+	if err := r.db.WithContext(ctx).Unscoped().Where("handle = ?", handle).First(&resource).Error; err != nil {
+		return -1, err
+	}
+	if err := r.DeleteBinding(ctx, resource.ID, ownerType, ownerID); err != nil {
+		return -1, err
+	}
+	return r.CountBindings(ctx, resource.ID)
 }
 
 // DeleteBinding removes one owner's claim on a resource. Deleting a claim that

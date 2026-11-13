@@ -938,7 +938,7 @@ func TestCollectWithoutHostResolverStillRequiresPin(t *testing.T) {
 	}
 }
 
-func TestArtifactCollector_BindFailureDoesNotDropArtifact(t *testing.T) {
+func TestArtifactCollector_BindFailureKeepsNewArtifactInSandboxForRetry(t *testing.T) {
 	ctx := context.Background()
 	src := &fakeSandboxSource{
 		entries: map[string][]sandbox.RemoteDirEntry{
@@ -956,8 +956,13 @@ func TestArtifactCollector_BindFailureDoesNotDropArtifact(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Collect() error = %v", err)
 	}
-	if len(got) != 1 {
-		t.Fatalf("Collect() len = %d, want 1 (bind failure must not drop the artifact)", len(got))
+	if len(got) != 0 {
+		t.Fatalf("Collect() len = %d, want 0 (unbound artifact must not be published)", len(got))
+	}
+	cat.bindErr = nil
+	got, err = c.Collect(ctx, "sess-1", "msg-1", 7, "/workspace/output")
+	if err != nil || len(got) != 1 {
+		t.Fatalf("retry Collect() = (%v, %v), want the artifact once binding succeeds", got, err)
 	}
 }
 

@@ -52,6 +52,36 @@ type ResourceRepository interface {
 	DeleteExpiredGrants(ctx context.Context, before time.Time) error
 }
 
+// UnboundResourceRepository serializes cleanup with CreateBinding. A returned
+// resource is tombstoned before its bytes may be removed; tombstones remain
+// addressable here so a failed provider deletion can be retried safely.
+type UnboundResourceRepository interface {
+	GetResourceForCleanup(ctx context.Context, handle string) (*types.StoredResource, error)
+	ClaimUnboundDeletion(ctx context.Context, handle string) (*types.StoredResource, error)
+	ReleaseBindingByHandle(ctx context.Context, handle, ownerType, ownerID string) (int64, error)
+	ListDeletionDependents(ctx context.Context, parent string) ([]string, error)
+	ReleaseDeletionDependent(ctx context.Context, handle, parent string) error
+}
+
+// UnboundResourceCatalog authorizes physical cleanup only after atomically
+// excluding current and future bindings. An empty path means keep the object.
+type UnboundResourceCatalog interface {
+	ResolveCleanupResource(ctx context.Context, reference string) (*types.StoredResource, error)
+	ClaimUnboundDeletion(ctx context.Context, reference string) (string, error)
+	ListDeletionDependents(ctx context.Context, parent string) ([]string, error)
+	ReleaseDeletionDependent(ctx context.Context, reference, parent string) error
+}
+
+// ScopedResourceContentRepository limits deduplication to the storage instance
+// that will serve the returned reference.
+type ScopedResourceContentRepository interface {
+	GetActiveByContentHashInStorage(ctx context.Context, tenantID uint64, contentHash, backendID string) (*types.StoredResource, error)
+}
+
+type ScopedResourceContentCatalog interface {
+	ReuseByContentHashInStorage(ctx context.Context, tenantID uint64, contentHash, backendID string, global bool) (string, bool, error)
+}
+
 // ResourceRegistration describes one physical object at registration time.
 type ResourceRegistration struct {
 	StorageBackendID string
@@ -90,14 +120,13 @@ type ResourceCatalog interface {
 	ResolvePath(ctx context.Context, value string) (string, *types.StoredResource, error)
 	Bind(ctx context.Context, reference, ownerType, ownerID, relation string) error
 	// Release drops one owner's claim on a resource and reports how many
-	// claims remain. Callers use the count to decide whether the bytes may be
-	// deleted: a resource still referenced by another owner — the assistant
-	// message an answer was saved from, a second knowledge entry — must
-	// survive the owner being removed.
+	// claims remain. This count is advisory: physical deletion must recheck
+	// current owners atomically through UnboundResourceCatalog. A concurrent
+	// Bind may acquire a new claim after the count was read.
 	//
 	// remaining is -1 when the answer is unknown (the reference is not a
-	// catalog handle, or the count could not be read), which callers should
-	// treat as "delete as before" rather than as "keep forever".
+	// catalog handle, or the count could not be read). Raw provider paths keep
+	// their prior cleanup behavior; catalog failures must preserve the file.
 	Release(ctx context.Context, reference, ownerType, ownerID string) (remaining int64, err error)
 	// ListReferencesByOwner returns derived resource:// handles still claimed
 	// by any of the given owners (extracted images and markdown attachments).

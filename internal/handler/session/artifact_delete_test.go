@@ -59,6 +59,10 @@ func (f *deletingFileService) DeleteFile(_ context.Context, path string) error {
 	return nil
 }
 
+func (f *deletingFileService) DeleteUnboundFile(ctx context.Context, path string) error {
+	return f.DeleteFile(ctx, path)
+}
+
 func newArtifactDeleteRouter(h *Handler) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
