@@ -1361,13 +1361,9 @@ func (s *wikiIngestService) requeueFailedOps(ctx context.Context, payload WikiIn
 		}
 
 		// Exhausted in-batch retries — archive and remove. This is the
-		// terminal failure point for the op, so release its slot in the
-		// knowledge's finalizing counter (ingest ops only; retracts are
-		// for deleted knowledge that has no counter to drain). The
-		// matching +1 was seeded by KnowledgePostProcess.SetFinalizing.
-		if op.Op == WikiOpIngest {
-			s.finalizeWikiSubtask(ctx, op.KnowledgeID, op.Attempt)
-		}
+		// terminal failure point only after settlement succeeds. Keep the
+		// source row and its finalizing slot if archiving fails, so the next
+		// batch can retry instead of losing the failed work permanently.
 		logger.Warnf(ctx, "wiki ingest: dropping op %s (%s) after %d failures (limit %d)", op.KnowledgeID, op.DocTitle, count, wikiMaxFailRetries)
 		if s.deadLetterRepo != nil {
 			payloadBytes, _ := json.Marshal(op)
@@ -1383,11 +1379,19 @@ func (s *wikiIngestService) requeueFailedOps(ctx context.Context, payload WikiIn
 			}); dlErr != nil {
 				logger.Warnf(ctx, "wiki ingest: failed to archive op %s to dead letters: %v", op.KnowledgeID, dlErr)
 				settleErrs = append(settleErrs, fmt.Errorf("archive dead letter id=%d: %w", op.dbID, dlErr))
+				continue
 			}
 		}
 		if err := s.pendingRepo.DeleteByIDs(ctx, []int64{op.dbID}); err != nil {
 			logger.Warnf(ctx, "wiki ingest: failed to drop dead-lettered row id=%d: %v", op.dbID, err)
 			settleErrs = append(settleErrs, fmt.Errorf("drop dead-lettered row id=%d: %w", op.dbID, err))
+			continue
+		}
+		// Decrement only once the source row is gone. A failed delete leaves
+		// it retryable; draining earlier would consume another enrichment
+		// task's slot on the next attempt.
+		if op.Op == WikiOpIngest {
+			s.finalizeWikiSubtask(ctx, op.KnowledgeID, op.Attempt)
 		}
 	}
 	return errors.Join(settleErrs...)
