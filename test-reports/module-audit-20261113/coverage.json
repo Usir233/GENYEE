@@ -8363,7 +8363,7 @@
     },
     {
       "id": "internal/models/api",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/models/api/batch.go",
         "internal/models/api/compat_settings.go",
@@ -8417,9 +8417,18 @@
         "internal/models/api/usage_log_test.go"
       ],
       "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "invariants_checked": [
+        "an installed application resolver is authoritative on both success and failure",
+        "nil-resolver fallback can read only local:// paths contained in LOCAL_STORAGE_BASE_DIR, including symlink resolution",
+        "successful delegated provider/resource references preserve bytes/MIME/base64 handling",
+        "HTTP and data URI passthrough remain unchanged"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-image-boundary.json"
+      ],
+      "findings": [
+        "MODELS-IMAGE-RESOLVER-FALLTHROUGH"
+      ],
       "commits": [],
       "limitations": []
     },
@@ -12351,6 +12360,10 @@
     {
       "commit": "3606bf34f",
       "module": "knowledge clone target index tags"
+    },
+    {
+      "commit": "34d0eaf4e",
+      "module": "DOCX body-order image references"
     }
   ],
   "frontend_final_gate": {

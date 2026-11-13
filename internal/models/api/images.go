@@ -69,7 +69,8 @@ func isApplicationStoredImage(imageURL string) bool {
 // Stored local:// URLs are relative to the storage base dir and do NOT encode
 // the tenant's configured PathPrefix, so a plain env-based join would miss the
 // prefix. When nil (e.g. in tests), callers fall back to the env-based
-// LOCAL_STORAGE_BASE_DIR resolution below.
+// LOCAL_STORAGE_BASE_DIR resolution below. An installed resolver's failure is
+// authoritative; it must never be bypassed by a local filesystem fallback.
 var LocalImageResolver func(storageURL string) ([]byte, bool)
 
 // readLocalStorageBytes resolves a local:// storage path to disk bytes.
@@ -78,16 +79,28 @@ func readLocalStorageBytes(storagePath string) []byte {
 		if data, ok := LocalImageResolver(storagePath); ok {
 			return data
 		}
+		return nil
+	}
+	if !strings.HasPrefix(storagePath, "local://") {
+		return nil
 	}
 	relPath := strings.TrimPrefix(storagePath, "local://")
 	baseDir := os.Getenv("LOCAL_STORAGE_BASE_DIR")
 	if baseDir == "" {
 		baseDir = "/data/files"
 	}
-	localPath := filepath.Join(baseDir, filepath.FromSlash(relPath))
-	data, err := os.ReadFile(localPath)
+	// Confine the fallback to this directory even when the reference contains
+	// parent segments or traverses symlinks. Application provider/resource URLs
+	// can only be interpreted by the resolver above.
+	root, err := os.OpenRoot(baseDir)
 	if err != nil {
-		log.Printf("[image-resolve] failed to read local file %s: %v", localPath, err)
+		log.Printf("[image-resolve] failed to open local storage directory: %v", err)
+		return nil
+	}
+	defer root.Close()
+	data, err := root.ReadFile(filepath.FromSlash(relPath))
+	if err != nil {
+		log.Printf("[image-resolve] failed to read local file %s: %v", relPath, err)
 		return nil
 	}
 	return data
