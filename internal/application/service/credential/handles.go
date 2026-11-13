@@ -162,8 +162,14 @@ func (s *HandleStore) Resolve(
 	}
 	var password string
 	if rec.Source == sourceVault {
-		_, pw, err := s.vault.Password(ctx, Owner{TenantID: tenantID, UserID: userID}, rec.VaultItemID)
+		item, pw, err := s.vault.Password(ctx, Owner{TenantID: tenantID, UserID: userID}, rec.VaultItemID)
 		if err != nil {
+			return nil, types.ErrCredentialUnavailable
+		}
+		// Settings may revoke a destination while this handle is still live.
+		// Intersect with the original approval so later additions cannot widen it.
+		rec.Domains = types.IntersectDomains(rec.Domains, item.Domains)
+		if len(rec.Domains) == 0 {
 			return nil, types.ErrCredentialUnavailable
 		}
 		password = pw

@@ -3846,7 +3846,7 @@
     },
     {
       "id": "internal/application/attachment",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/application/attachment/images.go",
         "internal/application/attachment/reader.go"
@@ -3854,12 +3854,28 @@
       "test_files": [
         "internal/application/attachment/reader_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/application/attachment/images.go",
+        "internal/application/attachment/reader.go"
+      ],
+      "invariants_checked": [
+        "Vault ownership is authenticated web-user-only, ciphertext bound to item/user, key-required encryption, secret-free prompt response, domain intersection and revocation.",
+        "Attachment inventory precedes document reads; bounded parse wait, per-image results, scoped cache keys, singleflight and VLM slots, projection failures remain warnings.",
+        "Embed origin normalization excludes userinfo/path/query/fragment/header injection and preserves explicit wildcard port behavior.",
+        "IP classifier covers private/link-local/reserved and mapped/translated IPv4 representations; policy remains caller-owned."
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/credential-attachment-policy.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "No live vault credentials, browser filling, Redis service or external site used.",
+        "Audit covers these library units and the fill-tool boundary; broader authentication/sandbox policies are separate pending units.",
+        "No actionable issue identified in attachment reader, embedpolicy or ipclass."
+      ]
     },
     {
       "id": "internal/application/repository",
@@ -5203,7 +5219,7 @@
     },
     {
       "id": "internal/application/service/credential",
-      "status": "pending",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/application/service/credential/handles.go",
         "internal/application/service/credential/submit.go",
@@ -5216,12 +5232,42 @@
         "internal/application/service/credential/submit_test.go",
         "internal/application/service/credential/vault_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "internal/application/service/credential/handles.go",
+        "internal/application/service/credential/submit.go",
+        "internal/application/service/credential/vault.go"
+      ],
+      "invariants_checked": [
+        "Vault ownership is authenticated web-user-only, ciphertext bound to item/user, key-required encryption, secret-free prompt response, domain intersection and revocation.",
+        "Attachment inventory precedes document reads; bounded parse wait, per-image results, scoped cache keys, singleflight and VLM slots, projection failures remain warnings.",
+        "Embed origin normalization excludes userinfo/path/query/fragment/header injection and preserves explicit wildcard port behavior.",
+        "IP classifier covers private/link-local/reserved and mapped/translated IPv4 representations; policy remains caller-owned."
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/credential-attachment-policy.json"
+        }
+      ],
+      "findings": [
+        {
+          "id": "CREDENTIAL-001",
+          "severity": "P1",
+          "title": "Live saved-credential handles retain revoked destination domains",
+          "scenario": "A user narrows a vault login domain list while an issued 15-minute handle remains alive. Resolve reloads its current password but returns the old domain list, which browser_fill_secret passes directly to the secure browser. It can fill the password into a destination removed in settings.",
+          "fix": "Intersect the original approved domains with the current vault domains at resolution; refuse an empty intersection. Adding domains in settings cannot widen an already issued handle.",
+          "reproduction": "Real SQLite vault and encrypted miniredis handle: remove old.example.com and add new.example.com; original Resolve still returns old.example.com. Fixed Resolve returns only the still-approved example.com.",
+          "files": [
+            "internal/application/service/credential/handles.go",
+            "internal/application/service/credential/handle_domain_revocation_test.go"
+          ]
+        }
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "No live vault credentials, browser filling, Redis service or external site used.",
+        "Audit covers these library units and the fill-tool boundary; broader authentication/sandbox policies are separate pending units.",
+        "No actionable issue identified in attachment reader, embedpolicy or ipclass."
+      ]
     },
     {
       "id": "internal/application/service/file",
@@ -6111,19 +6157,34 @@
     },
     {
       "id": "internal/embedpolicy",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/embedpolicy/origin.go"
       ],
       "test_files": [
         "internal/embedpolicy/origin_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/embedpolicy/origin.go"
+      ],
+      "invariants_checked": [
+        "Vault ownership is authenticated web-user-only, ciphertext bound to item/user, key-required encryption, secret-free prompt response, domain intersection and revocation.",
+        "Attachment inventory precedes document reads; bounded parse wait, per-image results, scoped cache keys, singleflight and VLM slots, projection failures remain warnings.",
+        "Embed origin normalization excludes userinfo/path/query/fragment/header injection and preserves explicit wildcard port behavior.",
+        "IP classifier covers private/link-local/reserved and mapped/translated IPv4 representations; policy remains caller-owned."
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/credential-attachment-policy.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "No live vault credentials, browser filling, Redis service or external site used.",
+        "Audit covers these library units and the fill-tool boundary; broader authentication/sandbox policies are separate pending units.",
+        "No actionable issue identified in attachment reader, embedpolicy or ipclass."
+      ]
     },
     {
       "id": "internal/envfile",
@@ -7167,19 +7228,34 @@
     },
     {
       "id": "internal/ipclass",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/ipclass/ipclass.go"
       ],
       "test_files": [
         "internal/ipclass/ipclass_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/ipclass/ipclass.go"
+      ],
+      "invariants_checked": [
+        "Vault ownership is authenticated web-user-only, ciphertext bound to item/user, key-required encryption, secret-free prompt response, domain intersection and revocation.",
+        "Attachment inventory precedes document reads; bounded parse wait, per-image results, scoped cache keys, singleflight and VLM slots, projection failures remain warnings.",
+        "Embed origin normalization excludes userinfo/path/query/fragment/header injection and preserves explicit wildcard port behavior.",
+        "IP classifier covers private/link-local/reserved and mapped/translated IPv4 representations; policy remains caller-owned."
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/credential-attachment-policy.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "No live vault credentials, browser filling, Redis service or external site used.",
+        "Audit covers these library units and the fill-tool boundary; broader authentication/sandbox policies are separate pending units.",
+        "No actionable issue identified in attachment reader, embedpolicy or ipclass."
+      ]
     },
     {
       "id": "internal/localsandbox/adapter",
@@ -11333,6 +11409,10 @@
     {
       "commit": "22a94386b",
       "module": "storage URL stream fragmentation"
+    },
+    {
+      "commit": "115c96d1c",
+      "module": "automation deletion/grant/conversation lifecycle"
     }
   ],
   "frontend_final_gate": {
