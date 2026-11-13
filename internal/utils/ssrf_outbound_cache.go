@@ -17,11 +17,25 @@ import (
 const outboundSSRFValidationTTL = 60 * time.Second
 
 var (
-	ssrfOutboundCacheGen       atomic.Uint64
-	ssrfOutboundCache          sync.Map // string -> *ssrfOutboundCacheEntry
-	ssrfOutboundValidateGroup  singleflight.Group
+	ssrfOutboundCacheState     atomic.Pointer[outboundSSRFValidationState]
 	ssrfOutboundValidateMisses atomic.Uint64 // test-only counter
 )
+
+// Requests retain one state for their entire lookup. Reloading the whitelist
+// replaces the state without resetting a mutex another goroutine is using;
+// late results stay in the retired state and cannot populate the new cache.
+type outboundSSRFValidationState struct {
+	entries sync.Map // string -> *ssrfOutboundCacheEntry
+	group   singleflight.Group
+}
+
+func currentOutboundSSRFState() *outboundSSRFValidationState {
+	if state := ssrfOutboundCacheState.Load(); state != nil {
+		return state
+	}
+	ssrfOutboundCacheState.CompareAndSwap(nil, &outboundSSRFValidationState{})
+	return ssrfOutboundCacheState.Load()
+}
 
 type ssrfOutboundCacheEntry struct {
 	err       error
@@ -42,17 +56,18 @@ func validateURLForSSRFForOutbound(rawURL string) error {
 		return ValidateURLForSSRF(rawURL)
 	}
 
+	state := currentOutboundSSRFState()
 	now := time.Now()
-	if cached, ok := ssrfOutboundCache.Load(cacheKey); ok {
+	if cached, ok := state.entries.Load(cacheKey); ok {
 		entry := cached.(*ssrfOutboundCacheEntry)
 		if now.Before(entry.expiresAt) {
 			return entry.err
 		}
-		ssrfOutboundCache.Delete(cacheKey)
+		state.entries.CompareAndDelete(cacheKey, entry)
 	}
 
-	result, err, _ := ssrfOutboundValidateGroup.Do(cacheKey, func() (any, error) {
-		if cached, ok := ssrfOutboundCache.Load(cacheKey); ok {
+	result, err, _ := state.group.Do(cacheKey, func() (any, error) {
+		if cached, ok := state.entries.Load(cacheKey); ok {
 			entry := cached.(*ssrfOutboundCacheEntry)
 			if time.Now().Before(entry.expiresAt) {
 				return entry.err, entry.err
@@ -61,7 +76,7 @@ func validateURLForSSRFForOutbound(rawURL string) error {
 
 		ssrfOutboundValidateMisses.Add(1)
 		validationErr := ValidateURLForSSRF(rawURL)
-		ssrfOutboundCache.Store(cacheKey, &ssrfOutboundCacheEntry{
+		state.entries.Store(cacheKey, &ssrfOutboundCacheEntry{
 			err:       validationErr,
 			expiresAt: time.Now().Add(outboundSSRFValidationTTL),
 		})
@@ -112,13 +127,11 @@ func outboundSSRFCacheKey(rawURL string) (string, bool) {
 		origin = fmt.Sprintf("%s://%s:%s", scheme, host, port)
 	}
 
-	return fmt.Sprintf("%d|%s", ssrfOutboundCacheGen.Load(), origin), true
+	return origin, true
 }
 
 func invalidateSSRFOutboundValidationCache() {
-	ssrfOutboundCacheGen.Add(1)
-	ssrfOutboundCache = sync.Map{}
-	ssrfOutboundValidateGroup = singleflight.Group{}
+	ssrfOutboundCacheState.Store(&outboundSSRFValidationState{})
 }
 
 // ResetSSRFOutboundValidationCacheForTest clears the outbound validation cache.

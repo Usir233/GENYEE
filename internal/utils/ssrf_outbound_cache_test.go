@@ -56,13 +56,14 @@ func TestOutboundSSRFValidationCacheExpires(t *testing.T) {
 	if !ok {
 		t.Fatal("expected cache key")
 	}
-	raw, ok := ssrfOutboundCache.Load(cacheKey)
+	state := currentOutboundSSRFState()
+	raw, ok := state.entries.Load(cacheKey)
 	if !ok {
 		t.Fatal("expected cached entry")
 	}
 	entry := raw.(*ssrfOutboundCacheEntry)
 	entry.expiresAt = time.Now().Add(-time.Second)
-	ssrfOutboundCache.Store(cacheKey, entry)
+	state.entries.Store(cacheKey, entry)
 
 	if err := validateURLForSSRFForOutbound("https://cache-test.example.com/b"); err != nil {
 		t.Fatalf("validation after expiry failed: %v", err)
