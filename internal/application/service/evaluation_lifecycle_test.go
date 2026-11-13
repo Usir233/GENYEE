@@ -24,6 +24,20 @@ func (d *evaluationTestDataset) GetDatasetByID(context.Context, string) ([]*type
 	return d.pairs, nil
 }
 
+func (d *evaluationTestDataset) LoadDataset(context.Context, string) (*types.EvaluationDataset, error) {
+	corpus := dataset{corpus: make(map[int64]string)}
+	for _, pair := range d.pairs {
+		if pair != nil {
+			for i, pid := range pair.PIDs {
+				if i < len(pair.Passages) {
+					corpus.corpus[int64(pid)] = pair.Passages[i]
+				}
+			}
+		}
+	}
+	return &types.EvaluationDataset{QAPairs: d.pairs, CorpusPassages: corpus.Passages()}, nil
+}
+
 type evaluationTestKBs struct {
 	interfaces.KnowledgeBaseService
 	deleted    []string
@@ -53,13 +67,65 @@ func (*evaluationTestKnowledgeRepo) GetKnowledgeBatch(context.Context, uint64, [
 
 type evaluationTestKnowledge struct {
 	interfaces.KnowledgeService
-	created bool
-	deleted bool
+	created  bool
+	deleted  bool
+	passages []string
 }
 
-func (k *evaluationTestKnowledge) CreateKnowledgeFromPassageSync(context.Context, string, []string, string) (*types.Knowledge, error) {
+func (k *evaluationTestKnowledge) CreateKnowledgeFromPassageSync(_ context.Context, _ string, passages []string, _ string) (*types.Knowledge, error) {
 	k.created = true
+	k.passages = append([]string(nil), passages...)
 	return &types.Knowledge{ID: "knowledge"}, nil
+}
+
+func TestEvaluationIndexesUnreferencedCorpusPassages(t *testing.T) {
+	fixture := validEvaluationDatasetFixture()
+	fixture.corpus = append(fixture.corpus, TextInfo{ID: 1 << 40, Text: "unrelated distractor"})
+	writeEvaluationDatasetFixture(t, fixture)
+	e, detail, _, knowledge := newEvaluationLifecycleTest(t, "question")
+	e.dataset = NewDatasetService()
+	e.sessionService = &evaluationTestSessions{qa: func(_ context.Context, chat *types.ChatManage) error {
+		chat.SearchResult = []*types.SearchResult{{Content: "unrelated distractor"}, {Content: "passage"}}
+		return nil
+	}}
+	detail.Task.DatasetID = "default"
+	e.runEvaluation(evaluationTestContext(), detail, "temporary")
+	result, err := e.evaluationMemoryStorage.get(detail.Task.ID)
+	require.NoError(t, err)
+	require.Equal(t, types.EvaluationStatueSuccess, result.Task.Status)
+	require.Equal(t, []string{"passage", "unrelated distractor"}, knowledge.passages,
+		"indexing only qrels passages silently removes distractors from evaluation")
+	require.InDelta(t, .5, result.Metric.RetrievalMetrics.Precision, 1e-9)
+	require.InDelta(t, .5, result.Metric.RetrievalMetrics.MRR, 1e-9)
+}
+
+func TestEvaluationInvalidDatasetFailsBeforeIndexing(t *testing.T) {
+	fixture := validEvaluationDatasetFixture()
+	fixture.qrels[0].PID = 9
+	writeEvaluationDatasetFixture(t, fixture)
+	e, detail, kbs, knowledge := newEvaluationLifecycleTest(t, "question")
+	e.dataset = NewDatasetService()
+	detail.Task.DatasetID = "default"
+	e.runEvaluation(evaluationTestContext(), detail, "temporary")
+	result, err := e.evaluationMemoryStorage.get(detail.Task.ID)
+	require.NoError(t, err)
+	require.Equal(t, types.EvaluationStatueFailed, result.Task.Status)
+	require.Contains(t, result.Task.ErrMsg, "passage 9")
+	require.False(t, knowledge.created)
+	require.Equal(t, []string{"temporary"}, kbs.deleted)
+}
+
+func TestEvaluationResultRemainsTenantScoped(t *testing.T) {
+	e, detail, _, _ := newEvaluationLifecycleTest(t, "question")
+	_, err := e.EvaluationResult(types.WithExecutionTenant(context.Background(), 2), detail.Task.ID)
+	require.ErrorContains(t, err, "tenant ID does not match")
+	result, err := e.EvaluationResult(evaluationTestContext(), detail.Task.ID)
+	require.NoError(t, err)
+	require.Equal(t, detail.Task.ID, result.Task.ID)
+	result.Task.Status = types.EvaluationStatueFailed
+	again, err := e.EvaluationResult(evaluationTestContext(), detail.Task.ID)
+	require.NoError(t, err)
+	require.Equal(t, types.EvaluationStatuePending, again.Task.Status)
 }
 
 func (*evaluationTestKnowledge) GetRepository() interfaces.KnowledgeRepository {
@@ -248,11 +314,14 @@ func TestEvaluationSetupFailureCleansTemporaryKB(t *testing.T) {
 }
 
 func TestEvaluationPassagesUseSparseIDsWithoutLargeAllocation(t *testing.T) {
-	got, err := getPassageList([]*types.QAPair{{PIDs: []int{1 << 30, 7}, Passages: []string{"last", "first"}}})
-	require.NoError(t, err)
-	require.Equal(t, []string{"first", "last"}, got)
-	_, err = getPassageList([]*types.QAPair{nil})
-	require.Error(t, err)
-	_, err = getPassageList([]*types.QAPair{{PIDs: []int{1}}})
-	require.Error(t, err)
+	ds := dataset{corpus: map[int64]string{1 << 60: "last", 7: "first"}}
+	require.Equal(t, []string{"first", "last"}, ds.Passages())
+	for _, pair := range []*types.QAPair{nil, {PIDs: []int{1}}} {
+		e, detail, kbs, knowledge := newEvaluationLifecycleTest(t, "one")
+		e.dataset = &evaluationTestDataset{pairs: []*types.QAPair{pair}}
+		err := e.EvalDataset(evaluationTestContext(), detail, "temporary")
+		require.ErrorContains(t, err, "invalid passages")
+		require.False(t, knowledge.created)
+		require.Equal(t, []string{"temporary"}, kbs.deleted)
+	}
 }

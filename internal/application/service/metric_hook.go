@@ -133,9 +133,10 @@ func (h *HookMetric) recordChatResponse(index int, chatResponse *types.ChatRespo
 
 // recordFinish finalizes metrics for a QA pair
 func (h *HookMetric) recordFinish(index int) {
-	// Prepare retrieval source: prefer rerank results, fall back to search results
+	// A nil rerank result means reranking was skipped or unavailable. An
+	// explicitly empty result means reranking rejected every candidate.
 	retrievalSource := h.qaPairMetricList[index].rerankResult
-	if len(retrievalSource) == 0 {
+	if retrievalSource == nil {
 		retrievalSource = h.qaPairMetricList[index].searchResult
 	}
 
@@ -145,22 +146,28 @@ func (h *HookMetric) recordFinish(index int) {
 	// retrieved chunk's content against the ground truth passages to determine
 	// which passage it came from.
 	qaPair := h.qaPairMetricList[index].qaPair
-	retrievalIDs := make([]int, 0, len(retrievalSource))
-	seen := make(map[int]struct{})
-	for _, r := range retrievalSource {
-		if r.Content == "" {
+	// Use local positive identities so zero is always a miss, even when the
+	// dataset uses zero, negative or maximum-sized passage IDs. Repeated hits
+	// keep their rank slots; the metric calculators award each passage once.
+	passageIDs := make(map[int]int, len(qaPair.PIDs))
+	groundTruth := make([]int, 0, len(qaPair.PIDs))
+	for _, pid := range qaPair.PIDs {
+		if _, exists := passageIDs[pid]; !exists {
+			passageIDs[pid] = len(passageIDs) + 1
+			groundTruth = append(groundTruth, passageIDs[pid])
+		}
+	}
+	retrievalIDs := make([]int, len(retrievalSource))
+	for rank, r := range retrievalSource {
+		if r == nil || r.Content == "" {
 			continue
 		}
 		for i, passage := range qaPair.Passages {
-			if passage == "" {
+			if i >= len(qaPair.PIDs) || passage == "" {
 				continue
 			}
 			if strings.Contains(passage, r.Content) || strings.Contains(r.Content, passage) {
-				pid := qaPair.PIDs[i]
-				if _, ok := seen[pid]; !ok {
-					seen[pid] = struct{}{}
-					retrievalIDs = append(retrievalIDs, pid)
-				}
+				retrievalIDs[rank] = passageIDs[qaPair.PIDs[i]]
 				break
 			}
 		}
@@ -174,7 +181,7 @@ func (h *HookMetric) recordFinish(index int) {
 
 	// Prepare metric input data
 	metricInput := &types.MetricInput{
-		RetrievalGT:    [][]int{qaPair.PIDs},
+		RetrievalGT:    [][]int{groundTruth},
 		RetrievalIDs:   retrievalIDs,
 		GeneratedTexts: generatedTexts,
 		GeneratedGT:    qaPair.Answer,

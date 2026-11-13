@@ -6,54 +6,80 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 )
 
-// EvaluationTask represents an evaluation task
-// Contains basic information about a model evaluation task
+// EvaluationStatus matches the numeric task status returned by the server.
+type EvaluationStatus int
+
+const (
+	EvaluationStatusPending EvaluationStatus = iota
+	EvaluationStatusRunning
+	EvaluationStatusSuccess
+	EvaluationStatusFailed
+)
+
+// EvaluationTask contains the persisted task state and completed item count.
 type EvaluationTask struct {
-	ID          string `json:"id"`           // Task unique identifier
-	Status      string `json:"status"`       // Task status: pending, running, completed, failed
-	Progress    int    `json:"progress"`     // Task progress, integer value 0-100
-	DatasetID   string `json:"dataset_id"`   // Evaluation dataset ID
-	EmbeddingID string `json:"embedding_id"` // Embedding model ID
-	ChatID      string `json:"chat_id"`      // Chat model ID
-	RerankID    string `json:"rerank_id"`    // Reranking model ID
-	CreatedAt   string `json:"created_at"`   // Task creation time
-	CompleteAt  string `json:"complete_at"`  // Task completion time
-	ErrorMsg    string `json:"error_msg"`    // Error message, has value when task fails
+	ID        string           `json:"id"`
+	TenantID  uint64           `json:"tenant_id"`
+	DatasetID string           `json:"dataset_id"`
+	StartTime time.Time        `json:"start_time"`
+	Status    EvaluationStatus `json:"status"`
+	ErrorMsg  string           `json:"err_msg,omitempty"`
+	Total     int              `json:"total,omitempty"`
+	Finished  int              `json:"finished,omitempty"`
 }
 
-// EvaluationResult represents the evaluation results
-// Contains detailed evaluation result information
+// EvaluationResult is the detail returned by both evaluation endpoints.
+// Metric is absent until the first QA pair finishes. Params contains the
+// server's pipeline configuration and is kept as JSON fields as it evolves.
 type EvaluationResult struct {
-	TaskID       string                   `json:"task_id"`       // Associated task ID
-	Status       string                   `json:"status"`        // Task status
-	Progress     int                      `json:"progress"`      // Task progress
-	TotalQueries int                      `json:"total_queries"` // Total number of queries
-	TotalSamples int                      `json:"total_samples"` // Total number of samples
-	Metrics      map[string]float64       `json:"metrics"`       // Evaluation metrics collection
-	QueriesStat  []map[string]interface{} `json:"queries_stat"`  // Statistics for each query
-	CreatedAt    string                   `json:"created_at"`    // Creation time
-	CompleteAt   string                   `json:"complete_at"`   // Completion time
-	ErrorMsg     string                   `json:"error_msg"`     // Error message
+	Task   *EvaluationTask         `json:"task"`
+	Params map[string]interface{}  `json:"params"`
+	Metric *EvaluationMetricResult `json:"metric,omitempty"`
+}
+
+type EvaluationMetricResult struct {
+	RetrievalMetrics  EvaluationRetrievalMetrics  `json:"retrieval_metrics"`
+	GenerationMetrics EvaluationGenerationMetrics `json:"generation_metrics"`
+}
+
+type EvaluationRetrievalMetrics struct {
+	Precision float64 `json:"precision"`
+	Recall    float64 `json:"recall"`
+	NDCG3     float64 `json:"ndcg3"`
+	NDCG10    float64 `json:"ndcg10"`
+	MRR       float64 `json:"mrr"`
+	MAP       float64 `json:"map"`
+}
+
+type EvaluationGenerationMetrics struct {
+	BLEU1  float64 `json:"bleu1"`
+	BLEU2  float64 `json:"bleu2"`
+	BLEU4  float64 `json:"bleu4"`
+	ROUGE1 float64 `json:"rouge1"`
+	ROUGE2 float64 `json:"rouge2"`
+	ROUGEL float64 `json:"rougel"`
 }
 
 // EvaluationRequest represents an evaluation request
 // Parameters used to start a new evaluation task
 type EvaluationRequest struct {
-	DatasetID        string `json:"dataset_id"`   // Dataset ID to evaluate
-	EmbeddingModelID string `json:"embedding_id"` // Embedding model ID
-	ChatModelID      string `json:"chat_id"`      // Chat model ID
-	RerankModelID    string `json:"rerank_id"`    // Reranking model ID
+	DatasetID       string `json:"dataset_id"`        // Dataset ID to evaluate
+	KnowledgeBaseID string `json:"knowledge_base_id"` // Source knowledge base for embedding and summary settings
+	ChatModelID     string `json:"chat_id"`           // Chat model ID
+	RerankModelID   string `json:"rerank_id"`         // Reranking model ID
 }
 
 // EvaluationTaskResponse represents an evaluation task response
 // API response structure for evaluation tasks
 type EvaluationTaskResponse struct {
-	Success bool           `json:"success"` // Whether operation was successful
-	Data    EvaluationTask `json:"data"`    // Evaluation task data
+	Success bool             `json:"success"` // Whether operation was successful
+	Data    EvaluationResult `json:"data"`    // Evaluation task detail
 }
 
 // EvaluationResultResponse represents an evaluation result response
@@ -83,7 +109,10 @@ func (c *Client) StartEvaluation(ctx context.Context, request *EvaluationRequest
 		return nil, err
 	}
 
-	return &response.Data, nil
+	if response.Data.Task == nil || response.Data.Task.ID == "" {
+		return nil, fmt.Errorf("evaluation response missing task ID")
+	}
+	return response.Data.Task, nil
 }
 
 // GetEvaluationResult retrieves evaluation results
@@ -107,6 +136,9 @@ func (c *Client) GetEvaluationResult(ctx context.Context, taskID string) (*Evalu
 	var response EvaluationResultResponse
 	if err := parseResponse(resp, &response); err != nil {
 		return nil, err
+	}
+	if response.Data.Task == nil || response.Data.Task.ID == "" {
+		return nil, fmt.Errorf("evaluation response missing task ID")
 	}
 
 	return &response.Data, nil

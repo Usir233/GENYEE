@@ -9,3 +9,10 @@ type QAPair struct {
 	AID      int      // Answer ID
 	Answer   string   // Answer text
 }
+
+// EvaluationDataset keeps the indexed corpus separate from each query's
+// relevant passages, so unreferenced documents remain retrieval candidates.
+type EvaluationDataset struct {
+	QAPairs        []*QAPair
+	CorpusPassages []string
+}

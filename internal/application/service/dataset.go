@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+	"slices"
 
 	"path/filepath"
 	"strings"
@@ -43,6 +45,15 @@ type QaInfo struct {
 
 // GetDatasetByID retrieves QA pairs from dataset by ID
 func (d *DatasetService) GetDatasetByID(ctx context.Context, datasetID string) ([]*types.QAPair, error) {
+	ds, err := d.LoadDataset(ctx, datasetID)
+	if err != nil {
+		return nil, err
+	}
+	return ds.QAPairs, nil
+}
+
+// LoadDataset loads each file once and preserves the entire retrieval corpus.
+func (d *DatasetService) LoadDataset(ctx context.Context, datasetID string) (*types.EvaluationDataset, error) {
 	logger.Info(ctx, "Start getting dataset by ID")
 	logger.Infof(ctx, "Getting dataset with ID: %s", datasetID)
 
@@ -54,7 +65,7 @@ func (d *DatasetService) GetDatasetByID(ctx context.Context, datasetID string) (
 	qaPairs := ds.Iterate()
 
 	logger.Infof(ctx, "Retrieved %d QA pairs from dataset", len(qaPairs))
-	return qaPairs, nil
+	return &types.EvaluationDataset{QAPairs: qaPairs, CorpusPassages: ds.Passages()}, nil
 }
 
 // DefaultDataset loads and initializes the default dataset from parquet files
@@ -131,19 +142,44 @@ func loadDatasetByID(datasetID string) (dataset, error) {
 		qrels:   make(map[int64][]int64), // qid -> list of pid
 		qas:     make(map[int64]int64),   // qid -> aid
 	}
-	for _, qi := range queries {
-		res.queries[qi.ID] = qi.Text
-	}
-	for _, ci := range corpus {
-		res.corpus[ci.ID] = ci.Text
-	}
-	for _, ai := range answers {
-		res.answers[ai.ID] = ai.Text
+	for _, table := range []struct {
+		name  string
+		rows  []TextInfo
+		index map[int64]string
+	}{
+		{"queries", queries, res.queries},
+		{"corpus", corpus, res.corpus},
+		{"answers", answers, res.answers},
+	} {
+		for _, row := range table.rows {
+			if _, exists := table.index[row.ID]; exists {
+				return dataset{}, fmt.Errorf("duplicate %s ID %d", table.name, row.ID)
+			}
+			if strings.TrimSpace(row.Text) == "" {
+				return dataset{}, fmt.Errorf("empty %s text for ID %d", table.name, row.ID)
+			}
+			table.index[row.ID] = row.Text
+		}
 	}
 	for _, ri := range qrels {
+		if _, exists := res.queries[ri.QID]; !exists {
+			return dataset{}, fmt.Errorf("qrels references unknown query %d", ri.QID)
+		}
+		if _, exists := res.corpus[ri.PID]; !exists {
+			return dataset{}, fmt.Errorf("qrels references unknown passage %d", ri.PID)
+		}
 		res.qrels[ri.QID] = append(res.qrels[ri.QID], ri.PID)
 	}
 	for _, qi := range qas {
+		if _, exists := res.queries[qi.QID]; !exists {
+			return dataset{}, fmt.Errorf("qas references unknown query %d", qi.QID)
+		}
+		if _, exists := res.answers[qi.AID]; !exists {
+			return dataset{}, fmt.Errorf("qas references unknown answer %d", qi.AID)
+		}
+		if previous, exists := res.qas[qi.QID]; exists && previous != qi.AID {
+			return dataset{}, fmt.Errorf("multiple answers for query %d", qi.QID)
+		}
 		res.qas[qi.QID] = qi.AID
 	}
 	return res, nil
@@ -156,6 +192,21 @@ type dataset struct {
 	answers map[int64]string  // aid -> answer text
 	qrels   map[int64][]int64 // qid -> list of related pids
 	qas     map[int64]int64   // qid -> aid
+}
+
+// Passages returns all corpus rows in stable ID order. IDs are not array
+// offsets: negative, sparse and large IDs do not increase allocation size.
+func (d *dataset) Passages() []string {
+	ids := make([]int64, 0, len(d.corpus))
+	for id := range d.corpus {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	passages := make([]string, 0, len(ids))
+	for _, id := range ids {
+		passages = append(passages, d.corpus[id])
+	}
+	return passages
 }
 
 // Iterate generates QA pairs from the dataset
@@ -291,9 +342,56 @@ func (d *dataset) PrintRandomQA() error {
 
 // loadParquet loads data from parquet file into specified type
 func loadParquet[T any](filePath string) ([]T, error) {
-	rows, err := parquet.ReadFile[T](filePath)
+	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
-	return rows, nil
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	file, err := parquet.OpenFile(f, info.Size())
+	if err != nil {
+		return nil, err
+	}
+	// Parquet schema projection fills absent columns with zero values. IDs
+	// legitimately include zero, so missing columns must be rejected before
+	// projection can manufacture relationships to a different record.
+	expectedSchema := parquet.SchemaOf(new(T))
+	requiredColumns := make(map[int]string)
+	for _, column := range expectedSchema.Columns() {
+		actual, exists := file.Schema().Lookup(column...)
+		if !exists {
+			return nil, fmt.Errorf("missing column %s", strings.Join(column, "."))
+		}
+		expected, _ := expectedSchema.Lookup(column...)
+		if actual.Node.Type().Kind() != expected.Node.Type().Kind() || actual.MaxRepetitionLevel != 0 {
+			return nil, fmt.Errorf("invalid type for column %s", strings.Join(column, "."))
+		}
+		requiredColumns[actual.ColumnIndex] = strings.Join(column, ".")
+	}
+	// Optional Parquet columns (including pandas output) are supported, but
+	// null IDs must not be projected to valid zero IDs either. Scan in bounded
+	// batches before projecting into non-nullable Go fields.
+	reader := parquet.NewReader(file)
+	defer reader.Close()
+	rows := make([]parquet.Row, 64)
+	for {
+		n, err := reader.ReadRows(rows)
+		for _, row := range rows[:n] {
+			for _, value := range row {
+				if name, required := requiredColumns[value.Column()]; required && value.IsNull() {
+					return nil, fmt.Errorf("null column %s", name)
+				}
+			}
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	return parquet.Read[T](file, info.Size())
 }

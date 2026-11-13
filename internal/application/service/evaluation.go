@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -455,14 +454,20 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 	}
 
 	// Retrieve dataset from storage
-	dataset, err := e.dataset.GetDatasetByID(ctx, detail.Task.DatasetID)
+	loaded, err := e.dataset.LoadDataset(ctx, detail.Task.DatasetID)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to get dataset: %v", err)
 		return err
 	}
-	logger.Infof(ctx, "Dataset retrieved successfully with %d QA pairs", len(dataset))
-	if len(dataset) == 0 {
+	if loaded == nil || len(loaded.QAPairs) == 0 {
 		return errors.New("evaluation dataset contains no QA pairs")
+	}
+	dataset := loaded.QAPairs
+	logger.Infof(ctx, "Dataset retrieved successfully with %d QA pairs", len(dataset))
+	for i, pair := range dataset {
+		if pair == nil || len(pair.PIDs) != len(pair.Passages) {
+			return fmt.Errorf("invalid passages in QA pair %d", i)
+		}
 	}
 
 	// Update total QA pairs count in task details
@@ -471,11 +476,9 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 		logger.Infof(ctx, "Updated task total to %d QA pairs", params.Task.Total)
 	})
 
-	// Extract and organize passages from dataset
-	passages, err := getPassageList(dataset)
-	if err != nil {
-		return err
-	}
+	// Include distractors with no qrels; indexing only relevant passages
+	// would make the evaluated retrieval task easier than the supplied corpus.
+	passages := loaded.CorpusPassages
 	logger.Infof(ctx, "Creating knowledge from %d passages", len(passages))
 
 	// Create knowledge base from passages (sync: wait for indexing to complete before querying)
@@ -578,29 +581,4 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 
 	logger.Infof(ctx, "Dataset evaluation completed successfully, task ID: %s", detail.Task.ID)
 	return nil
-}
-
-// getPassageList extracts and organizes passages from QA pairs
-// Passage IDs are identifiers, not array offsets. Custom datasets can use
-// sparse or large IDs; metrics associate retrieval results by content.
-func getPassageList(dataset []*types.QAPair) ([]string, error) {
-	pIDMap := make(map[int]string)
-	for i, qaPair := range dataset {
-		if qaPair == nil || len(qaPair.PIDs) != len(qaPair.Passages) {
-			return nil, fmt.Errorf("invalid passages in QA pair %d", i)
-		}
-		for i := 0; i < len(qaPair.PIDs); i++ {
-			pIDMap[qaPair.PIDs[i]] = qaPair.Passages[i]
-		}
-	}
-	ids := make([]int, 0, len(pIDMap))
-	for id := range pIDMap {
-		ids = append(ids, id)
-	}
-	slices.Sort(ids)
-	passages := make([]string, 0, len(ids))
-	for _, id := range ids {
-		passages = append(passages, pIDMap[id])
-	}
-	return passages, nil
 }

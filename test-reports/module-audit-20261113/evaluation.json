@@ -1,0 +1,211 @@
+{
+  "module": "evaluation_dataset_metrics",
+  "status": "complete_module_tests_passed_root_full_gate_pending",
+  "baseline_head": "c5c689792",
+  "branch": "codex/genyee-residue-remediation",
+  "instructions_read": [
+    "BRANCH_GUIDE.md",
+    "WEKNORA_RESIDUE_REMEDIATION.md"
+  ],
+  "constraints": {
+    "local_only": true,
+    "committed_by_agent": false,
+    "deployment_mutated": false,
+    "remote_push": false,
+    "d1_and_licenses_preserved": true
+  },
+  "owned_paths": [
+    "client/evaluation.go",
+    "client/evaluation_test.go",
+    "internal/application/service/dataset.go",
+    "internal/application/service/dataset_validation_test.go",
+    "internal/application/service/evaluation.go",
+    "internal/application/service/evaluation_lifecycle_test.go",
+    "internal/application/service/metric_hook.go",
+    "internal/application/service/metric_hook_test.go",
+    "internal/types/dataset.go",
+    "internal/types/interfaces/evaluation.go"
+  ],
+  "paths_inspected": [
+    "client/client.go",
+    "client/evaluation.go",
+    "client/evaluation_test.go",
+    "client/session_test.go",
+    "dataset/README",
+    "dataset/README_zh.md",
+    "dataset/qa_dataset.py",
+    "dataset/tests/test_dataset_integrity.py",
+    "dataset/tests/test_qa_dataset_default_model.py",
+    "dataset/tests/test_qa_dataset_model.py",
+    "frontend/src/api/tenant/index.ts",
+    "frontend/src/views/integrations/ApiIntegrationSettings.vue",
+    "internal/application/service/chat_pipeline/filter_top_k.go",
+    "internal/application/service/chat_pipeline/rerank.go",
+    "internal/application/service/dataset.go",
+    "internal/application/service/dataset_test.go",
+    "internal/application/service/dataset_validation_test.go",
+    "internal/application/service/evaluation.go",
+    "internal/application/service/evaluation_lifecycle_test.go",
+    "internal/application/service/metric/bleu.go",
+    "internal/application/service/metric/bleu_test.go",
+    "internal/application/service/metric/common.go",
+    "internal/application/service/metric/common_test.go",
+    "internal/application/service/metric/map.go",
+    "internal/application/service/metric/map_test.go",
+    "internal/application/service/metric/mrr.go",
+    "internal/application/service/metric/mrr_test.go",
+    "internal/application/service/metric/ndcg.go",
+    "internal/application/service/metric/ndcg_test.go",
+    "internal/application/service/metric/precision.go",
+    "internal/application/service/metric/precision_test.go",
+    "internal/application/service/metric/recall.go",
+    "internal/application/service/metric/recall_test.go",
+    "internal/application/service/metric/retrieval_duplicates_test.go",
+    "internal/application/service/metric/rouge.go",
+    "internal/application/service/metric/rouge_score.go",
+    "internal/application/service/metric_hook.go",
+    "internal/application/service/metric_hook_test.go",
+    "internal/application/service/session_knowledge_qa.go",
+    "internal/handler/evaluation.go",
+    "internal/reranking/rerank.go",
+    "internal/router/rbac.go",
+    "internal/router/routes_infra.go",
+    "internal/types/dataset.go",
+    "internal/types/evaluation.go",
+    "internal/types/interfaces/evaluation.go",
+    "internal/types/rerank.go",
+    "website-docs/03-features/15-evaluation.md",
+    "website-docs/05-clients/03-go-sdk.md",
+    "internal/types/chat_manage.go"
+  ],
+  "findings": [
+    {
+      "id": "EVAL-001",
+      "severity": "P2",
+      "title": "Metric hook removes negatives and duplicate hits, inflating precision and ranking scores",
+      "provenance": {
+        "initial_reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-other-audit-7gengit2/audit_test.go::TestAuditEvaluationKeepsIrrelevantRetrievalRanks",
+        "durable_reproducer": "internal/application/service/metric_hook_test.go::TestHookMetricPreservesRetrievalRanks",
+        "pre_fix_log": ".git/module-audit-20261113/evaluation-ranks-before.log",
+        "pre_fix_exit_code": 1
+      },
+      "observed": "For [irrelevant, relevant], all six reported retrieval scores were 1. Expected precision/MRR/MAP=.5 and NDCG=1/log2(3). Duplicate relevant hits were removed, shifting later ranks. Nil hits and extra passages without corresponding PIDs panicked.",
+      "fix": "Map arbitrary original PIDs to compact positive identities; reserve zero for misses. Allocate one predicted ID per ranked slot, including nil/empty/unmatched and duplicate hits. Retain existing calculator duplicate handling. Guard mismatched passage indexing.",
+      "tests": "13 hand-derived hook table cases cover negatives, duplicate hits/GT, zero/negative/max IDs, nil/empty hits and lists, mismatched arrays, rerank precedence and absent GT."
+    },
+    {
+      "id": "EVAL-002",
+      "severity": "P2",
+      "title": "Empty successful rerank reused the rejected search candidates",
+      "provenance": {
+        "durable_reproducer": "TestHookMetricPreservesRetrievalRanks/empty_rerank_rejects_all_candidates",
+        "pre_fix_log": ".git/module-audit-20261113/evaluation-ranks-before.log",
+        "pre_fix_exit_code": 1
+      },
+      "observed": "Reranking all candidates out still scored the relevant pre-rerank result as a perfect hit.",
+      "fix": "Only nil rerank results fall back to search; explicit empty rerank remains empty. Confirmed actual reranker uses a nonnil empty result for all_below_threshold and the QA pipeline turns ErrSearchNothing into a fallback response."
+    },
+    {
+      "id": "EVAL-003",
+      "severity": "P2",
+      "title": "Go SDK evaluation request and response shapes do not match the server",
+      "provenance": {
+        "durable_reproducer": "client/evaluation_test.go::TestEvaluationClientWireContract",
+        "pre_fix_log": ".git/module-audit-20261113/evaluation-client-before.log",
+        "pre_fix_exit_code": 1
+      },
+      "observed": "POST omitted knowledge_base_id and sent unsupported embedding_id. StartEvaluation returned an empty task ID, GetEvaluationResult discarded nested task/params/metric, and SDK string status did not model numeric statuses.",
+      "fix": "Align request and numeric task/progress/error/time fields; deserialize nested detail and typed retrieval/generation metrics; unwrap task for existing StartEvaluation return shape; reject malformed responses missing task IDs.",
+      "compatibility": "No in-repo callers depend on removed incorrect fields. Public struct changes are intentional API contract corrections; StartEvaluation/GetEvaluationResult method signatures are retained. Server exposes POST/GET only and no cancel endpoint; HTTP request context behavior is unchanged."
+    },
+    {
+      "id": "EVAL-004",
+      "severity": "P2",
+      "title": "Malformed Parquet dataset silently manufactures or overwrites evaluation relationships",
+      "provenance": {
+        "durable_reproducers": [
+          "TestDatasetRejectsInvalidRelationsAndText",
+          "TestDatasetRejectsMissingIDColumn",
+          "TestDatasetRejectsNullID"
+        ],
+        "pre_fix_logs": [
+          ".git/module-audit-20261113/evaluation-dataset-before.log",
+          ".git/module-audit-20261113/evaluation-dataset-null-before.log"
+        ],
+        "pre_fix_exit_code": 1
+      },
+      "observed": "Dangling explicit qrel/qas targets become empty text, duplicate IDs silently overwrite source text, conflicting qas picks the last answer, and missing/null ID columns project to zero and can join an unrelated zero-ID record.",
+      "fix": "Validate required scalar schema columns and physical types, reject null required values with a bounded row scan, validate unique text IDs and nonempty text, explicit reference targets, and conflicting qas. Allow identical duplicate relations and queries with absent relevance/answer labels.",
+      "note": "Initial exploratory missing-qrels/missing-qas rejection expectations were removed after review because Iterate intentionally supports unanswerable/unlabeled queries. Durable TestDatasetAllowsUnanswerableQueries protects that behavior."
+    },
+    {
+      "id": "EVAL-005",
+      "severity": "P2",
+      "title": "Evaluation indexes only qrel-linked passages, dropping unreferenced corpus distractors",
+      "provenance": {
+        "durable_reproducer": "TestEvaluationIndexesUnreferencedCorpusPassages",
+        "pre_fix_log": ".git/module-audit-20261113/evaluation-corpus-before.log",
+        "pre_fix_exit_code": 1
+      },
+      "observed": "A two-passage corpus containing relevant evidence and an unreferenced distractor indexed only the relevant passage.",
+      "fix": "Introduce EvaluationDataset and LoadDataset to supply QA pairs plus the full corpus. Sort corpus IDs without indexing arrays by ID; preserve distinct rows and all distractors. Evaluation validates pairs before indexing and retains cleanup behavior.",
+      "tests": "End-to-end evaluator fixture captures both indexed passages and verifies a first-ranked distractor produces precision and MRR .5."
+    }
+  ],
+  "coverage": {
+    "lifecycle": "Reviewed request detachment, errgroup peer cancellation, worker/background panic guards, pending/running/terminal persistence, scoped bounded cleanup, setup failures, empty datasets, cloning and cross-tenant result access. Existing lifecycle tests plus new malformed-dataset cleanup and tenant-scope tests used isolated temporary snapshots and stubs.",
+    "metrics": "Reviewed all calculator implementations and tests. Existing precision/recall/NDCG/MAP duplicate behavior retained; hook remapping now preserves its required rank information. BLEU smoothing and ROUGE exclusive/tokenization conventions unchanged.",
+    "dataset_python": "Reviewed sampling, lazy model initialization, checkpoints, answer-ID allocation and retries. Ran all dataset/tests in an isolated temporary venv using pytest/pandas/pyarrow/openai; no provider API contacted beyond existing localhost fake-server test.",
+    "frontend_api": "Searched frontend/src/api and frontend/src/views for evaluation references; no dedicated evaluation UI/API client exists, only API capability labels. Reviewed backend handler, routes and tenant checks. SDK wire tests use a fixture matching handler EvaluationDetail JSON."
+  },
+  "verification": [
+    {
+      "command": "go test ./internal/application/service -run '^TestEvaluation|^TestHookMetric|^TestDataset' -count=1",
+      "status": "passed",
+      "log": ".git/module-audit-20261113/evaluation-targeted-after.log"
+    },
+    {
+      "command": "go test ./internal/application/service/metric -count=1",
+      "status": "passed",
+      "log": ".git/module-audit-20261113/evaluation-metrics-after.log"
+    },
+    {
+      "command": "cd client && go test ./...",
+      "status": "passed",
+      "log": ".git/module-audit-20261113/evaluation-client-full-after.log"
+    },
+    {
+      "command": "go test -race ./internal/application/service -run '^TestEvaluation|^TestHookMetric|^TestDataset' -count=1",
+      "status": "passed",
+      "log": ".git/module-audit-20261113/evaluation-race-after.log"
+    },
+    {
+      "command": "go test ./internal/application/service ./internal/application/service/metric -count=1",
+      "status": "failed_outside_owned_scope",
+      "log": ".git/module-audit-20261113/evaluation-full-service-after.log",
+      "result": "Six storage resource-release test failures during parallel storage edits; no evaluation/dataset/metric failures. Root notified; root owns final full gate."
+    },
+    {
+      "command": "go test ./internal/application/service -run '^TestEvaluationInvalidDataset|^TestEvaluationResultRemains' -count=1",
+      "status": "passed",
+      "log": ".git/module-audit-20261113/evaluation-contract-after.log"
+    },
+    {
+      "command": "/tmp/genyee-evaluation-venv.C3G6nW/bin/python -m pytest dataset/tests -q",
+      "status": "passed",
+      "result": "24 passed, 3 subtests passed",
+      "log": ".git/module-audit-20261113/evaluation-python-after.log"
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    }
+  ],
+  "limits": [
+    "No live deployment, database, external LLM/reranker or vector store used; evaluation integration tests use temporary Parquet files and injected service doubles.",
+    "Passage attribution remains the existing substring matching heuristic; identical or overlapping passage text across different IDs is inherently ambiguous without persisted origin metadata.",
+    "Datasets remain memory-resident; bounded validation scan adds no full copy but no large-corpus performance benchmark was run.",
+    "Metrics remain binary qrel relevance, not graded relevance; no change to the existing interpretation of optional score columns.",
+    "Full repository build/vet/test and final per-module commit are owned by root."
+  ]
+}

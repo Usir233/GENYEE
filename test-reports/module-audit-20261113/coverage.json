@@ -13,7 +13,7 @@
   "units": [
     {
       "id": "root-runtime",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "Formula/genyee-lite.rb",
         "dataset/qa_dataset.py",
@@ -27,9 +27,18 @@
         "helm/tests/test_delivery.py",
         "test_agent_config.sh"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "dataset/qa_dataset.py",
+        "dataset/tests/test_dataset_integrity.py",
+        "dataset/tests/test_qa_dataset_default_model.py",
+        "dataset/tests/test_qa_dataset_model.py"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -889,7 +898,7 @@
     },
     {
       "id": "client",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "client/agent.go",
         "client/agent_manage.go",
@@ -944,9 +953,17 @@
         "client/stream_incomplete_test.go",
         "client/streaming_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "client/client.go",
+        "client/evaluation.go",
+        "client/session_test.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -1491,7 +1508,7 @@
     },
     {
       "id": "frontend/src/api",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "frontend/src/api/agent/index.ts",
         "frontend/src/api/artifacts.ts",
@@ -1546,9 +1563,15 @@
         "frontend/src/api/knowledge-base/knowledgeFileListQuery.test.ts",
         "frontend/src/api/model/modelUsage.test.ts"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "frontend/src/api/tenant/index.ts"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -2560,7 +2583,7 @@
     },
     {
       "id": "frontend/src/views/integrations",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "frontend/src/views/integrations/ApiIntegrationSettings.vue",
         "frontend/src/views/integrations/ChromeExtensionLanding.vue",
@@ -2581,9 +2604,15 @@
         "frontend/src/views/integrations/cliIntegration.test.ts",
         "frontend/src/views/integrations/mcpServerIntegration.test.ts"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "frontend/src/views/integrations/ApiIntegrationSettings.vue"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -3907,7 +3936,7 @@
     },
     {
       "id": "internal/application/service",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/application/service/agent_artifact_files.go",
         "internal/application/service/agent_attachments.go",
@@ -4505,16 +4534,27 @@
         "internal/application/service/workspace_checkpointer_test.go",
         "internal/application/service/workspace_git_layout_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/application/service/dataset.go",
+        "internal/application/service/dataset_test.go",
+        "internal/application/service/evaluation.go",
+        "internal/application/service/evaluation_lifecycle_test.go",
+        "internal/application/service/metric_hook.go",
+        "internal/application/service/session_knowledge_qa.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
     },
     {
       "id": "internal/application/service/chat_pipeline",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/application/service/chat_pipeline/chat_completion.go",
         "internal/application/service/chat_pipeline/chat_completion_stream.go",
@@ -4584,9 +4624,16 @@
         "internal/application/service/chat_pipeline/search_test.go",
         "internal/application/service/chat_pipeline/shared_chat_model_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/application/service/chat_pipeline/filter_top_k.go",
+        "internal/application/service/chat_pipeline/rerank.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -4712,7 +4759,7 @@
     },
     {
       "id": "internal/application/service/metric",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/application/service/metric/bleu.go",
         "internal/application/service/metric/common.go",
@@ -4734,9 +4781,33 @@
         "internal/application/service/metric/recall_test.go",
         "internal/application/service/metric/retrieval_duplicates_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/application/service/metric/bleu.go",
+        "internal/application/service/metric/bleu_test.go",
+        "internal/application/service/metric/common.go",
+        "internal/application/service/metric/common_test.go",
+        "internal/application/service/metric/map.go",
+        "internal/application/service/metric/map_test.go",
+        "internal/application/service/metric/mrr.go",
+        "internal/application/service/metric/mrr_test.go",
+        "internal/application/service/metric/ndcg.go",
+        "internal/application/service/metric/ndcg_test.go",
+        "internal/application/service/metric/precision.go",
+        "internal/application/service/metric/precision_test.go",
+        "internal/application/service/metric/recall.go",
+        "internal/application/service/metric/recall_test.go",
+        "internal/application/service/metric/retrieval_duplicates_test.go",
+        "internal/application/service/metric/rouge.go",
+        "internal/application/service/metric/rouge_score.go"
+      ],
+      "invariants_checked": [
+        "All retrieval and generation metric implementations reviewed; hook corrections preserve the established duplicate semantics."
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -5530,7 +5601,7 @@
     },
     {
       "id": "internal/handler",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/handler/agent_grant.go",
         "internal/handler/audit_log.go",
@@ -5768,9 +5839,15 @@
         "internal/handler/wiki_search_test.go",
         "internal/handler/workspace_operations_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/handler/evaluation.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -7540,7 +7617,7 @@
     },
     {
       "id": "internal/reranking",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/reranking/image.go",
         "internal/reranking/mmr.go",
@@ -7556,16 +7633,22 @@
         "internal/reranking/passage_test.go",
         "internal/reranking/rerank_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/reranking/rerank.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
     },
     {
       "id": "internal/router",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/router/deployment_capabilities.go",
         "internal/router/files.go",
@@ -7621,9 +7704,16 @@
         "internal/router/task_inspector_runtime_test.go",
         "internal/router/task_processing_scope_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/router/rbac.go",
+        "internal/router/routes_infra.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -8046,7 +8136,7 @@
     },
     {
       "id": "internal/types",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/types/agent.go",
         "internal/types/agent_grant.go",
@@ -8256,16 +8346,25 @@
         "internal/types/wiki_page_test.go",
         "internal/types/wiki_page_write_snapshot_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/types/chat_manage.go",
+        "internal/types/dataset.go",
+        "internal/types/evaluation.go",
+        "internal/types/rerank.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
     },
     {
       "id": "internal/types/interfaces",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/types/interfaces/agent.go",
         "internal/types/interfaces/agent_grant.go",
@@ -8325,9 +8424,15 @@
       "test_files": [
         "internal/types/interfaces/background_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/types/interfaces/evaluation.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/evaluation.json"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -10430,6 +10535,13 @@
       "id": "background_tasks",
       "status": "in_progress",
       "owner": "root"
+    }
+  ],
+  "local_commits": [
+    {
+      "commit": "e35f53768",
+      "module": "wiki/task settlement",
+      "result": "targeted and Wiki race suites passed"
     }
   ]
 }
