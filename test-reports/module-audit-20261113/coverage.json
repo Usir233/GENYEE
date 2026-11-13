@@ -8399,7 +8399,7 @@
     },
     {
       "id": "internal/models/api/anthropicmessages",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/anthropicmessages/client.go",
         "internal/models/api/anthropicmessages/request.go"
@@ -8407,32 +8407,61 @@
       "test_files": [
         "internal/models/api/anthropicmessages/anthropicmessages_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/anthropicmessages/client.go",
+        "internal/models/api/anthropicmessages/request.go"
+      ],
+      "invariants_checked": [
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/api/arkembeddings",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/arkembeddings/client.go"
       ],
       "test_files": [
         "internal/models/api/arkembeddings/golden_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/arkembeddings/client.go"
+      ],
+      "invariants_checked": [
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/api",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/models/api/batch.go",
         "internal/models/api/compat_settings.go",
@@ -8485,21 +8514,61 @@
         "internal/models/api/transport_test.go",
         "internal/models/api/usage_log_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/models/api/batch.go",
+        "internal/models/api/compat_settings.go",
+        "internal/models/api/credentials.go",
+        "internal/models/api/embeddings.go",
+        "internal/models/api/embeddings_settings.go",
+        "internal/models/api/endpoint.go",
+        "internal/models/api/extra_body.go",
+        "internal/models/api/image_input.go",
+        "internal/models/api/images.go",
+        "internal/models/api/json_field_extractor.go",
+        "internal/models/api/multipart.go",
+        "internal/models/api/options.go",
+        "internal/models/api/prompt_cache.go",
+        "internal/models/api/raw_dump.go",
+        "internal/models/api/rerank.go",
+        "internal/models/api/rerank_settings.go",
+        "internal/models/api/response_limit.go",
+        "internal/models/api/retry.go",
+        "internal/models/api/sandbox_file_progress.go",
+        "internal/models/api/special_tokens.go",
+        "internal/models/api/sse.go",
+        "internal/models/api/stream_assembler.go",
+        "internal/models/api/thinking_emitter.go",
+        "internal/models/api/transcriptions.go",
+        "internal/models/api/transcriptions_settings.go",
+        "internal/models/api/transport.go",
+        "internal/models/api/types.go",
+        "internal/models/api/usage.go",
+        "internal/models/api/usage_log.go"
+      ],
       "invariants_checked": [
         "an installed application resolver is authoritative on both success and failure",
         "nil-resolver fallback can read only local:// paths contained in LOCAL_STORAGE_BASE_DIR, including symlink resolution",
         "successful delegated provider/resource references preserve bytes/MIME/base64 handling",
-        "HTTP and data URI passthrough remain unchanged"
+        "HTTP and data URI passthrough remain unchanged",
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-image-boundary.json"
+        "test-reports/module-audit-20261113/models-image-boundary.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [
         "MODELS-IMAGE-RESOLVER-FALLTHROUGH"
       ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/api/cohererank",
@@ -8518,34 +8587,56 @@
         "each returned index identifies exactly one submitted candidate",
         "explicit zero scores, empty arrays and valid partial rankings remain supported",
         "missing fields must not be synthesized as legitimate zero index/score",
-        "response must explicitly identify a ranking array"
+        "response must explicitly identify a ranking array",
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-rerank.json"
+        "test-reports/module-audit-20261113/models-rerank.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [
         "MODELS-RERANK-MALFORMED-SUCCESS"
       ],
       "commits": [],
       "limitations": [
-        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
       ]
     },
     {
       "id": "internal/models/api/dashscopeembeddings",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/dashscopeembeddings/client.go"
       ],
       "test_files": [
         "internal/models/api/dashscopeembeddings/golden_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/dashscopeembeddings/client.go"
+      ],
+      "invariants_checked": [
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/api/dashscoperank",
@@ -8563,38 +8654,60 @@
         "each returned index identifies exactly one submitted candidate",
         "explicit zero scores, empty arrays and valid partial rankings remain supported",
         "missing fields must not be synthesized as legitimate zero index/score",
-        "response must explicitly identify a ranking array"
+        "response must explicitly identify a ranking array",
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-rerank.json"
+        "test-reports/module-audit-20261113/models-rerank.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [
         "MODELS-RERANK-MALFORMED-SUCCESS"
       ],
       "commits": [],
       "limitations": [
-        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
       ]
     },
     {
       "id": "internal/models/api/googleembeddings",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/googleembeddings/client.go"
       ],
       "test_files": [
         "internal/models/api/googleembeddings/golden_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/googleembeddings/client.go"
+      ],
+      "invariants_checked": [
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/api/googlegenai",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/googlegenai/client.go",
         "internal/models/api/googlegenai/request.go"
@@ -8602,12 +8715,27 @@
       "test_files": [
         "internal/models/api/googlegenai/googlegenai_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/googlegenai/client.go",
+        "internal/models/api/googlegenai/request.go"
+      ],
+      "invariants_checked": [
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/api/nimrerank",
@@ -8625,38 +8753,60 @@
         "each returned index identifies exactly one submitted candidate",
         "explicit zero scores, empty arrays and valid partial rankings remain supported",
         "missing fields must not be synthesized as legitimate zero index/score",
-        "response must explicitly identify a ranking array"
+        "response must explicitly identify a ranking array",
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-rerank.json"
+        "test-reports/module-audit-20261113/models-rerank.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [
         "MODELS-RERANK-MALFORMED-SUCCESS"
       ],
       "commits": [],
       "limitations": [
-        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
       ]
     },
     {
       "id": "internal/models/api/openaichataudio",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/openaichataudio/client.go"
       ],
       "test_files": [
         "internal/models/api/openaichataudio/golden_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/openaichataudio/client.go"
+      ],
+      "invariants_checked": [
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/api/openaicompletions",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/openaicompletions/client.go",
         "internal/models/api/openaicompletions/dsml.go",
@@ -8670,32 +8820,62 @@
         "internal/models/api/openaicompletions/session_headers_test.go",
         "internal/models/api/openaicompletions/stream_tool_index_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/openaicompletions/client.go",
+        "internal/models/api/openaicompletions/dsml.go",
+        "internal/models/api/openaicompletions/request.go"
+      ],
+      "invariants_checked": [
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/api/openaiembeddings",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/openaiembeddings/client.go"
       ],
       "test_files": [
         "internal/models/api/openaiembeddings/golden_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/openaiembeddings/client.go"
+      ],
+      "invariants_checked": [
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/api/openairesponses",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/openairesponses/client.go",
         "internal/models/api/openairesponses/request.go"
@@ -8704,32 +8884,61 @@
         "internal/models/api/openairesponses/openairesponses_test.go",
         "internal/models/api/openairesponses/refusal_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/openairesponses/client.go",
+        "internal/models/api/openairesponses/request.go"
+      ],
+      "invariants_checked": [
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/api/openaitranscriptions",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/openaitranscriptions/client.go"
       ],
       "test_files": [
         "internal/models/api/openaitranscriptions/golden_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/openaitranscriptions/client.go"
+      ],
+      "invariants_checked": [
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/api/pineconerank",
-      "status": "partially_audited",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/pineconerank/client.go"
       ],
@@ -8743,20 +8952,28 @@
         "each returned index identifies exactly one submitted candidate",
         "explicit zero scores, empty arrays and valid partial rankings remain supported",
         "missing fields must not be synthesized as legitimate zero index/score",
-        "response must explicitly identify a ranking array"
+        "response must explicitly identify a ranking array",
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-rerank.json"
+        "test-reports/module-audit-20261113/models-rerank.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [],
       "commits": [],
       "limitations": [
-        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
       ]
     },
     {
       "id": "internal/models/api/teirank",
-      "status": "partially_audited",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/teirank/client.go"
       ],
@@ -8770,20 +8987,28 @@
         "each returned index identifies exactly one submitted candidate",
         "explicit zero scores, empty arrays and valid partial rankings remain supported",
         "missing fields must not be synthesized as legitimate zero index/score",
-        "response must explicitly identify a ranking array"
+        "response must explicitly identify a ranking array",
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-rerank.json"
+        "test-reports/module-audit-20261113/models-rerank.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [],
       "commits": [],
       "limitations": [
-        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
       ]
     },
     {
       "id": "internal/models/api/tencentlkeap",
-      "status": "partially_audited",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/tencentlkeap/client.go"
       ],
@@ -8795,20 +9020,28 @@
         "each returned index identifies exactly one submitted candidate",
         "explicit zero scores, empty arrays and valid partial rankings remain supported",
         "missing fields must not be synthesized as legitimate zero index/score",
-        "response must explicitly identify a ranking array"
+        "response must explicitly identify a ranking array",
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-rerank.json"
+        "test-reports/module-audit-20261113/models-rerank.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [],
       "commits": [],
       "limitations": [
-        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
       ]
     },
     {
       "id": "internal/models/api/volcengineknowledge",
-      "status": "partially_audited",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/api/volcengineknowledge/client.go"
       ],
@@ -8820,20 +9053,28 @@
         "each returned index identifies exactly one submitted candidate",
         "explicit zero scores, empty arrays and valid partial rankings remain supported",
         "missing fields must not be synthesized as legitimate zero index/score",
-        "response must explicitly identify a ranking array"
+        "response must explicitly identify a ranking array",
+        "terminal EOF must be rejected when no complete provider finish event arrived",
+        "cancelled requests unblock HTTP and stream sends",
+        "tool call indexes and metadata remain correlated",
+        "malformed response and response-size caps return errors"
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-rerank.json"
+        "test-reports/module-audit-20261113/models-rerank.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [],
       "commits": [],
       "limitations": [
-        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
       ]
     },
     {
       "id": "internal/models/asr",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/asr/asr.go",
         "internal/models/asr/langfuse_wrapper.go",
@@ -8845,16 +9086,32 @@
         "internal/models/asr/config_from_model_test.go",
         "internal/models/asr/wire_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/asr/asr.go",
+        "internal/models/asr/langfuse_wrapper.go",
+        "internal/models/asr/protocol.go",
+        "internal/models/asr/transport.go"
+      ],
+      "invariants_checked": [
+        "stored model protocol/endpoint settings reach multipart or chat-audio requests",
+        "file limits and supported format policies are applied",
+        "image response metadata and options are carried through wrapper layers"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/capabilities.go",
         "internal/models/legacy_keys.go",
@@ -8862,31 +9119,61 @@
         "internal/models/model_type.go"
       ],
       "test_files": [],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/capabilities.go",
+        "internal/models/legacy_keys.go",
+        "internal/models/model.go",
+        "internal/models/model_type.go"
+      ],
+      "invariants_checked": [
+        "model type aliases normalize consistently",
+        "slice mapping/chunking preserves input order and handles integer-sized batch boundaries"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/catalog",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/catalog/catalog.go",
         "internal/models/catalog/loader.go"
       ],
       "test_files": [],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/catalog/catalog.go",
+        "internal/models/catalog/loader.go"
+      ],
+      "invariants_checked": [
+        "runtime snapshot/overlay cannot mutate previously returned provider configuration",
+        "unknown protocol/compat fields fail configuration validation",
+        "all catalog rules and aliases resolve or reject explicit unsupported tombstones",
+        "generated metadata is deterministic and embedded assets resolve"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/chat",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/models/chat/chat.go",
         "internal/models/chat/concurrency_wrapper.go",
@@ -8905,11 +9192,21 @@
         "internal/models/chat/ollama_test.go"
       ],
       "inspected_files": [
+        "internal/models/chat/chat.go",
+        "internal/models/chat/concurrency_wrapper.go",
+        "internal/models/chat/langfuse_wrapper.go",
+        "internal/models/chat/llm_debug.go",
+        "internal/models/chat/llm_debug_wrapper.go",
         "internal/models/chat/ollama.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "model availability network work must not hold shared state lock",
+        "multimodal preparation carries caller cancellation",
+        "streaming wrapper preserves tool/error/usage outcomes"
+      ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-ollama-cancellation.json"
+        "test-reports/module-audit-20261113/models-ollama-cancellation.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [
         {
@@ -8919,11 +9216,16 @@
         }
       ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/embedding",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/models/embedding/batch.go",
         "internal/models/embedding/concurrency_wrapper.go",
@@ -8948,57 +9250,99 @@
         "internal/models/embedding/wire_test.go"
       ],
       "inspected_files": [
-        "internal/models/embedding/batch.go"
+        "internal/models/embedding/batch.go",
+        "internal/models/embedding/concurrency_wrapper.go",
+        "internal/models/embedding/embedder.go",
+        "internal/models/embedding/langfuse_wrapper.go",
+        "internal/models/embedding/llm_debug.go",
+        "internal/models/embedding/ollama.go",
+        "internal/models/embedding/protocol.go",
+        "internal/models/embedding/transport.go"
       ],
       "invariants_checked": [
         "cancelled request cannot wait on unrelated saturated-pool work",
-        "queued cancelled work must not invoke the provider"
+        "queued cancelled work must not invoke the provider",
+        "response counts and indexes identify submitted inputs",
+        "rerank zero score/index must be explicit while duplicate/missing entries fail",
+        "cancelled pool work cannot block callers or start queued provider calls",
+        "image bytes and task modes reach the configured wire protocol"
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-embedding-cancellation.json"
+        "test-reports/module-audit-20261113/models-embedding-cancellation.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [
         "MODELS-EMBEDDING-POOL-CANCELLATION"
       ],
       "commits": [],
       "limitations": [
-        "ants.Submit has no context API: one coordinator may remain blocked per reused pooler until pool capacity is available or Release is called. submitSlot prevents each cancelled request from adding another ants waiter.",
-        "Already running providers that ignore context retain their own pool workers until they return; caller cancellation is prompt and queued callbacks never start provider work."
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
       ]
     },
     {
       "id": "internal/models/imageprep",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/imageprep/prepare.go"
       ],
       "test_files": [
         "internal/models/imageprep/prepare_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/imageprep/prepare.go"
+      ],
+      "invariants_checked": [
+        "lease heartbeat cannot resurrect released slots",
+        "limit changes preserve active holders and existing waiters",
+        "transport failures retry but vendor errors and undecodable replies do not",
+        "image dimensions and decoded-memory guardrails apply before full decode"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/internal/configcopy",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/internal/configcopy/copy.go"
       ],
       "test_files": [],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/internal/configcopy/copy.go"
+      ],
+      "invariants_checked": [
+        "runtime snapshot/overlay cannot mutate previously returned provider configuration",
+        "unknown protocol/compat fields fail configuration validation",
+        "all catalog rules and aliases resolve or reject explicit unsupported tombstones",
+        "generated metadata is deterministic and embedded assets resolve"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/limiter",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/limiter/governor.go",
         "internal/models/limiter/limiter.go"
@@ -9009,12 +9353,27 @@
         "internal/models/limiter/limiter_test.go",
         "internal/models/limiter/local_limit_update_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/limiter/governor.go",
+        "internal/models/limiter/limiter.go"
+      ],
+      "invariants_checked": [
+        "lease heartbeat cannot resurrect released slots",
+        "limit changes preserve active holders and existing waiters",
+        "transport failures retry but vendor errors and undecodable replies do not",
+        "image dimensions and decoded-memory guardrails apply before full decode"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/parity",
@@ -9036,7 +9395,7 @@
     },
     {
       "id": "internal/models/providers",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/providers/aliyun.go",
         "internal/models/providers/anthropic.go",
@@ -9077,16 +9436,62 @@
         "internal/models/providers/providers_test.go",
         "internal/models/providers/runcrate_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/providers/aliyun.go",
+        "internal/models/providers/anthropic.go",
+        "internal/models/providers/azure_openai.go",
+        "internal/models/providers/builtin.go",
+        "internal/models/providers/cohere.go",
+        "internal/models/providers/compat.go",
+        "internal/models/providers/deepseek.go",
+        "internal/models/providers/definition.go",
+        "internal/models/providers/gemini.go",
+        "internal/models/providers/generic.go",
+        "internal/models/providers/gpustack.go",
+        "internal/models/providers/huggingface_tei.go",
+        "internal/models/providers/hunyuan.go",
+        "internal/models/providers/jina.go",
+        "internal/models/providers/litellm.go",
+        "internal/models/providers/lkeap.go",
+        "internal/models/providers/longcat.go",
+        "internal/models/providers/mimo.go",
+        "internal/models/providers/minimax.go",
+        "internal/models/providers/modelscope.go",
+        "internal/models/providers/moonshot.go",
+        "internal/models/providers/novita.go",
+        "internal/models/providers/nvidia.go",
+        "internal/models/providers/openai.go",
+        "internal/models/providers/openrouter.go",
+        "internal/models/providers/pinecone.go",
+        "internal/models/providers/qianfan.go",
+        "internal/models/providers/qiniu.go",
+        "internal/models/providers/requesty.go",
+        "internal/models/providers/runcrate.go",
+        "internal/models/providers/siliconflow.go",
+        "internal/models/providers/volcengine.go",
+        "internal/models/providers/zhipu.go"
+      ],
+      "invariants_checked": [
+        "runtime snapshot/overlay cannot mutate previously returned provider configuration",
+        "unknown protocol/compat fields fail configuration validation",
+        "all catalog rules and aliases resolve or reject explicit unsupported tombstones",
+        "generated metadata is deterministic and embedded assets resolve"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/rerank",
-      "status": "partially_audited",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/rerank/image.go",
         "internal/models/rerank/langfuse_wrapper.go",
@@ -9126,20 +9531,28 @@
         "each returned index identifies exactly one submitted candidate",
         "explicit zero scores, empty arrays and valid partial rankings remain supported",
         "missing fields must not be synthesized as legitimate zero index/score",
-        "response must explicitly identify a ranking array"
+        "response must explicitly identify a ranking array",
+        "response counts and indexes identify submitted inputs",
+        "rerank zero score/index must be explicit while duplicate/missing entries fail",
+        "cancelled pool work cannot block callers or start queued provider calls",
+        "image bytes and task modes reach the configured wire protocol"
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-rerank.json"
+        "test-reports/module-audit-20261113/models-rerank.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [],
       "commits": [],
       "limitations": [
-        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
       ]
     },
     {
       "id": "internal/models/runtime",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/runtime/compat.go",
         "internal/models/runtime/connection.go",
@@ -9161,16 +9574,39 @@
         "internal/models/runtime/registry_test.go",
         "internal/models/runtime/validate_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/runtime/compat.go",
+        "internal/models/runtime/connection.go",
+        "internal/models/runtime/layers.go",
+        "internal/models/runtime/legacy.go",
+        "internal/models/runtime/overlay.go",
+        "internal/models/runtime/registry.go",
+        "internal/models/runtime/resolve.go",
+        "internal/models/runtime/runtime.go",
+        "internal/models/runtime/snapshot.go",
+        "internal/models/runtime/validate.go"
+      ],
+      "invariants_checked": [
+        "runtime snapshot/overlay cannot mutate previously returned provider configuration",
+        "unknown protocol/compat fields fail configuration validation",
+        "all catalog rules and aliases resolve or reject explicit unsupported tombstones",
+        "generated metadata is deterministic and embedded assets resolve"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/utils/ollama",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/models/utils/ollama/ollama.go"
       ],
@@ -9181,9 +9617,14 @@
       "inspected_files": [
         "internal/models/utils/ollama/ollama.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "model availability network work must not hold shared state lock",
+        "multimodal preparation carries caller cancellation",
+        "streaming wrapper preserves tool/error/usage outcomes"
+      ],
       "evidence": [
-        "test-reports/module-audit-20261113/models-ollama-cancellation.json"
+        "test-reports/module-audit-20261113/models-ollama-cancellation.json",
+        "test-reports/module-audit-20261113/models-complete-local.json"
       ],
       "findings": [
         {
@@ -9193,27 +9634,44 @@
         }
       ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/utils",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/utils/slices.go"
       ],
       "test_files": [
         "internal/models/utils/slices_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/utils/slices.go"
+      ],
+      "invariants_checked": [
+        "model type aliases normalize consistently",
+        "slice mapping/chunking preserves input order and handles integer-sized batch boundaries"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/models/vlm",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/models/vlm/concurrency_wrapper.go",
         "internal/models/vlm/langfuse_wrapper.go",
@@ -9233,12 +9691,31 @@
         "internal/models/vlm/spec_override_test.go",
         "internal/models/vlm/transport_security_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/vlm/concurrency_wrapper.go",
+        "internal/models/vlm/langfuse_wrapper.go",
+        "internal/models/vlm/llm_debug.go",
+        "internal/models/vlm/ollama.go",
+        "internal/models/vlm/remote_api.go",
+        "internal/models/vlm/transport.go",
+        "internal/models/vlm/vlm.go"
+      ],
+      "invariants_checked": [
+        "stored model protocol/endpoint settings reach multipart or chat-audio requests",
+        "file limits and supported format policies are applied",
+        "image response metadata and options are carried through wrapper layers"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-complete-local.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Current vendor model availability, pricing, limits and model-specific protocol acceptance beyond local fixtures remain unverified; no paid or live credential calls made.",
+        "Embedding vector width is not uniformly checked against row metadata; no concrete downstream data-integrity failure established in this models-only pass. Existing matrix intentionally uses synthetic one-element vectors, so its pass is not evidence for real vendor dimensions.",
+        "Shared SSRF preflight DNS and context-free storage resolver callback cancellation remain outside this models-only change scope.",
+        "Uninspected test files remain explicitly pending in per-file reading coverage; this does not mean their scenarios were not executed. Long-duration resource/heap stress beyond bounded image fixtures not performed."
+      ]
     },
     {
       "id": "internal/productdocs",
@@ -12492,6 +12969,10 @@
     {
       "commit": "8b0c82801",
       "module": "truncated access log credential redaction"
+    },
+    {
+      "commit": "0b366911f",
+      "module": "image/PDF filename references"
     }
   ],
   "frontend_final_gate": {
