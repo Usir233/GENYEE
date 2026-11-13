@@ -4264,7 +4264,8 @@
       "invariants_checked": [],
       "evidence": [
         "test-reports/module-audit-20261113/shell-assignment-boundaries.json",
-        "test-reports/module-audit-20261113/agent-argument-number.json"
+        "test-reports/module-audit-20261113/agent-argument-number.json",
+        "test-reports/module-audit-20261113/sql-query-relations.json"
       ],
       "findings": [
         {
@@ -4281,6 +4282,11 @@
           "id": "AGENT-TOOL-HISTORY-NUMERIC-PRECISION",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/agent-argument-number.json"
+        },
+        {
+          "id": "SQL-R2",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/sql-query-relations.json"
         }
       ],
       "commits": [],
@@ -11015,7 +11021,8 @@
         "test-reports/module-audit-20261113/ssrf-cache-reload.json",
         "test-reports/module-audit-20261113/sql-column-alias-security.json",
         "test-reports/module-audit-20261113/sql-tablesample-security.json",
-        "test-reports/module-audit-20261113/shell-assignment-boundaries.json"
+        "test-reports/module-audit-20261113/shell-assignment-boundaries.json",
+        "test-reports/module-audit-20261113/sql-query-relations.json"
       ],
       "findings": [
         {
@@ -11042,11 +11049,16 @@
           "id": "SHELL-ASSIGNMENT-WRONG-CAPTURE",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/shell-assignment-boundaries.json"
+        },
+        {
+          "id": "SQL-R2",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/sql-query-relations.json"
         }
       ],
       "commits": [],
       "limitations": [
-        "All 18 production files read. SQL outer-join semantics and actual DNS cancellation are confirmed pending independent fixes."
+        "All 18 production files read. DNS cancellation fix pending consolidation; existing SQL-C1 tag alias candidate reproduced in isolated tool fixture, upstream reachability not yet traced."
       ],
       "source_sha256": {
         "internal/utils/crypto.go": "3f1a948d8fbe208f4c31327549d1284f3106189cf9b0b61b72873488ed2d2328",
@@ -11056,7 +11068,7 @@
         "internal/utils/fileutil.go": "75447bbb12912586e6b066cc11a5a1bb93d9460fecb199cbb187d5384666d0d2",
         "internal/utils/httputil.go": "7bcef5f05fb585ad0c4a376a57688ac0a93aeeb215796c8fb0b98030f9840c64",
         "internal/utils/import_filetypes.go": "051c1f9a8fe0d4d233e6dc3c2c64d22eda69670d21cdc4a3baa47aa0065c9794",
-        "internal/utils/inject.go": "05519218e8b343ca18c27b5fd49fd1e7b391419c60a6870c69763f865eacc280",
+        "internal/utils/inject.go": "31df14c82b52d23f682c3ba8aef4f3a7391b5faf1c328107fe3b2863fa89897d",
         "internal/utils/json.go": "b0cfcf08178bbbe303198eca6a6222d84e0ba805df043a7e6ebb6762dd0566ae",
         "internal/utils/log_sanitize.go": "e488a5e28d6314bb8b16b909f061e42316e10f881c42fe6da42c3837733ee3e4",
         "internal/utils/mysql_ssrf.go": "ddca20837df5446668a8cb43376715e2f3c03c9094a19a5ba107d30e40703f6c",
@@ -13314,6 +13326,10 @@
     {
       "commit": "632c167a0",
       "module": "shell assignment redaction and static extraction boundaries"
+    },
+    {
+      "commit": "495f7f20c",
+      "module": "tool argument numeric precision through history and resume"
     }
   ],
   "frontend_final_gate": {

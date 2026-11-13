@@ -1034,6 +1034,28 @@ func ValidateAndSecureSQL(sql string, opts ...SQLValidationOption) (string, *SQL
 		if !ok {
 			return nil
 		}
+		// An outer join operates on already-authorized input relations. Putting
+		// their filters in this SELECT's WHERE would remove NULL-extended rows.
+		prefilterInputs := false
+		unaliasedTables := make(map[string]bool)
+		var hasOuterJoin func(*pg_query.Node) bool
+		hasOuterJoin = func(node *pg_query.Node) bool {
+			if rv := node.GetRangeVar(); rv != nil && rv.Alias == nil {
+				unaliasedTables[rv.Relname] = true
+			}
+			if join := node.GetJoinExpr(); join != nil {
+				left, right := hasOuterJoin(join.Larg), hasOuterJoin(join.Rarg)
+				return join.Jointype != pg_query.JoinType_JOIN_INNER || left || right
+			}
+			return false
+		}
+		for _, from := range stmt.FromClause {
+			outer := hasOuterJoin(from)
+			prefilterInputs = prefilterInputs || outer
+		}
+		if prefilterInputs {
+			rewriteFilteredTableQualifiers(stmt, unaliasedTables)
+		}
 		var injectFrom func(*pg_query.Node) error
 		injectFrom = func(node *pg_query.Node) error {
 			if rv := node.GetRangeVar(); rv != nil {
@@ -1052,7 +1074,21 @@ func ValidateAndSecureSQL(sql string, opts ...SQLValidationOption) (string, *SQL
 				if err != nil {
 					return fmt.Errorf("failed to build SQL security filter: %w", err)
 				}
-				addSQLPredicate(stmt, filters.Stmts[0].Stmt.GetSelectStmt().WhereClause)
+				filtered := filters.Stmts[0].Stmt.GetSelectStmt()
+				if prefilterInputs && filtered.WhereClause != nil {
+					filtered.FromClause = []*pg_query.Node{{Node: node.Node}}
+					// The original projection was already column-validated. This
+					// internal star only preserves the filtered input's columns.
+					filtered.TargetList[0].GetResTarget().Val = &pg_query.Node{Node: &pg_query.Node_ColumnRef{
+						ColumnRef: &pg_query.ColumnRef{Fields: []*pg_query.Node{{Node: &pg_query.Node_AStar{AStar: &pg_query.A_Star{}}}}},
+					}}
+					node.Node = &pg_query.Node_RangeSubselect{RangeSubselect: &pg_query.RangeSubselect{
+						Subquery: &pg_query.Node{Node: &pg_query.Node_SelectStmt{SelectStmt: filtered}},
+						Alias:    &pg_query.Alias{Aliasname: alias},
+					}}
+				} else {
+					addSQLPredicate(stmt, filtered.WhereClause)
+				}
 			}
 			if join := node.GetJoinExpr(); join != nil {
 				if err := injectFrom(join.Larg); err != nil {
@@ -1077,6 +1113,39 @@ func ValidateAndSecureSQL(sql string, opts ...SQLValidationOption) (string, *SQL
 		return "", validationResult, fmt.Errorf("failed to deparse secured SQL: %w", err)
 	}
 	return securedSQL, validationResult, nil
+}
+
+// rewriteFilteredTableQualifiers keeps public.table.column references bound to
+// the same table after it becomes a filtered input named table. Nested SELECTs
+// have their own scopes and are handled by their own rewrite pass.
+func rewriteFilteredTableQualifiers(stmt *pg_query.SelectStmt, tables map[string]bool) {
+	var walk func(protoreflect.Message)
+	walk = func(message protoreflect.Message) {
+		if nested, ok := message.Interface().(*pg_query.SelectStmt); ok && nested != stmt {
+			return
+		}
+		if column, ok := message.Interface().(*pg_query.ColumnRef); ok && len(column.Fields) == 3 {
+			schema, table := column.Fields[0].GetString_(), column.Fields[1].GetString_()
+			if schema != nil && schema.Sval == "public" && table != nil && tables[table.Sval] {
+				column.Fields = column.Fields[1:]
+			}
+		}
+		message.Range(func(field protoreflect.FieldDescriptor, value protoreflect.Value) bool {
+			if field.Message() == nil {
+				return true
+			}
+			if field.IsList() {
+				list := value.List()
+				for i := 0; i < list.Len(); i++ {
+					walk(list.Get(i).Message())
+				}
+			} else {
+				walk(value.Message())
+			}
+			return true
+		})
+	}
+	walk(stmt.ProtoReflect())
 }
 
 // walkSQLMessages visits children before their parent so rewriting a SELECT
