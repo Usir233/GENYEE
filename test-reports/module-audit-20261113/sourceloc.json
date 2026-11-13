@@ -1,0 +1,43 @@
+{
+  "module": "Source locators and document structure alignment",
+  "date": "2026-11-13",
+  "status": "audited_no_actionable_findings",
+  "inspected_files": [
+    "internal/sourceloc/align.go",
+    "internal/sourceloc/assign.go",
+    "internal/sourceloc/office.go",
+    "internal/sourceloc/remap.go",
+    "internal/sourceloc/text.go",
+    "internal/application/service/knowledge_source_locators.go"
+  ],
+  "invariants_checked": [
+    "Exact and partial locators remain distinct; duplicate fragments are not assigned invented exact ranges.",
+    "Current markdown rewrite segments map through original parser offsets; image placements remain tied to mapped bodies.",
+    "Office archive and structure processing uses bounded entries/units; generated DOCX/PPTX/XLSX/EPUB/CSV fixtures exercise the extractors."
+  ],
+  "validation": [
+    {
+      "command": "go test -mod=readonly -race ./internal/sourceloc -count=1",
+      "result": "PASS",
+      "log": ".git/module-audit-20261113/sourceloc-after.log"
+    },
+    {
+      "command": "go test -mod=readonly -race ./internal/application/service -run '(SourceIndex|StructureBlocks|SourceLocator|PassThroughText|Transcript)' -count=1",
+      "result": "PASS",
+      "log": ".git/module-audit-20261113/sourceloc-consumers-after.log"
+    }
+  ],
+  "source_sha256": {
+    "internal/sourceloc/align.go": "292d9bcd5fc8c6c187343277f373cc0aba557353d6e809de0221b0ceed1779d3",
+    "internal/sourceloc/assign.go": "bb77fb5ec077780ab2d6d972e88f47f9e3289b03ecd6cdae92a9746d2933b026",
+    "internal/sourceloc/office.go": "a6fd4693d1ea968bd250450c6191fb7a729e8561677ecacc014a0e3fd39123f7",
+    "internal/sourceloc/remap.go": "746ce2714a23cb28ddc78b5673cf7fdceae958216cc6cac311e16f8e00c0580e",
+    "internal/sourceloc/text.go": "d4608b64e04120300df7784f9d3bf9e467ffe2fe7fa15b5fd85e22d99fb91405",
+    "internal/application/service/knowledge_source_locators.go": "6873674cb013cce7c6367bc93967baddf26d0e623bc9bd398e903455d80f522d"
+  },
+  "findings": [],
+  "limitations": [
+    "Existing generated document fixtures and helper/caller tests; no broad real-world Office corpus or live full ingestion E2E.",
+    "No actionable bug established; this does not prove absence of defects. The parent service module remains partially audited."
+  ]
+}

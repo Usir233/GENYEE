@@ -5390,6 +5390,7 @@
         "internal/application/service/knowledge_delete.go",
         "internal/application/service/knowledge_process.go",
         "internal/application/service/knowledge_replace.go",
+        "internal/application/service/knowledge_source_locators.go",
         "internal/application/service/knowledgebase.go",
         "internal/application/service/metric_hook.go",
         "internal/application/service/resource.go",
@@ -5472,7 +5473,8 @@
         },
         "test-reports/module-audit-20261113/parser-error-envelope.json",
         "test-reports/module-audit-20261113/wiki-current-chunks.json",
-        "test-reports/module-audit-20261113/retriever-clone-tags.json"
+        "test-reports/module-audit-20261113/retriever-clone-tags.json",
+        "test-reports/module-audit-20261113/sourceloc.json"
       ],
       "findings": [
         {
@@ -9616,7 +9618,7 @@
     },
     {
       "id": "internal/sourceloc",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/sourceloc/align.go",
         "internal/sourceloc/assign.go",
@@ -9629,12 +9631,27 @@
         "internal/sourceloc/precision_test.go",
         "internal/sourceloc/sourceloc_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/sourceloc/align.go",
+        "internal/sourceloc/assign.go",
+        "internal/sourceloc/office.go",
+        "internal/sourceloc/remap.go",
+        "internal/sourceloc/text.go"
+      ],
+      "invariants_checked": [
+        "Exact and partial locators remain distinct; duplicate fragments are not assigned invented exact ranges.",
+        "Current markdown rewrite segments map through original parser offsets; image placements remain tied to mapped bodies.",
+        "Office archive and structure processing uses bounded entries/units; generated DOCX/PPTX/XLSX/EPUB/CSV fixtures exercise the extractors."
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/sourceloc.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Existing generated document fixtures and helper/caller tests; no broad real-world Office corpus or live full ingestion E2E.",
+        "No actionable bug established; this does not prove absence of defects. The parent service module remains partially audited."
+      ]
     },
     {
       "id": "internal/storageallowlist",
@@ -12364,6 +12381,10 @@
     {
       "commit": "34d0eaf4e",
       "module": "DOCX body-order image references"
+    },
+    {
+      "commit": "53e86f881",
+      "module": "stored image resolver authority and local fallback confinement"
     }
   ],
   "frontend_final_gate": {
@@ -12391,5 +12412,32 @@
     "build_log": ".git/module-audit-20261113/backend-full-build-confirm.log",
     "status": "failure under investigation; not final passing gate",
     "failure_resolution": "test-reports/module-audit-20261113/automation-budget.json"
+  },
+  "backend_gate_53e86f881": {
+    "head": "53e86f8816e9c85566c9699a313691bf825cf643",
+    "working_tree": "clean at start; no source/test changes while the three commands ran",
+    "test": {
+      "command": "go test -mod=readonly ./... -count=1",
+      "exit": 0,
+      "packages_passed": 145,
+      "packages_without_tests": 13,
+      "log": ".git/module-audit-20261113/backend-53e86f881-test.log"
+    },
+    "vet": {
+      "command": "go vet -mod=readonly ./...",
+      "exit": 0,
+      "log": ".git/module-audit-20261113/backend-53e86f881-vet.log"
+    },
+    "build": {
+      "command": "go build -mod=readonly ./...",
+      "exit": 0,
+      "log": ".git/module-audit-20261113/backend-53e86f881-build.log",
+      "warnings": "macOS linker ignoring duplicate -lc++ for server and desktop"
+    },
+    "limitations": [
+      "Checkpoint only; further module audit and fixes remain.",
+      "Root ./... excludes nested Go modules (CLI was validated separately); package tests may skip external service integration when credentials/DSN are absent.",
+      "No live deployment or production data touched."
+    ]
   }
 }
