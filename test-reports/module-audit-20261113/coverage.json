@@ -1874,14 +1874,17 @@
         "docreader/parser/xlsx_media.py",
         "docreader/parser/xlsx_merge.py",
         "docreader/parser/xlsx_repair.py",
-        "docreader/parser/xmind_parser.py"
+        "docreader/parser/xmind_parser.py",
+        "docreader/parser/xlsx_rows.py"
       ],
       "test_files": [],
       "inspected_files": [
         "docreader/parser/doc_parser.py",
         "docreader/parser/image_parser.py",
         "docreader/parser/pdf_parser.py",
-        "docreader/parser/xlsx_merge.py"
+        "docreader/parser/xlsx_merge.py",
+        "docreader/parser/excel_parser.py",
+        "docreader/parser/xlsx_rows.py"
       ],
       "invariants_checked": [
         "Extracted DOCX image references survive body-order composition in their source paragraph and respect page limits."
@@ -1890,7 +1893,8 @@
         "test-reports/module-audit-20261113/parser-docx-images.json",
         "test-reports/module-audit-20261113/parser-doc-fallback.json",
         "test-reports/module-audit-20261113/parser-image-filenames.json",
-        "test-reports/module-audit-20261113/parser-xlsx-percent-sparse.json"
+        "test-reports/module-audit-20261113/parser-xlsx-percent-sparse.json",
+        "test-reports/module-audit-20261113/parser-xlsx-sparse-rows.json"
       ],
       "findings": [
         "PARSE-005",
@@ -1908,6 +1912,11 @@
           "id": "PARSE-007",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/parser-xlsx-percent-sparse.json"
+        },
+        {
+          "id": "PARSE-008",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/parser-xlsx-sparse-rows.json"
         }
       ],
       "commits": [],
@@ -13150,6 +13159,10 @@
     {
       "commit": "2508634d0",
       "module": "SSRF outbound cache reload concurrency"
+    },
+    {
+      "commit": "724a55012",
+      "module": "streaming model-handle word boundaries"
     }
   ],
   "frontend_final_gate": {

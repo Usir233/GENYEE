@@ -1,0 +1,41 @@
+{
+  "id": "PARSE-008",
+  "severity": "P2",
+  "status": "fixed_verified",
+  "title": "Default XLSX reading builds dense pandas rectangle from sparse coordinates",
+  "provenance": "Actual public ExcelParser.parse with percentage conversion explicitly false; generated4841-byte XLSX containsA1 andCV1000; actual pandas frame1000x100 (100000slots),4,900,141deep bytes, finalcontent18chars and correct source rows1/1000. Bounded reproduction only; worst-case large-coordinate OOM is an inference from pandas get_sheet_data implementation, not an attempted stress test.",
+  "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx_dense_frame_audit.py",
+  "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-frame-before.log",
+  "scope_notes": "Default builtin XLSX only: existing pd.ExcelFile admission/repair/merge pipeline retained; reuse openpyxl WorkSheetParser scalar/date/shared-string decoding directly, two worksheet XML passes over actual cells, sparse rows/columns retain physical indexes. Legacy XLS stays existing pandas scalar path. No new dimension caps/truncation, no protocol/Go edits, no dependency changes. Optional Markitdown XLSX dense conversion remains a separate pending confirmation group; this fix is not claimed to bound all engines.",
+  "fix_paths": [
+    "docreader/parser/excel_parser.py",
+    "docreader/parser/xlsx_rows.py",
+    "docreader/tests/test_xlsx_sparse_rows.py"
+  ],
+  "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-rows-durable-before.log",
+  "failing_reproducer_command": "python -m unittest docreader.tests.test_xlsx_sparse_rows",
+  "passing_commands": [
+    "python -m unittest docreader.tests.test_xlsx_sparse_rows docreader.tests.test_excel_parser docreader.tests.test_excel_parser_adversarial docreader.tests.test_xlsx_percent_format docreader.tests.test_percentage_rounding docreader.tests.test_xlsx_repair docreader.tests.test_xlsx_styles_repair",
+    "python -m unittest docreader.tests.test_xlsx_sparse_rows",
+    "python /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx_dense_frame_audit.py"
+  ],
+  "passing_logs": [
+    "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-rows-related-after.log",
+    "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-rows-focused-after.log",
+    "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-frame-after.log",
+    "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-rows-final-after.log"
+  ],
+  "validation": "123 related tests pass (5 existing skips),9.264s; subsequent cancellation test addition gives5 focused tests pass,0.055s. Before4 durable tests fail5 subcases at explicit pandas-allocation guard (never attempts full17B rectangle). After actual public parse retainsA1/XFD1048576 values/source rows, semantic duplicate/missing headers, single-row header option, missing row1, merged percentage rows, numeric/text identifiers/bools and image-only rows in original order; outside-bound images retain existing orphan ordering.99-row cancel fixture stops during bounds scan after first decoded row. Existing Excel/formula/date/error/repair/percentage controls pass. Original publicparse reproducer now emits identical content/source rows with zero pandas.frame calls. Parent-review delta verified: final125 related tests pass with5 existing skips,10.536s, including six sparse tests and both outside-column image variants.",
+  "implementation_risk": "Uses openpyxl private worksheet decoder/source access already used internally by its read-only worksheet; locked runtime dependency inspected and exercised. Future dependency upgrades need these behavioral tests. Overall workbook strings/styles and output remain proportional to admitted actual input content; no claim of a strict total process-memory cap.",
+  "review_followup": {
+    "provenance": "Parent source review identified outside-column image-only rows missing from the new sparse row set. Actual Z3-only fixture withA1/C5 reproduced row order1,5,3,8 rather than1,3,5,8 before correction; B3+Z3 same-row andZ8 controls included. Not a preexisting project defect, caught and fixed before this group commit.",
+    "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-outside-column-before.log",
+    "fix": "Row bounds decide whether an image-only row exists; column bounds only decide normal-column injection, preserving old outside-column label and orphan-row behavior.",
+    "passing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-rows-final-after.log"
+  },
+  "changed_sha256": {
+    "docreader/parser/excel_parser.py": "bd350082502ab64d5eeb1da93928bdb8e244382efe35d679555a76f5b58c35ff",
+    "docreader/parser/xlsx_rows.py": "2a21973a439b019b010e29e51722df0373f4bf0356c5ce5c062edae37286d94d",
+    "docreader/tests/test_xlsx_sparse_rows.py": "82502fe2cf7ede8720a66ab397f8141221a1cac84cd9cbe9651e8aff9a05e30e"
+  }
+}

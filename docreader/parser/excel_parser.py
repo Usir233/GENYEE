@@ -33,6 +33,7 @@ from docreader.parser.excel_convert import (
     normalize_excel_bytes,
 )
 from docreader.parser.xlsx_merge import fill_merged_cells_xlsx
+from docreader.parser.xlsx_rows import iter_worksheet_rows
 from docreader.parser.xlsx_repair import (
     repair_xlsx_bytes,
     sanitize_xlsx_styles,
@@ -294,14 +295,15 @@ class ExcelParser(BaseParser):
             sheet_images = cell_images_by_sheet.get(str(excel_sheet_name), {})
             consumed_cells: set[Tuple[int, str]] = set()
 
-            df = _read_sheet_dataframe(
+            rows = _iter_sheet_rows(
                 excel_file,
                 excel_sheet_name,
                 xlsx_first_row_as_header=self.xlsx_first_row_as_header,
+                image_cells=sheet_images,
+                context=self.context,
             )
 
-            # Process each row in DataFrame
-            for row_index, row in df.iterrows():
+            for row_index, row in rows:
                 page_content: List[str] = []
 
                 try:
@@ -310,7 +312,7 @@ class ExcelParser(BaseParser):
                     excel_row = 0
 
                 # Iterate through columns of the row
-                for col_idx, (col_label, val) in enumerate(row.items()):
+                for col_idx, col_label, val in row:
                     col_letter = get_column_letter(col_idx + 1)
                     cell_key = (excel_row, col_letter)
                     raw_imgs = sheet_images.get(cell_key)
@@ -422,7 +424,7 @@ class ExcelParser(BaseParser):
                     )
                 start = end
 
-            # Emit any remaining images on rows beyond df.iterrows()
+            # Emit any remaining images outside the worksheet's data bounds.
             remaining_keys = sorted(
                 k for k in sheet_images.keys() if k not in consumed_cells
             )
@@ -496,6 +498,22 @@ class ExcelParser(BaseParser):
             source_blocks=source_blocks,
             images=doc_images,
         )
+
+
+def _iter_sheet_rows(
+    excel_file, sheet_name, xlsx_first_row_as_header=False, image_cells=(), context=None
+):
+    if excel_file.engine == "openpyxl":
+        yield from iter_worksheet_rows(
+            excel_file.book[sheet_name], image_cells, xlsx_first_row_as_header,
+            _stable_header_labels, context,
+        )
+        return
+    # Keep the existing legacy XLS engine and its scalar/header behavior.
+    frame = _read_sheet_dataframe(excel_file, sheet_name, xlsx_first_row_as_header)
+    for row_index, row in frame.iterrows():
+        check_cancellation(context)
+        yield row_index, [(col, label, value) for col, (label, value) in enumerate(row.items())]
 
 
 def _read_sheet_dataframe(
