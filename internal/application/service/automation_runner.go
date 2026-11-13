@@ -18,7 +18,6 @@ import (
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 // maxStoredAnswerRunes bounds the answer a run keeps for listings and for
@@ -349,38 +348,72 @@ func (s *AutomationService) runQuery(ctx context.Context, a *types.Automation, r
 func (s *AutomationService) runSession(
 	ctx context.Context, a *types.Automation, run *types.AutomationRun,
 ) (*types.Session, error) {
-	if a.SessionMode == types.AutomationSessionPersistent && a.PersistentSessionID != "" {
-		if session, err := s.sessions.GetSession(ctx, a.PersistentSessionID); err == nil && session != nil {
-			return session, nil
+	var session types.Session
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Creating and linking the conversation must be atomic with respect
+		// to deletion. The executor may hold an older automation snapshot.
+		locked := tx.Model(&types.Automation{}).Where("id = ?", a.ID).
+			UpdateColumn("version", gorm.Expr("version"))
+		if locked.Error != nil {
+			return locked.Error
 		}
-	}
-	title := a.Name
-	if a.SessionMode == types.AutomationSessionPerRun {
-		title += " · " + run.ScheduledAt.In(scheduleLocation(a.Trigger)).Format("2006-01-02 15:04")
-	}
-	now := s.now()
-	session := &types.Session{
-		ID: uuid.NewString(), TenantID: a.TenantID, UserID: a.OwnerUserID, Kind: types.SessionKindAutomation,
-		Title: clipRunes(title, 200), CreatedAt: now, UpdatedAt: now,
-		LastRequestState: &types.SessionLastRequestState{
-			AgentID: types.BuiltinGENYEEAssistantID, AgentEnabled: true, ModelID: a.ModelID,
-		},
-	}
-	if err := s.db.WithContext(ctx).Session(&gorm.Session{SkipHooks: true}).
-		Clauses(clause.OnConflict{DoNothing: true}).Create(session).Error; err != nil {
+		if locked.RowsAffected == 0 {
+			return errors.New("the automation was deleted")
+		}
+		if a.SessionMode == types.AutomationSessionPersistent {
+			var current types.Automation
+			if err := tx.Select("persistent_session_id").Where("id = ?", a.ID).Take(&current).Error; err != nil {
+				return err
+			}
+			if current.PersistentSessionID != "" {
+				err := tx.Where("id = ? AND tenant_id = ? AND user_id = ? AND kind = ?",
+					current.PersistentSessionID, a.TenantID, a.OwnerUserID, types.SessionKindAutomation).Take(&session).Error
+				if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+					return err
+				}
+			}
+		}
+		if session.ID == "" {
+			title := a.Name
+			if a.SessionMode == types.AutomationSessionPerRun {
+				title += " · " + run.ScheduledAt.In(scheduleLocation(a.Trigger)).Format("2006-01-02 15:04")
+			}
+			now := s.now()
+			session = types.Session{
+				ID: uuid.NewString(), TenantID: a.TenantID, UserID: a.OwnerUserID, Kind: types.SessionKindAutomation,
+				Title: clipRunes(title, 200), CreatedAt: now, UpdatedAt: now,
+				LastRequestState: &types.SessionLastRequestState{
+					AgentID: types.BuiltinGENYEEAssistantID, AgentEnabled: true, ModelID: a.ModelID,
+				},
+			}
+			if err := tx.Session(&gorm.Session{SkipHooks: true}).Create(&session).Error; err != nil {
+				return err
+			}
+			if a.SessionMode == types.AutomationSessionPersistent {
+				if err := tx.Model(&types.Automation{}).Where("id = ?", a.ID).
+					Update("persistent_session_id", session.ID).Error; err != nil {
+					return err
+				}
+			}
+		}
+		// Link before fallible message writes. Failed runs can then be pruned
+		// or deleted with their conversation, and a lost claim rolls creation back.
+		linked := tx.Model(&types.AutomationRun{}).
+			Where("id = ? AND automation_id = ? AND status = ? AND owner = ? AND cancel_requested = ?",
+				run.ID, a.ID, types.AutomationRunRunning, s.instance, false).
+			Update("session_id", session.ID)
+		if linked.Error != nil {
+			return linked.Error
+		}
+		if linked.RowsAffected == 0 {
+			return errors.New("the run was cancelled or taken over")
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	if a.SessionMode == types.AutomationSessionPersistent {
-		res := s.db.WithContext(ctx).Model(&types.Automation{}).
-			Where("id = ? AND persistent_session_id = ?", a.ID, a.PersistentSessionID).
-			Update("persistent_session_id", session.ID)
-		if res.Error != nil {
-			return nil, res.Error
-		}
-		if res.RowsAffected == 0 {
-			return nil, errors.New("the automation's conversation changed meanwhile")
-		}
-	}
+	run.SessionID = session.ID
 	return s.sessions.GetSession(ctx, session.ID)
 }
 

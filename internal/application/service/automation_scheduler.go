@@ -540,19 +540,29 @@ func (s *AutomationService) prune(ctx context.Context) {
 		return
 	}
 	for _, o := range over {
-		var cutoff types.AutomationRun
-		if err := s.db.WithContext(ctx).Where("automation_id = ?", o.AutomationID).
-			Order("scheduled_at DESC").Offset(s.cfg.Retention).Limit(1).Take(&cutoff).Error; err != nil {
-			continue
-		}
+		// Select concrete rows after a stable boundary. A timestamp cutoff
+		// alone also removes retained manual/scheduled runs sharing that time.
+		older := s.db.Model(&types.AutomationRun{}).Select("id").
+			Where("automation_id = ?", o.AutomationID).
+			Order("scheduled_at DESC, created_at DESC, id DESC").Offset(s.cfg.Retention).Limit(1000)
 		old := s.db.Model(&types.AutomationRun{}).
-			Where("automation_id = ? AND scheduled_at <= ? AND status IN ?",
-				o.AutomationID, cutoff.ScheduledAt, finished)
+			Where("id IN (?) AND status IN ?", older, finished)
 		s.dropRuns(ctx, old)
 	}
 	orphaned := s.db.Model(&types.AutomationRun{}).Where("status IN ?", finished).
 		Where("automation_id NOT IN (?)", s.db.Model(&types.Automation{}).Select("id"))
 	s.dropRuns(ctx, orphaned)
+	// A persistent conversation can outlive all runs that mention it (for
+	// example, after a series of skipped runs). Recover interrupted deletion
+	// from the parent tombstone even when no orphan run still carries its ID.
+	deletedPersistent := s.db.Unscoped().Model(&types.Automation{}).Select("persistent_session_id").
+		Where("deleted_at IS NOT NULL AND persistent_session_id <> ''")
+	activePersistent := s.db.Model(&types.Automation{}).Select("persistent_session_id").
+		Where("persistent_session_id <> ''")
+	if err := s.db.WithContext(ctx).Where("kind = ? AND id IN (?) AND id NOT IN (?)",
+		types.SessionKindAutomation, deletedPersistent, activePersistent).Delete(&types.Session{}).Error; err != nil {
+		logger.Warnf(ctx, "Prune deleted automation conversations: %v", err)
+	}
 	if err := s.notices.Prune(ctx); err != nil {
 		logger.Warnf(ctx, "Prune notifications: %v", err)
 	}
@@ -576,7 +586,7 @@ func (s *AutomationService) dropRuns(ctx context.Context, runs *gorm.DB) {
 	}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if len(sessions) > 0 {
-			persistent := tx.Model(&types.Automation{}).Unscoped().Select("persistent_session_id").
+			persistent := tx.Model(&types.Automation{}).Select("persistent_session_id").
 				Where("persistent_session_id <> ''")
 			if err := tx.Where("kind = ? AND id IN ? AND id NOT IN (?)",
 				types.SessionKindAutomation, sessions, persistent).

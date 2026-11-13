@@ -11,6 +11,7 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/agent/hitl"
 	"github.com/Usir233/GENYEE/internal/agent/policy"
+	"github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/automation"
 	apperrors "github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/event"
@@ -528,6 +529,25 @@ func (s *AutomationService) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	// Tombstone under the same parent write lock used by claim, RunNow,
+	// startRun, runSession and AddGrant. No new work or authorization may
+	// cross this fence. Persist every live run's cancellation in the same
+	// transaction so a crash before local cancellation remains recoverable.
+	if err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Delete(a).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&types.AutomationRun{}).
+			Where("automation_id = ? AND status IN ?", a.ID, []string{
+				types.AutomationRunQueued, types.AutomationRunRunning, types.AutomationRunAwaitingApproval,
+			}).Update("cancel_requested", true).Error; err != nil {
+			return err
+		}
+		return tx.Where("tenant_id = ? AND scope = ? AND scope_id = ?",
+			a.TenantID, types.AgentGrantScopeAutomation, a.ID).Delete(&types.AgentGrant{}).Error
+	}); err != nil {
+		return err
+	}
 	var active []*types.AutomationRun
 	if err := s.db.WithContext(ctx).Where("automation_id = ? AND status IN ?", a.ID, []string{
 		types.AutomationRunQueued, types.AutomationRunRunning, types.AutomationRunAwaitingApproval,
@@ -547,16 +567,9 @@ func (s *AutomationService) Delete(ctx context.Context, id string) error {
 			Delete(&types.Session{}).Error; err != nil {
 			return err
 		}
-		if err := tx.Where("tenant_id = ? AND scope = ? AND scope_id = ?",
-			a.TenantID, types.AgentGrantScopeAutomation, a.ID).Delete(&types.AgentGrant{}).Error; err != nil {
-			return err
-		}
-		if err := tx.Where("automation_id = ? AND status NOT IN ?", a.ID, []string{
+		return tx.Where("automation_id = ? AND status NOT IN ?", a.ID, []string{
 			types.AutomationRunRunning, types.AutomationRunAwaitingApproval,
-		}).Delete(&types.AutomationRun{}).Error; err != nil {
-			return err
-		}
-		return tx.Delete(a).Error
+		}).Delete(&types.AutomationRun{}).Error
 	})
 }
 
@@ -937,7 +950,21 @@ func (s *AutomationService) AddGrant(ctx context.Context, id, promptID string) (
 		Scope: types.AgentGrantScopeAutomation, ScopeID: a.ID, GrantKey: c.GrantKey,
 		Label: c.Label, BindingHash: binding, Risk: c.Risk, PromptID: prompt.ID,
 	}
-	if err := s.grants.SaveGrant(ctx, grant); err != nil {
+	// Authorization was checked above, but deletion may have happened while
+	// reading the prompt or binding. Serialize the write with the parent
+	// tombstone, and use the same transaction for the repository upsert.
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		locked := tx.Model(&types.Automation{}).Where("id = ?", a.ID).
+			UpdateColumn("version", gorm.Expr("version"))
+		if locked.Error != nil {
+			return locked.Error
+		}
+		if locked.RowsAffected == 0 {
+			return apperrors.NewNotFoundError("automation not found")
+		}
+		return repository.NewAgentGrantRepository(tx).SaveGrant(ctx, grant)
+	})
+	if err != nil {
 		return nil, err
 	}
 	return grant, nil
