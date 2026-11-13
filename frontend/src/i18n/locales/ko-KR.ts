@@ -6328,7 +6328,7 @@ export default {
     webhookUrlPlaceholder: 'https://your-server.example.com/genyee/embed-events',
     webhookUrlDesc: 'Optional. GENYEE POSTs message_sent / message_received events to this HTTPS endpoint.',
     webhookSecret: 'Webhook secret',
-    webhookSecretPlaceholder: 'HMAC-SHA256 secret (X-GENYEE-Signature header)',
+    webhookSecretPlaceholder: 'HMAC-SHA256 secret (X-Genyee-Signature header)',
     webhookSecretKeep: 'Leave blank to keep the saved secret',
     webhookSecretDesc: 'Optional. When set, request bodies are signed for verification on your server.',
     agentWebSearchDisabledHint: '현재 에이전트에서 웹 검색이 활성화되지 않았습니다. 방문자에게 웹 검색 버튼이 표시되지 않습니다. 에이전트 설정에서 웹 검색을 먼저 활성화하세요.',

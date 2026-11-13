@@ -13,9 +13,6 @@ const DOC_ID = '00000001-0000-4000-8000-000000000001'
 test('parseGENYEEEntityURI accepts only whole durable URIs', () => {
   assert.deepEqual(parseGENYEEEntityURI(`genyee://kb/${KB_ID}`), { kind: 'kb', id: KB_ID })
   assert.deepEqual(parseGENYEEEntityURI(`GENYEE://DOC/${DOC_ID}`), { kind: 'doc', id: DOC_ID })
-  assert.deepEqual(parseGENYEEEntityURI(`genyee://kb/${KB_ID}`), { kind: 'kb', id: KB_ID })
-  assert.deepEqual(parseGENYEEEntityURI(`GENYEE://DOC/${DOC_ID}`), { kind: 'doc', id: DOC_ID })
-  assert.equal(parseGENYEEEntityURI('genyee://kb/'), null)
   assert.equal(parseGENYEEEntityURI('genyee://kb/'), null)
   assert.equal(parseGENYEEEntityURI('genyee://user/1'), null)
   assert.equal(parseGENYEEEntityURI(`see genyee://kb/${KB_ID}`), null)

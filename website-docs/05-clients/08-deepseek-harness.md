@@ -59,7 +59,7 @@ dsh web
 
 插件默认工具前缀为 `genyee`，注册工具名称为 `genyee_list_knowledge_bases`、`genyee_search`、`genyee_read_document`、`genyee_ask`。
 
-`toolPrefix` 完整支持自定义重命名：连接多个部署或需避免命名冲突时，可设置不同的 `toolPrefix`（例如 `internal_kb`、`public_kb`，或配置 `toolPrefix: genyee` 以向后兼容旧版 Prompt/脚本）；前缀名称须以小写字母开头，且仅含小写字母、数字和下划线（正则 `^[a-z][a-z0-9_]*$`）。
+`toolPrefix` 完整支持自定义重命名：连接多个部署或需避免命名冲突时，可设置不同的 `toolPrefix`（例如 `internal_kb`、`public_kb`，或配置 `toolPrefix: genyee` 以采用产品名称作为前缀）；前缀名称须以小写字母开头，且仅含小写字母、数字和下划线（正则 `^[a-z][a-z0-9_]*$`）。
 
 ## 引用图片与排查
 

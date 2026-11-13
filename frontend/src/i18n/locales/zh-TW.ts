@@ -6329,7 +6329,7 @@ export default {
     webhookUrlPlaceholder: 'https://your-server.example.com/genyee/embed-events',
     webhookUrlDesc: '可選。訪客發訊息與助手回覆完成時，GENYEE 會向該 HTTPS 地址 POST 事件（message_sent / message_received）。',
     webhookSecret: 'Webhook 簽章金鑰',
-    webhookSecretPlaceholder: '用於 HMAC-SHA256 簽章（X-GENYEE-Signature）',
+    webhookSecretPlaceholder: '用於 HMAC-SHA256 簽章（X-Genyee-Signature）',
     webhookSecretKeep: '留空表示不修改已儲存的金鑰',
     webhookSecretDesc: '可選。設定後請求體會帶 sha256 簽章頭，便於你的伺服器端驗證來源。',
     agentWebSearchDisabledHint: '當前智慧代理未啟用聯網搜尋，訪客端不會顯示聯網按鈕。請先在智慧代理設定中開啟聯網搜尋。',

@@ -7,7 +7,7 @@ metadata:
 
 # GENYEE CLI — shared base
 
-`genyee` (alias `genyee`) is the agent-first CLI for a GENYEE RAG server. Every command prints
+`genyee` is the agent-first CLI for a GENYEE RAG server. Every command prints
 a JSON envelope and uses a typed exit code, so you branch on machine-readable
 output, not prose. Read this skill before any task-specific `genyee-*` skill.
 

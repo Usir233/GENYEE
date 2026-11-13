@@ -4,7 +4,6 @@ A command-line interface for the GENYEE RAG knowledge-base server. Lets you
 authenticate, manage knowledge bases and documents, run hybrid search, and
 ask streaming RAG questions from your terminal or from an AI agent.
 
-> **Compatibility note:** The CLI binary is `genyee` (`genyee` is supported as a command alias), and all `GENYEE_*` environment variables (`GENYEE_API_KEY`, `GENYEE_TOKEN`, `GENYEE_HOST`, `GENYEE_PROFILE`, `GENYEE_FORMAT`, `GENYEE_KB_ID`, `GENYEE_LOG_LEVEL`, `GENYEE_AGENT_HELP`) remain supported for backward compatibility.
 
 ```bash
 $ genyee --help

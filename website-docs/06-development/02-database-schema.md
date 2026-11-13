@@ -388,7 +388,7 @@ if strings.HasPrefix(dsn, "sqlite3://") {
 `scripts/migrate.sh` 是 `migrate` CLI 的包装（Makefile 的 `migrate-*` 目标调用它）：
 
 - 自动加载根目录 `.env`；
-- DSN 优先取 `DB_URL`（并把 `sslmode=require/prefer` 强制替换为 `disable`），否则由 `DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME` 拼装（默认 `localhost:5432/postgres/GENYEE`），密码用 Python `urllib.parse.quote` URL 编码以兼容特殊字符；
+- DSN 优先取 `DB_URL`（并把 `sslmode=require/prefer` 强制替换为 `disable`），否则由 `DB_HOST/DB_PORT/DB_USER/DB_PASSWORD/DB_NAME` 拼装（默认 `localhost:5432/postgres/genyee`），密码用 Python `urllib.parse.quote` URL 编码以兼容特殊字符；
 - 迁移目录默认 `MIGRATIONS_DIR=migrations/versioned`；
 - 未安装 `migrate` 时提示：`go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest`。
 

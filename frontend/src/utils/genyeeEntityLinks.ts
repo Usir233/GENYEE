@@ -10,8 +10,8 @@ export type GENYEEEntityLinkLabels = Record<GENYEEEntityKind, string>
 export const GENYEE_ENTITY_LINK_CLASS = 'genyee-entity-link'
 
 const URI_BODY = '(kb|doc|chunk)/([0-9A-Za-z][0-9A-Za-z_-]*)'
-const URI_EXACT_RE = new RegExp(`^(?:genyee|genyee)://${URI_BODY}$`, 'i')
-const URI_IN_TEXT_RE = new RegExp(`(?:genyee|genyee)://${URI_BODY}`, 'gi')
+const URI_EXACT_RE = new RegExp(`^genyee://${URI_BODY}$`, 'i')
+const URI_IN_TEXT_RE = new RegExp(`genyee://${URI_BODY}`, 'gi')
 const HREF_RE = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')/i
 const SKIPPED_TAGS = new Set(['code', 'pre', 'a', 'button', 'svg', 'math'])
 
@@ -39,7 +39,7 @@ function entityOpenTag(ref: GENYEEEntityRef, labels: GENYEEEntityLinkLabels): st
  * DOMPurify, whose URI allowlist would otherwise strip the `genyee:` scheme.
  */
 export function renderGENYEEEntityLinks(html: string, labels: GENYEEEntityLinkLabels): string {
-  if (!html || !/(?:genyee|genyee):\/\//i.test(html)) return html
+  if (!html || !/genyee:\/\//i.test(html)) return html
   const parts = html.split(/(<[^>]*>)/)
   const skipDepth = new Map<string, number>()
   let skipping = 0

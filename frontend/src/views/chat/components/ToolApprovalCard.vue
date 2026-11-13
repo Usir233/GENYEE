@@ -183,7 +183,7 @@ const awaitingInDock = computed(() => open.value && props.variant !== 'dock' && 
 const hasArgs = computed(() => argsText.value.trim().length > 0)
 
 // The service name the backend gives its own operations (run_operation).
-const isOperation = computed(() => props.serviceName === 'GENYEE' || props.serviceName === 'GENYEE')
+const isOperation = computed(() => props.serviceName === 'GENYEE')
 
 // A batch operation ends its description with one "- " line per item it acts
 // on; those render as a list so every item stays visible. "Label: value"

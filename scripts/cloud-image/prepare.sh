@@ -197,7 +197,7 @@ docker compose --profile full pull sandbox || true
 # 不预拉, 体积可省 5-15GB. 用户如需启用:
 #   cd /opt/GENYEE && docker compose --profile <name> up -d
 
-# 升级场景: 清理旧版本 tag 的 genyee/genyee-* (及兼容旧名 genyee/genyee-*) 镜像。
+# 升级场景: 清理旧版本 tag 的 genyee/genyee-* 镜像。
 # 默认关闭, 保留回滚路径; 制作镜像前显式打开以减小体积。
 #
 # 注意: 不用 `docker image prune -af`!

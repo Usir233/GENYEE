@@ -3614,7 +3614,7 @@ export default {
     webhookUrlPlaceholder: 'https://your-server.example.com/genyee/embed-events',
     webhookUrlDesc: '任意。GENYEEがmessage_sent / message_receivedイベントをこのHTTPSエンドポイントにPOSTします。',
     webhookSecret: 'Webhookシークレット',
-    webhookSecretPlaceholder: 'HMAC-SHA256シークレット（X-GENYEE-Signatureヘッダー）',
+    webhookSecretPlaceholder: 'HMAC-SHA256シークレット（X-Genyee-Signatureヘッダー）',
     webhookSecretKeep: '空欄のままにすると保存済みのシークレットを維持します',
     webhookSecretDesc: '任意。設定すると、リクエストボディに署名が付与され、サーバ側で検証できます。',
     agentWebSearchDisabledHint: 'このエージェントではWeb検索が有効になっていません。エージェント設定で有効にするまで、訪問者にWeb検索ボタンは表示されません。',

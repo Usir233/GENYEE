@@ -165,7 +165,7 @@ A 网站嵌入 B 的 GENYEE 时，白名单填 A。标准 Nginx 使用 `/api/v1/
 
 安全与投递语义：
 
-- 配置了 `webhook_secret` 时附带签名头 `X-GENYEE-Signature` / `X-Genyee-Signature: sha256=<hex(HMAC-SHA256(secret, raw_body))>`；
+- 配置了 `webhook_secret` 时附带签名头 `X-Genyee-Signature: sha256=<hex(HMAC-SHA256(secret, raw_body))>`；
 - URL 必须 HTTPS，出站请求走 SSRF 安全客户端（每次重定向重新校验，最多 5 跳），超时 5 秒，User-Agent 为 `GENYEE-Embed-Webhook/1.0`；
 - 异步 best-effort 投递，失败仅记录日志、**不重试**；
 - 前端也可通过 `POST /api/v1/embed/:channel_id/sessions/:session_id/events` 显式转发事件。
@@ -304,7 +304,7 @@ sequenceDiagram
     Note over Iframe: session id + sig 存入 localStorage
     Visitor->>Iframe: 输入问题
     Iframe->>API: POST /agent-chat/:session_id (X-Embed-Session: sig)
-    API-->>Webhook: 异步 POST message_sent (X-GENYEE-Signature)
+    API-->>Webhook: 异步 POST message_sent (X-Genyee-Signature)
     API-->>Iframe: SSE 流式回复
     API-->>Webhook: 异步 POST message_received
     Iframe-->>Host: postMessage "message_received"
