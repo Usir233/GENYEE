@@ -331,8 +331,8 @@ func watchKill(ctx context.Context, done <-chan struct{}, proc Process) {
 const commandLogLimit = 240
 
 func previewCommand(command string) string {
-	command = strings.Join(strings.Fields(command), " ")
 	command = utils.MaskCommandAssignments(command)
+	command = strings.Join(strings.Fields(command), " ")
 	if len(command) <= commandLogLimit {
 		return command
 	}
