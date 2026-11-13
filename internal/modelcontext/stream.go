@@ -15,6 +15,10 @@ type streamHold struct {
 	holdLen func(combined string) int    // trailing bytes to withhold
 	emit    func(released string) string // decode applied to released text
 	flush   func(pending string) string  // end-of-stream disposition
+	// Word-bounded codecs need the preceding input byte even after it has
+	// streamed out. Otherwise "ap" + "i1" acquires a false boundary at i1.
+	wordBounded bool
+	leftWord    bool
 }
 
 func (h *streamHold) Feed(chunk string) string {
@@ -23,17 +27,40 @@ func (h *streamHold) Feed(chunk string) string {
 	if combined == "" {
 		return ""
 	}
-	if hold := h.holdLen(combined); hold > 0 && hold <= len(combined) {
+	if hold := h.holdLen(h.withLeftBoundary(combined)); hold > 0 && hold <= len(combined) {
 		h.pending = combined[len(combined)-hold:]
 		combined = combined[:len(combined)-hold]
 	}
-	return h.emit(combined)
+	decoded := h.decode(combined, h.emit)
+	if h.wordBounded && combined != "" {
+		h.leftWord = !atTokenBoundary(combined, len(combined))
+	}
+	return decoded
 }
 
 func (h *streamHold) Flush() string {
 	pending := h.pending
 	h.pending = ""
-	return h.flush(pending)
+	decoded := h.decode(pending, h.flush)
+	h.leftWord = false
+	return decoded
+}
+
+func (h *streamHold) withLeftBoundary(text string) string {
+	if h.wordBounded && h.leftWord {
+		// Only the ASCII word/non-word class matters to the codecs' \b.
+		// An underscore cannot itself become one of their numeric handles.
+		return "_" + text
+	}
+	return text
+}
+
+func (h *streamHold) decode(text string, rewrite func(string) string) string {
+	decoded := rewrite(h.withLeftBoundary(text))
+	if h.wordBounded && h.leftWord {
+		return strings.TrimPrefix(decoded, "_")
+	}
+	return decoded
 }
 
 // resourceStreamDecoder restores res:// handles split across provider chunks.
@@ -76,19 +103,23 @@ type HandleStreamDecoder struct {
 func NewHandleStreamDecoder(table *HandleTable) *HandleStreamDecoder {
 	return &HandleStreamDecoder{table: table, hold: streamHold{
 		holdLen: func(combined string) int {
-			start := len(combined)
-			for start > 0 && isHandleTokenByte(combined[start-1]) {
-				start--
-			}
-			tail := combined[start:]
 			// The prefix is immutable after construction, so no lock is needed.
-			if couldBeNumericHandle(tail, table.table.prefix) {
-				return len(tail)
+			prefix := table.table.prefix
+			if start := strings.LastIndex(combined, prefix); start >= 0 &&
+				atTokenBoundary(combined, start) && couldBeNumericHandle(combined[start:], prefix) {
+				return len(combined) - start
+			}
+			for n := len(prefix) - 1; n > 0; n-- {
+				if start := len(combined) - n; start >= 0 &&
+					strings.HasSuffix(combined, prefix[:n]) && atTokenBoundary(combined, start) {
+					return n
+				}
 			}
 			return 0
 		},
-		emit:  table.DecodeKnownText,
-		flush: table.DecodeKnownText,
+		emit:        table.DecodeKnownText,
+		flush:       table.DecodeKnownText,
+		wordBounded: true,
 	}}
 }
 
@@ -104,11 +135,6 @@ func (d *HandleStreamDecoder) Flush() string {
 		return ""
 	}
 	return d.hold.Flush()
-}
-
-func isHandleTokenByte(value byte) bool {
-	return value >= 'a' && value <= 'z' || value >= 'A' && value <= 'Z' ||
-		value >= '0' && value <= '9' || value == '-' || value == '_'
 }
 
 func couldBeNumericHandle(value, prefix string) bool {

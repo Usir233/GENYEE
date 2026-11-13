@@ -281,9 +281,10 @@ type sourceHandleStreamDecoder struct {
 
 func newSourceHandleStreamDecoder(registry *sourceRegistry) *sourceHandleStreamDecoder {
 	return &sourceHandleStreamDecoder{hold: streamHold{
-		holdLen: sourceHandleHoldLen,
-		emit:    registry.ExpandHandleText,
-		flush:   registry.ExpandHandleText,
+		holdLen:     sourceHandleHoldLen,
+		emit:        registry.ExpandHandleText,
+		flush:       registry.ExpandHandleText,
+		wordBounded: true,
 	}}
 }
 

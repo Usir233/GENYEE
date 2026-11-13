@@ -8467,18 +8467,24 @@
       ],
       "invariants_checked": [],
       "evidence": [
-        "test-reports/module-audit-20261113/modelcontext-resource-identity.json"
+        "test-reports/module-audit-20261113/modelcontext-resource-identity.json",
+        "test-reports/module-audit-20261113/modelcontext-stream-word-boundary.json"
       ],
       "findings": [
         {
           "id": "MC-RESOURCE-PREFIX-RESOLUTION",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/modelcontext-resource-identity.json"
+        },
+        {
+          "id": "MC-STREAM-LEFT-WORD-BOUNDARY",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/modelcontext-stream-word-boundary.json"
         }
       ],
       "commits": [],
       "limitations": [
-        "All 14 production files read by delegated investigator. Two further reproduced issues (stream left-boundary loss and JSON numeric precision) remain pending independent fix groups. Agent and compaction have separate audit units."
+        "All 14 production files read by delegated investigator. JSON numeric precision is confirmed and still pending an independent fix group. Agent and compaction have separate audit units."
       ],
       "source_sha256": {
         "internal/modelcontext/citations.go": "f6bb8f77334ea307315c77e90d1b0b30d929d840e299998f7f23c9b1cb819d4a",
@@ -8491,9 +8497,9 @@
         "internal/modelcontext/model_output.go": "fa14eef93c0f0c5ea292cecf03b27375057d5b7cc627ad7672c08ac9e5c18009",
         "internal/modelcontext/registry.go": "bf8d96a67b361e48c4cd1a180578dd93a83defa750bf8d97de31283817a6459f",
         "internal/modelcontext/resources.go": "76cc86162d9bc6093e639fee01b97fb822ad2eaf765cc964d219de557992799f",
-        "internal/modelcontext/source_text.go": "517b3d3ac439044f268698501b076da7461126ec04b3949147b6f87ee4e9015a",
+        "internal/modelcontext/source_text.go": "d17de585da72c6c26ca52698d2e9e8a4d6503b2819aea7f0ff07354b2be67d76",
         "internal/modelcontext/sources.go": "06eedefc064374f700a2232e935d5476634693e0944972853e9b88192d856206",
-        "internal/modelcontext/stream.go": "d4767fdef08206004ffd7e0bf7e0518fa9b33b3ad2bc96335c3f06db2f17eed9",
+        "internal/modelcontext/stream.go": "a414e477399f27ae3b8f0d879cff32ff4b885a655faa6a0a1c878e6697ec04c2",
         "internal/modelcontext/tool_policy.go": "0a8665fd2e1630ebb00bbcf229fc308bc5bf3ad8e0ac1d8dcdc4e0cd97d409e4"
       }
     },
@@ -13140,6 +13146,10 @@
     {
       "commit": "0517fae8e",
       "module": "complete model resource handle identity"
+    },
+    {
+      "commit": "2508634d0",
+      "module": "SSRF outbound cache reload concurrency"
     }
   ],
   "frontend_final_gate": {
