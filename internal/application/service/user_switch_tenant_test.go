@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Usir233/GENYEE/internal/config"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
@@ -170,6 +171,7 @@ func TestSwitchTenantSuperuserRecordsPreferenceWithoutMembership(t *testing.T) {
 		"alice": {ID: "alice", TenantID: 7, CanAccessAllTenants: true},
 	}}
 	svc := newSwitchTenantTestService(repo, &membershipLookupService{byTenant: map[uint64]*types.TenantMember{}})
+	svc.config = &config.Config{Tenant: &config.TenantConfig{EnableCrossTenantAccess: true}}
 	user, _ := repo.GetUserByID(ctx, "alice")
 
 	resp, err := svc.SwitchTenant(ctx, user, 42, "")

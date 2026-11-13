@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/application/repository"
+	"github.com/Usir233/GENYEE/internal/config"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/stretchr/testify/require"
@@ -22,7 +23,8 @@ func logoutSessionService(t *testing.T) (*userService, *types.User, *gorm.DB) {
 	t.Cleanup(func() { require.NoError(t, sqlDB.Close()) })
 	user := &types.User{ID: "session-user", Username: "session-user", Email: "session@example.com",
 		PasswordHash: "unused", IsActive: true, CanAccessAllTenants: true, TenantID: 1}
-	svc := &userService{userRepo: repository.NewUserRepository(db), tokenRepo: repository.NewAuthTokenRepository(db)}
+	svc := &userService{userRepo: repository.NewUserRepository(db), tokenRepo: repository.NewAuthTokenRepository(db),
+		config: &config.Config{Tenant: &config.TenantConfig{EnableCrossTenantAccess: true}}}
 	require.NoError(t, svc.userRepo.CreateUser(context.Background(), user))
 	return svc, user, db
 }

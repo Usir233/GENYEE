@@ -164,7 +164,7 @@ func TestResolveTenantRole_CrossTenantSuperuserGetsAdmin_NoAutoPromote(t *testin
 	svc := newFakeMemberService()
 	user := &types.User{ID: "super", TenantID: 1, CanAccessAllTenants: true}
 
-	got, ok := resolveTenantRole(context.Background(), svc, user, 99, true, cfgWithRBAC(true))
+	got, ok := resolveTenantRole(context.Background(), svc, user, 99, true, cfgRBACWithCrossTenant(true))
 	if !ok || got != types.TenantRoleAdmin {
 		t.Fatalf("got (%v, %v), want (admin, true)", got, ok)
 	}
@@ -179,7 +179,7 @@ func TestResolveTenantRole_AutoPromoteRequiresHomeTenant(t *testing.T) {
 	svc := newFakeMemberService() // 空 — 任何空间都是孤儿
 	user := &types.User{ID: "u1", TenantID: 1, CanAccessAllTenants: true}
 
-	got, ok := resolveTenantRole(context.Background(), svc, user, 42, true, cfgWithRBAC(true))
+	got, ok := resolveTenantRole(context.Background(), svc, user, 42, true, cfgRBACWithCrossTenant(true))
 	if !ok || got != types.TenantRoleAdmin {
 		t.Fatalf("cross-tenant superuser should still get visitor Admin, got (%v, %v)", got, ok)
 	}

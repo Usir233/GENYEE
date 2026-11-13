@@ -5482,7 +5482,8 @@
         "test-reports/module-audit-20261113/parser-error-envelope.json",
         "test-reports/module-audit-20261113/wiki-current-chunks.json",
         "test-reports/module-audit-20261113/retriever-clone-tags.json",
-        "test-reports/module-audit-20261113/sourceloc.json"
+        "test-reports/module-audit-20261113/sourceloc.json",
+        "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json"
       ],
       "findings": [
         {
@@ -8233,7 +8234,7 @@
     },
     {
       "id": "internal/middleware",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/middleware/access.go",
         "internal/middleware/api_key_gate.go",
@@ -8273,12 +8274,39 @@
         "internal/middleware/rbac_audit_test.go",
         "internal/middleware/rbac_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/middleware/access.go",
+        "internal/middleware/api_key_gate.go",
+        "internal/middleware/audit_provider.go",
+        "internal/middleware/auth.go",
+        "internal/middleware/auth_context.go",
+        "internal/middleware/auth_public_ratelimit.go",
+        "internal/middleware/embed_auth.go",
+        "internal/middleware/error_handler.go",
+        "internal/middleware/kb_access.go",
+        "internal/middleware/language.go",
+        "internal/middleware/logger.go",
+        "internal/middleware/mcp_endpoint_auth.go",
+        "internal/middleware/multipart_cleanup.go",
+        "internal/middleware/rbac.go",
+        "internal/middleware/recovery.go",
+        "internal/middleware/ws_auth.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json"
+      ],
+      "findings": [
+        {
+          "id": "AUTH-FOREIGN-TENANT-REVOCATION",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json"
+        }
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source read completed for 16 production files; logger truncation and public-IP limiter cleanup candidates require follow-up. Source read alone does not close all behavioral coverage."
+      ]
     },
     {
       "id": "internal/middleware/asynqdl",
@@ -12421,6 +12449,10 @@
     {
       "commit": "5b5626c59",
       "module": "legacy DOC empty-result fallback"
+    },
+    {
+      "commit": "86017c607",
+      "module": "Ollama image HTTP and heartbeat cancellation"
     }
   ],
   "frontend_final_gate": {

@@ -23,6 +23,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 
+	"github.com/Usir233/GENYEE/internal/application/access"
 	apprepo "github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/config"
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -1078,7 +1079,7 @@ func (s *userService) resolveLoginTenantID(ctx context.Context, user *types.User
 
 	// Membership (or cross-tenant superuser) must still be valid. Mirrors
 	// the gate in SwitchTenant so the two entry points stay consistent.
-	if !user.CanAccessAllTenants {
+	if !access.UserCanAccessAllTenants(user, s.config) {
 		if s.memberService == nil {
 			logger.Warnf(ctx,
 				"resolveLoginTenantID: member service unavailable; falling back to home for user %s",
@@ -1361,7 +1362,7 @@ func (s *userService) SwitchTenant(
 
 	// Verify membership unless the caller is a cross-tenant superuser
 	// switching outside their home tenant.
-	if !user.CanAccessAllTenants || targetTenantID == user.TenantID {
+	if !access.UserCanAccessAllTenants(user, s.config) || targetTenantID == user.TenantID {
 		if s.memberService == nil {
 			return nil, errors.New("workspace membership service unavailable")
 		}

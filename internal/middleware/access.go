@@ -81,7 +81,7 @@ func IsTenantAccessible(
 	if user.TenantID == targetTenantID {
 		return true
 	}
-	if cfg != nil && cfg.Tenant != nil && cfg.Tenant.EnableCrossTenantAccess && user.CanAccessAllTenants {
+	if access.UserCanAccessAllTenants(user, cfg) {
 		return true
 	}
 	if memberService == nil {

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Usir233/GENYEE/internal/application/access"
 	"github.com/Usir233/GENYEE/internal/config"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
@@ -373,6 +374,17 @@ func resolveTargetTenant(
 
 	if targetTenantID == 0 {
 		targetTenantID = resolveFirstMembershipTarget(ctx, user, memberService, tenantService)
+	}
+	// A signed tenant claim records the previous selection, not a permanent
+	// grant. Recheck foreign workspaces just as for an explicit header: role
+	// rollout settings cannot restore revoked membership or a disabled bypass.
+	if targetTenantID != 0 && targetTenantID != user.TenantID &&
+		!IsTenantAccessible(ctx, user, targetTenantID, memberService, cfg) {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "Forbidden: insufficient permissions to access target workspace",
+		})
+		c.Abort()
+		return 0, nil, false, false
 	}
 	return targetTenantID, nil, targetTenantID != user.TenantID, true
 }
@@ -828,7 +840,7 @@ func resolveTenantRole(
 	// 2. 跨空间超管直通：CanAccessAllTenants 用户切到别的空间时不强制要求 membership。
 	//    注意：这里只授予临时 Admin 角色，不写入 tenant_members，避免"看一眼别人空间"
 	//    意外升级为持久化所有权。
-	if crossTenantSwitch && user.CanAccessAllTenants {
+	if crossTenantSwitch && access.UserCanAccessAllTenants(user, cfg) {
 		logger.Infof(ctx,
 			"[auth] resolveTenantRole step2 (cross-tenant superuser) -> Admin: user=%s tenant=%d",
 			user.ID, targetTenantID)
