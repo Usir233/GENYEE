@@ -11,7 +11,7 @@ import (
 )
 
 // AgentPromptKindPageAction asks the user's browser to read or fill the
-// WeKnora page beside the assistant. The browser answers on its own; no card
+// GENYEE page beside the assistant. The browser answers on its own; no card
 // is shown.
 const AgentPromptKindPageAction = "page_action"
 

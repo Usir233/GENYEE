@@ -1,8 +1,8 @@
-/** Minimal WeKnora REST client: JSON endpoints plus the SSE chat streams. */
+/** Minimal GENYEE REST client: JSON endpoints plus the SSE chat streams. */
 
 import type { ResolvedConfig } from './config.ts'
 
-/** One retrieval hit, as returned by WeKnora's `SearchResult`. */
+/** One retrieval hit, as returned by GENYEE's `SearchResult`. */
 export interface SearchResult {
   id?: string
   content?: string

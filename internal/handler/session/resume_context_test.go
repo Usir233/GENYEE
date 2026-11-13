@@ -43,7 +43,7 @@ func (s *resumeKBShareService) CheckTenantKBPermission(
 
 func TestBuildResumeRequestRevalidatesSharedKBBuiltin(t *testing.T) {
 	require.NoError(t, types.LoadBuiltinAgentsConfig(filepath.Join("..", "..", "..", "config")))
-	for _, agentID := range []string{types.BuiltinWeKnoraAssistantID, types.BuiltinWikiFixerID} {
+	for _, agentID := range []string{types.BuiltinGENYEEAssistantID, types.BuiltinWikiFixerID} {
 		for _, allowed := range []bool{true, false} {
 			name := agentID + "/editor"
 			if !allowed {

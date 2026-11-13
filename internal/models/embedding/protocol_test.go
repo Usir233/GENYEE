@@ -22,7 +22,7 @@ import (
 // An upstream that refuses connections must surface as an error from every
 // protocol. The hand-written clients this replaced could each return
 // (nil, nil) from their retry loop and dereference a nil response, which took
-// the process down instead (Tencent/WeKnora#3484).
+// the process down instead (Tencent/GENYEE#3484).
 func TestUnreachableUpstreamIsAnErrorForEveryProtocol(t *testing.T) {
 	allowLoopback(t)
 	saved := retryPolicy

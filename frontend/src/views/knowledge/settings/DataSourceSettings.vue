@@ -627,7 +627,7 @@ onBeforeUnmount(stopPolling)
 }
 
 .ds-icon-spin {
-  animation: wk-spin 1s linear infinite;
+  animation: gy-spin 1s linear infinite;
 }
 
 :deep(.t-dropdown__item.ds-dropdown-delete-item) {

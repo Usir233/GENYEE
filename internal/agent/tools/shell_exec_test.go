@@ -281,7 +281,7 @@ func TestTruncateShellStreamIncludesMarkerWithinLimit(t *testing.T) {
 	assert.Contains(t, output, "truncated")
 }
 
-// CJK output is the norm for WeKnora sandboxes, and shell_exec is exempt from
+// CJK output is the norm for GENYEE sandboxes, and shell_exec is exempt from
 // the registry's rune-safe re-truncation (OutputLimitChars). The byte cuts in
 // truncateShellStream must drop a split multi-byte character whole instead of
 // shipping invalid UTF-8, which JSON would mangle into U+FFFD in the model

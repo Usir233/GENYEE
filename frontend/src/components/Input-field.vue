@@ -3443,7 +3443,7 @@ const getImgSrc = (url: string) => {
   &:disabled { opacity: 0.4; cursor: default; }
 }
 
-.steer-sending { animation: wk-spin 1s linear infinite; }
+.steer-sending { animation: gy-spin 1s linear infinite; }
 @media (prefers-reduced-motion: reduce) { .steer-sending { animation: none; } }
 
 /* 富文本输入框容器 */

@@ -217,7 +217,7 @@ func TestResolveChatModelIDFallbackIsLimitedToInternalBuiltins(t *testing.T) {
 	}
 	assistant := &types.QARequest{
 		Session:     &types.Session{},
-		CustomAgent: &types.CustomAgent{ID: types.BuiltinWeKnoraAssistantID, IsBuiltin: true},
+		CustomAgent: &types.CustomAgent{ID: types.BuiltinGENYEEAssistantID, IsBuiltin: true},
 	}
 	modelID, _, err := svc.resolveChatModelID(context.Background(), assistant, nil, nil)
 	require.NoError(t, err)
@@ -225,7 +225,7 @@ func TestResolveChatModelIDFallbackIsLimitedToInternalBuiltins(t *testing.T) {
 
 	stored := &types.QARequest{
 		Session:     &types.Session{},
-		CustomAgent: &types.CustomAgent{ID: types.BuiltinWeKnoraAssistantID},
+		CustomAgent: &types.CustomAgent{ID: types.BuiltinGENYEEAssistantID},
 	}
 	_, _, err = svc.resolveChatModelID(context.Background(), stored, nil, nil)
 	assert.Error(t, err, "an agent record that only reuses the ID gets no fallback")

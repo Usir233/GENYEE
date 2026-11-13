@@ -1,5 +1,5 @@
 /**
- * Types into the WeKnora page beside the assistant the way the user would:
+ * Types into the GENYEE page beside the assistant the way the user would:
  * native setters plus input events for text, clicks for checkboxes, switches
  * and TDesign selects. Nothing is saved. A fill applies all its changes or
  * none, and can be undone from the chat while the fields keep its values.

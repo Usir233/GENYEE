@@ -1,4 +1,4 @@
-// Package ima implements the WeKnora data source connector for Tencent IMA
+// Package ima implements the GENYEE data source connector for Tencent IMA
 // (ima.qq.com), syncing documents and files out of IMA knowledge bases via the
 // /openapi/wiki/v1 OpenAPI.
 package ima

@@ -29,6 +29,8 @@ npm run package:site
 
 `build` 会编译官网、检查文档链接和 Mermaid、编译文档，并校验合并后的资源路径。全部通过后更新 `static-site/`；`package:site` 将其打包到 `releases/`。
 
+如需显示官网上的 GitHub 入口，在构建时设置 `NEXT_PUBLIC_GITHUB_URL` 为自己的仓库地址；未设置时隐藏该入口，更新日志链接使用站内当前版本发布说明。
+
 ### 2. 上传并解压
 
 只需把压缩包上传到服务器。服务器不需要 Node.js，也不需要 GENYEE 后端或独立文档服务。

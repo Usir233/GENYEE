@@ -4,7 +4,7 @@
       <div class="section-header-row">
         <div class="section-header-titlewrap">
           <h2>{{ $t('tenantMember.title') }}</h2>
-          <t-popup placement="bottom-left" trigger="hover" show-arrow overlay-class-name="wk-popover permissions-popup-overlay"
+          <t-popup placement="bottom-left" trigger="hover" show-arrow overlay-class-name="gy-popover permissions-popup-overlay"
             :overlay-inner-style="permissionsPopupInnerStyle">
             <button type="button" class="permissions-trigger-btn" :aria-label="$t('tenantMember.permissions.title')">
               <t-icon name="help-circle" size="16px" />
@@ -41,7 +41,7 @@
             {{ $t('tenantMember.audit.tabLabel') }}
           </t-button>
           <t-popup v-if="canManage" v-model="invitePopupVisible" trigger="click" placement="bottom-end"
-            destroy-on-close overlay-class-name="wk-popover wk-popover--form member-invite-popup-overlay">
+            destroy-on-close overlay-class-name="gy-popover gy-popover--form member-invite-popup-overlay">
             <t-button theme="default" variant="text" size="small" class="members-list-add-btn"
               :title="$t('tenantMember.add.button')" :aria-label="$t('tenantMember.add.button')">
               <template #icon><t-icon name="user-add" /></template>
@@ -91,7 +91,7 @@
                popup so the two flows live side-by-side: "I know who"
                (email input) vs "I don't" (one link, group chat). -->
           <t-popup v-if="canManage" v-model="shareLinkPopupVisible" trigger="click" placement="bottom-end"
-            destroy-on-close overlay-class-name="wk-popover wk-popover--form member-invite-popup-overlay">
+            destroy-on-close overlay-class-name="gy-popover gy-popover--form member-invite-popup-overlay">
             <t-button theme="default" variant="text" size="small" class="members-list-add-btn"
               :title="$t('tenantInvitation.shareLink.button')"
               :aria-label="$t('tenantInvitation.shareLink.button')">

@@ -55,7 +55,7 @@ var ErrProjectDirRevoked = errors.New("localsandbox: session project directory i
 // DirLayout names the roots the resolver allocates under.
 type DirLayout struct {
 	// SessionRoot is where session workspaces are created, by default
-	// ~/.weknora/sessions. Each one is <root>/session-<id>, so the path
+	// ~/.genyee/sessions. Each one is <root>/session-<id>, so the path
 	// follows from the session ID alone.
 	SessionRoot string
 }

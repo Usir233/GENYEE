@@ -553,7 +553,7 @@ watch(
   border: 1.5px solid var(--td-component-stroke);
   border-top-color: var(--td-text-color-secondary);
   border-radius: 50%;
-  animation: wk-spin 0.8s linear infinite;
+  animation: gy-spin 0.8s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

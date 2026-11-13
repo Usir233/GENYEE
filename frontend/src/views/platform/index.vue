@@ -4,7 +4,7 @@
         <div v-if="isRouterAlive" class="platform-route-outlet">
             <RouterView />
         </div>
-        <!-- WeKnora 助手：停靠时作为布局右栏挤压页面，悬浮时浮在页面上；都不加遮罩，
+        <!-- GENYEE 助手：停靠时作为布局右栏挤压页面，悬浮时浮在页面上；都不加遮罩，
              跨页面保留会话，从侧栏、右侧边缘按钮或命令面板唤出（设置里可选） -->
         <AssistantPanel />
         <AssistantLauncher />

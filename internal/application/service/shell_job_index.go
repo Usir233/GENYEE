@@ -36,7 +36,7 @@ type ShellJobIndexEntry struct {
 	YieldUntil time.Time
 }
 
-// NewShellJobIndex schedules shell jobs in client. An empty namespace is "weknora".
+// NewShellJobIndex schedules shell jobs in client. An empty namespace is "genyee".
 func NewShellJobIndex(client redis.UniversalClient, namespace string) *ShellJobIndex {
 	if strings.TrimSpace(namespace) == "" {
 		namespace = "weknora"

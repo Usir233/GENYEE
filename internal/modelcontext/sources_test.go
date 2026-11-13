@@ -174,7 +174,7 @@ func TestDecodeToolCallsGivesFreeTextDurableFormsAndIDFieldsBareIDs(t *testing.T
 	registry.RegisterKnowledgeBase("kb-uuid-1")
 
 	// Declared ID-bearing keys resolve to real IDs; handles in free text become
-	// weknora:// URIs a later request can encode again; legacy-shaped prose
+	// genyee:// URIs a later request can encode again; legacy-shaped prose
 	// such as "b1" is never rewritten.
 	calls := []types.LLMToolCall{{
 		Function: types.FunctionCall{

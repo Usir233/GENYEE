@@ -217,7 +217,7 @@ type toolArgumentPolicy func(toolName, key string) bool
 // explicitly owned by the named tool receive the bare durable ID, so dynamic
 // tools with coincidentally named fields do not inherit built-in source
 // semantics; bareText fields (SQL) receive bare IDs inside the expression;
-// all other text receives durable text forms (URLs and weknora:// URIs).
+// all other text receives durable text forms (URLs and genyee:// URIs).
 func (r *sourceRegistry) DecodeToolCallsWithPolicy(
 	toolCalls []types.LLMToolCall,
 	policy toolArgumentPolicy,
@@ -310,7 +310,7 @@ func (r *sourceRegistry) EncodeMessagesWithPolicies(
 	for i := range out {
 		processToolResult := out[i].Role == "tool" && (resultPolicy == nil || resultPolicy(out[i].Name))
 		// Stored text (instructions, prompts, earlier answers) carries
-		// workspace objects as weknora:// URIs in every role.
+		// workspace objects as genyee:// URIs in every role.
 		reasoningBefore := out[i].ReasoningContent
 		if out[i].Role == "assistant" || processToolResult {
 			out[i].Content = r.CompactPublicCitations(out[i].Content, false)
@@ -539,13 +539,13 @@ func (r *sourceRegistry) durableForHandle(handle string) string {
 }
 
 // CompactKnownText is intentionally limited to identifiers already registered
-// from structured runtime/tool data, plus explicit weknora:// URIs. It is used
+// from structured runtime/tool data, plus explicit genyee:// URIs. It is used
 // for metadata envelopes, not arbitrary retrieved prose.
 func (r *sourceRegistry) CompactKnownText(text string) string {
 	if r == nil || text == "" {
 		return text
 	}
-	// URIs first: their embedded IDs must become one handle, not "weknora://kb/kb://1".
+	// URIs first: their embedded IDs must become one handle, not "genyee://kb/kb://1".
 	text = r.EncodeDurableURIs(text)
 	// The snapshot spans all four source tables and is sorted longest-value
 	// first GLOBALLY: a web URL may contain a registered document UUID as a

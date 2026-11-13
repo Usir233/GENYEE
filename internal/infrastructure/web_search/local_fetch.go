@@ -10,10 +10,10 @@ import (
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
 
-// LocalFetchSource is WebPage.Source for pages read by WeKnora's own reader.
+// LocalFetchSource is WebPage.Source for pages read by GENYEE's own reader.
 const LocalFetchSource = "local"
 
-// LocalFetcher returns WeKnora's own page reader, used by providers without a fetch API.
+// LocalFetcher returns GENYEE's own page reader, used by providers without a fetch API.
 func LocalFetcher() interfaces.WebFetcher {
 	return localFetcher{}
 }
@@ -38,7 +38,7 @@ func WithPipelineFetch(ctx context.Context) context.Context {
 	return context.WithValue(ctx, localFetchModeKey{}, true)
 }
 
-// FetchLocal reads a page with WeKnora's own client.
+// FetchLocal reads a page with GENYEE's own client.
 func FetchLocal(ctx context.Context, rawURL string) (string, error) {
 	if pipeline, _ := ctx.Value(localFetchModeKey{}).(bool); pipeline {
 		return webfetch.NewPipelineFetcher().Fetch(ctx, rawURL)

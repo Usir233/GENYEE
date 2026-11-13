@@ -79,7 +79,7 @@ var openSpanStatuses = []string{types.SpanStatusPending, types.SpanStatusRunning
 // "deleting" counts: the delete flow dequeues in-flight tasks when it marks
 // the row, and it never resets parse_status afterwards, so deleting is the
 // last state the row will ever carry — its open spans are orphans whether
-// the delete finished or stranded (Tencent/WeKnora#5277).
+// the delete finished or stranded (Tencent/GENYEE#5277).
 var terminalParseStatuses = []string{
 	types.ParseStatusCompleted, types.ParseStatusFailed,
 	types.ParseStatusCancelled, types.ParseStatusDeleting,
@@ -272,7 +272,7 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 	// The candidate query must be Unscoped: the delete flow writes
 	// deleted_at early, so the majority of stranded rows are already
 	// soft-deleted and GORM's default scope would hide exactly the rows
-	// this sweep exists to recover (Tencent/WeKnora#5277). The two branches
+	// this sweep exists to recover (Tencent/GENYEE#5277). The two branches
 	// below split them apart:
 	//   - deleted_at IS NULL (#3345 ghost): the row still shows in the
 	//     document list, so flipping it to failed makes the delete intent

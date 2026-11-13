@@ -1,4 +1,4 @@
-// Package feishu implements the Feishu (飞书) IM adapter for WeKnora, and with
+// Package feishu implements the Feishu (飞书) IM adapter for GENYEE, and with
 // it the Lark adapter: Feishu and Lark are the same product on two isolated
 // clouds (open.feishu.cn and open.larksuite.com) sharing one API surface, so a
 // single implementation serves both. A Region picks the cloud — see region.go.
@@ -1242,7 +1242,7 @@ func (a *Adapter) cardkitUpdateElement(ctx context.Context, accessToken, cardID,
 // Feishu card markdown images use the syntax ![hover_text](image_key) where the
 // value inside the parentheses MUST be an image_key obtained from the Feishu
 // "upload image" API. External HTTP/COS URLs are rejected with
-// code=200570 "card contains invalid image keys". WeKnora's content pipeline
+// code=200570 "card contains invalid image keys". GENYEE's content pipeline
 // rewrites provider:// storage URLs to signed HTTP URLs, so by the time content
 // reaches the card we must download each referenced image and re-upload it to
 // Feishu to obtain a usable image_key.

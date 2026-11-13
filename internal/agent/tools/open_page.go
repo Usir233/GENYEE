@@ -16,7 +16,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/types"
 )
 
-// ToolOpenPage offers the user a link to a WeKnora page, optionally with a
+// ToolOpenPage offers the user a link to a GENYEE page, optionally with a
 // form filled in for them to finish and save.
 const ToolOpenPage = "open_page"
 

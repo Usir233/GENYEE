@@ -496,7 +496,7 @@ func TestBlocksToMarkdown_UnsupportedBlocksPlaceholdersNoTokenLeak(t *testing.T)
 		t.Errorf("empty view must not emit a placeholder:\n%s", s)
 	}
 	// Board (43) now rides the image pipeline: a token-bearing board renders a
-	// numbered weknora-img:// marker and records a pendingImage for the
+	// numbered genyee-img:// marker and records a pendingImage for the
 	// connector's whiteboard download.
 	if !strings.Contains(s, fmt.Sprintf("![图片](weknora-img://1-%s)", imageMarkerNonce(""))) {
 		t.Errorf("board marker missing:\n%s", s)

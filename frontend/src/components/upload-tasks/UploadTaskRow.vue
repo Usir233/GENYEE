@@ -246,7 +246,7 @@ const handleRowClick = () => {
 }
 
 .row-spin {
-  animation: wk-spin 0.8s linear infinite;
+  animation: gy-spin 0.8s linear infinite;
 }
 
 .row-action {

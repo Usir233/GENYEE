@@ -91,7 +91,7 @@ func newOpenrouterProvider() *Definition {
 				// search_document"), so its vocabulary is the upstream's, and on
 				// an asymmetric model it changes the document vectors. Not
 				// declared, for the reason Jina's task is not
-				// (Tencent/WeKnora#1401).
+				// (Tencent/GENYEE#1401).
 				SendEncodingFormat: api.Ptr(true),
 				DimensionsField:    api.Ptr("dimensions"),
 			},

@@ -2,7 +2,7 @@
 
 Go bindings for [anydoc](https://github.com/firecrawl/anydoc), the Rust library
 that converts Word, PowerPoint, Excel, OpenDocument, RTF, EPUB, CSV, and PDF
-documents to GitHub-Flavored Markdown. WeKnora links them through cgo so office
+documents to GitHub-Flavored Markdown. GENYEE links them through cgo so office
 documents can be parsed inside the Go process, without the Python docreader
 service.
 
@@ -21,7 +21,7 @@ replace github.com/firecrawl/anydoc/go => ./third_party/anydoc-go
 When an upstream module is published, first verify that it includes the local
 safety fixes, the 0.2.x model/error additions, and the asset-link rendering API
 listed below. Only then replace this directory and the `replace` directive.
-WeKnora's backend calls our additional `ToDocumentWithAssetLinks` API, so the
+GENYEE's backend calls our additional `ToDocumentWithAssetLinks` API, so the
 original PR cannot replace this fork unchanged.
 
 ## Provenance
@@ -66,9 +66,9 @@ changes the document model and parsing behavior:
 - 0.2.4 returns `NeedsOcr` for PDFs containing scanned pages, including mixed
   PDFs that previously returned incomplete text. The Go ABI now has a distinct
   `needs_ocr` error; page numbers remain in `ConvertError.Detail`. `NeedsOCR()`
-  lets WeKnora recognize wrapped errors without matching English messages.
+  lets GENYEE recognize wrapped errors without matching English messages.
 
-Node/Python/CLI hosted OCR is outside the Rust crate. WeKnora continues using
+Node/Python/CLI hosted OCR is outside the Rust crate. GENYEE continues using
 its existing builtin docreader fallback and does not send documents to Firecrawl.
 The PDF default engine remains builtin. See [upgrade verification and benchmarks](UPGRADE-0.2.4.md).
 
@@ -114,13 +114,13 @@ and spacing instead of running together, and small-caps runs merge instead of
 being read as extra table columns — a spurious column reaches the model as a
 misaligned markdown table.
 
-Nothing else in the range reaches WeKnora, which is worth recording so the next
+Nothing else in the range reaches GENYEE, which is worth recording so the next
 upgrade does not go looking for it. The crate published as 0.1.8 was cut at
 `pdf-inspector`'s `packages-2026-08-10` tag, one release behind 1.14.1, so 0.1.9
 formally spans that release too — but its two functional commits both miss this
 binding. One only touches the Node and Python surfaces. The other serves
 invisible (`Tr 3`) OCR text layers instead of reporting `needs_ocr`, which
-sounds like it would spare WeKnora an OCR round trip, except that it landed in
+sounds like it would spare GENYEE an OCR round trip, except that it landed in
 `extract_text_in_regions`; anydoc uses the positioned-text path, which already
 retried with invisible text included. Scanned PDFs still come back as "OCR is
 required" and still fall back to the docreader.
@@ -150,12 +150,12 @@ Keep this list current: it is the diff a future upgrade has to re-apply. Items
    the first bounds check, turning a version mismatch into a dead process.
 4. `src/lib.rs` — conversion entry points run inside `guarded()`,
    which catches a panic and reports it as a malformed document. A panic
-   escaping an `extern "C"` function aborts the process, and WeKnora parses
+   escaping an `extern "C"` function aborts the process, and GENYEE parses
    untrusted uploads in the same process that serves the API. Note the limit:
    this cannot contain a stack overflow or an allocation failure, which is why
    the dependency pin below matters as much as the guard.
 5. Removed the upstream CLI (`cmd/anydoc`) and the binding test suite, which
-   reads fixtures from the anydoc repository. WeKnora's own tests live in
+   reads fixtures from the anydoc repository. GENYEE's own tests live in
    `internal/infrastructure/docparser/anydoc`.
 6. `scripts/build-anydoc-lib.sh` copies the pinned anydoc release to
    `patched-anydoc/` (gitignored) and re-exports `document_to_markdown`, which
@@ -222,7 +222,7 @@ failing the job.
 
 Markdown rendering drops embedded images: `ImageSource::Asset` renders as its
 alt text, and the bytes are only reachable through the document model. The
-renderer (`document_to_markdown`) is also crate-private. WeKnora keeps that
+renderer (`document_to_markdown`) is also crate-private. GENYEE keeps that
 serializer: `scripts/build-anydoc-lib.sh` re-exports the one function, then
 `anydoc_to_markdown_with_asset_links` rewrites `Asset` images to
 `ImageSource::External("images/image-N.ext")` so the official GFM output
@@ -239,7 +239,7 @@ scripts/build-anydoc-lib.sh                          # host platform
 TARGET=aarch64-unknown-linux-musl scripts/build-anydoc-lib.sh
 ```
 
-Then build WeKnora with the engine linked in:
+Then build GENYEE with the engine linked in:
 
 ```bash
 make build-anydoc          # or: go build -tags anydoc ./cmd/server

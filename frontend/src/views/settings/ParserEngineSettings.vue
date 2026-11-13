@@ -1013,7 +1013,7 @@ onMounted(loadAll)
 }
 
 .spinning {
-  animation: wk-spin 1s linear infinite;
+  animation: gy-spin 1s linear infinite;
 }
 
 // ---- 表单切换组（公式/表格/OCR） ----

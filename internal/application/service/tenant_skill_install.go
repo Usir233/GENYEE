@@ -1306,7 +1306,7 @@ func describeExecFailure(res *sandbox.ExecuteResult) string {
 // installExecutor resolves the one executor every command of an install runs
 // through. It goes through the capability accessor rather than a bare type
 // assertion so a manager that cannot run install-mode shell reports no
-// capability instead of attempting the install on the WeKnora host.
+// capability instead of attempting the install on the GENYEE host.
 func installExecutor(mgr sandbox.Manager) (sandbox.SessionInstallShellExecutor, error) {
 	executor := sessionSandboxInstallShellExecutor(mgr)
 	if executor == nil {
@@ -1888,9 +1888,9 @@ func compactConfigID(id string) string {
 	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(id), "-", ""))
 }
 
-// weknoraSkillSnapshotName pulls the weknora-sk-… token out of a provider
+// genyeeSkillSnapshotName pulls the genyee-sk-… token out of a provider
 // listing. Cube and E2B echo it in Names; Docker embeds it in the image tag.
-func weknoraSkillSnapshotName(raw string) string {
+func genyeeSkillSnapshotName(raw string) string {
 	s := strings.TrimSpace(raw)
 	s = strings.TrimPrefix(s, "docker.io/")
 	if i := strings.LastIndex(s, "/"); i >= 0 {
@@ -1906,7 +1906,7 @@ func weknoraSkillSnapshotName(raw string) string {
 }
 
 // snapshotsNotFromOtherConfig drops provider listings that already name a
-// different WeKnora config. Cube, E2B and Docker all ListSnapshots across the
+// different GENYEE config. Cube, E2B and Docker all ListSnapshots across the
 // whole account/daemon, so without this a reconcile of one config would treat
 // every other config's image as an extra, and an abandoned-build match could
 // bind to the wrong snapshot.
@@ -1933,7 +1933,7 @@ func snapshotBelongsToOtherConfig(snap sandbox.RemoteSnapshotRef, prefix string)
 	needle := prefix + "-g"
 	sawForeign := false
 	for _, candidate := range append([]string{snap.ID}, snap.Names...) {
-		name := weknoraSkillSnapshotName(candidate)
+		name := genyeeSkillSnapshotName(candidate)
 		if name == "" {
 			continue
 		}

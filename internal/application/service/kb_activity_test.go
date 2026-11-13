@@ -185,7 +185,7 @@ func TestRecordKBActivityAttributesAgentActionsThroughTasks(t *testing.T) {
 	submit := types.WithAuditAgentAction(
 		types.TaskInitiator{UserID: "user-1", Role: types.TenantRoleContributor}.Apply(context.Background()),
 		types.AuditAgentAction{
-			SessionID: "s-1", AgentID: types.BuiltinWeKnoraAssistantID, Operation: "knowledge.delete",
+			SessionID: "s-1", AgentID: types.BuiltinGENYEEAssistantID, Operation: "knowledge.delete",
 			ActingVia: "automation:a-1",
 		},
 	)
@@ -210,7 +210,7 @@ func TestRecordKBActivityAttributesAgentActionsThroughTasks(t *testing.T) {
 		t.Fatalf("unmarshal details: %v", err)
 	}
 	if details["via"] != "agent" || details["agent_session_id"] != "s-1" ||
-		details["agent_id"] != types.BuiltinWeKnoraAssistantID || details["agent_operation"] != "knowledge.delete" ||
+		details["agent_id"] != types.BuiltinGENYEEAssistantID || details["agent_operation"] != "knowledge.delete" ||
 		details["agent_acting_via"] != "automation:a-1" {
 		t.Fatalf("details = %#v", details)
 	}

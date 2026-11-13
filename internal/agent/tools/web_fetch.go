@@ -84,7 +84,7 @@ type WebFetchTool struct {
 }
 
 // NewWebFetchTool creates a web_fetch tool that reads through pageFetcher, the
-// resolved provider's reader. Nil keeps WeKnora's local page reader.
+// resolved provider's reader. Nil keeps GENYEE's local page reader.
 func NewWebFetchTool(pageFetcher interfaces.WebFetcher) *WebFetchTool {
 	if pageFetcher == nil {
 		pageFetcher = infrawebsearch.LocalFetcher()

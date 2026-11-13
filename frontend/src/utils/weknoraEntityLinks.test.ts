@@ -49,7 +49,7 @@ test('weknora URIs inside code, pre and ordinary links are left alone', () => {
 })
 
 test('renderChatMarkdown renders weknora links only when labels are supplied', () => {
-  const markdown = `把结果写入 [热榜知识库](weknora://kb/${KB_ID})，并参考 weknora://doc/${DOC_ID}`
+  const markdown = `把结果写入 [热榜知识库](weknora://kb/${KB_ID})，并参考 genyee://doc/${DOC_ID}`
   const options = {
     renderer: new marked.Renderer(),
     escapeMarkdown: (text: string) => text,

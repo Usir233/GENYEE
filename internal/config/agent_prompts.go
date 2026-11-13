@@ -1,4 +1,4 @@
-// Package config loads WeKnora runtime configuration.
+// Package config loads GENYEE runtime configuration.
 package config
 
 import "github.com/Usir233/GENYEE/internal/types"

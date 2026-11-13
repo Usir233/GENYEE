@@ -53,7 +53,7 @@ var errResponseTooLarge = fmt.Errorf("IM response body too large")
 // larger than maxWebhookBodyBytes instead of buffering it.
 //
 // IM platforms are external services: a misconfigured or hostile platform can
-// return an arbitrarily large body and WeKnora would hold all of it in memory.
+// return an arbitrarily large body and GENYEE would hold all of it in memory.
 // The same cap as LimitWebhookBody applies, so both directions of an IM
 // integration are bounded by the same figure.
 //

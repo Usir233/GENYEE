@@ -398,7 +398,7 @@ func (c *mcpGoClient) checkErrorAndDisconnectIfNeeded(err error) {
 	}
 }
 
-// oauthCall runs one MCP operation with WeKnora-owned token lifecycle checks.
+// oauthCall runs one MCP operation with GENYEE-owned token lifecycle checks.
 // A resource-server 401 forces exactly one refresh and one retry. Other errors
 // are never retried, which avoids duplicating tool side effects after ambiguous
 // network failures.

@@ -59,11 +59,11 @@ type RemoteTemplateCatalog interface {
 	ListTemplates(ctx context.Context) ([]RemoteTemplate, error)
 	EnsureStandardTemplate(ctx context.Context) (*RemoteTemplate, error)
 	// ReplaceStandardTemplate applies the current spec to the cluster's
-	// WeKnora template (DNS, image). A READY template cannot pick those up
+	// GENYEE template (DNS, image). A READY template cannot pick those up
 	// any other way. It must not delete a usable template: callers persist
 	// the replacement ID first, then DeleteSupersededStandardTemplates.
 	ReplaceStandardTemplate(ctx context.Context) (*RemoteTemplate, error)
-	// DeleteSupersededStandardTemplates removes WeKnora templates other than
+	// DeleteSupersededStandardTemplates removes GENYEE templates other than
 	// keepID. Call only after keepID is spawnable and has been written onto
 	// every config that still pointed at the previous standard template.
 	DeleteSupersededStandardTemplates(ctx context.Context, keepID string) error
@@ -72,7 +72,7 @@ type RemoteTemplateCatalog interface {
 // RemoteDesktopTemplateCatalog is the desktop sibling of RemoteTemplateCatalog.
 // Cube and E2B implement it; Docker does not (SupportsDesktop stays false).
 type RemoteDesktopTemplateCatalog interface {
-	// EnsureDesktopTemplate returns the cluster's WeKnora desktop template,
+	// EnsureDesktopTemplate returns the cluster's GENYEE desktop template,
 	// building it when absent.
 	EnsureDesktopTemplate(ctx context.Context) (*RemoteTemplate, error)
 	// ReplaceDesktopTemplate applies the current spec to the desktop
@@ -101,11 +101,11 @@ func isTemplateName(name, want string) bool {
 	return len(parts) > 1 && strings.EqualFold(parts[len(parts)-1], want)
 }
 
-// classifyWeKnoraTemplate decides whether a catalog entry is our CLI template,
+// classifyGENYEETemplate decides whether a catalog entry is our CLI template,
 // our desktop sibling, or neither. Name wins over image: a template aliased
-// weknora-desktop is desktop even if the image repository matches the CLI
+// genyee-desktop is desktop even if the image repository matches the CLI
 // image, and a nameless Cube template falls back to the image tag.
-func classifyWeKnoraTemplate(name, image string) (standard, desktop bool) {
+func classifyGENYEETemplate(name, image string) (standard, desktop bool) {
 	if isDesktopTemplate(name) {
 		return false, true
 	}

@@ -153,7 +153,7 @@ type MCPTool struct {
 	Annotations *MCPToolAnnotations `json:"annotations,omitempty"`
 }
 
-// MCPToolAnnotations are the MCP tool annotations WeKnora reads.
+// MCPToolAnnotations are the MCP tool annotations GENYEE reads.
 type MCPToolAnnotations struct {
 	ReadOnlyHint    *bool `json:"readOnlyHint,omitempty"`
 	DestructiveHint *bool `json:"destructiveHint,omitempty"`

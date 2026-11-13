@@ -495,7 +495,7 @@ func newTestConfigService(
 	return svc
 }
 
-func TestQueryTemplatesEnsuresMissingWeKnoraTemplate(t *testing.T) {
+func TestQueryTemplatesEnsuresMissingGENYEETemplate(t *testing.T) {
 	client := &stubProviderClient{
 		templates: []sandbox.RemoteTemplate{{ID: "tpl-custom", Name: "custom", Status: "ready"}},
 		ensured:   &sandbox.RemoteTemplate{ID: "tpl-weknora", Name: "weknora", Status: "building", Standard: true},
@@ -628,7 +628,7 @@ func TestQueryTemplatesProvisionsPerClusterIndependently(t *testing.T) {
 	require.Equal(t, int32(2), client.ensureCalls.Load())
 }
 
-// A cluster whose only WeKnora template failed to build must be reprovisioned,
+// A cluster whose only GENYEE template failed to build must be reprovisioned,
 // not reported as already equipped.
 func TestQueryTemplatesReprovisionsOverFailedStandardTemplate(t *testing.T) {
 	client := &stubProviderClient{

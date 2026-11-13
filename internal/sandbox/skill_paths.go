@@ -131,7 +131,7 @@ func ValidatedOutputDirIn(l WorkspaceLayout, dir string) (string, bool) {
 }
 
 // ValidatedImageSkillDir reports whether skillDir is exactly one installed
-// skill directory under SkillsImageRoot (for example /opt/weknora/tenant/skills/pdf).
+// skill directory under SkillsImageRoot (for example /opt/genyee/tenant/skills/pdf).
 func ValidatedImageSkillDir(skillDir string) (string, bool) {
 	return ValidatedSkillDirUnder(SkillsImageRoot, skillDir)
 }

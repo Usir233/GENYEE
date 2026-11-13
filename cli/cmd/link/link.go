@@ -1,5 +1,5 @@
 // Package linkcmd implements `genyee link` - binds the current working
-// directory to a knowledge base by writing .weknora/project.yaml. Always
+// directory to a knowledge base by writing .genyee/project.yaml. Always
 // overwrites an existing link silently rather than refusing when one is
 // already present. The cobra Long: text covers the user-facing modes
 // (--kb / TTY / non-TTY).
@@ -154,7 +154,7 @@ func runLink(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, f
 
 // resolveProfile picks the active profile to record in the link. There is no
 // per-invocation override flag on `genyee link` itself - to record under a
-// different profile, use the global persistent flag (`weknora --profile
+// different profile, use the global persistent flag (`genyee --profile
 // staging link --kb my-kb`); the active profile at link time is what gets
 // written.
 func resolveProfile(f *cmdutil.Factory) (string, error) {

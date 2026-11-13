@@ -137,7 +137,7 @@ const dismiss = () => {
   .suggestion-chip-hover();
 }
 .follow-ups__item:hover .t-icon { color: var(--td-text-color-secondary); }
-.is-spinning { animation: wk-spin 1s linear infinite; }
+.is-spinning { animation: gy-spin 1s linear infinite; }
 
 .follow-up-card-enter-active {
   transform-origin: left top;

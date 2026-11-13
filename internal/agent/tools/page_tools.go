@@ -11,7 +11,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/types"
 )
 
-// Tools that read and fill the WeKnora page the user has open beside the
+// Tools that read and fill the GENYEE page the user has open beside the
 // assistant. They run in the user's browser through a page_action prompt.
 const (
 	ToolReadPage  = "read_page"

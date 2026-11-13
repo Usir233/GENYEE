@@ -1,7 +1,7 @@
 /**
  * Shared localStorage utilities for per-user UI preferences (theme, fonts).
  *
- * Storage layout: WeKnora_${userId}_${suffix}, where userId is the active
+ * Storage layout: GENYEE_${userId}_${suffix}, where userId is the active
  * user's id or "anon" before login. Read paths are intentionally narrow —
  * no cross-namespace fallbacks — so one user's preferences cannot bleed
  * into another user's session.

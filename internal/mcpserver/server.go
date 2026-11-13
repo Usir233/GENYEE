@@ -1,4 +1,4 @@
-// Package mcpserver hosts WeKnora's own MCP server surface: the Streamable
+// Package mcpserver hosts GENYEE's own MCP server surface: the Streamable
 // HTTP endpoint that external MCP clients (Claude Desktop, Cursor, VS Code
 // Copilot, ...) connect to. Every request is authenticated by
 // middleware.MCPEndpointAuth against a workspace MCPEndpoint row, and the

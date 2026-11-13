@@ -72,11 +72,11 @@ func TestHostSandboxManagerNilWhenAvailableFails(t *testing.T) {
 	}))
 }
 
-func TestDefaultHostSessionRootUsesDotWeknora(t *testing.T) {
+func TestDefaultHostSessionRootUsesDotGenyee(t *testing.T) {
 	require.Equal(t, "/Users/dev/.weknora/sessions", defaultHostSessionRoot("/Users/dev"))
 }
 
-func TestDefaultHostSkillsRootIsDotWeknora(t *testing.T) {
+func TestDefaultHostSkillsRootIsDotGenyee(t *testing.T) {
 	require.Equal(t, "/Users/dev/.weknora/skills", defaultHostSkillsRoot("/Users/dev"))
 }
 

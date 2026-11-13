@@ -5,7 +5,7 @@
 // Its boundaries are deliberate:
 //   - UUIDs, wiki slugs, URLs, and resource:// handles are durable identities.
 //   - kb://N, doc://N, chunk://N, url://N, iN, res://NNNN and ref-N values are
-//     temporary model handles; weknora:// URIs are their durable text form.
+//     temporary model handles; genyee:// URIs are their durable text form.
 //   - temporary handles are never persisted or accepted outside their registry.
 //   - every model response is decoded before tools, storage, or UI consume it.
 package modelcontext

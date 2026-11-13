@@ -28,7 +28,7 @@ const (
 	remoteMetadataConfigID = "weknora_sandbox_config_id"
 
 	// User machines are identified by their allocation digest, never by a
-	// session. weknora_tenant_id on a user machine is the CONFIG owner, so
+	// session. genyee_tenant_id on a user machine is the CONFIG owner, so
 	// the config inventory and the credential-change sweep include every
 	// borrower's machine; the owner tenant is recorded separately.
 	remoteMetadataOwnerTenantID = "weknora_owner_tenant_id"
@@ -36,7 +36,7 @@ const (
 	remoteMetadataAllocation    = "weknora_allocation"
 )
 
-// ErrSandboxSessionDeleted reports that the owning WeKnora session no longer
+// ErrSandboxSessionDeleted reports that the owning GENYEE session no longer
 // exists. Callers must not execute work with the returned nil handle.
 var ErrSandboxSessionDeleted = errors.New("sandbox session no longer exists")
 

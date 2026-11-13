@@ -187,7 +187,7 @@ function hasPageContext(context: Partial<AssistantPageContext>): boolean {
 }
 
 /**
- * Pinia store behind the global WeKnora assistant panel (rendered once in
+ * Pinia store behind the global GENYEE assistant panel (rendered once in
  * platform/index.vue). Pages publish what is open through
  * useAssistantPageContext; anything can open the panel with open().
  */

@@ -189,7 +189,7 @@ type QARequest struct {
 	Attachments         MessageAttachments // File attachments (processed and ready for prompt injection)
 	QuestionOrigin      *QuestionOrigin    // Source of a picked suggested question; a retrieval hint only
 	PageContext         *PageContext       // Page the user has open; a hint inside the resolved scope only
-	// AssistantAccess is the access level the user picked for the WeKnora
+	// AssistantAccess is the access level the user picked for the GENYEE
 	// assistant; the workspace ceiling still caps it. Ignored by other agents.
 	AssistantAccess AssistantAccessLevel
 	// SteerSink, when set, enables mid-run message injection for this run:

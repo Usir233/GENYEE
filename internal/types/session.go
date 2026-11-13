@@ -98,7 +98,7 @@ type Session struct {
 	// Kind is empty for ordinary chats and SessionKindAssistant for assistant
 	// conversations; it is set at creation and never updated.
 	Kind string `json:"kind" gorm:"column:kind;type:varchar(32);not null;default:''"`
-	// UserID is the owner scope for this session. WeKnora user UUIDs, API
+	// UserID is the owner scope for this session. GENYEE user UUIDs, API
 	// external-user principals, and embed visitor principals all use this column.
 	UserID string `json:"user_id,omitempty" gorm:"type:varchar(512);index"`
 	// OwnerAuthSource records, server-side, how UserID was authenticated when

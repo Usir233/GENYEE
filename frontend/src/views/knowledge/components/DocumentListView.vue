@@ -876,7 +876,7 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
 }
 
 .icon-spin {
-  animation: wk-spin 0.9s linear infinite;
+  animation: gy-spin 0.9s linear infinite;
 }
 
 .row-more-btn {

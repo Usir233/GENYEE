@@ -749,7 +749,7 @@ func TestHousekeeping_KeepsOpenSpansOnInFlightRow(t *testing.T) {
 
 // insertSoftDeletedKnowledge writes a knowledge row that the delete flow has
 // already soft-deleted (deleted_at written, parse_status left at deleting —
-// the exact residue Sweep C must recover, Tencent/WeKnora#5277).
+// the exact residue Sweep C must recover, Tencent/GENYEE#5277).
 func insertSoftDeletedKnowledge(t *testing.T, db *gorm.DB, id string, updatedAt time.Time) {
 	t.Helper()
 	require.NoError(t, db.Exec(
@@ -771,7 +771,7 @@ func readSpanState(t *testing.T, db *gorm.DB, spanID string) (status, errorCode,
 // A deleting row that already carries deleted_at is invisible to the default
 // GORM scope — the Sweep C candidate query silently skipped it, so it stayed
 // deleting (and its spans running) forever. The sweep must recover it even
-// though it is soft-deleted (Tencent/WeKnora#5277).
+// though it is soft-deleted (Tencent/GENYEE#5277).
 func TestHousekeeping_RecoversSoftDeletedDeletingRow(t *testing.T) {
 	db := setupHousekeepingDB(t)
 	svc := newHousekeepingSvcForTest(db)

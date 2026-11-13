@@ -386,7 +386,7 @@ func (s *AutomationService) validate(ctx context.Context, a *types.Automation) (
 // runnableAssistant loads the workspace assistant, the sole automation executor.
 // Tasks may ask it to delegate work to other agents through the instruction.
 func (s *AutomationService) runnableAssistant(ctx context.Context) (*types.CustomAgent, error) {
-	assistant, err := s.agents.GetAgentByID(ctx, types.BuiltinWeKnoraAssistantID)
+	assistant, err := s.agents.GetAgentByID(ctx, types.BuiltinGENYEEAssistantID)
 	if err != nil || assistant == nil || !types.GrantsOperationCatalog(assistant) || !assistant.IsAgentMode() {
 		return nil, errors.New("the GENYEE assistant is unavailable in this workspace")
 	}

@@ -31,7 +31,7 @@ type listEntry struct {
 
 // NewCmdList builds `genyee auth list`. Per-host enumeration: render one
 // row per registered profile, marking the active one. Reads only
-// ~/.config/weknora/config.yaml - no network, no keyring touch.
+// ~/.config/genyee/config.yaml - no network, no keyring touch.
 func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",

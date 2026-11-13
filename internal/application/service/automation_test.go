@@ -109,7 +109,7 @@ type automationAgents struct {
 }
 
 func (f *automationAgents) GetAgentByID(_ context.Context, id string) (*types.CustomAgent, error) {
-	if id != types.BuiltinWeKnoraAssistantID {
+	if id != types.BuiltinGENYEEAssistantID {
 		return nil, errors.New("automations must load the GENYEE assistant")
 	}
 	return f.agent, nil
@@ -146,7 +146,7 @@ func newAutomationFixture(t *testing.T) *automationFixture {
 		users:    &collaborationUsers{active: true},
 		members:  &collaborationMembers{active: true},
 		agents: &automationAgents{agent: &types.CustomAgent{
-			ID: types.BuiltinWeKnoraAssistantID, IsBuiltin: true,
+			ID: types.BuiltinGENYEEAssistantID, IsBuiltin: true,
 			Config: types.CustomAgentConfig{AgentMode: types.AgentModeSmartReasoning, AllowedTools: []string{"x"}},
 		}},
 		broker: hitl.NewBroker(nil, nil),
@@ -297,7 +297,7 @@ func TestAutomationRunSucceedsAsOwnerUnattended(t *testing.T) {
 	require.Equal(t, types.AutomationRunSucceeded, done.Status)
 	require.Equal(t, "done", done.Answer)
 	call := f.sessions.last()
-	require.Equal(t, types.BuiltinWeKnoraAssistantID, call.req.CustomAgent.ID)
+	require.Equal(t, types.BuiltinGENYEEAssistantID, call.req.CustomAgent.ID)
 	require.Equal(t, types.RunModeDeferred, call.mode)
 	require.Equal(t, types.AutomationActingVia(a.ID), call.via)
 	require.Equal(t, types.GrantScope{
@@ -312,7 +312,7 @@ func TestAutomationRunSucceedsAsOwnerUnattended(t *testing.T) {
 	var session types.Session
 	require.NoError(t, f.db.Where("id = ?", done.SessionID).First(&session).Error)
 	require.Equal(t, types.SessionKindAutomation, session.Kind)
-	require.Equal(t, types.BuiltinWeKnoraAssistantID, session.LastRequestState.AgentID)
+	require.Equal(t, types.BuiltinGENYEEAssistantID, session.LastRequestState.AgentID)
 	require.Equal(t, "u", session.UserID)
 	stored := f.reload(t, a.ID)
 	require.Equal(t, types.AutomationRunSucceeded, stored.LastRunStatus)

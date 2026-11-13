@@ -27,7 +27,7 @@ import (
 )
 
 // remoteScriptDir is the absolute directory inside every remote sandbox where
-// WeKnora uploads scripts before execution. Kept identical to the historical
+// GENYEE uploads scripts before execution. Kept identical to the historical
 // Cube path so existing tenant scripts continue to reference /workspace files.
 const remoteScriptDir = "/workspace"
 
@@ -198,7 +198,7 @@ func (s *RemoteSandbox) disposeEphemeral(parent context.Context, handle RemoteSa
 // stays predictable regardless of which path performs the cleanup.
 const remoteCleanupTimeout = 30 * time.Second
 
-// remoteExecuteResult projects RemoteExecResult onto WeKnora's ExecuteResult.
+// remoteExecuteResult projects RemoteExecResult onto GENYEE's ExecuteResult.
 // It preserves the timeout contract: a timeout returns a killed result with
 // exit code -1 and ErrTimeout as Error, never an error return.
 func remoteExecuteResult(result *RemoteExecResult, err error, duration time.Duration) *ExecuteResult {

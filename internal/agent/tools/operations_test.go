@@ -78,7 +78,7 @@ func newRunTool(d *fakeDispatcher, gate approval.BuiltinApproval) *RunOperationT
 		Dispatcher: d,
 		Gate:       gate,
 		Identity: operations.Identity{
-			UserID: "u1", TenantID: 7, Agent: types.AuditAgentAction{AgentID: types.BuiltinWeKnoraAssistantID},
+			UserID: "u1", TenantID: 7, Agent: types.AuditAgentAction{AgentID: types.BuiltinGENYEEAssistantID},
 		},
 	})
 }
@@ -111,7 +111,7 @@ func TestRunOperationReadProjectsResult(t *testing.T) {
 	assert.Equal(t, "u1", d.calls[0].identity.UserID)
 	assert.Equal(t, "knowledge.get", d.calls[0].identity.Agent.Operation)
 	assert.Equal(t, "s1", d.calls[0].identity.Agent.SessionID)
-	assert.Equal(t, types.BuiltinWeKnoraAssistantID, d.calls[0].identity.Agent.AgentID)
+	assert.Equal(t, types.BuiltinGENYEEAssistantID, d.calls[0].identity.Agent.AgentID)
 }
 
 func TestRunOperationRejectsUnknownOperationAndParams(t *testing.T) {

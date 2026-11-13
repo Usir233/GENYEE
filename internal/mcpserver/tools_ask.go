@@ -35,7 +35,7 @@ func askTimeoutFromEnv() time.Duration {
 	}
 	timeout, err := time.ParseDuration(value)
 	if err != nil {
-		// Match other WeKnora timeout variables that accept bare seconds.
+		// Match other GENYEE timeout variables that accept bare seconds.
 		timeout, err = time.ParseDuration(value + "s")
 	}
 	if err != nil || timeout <= 0 {

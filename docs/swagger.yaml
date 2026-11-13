@@ -3391,7 +3391,7 @@ definitions:
         type: string
       tls_cert_path:
         description: |-
-          TLSCertPath is a directory on the WeKnora host containing ca.pem,
+          TLSCertPath is a directory on the GENYEE host containing ca.pem,
           cert.pem and key.pem. Required when Host is a TCP endpoint.
         type: string
     type: object
@@ -3427,7 +3427,7 @@ definitions:
           "<port>-<sandboxID>.<sandbox_domain>" through public DNS and TLS, so it
           needs no value here. Self-hosted E2B-compatible control planes usually
           serve every sandbox from one gateway address and expect the sandbox
-          authority in the Host header; setting this makes WeKnora dial the
+          authority in the Host header; setting this makes GENYEE dial the
           gateway directly instead of requiring wildcard DNS and a certificate
           for the sandbox domain. An "http://" gateway also downgrades the
           data-plane scheme, which the E2B SDK otherwise pins to https.
@@ -6277,7 +6277,7 @@ definitions:
         description: SHA-256 of the persisted bytes
         type: string
       created_at:
-        description: When WeKnora persisted the blob
+        description: When GENYEE persisted the blob
         type: string
       deleted_at:
         description: |-
@@ -8197,7 +8197,7 @@ definitions:
         x-agent-response: true
       user_id:
         description: |-
-          UserID is the owner scope for this session. WeKnora user UUIDs, API
+          UserID is the owner scope for this session. GENYEE user UUIDs, API
           external-user principals, and embed visitor principals all use this column.
         type: string
     type: object
@@ -8347,7 +8347,7 @@ definitions:
         x-agent-response: true
       user_id:
         description: |-
-          UserID is the owner scope for this session. WeKnora user UUIDs, API
+          UserID is the owner scope for this session. GENYEE user UUIDs, API
           external-user principals, and embed visitor principals all use this column.
         type: string
     type: object
@@ -9221,7 +9221,7 @@ definitions:
       terminal_idle_disconnect_sec:
         description: |-
           TerminalIdleDisconnectSec is how long an interactive terminal or
-          desktop may go without user activity before WeKnora closes the
+          desktop may go without user activity before GENYEE closes the
           connection so the sandbox can pause on its provider TTL. Terminal
           counts keystrokes and PTY output; desktop counts mouse and keyboard.
           0 uses the built-in default (15 minutes). Not an identity field.
@@ -9704,7 +9704,7 @@ definitions:
       mount_path:
         description: |-
           MountPath is the sandbox-internal path where the volume is mounted.
-          Default: /weknora/tenant/skills (customizable per use case).
+          Default: /genyee/tenant/skills (customizable per use case).
         type: string
       provider:
         description: Provider identifies the volume backend. Currently "e2b" or "cube".
@@ -9717,7 +9717,7 @@ definitions:
       volume_name:
         description: |-
           VolumeName is the human-readable volume name, e.g.
-          "weknora-tenant-<id>-skills".
+          "genyee-tenant-<id>-skills".
         type: string
       volume_owner_fingerprint:
         description: |-
@@ -9731,7 +9731,7 @@ definitions:
     properties:
       fetch:
         description: Fetch is the provider type whose API reads pages, or "local"
-          for WeKnora's own reader.
+          for GENYEE's own reader.
         type: string
       search:
         description: Search is the provider type whose API runs searches.

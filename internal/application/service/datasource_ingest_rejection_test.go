@@ -121,7 +121,7 @@ func TestProcessSyncPermanentRejectionsBeyondErrorSampleLimit(t *testing.T) {
 // A missing VLM/ASR prerequisite is a permanent rejection: replaying the task
 // cannot succeed until the operator configures the model. The round must stay
 // partial (not failed), keep the cursor past the rejected item, and leave
-// nothing to re-fetch on the next incremental sync (Tencent/WeKnora#4712).
+// nothing to re-fetch on the next incremental sync (Tencent/GENYEE#4712).
 func TestProcessSyncPrerequisiteRejectionsAdvanceCursor(t *testing.T) {
 	failures := []error{
 		werrors.NewImportPrerequisiteError("上传图片文件需要设置VLM模型"),

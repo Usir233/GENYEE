@@ -21,11 +21,11 @@ import (
 )
 
 // Factory is the dependency container injected at command construction. Each
-// closure is lazy: --help / completion / `weknora version` must NOT trigger
+// closure is lazy: --help / completion / `genyee version` must NOT trigger
 // HTTP, keyring access, or filesystem I/O beyond the bare minimum.
 //
 // Four closures:
-//   - Config:   parses ~/.config/weknora/config.yaml (no network)
+//   - Config:   parses ~/.config/genyee/config.yaml (no network)
 //   - Client:   constructs the SDK client; only Secrets is sync.Once-cached,
 //     so callers should hold the returned *sdk.Client across
 //     multiple SDK calls within one invocation
@@ -39,7 +39,7 @@ import (
 // iostreams.IO. The bar to add a new closure is at least 2 commands sharing the
 // same dependency; resist factory bloat.
 //
-// Client returns a *sdk.Client (the WeKnora SDK). Commands that want narrow
+// Client returns a *sdk.Client (the GENYEE SDK). Commands that want narrow
 // service interfaces declare them in their own files and let the real SDK
 // satisfy them implicitly via duck typing.
 type Factory struct {
@@ -112,7 +112,7 @@ func New() *Factory {
 // buildClient resolves the active profile, loads the credentials from secrets,
 // and constructs a *sdk.Client. Returns CodeAuthUnauthenticated when no
 // credentials are available so the user gets the right hint to run
-// `weknora auth login`.
+// `genyee auth login`.
 func buildClient(f *Factory) (*sdk.Client, error) {
 	// Env-credential injection: GENYEE_TOKEN (bearer) or GENYEE_API_KEY, with
 	// GENYEE_HOST (or the active profile's host), builds an ephemeral client
@@ -290,7 +290,7 @@ func AddIgnoredKBFlag(cmd *cobra.Command) {
 //  1. --kb flag (kb_<...> id passed through; anything else resolved via
 //     ListKnowledgeBases as a name → id lookup)
 //  2. GENYEE_KB_ID env (always an explicit id)
-//  3. .weknora/project.yaml (walk-up from cwd)
+//  3. .genyee/project.yaml (walk-up from cwd)
 //  4. error: kb required
 func (f *Factory) ResolveKB(cmd *cobra.Command) (string, error) {
 	if v, _ := cmd.Flags().GetString("kb"); v != "" {
@@ -320,7 +320,7 @@ func (f *Factory) ResolveKBLocal(cmd *cobra.Command) (string, error) {
 
 // resolveKBFromEnvOrLink is the shared fallback tail of ResolveKB /
 // ResolveKBLocal (which differ only in how they treat the --kb flag): it reads
-// GENYEE_KB_ID, then the walk-up .weknora/project.yaml link, and returns
+// GENYEE_KB_ID, then the walk-up .genyee/project.yaml link, and returns
 // CodeKBIDRequired when neither is set. Never calls the SDK.
 func (f *Factory) resolveKBFromEnvOrLink() (string, error) {
 	if v := os.Getenv("GENYEE_KB_ID"); v != "" {

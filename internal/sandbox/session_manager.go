@@ -5,7 +5,7 @@
 // treats the authoritative session→sandbox binding as external state that
 // lives in SessionSandboxBindingStore (Redis in production, memory in tests
 // and single-process deployments). This makes the manager provider-neutral
-// (Cube , E2B) and multi-instance safe: two WeKnora processes
+// (Cube , E2B) and multi-instance safe: two GENYEE processes
 // concurrently servicing the same session never allocate duplicate sandboxes,
 // and a restart never loses the session's remote resource.
 //
@@ -1045,7 +1045,7 @@ func (m *SessionBoundManager) ExecShellCommand(
 
 // ExecShellCommandWithOptions runs a shell command with install-only options.
 // Fallback is explicitly refused so even privileged installer calls never
-// escape onto the WeKnora host machine.
+// escape onto the GENYEE host machine.
 func (m *SessionBoundManager) ExecShellCommandWithOptions(
 	ctx context.Context,
 	sessionID string,
@@ -1532,7 +1532,7 @@ var _ SessionDesktopPromptReporter = (*SessionBoundManager)(nil)
 
 // Cleanup marks the manager closed. Session sandboxes are not force-deleted
 // here: their lifecycle is authoritative in the binding store and would
-// leak to any other WeKnora replica if this replica reaped them on shutdown.
+// leak to any other GENYEE replica if this replica reaped them on shutdown.
 // Providers reclaim idle sandboxes via their own timeout/pause policies.
 func (m *SessionBoundManager) Cleanup(_ context.Context) error {
 	if m == nil {
@@ -1714,7 +1714,7 @@ type forkSnapshotCreator interface {
 }
 
 // createForkOrProviderSnapshot uses a fork-specific commit when the client
-// has one (Docker's weknora-fork/ namespace). Cube and E2B have no extra
+// has one (Docker's genyee-fork/ namespace). Cube and E2B have no extra
 // namespace, so they keep using CreateSnapshot.
 func createForkOrProviderSnapshot(
 	ctx context.Context,
@@ -2836,7 +2836,7 @@ var (
 )
 
 // PermissiveSessionExistenceChecker accepts every session. It is safe in
-// deployments where WeKnora's own DestroySession is the only session-delete
+// deployments where GENYEE's own DestroySession is the only session-delete
 // path (single-process memory binding store); the Redis-authoritative
 // deployment must inject a real checker consulting the session repository.
 type PermissiveSessionExistenceChecker struct{}

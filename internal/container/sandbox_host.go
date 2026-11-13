@@ -30,7 +30,7 @@ type hostSandboxDeps struct {
 	homeDir    string
 	appDataDir string
 	// sessionRoot is where auto-allocated session workspaces go. Empty falls
-	// back to ~/.weknora/sessions.
+	// back to ~/.genyee/sessions.
 	sessionRoot string
 	skillsRoot  string
 	// projects maps a session to a user-approved project directory.

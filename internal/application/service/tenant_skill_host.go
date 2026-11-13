@@ -56,7 +56,7 @@ type hostInstallRun struct {
 
 // runHostInstall is runInstall's tail for Lite. Everything up to the
 // ownership check and heartbeat is shared; from here the install writes a
-// version directory under ~/.weknora/skills and switches a symlink instead of
+// version directory under ~/.genyee/skills and switches a symlink instead of
 // building a provider snapshot.
 func (s *TenantSkillService) runHostInstall(ctx context.Context, r hostInstallRun) error {
 	if !s.host.SkillsAvailable() {
@@ -236,7 +236,7 @@ func writeHostSkillFiles(dir string, bundle *SkillBundle) error {
 	return nil
 }
 
-// readHostEnvDeclaration mirrors readEnvDeclaration for a file the WeKnora
+// readHostEnvDeclaration mirrors readEnvDeclaration for a file the GENYEE
 // process can read directly.
 func readHostEnvDeclaration(
 	ctx context.Context, skillID, versionDir string, bundle *SkillBundle,

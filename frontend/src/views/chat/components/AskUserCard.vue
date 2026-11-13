@@ -30,7 +30,7 @@
       </div>
       <t-select v-else-if="field.type === 'select'" v-model="values[field.name]"
         :disabled="submitting" size="small" clearable
-        :popup-props="{ overlayClassName: 'wk-popover' }"
+        :popup-props="{ overlayClassName: 'gy-popover' }"
         :placeholder="$t('agentStream.askUser.selectPlaceholder')">
         <t-option v-for="option in field.options || []" :key="option" :value="option" :label="option" />
       </t-select>

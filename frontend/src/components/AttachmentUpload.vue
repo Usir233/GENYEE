@@ -350,7 +350,7 @@ defineExpose({
     border: 1px solid currentColor;
     border-right-color: transparent;
     border-radius: 50%;
-    animation: wk-spin .8s linear infinite;
+    animation: gy-spin .8s linear infinite;
   }
 
   .attachment-preview-remove {

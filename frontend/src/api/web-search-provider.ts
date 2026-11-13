@@ -41,7 +41,7 @@ export interface WebSearchProviderTypeInfo {
 }
 
 // Readers registered for a provider type. search/fetch hold a provider type id,
-// or 'local' for WeKnora's built-in page reader.
+// or 'local' for GENYEE's built-in page reader.
 export interface WebSearchClients {
   search: string
   fetch: string

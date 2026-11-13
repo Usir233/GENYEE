@@ -1,4 +1,4 @@
-// Package operations is the catalog of WeKnora HTTP API operations an agent
+// Package operations is the catalog of GENYEE HTTP API operations an agent
 // may run on behalf of the signed-in user.
 //
 // The catalog is the allow-list: nothing outside it is reachable. Entries are

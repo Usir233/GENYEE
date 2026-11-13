@@ -56,10 +56,10 @@ func (e *OAuthGrantRejectedError) Error() string {
 // AuthorizeWithAssertion obtains principal's token for service with the JWT
 // bearer grant and stores it the way an authorization code callback does.
 //
-// It serves deployments where an application in front of WeKnora signs the
-// user in and calls WeKnora for that user, so no browser can follow an
+// It serves deployments where an application in front of GENYEE signs the
+// user in and calls GENYEE for that user, so no browser can follow an
 // authorization redirect. That application presents an assertion of the
-// user's identity; WeKnora forwards it unread, because validating it is up to
+// user's identity; GENYEE forwards it unread, because validating it is up to
 // the authorization server. The grant is sent with the service's
 // pre-registered client, or else the client already registered for it.
 func (m *OAuthManager) AuthorizeWithAssertion(

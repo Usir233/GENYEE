@@ -19,9 +19,9 @@ import (
 // PostgreSQL too — the gallery query is spelled differently per dialect, so
 // both spellings need the same assertions. For example:
 //
-//	docker run -d --rm -e POSTGRES_PASSWORD=pg -e POSTGRES_DB=weknora -p 55432:5432 \
+//	docker run -d --rm -e POSTGRES_PASSWORD=pg -e POSTGRES_DB=genyee -p 55432:5432 \
 //	  paradedb/paradedb:v0.25.11-pg17
-//	GENYEE_REPOSITORY_TEST_POSTGRES_DSN=postgres://postgres:pg@localhost:55432/weknora?sslmode=disable
+//	GENYEE_REPOSITORY_TEST_POSTGRES_DSN=postgres://postgres:pg@localhost:55432/genyee?sslmode=disable
 //
 // Both runs apply the real chunk_images migration, so the triggers and the
 // backfill under test are the ones that ship.

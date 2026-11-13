@@ -227,11 +227,11 @@ func TestValidateEnvDeclarationsNeverCarriesAValue(t *testing.T) {
 	require.Equal(t, types.SkillEnvVars{{Name: "TAVILY_API_KEY"}}, got)
 }
 
-// Official WeKnora skills (and the ClawHub weknora skill) authenticate with
+// Official GENYEE skills (and the ClawHub genyee skill) authenticate with
 // GENYEE_API_KEY / GENYEE_BASE_URL. Those names must survive validation:
 // only the sandbox-injected GENYEE_SKILL_* / GENYEE_SESSION_INPUT_DIR
 // names are reserved.
-func TestValidateEnvDeclarationsAllowsWeknoraCredentialNames(t *testing.T) {
+func TestValidateEnvDeclarationsAllowsGenyeeCredentialNames(t *testing.T) {
 	bundle := &SkillBundle{
 		Name: "weknora",
 		Files: map[string][]byte{

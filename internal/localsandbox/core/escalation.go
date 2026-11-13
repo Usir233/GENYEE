@@ -236,7 +236,7 @@ func rejectGitMetadata(p Policy, path string) error {
 }
 
 // rejectAppOwnedPath refuses the skills tree, the session tree, and the
-// application directory that contains them. A grant of ~/.weknora, or of
+// application directory that contains them. A grant of ~/.genyee, or of
 // one skill or another session's workspace, would let this session rewrite
 // files every session trusts.
 func (b *PolicyBuilder) rejectAppOwnedPath(path string) error {

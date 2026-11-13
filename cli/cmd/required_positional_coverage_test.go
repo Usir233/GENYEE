@@ -16,7 +16,7 @@ import (
 // command whose Use string carries a <...> positional placeholder (it takes a
 // required positional arg, enforced by cobra.ExactArgs/MinimumNArgs) MUST also
 // declare that positional in its agent-help RequiredFlags. Otherwise
-// `weknora schema <cmd>` under-reports the requirement, and an agent that builds
+// `genyee schema <cmd>` under-reports the requirement, and an agent that builds
 // a call from schema omits the positional and hits "accepts N arg(s), received 0".
 //
 // Sibling of TestEveryLeafCommandHasAgentHelp / the dry-run coverage guard.

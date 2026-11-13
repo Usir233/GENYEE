@@ -19,7 +19,7 @@ Updating a binary on disk alone does not replace a running daemon.
 
 Upgrading the daemon alone is insufficient: new sessions enable shared control
 and reject page actions without an explicit observation/control receipt.
-WeKnora exposes the official `tool.cooperate` RPC as `local_browser` method
+GENYEE exposes the official `tool.cooperate` RPC as `local_browser` method
 `cooperate`, with `action:sync`, `action:status` and `action:wait`.
 
 - After the initial blank-tab navigation, call `cooperate` with `action:sync`
@@ -33,10 +33,10 @@ WeKnora exposes the official `tool.cooperate` RPC as `local_browser` method
 - Preserve caller-supplied `expect` conditions literally. `depends_on` is only
   available with `control_policy:strict`, whose contexts authorize one action.
 - Human input and navigation revoke control. Wait for hand-back, synchronize and
-  reconsider the live result. WeKnora never silently obtains a fresh receipt or
+  reconsider the live result. GENYEE never silently obtains a fresh receipt or
   retries a rejected action. A stopped/held BrowserSkill overlay requires the
-  user to return control in the browser before resuming in WeKnora. If a browser
-  stop hid its toolbar, clicking Continue in WeKnora restores it with a passive
+  user to return control in the browser before resuming in GENYEE. If a browser
+  stop hid its toolbar, clicking Continue in GENYEE restores it with a passive
   observe and keeps the task paused until the browser returns control.
 - Pages with human participation survive session stop. Moving a controlled tab
   out of its Agent Window ends its upstream session and preserves the pages.
@@ -56,7 +56,7 @@ without discarding healthy frame content.
 | Former patch | Replacement |
 | --- | --- |
 | `01-browser-read-reliability.patch` | Upstream PR #318: bounded renderer reads, per-session read gates, capture fallback termination and debugger frame discovery. |
-| `02-gateway-task-controls.patch` | Upstream PR #296: the optional UI channel `ui.task_preview` / `ui.task_focus` (renamed from `gateway.*`). WeKnora calls the official methods. |
+| `02-gateway-task-controls.patch` | Upstream PR #296: the optional UI channel `ui.task_preview` / `ui.task_focus` (renamed from `gateway.*`). GENYEE calls the official methods. |
 | `03-vom-render-performance.patch` | Upstream PR #271 |
 | `04-task-popup-ownership.patch` | Upstream PR #297: popups opened by native click/key input inside the Agent Window become observed, controllable tabs that session stop preserves. |
 | `05-last-tab-lifecycle.patch` | Host preflight. `Manager.Call` checks `tool.tab_list` with `scope: "agent"` before `tool.tab_close`. Closing the final tab requires an explicit `tab_create` of `about:blank`, then sync of the original tab. Automatic placeholder creation would invalidate the caller's context. |
@@ -71,7 +71,7 @@ Windows use upstream PR #227. Do not restore the old
 focus-emulation cache.
 
 Retained tasks keep the official session and debugger; turn completion only
-stops preview polling in WeKnora. Completed tasks use native session stop.
+stops preview polling in GENYEE. Completed tasks use native session stop.
 
 ## UI channel
 
@@ -93,10 +93,10 @@ native automation queue and never start a session:
   returning `{ "focused": true }`.
 
 Errors use the native envelope with typed codes (`not_found`, `timeout`,
-`cancelled`, `cdp_failed`) and an optional `data.reason`. WeKnora maps every
+`cancelled`, `cdp_failed`) and an optional `data.reason`. GENYEE maps every
 error except `unknown_method` to a transient preview failure. Extensions built
 before PR #296 answer `unknown_method`;
-WeKnora then disables preview polling and reports the extension as outdated.
+GENYEE then disables preview polling and reports the extension as outdated.
 
 ## Behavior of the 0.4.1 extension
 
@@ -146,7 +146,7 @@ BSK_GEOMETRY_CHROME=/path/to/test-chrome BSK_BACKGROUND_CHROME=/path/to/test-chr
 cargo test --locked -p bsk daemon::ipc::tests
 ```
 
-Run WeKnora's `TestRealExtension` with the built extension, pinned daemon and an
+Run GENYEE's `TestRealExtension` with the built extension, pinned daemon and an
 isolated Chromium profile. It exercises actual pairing, explicit shared-control
 receipts, context reuse, rejected expectations, screenshot and input RPC,
 same-window target selection/read/close, independent popup borrow/read/return and

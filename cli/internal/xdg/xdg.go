@@ -15,7 +15,7 @@ import (
 // Path resolves an XDG-rooted file. envVar is one of "XDG_CONFIG_HOME" /
 // "XDG_CACHE_HOME" / "XDG_DATA_HOME". fallbackDir is the dot-prefixed dir
 // under $HOME used when the env var is unset (".config" / ".cache" / etc.).
-// parts join under "weknora/" inside the chosen root.
+// parts join under "genyee/" inside the chosen root.
 //
 // Honors the XDG vars on every OS, even macOS - where os.UserConfigDir
 // would otherwise return ~/Library/Application Support.

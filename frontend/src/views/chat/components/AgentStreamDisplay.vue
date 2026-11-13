@@ -530,7 +530,7 @@
                   theme="warning"
                   placement="top"
                   :show-arrow="false"
-                  overlay-class-name="wk-popover chat-rewind-popconfirm"
+                  overlay-class-name="gy-popover chat-rewind-popconfirm"
                   @confirm="emitRewind"
                 >
                   <template #content>

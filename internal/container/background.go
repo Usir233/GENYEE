@@ -48,7 +48,7 @@ func newBackgroundNoticeInbox(streams interfaces.StreamManager) interfaces.Notic
 }
 
 // redisNamespace matches the session-binding store: GENYEE_REDIS_NAMESPACE,
-// or "weknora" when that variable is empty.
+// or "genyee" when that variable is empty.
 func redisNamespace() string {
 	namespace := strings.TrimSpace(os.Getenv("GENYEE_REDIS_NAMESPACE"))
 	if namespace == "" {

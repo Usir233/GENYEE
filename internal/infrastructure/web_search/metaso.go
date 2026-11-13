@@ -72,7 +72,7 @@ func metasoScope(extraConfig map[string]string) string {
 
 func (p *MetasoProvider) Name() string { return "metaso" }
 
-// Search queries the Metaso API and converts its results to WeKnora's format.
+// Search queries the Metaso API and converts its results to GENYEE's format.
 func (p *MetasoProvider) Search(ctx context.Context, request types.WebSearchRequest) ([]*types.WebSearchResult, error) {
 	maxResults, includeDate := request.MaxResults, request.IncludeDate
 	query := strings.TrimSpace(request.Query)

@@ -405,7 +405,7 @@ onMounted(async () => {
   gap: 12px;
 
   .status-icon.spinning {
-    animation: wk-spin 1s linear infinite;
+    animation: gy-spin 1s linear infinite;
   }
 }
 

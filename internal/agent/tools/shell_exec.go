@@ -9,7 +9,7 @@
 //
 //   - Session-sandbox capability: registration is feature-gated on the
 //     sandbox backend exposing SandboxCommandExecutor (Cube, E2B, Docker).
-//     Remote sessions never run on the WeKnora host. Host layouts clamp
+//     Remote sessions never run on the GENYEE host. Host layouts clamp
 //     work_dir to the layout's writable roots; the OS sandbox is the
 //     process perimeter.
 //   - Session-scoped: the sandbox is resolved from ToolExecContext.SessionID

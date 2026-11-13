@@ -1,5 +1,5 @@
 /**
- * A stand-in WeKnora backend used by the unit tests and by the end-to-end run
+ * A stand-in GENYEE backend used by the unit tests and by the end-to-end run
  * inside dsh. It speaks the same routes, envelopes and SSE event types as the
  * real server (see internal/handler/session/qa.go and internal/types/chat.go),
  * so a test failure here means the plugin, not the fixture, drifted.
@@ -12,7 +12,7 @@ const DOCUMENTS = [
     knowledge_id: 'doc-retrieval-pipeline',
     knowledge_title: 'WeKnora 检索流程.md',
     knowledge_base_id: 'kb-product',
-    // WeKnora stores the generated summary in `description`, not `summary`.
+    // GENYEE stores the generated summary in `description`, not `summary`.
     description: '讲解 WeKnora 混合检索的召回、阈值与父子分块回溯。',
     chunks: [
       'WeKnora 的混合检索先做向量召回，再做关键词召回，最后交给 rerank 模型统一排序。',
@@ -70,7 +70,7 @@ const KNOWLEDGE_BASES = [
 const ARCH_HANDLE = 'resource://AbCdEfGhIjKlMnOpQrStUv'
 const ARCH_PUBLIC = 'https://cdn.example.com/architecture.png'
 
-/** Mirror WeKnora's `resource_urls=public` rewrite of `resource://` handles. */
+/** Mirror GENYEE's `resource_urls=public` rewrite of `resource://` handles. */
 function rewriteResources(value, publicMode) {
   if (!publicMode) return value
   return JSON.parse(JSON.stringify(value).replaceAll(ARCH_HANDLE, ARCH_PUBLIC))

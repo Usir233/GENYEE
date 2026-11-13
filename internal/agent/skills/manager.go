@@ -10,7 +10,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/sandbox"
 )
 
-// artifactOutputEnvVar is the name of the environment variable that WeKnora
+// artifactOutputEnvVar is the name of the environment variable that GENYEE
 // injects into every skill script execution. The value points to the
 // convention-driven directory where the script should drop artifacts the user
 // will be able to download after the turn completes.
@@ -310,7 +310,7 @@ func (m *Manager) ListSkillFiles(ctx context.Context, skillName string) ([]strin
 // SandboxSkillDir reports where a skill lives inside the sandbox image, and
 // whether that path means anything to say out loud.
 //
-// Only an installed skill has one. A host skill is uploaded from the WeKnora
+// Only an installed skill has one. A host skill is uploaded from the GENYEE
 // machine for the session, so its original base path names a directory that no
 // sandbox shell command can reach — telling the model about it would be worse
 // than saying nothing.

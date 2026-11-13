@@ -97,7 +97,7 @@ type WebSearchCapabilities struct {
 type WebSearchClients struct {
 	// Search is the provider type whose API runs searches.
 	Search string `json:"search"`
-	// Fetch is the provider type whose API reads pages, or "local" for WeKnora's own reader.
+	// Fetch is the provider type whose API reads pages, or "local" for GENYEE's own reader.
 	Fetch string `json:"fetch"`
 }
 

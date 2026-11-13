@@ -188,7 +188,7 @@ type delegatedConfig struct {
 	// and approval resumes; it must not turn an automation into a human turn.
 	ActingVia string        `json:"acting_via,omitempty"`
 	Mode      types.RunMode `json:"mode,omitempty"`
-	// AssistantParent records that the delegating run was the WeKnora
+	// AssistantParent records that the delegating run was the GENYEE
 	// assistant, whose level stays under the workspace's assistant ceiling.
 	AssistantParent bool                  `json:"assistant_parent,omitempty"`
 	Inherited       *inheritedAgentConfig `json:"inherited,omitempty"`

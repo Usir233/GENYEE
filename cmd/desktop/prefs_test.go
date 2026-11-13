@@ -43,7 +43,7 @@ func TestUseDesktopFilesDirReplacesDockerDefault(t *testing.T) {
 	require.False(t, useDesktopFilesDir("/Users/dev/custom-files"))
 }
 
-func TestConfigureDesktopFileStorageUsesHomeWeKnora(t *testing.T) {
+func TestConfigureDesktopFileStorageUsesHomeGENYEE(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("LOCAL_STORAGE_BASE_DIR", "/data/files")

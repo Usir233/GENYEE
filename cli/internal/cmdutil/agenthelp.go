@@ -16,7 +16,7 @@ import (
 )
 
 // AgentHelp is the structured help blob emitted when an agent invokes
-// `weknora <command> --help` with GENYEE_AGENT_HELP=1. Distinct from
+// `genyee <command> --help` with GENYEE_AGENT_HELP=1. Distinct from
 // cobra's human help text — agent-readable JSON keyed by stable fields
 // so an LLM doesn't need to scrape the human help table.
 //
@@ -32,7 +32,7 @@ type AgentHelp struct {
 }
 
 // agentHelpAnnotation stores the marshaled AgentHelp on the command so the
-// `weknora schema` command can introspect any command's contract without
+// `genyee schema` command can introspect any command's contract without
 // invoking its help func (and toggling GENYEE_AGENT_HELP). Shares the
 // annotations map with SetRisk (distinct keys).
 const agentHelpAnnotation = "weknora.agent_help"
@@ -46,7 +46,7 @@ const agentHelpAnnotation = "weknora.agent_help"
 //     prepend "Risk: <action> (<level>)" line; then render the normal human
 //     help via origHelp; then append the "AI agents:" Warnings block.
 //
-// The AgentHelp is also recorded as a JSON annotation so `weknora schema` can
+// The AgentHelp is also recorded as a JSON annotation so `genyee schema` can
 // surface it as a first-class, discoverable command (not only via the
 // GENYEE_AGENT_HELP env toggle on --help).
 func SetAgentHelp(cmd *cobra.Command, ah AgentHelp) {

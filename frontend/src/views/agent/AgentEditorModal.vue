@@ -6337,7 +6337,7 @@ const handleSave = async () => {
   color: var(--td-brand-color);
 
   .t-icon {
-    animation: wk-spin 1s linear infinite;
+    animation: gy-spin 1s linear infinite;
   }
 }
 

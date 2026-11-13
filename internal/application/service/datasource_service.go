@@ -716,7 +716,7 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) e
 	}
 	// Streaming path: connectors that support it interleave fetch→ingest→
 	// checkpoint so a large sync bounds memory and resumes after a timeout
-	// instead of restarting (Tencent/WeKnora#2136). Others fall back below.
+	// instead of restarting (Tencent/GENYEE#2136). Others fall back below.
 	if sc, ok := connector.(datasource.StreamingConnector); ok {
 		return s.processSyncStreaming(ctx, sc, ds, syncLog, config, payload, wasPaused)
 	}
@@ -886,7 +886,7 @@ func (s *DataSourceService) resolveAutoTagIDs(ctx context.Context, ds *types.Dat
 // sync-log list response, so an unbounded list on a sync that fails thousands of
 // documents means multi-MB DB rows and payloads. The accurate failure count
 // lives in SyncResult.Failed (a bounded int); this list only keeps a sample for
-// display (Tencent/WeKnora#2136 / #1262).
+// display (Tencent/GENYEE#2136 / #1262).
 const maxSyncResultErrors = 100
 
 // recordSyncError appends an error sample to result.Errors, capped at
@@ -1028,7 +1028,7 @@ func (s *DataSourceService) applyFetchedItem(
 				// Classify it as a permanent rejection — visible in the sync
 				// log, stream keeps going, cursor advances past it — so one
 				// image cannot abort the round and force every later sync to
-				// re-fetch the same items again (Tencent/WeKnora#4712).
+				// re-fetch the same items again (Tencent/GENYEE#4712).
 				result.Failed++
 				recordSyncError(result, types.SyncItemError{
 					Title:   item.Title,
@@ -1306,7 +1306,7 @@ func (s *DataSourceService) processSyncStreaming(
 	// Surface per-document failures as a partial sync (not silent success), so
 	// the sync-log drawer's failure detail explains which docs didn't make it —
 	// the visibility gap behind "status normal but not everything syncs"
-	// (Tencent/WeKnora#2136). Fetch failures abort the stream before the failed
+	// (Tencent/GENYEE#2136). Fetch failures abort the stream before the failed
 	// page is checkpointed, so the next run retries them; deletion failures are
 	// past the cursor and only retry on a full sync in the normal case (see
 	// applyFetchedItem).
@@ -1468,7 +1468,7 @@ func (s *DataSourceService) validateDataSourceConfig(ctx context.Context, ds *ty
 //
 // Routing logic:
 //   - Has Content bytes → CreateKnowledgeFromFile (走完整的文档解析 pipeline)
-//   - Has URL only      → CreateKnowledgeFromURL  (让 WeKnora 下载并解析)
+//   - Has URL only      → CreateKnowledgeFromURL  (让 GENYEE 下载并解析)
 //
 // Returns (isUpdate, error) — isUpdate is true when an existing item was replaced.
 func (s *DataSourceService) ingestItem(ctx context.Context, ds *types.DataSource, item *types.FetchedItem, tagIDs []string) (bool, error) {
@@ -1520,7 +1520,7 @@ func (s *DataSourceService) ingestItem(ctx context.Context, ds *types.DataSource
 		if existing != nil {
 			// Conflict strategy "skip" (跳过已存在): the item already exists in
 			// the KB, so leave it untouched and report the conflict as a skip
-			// via the shared DuplicateKnowledgeError path (Tencent/WeKnora#4640 —
+			// via the shared DuplicateKnowledgeError path (Tencent/GENYEE#4640 —
 			// this strategy was silently ignored and the item was overwritten).
 			if ds.ConflictStrategy == types.ConflictStrategySkip {
 				logger.Infof(
@@ -1579,7 +1579,7 @@ func (s *DataSourceService) ingestItem(ctx context.Context, ds *types.DataSource
 		return isUpdate, nil
 	}
 
-	// Case 2: only a remote URL — let WeKnora handle downloading and parsing
+	// Case 2: only a remote URL — let GENYEE handle downloading and parsing
 	if item.URL != "" {
 		created, err := s.knowledgeService.CreateKnowledgeFromURL(
 			ctx,

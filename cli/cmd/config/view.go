@@ -261,7 +261,7 @@ func resolveSecrets(f *cmdutil.Factory) string {
 	return "file"
 }
 
-// resolveProjectLink reports the discovered .weknora/project.yaml path or
+// resolveProjectLink reports the discovered .genyee/project.yaml path or
 // "(none)". Walks up from cwd like ResolveKBLocal does.
 func resolveProjectLink() string {
 	cwd, err := os.Getwd()

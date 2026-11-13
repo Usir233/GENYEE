@@ -245,7 +245,7 @@ func (*collaborationStreams) AppendEvent(context.Context, string, string, interf
 }
 
 func TestCollaborationParentAutomaticallyResumesOriginalMessage(t *testing.T) {
-	for _, id := range []string{types.BuiltinWeKnoraAssistantID, "ordinary-agent"} {
+	for _, id := range []string{types.BuiltinGENYEEAssistantID, "ordinary-agent"} {
 		t.Run(id, func(t *testing.T) { testCollaborationParentResume(t, id) })
 	}
 }
@@ -390,12 +390,12 @@ func TestDelegatedSessionCannotResumeThroughOrdinaryQA(t *testing.T) {
 
 func TestCollaborationParentSetupFailureStillCompletesMessage(t *testing.T) {
 	s, agents, messages, ctx := collaborationService(t)
-	agents.agent.ID = types.BuiltinWeKnoraAssistantID
+	agents.agent.ID = types.BuiltinGENYEEAssistantID
 	scope := collaboration.Scope{TenantID: 7, UserID: "u", SessionID: "parent", ID: "message"}
 	b, err := s.Runtime.AcquireParent(ctx, scope)
 	require.NoError(t, err)
 	require.NoError(t, messages.UpdateMessage(ctx, &types.Message{ID: scope.ID, SessionID: scope.SessionID}))
-	request, _ := json.Marshal(types.ResumableAgentRequest{AgentID: types.BuiltinWeKnoraAssistantID})
+	request, _ := json.Marshal(types.ResumableAgentRequest{AgentID: types.BuiltinGENYEEAssistantID})
 	snapshot, _ := json.Marshal(
 		agent.RunSnapshot{
 			Version:           agent.RunSnapshotVersion,

@@ -55,7 +55,7 @@ func TestFactory_Lazy(t *testing.T) {
 
 // TestNew_FoundationDefaults verifies the production New() returns a usable
 // Factory and that Client surfaces auth.unauthenticated when no current
-// profile is configured (the precondition for `weknora auth login`).
+// profile is configured (the precondition for `genyee auth login`).
 func TestNew_FoundationDefaults(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // empty config → no current profile
 	f := New()

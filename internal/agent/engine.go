@@ -169,7 +169,7 @@ func (e *AgentEngine) SetQuestionOrigin(origin *QuestionOriginInfo) {
 	e.questionOrigin = origin
 }
 
-// SetPageContext records the WeKnora page the user has open for this turn;
+// SetPageContext records the GENYEE page the user has open for this turn;
 // nil clears it.
 func (e *AgentEngine) SetPageContext(page *PageContextInfo) {
 	e.pageContext = page
@@ -365,7 +365,7 @@ func (e *AgentEngine) deltaStart(messages []chat.Message) int {
 }
 
 // contextTokensFromUsage reduces a usage report to the size of the context it
-// describes. Cache counters are not added in: WeKnora normalizes PromptTokens
+// describes. Cache counters are not added in: GENYEE normalizes PromptTokens
 // to the provider's full input count, with read/write/miss as descriptive
 // subsets of it (see types.TokenUsage.SetPromptCacheUsage).
 func contextTokensFromUsage(usage types.TokenUsage) int {

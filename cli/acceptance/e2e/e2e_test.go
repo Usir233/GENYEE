@@ -1,6 +1,6 @@
 //go:build acceptance_e2e
 
-// Package e2e_test drives the WeKnora CLI binary against a real running
+// Package e2e_test drives the GENYEE CLI binary against a real running
 // server to validate the RAG closing loop end-to-end.
 //
 // Build tag isolation: //go:build acceptance_e2e excludes this file from
@@ -105,7 +105,7 @@ func TestRAGFullLoop(t *testing.T) {
 
 	// 4. search chunks → SearchResult list (envelope-wrapped: {ok, data})
 	var searchResp struct {
-		OK   bool              `json:"ok"`
+		OK   bool             `json:"ok"`
 		Data []map[string]any `json:"data"`
 	}
 	runJSONInto(t, bin, env, &searchResp, "search", "chunks", "sample", "--kb", created.Data.ID, "--limit", "5", "--format", "json")
@@ -211,7 +211,7 @@ matching (lexical) to balance recall and precision.
 }
 
 // waitDocReady polls `doc list` until the uploaded document's status indicates
-// indexing is complete. WeKnora server uses a few status values across versions
+// indexing is complete. GENYEE server uses a few status values across versions
 // ("ready", "completed", "ok") - accept any non-pending/non-processing/non-failed
 // state so we don't break on a server-side rename. Failed status fails the test
 // fast.

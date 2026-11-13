@@ -14,7 +14,7 @@
 //	Get/List → GET  /containers/json?filters=label=…
 //	Delete   → DELETE /containers/{id}?force=1
 //	Exec     → POST /containers/{id}/exec → /exec/{id}/start (hijack)
-//	Snapshot → POST /commit (skill images under weknora-skill/, fork images under weknora-fork/)
+//	Snapshot → POST /commit (skill images under genyee-skill/, fork images under genyee-fork/)
 //
 // Every file operation uses exec with an explicit account (root by default),
 // timeout and activity tracking. Archive endpoints bypass those exec settings.
@@ -23,7 +23,7 @@
 // See WriteFile for the limits of the file API's path guards.
 //
 // ListDir and Stat use `find -printf`, which needs GNU findutils in the image;
-// the standard WeKnora sandbox image provides it.
+// the standard GENYEE sandbox image provides it.
 //
 // Two Docker facts shape the rest of this file:
 //
@@ -223,7 +223,7 @@ func (c *DockerRemoteClient) Provider() RemoteProvider { return SandboxTypeDocke
 // Capabilities reports what this backend can do.
 //
 // SupportsTimeoutRefresh is false because the daemon has no timeout to
-// refresh: idle reclamation is WeKnora's own sweep, not a provider feature.
+// refresh: idle reclamation is GENYEE's own sweep, not a provider feature.
 // SupportsVolumes is false until the volume-mount surface is mapped onto
 // Docker named volumes; advertising it early would let a workspace configure
 // a mount that silently never appears. SupportsDesktop stays false: the
@@ -666,7 +666,7 @@ func (c *DockerRemoteClient) removeQuietly(ctx context.Context, id string) {
 // The command is wrapped so that the container, not the client, enforces the
 // timeout: cancelling the HTTP request leaves the process running (verified in
 // docs/poc/docker-sandbox), which would let a runaway script keep burning the
-// host's CPU long after WeKnora reported a timeout to the user.
+// host's CPU long after GENYEE reported a timeout to the user.
 func (c *DockerRemoteClient) Exec(
 	ctx context.Context,
 	handle RemoteSandboxHandle,

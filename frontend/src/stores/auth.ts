@@ -140,7 +140,7 @@ export const useAuthStore = defineStore('auth', () => {
   // UI to a Viewer who switched into a tenant where they were a Viewer
   // — every gate above (`hasRole(...)`) returned the home-tenant role.
   //
-  // SECURITY: This value is read from localStorage (`weknora_memberships`)
+  // SECURITY: This value is read from localStorage (`genyee_memberships`)
   // and therefore MUST be treated as UI-rendering-only — any user can
   // tamper with localStorage and grant themselves "owner" here. All real
   // authorisation decisions live on the server (auth middleware resolves

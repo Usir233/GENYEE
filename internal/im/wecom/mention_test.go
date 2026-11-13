@@ -37,7 +37,7 @@ func TestLongConnClient_StripAtMention(t *testing.T) {
 	t.Run("learns bot name from double-space then handles single-space", func(t *testing.T) {
 		c := &LongConnClient{}
 
-		// First message: double-space → learn "WeKnora Bot"
+		// First message: double-space → learn "GENYEE Bot"
 		got := c.stripAtMention("@WeKnora Bot  什么是上下文工程")
 		if got != "什么是上下文工程" {
 			t.Errorf("first message: got %q, want %q", got, "什么是上下文工程")

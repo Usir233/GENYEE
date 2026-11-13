@@ -59,7 +59,7 @@ func TestCheckpointInitLeavesGitDirOutsideWorkTree(t *testing.T) {
 	require.Equal(t, "v1", string(body))
 }
 
-func TestCheckpointKeepsAgentGitOnceWeKnoraRepoExists(t *testing.T) {
+func TestCheckpointKeepsAgentGitOnceGENYEERepoExists(t *testing.T) {
 	requireGit(t)
 	workspace, gitDir, env := splitGitDirs(t)
 

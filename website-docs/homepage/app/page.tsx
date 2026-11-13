@@ -9,7 +9,8 @@ import { AdopterShowcase } from "./adopter-showcase";
 import { clients, dataSources, modelProviders, IntegrationMark } from "./brands";
 import s from "./home.module.css";
 
-const repo = "";
+const repo = process.env.NEXT_PUBLIC_GITHUB_URL || "";
+const changelog = repo ? `${repo}/blob/HEAD/CHANGELOG.md` : "/docs/07-releases/v0.9.0.html";
 const docs = "/docs/";
 const guide = (path: string) => `${docs}${path}.html`;
 const modes = [
@@ -90,7 +91,7 @@ export default function Home() {
           <div className={s.heroAside}>
             <p className={s.eyebrow}>OPEN SOURCE · GENYEE</p>
             <p className={s.heroDescription}>开源的企业级知识管理框架。<br />汇集团队资料，用于知识问答、任务执行和 Wiki 整理。</p>
-            <div className={s.actions}><a className={s.primary} href="#get-started">开始使用 <Icon name="arrow" /></a><a className={s.secondary} href={repo} target="_blank" rel="noreferrer"><Icon name="github" /> GitHub</a></div>
+            <div className={s.actions}><a className={s.primary} href="#get-started">开始使用 <Icon name="arrow" /></a>{repo && <a className={s.secondary} href={repo} target="_blank" rel="noreferrer"><Icon name="github" /> GitHub</a>}</div>
             <p className={s.heroNote}>RAG 问答 / Agent 推理 / 自动 Wiki</p>
           </div>
         </div>
@@ -170,6 +171,6 @@ export default function Home() {
         </div>
       </div></section>
     </main>
-    <footer className={`${s.shell} ${s.footer}`}><a className={s.brand} href="/" aria-label="GENYEE 首页"><BrandLogo /></a><p>Open Source · MIT License</p><nav aria-label="页脚导航"><a href={docs}>文档</a><a href={repo} target="_blank" rel="noreferrer">GitHub <Icon name="external" /></a><a href={`${repo}/blob/main/CHANGELOG.md`} target="_blank" rel="noreferrer">更新日志</a></nav></footer>
+    <footer className={`${s.shell} ${s.footer}`}><a className={s.brand} href="/" aria-label="GENYEE 首页"><BrandLogo /></a><p>Open Source · MIT License</p><nav aria-label="页脚导航"><a href={docs}>文档</a>{repo && <a href={repo} target="_blank" rel="noreferrer">GitHub <Icon name="external" /></a>}<a href={changelog} target="_blank" rel="noreferrer">更新日志</a></nav></footer>
   </div>;
 }

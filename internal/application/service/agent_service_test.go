@@ -513,12 +513,12 @@ func TestSkillInstallerIsHiddenFromThePicker(t *testing.T) {
 		"it must not clutter the tenant's agent picker")
 }
 
-func TestWeKnoraAssistantIsAHiddenBuiltinWithOperations(t *testing.T) {
+func TestGENYEEAssistantIsAHiddenBuiltinWithOperations(t *testing.T) {
 	require.NoError(t, types.LoadBuiltinAgentsConfig(filepath.Join("..", "..", "..", "config")))
 
-	agent := types.GetBuiltinAgent(types.BuiltinWeKnoraAssistantID, 1)
+	agent := types.GetBuiltinAgent(types.BuiltinGENYEEAssistantID, 1)
 	require.NotNil(t, agent)
-	require.NotContains(t, types.GetBuiltinAgentIDs(), types.BuiltinWeKnoraAssistantID)
+	require.NotContains(t, types.GetBuiltinAgentIDs(), types.BuiltinGENYEEAssistantID)
 	require.True(t, types.GrantsOperationCatalog(agent))
 	require.True(t, types.UsesWorkspaceModelFallback(agent))
 	require.Equal(t, "weknora_assistant", agent.Config.SystemPromptID)
@@ -533,10 +533,10 @@ func TestWeKnoraAssistantIsAHiddenBuiltinWithOperations(t *testing.T) {
 	}
 
 	require.True(t, types.GrantsProductDocs(agent))
-	require.NotContains(t, agent.Config.AllowedTools, tools.ToolSearchWeKnoraDocs)
+	require.NotContains(t, agent.Config.AllowedTools, tools.ToolSearchGENYEEDocs)
 	for _, def := range tools.AvailableToolDefinitions() {
-		require.NotEqual(t, tools.ToolSearchWeKnoraDocs, def.Name)
-		require.NotEqual(t, tools.ToolReadWeKnoraDoc, def.Name)
+		require.NotEqual(t, tools.ToolSearchGENYEEDocs, def.Name)
+		require.NotEqual(t, tools.ToolReadGENYEEDoc, def.Name)
 	}
 
 	stored := *agent
@@ -553,7 +553,7 @@ func TestRegisterProductDocToolsFollowsTheGrant(t *testing.T) {
 		registerProductDocTools(context.Background(), registry, cfg)
 		return registry.ListTools()
 	}
-	require.ElementsMatch(t, []string{tools.ToolSearchWeKnoraDocs, tools.ToolReadWeKnoraDoc},
+	require.ElementsMatch(t, []string{tools.ToolSearchGENYEEDocs, tools.ToolReadGENYEEDoc},
 		registered(&types.AgentConfig{ProductDocs: true, SharedAgentReadOnly: true}))
 	require.Empty(t, registered(&types.AgentConfig{}))
 	require.Empty(t, registered(nil))
@@ -570,12 +570,12 @@ func TestRegisterOperationToolsRequiresGrantAndWebUser(t *testing.T) {
 		return registry.ListTools()
 	}
 
-	granted := &types.AgentConfig{OperationsAgentID: types.BuiltinWeKnoraAssistantID}
+	granted := &types.AgentConfig{OperationsAgentID: types.BuiltinGENYEEAssistantID}
 	require.ElementsMatch(t, []string{tools.ToolFindOperations, tools.ToolRunOperation, tools.ToolOpenPage},
 		registered(webUser, granted))
 	require.Empty(t, registered(webUser, &types.AgentConfig{}))
 	require.Empty(t, registered(webUser, &types.AgentConfig{
-		OperationsAgentID: types.BuiltinWeKnoraAssistantID, SharedAgentReadOnly: true,
+		OperationsAgentID: types.BuiltinGENYEEAssistantID, SharedAgentReadOnly: true,
 	}))
 	apiKey := types.WithTenantAPIKeyScope(webUser, types.TenantAPIKeyScope{KeyID: 1})
 	require.Empty(t, registered(apiKey, granted))
@@ -596,7 +596,7 @@ func TestRegisterOperationToolsOffersPageToolsByAccessLevel(t *testing.T) {
 	} {
 		registry := tools.NewToolRegistry()
 		svc.registerOperationTools(webUser, registry, &types.AgentConfig{
-			OperationsAgentID: types.BuiltinWeKnoraAssistantID, AssistantAccess: level,
+			OperationsAgentID: types.BuiltinGENYEEAssistantID, AssistantAccess: level,
 		})
 		_, err := registry.GetTool(tools.ToolReadPage)
 		assert.NoError(t, err, "reading the page is offered at every level")
@@ -638,7 +638,7 @@ func TestRegisterOperationToolsHonorsSuperuserBypass(t *testing.T) {
 			}
 			registry := tools.NewToolRegistry()
 			svc.registerOperationTools(ctx, registry, &types.AgentConfig{
-				OperationsAgentID: types.BuiltinWeKnoraAssistantID, AssistantAccess: tc.level,
+				OperationsAgentID: types.BuiltinGENYEEAssistantID, AssistantAccess: tc.level,
 			})
 			find, err := registry.GetTool(tools.ToolFindOperations)
 			require.NoError(t, err)
@@ -993,7 +993,7 @@ func TestRegisterOperationToolsKeepsSystemAdminIndependentOfWorkspaceRole(t *tes
 				ctx,
 				registry,
 				&types.AgentConfig{
-					OperationsAgentID: types.BuiltinWeKnoraAssistantID,
+					OperationsAgentID: types.BuiltinGENYEEAssistantID,
 					AssistantAccess:   types.AssistantAccessReadOnly,
 				},
 			)

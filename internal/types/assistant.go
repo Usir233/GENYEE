@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// AssistantAccessLevel is how far the WeKnora assistant may act on the
+// AssistantAccessLevel is how far the GENYEE assistant may act on the
 // caller's behalf. It only narrows what the caller's role already allows.
 type AssistantAccessLevel string
 

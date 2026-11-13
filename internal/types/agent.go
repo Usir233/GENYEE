@@ -173,7 +173,7 @@ type AgentConfig struct {
 	// its source workspace. It is set from the verified share relation, never
 	// inferred from a client-provided tenant ID.
 	SharedAgentReadOnly bool `json:"-"`
-	// OperationsAgentID, when set, grants this run the WeKnora operation
+	// OperationsAgentID, when set, grants this run the GENYEE operation
 	// catalog (find_operations / run_operation) and attributes its changes to
 	// that agent. It is set server-side for built-in management agents only,
 	// never read from an agent record, so a tenant cannot opt a custom agent
@@ -185,7 +185,7 @@ type AgentConfig struct {
 	// AssistantName is what the workspace calls the assistant; empty keeps
 	// the system prompt's. Runtime only.
 	AssistantName string `json:"-"`
-	// ProductDocs grants the bundled WeKnora documentation tools (runtime only).
+	// ProductDocs grants the bundled GENYEE documentation tools (runtime only).
 	ProductDocs bool `json:"-"`
 	// WritableKBIDs are the SearchTargets KBs this caller may modify (its own
 	// workspace's, or shared to it as editor+). Search targets only need read

@@ -140,12 +140,12 @@ func TestCollaborationRegistrationOnlyOffersRootSixAndChildMessage(t *testing.T)
 		cfg  *types.AgentConfig
 		want int
 	}{
-		{"assistant", &types.AgentConfig{OperationsAgentID: types.BuiltinWeKnoraAssistantID}, 6},
+		{"assistant", &types.AgentConfig{OperationsAgentID: types.BuiltinGENYEEAssistantID}, 6},
 		{"ordinary", &types.AgentConfig{}, 6},
 		{
 			"shared",
 			&types.AgentConfig{
-				OperationsAgentID:   types.BuiltinWeKnoraAssistantID,
+				OperationsAgentID:   types.BuiltinGENYEEAssistantID,
 				SharedAgentReadOnly: true,
 			},
 			0,

@@ -14,7 +14,7 @@ import (
 // authenticates with: EnvCredential gates on the trimmed env value and
 // buildClientFromEnv trims before building the client, so a stray newline or
 // padding (common in CI secret stores) would otherwise only break the captured
-// $(weknora auth token) output, not the CLI's own calls.
+// $(genyee auth token) output, not the CLI's own calls.
 func TestAuthToken_EnvTokenTrimmed_Text(t *testing.T) {
 	t.Setenv("GENYEE_TOKEN", "  jwt-env-xyz\n")
 	// No profiles: proves the value came from the env path, not the store.

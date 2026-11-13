@@ -108,7 +108,7 @@ func newModelUpdateLikeCmd() *cobra.Command {
 	return c
 }
 
-// runRetryArgv replays everything after `weknora model update` into a fresh
+// runRetryArgv replays everything after `genyee model update` into a fresh
 // copy of the same command, the way an agent or a human would run the argv it
 // was just handed. It returns the resulting --default value and the parse error.
 func runRetryArgv(t *testing.T, argv []string) (bool, error) {
@@ -116,7 +116,7 @@ func runRetryArgv(t *testing.T, argv []string) (bool, error) {
 	c := newModelUpdateLikeCmd()
 	c.SilenceUsage = true
 	c.SilenceErrors = true
-	c.SetArgs(argv[3:]) // drop the `weknora model update` prefix
+	c.SetArgs(argv[3:]) // drop the `genyee model update` prefix
 	c.RunE = func(*cobra.Command, []string) error { return nil }
 	err := c.Execute()
 	got, _ := c.Flags().GetBool("default")

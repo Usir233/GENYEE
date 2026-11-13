@@ -47,7 +47,7 @@ var FeishuStreamCheckpointMaxInterval = 30 * time.Second
 // fetchTally accumulates the outcome of fetching a wiki node subtree so the
 // connector can Emit a single actionable summary. Without it, unsupported nodes
 // (mindnote/slides/etc.) vanish with no item, no error and no log, leaving users
-// unable to explain why "13 documents synced only 3" (Tencent/WeKnora#2136).
+// unable to explain why "13 documents synced only 3" (Tencent/GENYEE#2136).
 type fetchTally struct {
 	discovered    int
 	fetched       int
@@ -168,7 +168,7 @@ const MinAttachmentBytes = 2 * 1024
 const maxInlineImageBytes = 10 * 1024 * 1024
 
 // SupportedImageExt sniffs image bytes and returns the filename extension and
-// content type WeKnora accepts for a standalone image knowledge item (png/jpg/
+// content type GENYEE accepts for a standalone image knowledge item (png/jpg/
 // gif — the image set isValidFileType admits). ok is false for non-image or
 // unsupported formats (e.g. webp/bmp), which the caller skips rather than
 // mislabel — a wrong extension would fail parsing. The detected content type is
@@ -382,7 +382,7 @@ func userNameResolver(ctx context.Context, client *Client) func(string) string {
 // DocxFetchInput is the unified description of one docx document from either
 // source (wiki node or Drive file) that FetchDocxWithBlocks needs.
 type DocxFetchInput struct {
-	// WeKnora external_id: wiki=node.NodeToken, drive=file.Token
+	// GENYEE external_id: wiki=node.NodeToken, drive=file.Token
 	DocToken string
 	// Feishu docx document token
 	ObjToken   string
@@ -410,7 +410,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 	// The parse mode comes from the data source's Settings["parse_mode"],
 	// resolved by ParseFeishuConfig and threaded in via DocxFetchInput.ParseMode.
 	// The blocks path (default) inlines images/boards into the parent
-	// Markdown as base64 data URIs (via weknora-img://N markers) and fans
+	// Markdown as base64 data URIs (via genyee-img://N markers) and fans
 	// attachments out into sub-items wired to the parent via attachment_ids
 	// metadata. The export path yields a .docx that docreader
 	// parses inline, so images are bound to the parent document via
@@ -502,7 +502,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 	for _, a := range atts {
 		childID := types.SubtreeChildID(in.DocToken, "file", a.FileToken)
 		keep = append(keep, childID) // present in the doc → never sweep as stale
-		// The renderer emitted the unique line "- weknora-att://<token>" for
+		// The renderer emitted the unique line "- genyee-att://<token>" for
 		// this attachment; patch that exact line so an identical earlier
 		// bullet can never be replaced by mistake. Anchoring on the token's
 		// end (newline or end of markdown) keeps a token that is a strict
@@ -589,7 +589,7 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 	}
 
 	// ── 云文档 mention links: backfill document titles ──
-	// The renderer emits "[weknora-docname://<token>](<url>)" placeholders; the
+	// The renderer emits "[genyee-docname://<token>](<url>)" placeholders; the
 	// drive metadata batch API resolves every title in one call. Refs that
 	// cannot be resolved (no permission, deleted, unsupported type) keep the
 	// URL as the link text — exactly the form rendered before this backfill.

@@ -71,9 +71,9 @@ func TestAgentRequiresRerankModel(t *testing.T) {
 
 // The assistant searches knowledge bases but cannot be given a rerank model,
 // so it must take the workspace's instead of failing every run.
-func TestWeKnoraAssistantTakesWorkspaceRerankModel(t *testing.T) {
+func TestGENYEEAssistantTakesWorkspaceRerankModel(t *testing.T) {
 	require.NoError(t, types.LoadBuiltinAgentsConfig(filepath.Join("..", "..", "..", "config")))
-	agent := types.GetBuiltinAgent(types.BuiltinWeKnoraAssistantID, 1)
+	agent := types.GetBuiltinAgent(types.BuiltinGENYEEAssistantID, 1)
 	require.NotNil(t, agent)
 	assert.True(t, agentRequiresRerankModel(agent))
 	assert.Empty(t, agent.Config.RerankModelID)

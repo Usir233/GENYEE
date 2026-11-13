@@ -30,15 +30,15 @@ func TestIsDesktopTemplateRecognizesProviderScopedName(t *testing.T) {
 	}
 }
 
-func TestClassifyWeKnoraTemplatePrefersNameOverImage(t *testing.T) {
-	standard, desktop := classifyWeKnoraTemplate(DesktopTemplateName, DefaultDockerImage)
+func TestClassifyGENYEETemplatePrefersNameOverImage(t *testing.T) {
+	standard, desktop := classifyGENYEETemplate(DesktopTemplateName, DefaultDockerImage)
 	if standard || !desktop {
 		t.Fatalf(
 			"named desktop template must be desktop even if the image repo matches CLI, got standard=%v desktop=%v",
 			standard, desktop,
 		)
 	}
-	standard, desktop = classifyWeKnoraTemplate(StandardTemplateName, DefaultDesktopDockerImage)
+	standard, desktop = classifyGENYEETemplate(StandardTemplateName, DefaultDesktopDockerImage)
 	if !standard || desktop {
 		t.Fatalf(
 			"named CLI template must stay CLI even if the image tag is desktop, got standard=%v desktop=%v",
@@ -47,16 +47,16 @@ func TestClassifyWeKnoraTemplatePrefersNameOverImage(t *testing.T) {
 	}
 }
 
-func TestClassifyWeKnoraTemplateNamelessImageUsesTag(t *testing.T) {
-	standard, desktop := classifyWeKnoraTemplate("", DefaultDockerImage)
+func TestClassifyGENYEETemplateNamelessImageUsesTag(t *testing.T) {
+	standard, desktop := classifyGENYEETemplate("", DefaultDockerImage)
 	if !standard || desktop {
 		t.Fatalf("CLI image with no name must be standard, got standard=%v desktop=%v", standard, desktop)
 	}
-	standard, desktop = classifyWeKnoraTemplate("", DefaultDesktopDockerImage)
+	standard, desktop = classifyGENYEETemplate("", DefaultDesktopDockerImage)
 	if standard || !desktop {
 		t.Fatalf("desktop image with no name must be desktop, got standard=%v desktop=%v", standard, desktop)
 	}
-	standard, desktop = classifyWeKnoraTemplate("", DefaultCubeDesktopTemplateImage)
+	standard, desktop = classifyGENYEETemplate("", DefaultCubeDesktopTemplateImage)
 	if standard || !desktop {
 		t.Fatalf("Cube desktop image with no name must be desktop, got standard=%v desktop=%v", standard, desktop)
 	}

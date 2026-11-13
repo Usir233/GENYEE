@@ -119,7 +119,7 @@ func TestEdit_NotFound(t *testing.T) {
 
 func stringPtr(s string) *string { return &s }
 
-// withRootHarnessKB wraps `weknora kb update ...` under a synthetic root cmd
+// withRootHarnessKB wraps `genyee kb update ...` under a synthetic root cmd
 // that registers the global persistent flags (mirrors addGlobalFlags in
 // cmd/root.go). Required because NewCmdEdit reads --yes and --format from the
 // persistent flag set.

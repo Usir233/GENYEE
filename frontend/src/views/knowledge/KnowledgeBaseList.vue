@@ -777,7 +777,7 @@ const { scope: spaceSelection, creator: creatorFilter, query: keyword } = useLis
 // are wired into card render and click handlers below. The tab counts live
 // next to the resolved lists below so they count the same entries the lists
 // render — raw pin entries survive a deleted KB or a revoked share and would
-// inflate the count above a shorter list (Tencent/WeKnora#5278).
+// inflate the count above a shorter list (Tencent/GENYEE#5278).
 const pins = useResourcePins()
 
 interface KB {
@@ -973,7 +973,7 @@ const recentsList = computed(() => {
 // Tab counts are the lengths of the resolved lists above, not the raw pin
 // entries: a pin whose KB was deleted (or whose share was revoked) stays in
 // storage until its next mutation, and counting it directly showed e.g.
-// 「最近 4」 above a list of 1 (Tencent/WeKnora#5278).
+// 「最近 4」 above a list of 1 (Tencent/GENYEE#5278).
 const kbFavoritesCount = computed(() => favoritesList.value.length)
 const kbRecentsCount = computed(() => recentsList.value.length)
 
@@ -1880,7 +1880,7 @@ watch(keyword, () => { collapsedKbSections.value = new Set() })
   .resource-feature-badge();
 
   .processing-icon {
-    animation: wk-spin 1s linear infinite;
+    animation: gy-spin 1s linear infinite;
   }
 
   &.role-admin {

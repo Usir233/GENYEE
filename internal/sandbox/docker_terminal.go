@@ -328,7 +328,7 @@ func (s *dockerTerminalSession) Resize(ctx context.Context, cols, rows uint32) e
 	return nil
 }
 
-// Close detaches WeKnora from the PTY and, because Docker has no re-attach to
+// Close detaches GENYEE from the PTY and, because Docker has no re-attach to
 // preserve, hangs up the shell inside the container. Unlike Cube/E2B,
 // closing the hijacked connection does not end the exec — the daemon keeps it
 // (and any foreground jobs) alive — so a bare disconnect would strand the

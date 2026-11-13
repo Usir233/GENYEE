@@ -141,7 +141,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--wk-paper);
+  background: var(--gy-paper);
   cursor: zoom-out;
   overscroll-behavior: contain;
 }
@@ -166,9 +166,9 @@ onUnmounted(() => {
   align-items: center;
   gap: 4px;
   padding: 6px 8px;
-  border: 1px solid var(--wk-rule);
+  border: 1px solid var(--gy-rule);
   border-radius: 3px;
-  background: var(--wk-paper);
+  background: var(--gy-paper);
   box-shadow: 0 6px 22px rgba(16, 31, 56, 0.08);
   cursor: default;
 }
@@ -180,13 +180,13 @@ onUnmounted(() => {
   border-radius: 2px;
   font-size: 15px;
   line-height: 1;
-  color: var(--wk-ink-soft);
+  color: var(--gy-ink-soft);
   transition: background-color 0.18s ease, color 0.18s ease;
 }
 
 .zoom-bar button:hover {
-  background: var(--wk-paper-2);
-  color: var(--wk-ink);
+  background: var(--gy-paper-2);
+  color: var(--gy-ink);
 }
 
 .zoom-word {
@@ -196,16 +196,16 @@ onUnmounted(() => {
 .zoom-level {
   min-width: 46px;
   text-align: center;
-  font-family: var(--wk-font-mono);
+  font-family: var(--gy-font-mono);
   font-size: 11px;
-  color: var(--wk-ink-mute);
+  color: var(--gy-ink-mute);
 }
 
 .zoom-sep {
   width: 1px;
   height: 16px;
   margin: 0 4px;
-  background: var(--wk-rule);
+  background: var(--gy-rule);
 }
 
 .zoom-hint {
@@ -214,10 +214,10 @@ onUnmounted(() => {
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
-  font-family: var(--wk-font-mono);
+  font-family: var(--gy-font-mono);
   font-size: 10.5px;
   letter-spacing: 0.14em;
-  color: var(--wk-ink-mute);
+  color: var(--gy-ink-mute);
 }
 
 .zoom-fade-enter-active,

@@ -305,7 +305,7 @@ func (b *PolicyBuilder) rejectBroadWorkspace(root string) error {
 			return fmt.Errorf("%w: %q", ErrWorkspaceTooBroad, root)
 		}
 	}
-	// Background jobs live under ~/.weknora/jobs. A workspace that covers that
+	// Background jobs live under ~/.genyee/jobs. A workspace that covers that
 	// directory, or sits inside it, can read or replace another session's output.
 	if b.jobsRoot != "" && (PathUnder(b.jobsRoot, root) || PathUnder(root, b.jobsRoot)) {
 		return fmt.Errorf("%w: %q overlaps the background jobs directory", ErrWorkspaceTooBroad, root)

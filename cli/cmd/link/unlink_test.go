@@ -13,7 +13,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/projectlink"
 )
 
-// mkLinkFile seeds .weknora/project.yaml in dir so the unlink path has
+// mkLinkFile seeds .genyee/project.yaml in dir so the unlink path has
 // something to remove. Returns the absolute file path.
 func mkLinkFile(t *testing.T, dir string) string {
 	t.Helper()

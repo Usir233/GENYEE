@@ -645,7 +645,7 @@ func TestConnector_FetchAll_FileNamePolicy(t *testing.T) {
 	}
 }
 
-// Regression for Tencent/WeKnora#3690: when an existing doc's detail fetch
+// Regression for Tencent/GENYEE#3690: when an existing doc's detail fetch
 // fails after its content changed, the incremental cursor must keep the doc's
 // previously synced version instead of acknowledging the new one — otherwise
 // every later sync sees the doc as unchanged and never retries the fetch.
@@ -734,7 +734,7 @@ func TestConnector_FetchIncremental_DetailFailureDoesNotAckVersion(t *testing.T)
 	}
 }
 
-// Regression for Tencent/WeKnora#3690 (new-doc variant): a newly listed doc
+// Regression for Tencent/GENYEE#3690 (new-doc variant): a newly listed doc
 // whose detail fetch fails must not enter the cursor at all, so the next sync
 // still treats it as new and ingests it.
 func TestConnector_FetchIncremental_NewDocDetailFailureNotAcknowledged(t *testing.T) {

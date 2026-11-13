@@ -11,7 +11,7 @@ import (
 // pass validation.
 type EmbeddingAPI string
 
-// The embedding protocols WeKnora speaks.
+// The embedding protocols GENYEE speaks.
 const (
 	// EmbeddingOpenAI is POST {base}/embeddings with {model, input[]} answering
 	// {data: [{embedding, index}]} — the shape OpenAI defined and every
@@ -57,7 +57,7 @@ type Embedder interface {
 }
 
 // EmbedImage is one image to embed. It travels inline rather than as a URL:
-// the object store WeKnora reads images from is usually not reachable from
+// the object store GENYEE reads images from is usually not reachable from
 // the vendor, and every multimodal vendor in the catalog accepts base64.
 type EmbedImage struct {
 	Data     []byte
@@ -88,7 +88,7 @@ type ImageEmbedder interface {
 // Both halves matter. A vendor is free to answer out of order, so the index
 // has to be honoured rather than assumed — and reading the wrong field for it
 // silently collapses a whole batch onto slot 0, which is what
-// Tencent/WeKnora#3484 was. An unfilled slot then reaches the index as an
+// Tencent/GENYEE#3484 was. An unfilled slot then reaches the index as an
 // empty vector, where it is stored and poisons retrieval without anything
 // failing, so a gap is an error instead. So is an index reported twice: one
 // of the two vectors belongs to some other input.

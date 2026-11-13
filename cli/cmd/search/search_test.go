@@ -9,7 +9,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 )
 
-// TestSearch_NoArgs_ShowsHelp: bare `weknora search` (no subcommand)
+// TestSearch_NoArgs_ShowsHelp: bare `genyee search` (no subcommand)
 // must run cobra's Help() without erroring.
 func TestSearch_NoArgs_ShowsHelp(t *testing.T) {
 	_, _ = iostreams.SetForTest(t)
@@ -20,7 +20,7 @@ func TestSearch_NoArgs_ShowsHelp(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 }
 
-// TestSearch_RejectsPositional: bare positional `weknora search "<q>" --kb X`
+// TestSearch_RejectsPositional: bare positional `genyee search "<q>" --kb X`
 // must error - search is a pure dispatcher with no shortcut form.
 func TestSearch_RejectsPositional(t *testing.T) {
 	_, _ = iostreams.SetForTest(t)

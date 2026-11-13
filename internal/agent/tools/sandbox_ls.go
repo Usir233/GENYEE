@@ -273,7 +273,7 @@ func formatSandboxModTime(t time.Time) string {
 
 // resolveSessionID pulls the session ID out of the tool exec context (set
 // by the agent engine per tool call) with a fallback to the ambient
-// context helper used elsewhere in WeKnora.
+// context helper used elsewhere in GENYEE.
 func resolveSessionID(ctx context.Context) string {
 	if meta, ok := ToolExecFromContext(ctx); ok && meta != nil && meta.SessionID != "" {
 		return meta.SessionID

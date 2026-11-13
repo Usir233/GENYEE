@@ -29710,7 +29710,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "tls_cert_path": {
-                    "description": "TLSCertPath is a directory on the WeKnora host containing ca.pem,\ncert.pem and key.pem. Required when Host is a TCP endpoint.",
+                    "description": "TLSCertPath is a directory on the GENYEE host containing ca.pem,\ncert.pem and key.pem. Required when Host is a TCP endpoint.",
                     "type": "string"
                 }
             }
@@ -29748,7 +29748,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "proxy_url": {
-                    "description": "ProxyURL is the data-plane gateway that fronts envd. E2B Cloud resolves\n\"\u003cport\u003e-\u003csandboxID\u003e.\u003csandbox_domain\u003e\" through public DNS and TLS, so it\nneeds no value here. Self-hosted E2B-compatible control planes usually\nserve every sandbox from one gateway address and expect the sandbox\nauthority in the Host header; setting this makes WeKnora dial the\ngateway directly instead of requiring wildcard DNS and a certificate\nfor the sandbox domain. An \"http://\" gateway also downgrades the\ndata-plane scheme, which the E2B SDK otherwise pins to https.",
+                    "description": "ProxyURL is the data-plane gateway that fronts envd. E2B Cloud resolves\n\"\u003cport\u003e-\u003csandboxID\u003e.\u003csandbox_domain\u003e\" through public DNS and TLS, so it\nneeds no value here. Self-hosted E2B-compatible control planes usually\nserve every sandbox from one gateway address and expect the sandbox\nauthority in the Host header; setting this makes GENYEE dial the\ngateway directly instead of requiring wildcard DNS and a certificate\nfor the sandbox domain. An \"http://\" gateway also downgrades the\ndata-plane scheme, which the E2B SDK otherwise pins to https.",
                     "type": "string"
                 },
                 "sandbox_domain": {
@@ -33403,7 +33403,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "created_at": {
-                    "description": "When WeKnora persisted the blob",
+                    "description": "When GENYEE persisted the blob",
                     "type": "string"
                 },
                 "deleted_at": {
@@ -35847,7 +35847,7 @@ const docTemplate = `{
                     "x-agent-response": true
                 },
                 "user_id": {
-                    "description": "UserID is the owner scope for this session. WeKnora user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
+                    "description": "UserID is the owner scope for this session. GENYEE user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
                     "type": "string"
                 }
             }
@@ -36008,7 +36008,7 @@ const docTemplate = `{
                     "x-agent-response": true
                 },
                 "user_id": {
-                    "description": "UserID is the owner scope for this session. WeKnora user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
+                    "description": "UserID is the owner scope for this session. GENYEE user UUIDs, API\nexternal-user principals, and embed visitor principals all use this column.",
                     "type": "string"
                 }
             }
@@ -37141,7 +37141,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "terminal_idle_disconnect_sec": {
-                    "description": "TerminalIdleDisconnectSec is how long an interactive terminal or\ndesktop may go without user activity before WeKnora closes the\nconnection so the sandbox can pause on its provider TTL. Terminal\ncounts keystrokes and PTY output; desktop counts mouse and keyboard.\n0 uses the built-in default (15 minutes). Not an identity field.",
+                    "description": "TerminalIdleDisconnectSec is how long an interactive terminal or\ndesktop may go without user activity before GENYEE closes the\nconnection so the sandbox can pause on its provider TTL. Terminal\ncounts keystrokes and PTY output; desktop counts mouse and keyboard.\n0 uses the built-in default (15 minutes). Not an identity field.",
                     "type": "integer"
                 },
                 "user_sandbox_empty_retention_days": {
@@ -37756,7 +37756,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "mount_path": {
-                    "description": "MountPath is the sandbox-internal path where the volume is mounted.\nDefault: /weknora/tenant/skills (customizable per use case).",
+                    "description": "MountPath is the sandbox-internal path where the volume is mounted.\nDefault: /genyee/tenant/skills (customizable per use case).",
                     "type": "string"
                 },
                 "provider": {
@@ -37768,7 +37768,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "volume_name": {
-                    "description": "VolumeName is the human-readable volume name, e.g.\n\"weknora-tenant-\u003cid\u003e-skills\".",
+                    "description": "VolumeName is the human-readable volume name, e.g.\n\"genyee-tenant-\u003cid\u003e-skills\".",
                     "type": "string"
                 },
                 "volume_owner_fingerprint": {
@@ -37781,7 +37781,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "fetch": {
-                    "description": "Fetch is the provider type whose API reads pages, or \"local\" for WeKnora's own reader.",
+                    "description": "Fetch is the provider type whose API reads pages, or \"local\" for GENYEE's own reader.",
                     "type": "string"
                 },
                 "search": {

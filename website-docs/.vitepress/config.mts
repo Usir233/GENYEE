@@ -122,7 +122,7 @@ export default withMermaid(
         // 表格外面包一层滚动容器。默认主题把 <table> 本身设成 display:block 来做
         // 横向滚动，副作用是表格按内容收缩——列少的表比正文列窄一截，页面里宽窄不一。
         // 把滚动交给包裹层后，表格可以恢复 display:table + width:100%，统一撑满正文列。
-        md.renderer.rules.table_open = () => '<div class="wk-table">\n<table>\n'
+        md.renderer.rules.table_open = () => '<div class="gy-table">\n<table>\n'
         md.renderer.rules.table_close = () => '</table>\n</div>\n'
       },
     },

@@ -14,7 +14,7 @@ import (
 // model which secret paths exist is itself a small leak.
 var ErrPathDenied = errors.New("localsandbox: path is outside the permitted workspace")
 
-// PathGuard validates filesystem access performed by WeKnora itself, which
+// PathGuard validates filesystem access performed by GENYEE itself, which
 // runs with the user's full privileges and therefore cannot be constrained by
 // the OS sandbox. It derives from the same Policy the backend compiles, so
 // both paths enforce the same rules.

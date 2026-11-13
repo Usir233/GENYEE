@@ -46,7 +46,7 @@ export type RenderChatMarkdownOptions = {
   cachedMermaidSvgHtml?: CachedMermaidSvgHtml
   injectCachedMermaidSvg?: (html: string, cachedSvgHtml?: CachedMermaidSvgHtml) => string
   prepareMarkdown?: (markdown: string, cachedSvgHtml?: CachedMermaidSvgHtml) => string
-  /** Render `weknora://` URIs as clickable entity links with these labels. */
+  /** Render `genyee://` URIs as clickable entity links with these labels. */
   entityLinkLabels?: WeKnoraEntityLinkLabels
 }
 

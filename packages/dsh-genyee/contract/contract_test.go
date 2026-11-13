@@ -1,4 +1,4 @@
-// Package contract asserts that the WeKnora API surface the dsh-genyee plugin
+// Package contract asserts that the GENYEE API surface the dsh-genyee plugin
 // speaks still exists on this server: the request bodies it sends must decode
 // into the real handler request structs with no unknown fields, and the response
 // fields it reads must still be produced by the real response types.

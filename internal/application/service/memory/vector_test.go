@@ -63,7 +63,7 @@ func TestARewordedMemoryIsStillFound(t *testing.T) {
 }
 
 // An interest is promoted from a subject label, so its topic and content hold
-// the same string. Joining them sent "WeKnora混合检索：WeKnora混合检索" to the
+// the same string. Joining them sent "GENYEE混合检索：GENYEE混合检索" to the
 // embedder, which is not a sentence any question resembles.
 func TestEmbeddedTextDoesNotRepeatTheSubject(t *testing.T) {
 	require.Equal(t, "WeKnora混合检索", embeddableText(&types.MemoryItem{

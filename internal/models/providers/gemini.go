@@ -109,7 +109,7 @@ func newGeminiProvider() *Definition {
 			// parser reads as the same field. taskType exists on
 			// gemini-embedding-001 only and is deliberately not declared: it
 			// changes the document vectors, so turning it on would split every
-			// existing index across two spaces (Tencent/WeKnora#1401).
+			// existing index across two spaces (Tencent/GENYEE#1401).
 			Embeddings: api.EmbeddingsCompat{
 				DimensionsField: api.Ptr("outputDimensionality"),
 			},

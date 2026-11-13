@@ -1,5 +1,5 @@
 /**
- * Reads the WeKnora page beside the assistant the way a screen reader would:
+ * Reads the GENYEE page beside the assistant the way a screen reader would:
  * an indented outline of headings, text, tables, buttons and form fields with
  * their current values. Fields the assistant may fill get a ref (e12) that
  * stays with the element while it lives. Credentials are never read.

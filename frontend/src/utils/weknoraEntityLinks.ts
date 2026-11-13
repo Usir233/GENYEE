@@ -15,7 +15,7 @@ const URI_IN_TEXT_RE = new RegExp(`(?:weknora|genyee)://${URI_BODY}`, 'gi')
 const HREF_RE = /\bhref\s*=\s*(?:"([^"]*)"|'([^']*)')/i
 const SKIPPED_TAGS = new Set(['code', 'pre', 'a', 'button', 'svg', 'math'])
 
-/** Parses a `weknora://kb|doc|chunk/<id>` durable URI emitted by the model-context codec. */
+/** Parses a `genyee://kb|doc|chunk/<id>` durable URI emitted by the model-context codec. */
 export function parseWeKnoraEntityURI(value: string | null | undefined): WeKnoraEntityRef | null {
   const match = URI_EXACT_RE.exec((value || '').trim())
   if (!match) return null
@@ -32,11 +32,11 @@ function entityOpenTag(ref: WeKnoraEntityRef, labels: WeKnoraEntityLinkLabels): 
 }
 
 /**
- * Turns `weknora://` URIs in rendered chat HTML into clickable entity chips.
+ * Turns `genyee://` URIs in rendered chat HTML into clickable entity chips.
  * Markdown links keep their text; bare URIs in prose show the real ID, since
  * the model writes them where an ID is meant. The kind label is the tooltip.
  * Text inside code, pre and ordinary links is left alone. Must run before
- * DOMPurify, whose URI allowlist would otherwise strip the `weknora:` scheme.
+ * DOMPurify, whose URI allowlist would otherwise strip the `genyee:` scheme.
  */
 export function renderWeKnoraEntityLinks(html: string, labels: WeKnoraEntityLinkLabels): string {
   if (!html || !/(?:weknora|genyee):\/\//i.test(html)) return html

@@ -56,7 +56,7 @@ const (
 	ToolWriteSandboxFile = "write_sandbox_file"
 	ToolEditSandboxFile  = "edit_sandbox_file"
 	// ToolWriteSkillFile / ToolEditSkillFile write the skill tree under
-	// /opt/weknora/tenant/skills rather than /workspace, and exist only for
+	// /opt/genyee/tenant/skills rather than /workspace, and exist only for
 	// the built-in skill installer. They are scoped to the one skill being
 	// installed; see internal/agent/tools/skill_file.go.
 	//
@@ -68,7 +68,7 @@ const (
 	// ToolShellExec lets the LLM execute ad-hoc shell commands inside the
 	// current session's sandbox (dependency installs, environment probing).
 	// Registered only when the resolved backend advertises the session shell
-	// capability (Cube, E2B, Docker). The command never runs on the WeKnora host.
+	// capability (Cube, E2B, Docker). The command never runs on the GENYEE host.
 	//
 	// Also absent from AvailableToolDefinitions: registerSandboxShellIfAllowed
 	// keys it on SkillsEnabled (or install mode), so the shell follows the
@@ -297,7 +297,7 @@ func NormalizeAllowedTools(allowed []string) []string {
 }
 
 // RetiredToolReplacement tells the model how to replace a removed tool.
-// Empty when name was never a WeKnora tool.
+// Empty when name was never a GENYEE tool.
 func RetiredToolReplacement(name string) string {
 	switch name {
 	case LegacyToolExecuteSkillScript:

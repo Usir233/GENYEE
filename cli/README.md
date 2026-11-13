@@ -316,7 +316,7 @@ operations that intentionally go through `genyee api`:
   storage provider is set once at create time via
   `kb create --storage-provider <name>` and is not updatable.)
 - **Per-request `chat` parameters** — multi-KB scope, summary model
-  override, image attachments, web search toggle. Use `weknora api POST
+  override, image attachments, web search toggle. Use `genyee api POST
   /api/v1/knowledge-chat/<session-id> --input -`.
 - **Per-request `session ask --agent` overrides** — same shape via
   `weknora api POST /api/v1/agent-chat/<session-id> --input -`.

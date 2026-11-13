@@ -166,7 +166,7 @@ func newAliyunProvider() *Definition {
 			// Multimodal models "不支持OpenAI兼容接口" and override the protocol
 			// in models.json. The native APIs' text_type / instruct are not
 			// declared: both change the document vectors
-			// (Tencent/WeKnora#1401).
+			// (Tencent/GENYEE#1401).
 			Embeddings: api.EmbeddingsCompat{
 				SendEncodingFormat: api.Ptr(true),
 				DimensionsField:    api.Ptr("dimensions"),

@@ -259,7 +259,7 @@ func sourceArgumentAllowed(toolName, key string) bool {
 }
 
 // sourceBareTextAllowed reports structured-text arguments (SQL) whose handles
-// must decode to bare durable IDs rather than weknora:// URIs.
+// must decode to bare durable IDs rather than genyee:// URIs.
 func sourceBareTextAllowed(toolName, key string) bool {
 	policy, ok := toolHandlePolicies[toolName]
 	if !ok {

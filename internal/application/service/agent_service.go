@@ -555,8 +555,8 @@ func (s *agentService) hostApprovals(chatModel chat.Chat) tools.HostApprovals {
 // manager advertises a SessionFileStore.
 //
 // The skill installer is the exception: write_sandbox_file only accepts
-// /workspace, the installer must write .weknora/requirements.json under
-// /opt/weknora/tenant/skills, and its prompt forbids touching /workspace
+// /workspace, the installer must write .genyee/requirements.json under
+// /opt/genyee/tenant/skills, and its prompt forbids touching /workspace
 // (that tree is wiped before the snapshot). Offering the file tools made
 // the first write of every install fail, then fall back to a shell heredoc.
 // Install mode gets write_skill_file / edit_skill_file instead, which write
@@ -627,8 +627,8 @@ func registerProductDocTools(ctx context.Context, toolRegistry *tools.ToolRegist
 	if err != nil {
 		logger.Warnf(ctx, "WeKnora documentation pages left out: %v", err)
 	}
-	toolRegistry.RegisterTool(tools.NewSearchWeKnoraDocsTool(lib))
-	toolRegistry.RegisterTool(tools.NewReadWeKnoraDocTool(lib))
+	toolRegistry.RegisterTool(tools.NewSearchGENYEEDocsTool(lib))
+	toolRegistry.RegisterTool(tools.NewReadGENYEEDocTool(lib))
 }
 
 func (s *agentService) registerSandboxFileTools(
@@ -1591,7 +1591,7 @@ func (s *agentService) registerTools(
 	return nil
 }
 
-// assistantWriteToolRisk are the direct tools of the WeKnora assistant that
+// assistantWriteToolRisk are the direct tools of the GENYEE assistant that
 // change data outside the operation catalog. Its access level decides which
 // of them ask the user first, as it does for catalog operations.
 var assistantWriteToolRisk = map[string]operations.Risk{

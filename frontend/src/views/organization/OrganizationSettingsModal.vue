@@ -238,7 +238,7 @@
             <div class="section-header-titlewrap">
               <h2>{{ $t('organization.manageMembers') }}</h2>
               <t-popup placement="bottom-start" trigger="hover"
-                overlay-class-name="wk-popover org-permissions-popup-overlay"
+                overlay-class-name="gy-popover org-permissions-popup-overlay"
                 :overlay-inner-style="permissionsPopupInnerStyle">
                 <button type="button" class="permissions-trigger-btn"
                   :aria-label="$t('organization.editor.permissionsTitle')"
@@ -566,7 +566,7 @@
             <div class="section-header-titlewrap">
               <h2>{{ $t('organization.share.sharedKnowledgeBase') }}</h2>
               <t-popup placement="bottom-start" trigger="hover"
-                overlay-class-name="wk-popover org-permissions-popup-overlay"
+                overlay-class-name="gy-popover org-permissions-popup-overlay"
                 :overlay-inner-style="permissionsHintPopupInnerStyle">
                 <button type="button" class="permissions-trigger-btn"
                   :aria-label="$t('organization.settings.permissionCalcFormula')"
@@ -660,7 +660,7 @@
             <div class="section-header-titlewrap">
               <h2>{{ $t('organization.settings.sharedAgents') }}</h2>
               <t-popup placement="bottom-start" trigger="hover"
-                overlay-class-name="wk-popover org-permissions-popup-overlay"
+                overlay-class-name="gy-popover org-permissions-popup-overlay"
                 :overlay-inner-style="permissionsHintPopupInnerStyle">
                 <button type="button" class="permissions-trigger-btn"
                   :aria-label="$t('organization.settings.sharedAgentsKbHintShort')"

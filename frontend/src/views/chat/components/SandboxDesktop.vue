@@ -160,7 +160,7 @@ defineExpose({ start })
 }
 
 .sandbox-desktop__spinner {
-  animation: wk-spin 1s linear infinite;
+  animation: gy-spin 1s linear infinite;
 }
 
 </style>

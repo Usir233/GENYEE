@@ -698,7 +698,7 @@ func writeQuestionOrigin(sb *strings.Builder, origin *QuestionOriginInfo) {
 	sb.WriteString("  </question_origin>\n")
 }
 
-// writePageContext tells the model which WeKnora page the user is looking at,
+// writePageContext tells the model which GENYEE page the user is looking at,
 // so "this document", "this page" or "these issues" need no clarifying
 // question. It names what is open; it does not ask for any action.
 func writePageContext(sb *strings.Builder, page *PageContextInfo) {

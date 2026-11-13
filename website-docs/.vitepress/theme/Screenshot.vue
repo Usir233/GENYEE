@@ -19,43 +19,43 @@ watch(resolved, () => { failed.value = false })
 </script>
 
 <template>
-  <figure class="wk-shot">
-    <div class="wk-shot-media" :style="size ? { aspectRatio: `${size.width} / ${size.height}` } : undefined">
+  <figure class="gy-shot">
+    <div class="gy-shot-media" :style="size ? { aspectRatio: `${size.width} / ${size.height}` } : undefined">
       <img
         v-if="size && !failed"
-        class="wk-shot-img"
+        class="gy-shot-img"
         :src="resolved"
         :alt="caption"
         :width="size.width"
         :height="size.height"
         @error="failed = true"
       />
-      <div v-else class="wk-shot-placeholder" :class="{ 'wk-shot-placeholder-sized': size }">
-        <div class="wk-shot-placeholder-badge">{{ failed ? '图片加载失败' : '截图待补充' }}</div>
-        <div class="wk-shot-placeholder-caption">{{ caption }}</div>
-        <p v-if="hint" class="wk-shot-placeholder-hint">{{ hint }}</p>
-        <code class="wk-shot-placeholder-path">website-docs/public{{ src }}</code>
+      <div v-else class="gy-shot-placeholder" :class="{ 'gy-shot-placeholder-sized': size }">
+        <div class="gy-shot-placeholder-badge">{{ failed ? '图片加载失败' : '截图待补充' }}</div>
+        <div class="gy-shot-placeholder-caption">{{ caption }}</div>
+        <p v-if="hint" class="gy-shot-placeholder-hint">{{ hint }}</p>
+        <code class="gy-shot-placeholder-path">website-docs/public{{ src }}</code>
       </div>
     </div>
-    <figcaption class="wk-shot-caption">{{ caption }}</figcaption>
+    <figcaption class="gy-shot-caption">{{ caption }}</figcaption>
   </figure>
 </template>
 
 <style scoped>
-.wk-shot {
+.gy-shot {
   margin: 24px 0;
 }
 
-.wk-shot-media { position: relative; }
+.gy-shot-media { position: relative; }
 
-.wk-shot-placeholder-sized {
+.gy-shot-placeholder-sized {
   position: absolute;
   inset: 0;
   justify-content: center;
   overflow: auto;
 }
 
-.wk-shot-img {
+.gy-shot-img {
   display: block;
   width: 100%;
   height: auto;
@@ -63,7 +63,7 @@ watch(resolved, () => { failed.value = false })
   border-radius: 10px;
 }
 
-.wk-shot-placeholder {
+.gy-shot-placeholder {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -75,7 +75,7 @@ watch(resolved, () => { failed.value = false })
   background: var(--vp-c-bg-soft);
 }
 
-.wk-shot-placeholder-badge {
+.gy-shot-placeholder-badge {
   padding: 2px 10px;
   border-radius: 999px;
   font-size: 12px;
@@ -84,13 +84,13 @@ watch(resolved, () => { failed.value = false })
   background: var(--vp-c-default-soft);
 }
 
-.wk-shot-placeholder-caption {
+.gy-shot-placeholder-caption {
   font-size: 15px;
   font-weight: 600;
   color: var(--vp-c-text-1);
 }
 
-.wk-shot-placeholder-hint {
+.gy-shot-placeholder-hint {
   max-width: 46em;
   margin: 0;
   font-size: 13px;
@@ -98,12 +98,12 @@ watch(resolved, () => { failed.value = false })
   color: var(--vp-c-text-2);
 }
 
-.wk-shot-placeholder-path {
+.gy-shot-placeholder-path {
   font-size: 12px;
   color: var(--vp-c-text-3);
 }
 
-.wk-shot-caption {
+.gy-shot-caption {
   margin-top: 8px;
   font-size: 13px;
   line-height: 1.6;

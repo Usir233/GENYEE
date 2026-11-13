@@ -82,7 +82,7 @@ func bochaSummary(extraConfig map[string]string) bool {
 
 func (p *BochaProvider) Name() string { return "bocha" }
 
-// Search queries the Bocha API and converts its results to WeKnora's format.
+// Search queries the Bocha API and converts its results to GENYEE's format.
 func (p *BochaProvider) Search(ctx context.Context, request types.WebSearchRequest) ([]*types.WebSearchResult, error) {
 	maxResults, includeDate := request.MaxResults, request.IncludeDate
 	query := strings.TrimSpace(request.Query)

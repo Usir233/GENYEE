@@ -2,7 +2,7 @@
 /**
  * End-to-end check inside a real DeepSeek Harness install: install this package
  * into a throwaway dsh profile with `dsh plugin add`, boot the headless profile
- * against a fake OpenAI-compatible model and a mock WeKnora backend, and assert
+ * against a fake OpenAI-compatible model and a mock GENYEE backend, and assert
  * that the harness agent loop actually called the tools and answered from what
  * they returned.
  *
@@ -12,7 +12,7 @@
  *   B. a profile patch that overrides the row, including a renamed tool prefix,
  *      which also proves configuration reaches the plugin.
  *   C. a row with no knowledge base scope, where the plugin resolves the full
- *      visible set itself — WeKnora refuses an unscoped search.
+ *      visible set itself — GENYEE refuses an unscoped search.
  *
  * Usage:
  *   node test/e2e/run-in-dsh.mjs                 # installs dsh into a cache dir

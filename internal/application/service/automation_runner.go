@@ -363,7 +363,7 @@ func (s *AutomationService) runSession(
 		ID: uuid.NewString(), TenantID: a.TenantID, UserID: a.OwnerUserID, Kind: types.SessionKindAutomation,
 		Title: clipRunes(title, 200), CreatedAt: now, UpdatedAt: now,
 		LastRequestState: &types.SessionLastRequestState{
-			AgentID: types.BuiltinWeKnoraAssistantID, AgentEnabled: true, ModelID: a.ModelID,
+			AgentID: types.BuiltinGENYEEAssistantID, AgentEnabled: true, ModelID: a.ModelID,
 		},
 	}
 	if err := s.db.WithContext(ctx).Session(&gorm.Session{SkipHooks: true}).

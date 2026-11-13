@@ -17,7 +17,7 @@ import (
 // header is the gate opt-in that LiteFuse/Langfuse v3 require for the OTel
 // direct-write path (verified against directWriteHelpers.ts — without it the
 // server returns 400 "requires Python SDK >= 4.0.0"). The x-langfuse-sdk-*
-// markers are sent for parity; WeKnora is a Go client, not the Python SDK.
+// markers are sent for parity; GENYEE is a Go client, not the Python SDK.
 func newExporter(ctx context.Context, cfg Config) (sdktrace.SpanExporter, error) {
 	var endpoint string
 	trimmedHost := strings.TrimRight(cfg.Host, "/")

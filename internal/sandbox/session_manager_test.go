@@ -116,7 +116,7 @@ func TestWorkspaceBootstrapPreservesExistingData(t *testing.T) {
 }
 
 // The agent can delete /workspace/output between turns. Preparing only once
-// per process would leave later writes failing until WeKnora restarted.
+// per process would leave later writes failing until GENYEE restarted.
 func TestSessionBoundManagerPreparesWorkspaceOnEveryCall(t *testing.T) {
 	client := newFakeRemoteClient(SandboxTypeCube)
 	cfg := DefaultConfig()
@@ -293,7 +293,7 @@ func TestExecShellCommandKeepsOrdinaryRemoteRequest(t *testing.T) {
 		Command: "echo hi",
 		Shell:   true,
 		Env: map[string]string{
-			"A":                    "B",
+			"A":                   "B",
 			"GENYEE_SESSION_ID":   "sess-1",
 			"GENYEE_BROWSER_ROOT": "/var/lib/weknora/browser/session",
 		},
@@ -1869,7 +1869,7 @@ func TestWithBrowserEnvOverridesCallerValues(t *testing.T) {
 	in := map[string]string{
 		"GENYEE_SESSION_ID":   "spoofed",
 		"GENYEE_BROWSER_ROOT": "/tmp/spoofed",
-		"KEEP":                 "1",
+		"KEEP":                "1",
 	}
 	out := withBrowserEnv(in, "sid-1", RemoteWorkspaceLayout())
 	require.Equal(t, "sid-1", out["GENYEE_SESSION_ID"])

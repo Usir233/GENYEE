@@ -8,7 +8,7 @@ import (
 )
 
 // keyringService is the namespace prefix passed to OS keyring backends.
-// Final keyring entries look like service="weknora:<profile>", account="<key>".
+// Final keyring entries look like service="genyee:<profile>", account="<key>".
 const keyringService = "weknora"
 
 // KeyringStore is the OS-backed credential store: macOS Keychain, GNOME

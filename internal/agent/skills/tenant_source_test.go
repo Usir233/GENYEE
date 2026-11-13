@@ -244,7 +244,7 @@ func TestSandboxSkillDirOnlyAnswersForInstalledSkills(t *testing.T) {
 	require.False(t, ok)
 }
 
-// Host skills keep uploading from the WeKnora machine and keep running in
+// Host skills keep uploading from the GENYEE machine and keep running in
 // their staged directory; the tenant source must not change that path at all.
 type recordingSandboxManager struct {
 	config *sandbox.ExecuteConfig

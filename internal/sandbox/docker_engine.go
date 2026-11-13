@@ -1,6 +1,6 @@
 // Docker Engine plumbing for the docker backend.
 //
-// This file owns everything between WeKnora and the Docker Engine API that is
+// This file owns everything between GENYEE and the Docker Engine API that is
 // not sandbox semantics: the narrow interface the adapter talks to (so unit
 // tests need no daemon), how a daemon connection is built and shared, and how
 // Engine errors are classified into the provider-neutral RemoteErrorKind.
@@ -243,7 +243,7 @@ func newDockerEngineClient(endpoint dockerEndpoint) (*client.Client, error) {
 }
 
 // dockerHostNeedsDialGuard reports whether host is a network endpoint whose
-// dials must pass the outbound policy. Unix sockets are local to the WeKnora
+// dials must pass the outbound policy. Unix sockets are local to the GENYEE
 // process and carry no address to check.
 func dockerHostNeedsDialGuard(host string) bool {
 	scheme, _, found := strings.Cut(strings.TrimSpace(host), "://")
@@ -262,7 +262,7 @@ func dockerHostNeedsDialGuard(host string) bool {
 //
 // A TCP endpoint gets the same outbound treatment as any other workspace-
 // supplied URL: a daemon socket accepts container creation, so an admin who
-// can point it anywhere can make WeKnora talk to an arbitrary internal
+// can point it anywhere can make GENYEE talk to an arbitrary internal
 // service. Unix sockets are local by definition and only have to be absolute.
 func ValidateDockerHost(host string, allowPrivate bool) error {
 	trimmed := strings.TrimSpace(host)
@@ -367,7 +367,7 @@ func ValidateDockerRuntime(runtime string) error {
 // ValidateDockerRemoteTLS requires client certificates for a TCP daemon.
 // A remote Engine API that accepts container creation is a root shell on
 // that host; plaintext tcp://2375 is not an acceptable way to reach it.
-// Unix sockets are local to the WeKnora process and do not use TLS.
+// Unix sockets are local to the GENYEE process and do not use TLS.
 func ValidateDockerRemoteTLS(host, tlsCertPath string) error {
 	trimmed := strings.TrimSpace(host)
 	if trimmed == "" {
@@ -390,7 +390,7 @@ func ValidateDockerRemoteTLS(host, tlsCertPath string) error {
 // ValidateDockerNetworkMode allows only bridge (egress) and none (no egress).
 //
 // host and container: modes share another namespace outright, which would put
-// sandbox code on the WeKnora host's or a sibling container's network. A
+// sandbox code on the GENYEE host's or a sibling container's network. A
 // user-defined network name is refused for the weaker but equally real version
 // of the same problem: the usual deployment reaches its daemon through the
 // mounted docker.sock, so naming the deployment's own compose network would
@@ -532,7 +532,7 @@ func dockerSandboxMetadata(labels map[string]string) map[string]string {
 }
 
 // dockerManagedLabel marks every container this backend creates. Sweeps filter
-// on it so a WeKnora deployment sharing a daemon with other workloads can
+// on it so a GENYEE deployment sharing a daemon with other workloads can
 // never delete a container it does not own.
 const dockerManagedLabel = "com.weknora.sandbox.managed"
 

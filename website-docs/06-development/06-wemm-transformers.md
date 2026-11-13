@@ -98,7 +98,7 @@ python scripts/wemm-transformers/serve.py \
 
 默认监听回环地址、未设置 API Key。GENYEE 若运行在 Docker 中，`127.0.0.1` 指向 GENYEE 容器自身，应填写容器能够访问的推理服务地址，例如同一容器网络的服务名，或已配置的宿主机地址。私网地址还需符合 GENYEE 的 SSRF 访问策略，配置方法见[安全说明](../01-getting-started/04-configuration.md)。
 
-## GENYEE 接入 {#weknora-接入}
+## GENYEE 接入 {#genyee-接入}
 
 在「设置 → 模型管理」添加：
 

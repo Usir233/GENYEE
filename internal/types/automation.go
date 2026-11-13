@@ -90,7 +90,7 @@ type AutomationLimits struct {
 	MaxDurationMinutes int `json:"max_duration_minutes,omitempty" extensions:"x-agent"`
 }
 
-// Automation is a task the WeKnora assistant runs on a schedule on its owner's behalf.
+// Automation is a task the GENYEE assistant runs on a schedule on its owner's behalf.
 type Automation struct {
 	ID       string `json:"id"        gorm:"type:varchar(36);primaryKey" extensions:"x-agent=automation_id,x-agent-response"`
 	TenantID uint64 `json:"tenant_id" gorm:"not null;index:idx_automations_owner"`

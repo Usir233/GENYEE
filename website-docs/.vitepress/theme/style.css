@@ -10,26 +10,26 @@
 
 
   /* —— 覆盖 VitePress 默认变量 —— */
-  --vp-font-family-base: var(--wk-font-sans);
-  --vp-font-family-mono: var(--wk-font-mono);
+  --vp-font-family-base: var(--gy-font-sans);
+  --vp-font-family-mono: var(--gy-font-mono);
 
-  --vp-c-brand-1: var(--wk-ink);
+  --vp-c-brand-1: var(--gy-ink);
   --vp-c-brand-2: #24395a;
-  --vp-c-brand-3: var(--wk-gold);
+  --vp-c-brand-3: var(--gy-gold);
   --vp-c-brand-soft: rgba(184, 134, 59, 0.14);
 
-  --vp-c-bg: var(--wk-paper);
-  --vp-c-bg-alt: var(--wk-paper-2);
-  --vp-c-bg-soft: var(--wk-paper-2);
+  --vp-c-bg: var(--gy-paper);
+  --vp-c-bg-alt: var(--gy-paper-2);
+  --vp-c-bg-soft: var(--gy-paper-2);
   --vp-c-bg-elv: #ffffff;
 
-  --vp-c-text-1: var(--wk-ink);
-  --vp-c-text-2: var(--wk-ink-soft);
-  --vp-c-text-3: var(--wk-ink-mute);
+  --vp-c-text-1: var(--gy-ink);
+  --vp-c-text-2: var(--gy-ink-soft);
+  --vp-c-text-3: var(--gy-ink-mute);
 
-  --vp-c-divider: var(--wk-rule);
-  --vp-c-gutter: var(--wk-rule);
-  --vp-c-border: var(--wk-rule);
+  --vp-c-divider: var(--gy-rule);
+  --vp-c-gutter: var(--gy-rule);
+  --vp-c-border: var(--gy-rule);
 
   /* 铺满视口。默认主题用这个值给 .VPContent 算左右内边距
      （padding-right: (100vw - max-width) / 2），任何小于视口的定值都会在两侧留出
@@ -40,7 +40,7 @@
   --vp-sidebar-width: 288px;
   --vp-code-block-bg: #fbf9f5;
 
-  --vp-home-hero-name-color: var(--wk-ink);
+  --vp-home-hero-name-color: var(--gy-ink);
   --vp-code-copy-copied-text-content: "已复制";
 }
 
@@ -48,7 +48,7 @@
 
   --vp-c-brand-1: #e6ecf5;
   --vp-c-brand-2: #c3d0e2;
-  --vp-c-brand-3: var(--wk-gold);
+  --vp-c-brand-3: var(--gy-gold);
   --vp-c-bg-elv: #101a2b;
   --vp-code-block-bg: #0d1626;
 }
@@ -77,7 +77,7 @@ body {
 }
 
 .VPSidebar {
-  border-right: 1px solid var(--wk-rule-soft);
+  border-right: 1px solid var(--gy-rule-soft);
 }
 
 /* 桌面侧栏透明，让正文背景贯通；窄屏抽屉必须不透明，否则会透出正文 */
@@ -92,12 +92,12 @@ body {
 @media (max-width: 959px) {
   .VPSidebar {
     padding-top: 18px !important;
-    background: var(--wk-paper) !important;
+    background: var(--gy-paper) !important;
     border-right: none;
   }
 
   .dark .VPSidebar {
-    background: var(--wk-paper) !important;
+    background: var(--gy-paper) !important;
   }
 
   /* 移动端不需要顶部 curtain */
@@ -115,12 +115,12 @@ body {
     width: calc(100% + 32px);
     /* 叠加滚动条画在内容区右侧，需裁掉一条竖向通道 */
     clip-path: inset(0 14px 0 0);
-    background-color: color-mix(in srgb, var(--wk-paper) 82%, transparent);
+    background-color: color-mix(in srgb, var(--gy-paper) 82%, transparent);
     backdrop-filter: saturate(140%) blur(14px);
   }
 
   .dark .VPSidebar .curtain {
-    background-color: color-mix(in srgb, var(--wk-paper) 82%, transparent);
+    background-color: color-mix(in srgb, var(--gy-paper) 82%, transparent);
   }
 }
 
@@ -135,9 +135,9 @@ body {
     margin-left: var(--vp-sidebar-width);
     /* 盖过默认主题 scoped 的 padding-left: sidebar-width，否则会双重偏移居中 */
     padding-left: 0 !important;
-    background-color: color-mix(in srgb, var(--wk-paper) 82%, transparent);
+    background-color: color-mix(in srgb, var(--gy-paper) 82%, transparent);
     backdrop-filter: saturate(140%) blur(14px);
-    border-bottom-color: var(--wk-rule-soft);
+    border-bottom-color: var(--gy-rule-soft);
   }
 
   .VPLocalNav.has-sidebar .container {
@@ -158,12 +158,12 @@ body {
 }
 
 .VPSidebarItem.level-0 > .item > .text {
-  font-family: var(--wk-font-mono);
+  font-family: var(--gy-font-mono);
   font-size: 11px !important;
   font-weight: 500 !important;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--wk-ink-mute) !important;
+  color: var(--gy-ink-mute) !important;
 }
 
 .VPSidebarItem.level-0 {
@@ -171,19 +171,19 @@ body {
 }
 
 .VPSidebarItem.level-0:not(:first-child) {
-  border-top: 1px solid var(--wk-rule-soft);
+  border-top: 1px solid var(--gy-rule-soft);
   padding-top: 20px;
 }
 
 .VPSidebarItem.level-1 .link .text {
   font-size: 13.5px;
   line-height: 1.6;
-  color: var(--wk-ink-soft);
+  color: var(--gy-ink-soft);
   transition: color 0.2s ease;
 }
 
 .VPSidebarItem.level-1 .link:hover .text {
-  color: var(--wk-ink);
+  color: var(--gy-ink);
 }
 
 .VPSidebarItem.level-1 > .item {
@@ -194,13 +194,13 @@ body {
 }
 
 .VPSidebarItem.level-1.is-active .link .text {
-  color: var(--wk-accent-text) !important;
+  color: var(--gy-accent-text) !important;
   font-weight: 700;
 }
 
 .VPSidebarItem.level-1.is-active > .item {
   position: relative;
-  background: color-mix(in srgb, var(--wk-gold) 16%, var(--wk-paper));
+  background: color-mix(in srgb, var(--gy-gold) 16%, var(--gy-paper));
 }
 
 .VPSidebarItem.level-1.is-active > .item::before {
@@ -211,7 +211,7 @@ body {
   bottom: 6px;
   width: 3px;
   border-radius: 2px;
-  background: var(--wk-gold);
+  background: var(--gy-gold);
 }
 
 /* --------------------------------------------------------------------------
@@ -235,19 +235,19 @@ body {
 .vp-doc {
   font-size: 15.5px;
   line-height: 1.82;
-  color: var(--wk-ink-soft);
+  color: var(--gy-ink-soft);
 }
 
 .vp-doc h1,
 .vp-doc h2,
 .vp-doc h3,
 .vp-doc h4 {
-  color: var(--wk-ink);
+  color: var(--gy-ink);
   letter-spacing: -0.01em;
 }
 
 .vp-doc h1 {
-  font-family: var(--wk-font-serif);
+  font-family: var(--gy-font-serif);
   font-size: 42px;
   line-height: 1.22;
   font-weight: 500;
@@ -256,13 +256,13 @@ body {
 }
 
 .vp-doc h2 {
-  font-family: var(--wk-font-serif);
+  font-family: var(--gy-font-serif);
   font-size: 27px;
   font-weight: 500;
   line-height: 1.35;
   margin-top: 66px;
   padding-top: 26px;
-  border-top: 1px solid var(--wk-rule-soft);
+  border-top: 1px solid var(--gy-rule-soft);
 }
 
 .vp-doc h3 {
@@ -280,31 +280,31 @@ body {
 
 .vp-doc h2 .header-anchor,
 .vp-doc h3 .header-anchor {
-  color: var(--wk-gold);
+  color: var(--gy-gold);
   font-weight: 400;
 }
 
 .vp-doc p,
 .vp-doc li {
-  color: var(--wk-ink-soft);
+  color: var(--gy-ink-soft);
 }
 
 .vp-doc strong {
-  color: var(--wk-ink);
+  color: var(--gy-ink);
   font-weight: 650;
 }
 
 .vp-doc a {
-  color: var(--wk-ink);
+  color: var(--gy-ink);
   font-weight: 500;
   text-decoration: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--wk-gold) 55%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--gy-gold) 55%, transparent);
   padding-bottom: 1px;
   transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .vp-doc a:hover {
-  border-bottom-color: var(--wk-gold);
+  border-bottom-color: var(--gy-gold);
   background: rgba(184, 134, 59, 0.08);
 }
 
@@ -318,11 +318,11 @@ body {
 }
 
 .vp-doc li::marker {
-  color: var(--wk-ink-mute);
+  color: var(--gy-ink-mute);
 }
 
 .vp-doc blockquote {
-  border-left: 2px solid var(--wk-gold);
+  border-left: 2px solid var(--gy-gold);
   background: transparent;
   padding: 2px 0 2px 20px;
   margin: 26px 0;
@@ -330,12 +330,12 @@ body {
 
 .vp-doc blockquote > p {
   font-size: 14.5px;
-  color: var(--wk-ink-mute);
+  color: var(--gy-ink-mute);
   margin: 0;
 }
 
 .vp-doc hr {
-  border-top: 1px solid var(--wk-rule-soft);
+  border-top: 1px solid var(--gy-rule-soft);
   margin: 52px 0;
 }
 
@@ -343,17 +343,17 @@ body {
 
 .vp-doc :not(pre) > code {
   font-size: 0.86em;
-  font-family: var(--wk-font-mono);
-  background: var(--wk-paper-2);
-  border: 1px solid var(--wk-rule-soft);
+  font-family: var(--gy-font-mono);
+  background: var(--gy-paper-2);
+  border: 1px solid var(--gy-rule-soft);
   border-radius: 3px;
   padding: 2px 5px;
-  color: var(--wk-ink);
+  color: var(--gy-ink);
 }
 
 .vp-doc div[class*="language-"] {
   border-radius: 4px;
-  border: 1px solid var(--wk-rule-soft);
+  border: 1px solid var(--gy-rule-soft);
   background: var(--vp-code-block-bg);
   margin: 26px 0;
 }
@@ -373,7 +373,7 @@ body {
   right: 9px;
   width: 28px;
   height: 28px;
-  border: 1px solid var(--wk-rule-soft);
+  border: 1px solid var(--gy-rule-soft);
   border-radius: 2px;
   background-color: transparent;
   background-size: 14px;
@@ -391,14 +391,14 @@ body {
 }
 
 .vp-doc [class*="language-"] > button.copy:hover {
-  border-color: var(--wk-gold);
-  background-color: var(--wk-paper);
+  border-color: var(--gy-gold);
+  background-color: var(--gy-paper);
 }
 
 .vp-doc [class*="language-"] > button.copy.copied,
 .vp-doc [class*="language-"] > button.copy:hover.copied {
-  border-color: var(--wk-gold);
-  background-color: var(--wk-paper);
+  border-color: var(--gy-gold);
+  background-color: var(--gy-paper);
 }
 
 .vp-doc [class*="language-"] > button.copy.copied::before,
@@ -406,35 +406,35 @@ body {
   top: -1px;
   height: 28px;
   padding: 0 12px;
-  border: 1px solid var(--wk-rule-soft);
+  border: 1px solid var(--gy-rule-soft);
   border-radius: 2px;
-  background-color: var(--wk-paper);
-  font-family: var(--wk-font-mono);
+  background-color: var(--gy-paper);
+  font-family: var(--gy-font-mono);
   font-size: 10.5px;
   letter-spacing: 0.1em;
-  color: var(--wk-ink-mute);
+  color: var(--gy-ink-mute);
   line-height: 26px;
 }
 
 .vp-doc [class*="language-"] > span.lang {
-  font-family: var(--wk-font-mono);
+  font-family: var(--gy-font-mono);
   font-size: 10.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--wk-ink-mute);
+  color: var(--gy-ink-mute);
 }
 
 /* 表格 */
 
 /* 滚动交给包裹层（见 config.mts 的 table_open 规则），表格本身保持
    display:table + width:100%，所有表格宽度一致地撑满正文列 */
-.vp-doc .wk-table {
+.vp-doc .gy-table {
   overflow-x: auto;
   margin: 28px 0;
   max-width: 100%;
 }
 
-.vp-doc .wk-table > table {
+.vp-doc .gy-table > table {
   display: table;
   width: 100%;
   /* 窄屏下宁可横向滚动，也不要把列挤成一字一行 */
@@ -444,25 +444,25 @@ body {
   border-collapse: collapse;
 }
 
-.vp-doc .wk-table::-webkit-scrollbar {
+.vp-doc .gy-table::-webkit-scrollbar {
   height: 6px;
 }
 
-.vp-doc .wk-table::-webkit-scrollbar-thumb {
-  background: var(--wk-rule);
+.vp-doc .gy-table::-webkit-scrollbar-thumb {
+  background: var(--gy-rule);
   border-radius: 3px;
 }
 
 .vp-doc th {
-  font-family: var(--wk-font-mono);
+  font-family: var(--gy-font-mono);
   font-size: 10.5px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   font-weight: 500;
-  color: var(--wk-ink-mute);
+  color: var(--gy-ink-mute);
   background: transparent;
   border: none;
-  border-bottom: 1px solid var(--wk-rule);
+  border-bottom: 1px solid var(--gy-rule);
   padding: 10px 14px 10px 0;
   text-align: left;
   white-space: nowrap;
@@ -470,7 +470,7 @@ body {
 
 .vp-doc td {
   border: none;
-  border-bottom: 1px solid var(--wk-rule-soft);
+  border-bottom: 1px solid var(--gy-rule-soft);
   padding: 12px 14px 12px 0;
   vertical-align: top;
   line-height: 1.7;
@@ -490,19 +490,19 @@ body {
 
 .vp-doc .custom-block {
   border-radius: 3px;
-  border: 1px solid var(--wk-rule);
+  border: 1px solid var(--gy-rule);
   border-left-width: 2px;
-  background: var(--wk-paper-2);
+  background: var(--gy-paper-2);
   font-size: 14px;
   padding: 16px 20px;
 }
 
 .vp-doc .custom-block.tip {
-  border-left-color: var(--wk-gold);
+  border-left-color: var(--gy-gold);
 }
 
 .vp-doc .custom-block-title {
-  font-family: var(--wk-font-mono);
+  font-family: var(--gy-font-mono);
   font-size: 10.5px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -514,9 +514,9 @@ body {
   position: relative;
   margin: 34px 0;
   padding: 28px 20px;
-  border: 1px solid var(--wk-rule-soft);
+  border: 1px solid var(--gy-rule-soft);
   border-radius: 4px;
-  background: var(--wk-paper-2);
+  background: var(--gy-paper-2);
   text-align: center;
   overflow-x: auto;
   cursor: zoom-in;
@@ -524,7 +524,7 @@ body {
 }
 
 .vp-doc .mermaid:hover {
-  border-color: var(--wk-rule);
+  border-color: var(--gy-rule);
 }
 
 .vp-doc .mermaid::after {
@@ -532,10 +532,10 @@ body {
   position: absolute;
   right: 12px;
   bottom: 10px;
-  font-family: var(--wk-font-mono);
+  font-family: var(--gy-font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
-  color: var(--wk-ink-mute);
+  color: var(--gy-ink-mute);
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -549,46 +549,46 @@ body {
 .VPDocFooter {
   margin-top: 72px;
   padding-top: 26px;
-  border-top: 1px solid var(--wk-rule-soft);
+  border-top: 1px solid var(--gy-rule-soft);
 }
 
 .VPDocFooter .prev-link .desc,
 .VPDocFooter .next-link .desc {
-  font-family: var(--wk-font-mono);
+  font-family: var(--gy-font-mono);
   font-size: 10.5px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
 
 .VPDocFooter .pager-link {
-  border: 1px solid var(--wk-rule-soft);
+  border: 1px solid var(--gy-rule-soft);
   border-radius: 3px;
   background: transparent;
 }
 
 .VPDocFooter .pager-link:hover {
-  border-color: var(--wk-gold);
+  border-color: var(--gy-gold);
 }
 
 .VPDocFooter .pager-link .title {
   font-weight: 550;
-  color: var(--wk-ink);
+  color: var(--gy-ink);
 }
 
 .VPDocAsideOutline .outline-title,
 .VPDocOutlineItem .outline-title {
-  font-family: var(--wk-font-mono);
+  font-family: var(--gy-font-mono);
   font-size: 10.5px !important;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--wk-ink-mute);
+  color: var(--gy-ink-mute);
 }
 
 .VPDocAside .outline-link {
   font-size: 12.8px;
   line-height: 1.65;
   padding: 6px 0;
-  color: var(--wk-ink-mute);
+  color: var(--gy-ink-mute);
 }
 
 .VPDocAside .outline-link.nested {
@@ -600,15 +600,15 @@ body {
 }
 
 .VPDocAside .outline-link.active {
-  color: var(--wk-ink);
+  color: var(--gy-ink);
 }
 
 .VPDocAsideOutline .outline-marker {
-  background-color: var(--wk-gold) !important;
+  background-color: var(--gy-gold) !important;
 }
 
 .VPFooter {
-  border-top: 1px solid var(--wk-rule-soft);
+  border-top: 1px solid var(--gy-rule-soft);
   background: transparent !important;
   padding: 34px 24px;
 }
@@ -616,12 +616,12 @@ body {
 .VPFooter .message,
 .VPFooter .copyright {
   font-size: 12.5px;
-  color: var(--wk-ink-mute);
+  color: var(--gy-ink-mute);
   letter-spacing: 0.02em;
 }
 
 .VPLastUpdated {
-  font-family: var(--wk-font-mono);
+  font-family: var(--gy-font-mono);
   font-size: 11px !important;
   letter-spacing: 0.06em;
 }
@@ -638,25 +638,25 @@ body {
 
 /* Reserve the same masthead space in the default documentation layout. */
 :root, .hide-nav, .hide-nav .VPSidebar { --vp-nav-height: 64px; }
-.wk-docs-header { position: fixed; left: 0; top: 0; }
+.gy-docs-header { position: fixed; left: 0; top: 0; }
 .VPLocalNav { top: var(--vp-nav-height); }
- .wk-docs-label { margin: 0; padding: 24px 0 16px; color: var(--wk-ink-mute); font-size: 12px; letter-spacing: .08em; }
-.wk-header-search .VPNavBarSearch { padding: 0; }
-.wk-header-search .DocSearch-Button { width: 160px; height: 36px; padding: 0 10px; justify-content: space-between; border: 1px solid var(--wk-rule); border-radius: 4px; background: var(--wk-paper-2); }
-.wk-header-search .DocSearch-Button-Placeholder { display: inline-block; padding: 0 8px; font-size: 12px; }
-.wk-header-search .DocSearch-Button-Keys { display: flex; }
+ .gy-docs-label { margin: 0; padding: 24px 0 16px; color: var(--gy-ink-mute); font-size: 12px; letter-spacing: .08em; }
+.gy-header-search .VPNavBarSearch { padding: 0; }
+.gy-header-search .DocSearch-Button { width: 160px; height: 36px; padding: 0 10px; justify-content: space-between; border: 1px solid var(--gy-rule); border-radius: 4px; background: var(--gy-paper-2); }
+.gy-header-search .DocSearch-Button-Placeholder { display: inline-block; padding: 0 8px; font-size: 12px; }
+.gy-header-search .DocSearch-Button-Keys { display: flex; }
 @media (min-width: 801px) and (max-width: 1280px) {
- .wk-header-search .DocSearch-Button { width: 36px; justify-content: center; }
- .wk-header-search .DocSearch-Button-Placeholder, .wk-header-search .DocSearch-Button-Keys { display: none; }
- .wk-header-search .DocSearch-Search-Icon { margin: 0; }
+ .gy-header-search .DocSearch-Button { width: 36px; justify-content: center; }
+ .gy-header-search .DocSearch-Button-Placeholder, .gy-header-search .DocSearch-Button-Keys { display: none; }
+ .gy-header-search .DocSearch-Search-Icon { margin: 0; }
 }
 @media (max-width: 800px) {
- .wk-header-search { order: -1; margin-bottom: 10px; }
- .wk-header-search, .wk-header-search #local-search, .wk-header-search .DocSearch-Button { width: 100%; }
+ .gy-header-search { order: -1; margin-bottom: 10px; }
+ .gy-header-search, .gy-header-search #local-search, .gy-header-search .DocSearch-Button { width: 100%; }
 }
 @media (max-width: 959px) {
  .Layout { padding-top: var(--vp-nav-height); }
  .VPSidebar { top: var(--vp-nav-height); }
- .wk-docs-label { padding-top: 0; }
+ .gy-docs-label { padding-top: 0; }
 }
 @media (max-width: 800px) { :root, .hide-nav, .hide-nav .VPSidebar { --vp-nav-height: 64px; } }

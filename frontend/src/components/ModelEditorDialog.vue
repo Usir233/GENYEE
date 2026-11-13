@@ -175,7 +175,7 @@
             <t-select v-model="formData.provider" :placeholder="$t('model.editor.providerPlaceholder')"
               :loading="loadingProviders" filterable
               @change="handleProviderChange"
-              :popup-props="{ overlayClassName: 'wk-popover provider-select-popup', overlayInnerStyle: matchTriggerWidth }">
+              :popup-props="{ overlayClassName: 'gy-popover provider-select-popup', overlayInnerStyle: matchTriggerWidth }">
               <!--
                 已选值：图标 + 本地化名称（描述只在下拉里展示，避免输入框过长）。
                 目录里已经没有这个 provider 时（厂商下线 / 旧数据）退回显示原始 id，
@@ -245,7 +245,7 @@
               clearable
               :placeholder="getModelNamePlaceholder()"
 
-              :popup-props="{ overlayClassName: 'wk-popover catalog-model-select-popup', overlayInnerStyle: matchTriggerWidth }"
+              :popup-props="{ overlayClassName: 'gy-popover catalog-model-select-popup', overlayInnerStyle: matchTriggerWidth }"
               @create="handleCatalogModelCreate"
               @change="handleCatalogModelChange"
             >
@@ -2463,7 +2463,7 @@ const handleCancel = () => {
   padding: 0 4px;
 
   .spinning {
-    animation: wk-spin 1s linear infinite;
+    animation: gy-spin 1s linear infinite;
     font-size: var(--app-text-base);
     color: var(--td-brand-color);
   }
@@ -2933,9 +2933,9 @@ const handleCancel = () => {
   // TDesign 给 select 浮层写死 max-height: 300px，而这里的选项是双行的
   // （约 56px），正好只露出五条——下面还有二十多家厂商，但 macOS 的悬浮滚
   // 动条不滚不显形，看上去就像"只有这几个"。放高到一屏能看到八九条，滚动
-  // 条也常驻，列表还有后续这件事才成立。&.wk-popover 只是为了压过 TDesign
+  // 条也常驻，列表还有后续这件事才成立。&.gy-popover 只是为了压过 TDesign
   // 自己那条同样两级的选择器。
-  &.wk-popover .t-popup__content {
+  &.gy-popover .t-popup__content {
     max-height: min(480px, 60vh);
     // Scrolling itself is restored for every skinned select in
     // assets/theme/tdesign-overrides.less; this only makes the bar visible,

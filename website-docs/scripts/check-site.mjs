@@ -43,10 +43,10 @@ for (const file of pages) {
       if (url.pathname !== base.pathname && url.pathname !== '/' && !url.pathname.startsWith('/docs/')) failures.push(`${route}: ${url.pathname} is outside / and /docs/`);
       if (!checked.has(url.pathname)) checked.set(url.pathname, !!await resolveSiteFile(root, url.pathname));
       if (!checked.get(url.pathname)) {
-        if (/class="wk-shot-img"/.test(tag) && url.pathname.startsWith('/docs/screenshots/')) pendingShots.add(url.pathname);
+        if (/class="gy-shot-img"/.test(tag) && url.pathname.startsWith('/docs/screenshots/')) pendingShots.add(url.pathname);
         else failures.push(`${route}: missing ${url.pathname}`);
       }
-      if (tag.startsWith('<img') && /class="wk-shot-img"/.test(tag)) {
+      if (tag.startsWith('<img') && /class="gy-shot-img"/.test(tag)) {
         if (!/\bwidth="[1-9]\d*"/.test(tag) || !/\bheight="[1-9]\d*"/.test(tag) || /display:\s*none/.test(tag)) {
           failures.push(`${route}: screenshot ${url.pathname} must reserve its intrinsic size before loading`);
         }
@@ -65,7 +65,7 @@ for (const file of pages) {
     }
   }
   if (/11\.141\.160\.83/.test(html)) failures.push(`${route}: stale private docs host`);
-  if (route.startsWith('/docs/') && !route.endsWith('/404.html') && !/class="wk-brand"[^>]*href="\/"[^>]*target="_self"/.test(html)) failures.push(`${route}: documentation logo must navigate to the main site`);
+  if (route.startsWith('/docs/') && !route.endsWith('/404.html') && !/class="gy-brand"[^>]*href="\/"[^>]*target="_self"/.test(html)) failures.push(`${route}: documentation logo must navigate to the main site`);
 }
 for (const path of ['/docs/', '/docs/03-features/22-skills-sandbox.html', '/docs/03-features/23-memory.html', '/docs/07-releases/v0.9.0.html', '/docs/03-features/26-weknora-assistant.html', '/docs/03-features/27-automations.html', '/docs/03-features/28-agent-permissions.html', '/docs/07-releases/v0.8.3.html', '/docs/07-releases/v0.8.2.html', '/docs/07-releases/v0.8.0.html']) assert.ok(await resolveSiteFile(root, path), path);
 assert.equal(failures.length, 0, [...new Set(failures)].join('\n'));

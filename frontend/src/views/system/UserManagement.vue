@@ -51,14 +51,14 @@
               :content="row.is_system_admin
                 ? t('system.globalSettings.userList.confirmRevoke', { name: row.username })
                 : t('system.globalSettings.userList.confirmPromote', { name: row.username })"
-              :popup-props="{ trigger: 'context-menu', overlayClassName: 'wk-popover user-management-confirm-popup' }" placement="left" theme="warning"
+              :popup-props="{ trigger: 'context-menu', overlayClassName: 'gy-popover user-management-confirm-popup' }" placement="left" theme="warning"
               :confirm-btn="{ content: t(row.is_system_admin ? 'system.globalSettings.userList.revokeBtn' : 'system.globalSettings.userList.promoteBtn'), theme: row.is_system_admin ? 'danger' : 'primary', loading: busyId === row.id }"
               :cancel-btn="t('common.cancel')" @confirm="changeRole(row)" @cancel="pendingRole = null"
               @visible-change="(v: boolean) => { if (!v && !busyId) pendingRole = null }">
               <t-select :model-value="row.is_system_admin ? 'admin' : 'user'" :options="roleOptions"
                 :aria-label="`${row.username} · ${t('system.globalSettings.userList.colRole')}`" :borderless="true"
                 class="user-management__role" :disabled="loading || locked"
-                :popup-props="{ overlayClassName: 'wk-popover user-management-role-popup' }"
+                :popup-props="{ overlayClassName: 'gy-popover user-management-role-popup' }"
                 @change="(value: unknown) => { if (value !== (row.is_system_admin ? 'admin' : 'user')) pendingRole = row }" />
             </t-popconfirm>
           </template>
@@ -75,7 +75,7 @@
                 </t-button>
               </ResetPasswordDialog>
               <t-popconfirm :visible="active && statusVisibleId === row.id" placement="left" theme="warning"
-                :popup-props="{ overlayClassName: 'wk-popover user-management-confirm-popup' }"
+                :popup-props="{ overlayClassName: 'gy-popover user-management-confirm-popup' }"
                 :content="t(row.is_active ? 'system.globalSettings.userList.confirmDisable' : 'system.globalSettings.userList.confirmEnable', { name: row.username })"
                 :confirm-btn="{ content: t(row.is_active ? 'system.globalSettings.userList.disable' : 'system.globalSettings.userList.enable'), theme: row.is_active ? 'danger' : 'primary', loading: busyId === row.id }"
                 :cancel-btn="t('common.cancel')" @visible-change="(value: boolean) => { statusVisibleId = value ? row.id : null }"

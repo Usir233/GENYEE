@@ -1,7 +1,7 @@
 /**
  * The plugin side of the API contract: the calls this package makes must stay
  * exactly the ones recorded in test/fixtures/api-contract.json, which
- * contract/contract_test.go checks against WeKnora's real Go request and
+ * contract/contract_test.go checks against GENYEE's real Go request and
  * response types. Change a request body and both sides tell you.
  */
 

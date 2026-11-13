@@ -63,7 +63,7 @@ type RedisRegistry struct {
 }
 
 // NewRedis builds a registry whose keys start with keyPrefix, e.g.
-// "weknora:sandbox:user:", matching the user binding keys.
+// "genyee:sandbox:user:", matching the user binding keys.
 func NewRedis(client redis.UniversalClient, keyPrefix string) *RedisRegistry {
 	return &RedisRegistry{client: client, prefix: keyPrefix}
 }

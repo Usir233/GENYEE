@@ -55,7 +55,7 @@
                     theme="warning"
                     placement="top"
                     :show-arrow="false"
-                    overlay-class-name="wk-popover chat-rewind-popconfirm"
+                    overlay-class-name="gy-popover chat-rewind-popconfirm"
                     @visible-change="(visible) => (rewindConfirmOpen = visible)"
                     @confirm="emit('rewind', messageId)"
                 >

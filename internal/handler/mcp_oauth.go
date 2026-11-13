@@ -142,7 +142,7 @@ type mcpOAuthAssertionRequest struct {
 
 // AssertionGrant obtains the current user's token with the JWT bearer grant
 // (RFC 7523) instead of the browser authorization code flow. It is for
-// applications that run WeKnora behind their own sign-in and call it for
+// applications that run GENYEE behind their own sign-in and call it for
 // their users, where no browser can follow an authorization redirect. The
 // grant uses the OAuth client already registered for the service, and the
 // token is stored exactly like one obtained through the callback.

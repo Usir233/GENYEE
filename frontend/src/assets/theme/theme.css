@@ -235,8 +235,8 @@ select:-webkit-autofill {
     --app-source-highlight-border: rgba(230, 185, 79, 0.5);
 }
 
-/* 全局旋转动画：spinner / 刷新图标统一用 `animation: wk-spin 0.8s linear infinite` */
-@keyframes wk-spin {
+/* 全局旋转动画：spinner / 刷新图标统一用 `animation: gy-spin 0.8s linear infinite` */
+@keyframes gy-spin {
     to {
         transform: rotate(360deg);
     }

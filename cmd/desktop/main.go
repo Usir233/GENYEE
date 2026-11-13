@@ -238,7 +238,7 @@ func main() {
 	// Build dependency injection container
 	c := container.BuildContainer(runtime.GetContainer())
 
-	// Initialize the WeKnora App struct
+	// Initialize the GENYEE App struct
 	app := NewApp()
 	setupBytes := make([]byte, 32)
 	if _, err := rand.Read(setupBytes); err != nil {

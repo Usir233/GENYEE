@@ -271,7 +271,7 @@ func cubeCatalogHandler(templates, snapshots []map[string]any) http.HandlerFunc 
 	}
 }
 
-// The bug this guards: an unnamed WeKnora template was invisible to the
+// The bug this guards: an unnamed GENYEE template was invisible to the
 // idempotency check, so every visit to the template step queued another build.
 func TestCubeRemoteClientEnsureStandardTemplateSkipsBuildForNamelessTemplate(t *testing.T) {
 	var builds atomic.Int32

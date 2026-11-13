@@ -33,7 +33,7 @@ func decodeDocsOutput(t *testing.T, output string) map[string]any {
 	return out
 }
 
-func TestSearchWeKnoraDocsSchemaListsTheCategories(t *testing.T) {
+func TestSearchGENYEEDocsSchemaListsTheCategories(t *testing.T) {
 	var schema struct {
 		Properties struct {
 			Category struct {
@@ -41,15 +41,15 @@ func TestSearchWeKnoraDocsSchemaListsTheCategories(t *testing.T) {
 			} `json:"category"`
 		} `json:"properties"`
 	}
-	require.NoError(t, json.Unmarshal(searchWeKnoraDocsSchema(), &schema))
+	require.NoError(t, json.Unmarshal(searchGENYEEDocsSchema(), &schema))
 	require.Len(t, schema.Properties.Category.Enum, len(productdocs.Categories))
 	for i, c := range productdocs.Categories {
 		assert.Equal(t, c.Dir, schema.Properties.Category.Enum[i])
 	}
 }
 
-func TestSearchWeKnoraDocsListsAndSearches(t *testing.T) {
-	tool := NewSearchWeKnoraDocsTool(testDocsLibrary(t))
+func TestSearchGENYEEDocsListsAndSearches(t *testing.T) {
+	tool := NewSearchGENYEEDocsTool(testDocsLibrary(t))
 	ctx := context.Background()
 
 	res, err := tool.Execute(ctx, json.RawMessage(`{}`))
@@ -84,8 +84,8 @@ func TestSearchWeKnoraDocsListsAndSearches(t *testing.T) {
 	assert.False(t, res.Success)
 }
 
-func TestReadWeKnoraDocReturnsSectionsWithPublicLinks(t *testing.T) {
-	tool := NewReadWeKnoraDocTool(testDocsLibrary(t))
+func TestReadGENYEEDocReturnsSectionsWithPublicLinks(t *testing.T) {
+	tool := NewReadGENYEEDocTool(testDocsLibrary(t))
 	ctx := context.Background()
 
 	res, err := tool.Execute(ctx, json.RawMessage(`{"path":"03-features/14-wiki","anchor":"#怎么开启"}`))
@@ -113,8 +113,8 @@ func TestReadWeKnoraDocReturnsSectionsWithPublicLinks(t *testing.T) {
 	assert.NotContains(t, out, "outline")
 }
 
-func TestReadWeKnoraDocBoundsLongPagesAndSections(t *testing.T) {
-	tool := NewReadWeKnoraDocTool(testDocsLibrary(t))
+func TestReadGENYEEDocBoundsLongPagesAndSections(t *testing.T) {
+	tool := NewReadGENYEEDocTool(testDocsLibrary(t))
 	ctx := context.Background()
 
 	res, err := tool.Execute(ctx, json.RawMessage(`{"path":"01-getting-started/04-configuration"}`))
@@ -137,7 +137,7 @@ func TestReadWeKnoraDocBoundsLongPagesAndSections(t *testing.T) {
 
 // A long section with no subsections, such as a reference table, must be
 // readable to its end by following next_offset, each piece ending at a line.
-func TestReadWeKnoraDocPagesThroughALeafSection(t *testing.T) {
+func TestReadGENYEEDocPagesThroughALeafSection(t *testing.T) {
 	var rows strings.Builder
 	rows.WriteString("| 字段 | 说明 |\n| --- | --- |")
 	for i := 0; rows.Len() < 4*maxDocReadRunes; i++ {
@@ -148,7 +148,7 @@ func TestReadWeKnoraDocPagesThroughALeafSection(t *testing.T) {
 		"03-features/06-models.md": {Data: []byte("# 模型\n\n## 字段参考\n\n" + table + "\n")},
 	})
 	require.NoError(t, err)
-	tool := NewReadWeKnoraDocTool(lib)
+	tool := NewReadGENYEEDocTool(lib)
 
 	var got []string
 	offset := 0
@@ -179,8 +179,8 @@ func TestReadWeKnoraDocPagesThroughALeafSection(t *testing.T) {
 	assert.False(t, res.Success)
 }
 
-func TestReadWeKnoraDocFollowsTheOutputBudget(t *testing.T) {
-	tool := NewReadWeKnoraDocTool(testDocsLibrary(t))
+func TestReadGENYEEDocFollowsTheOutputBudget(t *testing.T) {
+	tool := NewReadGENYEEDocTool(testDocsLibrary(t))
 	ctx := WithOutputBudget(context.Background(), 2500)
 	res, err := tool.Execute(ctx, json.RawMessage(`{"path":"01-getting-started/04-configuration","anchor":"很长的一节"}`))
 	require.NoError(t, err)
@@ -189,8 +189,8 @@ func TestReadWeKnoraDocFollowsTheOutputBudget(t *testing.T) {
 	assert.EqualValues(t, 2000, out["next_offset"])
 }
 
-func TestReadWeKnoraDocAcceptsPercentEncodedAnchors(t *testing.T) {
-	tool := NewReadWeKnoraDocTool(testDocsLibrary(t))
+func TestReadGENYEEDocAcceptsPercentEncodedAnchors(t *testing.T) {
+	tool := NewReadGENYEEDocTool(testDocsLibrary(t))
 	for _, args := range []string{
 		`{"path":"03-features/14-wiki","anchor":"%E6%80%8E%E4%B9%88%E5%BC%80%E5%90%AF"}`,
 		`{"path":"` + productdocs.PublicBaseURL + `03-features/14-wiki#%E6%80%8E%E4%B9%88%E5%BC%80%E5%90%AF"}`,
@@ -202,8 +202,8 @@ func TestReadWeKnoraDocAcceptsPercentEncodedAnchors(t *testing.T) {
 	}
 }
 
-func TestReadWeKnoraDocRejectsUnknownTargets(t *testing.T) {
-	tool := NewReadWeKnoraDocTool(testDocsLibrary(t))
+func TestReadGENYEEDocRejectsUnknownTargets(t *testing.T) {
+	tool := NewReadGENYEEDocTool(testDocsLibrary(t))
 	ctx := context.Background()
 
 	for _, path := range []string{"03-features/missing", "../../etc/passwd", ""} {

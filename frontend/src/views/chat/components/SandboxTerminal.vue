@@ -73,7 +73,7 @@ const onSystemThemeChange = (event: MediaQueryListEvent) => {
 prefersDark?.addEventListener('change', onSystemThemeChange);
 
 // ANSI palette: ls --color uses the usual dircolors mapping (dir=blue,
-// exec=green, link=cyan). Only the green slots stay WeKnora brand so
+// exec=green, link=cyan). Only the green slots stay GENYEE brand so
 // user@host (01;32) matches the product color; path (01;34) stays blue
 // like directories.
 function xtermTheme(dark: boolean) {
@@ -430,7 +430,7 @@ defineExpose({
 }
 
 .sandbox-terminal__spinner {
-    animation: wk-spin 0.9s linear infinite;
+    animation: gy-spin 0.9s linear infinite;
 }
 
 </style>

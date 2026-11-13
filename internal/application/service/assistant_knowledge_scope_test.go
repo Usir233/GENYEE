@@ -56,7 +56,7 @@ func TestAssistantPageContextDoesNotSelectKnowledgeScope(t *testing.T) {
 				kb.IndexingStrategy.KeywordEnabled = true
 			}
 			svc.knowledgeBaseService = &assistantScopeKBService{base}
-			agent := types.GetBuiltinAgent(types.BuiltinWeKnoraAssistantID, 100)
+			agent := types.GetBuiltinAgent(types.BuiltinGENYEEAssistantID, 100)
 			agent.Config.WebSearchProviderID = "provider"
 			ctx := tagTargetContext()
 			if tc.apiScope {

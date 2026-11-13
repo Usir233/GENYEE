@@ -57,7 +57,7 @@ export function ModelLeaderboard() {
     };
   }, []);
   return (
-    <div className="wk-models" ref={rootRef}>
+    <div className="gy-models" ref={rootRef}>
       <a className="skip-link" href="#models-main">跳至正文</a>
       <Header />
       <div id="models-main">

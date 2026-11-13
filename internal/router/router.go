@@ -180,7 +180,7 @@ func NewRouter(params RouterParams) *gin.Engine {
 	RegisterMCPServerRoutes(r, params.MCPServer, params.MCPEndpointService, params.TenantService)
 
 	// Short-lived capability URLs for IM and other clients that cannot attach
-	// WeKnora authentication headers.
+	// GENYEE authentication headers.
 	serveResourceGrants(r, params.ResourceCatalog, params.TenantService, params.FileService, params.StorageBackendResolver)
 
 	// Sandbox terminal WebSocket (self-authenticated via a short-lived

@@ -85,7 +85,7 @@ func TestLink_DryRun_RejectsNoKBNoTTY(t *testing.T) {
 	assert.Equal(t, cmdutil.CodeKBIDRequired, typed.Code)
 }
 
-// TestUnlink_DryRun_RejectsMissingLink: cwd has no .weknora/project.yaml →
+// TestUnlink_DryRun_RejectsMissingLink: cwd has no .genyee/project.yaml →
 // live path returns input.invalid_argument; --dry-run must do the same.
 func TestUnlink_DryRun_RejectsMissingLink(t *testing.T) {
 	iostreams.SetForTest(t)

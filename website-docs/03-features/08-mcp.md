@@ -152,7 +152,7 @@ MCP 管理页支持按服务名称和卡片显示的用途说明搜索。搜索�
 
 ## 配置与实现参考
 
-### MCP 客户端参考 {#第一部分-weknora-作为-mcp-客户端}
+### MCP 客户端参考 {#第一部分-genyee-作为-mcp-客户端}
 
 #### 总体架构 {#_1-1-总体架构}
 
@@ -485,7 +485,7 @@ flowchart LR
 
 ---
 
-### 内置 MCP Server 参考 {#第二部分-weknora-作为-mcp-server}
+### 内置 MCP Server 参考 {#第二部分-genyee-作为-mcp-server}
 
 #### 协议兼容
 
@@ -563,7 +563,7 @@ claude mcp add --transport http genyee-docs https://your-genyee.example.com/mcp/
 }
 ```
 
-### Python MCP Server 参考（旧版，已弃用） {#第二部分-weknora-作为-mcp-server-mcp-server}
+### Python MCP Server 参考（旧版，已弃用） {#第二部分-genyee-作为-mcp-server-mcp-server}
 
 ::: warning 已弃用
 `mcp-server/` 下的 Python 服务是内置 MCP Server 之前的方案：每个进程绑定一把 API Key，只能访问一个空间，工具与 REST 接口一一对应。新部署请使用上面的内置 MCP Server；本节仅供仍在使用旧方案的用户参考，后续版本会移除该目录。
@@ -632,7 +632,7 @@ stdio 传输把 stdout 当作协议通道，任何多余的 `print` 都会污染
 
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
-| `GENYEE_BASE_URL` | `http://localhost:8080/api/v1` | WeKnora API 基础 URL |
+| `GENYEE_BASE_URL` | `http://localhost:8080/api/v1` | GENYEE API 基础 URL |
 | `GENYEE_API_KEY` | 空 | 租户 API Key，以 `X-API-Key` header 发送 |
 | `GENYEE_CHAT_TIMEOUT` | `300` | chat / agent_chat 的 SSE 读超时（秒），非法值回退 300 |
 | `GENYEE_VERIFY_SSL` | `true` | 设为 `false` 关闭 SSL 证书校验（仅限自签名证书的开发环境） |

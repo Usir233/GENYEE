@@ -13,7 +13,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 )
 
-// TestAPI_RawBodyPreservesLargeIntegers pins the raw-passthrough path (`weknora
+// TestAPI_RawBodyPreservesLargeIntegers pins the raw-passthrough path (`genyee
 // api`) to the server's exact integer values. The body is decoded into `any`
 // before it is re-serialized into the envelope, so decoding without
 // json.Decoder.UseNumber() silently rounds integers above 2^53 through float64

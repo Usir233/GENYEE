@@ -3419,7 +3419,7 @@ watch(() => entries.value.map(e => ({
     color: var(--td-text-color-placeholder);
 
     &.is-spinning {
-      animation: wk-spin 1s linear infinite;
+      animation: gy-spin 1s linear infinite;
     }
   }
 

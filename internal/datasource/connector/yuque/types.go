@@ -1,6 +1,6 @@
-// Package yuque implements the Yuque (语雀) data source connector for WeKnora.
+// Package yuque implements the Yuque (语雀) data source connector for GENYEE.
 //
-// It syncs documents from personal and group knowledge bases (books/repos) into WeKnora
+// It syncs documents from personal and group knowledge bases (books/repos) into GENYEE
 // knowledge bases, preserving Markdown formatting.
 //
 // Yuque API docs:

@@ -12,7 +12,7 @@
     <div v-if="login && vaultItems.length" class="ask-field">
       <span class="ask-field-label">{{ $t('agentStream.secureForm.savedAccount') }}</span>
       <t-select v-model="vaultSelection" size="small" :disabled="submitting"
-        :popup-props="{ overlayClassName: 'wk-popover' }">
+        :popup-props="{ overlayClassName: 'gy-popover' }">
         <t-option v-for="item in vaultItems" :key="item.id" :value="item.id"
           :label="`${item.title} · ${item.username || '—'}`" />
         <t-option value="" :label="$t('agentStream.secureForm.useNew')" />

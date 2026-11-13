@@ -520,7 +520,7 @@ async function submitDeleteSession(): Promise<void> {
 }
 
 .chat-header__menu-loading {
-  animation: wk-spin 0.8s linear infinite;
+  animation: gy-spin 0.8s linear infinite;
 }
 
 </style>

@@ -25,9 +25,9 @@ async function checkVisibleControl(p, selector) {
   assert.ok(box && box.width > 0 && box.x >= 0 && box.x + box.width <= p.viewportSize().width + 1, `${selector} must fit in the viewport`);
 }
 async function headerGeometry(p) {
-  return p.locator('.wk-header').evaluate(header => ({
+  return p.locator('.gy-header').evaluate(header => ({
     links: [...header.querySelectorAll('#main-navigation a')].map(a => [a.textContent.trim(), a.getAttribute('href')]),
-    controls: [...header.querySelectorAll('.wk-header-inner, .wk-brand, .wk-theme-toggle, .wk-header-github')].map(el => {
+    controls: [...header.querySelectorAll('.gy-header-inner, .gy-brand, .gy-theme-toggle, .gy-header-github')].map(el => {
       const box = el.getBoundingClientRect();
       return [Math.round(box.x), Math.round(box.y), Math.round(box.width), Math.round(box.height)];
     }),
@@ -60,7 +60,7 @@ try {
   assert.equal(await page.getByRole('link', { name: '文档首页', exact: true }).count(), 0);
   assert.deepEqual((await headerGeometry(page)).controls, masthead.controls);
   assert.deepEqual((await headerGeometry(page)).links.map(link => link[0]), ['快速开始', '架构', '功能', 'API', '客户端', '开发', '版本', 'GitHub']);
-  assert.equal(await page.locator('.wk-header').evaluate(el => el.getBoundingClientRect().height), 64);
+  assert.equal(await page.locator('.gy-header').evaluate(el => el.getBoundingClientRect().height), 64);
   assert.equal(context.pages().length, 1);
   // Switching distant sections must reveal the selected sidebar item in both directions.
   for (const section of ['客户端', '开发', '快速开始', '功能', '架构']) {
@@ -71,22 +71,22 @@ try {
   }
   // Manual sidebar scrolling must remain untouched until navigation occurs.
   await page.locator('.VPSidebar').evaluate(el => el.scrollTop = el.scrollHeight);
-  await page.locator('.wk-theme-toggle').click();
+  await page.locator('.gy-theme-toggle').click();
   assert.ok(await page.locator('.VPSidebar').evaluate(el => el.scrollTop > 500));
-  await page.locator('.wk-theme-toggle').click();
+  await page.locator('.gy-theme-toggle').click();
   await page.locator('#main-navigation').getByRole('link', { name: 'API', exact: true }).click();
   await page.waitForFunction(() => location.pathname.includes('/04-api/'));
   await page.waitForSelector('.VPDoc h1');
   await page.waitForFunction(() => document.querySelector('#main-navigation a[aria-current="page"]')?.textContent.trim() === 'API');
-  const palette = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--wk-paper').trim());
+  const palette = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--gy-paper').trim());
   assert.equal(palette, '#0b1220');
-  await page.locator('.wk-header-search button').click();
+  await page.locator('.gy-header-search button').click();
   await page.locator('#localsearch-input').fill('长期记忆');
   await page.waitForSelector('.VPLocalSearchBox .result');
   await page.keyboard.press('Escape');
-  await page.locator('.wk-theme-toggle').click();
+  await page.locator('.gy-theme-toggle').click();
   await expectTheme(page, false);
-  await page.locator('.wk-brand').click();
+  await page.locator('.gy-brand').click();
   await homepage();
   await expectTheme(page, false);
   assert.equal(context.pages().length, 1);
@@ -97,7 +97,7 @@ try {
   await page.waitForSelector('.VPDoc h1');
   assert.equal(new URL(page.url()).pathname, '/docs/03-features/26-weknora-assistant.html');
   assert.match(await page.locator('.VPDoc h1').innerText(), /GENYEE 助手/);
-  await page.locator('.wk-brand').click();
+  await page.locator('.gy-brand').click();
   await homepage();
   assert.equal(context.pages().length, 1);
 
@@ -130,7 +130,7 @@ try {
   const docs = await context.newPage();
   await docs.goto(origin + '/docs/');
   await docs.waitForSelector('.VPDoc h1');
-  await docs.locator('.wk-theme-toggle').click();
+  await docs.locator('.gy-theme-toggle').click();
   await expectTheme(docs, true);
   await expectTheme(page, true);
   await page.getByRole('switch', { name: '切换到浅色' }).click();
@@ -167,11 +167,11 @@ try {
   await page.locator('#main-navigation').getByRole('link', { name: '文档', exact: true }).click();
   await page.waitForSelector('.VPDoc h1');
   await expectTheme(page, true);
-  await checkVisibleControl(page, '.wk-brand');
-  await page.locator('.wk-theme-toggle').click();
+  await checkVisibleControl(page, '.gy-brand');
+  await page.locator('.gy-theme-toggle').click();
   await page.getByRole('button', { name: '打开导航' }).click();
-  await checkVisibleControl(page, '.wk-header-search button');
-  await page.locator('.wk-header-search button').click();
+  await checkVisibleControl(page, '.gy-header-search button');
+  await page.locator('.gy-header-search button').click();
   await page.locator('#localsearch-input').fill('长期记忆');
   await page.waitForSelector('.VPLocalSearchBox .result');
   await page.keyboard.press('Escape');
@@ -185,7 +185,7 @@ try {
   await currentSidebarLinkVisible(page);
   await page.keyboard.press('Escape');
   await expectTheme(page, false);
-  await page.locator('.wk-brand').click();
+  await page.locator('.gy-brand').click();
   await homepage();
   await expectTheme(page, false);
   assert.equal(context.pages().length, 1);
@@ -200,18 +200,18 @@ try {
     await page.setViewportSize({ width, height: 900 });
     for (const path of ['/', '/docs/01-getting-started/02-installation.html']) {
       await page.goto(origin + path);
-      await page.waitForSelector('.wk-header');
-      const dimensions = await page.locator('.wk-header').evaluate(el => ({ width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height, scrollWidth: el.scrollWidth }));
+      await page.waitForSelector('.gy-header');
+      const dimensions = await page.locator('.gy-header').evaluate(el => ({ width: el.getBoundingClientRect().width, height: el.getBoundingClientRect().height, scrollWidth: el.scrollWidth }));
       assert.equal(dimensions.height, 64);
       assert.equal(dimensions.width, width);
       assert.equal(dimensions.scrollWidth, width);
-      await checkVisibleControl(page, '.wk-brand');
+      await checkVisibleControl(page, '.gy-brand');
       await page.waitForFunction(() => {
-        const image = document.querySelector('.wk-brand img');
+        const image = document.querySelector('.gy-brand img');
         return image?.complete && image.naturalWidth === 945 && image.naturalHeight === 650;
       });
-      assert.equal(await page.locator('.wk-brand img').getAttribute('src'), '/docs/_home/brand/weknora-original.png');
-      await checkVisibleControl(page, '.wk-theme-toggle');
+      assert.equal(await page.locator('.gy-brand img').getAttribute('src'), '/docs/_home/brand/weknora-original.png');
+      await checkVisibleControl(page, '.gy-theme-toggle');
     }
   }
   assert.deepEqual(errors, []);

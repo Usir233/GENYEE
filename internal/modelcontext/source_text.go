@@ -7,7 +7,7 @@ package modelcontext
 // arguments alike — instead of only in a fixed list of ID fields.
 //
 // Durable text forms are what a decoded handle becomes outside an ID field:
-// a web page becomes its URL, and workspace objects become weknora:// URIs
+// a web page becomes its URL, and workspace objects become genyee:// URIs
 // that a later request encodes back into its own handles.
 import (
 	"regexp"
@@ -83,7 +83,7 @@ func durableURI(kind, id string) string {
 }
 
 // parseDurableURI returns the kind and ID when value is exactly one
-// weknora:// URI.
+// genyee:// URI.
 func parseDurableURI(value string) (kind, id string, ok bool) {
 	value = strings.TrimSpace(value)
 	match := durableURIRE.FindStringSubmatch(value)
@@ -118,7 +118,7 @@ func (r *sourceRegistry) resolveSourceHandle(handle string) (prefix, durable str
 }
 
 // durableTextForHandle is the form a handle takes in stored or forwarded
-// text: a URL for web pages, a weknora:// URI for workspace objects.
+// text: a URL for web pages, a genyee:// URI for workspace objects.
 func (r *sourceRegistry) durableTextForHandle(handle string) string {
 	prefix, durable, _, ok := r.resolveSourceHandle(handle)
 	if !ok {
@@ -189,7 +189,7 @@ func (r *sourceRegistry) UnresolvedTextHandles(text string) []string {
 	return unresolved
 }
 
-// EncodeDurableURIs replaces weknora:// URIs with this request's handles.
+// EncodeDurableURIs replaces genyee:// URIs with this request's handles.
 // Registration only makes the object addressable; tools still authorize
 // every durable ID they receive.
 func (r *sourceRegistry) EncodeDurableURIs(text string) string {
@@ -218,7 +218,7 @@ func (r *sourceRegistry) registerDurable(kind, id string) string {
 }
 
 // ExpandHandleText renders handles in user-visible text. Workspace objects
-// become weknora:// links the client resolves, web pages become their URL,
+// become genyee:// links the client resolves, web pages become their URL,
 // and a chunk becomes a citation when it is current evidence, or its
 // document otherwise. Unknown handles are dropped, like unknown <ref/> tags.
 func (r *sourceRegistry) ExpandHandleText(text string) string {

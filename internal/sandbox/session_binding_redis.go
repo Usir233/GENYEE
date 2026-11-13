@@ -280,7 +280,7 @@ func (s *RedisSessionSandboxBindingStore) ReplaceTrafficTokenIfMatch(
 }
 
 // WithLifecycleLock serializes create, recover, replace, and delete transitions
-// across all WeKnora processes sharing Redis.
+// across all GENYEE processes sharing Redis.
 func (s *RedisSessionSandboxBindingStore) WithLifecycleLock(
 	ctx context.Context,
 	key SessionSandboxKey,

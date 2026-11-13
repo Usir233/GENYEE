@@ -1394,7 +1394,7 @@ func convertResultSet(resultSet []client.ResultSet) ([]*MilvusVectorEmbeddingWit
 
 // metricToSimilarity converts a raw vector-search score into cosine
 // similarity, the scale callers rank and threshold on. IP and COSINE already
-// are for the L2-normalized embeddings WeKnora indexes. Milvus L2 returns
+// are for the L2-normalized embeddings GENYEE indexes. Milvus L2 returns
 // the squared Euclidean distance (smaller is better), which for unit vectors
 // is 2 - 2cos; passing it through ranked the farthest hits first.
 func (m *milvusRepository) metricToSimilarity(score float64) float64 {

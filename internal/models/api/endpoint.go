@@ -53,7 +53,7 @@ type Endpoint struct {
 	URL string
 	// Query is appended to the final URL (Azure api-version).
 	Query map[string]string
-	// Model is the name sent on the wire; ModelID is WeKnora's own identifier.
+	// Model is the name sent on the wire; ModelID is GENYEE's own identifier.
 	Model   string
 	ModelID string
 	// Auth stamps credentials; Headers are static extra headers (vendor

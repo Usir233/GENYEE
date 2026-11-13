@@ -11,8 +11,8 @@
 //     nothing to do with sandboxes. Listing all of them would bury the one the
 //     admin needs, so the catalog only reports images that are recognisably
 //     sandbox templates.
-//   - Skill and fork snapshots live in the same image store (weknora-skill/…
-//     and weknora-fork/…), so they are subtracted the way Cube hides snap- IDs
+//   - Skill and fork snapshots live in the same image store (genyee-skill/…
+//     and genyee-fork/…), so they are subtracted the way Cube hides snap- IDs
 //     from GET /templates.
 //   - Making the standard template exist means pulling, which can take minutes
 //     on a cold host. The pull therefore runs in the background and the
@@ -31,7 +31,7 @@ import (
 	"github.com/moby/moby/client"
 )
 
-// dockerTemplateLabel marks an image as a WeKnora sandbox template. Images
+// dockerTemplateLabel marks an image as a GENYEE sandbox template. Images
 // built by an operator can opt into the catalog by carrying it.
 const dockerTemplateLabel = "com.weknora.sandbox.template"
 

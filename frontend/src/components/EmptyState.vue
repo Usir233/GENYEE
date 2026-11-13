@@ -1,16 +1,16 @@
 <template>
-  <div class="wk-empty-state" :class="{ 'wk-empty-state--compact': compact }">
-    <div v-if="$slots.icon || icon || image" class="wk-empty-state__icon">
+  <div class="gy-empty-state" :class="{ 'gy-empty-state--compact': compact }">
+    <div v-if="$slots.icon || icon || image" class="gy-empty-state__icon">
       <slot name="icon">
         <img v-if="image" :src="image" alt="" aria-hidden="true" />
         <t-icon v-else :name="icon" />
       </slot>
     </div>
-    <div class="wk-empty-state__title">{{ title }}</div>
-    <div v-if="description || $slots.description" class="wk-empty-state__desc">
+    <div class="gy-empty-state__title">{{ title }}</div>
+    <div v-if="description || $slots.description" class="gy-empty-state__desc">
       <slot name="description">{{ description }}</slot>
     </div>
-    <div v-if="$slots.default" class="wk-empty-state__actions">
+    <div v-if="$slots.default" class="gy-empty-state__actions">
       <slot />
     </div>
   </div>
@@ -34,7 +34,7 @@ withDefaults(
 </script>
 
 <style lang="less" scoped>
-.wk-empty-state {
+.gy-empty-state {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -48,7 +48,7 @@ withDefaults(
   }
 }
 
-.wk-empty-state__icon {
+.gy-empty-state__icon {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -65,7 +65,7 @@ withDefaults(
     height: 40px;
   }
 
-  .wk-empty-state--compact & {
+  .gy-empty-state--compact & {
     width: 48px;
     height: 48px;
     margin-bottom: 12px;
@@ -73,14 +73,14 @@ withDefaults(
   }
 }
 
-.wk-empty-state__title {
+.gy-empty-state__title {
   color: var(--td-text-color-primary);
   font-size: var(--app-text-lg);
   font-weight: 600;
   line-height: 22px;
 }
 
-.wk-empty-state__desc {
+.gy-empty-state__desc {
   margin-top: 6px;
   max-width: 360px;
   color: var(--td-text-color-secondary);
@@ -88,7 +88,7 @@ withDefaults(
   line-height: 20px;
 }
 
-.wk-empty-state__actions {
+.gy-empty-state__actions {
   display: flex;
   align-items: center;
   gap: 12px;

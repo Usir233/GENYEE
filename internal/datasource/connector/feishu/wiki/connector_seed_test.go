@@ -4,7 +4,7 @@
 // env vars) so it never runs in the normal suite or CI.
 //
 // It WRITES to your Feishu tenant: it creates a handful of docx documents under
-// the given wiki space, each titled "WeKnora sync test doc N" so you can find
+// the given wiki space, each titled "GENYEE sync test doc N" so you can find
 // and delete them afterwards. Requires app write scopes:
 //   - wiki:wiki           (create wiki nodes)
 //   - docx:document       (write docx content)

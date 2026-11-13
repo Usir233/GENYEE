@@ -64,7 +64,7 @@ func TestResumableAgentRequestKeepsPageContext(t *testing.T) {
 	page := &types.PageContext{KnowledgeBaseID: "kb-a", WikiIssueIDs: []string{"i-1"}}
 	resumable := resumableAgentRequest(context.Background(), &types.QARequest{
 		Session:     &types.Session{ID: "s", TenantID: 1},
-		CustomAgent: &types.CustomAgent{ID: types.BuiltinWeKnoraAssistantID},
+		CustomAgent: &types.CustomAgent{ID: types.BuiltinGENYEEAssistantID},
 		PageContext: page,
 	})
 	assert.Equal(t, page, resumable.PageContext)

@@ -35,7 +35,7 @@ func settingBool(v interface{}, def bool) bool {
 // nobody asked for.
 type documentSettings struct {
 	// IncludeUploadedFiles admits uploaded Office/PDF files (FILE/DOCUMENT
-	// nodes) that are downloaded from 钉盘 and parsed by WeKnora itself.
+	// nodes) that are downloaded from 钉盘 and parsed by GENYEE itself.
 	IncludeUploadedFiles bool
 	// PreserveFolderStructure encodes each document's DingTalk folder hierarchy
 	// into its FileName, so the document lands in the knowledge base folder

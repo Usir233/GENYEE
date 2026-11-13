@@ -85,7 +85,7 @@ func TestSkillsReferenceLiveCommandsAndFlags(t *testing.T) {
 		}
 		// Normalize CRLF → LF before parsing: Windows CI checks out *.md with
 		// CRLF (git autocrlf), and the \n-anchored codeFence regex would never
-		// match ```weknora\r\n, resolving zero commands. Keep the tokenizer
+		// match ```genyee\r\n, resolving zero commands. Keep the tokenizer
 		// OS-independent rather than depend on checkout line endings.
 		content := strings.ReplaceAll(string(raw), "\r\n", "\n")
 		rel, _ := filepath.Rel(skillsRoot(t), path)
@@ -117,7 +117,7 @@ func TestSkillsReferenceLiveCommandsAndFlags(t *testing.T) {
 						i++ // consume the value
 					}
 				}
-				// Placeholder command (e.g. `weknora <command> --help`) → skip.
+				// Placeholder command (e.g. `genyee <command> --help`) → skip.
 				if i < len(toks) && strings.HasPrefix(toks[i], "<") {
 					continue
 				}

@@ -27,7 +27,7 @@ type pendingAttachment struct {
 }
 
 // pendingDocName is one 云文档 mention link awaiting a title backfill: the
-// renderer emits "[weknora-docname://<token>](<url>)" placeholders (it has no
+// renderer emits "[genyee-docname://<token>](<url>)" placeholders (it has no
 // access to document titles) and FetchDocxWithBlocks resolves the titles via
 // the drive metadata batch API, patching the link text in place.
 type pendingDocName struct {
@@ -83,7 +83,7 @@ func (r *mdRenderer) nextImageNo(kind, token string) int {
 }
 
 // imageMarker renders the synthetic placeholder for image/board N. The nonce
-// keeps user-typed look-alike text (a literal ![图片](weknora-img://1) in a
+// keeps user-typed look-alike text (a literal ![图片](genyee-img://1) in a
 // text run) from ever matching the connector's patch needle — only this
 // renderer and the patcher share the derivation (imageMarkerNonce).
 func (r *mdRenderer) imageMarker(n int) string {
@@ -99,7 +99,7 @@ func imageMarkerNonce(seed string) string {
 
 // blocksToMarkdown renders a flat docx block array to Markdown, inlining
 // embedded spreadsheet/bitable tables, collecting downloadable
-// attachments, and numbering image/board blocks as weknora-img://N markers.
+// attachments, and numbering image/board blocks as genyee-img://N markers.
 // docURL is the parent document's web URL used in non-whitelisted attachment
 // placeholders (empty → placeholder without link). client may be nil when the
 // block set has no downdrill blocks. userName resolves mention_user OpenIDs to
