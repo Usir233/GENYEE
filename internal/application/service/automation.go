@@ -580,18 +580,31 @@ func (s *AutomationService) RunNow(ctx context.Context, id string) (*types.Autom
 	if err != nil {
 		return nil, err
 	}
-	busy, err := s.hasLiveRun(s.db.WithContext(ctx), a.ID)
-	if err != nil {
-		return nil, err
-	}
-	if busy {
-		return nil, apperrors.NewConflictError("a run of this automation is already queued or in progress")
-	}
 	run := &types.AutomationRun{
 		AutomationID: a.ID, TenantID: a.TenantID, ScheduledAt: s.now().UTC().Truncate(time.Millisecond),
 		TriggerKind: types.AutomationRunManual, Status: types.AutomationRunQueued,
 	}
-	if err := s.db.WithContext(ctx).Create(run).Error; err != nil {
+	// Serialize the active-parent check with deletion and other manual runs.
+	// The earlier authorization read alone cannot fence a concurrent delete.
+	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		locked := tx.Model(&types.Automation{}).Where("id = ?", a.ID).
+			UpdateColumn("version", gorm.Expr("version + 1"))
+		if locked.Error != nil {
+			return locked.Error
+		}
+		if locked.RowsAffected == 0 {
+			return apperrors.NewNotFoundError("automation not found")
+		}
+		busy, err := s.hasLiveRun(tx, a.ID)
+		if err != nil {
+			return err
+		}
+		if busy {
+			return apperrors.NewConflictError("a run of this automation is already queued or in progress")
+		}
+		return tx.Create(run).Error
+	})
+	if err != nil {
 		return nil, err
 	}
 	s.Wake()
@@ -659,6 +672,22 @@ func (s *AutomationService) CancelRun(ctx context.Context, runID string) (*types
 // cancelRun ends a queued or waiting run at once and asks a running one to
 // stop at its next check.
 func (s *AutomationService) cancelRun(ctx context.Context, run *types.AutomationRun, reason string) error {
+	// The caller's snapshot may predate a claim, approval resume, or
+	// suspension. Persist the intent across every live state before deciding
+	// whether to finish locally or interrupt the executor. Scheduler claims
+	// and approval resumes must not cross this cancellation fence.
+	res := s.db.WithContext(ctx).Model(&types.AutomationRun{}).
+		Where("id = ? AND status IN ?", run.ID, []string{
+			types.AutomationRunQueued, types.AutomationRunRunning, types.AutomationRunAwaitingApproval,
+		}).Update("cancel_requested", true)
+	if res.Error != nil || res.RowsAffected == 0 {
+		return res.Error
+	}
+	var current types.AutomationRun
+	if err := s.db.WithContext(ctx).Where("id = ?", run.ID).First(&current).Error; err != nil {
+		return err
+	}
+	run = &current
 	switch run.Status {
 	case types.AutomationRunQueued, types.AutomationRunAwaitingApproval:
 		ok, err := s.finishRun(ctx, run, []string{run.Status}, types.AutomationRunCancelled, reason, nil)
@@ -670,11 +699,6 @@ func (s *AutomationService) cancelRun(ctx context.Context, run *types.Automation
 		}
 		return nil
 	case types.AutomationRunRunning:
-		if err := s.db.WithContext(ctx).Model(&types.AutomationRun{}).
-			Where("id = ? AND status = ?", run.ID, types.AutomationRunRunning).
-			Update("cancel_requested", true).Error; err != nil {
-			return err
-		}
 		stopErr := s.stopRunDelegation(ctx, run)
 		s.mu.Lock()
 		cancel := s.running[run.ID]

@@ -4641,12 +4641,19 @@
         "internal/application/service/evaluation.go",
         "internal/application/service/evaluation_lifecycle_test.go",
         "internal/application/service/metric_hook.go",
-        "internal/application/service/session_knowledge_qa.go"
+        "internal/application/service/session_knowledge_qa.go",
+        "internal/application/service/automation.go",
+        "internal/application/service/automation_runner.go",
+        "internal/application/service/automation_scheduler.go"
       ],
       "invariants_checked": [],
       "evidence": [
         {
           "report": "test-reports/module-audit-20261113/evaluation.json"
+        },
+        {
+          "report": "test-reports/module-audit-20261113/automation.json",
+          "scope": "partial service integration; pending cases explicitly retained"
         }
       ],
       "findings": [],
@@ -10648,6 +10655,11 @@
       "commit": "1eb926c21",
       "module": "evaluation/dataset/metrics and SDK evaluation wire",
       "result": "targeted/race/client/Python tests passed; final all-Go gate pending storage completion"
+    },
+    {
+      "commit": "8537a2e4d",
+      "module": "frontend authenticated request retries",
+      "result": "42 focused tests, full frontend tests (2739 passed/1 skipped), type check passed"
     }
   ]
 }

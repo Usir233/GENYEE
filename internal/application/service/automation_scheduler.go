@@ -228,7 +228,8 @@ func (s *AutomationService) startRun(ctx context.Context, run *types.AutomationR
 			return nil
 		}
 		res := tx.Model(&types.AutomationRun{}).
-			Where("id = ? AND status = ?", run.ID, types.AutomationRunQueued).Updates(updates)
+			Where("id = ? AND status = ? AND cancel_requested = ?", run.ID, types.AutomationRunQueued, false).
+			Updates(updates)
 		started = res.Error == nil && res.RowsAffected > 0
 		return res.Error
 	})
@@ -288,17 +289,16 @@ func (s *AutomationService) closeAbandonedMessage(ctx context.Context, run *type
 }
 
 // reconcileAwaiting moves waiting runs on once their approval is answered,
-// and fails those whose approval ended any other way or timed out.
+// fails those whose approval ended any other way or timed out, and settles
+// queued cancellations interrupted after their durable intent was written.
 func (s *AutomationService) reconcileAwaiting(ctx context.Context, now time.Time) error {
-	if s.broker == nil {
-		return nil
-	}
 	// Keyset pagination visits later approvals even when earlier ones stay
 	// open. Offsets would skip rows as reconciled runs leave the waiting set.
 	for cursor := ""; ; {
 		var waiting []*types.AutomationRun
 		if err := s.db.WithContext(ctx).
-			Where("status = ? AND id > ?", types.AutomationRunAwaitingApproval, cursor).
+			Where("(status = ? OR (status = ? AND cancel_requested = ?)) AND id > ?",
+				types.AutomationRunAwaitingApproval, types.AutomationRunQueued, true, cursor).
 			Order("id").Limit(automationClaimBatch * 2).Find(&waiting).Error; err != nil {
 			return err
 		}
@@ -317,6 +317,9 @@ func (s *AutomationService) reconcileAwaiting(ctx context.Context, now time.Time
 func (s *AutomationService) reconcileRun(ctx context.Context, run *types.AutomationRun, now time.Time) error {
 	if run.CancelRequested {
 		return s.cancelRun(ctx, run, "cancelled by the owner")
+	}
+	if s.broker == nil {
+		return nil
 	}
 	waiting := []string{types.AutomationRunAwaitingApproval}
 	prompt, err := s.broker.Store().Get(ctx, run.PendingPromptID)

@@ -1,0 +1,63 @@
+{
+  "module": "automation cancellation and manual enqueue",
+  "status": "fixed_validated",
+  "owned_files": [
+    "internal/application/service/automation.go",
+    "internal/application/service/automation_scheduler.go",
+    "internal/application/service/automation_cancellation_race_test.go",
+    "internal/application/service/automation_delete_race_test.go"
+  ],
+  "findings": [
+    {
+      "id": "AUTOMATION-CANCEL-TRANSITION",
+      "priority": "P1",
+      "function": "cancelRun",
+      "before": "All three queued→running, awaiting→queued, running→awaiting tests lost cancellation because the stale status determined the only CAS path.",
+      "fix": "Persist cancellation intent for every live state, reload current state and prevent claims after the cancellation fence."
+    },
+    {
+      "id": "AUTOMATION-CANCEL-RECOVERY",
+      "priority": "P2",
+      "function": "reconcileAwaiting/startRun",
+      "before": "A queued run with cancellation intent could start, and cancellation interrupted before settlement otherwise left it blocking later runs.",
+      "fix": "Prevent its claim and let scheduler reconciliation finish queued cancellations even without an approval broker."
+    },
+    {
+      "id": "AUTOMATION-ENQUEUE-AFTER-DELETE",
+      "priority": "P2",
+      "function": "RunNow",
+      "before": "Deterministic GORM after-read interleaving deleted the automation after authorization; RunNow still returned success and queued orphan work.",
+      "fix": "Lock the active parent before checking busy state and creating a manual run, in one transaction; concurrent deletion now prevents enqueue."
+    }
+  ],
+  "evidence": [
+    {
+      "command": "go test -mod=readonly ./internal/application/service -run '^TestAutomation(CancellationSurvivesStateTransition|DoesNotStartRunWithCancellationRequested)$' -count=1",
+      "result": "four cases failed before fix",
+      "log": ".git/module-audit-20261113/automation-cancel-before.log"
+    },
+    {
+      "command": "go test -mod=readonly ./internal/application/service -run '^TestAutomationSchedulerSettlesInterruptedQueuedCancellation$' -count=1",
+      "result": "failed before recovery fix",
+      "log": ".git/module-audit-20261113/automation-cancel-recovery-before.log"
+    },
+    {
+      "command": "go test -mod=readonly ./internal/application/service -run '^TestAutomationRunNowCannotQueueAfterConcurrentDeletion$' -count=1",
+      "result": "failed before fix",
+      "log": ".git/module-audit-20261113/automation-delete-before.log"
+    },
+    {
+      "command": "go test -mod=readonly -race ./internal/application/service -run '^TestAutomation' -count=1",
+      "result": "passed",
+      "log": ".git/module-audit-20261113/automation-after.log"
+    }
+  ],
+  "pending_audit": [
+    "Further reproduce scheduler starts between Delete active-run enumeration and tombstone commit; the manual enqueue race fix alone does not establish complete deletion lifecycle coverage.",
+    "Continue auditing automation handler, grant lifecycle and session pruning integrations."
+  ],
+  "limitations": [
+    "Temporary SQLite fixtures and local service doubles; no live automation or external action performed.",
+    "Full repository gates are tracked separately."
+  ]
+}
