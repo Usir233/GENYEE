@@ -170,12 +170,8 @@ func TestReadRequestBodyStaysInsideItsLogBudget(t *testing.T) {
 		t.Fatalf("middleware read %d bytes of a %d byte request, want at most %d",
 			counter.read, len(payload), budget)
 	}
-	if want := maxBodySize + len(bodyTruncatedMarker); len(got) != want {
-		t.Fatalf("logged body is %d bytes, want %d (%d logged + %q)",
-			len(got), want, maxBodySize, bodyTruncatedMarker)
-	}
-	if !strings.HasSuffix(got, bodyTruncatedMarker) {
-		t.Fatalf("logged body %q does not end with the truncation marker", got)
+	if got != bodyTruncatedMarker {
+		t.Fatalf("oversized body must be omitted because truncated secrets cannot be safely redacted")
 	}
 	rest, err := io.ReadAll(c.Request.Body)
 	if err != nil {
@@ -204,7 +200,7 @@ func TestReadRequestBodyLeavesRouteBodyCapDeciding(t *testing.T) {
 }
 
 func TestReadRequestBodyRedactsDataURI(t *testing.T) {
-	payload := `{"image":"data:image/png;base64,` + strings.Repeat("A", maxBodySize) + `"}`
+	payload := `{"image":"data:image/png;base64,` + strings.Repeat("A", maxBodySize/2) + `"}`
 
 	c, _ := newJSONContext(t, "/api/v1/knowledge-search", payload)
 	got := readRequestBody(c)

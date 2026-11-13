@@ -20,8 +20,9 @@ import (
 
 const (
 	maxBodySize = 1024 * 10 // 最大记录10KB的body内容
-	// bodyTruncatedMarker 是日志里跟在被截断的 body 后面的标记。
-	bodyTruncatedMarker = "... [内容过长，已截断]"
+	// Truncated JSON can cut through a credential string or container, making
+	// redaction unsafe. Log only this marker when the body exceeds the budget.
+	bodyTruncatedMarker = "[内容过长，已省略]"
 )
 
 // replayedBody 把日志窥探消费掉的字节还给 handler，让它读到的 body 与没有这层
@@ -526,18 +527,11 @@ func readRequestBody(c *gin.Context) string {
 		return "[读取请求体失败]"
 	}
 
-	// 用于日志的body（限制大小）
-	truncated := len(bodyBytes) > maxBodySize
-	if truncated {
-		bodyBytes = bodyBytes[:maxBodySize]
+	if len(bodyBytes) > maxBodySize {
+		return bodyTruncatedMarker
 	}
 
-	bodyStr := string(bodyBytes)
-	if truncated {
-		bodyStr += bodyTruncatedMarker
-	}
-
-	return sanitizeBody(bodyStr)
+	return sanitizeBody(string(bodyBytes))
 }
 
 // RequestID middleware adds a unique request ID to the context
@@ -662,7 +656,7 @@ func Logger() gin.HandlerFunc {
 				strings.Contains(contentType, "text/") {
 				bodyBytes := responseBody.Bytes()
 				if len(bodyBytes) >= maxBodySize {
-					responseBodyStr = string(bodyBytes[:maxBodySize]) + "... [内容过长，已截断]"
+					responseBodyStr = bodyTruncatedMarker
 				} else {
 					responseBodyStr = string(bodyBytes)
 				}

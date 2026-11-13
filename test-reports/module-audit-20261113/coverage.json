@@ -8294,18 +8294,24 @@
       ],
       "invariants_checked": [],
       "evidence": [
-        "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json"
+        "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json",
+        "test-reports/module-audit-20261113/logger-truncation.json"
       ],
       "findings": [
         {
           "id": "AUTH-FOREIGN-TENANT-REVOCATION",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json"
+        },
+        {
+          "id": "LOG-TRUNCATED-CREDENTIAL",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/logger-truncation.json"
         }
       ],
       "commits": [],
       "limitations": [
-        "Source read completed for 16 production files; logger truncation and public-IP limiter cleanup candidates require follow-up. Source read alone does not close all behavioral coverage."
+        "Source read completed for 16 production files; public-IP limiter cleanup candidate requires follow-up; logger truncation fixed in logger-truncation.json. Source read alone does not close all behavioral coverage."
       ]
     },
     {
@@ -12453,6 +12459,10 @@
     {
       "commit": "86017c607",
       "module": "Ollama image HTTP and heartbeat cancellation"
+    },
+    {
+      "commit": "e83d7b5fa",
+      "module": "authentication foreign workspace revocation"
     }
   ],
   "frontend_final_gate": {
