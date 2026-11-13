@@ -1,0 +1,33 @@
+{
+  "module": "Wiki current document reconstruction",
+  "date": "2026-11-13",
+  "finding": {
+    "id": "WIKI-CURRENT-CHUNKS",
+    "priority": "P2",
+    "scenario": "Wiki map phase reads all text chunks, reconstructs disabled chunks and their image metadata, and applies old parser ranges to manually edited text. Disabled evidence resurfaces and an edited range-contained body is dropped. Wiki cited-chunk and scanned-OCR paths already skip disabled content.",
+    "production_paths": [
+      "wiki_ingest_batch.go:mapOneDocument",
+      "wiki_ingest.go:reconstructContent",
+      "wiki_ingest.go:reconstructEnrichedContent",
+      "application/repository/chunk.go:ListChunksByKnowledgeIDAndTypes"
+    ],
+    "before": "Two actual reconstruction helper regressions fail; .git/module-audit-20261113/wiki-current-before.log",
+    "fix": "Only enabled text chunks and their image children participate; edited chunks use current reading order without source-coordinate truncation. Existing unedited repeated-row behavior remains tested."
+  },
+  "validation": {
+    "command": "go test -mod=readonly -race ./internal/application/service -run '(Wiki|Reconstruct|Scanned|Summary|Graph)' -count=1",
+    "result": "PASS",
+    "log": ".git/module-audit-20261113/wiki-current-after.log"
+  },
+  "changed_sha256": {
+    "internal/application/service/wiki_ingest.go": "f1c5ff43bc6987c8fae8d5d0a11b48ea61f99f922b06588a53ac4ec0ccdcc28f",
+    "internal/application/service/wiki_ingest_test.go": "1f78950a437ca4ce5b4af93c3b83bb82af267e3feb50d83b42a4900cbc3cedae",
+    "internal/application/service/document_reconstruction_rows_test.go": "f0a05e66eb5a8a33f5f2219c293c7ac8f3beb10b1a0deb609d89acf9d180a752",
+    "internal/application/service/wiki_current_chunks_test.go": "bcf84f6e04f0a094b71d433b452b267114913e4878513945c52cbe5a3826a4a0"
+  },
+  "limitations": [
+    "Actual reconstruction/enrichment entry points with repository fixture; no real model call or full wiki HTTP ingestion E2E.",
+    "Only the listed functions and their map/citation callers inspected here; service package remains partially audited.",
+    "Legacy tests now explicitly mark normal fixture text enabled, matching persisted default; their original assertions retained."
+  ]
+}

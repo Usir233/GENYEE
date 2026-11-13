@@ -3154,10 +3154,27 @@ func (s *wikiIngestService) filterLiveUpdates(
 // chunks and embedded alongside Markdown image links.
 func reconstructContent(chunks []*types.Chunk) string {
 	var textChunks []*types.Chunk
+	edited := false
 	for _, c := range chunks {
+		if c == nil || !c.IsEnabled {
+			continue
+		}
 		if c.ChunkType == types.ChunkTypeText || c.ChunkType == "" {
 			textChunks = append(textChunks, c)
+			edited = edited || c.ContentRevision > 0
 		}
+	}
+	if edited {
+		// Source offsets describe the original file. Preserve every current
+		// body in reading order, as summary reconstruction does after edits.
+		ordered := sortChunksForSummary(textChunks)
+		parts := make([]string, 0, len(ordered))
+		for _, c := range ordered {
+			if strings.TrimSpace(c.Content) != "" {
+				parts = append(parts, c.Content)
+			}
+		}
+		return strings.Join(parts, "\n\n")
 	}
 
 	// 重叠去重与排序统一交给公共逻辑（按文本匹配，兼容补写表头 / HTML 实体）。
@@ -3180,6 +3197,9 @@ func reconstructEnrichedContent(
 
 	var textChunkIDs []string
 	for _, c := range chunks {
+		if c == nil || !c.IsEnabled {
+			continue
+		}
 		if c.ChunkType == types.ChunkTypeText || c.ChunkType == "" {
 			if c.ID != "" {
 				textChunkIDs = append(textChunkIDs, c.ID)

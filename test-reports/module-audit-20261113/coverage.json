@@ -5390,7 +5390,8 @@
         "internal/application/service/tenant_skill_remove.go"
       ],
       "invariants_checked": [
-        "ReadResult.Error is a parse failure even when RPC transport succeeds; partial content must not become ready."
+        "ReadResult.Error is a parse failure even when RPC transport succeeds; partial content must not become ready.",
+        "Wiki reconstruction excludes disabled text/image evidence and preserves complete manually edited bodies."
       ],
       "evidence": [
         {
@@ -5457,7 +5458,8 @@
             ]
           }
         },
-        "test-reports/module-audit-20261113/parser-error-envelope.json"
+        "test-reports/module-audit-20261113/parser-error-envelope.json",
+        "test-reports/module-audit-20261113/wiki-current-chunks.json"
       ],
       "findings": [
         {
@@ -5653,7 +5655,8 @@
             "evidence": "受影响 Delete/AddGrant/prune/dropRuns/runSession 函数与本轮修改前代码完全一致（runSession 仅归一 WeKnora→GENYEE 名称），不属于本轮残留整改引入。"
           }
         },
-        "PARSE-001"
+        "PARSE-001",
+        "WIKI-CURRENT-CHUNKS"
       ],
       "commits": [],
       "limitations": [
@@ -9537,7 +9540,7 @@
     },
     {
       "id": "internal/searchutil",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/searchutil/chunkmerge.go",
         "internal/searchutil/conversion.go",
@@ -9572,7 +9575,8 @@
         "Trusted document overlap preserves repeated source rows and does not reorder caller slices."
       ],
       "evidence": [
-        "test-reports/module-audit-20261113/search-stream-text.json"
+        "test-reports/module-audit-20261113/search-stream-text.json",
+        "test-reports/module-audit-20261113/wiki-current-chunks.json"
       ],
       "findings": [
         "SEARCH-IMAGE-RESCAN",
@@ -9580,7 +9584,8 @@
       ],
       "commits": [],
       "limitations": [
-        "Search source inspected fully, but broader service/repository/model authorization is not claimed. No live LLM, user data, or deployment used."
+        "Search source inspected fully, but broader service/repository/model authorization is not claimed. No live LLM, user data, or deployment used.",
+        "Remaining manually-edited/disabled Wiki caller questions resolved separately in wiki-current-chunks.json; no claim of all service callers fully audited."
       ]
     },
     {
@@ -12317,6 +12322,10 @@
     {
       "commit": "91f8ff940",
       "module": "gRPC image metadata allocation"
+    },
+    {
+      "commit": "ad50c218b",
+      "module": "embedding pool cancellation"
     }
   ],
   "frontend_final_gate": {

@@ -83,9 +83,9 @@ func TestAppendUnique(t *testing.T) {
 
 func TestReconstructContent(t *testing.T) {
 	chunks := []*types.Chunk{
-		{ChunkIndex: 2, ChunkType: types.ChunkTypeText, Content: "Third paragraph."},
-		{ChunkIndex: 0, ChunkType: types.ChunkTypeText, Content: "First paragraph."},
-		{ChunkIndex: 1, ChunkType: types.ChunkTypeText, Content: "Second paragraph."},
+		{ChunkIndex: 2, ChunkType: types.ChunkTypeText, IsEnabled: true, Content: "Third paragraph."},
+		{ChunkIndex: 0, ChunkType: types.ChunkTypeText, IsEnabled: true, Content: "First paragraph."},
+		{ChunkIndex: 1, ChunkType: types.ChunkTypeText, IsEnabled: true, Content: "Second paragraph."},
 		{ChunkIndex: 3, ChunkType: types.ChunkTypeImageOCR, Content: "OCR text should be excluded."},
 	}
 
