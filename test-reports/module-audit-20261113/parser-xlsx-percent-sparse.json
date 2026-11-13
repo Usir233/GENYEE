@@ -1,0 +1,34 @@
+{
+  "module": "XLSX sparse percentage conversion",
+  "date": "2026-11-13",
+  "finding": {
+    "id": "PARSE-007",
+    "severity": "P2",
+    "status": "fixed_verified",
+    "title": "Percentage preprocessing materializes every blank cell in sparse worksheet bounds",
+    "provenance": "Actual public ExcelParser.parse of generated4861-byte XLSX with2 cells, xlsx_percent_as_text=true; wrapper observes actual cell count before/after real materialization, no fake parser results. Before2->100000 cells forA1/CV1000 while final content17chars. No OOM or unsafe giant allocation attempted.",
+    "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx_sparse_audit.py",
+    "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-sparse-before.log",
+    "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-percent-durable-before.log",
+    "failing_reproducer_command": "python -m unittest docreader.tests.test_xlsx_percent_format.SparsePercentageWorksheetTests",
+    "fix_paths": [
+      "docreader/parser/xlsx_merge.py",
+      "docreader/tests/test_xlsx_percent_format.py"
+    ],
+    "passing_commands": [
+      "python -m unittest docreader.tests.test_xlsx_percent_format docreader.tests.test_percentage_rounding docreader.tests.test_excel_parser docreader.tests.test_excel_parser_adversarial docreader.tests.test_xlsx_repair docreader.tests.test_xlsx_styles_repair",
+      "python /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx_sparse_audit.py"
+    ],
+    "passing_logs": [
+      "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-percent-related-after.log",
+      "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-sparse-after.log",
+      "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-merge-budget-control.log"
+    ],
+    "validation": "119 related Python tests pass(5 pre-existing skips),14.259s.3 new tests: before3 subcase failures; after public small sparse allocation2->2, row source1000 retained, maximum valid coordinateXFD1048576 kept without rectangle scan (pre-fix guard prevents17B traversal), cached formula/error/text/percentage controls. Existing dense/merge/rounding/row-hint/format/repair controls pass. Separate bounded merge-budget rejection still raises ArchiveLimitError (25cells > configured10). No new caps, truncation, dependency changes or Go production edits.",
+    "limits": "Existing Go/docreader input size defaults50MB; ZIP admission/decompression budgets100MB, compression ratio100,10000 entries; merged cell expansion cap200000 per sheet. These do not bound a blank rectangle implied by sparse coordinates. Fix only removes unnecessary percentage materialization; later pandas dense allocation is tracked separately asPARSE-008."
+  },
+  "changed_sha256": {
+    "docreader/parser/xlsx_merge.py": "a7844e5f1c5469e166fb4fafe31e11df4b3f6fd17e25b13705eabd1261074de6",
+    "docreader/tests/test_xlsx_percent_format.py": "ed6cde7275e0940afd9630d8138a95fa9648c08a72972676bc380885b1e3e56e"
+  }
+}

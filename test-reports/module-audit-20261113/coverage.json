@@ -1880,7 +1880,8 @@
       "inspected_files": [
         "docreader/parser/doc_parser.py",
         "docreader/parser/image_parser.py",
-        "docreader/parser/pdf_parser.py"
+        "docreader/parser/pdf_parser.py",
+        "docreader/parser/xlsx_merge.py"
       ],
       "invariants_checked": [
         "Extracted DOCX image references survive body-order composition in their source paragraph and respect page limits."
@@ -1888,7 +1889,8 @@
       "evidence": [
         "test-reports/module-audit-20261113/parser-docx-images.json",
         "test-reports/module-audit-20261113/parser-doc-fallback.json",
-        "test-reports/module-audit-20261113/parser-image-filenames.json"
+        "test-reports/module-audit-20261113/parser-image-filenames.json",
+        "test-reports/module-audit-20261113/parser-xlsx-percent-sparse.json"
       ],
       "findings": [
         "PARSE-005",
@@ -1901,6 +1903,11 @@
           "id": "PARSE-006",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/parser-image-filenames.json"
+        },
+        {
+          "id": "PARSE-007",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/parser-xlsx-percent-sparse.json"
         }
       ],
       "commits": [],
@@ -13033,6 +13040,10 @@
     {
       "commit": "b3a52759b",
       "module": "asynq worker terminal failure semantics"
+    },
+    {
+      "commit": "86b170ef0",
+      "module": "public invitation rate limiter budget preservation"
     }
   ],
   "frontend_final_gate": {

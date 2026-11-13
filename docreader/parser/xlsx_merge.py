@@ -143,48 +143,47 @@ def _materialize_percentage_cells(ws, row_hint_min: int) -> tuple[int, int]:
     if row_hint_min > 0:
         # Count the explicit percentage formats before converting anything:
         # the conversion below resets number_format to General.
-        for row in ws.iter_rows():
-            count = sum(
-                1
-                for cell in row
-                if type(cell.value) in (int, float)  # noqa: E721 - excludes bool
+        for cell in ws._cells.values():
+            if (
+                type(cell.value) in (int, float)  # noqa: E721 - excludes bool
                 and _format_percentage(cell.value, cell.number_format) is not None
-            )
-            if count:
-                row_hints[row[0].row] = count
+            ):
+                row_hints[cell.row] = row_hints.get(cell.row, 0) + 1
 
     materialized = 0
     hinted = 0
-    for row in ws.iter_rows():
-        hint = row_hints.get(row[0].row, 0)
-        for cell in row:
-            if type(cell.value) not in (int, float):  # noqa: E721 - excludes bool
-                continue
-            text = _format_percentage(cell.value, cell.number_format)
-            if (
-                text is None
-                and "%" not in str(cell.number_format or "")
-                and hint >= row_hint_min > 0
-                and 0 < abs(cell.value) < 1
-            ):
-                # Fallback for a cell that lost its percentage format while its
-                # row kept one. Logged because it rewrites an unformatted value.
-                text = _percentage_number(cell.value, 2) + "%"
-                hinted += 1
-                logger.info(
-                    "XLSX pre-parse: %s!%s%d has no percentage format but its row "
-                    "does; reading it as %.2f%% (stored value %r)",
-                    ws.title,
-                    cell.column_letter,
-                    cell.row,
-                    float(cell.value) * 100,
-                    cell.value,
-                )
-            if text is None:
-                continue
-            cell.value = text
-            cell.number_format = "General"
-            materialized += 1
+    # iter_rows() creates missing cells across the whole bounding rectangle.
+    # Percentage conversion only needs existing cells, even on sparse sheets
+    # whose last value is at Excel's maximum row/column coordinates.
+    for cell in ws._cells.values():
+        if type(cell.value) not in (int, float):  # noqa: E721 - excludes bool
+            continue
+        hint = row_hints.get(cell.row, 0)
+        text = _format_percentage(cell.value, cell.number_format)
+        if (
+            text is None
+            and "%" not in str(cell.number_format or "")
+            and hint >= row_hint_min > 0
+            and 0 < abs(cell.value) < 1
+        ):
+            # Fallback for a cell that lost its percentage format while its
+            # row kept one. Logged because it rewrites an unformatted value.
+            text = _percentage_number(cell.value, 2) + "%"
+            hinted += 1
+            logger.info(
+                "XLSX pre-parse: %s!%s%d has no percentage format but its row "
+                "does; reading it as %.2f%% (stored value %r)",
+                ws.title,
+                cell.column_letter,
+                cell.row,
+                float(cell.value) * 100,
+                cell.value,
+            )
+        if text is None:
+            continue
+        cell.value = text
+        cell.number_format = "General"
+        materialized += 1
     return materialized, hinted
 
 

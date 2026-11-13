@@ -18,10 +18,13 @@ import datetime
 import io
 import os
 import unittest
+import zipfile
 from unittest.mock import patch
 
 import openpyxl
+from openpyxl.worksheet.worksheet import Worksheet
 
+from docreader.parser import xlsx_merge
 from docreader.parser.excel_parser import ExcelParser
 from docreader.parser.parser import Parser
 from docreader.parser.xlsx_merge import fill_merged_cells_xlsx, _format_percentage
@@ -371,6 +374,75 @@ class PercentMaterializationSwitchTests(unittest.TestCase):
             document = ExcelParser().parse_into_text(content)
 
         self.assertIn("A: 毛利率,B: 61.12%", document.content)
+
+
+class SparsePercentageWorksheetTests(unittest.TestCase):
+    def test_public_parse_does_not_create_blank_cells_for_percentage_conversion(self):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws["A1"] = "First"
+        ws["CV1000"] = 0.25
+        ws["CV1000"].number_format = "0%"
+        data = io.BytesIO()
+        wb.save(data)
+        materialize = xlsx_merge._materialize_percentage_cells
+
+        for hint_min in ("0", "1"):
+            with self.subTest(hint_min=hint_min):
+                counts = []
+
+                def observe(sheet, row_hint_min):
+                    before = len(sheet._cells)
+                    result = materialize(sheet, row_hint_min)
+                    counts.append((before, len(sheet._cells)))
+                    return result
+
+                with (
+                    patch.dict(os.environ, {ROW_HINT_ENV: hint_min}),
+                    patch.object(xlsx_merge, "_materialize_percentage_cells", side_effect=observe),
+                ):
+                    doc = ExcelParser(xlsx_percent_as_text=True).parse(data.getvalue())
+                self.assertEqual(doc.content, "A: First\nCV: 25%\n")
+                self.assertEqual(doc.source_blocks[-1]["locator"]["row_start"], 1000)
+                self.assertEqual(counts, [(2, 2)])
+
+    def test_extreme_sparse_coordinates_are_preserved_without_rectangle_scan(self):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws["A1"] = "First"
+        ws["XFD1048576"] = 0.3125
+        ws["XFD1048576"].number_format = "0%"
+        data = io.BytesIO()
+        wb.save(data)
+        # Fail before an unsafe rectangle allocation: this test must never
+        # attempt to visit all 17 billion coordinates, even before the fix.
+        with patch.object(Worksheet, "iter_rows", side_effect=AssertionError("blank rectangle scan")):
+            output = fill_merged_cells_xlsx(data.getvalue(), percent_as_text=True)
+        parsed = openpyxl.load_workbook(io.BytesIO(output), data_only=True).active
+        self.assertEqual(len(parsed._cells), 2)
+        self.assertEqual(parsed["A1"].value, "First")
+        self.assertEqual(parsed["XFD1048576"].value, "31%")
+
+    def test_cached_formula_error_and_text_keep_their_meaning(self):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(["Formula", "Error", "Identifier", "Percentage"])
+        ws.append(["=1/4", "#DIV/0!", "00123", 0.125])
+        ws["A2"].number_format = "0%"
+        ws["B2"].number_format = "0%"
+        ws["D2"].number_format = "0.0%"
+        raw = io.BytesIO()
+        wb.save(raw)
+        data = io.BytesIO()
+        with zipfile.ZipFile(io.BytesIO(raw.getvalue())) as src, zipfile.ZipFile(data, "w", zipfile.ZIP_DEFLATED) as dst:
+            for item in src.infolist():
+                content = src.read(item.filename)
+                if item.filename == "xl/worksheets/sheet1.xml":
+                    self.assertIn(b"<f>1/4</f><v></v>", content)
+                    content = content.replace(b"<f>1/4</f><v></v>", b"<f>1/4</f><v>0.25</v>")
+                dst.writestr(item, content)
+        converted = fill_merged_cells_xlsx(data.getvalue(), percent_as_text=True)
+        self.assertEqual(_read_cells(converted, "A2", "B2", "C2", "D2"), ["25%", "#DIV/0!", "00123", "12.5%"])
 
 
 if __name__ == "__main__":
