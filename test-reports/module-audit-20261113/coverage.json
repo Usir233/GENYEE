@@ -4646,7 +4646,7 @@
     },
     {
       "id": "internal/application/repository/retriever/postgres",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/application/repository/retriever/postgres/hnsw_index.go",
         "internal/application/repository/retriever/postgres/move.go",
@@ -4658,12 +4658,21 @@
         "internal/application/repository/retriever/postgres/keyword_score_integration_test.go",
         "internal/application/repository/retriever/postgres/keyword_score_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/application/repository/retriever/postgres/hnsw_index.go",
+        "internal/application/repository/retriever/postgres/move.go",
+        "internal/application/repository/retriever/postgres/repository.go",
+        "internal/application/repository/retriever/postgres/structs.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/retriever-estimate.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source read; clone tag/index contract and backend-specific checks continue. Live PostgreSQL integration skipped without dedicated DSN."
+      ]
     },
     {
       "id": "internal/application/repository/retriever/qdrant",
@@ -4686,7 +4695,7 @@
     },
     {
       "id": "internal/application/repository/retriever/sqlite",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/application/repository/retriever/sqlite/move.go",
         "internal/application/repository/retriever/sqlite/repository.go"
@@ -4700,12 +4709,19 @@
         "internal/application/repository/retriever/sqlite/repository_test.go",
         "internal/application/repository/retriever/sqlite/save_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/application/repository/retriever/sqlite/move.go",
+        "internal/application/repository/retriever/sqlite/repository.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/retriever-estimate.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source read; clone tag/index contract and backend-specific checks continue. Live PostgreSQL integration skipped without dedicated DSN."
+      ]
     },
     {
       "id": "internal/application/repository/retriever/tencentvectordb",
@@ -6022,7 +6038,7 @@
     },
     {
       "id": "internal/application/service/retriever",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/application/service/retriever/composite.go",
         "internal/application/service/retriever/factory.go",
@@ -6043,12 +6059,28 @@
         "internal/application/service/retriever/registry_rehydrate_test.go",
         "internal/application/service/retriever/registry_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "internal/application/service/retriever/composite.go",
+        "internal/application/service/retriever/factory.go",
+        "internal/application/service/retriever/keywords_vector_hybrid_indexer.go",
+        "internal/application/service/retriever/normalizer.go",
+        "internal/application/service/retriever/ownership.go",
+        "internal/application/service/retriever/precomputed.go",
+        "internal/application/service/retriever/registry.go"
+      ],
+      "invariants_checked": [
+        "Storage estimation uses SourceID, matching actual embedding persistence for generated and FAQ questions."
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/retriever-estimate.json"
+      ],
+      "findings": [
+        "RETRIEVER-R1"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source read; clone tag/index contract and backend-specific checks continue. Live PostgreSQL integration skipped without dedicated DSN."
+      ]
     },
     {
       "id": "internal/application/service/sandboxalloc",
@@ -12258,6 +12290,10 @@
     {
       "commit": "886e2a4e8",
       "module": "cloud document download cancellation"
+    },
+    {
+      "commit": "87b7e902c",
+      "module": "document repeated rows and image enrichment"
     }
   ],
   "frontend_final_gate": {

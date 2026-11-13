@@ -1,0 +1,171 @@
+{
+  "module": "retriever vector storage estimate",
+  "finding": {
+    "id": "R1",
+    "status": "fixed_validated_frozen",
+    "severity": "P2",
+    "summary": "Vector storage quota estimate keys placeholders by ChunkID but repositories consume SourceID; generated/FAQ similar questions lose vector byte estimate.",
+    "provenance": [
+      "internal/application/service/retriever/keywords_vector_hybrid_indexer.go:304",
+      "internal/application/repository/retriever/postgres/structs.go:78",
+      "internal/application/service/knowledge_faq_import.go:1949",
+      "internal/application/service/knowledge_faq_import.go:2060"
+    ],
+    "before": {
+      "command": "go test ./internal/application/service/retriever -run '^TestEstimateStorageSizeCountsEverySourceVector$' -count=1",
+      "exit_code": 1,
+      "log": ".git/module-audit-20261113/retriever-estimate-before.log",
+      "observed": [
+        "generated question expected 218 bytes, actual 206",
+        "three FAQ sources expected 654 bytes, actual 630"
+      ]
+    },
+    "fix": "Use SourceID as the estimate embedding map key, matching Save and BatchSave.",
+    "owned_files": [
+      "internal/application/service/retriever/keywords_vector_hybrid_indexer.go",
+      "internal/application/service/retriever/storage_estimate_test.go"
+    ],
+    "test_design": "Real PostgreSQL estimator without a database; hand-derived text bytes + 200 metadata + 6 bytes/dimension; normal/generated/FAQ rows, dimensions 2/768 and keyword-only nil embedder."
+  },
+  "validation": {
+    "after": {
+      "status": "passed",
+      "log": ".git/module-audit-20261113/retriever-estimate-after.log",
+      "exit_code": 0,
+      "command": "GENYEE_RETRIEVER_TEST_POSTGRES_DSN='' go test -count=1 ./internal/application/service/retriever ./internal/application/repository/retriever/postgres ./internal/application/repository/retriever/sqlite"
+    },
+    "race": {
+      "status": "passed",
+      "log": ".git/module-audit-20261113/retriever-estimate-race.log",
+      "exit_code": 0,
+      "command": "GENYEE_RETRIEVER_TEST_POSTGRES_DSN='' go test -race -count=1 ./internal/application/service/retriever"
+    },
+    "diff_check": {
+      "status": "passed",
+      "command": "git diff --check -- internal/application/service/retriever/keywords_vector_hybrid_indexer.go internal/application/service/retriever/storage_estimate_test.go"
+    }
+  },
+  "source_review": [
+    {
+      "path": "internal/application/repository/retriever/postgres/hnsw_index.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed dimension bounds, advisory locking, pinned session, existing-index validation and recovery. No confirmed defect; no PostgreSQL runtime available."
+    },
+    {
+      "path": "internal/application/repository/retriever/postgres/keyword_score_integration_test.go",
+      "status": "test_reviewed",
+      "notes": "Test read in full."
+    },
+    {
+      "path": "internal/application/repository/retriever/postgres/move.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed source KB+knowledge constrained metadata move and cleared tags."
+    },
+    {
+      "path": "internal/application/repository/retriever/postgres/repository.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed save/upsert, dedup, parameterized keyword/vector scope, HNSW query and fallback, keyset copy, delete, grouped updates and storage estimate. Clone tag mismatch tracked as R2 across caller boundary; real PostgreSQL runtime not exercised."
+    },
+    {
+      "path": "internal/application/repository/retriever/postgres/structs.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed SourceID-keyed vector conversion, dimension and enabled state; supports R1 evidence."
+    },
+    {
+      "path": "internal/application/repository/retriever/sqlite/index_write_errors_test.go",
+      "status": "test_reviewed",
+      "notes": "Test read in full."
+    },
+    {
+      "path": "internal/application/repository/retriever/sqlite/move.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed source KB+knowledge constrained metadata move; queries join moved metadata."
+    },
+    {
+      "path": "internal/application/repository/retriever/sqlite/repository.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed schema, FTS migration, vec readiness, transactional upsert/delete, copy, filters before topK, tokenization, updates and estimate. Copy sourceKB/missing-map contract gap recorded C1. Clone tag mismatch tracked R2. SQLite estimate excludes vector bytes; requires separate contract assessment."
+    },
+    {
+      "path": "internal/application/repository/retriever/sqlite/repository_test.go",
+      "status": "test_reviewed",
+      "notes": "Test read in full."
+    },
+    {
+      "path": "internal/application/repository/retriever/sqlite/save_test.go",
+      "status": "test_reviewed",
+      "notes": "Test read in full."
+    },
+    {
+      "path": "internal/application/service/retriever/composite.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed routing, fanout, partial-error contract, writes and move preflight. Same-engine result+call-error drop is not reported: interface reserves call error for store-level failure without results."
+    },
+    {
+      "path": "internal/application/service/retriever/composite_partial_test.go",
+      "status": "test_reviewed",
+      "notes": "Test read in full."
+    },
+    {
+      "path": "internal/application/service/retriever/factory.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed explicit tenant ownership and bound/unbound routing/error classification; no confirmed defect."
+    },
+    {
+      "path": "internal/application/service/retriever/keywords_vector_hybrid_indexer.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed single/batch indexing, bounded windows, embedding retry/cancel, delegated updates and estimation. Confirmed R1."
+    },
+    {
+      "path": "internal/application/service/retriever/keywords_vector_hybrid_indexer_test.go",
+      "status": "test_reviewed",
+      "notes": "Test read in full."
+    },
+    {
+      "path": "internal/application/service/retriever/move_test.go",
+      "status": "test_reviewed",
+      "notes": "Test read in full."
+    },
+    {
+      "path": "internal/application/service/retriever/normalizer.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed score clamping, nonfinite scores, keyword preservation; no confirmed defect."
+    },
+    {
+      "path": "internal/application/service/retriever/ownership.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed repository tenant ownership lookup; no confirmed defect."
+    },
+    {
+      "path": "internal/application/service/retriever/precomputed.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed vector count/source uniqueness and window slicing; no confirmed defect."
+    },
+    {
+      "path": "internal/application/service/retriever/precomputed_test.go",
+      "status": "test_reviewed",
+      "notes": "Test read in full."
+    },
+    {
+      "path": "internal/application/service/retriever/registry.go",
+      "status": "source_reviewed",
+      "notes": "Reviewed cached/lazy load, generation race protection, tenant-scoped hydration, singleflight and cancellation. Cached engines require ownership factory; no confirmed isolation defect."
+    },
+    {
+      "path": "internal/application/service/retriever/storage_estimate_test.go",
+      "status": "test_reviewed",
+      "notes": "Test read in full."
+    }
+  ],
+  "root_review": "One-line source key fix, PostgreSQL estimator implementation and regression tests reviewed; module/race logs checked.",
+  "limitations": [
+    "PostgreSQL, sqlite and shared service production files read; other backend production files are pending.",
+    "PostgreSQL tests use sqlmock; integration DSN explicitly blank. No live PostgreSQL/pgvector/pg_search server was exercised.",
+    "Source review inventory distinguishes test files only partially viewed from fully read files.",
+    "Other agents modify unrelated workspace files concurrently; no changes to those files."
+  ],
+  "frozen_sha256": {
+    "internal/application/service/retriever/keywords_vector_hybrid_indexer.go": "41cd2cd224f9ac21dff5c11d753e112ca08852ea3560cdb52a82801af785635c",
+    "internal/application/service/retriever/storage_estimate_test.go": "6e07c1abadc9397c7fd0e2df3981f96925cf237eb07074268ebd001bfb95f8f3"
+  }
+}

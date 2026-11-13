@@ -301,7 +301,7 @@ func (v *KeywordsVectorHybridRetrieveEngineService) EstimateStorageSize(
 		embeddingMap := make(map[string][]float32)
 		// just for estimate storage size
 		for _, indexInfo := range indexInfoList {
-			embeddingMap[indexInfo.ChunkID] = make([]float32, embedder.GetDimensions())
+			embeddingMap[indexInfo.SourceID] = make([]float32, embedder.GetDimensions())
 		}
 		params["embedding"] = embeddingMap
 	}
