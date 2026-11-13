@@ -152,6 +152,9 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			if opts.GenerateSkeleton {
+				return cmdutil.GenerateAgentSkeleton(iostreams.IO.Out)
+			}
 			planArgs := map[string]any{"name": opts.Name}
 			if configFile != "" {
 				planArgs["config"] = configFile

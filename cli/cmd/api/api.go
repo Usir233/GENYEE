@@ -133,7 +133,7 @@ Examples:
 			// `create` (also ungated). GET/HEAD are reads.
 			switch method {
 			case http.MethodDelete:
-				if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "endpoint", args[0], "api.delete", []string{"genyee", "api", "-X", "DELETE", args[0], "-y"}); err != nil {
+				if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "endpoint", args[0], "api.delete", apiRetryArgv(opts, method, args[0])); err != nil {
 					return err
 				}
 			case http.MethodPut, http.MethodPatch:

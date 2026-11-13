@@ -235,6 +235,9 @@ func waitForDocs(ctx context.Context, ids []string, svc WaitService, opts WaitOp
 				case "failed":
 					addFailed(FailedDoc{ID: id, Message: doc.ErrorMessage})
 					return
+				case "cancelled":
+					addFailed(FailedDoc{ID: id, Message: "parse_status=cancelled: run `genyee doc reparse " + id + "` to restart parsing"})
+					return
 				case "draft":
 					// draft = created but NOT queued for parsing (inline
 					// `doc create` leaves docs here; file `doc upload`

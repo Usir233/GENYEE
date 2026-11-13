@@ -112,8 +112,23 @@ func (f *FileStore) Set(profile, key, value string) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("mkdir secrets dir: %w", err)
 	}
-	if err := os.WriteFile(p, []byte(value), 0o600); err != nil {
+	// A new 0600 inode also repairs permissions left by restored files and
+	// replaces a credential symlink without overwriting its target.
+	tmp, err := os.CreateTemp(dir, ".credential-*")
+	if err != nil {
+		return fmt.Errorf("create secret file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer func() { _ = os.Remove(tmpPath) }()
+	if _, err := tmp.WriteString(value); err != nil {
+		_ = tmp.Close()
 		return fmt.Errorf("write secret: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close secret: %w", err)
+	}
+	if err := os.Rename(tmpPath, p); err != nil {
+		return fmt.Errorf("replace secret: %w", err)
 	}
 	return nil
 }

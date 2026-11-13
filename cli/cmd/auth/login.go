@@ -201,7 +201,11 @@ func runLogin(ctx context.Context, opts *LoginOptions, fopts *cmdutil.FormatOpti
 			if cmdutil.ClassifyHTTPError(err) == cmdutil.CodeNetworkError {
 				return cmdutil.Wrapf(cmdutil.CodeNetworkError, err, "validate API key: check host reachability")
 			}
-			return cmdutil.Wrapf(cmdutil.CodeAuthBadCredential, err, "validate API key")
+			code := cmdutil.ClassifyHTTPError(err)
+			if code == cmdutil.CodeAuthUnauthenticated {
+				code = cmdutil.CodeAuthBadCredential
+			}
+			return cmdutil.Wrapf(code, err, "validate API key")
 		}
 		return persistAPIKey(opts, fopts, f, user)
 	}
@@ -235,7 +239,11 @@ func runLogin(ctx context.Context, opts *LoginOptions, fopts *cmdutil.FormatOpti
 		if cmdutil.ClassifyHTTPError(err) == cmdutil.CodeNetworkError {
 			return cmdutil.Wrapf(cmdutil.CodeNetworkError, err, "login: check host reachability")
 		}
-		return cmdutil.Wrapf(cmdutil.CodeAuthBadCredential, err, "login")
+		code := cmdutil.ClassifyHTTPError(err)
+		if code == cmdutil.CodeAuthUnauthenticated {
+			code = cmdutil.CodeAuthBadCredential
+		}
+		return cmdutil.Wrapf(code, err, "login")
 	}
 	if !resp.Success || resp.Token == "" {
 		return cmdutil.NewError(cmdutil.CodeAuthBadCredential, fmt.Sprintf("login refused: %s", resp.Message))
@@ -341,7 +349,7 @@ func saveProfileRef(opts *LoginOptions, fopts *cmdutil.FormatOptions, f *cmdutil
 	prof := cfg.Profiles[opts.Profile] // existing record (Host, User, TenantID)
 	mutate(&prof)
 	cfg.Profiles[opts.Profile] = prof
-	if err := config.Save(cfg); err != nil {
+	if err := f.SaveConfig(cfg); err != nil {
 		return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "save config")
 	}
 	if fopts.WantsJSON() {

@@ -67,10 +67,9 @@ func EmitDryRun(w io.Writer, fopts *FormatOptions, plan DryRunPlan) error {
 	if fopts == nil {
 		fopts = &FormatOptions{Mode: FormatJSON}
 	}
-	// NDJSON mode is meaningless for a single dry-run envelope (the contract
-	// emits exactly one object). Fall back to JSON envelope shape so meta.plan
-	// is surfaced; this matches what every other mutation emit does.
-	if fopts.Mode == FormatNDJSON {
+	// A dry-run always emits one reviewable envelope, including when the
+	// command normally renders text or one NDJSON item per resource.
+	if fopts.Mode == FormatNDJSON || fopts.Mode == FormatText {
 		jsonOpts := *fopts
 		jsonOpts.Mode = FormatJSON
 		return jsonOpts.Emit(w, nil, meta)

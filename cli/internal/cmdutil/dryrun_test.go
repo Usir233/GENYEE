@@ -200,3 +200,14 @@ func TestEmitDryRun_PopulatesProfile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, buf.String(), `"profile":"staging"`, "expected profile field; got %q", buf.String())
 }
+
+func TestEmitDryRunTextStillEmitsReviewablePlan(t *testing.T) {
+	var buf bytes.Buffer
+	opts := &FormatOptions{Mode: FormatText, TTY: true}
+	require.NoError(t, EmitDryRun(&buf, opts, DryRunPlan{Action: "kb.create", Args: map[string]any{"name": "example"}}))
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(buf.Bytes(), &got))
+	require.Equal(t, true, got["ok"])
+	require.Equal(t, true, got["meta"].(map[string]any)["dry_run"])
+	require.Equal(t, FormatText, opts.Mode, "do not change options for callers")
+}

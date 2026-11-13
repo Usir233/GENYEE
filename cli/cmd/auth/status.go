@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
+	"github.com/Usir233/GENYEE/cli/internal/config"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	sdk "github.com/Usir233/GENYEE/client"
 )
@@ -88,9 +89,14 @@ func runStatus(ctx context.Context, fopts *cmdutil.FormatOptions, f *cmdutil.Fac
 	user := resp.Data.User
 	tenant := resp.Data.Tenant
 
-	cfg, err := f.Config()
-	if err != nil {
-		return err
+	envActive, envKind := cmdutil.EnvCredential()
+	envHost := strings.TrimSpace(os.Getenv("GENYEE_HOST"))
+	cfg := &config.Config{CurrentProfile: "(env)"}
+	if !envActive || envHost == "" {
+		cfg, err = f.Config()
+		if err != nil {
+			return err
+		}
 	}
 
 	// Effective host + auth source. Stateless env credentials
@@ -102,10 +108,10 @@ func runStatus(ctx context.Context, fopts *cmdutil.FormatOptions, f *cmdutil.Fac
 		host = c.Host
 	}
 	authSource := "profile + keyring"
-	if active, kind := cmdutil.EnvCredential(); active {
-		authSource = kind + " env (stateless)"
-		if h := strings.TrimSpace(os.Getenv("GENYEE_HOST")); h != "" {
-			host = h
+	if envActive {
+		authSource = envKind + " env (stateless)"
+		if envHost != "" {
+			host = envHost
 		}
 	}
 

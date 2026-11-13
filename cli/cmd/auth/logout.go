@@ -37,7 +37,8 @@ func NewCmdLogout(f *cmdutil.Factory) *cobra.Command {
 		Use:   "logout",
 		Short: "Remove stored credentials for a profile",
 		Long: `Clear keyring + file-fallback secrets for one profile (or all of
-them with --all) and drop the profile entry from ~/.config/genyee/config.yaml.
+them with --all), keeping the profile registered for a later login.
+If credential deletion fails, its references are kept so logout can be retried.
 
 Note: this does NOT revoke the credential server-side - for API keys, you
 must rotate them in the server UI; for JWT, the token will continue to be
@@ -138,7 +139,11 @@ func runLogout(opts *LogoutOptions, fopts *cmdutil.FormatOptions, f *cmdutil.Fac
 		return err
 	}
 	for _, name := range targets {
-		clearProfileSecrets(store, cfg.Profiles[name], name)
+		if err := clearProfileSecrets(store, cfg.Profiles[name], name); err != nil {
+			return err
+		}
+	}
+	for _, name := range targets {
 		// Keep the profile registered (its host stays) — only clear the
 		// credential refs so it reads as logged-out and can be re-authed with
 		// `auth login`. Deleting the profile entirely is `profile remove`'s job;
@@ -149,7 +154,7 @@ func runLogout(opts *LogoutOptions, fopts *cmdutil.FormatOptions, f *cmdutil.Fac
 		p.RefreshRef = ""
 		cfg.Profiles[name] = p
 	}
-	if err := config.Save(cfg); err != nil {
+	if err := f.SaveConfig(cfg); err != nil {
 		return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "save config")
 	}
 
@@ -181,17 +186,15 @@ func pickLogoutTargets(opts *LogoutOptions, cfg *config.Config) ([]string, error
 	return []string{name}, nil
 }
 
-// clearProfileSecrets best-effort deletes every secret slot the profile
-// references. Errors are swallowed because a missing secret is a no-op
-// (tested in keyring_test.go) - we don't want a stale ref to block logout.
-func clearProfileSecrets(store secrets.Store, c config.Profile, name string) {
-	if c.TokenRef != "" {
-		_ = store.Delete(name, "access")
+// clearProfileSecrets leaves failures visible so configuration references are
+// retained until every referenced credential has been deleted.
+func clearProfileSecrets(store secrets.Store, c config.Profile, name string) error {
+	for _, slot := range []struct{ key, ref string }{{"access", c.TokenRef}, {"refresh", c.RefreshRef}, {"api_key", c.APIKeyRef}} {
+		if slot.ref != "" {
+			if err := store.Delete(name, slot.key); err != nil {
+				return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "delete %s credential for profile %q", slot.key, name)
+			}
+		}
 	}
-	if c.RefreshRef != "" {
-		_ = store.Delete(name, "refresh")
-	}
-	if c.APIKeyRef != "" {
-		_ = store.Delete(name, "api_key")
-	}
+	return nil
 }

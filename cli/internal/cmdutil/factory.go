@@ -109,6 +109,21 @@ func New() *Factory {
 	return f
 }
 
+// SaveConfig persists profile edits without turning a one-shot override into
+// the default profile. Commands that intentionally switch profiles use
+// config.Save directly.
+func (f *Factory) SaveConfig(cfg *config.Config) error {
+	toSave := *cfg
+	if f.ProfileOverride != "" {
+		persisted, err := config.Load()
+		if err != nil {
+			return err
+		}
+		toSave.CurrentProfile = persisted.CurrentProfile
+	}
+	return config.Save(&toSave)
+}
+
 // buildClient resolves the active profile, loads the credentials from secrets,
 // and constructs a *sdk.Client. Returns CodeAuthUnauthenticated when no
 // credentials are available so the user gets the right hint to run

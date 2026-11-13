@@ -99,7 +99,7 @@ func ConfirmDestructiveBatch(p prompt.Prompter, yes, jsonOut bool, verb, what st
 			CodeInputConfirmationRequired,
 			fmt.Sprintf("%s %d %s(s) requires explicit confirmation: re-run with -y/--yes", verb, n, what),
 		).
-			WithRetryArgv(retryArgv).
+			WithRetryArgv(confirmationRetryArgv(retryArgv)).
 			WithRisk("destructive", action)
 	}
 	ok, err := p.Confirm(fmt.Sprintf("%s %d %s(s)? %s", titleFirst(verb), n, what, confirmCaveat(verb)), false)
@@ -166,7 +166,7 @@ func confirmGated(p prompt.Prompter, yes, jsonOut bool, verb, what, id, action, 
 			CodeInputConfirmationRequired,
 			fmt.Sprintf("%s %s %s requires explicit confirmation: re-run with -y/--yes", verb, what, id),
 		).
-			WithRetryArgv(retryArgv).
+			WithRetryArgv(confirmationRetryArgv(retryArgv)).
 			WithRisk(level, action)
 	}
 	ok, err := p.Confirm(fmt.Sprintf("%s %s %s? %s", titleFirst(verb), what, id, confirmCaveat(verb)), false)
@@ -178,4 +178,14 @@ func confirmGated(p prompt.Prompter, yes, jsonOut bool, verb, what, id, action, 
 		return NewError(CodeUserAborted, fmt.Sprintf("%s aborted", verb))
 	}
 	return nil
+}
+
+// Pin the resolved profile so an approved retry cannot fall back to a different
+// default after a one-shot --profile selection.
+func confirmationRetryArgv(argv []string) []string {
+	if globalProfile == "" || len(argv) == 0 || argv[0] != "genyee" {
+		return argv
+	}
+	out := []string{argv[0], "--profile", globalProfile}
+	return append(out, argv[1:]...)
 }

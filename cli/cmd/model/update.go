@@ -81,10 +81,10 @@ Reversible write: without -y/--yes in a non-TTY / JSON context it exits 10
 				return err
 			}
 			yes, _ := c.Flags().GetBool("yes")
-			// --api-key-stdin / --param excluded from retry_argv (stdin secret /
-			// repeatable), matching agent update's multi-value exclusions.
+			// Preserve the requested fields for confirmation without reading
+			// the secret from stdin until execution is approved.
 			retry := cmdutil.BuildRetryArgv(c, []string{"genyee", "model", "update", id},
-				"display-name", "description", "base-url", "default", "format")
+				"display-name", "description", "base-url", "default", "api-key-stdin", "param", "format")
 			if err := cmdutil.ConfirmWrite(f.Prompter(), yes, fopts.WantsJSON(), "update", "model", id, "model.update", retry); err != nil {
 				return err
 			}

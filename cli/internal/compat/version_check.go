@@ -15,6 +15,7 @@ import (
 
 // Info is the cached server version snapshot.
 type Info struct {
+	Host          string            `yaml:"host,omitempty"`
 	ServerVersion string            `yaml:"server_version"`
 	EngineInfo    map[string]string `yaml:"engine_info,omitempty"`
 	ProbedAt      time.Time         `yaml:"probed_at"`

@@ -54,24 +54,34 @@
       ],
       "inspected_files": [],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "CLI whole-module tests executed; no claim of complete test source review."
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
     },
     {
       "id": "cli/acceptance",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/acceptance/doc.go"
       ],
       "test_files": [],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/acceptance/doc.go"
+      ],
+      "invariants_checked": [
+        "package documentation"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/acceptance/e2e",
@@ -82,14 +92,16 @@
       ],
       "inspected_files": [],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "CLI whole-module tests executed; no claim of complete test source review."
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
     },
     {
       "id": "cli/cmd/agent",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/agent/agent.go",
         "cli/cmd/agent/check.go",
@@ -111,16 +123,33 @@
         "cli/cmd/agent/status_test.go",
         "cli/cmd/agent/view_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "cli/cmd/agent/agent.go",
+        "cli/cmd/agent/check.go",
+        "cli/cmd/agent/create.go",
+        "cli/cmd/agent/delete.go",
+        "cli/cmd/agent/edit.go",
+        "cli/cmd/agent/list.go",
+        "cli/cmd/agent/status.go",
+        "cli/cmd/agent/view.go"
+      ],
+      "invariants_checked": [
+        "config merge, pointer/zero values, model/KB references, copy/edit flow, prompts, offline skeleton, status/check contracts"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
+      "findings": [
+        "CLI-007"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/exitcodes.go",
         "cli/cmd/root.go",
@@ -137,16 +166,26 @@
         "cli/cmd/root_unknown_subcommand_test.go",
         "cli/cmd/schema_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/cmd/exitcodes.go",
+        "cli/cmd/root.go",
+        "cli/cmd/schema.go"
+      ],
+      "invariants_checked": [
+        "root command registration, global flag/format/profile/input precedence, schema and exit-code mapping"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/api",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/api/api.go"
       ],
@@ -156,16 +195,26 @@
         "cli/cmd/api/api_test.go",
         "cli/cmd/api/paginate_text_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "cli/cmd/api/api.go"
+      ],
+      "invariants_checked": [
+        "raw JSON/number preservation, methods, confirmation/body retry, response status/body, pagination"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
+      "findings": [
+        "CLI-009"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/auth",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/auth/auth.go",
         "cli/cmd/auth/list.go",
@@ -187,32 +236,59 @@
         "cli/cmd/auth/token_env_trim_test.go",
         "cli/cmd/auth/token_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "cli/cmd/auth/auth.go",
+        "cli/cmd/auth/list.go",
+        "cli/cmd/auth/login.go",
+        "cli/cmd/auth/logout.go",
+        "cli/cmd/auth/refresh.go",
+        "cli/cmd/auth/status.go",
+        "cli/cmd/auth/token.go"
+      ],
+      "invariants_checked": [
+        "credential selection, persistence, overrides, secret cleanup, SDK errors, output"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
+      "findings": [
+        "CLI-002",
+        "CLI-003",
+        "CLI-010",
+        "CLI-011"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/chat",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/chat/chat.go"
       ],
       "test_files": [
         "cli/cmd/chat/chat_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/cmd/chat/chat.go"
+      ],
+      "invariants_checked": [
+        "session creation, SSE callback lifecycle, projection, terminal/error/cancel behavior"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/chunk",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/chunk/chunk.go",
         "cli/cmd/chunk/delete.go",
@@ -225,16 +301,27 @@
         "cli/cmd/chunk/list_truncation_test.go",
         "cli/cmd/chunk/view_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/cmd/chunk/chunk.go",
+        "cli/cmd/chunk/delete.go",
+        "cli/cmd/chunk/list.go",
+        "cli/cmd/chunk/view.go"
+      ],
+      "invariants_checked": [
+        "SDK ID routing, list limit vs page window contract, deletion parent identity"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/config",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/config/config.go",
         "cli/cmd/config/view.go"
@@ -242,16 +329,25 @@
       "test_files": [
         "cli/cmd/config/view_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/cmd/config/config.go",
+        "cli/cmd/config/view.go"
+      ],
+      "invariants_checked": [
+        "resolved precedence presentation and no-secret output"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/doc",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/doc/create.go",
         "cli/cmd/doc/delete.go",
@@ -283,32 +379,65 @@
         "cli/cmd/doc/wait_jq_validation_test.go",
         "cli/cmd/doc/wait_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "cli/cmd/doc/create.go",
+        "cli/cmd/doc/delete.go",
+        "cli/cmd/doc/doc.go",
+        "cli/cmd/doc/download.go",
+        "cli/cmd/doc/fetch.go",
+        "cli/cmd/doc/list.go",
+        "cli/cmd/doc/reparse.go",
+        "cli/cmd/doc/update.go",
+        "cli/cmd/doc/upload.go",
+        "cli/cmd/doc/upload_recursive.go",
+        "cli/cmd/doc/view.go",
+        "cli/cmd/doc/wait.go"
+      ],
+      "invariants_checked": [
+        "CRUD wires, input/body validation, batch selection, file/symlink handling, pagination contract, wait/cancel lifecycle"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
+      "findings": [
+        "CLI-006"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/doctor",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/doctor/doctor.go"
       ],
       "test_files": [
         "cli/cmd/doctor/doctor_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "cli/cmd/doctor/doctor.go"
+      ],
+      "invariants_checked": [
+        "offline/online cascade, host/credential selection, cache identity/TTL, version classification, output errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
+      "findings": [
+        "CLI-008",
+        "CLI-011",
+        "CLI-012"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/kb",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/kb/check.go",
         "cli/cmd/kb/config.go",
@@ -337,16 +466,34 @@
         "cli/cmd/kb/status_test.go",
         "cli/cmd/kb/view_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/cmd/kb/check.go",
+        "cli/cmd/kb/config.go",
+        "cli/cmd/kb/config_set.go",
+        "cli/cmd/kb/create.go",
+        "cli/cmd/kb/delete.go",
+        "cli/cmd/kb/edit.go",
+        "cli/cmd/kb/kb.go",
+        "cli/cmd/kb/list.go",
+        "cli/cmd/kb/pin.go",
+        "cli/cmd/kb/status.go",
+        "cli/cmd/kb/view.go"
+      ],
+      "invariants_checked": [
+        "model config readiness/wires, pin idempotency, CRUD/confirmation, status/check aggregation"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/link",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/link/link.go",
         "cli/cmd/link/unlink.go"
@@ -356,31 +503,49 @@
         "cli/cmd/link/link_test.go",
         "cli/cmd/link/unlink_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/cmd/link/link.go",
+        "cli/cmd/link/unlink.go"
+      ],
+      "invariants_checked": [
+        "directory discovery/persistence, KB resolution, explicit selection and unlink boundary"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/mcp",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/mcp/mcp.go",
         "cli/cmd/mcp/serve.go"
       ],
       "test_files": [],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/cmd/mcp/mcp.go",
+        "cli/cmd/mcp/serve.go"
+      ],
+      "invariants_checked": [
+        "curated 10-tool surface, validation, streaming accumulation, read/download cap, protocol errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/message",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/message/delete.go",
         "cli/cmd/message/list.go",
@@ -392,16 +557,27 @@
         "cli/cmd/message/list_test.go",
         "cli/cmd/message/search_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/cmd/message/delete.go",
+        "cli/cmd/message/list.go",
+        "cli/cmd/message/message.go",
+        "cli/cmd/message/search.go"
+      ],
+      "invariants_checked": [
+        "cursor/time parsing, enum filters, message/session identity and deletion gate"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/model",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/model/create.go",
         "cli/cmd/model/delete.go",
@@ -417,16 +593,31 @@
         "cli/cmd/model/update_test.go",
         "cli/cmd/model/view_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "cli/cmd/model/create.go",
+        "cli/cmd/model/delete.go",
+        "cli/cmd/model/list.go",
+        "cli/cmd/model/model.go",
+        "cli/cmd/model/update.go",
+        "cli/cmd/model/view.go"
+      ],
+      "invariants_checked": [
+        "provider mapping, parameter merge, key stdin, default/empty values, confirmation argv"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
+      "findings": [
+        "CLI-009"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/profile",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/profile/add.go",
         "cli/cmd/profile/list.go",
@@ -441,16 +632,30 @@
         "cli/cmd/profile/remove_test.go",
         "cli/cmd/profile/use_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "cli/cmd/profile/add.go",
+        "cli/cmd/profile/list.go",
+        "cli/cmd/profile/profile.go",
+        "cli/cmd/profile/remove.go",
+        "cli/cmd/profile/use.go"
+      ],
+      "invariants_checked": [
+        "explicit/default selection, name validation, host persistence, credential cleanup"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
+      "findings": [
+        "CLI-003"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/search",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/search/chunks.go",
         "cli/cmd/search/docs.go",
@@ -465,16 +670,28 @@
         "cli/cmd/search/search_test.go",
         "cli/cmd/search/sessions_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/cmd/search/chunks.go",
+        "cli/cmd/search/docs.go",
+        "cli/cmd/search/kb.go",
+        "cli/cmd/search/search.go",
+        "cli/cmd/search/sessions.go"
+      ],
+      "invariants_checked": [
+        "metadata vs semantic search, filters, score/order/limit handling, existing pagination semantics"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/session",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/session/ask.go",
         "cli/cmd/session/delete.go",
@@ -496,48 +713,79 @@
         "cli/cmd/session/tool_approval_test.go",
         "cli/cmd/session/view_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/cmd/session/ask.go",
+        "cli/cmd/session/delete.go",
+        "cli/cmd/session/list.go",
+        "cli/cmd/session/resume.go",
+        "cli/cmd/session/session.go",
+        "cli/cmd/session/stop.go",
+        "cli/cmd/session/tool_approval.go",
+        "cli/cmd/session/view.go"
+      ],
+      "invariants_checked": [
+        "pagination/since filters, message views, deletions, tool approvals, stream resume/stop/ask"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/cmd/skills",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/cmd/skills/skills.go"
       ],
       "test_files": [
         "cli/cmd/skills/skills_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/cmd/skills/skills.go"
+      ],
+      "invariants_checked": [
+        "embedded inventory and install target/file handling"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/build",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/build/build.go"
       ],
       "test_files": [
         "cli/internal/build/build_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/build/build.go"
+      ],
+      "invariants_checked": [
+        "link-time version metadata"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/cmdutil",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/cmdutil/agentconfig.go",
         "cli/internal/cmdutil/agenthelp.go",
@@ -587,16 +835,47 @@
         "cli/internal/cmdutil/risk_test.go",
         "cli/internal/cmdutil/suggest_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "cli/internal/cmdutil/agentconfig.go",
+        "cli/internal/cmdutil/agenthelp.go",
+        "cli/internal/cmdutil/authrefresh.go",
+        "cli/internal/cmdutil/authretry.go",
+        "cli/internal/cmdutil/batch.go",
+        "cli/internal/cmdutil/charcheck.go",
+        "cli/internal/cmdutil/confirm.go",
+        "cli/internal/cmdutil/dryrun.go",
+        "cli/internal/cmdutil/errors.go",
+        "cli/internal/cmdutil/exit.go",
+        "cli/internal/cmdutil/factory.go",
+        "cli/internal/cmdutil/format.go",
+        "cli/internal/cmdutil/host.go",
+        "cli/internal/cmdutil/input.go",
+        "cli/internal/cmdutil/kb.go",
+        "cli/internal/cmdutil/loglevel.go",
+        "cli/internal/cmdutil/model.go",
+        "cli/internal/cmdutil/profilename.go",
+        "cli/internal/cmdutil/risk.go",
+        "cli/internal/cmdutil/suggest.go"
+      ],
+      "invariants_checked": [
+        "lazy factory, auth retry/refresh, profile/host/KB/model resolution, confirmation, error/output/dry-run contracts"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
+      "findings": [
+        "CLI-002",
+        "CLI-004",
+        "CLI-005"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/compat",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/compat/cache.go",
         "cli/internal/compat/compat.go",
@@ -607,32 +886,52 @@
         "cli/internal/compat/compat_test.go",
         "cli/internal/compat/version_check_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "cli/internal/compat/cache.go",
+        "cli/internal/compat/compat.go",
+        "cli/internal/compat/version_check.go"
+      ],
+      "invariants_checked": [
+        "version probing/parsing, atomic TTL cache, server identity"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
+      "findings": [
+        "CLI-008"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/config",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/config/config.go"
       ],
       "test_files": [
         "cli/internal/config/config_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/config/config.go"
+      ],
+      "invariants_checked": [
+        "load/default/env overlay and save semantics"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/format",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/format/bare.go",
         "cli/internal/format/dash.go",
@@ -646,32 +945,52 @@
         "cli/internal/format/ndjson_test.go",
         "cli/internal/format/references_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/format/bare.go",
+        "cli/internal/format/dash.go",
+        "cli/internal/format/filter.go",
+        "cli/internal/format/ndjson.go",
+        "cli/internal/format/references.go"
+      ],
+      "invariants_checked": [
+        "JSON/NDJSON encoding, jq errors/number preservation, references and field projections"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/iostreams",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/iostreams/iostreams.go"
       ],
       "test_files": [
         "cli/internal/iostreams/iostreams_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/iostreams/iostreams.go"
+      ],
+      "invariants_checked": [
+        "stdio/TTY selection and test isolation"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/mcp",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/mcp/server.go",
         "cli/internal/mcp/tools.go"
@@ -684,16 +1003,25 @@
         "cli/internal/mcp/tools_security_test.go",
         "cli/internal/mcp/tools_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/mcp/server.go",
+        "cli/internal/mcp/tools.go"
+      ],
+      "invariants_checked": [
+        "entrypoint or module wiring"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/output",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/output/batch.go",
         "cli/internal/output/envelope.go",
@@ -704,32 +1032,50 @@
         "cli/internal/output/envelope_test.go",
         "cli/internal/output/ndjson_stream_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/output/batch.go",
+        "cli/internal/output/envelope.go",
+        "cli/internal/output/ndjson_stream.go"
+      ],
+      "invariants_checked": [
+        "envelope, error, stream and batch result schemas"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/projectlink",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/projectlink/projectlink.go"
       ],
       "test_files": [
         "cli/internal/projectlink/projectlink_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/projectlink/projectlink.go"
+      ],
+      "invariants_checked": [
+        "directory traversal, schema validation and unlink/persistence behavior"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/prompt",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/prompt/prompt.go",
         "cli/internal/prompt/tty.go"
@@ -737,16 +1083,25 @@
       "test_files": [
         "cli/internal/prompt/prompt_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/prompt/prompt.go",
+        "cli/internal/prompt/tty.go"
+      ],
+      "invariants_checked": [
+        "TTY and noninteractive paths, cancellation errors"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/secrets",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/secrets/keyring.go",
         "cli/internal/secrets/secrets.go"
@@ -755,12 +1110,23 @@
         "cli/internal/secrets/keyring_test.go",
         "cli/internal/secrets/secrets_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "cli/internal/secrets/keyring.go",
+        "cli/internal/secrets/secrets.go"
+      ],
+      "invariants_checked": [
+        "memory/file/keyring namespace, errors, permissions, atomic overwrite and cleanup"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
+      "findings": [
+        "CLI-001"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/skillparity",
@@ -771,14 +1137,16 @@
       ],
       "inspected_files": [],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "CLI whole-module tests executed; no claim of complete test source review."
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
     },
     {
       "id": "cli/internal/sse",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/sse/accumulator.go",
         "cli/internal/sse/agent_accumulator.go",
@@ -789,31 +1157,50 @@
         "cli/internal/sse/agent_accumulator_test.go",
         "cli/internal/sse/projector_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/sse/accumulator.go",
+        "cli/internal/sse/agent_accumulator.go",
+        "cli/internal/sse/projector.go"
+      ],
+      "invariants_checked": [
+        "terminal-state accumulation, projected answer/reference/tool events and text rendering"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/testutil",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/testutil/prompter.go",
         "cli/internal/testutil/xdg.go"
       ],
       "test_files": [],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/testutil/prompter.go",
+        "cli/internal/testutil/xdg.go"
+      ],
+      "invariants_checked": [
+        "isolated XDG and scripted prompt helpers"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/text",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/text/displayname.go",
         "cli/internal/text/match.go",
@@ -830,42 +1217,72 @@
         "cli/internal/text/timeago_test.go",
         "cli/internal/text/truncate_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/text/displayname.go",
+        "cli/internal/text/match.go",
+        "cli/internal/text/oneline.go",
+        "cli/internal/text/pluralize.go",
+        "cli/internal/text/timeago.go",
+        "cli/internal/text/timeago_string.go",
+        "cli/internal/text/truncate.go"
+      ],
+      "invariants_checked": [
+        "UTF-8/display width, empty/time/name/one-line formatting"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/internal/xdg",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/internal/xdg/xdg.go"
       ],
       "test_files": [
         "cli/internal/xdg/xdg_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/internal/xdg/xdg.go"
+      ],
+      "invariants_checked": [
+        "path resolution and atomic YAML persistence"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/main.go"
       ],
       "test_files": [],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/main.go"
+      ],
+      "invariants_checked": [
+        "signal context and exit code propagation"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "cli/scripts",
@@ -877,24 +1294,34 @@
       "test_files": [],
       "inspected_files": [],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "CLI whole-module tests executed; no claim of complete test source review."
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
     },
     {
       "id": "cli/skills",
-      "status": "pending",
+      "status": "audited",
       "source_files": [
         "cli/skills/embed.go"
       ],
       "test_files": [],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "cli/skills/embed.go"
+      ],
+      "invariants_checked": [
+        "embedded skill inventory/path/content lookup"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/cli.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Source logic reviewed by raw source or AST; repeated help text omitted from AST views. Tests passed; live E2E/keyring/deployment not exercised."
+      ]
     },
     {
       "id": "client",
@@ -993,7 +1420,8 @@
         },
         {
           "report": "test-reports/module-audit-20261113/client-sdk.json"
-        }
+        },
+        "CLI whole-module tests executed; no claim of complete test source review."
       ],
       "findings": [
         {
@@ -11652,6 +12080,10 @@
     {
       "commit": "cd1bb98fc",
       "module": "saved-credential handle destination revocation"
+    },
+    {
+      "commit": "1b71947b3",
+      "module": "resource ownership and failed-upload cleanup"
     }
   ],
   "frontend_final_gate": {
@@ -11669,5 +12101,14 @@
       ".git/module-audit-20261113/frontend-i18n.log",
       "/tmp/genyee-frontend-audit-20261113/frontend-followup-tests.log"
     ]
+  },
+  "backend_gate_1b71947b3": {
+    "head": "1b71947b3fcc6d67a8543d129d0a500e7344c51a",
+    "test": "FAIL: TestAutomationApprovalResumeUsesRemainingExecutionBudget; all other packages passed",
+    "test_log": ".git/module-audit-20261113/backend-full-test.log",
+    "vet": "PASS",
+    "build": "PASS (exit code lost from first process; cached confirmation exit 0 recorded)",
+    "build_log": ".git/module-audit-20261113/backend-full-build-confirm.log",
+    "status": "failure under investigation; not final passing gate"
   }
 }

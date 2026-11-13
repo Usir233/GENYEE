@@ -113,7 +113,9 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 			}
 			cliVer, _, _ := build.Info()
 			r := runChecks(c.Context(), opts, svc, cliVer)
-			emit(fopts, r)
+			if err := emit(fopts, r); err != nil {
+				return err
+			}
 			// Exit-code policy: fail → exit 1; warn / ok / skip → exit 0.
 			// SilentError suppresses both the human "error: ..." line and
 			// the stderr error formatter, so the JSON already written by
@@ -309,8 +311,12 @@ func fillCredentialStorageCheck(c *Check) {
 // write is best-effort. Returns fromCache so the caller can render the
 // "cached" presentation hint without a brittle ProbedAt heuristic.
 func loadOrProbeServerInfo(ctx context.Context, opts *Options, svc Services) (info *compat.Info, fromCache bool, err error) {
+	var host string
+	if source, ok := svc.(interface{ CacheKey() string }); ok {
+		host = source.CacheKey()
+	}
 	if !opts.NoCache {
-		if cached, fresh, _ := compat.LoadCache(); fresh && cached != nil {
+		if cached, fresh, _ := compat.LoadCache(); fresh && cached != nil && cached.Host == host {
 			return cached, true, nil
 		}
 	}
@@ -318,6 +324,7 @@ func loadOrProbeServerInfo(ctx context.Context, opts *Options, svc Services) (in
 	if err != nil {
 		return nil, false, err
 	}
+	probed.Host = host
 	_ = compat.SaveCache(probed)
 	return probed, false, nil
 }
@@ -343,10 +350,9 @@ func summarize(cs []Check) Summary {
 // emit renders the doctor result. The JSON path emits the Result directly;
 // pass/fail signaling is conveyed by summary.failed (and the process exit
 // code, set by the caller).
-func emit(fopts *cmdutil.FormatOptions, r Result) {
+func emit(fopts *cmdutil.FormatOptions, r Result) error {
 	if fopts.WantsJSON() {
-		_ = fopts.Emit(iostreams.IO.Out, r, nil)
-		return
+		return fopts.Emit(iostreams.IO.Out, r, nil)
 	}
 	for _, c := range r.Checks {
 		// %-2s for the glyph: most are 1 column, leaves room for one trailing
@@ -363,6 +369,7 @@ func emit(fopts *cmdutil.FormatOptions, r Result) {
 	}
 	fmt.Fprintf(iostreams.IO.Out, "\nsummary: %d passed, %d warned, %d failed, %d skipped\n",
 		r.Summary.Passed, r.Summary.Warned, r.Summary.Failed, r.Summary.Skipped)
+	return nil
 }
 
 // marker returns the text-mode prefix glyph for a check status.
@@ -394,6 +401,9 @@ func marker(s Status) string {
 // contradicting the docs. Instead, GetCurrentUser / GetSystemInfo lazily
 // resolve and surface their own failure as a per-check StatusFail.
 func buildServices(f *cmdutil.Factory) (Services, error) {
+	if active, _ := cmdutil.EnvCredential(); active && strings.TrimSpace(os.Getenv("GENYEE_HOST")) != "" {
+		return &realServices{f: f, host: resolveDoctorHost(&config.Config{})}, nil
+	}
 	cfg, err := f.Config()
 	if err != nil {
 		return nil, err
@@ -435,6 +445,14 @@ func resolveDoctorHost(cfg *config.Config) string {
 type realServices struct {
 	f    *cmdutil.Factory
 	host string
+}
+
+// CacheKey prevents a cached compatibility result from crossing servers.
+func (s *realServices) CacheKey() string {
+	if host, err := cmdutil.NormalizeHost(s.host); err == nil {
+		return host
+	}
+	return s.host
 }
 
 // pingTimeout caps the HEAD /health probe so a wedged TCP connection
