@@ -160,15 +160,18 @@ A 网站嵌入 B 的 GENYEE 时，白名单填 A。标准 Nginx 使用 `/api/v1/
 
 | 事件 | 触发时机 | 载荷字段 |
 | --- | --- | --- |
-| `message_sent` | 访客发出提问 | `type`、`channel_id`、`session_id`、`timestamp`、`query` |
-| `message_received` | 助手回复完成 | `type`、`channel_id`、`session_id`、`timestamp`、`content` |
+| `message_sent` | 访客提问已持久化，前端收到消息 ID | `type`、`channel_id`、`session_id`、`message_id`、`timestamp`、`query` |
+| `message_received` | 助手回复已完成并持久化 | `type`、`channel_id`、`session_id`、`message_id`、`timestamp`、`content` |
 
 安全与投递语义：
 
 - 配置了 `webhook_secret` 时附带签名头 `X-Genyee-Signature: sha256=<hex(HMAC-SHA256(secret, raw_body))>`；
-- URL 必须 HTTPS，出站请求走 SSRF 安全客户端（每次重定向重新校验，最多 5 跳），超时 5 秒，User-Agent 为 `GENYEE-Embed-Webhook/1.0`；
+- URL 支持 HTTP/HTTPS，建议生产使用 HTTPS；出站请求走 SSRF 安全客户端（每次重定向重新校验，最多 5 跳），超时 5 秒，User-Agent 为 `GENYEE-Embed-Webhook/1.0`；
 - 异步 best-effort 投递，失败仅记录日志、**不重试**；
-- 前端也可通过 `POST /api/v1/embed/:channel_id/sessions/:session_id/events` 显式转发事件。
+- 前端通过 `POST /api/v1/embed/:channel_id/sessions/:session_id/events` 提交 `type` 和 `message_id`，服务端校验会话归属、消息角色和完成状态后读取持久化文本生成回调。`query` 包含实际存储的宿主上下文；宿主页面的 `postMessage` 仍使用访客输入的原始问题。
+- `message_sent` 等待 SSE `agent_query` 确认用户消息 ID；`message_received` 等待该轮 `complete`。`answer.done`、等待输入的暂停状态和保存失败不会触发完成回调。
+- 同一渠道、会话、事件类型和消息 ID 在同一服务进程内去重 30 分钟；相同问题的不同消息 ID 分别投递。接收方可用这些字段继续做幂等处理，不应依赖严格一次或到达顺序保证。
+- 历史加载不会重放旧事件，只对当前页面已记录的待处理消息 ID 恢复转发；页面关闭或断线前未收到消息 ID 时可能丢失事件。显式恢复的暂停任务在轮询确认消息完成后转发。
 
 ## 配置与接口参考
 
@@ -196,7 +199,7 @@ type EmbedChannel struct {
     AllowWebSearch         bool           // 允许联网搜索
     AllowFileUpload        bool           // 允许文件/图片上传
     DefaultLocale          string         // 默认语言
-    WebhookURL             string         // 出站 webhook（HTTPS）
+    WebhookURL             string         // 出站 webhook（HTTP/HTTPS）
     WebhookSecret          string         // HMAC-SHA256 签名密钥
     ...
 }
@@ -223,7 +226,7 @@ type EmbedChannel struct {
 | `allow_web_search` | bool | `false` | 访客侧是否允许联网搜索开关 |
 | `allow_file_upload` | bool | `false` | 访客侧是否允许上传图片/文件 |
 | `default_locale` | string | 空（跟随浏览器） | `zh-CN` \| `en-US` \| `ko-KR` \| `ja-JP` \| `ru-RU` |
-| `webhook_url` | string | 空 | 事件回调地址，**必须为 HTTPS 且通过 SSRF 校验**（禁止内网/链路本地地址） |
+| `webhook_url` | string | 空 | HTTP/HTTPS 事件回调地址，**必须通过 SSRF 校验**（默认禁止内网/链路本地地址），生产建议 HTTPS |
 | `webhook_secret` | string | 空 | webhook 签名密钥（API 响应中永不回显） |
 
 渠道和绑定 Agent 均开启图片上传后，访客可在聊天输入框中粘贴截图，确认预览后发送，也可移除预览中的图片。粘贴与文件选择共用限制：JPEG、PNG、GIF、WebP，每张不超过 10 MB，每次最多 5 张。纯文本粘贴保持原有行为；剪贴板同时包含图片和文本时，按主聊天的方式仅添加图片。
@@ -304,8 +307,12 @@ sequenceDiagram
     Note over Iframe: session id + sig 存入 localStorage
     Visitor->>Iframe: 输入问题
     Iframe->>API: POST /agent-chat/:session_id (X-Embed-Session: sig)
+    API-->>Iframe: SSE agent_query (已持久化的 user/assistant 消息 ID)
+    Iframe->>API: POST /sessions/:session_id/events (message_sent, message_id)
     API-->>Webhook: 异步 POST message_sent (X-Genyee-Signature)
     API-->>Iframe: SSE 流式回复
+    API-->>Iframe: SSE complete (助手消息保存成功)
+    Iframe->>API: POST /sessions/:session_id/events (message_received, message_id)
     API-->>Webhook: 异步 POST message_received
     Iframe-->>Host: postMessage "message_received"
 ```
@@ -316,7 +323,7 @@ sequenceDiagram
 - **双 token 体系**：安全模式下 publish token 不出服务端，浏览器只持有 30 分钟短效 `ems_` token。
 - **会话签名**：`X-Embed-Session` HMAC 签名把会话绑定到（渠道、会话、当前 publish token）三元组，轮换 token 即可全量吊销。
 - **三层限流**：单 IP/分钟、渠道/分钟（20 倍单 IP、下限 120）、渠道/天，Redis Lua 原子实现。
-- **Webhook SSRF 防护**：仅 HTTPS、内网地址拒绝、重定向逐跳校验、5 秒超时。
+- **Webhook SSRF 防护**：HTTP/HTTPS、默认拒绝内网地址、重定向逐跳校验、5 秒超时。
 
 ## 实现参考
 

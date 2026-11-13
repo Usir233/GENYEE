@@ -619,7 +619,7 @@ func urlQueryEscape(value string) string {
 
 // Logout godoc
 // @Summary      用户登出
-// @Description  撤销当前访问令牌并登出
+// @Description  校验当前访问令牌并撤销该登录会话的全部访问及刷新令牌（包括轮换后的令牌），不影响其他登录会话
 // @Tags         认证
 // @Accept       json
 // @Produce      json
@@ -652,8 +652,7 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 	token := tokenParts[1]
 
-	// Revoke only the presented active access token after validating signature,
-	// expiration, and revocation state.
+	// Validate the presented access token, then revoke its entire login session.
 	err := h.userService.Logout(ctx, token)
 	if err != nil {
 		logger.Warnf(ctx, "Failed to logout with presented token: %v", err)

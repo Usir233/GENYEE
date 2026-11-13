@@ -307,6 +307,7 @@ func (r *cleanupUserRepo) SearchUsers(context.Context, string, int) ([]*types.Us
 }
 
 type cleanupTokenRepo struct {
+	interfaces.AuthTokenRepository
 	revoked []string
 }
 

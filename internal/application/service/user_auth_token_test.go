@@ -69,12 +69,39 @@ func (s *stubAuthTokenRepo) GetTokensByUserID(context.Context, string) ([]*types
 }
 func (s *stubAuthTokenRepo) UpdateToken(context.Context, *types.AuthToken) error { return nil }
 func (s *stubAuthTokenRepo) DeleteToken(context.Context, string) error           { return nil }
-func (s *stubAuthTokenRepo) DeleteExpiredTokens(context.Context) error { return nil }
+func (s *stubAuthTokenRepo) DeleteExpiredTokens(context.Context) error           { return nil }
 func (s *stubAuthTokenRepo) RevokeToken(_ context.Context, id string) error {
 	s.revokedTokenIDs = append(s.revokedTokenIDs, id)
 	for _, token := range s.tokens {
 		if token != nil && token.ID == id {
 			token.IsRevoked = true
+		}
+	}
+	return nil
+}
+func (s *stubAuthTokenRepo) RotateRefreshToken(ctx context.Context, previous, access, refresh *types.AuthToken) error {
+	stored, err := s.GetTokenByValue(ctx, previous.Token)
+	if err != nil {
+		return err
+	}
+	if stored.IsRevoked {
+		return errors.New("refresh token is revoked")
+	}
+	stored.IsRevoked = true
+	if err := s.CreateToken(ctx, access); err != nil {
+		return err
+	}
+	return s.CreateToken(ctx, refresh)
+}
+func (s *stubAuthTokenRepo) RevokeTokenSession(ctx context.Context, access *types.AuthToken) error {
+	if access.SessionID == "" || access.IsRevoked || !access.ExpiresAt.After(time.Now()) {
+		return errors.New("invalid access token session")
+	}
+	for _, token := range s.tokens {
+		if token.UserID == access.UserID && token.SessionID == access.SessionID {
+			if err := s.RevokeToken(ctx, token.ID); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -232,7 +259,7 @@ func TestRefreshTokenRejectsAccessTokenRecord(t *testing.T) {
 	}
 }
 
-func TestLogoutValidatesActiveTokenAndRevokesOnlyCurrentToken(t *testing.T) {
+func TestLogoutValidatesActiveTokenAndRevokesOnlyCurrentSession(t *testing.T) {
 	ctx := context.Background()
 	tokenRepo := &stubAuthTokenRepo{tokens: map[string]*types.AuthToken{}}
 	svc := newAuthTestUserService(tokenRepo)
@@ -270,12 +297,16 @@ func TestLogoutValidatesActiveTokenAndRevokesOnlyCurrentToken(t *testing.T) {
 	})
 	tokenRepo.tokens[activeAccess] = &types.AuthToken{
 		ID:        "tok-active-1",
+		SessionID: "session-1",
+		ExpiresAt: time.Now().Add(time.Hour),
 		UserID:    "user-1",
 		Token:     activeAccess,
 		TokenType: "access_token",
 	}
 	tokenRepo.tokens[otherAccess] = &types.AuthToken{
 		ID:        "tok-active-2",
+		SessionID: "session-2",
+		ExpiresAt: time.Now().Add(time.Hour),
 		UserID:    "user-1",
 		Token:     otherAccess,
 		TokenType: "access_token",

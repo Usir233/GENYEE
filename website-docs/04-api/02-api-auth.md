@@ -97,7 +97,7 @@ curl $BASE/api/v1/auth/config
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `tenant_id` | uint64 | 是（`binding:"required"`） | 目标空间 ID |
-| `refresh_token` | string | 否 | 用于换发新 token |
+| `refresh_token` | string | 否 | 当前用户的有效刷新令牌；提供时在同一登录会话内原子换发，省略时创建独立登录会话 |
 
 响应：200，同 Login。
 
@@ -162,6 +162,8 @@ curl -i "$BASE/api/v1/auth/oidc/callback?code=xxx&state=yyy"
 
 响应：200 `{"success":true,"access_token":"...","refresh_token":"..."}`
 
+刷新令牌只能使用一次；撤销旧令牌与保存新令牌在同一事务内完成。新令牌仍属于原登录会话，随后登出会同时撤销该会话的所有轮换代次。
+
 ```bash
 curl -X POST $BASE/api/v1/auth/refresh -H 'Content-Type: application/json' -d '{"refreshToken":"<rt>"}'
 ```
@@ -178,7 +180,7 @@ curl $BASE/api/v1/auth/validate -H "Authorization: Bearer $TOKEN"
 
 ### POST /api/v1/auth/logout
 
-用途：登出（失效当前 token）。需登录。无请求体。Handler: `internal/handler/auth.go`
+用途：校验当前有效访问令牌后，撤销该登录会话的全部访问令牌和刷新令牌，包括轮换后的令牌；其他登录会话不受影响。需登录。无请求体。Handler: `internal/handler/auth.go`
 
 响应：200 `{"success":true,"message":"Logout successful"}`
 

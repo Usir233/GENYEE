@@ -7,6 +7,7 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,6 +42,7 @@ func TestRefreshTokenImmediateRotationsAreDistinctAndSingleUse(t *testing.T) {
 }
 
 type mockCompensationTokenRepo struct {
+	interfaces.AuthTokenRepository
 	createCalls   int
 	createdTokens []*types.AuthToken
 	createErrs    []error

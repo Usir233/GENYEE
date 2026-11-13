@@ -493,5 +493,96 @@ func (r *authTokenRepository) RevokeToken(ctx context.Context, id string) error 
 
 // RevokeTokensByUserID revokes all tokens for a user
 func (r *authTokenRepository) RevokeTokensByUserID(ctx context.Context, userID string) error {
-	return r.db.WithContext(ctx).Model(&types.AuthToken{}).Where("user_id = ?", userID).Update("is_revoked", true).Error
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Share the rotation/logout lock, including for disabled users. Without
+		// it an UPDATE snapshot can miss a concurrent rotation's new tokens.
+		if err := tx.Model(&types.User{}).Where("id = ?", userID).
+			UpdateColumn("updated_at", gorm.Expr("updated_at")).Error; err != nil {
+			return err
+		}
+		return tx.Model(&types.AuthToken{}).Where("user_id = ?", userID).
+			Updates(map[string]interface{}{"is_revoked": true, "updated_at": time.Now()}).Error
+	})
+}
+
+// lockAuthUser serializes session rotation and logout before either reads or
+// changes token state. A no-op write takes a row lock on PostgreSQL and a write
+// lock on SQLite; unlike an in-process mutex it also protects multiple servers.
+// Taking this lock first avoids a read-to-write lock upgrade on SQLite.
+func lockAuthUser(tx *gorm.DB, userID string) error {
+	result := tx.Model(&types.User{}).
+		Where("id = ? AND is_active = ?", userID, true).
+		UpdateColumn("updated_at", gorm.Expr("updated_at"))
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return errors.New("token user is missing or disabled")
+	}
+	return nil
+}
+
+// consumeLiveToken rechecks persisted identity, expiry and revocation under the
+// user lock. A service-layer validation alone can become stale before commit.
+func consumeLiveToken(tx *gorm.DB, token *types.AuthToken, tokenType string) error {
+	result := tx.Model(&types.AuthToken{}).
+		Where("id = ? AND user_id = ? AND session_id = ? AND token = ? AND token_type = ? AND is_revoked = ? AND expires_at > ?",
+			token.ID, token.UserID, token.SessionID, token.Token, tokenType, false, time.Now()).
+		Updates(map[string]interface{}{"is_revoked": true, "updated_at": time.Now()})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected != 1 {
+		return errors.New("token is revoked, expired or not found")
+	}
+	return nil
+}
+
+func validSessionToken(token *types.AuthToken, tokenType string) bool {
+	return token != nil && token.ID != "" && token.UserID != "" && token.SessionID != "" &&
+		token.Token != "" && token.TokenType == tokenType && !token.IsRevoked && token.ExpiresAt.After(time.Now())
+}
+
+// RotateRefreshToken commits consumption and the replacement pair together.
+// Logout takes the same lock, so it either revokes the newly issued pair or
+// wins first and causes this transaction to reject its revoked source token.
+func (r *authTokenRepository) RotateRefreshToken(ctx context.Context, previous, access, refresh *types.AuthToken) error {
+	if !validSessionToken(previous, "refresh_token") ||
+		!validSessionToken(access, "access_token") || !validSessionToken(refresh, "refresh_token") ||
+		previous.UserID != access.UserID || previous.UserID != refresh.UserID ||
+		previous.SessionID != access.SessionID || previous.SessionID != refresh.SessionID ||
+		previous.ID == access.ID || previous.ID == refresh.ID || access.ID == refresh.ID {
+		return errors.New("invalid refresh token session")
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockAuthUser(tx, previous.UserID); err != nil {
+			return err
+		}
+		if err := consumeLiveToken(tx, previous, "refresh_token"); err != nil {
+			return err
+		}
+		if err := tx.Omit(clause.Associations).Create(access).Error; err != nil {
+			return err
+		}
+		return tx.Omit(clause.Associations).Create(refresh).Error
+	})
+}
+
+// RevokeTokenSession checks the presented access token again in the same
+// transaction that revokes every access/refresh token in its login session.
+func (r *authTokenRepository) RevokeTokenSession(ctx context.Context, access *types.AuthToken) error {
+	if !validSessionToken(access, "access_token") {
+		return errors.New("invalid access token session")
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockAuthUser(tx, access.UserID); err != nil {
+			return err
+		}
+		if err := consumeLiveToken(tx, access, "access_token"); err != nil {
+			return err
+		}
+		return tx.Model(&types.AuthToken{}).
+			Where("user_id = ? AND session_id = ? AND is_revoked = ?", access.UserID, access.SessionID, false).
+			Updates(map[string]interface{}{"is_revoked": true, "updated_at": time.Now()}).Error
+	})
 }

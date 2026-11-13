@@ -25,6 +25,7 @@ import (
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 )
 
 // EmbedChannelHandler manages web embed channel CRUD and public embed endpoints.
@@ -631,8 +632,7 @@ func (h *EmbedChannelHandler) EmbedResolveAgentPrompt(c *gin.Context) {
 type embedWebhookEventRequest struct {
 	Type      string `json:"type"`
 	SessionID string `json:"session_id"`
-	Query     string `json:"query"`
-	Content   string `json:"content"`
+	MessageID string `json:"message_id"`
 }
 
 var embedRelayedMessageSeen struct {
@@ -698,48 +698,34 @@ func (h *EmbedChannelHandler) EmbedRelayWebhookEvent(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "unverified client webhook relay is disabled"})
 		return
 	}
-	recentMsgs, err := h.messageHandler.MessageService.GetRecentMessagesBySession(c.Request.Context(), pathSessionID, 20)
+	messageID := strings.TrimSpace(req.MessageID)
+	if messageID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "message_id is required"})
+		return
+	}
+	// Resolve an exact persisted row, never client-supplied text. Identical
+	// questions are separate turns, and stored queries can include host context.
+	message, err := h.messageHandler.MessageService.GetMessage(c.Request.Context(), pathSessionID, messageID)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "webhook event does not match a persisted session message"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to verify session messages"})
 		return
 	}
-	payload := map[string]any{}
-	var matchedMsgID string
-	switch eventType {
-	case "message_sent":
-		q := strings.TrimSpace(req.Query)
-		if q == "" || strings.TrimSpace(req.Content) != "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid message_sent payload"})
-			return
-		}
-		for i := len(recentMsgs) - 1; i >= 0; i-- {
-			m := recentMsgs[i]
-			if m != nil && m.SessionID == pathSessionID && m.Role == "user" && strings.TrimSpace(m.Content) == q {
-				matchedMsgID = m.ID
-				payload["query"] = m.Content
-				break
-			}
-		}
-	case "message_received":
-		content := strings.TrimSpace(req.Content)
-		if content == "" || strings.TrimSpace(req.Query) != "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid message_received payload"})
-			return
-		}
-		for i := len(recentMsgs) - 1; i >= 0; i-- {
-			m := recentMsgs[i]
-			if m != nil && m.SessionID == pathSessionID && m.Role == "assistant" && m.IsCompleted && strings.TrimSpace(m.Content) == content {
-				matchedMsgID = m.ID
-				payload["content"] = m.Content
-				break
-			}
-		}
+	role, contentKey := "user", "query"
+	if eventType == "message_received" {
+		role, contentKey = "assistant", "content"
 	}
-	if matchedMsgID == "" {
+	if message == nil || message.ID != messageID || message.SessionID != pathSessionID ||
+		message.Role != role || !message.IsCompleted || message.RunState == types.MessageRunStateAwaitingInput ||
+		strings.TrimSpace(message.Content) == "" {
 		c.JSON(http.StatusForbidden, gin.H{"error": "webhook event does not match a persisted session message"})
 		return
 	}
-	dedupKey := ch.ID + "|" + pathSessionID + "|" + eventType + "|" + matchedMsgID
+	payload := map[string]any{"message_id": message.ID, contentKey: message.Content}
+	dedupKey := ch.ID + "|" + pathSessionID + "|" + eventType + "|" + message.ID
 	if !claimEmbedRelayedEventOnce(dedupKey, time.Now()) {
 		c.JSON(http.StatusOK, gin.H{"success": true})
 		return

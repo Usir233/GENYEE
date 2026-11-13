@@ -1224,6 +1224,21 @@ func (s *userService) generateTokensForTenant(
 	user *types.User,
 	activeTenantID uint64,
 ) (accessToken, refreshToken string, err error) {
+	return s.issueTokensForSession(ctx, user, activeTenantID, nil)
+}
+
+// issueTokensForSession keeps rotations in the original login session. A nil
+// previous refresh token starts an independent login session.
+func (s *userService) issueTokensForSession(
+	ctx context.Context,
+	user *types.User,
+	activeTenantID uint64,
+	previous *types.AuthToken,
+) (accessToken, refreshToken string, err error) {
+	sessionID := uuid.New().String()
+	if previous != nil {
+		sessionID = previous.SessionID
+	}
 	// JWT timestamps have second precision. Unique IDs keep rapid logins and
 	// refresh rotations distinct, even when every other claim is identical.
 	accessTokenID := uuid.New().String()
@@ -1263,6 +1278,7 @@ func (s *userService) generateTokensForTenant(
 	// Store tokens in database
 	accessTokenRecord := &types.AuthToken{
 		ID:        accessTokenID,
+		SessionID: sessionID,
 		UserID:    user.ID,
 		Token:     accessToken,
 		TokenType: "access_token",
@@ -1273,12 +1289,20 @@ func (s *userService) generateTokensForTenant(
 
 	refreshTokenRecord := &types.AuthToken{
 		ID:        refreshTokenID,
+		SessionID: sessionID,
 		UserID:    user.ID,
 		Token:     refreshToken,
 		TokenType: "refresh_token",
 		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
+	}
+
+	if previous != nil {
+		if err := s.tokenRepo.RotateRefreshToken(ctx, previous, accessTokenRecord, refreshTokenRecord); err != nil {
+			return "", "", fmt.Errorf("rotate refresh token: %w", err)
+		}
+		return accessToken, refreshToken, nil
 	}
 
 	// Persist before returning the pair: a signed token the database has no row
@@ -1308,8 +1332,8 @@ func (s *userService) generateTokensForTenant(
 
 // SwitchTenant verifies that user has an active membership in
 // targetTenantID and issues a new token pair scoped to that tenant.
-// The previous refresh token (if provided) is revoked so the old session
-// can no longer roll forward into the source tenant.
+// A provided refresh token is atomically rotated in the same login session.
+// Calls without one start a separate session, as with a new login.
 //
 // On success the target is also recorded as the user's last-active-
 // tenant preference. Refresh tokens do not carry tenant_id, so
@@ -1355,6 +1379,18 @@ func (s *userService) SwitchTenant(
 		return nil, fmt.Errorf("load target workspace: %w", err)
 	}
 
+	var previous *types.AuthToken
+	if strings.TrimSpace(currentRefreshToken) != "" {
+		var refreshUser *types.User
+		previous, refreshUser, err = s.validateRefreshTokenRecord(ctx, currentRefreshToken)
+		if err != nil {
+			return nil, fmt.Errorf("validate previous refresh token: %w", err)
+		}
+		if refreshUser.ID != user.ID {
+			return nil, errors.New("refresh token belongs to a different user")
+		}
+	}
+
 	// Persist before minting tokens so a 200 response is also a
 	// durable landing-preference update. RefreshToken re-reads this
 	// field; writing after issue would leave a window where access
@@ -1363,18 +1399,9 @@ func (s *userService) SwitchTenant(
 		return nil, fmt.Errorf("record last-active-tenant preference: %w", err)
 	}
 
-	accessToken, refreshToken, err := s.generateTokensForTenant(ctx, user, targetTenantID)
+	accessToken, refreshToken, err := s.issueTokensForSession(ctx, user, targetTenantID, previous)
 	if err != nil {
 		return nil, fmt.Errorf("generate tokens: %w", err)
-	}
-
-	// Best-effort revoke of the previous refresh token. Failure is
-	// logged but not fatal — the new tokens are already issued and the
-	// old refresh token will expire naturally.
-	if strings.TrimSpace(currentRefreshToken) != "" {
-		if err := s.RevokeToken(ctx, currentRefreshToken); err != nil {
-			logger.Warnf(ctx, "Failed to revoke previous refresh token during tenant switch: %v", err)
-		}
 	}
 
 	memberships := s.buildMembershipsForUser(ctx, user, tenant)
@@ -1577,6 +1604,14 @@ func (s *userService) RefreshToken(
 	ctx context.Context,
 	refreshTokenString string,
 ) (accessToken, newRefreshToken string, err error) {
+	tokenRecord, user, err := s.validateRefreshTokenRecord(ctx, refreshTokenString)
+	if err != nil {
+		return "", "", err
+	}
+	return s.issueTokensForSession(ctx, user, s.resolveLoginTenantID(ctx, user), tokenRecord)
+}
+
+func (s *userService) validateRefreshTokenRecord(ctx context.Context, refreshTokenString string) (*types.AuthToken, *types.User, error) {
 	token, err := jwt.Parse(refreshTokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -1585,74 +1620,66 @@ func (s *userService) RefreshToken(
 	})
 
 	if err != nil || !token.Valid {
-		return "", "", errors.New("invalid refresh token")
+		return nil, nil, errors.New("invalid refresh token")
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok {
-		return "", "", errors.New("invalid token claims")
+		return nil, nil, errors.New("invalid token claims")
 	}
 
 	tokenType, ok := claims["type"].(string)
 	if !ok || tokenType != "refresh" {
-		return "", "", errors.New("not a refresh token")
+		return nil, nil, errors.New("not a refresh token")
 	}
 
 	userID, ok := claims["user_id"].(string)
-	if !ok {
-		return "", "", errors.New("invalid user ID in token")
+	if !ok || strings.TrimSpace(userID) == "" {
+		return nil, nil, errors.New("invalid user ID in token")
 	}
 
 	// Check if token is revoked. See ValidateToken: a lookup failure must not be
 	// reported as a revocation.
 	tokenRecord, err := s.tokenRepo.GetTokenByValue(ctx, refreshTokenString)
 	if err != nil {
-		return "", "", fmt.Errorf("look up refresh token: %w", err)
+		return nil, nil, fmt.Errorf("look up refresh token: %w", err)
 	}
 	if tokenRecord == nil || tokenRecord.IsRevoked {
-		return "", "", errors.New("refresh token is revoked")
+		return nil, nil, errors.New("refresh token is revoked")
 	}
 	if tokenRecord.TokenType != "refresh_token" {
-		return "", "", errors.New("not a refresh token")
+		return nil, nil, errors.New("not a refresh token")
 	}
 
 	// Get user
 	user, err := s.userRepo.GetUserByID(ctx, userID)
 	if err != nil {
-		return "", "", err
+		return nil, nil, err
 	}
 	if user == nil {
-		return "", "", errors.New("user not found")
+		return nil, nil, errors.New("user not found")
 	}
 	if !user.IsActive {
-		return "", "", errors.New("account is disabled")
+		return nil, nil, errors.New("account is disabled")
 	}
 
-	// Revoke old refresh token atomically via CAS
-	tokenRecord.IsRevoked = true
-	tokenRecord.UpdatedAt = time.Now()
-	if err := s.tokenRepo.UpdateToken(ctx, tokenRecord); err != nil {
-		return "", "", fmt.Errorf("failed to revoke refresh token: %w", err)
+	if tokenRecord.UserID != userID {
+		return nil, nil, errors.New("invalid refresh token owner")
 	}
-
-	// Generate new tokens
-	return s.GenerateTokens(ctx, user)
+	if tokenRecord.SessionID == "" || tokenRecord.ID == "" || !tokenRecord.ExpiresAt.After(time.Now()) {
+		return nil, nil, errors.New("refresh token session is invalid or expired")
+	}
+	return tokenRecord, user, nil
 }
 
-// Logout validates that the presented token is a currently valid, unexpired,
-// unrevoked access token and revokes only that token so a leaked expired or
-// revoked token cannot terminate every active session of the user.
+// Logout accepts a currently live access token and revokes its whole login
+// session, including every refresh rotation, without affecting other logins.
 func (s *userService) Logout(ctx context.Context, tokenString string) error {
 	tokenRecord, _, _, err := s.validateAccessTokenRecord(ctx, tokenString)
 	if err != nil {
 		return err
 	}
-	if strings.TrimSpace(tokenRecord.ID) != "" {
-		return s.tokenRepo.RevokeToken(ctx, tokenRecord.ID)
-	}
-	tokenRecord.IsRevoked = true
-	tokenRecord.UpdatedAt = time.Now()
-	return s.tokenRepo.UpdateToken(ctx, tokenRecord)
+	return s.tokenRepo.RevokeTokenSession(ctx, tokenRecord)
 }
 
 // RevokeToken revokes a token

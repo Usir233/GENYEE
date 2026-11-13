@@ -141,10 +141,19 @@ func TestMaskTenantAPIKeyHidesFullSecretOnList(t *testing.T) {
 type stubMessageServiceForEmbedRelay struct {
 	interfaces.MessageService
 	msgs []*types.Message
+	err  error
 }
 
-func (s *stubMessageServiceForEmbedRelay) GetRecentMessagesBySession(_ context.Context, _ string, _ int) ([]*types.Message, error) {
-	return s.msgs, nil
+func (s *stubMessageServiceForEmbedRelay) GetMessage(_ context.Context, _ string, id string) (*types.Message, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	for _, message := range s.msgs {
+		if message != nil && message.ID == id {
+			return message, nil
+		}
+	}
+	return nil, gorm.ErrRecordNotFound
 }
 
 func TestEmbedRelayWebhookEventBlocksSessionOverrideAndForgedContent(t *testing.T) {
@@ -152,15 +161,18 @@ func TestEmbedRelayWebhookEventBlocksSessionOverrideAndForgedContent(t *testing.
 	t.Setenv("SYSTEM_SIGNING_KEY", "")
 	t.Setenv("SYSTEM_AES_KEY", "0123456789abcdef0123456789abcdef")
 
-	var webhookHits atomic.Int32
+	webhookBodies := make(chan map[string]any, 8)
 	hookSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		webhookHits.Add(1)
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		webhookBodies <- body
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer hookSrv.Close()
-	t.Setenv("SSRFSafeURLWhitelist", "127.0.0.1")
+	t.Setenv("SSRF_WHITELIST_EXTRA", "127.0.0.1")
 
 	ch := testEmbedChannel()
+	ch.ID = t.Name() + time.Now().Format("150405.000000000")
 	ch.WebhookURL = hookSrv.URL
 	ch.WebhookSecret = "whsec_test_123"
 	sig := service.SignEmbedSessionHandle(ch, testEmbedSessionID)
@@ -175,10 +187,11 @@ func TestEmbedRelayWebhookEventBlocksSessionOverrideAndForgedContent(t *testing.
 			MessageService: &stubMessageServiceForEmbedRelay{
 				msgs: []*types.Message{
 					{
-						ID:        "msg-real-user-1",
-						SessionID: testEmbedSessionID,
-						Role:      "user",
-						Content:   "legitimate visitor question",
+						ID:          "msg-real-user-1",
+						SessionID:   testEmbedSessionID,
+						Role:        "user",
+						Content:     "legitimate visitor question",
+						IsCompleted: true,
 					},
 				},
 			},
@@ -199,23 +212,30 @@ func TestEmbedRelayWebhookEventBlocksSessionOverrideAndForgedContent(t *testing.
 	}
 
 	// 1. Overriding session_id in body must be rejected with 403.
-	wOverride := makeRelayReq(`{"type":"message_sent","session_id":"victim-other-session","query":"legitimate visitor question"}`)
+	wOverride := makeRelayReq(`{"type":"message_sent","session_id":"victim-other-session","message_id":"msg-real-user-1"}`)
 	if wOverride.Code != http.StatusForbidden {
 		t.Fatalf("session_id override status = %d, want 403; body=%s", wOverride.Code, wOverride.Body.String())
 	}
 
-	// 2. Forged content not in session history must be rejected with 403.
-	wForged := makeRelayReq(`{"type":"message_sent","session_id":"` + testEmbedSessionID + `","query":"FORGED ADMIN COMMAND"}`)
+	// 2. Forged content with no persisted message ID must be rejected with 403.
+	wForged := makeRelayReq(`{"type":"message_sent","session_id":"` + testEmbedSessionID + `","message_id":"unpersisted","query":"FORGED ADMIN COMMAND"}`)
 	if wForged.Code != http.StatusForbidden {
 		t.Fatalf("forged message status = %d, want 403; body=%s", wForged.Code, wForged.Body.String())
 	}
 
-	// 3. Matching persisted message succeeds.
-	wValid := makeRelayReq(`{"type":"message_sent","session_id":"` + testEmbedSessionID + `","query":"legitimate visitor question"}`)
+	// 3. A persisted message succeeds; extra client text cannot alter the webhook.
+	wValid := makeRelayReq(`{"type":"message_sent","session_id":"` + testEmbedSessionID + `","message_id":"msg-real-user-1","query":"FORGED ADMIN COMMAND"}`)
 	if wValid.Code != http.StatusOK {
 		t.Fatalf("valid message status = %d, want 200; body=%s", wValid.Code, wValid.Body.String())
 	}
-	time.Sleep(30 * time.Millisecond)
+	select {
+	case body := <-webhookBodies:
+		if body["query"] != "legitimate visitor question" || body["message_id"] != "msg-real-user-1" {
+			t.Fatalf("webhook must use persisted content: %#v", body)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("verified webhook was not dispatched")
+	}
 }
 
 type stubMCPServiceLookupForEmbed struct {

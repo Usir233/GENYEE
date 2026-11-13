@@ -1892,7 +1892,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "撤销当前访问令牌并登出",
+                "description": "校验当前访问令牌并撤销该登录会话的全部访问及刷新令牌（包括轮换后的令牌），不影响其他登录会话",
                 "consumes": [
                     "application/json"
                 ],

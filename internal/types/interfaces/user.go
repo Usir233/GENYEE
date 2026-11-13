@@ -171,6 +171,11 @@ type AuthTokenRepository interface {
 	DeleteExpiredTokens(ctx context.Context) error
 	// RevokeToken revokes a single token by its primary key
 	RevokeToken(ctx context.Context, id string) error
+	// RotateRefreshToken consumes a live refresh token and stores its replacement pair atomically.
+	// The replacement pair must belong to the same user and login session.
+	RotateRefreshToken(ctx context.Context, previous, access, refresh *types.AuthToken) error
+	// RevokeTokenSession atomically validates a live access token and revokes its entire login session.
+	RevokeTokenSession(ctx context.Context, access *types.AuthToken) error
 	// RevokeTokensByUserID revokes all tokens for a user
 	RevokeTokensByUserID(ctx context.Context, userID string) error
 }

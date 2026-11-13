@@ -158,6 +158,7 @@ func TestBE03_ServiceRefreshTokenConcurrencyRaceAndReplay(t *testing.T) {
 	tokenID := uuid.New().String()
 	tokenRecord := &types.AuthToken{
 		ID:        tokenID,
+		SessionID: uuid.NewString(),
 		UserID:    testUser.ID,
 		Token:     refreshTokenJWT,
 		TokenType: "refresh_token",

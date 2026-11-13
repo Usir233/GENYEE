@@ -638,24 +638,28 @@ export function postEmbedMessageSent(channelId: string, sessionId: string, query
 }
 
 /** Relay a chat event to the channel webhook (server-side, best-effort). */
-export function relayEmbedWebhookEvent(
+export async function relayEmbedWebhookEvent(
   channelId: string,
   token: string,
   sessionId: string,
   sessionSig: string,
-  body: { type: 'message_sent' | 'message_received'; query?: string; content?: string },
-) {
+  body: { type: 'message_sent' | 'message_received'; message_id: string },
+): Promise<boolean> {
   const headers: Record<string, string> = {
     Authorization: `Embed ${token}`,
     'X-Embed-Session': sessionSig,
   }
-  void post(
-    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/events`,
-    { type: body.type, session_id: sessionId, query: body.query, content: body.content },
-    { headers },
-  ).catch(() => {
+  try {
+    await post(
+      `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/events`,
+      { type: body.type, session_id: sessionId, message_id: body.message_id },
+      { headers },
+    )
+    return true
+  } catch {
     // Webhook relay must not block chat.
-  })
+    return false
+  }
 }
 
 /** Notify the parent page when an assistant reply completes. */

@@ -48,8 +48,7 @@ flowchart LR
 
 - 数据目录定为 `~/Library/Application Support/GENYEE Lite/`（名称取自 .app bundle 名）。
 - SQLite 数据库：`.../data/genyee.db`（通过设置 `DB_PATH` 环境变量注入）。
-- 本地文件存储：`.../data/files`（`LOCAL_STORAGE_BASE_DIR`）。
-- `migrateLegacyDesktopData()` 会把旧版存放在 `.app/Contents/Resources/data` 里的数据一次性迁移到 Application Support。
+- 本地文件存储由 `configureDesktopFileStorage()` 配置，默认为 `~/.genyee/data/files`；显式配置的自定义绝对路径会保留（`LOCAL_STORAGE_BASE_DIR`）。
 - 工作目录会切到 `.app/Contents/Resources`，以便读取打包进去的 `config/config.yaml`、`.env`、`migrations/sqlite` 与 `web/` 前端资源。
 
 ## 主要源码文件 {#_2-主要源码文件}

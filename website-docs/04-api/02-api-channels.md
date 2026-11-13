@@ -363,19 +363,22 @@ curl -X POST $BASE/api/v1/embed/ec-1/sessions/s-1/suggestion-events \
 
 ### POST /api/v1/embed/:channel_id/sessions/:session_id/events
 
-用途：转发访客事件到渠道 webhook。需 `X-Embed-Session`。
+用途：根据已持久化消息转发事件到渠道 webhook。需 `X-Embed-Session`，消息必须属于该渠道下的当前访客会话。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `type` | string | 是 | `message_sent` / `message_received` |
-| `query` / `content` | string | 否 | 用户问题 / 机器人回复 |
+| `message_id` | string | 是 | 已持久化消息 ID；`message_sent` 对应 user 消息，`message_received` 对应已完成的 assistant 消息 |
+| `session_id` | string | 否 | 提供时必须与路径中的会话 ID 相同 |
 
-响应：200 `{"success":true}`；不支持的类型 400。
+响应：200 `{"success":true}`（包含重复事件）；缺少消息 ID 或类型不支持时 400；消息不存在、不属于会话、角色不匹配或回复尚未完成时 403。客户端不提交 `query` / `content`，出站回调中的文本由服务端读取消息生成。
+
+发送时等待 SSE `agent_query.data.user_message_id` 后提交 `message_sent`；收到持久化完成后的 `complete` 才提交 `message_received`，使用同一轮 `agent_query.assistant_message_id`。`answer.done`、暂停等待输入和持久化失败均不表示回复完成。内容相同但 ID 不同的两条消息分别投递；同一渠道、会话、事件类型和消息 ID 在同一服务进程内去重 30 分钟。
 
 ```bash
 curl -X POST $BASE/api/v1/embed/ec-1/sessions/s-1/events \
   -H "Authorization: Embed $EMBED_TOKEN" -H "X-Embed-Session: $SIG" \
-  -H 'Content-Type: application/json' -d '{"type":"message_sent","query":"你好"}'
+  -H 'Content-Type: application/json' -d '{"type":"message_sent","message_id":"persisted-user-message-id"}'
 ```
 
 ### MCP OAuth 与工具审批（访客侧）

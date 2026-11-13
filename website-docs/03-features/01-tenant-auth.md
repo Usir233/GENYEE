@@ -526,7 +526,9 @@ refreshClaims := jwt.MapClaims{
 | Access Token | 24 小时 | `user_id` / `email` / `tenant_id` / `type=access` |
 | Refresh Token | 7 天 | `user_id` / `type=refresh`（不含 tenant_id） |
 
-两个 token 都会写入 `auth_tokens` 表，用于**服务端撤销**。
+两个 token 都会写入 `auth_tokens` 表，并通过 `session_id` 关联同一次登录及后续刷新轮换，用于**服务端会话撤销**。登出会撤销该会话的全部令牌，其他设备的独立登录不受影响；刷新与登出在数据库事务中串行处理，防止并发刷新留下有效令牌。
+
+首次应用会话关联迁移（PostgreSQL `000137` / SQLite `000053`）时，无法可靠配对的已有登录令牌会失效，用户需重新登录；账号和业务数据保留。
 
 #### 校验与刷新 {#_3-3-校验与刷新}
 
@@ -537,7 +539,7 @@ refreshClaims := jwt.MapClaims{
 3. 查 `auth_tokens` 表检查 `IsRevoked`（登出 = 撤销记录）；
 4. 从 claims 提取 `user_id` 加载用户、`tenant_id` 作为激活租户。
 
-**租户切换即换发 token**：`SwitchTenant` 校验目标租户的 active 成员资格（跨租户超级用户除外）后，先把目标空间写入「最近活跃租户」偏好（`Preferences.LastActiveTenantID`），再签发携带新 `tenant_id` claim 的 token 对，并尽力撤销旧 refresh token。refresh JWT 不含 `tenant_id`，下次登录与 refresh 都按该偏好落点；偏好写入失败则整次换签失败。切回 home 时写入 home ID（与 SPA 发送 `0` 清偏好在当前落点语义上等价）。该偏好是账号级的，一次换签会改变所有设备的下次落点。
+**租户切换即换发 token**：`SwitchTenant` 校验目标租户的 active 成员资格（跨租户超级用户除外）后，先把目标空间写入「最近活跃租户」偏好（`Preferences.LastActiveTenantID`），再签发携带新 `tenant_id` claim 的 token 对。提供当前用户的有效 refresh token 时，在同一事务中撤销旧 refresh token 并保存新令牌，保持原登录会话；省略时创建独立登录会话。refresh JWT 不含 `tenant_id`，下次登录与 refresh 都按该偏好落点；偏好写入失败则整次换签失败。切回 home 时写入 home ID（与 SPA 发送 `0` 清偏好在当前落点语义上等价）。该偏好是账号级的，一次换签会改变所有设备的下次落点。
 
 ### 数据模型 {#_1-数据模型}
 

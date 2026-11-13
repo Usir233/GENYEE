@@ -146,6 +146,8 @@ type AuthToken struct {
 	ID string `json:"id"         gorm:"type:varchar(36);primaryKey"`
 	// User ID that owns this token
 	UserID string `json:"user_id"    gorm:"type:varchar(36);index;not null"`
+	// Login session shared by the access/refresh pair and every refresh rotation.
+	SessionID string `json:"-" gorm:"type:varchar(36);index;not null;default:''"`
 	// Token value (JWT or other format)
 	Token string `json:"token"      gorm:"type:text;not null"`
 	// Token type (access_token, refresh_token)

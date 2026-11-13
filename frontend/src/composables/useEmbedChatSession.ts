@@ -113,13 +113,40 @@ export function useEmbedChatSession(options: {
   const notifyEmbedReceived = (content: string) => {
     if (!content?.trim()) return
     postEmbedMessageReceived(options.channelId, options.sessionId.value, content)
-    relayEmbedWebhookEvent(
-      options.channelId,
-      options.token,
-      options.sessionId.value,
-      options.sessionSig.value,
-      { type: 'message_received', content },
-    )
+  }
+
+  type WebhookType = 'message_sent' | 'message_received'
+  const pendingWebhooks = new Set<string>()
+  const relayingWebhooks = new Set<string>()
+  const relayedWebhooks = new Set<string>()
+  const streamAssistantIds = new Map<string, string>()
+  const webhookKey = (type: WebhookType, messageId: string, sessionId: string) =>
+    `${sessionId}|${type}|${messageId}`
+  const relayPersistedMessage = (type: WebhookType, messageId: string, sessionId: string, sessionSig: string) => {
+    if (!messageId) return
+    const key = webhookKey(type, messageId, sessionId)
+    if (relayingWebhooks.has(key) || relayedWebhooks.has(key)) return
+    pendingWebhooks.add(key)
+    relayingWebhooks.add(key)
+    void relayEmbedWebhookEvent(options.channelId, options.token, sessionId, sessionSig, {
+      type, message_id: messageId,
+    }).then((success) => {
+      if (success) {
+        pendingWebhooks.delete(key)
+        relayedWebhooks.add(key)
+      }
+    }).finally(() => relayingWebhooks.delete(key))
+  }
+
+  // History can settle a turn started by this page after a disconnect/resume.
+  // Never replay arbitrary old history: server deduplication is best-effort.
+  const recoverPendingWebhook = (message: Record<string, unknown>, sessionId: string, sessionSig: string) => {
+    if (!message.is_completed || message.run_state === 'awaiting_input' || !String(message.content || '').trim()) return
+    const type = message.role === 'user' ? 'message_sent' : message.role === 'assistant' ? 'message_received' : null
+    const messageId = String(message.id || '')
+    if (type && pendingWebhooks.has(webhookKey(type, messageId, sessionId))) {
+      relayPersistedMessage(type, messageId, sessionId, sessionSig)
+    }
   }
 
   const {
@@ -190,6 +217,7 @@ export function useEmbedChatSession(options: {
     isScrollType = false,
     scrollHeight?: number,
   ) => {
+    const sessionSig = options.sessionSig.value
     if (isScrollType) {
       if (historyLoadingMore.value || !hasMoreHistory.value) return
       historyLoadingMore.value = true
@@ -201,9 +229,10 @@ export function useEmbedChatSession(options: {
       data.session_id,
       data.limit,
       data.created_at || undefined,
-      options.sessionSig.value,
+      sessionSig,
     )
       .then(async (res) => {
+        if (options.sessionId.value !== data.session_id) return
         const batch = res?.data as Record<string, unknown>[] | undefined
         if (!batch?.length) {
           // No (more) server history. Crucially this also covers the initial
@@ -218,6 +247,7 @@ export function useEmbedChatSession(options: {
           })
           return
         }
+        batch.forEach((message) => recoverPendingWebhook(message, data.session_id, sessionSig))
         const nextCursor = String(batch[0].created_at)
         const cursorAdvanced = !(isScrollType && created_at.value && nextCursor === created_at.value)
         hasMoreHistory.value = historyHasMoreAfterAttempt(hasMoreHistory.value, {
@@ -251,6 +281,7 @@ export function useEmbedChatSession(options: {
     markInFlightAssistantStopped(currentAssistantMessageId.value)
     const messageId = currentAssistantMessageId.value
     if (messageId) {
+      pendingWebhooks.delete(webhookKey('message_received', messageId, options.sessionId.value))
       stopEmbedSession(
         options.channelId,
         options.token,
@@ -319,13 +350,6 @@ export function useEmbedChatSession(options: {
     })
     opts.onPrepared?.()
     postEmbedMessageSent(options.channelId, options.sessionId.value, value)
-    relayEmbedWebhookEvent(
-      options.channelId,
-      options.token,
-      options.sessionId.value,
-      options.sessionSig.value,
-      { type: 'message_sent', query: value },
-    )
     userHasScrolledUp.value = false
     scrollToBottom(true)
 
@@ -372,6 +396,8 @@ export function useEmbedChatSession(options: {
     ))
     const messageId = String(message?.id || '')
     if (!message || !sid || !messageId || isReplying.value) return
+    pendingWebhooks.add(webhookKey('message_received', messageId, sid))
+    const sessionSig = options.sessionSig.value
     prepareResumedMessage(message, pendingId)
     isReplying.value = true
     stopResumePoll()
@@ -380,9 +406,11 @@ export function useEmbedChatSession(options: {
       if (options.sessionId.value !== sid) return
       try {
         const res = await getEmbedMessageList(
-          options.channelId, options.token, sid, limit.value, undefined, options.sessionSig.value,
+          options.channelId, options.token, sid, limit.value, undefined, sessionSig,
         )
+        if (options.sessionId.value !== sid) return
         const latest = (res?.data as Record<string, unknown>[] | undefined)?.find((m) => m.id === messageId)
+        if (latest) recoverPendingWebhook(latest, sid, sessionSig)
         if (!latest || latest.is_completed || latest.run_state === 'awaiting_input' || Date.now() > deadline) {
           resetAndLoad(sid)
           return
@@ -417,7 +445,29 @@ export function useEmbedChatSession(options: {
       }
       return
     }
+    const sessionId = options.sessionId.value
+    const sessionSig = options.sessionSig.value
+    const metadata = (data.data || {}) as Record<string, unknown>
+    const requestId = String(data.id || '')
+    const assistantId = String(data.assistant_message_id || metadata.assistant_message_id || streamAssistantIds.get(`${sessionId}|${requestId}`) || '')
+    if (data.response_type === 'agent_query') {
+      // Both quick-answer and agent streams acknowledge the persisted user row
+      // here. Sending before this event races the chat request's DB writes.
+      relayPersistedMessage('message_sent', String(metadata.user_message_id || ''), sessionId, sessionSig)
+      if (assistantId) {
+        streamAssistantIds.set(`${sessionId}|${requestId}`, assistantId)
+        const key = webhookKey('message_received', assistantId, sessionId)
+        if (!relayedWebhooks.has(key)) pendingWebhooks.add(key)
+      }
+    }
+    if (data.response_type === 'stop') pendingWebhooks.delete(webhookKey('message_received', assistantId, sessionId))
     processStreamChunk(data)
+    // answer.done only closes a segment; complete follows the successful DB
+    // write. A suspended run still has an incomplete assistant row.
+    if (data.response_type === 'complete' && !metadata.suspended &&
+        pendingWebhooks.has(webhookKey('message_received', assistantId, sessionId))) {
+      relayPersistedMessage('message_received', assistantId, sessionId, sessionSig)
+    }
   })
 
   const resetAndLoad = (sid: string) => {
