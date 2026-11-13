@@ -6032,19 +6032,34 @@
     },
     {
       "id": "internal/filetransport",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/filetransport/response.go"
       ],
       "test_files": [
         "internal/filetransport/response_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/filetransport/response.go"
+      ],
+      "invariants_checked": [
+        "Handle/public selection, forced embed handle mode, restricted-key refusal of public links, owner/backend routing and authorization before signing.",
+        "Request-local synchronized rewrite memo; shared reference copy behavior and bounded stream buffers.",
+        "File transport closes readers, uses safe disposition/nosniff, supports seekable ranges and HEAD, keeps streaming backends unbuffered.",
+        "Provider allow-list canonical parsing, defensive copies and unknown-provider rejection."
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/storageurl-transport.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Provider URL calls used test doubles; no public deployment or live provider service exercised.",
+        "Audited the three library units and their narrow call boundaries, not entire IM/session modules.",
+        "No actionable findings identified in filetransport or storageallowlist."
+      ]
     },
     {
       "id": "internal/handler",
@@ -8494,23 +8509,38 @@
     },
     {
       "id": "internal/storageallowlist",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/storageallowlist/allowlist.go"
       ],
       "test_files": [
         "internal/storageallowlist/allowlist_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/storageallowlist/allowlist.go"
+      ],
+      "invariants_checked": [
+        "Handle/public selection, forced embed handle mode, restricted-key refusal of public links, owner/backend routing and authorization before signing.",
+        "Request-local synchronized rewrite memo; shared reference copy behavior and bounded stream buffers.",
+        "File transport closes readers, uses safe disposition/nosniff, supports seekable ranges and HEAD, keeps streaming backends unbuffered.",
+        "Provider allow-list canonical parsing, defensive copies and unknown-provider rejection."
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/storageurl-transport.json"
+        }
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Provider URL calls used test doubles; no public deployment or live provider service exercised.",
+        "Audited the three library units and their narrow call boundaries, not entire IM/session modules.",
+        "No actionable findings identified in filetransport or storageallowlist."
+      ]
     },
     {
       "id": "internal/storageurl",
-      "status": "pending",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/storageurl/mode.go",
         "internal/storageurl/request.go",
@@ -8524,12 +8554,44 @@
         "internal/storageurl/storageurl_test.go",
         "internal/storageurl/stream_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "internal/storageurl/mode.go",
+        "internal/storageurl/request.go",
+        "internal/storageurl/resolver.go",
+        "internal/storageurl/storageurl.go",
+        "internal/storageurl/stream.go"
+      ],
+      "invariants_checked": [
+        "Handle/public selection, forced embed handle mode, restricted-key refusal of public links, owner/backend routing and authorization before signing.",
+        "Request-local synchronized rewrite memo; shared reference copy behavior and bounded stream buffers.",
+        "File transport closes readers, uses safe disposition/nosniff, supports seekable ranges and HEAD, keeps streaming backends unbuffered.",
+        "Provider allow-list canonical parsing, defensive copies and unknown-provider rejection."
+      ],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/storageurl-transport.json"
+        }
+      ],
+      "findings": [
+        {
+          "id": "STORAGEURL-001",
+          "severity": "P2",
+          "title": "Streaming links are not rewritten when a delta splits the URI scheme",
+          "scenario": "In public URL mode an answer delta ends with resou, local:/ or a partial storage:// prefix in a normal link, HTML href or plain reference. The prefix is emitted before it is recognized; following deltas retain an unfetchable URI or produce storage://backend/https://..., while the same completed answer rewrites correctly.",
+          "reproduction": "Every two-delta boundary for ten supported reference forms and four renderings; 186 failing subcases on original implementation.",
+          "fix": "Hold a bounded trailing prefix of a known scheme until the next delta resolves it; existing holdback size and UTF-8 boundaries stay in force.",
+          "files": [
+            "internal/storageurl/stream.go",
+            "internal/storageurl/stream_boundaries_test.go"
+          ]
+        }
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Provider URL calls used test doubles; no public deployment or live provider service exercised.",
+        "Audited the three library units and their narrow call boundaries, not entire IM/session modules.",
+        "No actionable findings identified in filetransport or storageallowlist."
+      ]
     },
     {
       "id": "internal/stream",
@@ -11064,6 +11126,10 @@
     {
       "commit": "063a4fb02",
       "module": "Go SDK API and permission contracts"
+    },
+    {
+      "commit": "a24212ca8",
+      "module": "shared message-file API-key scope"
     }
   ],
   "frontend_final_gate": {

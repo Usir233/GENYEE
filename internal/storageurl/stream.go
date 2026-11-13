@@ -22,14 +22,26 @@ var incompleteRefSuffixRe = regexp.MustCompile(
 	`\b(?:resource|storage|local|minio|s3|cos|tos|oss|obs|ks3)://[^\s)\]>"]*$`,
 )
 
+// A delta can end before the complete :// delimiter. Holding only recognized
+// full schemes would permanently emit "resou" or "storage:/" unreplaced.
+var incompleteSchemeSuffixRe = regexp.MustCompile(`\b[a-z][a-z0-9]*(?::/?)?$`)
+
 // FindIncompleteRef returns the byte offset of a potentially truncated storage
 // reference at the tail of s, or -1 if none.
 func FindIncompleteRef(s string) int {
 	loc := incompleteRefSuffixRe.FindStringIndex(s)
-	if loc == nil {
-		return -1
+	if loc != nil {
+		return loc[0]
 	}
-	return loc[0]
+	loc = incompleteSchemeSuffixRe.FindStringIndex(s)
+	if loc != nil {
+		for _, scheme := range []string{"resource://", "storage://", "local://", "minio://", "s3://", "cos://", "tos://", "oss://", "obs://", "ks3://"} {
+			if strings.HasPrefix(scheme, s[loc[0]:]) {
+				return loc[0]
+			}
+		}
+	}
+	return -1
 }
 
 // incompleteMarkdownImageSuffixRe matches a Markdown image whose destination URL
