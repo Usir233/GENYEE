@@ -1,0 +1,755 @@
+{
+  "module": "document-parsing",
+  "status": "audited_findings_fixed",
+  "workdir": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc",
+  "source_files": {
+    "docreader/auth.py": {
+      "lines": 225,
+      "review": "fully_read"
+    },
+    "docreader/client/auth.go": {
+      "lines": 197,
+      "review": "fully_read"
+    },
+    "docreader/client/client.go": {
+      "lines": 141,
+      "review": "fully_read"
+    },
+    "docreader/config.py": {
+      "lines": 296,
+      "review": "fully_read"
+    },
+    "docreader/container_entrypoint.py": {
+      "lines": 49,
+      "review": "fully_read"
+    },
+    "docreader/main.py": {
+      "lines": 473,
+      "review": "fully_read"
+    },
+    "docreader/models/__init__.py": {
+      "lines": 0,
+      "review": "fully_read"
+    },
+    "docreader/models/document.py": {
+      "lines": 97,
+      "review": "fully_read"
+    },
+    "docreader/models/read_config.py": {
+      "lines": 17,
+      "review": "fully_read"
+    },
+    "docreader/parser/__init__.py": {
+      "lines": 40,
+      "review": "fully_read"
+    },
+    "docreader/parser/archive.py": {
+      "lines": 371,
+      "review": "fully_read"
+    },
+    "docreader/parser/base_parser.py": {
+      "lines": 65,
+      "review": "fully_read"
+    },
+    "docreader/parser/chain_parser.py": {
+      "lines": 193,
+      "review": "fully_read"
+    },
+    "docreader/parser/concurrency.py": {
+      "lines": 114,
+      "review": "fully_read"
+    },
+    "docreader/parser/doc_parser.py": {
+      "lines": 430,
+      "review": "fully_read"
+    },
+    "docreader/parser/docx2_parser.py": {
+      "lines": 42,
+      "review": "fully_read"
+    },
+    "docreader/parser/docx_merge.py": {
+      "lines": 212,
+      "review": "fully_read"
+    },
+    "docreader/parser/docx_parser.py": {
+      "lines": 1711,
+      "review": "fully_read"
+    },
+    "docreader/parser/epub_parser.py": {
+      "lines": 571,
+      "review": "fully_read"
+    },
+    "docreader/parser/excel_convert.py": {
+      "lines": 176,
+      "review": "fully_read"
+    },
+    "docreader/parser/excel_parser.py": {
+      "lines": 746,
+      "review": "fully_read"
+    },
+    "docreader/parser/html_parser.py": {
+      "lines": 129,
+      "review": "fully_read"
+    },
+    "docreader/parser/image_parser.py": {
+      "lines": 29,
+      "review": "fully_read"
+    },
+    "docreader/parser/image_preprocess.py": {
+      "lines": 425,
+      "review": "fully_read"
+    },
+    "docreader/parser/markdown_parser.py": {
+      "lines": 552,
+      "review": "fully_read"
+    },
+    "docreader/parser/markitdown_parser.py": {
+      "lines": 181,
+      "review": "fully_read"
+    },
+    "docreader/parser/mhtml_parser.py": {
+      "lines": 521,
+      "review": "fully_read"
+    },
+    "docreader/parser/opendataloader_parser.py": {
+      "lines": 814,
+      "review": "fully_read"
+    },
+    "docreader/parser/parser.py": {
+      "lines": 202,
+      "review": "fully_read"
+    },
+    "docreader/parser/pdf_parser.py": {
+      "lines": 2626,
+      "review": "fully_read"
+    },
+    "docreader/parser/ppt_convert.py": {
+      "lines": 123,
+      "review": "fully_read"
+    },
+    "docreader/parser/pptx_media.py": {
+      "lines": 303,
+      "review": "fully_read"
+    },
+    "docreader/parser/registry.py": {
+      "lines": 220,
+      "review": "fully_read"
+    },
+    "docreader/parser/soffice_sandbox.py": {
+      "lines": 320,
+      "review": "fully_read"
+    },
+    "docreader/parser/source_locator.py": {
+      "lines": 362,
+      "review": "fully_read"
+    },
+    "docreader/parser/stream.py": {
+      "lines": 51,
+      "review": "fully_read"
+    },
+    "docreader/parser/web_parser.py": {
+      "lines": 366,
+      "review": "fully_read"
+    },
+    "docreader/parser/xlsx_media.py": {
+      "lines": 661,
+      "review": "fully_read"
+    },
+    "docreader/parser/xlsx_merge.py": {
+      "lines": 468,
+      "review": "fully_read"
+    },
+    "docreader/parser/xlsx_repair.py": {
+      "lines": 344,
+      "review": "fully_read"
+    },
+    "docreader/parser/xmind_parser.py": {
+      "lines": 284,
+      "review": "fully_read"
+    },
+    "docreader/preprocess.py": {
+      "lines": 271,
+      "review": "fully_read"
+    },
+    "docreader/preprocess_worker.py": {
+      "lines": 139,
+      "review": "fully_read"
+    },
+    "docreader/pyproject.toml": {
+      "lines": 49,
+      "review": "fully_read"
+    },
+    "docreader/scripts/parse_local.py": {
+      "lines": 146,
+      "review": "fully_read"
+    },
+    "docreader/source_wire.py": {
+      "lines": 34,
+      "review": "fully_read"
+    },
+    "docreader/splitter/header_hook.py": {
+      "lines": 216,
+      "review": "fully_read"
+    },
+    "docreader/splitter/splitter.py": {
+      "lines": 601,
+      "review": "fully_read"
+    },
+    "docreader/utils/__init__.py": {
+      "lines": 0,
+      "review": "fully_read"
+    },
+    "docreader/utils/endecode.py": {
+      "lines": 352,
+      "review": "fully_read"
+    },
+    "docreader/utils/request.py": {
+      "lines": 149,
+      "review": "fully_read"
+    },
+    "docreader/utils/request_memory.py": {
+      "lines": 43,
+      "review": "fully_read"
+    },
+    "docreader/utils/split.py": {
+      "lines": 89,
+      "review": "fully_read"
+    },
+    "docreader/utils/ssrf.py": {
+      "lines": 341,
+      "review": "fully_read"
+    },
+    "docreader/utils/ssrf_proxy.py": {
+      "lines": 158,
+      "review": "fully_read"
+    },
+    "docreader/utils/tempfile.py": {
+      "lines": 100,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/anydoc/anydoc.go": {
+      "lines": 243,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/anydoc/backend_cgo.go": {
+      "lines": 236,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/anydoc/backend_stub.go": {
+      "lines": 26,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/anydoc_reader.go": {
+      "lines": 308,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/builtin_converter.go": {
+      "lines": 235,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/csv_converter.go": {
+      "lines": 213,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/doc.go": {
+      "lines": 21,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/engine_registry.go": {
+      "lines": 146,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/engines.go": {
+      "lines": 266,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/grpc_parser.go": {
+      "lines": 377,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/helpers.go": {
+      "lines": 130,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/html_table_normalizer.go": {
+      "lines": 185,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/http_parser.go": {
+      "lines": 263,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/image_resolver.go": {
+      "lines": 2039,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/json_converter.go": {
+      "lines": 302,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/json_limit.go": {
+      "lines": 73,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/markdown_image_scanner.go": {
+      "lines": 290,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/mineru_cloud_converter.go": {
+      "lines": 550,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/mineru_cloud_parts.go": {
+      "lines": 171,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/mineru_converter.go": {
+      "lines": 620,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/mineru_image_budget.go": {
+      "lines": 30,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/mineru_layout.go": {
+      "lines": 298,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/mineru_v1_client.go": {
+      "lines": 639,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/paddleocr_vl_cloud_converter.go": {
+      "lines": 412,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/paddleocr_vl_converter.go": {
+      "lines": 292,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/paddleocr_vl_layout.go": {
+      "lines": 82,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/source_blocks.go": {
+      "lines": 57,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/docparser/zip_limits.go": {
+      "lines": 82,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/legacyxls/codepage.go": {
+      "lines": 94,
+      "review": "fully_read"
+    },
+    "internal/infrastructure/legacyxls/reader.go": {
+      "lines": 810,
+      "review": "fully_read"
+    },
+    "docreader/utils/image_ref.py": {
+      "lines": 14,
+      "review": "fully_read",
+      "provenance": "New shared helper introduced by PARSE-006; baseline source inventory was86 files."
+    },
+    "docreader/parser/xlsx_rows.py": {
+      "lines": 142,
+      "review": "fully_read",
+      "provenance": "New sparse cell-row adapter implemented and reviewed in PARSE-008; runtime openpyxl/Pandas decoder implementations read from isolated locked dependencies."
+    }
+  },
+  "special_coverage": {
+    "internal/infrastructure/docparser/image_resolver.go": "Fully read: lifecycle review inherited from completed storage audit, remaining scanning/budget/ref processing and utility code read during parsing audit. Source review does not imply execution of every adapter/input.",
+    "internal/infrastructure/docparser/grpc_parser.go": "Fully read; remote metadata image_count is best-effort, allocation amplification reproduced safely with count 100000.",
+    "generated_proto": "protocol image_count explicitly best-effort and 0 unknown, so count mismatch alone is not a defect",
+    "docreader/parser/pdf_parser.py": "Full source read and actual generated native/scanned PDF extraction, image source/filename/unary-stream/source-offset tests pass. Cancellation inside every third-party/native operation remains a documented dynamic coverage gap, not a reproduced finding."
+  },
+  "findings": [
+    {
+      "id": "PARSE-001",
+      "severity": "P2",
+      "status": "committed",
+      "title": "TemporaryDocument.Process publishes parser Error envelope as empty ready document",
+      "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/overlay.json",
+      "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/error-result-before.log",
+      "actual_call_chain": "DocReaderServicer returns error meta -> GRPC/HTTP readers return ReadResult.Error,nil -> temporaryDocumentService.parse ignores Error -> Process MarkReady",
+      "fix_paths": [
+        "internal/application/service/temporary_document_parse.go",
+        "internal/application/service/temporary_document_parser_error_test.go",
+        "internal/handler/session/attachment_processor.go",
+        "internal/handler/session/attachment_parser_error_test.go"
+      ],
+      "caller_scope": [
+        "knowledge_process.go already handles Error (unchanged)",
+        "handler/initialization.go already handles Error (unchanged)",
+        "temporary_document_parse.go now propagates Error/nil before images or ready state",
+        "attachment_processor.go now uses existing nonfatal error placeholder"
+      ],
+      "provenance": "Actual Process and ProcessAttachment entry points; stub parser models production GRPC/HTTP ReadResult.Error,nil contract. Nil-result test is defensive coverage, not a separate observed remote-service defect.",
+      "failing_reproducer_command": "go test ./internal/application/service ./internal/handler/session -run '^(TestTemporaryDocumentParserResultFailures|TestAttachmentParserResultFailures)$' -count=1",
+      "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/error-envelope-durable-before.log",
+      "passing_logs": [
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/error-envelope-durable-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/error-envelope-related-after.log"
+      ],
+      "passing_command": "go test ./internal/application/service ./internal/handler/session -run '^(TestTemporaryDocument|TestAttachment|TestProcessTextFile|TestApplyImageUnderstanding)' -count=1",
+      "validation": "Focused regressions and related parser/attachment/lifecycle tests pass in both packages; complete service package is not claimed for this group (parent owns unrelated automation failure).",
+      "commit": "71210c511"
+    },
+    {
+      "id": "PARSE-002",
+      "severity": "P2",
+      "status": "committed",
+      "title": "Paddle cloud result and image downloads ignore canceled Read context",
+      "provenance": "Actual Read with local httptest job/result/image endpoints; deterministic blocked downloads; both cancellation subtests fail after 200ms",
+      "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/cloud-cancel-before.log",
+      "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/cloud_cancel_test.go",
+      "fix_paths": [
+        "internal/infrastructure/docparser/paddleocr_vl_cloud_converter.go",
+        "internal/infrastructure/docparser/paddleocr_vl_cloud_cancel_test.go"
+      ],
+      "failing_reproducer_command": "go test ./internal/infrastructure/docparser -run '^TestPaddleCloudDownloads' -count=1",
+      "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/cloud-cancel-durable-before.log",
+      "passing_commands": [
+        "go test ./internal/infrastructure/docparser -count=1",
+        "go test -race ./internal/infrastructure/docparser -run '^TestPaddleCloudDownloads' -count=5"
+      ],
+      "passing_logs": [
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/cloud-cancel-durable-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/cloud-cancel-package-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/cloud-cancel-race-after.log"
+      ],
+      "validation": "Actual Read end-to-end local job/result/image service; cancellation while waiting response headers and body (4 failing-before cases); successful extraction and ordinary optional-image 404 behavior retained; full docparser suite 2.981s and race count5 1.859s pass. No live cloud APIs or credentials used.",
+      "commit": "886e2a4e8"
+    },
+    {
+      "id": "PARSE-003",
+      "severity": "P2",
+      "status": "committed",
+      "title": "gRPC stream metadata count preallocates unreceived images",
+      "provenance": "Actual GRPCDocumentReader.Read with fake stream containing metadata count 100000 and no images; observes cap100000. Does not allocate malicious uint32 max/OOM. Protocol count is best-effort so mismatch itself is not flagged.",
+      "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/stream-count-before.log",
+      "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/stream_count_test.go",
+      "fix_paths": [
+        "internal/infrastructure/docparser/grpc_parser.go",
+        "internal/infrastructure/docparser/grpc_parser_image_count_test.go"
+      ],
+      "failing_reproducer_command": "go test ./internal/infrastructure/docparser -run '^TestGRPCStreamImageCountOnlyAllocatesReceivedFrames$' -count=1",
+      "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/stream-count-durable-before.log",
+      "passing_command": "go test ./internal/infrastructure/docparser -count=1",
+      "passing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/stream-count-package-after.log",
+      "validation": "Full docparser package passes; actual GRPCDocumentReader.Read consumes controlled stream frames. Counts0/1/100000 with0/4 actual frames exercise unknown/under/over estimates; image order/content retained. Allocation grows only with actual frames. No max-image-count imposed, no uint32-max allocation attempted.",
+      "commit": "91f8ff940"
+    },
+    {
+      "id": "PARSE-004",
+      "severity": "P2",
+      "status": "committed",
+      "title": "Empty DOC conversion result suppresses antiword fallback",
+      "provenance": "Actual DocParser.parse with converter boundary mocks: empty Document from DOCX path and valid antiword text. No real proprietary DOC file used.",
+      "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-before.log",
+      "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc_fallback_test.py",
+      "additional_provenance": "Real generated 18,432-byte OLE DOC created by existing runtime soffice from generated DOCX; actual production LibreOffice conversion back to DOCX succeeds, both reader boundaries injected empty, temporary executable stand-in for antiword validates original SHA and emits expected generated text. Real antiword not installed or exercised. Separately, real repository DOC fixture + generated empty DOCX through actual parser chain reproduces empty-first-choice behavior with mocked converter process boundaries.",
+      "additional_failing_logs": [
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-real-before.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-candidate-before.log"
+      ],
+      "fix_paths": [
+        "docreader/parser/doc_parser.py",
+        "docreader/tests/test_doc_fallback.py"
+      ],
+      "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-durable-before.log",
+      "failing_reproducer_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/ian.cn/GENYEE /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/venv312/bin/python -m unittest docreader.tests.test_doc_fallback",
+      "passing_logs": [
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-related-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-real-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc-fallback-go-after.log"
+      ],
+      "passing_commands": [
+        "python -m unittest docreader.tests.test_doc_fallback docreader.tests.test_docx_merge docreader.tests.test_docx_tables docreader.tests.test_parser_routing docreader.tests.test_sandbox_executor",
+        "python /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/doc_fallback_real_test.py",
+        "go test ./internal/infrastructure/docparser -count=1"
+      ],
+      "validation": "Minimal validity check matches FirstParser contract. Durable regression uses real tracked OLE DOC bytes and generated real empty/nonempty DOCX through actual reader cascade; conversion and antiword execution substituted at converter boundaries. 4 tests (2 failing before), validates fallback original input/temporary cleanup, nonempty first choice, empty final result, archive limits and cancellation. All 59 related Python tests pass (5.052s). Separate integration generates actual OLE DOC with existing runtime LibreOffice, invokes actual production LibreOffice conversion; DOCX reader empty outcomes injected and temporary executable stand-in validates original input SHA and returns text; now passes (1.257s). Real antiword not installed/exercised. Go docparser passes (2.937s). No environment changes or user document inputs.",
+      "commit": "5b5626c59"
+    },
+    {
+      "id": "PARSE-005",
+      "severity": "P2",
+      "status": "committed",
+      "title": "DOCX fallback body-order Markdown loses embedded images",
+      "provenance": "Generated real DOCX with before text, 200x150 PNG, after text; actual DocxParser.parse + process pool returns images map size1 but no ref in Markdown. Docx2Parser uses DocxParser after Markitdown fallback; Go ImageResolver stores only referenced refs, so omitted image is never stored. No user docs or mocked converter used.",
+      "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/docx_images_test.py",
+      "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/docx-images-before.log",
+      "fix_paths": [
+        "docreader/parser/docx_parser.py",
+        "docreader/tests/test_docx_tables.py"
+      ],
+      "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/docx-images-durable-before.log",
+      "failing_reproducer_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/ian.cn/GENYEE /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/venv312/bin/python -m unittest docreader.tests.test_docx_tables.DocxImageOrderTest",
+      "passing_logs": [
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/docx-images-durable-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/docx-images-process-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/docx-images-related-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/docx-images-go-after.log"
+      ],
+      "passing_commands": [
+        "python -m unittest docreader.tests.test_docx_tables",
+        "python /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/docx_images_test.py",
+        "python -m unittest docreader.tests.test_docx_merge docreader.tests.test_docx_tables docreader.tests.test_parser_routing docreader.tests.test_source_locator",
+        "go test ./internal/infrastructure/docparser"
+      ],
+      "validation": "Generated real DOCX/PNG fixtures. Before: 2/3 durable cases failed because images map existed without Markdown refs; image-only control already passed. After: all22 DOCX table/image tests, 63 related Python tests, real production ProcessPool public parse test (2.739s), Go docparser (3.257s) pass. Tests use isolated frozen Python3.12 venv, no user dependencies changed. Durable tests reuse existing thread-backed page execution test helper; separate integration runs production process pool. Existing first-image-per-paragraph and direct-paragraph extraction behavior is unchanged; this fix retains extracted refs in body order, not a claim of all Word drawing coverage.",
+      "commit": "34d0eaf4e"
+    },
+    {
+      "id": "PARSE-006",
+      "severity": "P2",
+      "status": "committed",
+      "title": "Image/PDF filenames with Markdown delimiters lose extracted image references",
+      "provenance": "Local generated PNG passed through actual public Python Parser.parse_file with image).png; generated Document JSON consumed by actual Go ImageResolver.ResolveAndStore via read-only Go test overlay, using existing captureSaveBytes. No live app/data. Filename passed unchanged by parser; generated target truncates at first closing parenthesis; no matching inline ref is stored and no error is returned.",
+      "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/image-filename-before.log",
+      "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/image_filename_test.go",
+      "fixture": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/image-filename.json",
+      "failing_command": "go test -overlay /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/image-filename-overlay.json ./internal/infrastructure/docparser -run '^TestAuditImageFilenameRoundTrip$' -count=1",
+      "fix_paths": [
+        "docreader/parser/image_parser.py",
+        "docreader/parser/pdf_parser.py",
+        "docreader/utils/image_ref.py",
+        "docreader/tests/test_image_filename_refs.py",
+        "docreader/tests/fixtures/image_filename_refs.json",
+        "internal/infrastructure/docparser/image_filename_refs_test.go"
+      ],
+      "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/image-filename-durable-before.log",
+      "additional_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/image-filename-and-pdf-before.log",
+      "failing_reproducer_command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/ian.cn/GENYEE /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/venv312/bin/python -m unittest docreader.tests.test_image_filename_refs",
+      "passing_logs": [
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/image-filename-related-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/image-filename-go-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/image-filename-cross-language-after.log"
+      ],
+      "passing_commands": [
+        "python -m unittest docreader.tests.test_image_filename_refs docreader.tests.test_pdf_image_sources docreader.tests.test_pdf_embedded_images docreader.tests.test_docreader_stream docreader.tests.test_source_locator_pdf docreader.tests.test_pdf_router",
+        "go test ./internal/infrastructure/docparser -count=1",
+        "go test -overlay /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/image-filename-overlay.json ./internal/infrastructure/docparser -run '^TestAuditImageFilenameRoundTrip$' -count=1"
+      ],
+      "validation": "Before: real generated PNG and PDF public parser outputs consumed by Go resolver save zero images with no error for image).png/image).pdf; original JSON retained as *.before.json. Durable Python tests fail32 subcases before fix. After:94 related Python tests pass with3 pre-existing skips (5.078s), full Go docparser passes (3.235s), regenerated actual Python PNG/PDF JSON -> Go resolver overlay passes (0.574s). Shared golden references exercise12 filename categories across actual standalone PNG, scanned PDF, routed PDF, unary/stream, plus native PDF embedded figure; Go consumes same emitted-contract fixture. Empty name, Unicode/space, literal%20, #?, balanced/unbalanced parentheses, bracket/backtick, newline, backslash, HTML-like text covered. URL keys encoded once at filename entry, visible labels decoded once only; literal%20 becomes%2520 internally and Go retains exact matching. Metadata image_source_types and source_blocks agree between unary/stream. Existing ASCII names and source locations preserved. Real cloud, external Word renderers and vector-special-name end-to-end PDF are not claimed by this group.",
+      "commit": "0b366911f"
+    },
+    {
+      "id": "PARSE-007",
+      "severity": "P2",
+      "status": "committed",
+      "title": "Percentage preprocessing materializes every blank cell in sparse worksheet bounds",
+      "provenance": "Actual public ExcelParser.parse of generated4861-byte XLSX with2 cells, xlsx_percent_as_text=true; wrapper observes actual cell count before/after real materialization, no fake parser results. Before2->100000 cells forA1/CV1000 while final content17chars. No OOM or unsafe giant allocation attempted.",
+      "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx_sparse_audit.py",
+      "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-sparse-before.log",
+      "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-percent-durable-before.log",
+      "failing_reproducer_command": "python -m unittest docreader.tests.test_xlsx_percent_format.SparsePercentageWorksheetTests",
+      "fix_paths": [
+        "docreader/parser/xlsx_merge.py",
+        "docreader/tests/test_xlsx_percent_format.py"
+      ],
+      "passing_commands": [
+        "python -m unittest docreader.tests.test_xlsx_percent_format docreader.tests.test_percentage_rounding docreader.tests.test_excel_parser docreader.tests.test_excel_parser_adversarial docreader.tests.test_xlsx_repair docreader.tests.test_xlsx_styles_repair",
+        "python /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx_sparse_audit.py"
+      ],
+      "passing_logs": [
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-percent-related-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-sparse-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-merge-budget-control.log"
+      ],
+      "validation": "119 related Python tests pass(5 pre-existing skips),14.259s.3 new tests: before3 subcase failures; after public small sparse allocation2->2, row source1000 retained, maximum valid coordinateXFD1048576 kept without rectangle scan (pre-fix guard prevents17B traversal), cached formula/error/text/percentage controls. Existing dense/merge/rounding/row-hint/format/repair controls pass. Separate bounded merge-budget rejection still raises ArchiveLimitError (25cells > configured10). No new caps, truncation, dependency changes or Go production edits.",
+      "limits": "Existing Go/docreader input size defaults50MB; ZIP admission/decompression budgets100MB, compression ratio100,10000 entries; merged cell expansion cap200000 per sheet. These do not bound a blank rectangle implied by sparse coordinates. Fix only removes unnecessary percentage materialization; later pandas dense allocation is tracked separately asPARSE-008.",
+      "commit": "deabc4184"
+    },
+    {
+      "id": "PARSE-008",
+      "severity": "P2",
+      "status": "committed",
+      "title": "Default XLSX reading builds dense pandas rectangle from sparse coordinates",
+      "provenance": "Actual public ExcelParser.parse with percentage conversion explicitly false; generated4841-byte XLSX containsA1 andCV1000; actual pandas frame1000x100 (100000slots),4,900,141deep bytes, finalcontent18chars and correct source rows1/1000. Bounded reproduction only; worst-case large-coordinate OOM is an inference from pandas get_sheet_data implementation, not an attempted stress test.",
+      "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx_dense_frame_audit.py",
+      "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-frame-before.log",
+      "scope_notes": "Default builtin XLSX only: existing pd.ExcelFile admission/repair/merge pipeline retained; reuse openpyxl WorkSheetParser scalar/date/shared-string decoding directly, two worksheet XML passes over actual cells, sparse rows/columns retain physical indexes. Legacy XLS stays existing pandas scalar path. No new dimension caps/truncation, no protocol/Go edits, no dependency changes. Optional Markitdown XLSX dense conversion remains a separate pending confirmation group; this fix is not claimed to bound all engines.",
+      "fix_paths": [
+        "docreader/parser/excel_parser.py",
+        "docreader/parser/xlsx_rows.py",
+        "docreader/tests/test_xlsx_sparse_rows.py"
+      ],
+      "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-rows-durable-before.log",
+      "failing_reproducer_command": "python -m unittest docreader.tests.test_xlsx_sparse_rows",
+      "passing_commands": [
+        "python -m unittest docreader.tests.test_xlsx_sparse_rows docreader.tests.test_excel_parser docreader.tests.test_excel_parser_adversarial docreader.tests.test_xlsx_percent_format docreader.tests.test_percentage_rounding docreader.tests.test_xlsx_repair docreader.tests.test_xlsx_styles_repair",
+        "python -m unittest docreader.tests.test_xlsx_sparse_rows",
+        "python /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx_dense_frame_audit.py"
+      ],
+      "passing_logs": [
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-rows-related-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-rows-focused-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-frame-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-rows-final-after.log"
+      ],
+      "validation": "123 related tests pass (5 existing skips),9.264s; subsequent cancellation test addition gives5 focused tests pass,0.055s. Before4 durable tests fail5 subcases at explicit pandas-allocation guard (never attempts full17B rectangle). After actual public parse retainsA1/XFD1048576 values/source rows, semantic duplicate/missing headers, single-row header option, missing row1, merged percentage rows, numeric/text identifiers/bools and image-only rows in original order; outside-bound images retain existing orphan ordering.99-row cancel fixture stops during bounds scan after first decoded row. Existing Excel/formula/date/error/repair/percentage controls pass. Original publicparse reproducer now emits identical content/source rows with zero pandas.frame calls. Parent-review delta verified: final125 related tests pass with5 existing skips,10.536s, including six sparse tests and both outside-column image variants.",
+      "implementation_risk": "Uses openpyxl private worksheet decoder/source access already used internally by its read-only worksheet; locked runtime dependency inspected and exercised. Future dependency upgrades need these behavioral tests. Overall workbook strings/styles and output remain proportional to admitted actual input content; no claim of a strict total process-memory cap.",
+      "review_followup": {
+        "provenance": "Parent source review identified outside-column image-only rows missing from the new sparse row set. Actual Z3-only fixture withA1/C5 reproduced row order1,5,3,8 rather than1,3,5,8 before correction; B3+Z3 same-row andZ8 controls included. Not a preexisting project defect, caught and fixed before this group commit.",
+        "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-outside-column-before.log",
+        "fix": "Row bounds decide whether an image-only row exists; column bounds only decide normal-column injection, preserving old outside-column label and orphan-row behavior.",
+        "passing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/xlsx-rows-final-after.log"
+      },
+      "commit": "849fc4d00"
+    },
+    {
+      "id": "PARSE-009",
+      "severity": "P2",
+      "status": "fixed_verified",
+      "title": "Optional MarkItDown XLSX conversion expands sparse coordinates into unbounded tables",
+      "provenance": "Actual public Parser.parse_file(engine=markitdown) on generated4840-byte XLSX withA1/CV100: pandas creates99x100 dataframe(9900slots) and61596chars Markdown for2 values. This bounded sample remains allowed below the new budget; it demonstrates amplification, not an OOM attempt. Default extreme-coordinate regression uses a pandas entry guard to avoid unsafe allocation before fix.",
+      "reproducer": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/markitdown_sparse_audit.py",
+      "failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/markitdown-sparse-before.log",
+      "durable_failing_log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/markitdown-budget-durable-before.log",
+      "failing_reproducer_command": "python -m unittest docreader.tests.test_markitdown_xlsx_budget",
+      "fix_paths": [
+        "docreader/README.md",
+        "docreader/config.py",
+        "docreader/parser/markitdown_parser.py",
+        "docreader/parser/xlsx_rows.py",
+        "docreader/tests/test_markitdown_xlsx_budget.py"
+      ],
+      "passing_commands": [
+        "python -m unittest docreader.tests.test_markitdown_xlsx_budget docreader.tests.test_config docreader.tests.test_docx_merge docreader.tests.test_xlsx_sparse_rows docreader.tests.test_excel_parser docreader.tests.test_xlsx_styles_repair",
+        "go test ./internal/infrastructure/docparser -count=1"
+      ],
+      "passing_logs": [
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/markitdown-budget-final-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/markitdown-budget-go-after.log",
+        "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/python-full-after.log"
+      ],
+      "validation": "Before9 durable tests report9 failures/2 guarded errors; final11 budget/config tests included in113 related Python tests, all pass(5 existing skips),8.689s. Go docparser passes3.141s. Exact-bound original Markitdown table output preserved; cross-sheet aggregate, real extrema, ignored lyingdimension, empty sheet, formattedblank/uncached-formula traversal, positive/invalid deployment values, request override rejection, cancellation before conversion, real localhost gRPC unary+stream error-only envelopes covered. Full isolated docreader pytest gate additionally passes694 tests,432 subtests,18 skips,5 warnings,34.56s.",
+      "budget_policy": "Parent approved default200000 expanded cells cumulative per workbook. DOCREADER_MARKITDOWN_XLSX_MAX_TABLE_CELLS accepts positive deployment integer; invalid/nonpositive falls back default; not request-overridable. Actual stored row/column rectangles include blanks/formulas that pandas traverses before trimming; dimension hints ignored. Admission runs within existing markitdown worker limiter and outside converter exception wrapper, raises ArchiveLimitError with builtin guidance. No truncation or automatic engine switch. Existing file/ZIP/merge budgets unchanged. README and Compose example updated; no.env or live deployment changed.",
+      "limits": "Budget bounds coordinate-driven table expansion, not strict total process memory. Large actual shared strings/styles still subject to existing ZIP/input admission, and trusted operator can raise table budget. Non-XLSX Markitdown formats unchanged."
+    }
+  ],
+  "candidates": [],
+  "uncovered": [
+    "Live cloud APIs/credentials not called",
+    "Linked Anydoc Rust runtime and real antiword not exercised by this agent; Go source/packages inspected/tested as documented",
+    "Real OpenDataLoader Java integration and native-operation cancellation during every third-party call not exhaustively exercised",
+    "Full docreader pytest reports18 skipped tests; their execution is not claimed",
+    "All86 baseline handwritten source files plus2 new helpers fully read; source review and targeted/full suites do not prove every format/input combination"
+  ],
+  "workspace_mutations": true,
+  "frozen_groups": [
+    {
+      "name": "parser-error-envelope",
+      "paths_sha256": {
+        "internal/application/service/temporary_document_parse.go": "182d01a67eab44b6d97f6bb42a7aa91105f448da08cdf375f7a7ace0ec030462",
+        "internal/application/service/temporary_document_parser_error_test.go": "f970da90073244eba4147a6698627a8621784e7493f323c8428ffdc7b0a41b31",
+        "internal/handler/session/attachment_processor.go": "93ed2f4dfb21d920c38ea9ffbb4f67dac158836db27173c5840a70c30ff561fa",
+        "internal/handler/session/attachment_parser_error_test.go": "e3b3176cfa95aea7146f88651e5a630dc931814dfe5749a5170795391a9a8998"
+      },
+      "status": "committed",
+      "commit": "71210c511"
+    },
+    {
+      "name": "cloud-download-cancellation",
+      "paths_sha256": {
+        "internal/infrastructure/docparser/paddleocr_vl_cloud_converter.go": "9131f367616ae0eaae536cdf01e75dd713028e1ef825a44463216f6a230fea1c",
+        "internal/infrastructure/docparser/paddleocr_vl_cloud_cancel_test.go": "c0558d850b7623d84a685776047c7009766e9af640f9a7330e28762f6b46e588"
+      },
+      "status": "committed",
+      "commit": "886e2a4e8"
+    },
+    {
+      "name": "grpc-image-count-allocation",
+      "paths_sha256": {
+        "internal/infrastructure/docparser/grpc_parser.go": "c2443236ec432c0fa6b810e1890e8d5d9c57b61634cdfdc955c1bfb4eb067efb",
+        "internal/infrastructure/docparser/grpc_parser_image_count_test.go": "6b358b095de939c745ceed820feb92220a9d58504cb89fb0793d6fb40c5daa8c"
+      },
+      "status": "committed",
+      "commit": "91f8ff940"
+    },
+    {
+      "name": "docx-image-body-order",
+      "status": "committed",
+      "paths_sha256": {
+        "docreader/parser/docx_parser.py": "8a2d7ff8a5356cd70cec856b3c8733fde4c7474d34c5feb8025693793e213b52",
+        "docreader/tests/test_docx_tables.py": "7f8e68eae0d92b3d599dc829c0a7058a9303c7f5188aafd946380d7741f930ee"
+      },
+      "commit": "34d0eaf4e"
+    },
+    {
+      "name": "doc-empty-conversion-fallback",
+      "status": "committed",
+      "paths_sha256": {
+        "docreader/parser/doc_parser.py": "60f8d290def0668ae9212770f8edaa53ee92fd42e35aaaf39eba8787b224da20",
+        "docreader/tests/test_doc_fallback.py": "1e3ab9f2e6ef8d8cbeabe04ac86a0489d5e381f086569eaacaccd08bbe327fde"
+      },
+      "commit": "5b5626c59"
+    },
+    {
+      "name": "image-filename-reference-encoding",
+      "status": "committed",
+      "paths_sha256": {
+        "docreader/parser/image_parser.py": "9c416fe2b66607a4c0b6d4bee4ff972892064f90a905fb20c8db6bc519924298",
+        "docreader/parser/pdf_parser.py": "f1693b851f95d96a399023bf0167bbc10f60a471e9808052f880ed784a320caf",
+        "docreader/utils/image_ref.py": "bf8a7af07fe392a1d177ed413ed53c42947ad0ad2240479d709451d8b4cdb16e",
+        "docreader/tests/test_image_filename_refs.py": "f06336488ec4895ff8e18e82ee7d9fa86c78ac57696246b19941c7909d3c55f4",
+        "docreader/tests/fixtures/image_filename_refs.json": "73532e1a000043f4b4bdf0781d671b6a7bd9c810efe4b268d9bcc05bbaad1a1f",
+        "internal/infrastructure/docparser/image_filename_refs_test.go": "13d71f3f350690c6a307caecbce9ba647054bc9604171ef3b633b5aa97abba3a"
+      },
+      "commit": "0b366911f"
+    },
+    {
+      "name": "xlsx-sparse-percentage-conversion",
+      "status": "committed",
+      "paths_sha256": {
+        "docreader/parser/xlsx_merge.py": "a7844e5f1c5469e166fb4fafe31e11df4b3f6fd17e25b13705eabd1261074de6",
+        "docreader/tests/test_xlsx_percent_format.py": "ed6cde7275e0940afd9630d8138a95fa9648c08a72972676bc380885b1e3e56e"
+      },
+      "commit": "deabc4184"
+    },
+    {
+      "name": "xlsx-sparse-row-reading",
+      "status": "committed",
+      "paths_sha256": {
+        "docreader/parser/excel_parser.py": "bd350082502ab64d5eeb1da93928bdb8e244382efe35d679555a76f5b58c35ff",
+        "docreader/parser/xlsx_rows.py": "2a21973a439b019b010e29e51722df0373f4bf0356c5ce5c062edae37286d94d",
+        "docreader/tests/test_xlsx_sparse_rows.py": "82502fe2cf7ede8720a66ab397f8141221a1cac84cd9cbe9651e8aff9a05e30e"
+      },
+      "commit": "849fc4d00"
+    },
+    {
+      "name": "markitdown-xlsx-table-expansion-budget",
+      "status": "fixed_verified",
+      "paths_sha256": {
+        "docreader/README.md": "40936d9754e8950dee05ec2fbcd88dd067321c5e51a65d457a71e3d25823df05",
+        "docreader/config.py": "692559ca61d19ab620906819a6f7533bc853f876016c8f719e66baaedcd3fb22",
+        "docreader/parser/markitdown_parser.py": "4c3943a30ed5b0c67d4242c0b41f55981f9e98e2d5b188b53ae01dc168eaf8c7",
+        "docreader/parser/xlsx_rows.py": "a1eadf74a2649bf61fbab8c2b5dd9ce00015a82f16daac61d3affc24ef3e211c",
+        "docreader/tests/test_markitdown_xlsx_budget.py": "45f73f59c5bfd88a04bccb19a99980ea95b1dadbe953221f15d66db286bd52f7"
+      }
+    }
+  ],
+  "full_python_gate": {
+    "status": "passed",
+    "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=/Users/ian.cn/GENYEE /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/venv312/bin/python -m pytest -q docreader/tests --disable-warnings --maxfail=5 -p no:cacheprovider --basetemp /var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/pytest-tmp",
+    "log": "/var/folders/cy/zxv0l7b14ld6vj2z19tpg4w40000gn/T/genyee-document-audit-07c2gnqc/python-full-after.log",
+    "results": {
+      "passed": 694,
+      "subtests_passed": 432,
+      "skipped": 18,
+      "warnings": 5,
+      "seconds": 34.56
+    },
+    "environment": "Dedicated audit Python3.12.15 venv with project frozen dependencies; pytest9.2.0 plus4 test packages installed only into this temp venv using temp uv cache. No existing user environment/deployment altered. Tests skipped by framework are not claimed as executed."
+  },
+  "completion": {
+    "source_review": "88/88 inventoried handwritten sources read; generated proto reviewed for protocol contracts separately",
+    "confirmed_findings": 9,
+    "unfixed_confirmed_findings": 0,
+    "last_commit_pending": null,
+    "scope_statement": "Parsing module source audit and reproduced-issue remediation completed; outside-format integrations and18 skipped tests explicitly remain unexecuted rather than being called full coverage."
+  }
+}

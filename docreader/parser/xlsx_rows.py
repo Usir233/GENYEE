@@ -1,9 +1,14 @@
 """Read decoded XLSX cells without expanding gaps into a dense worksheet."""
 
+from io import BytesIO
+import zipfile
+
+from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.worksheet._reader import WorkSheetParser
 
 from docreader.parser.concurrency import check_cancellation
+from docreader.parser.archive import ArchiveLimitError
 
 
 def _cell_value(cell):
@@ -19,7 +24,7 @@ def _cell_value(cell):
     return value
 
 
-def _populated_rows(sheet, context):
+def _decoded_rows(sheet, context):
     # ReadOnlyWorksheet.iter_rows() synthesizes all missing rows and columns.
     # Use the same openpyxl XML decoder directly to retain types/styles/shared
     # strings while visiting only cells actually stored in the worksheet.
@@ -34,13 +39,45 @@ def _populated_rows(sheet, context):
         )
         for row_number, cells in parser.parse():
             check_cancellation(context)
-            values = {}
-            for cell in cells:
-                value = _cell_value(cell)
-                if value != "":
-                    values[cell["column"]] = value
-            if values:
-                yield row_number, values
+            yield row_number, cells
+
+
+def _populated_rows(sheet, context):
+    for row_number, cells in _decoded_rows(sheet, context):
+        values = {}
+        for cell in cells:
+            value = _cell_value(cell)
+            if value != "":
+                values[cell["column"]] = value
+        if values:
+            yield row_number, values
+
+
+def validate_table_expansion(content, max_cells, context=None):
+    """Bound the workbook rectangles a table converter may materialize.
+
+    Use stored rows/cells, not the untrusted dimension hint. Include formatted
+    blanks and uncached formulas: pandas visits these before trimming empties.
+    """
+    if not zipfile.is_zipfile(BytesIO(content)):
+        return
+    book = load_workbook(BytesIO(content), read_only=True, data_only=True, keep_links=False)
+    try:
+        total = 0
+        for sheet in book.worksheets:
+            max_row = max_col = 0
+            for row_number, cells in _decoded_rows(sheet, context):
+                max_row = max(max_row, row_number)
+                max_col = max(max_col, max((cell["column"] for cell in cells), default=1))
+                expanded = total + max_row * max_col
+                if expanded > max_cells:
+                    raise ArchiveLimitError(
+                        f"MarkItDown XLSX table expansion ({expanded} cells) exceeds limit "
+                        f"({max_cells}); choose the builtin parser engine for sparse worksheets"
+                    )
+            total += max_row * max_col
+    finally:
+        book.close()
 
 
 def iter_worksheet_rows(

@@ -83,9 +83,21 @@ docreader:
 ### 解析器资源控制
 
 - `DOCREADER_MARKITDOWN_MAX_WORKERS`: MarkItDown 解析的最大并发数（默认：1，设为 0 可关闭限流）
+- `DOCREADER_MARKITDOWN_XLSX_MAX_TABLE_CELLS`: MarkItDown 解析 XLSX 时，整本工作簿累计允许展开的单元格数（默认：`200000`）。按各工作表实际存储行列的最大坐标矩形求和，包含表头、空洞、格式化空单元格和无缓存公式；不采用文件中的 `dimension` 提示。只接受部署环境中的正整数，非法值或 `0` 回落默认值，请求不能覆盖此限制。超限会明确报错并提示选择内置 `builtin` 引擎；不会截断数据或自动切换引擎。内置引擎按实际单元格稀疏读取，不受此表格展开预算限制。
 - `DOCREADER_PDF_RENDER_MAX_WORKERS`: 扫描 PDF 渲染为图片的最大并发数（默认：1，设为 0 可关闭限流）
 - `DOCREADER_PDF_RENDER_DPI`: 扫描 PDF 渲染 DPI（默认：200）
 - `DOCREADER_PDF_JPEG_QUALITY`: 扫描 PDF 输出 JPEG 质量（默认：85，范围会自动限制在 1-95）
+
+MarkItDown XLSX 预算的 Compose 配置示例（调整后重启 docreader）：
+
+```yaml
+services:
+  docreader:
+    environment:
+      DOCREADER_MARKITDOWN_XLSX_MAX_TABLE_CELLS: "200000"
+```
+
+此预算限制的是矩形展开工作量，不等同于文件字节数、ZIP 解压或合并单元格预算；已有这些限制仍然生效。调高数值会增加 MarkItDown 的内存与 Markdown 输出开销。
 
 ### 上传 HTML 的正文抽取
 

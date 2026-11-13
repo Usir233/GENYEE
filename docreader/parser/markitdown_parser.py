@@ -22,6 +22,7 @@ from docreader.parser.xlsx_repair import (
     sanitize_xlsx_styles,
     strip_unreadable_ranges_xlsx,
 )
+from docreader.parser.xlsx_rows import validate_table_expansion
 
 logger = logging.getLogger(__name__)
 
@@ -96,6 +97,13 @@ class StdMarkitdownParser(BaseParser):
         # behavior and its single bounded fallback.
         first_keep_data_uris = not xlsx
         with parser_worker_limit("markitdown", CONFIG.markitdown_max_workers, context=self.context):
+            if xlsx:
+                # Bound admission work with the same worker limit as conversion.
+                # Raise outside its exception wrapper so ArchiveLimitError stays
+                # explicit; do not truncate or switch the requested engine.
+                validate_table_expansion(
+                    content, CONFIG.markitdown_xlsx_max_table_cells, self.context
+                )
             started = time.monotonic()
             try:
                 result = self._convert_markitdown(

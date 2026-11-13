@@ -1786,7 +1786,7 @@
     },
     {
       "id": "docreader",
-      "status": "pending",
+      "status": "audited_findings_fixed",
       "source_files": [
         "docreader/auth.py",
         "docreader/config.py",
@@ -1797,16 +1797,43 @@
         "docreader/source_wire.py"
       ],
       "test_files": [],
-      "inspected_files": [],
+      "inspected_files": [
+        "docreader/auth.py",
+        "docreader/config.py",
+        "docreader/container_entrypoint.py",
+        "docreader/main.py",
+        "docreader/preprocess.py",
+        "docreader/preprocess_worker.py",
+        "docreader/source_wire.py"
+      ],
       "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/document-parsing.json"
+      ],
+      "findings": [
+        {
+          "id": "PARSE-009",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/document-parsing.json"
+        }
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Full Python gate:694 passed,432 subtests,18 skipped. Skipped/integration cases remain unexecuted; see document-parsing.json."
+      ],
+      "source_sha256": {
+        "docreader/auth.py": "b464b7b904e736fa17525978915cdb1c5405e34a891cd60736eb038b2839d1e3",
+        "docreader/config.py": "692559ca61d19ab620906819a6f7533bc853f876016c8f719e66baaedcd3fb22",
+        "docreader/container_entrypoint.py": "dfa088944601dce65cd2d62bfe90f221f7a776ad59c64810955d852fc0a8ed2a",
+        "docreader/main.py": "7031f31bee7d4018c97563658630d43a68fde9c75b46c930fcc1fad9fd4bb118",
+        "docreader/preprocess.py": "ca6c7d0a2a145f5a3d4144329b72006b22eba8a4c3bf0364ff2a9ab02a15f6af",
+        "docreader/preprocess_worker.py": "3ec7be1003c1e72bc88c806f10732c48e922e662a6464dc43566fb712a75b006",
+        "docreader/source_wire.py": "da18ef46f16eeaaff5d32b54f9f0d4952ebeecaefe59d32c1c82ff03b86350dd"
+      }
     },
     {
       "id": "docreader/client",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "docreader/client/auth.go",
         "docreader/client/client.go"
@@ -1816,32 +1843,56 @@
         "docreader/client/client_envelope_test.go",
         "docreader/client/client_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "docreader/client/auth.go",
+        "docreader/client/client.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/document-parsing.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Full Python gate:694 passed,432 subtests,18 skipped. Skipped/integration cases remain unexecuted; see document-parsing.json."
+      ],
+      "source_sha256": {
+        "docreader/client/auth.go": "fb8c729258159808bf28c01612a39d182d5cb571e3989e7ce2141bdfd2378448",
+        "docreader/client/client.go": "024182f123539e6da80188ba30e889e879a7ef30a807816bb580cba94b56a6a6"
+      }
     },
     {
       "id": "docreader/models",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "docreader/models/__init__.py",
         "docreader/models/document.py",
         "docreader/models/read_config.py"
       ],
       "test_files": [],
-      "inspected_files": [],
+      "inspected_files": [
+        "docreader/models/__init__.py",
+        "docreader/models/document.py",
+        "docreader/models/read_config.py"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/document-parsing.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Full Python gate:694 passed,432 subtests,18 skipped. Skipped/integration cases remain unexecuted; see document-parsing.json."
+      ],
+      "source_sha256": {
+        "docreader/models/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "docreader/models/document.py": "49f79c29429fe10d2f7c67977ae60a09c921b22d22dbb113d7968204a5936a3f",
+        "docreader/models/read_config.py": "7165b34147f7db94853cb6850d624c612798b72b9a1df501e8ac74b39cd201fc"
+      }
     },
     {
       "id": "docreader/parser",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "docreader/parser/__init__.py",
         "docreader/parser/archive.py",
@@ -1884,7 +1935,34 @@
         "docreader/parser/pdf_parser.py",
         "docreader/parser/xlsx_merge.py",
         "docreader/parser/excel_parser.py",
-        "docreader/parser/xlsx_rows.py"
+        "docreader/parser/xlsx_rows.py",
+        "docreader/parser/__init__.py",
+        "docreader/parser/archive.py",
+        "docreader/parser/base_parser.py",
+        "docreader/parser/chain_parser.py",
+        "docreader/parser/concurrency.py",
+        "docreader/parser/docx2_parser.py",
+        "docreader/parser/docx_merge.py",
+        "docreader/parser/docx_parser.py",
+        "docreader/parser/epub_parser.py",
+        "docreader/parser/excel_convert.py",
+        "docreader/parser/html_parser.py",
+        "docreader/parser/image_preprocess.py",
+        "docreader/parser/markdown_parser.py",
+        "docreader/parser/markitdown_parser.py",
+        "docreader/parser/mhtml_parser.py",
+        "docreader/parser/opendataloader_parser.py",
+        "docreader/parser/parser.py",
+        "docreader/parser/ppt_convert.py",
+        "docreader/parser/pptx_media.py",
+        "docreader/parser/registry.py",
+        "docreader/parser/soffice_sandbox.py",
+        "docreader/parser/source_locator.py",
+        "docreader/parser/stream.py",
+        "docreader/parser/web_parser.py",
+        "docreader/parser/xlsx_media.py",
+        "docreader/parser/xlsx_repair.py",
+        "docreader/parser/xmind_parser.py"
       ],
       "invariants_checked": [
         "Extracted DOCX image references survive body-order composition in their source paragraph and respect page limits."
@@ -1894,7 +1972,8 @@
         "test-reports/module-audit-20261113/parser-doc-fallback.json",
         "test-reports/module-audit-20261113/parser-image-filenames.json",
         "test-reports/module-audit-20261113/parser-xlsx-percent-sparse.json",
-        "test-reports/module-audit-20261113/parser-xlsx-sparse-rows.json"
+        "test-reports/module-audit-20261113/parser-xlsx-sparse-rows.json",
+        "test-reports/module-audit-20261113/document-parsing.json"
       ],
       "findings": [
         "PARSE-005",
@@ -1917,10 +1996,52 @@
           "id": "PARSE-008",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/parser-xlsx-sparse-rows.json"
+        },
+        {
+          "id": "PARSE-009",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/document-parsing.json"
         }
       ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Full Python gate:694 passed,432 subtests,18 skipped. Skipped/integration cases remain unexecuted; see document-parsing.json."
+      ],
+      "source_sha256": {
+        "docreader/parser/__init__.py": "607ab25654dc483e13d81732a9cddb317629a04b7ba36388f565e9ef6d8ec0e4",
+        "docreader/parser/archive.py": "49ee03b78a9a02adfc61e15d738450bd09af11a30dfe51a38f097d2f5e9edb66",
+        "docreader/parser/base_parser.py": "4a12a2fa8bae8e5da00f474b209a0c144ac14e104570984647798278672bbd20",
+        "docreader/parser/chain_parser.py": "d76844a97d7a19b66bd822c81b36b6bb14866e386f91390f834129c29c3f2606",
+        "docreader/parser/concurrency.py": "5d1a573d1aa586a78cd7be0f4a8bc62fec4b8903efab5fa759671010b7ccd9c1",
+        "docreader/parser/doc_parser.py": "60f8d290def0668ae9212770f8edaa53ee92fd42e35aaaf39eba8787b224da20",
+        "docreader/parser/docx2_parser.py": "bda2563e8a8afa118ebb0192fee964a2d5430f53de908950e099c33105174847",
+        "docreader/parser/docx_merge.py": "54f734b4385f08059905071c22e52cb37c59472ba24548851e744425c0fcdc58",
+        "docreader/parser/docx_parser.py": "8a2d7ff8a5356cd70cec856b3c8733fde4c7474d34c5feb8025693793e213b52",
+        "docreader/parser/epub_parser.py": "82737ae9cba899ed041de819f4d8d943d779e098574b7bcbd058c719e6f1fc8a",
+        "docreader/parser/excel_convert.py": "74b96ff71327991ae15418a9e88fdb6b2a478e939e066b7a6dbe8a0258dcca4d",
+        "docreader/parser/excel_parser.py": "bd350082502ab64d5eeb1da93928bdb8e244382efe35d679555a76f5b58c35ff",
+        "docreader/parser/html_parser.py": "d1d13048bbae90f925d9e812a15c07a0c7ebc09b67a5cbb5036612be0ddf1d5e",
+        "docreader/parser/image_parser.py": "9c416fe2b66607a4c0b6d4bee4ff972892064f90a905fb20c8db6bc519924298",
+        "docreader/parser/image_preprocess.py": "407a74c683df4379e29567f5aec3b7f6d74cbab1dfe3503c66dbb3eaaf465f71",
+        "docreader/parser/markdown_parser.py": "6baaaa48abd787d4bb6244abe3fac1ad18fbb754091a8ba662260df9f1eea0c2",
+        "docreader/parser/markitdown_parser.py": "4c3943a30ed5b0c67d4242c0b41f55981f9e98e2d5b188b53ae01dc168eaf8c7",
+        "docreader/parser/mhtml_parser.py": "170341ba2adf8941180760de9c64291ec838f15337a8261a661c20e7dc1750b3",
+        "docreader/parser/opendataloader_parser.py": "4ac04359bf257f3e5e8f87398ce0704f6d3e22ed6e8f1fe2cea670bfe7168b08",
+        "docreader/parser/parser.py": "a117e7d16fe986ef647fb21d12183b5f5fc27d9f86157a4f5abb9927ea5dd3ea",
+        "docreader/parser/pdf_parser.py": "f1693b851f95d96a399023bf0167bbc10f60a471e9808052f880ed784a320caf",
+        "docreader/parser/ppt_convert.py": "4b7b41ba38afc1554399df5f946e096f6a83e737b0c02ea8afbd9051e7880743",
+        "docreader/parser/pptx_media.py": "9c6ef8c65587af020bb9177237e98a8e340358c452ede155b4f95d4f66165323",
+        "docreader/parser/registry.py": "d6a5cc1525ac41ca6db628202cc5f91be64e0199bb22caa520585bdaf5973882",
+        "docreader/parser/soffice_sandbox.py": "c62afab88ec00e0bf47fde1d2d0c2eba3a8f2a4b6745dcea5613acbefa4b17de",
+        "docreader/parser/source_locator.py": "8cd581858e7f17397159f767f37d27ba99d6426e44ff68659348f19f20e13691",
+        "docreader/parser/stream.py": "843dd5a8196f2111a1ec7585badbaca180bca9fe73fa106462710eb8cfee2d2f",
+        "docreader/parser/web_parser.py": "0a7edff35941478553ed7a94ce0c90013f0da4b3ef773c5026941cea80ad0f7d",
+        "docreader/parser/xlsx_media.py": "4957ca15760bb91ddcd975730653a489d6dd9b0d0e6bc59b4e7ffb9527573689",
+        "docreader/parser/xlsx_merge.py": "a7844e5f1c5469e166fb4fafe31e11df4b3f6fd17e25b13705eabd1261074de6",
+        "docreader/parser/xlsx_repair.py": "70c7cd9f00f879d24551e5ca0f846f5201e979094a12655e2714055f3e33d019",
+        "docreader/parser/xmind_parser.py": "444bd581708b645591f5140d189a278c3135641159128570c3aa3a11e158509d",
+        "docreader/parser/xlsx_rows.py": "a1eadf74a2649bf61fbab8c2b5dd9ce00015a82f16daac61d3affc24ef3e211c"
+      }
     },
     {
       "id": "docreader/proto",
@@ -1942,33 +2063,53 @@
     },
     {
       "id": "docreader/scripts",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "docreader/scripts/generate_proto.sh",
         "docreader/scripts/parse_local.py"
       ],
       "test_files": [],
-      "inspected_files": [],
+      "inspected_files": [
+        "docreader/scripts/parse_local.py"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/document-parsing.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Full Python gate:694 passed,432 subtests,18 skipped. Skipped/integration cases remain unexecuted; see document-parsing.json."
+      ],
+      "source_sha256": {
+        "docreader/scripts/parse_local.py": "94df5d0385cc681e21b6bb5c8e58e3df943da961ae4145975b3aea9ba1ca1019"
+      }
     },
     {
       "id": "docreader/splitter",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "docreader/splitter/header_hook.py",
         "docreader/splitter/splitter.py"
       ],
       "test_files": [],
-      "inspected_files": [],
+      "inspected_files": [
+        "docreader/splitter/header_hook.py",
+        "docreader/splitter/splitter.py"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/document-parsing.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Full Python gate:694 passed,432 subtests,18 skipped. Skipped/integration cases remain unexecuted; see document-parsing.json."
+      ],
+      "source_sha256": {
+        "docreader/splitter/header_hook.py": "f146dd6ef7a8159250a364513d9f22192d8129e02ab29284a3cd54389df52089",
+        "docreader/splitter/splitter.py": "5f1926e1c439bf2532d886a319ccb2b54e1613fb84bb2b5d68beb56c58898207"
+      }
     },
     {
       "id": "docreader/tests",
@@ -2061,7 +2202,7 @@
     },
     {
       "id": "docreader/utils",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "docreader/utils/__init__.py",
         "docreader/utils/endecode.py",
@@ -2075,11 +2216,20 @@
       ],
       "test_files": [],
       "inspected_files": [
-        "docreader/utils/image_ref.py"
+        "docreader/utils/image_ref.py",
+        "docreader/utils/__init__.py",
+        "docreader/utils/endecode.py",
+        "docreader/utils/request.py",
+        "docreader/utils/request_memory.py",
+        "docreader/utils/split.py",
+        "docreader/utils/ssrf.py",
+        "docreader/utils/ssrf_proxy.py",
+        "docreader/utils/tempfile.py"
       ],
       "invariants_checked": [],
       "evidence": [
-        "test-reports/module-audit-20261113/parser-image-filenames.json"
+        "test-reports/module-audit-20261113/parser-image-filenames.json",
+        "test-reports/module-audit-20261113/document-parsing.json"
       ],
       "findings": [
         {
@@ -2089,7 +2239,20 @@
         }
       ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Full Python gate:694 passed,432 subtests,18 skipped. Skipped/integration cases remain unexecuted; see document-parsing.json."
+      ],
+      "source_sha256": {
+        "docreader/utils/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "docreader/utils/endecode.py": "74cff42eaca0f21ab593b175397e754e3d5a88bdc216991ea271ac30c8379d11",
+        "docreader/utils/request.py": "ab85824b8b8d037e306dd2aa60c22faebeda171b806d7d8dfbc8f18dcf4e0e60",
+        "docreader/utils/request_memory.py": "1c3cb4fdfc2f517623202d6aa74133aa11351598515fc8f6a70df579380d2297",
+        "docreader/utils/split.py": "93ecec8efd0b1834da15e4950cfe25bfee44291b00052b95b4677377fc3db515",
+        "docreader/utils/ssrf.py": "076094389376d249dee69b60849b5b43297f5d572437211f44d758a6a19af62a",
+        "docreader/utils/ssrf_proxy.py": "b64afb8aa92af56217b3b5e5688a9e6852c19519f1af3f00f7a05546a30cb011",
+        "docreader/utils/tempfile.py": "8e50f7a745e73ca51fb20209cb917c481b0856d339eed2e1e38ead68015ad5ac",
+        "docreader/utils/image_ref.py": "bf8a7af07fe392a1d177ed413ed53c42947ad0ad2240479d709451d8b4cdb16e"
+      }
     },
     {
       "id": "docs",
@@ -7813,7 +7976,7 @@
     },
     {
       "id": "internal/infrastructure/docparser/anydoc",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/infrastructure/docparser/anydoc/anydoc.go",
         "internal/infrastructure/docparser/anydoc/backend_cgo.go",
@@ -7829,16 +7992,27 @@
         "internal/infrastructure/docparser/anydoc/stress_linked_test.go",
         "internal/infrastructure/docparser/anydoc/upgrade_linked_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/infrastructure/docparser/anydoc/anydoc.go",
+        "internal/infrastructure/docparser/anydoc/backend_cgo.go",
+        "internal/infrastructure/docparser/anydoc/backend_stub.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/document-parsing.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [],
+      "source_sha256": {
+        "internal/infrastructure/docparser/anydoc/anydoc.go": "a2389584ee4cde162c62e717a8acde1007632507e9e18fa7a36754c1d7f52866",
+        "internal/infrastructure/docparser/anydoc/backend_cgo.go": "f7ae023ac16a9262cfb04f204bb9f75ebdefc54dfb174e478a1eb5e0c9bc1531",
+        "internal/infrastructure/docparser/anydoc/backend_stub.go": "de996043b5a122638a8cc6c578613ffea277e50a78b31b7c014708c3c681a489"
+      }
     },
     {
       "id": "internal/infrastructure/docparser",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/infrastructure/docparser/anydoc_reader.go",
         "internal/infrastructure/docparser/builtin_converter.go",
@@ -7906,7 +8080,31 @@
         "internal/infrastructure/docparser/zip_limits_test.go"
       ],
       "inspected_files": [
-        "internal/infrastructure/docparser/image_resolver.go"
+        "internal/infrastructure/docparser/image_resolver.go",
+        "internal/infrastructure/docparser/anydoc_reader.go",
+        "internal/infrastructure/docparser/builtin_converter.go",
+        "internal/infrastructure/docparser/csv_converter.go",
+        "internal/infrastructure/docparser/doc.go",
+        "internal/infrastructure/docparser/engine_registry.go",
+        "internal/infrastructure/docparser/engines.go",
+        "internal/infrastructure/docparser/grpc_parser.go",
+        "internal/infrastructure/docparser/helpers.go",
+        "internal/infrastructure/docparser/html_table_normalizer.go",
+        "internal/infrastructure/docparser/http_parser.go",
+        "internal/infrastructure/docparser/json_converter.go",
+        "internal/infrastructure/docparser/json_limit.go",
+        "internal/infrastructure/docparser/markdown_image_scanner.go",
+        "internal/infrastructure/docparser/mineru_cloud_converter.go",
+        "internal/infrastructure/docparser/mineru_cloud_parts.go",
+        "internal/infrastructure/docparser/mineru_converter.go",
+        "internal/infrastructure/docparser/mineru_image_budget.go",
+        "internal/infrastructure/docparser/mineru_layout.go",
+        "internal/infrastructure/docparser/mineru_v1_client.go",
+        "internal/infrastructure/docparser/paddleocr_vl_cloud_converter.go",
+        "internal/infrastructure/docparser/paddleocr_vl_converter.go",
+        "internal/infrastructure/docparser/paddleocr_vl_layout.go",
+        "internal/infrastructure/docparser/source_blocks.go",
+        "internal/infrastructure/docparser/zip_limits.go"
       ],
       "invariants_checked": [
         "Caller cancellation aborts cloud result and image HTTP downloads without partial successful result.",
@@ -7928,7 +8126,8 @@
         },
         "test-reports/module-audit-20261113/parser-cloud-cancellation.json",
         "test-reports/module-audit-20261113/parser-stream-allocation.json",
-        "test-reports/module-audit-20261113/parser-image-filenames.json"
+        "test-reports/module-audit-20261113/parser-image-filenames.json",
+        "test-reports/module-audit-20261113/document-parsing.json"
       ],
       "findings": [
         "PARSE-002",
@@ -7942,11 +8141,38 @@
       "commits": [],
       "limitations": [
         "Review follows storage identity, ownership, failure, deletion, retry and resolver-upload flows. This does not claim line-by-line review of unrelated parsing, knowledge indexing, model, or UI code, nor a live validation of every cloud provider."
-      ]
+      ],
+      "source_sha256": {
+        "internal/infrastructure/docparser/anydoc_reader.go": "ff547b4fec80b452722b140c8b3f131d9d01d708f241d4f39ea3aaaa804c16fa",
+        "internal/infrastructure/docparser/builtin_converter.go": "1e27458ec7eb15e4f84e4695ca139b55fc8c52d0408eba31f3b56e4a2ec5c4bb",
+        "internal/infrastructure/docparser/csv_converter.go": "c8bb085b784495bf8fe92c0b379335614efe6d712632f401a913bfe87f152ad5",
+        "internal/infrastructure/docparser/doc.go": "2b4d0d9435ef5ab000a7428ca403a72ce515b995588f252b37da6bdd11c006a7",
+        "internal/infrastructure/docparser/engine_registry.go": "a7ee09f61cdc90299a61ca8aca1bfb255f23498d2312c211194e730aaa501a4b",
+        "internal/infrastructure/docparser/engines.go": "84e9ab691b2ca332a76287e052b790253e7cb6c9bf09fb0c7a2360c065071665",
+        "internal/infrastructure/docparser/grpc_parser.go": "c2443236ec432c0fa6b810e1890e8d5d9c57b61634cdfdc955c1bfb4eb067efb",
+        "internal/infrastructure/docparser/helpers.go": "d243be664cbdd218741771cc6a41193ca062afaa64d1aa649c6600c9152fcb51",
+        "internal/infrastructure/docparser/html_table_normalizer.go": "bbd29a1692d795642df558644bf08211ad18361d5f97e4b3b64873ab3c2d9ccd",
+        "internal/infrastructure/docparser/http_parser.go": "7cf4aadcb7e62ae7bbf4b5f5c46ab20574e3d88085a15d7ecb2a8042cf7cff89",
+        "internal/infrastructure/docparser/image_resolver.go": "824ca92f89a171b2342db75cadde113326f7f520675397dbc5317815f4bb4d3e",
+        "internal/infrastructure/docparser/json_converter.go": "7ccdcb98cf0198e69bceced305ce869542eb643aa7d829e931a846dbdeddfac0",
+        "internal/infrastructure/docparser/json_limit.go": "dc7f8f38fb3e75ff46944628b074bbf1f111d69372c1002337c10141e8bd7e1b",
+        "internal/infrastructure/docparser/markdown_image_scanner.go": "6c3c26abbfc0f18b143fed335c26ee69eb3be0c6a187860077466250a018c46f",
+        "internal/infrastructure/docparser/mineru_cloud_converter.go": "a3c8c5df971c3bf1c29c2797821b862c4734faeff65d8ab08097179d3a7ae9e8",
+        "internal/infrastructure/docparser/mineru_cloud_parts.go": "33f65e20b0fe4d21144efb6abccc52eae2baa6168d102a7005be2229ba05f112",
+        "internal/infrastructure/docparser/mineru_converter.go": "e0fab749be1a3937885b9ca3d756b8384c3eecb2b31cf0d426e253d4e1ad6706",
+        "internal/infrastructure/docparser/mineru_image_budget.go": "f2f210be57dfcfe16cca5345d5d32ed636eb461b93726cc24b6578857f1ae056",
+        "internal/infrastructure/docparser/mineru_layout.go": "c7c5bc3a57fe5f8c562e586b83a6a973080a9cbcbc32e4f4b9ae50061954bd5a",
+        "internal/infrastructure/docparser/mineru_v1_client.go": "0e421ac5ec7226bca3b1b595219ed331c684e7108e49e15de1f158748855428a",
+        "internal/infrastructure/docparser/paddleocr_vl_cloud_converter.go": "9131f367616ae0eaae536cdf01e75dd713028e1ef825a44463216f6a230fea1c",
+        "internal/infrastructure/docparser/paddleocr_vl_converter.go": "9eecd67d68da314aaead598cbe4510764a0301a59bb26eafe02cbec2915af6f0",
+        "internal/infrastructure/docparser/paddleocr_vl_layout.go": "fe55889a873cd6d4740d8d946f2dfd8849d09a3a58b7f07063ef249dff76e5e5",
+        "internal/infrastructure/docparser/source_blocks.go": "d15f2aec71ee99915f161a1204104af5d0c5b4db5a8e96c604a835d6fdc251ab",
+        "internal/infrastructure/docparser/zip_limits.go": "d26092ded62f103d375665a5a7d43f613a1472b2875a5683ad8c0c90ae19fb18"
+      }
     },
     {
       "id": "internal/infrastructure/legacyxls",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/infrastructure/legacyxls/codepage.go",
         "internal/infrastructure/legacyxls/reader.go"
@@ -7959,12 +8185,21 @@
         "internal/infrastructure/legacyxls/reader_test.go",
         "internal/infrastructure/legacyxls/robustness_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/infrastructure/legacyxls/codepage.go",
+        "internal/infrastructure/legacyxls/reader.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/document-parsing.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [],
+      "source_sha256": {
+        "internal/infrastructure/legacyxls/codepage.go": "03bc1d01eee90fba589895b4388454b43d0c242904f95cbc39406e2a41aac9c3",
+        "internal/infrastructure/legacyxls/reader.go": "c42ad700754b404edaa1deb12022430b373b1273e9018f5610bc415867cdcccd"
+      }
     },
     {
       "id": "internal/infrastructure/retriever",
@@ -13330,6 +13565,10 @@
     {
       "commit": "495f7f20c",
       "module": "tool argument numeric precision through history and resume"
+    },
+    {
+      "commit": "40bd2021c",
+      "module": "authorized outer join nullable input semantics"
     }
   ],
   "frontend_final_gate": {
