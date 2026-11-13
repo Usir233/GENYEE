@@ -1,0 +1,2260 @@
+{
+  "module": "agent core, compaction, modelcontext",
+  "date": "2026-11-13",
+  "status": "stopped_after_current_fix_groups",
+  "baseline_head": "0b366911f376fd1ff49a6a4c8569dae8d2928499",
+  "scope": {
+    "owned_roots": [
+      "internal/agent",
+      "internal/agent/compaction",
+      "internal/modelcontext"
+    ],
+    "direct_files_only": true,
+    "excluded": [
+      "internal/agent/tools",
+      "internal/agent/skills",
+      "all other internal/agent subdirectories"
+    ],
+    "limited_expansion": {
+      "reason": "Root explicitly authorized numeric precision across actual replay/persistence chain after concrete local failure",
+      "production": [
+        "internal/types/tool_arguments.go",
+        "internal/agent/tools/mcp_catalog.go:decodeMCPCall and MCPCallTarget only"
+      ],
+      "consumer_test": [
+        "internal/application/service/agent_history_number_test.go"
+      ],
+      "limits": "Does not expand audit claim to entire types, agent/tools or service packages."
+    }
+  },
+  "files": [
+    {
+      "path": "internal/agent/act.go",
+      "kind": "source",
+      "lines": 728,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/act_order_test.go",
+      "kind": "test",
+      "lines": 156,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/act_tool_hint_test.go",
+      "kind": "test",
+      "lines": 33,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/attachment_timeout_test.go",
+      "kind": "test",
+      "lines": 58,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/background.go",
+      "kind": "source",
+      "lines": 91,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/background_test.go",
+      "kind": "test",
+      "lines": 171,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/calibration.go",
+      "kind": "source",
+      "lines": 105,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/calibration_test.go",
+      "kind": "test",
+      "lines": 218,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/checkpoint.go",
+      "kind": "source",
+      "lines": 43,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/collaboration.go",
+      "kind": "source",
+      "lines": 322,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/collaboration_delivery_test.go",
+      "kind": "test",
+      "lines": 173,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/collaboration_test.go",
+      "kind": "test",
+      "lines": 975,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/complete_event_model_test.go",
+      "kind": "test",
+      "lines": 38,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/const.go",
+      "kind": "source",
+      "lines": 287,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/const_test.go",
+      "kind": "test",
+      "lines": 64,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/context_debug.go",
+      "kind": "source",
+      "lines": 171,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/context_overflow_test.go",
+      "kind": "test",
+      "lines": 142,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/engine.go",
+      "kind": "source",
+      "lines": 1612,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/engine_image_test.go",
+      "kind": "test",
+      "lines": 235,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/engine_memory_test.go",
+      "kind": "test",
+      "lines": 57,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/engine_test.go",
+      "kind": "test",
+      "lines": 1244,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/failed_tool_loop_test.go",
+      "kind": "test",
+      "lines": 75,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/finalize.go",
+      "kind": "source",
+      "lines": 340,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/finalize_test.go",
+      "kind": "test",
+      "lines": 614,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/grounding_prompt.go",
+      "kind": "source",
+      "lines": 87,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/grounding_prompt_test.go",
+      "kind": "test",
+      "lines": 124,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/knowledge_base_profile_prompt_test.go",
+      "kind": "test",
+      "lines": 45,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/langfuse_test.go",
+      "kind": "test",
+      "lines": 158,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/length_truncation_test.go",
+      "kind": "test",
+      "lines": 419,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/mcp_exposure_test.go",
+      "kind": "test",
+      "lines": 288,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/mcp_proxy_test.go",
+      "kind": "test",
+      "lines": 197,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/observe.go",
+      "kind": "source",
+      "lines": 1227,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/observe_test.go",
+      "kind": "test",
+      "lines": 732,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/orphan_think_test.go",
+      "kind": "test",
+      "lines": 76,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/page_button_finish_test.go",
+      "kind": "test",
+      "lines": 138,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/prompt_composition_test.go",
+      "kind": "test",
+      "lines": 222,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/prompts.go",
+      "kind": "source",
+      "lines": 726,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/prompts_browser.go",
+      "kind": "source",
+      "lines": 36,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/prompts_browser_test.go",
+      "kind": "test",
+      "lines": 35,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/prompts_shell_test.go",
+      "kind": "test",
+      "lines": 116,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/prompts_wiki.go",
+      "kind": "source",
+      "lines": 597,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/prompts_wiki_test.go",
+      "kind": "test",
+      "lines": 183,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/protocol_artifact_test.go",
+      "kind": "test",
+      "lines": 198,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/resume.go",
+      "kind": "source",
+      "lines": 207,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/resume_mcp_test.go",
+      "kind": "test",
+      "lines": 104,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/resume_test.go",
+      "kind": "test",
+      "lines": 209,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/retry_delay_test.go",
+      "kind": "test",
+      "lines": 38,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/steer.go",
+      "kind": "source",
+      "lines": 96,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/steer_order_test.go",
+      "kind": "test",
+      "lines": 68,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/steer_test.go",
+      "kind": "test",
+      "lines": 505,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/stream_retry_partial_test.go",
+      "kind": "test",
+      "lines": 103,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/stream_start_timeout_test.go",
+      "kind": "test",
+      "lines": 121,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/suspend.go",
+      "kind": "source",
+      "lines": 299,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/suspend_test.go",
+      "kind": "test",
+      "lines": 180,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/terminal_event_test.go",
+      "kind": "test",
+      "lines": 204,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/think.go",
+      "kind": "source",
+      "lines": 780,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/think_overflow_compaction_test.go",
+      "kind": "test",
+      "lines": 61,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/think_preview_test.go",
+      "kind": "test",
+      "lines": 34,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/tool_call_id_test.go",
+      "kind": "test",
+      "lines": 63,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/tool_goroutine_panic_test.go",
+      "kind": "test",
+      "lines": 71,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/tool_images.go",
+      "kind": "source",
+      "lines": 138,
+      "status": "source_read",
+      "area": "internal/agent",
+      "source_read": "full"
+    },
+    {
+      "path": "internal/agent/tool_images_test.go",
+      "kind": "test",
+      "lines": 353,
+      "status": "existing_partial_read_plus_new_regressions_read_and_executed",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/tool_output_preview_test.go",
+      "kind": "test",
+      "lines": 39,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/turn_usage_test.go",
+      "kind": "test",
+      "lines": 42,
+      "status": "pending",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/compaction/checkpoint_test.go",
+      "kind": "test",
+      "lines": 250,
+      "status": "pending",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/compaction_test.go",
+      "kind": "test",
+      "lines": 395,
+      "status": "pending",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/compactor.go",
+      "kind": "source",
+      "lines": 365,
+      "status": "source_read",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/cutpoint.go",
+      "kind": "source",
+      "lines": 118,
+      "status": "source_read",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/fallback.go",
+      "kind": "source",
+      "lines": 74,
+      "status": "source_read",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/fallback_budget_test.go",
+      "kind": "test",
+      "lines": 106,
+      "status": "test_read",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/fileops.go",
+      "kind": "source",
+      "lines": 184,
+      "status": "source_read",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/fileops_retention_test.go",
+      "kind": "test",
+      "lines": 43,
+      "status": "pending",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/fileops_test.go",
+      "kind": "test",
+      "lines": 91,
+      "status": "pending",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/length_finish_reason_test.go",
+      "kind": "test",
+      "lines": 56,
+      "status": "pending",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/multimodal_overflow_test.go",
+      "kind": "test",
+      "lines": 62,
+      "status": "pending",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/overflow.go",
+      "kind": "source",
+      "lines": 118,
+      "status": "source_read",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/overflow_test.go",
+      "kind": "test",
+      "lines": 93,
+      "status": "pending",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/prepare.go",
+      "kind": "source",
+      "lines": 228,
+      "status": "source_read",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/prompts.go",
+      "kind": "source",
+      "lines": 82,
+      "status": "source_read",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/serialize.go",
+      "kind": "source",
+      "lines": 176,
+      "status": "source_read",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/settings.go",
+      "kind": "source",
+      "lines": 161,
+      "status": "source_read",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/stream_http_test.go",
+      "kind": "test",
+      "lines": 68,
+      "status": "pending",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/stream_start_timeout_test.go",
+      "kind": "test",
+      "lines": 120,
+      "status": "pending",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/agent/compaction/stream_test.go",
+      "kind": "test",
+      "lines": 156,
+      "status": "test_read",
+      "area": "internal/agent/compaction"
+    },
+    {
+      "path": "internal/modelcontext/README.md",
+      "kind": "documentation",
+      "lines": 165,
+      "status": "documentation_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/citations.go",
+      "kind": "source",
+      "lines": 390,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/citations_literal_test.go",
+      "kind": "test",
+      "lines": 116,
+      "status": "pending",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/graph_truncation_test.go",
+      "kind": "test",
+      "lines": 134,
+      "status": "pending",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/handle_table.go",
+      "kind": "source",
+      "lines": 151,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/handles.go",
+      "kind": "source",
+      "lines": 96,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/image_sources.go",
+      "kind": "source",
+      "lines": 39,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/image_sources_test.go",
+      "kind": "test",
+      "lines": 23,
+      "status": "source_read_and_executed",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/leaks.go",
+      "kind": "source",
+      "lines": 148,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/leaks_test.go",
+      "kind": "test",
+      "lines": 115,
+      "status": "pending",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/mcp.go",
+      "kind": "source",
+      "lines": 216,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/mcp_sources.go",
+      "kind": "source",
+      "lines": 71,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/mcp_sources_test.go",
+      "kind": "test",
+      "lines": 135,
+      "status": "pending",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/mcp_test.go",
+      "kind": "test",
+      "lines": 199,
+      "status": "pending",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/model_output.go",
+      "kind": "source",
+      "lines": 982,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/omitted_results_test.go",
+      "kind": "test",
+      "lines": 97,
+      "status": "pending",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/registry.go",
+      "kind": "source",
+      "lines": 364,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/registry_test.go",
+      "kind": "test",
+      "lines": 783,
+      "status": "pending",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/resources.go",
+      "kind": "source",
+      "lines": 184,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/resources_test.go",
+      "kind": "test",
+      "lines": 177,
+      "status": "test_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/source_text.go",
+      "kind": "source",
+      "lines": 302,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/source_text_test.go",
+      "kind": "test",
+      "lines": 182,
+      "status": "pending",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/sources.go",
+      "kind": "source",
+      "lines": 586,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/sources_test.go",
+      "kind": "test",
+      "lines": 663,
+      "status": "pending",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/stream.go",
+      "kind": "source",
+      "lines": 296,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/tool_policy.go",
+      "kind": "source",
+      "lines": 458,
+      "status": "source_read",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/tool_policy_test.go",
+      "kind": "test",
+      "lines": 21,
+      "status": "pending",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/modelcontext/resource_boundary_test.go",
+      "kind": "test",
+      "area": "internal/modelcontext",
+      "status": "regression_added",
+      "lines": 77
+    },
+    {
+      "path": "internal/modelcontext/stream_word_boundary_test.go",
+      "kind": "test",
+      "area": "internal/modelcontext",
+      "status": "regression_added",
+      "lines": 111
+    },
+    {
+      "path": "internal/modelcontext/json_number_test.go",
+      "kind": "test",
+      "lines": 119,
+      "status": "regression_read_and_executed",
+      "area": "internal/modelcontext"
+    },
+    {
+      "path": "internal/agent/tools/mcp_catalog.go",
+      "kind": "source",
+      "lines": 1006,
+      "status": "limited_boundary_review",
+      "area": "authorized_numeric_replay_expansion"
+    },
+    {
+      "path": "internal/types/tool_arguments.go",
+      "kind": "source",
+      "lines": 56,
+      "status": "limited_boundary_review",
+      "area": "authorized_numeric_replay_expansion"
+    },
+    {
+      "path": "internal/agent/tool_arguments_number_test.go",
+      "kind": "test",
+      "lines": 150,
+      "status": "regression_read_and_executed",
+      "area": "internal/agent"
+    },
+    {
+      "path": "internal/agent/tools/mcp_catalog_number_test.go",
+      "kind": "test",
+      "lines": 40,
+      "status": "regression_read_and_executed",
+      "area": "authorized_numeric_replay_expansion"
+    },
+    {
+      "path": "internal/types/tool_arguments_test.go",
+      "kind": "test",
+      "lines": 100,
+      "status": "regression_read_and_executed",
+      "area": "authorized_numeric_replay_expansion"
+    },
+    {
+      "path": "internal/application/service/agent_history_number_test.go",
+      "kind": "test",
+      "lines": 38,
+      "status": "regression_read_and_executed",
+      "area": "authorized_numeric_replay_expansion"
+    },
+    {
+      "path": "internal/agent/cancel_reasoning_test.go",
+      "kind": "test",
+      "area": "internal/agent",
+      "lines": 136,
+      "status": "regression_read_and_executed"
+    }
+  ],
+  "groups": [
+    {
+      "id": "modelcontext-resource-identity",
+      "status": "root_committed",
+      "baseline_head": "b3a52759bb83fa7ac1ed85d02cc709847350f325",
+      "owned_files": [
+        "internal/modelcontext/resources.go",
+        "internal/modelcontext/stream.go",
+        "internal/modelcontext/resources_test.go",
+        "internal/modelcontext/resource_boundary_test.go"
+      ],
+      "finding_id": "MC-RESOURCE-PREFIX-RESOLUTION",
+      "before": {
+        "log": ".git/module-audit-20261113/agent-resource-before.jsonl",
+        "leaf_results": {
+          "pass": 79,
+          "fail": 43,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "fail"
+          }
+        ]
+      },
+      "after": {
+        "log": ".git/module-audit-20261113/agent-resource-after-corrected.jsonl",
+        "leaf_results": {
+          "pass": 647,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "pass"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "pass"
+          }
+        ]
+      },
+      "compaction_validation": {
+        "log": ".git/module-audit-20261113/agent-resource-after.jsonl",
+        "leaf_results": {
+          "pass": 65,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "fail"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "fail"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent/compaction",
+            "result": "pass"
+          }
+        ]
+      },
+      "verification_note": "First after command had implementation compile error due to removed usage leaving strings import; corrected immediately. That log has modelcontext/agent build failures and successful unchanged compaction race suite; corrected after log has both affected packages passing.",
+      "behavior": "Resolve the complete res://numeric token exactly; unknown numeric extensions remain unresolved in tool calls and are removed from public output. Buffer the entire trailing numeric handle until its boundary/Flush. Markdown punctuation, adjacent known handles, all single split positions, bytewise streams, and five-digit handles covered.",
+      "limitations": [
+        "modelcontext full source read; two further confirmed candidates pending separate groups",
+        "No external models or accounts used"
+      ],
+      "commit": "0517fae8e840bf4ad088935cc92e59f496fcc9c3"
+    },
+    {
+      "id": "modelcontext-stream-word-boundary",
+      "status": "root_committed",
+      "baseline_head": "0517fae8e840bf4ad088935cc92e59f496fcc9c3",
+      "owned_files": [
+        "internal/modelcontext/stream.go",
+        "internal/modelcontext/source_text.go",
+        "internal/modelcontext/stream_word_boundary_test.go"
+      ],
+      "before": {
+        "log": ".git/module-audit-20261113/agent-stream-boundary-before.jsonl",
+        "leaf_results": {
+          "pass": 82,
+          "fail": 44,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "fail"
+          }
+        ]
+      },
+      "after": {
+        "log": ".git/module-audit-20261113/agent-stream-boundary-after.jsonl",
+        "leaf_results": {
+          "pass": 407,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "pass"
+          }
+        ]
+      },
+      "consumers": {
+        "log": ".git/module-audit-20261113/agent-stream-boundary-consumers.jsonl",
+        "leaf_results": {
+          "pass": 69,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "pass"
+          }
+        ]
+      },
+      "behavior": "Preserve the preceding raw input ASCII word class for hold/decode so chunk starts never invent a word boundary. Numeric HandleTable suffix detection now also recognizes valid tokens after hyphens. Flush resets lexical state. Ordinary prose still streams promptly.",
+      "controls": "126 permanent leaf cases: five short-handle spaces i/ms/mt/c000/ref-N; all four source schemes and registry issue/MCP stages; every single split and every ordered pair of splits (including empty chunks), bytewise UTF-8 partitions; word/underscore/digit, both punctuation sides, hyphen, Chinese, newlines, unknown numbers, repeated Flush and decoder reuse. Buffered expected controls remain unchanged.",
+      "commit": "724a55012"
+    },
+    {
+      "id": "modelcontext-json-numeric-precision",
+      "status": "root_committed",
+      "baseline_head": "724a55012",
+      "review_head": "849fc4d009007a05eed871074f122ba2758e9e3c",
+      "owned_files": [
+        "internal/modelcontext/sources.go",
+        "internal/modelcontext/tool_policy.go",
+        "internal/modelcontext/json_number_test.go"
+      ],
+      "finding_id": "MC-JSON-NUMERIC-PRECISION",
+      "before": {
+        "command": "go test -mod=readonly ./internal/modelcontext -run '^TestModelContextJSON' -count=1 -json",
+        "log": ".git/module-audit-20261113/agent-json-number-before.jsonl",
+        "leaf_results": {
+          "pass": 21,
+          "fail": 57,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "fail"
+          }
+        ]
+      },
+      "after": {
+        "command": "go test -mod=readonly -race ./internal/modelcontext -count=1 -json",
+        "log": ".git/module-audit-20261113/agent-json-number-after.jsonl",
+        "leaf_results": {
+          "pass": 485,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "pass"
+          }
+        ]
+      },
+      "consumers": {
+        "command": "go test -mod=readonly -race ./internal/agent -run 'ToolCall|MCP|Resume|Snapshot|Suspension|Langfuse' -count=1 -json",
+        "log": ".git/module-audit-20261113/agent-json-number-consumers.jsonl",
+        "leaf_results": {
+          "pass": 52,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "pass"
+          }
+        ]
+      },
+      "behavior": "String-only handle rewriting uses json.Decoder.UseNumber, preserving unrelated number literals exactly. A second Decode must return EOF so concatenated documents, trailing text and invalid whitespace remain unchanged.",
+      "controls": "78 permanent leaf tests: four tool decode routes, three history encode routes, private wiki result encoding, string-wrapped MCP arguments, repeated decode, original history/ModelArguments immutability, nine integer/decimal/exponent literals (including uint64 max and 1e400), and five invalid-document forms.",
+      "provenance": "Inherited at origin/main 74434f730 and chore d4fadf402: sources.go:453 and tool_policy.go:397 decode interface{} through json.Unmarshal/float64. The previously committed resource/stream fixes do not introduce this issue.",
+      "limits": [
+        "Agent ToolCall.Args persistence/replay has a separate confirmed float64 conversion; this group fixes modelcontext JSON rewriting only.",
+        "No real models, credentials, accounts or deployment used."
+      ],
+      "commit": "2f4f5ecfe"
+    },
+    {
+      "id": "agent-tool-image-source-offset",
+      "status": "root_committed",
+      "baseline_head": "2f4f5ecfe",
+      "review_head": "70988e881ca12188a5070ddc6f1133fce7fc29e7",
+      "owned_files": [
+        "internal/agent/tool_images.go",
+        "internal/agent/tool_images_test.go",
+        "internal/modelcontext/image_sources.go",
+        "internal/modelcontext/image_sources_test.go"
+      ],
+      "finding_id": "AGENT-TOOL-IMAGE-SOURCE-OFFSET",
+      "before": {
+        "log": ".git/module-audit-20261113/agent-image-number-before.jsonl",
+        "command": "go test -mod=readonly ./internal/agent -run '^TestToolImageSourceNumbersUseCombinedMessagePositions$' -count=1 -json",
+        "leaf_results": {
+          "pass": 0,
+          "fail": 7,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "fail"
+          }
+        ]
+      },
+      "after": {
+        "log": ".git/module-audit-20261113/agent-image-number-after.jsonl",
+        "command": "go test -mod=readonly -race ./internal/agent ./internal/modelcontext -count=1 -json",
+        "leaf_results": {
+          "pass": 858,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "pass"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "pass"
+          }
+        ]
+      },
+      "consumers": {
+        "log": ".git/module-audit-20261113/agent-image-number-consumers.jsonl",
+        "command": "go test -mod=readonly ./internal/application/service/chat_pipeline -run 'Image|Reference|Multi' -count=1 -json",
+        "leaf_results": {
+          "pass": 33,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/application/service/chat_pipeline",
+            "result": "pass"
+          }
+        ]
+      },
+      "behavior": "ToolImageSourcesNote explicitly accepts the preceding image count in the final shared message; appendToolImages passes len(visionImages). Source registration and unavailable-source policy unchanged.",
+      "controls": [
+        "two knowledge searches",
+        "preceding non-search images",
+        "multiple/reordered images per search",
+        "failed/nil/empty results do not advance index",
+        "unregistered source retains actual position without invented citation",
+        "extra metadata does not add attachment",
+        "missing metadata still advances image index",
+        "prior message images do not affect this message numbering",
+        "provider serialization preserves labels and ordering",
+        "existing non-vision description and stored-no-image controls"
+      ],
+      "provenance": "Inherited tool_images.go:40 and image_sources.go:37 exist at origin/main 74434f730 and chore d4fadf402.",
+      "limits": [
+        "No actual external model calls",
+        "Images are local data URI fixtures"
+      ],
+      "diff_check": "pass",
+      "commit": "ecf692ac6"
+    },
+    {
+      "id": "agent-argument-number-replay",
+      "status": "root_committed",
+      "baseline_head": "ecf692ac6",
+      "review_head": "632c167a0a01c1555ce5c9b4b3c229f45dd6b246",
+      "owned_files": [
+        "internal/agent/act.go",
+        "internal/agent/suspend.go",
+        "internal/agent/tools/mcp_catalog.go",
+        "internal/types/tool_arguments.go",
+        "internal/agent/tool_arguments_number_test.go",
+        "internal/agent/tools/mcp_catalog_number_test.go",
+        "internal/types/tool_arguments_test.go",
+        "internal/application/service/agent_history_number_test.go"
+      ],
+      "finding_id": "AGENT-TOOL-HISTORY-NUMERIC-PRECISION",
+      "before": {
+        "log": ".git/module-audit-20261113/agent-argument-number-before.jsonl",
+        "command": "go test -mod=readonly ./internal/agent ./internal/types ./internal/agent/tools ./internal/application/service -run '^(TestToolArgument|TestMCPTargetNumbers|TestAgentHistoryPreservesNumbers)' -count=1 -json",
+        "leaf_results": {
+          "pass": 36,
+          "fail": 60,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/types",
+            "result": "fail"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "fail"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent/tools",
+            "result": "fail"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/application/service",
+            "result": "fail"
+          }
+        ]
+      },
+      "after_core": {
+        "log": ".git/module-audit-20261113/agent-argument-number-after-core.jsonl",
+        "command": "go test -mod=readonly -race ./internal/agent ./internal/types -count=1 -json",
+        "leaf_results": {
+          "pass": 1264,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/types",
+            "result": "pass"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "pass"
+          }
+        ]
+      },
+      "after_consumers": {
+        "log": ".git/module-audit-20261113/agent-argument-number-after-consumers.jsonl",
+        "command": "go test -mod=readonly -race ./internal/agent/tools ./internal/application/service -run 'MCP|ToolArgument|AgentHistory|AgentStep|RunSnapshot|Suspended' -count=1 -json",
+        "leaf_results": {
+          "pass": 269,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent/tools",
+            "result": "pass"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/application/service",
+            "result": "pass"
+          }
+        ]
+      },
+      "intermediate_validation": {
+        "log": ".git/module-audit-20261113/agent-argument-number-after-targeted.jsonl",
+        "command": "go test -mod=readonly -race ./internal/agent ./internal/types ./internal/agent/tools ./internal/application/service -run '^(TestToolArgument|TestMCPTargetNumbers|TestAgentHistoryPreservesNumbers)' -count=1 -json",
+        "leaf_results": {
+          "pass": 95,
+          "fail": 1,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/types",
+            "result": "pass"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent/tools",
+            "result": "fail"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "pass"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/application/service",
+            "result": "pass"
+          }
+        ]
+      },
+      "intermediate_note": "First post-fix run left one 1e400/proxy failure: decodeMCPCall validated object shape through float64. Changed validation map to json.RawMessage, then final after consumers/core passed. Two additional duplicate-key merge/case-insensitive field controls were added after initial96leaf before run; final regression98leaf.",
+      "vet": {
+        "command": "go vet -mod=readonly ./internal/agent ./internal/types ./internal/agent/tools ./internal/application/service",
+        "log": ".git/module-audit-20261113/agent-argument-number-vet.log",
+        "exit_code": 0
+      },
+      "diff_check": "pass",
+      "behavior": [
+        "UseNumber for act valid/repaired argument parsing and trace values; retain raw execution payload.",
+        "ToolCall/ToolCallTarget JSON unmarshal shadows only Args with a private number-preserving map. Existing AgentSteps.Scan, snapshot decode, ordinary JSON decode and metadata/result semantics stay intact.",
+        "ClosedSteps preserves unfinished-call numbers. MCP proxy/direct presentation uses the same number-preserving parser; object validation uses RawMessage values."
+      ],
+      "controls": [
+        "large signed integers, uint64 max, long decimals, overflow exponent, negative zero, decimal/exponent literals and ordinary integer",
+        "nested arrays/maps, raw execution, next-round replay and trace",
+        "completed/pending snapshot steps and closure",
+        "actual Resume replays prior calls without reexecuting them",
+        "database driver Value/Scan bytes and string forms to actual service history rebuild",
+        "nil pointers, JSON null, missing args, existing-map merge, duplicate-key merge and case-insensitive field match",
+        "invalid JSON, trailing document/text, non-object args, truncated arguments",
+        "preserve all other fields including provider metadata, reasoning, result data original float64 representation, duration and tool identity",
+        "legacy already-rounded snapshot remains readable without inventing lost digits"
+      ],
+      "provenance": "Inherited at 74434f730 and d4fadf402: act.go:73,480,482,528; suspend.go:111; mcp_catalog.go:868,955,982; types/message.go:645. Source/stream/modelcontext fixes did not introduce it.",
+      "limits": [
+        "No recovery of precision already lost in persisted rows.",
+        "Exact expansion authorized by root covers two MCP helpers and typed argument JSON boundary, not an audit of the entire tools/types/service packages.",
+        "Database test invokes real driver Value/Scan and history reconstruction without external DB or live user rows.",
+        "Compaction renderToolArgs remains separately confirmed/pending."
+      ],
+      "commit": "495f7f20c"
+    },
+    {
+      "id": "agent-cancelled-reasoning-persistence",
+      "status": "frozen_for_root_review",
+      "baseline_head": "ecf692ac6",
+      "review_head": "b3326f3e1f977ece143b2bbc5ca0327c06bb21ca",
+      "owned_files": [
+        "internal/agent/engine.go",
+        "internal/agent/think.go",
+        "internal/agent/cancel_reasoning_test.go"
+      ],
+      "file_sha256": {
+        "internal/agent/engine.go": "631343c7b84a1c8e6093ccfbe7a82ee0ede398933596464d3e5cfb1921b46d61",
+        "internal/agent/think.go": "a51cedecc6d56f7c95d68aac205bceb768a5f5d16e561cc562945d38f20775bb",
+        "internal/agent/cancel_reasoning_test.go": "53c703420177e6f336ef208e93a2c67079e2409acd02ef938e89895a601f4655"
+      },
+      "finding_id": "AGENT-CANCEL-REASONING-STEP-LOSS",
+      "before_initial": {
+        "log": ".git/module-audit-20261113/agent-cancel-reasoning-before.jsonl",
+        "command": "go test -mod=readonly ./internal/agent -run '^TestInterruptedReasoning' -count=1 -json",
+        "leaf_results": {
+          "pass": 5,
+          "fail": 12,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "fail"
+          }
+        ]
+      },
+      "before_final": {
+        "log": ".git/module-audit-20261113/agent-cancel-reasoning-before-final.jsonl",
+        "command": "go test -mod=readonly -overlay /tmp/genyee-agent-audit-20261113/cancel-before-overlay.json ./internal/agent -run '^TestInterruptedReasoning' -count=1 -json",
+        "leaf_results": {
+          "pass": 5,
+          "fail": 14,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "fail"
+          }
+        ]
+      },
+      "before_final_note": "Final19leaf suite runs against unmodified HEAD engine.go/think.go using a temporary overlay. It adds two parent-cancelled context-overflow finish controls to the original17leaf suite; no working-tree reversion was used.",
+      "after_targeted": {
+        "log": ".git/module-audit-20261113/agent-cancel-reasoning-after-targeted.jsonl",
+        "command": "go test -mod=readonly -race ./internal/agent -run 'InterruptedReasoning|StreamCancellation|StreamRetry|StreamFailure|StreamSuccess|FinalSynthesisCancellation' -count=1 -json",
+        "leaf_results": {
+          "pass": 24,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "pass"
+          }
+        ]
+      },
+      "after": {
+        "log": ".git/module-audit-20261113/agent-cancel-reasoning-after.jsonl",
+        "command": "go test -mod=readonly -race ./internal/agent -count=1 -json",
+        "leaf_results": {
+          "pass": 424,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "pass"
+          }
+        ]
+      },
+      "vet": {
+        "command": "go vet -mod=readonly ./internal/agent",
+        "log": ".git/module-audit-20261113/agent-cancel-reasoning-vet.log",
+        "exit_code": 0
+      },
+      "diff_check": "pass",
+      "behavior": [
+        "Preserve content/reasoning/signature/metadata already emitted when the parent cancels; both silent close and explicit error chunk feed the actual completion-event persistence steps.",
+        "Error-chunk cancellations retain their original error result to callers; Execute therefore still returns nil+error in that case, but completion persistence now retains the partial step. Silent-close cancellation remains incomplete without final answer.",
+        "Return partial ChatResponse alongside cancellation errors; skip retry/synthesis and overflow recovery once the parent is stopped.",
+        "Consume pending input boundaries once through shared step construction; never replay unexecuted tool-call payloads as completed operations.",
+        "Preserve existing non-cancelled transient retry behavior and empty-response/no-artifact controls."
+      ],
+      "controls": [
+        "reasoning-only",
+        "signature-only",
+        "provider metadata-only",
+        "partial answer",
+        "combined fields",
+        "provider tool call must not execute",
+        "prior completed tool results must not trigger synthesis after stop",
+        "context-overflow finish must not retry after stop",
+        "empty cancelled response creates no invented step",
+        "silent channel close vs explicit cancellation error",
+        "actual completion-event AgentSteps equals internal stored steps",
+        "non-cancelled transient error still retries and excludes failed-attempt reasoning"
+      ],
+      "provenance": "Inherited at 74434f730 and d4fadf402: engine.go cancellation predicate omits ReasoningContent/Signature/Metadata; think.go returns nil on error regardless of collected partial response.",
+      "limits": [
+        "Compaction serialization number precision remains confirmed/unfixed and not started, per user stop instruction.",
+        "No external model calls or real user data; deterministic channels/mock tools only.",
+        "Original42 production source files were read; extended numeric boundary files separately scoped, not an audit of all types/tools/service."
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "id": "MC-RESOURCE-PREFIX-RESOLUTION",
+      "status": "fixed_root_committed",
+      "severity": "correctness_and_tool_validation",
+      "before_location": "internal/modelcontext/resources.go:76-80, internal/modelcontext/stream.go:47-61",
+      "current_location": "internal/modelcontext/resources.go:69-78, internal/modelcontext/stream.go:44-51",
+      "scenario": "Only res://0001 registered; model emits res://00010. Tool calls have empty UnresolvedHandles; answer/stream yields resource://AbCdEfGhIjKlMnOpQrStUv0 instead of rejecting/removing unknown handle.",
+      "expected": "Tool arguments preserve res://00010 with UnresolvedHandles=[res://00010]; public answer drops unknown token.",
+      "provenance": "Inherited: offending logic present at origin/main 74434f730; no diff between 74434f730 and chore d4fadf402 for resources.go/stream.go; last resource source commit 8a557d1a9 rebrand."
+    },
+    {
+      "id": "MC-STREAM-LEFT-WORD-BOUNDARY",
+      "status": "fixed_root_committed",
+      "location": "internal/modelcontext/stream.go:20, stream.go:76, internal/modelcontext/source_text.go:248, source_text.go:267",
+      "reproducer": "/tmp/genyee-agent-audit-20261113/modelcontext_candidates_test.go",
+      "actual": "Feed(ap)+Feed(i1 ) produces apissue-uuid ; buffered api1 is unchanged. Feed(x)+Feed(kb://1 ) produces xgenyee://kb/kb-uuid ; buffered xkb://1 is unchanged.",
+      "expected": "Streaming output matches buffered word-boundary decoding for all tested partitions, including legitimate hyphen boundaries.",
+      "evidence": {
+        "log": ".git/module-audit-20261113/agent-modelcontext-candidates.jsonl",
+        "leaf_results": {
+          "pass": 0,
+          "fail": 5,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "fail"
+          }
+        ]
+      },
+      "fix_group": "modelcontext-stream-word-boundary",
+      "provenance": "Inherited streamHold boundary state loss and generic token-suffix handling exist at origin/main 74434f730 and chore d4fadf402; prior resource numeric identity commit does not introduce these."
+    },
+    {
+      "id": "MC-JSON-NUMERIC-PRECISION",
+      "status": "fixed_root_committed",
+      "location": "internal/modelcontext/sources.go:453, internal/modelcontext/tool_policy.go:397",
+      "reproducer": "/tmp/genyee-agent-audit-20261113/modelcontext_candidates_test.go",
+      "actual": "DecodeToolCalls call_mcp_tool/mcp_example/run_operation changes numeric id 9007199254740993 to 9007199254740992 and uint64 18446744073709551615 to 18446744073709552000.",
+      "expected": "Handle rewriting preserves all unrelated JSON number values exactly.",
+      "evidence": {
+        "log": ".git/module-audit-20261113/agent-modelcontext-candidates.jsonl",
+        "leaf_results": {
+          "pass": 0,
+          "fail": 5,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "fail"
+          }
+        ]
+      },
+      "current_location": "internal/modelcontext/sources.go:453-484, internal/modelcontext/tool_policy.go:396-402",
+      "fix_group": "modelcontext-json-numeric-precision",
+      "before": {
+        "command": "go test -mod=readonly ./internal/modelcontext -run '^TestModelContextJSON' -count=1 -json",
+        "log": ".git/module-audit-20261113/agent-json-number-before.jsonl",
+        "leaf_results": {
+          "pass": 21,
+          "fail": 57,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "fail"
+          }
+        ]
+      },
+      "after": {
+        "command": "go test -mod=readonly -race ./internal/modelcontext -count=1 -json",
+        "log": ".git/module-audit-20261113/agent-json-number-after.jsonl",
+        "leaf_results": {
+          "pass": 485,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+            "result": "pass"
+          }
+        ]
+      },
+      "provenance": "Inherited at origin/main 74434f730 and chore d4fadf402: sources.go:453 and tool_policy.go:397 decode interface{} through json.Unmarshal/float64. The previously committed resource/stream fixes do not introduce this issue."
+    },
+    {
+      "id": "AGENT-TOOL-HISTORY-NUMERIC-PRECISION",
+      "status": "fixed_root_committed",
+      "location": "internal/agent/act.go:480, internal/agent/observe.go:1090; related decode paths internal/agent/suspend.go:80,111",
+      "actual": "Tool executes RawMessage id=9007199254740993, then appendToolResults reconstructs next assistant tool-call arguments as id=9007199254740992.",
+      "expected": "Tool replay and persisted snapshot arguments preserve exactly the values executed.",
+      "evidence": {
+        "log": ".git/module-audit-20261113/agent-core-candidates-corrected.jsonl",
+        "leaf_results": {
+          "pass": 0,
+          "fail": 3,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "fail"
+          }
+        ]
+      },
+      "reproducer": "/tmp/genyee-agent-audit-20261113/agent_core_candidates_test.go",
+      "pending": "Previously persisted rounded digits cannot be recovered.",
+      "provenance": "Inherited source present at both origin/main 74434f730 and chore d4fadf402; not introduced by the current modelcontext fixes.",
+      "fix_group": "agent-argument-number-replay",
+      "before": {
+        "log": ".git/module-audit-20261113/agent-argument-number-before.jsonl",
+        "command": "go test -mod=readonly ./internal/agent ./internal/types ./internal/agent/tools ./internal/application/service -run '^(TestToolArgument|TestMCPTargetNumbers|TestAgentHistoryPreservesNumbers)' -count=1 -json",
+        "leaf_results": {
+          "pass": 36,
+          "fail": 60,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/types",
+            "result": "fail"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "fail"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent/tools",
+            "result": "fail"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/application/service",
+            "result": "fail"
+          }
+        ]
+      },
+      "after_core": {
+        "log": ".git/module-audit-20261113/agent-argument-number-after-core.jsonl",
+        "command": "go test -mod=readonly -race ./internal/agent ./internal/types -count=1 -json",
+        "leaf_results": {
+          "pass": 1264,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/types",
+            "result": "pass"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "pass"
+          }
+        ]
+      },
+      "after_consumers": {
+        "log": ".git/module-audit-20261113/agent-argument-number-after-consumers.jsonl",
+        "command": "go test -mod=readonly -race ./internal/agent/tools ./internal/application/service -run 'MCP|ToolArgument|AgentHistory|AgentStep|RunSnapshot|Suspended' -count=1 -json",
+        "leaf_results": {
+          "pass": 269,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent/tools",
+            "result": "pass"
+          },
+          {
+            "package": "github.com/Usir233/GENYEE/internal/application/service",
+            "result": "pass"
+          }
+        ]
+      }
+    },
+    {
+      "id": "AGENT-TOOL-IMAGE-SOURCE-OFFSET",
+      "status": "fixed_root_committed",
+      "location": "internal/agent/tool_images.go:40; internal/modelcontext/image_sources.go:37",
+      "actual": "Two search_knowledge calls attach two images into one message; second block says attached images 2-2 but Image 1: chunk chunk://2.",
+      "expected": "Source note numbering must follow the index in the final combined image message.",
+      "evidence": {
+        "log": ".git/module-audit-20261113/agent-core-candidates-corrected.jsonl",
+        "leaf_results": {
+          "pass": 0,
+          "fail": 3,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "fail"
+          }
+        ]
+      },
+      "reproducer": "/tmp/genyee-agent-audit-20261113/agent_core_candidates_test.go",
+      "pending": "Permanent controls for preceding non-search images, failed/empty tools, partially known sources, non-vision and persisted replay.",
+      "provenance": "Inherited source present at both origin/main 74434f730 and chore d4fadf402; not introduced by the current modelcontext fixes.",
+      "fix_group": "agent-tool-image-source-offset"
+    },
+    {
+      "id": "AGENT-CANCEL-REASONING-STEP-LOSS",
+      "status": "fixed_frozen",
+      "location": "internal/agent/engine.go:1131-1133 and internal/agent/think.go:523 (stream error cancellation loses partial response)",
+      "actual": "Silent-close cancellation returns incomplete state with empty RoundSteps. Error-chunk cancellation returns nil+error from Execute; its internal state/completion persistence input also omits the emitted reasoning.",
+      "expected": "Persist partial reasoning/signature/metadata in AgentStep without marking a final answer or executing unfinished calls.",
+      "evidence": {
+        "log": ".git/module-audit-20261113/agent-core-candidates-corrected.jsonl",
+        "leaf_results": {
+          "pass": 0,
+          "fail": 3,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "fail"
+          }
+        ]
+      },
+      "reproducer": "/tmp/genyee-agent-audit-20261113/agent_core_candidates_test.go",
+      "pending": "Root review/local commit/push; this agent stops after handoff.",
+      "provenance": "Inherited source present at both origin/main 74434f730 and chore d4fadf402; not introduced by the current modelcontext fixes.",
+      "additional_evidence": {
+        "log": ".git/module-audit-20261113/agent-cancel-candidates.jsonl",
+        "leaf_results": {
+          "pass": 0,
+          "fail": 2
+        },
+        "reproducer": "/tmp/genyee-agent-audit-20261113/agent_core_candidates_test.go"
+      },
+      "fix_group": "agent-cancelled-reasoning-persistence",
+      "before": {
+        "log": ".git/module-audit-20261113/agent-cancel-reasoning-before-final.jsonl",
+        "command": "go test -mod=readonly -overlay /tmp/genyee-agent-audit-20261113/cancel-before-overlay.json ./internal/agent -run '^TestInterruptedReasoning' -count=1 -json",
+        "leaf_results": {
+          "pass": 5,
+          "fail": 14,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "fail"
+          }
+        ]
+      },
+      "after": {
+        "log": ".git/module-audit-20261113/agent-cancel-reasoning-after.jsonl",
+        "command": "go test -mod=readonly -race ./internal/agent -count=1 -json",
+        "leaf_results": {
+          "pass": 424,
+          "fail": 0,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent",
+            "result": "pass"
+          }
+        ]
+      }
+    },
+    {
+      "id": "COMPACTION-TOOL-NUMERIC-PRECISION",
+      "status": "confirmed_pending_separate_group",
+      "location": "internal/agent/compaction/serialize.go:79",
+      "actual": "Both model summarization transcript and fallback archive change 9007199254740993 to 9007199254740992; uint64 max and long decimal also change.",
+      "expected": "Rendering may truncate long values but must not fabricate a different short numeric ID/value.",
+      "evidence": {
+        "log": ".git/module-audit-20261113/agent-compaction-candidates.jsonl",
+        "leaf_results": {
+          "pass": 2,
+          "fail": 6,
+          "skip": 0
+        },
+        "packages": [
+          {
+            "package": "github.com/Usir233/GENYEE/internal/agent/compaction",
+            "result": "fail"
+          }
+        ]
+      },
+      "reproducer": "/tmp/genyee-agent-audit-20261113/compaction_candidates_test.go",
+      "pending": "Independent fix/regression in compaction serializer; integer42 positive controls pass.",
+      "provenance": "Inherited source present at both origin/main 74434f730 and chore d4fadf402; not introduced by the current modelcontext fixes."
+    }
+  ],
+  "verification": [
+    {
+      "log": ".git/module-audit-20261113/agent-resource-before.jsonl",
+      "leaf_results": {
+        "pass": 79,
+        "fail": 43,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+          "result": "fail"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-resource-after.jsonl",
+      "leaf_results": {
+        "pass": 65,
+        "fail": 0,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+          "result": "fail"
+        },
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent",
+          "result": "fail"
+        },
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent/compaction",
+          "result": "pass"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-resource-after-corrected.jsonl",
+      "leaf_results": {
+        "pass": 647,
+        "fail": 0,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent",
+          "result": "pass"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-modelcontext-candidates.jsonl",
+      "leaf_results": {
+        "pass": 0,
+        "fail": 5,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+          "result": "fail"
+        }
+      ]
+    },
+    {
+      "command": "go test -mod=readonly ./internal/modelcontext -run '^TestModelContextJSON' -count=1 -json",
+      "log": ".git/module-audit-20261113/agent-json-number-before.jsonl",
+      "leaf_results": {
+        "pass": 21,
+        "fail": 57,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+          "result": "fail"
+        }
+      ]
+    },
+    {
+      "command": "go test -mod=readonly -race ./internal/modelcontext -count=1 -json",
+      "log": ".git/module-audit-20261113/agent-json-number-after.jsonl",
+      "leaf_results": {
+        "pass": 485,
+        "fail": 0,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+          "result": "pass"
+        }
+      ]
+    },
+    {
+      "command": "go test -mod=readonly -race ./internal/agent -run 'ToolCall|MCP|Resume|Snapshot|Suspension|Langfuse' -count=1 -json",
+      "log": ".git/module-audit-20261113/agent-json-number-consumers.jsonl",
+      "leaf_results": {
+        "pass": 52,
+        "fail": 0,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent",
+          "result": "pass"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-core-candidates-corrected.jsonl",
+      "leaf_results": {
+        "pass": 0,
+        "fail": 3,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent",
+          "result": "fail"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-compaction-candidates.jsonl",
+      "leaf_results": {
+        "pass": 2,
+        "fail": 6,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent/compaction",
+          "result": "fail"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-core-candidates.jsonl",
+      "status": "harness_error_not_product_evidence",
+      "reason": "Temporary harness initially called nil toolRegistry; initialized registry and reran as agent-core-candidates-corrected.jsonl."
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-image-number-before.jsonl",
+      "command": "go test -mod=readonly ./internal/agent -run '^TestToolImageSourceNumbersUseCombinedMessagePositions$' -count=1 -json",
+      "leaf_results": {
+        "pass": 0,
+        "fail": 7,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent",
+          "result": "fail"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-image-number-after.jsonl",
+      "command": "go test -mod=readonly -race ./internal/agent ./internal/modelcontext -count=1 -json",
+      "leaf_results": {
+        "pass": 858,
+        "fail": 0,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/modelcontext",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent",
+          "result": "pass"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-image-number-consumers.jsonl",
+      "command": "go test -mod=readonly ./internal/application/service/chat_pipeline -run 'Image|Reference|Multi' -count=1 -json",
+      "leaf_results": {
+        "pass": 33,
+        "fail": 0,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/application/service/chat_pipeline",
+          "result": "pass"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-argument-number-before.jsonl",
+      "command": "go test -mod=readonly ./internal/agent ./internal/types ./internal/agent/tools ./internal/application/service -run '^(TestToolArgument|TestMCPTargetNumbers|TestAgentHistoryPreservesNumbers)' -count=1 -json",
+      "leaf_results": {
+        "pass": 36,
+        "fail": 60,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/types",
+          "result": "fail"
+        },
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent",
+          "result": "fail"
+        },
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent/tools",
+          "result": "fail"
+        },
+        {
+          "package": "github.com/Usir233/GENYEE/internal/application/service",
+          "result": "fail"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-argument-number-after-core.jsonl",
+      "command": "go test -mod=readonly -race ./internal/agent ./internal/types -count=1 -json",
+      "leaf_results": {
+        "pass": 1264,
+        "fail": 0,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/types",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent",
+          "result": "pass"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-argument-number-after-consumers.jsonl",
+      "command": "go test -mod=readonly -race ./internal/agent/tools ./internal/application/service -run 'MCP|ToolArgument|AgentHistory|AgentStep|RunSnapshot|Suspended' -count=1 -json",
+      "leaf_results": {
+        "pass": 269,
+        "fail": 0,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent/tools",
+          "result": "pass"
+        },
+        {
+          "package": "github.com/Usir233/GENYEE/internal/application/service",
+          "result": "pass"
+        }
+      ]
+    },
+    {
+      "command": "go vet -mod=readonly ./internal/agent ./internal/types ./internal/agent/tools ./internal/application/service",
+      "log": ".git/module-audit-20261113/agent-argument-number-vet.log",
+      "exit_code": 0
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-cancel-reasoning-before-final.jsonl",
+      "command": "go test -mod=readonly -overlay /tmp/genyee-agent-audit-20261113/cancel-before-overlay.json ./internal/agent -run '^TestInterruptedReasoning' -count=1 -json",
+      "leaf_results": {
+        "pass": 5,
+        "fail": 14,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent",
+          "result": "fail"
+        }
+      ]
+    },
+    {
+      "log": ".git/module-audit-20261113/agent-cancel-reasoning-after.jsonl",
+      "command": "go test -mod=readonly -race ./internal/agent -count=1 -json",
+      "leaf_results": {
+        "pass": 424,
+        "fail": 0,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent",
+          "result": "pass"
+        }
+      ]
+    },
+    {
+      "command": "go vet -mod=readonly ./internal/agent",
+      "log": ".git/module-audit-20261113/agent-cancel-reasoning-vet.log",
+      "exit_code": 0
+    }
+  ],
+  "working_tree_mutations": [
+    "internal/agent/engine.go",
+    "internal/agent/think.go",
+    "internal/agent/cancel_reasoning_test.go"
+  ],
+  "constraints": [
+    "no paid/external model calls",
+    "no real user data or running deployment",
+    "no commit/push/fetch/spawn",
+    "root sequences independent fix-group commits"
+  ],
+  "coverage_summary": {
+    "agent_direct_production": {
+      "source_read": 19,
+      "partial": 0,
+      "pending_source_read": 0,
+      "total": 19,
+      "behavior_pending": "No remaining confirmed unfixed direct-agent finding; cancellation fix frozen for root review. User requests stop after root commit/push."
+    },
+    "compaction_production": {
+      "source_read": 9,
+      "total": 9,
+      "known_confirmed_pending": 1,
+      "behavior_validation": "Entire existing package race passed65leaf; precise independent numeric serialization fixture failed6leaf/passed2."
+    },
+    "modelcontext_production": {
+      "source_read": 14,
+      "total": 14,
+      "known_confirmed_pending": 0,
+      "pending_review": "All known fixes root committed; no known unfixed finding in14 original files."
+    },
+    "limits": "Source read does not mean every behavior audited. No agent/tools, skills, token, collaboration or other child directories audited."
+  },
+  "compaction_review": {
+    "id": "agent-compaction-review",
+    "status": "source_review_complete_one_confirmed_fix_pending",
+    "production_files_read": [
+      "internal/agent/compaction/compactor.go",
+      "internal/agent/compaction/cutpoint.go",
+      "internal/agent/compaction/fallback.go",
+      "internal/agent/compaction/fileops.go",
+      "internal/agent/compaction/overflow.go",
+      "internal/agent/compaction/prepare.go",
+      "internal/agent/compaction/prompts.go",
+      "internal/agent/compaction/serialize.go",
+      "internal/agent/compaction/settings.go"
+    ],
+    "verification": {
+      "log": ".git/module-audit-20261113/agent-compaction-validation.jsonl",
+      "leaf_results": {
+        "pass": 65,
+        "fail": 0,
+        "skip": 0
+      },
+      "packages": [
+        {
+          "package": "github.com/Usir233/GENYEE/internal/agent/compaction",
+          "result": "pass"
+        }
+      ]
+    },
+    "verification_provenance": "Filtered package events from agent-resource-after.jsonl: unchanged compaction package fully passed -race (65 leaf); unrelated modelcontext/agent compile failure in that original mixed log was immediately corrected, see agent-resource-after-corrected.jsonl. This is a derived log, not a new rerun.",
+    "invariants": {
+      "compactor.go": "At most two summarization attempts; parent cancellation stops retries; startup and idle stall share timeout; partial/length/error summaries degrade instead of checkpointing as success.",
+      "cutpoint.go": "Keep recent tokens at valid user or assistant cut points; no orphan tool result at retained tail; split large current turns.",
+      "fallback.go": "Previous summary and archive share budget over repeated failures; rune-aligned text trimming; old fileops removed before reconstruction.",
+      "fileops.go": "Read/write paths inherit previous summary; writes supersede reads; tracking cap retains newest paths.",
+      "overflow.go": "Provider/context overflow classification used for bounded recovery; length vs normal finish handling.",
+      "prepare.go": "Checkpoint only complete stored turns; live/split-turn prefix excluded; previous summary updated separately; summarizer input omitted-count explicit.",
+      "prompts.go": "Transcript treated as source text; preserve constraints, blockers, open work, identifiers and uncertain evidence.",
+      "serialize.go": "Multipart text preferred; per-value truncation and sorted tool args; confirmed number rounding remains pending.",
+      "settings.go": "Disabled/zero-window policy; reserve/keep-recent normalization and summary/input/prefix budgets."
+    },
+    "tests_examined_in_detail": [
+      "checkpoint_test.go",
+      "fallback_budget_test.go",
+      "stream_test.go"
+    ],
+    "existing_behavior_controls": [
+      "stored-turn checkpoint boundary and live-turn exclusion",
+      "eight reload fallback cycles bounded",
+      "summarizer input fits configured window",
+      "retained-tail no orphan tool results",
+      "small-window keep budget scaling",
+      "fileops inheritance/newest retention",
+      "progressing long stream vs stalled stream cancellation",
+      "startup/HTTP stall budget and parent cancellation",
+      "truncated summary rejected"
+    ],
+    "confirmed_pending": [
+      "COMPACTION-TOOL-NUMERIC-PRECISION"
+    ],
+    "limits": [
+      "No paid/external model calls; local mocks and httptest only.",
+      "No claim that all test fixture source files were read. Extremely small impossible window configurations are not a confirmed bug here."
+    ]
+  },
+  "stop_instruction": "Latest user instruction via root: finish current cancellation group, root commits/pushes then stop; do not start compaction fix or any new module/candidate.",
+  "coverage_areas": [
+    {
+      "area": "tool execution and result replay",
+      "files": [
+        "internal/agent/act.go",
+        "internal/agent/observe.go"
+      ],
+      "source_read": "full",
+      "validation": "Permanent numeric execution/replay/snapshot tests + complete agent race; existing tool call, truncation, source resolution, parallel execution, MCP and history fixtures.",
+      "status": "audited_local",
+      "known_pending": []
+    },
+    {
+      "area": "engine iteration and limits",
+      "files": [
+        "internal/agent/engine.go",
+        "internal/agent/const.go"
+      ],
+      "source_read": "full",
+      "validation": "Complete agent race and deterministic interrupted-response regression; iteration/final synthesis/length limits and existing provider fixtures.",
+      "status": "audited_local_fix_frozen",
+      "known_pending": []
+    },
+    {
+      "area": "suspension and resume",
+      "files": [
+        "internal/agent/suspend.go",
+        "internal/agent/resume.go"
+      ],
+      "source_read": "full",
+      "validation": "Permanent exact-number snapshot/closure/real Resume and complete agent race; prompt matching, resumed/re-suspended work, original step boundaries.",
+      "status": "audited_local",
+      "known_pending": []
+    },
+    {
+      "area": "background input, steering and collaboration binding",
+      "files": [
+        "internal/agent/background.go",
+        "internal/agent/steer.go",
+        "internal/agent/collaboration.go"
+      ],
+      "source_read": "full",
+      "validation": "Complete agent race with background, steer, collaboration parent/child and delivery tests; dependent collaboration implementation excluded from audit scope.",
+      "status": "audited_local",
+      "known_pending": []
+    },
+    {
+      "area": "context accounting and checkpoint integration",
+      "files": [
+        "internal/agent/calibration.go",
+        "internal/agent/checkpoint.go",
+        "internal/agent/context_debug.go"
+      ],
+      "source_read": "full",
+      "validation": "Complete agent race; token calibration, loaded checkpoint and debug preview fixtures.",
+      "status": "audited_local",
+      "known_pending": []
+    },
+    {
+      "area": "streaming and final synthesis",
+      "files": [
+        "internal/agent/think.go",
+        "internal/agent/finalize.go"
+      ],
+      "source_read": "full",
+      "validation": "Complete agent race, local streaming/HTTP fixtures; bounded retry, startup/stall, cancellation, partial-answer replacement and final synthesis controls.",
+      "status": "audited_local_fix_frozen",
+      "known_pending": []
+    },
+    {
+      "area": "prompt composition",
+      "files": [
+        "internal/agent/grounding_prompt.go",
+        "internal/agent/prompts.go",
+        "internal/agent/prompts_browser.go",
+        "internal/agent/prompts_wiki.go"
+      ],
+      "source_read": "full",
+      "validation": "Source content/format/data rendering review and existing prompt/grounding composition fixtures in complete agent race; static prompt content does not require live model calls.",
+      "status": "audited_local",
+      "known_pending": []
+    },
+    {
+      "area": "tool images",
+      "files": [
+        "internal/agent/tool_images.go"
+      ],
+      "source_read": "full",
+      "validation": "Committed image-number group 7 failing-before controls; complete agent/modelcontext race and image/reference chat_pipeline consumers.",
+      "status": "audited_local",
+      "known_pending": []
+    },
+    {
+      "area": "model context codec, handles, citations, sources and MCP model boundary",
+      "files": [
+        "internal/modelcontext/citations.go",
+        "internal/modelcontext/handle_table.go",
+        "internal/modelcontext/handles.go",
+        "internal/modelcontext/image_sources.go",
+        "internal/modelcontext/leaks.go",
+        "internal/modelcontext/mcp.go",
+        "internal/modelcontext/mcp_sources.go",
+        "internal/modelcontext/model_output.go",
+        "internal/modelcontext/registry.go",
+        "internal/modelcontext/resources.go",
+        "internal/modelcontext/source_text.go",
+        "internal/modelcontext/sources.go",
+        "internal/modelcontext/stream.go",
+        "internal/modelcontext/tool_policy.go"
+      ],
+      "source_read": "all14original_files_full",
+      "validation": "Complete modelcontext race; permanent full-numeric resource identity, all stream partition word-boundary controls, exact JSON number rewriting, image numbering, plus existing source/citation/MCP fixtures.",
+      "status": "audited_local",
+      "known_pending": []
+    },
+    {
+      "area": "compaction",
+      "files": [
+        "internal/agent/compaction/compactor.go",
+        "internal/agent/compaction/cutpoint.go",
+        "internal/agent/compaction/fallback.go",
+        "internal/agent/compaction/fileops.go",
+        "internal/agent/compaction/overflow.go",
+        "internal/agent/compaction/prepare.go",
+        "internal/agent/compaction/prompts.go",
+        "internal/agent/compaction/serialize.go",
+        "internal/agent/compaction/settings.go"
+      ],
+      "source_read": "all9_full",
+      "validation": "65 leaf existing package race; separate numeric serialization overlay6fail/2pass. See agent-compaction-review.json for per-file invariants and exact evidence.",
+      "status": "source_review_complete_known_fix_pending",
+      "known_pending": [
+        "COMPACTION-TOOL-NUMERIC-PRECISION"
+      ],
+      "next_action": "Not started due to user stop-after-current-module instruction."
+    }
+  ],
+  "remaining_confirmed_findings": [
+    "COMPACTION-TOOL-NUMERIC-PRECISION"
+  ],
+  "next_action": "STOP: root owns review, commit and push. Do not start pending compaction repair or any new audit."
+}

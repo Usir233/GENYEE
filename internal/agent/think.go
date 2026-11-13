@@ -523,7 +523,12 @@ func (e *AgentEngine) streamThinkingToEventBus(
 			})
 		}
 		logger.Errorf(ctx, "[Agent][Thinking] Iteration-%d failed: %v", iteration+1, err)
-		return nil, err
+		if ctx.Err() == nil || llmResult == nil {
+			return nil, err
+		}
+		// A cancelled stream can still carry content already emitted to the
+		// client. Return that partial response alongside the error so the
+		// engine can persist it without retrying or executing its tool calls.
 	}
 
 	// Emit diagnostics: helps identify when answer content went to "thought" vs "final_answer" events
@@ -556,7 +561,7 @@ func (e *AgentEngine) streamThinkingToEventBus(
 	if llmResult.Usage != nil {
 		resp.Usage = *llmResult.Usage
 	}
-	return resp, nil
+	return resp, err
 }
 
 // callLLMWithRetry logs messages, sanitizes them, calls the LLM with retry on transient errors,
@@ -613,6 +618,9 @@ func (e *AgentEngine) callLLMWithRetry(
 	messages = agenttools.SanitizeMessages(messages)
 
 	response, err := e.streamThinkingToEventBus(ctx, messages, tools, iteration, sessionID, runtimeNotices...)
+	if ctx.Err() != nil {
+		return response, err
+	}
 
 	// A rejected-for-size request is neither transient nor fatal, and reading
 	// it as either is wrong in a specific way: retried unchanged it fails
@@ -679,6 +687,9 @@ func (e *AgentEngine) callLLMWithRetry(
 				break
 			}
 		}
+	}
+	if ctx.Err() != nil {
+		return response, err
 	}
 	if err != nil {
 		logger.Errorf(ctx, "[Agent][Round-%d] LLM call failed: %v", round, err)

@@ -3856,7 +3856,7 @@
     },
     {
       "id": "internal/agent",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/agent/act.go",
         "internal/agent/background.go",
@@ -3926,11 +3926,33 @@
         "internal/agent/turn_usage_test.go",
         "internal/agent/tool_arguments_number_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/agent/act.go",
+        "internal/agent/background.go",
+        "internal/agent/calibration.go",
+        "internal/agent/checkpoint.go",
+        "internal/agent/collaboration.go",
+        "internal/agent/const.go",
+        "internal/agent/context_debug.go",
+        "internal/agent/engine.go",
+        "internal/agent/finalize.go",
+        "internal/agent/grounding_prompt.go",
+        "internal/agent/observe.go",
+        "internal/agent/prompts.go",
+        "internal/agent/prompts_browser.go",
+        "internal/agent/prompts_wiki.go",
+        "internal/agent/resume.go",
+        "internal/agent/steer.go",
+        "internal/agent/suspend.go",
+        "internal/agent/think.go",
+        "internal/agent/tool_images.go"
+      ],
       "invariants_checked": [],
       "evidence": [
         "test-reports/module-audit-20261113/agent-image-number.json",
-        "test-reports/module-audit-20261113/agent-argument-number.json"
+        "test-reports/module-audit-20261113/agent-argument-number.json",
+        "test-reports/module-audit-20261113/agent-core.json",
+        "test-reports/module-audit-20261113/agent-cancel-reasoning.json"
       ],
       "findings": [
         {
@@ -3942,10 +3964,36 @@
           "id": "AGENT-TOOL-HISTORY-NUMERIC-PRECISION",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/agent-argument-number.json"
+        },
+        {
+          "id": "AGENT-CANCEL-REASONING-STEP-LOSS",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/agent-cancel-reasoning.json"
         }
       ],
       "commits": [],
-      "limitations": []
+      "limitations": [],
+      "source_sha256": {
+        "internal/agent/act.go": "f8a267eaa62ead7d37c2207dcdfdf67c21ea79ad577aea2b5b0053c11457d74d",
+        "internal/agent/background.go": "c2dc946dea6c2a692bf5fe89726be6e68195822f5674d0f08f36ec50bf085007",
+        "internal/agent/calibration.go": "bb78741843f0c12b0965c49a0318870e96ca552bc431ce82b08b3be6b045b651",
+        "internal/agent/checkpoint.go": "bca230dba135fe770715ef5a14269b95303155e0fcb98753393eee595f841f84",
+        "internal/agent/collaboration.go": "e4e4c0c15559badc6ec6cf6bf6cb414ea3b8e5df3ad6c717d685f277f944e305",
+        "internal/agent/const.go": "ef206cca800042a6f7bca7fb9b26738fdbcfda59c5ce3f72cb0cfa71582f0e13",
+        "internal/agent/context_debug.go": "6e90ac3968924ce0ca751a428737fac952d0f5d5a0ad96e68765d00d33d43d4e",
+        "internal/agent/engine.go": "631343c7b84a1c8e6093ccfbe7a82ee0ede398933596464d3e5cfb1921b46d61",
+        "internal/agent/finalize.go": "e120b7656aaa590c69300f33cc20c5fdbd14c50815d9f57bea7c133dd048290c",
+        "internal/agent/grounding_prompt.go": "5a897144635153764a24e2ae5258c2068960f01efaf9c144c40cd8d640ff4e6e",
+        "internal/agent/observe.go": "43c07b4e7987a35e2409632e3292101b7847a02358e945689ddbc379419378db",
+        "internal/agent/prompts.go": "42ec4fbf963f3fc9bcbb970b096aae91cf12c39f1f16b4f34da977fbd70f075c",
+        "internal/agent/prompts_browser.go": "bf4538aec5ccdc07f4c9550eff46bd8fbab2676967371829c39140930cfba350",
+        "internal/agent/prompts_wiki.go": "a05a0b19cd9cc68d1f73ee915fd2e7125d7624dbb4e9269f8565ac220b46be43",
+        "internal/agent/resume.go": "6c4244073017eff0b67de728b8b203467a0ebd4f0942a1b8c228d3c28d34172f",
+        "internal/agent/steer.go": "e93efc816d94a43221a089e58c3a912f6eaa459a8a973df22171791dfa4ccb56",
+        "internal/agent/suspend.go": "f66f6c7ee42e4aca9b6950810fcac4bf774d30e405b007d7c36f7deffc7dc844",
+        "internal/agent/think.go": "a51cedecc6d56f7c95d68aac205bceb768a5f5d16e561cc562945d38f20775bb",
+        "internal/agent/tool_images.go": "756cae776e385f47a5bfbf4f22f2b9bd071c404b3475418120fa5b4b10612dee"
+      }
     },
     {
       "id": "internal/agent/approval",
@@ -4004,7 +4052,7 @@
     },
     {
       "id": "internal/agent/compaction",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/agent/compaction/compactor.go",
         "internal/agent/compaction/cutpoint.go",
@@ -4031,10 +4079,15 @@
       ],
       "inspected_files": [],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/agent-core.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Confirmed tool argument number rounding remains unfixed; source unchanged when user requested stop after current work."
+      ],
+      "source_sha256": {}
     },
     {
       "id": "internal/agent/hitl",
@@ -8744,7 +8797,7 @@
     },
     {
       "id": "internal/modelcontext",
-      "status": "partially_audited",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/modelcontext/citations.go",
         "internal/modelcontext/handle_table.go",
@@ -8796,7 +8849,8 @@
         "test-reports/module-audit-20261113/modelcontext-resource-identity.json",
         "test-reports/module-audit-20261113/modelcontext-stream-word-boundary.json",
         "test-reports/module-audit-20261113/modelcontext-json-numbers.json",
-        "test-reports/module-audit-20261113/agent-image-number.json"
+        "test-reports/module-audit-20261113/agent-image-number.json",
+        "test-reports/module-audit-20261113/agent-core.json"
       ],
       "findings": [
         {
@@ -13569,6 +13623,10 @@
     {
       "commit": "40bd2021c",
       "module": "authorized outer join nullable input semantics"
+    },
+    {
+      "commit": "b3326f3e1",
+      "module": "Markitdown XLSX cell expansion budget and parser audit closure"
     }
   ],
   "frontend_final_gate": {

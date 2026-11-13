@@ -850,6 +850,34 @@ const (
 	iterOutcomeBreak
 )
 
+// takeResponseStep consumes delivered input boundaries exactly once, whether
+// the response completed normally or the parent stopped its stream.
+func takeResponseStep(state *types.AgentState, response *types.ChatResponse) types.AgentStep {
+	step := types.AgentStep{
+		UserMessagesBefore:   state.PendingSteerMessages,
+		BackgroundInjections: state.PendingBackground,
+		Iteration:            state.CurrentRound,
+		Thought:              response.Content,
+		ReasoningContent:     response.ReasoningContent,
+		ReasoningSignature:   response.ReasoningSignature,
+		ReasoningMetadata:    response.ReasoningMetadata,
+		ToolCalls:            make([]types.ToolCall, 0),
+		Timestamp:            time.Now(),
+	}
+	state.PendingSteerMessages = nil
+	state.PendingBackground = nil
+	return step
+}
+
+// Interrupted calls have not executed, so their provider tool-call payloads
+// are deliberately absent. Reasoning artifacts are persisted content too.
+func appendInterruptedStep(state *types.AgentState, step types.AgentStep) {
+	if step.Thought != "" || step.ReasoningContent != "" || step.ReasoningSignature != "" ||
+		len(step.ReasoningMetadata) > 0 || len(step.UserMessagesBefore) > 0 || len(step.BackgroundInjections) > 0 {
+		state.RoundSteps = append(state.RoundSteps, step)
+	}
+}
+
 // runReActIteration executes one ReAct step: think → analyze → act → observe.
 // Extracted from executeLoop so the whole iteration body can live inside a
 // single `defer span.Finish()` scope — otherwise we'd need to sprinkle
@@ -969,6 +997,9 @@ func (e *AgentEngine) runReActIteration(
 	guards.pendingRuntimeNotice = ""
 	resp, err := e.callLLMWithRetry(ctx, messagesPtr, tools, state, query, state.CurrentRound, sessionID, runtimeNotice)
 	if err != nil {
+		if ctx.Err() != nil && resp != nil {
+			appendInterruptedStep(state, takeResponseStep(state, resp))
+		}
 		retErr = err
 		return iterOutcomeNext, err
 	}
@@ -981,7 +1012,7 @@ func (e *AgentEngine) runReActIteration(
 	// the window. Compacting and retrying once turns that into a recovered
 	// round instead of a wasted one. Once per turn: if the retry overflows
 	// too, the problem is not the history size.
-	if !e.overflowRecovered && e.responseHitContextLimit(resp) {
+	if ctx.Err() == nil && !e.overflowRecovered && e.responseHitContextLimit(resp) {
 		e.overflowRecovered = true
 		logger.Warnf(ctx, "[Agent][Round-%d] Response hit the context window (finish=%s, "+
 			"completion=%d of %d requested); compacting and retrying once",
@@ -1019,6 +1050,23 @@ func (e *AgentEngine) runReActIteration(
 			response.Usage.CompletionTokens, response.Usage.TotalTokens,
 			response.Usage.CacheReadTokens, response.Usage.CacheWriteTokens,
 			response.Usage.PromptCacheHitRate(), response.Usage.CacheStatus)
+	}
+
+	// If the request was cancelled while the LLM was streaming (e.g. the
+	// user pressed "stop"), the stream driver still returns a usable
+	// response (partial content / finish_reason="stop" / no tool calls).
+	// Do NOT let analyzeResponse treat that partial thinking text as the
+	// final answer — it would pollute Message.Content with mid-stream
+	// thinking and show up as a duplicate card next to the intermediate-
+	// steps tree. Preserve the partial thinking as an AgentStep and break
+	// out of the loop without marking state.IsComplete. executeLoop's
+	// deferred emitCompletionEvent will persist the step onto
+	// Message.AgentSteps so it still appears in the tree on refresh.
+	if ctx.Err() != nil {
+		logger.Warnf(ctx, "[Agent][Round-%d] Context cancelled during LLM call; preserving partial step",
+			round)
+		appendInterruptedStep(state, takeResponseStep(state, response))
+		return iterOutcomeBreak, nil
 	}
 
 	// Every round in a row that the provider cut off at the completion cap.
@@ -1101,39 +1149,7 @@ func (e *AgentEngine) runReActIteration(
 	}
 
 	// Create agent step
-	step := types.AgentStep{
-		UserMessagesBefore:   state.PendingSteerMessages,
-		BackgroundInjections: state.PendingBackground,
-		Iteration:            state.CurrentRound,
-		Thought:              response.Content,
-		ReasoningContent:     response.ReasoningContent,
-		ReasoningSignature:   response.ReasoningSignature,
-		ReasoningMetadata:    response.ReasoningMetadata,
-		ToolCalls:            make([]types.ToolCall, 0),
-		Timestamp:            time.Now(),
-	}
-	state.PendingSteerMessages = nil
-	state.PendingBackground = nil
-
-	// If the request was cancelled while the LLM was streaming (e.g. the
-	// user pressed "stop"), the stream driver still returns a usable
-	// response (partial content / finish_reason="stop" / no tool calls).
-	// Do NOT let analyzeResponse treat that partial thinking text as the
-	// final answer — it would pollute Message.Content with mid-stream
-	// thinking and show up as a duplicate card next to the intermediate-
-	// steps tree. Preserve the partial thinking as an AgentStep and break
-	// out of the loop without marking state.IsComplete. executeLoop's
-	// deferred emitCompletionEvent will persist the step onto
-	// Message.AgentSteps so it still appears in the tree on refresh.
-	if ctx.Err() != nil {
-		logger.Warnf(ctx, "[Agent][Round-%d] Context cancelled during LLM call; preserving partial step",
-			round)
-		if step.Thought != "" || len(step.ToolCalls) > 0 || len(step.UserMessagesBefore) > 0 ||
-			len(step.BackgroundInjections) > 0 {
-			state.RoundSteps = append(state.RoundSteps, step)
-		}
-		return iterOutcomeBreak, nil
-	}
+	step := takeResponseStep(state, response)
 
 	// A delegated deliverable must not silently become a partial success. Give
 	// it one text-only revision using existing evidence; never re-run tools or
