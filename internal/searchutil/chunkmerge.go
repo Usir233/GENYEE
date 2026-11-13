@@ -3,6 +3,7 @@ package searchutil
 import (
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/Usir233/GENYEE/internal/types"
 )
@@ -191,12 +192,20 @@ func MergeTextChunks(chunks []*types.Chunk, gapSep string) string {
 
 	merged := ""
 	mergedEnd := -1
+	// Only this trailing span is known to match its source coordinates. A gap
+	// starts a new span; synthetic headers or edits invalidate the guarantee.
+	trustedTail := 0
 	for _, c := range sorted {
 		if c == nil || c.Content == "" {
 			continue
 		}
+		trustedLength := 0
+		if c.ContentRevision == 0 && c.EndAt > c.StartAt && utf8.RuneCountInString(c.Content) == c.EndAt-c.StartAt {
+			trustedLength = c.EndAt - c.StartAt
+		}
 		if merged == "" {
 			merged = c.Content
+			trustedTail = trustedLength
 			if c.EndAt > 0 {
 				mergedEnd = c.EndAt
 			}
@@ -209,6 +218,7 @@ func MergeTextChunks(chunks []*types.Chunk, gapSep string) string {
 				merged += gapSep
 			}
 			merged += c.Content
+			trustedTail = trustedLength
 			if c.EndAt > 0 {
 				mergedEnd = c.EndAt
 			}
@@ -217,7 +227,20 @@ func MergeTextChunks(chunks []*types.Chunk, gapSep string) string {
 
 		// 部分重叠或首尾相接：按文本匹配去重叠后拼接。
 		if c.EndAt > mergedEnd {
-			merged = AppendWithOverlap(merged, c.Content, mergedEnd-c.StartAt)
+			overlap := mergedEnd - c.StartAt
+			exact := false
+			if trustedLength > 0 && overlap <= trustedTail {
+				var joined string
+				joined, exact = AppendWithExactOverlap(merged, c.Content, overlap)
+				if exact {
+					merged = joined
+					trustedTail += c.EndAt - mergedEnd
+				}
+			}
+			if !exact {
+				merged = AppendWithOverlap(merged, c.Content, overlap)
+				trustedTail = 0
+			}
 			mergedEnd = c.EndAt
 		}
 		// 否则被上一段完全覆盖，跳过。

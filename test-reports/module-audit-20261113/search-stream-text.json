@@ -1,0 +1,135 @@
+{
+  "module": "search content reconstruction, stream storage, text conversion",
+  "date": "2026-11-13",
+  "source_review": [
+    {
+      "path": "internal/searchutil/chunkmerge.go",
+      "sha256": "a54733e2e2c887b37d11e9a1450e05f3e55e59ea2a673f59afc96ba1d7eff783",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/searchutil/conversion.go",
+      "sha256": "a436d47fab512e58422b40ac8fe73e7112a8b29350efb707d03789445163e8d8",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/searchutil/image_evidence.go",
+      "sha256": "4334181a7108fdb72f2b922a04098297083daf6732971585cb50cd332d87349a",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/searchutil/imageinfo.go",
+      "sha256": "1c28ae721723944f16f4018a9abbc434e4be04f5f508c442c436a29010cf4438",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/searchutil/imageinfo_match.go",
+      "sha256": "1aedf969a0d711310e15798735df5c45be8574707f6cbde6d3391770d016efdb",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/searchutil/normalize.go",
+      "sha256": "c467a11504d2d3f6976d682f29e4a945aba048485e2e0a76d3095cb5e1c8e9f8",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/searchutil/snippet.go",
+      "sha256": "363aa33582f4563eebb53c41f056e1d86abfd4c8aa271bdcd6976087ef2a1f3d",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/searchutil/textutil.go",
+      "sha256": "5d2d1bb067dabfbfd28a17fae1ccebcdb2be3e3ccb337cbead5d7935bbedd653",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/stream/factory.go",
+      "sha256": "52c91bc702de3dab1c0a1905a25ede2bbc6e55c454753760e8dd17ccf44c1174",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/stream/memory_manager.go",
+      "sha256": "358002375eedc5c4e3faffa2906408b675465903574faecbd5798d028960adaf",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/stream/notice_inbox_redis.go",
+      "sha256": "d72740cdb486a5fcb891e78bbed10cb4d922a0c36a905d359f98910e9dfdfece",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/stream/redis_manager.go",
+      "sha256": "18fe73bc779d68d3dce073a1f1852964d255efe21aedccb1467ec200a49ea85c",
+      "review": "complete production source read"
+    },
+    {
+      "path": "internal/textconv/simplified.go",
+      "sha256": "3e4aaf1d3b9d6eb1efa6a5a6f28d82d294defb4d6f1b7a039203256aec241a14",
+      "review": "complete production source read"
+    }
+  ],
+  "findings": [
+    {
+      "id": "SEARCH-IMAGE-RESCAN",
+      "priority": "P2",
+      "paths": [
+        "internal/searchutil/imageinfo.go"
+      ],
+      "scenario": "Repeated image references and image links quoted inside caption/OCR are enriched in the already-modified body; later metadata is inserted at the earlier occurrence, creating nested XML and leaving later body images unenriched. Summary, wiki and generated-question consumers call these functions.",
+      "before": "6 leaf failures across 3 enrichers; search-image-before.log",
+      "fix": "Regex replacement callback scans original body once, preserving every occurrence and metadata text.",
+      "tests": "imageinfo_repeated_test.go; full searchutil race and affected service regression tests pass."
+    },
+    {
+      "id": "SEARCH-REPEATED-ROWS",
+      "priority": "P2",
+      "paths": [
+        "internal/searchutil/chunkmerge.go"
+      ],
+      "scenario": "Two source-coordinate chunks with one overlapping table row reconstruct 8 original rows as 5 because longest textual suffix matches 4 repeated rows. Actual Wiki reconstruction and graph relationship input both reproduce data loss.",
+      "before": "search-merge-before.log and 2 actual caller failures in search-merge-callers-before.log",
+      "fix": "Track contiguous coordinate-trusted tail; verify and trim exact source overlap. Retain existing heuristic for synthesized headers, edits and untrusted ranges.",
+      "tests": "chunkmerge_repeated_test.go covers true overlap, disconnected preceding content and input order; document_reconstruction_rows_test.go covers actual wiki/graph helpers; existing synthetic-header and chat-merge controls pass."
+    }
+  ],
+  "validation": [
+    {
+      "command": "go test -mod=readonly -race ./internal/searchutil ./internal/textconv -count=1",
+      "result": "PASS",
+      "log": ".git/module-audit-20261113/search-image-after.log"
+    },
+    {
+      "command": "go test -mod=readonly -race ./internal/searchutil -count=1",
+      "result": "PASS",
+      "log": ".git/module-audit-20261113/search-merge-after.log"
+    },
+    {
+      "command": "go test -mod=readonly -race ./internal/searchutil ./internal/application/service ./internal/application/service/chat_pipeline -run '(Merge|Reconstruct|ImageInfo|Enrich|Summary|Question)' -count=1",
+      "result": "PASS",
+      "log": ".git/module-audit-20261113/search-reconstruction-after.log"
+    },
+    {
+      "command": "go test -mod=readonly -race ./internal/stream -count=1",
+      "result": "PASS",
+      "log": ".git/module-audit-20261113/stream-after.log"
+    }
+  ],
+  "ruled_out": [
+    {
+      "candidate": "Memory stream buffers have no TTL",
+      "reason": "Explicitly documented process-lifetime replay contract in cli/AGENTS.md Server-side buffer TTL; not changed to Redis 1h semantics."
+    },
+    {
+      "candidate": "Negative stream cursor or nil search chunk panic",
+      "reason": "Inspected production cursors start at zero and advance internally; repository chunk rows nonnil. No real reachable invalid path established."
+    }
+  ],
+  "remaining_search_checks": [
+    "Wiki reconstruction of manually edited or disabled chunks needs a separate caller-level check; current fixes address unmodified source reconstruction and metadata insertion."
+  ],
+  "limitations": [
+    "Memory/Redis race suite uses miniredis; no live Redis cluster failure or restart testing.",
+    "Text conversion historical corpus digest covers 13177 cases, not all possible Unicode combinations.",
+    "Search source inspected fully, but broader service/repository/model authorization is not claimed. No live LLM, user data, or deployment used."
+  ]
+}

@@ -429,13 +429,12 @@ func EnrichContentWithImageInfo(content string, imageInfoJSON string) string {
 		}
 	}
 
-	matches := MarkdownImageRegex.FindAllStringSubmatch(content, -1)
 	processedURLs := make(map[string]bool)
 
-	for _, match := range matches {
-		if len(match) < 3 {
-			continue
-		}
+	// Replace against the original body once. Rescanning a modified body can
+	// enrich the first occurrence twice or rewrite image links inside OCR.
+	content = MarkdownImageRegex.ReplaceAllStringFunc(content, func(image string) string {
+		match := MarkdownImageRegex.FindStringSubmatch(image)
 		imgURL := match[2]
 		processedURLs[imgURL] = true
 
@@ -447,8 +446,8 @@ func EnrichContentWithImageInfo(content string, imageInfoJSON string) string {
 			b.WriteString(BuildImageInfoXML(imgInfo))
 		}
 		b.WriteString("</image>")
-		content = strings.Replace(content, match[0], b.String(), 1)
-	}
+		return b.String()
+	})
 
 	var extras []string
 	for _, imgInfo := range imageInfos {
@@ -645,22 +644,19 @@ func EnrichContentCaptionOnly(content string, imageInfoJSON string) string {
 		}
 	}
 
-	matches := MarkdownImageRegex.FindAllStringSubmatch(content, -1)
 	processedURLs := make(map[string]bool)
 
-	for _, match := range matches {
-		if len(match) < 3 {
-			continue
-		}
+	content = MarkdownImageRegex.ReplaceAllStringFunc(content, func(image string) string {
+		match := MarkdownImageRegex.FindStringSubmatch(image)
 		imgURL := match[2]
 		processedURLs[imgURL] = true
 
 		imgInfo, found := imageInfoMap[imgURL]
 		if found && imgInfo != nil && imgInfo.Caption != "" {
-			replacement := match[0] + "\n" + fmt.Sprintf("<image_caption>%s</image_caption>", imgInfo.Caption)
-			content = strings.Replace(content, match[0], replacement, 1)
+			return image + "\n" + fmt.Sprintf("<image_caption>%s</image_caption>", imgInfo.Caption)
 		}
-	}
+		return image
+	})
 
 	var extras []string
 	for _, imgInfo := range imageInfos {
@@ -705,26 +701,23 @@ func EnrichContentCaptionAndOCR(content string, imageInfoJSON string) string {
 		}
 	}
 
-	matches := MarkdownImageRegex.FindAllStringSubmatch(content, -1)
 	processedURLs := make(map[string]bool)
 
-	for _, match := range matches {
-		if len(match) < 3 {
-			continue
-		}
+	content = MarkdownImageRegex.ReplaceAllStringFunc(content, func(image string) string {
+		match := MarkdownImageRegex.FindStringSubmatch(image)
 		imgURL := match[2]
 		processedURLs[imgURL] = true
 
 		imgInfo, found := imageInfoMap[imgURL]
 		if !found || imgInfo == nil {
-			continue
+			return image
 		}
 		appended := buildCaptionOCRBlock(imgInfo)
 		if appended == "" {
-			continue
+			return image
 		}
-		content = strings.Replace(content, match[0], match[0]+"\n"+appended, 1)
-	}
+		return image + "\n" + appended
+	})
 
 	var extras []string
 	for _, imgInfo := range imageInfos {

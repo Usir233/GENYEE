@@ -9490,7 +9490,7 @@
     },
     {
       "id": "internal/searchutil",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/searchutil/chunkmerge.go",
         "internal/searchutil/conversion.go",
@@ -9510,12 +9510,31 @@
         "internal/searchutil/imageinfo_pages_test.go",
         "internal/searchutil/snippet_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "internal/searchutil/chunkmerge.go",
+        "internal/searchutil/conversion.go",
+        "internal/searchutil/image_evidence.go",
+        "internal/searchutil/imageinfo.go",
+        "internal/searchutil/imageinfo_match.go",
+        "internal/searchutil/normalize.go",
+        "internal/searchutil/snippet.go",
+        "internal/searchutil/textutil.go"
+      ],
+      "invariants_checked": [
+        "Image insertion never rescans generated metadata.",
+        "Trusted document overlap preserves repeated source rows and does not reorder caller slices."
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/search-stream-text.json"
+      ],
+      "findings": [
+        "SEARCH-IMAGE-RESCAN",
+        "SEARCH-REPEATED-ROWS"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Search source inspected fully, but broader service/repository/model authorization is not claimed. No live LLM, user data, or deployment used."
+      ]
     },
     {
       "id": "internal/sourceloc",
@@ -9627,7 +9646,7 @@
     },
     {
       "id": "internal/stream",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/stream/factory.go",
         "internal/stream/memory_manager.go",
@@ -9638,12 +9657,23 @@
         "internal/stream/notice_inbox_redis_test.go",
         "internal/stream/redis_live_run_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/stream/factory.go",
+        "internal/stream/memory_manager.go",
+        "internal/stream/notice_inbox_redis.go",
+        "internal/stream/redis_manager.go"
+      ],
+      "invariants_checked": [
+        "Memory/Redis live-run conflict and ownership semantics, steer deduplication, reset/drop separation, notice expiry compare-and-delete, TTL contract."
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/search-stream-text.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Memory/Redis race suite uses miniredis; no live Redis cluster failure or restart testing."
+      ]
     },
     {
       "id": "internal/testutil/dnstest",
@@ -9663,19 +9693,27 @@
     },
     {
       "id": "internal/textconv",
-      "status": "pending",
+      "status": "audited_no_actionable_findings",
       "source_files": [
         "internal/textconv/simplified.go"
       ],
       "test_files": [
         "internal/textconv/simplified_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/textconv/simplified.go"
+      ],
+      "invariants_checked": [
+        "Phrase precedence, longest match, first alternative, bounded match window, immutable shared converter, historical FAQ compatibility."
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/search-stream-text.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Text conversion historical corpus digest covers 13177 cases, not all possible Unicode combinations."
+      ]
     },
     {
       "id": "internal/tracing/langfuse",
@@ -12216,6 +12254,10 @@
     {
       "commit": "71210c511",
       "module": "parser error envelopes at attachment callers"
+    },
+    {
+      "commit": "886e2a4e8",
+      "module": "cloud document download cancellation"
     }
   ],
   "frontend_final_gate": {
