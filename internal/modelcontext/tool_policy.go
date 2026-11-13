@@ -393,8 +393,8 @@ func (r *Registry) encodeToolPrivateResult(toolName, output string) string {
 }
 
 func rewriteJSONStringValues(raw string, rewrite func(key, value string) string) string {
-	var value interface{}
-	if json.Unmarshal([]byte(raw), &value) != nil {
+	value, ok := decodeJSONValue(raw)
+	if !ok {
 		return raw
 	}
 	value = walkJSONValue("", value, rewrite)

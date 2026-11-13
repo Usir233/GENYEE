@@ -9,6 +9,7 @@ package modelcontext
 import (
 	"encoding/json"
 	"html"
+	"io"
 	"net/url"
 	"regexp"
 	"sort"
@@ -449,8 +450,8 @@ func (r *sourceRegistry) decodeJSONWithPolicy(
 	if r == nil || strings.TrimSpace(raw) == "" {
 		return raw
 	}
-	var value interface{}
-	if err := json.Unmarshal([]byte(raw), &value); err != nil {
+	value, ok := decodeJSONValue(raw)
+	if !ok {
 		return raw
 	}
 	if bareText == nil {
@@ -462,6 +463,23 @@ func (r *sourceRegistry) decodeJSONWithPolicy(
 		return raw
 	}
 	return string(encoded)
+}
+
+// Handle rewriting only changes strings. Keep number literals intact instead
+// of converting opaque tool IDs, counters or decimals through float64. A
+// second decode enforces the same whole-document contract as json.Unmarshal.
+func decodeJSONValue(raw string) (interface{}, bool) {
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.UseNumber()
+	var value interface{}
+	if err := decoder.Decode(&value); err != nil {
+		return nil, false
+	}
+	var trailing interface{}
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return nil, false
+	}
+	return value, true
 }
 
 func (r *sourceRegistry) walkJSON(
