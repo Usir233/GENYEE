@@ -106,6 +106,7 @@ migrations/
 | 000130 | 会话沙箱分配与用户共享机器 |
 | 000131–000133 | 自动化执行时长、模型覆盖、统一由助手执行 |
 | 000134 | `tenants.default_settings`（JSONB），保存空间默认模型 ID；未设置时保留部署默认回退行为 |
+| 000137 | `auth_tokens.session_id` 关联一次登录及其刷新轮换；撤销无法安全配对的历史令牌，用户需重新登录，账号和业务数据保留 |
 
 SQLite 版本号独立演进，不能与 PostgreSQL 数字一一对应：
 
@@ -132,6 +133,7 @@ SQLite 版本号独立演进，不能与 PostgreSQL 数字一一对应：
 | 000034 | 补齐 MCP usage_instructions 与 mcp_metadata（对应 000092） |
 | 000035 | Agent 显式默认工具（对应 000116） |
 | 000036 | 有效用户消息附件查询索引（对应 000117，SQLite 使用普通索引） |
+| 000053 | `auth_tokens.session_id` 与历史令牌失效处理（对应 PostgreSQL 000137） |
 | 000037–000039 | 持久化审批、租户助手配置、会话 kind（对应 000119–000121） |
 | 000040 | 飞书 / Lark 重同步（对应 000122） |
 | 000041–000044 | 协作、空图片分块清理、MCP 风险与授权（对应 000124–000127） |
@@ -153,7 +155,7 @@ PostgreSQL 的 000099、000112、000115、000118、000123 没有 SQLite 对应�
 | --- | --- | --- |
 | `tenants` | 租户（工作空间），多租户体系根 | `id`（SERIAL，起始 10000）、`name`、`retriever_engines`（JSONB）、`status`、`storage_quota`/`storage_used`、`agent_config`/`context_config`/`conversation_config`/`web_search_config`/`credentials`/`api_principal_config`/`memory_config`/`default_settings`（JSONB）、`default_storage_backend_id`。原 `api_key` 列已在 000065 迁入 `tenant_api_keys` 并删除 |
 | `users` | 登录用户 | `id`（UUID）、`username`（唯一）、`email`（唯一）、`password_hash`、`tenant_id`（FK→tenants，ON DELETE SET NULL）、`is_active`、`can_access_all_tenants`（跨空间访问）、`is_system_admin`（系统管理员，000053）、`preferences`（JSON） |
-| `auth_tokens` | 登录令牌 | `id`、`user_id`（FK→users，CASCADE）、`token`、`token_type`（access/refresh）、`expires_at`（TIMESTAMPTZ，000072 起）、`is_revoked` |
+| `auth_tokens` | 登录令牌 | `id`、`user_id`（FK→users，CASCADE）、`session_id`（同一次登录及全部刷新轮换共用，000137）、`token`、`token_type`（access/refresh）、`expires_at`（TIMESTAMPTZ，000072 起）、`is_revoked` |
 | `tenant_members` | 租户级 RBAC 成员关系 | `user_id`+`tenant_id`（软删除下唯一）、`role`（owner/admin/contributor/viewer）、`status`、`invited_by`、`joined_at` |
 | `tenant_invitations` | 站内邀请与邀请链接 | `tenant_id`、`invitee_user_id`、`role`、`status`（pending/accepted/rejected）、`expires_at`；pending 唯一约束；`token`（邀请链接，唯一）/`accepted_count`（000054） |
 | `tenant_api_keys` | 租户/平台 API Key | `tenant_id`（platform 作用域时为 NULL）、`scope_type`（tenant/platform，CHECK 约束）、`key_hash`（唯一）、`full_access`、`knowledge_base_ids`、`capabilities`、`expires_at`/`revoked_at` |
