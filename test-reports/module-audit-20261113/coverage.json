@@ -8815,7 +8815,7 @@
     },
     {
       "id": "internal/models/embedding",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/models/embedding/batch.go",
         "internal/models/embedding/concurrency_wrapper.go",
@@ -8839,12 +8839,24 @@
         "internal/models/embedding/wemm_test.go",
         "internal/models/embedding/wire_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "internal/models/embedding/batch.go"
+      ],
+      "invariants_checked": [
+        "cancelled request cannot wait on unrelated saturated-pool work",
+        "queued cancelled work must not invoke the provider"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-embedding-cancellation.json"
+      ],
+      "findings": [
+        "MODELS-EMBEDDING-POOL-CANCELLATION"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "ants.Submit has no context API: one coordinator may remain blocked per reused pooler until pool capacity is available or Release is called. submitSlot prevents each cancelled request from adding another ants waiter.",
+        "Already running providers that ignore context retain their own pool workers until they return; caller cancellation is prompt and queued callbacks never start provider work."
+      ]
     },
     {
       "id": "internal/models/imageprep",
@@ -12301,6 +12313,10 @@
     {
       "commit": "d7268dcfe",
       "module": "retriever vector storage estimate"
+    },
+    {
+      "commit": "91f8ff940",
+      "module": "gRPC image metadata allocation"
     }
   ],
   "frontend_final_gate": {

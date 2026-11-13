@@ -1,0 +1,159 @@
+{
+  "module": "embedding pool cancellation",
+  "group": {
+    "name": "embedding_pool_cancellation",
+    "source_read_paths": [
+      "internal/models/embedding/batch.go",
+      "internal/models/embedding/batch_race_test.go"
+    ],
+    "status": "fixed_validated_frozen_ready_for_root_commit",
+    "invariants": [
+      "cancelled request cannot wait on unrelated saturated-pool work",
+      "queued cancelled work must not invoke the provider"
+    ],
+    "pending": [],
+    "owned_files": [
+      "internal/models/embedding/batch.go",
+      "internal/models/embedding/batch_cancel_test.go"
+    ],
+    "freeze_sha256": {
+      "internal/models/embedding/batch.go": "9ee113a718a0b8f975bd3cc46035d32a1a606c504468065f25aaedd89b0bfa31",
+      "internal/models/embedding/batch_cancel_test.go": "b8aa41c4766cfa34833dc277f259ebca81c21f9a911f46d9966b1dbe96db1bf5"
+    },
+    "validation": [
+      {
+        "phase": "permanent_regressions_before_production_change",
+        "command": "go test -mod=readonly ./internal/models/embedding -run 'TestBatchEmbedWithPool(AlreadyCancelled|CancellationWhileQueued|CancellationWhileRunning|SubmitFailureCancelsStartedWork|CancelledWaitersStayBounded|SuccessfulOrderAndClosedPool)$' -count=1 -json",
+        "log": ".git/module-audit-20261113/models-pool-before.jsonl",
+        "exit_code": 1
+      },
+      {
+        "phase": "final_tests_against_original_production_via_overlay",
+        "command": "go test -mod=readonly -overlay /tmp/genyee-models-audit-20261113/pool-baseline-overlay.json ./internal/models/embedding -run '^TestBatchEmbedWithPool' -count=1 -json",
+        "log": ".git/module-audit-20261113/models-pool-final-baseline.jsonl",
+        "exit_code": 1,
+        "leaf": {
+          "fail": 8,
+          "pass": 4
+        }
+      },
+      {
+        "phase": "final_embedding_package_race",
+        "command": "GENYEE_EMBEDDING_TEST_URL='' GENYEE_EMBEDDING_TEST_FIXTURE='' go test -mod=readonly -race ./internal/models/embedding -count=1 -json",
+        "log": ".git/module-audit-20261113/models-pool-after.jsonl",
+        "exit_code": 0,
+        "leaf": {
+          "pass": 168,
+          "skip": 1
+        },
+        "skip": "existing opt-in live model test disabled intentionally"
+      },
+      {
+        "phase": "input_ownership_negative_control",
+        "command": "go test -mod=readonly -race -overlay /tmp/genyee-models-audit-20261113/pool-no-input-copy-overlay.json ./internal/models/embedding -run '^TestBatchEmbedWithPoolCancelledInputCanBeReused$' -count=1 -json",
+        "log": ".git/module-audit-20261113/models-pool-input-copy-control.jsonl",
+        "exit_code": 1,
+        "actual": "removing new synchronous input copy triggers DATA RACE between caller slice reuse and asynchronous MapSlice read"
+      },
+      {
+        "phase": "git_diff_check",
+        "exit_code": 0
+      }
+    ],
+    "covered_scenarios": [
+      "already-cancelled request performs no provider call",
+      "queued cancellation and deadline return without unrelated-worker release",
+      "accepted/running callback cannot pin cancelled caller; later chunks skip provider",
+      "failed pool submission cancels already-started work",
+      "multiple cancelled requests leave at most one ants Submit waiter per reused pooler",
+      "active/cancelled waiter wakes on Release; fully released pool reboots and same pooler works",
+      "caller may reuse large input slice immediately after cancellation without data race",
+      "successful vector order, closed-pool errors, existing provider-error/count-mismatch and concurrency fan-out regression suites"
+    ],
+    "production_lifecycle_evidence": [
+      {
+        "path": "internal/container/container.go",
+        "lines": [
+          279,
+          280
+        ],
+        "observed": "dig.Provide(embedding.NewBatchEmbedder) followed by NewModelService; single constructor registration"
+      },
+      {
+        "path": "internal/application/service/model.go",
+        "lines": [
+          33,
+          42,
+          579,
+          624
+        ],
+        "observed": "modelService stores injected pooler; each model creation reuses s.pooler"
+      },
+      {
+        "path": "internal/container/container.go",
+        "lines": [
+          1884,
+          1906
+        ],
+        "observed": "one managed shared ants pool; cleanup invokes Release"
+      },
+      {
+        "path": "/Users/ian.cn/go/pkg/mod/go.uber.org/dig@v1.19.0/doc.go",
+        "lines": [
+          53,
+          54
+        ],
+        "observed": "retained type singleton instantiated at most once"
+      },
+      {
+        "command": "rg -n NewBatchEmbedder internal --glob *.go",
+        "observed": "only production call registration in container; remaining direct constructors are tests"
+      }
+    ],
+    "limitations": [
+      "ants.Submit has no context API: one coordinator may remain blocked per reused pooler until pool capacity is available or Release is called. submitSlot prevents each cancelled request from adding another ants waiter.",
+      "Already running providers that ignore context retain their own pool workers until they return; caller cancellation is prompt and queued callbacks never start provider work."
+    ]
+  },
+  "finding": {
+    "id": "MODELS-EMBEDDING-POOL-CANCELLATION",
+    "priority": "P2",
+    "status": "fixed_validated_frozen",
+    "paths": [
+      "internal/models/embedding/batch.go"
+    ],
+    "actual": "with pool capacity 1 held by unrelated work, request context cancelled after Submit waits; caller remains blocked until unrelated worker release. With controlled fake model returns nil error after cancellation and model called once.",
+    "reproducer": "/tmp/genyee-models-audit-20261113/pool_cancel_repro_test.go",
+    "evidence": ".git/module-audit-20261113/models-external-repro.log",
+    "provenance": "Original batch.go exact behavior inherited from 74434f730/d4fadf402; original version retained in /tmp/genyee-models-audit-20261113/batch-before.go. Additional confirmed partial-submit failure left started context-aware provider uncancelled until parent cancellation.",
+    "locations_before": [
+      {
+        "path": "internal/models/embedding/batch.go",
+        "lines": [
+          27,
+          60,
+          95,
+          98,
+          105
+        ]
+      }
+    ],
+    "locations_after": [
+      {
+        "path": "internal/models/embedding/batch.go",
+        "lines": [
+          28,
+          74,
+          110,
+          147
+        ]
+      }
+    ],
+    "fix": "copy caller input before asynchronous scheduling; select caller context independently of ants Submit/wait; bound blocking Submit to one per singleton pooler; context-check callbacks; cancel derived provider context on every return; balance unaccepted waitgroup callback"
+  },
+  "root_review": "Full batch implementation and regression tests read, singleton production lifetime traced, package terminal status verified. Input ownership and bounded deferred Submit explicitly retained.",
+  "limitations": [
+    "ants.Submit has no context API: one coordinator may remain blocked per reused pooler until pool capacity is available or Release is called. submitSlot prevents each cancelled request from adding another ants waiter.",
+    "Already running providers that ignore context retain their own pool workers until they return; caller cancellation is prompt and queued callbacks never start provider work."
+  ]
+}

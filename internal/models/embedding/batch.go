@@ -12,11 +12,12 @@ import (
 )
 
 type batchEmbedder struct {
-	pool *ants.Pool
+	pool       *ants.Pool
+	submitSlot chan struct{}
 }
 
 func NewBatchEmbedder(pool *ants.Pool) EmbedderPooler {
-	return &batchEmbedder{pool: pool}
+	return &batchEmbedder{pool: pool, submitSlot: make(chan struct{}, 1)}
 }
 
 type textEmbedding struct {
@@ -25,6 +26,55 @@ type textEmbedding struct {
 }
 
 func (e *batchEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, texts []string) ([][]float32, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	// The caller may reuse its input slice as soon as cancellation returns,
+	// while a pool submission is still unwinding in the background.
+	texts = append([]string(nil), texts...)
+	type result struct {
+		vectors [][]float32
+		err     error
+	}
+	done := make(chan result, 1)
+	go func() {
+		vectors, err := e.batchEmbed(ctx, model, texts)
+		done <- result{vectors: vectors, err: err}
+	}()
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-done:
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		return result.vectors, result.err
+	}
+}
+
+// ants.Submit cannot be interrupted while another request holds the pool.
+// Keep that wait off the caller, with at most one Submit waiter per pooler.
+// Other calls wait for submitSlot with their own context; the accepted callback
+// also checks cancellation before calling the provider.
+func (e *batchEmbedder) submit(ctx context.Context, task func()) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case e.submitSlot <- struct{}{}:
+	}
+	defer func() { <-e.submitSlot }()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	return e.pool.Submit(task)
+}
+
+func (e *batchEmbedder) batchEmbed(ctx context.Context, model Embedder, texts []string) ([][]float32, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	// Create goroutine pool for concurrent processing of document chunks
 	var wg sync.WaitGroup
 	var mu sync.Mutex  // For synchronizing access to error
@@ -57,7 +107,7 @@ func (e *batchEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, 
 			mu.Lock()
 			aborted := firstErr != nil
 			mu.Unlock()
-			if aborted {
+			if aborted || ctx.Err() != nil {
 				return
 			}
 			// Embed text
@@ -94,8 +144,9 @@ func (e *batchEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, 
 	// Submit all tasks to the goroutine pool
 	for _, texts := range utils.ChunkSlice(textEmbeddings, batchSize) {
 		wg.Add(1)
-		err := e.pool.Submit(processChunk(texts))
+		err := e.submit(ctx, processChunk(texts))
 		if err != nil {
+			wg.Done() // Submit did not accept this callback.
 			return nil, err
 		}
 	}
