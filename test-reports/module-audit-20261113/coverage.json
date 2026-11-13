@@ -1878,14 +1878,17 @@
       ],
       "test_files": [],
       "inspected_files": [
-        "docreader/parser/doc_parser.py"
+        "docreader/parser/doc_parser.py",
+        "docreader/parser/image_parser.py",
+        "docreader/parser/pdf_parser.py"
       ],
       "invariants_checked": [
         "Extracted DOCX image references survive body-order composition in their source paragraph and respect page limits."
       ],
       "evidence": [
         "test-reports/module-audit-20261113/parser-docx-images.json",
-        "test-reports/module-audit-20261113/parser-doc-fallback.json"
+        "test-reports/module-audit-20261113/parser-doc-fallback.json",
+        "test-reports/module-audit-20261113/parser-image-filenames.json"
       ],
       "findings": [
         "PARSE-005",
@@ -1893,6 +1896,11 @@
           "id": "PARSE-004",
           "status": "fixed_verified",
           "report": "test-reports/module-audit-20261113/parser-doc-fallback.json"
+        },
+        {
+          "id": "PARSE-006",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/parser-image-filenames.json"
         }
       ],
       "commits": [],
@@ -2037,7 +2045,7 @@
     },
     {
       "id": "docreader/utils",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "docreader/utils/__init__.py",
         "docreader/utils/endecode.py",
@@ -2046,13 +2054,24 @@
         "docreader/utils/split.py",
         "docreader/utils/ssrf.py",
         "docreader/utils/ssrf_proxy.py",
-        "docreader/utils/tempfile.py"
+        "docreader/utils/tempfile.py",
+        "docreader/utils/image_ref.py"
       ],
       "test_files": [],
-      "inspected_files": [],
+      "inspected_files": [
+        "docreader/utils/image_ref.py"
+      ],
       "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/parser-image-filenames.json"
+      ],
+      "findings": [
+        {
+          "id": "PARSE-006",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/parser-image-filenames.json"
+        }
+      ],
       "commits": [],
       "limitations": []
     },
@@ -7823,11 +7842,17 @@
           }
         },
         "test-reports/module-audit-20261113/parser-cloud-cancellation.json",
-        "test-reports/module-audit-20261113/parser-stream-allocation.json"
+        "test-reports/module-audit-20261113/parser-stream-allocation.json",
+        "test-reports/module-audit-20261113/parser-image-filenames.json"
       ],
       "findings": [
         "PARSE-002",
-        "PARSE-003"
+        "PARSE-003",
+        {
+          "id": "PARSE-006",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/parser-image-filenames.json"
+        }
       ],
       "commits": [],
       "limitations": [
@@ -12463,6 +12488,10 @@
     {
       "commit": "e83d7b5fa",
       "module": "authentication foreign workspace revocation"
+    },
+    {
+      "commit": "8b0c82801",
+      "module": "truncated access log credential redaction"
     }
   ],
   "frontend_final_gate": {

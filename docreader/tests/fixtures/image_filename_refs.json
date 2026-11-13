@@ -1,0 +1,98 @@
+[
+  {
+    "filename": "diagram.png",
+    "pdf_filename": "diagram.pdf",
+    "image_ref": "images/diagram.png",
+    "pdf_page_ref": "images/diagram_page_1.jpg",
+    "image_markdown": "![diagram.png](images/diagram.png)",
+    "pdf_page_markdown": "![diagram_page_1.jpg](images/diagram_page_1.jpg)"
+  },
+  {
+    "filename": "",
+    "pdf_filename": "",
+    "image_ref": "images/image.png",
+    "pdf_page_ref": "images/document_page_1.jpg",
+    "image_markdown": "![image.png](images/image.png)",
+    "pdf_page_markdown": "![document_page_1.jpg](images/document_page_1.jpg)"
+  },
+  {
+    "filename": "报告 图.png",
+    "pdf_filename": "报告 图.pdf",
+    "image_ref": "images/%E6%8A%A5%E5%91%8A%20%E5%9B%BE.png",
+    "pdf_page_ref": "images/%E6%8A%A5%E5%91%8A%20%E5%9B%BE_page_1.jpg",
+    "image_markdown": "![报告 图.png](images/%E6%8A%A5%E5%91%8A%20%E5%9B%BE.png)",
+    "pdf_page_markdown": "![报告 图_page_1.jpg](images/%E6%8A%A5%E5%91%8A%20%E5%9B%BE_page_1.jpg)"
+  },
+  {
+    "filename": "rate%20.png",
+    "pdf_filename": "rate%20.pdf",
+    "image_ref": "images/rate%2520.png",
+    "pdf_page_ref": "images/rate%2520_page_1.jpg",
+    "image_markdown": "![rate%20.png](images/rate%2520.png)",
+    "pdf_page_markdown": "![rate%20_page_1.jpg](images/rate%2520_page_1.jpg)"
+  },
+  {
+    "filename": "a#b?.png",
+    "pdf_filename": "a#b?.pdf",
+    "image_ref": "images/a%23b%3F.png",
+    "pdf_page_ref": "images/a%23b%3F_page_1.jpg",
+    "image_markdown": "![a#b?.png](images/a%23b%3F.png)",
+    "pdf_page_markdown": "![a#b?_page_1.jpg](images/a%23b%3F_page_1.jpg)"
+  },
+  {
+    "filename": "a(b).png",
+    "pdf_filename": "a(b).pdf",
+    "image_ref": "images/a%28b%29.png",
+    "pdf_page_ref": "images/a%28b%29_page_1.jpg",
+    "image_markdown": "![a(b).png](images/a%28b%29.png)",
+    "pdf_page_markdown": "![a(b)_page_1.jpg](images/a%28b%29_page_1.jpg)"
+  },
+  {
+    "filename": "image).png",
+    "pdf_filename": "image).pdf",
+    "image_ref": "images/image%29.png",
+    "pdf_page_ref": "images/image%29_page_1.jpg",
+    "image_markdown": "![image).png](images/image%29.png)",
+    "pdf_page_markdown": "![image)_page_1.jpg](images/image%29_page_1.jpg)"
+  },
+  {
+    "filename": "open(.png",
+    "pdf_filename": "open(.pdf",
+    "image_ref": "images/open%28.png",
+    "pdf_page_ref": "images/open%28_page_1.jpg",
+    "image_markdown": "![open(.png](images/open%28.png)",
+    "pdf_page_markdown": "![open(_page_1.jpg](images/open%28_page_1.jpg)"
+  },
+  {
+    "filename": "bracket](`.png",
+    "pdf_filename": "bracket](`.pdf",
+    "image_ref": "images/bracket%5D%28%60.png",
+    "pdf_page_ref": "images/bracket%5D%28%60_page_1.jpg",
+    "image_markdown": "![bracket\\](\\`.png](images/bracket%5D%28%60.png)",
+    "pdf_page_markdown": "![bracket\\](\\`_page_1.jpg](images/bracket%5D%28%60_page_1.jpg)"
+  },
+  {
+    "filename": "line\nbreak.png",
+    "pdf_filename": "line\nbreak.pdf",
+    "image_ref": "images/line%0Abreak.png",
+    "pdf_page_ref": "images/line%0Abreak_page_1.jpg",
+    "image_markdown": "![line break.png](images/line%0Abreak.png)",
+    "pdf_page_markdown": "![line break_page_1.jpg](images/line%0Abreak_page_1.jpg)"
+  },
+  {
+    "filename": "slash\\image.png",
+    "pdf_filename": "slash\\image.pdf",
+    "image_ref": "images/slash%5Cimage.png",
+    "pdf_page_ref": "images/slash%5Cimage_page_1.jpg",
+    "image_markdown": "![slash\\\\image.png](images/slash%5Cimage.png)",
+    "pdf_page_markdown": "![slash\\\\image_page_1.jpg](images/slash%5Cimage_page_1.jpg)"
+  },
+  {
+    "filename": "<tag>.png",
+    "pdf_filename": "<tag>.pdf",
+    "image_ref": "images/%3Ctag%3E.png",
+    "pdf_page_ref": "images/%3Ctag%3E_page_1.jpg",
+    "image_markdown": "![&lt;tag&gt;.png](images/%3Ctag%3E.png)",
+    "pdf_page_markdown": "![&lt;tag&gt;_page_1.jpg](images/%3Ctag%3E_page_1.jpg)"
+  }
+]

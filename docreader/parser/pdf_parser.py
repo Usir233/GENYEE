@@ -27,6 +27,7 @@ import statistics
 import threading
 from decimal import Decimal, ROUND_CEILING
 from typing import Iterator
+from urllib.parse import quote
 
 from docreader.config import CONFIG
 from docreader.models.document import Document
@@ -36,6 +37,7 @@ from docreader.parser.concurrency import (
 )
 from docreader.parser.source_locator import PageGeometry, page_blocks
 from docreader.parser.stream import ParsedDocumentStream, StreamedImage
+from docreader.utils.image_ref import image_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -632,8 +634,7 @@ def _inject_figure_markdown_before_captions(text: str, clips: list) -> str:
         if i > 0 and lines[i - 1].lstrip().startswith("!["):
             continue
         ref_path = clips[clip_idx][0]
-        fname = os.path.basename(ref_path)
-        img_md = f"![{fname}]({ref_path})"
+        img_md = image_markdown(ref_path)
         lines[i] = f"{img_md}\n\n{ln}"
         clip_idx += 1
     return "\n".join(lines)
@@ -2102,7 +2103,7 @@ class PDFScannedParser(BaseParser):
 
         images = {}
         markdown_lines = []
-        base_name = os.path.splitext(self.file_name or "document")[0]
+        base_name = quote(os.path.splitext(self.file_name or "document")[0], safe="")
 
         logger.info(
             "PDFScannedParser: Rendering PDF pages to JPEG images for %s",
@@ -2140,7 +2141,7 @@ class PDFScannedParser(BaseParser):
             for i in range(page_count):
                 page_filename = f"{base_name}_page_{i+1}.jpg"
                 ref_path = f"images/{page_filename}"
-                line = f"![{page_filename}]({ref_path})"
+                line = image_markdown(ref_path)
                 if markdown_lines:
                     offset += 2
                 markdown_lines.append(line)
@@ -2188,7 +2189,7 @@ class PDFScannedParser(BaseParser):
 
         import pypdfium2 as pdfium
 
-        base_name = os.path.splitext(self.file_name or "document")[0]
+        base_name = quote(os.path.splitext(self.file_name or "document")[0], safe="")
         with _PDFIUM_LOCK:
             try:
                 pdf = pdfium.PdfDocument(content)
@@ -2207,7 +2208,7 @@ class PDFScannedParser(BaseParser):
         for index in range(page_count):
             page_filename = f"{base_name}_page_{index + 1}.jpg"
             ref_path = f"images/{page_filename}"
-            line = f"![{page_filename}]({ref_path})"
+            line = image_markdown(ref_path)
             if markdown_lines:
                 offset += 2
             markdown_lines.append(line)
@@ -2387,7 +2388,7 @@ class PDFParser(BaseParser):
 
         scale = max(1, CONFIG.pdf_render_dpi) / 72
         quality = _normalize_image_quality(CONFIG.pdf_jpeg_quality)
-        base_name = os.path.splitext(self.file_name or "document")[0]
+        base_name = quote(os.path.splitext(self.file_name or "document")[0], safe="")
 
         # Use a temporary source file for every stream mode so each fixed-size
         # batch can close its PdfDocument before the next batch starts. This
@@ -2419,7 +2420,7 @@ class PDFParser(BaseParser):
         import pypdfium2 as pdfium
         import pypdfium2.raw as pdfium_r
 
-        base_name = os.path.splitext(self.file_name or "document")[0]
+        base_name = quote(os.path.splitext(self.file_name or "document")[0], safe="")
         scale = max(1, CONFIG.pdf_render_dpi) / 72
         quality = _normalize_image_quality(CONFIG.pdf_jpeg_quality)
 
@@ -2560,7 +2561,7 @@ class PDFParser(BaseParser):
             if classes[i] == "scanned":
                 page_filename = f"{base_name}_page_{i+1}.jpg"
                 image_source_types[f"images/{page_filename}"] = "scanned_pdf"
-                part = f"![{page_filename}](images/{page_filename})"
+                part = image_markdown(f"images/{page_filename}")
                 start = place(part)
                 source_blocks.append(
                     {"start": start, "end": start + len(part), "locator": page_only}
@@ -2585,8 +2586,7 @@ class PDFParser(BaseParser):
                 page_images.sort(key=lambda item: item[2], reverse=True)
                 for ref_path, _b64, _y in page_images:
                     image_source_types[ref_path] = "pdf_text_layer"
-                    fname = os.path.basename(ref_path)
-                    part = f"![{fname}]({ref_path})"
+                    part = image_markdown(ref_path)
                     start = place(part)
                     source_blocks.append(
                         {"start": start, "end": start + len(part), "locator": dict(page_only)}

@@ -1,9 +1,10 @@
 import base64
 import logging
-import os
+from urllib.parse import quote
 
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
+from docreader.utils.image_ref import image_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +20,10 @@ class ImageParser(BaseParser):
     def parse_into_text(self, content: bytes) -> Document:
         logger.info("Parsing image file=%s, size=%d bytes", self.file_name, len(content))
 
-        ext = os.path.splitext(self.file_name)[1].lower() or ".png"
-        ref_path = f"images/{self.file_name}"
+        filename = self.file_name or f"image.{self.file_type or 'png'}"
+        ref_path = f"images/{quote(filename, safe='')}"
 
-        text = f"![{self.file_name}]({ref_path})"
+        text = image_markdown(ref_path)
         images = {ref_path: base64.b64encode(content).decode()}
 
         return Document(content=text, images=images)
