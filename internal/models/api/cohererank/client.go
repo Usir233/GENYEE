@@ -71,7 +71,7 @@ type response struct {
 }
 
 type result struct {
-	Index          int      `json:"index"`
+	Index          *int     `json:"index"`
 	RelevanceScore *float64 `json:"relevance_score"`
 	Score          *float64 `json:"score"`
 	Document       document `json:"document"`
@@ -201,12 +201,23 @@ func (c *Client) post(ctx context.Context, body map[string]any, count int) ([]ap
 		return nil, err
 	}
 	out := make([]api.RerankResult, 0, len(results))
+	seen := make(map[int]bool, len(results))
 	for _, item := range results {
-		if item.Index < 0 || item.Index >= count {
-			return nil, fmt.Errorf("rerank index %d out of range for %d documents", item.Index, count)
+		// Missing fields are not index/score zero: accepting them silently
+		// remaps a candidate or invents a score instead of triggering fallback.
+		if item.Index == nil || (item.RelevanceScore == nil && item.Score == nil) {
+			return nil, fmt.Errorf("rerank result is missing index or score")
 		}
+		index := *item.Index
+		if index < 0 || index >= count {
+			return nil, fmt.Errorf("rerank index %d out of range for %d documents", index, count)
+		}
+		if seen[index] {
+			return nil, fmt.Errorf("rerank index %d returned twice", index)
+		}
+		seen[index] = true
 		out = append(out, api.RerankResult{
-			Index: item.Index,
+			Index: index,
 			Score: firstNonNil(item.RelevanceScore, item.Score),
 			Text:  item.Document.Text,
 		})

@@ -1,0 +1,158 @@
+{
+  "module": "models/rerank response validation",
+  "date": "2026-11-13",
+  "scope": {
+    "name": "rerank_protocols_and_wrappers",
+    "source_read_paths": [
+      "internal/models/api/cohererank/client.go",
+      "internal/models/api/cohererank/response_shape_test.go",
+      "internal/models/api/dashscoperank/client.go",
+      "internal/models/api/dashscoperank/golden_test.go",
+      "internal/models/api/nimrerank/client.go",
+      "internal/models/api/nimrerank/golden_test.go",
+      "internal/models/api/pineconerank/client.go",
+      "internal/models/api/teirank/client.go",
+      "internal/models/api/tencentlkeap/client.go",
+      "internal/models/api/volcengineknowledge/client.go",
+      "internal/models/rerank/image.go",
+      "internal/models/rerank/langfuse_wrapper.go",
+      "internal/models/rerank/lkeap_reranker.go",
+      "internal/models/rerank/llm_debug.go",
+      "internal/models/rerank/logging.go",
+      "internal/models/rerank/protocol.go",
+      "internal/models/rerank/reranker.go",
+      "internal/models/rerank/transport.go",
+      "internal/models/rerank/volcengine_reranker.go"
+    ],
+    "status": "malformed_response_fix_validated_frozen_ready_for_root_commit",
+    "invariants": [
+      "response must explicitly identify a ranking array",
+      "each returned index identifies exactly one submitted candidate",
+      "missing fields must not be synthesized as legitimate zero index/score",
+      "explicit zero scores, empty arrays and valid partial rankings remain supported"
+    ],
+    "pending": [
+      "source-review remaining tests and vendor-specific wrapper cases",
+      "vendor-specific relative-score comparability across split batches requires evidence; not a confirmed bug"
+    ],
+    "owned_files": [
+      "internal/models/api/cohererank/client.go",
+      "internal/models/api/cohererank/response_validation_test.go",
+      "internal/models/api/dashscoperank/client.go",
+      "internal/models/api/dashscoperank/response_validation_test.go",
+      "internal/models/api/nimrerank/client.go",
+      "internal/models/api/nimrerank/response_validation_test.go"
+    ],
+    "freeze_sha256": {
+      "internal/models/api/cohererank/client.go": "cb3d395cb73a5e958fd47551ea3dfb5110442a2dab53befe625b6b4e3bd8b931",
+      "internal/models/api/cohererank/response_validation_test.go": "8f6390f9d7dedacd06035f485ce748e7fd625c086c32b659539b12caffa3876d",
+      "internal/models/api/dashscoperank/client.go": "61ef74c08f49d33415a4834375a9481e28057259263dedade60ff92ae99cc7ef",
+      "internal/models/api/dashscoperank/response_validation_test.go": "ae4c9a5b2d08df5e8cfd711f9af7735d47cd4da365e5a88dfe38e518e89611af",
+      "internal/models/api/nimrerank/client.go": "e1e00085b37be4a964775cfb67fa41f86983876c375a113774b850bb0efe2cc2",
+      "internal/models/api/nimrerank/response_validation_test.go": "325351a0f41a41ddeb888b395855aa4f3c4f6023690295aa3432ac5f8fef19ca"
+    },
+    "validation": {
+      "before": {
+        "command": "go test -mod=readonly ./internal/models/api/cohererank ./internal/models/api/dashscoperank ./internal/models/api/nimrerank -run 'Test(RejectsMalformedRankingEntries|PreservesValidRankingEntries)$' -count=1 -json",
+        "log": ".git/module-audit-20261113/models-rerank-before.jsonl",
+        "exit_code": 1,
+        "failed_leaf": 27,
+        "passed_leaf": 26
+      },
+      "after": {
+        "command": "go test -mod=readonly -race ./internal/models/api/cohererank ./internal/models/api/dashscoperank ./internal/models/api/nimrerank ./internal/models/rerank -count=1 -json",
+        "log": ".git/module-audit-20261113/models-rerank-after.jsonl",
+        "exit_code": 0,
+        "terminal_leaf_counts": {
+          "pass": 174
+        },
+        "top_level_tests": 74
+      },
+      "git_diff_check": "passed",
+      "network": "only fake HTTP loopback, no model/account calls"
+    }
+  },
+  "findings": [
+    {
+      "id": "MODELS-RERANK-MALFORMED-SUCCESS",
+      "priority": "P2",
+      "status": "fixed_validated_frozen",
+      "paths": [
+        "internal/models/api/cohererank/client.go",
+        "internal/models/api/dashscoperank/client.go",
+        "internal/models/api/nimrerank/client.go"
+      ],
+      "actual": "11 malformed HTTP 200 cases return nil error: duplicate/missing indexes map distinct candidates to index 0; missing scores become zero; DashScope/NIM error envelopes become successful empty ranking.",
+      "impact": "retrieval caller fallback runs on errors; silent success can duplicate/drop candidates or apply invented zero scores. Read-only consumer reference internal/application/service/message.go:831-852.",
+      "reproducer": "/tmp/genyee-models-audit-20261113/rerank_response_repro_test.go",
+      "evidence": ".git/module-audit-20261113/models-external-repro.log",
+      "protocol_references": [
+        "https://docs.cohere.com/reference/rerank",
+        "https://help.aliyun.com/zh/model-studio/text-rerank-api",
+        "https://docs.api.nvidia.com/nim/reference/nvidia-llama-3_2-nv-rerankqa-1b-v2-infer"
+      ],
+      "provenance": "DashScope and NIM original source identical to both 74434f730 and d4fadf402; Cohere differs only a removed old-brand comment. Defect is inherited.",
+      "fix": "required index and score pointers; reject duplicate indexes and absent/null ranking arrays; preserve explicit zero, partial ordering, empty arrays, Cohere alias and NIM negative logits. Shared text/image post paths validated.",
+      "locations_before": [
+        {
+          "path": "internal/models/api/cohererank/client.go",
+          "lines": [
+            203,
+            214
+          ]
+        },
+        {
+          "path": "internal/models/api/dashscoperank/client.go",
+          "lines": [
+            103,
+            114
+          ]
+        },
+        {
+          "path": "internal/models/api/nimrerank/client.go",
+          "lines": [
+            136,
+            144
+          ]
+        }
+      ],
+      "locations_after": [
+        {
+          "path": "internal/models/api/cohererank/client.go",
+          "lines": [
+            203,
+            224
+          ]
+        },
+        {
+          "path": "internal/models/api/dashscoperank/client.go",
+          "lines": [
+            103,
+            125
+          ]
+        },
+        {
+          "path": "internal/models/api/nimrerank/client.go",
+          "lines": [
+            137,
+            155
+          ]
+        }
+      ]
+    }
+  ],
+  "constraints": {
+    "edits_only": "internal/models/**",
+    "paid_model_calls": false,
+    "external_model_calls": false,
+    "commits": false,
+    "pushes": false,
+    "fetches": false,
+    "live_deployment_changes": false
+  },
+  "limitations": [
+    "source-review remaining tests and vendor-specific wrapper cases",
+    "vendor-specific relative-score comparability across split batches requires evidence; not a confirmed bug"
+  ],
+  "root_review": "Production diffs, regression tests and complete package terminal results checked. Overall models audit remains partial."
+}

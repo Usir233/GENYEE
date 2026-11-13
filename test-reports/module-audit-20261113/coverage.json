@@ -8356,7 +8356,7 @@
     },
     {
       "id": "internal/models/api/cohererank",
-      "status": "pending",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/models/api/cohererank/client.go"
       ],
@@ -8364,12 +8364,25 @@
         "internal/models/api/cohererank/golden_test.go",
         "internal/models/api/cohererank/response_shape_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "internal/models/api/cohererank/client.go"
+      ],
+      "invariants_checked": [
+        "each returned index identifies exactly one submitted candidate",
+        "explicit zero scores, empty arrays and valid partial rankings remain supported",
+        "missing fields must not be synthesized as legitimate zero index/score",
+        "response must explicitly identify a ranking array"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-rerank.json"
+      ],
+      "findings": [
+        "MODELS-RERANK-MALFORMED-SUCCESS"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+      ]
     },
     {
       "id": "internal/models/api/dashscopeembeddings",
@@ -8389,19 +8402,32 @@
     },
     {
       "id": "internal/models/api/dashscoperank",
-      "status": "pending",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/models/api/dashscoperank/client.go"
       ],
       "test_files": [
         "internal/models/api/dashscoperank/golden_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "internal/models/api/dashscoperank/client.go"
+      ],
+      "invariants_checked": [
+        "each returned index identifies exactly one submitted candidate",
+        "explicit zero scores, empty arrays and valid partial rankings remain supported",
+        "missing fields must not be synthesized as legitimate zero index/score",
+        "response must explicitly identify a ranking array"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-rerank.json"
+      ],
+      "findings": [
+        "MODELS-RERANK-MALFORMED-SUCCESS"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+      ]
     },
     {
       "id": "internal/models/api/googleembeddings",
@@ -8438,19 +8464,32 @@
     },
     {
       "id": "internal/models/api/nimrerank",
-      "status": "pending",
+      "status": "audited_findings_fixed",
       "source_files": [
         "internal/models/api/nimrerank/client.go"
       ],
       "test_files": [
         "internal/models/api/nimrerank/golden_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "inspected_files": [
+        "internal/models/api/nimrerank/client.go"
+      ],
+      "invariants_checked": [
+        "each returned index identifies exactly one submitted candidate",
+        "explicit zero scores, empty arrays and valid partial rankings remain supported",
+        "missing fields must not be synthesized as legitimate zero index/score",
+        "response must explicitly identify a ranking array"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-rerank.json"
+      ],
+      "findings": [
+        "MODELS-RERANK-MALFORMED-SUCCESS"
+      ],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+      ]
     },
     {
       "id": "internal/models/api/openaichataudio",
@@ -8543,63 +8582,107 @@
     },
     {
       "id": "internal/models/api/pineconerank",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/models/api/pineconerank/client.go"
       ],
       "test_files": [
         "internal/models/api/pineconerank/golden_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/pineconerank/client.go"
+      ],
+      "invariants_checked": [
+        "each returned index identifies exactly one submitted candidate",
+        "explicit zero scores, empty arrays and valid partial rankings remain supported",
+        "missing fields must not be synthesized as legitimate zero index/score",
+        "response must explicitly identify a ranking array"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-rerank.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+      ]
     },
     {
       "id": "internal/models/api/teirank",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/models/api/teirank/client.go"
       ],
       "test_files": [
         "internal/models/api/teirank/golden_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/teirank/client.go"
+      ],
+      "invariants_checked": [
+        "each returned index identifies exactly one submitted candidate",
+        "explicit zero scores, empty arrays and valid partial rankings remain supported",
+        "missing fields must not be synthesized as legitimate zero index/score",
+        "response must explicitly identify a ranking array"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-rerank.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+      ]
     },
     {
       "id": "internal/models/api/tencentlkeap",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/models/api/tencentlkeap/client.go"
       ],
       "test_files": [],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/tencentlkeap/client.go"
+      ],
+      "invariants_checked": [
+        "each returned index identifies exactly one submitted candidate",
+        "explicit zero scores, empty arrays and valid partial rankings remain supported",
+        "missing fields must not be synthesized as legitimate zero index/score",
+        "response must explicitly identify a ranking array"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-rerank.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+      ]
     },
     {
       "id": "internal/models/api/volcengineknowledge",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/models/api/volcengineknowledge/client.go"
       ],
       "test_files": [],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/api/volcengineknowledge/client.go"
+      ],
+      "invariants_checked": [
+        "each returned index identifies exactly one submitted candidate",
+        "explicit zero scores, empty arrays and valid partial rankings remain supported",
+        "missing fields must not be synthesized as legitimate zero index/score",
+        "response must explicitly identify a ranking array"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-rerank.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+      ]
     },
     {
       "id": "internal/models/asr",
@@ -8834,7 +8917,7 @@
     },
     {
       "id": "internal/models/rerank",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/models/rerank/image.go",
         "internal/models/rerank/langfuse_wrapper.go",
@@ -8859,12 +8942,31 @@
         "internal/models/rerank/transport_security_test.go",
         "internal/models/rerank/wire_test.go"
       ],
-      "inspected_files": [],
-      "invariants_checked": [],
-      "evidence": [],
+      "inspected_files": [
+        "internal/models/rerank/image.go",
+        "internal/models/rerank/langfuse_wrapper.go",
+        "internal/models/rerank/lkeap_reranker.go",
+        "internal/models/rerank/llm_debug.go",
+        "internal/models/rerank/logging.go",
+        "internal/models/rerank/protocol.go",
+        "internal/models/rerank/reranker.go",
+        "internal/models/rerank/transport.go",
+        "internal/models/rerank/volcengine_reranker.go"
+      ],
+      "invariants_checked": [
+        "each returned index identifies exactly one submitted candidate",
+        "explicit zero scores, empty arrays and valid partial rankings remain supported",
+        "missing fields must not be synthesized as legitimate zero index/score",
+        "response must explicitly identify a ranking array"
+      ],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-rerank.json"
+      ],
       "findings": [],
       "commits": [],
-      "limitations": []
+      "limitations": [
+        "Only protocol invariants listed here validated; broader vendor/runtime review continues in models workstream."
+      ]
     },
     {
       "id": "internal/models/runtime",
@@ -12084,6 +12186,10 @@
     {
       "commit": "1b71947b3",
       "module": "resource ownership and failed-upload cleanup"
+    },
+    {
+      "commit": "00a1e02ab",
+      "module": "CLI credential, profile, confirmation and error contracts"
     }
   ],
   "frontend_final_gate": {
