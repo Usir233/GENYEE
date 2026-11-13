@@ -1,0 +1,54 @@
+{
+  "module": "internal/application/access",
+  "status": "audited_findings_fixed",
+  "source_files": [
+    "internal/application/access/context.go",
+    "internal/application/access/files.go",
+    "internal/application/access/kb_search.go",
+    "internal/application/access/kb_shares.go",
+    "internal/application/access/kb_transfer.go",
+    "internal/application/access/kb_write.go",
+    "internal/application/access/knowledge_state.go",
+    "internal/application/access/knowledgebase.go",
+    "internal/application/access/message_files.go",
+    "internal/application/access/ownership.go",
+    "internal/application/access/superuser.go"
+  ],
+  "findings": [
+    {
+      "id": "ACCESS-001",
+      "severity": "P1",
+      "title": "Historical shared-KB message files bypass a narrowed API-key allow-list",
+      "scenario": "An API key owns a session that previously retrieved an organization-shared KB file. After its KB allow-list changes, the chat-capable message-file route still returned the excluded file because shared-KB fallback checked organization membership but not the current key scope.",
+      "reproduction": "The real message-file handler returned HTTP 200 and shared-kb-image for KnowledgeBaseIDs=[another-kb], expected HTTP 403. Tenant-wide and explicitly allowed KB cases passed as controls.",
+      "fix": "Reapply current API-key KB scope before consuming the organization grant and binding.",
+      "files": [
+        "internal/application/access/message_files.go",
+        "internal/router/message_file_api_scope_test.go"
+      ]
+    }
+  ],
+  "verification": [
+    {
+      "command": "go test -mod=readonly ./internal/router -run ^TestMessageSharedKBFilesRecheckCurrentAPIKeyScope$ -count=1",
+      "status": "failed_before_fix",
+      "log": ".git/module-audit-20261113/access-api-scope-before.log"
+    },
+    {
+      "command": "go test -mod=readonly -race ./internal/application/access ./internal/router -count=1",
+      "status": "passed",
+      "log": ".git/module-audit-20261113/access-api-scope-after.log"
+    }
+  ],
+  "invariants_checked": [
+    "Original caller identity is distinct from execution tenant; grants remain exact and operation-limited.",
+    "Ownership role floors, API-key scope, live organization grants and shared-agent scope are separate gates.",
+    "File lookup requires persisted exact reference and live source binding; deleted artifact cannot be reauthorized by old answer text.",
+    "Trusted transfer/task grants bind owner, resource pair and operation; read grants cannot authorize writes."
+  ],
+  "limitations": [
+    "Reviewed library source and message-file route/service/share lookup boundary; does not claim every service caller or all HTTP authorization is audited.",
+    "HTTP regression uses catalog/session/share storage doubles, not a live database or live credential.",
+    "Session-owned artifacts and chat history retain their existing session access contract."
+  ]
+}

@@ -99,6 +99,9 @@ func (a MessageKBShareAuthorizer) resourceAccessibleViaSharedKB(
 		if kb == nil || kb.TenantID != resource.TenantID {
 			continue
 		}
+		if types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kb.ID) != nil {
+			continue
+		}
 		shared, err := permissions.Check(kb.ID, types.OrgRoleViewer)
 		if err == nil && shared {
 			bound, bindingErr := a.Bindings.IsReferencedByKnowledgeBase(
