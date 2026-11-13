@@ -5778,7 +5778,8 @@
         "test-reports/module-audit-20261113/sourceloc.json",
         "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json",
         "test-reports/module-audit-20261113/knowledge-clone-coordinates.json",
-        "test-reports/module-audit-20261113/agent-argument-number.json"
+        "test-reports/module-audit-20261113/agent-argument-number.json",
+        "test-reports/module-audit-20261113/scheduler-test-recorder.json"
       ],
       "findings": [
         {
@@ -13664,6 +13665,10 @@
     {
       "commit": "957015607",
       "module": "interrupted agent reasoning persistence"
+    },
+    {
+      "commit": "9f230a8f8",
+      "module": "cancelable SSRF DNS, redirects and browser fallback"
     }
   ],
   "frontend_final_gate": {

@@ -171,8 +171,31 @@ func mustCursorJSON(t *testing.T, cursor *types.SyncCursor) types.JSON {
 type syncScheduleRecorder struct{ tasks chan *asynq.Task }
 
 func (r syncScheduleRecorder) Enqueue(task *asynq.Task, _ ...asynq.Option) (*asynq.TaskInfo, error) {
-	r.tasks <- task
+	// The test only needs to observe the next scheduled task. Extra ticks
+	// must not block cron shutdown if the test goroutine is slow to resume.
+	select {
+	case r.tasks <- task:
+	default:
+	}
 	return &asynq.TaskInfo{ID: "scheduled-after-file-failure"}, nil
+}
+
+func TestSyncScheduleRecorderDoesNotBlockWhenFull(t *testing.T) {
+	recorder := syncScheduleRecorder{tasks: make(chan *asynq.Task, 1)}
+	recorder.tasks <- asynq.NewTask("already-observed", nil)
+	done := make(chan struct{})
+	go func() {
+		_, _ = recorder.Enqueue(asynq.NewTask("later-tick", nil))
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		// Release the fixture goroutine before reporting the regression.
+		<-recorder.tasks
+		<-done
+		t.Fatal("a full recorder blocks cron shutdown while it waits for Enqueue")
+	}
 }
 
 func TestSchedulerRestartsAfterOversizedFiles(t *testing.T) {
