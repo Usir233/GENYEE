@@ -344,9 +344,7 @@ export function createTools(client: WeknoraClient, config: ResolvedConfig): Tool
         const limit = boundedIntArg(args, 'max_results', config.maxResults, config.maxResults)
         const [hits, named] = await Promise.all([
           client.search({ query, knowledgeBaseIds, knowledgeIds }, exec.signal),
-          // By-name matching is an enrichment, and older WeKnora builds may not
-          // route it. Losing it must not cost the model its passages.
-          client.findDocuments({ keyword: query, limit }, exec.signal).catch(() => []),
+          client.findDocuments({ keyword: query, limit }, exec.signal),
         ])
         const results = hits.slice(0, limit).map((hit, index) => projectHit(hit, index + 1, config.maxChunkChars))
         return {

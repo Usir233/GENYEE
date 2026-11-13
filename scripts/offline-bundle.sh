@@ -236,7 +236,6 @@ if [[ ! -f "${PROJECT_ROOT}/.env.offline" ]]; then
     set_secret_env SYSTEM_AES_KEY 16
     set_secret_env SYSTEM_SIGNING_KEY 32
     set_secret_env GRPC_AUTH_TOKEN 32
-    set_bundle_env GENYEE_WEKNORACLOUD_ENABLED false
     set_bundle_env LANGFUSE_ENABLED false
     if profile_enabled odl-hybrid; then
         set_secret_env ODL_HYBRID_AUTH_TOKEN 32
@@ -334,7 +333,7 @@ contains no image archives and cannot be deployed.
 2. Review the generated .env (credentials are unique to this package), ports,
    storage and COMPOSE_PROFILES. Keep .env private and backed up. Verify the
    original package before editing configuration; retain an unmodified copy for
-   repeat integrity checks. WeKnoraCloud and Langfuse tracing default to disabled.
+   repeat integrity checks. Langfuse tracing defaults to disabled.
 
 3. Start local imported images without pulling or rebuilding:
      docker compose -f docker-compose.yml up -d --no-build --pull never

@@ -6,10 +6,8 @@
  * no cross-namespace fallbacks — so one user's preferences cannot bleed
  * into another user's session.
  *
- * One-shot migration adopts pre-existing values into the current user's
+ * One-shot migration adopts anonymous values into the current user's
  * namespace at login time:
- *   - Legacy un-namespaced keys (WeKnora_${suffix}) from earlier branch
- *     versions are inherited and removed.
  *   - The "anon" namespace (used while no user is logged in) is also
  *     adopted and cleared, so the next user to log in cannot inherit it.
  */
@@ -74,7 +72,7 @@ export function savePreference(suffix: string, value: string): void {
 let migratedForUser: string | null = null
 
 /**
- * Adopt legacy and anon preferences into the current user's namespace, then
+ * Adopt anon preferences into the current user's namespace, then
  * remove the source keys. Idempotent per session per user — repeat calls for
  * the same userId are no-ops. Safe to call before the user is logged in
  * (it returns early when userId === "anon").
@@ -90,23 +88,16 @@ export function migratePreferencesIntoUser(): void {
     const targetExists = safeGetItem(target) !== null
 
     const anonKey = `WeKnora_anon_${suffix}`
-    const legacyKey = `WeKnora_${suffix}`
 
     if (!targetExists) {
       const anonValue = safeGetItem(anonKey)
       if (anonValue !== null) {
         safeSetItem(target, anonValue)
-      } else {
-        const legacyValue = safeGetItem(legacyKey)
-        if (legacyValue !== null) {
-          safeSetItem(target, legacyValue)
-        }
       }
     }
 
     // Always clean up source keys so subsequent users cannot inherit them.
     safeRemoveItem(anonKey)
-    safeRemoveItem(legacyKey)
   }
 }
 

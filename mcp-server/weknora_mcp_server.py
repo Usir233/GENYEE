@@ -309,7 +309,7 @@ def _iter_sse_lines(response: requests.Response) -> Iterator[bytes]:
         yield bytes(pending)
 
 
-class WeKnoraClient:
+class GENYEEClient:
     """Client for interacting with GENYEE API"""
 
     def __init__(self, base_url: str, api_key: str):
@@ -903,9 +903,8 @@ class WeKnoraClient:
 # MCPServer (formerly FastMCP) builds input schemas from function type hints
 # and serializes plain return values automatically.
 mcp = MCPServer("genyee-server", version="1.1.1")
-GenyeeClient = WeKnoraClient
 # Initialize GENYEE API client with configuration
-client = WeKnoraClient(GENYEE_BASE_URL, GENYEE_API_KEY)
+client = GENYEEClient(GENYEE_BASE_URL, GENYEE_API_KEY)
 
 
 # ---------------------------------------------------------------------------

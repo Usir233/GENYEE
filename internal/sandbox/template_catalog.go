@@ -128,7 +128,7 @@ func classifyWeKnoraTemplate(name, image string) (standard, desktop bool) {
 // yet another one.
 func isStandardTemplateImage(image string) bool {
 	candidate := normalizeImageRepository(image)
-	return candidate != "" && (candidate == normalizeImageRepository(EffectiveDefaultDockerImage()) || candidate == normalizeImageRepository(DefaultDockerImage) || candidate == "wechatopenai/weknora-sandbox")
+	return candidate != "" && (candidate == normalizeImageRepository(EffectiveDefaultDockerImage()) || candidate == normalizeImageRepository(DefaultDockerImage))
 }
 
 func isDesktopTemplateImage(image string) bool {
@@ -153,8 +153,8 @@ func imageTag(image string) string {
 }
 
 // normalizeImageRepository reduces an image reference to its repository path so
-// that "docker.io/wechatopenai/weknora-sandbox:latest",
-// "wechatopenai/weknora-sandbox@sha256:…" and the bare name all compare equal.
+// that "docker.io/genyee/genyee-sandbox:latest",
+// "genyee/genyee-sandbox@sha256:…" and the bare name all compare equal.
 func normalizeImageRepository(image string) string {
 	ref := strings.TrimSpace(image)
 	if ref == "" {

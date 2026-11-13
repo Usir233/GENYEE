@@ -141,7 +141,6 @@ func TestNormalizeRefAcceptsSiteForms(t *testing.T) {
 		"03-features/14-wiki.md",
 		"/docs/03-features/14-wiki",
 		PublicBaseURL + "03-features/14-wiki/",
-		"https://weknora.weixin.qq.com/docs/03-features/14-wiki/",
 		"docs/03-features/14-wiki.html",
 	} {
 		p, anchor := normalizeRef(ref)
@@ -151,8 +150,6 @@ func TestNormalizeRefAcceptsSiteForms(t *testing.T) {
 	for _, ref := range []string{
 		PublicBaseURL + "03-features/14-wiki#抽取粒度",
 		PublicBaseURL + "03-features/14-wiki#%E6%8A%BD%E5%8F%96%E7%B2%92%E5%BA%A6",
-		"https://weknora.weixin.qq.com/docs/03-features/14-wiki#抽取粒度",
-		"http://weknora.weixin.qq.com/docs/03-features/14-wiki#抽取粒度",
 	} {
 		p, anchor := normalizeRef(ref)
 		assert.Equal(t, "03-features/14-wiki", p, ref)

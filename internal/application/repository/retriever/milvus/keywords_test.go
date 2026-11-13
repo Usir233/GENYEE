@@ -45,7 +45,8 @@ func (s *fakeMilvusService) DescribeCollection(
 			Name: request.GetCollectionName(),
 			Fields: []*schemapb.FieldSchema{
 				{FieldID: 100, Name: fieldID, DataType: schemapb.DataType_VarChar, IsPrimaryKey: true},
-				{FieldID: 101, Name: fieldContent, DataType: schemapb.DataType_VarChar},
+				{FieldID: 101, Name: fieldContent, DataType: schemapb.DataType_VarChar, TypeParams: []*commonpb.KeyValuePair{{Key: "multi_analyzer_params", Value: `{}`}}},
+				{FieldID: 103, Name: fieldLanguage, DataType: schemapb.DataType_VarChar},
 				{FieldID: 102, Name: fieldContentSparse, DataType: schemapb.DataType_SparseFloatVector},
 			},
 		},

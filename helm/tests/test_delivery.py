@@ -38,16 +38,11 @@ class DeliveryTests(unittest.TestCase):
             actual = deployments[component]["spec"]["template"]["spec"]["containers"][0]["image"]
             self.assertEqual(actual, "harbor.example/customer/" + repository)
 
-    def test_optional_cloud_switch_reaches_backend_and_frontend(self):
-        for enabled in ("false", "true"):
-            deployments = self.deployments({"app": {"env": {"GENYEE_WEKNORACLOUD_ENABLED": enabled}},
-                                           "frontend": {"env": {"DOCS_BASE_URL": "/customer-docs/"}}})
-            for component in ("app", "frontend"):
-                env = {e["name"]: e.get("value") for e in
-                       deployments[component]["spec"]["template"]["spec"]["containers"][0]["env"]}
-                self.assertEqual(env["GENYEE_WEKNORACLOUD_ENABLED"], enabled)
-                if component == "frontend":
-                    self.assertEqual(env["DOCS_BASE_URL"], "/customer-docs/")
+    def test_frontend_documentation_link(self):
+        deployments = self.deployments({"frontend": {"env": {"DOCS_BASE_URL": "/customer-docs/"}}})
+        env = {e["name"]: e.get("value") for e in
+               deployments["frontend"]["spec"]["template"]["spec"]["containers"][0]["env"]}
+        self.assertEqual(env["DOCS_BASE_URL"], "/customer-docs/")
 
     def test_infrastructure_image_baseline_consistency(self):
         """Verify that infrastructure images in helm/values.yaml match the project baseline

@@ -340,7 +340,6 @@ import FieldControl from './ModelCatalogFieldControl.vue'
 import { getModelCatalog, previewModelCatalog, publishModelCatalog, type CatalogModel, type CatalogOverlay, type CatalogPreview, type CatalogState } from '@/api/system/modelCatalog'
 import { useModelProvidersStore } from '@/stores/modelProviders'
 import { useChatResourcesStore } from '@/stores/chatResources'
-import { isWeKnoraCloudEnabled } from '@/utils/weknoraCloudModels'
 import {
   EDITABLE_INPUTS, THINKING_LEVELS, catalogChanges, catalogRows, catalogSource, composeInput, formatTokens,
   hasModelOverride, patchCatalogModel, removeCatalogModelOverride, sameMembers, stableJSON, summarizeChanges,
@@ -379,7 +378,7 @@ const page = ref(1)
 const layerIndexes = computed(() => Object.fromEntries((['builtin', 'deployment', 'effective'] as const).map(layer => [
   layer, new Map(catalogRows(state.value?.[layer] || []).map(row => [row.key, row.model])),
 ])) as Record<Layer, Map<string, CatalogModel>>)
-const visibleProviders = computed(() => (state.value?.effective || []).filter(p => isWeKnoraCloudEnabled() || p.id !== 'weknoracloud'))
+const visibleProviders = computed(() => (state.value?.effective || []))
 // Concrete models first within each provider; patterns only supply defaults.
 const allRows = computed(() => catalogRows(visibleProviders.value)
   .map((row, index) => ({ row, index }))

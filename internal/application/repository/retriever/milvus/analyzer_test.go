@@ -73,7 +73,7 @@ func TestAnalyzerModeFromSchema(t *testing.T) {
 	legacySchema := entity.NewSchema().WithField(
 		entity.NewField().WithName(fieldContent).WithDataType(entity.FieldTypeVarChar),
 	)
-	require.Equal(t, collectionAnalyzerLegacy, analyzerModeFromSchema(legacySchema))
+	require.Equal(t, collectionAnalyzerUnsupported, analyzerModeFromSchema(legacySchema))
 
 	multilingualSchema := entity.NewSchema().WithField(
 		entity.NewField().WithName(fieldContent).

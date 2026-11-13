@@ -93,7 +93,7 @@ class ChatAsyncPreflightTest(unittest.IsolatedAsyncioTestCase):
         )
         self.server_thread.start()
         self.addCleanup(self.cleanup_backend)
-        self.client = srv.WeKnoraClient(
+        self.client = srv.GENYEEClient(
             f"http://127.0.0.1:{self.server.server_port}/api/v1", "test-key"
         )
         new_session = self.client._new_session

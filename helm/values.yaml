@@ -215,7 +215,6 @@ frontend:
   replicaCount: 1
 
   # -- Optional public UI integration links. Empty values keep integrations off.
-  # The cloud integration switch is shared with app.env.GENYEE_WEKNORACLOUD_ENABLED.
   env:
     DEFAULT_LOCALE: ""
     GENYEE_CHROME_EXTENSION_URL: ""

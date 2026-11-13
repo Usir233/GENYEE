@@ -70,7 +70,7 @@ class BaseURLTest(unittest.TestCase):
                     for prefix in ("/api/v1", "/weknora/api/v1"):
                         for suffix in ("", "/"):
                             base_url = f"http://127.0.0.1:{server.server_port}{prefix}{suffix}"
-                            client = srv.WeKnoraClient(base_url, "test-key")
+                            client = srv.GENYEEClient(base_url, "test-key")
                             try:
                                 with self.subTest(prefix=prefix, suffix=suffix, api="list"):
                                     self.assertEqual(client.list_agents(), listing)

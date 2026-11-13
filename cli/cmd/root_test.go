@@ -21,7 +21,7 @@ func TestRoot_Help(t *testing.T) {
 	root.SetOut(&out)
 	require.NoError(t, root.Execute())
 	got := out.String()
-	assert.Contains(t, got, "weknora")
+	assert.Contains(t, got, "genyee")
 	assert.Contains(t, got, "version")
 }
 

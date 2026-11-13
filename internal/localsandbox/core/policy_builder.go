@@ -351,7 +351,6 @@ func (b *PolicyBuilder) browserSkillRoots() []string {
 	}
 	if b.homeDir != "" && !isFilesystemRoot(b.homeDir) {
 		add(filepath.Join(b.homeDir, ".genyee", "bsk"))
-		add(filepath.Join(b.homeDir, ".weknora", "bsk"))
 	}
 	if b.appDataDir != "" && !isFilesystemRoot(b.appDataDir) {
 		add(filepath.Join(b.appDataDir, "bsk"))

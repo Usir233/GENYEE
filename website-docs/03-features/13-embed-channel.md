@@ -15,7 +15,7 @@
 
 ## 前端挂件接入
 
-挂件 SDK 是一个无依赖的 loader 脚本 `frontend/public/genyee-widget.js`（同时兼容 `/weknora-widget.js`，部署后从 GENYEE 服务根路径提供），负责渲染悬浮按钮 + iframe 面板，iframe 指向嵌入页 SPA `/embed/{channel_id}`（入口 `frontend/src/embed-main.ts`）。
+挂件 SDK 是一个无依赖的 loader 脚本 `frontend/public/genyee-widget.js`（部署后从 GENYEE 服务根路径提供），负责渲染悬浮按钮 + iframe 面板，iframe 指向嵌入页 SPA `/embed/{channel_id}`（入口 `frontend/src/embed-main.ts`）。
 
 ### 方式一：静态 Token 模式（token 对访客可见） {#方式一-静态-token-模式-最简单-token-暴露在页面}
 
@@ -68,7 +68,7 @@ publish token 只保存在业务后端，页面通过 `data-token-endpoint` 指�
   GENYEE.setLocale('en-US');
   GENYEE.openWithQuery('如何重置密码？');   // 打开面板并自动发送提问
   GENYEE.on('ready', () => console.log('widget ready'));
-  // 其他：GENYEE.open() / close() / toggle() / destroy() / off(event, fn)（同时兼容 window.WeKnora）
+  // 其他：GENYEE.open() / close() / toggle() / destroy() / off(event, fn)
 </script>
 ```
 
@@ -127,7 +127,7 @@ A 网站嵌入 B 的 GENYEE 时，白名单填 A。标准 Nginx 使用 `/api/v1/
 
 管理端通过 `frontend/public/config.js` 的 `window.__RUNTIME_CONFIG__.EMBED_BASE_URL` 指定 embed 源站，或使用构建期 `VITE_EMBED_BASE_URL`；留空则跟随当前页面 origin。修改后确认生成的 Widget/iframe 代码指向新地址。
 
-独立 Nginx server 只提供 `/embed/*`、`/genyee-widget.js`（及兼容路径 `/weknora-widget.js`）、`/assets/*` 和必要的后端代理，不挂管理端 `index.html`。保留标准 `frontend/nginx.conf` 中 `/embed/` 的 `auth_request`、内部 `/_embed-frame-policy` 和 CSP 响应头：获取策略失败时必须拒绝返回页面，网关/CDN 不应缓存或丢弃该策略。
+独立 Nginx server 只提供 `/embed/*`、`/genyee-widget.js`、`/assets/*` 和必要的后端代理，不挂管理端 `index.html`。保留标准 `frontend/nginx.conf` 中 `/embed/` 的 `auth_request`、内部 `/_embed-frame-policy` 和 CSP 响应头：获取策略失败时必须拒绝返回页面，网关/CDN 不应缓存或丢弃该策略。
 
 白名单仍填写实际业务宿主 `https://shop.example.com`，安全模式 exchange 声明相同 Origin；不需要为正常同源聊天请求额外加入 embed 源站。Widget 在宿主与 embed 不同源时自动添加 iframe sandbox。验证时从实际宿主打开页面，检查 iframe、API、CSP 和生成代码，不能只在管理端预览。
 
@@ -332,6 +332,6 @@ sequenceDiagram
 | 鉴权中间件 | `internal/middleware/embed_auth.go` |
 | 路由注册 | `internal/router/routes_agent.go`（`RegisterEmbedPublicRoutes` / `RegisterEmbedChannelRoutes` / 嵌入页 CSP 策略） |
 | 宿主来源规则 | `internal/embedpolicy/origin.go` |
-| 挂件加载器（SDK） | `frontend/public/genyee-widget.js`（兼容 `frontend/public/weknora-widget.js`） |
+| 挂件加载器（SDK） | `frontend/public/genyee-widget.js` |
 | 嵌入页 SPA 入口 | `frontend/src/embed-main.ts`、`frontend/src/composables/useEmbedBridge.ts`、`useEmbedChatSession.ts` |
 | 数据库迁移 | `migrations/versioned/000060_embed_channels.up.sql` |

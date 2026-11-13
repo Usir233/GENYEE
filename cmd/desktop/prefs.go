@@ -13,7 +13,6 @@ import (
 const (
 	desktopPrefsFileName  = "desktop-prefs.json"
 	desktopAppSupportName = "GENYEE Lite"
-	legacyAppSupportName  = "WeKnora Lite"
 )
 
 type desktopPrefs struct {
@@ -38,29 +37,9 @@ func desktopConfigDir() (string, error) {
 	return os.UserConfigDir()
 }
 
-// resolveDesktopAppSupportDir returns the "GENYEE Lite" directory under baseDir
-// unless the legacy "WeKnora Lite" directory (or one of the marker files inside
-// it) already exists on disk without a corresponding primary file.
-func resolveDesktopAppSupportDir(baseDir string, markerFiles ...string) string {
-	primary := filepath.Join(baseDir, desktopAppSupportName)
-	legacy := filepath.Join(baseDir, legacyAppSupportName)
-	for _, name := range markerFiles {
-		if _, err := os.Stat(filepath.Join(primary, name)); err == nil {
-			return primary
-		}
-	}
-	for _, name := range markerFiles {
-		if _, err := os.Stat(filepath.Join(legacy, name)); err == nil {
-			return legacy
-		}
-	}
-	if info, err := os.Stat(primary); err == nil && info.IsDir() {
-		return primary
-	}
-	if info, err := os.Stat(legacy); err == nil && info.IsDir() {
-		return legacy
-	}
-	return primary
+// resolveDesktopAppSupportDir returns the GENYEE application directory.
+func resolveDesktopAppSupportDir(baseDir string) string {
+	return filepath.Join(baseDir, desktopAppSupportName)
 }
 
 func desktopPrefsDir() (string, error) {
@@ -68,7 +47,7 @@ func desktopPrefsDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	dir := resolveDesktopAppSupportDir(cfg, desktopPrefsFileName)
+	dir := resolveDesktopAppSupportDir(cfg)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return "", err
 	}

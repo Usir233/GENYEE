@@ -997,7 +997,7 @@ export default {
       capabilityMessageHistory: '訊息歷史',
       capabilityMessageHistoryHint: '允許檢索空間聊天歷史並讀取聊天歷史統計；不授予空間設定權限。',
       capabilityManageModels: '管理模型',
-      capabilityManageModelsHint: '允許管理模型設定、模型憑據、模型連通性測試和 GENYEECloud 憑據。',
+      capabilityManageModelsHint: '允許管理模型設定、模型憑據和模型連通性測試。',
       capabilityManageMcpServices: '管理 MCP 服務',
       capabilityManageMcpServicesHint: '允許管理 MCP 服務、憑據、工具審批策略和該主體的 OAuth 授權狀態。',
       capabilityManageDatasources: '管理資料源',
@@ -2672,10 +2672,6 @@ export default {
           name: 'MarkItDown',
           desc: 'Microsoft MarkItDown 文件轉換工具（支持 PDF/Office/HTML 等）'
         },
-        weknoracloud: {
-          name: 'GENYEE Cloud',
-          desc: '使用 GENYEE Cloud 進行文件解析'
-        },
         paddleocr_vl_cloud: {
           name: 'PaddleOCR-VL Cloud',
           desc: 'PaddleOCR-VL 雲 API'
@@ -2859,12 +2855,6 @@ export default {
         q1: '怎樣連線本機的 Ollama？',
         q2: '連上之後要怎樣把模型加到空間裡？',
         q3: 'Ollama 連不上時通常要檢查什麼？',
-      },
-      weknoracloud: {
-        description: '我可以說明 GENYEE Cloud 能提供哪些模型，以及怎樣開通和選用。',
-        q1: 'GENYEE Cloud 能提供哪些模型？',
-        q2: '怎樣開通或繫結 Cloud 帳號？',
-        q3: 'Cloud 模型和我自己接入的模型怎麼選？',
       },
       vectorstore: {
         description: '我可以說明當前向量檢索引擎、換引擎的影響，以及怎樣檢查是否正常。',
@@ -8087,59 +8077,6 @@ export default {
       paddleocrVlEndpointPlaceholder: '如 http://your-paddleocr-vl:8080',
       paddleocrVlEndpointHint: '填寫 PaddleOCR-VL 完整服務（pipeline）地址，無需 /layout-parsing 後綴',
       paddleocrVlCloudTokenPlaceholder: 'PaddleOCR-VL 飛槳星河社區 Token'
-    },
-    weknoraCloud: {
-      title: 'GENYEE Cloud',
-      description: '設定 GENYEE Cloud 的 APPID 和 APPSECRET 憑證。憑證用於模型服務和文件解析引擎。',
-      viewDocs: '查看文件',
-      unconfigured: '尚未設定憑證，請填寫 APPID 和 APPSECRET',
-      configured: '憑證已設定，狀態正常',
-      expired: 'GENYEE Cloud 憑證已失效',
-      expiredDefault: '服務重啟後加密金鑰已變更，已儲存的憑證無法解密。請重新填寫憑證。',
-      reconfigure: '重新設定',
-      appIdLabel: 'APPID',
-      appIdDesc: 'GENYEE Cloud 的應用 ID',
-      appIdPlaceholder: '請輸入 APPID',
-      appSecretLabel: 'APPSECRET',
-      appSecretDesc: 'GENYEE Cloud 的應用金鑰',
-      appSecretPlaceholder: '請輸入 APPSECRET',
-      saveHint: '儲存後將驗證服務可達性並加密存儲憑證',
-      saveBtn: '儲存憑證',
-      usageTitle: '使用說明',
-      usageSteps: '1. 填寫並儲存 APPID / APPSECRET\n2. 在下方「雲模型接入」中按行新增 chat、embedding、rerank、vlm\n3. 文件解析：知識庫設定 → 解析引擎，選擇 GENYEE Cloud 引擎',
-      fillRequired: '請填寫 APPID 和 APPSECRET',
-      saveSuccess: '憑證已儲存',
-      saveFailed: '憑證儲存失敗',
-      credentialConfigured: 'GENYEECloud 憑證已設定',
-      credentialExpired: '憑證已失效，請重新設定。',
-      credentialUnconfigured: '尚未設定 GENYEECloud 憑證，請先填寫 APPID 和 APPSECRET。',
-      checkingStatus: '正在檢查憑證狀態...',
-      goToSettings: '前往設定中設定',
-      modelHintConfigured: 'GENYEECloud 憑證已設定。支持的模型可參考',
-      modelHintDocsLink: '介面文件',
-      addModelsSuccess: '已成功新增 {count} 個模型',
-      addModelsPartial: '已新增 {success} 個，{failed} 個失敗',
-      addModelsFailed: '新增模型失敗',
-      addModelsEmbeddingFailed: 'Embedding 模型連結測試失敗，無法獲取向量維度',
-      addModelsDisplayName: {
-        chat: 'GENYEECloud 對話',
-        embedding: 'GENYEECloud Embedding',
-        rerank: 'GENYEECloud ReRank',
-        vllm: 'GENYEECloud 視覺'
-      },
-      modelsSection: {
-        title: '雲模型接入',
-        descReady: '將 GENYEE Cloud 提供的四類標準模型註冊到當前空間，用於對話、向量檢索、重排序與多模態理解。',
-        descPending: '請先儲存上方憑證，再在此新增雲模型。',
-        statusAdded: '已新增',
-        statusPending: '待設定憑證',
-        addOne: '新增',
-        addAllBtn: '新增全部缺失（{count}）',
-        addAllConfirm: '確認新增',
-        confirmAddOne: '新增 {type} 模型「{name}」？',
-        confirmAddAll: '免洗新增 {count} 個缺失的雲模型？',
-        allReady: '四類雲模型均已就緒'
-      }
     },
     roleDenied: {
       title: '權限不足',

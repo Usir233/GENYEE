@@ -20,8 +20,8 @@ import (
 	"github.com/Usir233/GENYEE/cli/cmd/doctor"
 	"github.com/Usir233/GENYEE/cli/cmd/kb"
 	linkcmd "github.com/Usir233/GENYEE/cli/cmd/link"
-	messagecmd "github.com/Usir233/GENYEE/cli/cmd/message"
 	mcpcmd "github.com/Usir233/GENYEE/cli/cmd/mcp"
+	messagecmd "github.com/Usir233/GENYEE/cli/cmd/message"
 	modelcmd "github.com/Usir233/GENYEE/cli/cmd/model"
 	profilecmd "github.com/Usir233/GENYEE/cli/cmd/profile"
 	"github.com/Usir233/GENYEE/cli/cmd/search"
@@ -134,9 +134,8 @@ var cobraFlagErrorPrefixes = []string{
 func NewRootCmd(f *cmdutil.Factory) *cobra.Command {
 	v, commit, date := build.Info()
 	cmd := &cobra.Command{
-		Use:     "genyee",
-		Aliases: []string{"weknora"},
-		Short:   "GENYEE CLI",
+		Use:   "genyee",
+		Short: "GENYEE CLI",
 		Long: `Command-line client for the GENYEE RAG server. Manage knowledge bases
 and documents, run hybrid search, chat with grounded answers, or expose
 a curated read-only MCP tool surface for AI agents.`,

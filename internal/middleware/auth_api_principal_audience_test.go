@@ -11,7 +11,7 @@ import (
 )
 
 // TestAudienceValidation_AdversarialChallenge verifies that resolveAPIPrincipal
-// strictly enforces accepted audience claims ("genyee", "weknora") and rejects
+// strictly enforces the accepted audience claim ("genyee") and rejects
 // any invalid or forged audience claim (e.g., "fake", "", "unauthorized").
 func TestAudienceValidation_AdversarialChallenge(t *testing.T) {
 	secret := "test-secret-audience-challenger"
@@ -34,9 +34,9 @@ func TestAudienceValidation_AdversarialChallenge(t *testing.T) {
 			shouldSucceed: true,
 		},
 		{
-			name:          "Accepted audience: weknora (backward compatibility)",
-			audience:      "weknora",
-			shouldSucceed: true,
+			name:          "Rejected audience: another product",
+			audience:      "another-product",
+			shouldSucceed: false,
 		},
 		{
 			name:          "Rejected audience: fake",

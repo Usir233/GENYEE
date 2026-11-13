@@ -18,7 +18,6 @@ services:
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
       - MAX_SKILL_BUNDLE_SIZE_MB=${MAX_SKILL_BUNDLE_SIZE_MB:-256}
       - DEFAULT_LOCALE=${DEFAULT_LOCALE:-}
-      - GENYEE_WEKNORACLOUD_ENABLED=${GENYEE_WEKNORACLOUD_ENABLED:-false}
       - GENYEE_CHROME_EXTENSION_URL=${GENYEE_CHROME_EXTENSION_URL:-}
       - GENYEE_CLAWHUB_SKILL_URL=${GENYEE_CLAWHUB_SKILL_URL:-}
       - DOCS_BASE_URL=${DOCS_BASE_URL:-}
@@ -334,7 +333,7 @@ services:
       - NEO4J_PASSWORD=${NEO4J_PASSWORD:-}
       # 数据库中 API Key 等敏感字段落盘加密的 AES-256 主密钥（必须为 32 字节）。
       # 加密范围：tenants.api_key、模型 API key、向量库凭证、web search provider key、
-      # WeKnoraCloud.AppSecret 等。缺失或长度不对时，已加密字段无法解密（UI 显示为空，
+      # 第三方凭证 等。缺失或长度不对时，已加密字段无法解密（UI 显示为空，
       # 需重新填写）。生产环境必须显式设置且妥善保管，丢失则所有加密数据不可恢复。
       # （TENANT_AES_KEY / CRYPTO_MASTER_KEY / CRYPTO_SALT 已废弃：v0.4.0 起加密统一
       #   改用 SYSTEM_AES_KEY，Go 主应用不再读取这三个变量。）
@@ -377,10 +376,6 @@ services:
       - GENYEE_MINERU_MAX_IMAGE_BYTES=${GENYEE_MINERU_MAX_IMAGE_BYTES:-}
       # PaddleOCR-VL 云端轮询解析结果的最长时间（Go duration，默认 600s）
       - GENYEE_PADDLEOCR_VL_CLOUD_TIMEOUT=${GENYEE_PADDLEOCR_VL_CLOUD_TIMEOUT:-}
-      # WeKnoraCloud 引擎开关（默认关闭；设为 true 后才允许配置和使用 WeKnoraCloud 凭证）
-      - GENYEE_WEKNORACLOUD_ENABLED=${GENYEE_WEKNORACLOUD_ENABLED:-false}
-      # WeKnoraCloud 每个分页分片轮询解析结果的最长时间（Go duration，默认 20m）
-      - GENYEE_WEKNORACLOUD_TIMEOUT=${GENYEE_WEKNORACLOUD_TIMEOUT:-}
       # 知识库巡检回收（回收卡在 processing 的脏数据；false 禁用，不建议）
       - GENYEE_HOUSEKEEPING_ENABLED=${GENYEE_HOUSEKEEPING_ENABLED:-}
       - GENYEE_CHAT_ATTACHMENT_TTL_HOURS=${GENYEE_CHAT_ATTACHMENT_TTL_HOURS:-24}

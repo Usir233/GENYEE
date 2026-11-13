@@ -95,7 +95,6 @@ else:
         for key in ("DB_PASSWORD", "REDIS_PASSWORD", "JWT_SECRET", "NEO4J_PASSWORD"):
             self.assertGreaterEqual(len(env[key]), 32)
         self.assertEqual(len(env["SYSTEM_AES_KEY"]), 32)
-        self.assertEqual(env["GENYEE_WEKNORACLOUD_ENABLED"], "false")
         self.assertEqual(env["LANGFUSE_ENABLED"], "false")
         self.assertFalse(self.calls())
 
@@ -212,7 +211,6 @@ else:
         self.assertEqual(services["postgres"]["environment"]["POSTGRES_PASSWORD"], env["DB_PASSWORD"])
         self.assertEqual(services["app"]["environment"]["JWT_SECRET"], env["JWT_SECRET"])
         self.assertEqual(services["minio"]["environment"]["MINIO_ROOT_PASSWORD"], env["MINIO_SECRET_ACCESS_KEY"])
-        self.assertEqual(services["frontend"]["environment"]["GENYEE_WEKNORACLOUD_ENABLED"], "false")
 
     def test_private_registry_override_covers_every_compose_image(self):
         compose = os.environ.get("COMPOSE_BIN") or shutil.which("docker-compose")

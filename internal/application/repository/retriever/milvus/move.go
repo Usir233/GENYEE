@@ -18,15 +18,14 @@ func (m *milvusRepository) MoveKnowledgeIndices(
 		{Field: fieldKnowledgeID, Operator: operatorEqual, Value: knowledgeID},
 	}}
 	size, offset := 100, 0
-	collectionMode, err := m.collectionAnalyzerMode(ctx, collection)
-	if err != nil {
+	if _, err := m.collectionAnalyzerMode(ctx, collection); err != nil {
 		return err
 	}
 	return drainMoveRows(ctx, targetKB, func(ctx context.Context) ([]*MilvusVectorEmbeddingWithScore, error) {
 		rows, _, err := m.searchByFilter(ctx, collection, filter, &size, &offset)
 		return rows, err
 	}, func(ctx context.Context, rows []*MilvusVectorEmbedding) error {
-		_, err := m.client.Upsert(ctx, createUpsert(collection, rows, collectionMode == collectionAnalyzerMulti))
+		_, err := m.client.Upsert(ctx, createUpsert(collection, rows))
 		return err
 	})
 }

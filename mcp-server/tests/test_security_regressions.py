@@ -113,7 +113,7 @@ def test_safe_path_segment_allows_safe_identifiers():
 def test_all_weknora_client_path_methods_block_cspt_before_network_io(
     monkeypatch, call_fn
 ):
-    client = srv.WeKnoraClient("http://example.invalid/api/v1", "placeholder-key")
+    client = srv.GENYEEClient("http://example.invalid/api/v1", "placeholder-key")
     monkeypatch.setattr(
         client,
         "_request",

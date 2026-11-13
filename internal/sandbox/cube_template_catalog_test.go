@@ -162,7 +162,7 @@ func TestCubeRemoteClientListTemplatesSurfacesLastError(t *testing.T) {
 			"templateID": "tpl-broken",
 			"status":     "FAILED",
 			"imageInfo":  DefaultDockerImage,
-			"lastError":  "pull access denied for wechatopenai/weknora-sandbox",
+			"lastError":  "pull access denied for genyee/genyee-sandbox",
 		}},
 		nil,
 	))
@@ -170,7 +170,7 @@ func TestCubeRemoteClientListTemplatesSurfacesLastError(t *testing.T) {
 	templates, err := client.ListTemplates(context.Background())
 	require.NoError(t, err)
 	require.Len(t, templates, 1)
-	require.Equal(t, "pull access denied for wechatopenai/weknora-sandbox", templates[0].Error)
+	require.Equal(t, "pull access denied for genyee/genyee-sandbox", templates[0].Error)
 }
 
 // Cube stores snapshots in the template store. The settings step is for
@@ -589,10 +589,10 @@ func TestIsStandardTemplateImage(t *testing.T) {
 		"genyee/genyee-sandbox",
 		"docker.io/genyee/genyee-sandbox:latest",
 		"registry.internal:5000/genyee/genyee-sandbox:v1",
-		"wechatopenai/weknora-sandbox",
-		"docker.io/wechatopenai/weknora-sandbox:latest",
-		"docker.io/wechatopenai/weknora-sandbox@sha256:abc",
-		"registry.internal:5000/wechatopenai/weknora-sandbox:v1",
+		"genyee/genyee-sandbox",
+		"docker.io/genyee/genyee-sandbox:latest",
+		"docker.io/genyee/genyee-sandbox@sha256:abc",
+		"registry.internal:5000/genyee/genyee-sandbox:v1",
 	} {
 		require.True(t, isStandardTemplateImage(image), image)
 	}

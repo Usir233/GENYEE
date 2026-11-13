@@ -94,6 +94,15 @@ test('search rejects a missing query before touching the network', async () => {
   await assert.rejects(byName.get('genyee_search').execute({}, exec), /"query" is required/)
 })
 
+test('search surfaces document-name lookup failures from the current server', async () => {
+  const config = resolveConfig({ baseUrl: 'https://unused.test', knowledgeBaseIds: ['kb-product'] })
+  const client = new WeknoraClient(config)
+  client.search = async () => []
+  client.findDocuments = async () => { throw new Error('document lookup failed') }
+  const search = createTools(client, config).find(tool => tool.name === 'genyee_search')
+  await assert.rejects(search.execute({ query: 'architecture' }, exec), /document lookup failed/)
+})
+
 // WeKnora answers 400 when a retrieval names no knowledge base, document or
 // tag. Rather than make the model choose a scope it has no basis to choose,
 // an unconfigured deployment searches everything the credential can see.

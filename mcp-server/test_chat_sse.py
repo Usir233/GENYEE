@@ -13,7 +13,7 @@ import weknora_mcp_server as srv
 
 class ChatSSETest(unittest.TestCase):
     def setUp(self):
-        self.client = srv.WeKnoraClient("http://example.test/api/v1", "test-key")
+        self.client = srv.GENYEEClient("http://example.test/api/v1", "test-key")
         self.addCleanup(self.client.session.close)
 
     def consume(self, lines, *, agent=False):
@@ -230,7 +230,7 @@ class ChatSSETest(unittest.TestCase):
         for status in (400, 503):
             for agent in (False, True):
                 with self.subTest(status=status, agent=agent):
-                    client = srv.WeKnoraClient(
+                    client = srv.GENYEEClient(
                         f"http://127.0.0.1:{port}/{status}", "test-key"
                     )
                     client.session.trust_env = False
@@ -412,7 +412,7 @@ class ChatSSETest(unittest.TestCase):
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
         port = server.server_address[1]
-        client = srv.WeKnoraClient(f"http://127.0.0.1:{port}/api/v1", "test-key")
+        client = srv.GENYEEClient(f"http://127.0.0.1:{port}/api/v1", "test-key")
         client.session.trust_env = False
         self.addCleanup(client.session.close)
         for agent in (False, True):
@@ -468,7 +468,7 @@ class ChatSSETest(unittest.TestCase):
         self.addCleanup(thread.join, 5)
         self.addCleanup(server.server_close)
         self.addCleanup(server.shutdown)
-        client = srv.WeKnoraClient(f"http://127.0.0.1:{server.server_port}/api/v1", "test-key")
+        client = srv.GENYEEClient(f"http://127.0.0.1:{server.server_port}/api/v1", "test-key")
         client.session.trust_env = False
         self.addCleanup(client.session.close)
         for chat, args in ((client.chat, ()), (client.agent_chat, ("agent-1",))):

@@ -48,8 +48,6 @@ spec:
               value: {{ .Values.frontend.appPort | default .Values.app.service.port | quote }}
             - name: MAX_FILE_SIZE_MB
               value: {{ .Values.global.maxFileSizeMB | quote }}
-            - name: GENYEE_WEKNORACLOUD_ENABLED
-              value: {{ .Values.app.env.GENYEE_WEKNORACLOUD_ENABLED | default "false" | quote }}
             {{- range $key, $value := .Values.frontend.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}

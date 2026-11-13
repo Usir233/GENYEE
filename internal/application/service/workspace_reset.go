@@ -102,7 +102,7 @@ git_ws clean -fdx
 // cannot drift onto different git layouts. GIT_DIR is outside /workspace;
 // --work-tree still edits the session files.
 func gitWorkspacePreamble(workspace, gitDir string) string {
-	return gitWorkspaceVars(workspace, gitDir) + gitWorkspaceAdoptLegacyRepo()
+	return gitWorkspaceVars(workspace, gitDir)
 }
 
 func gitWorkspaceVars(workspace, gitDir string) string {
@@ -141,32 +141,6 @@ func workspaceLayoutFor(ctx context.Context, runner any, sessionID string) (sand
 		return sandbox.WorkspaceLayout{}, errors.New("workspace reset: session layout has no versioned workspace")
 	}
 	return l, nil
-}
-
-// gitWorkspaceAdoptLegacyRepo migrates a sandbox that still keeps its
-// checkpoints in the work tree.
-//
-// Before GIT_DIR moved out of /workspace, checkpoints committed into
-// $WORK_TREE/.git, and the SHAs recorded on those turns only resolve there.
-// Without this, a sandbox provisioned before the move would find no repo at
-// the new path, start an empty one, and then fail every fork or rewind that
-// targets a pre-move checkpoint with "bad object".
-//
-// It runs in the shared preamble so checkpoint, reset and empty reset all
-// adopt the old store. Two guards keep it from touching anything else: the
-// new GIT_DIR must be absent (a migrated sandbox never re-enters this), and
-// the work-tree repo must carry the checkpointer's committer identity, so an
-// agent's own `git init` in /workspace is left alone.
-func gitWorkspaceAdoptLegacyRepo() string {
-	return `if ! git_ws rev-parse --git-dir >/dev/null 2>&1; then
-  legacy_git_dir="$WORK_TREE/.git"
-  legacy_owner=$(git -c safe.directory='*' --git-dir="$legacy_git_dir" config user.email 2>/dev/null || true)
-  if [ "$legacy_owner" = agent@weknora.local ]; then
-    mkdir -p "$(dirname "$GIT_DIR")"
-    mv "$legacy_git_dir" "$GIT_DIR"
-  fi
-fi
-`
 }
 
 func shellSingleQuote(s string) string {

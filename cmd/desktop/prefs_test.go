@@ -29,11 +29,11 @@ func TestDesktopSigningKeyKeepsExistingAESHMAC(t *testing.T) {
 func TestDesktopLocalFilesDir(t *testing.T) {
 	require.Equal(t, filepath.Join("/Users/dev", ".genyee", "data", "files"), desktopLocalFilesDir("/Users/dev"))
 
-	// Fallback to legacy .weknora when it exists
+	// An unrelated application directory must not influence our path.
 	base := t.TempDir()
-	legacyDir := filepath.Join(base, ".weknora", "data", "files")
+	legacyDir := filepath.Join(base, ".other-product", "data", "files")
 	require.NoError(t, os.MkdirAll(legacyDir, 0o755))
-	require.Equal(t, legacyDir, desktopLocalFilesDir(base))
+	require.Equal(t, filepath.Join(base, ".genyee", "data", "files"), desktopLocalFilesDir(base))
 }
 
 func TestUseDesktopFilesDirReplacesDockerDefault(t *testing.T) {
@@ -54,24 +54,18 @@ func TestConfigureDesktopFileStorageUsesHomeWeKnora(t *testing.T) {
 	require.True(t, info.IsDir())
 }
 
-func TestLegacyDesktopFilesDirFollowsTheOldResolution(t *testing.T) {
-	appSupport := "/Users/dev/Library/Application Support/WeKnora"
-	require.Equal(t, filepath.Join(appSupport, "data", "files"), legacyDesktopFilesDir("", appSupport))
-	require.Equal(t, filepath.Join(appSupport, "data", "files"), legacyDesktopFilesDir("/data/files", appSupport))
-	require.Equal(t, filepath.Join(appSupport, "custom", "files"), legacyDesktopFilesDir("custom/files", appSupport))
-}
-
-func TestConfigureDesktopFileStorageMigratesFromTheBundleDir(t *testing.T) {
+func TestConfigureDesktopFileStorageDoesNotAdoptOtherApplicationFiles(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("LOCAL_STORAGE_BASE_DIR", "custom/files")
-	old := filepath.Join(home, "Library", "Application Support", "WeKnora", "custom", "files")
+	old := filepath.Join(home, "Library", "Application Support", "OtherProduct", "custom", "files")
 	require.NoError(t, os.MkdirAll(filepath.Join(old, "1"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(old, "1", "a.txt"), []byte("a"), 0o600))
 
-	configureDesktopFileStorage("/Applications/WeKnora.app/Contents/MacOS/WeKnora")
+	configureDesktopFileStorage("/Applications/GENYEE.app/Contents/MacOS/GENYEE")
 
-	require.FileExists(t, filepath.Join(home, ".genyee", "data", "files", "1", "a.txt"))
+	require.NoFileExists(t, filepath.Join(home, ".genyee", "data", "files", "1", "a.txt"))
+	require.FileExists(t, filepath.Join(old, "1", "a.txt"))
 }
 
 func TestEnsureDesktopLiteEditionOverridesDefaultStandard(t *testing.T) {
@@ -172,7 +166,7 @@ func TestSetProjectDirsIsNotAWailsMethod(t *testing.T) {
 	require.True(t, ok)
 }
 
-func TestDesktopAppSupportDirUsesGENYEELiteWithLegacyFallback(t *testing.T) {
+func TestDesktopAppSupportDirDoesNotAdoptOtherApplicationData(t *testing.T) {
 	base := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", base)
 
@@ -181,13 +175,14 @@ func TestDesktopAppSupportDirUsesGENYEELiteWithLegacyFallback(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, filepath.Join(base, "GENYEE Lite"), dir)
 
-	// If legacy "WeKnora Lite" has prefs file and "GENYEE Lite" does not, fallback to legacy
+	// Another application's existing preferences must not be adopted.
 	baseLegacy := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", baseLegacy)
-	legacyDir := filepath.Join(baseLegacy, "WeKnora Lite")
+	legacyDir := filepath.Join(baseLegacy, "Other Product Lite")
 	require.NoError(t, os.MkdirAll(legacyDir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(legacyDir, desktopPrefsFileName), []byte(`{"http_port":18080}`), 0o600))
-	require.Equal(t, 18080, LoadDesktopPrefsHTTPPort())
+	require.Equal(t, 0, LoadDesktopPrefsHTTPPort())
+	require.Equal(t, filepath.Join(baseLegacy, "GENYEE Lite"), resolveDesktopAppSupportDir(baseLegacy))
 }
 
 func TestUpdateEndpointAndAutoUpdateDefaults(t *testing.T) {

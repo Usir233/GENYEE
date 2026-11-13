@@ -617,6 +617,7 @@ definitions:
     - 2200
     - 2201
     - 2300
+    - 2400
     type: integer
     x-enum-varnames:
     - ErrBadRequest
@@ -643,6 +644,7 @@ definitions:
     - ErrVectorStoreBindingInvalid
     - ErrVectorStoreUnavailable
     - ErrModelInUse
+    - ErrImportPrerequisiteMissing
   github_com_Usir233_GENYEE_internal_handler_dto.CredentialFieldMetadata:
     properties:
       configured:
@@ -1207,7 +1209,7 @@ definitions:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.ModelType'
         description: |-
-          Type is the WeKnora model type this entry describes. Chat models with
+          Type is the GENYEE model type this entry describes. Chat models with
           image input are still KnowledgeQA; the UI derives VLM eligibility from
           Input. Embedding / Rerank / ASR entries exist for the model picker.
     type: object
@@ -2777,9 +2779,6 @@ definitions:
     - name
     type: object
   github_com_Usir233_GENYEE_internal_types.CredentialsConfig:
-    properties:
-      weknoracloud:
-        $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WeKnoraCloudCredentials'
     type: object
   github_com_Usir233_GENYEE_internal_types.CubeEgressRule:
     properties:
@@ -2907,7 +2906,7 @@ definitions:
         description: |-
           AccessLevel is the highest access level a run of this agent gets: how
           far it may change data (MCP tools, Wiki writes) without asking. Empty
-          means auto_write. The WeKnora assistant uses the workspace's assistant
+          means auto_write. The GENYEE assistant uses the workspace's assistant
           ceiling instead.
       agent_mode:
         description: |-
@@ -4262,9 +4261,7 @@ definitions:
     properties:
       attrs:
         additionalProperties: {}
-        description: |-
-          Attrs is the observed attribute map (e.g. contain.text, contain.data_visual)
-          produced by the attribute pipeline. Absent keys mean "not observed".
+        description: Attrs 包含模型观察属性和解析器的 source.* 来源位置；缺少来源键表示未知。
         type: object
       caption:
         description: Caption is the model-generated image description.
@@ -6481,7 +6478,7 @@ definitions:
       api_key:
         type: string
       app_id:
-        description: WeKnoraCloud 厂商专用凭证
+        description: 厂商附加凭证
         type: string
       app_secret:
         description: AES-256 加密存储，实际承载上游 API Key
@@ -8119,7 +8116,7 @@ definitions:
       host_workspace_dir:
         description: |-
           HostWorkspaceDir is the user-selected project directory this session
-          operates in, for the WeKnora Lite host sandbox only. Empty means the session
+          operates in, for the GENYEE Lite host sandbox only. Empty means the session
           gets an auto-allocated workspace instead.
 
           Written once at creation and never updated: re-pointing a live session
@@ -8264,7 +8261,7 @@ definitions:
       host_workspace_dir:
         description: |-
           HostWorkspaceDir is the user-selected project directory this session
-          operates in, for the WeKnora Lite host sandbox only. Empty means the session
+          operates in, for the GENYEE Lite host sandbox only. Empty means the session
           gets an auto-allocated workspace instead.
 
           Written once at creation and never updated: re-pointing a live session
@@ -8932,7 +8929,7 @@ definitions:
       assistant_config:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantConfig'
-        description: 'Assistant config: display name and access ceiling of the WeKnora
+        description: 'Assistant config: display name and access ceiling of the GENYEE
           assistant'
       business:
         description: Business
@@ -8953,8 +8950,8 @@ definitions:
       credentials:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.CredentialsConfig'
-        description: 'Credentials config: third-party provider credentials (e.g. WeKnoraCloud
-          AppID/AppSecret)'
+        description: 'Credentials config: third-party provider credentials (e.g. provider
+          API keys)'
       default_settings:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.DefaultSettings'
@@ -9728,25 +9725,6 @@ definitions:
           Used to detect when the tenant switched to a different backend or
           API key, at which point the volume is no longer reachable and must
           be recreated.
-        type: string
-    type: object
-  github_com_Usir233_GENYEE_internal_types.WeKnoraCloudCredentials:
-    properties:
-      app_id:
-        type: string
-      app_secret:
-        type: string
-    type: object
-  github_com_Usir233_GENYEE_internal_types.WeKnoraCloudStatusResult:
-    properties:
-      has_models:
-        description: 是否已配置 WeKnoraCloud 凭证
-        type: boolean
-      needs_reinit:
-        description: 是否需要重新初始化（凭证损坏）
-        type: boolean
-      reason:
-        description: 需要重新初始化的原因
         type: string
     type: object
   github_com_Usir233_GENYEE_internal_types.WebSearchClients:
@@ -11711,7 +11689,14 @@ definitions:
   internal_handler.KBModelConfigRequest:
     properties:
       asr_config:
-        $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.ASRConfig'
+        properties:
+          enabled:
+            type: boolean
+          language:
+            type: string
+          model_id:
+            type: string
+        type: object
       documentSplitting:
         description: 文档分块配置
         properties:
@@ -11801,7 +11786,24 @@ definitions:
         description: 存储引擎选择（"local" | "minio" | "cos"），影响文档上传与文档内图片存储，参数从全局设置读取
         type: string
       vlm_config:
-        $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.VLMConfig'
+        properties:
+          api_key:
+            type: string
+          base_url:
+            type: string
+          custom_instructions:
+            type: string
+          description_language:
+            type: string
+          enabled:
+            type: boolean
+          interface_type:
+            type: string
+          model_id:
+            type: string
+          model_name:
+            type: string
+        type: object
     required:
     - llmModelId
     type: object
@@ -14027,7 +14029,7 @@ definitions:
     properties:
       sandbox_config_ids:
         description: 'Sandbox config ids to install onto: an agent''s sandbox_config_id,
-          or host on WeKnora Lite'
+          or host on GENYEE Lite'
         items:
           type: string
         type: array
@@ -14508,7 +14510,7 @@ definitions:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel'
         description: |-
-          AssistantAccess is the WeKnora assistant access level: read_only,
+          AssistantAccess is the GENYEE assistant access level: read_only,
           confirm or auto_write. The workspace ceiling caps it; other agents
           ignore it.
       attachment_ids:
@@ -14558,7 +14560,7 @@ definitions:
       page_context:
         allOf:
         - $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.PageContext'
-        description: PageContext is the WeKnora page the user has open (agent mode
+        description: PageContext is the GENYEE page the user has open (agent mode
           only).
       query:
         description: Query text; may be empty only when an image or file is attached
@@ -14823,11 +14825,10 @@ definitions:
     type: object
 info:
   contact:
-    name: WeKnora Github
-    url: https://github.com/Usir233/GENYEE
-  description: WeKnora 知识库管理系统 API 文档
+    name: GENYEE Support
+  description: GENYEE 知识库管理系统 API 文档
   termsOfService: http://swagger.io/terms/
-  title: WeKnora API
+  title: GENYEE API
   version: "1.0"
 paths:
   /admin/memory/subjects:
@@ -16451,12 +16452,12 @@ paths:
         id: automation.list
         max_items: 100
         risk: read
-      x-agent-hint: 'Lists the user''s automations: scheduled tasks the WeKnora assistant
+      x-agent-hint: 'Lists the user''s automations: scheduled tasks the GENYEE assistant
         runs on their behalf, with next and last run.'
     post:
       consumes:
       - application/json
-      description: 创建一个按计划由 WeKnora 助手以当前用户身份运行的任务
+      description: 创建一个按计划由 GENYEE 助手以当前用户身份运行的任务
       parameters:
       - description: 自动化
         in: body
@@ -16491,7 +16492,7 @@ paths:
         label_param: name
         risk: write
         role: viewer
-      x-agent-hint: 'Creates an automation the WeKnora assistant runs as the user.
+      x-agent-hint: 'Creates an automation the GENYEE assistant runs as the user.
         If work requires other agents, name them and their assignments in the instruction
         so the assistant can delegate. Turn the user''s wording into a cron expression
         (five fields, minute first) and an IANA timezone, and check it with automation.validate_trigger
@@ -25272,27 +25273,6 @@ paths:
       x-agent-hint: 'One catalog provider with the models it offers: model_name is
         what model_draft.model_name takes in open_page. Pass model_type to keep one
         kind, and keyword when the list is truncated.'
-  /models/weknoracloud/status:
-    get:
-      description: 检查当前空间的 WeKnoraCloud 凭证是否完好；needs_reinit=true 表示需要重新保存
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 凭证状态
-          schema:
-            $ref: '#/definitions/github_com_Usir233_GENYEE_internal_types.WeKnoraCloudStatusResult'
-        "500":
-          description: 服务器错误
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - Bearer: []
-      - ApiKeyAuth: []
-      summary: 检查 WeKnoraCloud 凭证状态
-      tags:
-      - WeKnoraCloud
   /notifications:
     get:
       parameters:
@@ -26278,7 +26258,7 @@ paths:
       description: List the agent skills installed onto one sandbox config's image.
       parameters:
       - description: 'Sandbox config ID: the agent''s sandbox_config_id, or host on
-          WeKnora Lite'
+          GENYEE Lite'
         in: path
         name: id
         required: true
@@ -26341,7 +26321,7 @@ paths:
         via the install-events stream.
       parameters:
       - description: 'Sandbox config ID: the agent''s sandbox_config_id, or host on
-          WeKnora Lite'
+          GENYEE Lite'
         in: path
         name: id
         required: true
@@ -27875,7 +27855,7 @@ paths:
         id: skill.list
         risk: read
       x-agent-hint: Lists usable skills, chosen by name. Pass sandbox_config_id from
-        agent.get; when the agent has none, pass host (WeKnora Lite runs skills locally).
+        agent.get; when the agent has none, pass host (GENYEE Lite runs skills locally).
         An empty list means there are no usable skills there; if the agent has no
         sandbox, tell the user to choose one in the agent editor.
   /skills/catalog:
@@ -31217,37 +31197,6 @@ paths:
       summary: 轮询微信二维码状态
       tags:
       - IM 渠道
-  /weknoracloud/credentials:
-    post:
-      consumes:
-      - application/json
-      description: 保存 APPID/APPSECRET 到当前空间配置（不自动创建模型）
-      parameters:
-      - description: '{app_id, app_secret}'
-        in: body
-        name: request
-        required: true
-        schema:
-          additionalProperties: true
-          type: object
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 'success: true'
-          schema:
-            $ref: '#/definitions/internal_handler.MessageResponse'
-        "400":
-          description: 请求参数错误
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - Bearer: []
-      - ApiKeyAuth: []
-      summary: 保存 WeKnoraCloud 凭证
-      tags:
-      - WeKnoraCloud
   /wiki-search:
     post:
       consumes:

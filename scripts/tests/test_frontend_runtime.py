@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 NODE = shutil.which("node")
 CONFIG_KEYS = (
     "MAX_FILE_SIZE_MB", "MAX_SKILL_BUNDLE_SIZE_MB", "DEFAULT_LOCALE",
-    "GENYEE_WEKNORACLOUD_ENABLED", "GENYEE_CHROME_EXTENSION_URL",
+    "GENYEE_CHROME_EXTENSION_URL",
     "GENYEE_CLAWHUB_SKILL_URL", "DOCS_BASE_URL", "WEBSITE_URL", "GITHUB_URL",
     "APP_HOST", "APP_PORT", "APP_SCHEME",
 )
@@ -84,7 +84,6 @@ process.stdout.write(JSON.stringify(scope.window.__RUNTIME_CONFIG__));
         config = self.read_config()
         self.assertEqual(config["MAX_FILE_SIZE_MB"], 50)
         self.assertEqual(config["MAX_SKILL_BUNDLE_SIZE_MB"], 256)
-        self.assertEqual(config["GENYEE_WEKNORACLOUD_ENABLED"], "false")
         self.assertEqual(config["DEFAULT_LOCALE"], "")
         nginx = self.nginx_config.read_text()
         self.assertIn("client_max_body_size 51M;", nginx)
@@ -94,7 +93,7 @@ process.stdout.write(JSON.stringify(scope.window.__RUNTIME_CONFIG__));
 
     def test_all_runtime_strings_roundtrip_without_code_execution(self):
         payload = 'https://例子.test/\\path?q="}; window.pwned=true; //\n' + ''.join(chr(i) for i in range(1, 32)) + '\u2028\u2029\n\n'
-        values = {name: payload for name in CONFIG_KEYS[3:9]}
+        values = {name: payload for name in CONFIG_KEYS[3:CONFIG_KEYS.index("APP_HOST")]}
         values["DEFAULT_LOCALE"] = 'en-US"}; window.pwned=true; //'
         result = self.run_entrypoint(values)
         self.assertEqual(result.returncode, 0, result.stderr)

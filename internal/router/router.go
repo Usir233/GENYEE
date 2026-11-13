@@ -93,12 +93,12 @@ type RouterParams struct {
 	RedisClient                  *redis.Client
 	DataSourceHandler            *handler.DataSourceHandler
 	DataSourceCredentialsHandler *handler.DataSourceCredentialsHandler
-	WeKnoraCloudHandler          *handler.WeKnoraCloudHandler
-	WikiPageHandler              *handler.WikiPageHandler
-	MemoryHandler                *handler.MemoryHandler
-	AutomationHandler            *handler.AutomationHandler
-	HostSandbox                  service.HostSandboxManager
-	OperationDispatcher          *operations.HandlerDispatcher
+
+	WikiPageHandler     *handler.WikiPageHandler
+	MemoryHandler       *handler.MemoryHandler
+	AutomationHandler   *handler.AutomationHandler
+	HostSandbox         service.HostSandboxManager
+	OperationDispatcher *operations.HandlerDispatcher
 }
 
 // NewRouter 创建新的路由
@@ -314,7 +314,7 @@ func NewRouter(params RouterParams) *gin.Engine {
 		RegisterEmbedChannelRoutes(v1, params.EmbedChannelHandler, rbacGuards)
 		RegisterMCPEndpointRoutes(v1, params.MCPEndpointHandler, rbacGuards)
 		RegisterDataSourceRoutes(v1, params.DataSourceHandler, params.DataSourceCredentialsHandler, rbacGuards)
-		RegisterWeKnoraCloudRoutes(v1, params.WeKnoraCloudHandler, rbacGuards)
+
 		RegisterWikiPageRoutes(v1, params.WikiPageHandler, rbacGuards)
 		RegisterMemoryRoutes(v1, params.MemoryHandler, rbacGuards)
 		RegisterAutomationRoutes(v1, params.AutomationHandler, rbacGuards)

@@ -221,9 +221,7 @@ func (h *ModelHandler) ListModelProviders(c *gin.Context) {
 	includeURLs := dto.CanViewIntegrationSecrets(ctx)
 	result := make([]ModelProviderDTO, 0, len(vendors))
 	for _, v := range vendors {
-		if v.ID == "weknoracloud" && !types.IsWeKnoraCloudEnabled() {
-			continue
-		}
+
 		p := providerDTO(v, backendType, true)
 		if !includeURLs {
 			p.DefaultURLs = nil
@@ -270,7 +268,7 @@ func (h *ModelHandler) GetModelProvider(c *gin.Context) {
 		return
 	}
 	vendor, found := modelruntime.Get(c.Param("provider"))
-	if !found || (vendor.ID == "weknoracloud" && !types.IsWeKnoraCloudEnabled()) {
+	if !found {
 		_ = c.Error(errors.NewNotFoundError("provider not found"))
 		return
 	}

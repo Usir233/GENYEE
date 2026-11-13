@@ -9,7 +9,7 @@
 # Covers 5 Tiers:
 #   Tier 1: Red-Line Licenses & Notices (Dataset, GPL/AGPL Removal, Notices & Dockerfiles)
 #   Tier 2: Functional & Clean-Room Replacements (.xls, .epub, VectorDB Tokenizer & Guards)
-#   Tier 3: Default-Off Cloud/Telemetry & Third-Party Publisher Gating (WeKnoraCloud, Chrome/Claw, Langfuse, Auto-Update)
+#   Tier 3: Default-Off Cloud/Telemetry & Third-Party Publisher Gating (Chrome/Claw, Langfuse, Auto-Update)
 #   Tier 4: Brand Residue & Image Parameterization (Desktop Metadata, SVGs, READMEs, Swagger, Registry)
 #   Tier 5: Offline Bundle, Source Export & Hygiene (Air-Gapped Bundle, Clean Source Archive, Path Hygiene)
 # ==============================================================================
@@ -513,16 +513,12 @@ run_tier_2() {
 # TIER 3: Default-Off Cloud/Telemetry & Third-Party Publisher Gating
 # ==============================================================================
 
-# TC-T3-01: WeKnoraCloud gated behind GENYEE_WEKNORACLOUD_ENABLED (default false)
-test_t3_weknoracloud_default_off() {
-    if ! grep -q 'os.Getenv("GENYEE_WEKNORACLOUD_ENABLED")' internal/types/weknoracloud.go; then
-        echo "internal/types/weknoracloud.go does not gate WeKnoraCloud via GENYEE_WEKNORACLOUD_ENABLED" >&2
-        return 1
-    fi
-    if ! grep -q 'types.IsWeKnoraCloudEnabled()' internal/handler/system.go || \
-       ! grep -q 'types.IsWeKnoraCloudEnabled()' internal/application/service/weknoracloud.go || \
-       ! grep -q 'GENYEE_WEKNORACLOUD_ENABLED' frontend/src/utils/weknoraCloudModels.ts; then
-        echo "Backend/frontend WeKnoraCloud gating via IsWeKnoraCloudEnabled() / GENYEE_WEKNORACLOUD_ENABLED missing" >&2
+# TC-T3-01: The discontinued managed cloud integration must be absent.
+test_t3_removed_cloud_integration() {
+    local removed_provider="we""knora""cloud"
+    local removed_alias="genyee""[ _-]?cloud"
+    if grep -rnEi "$removed_provider|$removed_alias" internal frontend/src .env.example .env.lite.example docker-compose.yml helm/templates; then
+        echo "Discontinued cloud integration remains in a product surface" >&2
         return 1
     fi
     return 0
@@ -610,7 +606,7 @@ run_tier_3() {
     echo -e "${C_BOLD}${C_BLUE}[TIER 3] Default-Off Cloud/Telemetry & Third-Party Publisher Gating${C_RESET}"
     echo -e "${C_BOLD}${C_BLUE}================================================================================${C_RESET}"
 
-    run_test "TC-T3-01" "WeKnoraCloud gated behind GENYEE_WEKNORACLOUD_ENABLED (default off)" test_t3_weknoracloud_default_off
+    run_test "TC-T3-01" "Discontinued cloud integration removed" test_t3_removed_cloud_integration
     run_test "TC-T3-02" "Chrome & Claw gated by runtime URLs & zero @lyingbug/weknora" test_t3_chrome_claw_gated_and_clean
     run_test "TC-T3-03" "Langfuse profile-gated, PROFILES=\"\", no cloud.langfuse.com default" test_t3_langfuse_gated_and_no_cloud_default
     run_test "TC-T3-04" "Desktop auto-update disabled by default & no Tencent GitHub URL" test_t3_desktop_autoupdate_disabled_by_default

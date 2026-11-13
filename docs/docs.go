@@ -11,8 +11,7 @@ const docTemplate = `{
         "title": "{{.Title}}",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
-            "name": "WeKnora Github",
-            "url": "https://github.com/Usir233/GENYEE"
+            "name": "GENYEE Support"
         },
         "version": "{{.Version}}"
     },
@@ -2526,7 +2525,7 @@ const docTemplate = `{
                     "max_items": 100,
                     "risk": "read"
                 },
-                "x-agent-hint": "Lists the user's automations: scheduled tasks the WeKnora assistant runs on their behalf, with next and last run."
+                "x-agent-hint": "Lists the user's automations: scheduled tasks the GENYEE assistant runs on their behalf, with next and last run."
             },
             "post": {
                 "security": [
@@ -2534,7 +2533,7 @@ const docTemplate = `{
                         "Bearer": []
                     }
                 ],
-                "description": "创建一个按计划由 WeKnora 助手以当前用户身份运行的任务",
+                "description": "创建一个按计划由 GENYEE 助手以当前用户身份运行的任务",
                 "consumes": [
                     "application/json"
                 ],
@@ -2589,7 +2588,7 @@ const docTemplate = `{
                     "risk": "write",
                     "role": "viewer"
                 },
-                "x-agent-hint": "Creates an automation the WeKnora assistant runs as the user. If work requires other agents, name them and their assignments in the instruction so the assistant can delegate. Turn the user's wording into a cron expression (five fields, minute first) and an IANA timezone, and check it with automation.validate_trigger first, telling the user the next run times it returns. Runs are unattended: write the instruction as a complete task, since nobody can answer questions during a run. access_level defaults to confirm, where each change waits for the user's approval; only set auto_write when the user asks for it."
+                "x-agent-hint": "Creates an automation the GENYEE assistant runs as the user. If work requires other agents, name them and their assignments in the instruction so the assistant can delegate. Turn the user's wording into a cron expression (five fields, minute first) and an IANA timezone, and check it with automation.validate_trigger first, telling the user the next run times it returns. Runs are unattended: write the instruction as a complete task, since nobody can answer questions during a run. access_level defaults to confirm, where each change waits for the user's approval; only set auto_write when the user asks for it."
             }
         },
         "/automations/by-session/{session_id}": {
@@ -15696,41 +15695,6 @@ const docTemplate = `{
                 "x-agent-hint": "One catalog provider with the models it offers: model_name is what model_draft.model_name takes in open_page. Pass model_type to keep one kind, and keyword when the list is truncated."
             }
         },
-        "/models/weknoracloud/status": {
-            "get": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "检查当前空间的 WeKnoraCloud 凭证是否完好；needs_reinit=true 表示需要重新保存",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "WeKnoraCloud"
-                ],
-                "summary": "检查 WeKnoraCloud 凭证状态",
-                "responses": {
-                    "200": {
-                        "description": "凭证状态",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WeKnoraCloudStatusResult"
-                        }
-                    },
-                    "500": {
-                        "description": "服务器错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/models/{id}": {
             "get": {
                 "security": [
@@ -17842,7 +17806,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "x-agent": "sandbox_config_id",
-                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on WeKnora Lite",
+                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on GENYEE Lite",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -17917,7 +17881,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "x-agent": "sandbox_config_id",
-                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on WeKnora Lite",
+                        "description": "Sandbox config ID: the agent's sandbox_config_id, or host on GENYEE Lite",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -20281,7 +20245,7 @@ const docTemplate = `{
                     "id": "skill.list",
                     "risk": "read"
                 },
-                "x-agent-hint": "Lists usable skills, chosen by name. Pass sandbox_config_id from agent.get; when the agent has none, pass host (WeKnora Lite runs skills locally). An empty list means there are no usable skills there; if the agent has no sandbox, tell the user to choose one in the agent editor."
+                "x-agent-hint": "Lists usable skills, chosen by name. Pass sandbox_config_id from agent.get; when the agent has none, pass host (GENYEE Lite runs skills locally). An empty list means there are no usable skills there; if the agent has no sandbox, tell the user to choose one in the agent editor."
             }
         },
         "/skills/catalog": {
@@ -25391,56 +25355,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/weknoracloud/credentials": {
-            "post": {
-                "security": [
-                    {
-                        "Bearer": []
-                    },
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "保存 APPID/APPSECRET 到当前空间配置（不自动创建模型）",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "WeKnoraCloud"
-                ],
-                "summary": "保存 WeKnoraCloud 凭证",
-                "parameters": [
-                    {
-                        "description": "{app_id, app_secret}",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "success: true",
-                        "schema": {
-                            "$ref": "#/definitions/internal_handler.MessageResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "请求参数错误",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
         "/wiki-search": {
             "post": {
                 "security": [
@@ -26379,7 +26293,8 @@ const docTemplate = `{
                 2103,
                 2200,
                 2201,
-                2300
+                2300,
+                2400
             ],
             "x-enum-varnames": [
                 "ErrBadRequest",
@@ -26405,7 +26320,8 @@ const docTemplate = `{
                 "ErrAgentInvalidTemperature",
                 "ErrVectorStoreBindingInvalid",
                 "ErrVectorStoreUnavailable",
-                "ErrModelInUse"
+                "ErrModelInUse",
+                "ErrImportPrerequisiteMissing"
             ]
         },
         "github_com_Usir233_GENYEE_internal_handler_dto.CredentialFieldMetadata": {
@@ -27210,7 +27126,7 @@ const docTemplate = `{
                     ]
                 },
                 "type": {
-                    "description": "Type is the WeKnora model type this entry describes. Chat models with\nimage input are still KnowledgeQA; the UI derives VLM eligibility from\nInput. Embedding / Rerank / ASR entries exist for the model picker.",
+                    "description": "Type is the GENYEE model type this entry describes. Chat models with\nimage input are still KnowledgeQA; the UI derives VLM eligibility from\nInput. Embedding / Rerank / ASR entries exist for the model picker.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ModelType"
@@ -29157,12 +29073,7 @@ const docTemplate = `{
             }
         },
         "github_com_Usir233_GENYEE_internal_types.CredentialsConfig": {
-            "type": "object",
-            "properties": {
-                "weknoracloud": {
-                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.WeKnoraCloudCredentials"
-                }
-            }
+            "type": "object"
         },
         "github_com_Usir233_GENYEE_internal_types.CubeEgressRule": {
             "type": "object",
@@ -29320,7 +29231,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "access_level": {
-                    "description": "AccessLevel is the highest access level a run of this agent gets: how\nfar it may change data (MCP tools, Wiki writes) without asking. Empty\nmeans auto_write. The WeKnora assistant uses the workspace's assistant\nceiling instead.",
+                    "description": "AccessLevel is the highest access level a run of this agent gets: how\nfar it may change data (MCP tools, Wiki writes) without asking. Empty\nmeans auto_write. The GENYEE assistant uses the workspace's assistant\nceiling instead.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel"
@@ -31007,7 +30918,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "attrs": {
-                    "description": "Attrs is the observed attribute map (e.g. contain.text, contain.data_visual)\nproduced by the attribute pipeline. Absent keys mean \"not observed\".",
+                    "description": "Attrs 包含模型观察属性和解析器的 source.* 来源位置；缺少来源键表示未知。",
                     "type": "object",
                     "additionalProperties": {}
                 },
@@ -33770,7 +33681,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "app_id": {
-                    "description": "WeKnoraCloud 厂商专用凭证",
+                    "description": "厂商附加凭证",
                     "type": "string"
                 },
                 "app_secret": {
@@ -35873,7 +35784,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "host_workspace_dir": {
-                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the WeKnora Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
+                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the GENYEE Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
                     "type": "string"
                 },
                 "id": {
@@ -36020,7 +35931,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "host_workspace_dir": {
-                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the WeKnora Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
+                    "description": "HostWorkspaceDir is the user-selected project directory this session\noperates in, for the GENYEE Lite host sandbox only. Empty means the session\ngets an auto-allocated workspace instead.\n\nWritten once at creation and never updated: re-pointing a live session\nat a different directory would leave its transcript describing files\nthat are no longer there. Standard edition never writes it.",
                     "type": "string"
                 },
                 "id": {
@@ -36860,7 +36771,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "assistant_config": {
-                    "description": "Assistant config: display name and access ceiling of the WeKnora assistant",
+                    "description": "Assistant config: display name and access ceiling of the GENYEE assistant",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantConfig"
@@ -36892,7 +36803,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "credentials": {
-                    "description": "Credentials config: third-party provider credentials (e.g. WeKnoraCloud AppID/AppSecret)",
+                    "description": "Credentials config: third-party provider credentials (e.g. provider API keys)",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.CredentialsConfig"
@@ -37862,34 +37773,6 @@ const docTemplate = `{
                 },
                 "volume_owner_fingerprint": {
                     "description": "VolumeOwnerFingerprint = sha256(provider + APIKey + APIURL).\nUsed to detect when the tenant switched to a different backend or\nAPI key, at which point the volume is no longer reachable and must\nbe recreated.",
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_Usir233_GENYEE_internal_types.WeKnoraCloudCredentials": {
-            "type": "object",
-            "properties": {
-                "app_id": {
-                    "type": "string"
-                },
-                "app_secret": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_Usir233_GENYEE_internal_types.WeKnoraCloudStatusResult": {
-            "type": "object",
-            "properties": {
-                "has_models": {
-                    "description": "是否已配置 WeKnoraCloud 凭证",
-                    "type": "boolean"
-                },
-                "needs_reinit": {
-                    "description": "是否需要重新初始化（凭证损坏）",
-                    "type": "boolean"
-                },
-                "reason": {
-                    "description": "需要重新初始化的原因",
                     "type": "string"
                 }
             }
@@ -40466,7 +40349,18 @@ const docTemplate = `{
             ],
             "properties": {
                 "asr_config": {
-                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.ASRConfig"
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "language": {
+                            "type": "string"
+                        },
+                        "model_id": {
+                            "type": "string"
+                        }
+                    }
                 },
                 "documentSplitting": {
                     "description": "文档分块配置",
@@ -40592,7 +40486,33 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "vlm_config": {
-                    "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.VLMConfig"
+                    "type": "object",
+                    "properties": {
+                        "api_key": {
+                            "type": "string"
+                        },
+                        "base_url": {
+                            "type": "string"
+                        },
+                        "custom_instructions": {
+                            "type": "string"
+                        },
+                        "description_language": {
+                            "type": "string"
+                        },
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "interface_type": {
+                            "type": "string"
+                        },
+                        "model_id": {
+                            "type": "string"
+                        },
+                        "model_name": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },
@@ -43672,7 +43592,7 @@ const docTemplate = `{
             ],
             "properties": {
                 "sandbox_config_ids": {
-                    "description": "Sandbox config ids to install onto: an agent's sandbox_config_id, or host on WeKnora Lite",
+                    "description": "Sandbox config ids to install onto: an agent's sandbox_config_id, or host on GENYEE Lite",
                     "type": "array",
                     "items": {
                         "type": "string"
@@ -44337,7 +44257,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "assistant_access": {
-                    "description": "AssistantAccess is the WeKnora assistant access level: read_only,\nconfirm or auto_write. The workspace ceiling caps it; other agents\nignore it.",
+                    "description": "AssistantAccess is the GENYEE assistant access level: read_only,\nconfirm or auto_write. The workspace ceiling caps it; other agents\nignore it.",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.AssistantAccessLevel"
@@ -44406,7 +44326,7 @@ const docTemplate = `{
                     }
                 },
                 "page_context": {
-                    "description": "PageContext is the WeKnora page the user has open (agent mode only).",
+                    "description": "PageContext is the GENYEE page the user has open (agent mode only).",
                     "allOf": [
                         {
                             "$ref": "#/definitions/github_com_Usir233_GENYEE_internal_types.PageContext"
@@ -44778,8 +44698,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "",
 	BasePath:         "/api/v1",
 	Schemes:          []string{},
-	Title:            "WeKnora API",
-	Description:      "WeKnora 知识库管理系统 API 文档",
+	Title:            "GENYEE API",
+	Description:      "GENYEE 知识库管理系统 API 文档",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

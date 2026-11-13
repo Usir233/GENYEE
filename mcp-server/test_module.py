@@ -34,7 +34,7 @@ class ModuleIntegrationTest(unittest.TestCase):
         import mcp  # noqa: F401
         import requests  # noqa: F401
         import weknora_mcp_server  # noqa: F401
-        from weknora_mcp_server import WeKnoraClient, run  # noqa: F401
+        from weknora_mcp_server import GENYEEClient, run  # noqa: F401
         import main  # noqa: F401
 
     def test_environment_optional_vars(self):
@@ -42,11 +42,11 @@ class ModuleIntegrationTest(unittest.TestCase):
         os.getenv("GENYEE_API_KEY")
 
     def test_client_creation(self):
-        from weknora_mcp_server import WeKnoraClient
+        from weknora_mcp_server import GENYEEClient
 
         base_url = os.getenv("GENYEE_BASE_URL", "http://localhost:8080/api/v1")
         api_key = os.getenv("GENYEE_API_KEY", "test_key")
-        client = WeKnoraClient(base_url, api_key)
+        client = GENYEEClient(base_url, api_key)
         self.assertEqual(client.base_url, base_url)
         self.assertEqual(client.api_key, api_key)
 
@@ -77,9 +77,9 @@ class ModuleIntegrationTest(unittest.TestCase):
     def test_wiki_tools(self):
         import weknora_mcp_server
 
-        client = weknora_mcp_server.WeKnoraClient("http://localhost:8080/api/v1", "test")
+        client = weknora_mcp_server.GENYEEClient("http://localhost:8080/api/v1", "test")
         for method in ["wiki_search", "wiki_read_page", "wiki_index_view"]:
-            self.assertTrue(hasattr(client, method), f"WeKnoraClient missing: {method}")
+            self.assertTrue(hasattr(client, method), f"GENYEEClient missing: {method}")
             self.assertTrue(callable(getattr(client, method)), f"{method} not callable")
 
     def test_pyproject_metadata(self):

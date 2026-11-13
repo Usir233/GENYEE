@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This is the GENYEE CLI (`genyee`, with `weknora` alias), a command-line client for the GENYEE RAG server. The module path is `github.com/Usir233/GENYEE/cli`.
+This is the GENYEE CLI (`genyee`), a command-line client for the GENYEE RAG server. The module path is `github.com/Usir233/GENYEE/cli`.
 
 The wire contract for AI agents *consuming* `weknora` output (JSON shape, exit codes, error format) is documented below and in [README.md](README.md). Read this file if you're integrating with the CLI binary — build / test / architecture details follow the wire contract sections.
 

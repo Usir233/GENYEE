@@ -1,6 +1,6 @@
 # API 参考：模型与初始化
 
-管理模型、测试连接、初始化知识库，并发起评估任务。WeKnoraCloud 接口用于相关云服务接入。
+管理模型、测试连接、初始化知识库，并发起评估任务。
 
 系统信息与系统管理（`/system`、`/system/admin`）接口见[系统与平台管理](./02-api-system.md)。
 
@@ -188,31 +188,6 @@ curl -X PUT $BASE/api/v1/models/m-1/credentials -H "Authorization: Bearer $TOKEN
 
 ```bash
 curl -X DELETE $BASE/api/v1/models/m-1/credentials/api_key -H "Authorization: Bearer $TOKEN"
-```
-
-## WeKnoraCloud
-
-Handler: `internal/handler/weknoracloud.go`。API key：`manage_models`/full。
-
-### POST /api/v1/weknoracloud/credentials
-
-用途：保存 WeKnoraCloud SaaS 凭证。权限：Admin+。请求体：`{"app_id":"...","app_secret":"..."}`（均 `binding:"required"`）。
-
-响应：200 `{"success":true,"message":"凭证保存成功"}`
-
-```bash
-curl -X POST $BASE/api/v1/weknoracloud/credentials -H "Authorization: Bearer $TOKEN" \
-  -H 'Content-Type: application/json' -d '{"app_id":"app","app_secret":"secret"}'
-```
-
-### GET /api/v1/models/weknoracloud/status
-
-用途：WeKnoraCloud 就绪状态探测。权限：Viewer+。
-
-响应：200 服务状态对象。
-
-```bash
-curl $BASE/api/v1/models/weknoracloud/status -H "Authorization: Bearer $TOKEN"
 ```
 
 ## 初始化（/api/v1/initialization）
@@ -439,4 +414,4 @@ curl "$BASE/api/v1/evaluation?task_id=task-1" -H "Authorization: Bearer $TOKEN"
 
 ## 实现参考
 
-路由注册：`internal/router/router.go` 调用 `RegisterModelRoutes`、`RegisterInitializationRoutes`、`RegisterEvaluationRoutes`、`RegisterWeKnoraCloudRoutes`（定义在 `internal/router/routes_infra.go`）。Handler：`internal/handler/model.go`、`internal/handler/model_catalog.go`、`internal/handler/model_credentials.go`、`internal/handler/initialization.go`、`internal/handler/evaluation.go`、`internal/handler/weknoracloud.go`。
+路由注册：`internal/router/router.go` 调用 `RegisterModelRoutes`、`RegisterInitializationRoutes`、`RegisterEvaluationRoutes`（定义在 `internal/router/routes_infra.go`）。Handler：`internal/handler/model.go`、`internal/handler/model_catalog.go`、`internal/handler/model_credentials.go`、`internal/handler/initialization.go`、`internal/handler/evaluation.go`。

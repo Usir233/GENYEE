@@ -18,7 +18,7 @@ func TestParseFailureMessageForEngine(t *testing.T) {
 			"engine %q runs in the docreader container; the docreader message applies", engine)
 	}
 
-	for _, engine := range []string{"mineru", "mineru_cloud", "weknoracloud", "anydoc", "simple", "paddleocr_vl"} {
+	for _, engine := range []string{"mineru", "mineru_cloud", "anydoc", "simple", "paddleocr_vl"} {
 		msg := parseFailureMessageForEngine(engine, upstream)
 		assert.Contains(t, msg, engine, "engine %q must be named in the message", engine)
 		assert.Contains(t, msg, "Unsupported file type", "the upstream error must surface")

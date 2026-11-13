@@ -1020,15 +1020,9 @@ func (h *AuthHandler) AutoSetup(c *gin.Context) {
 		return
 	}
 
-	const (
-		defaultEmail       = "admin@genyee.local"
-		legacyDefaultEmail = "admin@weknora.local"
-	)
+	const defaultEmail = "admin@genyee.local"
 
 	user, _ := h.userService.GetUserByEmail(ctx, defaultEmail)
-	if user == nil {
-		user, _ = h.userService.GetUserByEmail(ctx, legacyDefaultEmail)
-	}
 	if user == nil {
 		logger.Info(ctx, "Auto-setup: creating default user and tenant for lite edition")
 

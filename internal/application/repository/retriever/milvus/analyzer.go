@@ -19,13 +19,13 @@ const (
 type collectionAnalyzerMode uint8
 
 const (
-	collectionAnalyzerLegacy collectionAnalyzerMode = iota
+	collectionAnalyzerUnsupported collectionAnalyzerMode = iota
 	collectionAnalyzerMulti
 )
 
 func analyzerModeFromSchema(schema *entity.Schema) collectionAnalyzerMode {
 	if schema == nil {
-		return collectionAnalyzerLegacy
+		return collectionAnalyzerUnsupported
 	}
 
 	hasLanguageField := false
@@ -46,7 +46,7 @@ func analyzerModeFromSchema(schema *entity.Schema) collectionAnalyzerMode {
 	if hasLanguageField && hasMultiAnalyzer {
 		return collectionAnalyzerMulti
 	}
-	return collectionAnalyzerLegacy
+	return collectionAnalyzerUnsupported
 }
 
 // multiAnalyzerParams returns the analyzer configuration used by new Milvus

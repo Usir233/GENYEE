@@ -1953,14 +1953,14 @@ func TestDeleteReleasesAnAbandonedBuildByPlannedName(t *testing.T) {
 	skills := &deleteSkillStore{
 		snapshots: []*types.TenantSkillSnapshotEntity{{
 			ID: "row-build", TenantID: 7, SandboxConfigID: "cfg-a",
-			PlannedName: "weknora-sk-cfga-g3", State: types.SkillSnapshotStateBuilding,
+			PlannedName: "weknora-sk-t7-cfga-g3", State: types.SkillSnapshotStateBuilding,
 		}},
 	}
 	var events []string
 	client := &snapshotReleaseClient{
 		events: &events,
 		listed: []sandbox.RemoteSnapshotRef{
-			{ID: "snap-orphan", Names: []string{"weknora-sk-cfga-g3"}},
+			{ID: "snap-orphan", Names: []string{"weknora-sk-t7-cfga-g3"}},
 		},
 	}
 	svc := newTestConfigService(t, repo, &client.stubProviderClient, stubAgentRepo{})

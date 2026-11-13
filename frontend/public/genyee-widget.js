@@ -1,6 +1,5 @@
 /**
  * GENYEE embed widget SDK — floating chat launcher.
- * (Also exposed as window.WeKnora for backwards compatibility.)
  *
  * Programmatic:
  *   GENYEE.init({ channel, token, position, primaryColor, title, baseUrl })
@@ -140,7 +139,7 @@
     if (!baseUrl) {
       var script = document.currentScript;
       if (script && script.src) {
-        baseUrl = script.src.replace(/\/(genyee|weknora)-widget\.js.*$/, '');
+        baseUrl = script.src.replace(/\/genyee-widget\.js.*$/, '');
       } else {
         baseUrl = global.location ? global.location.origin : '';
       }
@@ -427,7 +426,7 @@
     setLocale: function (locale) { if (instance) instance.setLocale(locale); },
   };
 
-  global.GENYEE = global.WeKnora = api;
+  global.GENYEE = api;
 
   var legacyScript = document.currentScript;
   if (legacyScript) {

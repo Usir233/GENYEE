@@ -1,8 +1,8 @@
-from weknora_mcp_server import WeKnoraClient
+from weknora_mcp_server import GENYEEClient
 
 
 def test_resolve_agent_id_accepts_non_uuid_agent_id(monkeypatch):
-    client = WeKnoraClient("http://example.test/api/v1", "")
+    client = GENYEEClient("http://example.test/api/v1", "")
     agents = {
         "data": [
             {
@@ -20,7 +20,7 @@ def test_resolve_agent_id_accepts_non_uuid_agent_id(monkeypatch):
 
 
 def test_resolve_agent_id_accepts_agent_name_case_insensitively(monkeypatch):
-    client = WeKnoraClient("http://example.test/api/v1", "")
+    client = GENYEEClient("http://example.test/api/v1", "")
     agents = {
         "data": [
             {
@@ -35,7 +35,7 @@ def test_resolve_agent_id_accepts_agent_name_case_insensitively(monkeypatch):
 
 
 def test_resolve_agent_id_prefers_exact_id_over_earlier_name_match(monkeypatch):
-    client = WeKnoraClient("http://example.test/api/v1", "")
+    client = GENYEEClient("http://example.test/api/v1", "")
     agents = {
         "data": [
             {"id": "other-agent", "name": "builtin-wiki-researcher"},

@@ -842,7 +842,6 @@ const defaultDockerImage = 'genyee/genyee-sandbox:latest'
 
 const standardDockerRepositories = new Set([
   'genyee/genyee-sandbox',
-  'wechatopenai/weknora-sandbox',
 ])
 
 function isStandardTemplateImage(image?: string): boolean {
@@ -852,7 +851,7 @@ function isStandardTemplateImage(image?: string): boolean {
   const lastSlash = withoutDigest.lastIndexOf('/')
   const lastColon = withoutDigest.lastIndexOf(':')
   const repo = (lastColon > lastSlash ? withoutDigest.slice(0, lastColon) : withoutDigest).toLowerCase()
-  return standardDockerRepositories.has(repo) || repo.endsWith('/genyee-sandbox') || repo.endsWith('/weknora-sandbox')
+  return standardDockerRepositories.has(repo) || repo.endsWith('/genyee-sandbox')
 }
 
 const clusterGuideUrl = docsUrl('sandboxDeployment')

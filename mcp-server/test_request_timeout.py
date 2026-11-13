@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for timeouts on the non-chat WeKnora API requests.
 
-``WeKnoraClient._request`` and the file-upload ``requests.post`` used to
+``GENYEEClient._request`` and the file-upload ``requests.post`` used to
 pass no ``timeout`` at all, so a hung backend blocked the calling MCP
 tool indefinitely (``requests`` waits forever by default). The chat SSE
 path already passes ``timeout=(10, GENYEE_CHAT_TIMEOUT)``; these tests
@@ -25,21 +25,21 @@ MCP_SERVER_DIR = Path(__file__).resolve().parent
 
 class RequestTimeoutTest(unittest.TestCase):
     def test_request_passes_default_timeout(self):
-        client = srv.WeKnoraClient("http://example.test/api/v1", "k")
+        client = srv.GENYEEClient("http://example.test/api/v1", "k")
         with mock.patch.object(client.session, "request") as req:
             req.return_value.json.return_value = {"ok": True}
             client._request("GET", "/tenants")
         self.assertEqual(req.call_args.kwargs.get("timeout"), srv.GENYEE_API_TIMEOUT)
 
     def test_request_respects_caller_supplied_timeout(self):
-        client = srv.WeKnoraClient("http://example.test/api/v1", "k")
+        client = srv.GENYEEClient("http://example.test/api/v1", "k")
         with mock.patch.object(client.session, "request") as req:
             req.return_value.json.return_value = {"ok": True}
             client._request("GET", "/tenants", timeout=7)
         self.assertEqual(req.call_args.kwargs.get("timeout"), 7)
 
     def test_upload_post_passes_timeout(self):
-        client = srv.WeKnoraClient("http://example.test/api/v1", "k")
+        client = srv.GENYEEClient("http://example.test/api/v1", "k")
         with mock.patch.object(
             srv, "resolve_upload_file_path", return_value="/tmp/x.pdf"
         ), mock.patch(

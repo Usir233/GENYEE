@@ -84,17 +84,7 @@ var SettingsSections = map[string]openPageSection{
 	"integration-cli":       {"CLI", "CLI"},
 }
 
-func activeSettingsSections() map[string]openPageSection {
-	if !types.IsWeKnoraCloudEnabled() {
-		return SettingsSections
-	}
-	out := make(map[string]openPageSection, len(SettingsSections)+1)
-	for k, v := range SettingsSections {
-		out[k] = v
-	}
-	out["weknoracloud"] = openPageSection{"WeKnora Cloud", "WeKnora Cloud"}
-	return out
-}
+func activeSettingsSections() map[string]openPageSection { return SettingsSections }
 
 // SystemSettingsPanels are the tabs inside settings section system-global.
 // "other" is conditional on the page and is reached with select_tab instead.

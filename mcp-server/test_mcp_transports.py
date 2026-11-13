@@ -42,9 +42,9 @@ class TransportRegressionTest(unittest.TestCase):
         )
 
     def test_weknora_client_session_is_thread_local(self):
-        from weknora_mcp_server import WeKnoraClient
+        from weknora_mcp_server import GENYEEClient
 
-        client = WeKnoraClient("http://localhost:8080/api/v1", "test-key")
+        client = GENYEEClient("http://localhost:8080/api/v1", "test-key")
         barrier = threading.Barrier(2)
         sessions: dict[str, object] = {}
 

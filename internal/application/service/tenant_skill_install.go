@@ -1940,13 +1940,8 @@ func snapshotBelongsToOtherConfig(snap sandbox.RemoteSnapshotRef, prefix string)
 		if strings.HasPrefix(name, needle) {
 			return false
 		}
-		// New-format names are weknora-sk-t<tenant>-<config>-gN. Legacy
-		// weknora-sk-<short>-gN names are left alone so a row written before
-		// the prefix existed can still be matched.
-		rest := strings.TrimPrefix(name, "weknora-sk-")
-		if len(rest) > 1 && rest[0] == 't' && rest[1] >= '0' && rest[1] <= '9' {
-			sawForeign = true
-		}
+		// A named snapshot not owned by this tenant/config is foreign.
+		sawForeign = true
 	}
 	return sawForeign
 }

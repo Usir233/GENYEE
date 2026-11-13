@@ -199,7 +199,7 @@ flowchart TD
 - **关键词检索**：对 `content_sparse` 做 BM25 稀疏向量检索（Milvus 2.5+ 原生全文检索），查询时根据问题文本的语言传入 `analyzer_name`。返回 Milvus 给出的真实 BM25 分数；跨多个维度 collection 检索时先按分数合并排序，再截取 TopK。
 - **过滤**：`filter.go` 构造布尔表达式（kb/knowledge/tag/is_enabled）。
 - **启停同步**：`BatchUpdateChunkEnabledStatus` 逐 collection 更新，失败用 `errors.Join` 聚合后**返回错误**而不是只打 warn——主库里已停用的分块绝不能因为索引更新静默失败而继续可被检索到。
-- 配置：`MILVUS_ADDRESS` / `MILVUS_USERNAME` / `MILVUS_PASSWORD` / `MILVUS_DB_NAME` / `MILVUS_METRIC_TYPE`（改后需重建 collection）。旧 Collection 的 schema 不能直接改成多语言分析器；可运行 `go run ./cmd/milvus-migrate --source <旧前缀> --target <新前缀>` 复用已有稠密向量并沿用源 Collection 的 metric，确认检索正常后把 `MILVUS_COLLECTION` 改为新前缀。
+- 配置：`MILVUS_ADDRESS` / `MILVUS_USERNAME` / `MILVUS_PASSWORD` / `MILVUS_DB_NAME` / `MILVUS_METRIC_TYPE`（改后需重建 collection）。请使用当前版本创建的多语言 Collection。
 
 #### Weaviate {#_2-8-weaviate}
 

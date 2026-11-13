@@ -1117,9 +1117,7 @@ const enabledAgents = computed(() =>
 // per-user, so the key is namespaced by the active user id via
 // preferenceStorage — otherwise two accounts sharing a browser inherit
 // each other's pick (logout and tenant-switch never cover session-expiry
-// or crash recovery). The un-namespaced legacy key from before this
-// scoping is removed on write so other readers cannot resurrect it.
-const LAST_CHAT_MODEL_LEGACY_KEY = 'weknora_last_chat_model_id'
+// or crash recovery).
 
 const readLastChatModelID = (): string => loadPreference('last_chat_model') || ''
 
@@ -1129,7 +1127,6 @@ const writeLastChatModelID = (id: string) => {
   } else {
     safeRemoveItem(userKey('last_chat_model'))
   }
-  safeRemoveItem(LAST_CHAT_MODEL_LEGACY_KEY)
 }
 
 // Initial chat-model selection priority: per-user last pick

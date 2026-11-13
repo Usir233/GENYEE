@@ -21,7 +21,7 @@ func ensureDesktopSigningKey() error {
 	if err != nil {
 		return err
 	}
-	return ensureDesktopSigningKeyInDir(resolveDesktopAppSupportDir(dir, "signing.key", "jwt.key"))
+	return ensureDesktopSigningKeyInDir(resolveDesktopAppSupportDir(dir))
 }
 
 func ensureDesktopSigningKeyInDir(dir string) error {

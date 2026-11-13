@@ -439,17 +439,7 @@ func configureDesktopStorage(execPath string) {
 		return
 	}
 
-	legacyResourcesDir := filepath.Join(filepath.Dir(filepath.Dir(execPath)), "Resources")
-	targetDataDir := filepath.Join(appSupportDir, "data")
-	migrateLegacyDesktopData(legacyResourcesDir, targetDataDir)
-
 	defaultDB := filepath.Join("data", "genyee.db")
-	if _, err := os.Stat(filepath.Join(appSupportDir, defaultDB)); err != nil {
-		legacyDB := filepath.Join("data", "weknora.db")
-		if _, errLegacy := os.Stat(filepath.Join(appSupportDir, legacyDB)); errLegacy == nil {
-			defaultDB = legacyDB
-		}
-	}
 	dbPath := resolveDesktopDataPath(os.Getenv("DB_PATH"), defaultDB, appSupportDir)
 
 	if err := os.MkdirAll(filepath.Dir(dbPath), 0o755); err != nil {
@@ -462,8 +452,7 @@ func configureDesktopStorage(execPath string) {
 // configureDesktopFileStorage points Lite file uploads at ~/.genyee/data/files.
 // wails dev is not always inside a packaged .app, so this runs for every
 // desktop process. An explicit absolute directory is kept; the Docker default
-// /data/files is not writable on macOS and is replaced. Uploads move over from
-// wherever the previous build kept them.
+// /data/files is not writable on macOS and is replaced.
 func configureDesktopFileStorage(execPath string) {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -475,9 +464,6 @@ func configureDesktopFileStorage(execPath string) {
 	if !useDesktopFilesDir(raw) {
 		return
 	}
-	if appSupport, err := defaultMacAppSupportDir(execPath); err == nil {
-		migrateDesktopFiles(legacyDesktopFilesDir(raw, appSupport), filesPath)
-	}
 	if err := os.MkdirAll(filesPath, 0o755); err != nil {
 		logger.Warnf(context.Background(), "Failed to create desktop files directory %s: %v", filesPath, err)
 		return
@@ -486,15 +472,7 @@ func configureDesktopFileStorage(execPath string) {
 }
 
 func desktopLocalFilesDir(home string) string {
-	primary := filepath.Join(home, ".genyee", "data", "files")
-	legacy := filepath.Join(home, ".weknora", "data", "files")
-	if _, err := os.Stat(primary); err == nil {
-		return primary
-	}
-	if _, err := os.Stat(legacy); err == nil {
-		return legacy
-	}
-	return primary
+	return filepath.Join(home, ".genyee", "data", "files")
 }
 
 func useDesktopFilesDir(raw string) bool {
@@ -508,38 +486,6 @@ func useDesktopFilesDir(raw string) bool {
 		return true
 	default:
 		return !filepath.IsAbs(cleaned)
-	}
-}
-
-// legacyDesktopFilesDir is where the previous build stored uploads: raw
-// resolved under the bundle's Application Support dir, or its data/files
-// default when raw is empty or the absolute Docker default.
-func legacyDesktopFilesDir(raw, appSupportDir string) string {
-	if filepath.IsAbs(strings.TrimSpace(raw)) {
-		raw = ""
-	}
-	return resolveDesktopDataPath(raw, filepath.Join("data", "files"), appSupportDir)
-}
-
-func migrateDesktopFiles(oldDir, newDir string) {
-	if filepath.Clean(oldDir) == filepath.Clean(newDir) {
-		return
-	}
-	info, err := os.Stat(oldDir)
-	if err != nil || !info.IsDir() {
-		return
-	}
-	if _, err := os.Stat(newDir); err == nil {
-		logger.Warnf(context.Background(),
-			"Desktop files already exist at %s; leaving %s in place", newDir, oldDir)
-		return
-	}
-	if err := os.MkdirAll(filepath.Dir(newDir), 0o755); err != nil {
-		logger.Warnf(context.Background(), "Failed to create %s: %v", filepath.Dir(newDir), err)
-		return
-	}
-	if err := os.Rename(oldDir, newDir); err != nil {
-		logger.Warnf(context.Background(), "Failed to migrate desktop files from %s to %s: %v", oldDir, newDir, err)
 	}
 }
 
@@ -557,7 +503,7 @@ func defaultMacAppSupportDir(execPath string) (string, error) {
 		}
 	}
 
-	return resolveDesktopAppSupportDir(baseDir, filepath.Join("data", "genyee.db"), filepath.Join("data", "weknora.db"), filepath.Join("data", "files")), nil
+	return resolveDesktopAppSupportDir(baseDir), nil
 }
 
 func resolveDesktopDataPath(rawPath, defaultRelativePath, appSupportDir string) string {
@@ -663,25 +609,6 @@ func desktopPreferredLANIPv4() net.IP {
 		return nil
 	}
 	return la.IP.To4()
-}
-
-func migrateLegacyDesktopData(resourcesDir, targetDataDir string) {
-	legacyDataDir := filepath.Join(resourcesDir, "data")
-	if info, err := os.Stat(legacyDataDir); err != nil || !info.IsDir() {
-		return
-	}
-	if _, err := os.Stat(targetDataDir); err == nil {
-		return
-	}
-	if err := os.MkdirAll(filepath.Dir(targetDataDir), 0o755); err != nil {
-		logger.Warnf(context.Background(), "Failed to create app support parent dir %s: %v", filepath.Dir(targetDataDir), err)
-		return
-	}
-	if err := os.Rename(legacyDataDir, targetDataDir); err != nil {
-		logger.Warnf(context.Background(), "Failed to migrate legacy desktop data from %s to %s: %v", legacyDataDir, targetDataDir, err)
-		return
-	}
-	logger.Infof(context.Background(), "Migrated legacy desktop data to %s", targetDataDir)
 }
 
 func listenWithRetry(addr string, maxRetries int, baseDelay time.Duration) (net.Listener, error) {

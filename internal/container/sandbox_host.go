@@ -175,13 +175,5 @@ func hostAppDataDir(home string) string {
 	if dir, err := os.UserConfigDir(); err == nil && strings.TrimSpace(dir) != "" {
 		base = dir
 	}
-	primary := filepath.Join(base, "GENYEE Lite")
-	if _, err := os.Stat(primary); err == nil {
-		return primary
-	}
-	legacy := filepath.Join(base, "WeKnora Lite")
-	if _, err := os.Stat(legacy); err == nil {
-		return legacy
-	}
-	return primary
+	return filepath.Join(base, "GENYEE Lite")
 }

@@ -93,7 +93,7 @@ flowchart TB
 | `frontend/src/assets/theme/` | 主题 CSS 变量（light / dark） |
 | `frontend/src/wailsjs/` | Wails 桌面端自动生成绑定（勿手改） |
 | `frontend/src/directives/`、`frontend/src/types/`、`frontend/src/config/` | 自定义指令、类型定义、配置 |
-| `frontend/public/` | 静态资源：`genyee-widget.js` / `weknora-widget.js`（第三方站点嵌入加载器）、`config.js`（运行时配置占位，容器启动时覆盖）、离线 TDesign 图标 |
+| `frontend/public/` | 静态资源：`genyee-widget.js`（第三方站点嵌入加载器）、`config.js`（运行时配置占位，容器启动时覆盖）、离线 TDesign 图标 |
 
 ## 页面路由清单
 
@@ -144,7 +144,7 @@ flowchart TB
 | --- | --- |
 | 账户 | `general`（个人偏好）、`userprofile`、`mymemory`（个人记忆）、`envvars`（个人变量） |
 | 空间 | `tenant`（空间信息）、`members`（成员）、`chathistory`、`memory`（空间记忆） |
-| 模型与运行 | `models`、`ollama`、`weknoracloud` |
+| 模型与运行 | `models`、`ollama` |
 | 发布集成 | `integration-im`、`integration-embed`、`integration-api`、`integration-mcpserver`、`integration-cli`、`integration-chrome`、`integration-claw` |
 | 数据与扩展 | `vectorstore`、`parser`、`storage`、`sandbox`、`websearch` |
 | 系统管理 | `system-global`、`runtime-queues`、`platform-api-keys`、`system-audit-log` |
@@ -156,7 +156,7 @@ flowchart TB
 
 可见性由三套规则决定，且**前端只做收敛展示，后端路由守卫才是权威**：
 
-- **空间角色门槛**：`frontend/src/config/settingsAccess.ts` 的 `SETTINGS_SECTION_MIN_ROLE` 给每个分区规定最低角色。`general` / `models` / `system` / `userprofile` / `tenant` / `members` / `mymemory` / `envvars` 是 `viewer` 起（只读可见），`ollama`、`weknoracloud`、`websearch`、`chathistory`、`memory`、`vectorstore`、`parser`、`storage`、`sandbox` 要求 `admin`；发布集成中的 `integration-api` 要求 `owner`（`INTEGRATION_TAB_MIN_ROLE`）。另有 `SETTINGS_MANAGEMENT_SHORTCUT_MIN_ROLE`：头像菜单里那些标着「管理」的快捷入口门槛更高（成员管理要 `owner`，模型管理要 `admin`），避免把只读页面伪装成管理入口。
+- **空间角色门槛**：`frontend/src/config/settingsAccess.ts` 的 `SETTINGS_SECTION_MIN_ROLE` 给每个分区规定最低角色。`general` / `models` / `system` / `userprofile` / `tenant` / `members` / `mymemory` / `envvars` 是 `viewer` 起（只读可见），`ollama`、`websearch`、`chathistory`、`memory`、`vectorstore`、`parser`、`storage`、`sandbox` 要求 `admin`；发布集成中的 `integration-api` 要求 `owner`（`INTEGRATION_TAB_MIN_ROLE`）。另有 `SETTINGS_MANAGEMENT_SHORTCUT_MIN_ROLE`：头像菜单里那些标着「管理」的快捷入口门槛更高（成员管理要 `owner`，模型管理要 `admin`），避免把只读页面伪装成管理入口。
 - **部署能力**：`frontend/src/config/deploymentCapabilities.ts` 的 `SETTINGS_SECTION_CAPABILITY` / `INTEGRATION_TAB_CAPABILITY` 把分区映射到 `GET /api/v1/system/capabilities` 返回的能力键（如 `settings.sandbox`、`integrations.mcpserver`），能力明确为 `supported: false` 时隐藏入口，见下方「设置导航与部署能力」。
 - **系统管理员白名单**：`SYSTEM_ADMIN_SETTINGS_SECTIONS`（`system-global`、`runtime-queues`、`platform-api-keys`、`system-audit-log`）只对系统管理员显示，与空间角色无关，详见[租户、用户与认证授权](../03-features/01-tenant-auth.md)的「系统管理员与平台控制台」。
 
@@ -363,7 +363,7 @@ RAG 流水线的可视化进度（`views/chat/components/RagPipelineProgress.vue
 - **WebSocket 通道**：`/api/v1/sessions/<id>/sandbox/(terminal|desktop)`（沙箱终端与图形桌面）和 `/api/v1/local-browser/extension`（BrowserSkill 浏览器扩展接入）单独开启 Upgrade，访问日志去掉查询串以免记录握手票据；集群内部路径 `/api/v1/local-browser/internal` 直接返回 404；
 - **技能包上传**：`/api/v1/skills/catalog` 与 `/api/v1/sandbox-configs/<id>/skills` 两条集合路由单独使用 `MAX_SKILL_BUNDLE_SIZE`，其他上传端点仍受 `MAX_FILE_SIZE` 限制；
 - **资源短链 `/r/`**：`location ^~ /r/` 同样反代到后端。IM 渠道把 `resource://` 图片改写成 `<APP_EXTERNAL_URL>/r/<token>`，缺这段配置时请求会落进 SPA fallback，IM 侧图片显示为空白（详见 [IM 集成](../03-features/12-im-integration.md)）；
-- **嵌入页**：`/embed/*` 返回 `embed.html`（独立 location，不继承主站的 `X-Frame-Options: SAMEORIGIN`）。nginx 先经内部子请求 `/_embed-frame-policy` 向后端 `GET /api/v1/embed-frame-policy` 查询该渠道允许的宿主来源，并把返回的 `Content-Security-Policy` 加到响应上；渠道不存在、已停用、没有允许的宿主来源或后端不可达时拒绝加载。自定义反向代理需要保留这一步，否则宿主来源白名单不生效。`/genyee-widget.js`（兼容 `/weknora-widget.js`）是给第三方站点的静态加载器；文件头部另附可选的独立 embed 子域 server 块示例；
+- **嵌入页**：`/embed/*` 返回 `embed.html`（独立 location，不继承主站的 `X-Frame-Options: SAMEORIGIN`）。nginx 先经内部子请求 `/_embed-frame-policy` 向后端 `GET /api/v1/embed-frame-policy` 查询该渠道允许的宿主来源，并把返回的 `Content-Security-Policy` 加到响应上；渠道不存在、已停用、没有允许的宿主来源或后端不可达时拒绝加载。自定义反向代理需要保留这一步，否则宿主来源白名单不生效。`/genyee-widget.js`是给第三方站点的静态加载器；文件头部另附可选的独立 embed 子域 server 块示例；
 - 启用 gzip（注释记录了实测收益：低带宽下首屏从 25s 降到 3-5s）及一组安全响应头（`X-Frame-Options`、`X-Content-Type-Options`、`Referrer-Policy` 等，在各 location 内重复声明以规避 nginx `add_header` 不继承的问题）。
 
 ## 桌面端（Wails）关联

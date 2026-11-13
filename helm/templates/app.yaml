@@ -162,8 +162,6 @@ spec:
             # whatever Engine API this process can reach (often host root).
             - name: GENYEE_SANDBOX_DOCKER_ENABLED
               value: {{ .Values.app.env.GENYEE_SANDBOX_DOCKER_ENABLED | default "false" | quote }}
-            - name: GENYEE_WEKNORACLOUD_ENABLED
-              value: {{ .Values.app.env.GENYEE_WEKNORACLOUD_ENABLED | default "false" | quote }}
             {{- if .Values.neo4j.enabled }}
             # Neo4j configuration (for GraphRAG)
             # NEO4J_ENABLE 是知识图谱的唯一开关（Go 代码认它，不认 ENABLE_GRAPH_RAG）。

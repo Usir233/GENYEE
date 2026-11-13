@@ -64,7 +64,7 @@ func TestResolveAPIPrincipalSignedToken(t *testing.T) {
 	header.Set("X-External-User-Token", signedExternalUserToken(t, secret, jwt.MapClaims{
 		"sub":       "external-u1",
 		"tenant_id": float64(7),
-		"aud":       "weknora",
+		"aud":       "genyee",
 		"exp":       time.Now().Add(time.Minute).Unix(),
 	}))
 
@@ -93,7 +93,7 @@ func TestResolveAPIPrincipalSignedTokenRejectsWrongTenant(t *testing.T) {
 	header.Set("X-External-User-Token", signedExternalUserToken(t, secret, jwt.MapClaims{
 		"sub":       "external-u1",
 		"tenant_id": float64(8),
-		"aud":       "weknora",
+		"aud":       "genyee",
 		"exp":       time.Now().Add(time.Minute).Unix(),
 	}))
 
@@ -115,7 +115,7 @@ func TestResolveAPIPrincipalSignedTokenRejectsExpired(t *testing.T) {
 	header.Set("X-External-User-Token", signedExternalUserToken(t, secret, jwt.MapClaims{
 		"sub":       "external-u1",
 		"tenant_id": float64(7),
-		"aud":       "weknora",
+		"aud":       "genyee",
 		"exp":       time.Now().Add(-time.Minute).Unix(),
 	}))
 
@@ -165,7 +165,7 @@ func TestResolveAPIPrincipalSignedTokenRejectsLongLifetime(t *testing.T) {
 	header.Set("X-External-User-Token", signedExternalUserToken(t, secret, jwt.MapClaims{
 		"sub":       "external-u1",
 		"tenant_id": float64(7),
-		"aud":       "weknora",
+		"aud":       "genyee",
 		"exp":       time.Now().Add(48 * time.Hour).Unix(),
 	}))
 
@@ -181,9 +181,9 @@ func TestResolveAPIPrincipalSignedTokenRejectsLongLifetime(t *testing.T) {
 	}
 }
 
-func TestResolveAPIPrincipalSignedToken_AcceptsGenyeeAndWeknoraAudiences(t *testing.T) {
+func TestResolveAPIPrincipalSignedToken_AcceptsGenyeeAudience(t *testing.T) {
 	secret := "test-secret"
-	for _, aud := range []string{"genyee", "weknora"} {
+	for _, aud := range []string{"genyee"} {
 		t.Run("audience_"+aud, func(t *testing.T) {
 			header := http.Header{}
 			header.Set("X-External-User-Token", signedExternalUserToken(t, secret, jwt.MapClaims{
