@@ -1564,12 +1564,19 @@
         "frontend/src/api/model/modelUsage.test.ts"
       ],
       "inspected_files": [
-        "frontend/src/api/tenant/index.ts"
+        "frontend/src/api/tenant/index.ts",
+        "frontend/src/api/auth/index.ts",
+        "frontend/src/api/model/index.ts",
+        "frontend/src/api/system/index.ts"
       ],
       "invariants_checked": [],
       "evidence": [
         {
           "report": "test-reports/module-audit-20261113/evaluation.json"
+        },
+        {
+          "report": "test-reports/module-audit-20261113/frontend.json",
+          "scope": "see per-file inspection and pending scope; no whole frontend closure"
         }
       ],
       "findings": [],
@@ -1592,7 +1599,7 @@
     },
     {
       "id": "frontend/src/components",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "frontend/src/components/AgentAvatar.vue",
         "frontend/src/components/AgentCreateContextualGuide.vue",
@@ -1763,16 +1770,24 @@
         "frontend/src/components/source-preview/pdfjsWasmAssets.test.mjs",
         "frontend/src/components/upload-limit-copy.test.ts"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "frontend/src/components/TenantSelector.vue",
+        "frontend/src/components/document-preview.vue"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/frontend.json",
+          "scope": "see per-file inspection and pending scope; no whole frontend closure"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
     },
     {
       "id": "frontend/src/composables",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "frontend/src/composables/preferenceStorage.ts",
         "frontend/src/composables/skillInstallProgress.ts",
@@ -1853,16 +1868,25 @@
         "frontend/src/composables/useTypewriter.test.ts",
         "frontend/src/composables/useVoiceInput.test.ts"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "frontend/src/composables/useEmbedBridge.ts",
+        "frontend/src/composables/useSandboxDesktop.ts",
+        "frontend/src/composables/useSandboxTerminal.ts"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/frontend.json",
+          "scope": "see per-file inspection and pending scope; no whole frontend closure"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
     },
     {
       "id": "frontend/src/config",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "frontend/src/config/apiKeyCapabilities.ts",
         "frontend/src/config/contextualGuides.ts",
@@ -1878,9 +1902,17 @@
         "frontend/src/config/settingsRoute.test.ts",
         "frontend/src/config/toolbox.test.ts"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "frontend/src/config/deploymentCapabilities.ts",
+        "frontend/src/config/settingsAccess.ts"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/frontend.json",
+          "scope": "see per-file inspection and pending scope; no whole frontend closure"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -1958,23 +1990,30 @@
     },
     {
       "id": "frontend/src/router",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "frontend/src/router/index.ts"
       ],
       "test_files": [
         "frontend/src/router/settingsRoute.test.mjs"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "frontend/src/router/index.ts"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/frontend.json",
+          "scope": "see per-file inspection and pending scope; no whole frontend closure"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
     },
     {
       "id": "frontend/src/stores",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "frontend/src/stores/assistant.ts",
         "frontend/src/stores/auth.ts",
@@ -2025,24 +2064,53 @@
         "frontend/src/stores/uploadTasksState.test.ts",
         "frontend/src/stores/versionedRequest.test.ts"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "frontend/src/stores/auth.ts",
+        "frontend/src/stores/browserConnection.ts",
+        "frontend/src/stores/chatResources.ts",
+        "frontend/src/stores/editorResources.ts",
+        "frontend/src/stores/localizedResourceCache.ts",
+        "frontend/src/stores/modelProviders.ts",
+        "frontend/src/stores/modelProvidersState.ts",
+        "frontend/src/stores/organizationState.ts",
+        "frontend/src/stores/resourceCache.ts",
+        "frontend/src/stores/sequencedRefresh.ts",
+        "frontend/src/stores/storageEngineAccess.ts",
+        "frontend/src/stores/uploadQueue.ts",
+        "frontend/src/stores/uploadTasks.ts",
+        "frontend/src/stores/uploadTasksCore.ts",
+        "frontend/src/stores/uploadTasksState.ts",
+        "frontend/src/stores/versionedRequest.ts"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/frontend.json",
+          "scope": "see per-file inspection and pending scope; no whole frontend closure"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
     },
     {
       "id": "frontend/src/test-utils",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "frontend/src/test-utils/cssRuleMatcher.ts",
         "frontend/src/test-utils/vueFixture.ts"
       ],
       "test_files": [],
-      "inspected_files": [],
+      "inspected_files": [
+        "frontend/src/test-utils/vueFixture.ts"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/frontend.json",
+          "scope": "see per-file inspection and pending scope; no whole frontend closure"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -2068,7 +2136,7 @@
     },
     {
       "id": "frontend/src/utils",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "frontend/src/utils/_repro_gap.mjs",
         "frontend/src/utils/agent-mode.ts",
@@ -2347,9 +2415,28 @@
         "frontend/src/utils/wikiToolReferences.test.ts",
         "frontend/src/utils/xlsxPreviewImages.test.ts"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "frontend/src/utils/api-base.ts",
+        "frontend/src/utils/attachmentPreview.ts",
+        "frontend/src/utils/authRefresh.ts",
+        "frontend/src/utils/authTokens.ts",
+        "frontend/src/utils/embedFile.ts",
+        "frontend/src/utils/filePreview.ts",
+        "frontend/src/utils/htmlPreview.ts",
+        "frontend/src/utils/markdownDomPurify.ts",
+        "frontend/src/utils/protectedFileAccess.ts",
+        "frontend/src/utils/protectedResource.ts",
+        "frontend/src/utils/request.ts",
+        "frontend/src/utils/security.ts",
+        "frontend/src/utils/tenantSwitch.ts"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/frontend.json",
+          "scope": "see per-file inspection and pending scope; no whole frontend closure"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -2563,7 +2650,7 @@
     },
     {
       "id": "frontend/src/views/embed",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "frontend/src/views/embed/EmbedBotMessage.vue",
         "frontend/src/views/embed/EmbedChatCore.vue",
@@ -2574,9 +2661,16 @@
       "test_files": [
         "frontend/src/views/embed/embedHostContext.test.mjs"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "frontend/src/views/embed/EmbedPage.vue"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/frontend.json",
+          "scope": "see per-file inspection and pending scope; no whole frontend closure"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -2619,7 +2713,7 @@
     },
     {
       "id": "frontend/src/views/knowledge",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "frontend/src/views/knowledge/ImagePipelineSettings.vue",
         "frontend/src/views/knowledge/KnowledgeBase.vue",
@@ -2719,9 +2813,16 @@
         "frontend/src/views/knowledge/wiki/wikiPageGroupTotals.test.ts",
         "frontend/src/views/knowledge/wikiStatusRefresh.test.ts"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "frontend/src/views/knowledge/KnowledgeBase.vue"
+      ],
       "invariants_checked": [],
-      "evidence": [],
+      "evidence": [
+        {
+          "report": "test-reports/module-audit-20261113/frontend.json",
+          "scope": "see per-file inspection and pending scope; no whole frontend closure"
+        }
+      ],
       "findings": [],
       "commits": [],
       "limitations": []
@@ -10542,6 +10643,11 @@
       "commit": "e35f53768",
       "module": "wiki/task settlement",
       "result": "targeted and Wiki race suites passed"
+    },
+    {
+      "commit": "1eb926c21",
+      "module": "evaluation/dataset/metrics and SDK evaluation wire",
+      "result": "targeted/race/client/Python tests passed; final all-Go gate pending storage completion"
     }
   ]
 }

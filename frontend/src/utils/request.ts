@@ -1,14 +1,18 @@
 // src/utils/request.js
-import axios from "axios";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import { generateRandomString, MAX_FILE_SIZE_MB, MAX_SKILL_BUNDLE_SIZE_MB } from "./index";
 import i18n from '@/i18n'
 import { getApiBaseUrl } from './api-base';
 import { isSkillBundleUploadUrl } from './uploadLimit';
 import { isTimeoutError, uploadTimeoutMs } from './requestTimeouts';
 import {
+  AuthSessionChangedError,
+  assertAuthRequestContext,
+  captureAuthRequestContext,
   forceReloginRedirect,
   isEmbedPage,
   refreshAccessTokenShared,
+  type AuthRequestContext,
 } from './authRefresh';
 
 export { forceReloginRedirect, refreshAccessTokenShared };
@@ -35,6 +39,34 @@ export type WithStatus<T> = T & {
 };
 
 const HTTP_STATUS_KEY = '$httpStatus';
+
+type AuthenticatedRequestConfig = InternalAxiosRequestConfig & {
+  _authContext?: AuthRequestContext;
+  _retry?: boolean;
+};
+
+function assertNotCancelled(config: AuthenticatedRequestConfig): void {
+  config.cancelToken?.throwIfRequested();
+  if (config.signal?.aborted) throw new axios.CanceledError(undefined, config);
+}
+
+/** Cancelling one caller must not cancel a refresh shared by other requests. */
+function waitForRefresh(token: Promise<string>, config: AuthenticatedRequestConfig): Promise<string> {
+  const signal = config.signal;
+  if (!signal) return token;
+  return new Promise((resolve, reject) => {
+    const onAbort = () => {
+      signal.removeEventListener?.('abort', onAbort);
+      reject(new axios.CanceledError(undefined, config));
+    };
+    signal.addEventListener?.('abort', onAbort, { once: true });
+    if (signal.aborted) onAbort();
+    token.then(
+      value => { signal.removeEventListener?.('abort', onAbort); resolve(value); },
+      error => { signal.removeEventListener?.('abort', onAbort); reject(error); },
+    );
+  });
+}
 
 /**
  * Attach the non-enumerable `$httpStatus` property to a response payload
@@ -71,12 +103,19 @@ export function getCurrentLanguage(): string {
 
 instance.interceptors.request.use(
   (config) => {
+    const authenticatedConfig = config as AuthenticatedRequestConfig;
+    assertNotCancelled(authenticatedConfig);
     const existingAuth = config.headers?.Authorization ?? config.headers?.authorization;
     const isEmbedAuth = typeof existingAuth === 'string' && existingAuth.startsWith('Embed ');
     const isEmbedPath = typeof config.url === 'string' && config.url.includes('/api/v1/embed/');
 
     // 嵌入渠道使用 Embed token；勿用本地 JWT 覆盖（否则调试页会 401）
     if (!isEmbedAuth) {
+      if (authenticatedConfig._authContext) {
+        assertAuthRequestContext(authenticatedConfig._authContext);
+      } else {
+        authenticatedConfig._authContext = captureAuthRequestContext();
+      }
       const token = localStorage.getItem('genyee_token');
       if (token) {
         config.headers["Authorization"] = `Bearer ${token}`;
@@ -133,7 +172,11 @@ instance.interceptors.response.use(
     }
   },
   async (error: any) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config as AuthenticatedRequestConfig | undefined;
+
+    if (axios.isCancel(error) || error instanceof AuthSessionChangedError) {
+      return Promise.reject(error);
+    }
     
     if (!error.response) {
       // A timeout and an unreachable server both arrive without a response, but
@@ -176,19 +219,30 @@ instance.interceptors.response.use(
     }
 
     // 如果是401错误且不是刷新token的请求，尝试刷新token
-    if (error.response.status === 401 && !originalRequest._retry && !originalRequest.url?.includes('/auth/refresh')) {
+    if (error.response.status === 401 && originalRequest && !originalRequest._retry && !originalRequest.url?.includes('/auth/refresh')) {
       originalRequest._retry = true;
       try {
-        const token = await refreshAccessTokenShared({
-          messages: {
-            pleaseRelogin: t('error.pleaseRelogin'),
-            tokenRefreshFailed: t('error.tokenRefreshFailed'),
-          },
-        });
+        assertNotCancelled(originalRequest);
+        const context = originalRequest._authContext;
+        if (!context) throw new AuthSessionChangedError();
+        const currentToken = assertAuthRequestContext(context);
+        // Another concurrent request may already have rotated this session.
+        // A late 401 should reuse that token, not rotate the new refresh again.
+        const token = currentToken && originalRequest.headers.Authorization !== `Bearer ${currentToken}`
+          ? currentToken
+          : await waitForRefresh(refreshAccessTokenShared({
+            messages: {
+              pleaseRelogin: t('error.pleaseRelogin'),
+              tokenRefreshFailed: t('error.tokenRefreshFailed'),
+            },
+          }), originalRequest);
+        assertNotCancelled(originalRequest);
+        assertAuthRequestContext(context);
         originalRequest.headers['Authorization'] = 'Bearer ' + token;
         return instance(originalRequest);
       } catch (refreshError) {
-        // refreshAccessTokenShared already cleared credentials and redirected.
+        // Refresh failures handle relogin themselves. Superseded/cancelled
+        // operations leave the currently active account and tenant untouched.
         return Promise.reject(refreshError);
       }
     }

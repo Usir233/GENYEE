@@ -29,6 +29,13 @@ type AuthSession = {
 
 let sessionGeneration = 0
 let activeRefresh: { session: AuthSession; promise: Promise<string> } | null = null
+let observedTokens: Pick<AuthSession, 'accessToken' | 'refreshToken'> | null = null
+
+/** Identity of an API operation, retained across a same-session token rotation. */
+export type AuthRequestContext = {
+  generation: number
+  tenantId: string | null
+}
 
 export class AuthSessionChangedError extends Error {
   constructor() {
@@ -41,6 +48,38 @@ export class AuthSessionChangedError extends Error {
 export function invalidateAuthRefresh() {
   sessionGeneration += 1
   activeRefresh = null
+  observedTokens = null
+}
+
+function readCurrentSession(): AuthSession {
+  const accessToken = localStorage.getItem('genyee_token')
+  const refreshToken = localStorage.getItem('genyee_refresh_token')
+  // Login/storage changes outside this module start another identity. Only a
+  // successful refresh below may rotate tokens without invalidating requests.
+  if (observedTokens && (observedTokens.accessToken !== accessToken
+    || observedTokens.refreshToken !== refreshToken)) {
+    invalidateAuthRefresh()
+  }
+  observedTokens = { accessToken, refreshToken }
+  return { generation: sessionGeneration, accessToken, refreshToken }
+}
+
+export function captureAuthRequestContext(): AuthRequestContext {
+  const session = readCurrentSession()
+  return {
+    generation: session.generation,
+    tenantId: localStorage.getItem('genyee_selected_tenant_id'),
+  }
+}
+
+/** Reject an old operation without logging out its replacement session. */
+export function assertAuthRequestContext(context: AuthRequestContext): string | null {
+  const session = readCurrentSession()
+  if (session.generation !== context.generation
+    || localStorage.getItem('genyee_selected_tenant_id') !== context.tenantId) {
+    throw new AuthSessionChangedError()
+  }
+  return session.accessToken
 }
 
 function sameSession(a: AuthSession, b: AuthSession): boolean {
@@ -142,11 +181,7 @@ export async function refreshAccessTokenShared(
 
   let session: AuthSession
   try {
-    session = {
-      generation: sessionGeneration,
-      accessToken: localStorage.getItem('genyee_token'),
-      refreshToken: localStorage.getItem('genyee_refresh_token'),
-    }
+    session = readCurrentSession()
   } catch (error) {
     forceReloginRedirect()
     throw error
@@ -171,6 +206,9 @@ export async function refreshAccessTokenShared(
 
       const { token, refreshToken: newRefreshToken } = response.data
       committing = true
+      // Publish the expected pair before token-change listeners run. Requests
+      // from this session remain valid; unrelated login changes never do.
+      observedTokens = { accessToken: token, refreshToken: newRefreshToken || session.refreshToken }
       writeAuthTokens({ token, ...(newRefreshToken ? { refreshToken: newRefreshToken } : {}) })
       return token
     } catch (error) {
