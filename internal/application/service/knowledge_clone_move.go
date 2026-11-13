@@ -9,8 +9,10 @@ import (
 	"net/http"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Usir233/GENYEE/internal/application/access"
 	"github.com/Usir233/GENYEE/internal/application/service/retriever"
@@ -207,10 +209,161 @@ func rewriteContentImageURLs(content string, urlCache map[string]string) string 
 		oldURLs = append(oldURLs, oldURL)
 	}
 	slices.SortFunc(oldURLs, func(a, b string) int { return len(b) - len(a) })
+	pairs := make([]string, 0, 2*len(oldURLs))
 	for _, oldURL := range oldURLs {
-		content = strings.ReplaceAll(content, oldURL, urlCache[oldURL])
+		pairs = append(pairs, oldURL, urlCache[oldURL])
 	}
-	return content
+	// Replace only source occurrences; a destination URL can itself contain
+	// another source URL and must not be rewritten a second time.
+	return strings.NewReplacer(pairs...).Replace(content)
+}
+
+type cloneImageRewrite struct {
+	start, end int
+	old, new   []rune
+}
+
+// cloneImageRewrites locates non-overlapping source occurrences in rune space,
+// with the same leftmost/longest matching as rewriteContentImageURLs.
+func cloneImageRewrites(content string, urls map[string]string) []cloneImageRewrite {
+	var matches []cloneImageRewrite
+	for oldURL, newURL := range urls {
+		if oldURL == "" || oldURL == newURL {
+			continue
+		}
+		oldRunes, newRunes := []rune(oldURL), []rune(newURL)
+		byteAt, runeAt := 0, 0
+		for byteAt < len(content) {
+			next := strings.Index(content[byteAt:], oldURL)
+			if next < 0 {
+				break
+			}
+			runeAt += utf8.RuneCountInString(content[byteAt : byteAt+next])
+			matches = append(matches, cloneImageRewrite{runeAt, runeAt + len(oldRunes), oldRunes, newRunes})
+			byteAt += next + len(oldURL)
+			runeAt += len(oldRunes)
+		}
+	}
+	slices.SortFunc(matches, func(a, b cloneImageRewrite) int {
+		if a.start != b.start {
+			return a.start - b.start
+		}
+		return b.end - a.end
+	})
+	out := matches[:0]
+	for _, match := range matches {
+		if len(out) == 0 || match.start >= out[len(out)-1].end {
+			out = append(out, match)
+		}
+	}
+	return out
+}
+
+// rewriteClonedChunkImages translates the parser coordinate space along with
+// its image URLs. Coordinates are document-global, including child chunks;
+// overlapping windows must count each physical replacement exactly once.
+func rewriteClonedChunkImages(chunks []*types.Chunk, urls map[string]string) error {
+	if len(urls) == 0 {
+		return nil
+	}
+	var edits []cloneImageRewrite
+	for _, chunk := range chunks {
+		base := chunk.SourceContent
+		if base == "" && chunk.ContentRevision == 0 {
+			base = chunk.Content
+		}
+		// Edited content and synthetic parser prefixes cannot establish exact
+		// source positions. Other exact windows can still supply their shifts.
+		if chunk.ChunkType != "" && chunk.ChunkType != types.ChunkTypeText && chunk.ChunkType != types.ChunkTypeParentText ||
+			chunk.EndAt <= chunk.StartAt || utf8.RuneCountInString(base) != chunk.EndAt-chunk.StartAt {
+			continue
+		}
+		for _, edit := range cloneImageRewrites(base, urls) {
+			edit.start += chunk.StartAt
+			edit.end += chunk.StartAt
+			edits = append(edits, edit)
+		}
+	}
+	slices.SortFunc(edits, func(a, b cloneImageRewrite) int {
+		if a.start != b.start {
+			return a.start - b.start
+		}
+		return b.end - a.end
+	})
+	unique := edits[:0]
+	for _, edit := range edits {
+		if len(unique) > 0 && edit.start < unique[len(unique)-1].end {
+			previous := unique[len(unique)-1]
+			// Only identical physical replacements are duplicates. Agreeing
+			// source text in a partial overlap does not identify the same image.
+			if edit.start == previous.start && edit.end == previous.end &&
+				slices.Equal(edit.old, previous.old) && slices.Equal(edit.new, previous.new) {
+				continue
+			}
+			return fmt.Errorf("conflicting image coordinates while cloning chunks")
+		}
+		unique = append(unique, edit)
+	}
+	edits = unique
+	deltas := make([]int, len(edits)+1)
+	for i, edit := range edits {
+		deltas[i+1] = deltas[i] + len(edit.new) - len(edit.old)
+	}
+	// A hard parser budget can split a URL. Map interior boundaries
+	// proportionally, and use the same slices of the replacement for both
+	// adjacent chunks, so their union remains the complete copied URL.
+	inside := func(edit cloneImageRewrite, position int) int {
+		return (position - edit.start) * len(edit.new) / len(edit.old)
+	}
+	mapPosition := func(position int) int {
+		i := sort.Search(len(edits), func(i int) bool { return edits[i].end > position })
+		if i < len(edits) && position > edits[i].start {
+			return edits[i].start + deltas[i] + inside(edits[i], position)
+		}
+		return position + deltas[i]
+	}
+	for _, chunk := range chunks {
+		base := chunk.SourceContent
+		if base == "" && chunk.ContentRevision == 0 {
+			base = chunk.Content
+		}
+		newBase := rewriteContentImageURLs(base, urls)
+		if (chunk.ChunkType == "" || chunk.ChunkType == types.ChunkTypeText || chunk.ChunkType == types.ChunkTypeParentText) &&
+			chunk.EndAt > chunk.StartAt && utf8.RuneCountInString(base) == chunk.EndAt-chunk.StartAt {
+			runes := []rune(base)
+			var rebuilt strings.Builder
+			cursor := 0
+			first := sort.Search(len(edits), func(i int) bool { return edits[i].end > chunk.StartAt })
+			for _, edit := range edits[first:] {
+				if edit.start >= chunk.EndAt {
+					break
+				}
+				start, end := max(chunk.StartAt, edit.start), min(chunk.EndAt, edit.end)
+				if start >= end {
+					continue
+				}
+				localStart, localEnd := start-chunk.StartAt, end-chunk.StartAt
+				if !slices.Equal(runes[localStart:localEnd], edit.old[start-edit.start:end-edit.start]) {
+					return fmt.Errorf("inconsistent image coordinates in cloned chunk %s", chunk.ID)
+				}
+				rebuilt.WriteString(string(runes[cursor:localStart]))
+				rebuilt.WriteString(string(edit.new[inside(edit, start):inside(edit, end)]))
+				cursor = localEnd
+			}
+			rebuilt.WriteString(string(runes[cursor:]))
+			newBase = rebuilt.String()
+		}
+		if chunk.Content == base {
+			chunk.Content = newBase
+		} else {
+			chunk.Content = rewriteContentImageURLs(chunk.Content, urls)
+		}
+		if chunk.SourceContent != "" {
+			chunk.SourceContent = newBase
+		}
+		chunk.StartAt, chunk.EndAt = mapPosition(chunk.StartAt), mapPosition(chunk.EndAt)
+	}
+	return nil
 }
 
 // cleanupCopiedObjects releases a failed clone's claims before deleting any
@@ -368,6 +521,8 @@ func (s *knowledgeService) CloneChunk(ctx context.Context, src, dst *types.Knowl
 			return err
 		}
 
+		// Preserve the current edit snapshot and its parser coordinate base.
+		// Historical revisions remain owned by the source chunk.
 		targetChunk := &types.Chunk{
 			ID:              uuid.New().String(),
 			TenantID:        dst.TenantID,
@@ -375,6 +530,8 @@ func (s *knowledgeService) CloneChunk(ctx context.Context, src, dst *types.Knowl
 			KnowledgeBaseID: dst.KnowledgeBaseID,
 			TagID:           targetTagID,
 			Content:         sourceChunk.Content,
+			SourceContent:   sourceChunk.SourceContent,
+			ContentRevision: sourceChunk.ContentRevision,
 			ChunkIndex:      sourceChunk.ChunkIndex,
 			IsEnabled:       sourceChunk.IsEnabled,
 			Flags:           sourceChunk.Flags,
@@ -397,12 +554,12 @@ func (s *knowledgeService) CloneChunk(ctx context.Context, src, dst *types.Knowl
 		srcTodst[sourceChunk.ID] = targetChunk.ID
 	}
 
+	// Image metadata can live in separate children, so wait for the complete
+	// URL map before rewriting bodies, parser bases, and their coordinates.
+	if err := rewriteClonedChunkImages(targetChunks, urlCache); err != nil {
+		return err
+	}
 	for _, targetChunk := range targetChunks {
-		// Rewrite in-content Markdown image URLs now that urlCache holds the
-		// complete old->new mapping across all chunks. This fixes parent text
-		// chunks whose ![](url) reference points at a source object copied while
-		// processing an independent image_ocr/image_caption child chunk.
-		targetChunk.Content = rewriteContentImageURLs(targetChunk.Content, urlCache)
 		if val, ok := srcTodst[targetChunk.PreChunkID]; ok {
 			targetChunk.PreChunkID = val
 		} else {

@@ -5518,7 +5518,8 @@
         "test-reports/module-audit-20261113/wiki-current-chunks.json",
         "test-reports/module-audit-20261113/retriever-clone-tags.json",
         "test-reports/module-audit-20261113/sourceloc.json",
-        "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json"
+        "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json",
+        "test-reports/module-audit-20261113/knowledge-clone-coordinates.json"
       ],
       "findings": [
         {
@@ -5716,7 +5717,27 @@
         },
         "PARSE-001",
         "WIKI-CURRENT-CHUNKS",
-        "RETRIEVER-R2"
+        "RETRIEVER-R2",
+        {
+          "id": "CLONE-R3",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/knowledge-clone-coordinates.json"
+        },
+        {
+          "id": "CLONE-R4",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/knowledge-clone-coordinates.json"
+        },
+        {
+          "id": "CLONE-R5",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/knowledge-clone-coordinates.json"
+        },
+        {
+          "id": "CLONE-R6",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/knowledge-clone-coordinates.json"
+        }
       ],
       "commits": [],
       "limitations": [
@@ -13185,6 +13206,10 @@
     {
       "commit": "2f4f5ecfe",
       "module": "modelcontext JSON numeric precision"
+    },
+    {
+      "commit": "049ec64d2",
+      "module": "SQL relation column alias security boundary"
     }
   ],
   "frontend_final_gate": {
