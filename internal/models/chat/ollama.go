@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -34,9 +35,12 @@ func NewOllamaChat(config *ChatConfig, ollamaService *ollama.OllamaService) (*Ol
 }
 
 // convertMessages 转换消息格式为Ollama API格式
-func (c *OllamaChat) convertMessages(messages []Message) []ollamaapi.Message {
+func (c *OllamaChat) convertMessages(ctx context.Context, messages []Message) []ollamaapi.Message {
 	ollamaMessages := make([]ollamaapi.Message, 0, len(messages))
 	for _, msg := range messages {
+		if ctx.Err() != nil {
+			break
+		}
 		msg = api.NeutralizeMessageSpecialTokens(msg)
 		msgOllama := ollamaapi.Message{
 			Role:      msg.Role,
@@ -72,7 +76,10 @@ func (c *OllamaChat) convertMessages(messages []Message) []ollamaapi.Message {
 		}
 		if len(images) > 0 && msg.Role == "user" {
 			for _, imgURL := range images {
-				if imgData := resolveImageForOllama(imgURL); imgData != nil {
+				if ctx.Err() != nil {
+					break
+				}
+				if imgData := resolveImageForOllama(ctx, imgURL); imgData != nil {
 					msgOllama.Images = append(msgOllama.Images, imgData)
 				}
 			}
@@ -84,7 +91,10 @@ func (c *OllamaChat) convertMessages(messages []Message) []ollamaapi.Message {
 
 // resolveImageForOllama resolves an image URL into raw bytes for Ollama.
 // Handles local serving paths (/files/...), data URIs, and remote HTTP URLs.
-func resolveImageForOllama(imageURL string) ollamaapi.ImageData {
+func resolveImageForOllama(ctx context.Context, imageURL string) ollamaapi.ImageData {
+	if ctx.Err() != nil {
+		return nil
+	}
 	if data := api.ResolveImageURLForOllama(imageURL); data != nil {
 		return data
 	}
@@ -96,7 +106,11 @@ func resolveImageForOllama(imageURL string) ollamaapi.ImageData {
 			Timeout:      30 * time.Second,
 			MaxRedirects: 5,
 		})
-		resp, err := client.Get(imageURL)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
+		if err != nil {
+			return nil
+		}
+		resp, err := client.Do(req)
 		if err != nil {
 			return nil
 		}
@@ -111,14 +125,14 @@ func resolveImageForOllama(imageURL string) ollamaapi.ImageData {
 }
 
 // buildChatRequest 构建聊天请求参数
-func (c *OllamaChat) buildChatRequest(messages []Message, opts *ChatOptions, isStream bool) *ollamaapi.ChatRequest {
+func (c *OllamaChat) buildChatRequest(ctx context.Context, messages []Message, opts *ChatOptions, isStream bool) *ollamaapi.ChatRequest {
 	// 设置流式标志
 	streamFlag := isStream
 
 	// 构建请求参数
 	chatReq := &ollamaapi.ChatRequest{
 		Model:    c.modelName,
-		Messages: c.convertMessages(messages),
+		Messages: c.convertMessages(ctx, messages),
 		Stream:   &streamFlag,
 		Options:  make(map[string]interface{}),
 	}
@@ -161,7 +175,10 @@ func (c *OllamaChat) Chat(ctx context.Context, messages []Message, opts *ChatOpt
 	}
 
 	// 构建请求参数
-	chatReq := c.buildChatRequest(messages, opts, false)
+	chatReq := c.buildChatRequest(ctx, messages, opts, false)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 
 	// 记录请求日志
 	logger.GetLogger(ctx).Infof("发送聊天请求到模型 %s", c.modelName)
@@ -227,7 +244,10 @@ func (c *OllamaChat) ChatStream(
 	}
 
 	// 构建请求参数
-	chatReq := c.buildChatRequest(messages, opts, true)
+	chatReq := c.buildChatRequest(ctx, messages, opts, true)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 
 	// 记录请求日志
 	logger.GetLogger(ctx).Infof("发送流式聊天请求到模型 %s", c.modelName)

@@ -1,0 +1,179 @@
+{
+  "module": "Ollama request cancellation",
+  "date": "2026-11-13",
+  "findings": [
+    {
+      "id": "MODELS-OLLAMA-IMAGE-CANCELLATION",
+      "priority": "P2",
+      "status": "fixed_verified",
+      "paths": [
+        "internal/models/chat/ollama.go"
+      ],
+      "locations_before": [
+        {
+          "path": "internal/models/chat/ollama.go",
+          "lines": [
+            87,
+            104
+          ]
+        }
+      ],
+      "actual": "Chat and ChatStream stay blocked after context cancel while image HTTP GET is in progress; only releasing local image handler allows cancellation to return. client.Get has no caller context and per-image timeout is 30 seconds.",
+      "reproducer": "/tmp/genyee-models-audit-20261113/ollama_cancel_repro_test.go",
+      "evidence": ".git/module-audit-20261113/models-ollama-cancel-overlay.jsonl",
+      "provenance": "Production files at 53e86f881 have no diff against 74434f730; inherited source defects, not introduced by this audit task.",
+      "permanent_evidence": [
+        ".git/module-audit-20261113/models-ollama-before.jsonl",
+        ".git/module-audit-20261113/models-ollama-after.jsonl",
+        ".git/module-audit-20261113/models-ollama-consumers.jsonl"
+      ],
+      "permanent_tests": [
+        "internal/models/chat/ollama_cancellation_test.go"
+      ],
+      "locations_after": [
+        {
+          "path": "internal/models/chat/ollama.go",
+          "lines": [
+            38,
+            41,
+            79,
+            94,
+            109,
+            178,
+            245
+          ]
+        }
+      ]
+    },
+    {
+      "id": "MODELS-OLLAMA-HEARTBEAT-LOCK-CANCELLATION",
+      "priority": "P2",
+      "status": "fixed_verified",
+      "paths": [
+        "internal/models/utils/ollama/ollama.go"
+      ],
+      "locations_before": [
+        {
+          "path": "internal/models/utils/ollama/ollama.go",
+          "lines": [
+            76,
+            81
+          ]
+        }
+      ],
+      "actual": "StartService holds state mutex over HTTP heartbeat; second already-cancelled request cannot reach context-aware HTTP until unrelated first heartbeat completes.",
+      "reproducer": "/tmp/genyee-models-audit-20261113/ollama_heartbeat_repro_test.go",
+      "evidence": ".git/module-audit-20261113/models-ollama-cancel-overlay.jsonl",
+      "provenance": "Production files at 53e86f881 have no diff against 74434f730; inherited source defects, not introduced by this audit task.",
+      "permanent_evidence": [
+        ".git/module-audit-20261113/models-ollama-before.jsonl",
+        ".git/module-audit-20261113/models-ollama-after.jsonl",
+        ".git/module-audit-20261113/models-ollama-consumers.jsonl"
+      ],
+      "permanent_tests": [
+        "internal/models/utils/ollama/heartbeat_cancellation_test.go"
+      ],
+      "locations_after": [
+        {
+          "path": "internal/models/utils/ollama/ollama.go",
+          "lines": [
+            76,
+            80,
+            81,
+            82,
+            83
+          ]
+        }
+      ]
+    }
+  ],
+  "group": {
+    "name": "ollama_cancellation",
+    "status": "fixed_verified",
+    "source_read_paths": [
+      "internal/models/chat/ollama.go",
+      "internal/models/utils/ollama/ollama.go",
+      "internal/models/chat/ollama_test.go"
+    ],
+    "invariants": [
+      "caller cancellation must stop image-fetch work while building either chat request mode",
+      "a cancelled request must not block behind unrelated heartbeat network IO under shared state mutex"
+    ],
+    "verification": {
+      "command": "go test -mod=readonly -overlay /tmp/genyee-models-audit-20261113/ollama-cancel-overlay.json ./internal/models/chat ./internal/models/utils/ollama -run '^TestAuditOllama' -count=1 -json",
+      "log": ".git/module-audit-20261113/models-ollama-cancel-overlay.jsonl",
+      "exit_code": 1,
+      "failed_leaf": 3,
+      "network": "local fake image + Ollama HTTP only, all handlers explicitly released"
+    },
+    "pending": [],
+    "baseline_head": "53e86f8816e9c85566c9699a313691bf825cf643",
+    "owned_files": [
+      "internal/models/chat/ollama.go",
+      "internal/models/chat/ollama_cancellation_test.go",
+      "internal/models/chat/ollama_multicontent_test.go",
+      "internal/models/chat/ollama_runtime_notice_test.go",
+      "internal/models/chat/ollama_test.go",
+      "internal/models/utils/ollama/ollama.go",
+      "internal/models/utils/ollama/heartbeat_cancellation_test.go"
+    ],
+    "freeze_sha256": {
+      "internal/models/chat/ollama.go": "89dc5589ad305f41fa75260762abb0986dfbe9d25d861db68e6653fd1ba64d16",
+      "internal/models/chat/ollama_cancellation_test.go": "a0f1afc054711c4ce43a6358610ba7f14896d775913648b5ee9324676220a288",
+      "internal/models/chat/ollama_multicontent_test.go": "b67b6c97ed1c3ee2c1f99c3e4dd6b55df9ba7bb0c8506da250748e876e767911",
+      "internal/models/chat/ollama_runtime_notice_test.go": "d506a50d2949486b011210574768f24f5d76ae3a445e038fe560aa39b3e307a6",
+      "internal/models/chat/ollama_test.go": "bc3243069484472a30139d6289a374f566af92ae52cf9f6dd9abda555ea73c98",
+      "internal/models/utils/ollama/ollama.go": "876bd92900a14472105867fab118dc3c61dd09ff3b3579bf10d31efa67c8df29",
+      "internal/models/utils/ollama/heartbeat_cancellation_test.go": "5b781060e2e79e82adeff5be28575815f1b5f9c52aa488157655969a24ad17fe"
+    },
+    "validation": [
+      {
+        "phase": "permanent_regressions_before_fix",
+        "command": "go test -mod=readonly ./internal/models/chat ./internal/models/utils/ollama -run 'Test(OllamaImageRequest|HeartbeatCancellation|AvailabilityRead|HeartbeatPreserves)' -count=1 -json",
+        "log": ".git/module-audit-20261113/models-ollama-before.jsonl",
+        "exit_code": 1,
+        "leaf": {
+          "fail": 11,
+          "pass": 4
+        }
+      },
+      {
+        "phase": "chat_and_ollama_package_race",
+        "command": "go test -mod=readonly -race ./internal/models/chat ./internal/models/utils/ollama -count=1 -json",
+        "log": ".git/module-audit-20261113/models-ollama-after.jsonl",
+        "exit_code": 0,
+        "leaf": {
+          "pass": 57
+        }
+      },
+      {
+        "phase": "embedding_and_vlm_consumers_race",
+        "command": "GENYEE_EMBEDDING_TEST_URL='' GENYEE_EMBEDDING_TEST_FIXTURE='' go test -mod=readonly -race ./internal/models/embedding ./internal/models/vlm -count=1 -json",
+        "log": ".git/module-audit-20261113/models-ollama-consumers.jsonl",
+        "exit_code": 0,
+        "leaf": {
+          "pass": 197,
+          "skip": 1
+        }
+      }
+    ],
+    "git_diff_check": "passed",
+    "covered_scenarios": [
+      "Chat and ChatStream cancellation/deadline while waiting for image headers or image body",
+      "legacy Images and MultiContent images; later images and /api/chat never requested after cancellation",
+      "successful remote image bytes and data URI bytes preserved together with text in both chat modes",
+      "already-cancelled and deadline heartbeat returns without waiting for a blocked unrelated heartbeat",
+      "availability reads observe last completed health result without waiting on network IO",
+      "optional failures, non-optional errors and recovery preserve availability behavior",
+      "existing parallel availability/pull test under race detector; embedding/VLM consumer packages"
+    ],
+    "limitations": [
+      "Shared SSRF validation (internal/utils/security.go) performs synchronous hostname resolution with no caller context. This group fixes image HTTP request/body cancellation and does not claim to cancel the shared preflight DNS check.",
+      "LocalImageResolver retains its existing context-free callback signature; this group does not change storage read behavior."
+    ],
+    "implementation": [
+      "Thread caller context through Ollama message/request preparation and use http.NewRequestWithContext for remote images; stop later image work and return context errors from Chat/ChatStream after cancelled preparation.",
+      "Run SDK heartbeat outside availability mutex; lock only availability assignment. Each independent heartbeat remains controlled by its own caller context."
+    ]
+  }
+}

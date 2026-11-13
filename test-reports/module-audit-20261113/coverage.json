@@ -8827,7 +8827,7 @@
     },
     {
       "id": "internal/models/chat",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/models/chat/chat.go",
         "internal/models/chat/concurrency_wrapper.go",
@@ -8845,10 +8845,20 @@
         "internal/models/chat/ollama_runtime_notice_test.go",
         "internal/models/chat/ollama_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/models/chat/ollama.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-ollama-cancellation.json"
+      ],
+      "findings": [
+        {
+          "id": "MODELS-OLLAMA-IMAGE-CANCELLATION",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/models-ollama-cancellation.json"
+        }
+      ],
       "commits": [],
       "limitations": []
     },
@@ -9101,7 +9111,7 @@
     },
     {
       "id": "internal/models/utils/ollama",
-      "status": "pending",
+      "status": "partially_audited",
       "source_files": [
         "internal/models/utils/ollama/ollama.go"
       ],
@@ -9109,10 +9119,20 @@
         "internal/models/utils/ollama/availability_race_test.go",
         "internal/models/utils/ollama/chat_completion_test.go"
       ],
-      "inspected_files": [],
+      "inspected_files": [
+        "internal/models/utils/ollama/ollama.go"
+      ],
       "invariants_checked": [],
-      "evidence": [],
-      "findings": [],
+      "evidence": [
+        "test-reports/module-audit-20261113/models-ollama-cancellation.json"
+      ],
+      "findings": [
+        {
+          "id": "MODELS-OLLAMA-HEARTBEAT-LOCK-CANCELLATION",
+          "status": "fixed_verified",
+          "report": "test-reports/module-audit-20261113/models-ollama-cancellation.json"
+        }
+      ],
       "commits": [],
       "limitations": []
     },
@@ -12397,6 +12417,10 @@
     {
       "commit": "bf58ac00d",
       "module": "source locator audit and full backend checkpoint"
+    },
+    {
+      "commit": "5b5626c59",
+      "module": "legacy DOC empty-result fallback"
     }
   ],
   "frontend_final_gate": {

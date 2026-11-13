@@ -24,7 +24,7 @@ func TestOllamaConvertMessagesReadsMultiContent(t *testing.T) {
 		},
 	}
 
-	got := c.convertMessages(messages)
+	got := c.convertMessages(t.Context(), messages)
 	if len(got) != 1 {
 		t.Fatalf("expected one message, got %d", len(got))
 	}
@@ -41,7 +41,7 @@ func TestOllamaConvertMessagesReadsMultiContent(t *testing.T) {
 
 func TestOllamaConvertMessagesKeepsExplicitContent(t *testing.T) {
 	c := &OllamaChat{}
-	got := c.convertMessages([]Message{{
+	got := c.convertMessages(t.Context(), []Message{{
 		Role:    "user",
 		Content: "already set",
 		MultiContent: []api.MessageContentPart{

@@ -74,14 +74,15 @@ func GetOllamaService() (*OllamaService, error) {
 
 // StartService checks if Ollama service is available
 func (s *OllamaService) StartService(ctx context.Context) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	// Check if service is available
+	// Network IO belongs to this caller's context, not the shared state lock.
+	// A slow health check must not block another caller's cancellation or
+	// readers of the last completed availability result.
 	err := s.client.Heartbeat(ctx)
+	s.mu.Lock()
+	s.isAvailable = err == nil
+	s.mu.Unlock()
 	if err != nil {
 		logger.GetLogger(ctx).Warnf("ollama service unavailable: %v", err)
-		s.isAvailable = false
 
 		// If configured as optional, don't return an error
 		if s.isOptional {
@@ -92,7 +93,6 @@ func (s *OllamaService) StartService(ctx context.Context) error {
 		return fmt.Errorf("ollama service unavailable: %w", err)
 	}
 
-	s.isAvailable = true
 	return nil
 }
 

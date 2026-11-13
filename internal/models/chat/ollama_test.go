@@ -77,7 +77,7 @@ func TestResolveImageForOllamaRejectsInternalURL(t *testing.T) {
 	secutils.ResetSSRFWhitelistForTest()
 	t.Cleanup(secutils.ResetSSRFWhitelistForTest)
 
-	if data := resolveImageForOllama("http://169.254.169.254/latest/meta-data/"); data != nil {
+	if data := resolveImageForOllama(t.Context(), "http://169.254.169.254/latest/meta-data/"); data != nil {
 		t.Fatalf("resolveImageForOllama returned data for blocked internal URL")
 	}
 }
@@ -92,7 +92,7 @@ func TestResolveImageForOllamaBlocksRedirectToInternalURL(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if data := resolveImageForOllama(server.URL); data != nil {
+	if data := resolveImageForOllama(t.Context(), server.URL); data != nil {
 		t.Fatalf("resolveImageForOllama returned data after redirect to blocked internal URL")
 	}
 }
