@@ -7774,7 +7774,8 @@
         "internal/infrastructure/docparser/image_resolver.go"
       ],
       "invariants_checked": [
-        "Caller cancellation aborts cloud result and image HTTP downloads without partial successful result."
+        "Caller cancellation aborts cloud result and image HTTP downloads without partial successful result.",
+        "Untrusted optional image-count metadata cannot reserve memory for unreceived frames."
       ],
       "evidence": [
         {
@@ -7790,10 +7791,12 @@
             ]
           }
         },
-        "test-reports/module-audit-20261113/parser-cloud-cancellation.json"
+        "test-reports/module-audit-20261113/parser-cloud-cancellation.json",
+        "test-reports/module-audit-20261113/parser-stream-allocation.json"
       ],
       "findings": [
-        "PARSE-002"
+        "PARSE-002",
+        "PARSE-003"
       ],
       "commits": [],
       "limitations": [
@@ -12294,6 +12297,10 @@
     {
       "commit": "87b7e902c",
       "module": "document repeated rows and image enrichment"
+    },
+    {
+      "commit": "d7268dcfe",
+      "module": "retriever vector storage estimate"
     }
   ],
   "frontend_final_gate": {

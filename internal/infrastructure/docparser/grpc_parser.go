@@ -274,9 +274,9 @@ func (p *GRPCDocumentReader) readStream(
 			result.Metadata = meta.GetMetadata()
 			result.Error = meta.GetError()
 			result.SourceBlocks = sourceBlocksFromProto(meta.GetSourceBlocks())
-			if n := meta.GetImageCount(); n > 0 {
-				result.ImageRefs = make([]types.ImageRef, 0, n)
-			}
+			// image_count is an untrusted best-effort hint. Grow ImageRefs only
+			// as frames arrive; a tiny metadata frame must not reserve billions
+			// of image slots or restrict documents whose hint is too small.
 			continue
 		}
 
