@@ -83,9 +83,41 @@ def _safe_path_segment(value: str, name: str = "id") -> str:
         raise ValueError(f"Invalid {name}: path traversal sequence is forbidden")
     for ch in value:
         code = ord(ch)
-        if code < 33 or code == 127 or ch in ("/", "\\", "?", "#", "%"):
+        if code < 32 or code == 127 or ch in ("/", "\\", "?", "#", "%"):
             raise ValueError(f"Invalid {name}: contains disallowed URL character")
     return urllib.parse.quote(value, safe="")
+
+
+def _safe_wiki_slug(value: str, name: str = "slug") -> str:
+    """Validate and percent-encode a hierarchical wiki page slug (e.g. 'entity/acme-corp').
+
+    GENYEE backend mounts GET /knowledgebase/:kb_id/wiki/pages/*slug, so multi-segment
+    slugs separated by '/' are valid while empty segments, dot-segments ('.', '..'),
+    backslashes, query/fragment delimiters, and pre-encoded '%' sequences are forbidden.
+    """
+    if not isinstance(value, str):
+        raise ValueError(f"Invalid {name}: expected non-empty string")
+    if not value or not value.strip() or value != value.strip():
+        raise ValueError(
+            f"Invalid {name}: must not be empty or contain leading/trailing whitespace"
+        )
+    if len(value) > 512:
+        raise ValueError(f"Invalid {name}: exceeds maximum length (512)")
+    if value.startswith("/") or value.endswith("/"):
+        raise ValueError(f"Invalid {name}: must not start or end with '/'")
+    for ch in value:
+        code = ord(ch)
+        if code < 32 or code == 127 or ch in ("\\", "?", "#", "%"):
+            raise ValueError(f"Invalid {name}: contains disallowed URL character")
+    parts = value.split("/")
+    encoded_parts: list[str] = []
+    for part in parts:
+        if not part or part != part.strip():
+            raise ValueError(f"Invalid {name}: empty or whitespace-padded slug segment")
+        if part in (".", "..") or ".." in part:
+            raise ValueError(f"Invalid {name}: path traversal sequence is forbidden")
+        encoded_parts.append(urllib.parse.quote(part, safe=""))
+    return "/".join(encoded_parts)
 
 
 def admin_tools_enabled() -> bool:
@@ -886,7 +918,7 @@ class GENYEEClient:
     def wiki_read_page(self, kb_id: str, slug: str) -> Dict:
         """Read a wiki page by slug, returns full markdown + metadata + links"""
         safe_kb_id = _safe_path_segment(kb_id, "kb_id")
-        safe_slug = _safe_path_segment(slug, "slug")
+        safe_slug = _safe_wiki_slug(slug, "slug")
         return self._request("GET", f"/knowledgebase/{safe_kb_id}/wiki/pages/{safe_slug}")
 
     def wiki_index_view(self, kb_id: str, limit: int = 50) -> Dict:

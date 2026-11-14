@@ -44,8 +44,31 @@ function listKnowledgeBases() {
   return request("/api/v1/knowledge-bases");
 }
 
+function encodeSafeSegment(value, name = "id") {
+  if (typeof value !== "string") {
+    throw new Error(`Invalid ${name}: expected non-empty string`);
+  }
+  const trimmed = value.trim();
+  if (!trimmed || trimmed !== value) {
+    throw new Error(`Invalid ${name}: must not be empty or contain surrounding whitespace`);
+  }
+  if (trimmed === "." || trimmed === ".." || trimmed.includes("..")) {
+    throw new Error(`Invalid ${name}: path traversal is forbidden`);
+  }
+  if (/[\/\\?#%\x00-\x1f\x7f]/.test(trimmed)) {
+    throw new Error(`Invalid ${name}: contains disallowed URL character`);
+  }
+  return encodeURIComponent(trimmed);
+}
+
 function createKnowledgeFromURL(knowledgeBaseId, url, enableMultimodel = false) {
-  return request(`/api/v1/knowledge-bases/${encodeURIComponent(knowledgeBaseId)}/knowledge/url`, {
+  let safeId;
+  try {
+    safeId = encodeSafeSegment(knowledgeBaseId, "knowledgeBaseId");
+  } catch (err) {
+    return Promise.reject(err);
+  }
+  return request(`/api/v1/knowledge-bases/${safeId}/knowledge/url`, {
     method: "POST",
     data: {
       url,
@@ -62,12 +85,18 @@ function createSession(knowledgeBaseId) {
 }
 
 function knowledgeChat(sessionId, query, knowledgeBaseId) {
+  let safeSessionId;
+  try {
+    safeSessionId = encodeSafeSegment(sessionId, "sessionId");
+  } catch (err) {
+    return Promise.reject(err);
+  }
   const data = { query };
   if (knowledgeBaseId) {
     data.knowledge_base_ids = [knowledgeBaseId];
   }
 
-  return request(`/api/v1/knowledge-chat/${encodeURIComponent(sessionId)}`, {
+  return request(`/api/v1/knowledge-chat/${safeSessionId}`, {
     method: "POST",
     data
   });
@@ -76,6 +105,7 @@ function knowledgeChat(sessionId, query, knowledgeBaseId) {
 module.exports = {
   createKnowledgeFromURL,
   createSession,
+  encodeSafeSegment,
   knowledgeChat,
   listKnowledgeBases,
   request

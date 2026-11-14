@@ -1,6 +1,7 @@
 package cmdutil
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,6 +19,9 @@ func loadErrorReferenceSection(t *testing.T) string {
 	}
 	content, err := os.ReadFile(docPath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			t.Skipf("skipping %s parity check: internal AGENTS.md is omitted in exported source archives", docPath)
+		}
 		t.Fatalf("read %s: %v", docPath, err)
 	}
 	doc := string(content)

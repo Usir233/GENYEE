@@ -35,16 +35,18 @@ python -m pip install torch==2.10.0 torchvision==0.25.0 \
 python -m pip install -r scripts/wemm-transformers/requirements.txt
 ```
 
-Transformers 固定为官方推荐的 `5.2.0`，`qwen-vl-utils` 固定为 `0.0.14`。不要随意替换 Transformers 版本，避免预处理行为变化。脚本会启用 `trust_remote_code=True` 来加载 WeMM 的 `embedding()` 实现，应使用官方权重或已审查的模型目录。
+Transformers 固定为官方推荐的 `5.2.0`，`qwen-vl-utils` 固定为 `0.0.14`。不要随意替换 Transformers 版本，避免预处理行为变化。为安全起见，脚本默认关闭 `trust_remote_code` 且默认要求配置 `WEMM_API_KEY`；加载 WeMM 的自定义 `embedding()` 实现时需显式传入 `--trust-remote-code`（远程 Hugging Face 仓库须同时用 `--revision` 锁定 40 位提交 SHA，或配合 `--local-files-only` 使用已审查的本地模型目录）。
 
 ## 启动服务
 
 以 CUDA 上的 2B 为例：
 
 ```bash
+export WEMM_API_KEY="$(openssl rand -hex 32)"
 python scripts/wemm-transformers/serve.py \
   --model tencent/WeMM-Embedding-2B \
   --revision bbd6cd4bf52cfc6716f752a2df80b2706720bd95 \
+  --trust-remote-code \
   --device cuda \
   --host 127.0.0.1 \
   --port 18080
@@ -55,10 +57,12 @@ python scripts/wemm-transformers/serve.py \
 已有模型目录时可以离线启动，并指定 GENYEE 调用时使用的模型名称：
 
 ```bash
+export WEMM_API_KEY="$(openssl rand -hex 32)"
 python scripts/wemm-transformers/serve.py \
   --model /srv/models/WeMM-Embedding-2B \
   --served-model-name tencent/WeMM-Embedding-2B \
   --local-files-only \
+  --trust-remote-code \
   --device cuda
 ```
 
@@ -74,12 +78,18 @@ hf download tencent/WeMM-Embedding-2B \
 
 ```bash
 # Apple Silicon，允许不支持的 MPS 算子回退到 CPU
-python scripts/wemm-transformers/serve.py \
-  --model tencent/WeMM-Embedding-2B --device mps --mps-fallback
+WEMM_API_KEY="$WEMM_API_KEY" python scripts/wemm-transformers/serve.py \
+  --model tencent/WeMM-Embedding-2B \
+  --revision bbd6cd4bf52cfc6716f752a2df80b2706720bd95 \
+  --trust-remote-code \
+  --device mps --mps-fallback
 
 # CPU，默认使用 float32
-python scripts/wemm-transformers/serve.py \
-  --model tencent/WeMM-Embedding-2B --device cpu
+WEMM_API_KEY="$WEMM_API_KEY" python scripts/wemm-transformers/serve.py \
+  --model tencent/WeMM-Embedding-2B \
+  --revision bbd6cd4bf52cfc6716f752a2df80b2706720bd95 \
+  --trust-remote-code \
+  --device cpu
 ```
 
 4B、9B 将 `--model` 换成对应 ID 或路径。服务从模型配置读取原生维度及 Matryoshka 可选维度，不会将其他规格强制按 2048 维处理：
@@ -96,7 +106,7 @@ python scripts/wemm-transformers/serve.py \
 
 跨机器部署时使用 `--host 0.0.0.0`，并在服务进程环境中设置 `WEMM_API_KEY`。`/v1/models` 与 `/v1/embeddings` 会验证 `Authorization: Bearer <key>`；GENYEE 的 API Key 填写相同值。服务不直接终止 TLS，跨不可信网络时通过 HTTPS 反向代理访问。`/health` 仅提供运行状态和非敏感模型元数据，不要求 API Key。
 
-默认监听回环地址、未设置 API Key。GENYEE 若运行在 Docker 中，`127.0.0.1` 指向 GENYEE 容器自身，应填写容器能够访问的推理服务地址，例如同一容器网络的服务名，或已配置的宿主机地址。私网地址还需符合 GENYEE 的 SSRF 访问策略，配置方法见[安全说明](../01-getting-started/04-configuration.md)。
+服务默认监听 `127.0.0.1` 且要求设置 `WEMM_API_KEY`（仅限纯本机隔离调试可显式传 `--allow-unauthenticated`）。GENYEE 若运行在 Docker 中，`127.0.0.1` 指向 GENYEE 容器自身，应填写容器能够访问的推理服务地址，例如同一容器网络的服务名，或已配置的宿主机地址。私网地址还需符合 GENYEE 的 SSRF 访问策略，配置方法见[安全说明](../01-getting-started/04-configuration.md)。
 
 ## GENYEE 接入 {#genyee-接入}
 

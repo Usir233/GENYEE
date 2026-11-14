@@ -100,9 +100,14 @@ def build_transport_security_settings(host: str, port: int) -> TransportSecurity
     ]
     clean_host = (host or "").strip()
     if clean_host and clean_host not in {"0.0.0.0", "::", "*"}:
-        allowed_hosts.extend([f"{clean_host}:{port}", f"{clean_host}:*", clean_host])
+        host_bracketed = (
+            f"[{clean_host}]"
+            if ":" in clean_host and not clean_host.startswith("[")
+            else clean_host
+        )
+        allowed_hosts.extend([f"{host_bracketed}:{port}", f"{host_bracketed}:*", host_bracketed])
         allowed_origins.extend(
-            [f"http://{clean_host}:{port}", f"https://{clean_host}:{port}"]
+            [f"http://{host_bracketed}:{port}", f"https://{host_bracketed}:{port}"]
         )
     extra_hosts = os.getenv("MCP_ALLOWED_HOSTS", "").strip()
     if extra_hosts:

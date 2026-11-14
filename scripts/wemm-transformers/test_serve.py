@@ -197,8 +197,9 @@ class ServiceTests(unittest.TestCase):
             self.assertIsNone(body["revision"])
 
     def test_remote_trust_remote_code_requires_pinned_revision(self):
-        with self.assertRaises(ValueError):
-            Engine(Settings(model="tencent/WeMM-Embedding-2B", trust_remote_code=True))
+        for bad_rev in (None, "", "main", "HEAD", "v1.0.0", "bbd6cd4"):
+            with self.subTest(revision=bad_rev), self.assertRaises(ValueError):
+                Engine(Settings(model="tencent/WeMM-Embedding-2B", trust_remote_code=True, revision=bad_rev))
 
 
 if __name__ == "__main__":

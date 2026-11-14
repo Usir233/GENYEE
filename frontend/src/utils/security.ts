@@ -495,6 +495,7 @@ type ProtectedFileCacheState = {
   failures: Map<string, number>;
   inflight: Map<string, Promise<ProtectedFileLoadResult>>;
   retryGeneration: number;
+  clearEpoch: number;
   activeScope: string;
   imageRequests: WeakMap<HTMLImageElement, string>;
   hiddenImages: WeakMap<HTMLImageElement, HiddenProtectedImage>;
@@ -511,6 +512,7 @@ const protectedFileCacheState = (() => {
     failures: new Map(),
     inflight: new Map(),
     retryGeneration: 0,
+    clearEpoch: 0,
     activeScope: '',
     imageRequests: new WeakMap(),
     hiddenImages: new WeakMap(),
@@ -521,6 +523,7 @@ const protectedFileCacheState = (() => {
   };
   scope.__genyeeProtectedFileCacheV4__ ||= fresh();
   scope.__genyeeProtectedFileCacheV4__.activeScope ||= '';
+  scope.__genyeeProtectedFileCacheV4__.clearEpoch ||= 0;
   return scope.__genyeeProtectedFileCacheV4__;
 })();
 
@@ -623,6 +626,7 @@ export function clearProtectedFileCache(): void {
     }
   }
   protectedFileCacheState.retryGeneration++;
+  protectedFileCacheState.clearEpoch++;
   protectedFileBlobCache.clear();
   protectedFileBySource.clear();
   protectedFileMissingRequests.clear();
@@ -803,17 +807,22 @@ export async function hydrateProtectedFileImages(
     // The previous Set-based de-dupe made later components return immediately;
     // only the component that started the fetch was updated, leaving all other
     // occurrences stuck on the transparent placeholder forever.
+    const startEpoch = protectedFileCacheState.clearEpoch;
     let loadTask = protectedFileInflight.get(requestKey);
     if (!loadTask) {
       loadTask = (async (): Promise<ProtectedFileLoadResult> => {
         for (let attempt = 0; ; attempt++) {
           const generation = protectedFileCacheState.retryGeneration;
+          const taskEpoch = protectedFileCacheState.clearEpoch;
           try {
             const resp = await fetch(requestURL, {
               method: 'GET',
               headers,
               credentials: 'include',
             });
+            if (taskEpoch !== protectedFileCacheState.clearEpoch) {
+              return { status: 'failed' };
+            }
             if (!resp.ok) {
               if (attempt === 0 && generation !== protectedFileCacheState.retryGeneration) continue;
               if (resp.status === 404) {
@@ -823,23 +832,37 @@ export async function hydrateProtectedFileImages(
               throw new Error(`HTTP ${resp.status}`);
             }
             const blob = await resp.blob();
+            if (taskEpoch !== protectedFileCacheState.clearEpoch) {
+              return { status: 'failed' };
+            }
             const blobURL = URL.createObjectURL(blob);
             const file = { blobURL, blob, fileName: responseFileName(resp.headers.get("Content-Disposition"), sourceURL) };
             protectedFileBlobCache.set(requestKey, file);
             protectedFileFailureCache.delete(requestKey);
             return { status: 'loaded', ...file };
           } catch (error) {
+            if (taskEpoch !== protectedFileCacheState.clearEpoch) {
+              return { status: 'failed' };
+            }
             if (attempt === 0 && generation !== protectedFileCacheState.retryGeneration) continue;
             console.warn('[security] hydrateProtectedFileImages failed:', error);
             protectedFileFailureCache.set(requestKey, Date.now());
             return { status: 'failed' };
           }
         }
-      })().finally(() => protectedFileInflight.delete(requestKey));
+      })().finally(() => {
+        if (protectedFileCacheState.clearEpoch === startEpoch) {
+          protectedFileInflight.delete(requestKey);
+        }
+      });
       protectedFileInflight.set(requestKey, loadTask);
     }
 
     const result = await loadTask;
+    if (startEpoch !== protectedFileCacheState.clearEpoch) {
+      img.dataset.authHydrated = '0';
+      return;
+    }
     // A late response for an old message ID must not remove or overwrite an
     // image that has since been reauthorized under its persisted message ID.
     if (protectedImageRequests.get(img) !== requestKey) return;

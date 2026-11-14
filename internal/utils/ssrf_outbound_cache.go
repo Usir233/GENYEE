@@ -128,8 +128,8 @@ func outboundSSRFCacheKey(rawURL string) (string, bool) {
 		return "", false
 	}
 
-	host := strings.ToLower(parsed.Hostname())
-	if host == "" {
+	host, hostErr := normalizeSSRFHostname(parsed.Hostname())
+	if hostErr != "" || host == "" {
 		return "", false
 	}
 

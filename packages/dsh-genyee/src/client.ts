@@ -109,6 +109,31 @@ function deadline(signal: AbortSignal, timeoutMs: number): AbortSignal {
   return AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)])
 }
 
+/**
+ * Validate and percent-encode a single URL path segment so untrusted or
+ * hallucinated IDs ("", ".", "..", "a/b", "%2e%2e") cannot traverse routes.
+ */
+export function encodePathSegment(value: string, field: string): string {
+  if (typeof value !== 'string') {
+    throw new GenyeeApiError(`Invalid ${field}: expected non-empty string`)
+  }
+  const trimmed = value.trim()
+  if (trimmed === '' || trimmed !== value) {
+    throw new GenyeeApiError(`Invalid ${field}: must not be empty or padded with whitespace`)
+  }
+  if (trimmed === '.' || trimmed === '..' || trimmed.includes('..')) {
+    throw new GenyeeApiError(`Invalid ${field}: dot-segment path traversal is forbidden`)
+  }
+  for (let i = 0; i < trimmed.length; i++) {
+    const code = trimmed.charCodeAt(i)
+    const ch = trimmed[i]!
+    if (code < 32 || code === 127 || ch === '/' || ch === '\\' || ch === '?' || ch === '#' || ch === '%') {
+      throw new GenyeeApiError(`Invalid ${field}: contains disallowed URL character`)
+    }
+  }
+  return encodeURIComponent(trimmed)
+}
+
 export class GenyeeClient {
   /**
    * A knowledge-base-restricted API key rejects `resource_urls=public` with
@@ -175,6 +200,7 @@ export class GenyeeClient {
       response = await fetch(url, {
         method: init.method,
         headers: this.headers(),
+        redirect: 'error',
         ...init.body === undefined ? {} : { body: JSON.stringify(init.body) },
         signal: deadline(signal, this.config.requestTimeoutMs),
       })
@@ -233,7 +259,7 @@ export class GenyeeClient {
   /** A document's metadata, including the generated summary GENYEE stores as `description`. */
   async getDocument(knowledgeId: string, signal: AbortSignal): Promise<DocumentRecord> {
     const envelope = await this.fetchJson<DocumentRecord>(
-      `/knowledge/${encodeURIComponent(knowledgeId)}`,
+      `/knowledge/${encodePathSegment(knowledgeId, 'knowledgeId')}`,
       { method: 'GET' },
       signal,
     )
@@ -245,7 +271,7 @@ export class GenyeeClient {
     input: { knowledgeId: string, page: number, pageSize: number },
     signal: AbortSignal,
   ): Promise<ChunkPage> {
-    const envelope = await this.fetchJson<ChunkRecord[]>(`/chunks/${encodeURIComponent(input.knowledgeId)}`, {
+    const envelope = await this.fetchJson<ChunkRecord[]>(`/chunks/${encodePathSegment(input.knowledgeId, 'knowledgeId')}`, {
       method: 'GET',
       query: { page: input.page, page_size: input.pageSize },
     }, signal)
@@ -287,7 +313,7 @@ export class GenyeeClient {
     signal: AbortSignal,
   ): Promise<StreamedAnswer> {
     const route = input.agentId === undefined ? 'knowledge-chat' : 'agent-chat'
-    const path = `/${route}/${encodeURIComponent(input.sessionId)}`
+    const path = `/${route}/${encodePathSegment(input.sessionId, 'sessionId')}`
     const body = {
       query: input.query,
       channel: 'api',
@@ -301,6 +327,7 @@ export class GenyeeClient {
         return await fetch(this.url(path), {
           method: 'POST',
           headers: { ...this.headers(), Accept: 'text/event-stream' },
+          redirect: 'error',
           body: JSON.stringify(body),
           signal: combined,
         })

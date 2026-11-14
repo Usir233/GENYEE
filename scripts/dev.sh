@@ -194,6 +194,16 @@ start_services() {
         return 1
     fi
 
+    # 为留空的内部服务鉴权密钥自动生成随机值，避免 docreader / odl-hybrid fail-closed 启动失败
+    _gen_dev_secret() ( set +o pipefail; LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$1" )
+    for _secret_key in GRPC_AUTH_TOKEN ODL_HYBRID_AUTH_TOKEN; do
+        if grep -qE "^${_secret_key}=$" ".env" 2>/dev/null; then
+            _rand_val="$(_gen_dev_secret 32)"
+            sed -i.bak "s|^${_secret_key}=$|${_secret_key}=${_rand_val}|" ".env" && rm -f ".env.bak"
+            log_info "已为 .env 自动生成初始 ${_secret_key}"
+        fi
+    done
+
     load_env_files
     if [ $? -ne 0 ]; then
         log_error ".env 文件不存在，请先创建"

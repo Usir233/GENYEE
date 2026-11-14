@@ -65,7 +65,7 @@ service DocReader {
 
 `docreader/auth.py` 提供两层安全机制，均通过环境变量开启：
 
-**Token 认证（`AuthInterceptor`）**：设置 `GRPC_AUTH_TOKEN` 后启用。客户端需在 metadata 里携带 `authorization: Bearer <token>`（或裸 token）。校验用 `hmac.compare_digest` 防时序攻击；token 短于 16 字节会打警告。两个健康检查方法（`/grpc.health.v1.Health/Check`、`/Watch`）在鉴权前放行，保证探活不受影响。鉴权失败时通过 `_make_abort_handler` 构造与原 RPC kind（unary/stream）匹配的 abort handler，返回 `UNAUTHENTICATED` 而不是让框架抛 `INTERNAL`。
+**Token 认证（`AuthInterceptor`，默认 fail-closed）**：服务端默认要求配置非空 `GRPC_AUTH_TOKEN`（客户端需在 metadata 里携带 `authorization: Bearer <token>` 或裸 token）；未配置且未显式开启 `DOCREADER_ALLOW_UNAUTHENTICATED=true`（仅限本地隔离开发/测试）时拒绝启动。校验用 `hmac.compare_digest` 防时序攻击；token 短于 16 字节会打警告。两个健康检查方法（`/grpc.health.v1.Health/Check`、`/Watch`）在鉴权前放行，保证探活不受影响。鉴权失败时通过 `_make_abort_handler` 构造与原 RPC kind（unary/stream）匹配的 abort handler，返回 `UNAUTHENTICATED` 而不是让框架抛 `INTERNAL`。
 
 **TLS / mTLS（`load_tls_credentials`）**：`GRPC_TLS_ENABLED=true` 时必须提供 `GRPC_TLS_CERT` / `GRPC_TLS_KEY`，可选 `GRPC_TLS_CA`；`GRPC_MTLS_REQUIRE_CLIENT_CERT=true` 强制客户端证书（未设置时按 `GRPC_TLS_CA` 是否存在自动判断）。任何 TLS 配置缺失/加载失败都抛 `TLSConfigError`，`main()` 捕获后 `sys.exit(1)` **fail-fast，拒绝静默降级到明文**。
 
@@ -416,7 +416,7 @@ gRPC 响应中不再返回 chunks（`ReadResponse` 没有 chunk 字段）；`Exc
 
 | 环境变量 | 说明 |
 | --- | --- |
-| `GRPC_AUTH_TOKEN` | 设置后启用 token 认证（metadata `authorization: Bearer <token>`） |
+| `GRPC_AUTH_TOKEN` | 必填（默认 fail-closed），启用 token 认证（metadata `authorization: Bearer <token>`）；仅本地隔离调试可显式设 `DOCREADER_ALLOW_UNAUTHENTICATED=true` |
 | `GRPC_TLS_ENABLED` / `GRPC_TLS_CERT` / `GRPC_TLS_KEY` / `GRPC_TLS_CA` / `GRPC_MTLS_REQUIRE_CLIENT_CERT` | TLS / mTLS，配置无效时拒绝启动 |
 | `SSRF_WHITELIST` / `SSRF_WHITELIST_EXTRA` | SSRF 白名单（逗号分隔，支持 `*.suffix` 与 CIDR） |
 | `SSRF_DNS_WHITELIST_ONLY` | 设为 `true` 时只允许访问白名单中的主机名，不在白名单内的主机在 DNS 解析前即被拒绝；与 Go 主服务使用同一开关 |
@@ -436,7 +436,7 @@ gRPC 响应中不再返回 chunks（`ReadResponse` 没有 chunk 字段）；`Exc
 - **openjdk-17-jre-headless**（OpenDataLoader PDF 需要 Java 11+）；
 - **Playwright WebKit**：`python -m playwright install webkit` + `install-deps webkit`——这是镜像里唯一的"模型/浏览器二进制下载"步骤（轻量化后**没有 OCR 模型下载**，Dockerfile 注释明确"已移除 OCR/PaddleOCR 相关依赖"）；
 - **grpc_health_probe**（gRPC 健康检查探针，供容器编排探活）；
-- ImageMagick `convert` 若存在会被 `pptx_media.py` 用于 WMF/EMF 栅格化（属可选增强）。
+- ImageMagick `convert` 若存在仅被 `pptx_media.py` 用于受控位图（如 TIFF）栅格化；WMF/EMF/SVG/EPS 等高危矢量委托格式默认禁用。
 
 `scripts/` 下另有两个工具：`generate_proto.sh`（grpc_tools.protoc 生成 Python/Go 代码并修复 import 路径）与 `parse_local.py`（本地直接调 Parser 调试解析结果，不经 gRPC，支持 `--engine`、`--scanned`、`--out` 导出 markdown 与图片）。
 
@@ -449,7 +449,7 @@ Python 依赖（`pyproject.toml` + `uv.lock` 锁定）：`grpcio`、`pypdfium2`�
 - **大文件**：`MAX_FILE_SIZE_MB` 需 Go 客户端与 docreader **两端同步调整**；扫描件页图大小受 `DOCREADER_PDF_RENDER_MAX_EDGE`/`_DPI`/`_JPEG_QUALITY` 三个旋钮控制。
 - **JVM/浏览器类负载隔离**：OpenDataLoader 每次解析拉起 JVM、WebParser 每次拉起 WebKit，均为重进程；`DOCREADER_ODL_MAX_WORKERS`、`DOCREADER_MARKITDOWN_MAX_WORKERS` 默认 1 是保守值，资源充足可放宽或设 ≤0 关闭限流。ODL hybrid 服务（`Dockerfile.odl-hybrid`）应独立部署并配置 `DOCREADER_ODL_HYBRID_URL`。
 - **超时保护**：Go 侧的 `GENYEE_DOCREADER_CALL_TIMEOUT`（配置文件 `docreader_call_timeout`，默认 30 分钟）限制单次 docreader 调用，防止挂死的 docreader 长时间占用入库 worker；大文件解析需要更久时，同步调大文档处理超时（见 [Go 侧解析超时](#go-侧解析超时)）。
-- **安全基线**：生产环境开启 `GRPC_AUTH_TOKEN`（≥16 字节）+ `GRPC_TLS_ENABLED`；不设置时服务会以明文 + 无鉴权模式启动并打印 WARNING。
+- **安全基线**：生产环境开启 `GRPC_AUTH_TOKEN`（默认必填，建议 ≥32 字节随机值）+ `GRPC_TLS_ENABLED`；未设置 `GRPC_AUTH_TOKEN` 且未设 `DOCREADER_ALLOW_UNAUTHENTICATED=true` 时服务拒绝启动。
 
 ---
 

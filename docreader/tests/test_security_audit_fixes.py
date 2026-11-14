@@ -737,7 +737,10 @@ def test_xmind_and_parse_local_enforce_defusedxml_and_safe_image_paths(tmp_path)
 
 
 def test_rerank_server_demo_static_security_invariants():
-    source = (REPO_ROOT / "rerank_server_demo.py").read_text(encoding="utf-8")
+    demo_path = REPO_ROOT / "rerank_server_demo.py"
+    if not demo_path.exists():
+        pytest.skip("rerank_server_demo.py is omitted in exported source archives")
+    source = demo_path.read_text(encoding="utf-8")
     tree = ast.parse(source)
     assert tree is not None
     assert "RERANK_MODEL_PATH" in source

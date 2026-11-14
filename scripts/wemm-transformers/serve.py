@@ -26,6 +26,7 @@ Image.MAX_IMAGE_PIXELS = 40_000_000
 log = logging.getLogger("uvicorn.error")
 
 _HF_REPO_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
+_COMMIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def _env_truthy(name: str, default: bool = False) -> bool:
@@ -232,11 +233,11 @@ class Engine:
             settings.trust_remote_code
             and not settings.local_files_only
             and not Path(settings.model).is_dir()
-            and not settings.revision
+            and not (settings.revision and _COMMIT_SHA_RE.fullmatch(settings.revision))
         ):
             raise ValueError(
                 "trust_remote_code=True for a remote Hugging Face repository requires "
-                "pinning --revision (commit SHA) or enabling --local-files-only."
+                "pinning --revision to a 40-character commit SHA or enabling --local-files-only."
             )
         self.device, self.dtype = resolve_device_dtype(torch, settings)
         self.lock = threading.Lock()

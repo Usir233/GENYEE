@@ -15,15 +15,24 @@ function isLoopbackHost(host) {
 
 function isSecureBaseUrl(baseUrl) {
   const normalized = normalizeBaseUrl(baseUrl);
-  if (!normalized) {
+  if (!normalized || /[\\\s]/.test(normalized)) {
     return false;
   }
-  const match = normalized.match(/^(https?):\/\/([^/:?#]+)(?::\d+)?(?:\/.*)?$/i);
+  const match = normalized.match(/^(https?):\/\/(\[[0-9a-f:]+\]|[^/:?#@\\]+)(?::(\d+))?(?:\/.*)?$/i);
   if (!match) {
     return false;
   }
   const scheme = match[1].toLowerCase();
   const host = match[2];
+  if (!host || host.startsWith(".") || host.includes("..")) {
+    return false;
+  }
+  if (match[3] !== undefined) {
+    const port = Number(match[3]);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      return false;
+    }
+  }
   if (scheme === "https") {
     return true;
   }

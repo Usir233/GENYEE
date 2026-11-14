@@ -320,6 +320,36 @@ var ipLikePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(?i)^\[[0-9a-f:]+\]$`),
 }
 
+// normalizeSSRFHostname canonicalizes FQDN trailing root dots ("localhost." ->
+// "localhost") and rejects empty DNS labels ("example..com", ".example.com", ".")
+// and control characters before any allowlist/blocklist evaluation or DNS lookup.
+func normalizeSSRFHostname(rawHostname string) (string, string) {
+	host := strings.ToLower(strings.TrimSpace(rawHostname))
+	if host == "" {
+		return "", "URL has no hostname"
+	}
+	if strings.HasPrefix(host, ".") || strings.Contains(host, "..") {
+		return "", fmt.Sprintf("invalid hostname with empty DNS label: %s", rawHostname)
+	}
+	host = strings.TrimRight(host, ".")
+	if host == "" {
+		return "", "URL has no hostname"
+	}
+	for _, r := range host {
+		if r <= 32 || r == 127 {
+			return "", "invalid control character in hostname"
+		}
+	}
+	if !strings.Contains(host, ":") {
+		for _, label := range strings.Split(host, ".") {
+			if label == "" {
+				return "", fmt.Sprintf("invalid hostname with empty DNS label: %s", rawHostname)
+			}
+		}
+	}
+	return host, ""
+}
+
 // isIPLikeHostname checks if a hostname looks like an IP address in any format
 // This catches obfuscation attempts like octal, hex, decimal, etc.
 func isIPLikeHostname(hostname string) bool {
@@ -365,12 +395,12 @@ func isSSRFSafeURLContext(ctx context.Context, rawURL string) (bool, string) {
 		return false, fmt.Sprintf("invalid scheme: %s (only http/https allowed)", scheme)
 	}
 
-	// Extract hostname
-	hostname := parsed.Hostname()
-	if hostname == "" {
-		return false, "URL has no hostname"
+	// Extract and canonicalize hostname (strip FQDN trailing dot & reject empty DNS labels)
+	hostname, hostErr := normalizeSSRFHostname(parsed.Hostname())
+	if hostErr != "" {
+		return false, hostErr
 	}
-	hostnameLower := strings.ToLower(hostname)
+	hostnameLower := hostname
 
 	// Check against restricted hostnames
 	for _, restricted := range restrictedHostnames {
@@ -565,27 +595,16 @@ var DangerousEnvVarPatterns = []*regexp.Regexp{
 // ValidateStdioCommand validates the command for MCP stdio transport
 // Returns an error if the command is not in the whitelist or contains dangerous patterns
 func ValidateStdioCommand(command string) error {
-	if command == "" {
+	trimmed := strings.TrimSpace(command)
+	if trimmed == "" {
 		return fmt.Errorf("command cannot be empty")
 	}
-
-	// Normalize command (extract base name if it's a path)
-	baseCommand := command
-	if strings.Contains(command, "/") {
-		parts := strings.Split(command, "/")
-		baseCommand = parts[len(parts)-1]
+	if strings.ContainsAny(trimmed, "/\\") || strings.Contains(trimmed, "..") {
+		return fmt.Errorf("command '%s' must be a bare executable name without path separators", SanitizeForLog(trimmed))
 	}
-
-	// Check against whitelist
-	if !AllowedStdioCommands[baseCommand] {
-		return fmt.Errorf("command '%s' is not in the allowed list. Allowed commands: uvx, npx, node, python, python3, deno, bun", baseCommand)
+	if !AllowedStdioCommands[trimmed] {
+		return fmt.Errorf("command '%s' is not in the allowed list. Allowed commands: uvx, npx", SanitizeForLog(trimmed))
 	}
-
-	// Additional check: command should not contain path traversal
-	if strings.Contains(command, "..") {
-		return fmt.Errorf("command path contains invalid characters")
-	}
-
 	return nil
 }
 
@@ -877,9 +896,13 @@ func SSRFSafeDialContext(ctx context.Context, network, addr string) (net.Conn, e
 		return nil, err
 	}
 	// Parse host and port
-	host, port, err := net.SplitHostPort(addr)
+	rawHost, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return nil, fmt.Errorf("invalid address %s: %w", addr, err)
+	}
+	host, hostErr := normalizeSSRFHostname(rawHost)
+	if hostErr != "" {
+		return nil, fmt.Errorf("connection blocked: %s", hostErr)
 	}
 
 	// Whitelisted hosts bypass all dial-time SSRF checks, consistent with
@@ -1080,8 +1103,8 @@ func parseSSRFWhitelistRaw(raw string) *ssrfWhitelistConfig {
 		}
 		// Wildcard domain: *.example.com
 		if strings.HasPrefix(entry, "*.") {
-			suffix := strings.ToLower(entry[1:]) // ".example.com"
-			if len(suffix) <= 1 {
+			suffix := strings.TrimRight(strings.ToLower(entry[1:]), ".") // ".example.com"
+			if len(suffix) <= 1 || strings.Contains(suffix, "..") {
 				log.Printf("[ssrf-whitelist] dropping bare wildcard entry %q (need *.<domain>)", entry)
 				continue
 			}
@@ -1097,7 +1120,9 @@ func parseSSRFWhitelistRaw(raw string) *ssrfWhitelistConfig {
 			continue
 		}
 		// Exact host or IP
-		cfg.exactHosts[strings.ToLower(entry)] = true
+		if normEntry, normErr := normalizeSSRFHostname(entry); normErr == "" {
+			cfg.exactHosts[normEntry] = true
+		}
 	}
 	return cfg
 }
@@ -1169,6 +1194,11 @@ func IsSSRFWhitelistedContext(ctx context.Context, hostname string) bool {
 	if ctx.Err() != nil {
 		return false
 	}
+	normHost, hostErr := normalizeSSRFHostname(hostname)
+	if hostErr != "" {
+		return false
+	}
+	hostname = normHost
 	// One read of the whitelist for the whole decision: SetSSRFWhitelistFromRaw
 	// can swap it between two loads, which would mix generations.
 	wl := loadSSRFWhitelist()
@@ -1205,7 +1235,10 @@ func whitelistedByName(wl *ssrfWhitelistConfig, hostname string) bool {
 	if wl == nil {
 		return false
 	}
-	lower := strings.ToLower(hostname)
+	lower, hostErr := normalizeSSRFHostname(hostname)
+	if hostErr != "" {
+		return false
+	}
 
 	// Exact match
 	if wl.exactHosts[lower] {
@@ -1382,9 +1415,9 @@ func ValidateURLForSSRFContext(ctx context.Context, rawURL string) error {
 		return fmt.Errorf("invalid URL: %w", err)
 	}
 
-	hostname := parsed.Hostname()
-	if hostname == "" {
-		return fmt.Errorf("URL has no hostname")
+	hostname, hostErr := normalizeSSRFHostname(parsed.Hostname())
+	if hostErr != "" {
+		return fmt.Errorf("SSRF validation failed: %s", hostErr)
 	}
 
 	// A whitelist relaxes host/IP restrictions only. It must never turn other

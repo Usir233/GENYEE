@@ -38,7 +38,6 @@ Available Commands:
 ```
 
 The wire contract for AI agents is documented [below](#wire-contract).
-For contributing to the CLI source, see [AGENTS.md](AGENTS.md).
 
 ---
 
@@ -138,10 +137,10 @@ For AI agents (any MCP-capable host) integrating GENYEE:
    ```json
    {"mcpServers": {"genyee": {"command": "genyee", "args": ["mcp", "serve"]}}}
    ```
-4. Read the [wire contract](AGENTS.md#wire-contract-for-ai-agents) before
+4. Read the [wire contract](#wire-contract) before
    parsing `--format json` output.
-5. Read the [exit-10 anti-patterns](AGENTS.md#exit-10-anti-patterns) before
-   any destructive call.
+5. Respect exit-code `10` (`input.confirmation_required`) before
+   retrying any destructive call.
 
 **Bundled Agent Skills.** This CLI ships [Agent Skills](https://agentskills.io/specification)
 under [`skills/`](skills/) that teach an agent to drive GENYEE without trial and error:
@@ -204,9 +203,8 @@ genyee auth logout --all
 
 Designed to be AI-agent-first. Stable across minor releases; breaking
 changes announced in the changelog and the corresponding
-`genyee --version` bump. This section is the human overview; the complete,
-authoritative contract (envelope field stability, error taxonomy, streaming,
-confirmation and dry-run protocols) lives in **[AGENTS.md](AGENTS.md)**.
+`genyee --version` bump. This section summarizes the envelope field stability, error taxonomy, streaming,
+confirmation, and dry-run protocols (use `genyee schema` and `genyee exit-codes` for machine-readable details).
 
 ### Streams
 
@@ -253,9 +251,7 @@ hint: run `genyee auth login`
 ```
 
 Under `--format json` the same failure is the typed error envelope on stderr
-(`{ok:false, error:{type, exit_code, hint?, retry_argv?, …}}`) — see
-[AGENTS.md §1.4](AGENTS.md) for the field-by-field contract and the full code
-taxonomy.
+(`{ok:false, error:{type, exit_code, hint?, retry_argv?, …}}`) — run `genyee exit-codes --format json` for the full code taxonomy.
 
 ### Exit codes
 
@@ -401,7 +397,7 @@ Pass `--modified-args '{"key":"value"}'` to replace tool arguments on approve (m
 
 Server-side buffer TTL: 1 hour for redis mode; process lifetime for memory mode (default). After TTL, expect `local.sse_stream_aborted` typed error.
 
-See `cli/AGENTS.md` "Stream recovery" section for the full agent contract.
+Use `genyee schema session resume` for the full machine-readable stream recovery contract.
 
 ---
 
@@ -454,9 +450,7 @@ macOS / Windows × Go 1.26, path-filtered to changes under `cli/`.
 - **Security disclosures**: see the repository-level
   [SECURITY.md](../SECURITY.md). Do not file public issues for
   security findings.
-- **Pull requests**: the developer guide for editing the CLI lives in
-  [AGENTS.md](AGENTS.md) (build / test / command-surface design SOP /
-  CRUD flag conventions). Run `go test ./... -race -count=1` and `go vet ./...`
+- **Pull requests**: run `go test ./... -race -count=1` and `go vet ./...`
   before submitting.
 
 ---

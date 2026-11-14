@@ -109,8 +109,12 @@ if [ "$STORAGE_TYPE" = "s3" ]; then
 fi
 
 echo ""
-log_info "Redis 配置:"
+log_info "Redis 与内部鉴权配置:"
 check_var "REDIS_ADDR"
+check_var "JWT_SECRET"
+if [ "${DOCREADER_ALLOW_UNAUTHENTICATED:-false}" != "true" ]; then
+    check_var "GRPC_AUTH_TOKEN"
+fi
 
 echo ""
 log_info "Ollama 配置:"
@@ -205,7 +209,7 @@ else
     echo ""
     log_info "常见问题："
     echo "  - 如果 .env 文件不存在，请复制 .env.example"
-    echo "  - 确保 DB_DRIVER 设置为 'postgres' 或 'mysql'"
+    echo "  - 确保 DB_DRIVER 设置为 'postgres' 或 'sqlite'"
     echo "  - 确保 Docker 服务正在运行"
 fi
 printf "%b\n" "${GREEN}========================================${NC}"

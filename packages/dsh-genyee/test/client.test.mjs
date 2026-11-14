@@ -140,3 +140,51 @@ test('an unreachable backend reports a transport failure', async () => {
   const client = new GenyeeClient(resolveConfig({ baseUrl: 'http://127.0.0.1:1/api/v1', requestTimeoutMs: 1000 }))
   await assert.rejects(client.listKnowledgeBases(never), GenyeeApiError)
 })
+
+test('blocks dot-segment and slash path traversal in document and session IDs before network I/O', async () => {
+  const { mock, client } = await harness({ apiKey: 'secret-key' }, { apiKey: 'secret-key' })
+  const before = mock.requests.length
+  for (const bad of ['', '   ', '.', '..', '../tenants/1/api-keys', 'a/b', 'a\\b', 'a?b=1', 'a#frag', 'a%2fb']) {
+    await assert.rejects(client.getDocument(bad, never), GenyeeApiError)
+    await assert.rejects(client.listChunks({ knowledgeId: bad, page: 1, pageSize: 10 }, never), GenyeeApiError)
+    await assert.rejects(
+      client.ask({ sessionId: bad, query: 'q', knowledgeBaseIds: [], agentId: undefined, webSearch: false }, never),
+      GenyeeApiError,
+    )
+  }
+  assert.equal(mock.requests.length, before)
+})
+
+test('refuses cross-origin redirects so X-API-Key and X-Tenant-ID never leak', async () => {
+  const http = await import('node:http')
+  let leakedHeaders = null
+  const evil = http.createServer((req, res) => {
+    leakedHeaders = req.headers
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end('{"data":[]}')
+  })
+  await new Promise(resolve => evil.listen(0, '127.0.0.1', resolve))
+  const evilPort = evil.address().port
+
+  const redirector = http.createServer((req, res) => {
+    res.writeHead(302, { Location: `http://127.0.0.1:${evilPort}/captured` })
+    res.end()
+  })
+  await new Promise(resolve => redirector.listen(0, '127.0.0.1', resolve))
+  const redirectPort = redirector.address().port
+
+  try {
+    const client = new GenyeeClient(
+      resolveConfig({
+        baseUrl: `http://127.0.0.1:${redirectPort}/api/v1`,
+        apiKey: 'sk-must-not-leak',
+        tenantId: '42',
+      }),
+    )
+    await assert.rejects(client.listKnowledgeBases(never), GenyeeApiError)
+    assert.equal(leakedHeaders, null, 'redirect target must never receive a request or API key')
+  } finally {
+    evil.close()
+    redirector.close()
+  }
+})

@@ -80,6 +80,39 @@ def test_safe_path_segment_allows_safe_identifiers():
     assert srv._safe_path_segment("wiki_page.v1", "slug") == "wiki_page.v1"
 
 
+def test_wiki_read_page_allows_hierarchical_slugs_and_blocks_cspt(monkeypatch):
+    client = srv.GENYEEClient("http://example.invalid/api/v1", "placeholder-key")
+    called_endpoints: list[str] = []
+
+    def fake_request(method, endpoint, **kwargs):
+        called_endpoints.append(f"{method} {endpoint}")
+        return {"data": {"slug": endpoint}}
+
+    monkeypatch.setattr(client, "_request", fake_request)
+    client.wiki_read_page("kb-001", "entity/acme-corp")
+    client.wiki_read_page("kb-001", "concept/rag architecture")
+    assert called_endpoints == [
+        "GET /knowledgebase/kb-001/wiki/pages/entity/acme-corp",
+        "GET /knowledgebase/kb-001/wiki/pages/concept/rag%20architecture",
+    ]
+
+    for bad_slug in (
+        "",
+        "/entity/acme",
+        "entity/acme/",
+        "entity//acme",
+        "entity/../tenants",
+        "../tenants/1/api-keys",
+        "entity\\acme",
+        "entity/acme?admin=1",
+        "entity/acme#frag",
+        "entity/acme%2f..%2fsecret",
+    ):
+        with pytest.raises(ValueError):
+            client.wiki_read_page("kb-001", bad_slug)
+    assert len(called_endpoints) == 2
+
+
 @pytest.mark.parametrize(
     "call_fn",
     [
@@ -220,6 +253,29 @@ def test_open_upload_file_nofollow_blocks_symlink_swap(monkeypatch, tmp_path):
     real_file.symlink_to(other_file)
     with pytest.raises(ValueError):
         open_upload_file_nofollow(resolved)
+
+    # Simulate TOCTOU replacement of an intermediate directory with a symlink
+    sub_dir = tmp_path / "nested"
+    sub_dir.mkdir()
+    nested_file = sub_dir / "report.txt"
+    nested_file.write_text("report", encoding="utf-8")
+    outside_dir = tmp_path.parent / f"outside_{tmp_path.name}"
+    outside_dir.mkdir(exist_ok=True)
+    (outside_dir / "report.txt").write_text("secret", encoding="utf-8")
+    try:
+        nested_resolved = resolve_upload_file_path(str(nested_file))
+        nested_file.unlink()
+        sub_dir.rmdir()
+        sub_dir.symlink_to(outside_dir, target_is_directory=True)
+        with pytest.raises(ValueError):
+            open_upload_file_nofollow(nested_resolved)
+    finally:
+        if sub_dir.is_symlink():
+            sub_dir.unlink()
+        if (outside_dir / "report.txt").exists():
+            (outside_dir / "report.txt").unlink()
+        if outside_dir.exists():
+            outside_dir.rmdir()
 
 
 # ---------------------------------------------------------------------------

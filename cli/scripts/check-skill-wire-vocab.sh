@@ -28,11 +28,14 @@ BANNED=(
 # CHANGELOG.md and README.md are deliberately NOT scanned. Both will name
 # legacy terms when recording a rename or writing upgrade notes for agents
 # moving between CLI versions; scanning them would guarantee a false positive.
-SCAN_TARGETS=(skills/ AGENTS.md)
+SCAN_TARGETS=(skills/)
+if [ -e AGENTS.md ] || [ -e ../.git ]; then
+  SCAN_TARGETS+=(AGENTS.md)
+fi
 
 # The v0.10 retry_command miss happened because the scan silently covered less
-# than the docs that needed covering. Fail loudly if a target disappears rather
-# than quietly shrinking coverage again.
+# than the docs that needed covering. Fail loudly if a target disappears in the
+# git repository rather than quietly shrinking coverage again.
 for target in "${SCAN_TARGETS[@]}"; do
   if [ ! -e "$target" ]; then
     echo "scan target '$target' does not exist — update SCAN_TARGETS" >&2

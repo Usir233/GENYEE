@@ -166,15 +166,55 @@ def resolve_upload_file_path(file_path: str) -> str:
     return resolved
 
 
+def _open_nofollow_from_root(anchor_root: str, target_path: str) -> int:
+    """Walk each relative component from ``anchor_root`` with ``O_NOFOLLOW`` so an
+    intermediate directory swapped to a symlink after validation cannot escape."""
+    rel = os.path.relpath(target_path, anchor_root)
+    parts = [p for p in rel.split(os.sep) if p and p != "."]
+    if not parts or any(p == ".." for p in parts):
+        raise ValueError("upload path escaped allowed root")
+
+    dir_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
+    file_flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+
+    cur_fd = os.open(anchor_root, dir_flags)
+    try:
+        for comp in parts[:-1]:
+            next_fd = os.open(comp, dir_flags, dir_fd=cur_fd)
+            os.close(cur_fd)
+            cur_fd = next_fd
+        return os.open(parts[-1], file_flags, dir_fd=cur_fd)
+    finally:
+        os.close(cur_fd)
+
+
 def open_upload_file_nofollow(resolved_path: str) -> BinaryIO:
-    """Open an already-validated upload path using ``O_NOFOLLOW`` + ``fstat``."""
+    """Open an already-validated upload path using component-wise ``O_NOFOLLOW`` + ``fstat``."""
     # Support unit tests that mock builtins.open on synthetic non-existent paths.
     if builtins.open is not io.open and hasattr(builtins.open, "_mock_name"):
         return builtins.open(resolved_path, "rb")
 
-    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    abs_target = os.path.abspath(resolved_path)
+    anchor_root: Optional[str] = None
+    if os.name == "posix" and hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW"):
+        try:
+            for root in _allowed_upload_roots():
+                try:
+                    common = os.path.commonpath([root, abs_target])
+                except ValueError:
+                    continue
+                if common == root and abs_target != root:
+                    anchor_root = root
+                    break
+        except ValueError:
+            anchor_root = None
+
     try:
-        fd = os.open(resolved_path, flags)
+        if anchor_root is not None:
+            fd = _open_nofollow_from_root(anchor_root, abs_target)
+        else:
+            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            fd = os.open(abs_target, flags)
     except OSError as exc:
         raise ValueError("unable to open upload file safely") from exc
 

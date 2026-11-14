@@ -1,11 +1,11 @@
-# Changelog — `weknora` CLI
+# Changelog — `genyee` CLI
 
-All notable changes to the `weknora` CLI (the binary under `cli/` in this
-repository) will be documented in this file.
+All notable changes to the `genyee` CLI (the binary under `cli/` in this
+repository; formerly `weknora` in pre-rebrand releases) will be documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and the CLI follows [Semantic Versioning](https://semver.org/) independently
-of the WeKnora server / frontend release cadence.
+of the GENYEE server / frontend release cadence.
 
 CLI history before v0.3 is recorded in the project root
 [CHANGELOG.md](../CHANGELOG.md) under the release that introduced the CLI.

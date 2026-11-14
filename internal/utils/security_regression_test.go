@@ -105,3 +105,41 @@ func TestCryptoRejectsPlaceholderKeysAndValidatesProductionSecrets(t *testing.T)
 		t.Fatalf("ValidateProductionJWTSecret() rejected valid 32-byte secret: %v", err)
 	}
 }
+
+func TestSSRFFQDNTrailingDotAndEmptyLabelBlockedBeforeDNS(t *testing.T) {
+	ResetSSRFWhitelistForTest()
+	defer ResetSSRFWhitelistForTest()
+
+	blocked := []string{
+		"http://localhost./admin",
+		"http://metadata.google.internal./computeMetadata/v1/",
+		"http://service.default.svc.cluster.local./api",
+		"http://127.0.0.1./",
+		"http://example..com/",
+		"http://.example.com/",
+		"http://./",
+	}
+	for _, rawURL := range blocked {
+		err := ValidateURLForSSRF(rawURL)
+		if err == nil {
+			t.Fatalf("expected %q to be blocked by ValidateURLForSSRF", rawURL)
+		}
+		if strings.Contains(err.Error(), "DNS resolution failed") {
+			t.Fatalf("expected %q to be rejected before DNS lookup, got: %v", rawURL, err)
+		}
+	}
+}
+
+func TestValidateStdioCommandRejectsArbitraryPaths(t *testing.T) {
+	if err := ValidateStdioCommand("npx"); err != nil {
+		t.Fatalf("expected bare npx to pass, got %v", err)
+	}
+	if err := ValidateStdioCommand("uvx"); err != nil {
+		t.Fatalf("expected bare uvx to pass, got %v", err)
+	}
+	for _, bad := range []string{"/tmp/evil/npx", "../npx", "C:\\evil\\uvx", "python3", "node"} {
+		if err := ValidateStdioCommand(bad); err == nil {
+			t.Fatalf("expected %q to be rejected by ValidateStdioCommand", bad)
+		}
+	}
+}

@@ -104,6 +104,8 @@ class DeliveryTests(unittest.TestCase):
     def test_homebrew_formula_linux_wrapper_execution(self):
         repo_root = Path(__file__).resolve().parent.parent.parent
         formula_path = repo_root / "Formula" / "genyee-lite.rb"
+        if not formula_path.exists():
+            self.skipTest("Formula/genyee-lite.rb is omitted in exported source archives")
         content = formula_path.read_text(encoding="utf-8")
 
         self.assertNotIn("sed -i ''", content)
