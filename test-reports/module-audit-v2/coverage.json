@@ -10,10 +10,10 @@
   "wave0_evidence_file": "test-reports/module-audit-v2/wave0-foundation.json",
   "legacy_ledger": "test-reports/module-audit-20261113/coverage.json",
   "summary": {
-    "total_tracked_files": 6504,
+    "total_tracked_files": 6518,
     "unit_count": 301,
-    "unit_files_total": 5982,
-    "support_files_total": 522,
+    "unit_files_total": 5992,
+    "support_files_total": 526,
     "uncovered_files": 0,
     "duplicate_files": 0,
     "stale_files": 0,
@@ -29,7 +29,7 @@
     },
     "files_by_wave": {
       "W1": 376,
-      "W2": 922,
+      "W2": 932,
       "W3": 1264,
       "W4": 170,
       "W5": 870,
@@ -38,10 +38,10 @@
       "W8": 470
     },
     "units_by_status": {
-      "pending": 204,
+      "pending": 188,
       "pending_reaudit": 77,
-      "verified_findings_fixed": 15,
-      "verified_no_findings": 5
+      "verified_findings_fixed": 29,
+      "verified_no_findings": 7
     },
     "units_by_legacy_status": {
       "audited": 36,
@@ -55,7 +55,7 @@
     "support_files_by_category": {
       "license_or_notice": 71,
       "historical_changelog_or_spec": 6,
-      "audit_ledger_or_archived_report": 76,
+      "audit_ledger_or_archived_report": 80,
       "static_binary_or_vendor_asset": 369
     }
   },
@@ -1210,7 +1210,7 @@
       "unit_id": "config",
       "wave": "W2",
       "legacy_status": "uncovered_in_v1",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 17,
       "tracked_files": [
         "config/agent_type_presets.yaml",
@@ -1231,16 +1231,22 @@
         "config/prompt_templates/rewrite.yaml",
         "config/prompt_templates/system_prompt.yaml"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Production defaults in config/config.yaml fail closed: enable_rbac defaults to enforced, enable_cross_tenant_access defaults to false, Langfuse tracing is absent/disabled unless explicitly configured, and SSRF/sandbox network defaults remain fail-closed.",
+        "Model catalog YAML/JSON definitions (model_catalog.yaml and provider catalogs) contain no embedded live credentials, internal host paths, or legacy weknora/wk_ identifiers.",
+        "Prompt templates and evaluation datasets under config/prompts/ contain no unsafe template execution directives or brand residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/config/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-router-mw.json"
     },
     {
       "unit_id": "internal/config",
       "wave": "W2",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 6,
       "tracked_files": [
         "internal/config/agent_prompts.go",
@@ -1250,26 +1256,44 @@
         "internal/config/config_read_test.go",
         "internal/config/oidc_pkce_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "YAML loading, environment variable interpolation (${VAR:-default}), duration parsing, and ValidateConfig enforce valid registration modes, default tenant modes, OIDC URLs, and positive numeric bounds.",
+        "Security-critical boolean environment overrides (GENYEE_TENANT_ENABLE_RBAC, OIDC_AUTH_PKCE_ENABLED, OIDC_AUTH_ENABLE, DISABLE_REGISTRATION, GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS, GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED) parse via strconv.ParseBool so standard truthy '1' values work and malformed strings log a warning and preserve safe prior/default values instead of failing open.",
+        "GENYEE_* environment variable naming is consistent with zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-01",
+          "severity": "P1",
+          "file": "internal/config/config.go:754-759, 919-967",
+          "summary": "applyOIDCEnvOverrides and applyAuthAndTenantDefaults parsed OIDC_AUTH_PKCE_ENABLED, OIDC_AUTH_ENABLE, DISABLE_REGISTRATION, GENYEE_TENANT_ENABLE_RBAC, and GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS with strings.EqualFold(value, 'true') instead of strconv.ParseBool, causing truthy '1' values or typos ('ture') to silently disable RBAC enforcement, OIDC PKCE, or invite-only registration.",
+          "regression_test": "TestApplyAuthAndTenantDefaults_EnableRBACFailsClosedOnTruthyOrInvalidEnv, TestOIDCPKCEEnvOverride",
+          "commit": "7302a633151dcbc70169d75472d51b04ae5695bd"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/config/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/config/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-router-mw.json"
     },
     {
       "unit_id": "internal/database",
       "wave": "W2",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 18,
+      "status": "verified_findings_fixed",
+      "file_count": 20,
       "tracked_files": [
         "internal/database/im_transport_migration_test.go",
         "internal/database/migration.go",
         "internal/database/migration_auth_token_sessions_test.go",
         "internal/database/migration_feishu_resync_test.go",
+        "internal/database/migration_parity_test.go",
         "internal/database/migration_postgres_agent_allowed_tools_test.go",
         "internal/database/migration_postgres_audit_actor_test.go",
         "internal/database/migration_postgres_mcp_oauth_test.go",
         "internal/database/migration_postgres_test.go",
+        "internal/database/migration_security_test.go",
         "internal/database/migration_source_test.go",
         "internal/database/migration_sqlite_agent_allowed_tools_test.go",
         "internal/database/migration_sqlite_automation_assistant_test.go",
@@ -1281,22 +1305,41 @@
         "internal/database/migration_sqlite_versioned_schema_test.go",
         "internal/database/migration_versions_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Database connection setup in NewDatabaseWithConfig enforces dialect-appropriate connection pooling (SetMaxOpenConns(1) on SQLite, configurable pool bounds on Postgres/MySQL), WAL journal mode, PRAGMA foreign_keys = ON, and PRAGMA busy_timeout = 5000 without logging raw DSNs.",
+        "RunMigrationsWithOptions and GetMigrationVersion redact URL userinfo credentials, percent-escaped/quoted secret variants, and password=... parameters before logging, returning errors, or caching currentMigrationError for /api/v1/system/info.",
+        "GetMigrationVersion constructs PostgreSQL URLs via net/url.URL + url.UserPassword + net.JoinHostPort so special characters (@, #, ?, /, %, :, newlines) in DB_USER/DB_PASSWORD/DB_NAME are safely percent-encoded rather than misparsed as hostnames or URL escapes.",
+        "SQLite migration runner selects file://migrations/sqlite whenever opts.SQLiteDBPath is set (even when dsn is empty), configures SetMaxOpenConns(1) and PRAGMA busy_timeout = 5000 on the migrator connection, closes driver/sqlDB handles on initialization errors, and clears stale cached migration version state on early open failures.",
+        "Zero raw SQL string-interpolation injection vectors in internal/database; full SQLite fresh-install, upgrade, and rollback paths verified under -race with zero weknora/knora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W2-DB-MIGRATIONS-01",
+          "severity": "P1",
+          "file": "internal/database/migration.go:52-79,106-145,195-244,302-326",
+          "summary": "RunMigrationsWithOptions logged and cached unsanitized migrate.New / driver errors (exposing raw DSN passwords containing % escapes, control characters, unescaped URL delimiters, or ?password= query params in logs and CachedMigrationError() surfaced by /api/v1/system/info), selected PostgreSQL migrations/versioned when opts.SQLiteDBPath was set with an empty dsn, leaked driver/sqlDB handles when migrate.NewWithDatabaseInstance failed, left stale cached migration versions on pre-version open failures, and GetMigrationVersion interpolated raw DB_USER/DB_PASSWORD into fmt.Sprintf URLs without URL encoding or error redaction.",
+          "regression_test": "TestRunMigrationsRedactsDSNCredentials, TestGetMigrationVersionEncodesAndRedactsCredentials, TestRunMigrationsSQLiteDBPathWithoutSQLiteDSNPrefixAndStateReset",
+          "commit": "27c99bedc4104058305ded4790a1a7b3e3f97bca"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/database/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json"
     },
     {
       "unit_id": "internal/handler",
       "wave": "W2",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 235,
+      "status": "verified_findings_fixed",
+      "file_count": 236,
       "tracked_files": [
         "internal/handler/agent_grant.go",
         "internal/handler/agent_prompt_test.go",
         "internal/handler/audit_log.go",
         "internal/handler/audit_log_test.go",
+        "internal/handler/audit_w2_handler_core_test.go",
         "internal/handler/auth.go",
         "internal/handler/auth_browser_preferences_test.go",
         "internal/handler/auth_change_password_test.go",
@@ -1529,16 +1572,76 @@
         "internal/handler/workspace_operations.go",
         "internal/handler/workspace_operations_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Multi-tenant, workspace, & API-key RBAC isolation: verified context-derived tenantID/userID/role enforcement across all 78 implementation handler files and 158 test files; verified KB/Document/Chunk/Tag/Wiki/Agent/Skill/Prompt/Automation/DataSource/IM/MCP/Model/Evaluation/Organization/APIKey/Credential/Storage handlers reject caller-spoofed tenant_id, enforce AuthorizeTenantAPIKeyKnowledgeBases / filterKnowledgeBasesForAPIKeyScope on KB-restricted API keys, hide cross-tenant async task probes via requireTaskProgressTenant, and avoid panicking on missing or malformed Gin/request context values.",
+        "Secret & credential redaction: verified HTTP responses redact stored secrets across tenant API keys (tenantAPIKeyForResponse), model/MCP/web-search/datasource credential subresources (Configured-only metadata), OAuth client secrets, storage backend credentials, and IM channel CRUD responses (im.SummarizeIMChannel / im.SummarizeIMChannels / ChannelWithAgent).",
+        "Input bounds, multipart/JSON body caps, file download headers, & SSRF defense: verified http.MaxBytesReader (limitUploadBody / limitJSONBody / limitSkillUploadBody) runs before multipart/JSON parsing across upload, skill zip, multimodal test, chunker preview, evaluation, and credential endpoints; verified Content-Disposition sanitization and zip path traversal checks; verified pagination clamping and utils.ValidateURLForSSRF on outbound URL import, VLM, model, MCP, datasource, and web-search endpoints.",
+        "Concurrency, streaming, & error handling: verified SSE/export/batch handlers honor request context cancellation, avoid raw internal/cross-tenant error leaks, and pass go test -race cleanly.",
+        "GENYEE rebrand & Swagger contract alignment: verified headers (X-API-Key, X-Request-ID), cookies, error envelopes, docs/swagger.json operation spec parity, and zero legacy brand or key-prefix residues across all 236 tracked files."
+      ],
+      "findings": [
+        {
+          "id": "W2-HANDLER-CORE-01",
+          "severity": "P1",
+          "file": "internal/handler/im.go",
+          "summary": "CreateIMChannel and UpdateIMChannel serialized raw *im.IMChannel structs in HTTP responses instead of im.SummarizeIMChannel(*channel), echoing decrypted plaintext bot credentials (and allowing stored secrets to be exfiltrated via a metadata-only PUT /im-channels/:id), while IM CRUD handlers accepted zero tenantID values when TenantIDContextKey was uint64(0).",
+          "regression_test": "TestAuditW2_IMCreateAndUpdateRedactCredentialsAndRequireNonZeroTenant",
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
+        },
+        {
+          "id": "W2-HANDLER-CORE-02",
+          "severity": "P1",
+          "file": "internal/handler/initialization.go",
+          "summary": "TestMultimodalFunction called c.ShouldBind(&req) on multipart/form-data before calling limitUploadBody(c, maxSize), allowing unbounded multipart uploads to buffer into memory and temporary disk files prior to MaxBytesReader enforcement and returning 400 instead of 413 on oversized uploads.",
+          "regression_test": "TestAuditW2_TestMultimodalFunctionCapsMultipartBeforeParse",
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
+        },
+        {
+          "id": "W2-HANDLER-CORE-03",
+          "severity": "P1",
+          "file": "internal/handler/evaluation.go",
+          "summary": "Evaluation and GetEvaluationResult lacked per-API-key KB scope enforcement (requireTenantAPIKeyKnowledgeBase), cross-tenant knowledge_base_id ownership verification, JSON body size limits, non-zero tenant context validation (panicking in MustTenantIDFromContext), and requireTaskProgressTenant guards (exposing cross-tenant task existence via 500 tenant mismatch errors).",
+          "regression_test": "TestAuditW2_EvaluationEnforcesTenantAndAPIKeyKBScope",
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
+        },
+        {
+          "id": "W2-HANDLER-CORE-04",
+          "severity": "P1",
+          "file": "internal/handler/datasource_credentials.go",
+          "summary": "DataSourceCredentialsHandler.ownDataSource verified workspace ownership of the parent KB but omitted requireTenantAPIKeyKnowledgeBase(ctx, ds.KnowledgeBaseID) (and Put lacked limitJSONBody), allowing a KB-restricted manage_datasources API key to overwrite or delete connector credentials on out-of-scope KBs in the same workspace.",
+          "regression_test": "TestAuditW2_DataSourceCredentialsEnforcesAPIKeyKBScope",
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
+        },
+        {
+          "id": "W2-HANDLER-CORE-05",
+          "severity": "P1",
+          "file": "internal/handler/knowledgebase.go",
+          "summary": "ListMoveTargets returned all same-type/same-embedding KBs in the tenant without filtering by TenantAPIKeyScope (leaking out-of-scope KB metadata to restricted retrieve keys), DuplicateKnowledgeBase omitted requireTenantAPIKeyKnowledgeBase and zero-tenant checks, and DeleteKnowledgeBase, ListMoveTargets, and MoveKnowledge (internal/handler/knowledge.go) used unchecked single-value .(uint64) type assertions on Gin context values.",
+          "regression_test": "TestAuditW2_KnowledgeBaseListMoveTargetsFiltersAPIKeyScopeAndTypeAssertSafety",
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
+        },
+        {
+          "id": "W2-HANDLER-CORE-06",
+          "severity": "P2",
+          "file": "internal/handler/chunker_debug.go",
+          "summary": "PreviewChunking bound JSON directly from an unbounded request body (accessible to any Viewer or retrieve API key), allowing multi-megabyte/gigabyte JSON payloads to buffer in memory before the 64k-character rune check executed.",
+          "regression_test": "TestAuditW2_PreviewChunkingCapsOversizedJSONStream",
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/handler/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/container/... ./internal/router/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/handler (exit 0)",
+        "GOMAXPROCS=2 go test -p 1 -count=1 ./internal/agent/operations (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-handler-core.json"
     },
     {
       "unit_id": "internal/handler/dto",
       "wave": "W2",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 15,
       "tracked_files": [
         "internal/handler/dto/auth.go",
@@ -1557,17 +1660,51 @@
         "internal/handler/dto/web_search_provider.go",
         "internal/handler/dto/web_search_provider_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Authoritative API-key scope gating in CanViewIntegrationSecrets and CanViewTenantAPIKey: when TenantAPIKeyScope is present on context, narrowed scopes and platform scopes never inherit Admin/Owner secret access from RoleFromContext.",
+        "Consistent tenant response redaction in NewTenantResponse, NewTenantResponseWithRole, and NewTenantResponsesCrossTenant: integration config blocks are redacted with RedactedSecretPlaceholder and exposed only to Admin+ members, full-access tenant API keys, or manage_tenant_settings API keys; cross-tenant listings force Viewer redaction.",
+        "Secret-by-construction omission in ModelResponse, MCPServiceResponse, WebSearchProviderResponse, and DataSourceResponse: API keys, OAuth tokens, and auth headers are excluded from response structs (exposing boolean CredentialFieldMetadata only), while internal BaseURL/URL/ProxyURL/Env/ExtraConfig details are stripped for non-admin Viewers and chat-only API keys.",
+        "AuthLoginResponse and AuthOIDCCallbackResponse sanitize embedded User.Tenant associations before JSON serialization so unredacted GORM Tenant fields never leak alongside redacted ActiveTenant/Tenant DTOs.",
+        "GENYEE JSON field contract consistency and zero weknora/knora/wk_ residues verified across all 15 files."
+      ],
+      "findings": [
+        {
+          "id": "W2-HANDLER-SESS-DTO-01",
+          "severity": "P1",
+          "file": "internal/handler/dto/role.go:16-42, internal/handler/dto/tenant.go:37-48",
+          "summary": "CanViewIntegrationSecrets checked RoleFromContext before TenantAPIKeyScopeFromContext, CanViewTenantAPIKey ignored TenantAPIKeyScopeFromContext, apiKeyCanManageIntegrationSecrets did not exclude platform scopes on FullAccess, and NewTenantResponse checked RoleFromContext instead of CanViewIntegrationSecrets (allowing narrowed scopes layered on Admin/Owner contexts to bypass scope restrictions while stripping redacted config blocks from manage_tenant_settings API keys).",
+          "regression_test": "TestCanViewIntegrationSecretsScopedAPIKeyOverridesAdminRole, TestCanViewIntegrationSecretsPlatformScopeRequiresCapability, TestTenantResponse_ManageTenantSettingsAPIKeyGetsRedactedConfigs, TestTenantResponse_NarrowedAPIKeyOmitsConfigsEvenWithOwnerRole",
+          "commit": "eba05e00fe87ff616fabda567cb2e8354301569e"
+        },
+        {
+          "id": "W2-HANDLER-SESS-DTO-02",
+          "severity": "P2",
+          "file": "internal/handler/dto/web_search_provider.go:42-51",
+          "summary": "NewWebSearchProviderResponse stripped ProxyURL and ExtraConfig for non-admin Viewers and chat-only API keys, but left Parameters.BaseURL exposed in plaintext, leaking private self-hosted search gateway endpoints (unlike ModelResponse and MCPServiceResponse).",
+          "regression_test": "TestWebSearchProviderResponse_ViewerStripsIntegrationDetail",
+          "commit": "eba05e00fe87ff616fabda567cb2e8354301569e"
+        },
+        {
+          "id": "W2-HANDLER-SESS-DTO-03",
+          "severity": "P2",
+          "file": "internal/handler/dto/auth.go:29-67",
+          "summary": "NewAuthLoginResponse and NewAuthOIDCCallbackResponse serialized resp.User directly without clearing an eager-loaded User.Tenant pointer, which would serialize unredacted Tenant integration secrets in plaintext alongside the redacted ActiveTenant/Tenant DTO.",
+          "regression_test": "TestAuthResponses_StripEmbeddedUserTenantSecrets",
+          "commit": "eba05e00fe87ff616fabda567cb2e8354301569e"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/handler/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/handler/dto/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-handler-sess.json"
     },
     {
       "unit_id": "internal/handler/session",
       "wave": "W2",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 94,
+      "status": "verified_findings_fixed",
+      "file_count": 95,
       "tracked_files": [
         "internal/handler/session/agent_stream_approval_test.go",
         "internal/handler/session/agent_stream_handler.go",
@@ -1642,6 +1779,7 @@
         "internal/handler/session/sandbox_terminal_idle_test.go",
         "internal/handler/session/sandbox_terminal_ws.go",
         "internal/handler/session/search_knowledge_resource_urls_test.go",
+        "internal/handler/session/security_hardening_test.go",
         "internal/handler/session/steer.go",
         "internal/handler/session/steer_delivery_test.go",
         "internal/handler/session/steer_live_run_test.go",
@@ -1664,16 +1802,68 @@
         "internal/handler/session/wiki_fixer_scope_test.go",
         "internal/handler/session/workspace_checkpoint_completion_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Strict session ownership and workspace isolation (GetOwnedSession vs read-scoped GetSession) enforced across KnowledgeQA, AgentQA, ContinueStream, StopSession, SteerMessage, PromoteSteerMessage, DeleteSteerMessage, ForkSession, RewindSession, GenerateTitle, Pin/Unpin, Update/Delete/BatchDelete/ClearSessionMessages, temporary document CRUD, artifact download/library/delete, background work list/get/cancel, sandbox terminal/desktop ticket & WS bridges, local browser skill controls, and HITL ResumeSuspendedRun.",
+        "Machine API-key boundaries enforced: API keys run in unattended non-suspendable mode, cannot bind host workspace directories (project_dir) or switch host-approval-mode to auto, cannot access personal local-browser extension controls via synthetic owner UserIDs, cannot mint interactive terminal/desktop WS tickets, cannot resume suspended interactive HITL runs, and must pass AuthorizeTenantAPIKeyKnowledgeTargets on both QA and mid-run SteerMessage @mentions.",
+        "Public embed and share link isolation verified: signed X-Embed-Session handles bind session + channel + tenant, public resource URL rewriters mint short-lived scoped tokens without exposing raw storage credentials, and shared-agent runs pin execution tenant without leaking lending-workspace model overrides, parser overrides, or upstream ASR endpoint details.",
+        "Bounded request bodies and pre-decode base64 checks enforced via http.MaxBytesReader across chat QA, SearchKnowledge, public embed / authenticated StopSession, SteerMessage, GenerateTitle, CreateSession, UpdateSession, BatchDeleteSessions, ForkSession, RewindSession, SetHostApprovalMode, BrowserSkillConnection/Account, UploadTemporaryDocument, and TranscribeVoiceInput.",
+        "SSE, WebSocket (terminal PTY and desktop RFB), and background/HITL lifecycles verified race-free under -race: bounded WS frame sizes (ReadLimit), periodic 60s live token/membership/ownership revalidation with immediate teardown on revocation, Redis/in-process desktop slot takeover & lease renewal without goroutine/timer leaks, and clean turn-lease/disconnect cancellation.",
+        "GENYEE contract consistency, preserved BrowserSkill reserved identifiers per REBRAND_RESERVED.md, and zero weknora/knora/wk_ residues verified across all 95 files."
+      ],
+      "findings": [
+        {
+          "id": "W2-HANDLER-SESS-01",
+          "severity": "P1",
+          "file": "internal/handler/session/host_approval_mode.go:84, internal/handler/session/handler.go:217, internal/handler/session/browserskill.go:133,203",
+          "summary": "Routes under /sessions accept chat-capable API keys (which middleware binds to the workspace owner's synthetic UserID), yet SetHostApprovalMode allowed API keys to switch host-approval-mode to 'auto', CreateSession allowed API keys to bind approved host project_dir paths, and BrowserSkillConnection allowed API keys (and userless contexts) to inspect/control the human owner's personal Chrome extension.",
+          "regression_test": "TestSetHostApprovalModeRejectsAPIKey, TestCreateSessionRejectsProjectDirForAPIKey, TestBrowserSkillConnectionRejectsAPIKeyAndUnauthenticatedUser",
+          "commit": "c07ba32a268e6212886035f03f5f6bd32c2f58b6"
+        },
+        {
+          "id": "W2-HANDLER-SESS-02",
+          "severity": "P1",
+          "file": "internal/handler/session/stream.go:254-309, internal/handler/session/qa.go:933,1070, internal/handler/session/steer.go:498, internal/handler/session/title.go:52, internal/handler/session/handler.go:188,406,552, internal/handler/session/fork.go:64, internal/handler/session/rewind.go:63",
+          "summary": "StopSession (reachable anonymously via public /embed/:channel_id/sessions/:session_id/stop), SearchKnowledge, SteerMessage, GenerateTitle, CreateSession, UpdateSession, BatchDeleteSessions, ForkSession, and RewindSession called ShouldBindJSON without http.MaxBytesReader (and decodeQueryImage decoded arbitrary-size base64 before checking maxQueryImageBytes); StopSession also called read-scoped GetMessage before GetOwnedSession, used an unchecked tenantID.(uint64) assertion, and lacked a nil-message guard.",
+          "regression_test": "TestStopSessionRejectsOversizedBodyAndEnforcesOwnershipBeforeMessageLookup, TestSearchKnowledgeRejectsOversizedBody, TestSessionJSONEndpointsRejectOversizedBodies",
+          "commit": "c07ba32a268e6212886035f03f5f6bd32c2f58b6"
+        },
+        {
+          "id": "W2-HANDLER-SESS-03",
+          "severity": "P1",
+          "file": "internal/handler/session/resume.go:47-55,151-180",
+          "summary": "ResumeSuspendedRun lacked a nil-prompt guard, and buildResumeRequest loaded the target session via read-scoped GetSession instead of strict GetOwnedSession without rejecting API-key callers or verifying prompt/caller tenant binding, allowing read-only admin visibility on non-owned sessions to satisfy session lookup during HITL resume.",
+          "regression_test": "TestBuildResumeRequestEnforcesSessionOwnershipTenantAndRejectsAPIKey",
+          "commit": "c07ba32a268e6212886035f03f5f6bd32c2f58b6"
+        },
+        {
+          "id": "W2-HANDLER-SESS-04",
+          "severity": "P2",
+          "file": "internal/handler/session/handler.go:348-352",
+          "summary": "GetSessionsByTenant wrapped all ListSessions errors in 500 Internal Server Error, masking typed 403 Forbidden (non-admin source filter) and 400 Bad Request AppErrors returned by sessionService.ListSessions.",
+          "regression_test": "TestGetSessionsByTenantPreservesAppErrorStatus",
+          "commit": "c07ba32a268e6212886035f03f5f6bd32c2f58b6"
+        },
+        {
+          "id": "W2-HANDLER-SESS-05",
+          "severity": "P2",
+          "file": "internal/handler/session/steer.go:530,680, internal/handler/session/voice_input.go:119,128, internal/handler/session/temporary_document.go:30-205, internal/handler/session/artifact_delete.go:126",
+          "summary": "SteerMessage neither rejected SessionKindAgentDelegated nor enforced AuthorizeTenantAPIKeyKnowledgeTargets on @mentioned KB/knowledge items; TranscribeVoiceInput attached raw upstream ASR err.Error() via WithDetails (exposing internal/shared-workspace ASR endpoints in HTTP error responses); temporary_document handlers read c.GetUint64('tenant_id') instead of session.TenantID without nil-service guards; and deleteArtifact called MustTenantIDFromContext (panicking if tenant context key was absent).",
+          "regression_test": "TestSteerMessageRejectsDelegatedSessionAndOutOfScopeAPIKeyMentions, TestTranscribeVoiceInputRedactsUpstreamErrorDetails, TestTemporaryDocumentAndArtifactDeleteUseSessionTenantWithoutPanic",
+          "commit": "c07ba32a268e6212886035f03f5f6bd32c2f58b6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/handler/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/handler/session/... ./internal/handler/dto/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/handler -run 'TestEmbed|TestTenant|TestWebSearchProvider|TestAuth|TestModelCatalog|TestSettings' (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-handler-sess.json"
     },
     {
       "unit_id": "internal/logger",
       "wave": "W2",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 4,
       "tracked_files": [
         "internal/logger/llm_logger.go",
@@ -1681,17 +1871,33 @@
         "internal/logger/logger.go",
         "internal/logger/logger_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "CustomFormatter sanitizes control characters (CR, LF, ESC, NUL, DEL) out of request_id and caller tokens across both default and custom GENYEE_LOG_FORMAT templates, preventing log-line forging and terminal escape injection.",
+        "LLM debug logging keeps directory permissions 0700 and file permissions 0600, confines request_id filenames inside llm_debug via strict identifier allowlisting, and synchronizes enabled/dir state under llmDebug.mu without data races.",
+        "Context cloning (CloneContext / CloneContextWithoutTrace) preserves Principal, TenantAPIKeyScope, SandboxTenantID, MemoryAllowedForAgent, BackgroundTask, and NonInteractiveOAuth markers, and ErrorWithFields clones caller-supplied logrus.Fields maps rather than mutating them in-place."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-02",
+          "severity": "P2",
+          "file": "internal/logger/llm_logger.go:23-51, 85-105; internal/logger/logger.go:99-101, 169-177, 504-512",
+          "summary": "configureLLMDebugLog wrote llmDebug.dir/enabled without holding llmDebug.mu while LLMDebugEnabled/LLMDebugLog read llmDebug.enabled unlocked (triggering a data race under -race and failing to disable on LLM_DEBUG_LOG=false reconfigure); CustomFormatter.Format emitted unsanitized CR/LF/ESC bytes from request_id; and ErrorWithFields mutated caller-owned logrus.Fields maps in-place.",
+          "regression_test": "TestLLMDebugConcurrentConfigureAndLog, TestFormat_SanitizesRequestIDControlChars, TestErrorWithFieldsDoesNotMutateCallerMap",
+          "commit": "79587b586094a9d4381cc7275787b34cc2eae167"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/logger/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/logger/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-router-mw.json"
     },
     {
       "unit_id": "internal/middleware",
       "wave": "W2",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
-      "file_count": 38,
+      "status": "verified_findings_fixed",
+      "file_count": 39,
       "tracked_files": [
         "internal/middleware/access.go",
         "internal/middleware/access_test.go",
@@ -1730,18 +1936,52 @@
         "internal/middleware/rbac_audit_test.go",
         "internal/middleware/rbac_test.go",
         "internal/middleware/recovery.go",
+        "internal/middleware/recovery_test.go",
         "internal/middleware/ws_auth.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "JWT, InternalDispatch, X-API-Key (workspace and platform), EmbedAuth, and MCPEndpointAuth re-verify workspace membership/revocation, scope capabilities, origin/Sec-Fetch-Site CSRF guards, and inactive/disabled/suspended workspace status consistently while preserving tenant-optional identity escape routes and system-admin/platform-key inspection.",
+        "RBAC RequireRole and APIKeyRouteGate enforce viewer/contributor/editor/admin/owner/system_admin floors and default-deny undeclared routes for machine API keys.",
+        "Access logger bounds request body peeks to maxBodySize+1 without consuming downstream streams, skips secret/vault/credential route bodies entirely, redacts sensitive JSON/form/header/query fields (including presigned sig/signature, ticket, code, api_key, client_secret, password), and validates X-Request-ID against header/log injection.",
+        "Panic Recovery middleware logs full stack traces server-side while returning generic HTTP 500 messages without leaking panic strings, DSNs, or internal addresses to clients."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-03",
+          "severity": "P1",
+          "file": "internal/middleware/recovery.go:19-34",
+          "summary": "Recovery() serialized raw fmt.Sprintf('%v', err) from panics directly into external HTTP 500 JSON responses (leaking internal SQL/DSN/secret strings on panic) and read dead c.Get('RequestID') instead of types.RequestIDContextKey.",
+          "regression_test": "TestRecovery_DoesNotLeakPanicDetailsToClient",
+          "commit": "c7eb65cad4b5c82a302a77858a584d41b50c9c13"
+        },
+        {
+          "id": "W2-ROUTER-MW-04",
+          "severity": "P1",
+          "file": "internal/middleware/auth.go:283-295, 415-418, 549-569; internal/middleware/embed_auth.go:149-155; internal/middleware/mcp_endpoint_auth.go:54",
+          "summary": "Unlike MCPEndpointAuth, JWT/InternalDispatch Auth, workspace API-key Auth, and EmbedAuth did not reject inactive/disabled/suspended workspaces (allowing continued API, embed, and workspace-key access to deactivated tenants), and attachAPIKeyAuthContext lacked a nil-tenant guard before dereferencing t.",
+          "regression_test": "TestAuthRejectsInactiveWorkspaceWhileAllowingTenantlessEscapeAndSuperuser, TestEmbedAuthRejectsInactiveWorkspace",
+          "commit": "c7eb65cad4b5c82a302a77858a584d41b50c9c13"
+        },
+        {
+          "id": "W2-ROUTER-MW-05",
+          "severity": "P2",
+          "file": "internal/middleware/logger.go:470-483, 570-580",
+          "summary": "sanitizeQuery omitted presigned URL HMAC parameters (sig, signature) and query secret keys (api_key, apikey, client_secret, secret, password) from access-log redaction, and RequestID() echoed arbitrary unvalidated X-Request-ID headers without length or visible-ASCII checks.",
+          "regression_test": "TestSanitizeQueryRedactsPresignedSigAndQuerySecrets, TestRequestIDRejectsControlCharsAndOversizedValues",
+          "commit": "c7eb65cad4b5c82a302a77858a584d41b50c9c13"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/middleware/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/middleware/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-router-mw.json"
     },
     {
       "unit_id": "internal/middleware/asynqdl",
       "wave": "W2",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 5,
       "tracked_files": [
         "internal/middleware/asynqdl/asynqdl.go",
@@ -1750,16 +1990,32 @@
         "internal/middleware/asynqdl/recover_test.go",
         "internal/middleware/asynqdl/worker_semantics_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Dead-letter middleware records terminal failures (SkipRetry or exhausted retries) while ignoring RevokeTask and transient retries, forwarding original handler errors unchanged.",
+        "Corrupt/non-UTF-8/malformed-JSON task payloads are safely base64-wrapped into valid UTF-8 JSON objects and invalid UTF-8 error strings are sanitized before rune-boundary truncation so PostgreSQL JSONB / MySQL JSON inserts never drop dead-letter rows.",
+        "RecoverMiddleware, CallRecovered, and safeInvokeCallback convert panics to errors without panicking on nil *asynq.Task pointers."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-06",
+          "severity": "P2",
+          "file": "internal/middleware/asynqdl/asynqdl.go:91, 109, 159-174, 235-238; internal/middleware/asynqdl/recover.go:31-32",
+          "summary": "buildDeadLetter stored raw malformed/binary payloads directly in json.RawMessage and truncateError did not sanitize invalid UTF-8 bytes in short errors (causing json.Marshal and PostgreSQL JSONB / MySQL JSON inserts to fail and drop the dead-letter row); CallRecovered and safeInvokeCallback also dereferenced nil *asynq.Task on panic.",
+          "regression_test": "TestMiddleware_MalformedPayloadAndInvalidUTF8Error_StayDBInsertable, TestCallRecovered_NilTaskDoesNotPanic",
+          "commit": "64aca7867c4bcb4fc806538bfb5196ce6043559d"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/middleware/asynqdl/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/middleware/asynqdl/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-router-mw.json"
     },
     {
       "unit_id": "internal/ratelimit",
       "wave": "W2",
       "legacy_status": "audited_fixed_validated",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 4,
       "tracked_files": [
         "internal/ratelimit/cleanup_race_test.go",
@@ -1767,16 +2023,22 @@
         "internal/ratelimit/limiter_security_test.go",
         "internal/ratelimit/limiter_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Sliding-window per-minute Limiter and UTC per-day DailyLimiter enforce Redis Lua ZSET/INCR atomicity and fall back cleanly to bounded mutex-guarded in-memory counters when Redis is nil or unreachable.",
+        "Zero/negative maxPerMinute and maxPerDay values disable limiting as documented (unlimited), and background sweep loops bound in-memory map growth without data races under -race."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/ratelimit/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/ratelimit/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-router-mw.json"
     },
     {
       "unit_id": "internal/router",
       "wave": "W2",
       "legacy_status": "partially_audited",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 52,
       "tracked_files": [
         "internal/router/background_routes_test.go",
@@ -1832,17 +2094,42 @@
         "internal/router/task_inspector_runtime_test.go",
         "internal/router/task_processing_scope_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Every state-mutating and sensitive route across router.go and routes_*.go sits behind middleware.Auth (or dedicated EmbedAuth / MCPEndpointAuth / presigned HMAC / capability grant / BrowserSkill device-cluster auth), workspace RBAC guards (Viewer/Contributor/Editor/Admin/Owner/SystemAdmin), and APIKeyRouteGate policy assertions (assertAPIKeyPoliciesMatchRoutes + assertOperationRoutesExist).",
+        "trustedProxies defaults to loopback (127.0.0.0/8, ::1/128), skips malformed GENYEE_TRUSTED_PROXIES entries, and applyTrustedProxies fails closed to direct peer IP (SetTrustedProxies(nil)) if Gin rejects the list so X-Forwarded-For can never spoof ClientIP() for rate limiters.",
+        "buildCORSConfig disables AllowCredentials whenever wildcard '*' or empty allowlists apply, and rejects 'null' or non-http(s) malformed origins so sandboxed iframes cannot obtain credentialed CORS reflection and gin-contrib/cors never panics at startup.",
+        "File proxy surfaces (/files, KB files, message files, /api/v1/files/presigned, /api/v1/files/presigned-preview, /r/:token) enforce tenant path/resource ownership, constant-time HMAC signature verification, attachment Content-Disposition on active browser content, and redact internal storage backend errors."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-07",
+          "severity": "P1",
+          "file": "internal/router/router.go:117-119, 338-395",
+          "summary": "r.SetTrustedProxies(trustedProxies()) logged errors without clearing Gin's default 0.0.0.0/0 trust list when GENYEE_TRUSTED_PROXIES contained any malformed IP/CIDR (failing open to X-Forwarded-For ClientIP spoofing across public rate limiters), and buildCORSConfig accepted 'null' and non-http(s) origins (risking credentialed null-origin CORS reflection or startup panics in cors.New).",
+          "regression_test": "TestTrustedProxiesSkipsMalformedEntriesAndNeverFailsOpen, TestBuildCORSConfigRejectsNullAndMalformedOriginsWithoutPanicking",
+          "commit": "6b363b7798426d1358ca74f08da0f342354c13ab"
+        },
+        {
+          "id": "W2-ROUTER-MW-08",
+          "severity": "P2",
+          "file": "internal/router/files.go:666-696",
+          "summary": "servePresignedPreview discarded resolvedPath from resolveCatalogResource and passed raw 'resource://...' references to parseStorageTarget (failing every own-tenant resource preview with 400 'empty provider' and missing ResourceCatalogFileService wrapping when storageResolver was nil), and returned raw internal storage/signing err.Error() strings in HTTP JSON responses.",
+          "regression_test": "TestPresignedPreviewResolvesOwnTenantResourceAndRedactsInternalErrors",
+          "commit": "6b363b7798426d1358ca74f08da0f342354c13ab"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/router/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/router/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-router-mw.json"
     },
     {
       "unit_id": "internal/utils",
       "wave": "W2",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 46,
+      "status": "verified_findings_fixed",
+      "file_count": 47,
       "tracked_files": [
         "internal/utils/crypto.go",
         "internal/utils/crypto_test.go",
@@ -1853,6 +2140,7 @@
         "internal/utils/filesize.go",
         "internal/utils/filesize_test.go",
         "internal/utils/fileutil.go",
+        "internal/utils/fileutil_test.go",
         "internal/utils/httputil.go",
         "internal/utils/httputil_test.go",
         "internal/utils/import_filetypes.go",
@@ -1891,47 +2179,94 @@
         "internal/utils/taskid.go",
         "internal/utils/taskid_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "AES-256-GCM encryption (crypto.go) enforces key derivation/length bounds, fresh cryptographic random nonces, and preserves the intentional negative security check rejecting legacy default 'weknora-system-aes-key*' secrets.",
+        "Presigned file URL signing (presign.go) enforces HMAC-SHA256 with hmac.Equal constant-time comparison, unix expiry validation, and canonical path/tenant binding.",
+        "SSRF and network validators (security.go, net_guard.go, url_validator.go) fail closed on loopback, RFC1918, link-local/cloud-metadata, CGNAT, multicast, unspecified IPs, DNS rebinding via dial-time Control hooks, and cross-origin redirect hops.",
+        "Archive/path helpers and browser content-type guards (fileutil.go) block path traversal, active same-origin scripting extensions (including .svg/.html/.xhtml/.shtml/.mht/.mhtml/.xml/.xsl/.xslt/.rdf/.mathml/.js/.mjs/.css/.swf), directory-dot confusion, and trailing-dot/space extension bypasses."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-09",
+          "severity": "P2",
+          "file": "internal/utils/fileutil.go:9-23, 73-84",
+          "summary": "IsActiveBrowserContentExt omitted active browser document/script formats (.shtml, .mht, .mhtml, .xsl, .xslt, .rdf, .mathml, .swf) and SafeContentTypeByFilename neither isolated the path basename nor stripped trailing dots/spaces (allowing 'payload.svg.' or 'payload.html ' to bypass inline Content-Disposition blocking).",
+          "regression_test": "TestSafeContentTypeByFilename_BlocksActiveBrowserContentAndDirectoryDots",
+          "commit": "dadedb929d2be29555fb052f3471a430b042e450"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/utils/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/utils/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-router-mw.json"
     },
     {
       "unit_id": "migrations/mysql",
       "wave": "W2",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 2,
       "tracked_files": [
         "migrations/mysql/00-init-db.sql",
         "migrations/mysql/README.md"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "MySQL bootstrap script drops all created tables (chunk_revisions, chunks, message_suggestion_events, message_suggestion_sets, messages, sessions, knowledges, knowledge_bases, models, tenants) in child-before-parent foreign-key order so re-execution succeeds cleanly.",
+        "Tenant-scoped tables define tenant_id columns and composite lookup/unique keys with AUTO_INCREMENT=10000 on tenants and zero weknora/knora/wk_ residues across SQL and README."
+      ],
+      "findings": [
+        {
+          "id": "W2-DB-MIGRATIONS-05",
+          "severity": "P2",
+          "file": "migrations/mysql/00-init-db.sql:1-7",
+          "summary": "migrations/mysql/00-init-db.sql omitted DROP TABLE IF EXISTS for chunk_revisions, message_suggestion_events, and message_suggestion_sets (which holds an InnoDB FOREIGN KEY from message_suggestion_events), causing script re-execution to fail with Table already exists / FK errors.",
+          "regression_test": "TestBootstrapSQLIdempotencyInvariants",
+          "commit": "9db21ec6be388ca5c150d8505ef11b18dfca3c02"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/database/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json"
     },
     {
       "unit_id": "migrations/paradedb",
       "wave": "W2",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 2,
       "tracked_files": [
         "migrations/paradedb/00-init-db.sql",
         "migrations/paradedb/01-migrate-to-paradedb.sql"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "ParadeDB bootstrap DDL creates required extensions (uuid-ossp, vector, pg_trgm, pg_search), core tables, BM25 chinese_lindera index, and named IF NOT EXISTS HNSW halfvec indexes (3584, 798, 1024) idempotently.",
+        "tenants_id_seq initialization guards against resetting sequences already >= 10000 on re-execution, matching PostgreSQL 000000_init.up.sql, with zero weknora/knora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W2-DB-MIGRATIONS-04",
+          "severity": "P2",
+          "file": "migrations/paradedb/00-init-db.sql:27,219-220",
+          "summary": "migrations/paradedb/00-init-db.sql unconditionally executed ALTER SEQUENCE tenants_id_seq RESTART WITH 10000 (resetting active tenant ID sequences on re-run) and created unnamed HNSW indexes without IF NOT EXISTS while omitting dimension 1024.",
+          "regression_test": "TestBootstrapSQLIdempotencyInvariants",
+          "commit": "9db21ec6be388ca5c150d8505ef11b18dfca3c02"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/database/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json"
     },
     {
       "unit_id": "migrations/sqlite",
       "wave": "W2",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 108,
+      "status": "verified_findings_fixed",
+      "file_count": 110,
       "tracked_files": [
         "migrations/sqlite/000000_init.down.sql",
         "migrations/sqlite/000000_init.up.sql",
@@ -2040,19 +2375,38 @@
         "migrations/sqlite/000052_credential_vault.down.sql",
         "migrations/sqlite/000052_credential_vault.up.sql",
         "migrations/sqlite/000053_auth_token_sessions.down.sql",
-        "migrations/sqlite/000053_auth_token_sessions.up.sql"
+        "migrations/sqlite/000053_auth_token_sessions.up.sql",
+        "migrations/sqlite/000054_index_parity.down.sql",
+        "migrations/sqlite/000054_index_parity.up.sql"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Contiguous SQLite migration sequence 000000..000054 (110 files) with 100% .up.sql/.down.sql pairing, verified end-to-end on fresh SQLite databases, v53->v54 upgrades with pre-existing duplicate rows, and v54->v53->v54 rollbacks/re-applies.",
+        "Cumulative SQLite table, column, and partial unique/lookup index state matches cumulative PostgreSQL migrations across im_channel_sessions, tenant_members, organizations, kb_shares, agent_shares, and resources.",
+        "Multi-agent IM sessions coexist per (platform, user_id, chat_id, tenant_id, agent_id) and per thread, soft-deleted tenant_members can rejoin workspaces without UNIQUE constraint failures, active invite_code / kb_shares / agent_shares uniqueness is enforced, and EXPLAIN QUERY PLAN uses idx_resources_tenant_content_hash for tenant content-hash deduplication queries.",
+        "Builtin assistant seeds use builtin-genyee-assistant and zero weknora/knora/wk_ residues exist across all 110 SQLite migration files."
+      ],
+      "findings": [
+        {
+          "id": "W2-DB-MIGRATIONS-03",
+          "severity": "P1",
+          "file": "migrations/sqlite/000000_init.up.sql:357-358,598-601,629-633,673-677,705-710",
+          "summary": "SQLite 000000_init omitted agent_id from im_channel_sessions unique indexes idx_channel_lookup and idx_channel_thread_lookup (breaking multi-agent IM routing with UNIQUE constraint failed), omitted WHERE deleted_at IS NULL on idx_tenant_members_user_tenant_unique (blocking re-invitation/re-entry of soft-deleted workspace members), and omitted partial unique/lookup indexes idx_organizations_invite_code, idx_kb_shares_kb_org, idx_agent_shares_agent_org, and idx_resources_tenant_content_hash.",
+          "regression_test": "TestSQLiteCrossDialectIndexParity, TestSQLiteUpgradeFromV53DedupesAndRollsBackCleanly",
+          "commit": "9db21ec6be388ca5c150d8505ef11b18dfca3c02"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/database/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json"
     },
     {
       "unit_id": "migrations/versioned",
       "wave": "W2",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 276,
+      "status": "verified_findings_fixed",
+      "file_count": 278,
       "tracked_files": [
         "migrations/versioned/000000_init.down.sql",
         "migrations/versioned/000000_init.up.sql",
@@ -2329,12 +2683,31 @@
         "migrations/versioned/000136_credential_vault.down.sql",
         "migrations/versioned/000136_credential_vault.up.sql",
         "migrations/versioned/000137_auth_token_sessions.down.sql",
-        "migrations/versioned/000137_auth_token_sessions.up.sql"
+        "migrations/versioned/000137_auth_token_sessions.up.sql",
+        "migrations/versioned/000138_principal_widths_and_org_join_index.down.sql",
+        "migrations/versioned/000138_principal_widths_and_org_join_index.up.sql"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Contiguous PostgreSQL migration sequence 000000..000138 (278 files) with 100% .up.sql/.down.sql pairing and zero duplicate version numbers verified via golang-migrate source loader.",
+        "Cumulative PostgreSQL table and column state matches GORM models/repositories and cumulative SQLite schema across all application tables (accounting for engine-specific pgvector/ParadeDB embeddings vs sqlite-vec).",
+        "All Principal.StorageID() columns (sessions.user_id, mcp_oauth_tokens.principal_id, memory_*.subject_id, tenant_user_env_vars.principal_id, sandbox_user_machines.owner_id, agent_prompts.user_id, agent_prompts.resolved_by, agent_grants.user_id, mcp_metadata.principal) accommodate >=512-char synthetic embed_session / embed_visitor / api_external_user / im_user principals without SQLSTATE 22001 truncation failures.",
+        "Multi-tenant scoping and uniqueness constraints isolate per-tenant resources, pending organization join requests are keyed per (organization_id, tenant_id, request_type) without legacy per-user cross-workspace collisions, organizations.invite_code partial uniqueness ignores empty strings, builtin assistant IDs use builtin-genyee-assistant, and zero weknora/knora/wk_ residues exist."
+      ],
+      "findings": [
+        {
+          "id": "W2-DB-MIGRATIONS-02",
+          "severity": "P1",
+          "file": "migrations/versioned/000119_agent_prompts.up.sql:10,21, migrations/versioned/000127_agent_grants.up.sql:6, migrations/versioned/000092_mcp_metadata.up.sql:6, migrations/versioned/000045_org_tenant_members.up.sql:128, migrations/versioned/000012_organizations.up.sql:23,97",
+          "summary": "PostgreSQL agent_prompts.user_id and resolved_by were VARCHAR(64), agent_grants.user_id was VARCHAR(128), and mcp_metadata.principal was VARCHAR(255) despite storing Principal.StorageID() values (93+ chars for every embed_session:<tenant>:<channelUUID>:<sessionUUID> tool-approval/prompt flow and 167-190+ chars for api_external_user / im_user / embed_visitor principals, causing deterministic SQLSTATE 22001 failures on PostgreSQL); additionally 000045_org_tenant_members left behind legacy idx_org_join_requests_org_user_pending blocking multi-workspace users from having pending join requests from two tenants to the same org, and idx_organizations_invite_code did not exclude empty-string invite_code values.",
+          "regression_test": "TestPostgresPrincipalWidthsAndOrgJoinRequestIndexMigration",
+          "commit": "9db21ec6be388ca5c150d8505ef11b18dfca3c02"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/database/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json"
     },
     {
       "unit_id": "internal/application/access",
@@ -10617,6 +10990,10 @@
       "test-reports/module-audit-v2/evidence/w1-localsandbox.json",
       "test-reports/module-audit-v2/evidence/w1-mcp.json",
       "test-reports/module-audit-v2/evidence/w1-sandbox.json",
+      "test-reports/module-audit-v2/evidence/w2-db-migrations.json",
+      "test-reports/module-audit-v2/evidence/w2-handler-core.json",
+      "test-reports/module-audit-v2/evidence/w2-handler-sess.json",
+      "test-reports/module-audit-v2/evidence/w2-router-mw.json",
       "test-reports/module-audit-v2/verify_ledger.py",
       "test-reports/module-audit-v2/wave0-foundation.json",
       "test-reports/screenshots/01_login_page.png",

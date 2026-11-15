@@ -4,11 +4,11 @@
   "base_commit": "40dd21fcf14dba45678bb6942bff427aec7d810c",
   "commits": [
     {
-      "sha": "0c4e0ed6d6d1e0f39d9e9df0714a93de3a97678d",
+      "sha": "27c99bedc4104058305ded4790a1a7b3e3f97bca",
       "subject": "fix(database): redact migration DSN credentials and harden SQLite migrator"
     },
     {
-      "sha": "88462961edef0aee56c05bbd21a98f316735e8ac",
+      "sha": "9db21ec6be388ca5c150d8505ef11b18dfca3c02",
       "subject": "fix(migrations): align cross-dialect unique indexes, principal widths, and bootstrap DDL"
     }
   ],
@@ -54,7 +54,7 @@
           "file": "internal/database/migration.go:52-79,106-145,195-244,302-326",
           "summary": "RunMigrationsWithOptions logged and cached unsanitized migrate.New / driver errors (exposing raw DSN passwords containing % escapes, control characters, unescaped URL delimiters, or ?password= query params in logs and CachedMigrationError() surfaced by /api/v1/system/info), selected PostgreSQL migrations/versioned when opts.SQLiteDBPath was set with an empty dsn, leaked driver/sqlDB handles when migrate.NewWithDatabaseInstance failed, left stale cached migration versions on pre-version open failures, and GetMigrationVersion interpolated raw DB_USER/DB_PASSWORD into fmt.Sprintf URLs without URL encoding or error redaction.",
           "regression_test": "TestRunMigrationsRedactsDSNCredentials, TestGetMigrationVersionEncodesAndRedactsCredentials, TestRunMigrationsSQLiteDBPathWithoutSQLiteDSNPrefixAndStateReset",
-          "commit": "0c4e0ed6d6d1e0f39d9e9df0714a93de3a97678d"
+          "commit": "27c99bedc4104058305ded4790a1a7b3e3f97bca"
         }
       ],
       "verification_commands": [
@@ -360,7 +360,7 @@
           "file": "migrations/versioned/000119_agent_prompts.up.sql:10,21, migrations/versioned/000127_agent_grants.up.sql:6, migrations/versioned/000092_mcp_metadata.up.sql:6, migrations/versioned/000045_org_tenant_members.up.sql:128, migrations/versioned/000012_organizations.up.sql:23,97",
           "summary": "PostgreSQL agent_prompts.user_id and resolved_by were VARCHAR(64), agent_grants.user_id was VARCHAR(128), and mcp_metadata.principal was VARCHAR(255) despite storing Principal.StorageID() values (93+ chars for every embed_session:<tenant>:<channelUUID>:<sessionUUID> tool-approval/prompt flow and 167-190+ chars for api_external_user / im_user / embed_visitor principals, causing deterministic SQLSTATE 22001 failures on PostgreSQL); additionally 000045_org_tenant_members left behind legacy idx_org_join_requests_org_user_pending blocking multi-workspace users from having pending join requests from two tenants to the same org, and idx_organizations_invite_code did not exclude empty-string invite_code values.",
           "regression_test": "TestPostgresPrincipalWidthsAndOrgJoinRequestIndexMigration",
-          "commit": "88462961edef0aee56c05bbd21a98f316735e8ac"
+          "commit": "9db21ec6be388ca5c150d8505ef11b18dfca3c02"
         }
       ],
       "verification_commands": [
@@ -498,7 +498,7 @@
           "file": "migrations/sqlite/000000_init.up.sql:357-358,598-601,629-633,673-677,705-710",
           "summary": "SQLite 000000_init omitted agent_id from im_channel_sessions unique indexes idx_channel_lookup and idx_channel_thread_lookup (breaking multi-agent IM routing with UNIQUE constraint failed), omitted WHERE deleted_at IS NULL on idx_tenant_members_user_tenant_unique (blocking re-invitation/re-entry of soft-deleted workspace members), and omitted partial unique/lookup indexes idx_organizations_invite_code, idx_kb_shares_kb_org, idx_agent_shares_agent_org, and idx_resources_tenant_content_hash.",
           "regression_test": "TestSQLiteCrossDialectIndexParity, TestSQLiteUpgradeFromV53DedupesAndRollsBackCleanly",
-          "commit": "88462961edef0aee56c05bbd21a98f316735e8ac"
+          "commit": "9db21ec6be388ca5c150d8505ef11b18dfca3c02"
         }
       ],
       "verification_commands": [
@@ -526,7 +526,7 @@
           "file": "migrations/paradedb/00-init-db.sql:27,219-220",
           "summary": "migrations/paradedb/00-init-db.sql unconditionally executed ALTER SEQUENCE tenants_id_seq RESTART WITH 10000 (resetting active tenant ID sequences on re-run) and created unnamed HNSW indexes without IF NOT EXISTS while omitting dimension 1024.",
           "regression_test": "TestBootstrapSQLIdempotencyInvariants",
-          "commit": "88462961edef0aee56c05bbd21a98f316735e8ac"
+          "commit": "9db21ec6be388ca5c150d8505ef11b18dfca3c02"
         }
       ],
       "verification_commands": [
@@ -554,7 +554,7 @@
           "file": "migrations/mysql/00-init-db.sql:1-7",
           "summary": "migrations/mysql/00-init-db.sql omitted DROP TABLE IF EXISTS for chunk_revisions, message_suggestion_events, and message_suggestion_sets (which holds an InnoDB FOREIGN KEY from message_suggestion_events), causing script re-execution to fail with Table already exists / FK errors.",
           "regression_test": "TestBootstrapSQLIdempotencyInvariants",
-          "commit": "88462961edef0aee56c05bbd21a98f316735e8ac"
+          "commit": "9db21ec6be388ca5c150d8505ef11b18dfca3c02"
         }
       ],
       "verification_commands": [

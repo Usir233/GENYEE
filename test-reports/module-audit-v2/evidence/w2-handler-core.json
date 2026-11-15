@@ -258,7 +258,7 @@
           "file": "internal/handler/im.go",
           "summary": "CreateIMChannel and UpdateIMChannel serialized raw *im.IMChannel structs in HTTP responses instead of im.SummarizeIMChannel(*channel), echoing decrypted plaintext bot credentials (and allowing stored secrets to be exfiltrated via a metadata-only PUT /im-channels/:id), while IM CRUD handlers accepted zero tenantID values when TenantIDContextKey was uint64(0).",
           "regression_test": "TestAuditW2_IMCreateAndUpdateRedactCredentialsAndRequireNonZeroTenant",
-          "commit": "54bc18dbcb1c116841d25716e3bd6cafffafb17b"
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
         },
         {
           "id": "W2-HANDLER-CORE-02",
@@ -266,7 +266,7 @@
           "file": "internal/handler/initialization.go",
           "summary": "TestMultimodalFunction called c.ShouldBind(&req) on multipart/form-data before calling limitUploadBody(c, maxSize), allowing unbounded multipart uploads to buffer into memory and temporary disk files prior to MaxBytesReader enforcement and returning 400 instead of 413 on oversized uploads.",
           "regression_test": "TestAuditW2_TestMultimodalFunctionCapsMultipartBeforeParse",
-          "commit": "54bc18dbcb1c116841d25716e3bd6cafffafb17b"
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
         },
         {
           "id": "W2-HANDLER-CORE-03",
@@ -274,7 +274,7 @@
           "file": "internal/handler/evaluation.go",
           "summary": "Evaluation and GetEvaluationResult lacked per-API-key KB scope enforcement (requireTenantAPIKeyKnowledgeBase), cross-tenant knowledge_base_id ownership verification, JSON body size limits, non-zero tenant context validation (panicking in MustTenantIDFromContext), and requireTaskProgressTenant guards (exposing cross-tenant task existence via 500 tenant mismatch errors).",
           "regression_test": "TestAuditW2_EvaluationEnforcesTenantAndAPIKeyKBScope",
-          "commit": "54bc18dbcb1c116841d25716e3bd6cafffafb17b"
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
         },
         {
           "id": "W2-HANDLER-CORE-04",
@@ -282,7 +282,7 @@
           "file": "internal/handler/datasource_credentials.go",
           "summary": "DataSourceCredentialsHandler.ownDataSource verified workspace ownership of the parent KB but omitted requireTenantAPIKeyKnowledgeBase(ctx, ds.KnowledgeBaseID) (and Put lacked limitJSONBody), allowing a KB-restricted manage_datasources API key to overwrite or delete connector credentials on out-of-scope KBs in the same workspace.",
           "regression_test": "TestAuditW2_DataSourceCredentialsEnforcesAPIKeyKBScope",
-          "commit": "54bc18dbcb1c116841d25716e3bd6cafffafb17b"
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
         },
         {
           "id": "W2-HANDLER-CORE-05",
@@ -290,7 +290,7 @@
           "file": "internal/handler/knowledgebase.go",
           "summary": "ListMoveTargets returned all same-type/same-embedding KBs in the tenant without filtering by TenantAPIKeyScope (leaking out-of-scope KB metadata to restricted retrieve keys), DuplicateKnowledgeBase omitted requireTenantAPIKeyKnowledgeBase and zero-tenant checks, and DeleteKnowledgeBase, ListMoveTargets, and MoveKnowledge (internal/handler/knowledge.go) used unchecked single-value .(uint64) type assertions on Gin context values.",
           "regression_test": "TestAuditW2_KnowledgeBaseListMoveTargetsFiltersAPIKeyScopeAndTypeAssertSafety",
-          "commit": "54bc18dbcb1c116841d25716e3bd6cafffafb17b"
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
         },
         {
           "id": "W2-HANDLER-CORE-06",
@@ -298,7 +298,7 @@
           "file": "internal/handler/chunker_debug.go",
           "summary": "PreviewChunking bound JSON directly from an unbounded request body (accessible to any Viewer or retrieve API key), allowing multi-megabyte/gigabyte JSON payloads to buffer in memory before the 64k-character rune check executed.",
           "regression_test": "TestAuditW2_PreviewChunkingCapsOversizedJSONStream",
-          "commit": "54bc18dbcb1c116841d25716e3bd6cafffafb17b"
+          "commit": "25744f5134788ffff9843264aa4a274773107eda"
         }
       ],
       "verification_commands": [

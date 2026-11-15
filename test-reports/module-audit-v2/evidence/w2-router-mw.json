@@ -65,7 +65,7 @@
           "file": "internal/config/config.go:754-759, 919-967",
           "summary": "applyOIDCEnvOverrides and applyAuthAndTenantDefaults parsed OIDC_AUTH_PKCE_ENABLED, OIDC_AUTH_ENABLE, DISABLE_REGISTRATION, GENYEE_TENANT_ENABLE_RBAC, and GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS with strings.EqualFold(value, 'true') instead of strconv.ParseBool, causing truthy '1' values or typos ('ture') to silently disable RBAC enforcement, OIDC PKCE, or invite-only registration.",
           "regression_test": "TestApplyAuthAndTenantDefaults_EnableRBACFailsClosedOnTruthyOrInvalidEnv, TestOIDCPKCEEnvOverride",
-          "commit": "e7bcabde843eb742bdd389d718c7d59851f28b26"
+          "commit": "7302a633151dcbc70169d75472d51b04ae5695bd"
         }
       ],
       "verification_commands": [
@@ -95,7 +95,7 @@
           "file": "internal/logger/llm_logger.go:23-51, 85-105; internal/logger/logger.go:99-101, 169-177, 504-512",
           "summary": "configureLLMDebugLog wrote llmDebug.dir/enabled without holding llmDebug.mu while LLMDebugEnabled/LLMDebugLog read llmDebug.enabled unlocked (triggering a data race under -race and failing to disable on LLM_DEBUG_LOG=false reconfigure); CustomFormatter.Format emitted unsanitized CR/LF/ESC bytes from request_id; and ErrorWithFields mutated caller-owned logrus.Fields maps in-place.",
           "regression_test": "TestLLMDebugConcurrentConfigureAndLog, TestFormat_SanitizesRequestIDControlChars, TestErrorWithFieldsDoesNotMutateCallerMap",
-          "commit": "e4c42d4966750ff54262b22c9e5d3b2cdee65f4a"
+          "commit": "79587b586094a9d4381cc7275787b34cc2eae167"
         }
       ],
       "verification_commands": [
@@ -161,7 +161,7 @@
           "file": "internal/middleware/recovery.go:19-34",
           "summary": "Recovery() serialized raw fmt.Sprintf('%v', err) from panics directly into external HTTP 500 JSON responses (leaking internal SQL/DSN/secret strings on panic) and read dead c.Get('RequestID') instead of types.RequestIDContextKey.",
           "regression_test": "TestRecovery_DoesNotLeakPanicDetailsToClient",
-          "commit": "bb7fc0737daf9b9eab93cfb6445f0bdd011a08ce"
+          "commit": "c7eb65cad4b5c82a302a77858a584d41b50c9c13"
         },
         {
           "id": "W2-ROUTER-MW-04",
@@ -169,7 +169,7 @@
           "file": "internal/middleware/auth.go:283-295, 415-418, 549-569; internal/middleware/embed_auth.go:149-155; internal/middleware/mcp_endpoint_auth.go:54",
           "summary": "Unlike MCPEndpointAuth, JWT/InternalDispatch Auth, workspace API-key Auth, and EmbedAuth did not reject inactive/disabled/suspended workspaces (allowing continued API, embed, and workspace-key access to deactivated tenants), and attachAPIKeyAuthContext lacked a nil-tenant guard before dereferencing t.",
           "regression_test": "TestAuthRejectsInactiveWorkspaceWhileAllowingTenantlessEscapeAndSuperuser, TestEmbedAuthRejectsInactiveWorkspace",
-          "commit": "bb7fc0737daf9b9eab93cfb6445f0bdd011a08ce"
+          "commit": "c7eb65cad4b5c82a302a77858a584d41b50c9c13"
         },
         {
           "id": "W2-ROUTER-MW-05",
@@ -177,7 +177,7 @@
           "file": "internal/middleware/logger.go:470-483, 570-580",
           "summary": "sanitizeQuery omitted presigned URL HMAC parameters (sig, signature) and query secret keys (api_key, apikey, client_secret, secret, password) from access-log redaction, and RequestID() echoed arbitrary unvalidated X-Request-ID headers without length or visible-ASCII checks.",
           "regression_test": "TestSanitizeQueryRedactsPresignedSigAndQuerySecrets, TestRequestIDRejectsControlCharsAndOversizedValues",
-          "commit": "bb7fc0737daf9b9eab93cfb6445f0bdd011a08ce"
+          "commit": "c7eb65cad4b5c82a302a77858a584d41b50c9c13"
         }
       ],
       "verification_commands": [
@@ -208,7 +208,7 @@
           "file": "internal/middleware/asynqdl/asynqdl.go:91, 109, 159-174, 235-238; internal/middleware/asynqdl/recover.go:31-32",
           "summary": "buildDeadLetter stored raw malformed/binary payloads directly in json.RawMessage and truncateError did not sanitize invalid UTF-8 bytes in short errors (causing json.Marshal and PostgreSQL JSONB / MySQL JSON inserts to fail and drop the dead-letter row); CallRecovered and safeInvokeCallback also dereferenced nil *asynq.Task on panic.",
           "regression_test": "TestMiddleware_MalformedPayloadAndInvalidUTF8Error_StayDBInsertable, TestCallRecovered_NilTaskDoesNotPanic",
-          "commit": "8725281419c8a74416f5ffc1e864a5427f89b1e7"
+          "commit": "64aca7867c4bcb4fc806538bfb5196ce6043559d"
         }
       ],
       "verification_commands": [
@@ -307,7 +307,7 @@
           "file": "internal/router/router.go:117-119, 338-395",
           "summary": "r.SetTrustedProxies(trustedProxies()) logged errors without clearing Gin's default 0.0.0.0/0 trust list when GENYEE_TRUSTED_PROXIES contained any malformed IP/CIDR (failing open to X-Forwarded-For ClientIP spoofing across public rate limiters), and buildCORSConfig accepted 'null' and non-http(s) origins (risking credentialed null-origin CORS reflection or startup panics in cors.New).",
           "regression_test": "TestTrustedProxiesSkipsMalformedEntriesAndNeverFailsOpen, TestBuildCORSConfigRejectsNullAndMalformedOriginsWithoutPanicking",
-          "commit": "90b304d1f291a189823748ebb152f567dfaef4e7"
+          "commit": "6b363b7798426d1358ca74f08da0f342354c13ab"
         },
         {
           "id": "W2-ROUTER-MW-08",
@@ -315,7 +315,7 @@
           "file": "internal/router/files.go:666-696",
           "summary": "servePresignedPreview discarded resolvedPath from resolveCatalogResource and passed raw 'resource://...' references to parseStorageTarget (failing every own-tenant resource preview with 400 'empty provider' and missing ResourceCatalogFileService wrapping when storageResolver was nil), and returned raw internal storage/signing err.Error() strings in HTTP JSON responses.",
           "regression_test": "TestPresignedPreviewResolvesOwnTenantResourceAndRedactsInternalErrors",
-          "commit": "90b304d1f291a189823748ebb152f567dfaef4e7"
+          "commit": "6b363b7798426d1358ca74f08da0f342354c13ab"
         }
       ],
       "verification_commands": [
@@ -389,7 +389,7 @@
           "file": "internal/utils/fileutil.go:9-23, 73-84",
           "summary": "IsActiveBrowserContentExt omitted active browser document/script formats (.shtml, .mht, .mhtml, .xsl, .xslt, .rdf, .mathml, .swf) and SafeContentTypeByFilename neither isolated the path basename nor stripped trailing dots/spaces (allowing 'payload.svg.' or 'payload.html ' to bypass inline Content-Disposition blocking).",
           "regression_test": "TestSafeContentTypeByFilename_BlocksActiveBrowserContentAndDirectoryDots",
-          "commit": "3e416e97eae8e3c9df04d1e7432e436aa0d9d99a"
+          "commit": "dadedb929d2be29555fb052f3471a430b042e450"
         }
       ],
       "verification_commands": [

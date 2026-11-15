@@ -37,7 +37,7 @@
           "file": "internal/handler/dto/role.go:16-42, internal/handler/dto/tenant.go:37-48",
           "summary": "CanViewIntegrationSecrets checked RoleFromContext before TenantAPIKeyScopeFromContext, CanViewTenantAPIKey ignored TenantAPIKeyScopeFromContext, apiKeyCanManageIntegrationSecrets did not exclude platform scopes on FullAccess, and NewTenantResponse checked RoleFromContext instead of CanViewIntegrationSecrets (allowing narrowed scopes layered on Admin/Owner contexts to bypass scope restrictions while stripping redacted config blocks from manage_tenant_settings API keys).",
           "regression_test": "TestCanViewIntegrationSecretsScopedAPIKeyOverridesAdminRole, TestCanViewIntegrationSecretsPlatformScopeRequiresCapability, TestTenantResponse_ManageTenantSettingsAPIKeyGetsRedactedConfigs, TestTenantResponse_NarrowedAPIKeyOmitsConfigsEvenWithOwnerRole",
-          "commit": "d22196da2f9d8d14b251d95f7355a3a4949cb3d3"
+          "commit": "eba05e00fe87ff616fabda567cb2e8354301569e"
         },
         {
           "id": "W2-HANDLER-SESS-DTO-02",
@@ -45,7 +45,7 @@
           "file": "internal/handler/dto/web_search_provider.go:42-51",
           "summary": "NewWebSearchProviderResponse stripped ProxyURL and ExtraConfig for non-admin Viewers and chat-only API keys, but left Parameters.BaseURL exposed in plaintext, leaking private self-hosted search gateway endpoints (unlike ModelResponse and MCPServiceResponse).",
           "regression_test": "TestWebSearchProviderResponse_ViewerStripsIntegrationDetail",
-          "commit": "d22196da2f9d8d14b251d95f7355a3a4949cb3d3"
+          "commit": "eba05e00fe87ff616fabda567cb2e8354301569e"
         },
         {
           "id": "W2-HANDLER-SESS-DTO-03",
@@ -53,7 +53,7 @@
           "file": "internal/handler/dto/auth.go:29-67",
           "summary": "NewAuthLoginResponse and NewAuthOIDCCallbackResponse serialized resp.User directly without clearing an eager-loaded User.Tenant pointer, which would serialize unredacted Tenant integration secrets in plaintext alongside the redacted ActiveTenant/Tenant DTO.",
           "regression_test": "TestAuthResponses_StripEmbeddedUserTenantSecrets",
-          "commit": "d22196da2f9d8d14b251d95f7355a3a4949cb3d3"
+          "commit": "eba05e00fe87ff616fabda567cb2e8354301569e"
         }
       ],
       "verification_commands": [
@@ -177,7 +177,7 @@
           "file": "internal/handler/session/host_approval_mode.go:84, internal/handler/session/handler.go:217, internal/handler/session/browserskill.go:133,203",
           "summary": "Routes under /sessions accept chat-capable API keys (which middleware binds to the workspace owner's synthetic UserID), yet SetHostApprovalMode allowed API keys to switch host-approval-mode to 'auto', CreateSession allowed API keys to bind approved host project_dir paths, and BrowserSkillConnection allowed API keys (and userless contexts) to inspect/control the human owner's personal Chrome extension.",
           "regression_test": "TestSetHostApprovalModeRejectsAPIKey, TestCreateSessionRejectsProjectDirForAPIKey, TestBrowserSkillConnectionRejectsAPIKeyAndUnauthenticatedUser",
-          "commit": "5f73ab09a29dbf1cad58da5d2ed80f973cf7b84d"
+          "commit": "c07ba32a268e6212886035f03f5f6bd32c2f58b6"
         },
         {
           "id": "W2-HANDLER-SESS-02",
@@ -185,7 +185,7 @@
           "file": "internal/handler/session/stream.go:254-309, internal/handler/session/qa.go:933,1070, internal/handler/session/steer.go:498, internal/handler/session/title.go:52, internal/handler/session/handler.go:188,406,552, internal/handler/session/fork.go:64, internal/handler/session/rewind.go:63",
           "summary": "StopSession (reachable anonymously via public /embed/:channel_id/sessions/:session_id/stop), SearchKnowledge, SteerMessage, GenerateTitle, CreateSession, UpdateSession, BatchDeleteSessions, ForkSession, and RewindSession called ShouldBindJSON without http.MaxBytesReader (and decodeQueryImage decoded arbitrary-size base64 before checking maxQueryImageBytes); StopSession also called read-scoped GetMessage before GetOwnedSession, used an unchecked tenantID.(uint64) assertion, and lacked a nil-message guard.",
           "regression_test": "TestStopSessionRejectsOversizedBodyAndEnforcesOwnershipBeforeMessageLookup, TestSearchKnowledgeRejectsOversizedBody, TestSessionJSONEndpointsRejectOversizedBodies",
-          "commit": "5f73ab09a29dbf1cad58da5d2ed80f973cf7b84d"
+          "commit": "c07ba32a268e6212886035f03f5f6bd32c2f58b6"
         },
         {
           "id": "W2-HANDLER-SESS-03",
@@ -193,7 +193,7 @@
           "file": "internal/handler/session/resume.go:47-55,151-180",
           "summary": "ResumeSuspendedRun lacked a nil-prompt guard, and buildResumeRequest loaded the target session via read-scoped GetSession instead of strict GetOwnedSession without rejecting API-key callers or verifying prompt/caller tenant binding, allowing read-only admin visibility on non-owned sessions to satisfy session lookup during HITL resume.",
           "regression_test": "TestBuildResumeRequestEnforcesSessionOwnershipTenantAndRejectsAPIKey",
-          "commit": "5f73ab09a29dbf1cad58da5d2ed80f973cf7b84d"
+          "commit": "c07ba32a268e6212886035f03f5f6bd32c2f58b6"
         },
         {
           "id": "W2-HANDLER-SESS-04",
@@ -201,7 +201,7 @@
           "file": "internal/handler/session/handler.go:348-352",
           "summary": "GetSessionsByTenant wrapped all ListSessions errors in 500 Internal Server Error, masking typed 403 Forbidden (non-admin source filter) and 400 Bad Request AppErrors returned by sessionService.ListSessions.",
           "regression_test": "TestGetSessionsByTenantPreservesAppErrorStatus",
-          "commit": "5f73ab09a29dbf1cad58da5d2ed80f973cf7b84d"
+          "commit": "c07ba32a268e6212886035f03f5f6bd32c2f58b6"
         },
         {
           "id": "W2-HANDLER-SESS-05",
@@ -209,7 +209,7 @@
           "file": "internal/handler/session/steer.go:530,680, internal/handler/session/voice_input.go:119,128, internal/handler/session/temporary_document.go:30-205, internal/handler/session/artifact_delete.go:126",
           "summary": "SteerMessage neither rejected SessionKindAgentDelegated nor enforced AuthorizeTenantAPIKeyKnowledgeTargets on @mentioned KB/knowledge items; TranscribeVoiceInput attached raw upstream ASR err.Error() via WithDetails (exposing internal/shared-workspace ASR endpoints in HTTP error responses); temporary_document handlers read c.GetUint64('tenant_id') instead of session.TenantID without nil-service guards; and deleteArtifact called MustTenantIDFromContext (panicking if tenant context key was absent).",
           "regression_test": "TestSteerMessageRejectsDelegatedSessionAndOutOfScopeAPIKeyMentions, TestTranscribeVoiceInputRedactsUpstreamErrorDetails, TestTemporaryDocumentAndArtifactDeleteUseSessionTenantWithoutPanic",
-          "commit": "5f73ab09a29dbf1cad58da5d2ed80f973cf7b84d"
+          "commit": "c07ba32a268e6212886035f03f5f6bd32c2f58b6"
         }
       ],
       "verification_commands": [
