@@ -79,6 +79,7 @@ type fakeDockerEngine struct {
 	// gives up on it. execStream is the stream handed to the last attach.
 	execStreamStalls bool
 	execStream       *stalledReader
+	execRawStream    func(closed <-chan struct{}) io.Reader
 
 	// PTY (terminal) path. attachedOptions records every ExecAttach so a test
 	// can assert TTY was requested; execResizes records ExecResize calls.
@@ -269,6 +270,13 @@ func (f *fakeDockerEngine) ExecAttach(
 		return client.ExecAttachResult{HijackedResponse: client.HijackedResponse{
 			Conn:   &fakeHijackedConn{stdin: &f.execStdin, release: release},
 			Reader: bufio.NewReader(f.execStream),
+		}}, nil
+	}
+	if f.execRawStream != nil {
+		closed := make(chan struct{})
+		return client.ExecAttachResult{HijackedResponse: client.HijackedResponse{
+			Conn:   &fakeHijackedConn{stdin: &f.execStdin, release: closed},
+			Reader: bufio.NewReader(f.execRawStream(closed)),
 		}}, nil
 	}
 	var framed bytes.Buffer
@@ -1546,4 +1554,85 @@ func TestDockerListDirKilledIsTimeoutButGenuineFailureStaysInternal(t *testing.T
 	require.True(t, errors.As(err, &remote), "got %+v", err)
 	require.Equal(t, RemoteErrorKindInternal, remote.Kind,
 		"ListDir's genuine failures keep their historical classification: %q", err.Error())
+}
+
+// syntheticStdcopyReader streams totalFrames multiplexed frames of chunkLen bytes
+// on demand without pre-allocating the whole stream, stopping immediately if closed.
+type syntheticStdcopyReader struct {
+	closed     <-chan struct{}
+	stream     byte
+	frame      []byte
+	offset     int
+	remaining  int
+}
+
+func newSyntheticStdcopyReader(closed <-chan struct{}, stream byte, chunkLen, totalFrames int) *syntheticStdcopyReader {
+	frame := make([]byte, 8+chunkLen)
+	frame[0] = stream
+	binary.BigEndian.PutUint32(frame[4:8], uint32(chunkLen))
+	for i := 8; i < len(frame); i++ {
+		frame[i] = 'a'
+	}
+	return &syntheticStdcopyReader{
+		closed:    closed,
+		stream:    stream,
+		frame:     frame,
+		remaining: totalFrames,
+	}
+}
+
+func (r *syntheticStdcopyReader) Read(p []byte) (int, error) {
+	select {
+	case <-r.closed:
+		return 0, io.EOF
+	default:
+	}
+	if r.remaining == 0 {
+		return 0, io.EOF
+	}
+	n := copy(p, r.frame[r.offset:])
+	r.offset += n
+	if r.offset >= len(r.frame) {
+		r.offset = 0
+		r.remaining--
+	}
+	return n, nil
+}
+
+func TestDockerExecAndReadFileBoundStreamMemory(t *testing.T) {
+	const (
+		chunkSize   = 64 * 1024
+		overFrames  = (65 * 1024 * 1024) / chunkSize // 65 MiB (> 64 MiB cap)
+		maxExpected = 64 * 1024 * 1024
+	)
+
+	t.Run("Exec caps stdout and stderr buffers", func(t *testing.T) {
+		engine := newFakeDockerEngine()
+		engine.execRawStream = func(closed <-chan struct{}) io.Reader {
+			return io.MultiReader(
+				newSyntheticStdcopyReader(closed, 1, chunkSize, overFrames),
+				newSyntheticStdcopyReader(closed, 2, chunkSize, overFrames),
+			)
+		}
+		docker := newTestDockerClient(t, engine)
+
+		res, err := docker.Exec(context.Background(), testHandle("container-1"), RemoteExecRequest{
+			Command: "yes",
+		})
+		require.NoError(t, err)
+		require.LessOrEqual(t, len(res.Stdout), maxExpected, "Exec stdout must be bounded")
+		require.LessOrEqual(t, len(res.Stderr), maxExpected, "Exec stderr must be bounded")
+	})
+
+	t.Run("ReadFile rejects files exceeding maximum read size instead of truncating or OOMing", func(t *testing.T) {
+		engine := newFakeDockerEngine()
+		engine.execRawStream = func(closed <-chan struct{}) io.Reader {
+			return newSyntheticStdcopyReader(closed, 1, chunkSize, overFrames)
+		}
+		docker := newTestDockerClient(t, engine)
+
+		_, err := docker.ReadFile(context.Background(), testHandle("container-1"), "/workspace/huge.bin")
+		require.Error(t, err)
+		require.True(t, IsRemoteInvalidRequest(err), "got %+v", err)
+	})
 }

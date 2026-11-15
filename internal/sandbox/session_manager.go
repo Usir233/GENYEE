@@ -1320,11 +1320,23 @@ func (m *SessionBoundManager) OpenSessionTerminal(
 	if sc.user {
 		if strings.TrimSpace(opts.Cwd) == "" {
 			opts.Cwd = sc.layout.Root
+		} else {
+			cwd, err := workspace.CleanWorkDirIn(sc.layout, opts.Cwd, false)
+			if err != nil {
+				return nil, err
+			}
+			opts.Cwd = cwd
 		}
 		opts.Envs = withSessionEnv(opts.Envs, sc.layout)
 		// C10: PIDs on a shared machine belong to every session of the
 		// owner; a client-supplied PID could attach another session's shell.
 		opts.AttachPID = 0
+	} else if strings.TrimSpace(opts.Cwd) != "" {
+		cwd, err := cleanSessionWorkDir(opts.Cwd, false)
+		if err != nil {
+			return nil, err
+		}
+		opts.Cwd = cwd
 	}
 	opts.Envs = withBrowserEnv(opts.Envs, sc.key.SessionID, sc.layout)
 	// The PTY outlives this call: admit it on a context detached from the

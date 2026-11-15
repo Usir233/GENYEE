@@ -667,20 +667,68 @@ func (c *DockerRemoteClient) removeQuietly(ctx context.Context, id string) {
 // timeout: cancelling the HTTP request leaves the process running (verified in
 // docs/poc/docker-sandbox), which would let a runaway script keep burning the
 // host's CPU long after GENYEE reported a timeout to the user.
+// defaultDockerMaxExecStreamBytes caps each buffered Exec stream (stdout/stderr)
+// and single ReadFile download in host memory so runaway container output or
+// device files (e.g. /dev/zero) cannot OOM the GENYEE process.
+const defaultDockerMaxExecStreamBytes = 64 << 20
+
+type boundedExecBuffer struct {
+	buf        bytes.Buffer
+	limit      int
+	overflowed bool
+	onOverflow func()
+}
+
+func (b *boundedExecBuffer) Write(p []byte) (int, error) {
+	origLen := len(p)
+	if b.limit <= 0 {
+		return b.buf.Write(p)
+	}
+	rem := b.limit - b.buf.Len()
+	if rem > 0 {
+		if len(p) <= rem {
+			return b.buf.Write(p)
+		}
+		_, _ = b.buf.Write(p[:rem])
+	}
+	if !b.overflowed {
+		b.overflowed = true
+		if b.onOverflow != nil {
+			b.onOverflow()
+		}
+	}
+	return origLen, nil
+}
+
+func (b *boundedExecBuffer) String() string {
+	return b.buf.String()
+}
+
 func (c *DockerRemoteClient) Exec(
 	ctx context.Context,
 	handle RemoteSandboxHandle,
 	req RemoteExecRequest,
 ) (*RemoteExecResult, error) {
+	result, _, err := c.execBounded(ctx, handle, req, defaultDockerMaxExecStreamBytes, false)
+	return result, err
+}
+
+func (c *DockerRemoteClient) execBounded(
+	ctx context.Context,
+	handle RemoteSandboxHandle,
+	req RemoteExecRequest,
+	maxStreamBytes int,
+	stopOnStdoutOverflow bool,
+) (*RemoteExecResult, bool, error) {
 	id, err := dockerHandleID("Exec", handle)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if req.Shell && len(req.Args) > 0 {
-		return nil, dockerInvalidRequest("Exec", "shell requests must not carry args")
+		return nil, false, dockerInvalidRequest("Exec", "shell requests must not carry args")
 	}
 	if strings.TrimSpace(req.Command) == "" {
-		return nil, dockerInvalidRequest("Exec", "command is required")
+		return nil, false, dockerInvalidRequest("Exec", "command is required")
 	}
 
 	timeout := req.Timeout
@@ -705,22 +753,27 @@ func (c *DockerRemoteClient) Exec(
 	created, err := c.api.ExecCreate(execCtx, id, execOpts)
 	if err != nil && dockerContainerNotRunning(err) {
 		if readyErr := c.ensureRunning(execCtx, id, "Exec"); readyErr != nil {
-			return nil, readyErr
+			return nil, false, readyErr
 		}
 		created, err = c.api.ExecCreate(execCtx, id, execOpts)
 	}
 	if err != nil {
-		return nil, dockerError("Exec", err)
+		return nil, false, dockerError("Exec", err)
 	}
 
 	start := time.Now()
-	stdout, stderr, err := c.streamExec(execCtx, created.ID, req.Stdin, req.OnOutput)
+	stdout, stderr, overflowed, err := c.streamExecBounded(
+		execCtx, created.ID, req.Stdin, maxStreamBytes, stopOnStdoutOverflow, req.OnOutput,
+	)
+	if stopOnStdoutOverflow && overflowed {
+		return nil, true, nil
+	}
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	inspected, err := c.api.ExecInspect(execCtx, created.ID, client.ExecInspectOptions{})
 	if err != nil {
-		return nil, dockerError("Exec", err)
+		return nil, false, dockerError("Exec", err)
 	}
 
 	result := &RemoteExecResult{
@@ -732,7 +785,7 @@ func (c *DockerRemoteClient) Exec(
 	if dockerExecWasKilled(inspected.ExitCode) {
 		result.Killed = true
 	}
-	return result, nil
+	return result, overflowed, nil
 }
 
 // dockerKeepAliveTimeout bounds the no-op exec KeepAlive runs.
@@ -761,9 +814,23 @@ func (c *DockerRemoteClient) streamExec(
 	stdin string,
 	output ...func(string, []byte),
 ) (string, string, error) {
+	stdout, stderr, _, err := c.streamExecBounded(
+		ctx, execID, stdin, defaultDockerMaxExecStreamBytes, false, output...,
+	)
+	return stdout, stderr, err
+}
+
+func (c *DockerRemoteClient) streamExecBounded(
+	ctx context.Context,
+	execID string,
+	stdin string,
+	maxStreamBytes int,
+	stopOnStdoutOverflow bool,
+	output ...func(string, []byte),
+) (string, string, bool, error) {
 	attached, err := c.api.ExecAttach(ctx, execID, client.ExecAttachOptions{})
 	if err != nil {
-		return "", "", dockerError("Exec", err)
+		return "", "", false, dockerError("Exec", err)
 	}
 	// Closing is what unblocks the copy goroutine below, so the cancellation
 	// path needs to do it before the deferred close would.
@@ -773,7 +840,7 @@ func (c *DockerRemoteClient) streamExec(
 
 	if stdin != "" {
 		if _, err := attached.Conn.Write([]byte(stdin)); err != nil {
-			return "", "", dockerError("Exec", fmt.Errorf("write stdin: %w", err))
+			return "", "", false, dockerError("Exec", fmt.Errorf("write stdin: %w", err))
 		}
 	}
 	// Always half-close: a command reading stdin (cat, python -) hangs
@@ -786,13 +853,17 @@ func (c *DockerRemoteClient) streamExec(
 	// Reading them any earlier races with StdCopy writing into them, which is
 	// why the cancellation path closes the stream and waits instead of
 	// returning whatever happens to be there.
-	var stdout, stderr bytes.Buffer
+	stdout := &boundedExecBuffer{limit: maxStreamBytes}
+	stderr := &boundedExecBuffer{limit: maxStreamBytes}
+	if stopOnStdoutOverflow {
+		stdout.onOverflow = closeStream
+	}
 	done := make(chan error, 1)
 	go func() {
-		var out, errOut io.Writer = &stdout, &stderr
+		var out, errOut io.Writer = stdout, stderr
 		if len(output) > 0 && output[0] != nil {
-			out = io.MultiWriter(&stdout, remoteOutputWriter{stream: "stdout", callback: output[0]})
-			errOut = io.MultiWriter(&stderr, remoteOutputWriter{stream: "stderr", callback: output[0]})
+			out = io.MultiWriter(stdout, remoteOutputWriter{stream: "stdout", callback: output[0]})
+			errOut = io.MultiWriter(stderr, remoteOutputWriter{stream: "stderr", callback: output[0]})
 		}
 		_, copyErr := stdcopy.StdCopy(out, errOut, attached.Reader)
 		done <- copyErr
@@ -800,19 +871,22 @@ func (c *DockerRemoteClient) streamExec(
 
 	select {
 	case copyErr := <-done:
-		if copyErr != nil && !errors.Is(copyErr, io.EOF) {
-			return stdout.String(), stderr.String(), dockerError("Exec", copyErr)
+		if stopOnStdoutOverflow && stdout.overflowed {
+			return "", "", true, nil
 		}
-		return stdout.String(), stderr.String(), nil
+		if copyErr != nil && !errors.Is(copyErr, io.EOF) {
+			return stdout.String(), stderr.String(), stdout.overflowed, dockerError("Exec", copyErr)
+		}
+		return stdout.String(), stderr.String(), stdout.overflowed, nil
 	case <-ctx.Done():
 		closeStream()
 		select {
 		case <-done:
-			return stdout.String(), stderr.String(), dockerError("Exec", ctx.Err())
+			return stdout.String(), stderr.String(), stdout.overflowed, dockerError("Exec", ctx.Err())
 		case <-time.After(dockerExecDrainGrace):
 			// StdCopy did not return even with the stream closed, so it still
 			// owns the buffers and the partial output has to be dropped.
-			return "", "", dockerError("Exec", ctx.Err())
+			return "", "", false, dockerError("Exec", ctx.Err())
 		}
 	}
 }
@@ -948,14 +1022,23 @@ func (c *DockerRemoteClient) ReadFile(
 	if err != nil {
 		return nil, err
 	}
-	result, err := c.Exec(ctx, &dockerSandboxHandle{id: id}, RemoteExecRequest{
+	result, overflowed, err := c.execBounded(ctx, &dockerSandboxHandle{id: id}, RemoteExecRequest{
 		Command: "cat",
 		Args:    []string{"--", clean},
 		User:    remoteFileUser(ctx),
 		Timeout: dockerFilesystemOpTimeout,
-	})
+	}, defaultDockerMaxExecStreamBytes, true)
 	if err != nil {
 		return nil, dockerError("ReadFile", err)
+	}
+	if overflowed {
+		return nil, NewRemoteError(
+			SandboxTypeDocker,
+			"ReadFile",
+			RemoteErrorKindInvalidRequest,
+			fmt.Sprintf("file %q exceeds maximum read size (%d bytes)", clean, defaultDockerMaxExecStreamBytes),
+			nil,
+		)
 	}
 	if result.ExitCode != 0 {
 		return nil, c.dockerFileOpFailure(ctx, id, "ReadFile", clean, result, RemoteErrorKindInvalidRequest)

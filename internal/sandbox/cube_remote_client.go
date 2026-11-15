@@ -915,6 +915,7 @@ func (c *CubeRemoteClient) Exec(
 	if !request.Shell {
 		line = buildShellLine(request.Command, request.Args)
 	}
+	loggedLine := line
 	if request.Stdin != "" {
 		line = wrapWithStdin(line, request.Stdin)
 	}
@@ -923,7 +924,7 @@ func (c *CubeRemoteClient) Exec(
 		envs = map[string]string{}
 	}
 
-	logCubeDataPlaneExec(ctx, c, sb, request.User, line)
+	logCubeDataPlaneExec(ctx, c, sb, request.User, loggedLine)
 
 	startedAt := time.Now()
 	// User comes from the neutral request rather than being hardcoded, so the

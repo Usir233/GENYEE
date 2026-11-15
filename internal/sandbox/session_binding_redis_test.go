@@ -321,3 +321,28 @@ func TestRedisUserMachineKeysShareOneHashTag(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "sb-1", got.SandboxID)
 }
+
+func TestRedisReplaceTrafficTokenEscapedQuotesAndSpecialChars(t *testing.T) {
+	store, _, _ := newRedisBindingTestStore(t)
+	ctx := context.Background()
+	// Include a trap field lookalike in SessionID and escaped quotes/backslashes in the old token.
+	key := SessionSandboxKey{TenantID: 42, SessionID: `sess-"traffic_access_token":"trap"`}
+	binding := validSessionSandboxBinding(key, "sb-quote")
+	binding.TrafficAccessToken = `tok"old\val`
+
+	created, err := store.Create(ctx, key, binding)
+	require.NoError(t, err)
+	require.True(t, created)
+
+	newToken := `tok%new"val\2`
+	replaced, err := store.ReplaceTrafficTokenIfMatch(ctx, key, binding, newToken)
+	require.NoError(t, err)
+	require.True(t, replaced)
+
+	got, err := store.Get(ctx, key)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.Equal(t, uint64(42), got.TenantID)
+	require.Equal(t, key.SessionID, got.SessionID)
+	require.Equal(t, newToken, got.TrafficAccessToken)
+}

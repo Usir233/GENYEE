@@ -60,14 +60,95 @@ end
 if value['traffic_access_token'] == ARGV[3] then
 	return 0
 end
-local encoded = string.gsub(cjson.encode(ARGV[3]), '%%', '%%%%')
-local updated, n = string.gsub(raw, '"traffic_access_token"%s*:%s*".-"', '"traffic_access_token":'..encoded, 1)
-if n == 0 then
-	updated, n = string.gsub(raw, '}(%s*)$', ',"traffic_access_token":'..encoded..'}%1', 1)
-	if n == 0 then
-		return 0
+local encoded = cjson.encode(ARGV[3])
+local n = #raw
+local function skip_ws(p)
+	while p <= n do
+		local c = string.byte(raw, p)
+		if c ~= 32 and c ~= 9 and c ~= 10 and c ~= 13 then
+			return p
+		end
+		p = p + 1
+	end
+	return p
+end
+local function skip_str(p)
+	p = p + 1
+	while p <= n do
+		local c = string.byte(raw, p)
+		if c == 92 then
+			p = p + 2
+		elseif c == 34 then
+			return p + 1
+		else
+			p = p + 1
+		end
+	end
+	return nil
+end
+local function skip_val(p)
+	p = skip_ws(p)
+	if p > n then return nil end
+	local c = string.byte(raw, p)
+	if c == 34 then
+		return skip_str(p)
+	elseif c == 123 or c == 91 then
+		local depth = 1
+		p = p + 1
+		while p <= n and depth > 0 do
+			local ch = string.byte(raw, p)
+			if ch == 34 then
+				p = skip_str(p)
+				if not p then return nil end
+			else
+				if ch == 123 or ch == 91 then
+					depth = depth + 1
+				elseif ch == 125 or ch == 93 then
+					depth = depth - 1
+				end
+				p = p + 1
+			end
+		end
+		return p
+	else
+		while p <= n do
+			local ch = string.byte(raw, p)
+			if ch == 44 or ch == 125 or ch == 93 or ch == 32 or ch == 9 or ch == 10 or ch == 13 then
+				return p
+			end
+			p = p + 1
+		end
+		return p
 	end
 end
+local pos = skip_ws(1)
+if pos > n or string.byte(raw, pos) ~= 123 then return 0 end
+pos = skip_ws(pos + 1)
+local empty_obj = (pos <= n and string.byte(raw, pos) == 125)
+while pos <= n and string.byte(raw, pos) ~= 125 do
+	if string.byte(raw, pos) ~= 34 then return 0 end
+	local kEnd = skip_str(pos)
+	if not kEnd then return 0 end
+	local keyRaw = string.sub(raw, pos + 1, kEnd - 2)
+	pos = skip_ws(kEnd)
+	if pos > n or string.byte(raw, pos) ~= 58 then return 0 end
+	local vStart = skip_ws(pos + 1)
+	local vEnd = skip_val(vStart)
+	if not vEnd then return 0 end
+	if keyRaw == 'traffic_access_token' then
+		local updated = string.sub(raw, 1, vStart - 1) .. encoded .. string.sub(raw, vEnd)
+		redis.call('SET', KEYS[1], updated)
+		return 1
+	end
+	pos = skip_ws(vEnd)
+	if pos <= n and string.byte(raw, pos) == 44 then
+		pos = skip_ws(pos + 1)
+	end
+end
+if pos > n or string.byte(raw, pos) ~= 125 then return 0 end
+local sep = ','
+if empty_obj then sep = '' end
+local updated = string.sub(raw, 1, pos - 1) .. sep .. '"traffic_access_token":' .. encoded .. string.sub(raw, pos)
 redis.call('SET', KEYS[1], updated)
 return 1
 `)

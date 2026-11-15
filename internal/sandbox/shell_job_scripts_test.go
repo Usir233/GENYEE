@@ -363,3 +363,30 @@ func TestShellJobLocalOutputBudgetIncludesBothStreams(t *testing.T) {
 		}
 	}
 }
+
+func TestShellJobScriptsRejectMalformedJobID(t *testing.T) {
+	for _, badID := range []string{
+		"",
+		"sj_bad",
+		"$(reboot)",
+		"`reboot`",
+		"sj_0123; reboot #",
+		"../sj_0123",
+	} {
+		submit, marker := ShellJobSubmitScriptWithBackend(ShellJobMeta{ID: badID, Command: "true"}, "true", 100, true)
+		require.True(t, strings.HasPrefix(marker, shellJobMarkerPrefix))
+		require.Equal(t, "exit 9\n", submit, "submit script must reject malformed job id %q", badID)
+		require.NotContains(t, submit, "reboot")
+		requireShellSyntax(t, submit)
+
+		wrapper := shellJobWrapperScript(ShellJobMeta{ID: badID, Command: "true"}, "true", false)
+		require.Equal(t, "exit 9\n", wrapper, "wrapper script must reject malformed job id %q", badID)
+		require.NotContains(t, wrapper, "reboot")
+		requireShellSyntax(t, wrapper)
+
+		cancel := ShellJobCancelScript(ShellJobMeta{ID: badID, TenantID: 7, SessionID: "s1", SandboxID: "sbx"}, true)
+		require.Equal(t, "exit 3\n", cancel, "cancel script must reject malformed job id %q", badID)
+		require.NotContains(t, cancel, "reboot")
+		requireShellSyntax(t, cancel)
+	}
+}

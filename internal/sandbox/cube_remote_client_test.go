@@ -1,14 +1,17 @@
 package sandbox
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
 	cubesandbox "github.com/tencentcloud/CubeSandbox/sdk/go"
 
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/require"
 )
@@ -736,4 +739,27 @@ func TestDesktopReadyCmdDoesNotUseSS(t *testing.T) {
 	require.NotContains(t, desktopReadyCmd, "ss ")
 	require.Contains(t, desktopReadyCmd, "python3")
 	require.Contains(t, desktopReadyCmd, "6080")
+}
+
+func TestCubeRemoteClientExecDoesNotLogStdin(t *testing.T) {
+	mock := newCubeMockServer(t)
+	client := newTestCubeRemoteClient(t, mock)
+	ctx := context.Background()
+	handle, err := client.Create(ctx, RemoteCreateRequest{TemplateID: "template-a"})
+	require.NoError(t, err)
+
+	var logBuf bytes.Buffer
+	logger.SetOutput(&logBuf)
+	defer logger.SetOutput(os.Stdout)
+
+	const secretStdin = "SUPER_SECRET_STDIN_TOKEN_VALUE_918273"
+	_, err = client.Exec(ctx, handle, RemoteExecRequest{
+		Command: "cat",
+		Args:    []string{"-"},
+		Stdin:   secretStdin,
+	})
+	require.NoError(t, err)
+	logged := logBuf.String()
+	require.Contains(t, logged, "[CubeRemote] data-plane exec")
+	require.NotContains(t, logged, secretStdin, "plaintext Stdin must never be written to INFO logs")
 }

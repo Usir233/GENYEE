@@ -1905,3 +1905,23 @@ func TestDesktopEnsureStyleExecCarriesTheSessionIdentity(t *testing.T) {
 	require.Equal(t, userSessionB, req.Env["GENYEE_SESSION_ID"],
 		"ensure.sh reads it to choose this session's workspace")
 }
+
+func TestOpenSessionTerminalRejectsRelativeCwd(t *testing.T) {
+	h := newUserManagerHarness(t, userAssignmentFor(userSessionA))
+	ctx := ownerCtx()
+	_, err := h.mgr.ExecShellCommand(ctx, userSessionA, "true", "", time.Second, nil)
+	require.NoError(t, err)
+	h.client.mu.Lock()
+	execsBefore := len(h.client.execRequests)
+	h.client.mu.Unlock()
+
+	_, err = h.mgr.OpenSessionTerminal(ctx, userSessionA, RemoteTerminalOptions{
+		Cwd: "relative/subdir",
+	})
+	require.ErrorContains(t, err, "must be absolute")
+	h.client.mu.Lock()
+	execsAfter := len(h.client.execRequests)
+	h.client.mu.Unlock()
+	require.Equal(t, execsBefore, execsAfter,
+		"prepareSessionDirs must not run mkdir -p on a relative terminal cwd")
+}

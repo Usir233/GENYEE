@@ -273,11 +273,14 @@ func ShellJobSubmitScript(job ShellJobMeta, execCommand string, yieldMS int) (st
 // the activity marker; the sandbox id is not a backend name.
 func ShellJobSubmitScriptWithBackend(job ShellJobMeta, execCommand string, yieldMS int, docker bool) (string, string) {
 	marker := shellJobMarkerPrefix + "_" + randomHex(6) + "__"
+	if !ValidShellJobID(job.ID) {
+		return "exit 9\n", marker
+	}
 	meta := mustJSON(job)
 	wrapper := shellJobWrapperScript(job, execCommand, docker)
 	var b strings.Builder
-	fmt.Fprintf(&b, "J=%q; R=%s; mkdir -p \"$R\" || exit 9; D=\"$R/$J\"; %s\n",
-		job.ID, shQuote(ShellJobsRoot), shellJobCreateDir())
+	fmt.Fprintf(&b, "J=%s; R=%s; mkdir -p \"$R\" || exit 9; D=\"$R/$J\"; %s\n",
+		shQuote(job.ID), shQuote(ShellJobsRoot), shellJobCreateDir())
 	fmt.Fprintf(&b, "printf '%%s' %s > \"$D/meta.json\";\n", shQuote(meta))
 	fmt.Fprintf(&b, "M=%s;\n", shQuote(marker))
 	fmt.Fprintf(&b, "setsid /bin/sh -c %s >/dev/null 2>&1 </dev/null &\n", shSingleQuote(wrapper))
@@ -294,8 +297,11 @@ func ShellJobSubmitScriptWithBackend(job ShellJobMeta, execCommand string, yield
 // state exactly once. The parent shell waits on the command; the 5s rotator
 // runs beside that wait.
 func shellJobWrapperScript(job ShellJobMeta, execCommand string, docker bool) string {
+	if !ValidShellJobID(job.ID) {
+		return "exit 9\n"
+	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "D=%s/%s; J=%s; ST=running;\n", ShellJobsRoot, job.ID, job.ID)
+	fmt.Fprintf(&b, "D=%s; J=%s; ST=running;\n", shQuote(ShellJobsRoot+"/"+job.ID), shQuote(job.ID))
 	b.WriteString(shellJobRotateFunc)
 	b.WriteByte('\n')
 	b.WriteString(shellJobTermTrap)
@@ -622,8 +628,11 @@ func ParseShellJobEpilogue(epilogue string) (ShellJobStatus, ShellJobOffsets, bo
 // ShellJobCancelScript rechecks ownership in the exec that signals the process. The
 // directory is global on shared machines; a valid handle alone is insufficient.
 func ShellJobCancelScript(meta ShellJobMeta, force bool) string {
+	if !ValidShellJobID(meta.ID) {
+		return "exit 3\n"
+	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "D=%s/%s; [ -f \"$D/status.json\" ] || exit 3;\n", ShellJobsRoot, meta.ID)
+	fmt.Fprintf(&b, "D=%s; [ -f \"$D/status.json\" ] || exit 3;\n", shQuote(ShellJobsRoot+"/"+meta.ID))
 	for _, field := range []struct {
 		name  string
 		value any
