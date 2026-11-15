@@ -32,6 +32,9 @@ func (c *CompositeRetrieveEngine) BatchIndexVectors(ctx context.Context,
 	// this refuses duplicates instead and hands the list over as it is.
 	seen := make(map[string]struct{}, len(indexInfoList))
 	for _, info := range indexInfoList {
+		if info == nil {
+			return fmt.Errorf("nil index info in BatchIndexVectors")
+		}
 		if _, dup := seen[info.SourceID]; dup {
 			return fmt.Errorf("source id %s appears twice", info.SourceID)
 		}

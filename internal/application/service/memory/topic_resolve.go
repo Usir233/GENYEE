@@ -108,7 +108,7 @@ func (s *Service) resolveTopics(
 	}
 
 	if len(unresolved) > 0 && len(existing) > 0 {
-		s.adjudicateTopics(ctx, modelID, existing, resolutions, unresolved)
+		s.adjudicateTopics(scopeModelContext(ctx, scope), modelID, existing, resolutions, unresolved)
 	}
 
 	// Two labels in the same run can be the same new subject. Without this the

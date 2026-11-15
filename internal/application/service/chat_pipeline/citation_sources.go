@@ -94,31 +94,38 @@ func (p *PluginMerge) attachCitationSources(ctx context.Context, results []*type
 		}
 	}
 	for _, r := range results {
-		if !r.ContentRewritten {
+		if r == nil || !r.ContentRewritten {
 			continue
 		}
 		allowedParents := map[string]bool{}
 		for _, id := range append([]string{r.ID}, r.SubChunkID...) {
 			if c := byID[id]; c != nil {
-				allowedParents[c.ParentChunkID] = true
-				if parent := byID[c.ParentChunkID]; parent != nil && parent.ChunkType == types.ChunkTypeText {
+				if c.ParentChunkID != "" {
+					allowedParents[c.ParentChunkID] = true
+				}
+				if parent := byID[c.ParentChunkID]; parent != nil &&
+					parent.ChunkType == types.ChunkTypeText &&
+					parent.ParentChunkID != "" {
 					allowedParents[parent.ParentChunkID] = true
 				}
 			}
 		}
 		candidates := []*types.Chunk{}
 		for _, c := range byID {
-			if !c.IsEnabled ||
+			if c == nil ||
+				!c.IsEnabled ||
 				c.KnowledgeID != r.KnowledgeID ||
 				c.KnowledgeBaseID != r.KnowledgeBaseID ||
 				c.Content == "" ||
 				c.ChunkType == types.ChunkTypeParentText {
 				continue
 			}
-			related := c.ID == r.ID || containsID(r.SubChunkID, c.ID) || allowedParents[c.ParentChunkID]
+			related := c.ID == r.ID ||
+				containsID(r.SubChunkID, c.ID) ||
+				(c.ParentChunkID != "" && allowedParents[c.ParentChunkID])
 			if parent := byID[c.ParentChunkID]; parent != nil && (c.ChunkType == types.ChunkTypeImageOCR ||
 				c.ChunkType == types.ChunkTypeImageCaption) {
-				related = related || allowedParents[parent.ParentChunkID]
+				related = related || (parent.ParentChunkID != "" && allowedParents[parent.ParentChunkID])
 			}
 			if !related {
 				continue

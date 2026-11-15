@@ -2,6 +2,7 @@ package chatpipeline
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -83,6 +84,14 @@ func (p *PluginWebFetch) OnEvent(
 		wg.Add(1)
 		go func(idx int, sr *types.SearchResult) {
 			defer wg.Done()
+			defer func() {
+				if rec := recover(); rec != nil {
+					results[idx] = fetchResult{idx: idx, err: fmt.Errorf("panic fetching page: %v", rec)}
+				}
+			}()
+			if sr == nil {
+				return
+			}
 			fetchURL := sr.ID // web search results use URL as ID
 			if fetchURL == "" {
 				return
@@ -130,7 +139,7 @@ func (p *PluginWebFetch) pageFetcher(ctx context.Context, providerID string) int
 		return infrawebsearch.LocalFetcher()
 	}
 	client, err := p.webSearch.Resolve(ctx, providerID)
-	if err != nil {
+	if err != nil || client == nil {
 		logger.Warnf(ctx, "[WebFetch] provider %s unavailable, using local reader: %v", providerID, err)
 		return infrawebsearch.LocalFetcher()
 	}
@@ -139,11 +148,17 @@ func (p *PluginWebFetch) pageFetcher(ctx context.Context, providerID string) int
 
 // fetchPage reads through the configured provider inside the quick-answer budget.
 func fetchPage(ctx context.Context, fetcher interfaces.WebFetcher, fetchURL string) (string, error) {
+	if fetcher == nil {
+		return "", fmt.Errorf("web fetcher is nil")
+	}
 	ctx, cancel := context.WithTimeout(ctx, pipelineRemoteFetchTimeout)
 	defer cancel()
 	page, err := fetcher.Fetch(infrawebsearch.WithPipelineFetch(ctx), fetchURL)
 	if err != nil {
 		return "", err
+	}
+	if page == nil {
+		return "", nil
 	}
 	return page.Content, nil
 }

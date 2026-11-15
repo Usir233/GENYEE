@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -63,7 +64,7 @@ func NewUserMachineGC(
 // is renewed for the scan's duration; a lost lock ends the scan.
 func (g *UserMachineGC) RunOnce(ctx context.Context) (GCReport, error) {
 	if g.redis == nil {
-		return g.scan(ctx)
+		return g.scan(ctx, "", nil)
 	}
 	token, err := redislock.NewToken()
 	if err != nil {
@@ -76,9 +77,11 @@ func (g *UserMachineGC) RunOnce(ctx context.Context) (GCReport, error) {
 	if !ok {
 		return GCReport{Skipped: true}, nil
 	}
+	var lockLost atomic.Bool
+	renewDone := make(chan struct{})
 	scanCtx, cancel := context.WithCancel(ctx)
-	defer cancel()
 	go func() {
+		defer close(renewDone)
 		t := time.NewTicker(gcLockLease / 3)
 		defer t.Stop()
 		for {
@@ -88,6 +91,7 @@ func (g *UserMachineGC) RunOnce(ctx context.Context) (GCReport, error) {
 			case <-t.C:
 				renewed, err := redislock.Renew(scanCtx, g.redis, UserMachineGCLockKey, token, gcLockLease)
 				if err != nil || !renewed {
+					lockLost.Store(true)
 					cancel()
 					return
 				}
@@ -95,16 +99,24 @@ func (g *UserMachineGC) RunOnce(ctx context.Context) (GCReport, error) {
 		}
 	}()
 	defer func() {
+		cancel()
+		<-renewDone
+		if lockLost.Load() {
+			return
+		}
 		relCtx, relCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 		defer relCancel()
 		_, _ = redislock.Release(relCtx, g.redis, UserMachineGCLockKey, token)
 	}()
-	return g.scan(scanCtx)
+	return g.scan(scanCtx, token, &lockLost)
 }
 
-func (g *UserMachineGC) scan(ctx context.Context) (GCReport, error) {
+func (g *UserMachineGC) scan(ctx context.Context, token string, lockLost *atomic.Bool) (GCReport, error) {
 	var report GCReport
 	report.CleanupsDone, report.CleanupsFailed, _ = g.cleaner.RetryDue(ctx, gcBatch)
+	canSave := func() bool {
+		return lockLost == nil || !lockLost.Load()
+	}
 
 	// Candidates only: the shortest window is one day, and every row is
 	// re-evaluated inside its machine's lock. Pages advance past every
@@ -122,17 +134,24 @@ func (g *UserMachineGC) scan(ctx context.Context) (GCReport, error) {
 		}
 		for _, row := range rows {
 			if ctx.Err() != nil {
-				g.saveCursor(ctx, cursor)
+				if canSave() {
+					g.saveCursor(ctx, token, cursor)
+				}
 				return report, ctx.Err()
 			}
 			if report.Scanned >= g.maxRun {
 				break
 			}
+			if row == nil || row.EmptySince == nil {
+				continue
+			}
 			cursor = interfaces.EmptyMachineCursor{EmptySince: *row.EmptySince, Digest: row.MachineDigest}
 			g.reclaimCandidate(ctx, row, &report)
 		}
 	}
-	g.saveCursor(ctx, cursor)
+	if canSave() {
+		g.saveCursor(ctx, token, cursor)
+	}
 	logger.Infof(ctx, "[sandbox-gc] scanned=%d reclaimed=%d busy=%d failed=%d cleanups_done=%d cleanups_failed=%d",
 		report.Scanned, report.Reclaimed, report.Busy, report.Failed, report.CleanupsDone, report.CleanupsFailed)
 	return report, nil
@@ -168,7 +187,13 @@ func (g *UserMachineGC) reclaimCandidate(ctx context.Context, row *types.Sandbox
 		if lockErr != nil || lock == nil {
 			return false, lockErr
 		}
-		due := !g.now().Before(lock.Claim().EmptySince.Add(time.Duration(days) * 24 * time.Hour))
+		claim := lock.Claim()
+		if claim.EmptySince.IsZero() {
+			lock.Abort()
+			lock = nil
+			return false, nil
+		}
+		due := !g.now().Before(claim.EmptySince.Add(time.Duration(days) * 24 * time.Hour))
 		if !due {
 			lock.Abort()
 			lock = nil
@@ -227,19 +252,49 @@ func (g *UserMachineGC) loadCursor(ctx context.Context) interfaces.EmptyMachineC
 	return interfaces.EmptyMachineCursor{EmptySince: c.EmptySince, Digest: c.Digest}
 }
 
-// saveCursor stores where this run stopped. A lost write only means the
-// next run starts over; the scan stays correct, just slower.
-func (g *UserMachineGC) saveCursor(ctx context.Context, c interfaces.EmptyMachineCursor) {
+var saveFencedCursorScript = redis.NewScript(`
+if redis.call("GET", KEYS[1]) ~= ARGV[1] then
+	return 0
+end
+if ARGV[2] == "" then
+	redis.call("DEL", KEYS[2])
+else
+	redis.call("SET", KEYS[2], ARGV[2], "PX", ARGV[3])
+end
+return 1
+`)
+
+// saveCursor stores where this run stopped, fenced by the active GC lock token
+// so a replica whose lock expired cannot clobber the new holder's cursor.
+func (g *UserMachineGC) saveCursor(ctx context.Context, token string, c interfaces.EmptyMachineCursor) {
 	if g.redis == nil {
 		g.cursor = c
 		return
 	}
+	writeCtx := context.WithoutCancel(ctx)
+	if token != "" {
+		if c.EmptySince.IsZero() {
+			_ = saveFencedCursorScript.Run(
+				writeCtx, g.redis,
+				[]string{UserMachineGCLockKey, UserMachineGCCursorKey},
+				token, "", 0,
+			).Err()
+			return
+		}
+		raw, _ := json.Marshal(gcCursorJSON{EmptySince: c.EmptySince, Digest: c.Digest})
+		_ = saveFencedCursorScript.Run(
+			writeCtx, g.redis,
+			[]string{UserMachineGCLockKey, UserMachineGCCursorKey},
+			token, string(raw), (2 * UserMachineGCInterval).Milliseconds(),
+		).Err()
+		return
+	}
 	if c.EmptySince.IsZero() {
-		_ = g.redis.Del(context.WithoutCancel(ctx), UserMachineGCCursorKey).Err()
+		_ = g.redis.Del(writeCtx, UserMachineGCCursorKey).Err()
 		return
 	}
 	raw, _ := json.Marshal(gcCursorJSON{EmptySince: c.EmptySince, Digest: c.Digest})
-	_ = g.redis.Set(context.WithoutCancel(ctx), UserMachineGCCursorKey, raw, 2*UserMachineGCInterval).Err()
+	_ = g.redis.Set(writeCtx, UserMachineGCCursorKey, raw, 2*UserMachineGCInterval).Err()
 }
 
 // retentionDays is the config's current empty-machine window, read before

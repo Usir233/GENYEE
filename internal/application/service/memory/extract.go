@@ -136,6 +136,11 @@ func (s *Service) ScheduleExtraction(ctx context.Context, sessionID, messageID, 
 		}
 	}
 
+	if execTenant, hasExec := types.TenantIDFromContext(ctx); hasExec && execTenant != 0 && execTenant != scope.TenantID {
+		// Under a shared agent's execution tenant, chatModelID belongs to the
+		// agent owner's workspace rather than the caller's personal memory workspace.
+		chatModelID = ""
+	}
 	s.enqueueExtraction(ctx, scope, sessionID, messageID, chatModelID, delay)
 }
 
@@ -380,12 +385,14 @@ func (s *Service) Handle(ctx context.Context, task *asynq.Task) error {
 	if retryErr != nil && s.enqueuer == nil {
 		return retryErr
 	}
-	s.consolidateIfDue(ctx, scope, cfg, s.extractionModelID(ctx, cfg, payload))
+	mctx := scopeModelContext(ctx, scope)
+	s.consolidateIfDue(mctx, scope, cfg, s.extractionModelID(mctx, cfg, payload))
 	return nil
 }
 
 func (s *Service) extractSegment(ctx context.Context, scope interfaces.MemoryScope, cfg *types.MemoryConfig, payload types.MemoryExtractPayload, segment transcriptSegment) error {
-	existing, err := s.relevantExisting(ctx, scope, cfg, segment)
+	mctx := scopeModelContext(ctx, scope)
+	existing, err := s.relevantExisting(mctx, scope, cfg, segment)
 	if err != nil {
 		return fmt.Errorf("load existing memories: %w", err)
 	}
@@ -397,14 +404,14 @@ func (s *Service) extractSegment(ctx context.Context, scope interfaces.MemorySco
 	if err != nil {
 		return fmt.Errorf("load known topics: %w", err)
 	}
-	parsed, err := s.callExtractionModel(ctx, cfg, payload, segment, existing, forgotten, knownTopics)
+	parsed, err := s.callExtractionModel(mctx, cfg, payload, segment, existing, forgotten, knownTopics)
 	if err != nil {
 		return err
 	}
-	if err := s.applyDecisions(ctx, scope, cfg, segment, existing, parsed.Memories); err != nil {
+	if err := s.applyDecisions(mctx, scope, cfg, segment, existing, parsed.Memories); err != nil {
 		return err
 	}
-	s.observeTopics(ctx, scope, cfg, s.extractionModelID(ctx, cfg, payload), parsed.Topics)
+	s.observeTopics(mctx, scope, cfg, s.extractionModelID(mctx, cfg, payload), parsed.Topics)
 	return nil
 }
 

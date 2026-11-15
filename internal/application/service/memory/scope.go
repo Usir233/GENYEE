@@ -63,3 +63,21 @@ func ResolveScope(ctx context.Context) (interfaces.MemoryScope, error) {
 	}
 	return interfaces.MemoryScope{TenantID: tenantID, SubjectID: subjectID}, nil
 }
+
+// scopeModelContext aligns TenantIDContextKey (and clears any foreign
+// TenantInfoContextKey) to scope.TenantID before calling workspace-scoped
+// dependencies such as ModelService. Under WithExecutionTenant (e.g. a shared
+// agent owned by another workspace), TenantIDContextKey points to the agent
+// owner's workspace while personal memory belongs to the caller's workspace.
+func scopeModelContext(ctx context.Context, scope interfaces.MemoryScope) context.Context {
+	if scope.TenantID == 0 {
+		return ctx
+	}
+	if cur, ok := types.TenantIDFromContext(ctx); !ok || cur != scope.TenantID {
+		ctx = context.WithValue(ctx, types.TenantIDContextKey, scope.TenantID)
+	}
+	if ti, ok := types.TenantInfoFromContext(ctx); ok && ti != nil && ti.ID != scope.TenantID {
+		ctx = context.WithValue(ctx, types.TenantInfoContextKey, (*types.Tenant)(nil))
+	}
+	return ctx
+}

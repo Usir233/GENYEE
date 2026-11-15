@@ -114,13 +114,15 @@ func (p *PluginExtractEntity) OnEvent(ctx context.Context,
 	}
 	extractor := NewExtractor(model, template)
 	graph, err := extractor.Extract(ctx, query)
-	if err != nil {
+	if err != nil || graph == nil {
 		logger.Errorf(ctx, "Failed to extract entities, session_id: %s, error: %v", chatManage.SessionID, err)
 		return next()
 	}
 	nodes := []string{}
 	for _, node := range graph.Node {
-		nodes = append(nodes, node.Name)
+		if node != nil {
+			nodes = append(nodes, node.Name)
+		}
 	}
 	logger.Debugf(ctx, "extracted node: %v", nodes)
 	chatManage.Entity = nodes
@@ -196,6 +198,9 @@ func (e *Extractor) Extract(ctx context.Context, content string) (*types.GraphDa
 	if err != nil {
 		logger.Errorf(ctx, "failed to chat: %v", err)
 		return nil, err
+	}
+	if chatResponse == nil {
+		return nil, fmt.Errorf("empty chat response")
 	}
 
 	graph, err := e.formater.ParseGraph(ctx, chatResponse.Content)

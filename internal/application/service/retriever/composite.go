@@ -41,13 +41,16 @@ type CompositeRetrieveEngine struct {
 func (c *CompositeRetrieveEngine) Retrieve(ctx context.Context,
 	retrieveParams []types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
+	if c == nil {
+		return nil, fmt.Errorf("composite retrieve engine is nil")
+	}
 	var partialMu sync.Mutex
 	var partialErrs []error
 	results, err := concurrentRetrieve(ctx, retrieveParams,
 		func(ctx context.Context, param types.RetrieveParams, results *[]*types.RetrieveResult, mu *sync.Mutex) error {
 			found := false
 			for _, engineInfo := range c.engineInfos {
-				if engineInfo == nil {
+				if engineInfo == nil || engineInfo.retrieveEngine == nil {
 					continue
 				}
 				if slices.Contains(engineInfo.retrieverType, param.RetrieverType) {
@@ -91,11 +94,17 @@ func NewCompositeRetrieveEngine(
 	registry interfaces.RetrieveEngineRegistry,
 	engineParams []types.RetrieverEngineParams,
 ) (*CompositeRetrieveEngine, error) {
+	if len(engineParams) > 0 && registry == nil {
+		return nil, ErrVectorStoreUnavailable
+	}
 	engineInfos := make(map[types.RetrieverEngineType]*engineInfo)
 	for _, engineParam := range engineParams {
 		repo, err := registry.GetRetrieveEngineService(engineParam.RetrieverEngineType)
 		if err != nil {
 			return nil, err
+		}
+		if repo == nil {
+			return nil, ErrVectorStoreUnavailable
 		}
 		if !slices.Contains(repo.Support(), engineParam.RetrieverType) {
 			return nil, fmt.Errorf("retrieval engine %s does not support retriever type: %s",
@@ -116,8 +125,11 @@ func NewCompositeRetrieveEngine(
 
 // SupportRetriever checks if a retriever type is supported by any of the registered engines
 func (c *CompositeRetrieveEngine) SupportRetriever(r types.RetrieverType) bool {
+	if c == nil {
+		return false
+	}
 	for _, engineInfo := range c.engineInfos {
-		if engineInfo == nil {
+		if engineInfo == nil || engineInfo.retrieveEngine == nil {
 			continue
 		}
 		if slices.Contains(engineInfo.retrieverType, r) {
@@ -158,11 +170,11 @@ func (c *CompositeRetrieveEngine) BatchUpdateChunkContent(
 	ctx context.Context,
 	chunkContentMap map[string]string,
 ) error {
-	if len(chunkContentMap) == 0 {
+	if c == nil || len(chunkContentMap) == 0 {
 		return nil
 	}
 	for _, info := range c.engineInfos {
-		if info == nil {
+		if info == nil || info.retrieveEngine == nil {
 			continue
 		}
 		if _, ok := info.retrieveEngine.(interfaces.ChunkContentUpdater); !ok {
@@ -216,6 +228,9 @@ func (c *CompositeRetrieveEngine) concurrentExecWithError(
 	ctx context.Context,
 	fn func(ctx context.Context, engineInfo *engineInfo) error,
 ) error {
+	if c == nil {
+		return nil
+	}
 	var wg sync.WaitGroup
 	var (
 		mu        sync.Mutex
@@ -225,6 +240,9 @@ func (c *CompositeRetrieveEngine) concurrentExecWithError(
 	)
 
 	for _, engineInfo := range c.engineInfos {
+		if engineInfo == nil || engineInfo.retrieveEngine == nil {
+			continue
+		}
 		wg.Add(1)
 		eng := engineInfo // Create local copy for safe use in closure
 		go func() {
@@ -276,8 +294,17 @@ func (c *CompositeRetrieveEngine) Index(ctx context.Context,
 func (c *CompositeRetrieveEngine) BatchIndex(ctx context.Context,
 	embedder embedding.Embedder, indexInfoList []*types.IndexInfo,
 ) error {
+	filtered := make([]*types.IndexInfo, 0, len(indexInfoList))
+	for _, info := range indexInfoList {
+		if info != nil {
+			filtered = append(filtered, info)
+		}
+	}
 	// Deduplicate sourceIDs
-	indexInfoList = common.Deduplicate(func(info *types.IndexInfo) string { return info.SourceID }, indexInfoList...)
+	indexInfoList = common.Deduplicate(func(info *types.IndexInfo) string { return info.SourceID }, filtered...)
+	if len(indexInfoList) == 0 {
+		return nil
+	}
 	err := c.concurrentExecWithError(ctx, func(ctx context.Context, engineInfo *engineInfo) error {
 		if err := engineInfo.retrieveEngine.BatchIndex(
 			ctx,
@@ -379,7 +406,13 @@ func (c *CompositeRetrieveEngine) EstimateStorageSize(ctx context.Context,
 
 // ValidateKnowledgeIndexMove checks all stores before the first mutation.
 func (c *CompositeRetrieveEngine) ValidateKnowledgeIndexMove(ctx context.Context) error {
+	if c == nil {
+		return fmt.Errorf("composite retrieve engine is nil")
+	}
 	for _, info := range c.engineInfos {
+		if info == nil || info.retrieveEngine == nil {
+			continue
+		}
 		if _, ok := info.retrieveEngine.(interfaces.KnowledgeIndexMover); !ok {
 			return fmt.Errorf("retriever %s does not support moving indices", info.retrieveEngine.EngineType())
 		}

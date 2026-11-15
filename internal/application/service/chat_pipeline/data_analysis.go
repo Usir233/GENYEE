@@ -87,7 +87,7 @@ func (p *PluginDataAnalysis) OnEvent(
 
 	// Get Knowledge details to get file path
 	knowledge, err := p.knowledgeService.GetKnowledgeByID(ctx, targetFile.KnowledgeID)
-	if err != nil {
+	if err != nil || knowledge == nil {
 		logger.Errorf(ctx, "Failed to get knowledge %s: %v", targetFile.KnowledgeID, err)
 		return next()
 	}
@@ -213,6 +213,9 @@ func runDataAnalysis(
 		response, err := chatModel.Chat(modelCtx, messages, opts)
 		if err != nil {
 			return nil, fmt.Errorf("plan generation failed: %w", err)
+		}
+		if response == nil {
+			return nil, fmt.Errorf("plan generation returned nil response")
 		}
 		plan, err := parseDataAnalysisPlan(response.Content)
 		if err != nil {

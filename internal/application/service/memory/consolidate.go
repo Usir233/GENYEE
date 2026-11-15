@@ -83,8 +83,9 @@ func (s *Service) ConsolidateNow(ctx context.Context) (*types.MemoryConsolidatio
 	if _, err := s.repo.EnsureSubject(ctx, scope); err != nil {
 		return nil, err
 	}
-	modelID := s.extractionModelID(ctx, cfg, types.MemoryExtractPayload{})
-	return s.reviewStore(ctx, scope, cfg, modelID, true), nil
+	mctx := scopeModelContext(ctx, scope)
+	modelID := s.extractionModelID(mctx, cfg, types.MemoryExtractPayload{})
+	return s.reviewStore(mctx, scope, cfg, modelID, true), nil
 }
 
 func (s *Service) reviewStore(
@@ -150,10 +151,11 @@ func (s *Service) reviewStore(
 		return result
 	}
 
+	mctx := scopeModelContext(ctx, scope)
 	result.Reviewed = len(items)
 	result.Demoted = s.demoteStaleTasks(ctx, scope, items)
 	if force || len(items) >= consolidateMinItems {
-		result.Merged, result.Candidates, result.Skipped = s.mergeRedundant(ctx, scope, cfg, modelID, items, force)
+		result.Merged, result.Candidates, result.Skipped = s.mergeRedundant(mctx, scope, cfg, modelID, items, force)
 	} else {
 		result.Skipped = types.MemoryConsolidationSkipTooFewItems
 	}
@@ -161,7 +163,7 @@ func (s *Service) reviewStore(
 	// Vectors for anything written before an embedding model existed, or while
 	// it was unreachable. Bounded per run, so a large backlog drains over days
 	// instead of stalling one maintenance pass.
-	s.backfillEmbeddings(ctx, scope, cfg)
+	s.backfillEmbeddings(mctx, scope, cfg)
 
 	// Vectors that exist but predate the database being able to rank them.
 	// Cheap — no model is called, the numbers are already stored — and until

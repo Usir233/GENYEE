@@ -3,6 +3,8 @@ package chatpipeline
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 
@@ -99,6 +101,11 @@ func (p *PluginSearch) OnEvent(ctx context.Context,
 	// Goroutine 1: Knowledge base search using SearchTargets
 	go func() {
 		defer wg.Done()
+		defer func() {
+			if rec := recover(); rec != nil {
+				kbSearchErr = fmt.Errorf("panic in kb search: %v", rec)
+			}
+		}()
 		kbResults, err := p.searchByTargets(ctx, chatManage)
 		kbSearchErr = err
 		if len(kbResults) > 0 {
@@ -111,6 +118,11 @@ func (p *PluginSearch) OnEvent(ctx context.Context,
 	// Goroutine 2: Web search (if enabled)
 	go func() {
 		defer wg.Done()
+		defer func() {
+			if rec := recover(); rec != nil {
+				logger.Errorf(ctx, "[PIPELINE] stage=Search action=web_search_panic err=%v", rec)
+			}
+		}()
 		webResults := p.searchWebIfEnabled(ctx, chatManage)
 		if len(webResults) > 0 {
 			mu.Lock()
@@ -162,19 +174,41 @@ func (p *PluginSearch) OnEvent(ctx context.Context,
 	return ErrSearchNothing
 }
 
+func cloneHistorySearchResult(src *types.SearchResult) *types.SearchResult {
+	if src == nil {
+		return nil
+	}
+	cp := *src
+	cp.CitationSources = nil
+	cp.SubChunkID = slices.Clone(src.SubChunkID)
+	cp.MatchedImages = slices.Clone(src.MatchedImages)
+	cp.SourceLocators = slices.Clone(src.SourceLocators)
+	if src.Metadata != nil {
+		cp.Metadata = maps.Clone(src.Metadata)
+	}
+	cp.MatchType = types.MatchTypeHistory
+	return &cp
+}
+
 // getSearchResultFromHistory retrieves relevant knowledge references from chat history
 func getSearchResultFromHistory(chatManage *types.ChatManage) []*types.SearchResult {
-	if len(chatManage.History) == 0 {
+	if chatManage == nil || len(chatManage.History) == 0 {
 		return nil
 	}
 	// Search history in reverse chronological order
 	for i := len(chatManage.History) - 1; i >= 0; i-- {
-		if len(chatManage.History[i].KnowledgeReferences) > 0 {
-			// Mark all references as history matches
-			for _, reference := range chatManage.History[i].KnowledgeReferences {
-				reference.MatchType = types.MatchTypeHistory
+		hist := chatManage.History[i]
+		if hist == nil || len(hist.KnowledgeReferences) == 0 {
+			continue
+		}
+		cloned := make([]*types.SearchResult, 0, len(hist.KnowledgeReferences))
+		for _, reference := range hist.KnowledgeReferences {
+			if cp := cloneHistorySearchResult(reference); cp != nil {
+				cloned = append(cloned, cp)
 			}
-			return chatManage.History[i].KnowledgeReferences
+		}
+		if len(cloned) > 0 {
+			return cloned
 		}
 	}
 	return nil

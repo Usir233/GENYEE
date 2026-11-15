@@ -2,6 +2,7 @@ package retriever
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
@@ -27,6 +28,12 @@ func NewVectorStoreRepoOwnership(repo interfaces.VectorStoreRepository) TenantSt
 // under the given tenant. Errors are reserved for infrastructure failures;
 // a non-existent (but well-formed) store ID returns (false, nil).
 func (o *vectorStoreRepoOwnership) StoreOwnedBy(ctx context.Context, storeID string, tenantID uint64) (bool, error) {
+	if tenantID == 0 || strings.TrimSpace(storeID) == "" {
+		return false, nil
+	}
+	if o == nil || o.repo == nil {
+		return false, ErrVectorStoreUnavailable
+	}
 	store, err := o.repo.GetByID(ctx, tenantID, storeID)
 	if err != nil {
 		return false, err

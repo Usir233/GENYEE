@@ -2,6 +2,7 @@ package chatpipeline
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
@@ -66,6 +67,9 @@ func (p *PluginChatCompletion) OnEvent(
 			"error":      err.Error(),
 		})
 		return ErrModelCall.WithError(err)
+	}
+	if chatResponse == nil {
+		return ErrModelCall.WithError(fmt.Errorf("empty chat response"))
 	}
 	modelContext.DecodeResponse(chatResponse)
 	if orphans := modelContext.OrphanResourceHandles(chatResponse.Content); len(orphans) > 0 {

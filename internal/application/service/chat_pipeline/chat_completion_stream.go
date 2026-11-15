@@ -146,6 +146,28 @@ func (p *PluginChatCompletionStream) OnEvent(ctx context.Context,
 			})
 			thinkingOpen = false
 		}
+		defer func() {
+			if rec := recover(); rec != nil {
+				defer func() { _ = recover() }()
+				pipelineError(ctx, "Stream", "stream_panic", map[string]interface{}{
+					"session_id": chatManage.SessionID,
+					"panic":      fmt.Sprintf("%v", rec),
+				})
+				closeThinking()
+				if eventBus != nil {
+					_ = eventBus.Emit(ctx, types.Event{
+						ID:        fmt.Sprintf("%s-error", uuid.New().String()[:8]),
+						Type:      types.EventType(event.EventError),
+						SessionID: chatManage.SessionID,
+						Data: event.ErrorData{
+							Error:     "internal stream error",
+							Stage:     "chat_completion_stream",
+							SessionID: chatManage.SessionID,
+						},
+					})
+				}
+			}
+		}()
 
 		// flushDecoders drains any handle suffix the stream decoders held back to
 		// bridge references split across provider chunks. Both the normal close

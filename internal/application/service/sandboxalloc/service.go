@@ -91,6 +91,12 @@ func (s *Service) Place(ctx context.Context, req PlaceRequest) (allocation.Assig
 func (s *Service) place(
 	ctx context.Context, req PlaceRequest,
 ) (allocation.Assignment, allocation.FallbackReason, error) {
+	if req.SessionTenantID == 0 || strings.TrimSpace(req.SessionID) == "" {
+		return allocation.Assignment{}, "", errors.New("sandboxalloc: session tenant and id are required")
+	}
+	if s.sessions == nil {
+		return allocation.Assignment{}, "", errors.New("sandboxalloc: session reader is nil")
+	}
 	for attempt := 0; attempt < placeAttempts; attempt++ {
 		existing, ok, err := s.Lookup(ctx, req.SessionID)
 		if err != nil {
@@ -102,15 +108,15 @@ func (s *Service) place(
 			return allocation.Assignment{}, "", fmt.Errorf("sandboxalloc: session %s is being deleted: %w",
 				req.SessionID, sandbox.ErrSandboxSessionDeleted)
 		}
-		if ok {
-			return existing, allocation.ReasonNone, nil
-		}
 		sess, err := s.sessions.GetByID(ctx, req.SessionTenantID, req.SessionID)
 		if err != nil {
 			return allocation.Assignment{}, "", fmt.Errorf("sandboxalloc: load session %s: %w", req.SessionID, err)
 		}
-		if sess == nil {
+		if sess == nil || sess.TenantID != req.SessionTenantID {
 			return allocation.Assignment{}, "", fmt.Errorf("sandboxalloc: session %s not found", req.SessionID)
+		}
+		if ok {
+			return existing, allocation.ReasonNone, nil
 		}
 		pin := interfaces.PlacementPin{ConfigID: sess.SandboxConfigID, TenantID: sess.SandboxConfigTenantID}
 		a, reason, err := s.decide(ctx, req, sess, pin)

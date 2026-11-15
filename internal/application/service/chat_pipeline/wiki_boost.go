@@ -50,11 +50,15 @@ func (p *PluginWikiBoost) OnEvent(
 		return err
 	}
 
+	if chatManage == nil || p == nil || p.kbService == nil {
+		return nil
+	}
+
 	// Fast path: skip all work if there are no wiki_page chunks in the result set.
 	// This avoids hitting the KB service on every chat turn for non-wiki queries.
 	hasWikiChunk := false
 	for i := range chatManage.RerankResult {
-		if chatManage.RerankResult[i].ChunkType == types.ChunkTypeWikiPage {
+		if chatManage.RerankResult[i] != nil && chatManage.RerankResult[i].ChunkType == types.ChunkTypeWikiPage {
 			hasWikiChunk = true
 			break
 		}
@@ -63,27 +67,28 @@ func (p *PluginWikiBoost) OnEvent(
 		return nil
 	}
 
-	// Confirm at least one search target is actually a wiki KB.
-	hasWikiKB := false
+	// Collect which search target KBs are wiki-enabled so only chunks from
+	// wiki-enabled KBs receive the wiki boost.
+	wikiKBIDs := make(map[string]bool, len(chatManage.SearchTargets))
 	for _, target := range chatManage.SearchTargets {
-		if target == nil || target.KnowledgeBaseID == "" {
+		if target == nil || target.KnowledgeBaseID == "" || wikiKBIDs[target.KnowledgeBaseID] {
 			continue
 		}
 		kb, err := p.kbService.GetKnowledgeBaseByIDOnly(ctx, target.KnowledgeBaseID)
 		if err == nil && kb != nil && kb.IsWikiEnabled() {
-			hasWikiKB = true
-			break
+			wikiKBIDs[target.KnowledgeBaseID] = true
 		}
 	}
-	if !hasWikiKB {
+	if len(wikiKBIDs) == 0 {
 		return nil
 	}
 
-	// Boost wiki page chunks in RerankResult
+	// Boost wiki page chunks in RerankResult only for wiki-enabled KBs.
 	boostedCount := 0
 	for i := range chatManage.RerankResult {
-		if chatManage.RerankResult[i].ChunkType == types.ChunkTypeWikiPage {
-			chatManage.RerankResult[i].Score *= wikiBoostFactor
+		r := chatManage.RerankResult[i]
+		if r != nil && r.ChunkType == types.ChunkTypeWikiPage && wikiKBIDs[r.KnowledgeBaseID] {
+			r.Score *= wikiBoostFactor
 			boostedCount++
 		}
 	}
@@ -92,6 +97,12 @@ func (p *PluginWikiBoost) OnEvent(
 		logger.Infof(ctx, "WikiBoost: boosted %d wiki page chunks by %.1fx", boostedCount, wikiBoostFactor)
 		// Re-sort by score after boosting; stable sort preserves ordering for ties.
 		sort.SliceStable(chatManage.RerankResult, func(i, j int) bool {
+			if chatManage.RerankResult[i] == nil {
+				return false
+			}
+			if chatManage.RerankResult[j] == nil {
+				return true
+			}
 			return chatManage.RerankResult[i].Score > chatManage.RerankResult[j].Score
 		})
 	}

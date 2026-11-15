@@ -153,9 +153,9 @@ func (s *Service) Recall(ctx context.Context, query string) interfaces.MemoryRec
 		return interfaces.MemoryRecall{}
 	}
 
-	residentItems, err := s.repo.ListActiveResident(recallCtx, scope, 60)
-	if err != nil {
-		logger.Warnf(recallCtx, "memory: load resident items failed: %v", err)
+	residentItems, residentErr := s.repo.ListActiveResident(recallCtx, scope, 60)
+	if residentErr != nil {
+		logger.Warnf(recallCtx, "memory: load resident items failed: %v", residentErr)
 		residentItems = nil
 	}
 	standing, interests := splitResidentInterests(residentItems)
@@ -169,7 +169,7 @@ func (s *Service) Recall(ctx context.Context, query string) interfaces.MemoryRec
 	// (a write that failed, a new resident kind) stays invisible until the
 	// user's next write. The cache is only a fallback for a failed load.
 	block := types.RenderMemoryBlock(blockItems)
-	if block == "" {
+	if block == "" && residentErr != nil {
 		block = subject.BlockText
 	}
 
@@ -683,8 +683,8 @@ func (s *Service) DeleteDocument(ctx context.Context, id string) error {
 
 // FamiliarKnowledgeIDs returns document ids this person keeps citing.
 func (s *Service) FamiliarKnowledgeIDs(ctx context.Context) []string {
-	scope, err := ResolveScope(ctx)
-	if err != nil {
+	scope, _, ok := s.enabledScope(ctx)
+	if !ok {
 		return nil
 	}
 	rows, err := s.repo.TopDocAffinity(ctx, scope, 200)

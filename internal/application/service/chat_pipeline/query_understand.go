@@ -129,10 +129,14 @@ func (p *PluginQueryUnderstand) OnEvent(ctx context.Context,
 		MaxCompletionTokens: maxTokens,
 		Thinking:            &thinking,
 	})
-	if err != nil {
+	if err != nil || response == nil {
+		errText := "empty response"
+		if err != nil {
+			errText = err.Error()
+		}
 		pipelineError(ctx, "QueryUnderstand", "model_call", map[string]interface{}{
 			"session_id": chatManage.SessionID,
-			"error":      err.Error(),
+			"error":      errText,
 		})
 		return next()
 	}

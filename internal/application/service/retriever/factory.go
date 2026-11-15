@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
@@ -86,6 +87,12 @@ func VerifyBinding(
 	tenantID uint64,
 	storeID string,
 ) error {
+	if tenantID == 0 || strings.TrimSpace(storeID) == "" {
+		return ErrVectorStoreForbidden
+	}
+	if registry == nil || ownership == nil {
+		return ErrVectorStoreUnavailable
+	}
 	owned, err := ownership.StoreOwnedBy(ctx, storeID, tenantID)
 	if err != nil {
 		return err
@@ -93,8 +100,12 @@ func VerifyBinding(
 	if !owned {
 		return ErrVectorStoreForbidden
 	}
-	if _, err := registry.GetOrLoadByStoreID(ctx, tenantID, storeID); err != nil {
+	svc, err := registry.GetOrLoadByStoreID(ctx, tenantID, storeID)
+	if err != nil {
 		return classifyLookupError(err)
+	}
+	if svc == nil {
+		return ErrVectorStoreUnavailable
 	}
 	return nil
 }
@@ -155,7 +166,7 @@ func CreateRetrieveEngineForKB(
 	// cannot accidentally route an empty UUID into GetByStoreID.
 	if vectorStoreID == nil || *vectorStoreID == "" {
 		tenantInfo, ok := types.TenantInfoFromContext(ctx)
-		if !ok {
+		if !ok || tenantInfo == nil {
 			return nil, ErrTenantInfoMissing
 		}
 		return NewCompositeRetrieveEngine(registry, tenantInfo.GetEffectiveEngines())
@@ -198,6 +209,12 @@ func resolveBoundEngine(
 	tenantID uint64,
 	storeID string,
 ) (*CompositeRetrieveEngine, error) {
+	if tenantID == 0 || strings.TrimSpace(storeID) == "" {
+		return nil, ErrVectorStoreForbidden
+	}
+	if registry == nil || ownership == nil {
+		return nil, ErrVectorStoreUnavailable
+	}
 	owned, err := ownership.StoreOwnedBy(ctx, storeID, tenantID)
 	if err != nil {
 		// This lookup queries the database with the caller's context, so it is
@@ -237,6 +254,9 @@ func resolveBoundEngine(
 			"reason":    "store engine could not be resolved",
 		})
 		return nil, classifyLookupError(err)
+	}
+	if svc == nil {
+		return nil, ErrVectorStoreUnavailable
 	}
 
 	// Build the composite directly from the resolved service.

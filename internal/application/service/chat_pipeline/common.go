@@ -2,6 +2,7 @@ package chatpipeline
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"slices"
 	"sort"
@@ -224,6 +225,20 @@ func RunParallel(tasks ...ParallelTask) map[string]*PluginError {
 	for _, task := range tasks {
 		go func(t ParallelTask) {
 			defer wg.Done()
+			defer func() {
+				if rec := recover(); rec != nil {
+					mu.Lock()
+					errs[t.Name] = &PluginError{
+						Err:         fmt.Errorf("panic in parallel task %s: %v", t.Name, rec),
+						Description: "Internal pipeline error",
+						ErrorType:   "plugin_panic",
+					}
+					mu.Unlock()
+				}
+			}()
+			if t.Run == nil {
+				return
+			}
 			if err := t.Run(); err != nil {
 				mu.Lock()
 				errs[t.Name] = err
