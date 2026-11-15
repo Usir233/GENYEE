@@ -1,0 +1,401 @@
+{
+  "wave": "W2",
+  "slice": "w2-router-mw",
+  "cross_package_notes": [
+    {
+      "file": "internal/handler/session/browserskill.go:38-120",
+      "note": "Verified read-only cross-package alignment for /api/v1/local-browser/{extension,extension/authorize,internal} (self-authenticated device/node gateway endpoints using validExtensionOrigin, Bearer pairing/renewal SHA-256 digests, and cluster HMAC-SHA256) and /api/v1/me/browser* (under authenticated v1 with APIKeyRouteGate default-deny)."
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "config",
+      "wave": "W2",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "config/agent_type_presets.yaml",
+        "config/builtin_agents.yaml",
+        "config/builtin_models.yaml.example",
+        "config/config.yaml",
+        "config/models.json.example",
+        "config/prompt_templates/agent_system_prompt.yaml",
+        "config/prompt_templates/context_template.yaml",
+        "config/prompt_templates/fallback.yaml",
+        "config/prompt_templates/generate_kb_description.yaml",
+        "config/prompt_templates/generate_questions.yaml",
+        "config/prompt_templates/generate_session_title.yaml",
+        "config/prompt_templates/generate_summary.yaml",
+        "config/prompt_templates/graph_extraction.yaml",
+        "config/prompt_templates/intent_prompts.yaml",
+        "config/prompt_templates/keywords_extraction.yaml",
+        "config/prompt_templates/rewrite.yaml",
+        "config/prompt_templates/system_prompt.yaml"
+      ],
+      "invariants_checked": [
+        "Production defaults in config/config.yaml fail closed: enable_rbac defaults to enforced, enable_cross_tenant_access defaults to false, Langfuse tracing is absent/disabled unless explicitly configured, and SSRF/sandbox network defaults remain fail-closed.",
+        "Model catalog YAML/JSON definitions (model_catalog.yaml and provider catalogs) contain no embedded live credentials, internal host paths, or legacy weknora/wk_ identifiers.",
+        "Prompt templates and evaluation datasets under config/prompts/ contain no unsafe template execution directives or brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/config/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/config",
+      "wave": "W2",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/config/agent_prompts.go",
+        "internal/config/agent_prompts_test.go",
+        "internal/config/auth_legacy_env_test.go",
+        "internal/config/config.go",
+        "internal/config/config_read_test.go",
+        "internal/config/oidc_pkce_test.go"
+      ],
+      "invariants_checked": [
+        "YAML loading, environment variable interpolation (${VAR:-default}), duration parsing, and ValidateConfig enforce valid registration modes, default tenant modes, OIDC URLs, and positive numeric bounds.",
+        "Security-critical boolean environment overrides (GENYEE_TENANT_ENABLE_RBAC, OIDC_AUTH_PKCE_ENABLED, OIDC_AUTH_ENABLE, DISABLE_REGISTRATION, GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS, GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED) parse via strconv.ParseBool so standard truthy '1' values work and malformed strings log a warning and preserve safe prior/default values instead of failing open.",
+        "GENYEE_* environment variable naming is consistent with zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-01",
+          "severity": "P1",
+          "file": "internal/config/config.go:754-759, 919-967",
+          "summary": "applyOIDCEnvOverrides and applyAuthAndTenantDefaults parsed OIDC_AUTH_PKCE_ENABLED, OIDC_AUTH_ENABLE, DISABLE_REGISTRATION, GENYEE_TENANT_ENABLE_RBAC, and GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS with strings.EqualFold(value, 'true') instead of strconv.ParseBool, causing truthy '1' values or typos ('ture') to silently disable RBAC enforcement, OIDC PKCE, or invite-only registration.",
+          "regression_test": "TestApplyAuthAndTenantDefaults_EnableRBACFailsClosedOnTruthyOrInvalidEnv, TestOIDCPKCEEnvOverride",
+          "commit": "e7bcabde843eb742bdd389d718c7d59851f28b26"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/config/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/config/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/logger",
+      "wave": "W2",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/logger/llm_logger.go",
+        "internal/logger/llm_logger_test.go",
+        "internal/logger/logger.go",
+        "internal/logger/logger_test.go"
+      ],
+      "invariants_checked": [
+        "CustomFormatter sanitizes control characters (CR, LF, ESC, NUL, DEL) out of request_id and caller tokens across both default and custom GENYEE_LOG_FORMAT templates, preventing log-line forging and terminal escape injection.",
+        "LLM debug logging keeps directory permissions 0700 and file permissions 0600, confines request_id filenames inside llm_debug via strict identifier allowlisting, and synchronizes enabled/dir state under llmDebug.mu without data races.",
+        "Context cloning (CloneContext / CloneContextWithoutTrace) preserves Principal, TenantAPIKeyScope, SandboxTenantID, MemoryAllowedForAgent, BackgroundTask, and NonInteractiveOAuth markers, and ErrorWithFields clones caller-supplied logrus.Fields maps rather than mutating them in-place."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-02",
+          "severity": "P2",
+          "file": "internal/logger/llm_logger.go:23-51, 85-105; internal/logger/logger.go:99-101, 169-177, 504-512",
+          "summary": "configureLLMDebugLog wrote llmDebug.dir/enabled without holding llmDebug.mu while LLMDebugEnabled/LLMDebugLog read llmDebug.enabled unlocked (triggering a data race under -race and failing to disable on LLM_DEBUG_LOG=false reconfigure); CustomFormatter.Format emitted unsanitized CR/LF/ESC bytes from request_id; and ErrorWithFields mutated caller-owned logrus.Fields maps in-place.",
+          "regression_test": "TestLLMDebugConcurrentConfigureAndLog, TestFormat_SanitizesRequestIDControlChars, TestErrorWithFieldsDoesNotMutateCallerMap",
+          "commit": "e4c42d4966750ff54262b22c9e5d3b2cdee65f4a"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/logger/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/logger/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/middleware",
+      "wave": "W2",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/middleware/access.go",
+        "internal/middleware/access_test.go",
+        "internal/middleware/api_key_gate.go",
+        "internal/middleware/api_key_gate_test.go",
+        "internal/middleware/audit_provider.go",
+        "internal/middleware/auth.go",
+        "internal/middleware/auth_api_principal_audience_test.go",
+        "internal/middleware/auth_api_principal_test.go",
+        "internal/middleware/auth_context.go",
+        "internal/middleware/auth_context_test.go",
+        "internal/middleware/auth_internal_dispatch_test.go",
+        "internal/middleware/auth_platform_api_key_test.go",
+        "internal/middleware/auth_public_ratelimit.go",
+        "internal/middleware/auth_public_ratelimit_test.go",
+        "internal/middleware/auth_role_test.go",
+        "internal/middleware/auth_tenant_revocation_test.go",
+        "internal/middleware/auth_tenantless_test.go",
+        "internal/middleware/embed_auth.go",
+        "internal/middleware/embed_auth_test.go",
+        "internal/middleware/error_handler.go",
+        "internal/middleware/error_handler_model_usage_test.go",
+        "internal/middleware/kb_access.go",
+        "internal/middleware/kb_access_test.go",
+        "internal/middleware/language.go",
+        "internal/middleware/logger.go",
+        "internal/middleware/logger_security_test.go",
+        "internal/middleware/logger_test.go",
+        "internal/middleware/logger_truncation_test.go",
+        "internal/middleware/mcp_endpoint_auth.go",
+        "internal/middleware/mcp_endpoint_auth_test.go",
+        "internal/middleware/multipart_cleanup.go",
+        "internal/middleware/multipart_cleanup_test.go",
+        "internal/middleware/rbac.go",
+        "internal/middleware/rbac_api_key_shortcircuit_test.go",
+        "internal/middleware/rbac_audit_test.go",
+        "internal/middleware/rbac_test.go",
+        "internal/middleware/recovery.go",
+        "internal/middleware/recovery_test.go",
+        "internal/middleware/ws_auth.go"
+      ],
+      "invariants_checked": [
+        "JWT, InternalDispatch, X-API-Key (workspace and platform), EmbedAuth, and MCPEndpointAuth re-verify workspace membership/revocation, scope capabilities, origin/Sec-Fetch-Site CSRF guards, and inactive/disabled/suspended workspace status consistently while preserving tenant-optional identity escape routes and system-admin/platform-key inspection.",
+        "RBAC RequireRole and APIKeyRouteGate enforce viewer/contributor/editor/admin/owner/system_admin floors and default-deny undeclared routes for machine API keys.",
+        "Access logger bounds request body peeks to maxBodySize+1 without consuming downstream streams, skips secret/vault/credential route bodies entirely, redacts sensitive JSON/form/header/query fields (including presigned sig/signature, ticket, code, api_key, client_secret, password), and validates X-Request-ID against header/log injection.",
+        "Panic Recovery middleware logs full stack traces server-side while returning generic HTTP 500 messages without leaking panic strings, DSNs, or internal addresses to clients."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-03",
+          "severity": "P1",
+          "file": "internal/middleware/recovery.go:19-34",
+          "summary": "Recovery() serialized raw fmt.Sprintf('%v', err) from panics directly into external HTTP 500 JSON responses (leaking internal SQL/DSN/secret strings on panic) and read dead c.Get('RequestID') instead of types.RequestIDContextKey.",
+          "regression_test": "TestRecovery_DoesNotLeakPanicDetailsToClient",
+          "commit": "bb7fc0737daf9b9eab93cfb6445f0bdd011a08ce"
+        },
+        {
+          "id": "W2-ROUTER-MW-04",
+          "severity": "P1",
+          "file": "internal/middleware/auth.go:283-295, 415-418, 549-569; internal/middleware/embed_auth.go:149-155; internal/middleware/mcp_endpoint_auth.go:54",
+          "summary": "Unlike MCPEndpointAuth, JWT/InternalDispatch Auth, workspace API-key Auth, and EmbedAuth did not reject inactive/disabled/suspended workspaces (allowing continued API, embed, and workspace-key access to deactivated tenants), and attachAPIKeyAuthContext lacked a nil-tenant guard before dereferencing t.",
+          "regression_test": "TestAuthRejectsInactiveWorkspaceWhileAllowingTenantlessEscapeAndSuperuser, TestEmbedAuthRejectsInactiveWorkspace",
+          "commit": "bb7fc0737daf9b9eab93cfb6445f0bdd011a08ce"
+        },
+        {
+          "id": "W2-ROUTER-MW-05",
+          "severity": "P2",
+          "file": "internal/middleware/logger.go:470-483, 570-580",
+          "summary": "sanitizeQuery omitted presigned URL HMAC parameters (sig, signature) and query secret keys (api_key, apikey, client_secret, secret, password) from access-log redaction, and RequestID() echoed arbitrary unvalidated X-Request-ID headers without length or visible-ASCII checks.",
+          "regression_test": "TestSanitizeQueryRedactsPresignedSigAndQuerySecrets, TestRequestIDRejectsControlCharsAndOversizedValues",
+          "commit": "bb7fc0737daf9b9eab93cfb6445f0bdd011a08ce"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/middleware/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/middleware/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/middleware/asynqdl",
+      "wave": "W2",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/middleware/asynqdl/asynqdl.go",
+        "internal/middleware/asynqdl/asynqdl_test.go",
+        "internal/middleware/asynqdl/recover.go",
+        "internal/middleware/asynqdl/recover_test.go",
+        "internal/middleware/asynqdl/worker_semantics_test.go"
+      ],
+      "invariants_checked": [
+        "Dead-letter middleware records terminal failures (SkipRetry or exhausted retries) while ignoring RevokeTask and transient retries, forwarding original handler errors unchanged.",
+        "Corrupt/non-UTF-8/malformed-JSON task payloads are safely base64-wrapped into valid UTF-8 JSON objects and invalid UTF-8 error strings are sanitized before rune-boundary truncation so PostgreSQL JSONB / MySQL JSON inserts never drop dead-letter rows.",
+        "RecoverMiddleware, CallRecovered, and safeInvokeCallback convert panics to errors without panicking on nil *asynq.Task pointers."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-06",
+          "severity": "P2",
+          "file": "internal/middleware/asynqdl/asynqdl.go:91, 109, 159-174, 235-238; internal/middleware/asynqdl/recover.go:31-32",
+          "summary": "buildDeadLetter stored raw malformed/binary payloads directly in json.RawMessage and truncateError did not sanitize invalid UTF-8 bytes in short errors (causing json.Marshal and PostgreSQL JSONB / MySQL JSON inserts to fail and drop the dead-letter row); CallRecovered and safeInvokeCallback also dereferenced nil *asynq.Task on panic.",
+          "regression_test": "TestMiddleware_MalformedPayloadAndInvalidUTF8Error_StayDBInsertable, TestCallRecovered_NilTaskDoesNotPanic",
+          "commit": "8725281419c8a74416f5ffc1e864a5427f89b1e7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/middleware/asynqdl/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/middleware/asynqdl/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/ratelimit",
+      "wave": "W2",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/ratelimit/cleanup_race_test.go",
+        "internal/ratelimit/limiter.go",
+        "internal/ratelimit/limiter_security_test.go",
+        "internal/ratelimit/limiter_test.go"
+      ],
+      "invariants_checked": [
+        "Sliding-window per-minute Limiter and UTC per-day DailyLimiter enforce Redis Lua ZSET/INCR atomicity and fall back cleanly to bounded mutex-guarded in-memory counters when Redis is nil or unreachable.",
+        "Zero/negative maxPerMinute and maxPerDay values disable limiting as documented (unlimited), and background sweep loops bound in-memory map growth without data races under -race."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/ratelimit/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/ratelimit/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/router",
+      "wave": "W2",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/router/background_routes_test.go",
+        "internal/router/chat_history_clear_test.go",
+        "internal/router/deployment_capabilities.go",
+        "internal/router/deployment_capabilities_test.go",
+        "internal/router/document_progress_test.go",
+        "internal/router/embed_frame_policy_test.go",
+        "internal/router/files.go",
+        "internal/router/memory_admin_test.go",
+        "internal/router/message_file_api_scope_test.go",
+        "internal/router/model_catalog_test.go",
+        "internal/router/operations.go",
+        "internal/router/operations_mcp_metadata_integration_test.go",
+        "internal/router/operations_test.go",
+        "internal/router/rbac.go",
+        "internal/router/rbac_selfcheck_test.go",
+        "internal/router/router.go",
+        "internal/router/router_api_key_capabilities_test.go",
+        "internal/router/router_api_key_management_test.go",
+        "internal/router/router_files_test.go",
+        "internal/router/router_knowledge_download_test.go",
+        "internal/router/router_presigned_preview_test.go",
+        "internal/router/router_presigned_test.go",
+        "internal/router/router_static_test.go",
+        "internal/router/router_wiki_test.go",
+        "internal/router/routes_agent.go",
+        "internal/router/routes_auth_tenant.go",
+        "internal/router/routes_automation.go",
+        "internal/router/routes_chat.go",
+        "internal/router/routes_graph.go",
+        "internal/router/routes_graph_test.go",
+        "internal/router/routes_infra.go",
+        "internal/router/routes_knowledge.go",
+        "internal/router/routes_mcp_endpoint.go",
+        "internal/router/routes_mcp_endpoint_test.go",
+        "internal/router/routes_memory.go",
+        "internal/router/security_regression_test.go",
+        "internal/router/static.go",
+        "internal/router/sync_task.go",
+        "internal/router/sync_task_id_test.go",
+        "internal/router/sync_task_options_test.go",
+        "internal/router/sync_task_retry_test.go",
+        "internal/router/task.go",
+        "internal/router/task_dead_letter_attempt_test.go",
+        "internal/router/task_dead_letter_utf8_test.go",
+        "internal/router/task_delete_scope_test.go",
+        "internal/router/task_inspector.go",
+        "internal/router/task_inspector_errors.go",
+        "internal/router/task_inspector_errors_test.go",
+        "internal/router/task_inspector_kb_cancel_test.go",
+        "internal/router/task_inspector_queued_ids_test.go",
+        "internal/router/task_inspector_runtime_test.go",
+        "internal/router/task_processing_scope_test.go"
+      ],
+      "invariants_checked": [
+        "Every state-mutating and sensitive route across router.go and routes_*.go sits behind middleware.Auth (or dedicated EmbedAuth / MCPEndpointAuth / presigned HMAC / capability grant / BrowserSkill device-cluster auth), workspace RBAC guards (Viewer/Contributor/Editor/Admin/Owner/SystemAdmin), and APIKeyRouteGate policy assertions (assertAPIKeyPoliciesMatchRoutes + assertOperationRoutesExist).",
+        "trustedProxies defaults to loopback (127.0.0.0/8, ::1/128), skips malformed GENYEE_TRUSTED_PROXIES entries, and applyTrustedProxies fails closed to direct peer IP (SetTrustedProxies(nil)) if Gin rejects the list so X-Forwarded-For can never spoof ClientIP() for rate limiters.",
+        "buildCORSConfig disables AllowCredentials whenever wildcard '*' or empty allowlists apply, and rejects 'null' or non-http(s) malformed origins so sandboxed iframes cannot obtain credentialed CORS reflection and gin-contrib/cors never panics at startup.",
+        "File proxy surfaces (/files, KB files, message files, /api/v1/files/presigned, /api/v1/files/presigned-preview, /r/:token) enforce tenant path/resource ownership, constant-time HMAC signature verification, attachment Content-Disposition on active browser content, and redact internal storage backend errors."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-07",
+          "severity": "P1",
+          "file": "internal/router/router.go:117-119, 338-395",
+          "summary": "r.SetTrustedProxies(trustedProxies()) logged errors without clearing Gin's default 0.0.0.0/0 trust list when GENYEE_TRUSTED_PROXIES contained any malformed IP/CIDR (failing open to X-Forwarded-For ClientIP spoofing across public rate limiters), and buildCORSConfig accepted 'null' and non-http(s) origins (risking credentialed null-origin CORS reflection or startup panics in cors.New).",
+          "regression_test": "TestTrustedProxiesSkipsMalformedEntriesAndNeverFailsOpen, TestBuildCORSConfigRejectsNullAndMalformedOriginsWithoutPanicking",
+          "commit": "90b304d1f291a189823748ebb152f567dfaef4e7"
+        },
+        {
+          "id": "W2-ROUTER-MW-08",
+          "severity": "P2",
+          "file": "internal/router/files.go:666-696",
+          "summary": "servePresignedPreview discarded resolvedPath from resolveCatalogResource and passed raw 'resource://...' references to parseStorageTarget (failing every own-tenant resource preview with 400 'empty provider' and missing ResourceCatalogFileService wrapping when storageResolver was nil), and returned raw internal storage/signing err.Error() strings in HTTP JSON responses.",
+          "regression_test": "TestPresignedPreviewResolvesOwnTenantResourceAndRedactsInternalErrors",
+          "commit": "90b304d1f291a189823748ebb152f567dfaef4e7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/router/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/router/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/utils",
+      "wave": "W2",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/utils/crypto.go",
+        "internal/utils/crypto_test.go",
+        "internal/utils/debug.go",
+        "internal/utils/dns_test.go",
+        "internal/utils/extraheaders.go",
+        "internal/utils/extraheaders_test.go",
+        "internal/utils/filesize.go",
+        "internal/utils/filesize_test.go",
+        "internal/utils/fileutil.go",
+        "internal/utils/fileutil_test.go",
+        "internal/utils/httputil.go",
+        "internal/utils/httputil_test.go",
+        "internal/utils/import_filetypes.go",
+        "internal/utils/import_filetypes_test.go",
+        "internal/utils/inject.go",
+        "internal/utils/inject_column_alias_test.go",
+        "internal/utils/inject_shared_tenant_test.go",
+        "internal/utils/inject_test.go",
+        "internal/utils/json.go",
+        "internal/utils/log_sanitize.go",
+        "internal/utils/log_sanitize_test.go",
+        "internal/utils/mysql_ssrf.go",
+        "internal/utils/oidc_state.go",
+        "internal/utils/oidc_state_test.go",
+        "internal/utils/presign.go",
+        "internal/utils/presign_test.go",
+        "internal/utils/query_and_redirect_boundaries_test.go",
+        "internal/utils/security.go",
+        "internal/utils/security_dial_timeout_test.go",
+        "internal/utils/security_path_test.go",
+        "internal/utils/security_redirect_context_test.go",
+        "internal/utils/security_redirect_test.go",
+        "internal/utils/security_regression_test.go",
+        "internal/utils/security_test.go",
+        "internal/utils/security_transport_test.go",
+        "internal/utils/security_whitelist_only_test.go",
+        "internal/utils/shell_assignment.go",
+        "internal/utils/shell_assignment_boundary_test.go",
+        "internal/utils/shell_assignment_test.go",
+        "internal/utils/ssrf_dns_cancellation_test.go",
+        "internal/utils/ssrf_outbound_cache.go",
+        "internal/utils/ssrf_outbound_cache_concurrency_test.go",
+        "internal/utils/ssrf_outbound_cache_test.go",
+        "internal/utils/ssrf_outbound_context_test.go",
+        "internal/utils/storage_error.go",
+        "internal/utils/taskid.go",
+        "internal/utils/taskid_test.go"
+      ],
+      "invariants_checked": [
+        "AES-256-GCM encryption (crypto.go) enforces key derivation/length bounds, fresh cryptographic random nonces, and preserves the intentional negative security check rejecting legacy default 'weknora-system-aes-key*' secrets.",
+        "Presigned file URL signing (presign.go) enforces HMAC-SHA256 with hmac.Equal constant-time comparison, unix expiry validation, and canonical path/tenant binding.",
+        "SSRF and network validators (security.go, net_guard.go, url_validator.go) fail closed on loopback, RFC1918, link-local/cloud-metadata, CGNAT, multicast, unspecified IPs, DNS rebinding via dial-time Control hooks, and cross-origin redirect hops.",
+        "Archive/path helpers and browser content-type guards (fileutil.go) block path traversal, active same-origin scripting extensions (including .svg/.html/.xhtml/.shtml/.mht/.mhtml/.xml/.xsl/.xslt/.rdf/.mathml/.js/.mjs/.css/.swf), directory-dot confusion, and trailing-dot/space extension bypasses."
+      ],
+      "findings": [
+        {
+          "id": "W2-ROUTER-MW-09",
+          "severity": "P2",
+          "file": "internal/utils/fileutil.go:9-23, 73-84",
+          "summary": "IsActiveBrowserContentExt omitted active browser document/script formats (.shtml, .mht, .mhtml, .xsl, .xslt, .rdf, .mathml, .swf) and SafeContentTypeByFilename neither isolated the path basename nor stripped trailing dots/spaces (allowing 'payload.svg.' or 'payload.html ' to bypass inline Content-Disposition blocking).",
+          "regression_test": "TestSafeContentTypeByFilename_BlocksActiveBrowserContentAndDirectoryDots",
+          "commit": "3e416e97eae8e3c9df04d1e7432e436aa0d9d99a"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/utils/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/utils/... (exit 0)"
+      ]
+    }
+  ]
+}
