@@ -1,0 +1,149 @@
+{
+  "wave": "W4",
+  "slice": "w4-vec-cloud-graph",
+  "cross_package_notes": [
+    {
+      "file": "internal/types/generated_question_retrieval.go:28-33",
+      "note": "Verified read-only cross-package contract of types.IsGeneratedQuestionSource(chunkID, sourceID, sourceType) and RetrieveParams.ExcludeGeneratedQuestionKBIDs: both Weaviate and TencentVectorDB retrieval paths now filter generated-question rows for KBs listed in ExcludeGeneratedQuestionKBIDs while preserving primary chunk body rows and FAQ/enabled-question KB hits."
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "internal/application/repository/retriever/neo4j",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/repository/retriever/neo4j/audit_regression_test.go",
+        "internal/application/repository/retriever/neo4j/be01_adversarial_test.go",
+        "internal/application/repository/retriever/neo4j/graph_search.go",
+        "internal/application/repository/retriever/neo4j/graph_search_test.go",
+        "internal/application/repository/retriever/neo4j/graph_write_test.go",
+        "internal/application/repository/retriever/neo4j/live_adversarial_cypher_test.go",
+        "internal/application/repository/retriever/neo4j/repository.go",
+        "internal/application/repository/retriever/neo4j/repository_test.go",
+        "internal/application/repository/retriever/neo4j/search_integration_test.go"
+      ],
+      "invariants_checked": [
+        "Every Cypher query across AddGraph, DelGraph, SearchNode, and SearchGraph parameterizes all entity names, attributes, chunk IDs, search terms, and namespace/knowledge_base_id values ($nodes, $relationships, $cypherIterateQuery, $cypherParams, $term, $terms, $maxSeedNodes, $maxNeighborsPerNode, $maxEdges), while all dynamic backticked identifiers (Label and sanitizeCypherIdentifier) strip null bytes and double backticks (` -> ``).",
+        "DelGraph passes inner APOC iterate Cypher and inner parameter maps strictly via outer Cypher parameters ($cypherIterateQuery, $cypherParams), uses DETACH DELETE with parallel: false to avoid Neo4j relationship-lock/still-has-relationships failures, consumes APOC result records to reject nonzero failedBatches, and preserves whole-KB deletion when namespace.Knowledge is empty while scoping single-document deletion with {kg: $kg}.",
+        "Graph writes, deletions, entity searches, and 1-hop neighbor expansions never cross namespace/knowledge_base_id boundaries: empty KnowledgeBase (and empty Knowledge on AddGraph) fails closed before opening any Neo4j session, and blank search terms return empty GraphData without running unbounded CONTAINS \"\" full-KB scans.",
+        "Neo4j sessions enforce bounded transaction timeouts (WithTxTimeout), preserve retryable error chains via %w wrapping so neo4j.IsRetryable works inside ExecuteWrite/ExecuteRead, bound seed nodes (maxSeedNodes = 25), per-seed neighbors (maxNeighborsPerNode = 30), and total edges (maxTotalEdges = 150), and contain zero legacy brand or host-path residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-01",
+          "severity": "P0",
+          "file": "internal/application/repository/retriever/neo4j/repository.go:150-178",
+          "summary": "DelGraph concatenated backtick-escaped label expressions directly inside double-quoted outer Cypher string literals in CALL apoc.periodic.iterate(\"MATCH (n:\" + labelExpr + \" ...) ...\", ...), allowing double-quote/backslash characters in namespace identifiers to break out into arbitrary outer Cypher; it also omitted DETACH DELETE, set parallel: true on relationship/node deletion, discarded APOC failedBatches without consuming the result, broke whole-KB deletion when Knowledge was empty by matching {kg: \"\"}, and wrapped errors with %v (breaking neo4j.IsRetryable).",
+          "regression_test": "TestDelGraphParameterizesOuterCypherAndChecksBatchFailures",
+          "commit": "a9423dc96165eb57bd4a2178796a8372602f5ebb"
+        },
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-02",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/neo4j/repository.go:60-139, 192-237, 340-366; internal/application/repository/retriever/neo4j/graph_search.go:34-60",
+          "summary": "AddGraph, DelGraph, and SearchNode did not fail closed on empty namespace.KnowledgeBase (or empty namespace.Knowledge in AddGraph), AddGraph lacked nil/blank node/relation guards and null-byte/backtick sanitization on LLM-extracted relationship types, and SearchNode/SearchGraph allowed blank/whitespace search terms to execute CONTAINS \"\" matching every node in the KB while SearchNode omitted WithTxTimeout and %w error wrapping.",
+          "regression_test": "TestNeo4jOperationsFailClosedOnEmptyNamespaceAndEmptySearchTerms",
+          "commit": "a9423dc96165eb57bd4a2178796a8372602f5ebb"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/neo4j/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/repository/retriever/weaviate",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/repository/retriever/weaviate/audit_regression_test.go",
+        "internal/application/repository/retriever/weaviate/copy_test.go",
+        "internal/application/repository/retriever/weaviate/move.go",
+        "internal/application/repository/retriever/weaviate/move_test.go",
+        "internal/application/repository/retriever/weaviate/repository.go",
+        "internal/application/repository/retriever/weaviate/repository_test.go",
+        "internal/application/repository/retriever/weaviate/score_test.go",
+        "internal/application/repository/retriever/weaviate/structs.go"
+      ],
+      "invariants_checked": [
+        "Weaviate class names are sanitized and validated against ^[A-Z][_0-9A-Za-z]*$ before GraphQL interpolation, and matchesCollection requires an exact <base>_<positive_dim> suffix so sibling collection prefixes and malformed schema class names are never queried or mutated.",
+        "VectorRetrieve, KeywordsRetrieve, and getBaseFilter fail closed when both KnowledgeBaseIDs and KnowledgeIDs are empty/blank (or when provided KnowledgeBaseIDs, KnowledgeIDs, or TagIDs slices contain only whitespace), preventing cross-KB/cross-tenant data leakage; DeleteBy*, CopyIndices, and MoveKnowledgeIndices validate non-empty targets and positive dimensions.",
+        "Multi-value ExcludeKnowledgeIDs and ExcludeChunkIDs emit one scalar filters.NotEqual operand per ID rather than invalid NotEqual array valueText, ExcludeGeneratedQuestionKBIDs filters generated-question vectors across both vector and BM25 retrieval, and GraphQL responses check both transport errors and GraphQL errors arrays without unchecked type assertions.",
+        "Save, BatchSave, and CopyIndices derive deterministic RFC 4122 UUIDs per SourceID (preserving primary chunk UUIDs while preventing generated-question rows from overwriting primary chunk vectors) and surface per-object batch errors; BatchUpdateChunkEnabledStatus and BatchUpdateChunkTagID resolve object UUIDs by chunk_id and apply non-destructive PATCH merges (WithMerge) across all matching dimension collections; default collection prefix is Genyee_embeddings with zero legacy residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-03",
+          "severity": "P0",
+          "file": "internal/application/repository/retriever/weaviate/repository.go:58-73, 324-411, 530-534, 604-646, 668-825; internal/application/repository/retriever/weaviate/move.go:12-24",
+          "summary": "VectorRetrieve, KeywordsRetrieve, and getBaseFilter did not fail closed when KnowledgeBaseIDs and KnowledgeIDs were empty or blank (querying all tenants' enabled chunks globally), getBaseFilter emitted invalid multi-value array NotEqual GraphQL filters when ExcludeKnowledgeIDs or ExcludeChunkIDs had multiple entries, collection name resolution/matching lacked ^[A-Z][_0-9A-Za-z]*$ validation and positive-dimension suffix isolation, Retrieve ignored ExcludeGeneratedQuestionKBIDs, and DeleteBy*/CopyIndices/MoveKnowledgeIndices lacked empty-target and invalid-dimension guards.",
+          "regression_test": "TestWeaviateRetrieveFailsClosedOnEmptyScopeAndValidatesClassAndExclusions",
+          "commit": "a9423dc96165eb57bd4a2178796a8372602f5ebb"
+        },
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-04",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/weaviate/repository.go:241-315, 414-510, 934-946",
+          "summary": "BatchUpdateChunkEnabledStatus and BatchUpdateChunkTagID reused outer err across loop iterations (aborting all subsequent chunk/collection updates after the first miss/error), omitted WithMerge() (sending destructive PUT replacements that wiped all other object properties instead of PATCH merges), and passed chunkID directly as object UUID (missing generated-question and copied vectors); Save and BatchSave keyed object IDs solely on ChunkID (causing generated-question vectors to overwrite chunk body vectors and rejecting non-UUID chunk IDs) while BatchSave/CopyIndices ignored per-object batch response errors.",
+          "regression_test": "TestWeaviateBatchUpdatesUseMergeAndSavePreservesGeneratedQuestionIDs",
+          "commit": "a9423dc96165eb57bd4a2178796a8372602f5ebb"
+        },
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-05",
+          "severity": "P2",
+          "file": "internal/application/repository/retriever/weaviate/repository.go:713-733, 782-806, 910-914, 1053, 1202-1255, 1311-1326",
+          "summary": "parseGraphQLResponse, VectorRetrieve, KeywordsRetrieve, CopyIndices, and copySourceReader.query performed unchecked nil/type assertions on GraphQL payloads (panicking on malformed responses), parseGraphQLResponse failed to parse Weaviate string-encoded BM25 _additional.score values (leaving keyword scores at 0.0 or 1.0), KeywordsRetrieve truncated cross-collection results without sorting by descending BM25 score, and fromWeaviateVectorEmbedding omitted VectorScore and IsEnabled.",
+          "regression_test": "TestWeaviateRetrieveHandlesMalformedGraphQLPayloadsAndRanksKeywordScores",
+          "commit": "a9423dc96165eb57bd4a2178796a8372602f5ebb"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/weaviate/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/repository/retriever/tencentvectordb",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/repository/retriever/tencentvectordb/audit_regression_test.go",
+        "internal/application/repository/retriever/tencentvectordb/default_stopwords.txt",
+        "internal/application/repository/retriever/tencentvectordb/move.go",
+        "internal/application/repository/retriever/tencentvectordb/repository.go",
+        "internal/application/repository/retriever/tencentvectordb/repository_test.go",
+        "internal/application/repository/retriever/tencentvectordb/stopwords.go",
+        "internal/application/repository/retriever/tencentvectordb/structs.go"
+      ],
+      "invariants_checked": [
+        "All TencentVectorDB filter expressions (baseFilter, DeleteBy*, updateChunkFields, BatchUpdateChunkContent, copySourceQueryParams, and MoveKnowledgeIndices) escape backslashes, double quotes, and control newlines while stripping null bytes via filterIn/filterNotIn instead of unescaped SDK tcvectordb.In/NotIn string formatting.",
+        "VectorRetrieve, KeywordsRetrieve, and baseFilter fail closed when both KnowledgeBaseIDs and KnowledgeIDs are empty/blank (or when provided filter slices contain only whitespace), and DeleteBy*, CopyIndices, copySourceQueryParams, and MoveKnowledgeIndices guard against empty KB/document/chunk targets, invalid dimensions, and nil clients.",
+        "All SDK errors returned or logged across repository operations pass through redactTencentErr so Authorization Bearer headers and api_key secrets are scrubbed to [REDACTED] while preserving numeric error codes (e.g., code: 15202).",
+        "matchesCollection enforces exact <base>_<positive_dim> suffix matching when useDimensionSuffix is active, ExcludeGeneratedQuestionKBIDs is enforced on both vector and BM25 retrieval results, VectorScore is populated on embedding matches, offline Jieba stopwords pre-seeding uses GENYEE defaults (genyee / genyee_embeddings), and zero legacy brand or host-path residues exist."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-06",
+          "severity": "P0",
+          "file": "internal/application/repository/retriever/tencentvectordb/repository.go:134-170, 257-281, 296-419, 505-576, 665-677; internal/application/repository/retriever/tencentvectordb/move.go:10-33",
+          "summary": "All filter builders called upstream tcvectordb.In/NotIn (which interpolates unescaped fmt.Sprintf(\"\\\"%v\\\"\", v)), allowing quotes/backslashes in KB, document, chunk, or tag IDs to break out into arbitrary filter predicates; VectorRetrieve, KeywordsRetrieve, and baseFilter failed open across all KBs when KnowledgeBaseIDs and KnowledgeIDs were empty/blank; copySourceQueryParams omitted knowledge_base_id scoping when sourceKnowledgeBaseID was empty; and DeleteBy*/CopyIndices/MoveKnowledgeIndices lacked blank-target, dimension, and nil-client guards.",
+          "regression_test": "TestTencentVectorDBFilterEscapingAndEmptyScopeFailClosed",
+          "commit": "a9423dc96165eb57bd4a2178796a8372602f5ebb"
+        },
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-07",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/tencentvectordb/repository.go:109-116, 163-170, 195-202, 246-280, 303-419, 426-495, 510-552, 777-791; internal/application/repository/retriever/tencentvectordb/move.go:26-32",
+          "summary": "SDK error returns and warnings exposed raw Authorization Bearer account/api_key credentials without redaction, matchesCollection used strings.HasPrefix(collectionName, base+\"_\") without validating a positive numeric dimension suffix (matching sibling store collections sharing a prefix), VectorRetrieve and KeywordsRetrieve ignored ExcludeGeneratedQuestionKBIDs, and toIndexWithScore left VectorScore unset on embedding matches.",
+          "regression_test": "TestTencentVectorDBRedactsCredentialsIsolatesCollectionsAndFiltersQuestions",
+          "commit": "a9423dc96165eb57bd4a2178796a8372602f5ebb"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/tencentvectordb/... (exit 0)"
+      ]
+    }
+  ]
+}
