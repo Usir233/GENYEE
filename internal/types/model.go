@@ -278,10 +278,7 @@ func (c ModelParameters) Value() (driver.Value, error) {
 // Scan implements the sql.Scanner interface, used to convert database value to ModelParameters.
 // Decrypts APIKey and AppSecret after loading from database; legacy plaintext is returned as-is.
 func (c *ModelParameters) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}

@@ -109,10 +109,7 @@ func (p WebSearchProviderParameters) Value() (driver.Value, error) {
 // Scan implements the sql.Scanner interface.
 // Decrypts APIKey after loading from database.
 func (p *WebSearchProviderParameters) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}

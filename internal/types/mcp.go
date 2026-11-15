@@ -256,7 +256,7 @@ func (h *MCPHeaders) Scan(value interface{}) error {
 		*h = nil
 		return nil
 	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -303,10 +303,7 @@ func (c *MCPAuthConfig) Value() (driver.Value, error) {
 // present but SYSTEM_AES_KEY is missing/rotated, so we surface that as a
 // Scan error rather than letting ciphertext leak upstream as the API key.
 func (c *MCPAuthConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -345,10 +342,7 @@ func (c *MCPAdvancedConfig) Value() (driver.Value, error) {
 
 // Scan implements sql.Scanner interface for MCPAdvancedConfig
 func (c *MCPAdvancedConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -365,10 +359,7 @@ func (c *MCPStdioConfig) Value() (driver.Value, error) {
 
 // Scan implements sql.Scanner interface for MCPStdioConfig
 func (c *MCPStdioConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -389,7 +380,7 @@ func (e *MCPEnvVars) Scan(value interface{}) error {
 		*e = nil
 		return nil
 	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}

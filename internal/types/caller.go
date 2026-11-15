@@ -21,14 +21,20 @@ func (caller Caller) Normalize() Caller {
 
 // WithCaller captures the authenticated identity independently of execution scope.
 func WithCaller(ctx context.Context, caller Caller) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, CallerContextKey, caller.Normalize())
 }
 
 // CallerFromContext supports legacy, unscoped service contexts. Always capture
 // the caller before changing execution tenants, including a missing identity.
 func CallerFromContext(ctx context.Context) Caller {
+	if ctx == nil {
+		return Caller{Role: TenantRoleViewer}
+	}
 	if caller, ok := ctx.Value(CallerContextKey).(Caller); ok {
-		return caller
+		return caller.Normalize()
 	}
 	tenantID, _ := TenantIDFromContext(ctx)
 	userID, _ := UserIDFromContext(ctx)
@@ -38,6 +44,9 @@ func CallerFromContext(ctx context.Context) Caller {
 // WithExecutionTenant changes repository/model scope, never authorization.
 // It does not grant access to any resources in the destination tenant.
 func WithExecutionTenant(ctx context.Context, tenantID uint64) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ctx = WithCaller(ctx, CallerFromContext(ctx))
 	return context.WithValue(ctx, TenantIDContextKey, tenantID)
 }

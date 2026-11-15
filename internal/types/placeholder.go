@@ -203,12 +203,23 @@ func RenderPromptPlaceholders(template string, vals PlaceholderValues) string {
 		return ""
 	}
 
-	// Populate auto-generated values when callers don't supply them.
+	result := template
+	for key, value := range vals {
+		placeholder := "{{" + key + "}}"
+		if strings.Contains(result, placeholder) {
+			result = strings.ReplaceAll(result, placeholder, value)
+		}
+	}
+
+	// Populate auto-generated values when callers don't supply them, without
+	// mutating or panicking on the caller's PlaceholderValues map.
 	autoFill := func(key, value string) {
-		if _, exists := vals[key]; !exists {
-			if strings.Contains(template, "{{"+key+"}}") {
-				vals[key] = value
-			}
+		if _, exists := vals[key]; exists {
+			return
+		}
+		placeholder := "{{" + key + "}}"
+		if strings.Contains(result, placeholder) {
+			result = strings.ReplaceAll(result, placeholder, value)
 		}
 	}
 
@@ -217,12 +228,5 @@ func RenderPromptPlaceholders(template string, vals PlaceholderValues) string {
 	autoFill("current_week", now.Weekday().String())
 	autoFill("yesterday", now.AddDate(0, 0, -1).Format("2006-01-02"))
 
-	result := template
-	for key, value := range vals {
-		placeholder := "{{" + key + "}}"
-		if strings.Contains(result, placeholder) {
-			result = strings.ReplaceAll(result, placeholder, value)
-		}
-	}
 	return result
 }

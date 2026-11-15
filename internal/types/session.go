@@ -320,10 +320,7 @@ func (c StringArray) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface, used to convert database value to StringArray
 func (c *StringArray) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -337,10 +334,7 @@ func (c *SummaryConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface, used to convert database value to SummaryConfig
 func (c *SummaryConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -408,10 +402,7 @@ func (c *ContextConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface, used to convert database value to ContextConfig
 func (c *ContextConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}

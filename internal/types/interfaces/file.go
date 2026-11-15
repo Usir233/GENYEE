@@ -45,10 +45,16 @@ type independentFileWritesKey struct{}
 // (for example attachment previews created before a message exists). Their
 // bytes must neither reuse another owner's upload nor be offered for reuse.
 func WithIndependentFileWrites(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, independentFileWritesKey{}, true)
 }
 
 func IndependentFileWrites(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
 	independent, _ := ctx.Value(independentFileWritesKey{}).(bool)
 	return independent
 }

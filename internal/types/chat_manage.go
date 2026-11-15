@@ -102,7 +102,7 @@ type PipelineRequest struct {
 // ChatModelContext scopes initialization of the selected chat model only.
 // Dedicated query-understanding and vision models retain their own request scope.
 func (c *PipelineRequest) ChatModelContext(ctx context.Context) context.Context {
-	if c.ChatModelTenantID == 0 {
+	if c == nil || c.ChatModelTenantID == 0 {
 		return ctx
 	}
 	return WithExecutionTenant(ctx, c.ChatModelTenantID)

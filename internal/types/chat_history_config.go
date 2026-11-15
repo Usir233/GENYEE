@@ -30,10 +30,7 @@ func (c ChatHistoryConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface for database deserialization
 func (c *ChatHistoryConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}

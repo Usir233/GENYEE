@@ -13,11 +13,17 @@ type wikiPageWriteSnapshotKey struct{}
 // WithWikiPageWriteSnapshot 记录生成前的页面快照，供保存时检查是否已被其他写入改变。
 // 快照不共享切片；传入 nil 可清除限制，避免后续反链维护误用源页面的快照。
 func WithWikiPageWriteSnapshot(ctx context.Context, page *WikiPage) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, wikiPageWriteSnapshotKey{}, cloneWikiPageWriteSnapshot(page))
 }
 
 // WikiPageWriteSnapshotFromContext 返回独立副本，调用方修改它不会改变保存前提。
 func WikiPageWriteSnapshotFromContext(ctx context.Context) (*WikiPage, bool) {
+	if ctx == nil {
+		return nil, false
+	}
 	page, _ := ctx.Value(wikiPageWriteSnapshotKey{}).(*WikiPage)
 	return cloneWikiPageWriteSnapshot(page), page != nil
 }

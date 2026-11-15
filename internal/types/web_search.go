@@ -67,10 +67,7 @@ func (c WebSearchConfig) Value() (driver.Value, error) {
 
 // Scan implements sql.Scanner interface for WebSearchConfig
 func (c *WebSearchConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}

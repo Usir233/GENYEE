@@ -79,6 +79,9 @@ func WithPrincipal(ctx context.Context, principal Principal) context.Context {
 	if !principal.Valid() {
 		return ctx
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, PrincipalContextKey, principal)
 }
 
@@ -99,6 +102,9 @@ func WithEmbedVisitorID(ctx context.Context, visitorID string) context.Context {
 	visitorID = strings.TrimSpace(visitorID)
 	if visitorID == "" {
 		return ctx
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	return context.WithValue(ctx, EmbedVisitorContextKey, visitorID)
 }
@@ -235,6 +241,9 @@ func WithPrincipalAuthSource(ctx context.Context, source string) context.Context
 	source = strings.TrimSpace(source)
 	if source == "" {
 		return ctx
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	return context.WithValue(ctx, PrincipalAuthSourceContextKey, source)
 }

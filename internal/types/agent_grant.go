@@ -108,11 +108,17 @@ type GrantScope struct {
 
 // WithGrantScope records where the run's grants live.
 func WithGrantScope(ctx context.Context, scope GrantScope) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, GrantScopeContextKey, scope)
 }
 
 // GrantScopeFromContext is the run's grant scope, if it has one.
 func GrantScopeFromContext(ctx context.Context) (GrantScope, bool) {
+	if ctx == nil {
+		return GrantScope{}, false
+	}
 	scope, ok := ctx.Value(GrantScopeContextKey).(GrantScope)
 	return scope, ok && scope.Scope != "" && scope.ScopeID != ""
 }
@@ -121,11 +127,17 @@ func GrantScopeFromContext(ctx context.Context) (GrantScope, bool) {
 // an automation's, approved in its settings. Approvals given during the run
 // go to the run's own scope.
 func WithStandingGrantScope(ctx context.Context, scope GrantScope) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, StandingGrantScopeContextKey, scope)
 }
 
 // StandingGrantScopeFromContext is the run's standing grant scope, if any.
 func StandingGrantScopeFromContext(ctx context.Context) (GrantScope, bool) {
+	if ctx == nil {
+		return GrantScope{}, false
+	}
 	scope, ok := ctx.Value(StandingGrantScopeContextKey).(GrantScope)
 	return scope, ok && scope.Scope != "" && scope.ScopeID != ""
 }

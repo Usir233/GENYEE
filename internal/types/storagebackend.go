@@ -124,10 +124,7 @@ func (c StorageBackendConfig) Value() (driver.Value, error) {
 }
 
 func (c *StorageBackendConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}

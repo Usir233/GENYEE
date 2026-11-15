@@ -150,16 +150,8 @@ func (u *TokenUsage) Value() (driver.Value, error) {
 
 // Scan restores a jsonb usage column; NULL leaves the receiver zero-valued.
 func (u *TokenUsage) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	var b []byte
-	switch v := value.(type) {
-	case []byte:
-		b = v
-	case string:
-		b = []byte(v)
-	default:
+	b, ok := asJSONScanBytes(value)
+	if !ok {
 		return nil
 	}
 	return json.Unmarshal(b, u)
@@ -362,10 +354,7 @@ func (c References) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface, used to convert database values to References
 func (c *References) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}

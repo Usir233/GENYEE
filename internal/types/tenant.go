@@ -162,10 +162,7 @@ func (c RetrieverEngines) Value() (driver.Value, error) {
 // It supports both the legacy bare-array format (e.g. [{...}, {...}]) and the current
 // object-wrapped format (e.g. {"engines": [{...}, {...}]}).
 func (c *RetrieverEngines) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -228,10 +225,7 @@ func (c *APIPrincipalConfig) Value() (driver.Value, error) {
 }
 
 func (c *APIPrincipalConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -259,10 +253,7 @@ func (c *CredentialsConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface for CredentialsConfig
 func (c *CredentialsConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -473,10 +464,7 @@ func (c *ParserEngineConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface for ParserEngineConfig
 func (c *ParserEngineConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -594,10 +582,7 @@ func (c *StorageEngineConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface for StorageEngineConfig
 func (c *StorageEngineConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -924,10 +909,7 @@ func (c *TenantSandboxConfig) Value() (driver.Value, error) {
 // failing the whole load, matching ModelParameters.Scan — a tenant must stay
 // listable even if its sandbox credentials became unreadable.
 func (c *TenantSandboxConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}

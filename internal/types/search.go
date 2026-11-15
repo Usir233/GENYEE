@@ -3,6 +3,7 @@ package types
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"math"
 )
 
 // SearchTargetType represents the type of search target
@@ -297,10 +298,7 @@ func (c SearchResult) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface, used to convert database value to SearchResult
 func (c *SearchResult) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -317,7 +315,7 @@ type Pagination struct {
 
 // GetPage gets the page number, default is 1
 func (p *Pagination) GetPage() int {
-	if p.Page < 1 {
+	if p == nil || p.Page < 1 {
 		return 1
 	}
 	return p.Page
@@ -325,7 +323,7 @@ func (p *Pagination) GetPage() int {
 
 // GetPageSize gets the page size, default is 20
 func (p *Pagination) GetPageSize() int {
-	if p.PageSize < 1 {
+	if p == nil || p.PageSize < 1 {
 		return 20
 	}
 	if p.PageSize > 1000 {
@@ -336,7 +334,12 @@ func (p *Pagination) GetPageSize() int {
 
 // Offset gets the offset for database query
 func (p *Pagination) Offset() int {
-	return (p.GetPage() - 1) * p.GetPageSize()
+	page := p.GetPage()
+	size := p.GetPageSize()
+	if page-1 > math.MaxInt/size {
+		return math.MaxInt
+	}
+	return (page - 1) * size
 }
 
 // Limit gets the limit for database query

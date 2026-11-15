@@ -24,6 +24,9 @@ func DefaultLanguage() string {
 // Authorization should use CallerFromContext instead.
 // Returns (0, false) when the key is absent or the value is not uint64.
 func TenantIDFromContext(ctx context.Context) (uint64, bool) {
+	if ctx == nil {
+		return 0, false
+	}
 	v, ok := ctx.Value(TenantIDContextKey).(uint64)
 	return v, ok
 }
@@ -39,18 +42,27 @@ func MustTenantIDFromContext(ctx context.Context) uint64 {
 
 // TenantInfoFromContext extracts the *Tenant from ctx.
 func TenantInfoFromContext(ctx context.Context) (*Tenant, bool) {
+	if ctx == nil {
+		return nil, false
+	}
 	v, ok := ctx.Value(TenantInfoContextKey).(*Tenant)
 	return v, ok && v != nil
 }
 
 // RequestIDFromContext extracts the request ID string from ctx.
 func RequestIDFromContext(ctx context.Context) (string, bool) {
+	if ctx == nil {
+		return "", false
+	}
 	v, ok := ctx.Value(RequestIDContextKey).(string)
 	return v, ok && v != ""
 }
 
 // UserIDFromContext extracts the user ID string from ctx.
 func UserIDFromContext(ctx context.Context) (string, bool) {
+	if ctx == nil {
+		return "", false
+	}
 	v, ok := ctx.Value(UserIDContextKey).(string)
 	return v, ok && v != ""
 }
@@ -59,12 +71,18 @@ func UserIDFromContext(ctx context.Context) (string, bool) {
 // attributed to the given edit source (WikiEditSourceUser / Agent / Revert).
 // Writes without the mark are attributed to the ingest pipeline.
 func WithWikiEditSource(ctx context.Context, source string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, WikiEditSourceContextKey, NormalizeWikiEditSource(source))
 }
 
 // WikiEditSourceFromContext returns the wiki edit source carried by ctx,
 // defaulting to WikiEditSourcePipeline when absent.
 func WikiEditSourceFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return NormalizeWikiEditSource("")
+	}
 	v, _ := ctx.Value(WikiEditSourceContextKey).(string)
 	return NormalizeWikiEditSource(v)
 }
@@ -78,12 +96,18 @@ func WikiEditSourceFromContext(ctx context.Context) string {
 // after a source document was deleted, an exact-text replacement that deletes
 // rows — say so here, and only for the write that does it.
 func WithWikiShrinkAllowed(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, WikiShrinkAllowedContextKey, true)
 }
 
 // WikiShrinkAllowedFromContext reports whether ctx was marked with
 // WithWikiShrinkAllowed.
 func WikiShrinkAllowedFromContext(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
 	v, _ := ctx.Value(WikiShrinkAllowedContextKey).(bool)
 	return v
 }
@@ -93,11 +117,17 @@ func WikiShrinkAllowedFromContext(ctx context.Context) bool {
 // and lose accuracy when a query is embedded as a passage; the embedding
 // layer turns the mark into the vendor's own parameter where it has one.
 func WithEmbedQuery(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, EmbedQueryContextKey, true)
 }
 
 // IsEmbedQuery reports whether ctx was marked with WithEmbedQuery.
 func IsEmbedQuery(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
 	v, _ := ctx.Value(EmbedQueryContextKey).(bool)
 	return v
 }
@@ -126,6 +156,9 @@ type AuditAPIKey struct {
 func WithAuditAPIKey(ctx context.Context, key AuditAPIKey) context.Context {
 	if key.ID == 0 && key.Name == "" {
 		return ctx
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	return context.WithValue(ctx, AuditAPIKeyContextKey, key)
 }
@@ -170,6 +203,9 @@ func TaskInitiatorFromContext(ctx context.Context) TaskInitiator {
 // legacy payloads are a no-op and therefore retain the system-task fallback.
 // API key identity is restored for audit display only — not as TenantAPIKeyScope.
 func (i TaskInitiator) Apply(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if i.UserID != "" {
 		ctx = context.WithValue(ctx, UserIDContextKey, i.UserID)
 		if i.Role.IsValid() {
@@ -217,6 +253,9 @@ func IsSyntheticUserID(id string) bool {
 // callers fail closed (least privilege) if the auth middleware did not
 // populate the role for some reason.
 func TenantRoleFromContext(ctx context.Context) TenantRole {
+	if ctx == nil {
+		return TenantRoleViewer
+	}
 	v, ok := ctx.Value(TenantRoleContextKey).(TenantRole)
 	if !ok || !v.IsValid() {
 		return TenantRoleViewer
@@ -227,6 +266,9 @@ func TenantRoleFromContext(ctx context.Context) TenantRole {
 // IsSystemAdminFromContext extracts the system admin flag from ctx.
 // Returns false (fail-closed) when the key is absent.
 func IsSystemAdminFromContext(ctx context.Context) bool {
+	if ctx == nil {
+		return false
+	}
 	v, ok := ctx.Value(SystemAdminContextKey).(bool)
 	if !ok {
 		return false
@@ -237,6 +279,9 @@ func IsSystemAdminFromContext(ctx context.Context) bool {
 // SessionTenantIDFromContext extracts the session-owner tenant ID from ctx.
 // Falls back to TenantIDFromContext when the session key is absent.
 func SessionTenantIDFromContext(ctx context.Context) (uint64, bool) {
+	if ctx == nil {
+		return 0, false
+	}
 	v, ok := ctx.Value(SessionTenantIDContextKey).(uint64)
 	if ok && v != 0 {
 		return v, true
@@ -250,6 +295,9 @@ func SessionTenantIDFromContext(ctx context.Context) (uint64, bool) {
 func WithSessionID(ctx context.Context, sessionID string) context.Context {
 	if sessionID == "" {
 		return ctx
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	return context.WithValue(ctx, SessionIDContextKey, sessionID)
 }
@@ -271,6 +319,9 @@ func SessionIDFromContext(ctx context.Context) (string, bool) {
 func WithSandboxTenantID(ctx context.Context, tenantID uint64) context.Context {
 	if tenantID == 0 {
 		return ctx
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	return context.WithValue(ctx, SandboxTenantIDContextKey, tenantID)
 }
@@ -294,6 +345,9 @@ func SandboxTenantIDFromContext(ctx context.Context) (uint64, bool) {
 // this to emit a one-shot authorization notice instead of blocking on the OAuth
 // wait until it times out. See MCPOAuthNonInteractiveContextKey.
 func WithMCPOAuthNonInteractive(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, MCPOAuthNonInteractiveContextKey, true)
 }
 
@@ -317,6 +371,9 @@ func IsMCPOAuthNonInteractive(ctx context.Context) bool {
 // determines whether the per-model concurrency limit applies. See
 // BackgroundTaskContextKey.
 func WithBackgroundTask(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, BackgroundTaskContextKey, true)
 }
 
@@ -338,6 +395,9 @@ type taskRetryMetadata struct {
 // WithTaskRetryMetadata records retry counters for task executors that do not
 // provide Asynq's native worker context, notably the Lite synchronous executor.
 func WithTaskRetryMetadata(ctx context.Context, retried, maxRetry int) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, taskRetryMetadataContextKey{}, taskRetryMetadata{
 		retried: retried, maxRetry: maxRetry,
 	})
@@ -361,6 +421,12 @@ type taskRetryMetadataContextKey struct{}
 // WithLLMCallMetadata annotates a provider call for cache observability. The
 // fingerprint must be a hash, never raw prompt content.
 func WithLLMCallMetadata(ctx context.Context, purpose, prefixFingerprint string) context.Context {
+	if strings.TrimSpace(purpose) == "" && strings.TrimSpace(prefixFingerprint) == "" {
+		return ctx
+	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if strings.TrimSpace(purpose) != "" {
 		ctx = context.WithValue(ctx, LLMCallPurposeContextKey, strings.TrimSpace(purpose))
 	}
@@ -382,8 +448,11 @@ func LLMCallMetadataFromContext(ctx context.Context) (purpose, prefixFingerprint
 }
 
 // LanguageFromContext extracts the language locale string from ctx (e.g. "zh-CN", "en-US").
-// Returns ("zh-CN", false) when the key is absent.
+// Returns ("", false) when the key is absent.
 func LanguageFromContext(ctx context.Context) (string, bool) {
+	if ctx == nil {
+		return "", false
+	}
 	v, ok := ctx.Value(LanguageContextKey).(string)
 	return v, ok && v != ""
 }

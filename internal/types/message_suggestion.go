@@ -49,17 +49,8 @@ func (s SuggestionItems) Value() (driver.Value, error) {
 }
 
 func (s *SuggestionItems) Scan(value interface{}) error {
-	if value == nil {
-		*s = SuggestionItems{}
-		return nil
-	}
-	var b []byte
-	switch v := value.(type) {
-	case []byte:
-		b = v
-	case string:
-		b = []byte(v)
-	default:
+	b, ok := asJSONScanBytes(value)
+	if !ok {
 		*s = SuggestionItems{}
 		return nil
 	}

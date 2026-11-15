@@ -110,17 +110,8 @@ func (m MessageImages) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface for database deserialization
 func (m *MessageImages) Scan(value interface{}) error {
-	if value == nil {
-		*m = make(MessageImages, 0)
-		return nil
-	}
-	var b []byte
-	switch v := value.(type) {
-	case []byte:
-		b = v
-	case string:
-		b = []byte(v)
-	default:
+	b, ok := asJSONScanBytes(value)
+	if !ok {
 		*m = make(MessageImages, 0)
 		return nil
 	}
@@ -315,17 +306,8 @@ func (m MessageAttachments) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface for database deserialization
 func (m *MessageAttachments) Scan(value interface{}) error {
-	if value == nil {
-		*m = make(MessageAttachments, 0)
-		return nil
-	}
-	var b []byte
-	switch v := value.(type) {
-	case []byte:
-		b = v
-	case string:
-		b = []byte(v)
-	default:
+	b, ok := asJSONScanBytes(value)
+	if !ok {
 		*m = make(MessageAttachments, 0)
 		return nil
 	}
@@ -389,17 +371,8 @@ func (m MessageArtifacts) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface for database deserialization
 func (m *MessageArtifacts) Scan(value interface{}) error {
-	if value == nil {
-		*m = make(MessageArtifacts, 0)
-		return nil
-	}
-	var b []byte
-	switch v := value.(type) {
-	case []byte:
-		b = v
-	case string:
-		b = []byte(v)
-	default:
+	b, ok := asJSONScanBytes(value)
+	if !ok {
 		*m = make(MessageArtifacts, 0)
 		return nil
 	}
@@ -450,17 +423,8 @@ func (m MentionedItems) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface for database deserialization
 func (m *MentionedItems) Scan(value interface{}) error {
-	if value == nil {
-		*m = make(MentionedItems, 0)
-		return nil
-	}
-	var b []byte
-	switch v := value.(type) {
-	case []byte:
-		b = v
-	case string:
-		b = []byte(v)
-	default:
+	b, ok := asJSONScanBytes(value)
+	if !ok {
 		*m = make(MentionedItems, 0)
 		return nil
 	}
@@ -597,17 +561,8 @@ func (c MessageExecutionContext) Value() (driver.Value, error) {
 }
 
 func (c *MessageExecutionContext) Scan(value interface{}) error {
-	if value == nil {
-		*c = MessageExecutionContext{}
-		return nil
-	}
-	var b []byte
-	switch v := value.(type) {
-	case []byte:
-		b = v
-	case string:
-		b = []byte(v)
-	default:
+	b, ok := asJSONScanBytes(value)
+	if !ok {
 		*c = MessageExecutionContext{}
 		return nil
 	}
@@ -628,17 +583,8 @@ func (a AgentSteps) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface for database deserialization
 func (a *AgentSteps) Scan(value interface{}) error {
-	if value == nil {
-		*a = make(AgentSteps, 0)
-		return nil
-	}
-	var b []byte
-	switch v := value.(type) {
-	case []byte:
-		b = v
-	case string:
-		b = []byte(v)
-	default:
+	b, ok := asJSONScanBytes(value)
+	if !ok {
 		*a = make(AgentSteps, 0)
 		return nil
 	}

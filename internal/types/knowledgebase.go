@@ -231,16 +231,9 @@ func (c AutoTagConfig) Value() (driver.Value, error) { return json.Marshal(c) }
 
 // Scan deserializes the automatic-tagging configuration from a database value.
 func (c *AutoTagConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
-		if s, ok := value.(string); ok {
-			b = []byte(s)
-		} else {
-			return nil
-		}
+		return nil
 	}
 	return json.Unmarshal(b, c)
 }
@@ -381,10 +374,7 @@ func (c StorageProviderConfig) Value() (driver.Value, error) {
 }
 
 func (c *StorageProviderConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -421,10 +411,7 @@ func (c StorageConfig) Value() (driver.Value, error) {
 }
 
 func (c *StorageConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -678,10 +665,7 @@ func (c ChunkingConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface, used to convert database value to ChunkingConfig
 func (c *ChunkingConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -695,10 +679,7 @@ func (c ImageProcessingConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface, used to convert database value to ImageProcessingConfig
 func (c *ImageProcessingConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -763,10 +744,7 @@ func (c QuestionGenerationConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface
 func (c *QuestionGenerationConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -780,10 +758,7 @@ func (c VLMConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface, used to convert database value to VLMConfig
 func (c *VLMConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -812,10 +787,7 @@ func (c ASRConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface, used to convert database value to ASRConfig
 func (c *ASRConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -843,10 +815,7 @@ func (e ExtractConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface, used to convert database value to ExtractConfig
 func (e *ExtractConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -868,10 +837,7 @@ func (f FAQConfig) Value() (driver.Value, error) {
 
 // Scan implements sql.Scanner
 func (f *FAQConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}

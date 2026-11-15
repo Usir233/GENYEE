@@ -177,10 +177,7 @@ func (c ConnectionConfig) Value() (driver.Value, error) {
 // Scan implements the sql.Scanner interface.
 // Decrypts Password and APIKey after loading from database.
 func (c *ConnectionConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -274,10 +271,7 @@ func (c IndexConfig) Value() (driver.Value, error) {
 
 // Scan implements the sql.Scanner interface.
 func (c *IndexConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		return nil
 	}
@@ -594,6 +588,12 @@ type VectorStoreResponse struct {
 // NewVectorStoreResponse creates a response DTO from a VectorStore
 // with sensitive fields masked.
 func NewVectorStoreResponse(store *VectorStore, source string, readonly bool) VectorStoreResponse {
+	if store == nil {
+		return VectorStoreResponse{
+			Source:   source,
+			ReadOnly: readonly,
+		}
+	}
 	masked := *store
 	masked.ConnectionConfig = store.ConnectionConfig.MaskSensitiveFields()
 	return VectorStoreResponse{

@@ -83,3 +83,26 @@ func (j JSON) Map() (map[string]interface{}, error) {
 	err := json.Unmarshal(j, &m)
 	return m, err
 }
+
+// asJSONScanBytes normalizes sql.Scanner inputs across PostgreSQL ([]byte) and
+// SQLite (string / []byte). Empty values and non-byte/non-string inputs return
+// false so callers can treat NULL/empty columns as zero-valued.
+func asJSONScanBytes(value interface{}) ([]byte, bool) {
+	if value == nil {
+		return nil, false
+	}
+	switch v := value.(type) {
+	case []byte:
+		if len(v) == 0 {
+			return nil, false
+		}
+		return v, true
+	case string:
+		if len(v) == 0 {
+			return nil, false
+		}
+		return []byte(v), true
+	default:
+		return nil, false
+	}
+}

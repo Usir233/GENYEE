@@ -161,6 +161,9 @@ const MemoryDisabledContextKey ContextKey = "MemoryDisabled"
 
 // WithMemoryDisabled marks the current request as not allowed to read memory.
 func WithMemoryDisabled(ctx context.Context) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, MemoryDisabledContextKey, true)
 }
 

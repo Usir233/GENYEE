@@ -24,6 +24,9 @@ func WithInternalDispatch(ctx context.Context, d InternalDispatch) context.Conte
 	if d.UserID == "" || d.TenantID == 0 {
 		return ctx
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, internalDispatchContextKey{}, d)
 }
 
@@ -61,6 +64,9 @@ type auditAgentActionContextKey struct{}
 func WithAuditAgentAction(ctx context.Context, a AuditAgentAction) context.Context {
 	if !a.valid() {
 		return ctx
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	return context.WithValue(ctx, auditAgentActionContextKey{}, a)
 }

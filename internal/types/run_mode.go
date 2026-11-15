@@ -33,6 +33,9 @@ func (m RunMode) Attended() bool { return m.Normalize() == RunModeAttended }
 
 // WithRunMode attaches the run's mode to ctx.
 func WithRunMode(ctx context.Context, m RunMode) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, RunModeContextKey, m.Normalize())
 }
 
@@ -47,6 +50,9 @@ func RunModeFromContext(ctx context.Context) RunMode {
 
 // WithAccessLevel records the run's effective access level.
 func WithAccessLevel(ctx context.Context, level AssistantAccessLevel) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, AccessLevelContextKey, level)
 }
 
@@ -54,6 +60,9 @@ func WithAccessLevel(ctx context.Context, level AssistantAccessLevel) context.Co
 // set one gets AssistantAccessAutoWrite, the level of an agent with no
 // configured ceiling.
 func AccessLevelFromContext(ctx context.Context) AssistantAccessLevel {
+	if ctx == nil {
+		return AssistantAccessAutoWrite
+	}
 	if level, ok := ctx.Value(AccessLevelContextKey).(AssistantAccessLevel); ok && level.Valid() {
 		return level
 	}

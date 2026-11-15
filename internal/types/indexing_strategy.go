@@ -60,11 +60,7 @@ func (s IndexingStrategy) Value() (driver.Value, error) {
 // When the database column is NULL (existing rows before migration),
 // it returns DefaultIndexingStrategy() for backward compatibility.
 func (s *IndexingStrategy) Scan(value interface{}) error {
-	if value == nil {
-		*s = DefaultIndexingStrategy()
-		return nil
-	}
-	b, ok := value.([]byte)
+	b, ok := asJSONScanBytes(value)
 	if !ok {
 		*s = DefaultIndexingStrategy()
 		return nil

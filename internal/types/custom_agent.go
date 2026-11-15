@@ -514,16 +514,8 @@ func (c CustomAgentConfig) Value() (driver.Value, error) {
 
 // Scan implements sql.Scanner interface for CustomAgentConfig
 func (c *CustomAgentConfig) Scan(value interface{}) error {
-	if value == nil {
-		return nil
-	}
-	var b []byte
-	switch v := value.(type) {
-	case []byte:
-		b = v
-	case string:
-		b = []byte(v)
-	default:
+	b, ok := asJSONScanBytes(value)
+	if !ok {
 		return nil
 	}
 	return json.Unmarshal(b, c)

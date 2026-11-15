@@ -276,6 +276,9 @@ type TenantAPIKeyScope struct {
 }
 
 func WithTenantAPIKeyScope(ctx context.Context, scope TenantAPIKeyScope) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, TenantAPIKeyScopeContextKey, scope.Normalize())
 }
 
