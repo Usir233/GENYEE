@@ -159,7 +159,7 @@
           "file": "internal/sandbox/shell_job_scripts.go",
           "summary": "ShellJobSubmitScriptWithBackend, shellJobWrapperScript, and ShellJobCancelScript interpolated job.ID / meta.ID into /bin/sh scripts (using Go %q double-quoting or unquoted path segments) without checking ValidShellJobID, allowing shell command/path injection if a malformed job ID reached script builders.",
           "regression_test": "TestShellJobScriptsRejectMalformedJobID",
-          "commit": "85bbf755301727391ccfa0888fb4d2e45535fe9f"
+          "commit": "a0cedd1088dbd7c38bfd9b2e472257138b8a486a"
         },
         {
           "id": "W1-SANDBOX-02",
@@ -167,7 +167,7 @@
           "file": "internal/sandbox/cube_remote_client.go",
           "summary": "CubeRemoteClient.Exec wrapped request.Stdin into the shell heredoc command before calling logCubeDataPlaneExec, leaking full plaintext Stdin payloads (including secret material and file contents) into INFO logs.",
           "regression_test": "TestCubeRemoteClientExecDoesNotLogStdin",
-          "commit": "85bbf755301727391ccfa0888fb4d2e45535fe9f"
+          "commit": "a0cedd1088dbd7c38bfd9b2e472257138b8a486a"
         },
         {
           "id": "W1-SANDBOX-03",
@@ -175,7 +175,7 @@
           "file": "internal/sandbox/docker_remote_client.go",
           "summary": "DockerRemoteClient.streamExec buffered container stdout and stderr into unbounded bytes.Buffers via stdcopy.StdCopy and ReadFile streamed via unbounded cat, allowing runaway container output or large/device files (e.g. /dev/zero) to exhaust host RAM (OOM).",
           "regression_test": "TestDockerExecAndReadFileBoundStreamMemory",
-          "commit": "85bbf755301727391ccfa0888fb4d2e45535fe9f"
+          "commit": "a0cedd1088dbd7c38bfd9b2e472257138b8a486a"
         },
         {
           "id": "W1-SANDBOX-04",
@@ -183,7 +183,7 @@
           "file": "internal/sandbox/session_binding_redis.go",
           "summary": "replaceTrafficTokenIfMatchScript patched traffic_access_token in raw JSON using non-escape-aware Lua pattern matching (\".-\"), corrupting stored session binding JSON in Redis when the existing token contained escaped quotes/backslashes or when another string field contained a lookalike substring.",
           "regression_test": "TestRedisReplaceTrafficTokenEscapedQuotesAndSpecialChars",
-          "commit": "85bbf755301727391ccfa0888fb4d2e45535fe9f"
+          "commit": "a0cedd1088dbd7c38bfd9b2e472257138b8a486a"
         },
         {
           "id": "W1-SANDBOX-05",
@@ -191,7 +191,7 @@
           "file": "internal/sandbox/session_manager.go",
           "summary": "SessionBoundManager.OpenSessionTerminal did not validate non-empty opts.Cwd through workspace.CleanWorkDirIn / cleanSessionWorkDir before admitUser and prepareSessionDirs (mkdir -p), permitting relative or uncleaned working directories.",
           "regression_test": "TestOpenSessionTerminalRejectsRelativeCwd",
-          "commit": "85bbf755301727391ccfa0888fb4d2e45535fe9f"
+          "commit": "a0cedd1088dbd7c38bfd9b2e472257138b8a486a"
         }
       ],
       "verification_commands": [
@@ -224,7 +224,7 @@
           "file": "internal/sandbox/admission/redis.go",
           "summary": "RedisRegistry.Close failed when passed ttl <= 0 instead of defaulting to DefaultHoldTTL (unlike Hold and MemoryRegistry.Close), and Barrier.Seal executed bare PERSIST without verifying the barrier's lock token, allowing an expired barrier to strip a replacement barrier's TTL or fail to report ErrLeaseLost when its key had already expired.",
           "regression_test": "TestRedisCloseDefaultsNonPositiveTTL, TestRedisSealVerifiesBarrierOwnership",
-          "commit": "4529d92542f61ae874836e03aafdcbcca46624fc"
+          "commit": "0bbb0878c2d3a9a323f3bb6fcd916d677d24aba8"
         }
       ],
       "verification_commands": [

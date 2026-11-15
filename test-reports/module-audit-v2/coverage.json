@@ -10,10 +10,10 @@
   "wave0_evidence_file": "test-reports/module-audit-v2/wave0-foundation.json",
   "legacy_ledger": "test-reports/module-audit-20261113/coverage.json",
   "summary": {
-    "total_tracked_files": 6496,
+    "total_tracked_files": 6504,
     "unit_count": 301,
-    "unit_files_total": 5978,
-    "support_files_total": 518,
+    "unit_files_total": 5982,
+    "support_files_total": 522,
     "uncovered_files": 0,
     "duplicate_files": 0,
     "stale_files": 0,
@@ -28,7 +28,7 @@
       "W8": 77
     },
     "files_by_wave": {
-      "W1": 372,
+      "W1": 376,
       "W2": 922,
       "W3": 1264,
       "W4": 170,
@@ -38,8 +38,10 @@
       "W8": 470
     },
     "units_by_status": {
-      "pending": 224,
-      "pending_reaudit": 77
+      "pending": 204,
+      "pending_reaudit": 77,
+      "verified_findings_fixed": 15,
+      "verified_no_findings": 5
     },
     "units_by_legacy_status": {
       "audited": 36,
@@ -53,7 +55,7 @@
     "support_files_by_category": {
       "license_or_notice": 71,
       "historical_changelog_or_spec": 6,
-      "audit_ledger_or_archived_report": 72,
+      "audit_ledger_or_archived_report": 76,
       "static_binary_or_vendor_asset": 369
     }
   },
@@ -62,8 +64,8 @@
       "unit_id": "internal/agent/approval",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 16,
+      "status": "verified_findings_fixed",
+      "file_count": 17,
       "tracked_files": [
         "internal/agent/approval/ask_user.go",
         "internal/agent/approval/ask_user_test.go",
@@ -78,20 +80,56 @@
         "internal/agent/approval/page_action_test.go",
         "internal/agent/approval/secure_form.go",
         "internal/agent/approval/secure_form_test.go",
+        "internal/agent/approval/security_audit_test.go",
         "internal/agent/approval/session_grant_test.go",
         "internal/agent/approval/tool_policy.go",
         "internal/agent/approval/tool_policy_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Multi-tenant and per-user ownership binding enforced across RequestAndWait, RequestHostAndWait, RequestOAuthAndWait, AskUser, RequestSecureForm, PageAction, ResolveForResume, ResolveResponse, and ResolveSecureForm.",
+        "AnswerableKinds excludes mcp_oauth and secure_form from generic user prompt resolution so OAuth callbacks and server-side credential vault handlers remain the sole resolvers for those kinds.",
+        "Session and standing automation grant bindings hash canonical tool arguments / domains (BindingHash) and verify Risk coverage via policy.Covers so TOCTOU argument changes or risk escalations invalidate prior grants.",
+        "Single-use consumption via hitl.Broker.Consume transitions answered prompts to executing/done under owner-instance verification, preventing replay of expired, canceled, or already-consumed approvals.",
+        "Strict JSON decoding with DisallowUnknownFields and trailing-EOF rejection enforced on tool_approval, mcp_oauth, ask_user, secure_form, and page_action response validators, plus host Scope/Access clamping against proposed AllowSession and GrantAccess.",
+        "MCP policy lookups (IsEnabled, Action, ToolRisks) fail closed on missing tenant/service/tool identity or checker errors; ResumeDecision, ResumeAnswer, and ResumeSecureForm guard against nil receivers/prompts and kind confusion."
+      ],
+      "findings": [
+        {
+          "id": "W1-AGENT-SEC-03",
+          "severity": "P1",
+          "file": "internal/agent/approval/gate.go:374-386,700-715,768-845",
+          "summary": "validateToolApprovalResponse did not validate Scope ('once'/'session') or Access ('read'/'write'), allowed Scope/Access on rejections, and ignored trailing JSON tokens (as did validateMCPOAuthResponse, which also lacked DisallowUnknownFields and required 'authorized'); furthermore, RequestHostAndWait passed client-supplied Scope='session' when AllowSession=false and Access='write' when GrantAccess='read', allowing callers on /agent/prompts/{id} to widen a read-only host grant into a write grant.",
+          "regression_test": "TestResolveResponseValidatesScopeAccessAndTrailingJSON, TestRequestHostAndWaitCannotWidenProposedGrantOrSessionScope",
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
+        },
+        {
+          "id": "W1-AGENT-SEC-04",
+          "severity": "P1",
+          "file": "internal/agent/approval/mcp_risk.go:56-65,92-160",
+          "summary": "Gate.Action failed open to DeclaredRisk(tool) (allowing readOnlyHint=true tools without approval) when tenantID==0, serviceID=='', or tool identity was empty despite a configured checker; Gate.ToolRisks likewise skipped policy lookup on missing tenant/service, ignored RiskChecker.Policy when ListByService was unimplemented, and trusted readOnlyHint instead of RiskWrite when Checker did not implement RiskChecker.",
+          "regression_test": "TestGateActionAndToolRisksFailClosedOnMissingIdentityOrCheckerType",
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
+        },
+        {
+          "id": "W1-AGENT-SEC-05",
+          "severity": "P2",
+          "file": "internal/agent/approval/secure_form.go:53-68,132-168, internal/agent/approval/ask_user.go:134-144, internal/agent/approval/gate.go:522-535",
+          "summary": "RequestSecureForm and ResolveSecureForm lacked explicit non-zero TenantID and non-blank UserID guards, SecureFormPrompt lacked nil gate/broker guards, and ResumeDecision / ResumeAnswer / ResumeSecureForm lacked nil prompt and Prompt.Kind verification before unmarshaling and consuming.",
+          "regression_test": "TestSecureFormAndResumeEntryPointsFailClosedOnMissingOwnerOrKind",
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/agent/approval/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/approval/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-agent-sec.json"
     },
     {
       "unit_id": "internal/agent/hitl",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 9,
       "tracked_files": [
         "internal/agent/hitl/broker.go",
@@ -104,16 +142,41 @@
         "internal/agent/hitl/store.go",
         "internal/agent/hitl/suspend_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Broker.Resolve enforces non-zero matching TenantID, fail-close per-user UserID matching, optional SessionID/Kind scoping (returning ErrPromptNotFound to prevent cross-session probing), and registered kind response validation before state transition.",
+        "Atomic compare-and-swap transitions in MemoryStore and SQL Store guard status, owner_instance, and lease_until so concurrent Resolve, timeout, cancellation, reaper, and Consume operations never double-consume or lose answers.",
+        "Waiter channel registration and close-once wakeup broadcast via sync/Redis pubsub are race-free under concurrent Await/Resolve/Cancel/Reap.",
+        "Orphaned pending prompts with expired owner leases are reaped prior to Resolve (suspended when suspendable, expired with owner_stopped otherwise) so answers are never recorded onto dead non-suspendable prompts."
+      ],
+      "findings": [
+        {
+          "id": "W1-AGENT-SEC-06",
+          "severity": "P1",
+          "file": "internal/agent/hitl/broker.go:553",
+          "summary": "Broker.Resolve checked row.TenantID != req.TenantID without rejecting zero TenantIDs, allowing an unattributed request (TenantID=0) to match an unattributed prompt row (TenantID=0) instead of failing closed with ErrTenantMismatch.",
+          "regression_test": "TestBroker_ResolveRejectsZeroTenant",
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
+        },
+        {
+          "id": "W1-AGENT-SEC-07",
+          "severity": "P2",
+          "file": "internal/agent/hitl/broker.go:579-581",
+          "summary": "Broker.Resolve only invoked reapPending on lease-expired Pending prompts when row.Suspendable was true, allowing a non-suspendable prompt whose waiting replica had crashed to transition to a permanent zombie Answered row with no waiter or suspension state.",
+          "regression_test": "TestBroker_ResolveExpiresOrphanedNonSuspendablePendingPrompt",
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/agent/hitl/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/hitl/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-agent-sec.json"
     },
     {
       "unit_id": "internal/agent/hostreview",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 7,
       "tracked_files": [
         "internal/agent/hostreview/assessment.go",
@@ -124,33 +187,80 @@
         "internal/agent/hostreview/reviewer_test.go",
         "internal/agent/hostreview/transcript.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Reviewer fails closed on nil reviewer/model, empty or mismatched SessionID, missing RequestID, empty/whitespace-only current-turn user messages, incomplete wildcard targets (TargetsComplete=false), incomplete scripts (ScriptsIncomplete=true), oversized actions (>64 KiB pre-masking), oversized current-turn transcripts (>64 KiB), model timeouts, cancellations, or tool-call attempts.",
+        "Prompt serialization isolates untrusted action fields inside structured JSON, caps earlier background messages while keeping current-turn authorization messages whole, and masks secret-named environment variables before sending prompts to external review models.",
+        "Assessment parser enforces a single JSON object (optionally inside one markdown fence without trailing text), DisallowUnknownFields, trailing-EOF rejection, and requires outcome=allow with risk_level in {low,medium} and user_authorization in {medium,high}."
+      ],
+      "findings": [
+        {
+          "id": "W1-AGENT-SEC-08",
+          "severity": "P1",
+          "file": "internal/agent/hostreview/prompt.go:96-135",
+          "summary": "actionOf serialized req.Env values in plaintext into the external LLM user prompt (unlike tools/host_approval.go which masks secret-looking env keys on UI cards), leaking API keys, tokens, passwords, and cookies to the review model.",
+          "regression_test": "TestPromptMasksSecretEnvValuesWhileEnforcingRawSizeLimit",
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
+        },
+        {
+          "id": "W1-AGENT-SEC-09",
+          "severity": "P2",
+          "file": "internal/agent/hostreview/reviewer.go:65-95, internal/agent/hostreview/transcript.go:24-48",
+          "summary": "Reviewer.review did not reject blank turn.SessionID or mismatched req.SessionID != turn.SessionID, accepted whitespace-only current-turn user messages, and splitTranscript dereferenced nil *types.Message entries without guarding.",
+          "regression_test": "TestReviewRefusesMissingOrMismatchedSessionAndBlankTurn",
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
+        },
+        {
+          "id": "W1-AGENT-SEC-10",
+          "severity": "P2",
+          "file": "internal/agent/hostreview/assessment.go:26-35",
+          "summary": "parseAssessment used json.Unmarshal without DisallowUnknownFields or trailing-token EOF verification, accepting malformed multi-field / unknown-key JSON replies instead of failing closed.",
+          "regression_test": "TestParseAssessmentRejectsUnknownFieldsAndTrailingJSON",
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/agent/hostreview/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/hostreview/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-agent-sec.json"
     },
     {
       "unit_id": "internal/agent/policy",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 3,
       "tracked_files": [
         "internal/agent/policy/policy.go",
         "internal/agent/policy/policy_test.go",
         "internal/agent/policy/record.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Decide and Offered enforce read-only mutation denial, treat unknown Risk values as destructive (Ask under auto_write/confirm, Deny under read_only), and fail closed (Deny / not offered) on any non-empty malformed AssistantAccessLevel while preserving empty default confirm semantics.",
+        "Grantable restricts in-run session grants to non-Always RiskWrite actions, Pregrantable restricts standing automation grants to non-Always RiskWrite/RiskDestructive actions, and Covers requires both granted and call Risk values to be valid with call risk not exceeding granted risk."
+      ],
+      "findings": [
+        {
+          "id": "W1-AGENT-SEC-11",
+          "severity": "P2",
+          "file": "internal/agent/policy/policy.go:106-116",
+          "summary": "Offered checked level != AssistantAccessReadOnly without validating non-empty levels via level.Valid(), causing malformed access levels (e.g. 'readonly', 'none', 'bogus') to fail open (offering mutating/destructive tools and returning Allow on read/probe); Covers also did not explicitly require granted.Valid().",
+          "regression_test": "TestMalformedNonEmptyAccessLevelFailsClosed",
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/agent/policy/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/policy/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-agent-sec.json"
     },
     {
       "unit_id": "internal/browserskill",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 20,
+      "status": "verified_findings_fixed",
+      "file_count": 21,
       "tracked_files": [
         "internal/browserskill/authorization.go",
         "internal/browserskill/cluster.go",
@@ -167,22 +277,51 @@
         "internal/browserskill/manager_test.go",
         "internal/browserskill/result.go",
         "internal/browserskill/result_test.go",
+        "internal/browserskill/security_audit_test.go",
         "internal/browserskill/shared_test.go",
         "internal/browserskill/stop.go",
         "internal/browserskill/stop_test.go",
         "internal/browserskill/store.go",
         "internal/browserskill/store_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Extension origin validation (validExtensionOrigin) strictly requires chrome-extension://<32 lowercase a-p chars> on both AuthorizeHTTP and WebSocket ServeHTTP, blocking arbitrary web page CSRF and DNS-rebinding hijacks.",
+        "Pairing and renewal token handling stores only SHA-256 hex digests in DB, enforces single-use atomic pairing exchange, requires explicit 'Bearer ' authorization header scheme, validates canonical 32-byte base64url tokens on both HTTP and WebSocket subprotocol entry points, and uses subtle.ConstantTimeCompare for secret/token equality checks.",
+        "Daemon Unix socket gatekeeper enforces 0700 private runtime directories (rejecting /tmp, /var/tmp, /private/tmp), constant-time per-daemon secret verification before proxying to inner bsk socket, and 24 MiB frame bounds.",
+        "Cluster inter-node RPC verifies HMAC-SHA256 signatures with hmac.Equal over timestamp + method + path + body, enforces 60s clock skew and nonce replay cache, and restricts internal forwarding URLs.",
+        "Multi-tenant and per-user Scope{Tenant, User} isolation binds device records, leases, and conversation task maps, stripping caller-supplied session_id / browser_instance_id overrides.",
+        "Navigation URL validation (navigate and tab_create) rejects dangerous schemes (file://, javascript:, chrome:, chrome-extension:, data:, devtools:, view-source:), control characters, and missing hosts before auto-starting sessions or dispatching RPCs.",
+        "WebSocket/HTTP body and screenshot preview payload bounds (ReadLimit, http.MaxBytesReader, maxFrame, preview size checks) and concurrent disconnect/pause/cancel races verified under -race; reserved BrowserSkill identifiers preserved per REBRAND_RESERVED.md with zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-AGENT-SEC-01",
+          "severity": "P1",
+          "file": "internal/browserskill/manager.go:867, internal/browserskill/result.go:10",
+          "summary": "Manager.Call (callLocal) forwarded params['url'] in navigate and tab_create to the local Chrome extension without scheme validation (unlike statusPageURL), allowing prompt-injected tool calls to auto-start a browser window and open file://, javascript:, chrome://, chrome-extension://, data:, or devtools:// URLs.",
+          "regression_test": "TestCallRejectsDangerousNavigationAndTabCreateSchemes",
+          "commit": "d68f8905e4c5666bc0a003d785a410cd3d714127"
+        },
+        {
+          "id": "W1-AGENT-SEC-02",
+          "severity": "P2",
+          "file": "internal/browserskill/authorization.go:61-69, internal/browserskill/manager.go:384",
+          "summary": "AuthorizeHTTP used strings.TrimPrefix(..., 'Bearer '), accepting raw tokens without a 'Bearer ' prefix and comparing token == input.NextToken non-constant-time; ServeHTTP checked len(token) != 43 instead of canonical 32-byte base64url validToken(token) before querying storage.",
+          "regression_test": "TestAuthorizeHTTPRequiresBearerSchemeAndServeHTTPValidatesCanonicalToken",
+          "commit": "d68f8905e4c5666bc0a003d785a410cd3d714127"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/browserskill/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/browserskill/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-agent-sec.json"
     },
     {
       "unit_id": "internal/localsandbox",
       "wave": "W1",
       "legacy_status": "partially_audited",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 26,
       "tracked_files": [
         "internal/localsandbox/aliases.go",
@@ -212,16 +351,48 @@
         "internal/localsandbox/targets.go",
         "internal/localsandbox/targets_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Service.Run enforces shipped ApprovalMode only (ModeAuto, ModeAsk), resolves WorkDir through PathGuard.CheckDir (O_NOFOLLOW directory walk), serialises concurrent operations per workspace root via ref-counted rootLocks while running approval prompts outside the root lock, and masks secret assignments in command preview logs.",
+        "Process lifecycle kills the child process group on timeout or context cancellation, stops watchKill before PID reuse, caps captured stdout/stderr streams at 1 MiB per stream, and closes pipe readers after a 100ms post-kill grace window so escaped setsid() descendants cannot hang drain(proc).",
+        "FileApproval binds out-of-scope file writes to both the SHA-256 content digest and the originating SessionID, and readForChange rejects non-regular files via Lstat before reading.",
+        "Session state (grants, delete rules, approval mode overrides) is keyed per sessionID, mutex-protected under -race, and released cleanly on ReleaseSession; zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-LOCALSANDBOX-01",
+          "severity": "P1",
+          "file": "internal/localsandbox/service.go",
+          "summary": "watchKill signalled proc.Kill() on timeout/cancel without closing stdout/stderr reader pipes after a post-kill grace period, allowing an escaped setsid() grandchild holding inherited stdout/stderr descriptors open to hang drain(proc) and hold the workspace root lock indefinitely.",
+          "regression_test": "TestServiceRunUnblocksDrainWhenEscapedGrandchildHoldsPipeAfterTimeout",
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
+        },
+        {
+          "id": "W1-LOCALSANDBOX-02",
+          "severity": "P1",
+          "file": "internal/localsandbox/service_file.go",
+          "summary": "FileApproval lacked SessionID binding and readForChange did not reject non-regular files (symlinks, FIFOs, devices) via Lstat before opening target paths during AuthorizeFileChange.",
+          "regression_test": "TestFileApprovalCannotBeReplayedAcrossSessions",
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-localsandbox.json"
     },
     {
       "unit_id": "internal/localsandbox/adapter",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 10,
       "tracked_files": [
         "internal/localsandbox/adapter/adapter.go",
@@ -235,16 +406,47 @@
         "internal/localsandbox/adapter/install_test.go",
         "internal/localsandbox/adapter/layout.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Adapter bounds all host file store operations (EnsureSessionDir, ListSessionFiles, StatSessionFile, ReadSessionFile, WriteSessionWorkspaceFile) through PathGuard and workspace root locks, refuses DestroySession and VersionsWorkspace on user host folders, and enforces FileApproval session + SHA-256 digest binding.",
+        "StatSessionFile and ListSessionFiles (and InstallManager.StatSessionFile) classify regular files, directories, and non-regular entries (symlinks, FIFOs, sockets, devices) identically to remote sandbox adapters (RemoteEntryOther) and honor ctx.Err() cancellation.",
+        "InstallManager isolates maintenance sessions per bound skill version directory, never implements SessionCapabilityProvider (preventing chat agents from reaching an open-network shell), and redirects UV/PIP/npm caches and GENYEE_SKILL_DIR inside .genyee/cache; zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-LOCALSANDBOX-03",
+          "severity": "P1",
+          "file": "internal/localsandbox/adapter/adapter.go, internal/localsandbox/adapter/file_change.go",
+          "summary": "Adapter.guard and Adapter.WriteSessionWorkspaceFile trusted fileApprovalFrom(ctx) without verifying approval.SessionID == sessionID, allowing an out-of-scope FileApproval context from one session to grant read/write access in another session.",
+          "regression_test": "TestFileApprovalCannotBeReplayedAcrossSessions",
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
+        },
+        {
+          "id": "W1-LOCALSANDBOX-04",
+          "severity": "P2",
+          "file": "internal/localsandbox/adapter/adapter.go, internal/localsandbox/adapter/install.go",
+          "summary": "Adapter.StatSessionFile, Adapter.ListSessionFiles, and InstallManager.StatSessionFile classified symlinks and special files as RemoteEntryFile instead of RemoteEntryOther, and ListSessionFiles ignored ctx.Err() during WalkDir traversal.",
+          "regression_test": "TestAdapterStatAndListClassifyNonRegularEntriesAsOtherAndHonorContextCancel, TestInstallManagerFilesStayInsideVersionDir",
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-localsandbox.json"
     },
     {
       "unit_id": "internal/localsandbox/core",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 26,
       "tracked_files": [
         "internal/localsandbox/core/backend.go",
@@ -274,16 +476,64 @@
         "internal/localsandbox/core/workspace.go",
         "internal/localsandbox/core/workspace_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "PolicyBuilder and Escalation protect credential roots (~/.ssh, ~/.aws, ~/.gnupg, ~/.kube, ~/Library/Keychains, appData, .bsk), shell startup files, system/root directories, home dot-directories, and .git metadata (including worktrees and bare repos with HEAD+objects+refs), resolving symlinks on longest existing prefixes before granting access.",
+        "PathGuard enforces lexical and symlink-resolved DenyRead, DenyWrite, ReadOnlySubpaths, WritableRoots, and WritableFiles, walks relative components fd-by-fd on Unix with O_NOFOLLOW|O_CLOEXEC and O_NONBLOCK leaf opens, verifies S_IFREG before reading/truncating, and caps ReadFile at 64 MiB.",
+        "BuildCommandEnv and FilterInheritedEnv allowlist safe locale/toolchain host variables, strip dynamic-linker injection (LD_*, DYLD_*), runtime startup hooks (NODE_OPTIONS, PYTHONSTARTUP, RUBYOPT, PERL5OPT, JAVA_TOOL_OPTIONS, BASH_ENV, ENV, PROMPT_COMMAND, GIT_SSH_COMMAND, etc.) case-insensitively, reject '=' and NUL smuggling in keys/values, and force GIT_TERMINAL_PROMPT=0.",
+        "Command delete classification covers rm/rmdir/unlink, find (-delete/-exec rm, BSD/GNU pre-path flags, symlink-following -L/-H/-follow), git (clean/rm with -C, -C<dir>, --work-tree, --git-dir, and escaping pathspecs), shell -c, eval, substitutions, and env/sudo wrappers (-C/-D/--chdir, env -S/--split-string); zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-LOCALSANDBOX-05",
+          "severity": "P1",
+          "file": "internal/localsandbox/core/command.go",
+          "summary": "ClassifyCommand, DeleteLocations, and DeletesStayBelow missed attached/long git directory options (-C<dir>, --work-tree, --git-dir), git rm/clean pathspecs escaping cwd, BSD/GNU find pre-path flags (-L, -H, -P, -f <path>) and symlink-following (-L, -H, -follow), and wrapper chdir/split-string forms (env -C, sudo -D, env -S, --split-string), allowing destructive out-of-cwd or root/home deletes to bypass dangerous-command refusal or ModeAuto review.",
+          "regression_test": "TestCommandClassificationHandlesGitFindAndWrapperEscapeForms",
+          "commit": "942e601607146a3cd963fa69e4749f8463ea1682"
+        },
+        {
+          "id": "W1-LOCALSANDBOX-06",
+          "severity": "P1",
+          "file": "internal/localsandbox/core/pathguard.go, internal/localsandbox/core/pathguard_file.go, internal/localsandbox/core/policy.go",
+          "summary": "PathGuard.allowWrite (used by WriteFile and MkdirAll) omitted g.writeDenied(path) (Policy.DenyWrite), NewPathGuard did not resolve symlink aliases on DenyRead, DenyWrite, and ReadOnlySubpaths, and Policy/PathGuard accepted NUL bytes in path strings.",
+          "regression_test": "TestPathGuardWriteFileAndMkdirAllEnforceDenyWrite, TestPathGuardEnforcesSymlinkedDenyAndReadOnlyAliases, TestPolicyAndPathGuardRejectNULBytes",
+          "commit": "942e601607146a3cd963fa69e4749f8463ea1682"
+        },
+        {
+          "id": "W1-LOCALSANDBOX-07",
+          "severity": "P1",
+          "file": "internal/localsandbox/core/pathguard_file_unix.go, internal/localsandbox/core/pathguard_file_other.go",
+          "summary": "PathGuard.ReadFile and WriteFile opened leaf files without O_NONBLOCK and without verifying S_IFREG (allowing workspace FIFOs to block goroutines forever in openat while holding workspace locks, or writes to non-regular files), and ReadFile used unbounded io.ReadAll.",
+          "regression_test": "TestPathGuardRejectsFIFOWithoutBlockingAndCapsOversizeReads",
+          "commit": "942e601607146a3cd963fa69e4749f8463ea1682"
+        },
+        {
+          "id": "W1-LOCALSANDBOX-08",
+          "severity": "P2",
+          "file": "internal/localsandbox/core/env.go",
+          "summary": "BuildCommandEnv matched blockedExplicitEnv case-sensitively, allowed '=' and NUL bytes in explicit env keys/values (enabling KEY=VAL smuggling past exact-name blocklist lookup when flattened by EnvSlice), and did not normalize mixed-case Windows Path.",
+          "regression_test": "TestBuildCommandEnvBlocksCaseVariantsAndSmuggledEqualsOrNUL",
+          "commit": "942e601607146a3cd963fa69e4749f8463ea1682"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-localsandbox.json"
     },
     {
       "unit_id": "internal/localsandbox/seatbelt",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 5,
       "tracked_files": [
         "internal/localsandbox/seatbelt/backend.go",
@@ -292,16 +542,39 @@
         "internal/localsandbox/seatbelt/compiler.go",
         "internal/localsandbox/seatbelt/compiler_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Seatbelt compiler never interpolates paths directly into SBPL source: every dynamic path is passed out-of-band via sandbox-exec -D KEY=VALUE parameters and referenced through (param \"...\"), eliminating quote/parenthesis/newline SBPL injection.",
+        "resolvePolicyPaths canonicalizes WritableRoots, ReadOnlySubpaths, WritableFiles, ReadableRoots, PrivateRoots, DenyRead, DenyWrite, and Cwd via EvalSymlinks on longest existing prefixes so macOS /var -> /private/var and /tmp -> /private/tmp symlinks match kernel path evaluation.",
+        "Base SBPL profile denies default operations, restricts network unless NetworkUnrestricted, confines file-write* to parameterized writable roots/files, carves out PrivateRoots/DenyRead, DenyWrite, ReadOnlySubpaths, and .git metadata (last-rule-wins), hardcodes /usr/bin/sandbox-exec, spawns with Setpgid: true, and redirects TMPDIR/TMP/TEMP to Cwd."
+      ],
+      "findings": [
+        {
+          "id": "W1-LOCALSANDBOX-09",
+          "severity": "P2",
+          "file": "internal/localsandbox/seatbelt/backend.go",
+          "summary": "seatbeltProcess.Kill unlocked p.mu prior to syscall.Kill(-pid, SIGKILL) (leaving a race window with Wait reaping pid) and lacked a post-kill pipe close fallback for escaped setsid() descendants, and withSandboxTemp stripped inherited TMPDIR/TMP/TEMP case-sensitively.",
+          "regression_test": "GOOS=darwin GOARCH=arm64 go test -c ./internal/localsandbox/seatbelt + TestServiceRunUnblocksDrainWhenEscapedGrandchildHoldsPipeAfterTimeout",
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-localsandbox.json"
     },
     {
       "unit_id": "internal/localsandbox/skilltree",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 4,
       "tracked_files": [
         "internal/localsandbox/skilltree/lock_other.go",
@@ -309,32 +582,69 @@
         "internal/localsandbox/skilltree/tree.go",
         "internal/localsandbox/skilltree/tree_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Skill names are restricted to single non-dot path segments without slashes or NUL bytes, preventing traversal outside <root> or collisions with .versions, .locks, and .next-* bookkeeping entries.",
+        "Version directories live immutably under <root>/.versions/<name>-<n>, Activate atomically swaps <root>/.next-<name> onto <root>/<name>, Discard and Prune verify version ownership before RemoveAll, and Sweep skips skills locked by active installers.",
+        "Advisory locks open <root>/.locks/<name>.lock with O_NOFOLLOW on Unix and enforce process-local mutual exclusion on non-Unix platforms, with idempotent sync.Once unlock functions; zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-LOCALSANDBOX-10",
+          "severity": "P2",
+          "file": "internal/localsandbox/skilltree/tree.go, internal/localsandbox/skilltree/lock_unix.go, internal/localsandbox/skilltree/lock_other.go",
+          "summary": "validName permitted dot-prefixed names (.versions, .locks, .next-*), New checked clean == string(filepath.Separator) instead of filepath.Dir(clean) == clean (missing Windows drive roots), Sweep returned an error on malformed .next- symlinks instead of removing them, lock_unix.go omitted O_NOFOLLOW/sync.Once, and lock_other.go was a no-op that broke tryLock exclusivity on non-Unix.",
+          "regression_test": "TestInvalidNamesAreRejected, TestLockIsExclusivePerSkill, TestSweepRemovesMalformedNextSymlinksWithoutError",
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-localsandbox.json"
     },
     {
       "unit_id": "internal/localsandbox/winhost",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 1,
       "tracked_files": [
         "internal/localsandbox/winhost/backend.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Windows stub backend compiles cleanly under GOOS=windows GOARCH=amd64 and fails closed with core.ErrUnsupportedPlatform across Available, EnsureReady, Prepare, and Spawn, never falling back to unsandboxed host command execution.",
+        "Zero weknora/wk_ residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-localsandbox.json"
     },
     {
       "unit_id": "internal/mcp",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 37,
+      "status": "verified_findings_fixed",
+      "file_count": 38,
       "tracked_files": [
+        "internal/mcp/audit_security_test.go",
         "internal/mcp/client.go",
         "internal/mcp/client_call_error_test.go",
         "internal/mcp/client_param_headers_test.go",
@@ -373,18 +683,54 @@
         "internal/mcp/tool_content_test.go",
         "internal/mcp/types.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Stdio MCP transport is unconditionally disabled in both NewMCPClient and MCPManager.GetOrCreateClient, preventing arbitrary host subprocess execution or host secret environment inheritance.",
+        "Outbound service URLs, OAuth metadata URLs, authorization_endpoint, token_endpoint, registration_endpoint, and authorization redirects are validated against SSRF/private IP rules and same-origin redirect restrictions.",
+        "MCP SSE and Streamable HTTP transports pin all requests (including server-pushed SSE endpoint events and mid-stream updates) to the configured service origin (scheme + canonical host:port) without embedded userinfo or fragments, preventing credential leakage on scheme downgrades or poisoned endpoints.",
+        "OAuth runtime refreshes on MCP clients validate discovered authorization-server metadata before posting refresh tokens.",
+        "MCPManager isolates cached OAuth connections per (serviceID, tenantID, principal) and isolates builtin non-OAuth connections per tenant, while rejecting cross-tenant access to non-builtin tenant-owned services.",
+        "HTTP JSON/error responses, OAuth token/metadata responses, and individual SSE lines/events are strictly byte-bounded while permitting unlimited sequential bounded events over long-lived SSE streams; concurrency and shutdown verified under -race with zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-MCP-01",
+          "severity": "P1",
+          "file": "internal/mcp/client.go, internal/mcp/sse_connection.go, internal/mcp/security.go",
+          "summary": "Upstream mcp-go SSE endpoint handling only compared endpoint.Host != baseURL.Host, permitting server-pushed endpoint events (at Connect or mid-stream) to change scheme (e.g. https->http downgrade) or inject URL userinfo on the same host:port and leak Authorization/X-API-Key headers.",
+          "regression_test": "TestAuditSSEEndpointOriginAndUserinfoPinning",
+          "commit": "29ed3b9064821e9387dd4956d0fd867938e25f36"
+        },
+        {
+          "id": "W1-MCP-02",
+          "severity": "P1",
+          "file": "internal/mcp/manager.go, internal/mcp/client.go",
+          "summary": "MCPManager keyed cached OAuth clients solely by serviceID + principal.StorageID() without tenantID (causing cross-tenant OAuth client/token-store reuse on shared builtin services when a web user switched workspaces) and did not reject cross-tenant callers on non-builtin tenant-owned services.",
+          "regression_test": "TestAuditManagerIsolatesBuiltinOAuthConnectionsAcrossTenants",
+          "commit": "29ed3b9064821e9387dd4956d0fd867938e25f36"
+        },
+        {
+          "id": "W1-MCP-03",
+          "severity": "P1",
+          "file": "internal/mcp/security.go, internal/mcp/client.go, internal/mcp/oauth_manager.go, internal/mcp/oauth_assertion.go, internal/mcp/oauth_lifecycle.go, internal/mcp/errors.go",
+          "summary": "MCP HTTP JSON/error responses, OAuth metadata/token responses, and single SSE lines/events lacked byte-size caps (allowing host OOM via oversized responses or newline-free SSE streams), and NewMCPClient OAuth refreshes did not validate discovered token_endpoint metadata prior to posting refresh tokens.",
+          "regression_test": "TestAuditBoundedHTTPAndSSEResponsesAndOAuthRefreshMetadata",
+          "commit": "29ed3b9064821e9387dd4956d0fd867938e25f36"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/mcp/... ./internal/mcpserver/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/mcp/... ./internal/mcpserver/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-mcp.json"
     },
     {
       "unit_id": "internal/mcpserver",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 18,
+      "status": "verified_findings_fixed",
+      "file_count": 19,
       "tracked_files": [
+        "internal/mcpserver/audit_security_test.go",
         "internal/mcpserver/grep_pattern_test.go",
         "internal/mcpserver/kb_selectors_validation_test.go",
         "internal/mcpserver/resource_urls.go",
@@ -404,16 +750,49 @@
         "internal/mcpserver/tools_wiki.go",
         "internal/mcpserver/tools_wiki_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Every MCP tool call is gated by endpointFromContext, ep.HasTool allowlist, per-endpoint rate limiting, and tenant/KB/document scope resolution strictly derived from the authenticated MCPEndpoint context (never caller-supplied tenant IDs).",
+        "Cross-tenant knowledge bases, documents, agents, and wiki pages are rejected unless explicitly shared via organization KB shares, with owner-tenant execution context and Caller/TenantAPIKeyScope preserved.",
+        "All mutating document tools (add_document, update_document, delete_document) enforce access.RequireKBWrite(ctx, kb) before invoking KnowledgeService.",
+        "Inbound Streamable HTTP POST request bodies are capped at 4 MiB (returning HTTP 413 without unbounded io.ReadAll buffering), grep regexes and pagination limits are bounded, and spawned QA/touchLastUsed goroutines isolate panics cleanly under -race."
+      ],
+      "findings": [
+        {
+          "id": "W1-MCPSRV-01",
+          "severity": "P1",
+          "file": "internal/mcpserver/server.go",
+          "summary": "Published /mcp/:endpoint_id Streamable HTTP handler delegated directly to mcp-go StreamableHTTPServer (which runs io.ReadAll(r.Body) with no size limit), allowing oversized POST bodies to exhaust server memory.",
+          "regression_test": "TestAuditMCPServerRejectsOversizedRequestBody",
+          "commit": "3c9af16e1f9bc6bed04843b06db9da9b00525101"
+        },
+        {
+          "id": "W1-MCPSRV-02",
+          "severity": "P2",
+          "file": "internal/mcpserver/tools_ingest.go",
+          "summary": "handleUpdateDocument and handleDeleteDocument omitted access.RequireKBWrite(ctx, kb) at the MCP handler admission boundary (unlike handleAddDocument), failing to enforce APIKeyCapabilityIngest before calling KnowledgeService.",
+          "regression_test": "TestAuditUpdateAndDeleteDocumentRequireKBWriteCapability",
+          "commit": "3c9af16e1f9bc6bed04843b06db9da9b00525101"
+        },
+        {
+          "id": "W1-MCPSRV-03",
+          "severity": "P1",
+          "file": "internal/mcpserver/tools_ask.go, internal/mcpserver/server.go",
+          "summary": "Spawned goroutines in runQA (KnowledgeQA/AgentQA) and touchLastUsed lacked panic recovery (server.WithRecovery only wraps synchronous handler goroutines), allowing downstream panics to crash the entire server process.",
+          "regression_test": "TestAuditAskAndTouchLastUsedRecoverSpawnedGoroutinePanics",
+          "commit": "3c9af16e1f9bc6bed04843b06db9da9b00525101"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/mcp/... ./internal/mcpserver/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/mcp/... ./internal/mcpserver/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-mcp.json"
     },
     {
       "unit_id": "internal/sandbox",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 136,
       "tracked_files": [
         "internal/sandbox/activity_registry_memory.go",
@@ -553,16 +932,67 @@
         "internal/sandbox/workspace_layout_test.go",
         "internal/sandbox/workspace_path.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Container security defaults: Docker container creation drops all capabilities (CapDrop=ALL), sets no-new-privileges, enforces PID/memory/CPU limits, avoids host network/privileged mode, and validates host bind-mount paths and symlink targets.",
+        "Command & shell script injection safety: dockerExecCommand passes user commands via positional arguments ($1 / $@), ShellQuote escapes shell metacharacters, and ShellJobSubmitScriptWithBackend/shellJobWrapperScript/ShellJobCancelScript validate ValidShellJobID (^sj_[0-9a-f]{4}$) and single-quote paths.",
+        "Secret & credential isolation: Cube data-plane INFO logging logs only command lines prior to wrapWithStdin heredoc wrapping and logs credential presence rather than raw tokens; secret_fill encrypts AES-GCM envelopes and cleans temporary material; gatewaySplitTransport sends inbound traffic tokens only to verified gateway targets with SSRF guards.",
+        "Cross-tenant & shared-machine session isolation: SessionBoundManager enforces tenant/session/config ownership on bindings, strips client-supplied AttachPID on shared user machines, validates terminal/shell working directories via workspace.CleanWorkDirIn, and protects read-only attachment input trees.",
+        "Concurrency, lock ordering, & memory bounds: lifecycle/turn/rewind Redis locks use token-verified compare-and-delete/renew Lua scripts; DockerRemoteClient.streamExec and ReadFile bound buffered stdout/stderr streams to 64 MiB and reject oversize ReadFile streams without host OOM or silent truncation; Redis traffic token patching uses escape-aware JSON key scanning.",
+        "GENYEE rebrand & contract alignment: verified com.genyee.sandbox.* labels, GENYEE_* env vars, /var/lib/genyee & /opt/genyee/tenant/skills paths, genyee/genyee-desktop template names, and zero weknora/knora/wk_ residues across all 136 files."
+      ],
+      "findings": [
+        {
+          "id": "W1-SANDBOX-01",
+          "severity": "P1",
+          "file": "internal/sandbox/shell_job_scripts.go",
+          "summary": "ShellJobSubmitScriptWithBackend, shellJobWrapperScript, and ShellJobCancelScript interpolated job.ID / meta.ID into /bin/sh scripts (using Go %q double-quoting or unquoted path segments) without checking ValidShellJobID, allowing shell command/path injection if a malformed job ID reached script builders.",
+          "regression_test": "TestShellJobScriptsRejectMalformedJobID",
+          "commit": "a0cedd1088dbd7c38bfd9b2e472257138b8a486a"
+        },
+        {
+          "id": "W1-SANDBOX-02",
+          "severity": "P1",
+          "file": "internal/sandbox/cube_remote_client.go",
+          "summary": "CubeRemoteClient.Exec wrapped request.Stdin into the shell heredoc command before calling logCubeDataPlaneExec, leaking full plaintext Stdin payloads (including secret material and file contents) into INFO logs.",
+          "regression_test": "TestCubeRemoteClientExecDoesNotLogStdin",
+          "commit": "a0cedd1088dbd7c38bfd9b2e472257138b8a486a"
+        },
+        {
+          "id": "W1-SANDBOX-03",
+          "severity": "P1",
+          "file": "internal/sandbox/docker_remote_client.go",
+          "summary": "DockerRemoteClient.streamExec buffered container stdout and stderr into unbounded bytes.Buffers via stdcopy.StdCopy and ReadFile streamed via unbounded cat, allowing runaway container output or large/device files (e.g. /dev/zero) to exhaust host RAM (OOM).",
+          "regression_test": "TestDockerExecAndReadFileBoundStreamMemory",
+          "commit": "a0cedd1088dbd7c38bfd9b2e472257138b8a486a"
+        },
+        {
+          "id": "W1-SANDBOX-04",
+          "severity": "P2",
+          "file": "internal/sandbox/session_binding_redis.go",
+          "summary": "replaceTrafficTokenIfMatchScript patched traffic_access_token in raw JSON using non-escape-aware Lua pattern matching (\".-\"), corrupting stored session binding JSON in Redis when the existing token contained escaped quotes/backslashes or when another string field contained a lookalike substring.",
+          "regression_test": "TestRedisReplaceTrafficTokenEscapedQuotesAndSpecialChars",
+          "commit": "a0cedd1088dbd7c38bfd9b2e472257138b8a486a"
+        },
+        {
+          "id": "W1-SANDBOX-05",
+          "severity": "P2",
+          "file": "internal/sandbox/session_manager.go",
+          "summary": "SessionBoundManager.OpenSessionTerminal did not validate non-empty opts.Cwd through workspace.CleanWorkDirIn / cleanSessionWorkDir before admitUser and prepareSessionDirs (mkdir -p), permitting relative or uncleaned working directories.",
+          "regression_test": "TestOpenSessionTerminalRejectsRelativeCwd",
+          "commit": "a0cedd1088dbd7c38bfd9b2e472257138b8a486a"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/sandbox/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/sandbox/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-sandbox.json"
     },
     {
       "unit_id": "internal/sandbox/admission",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 5,
       "tracked_files": [
         "internal/sandbox/admission/admission.go",
@@ -571,16 +1001,34 @@
         "internal/sandbox/admission/redis.go",
         "internal/sandbox/admission/redis_integration_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Redis ZSET lease admission atomically rejects new holds when the closed barrier key exists, prunes expired members via Redis server TIME, and never shortens ZSET PTTL below longer-lived active leases.",
+        "Local deadline timers subtract renewMargin (ttl/6) from request send time so unconfirmed leases and barriers fail closed (ErrLeaseLost) before server-side expiry.",
+        "RedisRegistry.Close defaults non-positive TTLs to DefaultHoldTTL consistently with Hold and MemoryRegistry.Close.",
+        "Barrier.Seal atomically verifies caller lock-token ownership in Lua before PERSIST, preventing a stale/expired barrier from stripping a replacement barrier's TTL or silently succeeding after expiry.",
+        "Zero weknora/wk_ residues; key prefix conventions align with genyee:sandbox:*."
+      ],
+      "findings": [
+        {
+          "id": "W1-SANDBOX-06",
+          "severity": "P1",
+          "file": "internal/sandbox/admission/redis.go",
+          "summary": "RedisRegistry.Close failed when passed ttl <= 0 instead of defaulting to DefaultHoldTTL (unlike Hold and MemoryRegistry.Close), and Barrier.Seal executed bare PERSIST without verifying the barrier's lock token, allowing an expired barrier to strip a replacement barrier's TTL or fail to report ErrLeaseLost when its key had already expired.",
+          "regression_test": "TestRedisCloseDefaultsNonPositiveTTL, TestRedisSealVerifiesBarrierOwnership",
+          "commit": "0bbb0878c2d3a9a323f3bb6fcd916d677d24aba8"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/sandbox/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/sandbox/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-sandbox.json"
     },
     {
       "unit_id": "internal/sandbox/allocation",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 7,
       "tracked_files": [
         "internal/sandbox/allocation/allocation_test.go",
@@ -591,31 +1039,45 @@
         "internal/sandbox/allocation/owner.go",
         "internal/sandbox/allocation/retention.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "UserMachine identity validation requires non-empty owner/config fields, rejects control characters and braces, and computes collision-resistant domain-separated digests.",
+        "Canonical UUID validation guards session IDs across memory, Postgres, and Redis caching layers.",
+        "Postgres store uses parameterized queries, transactional row locking / ON CONFLICT upserts, and clean rollback on partial failure; Redis read-through cache invalidates deterministically on release and config drop.",
+        "Concurrency safety verified under -race; zero weknora/wk_ residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/sandbox/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/sandbox/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-sandbox.json"
     },
     {
       "unit_id": "internal/sandbox/desktopscripts",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 2,
       "tracked_files": [
         "internal/sandbox/desktopscripts/ensure.sh",
         "internal/sandbox/desktopscripts/reset-listeners.sh"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Embedded desktop lifecycle scripts use static shell templates with strict numeric/allowlist validation and zero untrusted argument interpolation.",
+        "Desktop listeners bind to loopback / container-local ports as designed and use GENYEE paths (/var/lib/genyee, gy-display) with zero weknora/wk_ residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/sandbox/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/sandbox/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-sandbox.json"
     },
     {
       "unit_id": "internal/sandbox/workspace",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 4,
       "tracked_files": [
         "internal/sandbox/workspace/layout.go",
@@ -623,16 +1085,24 @@
         "internal/sandbox/workspace/paths.go",
         "internal/sandbox/workspace/paths_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Lexical path resolution (ResolvePathIn, CleanWriteFileIn, CleanInputPathIn, CleanWorkDirIn, ValidOutputDirIn, RunnableScriptIn) normalizes paths via path.Clean, rejects non-absolute work dirs, and blocks writes to read-only session input trees including sibling sessions on shared machines.",
+        "UserSession requires canonical lowercase UUIDs before deriving deterministic 12-hex SHA-256 directory names, preventing path traversal via session IDs.",
+        "PromptSafePath rejects control characters, DEL, and angle/ampersand characters (<, >, &) to prevent prompt markup injection.",
+        "All fixed paths (/workspace, /var/lib/genyee/*, /opt/genyee/tenant/skills) follow GENYEE naming with zero weknora/wk_ residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/sandbox/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/sandbox/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-sandbox.json"
     },
     {
       "unit_id": "mcp-server",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 33,
       "tracked_files": [
         "mcp-server/.dockerignore",
@@ -669,26 +1139,72 @@
         "mcp-server/upload_paths.py",
         "mcp-server/uv.lock"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Every REST path parameter across GENYEEClient passes through _safe_path_segment / _safe_wiki_slug (percent-encoded with safe='', blocking empty/whitespace/dot-segments/slashes/query/fragment/encoded-traversal/control characters before network I/O).",
+        "Local file uploads enforce O_NOFOLLOW + openat directory traversal via upload_paths.py, fail closed on remote transports unless MCP_ALLOWED_UPLOAD_DIRS is configured, block sensitive hidden segments, and eliminate outside-root file existence oracles.",
+        "Network transports (sse/http) require >=32-char constant-time MCP_SERVER_AUTH_TOKEN across both HTTP and WebSocket ASGI scopes, enforce DNS rebinding Host/Origin allowlists even on wildcard binds, and gate admin tools behind MCP_ENABLE_ADMIN_TOOLS.",
+        "GENYEEClient enables SSL verification by default, enforces positive request/SSE timeouts, refuses cross-origin or scheme-changing redirects to prevent X-API-Key leakage, and bounds both JSON API responses (32 MiB) and single SSE lines/events (8 MiB).",
+        "CLI entrypoints (genyee-mcp-server, genyee-server, main.py, run.py, run_server.py), pyproject.toml, setup.py, Dockerfile, and docs are consistent with GENYEE; protected MIT/changelog files (LICENSE, LICENSE.GENYEE, THIRD_PARTY_NOTICES.md, CHANGELOG.md) remain byte-identical."
+      ],
+      "findings": [
+        {
+          "id": "W1-PYMCP-01",
+          "severity": "P1",
+          "file": "mcp-server/genyee_mcp_server.py",
+          "summary": "GENYEEClient attached X-API-Key to requests.Session headers and multipart requests.post calls; because requests only strips Authorization on cross-host redirects, a cross-origin or https->http redirect leaked X-API-Key to untrusted hosts or cleartext HTTP.",
+          "regression_test": "mcp-server/tests/test_security_regressions.py::test_genyee_client_blocks_cross_origin_redirect_api_key_leak",
+          "commit": "5ec32e117948634f4dafec7ae3551c1f908ce165"
+        },
+        {
+          "id": "W1-PYMCP-02",
+          "severity": "P1",
+          "file": "mcp-server/genyee_mcp_server.py",
+          "summary": "_iter_sse_lines accumulated bytes into pending without any cap until a newline arrived (allowing a newline-free stream to bypass MAX_SSE_EVENT_BYTES and OOM the process), and GENYEEClient._request read unbounded HTTP JSON response bodies into memory.",
+          "regression_test": "mcp-server/tests/test_security_regressions.py::test_iter_sse_lines_and_request_bound_oversized_responses",
+          "commit": "5ec32e117948634f4dafec7ae3551c1f908ce165"
+        },
+        {
+          "id": "W1-PYMCP-03",
+          "severity": "P2",
+          "file": "mcp-server/genyee_mcp_server.py",
+          "summary": "MCPAuthMiddleware bypassed token verification for all ASGI scopes where scope['type'] != 'http' rather than only 'lifespan', leaving 'websocket' scopes unauthenticated.",
+          "regression_test": "mcp-server/tests/test_security_regressions.py::test_mcp_auth_middleware_gates_websocket_and_preserves_lifespan",
+          "commit": "5ec32e117948634f4dafec7ae3551c1f908ce165"
+        },
+        {
+          "id": "W1-PYMCP-04",
+          "severity": "P2",
+          "file": "mcp-server/genyee_mcp_server.py, mcp-server/main.py",
+          "summary": "Non-positive GENYEE_API_TIMEOUT / GENYEE_CHAT_TIMEOUT integers (0 or negative) were accepted without falling back to 300s, and empty/non-numeric/out-of-range MCP_PORT values crashed CLI startup, --help, and --check-only.",
+          "regression_test": "mcp-server/tests/test_security_regressions.py::test_non_positive_timeouts_and_invalid_mcp_port_env_handling",
+          "commit": "5ec32e117948634f4dafec7ae3551c1f908ce165"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONPATH=\"$PWD/mcp-server\" PYTHONDONTWRITEBYTECODE=1 mcp-server/.venv/bin/pytest -p no:cacheprovider mcp-server (exit 0: 157 passed, 74 subtests passed)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-mcp.json"
     },
     {
       "unit_id": "mcp-server/tests",
       "wave": "W1",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 3,
       "tracked_files": [
         "mcp-server/tests/test_agent_id_resolution.py",
         "mcp-server/tests/test_kb_id_resolution.py",
         "mcp-server/tests/test_security_regressions.py"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "All 3 test suites (test_agent_id_resolution.py, test_kb_id_resolution.py, test_security_regressions.py) exercise real GENYEEClient, upload_paths, ASGI auth, DNS rebinding, and CLI entrypoint code paths deterministically without leaking network traffic or leaving artifacts behind.",
+        "Extended test_security_regressions.py with 4 new regression tests covering cross-origin redirect X-API-Key protection, bounded SSE lines & HTTP JSON responses, WebSocket ASGI auth enforcement, and timeout/port environment validation."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "PYTHONPATH=\"$PWD/mcp-server\" PYTHONDONTWRITEBYTECODE=1 mcp-server/.venv/bin/pytest -p no:cacheprovider mcp-server (exit 0: 157 passed, 74 subtests passed)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-mcp.json"
     },
     {
       "unit_id": "config",
@@ -10097,6 +10613,10 @@
       "test-reports/module-audit-20261113/storageurl-transport.json",
       "test-reports/module-audit-20261113/wiki-current-chunks.json",
       "test-reports/module-audit-v2/coverage.json",
+      "test-reports/module-audit-v2/evidence/w1-agent-sec.json",
+      "test-reports/module-audit-v2/evidence/w1-localsandbox.json",
+      "test-reports/module-audit-v2/evidence/w1-mcp.json",
+      "test-reports/module-audit-v2/evidence/w1-sandbox.json",
       "test-reports/module-audit-v2/verify_ledger.py",
       "test-reports/module-audit-v2/wave0-foundation.json",
       "test-reports/screenshots/01_login_page.png",

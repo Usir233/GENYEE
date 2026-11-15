@@ -63,7 +63,7 @@
           "file": "internal/mcp/client.go, internal/mcp/sse_connection.go, internal/mcp/security.go",
           "summary": "Upstream mcp-go SSE endpoint handling only compared endpoint.Host != baseURL.Host, permitting server-pushed endpoint events (at Connect or mid-stream) to change scheme (e.g. https->http downgrade) or inject URL userinfo on the same host:port and leak Authorization/X-API-Key headers.",
           "regression_test": "TestAuditSSEEndpointOriginAndUserinfoPinning",
-          "commit": "5cfc51c4fed453aa3f7504e12acbb986ff8fe54d"
+          "commit": "29ed3b9064821e9387dd4956d0fd867938e25f36"
         },
         {
           "id": "W1-MCP-02",
@@ -71,7 +71,7 @@
           "file": "internal/mcp/manager.go, internal/mcp/client.go",
           "summary": "MCPManager keyed cached OAuth clients solely by serviceID + principal.StorageID() without tenantID (causing cross-tenant OAuth client/token-store reuse on shared builtin services when a web user switched workspaces) and did not reject cross-tenant callers on non-builtin tenant-owned services.",
           "regression_test": "TestAuditManagerIsolatesBuiltinOAuthConnectionsAcrossTenants",
-          "commit": "5cfc51c4fed453aa3f7504e12acbb986ff8fe54d"
+          "commit": "29ed3b9064821e9387dd4956d0fd867938e25f36"
         },
         {
           "id": "W1-MCP-03",
@@ -79,7 +79,7 @@
           "file": "internal/mcp/security.go, internal/mcp/client.go, internal/mcp/oauth_manager.go, internal/mcp/oauth_assertion.go, internal/mcp/oauth_lifecycle.go, internal/mcp/errors.go",
           "summary": "MCP HTTP JSON/error responses, OAuth metadata/token responses, and single SSE lines/events lacked byte-size caps (allowing host OOM via oversized responses or newline-free SSE streams), and NewMCPClient OAuth refreshes did not validate discovered token_endpoint metadata prior to posting refresh tokens.",
           "regression_test": "TestAuditBoundedHTTPAndSSEResponsesAndOAuthRefreshMetadata",
-          "commit": "5cfc51c4fed453aa3f7504e12acbb986ff8fe54d"
+          "commit": "29ed3b9064821e9387dd4956d0fd867938e25f36"
         }
       ],
       "verification_commands": [
@@ -126,7 +126,7 @@
           "file": "internal/mcpserver/server.go",
           "summary": "Published /mcp/:endpoint_id Streamable HTTP handler delegated directly to mcp-go StreamableHTTPServer (which runs io.ReadAll(r.Body) with no size limit), allowing oversized POST bodies to exhaust server memory.",
           "regression_test": "TestAuditMCPServerRejectsOversizedRequestBody",
-          "commit": "88bc65d0506b94d8fa8c4c76f447833bcaa25e6b"
+          "commit": "3c9af16e1f9bc6bed04843b06db9da9b00525101"
         },
         {
           "id": "W1-MCPSRV-02",
@@ -134,7 +134,7 @@
           "file": "internal/mcpserver/tools_ingest.go",
           "summary": "handleUpdateDocument and handleDeleteDocument omitted access.RequireKBWrite(ctx, kb) at the MCP handler admission boundary (unlike handleAddDocument), failing to enforce APIKeyCapabilityIngest before calling KnowledgeService.",
           "regression_test": "TestAuditUpdateAndDeleteDocumentRequireKBWriteCapability",
-          "commit": "88bc65d0506b94d8fa8c4c76f447833bcaa25e6b"
+          "commit": "3c9af16e1f9bc6bed04843b06db9da9b00525101"
         },
         {
           "id": "W1-MCPSRV-03",
@@ -142,7 +142,7 @@
           "file": "internal/mcpserver/tools_ask.go, internal/mcpserver/server.go",
           "summary": "Spawned goroutines in runQA (KnowledgeQA/AgentQA) and touchLastUsed lacked panic recovery (server.WithRecovery only wraps synchronous handler goroutines), allowing downstream panics to crash the entire server process.",
           "regression_test": "TestAuditAskAndTouchLastUsedRecoverSpawnedGoroutinePanics",
-          "commit": "88bc65d0506b94d8fa8c4c76f447833bcaa25e6b"
+          "commit": "3c9af16e1f9bc6bed04843b06db9da9b00525101"
         }
       ],
       "verification_commands": [
@@ -204,7 +204,7 @@
           "file": "mcp-server/genyee_mcp_server.py",
           "summary": "GENYEEClient attached X-API-Key to requests.Session headers and multipart requests.post calls; because requests only strips Authorization on cross-host redirects, a cross-origin or https->http redirect leaked X-API-Key to untrusted hosts or cleartext HTTP.",
           "regression_test": "mcp-server/tests/test_security_regressions.py::test_genyee_client_blocks_cross_origin_redirect_api_key_leak",
-          "commit": "4d4e7f6c3d4b9f183de40be2f7392f7c08caffa0"
+          "commit": "5ec32e117948634f4dafec7ae3551c1f908ce165"
         },
         {
           "id": "W1-PYMCP-02",
@@ -212,7 +212,7 @@
           "file": "mcp-server/genyee_mcp_server.py",
           "summary": "_iter_sse_lines accumulated bytes into pending without any cap until a newline arrived (allowing a newline-free stream to bypass MAX_SSE_EVENT_BYTES and OOM the process), and GENYEEClient._request read unbounded HTTP JSON response bodies into memory.",
           "regression_test": "mcp-server/tests/test_security_regressions.py::test_iter_sse_lines_and_request_bound_oversized_responses",
-          "commit": "4d4e7f6c3d4b9f183de40be2f7392f7c08caffa0"
+          "commit": "5ec32e117948634f4dafec7ae3551c1f908ce165"
         },
         {
           "id": "W1-PYMCP-03",
@@ -220,7 +220,7 @@
           "file": "mcp-server/genyee_mcp_server.py",
           "summary": "MCPAuthMiddleware bypassed token verification for all ASGI scopes where scope['type'] != 'http' rather than only 'lifespan', leaving 'websocket' scopes unauthenticated.",
           "regression_test": "mcp-server/tests/test_security_regressions.py::test_mcp_auth_middleware_gates_websocket_and_preserves_lifespan",
-          "commit": "4d4e7f6c3d4b9f183de40be2f7392f7c08caffa0"
+          "commit": "5ec32e117948634f4dafec7ae3551c1f908ce165"
         },
         {
           "id": "W1-PYMCP-04",
@@ -228,11 +228,11 @@
           "file": "mcp-server/genyee_mcp_server.py, mcp-server/main.py",
           "summary": "Non-positive GENYEE_API_TIMEOUT / GENYEE_CHAT_TIMEOUT integers (0 or negative) were accepted without falling back to 300s, and empty/non-numeric/out-of-range MCP_PORT values crashed CLI startup, --help, and --check-only.",
           "regression_test": "mcp-server/tests/test_security_regressions.py::test_non_positive_timeouts_and_invalid_mcp_port_env_handling",
-          "commit": "4d4e7f6c3d4b9f183de40be2f7392f7c08caffa0"
+          "commit": "5ec32e117948634f4dafec7ae3551c1f908ce165"
         }
       ],
       "verification_commands": [
-        "PYTHONPATH=\"$PWD/mcp-server\" PYTHONDONTWRITEBYTECODE=1 /home/cursor/GENYEE/mcp-server/.venv/bin/pytest -p no:cacheprovider mcp-server (exit 0: 157 passed, 74 subtests passed)"
+        "PYTHONPATH=\"$PWD/mcp-server\" PYTHONDONTWRITEBYTECODE=1 mcp-server/.venv/bin/pytest -p no:cacheprovider mcp-server (exit 0: 157 passed, 74 subtests passed)"
       ]
     },
     {
@@ -251,7 +251,7 @@
       ],
       "findings": [],
       "verification_commands": [
-        "PYTHONPATH=\"$PWD/mcp-server\" PYTHONDONTWRITEBYTECODE=1 /home/cursor/GENYEE/mcp-server/.venv/bin/pytest -p no:cacheprovider mcp-server (exit 0: 157 passed, 74 subtests passed)"
+        "PYTHONPATH=\"$PWD/mcp-server\" PYTHONDONTWRITEBYTECODE=1 mcp-server/.venv/bin/pytest -p no:cacheprovider mcp-server (exit 0: 157 passed, 74 subtests passed)"
       ]
     }
   ]

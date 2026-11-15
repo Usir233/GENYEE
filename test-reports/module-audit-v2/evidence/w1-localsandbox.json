@@ -4,11 +4,11 @@
   "base_commit": "b1d6bdefb1518936e692c8748bd43a0014c7bcd4",
   "commits": [
     {
-      "sha": "a9f89fdb160a3afed31439f08a20105c2a31c52e",
+      "sha": "942e601607146a3cd963fa69e4749f8463ea1682",
       "subject": "fix(localsandbox): harden command classification, pathguard, and env sanitization"
     },
     {
-      "sha": "117e94638268a91f86af75611f42158e57625b2f",
+      "sha": "7ad80dee75573630701d9b475925f9c5d697360c",
       "subject": "fix(localsandbox): bound post-kill pipe drain, session-scope file approvals, and harden adapter and skilltree"
     }
   ],
@@ -59,7 +59,7 @@
           "file": "internal/localsandbox/service.go",
           "summary": "watchKill signalled proc.Kill() on timeout/cancel without closing stdout/stderr reader pipes after a post-kill grace period, allowing an escaped setsid() grandchild holding inherited stdout/stderr descriptors open to hang drain(proc) and hold the workspace root lock indefinitely.",
           "regression_test": "TestServiceRunUnblocksDrainWhenEscapedGrandchildHoldsPipeAfterTimeout",
-          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
         },
         {
           "id": "W1-LOCALSANDBOX-02",
@@ -67,7 +67,7 @@
           "file": "internal/localsandbox/service_file.go",
           "summary": "FileApproval lacked SessionID binding and readForChange did not reject non-regular files (symlinks, FIFOs, devices) via Lstat before opening target paths during AuthorizeFileChange.",
           "regression_test": "TestFileApprovalCannotBeReplayedAcrossSessions",
-          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
         }
       ],
       "verification_commands": [
@@ -111,7 +111,7 @@
           "file": "internal/localsandbox/adapter/adapter.go, internal/localsandbox/adapter/file_change.go",
           "summary": "Adapter.guard and Adapter.WriteSessionWorkspaceFile trusted fileApprovalFrom(ctx) without verifying approval.SessionID == sessionID, allowing an out-of-scope FileApproval context from one session to grant read/write access in another session.",
           "regression_test": "TestFileApprovalCannotBeReplayedAcrossSessions",
-          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
         },
         {
           "id": "W1-LOCALSANDBOX-04",
@@ -119,7 +119,7 @@
           "file": "internal/localsandbox/adapter/adapter.go, internal/localsandbox/adapter/install.go",
           "summary": "Adapter.StatSessionFile, Adapter.ListSessionFiles, and InstallManager.StatSessionFile classified symlinks and special files as RemoteEntryFile instead of RemoteEntryOther, and ListSessionFiles ignored ctx.Err() during WalkDir traversal.",
           "regression_test": "TestAdapterStatAndListClassifyNonRegularEntriesAsOtherAndHonorContextCancel, TestInstallManagerFilesStayInsideVersionDir",
-          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
         }
       ],
       "verification_commands": [
@@ -180,7 +180,7 @@
           "file": "internal/localsandbox/core/command.go",
           "summary": "ClassifyCommand, DeleteLocations, and DeletesStayBelow missed attached/long git directory options (-C<dir>, --work-tree, --git-dir), git rm/clean pathspecs escaping cwd, BSD/GNU find pre-path flags (-L, -H, -P, -f <path>) and symlink-following (-L, -H, -follow), and wrapper chdir/split-string forms (env -C, sudo -D, env -S, --split-string), allowing destructive out-of-cwd or root/home deletes to bypass dangerous-command refusal or ModeAuto review.",
           "regression_test": "TestCommandClassificationHandlesGitFindAndWrapperEscapeForms",
-          "commit": "a9f89fdb160a3afed31439f08a20105c2a31c52e"
+          "commit": "942e601607146a3cd963fa69e4749f8463ea1682"
         },
         {
           "id": "W1-LOCALSANDBOX-06",
@@ -188,7 +188,7 @@
           "file": "internal/localsandbox/core/pathguard.go, internal/localsandbox/core/pathguard_file.go, internal/localsandbox/core/policy.go",
           "summary": "PathGuard.allowWrite (used by WriteFile and MkdirAll) omitted g.writeDenied(path) (Policy.DenyWrite), NewPathGuard did not resolve symlink aliases on DenyRead, DenyWrite, and ReadOnlySubpaths, and Policy/PathGuard accepted NUL bytes in path strings.",
           "regression_test": "TestPathGuardWriteFileAndMkdirAllEnforceDenyWrite, TestPathGuardEnforcesSymlinkedDenyAndReadOnlyAliases, TestPolicyAndPathGuardRejectNULBytes",
-          "commit": "a9f89fdb160a3afed31439f08a20105c2a31c52e"
+          "commit": "942e601607146a3cd963fa69e4749f8463ea1682"
         },
         {
           "id": "W1-LOCALSANDBOX-07",
@@ -196,7 +196,7 @@
           "file": "internal/localsandbox/core/pathguard_file_unix.go, internal/localsandbox/core/pathguard_file_other.go",
           "summary": "PathGuard.ReadFile and WriteFile opened leaf files without O_NONBLOCK and without verifying S_IFREG (allowing workspace FIFOs to block goroutines forever in openat while holding workspace locks, or writes to non-regular files), and ReadFile used unbounded io.ReadAll.",
           "regression_test": "TestPathGuardRejectsFIFOWithoutBlockingAndCapsOversizeReads",
-          "commit": "a9f89fdb160a3afed31439f08a20105c2a31c52e"
+          "commit": "942e601607146a3cd963fa69e4749f8463ea1682"
         },
         {
           "id": "W1-LOCALSANDBOX-08",
@@ -204,7 +204,7 @@
           "file": "internal/localsandbox/core/env.go",
           "summary": "BuildCommandEnv matched blockedExplicitEnv case-sensitively, allowed '=' and NUL bytes in explicit env keys/values (enabling KEY=VAL smuggling past exact-name blocklist lookup when flattened by EnvSlice), and did not normalize mixed-case Windows Path.",
           "regression_test": "TestBuildCommandEnvBlocksCaseVariantsAndSmuggledEqualsOrNUL",
-          "commit": "a9f89fdb160a3afed31439f08a20105c2a31c52e"
+          "commit": "942e601607146a3cd963fa69e4749f8463ea1682"
         }
       ],
       "verification_commands": [
@@ -243,7 +243,7 @@
           "file": "internal/localsandbox/seatbelt/backend.go",
           "summary": "seatbeltProcess.Kill unlocked p.mu prior to syscall.Kill(-pid, SIGKILL) (leaving a race window with Wait reaping pid) and lacked a post-kill pipe close fallback for escaped setsid() descendants, and withSandboxTemp stripped inherited TMPDIR/TMP/TEMP case-sensitively.",
           "regression_test": "GOOS=darwin GOARCH=arm64 go test -c ./internal/localsandbox/seatbelt + TestServiceRunUnblocksDrainWhenEscapedGrandchildHoldsPipeAfterTimeout",
-          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
         }
       ],
       "verification_commands": [
@@ -281,7 +281,7 @@
           "file": "internal/localsandbox/skilltree/tree.go, internal/localsandbox/skilltree/lock_unix.go, internal/localsandbox/skilltree/lock_other.go",
           "summary": "validName permitted dot-prefixed names (.versions, .locks, .next-*), New checked clean == string(filepath.Separator) instead of filepath.Dir(clean) == clean (missing Windows drive roots), Sweep returned an error on malformed .next- symlinks instead of removing them, lock_unix.go omitted O_NOFOLLOW/sync.Once, and lock_other.go was a no-op that broke tryLock exclusivity on non-Unix.",
           "regression_test": "TestInvalidNamesAreRejected, TestLockIsExclusivePerSkill, TestSweepRemovesMalformedNextSymlinksWithoutError",
-          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+          "commit": "7ad80dee75573630701d9b475925f9c5d697360c"
         }
       ],
       "verification_commands": [

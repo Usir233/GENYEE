@@ -51,7 +51,7 @@
           "file": "internal/browserskill/manager.go:867, internal/browserskill/result.go:10",
           "summary": "Manager.Call (callLocal) forwarded params['url'] in navigate and tab_create to the local Chrome extension without scheme validation (unlike statusPageURL), allowing prompt-injected tool calls to auto-start a browser window and open file://, javascript:, chrome://, chrome-extension://, data:, or devtools:// URLs.",
           "regression_test": "TestCallRejectsDangerousNavigationAndTabCreateSchemes",
-          "commit": "0e562ab1c693453ebf1f24fdefce53330d4046da"
+          "commit": "d68f8905e4c5666bc0a003d785a410cd3d714127"
         },
         {
           "id": "W1-AGENT-SEC-02",
@@ -59,7 +59,7 @@
           "file": "internal/browserskill/authorization.go:61-69, internal/browserskill/manager.go:384",
           "summary": "AuthorizeHTTP used strings.TrimPrefix(..., 'Bearer '), accepting raw tokens without a 'Bearer ' prefix and comparing token == input.NextToken non-constant-time; ServeHTTP checked len(token) != 43 instead of canonical 32-byte base64url validToken(token) before querying storage.",
           "regression_test": "TestAuthorizeHTTPRequiresBearerSchemeAndServeHTTPValidatesCanonicalToken",
-          "commit": "0e562ab1c693453ebf1f24fdefce53330d4046da"
+          "commit": "d68f8905e4c5666bc0a003d785a410cd3d714127"
         }
       ],
       "verification_commands": [
@@ -105,7 +105,7 @@
           "file": "internal/agent/approval/gate.go:374-386,700-715,768-845",
           "summary": "validateToolApprovalResponse did not validate Scope ('once'/'session') or Access ('read'/'write'), allowed Scope/Access on rejections, and ignored trailing JSON tokens (as did validateMCPOAuthResponse, which also lacked DisallowUnknownFields and required 'authorized'); furthermore, RequestHostAndWait passed client-supplied Scope='session' when AllowSession=false and Access='write' when GrantAccess='read', allowing callers on /agent/prompts/{id} to widen a read-only host grant into a write grant.",
           "regression_test": "TestResolveResponseValidatesScopeAccessAndTrailingJSON, TestRequestHostAndWaitCannotWidenProposedGrantOrSessionScope",
-          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
         },
         {
           "id": "W1-AGENT-SEC-04",
@@ -113,7 +113,7 @@
           "file": "internal/agent/approval/mcp_risk.go:56-65,92-160",
           "summary": "Gate.Action failed open to DeclaredRisk(tool) (allowing readOnlyHint=true tools without approval) when tenantID==0, serviceID=='', or tool identity was empty despite a configured checker; Gate.ToolRisks likewise skipped policy lookup on missing tenant/service, ignored RiskChecker.Policy when ListByService was unimplemented, and trusted readOnlyHint instead of RiskWrite when Checker did not implement RiskChecker.",
           "regression_test": "TestGateActionAndToolRisksFailClosedOnMissingIdentityOrCheckerType",
-          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
         },
         {
           "id": "W1-AGENT-SEC-05",
@@ -121,7 +121,7 @@
           "file": "internal/agent/approval/secure_form.go:53-68,132-168, internal/agent/approval/ask_user.go:134-144, internal/agent/approval/gate.go:522-535",
           "summary": "RequestSecureForm and ResolveSecureForm lacked explicit non-zero TenantID and non-blank UserID guards, SecureFormPrompt lacked nil gate/broker guards, and ResumeDecision / ResumeAnswer / ResumeSecureForm lacked nil prompt and Prompt.Kind verification before unmarshaling and consuming.",
           "regression_test": "TestSecureFormAndResumeEntryPointsFailClosedOnMissingOwnerOrKind",
-          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
         }
       ],
       "verification_commands": [
@@ -157,7 +157,7 @@
           "file": "internal/agent/hitl/broker.go:553",
           "summary": "Broker.Resolve checked row.TenantID != req.TenantID without rejecting zero TenantIDs, allowing an unattributed request (TenantID=0) to match an unattributed prompt row (TenantID=0) instead of failing closed with ErrTenantMismatch.",
           "regression_test": "TestBroker_ResolveRejectsZeroTenant",
-          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
         },
         {
           "id": "W1-AGENT-SEC-07",
@@ -165,7 +165,7 @@
           "file": "internal/agent/hitl/broker.go:579-581",
           "summary": "Broker.Resolve only invoked reapPending on lease-expired Pending prompts when row.Suspendable was true, allowing a non-suspendable prompt whose waiting replica had crashed to transition to a permanent zombie Answered row with no waiter or suspension state.",
           "regression_test": "TestBroker_ResolveExpiresOrphanedNonSuspendablePendingPrompt",
-          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
         }
       ],
       "verification_commands": [
@@ -198,7 +198,7 @@
           "file": "internal/agent/hostreview/prompt.go:96-135",
           "summary": "actionOf serialized req.Env values in plaintext into the external LLM user prompt (unlike tools/host_approval.go which masks secret-looking env keys on UI cards), leaking API keys, tokens, passwords, and cookies to the review model.",
           "regression_test": "TestPromptMasksSecretEnvValuesWhileEnforcingRawSizeLimit",
-          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
         },
         {
           "id": "W1-AGENT-SEC-09",
@@ -206,7 +206,7 @@
           "file": "internal/agent/hostreview/reviewer.go:65-95, internal/agent/hostreview/transcript.go:24-48",
           "summary": "Reviewer.review did not reject blank turn.SessionID or mismatched req.SessionID != turn.SessionID, accepted whitespace-only current-turn user messages, and splitTranscript dereferenced nil *types.Message entries without guarding.",
           "regression_test": "TestReviewRefusesMissingOrMismatchedSessionAndBlankTurn",
-          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
         },
         {
           "id": "W1-AGENT-SEC-10",
@@ -214,7 +214,7 @@
           "file": "internal/agent/hostreview/assessment.go:26-35",
           "summary": "parseAssessment used json.Unmarshal without DisallowUnknownFields or trailing-token EOF verification, accepting malformed multi-field / unknown-key JSON replies instead of failing closed.",
           "regression_test": "TestParseAssessmentRejectsUnknownFieldsAndTrailingJSON",
-          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
         }
       ],
       "verification_commands": [
@@ -242,7 +242,7 @@
           "file": "internal/agent/policy/policy.go:106-116",
           "summary": "Offered checked level != AssistantAccessReadOnly without validating non-empty levels via level.Valid(), causing malformed access levels (e.g. 'readonly', 'none', 'bogus') to fail open (offering mutating/destructive tools and returning Allow on read/probe); Covers also did not explicitly require granted.Valid().",
           "regression_test": "TestMalformedNonEmptyAccessLevelFailsClosed",
-          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+          "commit": "7a7b6caa2be8a9516aa20f53f46eaee34d272c6b"
         }
       ],
       "verification_commands": [
