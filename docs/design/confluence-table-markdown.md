@@ -4,7 +4,7 @@
 
 Confluence 连接器从页面 API 取得 HTML 正文后，将其转换为 Markdown，再作为 `.md` 文件交给知识库解析流程。原先直接调用 `html-to-markdown/v2` 的包级转换函数，表格单元格会变成普通文本，行列关系随之丢失。
 
-本次只处理 Confluence 页面正文中的表格；图片、宏、页面链接等其他内容不在范围内。对应的功能请求为 [Tencent/WeKnora#4794](https://github.com/Tencent/WeKnora/issues/4794)，已有的综合问题见 [Tencent/WeKnora#3856](https://github.com/Tencent/WeKnora/issues/3856)。
+本次只处理 Confluence 页面正文中的表格；图片、宏、页面链接等其他内容不在范围内（关联需求 issue #4794，相关综合背景见 issue #3856）。
 
 ## 转换方案
 

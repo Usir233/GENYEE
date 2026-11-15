@@ -1,5 +1,5 @@
 // Historical PoC: can the Docker Engine API back the
-// semantics WeKnora's RemoteSandboxClient contract requires (session-persistent
+// semantics GENYEE's RemoteSandboxClient contract requires (session-persistent
 // sandbox, exec, filesystem, metadata, lifecycle), plus the snapshot workflow
 // planned for E2B?
 //
@@ -57,7 +57,7 @@ func main() {
 	ping, err := cli.Ping(ctx, client.PingOptions{})
 	step("Health: ping control plane", err, fmt.Sprintf("api=%s", ping.APIVersion))
 
-	tmplImage := "weknora-poc/template:v2"
+	tmplImage := "genyee-poc/template:v2"
 	err = buildTemplateImage(ctx, cli, tmplImage)
 	step("Template: base image with uid-1000 user", err, tmplImage)
 	if err != nil {
@@ -66,11 +66,11 @@ func main() {
 
 	sessionID := fmt.Sprintf("poc-session-%d", time.Now().Unix())
 	labels := map[string]string{
-		"weknora.managed":   "true",
-		"weknora.tenant":    "1",
-		"weknora.session":   sessionID,
-		"weknora.config":    "cfg-poc",
-		"weknora.createdAt": time.Now().UTC().Format(time.RFC3339),
+		"genyee.managed":   "true",
+		"genyee.tenant":    "1",
+		"genyee.session":   sessionID,
+		"genyee.config":    "cfg-poc",
+		"genyee.createdAt": time.Now().UTC().Format(time.RFC3339),
 	}
 
 	// --- Create -------------------------------------------------------------
@@ -87,18 +87,18 @@ func main() {
 		defer fresh.Close()
 		var insp client.ContainerInspectResult
 		insp, err = fresh.ContainerInspect(ctx, id, client.ContainerInspectOptions{})
-		if err == nil && insp.Container.Config.Labels["weknora.session"] != sessionID {
+		if err == nil && insp.Container.Config.Labels["genyee.session"] != sessionID {
 			err = errors.New("metadata labels not preserved")
 		}
 		step("Connect+Metadata: re-attach from a new client", err,
 			fmt.Sprintf("state=%s session=%s", insp.Container.State.Status,
-				insp.Container.Config.Labels["weknora.session"]))
+				insp.Container.Config.Labels["genyee.session"]))
 	}
 
 	// --- List by metadata ---------------------------------------------------
 	listed, err := cli.ContainerList(ctx, client.ContainerListOptions{
 		All:     true,
-		Filters: client.Filters{}.Add("label", "weknora.session="+sessionID),
+		Filters: client.Filters{}.Add("label", "genyee.session="+sessionID),
 	})
 	if err == nil && len(listed.Items) != 1 {
 		err = fmt.Errorf("expected 1 container, got %d", len(listed.Items))
@@ -264,7 +264,7 @@ func main() {
 
 	// --- Snapshot workflow --------------------------------------------------
 	mgmtID, err := createSandbox(ctx, cli, tmplImage,
-		map[string]string{"weknora.managed": "true", "weknora.role": "snapshot-builder"})
+		map[string]string{"genyee.managed": "true", "genyee.role": "snapshot-builder"})
 	step("Snapshot: create workspace management sandbox", err, short(mgmtID))
 	if err != nil {
 		report()
@@ -280,16 +280,16 @@ func main() {
 	}
 	step("Snapshot: install a skill into that sandbox", err, "requests==2.32.3 + /opt/skills/pdf")
 
-	snapV1 := "weknora-poc/snapshot:v1"
+	snapV1 := "genyee-poc/snapshot:v1"
 	commitRes, err := cli.ContainerCommit(ctx, mgmtID, client.ContainerCommitOptions{
 		Reference: snapV1,
-		Comment:   "weknora snapshot v1",
-		Changes:   []string{`LABEL weknora.snapshot.version=1`, `LABEL weknora.snapshot.tenant=1`},
+		Comment:   "genyee snapshot v1",
+		Changes:   []string{`LABEL genyee.snapshot.version=1`, `LABEL genyee.snapshot.tenant=1`},
 	})
 	step("Snapshot: commit container -> image", err, short(commitRes.ID))
 
 	snapSessionID, err := createSandbox(ctx, cli, snapV1,
-		map[string]string{"weknora.managed": "true", "weknora.session": sessionID + "-from-snapshot"})
+		map[string]string{"genyee.managed": "true", "genyee.session": sessionID + "-from-snapshot"})
 	step("Snapshot: session sandbox boots from snapshot", err, short(snapSessionID))
 	if err == nil {
 		defer remove(cli, snapSessionID)
@@ -304,25 +304,25 @@ func main() {
 	}
 
 	// Incremental snapshot update: install a second skill on top of v1.
-	upgradeID, err := createSandbox(ctx, cli, snapV1, map[string]string{"weknora.role": "snapshot-builder"})
+	upgradeID, err := createSandbox(ctx, cli, snapV1, map[string]string{"genyee.role": "snapshot-builder"})
 	if err == nil {
 		defer remove(cli, upgradeID)
 		_, err = execIn(ctx, cli, upgradeID, execRequest{
 			cmd: []string{"bash", "-lc", "mkdir -p /opt/skills/chart && echo 'skill v2' > /opt/skills/chart/SKILL.md"},
 		})
 	}
-	snapV2 := "weknora-poc/snapshot:v2"
+	snapV2 := "genyee-poc/snapshot:v2"
 	if err == nil {
 		_, err = cli.ContainerCommit(ctx, upgradeID, client.ContainerCommitOptions{
 			Reference: snapV2,
-			Changes:   []string{`LABEL weknora.snapshot.version=2`},
+			Changes:   []string{`LABEL genyee.snapshot.version=2`},
 		})
 	}
 	step("Snapshot: incremental update v1 -> v2", err, snapV2)
 
 	imgs, err := cli.ImageList(ctx, client.ImageListOptions{
 		All:     true,
-		Filters: client.Filters{}.Add("label", "weknora.snapshot.version"),
+		Filters: client.Filters{}.Add("label", "genyee.snapshot.version"),
 	})
 	step("Snapshot: list snapshots by label", err, fmt.Sprintf("count=%d", len(imgs.Items)))
 
@@ -337,11 +337,11 @@ func main() {
 
 	// Does a snapshot preserve running processes / RAM? (E2B pause does.)
 	_, _ = execIn(ctx, cli, mgmtID, execRequest{cmd: []string{"bash", "-lc", "nohup sleep 600 >/dev/null 2>&1 & echo started"}})
-	procSnap := "weknora-poc/snapshot:proc"
+	procSnap := "genyee-poc/snapshot:proc"
 	_, err = cli.ContainerCommit(ctx, mgmtID, client.ContainerCommitOptions{Reference: procSnap})
 	if err == nil {
 		var procID string
-		procID, err = createSandbox(ctx, cli, procSnap, map[string]string{"weknora.role": "proc-check"})
+		procID, err = createSandbox(ctx, cli, procSnap, map[string]string{"genyee.role": "proc-check"})
 		if err == nil {
 			defer remove(cli, procID)
 			var out execResult
@@ -353,7 +353,7 @@ func main() {
 
 	insp2, err := cli.ContainerInspect(ctx, id, client.ContainerInspectOptions{})
 	step("Idle TTL: daemon has none, only timestamps (GAP)", err,
-		fmt.Sprintf("startedAt=%s -> WeKnora must sweep", insp2.Container.State.StartedAt))
+		fmt.Sprintf("startedAt=%s -> GENYEE must sweep", insp2.Container.State.StartedAt))
 
 	checkCLIOrphan(ctx)
 
@@ -369,7 +369,7 @@ func checkCLIOrphan(ctx context.Context) {
 		step("CLI orphan: skipped (docker CLI not on PATH)", nil, "")
 		return
 	}
-	name := fmt.Sprintf("weknora-poc-orphan-%d", time.Now().UnixNano())
+	name := fmt.Sprintf("genyee-poc-orphan-%d", time.Now().UnixNano())
 	runCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(runCtx, "docker", "run", "--rm", "--name", name,

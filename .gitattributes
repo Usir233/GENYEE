@@ -41,12 +41,9 @@ tests/stress export-ignore
 .gitignore export-ignore
 *.gitkeep export-ignore
 docs/superpowers export-ignore
-docs/release-* export-ignore
 docs/poc export-ignore
 docs/design export-ignore
 docs/images/readme/src export-ignore
-misc/intro-video export-ignore
-misc/release-v0.9.0-* export-ignore
 scripts/verify-commercial-compliance.sh export-ignore
 scripts/update-homebrew-formula.sh export-ignore
 scripts/test-homebrew.sh export-ignore

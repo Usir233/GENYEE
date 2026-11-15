@@ -213,7 +213,7 @@ type PendingCall struct {
 2. 有快照时先写 `agent_run_suspensions`，再写 `agent_prompts`（`status=pending`、`suspendable=true`、`owner_instance`、`lease_until=now+30s`）。两步不在同一事务里：快照先落库，回收任务看到交互记录时快照一定已存在；交互记录写失败时快照随后被删除。交互没有以挂起结束（回答、超时、取消、写库失败）时，`Await` 退出前按 `(assistant_message_id, prompt_id)` 条件删除快照，不会误删同一消息上更新的快照。
 3. 本地登记 waiter，调用适配层的 `Emit` 发出事件（工具审批仍是 `tool_approval_required`，新增字段 `hot_wait_seconds`；`timeout_seconds` 保留为同一值，兼容旧前端）。
 4. 等待以下任一事件：
-   - Pub/Sub 唤醒（频道 `weknora:agent_prompt:wake`）：从数据库读取回答，以数据库为准。
+   - Pub/Sub 唤醒（频道 `genyee:agent_prompt:wake`）：从数据库读取回答，以数据库为准。
    - 每 3 秒轮询一次数据库状态，兜底 Pub/Sub 丢消息。
    - 短等待计时器到期：可挂起时执行 `pending → suspended` 的 CAS，同时写入 `expires_at`；不可挂起时执行 `pending → expired`。CAS 失败说明用户刚好回答，转为读取回答。
    - ctx 取消（用户停止）：执行 `pending → canceled` 的 CAS。失败同样转为读取回答。
@@ -360,7 +360,7 @@ func (e *AgentEngine) Resume(
 | 消息列表接口：消息新增 `run_state`、`pending_prompt` | `pending_prompt` 只对会话所有者返回，包含卡片所需字段和 `expires_at` |
 | 新增 `StreamManager.ResetEvents` | Redis 实现为 `DEL` 事件列表；memory 实现为清空事件切片。两者都保留 steer 列表（P3 已实现） |
 
-API 文档、Swagger、`client/` SDK 同步更新（按 `weknora-api-docs-sync` 流程处理）。
+API 文档、Swagger、`client/` SDK 同步更新（按 `genyee-api-docs-sync` 流程处理）。
 
 ## 8. 会话级语义
 

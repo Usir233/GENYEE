@@ -28,7 +28,7 @@
 
 由此产生的问题：
 
-1. **档位只作用于内置助手。** `GrantsOperationCatalog` 仅对 `BuiltinWeKnoraAssistantID` 成立；普通 Agent 无档位概念。
+1. **档位只作用于内置助手。** `GrantsOperationCatalog` 仅对 `BuiltinGENYEEAssistantID` 成立；普通 Agent 无档位概念。
 2. **只读档位不覆盖 MCP。** `read_only` 只清空 operations 写操作、Wiki 可写范围和 `fill_page`；MCP 写工具仍只看租户开关。
 3. **父子规则不一致。** 同一用户、同一档位、同一 MCP 工具，父任务可能直接执行，子任务每次都要审批，包括只读查询。
 4. **MCP 没有风险分级。** 只有布尔开关，`confirm` 与 `auto_write` 对 MCP 没有意义；MCP 规范中的 `readOnlyHint` / `destructiveHint` 注解未被使用（`mark3labs/mcp-go` 已解析 `Tool.Annotations`）。

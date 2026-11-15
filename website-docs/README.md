@@ -12,8 +12,6 @@
 
 顶栏高 64px、横向铺满。两边使用 README 原版商标，共用颜色、字体和深浅色偏好；Logo 在当前标签返回官网。官网和文档各自使用适合当前页面的导航。
 
-首页视频区使用一个播放器和横向选择入口，默认展示 v0.9.0 发布视频，保留之前的产品全览。新视频和封面随静态站部署，旧视频沿用原有 GitHub 地址。视频在用户点击播放后才加载，切换会停止上一部视频。
-
 ## 发布方式：静态文件 + Nginx
 
 ### 1. 准备部署包
@@ -146,7 +144,7 @@ npm run test:integration
 - `releases/`：生成的部署压缩包。
 - `embed.go`：把 `01-getting-started/` 至 `07-releases/` 的正文编进 GENYEE 服务端，供内置的 GENYEE 助手检索和引用。新增分类目录时，同步更新 `embed.go` 和 `internal/productdocs/library.go` 中的分类列表。服务端测试会检查每篇正文能否解析、站内链接与锚点是否有效。
 
-品牌素材来源见 [homepage/BRAND-ASSETS.md](homepage/BRAND-ASSETS.md)。v0.9.0 视频、页面、文档和截图随包部署；保留的旧版产品全览使用 GitHub 原始附件，播放需要访问 GitHub。
+品牌素材来源见 [homepage/BRAND-ASSETS.md](homepage/BRAND-ASSETS.md)。官网页面、文档和产品截图随静态包一并部署。
 
 ## v0.8.3 截图清单
 
@@ -172,7 +170,7 @@ v0.8.3 的 11 张截图已全部接入，画廊、多模态设置、Wiki 分组�
 
 首页复用其中的 `kb-image-gallery.png`、`kb-image-gallery-detail.png`、`kb-image-vector-settings.png`、`wiki-graph-groups.png`、`chat-source-location.png`，更新时只需替换 `website-docs/public/screenshots/` 中的源图；首页的 `prebuild` / `predev` 会自动同步已有同名副本（终端截图的旧文件名也会对应同步）。添加全新首页截图时，先在 `website-docs/homepage/public/docs/_home/product/` 建立副本。完成后运行 `npm run build`，检查图片引用与本地资源校验结果；页面外观由维护者人工确认。
 
-v0.8.3 的提交清单、文档核对依据和验证记录保存在主仓库 `docs/release-v0.8.3-audit.md`，不随独立站点发布。v0.8.3 发布日期为 2026-10-14，版本页、CHANGELOG 与四种语言 README 保持一致。
+v0.8.3 发布日期为 2026-10-14，版本页、CHANGELOG 与四种语言 README 保持一致。
 
 v0.8.3 首页内容按两层维护：当期版本区以左侧功能导航、右侧截图展示画廊、多模态 Embedding（含腾讯 WeMM 支持）、Wiki 图谱、原文引用定位四项重点；左侧四项说明均保持展开，画廊通过「浏览图片 / 查看详情」切换两张截图；本机浏览器左侧分别展开「执行任务」「连接扩展」两种状态的说明，右侧切换对应截图，MCP Server 归入生态集成，对话追加、分叉与回滚归入 Agent 介绍。技能与沙箱、Wiki、模型生态与企业部署保留独立位置。语言新增等较小更新归入版本说明，后续换版时不要随版本区一并移除这些长期能力。
 
@@ -182,14 +180,12 @@ v0.8.3 首页内容按两层维护：当期版本区以左侧功能导航、右�
 
 ## v0.9.0 发布材料
 
-v0.9.0 发布日期统一为 2026-10-29。正式 tag、镜像和官网部署的执行状态以主仓库 `docs/release-v0.9.0-audit.md` 为准；发布前完成其中的构建验收与上线检查。
+v0.9.0 发布日期统一为 2026-10-29；发布前完成站点的构建验收与上线检查。
 
 当前首页重点为 GENYEE 助手、多智能体协作、自动化和执行权限。画廊、Wiki、原文引用与浏览器等长期能力保留在对应章节；上游发布视频已移除，功能展示使用 GENYEE 产品截图。
 
 - 文档与发布说明：`07-releases/v0.9.0.md`，新增助手、自动化和执行权限三篇指南。
 - 发布截图：助手「产品问答 / 任务协助」使用 `assistant-release-guide.png` 与 `assistant-overview.png`；自动化「一句话设置 / 手动设置」使用 `automation-conversation.png` 与 `automation-setup.png`；另有 `agent-collaboration.png` 和 `assistant-permissions.png`。实际浏览器采集，1920 × 1056，与上一版 3840 × 2112 保持相同宽高比，未放大像素或重绘界面。知识库使用卡片视图。
 - 截图来源为 `public/screenshots/`，首页同名副本由 prebuild 同步。
-- 视频源工程：主仓库 `misc/release-v0.9.0-video/`；165 秒（2 分 45 秒）、横屏 1920 × 1080、60 fps，全英文界面、配音与内嵌字幕，含同步打字音效，无背景音乐。成片、封面和独立 SRT 位于 `public/videos/`。
-- 群通知与 GitHub Release 文案：主仓库 `docs/release-v0.9.0-announcement.md`。
 
 历史版本页与旧截图继续保留，确保旧链接可用。

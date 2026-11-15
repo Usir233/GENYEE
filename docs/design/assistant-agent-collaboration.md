@@ -72,7 +72,7 @@ Codex V2 再核对：`multi_agents_v2/wait.rs` 用 input queue activity 同时�
 
 手工回归建议：
 
-1. 在 WeKnora 助手中委派一个配置了需审批 MCP 工具的推理 Agent。审批卡出现后通过；应只执行一次 MCP 操作，子任务继续，父任务收到结果并结束。重复一次选择拒绝，确认 MCP 未执行。
+1. 在 GENYEE 助手中委派一个配置了需审批 MCP 工具的推理 Agent。审批卡出现后通过；应只执行一次 MCP 操作，子任务继续，父任务收到结果并结束。重复一次选择拒绝，确认 MCP 未执行。
 2. 让助手调用 `wait_agent` 等待 60 秒，在等待期间发送立即追加的 steer，确认很快进入下一轮且新输入只出现一次。另测自然收尾等待子任务期间的 steer。
 3. 子任务运行时要求助手 `list_agents`，观察 running/waiting 和 progress；等待审批不占并发槽位。
 4. 在审批挂起时重启后端，刷新主对话后审批；确认从原子轮次继续。另测父等待期间重启后发送 steer。
@@ -97,7 +97,7 @@ Codex V2 再核对：`multi_agents_v2/wait.rs` 用 input queue activity 同时�
 - 常规审批等待仅改变持久状态、投递 UI 卡片，不唤醒父模型。旧记录里的 waiting 事件也不会因重启重新唤醒或进入模型上下文。终态结果、显式消息、用户 steer、等待超时维持原来的唤醒机制。
 - 父轮次开始时如仍有活动子任务或未读结果，暂缓输出这一轮的推测性正文；通过结束屏障且无需继续处理新结果后才可交付。子结果已处理后的最终汇总仍可正常流式输出。中间步骤保留用于审计。
 - 根/子引擎在新执行和审批恢复时都有明确角色约束：交付实际内容，区分历史与当前运行，不复述旧审批状态，不重复已成功工具调用，不用执行清单替代正文。
-- 子回答达到输出上限时，仅在剩余轮数允许的情况下给一次无工具的精简重写机会，用已取到的证据覆盖各节；不提高用户预算，不循环续写，不重复副作用。这是 WeKnora 的受限恢复策略，不声称来自 Codex。重写仍截断或预算耗尽后的合成回答截断，结果带 `truncated=true`、终态 failed 和原因，保留已有正文，不冒充完整成功。父级可据此决定有针对性的 followup。
+- 子回答达到输出上限时，仅在剩余轮数允许的情况下给一次无工具的精简重写机会，用已取到的证据覆盖各节；不提高用户预算，不循环续写，不重复副作用。这是 GENYEE 的受限恢复策略，不声称来自 Codex。重写仍截断或预算耗尽后的合成回答截断，结果带 `truncated=true`、终态 failed 和原因，保留已有正文，不冒充完整成功。父级可据此决定有针对性的 followup。
 
 Codex 对照的具体边界：固定版本的 [session_prefix.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/session_prefix.rs#L20) 对 Completed(Some(message)) 直接复制回答，截断限额仅用于错误文本；[responses.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/codex-api/src/sse/responses.rs#L420) 将非 interrupted/content_filter 的 incomplete 转成 ResponseIncomplete 错误。不能由此推断所有提供商、上下文压缩或工具输出都完全不截断。
 
@@ -147,13 +147,13 @@ Codex 对照的具体边界：固定版本的 [session_prefix.rs](https://github
 | V2 定义了上述六个工具；V1 另有关闭工具 | [multi_agents_spec.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/tools/handlers/multi_agents_spec.rs#L204) | 我们保留 V2 的六工具面；不能将“V2 不暴露关闭工具”说成“Codex 从未实现关闭工具” |
 | 消息区分 QueueOnly 与 TriggerTurn，followup 禁止指向 root | [control/api.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/agent/control/api.rs#L100) | 普通消息不启动空闲实例，返工启动子轮次；子 Agent 不能凭消息启动新的根任务 |
 | wait 订阅输入活动后检查已有输入；只接受 timeout_ms，返回 message/timed_out，不返回正文 | [v2/wait.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/tools/handlers/multi_agents_v2/wait.rs#L44)、[input_queue.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/session/input_queue.rs#L150) | 第一版 wait 同样仅保留 timeout_ms；游标由运行时管理，避免过滤和全局游标交错导致漏读 |
-| 子结果以 trigger_turn=false 投递给直接父级，投递代码明确为 best effort | [completion.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/agent/control/completion.rs#L1) | 数据库/outbox 可靠投递及根任务继续执行属于 WeKnora 的新增保证，不能宣称已由 Codex 源码验证 |
-| 空闲线程有 TriggerTurn 邮件才启动；存在 durable sleep 时，普通邮件也可唤醒 | [tasks/mod.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/tasks/mod.rs#L442) | 不能绝对化为“所有完成消息永不唤醒”；WeKnora 用明确的等待/继续执行记录决定是否唤醒 |
+| 子结果以 trigger_turn=false 投递给直接父级，投递代码明确为 best effort | [completion.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/agent/control/completion.rs#L1) | 数据库/outbox 可靠投递及根任务继续执行属于 GENYEE 的新增保证，不能宣称已由 Codex 源码验证 |
+| 空闲线程有 TriggerTurn 邮件才启动；存在 durable sleep 时，普通邮件也可唤醒 | [tasks/mod.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/tasks/mod.rs#L442) | 不能绝对化为“所有完成消息永不唤醒”；GENYEE 用明确的等待/继续执行记录决定是否唤醒 |
 | 中断拒绝 root/self，返回之前的状态；不会为中断而加载已卸载实例 | [interrupt.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/agent/control/interrupt.rs#L1) | 区分中断请求已接受和执行已退出；不靠读取旧状态判断已停止 |
-| 执行容量与驻留容量分开；空闲运行时可被卸载，保留/转移状态和邮箱 | [execution.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/agent/control/execution.rs#L1)、[residency.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/agent/control/residency.rs#L35) | 实例身份、驻留资源、执行槽位分别管理；WeKnora 的持久化恢复仍需自己实现 |
+| 执行容量与驻留容量分开；空闲运行时可被卸载，保留/转移状态和邮箱 | [execution.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/agent/control/execution.rs#L1)、[residency.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/agent/control/residency.rs#L35) | 实例身份、驻留资源、执行槽位分别管理；GENYEE 的持久化恢复仍需自己实现 |
 | Agent 消息具有独立来源类型，呈现为 assistant 角色片段 | [inter_agent_message.rs](https://github.com/openai/codex/blob/3b8f43a06bb3105e81406b35ff69f94977d18ae4/codex-rs/core/src/context/inter_agent_message.rs#L46) | 不复用将内容视作用户授权的追加指令路径 |
 
-已阅读相关测试而未执行 Rust 测试：`multi_agents_tests.rs` 中的 wait 只返回通知、已有邮件立即唤醒、followup 每轮通知、拒绝对 root followup、被中断轮次不发送完成通知；`core/tests/suite/agent_control_tests.rs` 的 `host_mailbox_notifies_waiting_agent_and_delivers_once` 验证正文独立投递且只出现一次。Codex 此版本的中断不产生完成通知，WeKnora 则明确增加独立的 `run.interrupted` 状态事件，以便持久任务管理不会一直等待成功结果。这是产品差异。
+已阅读相关测试而未执行 Rust 测试：`multi_agents_tests.rs` 中的 wait 只返回通知、已有邮件立即唤醒、followup 每轮通知、拒绝对 root followup、被中断轮次不发送完成通知；`core/tests/suite/agent_control_tests.rs` 的 `host_mailbox_notifies_waiting_agent_and_delivers_once` 验证正文独立投递且只出现一次。Codex 此版本的中断不产生完成通知，GENYEE 则明确增加独立的 `run.interrupted` 状态事件，以便持久任务管理不会一直等待成功结果。这是产品差异。
 
 ## 2. 目标与第一版边界
 
@@ -208,7 +208,7 @@ running → needs_attention                        （副作用结果未知等�
 
 ## 4. 面向模型的工具
 
-仅保留原定义的六个工具，不增加读取或关闭工具。以下是它们在 WeKnora 中的建议参数和语义，参数采用严格 schema 校验；参数适配不意味着与原定义逐字段兼容。
+仅保留原定义的六个工具，不增加读取或关闭工具。以下是它们在 GENYEE 中的建议参数和语义，参数采用严格 schema 校验；参数适配不意味着与原定义逐字段兼容。
 
 | 工具 | 主要参数 | 语义和返回 |
 |---|---|---|
@@ -412,7 +412,7 @@ assistant 检查运行时投递的结果与交付要求，不合格时用 follow
 
 实现审查必须保持以下不变量：每个实例最多一个执行所有者；模型生成的消息不能伪造系统唤醒/用户授权；结果提交早于通知；投递不等于处理；终结时的输入版本覆盖必需结果；取消 generation 不可被迟到事件恢复；运行时卸载不等于关闭实例；wait 的截止时间可跨重启执行。数据库实现、快照恢复、资源读取与故障注入场景未通过前，不以“接口与 Codex 相似”作为发布依据。
 
-本次完成了官方源码克隆、固定提交的实现/测试阅读，以及设计状态转换和竞态场景审查；没有实现新工具，没有编译运行 Codex 的 Rust 测试或 WeKnora 端到端测试。上述验收项是实现发布门槛，源码对照不等于证明多副本、恢复、预算或写入语义已经正确。
+本次完成了官方源码克隆、固定提交的实现/测试阅读，以及设计状态转换和竞态场景审查；没有实现新工具，没有编译运行 Codex 的 Rust 测试或 GENYEE 端到端测试。上述验收项是实现发布门槛，源码对照不等于证明多副本、恢复、预算或写入语义已经正确。
 
 
 ### 跨父轮次续跑与产物读取（2026-10-18）
