@@ -5,7 +5,8 @@
   "slice": "w3-svc-b-platform",
   "base_commit": "283a77ebc58fa05038c32efe0435ae5df2fda1b4",
   "commits": [
-    "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
+    "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0",
+    "0264527596aebea89ddc48df58c440a3dc680e3c"
   ],
   "status": "verified_findings_fixed",
   "file_count": 287,
@@ -313,7 +314,7 @@
       "severity": "P1",
       "file": "internal/application/service/session_qa_helpers.go",
       "summary": "resolveKnowledgeBases returned session/agent/all-tenant KB IDs and req.TagScopes without enforcing AuthorizeTenantAPIKeyKnowledgeBases or AuthorizeTenantAPIKeyOptionalTagIDs, allowing a KB-restricted TenantAPIKey to search unauthorized KBs via pre-configured session/agent KBs or auto-select fallback and pass unauthorized tag scopes.",
-      "regression_test": "TestW3BAudit_ResolveKnowledgeBases_EnforcesTenantAPIKeyScopeAndTagScopes",
+      "regression_test": "TestW3BAudit_ResolveKnowledgeBases_RejectsOutOfScopeTagScopesForRestrictedAPIKey",
       "commit": "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
     },
     {
@@ -321,7 +322,7 @@
       "severity": "P1",
       "file": "internal/application/service/model.go",
       "summary": "UpdateModel dereferenced existingModel before nil-checking GetModelByID(nil, nil), did not pin model.TenantID = tenantID or model.IsBuiltin = false on non-builtin updates, and downloadModelAsync mutated caller-visible model fields in a background goroutine without cloning or guarding a nil ollamaService.",
-      "regression_test": "TestW3BAudit_ModelUpdate_NilExisting_PinTenantAndBuiltin_AndDownloadCloneRace",
+      "regression_test": "TestW3BAudit_UpdateModel_EnforcesExistenceAndPreventsBuiltinEscalation, TestW3BAudit_DownloadModelAsync_NilOllamaAndNoSharedStructMutationRace",
       "commit": "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
     },
     {
@@ -329,7 +330,7 @@
       "severity": "P1",
       "file": "internal/application/service/user_env.go, internal/application/service/tenant_sandbox_config.go",
       "summary": "UserEnvService exposed the internal __workspace_scripts_policy__ sentinel TenantSandboxConfig row in ListScopes and accepted user env secrets against its ID, while TenantSandboxConfigService allowed creating a sandbox config named __workspace_scripts_policy__ (colliding with workspace scripts policy storage) and leaked the sentinel row in Inventory.",
-      "regression_test": "TestW3BAudit_SandboxPolicySentinel_HiddenFromUserEnvAndInventoryAndRejectedOnCreate",
+      "regression_test": "TestW3BAudit_SandboxWorkspacePolicySentinelRowIsHiddenAndReserved",
       "commit": "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
     },
     {
@@ -337,7 +338,7 @@
       "severity": "P1",
       "file": "internal/application/service/mcp_service.go",
       "summary": "UpdateMCPService failed to clear AuthConfig.ClientSecret when MCPUpdateDropSecrets was requested, omitted Headers and MCPUpdateDropSecrets from needsReconnect detection, lacked nil s.mcpManager guards on disconnect paths, and TestMCPService omitted caller tenant fallback and MCPOAuthPrincipal propagation for OAuth-backed MCP transports.",
-      "regression_test": "TestW3BAudit_MCPService_DropClientSecret_HeaderReconnect_AndOAuthPrincipalTest",
+      "regression_test": "TestW3BAudit_MCPService_DropSecretsClearsClientSecretAndTestUsesMCPOAuthPrincipal",
       "commit": "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
     },
     {
@@ -345,7 +346,7 @@
       "severity": "P1",
       "file": "internal/application/service/message.go",
       "summary": "ClearSessionMessages queried GetKnowledgeIDsBySessionID after DeleteMessagesBySessionID had already deleted the session messages rows (leaving session-uploaded temporary knowledge orphaned on clear), launched cleanup even if message deletion failed, and rerankResults sliced results[rr.Index] without guarding negative provider indices.",
-      "regression_test": "TestW3BAudit_MessageClear_SnapshotsKnowledgeBeforeDelete_AndRerankNegativeIndexGuard",
+      "regression_test": "TestW3BAudit_ClearSessionMessages_DeletesChatHistoryKBBeforeRowsDisappear",
       "commit": "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
     },
     {
@@ -353,7 +354,7 @@
       "severity": "P1",
       "file": "internal/application/service/session.go, internal/application/service/session_fork.go",
       "summary": "GenerateTitleAsync passed the caller *types.Session pointer directly into a background goroutine that mutated session.Title concurrently with caller reads/serialization, UpdateSession did not check existing == nil when GetByID returned (nil, nil), and forkOnSharedMachine omitted Kind: source.Kind when persisting forked sessions.",
-      "regression_test": "TestW3BAudit_Session_TitleAsyncClone_NilUpdateGuard_AndForkKindPreservation",
+      "regression_test": "TestW3BAudit_Session_GenerateTitleAsyncRace_UpdateNilGuard_AndSharedForkKind",
       "commit": "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
     },
     {
@@ -361,7 +362,7 @@
       "severity": "P1",
       "file": "internal/application/service/user.go",
       "summary": "homeOrFirstMembershipTenant checked raw user.CanAccessAllTenants instead of access.UserCanAccessAllTenants(user, s.config) (honoring stale DB flags when CrossTenantAccessEnabled was disabled), AdminResetPassword left Preferences.OidcOnlyLogin = true so newly reset local passwords could still not sign in, and exchangeOIDCCode/fetchOIDCUserInfo used unbounded io.ReadAll on external IdP responses.",
-      "regression_test": "TestW3BAudit_User_CrossTenantConfigGate_AdminResetClearsOIDCOnly_AndOIDCBoundedRead",
+      "regression_test": "TestW3BAudit_UserService_TenantGate_AdminResetOidcFlag_AndBoundedOIDCRead",
       "commit": "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
     },
     {
@@ -369,7 +370,7 @@
       "severity": "P1",
       "file": "internal/application/service/web_search.go",
       "summary": "matchesBlacklistRule checked strings.HasPrefix(rule, \"/\") && strings.HasSuffix(rule, \"/\") without requiring len(rule) >= 2, causing a single-character \"/\" blacklist rule to panic on rule[1:len(rule)-1] during web search result filtering.",
-      "regression_test": "TestW3BAudit_WebSearch_SingleSlashBlacklistRuleDoesNotPanic",
+      "regression_test": "TestW3BAudit_WebSearch_MatchesBlacklistRuleSingleSlashDoesNotPanic",
       "commit": "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
     },
     {
@@ -377,7 +378,7 @@
       "severity": "P2",
       "file": "internal/application/service/shell_job_index.go, internal/application/service/system_setting.go",
       "summary": "ShellJobIndex.parseMember split member strings with SplitN(..., 5), corrupting SandboxID/WorkID whenever namespace or SandboxID contained colons (while still needing to preserve empty SandboxID entries), and system_setting.go converted float64 settings directly to int64 without rejecting NaN/Inf/overflow or accepting int32/numeric-string values in coerceToPositiveInt64.",
-      "regression_test": "TestW3BAudit_ShellJobIndex_ColonsAndSystemSettingBounds, TestSweepMarksLostWhenTheIndexHasNoSandbox",
+      "regression_test": "TestW3BAudit_ShellJobIndex_PreservesColonInSandboxIDAndNamespace, TestW3BAudit_SystemSetting_RejectsNaNInfAndAcceptsInt32AndNumericStringConcurrency, TestSweepMarksLostWhenTheIndexHasNoSandbox",
       "commit": "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
     },
     {
@@ -385,7 +386,7 @@
       "severity": "P1",
       "file": "internal/application/service/tenant_skill_service.go, internal/application/service/tenant_skill_install.go, internal/application/service/tenant_skill_admin.go, internal/application/service/tenant_skill_stop.go, internal/application/service/tenant_skill_remove.go",
       "summary": "Concurrent skill install heartbeats, progress persistence, SetSkillEnabled, SetSkillPublic, StopSkill, and RemoveSkill performed unsynchronized read-modify-write Update(row) cycles on tenant_skills rows (clobbering concurrent flag/state transitions), and cross-replica StopSkill/RemoveSkill/ReinstallSkill had no shared Redis attempt token to fence out an older replica's in-flight installer.",
-      "regression_test": "TestW3BAudit_SkillService_ConcurrentHeartbeatPreservesAdminFlags_AndCrossReplicaTokenInvalidation",
+      "regression_test": "TestW3BAudit_Skill_CrossReplicaStopInvalidatesStaleRunOwnership",
       "commit": "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
     },
     {
@@ -393,7 +394,7 @@
       "severity": "P2",
       "file": "internal/application/service/tenant_skill_bundle.go, internal/application/service/tenant_skill_host.go, internal/application/service/tenant_skill_files.go, internal/application/service/tenant_skill_admin.go",
       "summary": "Zip skill bundle extraction did not normalize Windows backslash path separators or reject Windows drive-prefixed paths, cast UncompressedSize64 directly to int64 before checking >= 1<<63 (allowing negative int64 wraparound), sliced UTF-8 file previews mid-rune, tied trySkillBundle singleflight builds to the first caller's cancellable context, and did not release SubscribeProgress concurrency slots automatically when subCtx cancelled.",
-      "regression_test": "TestW3BAudit_SkillBundle_BackslashNormalization_Zip64Overflow_UTF8Trunc_AndSingleflight",
+      "regression_test": "TestW3BAudit_SkillBundle_BackslashNormalization_Zip64Overflow_UTF8Trunc_AndSingleflight, TestW3BAudit_SubscribeProgress_ReleaseUnblocksParkedPublisherGoroutine",
       "commit": "4206cc1fe352ee71fb3e09fcd8256db230c3d8e0"
     },
     {
