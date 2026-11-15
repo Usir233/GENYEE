@@ -26,7 +26,7 @@ Image.MAX_IMAGE_PIXELS = 40_000_000
 log = logging.getLogger("uvicorn.error")
 
 _HF_REPO_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*/[A-Za-z0-9][A-Za-z0-9._-]*$")
-_COMMIT_SHA_RE = re.compile(r"^[0-9a-fA-F]{40}$")
+_COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 def _env_truthy(name: str, default: bool = False) -> bool:
@@ -223,31 +223,42 @@ def resolve_device_dtype(torch, settings):
     return device, getattr(torch, dtype)
 
 
+def _resolve_model_load_options(settings):
+    is_local_dir = Path(settings.model).is_dir()
+    has_pinned_sha = bool(settings.revision and _COMMIT_SHA_RE.fullmatch(settings.revision))
+    if (
+        settings.trust_remote_code
+        and not settings.local_files_only
+        and not is_local_dir
+        and not has_pinned_sha
+    ):
+        raise ValueError(
+            "trust_remote_code=True for a remote Hugging Face repository requires "
+            "pinning --revision to a 40-character lowercase commit SHA or enabling --local-files-only."
+        )
+    effective_local_files_only = settings.local_files_only or (
+        settings.trust_remote_code and is_local_dir
+    )
+    options = {
+        "trust_remote_code": settings.trust_remote_code,
+        "local_files_only": effective_local_files_only,
+    }
+    if settings.revision:
+        options["revision"] = settings.revision
+    return options
+
+
 class Engine:
     def __init__(self, settings):
-        # Import after CLI setup so --mps-fallback takes effect before torch loads.
+        options = _resolve_model_load_options(settings)
+        # Import after CLI setup and settings validation so fast-fail config
+        # checks never require heavy ML imports and --mps-fallback takes effect.
         import torch
         from transformers import AutoConfig, AutoModel, AutoProcessor
         self.settings, self.torch = settings, torch
-        if (
-            settings.trust_remote_code
-            and not settings.local_files_only
-            and not Path(settings.model).is_dir()
-            and not (settings.revision and _COMMIT_SHA_RE.fullmatch(settings.revision))
-        ):
-            raise ValueError(
-                "trust_remote_code=True for a remote Hugging Face repository requires "
-                "pinning --revision to a 40-character commit SHA or enabling --local-files-only."
-            )
         self.device, self.dtype = resolve_device_dtype(torch, settings)
         self.lock = threading.Lock()
         torch.set_num_threads(settings.cpu_threads)
-        options = {
-            "trust_remote_code": settings.trust_remote_code,
-            "local_files_only": settings.local_files_only,
-        }
-        if settings.revision:
-            options["revision"] = settings.revision
         config = AutoConfig.from_pretrained(settings.model, **options)
         self.dimensions = tuple(getattr(config, "matryoshka_dimensions", ()))
         self.default_dimension = config.text_config.hidden_size

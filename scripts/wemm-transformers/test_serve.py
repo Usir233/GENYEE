@@ -117,7 +117,10 @@ class ServiceTests(unittest.TestCase):
             self.assertEqual(error.exception.status_code, 400)
 
     def test_transparent_images_match_official_white_background(self):
-        from qwen_vl_utils import process_vision_info
+        try:
+            from qwen_vl_utils import process_vision_info
+        except ModuleNotFoundError as exc:
+            self.skipTest(f"qwen_vl_utils not available in environment: {exc}")
         image = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
         image.putpixel((128, 128), (255, 0, 0, 128))
         buffer = io.BytesIO()
@@ -197,9 +200,111 @@ class ServiceTests(unittest.TestCase):
             self.assertIsNone(body["revision"])
 
     def test_remote_trust_remote_code_requires_pinned_revision(self):
-        for bad_rev in (None, "", "main", "HEAD", "v1.0.0", "bbd6cd4"):
-            with self.subTest(revision=bad_rev), self.assertRaises(ValueError):
-                Engine(Settings(model="tencent/WeMM-Embedding-2B", trust_remote_code=True, revision=bad_rev))
+        import sys
+        import tempfile
+        import types
+
+        bad_revisions = (
+            None,
+            "",
+            "main",
+            "HEAD",
+            "v1.0.0",
+            "bbd6cd4",
+            "A" * 40,
+            "bbd6cd4" + "A" * 33,
+            "0123456789abcdef0123456789abcdef0123456G",
+        )
+        with patch.dict(sys.modules, {"torch": None, "transformers": None}):
+            for bad_rev in bad_revisions:
+                with self.subTest(revision=bad_rev), self.assertRaises(ValueError):
+                    Engine(
+                        Settings(
+                            model="tencent/WeMM-Embedding-2B",
+                            trust_remote_code=True,
+                            revision=bad_rev,
+                        )
+                    )
+
+        recorded_calls = []
+
+        class _FakeConfig:
+            matryoshka_dimensions = (64, 128)
+            text_config = types.SimpleNamespace(hidden_size=128)
+
+            @classmethod
+            def from_pretrained(cls, model_ref, **kwargs):
+                recorded_calls.append(("config", model_ref, kwargs))
+                return cls()
+
+        class _FakeProcessor:
+            @classmethod
+            def from_pretrained(cls, model_ref, **kwargs):
+                recorded_calls.append(("processor", model_ref, kwargs))
+                return cls()
+
+        class _FakeModel:
+            def to(self, _device):
+                return self
+
+            def eval(self):
+                return self
+
+            def embedding(self, **_kwargs):
+                return None
+
+            @classmethod
+            def from_pretrained(cls, model_ref, **kwargs):
+                recorded_calls.append(("model", model_ref, kwargs))
+                return cls()
+
+        fake_transformers = types.SimpleNamespace(
+            AutoConfig=_FakeConfig,
+            AutoProcessor=_FakeProcessor,
+            AutoModel=_FakeModel,
+        )
+
+        with (
+            tempfile.TemporaryDirectory() as local_model_dir,
+            patch.dict(sys.modules, {"transformers": fake_transformers}),
+            patch.object(torch.cuda, "is_available", return_value=False),
+            patch.object(torch.backends.mps, "is_available", return_value=False),
+        ):
+            # Local directory + trust_remote_code=True without lowercase 40-hex SHA
+            # must force local_files_only=True so auto_map cannot pull remote code.
+            for unpinned_rev in (None, "main", "A" * 40):
+                recorded_calls.clear()
+                Engine(
+                    Settings(
+                        model=local_model_dir,
+                        trust_remote_code=True,
+                        local_files_only=False,
+                        revision=unpinned_rev,
+                    )
+                )
+                self.assertEqual([kind for kind, _, _ in recorded_calls], ["config", "processor", "model"])
+                for kind, _, kwargs in recorded_calls:
+                    self.assertTrue(
+                        kwargs["local_files_only"],
+                        f"{kind}.from_pretrained must force local_files_only=True for revision={unpinned_rev!r}",
+                    )
+                    self.assertTrue(kwargs["trust_remote_code"])
+
+            # Valid 40-char lowercase SHA on remote repo is accepted.
+            valid_sha = "0123456789abcdef0123456789abcdef01234567"
+            recorded_calls.clear()
+            Engine(
+                Settings(
+                    model="tencent/WeMM-Embedding-2B",
+                    trust_remote_code=True,
+                    local_files_only=False,
+                    revision=valid_sha,
+                )
+            )
+            self.assertEqual([kind for kind, _, _ in recorded_calls], ["config", "processor", "model"])
+            for _, _, kwargs in recorded_calls:
+                self.assertEqual(kwargs["revision"], valid_sha)
+                self.assertFalse(kwargs["local_files_only"])
 
 
 if __name__ == "__main__":
