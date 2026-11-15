@@ -60,3 +60,19 @@ test('non-loopback http base URLs are rejected while loopback http and remote ht
   assert.equal(resolveConfig({ baseUrl: 'http://127.0.0.1:8080' }).baseUrl, 'http://127.0.0.1:8080/api/v1')
   assert.equal(resolveConfig({ baseUrl: 'https://kb.example.com' }).baseUrl, 'https://kb.example.com/api/v1')
 })
+
+test('base URLs with query strings or fragments are rejected', () => {
+  for (const bad of [
+    'https://kb.example.com?foo=bar',
+    'https://kb.example.com/?foo=bar',
+    'https://kb.example.com?',
+    'https://kb.example.com#frag',
+    'https://kb.example.com/#frag',
+    'https://kb.example.com#',
+    'https://kb.example.com/api/v1?x=1',
+    'https://kb.example.com/api/v1#frag',
+  ]) {
+    assert.throws(() => normalizeBaseUrl(bad), /baseUrl must not include query or fragment/)
+    assert.throws(() => resolveConfig({ baseUrl: bad }), /baseUrl must not include query or fragment/)
+  }
+})

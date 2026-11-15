@@ -32,7 +32,12 @@
     "appid": "",
     "simulatorPluginLibVersion": {},
     "packOptions": {
-        "ignore": [],
+        "ignore": [
+            {
+                "value": "test",
+                "type": "folder"
+            }
+        ],
         "include": []
     },
     "editorSetting": {}

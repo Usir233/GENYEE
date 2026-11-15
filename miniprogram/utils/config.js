@@ -15,10 +15,10 @@ function isLoopbackHost(host) {
 
 function isSecureBaseUrl(baseUrl) {
   const normalized = normalizeBaseUrl(baseUrl);
-  if (!normalized || /[\\\s]/.test(normalized)) {
+  if (!normalized || /[\\\s?#]/.test(normalized)) {
     return false;
   }
-  const match = normalized.match(/^(https?):\/\/(\[[0-9a-f:]+\]|[^/:?#@\\]+)(?::(\d+))?(?:\/.*)?$/i);
+  const match = normalized.match(/^(https?):\/\/(\[[0-9a-f:]+\]|[^/:?#@\\]+)(?::(\d+))?(?:\/[^?#\\]*)?$/i);
   if (!match) {
     return false;
   }

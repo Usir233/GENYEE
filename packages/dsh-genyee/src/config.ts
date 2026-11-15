@@ -83,8 +83,12 @@ const TOOL_PREFIX = /^[a-z][a-z0-9_]*$/
  * documented address is usually the bare origin.
  */
 export function normalizeBaseUrl(raw: string): string {
-  const trimmed = raw.trim().replace(/\/+$/, '')
-  return API_ROOT.test(trimmed) ? trimmed : `${trimmed}/api/v1`
+  const trimmed = raw.trim()
+  if (/[?#]/.test(trimmed)) {
+    throw new ConfigError([`baseUrl must not include query or fragment, received ${JSON.stringify(raw)}`])
+  }
+  const stripped = trimmed.replace(/\/+$/, '')
+  return API_ROOT.test(stripped) ? stripped : `${stripped}/api/v1`
 }
 
 function positiveInt(value: unknown, field: string, violations: string[]): number | undefined {
@@ -144,16 +148,23 @@ export function resolveConfig(raw: Config | undefined): ResolvedConfig {
 
   const baseUrlInput = optionalString(config.baseUrl, 'baseUrl', violations) ?? DEFAULTS.baseUrl
   let baseUrl: string = DEFAULTS.baseUrl
+  let rawParsedUrl: URL | undefined
   try {
-    const url = new URL(normalizeBaseUrl(baseUrlInput))
-    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-      violations.push(`baseUrl must use http or https, received ${url.protocol}`)
-    } else if (url.protocol === 'http:' && !isLoopbackHostname(url.hostname)) {
-      violations.push(`baseUrl must use https for non-loopback hosts, received ${url.origin}`)
-    }
-    baseUrl = url.toString().replace(/\/+$/, '')
+    rawParsedUrl = new URL(baseUrlInput)
   } catch {
     violations.push(`baseUrl must be an absolute URL, received ${JSON.stringify(baseUrlInput)}`)
+  }
+  if (rawParsedUrl) {
+    if (rawParsedUrl.protocol !== 'http:' && rawParsedUrl.protocol !== 'https:') {
+      violations.push(`baseUrl must use http or https, received ${rawParsedUrl.protocol}`)
+    } else if (rawParsedUrl.protocol === 'http:' && !isLoopbackHostname(rawParsedUrl.hostname)) {
+      violations.push(`baseUrl must use https for non-loopback hosts, received ${rawParsedUrl.origin}`)
+    }
+    if (rawParsedUrl.search || rawParsedUrl.hash || /[?#]/.test(baseUrlInput)) {
+      violations.push(`baseUrl must not include query or fragment, received ${JSON.stringify(baseUrlInput)}`)
+    } else {
+      baseUrl = new URL(normalizeBaseUrl(baseUrlInput)).toString().replace(/\/+$/, '')
+    }
   }
 
   const resourceUrls = config.resourceUrls ?? DEFAULTS.resourceUrls
