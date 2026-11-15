@@ -56,7 +56,7 @@
           "file": "internal/infrastructure/chunker/heuristic_splitter.go:34-118,289-330",
           "summary": "splitByHeuristicsImpl did not normalize non-positive ChunkSize or excessive ChunkOverlap on direct calls, and applyOverlapAligned could snap chunkStart back to offset 0 (stalling Start progress) while adding overlap without bounding nextEnd-chunkStart <= ChunkSize, emitting chunks up to ChunkSize + 2*ChunkOverlap.",
           "regression_test": "TestHeuristicSplitterOverlapProgressAndSizeBounds",
-          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
         },
         {
           "id": "W4-CHUNKER-02",
@@ -64,7 +64,7 @@
           "file": "internal/infrastructure/chunker/heuristic_splitter.go:130-166",
           "summary": "findHeuristicBoundaries toggled a boolean on strings.HasPrefix(trimmed, \"```\") instead of using CommonMark markdownFence, splitting inside tilde fences (~~~) and permanently blinding boundary detection after inline triple backticks, 4-space indented code lines, or nested 4-backtick fences.",
           "regression_test": "TestHeuristicBoundariesCommonMarkCodeFences",
-          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
         },
         {
           "id": "W4-CHUNKER-03",
@@ -72,7 +72,7 @@
           "file": "internal/infrastructure/chunker/profiler.go:171-175, internal/infrastructure/chunker/tokens.go:110-141, internal/infrastructure/chunker/strategy.go:34-103, internal/infrastructure/chunker/splitter.go:279-284, internal/infrastructure/chunker/heading_splitter.go:32-46",
           "summary": "ProfileDocument (4096-byte sample) and hasGermanWords (512-byte sample) sliced raw byte offsets that could split multi-byte UTF-8 runes mid-character, and Split/SplitWithDiagnostics/SplitText/splitByHeadingsImpl allowed invalid upstream UTF-8 bytes to pass through into Chunk.Content and Chunk.ContextHeader.",
           "regression_test": "TestChunkerUTF8BoundaryAndInvalidByteSanitization",
-          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
         }
       ],
       "verification_commands": [
@@ -98,7 +98,7 @@
           "file": "internal/infrastructure/retriever/vectordb_tokenizer_test.go:17-78",
           "summary": "TestTencentVectorDBJiebaTokenizerChineseBM25 invoked upstream tokenizer.NewJiebaTokenizer without first seeding embedded stopwords via tencentvectordb.EnsureDefaultStopwords, causing clean/air-gapped test runs to attempt an external HTTP download from Tencent COS.",
           "regression_test": "TestTencentVectorDBJiebaTokenizerOfflineNoNetwork",
-          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
         }
       ],
       "verification_commands": [
@@ -137,7 +137,7 @@
           "file": "internal/reranking/image.go:120-191, internal/reranking/rerank.go:347-402",
           "summary": "scoreCandidates did not deduplicate provider-returned Index values, accepted NaN/Inf RelevanceScore values (propagating NaN into CompositeScore and Metadata), and left ModelScores unsorted when all candidates were scored as images; CompositeScore also panicked on nil SearchResult and propagated NaN inputs.",
           "regression_test": "TestRerankHandlesDuplicateIndicesNonFiniteScoresAndAllImageSorting",
-          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
         },
         {
           "id": "W4-RERANK-02",
@@ -145,7 +145,7 @@
           "file": "internal/reranking/image.go:124-126, internal/reranking/passage.go:171-175, internal/reranking/mmr.go:17-77,145-156, internal/reranking/observability.go:38-97",
           "summary": "Rerank panicked on nil model, EnrichedPassage/ModelPassage panicked on nil SearchResult, SelectMMR panicked on nil elements and computed IEEE-754 0*-Inf = NaN at lambda=0, and summarizeSelection keyed threshold-passing candidates by string ID (colliding on empty/duplicate IDs) while dereferencing potentially nil kept results.",
           "regression_test": "TestRerankNilGuardsMMRNumericsAndObservabilityEmptyIDs",
-          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
         }
       ],
       "verification_commands": [
@@ -189,7 +189,7 @@
           "file": "internal/searchutil/normalize.go:33-153, internal/searchutil/textutil.go:159-174",
           "summary": "NormalizeKeywordScores propagated NaN into normalized scores on batches >= 10 and produced (Inf - min)/Inf = NaN while collapsing finite scores to 0 when +Inf appeared; ClampFloat also returned NaN on NaN inputs and mishandled inverted bounds.",
           "regression_test": "TestNormalizeKeywordScoresAndClampFloatRejectNonFinite",
-          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
         },
         {
           "id": "W4-SEARCHUTIL-02",
@@ -197,7 +197,7 @@
           "file": "internal/searchutil/chunkmerge.go:184-198, internal/searchutil/imageinfo.go:56-85,177-198,231-302,624-629,767-771, internal/searchutil/textutil.go:47-52",
           "summary": "MergeTextChunks sorted chunks dereferencing StartAt before filtering nil entries (panicking on nil elements), and imageinfo/textutil helpers panicked on nil ChunkRepository, nil SearchResult/Chunk slice entries, or nil ImageInfo.",
           "regression_test": "TestMergeTextChunksAndImageInfoNilSafety",
-          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
         },
         {
           "id": "W4-SEARCHUTIL-03",
@@ -205,7 +205,7 @@
           "file": "internal/searchutil/snippet.go:24-73",
           "summary": "ExtractSnippet converted full prefix/match/suffix substrings into []rune slices (O(len(content)) allocations on large documents) just to retain <=220 runes; replaced with bounded UTF-8 rune iterators and verified concurrent TokenizeSimple race safety.",
           "regression_test": "TestExtractSnippetBoundedWindowAndUTF8Safety, TestTokenizeSimpleConcurrentRaceSafety",
-          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
         }
       ],
       "verification_commands": [
@@ -292,7 +292,7 @@
           "file": "internal/models/api/tencentlkeap/client.go:61-143,234-264",
           "summary": "httpClientRoundTripper passed an uncapped resp.Body to tencentcloud-sdk-go (which reads the whole body via io.ReadAll without a size limit), and Rerank panicked on nil context via context.WithValue(nil, ...) and errored on empty document batches.",
           "regression_test": "TestRerankCapsOversizedResponseAndHandlesNilContextAndEmptyBatch",
-          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
         },
         {
           "id": "W4-LKEAP-02",
@@ -300,7 +300,7 @@
           "file": "internal/models/api/tencentlkeap/client.go:145-175,216-277",
           "summary": "resolveEndpointAndScheme echoed raw config.BaseURL (including embedded userinfo passwords) into error strings and did not validate config.Scheme or config.Endpoint when BaseURL was empty; returned SDK/transport errors also lacked SecretKey redaction.",
           "regression_test": "TestNewRedactsCredentialsAndValidatesEndpointAndScheme",
-          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
         }
       ],
       "verification_commands": [

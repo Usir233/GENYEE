@@ -32,7 +32,7 @@
           "file": "internal/application/repository/retriever/elasticsearch/structs.go:19, 34-76",
           "summary": "ToDBVectorEmbedding and FromDBVectorEmbeddingWithScore dereferenced nil IndexInfo/VectorEmbeddingWithScore pointers without guards, and VectorEmbedding serialized nil embeddings as \"embedding\": null instead of omitting the field on keyword-only saves.",
           "regression_test": "TestToDBVectorEmbedding_NilInputDoesNotPanic, TestFromDBVectorEmbeddingWithScore_NilInputDoesNotPanic, TestValidateEmbeddingAndScopingHelpers",
-          "commit": "8e2928c085dd70582d5b093faa4a8cf79022aff6"
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
         }
       ],
       "verification_commands": [
@@ -66,7 +66,7 @@
           "file": "internal/application/repository/retriever/elasticsearch/v7/repository.go:258-341, 417-489",
           "summary": "buildVectorSearchQuery fell back to match_all across all tenants when KnowledgeBaseIDs was empty and buildKeywordSearchQuery omitted knowledge_base_id requirements on empty slices while constructing query DSL via fmt.Sprintf and dropping TopK (\"size\") and Threshold (\"min_score\"); deleteByFieldList also built _delete_by_query via fmt.Sprintf and ignored HTTP 200 partial failures.",
           "regression_test": "TestV7Retrieve_RejectsEmptyKnowledgeBaseIDsFailClosed, TestV7KeywordSearch_PropagatesTopKAndThresholdViaStructuredJSON, TestV7DeleteAndByQuery_RejectsBlankTargetsAndSurfacesFailuresWithoutLeakingReason",
-          "commit": "8e2928c085dd70582d5b093faa4a8cf79022aff6"
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
         },
         {
           "id": "W4-VEC-SEARCH-03",
@@ -74,7 +74,7 @@
           "file": "internal/application/repository/retriever/elasticsearch/v7/repository.go:108-145, 491-525, 670-735; internal/application/repository/retriever/elasticsearch/v7/move.go:15-42",
           "summary": "processHit hardcoded MatchTypeKeywords even for VectorRetrieve hits (and dereferenced nil _score without guard), Save rejected valid keyword-only documents despite Support() advertising KeywordsRetrieverType, BatchUpdateChunkTagID deferred res.Body.Close() inside a loop without inspecting HTTP 200 failures, HTTP bodies lacked io.LimitReader bounds and leaked raw resp.String() on errors, and MoveKnowledgeIndices/CopyIndices accepted blank KB IDs.",
           "regression_test": "TestV7VectorRetrieve_SetsEmbeddingMatchTypeAndRejectsInvalidVector, TestV7Save_AllowsKeywordOnlyDocAndRejectsNaNVector, TestV7DeleteAndByQuery_RejectsBlankTargetsAndSurfacesFailuresWithoutLeakingReason",
-          "commit": "8e2928c085dd70582d5b093faa4a8cf79022aff6"
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
         }
       ],
       "verification_commands": [
@@ -108,7 +108,7 @@
           "file": "internal/application/repository/retriever/elasticsearch/v8/repository.go:558-585",
           "summary": "BatchUpdateChunkTagID constructed Painless script parameter JSON via unescaped string concatenation json.RawMessage(\"\\\"\" + tagID + \"\\\"\"), allowing quotes, backslashes, or control characters in tagID to break or inject into the _update_by_query JSON payload.",
           "regression_test": "TestV8BatchUpdateChunkTagID_EscapesSpecialCharsWithoutJSONInjection",
-          "commit": "8e2928c085dd70582d5b093faa4a8cf79022aff6"
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
         },
         {
           "id": "W4-VEC-SEARCH-05",
@@ -116,7 +116,7 @@
           "file": "internal/application/repository/retriever/elasticsearch/v8/repository.go:205-340",
           "summary": "VectorRetrieve fell back to cross-tenant MatchAll when KnowledgeBaseIDs was empty, KeywordsRetrieve executed unscoped content queries when KnowledgeBaseIDs was empty (and omitted MinScore when Threshold > 0), and both methods unconditionally dereferenced nullable *hit.Score_ and *hit.Id_ pointers.",
           "regression_test": "TestV8Retrieve_RejectsEmptyKnowledgeBaseIDsAndHandlesNilHitScore",
-          "commit": "8e2928c085dd70582d5b093faa4a8cf79022aff6"
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
         },
         {
           "id": "W4-VEC-SEARCH-06",
@@ -124,7 +124,7 @@
           "file": "internal/application/repository/retriever/elasticsearch/v8/repository.go:95-125, 175-204, 415-635; internal/application/repository/retriever/elasticsearch/v8/move.go:15-40",
           "summary": "Save rejected keyword-only documents, CopyIndices dropped TagID and IsRecommended during KB index copies, DeleteByQuery and UpdateByQuery ignored HTTP 200 partial Failures, and DeleteBy*/BatchUpdateChunk*/MoveKnowledgeIndices/CopyIndices lacked blank target/KB ID validation.",
           "regression_test": "TestV8SaveKeywordOnlyAndCopyIndicesPreservesTagAndRecommended, TestV8DeleteAndMove_RejectBlankScopeAndSurfaceByQueryFailures",
-          "commit": "8e2928c085dd70582d5b093faa4a8cf79022aff6"
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
         }
       ],
       "verification_commands": [
@@ -175,7 +175,7 @@
           "file": "internal/application/repository/retriever/opensearch/retrieve.go:30-61; internal/application/repository/retriever/opensearch/crud.go:54-105, 182-267, 403-462",
           "summary": "Retrieve allowed empty/blank KnowledgeBaseIDs to execute cross-tenant searches across the shared index (and allowed NaN thresholds/vectors); Save and buildBulkBody keyed _id=info.ChunkID instead of SourceID causing generated questions (\"<chunk>-<q>\") to overwrite primary chunks in the same index; inspectBulkResponse returned nil when errors=true had empty items or status>=400 without an error object; and deleteByTerms discarded _delete_by_query HTTP 200 failure bodies.",
           "regression_test": "TestRetrieve_EmptyOrBlankKnowledgeBaseIDs_FailsClosed, TestInspectBulkResponse_ErrorsTrueWithoutItemDetail_FailsClosed, TestDeleteByList_InspectsPartialFailuresAndRejectsBlankTargets, TestBatchSaveAndCopyIndices_PreservesDistinctIDsForGeneratedQuestionsAndLegacyEnabled",
-          "commit": "8e2928c085dd70582d5b093faa4a8cf79022aff6"
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
         },
         {
           "id": "W4-VEC-SEARCH-08",
@@ -183,7 +183,7 @@
           "file": "internal/application/repository/retriever/opensearch/copy.go:25-36, 63-135; internal/application/repository/retriever/opensearch/move.go:15-26; internal/application/repository/retriever/opensearch/bulk_update.go:23-96",
           "summary": "CopyIndices decoded missing legacy is_enabled fields as false instead of defaulting to true, and CopyIndices, MoveKnowledgeIndices, deleteByList, and BatchUpdateChunk* accepted empty/whitespace KB or chunk target identifiers.",
           "regression_test": "TestBatchSaveAndCopyIndices_PreservesDistinctIDsForGeneratedQuestionsAndLegacyEnabled, TestDeleteByList_InspectsPartialFailuresAndRejectsBlankTargets",
-          "commit": "8e2928c085dd70582d5b093faa4a8cf79022aff6"
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
         }
       ],
       "verification_commands": [
@@ -221,7 +221,7 @@
           "file": "internal/application/repository/retriever/doris/schema.go:37-123, 213-295; internal/application/repository/retriever/doris/repository.go:257-450",
           "summary": "Doris SQL builders interpolated r.tableBaseName, tables returned from information_schema.tables LIKE, and dimension without strict identifier/positive-dimension validation; VectorRetrieve and KeywordsRetrieve allowed empty KnowledgeBaseIDs to execute cross-tenant queries across shared tables; and KeywordsRetrieve panicked on negative TopK (all[:params.TopK]) and silently returned empty success when every table query failed.",
           "regression_test": "TestDorisIdentifierValidation_RejectsSQLInjectionInTableAndDatabase, TestDorisListEmbeddingTables_IgnoresHostileRemoteTableNames, TestDorisRetrieveAndMutations_FailClosedOnMissingKBOrBlankTargets, TestDorisKeywordsRetrieve_NegativeTopKDoesNotPanicAndPropagatesTableErrors",
-          "commit": "8e2928c085dd70582d5b093faa4a8cf79022aff6"
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
         },
         {
           "id": "W4-VEC-SEARCH-10",
@@ -229,7 +229,7 @@
           "file": "internal/application/repository/retriever/doris/compat.go:47-141; internal/application/repository/retriever/doris/streamload.go:97-231, 286-380; internal/application/repository/retriever/doris/move.go:22-41",
           "summary": "resolveCompatMode used sync.Once and permanently cached transient DB/network errors for the lifetime of the repository; streamLoadOnce interpolated unbounded result.Message and unredacted result.ErrorURL into returned errors (and CheckRedirect did not reject embedded userinfo on redirects); scanRetrieveRows dropped scanned IsEnabled values; and DeleteBy*/BatchUpdateChunk*/MoveKnowledgeIndices/CopyIndices lacked blank target/KB ID validation.",
           "regression_test": "TestDorisResolveCompatMode_RetriesAfterTransientFailure, TestDorisStreamLoadOnce_TruncatesFailureFieldsAndRedactsCredentials, TestDorisRetrieveAndMutations_FailClosedOnMissingKBOrBlankTargets",
-          "commit": "8e2928c085dd70582d5b093faa4a8cf79022aff6"
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
         }
       ],
       "verification_commands": [

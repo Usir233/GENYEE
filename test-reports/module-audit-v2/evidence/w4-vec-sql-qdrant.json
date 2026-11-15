@@ -39,7 +39,7 @@
           "file": "internal/application/repository/retriever/postgres/repository.go:535-655",
           "summary": "VectorRetrieve sliced results[:params.TopK] without guarding params.TopK <= 0 (panicking on negative TopK) and interpolated len(params.Embedding) == 0 into halfvec(0) SQL; neither KeywordsRetrieve nor VectorRetrieve failed closed on non-nil empty KnowledgeBaseIDs ([]string{}), rejected NaN/Inf embeddings, short-circuited blank keyword queries, or applied RetrieveParams.ExcludeKnowledgeIDs and ExcludeChunkIDs filters.",
           "regression_test": "TestW4PostgresAudit_RetrieveBoundsFailClosedNaNAndExclusions",
-          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
         },
         {
           "id": "W4-VEC-SQL-QDRANT-06",
@@ -47,7 +47,7 @@
           "file": "internal/application/repository/retriever/postgres/repository.go:195-295, 420-470, 660-910; internal/application/repository/retriever/postgres/move.go:15-65",
           "summary": "BatchSave passed empty slices directly to GORM Create (returning gorm.ErrEmptySlice), Save/BatchSave/EstimateStorageSize lacked nil IndexInfo element guards, DeleteByChunkIDList and DeleteByKnowledgeIDList lacked empty-list guards, MoveKnowledgeIndices and CopyIndices lacked blank KB/document scope validation, and BatchUpdateChunkEnabledStatus / BatchUpdateChunkTagID / BatchUpdateChunkContent executed multi-group UPDATE loops without a wrapping DB transaction.",
           "regression_test": "TestW4PostgresAudit_WriteDeleteMoveAndBatchUpdateGuards",
-          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
         }
       ],
       "verification_commands": [
@@ -84,7 +84,7 @@
           "file": "internal/application/repository/retriever/sqlite/repository.go:258-340; internal/application/repository/retriever/sqlite/move.go:15-95",
           "summary": "CopyIndices ignored sourceKnowledgeBaseID (_ string) and queried embeddings solely by chunk_id IN ?, allowing a caller with chunk IDs from another knowledge base to clone cross-KB content and vectors (inserting unmapped KnowledgeID values as empty strings); MoveKnowledgeIndices and CopyIndices also lacked blank KB/knowledge ID scope validation.",
           "regression_test": "TestW4SQLiteAudit_CopyIndicesEnforcesSourceKBAndMappedKnowledge",
-          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
         },
         {
           "id": "W4-VEC-SQL-QDRANT-08",
@@ -92,7 +92,7 @@
           "file": "internal/application/repository/retriever/sqlite/repository.go:130-255, 420-690, 705-775",
           "summary": "tokenizeCJKBigram treated control characters (including NUL \\x00) as non-whitespace, embedding raw NUL bytes inside FTS5 phrase literals where SQLite C-string truncation produced unterminated-quote fts5 syntax errors; VectorRetrieve and Save/BatchSave accepted NaN/Inf embeddings (allowing NaN cosine similarity to bypass score < Threshold), TopK <= 0 reached sqlite-vec k=? / slice bounds, explicit empty KnowledgeBaseIDs ([]string{}) failed open across all KBs, and buildFilterWhere omitted ExcludeKnowledgeIDs and ExcludeChunkIDs.",
           "regression_test": "TestW4SQLiteAudit_FTS5ControlCharNaNVectorsFailClosedAndExclusions",
-          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
         }
       ],
       "verification_commands": [
@@ -126,7 +126,7 @@
           "file": "internal/application/repository/retriever/qdrant/repository.go:555-765",
           "summary": "VectorRetrieve and KeywordsRetrieve cast negative params.TopK directly to uint64/uint32 (underflowing to math.MaxUint64 / math.MaxUint32 in Qdrant QueryPoints limits) and subsequently panicked with slice bounds out of range on allResults[:params.TopK].",
           "regression_test": "TestW4QdrantAudit_NegativeAndZeroTopKNoUnderflowOrPanic",
-          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
         },
         {
           "id": "W4-VEC-SQL-QDRANT-10",
@@ -134,7 +134,7 @@
           "file": "internal/application/repository/retriever/qdrant/repository.go:255-360, 555-820; internal/application/repository/retriever/qdrant/move.go:15-155",
           "summary": "VectorRetrieve and KeywordsRetrieve failed open across collections when KnowledgeBaseIDs was an explicit empty slice ([]string{}), ignored RetrieveParams.ExcludeGeneratedQuestionKBIDs, lacked NaN/Inf vector and nil IndexInfo validation, dropped numeric PointId_Num IDs when deleting old points during CopyIndices/MoveKnowledgeIndices, and lacked empty KB/knowledge scope and NotFound collection guards in MoveKnowledgeIndices.",
           "regression_test": "TestW4QdrantAudit_FailClosedScopeNaNVectorsGeneratedQuestionAndMoveGuards",
-          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
         }
       ],
       "verification_commands": [
@@ -175,7 +175,7 @@
           "file": "internal/application/repository/retriever/milvus/repository.go:539-578",
           "summary": "DeleteByChunkIDList, DeleteByKnowledgeIDList, and DeleteBySourceIDList built Milvus delete expressions via milvusclient.DeleteOption.WithStringIDs, which interpolates each ID with raw fmt.Sprintf(\"\\\"%s\\\"\", id) without escaping quotes or backslashes—allowing crafted chunk/knowledge/source IDs containing '\"' to inject arbitrary Milvus boolean predicates (e.g. '|| knowledge_base_id != \"\"') and delete records across tenants—and failed when target dimension collections did not exist.",
           "regression_test": "TestW4MilvusAudit_DeleteEscapesQuotesBackslashesAndRejectsControlChars",
-          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
         },
         {
           "id": "W4-VEC-SQL-QDRANT-02",
@@ -183,7 +183,7 @@
           "file": "internal/application/repository/retriever/milvus/filter.go:95-215",
           "summary": "universalFilterCondition.Convert interpolated cond.Field verbatim into Milvus filter expressions and template parameter names without validating against an allowlist of collection scalar fields, allowing untrusted JSON filter conditions to inject arbitrary boolean expressions via Field.",
           "regression_test": "TestW4MilvusAudit_FilterRejectsDisallowedFieldInjection",
-          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
         },
         {
           "id": "W4-VEC-SQL-QDRANT-03",
@@ -191,7 +191,7 @@
           "file": "internal/application/repository/retriever/milvus/repository.go:1003-1055",
           "summary": "BatchUpdateChunkTagID logged warnings and continued when searchByFilter, collectionAnalyzerMode, or client.Upsert failed on a collection, returning nil to callers despite partial or complete tag update failure.",
           "regression_test": "TestW4MilvusAudit_BatchUpdateChunkTagIDPropagatesErrors",
-          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
         },
         {
           "id": "W4-VEC-SQL-QDRANT-04",
@@ -199,7 +199,7 @@
           "file": "internal/application/repository/retriever/milvus/collection_names.go:15-35; internal/application/repository/retriever/milvus/move.go:15-155; internal/application/repository/retriever/milvus/repository.go:420-520, 610-810",
           "summary": "collectionDimensionForBase accepted non-canonical strconv.Atoi suffixes (+768, 0768), VectorRetrieve and KeywordsRetrieve failed open on explicit empty KnowledgeBaseIDs ([]string{}), ignored RetrieveParams.ExcludeGeneratedQuestionKBIDs, lacked TopK <= 0 / empty-embedding / blank-query / NaN-Inf vector / nil-IndexInfo / NUL-byte VarChar guards, and MoveKnowledgeIndices / CopyIndices lacked empty KB/knowledge scope validation.",
           "regression_test": "TestW4MilvusAudit_CollectionNameStrictDigitsAndRetrieveWriteGuards",
-          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
         }
       ],
       "verification_commands": [

@@ -10,10 +10,10 @@
   "wave0_evidence_file": "test-reports/module-audit-v2/wave0-foundation.json",
   "legacy_ledger": "test-reports/module-audit-20261113/coverage.json",
   "summary": {
-    "total_tracked_files": 6535,
+    "total_tracked_files": 6555,
     "unit_count": 301,
-    "unit_files_total": 6005,
-    "support_files_total": 530,
+    "unit_files_total": 6021,
+    "support_files_total": 534,
     "uncovered_files": 0,
     "duplicate_files": 0,
     "stale_files": 0,
@@ -31,17 +31,17 @@
       "W1": 376,
       "W2": 932,
       "W3": 1277,
-      "W4": 170,
+      "W4": 186,
       "W5": 870,
       "W6": 1060,
       "W7": 850,
       "W8": 470
     },
     "units_by_status": {
-      "pending": 173,
+      "pending": 153,
       "pending_reaudit": 77,
-      "verified_findings_fixed": 43,
-      "verified_no_findings": 8
+      "verified_findings_fixed": 60,
+      "verified_no_findings": 11
     },
     "units_by_legacy_status": {
       "audited": 36,
@@ -55,7 +55,7 @@
     "support_files_by_category": {
       "license_or_notice": 71,
       "historical_changelog_or_spec": 6,
-      "audit_ledger_or_archived_report": 84,
+      "audit_ledger_or_archived_report": 88,
       "static_binary_or_vendor_asset": 369
     }
   },
@@ -4752,9 +4752,10 @@
       "unit_id": "internal/application/repository/retriever/doris",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 10,
+      "status": "verified_findings_fixed",
+      "file_count": 11,
       "tracked_files": [
+        "internal/application/repository/retriever/doris/audit_w4_test.go",
         "internal/application/repository/retriever/doris/compat.go",
         "internal/application/repository/retriever/doris/move.go",
         "internal/application/repository/retriever/doris/move_test.go",
@@ -4766,32 +4767,75 @@
         "internal/application/repository/retriever/doris/streamload_limit_test.go",
         "internal/application/repository/retriever/doris/structs.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Every Doris SQL query and HTTP Stream Load endpoint validates database and table identifiers against strict [a-zA-Z0-9_]{1,64} allowlists, filters information_schema table listings to canonical <tableBaseName>_<positiveDim> names, binds all user string filters/IDs via ? placeholders, and formats validated finite float32 arrays via strconv.FormatFloat.",
+        "VectorRetrieve and KeywordsRetrieve require non-empty KnowledgeBaseIDs (failing closed instead of scanning across tenants), clamp TopK to [1..10000], reject NaN/Inf thresholds or empty vectors, propagate errors when all queried tables fail, and preserve scanned IsEnabled flags.",
+        "Stream Load HTTP client enforces SSRF validation on initial FE requests and 307 FE->BE redirects, blocks HTTPS downgrades, untrusted hosts, and embedded redirect userinfo, bounds response reads to 1 MiB, and truncates + redacts URL credentials in error previews.",
+        "resolveCompatMode caches only successful mode detection under a mutex so transient DB/network errors retry cleanly; default table prefix is \"genyee_embeddings\" with zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SEARCH-09",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/doris/schema.go:37-123, 213-295; internal/application/repository/retriever/doris/repository.go:257-450",
+          "summary": "Doris SQL builders interpolated r.tableBaseName, tables returned from information_schema.tables LIKE, and dimension without strict identifier/positive-dimension validation; VectorRetrieve and KeywordsRetrieve allowed empty KnowledgeBaseIDs to execute cross-tenant queries across shared tables; and KeywordsRetrieve panicked on negative TopK (all[:params.TopK]) and silently returned empty success when every table query failed.",
+          "regression_test": "TestDorisIdentifierValidation_RejectsSQLInjectionInTableAndDatabase, TestDorisListEmbeddingTables_IgnoresHostileRemoteTableNames, TestDorisRetrieveAndMutations_FailClosedOnMissingKBOrBlankTargets, TestDorisKeywordsRetrieve_NegativeTopKDoesNotPanicAndPropagatesTableErrors",
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
+        },
+        {
+          "id": "W4-VEC-SEARCH-10",
+          "severity": "P2",
+          "file": "internal/application/repository/retriever/doris/compat.go:47-141; internal/application/repository/retriever/doris/streamload.go:97-231, 286-380; internal/application/repository/retriever/doris/move.go:22-41",
+          "summary": "resolveCompatMode used sync.Once and permanently cached transient DB/network errors for the lifetime of the repository; streamLoadOnce interpolated unbounded result.Message and unredacted result.ErrorURL into returned errors (and CheckRedirect did not reject embedded userinfo on redirects); scanRetrieveRows dropped scanned IsEnabled values; and DeleteBy*/BatchUpdateChunk*/MoveKnowledgeIndices/CopyIndices lacked blank target/KB ID validation.",
+          "regression_test": "TestDorisResolveCompatMode_RetriesAfterTransientFailure, TestDorisStreamLoadOnce_TruncatesFailureFieldsAndRedactsCredentials, TestDorisRetrieveAndMutations_FailClosedOnMissingKBOrBlankTargets",
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/doris/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-search.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/elasticsearch",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 1,
+      "status": "verified_findings_fixed",
+      "file_count": 2,
       "tracked_files": [
-        "internal/application/repository/retriever/elasticsearch/structs.go"
+        "internal/application/repository/retriever/elasticsearch/structs.go",
+        "internal/application/repository/retriever/elasticsearch/structs_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Shared Elasticsearch DTO converters ToDBVectorEmbedding and FromDBVectorEmbeddingWithScore guard against nil inputs without panicking and default missing legacy is_enabled pointers to true.",
+        "VectorEmbedding omits nil/empty embedding slices (omitempty) so keyword-only documents can be indexed into Elasticsearch without sending null to dense_vector mappings.",
+        "Shared validation helpers enforce finite float32 embeddings (rejecting NaN/Inf), mandatory non-empty KnowledgeBaseIDs for tenant-scoped retrieval, non-blank delete/update target IDs, bounded TopK [1..10000], and URL credential redaction; zero legacy brand residues present."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SEARCH-01",
+          "severity": "P2",
+          "file": "internal/application/repository/retriever/elasticsearch/structs.go:19, 34-76",
+          "summary": "ToDBVectorEmbedding and FromDBVectorEmbeddingWithScore dereferenced nil IndexInfo/VectorEmbeddingWithScore pointers without guards, and VectorEmbedding serialized nil embeddings as \"embedding\": null instead of omitting the field on keyword-only saves.",
+          "regression_test": "TestToDBVectorEmbedding_NilInputDoesNotPanic, TestFromDBVectorEmbeddingWithScore_NilInputDoesNotPanic, TestValidateEmbeddingAndScopingHelpers",
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/elasticsearch/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-search.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/elasticsearch/v7",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 6,
+      "status": "verified_findings_fixed",
+      "file_count": 7,
       "tracked_files": [
+        "internal/application/repository/retriever/elasticsearch/v7/audit_w4_test.go",
         "internal/application/repository/retriever/elasticsearch/v7/bulk_test.go",
         "internal/application/repository/retriever/elasticsearch/v7/copy_test.go",
         "internal/application/repository/retriever/elasticsearch/v7/move.go",
@@ -4799,18 +4843,44 @@
         "internal/application/repository/retriever/elasticsearch/v7/repository.go",
         "internal/application/repository/retriever/elasticsearch/v7/vector_score_script_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All Elasticsearch v7 query, delete-by-query, update-by-query, and bulk action bodies are marshaled via encoding/json structs/maps with zero fmt.Sprintf raw JSON string interpolation.",
+        "VectorRetrieve and KeywordsRetrieve fail closed when KnowledgeBaseIDs is empty or whitespace-only, never falling back to cross-tenant match_all or unscoped BM25 queries, and enforce bounded TopK and finite Threshold/Embedding inputs.",
+        "Bulk (_bulk) and by-query (_delete_by_query, _update_by_query) HTTP 200 responses are read through bounded io.LimitReader wrappers and checked for item/shard failures without leaking cluster reason or raw response bodies; defer res.Body.Close() is scoped per request rather than accumulated inside loops.",
+        "DeleteBy*, BatchUpdateChunk*, MoveKnowledgeIndices, and CopyIndices reject blank target/scope identifiers so empty slices or blank IDs never mutate unintended documents."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SEARCH-02",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/elasticsearch/v7/repository.go:258-341, 417-489",
+          "summary": "buildVectorSearchQuery fell back to match_all across all tenants when KnowledgeBaseIDs was empty and buildKeywordSearchQuery omitted knowledge_base_id requirements on empty slices while constructing query DSL via fmt.Sprintf and dropping TopK (\"size\") and Threshold (\"min_score\"); deleteByFieldList also built _delete_by_query via fmt.Sprintf and ignored HTTP 200 partial failures.",
+          "regression_test": "TestV7Retrieve_RejectsEmptyKnowledgeBaseIDsFailClosed, TestV7KeywordSearch_PropagatesTopKAndThresholdViaStructuredJSON, TestV7DeleteAndByQuery_RejectsBlankTargetsAndSurfacesFailuresWithoutLeakingReason",
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
+        },
+        {
+          "id": "W4-VEC-SEARCH-03",
+          "severity": "P2",
+          "file": "internal/application/repository/retriever/elasticsearch/v7/repository.go:108-145, 491-525, 670-735; internal/application/repository/retriever/elasticsearch/v7/move.go:15-42",
+          "summary": "processHit hardcoded MatchTypeKeywords even for VectorRetrieve hits (and dereferenced nil _score without guard), Save rejected valid keyword-only documents despite Support() advertising KeywordsRetrieverType, BatchUpdateChunkTagID deferred res.Body.Close() inside a loop without inspecting HTTP 200 failures, HTTP bodies lacked io.LimitReader bounds and leaked raw resp.String() on errors, and MoveKnowledgeIndices/CopyIndices accepted blank KB IDs.",
+          "regression_test": "TestV7VectorRetrieve_SetsEmbeddingMatchTypeAndRejectsInvalidVector, TestV7Save_AllowsKeywordOnlyDocAndRejectsNaNVector, TestV7DeleteAndByQuery_RejectsBlankTargetsAndSurfacesFailuresWithoutLeakingReason",
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/elasticsearch/v7/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-search.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/elasticsearch/v8",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 6,
+      "status": "verified_findings_fixed",
+      "file_count": 7,
       "tracked_files": [
+        "internal/application/repository/retriever/elasticsearch/v8/audit_w4_test.go",
         "internal/application/repository/retriever/elasticsearch/v8/bulk_test.go",
         "internal/application/repository/retriever/elasticsearch/v8/copy_test.go",
         "internal/application/repository/retriever/elasticsearch/v8/move.go",
@@ -4818,17 +4888,50 @@
         "internal/application/repository/retriever/elasticsearch/v8/repository.go",
         "internal/application/repository/retriever/elasticsearch/v8/vector_score_script_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All Elasticsearch v8 typed SDK requests serialize script parameters and query filters via json.Marshal / typed structs with zero raw string concatenation into json.RawMessage.",
+        "VectorRetrieve and KeywordsRetrieve fail closed on empty/blank KnowledgeBaseIDs, validate finite query vectors and thresholds, clamp TopK to [1..10000], and guard nullable hit Score_ and Id_ pointers.",
+        "Bulk, DeleteByQuery, and UpdateByQuery responses inspect Errors and Failures slices without exposing cluster-side reason text or URL credentials in returned errors.",
+        "Save supports keyword-only documents in parity with BatchSave, CopyIndices preserves TagID and IsRecommended metadata, and DeleteBy*/BatchUpdateChunk*/MoveKnowledgeIndices/CopyIndices reject blank target/scope IDs."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SEARCH-04",
+          "severity": "P0",
+          "file": "internal/application/repository/retriever/elasticsearch/v8/repository.go:558-585",
+          "summary": "BatchUpdateChunkTagID constructed Painless script parameter JSON via unescaped string concatenation json.RawMessage(\"\\\"\" + tagID + \"\\\"\"), allowing quotes, backslashes, or control characters in tagID to break or inject into the _update_by_query JSON payload.",
+          "regression_test": "TestV8BatchUpdateChunkTagID_EscapesSpecialCharsWithoutJSONInjection",
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
+        },
+        {
+          "id": "W4-VEC-SEARCH-05",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/elasticsearch/v8/repository.go:205-340",
+          "summary": "VectorRetrieve fell back to cross-tenant MatchAll when KnowledgeBaseIDs was empty, KeywordsRetrieve executed unscoped content queries when KnowledgeBaseIDs was empty (and omitted MinScore when Threshold > 0), and both methods unconditionally dereferenced nullable *hit.Score_ and *hit.Id_ pointers.",
+          "regression_test": "TestV8Retrieve_RejectsEmptyKnowledgeBaseIDsAndHandlesNilHitScore",
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
+        },
+        {
+          "id": "W4-VEC-SEARCH-06",
+          "severity": "P2",
+          "file": "internal/application/repository/retriever/elasticsearch/v8/repository.go:95-125, 175-204, 415-635; internal/application/repository/retriever/elasticsearch/v8/move.go:15-40",
+          "summary": "Save rejected keyword-only documents, CopyIndices dropped TagID and IsRecommended during KB index copies, DeleteByQuery and UpdateByQuery ignored HTTP 200 partial Failures, and DeleteBy*/BatchUpdateChunk*/MoveKnowledgeIndices/CopyIndices lacked blank target/KB ID validation.",
+          "regression_test": "TestV8SaveKeywordOnlyAndCopyIndicesPreservesTagAndRecommended, TestV8DeleteAndMove_RejectBlankScopeAndSurfaceByQueryFailures",
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/elasticsearch/v8/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-search.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/milvus",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 13,
+      "status": "verified_findings_fixed",
+      "file_count": 14,
       "tracked_files": [
         "internal/application/repository/retriever/milvus/analyzer.go",
         "internal/application/repository/retriever/milvus/analyzer_test.go",
@@ -4842,20 +4945,63 @@
         "internal/application/repository/retriever/milvus/repository.go",
         "internal/application/repository/retriever/milvus/repository_test.go",
         "internal/application/repository/retriever/milvus/score_test.go",
-        "internal/application/repository/retriever/milvus/structs.go"
+        "internal/application/repository/retriever/milvus/structs.go",
+        "internal/application/repository/retriever/milvus/w4_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Milvus delete predicates escape backslashes and double quotes and reject ASCII control characters via buildMilvusStringInExpr instead of milvusclient.DeleteOption.WithStringIDs raw fmt.Sprintf('\"%s\"') interpolation; query/search filters bind values through WithTemplateParam placeholders and enforce an explicit scalar-field allowlist in filter.Convert.",
+        "Collection naming defaults to genyee_embeddings_<dim> with zero legacy brand residues and strict canonical positive decimal dimension suffix parsing (rejecting +dim, -dim, and leading-zero suffixes).",
+        "VectorRetrieve and KeywordsRetrieve fail closed on explicit empty KnowledgeBaseIDs ([]string{}), guard TopK <= 0, empty embeddings, and blank keyword queries, reject NaN/Inf vectors on read and write, sanitize NUL/invalid-UTF8 VarChar payloads, and filter ExcludeGeneratedQuestionKBIDs hits prior to TopK truncation.",
+        "BatchUpdateChunkTagID, BatchUpdateChunkEnabledStatus, MoveKnowledgeIndices, and CopyIndices propagate query/analyzer/upsert errors via errors.Join instead of silently succeeding, validate non-empty KB/knowledge scopes, and pass -race with per-dimension initialization locks."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SQL-QDRANT-01",
+          "severity": "P0",
+          "file": "internal/application/repository/retriever/milvus/repository.go:539-578",
+          "summary": "DeleteByChunkIDList, DeleteByKnowledgeIDList, and DeleteBySourceIDList built Milvus delete expressions via milvusclient.DeleteOption.WithStringIDs, which interpolates each ID with raw fmt.Sprintf(\"\\\"%s\\\"\", id) without escaping quotes or backslashes—allowing crafted chunk/knowledge/source IDs containing '\"' to inject arbitrary Milvus boolean predicates (e.g. '|| knowledge_base_id != \"\"') and delete records across tenants—and failed when target dimension collections did not exist.",
+          "regression_test": "TestW4MilvusAudit_DeleteEscapesQuotesBackslashesAndRejectsControlChars",
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-02",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/milvus/filter.go:95-215",
+          "summary": "universalFilterCondition.Convert interpolated cond.Field verbatim into Milvus filter expressions and template parameter names without validating against an allowlist of collection scalar fields, allowing untrusted JSON filter conditions to inject arbitrary boolean expressions via Field.",
+          "regression_test": "TestW4MilvusAudit_FilterRejectsDisallowedFieldInjection",
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-03",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/milvus/repository.go:1003-1055",
+          "summary": "BatchUpdateChunkTagID logged warnings and continued when searchByFilter, collectionAnalyzerMode, or client.Upsert failed on a collection, returning nil to callers despite partial or complete tag update failure.",
+          "regression_test": "TestW4MilvusAudit_BatchUpdateChunkTagIDPropagatesErrors",
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-04",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/milvus/collection_names.go:15-35; internal/application/repository/retriever/milvus/move.go:15-155; internal/application/repository/retriever/milvus/repository.go:420-520, 610-810",
+          "summary": "collectionDimensionForBase accepted non-canonical strconv.Atoi suffixes (+768, 0768), VectorRetrieve and KeywordsRetrieve failed open on explicit empty KnowledgeBaseIDs ([]string{}), ignored RetrieveParams.ExcludeGeneratedQuestionKBIDs, lacked TopK <= 0 / empty-embedding / blank-query / NaN-Inf vector / nil-IndexInfo / NUL-byte VarChar guards, and MoveKnowledgeIndices / CopyIndices lacked empty KB/knowledge scope validation.",
+          "regression_test": "TestW4MilvusAudit_CollectionNameStrictDigitsAndRetrieveWriteGuards",
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/milvus/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-sql-qdrant.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/neo4j",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 8,
+      "status": "verified_findings_fixed",
+      "file_count": 9,
       "tracked_files": [
+        "internal/application/repository/retriever/neo4j/audit_regression_test.go",
         "internal/application/repository/retriever/neo4j/be01_adversarial_test.go",
         "internal/application/repository/retriever/neo4j/graph_search.go",
         "internal/application/repository/retriever/neo4j/graph_search_test.go",
@@ -4865,20 +5011,46 @@
         "internal/application/repository/retriever/neo4j/repository_test.go",
         "internal/application/repository/retriever/neo4j/search_integration_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Every Cypher query across AddGraph, DelGraph, SearchNode, and SearchGraph parameterizes all entity names, attributes, chunk IDs, search terms, and namespace/knowledge_base_id values ($nodes, $relationships, $cypherIterateQuery, $cypherParams, $term, $terms, $maxSeedNodes, $maxNeighborsPerNode, $maxEdges), while all dynamic backticked identifiers (Label and sanitizeCypherIdentifier) strip null bytes and double backticks (` -> ``).",
+        "DelGraph passes inner APOC iterate Cypher and inner parameter maps strictly via outer Cypher parameters ($cypherIterateQuery, $cypherParams), uses DETACH DELETE with parallel: false to avoid Neo4j relationship-lock/still-has-relationships failures, consumes APOC result records to reject nonzero failedBatches, and preserves whole-KB deletion when namespace.Knowledge is empty while scoping single-document deletion with {kg: $kg}.",
+        "Graph writes, deletions, entity searches, and 1-hop neighbor expansions never cross namespace/knowledge_base_id boundaries: empty KnowledgeBase (and empty Knowledge on AddGraph) fails closed before opening any Neo4j session, and blank search terms return empty GraphData without running unbounded CONTAINS \"\" full-KB scans.",
+        "Neo4j sessions enforce bounded transaction timeouts (WithTxTimeout), preserve retryable error chains via %w wrapping so neo4j.IsRetryable works inside ExecuteWrite/ExecuteRead, bound seed nodes (maxSeedNodes = 25), per-seed neighbors (maxNeighborsPerNode = 30), and total edges (maxTotalEdges = 150), and contain zero legacy brand or host-path residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-01",
+          "severity": "P0",
+          "file": "internal/application/repository/retriever/neo4j/repository.go:150-178",
+          "summary": "DelGraph concatenated backtick-escaped label expressions directly inside double-quoted outer Cypher string literals in CALL apoc.periodic.iterate(\"MATCH (n:\" + labelExpr + \" ...) ...\", ...), allowing double-quote/backslash characters in namespace identifiers to break out into arbitrary outer Cypher; it also omitted DETACH DELETE, set parallel: true on relationship/node deletion, discarded APOC failedBatches without consuming the result, broke whole-KB deletion when Knowledge was empty by matching {kg: \"\"}, and wrapped errors with %v (breaking neo4j.IsRetryable).",
+          "regression_test": "TestDelGraphParameterizesOuterCypherAndChecksBatchFailures",
+          "commit": "ec5b5a5b1fa77d1489ddbc40ddc3e090dccf9062"
+        },
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-02",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/neo4j/repository.go:60-139, 192-237, 340-366; internal/application/repository/retriever/neo4j/graph_search.go:34-60",
+          "summary": "AddGraph, DelGraph, and SearchNode did not fail closed on empty namespace.KnowledgeBase (or empty namespace.Knowledge in AddGraph), AddGraph lacked nil/blank node/relation guards and null-byte/backtick sanitization on LLM-extracted relationship types, and SearchNode/SearchGraph allowed blank/whitespace search terms to execute CONTAINS \"\" matching every node in the KB while SearchNode omitted WithTxTimeout and %w error wrapping.",
+          "regression_test": "TestNeo4jOperationsFailClosedOnEmptyNamespaceAndEmptySearchTerms",
+          "commit": "ec5b5a5b1fa77d1489ddbc40ddc3e090dccf9062"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/neo4j/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-cloud-graph.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/opensearch",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 23,
+      "status": "verified_findings_fixed",
+      "file_count": 24,
       "tracked_files": [
         "internal/application/repository/retriever/opensearch/audit.go",
         "internal/application/repository/retriever/opensearch/audit_config_test.go",
+        "internal/application/repository/retriever/opensearch/audit_w4_test.go",
         "internal/application/repository/retriever/opensearch/bulk_update.go",
         "internal/application/repository/retriever/opensearch/byquery.go",
         "internal/application/repository/retriever/opensearch/config.go",
@@ -4901,17 +5073,42 @@
         "internal/application/repository/retriever/opensearch/transport.go",
         "internal/application/repository/retriever/opensearch/transport_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "OpenSearch query DSL (buildKNNQuery, buildKeywordQuery, deleteByTerms, updateByQueryScript, MoveKnowledgeIndices, copyScanBatch) uses typed structs/maps via encoding/json with Painless parameters passed exclusively via bound params.",
+        "Retrieve fails closed with ErrConfigInvalid when KnowledgeBaseIDs is empty or whitespace-only or Threshold is NaN/Inf, and validates finite float32 vectors on Save, BatchSave, and VectorRetrieve.",
+        "inspectBulkResponse and inspectByQueryResponse fail closed on HTTP 200 partial errors (including errors=true without per-item error objects and _delete_by_query failures) while keeping cluster-side reason text out of public errors and capping HTTP response reads with io.LimitReader.",
+        "Save and BatchSave key OpenSearch document _id by SourceID (falling back to ChunkID) so generated-question vectors sharing a chunk_id do not overwrite primary chunk documents, CopyIndices defaults missing legacy is_enabled to true, SSRF and TLS/credential redaction invariants hold, and default base index is \"genyee\"."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SEARCH-07",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/opensearch/retrieve.go:30-61; internal/application/repository/retriever/opensearch/crud.go:54-105, 182-267, 403-462",
+          "summary": "Retrieve allowed empty/blank KnowledgeBaseIDs to execute cross-tenant searches across the shared index (and allowed NaN thresholds/vectors); Save and buildBulkBody keyed _id=info.ChunkID instead of SourceID causing generated questions (\"<chunk>-<q>\") to overwrite primary chunks in the same index; inspectBulkResponse returned nil when errors=true had empty items or status>=400 without an error object; and deleteByTerms discarded _delete_by_query HTTP 200 failure bodies.",
+          "regression_test": "TestRetrieve_EmptyOrBlankKnowledgeBaseIDs_FailsClosed, TestInspectBulkResponse_ErrorsTrueWithoutItemDetail_FailsClosed, TestDeleteByList_InspectsPartialFailuresAndRejectsBlankTargets, TestBatchSaveAndCopyIndices_PreservesDistinctIDsForGeneratedQuestionsAndLegacyEnabled",
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
+        },
+        {
+          "id": "W4-VEC-SEARCH-08",
+          "severity": "P2",
+          "file": "internal/application/repository/retriever/opensearch/copy.go:25-36, 63-135; internal/application/repository/retriever/opensearch/move.go:15-26; internal/application/repository/retriever/opensearch/bulk_update.go:23-96",
+          "summary": "CopyIndices decoded missing legacy is_enabled fields as false instead of defaulting to true, and CopyIndices, MoveKnowledgeIndices, deleteByList, and BatchUpdateChunk* accepted empty/whitespace KB or chunk target identifiers.",
+          "regression_test": "TestBatchSaveAndCopyIndices_PreservesDistinctIDsForGeneratedQuestionsAndLegacyEnabled, TestDeleteByList_InspectsPartialFailuresAndRejectsBlankTargets",
+          "commit": "fc8252620eb251552d6c96ca2d8d62d4fe291b2a"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/opensearch/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-search.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/postgres",
       "wave": "W4",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 7,
+      "status": "verified_findings_fixed",
+      "file_count": 8,
       "tracked_files": [
         "internal/application/repository/retriever/postgres/hnsw_index.go",
         "internal/application/repository/retriever/postgres/hnsw_index_test.go",
@@ -4919,37 +5116,89 @@
         "internal/application/repository/retriever/postgres/keyword_score_test.go",
         "internal/application/repository/retriever/postgres/move.go",
         "internal/application/repository/retriever/postgres/repository.go",
-        "internal/application/repository/retriever/postgres/structs.go"
+        "internal/application/repository/retriever/postgres/structs.go",
+        "internal/application/repository/retriever/postgres/w4_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All SQL predicates in KeywordsRetrieve, VectorRetrieve, CopyIndices, MoveKnowledgeIndices, DeleteBy*, and BatchUpdate* bind user-supplied IDs, tags, and search queries via positional parameters ($1..$N); dynamic SQL fragments are restricted to validated integer dimensions in HNSW DDL/cast expressions and probe-verified ParadeDB score function names (paradedb.score vs pdb.score).",
+        "Explicit empty KnowledgeBaseIDs ([]string{} or blank-only entries) fail closed in both KeywordsRetrieve and VectorRetrieve without issuing SQL queries, and ExcludeKnowledgeIDs / ExcludeChunkIDs exclusions are enforced consistently across both keyword and vector retrieval.",
+        "Save, BatchSave, and VectorRetrieve validate finite float32 vector components (rejecting NaN and +/-Inf), guard nil IndexInfo elements and empty slices without emitting invalid SQL or gorm.ErrEmptySlice, and short-circuit TopK <= 0 or zero-dimension embeddings before slicing or casting halfvec(0).",
+        "Background HNSW index builds use pg_try_advisory_lock per dimension, sync.Map in-flight deduplication, context-aware connection lifecycle cleanup, and transactional multi-group BatchUpdateChunkEnabledStatus / BatchUpdateChunkTagID / BatchUpdateChunkContent mutations verified race-free under -race."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SQL-QDRANT-05",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/postgres/repository.go:535-655",
+          "summary": "VectorRetrieve sliced results[:params.TopK] without guarding params.TopK <= 0 (panicking on negative TopK) and interpolated len(params.Embedding) == 0 into halfvec(0) SQL; neither KeywordsRetrieve nor VectorRetrieve failed closed on non-nil empty KnowledgeBaseIDs ([]string{}), rejected NaN/Inf embeddings, short-circuited blank keyword queries, or applied RetrieveParams.ExcludeKnowledgeIDs and ExcludeChunkIDs filters.",
+          "regression_test": "TestW4PostgresAudit_RetrieveBoundsFailClosedNaNAndExclusions",
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-06",
+          "severity": "P2",
+          "file": "internal/application/repository/retriever/postgres/repository.go:195-295, 420-470, 660-910; internal/application/repository/retriever/postgres/move.go:15-65",
+          "summary": "BatchSave passed empty slices directly to GORM Create (returning gorm.ErrEmptySlice), Save/BatchSave/EstimateStorageSize lacked nil IndexInfo element guards, DeleteByChunkIDList and DeleteByKnowledgeIDList lacked empty-list guards, MoveKnowledgeIndices and CopyIndices lacked blank KB/document scope validation, and BatchUpdateChunkEnabledStatus / BatchUpdateChunkTagID / BatchUpdateChunkContent executed multi-group UPDATE loops without a wrapping DB transaction.",
+          "regression_test": "TestW4PostgresAudit_WriteDeleteMoveAndBatchUpdateGuards",
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/postgres/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-sql-qdrant.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/qdrant",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 5,
+      "status": "verified_findings_fixed",
+      "file_count": 6,
       "tracked_files": [
         "internal/application/repository/retriever/qdrant/copy_test.go",
         "internal/application/repository/retriever/qdrant/move.go",
         "internal/application/repository/retriever/qdrant/repository.go",
         "internal/application/repository/retriever/qdrant/repository_test.go",
-        "internal/application/repository/retriever/qdrant/structs.go"
+        "internal/application/repository/retriever/qdrant/structs.go",
+        "internal/application/repository/retriever/qdrant/w4_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Qdrant payload filters construct typed protobuf Condition predicates (Must on is_enabled and knowledge_base_id / knowledge_id / tag_id, MustNot on ExcludeKnowledgeIDs and ExcludeChunkIDs), fail closed when non-nil KnowledgeBaseIDs resolves to zero non-blank IDs, and guard DeleteBy* / BatchUpdate* against empty ID slices so unconditioned deletes never execute.",
+        "Collection naming defaults to the GENYEE prefix (genyee_embeddings_<dim>) with zero legacy brand residues, strict positive-integer dimension suffix matching, per-dimension mutex initialization avoiding partial-init races, and NotFound cache eviction on externally dropped collections.",
+        "VectorRetrieve and KeywordsRetrieve guard TopK <= 0 before uint64/uint32 casts or result-slice truncation, reject NaN/Inf embeddings on read and write, filter ExcludeGeneratedQuestionKBIDs hits before TopK truncation, and extract both UUID and numeric Qdrant PointId variants.",
+        "MoveKnowledgeIndices and CopyIndices validate non-empty source/target KB and knowledge IDs, verify dimension > 0, and treat missing source collections as clean no-ops."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SQL-QDRANT-09",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/qdrant/repository.go:555-765",
+          "summary": "VectorRetrieve and KeywordsRetrieve cast negative params.TopK directly to uint64/uint32 (underflowing to math.MaxUint64 / math.MaxUint32 in Qdrant QueryPoints limits) and subsequently panicked with slice bounds out of range on allResults[:params.TopK].",
+          "regression_test": "TestW4QdrantAudit_NegativeAndZeroTopKNoUnderflowOrPanic",
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-10",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/qdrant/repository.go:255-360, 555-820; internal/application/repository/retriever/qdrant/move.go:15-155",
+          "summary": "VectorRetrieve and KeywordsRetrieve failed open across collections when KnowledgeBaseIDs was an explicit empty slice ([]string{}), ignored RetrieveParams.ExcludeGeneratedQuestionKBIDs, lacked NaN/Inf vector and nil IndexInfo validation, dropped numeric PointId_Num IDs when deleting old points during CopyIndices/MoveKnowledgeIndices, and lacked empty KB/knowledge scope and NotFound collection guards in MoveKnowledgeIndices.",
+          "regression_test": "TestW4QdrantAudit_FailClosedScopeNaNVectorsGeneratedQuestionAndMoveGuards",
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/qdrant/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-sql-qdrant.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/sqlite",
       "wave": "W4",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 9,
+      "status": "verified_findings_fixed",
+      "file_count": 10,
       "tracked_files": [
         "internal/application/repository/retriever/sqlite/batch_update_test.go",
         "internal/application/repository/retriever/sqlite/delete_atomicity_test.go",
@@ -4959,20 +5208,48 @@
         "internal/application/repository/retriever/sqlite/move_test.go",
         "internal/application/repository/retriever/sqlite/repository.go",
         "internal/application/repository/retriever/sqlite/repository_test.go",
-        "internal/application/repository/retriever/sqlite/save_test.go"
+        "internal/application/repository/retriever/sqlite/save_test.go",
+        "internal/application/repository/retriever/sqlite/w4_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "FTS5 MATCH queries wrap every token in double-quoted phrase literals with internal quotes doubled and ASCII/Unicode control runes (including NUL \\x00) treated as token separators, neutralizing FTS5 operators (NEAR, OR, AND, NOT, *, ^, column: prefixes) and C-string truncation syntax errors.",
+        "Tenant and knowledge-base isolation holds across CopyIndices (scoping source reads by sourceKnowledgeBaseID and mapped knowledge_id/chunk_id), MoveKnowledgeIndices, VectorRetrieve, and KeywordsRetrieve (failing closed on explicit empty KnowledgeBaseIDs and enforcing ExcludeKnowledgeIDs / ExcludeChunkIDs).",
+        "Vector writes and reads reject NaN and +/-Inf float32 components, guard nil IndexInfo elements and TopK <= 0 before sqlite-vec k=? or Go slice operations, and preserve multi-table transaction atomicity across embeddings, embeddings_fts, and embeddings_vec_<dim>.",
+        "Dimension-specific vec0 virtual table DDL validates dimension > 0, caches created dimensions safely under sync.Map, and passes -race both with and without -tags sqlite_fts5."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SQL-QDRANT-07",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/sqlite/repository.go:258-340; internal/application/repository/retriever/sqlite/move.go:15-95",
+          "summary": "CopyIndices ignored sourceKnowledgeBaseID (_ string) and queried embeddings solely by chunk_id IN ?, allowing a caller with chunk IDs from another knowledge base to clone cross-KB content and vectors (inserting unmapped KnowledgeID values as empty strings); MoveKnowledgeIndices and CopyIndices also lacked blank KB/knowledge ID scope validation.",
+          "regression_test": "TestW4SQLiteAudit_CopyIndicesEnforcesSourceKBAndMappedKnowledge",
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-08",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/sqlite/repository.go:130-255, 420-690, 705-775",
+          "summary": "tokenizeCJKBigram treated control characters (including NUL \\x00) as non-whitespace, embedding raw NUL bytes inside FTS5 phrase literals where SQLite C-string truncation produced unterminated-quote fts5 syntax errors; VectorRetrieve and Save/BatchSave accepted NaN/Inf embeddings (allowing NaN cosine similarity to bypass score < Threshold), TopK <= 0 reached sqlite-vec k=? / slice bounds, explicit empty KnowledgeBaseIDs ([]string{}) failed open across all KBs, and buildFilterWhere omitted ExcludeKnowledgeIDs and ExcludeChunkIDs.",
+          "regression_test": "TestW4SQLiteAudit_FTS5ControlCharNaNVectorsFailClosedAndExclusions",
+          "commit": "2fd1c359bc2be0726932ff0b4e641be43fb1bd52"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/sqlite/... (exit 0)",
+        "GOMAXPROCS=2 go test -tags sqlite_fts5 -race -p 1 -count=1 ./internal/application/repository/retriever/sqlite/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-sql-qdrant.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/tencentvectordb",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 6,
+      "status": "verified_findings_fixed",
+      "file_count": 7,
       "tracked_files": [
+        "internal/application/repository/retriever/tencentvectordb/audit_regression_test.go",
         "internal/application/repository/retriever/tencentvectordb/default_stopwords.txt",
         "internal/application/repository/retriever/tencentvectordb/move.go",
         "internal/application/repository/retriever/tencentvectordb/repository.go",
@@ -4980,18 +5257,44 @@
         "internal/application/repository/retriever/tencentvectordb/stopwords.go",
         "internal/application/repository/retriever/tencentvectordb/structs.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All TencentVectorDB filter expressions (baseFilter, DeleteBy*, updateChunkFields, BatchUpdateChunkContent, copySourceQueryParams, and MoveKnowledgeIndices) escape backslashes, double quotes, and control newlines while stripping null bytes via filterIn/filterNotIn instead of unescaped SDK tcvectordb.In/NotIn string formatting.",
+        "VectorRetrieve, KeywordsRetrieve, and baseFilter fail closed when both KnowledgeBaseIDs and KnowledgeIDs are empty/blank (or when provided filter slices contain only whitespace), and DeleteBy*, CopyIndices, copySourceQueryParams, and MoveKnowledgeIndices guard against empty KB/document/chunk targets, invalid dimensions, and nil clients.",
+        "All SDK errors returned or logged across repository operations pass through redactTencentErr so Authorization Bearer headers and api_key secrets are scrubbed to [REDACTED] while preserving numeric error codes (e.g., code: 15202).",
+        "matchesCollection enforces exact <base>_<positive_dim> suffix matching when useDimensionSuffix is active, ExcludeGeneratedQuestionKBIDs is enforced on both vector and BM25 retrieval results, VectorScore is populated on embedding matches, offline Jieba stopwords pre-seeding uses GENYEE defaults (genyee / genyee_embeddings), and zero legacy brand or host-path residues exist."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-06",
+          "severity": "P0",
+          "file": "internal/application/repository/retriever/tencentvectordb/repository.go:134-170, 257-281, 296-419, 505-576, 665-677; internal/application/repository/retriever/tencentvectordb/move.go:10-33",
+          "summary": "All filter builders called upstream tcvectordb.In/NotIn (which interpolates unescaped fmt.Sprintf(\"\\\"%v\\\"\", v)), allowing quotes/backslashes in KB, document, chunk, or tag IDs to break out into arbitrary filter predicates; VectorRetrieve, KeywordsRetrieve, and baseFilter failed open across all KBs when KnowledgeBaseIDs and KnowledgeIDs were empty/blank; copySourceQueryParams omitted knowledge_base_id scoping when sourceKnowledgeBaseID was empty; and DeleteBy*/CopyIndices/MoveKnowledgeIndices lacked blank-target, dimension, and nil-client guards.",
+          "regression_test": "TestTencentVectorDBFilterEscapingAndEmptyScopeFailClosed",
+          "commit": "ec5b5a5b1fa77d1489ddbc40ddc3e090dccf9062"
+        },
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-07",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/tencentvectordb/repository.go:109-116, 163-170, 195-202, 246-280, 303-419, 426-495, 510-552, 777-791; internal/application/repository/retriever/tencentvectordb/move.go:26-32",
+          "summary": "SDK error returns and warnings exposed raw Authorization Bearer account/api_key credentials without redaction, matchesCollection used strings.HasPrefix(collectionName, base+\"_\") without validating a positive numeric dimension suffix (matching sibling store collections sharing a prefix), VectorRetrieve and KeywordsRetrieve ignored ExcludeGeneratedQuestionKBIDs, and toIndexWithScore left VectorScore unset on embedding matches.",
+          "regression_test": "TestTencentVectorDBRedactsCredentialsIsolatesCollectionsAndFiltersQuestions",
+          "commit": "ec5b5a5b1fa77d1489ddbc40ddc3e090dccf9062"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/tencentvectordb/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-cloud-graph.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/weaviate",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 7,
+      "status": "verified_findings_fixed",
+      "file_count": 8,
       "tracked_files": [
+        "internal/application/repository/retriever/weaviate/audit_regression_test.go",
         "internal/application/repository/retriever/weaviate/copy_test.go",
         "internal/application/repository/retriever/weaviate/move.go",
         "internal/application/repository/retriever/weaviate/move_test.go",
@@ -5000,17 +5303,50 @@
         "internal/application/repository/retriever/weaviate/score_test.go",
         "internal/application/repository/retriever/weaviate/structs.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Weaviate class names are sanitized and validated against ^[A-Z][_0-9A-Za-z]*$ before GraphQL interpolation, and matchesCollection requires an exact <base>_<positive_dim> suffix so sibling collection prefixes and malformed schema class names are never queried or mutated.",
+        "VectorRetrieve, KeywordsRetrieve, and getBaseFilter fail closed when both KnowledgeBaseIDs and KnowledgeIDs are empty/blank (or when provided KnowledgeBaseIDs, KnowledgeIDs, or TagIDs slices contain only whitespace), preventing cross-KB/cross-tenant data leakage; DeleteBy*, CopyIndices, and MoveKnowledgeIndices validate non-empty targets and positive dimensions.",
+        "Multi-value ExcludeKnowledgeIDs and ExcludeChunkIDs emit one scalar filters.NotEqual operand per ID rather than invalid NotEqual array valueText, ExcludeGeneratedQuestionKBIDs filters generated-question vectors across both vector and BM25 retrieval, and GraphQL responses check both transport errors and GraphQL errors arrays without unchecked type assertions.",
+        "Save, BatchSave, and CopyIndices derive deterministic RFC 4122 UUIDs per SourceID (preserving primary chunk UUIDs while preventing generated-question rows from overwriting primary chunk vectors) and surface per-object batch errors; BatchUpdateChunkEnabledStatus and BatchUpdateChunkTagID resolve object UUIDs by chunk_id and apply non-destructive PATCH merges (WithMerge) across all matching dimension collections; default collection prefix is Genyee_embeddings with zero legacy residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-03",
+          "severity": "P0",
+          "file": "internal/application/repository/retriever/weaviate/repository.go:58-73, 324-411, 530-534, 604-646, 668-825; internal/application/repository/retriever/weaviate/move.go:12-24",
+          "summary": "VectorRetrieve, KeywordsRetrieve, and getBaseFilter did not fail closed when KnowledgeBaseIDs and KnowledgeIDs were empty or blank (querying all tenants' enabled chunks globally), getBaseFilter emitted invalid multi-value array NotEqual GraphQL filters when ExcludeKnowledgeIDs or ExcludeChunkIDs had multiple entries, collection name resolution/matching lacked ^[A-Z][_0-9A-Za-z]*$ validation and positive-dimension suffix isolation, Retrieve ignored ExcludeGeneratedQuestionKBIDs, and DeleteBy*/CopyIndices/MoveKnowledgeIndices lacked empty-target and invalid-dimension guards.",
+          "regression_test": "TestWeaviateRetrieveFailsClosedOnEmptyScopeAndValidatesClassAndExclusions",
+          "commit": "ec5b5a5b1fa77d1489ddbc40ddc3e090dccf9062"
+        },
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-04",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/weaviate/repository.go:241-315, 414-510, 934-946",
+          "summary": "BatchUpdateChunkEnabledStatus and BatchUpdateChunkTagID reused outer err across loop iterations (aborting all subsequent chunk/collection updates after the first miss/error), omitted WithMerge() (sending destructive PUT replacements that wiped all other object properties instead of PATCH merges), and passed chunkID directly as object UUID (missing generated-question and copied vectors); Save and BatchSave keyed object IDs solely on ChunkID (causing generated-question vectors to overwrite chunk body vectors and rejecting non-UUID chunk IDs) while BatchSave/CopyIndices ignored per-object batch response errors.",
+          "regression_test": "TestWeaviateBatchUpdatesUseMergeAndSavePreservesGeneratedQuestionIDs",
+          "commit": "ec5b5a5b1fa77d1489ddbc40ddc3e090dccf9062"
+        },
+        {
+          "id": "W4-VEC-CLOUD-GRAPH-05",
+          "severity": "P2",
+          "file": "internal/application/repository/retriever/weaviate/repository.go:713-733, 782-806, 910-914, 1053, 1202-1255, 1311-1326",
+          "summary": "parseGraphQLResponse, VectorRetrieve, KeywordsRetrieve, CopyIndices, and copySourceReader.query performed unchecked nil/type assertions on GraphQL payloads (panicking on malformed responses), parseGraphQLResponse failed to parse Weaviate string-encoded BM25 _additional.score values (leaving keyword scores at 0.0 or 1.0), KeywordsRetrieve truncated cross-collection results without sorting by descending BM25 score, and fromWeaviateVectorEmbedding omitted VectorScore and IsEnabled.",
+          "regression_test": "TestWeaviateRetrieveHandlesMalformedGraphQLPayloadsAndRanksKeywordScores",
+          "commit": "ec5b5a5b1fa77d1489ddbc40ddc3e090dccf9062"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/weaviate/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-cloud-graph.json"
     },
     {
       "unit_id": "internal/infrastructure/chunker",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 28,
+      "status": "verified_findings_fixed",
+      "file_count": 29,
       "tracked_files": [
         "internal/infrastructure/chunker/budget.go",
         "internal/infrastructure/chunker/fenced_code.go",
@@ -5039,32 +5375,81 @@
         "internal/infrastructure/chunker/token_budget_test.go",
         "internal/infrastructure/chunker/tokens.go",
         "internal/infrastructure/chunker/tokens_test.go",
-        "internal/infrastructure/chunker/validator.go"
+        "internal/infrastructure/chunker/validator.go",
+        "internal/infrastructure/chunker/w4_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All chunking tiers (heading, heuristic, legacy/recursive, and parent-child) guarantee monotonic forward progress and terminate cleanly when ChunkSize <= 0, ChunkOverlap < 0, ChunkOverlap >= ChunkSize, or a single oversized token/URL/table/code span exceeds ChunkSize.",
+        "Heuristic overlap alignment enforces strictly advancing chunk Start offsets and caps overlap so accumulated chunks never exceed ChunkSize.",
+        "Markdown code-fence tracking in profiler, heading splitter, and heuristic boundary scanner follows CommonMark rules (backticks and tildes, fence length matching, inline backtick exclusion, <=3 leading space indentation).",
+        "Byte-sampled profiling/language detection slices only at UTF-8 rune boundaries, and all chunker entry points sanitize malformed upstream bytes so Chunk.Content and Chunk.ContextHeader are always valid UTF-8 for PostgreSQL TEXT columns; zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-CHUNKER-01",
+          "severity": "P1",
+          "file": "internal/infrastructure/chunker/heuristic_splitter.go:34-118,289-330",
+          "summary": "splitByHeuristicsImpl did not normalize non-positive ChunkSize or excessive ChunkOverlap on direct calls, and applyOverlapAligned could snap chunkStart back to offset 0 (stalling Start progress) while adding overlap without bounding nextEnd-chunkStart <= ChunkSize, emitting chunks up to ChunkSize + 2*ChunkOverlap.",
+          "regression_test": "TestHeuristicSplitterOverlapProgressAndSizeBounds",
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
+        },
+        {
+          "id": "W4-CHUNKER-02",
+          "severity": "P1",
+          "file": "internal/infrastructure/chunker/heuristic_splitter.go:130-166",
+          "summary": "findHeuristicBoundaries toggled a boolean on strings.HasPrefix(trimmed, \"```\") instead of using CommonMark markdownFence, splitting inside tilde fences (~~~) and permanently blinding boundary detection after inline triple backticks, 4-space indented code lines, or nested 4-backtick fences.",
+          "regression_test": "TestHeuristicBoundariesCommonMarkCodeFences",
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
+        },
+        {
+          "id": "W4-CHUNKER-03",
+          "severity": "P2",
+          "file": "internal/infrastructure/chunker/profiler.go:171-175, internal/infrastructure/chunker/tokens.go:110-141, internal/infrastructure/chunker/strategy.go:34-103, internal/infrastructure/chunker/splitter.go:279-284, internal/infrastructure/chunker/heading_splitter.go:32-46",
+          "summary": "ProfileDocument (4096-byte sample) and hasGermanWords (512-byte sample) sliced raw byte offsets that could split multi-byte UTF-8 runes mid-character, and Split/SplitWithDiagnostics/SplitText/splitByHeadingsImpl allowed invalid upstream UTF-8 bytes to pass through into Chunk.Content and Chunk.ContextHeader.",
+          "regression_test": "TestChunkerUTF8BoundaryAndInvalidByteSanitization",
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/infrastructure/chunker/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/chunker/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json"
     },
     {
       "unit_id": "internal/infrastructure/retriever",
       "wave": "W4",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 1,
       "tracked_files": [
         "internal/infrastructure/retriever/vectordb_tokenizer_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Chinese BM25 sparse-vector Jieba tokenizer initializes offline using embedded GENYEE stopwords without external HTTP downloads to Tencent COS in air-gapped environments.",
+        "Multi-word Chinese segmentation and MurmurHash3 token encoding remain deterministic with zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-RETRIEVER-01",
+          "severity": "P1",
+          "file": "internal/infrastructure/retriever/vectordb_tokenizer_test.go:17-78",
+          "summary": "TestTencentVectorDBJiebaTokenizerChineseBM25 invoked upstream tokenizer.NewJiebaTokenizer without first seeding embedded stopwords via tencentvectordb.EnsureDefaultStopwords, causing clean/air-gapped test runs to attempt an external HTTP download from Tencent COS.",
+          "regression_test": "TestTencentVectorDBJiebaTokenizerOfflineNoNetwork",
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/infrastructure/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/retriever/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json"
     },
     {
       "unit_id": "internal/models/api/cohererank",
       "wave": "W4",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 4,
       "tracked_files": [
         "internal/models/api/cohererank/client.go",
@@ -5072,64 +5457,107 @@
         "internal/models/api/cohererank/response_shape_test.go",
         "internal/models/api/cohererank/response_validation_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Response decoder validates both {\"results\": [...]} and bare-array shapes, rejecting missing/null arrays, missing/null index or score/relevance_score, negative or >= count indices, and duplicate indices before constructing RerankResult slices.",
+        "All HTTP calls route through api.Endpoint.PostJSON enforcing secutils.ValidateURLForSSRF, SSRF-safe connection/redirect transport, 64 MiB ReadResponseCapped body limits, reserved-header protection, and User-Agent GENYEE/1.0 with zero legacy brand residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/cohererank/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/cohererank/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json"
     },
     {
       "unit_id": "internal/models/api/dashscoperank",
       "wave": "W4",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 3,
       "tracked_files": [
         "internal/models/api/dashscoperank/client.go",
         "internal/models/api/dashscoperank/golden_test.go",
         "internal/models/api/dashscoperank/response_validation_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Rerank checks DashScope body error codes on HTTP 200 replies and rejects missing output.results, nil index or relevance_score, out-of-range indices (< 0 or >= len(documents)), and duplicate indices.",
+        "All HTTP calls route through api.Endpoint.PostJSON enforcing SSRF pre-check and redirect blocking, 64 MiB ReadResponseCapped response limits, reserved-header protection, and User-Agent GENYEE/1.0 with zero legacy brand residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/dashscoperank/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/dashscoperank/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json"
     },
     {
       "unit_id": "internal/models/api/nimrerank",
       "wave": "W4",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 3,
       "tracked_files": [
         "internal/models/api/nimrerank/client.go",
         "internal/models/api/nimrerank/golden_test.go",
         "internal/models/api/nimrerank/response_validation_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Both Rerank (text) and RerankImages validate rankings presence, non-nil index and logit, strict index bounds (0 <= index < count), and duplicate-index rejection before indexing back into documents.",
+        "All HTTP calls route through api.Endpoint.PostJSON enforcing SSRF pre-check and redirect blocking, 64 MiB ReadResponseCapped response limits, reserved-header protection, and User-Agent GENYEE/1.0 with zero legacy brand residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/nimrerank/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/nimrerank/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json"
     },
     {
       "unit_id": "internal/models/api/tencentlkeap",
       "wave": "W4",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "internal/models/api/tencentlkeap/client.go",
-        "internal/models/api/tencentlkeap/client_test.go"
+        "internal/models/api/tencentlkeap/client_test.go",
+        "internal/models/api/tencentlkeap/w4_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "httpClientRoundTripper enforces SSRF-safe default HTTP client/redirect policies and caps response bodies at api.MaxResponseBytes (64 MiB) via Content-Length pre-check and streaming cappedReadCloser so Tencent SDK io.ReadAll cannot OOM on oversized responses.",
+        "resultsFromScores rejects score-count mismatches, nil score pointers, and NaN/Inf scores; Rerank safely handles nil context and empty document slices.",
+        "resolveEndpointAndScheme validates Scheme (HTTP/HTTPS) and Endpoint syntax without echoing embedded BaseURL userinfo credentials, and lkeapClient redacts SecretKey from any returned SDK/transport error while preserving error unwrapping when SecretKey is absent; zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-LKEAP-01",
+          "severity": "P1",
+          "file": "internal/models/api/tencentlkeap/client.go:61-143,234-264",
+          "summary": "httpClientRoundTripper passed an uncapped resp.Body to tencentcloud-sdk-go (which reads the whole body via io.ReadAll without a size limit), and Rerank panicked on nil context via context.WithValue(nil, ...) and errored on empty document batches.",
+          "regression_test": "TestRerankCapsOversizedResponseAndHandlesNilContextAndEmptyBatch",
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
+        },
+        {
+          "id": "W4-LKEAP-02",
+          "severity": "P1",
+          "file": "internal/models/api/tencentlkeap/client.go:145-175,216-277",
+          "summary": "resolveEndpointAndScheme echoed raw config.BaseURL (including embedded userinfo passwords) into error strings and did not validate config.Scheme or config.Endpoint when BaseURL was empty; returned SDK/transport errors also lacked SecretKey redaction.",
+          "regression_test": "TestNewRedactsCredentialsAndValidatesEndpointAndScheme",
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/tencentlkeap/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/tencentlkeap/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json"
     },
     {
       "unit_id": "internal/reranking",
       "wave": "W4",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 11,
+      "status": "verified_findings_fixed",
+      "file_count": 12,
       "tracked_files": [
         "internal/reranking/image.go",
         "internal/reranking/image_test.go",
@@ -5141,19 +5569,45 @@
         "internal/reranking/passage_code_test.go",
         "internal/reranking/passage_test.go",
         "internal/reranking/rerank.go",
-        "internal/reranking/rerank_test.go"
+        "internal/reranking/rerank_test.go",
+        "internal/reranking/w4_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Rerank validates untrusted provider RankResult slices: out-of-range indices are dropped, duplicate indices in text and image batches are deduplicated, non-finite (NaN/Inf) scores trigger safe model-error fallback to retrieval order, and all-image batches return descending sorted scores.",
+        "CompositeScore and scoredCopy clamp/sanitize non-finite retrieval and model scores so NaN/Inf never enters Metadata or Score.",
+        "Rerank(nil model), EnrichedPassage(nil), ModelPassage(nil), SelectMMR(nil elements or 0*-Inf numerics), and observability selection diagnostics handle nil/empty-ID edge cases without panicking or colliding.",
+        "Concurrent image loading and MMR Jieba tokenization pass go test -race cleanly with zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-RERANK-01",
+          "severity": "P1",
+          "file": "internal/reranking/image.go:120-191, internal/reranking/rerank.go:347-402",
+          "summary": "scoreCandidates did not deduplicate provider-returned Index values, accepted NaN/Inf RelevanceScore values (propagating NaN into CompositeScore and Metadata), and left ModelScores unsorted when all candidates were scored as images; CompositeScore also panicked on nil SearchResult and propagated NaN inputs.",
+          "regression_test": "TestRerankHandlesDuplicateIndicesNonFiniteScoresAndAllImageSorting",
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
+        },
+        {
+          "id": "W4-RERANK-02",
+          "severity": "P1",
+          "file": "internal/reranking/image.go:124-126, internal/reranking/passage.go:171-175, internal/reranking/mmr.go:17-77,145-156, internal/reranking/observability.go:38-97",
+          "summary": "Rerank panicked on nil model, EnrichedPassage/ModelPassage panicked on nil SearchResult, SelectMMR panicked on nil elements and computed IEEE-754 0*-Inf = NaN at lambda=0, and summarizeSelection keyed threshold-passing candidates by string ID (colliding on empty/duplicate IDs) while dereferencing potentially nil kept results.",
+          "regression_test": "TestRerankNilGuardsMMRNumericsAndObservabilityEmptyIDs",
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/reranking/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/reranking/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json"
     },
     {
       "unit_id": "internal/searchutil",
       "wave": "W4",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
-      "file_count": 17,
+      "status": "verified_findings_fixed",
+      "file_count": 18,
       "tracked_files": [
         "internal/searchutil/chunkmerge.go",
         "internal/searchutil/chunkmerge_repeated_test.go",
@@ -5171,12 +5625,45 @@
         "internal/searchutil/normalize.go",
         "internal/searchutil/snippet.go",
         "internal/searchutil/snippet_test.go",
-        "internal/searchutil/textutil.go"
+        "internal/searchutil/textutil.go",
+        "internal/searchutil/w4_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "NormalizeKeywordScores and ClampFloat produce strictly finite [0, 1] / bounded outputs even when input scores contain NaN, +Inf, or -Inf, preventing Inf/Inf = NaN division and finite-range collapse.",
+        "MergeTextChunks, EnrichSearchResultsImageInfo*, CollectImageInfoByChunkIDs*, BuildImageInfoXML*, and TokenizeSimple tolerate nil repositories, nil slice elements, nil ImageInfo pointers, and nil global Jieba fallback without panicking.",
+        "ExtractSnippet extracts UTF-8 rune-aligned context windows in O(1) memory without converting multi-megabyte documents to []rune, and concurrent TokenizeSimple calls over shared Cgo gojieba pass go test -race cleanly with zero external network downloads or legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-SEARCHUTIL-01",
+          "severity": "P1",
+          "file": "internal/searchutil/normalize.go:33-153, internal/searchutil/textutil.go:159-174",
+          "summary": "NormalizeKeywordScores propagated NaN into normalized scores on batches >= 10 and produced (Inf - min)/Inf = NaN while collapsing finite scores to 0 when +Inf appeared; ClampFloat also returned NaN on NaN inputs and mishandled inverted bounds.",
+          "regression_test": "TestNormalizeKeywordScoresAndClampFloatRejectNonFinite",
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
+        },
+        {
+          "id": "W4-SEARCHUTIL-02",
+          "severity": "P1",
+          "file": "internal/searchutil/chunkmerge.go:184-198, internal/searchutil/imageinfo.go:56-85,177-198,231-302,624-629,767-771, internal/searchutil/textutil.go:47-52",
+          "summary": "MergeTextChunks sorted chunks dereferencing StartAt before filtering nil entries (panicking on nil elements), and imageinfo/textutil helpers panicked on nil ChunkRepository, nil SearchResult/Chunk slice entries, or nil ImageInfo.",
+          "regression_test": "TestMergeTextChunksAndImageInfoNilSafety",
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
+        },
+        {
+          "id": "W4-SEARCHUTIL-03",
+          "severity": "P2",
+          "file": "internal/searchutil/snippet.go:24-73",
+          "summary": "ExtractSnippet converted full prefix/match/suffix substrings into []rune slices (O(len(content)) allocations on large documents) just to retain <=220 runes; replaced with bounded UTF-8 rune iterators and verified concurrent TokenizeSimple race safety.",
+          "regression_test": "TestExtractSnippetBoundedWindowAndUTF8Safety, TestTokenizeSimpleConcurrentRaceSafety",
+          "commit": "c665fca091a833ae3a14265c0653b68738e0e77d"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/searchutil/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/searchutil/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json"
     },
     {
       "unit_id": "internal/agent",
@@ -11578,6 +12065,10 @@
       "test-reports/module-audit-v2/evidence/w3-svc-a-kb.json",
       "test-reports/module-audit-v2/evidence/w3-svc-b-platform.json",
       "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json",
+      "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json",
+      "test-reports/module-audit-v2/evidence/w4-vec-cloud-graph.json",
+      "test-reports/module-audit-v2/evidence/w4-vec-search.json",
+      "test-reports/module-audit-v2/evidence/w4-vec-sql-qdrant.json",
       "test-reports/module-audit-v2/verify_ledger.py",
       "test-reports/module-audit-v2/wave0-foundation.json",
       "test-reports/screenshots/01_login_page.png",
