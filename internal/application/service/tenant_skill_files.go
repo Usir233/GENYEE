@@ -10,6 +10,7 @@ import (
 	"path"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	apperrors "github.com/Usir233/GENYEE/internal/errors"
@@ -170,25 +171,32 @@ func (s *TenantSkillService) trySkillBundle(
 	if cached := s.cachedSkillBundle(key); cached != nil {
 		return cached, true
 	}
-	v, err, _ := s.bundleLoad.Do(key, func() (interface{}, error) {
+	ch := s.bundleLoad.DoChan(key, func() (interface{}, error) {
 		if cached := s.cachedSkillBundle(key); cached != nil {
 			return cached, nil
 		}
-		archive, err := s.downloadSkillBundle(ctx, tenantID, skill)
+		loadCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 60*time.Second)
+		defer cancel()
+		archive, err := s.downloadSkillBundle(loadCtx, tenantID, skill)
 		if err != nil {
 			return nil, err
 		}
 		s.storeSkillBundle(key, archive)
 		return archive, nil
 	})
-	if err != nil {
+	select {
+	case res := <-ch:
+		if res.Err != nil {
+			return nil, false
+		}
+		archive, ok := res.Val.([]byte)
+		if !ok || len(archive) == 0 {
+			return nil, false
+		}
+		return archive, true
+	case <-ctx.Done():
 		return nil, false
 	}
-	archive, ok := v.([]byte)
-	if !ok || len(archive) == 0 {
-		return nil, false
-	}
-	return archive, true
 }
 
 func (s *TenantSkillService) downloadSkillBundle(
@@ -360,7 +368,11 @@ func projectSkillFileContent(rel string, body []byte) *SkillFileContent {
 		}
 	}
 	if len(body) > skillFileTextLimit {
-		out.Content = string(body[:skillFileTextLimit])
+		cut := body[:skillFileTextLimit]
+		for len(cut) > 0 && !utf8.Valid(cut) {
+			cut = cut[:len(cut)-1]
+		}
+		out.Content = string(cut)
 		out.Truncated = true
 		return out
 	}

@@ -185,22 +185,37 @@ func (s *modelService) CopyModel(ctx context.Context, sourceID, displayName stri
 }
 
 func (s *modelService) downloadModelAsync(ctx context.Context, model *types.Model) {
-	logger.Infof(ctx, "Starting background download for model: %s", model.Name)
+	if model == nil {
+		return
+	}
+	cloned := *model
+	if params, err := cloneModelParameters(model.Parameters); err == nil {
+		cloned.Parameters = params
+	}
+	logger.Infof(ctx, "Starting background download for model: %s", cloned.Name)
 	newCtx := logger.CloneContext(ctx)
 	go func() {
 		logger.Info(newCtx, "Background download started")
-		err := s.ollamaService.PullModel(newCtx, model.Name)
+		if s.ollamaService == nil {
+			logger.ErrorWithFields(newCtx, errors.New("ollama service is not configured"), map[string]interface{}{
+				"model_name": cloned.Name,
+			})
+			cloned.Status = types.ModelStatusDownloadFailed
+			_ = s.repo.Update(newCtx, &cloned)
+			return
+		}
+		err := s.ollamaService.PullModel(newCtx, cloned.Name)
 		if err != nil {
 			logger.ErrorWithFields(newCtx, err, map[string]interface{}{
-				"model_name": model.Name,
+				"model_name": cloned.Name,
 			})
-			model.Status = types.ModelStatusDownloadFailed
+			cloned.Status = types.ModelStatusDownloadFailed
 		} else {
-			logger.Infof(newCtx, "Model download completed successfully: %s", model.Name)
-			model.Status = types.ModelStatusActive
+			logger.Infof(newCtx, "Model download completed successfully: %s", cloned.Name)
+			cloned.Status = types.ModelStatusActive
 		}
-		logger.Infof(newCtx, "Updating model status to: %s", model.Status)
-		s.repo.Update(newCtx, model)
+		logger.Infof(newCtx, "Updating model status to: %s", cloned.Status)
+		_ = s.repo.Update(newCtx, &cloned)
 	}()
 }
 
@@ -320,7 +335,11 @@ func (s *modelService) UpdateModel(ctx context.Context, model *types.Model) erro
 		})
 		return err
 	}
-	if existingModel != nil && existingModel.IsBuiltin {
+	if existingModel == nil {
+		logger.Error(ctx, "Model not found")
+		return ErrModelNotFound
+	}
+	if existingModel.IsBuiltin {
 		if !types.IsSystemAdminFromContext(ctx) {
 			logger.Warnf(ctx, "Non-system-admin attempted to update builtin model: %s", model.ID)
 			return apperrors.NewForbiddenError("only system administrators can update builtin models")
@@ -330,6 +349,9 @@ func (s *modelService) UpdateModel(ctx context.Context, model *types.Model) erro
 		model.TenantID = existingModel.TenantID
 		model.IsBuiltin = true
 		model.ManagedBy = ""
+	} else {
+		model.TenantID = existingModel.TenantID
+		model.IsBuiltin = false
 	}
 
 	// Update model in repository

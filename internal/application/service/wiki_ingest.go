@@ -15,6 +15,7 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/agent"
 	apprepo "github.com/Usir233/GENYEE/internal/application/repository"
+	"github.com/Usir233/GENYEE/internal/common/redislock"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/models/chat"
 	"github.com/Usir233/GENYEE/internal/searchutil"
@@ -1013,9 +1014,10 @@ func (s *wikiIngestService) withSlugLock(ctx context.Context, kbID, slug string,
 		return true, fn()
 	}
 	key := wikiSlugLockPrefix + kbID + ":" + slug
+	token := uuid.NewString()
 	deadline := time.Now().Add(wikiSlugLockWait)
 	for {
-		ok, rerr := s.redisClient.SetNX(ctx, key, "1", wikiSlugLockTTL).Result()
+		ok, rerr := s.redisClient.SetNX(ctx, key, token, wikiSlugLockTTL).Result()
 		if rerr != nil {
 			logger.Warnf(ctx, "wiki reduce: slug lock SetNX failed for %s: %v (running unlocked)", slug, rerr)
 			return true, fn()
@@ -1032,7 +1034,9 @@ func (s *wikiIngestService) withSlugLock(ctx context.Context, kbID, slug string,
 		case <-time.After(wikiSlugLockPoll):
 		}
 	}
-	defer s.redisClient.Del(context.Background(), key)
+	defer func() {
+		_, _ = redislock.Release(context.Background(), s.redisClient, key, token)
+	}()
 	return true, fn()
 }
 

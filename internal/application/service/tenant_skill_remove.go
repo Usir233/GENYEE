@@ -23,20 +23,25 @@ import (
 func (s *TenantSkillService) RemoveSkill(
 	ctx context.Context, tenantID uint64, configID, skillID string,
 ) error {
-	skill, err := s.skills.GetSkill(ctx, tenantID, configID, skillID)
-	if err != nil {
-		return err
-	}
-	if skill == nil {
-		return apperrors.NewNotFoundError("skill not found")
-	}
+	if err := s.w3bWithSkillRowLock(ctx, tenantID, configID, skillID, func() error {
+		skill, err := s.skills.GetSkill(ctx, tenantID, configID, skillID)
+		if err != nil {
+			return err
+		}
+		if skill == nil {
+			return apperrors.NewNotFoundError("skill not found")
+		}
 
-	now := s.now()
-	skill.Status = types.SkillStatusRemoving
-	skill.Error = ""
-	skill.InstallingSince = &now
-	if err := s.skills.UpdateSkill(ctx, skill); err != nil {
+		now := s.now()
+		skill.Status = types.SkillStatusRemoving
+		skill.Error = ""
+		skill.InstallingSince = &now
+		return s.skills.UpdateSkill(ctx, skill)
+	}); err != nil {
 		return err
+	}
+	if s.redis != nil {
+		_ = s.redis.Del(ctx, w3bSkillInstallAttemptKey(tenantID, configID, skillID)).Err()
 	}
 	s.publishProgress(ctx, tenantID, configID, skillID, SkillProgress{
 		Percent: 5, Stage: "accepted", Status: types.SkillStatusRemoving,

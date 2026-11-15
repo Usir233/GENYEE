@@ -86,52 +86,61 @@ type SkillAdminUpdate struct {
 func (s *TenantSkillService) UpdateSkillAdmin(
 	ctx context.Context, tenantID uint64, configID, skillID string, update SkillAdminUpdate,
 ) (*types.TenantSkillEntity, error) {
-	skill, err := s.skills.GetSkill(ctx, tenantID, configID, skillID)
+	var result *types.TenantSkillEntity
+	err := s.w3bWithSkillRowLock(ctx, tenantID, configID, skillID, func() error {
+		skill, err := s.skills.GetSkill(ctx, tenantID, configID, skillID)
+		if err != nil {
+			return err
+		}
+		if skill == nil {
+			return nil
+		}
+
+		// Every value is checked before any part of the request is applied, so a
+		// rejected entry cannot leave the declaration — or the toggle — half
+		// written.
+		for name, value := range update.EnvValues {
+			if _, declared := skill.Envs.Get(name); !declared {
+				continue
+			}
+			if len(value) > MaxEnvValueBytes {
+				return apperrors.NewBadRequestError(fmt.Sprintf(
+					"value of %s cannot exceed %d bytes", name, MaxEnvValueBytes))
+			}
+		}
+
+		changed := false
+		if update.Enabled != nil && skill.Enabled != *update.Enabled {
+			skill.Enabled = *update.Enabled
+			changed = true
+		}
+		for i := range skill.Envs {
+			value, sent := update.EnvValues[skill.Envs[i].Name]
+			if !sent || skill.Envs[i].Value == value {
+				continue
+			}
+			skill.Envs[i].Value = value
+			changed = true
+		}
+		if !changed {
+			result = skill
+			return nil
+		}
+		// Only the two admin-owned columns are written: the row may be mid-install,
+		// and the status the installer is keeping there is none of this request's
+		// business.
+		if err := s.skills.UpdateSkillAdminState(
+			ctx, tenantID, configID, skillID, skill.Enabled, skill.Envs,
+		); err != nil {
+			return err
+		}
+		result = skill
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	if skill == nil {
-		return nil, nil
-	}
-
-	// Every value is checked before any part of the request is applied, so a
-	// rejected entry cannot leave the declaration — or the toggle — half
-	// written.
-	for name, value := range update.EnvValues {
-		if _, declared := skill.Envs.Get(name); !declared {
-			continue
-		}
-		if len(value) > MaxEnvValueBytes {
-			return nil, apperrors.NewBadRequestError(fmt.Sprintf(
-				"value of %s cannot exceed %d bytes", name, MaxEnvValueBytes))
-		}
-	}
-
-	changed := false
-	if update.Enabled != nil && skill.Enabled != *update.Enabled {
-		skill.Enabled = *update.Enabled
-		changed = true
-	}
-	for i := range skill.Envs {
-		value, sent := update.EnvValues[skill.Envs[i].Name]
-		if !sent || skill.Envs[i].Value == value {
-			continue
-		}
-		skill.Envs[i].Value = value
-		changed = true
-	}
-	if !changed {
-		return skill, nil
-	}
-	// Only the two admin-owned columns are written: the row may be mid-install,
-	// and the status the installer is keeping there is none of this request's
-	// business.
-	if err := s.skills.UpdateSkillAdminState(
-		ctx, tenantID, configID, skillID, skill.Enabled, skill.Envs,
-	); err != nil {
-		return nil, err
-	}
-	return skill, nil
+	return result, nil
 }
 
 // SetSkillEnabled hides or reveals an installed skill.
@@ -162,7 +171,8 @@ func (s *TenantSkillService) SubscribeProgress(
 	if s.redis == nil {
 		return nil, func() {}, nil
 	}
-	sub := s.redis.Subscribe(ctx, skillProgressKey(tenantID, configID, skillID))
+	subCtx, cancelSub := context.WithCancel(ctx)
+	sub := s.redis.Subscribe(subCtx, skillProgressKey(tenantID, configID, skillID))
 	out := make(chan SkillProgress, skillProgressBuffer)
 	go func() {
 		defer close(out)
@@ -173,12 +183,15 @@ func (s *TenantSkillService) SubscribeProgress(
 			}
 			select {
 			case out <- p:
-			case <-ctx.Done():
+			case <-subCtx.Done():
 				return
 			}
 		}
 	}()
-	return out, func() { _ = sub.Close() }, nil
+	return out, func() {
+		cancelSub()
+		_ = sub.Close()
+	}, nil
 }
 
 // skillProgressBuffer absorbs the burst a fast stage transition produces so a

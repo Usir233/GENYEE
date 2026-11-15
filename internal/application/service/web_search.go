@@ -194,7 +194,7 @@ func filterBlacklist(
 // Supports both pattern matching (e.g., *://*.example.com/*) and regex patterns (e.g., /example\.(net|org)/)
 func matchesBlacklistRule(url, rule string) bool {
 	// Check if it's a regex pattern (starts and ends with /)
-	if strings.HasPrefix(rule, "/") && strings.HasSuffix(rule, "/") {
+	if len(rule) >= 2 && strings.HasPrefix(rule, "/") && strings.HasSuffix(rule, "/") {
 		pattern := rule[1 : len(rule)-1]
 		matched, err := regexp.MatchString(pattern, url)
 		if err != nil {

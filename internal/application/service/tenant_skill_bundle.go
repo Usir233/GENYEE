@@ -191,13 +191,26 @@ func skillZipEntries(archive []byte, opts SkillBundleParseOptions) ([]skillZipEn
 	return out, nil
 }
 
+func w3bHasWindowsDrivePrefix(p string) bool {
+	if len(p) < 2 || p[1] != ':' {
+		return false
+	}
+	c := p[0]
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+}
+
 func inspectSkillZipPath(entry *zip.File) (name string, skip bool, err error) {
-	if entry.FileInfo().IsDir() {
+	normalized := strings.ReplaceAll(entry.Name, "\\", "/")
+	if entry.FileInfo().IsDir() || strings.HasSuffix(normalized, "/") {
 		return "", true, nil
 	}
-	name = path.Clean(entry.Name)
+	if w3bHasWindowsDrivePrefix(normalized) {
+		return "", false, fmt.Errorf("%w: entry %q escapes the archive root",
+			ErrSkillBundleInvalid, entry.Name)
+	}
+	name = path.Clean(normalized)
 	if name == "." || strings.HasPrefix(name, "..") ||
-		path.IsAbs(name) || strings.Contains(name, "../") {
+		path.IsAbs(name) || strings.Contains(name, "../") || w3bHasWindowsDrivePrefix(name) {
 		return "", false, fmt.Errorf("%w: entry %q escapes the archive root",
 			ErrSkillBundleInvalid, entry.Name)
 	}
@@ -211,7 +224,8 @@ func inspectKeptSkillZipEntry(item skillZipEntry) error {
 	if err := validateSkillEntryName(item.name); err != nil {
 		return err
 	}
-	if item.size > maxSkillBundleFileBytes {
+	if item.file.UncompressedSize64 > uint64(maxSkillBundleFileBytes) ||
+		item.size < 0 || item.size > maxSkillBundleFileBytes {
 		return fmt.Errorf("%w: entry %q is too large", ErrSkillBundleInvalid, item.file.Name)
 	}
 	return nil

@@ -73,6 +73,21 @@ func (s *sessionService) resolveKnowledgeBases(
 		kbIDs = s.resolveKnowledgeBasesFromAgent(ctx, customAgent, req.Session.TenantID)
 	}
 
+	var tagScopeKBIDs []string
+	var unscopedTagIDs []string
+	for _, ts := range req.TagScopes {
+		if kbID := strings.TrimSpace(ts.KnowledgeBaseID); kbID != "" {
+			tagScopeKBIDs = append(tagScopeKBIDs, kbID)
+		} else {
+			unscopedTagIDs = append(unscopedTagIDs, ts.TagIDs...)
+		}
+	}
+	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, tagScopeKBIDs...); err != nil {
+		return nil, nil, err
+	}
+	if err := types.AuthorizeTenantAPIKeyOptionalTagIDs(ctx, unscopedTagIDs); err != nil {
+		return nil, nil, err
+	}
 	if err := types.AuthorizeTenantAPIKeyKnowledgeTargets(ctx, requestedKBIDs, req.KnowledgeIDs); err != nil {
 		return nil, nil, err
 	}

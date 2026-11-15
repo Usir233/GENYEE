@@ -490,10 +490,11 @@ func (s *sessionService) UpdateSession(ctx context.Context, session *types.Sessi
 	if err != nil {
 		return err
 	}
-	if existing != nil {
-		session.Description = types.SanitizeClientSessionDescription(
-			session.Description, existing.Description)
+	if existing == nil {
+		return apperrors.ErrSessionNotFound
 	}
+	session.Description = types.SanitizeClientSessionDescription(
+		session.Description, existing.Description)
 
 	_, err = s.sessionRepo.Update(ctx, session, existing.UserID)
 	if err != nil {
@@ -1162,6 +1163,10 @@ func (s *sessionService) GenerateTitleAsync(
 	modelID string,
 	eventBus *event.EventBus,
 ) {
+	if session == nil || session.Title != "" {
+		return
+	}
+	cloned := *session
 	// Use context tenant (effective tenant when using shared agent) so ListModels/GetChatModel find the agent's model.
 	// The session row itself is still updated by its persisted tenant/user owner scope.
 	tenantID := ctx.Value(types.TenantIDContextKey)
@@ -1185,11 +1190,6 @@ func (s *sessionService) GenerateTitleAsync(
 			bgCtx = context.WithValue(bgCtx, types.LangfuseTraceContextKey, langfuseTrace)
 		}
 
-		// Skip if title already exists
-		if session.Title != "" {
-			return
-		}
-
 		// Generate title using the first user message
 		messages := []types.Message{
 			{
@@ -1198,10 +1198,10 @@ func (s *sessionService) GenerateTitleAsync(
 			},
 		}
 
-		title, err := s.GenerateTitle(bgCtx, session, messages, modelID)
+		title, err := s.GenerateTitle(bgCtx, &cloned, messages, modelID)
 		if err != nil {
 			logger.ErrorWithFields(bgCtx, err, map[string]interface{}{
-				"session_id": session.ID,
+				"session_id": cloned.ID,
 			})
 			return
 		}
@@ -1211,17 +1211,17 @@ func (s *sessionService) GenerateTitleAsync(
 		if eventBus != nil {
 			if err := eventBus.Emit(bgCtx, event.Event{
 				Type:      event.EventSessionTitle,
-				SessionID: session.ID,
+				SessionID: cloned.ID,
 				Data: event.SessionTitleData{
-					SessionID: session.ID,
+					SessionID: cloned.ID,
 					Title:     title,
 				},
 			}); err != nil {
 				logger.ErrorWithFields(bgCtx, err, map[string]interface{}{
-					"session_id": session.ID,
+					"session_id": cloned.ID,
 				})
 			} else {
-				logger.Infof(bgCtx, "Title update event emitted successfully, session ID: %s, title: %s", session.ID, title)
+				logger.Infof(bgCtx, "Title update event emitted successfully, session ID: %s, title: %s", cloned.ID, title)
 			}
 		}
 	}()

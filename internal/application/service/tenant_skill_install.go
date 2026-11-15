@@ -145,15 +145,18 @@ func (s *TenantSkillService) installParsedSkill(
 	}
 
 	skillID := uuid.NewString()
-	now := s.now()
+	lockTargetID := bundle.Name
 	if existing != nil {
-		skillID = existing.ID
-		existing.Served = s.servedVersionOf(ctx, existing)
-		takeSkillRowForInstall(existing, bundle, now)
-		if err := s.skills.UpdateSkill(ctx, existing); err != nil {
-			return "", err
+		lockTargetID = existing.ID
+	}
+	now := s.now()
+	if err := s.w3bWithSkillRowLock(ctx, tenantID, configID, lockTargetID, func() error {
+		if existing != nil {
+			skillID = existing.ID
+			existing.Served = s.servedVersionOf(ctx, existing)
+			takeSkillRowForInstall(existing, bundle, now)
+			return s.skills.UpdateSkill(ctx, existing)
 		}
-	} else {
 		if err := s.skills.CreateSkill(ctx, &types.TenantSkillEntity{
 			ID: skillID, TenantID: tenantID, SandboxConfigID: configID,
 			Name: bundle.Name, Version: bundle.Version,
@@ -162,24 +165,30 @@ func (s *TenantSkillService) installParsedSkill(
 			Status: types.SkillStatusInstalling, InstallingSince: &now,
 		}); err != nil {
 			if !isSkillNameConflict(err) {
-				return "", err
+				return err
 			}
 			// Two first-time uploads of the same name raced the unique index.
 			// Take the row that won rather than surfacing a 500.
 			winner, lookupErr := s.skills.GetSkillByName(ctx, tenantID, configID, bundle.Name)
 			if lookupErr != nil {
-				return "", lookupErr
+				return lookupErr
 			}
 			if winner == nil {
-				return "", err
+				return err
 			}
 			skillID = winner.ID
 			winner.Served = s.servedVersionOf(ctx, winner)
 			takeSkillRowForInstall(winner, bundle, now)
-			if err := s.skills.UpdateSkill(ctx, winner); err != nil {
-				return "", err
-			}
+			return s.skills.UpdateSkill(ctx, winner)
 		}
+		return nil
+	}); err != nil {
+		return "", err
+	}
+
+	attemptID := uuid.NewString()
+	if s.redis != nil {
+		_ = s.redis.Set(ctx, w3bSkillInstallAttemptKey(tenantID, configID, skillID), attemptID, 24*time.Hour).Err()
 	}
 
 	// The zip lives on the catalog, not on this sandbox: uninstalling from
@@ -200,7 +209,7 @@ func (s *TenantSkillService) installParsedSkill(
 	// cancellation. It is not durable across a restart either - StopSkill
 	// rewrites the row, and the stuck-run reaper is the backup.
 	go func() {
-		bgCtx := context.WithoutCancel(ctx)
+		bgCtx := w3bWithSkillInstallAttempt(context.WithoutCancel(ctx), attemptID)
 		if err := s.withSkillRunLock(bgCtx, tenantID, configID, skillID, func(lockCtx context.Context) error {
 			return s.runInstall(lockCtx, tenantID, configID, skillID, bundle, guidance)
 		}); err != nil {
@@ -1396,20 +1405,22 @@ func (s *TenantSkillService) updateSkillFields(
 	configID, skillID string,
 	mutate func(*types.TenantSkillEntity),
 ) error {
-	skill, err := s.skills.GetSkill(ctx, tenantID, configID, skillID)
-	if err != nil {
-		logger.Warnf(ctx, "[skill] load %s for update failed: %v", skillID, err)
-		return fmt.Errorf("load skill %s: %w", skillID, err)
-	}
-	if skill == nil {
-		return fmt.Errorf("skill %s not found", skillID)
-	}
-	mutate(skill)
-	if err := s.skills.UpdateSkill(ctx, skill); err != nil {
-		logger.Warnf(ctx, "[skill] update %s failed: %v", skillID, err)
-		return fmt.Errorf("update skill %s: %w", skillID, err)
-	}
-	return nil
+	return s.w3bWithSkillRowLock(ctx, tenantID, configID, skillID, func() error {
+		skill, err := s.skills.GetSkill(ctx, tenantID, configID, skillID)
+		if err != nil {
+			logger.Warnf(ctx, "[skill] load %s for update failed: %v", skillID, err)
+			return fmt.Errorf("load skill %s: %w", skillID, err)
+		}
+		if skill == nil {
+			return fmt.Errorf("skill %s not found", skillID)
+		}
+		mutate(skill)
+		if err := s.skills.UpdateSkill(ctx, skill); err != nil {
+			logger.Warnf(ctx, "[skill] update %s failed: %v", skillID, err)
+			return fmt.Errorf("update skill %s: %w", skillID, err)
+		}
+		return nil
+	})
 }
 
 // writeReadySkillState records the finished install. It is retried because it
@@ -1503,6 +1514,9 @@ func (s *TenantSkillService) failSkill(
 func (s *TenantSkillService) installStillOwnsTheRow(
 	ctx context.Context, tenantID uint64, configID, skillID string, bundle *SkillBundle,
 ) (bool, error) {
+	if !s.w3bAttemptStillActive(ctx, tenantID, configID, skillID) {
+		return false, nil
+	}
 	current, err := s.skills.GetSkill(ctx, tenantID, configID, skillID)
 	if err != nil {
 		return false, fmt.Errorf("load skill %s: %w", skillID, err)
@@ -1621,19 +1635,27 @@ func (s *TenantSkillService) startInstallHeartbeat(
 func (s *TenantSkillService) beatInstallHeartbeat(
 	ctx context.Context, tenantID uint64, configID, skillID string,
 ) {
-	current, err := s.skills.GetSkill(ctx, tenantID, configID, skillID)
-	if err != nil {
-		logger.Warnf(ctx, "[skill] load %s for install heartbeat failed: %v", skillID, err)
+	if !s.w3bAttemptStillActive(ctx, tenantID, configID, skillID) {
+		s.cancelSkillRun(tenantID, configID, skillID)
 		return
 	}
-	if current == nil || current.Status != types.SkillStatusInstalling {
-		return
-	}
-	at := s.clock()()
-	current.InstallingSince = &at
-	if err := s.skills.UpdateSkill(ctx, current); err != nil {
-		logger.Warnf(ctx, "[skill] install heartbeat for %s failed: %v", skillID, err)
-	}
+	_ = s.w3bWithSkillRowLock(ctx, tenantID, configID, skillID, func() error {
+		current, err := s.skills.GetSkill(ctx, tenantID, configID, skillID)
+		if err != nil {
+			logger.Warnf(ctx, "[skill] load %s for install heartbeat failed: %v", skillID, err)
+			return err
+		}
+		if current == nil || current.Status != types.SkillStatusInstalling {
+			return nil
+		}
+		at := s.clock()()
+		current.InstallingSince = &at
+		if err := s.skills.UpdateSkill(ctx, current); err != nil {
+			logger.Warnf(ctx, "[skill] install heartbeat for %s failed: %v", skillID, err)
+			return err
+		}
+		return nil
+	})
 }
 
 // startMaintenanceSession opens the session one image operation runs in. The

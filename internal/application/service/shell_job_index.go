@@ -50,20 +50,29 @@ func (x *ShellJobIndex) member(e ShellJobIndexEntry) string {
 }
 
 func (x *ShellJobIndex) parseMember(member string) (ShellJobIndexEntry, bool) {
-	parts := strings.SplitN(member, ":", 5)
-	if len(parts) != 5 || parts[0] != x.namespace {
+	nsPrefix := x.namespace + ":"
+	if !strings.HasPrefix(member, nsPrefix) {
+		return ShellJobIndexEntry{}, false
+	}
+	parts := strings.SplitN(strings.TrimPrefix(member, nsPrefix), ":", 3)
+	if len(parts) != 3 {
 		return ShellJobIndexEntry{}, false
 	}
 	var tenant uint64
-	if _, err := fmt.Sscanf(parts[1], "%d", &tenant); err != nil {
+	if _, err := fmt.Sscanf(parts[0], "%d", &tenant); err != nil {
 		return ShellJobIndexEntry{}, false
 	}
-	if !strings.Contains(parts[4], "sj_") {
+	sep := strings.LastIndex(parts[2], ":")
+	if sep < 0 {
+		return ShellJobIndexEntry{}, false
+	}
+	sandboxID, workID := parts[2][:sep], parts[2][sep+1:]
+	if !strings.Contains(workID, "sj_") {
 		return ShellJobIndexEntry{}, false
 	}
 	return ShellJobIndexEntry{
-		SessionRef: interfaces.SessionRef{TenantID: tenant, SessionID: parts[2]},
-		SandboxID:  parts[3], WorkID: parts[4],
+		SessionRef: interfaces.SessionRef{TenantID: tenant, SessionID: parts[1]},
+		SandboxID:  sandboxID, WorkID: workID,
 	}, true
 }
 
@@ -238,7 +247,7 @@ func (x *ShellJobIndex) SandboxIDs(ctx context.Context, s interfaces.SessionRef,
 	for _, m := range members {
 		if strings.HasPrefix(m, prefix) {
 			rest := strings.TrimPrefix(m, prefix) // <sandbox_id>:<work_id>
-			if i := strings.LastIndex(rest, ":"); i > 0 {
+			if i := strings.LastIndex(rest, ":"); i >= 0 {
 				byWork[rest[i+1:]] = rest[:i]
 			}
 		}

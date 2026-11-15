@@ -709,6 +709,9 @@ func (s *TenantSandboxConfigService) Create(
 	if name == "" {
 		return nil, ErrSandboxConfigNameRequired
 	}
+	if name == types.SandboxWorkspacePolicyConfigName {
+		return nil, apperrors.NewBadRequestError("sandbox config name is reserved")
+	}
 	entity := &types.TenantSandboxConfigEntity{
 		ID:          uuid.New().String(),
 		TenantID:    tenantID,
@@ -1268,7 +1271,7 @@ func (s *TenantSandboxConfigService) Inventory(
 	if err != nil {
 		return SandboxInventory{}, err
 	}
-	if entity == nil {
+	if entity == nil || types.IsSandboxWorkspacePolicyRow(entity) {
 		return SandboxInventory{}, apperrors.NewNotFoundError("sandbox config not found")
 	}
 	summaries, err := s.listSandboxes(ctx, entity.Config, tenantID, id)
@@ -1900,6 +1903,9 @@ func (s *TenantSandboxConfigService) writeConfig(
 	merged *types.TenantSandboxConfig,
 ) (*types.TenantSandboxConfigEntity, error) {
 	if name := strings.TrimSpace(in.Name); name != "" {
+		if name == types.SandboxWorkspacePolicyConfigName {
+			return nil, apperrors.NewBadRequestError("sandbox config name is reserved")
+		}
 		entity.Name = name
 	}
 	entity.Description = in.Description

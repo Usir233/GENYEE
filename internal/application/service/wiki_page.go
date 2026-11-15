@@ -20,6 +20,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 )
 
 // wikiInlineChunkCitationRegex matches internal short handles emitted by the
@@ -77,6 +78,12 @@ func NewWikiPageService(
 
 // CreatePage creates a new wiki page
 func (s *wikiPageService) CreatePage(ctx context.Context, page *types.WikiPage) (*types.WikiPage, error) {
+	editSource := types.WikiEditSourceFromContext(ctx)
+	if editSource == types.WikiEditSourceUser {
+		page.ID = uuid.New().String()
+		page.Version = 1
+		page.InLinks = nil
+	}
 	if page.ID == "" {
 		page.ID = uuid.New().String()
 	}
@@ -89,10 +96,11 @@ func (s *wikiPageService) CreatePage(ctx context.Context, page *types.WikiPage) 
 	if page.Status == "" {
 		page.Status = types.WikiPageStatusPublished
 	}
-	if page.Version == 0 {
+	if page.Version < 1 {
 		page.Version = 1
 	}
-	page.LastEditSource = types.WikiEditSourceFromContext(ctx)
+	page.DeletedAt = gorm.DeletedAt{}
+	page.LastEditSource = editSource
 	page.LastEditorID, _ = types.UserIDFromContext(ctx)
 	stripWikiPageInlineChunkCitations(page)
 

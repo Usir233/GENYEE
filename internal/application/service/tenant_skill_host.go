@@ -217,8 +217,12 @@ func writeHostSkillFiles(dir string, bundle *SkillBundle) error {
 		return nil
 	}
 	for rel, content := range bundle.Files {
+		if strings.Contains(rel, "\\") || w3bHasWindowsDrivePrefix(rel) {
+			return fmt.Errorf("skill file %q escapes the archive root", rel)
+		}
 		clean := filepath.Clean(filepath.FromSlash(rel))
-		if clean == "." || filepath.IsAbs(clean) || clean == ".." ||
+		if clean == "." || filepath.IsAbs(clean) || filepath.VolumeName(clean) != "" ||
+			w3bHasWindowsDrivePrefix(clean) || clean == ".." ||
 			strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 			return fmt.Errorf("skill file %q escapes the archive root", rel)
 		}

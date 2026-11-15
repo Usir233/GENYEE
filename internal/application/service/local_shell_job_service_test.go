@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -27,7 +28,7 @@ type localTestProcess struct {
 	outW, errW *io.PipeWriter
 	once       sync.Once
 	exit       localsandbox.ExitStatus
-	killCount  int
+	killCount  atomic.Int32
 }
 
 func newLocalTestProcess() *localTestProcess {
@@ -39,7 +40,7 @@ func (p *localTestProcess) Stdout() io.Reader { return p.outR }
 func (p *localTestProcess) Stderr() io.Reader { return p.errR }
 func (p *localTestProcess) PID() int          { return 4321 }
 func (p *localTestProcess) Kill() error {
-	p.killCount++
+	p.killCount.Add(1)
 	p.finish()
 	return nil
 }
@@ -216,7 +217,7 @@ func TestLocalStatusAndCancelArePerID(t *testing.T) {
 	require.Equal(t, interfaces.WorkStateLost, cancelled[0].State)
 	require.Equal(t, "sj_abcd", cancelled[0].ID)
 	require.NotEqual(t, interfaces.WorkStateLost, cancelled[1].State)
-	require.Eventually(t, func() bool { return p.killCount >= 1 }, time.Second, 10*time.Millisecond)
+	require.Eventually(t, func() bool { return p.killCount.Load() >= 1 }, time.Second, 10*time.Millisecond)
 }
 
 func TestLocalSubmitIgnoresUnsupportedProcessIdentity(t *testing.T) {
@@ -238,7 +239,7 @@ func TestLocalSubmitIgnoresUnsupportedProcessIdentity(t *testing.T) {
 		Command: "true", YieldTime: time.Millisecond,
 	})
 	require.NoError(t, err)
-	require.Zero(t, p.killCount)
+	require.Zero(t, p.killCount.Load())
 	raw, err := os.ReadFile(filepath.Join(root, sub.Result.ID, "status.json"))
 	require.NoError(t, err)
 	var status sandbox.ShellJobStatus
@@ -262,7 +263,7 @@ func TestLocalSubmitStillFailsWhenProcessIdentityCannotBeRecorded(t *testing.T) 
 	_, err = svc.SubmitShellJob(context.Background(), interfaces.SessionRef{TenantID: 7, SessionID: "s"},
 		tools.ShellJobSubmitRequest{Command: "true", YieldTime: time.Millisecond})
 	require.Error(t, err)
-	require.GreaterOrEqual(t, p.killCount, 1)
+	require.GreaterOrEqual(t, p.killCount.Load(), int32(1))
 }
 
 func TestLocalDeleteBlocksNewSubmitsAndLateNotices(t *testing.T) {
@@ -336,7 +337,7 @@ func TestLocalStopContextDoesNotKillChild(t *testing.T) {
 		interfaces.StatusOptions{})
 	require.NoError(t, err)
 	require.Equal(t, interfaces.WorkStateRunning, r[0].State, "任务不受 run ctx 取消影响")
-	require.Zero(t, p.killCount)
+	require.Zero(t, p.killCount.Load())
 	p.finish()
 }
 
@@ -348,7 +349,7 @@ func TestLocalShutdownKillsAndRecordsLost(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NoError(t, svc.Shutdown(context.Background()))
-	require.GreaterOrEqual(t, p.killCount, 1, "应用级 ctx 取消触发进程树 Kill")
+	require.GreaterOrEqual(t, p.killCount.Load(), int32(1), "应用级 ctx 取消触发进程树 Kill")
 	r, err := svc.Status(context.Background(), ref, []string{r0(t, svc, ref)},
 		interfaces.StatusOptions{Detailed: true})
 	require.NoError(t, err)

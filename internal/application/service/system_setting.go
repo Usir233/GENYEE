@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"sort"
 	"strconv"
@@ -1287,12 +1288,13 @@ func encodeForType(declared string, rawValue any) (types.JSON, error) {
 			n = v
 		case float64:
 			// JSON unmarshalling delivers numbers as float64; reject
-			// non-integer floats (e.g. 3.14) cleanly rather than
-			// silently truncating.
-			if v != float64(int64(v)) {
+			// non-integer floats (e.g. 3.14) and NaN/Inf/overflow cleanly
+			// rather than silently truncating or wrapping around.
+			parsed, ok := w3bFloat64ToInt64(v)
+			if !ok {
 				return nil, fmt.Errorf("expected integer, got %v", v)
 			}
-			n = int64(v)
+			n = parsed
 		case string:
 			parsed, err := strconv.ParseInt(v, 10, 64)
 			if err != nil {
@@ -1402,18 +1404,38 @@ func validateRegistryEntry(key string, rawValue any) error {
 	return nil
 }
 
-// coerceToPositiveInt64 accepts int / int64 / float64 from JSON decoding.
+func w3bFloat64ToInt64(v float64) (int64, bool) {
+	if math.IsNaN(v) || math.IsInf(v, 0) || v < float64(math.MinInt64) || v >= float64(math.MaxInt64) {
+		return 0, false
+	}
+	n := int64(v)
+	if v != float64(n) {
+		return 0, false
+	}
+	return n, true
+}
+
+// coerceToPositiveInt64 accepts int / int32 / int64 / float64 / numeric string.
 func coerceToPositiveInt64(rawValue any) (int64, error) {
 	switch v := rawValue.(type) {
 	case int:
 		return int64(v), nil
+	case int32:
+		return int64(v), nil
 	case int64:
 		return v, nil
 	case float64:
-		if v != float64(int64(v)) {
+		n, ok := w3bFloat64ToInt64(v)
+		if !ok {
 			return 0, errors.New("expected integer value")
 		}
-		return int64(v), nil
+		return n, nil
+	case string:
+		parsed, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("expected integer, got %q", v)
+		}
+		return parsed, nil
 	default:
 		return 0, fmt.Errorf("expected integer, got %T", rawValue)
 	}

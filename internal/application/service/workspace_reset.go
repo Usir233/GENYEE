@@ -128,6 +128,9 @@ func gitWorkspacePreambleFor(l sandbox.WorkspaceLayout) string {
 // workspaceLayoutFor asks the runner for the session's layout; runners that
 // do not advertise one keep the /workspace contract.
 func workspaceLayoutFor(ctx context.Context, runner any, sessionID string) (sandbox.WorkspaceLayout, error) {
+	if v, ok := runner.(WorkspaceVersioning); ok && !v.VersionsWorkspace(ctx, sessionID) {
+		return sandbox.WorkspaceLayout{}, errors.New("workspace reset: session runner does not version workspace")
+	}
 	provider, ok := runner.(sandbox.SessionWorkspaceLayoutProvider)
 	if !ok || provider == nil {
 		return sandbox.RemoteWorkspaceLayout(), nil
@@ -137,7 +140,10 @@ func workspaceLayoutFor(ctx context.Context, runner any, sessionID string) (sand
 		return sandbox.WorkspaceLayout{}, err
 	}
 	l = l.Normalized()
-	if !l.HasRoot() || l.GitDir == "" {
+	if l.IsHost() || !l.HasRoot() || l.GitDir == "" ||
+		!strings.HasPrefix(l.Root, "/") || l.Root == "/" ||
+		!strings.HasPrefix(l.GitDir, "/") || l.GitDir == l.Root ||
+		strings.HasPrefix(l.GitDir, l.Root+"/") {
 		return sandbox.WorkspaceLayout{}, errors.New("workspace reset: session layout has no versioned workspace")
 	}
 	return l, nil

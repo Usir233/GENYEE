@@ -432,7 +432,11 @@ func (s *UserEnvService) visibleConfigs(
 			ID: sandbox.HostSkillTargetID, TenantID: tenantID, Name: hostSkillTargetName,
 		}}, nil
 	}
-	return s.configs.ListByTenant(ctx, tenantID)
+	rows, err := s.configs.ListByTenant(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	return filterPublicSandboxConfigs(rows), nil
 }
 
 // visibleConfigID resolves a sandbox config against the caller's own workspace.
@@ -456,7 +460,7 @@ func (s *UserEnvService) visibleConfigID(
 	if err != nil {
 		return "", err
 	}
-	if cfg == nil {
+	if cfg == nil || types.IsSandboxWorkspacePolicyRow(cfg) {
 		return "", apperrors.NewBadRequestError(
 			fmt.Sprintf("sandbox config %s is not available in this workspace", configID))
 	}

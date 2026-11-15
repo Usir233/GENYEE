@@ -431,6 +431,7 @@ func (s *SessionForkService) forkOnSharedMachine(
 	newSession := &types.Session{
 		ID: newID, TenantID: source.TenantID, UserID: source.UserID,
 		OwnerAuthSource: source.OwnerAuthSource,
+		Kind:            source.Kind,
 		Title:           forkTitle(title, source.Title), Description: source.Description,
 		LastRequestState: source.LastRequestState,
 		SandboxConfigID:  source.SandboxConfigID, SandboxConfigTenantID: source.SandboxConfigTenantID,

@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
+	apprepo "github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
@@ -204,7 +206,11 @@ func (s *WikiLintService) RunLint(ctx context.Context, kbID string) (*WikiLintRe
 					live, seen := knowledgeLive[kid]
 					if !seen {
 						kn, err := s.knowledgeService.GetKnowledgeByIDOnly(ctx, kid)
-						live = err == nil && kn != nil
+						if err != nil && !errors.Is(err, apprepo.ErrKnowledgeNotFound) {
+							return nil, fmt.Errorf("check source knowledge %s: %w", kid, err)
+						}
+						live = err == nil && kn != nil && kn.KnowledgeBaseID == kbID &&
+							(kb.TenantID == 0 || kn.TenantID == kb.TenantID)
 						knowledgeLive[kid] = live
 					}
 					if !live {

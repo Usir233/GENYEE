@@ -182,6 +182,10 @@ func (s *mcpServiceService) UpdateMCPService(
 	if existing.AuthConfig != nil && existing.AuthConfig.CustomHeaders != nil {
 		maps.Copy(preHeaders, existing.AuthConfig.CustomHeaders)
 	}
+	preServiceHeaders := map[string]string{}
+	if existing.Headers != nil {
+		maps.Copy(preServiceHeaders, existing.Headers)
+	}
 
 	preAuthType := types.MCPAuthNone
 	preAPIKeyHeader := ""
@@ -264,6 +268,7 @@ func (s *mcpServiceService) UpdateMCPService(
 		if existing.AuthConfig != nil {
 			existing.AuthConfig.APIKey = ""
 			existing.AuthConfig.Token = ""
+			existing.AuthConfig.ClientSecret = ""
 			existing.AuthConfig.CustomHeaders = nil
 		}
 	}
@@ -314,6 +319,13 @@ func (s *mcpServiceService) UpdateMCPService(
 	if !maps.Equal(currHeaders, preHeaders) {
 		configChanged = true
 	}
+	currServiceHeaders := map[string]string{}
+	if existing.Headers != nil {
+		currServiceHeaders = existing.Headers
+	}
+	if !maps.Equal(currServiceHeaders, preServiceHeaders) || updateFields[types.MCPUpdateDropSecrets] {
+		configChanged = true
+	}
 	// Connections built with a pre-registered OAuth client hold its ID, so
 	// they are rebuilt when it changes.
 	if existing.AuthConfig != nil &&
@@ -327,15 +339,21 @@ func (s *mcpServiceService) UpdateMCPService(
 	// 1. Service is now disabled (need to close connection)
 	// 2. Critical configuration changed (need to reconnect with new config)
 	if !existing.Enabled {
-		s.mcpManager.CloseClient(service.ID)
+		if s.mcpManager != nil {
+			s.mcpManager.CloseClient(service.ID)
+		}
 		logger.GetLogger(ctx).Infof("MCP service disabled, connection closed: %s (ID: %s)", name, service.ID)
 	} else if configChanged {
-		s.mcpManager.CloseClient(service.ID)
+		if s.mcpManager != nil {
+			s.mcpManager.CloseClient(service.ID)
+		}
 		logger.GetLogger(ctx).Infof("MCP service config changed, connection closed: %s (ID: %s)", name, service.ID)
 	} else if oldEnabled != existing.Enabled && existing.Enabled {
 		// Service was just enabled (was disabled, now enabled)
 		// Close any existing connection to ensure clean state
-		s.mcpManager.CloseClient(service.ID)
+		if s.mcpManager != nil {
+			s.mcpManager.CloseClient(service.ID)
+		}
 		logger.GetLogger(ctx).Infof("MCP service enabled, existing connection closed: %s (ID: %s)", name, service.ID)
 	}
 
@@ -360,7 +378,9 @@ func (s *mcpServiceService) DeleteMCPService(ctx context.Context, tenantID uint6
 	}
 
 	// Close client connection
-	s.mcpManager.CloseClient(id)
+	if s.mcpManager != nil {
+		s.mcpManager.CloseClient(id)
+	}
 
 	if err := s.mcpServiceRepo.Delete(ctx, tenantID, id); err != nil {
 		logger.GetLogger(ctx).Errorf("Failed to delete MCP service: %v", err)
@@ -416,7 +436,10 @@ func (s *mcpServiceService) TestMCPService(
 	if service.AuthConfig.IsOAuth() {
 		config.OAuthRepo = s.oauthRepo
 		config.TenantID, _ = types.TenantIDFromContext(ctx)
-		config.Principal, _ = types.PrincipalFromContext(ctx)
+		if config.TenantID == 0 {
+			config.TenantID = tenantID
+		}
+		config.Principal = types.MCPOAuthPrincipalFromContext(ctx)
 	}
 
 	client, err := mcp.NewMCPClient(config)

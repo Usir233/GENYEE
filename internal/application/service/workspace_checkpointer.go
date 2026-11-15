@@ -111,8 +111,8 @@ func checkpointScriptFor(l sandbox.WorkspaceLayout, messageID string) string {
 %s
 %s
 git_ws add -A
-git_ws commit -q --allow-empty -m 'turn:%s'
-git_ws rev-parse HEAD`, gitWorkspacePreambleFor(l), gitWorkspaceEnsureRepo(), messageID)
+git_ws commit -q --allow-empty -m %s
+git_ws rev-parse HEAD`, gitWorkspacePreambleFor(l), gitWorkspaceEnsureRepo(), shellSingleQuote("turn:"+messageID))
 }
 
 func checkpointScript(workspace, gitDir, messageID string) string {

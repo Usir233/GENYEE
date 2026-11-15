@@ -904,6 +904,10 @@ func (s *userService) AdminResetPassword(ctx context.Context, userID, newPasswor
 
 	user.PasswordHash = string(hashedPassword)
 	user.UpdatedAt = time.Now()
+	if user.Preferences.OidcOnlyLogin != nil && *user.Preferences.OidcOnlyLogin {
+		cleared := false
+		user.Preferences.OidcOnlyLogin = &cleared
+	}
 	if err := s.userRepo.UpdateUser(ctx, user); err != nil {
 		return err
 	}
@@ -1122,7 +1126,7 @@ func (s *userService) homeOrFirstMembershipTenant(ctx context.Context, user *typ
 	if user.TenantID == 0 {
 		return s.resolveFirstMembershipTenant(ctx, user)
 	}
-	if user.CanAccessAllTenants || s.memberService == nil {
+	if access.UserCanAccessAllTenants(user, s.config) || s.memberService == nil {
 		return user.TenantID
 	}
 	member, err := s.memberService.GetMembership(ctx, user.ID, user.TenantID)
@@ -1967,8 +1971,15 @@ func (s *userService) exchangeOIDCCode(
 		return nil, fmt.Errorf("OIDC token exchange failed: status=%d", resp.StatusCode)
 	}
 
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read OIDC token response: %w", err)
+	}
+	if len(body) > 1<<20 {
+		return nil, errors.New("OIDC token response exceeds 1 MiB")
+	}
 	var tokenResp oidcTokenResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
+	if err := json.Unmarshal(body, &tokenResp); err != nil {
 		return nil, fmt.Errorf("failed to decode OIDC token response: %w", err)
 	}
 	if strings.TrimSpace(tokenResp.AccessToken) == "" && strings.TrimSpace(tokenResp.IDToken) == "" {
@@ -2100,8 +2111,15 @@ func (s *userService) fetchOIDCUserInfo(ctx context.Context, endpoint, accessTok
 		return nil, fmt.Errorf("userinfo request failed: status=%d", resp.StatusCode)
 	}
 
+	body, err := io.ReadAll(io.LimitReader(resp.Body, (1<<20)+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > 1<<20 {
+		return nil, errors.New("OIDC userinfo response exceeds 1 MiB")
+	}
 	var claims map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&claims); err != nil {
+	if err := json.Unmarshal(body, &claims); err != nil {
 		return nil, err
 	}
 	return claims, nil

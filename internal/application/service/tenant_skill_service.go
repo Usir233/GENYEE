@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -118,6 +119,9 @@ type TenantSkillService struct {
 	runCancelMu sync.Mutex
 	runCancels  map[string]*skillRunCancel
 
+	w3bRowLockMu sync.Mutex
+	w3bRowLocks  *keyedMutex
+
 	// placer records the maintenance session's sandbox assignment. Nil keeps
 	// today's behaviour: the session row carries the pin and no assignment.
 	placer SessionPlacer
@@ -207,6 +211,64 @@ func (s *TenantSkillService) withSkillLock(ctx context.Context, key string, fn f
 
 func skillImageLockKey(tenantID uint64, configID string) string {
 	return fmt.Sprintf("genyee-skill-image-lock:%d:%s", tenantID, configID)
+}
+
+type w3bSkillInstallAttemptCtxKey struct{}
+
+func w3bWithSkillInstallAttempt(ctx context.Context, attemptID string) context.Context {
+	if attemptID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, w3bSkillInstallAttemptCtxKey{}, attemptID)
+}
+
+func w3bSkillInstallAttemptFromContext(ctx context.Context) string {
+	v, _ := ctx.Value(w3bSkillInstallAttemptCtxKey{}).(string)
+	return v
+}
+
+func w3bSkillInstallAttemptKey(tenantID uint64, configID, skillID string) string {
+	return fmt.Sprintf("genyee-skill-install-attempt:%d:%s:%s", tenantID, configID, skillID)
+}
+
+func (s *TenantSkillService) w3bAttemptStillActive(
+	ctx context.Context, tenantID uint64, configID, skillID string,
+) bool {
+	attemptID := w3bSkillInstallAttemptFromContext(ctx)
+	if attemptID == "" || s == nil || s.redis == nil {
+		return true
+	}
+	checkCtx, cancel := s.cleanupContext(context.WithoutCancel(ctx))
+	defer cancel()
+	cur, err := s.redis.Get(checkCtx, w3bSkillInstallAttemptKey(tenantID, configID, skillID)).Result()
+	if errors.Is(err, redis.Nil) {
+		return false
+	}
+	if err != nil {
+		return true
+	}
+	return cur == attemptID
+}
+
+func (s *TenantSkillService) w3bWithSkillRowLock(
+	ctx context.Context, tenantID uint64, configID, skillID string, fn func() error,
+) error {
+	if s == nil {
+		return fn()
+	}
+	s.w3bRowLockMu.Lock()
+	if s.w3bRowLocks == nil {
+		s.w3bRowLocks = newKeyedMutex()
+	}
+	locks := s.w3bRowLocks
+	s.w3bRowLockMu.Unlock()
+
+	release, err := locks.lock(ctx, skillRunKey(tenantID, configID, skillID))
+	if err != nil {
+		return err
+	}
+	defer release()
+	return fn()
 }
 
 // clock is this service's time source. Tests inject one; a service built

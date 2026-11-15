@@ -14,6 +14,7 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/agent"
 	apprepo "github.com/Usir233/GENYEE/internal/application/repository"
+	"github.com/Usir233/GENYEE/internal/common/redislock"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/models/chat"
 	"github.com/Usir233/GENYEE/internal/tracing/langfuse"
@@ -384,6 +385,23 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 		exitStatus = "get_kb_failed"
 		return fmt.Errorf("wiki ingest: get KB: %w", err)
 	}
+	if kb.TenantID != 0 {
+		if payload.TenantID != 0 && payload.TenantID != kb.TenantID {
+			exitStatus = "tenant_mismatch"
+			return fmt.Errorf("wiki ingest: payload tenant %d does not match KB tenant %d", payload.TenantID, kb.TenantID)
+		}
+		if payload.TenantID == 0 {
+			payload.TenantID = kb.TenantID
+			ctx = context.WithValue(ctx, types.TenantIDContextKey, kb.TenantID)
+			if s.tenantIsDeleted(ctx, kb.TenantID) {
+				exitStatus = "tenant_deleted"
+				if cleanupErr := s.clearDeletedKnowledgeBasePendingOps(ctx, payload.KnowledgeBaseID); cleanupErr != nil {
+					return fmt.Errorf("wiki ingest: clear deleted tenant queue: %w", cleanupErr)
+				}
+				return nil
+			}
+		}
+	}
 	if !kb.IsWikiEnabled() {
 		exitStatus = "kb_not_wiki_enabled"
 		return s.releaseIngestForUnavailableWiki(ctx, kb.ID, "wiki disabled")
@@ -548,9 +566,9 @@ func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, t *asynq.Task
 	// empty/unknown values fall back to Standard via Normalize(). Failures
 	// to load the KB (unlikely since we're already acting on it) also
 	// degrade gracefully to Standard.
-	var wikiConfig *types.WikiConfig
-	if kb, kbErr := s.kbService.GetKnowledgeBaseByID(ctx, payload.KnowledgeBaseID); kbErr == nil && kb != nil && kb.WikiConfig != nil {
-		wikiConfig = kb.WikiConfig
+	wikiConfig := kb.WikiConfig
+	if freshKB, kbErr := s.kbService.GetKnowledgeBaseByID(ctx, payload.KnowledgeBaseID); kbErr == nil && freshKB != nil && freshKB.WikiConfig != nil {
+		wikiConfig = freshKB.WikiConfig
 	}
 
 	batchCtx := s.newWikiBatchContext(payload.KnowledgeBaseID, wikiConfig)
@@ -1109,7 +1127,8 @@ func (s *wikiIngestService) ProcessWikiFinalize(ctx context.Context, t *asynq.Ta
 	// reschedule-overlap window against a concurrent index-page write.
 	if s.redisClient != nil {
 		key := "wiki:finalize:active:" + payload.KnowledgeBaseID
-		acquired, err := s.redisClient.SetNX(ctx, key, "1", wikiFinalizeLockTTL).Result()
+		token := uuid.NewString()
+		acquired, err := s.redisClient.SetNX(ctx, key, token, wikiFinalizeLockTTL).Result()
 		if err != nil {
 			// Fail CLOSED: proceeding unlocked would let two finalize runs
 			// drain the same PeekBatch rows and double-rebuild the index page
@@ -1126,7 +1145,7 @@ func (s *wikiIngestService) ProcessWikiFinalize(ctx context.Context, t *asynq.Ta
 		lockCtx, cancelLock := context.WithCancel(context.Background())
 		defer func() {
 			cancelLock()
-			s.redisClient.Del(context.Background(), key)
+			_, _ = redislock.Release(context.Background(), s.redisClient, key, token)
 		}()
 		go func() {
 			ticker := time.NewTicker(wikiFinalizeLockRenew)
@@ -1136,7 +1155,10 @@ func (s *wikiIngestService) ProcessWikiFinalize(ctx context.Context, t *asynq.Ta
 				case <-lockCtx.Done():
 					return
 				case <-ticker.C:
-					s.redisClient.Expire(context.Background(), key, wikiFinalizeLockTTL)
+					ok, rerr := redislock.Renew(context.Background(), s.redisClient, key, token, wikiFinalizeLockTTL)
+					if rerr == nil && !ok {
+						return
+					}
 				}
 			}
 		}()
@@ -1164,6 +1186,21 @@ func (s *wikiIngestService) ProcessWikiFinalize(ctx context.Context, t *asynq.Ta
 	}
 	if err != nil {
 		return fmt.Errorf("wiki finalize: get KB: %w", err)
+	}
+	if kb.TenantID != 0 {
+		if payload.TenantID != 0 && payload.TenantID != kb.TenantID {
+			return fmt.Errorf("wiki finalize: payload tenant %d does not match KB tenant %d", payload.TenantID, kb.TenantID)
+		}
+		if payload.TenantID == 0 {
+			payload.TenantID = kb.TenantID
+			ctx = context.WithValue(ctx, types.TenantIDContextKey, kb.TenantID)
+			if s.tenantIsDeleted(ctx, kb.TenantID) {
+				if cleanupErr := s.clearDeletedKnowledgeBasePendingOps(ctx, payload.KnowledgeBaseID); cleanupErr != nil {
+					return fmt.Errorf("wiki finalize: clear deleted tenant queue: %w", cleanupErr)
+				}
+				return nil
+			}
+		}
 	}
 
 	// Manual-only Wiki keeps the page APIs and retrieval available, but it must

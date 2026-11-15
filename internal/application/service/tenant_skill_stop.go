@@ -120,6 +120,9 @@ func (s *TenantSkillService) StopSkill(
 		return nil, apperrors.NewBadRequestError("skill is not installing")
 	}
 
+	if s.redis != nil {
+		_ = s.redis.Del(ctx, w3bSkillInstallAttemptKey(tenantID, configID, skillID)).Err()
+	}
 	s.cancelSkillRun(tenantID, configID, skillID)
 	s.failSkill(ctx, tenantID, configID, skillID, nil, errSkillInstallStopped)
 

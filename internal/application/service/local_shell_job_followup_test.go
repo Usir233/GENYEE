@@ -26,7 +26,8 @@ import (
 type shellJobToolExecutor struct{ tools.SandboxCommandExecutor }
 
 func TestLocalShellJobLargeStdinPreservesResultJSON(t *testing.T) {
-	for _, command := range []string{"cat", "tee /dev/stderr #" + strings.Repeat("\x01", 8192-17)} {
+	escapedCmd := "true '" + strings.Repeat("\x01", 8192-len("true '' && tee /dev/stderr")) + "' && tee /dev/stderr"
+	for _, command := range []string{"cat", escapedCmd} {
 		t.Run(map[bool]string{false: "stdin", true: "escaped-command"}[len(command) > 3], func(t *testing.T) {
 			root := t.TempDir()
 			bg := NewBackgroundWork(background.NewMemoryActivityRegistry(nil), background.NewMemoryNoticeInbox(nil))

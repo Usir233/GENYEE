@@ -338,13 +338,29 @@ func (s *messageService) ClearSessionMessages(ctx context.Context, sessionID str
 		return err
 	}
 
-	// Async cleanup: delete associated Knowledge entries from the chat history KB
-	bgCtx := context.WithoutCancel(ctx)
-	go s.DeleteSessionKnowledge(bgCtx, sessionID)
+	var knowledgeIDs []string
+	if s.knowService != nil {
+		ids, err := s.messageRepo.GetKnowledgeIDsBySessionID(ctx, sessionID)
+		if err != nil {
+			logger.Warnf(ctx, "Failed to get knowledge IDs for session %s: %v", sessionID, err)
+		} else {
+			knowledgeIDs = ids
+		}
+	}
 
 	if err := s.messageRepo.DeleteMessagesBySessionID(ctx, sessionID); err != nil {
 		logger.Errorf(ctx, "Failed to delete messages for session %s: %v", sessionID, err)
 		return err
+	}
+	if s.knowService != nil && len(knowledgeIDs) > 0 {
+		bgCtx := context.WithoutCancel(ctx)
+		ids := append([]string(nil), knowledgeIDs...)
+		go func() {
+			logger.Infof(bgCtx, "Deleting %d chat history knowledge entries for session %s", len(ids), sessionID)
+			if err := deleteReferencedKnowledge(bgCtx, s.knowService, "", ids); err != nil {
+				logger.Warnf(bgCtx, "Failed to batch delete chat history knowledge for session %s: %v", sessionID, err)
+			}
+		}()
 	}
 	if s.suggestionRepo != nil {
 		if err := s.suggestionRepo.DeleteBySessionID(ctx, tenantID, sessionID); err != nil {
@@ -840,7 +856,7 @@ func (s *messageService) rerankResults(ctx context.Context, rc *types.RetrievalC
 
 	var reranked []*types.SearchResult
 	for _, rr := range rankResults {
-		if rr.Index >= len(results) {
+		if rr.Index < 0 || rr.Index >= len(results) {
 			continue
 		}
 		if rr.RelevanceScore < threshold {
