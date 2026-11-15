@@ -381,7 +381,7 @@ func (m *Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	token := strings.TrimPrefix(protocols[0], AuthProtocol)
-	if len(token) != 43 {
+	if !validToken(token) {
 		http.Error(w, "invalid pairing", http.StatusUnauthorized)
 		return
 	}
@@ -863,6 +863,10 @@ func (m *Manager) Call(
 	if t.paused || t.stopping || t.epoch != epoch {
 		d.mu.Unlock()
 		return nil, pausedError()
+	}
+	if err := validateNavigationURL(method, params); err != nil {
+		d.mu.Unlock()
+		return nil, err
 	}
 	if t.id == "" {
 		d.mu.Unlock()

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -58,15 +59,15 @@ func (m *Manager) AuthorizeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	token, hasBearer := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	var input struct {
 		Action    string `json:"action"`
 		NextToken string `json:"next_token"`
 		Label     string `json:"label"`
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
-	if !validToken(token) || json.NewDecoder(r.Body).Decode(&input) != nil || !validToken(input.NextToken) ||
-		token == input.NextToken {
+	if !hasBearer || !validToken(token) || json.NewDecoder(r.Body).Decode(&input) != nil ||
+		!validToken(input.NextToken) || subtle.ConstantTimeCompare([]byte(token), []byte(input.NextToken)) == 1 {
 		http.Error(w, "invalid authorization request", http.StatusBadRequest)
 		return
 	}
