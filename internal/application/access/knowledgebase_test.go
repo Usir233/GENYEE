@@ -280,3 +280,89 @@ func TestResolveKBMissingIdentityResourceAndAPIKeyScope(t *testing.T) {
 	_, err = ResolveKB(ctx, KBRequest{Caller: types.Caller{TenantID: 1}}, kb, types.OrgRoleViewer, nil, nil)
 	require.Error(t, err, "API key scope must apply even to owned KBs")
 }
+
+func TestResolveKBAndWithGrantRejectUnmaterializedCallerMismatchAndInvalidRole(t *testing.T) {
+	ownKB := &types.KnowledgeBase{ID: "kb-own", TenantID: 1}
+	foreignKB := &types.KnowledgeBase{ID: "kb-foreign", TenantID: 2}
+
+	otherTenantCtx := context.WithValue(context.Background(), types.TenantIDContextKey, uint64(9))
+	_, err := ResolveKB(
+		otherTenantCtx,
+		KBRequest{Caller: types.Caller{TenantID: 1, UserID: "alice", Role: types.TenantRoleAdmin}},
+		ownKB,
+		types.OrgRoleViewer,
+		nil,
+		nil,
+	)
+	require.ErrorIs(t, err, ErrForbidden, "ResolveKB must reject caller mismatch even before CallerContextKey is materialized")
+
+	grant, err := ResolveKB(
+		context.Background(),
+		KBRequest{Caller: types.Caller{TenantID: 1, UserID: "alice", Role: types.TenantRoleAdmin}},
+		ownKB,
+		types.OrgRoleViewer,
+		nil,
+		nil,
+	)
+	require.NoError(t, err)
+
+	untouched := grant.WithGrant(otherTenantCtx)
+	require.Equal(t, uint64(9), types.CallerFromContext(untouched).TenantID, "WithGrant must not overwrite an authenticated tenant")
+	require.False(t, HasKBGrant(untouched, ownKB.ID, ownKB.TenantID, types.OrgRoleViewer))
+
+	scoped := grant.Context(otherTenantCtx)
+	require.Equal(t, uint64(9), types.CallerFromContext(scoped).TenantID, "Context must not switch execution tenant on caller mismatch")
+
+	_, err = ResolveKB(
+		context.Background(),
+		KBRequest{Caller: types.Caller{TenantID: 1}},
+		foreignKB,
+		types.OrgMemberRole(""),
+		&shareLookup{permission: types.OrgRoleViewer},
+		nil,
+	)
+	require.ErrorIs(t, err, ErrForbidden, "empty/invalid required role must fail closed")
+
+	_, err = ResolveKB(
+		context.Background(),
+		KBRequest{Caller: types.Caller{TenantID: 1}},
+		&types.KnowledgeBase{ID: "kb-zero", TenantID: 0},
+		types.OrgRoleViewer,
+		nil,
+		nil,
+	)
+	require.ErrorIs(t, err, ErrNotFound, "KB with zero owner tenant must not resolve")
+}
+
+func TestResolveKBFileRejectsZeroCallerAndMismatchedKBTenant(t *testing.T) {
+	const ref = "resource://AbCdEfGhIjKlMnOpQrStUv"
+	catalog := fileCatalog{
+		&types.StoredResource{TenantID: 2, PhysicalPath: "local://2/exports/a.png", OriginalName: "a.png"},
+	}
+	bindings := &fileBinding{allowed: true}
+
+	zeroGrant := &KBAccess{
+		Caller:            types.Caller{Role: types.TenantRoleViewer},
+		KnowledgeBase:     &types.KnowledgeBase{ID: "kb", TenantID: 2},
+		EffectiveTenantID: 2,
+		Permission:        types.OrgRoleViewer,
+	}
+	_, err := ResolveKBFile(context.Background(), zeroGrant, "kb", ref, catalog, bindings)
+	require.ErrorIs(t, err, ErrForbidden, "unauthenticated zero caller must not match zero context caller")
+
+	base := callerContext()
+	mismatchedGrant := &KBAccess{
+		Caller:            types.CallerFromContext(base),
+		KnowledgeBase:     &types.KnowledgeBase{ID: "kb", TenantID: 3},
+		EffectiveTenantID: 2,
+		Permission:        types.OrgRoleViewer,
+	}
+	_, err = ResolveKBFile(base, mismatchedGrant, "kb", ref, catalog, bindings)
+	require.ErrorIs(t, err, ErrForbidden, "grant with mismatched KB tenant and effective tenant must fail closed")
+}
+
+func TestAuthorizeKBAccessRejectsNilKnowledgeBaseWithoutPanic(t *testing.T) {
+	ctx := callerContext()
+	err := AuthorizeKBAccess(ctx, nil, []*types.KnowledgeBase{nil})
+	require.Error(t, err)
+}

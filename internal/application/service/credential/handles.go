@@ -86,6 +86,9 @@ func (s *HandleStore) Create(ctx context.Context, h NewHandle) (string, error) {
 	if key == nil {
 		return "", errUnavailable()
 	}
+	if h.Owner.TenantID == 0 || strings.TrimSpace(h.Owner.UserID) == "" {
+		return "", errors.New("a credential handle needs an owner")
+	}
 	if h.SessionID == "" {
 		return "", errors.New("a credential handle needs a session")
 	}
@@ -124,7 +127,7 @@ func (s *HandleStore) Create(ctx context.Context, h NewHandle) (string, error) {
 func (s *HandleStore) load(
 	ctx context.Context, tenantID uint64, userID, sessionID, handle string,
 ) (*handleRecord, error) {
-	if !types.ValidSecretHandle(handle) || sessionID == "" {
+	if tenantID == 0 || strings.TrimSpace(userID) == "" || !types.ValidSecretHandle(handle) || sessionID == "" {
 		return nil, types.ErrSecretHandleNotFound
 	}
 	enc, err := s.rdb.Get(ctx, s.handleKey(sessionID, handle)).Result()
@@ -190,11 +193,19 @@ func (s *HandleStore) Resolve(
 func (s *HandleStore) Complete(
 	ctx context.Context, tenantID uint64, userID, sessionID, handle, vaultItemID string,
 ) error {
+	rec, err := s.load(ctx, tenantID, userID, sessionID, handle)
+	if err != nil {
+		return err
+	}
 	if err := s.Discard(ctx, sessionID, handle); err != nil {
 		return err
 	}
-	if vaultItemID != "" {
-		return s.vault.Touch(ctx, Owner{TenantID: tenantID, UserID: userID}, vaultItemID)
+	itemID := strings.TrimSpace(vaultItemID)
+	if itemID == "" {
+		itemID = rec.VaultItemID
+	}
+	if itemID != "" {
+		return s.vault.Touch(ctx, Owner{TenantID: tenantID, UserID: userID}, itemID)
 	}
 	return nil
 }

@@ -231,3 +231,25 @@ func TestSubmitResolveRaceDiscardsHandleButKeepsSavedLogin(t *testing.T) {
 	_, err = handles.Resolve(ctx, alice.TenantID, alice.UserID, "s1", "cred_1")
 	assert.ErrorIs(t, err, types.ErrSecretHandleNotFound, "the orphan handle is gone")
 }
+
+func TestSubmitRejectsZeroOwnerAndInvalidFormPrompt(t *testing.T) {
+	zeroPrompt := loginPrompt(t, "p-zero", Owner{TenantID: 0, UserID: "web_user:u1"})
+	badFormPrompt := &types.AgentPrompt{
+		ID: "p-bad", TenantID: alice.TenantID, UserID: alice.UserID, SessionID: "s1",
+		Kind: types.AgentPromptKindSecureForm, Status: types.AgentPromptPending,
+		Request: types.JSON(`{"title":"bad","kind":"login","site":"http://bad/url"}`),
+	}
+	s, _, _, _ := newTestSubmitter(t, zeroPrompt, badFormPrompt)
+	ctx := context.Background()
+
+	_, err := s.Submit(ctx, Owner{TenantID: 0, UserID: "web_user:u1"}, SubmitRequest{
+		PromptID: "p-zero", Action: ActionDecline,
+	})
+	require.Error(t, err, "zero tenant owner/prompt must be rejected")
+
+	_, err = s.Submit(ctx, alice, SubmitRequest{
+		PromptID: "p-bad", Action: ActionSubmit, Choice: ChoiceUseOnce,
+		Values: map[string]string{"username": "u", "password": "p"},
+	})
+	require.Error(t, err, "corrupt/unvalidated prompt form must be rejected before creating handles")
+}

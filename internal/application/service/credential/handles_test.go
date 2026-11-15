@@ -110,3 +110,26 @@ func TestNewHandleStoreNeedsRedis(t *testing.T) {
 	vault, _ := newTestVault(t)
 	assert.Nil(t, NewHandleStore(nil, vault))
 }
+
+func TestHandleStoreCompleteRequiresOwnerAndRejectsZeroOwner(t *testing.T) {
+	store, _, _ := newTestHandles(t)
+	ctx := context.Background()
+
+	_, err := store.Create(ctx, onceHandle(Owner{}, "s1"))
+	require.Error(t, err, "zero owner must not create a handle")
+
+	h, err := store.Create(ctx, onceHandle(alice, "s1"))
+	require.NoError(t, err)
+
+	// Another user or tenant must not be able to discard Alice's handle via Complete.
+	err = store.Complete(ctx, bob.TenantID, bob.UserID, "s1", h, "")
+	require.ErrorIs(t, err, types.ErrSecretHandleNotFound)
+
+	err = store.Complete(ctx, 999, alice.UserID, "s1", h, "")
+	require.ErrorIs(t, err, types.ErrSecretHandleNotFound)
+
+	// Alice's handle must remain intact and resolvable for Alice.
+	got, err := store.Resolve(ctx, alice.TenantID, alice.UserID, "s1", h)
+	require.NoError(t, err)
+	require.Len(t, got.Fields, 2)
+}

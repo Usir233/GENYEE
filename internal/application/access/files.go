@@ -63,8 +63,12 @@ func ResolveKBFile(
 	bindings interfaces.KBResourceLookup,
 ) (FileAccess, error) {
 	var empty FileAccess
+	caller := types.CallerFromContext(ctx)
 	if grant == nil || grant.KnowledgeBase == nil || grant.KnowledgeBase.ID != kbID ||
-		grant.Caller != types.CallerFromContext(ctx) || !grant.Permission.HasPermission(types.OrgRoleViewer) {
+		grant.Caller.TenantID == 0 || caller.TenantID == 0 ||
+		grant.Caller.Normalize() != caller.Normalize() ||
+		!grant.Permission.IsValid() || !grant.Permission.HasPermission(types.OrgRoleViewer) ||
+		grant.KnowledgeBase.TenantID == 0 || grant.KnowledgeBase.TenantID != grant.EffectiveTenantID {
 		return empty, ErrForbidden
 	}
 	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kbID); err != nil {

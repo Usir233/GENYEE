@@ -27,8 +27,14 @@ type Owner struct {
 // OwnerFromContext returns the signed-in web user acting in person. Embed
 // visitors, API keys, IM users and automations own no vault.
 func OwnerFromContext(ctx context.Context) (Owner, error) {
-	tenantID, ok := types.TenantIDFromContext(ctx)
-	if !ok || tenantID == 0 {
+	if _, hasAPIKey := types.TenantAPIKeyScopeFromContext(ctx); hasAPIKey {
+		return Owner{}, apperrors.NewForbiddenError("only a signed-in user can use saved credentials")
+	}
+	tenantID := types.CallerFromContext(ctx).TenantID
+	if tenantID == 0 {
+		tenantID, _ = types.TenantIDFromContext(ctx)
+	}
+	if tenantID == 0 {
 		return Owner{}, apperrors.NewUnauthorizedError("workspace context is required")
 	}
 	p, ok := types.PrincipalFromContext(ctx)
@@ -36,6 +42,13 @@ func OwnerFromContext(ctx context.Context) (Owner, error) {
 		return Owner{}, apperrors.NewForbiddenError("only a signed-in user can use saved credentials")
 	}
 	return Owner{TenantID: tenantID, UserID: p.StorageID()}, nil
+}
+
+func requireOwner(owner Owner) error {
+	if owner.TenantID == 0 || strings.TrimSpace(owner.UserID) == "" {
+		return apperrors.NewUnauthorizedError("workspace and user context are required")
+	}
+	return nil
 }
 
 // Available reports whether secrets can be stored. EncryptAESGCM returns its
@@ -81,17 +94,18 @@ func NewVault(repo interfaces.CredentialVaultRepository) *Vault {
 // sealed binds the password to its row so a ciphertext copied onto another
 // row does not open.
 type sealed struct {
+	TenantID uint64 `json:"tenant_id,omitempty"`
 	ItemID   string `json:"item_id"`
 	UserID   string `json:"user_id"`
 	Password string `json:"password"`
 }
 
-func seal(itemID, userID, password string) (string, error) {
+func seal(tenantID uint64, itemID, userID, password string) (string, error) {
 	key := utils.GetAESKey()
 	if key == nil {
 		return "", errUnavailable()
 	}
-	raw, err := json.Marshal(sealed{ItemID: itemID, UserID: userID, Password: password})
+	raw, err := json.Marshal(sealed{TenantID: tenantID, ItemID: itemID, UserID: userID, Password: password})
 	if err != nil {
 		return "", err
 	}
@@ -99,6 +113,9 @@ func seal(itemID, userID, password string) (string, error) {
 }
 
 func open(item *types.CredentialVaultItem) (string, error) {
+	if item == nil || item.TenantID == 0 {
+		return "", types.ErrCredentialUnavailable
+	}
 	key := utils.GetAESKey()
 	if key == nil || !strings.HasPrefix(item.SecretCiphertext, utils.EncPrefix) {
 		return "", types.ErrCredentialUnavailable
@@ -108,7 +125,9 @@ func open(item *types.CredentialVaultItem) (string, error) {
 		return "", types.ErrCredentialUnavailable
 	}
 	var s sealed
-	if json.Unmarshal([]byte(raw), &s) != nil || s.ItemID != item.ID || s.UserID != item.UserID {
+	if json.Unmarshal([]byte(raw), &s) != nil ||
+		(s.TenantID != 0 && s.TenantID != item.TenantID) ||
+		s.ItemID != item.ID || s.UserID != item.UserID {
 		return "", types.ErrCredentialUnavailable
 	}
 	return s.Password, nil
@@ -157,6 +176,9 @@ func mapRepoErr(err error) error {
 
 // List returns the owner's saved logins, optionally for one site.
 func (v *Vault) List(ctx context.Context, owner Owner, site string) ([]*types.CredentialVaultItem, error) {
+	if err := requireOwner(owner); err != nil {
+		return nil, err
+	}
 	if site != "" {
 		s, err := types.NormalizeHost(site)
 		if err != nil {
@@ -176,6 +198,9 @@ func (v *Vault) List(ctx context.Context, owner Owner, site string) ([]*types.Cr
 
 // Get returns one saved login of the owner.
 func (v *Vault) Get(ctx context.Context, owner Owner, id string) (*types.CredentialVaultItem, error) {
+	if err := requireOwner(owner); err != nil {
+		return nil, err
+	}
 	item, err := v.repo.Get(ctx, owner.TenantID, owner.UserID, strings.TrimSpace(id))
 	if err != nil {
 		return nil, err
@@ -190,6 +215,9 @@ func (v *Vault) Get(ctx context.Context, owner Owner, id string) (*types.Credent
 func (v *Vault) Create(ctx context.Context, owner Owner, in LoginInput) (*types.CredentialVaultItem, error) {
 	if !Available() {
 		return nil, errUnavailable()
+	}
+	if err := requireOwner(owner); err != nil {
+		return nil, err
 	}
 	site, err := types.NormalizeHost(in.Site)
 	if err != nil {
@@ -218,7 +246,7 @@ func (v *Vault) Create(ctx context.Context, owner Owner, in LoginInput) (*types.
 		return nil, apperrors.NewBadRequestError(fmt.Sprintf("at most %d saved credentials", v.maxItems))
 	}
 	id := uuid.NewString()
-	ciphertext, err := seal(id, owner.UserID, in.Password)
+	ciphertext, err := seal(owner.TenantID, id, owner.UserID, in.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -241,6 +269,9 @@ func (v *Vault) Upsert(ctx context.Context, owner Owner, in LoginInput) (*types.
 	if !Available() {
 		return nil, errUnavailable()
 	}
+	if err := requireOwner(owner); err != nil {
+		return nil, err
+	}
 	site, err := types.NormalizeHost(in.Site)
 	if err != nil {
 		return nil, badRequest(err)
@@ -259,7 +290,7 @@ func (v *Vault) Upsert(ctx context.Context, owner Owner, in LoginInput) (*types.
 	if err := checkPassword(in.Password); err != nil {
 		return nil, err
 	}
-	ciphertext, err := seal(existing.ID, owner.UserID, in.Password)
+	ciphertext, err := seal(owner.TenantID, existing.ID, owner.UserID, in.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -275,6 +306,9 @@ func (v *Vault) Upsert(ctx context.Context, owner Owner, in LoginInput) (*types.
 func (v *Vault) Update(ctx context.Context, owner Owner, id string, p LoginPatch) (*types.CredentialVaultItem, error) {
 	if !Available() {
 		return nil, errUnavailable()
+	}
+	if err := requireOwner(owner); err != nil {
+		return nil, err
 	}
 	item, err := v.Get(ctx, owner, id)
 	if err != nil {
@@ -301,7 +335,7 @@ func (v *Vault) Update(ctx context.Context, owner Owner, id string, p LoginPatch
 		if err := checkPassword(*p.Password); err != nil {
 			return nil, err
 		}
-		if item.SecretCiphertext, err = seal(item.ID, owner.UserID, *p.Password); err != nil {
+		if item.SecretCiphertext, err = seal(owner.TenantID, item.ID, owner.UserID, *p.Password); err != nil {
 			return nil, err
 		}
 	}
@@ -314,6 +348,9 @@ func (v *Vault) Update(ctx context.Context, owner Owner, id string, p LoginPatch
 
 // Delete removes a saved login.
 func (v *Vault) Delete(ctx context.Context, owner Owner, id string) error {
+	if err := requireOwner(owner); err != nil {
+		return err
+	}
 	ok, err := v.repo.Delete(ctx, owner.TenantID, owner.UserID, strings.TrimSpace(id))
 	if err != nil {
 		return err
@@ -327,6 +364,9 @@ func (v *Vault) Delete(ctx context.Context, owner Owner, id string) error {
 // Password opens a saved login. Any failure reads as ErrCredentialUnavailable
 // so the caller cannot tell a deleted row from a rotated key.
 func (v *Vault) Password(ctx context.Context, owner Owner, id string) (*types.CredentialVaultItem, string, error) {
+	if owner.TenantID == 0 || strings.TrimSpace(owner.UserID) == "" {
+		return nil, "", types.ErrCredentialUnavailable
+	}
 	item, err := v.repo.Get(ctx, owner.TenantID, owner.UserID, id)
 	if err != nil || item == nil {
 		return nil, "", types.ErrCredentialUnavailable
@@ -340,5 +380,8 @@ func (v *Vault) Password(ctx context.Context, owner Owner, id string) (*types.Cr
 
 // Touch records that a saved login was just filled.
 func (v *Vault) Touch(ctx context.Context, owner Owner, id string) error {
+	if err := requireOwner(owner); err != nil {
+		return err
+	}
 	return v.repo.Touch(ctx, owner.TenantID, owner.UserID, id, v.now())
 }

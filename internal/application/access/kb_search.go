@@ -31,6 +31,9 @@ func AuthorizeKBAccess(
 
 	kbIDs := make([]string, 0, len(kbs))
 	for _, kb := range kbs {
+		if kb == nil || kb.ID == "" {
+			return apperrors.NewNotFoundError("knowledge base not found")
+		}
 		kbIDs = append(kbIDs, kb.ID)
 	}
 	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kbIDs...); err != nil {

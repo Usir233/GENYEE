@@ -83,6 +83,9 @@ func (s *Submitter) Submit(ctx context.Context, owner Owner, req SubmitRequest) 
 	if !Available() {
 		return SubmitResult{}, errUnavailable()
 	}
+	if err := requireOwner(owner); err != nil {
+		return SubmitResult{}, err
+	}
 	prompt, err := s.gate.SecureFormPrompt(ctx, req.PromptID)
 	if err != nil {
 		return SubmitResult{}, err
@@ -90,7 +93,7 @@ func (s *Submitter) Submit(ctx context.Context, owner Owner, req SubmitRequest) 
 	if prompt == nil || prompt.Kind != types.AgentPromptKindSecureForm {
 		return SubmitResult{}, hitl.ErrPromptNotFound
 	}
-	if prompt.TenantID != owner.TenantID {
+	if prompt.TenantID == 0 || prompt.TenantID != owner.TenantID {
 		return SubmitResult{}, hitl.ErrTenantMismatch
 	}
 	if prompt.UserID == "" || prompt.UserID != owner.UserID {
@@ -107,6 +110,9 @@ func (s *Submitter) Submit(ctx context.Context, owner Owner, req SubmitRequest) 
 	case ActionDecline:
 		return s.resolve(ctx, owner, prompt, types.SecureFormPromptResponse{Declined: true}, "", false)
 	case ActionSubmit:
+		if err := form.Validate(); err != nil {
+			return SubmitResult{}, badRequest(err)
+		}
 	default:
 		return SubmitResult{}, apperrors.NewBadRequestError(`action must be "submit" or "decline"`)
 	}

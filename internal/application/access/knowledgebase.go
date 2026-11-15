@@ -49,13 +49,35 @@ func (a *KBAccess) Context(ctx context.Context) context.Context {
 	return types.WithExecutionTenant(scoped, a.EffectiveTenantID)
 }
 
+func callerMatchesContext(ctx context.Context, caller types.Caller) bool {
+	if ctx == nil {
+		return false
+	}
+	caller = caller.Normalize()
+	if existing, ok := ctx.Value(types.CallerContextKey).(types.Caller); ok {
+		return existing.Normalize() == caller
+	}
+	if tenantID, ok := types.TenantIDFromContext(ctx); ok && tenantID != 0 && tenantID != caller.TenantID {
+		return false
+	}
+	if userID, ok := types.UserIDFromContext(ctx); ok && userID != "" && userID != caller.UserID {
+		return false
+	}
+	if role, ok := ctx.Value(types.TenantRoleContextKey).(types.TenantRole); ok && role.IsValid() && role != caller.Role {
+		return false
+	}
+	return true
+}
+
 // WithGrant carries this authorization without changing execution scope.
 func (a *KBAccess) WithGrant(ctx context.Context) context.Context {
-	if a == nil || a.KnowledgeBase == nil {
+	if ctx == nil || a == nil || a.KnowledgeBase == nil || a.KnowledgeBase.ID == "" ||
+		a.Caller.TenantID == 0 || a.EffectiveTenantID == 0 || !a.Permission.IsValid() ||
+		(a.KnowledgeBase.TenantID != 0 && a.KnowledgeBase.TenantID != a.EffectiveTenantID) {
 		return ctx
 	}
 	caller := a.Caller.Normalize()
-	if existing, ok := ctx.Value(types.CallerContextKey).(types.Caller); ok && existing != caller {
+	if !callerMatchesContext(ctx, caller) {
 		return ctx // A grant cannot replace an already authenticated caller.
 	}
 	grants, _ := ctx.Value(types.KBGrantsContextKey).([]kbGrant)
@@ -98,14 +120,17 @@ func ResolveKB(ctx context.Context, request KBRequest, kb *types.KnowledgeBase, 
 	if request.Caller.TenantID == 0 {
 		return nil, ErrUnauthorized
 	}
-	if kb == nil || kb.ID == "" {
+	if kb == nil || kb.ID == "" || kb.TenantID == 0 {
 		return nil, ErrNotFound
+	}
+	if !required.IsValid() {
+		return nil, ErrForbidden
 	}
 	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kb.ID); err != nil {
 		return nil, err
 	}
 	request.Caller = request.Caller.Normalize()
-	if caller, ok := ctx.Value(types.CallerContextKey).(types.Caller); ok && caller != request.Caller {
+	if !callerMatchesContext(ctx, request.Caller) {
 		return nil, ErrForbidden
 	}
 	grant := func(permission types.OrgMemberRole) (*KBAccess, error) {
@@ -120,7 +145,7 @@ func ResolveKB(ctx context.Context, request KBRequest, kb *types.KnowledgeBase, 
 	if shares != nil {
 		permissions := NewKBSharePermissions(ctx, shares, request.Caller.TenantID, request.Caller.Role)
 		permission, shared, err := permissions.Permission(kb.ID)
-		if err == nil && shared && permission.HasPermission(required) {
+		if err == nil && shared && permission.IsValid() && permission.HasPermission(required) {
 			return grant(permission)
 		}
 	}

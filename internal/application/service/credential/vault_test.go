@@ -138,3 +138,36 @@ func TestOwnerFromContext(t *testing.T) {
 	_, err = OwnerFromContext(embed)
 	assert.Equal(t, http.StatusForbidden, httpStatus(t, err))
 }
+
+func TestOwnerFromContextPreservesCallerUnderExecutionTenantAndRejectsAPIKey(t *testing.T) {
+	base := context.WithValue(context.Background(), types.TenantIDContextKey, uint64(7))
+	base = types.WithPrincipal(base, types.Principal{Type: types.PrincipalWebUser, ID: "u1"})
+
+	// Under a shared agent's execution tenant (99), personal vault must stay in caller workspace (7).
+	execCtx := types.WithExecutionTenant(base, 99)
+	owner, err := OwnerFromContext(execCtx)
+	require.NoError(t, err)
+	assert.Equal(t, Owner{TenantID: 7, UserID: "web_user:u1"}, owner)
+
+	// API-key scoped contexts never own a personal vault.
+	apiKeyCtx := types.WithTenantAPIKeyScope(base, types.TenantAPIKeyScope{})
+	_, err = OwnerFromContext(apiKeyCtx)
+	assert.Equal(t, http.StatusForbidden, httpStatus(t, err))
+}
+
+func TestVaultRejectsCrossTenantCiphertextAndZeroOwner(t *testing.T) {
+	v, db := newTestVault(t)
+	ctx := context.Background()
+
+	_, err := v.Create(ctx, Owner{}, LoginInput{Site: "a.com", Username: "x", Password: "pw"})
+	assert.Equal(t, http.StatusUnauthorized, httpStatus(t, err))
+
+	item, err := v.Create(ctx, alice, LoginInput{Site: "a.com", Username: "x", Password: "pw-tenant-1"})
+	require.NoError(t, err)
+
+	// Move row to another tenant while keeping same ID and UserID: sealed tenant binding must reject opening.
+	require.NoError(t, db.Model(&types.CredentialVaultItem{}).Where("id = ?", item.ID).
+		Update("tenant_id", uint64(999)).Error)
+	_, _, err = v.Password(ctx, Owner{TenantID: 999, UserID: alice.UserID}, item.ID)
+	require.ErrorIs(t, err, types.ErrCredentialUnavailable)
+}
