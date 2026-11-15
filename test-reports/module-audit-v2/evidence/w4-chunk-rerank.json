@@ -1,0 +1,312 @@
+{
+  "wave": "W4",
+  "slice": "w4-chunk-rerank",
+  "cross_package_notes": [
+    {
+      "file": "internal/models/rerank/reranker.go, internal/models/rerank/protocol.go, internal/models/rerank/image.go, internal/models/rerank/lkeap_reranker.go",
+      "note": "Verified read-only caller compatibility across internal/models/rerank/... and whole-repo go vet -p 1 ./...: all exported signatures in chunker, retriever, reranking, searchutil, cohererank, dashscoperank, nimrerank, and tencentlkeap are preserved intact."
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "internal/infrastructure/chunker",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/infrastructure/chunker/budget.go",
+        "internal/infrastructure/chunker/fenced_code.go",
+        "internal/infrastructure/chunker/fenced_code_test.go",
+        "internal/infrastructure/chunker/header_tracker.go",
+        "internal/infrastructure/chunker/heading_hashes_test.go",
+        "internal/infrastructure/chunker/heading_hierarchy.go",
+        "internal/infrastructure/chunker/heading_hierarchy_test.go",
+        "internal/infrastructure/chunker/heading_splitter.go",
+        "internal/infrastructure/chunker/heading_splitter_test.go",
+        "internal/infrastructure/chunker/heuristic_splitter.go",
+        "internal/infrastructure/chunker/heuristic_splitter_test.go",
+        "internal/infrastructure/chunker/parent_child_offsets_test.go",
+        "internal/infrastructure/chunker/patterns.go",
+        "internal/infrastructure/chunker/patterns_test.go",
+        "internal/infrastructure/chunker/profiler.go",
+        "internal/infrastructure/chunker/profiler_test.go",
+        "internal/infrastructure/chunker/protected_spans_order_test.go",
+        "internal/infrastructure/chunker/protected_spans_test.go",
+        "internal/infrastructure/chunker/splitter.go",
+        "internal/infrastructure/chunker/splitter_test.go",
+        "internal/infrastructure/chunker/strategy.go",
+        "internal/infrastructure/chunker/strategy_diagnostics_test.go",
+        "internal/infrastructure/chunker/strategy_test.go",
+        "internal/infrastructure/chunker/strategy_token_test.go",
+        "internal/infrastructure/chunker/token_budget_test.go",
+        "internal/infrastructure/chunker/tokens.go",
+        "internal/infrastructure/chunker/tokens_test.go",
+        "internal/infrastructure/chunker/validator.go",
+        "internal/infrastructure/chunker/w4_audit_test.go"
+      ],
+      "invariants_checked": [
+        "All chunking tiers (heading, heuristic, legacy/recursive, and parent-child) guarantee monotonic forward progress and terminate cleanly when ChunkSize <= 0, ChunkOverlap < 0, ChunkOverlap >= ChunkSize, or a single oversized token/URL/table/code span exceeds ChunkSize.",
+        "Heuristic overlap alignment enforces strictly advancing chunk Start offsets and caps overlap so accumulated chunks never exceed ChunkSize.",
+        "Markdown code-fence tracking in profiler, heading splitter, and heuristic boundary scanner follows CommonMark rules (backticks and tildes, fence length matching, inline backtick exclusion, <=3 leading space indentation).",
+        "Byte-sampled profiling/language detection slices only at UTF-8 rune boundaries, and all chunker entry points sanitize malformed upstream bytes so Chunk.Content and Chunk.ContextHeader are always valid UTF-8 for PostgreSQL TEXT columns; zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-CHUNKER-01",
+          "severity": "P1",
+          "file": "internal/infrastructure/chunker/heuristic_splitter.go:34-118,289-330",
+          "summary": "splitByHeuristicsImpl did not normalize non-positive ChunkSize or excessive ChunkOverlap on direct calls, and applyOverlapAligned could snap chunkStart back to offset 0 (stalling Start progress) while adding overlap without bounding nextEnd-chunkStart <= ChunkSize, emitting chunks up to ChunkSize + 2*ChunkOverlap.",
+          "regression_test": "TestHeuristicSplitterOverlapProgressAndSizeBounds",
+          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+        },
+        {
+          "id": "W4-CHUNKER-02",
+          "severity": "P1",
+          "file": "internal/infrastructure/chunker/heuristic_splitter.go:130-166",
+          "summary": "findHeuristicBoundaries toggled a boolean on strings.HasPrefix(trimmed, \"```\") instead of using CommonMark markdownFence, splitting inside tilde fences (~~~) and permanently blinding boundary detection after inline triple backticks, 4-space indented code lines, or nested 4-backtick fences.",
+          "regression_test": "TestHeuristicBoundariesCommonMarkCodeFences",
+          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+        },
+        {
+          "id": "W4-CHUNKER-03",
+          "severity": "P2",
+          "file": "internal/infrastructure/chunker/profiler.go:171-175, internal/infrastructure/chunker/tokens.go:110-141, internal/infrastructure/chunker/strategy.go:34-103, internal/infrastructure/chunker/splitter.go:279-284, internal/infrastructure/chunker/heading_splitter.go:32-46",
+          "summary": "ProfileDocument (4096-byte sample) and hasGermanWords (512-byte sample) sliced raw byte offsets that could split multi-byte UTF-8 runes mid-character, and Split/SplitWithDiagnostics/SplitText/splitByHeadingsImpl allowed invalid upstream UTF-8 bytes to pass through into Chunk.Content and Chunk.ContextHeader.",
+          "regression_test": "TestChunkerUTF8BoundaryAndInvalidByteSanitization",
+          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/infrastructure/chunker/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/chunker/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/infrastructure/retriever",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/infrastructure/retriever/vectordb_tokenizer_test.go"
+      ],
+      "invariants_checked": [
+        "Chinese BM25 sparse-vector Jieba tokenizer initializes offline using embedded GENYEE stopwords without external HTTP downloads to Tencent COS in air-gapped environments.",
+        "Multi-word Chinese segmentation and MurmurHash3 token encoding remain deterministic with zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-RETRIEVER-01",
+          "severity": "P1",
+          "file": "internal/infrastructure/retriever/vectordb_tokenizer_test.go:17-78",
+          "summary": "TestTencentVectorDBJiebaTokenizerChineseBM25 invoked upstream tokenizer.NewJiebaTokenizer without first seeding embedded stopwords via tencentvectordb.EnsureDefaultStopwords, causing clean/air-gapped test runs to attempt an external HTTP download from Tencent COS.",
+          "regression_test": "TestTencentVectorDBJiebaTokenizerOfflineNoNetwork",
+          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/infrastructure/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/retriever/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/reranking",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/reranking/image.go",
+        "internal/reranking/image_test.go",
+        "internal/reranking/mmr.go",
+        "internal/reranking/mmr_test.go",
+        "internal/reranking/observability.go",
+        "internal/reranking/observability_test.go",
+        "internal/reranking/passage.go",
+        "internal/reranking/passage_code_test.go",
+        "internal/reranking/passage_test.go",
+        "internal/reranking/rerank.go",
+        "internal/reranking/rerank_test.go",
+        "internal/reranking/w4_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Rerank validates untrusted provider RankResult slices: out-of-range indices are dropped, duplicate indices in text and image batches are deduplicated, non-finite (NaN/Inf) scores trigger safe model-error fallback to retrieval order, and all-image batches return descending sorted scores.",
+        "CompositeScore and scoredCopy clamp/sanitize non-finite retrieval and model scores so NaN/Inf never enters Metadata or Score.",
+        "Rerank(nil model), EnrichedPassage(nil), ModelPassage(nil), SelectMMR(nil elements or 0*-Inf numerics), and observability selection diagnostics handle nil/empty-ID edge cases without panicking or colliding.",
+        "Concurrent image loading and MMR Jieba tokenization pass go test -race cleanly with zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-RERANK-01",
+          "severity": "P1",
+          "file": "internal/reranking/image.go:120-191, internal/reranking/rerank.go:347-402",
+          "summary": "scoreCandidates did not deduplicate provider-returned Index values, accepted NaN/Inf RelevanceScore values (propagating NaN into CompositeScore and Metadata), and left ModelScores unsorted when all candidates were scored as images; CompositeScore also panicked on nil SearchResult and propagated NaN inputs.",
+          "regression_test": "TestRerankHandlesDuplicateIndicesNonFiniteScoresAndAllImageSorting",
+          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+        },
+        {
+          "id": "W4-RERANK-02",
+          "severity": "P1",
+          "file": "internal/reranking/image.go:124-126, internal/reranking/passage.go:171-175, internal/reranking/mmr.go:17-77,145-156, internal/reranking/observability.go:38-97",
+          "summary": "Rerank panicked on nil model, EnrichedPassage/ModelPassage panicked on nil SearchResult, SelectMMR panicked on nil elements and computed IEEE-754 0*-Inf = NaN at lambda=0, and summarizeSelection keyed threshold-passing candidates by string ID (colliding on empty/duplicate IDs) while dereferencing potentially nil kept results.",
+          "regression_test": "TestRerankNilGuardsMMRNumericsAndObservabilityEmptyIDs",
+          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/reranking/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/reranking/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/searchutil",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/searchutil/chunkmerge.go",
+        "internal/searchutil/chunkmerge_repeated_test.go",
+        "internal/searchutil/chunkmerge_test.go",
+        "internal/searchutil/conversion.go",
+        "internal/searchutil/image_evidence.go",
+        "internal/searchutil/image_evidence_test.go",
+        "internal/searchutil/imageinfo.go",
+        "internal/searchutil/imageinfo_disabled_test.go",
+        "internal/searchutil/imageinfo_html_test.go",
+        "internal/searchutil/imageinfo_match.go",
+        "internal/searchutil/imageinfo_match_test.go",
+        "internal/searchutil/imageinfo_pages_test.go",
+        "internal/searchutil/imageinfo_repeated_test.go",
+        "internal/searchutil/normalize.go",
+        "internal/searchutil/snippet.go",
+        "internal/searchutil/snippet_test.go",
+        "internal/searchutil/textutil.go",
+        "internal/searchutil/w4_audit_test.go"
+      ],
+      "invariants_checked": [
+        "NormalizeKeywordScores and ClampFloat produce strictly finite [0, 1] / bounded outputs even when input scores contain NaN, +Inf, or -Inf, preventing Inf/Inf = NaN division and finite-range collapse.",
+        "MergeTextChunks, EnrichSearchResultsImageInfo*, CollectImageInfoByChunkIDs*, BuildImageInfoXML*, and TokenizeSimple tolerate nil repositories, nil slice elements, nil ImageInfo pointers, and nil global Jieba fallback without panicking.",
+        "ExtractSnippet extracts UTF-8 rune-aligned context windows in O(1) memory without converting multi-megabyte documents to []rune, and concurrent TokenizeSimple calls over shared Cgo gojieba pass go test -race cleanly with zero external network downloads or legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-SEARCHUTIL-01",
+          "severity": "P1",
+          "file": "internal/searchutil/normalize.go:33-153, internal/searchutil/textutil.go:159-174",
+          "summary": "NormalizeKeywordScores propagated NaN into normalized scores on batches >= 10 and produced (Inf - min)/Inf = NaN while collapsing finite scores to 0 when +Inf appeared; ClampFloat also returned NaN on NaN inputs and mishandled inverted bounds.",
+          "regression_test": "TestNormalizeKeywordScoresAndClampFloatRejectNonFinite",
+          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+        },
+        {
+          "id": "W4-SEARCHUTIL-02",
+          "severity": "P1",
+          "file": "internal/searchutil/chunkmerge.go:184-198, internal/searchutil/imageinfo.go:56-85,177-198,231-302,624-629,767-771, internal/searchutil/textutil.go:47-52",
+          "summary": "MergeTextChunks sorted chunks dereferencing StartAt before filtering nil entries (panicking on nil elements), and imageinfo/textutil helpers panicked on nil ChunkRepository, nil SearchResult/Chunk slice entries, or nil ImageInfo.",
+          "regression_test": "TestMergeTextChunksAndImageInfoNilSafety",
+          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+        },
+        {
+          "id": "W4-SEARCHUTIL-03",
+          "severity": "P2",
+          "file": "internal/searchutil/snippet.go:24-73",
+          "summary": "ExtractSnippet converted full prefix/match/suffix substrings into []rune slices (O(len(content)) allocations on large documents) just to retain <=220 runes; replaced with bounded UTF-8 rune iterators and verified concurrent TokenizeSimple race safety.",
+          "regression_test": "TestExtractSnippetBoundedWindowAndUTF8Safety, TestTokenizeSimpleConcurrentRaceSafety",
+          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/searchutil/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/searchutil/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/cohererank",
+      "wave": "W4",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/models/api/cohererank/client.go",
+        "internal/models/api/cohererank/golden_test.go",
+        "internal/models/api/cohererank/response_shape_test.go",
+        "internal/models/api/cohererank/response_validation_test.go"
+      ],
+      "invariants_checked": [
+        "Response decoder validates both {\"results\": [...]} and bare-array shapes, rejecting missing/null arrays, missing/null index or score/relevance_score, negative or >= count indices, and duplicate indices before constructing RerankResult slices.",
+        "All HTTP calls route through api.Endpoint.PostJSON enforcing secutils.ValidateURLForSSRF, SSRF-safe connection/redirect transport, 64 MiB ReadResponseCapped body limits, reserved-header protection, and User-Agent GENYEE/1.0 with zero legacy brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/cohererank/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/cohererank/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/dashscoperank",
+      "wave": "W4",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/models/api/dashscoperank/client.go",
+        "internal/models/api/dashscoperank/golden_test.go",
+        "internal/models/api/dashscoperank/response_validation_test.go"
+      ],
+      "invariants_checked": [
+        "Rerank checks DashScope body error codes on HTTP 200 replies and rejects missing output.results, nil index or relevance_score, out-of-range indices (< 0 or >= len(documents)), and duplicate indices.",
+        "All HTTP calls route through api.Endpoint.PostJSON enforcing SSRF pre-check and redirect blocking, 64 MiB ReadResponseCapped response limits, reserved-header protection, and User-Agent GENYEE/1.0 with zero legacy brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/dashscoperank/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/dashscoperank/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/nimrerank",
+      "wave": "W4",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/models/api/nimrerank/client.go",
+        "internal/models/api/nimrerank/golden_test.go",
+        "internal/models/api/nimrerank/response_validation_test.go"
+      ],
+      "invariants_checked": [
+        "Both Rerank (text) and RerankImages validate rankings presence, non-nil index and logit, strict index bounds (0 <= index < count), and duplicate-index rejection before indexing back into documents.",
+        "All HTTP calls route through api.Endpoint.PostJSON enforcing SSRF pre-check and redirect blocking, 64 MiB ReadResponseCapped response limits, reserved-header protection, and User-Agent GENYEE/1.0 with zero legacy brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/nimrerank/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/nimrerank/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/tencentlkeap",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/tencentlkeap/client.go",
+        "internal/models/api/tencentlkeap/client_test.go",
+        "internal/models/api/tencentlkeap/w4_audit_test.go"
+      ],
+      "invariants_checked": [
+        "httpClientRoundTripper enforces SSRF-safe default HTTP client/redirect policies and caps response bodies at api.MaxResponseBytes (64 MiB) via Content-Length pre-check and streaming cappedReadCloser so Tencent SDK io.ReadAll cannot OOM on oversized responses.",
+        "resultsFromScores rejects score-count mismatches, nil score pointers, and NaN/Inf scores; Rerank safely handles nil context and empty document slices.",
+        "resolveEndpointAndScheme validates Scheme (HTTP/HTTPS) and Endpoint syntax without echoing embedded BaseURL userinfo credentials, and lkeapClient redacts SecretKey from any returned SDK/transport error while preserving error unwrapping when SecretKey is absent; zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W4-LKEAP-01",
+          "severity": "P1",
+          "file": "internal/models/api/tencentlkeap/client.go:61-143,234-264",
+          "summary": "httpClientRoundTripper passed an uncapped resp.Body to tencentcloud-sdk-go (which reads the whole body via io.ReadAll without a size limit), and Rerank panicked on nil context via context.WithValue(nil, ...) and errored on empty document batches.",
+          "regression_test": "TestRerankCapsOversizedResponseAndHandlesNilContextAndEmptyBatch",
+          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+        },
+        {
+          "id": "W4-LKEAP-02",
+          "severity": "P1",
+          "file": "internal/models/api/tencentlkeap/client.go:145-175,216-277",
+          "summary": "resolveEndpointAndScheme echoed raw config.BaseURL (including embedded userinfo passwords) into error strings and did not validate config.Scheme or config.Endpoint when BaseURL was empty; returned SDK/transport errors also lacked SecretKey redaction.",
+          "regression_test": "TestNewRedactsCredentialsAndValidatesEndpointAndScheme",
+          "commit": "13aa8310fd6dae6ab958ca94f3eaa6704de1acf0"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/tencentlkeap/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/tencentlkeap/... (exit 0)"
+      ]
+    }
+  ]
+}
