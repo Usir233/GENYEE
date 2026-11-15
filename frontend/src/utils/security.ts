@@ -19,6 +19,7 @@ import {
   resolveProtectedFileAccess,
   type ProtectedFileAccessContext,
 } from './protectedFileAccess.ts';
+import { clearArtifactBlobCache } from './sandboxArtifactRefs.ts';
 
 const PROVIDER_IMAGE_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 const PROVIDER_IMG_SRC_RE = new RegExp(
@@ -589,8 +590,9 @@ export function setProtectedFileCacheScope(
 
 export function resolveProtectedFileCacheScope(access?: ProtectedFileAccessContext): string {
   const base = protectedFileCacheState.activeScope || readStorageScopeFallback();
-  if (access && 'plane' in access && access.plane === 'embed') {
-    const channelId = 'channelId' in access && access.channelId ? String(access.channelId) : '';
+  const effectiveAccess = access ?? resolveProtectedFileAccess();
+  if (effectiveAccess && 'mode' in effectiveAccess && effectiveAccess.mode === 'embed') {
+    const channelId = effectiveAccess.channelId ? String(effectiveAccess.channelId) : '';
     return `${base}:embed:${channelId}`;
   }
   return base;
@@ -632,6 +634,7 @@ export function clearProtectedFileCache(): void {
   protectedFileMissingRequests.clear();
   protectedFileFailureCache.clear();
   protectedFileInflight.clear();
+  clearArtifactBlobCache();
 }
 
 /**

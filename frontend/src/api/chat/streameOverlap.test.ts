@@ -17,11 +17,32 @@ type Call = {
 
 let server: ViteDevServer
 let useStream: typeof import('./streame').useStream
+let authRefresh: typeof import('@/utils/authRefresh')
+let authApiMock: { setRefreshHandler: (fn: (rt: string) => Promise<unknown>) => void }
 let transport: { calls: Call[] }
+const storageMap = new Map<string, string>()
+const mockLocation = { pathname: '/chat', href: 'http://localhost/chat' }
 const originalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage')
+const originalWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
+
+function resetSessionStorage() {
+  storageMap.clear()
+  storageMap.set('genyee_token', 'test-token')
+  storageMap.set('genyee_refresh_token', 'test-refresh')
+  mockLocation.pathname = '/chat'
+  mockLocation.href = 'http://localhost/chat'
+  authRefresh?.resetAuthRefreshStateForTests()
+}
+
 before(async () => {
+  resetSessionStorage()
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: {
-    getItem: (key: string) => key === 'genyee_token' ? 'test-token' : null,
+    getItem: (key: string) => storageMap.get(key) ?? null,
+    setItem: (key: string, value: string) => { storageMap.set(key, String(value)) },
+    removeItem: (key: string) => { storageMap.delete(key) },
+  } })
+  Object.defineProperty(globalThis, 'window', { configurable: true, value: {
+    location: mockLocation,
   } })
   // Each request stays pending until the test closes or fails it.
   const mocks: Record<string, string> = {
@@ -31,11 +52,17 @@ before(async () => {
       }`,
     '@/utils/index': `export const generateRandomString = () => 'test-request'; export const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; export const MAX_FILE_SIZE_MB = 50;`,
     '@/i18n': `export default { global: { t: key => key, locale: { value: 'zh-CN' } } };`,
+    'auth-api': `let handler = async () => ({ success: true, data: { token: 'refreshed-token', refreshToken: 'refreshed-rt' } });
+      export function setRefreshHandler(fn) { handler = fn; }
+      export function refreshToken(rt) { return handler(rt); }`,
   }
   server = await createServer({
     configFile: false,
     plugins: [{ name: 'stream-overlap-test', enforce: 'pre',
-      resolveId(id) { if (id.startsWith('\0mock:')) return id },
+      resolveId(id) {
+        if (id.startsWith('\0mock:')) return id
+        if (id.endsWith('/api/auth/index') || id.endsWith('/api/auth/index.ts')) return '\0mock:auth-api'
+      },
       load(id) { if (id.startsWith('\0mock:')) return mocks[id.slice(6)] },
     }],
     optimizeDeps: { noDiscovery: true, entries: [] },
@@ -44,15 +71,19 @@ before(async () => {
       { find: '@', replacement: fileURLToPath(new URL('../../', import.meta.url)) },
     ] },
     // No file watching needed in tests (also avoids ENOSPC on hosts with few inotify watches).
-    server: { middlewareMode: true, hmr: false, watch: null }, appType: 'custom',
+    server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: 'custom',
   })
   ;({ useStream } = await server.ssrLoadModule('/src/api/chat/streame.ts'))
+  authRefresh = await server.ssrLoadModule('/src/utils/authRefresh.ts') as typeof authRefresh
+  authApiMock = await server.ssrLoadModule('\0mock:auth-api') as typeof authApiMock
   transport = await server.ssrLoadModule('\0mock:@microsoft/fetch-event-source') as typeof transport
 })
 after(async () => {
   await server?.close()
   if (originalStorage) Object.defineProperty(globalThis, 'localStorage', originalStorage)
   else Reflect.deleteProperty(globalThis, 'localStorage')
+  if (originalWindow) Object.defineProperty(globalThis, 'window', originalWindow)
+  else Reflect.deleteProperty(globalThis, 'window')
 })
 
 async function nextCall(count: number): Promise<Call> {
@@ -305,4 +336,137 @@ test('an unavailable replay buffer still reports its initial HTTP error', async 
   assert.equal(transport.calls.length, base + 1)
   assert.match(String(stream.error.value), /HTTP 404/)
   assert.equal(stream.isStreaming.value, false)
+})
+
+test('P1-13: logout, account switch, or tenant switch during SSE 401 refresh silently aborts without replay or /login redirect', async (t) => {
+  t.after(() => resetSessionStorage())
+
+  // 1. Logout during 401 token refresh
+  resetSessionStorage()
+  storageMap.set('genyee_token', 'expired-a')
+  storageMap.set('genyee_refresh_token', 'rt-a')
+  storageMap.set('genyee_selected_tenant_id', '10001')
+
+  authApiMock.setRefreshHandler(async () => {
+    authRefresh.clearAuthStorage()
+    return { success: false }
+  })
+
+  let stream!: ReturnType<typeof useStream>
+  await renderToString(createSSRApp({ setup() { stream = useStream(); return () => null } }))
+  const base1 = transport.calls.length
+  const run1 = stream.startStream({ session_id: 'sess-logout', query: 'hello', method: 'POST', url: '/api/v1/agent-chat' })
+  const call1 = await nextCall(base1 + 1)
+  assert.equal((call1.options as any).headers['X-Tenant-ID'], '10001')
+  try {
+    await call1.options.onopen(new Response('', { status: 401 }))
+    assert.fail('401 must throw StreamAuthError')
+  } catch (err) {
+    call1.reject(err)
+  }
+  await run1
+  assert.equal(transport.calls.length, base1 + 1, 'logged-out stream must not replay')
+  assert.equal(stream.isStreaming.value, false)
+  assert.equal(stream.error.value, null)
+  assert.equal(mockLocation.href, 'http://localhost/chat', 'must not redirect active view to /login')
+
+  // 2. Account switch during 401 token refresh
+  resetSessionStorage()
+  storageMap.set('genyee_token', 'expired-a')
+  storageMap.set('genyee_refresh_token', 'rt-a')
+  storageMap.set('genyee_selected_tenant_id', '10001')
+
+  authApiMock.setRefreshHandler(async () => {
+    storageMap.set('genyee_token', 'user-b-token')
+    storageMap.set('genyee_refresh_token', 'user-b-rt')
+    return { success: true, data: { token: 'stale-a', refreshToken: 'stale-rt' } }
+  })
+
+  const base2 = transport.calls.length
+  const run2 = stream.startStream({ session_id: 'sess-switch-user', query: 'hello', method: 'POST', url: '/api/v1/agent-chat' })
+  const call2 = await nextCall(base2 + 1)
+  try {
+    await call2.options.onopen(new Response('', { status: 401 }))
+    assert.fail('401 must throw StreamAuthError')
+  } catch (err) {
+    call2.reject(err)
+  }
+  await run2
+  assert.equal(transport.calls.length, base2 + 1, 'switched-user stream must not replay under new user')
+  assert.equal(storageMap.get('genyee_token'), 'user-b-token')
+  assert.equal(stream.isStreaming.value, false)
+  assert.equal(stream.error.value, null)
+  assert.equal(mockLocation.href, 'http://localhost/chat')
+
+  // 3. Tenant switch during 401 token refresh
+  resetSessionStorage()
+  storageMap.set('genyee_token', 'expired-a')
+  storageMap.set('genyee_refresh_token', 'rt-a')
+  storageMap.set('genyee_selected_tenant_id', '10001')
+
+  authApiMock.setRefreshHandler(async () => {
+    storageMap.set('genyee_selected_tenant_id', '20002')
+    return { success: true, data: { token: 'fresh-a', refreshToken: 'rt-a-2' } }
+  })
+
+  const base3 = transport.calls.length
+  const run3 = stream.startStream({ session_id: 'sess-switch-tenant', query: 'hello', method: 'POST', url: '/api/v1/agent-chat' })
+  const call3 = await nextCall(base3 + 1)
+  try {
+    await call3.options.onopen(new Response('', { status: 401 }))
+    assert.fail('401 must throw StreamAuthError')
+  } catch (err) {
+    call3.reject(err)
+  }
+  await run3
+  assert.equal(transport.calls.length, base3 + 1, 'tenant-switched stream must not replay old workspace request')
+  assert.equal(storageMap.get('genyee_token'), 'fresh-a')
+  assert.equal(stream.isStreaming.value, false)
+  assert.equal(stream.error.value, null)
+  assert.equal(mockLocation.href, 'http://localhost/chat')
+})
+
+test('P1-13: logout or tenant switch during SSE reconnect loop silently aborts without reconnecting or redirecting', async (t) => {
+  t.after(() => resetSessionStorage())
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+
+  // 1. Workspace switch during reconnect backoff
+  resetSessionStorage()
+  storageMap.set('genyee_selected_tenant_id', '10001')
+
+  let stream!: ReturnType<typeof useStream>
+  await renderToString(createSSRApp({ setup() { stream = useStream(); return () => null } }))
+  const base1 = transport.calls.length
+  const run1 = stream.startStream({ session_id: 'sess-reconnect-tenant', query: 'work', method: 'POST', url: '/api/v1/agent-chat' })
+  const post1 = transport.calls[base1]!
+  post1.options.onmessage({ data: JSON.stringify({ response_type: 'agent_query', assistant_message_id: 'ans-1' }) })
+  post1.reject(new Error('network drop'))
+  for (let i = 0; i < 10; i++) await Promise.resolve()
+
+  // Switch workspace while reconnect timer is pending
+  storageMap.set('genyee_selected_tenant_id', '20002')
+  t.mock.timers.tick(1000)
+  await run1
+
+  assert.equal(transport.calls.length, base1 + 1, 'must not reconnect continue-stream after tenant switch')
+  assert.equal(stream.isStreaming.value, false)
+  assert.equal(stream.error.value, null)
+  assert.equal(mockLocation.href, 'http://localhost/chat')
+
+  // 2. Logout before disconnect immediately aborts reconnect without waiting
+  resetSessionStorage()
+  storageMap.set('genyee_selected_tenant_id', '10001')
+
+  const base2 = transport.calls.length
+  const run2 = stream.startStream({ session_id: 'sess-reconnect-logout', query: 'work', method: 'POST', url: '/api/v1/agent-chat' })
+  const post2 = transport.calls[base2]!
+  post2.options.onmessage({ data: JSON.stringify({ response_type: 'agent_query', assistant_message_id: 'ans-2' }) })
+  authRefresh.clearAuthStorage()
+  post2.reject(new Error('network drop'))
+  await run2
+
+  assert.equal(transport.calls.length, base2 + 1, 'must not reconnect continue-stream after logout')
+  assert.equal(stream.isStreaming.value, false)
+  assert.equal(stream.error.value, null)
+  assert.equal(mockLocation.href, 'http://localhost/chat')
 })

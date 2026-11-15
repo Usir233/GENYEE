@@ -12,6 +12,9 @@ import {
 } from '@/utils/chatRequestDebug';
 import {
   StreamAuthError,
+  assertAuthRequestContext,
+  captureAuthRequestContext,
+  isAuthSessionChangedError,
   isStreamAuthError,
   refreshAccessTokenShared,
   runStreamWithAuthRetry,
@@ -91,6 +94,8 @@ export function useStream() {
       return;
     }
 
+    const authContext = embedToken ? null : captureAuthRequestContext();
+
     // 跨空间访问请求头：只要 setSelectedTenant 写过激活空间，就附
     // X-Tenant-ID。早期版本会 short-circuit "selectedTenantId ===
     // defaultTenantId 时不附" 来减少 header 体积，但任何把 genyee_tenant
@@ -98,8 +103,18 @@ export function useStream() {
     // hydrate）都会让两者相等，使得后续流式请求悄悄丢 header、落到
     // home 空间上，导致 SSE 接口返回 404。直接附即可——后端
     // IsTenantAccessible 也允许 header 指向自家空间。
-    const selectedTenantId = localStorage.getItem('genyee_selected_tenant_id');
+    const selectedTenantId = authContext ? authContext.tenantId : localStorage.getItem('genyee_selected_tenant_id');
     const tenantIdHeader: string | null = selectedTenantId || null;
+
+    const isAuthContextCurrent = () => {
+      if (!authContext) return true;
+      try {
+        assertAuthRequestContext(authContext);
+        return true;
+      } catch {
+        return false;
+      }
+    };
 
     // TTFB instrumentation: record the moment we kick off the request so
     // we can compare it with the first answer chunk we receive from the
@@ -116,7 +131,7 @@ export function useStream() {
     // Never repeat an accepted POST: recovery attaches to its persisted message.
     const canReconnect = () => !embedToken && receivedAssistantId && !receivedTerminal &&
       (params.url === '/api/v1/agent-chat' || params.url === '/api/v1/sessions/continue-stream') &&
-      myGeneration === streamGeneration && !streamAbort.signal.aborted;
+      myGeneration === streamGeneration && !streamAbort.signal.aborted && isAuthContextCurrent();
 
 
     try {
@@ -273,6 +288,11 @@ export function useStream() {
 
         onmessage: (ev) => {
           if (myGeneration !== streamGeneration) return
+          if (!isAuthContextCurrent()) {
+            if (myGeneration === streamGeneration) stopStream();
+            else connection.abort();
+            return;
+          }
           let parsed: any;
           try {
             parsed = JSON.parse(ev.data);
@@ -323,11 +343,13 @@ export function useStream() {
       };
 
       while (myGeneration === streamGeneration && !streamAbort.signal.aborted) {
+        const currentToken = authContext ? (assertAuthRequestContext(authContext) || token) : token;
         try {
           await runStreamWithAuthRetry({
             run: runStream,
-            initialToken: token,
+            initialToken: currentToken,
             isEmbed: Boolean(embedToken),
+            authContext,
             isCurrent: () => myGeneration === streamGeneration && !streamAbort.signal.aborted,
             refreshAccessToken: () => refreshAccessTokenShared({
               messages: {
@@ -339,6 +361,8 @@ export function useStream() {
           });
           break;
         } catch (err) {
+          if (isAuthSessionChangedError(err)) throw err;
+          if (authContext) assertAuthRequestContext(authContext);
           if (!canReconnect() || isStreamAuthError(err) || reconnectAttempts >= 8) throw err;
           reconnectAttempts++;
           // The server may still be restarting. A stop/new turn invalidates
@@ -353,6 +377,7 @@ export function useStream() {
             streamAbort.signal.addEventListener('abort', done, { once: true });
           });
           if (myGeneration !== streamGeneration || streamAbort.signal.aborted) return;
+          if (authContext) assertAuthRequestContext(authContext);
           if (streamMethod !== 'GET') {
             streamMethod = 'GET';
             url = `${apiUrl}/api/v1/sessions/continue-stream/${encodeURIComponent(params.session_id)}?message_id=${encodeURIComponent(receivedAssistantId)}`;
@@ -363,6 +388,10 @@ export function useStream() {
       // A superseded stream failing must not surface as the current error or
       // abort the stream that replaced it (see onclose).
       if (myGeneration !== streamGeneration) return
+      if (isAuthSessionChangedError(err)) {
+        stopStream()
+        return
+      }
       error.value = err instanceof Error ? err.message : String(err)
       stopStream()
     }

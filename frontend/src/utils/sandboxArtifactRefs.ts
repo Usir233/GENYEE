@@ -24,7 +24,7 @@
 
 import type { Renderer } from 'marked';
 
-import { escapeHTML } from './security.ts';
+import { escapeHTML, resolveProtectedFileCacheScope } from './security.ts';
 import { renderArtifactFileIcon } from './artifactFileIcon';
 
 /** 与后端 artifactListItem / SSE publicArtifactViews 对齐的最小字段集。 */
@@ -233,20 +233,67 @@ function rendersAsImage(artifact: ArtifactRefMeta): boolean {
   return type.startsWith('image/') && !type.includes('svg');
 }
 
-// blob URL 按 (会话, 消息, 下标) 缓存，并挂在 window 上：Vite 热更新会替换模块
+// blob URL 按 (用户:租户作用域, 会话, 消息, 下标) 缓存，并挂在 window 上：Vite 热更新会替换模块
 // 但不会重建文档，模块级 Map 会让已加载的图片退回占位图。
-type ArtifactBlobState = { blobByKey: Map<string, string>; inflight: Map<string, Promise<string | null>> };
+type ArtifactBlobState = {
+  blobByKey: Map<string, string>;
+  inflight: Map<string, Promise<string | null>>;
+  clearEpoch: number;
+};
 
 const artifactBlobState: ArtifactBlobState = (() => {
-  const fresh = (): ArtifactBlobState => ({ blobByKey: new Map(), inflight: new Map() });
+  const fresh = (): ArtifactBlobState => ({
+    blobByKey: new Map(),
+    inflight: new Map(),
+    clearEpoch: 0,
+  });
   if (typeof window === 'undefined') return fresh();
   const scope = window as typeof window & { __genyeeArtifactBlobCacheV1__?: ArtifactBlobState };
   scope.__genyeeArtifactBlobCacheV1__ ||= fresh();
+  scope.__genyeeArtifactBlobCacheV1__.clearEpoch ||= 0;
   return scope.__genyeeArtifactBlobCacheV1__;
 })();
 
-function blobCacheKey(ctx: ArtifactRefContext, index: number): string {
-  return `${ctx.sessionId}\u0000${ctx.messageId}\u0000${index}`;
+function blobCacheKey(
+  ctx: ArtifactRefContext,
+  index: number,
+  scope = resolveProtectedFileCacheScope(),
+): string {
+  return `${scope}\u0000${ctx.sessionId}\u0000${ctx.messageId}\u0000${index}`;
+}
+
+/**
+ * Revoke all cached sandbox-artifact `blob:` Object URLs and discard any
+ * in-flight artifact image downloads from the previous session or tenant.
+ */
+export function clearArtifactBlobCache(): void {
+  const states = new Set<ArtifactBlobState>([artifactBlobState]);
+  if (typeof window !== 'undefined') {
+    const winScope = window as typeof window & { __genyeeArtifactBlobCacheV1__?: ArtifactBlobState };
+    if (winScope.__genyeeArtifactBlobCacheV1__) {
+      states.add(winScope.__genyeeArtifactBlobCacheV1__);
+    }
+  }
+  const urlsToRevoke = new Set<string>();
+  for (const state of states) {
+    for (const url of state.blobByKey.values()) {
+      if (url && url.startsWith('blob:')) {
+        urlsToRevoke.add(url);
+      }
+    }
+    state.clearEpoch = (state.clearEpoch || 0) + 1;
+    state.blobByKey.clear();
+    state.inflight.clear();
+  }
+  if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+    for (const url of urlsToRevoke) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {
+        // Ignore already-revoked blob URLs
+      }
+    }
+  }
 }
 
 // 与 chatMarkdownRenderer 的流式图片骨架同一个类名，样式复用。
@@ -353,32 +400,60 @@ export function renderArtifactReference(args: {
   return renderCard(artifact.file_name, args.labels.previewHint, artifact.index, 'ready');
 }
 
-async function loadArtifactBlobURL(ctx: ArtifactRefContext, index: number): Promise<string | null> {
-  const key = blobCacheKey(ctx, index);
+async function loadArtifactBlobURL(
+  ctx: ArtifactRefContext,
+  index: number,
+  scope: string,
+  expectedEpoch: number,
+): Promise<string | null> {
+  const key = blobCacheKey(ctx, index, scope);
   const cached = artifactBlobState.blobByKey.get(key);
   if (cached) return cached;
 
   let task = artifactBlobState.inflight.get(key);
   if (!task) {
+    const taskEpoch = artifactBlobState.clearEpoch;
     task = (async () => {
       try {
         // Imported lazily so parsing/rendering stays free of the axios
         // transport — those parts run in plain Node during unit tests.
         const { downloadArtifact } = await import('@/api/chat');
         const blob = await downloadArtifact(ctx.sessionId, ctx.messageId, index);
+        if (taskEpoch !== artifactBlobState.clearEpoch || resolveProtectedFileCacheScope() !== scope) {
+          return null;
+        }
         const blobURL = URL.createObjectURL(blob);
+        if (taskEpoch !== artifactBlobState.clearEpoch || resolveProtectedFileCacheScope() !== scope) {
+          if (typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+            try {
+              URL.revokeObjectURL(blobURL);
+            } catch {
+              // Ignore already-revoked blob URLs
+            }
+          }
+          return null;
+        }
         artifactBlobState.blobByKey.set(key, blobURL);
         return blobURL;
       } catch (error) {
+        if (taskEpoch !== artifactBlobState.clearEpoch) {
+          return null;
+        }
         console.warn('[sandboxArtifactRefs] artifact image load failed:', error);
         return null;
       } finally {
-        artifactBlobState.inflight.delete(key);
+        if (artifactBlobState.clearEpoch === taskEpoch) {
+          artifactBlobState.inflight.delete(key);
+        }
       }
     })();
     artifactBlobState.inflight.set(key, task);
   }
-  return task;
+  const blobURL = await task;
+  if (!blobURL || expectedEpoch !== artifactBlobState.clearEpoch || resolveProtectedFileCacheScope() !== scope) {
+    return null;
+  }
+  return blobURL;
 }
 
 /**
@@ -398,13 +473,15 @@ export async function hydrateArtifactImages(
   ).filter((img) => img.dataset.authHydrated !== '1');
   if (!images.length) return;
 
+  const scope = resolveProtectedFileCacheScope();
+  const startEpoch = artifactBlobState.clearEpoch;
   await Promise.all(images.map(async (img) => {
     const index = Number(img.getAttribute('data-artifact-index'));
     if (!Number.isInteger(index) || index < 0) return;
     img.dataset.authHydrated = '1';
 
-    const blobURL = await loadArtifactBlobURL(ctx, index);
-    if (!blobURL) {
+    const blobURL = await loadArtifactBlobURL(ctx, index, scope, startEpoch);
+    if (!blobURL || startEpoch !== artifactBlobState.clearEpoch || resolveProtectedFileCacheScope() !== scope) {
       img.dataset.authHydrated = '0';
       return;
     }

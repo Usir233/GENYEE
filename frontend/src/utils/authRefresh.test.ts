@@ -4,15 +4,19 @@ import test from 'node:test'
 import { subscribeAuthTokens } from './authTokens.ts'
 
 import {
+  AuthSessionChangedError,
   StreamAuthError,
+  captureAuthRequestContext,
   clearAuthStorage,
   forceReloginRedirect,
+  isAuthSessionChangedError,
   isStreamAuthError,
   refreshAccessTokenShared,
   resetAuthRefreshStateForTests,
   runStreamWithAuthRetry,
   type TokenRefreshResult,
 } from './authRefresh.ts'
+import { resolveProtectedFileCacheScope, setProtectedFileCacheScope } from './security.ts'
 
 type Store = Record<string, string>
 
@@ -468,4 +472,158 @@ test('chat stream wires the shared retry and keeps the abort controller', () => 
   assert.match(source, /isStreamAuthError/)
   assert.match(source, /streamAbort/)
   assert.doesNotMatch(source, /forceReloginRedirect/)
+})
+
+test('P1-13: runStreamWithAuthRetry aborts with AuthSessionChangedError on logout, account switch, or tenant switch without replaying or redirecting', async () => {
+  // 1. Logout before 401 refresh starts
+  {
+    const { store, location } = installBrowser('/chat')
+    store.genyee_token = 'expired-a'
+    store.genyee_refresh_token = 'rt-a'
+    store.genyee_selected_tenant_id = '10001'
+    const authContext = captureAuthRequestContext()
+    let runs = 0
+    let refreshes = 0
+
+    await assert.rejects(
+      () => runStreamWithAuthRetry({
+        initialToken: 'expired-a',
+        isEmbed: false,
+        authContext,
+        isCurrent: () => true,
+        refreshAccessToken: async () => {
+          refreshes += 1
+          return 'should-not-run'
+        },
+        reloginMessage: 'please-relogin',
+        run: async () => {
+          runs += 1
+          clearAuthStorage()
+          throw new StreamAuthError(401)
+        },
+      }),
+      (err: unknown) => err instanceof AuthSessionChangedError && isAuthSessionChangedError(err),
+    )
+    assert.equal(runs, 1)
+    assert.equal(refreshes, 0)
+    assert.equal(location.href, 'http://localhost/chat')
+  }
+
+  // 2. Account switch while refreshAccessTokenShared is in flight
+  {
+    resetAuthRefreshStateForTests()
+    const { store, location } = installBrowser('/chat')
+    store.genyee_token = 'expired-a'
+    store.genyee_refresh_token = 'rt-a'
+    store.genyee_selected_tenant_id = '10001'
+    const authContext = captureAuthRequestContext()
+    let runs = 0
+
+    await assert.rejects(
+      () => runStreamWithAuthRetry({
+        initialToken: 'expired-a',
+        isEmbed: false,
+        authContext,
+        isCurrent: () => true,
+        refreshAccessToken: () => refreshAccessTokenShared({
+          refresh: async () => {
+            store.genyee_token = 'user-b-token'
+            store.genyee_refresh_token = 'user-b-rt'
+            return { success: true, data: { token: 'stale-a-token', refreshToken: 'stale-a-rt' } }
+          },
+        }),
+        reloginMessage: 'please-relogin',
+        run: async () => {
+          runs += 1
+          throw new StreamAuthError(401)
+        },
+      }),
+      (err: unknown) => err instanceof AuthSessionChangedError,
+    )
+    assert.equal(runs, 1, 'must not replay stream under User B session')
+    assert.equal(store.genyee_token, 'user-b-token')
+    assert.equal(store.genyee_refresh_token, 'user-b-rt')
+    assert.equal(location.href, 'http://localhost/chat')
+  }
+
+  // 3. Tenant/workspace switch while token refresh is in flight
+  {
+    resetAuthRefreshStateForTests()
+    const { store, location } = installBrowser('/chat')
+    store.genyee_token = 'expired-a'
+    store.genyee_refresh_token = 'rt-a'
+    store.genyee_selected_tenant_id = '10001'
+    const authContext = captureAuthRequestContext()
+    let runs = 0
+
+    await assert.rejects(
+      () => runStreamWithAuthRetry({
+        initialToken: 'expired-a',
+        isEmbed: false,
+        authContext,
+        isCurrent: () => true,
+        refreshAccessToken: () => refreshAccessTokenShared({
+          refresh: async () => {
+            store.genyee_selected_tenant_id = '20002'
+            return { success: true, data: { token: 'fresh-a', refreshToken: 'rt-a-2' } }
+          },
+        }),
+        reloginMessage: 'please-relogin',
+        run: async () => {
+          runs += 1
+          throw new StreamAuthError(401)
+        },
+      }),
+      (err: unknown) => err instanceof AuthSessionChangedError,
+    )
+    assert.equal(runs, 1, 'must not replay tenant 10001 stream after switch to tenant 20002')
+    assert.equal(store.genyee_token, 'fresh-a', 'same-user refreshed token remains valid for new workspace')
+    assert.equal(location.href, 'http://localhost/chat')
+  }
+})
+
+test('P1-13: runStreamWithAuthRetry reuses an already-rotated token in the same session and tenant without another refresh', async () => {
+  const { store } = installBrowser('/chat')
+  store.genyee_token = 'expired-1'
+  store.genyee_refresh_token = 'rt-1'
+  store.genyee_selected_tenant_id = '10001'
+  const authContext = captureAuthRequestContext()
+
+  // Another concurrent request in the same session rotates the token first.
+  await refreshAccessTokenShared({
+    refresh: async () => ({ success: true, data: { token: 'rotated-2', refreshToken: 'rt-2' } }),
+  })
+
+  const seenTokens: string[] = []
+  let extraRefreshCalls = 0
+  const result = await runStreamWithAuthRetry({
+    initialToken: 'expired-1',
+    isEmbed: false,
+    authContext,
+    isCurrent: () => true,
+    refreshAccessToken: async () => {
+      extraRefreshCalls += 1
+      return 'unexpected'
+    },
+    reloginMessage: 'please-relogin',
+    run: async (token) => {
+      seenTokens.push(token)
+      if (token === 'expired-1') throw new StreamAuthError(401)
+      return `ok:${token}`
+    },
+  })
+
+  assert.equal(result, 'ok:rotated-2')
+  assert.deepEqual(seenTokens, ['expired-1', 'rotated-2'])
+  assert.equal(extraRefreshCalls, 0)
+})
+
+test('P1-14: clearAuthStorage clears protected file cache scope', () => {
+  installBrowser('/chat')
+  setProtectedFileCacheScope('user-42', '10001')
+  assert.equal(resolveProtectedFileCacheScope(), 'user-42:10001')
+
+  clearAuthStorage()
+
+  assert.equal(resolveProtectedFileCacheScope(), 'anon:default')
 })

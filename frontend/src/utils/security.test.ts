@@ -8,6 +8,7 @@ import {
   resolveProtectedFileCacheScope,
   setProtectedFileCacheScope,
 } from './security.ts'
+import { setDefaultProtectedFileAccess } from './protectedFileAccess.ts'
 
 test('protectProviderImageSrcInHTML uses a placeholder src for provider images', () => {
   const html = '<p><img alt="preview" src="local://10000/exports/a.jpg"></p>'
@@ -53,15 +54,26 @@ test('document preview sanitizer keeps target on links alongside image attribute
 })
 
 test('protected file cache scope isolates user:tenant namespaces and embed channels', () => {
-  setProtectedFileCacheScope('u-1', 10001)
-  assert.equal(resolveProtectedFileCacheScope(), 'u-1:10001')
-  assert.equal(
-    resolveProtectedFileCacheScope({ plane: 'embed', channelId: 'ch-abc', token: 'tok' } as any),
-    'u-1:10001:embed:ch-abc',
-  )
-  setProtectedFileCacheScope('u-1', 20002)
-  assert.equal(resolveProtectedFileCacheScope(), 'u-1:20002')
-  clearProtectedFileCache()
-  setProtectedFileCacheScope(null, null)
+  try {
+    setProtectedFileCacheScope('u-1', 10001)
+    assert.equal(resolveProtectedFileCacheScope(), 'u-1:10001')
+    assert.equal(
+      resolveProtectedFileCacheScope({ mode: 'embed', channelId: 'ch-abc', token: 'tok' }),
+      'u-1:10001:embed:ch-abc',
+    )
+    assert.equal(
+      resolveProtectedFileCacheScope({ mode: 'embed', channelId: 'ch-xyz', token: 'tok-2' }),
+      'u-1:10001:embed:ch-xyz',
+    )
+    setDefaultProtectedFileAccess({ mode: 'embed', channelId: 'ch-default', token: 'tok-default' })
+    assert.equal(resolveProtectedFileCacheScope(), 'u-1:10001:embed:ch-default')
+    setDefaultProtectedFileAccess(null)
+    setProtectedFileCacheScope('u-1', 20002)
+    assert.equal(resolveProtectedFileCacheScope(), 'u-1:20002')
+  } finally {
+    setDefaultProtectedFileAccess(null)
+    clearProtectedFileCache()
+    setProtectedFileCacheScope(null, null)
+  }
   assert.equal(resolveProtectedFileCacheScope(), 'anon:default')
 })

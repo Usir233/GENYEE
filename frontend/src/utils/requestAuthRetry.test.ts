@@ -39,8 +39,13 @@ function fixture(refreshResult?: () => Promise<RefreshResult>) {
   }
   const tokens = evaluate('./authTokens.ts', {})
   const refreshed: string[] = []
+  let protectedCacheClears = 0
   const refresh = evaluate('./authRefresh.ts', {
     './api-base': { getApiBaseUrl: () => '' }, './authTokens': tokens,
+    './security': {
+      clearProtectedFileCache: () => { protectedCacheClears += 1 },
+      setProtectedFileCacheScope: () => {},
+    },
     '../api/auth/index': {
       refreshToken: async (token: string) => {
         refreshed.push(token)

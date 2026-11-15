@@ -274,3 +274,80 @@ test('background token rotation synchronizes the store after reload and unsubscr
   assert.equal(f.authStore.token, '')
   assert.equal(f.storageListeners.size, 0)
 })
+
+test('P1-14: setTenant clears protected file and session caches on every workspace transition, including back to default workspace', () => {
+  const { authStore, getInvalidations } = setupTest()
+  authStore.setUser({ id: 'u-10', username: 'bob', email: 'bob@example.com' })
+
+  // 1. Initial transition null -> default workspace 10001
+  const inv0 = getInvalidations().protectedCacheCleared
+  authStore.setTenant({ id: 10001, name: 'Default Workspace' })
+  assert.equal(getInvalidations().protectedCacheCleared, inv0 + 1, 'null -> 10001 must clear protected cache')
+  assert.equal(getInvalidations().activeProtectedScope, 'u-10:10001')
+
+  // 2. Idempotent metadata update on the same workspace does NOT clear cache
+  const inv1 = getInvalidations().protectedCacheCleared
+  authStore.setTenant({ id: 10001, name: 'Default Workspace Renamed' })
+  assert.equal(getInvalidations().protectedCacheCleared, inv1, 'same-ID setTenant must not clear cache')
+
+  // 3. Switch to shared workspace 20002 via setSelectedTenant, then switch default tenant via setTenant when returning
+  authStore.setSelectedTenant(20002, 'Shared Workspace')
+  const inv2 = getInvalidations().protectedCacheCleared
+  assert.equal(inv2, inv1 + 1)
+  assert.equal(getInvalidations().activeProtectedScope, 'u-10:20002')
+
+  // Switching back to default workspace (selectedTenantId -> null while tenant is 10001)
+  authStore.setSelectedTenant(null, null)
+  const inv3 = getInvalidations().protectedCacheCleared
+  assert.equal(inv3, inv2 + 1, 'switching back to default workspace must clear cache')
+  assert.equal(getInvalidations().activeProtectedScope, 'u-10:10001')
+
+  // 4. Direct workspace transition via setTenant (10001 -> 30003 -> 10001 -> null) with selectedTenantId === null
+  authStore.setTenant({ id: 30003, name: 'Workspace 30003' })
+  const inv4 = getInvalidations().protectedCacheCleared
+  assert.equal(inv4, inv3 + 1, '10001 -> 30003 via setTenant must clear cache')
+  assert.equal(getInvalidations().activeProtectedScope, 'u-10:30003')
+
+  authStore.setTenant({ id: 10001, name: 'Default Workspace' })
+  const inv5 = getInvalidations().protectedCacheCleared
+  assert.equal(inv5, inv4 + 1, '30003 -> 10001 default workspace via setTenant must clear cache')
+  assert.equal(getInvalidations().activeProtectedScope, 'u-10:10001')
+
+  authStore.setTenant(null)
+  const inv6 = getInvalidations().protectedCacheCleared
+  assert.equal(inv6, inv5 + 1, '10001 -> null via setTenant must clear cache')
+})
+
+test('P1-14: cross-tab storage token removal clears protected file cache and resets scope', () => {
+  const f = setupTest()
+  f.authStore.setUser({ id: 'u-77', username: 'carol', email: 'carol@example.com' })
+  f.authStore.setSelectedTenant(40004, 'Tenant 40004')
+  f.writeAuthTokens({ token: 'tab-token', refreshToken: 'tab-refresh' })
+  assert.equal(f.getInvalidations().activeProtectedScope, 'u-77:40004')
+
+  const before = f.getInvalidations()
+  // Another tab logs out and removes genyee_token
+  f.mockLocalStorage.removeItem('genyee_token')
+  f.mockLocalStorage.removeItem('genyee_refresh_token')
+  f.dispatchStorage('genyee_token')
+
+  const afterRemove = f.getInvalidations()
+  assert.equal(f.authStore.token, '')
+  assert.ok(afterRemove.protectedCacheCleared > before.protectedCacheCleared, 'cross-tab token removal must clear protected file cache')
+  assert.ok(afterRemove.chatInvalidated > before.chatInvalidated, 'cross-tab token removal must invalidate chat resources')
+  assert.ok(afterRemove.editorInvalidated > before.editorInvalidated, 'cross-tab token removal must invalidate editor resources')
+  assert.ok(afterRemove.orgCleared > before.orgCleared, 'cross-tab token removal must clear org state')
+  assert.equal(afterRemove.activeProtectedScope, '', 'cross-tab token removal must reset protected cache scope')
+
+  // Re-establish session and test storage.clear() (key === null)
+  f.authStore.setSelectedTenant(50005, 'Tenant 50005')
+  f.writeAuthTokens({ token: 'tab-token-2', refreshToken: 'tab-refresh-2' })
+  const beforeClear = f.getInvalidations()
+  f.mockLocalStorage.clear()
+  f.dispatchStorage(null)
+
+  const afterClear = f.getInvalidations()
+  assert.ok(afterClear.protectedCacheCleared > beforeClear.protectedCacheCleared, 'cross-tab storage.clear() must clear protected file cache')
+  assert.equal(afterClear.activeProtectedScope, '')
+  f.authStore.$dispose()
+})

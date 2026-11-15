@@ -8,6 +8,7 @@
 
 import { getApiBaseUrl } from './api-base'
 import { notifyAuthTokensChanged, writeAuthTokens } from './authTokens'
+import { clearProtectedFileCache, setProtectedFileCacheScope } from './security'
 
 const AUTH_STORAGE_KEYS = [
   'genyee_token',
@@ -42,6 +43,12 @@ export class AuthSessionChangedError extends Error {
     super('Authentication session changed during token refresh')
     this.name = 'AuthSessionChangedError'
   }
+}
+
+export function isAuthSessionChangedError(err: unknown): err is AuthSessionChangedError {
+  if (!err || typeof err !== 'object') return false
+  if (err instanceof AuthSessionChangedError) return true
+  return (err as { name?: string }).name === 'AuthSessionChangedError'
 }
 
 /** Detach pending refreshes when the local session is explicitly ended. */
@@ -154,6 +161,8 @@ export function clearAuthStorage() {
       // allow callers to reject waiting requests and redirect to login.
     }
   }
+  setProtectedFileCacheScope('', '')
+  clearProtectedFileCache()
   notifyAuthTokensChanged({ token: '', refreshToken: '' })
 }
 
@@ -250,20 +259,44 @@ export async function runStreamWithAuthRetry<T>(options: {
   isCurrent: () => boolean
   refreshAccessToken: () => Promise<string>
   reloginMessage: string
+  authContext?: AuthRequestContext | null
 }): Promise<T | undefined> {
+  const authContext = options.isEmbed
+    ? null
+    : (options.authContext !== undefined ? options.authContext : captureAuthRequestContext())
   try {
     return await options.run(options.initialToken)
   } catch (err) {
     if (!isStreamAuthError(err) || options.isEmbed) throw err
+    if (!options.isCurrent()) return undefined
 
     let refreshedToken: string
-    try {
-      refreshedToken = await options.refreshAccessToken()
-    } catch {
-      throw new Error(options.reloginMessage)
+    if (authContext) {
+      const currentToken = assertAuthRequestContext(authContext)
+      if (currentToken && currentToken !== options.initialToken) {
+        refreshedToken = currentToken
+      } else {
+        try {
+          refreshedToken = await options.refreshAccessToken()
+        } catch (refreshErr) {
+          if (isAuthSessionChangedError(refreshErr)) throw refreshErr
+          throw new Error(options.reloginMessage)
+        }
+        assertAuthRequestContext(authContext)
+      }
+    } else {
+      try {
+        refreshedToken = await options.refreshAccessToken()
+      } catch (refreshErr) {
+        if (isAuthSessionChangedError(refreshErr)) throw refreshErr
+        throw new Error(options.reloginMessage)
+      }
     }
 
     if (!options.isCurrent()) return undefined
+    if (authContext) {
+      assertAuthRequestContext(authContext)
+    }
 
     try {
       return await options.run(refreshedToken)

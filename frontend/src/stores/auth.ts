@@ -211,13 +211,23 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const setTenant = (tenantData: TenantInfo | null) => {
+    const previousTenantId = tenant.value?.id ? String(tenant.value.id) : null
+    const previousEffectiveTenantId = effectiveTenantId.value
+    const nextTenantId = tenantData?.id ? String(tenantData.id) : null
     tenant.value = tenantData
     if (tenantData) {
       localStorage.setItem('genyee_tenant', JSON.stringify(tenantData))
+      if (previousTenantId !== nextTenantId || previousEffectiveTenantId !== effectiveTenantId.value) {
+        clearSessionResourceCaches()
+      }
       syncProtectedFileScope()
     } else {
       localStorage.removeItem('genyee_tenant')
+      const selectedBeforeClear = selectedTenantId.value
       setSelectedTenant(null, null)
+      if (selectedBeforeClear === null && (previousTenantId !== null || previousEffectiveTenantId !== null)) {
+        clearSessionResourceCaches()
+      }
       syncProtectedFileScope()
     }
   }
@@ -611,6 +621,10 @@ export const useAuthStore = defineStore('auth', () => {
       if (e.storageArea && e.storageArea !== localStorage) return
       if (e.key === null || e.key === 'genyee_token' || e.key === 'genyee_refresh_token') {
         syncTokenFromStorage()
+        if (!token.value) {
+          setProtectedFileCacheScope('', '')
+          clearSessionResourceCaches()
+        }
       }
     }
     window.addEventListener('storage', onStorage)
