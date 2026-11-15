@@ -2,6 +2,8 @@ package router
 
 import (
 	"context"
+	"net"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -114,9 +116,7 @@ func NewRouter(params RouterParams) *gin.Engine {
 	// trivially bypass the limiter. Restrict to the fronting proxy network so
 	// only the real client IP (appended by nginx) is returned. Configurable via
 	// GENYEE_TRUSTED_PROXIES (comma-separated CIDRs/IPs).
-	if err := r.SetTrustedProxies(trustedProxies()); err != nil {
-		logger.Errorf(context.Background(), "[Router] failed to set trusted proxies: %v", err)
-	}
+	applyTrustedProxies(r)
 
 	// CORS 中间件应放在最前面。
 	// 未显式配置 GENYEE_CORS_ALLOWED_ORIGINS 时退回通配符 "*" 并强制关闭
@@ -335,6 +335,31 @@ func NewRouter(params RouterParams) *gin.Engine {
 	return r
 }
 
+func normalizeAllowedCORSOrigin(raw string) (string, bool) {
+	entry := strings.TrimSpace(raw)
+	if entry == "" {
+		return "", false
+	}
+	if entry == "*" {
+		return "*", true
+	}
+	if strings.EqualFold(entry, "null") {
+		return "", false
+	}
+	u, err := url.Parse(entry)
+	if err != nil || u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return "", false
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return "", false
+	}
+	if u.Path != "" && u.Path != "/" {
+		return "", false
+	}
+	return scheme + "://" + strings.ToLower(u.Host), true
+}
+
 func buildCORSConfig() cors.Config {
 	rawOrigins := strings.TrimSpace(os.Getenv("GENYEE_CORS_ALLOWED_ORIGINS"))
 	if rawOrigins == "" {
@@ -343,14 +368,19 @@ func buildCORSConfig() cors.Config {
 	var allowedOrigins []string
 	hasWildcard := false
 	for _, entry := range strings.Split(rawOrigins, ",") {
-		entry = strings.TrimSpace(entry)
-		if entry == "" {
+		trimmed := strings.TrimSpace(entry)
+		if trimmed == "" {
 			continue
 		}
-		if entry == "*" {
+		norm, ok := normalizeAllowedCORSOrigin(trimmed)
+		if !ok {
+			logger.Warnf(context.Background(), "[Router] ignoring invalid CORS origin %q", trimmed)
+			continue
+		}
+		if norm == "*" {
 			hasWildcard = true
 		}
-		allowedOrigins = append(allowedOrigins, entry)
+		allowedOrigins = append(allowedOrigins, norm)
 	}
 	allowCredentials := true
 	if len(allowedOrigins) == 0 || hasWildcard {
@@ -371,6 +401,13 @@ func buildCORSConfig() cors.Config {
 	}
 }
 
+func applyTrustedProxies(r *gin.Engine) {
+	if err := r.SetTrustedProxies(trustedProxies()); err != nil {
+		logger.Errorf(context.Background(), "[Router] failed to set trusted proxies, failing closed to direct peer IP: %v", err)
+		_ = r.SetTrustedProxies(nil)
+	}
+}
+
 // trustedProxies returns the proxy CIDRs/IPs whose X-Forwarded-For headers
 // gin should trust when resolving the client IP. Defaults strictly to loopback
 // so untrusted peers on shared container/VPC networks cannot spoof
@@ -387,9 +424,17 @@ func trustedProxies() []string {
 	}
 	proxies := make([]string, 0)
 	for _, p := range strings.Split(raw, ",") {
-		if p = strings.TrimSpace(p); p != "" {
-			proxies = append(proxies, p)
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
 		}
+		if net.ParseIP(p) == nil {
+			if _, _, err := net.ParseCIDR(p); err != nil {
+				logger.Warnf(context.Background(), "[Router] ignoring invalid entry in GENYEE_TRUSTED_PROXIES: %q", p)
+				continue
+			}
+		}
+		proxies = append(proxies, p)
 	}
 	return proxies
 }

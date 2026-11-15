@@ -662,8 +662,8 @@ func servePresignedPreview(
 			}
 
 			// Sign the original reference so a resource keeps its /r/ grant
-			// form; the resolved physical path is only used for the check.
-			_, resourceResolved, ok := resolveCatalogResource(c, resourceCatalog, filePath, tenant.ID)
+			// form; the resolved physical path determines the backing provider.
+			resolvedPath, resourceResolved, ok := resolveCatalogResource(c, resourceCatalog, filePath, tenant.ID)
 			if !ok {
 				return
 			}
@@ -674,21 +674,28 @@ func servePresignedPreview(
 				}
 			}
 
-			backendID, provider := parseStorageTarget(filePath)
+			backendID, provider := parseStorageTarget(resolvedPath)
 			fileSvc, resolvedProvider, err := resolveFileService(ctx, tenant, backendID, provider, absDir, storageResolver)
 			if err != nil {
+				logger.Warnf(ctx, "[presigned-preview] resolve storage failed (provider=%s): %v", provider, err)
 				c.JSON(http.StatusBadRequest, gin.H{
-					"error":    err.Error(),
+					"error":    "storage backend unavailable or misconfigured",
 					"provider": provider,
 					"hint":     "workspace storage config is missing or incomplete for this provider",
 				})
 				return
 			}
+			if resourceResolved && resourceCatalog != nil {
+				if _, wrapped := fileSvc.(interface{ ResourceCatalog() interfaces.ResourceCatalog }); !wrapped {
+					fileSvc = filesvc.NewResourceCatalogFileService(fileSvc, resourceCatalog)
+				}
+			}
 
 			httpURL, err := fileSvc.GetFileURL(ctx, filePath)
 			if err != nil {
+				logger.Warnf(ctx, "[presigned-preview] GetFileURL failed (provider=%s): %v", resolvedProvider, err)
 				c.JSON(http.StatusInternalServerError, gin.H{
-					"error":    err.Error(),
+					"error":    "failed to generate presigned URL",
 					"provider": resolvedProvider,
 					"hint":     "GetFileURL failed; for local storage this usually means APP_EXTERNAL_URL is unset",
 				})
