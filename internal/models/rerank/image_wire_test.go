@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"sync"
 	"testing"
 
+	"github.com/Usir233/GENYEE/internal/models/api"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -141,4 +143,66 @@ func TestRerankImagesPassesThroughEveryDecorator(t *testing.T) {
 	text := &debugReranker{inner: newImageReranker(t, up, "jina", "jina-reranker-v3", "/v1")}
 	_, ok = AsImageReranker(text)
 	assert.False(t, ok)
+}
+
+type scriptedImageProtocol struct {
+	mu        sync.Mutex
+	responses [][]api.RerankResult
+	call      int
+}
+
+func (s *scriptedImageProtocol) AcceptsImages() bool { return true }
+
+func (s *scriptedImageProtocol) RerankImages(
+	_ context.Context, _ string, _ []Image,
+) ([]api.RerankResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	idx := s.call
+	s.call++
+	out := make([]api.RerankResult, len(s.responses[idx]))
+	copy(out, s.responses[idx])
+	return out, nil
+}
+
+func TestRerankImagesValidatesPerBatchIndicesBeforeOffsetAddition(t *testing.T) {
+	imgs := pngs(4)
+	newImgReranker := func(responses [][]api.RerankResult) *protocolReranker {
+		return &protocolReranker{
+			inner:     &fakeProtocol{},
+			images:    &scriptedImageProtocol{responses: responses},
+			settings:  api.RerankSettings{ImageInput: api.ImageInput{MaxImageBatchSize: 2}, MaxConcurrency: 1},
+			modelName: "img-m",
+		}
+	}
+
+	t.Run("rejects negative index in second batch", func(t *testing.T) {
+		r := newImgReranker([][]api.RerankResult{
+			{{Index: 0, Score: 0.9}, {Index: 1, Score: 0.8}},
+			{{Index: -1, Score: 0.7}, {Index: 1, Score: 0.6}},
+		})
+		_, err := r.RerankImages(context.Background(), "q", imgs)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "index -1 out of range for 2 images")
+	})
+
+	t.Run("rejects overflow index in first batch", func(t *testing.T) {
+		r := newImgReranker([][]api.RerankResult{
+			{{Index: 0, Score: 0.9}, {Index: 2, Score: 0.8}},
+			{{Index: 0, Score: 0.7}, {Index: 1, Score: 0.6}},
+		})
+		_, err := r.RerankImages(context.Background(), "q", imgs)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "index 2 out of range for 2 images")
+	})
+
+	t.Run("rejects duplicate index within an image batch", func(t *testing.T) {
+		r := newImgReranker([][]api.RerankResult{
+			{{Index: 1, Score: 0.9}, {Index: 1, Score: 0.8}},
+			{{Index: 0, Score: 0.7}, {Index: 1, Score: 0.6}},
+		})
+		_, err := r.RerankImages(context.Background(), "q", imgs)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "duplicate index 1 in batch")
+	})
 }

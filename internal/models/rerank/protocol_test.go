@@ -188,3 +188,62 @@ func TestLogitConversionHandlesExtremes(t *testing.T) {
 	assert.False(t, math.IsNaN(normalizeScore(-1000, api.ScoreLogit)))
 	assert.False(t, math.IsNaN(normalizeScore(1000, api.ScoreLogit)))
 }
+
+type scriptedBatchProtocol struct {
+	mu        sync.Mutex
+	responses [][]api.RerankResult
+	call      int
+}
+
+func (s *scriptedBatchProtocol) Rerank(
+	_ context.Context, _ string, _ []string,
+) ([]api.RerankResult, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	idx := s.call
+	s.call++
+	out := make([]api.RerankResult, len(s.responses[idx]))
+	copy(out, s.responses[idx])
+	return out, nil
+}
+
+func TestPerBatchIndexValidationBeforeOffsetAddition(t *testing.T) {
+	docs := []string{"d0", "d1", "d2", "d3"}
+	settings := api.RerankSettings{MaxDocuments: 2, MaxConcurrency: 1}
+
+	t.Run("rejects negative index in second batch instead of wrapping into first batch", func(t *testing.T) {
+		r := newWrapped(&scriptedBatchProtocol{
+			responses: [][]api.RerankResult{
+				{{Index: 0, Score: 0.9}, {Index: 1, Score: 0.8}},
+				{{Index: -1, Score: 0.7}, {Index: 1, Score: 0.6}},
+			},
+		}, settings)
+		_, err := r.Rerank(context.Background(), "q", docs)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "index -1 out of range for 2 documents")
+	})
+
+	t.Run("rejects batch-overflow index in first batch instead of spilling into second batch", func(t *testing.T) {
+		r := newWrapped(&scriptedBatchProtocol{
+			responses: [][]api.RerankResult{
+				{{Index: 0, Score: 0.9}, {Index: 2, Score: 0.8}},
+				{{Index: 0, Score: 0.7}, {Index: 1, Score: 0.6}},
+			},
+		}, settings)
+		_, err := r.Rerank(context.Background(), "q", docs)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "index 2 out of range for 2 documents")
+	})
+
+	t.Run("rejects duplicate index within a batch", func(t *testing.T) {
+		r := newWrapped(&scriptedBatchProtocol{
+			responses: [][]api.RerankResult{
+				{{Index: 0, Score: 0.9}, {Index: 0, Score: 0.8}},
+				{{Index: 0, Score: 0.7}, {Index: 1, Score: 0.6}},
+			},
+		}, settings)
+		_, err := r.Rerank(context.Background(), "q", docs)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "duplicate index 0 in batch")
+	})
+}

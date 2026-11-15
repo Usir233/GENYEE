@@ -92,12 +92,24 @@ func (r *protocolReranker) RerankImages(ctx context.Context, query string, image
 	group.SetLimit(r.concurrency())
 	for i, b := range batches {
 		group.Go(func() error {
-			out, err := r.images.RerankImages(groupCtx, query, images[b.start:b.end])
+			batchImages := images[b.start:b.end]
+			out, err := r.images.RerankImages(groupCtx, query, batchImages)
 			if err != nil {
 				return err
 			}
+			seen := make([]bool, len(batchImages))
 			for j := range out {
-				out[j].Index += b.start
+				idx := out[j].Index
+				if idx < 0 || idx >= len(batchImages) {
+					return fmt.Errorf("%s rerank: index %d out of range for %d images",
+						r.modelName, idx, len(batchImages))
+				}
+				if seen[idx] {
+					return fmt.Errorf("%s rerank: duplicate index %d in batch",
+						r.modelName, idx)
+				}
+				seen[idx] = true
+				out[j].Index = idx + b.start
 			}
 			scored[i] = out
 			return nil

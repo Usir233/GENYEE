@@ -71,8 +71,23 @@ func (r *protocolReranker) Rerank(
 			if err != nil {
 				return err
 			}
+			seen := make([]bool, len(batch.Items))
 			for j := range out {
-				out[j].Index += batch.Start
+				idx := out[j].Index
+				if idx < 0 || idx >= len(batch.Items) {
+					return fmt.Errorf(
+						"%s rerank: index %d out of range for %d documents",
+						r.modelName, idx, len(batch.Items),
+					)
+				}
+				if seen[idx] {
+					return fmt.Errorf(
+						"%s rerank: duplicate index %d in batch",
+						r.modelName, idx,
+					)
+				}
+				seen[idx] = true
+				out[j].Index = idx + batch.Start
 			}
 			scored[i] = out
 			return nil

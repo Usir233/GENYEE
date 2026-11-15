@@ -154,3 +154,44 @@ func TestLKEAPClientFallsBackToTheDefaultModel(t *testing.T) {
 	require.Len(t, upstream.requests, 1)
 	assert.Equal(t, LKEAPDefaultRerankModel, upstream.requests[0].body["Model"])
 }
+
+func TestLKEAPClientHonorsResolvedBaseURLAndRejectsNilScore(t *testing.T) {
+	withRerankSSRFWhitelist(t, "127.0.0.1")
+
+	var hits int
+	var returnNull bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		assert.Equal(t, "/proxy/lkeap", r.URL.Path)
+		assert.Equal(t, "RunRerank", r.Header.Get("X-TC-Action"))
+		w.Header().Set("Content-Type", "application/json")
+		if returnNull {
+			_, _ = w.Write([]byte(`{"Response":{"ScoreList":[null,0.4],"RequestId":"r"}}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"Response":{"ScoreList":[0.2,0.9],"RequestId":"r"}}`))
+	}))
+	defer server.Close()
+
+	// Do NOT touch lkeapEndpoint/lkeapScheme: resolved.BaseURL must route directly.
+	client, err := newLKEAPClient(
+		&RerankerConfig{APIKey: "AKIDxxx", AppSecret: "sk"},
+		&modelruntime.Resolved{
+			BaseURL:     server.URL + "/proxy/lkeap",
+			RemoteModel: "lke-reranker-base",
+		},
+	)
+	require.NoError(t, err)
+
+	got, err := client.Rerank(context.Background(), "q", []string{"d0", "d1"})
+	require.NoError(t, err)
+	require.Equal(t, 1, hits)
+	require.Len(t, got, 2)
+	assert.InDelta(t, 0.2, got[0].Score, 1e-6)
+	assert.InDelta(t, 0.9, got[1].Score, 1e-6)
+
+	returnNull = true
+	_, err = client.Rerank(context.Background(), "q", []string{"d0", "d1"})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "score is nil")
+}
