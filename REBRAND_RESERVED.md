@@ -40,7 +40,7 @@
   - `DefaultCubeDesktopTemplateImage = "genyee/genyee-sandbox:desktop-cube"`
   - 支持通过环境变量 `GENYEE_SANDBOX_DOCKER_IMAGE` 动态覆盖默认沙箱镜像。
 - **前端沙箱设置抽屉默认值**：`frontend/src/components/SandboxConfigEditorDrawer.vue`
-  - `defaultDockerImage = 'genyee/genyee-sandbox:latest'`，同时在 `isStandardTemplateImage` 中兼容识别 `genyee/genyee-sandbox` 与历史 `wechatopenai/weknora-sandbox`。
+  - `defaultDockerImage = 'genyee/genyee-sandbox:latest'`，且 `isStandardTemplateImage` 仅识别 `genyee/genyee-sandbox`（及私有仓库后缀 `/genyee-sandbox`），已按零向后兼容原则移除历史旧镜像兼容。
 - **启动脚本默认沙箱检测**：`scripts/start_all.sh`
   - 自动读取 `${GENYEE_SANDBOX_DOCKER_IMAGE:-${GENYEE_REGISTRY:-genyee}/genyee-sandbox:${GENYEE_VERSION:-latest}}`。
 
@@ -87,7 +87,7 @@ docker push ${GENYEE_REGISTRY}/genyee-sandbox:latest
       { label: 'localBrowser.edgeStoreInstall', url: 'https://microsoftedge.microsoft.com/addons/detail/browserskill/emacgiaaaiojkkpkddmmdfhmokgmnikg' },
     ]
     ```
-  - 第 `82`、`89` 行：BrowserSkill 插件图标（`browserskill-logo.svg`）及上游说明链接保留原状。
+  - 第 `16`、`29`、`174` 行：BrowserSkill 插件图标（`@/assets/browserskill/logo.png`）及上游说明链接（`https://github.com/Tencent/BrowserSkill`）保留原状。
 
-### 2. 环境变量与兼容标识保留说明
-- 为保证升级平滑与脚本兼容，`docker-compose.yml` 和 `.env.example` 中的环境变量名（如 `GENYEE_VERSION`、`GENYEE_API_KEY` 等内部配置键名）予以保留，不会影响用户侧展示的 **GENYEE** 品牌。
+### 2. 环境变量命名规范说明
+- `docker-compose.yml` 和 `.env.example` 中的项目级环境变量名（如 `GENYEE_VERSION`、`GENYEE_REGISTRY`、`GENYEE_SANDBOX_DOCKER_IMAGE` 等）已统一规范为 `GENYEE_*` 前缀，不保留旧品牌前缀兼容。

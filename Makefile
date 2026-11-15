@@ -337,7 +337,7 @@ download_spatial:
 
 clean-db:
 	@echo "Cleaning database..."
-	@for prefix in genyee genyee; do \
+	@for prefix in genyee; do \
 		if [ $$(docker volume ls -q -f name=$${prefix}_postgres-data) ]; then \
 			docker volume rm $${prefix}_postgres-data; \
 		fi; \

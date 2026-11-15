@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install WeKnora git hooks (core.hooksPath -> scripts/git-hooks).
+# Install GENYEE git hooks (core.hooksPath -> scripts/git-hooks).
 #
 # Usage (from repo root):
 #   ./scripts/install-git-hooks.sh

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Shared helpers for WeKnora git hooks (mirrors .github/workflows and PR checklist).
+# Shared helpers for GENYEE git hooks (mirrors .github/workflows and PR checklist).
 
 set -euo pipefail
 
