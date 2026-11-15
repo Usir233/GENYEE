@@ -369,6 +369,37 @@ func TestSummaryKindIsNotSerialized(t *testing.T) {
 	assert.NotContains(t, encoded, "Kind")
 }
 
+// 64-bit snowflake and uint64 IDs exceed float64's 53-bit significand, so
+// tool arguments rendered for compaction transcripts and raw archives must keep
+// exact JSON number literals rather than rounding through float64.
+func TestRenderToolArgsPreserves64BitIntegerPrecision(t *testing.T) {
+	args := `{"id":9007199254740993,"max_uint64":18446744073709551615,"neg":-9007199254740993,"nested":{"target_id":9007199254740995}}`
+	got := renderToolArgs(args)
+	assert.Equal(t,
+		`id=9007199254740993, max_uint64=18446744073709551615, neg=-9007199254740993, nested={"target_id":9007199254740995}`,
+		got,
+	)
+
+	msgs := []chat.Message{{
+		Role: "assistant",
+		ToolCalls: []chat.ToolCall{{
+			ID:   "call-1",
+			Type: "function",
+			Function: chat.FunctionCall{
+				Name:      "lookup_record",
+				Arguments: args,
+			},
+		}},
+	}}
+	assert.Contains(t, serializeConversation(msgs), "id=9007199254740993")
+	assert.Contains(t, serializeConversation(msgs), "max_uint64=18446744073709551615")
+	assert.Contains(t, rawArchive(msgs, 0, nil), "id=9007199254740993")
+
+	// Trailing garbage is not valid JSON and falls back to raw truncated text.
+	malformed := `{"id":9007199254740993} trailing`
+	assert.Equal(t, malformed, renderToolArgs(malformed))
+}
+
 func marshalMessage(msg chat.Message) (string, error) {
 	encoded, err := json.Marshal(msg)
 	return string(encoded), err

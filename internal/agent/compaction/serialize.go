@@ -75,8 +75,13 @@ func serializeToolCalls(calls []chat.ToolCall) string {
 // oversized values. Keys are sorted so the same call always renders the same
 // way, which matters when the transcript is compared across compactions.
 func renderToolArgs(arguments string) string {
+	if !json.Valid([]byte(arguments)) {
+		return truncate(arguments, toolArgsMaxChars)
+	}
 	var parsed map[string]any
-	if err := json.Unmarshal([]byte(arguments), &parsed); err != nil {
+	dec := json.NewDecoder(strings.NewReader(arguments))
+	dec.UseNumber()
+	if err := dec.Decode(&parsed); err != nil {
 		return truncate(arguments, toolArgsMaxChars)
 	}
 	keys := make([]string, 0, len(parsed))
