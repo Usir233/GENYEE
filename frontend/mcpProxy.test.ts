@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
 import { createServer, preview } from 'vite'
+import { createBackendProxy } from './vite.config.ts'
 
 for (const mode of ['dev', 'preview'] as const) {
   test(`MCP requests and streaming responses pass through Vite ${mode}`, { timeout: 20_000 }, async () => {
@@ -38,8 +39,7 @@ for (const mode of ['dev', 'preview'] as const) {
     upstream.listen(0, '127.0.0.1')
     await once(upstream, 'listening')
     const root = await mkdtemp(join(tmpdir(), 'genyee-mcp-proxy-'))
-    const previousTarget = process.env.VITE_DEV_PROXY_TARGET
-    process.env.VITE_DEV_PROXY_TARGET = `http://127.0.0.1:${(upstream.address() as AddressInfo).port}`
+    const proxy = createBackendProxy(`http://127.0.0.1:${(upstream.address() as AddressInfo).port}`)
     let closeGateway: (() => Promise<void>) | undefined
     try {
       await mkdir(join(root, 'dist'))
@@ -54,14 +54,22 @@ for (const mode of ['dev', 'preview'] as const) {
       if (mode === 'dev') {
         const gateway = await createServer({
           ...config,
-          server: { host: '127.0.0.1', port: 0, watch: null },
+          server: { middlewareMode: true, hmr: false, ws: false, watch: null, proxy },
           optimizeDeps: { noDiscovery: true, include: [] },
         })
-        closeGateway = () => gateway.close()
-        await gateway.listen()
-        port = (gateway.httpServer!.address() as AddressInfo).port
+        const devHttp = createHttpServer((req, res) => gateway.middlewares(req, res))
+        devHttp.listen(0, '127.0.0.1')
+        await once(devHttp, 'listening')
+        closeGateway = async () => {
+          devHttp.closeAllConnections()
+          await new Promise<void>((resolve, reject) => {
+            devHttp.close((error) => error ? reject(error) : resolve())
+          })
+          await gateway.close()
+        }
+        port = (devHttp.address() as AddressInfo).port
       } else {
-        const gateway = await preview({ ...config, preview: { host: '127.0.0.1', port: 0 } })
+        const gateway = await preview({ ...config, preview: { host: '127.0.0.1', port: 0, proxy } })
         closeGateway = () => new Promise<void>((resolve, reject) => {
           gateway.httpServer.close((error) => error ? reject(error) : resolve())
           gateway.httpServer.closeAllConnections()
@@ -103,8 +111,6 @@ for (const mode of ['dev', 'preview'] as const) {
       await closeGateway?.()
       upstream.closeAllConnections()
       await new Promise<void>((resolve) => upstream.close(() => resolve()))
-      if (previousTarget === undefined) delete process.env.VITE_DEV_PROXY_TARGET
-      else process.env.VITE_DEV_PROXY_TARGET = previousTarget
       await rm(root, { recursive: true, force: true })
     }
   })

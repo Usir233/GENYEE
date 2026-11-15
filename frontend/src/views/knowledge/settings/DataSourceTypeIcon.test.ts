@@ -16,7 +16,7 @@ before(async () => {
   server = await createServer({
     configFile: false, optimizeDeps: { noDiscovery: true, entries: [] }, plugins: [vue()],
     resolve: { alias: { '@': fileURLToPath(new URL('../../../', import.meta.url)) } },
-    server: { middlewareMode: true }, appType: 'custom',
+    server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: 'custom',
   })
   Icon = (await server.ssrLoadModule('/src/views/knowledge/settings/DataSourceTypeIcon.vue')).default
 })

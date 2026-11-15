@@ -23,7 +23,7 @@ for (const base of ['/', '/genyee/', '/apps/genyee/']) {
       root: fileURLToPath(new URL('../../', import.meta.url)),
       base,
       optimizeDeps: { noDiscovery: true, entries: [] },
-      server: { middlewareMode: true, hmr: false },
+      server: { middlewareMode: true, hmr: false, ws: false, watch: null },
       appType: 'custom',
     })
     t.after(() => server.close())

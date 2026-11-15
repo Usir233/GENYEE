@@ -24,7 +24,7 @@ before(async () => {
     }],
     optimizeDeps: { noDiscovery: true, entries: [] },
     resolve: { alias: { '@': fileURLToPath(new URL('../', import.meta.url)) } },
-    server: { middlewareMode: true, hmr: false }, appType: 'custom',
+    server: { middlewareMode: true, hmr: false, ws: false, watch: null }, appType: 'custom',
   })
   ;({ useSettingsStore } = await server.ssrLoadModule('/src/stores/settings.ts'))
 })

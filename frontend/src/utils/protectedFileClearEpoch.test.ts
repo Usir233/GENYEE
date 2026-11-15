@@ -32,7 +32,7 @@ test('protected file loads that finish after a cache clear are discarded', async
     root: fileURLToPath(new URL('../../', import.meta.url)),
     base: '/',
     optimizeDeps: { noDiscovery: true, entries: [] },
-    server: { middlewareMode: true, hmr: false },
+    server: { middlewareMode: true, hmr: false, ws: false, watch: null },
     appType: 'custom',
   })
   t.after(() => server.close())
