@@ -66,14 +66,14 @@ func (s *AutomationService) execute(parent context.Context, run *types.Automatio
 		return s.runOnce(ctx, run)
 	}()
 	out.elapsed = time.Since(started)
-	if ctx.Err() != nil {
-		var row types.AutomationRun
-		if err := s.db.WithContext(context.WithoutCancel(ctx)).Select("cancel_requested").
-			Where("id = ?", run.ID).Take(&row).Error; err == nil && row.CancelRequested {
-			out.status, out.reason = types.AutomationRunCancelled, "cancelled by the owner"
-			if out.promptID != "" {
-				s.closePrompt(context.WithoutCancel(ctx), out.promptID, types.AgentPromptCanceled, out.reason)
-			}
+	var row types.AutomationRun
+	if err := s.db.WithContext(context.WithoutCancel(ctx)).Select("cancel_requested").
+		Where("id = ?", run.ID).Take(&row).Error; err == nil && row.CancelRequested {
+		reason, _ := s.cancellationReason(context.WithoutCancel(ctx), run)
+		out.status, out.reason, out.pause = types.AutomationRunCancelled, reason, ""
+		if out.promptID != "" {
+			s.closePrompt(context.WithoutCancel(ctx), out.promptID, types.AgentPromptCanceled, out.reason)
+			out.promptID = ""
 		}
 	}
 	s.record(ctx, run, out)
@@ -124,20 +124,50 @@ func (s *AutomationService) record(ctx context.Context, run *types.AutomationRun
 		}
 	}
 	owned := func(db *gorm.DB) *gorm.DB { return db.Where("owner = ?", s.instance) }
+	ownedNotCancelled := func(db *gorm.DB) *gorm.DB {
+		return db.Where("owner = ? AND cancel_requested = ?", s.instance, false)
+	}
+	ownedCancelled := func(db *gorm.DB) *gorm.DB {
+		return db.Where("owner = ? AND cancel_requested = ?", s.instance, true)
+	}
+	running := []string{types.AutomationRunRunning}
 	if out.status == types.AutomationRunAwaitingApproval {
-		updates["status"], updates["pending_prompt_id"], updates["resume"] = out.status, out.promptID, false
-		updates["lease_until"] = nil
-		res := owned(s.db.WithContext(ctx).Model(&types.AutomationRun{}).
-			Where("id = ? AND status = ?", run.ID, types.AutomationRunRunning)).Updates(updates)
-		if res.Error != nil || res.RowsAffected == 0 {
+		waitUpdates := make(map[string]any, len(updates)+4)
+		for k, v := range updates {
+			waitUpdates[k] = v
+		}
+		waitUpdates["status"], waitUpdates["pending_prompt_id"], waitUpdates["resume"] = out.status, out.promptID, false
+		waitUpdates["lease_until"] = nil
+		res := ownedNotCancelled(s.db.WithContext(ctx).Model(&types.AutomationRun{}).
+			Where("id = ? AND status = ?", run.ID, types.AutomationRunRunning)).Updates(waitUpdates)
+		if res.Error != nil {
 			logger.Warnf(ctx, "Record waiting automation run %s: %v", run.ID, res.Error)
 			return
 		}
-		if a, err := s.automationOf(ctx, run); err == nil {
-			s.notify(ctx, a, run, types.NotificationAutomationAwaitingApproval, "")
+		if res.RowsAffected > 0 {
+			if a, err := s.automationOf(ctx, run); err == nil && !a.DeletedAt.Valid {
+				s.notify(ctx, a, run, types.NotificationAutomationAwaitingApproval, "")
+			}
+			// The approval may have been answered before the run was marked
+			// waiting; pick it up now rather than at the next tick.
+			s.Wake()
+			return
 		}
-		// The approval may have been answered before the run was marked
-		// waiting; pick it up now rather than at the next tick.
+		reason, a := s.cancellationReason(ctx, run)
+		if out.promptID != "" {
+			s.closePrompt(ctx, out.promptID, types.AgentPromptCanceled, reason)
+		}
+		_ = owned(s.db.WithContext(ctx).Model(&types.AutomationRun{}).
+			Where("id = ? AND status = ?", run.ID, types.AutomationRunRunning)).Updates(updates).Error
+		ok, err := s.finishRun(ctx, run, running, types.AutomationRunCancelled, reason, ownedCancelled)
+		if err != nil {
+			logger.Warnf(ctx, "Finish cancelled waiting automation run %s: %v", run.ID, err)
+		}
+		if ok && a != nil && a.DeletedAt.Valid {
+			if cleanErr := s.cleanupDeletedAutomation(ctx, a); cleanErr != nil {
+				logger.Warnf(ctx, "Clean deleted automation %s after run %s: %v", a.ID, run.ID, cleanErr)
+			}
+		}
 		s.Wake()
 		return
 	}
@@ -145,16 +175,68 @@ func (s *AutomationService) record(ctx context.Context, run *types.AutomationRun
 		Where("id = ? AND status = ?", run.ID, types.AutomationRunRunning)).Updates(updates).Error; err != nil {
 		logger.Warnf(ctx, "Record automation run %s: %v", run.ID, err)
 	}
-	running := []string{types.AutomationRunRunning}
-	if _, err := s.finishRun(ctx, run, running, out.status, out.reason, owned); err != nil {
+	if out.status == types.AutomationRunCancelled {
+		reason, a := s.cancellationReason(ctx, run)
+		if out.reason == "" || (a != nil && a.DeletedAt.Valid) {
+			out.reason = reason
+		}
+		if out.promptID != "" {
+			s.closePrompt(ctx, out.promptID, types.AgentPromptCanceled, out.reason)
+		}
+		ok, err := s.finishRun(ctx, run, running, types.AutomationRunCancelled, out.reason, owned)
+		if err != nil {
+			logger.Warnf(ctx, "Finish automation run %s: %v", run.ID, err)
+		}
+		if ok && a != nil && a.DeletedAt.Valid {
+			if cleanErr := s.cleanupDeletedAutomation(ctx, a); cleanErr != nil {
+				logger.Warnf(ctx, "Clean deleted automation %s after run %s: %v", a.ID, run.ID, cleanErr)
+			}
+		}
+		s.Wake()
+		return
+	}
+	ok, err := s.finishRun(ctx, run, running, out.status, out.reason, ownedNotCancelled)
+	if err != nil {
 		logger.Warnf(ctx, "Finish automation run %s: %v", run.ID, err)
 	}
-	if out.pause != "" {
-		if a, err := s.automationOf(ctx, run); err == nil {
+	if !ok && err == nil {
+		reason, a := s.cancellationReason(ctx, run)
+		if out.promptID != "" {
+			s.closePrompt(ctx, out.promptID, types.AgentPromptCanceled, reason)
+		}
+		cancelOK, cancelErr := s.finishRun(ctx, run, running, types.AutomationRunCancelled, reason, ownedCancelled)
+		if cancelErr != nil {
+			logger.Warnf(ctx, "Finish cancelled automation run %s: %v", run.ID, cancelErr)
+		}
+		if cancelOK && a != nil && a.DeletedAt.Valid {
+			if cleanErr := s.cleanupDeletedAutomation(ctx, a); cleanErr != nil {
+				logger.Warnf(ctx, "Clean deleted automation %s after run %s: %v", a.ID, run.ID, cleanErr)
+			}
+		}
+		s.Wake()
+		return
+	}
+	if a, aErr := s.automationOf(ctx, run); aErr == nil {
+		if a.DeletedAt.Valid {
+			if cleanErr := s.cleanupDeletedAutomation(ctx, a); cleanErr != nil {
+				logger.Warnf(ctx, "Clean deleted automation %s after run %s: %v", a.ID, run.ID, cleanErr)
+			}
+		} else if out.pause != "" {
 			_ = s.pause(ctx, a, out.pause)
 		}
 	}
 	s.Wake()
+}
+
+func (s *AutomationService) cancellationReason(ctx context.Context, run *types.AutomationRun) (string, *types.Automation) {
+	a, err := s.automationOf(ctx, run)
+	if err != nil {
+		return "cancelled by the owner", nil
+	}
+	if a.DeletedAt.Valid {
+		return "the automation was deleted", a
+	}
+	return "cancelled by the owner", a
 }
 
 func (s *AutomationService) automationOf(ctx context.Context, run *types.AutomationRun) (*types.Automation, error) {
@@ -435,7 +517,8 @@ func (s *AutomationService) startMessages(
 		return nil, nil, err
 	}
 	res := s.db.WithContext(ctx).Model(&types.AutomationRun{}).
-		Where("id = ? AND status = ? AND owner = ?", run.ID, types.AutomationRunRunning, s.instance).
+		Where("id = ? AND status = ? AND owner = ? AND cancel_requested = ?",
+			run.ID, types.AutomationRunRunning, s.instance, false).
 		Updates(map[string]any{
 			"session_id": session.ID, "user_message_id": userMsg.ID, "assistant_message_id": answer.ID,
 		})
@@ -443,7 +526,7 @@ func (s *AutomationService) startMessages(
 		return nil, nil, res.Error
 	}
 	if res.RowsAffected == 0 {
-		return nil, nil, errors.New("the run was taken over")
+		return nil, nil, errors.New("the run was cancelled or taken over")
 	}
 	run.SessionID, run.UserMessageID, run.AssistantMessageID = session.ID, userMsg.ID, answer.ID
 	return userMsg, answer, nil

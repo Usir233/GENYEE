@@ -252,15 +252,36 @@ func (s *AutomationService) expireLeases(ctx context.Context, now time.Time) err
 		return err
 	}
 	for _, run := range stale {
+		expired := func(db *gorm.DB) *gorm.DB { return db.Where("lease_until < ?", now) }
 		ok, err := s.finishRun(ctx, run, []string{types.AutomationRunRunning},
 			types.AutomationRunNeedsAttention,
 			"the instance executing this run stopped; check the conversation for what it already did",
-			func(db *gorm.DB) *gorm.DB { return db.Where("lease_until < ?", now) })
+			expired)
 		if err != nil {
 			return err
 		}
+		var deletedParent *types.Automation
+		if !ok {
+			reason, a := s.cancellationReason(ctx, run)
+			deletedParent = a
+			ok, err = s.finishRun(ctx, run, []string{types.AutomationRunRunning},
+				types.AutomationRunCancelled, reason,
+				func(db *gorm.DB) *gorm.DB {
+					return db.Where("lease_until < ? AND cancel_requested = ?", now, true)
+				})
+			if err != nil {
+				return err
+			}
+		} else if a, aErr := s.automationOf(ctx, run); aErr == nil {
+			deletedParent = a
+		}
 		if ok {
 			s.closeAbandonedMessage(ctx, run)
+			if deletedParent != nil && deletedParent.DeletedAt.Valid {
+				if cleanErr := s.cleanupDeletedAutomation(ctx, deletedParent); cleanErr != nil {
+					logger.Warnf(ctx, "Clean deleted automation %s after expired run %s: %v", deletedParent.ID, run.ID, cleanErr)
+				}
+			}
 		}
 	}
 	return nil
@@ -316,19 +337,48 @@ func (s *AutomationService) reconcileAwaiting(ctx context.Context, now time.Time
 
 func (s *AutomationService) reconcileRun(ctx context.Context, run *types.AutomationRun, now time.Time) error {
 	if run.CancelRequested {
-		return s.cancelRun(ctx, run, "cancelled by the owner")
+		reason, a := s.cancellationReason(ctx, run)
+		err := s.cancelRun(ctx, run, reason)
+		if a != nil && a.DeletedAt.Valid {
+			if cleanErr := s.cleanupDeletedAutomation(ctx, a); cleanErr != nil {
+				logger.Warnf(ctx, "Clean deleted automation %s after reconciled run %s: %v", a.ID, run.ID, cleanErr)
+			}
+		}
+		return err
 	}
 	if s.broker == nil {
 		return nil
 	}
 	waiting := []string{types.AutomationRunAwaitingApproval}
+	reconcileIfCancelled := func(ok bool, err error) error {
+		if err != nil || ok {
+			return err
+		}
+		var current types.AutomationRun
+		if s.db.WithContext(ctx).Select("cancel_requested").Where("id = ?", run.ID).Take(&current).Error == nil && current.CancelRequested {
+			reason, a := s.cancellationReason(ctx, run)
+			cErr := s.cancelRun(ctx, run, reason)
+			if a != nil && a.DeletedAt.Valid {
+				if cleanErr := s.cleanupDeletedAutomation(ctx, a); cleanErr != nil {
+					logger.Warnf(ctx, "Clean deleted automation %s after reconciled run %s: %v", a.ID, run.ID, cleanErr)
+				}
+			}
+			return cErr
+		}
+		return nil
+	}
 	prompt, err := s.broker.Store().Get(ctx, run.PendingPromptID)
 	if err != nil {
 		return err
 	}
 	if prompt == nil {
-		_, err := s.finishRun(ctx, run, waiting, types.AutomationRunFailed, "the approval it waited for is gone", nil)
-		return err
+		ok, err := s.finishRun(ctx, run, waiting, types.AutomationRunFailed, "the approval it waited for is gone", nil)
+		if ok {
+			if a, aErr := s.automationOf(ctx, run); aErr == nil && a.DeletedAt.Valid {
+				_ = s.cleanupDeletedAutomation(ctx, a)
+			}
+		}
+		return reconcileIfCancelled(ok, err)
 	}
 	switch {
 	case prompt.Status == types.AgentPromptAnswered:
@@ -347,7 +397,7 @@ func (s *AutomationService) reconcileRun(ctx context.Context, run *types.Automat
 		if ok {
 			s.closePrompt(ctx, prompt.ID, types.AgentPromptExpired, reason)
 		}
-		return err
+		return reconcileIfCancelled(ok, err)
 	case prompt.Status == types.AgentPromptExecuting:
 		// A resumed run is executing the approved call; it owns the run.
 		return nil
@@ -356,8 +406,13 @@ func (s *AutomationService) reconcileRun(ctx context.Context, run *types.Automat
 		if prompt.CloseReason != "" {
 			reason = "the approval ended: " + prompt.CloseReason
 		}
-		_, err := s.finishRun(ctx, run, waiting, types.AutomationRunFailed, reason, nil)
-		return err
+		ok, err := s.finishRun(ctx, run, waiting, types.AutomationRunFailed, reason, nil)
+		if ok {
+			if a, aErr := s.automationOf(ctx, run); aErr == nil && a.DeletedAt.Valid {
+				_ = s.cleanupDeletedAutomation(ctx, a)
+			}
+		}
+		return reconcileIfCancelled(ok, err)
 	}
 }
 
@@ -439,6 +494,9 @@ func (s *AutomationService) finishRun(
 	now := s.now()
 	query := s.db.WithContext(context.WithoutCancel(ctx)).Model(&types.AutomationRun{}).
 		Where("id = ? AND status IN ?", run.ID, from)
+	if status != types.AutomationRunCancelled {
+		query = query.Where("cancel_requested = ?", false)
+	}
 	if narrow != nil {
 		query = narrow(query)
 	}
@@ -465,7 +523,7 @@ func (s *AutomationService) finishRun(
 func (s *AutomationService) settle(ctx context.Context, run *types.AutomationRun) {
 	ctx = context.WithoutCancel(ctx)
 	var a types.Automation
-	if err := s.db.WithContext(ctx).Where("id = ?", run.AutomationID).First(&a).Error; err != nil {
+	if err := s.db.WithContext(ctx).Where("id = ?", run.AutomationID).First(&a).Error; err != nil || a.DeletedAt.Valid {
 		return
 	}
 	updates := map[string]any{"last_run_status": run.Status}
@@ -497,6 +555,9 @@ func (s *AutomationService) settle(ctx context.Context, run *types.AutomationRun
 
 // pause disables a for reason and tells the owner.
 func (s *AutomationService) pause(ctx context.Context, a *types.Automation, reason string) error {
+	if a == nil || a.DeletedAt.Valid {
+		return nil
+	}
 	res := s.db.WithContext(context.WithoutCancel(ctx)).Model(&types.Automation{}).
 		Where("id = ? AND enabled = ?", a.ID, true).
 		Updates(map[string]any{
@@ -508,6 +569,47 @@ func (s *AutomationService) pause(ctx context.Context, a *types.Automation, reas
 	}
 	s.notify(ctx, a, nil, types.NotificationAutomationPaused, reason)
 	return nil
+}
+
+// cleanupDeletedAutomation removes converged terminal runs and their
+// conversations once a soft-deleted automation's residual runs settle.
+func (s *AutomationService) cleanupDeletedAutomation(ctx context.Context, a *types.Automation) error {
+	if a == nil || !a.DeletedAt.Valid {
+		return nil
+	}
+	ctx = context.WithoutCancel(ctx)
+	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var latest types.Automation
+		if err := tx.Unscoped().Select("persistent_session_id").Where("id = ?", a.ID).Take(&latest).Error; err == nil {
+			a.PersistentSessionID = latest.PersistentSessionID
+		}
+		finished := []string{
+			types.AutomationRunSucceeded, types.AutomationRunFailed, types.AutomationRunCancelled,
+			types.AutomationRunSkipped, types.AutomationRunNeedsAttention,
+		}
+		var live int64
+		if err := tx.Model(&types.AutomationRun{}).Where("automation_id = ? AND status IN ?", a.ID, []string{
+			types.AutomationRunQueued, types.AutomationRunRunning, types.AutomationRunAwaitingApproval,
+		}).Count(&live).Error; err != nil {
+			return err
+		}
+		sessionIDs := tx.Model(&types.AutomationRun{}).Select("session_id").
+			Where("automation_id = ? AND status IN ? AND session_id <> ''", a.ID, finished)
+		sessionQuery := tx.Where("tenant_id = ? AND kind = ?", a.TenantID, types.SessionKindAutomation)
+		switch {
+		case live == 0 && a.PersistentSessionID != "":
+			sessionQuery = sessionQuery.Where("id IN (?) OR id = ?", sessionIDs, a.PersistentSessionID)
+		case a.PersistentSessionID != "":
+			sessionQuery = sessionQuery.Where("id IN (?) AND id <> ?", sessionIDs, a.PersistentSessionID)
+		default:
+			sessionQuery = sessionQuery.Where("id IN (?)", sessionIDs)
+		}
+		if err := sessionQuery.Delete(&types.Session{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("automation_id = ? AND status IN ?", a.ID, finished).
+			Delete(&types.AutomationRun{}).Error
+	})
 }
 
 func (s *AutomationService) notify(

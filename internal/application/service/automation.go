@@ -537,6 +537,11 @@ func (s *AutomationService) Delete(ctx context.Context, id string) error {
 		if err := tx.Delete(a).Error; err != nil {
 			return err
 		}
+		var latest types.Automation
+		if err := tx.Unscoped().Select("persistent_session_id").Where("id = ?", a.ID).Take(&latest).Error; err != nil {
+			return err
+		}
+		a.PersistentSessionID = latest.PersistentSessionID
 		if err := tx.Model(&types.AutomationRun{}).
 			Where("automation_id = ? AND status IN ?", a.ID, []string{
 				types.AutomationRunQueued, types.AutomationRunRunning, types.AutomationRunAwaitingApproval,
@@ -549,17 +554,19 @@ func (s *AutomationService) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	var active []*types.AutomationRun
+	var cancelErr error
 	if err := s.db.WithContext(ctx).Where("automation_id = ? AND status IN ?", a.ID, []string{
 		types.AutomationRunQueued, types.AutomationRunRunning, types.AutomationRunAwaitingApproval,
 	}).Find(&active).Error; err != nil {
-		return err
-	}
-	for _, run := range active {
-		if err := s.cancelRun(ctx, run, "the automation was deleted"); err != nil {
-			return err
+		cancelErr = errors.Join(cancelErr, err)
+	} else {
+		for _, run := range active {
+			if err := s.cancelRun(ctx, run, "the automation was deleted"); err != nil {
+				cancelErr = errors.Join(cancelErr, err)
+			}
 		}
 	}
-	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	cleanupErr := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		sessionIDs := tx.Model(&types.AutomationRun{}).Select("session_id").
 			Where("automation_id = ? AND session_id <> ''", a.ID)
 		if err := tx.Where("tenant_id = ? AND kind = ? AND (id IN (?) OR id = ?)",
@@ -571,6 +578,7 @@ func (s *AutomationService) Delete(ctx context.Context, id string) error {
 			types.AutomationRunRunning, types.AutomationRunAwaitingApproval,
 		}).Delete(&types.AutomationRun{}).Error
 	})
+	return errors.Join(cancelErr, cleanupErr)
 }
 
 // ValidateTrigger checks t and returns its next n firing times.
@@ -704,13 +712,10 @@ func (s *AutomationService) cancelRun(ctx context.Context, run *types.Automation
 	switch run.Status {
 	case types.AutomationRunQueued, types.AutomationRunAwaitingApproval:
 		ok, err := s.finishRun(ctx, run, []string{run.Status}, types.AutomationRunCancelled, reason, nil)
-		if err != nil || !ok {
-			return err
-		}
-		if run.PendingPromptID != "" {
+		if ok && run.PendingPromptID != "" {
 			s.closePrompt(ctx, run.PendingPromptID, types.AgentPromptCanceled, reason)
 		}
-		return nil
+		return err
 	case types.AutomationRunRunning:
 		stopErr := s.stopRunDelegation(ctx, run)
 		s.mu.Lock()
