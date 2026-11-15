@@ -1,9 +1,13 @@
+import base64
 import importlib.util
 import io
+import os
 import sys
+import tempfile
+import threading
 import types
 import unittest
-from concurrent.futures import ThreadPoolExecutor
+import warnings
 from pathlib import Path
 from unittest.mock import patch
 
@@ -44,29 +48,8 @@ table_to_gfm_markdown = docx_parser.table_to_gfm_markdown
 
 
 def _parse(content, max_pages=100):
-    """Parse a DOCX through the real Docx processor.
-
-    The production path uses a ProcessPoolExecutor backed by a multiprocessing
-    Manager. Some CI sandboxes forbid POSIX semaphores, so run the same page
-    task pool on threads and swap the manager for a plain list - parse
-    behavior is identical, only the execution backend changes.
-    """
-
-    class _FakeManager:
-        def __enter__(self):
-            self._items = []
-            return self
-
-        def __exit__(self, *exc):
-            return False
-
-        def list(self):
-            return self._items
-
-    with patch.object(docx_parser, "Manager", _FakeManager), patch.object(
-        docx_parser, "ProcessPoolExecutor", ThreadPoolExecutor
-    ):
-        return DocxParser(max_pages=max_pages).parse_into_text(content)
+    """Parse a DOCX through the real production DocxParser path."""
+    return DocxParser(max_pages=max_pages).parse_into_text(content)
 
 
 def _docx_bytes(build):
@@ -420,51 +403,221 @@ class DocxNestedTableTextTest(unittest.TestCase):
 
 class DocxImageOrderTest(unittest.TestCase):
     @staticmethod
-    def _picture(doc, color):
+    def _png_bytes(color, size=(200, 150)):
         image = io.BytesIO()
-        Image.new("RGB", (200, 150), color).save(image, format="PNG")
+        Image.new("RGB", size, color).save(image, format="PNG")
         image.seek(0)
-        doc.add_picture(image)
+        return image
+
+    @classmethod
+    def _picture(cls, doc, color, size=(200, 150)):
+        doc.add_picture(cls._png_bytes(color, size=size))
+
+    @staticmethod
+    def _refs_by_rgb(document):
+        by_rgb = {}
+        for ref, b64 in document.images.items():
+            raw = base64.b64decode(b64)
+            with Image.open(io.BytesIO(raw)) as img:
+                rgb = img.convert("RGB").getpixel((0, 0))
+            by_rgb[rgb] = ref
+        return by_rgb
 
     def test_images_survive_body_order_composition_with_tables(self):
         def build(doc):
             doc.add_paragraph("Before the first diagram")
-            self._picture(doc, "red")
+            self._picture(doc, (255, 0, 0))
             table = doc.add_table(rows=2, cols=1)
             table.cell(0, 0).text = "Table heading"
             table.cell(1, 0).text = "Table evidence"
-            self._picture(doc, "blue")
+            self._picture(doc, (0, 0, 255))
             doc.add_paragraph("After the second diagram")
 
         document = _parse(_docx_bytes(build))
         self.assertEqual(len(document.images), 2)
-        image_positions = []
-        for ref in document.images:
-            self.assertIn(ref, document.content)
+        by_rgb = self._refs_by_rgb(document)
+        red_ref = by_rgb[(255, 0, 0)]
+        blue_ref = by_rgb[(0, 0, 255)]
+        self.assertEqual(document.content.count(red_ref), 1)
+        self.assertEqual(document.content.count(blue_ref), 1)
+
+        red_pos = document.content.index(red_ref)
+        blue_pos = document.content.index(blue_ref)
+        self.assertLess(document.content.index("Before the first diagram"), red_pos)
+        self.assertLess(red_pos, document.content.index("Table heading"))
+        self.assertLess(document.content.index("Table evidence"), blue_pos)
+        self.assertLess(blue_pos, document.content.index("After the second diagram"))
+
+    def test_multiple_images_in_single_paragraph_keep_exact_order(self):
+        def build(doc):
+            para = doc.add_paragraph("Multi-image paragraph ")
+            # Tiny decorative icon (<50x50) must be skipped without dropping later images.
+            para.add_run().add_picture(self._png_bytes((128, 128, 128), size=(16, 16)))
+            para.add_run().add_picture(self._png_bytes((255, 0, 0)))
+            para.add_run().add_picture(self._png_bytes((0, 255, 0)))
+            para.add_run().add_picture(self._png_bytes((0, 0, 255)))
+
+        document = _parse(_docx_bytes(build))
+        self.assertEqual(len(document.images), 3)
+        by_rgb = self._refs_by_rgb(document)
+        red_pos = document.content.index(by_rgb[(255, 0, 0)])
+        green_pos = document.content.index(by_rgb[(0, 255, 0)])
+        blue_pos = document.content.index(by_rgb[(0, 0, 255)])
+        self.assertLess(document.content.index("Multi-image paragraph"), red_pos)
+        self.assertLess(red_pos, green_pos)
+        self.assertLess(green_pos, blue_pos)
+
+    def test_table_cell_images_keep_document_order_without_merge_duplication(self):
+        def build(doc):
+            doc.add_paragraph("Lead paragraph")
+            self._picture(doc, (255, 0, 0))
+            table = doc.add_table(rows=2, cols=3)
+            merged = table.cell(0, 0).merge(table.cell(0, 1))
+            merged.text = "Merged header"
+            merged.paragraphs[0].add_run().add_picture(self._png_bytes((0, 255, 0)))
+            table.cell(0, 2).text = "Col 3"
+            table.cell(1, 0).text = "R1C0"
+            table.cell(1, 1).text = "R1C1"
+            cell_12 = table.cell(1, 2)
+            cell_12.text = "Cell caption"
+            cell_12.paragraphs[0].add_run().add_picture(self._png_bytes((255, 255, 0)))
+            self._picture(doc, (0, 0, 255))
+            doc.add_paragraph("Closing paragraph")
+
+        document = _parse(_docx_bytes(build))
+        self.assertEqual(len(document.images), 4)
+        by_rgb = self._refs_by_rgb(document)
+        red_ref = by_rgb[(255, 0, 0)]
+        green_ref = by_rgb[(0, 255, 0)]
+        yellow_ref = by_rgb[(255, 255, 0)]
+        blue_ref = by_rgb[(0, 0, 255)]
+        for ref in (red_ref, green_ref, yellow_ref, blue_ref):
             self.assertEqual(document.content.count(ref), 1)
-            image_positions.append(document.content.index(ref))
-        first, second = sorted(image_positions)
-        self.assertLess(document.content.index("Before the first diagram"), first)
-        self.assertLess(first, document.content.index("Table heading"))
-        self.assertLess(document.content.index("Table evidence"), second)
-        self.assertLess(second, document.content.index("After the second diagram"))
+
+        self.assertLess(document.content.index(red_ref), document.content.index(green_ref))
+        self.assertLess(document.content.index(green_ref), document.content.index(yellow_ref))
+        self.assertLess(document.content.index(yellow_ref), document.content.index(blue_ref))
+
+    def test_table_only_image_document_is_not_empty(self):
+        def build(doc):
+            table = doc.add_table(rows=1, cols=1)
+            table.cell(0, 0).paragraphs[0].add_run().add_picture(
+                self._png_bytes((255, 0, 0))
+            )
+
+        document = _parse(_docx_bytes(build))
+        self.assertEqual(len(document.images), 1)
+        ref = next(iter(document.images))
+        self.assertIn(ref, document.content)
+
+    def test_process_multiprocess_results_preserves_page_num_and_fallback_text(self):
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            Image.new("RGB", (80, 80), (255, 0, 0)).save(tmp, format="PNG")
+            img_path = tmp.name
+        try:
+            img_data = docx_parser.ImageData()
+            img_data.local_path = img_path
+            img_data.paragraph_index = 0
+
+            line_page_2 = docx_parser.LineData(
+                text="Page two text",
+                images=[img_data],
+                page_num=2,
+                content_sequence=[("text", "Page two text"), ("image", img_data)],
+            )
+            line_page_5_empty_seq = docx_parser.LineData(
+                text="Fallback page five text",
+                images=[],
+                page_num=5,
+                content_sequence=[],
+            )
+            processor = docx_parser.Docx(
+                enable_multimodal=True,
+                upload_file=lambda _p: "images/uploaded.png",
+            )
+            # Pass out-of-order and with empty content_sequence on page 5.
+            processor._process_multiprocess_results([line_page_5_empty_seq, line_page_2])
+
+            self.assertEqual([line.page_num for line in processor.all_lines], [2, 5])
+            self.assertIn("![](images/uploaded.png)", processor.all_lines[0].text)
+            self.assertEqual(processor.all_lines[1].page_num, 5)
+            self.assertEqual(processor.all_lines[1].text, "Fallback page five text")
+        finally:
+            if os.path.exists(img_path):
+                os.unlink(img_path)
+
+    def test_multithreaded_multipage_parsing_avoids_unsafe_fork_and_manager(self):
+        from docreader.parser.docx_parser import DocxParser as CanonicalDocxParser
+        import docreader.parser.docx_parser as canonical_docx_module
+
+        self.assertFalse(hasattr(docx_parser, "Manager"))
+        self.assertFalse(hasattr(canonical_docx_module, "Manager"))
+
+        def build(doc):
+            doc.add_paragraph("Page one")
+            self._picture(doc, (255, 0, 0))
+            doc.add_page_break()
+            doc.add_paragraph("Page two")
+            self._picture(doc, (0, 255, 0))
+            doc.add_page_break()
+            doc.add_paragraph("Page three")
+            self._picture(doc, (0, 0, 255))
+
+        payload = _docx_bytes(build)
+        stop_event = threading.Event()
+        ready_event = threading.Event()
+
+        def _bg_worker():
+            ready_event.set()
+            stop_event.wait(timeout=15)
+
+        bg = threading.Thread(target=_bg_worker, daemon=True)
+        bg.start()
+        ready_event.wait(timeout=5)
+        try:
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always", DeprecationWarning)
+                document = CanonicalDocxParser(max_pages=10).parse_into_text(payload)
+        finally:
+            stop_event.set()
+            bg.join(timeout=5)
+
+        fork_warnings = [
+            str(w.message)
+            for w in caught
+            if "fork()" in str(w.message)
+        ]
+        self.assertEqual(fork_warnings, [])
+        self.assertEqual(len(document.images), 3)
+        by_rgb = self._refs_by_rgb(document)
+        self.assertLess(
+            document.content.index(by_rgb[(255, 0, 0)]),
+            document.content.index(by_rgb[(0, 255, 0)]),
+        )
+        self.assertLess(
+            document.content.index(by_rgb[(0, 255, 0)]),
+            document.content.index(by_rgb[(0, 0, 255)]),
+        )
 
     def test_image_references_respect_page_limit(self):
         def build(doc):
             doc.add_paragraph("First page")
-            self._picture(doc, "red")
+            self._picture(doc, (255, 0, 0))
             doc.add_page_break()
             doc.add_paragraph("Excluded second page")
-            self._picture(doc, "blue")
+            table = doc.add_table(rows=1, cols=1)
+            table.cell(0, 0).text = "Excluded second page table"
+            self._picture(doc, (0, 0, 255))
 
         document = _parse(_docx_bytes(build), max_pages=1)
         self.assertEqual(len(document.images), 1)
         ref = next(iter(document.images))
         self.assertIn(ref, document.content)
         self.assertNotIn("Excluded second page", document.content)
+        self.assertNotIn("Excluded second page table", document.content)
 
     def test_image_only_document_still_has_a_reference(self):
-        document = _parse(_docx_bytes(lambda doc: self._picture(doc, "red")))
+        document = _parse(_docx_bytes(lambda doc: self._picture(doc, (255, 0, 0))))
         self.assertEqual(len(document.images), 1)
         self.assertIn(next(iter(document.images)), document.content)
 
