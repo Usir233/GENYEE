@@ -215,6 +215,7 @@ func AuthorizeMessageFile(ctx context.Context, message *types.Message, reference
 		kbShares.Bindings, _ = catalog.(interfaces.KBResourceLookup)
 	}
 	kbAuthorized := false
+	sharedAgentAuthorized := false
 	if resource != nil && message.AgentTenantID != 0 && message.AgentTenantID != owner {
 		kbAuthorized = kbShares.resourceAccessibleViaSharedKB(ctx, message, resource, caller.TenantID, caller.Role)
 		if !kbAuthorized {
@@ -251,6 +252,18 @@ func AuthorizeMessageFile(ctx context.Context, message *types.Message, reference
 			if !allowed {
 				return FileAccess{}, ErrForbidden
 			}
+			sharedAgentAuthorized = true
+		}
+	}
+	if apiKeyScope, ok := types.TenantAPIKeyScopeFromContext(ctx); ok &&
+		apiKeyScope.IsKnowledgeBaseRestricted() &&
+		artifactReferenceState(message, reference) != artifactRefLive {
+		if resource == nil {
+			return FileAccess{}, ErrForbidden
+		}
+		if !kbAuthorized && !sharedAgentAuthorized &&
+			!authorizeSameWorkspaceAPIKeyKBFile(ctx, message, reference, resource, owner, catalog, kbShares) {
+			return FileAccess{}, ErrForbidden
 		}
 	}
 	if resource == nil {
@@ -260,6 +273,34 @@ func AuthorizeMessageFile(ctx context.Context, message *types.Message, reference
 	}
 	file.OwnerTenantID = owner
 	return file, nil
+}
+
+func authorizeSameWorkspaceAPIKeyKBFile(
+	ctx context.Context,
+	message *types.Message,
+	reference string,
+	resource *types.StoredResource,
+	owner uint64,
+	catalog FileCatalog,
+	kbShares MessageKBShareAuthorizer,
+) bool {
+	if bindings, ok := catalog.(interfaces.MessageFileBindingLookup); ok {
+		origins, err := bindings.GetMessageFileBindings(ctx, owner, reference, message.ID)
+		if err != nil {
+			return false
+		}
+		if origins != nil {
+			if origins.MessageArtifact {
+				return true
+			}
+			for _, kbID := range origins.KnowledgeBaseIDs {
+				if types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kbID) == nil {
+					return true
+				}
+			}
+		}
+	}
+	return kbShares.resourceAccessibleViaOwnKB(ctx, message, resource, owner)
 }
 
 // ResolveMessageArtifact selects a persisted artifact after session ownership

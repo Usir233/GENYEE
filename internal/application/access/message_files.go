@@ -114,6 +114,55 @@ func (a MessageKBShareAuthorizer) resourceAccessibleViaSharedKB(
 	return false
 }
 
+// resourceAccessibleViaOwnKB reports whether persisted retrieval evidence and a
+// live KB binding prove that a same-workspace resource belongs to a knowledge
+// base permitted by the caller's current API-key scope.
+func (a MessageKBShareAuthorizer) resourceAccessibleViaOwnKB(
+	ctx context.Context,
+	message *types.Message,
+	resource *types.StoredResource,
+	ownerTenantID uint64,
+) bool {
+	if a.Bindings == nil || message == nil || resource == nil || ownerTenantID == 0 || resource.TenantID != ownerTenantID {
+		return false
+	}
+	handle, ok := types.ParseResourcePath(types.BuildResourcePath(resource.Handle))
+	if !ok {
+		return false
+	}
+
+	kbIDs := a.collectSharedKBEvidenceIDs(ctx, message, handle)
+	if len(kbIDs) == 0 {
+		return false
+	}
+
+	candidateKBIDs := kbIDs
+	if a.KBs != nil {
+		kbs, err := a.KBs.GetKnowledgeBasesByIDsOnly(ctx, kbIDs)
+		if err != nil {
+			return false
+		}
+		candidateKBIDs = candidateKBIDs[:0]
+		for _, kb := range kbs {
+			if kb != nil && kb.TenantID == ownerTenantID {
+				candidateKBIDs = append(candidateKBIDs, kb.ID)
+			}
+		}
+	}
+
+	resourcePath := types.BuildResourcePath(handle)
+	for _, kbID := range candidateKBIDs {
+		if types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kbID) != nil {
+			continue
+		}
+		bound, err := a.Bindings.IsReferencedByKnowledgeBase(ctx, ownerTenantID, kbID, resourcePath)
+		if err == nil && bound {
+			return true
+		}
+	}
+	return false
+}
+
 func (a MessageKBShareAuthorizer) collectSharedKBEvidenceIDs(
 	ctx context.Context,
 	message *types.Message,

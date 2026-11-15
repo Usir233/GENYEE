@@ -224,3 +224,78 @@ func TestNonArtifactReferencesStillAuthorizeFromContent(t *testing.T) {
 	}
 	require.True(t, MessageReferencesFile(message, kbImage))
 }
+
+type kbOriginsFileCatalog struct {
+	fileCatalog
+	origins *types.MessageFileBindings
+	err     error
+}
+
+func (c kbOriginsFileCatalog) GetMessageFileBindings(
+	_ context.Context,
+	_ uint64,
+	_, _ string,
+) (*types.MessageFileBindings, error) {
+	return c.origins, c.err
+}
+
+func TestMessageSameWorkspaceKBFilesEnforceCurrentAPIKeyScope(t *testing.T) {
+	const ref = "resource://AbCdEfGhIjKlMnOpQrStUv"
+	scopedCtx := func(ids types.StringArray) context.Context {
+		return types.WithTenantAPIKeyScope(callerContext(), types.TenantAPIKeyScope{
+			KeyID:            77,
+			KnowledgeBaseIDs: ids,
+			Capabilities:     types.StringArray{string(types.APIKeyCapabilityChat)},
+		})
+	}
+
+	msg := &types.Message{
+		ID:            "msg-own-kb",
+		AgentTenantID: 1,
+		Role:          "assistant",
+		Content:       "![diagram](" + ref + ")",
+		KnowledgeReferences: types.References{{
+			KnowledgeBaseID: "kb-allowed",
+			Content:         ref,
+		}},
+	}
+	res := &types.StoredResource{
+		Handle:       "AbCdEfGhIjKlMnOpQrStUv",
+		TenantID:     1,
+		PhysicalPath: "local://1/images/diagram.png",
+	}
+
+	// 1. Catalog KB binding in current allow-list succeeds.
+	catalog := kbOriginsFileCatalog{
+		fileCatalog: fileCatalog{resource: res},
+		origins:     &types.MessageFileBindings{KnowledgeBaseIDs: []string{"kb-allowed"}},
+	}
+	file, err := AuthorizeMessageFile(scopedCtx(types.StringArray{"kb-allowed"}), msg, ref, nil, catalog, MessageKBShareAuthorizer{})
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), file.OwnerTenantID)
+
+	// 2. Narrowed allow-list removes kb-allowed -> forbidden even for same-workspace resource.
+	_, err = AuthorizeMessageFile(scopedCtx(types.StringArray{"kb-other"}), msg, ref, nil, catalog, MessageKBShareAuthorizer{})
+	require.ErrorIs(t, err, ErrForbidden)
+
+	// 3. Raw path (resource == nil) is rejected for KB-restricted API keys when not a live MessageArtifact.
+	rawMsg := &types.Message{
+		ID:            "msg-raw",
+		AgentTenantID: 1,
+		Role:          "assistant",
+		Content:       "![raw](local://1/images/diagram.png)",
+	}
+	_, err = AuthorizeMessageFile(scopedCtx(types.StringArray{"kb-allowed"}), rawMsg, "local://1/images/diagram.png", nil, fileCatalog{}, MessageKBShareAuthorizer{})
+	require.ErrorIs(t, err, ErrForbidden)
+
+	// 4. Live MessageArtifact of the session message stays accessible under KB-restricted API key.
+	artifactMsg := &types.Message{
+		ID:            "msg-artifact",
+		AgentTenantID: 1,
+		Role:          "assistant",
+		Content:       "![report](" + ref + ")",
+		Artifacts:     types.MessageArtifacts{{URL: ref, FileName: "report.pdf"}},
+	}
+	_, err = AuthorizeMessageFile(scopedCtx(types.StringArray{"kb-other"}), artifactMsg, ref, nil, fileCatalog{resource: res}, MessageKBShareAuthorizer{})
+	require.NoError(t, err)
+}
