@@ -366,6 +366,9 @@ func (r *wikiPageRepository) GetBySlug(ctx context.Context, kbID string, slug st
 
 // List retrieves wiki pages with filtering and pagination
 func (r *wikiPageRepository) List(ctx context.Context, req *types.WikiPageListRequest) ([]*types.WikiPage, int64, error) {
+	if req == nil {
+		return nil, 0, nil
+	}
 	query := r.db.WithContext(ctx).Model(&types.WikiPage{}).
 		Where("knowledge_base_id = ?", req.KnowledgeBaseID)
 
@@ -443,7 +446,7 @@ func (r *wikiPageRepository) List(ctx context.Context, req *types.WikiPageListRe
 	if pageSize < 1 {
 		pageSize = 20
 	}
-	offset := (page - 1) * pageSize
+	offset := safePaginationOffset(page, pageSize)
 
 	// Pagination
 	query = query.Offset(offset).Limit(pageSize)
@@ -521,39 +524,44 @@ func (r *wikiPageRepository) ListByTypeLight(
 	return entries, total, nil
 }
 
-// ListBySourceRef retrieves all wiki pages that reference a given source knowledge ID.
-// Handles both old format ("knowledgeID") and new format ("knowledgeID|title") in source_refs JSON array.
-func (r *wikiPageRepository) ListBySourceRef(ctx context.Context, kbID string, sourceKnowledgeID string) ([]*types.WikiPage, error) {
-	// Build the JSON needle safely so arbitrary IDs cannot break out of the
-	// quoted string (e.g. ids containing quotes or backslashes).
-	needle, err := json.Marshal([]string{sourceKnowledgeID})
-	if err != nil {
-		return nil, fmt.Errorf("marshal source ref needle: %w", err)
+// buildWikiSourceRefPredicate builds a dialect-safe SQL predicate and bind args
+// matching either an exact element ("knowledgeID") or a titled prefix
+// ("knowledgeID|title") inside wiki_pages.source_refs.
+func (r *wikiPageRepository) buildWikiSourceRefPredicate(sourceKnowledgeID string) (string, []interface{}, error) {
+	if r.wikiDialect() == "sqlite" {
+		prefixPattern := escapeLikePattern(sourceKnowledgeID+"|") + "%"
+		clause := "EXISTS (SELECT 1 FROM json_each(CASE WHEN json_valid(CAST(wiki_pages.source_refs AS TEXT)) THEN CAST(wiki_pages.source_refs AS TEXT) ELSE '[]' END) WHERE value = ? OR value LIKE ? ESCAPE ?)"
+		return clause, []interface{}{sourceKnowledgeID, prefixPattern, likeEscapeChar}, nil
 	}
 
-	// For the "knowledgeID|title" prefix form, match against the JSON-encoded
-	// value: json.Marshal escapes special chars so the LIKE pattern is safe.
+	needle, err := json.Marshal([]string{sourceKnowledgeID})
+	if err != nil {
+		return "", nil, fmt.Errorf("marshal source ref needle: %w", err)
+	}
 	prefix, err := json.Marshal(sourceKnowledgeID + "|")
 	if err != nil {
-		return nil, fmt.Errorf("marshal source ref prefix: %w", err)
+		return "", nil, fmt.Errorf("marshal source ref prefix: %w", err)
 	}
-	// prefix is a JSON string including the surrounding quotes; e.g. "abc|".
-	// We strip the trailing quote so LIKE can continue into the title portion.
 	prefixStr := string(prefix)
 	if len(prefixStr) >= 2 && prefixStr[len(prefixStr)-1] == '"' {
 		prefixStr = prefixStr[:len(prefixStr)-1]
 	}
-	// Escape LIKE metacharacters in the already-JSON-escaped prefix, then wrap
-	// with %…% to match anywhere in the serialized JSON array.
 	likePattern := "%" + escapeLikePattern(prefixStr) + "%"
+	return "(source_refs @> ?::jsonb OR source_refs::text LIKE ? ESCAPE ?)", []interface{}{string(needle), likePattern, likeEscapeChar}, nil
+}
 
+// ListBySourceRef retrieves all wiki pages that reference a given source knowledge ID.
+// Handles both old format ("knowledgeID") and new format ("knowledgeID|title") in source_refs JSON array.
+func (r *wikiPageRepository) ListBySourceRef(ctx context.Context, kbID string, sourceKnowledgeID string) ([]*types.WikiPage, error) {
+	pred, predArgs, err := r.buildWikiSourceRefPredicate(sourceKnowledgeID)
+	if err != nil {
+		return nil, err
+	}
+
+	args := append([]interface{}{kbID}, predArgs...)
 	var pages []*types.WikiPage
 	if err := r.db.WithContext(ctx).
-		Where("knowledge_base_id = ? AND (source_refs @> ?::jsonb OR source_refs::text LIKE ?)",
-			kbID,
-			string(needle),
-			likePattern,
-		).
+		Where("knowledge_base_id = ? AND "+pred, args...).
 		Find(&pages).Error; err != nil {
 		return nil, err
 	}
@@ -570,28 +578,16 @@ func (r *wikiPageRepository) ListBySourceRef(ctx context.Context, kbID string, s
 // containment branch and idx_wiki_pages_source_refs_text for the legacy
 // text-LIKE branch — both added in migration 000041.
 func (r *wikiPageRepository) ListSlugsBySourceRef(ctx context.Context, kbID string, sourceKnowledgeID string) ([]string, error) {
-	needle, err := json.Marshal([]string{sourceKnowledgeID})
+	pred, predArgs, err := r.buildWikiSourceRefPredicate(sourceKnowledgeID)
 	if err != nil {
-		return nil, fmt.Errorf("marshal source ref needle: %w", err)
+		return nil, err
 	}
-	prefix, err := json.Marshal(sourceKnowledgeID + "|")
-	if err != nil {
-		return nil, fmt.Errorf("marshal source ref prefix: %w", err)
-	}
-	prefixStr := string(prefix)
-	if len(prefixStr) >= 2 && prefixStr[len(prefixStr)-1] == '"' {
-		prefixStr = prefixStr[:len(prefixStr)-1]
-	}
-	likePattern := "%" + escapeLikePattern(prefixStr) + "%"
 
+	args := append([]interface{}{kbID}, predArgs...)
 	var slugs []string
 	if err := r.db.WithContext(ctx).
 		Model(&types.WikiPage{}).
-		Where("knowledge_base_id = ? AND (source_refs @> ?::jsonb OR source_refs::text LIKE ?)",
-			kbID,
-			string(needle),
-			likePattern,
-		).
+		Where("knowledge_base_id = ? AND "+pred, args...).
 		Pluck("slug", &slugs).Error; err != nil {
 		return nil, err
 	}
@@ -878,29 +874,18 @@ func (r *wikiPageRepository) ListSummariesByKnowledgeIDs(
 	// Build OR clauses without using overly-clever GORM tricks: assemble
 	// raw SQL fragments + args. Keeping this defensive because source_refs
 	// patterns include user-controlled knowledge ids.
-	clauses := make([]string, 0, len(kids)*2)
-	args := make([]interface{}, 0, len(kids)*2)
+	clauses := make([]string, 0, len(kids))
+	args := make([]interface{}, 0, len(kids)*3)
 	for _, kid := range kids {
 		if kid == "" {
 			continue
 		}
-		needle, err := json.Marshal([]string{kid})
+		pred, predArgs, err := r.buildWikiSourceRefPredicate(kid)
 		if err != nil {
-			return nil, fmt.Errorf("marshal kid needle: %w", err)
+			return nil, err
 		}
-		clauses = append(clauses, "source_refs @> ?::jsonb")
-		args = append(args, string(needle))
-
-		prefix, err := json.Marshal(kid + "|")
-		if err != nil {
-			return nil, fmt.Errorf("marshal kid prefix: %w", err)
-		}
-		prefixStr := string(prefix)
-		if len(prefixStr) >= 2 && prefixStr[len(prefixStr)-1] == '"' {
-			prefixStr = prefixStr[:len(prefixStr)-1]
-		}
-		clauses = append(clauses, "source_refs::text LIKE ?")
-		args = append(args, "%"+escapeLikePattern(prefixStr)+"%")
+		clauses = append(clauses, pred)
+		args = append(args, predArgs...)
 	}
 	if len(clauses) == 0 {
 		return nil, nil

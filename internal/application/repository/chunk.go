@@ -135,6 +135,9 @@ func (r *chunkRepository) GetChunkBySeqID(ctx context.Context, tenantID uint64, 
 func (r *chunkRepository) ListChunksByID(
 	ctx context.Context, tenantID uint64, ids []string,
 ) ([]*types.Chunk, error) {
+	if len(ids) == 0 {
+		return []*types.Chunk{}, nil
+	}
 	var chunks []*types.Chunk
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND id IN ?", tenantID, ids).
@@ -235,6 +238,12 @@ func (r *chunkRepository) ListPagedChunksByKnowledgeID(
 	knowledgeType string,
 	isEnabled *bool,
 ) ([]*types.Chunk, int64, error) {
+	if len(chunkType) == 0 {
+		return []*types.Chunk{}, 0, nil
+	}
+	if page == nil {
+		page = &types.Pagination{}
+	}
 	var chunks []*types.Chunk
 	var total int64
 	keyword = strings.TrimSpace(keyword)
@@ -362,6 +371,9 @@ func (r *chunkRepository) ListChunkNeighbors(
 	after int,
 	chunkTypes []types.ChunkType,
 ) ([]*types.Chunk, error) {
+	if len(chunkTypes) == 0 || (before <= 0 && after <= 0) {
+		return []*types.Chunk{}, nil
+	}
 	base := func() *gorm.DB {
 		return r.db.WithContext(ctx).
 			Where("tenant_id = ? AND knowledge_id = ? AND chunk_type IN (?) AND status in (?) AND is_enabled = ?",
@@ -562,17 +574,24 @@ func (r *chunkRepository) UpdateChunks(ctx context.Context, chunks []*types.Chun
 // without inspecting the bind parameters.
 func updateChunksPostgres(tx *gorm.DB, chunks []*types.Chunk) error {
 	rows := make([]string, 0, len(chunks))
-	args := make([]interface{}, 0, len(chunks)*6)
+	args := make([]interface{}, 0, len(chunks)*7)
 	for _, chunk := range chunks {
-		rows = append(rows, "(?::varchar, ?::text, ?::boolean, ?::varchar, ?::integer, ?::integer)")
+		if chunk == nil || chunk.ID == "" {
+			continue
+		}
+		rows = append(rows, "(?::varchar, ?::bigint, ?::text, ?::boolean, ?::varchar, ?::integer, ?::integer)")
 		args = append(args,
 			chunk.ID,
+			chunk.TenantID,
 			common.CleanInvalidUTF8(chunk.Content),
 			chunk.IsEnabled,
 			chunk.TagID,
 			int(chunk.Flags),
 			chunk.Status,
 		)
+	}
+	if len(rows) == 0 {
+		return nil
 	}
 
 	sql := fmt.Sprintf(`
@@ -583,8 +602,8 @@ func updateChunksPostgres(tx *gorm.DB, chunks []*types.Chunk) error {
 			flags = v.flags,
 			status = v.status,
 			updated_at = NOW()
-		FROM (VALUES %s) AS v(id, content, is_enabled, tag_id, flags, status)
-		WHERE c.id = v.id
+		FROM (VALUES %s) AS v(id, tenant_id, content, is_enabled, tag_id, flags, status)
+		WHERE c.id = v.id AND (v.tenant_id = 0 OR c.tenant_id = v.tenant_id)
 	`, strings.Join(rows, ",\n"))
 
 	return tx.Exec(sql, args...).Error
@@ -595,15 +614,20 @@ func updateChunksPostgres(tx *gorm.DB, chunks []*types.Chunk) error {
 // NOW() vs datetime('now') dialect difference.
 func updateChunksRowByRow(tx *gorm.DB, chunks []*types.Chunk) error {
 	for _, chunk := range chunks {
-		err := tx.Unscoped().Model(&types.Chunk{}).
-			Where("id = ?", chunk.ID).
-			Updates(map[string]interface{}{
-				"content":    common.CleanInvalidUTF8(chunk.Content),
-				"is_enabled": chunk.IsEnabled,
-				"tag_id":     chunk.TagID,
-				"flags":      int(chunk.Flags),
-				"status":     chunk.Status,
-			}).Error
+		if chunk == nil || chunk.ID == "" {
+			continue
+		}
+		q := tx.Unscoped().Model(&types.Chunk{}).Where("id = ?", chunk.ID)
+		if chunk.TenantID != 0 {
+			q = q.Where("tenant_id = ?", chunk.TenantID)
+		}
+		err := q.Updates(map[string]interface{}{
+			"content":    common.CleanInvalidUTF8(chunk.Content),
+			"is_enabled": chunk.IsEnabled,
+			"tag_id":     chunk.TagID,
+			"flags":      int(chunk.Flags),
+			"status":     chunk.Status,
+		}).Error
 		if err != nil {
 			return err
 		}
@@ -741,6 +765,9 @@ func (r *chunkRepository) PurgeSupersededChunksByKnowledgeID(
 func (r *chunkRepository) ListImageInfoByKnowledgeIDs(
 	ctx context.Context, tenantID uint64, knowledgeIDs []string,
 ) ([]interfaces.ChunkImageInfo, error) {
+	if len(knowledgeIDs) == 0 {
+		return nil, nil
+	}
 	var results []interfaces.ChunkImageInfo
 	err := r.db.WithContext(ctx).
 		Model(&types.Chunk{}).
@@ -752,6 +779,9 @@ func (r *chunkRepository) ListImageInfoByKnowledgeIDs(
 
 // DeleteByKnowledgeList deletes all chunks for a knowledge list
 func (r *chunkRepository) DeleteByKnowledgeList(ctx context.Context, tenantID uint64, knowledgeIDs []string) error {
+	if len(knowledgeIDs) == 0 {
+		return nil
+	}
 	return r.db.WithContext(ctx).Where(
 		"tenant_id = ? AND knowledge_id in ?", tenantID, knowledgeIDs,
 	).Delete(&types.Chunk{}).Error
@@ -802,7 +832,9 @@ func (r *chunkRepository) DeleteChunksByTagID(ctx context.Context, tenantID uint
 		}
 		batch := toDelete[i:end]
 
-		if err := r.db.WithContext(ctx).Where("id IN ?", batch).Delete(&types.Chunk{}).Error; err != nil {
+		if err := r.db.WithContext(ctx).
+			Where("tenant_id = ? AND knowledge_base_id = ? AND id IN ?", tenantID, kbID, batch).
+			Delete(&types.Chunk{}).Error; err != nil {
 			// Return already planned deletions up to this point for index cleanup
 			return toDelete[:i], err
 		}

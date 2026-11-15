@@ -261,6 +261,9 @@ func (r *messageRepository) RecordRestoredArtifactMtime(
 func (r *messageRepository) ListArtifactLibrary(
 	ctx context.Context, q *types.ArtifactLibraryQuery,
 ) ([]*types.ArtifactLibraryItem, int64, error) {
+	if q == nil {
+		return []*types.ArtifactLibraryItem{}, 0, nil
+	}
 	var (
 		where []string
 		args  []any
@@ -279,8 +282,16 @@ func (r *messageRepository) ListArtifactLibrary(
 		args = append(args, "%"+escapeLikeKeyword(kw)+"%", likeEscapeChar)
 	}
 	if len(q.FileTypes) > 0 {
-		where = append(where, "LOWER(ma.file_type) IN ?")
-		args = append(args, q.FileTypes)
+		normalized := make([]string, 0, len(q.FileTypes))
+		for _, ft := range q.FileTypes {
+			if clean := strings.ToLower(strings.TrimSpace(ft)); clean != "" {
+				normalized = append(normalized, clean)
+			}
+		}
+		if len(normalized) > 0 {
+			where = append(where, "LOWER(ma.file_type) IN ?")
+			args = append(args, normalized)
+		}
 	}
 
 	grouped := `SELECT ma.session_id, ma.message_id, ma.position, ma.url, ma.file_name,
@@ -316,7 +327,7 @@ func (r *messageRepository) ListArtifactLibrary(
 		size = 20
 	}
 	items := make([]*types.ArtifactLibraryItem, 0)
-	listArgs := append(append([]any{}, args...), size, (page-1)*size)
+	listArgs := append(append([]any{}, args...), size, safePaginationOffset(page, size))
 	if err := r.db.WithContext(ctx).
 		Raw("SELECT * FROM ("+ranked+") latest WHERE version_rank = 1 "+
 			"ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?", listArgs...).

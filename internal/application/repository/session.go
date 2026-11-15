@@ -169,6 +169,9 @@ func (r *sessionRepository) GetPagedByTenantID(
 func (r *sessionRepository) QueryPaged(
 	ctx context.Context, q *types.SessionListQuery,
 ) ([]*types.SessionListItem, int64, error) {
+	if q == nil {
+		return []*types.SessionListItem{}, 0, nil
+	}
 	// Dialect-aware bits so the same query works on Postgres and SQLite (Lite build).
 	isPostgres := r.db.Dialector.Name() == "postgres"
 	titleLikeExpr := "LOWER(s.title) LIKE LOWER(?) ESCAPE ?"
@@ -292,7 +295,7 @@ func (r *sessionRepository) QueryPaged(
 			ics.agent_id       AS im_agent_id,
 			ics.im_channel_id  AS im_channel_id`).
 		Order(orderClause).
-		Offset((page - 1) * size).
+		Offset(safePaginationOffset(page, size)).
 		Limit(size)
 	if err := rowsQ.Find(&items).Error; err != nil {
 		return nil, 0, err

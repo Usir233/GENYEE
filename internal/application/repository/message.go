@@ -65,10 +65,16 @@ func (r *messageRepository) GetMessage(
 func (r *messageRepository) GetMessagesBySession(
 	ctx context.Context, sessionID string, page int, pageSize int,
 ) ([]*types.Message, error) {
+	if page < 1 {
+		page = 1
+	}
 	var messages []*types.Message
-	if err := r.db.WithContext(ctx).Where("session_id = ?", sessionID).
-		Order("created_at ASC, id ASC").
-		Offset((page - 1) * pageSize).Limit(pageSize).Find(&messages).Error; err != nil {
+	q := r.db.WithContext(ctx).Where("session_id = ?", sessionID).
+		Order("created_at ASC, id ASC")
+	if pageSize > 0 {
+		q = q.Offset(safePaginationOffset(page, pageSize)).Limit(pageSize)
+	}
+	if err := q.Find(&messages).Error; err != nil {
 		return nil, err
 	}
 	if err := attachArtifacts(ctx, r.db, messages...); err != nil {

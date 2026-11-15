@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/types"
@@ -24,9 +25,27 @@ func (r *knowledgeTagRepository) Create(ctx context.Context, tag *types.Knowledg
 	return r.db.WithContext(ctx).Create(tag).Error
 }
 
-// Update updates a knowledge tag
+// Update updates a knowledge tag scoped to its owning tenant and knowledge base.
 func (r *knowledgeTagRepository) Update(ctx context.Context, tag *types.KnowledgeTag) error {
-	return r.db.WithContext(ctx).Save(tag).Error
+	if tag == nil || tag.ID == "" {
+		return errors.New("knowledge tag id is required")
+	}
+	q := r.db.WithContext(ctx).Model(&types.KnowledgeTag{}).Where("id = ?", tag.ID)
+	if tag.TenantID != 0 {
+		q = q.Where("tenant_id = ?", tag.TenantID)
+	}
+	if tag.KnowledgeBaseID != "" {
+		q = q.Where("knowledge_base_id = ?", tag.KnowledgeBaseID)
+	}
+	updates := map[string]any{
+		"name":       tag.Name,
+		"color":      tag.Color,
+		"sort_order": tag.SortOrder,
+	}
+	if !tag.UpdatedAt.IsZero() {
+		updates["updated_at"] = tag.UpdatedAt
+	}
+	return q.Updates(updates).Error
 }
 
 // GetByID gets a knowledge tag by ID
@@ -108,7 +127,7 @@ func (r *knowledgeTagRepository) ListByKB(
 		Where("tenant_id = ? AND knowledge_base_id = ?", tenantID, kbID)
 	if keyword != "" {
 		escaped := escapeLikeKeyword(keyword)
-		baseQuery = baseQuery.Where("name LIKE ? ESCAPE ?", "%"+escaped+"%", likeEscapeChar)
+		baseQuery = baseQuery.Where("LOWER(name) LIKE LOWER(?) ESCAPE ?", "%"+escaped+"%", likeEscapeChar)
 	}
 
 	if err := baseQuery.Count(&total).Error; err != nil {
@@ -119,7 +138,7 @@ func (r *knowledgeTagRepository) ListByKB(
 		Where("tenant_id = ? AND knowledge_base_id = ?", tenantID, kbID)
 	if keyword != "" {
 		escaped := escapeLikeKeyword(keyword)
-		dataQuery = dataQuery.Where("name LIKE ? ESCAPE ?", "%"+escaped+"%", likeEscapeChar)
+		dataQuery = dataQuery.Where("LOWER(name) LIKE LOWER(?) ESCAPE ?", "%"+escaped+"%", likeEscapeChar)
 	}
 
 	var tags []*types.KnowledgeTag

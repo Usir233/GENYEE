@@ -118,6 +118,9 @@ func (r *AgentPromptRepository) ListStaleLeases(
 	ctx context.Context, statuses []string, before time.Time, limit int,
 ) ([]*types.AgentPrompt, error) {
 	var rows []*types.AgentPrompt
+	if len(statuses) == 0 {
+		return rows, nil
+	}
 	err := r.db.WithContext(ctx).
 		Where("status IN ? AND lease_until < ?", statuses, before).
 		Order("lease_until").
@@ -150,6 +153,9 @@ func (r *AgentPromptRepository) ListBySession(
 	ctx context.Context, sessionID string, statuses []string,
 ) ([]*types.AgentPrompt, error) {
 	var rows []*types.AgentPrompt
+	if len(statuses) == 0 {
+		return rows, nil
+	}
 	err := r.db.WithContext(ctx).
 		Where("session_id = ? AND status IN ?", sessionID, statuses).
 		Order("created_at").
@@ -166,7 +172,7 @@ func (r *AgentPromptRepository) ListByMessages(
 	ctx context.Context, sessionID string, messageIDs, statuses []string,
 ) ([]*types.AgentPrompt, error) {
 	var rows []*types.AgentPrompt
-	if len(messageIDs) == 0 {
+	if len(messageIDs) == 0 || len(statuses) == 0 {
 		return rows, nil
 	}
 	err := r.db.WithContext(ctx).

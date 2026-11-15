@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"math"
 
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
@@ -10,6 +11,18 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func safePaginationOffset(page, pageSize int) int {
+	if page <= 1 || pageSize <= 0 {
+		return 0
+	}
+	p := int64(page - 1)
+	ps := int64(pageSize)
+	if p > math.MaxInt/ps {
+		return math.MaxInt
+	}
+	return int(p * ps)
+}
 
 var (
 	ErrTenantNotFound         = errors.New("tenant not found")
@@ -84,14 +97,14 @@ func (r *tenantRepository) SearchTenants(ctx context.Context, keyword string, te
 	if tenantID > 0 && keyword != "" {
 		escaped := escapeLikeKeyword(keyword)
 		query = query.Where(
-			"id = ? OR name LIKE ? ESCAPE ? OR description LIKE ? ESCAPE ?",
+			"id = ? OR LOWER(name) LIKE LOWER(?) ESCAPE ? OR LOWER(description) LIKE LOWER(?) ESCAPE ?",
 			tenantID, "%"+escaped+"%", likeEscapeChar, "%"+escaped+"%", likeEscapeChar)
 	} else if tenantID > 0 {
 		query = query.Where("id = ?", tenantID)
 	} else if keyword != "" {
 		escaped := escapeLikeKeyword(keyword)
 		query = query.Where(
-			"name LIKE ? ESCAPE ? OR description LIKE ? ESCAPE ?",
+			"LOWER(name) LIKE LOWER(?) ESCAPE ? OR LOWER(description) LIKE LOWER(?) ESCAPE ?",
 			"%"+escaped+"%", likeEscapeChar, "%"+escaped+"%", likeEscapeChar)
 	}
 
@@ -102,7 +115,7 @@ func (r *tenantRepository) SearchTenants(ctx context.Context, keyword string, te
 
 	// Apply pagination
 	if page > 0 && pageSize > 0 {
-		offset := (page - 1) * pageSize
+		offset := safePaginationOffset(page, pageSize)
 		query = query.Offset(offset).Limit(pageSize)
 	}
 
@@ -164,19 +177,38 @@ func (r *tenantRepository) DeleteTenant(ctx context.Context, id uint64) error {
 func (r *tenantRepository) AdjustStorageUsed(ctx context.Context, tenantID uint64, delta int64) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var tenant types.Tenant
-		// 使用悲观锁确保并发安全
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&tenant, tenantID).Error; err != nil {
-			return err
+		if tx.Name() == "sqlite" {
+			res := tx.Model(&types.Tenant{}).Where("id = ?", tenantID).UpdateColumn("id", tenantID)
+			if res.Error != nil {
+				return res.Error
+			}
+			if res.RowsAffected == 0 {
+				return gorm.ErrRecordNotFound
+			}
+			if err := tx.Select("id, storage_used").Where("id = ?", tenantID).First(&tenant).Error; err != nil {
+				return err
+			}
+		} else {
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+				Select("id, storage_used").
+				Where("id = ?", tenantID).
+				First(&tenant).Error; err != nil {
+				return err
+			}
 		}
 
-		tenant.StorageUsed += delta
-		// 保存更新并验证业务规则
-		if tenant.StorageUsed < 0 {
-			logger.Errorf(ctx, "tenant storage used is negative %d: %d", tenant.ID, tenant.StorageUsed)
-			tenant.StorageUsed = 0
+		var newUsed int64
+		if delta > 0 && tenant.StorageUsed > math.MaxInt64-delta {
+			newUsed = math.MaxInt64
+		} else {
+			newUsed = tenant.StorageUsed + delta
+		}
+		if newUsed < 0 {
+			logger.Errorf(ctx, "tenant storage used is negative %d: %d", tenant.ID, newUsed)
+			newUsed = 0
 		}
 
-		return tx.Save(&tenant).Error
+		return tx.Model(&types.Tenant{}).Where("id = ?", tenantID).Update("storage_used", newUsed).Error
 	})
 }
 

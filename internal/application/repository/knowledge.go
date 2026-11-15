@@ -376,7 +376,7 @@ func (r *knowledgeRepository) UpdateKnowledgeBatch(ctx context.Context, knowledg
 			knowledge.ErrorMessage = common.CleanInvalidUTF8(knowledge.ErrorMessage)
 		}
 	}
-	return r.db.Debug().WithContext(ctx).Omit(omitFieldsOnUpdate...).Save(knowledgeList).Error
+	return r.db.WithContext(ctx).Omit(omitFieldsOnUpdate...).Save(knowledgeList).Error
 }
 
 // DeleteKnowledge deletes knowledge
@@ -386,6 +386,9 @@ func (r *knowledgeRepository) DeleteKnowledge(ctx context.Context, tenantID uint
 
 // DeleteKnowledge deletes knowledge
 func (r *knowledgeRepository) DeleteKnowledgeList(ctx context.Context, tenantID uint64, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
 	return r.db.WithContext(ctx).Where("tenant_id = ? AND id in ?", tenantID, ids).Delete(&types.Knowledge{}).Error
 }
 
@@ -393,6 +396,9 @@ func (r *knowledgeRepository) DeleteKnowledgeList(ctx context.Context, tenantID 
 func (r *knowledgeRepository) GetKnowledgeBatch(
 	ctx context.Context, tenantID uint64, ids []string,
 ) ([]*types.Knowledge, error) {
+	if len(ids) == 0 {
+		return []*types.Knowledge{}, nil
+	}
 	var knowledge []*types.Knowledge
 	if err := r.db.WithContext(ctx).
 		Where("tenant_id = ? AND id IN ?", tenantID, ids).
@@ -423,6 +429,9 @@ func (r *knowledgeRepository) CheckKnowledgeExists(
 	kbID string,
 	params *types.KnowledgeCheckParams,
 ) (bool, *types.Knowledge, error) {
+	if params == nil {
+		return false, nil, nil
+	}
 	// Failed rows never block a retry, and neither do rows whose deletion is
 	// in flight: a deleting row is on its way out, so an upload landing while
 	// the async delete task is still queued/running ends with exactly one
@@ -952,6 +961,64 @@ func (r *knowledgeRepository) HardDeleteKnowledgeList(ctx context.Context, tenan
 		Delete(&types.Knowledge{}).Error
 }
 
+func buildKnowledgeFileTypesFilter(fileTypes []string) (string, []interface{}) {
+	seen := make(map[string]bool)
+	var uniquePatterns []string
+	includeURL := false
+	for _, ft := range fileTypes {
+		ft = strings.ToLower(strings.TrimPrefix(strings.TrimSpace(ft), "."))
+		if ft == "" {
+			continue
+		}
+		if ft == "url" || ft == "html" {
+			includeURL = true
+			continue
+		}
+		pattern := "%." + escapeLikeKeyword(ft)
+		if !seen[pattern] {
+			seen[pattern] = true
+			uniquePatterns = append(uniquePatterns, pattern)
+		}
+		var aliases []string
+		switch ft {
+		case "xlsx":
+			aliases = []string{"%.xls"}
+		case "xls":
+			aliases = []string{"%.xlsx"}
+		case "docx":
+			aliases = []string{"%.doc"}
+		case "doc":
+			aliases = []string{"%.docx"}
+		case "jpg":
+			aliases = []string{"%.jpeg", "%.png"}
+		case "jpeg":
+			aliases = []string{"%.jpg", "%.png"}
+		case "png":
+			aliases = []string{"%.jpg", "%.jpeg"}
+		}
+		for _, alias := range aliases {
+			if !seen[alias] {
+				seen[alias] = true
+				uniquePatterns = append(uniquePatterns, alias)
+			}
+		}
+	}
+	var orConditions []string
+	var args []interface{}
+	for _, p := range uniquePatterns {
+		orConditions = append(orConditions, "LOWER(knowledges.file_name) LIKE ? ESCAPE ?")
+		args = append(args, p, likeEscapeChar)
+	}
+	if includeURL {
+		orConditions = append(orConditions, "knowledges.type = ?")
+		args = append(args, "url")
+	}
+	if len(orConditions) == 0 {
+		return "", nil
+	}
+	return "(" + strings.Join(orConditions, " OR ") + ")", args
+}
+
 func (r *knowledgeRepository) SearchKnowledge(
 	ctx context.Context,
 	tenantID uint64,
@@ -959,6 +1026,12 @@ func (r *knowledgeRepository) SearchKnowledge(
 	offset, limit int,
 	fileTypes []string,
 ) ([]*types.Knowledge, bool, error) {
+	if offset < 0 {
+		offset = 0
+	}
+	if limit <= 0 {
+		return []*types.Knowledge{}, false, nil
+	}
 	// Use raw query to properly map knowledge_base_name
 	type KnowledgeWithKBName struct {
 		types.Knowledge
@@ -969,7 +1042,7 @@ func (r *knowledgeRepository) SearchKnowledge(
 	query := r.db.WithContext(ctx).
 		Table("knowledges").
 		Select("knowledges.*, knowledge_bases.name as knowledge_base_name").
-		Joins("JOIN knowledge_bases ON knowledge_bases.id = knowledges.knowledge_base_id").
+		Joins("JOIN knowledge_bases ON knowledge_bases.id = knowledges.knowledge_base_id AND knowledge_bases.tenant_id = knowledges.tenant_id AND knowledge_bases.deleted_at IS NULL").
 		Where("knowledges.tenant_id = ?", tenantID).
 		Where("knowledge_bases.type = ?", types.KnowledgeBaseTypeDocument).
 		Where("knowledges.deleted_at IS NULL")
@@ -985,57 +1058,8 @@ func (r *knowledgeRepository) SearchKnowledge(
 
 	// If fileTypes is provided, filter by file extension or type
 	if len(fileTypes) > 0 {
-		seen := make(map[string]bool)
-		var uniquePatterns []string
-		includeURL := false
-		for _, ft := range fileTypes {
-			ft = strings.ToLower(strings.TrimPrefix(ft, "."))
-			if ft == "url" || ft == "html" {
-				includeURL = true
-				continue
-			}
-			pattern := "%." + ft
-			if !seen[pattern] {
-				seen[pattern] = true
-				uniquePatterns = append(uniquePatterns, pattern)
-			}
-			// Handle common aliases
-			var aliases []string
-			switch ft {
-			case "xlsx":
-				aliases = []string{"%.xls"}
-			case "xls":
-				aliases = []string{"%.xlsx"}
-			case "docx":
-				aliases = []string{"%.doc"}
-			case "doc":
-				aliases = []string{"%.docx"}
-			case "jpg":
-				aliases = []string{"%.jpeg", "%.png"}
-			case "jpeg":
-				aliases = []string{"%.jpg", "%.png"}
-			case "png":
-				aliases = []string{"%.jpg", "%.jpeg"}
-			}
-			for _, alias := range aliases {
-				if !seen[alias] {
-					seen[alias] = true
-					uniquePatterns = append(uniquePatterns, alias)
-				}
-			}
-		}
-		var orConditions []string
-		var args []interface{}
-		for _, p := range uniquePatterns {
-			orConditions = append(orConditions, "LOWER(knowledges.file_name) LIKE ?")
-			args = append(args, p)
-		}
-		if includeURL {
-			orConditions = append(orConditions, "knowledges.type = ?")
-			args = append(args, "url")
-		}
-		if len(orConditions) > 0 {
-			query = query.Where("("+strings.Join(orConditions, " OR ")+")", args...)
+		if cond, args := buildKnowledgeFileTypesFilter(fileTypes); cond != "" {
+			query = query.Where(cond, args...)
 		}
 	}
 
@@ -1089,10 +1113,14 @@ func (r *knowledgeRepository) SearchKnowledgeInScopes(
 	}
 	scopeCondition := "(knowledges.tenant_id, knowledges.knowledge_base_id) IN (" + strings.Join(placeholders, ",") + ")"
 
+	if offset < 0 {
+		offset = 0
+	}
+
 	query := r.db.WithContext(ctx).
 		Table("knowledges").
 		Select("knowledges.*, knowledge_bases.name as knowledge_base_name").
-		Joins("JOIN knowledge_bases ON knowledge_bases.id = knowledges.knowledge_base_id AND knowledge_bases.tenant_id = knowledges.tenant_id").
+		Joins("JOIN knowledge_bases ON knowledge_bases.id = knowledges.knowledge_base_id AND knowledge_bases.tenant_id = knowledges.tenant_id AND knowledge_bases.deleted_at IS NULL").
 		Where(scopeCondition, args...).
 		Where("knowledge_bases.type = ?", types.KnowledgeBaseTypeDocument).
 		Where("knowledges.deleted_at IS NULL")
@@ -1106,62 +1134,17 @@ func (r *knowledgeRepository) SearchKnowledgeInScopes(
 	}
 
 	if len(fileTypes) > 0 {
-		seen := make(map[string]bool)
-		var uniquePatterns []string
-		includeURL := false
-		for _, ft := range fileTypes {
-			ft = strings.ToLower(strings.TrimPrefix(ft, "."))
-			if ft == "url" || ft == "html" {
-				includeURL = true
-				continue
-			}
-			pattern := "%." + ft
-			if !seen[pattern] {
-				seen[pattern] = true
-				uniquePatterns = append(uniquePatterns, pattern)
-			}
-			var aliases []string
-			switch ft {
-			case "xlsx":
-				aliases = []string{"%.xls"}
-			case "xls":
-				aliases = []string{"%.xlsx"}
-			case "docx":
-				aliases = []string{"%.doc"}
-			case "doc":
-				aliases = []string{"%.docx"}
-			case "jpg":
-				aliases = []string{"%.jpeg", "%.png"}
-			case "jpeg":
-				aliases = []string{"%.jpg", "%.png"}
-			case "png":
-				aliases = []string{"%.jpg", "%.jpeg"}
-			}
-			for _, alias := range aliases {
-				if !seen[alias] {
-					seen[alias] = true
-					uniquePatterns = append(uniquePatterns, alias)
-				}
-			}
-		}
-		var orConditions []string
-		var ftArgs []interface{}
-		for _, p := range uniquePatterns {
-			orConditions = append(orConditions, "LOWER(knowledges.file_name) LIKE ?")
-			ftArgs = append(ftArgs, p)
-		}
-		if includeURL {
-			orConditions = append(orConditions, "knowledges.type = ?")
-			ftArgs = append(ftArgs, "url")
-		}
-		if len(orConditions) > 0 {
-			query = query.Where("("+strings.Join(orConditions, " OR ")+")", ftArgs...)
+		if cond, ftArgs := buildKnowledgeFileTypesFilter(fileTypes); cond != "" {
+			query = query.Where(cond, ftArgs...)
 		}
 	}
 
 	var total int64
 	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return nil, false, 0, err
+	}
+	if limit <= 0 {
+		return []*types.Knowledge{}, total > 0, total, nil
 	}
 
 	var results []KnowledgeWithKBName
