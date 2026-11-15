@@ -17,7 +17,18 @@
 <body>
 <script>
 (function(){
-  var t=localStorage.getItem('GENYEE_theme')||localStorage.getItem('GENYEE_theme')||'light';
+  var t='light';
+  try{
+    var uid='anon';
+    try{
+      var u=localStorage.getItem('genyee_user');
+      var p=u?JSON.parse(u):null;
+      if(p&&p.id)uid=String(p.id);
+    }catch(_){}
+    var v=localStorage.getItem('GENYEE_'+uid+'_theme');
+    if(v===null&&uid!=='anon')v=localStorage.getItem('GENYEE_anon_theme');
+    if(v==='light'||v==='dark'||v==='system')t=v;
+  }catch(_){}
   if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
   document.documentElement.setAttribute('theme-mode',t);
   /* 与 theme.css 中 --td-bg-color-page 一致，避免样式加载后整页背景从 #fff 跳到 #eee 触发重绘闪动 */
@@ -66,7 +77,18 @@
 <div id="app"></div>
 <script>
 (function(){
-  var t=localStorage.getItem('GENYEE_theme')||localStorage.getItem('GENYEE_theme')||'light';
+  var t='light';
+  try{
+    var uid='anon';
+    try{
+      var u=localStorage.getItem('genyee_user');
+      var p=u?JSON.parse(u):null;
+      if(p&&p.id)uid=String(p.id);
+    }catch(_){}
+    var v=localStorage.getItem('GENYEE_'+uid+'_theme');
+    if(v===null&&uid!=='anon')v=localStorage.getItem('GENYEE_anon_theme');
+    if(v==='light'||v==='dark'||v==='system')t=v;
+  }catch(_){}
   if(t==='system')t=window.matchMedia('(prefers-color-scheme:dark)').matches?'dark':'light';
   var bg=t==='dark'?'#181818':'#eee';
   var el=document.getElementById('app');
