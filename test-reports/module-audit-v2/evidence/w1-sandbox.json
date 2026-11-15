@@ -1,0 +1,301 @@
+{
+  "wave": "W1",
+  "slice": "w1-sandbox",
+  "units": [
+    {
+      "unit_id": "internal/sandbox",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/sandbox/activity_registry_memory.go",
+        "internal/sandbox/activity_registry_memory_test.go",
+        "internal/sandbox/activity_registry_redis.go",
+        "internal/sandbox/activity_registry_redis_test.go",
+        "internal/sandbox/capabilities.go",
+        "internal/sandbox/check_client_guard_test.go",
+        "internal/sandbox/command_approval.go",
+        "internal/sandbox/command_approval_test.go",
+        "internal/sandbox/command_output.go",
+        "internal/sandbox/config_identity.go",
+        "internal/sandbox/config_identity_test.go",
+        "internal/sandbox/config_required.go",
+        "internal/sandbox/config_sandboxes.go",
+        "internal/sandbox/config_sandboxes_test.go",
+        "internal/sandbox/cube_dns.go",
+        "internal/sandbox/cube_dns_test.go",
+        "internal/sandbox/cube_egress_integration_test.go",
+        "internal/sandbox/cube_integration_test.go",
+        "internal/sandbox/cube_mock_test.go",
+        "internal/sandbox/cube_remote_client.go",
+        "internal/sandbox/cube_remote_client_test.go",
+        "internal/sandbox/cube_template_catalog_test.go",
+        "internal/sandbox/cube_terminal.go",
+        "internal/sandbox/cube_terminal_test.go",
+        "internal/sandbox/desktop.go",
+        "internal/sandbox/desktop_scripts.go",
+        "internal/sandbox/desktop_test.go",
+        "internal/sandbox/dns_test.go",
+        "internal/sandbox/docker_enabled.go",
+        "internal/sandbox/docker_enabled_test.go",
+        "internal/sandbox/docker_engine.go",
+        "internal/sandbox/docker_host.go",
+        "internal/sandbox/docker_host_test.go",
+        "internal/sandbox/docker_idle_sweeper.go",
+        "internal/sandbox/docker_idle_sweeper_test.go",
+        "internal/sandbox/docker_integration_test.go",
+        "internal/sandbox/docker_remote_client.go",
+        "internal/sandbox/docker_remote_client_test.go",
+        "internal/sandbox/docker_remote_client_utf8_test.go",
+        "internal/sandbox/docker_rpc_timeout.go",
+        "internal/sandbox/docker_snapshot.go",
+        "internal/sandbox/docker_snapshot_test.go",
+        "internal/sandbox/docker_template_catalog.go",
+        "internal/sandbox/docker_terminal.go",
+        "internal/sandbox/docker_terminal_test.go",
+        "internal/sandbox/e2b_compatible_integration_test.go",
+        "internal/sandbox/e2b_exec_timeout_test.go",
+        "internal/sandbox/e2b_integration_test.go",
+        "internal/sandbox/e2b_remote_client.go",
+        "internal/sandbox/e2b_remote_client_test.go",
+        "internal/sandbox/e2b_rpc_timeout.go",
+        "internal/sandbox/e2b_terminal.go",
+        "internal/sandbox/envd_compat_transport.go",
+        "internal/sandbox/envd_compat_transport_test.go",
+        "internal/sandbox/filesystem_identity.go",
+        "internal/sandbox/filesystem_identity_test.go",
+        "internal/sandbox/gateway_transport.go",
+        "internal/sandbox/gateway_transport_test.go",
+        "internal/sandbox/inbound_token_registry.go",
+        "internal/sandbox/inbound_token_registry_test.go",
+        "internal/sandbox/issue3910_repro_integration_test.go",
+        "internal/sandbox/keepalive.go",
+        "internal/sandbox/keepalive_test.go",
+        "internal/sandbox/langfuse.go",
+        "internal/sandbox/langfuse_test.go",
+        "internal/sandbox/manager.go",
+        "internal/sandbox/mkdir.go",
+        "internal/sandbox/mkdir_test.go",
+        "internal/sandbox/orphan_reaper.go",
+        "internal/sandbox/orphan_reaper_test.go",
+        "internal/sandbox/pty_input_coalesce.go",
+        "internal/sandbox/pty_input_coalesce_test.go",
+        "internal/sandbox/remote_client.go",
+        "internal/sandbox/remote_client_test.go",
+        "internal/sandbox/remote_errors.go",
+        "internal/sandbox/remote_errors_test.go",
+        "internal/sandbox/remote_fake_test.go",
+        "internal/sandbox/remote_sandbox.go",
+        "internal/sandbox/remote_sandbox_test.go",
+        "internal/sandbox/remote_snapshot_test.go",
+        "internal/sandbox/runtime_defaults.go",
+        "internal/sandbox/sandbox.go",
+        "internal/sandbox/sandbox_test.go",
+        "internal/sandbox/secret_fill.go",
+        "internal/sandbox/secret_fill_test.go",
+        "internal/sandbox/session_binding.go",
+        "internal/sandbox/session_binding_redis.go",
+        "internal/sandbox/session_binding_redis_activity_test.go",
+        "internal/sandbox/session_binding_redis_test.go",
+        "internal/sandbox/session_binding_tenant_test.go",
+        "internal/sandbox/session_binding_test.go",
+        "internal/sandbox/session_bootstrapper.go",
+        "internal/sandbox/session_bootstrapper_test.go",
+        "internal/sandbox/session_connect.go",
+        "internal/sandbox/session_connect_test.go",
+        "internal/sandbox/session_display_test.go",
+        "internal/sandbox/session_file_operation.go",
+        "internal/sandbox/session_file_operation_test.go",
+        "internal/sandbox/session_input_rebind_test.go",
+        "internal/sandbox/session_lifecycle.go",
+        "internal/sandbox/session_lifecycle_test.go",
+        "internal/sandbox/session_manager.go",
+        "internal/sandbox/session_manager_desktop_test.go",
+        "internal/sandbox/session_manager_terminal_test.go",
+        "internal/sandbox/session_manager_test.go",
+        "internal/sandbox/session_shell_snapshot_test.go",
+        "internal/sandbox/shell_job.go",
+        "internal/sandbox/shell_job_integration_test.go",
+        "internal/sandbox/shell_job_scripts.go",
+        "internal/sandbox/shell_job_scripts_test.go",
+        "internal/sandbox/shell_job_test.go",
+        "internal/sandbox/shell_quote.go",
+        "internal/sandbox/shell_quote_test.go",
+        "internal/sandbox/skill_image.go",
+        "internal/sandbox/skill_paths.go",
+        "internal/sandbox/skill_paths_test.go",
+        "internal/sandbox/template_catalog.go",
+        "internal/sandbox/template_catalog_test.go",
+        "internal/sandbox/tenant_config.go",
+        "internal/sandbox/tenant_config_test.go",
+        "internal/sandbox/tenant_resolver.go",
+        "internal/sandbox/tenant_resolver_test.go",
+        "internal/sandbox/terminal.go",
+        "internal/sandbox/terminal_test.go",
+        "internal/sandbox/terminal_ttl_test.go",
+        "internal/sandbox/url_guard.go",
+        "internal/sandbox/url_guard_test.go",
+        "internal/sandbox/url_guard_whitelist_only_test.go",
+        "internal/sandbox/validator.go",
+        "internal/sandbox/validator_test.go",
+        "internal/sandbox/websocket_dialer.go",
+        "internal/sandbox/websocket_dialer_test.go",
+        "internal/sandbox/workspace_failure_test.go",
+        "internal/sandbox/workspace_layout.go",
+        "internal/sandbox/workspace_layout_test.go",
+        "internal/sandbox/workspace_path.go"
+      ],
+      "invariants_checked": [
+        "Container security defaults: Docker container creation drops all capabilities (CapDrop=ALL), sets no-new-privileges, enforces PID/memory/CPU limits, avoids host network/privileged mode, and validates host bind-mount paths and symlink targets.",
+        "Command & shell script injection safety: dockerExecCommand passes user commands via positional arguments ($1 / $@), ShellQuote escapes shell metacharacters, and ShellJobSubmitScriptWithBackend/shellJobWrapperScript/ShellJobCancelScript validate ValidShellJobID (^sj_[0-9a-f]{4}$) and single-quote paths.",
+        "Secret & credential isolation: Cube data-plane INFO logging logs only command lines prior to wrapWithStdin heredoc wrapping and logs credential presence rather than raw tokens; secret_fill encrypts AES-GCM envelopes and cleans temporary material; gatewaySplitTransport sends inbound traffic tokens only to verified gateway targets with SSRF guards.",
+        "Cross-tenant & shared-machine session isolation: SessionBoundManager enforces tenant/session/config ownership on bindings, strips client-supplied AttachPID on shared user machines, validates terminal/shell working directories via workspace.CleanWorkDirIn, and protects read-only attachment input trees.",
+        "Concurrency, lock ordering, & memory bounds: lifecycle/turn/rewind Redis locks use token-verified compare-and-delete/renew Lua scripts; DockerRemoteClient.streamExec and ReadFile bound buffered stdout/stderr streams to 64 MiB and reject oversize ReadFile streams without host OOM or silent truncation; Redis traffic token patching uses escape-aware JSON key scanning.",
+        "GENYEE rebrand & contract alignment: verified com.genyee.sandbox.* labels, GENYEE_* env vars, /var/lib/genyee & /opt/genyee/tenant/skills paths, genyee/genyee-desktop template names, and zero weknora/knora/wk_ residues across all 136 files."
+      ],
+      "findings": [
+        {
+          "id": "W1-SANDBOX-01",
+          "severity": "P1",
+          "file": "internal/sandbox/shell_job_scripts.go",
+          "summary": "ShellJobSubmitScriptWithBackend, shellJobWrapperScript, and ShellJobCancelScript interpolated job.ID / meta.ID into /bin/sh scripts (using Go %q double-quoting or unquoted path segments) without checking ValidShellJobID, allowing shell command/path injection if a malformed job ID reached script builders.",
+          "regression_test": "TestShellJobScriptsRejectMalformedJobID",
+          "commit": "85bbf755301727391ccfa0888fb4d2e45535fe9f"
+        },
+        {
+          "id": "W1-SANDBOX-02",
+          "severity": "P1",
+          "file": "internal/sandbox/cube_remote_client.go",
+          "summary": "CubeRemoteClient.Exec wrapped request.Stdin into the shell heredoc command before calling logCubeDataPlaneExec, leaking full plaintext Stdin payloads (including secret material and file contents) into INFO logs.",
+          "regression_test": "TestCubeRemoteClientExecDoesNotLogStdin",
+          "commit": "85bbf755301727391ccfa0888fb4d2e45535fe9f"
+        },
+        {
+          "id": "W1-SANDBOX-03",
+          "severity": "P1",
+          "file": "internal/sandbox/docker_remote_client.go",
+          "summary": "DockerRemoteClient.streamExec buffered container stdout and stderr into unbounded bytes.Buffers via stdcopy.StdCopy and ReadFile streamed via unbounded cat, allowing runaway container output or large/device files (e.g. /dev/zero) to exhaust host RAM (OOM).",
+          "regression_test": "TestDockerExecAndReadFileBoundStreamMemory",
+          "commit": "85bbf755301727391ccfa0888fb4d2e45535fe9f"
+        },
+        {
+          "id": "W1-SANDBOX-04",
+          "severity": "P2",
+          "file": "internal/sandbox/session_binding_redis.go",
+          "summary": "replaceTrafficTokenIfMatchScript patched traffic_access_token in raw JSON using non-escape-aware Lua pattern matching (\".-\"), corrupting stored session binding JSON in Redis when the existing token contained escaped quotes/backslashes or when another string field contained a lookalike substring.",
+          "regression_test": "TestRedisReplaceTrafficTokenEscapedQuotesAndSpecialChars",
+          "commit": "85bbf755301727391ccfa0888fb4d2e45535fe9f"
+        },
+        {
+          "id": "W1-SANDBOX-05",
+          "severity": "P2",
+          "file": "internal/sandbox/session_manager.go",
+          "summary": "SessionBoundManager.OpenSessionTerminal did not validate non-empty opts.Cwd through workspace.CleanWorkDirIn / cleanSessionWorkDir before admitUser and prepareSessionDirs (mkdir -p), permitting relative or uncleaned working directories.",
+          "regression_test": "TestOpenSessionTerminalRejectsRelativeCwd",
+          "commit": "85bbf755301727391ccfa0888fb4d2e45535fe9f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/sandbox/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/sandbox/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/sandbox/admission",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/sandbox/admission/admission.go",
+        "internal/sandbox/admission/admission_test.go",
+        "internal/sandbox/admission/memory.go",
+        "internal/sandbox/admission/redis.go",
+        "internal/sandbox/admission/redis_integration_test.go"
+      ],
+      "invariants_checked": [
+        "Redis ZSET lease admission atomically rejects new holds when the closed barrier key exists, prunes expired members via Redis server TIME, and never shortens ZSET PTTL below longer-lived active leases.",
+        "Local deadline timers subtract renewMargin (ttl/6) from request send time so unconfirmed leases and barriers fail closed (ErrLeaseLost) before server-side expiry.",
+        "RedisRegistry.Close defaults non-positive TTLs to DefaultHoldTTL consistently with Hold and MemoryRegistry.Close.",
+        "Barrier.Seal atomically verifies caller lock-token ownership in Lua before PERSIST, preventing a stale/expired barrier from stripping a replacement barrier's TTL or silently succeeding after expiry.",
+        "Zero weknora/wk_ residues; key prefix conventions align with genyee:sandbox:*."
+      ],
+      "findings": [
+        {
+          "id": "W1-SANDBOX-06",
+          "severity": "P1",
+          "file": "internal/sandbox/admission/redis.go",
+          "summary": "RedisRegistry.Close failed when passed ttl <= 0 instead of defaulting to DefaultHoldTTL (unlike Hold and MemoryRegistry.Close), and Barrier.Seal executed bare PERSIST without verifying the barrier's lock token, allowing an expired barrier to strip a replacement barrier's TTL or fail to report ErrLeaseLost when its key had already expired.",
+          "regression_test": "TestRedisCloseDefaultsNonPositiveTTL, TestRedisSealVerifiesBarrierOwnership",
+          "commit": "4529d92542f61ae874836e03aafdcbcca46624fc"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/sandbox/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/sandbox/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/sandbox/allocation",
+      "wave": "W1",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/sandbox/allocation/allocation_test.go",
+        "internal/sandbox/allocation/assignment.go",
+        "internal/sandbox/allocation/gate.go",
+        "internal/sandbox/allocation/machine.go",
+        "internal/sandbox/allocation/mode.go",
+        "internal/sandbox/allocation/owner.go",
+        "internal/sandbox/allocation/retention.go"
+      ],
+      "invariants_checked": [
+        "UserMachine identity validation requires non-empty owner/config fields, rejects control characters and braces, and computes collision-resistant domain-separated digests.",
+        "Canonical UUID validation guards session IDs across memory, Postgres, and Redis caching layers.",
+        "Postgres store uses parameterized queries, transactional row locking / ON CONFLICT upserts, and clean rollback on partial failure; Redis read-through cache invalidates deterministically on release and config drop.",
+        "Concurrency safety verified under -race; zero weknora/wk_ residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/sandbox/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/sandbox/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/sandbox/desktopscripts",
+      "wave": "W1",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/sandbox/desktopscripts/ensure.sh",
+        "internal/sandbox/desktopscripts/reset-listeners.sh"
+      ],
+      "invariants_checked": [
+        "Embedded desktop lifecycle scripts use static shell templates with strict numeric/allowlist validation and zero untrusted argument interpolation.",
+        "Desktop listeners bind to loopback / container-local ports as designed and use GENYEE paths (/var/lib/genyee, gy-display) with zero weknora/wk_ residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/sandbox/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/sandbox/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/sandbox/workspace",
+      "wave": "W1",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/sandbox/workspace/layout.go",
+        "internal/sandbox/workspace/layout_test.go",
+        "internal/sandbox/workspace/paths.go",
+        "internal/sandbox/workspace/paths_test.go"
+      ],
+      "invariants_checked": [
+        "Lexical path resolution (ResolvePathIn, CleanWriteFileIn, CleanInputPathIn, CleanWorkDirIn, ValidOutputDirIn, RunnableScriptIn) normalizes paths via path.Clean, rejects non-absolute work dirs, and blocks writes to read-only session input trees including sibling sessions on shared machines.",
+        "UserSession requires canonical lowercase UUIDs before deriving deterministic 12-hex SHA-256 directory names, preventing path traversal via session IDs.",
+        "PromptSafePath rejects control characters, DEL, and angle/ampersand characters (<, >, &) to prevent prompt markup injection.",
+        "All fixed paths (/workspace, /var/lib/genyee/*, /opt/genyee/tenant/skills) follow GENYEE naming with zero weknora/wk_ residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/sandbox/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/sandbox/... (exit 0)"
+      ]
+    }
+  ]
+}
