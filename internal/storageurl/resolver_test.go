@@ -196,3 +196,64 @@ func TestExplicitStorageBackendFailureDoesNotFallBackToGlobal(t *testing.T) {
 	require.Equal(t, ref, NewRewriter(resolver, "TEST").Ref(context.Background(), ref))
 	require.Zero(t, global.calls)
 }
+
+func TestCrossTenantAuthorizedWrapperScopesToAuthorizedRefAndTenant(t *testing.T) {
+	const (
+		authorizedRef = "resource://AuthorizedHandle000001"
+		otherRef      = "resource://OtherOwnerHandle000002"
+	)
+	catalog := &resolverResourceCatalog{resources: map[string]*types.StoredResource{
+		authorizedRef: {
+			TenantID: 9, StorageBackendID: "owner-oss", Provider: "oss",
+			PhysicalPath: "storage://owner-oss/oss://bucket/9/a.png",
+		},
+		otherRef: {
+			TenantID: 9, StorageBackendID: "owner-oss", Provider: "oss",
+			PhysicalPath: "storage://owner-oss/oss://bucket/9/b.png",
+		},
+	}}
+	owner := &types.Tenant{ID: 9}
+	tenants := &resolverTenantService{get: func(id uint64) (*types.Tenant, error) {
+		if id == 9 {
+			return owner, nil
+		}
+		return nil, errors.New("not found")
+	}}
+	storage := &resolverStorageService{resolve: func(
+		_ context.Context, _ *types.Tenant, _, provider string,
+	) (interfaces.FileService, string, error) {
+		driver := &stubFileService{getFileURL: func(_ context.Context, path string) (string, error) {
+			return "https://owner-oss.example/" + path, nil
+		}}
+		return filesvc.NewResourceCatalogFileService(driver, catalog), provider, nil
+	}}
+
+	ctxTenant7 := context.WithValue(context.Background(), types.TenantInfoContextKey, &types.Tenant{ID: 7})
+	ctxTenant11 := context.WithValue(context.Background(), types.TenantInfoContextKey, &types.Tenant{ID: 11})
+
+	resolver := NewFileServiceResolver(&types.Tenant{ID: 7}, &stubFileService{}, storage).
+		WithContext(ctxTenant7).
+		WithResources(catalog, tenants).
+		WithAuthorization(func(_ context.Context, ref string) error {
+			if ref == authorizedRef {
+				return nil
+			}
+			return errors.New("forbidden")
+		})
+
+	svc := resolver.ResolveFileService(authorizedRef)
+	require.NotNil(t, svc)
+
+	// Authorized ref for tenant 7 succeeds.
+	gotURL, err := svc.GetFileURL(ctxTenant7, authorizedRef)
+	require.NoError(t, err)
+	require.Contains(t, gotURL, "https://owner-oss.example/")
+
+	// Reusing the returned FileService for an unauthorized ref MUST NOT stamp cross-tenant access.
+	_, err = svc.GetFileURL(ctxTenant7, otherRef)
+	require.Error(t, err)
+
+	// Calling GetFileURL under a different caller tenant context MUST NOT inherit tenant 7's grant.
+	_, err = svc.GetFileURL(ctxTenant11, authorizedRef)
+	require.Error(t, err)
+}

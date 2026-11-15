@@ -47,11 +47,32 @@ type FileServiceResolver struct {
 
 type crossTenantAuthorizedFileService struct {
 	interfaces.FileService
-	ref string
+	ref                string
+	authorizedTenantID uint64
+}
+
+func callerTenantIDForCrossTenantCheck(ctx context.Context) uint64 {
+	if ctx == nil {
+		return 0
+	}
+	if tenant, ok := types.TenantInfoFromContext(ctx); ok && tenant != nil && tenant.ID != 0 {
+		return tenant.ID
+	}
+	if caller := types.CallerFromContext(ctx); caller.TenantID != 0 {
+		return caller.TenantID
+	}
+	return 0
 }
 
 func (s *crossTenantAuthorizedFileService) GetFileURL(ctx context.Context, filePath string) (string, error) {
-	return s.FileService.GetFileURL(filesvc.WithCrossTenantResourceAccess(ctx, s.ref, filePath), filePath)
+	if filePath != s.ref {
+		return s.FileService.GetFileURL(ctx, filePath)
+	}
+	if callerTenantID := callerTenantIDForCrossTenantCheck(ctx); callerTenantID != 0 &&
+		s.authorizedTenantID != 0 && callerTenantID != s.authorizedTenantID {
+		return s.FileService.GetFileURL(ctx, filePath)
+	}
+	return s.FileService.GetFileURL(filesvc.WithCrossTenantResourceAccess(ctx, s.ref), filePath)
 }
 
 // NewFileServiceResolver builds a resolver for tenant. defaultSvc is the
@@ -111,7 +132,17 @@ func (r *FileServiceResolver) wrapIfCrossTenantAuthorized(ref string, svc interf
 		return svc
 	}
 	if _, ok := r.crossTenantAuthorized[ref]; ok {
-		return &crossTenantAuthorizedFileService{FileService: svc, ref: ref}
+		var authorizedTenantID uint64
+		if r.tenant != nil && r.tenant.ID != 0 {
+			authorizedTenantID = r.tenant.ID
+		} else {
+			authorizedTenantID = callerTenantIDForCrossTenantCheck(r.ctx)
+		}
+		return &crossTenantAuthorizedFileService{
+			FileService:        svc,
+			ref:                ref,
+			authorizedTenantID: authorizedTenantID,
+		}
 	}
 	return svc
 }

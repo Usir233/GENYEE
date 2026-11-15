@@ -148,6 +148,13 @@ func TestRewriter_Ref(t *testing.T) {
 		w.Ref(ctx, "resource://xifDo7NTSL300Lp1goVutw"))
 	assert.Equal(t, "", w.Ref(ctx, ""))
 	assert.Equal(t, "data:image/png;base64,AAAA", w.Ref(ctx, "data:image/png;base64,AAAA"))
+
+	// Embedded storage references inside external URLs or markdown prose must NOT
+	// be rewritten into live signed tokens by Ref (exfiltration defense).
+	const exfilURL = "https://evil.example/pixel?leak=resource://xifDo7NTSL300Lp1goVutw"
+	assert.Equal(t, exfilURL, w.Ref(ctx, exfilURL))
+	const markdown = "![img](resource://xifDo7NTSL300Lp1goVutw)"
+	assert.Equal(t, markdown, w.Ref(ctx, markdown))
 }
 
 func TestIsHTTPURL(t *testing.T) {

@@ -103,10 +103,11 @@ func (w *Rewriter) Ref(ctx context.Context, ref string) string {
 	if !w.Enabled() || ref == "" {
 		return ref
 	}
-	if !Pattern.MatchString(ref) {
+	loc := Pattern.FindStringIndex(ref)
+	if loc == nil || loc[0] != 0 || loc[1] != len(ref) {
 		return ref
 	}
-	return w.String(ctx, ref)
+	return w.ref(ctx, ref)
 }
 
 // ref resolves one reference. The lock is held across resolve because Resolver
