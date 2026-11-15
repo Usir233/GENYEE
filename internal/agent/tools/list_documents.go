@@ -166,7 +166,7 @@ func (t *ListDocumentsTool) Execute(ctx context.Context, args json.RawMessage) (
 	if keyword != "" {
 		data["keyword"] = keyword
 	}
-	if int64(page*pageSize) < total {
+	if total > 0 && pageSize > 0 && int64(page) <= (total-1)/int64(pageSize) {
 		data["next_page"] = page + 1
 	}
 	output := b.String()
@@ -268,14 +268,11 @@ func (t *ListDocumentsTool) listScoped(
 		return all[i].ID < all[j].ID
 	})
 	total := int64(len(all))
-	start := (page - 1) * pageSize
-	if start >= len(all) {
+	if page <= 0 || pageSize <= 0 || len(all) == 0 || page-1 >= (len(all)+pageSize-1)/pageSize {
 		return nil, total, nil
 	}
-	end := start + pageSize
-	if end > len(all) {
-		end = len(all)
-	}
+	start := (page - 1) * pageSize
+	end := min(len(all), start+pageSize)
 	return all[start:end], total, nil
 }
 

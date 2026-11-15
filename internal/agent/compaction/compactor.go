@@ -115,13 +115,22 @@ func (c *Compactor) Compact(
 	if c == nil {
 		return nil, ErrNothingToCompact
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	prep := Prepare(messages, c.settings, c.estimator)
 	if prep == nil {
 		return nil, ErrNothingToCompact
 	}
 
 	history, historyDegraded := c.summarizeHistory(ctx, prep)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	summary, prefixDegraded := c.appendTurnPrefix(ctx, prep, history)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	summary += prep.fileOps.format()
 	compacted := Apply(messages, prep, summary)
 
@@ -154,6 +163,9 @@ func (c *Compactor) summarizeHistory(ctx context.Context, p *Preparation) (strin
 		ctx, p.MessagesToSummarize, p.OmittedHistory, p.PreviousSummary, instructions, c.settings.summaryBudget(),
 	)
 	if err != nil {
+		if ctx.Err() != nil {
+			return "", false
+		}
 		return c.fallbackHistory(p), true
 	}
 	return text, false
@@ -170,8 +182,11 @@ func (c *Compactor) appendTurnPrefix(ctx context.Context, p *Preparation, histor
 		ctx, p.TurnPrefixMessages, p.OmittedTurnPrefix, "", turnPrefixInstructions, c.settings.turnPrefixBudget(),
 	)
 	if err != nil {
+		if ctx.Err() != nil {
+			return "", false
+		}
 		degraded = true
-		prefix = rawArchive(p.TurnPrefixMessages, c.settings.turnPrefixBudget(), c.estimator)
+		prefix = c.fallbackTurnPrefix(p)
 	}
 	if history == "" {
 		history = "No prior history."

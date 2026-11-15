@@ -2,9 +2,14 @@ package skills
 
 import (
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+
+	"github.com/Usir233/GENYEE/internal/sandbox"
 )
 
 // Loader handles skill discovery and loading from the filesystem
@@ -14,6 +19,7 @@ type Loader struct {
 	// skillDirs are the directories to search for skills
 	skillDirs []string
 	// discoveredSkills caches discovered skill metadata
+	mu               sync.RWMutex
 	discoveredSkills map[string]*Skill
 }
 
@@ -23,6 +29,56 @@ func NewLoader(skillDirs []string) *Loader {
 		skillDirs:        skillDirs,
 		discoveredSkills: make(map[string]*Skill),
 	}
+}
+
+func (l *Loader) getCachedSkill(name string) (*Skill, bool) {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	skill, ok := l.discoveredSkills[name]
+	return skill, ok
+}
+
+func (l *Loader) putCachedSkill(name string, skill *Skill) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.discoveredSkills == nil {
+		l.discoveredSkills = make(map[string]*Skill)
+	}
+	l.discoveredSkills[name] = skill
+}
+
+func readContainedSkillFile(subRoot *os.Root, basePath string) (*Skill, error) {
+	f, err := subRoot.Open(SkillFileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open skill file: %w", err)
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat skill file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("skill file is not a regular file")
+	}
+	if info.Size() > maxBundleEntryBytes {
+		return nil, fmt.Errorf("skill file exceeds maximum size")
+	}
+	content, err := io.ReadAll(io.LimitReader(f, maxBundleEntryBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read skill file: %w", err)
+	}
+	if len(content) > maxBundleEntryBytes {
+		return nil, fmt.Errorf("skill file exceeds maximum size")
+	}
+
+	skill, err := ParseSkillFile(string(content))
+	if err != nil {
+		return nil, err
+	}
+	skill.BasePath = basePath
+	skill.FilePath = filepath.Join(basePath, SkillFileName)
+	return skill, nil
 }
 
 // DiscoverSkills scans all configured directories for SKILL.md files
@@ -60,6 +116,12 @@ func (l *Loader) discoverInDirectory(dir string) ([]*SkillMetadata, error) {
 		return nil, fmt.Errorf("%s is not a directory", dir)
 	}
 
+	dirRoot, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open skill directory %s: %w", dir, err)
+	}
+	defer dirRoot.Close()
+
 	// Read directory entries
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -67,35 +129,23 @@ func (l *Loader) discoverInDirectory(dir string) ([]*SkillMetadata, error) {
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || !sandbox.IsValidSkillName(entry.Name()) {
 			continue
 		}
 
+		subRoot, err := dirRoot.OpenRoot(entry.Name())
+		if err != nil {
+			continue
+		}
 		skillPath := filepath.Join(dir, entry.Name())
-		skillFile := filepath.Join(skillPath, SkillFileName)
-
-		// Check if SKILL.md exists
-		if _, err := os.Stat(skillFile); os.IsNotExist(err) {
-			continue
-		}
-
-		// Read and parse SKILL.md
-		content, err := os.ReadFile(skillFile)
+		skill, err := readContainedSkillFile(subRoot, skillPath)
+		_ = subRoot.Close()
 		if err != nil {
 			continue
 		}
-
-		skill, err := ParseSkillFile(string(content))
-		if err != nil {
-			continue
-		}
-
-		// Set filesystem paths
-		skill.BasePath = skillPath
-		skill.FilePath = skillFile
 
 		// Cache the skill
-		l.discoveredSkills[skill.Name] = skill
+		l.putCachedSkill(skill.Name, skill)
 
 		metadata = append(metadata, skill.ToMetadata())
 	}
@@ -106,8 +156,12 @@ func (l *Loader) discoverInDirectory(dir string) ([]*SkillMetadata, error) {
 // LoadSkillInstructions loads the full instructions of a skill (Level 2)
 // Returns the cached skill if already loaded
 func (l *Loader) LoadSkillInstructions(skillName string) (*Skill, error) {
+	if !sandbox.IsValidSkillName(skillName) {
+		return nil, fmt.Errorf("invalid skill name: %s", skillName)
+	}
+
 	// Check cache first
-	if skill, ok := l.discoveredSkills[skillName]; ok {
+	if skill, ok := l.getCachedSkill(skillName); ok {
 		if skill.Loaded {
 			return skill, nil
 		}
@@ -117,7 +171,7 @@ func (l *Loader) LoadSkillInstructions(skillName string) (*Skill, error) {
 	for _, dir := range l.skillDirs {
 		skill, err := l.loadSkillFromDirectory(dir, skillName)
 		if err == nil {
-			l.discoveredSkills[skillName] = skill
+			l.putCachedSkill(skillName, skill)
 			return skill, nil
 		}
 	}
@@ -127,12 +181,23 @@ func (l *Loader) LoadSkillInstructions(skillName string) (*Skill, error) {
 
 // loadSkillFromDirectory attempts to load a skill from a specific directory
 func (l *Loader) loadSkillFromDirectory(dir, skillName string) (*Skill, error) {
-	// First, check if we can find by directory name matching skill name
-	skillPath := filepath.Join(dir, skillName)
-	skillFile := filepath.Join(skillPath, SkillFileName)
+	if !sandbox.IsValidSkillName(skillName) {
+		return nil, fmt.Errorf("invalid skill name: %s", skillName)
+	}
 
-	if _, err := os.Stat(skillFile); err == nil {
-		return l.loadSkillFile(skillPath, skillFile)
+	dirRoot, err := os.OpenRoot(dir)
+	if err != nil {
+		return nil, err
+	}
+	defer dirRoot.Close()
+
+	// First, check if we can find by directory name matching skill name
+	if subRoot, err := dirRoot.OpenRoot(skillName); err == nil {
+		skill, loadErr := readContainedSkillFile(subRoot, filepath.Join(dir, skillName))
+		_ = subRoot.Close()
+		if loadErr == nil && skill.Name == skillName {
+			return skill, nil
+		}
 	}
 
 	// Otherwise, scan all subdirectories to find the skill by name
@@ -142,30 +207,21 @@ func (l *Loader) loadSkillFromDirectory(dir, skillName string) (*Skill, error) {
 	}
 
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() || !sandbox.IsValidSkillName(entry.Name()) || entry.Name() == skillName {
 			continue
 		}
 
-		skillPath := filepath.Join(dir, entry.Name())
-		skillFile := filepath.Join(skillPath, SkillFileName)
-
-		if _, err := os.Stat(skillFile); os.IsNotExist(err) {
-			continue
-		}
-
-		content, err := os.ReadFile(skillFile)
+		subRoot, err := dirRoot.OpenRoot(entry.Name())
 		if err != nil {
 			continue
 		}
-
-		skill, err := ParseSkillFile(string(content))
-		if err != nil {
+		skill, loadErr := readContainedSkillFile(subRoot, filepath.Join(dir, entry.Name()))
+		_ = subRoot.Close()
+		if loadErr != nil {
 			continue
 		}
 
 		if skill.Name == skillName {
-			skill.BasePath = skillPath
-			skill.FilePath = skillFile
 			return skill, nil
 		}
 	}
@@ -173,29 +229,11 @@ func (l *Loader) loadSkillFromDirectory(dir, skillName string) (*Skill, error) {
 	return nil, fmt.Errorf("skill not found in %s: %s", dir, skillName)
 }
 
-// loadSkillFile reads and parses a SKILL.md file
-func (l *Loader) loadSkillFile(basePath, filePath string) (*Skill, error) {
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read skill file: %w", err)
-	}
-
-	skill, err := ParseSkillFile(string(content))
-	if err != nil {
-		return nil, err
-	}
-
-	skill.BasePath = basePath
-	skill.FilePath = filePath
-
-	return skill, nil
-}
-
 // LoadSkillFile loads an additional file from a skill directory (Level 3)
 // The filePath should be relative to the skill's base directory
 func (l *Loader) LoadSkillFile(skillName, relativePath string) (*SkillFile, error) {
 	// Get the skill first
-	skill, ok := l.discoveredSkills[skillName]
+	skill, ok := l.getCachedSkill(skillName)
 	if !ok {
 		// Try to load the skill
 		var err error
@@ -205,11 +243,15 @@ func (l *Loader) LoadSkillFile(skillName, relativePath string) (*SkillFile, erro
 		}
 	}
 
+	if strings.TrimSpace(relativePath) == "" || strings.ContainsRune(relativePath, '\\') || filepath.IsAbs(relativePath) {
+		return nil, fmt.Errorf("invalid file path: %s", relativePath)
+	}
+
 	// Validate and resolve the file path
 	cleanPath := filepath.Clean(relativePath)
 
 	// Security: prevent path traversal
-	if strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) {
+	if cleanPath == "." || strings.HasPrefix(cleanPath, "..") || filepath.IsAbs(cleanPath) {
 		return nil, fmt.Errorf("invalid file path: %s", relativePath)
 	}
 
@@ -237,9 +279,29 @@ func (l *Loader) LoadSkillFile(skillName, relativePath string) (*SkillFile, erro
 		return nil, fmt.Errorf("failed to open skill directory: %w", err)
 	}
 	defer root.Close()
-	content, err := root.ReadFile(cleanPath)
+
+	f, err := root.Open(cleanPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	defer f.Close()
+
+	info, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("failed to stat file: %w", err)
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("not a regular file: %s", relativePath)
+	}
+	if info.Size() > maxBundleEntryBytes {
+		return nil, fmt.Errorf("file exceeds maximum size: %s", relativePath)
+	}
+	content, err := io.ReadAll(io.LimitReader(f, maxBundleEntryBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	if len(content) > maxBundleEntryBytes {
+		return nil, fmt.Errorf("file exceeds maximum size: %s", relativePath)
 	}
 
 	return &SkillFile{
@@ -252,7 +314,7 @@ func (l *Loader) LoadSkillFile(skillName, relativePath string) (*SkillFile, erro
 
 // ListSkillFiles lists all files in a skill directory
 func (l *Loader) ListSkillFiles(skillName string) ([]string, error) {
-	skill, ok := l.discoveredSkills[skillName]
+	skill, ok := l.getCachedSkill(skillName)
 	if !ok {
 		var err error
 		skill, err = l.LoadSkillInstructions(skillName)
@@ -261,27 +323,32 @@ func (l *Loader) ListSkillFiles(skillName string) ([]string, error) {
 		}
 	}
 
+	root, err := os.OpenRoot(skill.BasePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list skill files: %w", err)
+	}
+	defer root.Close()
+
 	var files []string
-
-	err := filepath.Walk(skill.BasePath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
+	err = fs.WalkDir(root.FS(), ".", func(rel string, d fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
 		}
-
-		if info.IsDir() {
+		if d.Type()&os.ModeSymlink != 0 {
 			return nil
 		}
-
-		// Get relative path
-		relPath, err := filepath.Rel(skill.BasePath, path)
-		if err != nil {
-			return err
+		if d.IsDir() {
+			return nil
 		}
-
-		files = append(files, relPath)
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		if len(files) >= maxBundleEntries {
+			return fmt.Errorf("skill holds more than %d files", maxBundleEntries)
+		}
+		files = append(files, filepath.FromSlash(rel))
 		return nil
 	})
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to list skill files: %w", err)
 	}
@@ -291,13 +358,12 @@ func (l *Loader) ListSkillFiles(skillName string) ([]string, error) {
 
 // GetSkillByName returns a cached skill by name
 func (l *Loader) GetSkillByName(name string) (*Skill, bool) {
-	skill, ok := l.discoveredSkills[name]
-	return skill, ok
+	return l.getCachedSkill(name)
 }
 
 // GetSkillBasePath returns the base path for a skill (always absolute)
 func (l *Loader) GetSkillBasePath(skillName string) (string, error) {
-	skill, ok := l.discoveredSkills[skillName]
+	skill, ok := l.getCachedSkill(skillName)
 	if !ok {
 		var err error
 		skill, err = l.LoadSkillInstructions(skillName)
@@ -311,6 +377,8 @@ func (l *Loader) GetSkillBasePath(skillName string) (string, error) {
 
 // Reload clears the cache and rediscovers all skills
 func (l *Loader) Reload() ([]*SkillMetadata, error) {
+	l.mu.Lock()
 	l.discoveredSkills = make(map[string]*Skill)
+	l.mu.Unlock()
 	return l.DiscoverSkills()
 }

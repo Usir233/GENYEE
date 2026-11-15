@@ -69,7 +69,11 @@ func (r *attachmentFileReader) readCopy(ctx context.Context, input ReadFileInput
 // WithAttachments adds the files the user attached to this conversation.
 // The application reader owns authorization, parse waits and optional projections.
 func (t *ReadFileTool) WithAttachments(source interfaces.AttachmentReader) *ReadFileTool {
-	t.attachments = &attachmentFileReader{source: source}
+	if source == nil {
+		t.attachments = nil
+	} else {
+		t.attachments = &attachmentFileReader{source: source}
+	}
 	t.updateDescription()
 	return t
 }
@@ -77,7 +81,7 @@ func (t *ReadFileTool) WithAttachments(source interfaces.AttachmentReader) *Read
 // ExecutionTimeout gives the attachment parse wait room to return a structured
 // result before the engine's outer tool deadline cancels the lookup.
 func (t *ReadFileTool) ExecutionTimeout() time.Duration {
-	if t == nil || t.attachments == nil {
+	if t == nil || t.attachments == nil || t.attachments.source == nil {
 		return 0
 	}
 	return t.attachments.source.WaitTimeout() + 5*time.Second

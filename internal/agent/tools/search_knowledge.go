@@ -209,7 +209,7 @@ func (t *SearchKnowledgeTool) Execute(ctx context.Context, args json.RawMessage)
 			return &types.ToolResult{Success: false, Error: err.Error()}, err
 		}
 		wanted := make(map[string]bool, len(input.KnowledgeBaseIDs))
-		for _, kbID := range input.KnowledgeBaseIDs {
+		for _, kbID := range dedupNonEmptyStrings(input.KnowledgeBaseIDs) {
 			wanted[kbID] = true
 		}
 		var filtered types.SearchTargets
@@ -608,6 +608,11 @@ func (t *SearchKnowledgeTool) concurrentSearchByTargets(
 		if st == nil || st.KnowledgeBaseID == "" {
 			continue
 		}
+		kIDs, tIDs := searchTargetScope(st)
+		if !searchTargetIsWholeKB(st) && len(kIDs) == 0 && len(tIDs) == 0 {
+			logger.Warnf(ctx, "[Tool][SearchKnowledge] Skipping empty narrowed target in KB %s", st.KnowledgeBaseID)
+			continue
+		}
 		if _, ok := modeFor(st.KnowledgeBaseID); ok {
 			filteredTargets = append(filteredTargets, st)
 			continue
@@ -734,7 +739,7 @@ func (t *SearchKnowledgeTool) concurrentSearchByTargets(
 			fullKBIDsByMode := make(map[string][]string)
 			var knowledgeTargets []*types.SearchTarget
 			for _, st := range targets {
-				if st.Type == types.SearchTargetTypeKnowledgeBase && len(st.TagIDs) == 0 {
+				if searchTargetIsWholeKB(st) && !st.DisableRecallThresholds {
 					m, _ := groupModeFor(st.KnowledgeBaseID)
 					fullKBIDsByMode[m] = append(fullKBIDsByMode[m], st.KnowledgeBaseID)
 				} else {
@@ -793,9 +798,9 @@ func (t *SearchKnowledgeTool) concurrentSearchByTargets(
 						MatchCount:           topK,
 						VectorThreshold:      stVectorThreshold,
 						KeywordThreshold:     stKeywordThreshold,
-						KnowledgeIDs:         st.KnowledgeIDs,
-						TagIDs:               st.TagIDs,
-						ScopeTagIDs:          st.ScopeTagIDs,
+						KnowledgeIDs:         dedupNonEmptyStrings(st.KnowledgeIDs),
+						TagIDs:               dedupNonEmptyStrings(st.TagIDs),
+						ScopeTagIDs:          dedupNonEmptyStrings(st.ScopeTagIDs),
 						DisableVectorMatch:   usedMode == SearchModeKeyword,
 						DisableKeywordsMatch: usedMode == SearchModeSemantic,
 						// Neighbor, parent and related chunks came back as

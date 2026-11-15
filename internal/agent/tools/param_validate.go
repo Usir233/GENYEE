@@ -3,6 +3,7 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"strings"
 	"unicode/utf8"
@@ -163,11 +164,11 @@ func checkType(val any, targetType string) bool {
 		_, ok := val.(string)
 		return ok
 	case "number":
-		_, ok := val.(float64)
-		return ok
+		f, ok := val.(float64)
+		return ok && !math.IsNaN(f) && !math.IsInf(f, 0)
 	case "integer":
 		f, ok := val.(float64)
-		return ok && f == float64(int64(f))
+		return ok && !math.IsNaN(f) && !math.IsInf(f, 0) && math.Trunc(f) == f
 	case "boolean":
 		_, ok := val.(bool)
 		return ok

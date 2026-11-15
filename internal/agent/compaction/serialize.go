@@ -47,7 +47,7 @@ func serializeConversation(messages []chat.Message) string {
 			if text != "" {
 				parts = append(parts, "[Assistant]: "+truncate(text, textMaxChars))
 			}
-			if calls := serializeToolCalls(msg.ToolCalls); calls != "" {
+			if calls := truncate(serializeToolCalls(msg.ToolCalls), textMaxChars); calls != "" {
 				parts = append(parts, "[Assistant tool calls]: "+calls)
 			}
 		case "tool":

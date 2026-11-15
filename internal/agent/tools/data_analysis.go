@@ -3,6 +3,7 @@ package tools
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	filesvc "github.com/Usir233/GENYEE/internal/application/service/file"
@@ -20,6 +23,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 	"github.com/Usir233/GENYEE/internal/utils"
 	pg_query "github.com/pganalyze/pg_query_go/v6"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // DataAnalysisTableName is the only table name the model needs to know when
@@ -181,8 +185,18 @@ type DataAnalysisInput struct {
 	SQL         string `json:"sql" jsonschema:"Read-only SELECT executed on the document. Reference the document as the table \"dataset\" (for example SELECT COUNT(*) FROM dataset); it is the only table available"` //nolint:lll // jsonschema tag
 }
 
+const maxDataAnalysisResultRows = 10000
+
+var nextDataAnalysisInstanceID atomic.Uint64
+
+func quoteDuckDBIdent(ident string) string {
+	return `"` + strings.ReplaceAll(ident, `"`, `""`) + `"`
+}
+
 type DataAnalysisTool struct {
 	BaseTool
+	mu                   sync.Mutex
+	instanceID           uint64
 	knowledgeBaseService interfaces.KnowledgeBaseService
 	knowledgeService     interfaces.KnowledgeService
 	fileService          interfaces.FileService
@@ -201,6 +215,18 @@ type DataAnalysisTool struct {
 	storageResolver interfaces.StorageBackendResolver
 	searchTargets   types.SearchTargets
 	scopeEnforced   bool
+}
+
+func (t *DataAnalysisTool) ensureInstanceID() uint64 {
+	if t == nil {
+		return 0
+	}
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.instanceID == 0 {
+		t.instanceID = nextDataAnalysisInstanceID.Add(1)
+	}
+	return t.instanceID
 }
 
 // WithSearchTargets enables the Agent-only authorization boundary. Other
@@ -225,6 +251,7 @@ func NewDataAnalysisTool(
 ) *DataAnalysisTool {
 	tool := &DataAnalysisTool{
 		BaseTool:             dataAnalysisTool,
+		instanceID:           nextDataAnalysisInstanceID.Add(1),
 		knowledgeBaseService: knowledgeBaseService,
 		knowledgeService:     knowledgeService,
 		fileService:          fileService,
@@ -245,6 +272,8 @@ func NewDataAnalysisTool(
 
 // recordCreatedTable records a cleanup candidate, not proof that CREATE succeeded.
 func (t *DataAnalysisTool) recordCreatedTable(tableName string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	for _, name := range t.createdTables {
 		if name == tableName {
 			return
@@ -253,7 +282,15 @@ func (t *DataAnalysisTool) recordCreatedTable(tableName string) {
 	t.createdTables = append(t.createdTables, tableName)
 }
 
+func (t *DataAnalysisTool) isTableLoaded(tableName string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.loadedTables[tableName]
+}
+
 func (t *DataAnalysisTool) markTableLoaded(tableName string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	if t.loadedTables == nil {
 		t.loadedTables = make(map[string]bool)
 	}
@@ -262,18 +299,30 @@ func (t *DataAnalysisTool) markTableLoaded(tableName string) {
 
 // Cleanup cleans up the session-specific schema
 func (t *DataAnalysisTool) Cleanup(ctx context.Context) {
-	if len(t.createdTables) == 0 {
+	if t == nil {
+		return
+	}
+	t.mu.Lock()
+	tables := append([]string(nil), t.createdTables...)
+	t.createdTables = nil
+	t.loadedTables = nil
+	t.mu.Unlock()
+
+	if len(tables) == 0 {
 		logger.Infof(ctx, "[Tool][DataAnalysis] No tables to clean up for session: %s", t.sessionID)
 		return
 	}
+	if t.db == nil {
+		return
+	}
 
-	logger.Infof(ctx, "[Tool][DataAnalysis] Cleaning up %d tables for session: %s", len(t.createdTables), t.sessionID)
+	logger.Infof(ctx, "[Tool][DataAnalysis] Cleaning up %d tables for session: %s", len(tables), t.sessionID)
 
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 
-	for _, tableName := range t.createdTables {
-		dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS \"%s\"", tableName)
+	for _, tableName := range tables {
+		dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", quoteDuckDBIdent(tableName))
 		if _, err := t.db.ExecContext(cleanupCtx, dropSQL); err != nil {
 			logger.Errorf(ctx, "[Tool][DataAnalysis] Failed to drop table '%s': %v", tableName, err)
 			// Continue to drop other tables even if one fails
@@ -281,14 +330,16 @@ func (t *DataAnalysisTool) Cleanup(ctx context.Context) {
 		}
 		logger.Infof(ctx, "[Tool][DataAnalysis] Successfully dropped table '%s'", tableName)
 	}
-
-	// Reset both cleanup tracking and successful-load state.
-	t.createdTables = nil
-	t.loadedTables = nil
 }
 
 // Execute executes the SQL query on DuckDB (only read-only queries are allowed)
 func (t *DataAnalysisTool) Execute(ctx context.Context, args json.RawMessage) (*types.ToolResult, error) {
+	if t == nil || t.db == nil {
+		return &types.ToolResult{
+			Success: false,
+			Error:   "data analysis tool is not configured",
+		}, fmt.Errorf("duckdb connection is unavailable")
+	}
 	logger.Infof(ctx, "[Tool][DataAnalysis] Execute started for session: %s", t.sessionID)
 	var input DataAnalysisInput
 	if err := json.Unmarshal(args, &input); err != nil {
@@ -388,26 +439,106 @@ func (t *DataAnalysisTool) Execute(ctx context.Context, args json.RawMessage) (*
 // keep working; a query against anything else is rejected with an error that
 // names the table the model should have used.
 func validateDataAnalysisSQL(sqlQuery string, schema *TableSchema) error {
+	allowedTables := []string{DataAnalysisTableName}
+	if schema != nil && strings.TrimSpace(schema.TableName) != "" {
+		allowedTables = append(allowedTables, schema.TableName)
+	}
 	// IMPORTANT: Must enable validateSelectStmt to block RangeFunction attacks
 	_, validation := utils.ValidateSQL(sqlQuery,
-		utils.WithAllowedTables(DataAnalysisTableName, schema.TableName),
+		utils.WithAllowedTables(allowedTables...),
 		utils.WithSelectOnly(),
 		utils.WithSingleStatement(),      // Block multiple statements
+		utils.WithNoSchemaAccess(),       // Block information_schema / duckdb catalog schemas
 		utils.WithNoDangerousFunctions(), // Block dangerous functions
 	)
-	if validation.Valid {
+	if !validation.Valid {
+		for _, validationErr := range validation.Errors {
+			if validationErr.Type == "table_not_allowed" {
+				return fmt.Errorf(
+					"SQL validation failed: %s. The selected document is exposed as the single table %q; "+
+						"write the query against that table name and pass the document only through knowledge_id",
+					validationErr.Message, DataAnalysisTableName,
+				)
+			}
+		}
+		return fmt.Errorf("SQL validation failed: %v", validation.Errors)
+	}
+	return validateDuckDBFunctions(sqlQuery)
+}
+
+func validateDuckDBFunctions(sqlQuery string) error {
+	parsed, err := pg_query.Parse(sqlQuery)
+	if err != nil || parsed == nil {
+		return fmt.Errorf("SQL validation failed: invalid SQL syntax")
+	}
+	return walkProtoForDuckDBFunctions(parsed.ProtoReflect())
+}
+
+func walkProtoForDuckDBFunctions(msg protoreflect.Message) error {
+	if !msg.IsValid() {
 		return nil
 	}
-	for _, validationErr := range validation.Errors {
-		if validationErr.Type == "table_not_allowed" {
-			return fmt.Errorf(
-				"SQL validation failed: %s. The selected document is exposed as the single table %q; "+
-					"write the query against that table name and pass the document only through knowledge_id",
-				validationErr.Message, DataAnalysisTableName,
-			)
+	if fc, ok := msg.Interface().(*pg_query.FuncCall); ok && fc != nil {
+		funcName := ""
+		for _, part := range fc.Funcname {
+			if s := part.GetString_(); s != nil {
+				funcName = strings.ToLower(strings.TrimSpace(s.Sval))
+			}
+		}
+		if isBlockedDuckDBFunction(funcName) {
+			return fmt.Errorf("SQL validation failed: function %q is not allowed in data_analysis", funcName)
 		}
 	}
-	return fmt.Errorf("SQL validation failed: %v", validation.Errors)
+	var walkErr error
+	msg.Range(func(fd protoreflect.FieldDescriptor, v protoreflect.Value) bool {
+		if fd.Kind() != protoreflect.MessageKind || fd.IsMap() {
+			return true
+		}
+		if fd.IsList() {
+			list := v.List()
+			for i := 0; i < list.Len(); i++ {
+				if err := walkProtoForDuckDBFunctions(list.Get(i).Message()); err != nil {
+					walkErr = err
+					return false
+				}
+			}
+			return true
+		}
+		if err := walkProtoForDuckDBFunctions(v.Message()); err != nil {
+			walkErr = err
+			return false
+		}
+		return true
+	})
+	return walkErr
+}
+
+func isBlockedDuckDBFunction(funcName string) bool {
+	if funcName == "" {
+		return false
+	}
+	switch funcName {
+	case "getenv", "current_setting", "set_config", "glob", "which_secret", "version", "query", "query_table":
+		return true
+	}
+	for _, prefix := range []string{
+		"read_",
+		"duckdb_",
+		"parquet_",
+		"iceberg_",
+		"delta_",
+		"st_read",
+		"sniff_",
+		"pragma_",
+		"sqlite_",
+		"postgres_",
+		"mysql_",
+	} {
+		if strings.HasPrefix(funcName, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 // executeSingleQuery runs a validated query on a dedicated connection where
@@ -419,6 +550,9 @@ func validateDataAnalysisSQL(sqlQuery string, schema *TableSchema) error {
 func (t *DataAnalysisTool) executeSingleQuery(
 	ctx context.Context, sqlQuery string, physicalTable string,
 ) ([]map[string]string, error) {
+	if t == nil || t.db == nil {
+		return nil, fmt.Errorf("duckdb connection is unavailable")
+	}
 	conn, err := t.db.Conn(ctx)
 	if err != nil {
 		logger.Errorf(ctx, "[Tool][DataAnalysis] Failed to acquire connection: %v", err)
@@ -427,8 +561,8 @@ func (t *DataAnalysisTool) executeSingleQuery(
 	defer func() { _ = conn.Close() }()
 
 	viewSQL := fmt.Sprintf(
-		`CREATE OR REPLACE TEMPORARY VIEW "%s" AS SELECT * FROM "%s"`,
-		DataAnalysisTableName, physicalTable,
+		`CREATE OR REPLACE TEMPORARY VIEW %s AS SELECT * FROM %s`,
+		quoteDuckDBIdent(DataAnalysisTableName), quoteDuckDBIdent(physicalTable),
 	)
 	if _, err := conn.ExecContext(ctx, viewSQL); err != nil {
 		logger.Errorf(ctx, "[Tool][DataAnalysis] Failed to expose table '%s' as %s: %v",
@@ -436,7 +570,7 @@ func (t *DataAnalysisTool) executeSingleQuery(
 		return nil, fmt.Errorf("failed to expose document table: %w", err)
 	}
 	defer func() {
-		dropSQL := fmt.Sprintf(`DROP VIEW IF EXISTS "%s"`, DataAnalysisTableName)
+		dropSQL := fmt.Sprintf(`DROP VIEW IF EXISTS %s`, quoteDuckDBIdent(DataAnalysisTableName))
 		if _, err := conn.ExecContext(context.WithoutCancel(ctx), dropSQL); err != nil {
 			logger.Warnf(ctx, "[Tool][DataAnalysis] Failed to drop temporary view %s: %v", DataAnalysisTableName, err)
 		}
@@ -459,6 +593,9 @@ func (t *DataAnalysisTool) executeSingleQuery(
 	// Process results
 	results := make([]map[string]string, 0)
 	for rows.Next() {
+		if len(results) >= maxDataAnalysisResultRows {
+			break
+		}
 		columnValues := make([]interface{}, len(columns))
 		columnPointers := make([]interface{}, len(columns))
 		for i := range columnValues {
@@ -546,9 +683,12 @@ type ColumnInfo struct {
 //   - *TableSchema: schema information of the created table
 //   - error: any error that occurred during the operation
 func (t *DataAnalysisTool) LoadFromCSV(ctx context.Context, filename string, tableName string) (*TableSchema, error) {
+	if t == nil || t.db == nil {
+		return nil, fmt.Errorf("duckdb connection is unavailable")
+	}
 	logger.Infof(ctx, "[Tool][DataAnalysis] Loading CSV file '%s' into table '%s' for session %s", filename, tableName, t.sessionID)
 
-	if !t.loadedTables[tableName] {
+	if !t.isTableLoaded(tableName) {
 		// Keep cleanup tracking even if CREATE fails; only successful creation
 		// makes the table reusable by a later call.
 		t.recordCreatedTable(tableName)
@@ -557,8 +697,8 @@ func (t *DataAnalysisTool) LoadFromCSV(ctx context.Context, filename string, tab
 		// Excel loading behavior.
 		// Table will be created in the session schema
 		createTableSQL := fmt.Sprintf(
-			"CREATE TABLE \"%s\" AS SELECT * FROM read_csv_auto('%s', header=true, all_varchar=true)",
-			tableName, sqlSingleQuoteEscape(filename),
+			"CREATE TABLE %s AS SELECT * FROM read_csv_auto('%s', header=true, all_varchar=true)",
+			quoteDuckDBIdent(tableName), sqlSingleQuoteEscape(filename),
 		)
 
 		_, err := t.db.ExecContext(ctx, createTableSQL)
@@ -600,9 +740,12 @@ func (t *DataAnalysisTool) LoadFromCSV(ctx context.Context, filename string, tab
 // a real .xls would otherwise surface as "No xl/workbook.xml found in xlsx
 // file". A workbook that cannot be converted returns an actionable error.
 func (t *DataAnalysisTool) LoadFromExcel(ctx context.Context, filename string, tableName string) (*TableSchema, error) {
+	if t == nil {
+		return nil, fmt.Errorf("duckdb connection is unavailable")
+	}
 	logger.Infof(ctx, "[Tool][DataAnalysis] Loading Excel file '%s' into table '%s' for session %s", filename, tableName, t.sessionID)
 
-	if !t.loadedTables[tableName] {
+	if !t.isTableLoaded(tableName) {
 		if hasLegacyXLSContainer(filename) {
 			prepared, cleanup, err := prepareExcelForDuckDB(filename)
 			if err != nil {
@@ -614,6 +757,9 @@ func (t *DataAnalysisTool) LoadFromExcel(ctx context.Context, filename string, t
 			}
 			defer cleanup()
 			filename = prepared
+		}
+		if t.db == nil {
+			return nil, fmt.Errorf("duckdb connection is unavailable")
 		}
 
 		t.recordCreatedTable(tableName)
@@ -720,12 +866,13 @@ func (t *DataAnalysisTool) listExcelSheetsFromSpatial(ctx context.Context, filen
 // testable without a live DuckDB connection.
 func buildExcelCreateTableSQL(tableName, filename string, sheetNames []string) string {
 	escFile := sqlSingleQuoteEscape(filename)
+	quotedTable := quoteDuckDBIdent(tableName)
 
 	// Without an explicit sheet selection, retain the default read_xlsx SQL form.
 	if len(sheetNames) == 0 {
 		return fmt.Sprintf(
-			"CREATE TABLE \"%s\" AS SELECT * FROM read_xlsx('%s', header=true, all_varchar=true)",
-			tableName, escFile,
+			"CREATE TABLE %s AS SELECT * FROM read_xlsx('%s', header=true, all_varchar=true)",
+			quotedTable, escFile,
 		)
 	}
 
@@ -734,8 +881,8 @@ func buildExcelCreateTableSQL(tableName, filename string, sheetNames []string) s
 	if len(sheetNames) == 1 {
 		escSheet := sqlSingleQuoteEscape(sheetNames[0])
 		return fmt.Sprintf(
-			"CREATE TABLE \"%s\" AS SELECT *, '%s' AS %s FROM read_xlsx('%s', sheet = '%s', header=true, all_varchar=true)",
-			tableName, escSheet, excelSheetNameColumn, escFile, escSheet,
+			"CREATE TABLE %s AS SELECT *, '%s' AS %s FROM read_xlsx('%s', sheet = '%s', header=true, all_varchar=true)",
+			quotedTable, escSheet, excelSheetNameColumn, escFile, escSheet,
 		)
 	}
 
@@ -751,8 +898,8 @@ func buildExcelCreateTableSQL(tableName, filename string, sheetNames []string) s
 		))
 	}
 	return fmt.Sprintf(
-		"CREATE TABLE \"%s\" AS %s",
-		tableName,
+		"CREATE TABLE %s AS %s",
+		quotedTable,
 		strings.Join(parts, "\nUNION ALL BY NAME\n"),
 	)
 }
@@ -780,6 +927,16 @@ func (t *DataAnalysisTool) LoadFromKnowledge(ctx context.Context, knowledge *typ
 
 	// Normalize file type to lowercase for comparison
 	fileType := strings.ToLower(knowledge.FileType)
+	switch fileType {
+	case "csv", "xlsx", "xls":
+	default:
+		logger.Warnf(ctx, "[Tool][DataAnalysis] Unsupported file type '%s' for knowledge '%s' in session %s",
+			fileType, knowledge.ID, t.sessionID)
+		return nil, fmt.Errorf("unsupported file type: %s (supported types: csv, xlsx, xls)", fileType)
+	}
+	if t.isTableLoaded(tableName) {
+		return t.LoadFromTable(ctx, tableName)
+	}
 
 	logger.Infof(ctx, "[Tool][DataAnalysis] Loading knowledge '%s' (type: %s) into table '%s' for session %s",
 		knowledge.ID, fileType, tableName, t.sessionID)
@@ -790,16 +947,10 @@ func (t *DataAnalysisTool) LoadFromKnowledge(ctx context.Context, knowledge *typ
 	}
 	defer cleanup()
 
-	switch fileType {
-	case "csv":
+	if fileType == "csv" {
 		return t.LoadFromCSV(ctx, localPath, tableName)
-	case "xlsx", "xls":
-		return t.LoadFromExcel(ctx, localPath, tableName)
-	default:
-		logger.Warnf(ctx, "[Tool][DataAnalysis] Unsupported file type '%s' for knowledge '%s' in session %s",
-			fileType, knowledge.ID, t.sessionID)
-		return nil, fmt.Errorf("unsupported file type: %s (supported types: csv, xlsx, xls)", fileType)
 	}
+	return t.LoadFromExcel(ctx, localPath, tableName)
 }
 
 // materializeKnowledgeFile copies the knowledge's backing blob into a fresh
@@ -889,10 +1040,14 @@ func (t *DataAnalysisTool) LoadFromKnowledgeID(ctx context.Context, knowledgeID 
 //
 // Note: This function does NOT create the table, it only retrieves schema information
 func (t *DataAnalysisTool) LoadFromTable(ctx context.Context, tableName string) (*TableSchema, error) {
+	if t == nil || t.db == nil {
+		return nil, fmt.Errorf("duckdb connection is unavailable")
+	}
 	logger.Infof(ctx, "[Tool][DataAnalysis] Getting schema for table '%s' in session %s", tableName, t.sessionID)
 
+	quotedTable := quoteDuckDBIdent(tableName)
 	// Query to get column information using PRAGMA table_info or DESCRIBE
-	schemaSQL := fmt.Sprintf("DESCRIBE \"%s\"", tableName)
+	schemaSQL := fmt.Sprintf("DESCRIBE %s", quotedTable)
 
 	rows, err := t.db.QueryContext(ctx, schemaSQL)
 	if err != nil {
@@ -931,7 +1086,7 @@ func (t *DataAnalysisTool) LoadFromTable(ctx context.Context, tableName string) 
 	}
 
 	// Get row count
-	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM \"%s\"", tableName)
+	countSQL := fmt.Sprintf("SELECT COUNT(*) FROM %s", quotedTable)
 	var rowCount int64
 	if err := t.db.QueryRowContext(ctx, countSQL).Scan(&rowCount); err != nil {
 		logger.Errorf(ctx, "[Tool][DataAnalysis] Failed to get row count: %v", err)
@@ -955,7 +1110,12 @@ func (t *DataAnalysisTool) LoadFromTable(ctx context.Context, tableName string) 
 }
 
 func (t *DataAnalysisTool) TableName(knowledge *types.Knowledge) string {
-	return "k_" + strings.ReplaceAll(knowledge.ID, "-", "_")
+	var rawID string
+	if knowledge != nil {
+		rawID = knowledge.ID
+	}
+	sum := sha256.Sum256([]byte(rawID))
+	return fmt.Sprintf("k_%x_%x", t.ensureInstanceID(), sum[:12])
 }
 
 // Description builds the model-facing schema description. It names the table
@@ -982,12 +1142,21 @@ func (t *DataAnalysisTool) resolveFileServiceForKnowledge(ctx context.Context, k
 		logger.Warnf(ctx, "[Tool][DataAnalysis][storage] fallback default: session_id=%s reason=knowledge_nil", t.sessionID)
 		return t.fileService
 	}
+	if _, isResource := types.ParseResourcePath(knowledge.FilePath); isResource && t.storageResolver == nil && t.fileService != nil {
+		return t.fileService
+	}
 
 	kbID := strings.TrimSpace(knowledge.KnowledgeBaseID)
 	var kb *types.KnowledgeBase
 	if t.knowledgeBaseService != nil && kbID != "" {
 		var err error
 		kb, err = t.knowledgeBaseService.GetKnowledgeBaseByID(ctx, kbID)
+		if err != nil || kb == nil {
+			if sharedKB, onlyErr := t.knowledgeBaseService.GetKnowledgeBaseByIDOnly(ctx, kbID); onlyErr == nil && sharedKB != nil {
+				kb = sharedKB
+				err = nil
+			}
+		}
 		if err != nil {
 			logger.Warnf(ctx, "[Tool][DataAnalysis][storage] get kb failed, fallback default: session_id=%s knowledge_id=%s kb_id=%s err=%v",
 				t.sessionID, knowledge.ID, kbID, err)
@@ -1008,25 +1177,33 @@ func (t *DataAnalysisTool) resolveFileServiceForKnowledge(ctx context.Context, k
 			backendID = strings.TrimSpace(*kb.StorageBackendID)
 		}
 	}
+	ownerTenantID := knowledge.TenantID
+	if ownerTenantID == 0 && kb != nil {
+		ownerTenantID = kb.TenantID
+	}
 	tenant, _ := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
-	if tenant == nil {
-		tenantID := uint64(0)
-		if tid, ok := ctx.Value(types.TenantIDContextKey).(uint64); ok {
-			tenantID = tid
-		}
-		if tenantID == 0 && kb != nil {
-			tenantID = knowledge.TenantID
+	if tenant == nil || (ownerTenantID > 0 && tenant.ID != ownerTenantID) {
+		tenantID := ownerTenantID
+		if tenantID == 0 {
+			if tid, ok := ctx.Value(types.TenantIDContextKey).(uint64); ok {
+				tenantID = tid
+			}
 		}
 		if tenantID > 0 && t.tenantService != nil {
 			resolvedTenant, err := t.tenantService.GetTenantByID(ctx, tenantID)
 			if err != nil {
 				logger.Warnf(ctx, "[Tool][DataAnalysis][storage] get tenant failed: session_id=%s knowledge_id=%s kb_id=%s tenant_id=%d err=%v",
 					t.sessionID, knowledge.ID, kbID, tenantID, err)
+				if ownerTenantID > 0 && tenant != nil && tenant.ID != ownerTenantID {
+					tenant = nil
+				}
 			} else if resolvedTenant != nil {
 				tenant = resolvedTenant
 				logger.Infof(ctx, "[Tool][DataAnalysis][storage] resolved tenant from service: session_id=%s knowledge_id=%s kb_id=%s tenant_id=%d",
 					t.sessionID, knowledge.ID, kbID, tenantID)
 			}
+		} else if ownerTenantID > 0 && tenant != nil && tenant.ID != ownerTenantID {
+			tenant = nil
 		}
 	}
 	if provider == "" && tenant != nil && tenant.StorageEngineConfig != nil {

@@ -60,8 +60,46 @@ func (e *MissingSkillEnvError) Error() string {
 // GENYEE_SKILL_OUTPUT_DIR would silently redirect the turn's artifacts to a
 // directory nobody drains. Skipping existing keys makes that impossible
 // regardless of what is stored.
+const reservedResolvedEnvPrefix = "GENYEE_SKILL_"
+
+var reservedResolvedEnvNames = func() map[string]bool {
+	m := map[string]bool{
+		"PATH":                true,
+		"HOME":                true,
+		"USER":                true,
+		"SHELL":               true,
+		"LD_PRELOAD":          true,
+		"LD_LIBRARY_PATH":     true,
+		"PYTHONPATH":          true,
+		"PYTHONHOME":          true,
+		"NODE_OPTIONS":        true,
+		"BASH_ENV":            true,
+		"ENV":                 true,
+		"GENYEE_SESSION_ID":   true,
+		"GENYEE_BROWSER_ROOT": true,
+	}
+	for _, name := range InjectedSandboxEnvVars() {
+		m[name] = true
+	}
+	return m
+}()
+
+func isReservedResolvedEnvName(name string) bool {
+	trimmed := strings.TrimSpace(name)
+	if trimmed == "" {
+		return true
+	}
+	return reservedResolvedEnvNames[trimmed] || strings.HasPrefix(trimmed, reservedResolvedEnvPrefix)
+}
+
 func ApplyResolvedEnv(env, resolved map[string]string) {
+	if env == nil {
+		return
+	}
 	for name, value := range resolved {
+		if isReservedResolvedEnvName(name) {
+			continue
+		}
 		if _, taken := env[name]; taken {
 			continue
 		}

@@ -111,13 +111,28 @@ func NewDatabaseQueryTool(db *gorm.DB, searchTargets types.SearchTargets) *Datab
 	}
 }
 
+const maxDatabaseQueryResultRows = 10000
+
 // Execute executes the database query tool
 func (t *DatabaseQueryTool) Execute(ctx context.Context, args json.RawMessage) (*types.ToolResult, error) {
 	logger.Infof(ctx, "[Tool][DatabaseQuery] Execute started")
 
-	tenantID := uint64(0)
-	if tid, ok := ctx.Value(types.TenantIDContextKey).(uint64); ok {
-		tenantID = tid
+	if t == nil || t.db == nil {
+		return &types.ToolResult{
+			Success: false,
+			Error:   "database query tool is not configured",
+		}, fmt.Errorf("database connection is unavailable")
+	}
+
+	tenantID, _ := types.TenantIDFromContext(ctx)
+	if tenantID == 0 {
+		tenantID = types.CallerFromContext(ctx).TenantID
+	}
+	if tenantID == 0 {
+		return &types.ToolResult{
+			Success: false,
+			Error:   "tenant context is required for database queries",
+		}, fmt.Errorf("missing tenant_id in context")
 	}
 
 	// Parse args from json.RawMessage
@@ -183,6 +198,9 @@ func (t *DatabaseQueryTool) Execute(ctx context.Context, args json.RawMessage) (
 	// Process results
 	results := make([]map[string]interface{}, 0)
 	for rows.Next() {
+		if len(results) >= maxDatabaseQueryResultRows {
+			break
+		}
 		// Create a slice of interface{} to hold each column value
 		columnValues := make([]interface{}, len(columns))
 		columnPointers := make([]interface{}, len(columns))

@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/event"
@@ -22,6 +23,15 @@ func (e *AgentEngine) Resume(
 	snapshot []byte,
 	answered *types.AgentPrompt,
 ) (*types.AgentState, error) {
+	parentCtx := ctx
+	handedOff := false
+	if e.collaboration != nil {
+		defer func() {
+			if !handedOff {
+				e.collaboration.End(false)
+			}
+		}()
+	}
 	snap, err := DecodeRunSnapshot(snapshot)
 	if err != nil {
 		return nil, err
@@ -47,10 +57,14 @@ func (e *AgentEngine) Resume(
 	} else if !wait {
 		return nil, fmt.Errorf("between-round resume requires collaboration ownership")
 	}
+	var stopPreLoop func()
 	if e.collaboration != nil {
-		var stop func()
-		ctx, stop = e.collaboration.Start(ctx)
-		defer stop()
+		ctx, stopPreLoop = e.collaboration.Start(parentCtx)
+		defer func() {
+			if stopPreLoop != nil {
+				stopPreLoop()
+			}
+		}()
 	}
 	logger.Infof(ctx, "[Agent] Resuming: session=%s, message=%s, prompt=%s, round=%d",
 		sessionID, messageID, func() string {
@@ -86,12 +100,21 @@ func (e *AgentEngine) Resume(
 		}
 		return nil
 	}
+	appendBackground := func(step types.AgentStep) {
+		for _, inj := range step.BackgroundInjections {
+			if strings.TrimSpace(inj.Content) == "" {
+				continue
+			}
+			messages = append(messages, chat.Message{Role: "user", Content: inj.Content})
+		}
+	}
 	for i, step := range state.RoundSteps {
 		e.replayCollaborationDeliveries(&messages, i, true)
 		if err := appendUsers(step); err != nil {
 			return nil, err
 		}
 		e.replayCollaborationDeliveries(&messages, i, false)
+		appendBackground(step)
 		messages = e.appendToolResults(messages, step)
 		messages = e.appendToolImages(ctx, messages, step)
 	}
@@ -100,6 +123,7 @@ func (e *AgentEngine) Resume(
 		return nil, err
 	}
 	e.replayCollaborationDeliveries(&messages, len(state.RoundSteps), false)
+	appendBackground(p.Step)
 	if e.toolRegistry != nil {
 		e.toolRegistry.RestoreMCPExposure(snap.MCPToolRefs)
 		e.toolRegistry.RememberMCPHistory(messages)
@@ -123,6 +147,7 @@ func (e *AgentEngine) Resume(
 				state.CurrentRound+1, suspended.PromptID)
 			state.Suspended = suspended
 			state.SuspendedStep = &step
+			handedOff = true
 			if e.collaboration != nil {
 				e.collaboration.End(true)
 			}
@@ -135,9 +160,14 @@ func (e *AgentEngine) Resume(
 		state.CurrentRound++
 	}
 
-	if _, err := e.executeLoop(ctx, state, snap.Query, messages, tools, sessionID, messageID); err != nil {
-		logger.Errorf(ctx, "[Agent] Resumed execution failed: %v", err)
-		if emitErr := e.eventBus.Emit(ctx, event.Event{
+	if stopPreLoop != nil {
+		stopPreLoop()
+		stopPreLoop = nil
+	}
+	handedOff = true
+	if _, err := e.executeLoop(parentCtx, state, snap.Query, messages, tools, sessionID, messageID); err != nil {
+		logger.Errorf(parentCtx, "[Agent] Resumed execution failed: %v", err)
+		if emitErr := e.eventBus.Emit(parentCtx, event.Event{
 			ID:        generateEventID("error"),
 			Type:      event.EventError,
 			SessionID: sessionID,

@@ -75,6 +75,9 @@ type fillSecretArgs struct {
 
 // Execute implements types.Tool.
 func (t *BrowserFillSecretTool) Execute(ctx context.Context, args json.RawMessage) (*types.ToolResult, error) {
+	if t == nil || t.handles == nil || t.browser == nil {
+		return &types.ToolResult{Success: false, Error: "browser_fill_secret is not configured"}, nil
+	}
 	var in fillSecretArgs
 	if err := json.Unmarshal(args, &in); err != nil {
 		return &types.ToolResult{Success: false, Error: fmt.Sprintf("Failed to parse args: %v", err)}, nil

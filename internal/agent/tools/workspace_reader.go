@@ -515,6 +515,12 @@ func renderFileContent(
 func renderFileLinePage(
 	input ReadFileInput, content, clean string, data map[string]interface{}, maxBytes int64, maxRunes int,
 ) *types.ToolResult {
+	if input.Offset < 0 || input.LineOffset < 0 || input.Limit < 0 || input.MaxBytes < 0 {
+		return &types.ToolResult{Success: false, Error: "read offsets and limits must be non-negative"}
+	}
+	if data == nil {
+		data = map[string]interface{}{}
+	}
 	lines := strings.Split(strings.TrimSuffix(content, "\n"), "\n")
 	lineNumber := max(1, input.Offset)
 	if lineNumber > len(lines) {

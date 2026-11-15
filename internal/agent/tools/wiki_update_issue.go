@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
@@ -53,8 +54,14 @@ func (t *wikiUpdateIssueTool) Execute(ctx context.Context, args json.RawMessage)
 	if params.IssueID == "" {
 		return &types.ToolResult{Success: false, Error: "issue_id is required"}, nil
 	}
+	params.Status = strings.ToLower(strings.TrimSpace(params.Status))
 	if params.Status == "" {
 		return &types.ToolResult{Success: false, Error: "status is required"}, nil
+	}
+	switch params.Status {
+	case "resolved", "ignored", "pending":
+	default:
+		return &types.ToolResult{Success: false, Error: "status must be one of: resolved, ignored, pending"}, nil
 	}
 
 	if len(t.kbIDs) == 0 {

@@ -110,8 +110,12 @@ func (t *wikiWritePageTool) Execute(ctx context.Context, args json.RawMessage) (
 	if len(t.kbIDs) == 0 {
 		return &types.ToolResult{Success: false, Error: "No knowledge bases available for editing"}, nil
 	}
-	if params.Title == "" || params.PageType == "" || params.Content == "" || params.Summary == "" {
+	if params.Title == "" || strings.TrimSpace(params.PageType) == "" || params.Content == "" || params.Summary == "" {
 		return &types.ToolResult{Success: false, Error: "title, summary, content, and page_type are required for write action"}, nil
+	}
+	params.PageType = strings.ToLower(strings.TrimSpace(params.PageType))
+	if !types.IsValidWikiPageType(params.PageType) {
+		return &types.ToolResult{Success: false, Error: fmt.Sprintf("invalid page_type %q", params.PageType)}, nil
 	}
 
 	// Validate + normalize the slug up front. The model routinely emits
@@ -122,6 +126,12 @@ func (t *wikiWritePageTool) Execute(ctx context.Context, args json.RawMessage) (
 		return &types.ToolResult{Success: false, Error: slugErr.Error()}, nil
 	}
 	params.Slug = normalizedSlug
+	if params.Slug == "index" || params.PageType == types.WikiPageTypeIndex {
+		return &types.ToolResult{
+			Success: false,
+			Error:   "the index page is maintained automatically and cannot be written directly",
+		}, nil
+	}
 
 	// Resolve and authorize provenance before choosing a creation target. In a
 	// multi-Wiki Agent, source documents provide a server-owned KB hint and
@@ -167,6 +177,21 @@ func (t *wikiWritePageTool) Execute(ctx context.Context, args json.RawMessage) (
 				"To edit one, target an existing summary page.",
 		}, nil
 	}
+	if existingPage != nil {
+		if t.scopeEnforced {
+			if scopeErr := ensureWikiPageInSearchTargets(ctx, existingPage, kbID, t.searchTargets, t.knowledgeService); scopeErr != nil {
+				return &types.ToolResult{Success: false, Error: scopeErr.Error()}, nil
+			}
+		}
+		wasSummary := existingPage.PageType == types.WikiPageTypeSummary || isSummaryNamespace(existingPage.Slug)
+		wantsSummary := params.PageType == types.WikiPageTypeSummary
+		if wasSummary != wantsSummary {
+			return &types.ToolResult{
+				Success: false,
+				Error:   "cannot change page_type between summary and non-summary pages",
+			}, nil
+		}
+	}
 
 	// Auto-repair dead [[slug]] references in the body before persisting.
 	// This rewrites LLM-mangled links (most importantly UUID-based summary
@@ -198,7 +223,24 @@ func (t *wikiWritePageTool) Execute(ctx context.Context, args json.RawMessage) (
 		action = "updated"
 	} else {
 		// Create
+		var tenantID uint64
+		for _, doc := range sourceDocs {
+			if doc.KnowledgeBaseID == kbID && doc.TenantID > 0 {
+				tenantID = doc.TenantID
+				break
+			}
+		}
+		if tenantID == 0 {
+			tenantID = t.searchTargets.GetTenantIDForKB(kbID)
+		}
+		if tenantID == 0 {
+			tenantID, _ = types.TenantIDFromContext(ctx)
+		}
+		if tenantID == 0 {
+			tenantID = types.CallerFromContext(ctx).TenantID
+		}
 		newPage := &types.WikiPage{
+			TenantID:        tenantID,
 			KnowledgeBaseID: kbID,
 			Slug:            params.Slug,
 			Title:           params.Title,

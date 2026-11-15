@@ -91,6 +91,28 @@ func (t *wikiFlagIssueTool) Execute(ctx context.Context, args json.RawMessage) (
 	}
 	slug = normalizedSlug
 
+	issueType := strings.ToLower(strings.TrimSpace(params.IssueType))
+	switch issueType {
+	case "contradiction":
+		issueType = "contradictory_facts"
+	case "outdated", "stale":
+		issueType = "out_of_date"
+	}
+	switch issueType {
+	case "mixed_entities", "contradictory_facts", "out_of_date", "other":
+	default:
+		return &types.ToolResult{
+			Success: false,
+			Error:   "issue_type must be one of: mixed_entities, contradictory_facts, out_of_date, other",
+		}, nil
+	}
+	params.IssueType = issueType
+
+	params.Description = strings.TrimSpace(params.Description)
+	if params.Description == "" {
+		return &types.ToolResult{Success: false, Error: "description is required"}, nil
+	}
+
 	if len(t.kbIDs) == 0 {
 		return &types.ToolResult{Success: false, Error: "No knowledge bases available for issue tracking"}, nil
 	}
@@ -98,6 +120,11 @@ func (t *wikiFlagIssueTool) Execute(ctx context.Context, args json.RawMessage) (
 	page, kbID, err := resolveUniqueWikiPage(ctx, t.wikiService, slug, t.kbIDs, t.routes)
 	if err != nil {
 		return &types.ToolResult{Success: false, Error: err.Error()}, nil
+	}
+	if t.scopeEnforced {
+		if scopeErr := ensureWikiPageInSearchTargets(ctx, page, kbID, t.searchTargets, t.knowledgeService); scopeErr != nil {
+			return &types.ToolResult{Success: false, Error: scopeErr.Error()}, nil
+		}
 	}
 	suspectedKnowledgeIDs := params.SuspectedKnowledgeIDs
 	if t.scopeEnforced && len(suspectedKnowledgeIDs) > 0 {

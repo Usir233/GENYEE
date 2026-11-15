@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"path"
 	"strings"
 	"time"
@@ -374,7 +375,7 @@ func (t *ShellExecAsyncTool) resolveAsyncEnv(
 	ctx context.Context, input ShellExecAsyncInput, command string,
 ) (map[string]string, map[string]string, *types.ToolResult) {
 	supplied := collectUsedSkillEnv(command, input.Env)
-	env := input.Env
+	env := maps.Clone(input.Env)
 	if t.envResolver == nil {
 		return env, supplied, nil
 	}

@@ -18,6 +18,7 @@ type wikiSourceDocument struct {
 	ID              string
 	Title           string
 	KnowledgeBaseID string
+	TenantID        uint64
 }
 
 // resolveWikiSourceDocuments parses model-supplied source_refs (bare IDs or
@@ -72,9 +73,38 @@ func resolveWikiSourceDocuments(
 			ID:              knowledge.ID,
 			Title:           title,
 			KnowledgeBaseID: knowledge.KnowledgeBaseID,
+			TenantID:        knowledge.TenantID,
 		})
 	}
 	return resolved, nil
+}
+
+// ensureWikiPageInSearchTargets enforces document/tag narrowed scope before an
+// Agent mutates or flags an existing Wiki page.
+func ensureWikiPageInSearchTargets(
+	ctx context.Context,
+	page *types.WikiPage,
+	kbID string,
+	searchTargets types.SearchTargets,
+	knowledgeService interfaces.KnowledgeService,
+) error {
+	if page == nil {
+		return nil
+	}
+	scopes := NewWikiScopesFromSearchTargets(searchTargets, []string{kbID})
+	if len(scopes) == 0 {
+		return fmt.Errorf("knowledge base %s is not within the current Agent scope", kbID)
+	}
+	for _, sc := range scopes {
+		allowed, err := WikiPageInScope(ctx, page, sc, knowledgeService)
+		if err != nil {
+			return fmt.Errorf("failed to validate wiki page scope: %w", err)
+		}
+		if allowed {
+			return nil
+		}
+	}
+	return fmt.Errorf("wiki page %q is outside the document scope pinned for this Agent turn", page.Slug)
 }
 
 // wikiSourceRefs renders resolved documents as stored source_refs entries.

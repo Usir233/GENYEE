@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/Usir233/GENYEE/internal/agent/approval"
 	"github.com/Usir233/GENYEE/internal/agent/hitl"
@@ -143,7 +144,14 @@ func (t *ConfirmedTool) Execute(ctx context.Context, args json.RawMessage) (*typ
 	}
 	defer t.gate.MarkExecuted(ctx, decision.PendingID)
 	if len(decision.ModifiedArgs) > 0 {
-		args = decision.ModifiedArgs
+		args = CastParams(decision.ModifiedArgs, t.Parameters())
+		if validator, ok := t.inner.(interface{ ValidateArguments(json.RawMessage) error }); ok {
+			if valErr := validator.ValidateArguments(args); valErr != nil {
+				return operationFailure(fmt.Sprintf("Parameter validation failed: %v", valErr)), nil
+			}
+		} else if errs := ValidateParams(args, t.Parameters()); len(errs) > 0 {
+			return operationFailure(FormatValidationErrors(errs)), nil
+		}
 	}
 	// Waiting for the user may have used up the per-tool budget; the call
 	// itself gets a full window from the round context.
@@ -160,6 +168,35 @@ func (t *ConfirmedTool) Execute(ctx context.Context, args json.RawMessage) (*typ
 		return operationFailure(err.Error()), nil
 	}
 	return t.inner.Execute(ctx, args)
+}
+
+// OutputLimitChars forwards the wrapped tool's output ceiling when supported.
+func (t *ConfirmedTool) OutputLimitChars(args json.RawMessage) int {
+	if provider, ok := t.inner.(outputLimitProvider); ok {
+		return provider.OutputLimitChars(args)
+	}
+	return 0
+}
+
+// ExecutionTimeout forwards the wrapped tool's execution timeout when supported.
+func (t *ConfirmedTool) ExecutionTimeout() time.Duration {
+	if timed, ok := t.inner.(interface{ ExecutionTimeout() time.Duration }); ok {
+		return timed.ExecutionTimeout()
+	}
+	return 0
+}
+
+// Cleanup forwards session cleanup to the wrapped tool when supported.
+func (t *ConfirmedTool) Cleanup(ctx context.Context) error {
+	switch cleanable := t.inner.(type) {
+	case types.Cleanable:
+		cleanable.Cleanup(ctx)
+		return nil
+	case errorCleanable:
+		return cleanable.Cleanup(ctx)
+	default:
+		return nil
+	}
 }
 
 // approvalDescriber is a wrapped tool that writes its own confirmation card

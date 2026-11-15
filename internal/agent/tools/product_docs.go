@@ -136,6 +136,9 @@ type docHitView struct {
 
 // Execute searches sections, or lists pages when no query is given.
 func (t *SearchGENYEEDocsTool) Execute(_ context.Context, args json.RawMessage) (*types.ToolResult, error) {
+	if t == nil || t.lib == nil {
+		return docsFailure("Product documentation library is unavailable."), nil
+	}
 	var input searchGENYEEDocsInput
 	if len(args) > 0 {
 		if err := json.Unmarshal(args, &input); err != nil {
@@ -209,6 +212,9 @@ type docOutlineEntry struct {
 // long to return whole. Text longer than one read is cut at a line break and
 // continues from next_offset.
 func (t *ReadGENYEEDocTool) Execute(ctx context.Context, args json.RawMessage) (*types.ToolResult, error) {
+	if t == nil || t.lib == nil {
+		return docsFailure("Product documentation library is unavailable."), nil
+	}
 	var input readGENYEEDocInput
 	if err := json.Unmarshal(args, &input); err != nil {
 		return docsFailure(fmt.Sprintf("Invalid arguments: %v", err)), nil

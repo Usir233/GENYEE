@@ -68,11 +68,17 @@ func (t *wikiDeletePageTool) Execute(ctx context.Context, args json.RawMessage) 
 		return &types.ToolResult{Success: false, Error: slugErr.Error()}, nil
 	}
 	params.Slug = normalizedSlug
+	if params.Slug == "index" || isSummaryNamespace(params.Slug) {
+		return &types.ToolResult{Success: false, Error: "structural index and document summary pages cannot be deleted directly"}, nil
+	}
 
 	// Fetch page to get its incoming links before deleting
 	existingPage, kbID, err := resolveUniqueWikiPage(ctx, t.wikiPageService, params.Slug, t.kbIDs, t.routes)
 	if err != nil {
 		return &types.ToolResult{Success: false, Error: "Failed to fetch page to delete: " + err.Error()}, nil
+	}
+	if existingPage.PageType == types.WikiPageTypeIndex || existingPage.PageType == types.WikiPageTypeSummary {
+		return &types.ToolResult{Success: false, Error: "structural index and document summary pages cannot be deleted directly"}, nil
 	}
 	inLinks := make([]string, len(existingPage.InLinks))
 	copy(inLinks, existingPage.InLinks)

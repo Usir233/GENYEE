@@ -91,7 +91,9 @@ func DecodeRunSnapshot(data []byte) (*RunSnapshot, error) {
 func (s *RunSnapshot) DisplaySteps() []types.AgentStep {
 	steps := append([]types.AgentStep(nil), s.CompletedSteps...)
 	if p := s.PendingRound.Step; p.Thought != "" || len(p.ToolCalls) > 0 ||
-		p.ReasoningContent != "" || len(p.UserMessagesBefore) > 0 {
+		p.ReasoningContent != "" || p.ReasoningSignature != "" ||
+		len(p.ReasoningMetadata) > 0 || len(p.UserMessagesBefore) > 0 ||
+		len(p.BackgroundInjections) > 0 {
 		steps = append(steps, p)
 	}
 	return steps

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"sync"
 
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
@@ -142,6 +144,7 @@ Each thought can build on, question, or revise previous insights as understandin
 // This tool helps analyze problems through a flexible thinking process that can adapt and evolve
 type SequentialThinkingTool struct {
 	BaseTool
+	mu             sync.Mutex
 	thoughtHistory []SequentialThinkingInput
 	branches       map[string][]SequentialThinkingInput
 }
@@ -196,24 +199,28 @@ func (t *SequentialThinkingTool) Execute(ctx context.Context, args json.RawMessa
 		input.TotalThoughts = input.ThoughtNumber
 	}
 
-	// Add to thought history
+	// Add to thought history and branches under lock so concurrent calls in a
+	// multi-tool round cannot race on slice/map state.
+	t.mu.Lock()
+	if t.branches == nil {
+		t.branches = make(map[string][]SequentialThinkingInput)
+	}
 	t.thoughtHistory = append(t.thoughtHistory, input)
-
-	// Handle branching
 	if input.BranchFromThought != nil && input.BranchID != "" {
 		if t.branches[input.BranchID] == nil {
 			t.branches[input.BranchID] = make([]SequentialThinkingInput, 0)
 		}
 		t.branches[input.BranchID] = append(t.branches[input.BranchID], input)
 	}
-
-	logger.Debugf(ctx, "[Tool][SequentialThinking] %s", input.Thought)
-
-	// Prepare response data
 	branchKeys := make([]string, 0, len(t.branches))
 	for k := range t.branches {
 		branchKeys = append(branchKeys, k)
 	}
+	historyLen := len(t.thoughtHistory)
+	t.mu.Unlock()
+	sort.Strings(branchKeys)
+
+	logger.Debugf(ctx, "[Tool][SequentialThinking] %s", input.Thought)
 
 	incomplete := input.NextThoughtNeeded || input.NeedsMoreThoughts ||
 		input.ThoughtNumber < input.TotalThoughts
@@ -223,7 +230,7 @@ func (t *SequentialThinkingTool) Execute(ctx context.Context, args json.RawMessa
 		"total_thoughts":         input.TotalThoughts,
 		"next_thought_needed":    input.NextThoughtNeeded,
 		"branches":               branchKeys,
-		"thought_history_length": len(t.thoughtHistory),
+		"thought_history_length": historyLen,
 		"display_type":           "thinking",
 		"thought":                input.Thought,
 		"incomplete_steps":       incomplete,

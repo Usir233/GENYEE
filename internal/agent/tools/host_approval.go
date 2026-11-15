@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -47,7 +48,9 @@ func (h HostApprovals) attach(ctx context.Context, port sandbox.CommandApproval)
 	if !ok || meta.EventBus == nil {
 		return sandbox.WithCommandApproval(ctx, port)
 	}
-	tenantID, _ := types.TenantIDFromContext(ctx)
+	// Use the caller's workspace rather than the execution tenant so shared-agent
+	// prompts are filed under the interactive user's workspace.
+	tenantID := types.CallerFromContext(ctx).TenantID
 	if h.Gate != nil {
 		port.Approver = hostUserApprover{gate: h.Gate, meta: meta, tenantID: tenantID}
 	}
@@ -141,14 +144,27 @@ func (a hostModelApprover) emit(ctx context.Context, typ event.EventType, id str
 	})
 }
 
+func truncatePreviewUTF8(s string, maxBytes int) string {
+	if len(s) <= maxBytes {
+		return s
+	}
+	s = s[:maxBytes]
+	for len(s) > 0 {
+		r, width := utf8.DecodeLastRuneInString(s)
+		if r != utf8.RuneError || width != 1 {
+			break
+		}
+		s = s[:len(s)-1]
+	}
+	return s
+}
+
 func hostPayload(req sandbox.CommandApprovalRequest, reviewer string) event.HostApprovalPayload {
 	preview := req.WriteContent
 	if req.EditDiff != "" {
 		preview = req.EditDiff
 	}
-	if len(preview) > hostPreviewLimit {
-		preview = preview[:hostPreviewLimit]
-	}
+	preview = truncatePreviewUTF8(preview, hostPreviewLimit)
 	return event.HostApprovalPayload{
 		Reason:          req.Reason,
 		Reviewer:        reviewer,
@@ -196,10 +212,7 @@ func stdinData(req sandbox.CommandApprovalRequest) string {
 	if req.StdinIsProgram {
 		return ""
 	}
-	if len(req.Stdin) > hostPreviewLimit {
-		return req.Stdin[:hostPreviewLimit]
-	}
-	return req.Stdin
+	return truncatePreviewUTF8(req.Stdin, hostPreviewLimit)
 }
 
 func hostScripts(scripts []sandbox.ScriptFact) []event.HostScript {

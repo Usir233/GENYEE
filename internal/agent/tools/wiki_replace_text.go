@@ -103,11 +103,28 @@ func (t *wikiReplaceTextTool) Execute(ctx context.Context, args json.RawMessage)
 		return &types.ToolResult{Success: false, Error: slugErr.Error()}, nil
 	}
 	params.Slug = normalizedSlug
+	if params.Slug == "index" {
+		return &types.ToolResult{
+			Success: false,
+			Error:   "the index page is maintained automatically and cannot be edited directly",
+		}, nil
+	}
 
 	// Get the existing page
 	existingPage, kbID, err := resolveUniqueWikiPage(ctx, t.wikiPageService, params.Slug, t.kbIDs, t.routes)
 	if err != nil {
 		return &types.ToolResult{Success: false, Error: fmt.Sprintf("Failed to fetch page %s: %v", params.Slug, err)}, nil
+	}
+	if existingPage.PageType == types.WikiPageTypeIndex {
+		return &types.ToolResult{
+			Success: false,
+			Error:   "the index page is maintained automatically and cannot be edited directly",
+		}, nil
+	}
+	if t.scopeEnforced {
+		if scopeErr := ensureWikiPageInSearchTargets(ctx, existingPage, kbID, t.searchTargets, t.knowledgeService); scopeErr != nil {
+			return &types.ToolResult{Success: false, Error: scopeErr.Error()}, nil
+		}
 	}
 
 	replacementCount := strings.Count(existingPage.Content, params.OldText)

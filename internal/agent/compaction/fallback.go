@@ -29,6 +29,23 @@ func (c *Compactor) fallbackHistory(p *Preparation) string {
 	return joinNonEmpty(prefix, archive)
 }
 
+func (c *Compactor) fallbackTurnPrefix(p *Preparation) string {
+	budget := c.settings.turnPrefixBudget()
+	archive := rawArchive(p.TurnPrefixMessages, budget, c.estimator)
+	if c.estimator.EstimateString(archive) <= budget {
+		return archive
+	}
+	archive = fitFallbackText(archive, func(text string) bool {
+		return c.estimator.EstimateString(joinNonEmpty(fallbackOmission, text)) <= budget
+	}, true)
+	if archive == "" {
+		return fitFallbackText(fallbackOmission, func(text string) bool {
+			return c.estimator.EstimateString(text) <= budget
+		}, false)
+	}
+	return joinNonEmpty(fallbackOmission, archive)
+}
+
 // fitFallbackText retains a rune-aligned prefix or suffix. Measure the complete
 // candidate supplied by fits so separators and the omission marker count too.
 func fitFallbackText(text string, fits func(string) bool, keepEnd bool) string {

@@ -151,6 +151,11 @@ func authorizeChunkInSearchTargets(
 // validateKnowledgeBaseIDsInSearchTargets rejects hallucinated, stale, or
 // out-of-scope kb://N values after the model-context registry resolves them.
 func validateKnowledgeBaseIDsInSearchTargets(searchTargets types.SearchTargets, kbIDs []string) error {
+	for _, raw := range kbIDs {
+		if strings.TrimSpace(raw) == "" {
+			return fmt.Errorf("knowledge base ID must not be empty")
+		}
+	}
 	for _, kbID := range dedupNonEmptyStrings(kbIDs) {
 		if !searchTargets.ContainsKB(kbID) {
 			return fmt.Errorf("knowledge base %s is not within the current Agent scope", kbID)

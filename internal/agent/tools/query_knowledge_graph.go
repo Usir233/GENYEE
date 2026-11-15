@@ -257,14 +257,7 @@ func (t *QueryKnowledgeGraphTool) Execute(ctx context.Context, args json.RawMess
 		}
 	}
 	// Repeated KB IDs must not multiply the per-KB validation budget or counts.
-	kbIDs := make([]string, 0, len(input.KnowledgeBaseIDs))
-	seenKBIDs := make(map[string]bool, len(input.KnowledgeBaseIDs))
-	for _, id := range input.KnowledgeBaseIDs {
-		if !seenKBIDs[id] {
-			seenKBIDs[id] = true
-			kbIDs = append(kbIDs, id)
-		}
-	}
+	kbIDs := dedupNonEmptyStrings(input.KnowledgeBaseIDs)
 	input.KnowledgeBaseIDs = kbIDs
 
 	query := input.Query

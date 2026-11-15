@@ -156,6 +156,9 @@ func (t *ReadFileTool) Execute(ctx context.Context, args json.RawMessage) (*type
 }
 
 func (t *ReadFileTool) read(ctx context.Context, input ReadFileInput) (*types.ToolResult, error) {
+	if input.Offset < 0 || input.LineOffset < 0 || input.Limit < 0 || input.MaxBytes < 0 {
+		return &types.ToolResult{Success: false, Error: "read offsets and limits must be non-negative"}, nil
+	}
 	input.Path = strings.TrimSpace(input.Path)
 	if input.Path == "" {
 		return &types.ToolResult{

@@ -82,12 +82,22 @@ func NewEstimator() (*Estimator, error) {
 
 // Scale is the factor text counts are multiplied by.
 func (e *Estimator) Scale() float64 {
-	return math.Float64frombits(e.scale.Load())
+	if e == nil {
+		return 1
+	}
+	bits := e.scale.Load()
+	if bits == 0 {
+		return 1
+	}
+	return math.Float64frombits(bits)
 }
 
 // SetScale sets the factor text counts are multiplied by, clamped to
 // [MinScale, MaxScale]. A non-positive scale means uncalibrated, which is 1.
 func (e *Estimator) SetScale(scale float64) {
+	if e == nil {
+		return
+	}
 	if scale <= 0 || math.IsNaN(scale) {
 		scale = 1
 	}
@@ -98,7 +108,10 @@ func (e *Estimator) SetScale(scale float64) {
 // Unscaled returns an estimator with the same tokenizer at scale 1, for
 // measuring the raw count a scale is derived from.
 func (e *Estimator) Unscaled() *Estimator {
-	u := &Estimator{codec: e.codec}
+	u := &Estimator{}
+	if e != nil {
+		u.codec = e.codec
+	}
 	u.SetScale(1)
 	return u
 }
@@ -120,8 +133,10 @@ func (e *Estimator) EstimateString(s string) int {
 		return 0
 	}
 	count := (len(s) + 3) / 4
-	if ids, _, err := e.codec.Encode(s); err == nil {
-		count = len(ids)
+	if e != nil && e.codec != nil {
+		if ids, _, err := e.codec.Encode(s); err == nil {
+			count = len(ids)
+		}
 	}
 	if scale := e.Scale(); scale != 1 {
 		return int(math.Round(float64(count) * scale))
@@ -147,9 +162,14 @@ func (e *Estimator) EstimateString(s string) int {
 // on every assistant turn. Leaving them out reproduces exactly the
 // under-measurement described above, one replayed turn at a time.
 func (e *Estimator) EstimateMessage(msg *chat.Message) int {
+	if msg == nil {
+		return 0
+	}
 	tokens := perMessageOverhead
 	tokens += e.EstimateString(msg.Role)
-	tokens += e.EstimateString(msg.Content)
+	if len(msg.MultiContent) == 0 {
+		tokens += e.EstimateString(msg.Content)
+	}
 	tokens += e.EstimateString(msg.Name)
 	tokens += e.EstimateString(msg.ToolCallID)
 	tokens += e.EstimateReasoning(msg)
@@ -182,6 +202,9 @@ func (e *Estimator) EstimateReasoningArtifacts(msg *chat.Message) int {
 }
 
 func (e *Estimator) estimateReasoning(msg *chat.Message) (text, artifacts int) {
+	if msg == nil {
+		return 0, 0
+	}
 	// Anthropic stores the same signed thinking in both display fields and
 	// canonical blocks. replayThinkingBlocks sends only the canonical blocks
 	// when they decode successfully, including when the list is empty. Match

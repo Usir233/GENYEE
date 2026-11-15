@@ -49,6 +49,8 @@ func (m *Manager) PrepareShellEnvironment(ctx context.Context, sessionID, skillN
 	runtimeEnv[artifactHistoryEnvVar] = outputDir
 	if inputDir != "" {
 		runtimeEnv[sessionInputEnvVar] = inputDir
+	} else {
+		delete(runtimeEnv, sessionInputEnvVar)
 	}
 	// Set PATH after the provider's login shell has loaded its profiles. Use a
 	// child non-login shell so leading assignments and arbitrary shell grammar

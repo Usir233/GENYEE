@@ -80,11 +80,20 @@ func (t *wikiRenamePageTool) Execute(ctx context.Context, args json.RawMessage) 
 	if params.NewSlug == params.Slug {
 		return &types.ToolResult{Success: false, Error: "new_slug must be different from old slug"}, nil
 	}
+	if params.Slug == "index" || params.NewSlug == "index" {
+		return &types.ToolResult{Success: false, Error: "the index page cannot be renamed or overwritten"}, nil
+	}
+	if isSummaryNamespace(params.Slug) || isSummaryNamespace(params.NewSlug) {
+		return &types.ToolResult{Success: false, Error: "summary pages are keyed by source document ID and cannot be renamed"}, nil
+	}
 
 	// Get existing page
 	existingPage, kbID, err := resolveUniqueWikiPage(ctx, t.wikiPageService, params.Slug, t.kbIDs, t.routes)
 	if err != nil {
 		return &types.ToolResult{Success: false, Error: "Failed to resolve page to rename: " + err.Error()}, nil
+	}
+	if existingPage.PageType == types.WikiPageTypeIndex || existingPage.PageType == types.WikiPageTypeSummary {
+		return &types.ToolResult{Success: false, Error: "structural and summary pages cannot be renamed"}, nil
 	}
 
 	inLinks := make([]string, len(existingPage.InLinks))

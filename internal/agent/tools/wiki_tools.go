@@ -525,7 +525,13 @@ func (t *wikiReadPageTool) Execute(ctx context.Context, args json.RawMessage) (*
 	// multiple KBs when the agent has several wiki KBs in scope.
 	foundKBs := make(map[string][]string)
 
-	formatLinks := func(slugs []string, kbID string) []string {
+	var fetchTags knowledgeTagsFetcher
+	if t.knowledgeService != nil {
+		fetchTags = t.knowledgeService.GetKnowledgeTags
+	}
+
+	formatLinks := func(slugs []string, sc WikiScope) []string {
+		kbID := sc.KnowledgeBaseID
 		var descs []string
 		inlined := 0
 		for _, s := range slugs {
@@ -555,6 +561,11 @@ func (t *wikiReadPageTool) Execute(ctx context.Context, args json.RawMessage) (*
 				descs = append(descs, fmt.Sprintf("[[%s]]", s))
 				continue
 			}
+			allowed, scopeErr := pagePassesWikiScope(ctx, linkPage, sc, fetchTags)
+			if scopeErr != nil || !allowed {
+				descs = append(descs, fmt.Sprintf("[[%s]]", s))
+				continue
+			}
 			descs = append(descs, fmt.Sprintf("[[%s]] (%s)", s, truncateRunes(linkPage.Summary, wikiLinkSummaryMaxRunes)))
 			inlined++
 			t.mu.Lock()
@@ -570,12 +581,13 @@ func (t *wikiReadPageTool) Execute(ctx context.Context, args json.RawMessage) (*
 	// resolvePage gathers everything needed to render a page except its final
 	// size. Rendering is deferred until every requested slug has been resolved
 	// so the output budget can be shared across the whole batch.
-	resolvePage := func(page *types.WikiPage, kbID string) pendingWikiPage {
+	resolvePage := func(page *types.WikiPage, sc WikiScope) pendingWikiPage {
+		kbID := sc.KnowledgeBaseID
 		resolved := pendingWikiPage{
 			page:     page,
 			kbID:     kbID,
-			outLinks: formatLinks(page.OutLinks, kbID),
-			inLinks:  formatLinks(page.InLinks, kbID),
+			outLinks: formatLinks(page.OutLinks, sc),
+			inLinks:  formatLinks(page.InLinks, sc),
 			body:     page.Content,
 		}
 
@@ -617,14 +629,10 @@ func (t *wikiReadPageTool) Execute(ctx context.Context, args json.RawMessage) (*
 	// knowledge_ids whitelist, so we can surface a clearer error.
 	filteredOut := make(map[string][]string) // slug -> list of KB IDs where filtered
 	lookupFailed := make(map[string]bool)
-	var fetchTags knowledgeTagsFetcher
-	if t.knowledgeService != nil {
-		fetchTags = t.knowledgeService.GetKnowledgeTags
-	}
 	for _, slug := range slugsToFetch {
 		var hits []struct {
-			page *types.WikiPage
-			kbID string
+			page  *types.WikiPage
+			scope WikiScope
 		}
 		cachedScopes := t.routes.scopesForSlug(slug, t.scopes)
 		// Provenance is an ordering hint, never an authority boundary. Always
@@ -675,9 +683,9 @@ func (t *wikiReadPageTool) Execute(ctx context.Context, args json.RawMessage) (*
 				}
 
 				hits = append(hits, struct {
-					page *types.WikiPage
-					kbID string
-				}{page, actualKBID})
+					page  *types.WikiPage
+					scope WikiScope
+				}{page, sc})
 				t.routes.rememberPage(page, actualKBID)
 				foundKBs[slug] = append(foundKBs[slug], actualKBID)
 				// Also register the page's neighbours so that when the model
@@ -707,7 +715,7 @@ func (t *wikiReadPageTool) Execute(ctx context.Context, args json.RawMessage) (*
 		// When routing remains ambiguous, emit every matched page so the model
 		// can use or compare them explicitly.
 		for _, h := range hits {
-			pending = append(pending, resolvePage(h.page, h.kbID))
+			pending = append(pending, resolvePage(h.page, h.scope))
 		}
 	}
 

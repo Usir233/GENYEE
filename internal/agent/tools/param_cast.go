@@ -3,6 +3,7 @@ package tools
 import (
 	"bytes"
 	"encoding/json"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -134,11 +135,18 @@ func castValue(val interface{}, targetType string) (interface{}, bool) {
 			if i, err := strconv.ParseInt(s, 10, 64); err == nil {
 				return i, true
 			}
+			if u, err := strconv.ParseUint(s, 10, 64); err == nil {
+				return u, true
+			}
 		}
-		// JSON numbers are float64 in Go; convert to int if it's a whole number
-		if f, ok := val.(float64); ok {
-			if f == float64(int64(f)) {
+		// JSON numbers are float64 in Go; convert to int64/uint64 only when finite,
+		// integral, and within representable 64-bit integer bounds.
+		if f, ok := val.(float64); ok && !math.IsNaN(f) && !math.IsInf(f, 0) && math.Trunc(f) == f {
+			if f >= -0x1p63 && f < 0x1p63 {
 				return int64(f), true
+			}
+			if f >= 0x1p63 && f < 0x1p64 {
+				return uint64(f), true
 			}
 		}
 

@@ -142,6 +142,12 @@ func (t *WriteSkillFileTool) Execute(ctx context.Context, args json.RawMessage) 
 		}, nil
 	}
 
+	defer lockSandboxFile(sessionID, clean)()
+
+	if _, safetyErr := verifySkillFilePathSafety(ctx, t.store, sessionID, t.skillDir, clean, false); safetyErr != nil {
+		return &types.ToolResult{Success: false, Error: safetyErr.Error()}, nil
+	}
+
 	if err := t.store.WriteSessionFile(ctx, sessionID, clean, content); err != nil {
 		logger.Warnf(ctx, "[Tool][WriteSkillFile] write failed: session=%s path=%s err=%v",
 			sessionID, clean, err)
@@ -269,17 +275,13 @@ func (t *EditSkillFileTool) Execute(ctx context.Context, args json.RawMessage) (
 		return &types.ToolResult{Success: false, Error: err.Error()}, nil
 	}
 
-	stat, statErr := t.store.StatSessionFile(ctx, sessionID, clean)
-	if statErr != nil {
+	defer lockSandboxFile(sessionID, clean)()
+
+	stat, safetyErr := verifySkillFilePathSafety(ctx, t.store, sessionID, t.skillDir, clean, true)
+	if safetyErr != nil {
 		return &types.ToolResult{
 			Success: false,
-			Error:   fmt.Sprintf("failed to stat %s: %v", clean, statErr),
-		}, nil
-	}
-	if stat != nil && stat.Type == sandbox.RemoteEntryDir {
-		return &types.ToolResult{
-			Success: false,
-			Error:   fmt.Sprintf("%s is a directory; edit_skill_file only edits files", clean),
+			Error:   safetyErr.Error(),
 		}, nil
 	}
 	if stat != nil && stat.Size > int64(maxWriteSandboxBytes) {
@@ -389,7 +391,11 @@ func (t *EditSkillFileTool) Cleanup(ctx context.Context) error {
 // absolute path into a neighbouring skill all fail here rather than reaching
 // the image. The directory itself is refused: it is not a file.
 func resolveSkillFilePath(skillDir, requested string) (string, error) {
-	dir := path.Clean(strings.TrimSpace(skillDir))
+	rawDir := strings.TrimSpace(skillDir)
+	if rawDir == "" || !path.IsAbs(rawDir) {
+		return "", fmt.Errorf("this tool is not bound to an absolute skill directory")
+	}
+	dir := path.Clean(rawDir)
 	if dir == "" || dir == "." || dir == "/" {
 		return "", fmt.Errorf("this tool is not bound to a skill directory")
 	}
@@ -413,4 +419,54 @@ func resolveSkillFilePath(skillDir, requested string) (string, error) {
 		)
 	}
 	return clean, nil
+}
+
+// verifySkillFilePathSafety ensures neither an existing ancestor directory nor
+// the target path is a symlink / non-regular entry, closing symlink escape
+// before reading or writing inside the skill tree.
+func verifySkillFilePathSafety(
+	ctx context.Context,
+	store SkillFileStore,
+	sessionID, skillDir, clean string,
+	isEdit bool,
+) (*sandbox.RemoteStatEntry, error) {
+	dir := path.Clean(strings.TrimSpace(skillDir))
+	rel := strings.TrimPrefix(clean, dir+"/")
+	parts := strings.Split(rel, "/")
+
+	cur := dir
+	for i := 0; i < len(parts); i++ {
+		if i > 0 {
+			cur = path.Join(cur, parts[i-1])
+		}
+		ancStat, ancErr := store.StatSessionFile(ctx, sessionID, cur)
+		if ancErr == nil && ancStat != nil && ancStat.Type != sandbox.RemoteEntryDir {
+			return nil, fmt.Errorf("ancestor %s is not a directory", cur)
+		}
+	}
+
+	stat, statErr := store.StatSessionFile(ctx, sessionID, clean)
+	if isEdit {
+		if statErr != nil {
+			return nil, fmt.Errorf("failed to stat %s: %v", clean, statErr)
+		}
+		if stat == nil {
+			return nil, fmt.Errorf("failed to stat %s: file does not exist", clean)
+		}
+		if stat.Type == sandbox.RemoteEntryDir {
+			return nil, fmt.Errorf("%s is a directory; edit_skill_file only edits files", clean)
+		}
+		if stat.Type != sandbox.RemoteEntryFile {
+			return nil, fmt.Errorf("%s is not a regular file; edit_skill_file only edits regular files", clean)
+		}
+		return stat, nil
+	}
+
+	if statErr == nil && stat != nil && stat.Type != sandbox.RemoteEntryFile {
+		if stat.Type == sandbox.RemoteEntryDir {
+			return nil, fmt.Errorf("%s is a directory; write_skill_file only writes files", clean)
+		}
+		return nil, fmt.Errorf("%s is not a regular file; write_skill_file refuses symlinks and special files", clean)
+	}
+	return stat, nil
 }

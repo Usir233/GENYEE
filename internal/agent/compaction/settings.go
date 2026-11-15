@@ -77,8 +77,12 @@ func (s Settings) Normalize() Settings {
 	// keepRecentTokens is a fixed conversation budget, not "whatever is left
 	// after the tool list".
 	if s.MaxContextTokens > 0 {
+		if s.ReserveTokens >= s.MaxContextTokens {
+			s.ReserveTokens = s.MaxContextTokens / 2
+		}
 		usable := s.MaxContextTokens - s.ReserveTokens
-		if quarter := usable / 4; quarter > 0 && s.KeepRecentTokens > quarter {
+		quarter := max(usable/4, 1)
+		if s.KeepRecentTokens > quarter {
 			s.KeepRecentTokens = quarter
 		}
 	}

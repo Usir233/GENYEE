@@ -55,6 +55,13 @@ func (t *wikiReadIssueTool) Execute(ctx context.Context, args json.RawMessage) (
 	if issueID == "" && slug == "" {
 		return &types.ToolResult{Success: false, Error: "Either issue_id or slug is required"}, nil
 	}
+	if slug != "" {
+		normalizedSlug, slugErr := normalizeAndValidateWikiSlug(slug)
+		if slugErr != nil {
+			return &types.ToolResult{Success: false, Error: slugErr.Error()}, nil
+		}
+		slug = normalizedSlug
+	}
 
 	if len(t.kbIDs) == 0 {
 		return &types.ToolResult{Success: false, Error: "No knowledge bases available"}, nil

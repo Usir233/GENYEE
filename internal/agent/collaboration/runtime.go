@@ -107,6 +107,10 @@ func (r *Runtime) Spawn(ctx context.Context, s Scope, key, name, agentID, config
 	id, runID, session := uuid.NewString(), uuid.NewString(), uuid.NewString()
 	err := r.Store.Change(ctx, s, func(g *Group) error {
 		if v := g.Requests[key]; v != "" {
+			existing, err := member(g, v)
+			if err != nil || existing.Name != name || existing.AgentID != agentID {
+				return errors.New("duplicate collaboration request id with different task parameters")
+			}
 			id = v
 			return nil
 		}

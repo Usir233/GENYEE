@@ -176,3 +176,43 @@ func TestEstimatorScaleIsClamped(t *testing.T) {
 	e.SetScale(math.NaN())
 	assert.Equal(t, 1.0, e.Scale())
 }
+
+func TestEstimateMessageDoesNotDoubleCountMultiContent(t *testing.T) {
+	e, err := NewEstimator()
+	assert.NoError(t, err)
+
+	prompt := strings.Repeat("explain what is shown in this screenshot in detail. ", 25)
+	multiOnly := chat.Message{
+		Role: "user",
+		MultiContent: []chat.MessageContentPart{
+			{Type: "text", Text: prompt},
+			{Type: "image_url", ImageURL: &chat.ImageURL{URL: "data:image/png;base64,AAAA"}},
+		},
+	}
+	withFallbackContent := chat.Message{
+		Role:         "user",
+		Content:      prompt,
+		Images:       []string{"https://example.com/a.png"},
+		MultiContent: multiOnly.MultiContent,
+	}
+
+	assert.Equal(t, e.EstimateMessage(&multiOnly), e.EstimateMessage(&withFallbackContent),
+		"MultiContent supersedes Content and Images on the wire and must not be double-counted")
+}
+
+func TestEstimatorNilAndZeroValueSafety(t *testing.T) {
+	var nilEst *Estimator
+	assert.Equal(t, 1.0, nilEst.Scale())
+	assert.Equal(t, 3, nilEst.EstimateString("hello world"))
+	assert.Equal(t, 0, nilEst.EstimateMessage(nil))
+	assert.Equal(t, 0, nilEst.EstimateReasoning(nil))
+	assert.Equal(t, 0, nilEst.EstimateReasoningArtifacts(nil))
+	assert.Equal(t, 3, nilEst.Unscaled().EstimateString("hello world"))
+
+	var zeroEst Estimator
+	assert.Equal(t, 1.0, zeroEst.Scale())
+	assert.Equal(t, 3, zeroEst.EstimateString("hello world"))
+	assert.Equal(t, 0, zeroEst.EstimateMessage(nil))
+	assert.Equal(t, 0, zeroEst.EstimateReasoning(nil))
+	assert.Equal(t, 0, zeroEst.EstimateReasoningArtifacts(nil))
+}

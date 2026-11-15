@@ -151,6 +151,9 @@ func NewWorkWaitTool(
 
 // Execute implements types.Tool.
 func (t *WorkWaitTool) Execute(ctx context.Context, raw json.RawMessage) (*types.ToolResult, error) {
+	if t == nil || t.handler == nil {
+		return workError("background work handler is unavailable"), nil
+	}
 	var args workWaitArgs
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return workError("invalid arguments: " + err.Error()), nil
@@ -362,6 +365,9 @@ func NewWorkCancelTool(handler interfaces.WorkHandler, session interfaces.Sessio
 
 // Execute implements types.Tool.
 func (t *WorkCancelTool) Execute(ctx context.Context, raw json.RawMessage) (*types.ToolResult, error) {
+	if t == nil || t.handler == nil {
+		return workError("background work handler is unavailable"), nil
+	}
 	var args WorkCancelInput
 	if err := json.Unmarshal(raw, &args); err != nil {
 		return workError("invalid arguments: " + err.Error()), nil

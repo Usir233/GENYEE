@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math"
 	"slices"
 	"strings"
 	"sync"
@@ -700,7 +701,15 @@ func browserCallParams(method string, input map[string]any) map[string]any {
 // characters per rendered token, rounding up so the page cap is not shorter
 // than the character budget the model asked for.
 func observationTokensFromTextChars(value any) int {
-	chars := int(toFloat64(value))
+	raw := toFloat64(value)
+	if math.IsNaN(raw) || raw < 1 {
+		return 1
+	}
+	const maxSafeChars = float64(math.MaxInt - 3)
+	if math.IsInf(raw, 1) || raw >= maxSafeChars {
+		return (math.MaxInt - 3) / 4
+	}
+	chars := int(raw)
 	if chars < 1 {
 		return 1
 	}

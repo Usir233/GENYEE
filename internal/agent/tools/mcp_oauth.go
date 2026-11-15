@@ -143,7 +143,6 @@ func waitForMCPOAuthAuthorization(
 		waitCtx = sess.ApprovalCtx
 	}
 
-	tenantID, _ := types.TenantIDFromContext(ctx)
 	userID := sess.UserID
 	if userID == "" {
 		principal, _ := types.PrincipalFromContext(ctx)
@@ -160,7 +159,7 @@ func waitForMCPOAuthAuthorization(
 	// service). Instead, emit a one-shot notice the channel can surface to the
 	// user and continue without the tool. See types.WithMCPOAuthNonInteractive.
 	if types.IsMCPOAuthNonInteractive(ctx) || types.IsMCPOAuthNonInteractive(waitCtx) {
-		emitMCPOAuthRequiredNotice(waitCtx, sess, service, mcpToolName, toolCallID, tenantID, requestID)
+		emitMCPOAuthRequiredNotice(waitCtx, sess, service, mcpToolName, toolCallID, types.CallerFromContext(ctx).TenantID, requestID)
 		return ctx, noop, false
 	}
 

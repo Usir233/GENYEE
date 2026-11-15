@@ -777,13 +777,6 @@ loop:
 		case <-ctx.Done():
 			logger.Warnf(ctx, "[Agent] Context cancelled at round %d: %v",
 				state.CurrentRound+1, ctx.Err())
-			// Try to salvage existing results
-			if totalTC := countTotalToolCalls(state.RoundSteps); totalTC > 0 {
-				logger.Infof(ctx, "[Agent] Synthesizing final answer from %d existing tool results",
-					totalTC)
-				_ = e.streamFinalAnswerToEventBus(ctx, query, state, sessionID, messages)
-				state.IsComplete = true
-			}
 			return state, ctx.Err()
 		default:
 		}
@@ -1263,21 +1256,26 @@ func (e *AgentEngine) runReActIteration(
 		// Content-filter stops are terminal and do not take this path.
 		// Past MaxIterations only the first inject gets an extra round;
 		// anything after that stays in the queue for a follow-up turn.
+		appendDraftAndBoundary := func() {
+			*messagesPtr = append(*messagesPtr, chat.Message{
+				Role:               "assistant",
+				Content:            verdict.finalAnswer,
+				ReasoningContent:   response.ReasoningContent,
+				ReasoningSignature: response.ReasoningSignature,
+				ReasoningMetadata:  response.ReasoningMetadata,
+			})
+			*messagesPtr = e.appendCollaborationDeliveryBoundary(*messagesPtr, verdict.finalAnswer)
+		}
 		if response.FinishReason != "content_filter" {
 			nextRound := state.CurrentRound + 1
 			canContinue := e.withinIterationBudget(nextRound) || e.steerOverruns < maxSteerOverruns
 			if canContinue {
-				*messagesPtr = append(*messagesPtr, chat.Message{
-					Role:               "assistant",
-					Content:            verdict.finalAnswer,
-					ReasoningContent:   response.ReasoningContent,
-					ReasoningSignature: response.ReasoningSignature,
-					ReasoningMetadata:  response.ReasoningMetadata,
-				})
-				injected := e.drainSteerMessages(ctx, state, messagesPtr, sessionID, assistantMessageID)
-				injected += e.injectBackground(ctx, state, messagesPtr, true)
+				var injectedMessages []chat.Message
+				injected := e.drainSteerMessages(ctx, state, &injectedMessages, sessionID, assistantMessageID)
+				injected += e.injectBackground(ctx, state, &injectedMessages, true)
 				if injected > 0 {
-					*messagesPtr = e.appendCollaborationDeliveryBoundary(*messagesPtr, verdict.finalAnswer)
+					appendDraftAndBoundary()
+					*messagesPtr = append(*messagesPtr, injectedMessages...)
 					verdict.step.IntermediateAnswer = true
 					state.RoundSteps = append(state.RoundSteps, verdict.step)
 					if !e.withinIterationBudget(nextRound) {
@@ -1335,7 +1333,7 @@ func (e *AgentEngine) runReActIteration(
 							fmt.Errorf("agent iteration budget exhausted with unprocessed collaboration events")
 					}
 				}
-				*messagesPtr = e.appendCollaborationDeliveryBoundary(*messagesPtr, verdict.finalAnswer)
+				appendDraftAndBoundary()
 				e.deliverCollaborationEvents(messagesPtr, events, len(state.RoundSteps)+1, true)
 				verdict.step.IntermediateAnswer = true
 				state.RoundSteps = append(state.RoundSteps, verdict.step)
