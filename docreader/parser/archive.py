@@ -365,6 +365,104 @@ def verify_zip_stream_limits(
             continue
 
 
+_OOXML_CONTENT_TYPES_MAX_BYTES = 4 * 1024 * 1024
+_OOXML_SPREADSHEET_CONTENT_TYPES = (
+    "spreadsheetml.sheet.main+xml",
+    "spreadsheetml.template.main+xml",
+    "ms-excel.sheet.macroenabled.main+xml",
+    "ms-excel.template.macroenabled.main+xml",
+    "spreadsheetml.worksheet+xml",
+)
+_OOXML_DOCUMENT_CONTENT_TYPES = (
+    "wordprocessingml.document.main+xml",
+    "wordprocessingml.template.main+xml",
+    "ms-word.document.macroenabled.main+xml",
+    "ms-word.template.macroenabled.main+xml",
+)
+_OOXML_PRESENTATION_CONTENT_TYPES = (
+    "presentationml.presentation.main+xml",
+    "presentationml.slideshow.main+xml",
+    "presentationml.template.main+xml",
+    "ms-powerpoint.presentation.macroenabled.main+xml",
+    "ms-powerpoint.slideshow.macroenabled.main+xml",
+    "ms-powerpoint.template.macroenabled.main+xml",
+)
+
+
+def detect_ooxml_package_type(archive: zipfile.ZipFile) -> str | None:
+    """Detect actual OOXML package type ('xlsx', 'docx', 'pptx') from ZIP structure.
+
+    Checks spreadsheet parts and content types first so polyglot archives that
+    embed spreadsheet XML alongside document/presentation parts are always
+    classified as spreadsheets for table-expansion admission checks.
+    """
+    normalized: dict[str, zipfile.ZipInfo] = {}
+    for info in archive.infolist():
+        if info.is_dir():
+            continue
+        norm_name = info.filename.replace("\\", "/").lstrip("/").lower()
+        normalized.setdefault(norm_name, info)
+
+    if "xl/workbook.xml" in normalized or any(
+        name.startswith("xl/worksheets/") and name.endswith(".xml")
+        for name in normalized
+    ):
+        return "xlsx"
+
+    content_types_xml = ""
+    ct_info = normalized.get("[content_types].xml")
+    if ct_info is not None and not (ct_info.flag_bits & 0x1):
+        try:
+            raw_ct = safe_read_zip_member(
+                archive,
+                ct_info,
+                max_member_bytes=_OOXML_CONTENT_TYPES_MAX_BYTES,
+            )
+            content_types_xml = raw_ct.decode("utf-8", errors="ignore").lower()
+        except ArchiveLimitError:
+            raise
+        except (KeyError, EOFError, zipfile.BadZipFile, RuntimeError, OSError):
+            content_types_xml = ""
+
+    if content_types_xml and any(
+        marker in content_types_xml for marker in _OOXML_SPREADSHEET_CONTENT_TYPES
+    ):
+        return "xlsx"
+
+    if "word/document.xml" in normalized or (
+        content_types_xml
+        and any(marker in content_types_xml for marker in _OOXML_DOCUMENT_CONTENT_TYPES)
+    ):
+        return "docx"
+
+    if "ppt/presentation.xml" in normalized or (
+        content_types_xml
+        and any(
+            marker in content_types_xml
+            for marker in _OOXML_PRESENTATION_CONTENT_TYPES
+        )
+    ):
+        return "pptx"
+
+    return None
+
+
+def is_ooxml_spreadsheet_archive(archive: zipfile.ZipFile) -> bool:
+    """Return True when ``archive`` contains OOXML spreadsheet workbook/worksheet XML."""
+    return detect_ooxml_package_type(archive) == "xlsx"
+
+
+def is_ooxml_spreadsheet_bytes(content: bytes) -> bool:
+    """Return True when ``content`` is a ZIP archive with OOXML spreadsheet structure."""
+    if not content or not zipfile.is_zipfile(io.BytesIO(content)):
+        return False
+    try:
+        with zipfile.ZipFile(io.BytesIO(content), "r") as archive:
+            return is_ooxml_spreadsheet_archive(archive)
+    except zipfile.BadZipFile:
+        return False
+
+
 def validate_zip_content(content: bytes) -> None:
     if zipfile.is_zipfile(io.BytesIO(content)):
         with zipfile.ZipFile(io.BytesIO(content)) as archive:

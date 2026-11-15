@@ -1,12 +1,30 @@
 import io
 import logging
 import time
+from typing import BinaryIO
 import zipfile
 
 from markitdown import MarkItDown
+from markitdown._stream_info import StreamInfo
+from markitdown.converters import (
+    AudioConverter,
+    BingSerpConverter,
+    EpubConverter,
+    ImageConverter,
+    IpynbConverter,
+    OutlookMsgConverter,
+    RssConverter,
+    WikipediaConverter,
+    YouTubeConverter,
+    ZipConverter,
+)
 
 from docreader.config import CONFIG
 from docreader.models.document import Document
+from docreader.parser.archive import (
+    detect_ooxml_package_type,
+    verify_zip_stream_limits,
+)
 from docreader.parser.base_parser import BaseParser
 from docreader.parser.chain_parser import PipelineParser
 from docreader.parser.concurrency import parser_worker_limit
@@ -18,13 +36,135 @@ from docreader.parser.pptx_media import (
     markdown_needs_pptx_media_attach,
 )
 from docreader.parser.xlsx_repair import (
-    _validate_zip_archive,
     sanitize_xlsx_styles,
     strip_unreadable_ranges_xlsx,
 )
 from docreader.parser.xlsx_rows import validate_table_expansion
 
 logger = logging.getLogger(__name__)
+
+_DISABLED_CONVERTER_TYPES = (
+    ZipConverter,
+    EpubConverter,
+    OutlookMsgConverter,
+    IpynbConverter,
+    AudioConverter,
+    ImageConverter,
+    BingSerpConverter,
+    YouTubeConverter,
+    WikipediaConverter,
+    RssConverter,
+)
+
+_EXPLICIT_STREAM_INFOS: dict[str, StreamInfo] = {
+    ".xlsx": StreamInfo(
+        extension=".xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ),
+    ".xlsm": StreamInfo(
+        extension=".xlsx",
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ),
+    ".xls": StreamInfo(
+        extension=".xls",
+        mimetype="application/vnd.ms-excel",
+    ),
+    ".docx": StreamInfo(
+        extension=".docx",
+        mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ),
+    ".pptx": StreamInfo(
+        extension=".pptx",
+        mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ),
+    ".pdf": StreamInfo(
+        extension=".pdf",
+        mimetype="application/pdf",
+    ),
+    ".csv": StreamInfo(
+        extension=".csv",
+        mimetype="text/csv",
+        charset="utf-8",
+    ),
+    ".md": StreamInfo(
+        extension=".md",
+        mimetype="text/markdown",
+        charset="utf-8",
+    ),
+    ".markdown": StreamInfo(
+        extension=".markdown",
+        mimetype="text/markdown",
+        charset="utf-8",
+    ),
+    ".txt": StreamInfo(
+        extension=".txt",
+        mimetype="text/plain",
+        charset="utf-8",
+    ),
+    ".text": StreamInfo(
+        extension=".txt",
+        mimetype="text/plain",
+        charset="utf-8",
+    ),
+}
+
+_UNGUARDED_SNIFF_EXTENSIONS = frozenset(
+    {".xlsx", ".xlsm", ".xltx", ".xltm", ".xls", ".zip", ".epub"}
+)
+_UNGUARDED_SNIFF_MIME_TOKENS = (
+    "spreadsheetml",
+    "ms-excel",
+    "zip",
+    "epub",
+)
+
+
+class _BoundedMarkItDown(MarkItDown):
+    """MarkItDown wrapper that disables nested archive expansion and cross-format sniffing."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._converters = [
+            reg
+            for reg in self._converters
+            if not isinstance(reg.converter, _DISABLED_CONVERTER_TYPES)
+        ]
+
+    def _get_stream_info_guesses(
+        self, file_stream: BinaryIO, base_guess: StreamInfo
+    ) -> list[StreamInfo]:
+        ext_lower = (base_guess.extension or "").lower()
+        if ext_lower and not ext_lower.startswith("."):
+            ext_lower = "." + ext_lower
+        explicit = _EXPLICIT_STREAM_INFOS.get(ext_lower)
+        if explicit is not None:
+            return [explicit]
+
+        guesses = super()._get_stream_info_guesses(file_stream, base_guess)
+        safe_guesses: list[StreamInfo] = []
+        for guess in guesses:
+            g_ext = (guess.extension or "").lower()
+            g_mime = (guess.mimetype or "").lower()
+            if g_ext in _UNGUARDED_SNIFF_EXTENSIONS:
+                continue
+            if any(token in g_mime for token in _UNGUARDED_SNIFF_MIME_TOKENS):
+                continue
+            safe_guesses.append(guess)
+        return safe_guesses
+
+
+def _inspect_zip_content(content: bytes) -> str | None:
+    """Validate streaming decompression limits and return OOXML package type if ZIP."""
+    if not content:
+        return None
+    try:
+        if not zipfile.is_zipfile(io.BytesIO(content)):
+            return None
+        with zipfile.ZipFile(io.BytesIO(content), "r") as archive:
+            verify_zip_stream_limits(archive)
+            return detect_ooxml_package_type(archive)
+    except zipfile.BadZipFile:
+        return None
 
 
 class StdMarkitdownParser(BaseParser):
@@ -38,7 +178,7 @@ class StdMarkitdownParser(BaseParser):
     def __init__(self, *args, **kwargs):
         # 这里的 super() 会调用 BaseParser 的初始化，确保 self.file_type 被正确赋值
         super().__init__(*args, **kwargs)
-        self.markitdown = MarkItDown()
+        self.markitdown = _BoundedMarkItDown()
 
     def parse_into_text(self, content: bytes) -> Document:
         """
@@ -49,22 +189,29 @@ class StdMarkitdownParser(BaseParser):
         ft = (ext or "").lstrip(".").lower()
         pptx_bytes: bytes | None = None
         preprocess_started = time.monotonic()
-        xlsx = ft in ("xlsx", "xlsm")
 
-        if ft in ("xlsx", "xlsm", "pptx", "docx") or xlsx or (content and content.startswith(b"PK")):
-            try:
-                if zipfile.is_zipfile(io.BytesIO(content)):
-                    with zipfile.ZipFile(io.BytesIO(content), "r") as archive:
-                        _validate_zip_archive(archive)
-            except zipfile.BadZipFile:
-                pass
-        if ft in ("ppt", "pptx"):
+        ooxml_type = _inspect_zip_content(content)
+        has_spreadsheet_xml = ooxml_type == "xlsx"
+        xlsx = ft in ("xlsx", "xlsm") or has_spreadsheet_xml
+
+        if not xlsx and ft in ("ppt", "pptx"):
             content, ext = normalize_ppt_bytes(content, ft)
-            pptx_bytes = content
-            ft = "pptx"
-        elif ft == "docx":
+            post_ooxml_type = _inspect_zip_content(content)
+            if post_ooxml_type == "xlsx":
+                has_spreadsheet_xml = True
+                xlsx = True
+            else:
+                pptx_bytes = content
+                ft = "pptx"
+        elif not xlsx and ft == "docx":
             content = fill_vertical_merged_cells_docx(content)
-        elif xlsx:
+        elif not xlsx and ft == "csv":
+            from docreader.utils.endecode import decode_bytes
+
+            decoded_text = decode_bytes(content)
+            content = decoded_text.encode("utf-8")
+
+        if xlsx:
             # MarkItDown reads spreadsheets through pandas/openpyxl, so the
             # ranges openpyxl cannot parse (#3599) and the non-conforming
             # styles.xml fills (#3637) that break the builtin ExcelParser break
@@ -77,12 +224,6 @@ class StdMarkitdownParser(BaseParser):
             sanitized = sanitize_xlsx_styles(content)
             if sanitized is not None:
                 content = sanitized
-        elif ft == "csv":
-            from docreader.utils.endecode import decode_bytes
-
-            decoded_text = decode_bytes(content)
-            content = decoded_text.encode("utf-8")
-        if xlsx:
             logger.info(
                 "MarkItDown XLSX preprocessing completed in %.3fs (bytes=%d)",
                 time.monotonic() - preprocess_started,
@@ -90,6 +231,8 @@ class StdMarkitdownParser(BaseParser):
             )
         if ext and not ext.startswith("."):
             ext = "." + ext
+        elif has_spreadsheet_xml and not ext:
+            ext = ".xlsx"
 
         # Embedded data URIs can make spreadsheet output and subsequent chunking
         # disproportionately expensive. XLSX conversion therefore starts with
@@ -104,6 +247,10 @@ class StdMarkitdownParser(BaseParser):
                 validate_table_expansion(
                     content, CONFIG.markitdown_xlsx_max_table_cells, self.context
                 )
+                if has_spreadsheet_xml and ft and ft not in ("xlsx", "xlsm"):
+                    raise ValueError(
+                        f"OOXML spreadsheet content does not match declared file type {ft!r}"
+                    )
             started = time.monotonic()
             try:
                 result = self._convert_markitdown(

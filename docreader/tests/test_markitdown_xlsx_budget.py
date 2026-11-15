@@ -9,15 +9,18 @@ import unittest
 from unittest.mock import patch
 import zipfile
 
+from docx import Document as WordDocument
 import grpc
 import openpyxl
 import pandas as pd
+import pptx
 
 from docreader import config
 from docreader.main import DocReaderServicer
 from docreader.parser import Parser, markitdown_parser
-from docreader.parser.archive import ArchiveLimitError
+from docreader.parser.archive import ArchiveLimitError, detect_ooxml_package_type
 from docreader.parser.concurrency import ParserCancelled
+from docreader.parser.markitdown_parser import MarkitdownParser, StdMarkitdownParser
 from docreader.parser import xlsx_rows
 from docreader.proto import docreader_pb2 as pb, docreader_pb2_grpc as rpc
 from docreader.tests.test_docreader_stream import _NoopPreprocessRunner
@@ -164,6 +167,121 @@ class MarkitdownXLSXBudgetTest(unittest.TestCase):
             server.stop(0).wait()
             pool.shutdown()
             service.close()
+
+    def test_renamed_docx_and_pptx_sparse_xlsx_bombs_blocked_without_dense_read(self):
+        sparse_bomb = workbook_bytes(row=1048576, col=16384)
+        for ext in ("docx", "pptx", "pdf", "csv"):
+            for engine in ("", "builtin", "markitdown"):
+                if ext in ("pdf", "csv") and engine in ("", "builtin"):
+                    if ext == "pdf":
+                        continue
+                with (
+                    self.subTest(ext=ext, engine=engine),
+                    budget(200000),
+                    patch.object(
+                        pd,
+                        "read_excel",
+                        side_effect=AssertionError("dense allocation reached"),
+                    ),
+                ):
+                    with self.assertRaisesRegex(ArchiveLimitError, "builtin"):
+                        Parser().parse_file(
+                            f"evil.{ext}", ext, sparse_bomb, parser_engine=engine
+                        )
+
+    def test_mismatched_small_xlsx_disguised_as_docx_or_pptx_never_cross_sniffs(self):
+        small_xlsx = workbook_bytes(row=2, col=2)
+        with patch.object(
+            pd, "read_excel", side_effect=AssertionError("cross-sniffed into read_excel")
+        ):
+            for ext in ("docx", "pptx"):
+                with self.subTest(ext=ext):
+                    with self.assertRaises(ValueError):
+                        StdMarkitdownParser(
+                            file_name=f"disguised.{ext}", file_type=ext
+                        ).parse_into_text(small_xlsx)
+
+    def test_nested_zip_archives_never_expand_inner_xlsx_or_bomb(self):
+        sparse_bomb = workbook_bytes(row=1048576, col=16384)
+        nested_buf = io.BytesIO()
+        with zipfile.ZipFile(nested_buf, "w", zipfile.ZIP_DEFLATED) as outer:
+            outer.writestr("nested/evil.xlsx", sparse_bomb)
+            outer.writestr("readme.txt", "benign outer note")
+        nested_zip = nested_buf.getvalue()
+
+        parser = StdMarkitdownParser(file_type="pptx")
+        converter_names = {
+            type(reg.converter).__name__ for reg in parser.markitdown._converters
+        }
+        self.assertNotIn("ZipConverter", converter_names)
+        self.assertNotIn("EpubConverter", converter_names)
+
+        with patch.object(
+            pd, "read_excel", side_effect=AssertionError("nested zip reached read_excel")
+        ):
+            for ext in ("docx", "pptx", "xlsx"):
+                for engine in ("builtin", "markitdown"):
+                    with self.subTest(ext=ext, engine=engine):
+                        try:
+                            result = Parser().parse_file(
+                                f"nested.{ext}", ext, nested_zip, parser_engine=engine
+                            )
+                        except (RuntimeError, ValueError, KeyError):
+                            result = None
+                        if result is not None:
+                            self.assertEqual(result.content, "")
+                            self.assertNotIn("benign outer note", result.content)
+
+        ratio_bomb_buf = io.BytesIO()
+        with zipfile.ZipFile(ratio_bomb_buf, "w", zipfile.ZIP_DEFLATED) as outer:
+            outer.writestr("huge.xml", b"0" * (2 * 1024 * 1024))
+        with patch(
+            "docreader.parser.markitdown_parser.verify_zip_stream_limits",
+            wraps=markitdown_parser.verify_zip_stream_limits,
+        ) as verify_mock:
+            with self.assertRaises(ArchiveLimitError):
+                MarkitdownParser(file_name="bomb.pptx", file_type="pptx").parse(
+                    ratio_bomb_buf.getvalue()
+                )
+            verify_mock.assert_called()
+
+    def test_legitimate_docx_pptx_and_xlsx_still_parse_cleanly(self):
+        docx_buf = io.BytesIO()
+        wdoc = WordDocument()
+        wdoc.add_paragraph("Legitimate Word Content")
+        wdoc.save(docx_buf)
+
+        pptx_buf = io.BytesIO()
+        pres = pptx.Presentation()
+        slide = pres.slides.add_slide(pres.slide_layouts[0])
+        slide.shapes.title.text = "Legitimate Slide Title"
+        pres.save(pptx_buf)
+
+        xlsx_bytes = workbook_bytes(row=2, col=2)
+
+        with zipfile.ZipFile(io.BytesIO(docx_buf.getvalue())) as zf:
+            self.assertEqual(detect_ooxml_package_type(zf), "docx")
+        with zipfile.ZipFile(io.BytesIO(pptx_buf.getvalue())) as zf:
+            self.assertEqual(detect_ooxml_package_type(zf), "pptx")
+        with zipfile.ZipFile(io.BytesIO(xlsx_bytes)) as zf:
+            self.assertEqual(detect_ooxml_package_type(zf), "xlsx")
+
+        for engine in ("builtin", "markitdown"):
+            with self.subTest(engine=engine):
+                parsed_docx = Parser().parse_file(
+                    "valid.docx", "docx", docx_buf.getvalue(), parser_engine=engine
+                )
+                self.assertIn("Legitimate Word Content", parsed_docx.content)
+
+                parsed_pptx = Parser().parse_file(
+                    "valid.pptx", "pptx", pptx_buf.getvalue(), parser_engine=engine
+                )
+                self.assertIn("Legitimate Slide Title", parsed_pptx.content)
+
+                parsed_xlsx = Parser().parse_file(
+                    "valid.xlsx", "xlsx", xlsx_bytes, parser_engine=engine
+                )
+                self.assertIn("Last", parsed_xlsx.content)
 
 
 class MarkitdownXLSXConfigTest(unittest.TestCase):
