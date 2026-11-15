@@ -1,0 +1,258 @@
+{
+  "wave": "W1",
+  "slice": "w1-mcp",
+  "base_commit": "b1d6bdefb1518936e692c8748bd43a0014c7bcd4",
+  "units": [
+    {
+      "unit_id": "internal/mcp",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "file_count": 38,
+      "tracked_files": [
+        "internal/mcp/audit_security_test.go",
+        "internal/mcp/client.go",
+        "internal/mcp/client_call_error_test.go",
+        "internal/mcp/client_param_headers_test.go",
+        "internal/mcp/client_protocol_test.go",
+        "internal/mcp/client_redirect_security_test.go",
+        "internal/mcp/client_resources_test.go",
+        "internal/mcp/client_session_test.go",
+        "internal/mcp/client_sse_lifetime_test.go",
+        "internal/mcp/client_structured_result_test.go",
+        "internal/mcp/client_test.go",
+        "internal/mcp/client_tools_test.go",
+        "internal/mcp/errors.go",
+        "internal/mcp/errors_test.go",
+        "internal/mcp/manager.go",
+        "internal/mcp/manager_close_principal_test.go",
+        "internal/mcp/manager_closeall_test.go",
+        "internal/mcp/manager_disconnect_test.go",
+        "internal/mcp/manager_lifetime_test.go",
+        "internal/mcp/manager_startup_test.go",
+        "internal/mcp/oauth_assertion.go",
+        "internal/mcp/oauth_assertion_test.go",
+        "internal/mcp/oauth_lifecycle.go",
+        "internal/mcp/oauth_lifecycle_test.go",
+        "internal/mcp/oauth_manager.go",
+        "internal/mcp/oauth_manager_test.go",
+        "internal/mcp/oauth_preregistered_client_test.go",
+        "internal/mcp/oauth_principal_test.go",
+        "internal/mcp/oauth_redirect_security_test.go",
+        "internal/mcp/oauth_state.go",
+        "internal/mcp/oauth_state_test.go",
+        "internal/mcp/oauth_tokenstore.go",
+        "internal/mcp/security.go",
+        "internal/mcp/security_test.go",
+        "internal/mcp/sse_connection.go",
+        "internal/mcp/sse_connection_test.go",
+        "internal/mcp/tool_content_test.go",
+        "internal/mcp/types.go"
+      ],
+      "invariants_checked": [
+        "Stdio MCP transport is unconditionally disabled in both NewMCPClient and MCPManager.GetOrCreateClient, preventing arbitrary host subprocess execution or host secret environment inheritance.",
+        "Outbound service URLs, OAuth metadata URLs, authorization_endpoint, token_endpoint, registration_endpoint, and authorization redirects are validated against SSRF/private IP rules and same-origin redirect restrictions.",
+        "MCP SSE and Streamable HTTP transports pin all requests (including server-pushed SSE endpoint events and mid-stream updates) to the configured service origin (scheme + canonical host:port) without embedded userinfo or fragments, preventing credential leakage on scheme downgrades or poisoned endpoints.",
+        "OAuth runtime refreshes on MCP clients validate discovered authorization-server metadata before posting refresh tokens.",
+        "MCPManager isolates cached OAuth connections per (serviceID, tenantID, principal) and isolates builtin non-OAuth connections per tenant, while rejecting cross-tenant access to non-builtin tenant-owned services.",
+        "HTTP JSON/error responses, OAuth token/metadata responses, and individual SSE lines/events are strictly byte-bounded while permitting unlimited sequential bounded events over long-lived SSE streams; concurrency and shutdown verified under -race with zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-MCP-01",
+          "severity": "P1",
+          "file": "internal/mcp/client.go, internal/mcp/sse_connection.go, internal/mcp/security.go",
+          "summary": "Upstream mcp-go SSE endpoint handling only compared endpoint.Host != baseURL.Host, permitting server-pushed endpoint events (at Connect or mid-stream) to change scheme (e.g. https->http downgrade) or inject URL userinfo on the same host:port and leak Authorization/X-API-Key headers.",
+          "regression_test": "TestAuditSSEEndpointOriginAndUserinfoPinning",
+          "commit": "5cfc51c4fed453aa3f7504e12acbb986ff8fe54d"
+        },
+        {
+          "id": "W1-MCP-02",
+          "severity": "P1",
+          "file": "internal/mcp/manager.go, internal/mcp/client.go",
+          "summary": "MCPManager keyed cached OAuth clients solely by serviceID + principal.StorageID() without tenantID (causing cross-tenant OAuth client/token-store reuse on shared builtin services when a web user switched workspaces) and did not reject cross-tenant callers on non-builtin tenant-owned services.",
+          "regression_test": "TestAuditManagerIsolatesBuiltinOAuthConnectionsAcrossTenants",
+          "commit": "5cfc51c4fed453aa3f7504e12acbb986ff8fe54d"
+        },
+        {
+          "id": "W1-MCP-03",
+          "severity": "P1",
+          "file": "internal/mcp/security.go, internal/mcp/client.go, internal/mcp/oauth_manager.go, internal/mcp/oauth_assertion.go, internal/mcp/oauth_lifecycle.go, internal/mcp/errors.go",
+          "summary": "MCP HTTP JSON/error responses, OAuth metadata/token responses, and single SSE lines/events lacked byte-size caps (allowing host OOM via oversized responses or newline-free SSE streams), and NewMCPClient OAuth refreshes did not validate discovered token_endpoint metadata prior to posting refresh tokens.",
+          "regression_test": "TestAuditBoundedHTTPAndSSEResponsesAndOAuthRefreshMetadata",
+          "commit": "5cfc51c4fed453aa3f7504e12acbb986ff8fe54d"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/mcp/... ./internal/mcpserver/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/mcp/... ./internal/mcpserver/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/mcpserver",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "file_count": 19,
+      "tracked_files": [
+        "internal/mcpserver/audit_security_test.go",
+        "internal/mcpserver/grep_pattern_test.go",
+        "internal/mcpserver/kb_selectors_validation_test.go",
+        "internal/mcpserver/resource_urls.go",
+        "internal/mcpserver/resource_urls_test.go",
+        "internal/mcpserver/scope.go",
+        "internal/mcpserver/scope_test.go",
+        "internal/mcpserver/server.go",
+        "internal/mcpserver/server_test.go",
+        "internal/mcpserver/tools_annotations_test.go",
+        "internal/mcpserver/tools_ask.go",
+        "internal/mcpserver/tools_ask_image_test.go",
+        "internal/mcpserver/tools_ask_progress_test.go",
+        "internal/mcpserver/tools_ingest.go",
+        "internal/mcpserver/tools_read_document_test.go",
+        "internal/mcpserver/tools_retrieve.go",
+        "internal/mcpserver/tools_search_documents_test.go",
+        "internal/mcpserver/tools_wiki.go",
+        "internal/mcpserver/tools_wiki_test.go"
+      ],
+      "invariants_checked": [
+        "Every MCP tool call is gated by endpointFromContext, ep.HasTool allowlist, per-endpoint rate limiting, and tenant/KB/document scope resolution strictly derived from the authenticated MCPEndpoint context (never caller-supplied tenant IDs).",
+        "Cross-tenant knowledge bases, documents, agents, and wiki pages are rejected unless explicitly shared via organization KB shares, with owner-tenant execution context and Caller/TenantAPIKeyScope preserved.",
+        "All mutating document tools (add_document, update_document, delete_document) enforce access.RequireKBWrite(ctx, kb) before invoking KnowledgeService.",
+        "Inbound Streamable HTTP POST request bodies are capped at 4 MiB (returning HTTP 413 without unbounded io.ReadAll buffering), grep regexes and pagination limits are bounded, and spawned QA/touchLastUsed goroutines isolate panics cleanly under -race."
+      ],
+      "findings": [
+        {
+          "id": "W1-MCPSRV-01",
+          "severity": "P1",
+          "file": "internal/mcpserver/server.go",
+          "summary": "Published /mcp/:endpoint_id Streamable HTTP handler delegated directly to mcp-go StreamableHTTPServer (which runs io.ReadAll(r.Body) with no size limit), allowing oversized POST bodies to exhaust server memory.",
+          "regression_test": "TestAuditMCPServerRejectsOversizedRequestBody",
+          "commit": "88bc65d0506b94d8fa8c4c76f447833bcaa25e6b"
+        },
+        {
+          "id": "W1-MCPSRV-02",
+          "severity": "P2",
+          "file": "internal/mcpserver/tools_ingest.go",
+          "summary": "handleUpdateDocument and handleDeleteDocument omitted access.RequireKBWrite(ctx, kb) at the MCP handler admission boundary (unlike handleAddDocument), failing to enforce APIKeyCapabilityIngest before calling KnowledgeService.",
+          "regression_test": "TestAuditUpdateAndDeleteDocumentRequireKBWriteCapability",
+          "commit": "88bc65d0506b94d8fa8c4c76f447833bcaa25e6b"
+        },
+        {
+          "id": "W1-MCPSRV-03",
+          "severity": "P1",
+          "file": "internal/mcpserver/tools_ask.go, internal/mcpserver/server.go",
+          "summary": "Spawned goroutines in runQA (KnowledgeQA/AgentQA) and touchLastUsed lacked panic recovery (server.WithRecovery only wraps synchronous handler goroutines), allowing downstream panics to crash the entire server process.",
+          "regression_test": "TestAuditAskAndTouchLastUsedRecoverSpawnedGoroutinePanics",
+          "commit": "88bc65d0506b94d8fa8c4c76f447833bcaa25e6b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/mcp/... ./internal/mcpserver/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/mcp/... ./internal/mcpserver/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "mcp-server",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "file_count": 33,
+      "tracked_files": [
+        "mcp-server/.dockerignore",
+        "mcp-server/.gitignore",
+        "mcp-server/Dockerfile",
+        "mcp-server/EXAMPLES.md",
+        "mcp-server/INSTALL.md",
+        "mcp-server/MANIFEST.in",
+        "mcp-server/MCP_CONFIG.md",
+        "mcp-server/PROJECT_SUMMARY.md",
+        "mcp-server/README.md",
+        "mcp-server/__init__.py",
+        "mcp-server/check_imports.py",
+        "mcp-server/genyee_mcp_server.py",
+        "mcp-server/main.py",
+        "mcp-server/pyproject.toml",
+        "mcp-server/requirements.txt",
+        "mcp-server/run.py",
+        "mcp-server/run_server.py",
+        "mcp-server/setup.py",
+        "mcp-server/test_auth_and_entrypoints.py",
+        "mcp-server/test_base_url.py",
+        "mcp-server/test_chat_async_preflight.py",
+        "mcp-server/test_chat_sse.py",
+        "mcp-server/test_create_knowledge_from_text.py",
+        "mcp-server/test_create_session.py",
+        "mcp-server/test_file_name_folder_passthrough.py",
+        "mcp-server/test_file_path_security.py",
+        "mcp-server/test_mcp_transports.py",
+        "mcp-server/test_module.py",
+        "mcp-server/test_request_timeout.py",
+        "mcp-server/test_stdio_stdout.py",
+        "mcp-server/test_update_knowledge_from_text.py",
+        "mcp-server/upload_paths.py",
+        "mcp-server/uv.lock"
+      ],
+      "invariants_checked": [
+        "Every REST path parameter across GENYEEClient passes through _safe_path_segment / _safe_wiki_slug (percent-encoded with safe='', blocking empty/whitespace/dot-segments/slashes/query/fragment/encoded-traversal/control characters before network I/O).",
+        "Local file uploads enforce O_NOFOLLOW + openat directory traversal via upload_paths.py, fail closed on remote transports unless MCP_ALLOWED_UPLOAD_DIRS is configured, block sensitive hidden segments, and eliminate outside-root file existence oracles.",
+        "Network transports (sse/http) require >=32-char constant-time MCP_SERVER_AUTH_TOKEN across both HTTP and WebSocket ASGI scopes, enforce DNS rebinding Host/Origin allowlists even on wildcard binds, and gate admin tools behind MCP_ENABLE_ADMIN_TOOLS.",
+        "GENYEEClient enables SSL verification by default, enforces positive request/SSE timeouts, refuses cross-origin or scheme-changing redirects to prevent X-API-Key leakage, and bounds both JSON API responses (32 MiB) and single SSE lines/events (8 MiB).",
+        "CLI entrypoints (genyee-mcp-server, genyee-server, main.py, run.py, run_server.py), pyproject.toml, setup.py, Dockerfile, and docs are consistent with GENYEE; protected MIT/changelog files (LICENSE, LICENSE.GENYEE, THIRD_PARTY_NOTICES.md, CHANGELOG.md) remain byte-identical."
+      ],
+      "findings": [
+        {
+          "id": "W1-PYMCP-01",
+          "severity": "P1",
+          "file": "mcp-server/genyee_mcp_server.py",
+          "summary": "GENYEEClient attached X-API-Key to requests.Session headers and multipart requests.post calls; because requests only strips Authorization on cross-host redirects, a cross-origin or https->http redirect leaked X-API-Key to untrusted hosts or cleartext HTTP.",
+          "regression_test": "mcp-server/tests/test_security_regressions.py::test_genyee_client_blocks_cross_origin_redirect_api_key_leak",
+          "commit": "4d4e7f6c3d4b9f183de40be2f7392f7c08caffa0"
+        },
+        {
+          "id": "W1-PYMCP-02",
+          "severity": "P1",
+          "file": "mcp-server/genyee_mcp_server.py",
+          "summary": "_iter_sse_lines accumulated bytes into pending without any cap until a newline arrived (allowing a newline-free stream to bypass MAX_SSE_EVENT_BYTES and OOM the process), and GENYEEClient._request read unbounded HTTP JSON response bodies into memory.",
+          "regression_test": "mcp-server/tests/test_security_regressions.py::test_iter_sse_lines_and_request_bound_oversized_responses",
+          "commit": "4d4e7f6c3d4b9f183de40be2f7392f7c08caffa0"
+        },
+        {
+          "id": "W1-PYMCP-03",
+          "severity": "P2",
+          "file": "mcp-server/genyee_mcp_server.py",
+          "summary": "MCPAuthMiddleware bypassed token verification for all ASGI scopes where scope['type'] != 'http' rather than only 'lifespan', leaving 'websocket' scopes unauthenticated.",
+          "regression_test": "mcp-server/tests/test_security_regressions.py::test_mcp_auth_middleware_gates_websocket_and_preserves_lifespan",
+          "commit": "4d4e7f6c3d4b9f183de40be2f7392f7c08caffa0"
+        },
+        {
+          "id": "W1-PYMCP-04",
+          "severity": "P2",
+          "file": "mcp-server/genyee_mcp_server.py, mcp-server/main.py",
+          "summary": "Non-positive GENYEE_API_TIMEOUT / GENYEE_CHAT_TIMEOUT integers (0 or negative) were accepted without falling back to 300s, and empty/non-numeric/out-of-range MCP_PORT values crashed CLI startup, --help, and --check-only.",
+          "regression_test": "mcp-server/tests/test_security_regressions.py::test_non_positive_timeouts_and_invalid_mcp_port_env_handling",
+          "commit": "4d4e7f6c3d4b9f183de40be2f7392f7c08caffa0"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONPATH=\"$PWD/mcp-server\" PYTHONDONTWRITEBYTECODE=1 /home/cursor/GENYEE/mcp-server/.venv/bin/pytest -p no:cacheprovider mcp-server (exit 0: 157 passed, 74 subtests passed)"
+      ]
+    },
+    {
+      "unit_id": "mcp-server/tests",
+      "wave": "W1",
+      "status": "verified_no_findings",
+      "file_count": 3,
+      "tracked_files": [
+        "mcp-server/tests/test_agent_id_resolution.py",
+        "mcp-server/tests/test_kb_id_resolution.py",
+        "mcp-server/tests/test_security_regressions.py"
+      ],
+      "invariants_checked": [
+        "All 3 test suites (test_agent_id_resolution.py, test_kb_id_resolution.py, test_security_regressions.py) exercise real GENYEEClient, upload_paths, ASGI auth, DNS rebinding, and CLI entrypoint code paths deterministically without leaking network traffic or leaving artifacts behind.",
+        "Extended test_security_regressions.py with 4 new regression tests covering cross-origin redirect X-API-Key protection, bounded SSE lines & HTTP JSON responses, WebSocket ASGI auth enforcement, and timeout/port environment validation."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONPATH=\"$PWD/mcp-server\" PYTHONDONTWRITEBYTECODE=1 /home/cursor/GENYEE/mcp-server/.venv/bin/pytest -p no:cacheprovider mcp-server (exit 0: 157 passed, 74 subtests passed)"
+      ]
+    }
+  ]
+}
