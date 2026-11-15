@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"sync"
 	"time"
@@ -276,6 +277,9 @@ func (r *sqliteRepository) Support() []types.RetrieverType {
 }
 
 func (r *sqliteRepository) Save(ctx context.Context, indexInfo *types.IndexInfo, params map[string]any) error {
+	if indexInfo == nil {
+		return fmt.Errorf("[SQLite] Save: nil index info")
+	}
 	return r.BatchSave(ctx, []*types.IndexInfo{indexInfo}, params)
 }
 
@@ -296,10 +300,16 @@ func (r *sqliteRepository) BatchSave(ctx context.Context, indexInfoList []*types
 	positions := make(map[sourceKey]int, len(indexInfoList))
 	rows := make([]*sqliteEmbedding, 0, len(indexInfoList))
 	embs := make([][]float32, 0, len(indexInfoList))
-	for _, info := range indexInfoList {
+	for idx, info := range indexInfoList {
+		if info == nil {
+			return fmt.Errorf("[SQLite] BatchSave: nil index info at index %d", idx)
+		}
 		row := toSQLiteEmbedding(info)
 		emb := extractEmbedding(params, info.SourceID)
 		if len(emb) > 0 {
+			if err := validateSQLiteFloatVector(emb); err != nil {
+				return fmt.Errorf("[SQLite] BatchSave (source %s): %w", info.SourceID, err)
+			}
 			row.Dimension = len(emb)
 		}
 		// A source repeated inside one batch keeps its last entry, as an
@@ -371,6 +381,9 @@ func (r *sqliteRepository) BatchSave(ctx context.Context, indexInfoList []*types
 func (r *sqliteRepository) EstimateStorageSize(_ context.Context, indexInfoList []*types.IndexInfo, _ map[string]any) int64 {
 	var total int64
 	for _, info := range indexInfoList {
+		if info == nil {
+			continue
+		}
 		total += int64(len(info.Content)) + 200
 	}
 	return total
@@ -391,6 +404,9 @@ func (r *sqliteRepository) DeleteByKnowledgeIDList(ctx context.Context, knowledg
 // deleteByIDs keeps metadata, vectors and keyword rows in the same transaction.
 // column is one of the fixed identifiers supplied by the deletion entry points.
 func (r *sqliteRepository) deleteByIDs(ctx context.Context, column string, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var rows []sqliteEmbedding
 		if err := tx.Where(column+" IN ?", ids).Find(&rows).Error; err != nil {
@@ -404,12 +420,18 @@ func (r *sqliteRepository) deleteByIDs(ctx context.Context, column string, ids [
 }
 
 func (r *sqliteRepository) CopyIndices(ctx context.Context,
-	_ string,
+	sourceKnowledgeBaseID string,
 	sourceToTargetKBIDMap map[string]string,
 	sourceToTargetChunkIDMap map[string]string,
 	targetKnowledgeBaseID string,
 	_ int, _ string,
 ) error {
+	if len(sourceToTargetChunkIDMap) == 0 || len(sourceToTargetKBIDMap) == 0 {
+		return nil
+	}
+	if strings.TrimSpace(sourceKnowledgeBaseID) == "" || strings.TrimSpace(targetKnowledgeBaseID) == "" {
+		return fmt.Errorf("[SQLite] CopyIndices: source and target knowledge base IDs are required")
+	}
 	sourceChunkIDs := make([]string, 0, len(sourceToTargetChunkIDMap))
 	for sourceChunkID := range sourceToTargetChunkIDMap {
 		sourceChunkIDs = append(sourceChunkIDs, sourceChunkID)
@@ -427,18 +449,25 @@ func (r *sqliteRepository) CopyIndices(ctx context.Context,
 		// questions are indexed as extra rows under the same chunk_id.
 		var sources []sqliteEmbedding
 		if err := r.db.WithContext(ctx).
-			Where("chunk_id IN ?", sourceChunkIDs[start:end]).
+			Where("knowledge_base_id = ? AND chunk_id IN ?", sourceKnowledgeBaseID, sourceChunkIDs[start:end]).
 			Order("id").
 			Find(&sources).Error; err != nil {
 			return err
 		}
 		for _, src := range sources {
-			targetChunkID := sourceToTargetChunkIDMap[src.ChunkID]
+			targetChunkID, ok := sourceToTargetChunkIDMap[src.ChunkID]
+			if !ok || targetChunkID == "" {
+				continue
+			}
+			targetKnowledgeID, ok := sourceToTargetKBIDMap[src.KnowledgeID]
+			if !ok || targetKnowledgeID == "" {
+				continue
+			}
 			newRow := sqliteEmbedding{
 				SourceID:        copiedSourceID(src.SourceID, src.ChunkID, targetChunkID),
 				SourceType:      src.SourceType,
 				ChunkID:         targetChunkID,
-				KnowledgeID:     sourceToTargetKBIDMap[src.KnowledgeID],
+				KnowledgeID:     targetKnowledgeID,
 				KnowledgeBaseID: targetKnowledgeBaseID,
 				TagID:           src.TagID,
 				Content:         src.Content,
@@ -605,6 +634,9 @@ func (r *sqliteRepository) keywordsRetrieve(ctx context.Context, params types.Re
 	if params.Query == "" {
 		return nil, nil
 	}
+	if params.TopK <= 0 || isExplicitEmptySQLiteKBScope(params.KnowledgeBaseIDs) {
+		return emptySQLiteRetrieveResult(params.RetrieverType, types.KeywordsRetrieverType), nil
+	}
 
 	ftsQuery := sanitizeFTS5Query(params.Query)
 	// Punctuation and symbols can leave no searchable terms after tokenization.
@@ -686,7 +718,13 @@ func (r *sqliteRepository) keywordsRetrieve(ctx context.Context, params types.Re
 
 func (r *sqliteRepository) vectorRetrieve(ctx context.Context, params types.RetrieveParams) ([]*types.RetrieveResult, error) {
 	if len(params.Embedding) == 0 {
-		return nil, nil
+		return emptySQLiteRetrieveResult(params.RetrieverType, types.VectorRetrieverType), nil
+	}
+	if err := validateSQLiteFloatVector(params.Embedding); err != nil {
+		return nil, err
+	}
+	if params.TopK <= 0 || isExplicitEmptySQLiteKBScope(params.KnowledgeBaseIDs) {
+		return emptySQLiteRetrieveResult(params.RetrieverType, types.VectorRetrieverType), nil
 	}
 
 	dim := len(params.Embedding)
@@ -757,6 +795,9 @@ func (r *sqliteRepository) vectorRetrieve(ctx context.Context, params types.Retr
 	for i, v := range rows {
 		// cosine distance = 1 - cosine_similarity
 		score := 1 - v.Distance
+		if math.IsNaN(score) || math.IsInf(score, 0) {
+			continue
+		}
 		if params.Threshold > 0 && score < params.Threshold {
 			continue
 		}
@@ -931,6 +972,18 @@ func buildFilterWhere(params types.RetrieveParams, tableAlias string) []whereCla
 			args:   toInterfaceSlice(params.TagIDs),
 		})
 	}
+	if len(params.ExcludeKnowledgeIDs) > 0 {
+		parts = append(parts, whereClause{
+			clause: tableAlias + ".knowledge_id NOT IN (" + placeholders(len(params.ExcludeKnowledgeIDs)) + ")",
+			args:   toInterfaceSlice(params.ExcludeKnowledgeIDs),
+		})
+	}
+	if len(params.ExcludeChunkIDs) > 0 {
+		parts = append(parts, whereClause{
+			clause: tableAlias + ".chunk_id NOT IN (" + placeholders(len(params.ExcludeChunkIDs)) + ")",
+			args:   toInterfaceSlice(params.ExcludeChunkIDs),
+		})
+	}
 	if len(params.ExcludeGeneratedQuestionKBIDs) > 0 {
 		parts = append(parts, whereClause{
 			clause: fmt.Sprintf(
@@ -994,8 +1047,8 @@ func tokenizeCJKBigram(text string) string {
 		if unicode.Is(unicode.Han, r) {
 			flushNonCJK()
 			currentCJK = append(currentCJK, r)
-		} else if unicode.IsSpace(r) || unicode.IsPunct(r) || unicode.IsSymbol(r) {
-			// Delimiters
+		} else if unicode.IsSpace(r) || unicode.IsPunct(r) || unicode.IsSymbol(r) || unicode.IsControl(r) {
+			// Delimiters (including NUL and ASCII/Unicode control characters)
 			flushCJK()
 			flushNonCJK()
 		} else {
@@ -1044,4 +1097,36 @@ func sanitizeFTS5Query(q string) string {
 	// source, chunk, knowledge and KB IDs, so a query for "2023" could match
 	// a UUID fragment.
 	return "content : (" + strings.Join(parts, " OR ") + ")"
+}
+
+func emptySQLiteRetrieveResult(requested, retrieverType types.RetrieverType) []*types.RetrieveResult {
+	if requested == "" {
+		return nil
+	}
+	return []*types.RetrieveResult{{
+		Results:             nil,
+		RetrieverEngineType: types.SQLiteRetrieverEngineType,
+		RetrieverType:       retrieverType,
+	}}
+}
+
+func isExplicitEmptySQLiteKBScope(kbIDs []string) bool {
+	if kbIDs == nil {
+		return false
+	}
+	for _, id := range kbIDs {
+		if strings.TrimSpace(id) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+func validateSQLiteFloatVector(vec []float32) error {
+	for i, v := range vec {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return fmt.Errorf("[SQLite] vector contains non-finite float32 at index %d", i)
+		}
+	}
+	return nil
 }

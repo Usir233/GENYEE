@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"slices"
 	"strings"
 	"sync"
 
@@ -114,6 +116,9 @@ func (g *pgRepository) EstimateStorageSize(
 ) int64 {
 	var totalStorageSize int64 = 0
 	for _, indexInfo := range indexInfoList {
+		if indexInfo == nil {
+			continue
+		}
 		embeddingDB := toDBVectorEmbedding(indexInfo, additionalParams)
 		totalStorageSize += g.calculateIndexStorageSize(embeddingDB)
 	}
@@ -138,6 +143,12 @@ var upsertBySource = clause.OnConflict{
 
 // Save stores a single index entry
 func (g *pgRepository) Save(ctx context.Context, indexInfo *types.IndexInfo, additionalParams map[string]any) error {
+	if indexInfo == nil {
+		return fmt.Errorf("postgres save: nil index info")
+	}
+	if err := validateAdditionalEmbedding(indexInfo, additionalParams); err != nil {
+		return err
+	}
 	logger.GetLogger(ctx).Debugf("[Postgres] Saving index for source ID: %s", indexInfo.SourceID)
 	embeddingDB := toDBVectorEmbedding(indexInfo, additionalParams)
 	err := g.db.WithContext(ctx).Clauses(upsertBySource).Create(embeddingDB).Error
@@ -154,6 +165,10 @@ func (g *pgRepository) Save(ctx context.Context, indexInfo *types.IndexInfo, add
 func (g *pgRepository) BatchSave(
 	ctx context.Context, indexInfoList []*types.IndexInfo, additionalParams map[string]any,
 ) error {
+	if len(indexInfoList) == 0 {
+		logger.GetLogger(ctx).Warnf("[Postgres] Empty list provided to BatchSave, skipping")
+		return nil
+	}
 	logger.GetLogger(ctx).Infof("[Postgres] Batch saving %d indices", len(indexInfoList))
 	// ON CONFLICT DO UPDATE rejects a statement that touches the same row
 	// twice, so a source repeated in one batch keeps only its last entry.
@@ -163,7 +178,13 @@ func (g *pgRepository) BatchSave(
 	}
 	positions := make(map[sourceKey]int, len(indexInfoList))
 	indexInfoDBList := make([]*pgVector, 0, len(indexInfoList))
-	for _, indexInfo := range indexInfoList {
+	for i, indexInfo := range indexInfoList {
+		if indexInfo == nil {
+			return fmt.Errorf("postgres batch save: nil index info at index %d", i)
+		}
+		if err := validateAdditionalEmbedding(indexInfo, additionalParams); err != nil {
+			return err
+		}
 		row := toDBVectorEmbedding(indexInfo, additionalParams)
 		key := sourceKey{id: row.SourceID, typ: row.SourceType}
 		if i, ok := positions[key]; ok {
@@ -172,6 +193,9 @@ func (g *pgRepository) BatchSave(
 		}
 		positions[key] = len(indexInfoDBList)
 		indexInfoDBList = append(indexInfoDBList, row)
+	}
+	if len(indexInfoDBList) == 0 {
+		return nil
 	}
 	err := g.db.WithContext(ctx).Clauses(upsertBySource).Create(indexInfoDBList).Error
 	if err != nil {
@@ -187,6 +211,9 @@ func (g *pgRepository) BatchSave(
 
 // DeleteByChunkIDList deletes indices by chunk IDs
 func (g *pgRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList []string, dimension int, knowledgeType string) error {
+	if len(chunkIDList) == 0 {
+		return nil
+	}
 	logger.GetLogger(ctx).Infof("[Postgres] Deleting indices by chunk IDs, count: %d", len(chunkIDList))
 	result := g.db.WithContext(ctx).Where("chunk_id IN ?", chunkIDList).Delete(&pgVector{})
 	if result.Error != nil {
@@ -214,6 +241,9 @@ func (g *pgRepository) DeleteBySourceIDList(ctx context.Context, sourceIDList []
 
 // DeleteByKnowledgeIDList deletes indices by knowledge IDs
 func (g *pgRepository) DeleteByKnowledgeIDList(ctx context.Context, knowledgeIDList []string, dimension int, knowledgeType string) error {
+	if len(knowledgeIDList) == 0 {
+		return nil
+	}
 	logger.GetLogger(ctx).Infof("[Postgres] Deleting indices by knowledge IDs, count: %d", len(knowledgeIDList))
 	result := g.db.WithContext(ctx).Where("knowledge_id IN ?", knowledgeIDList).Delete(&pgVector{})
 	if result.Error != nil {
@@ -243,6 +273,9 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 	params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
 	logger.GetLogger(ctx).Infof("[Postgres] Keywords retrieval: query=%s, topK=%d", params.Query, params.TopK)
+	if params.TopK <= 0 || strings.TrimSpace(params.Query) == "" || isExplicitEmptyPostgresKBScope(params.KnowledgeBaseIDs) {
+		return emptyPostgresRetrieveResult(types.KeywordsRetrieverType), nil
+	}
 	scoreFunction, err := g.resolveKeywordScoreFunction(ctx)
 	if err != nil {
 		return nil, err
@@ -274,6 +307,18 @@ func (g *pgRepository) KeywordsRetrieve(ctx context.Context,
 			Column: "tag_id",
 			Values: common.ToInterfaceSlice(params.TagIDs),
 		})
+	}
+	if len(params.ExcludeKnowledgeIDs) > 0 {
+		conds = append(conds, clause.Not(clause.IN{
+			Column: "knowledge_id",
+			Values: common.ToInterfaceSlice(params.ExcludeKnowledgeIDs),
+		}))
+	}
+	if len(params.ExcludeChunkIDs) > 0 {
+		conds = append(conds, clause.Not(clause.IN{
+			Column: "chunk_id",
+			Values: common.ToInterfaceSlice(params.ExcludeChunkIDs),
+		}))
 	}
 
 	// Use ParadeDB's ||| operator for matching any token
@@ -354,6 +399,13 @@ func (g *pgRepository) VectorRetrieve(ctx context.Context,
 		len(params.Embedding), params.TopK, params.Threshold)
 
 	dimension := len(params.Embedding)
+	if params.TopK <= 0 || dimension == 0 || isExplicitEmptyPostgresKBScope(params.KnowledgeBaseIDs) {
+		return emptyPostgresRetrieveResult(types.VectorRetrieverType), nil
+	}
+	if err := validatePostgresFloatVector(params.Embedding); err != nil {
+		logger.GetLogger(ctx).Errorf("[Postgres] Invalid query embedding: %v", err)
+		return nil, err
+	}
 	g.ensureHNSWIndex(dimension)
 	queryVector := pgvector.NewHalfVector(params.Embedding)
 
@@ -413,6 +465,26 @@ func (g *pgRepository) VectorRetrieve(ctx context.Context,
 			allVars = append(allVars, params.TagIDs[i])
 		}
 		whereParts = append(whereParts, fmt.Sprintf("tag_id IN (%s)",
+			strings.Join(placeholders, ", ")))
+	}
+	if len(params.ExcludeKnowledgeIDs) > 0 {
+		placeholders := make([]string, len(params.ExcludeKnowledgeIDs))
+		paramStart := len(allVars) + 1
+		for i := range params.ExcludeKnowledgeIDs {
+			placeholders[i] = fmt.Sprintf("$%d", paramStart+i)
+			allVars = append(allVars, params.ExcludeKnowledgeIDs[i])
+		}
+		whereParts = append(whereParts, fmt.Sprintf("knowledge_id NOT IN (%s)",
+			strings.Join(placeholders, ", ")))
+	}
+	if len(params.ExcludeChunkIDs) > 0 {
+		placeholders := make([]string, len(params.ExcludeChunkIDs))
+		paramStart := len(allVars) + 1
+		for i := range params.ExcludeChunkIDs {
+			placeholders[i] = fmt.Sprintf("$%d", paramStart+i)
+			allVars = append(allVars, params.ExcludeChunkIDs[i])
+		}
+		whereParts = append(whereParts, fmt.Sprintf("chunk_id NOT IN (%s)",
 			strings.Join(placeholders, ", ")))
 	}
 
@@ -595,9 +667,12 @@ func (g *pgRepository) CopyIndices(ctx context.Context,
 		sourceKnowledgeBaseID, targetKnowledgeBaseID, len(sourceToTargetChunkIDMap),
 	)
 
-	if len(sourceToTargetChunkIDMap) == 0 {
+	if len(sourceToTargetChunkIDMap) == 0 || len(sourceToTargetKBIDMap) == 0 {
 		logger.GetLogger(ctx).Warnf("[Postgres] Mapping is empty, no need to copy")
 		return nil
+	}
+	if strings.TrimSpace(sourceKnowledgeBaseID) == "" || strings.TrimSpace(targetKnowledgeBaseID) == "" {
+		return fmt.Errorf("postgres copy: source and target knowledge base IDs are required")
 	}
 
 	// Only the mapped knowledge is copied (callers clone one document at a
@@ -746,30 +821,32 @@ func (g *pgRepository) BatchUpdateChunkEnabledStatus(ctx context.Context, chunkS
 		}
 	}
 
-	// Batch update enabled chunks
-	if len(enabledChunkIDs) > 0 {
-		result := g.db.WithContext(ctx).Model(&pgVector{}).
-			Where("chunk_id IN ?", enabledChunkIDs).
-			Update("is_enabled", true)
-		if result.Error != nil {
-			logger.GetLogger(ctx).Errorf("[Postgres] Failed to update enabled chunks: %v", result.Error)
-			return result.Error
+	if err := g.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if len(enabledChunkIDs) > 0 {
+			result := tx.Model(&pgVector{}).
+				Where("chunk_id IN ?", enabledChunkIDs).
+				Update("is_enabled", true)
+			if result.Error != nil {
+				logger.GetLogger(ctx).Errorf("[Postgres] Failed to update enabled chunks: %v", result.Error)
+				return result.Error
+			}
+			logger.GetLogger(ctx).
+				Infof("[Postgres] Updated %d chunks to enabled, rows affected: %d", len(enabledChunkIDs), result.RowsAffected)
 		}
-		logger.GetLogger(ctx).
-			Infof("[Postgres] Updated %d chunks to enabled, rows affected: %d", len(enabledChunkIDs), result.RowsAffected)
-	}
-
-	// Batch update disabled chunks
-	if len(disabledChunkIDs) > 0 {
-		result := g.db.WithContext(ctx).Model(&pgVector{}).
-			Where("chunk_id IN ?", disabledChunkIDs).
-			Update("is_enabled", false)
-		if result.Error != nil {
-			logger.GetLogger(ctx).Errorf("[Postgres] Failed to update disabled chunks: %v", result.Error)
-			return result.Error
+		if len(disabledChunkIDs) > 0 {
+			result := tx.Model(&pgVector{}).
+				Where("chunk_id IN ?", disabledChunkIDs).
+				Update("is_enabled", false)
+			if result.Error != nil {
+				logger.GetLogger(ctx).Errorf("[Postgres] Failed to update disabled chunks: %v", result.Error)
+				return result.Error
+			}
+			logger.GetLogger(ctx).
+				Infof("[Postgres] Updated %d chunks to disabled, rows affected: %d", len(disabledChunkIDs), result.RowsAffected)
 		}
-		logger.GetLogger(ctx).
-			Infof("[Postgres] Updated %d chunks to disabled, rows affected: %d", len(disabledChunkIDs), result.RowsAffected)
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	logger.GetLogger(ctx).Infof("[Postgres] Successfully batch updated chunk enabled status")
@@ -791,17 +868,28 @@ func (g *pgRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMap ma
 		tagGroups[tagID] = append(tagGroups[tagID], chunkID)
 	}
 
-	// Batch update chunks for each tag ID
-	for tagID, chunkIDs := range tagGroups {
-		result := g.db.WithContext(ctx).Model(&pgVector{}).
-			Where("chunk_id IN ?", chunkIDs).
-			Update("tag_id", tagID)
-		if result.Error != nil {
-			logger.GetLogger(ctx).Errorf("[Postgres] Failed to update chunks with tag_id %s: %v", tagID, result.Error)
-			return result.Error
+	tagKeys := make([]string, 0, len(tagGroups))
+	for tagID := range tagGroups {
+		tagKeys = append(tagKeys, tagID)
+	}
+	slices.Sort(tagKeys)
+
+	if err := g.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, tagID := range tagKeys {
+			chunkIDs := tagGroups[tagID]
+			result := tx.Model(&pgVector{}).
+				Where("chunk_id IN ?", chunkIDs).
+				Update("tag_id", tagID)
+			if result.Error != nil {
+				logger.GetLogger(ctx).Errorf("[Postgres] Failed to update chunks with tag_id %s: %v", tagID, result.Error)
+				return result.Error
+			}
+			logger.GetLogger(ctx).
+				Infof("[Postgres] Updated %d chunks to tag_id=%s, rows affected: %d", len(chunkIDs), tagID, result.RowsAffected)
 		}
-		logger.GetLogger(ctx).
-			Infof("[Postgres] Updated %d chunks to tag_id=%s, rows affected: %d", len(chunkIDs), tagID, result.RowsAffected)
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	logger.GetLogger(ctx).Infof("[Postgres] Successfully batch updated chunk tag ID")
@@ -823,18 +911,77 @@ func (g *pgRepository) BatchUpdateChunkContent(ctx context.Context, chunkContent
 		contentGroups[cleaned] = append(contentGroups[cleaned], chunkID)
 	}
 
-	for content, chunkIDs := range contentGroups {
-		result := g.db.WithContext(ctx).Model(&pgVector{}).
-			Where("chunk_id IN ? AND source_id IN ?", chunkIDs, chunkIDs).
-			Update("content", content)
-		if result.Error != nil {
-			logger.GetLogger(ctx).Errorf("[Postgres] Failed to update chunk content: %v", result.Error)
-			return result.Error
+	contentKeys := make([]string, 0, len(contentGroups))
+	for content := range contentGroups {
+		contentKeys = append(contentKeys, content)
+	}
+	slices.Sort(contentKeys)
+
+	if err := g.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, content := range contentKeys {
+			chunkIDs := contentGroups[content]
+			result := tx.Model(&pgVector{}).
+				Where("chunk_id IN ? AND source_id IN ?", chunkIDs, chunkIDs).
+				Update("content", content)
+			if result.Error != nil {
+				logger.GetLogger(ctx).Errorf("[Postgres] Failed to update chunk content: %v", result.Error)
+				return result.Error
+			}
 		}
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	logger.GetLogger(ctx).Infof("[Postgres] Successfully batch updated chunk content")
 	return nil
+}
+
+func emptyPostgresRetrieveResult(retrieverType types.RetrieverType) []*types.RetrieveResult {
+	return []*types.RetrieveResult{
+		{
+			Results:             nil,
+			RetrieverEngineType: types.PostgresRetrieverEngineType,
+			RetrieverType:       retrieverType,
+			Error:               nil,
+		},
+	}
+}
+
+func isExplicitEmptyPostgresKBScope(kbIDs []string) bool {
+	if kbIDs == nil {
+		return false
+	}
+	for _, id := range kbIDs {
+		if strings.TrimSpace(id) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+func validatePostgresFloatVector(vec []float32) error {
+	for i, v := range vec {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return fmt.Errorf("postgres vector contains non-finite float32 at index %d", i)
+		}
+	}
+	return nil
+}
+
+func validateAdditionalEmbedding(indexInfo *types.IndexInfo, additionalParams map[string]any) error {
+	if indexInfo == nil || additionalParams == nil {
+		return nil
+	}
+	embeddingMap, ok := additionalParams["embedding"].(map[string][]float32)
+	if !ok {
+		return nil
+	}
+	vec, exists := embeddingMap[indexInfo.SourceID]
+	if !exists {
+		return nil
+	}
+	return validatePostgresFloatVector(vec)
 }
 
 func generatedQuestionExclusionClause(kbIDs []string) clause.Expression {

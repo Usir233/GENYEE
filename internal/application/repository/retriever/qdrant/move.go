@@ -3,6 +3,8 @@ package qdrant
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/qdrant/go-client/qdrant"
 )
@@ -14,6 +16,12 @@ func (q *qdrantRepository) MoveKnowledgeIndices(
 	dimension int,
 	_ string,
 ) error {
+	if strings.TrimSpace(sourceKB) == "" || strings.TrimSpace(targetKB) == "" || strings.TrimSpace(knowledgeID) == "" {
+		return fmt.Errorf("qdrant move: sourceKB, targetKB, and knowledgeID are required")
+	}
+	if dimension <= 0 {
+		return fmt.Errorf("qdrant move: invalid dimension %d", dimension)
+	}
 	wait := true
 	_, err := q.client.SetPayload(ctx, &qdrant.SetPayloadPoints{
 		CollectionName: q.getCollectionName(dimension), Wait: &wait,
@@ -22,5 +30,12 @@ func (q *qdrantRepository) MoveKnowledgeIndices(
 			qdrant.NewMatch(fieldKnowledgeBaseID, sourceKB), qdrant.NewMatch(fieldKnowledgeID, knowledgeID),
 		}}),
 	})
+	if err == nil {
+		return nil
+	}
+	if isMissingCollectionErr(err) {
+		q.initializedCollections.Delete(dimension)
+		return nil
+	}
 	return err
 }

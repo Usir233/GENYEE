@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -254,6 +256,9 @@ func (q *qdrantRepository) EstimateStorageSize(ctx context.Context,
 ) int64 {
 	var totalStorageSize int64
 	for _, embedding := range indexInfoList {
+		if embedding == nil {
+			continue
+		}
 		embeddingDB := toQdrantVectorEmbedding(embedding, params)
 		totalStorageSize += q.calculateStorageSize(embeddingDB)
 	}
@@ -269,11 +274,18 @@ func (q *qdrantRepository) Save(ctx context.Context,
 	additionalParams map[string]any,
 ) error {
 	log := logger.GetLogger(ctx)
+	if embedding == nil {
+		return fmt.Errorf("qdrant save: nil index info")
+	}
 	log.Debugf("[Qdrant] Saving index for chunk ID: %s", embedding.ChunkID)
 
 	embeddingDB := toQdrantVectorEmbedding(embedding, additionalParams)
 	if len(embeddingDB.Embedding) == 0 {
 		err := fmt.Errorf("empty embedding vector for chunk ID: %s", embedding.ChunkID)
+		log.Errorf("[Qdrant] %v", err)
+		return err
+	}
+	if err := validateQdrantFloatVector(embeddingDB.Embedding); err != nil {
 		log.Errorf("[Qdrant] %v", err)
 		return err
 	}
@@ -321,11 +333,17 @@ func (q *qdrantRepository) BatchSave(ctx context.Context,
 	// Group points by dimension
 	pointsByDimension := make(map[int][]*qdrant.PointStruct)
 
-	for _, embedding := range embeddingList {
+	for i, embedding := range embeddingList {
+		if embedding == nil {
+			return fmt.Errorf("qdrant batch save: nil index info at index %d", i)
+		}
 		embeddingDB := toQdrantVectorEmbedding(embedding, additionalParams)
 		if len(embeddingDB.Embedding) == 0 {
 			return fmt.Errorf("empty embedding vector for chunk ID: %s (source ID: %s)",
 				embedding.ChunkID, embedding.SourceID)
+		}
+		if err := validateQdrantFloatVector(embeddingDB.Embedding); err != nil {
+			return fmt.Errorf("qdrant batch save (chunk %s): %w", embedding.ChunkID, err)
 		}
 
 		dimension := len(embeddingDB.Embedding)
@@ -764,6 +782,14 @@ func (q *qdrantRepository) VectorRetrieve(ctx context.Context,
 	log.Infof("[Qdrant] Vector retrieval: dim=%d, topK=%d, threshold=%.4f",
 		dimension, params.TopK, params.Threshold)
 
+	if params.TopK <= 0 || dimension == 0 || isExplicitEmptyQdrantKBScope(params.KnowledgeBaseIDs) {
+		return buildRetrieveResult(nil, types.VectorRetrieverType), nil
+	}
+	if err := validateQdrantFloatVector(params.Embedding); err != nil {
+		log.Errorf("[Qdrant] Invalid query embedding: %v", err)
+		return nil, err
+	}
+
 	// Get collection name based on embedding dimension
 	collectionName := q.getCollectionName(dimension)
 
@@ -780,7 +806,7 @@ func (q *qdrantRepository) VectorRetrieve(ctx context.Context,
 
 	filter := q.getBaseFilter(params)
 
-	limit := uint64(params.TopK)
+	limit := uint64(qdrantCandidateTopK(params.TopK, params.ExcludeGeneratedQuestionKBIDs))
 	scoreThreshold := float32(params.Threshold)
 
 	searchResult, err := q.client.Query(ctx, &qdrant.QueryPoints{
@@ -812,8 +838,15 @@ func (q *qdrantRepository) VectorRetrieve(ctx context.Context,
 			Score: float64(point.Score),
 		}
 
-		pointID := point.Id.GetUuid()
-		results = append(results, fromQdrantVectorEmbedding(pointID, embedding, types.MatchTypeEmbedding))
+		pointID := qdrantPointIDString(point.GetId())
+		item := fromQdrantVectorEmbedding(pointID, embedding, types.MatchTypeEmbedding)
+		if isExcludedQdrantGeneratedQuestion(item, params.ExcludeGeneratedQuestionKBIDs) {
+			continue
+		}
+		results = append(results, item)
+	}
+	if len(results) > params.TopK {
+		results = results[:params.TopK]
 	}
 
 	if len(results) == 0 {
@@ -834,6 +867,10 @@ func (q *qdrantRepository) KeywordsRetrieve(ctx context.Context,
 	log := logger.GetLogger(ctx)
 	log.Infof("[Qdrant] Performing keywords retrieval with query: %s, topK: %d", params.Query, params.TopK)
 
+	if params.TopK <= 0 || strings.TrimSpace(params.Query) == "" || isExplicitEmptyQdrantKBScope(params.KnowledgeBaseIDs) {
+		return buildRetrieveResult(nil, types.KeywordsRetrieverType), nil
+	}
+
 	// Get all collections that match our base name pattern
 	collections, err := q.client.ListCollections(ctx)
 	if err != nil {
@@ -842,7 +879,7 @@ func (q *qdrantRepository) KeywordsRetrieve(ctx context.Context,
 	}
 
 	var allResults []*types.IndexWithScore
-	limit := uint32(params.TopK)
+	limit := uint32(qdrantCandidateTopK(params.TopK, params.ExcludeGeneratedQuestionKBIDs))
 	// A batch where every matching collection failed must not be reported as
 	// "no matches": the caller cannot tell a genuine zero-hit search apart from
 	// a search that never ran. Count both sides and fail loudly when the search
@@ -913,8 +950,12 @@ func (q *qdrantRepository) KeywordsRetrieve(ctx context.Context,
 				Score: 1.0,
 			}
 
-			pointID := point.Id.GetUuid()
-			allResults = append(allResults, fromQdrantVectorEmbedding(pointID, embedding, types.MatchTypeKeywords))
+			pointID := qdrantPointIDString(point.GetId())
+			item := fromQdrantVectorEmbedding(pointID, embedding, types.MatchTypeKeywords)
+			if isExcludedQdrantGeneratedQuestion(item, params.ExcludeGeneratedQuestionKBIDs) {
+				continue
+			}
+			allResults = append(allResults, item)
 		}
 	}
 
@@ -997,9 +1038,15 @@ func (q *qdrantRepository) CopyIndices(ctx context.Context,
 		sourceKnowledgeBaseID, targetKnowledgeBaseID, len(sourceToTargetChunkIDMap), dimension,
 	)
 
-	if len(sourceToTargetChunkIDMap) == 0 {
+	if len(sourceToTargetChunkIDMap) == 0 || len(sourceToTargetKBIDMap) == 0 {
 		log.Warn("[Qdrant] Empty mapping, skipping copy")
 		return nil
+	}
+	if strings.TrimSpace(sourceKnowledgeBaseID) == "" || strings.TrimSpace(targetKnowledgeBaseID) == "" {
+		return fmt.Errorf("qdrant copy: source and target knowledge base IDs are required")
+	}
+	if dimension <= 0 {
+		return fmt.Errorf("qdrant copy: invalid dimension %d", dimension)
 	}
 
 	collectionName := q.getCollectionName(dimension)
@@ -1288,4 +1335,59 @@ func tokenizeQuery(query string) []string {
 	}
 
 	return result
+}
+
+func validateQdrantFloatVector(vec []float32) error {
+	for i, v := range vec {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return fmt.Errorf("qdrant vector contains non-finite float32 at index %d", i)
+		}
+	}
+	return nil
+}
+
+func isExplicitEmptyQdrantKBScope(kbIDs []string) bool {
+	if kbIDs == nil {
+		return false
+	}
+	for _, id := range kbIDs {
+		if strings.TrimSpace(id) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+func qdrantCandidateTopK(topK int, excludedKBIDs []string) int {
+	if len(excludedKBIDs) == 0 {
+		return topK
+	}
+	const maxQdrantCandidateLimit = 10000
+	candidate := max(topK*4, topK+16)
+	if candidate > maxQdrantCandidateLimit {
+		return maxQdrantCandidateLimit
+	}
+	return candidate
+}
+
+func isExcludedQdrantGeneratedQuestion(item *types.IndexWithScore, excludedKBIDs []string) bool {
+	if item == nil || len(excludedKBIDs) == 0 {
+		return false
+	}
+	return slices.Contains(excludedKBIDs, item.KnowledgeBaseID) &&
+		types.IsGeneratedQuestionSource(item.ChunkID, item.SourceID, item.SourceType)
+}
+
+func qdrantPointIDString(id *qdrant.PointId) string {
+	if id == nil {
+		return ""
+	}
+	switch opt := id.GetPointIdOptions().(type) {
+	case *qdrant.PointId_Uuid:
+		return opt.Uuid
+	case *qdrant.PointId_Num:
+		return strconv.FormatUint(opt.Num, 10)
+	default:
+		return ""
+	}
 }

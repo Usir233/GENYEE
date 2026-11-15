@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"math"
 	"os"
 	"slices"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/milvus-io/milvus/client/v2/index"
 	client "github.com/milvus-io/milvus/client/v2/milvusclient"
 
+	"github.com/Usir233/GENYEE/internal/common"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
@@ -270,6 +272,9 @@ func (m *milvusRepository) EstimateStorageSize(ctx context.Context,
 ) int64 {
 	var totalStorageSize int64
 	for _, embedding := range indexInfoList {
+		if embedding == nil {
+			continue
+		}
 		embeddingDB := toMilvusVectorEmbedding(embedding, params)
 		totalStorageSize += m.calculateStorageSize(embeddingDB)
 	}
@@ -285,11 +290,18 @@ func (m *milvusRepository) Save(ctx context.Context,
 	additionalParams map[string]any,
 ) error {
 	log := logger.GetLogger(ctx)
+	if embedding == nil {
+		return fmt.Errorf("milvus save: nil index info")
+	}
 	log.Debugf("[Milvus] Saving index for chunk ID: %s", embedding.ChunkID)
 
 	embeddingDB := toMilvusVectorEmbedding(embedding, additionalParams)
 	if len(embeddingDB.Embedding) == 0 {
 		err := fmt.Errorf("empty embedding vector for chunk ID: %s", embedding.ChunkID)
+		log.Errorf("[Milvus] %v", err)
+		return err
+	}
+	if err := validateMilvusFloatVector(embeddingDB.Embedding); err != nil {
 		log.Errorf("[Milvus] %v", err)
 		return err
 	}
@@ -335,11 +347,17 @@ func (m *milvusRepository) BatchSave(ctx context.Context,
 	// Group points by dimension
 	embeddingsByDimension := make(map[int][]*types.IndexInfo)
 
-	for _, embedding := range embeddingList {
+	for i, embedding := range embeddingList {
+		if embedding == nil {
+			return fmt.Errorf("milvus batch save: nil index info at index %d", i)
+		}
 		embeddingDB := toMilvusVectorEmbedding(embedding, additionalParams)
 		if len(embeddingDB.Embedding) == 0 {
 			log.Warnf("[Milvus] Skipping empty embedding for chunk ID: %s", embedding.ChunkID)
 			continue
+		}
+		if err := validateMilvusFloatVector(embeddingDB.Embedding); err != nil {
+			return fmt.Errorf("milvus batch save (chunk %s): %w", embedding.ChunkID, err)
 		}
 
 		dimension := len(embeddingDB.Embedding)
@@ -388,77 +406,102 @@ func (m *milvusRepository) BatchSave(ctx context.Context,
 	return nil
 }
 
-// DeleteByChunkIDList removes points from the collection based on chunk IDs
-func (m *milvusRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList []string, dimension int, knowledgeType string) error {
+func buildMilvusStringInExpr(field string, values []string) (string, error) {
+	validField, err := validateFilterField(field)
+	if err != nil {
+		return "", err
+	}
+	escaped := make([]string, 0, len(values))
+	for _, raw := range values {
+		if strings.TrimSpace(raw) == "" {
+			continue
+		}
+		var b strings.Builder
+		b.Grow(len(raw) + 4)
+		b.WriteByte('"')
+		for _, r := range raw {
+			if r < 0x20 || r == 0x7f {
+				return "", fmt.Errorf("milvus delete: control character U+%04X not allowed in %s", r, validField)
+			}
+			switch r {
+			case '\\':
+				b.WriteString(`\\`)
+			case '"':
+				b.WriteString(`\"`)
+			default:
+				b.WriteRune(r)
+			}
+		}
+		b.WriteByte('"')
+		escaped = append(escaped, b.String())
+	}
+	if len(escaped) == 0 {
+		return "", nil
+	}
+	return fmt.Sprintf("%s in [%s]", validField, strings.Join(escaped, ", ")), nil
+}
+
+func (m *milvusRepository) deleteByFieldIDs(
+	ctx context.Context, field, label string, idList []string, dimension int,
+) error {
 	log := logger.GetLogger(ctx)
-	if len(chunkIDList) == 0 {
-		log.Warn("[Milvus] Empty chunk ID list provided for deletion, skipping")
+	if len(idList) == 0 {
+		log.Warnf("[Milvus] Empty %s list provided for deletion, skipping", label)
+		return nil
+	}
+	if dimension <= 0 {
+		return fmt.Errorf("milvus delete by %s: invalid dimension %d", label, dimension)
+	}
+	expr, err := buildMilvusStringInExpr(field, idList)
+	if err != nil {
+		log.Errorf("[Milvus] Invalid %s list for deletion: %v", label, err)
+		return err
+	}
+	if expr == "" {
 		return nil
 	}
 
 	collectionName := m.getCollectionName(dimension)
-	log.Infof("[Milvus] Deleting indices by chunk IDs from %s, count: %d", collectionName, len(chunkIDList))
-
-	deleteOpt := client.NewDeleteOption(collectionName)
-	deleteOpt.WithStringIDs(fieldChunkID, chunkIDList)
-	_, err := m.client.Delete(ctx, deleteOpt)
-	if err != nil {
-		log.Errorf("[Milvus] Failed to delete by chunk IDs: %v", err)
-		return fmt.Errorf("failed to delete by chunk IDs: %w", err)
+	if _, cached := m.initializedCollections.Load(dimension); !cached {
+		hasCollection, existsErr := m.client.HasCollection(ctx, client.NewHasCollectionOption(collectionName))
+		if existsErr != nil {
+			log.Errorf("[Milvus] Failed to check collection existence: %v", existsErr)
+			return fmt.Errorf("failed to check collection existence: %w", existsErr)
+		}
+		if !hasCollection {
+			log.Infof("[Milvus] Collection %s does not exist, nothing to delete", collectionName)
+			return nil
+		}
 	}
 
-	log.Infof("[Milvus] Successfully deleted documents by chunk IDs")
+	log.Infof("[Milvus] Deleting indices by %s from %s, count: %d", label, collectionName, len(idList))
+	deleteOpt := client.NewDeleteOption(collectionName).WithExpr(expr)
+	if _, err := m.client.Delete(ctx, deleteOpt); err != nil {
+		log.Errorf("[Milvus] Failed to delete by %s: %v", label, err)
+		return fmt.Errorf("failed to delete by %s: %w", label, err)
+	}
+
+	log.Infof("[Milvus] Successfully deleted documents by %s", label)
 	return nil
+}
+
+// DeleteByChunkIDList removes points from the collection based on chunk IDs
+func (m *milvusRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList []string, dimension int, knowledgeType string) error {
+	return m.deleteByFieldIDs(ctx, fieldChunkID, "chunk IDs", chunkIDList, dimension)
 }
 
 // DeleteByKnowledgeIDList removes points from the collection based on knowledge IDs
 func (m *milvusRepository) DeleteByKnowledgeIDList(ctx context.Context,
 	knowledgeIDList []string, dimension int, knowledgeType string,
 ) error {
-	log := logger.GetLogger(ctx)
-	if len(knowledgeIDList) == 0 {
-		log.Warn("[Milvus] Empty knowledge ID list provided for deletion, skipping")
-		return nil
-	}
-
-	collectionName := m.getCollectionName(dimension)
-	log.Infof("[Milvus] Deleting indices by knowledge IDs from %s, count: %d", collectionName, len(knowledgeIDList))
-
-	deleteOpt := client.NewDeleteOption(collectionName)
-	deleteOpt.WithStringIDs(fieldKnowledgeID, knowledgeIDList)
-	_, err := m.client.Delete(ctx, deleteOpt)
-	if err != nil {
-		log.Errorf("[Milvus] Failed to delete by knowledge IDs: %v", err)
-		return fmt.Errorf("failed to delete by knowledge IDs: %w", err)
-	}
-
-	log.Infof("[Milvus] Successfully deleted documents by knowledge IDs")
-	return nil
+	return m.deleteByFieldIDs(ctx, fieldKnowledgeID, "knowledge IDs", knowledgeIDList, dimension)
 }
 
 // DeleteBySourceIDList removes points from the collection based on source IDs
 func (m *milvusRepository) DeleteBySourceIDList(ctx context.Context,
 	sourceIDList []string, dimension int, knowledgeType string,
 ) error {
-	log := logger.GetLogger(ctx)
-	if len(sourceIDList) == 0 {
-		log.Warn("[Milvus] Empty source ID list provided for deletion, skipping")
-		return nil
-	}
-
-	collectionName := m.getCollectionName(dimension)
-	log.Infof("[Milvus] Deleting indices by source IDs from %s, count: %d", collectionName, len(sourceIDList))
-
-	deleteOpt := client.NewDeleteOption(collectionName)
-	deleteOpt.WithStringIDs(fieldSourceID, sourceIDList)
-	_, err := m.client.Delete(ctx, deleteOpt)
-	if err != nil {
-		log.Errorf("[Milvus] Failed to delete by source IDs: %v", err)
-		return fmt.Errorf("failed to delete by source IDs: %w", err)
-	}
-
-	log.Infof("[Milvus] Successfully deleted documents by source IDs")
-	return nil
+	return m.deleteByFieldIDs(ctx, fieldSourceID, "source IDs", sourceIDList, dimension)
 }
 
 // BatchUpdateChunkEnabledStatus updates the enabled status of chunks in batch
@@ -619,6 +662,7 @@ func (m *milvusRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMa
 	}
 
 	// Update in all matching collections
+	var updateErrs []error
 	for _, collectionName := range collections {
 		if !matchesDimensionCollection(collectionName, m.collectionBaseName) {
 			continue
@@ -632,6 +676,7 @@ func (m *milvusRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMa
 			}, nil, nil)
 			if err != nil {
 				log.Warnf("[Milvus] Failed to search chunks in %s: %v", collectionName, err)
+				updateErrs = append(updateErrs, fmt.Errorf("milvus tag update search in %s: %w", collectionName, err))
 				continue
 			}
 			upsertEmbeddings := make([]*MilvusVectorEmbedding, 0, len(embeddings))
@@ -642,17 +687,23 @@ func (m *milvusRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMa
 			if len(upsertEmbeddings) > 0 {
 				if _, modeErr := m.collectionAnalyzerMode(ctx, collectionName); modeErr != nil {
 					log.Warnf("[Milvus] Failed to inspect collection %s analyzer mode: %v", collectionName, modeErr)
+					updateErrs = append(updateErrs, modeErr)
 					continue
 				}
 				req := createUpsert(collectionName, upsertEmbeddings)
 				_, err := m.client.Upsert(ctx, req)
 				if err != nil {
 					log.Warnf("[Milvus] Failed to update chunks in %s: %v", collectionName, err)
+					updateErrs = append(updateErrs, fmt.Errorf("milvus tag update upsert in %s: %w", collectionName, err))
 					continue
 				}
 			}
 		}
 
+	}
+
+	if len(updateErrs) > 0 {
+		return errors.Join(updateErrs...)
 	}
 
 	log.Infof("[Milvus] Batch update chunk tag ID completed")
@@ -804,6 +855,14 @@ func (m *milvusRepository) VectorRetrieve(ctx context.Context,
 	log.Infof("[Milvus] Vector retrieval: dim=%d, topK=%d, threshold=%.4f",
 		dimension, params.TopK, params.Threshold)
 
+	if params.TopK <= 0 || dimension == 0 || isExplicitEmptyKBScope(params.KnowledgeBaseIDs) {
+		return buildRetrieveResult(nil, types.VectorRetrieverType), nil
+	}
+	if err := validateMilvusFloatVector(params.Embedding); err != nil {
+		log.Errorf("[Milvus] Invalid query embedding: %v", err)
+		return nil, err
+	}
+
 	// Get collection name based on embedding dimension
 	collectionName := m.getCollectionName(dimension)
 
@@ -829,7 +888,8 @@ func (m *milvusRepository) VectorRetrieve(ctx context.Context,
 		ann.WithRadius(m.similarityToMetric(params.Threshold))
 		sp = &ann
 	}
-	searchOption := client.NewSearchOption(collectionName, params.TopK, []entity.Vector{entity.FloatVector(params.Embedding)})
+	searchTopK := candidateSearchTopK(params.TopK, params.ExcludeGeneratedQuestionKBIDs)
+	searchOption := client.NewSearchOption(collectionName, searchTopK, []entity.Vector{entity.FloatVector(params.Embedding)})
 	searchOption.WithANNSField(fieldEmbedding)
 	if sp != nil {
 		searchOption.WithAnnParam(sp)
@@ -859,6 +919,10 @@ func (m *milvusRepository) VectorRetrieve(ctx context.Context,
 		log.Errorf("[Milvus] Failed to attach vector scores: %v", err)
 		return nil, fmt.Errorf("failed to attach vector scores: %w", err)
 	}
+	results = filterExcludedGeneratedQuestions(results, params.ExcludeGeneratedQuestionKBIDs)
+	if len(results) > params.TopK {
+		results = results[:params.TopK]
+	}
 	if len(results) == 0 {
 		log.Warnf("[Milvus] No vector matches found that meet threshold %.4f", params.Threshold)
 	} else {
@@ -875,6 +939,10 @@ func (m *milvusRepository) KeywordsRetrieve(ctx context.Context,
 	log := logger.GetLogger(ctx)
 	log.Infof("[Milvus] Performing keywords retrieval with query: %s, topK: %d", params.Query, params.TopK)
 
+	if params.TopK <= 0 || strings.TrimSpace(params.Query) == "" || isExplicitEmptyKBScope(params.KnowledgeBaseIDs) {
+		return buildRetrieveResult(nil, types.KeywordsRetrieverType), nil
+	}
+
 	// Get all collections
 	collections, err := m.client.ListCollections(ctx, client.NewListCollectionOption())
 	if err != nil {
@@ -890,6 +958,7 @@ func (m *milvusRepository) KeywordsRetrieve(ctx context.Context,
 	matchedCollections := 0
 	failedCollections := 0
 	var lastFailedErr error
+	searchTopK := candidateSearchTopK(params.TopK, params.ExcludeGeneratedQuestionKBIDs)
 
 	// Search in all matching collections
 	for _, collectionName := range collections {
@@ -912,7 +981,7 @@ func (m *milvusRepository) KeywordsRetrieve(ctx context.Context,
 			log.Errorf("[Milvus] Failed to build base filter: %v", err)
 			continue
 		}
-		searchOpt := client.NewSearchOption(collectionName, params.TopK, []entity.Vector{entity.Text(params.Query)})
+		searchOpt := client.NewSearchOption(collectionName, searchTopK, []entity.Vector{entity.Text(params.Query)})
 		searchOpt.WithANNSField(fieldContentSparse)
 		{
 			analyzerName := detectAnalyzerName(params.Query)
@@ -951,6 +1020,7 @@ func (m *milvusRepository) KeywordsRetrieve(ctx context.Context,
 			log.Errorf("[Milvus] Failed to attach keyword scores for %s: %v", collectionName, scoreErr)
 			continue
 		}
+		results = filterExcludedGeneratedQuestions(results, params.ExcludeGeneratedQuestionKBIDs)
 		allResults = append(allResults, results...)
 	}
 
@@ -1053,9 +1123,15 @@ func (m *milvusRepository) CopyIndices(ctx context.Context,
 		sourceKnowledgeBaseID, targetKnowledgeBaseID, len(sourceToTargetChunkIDMap), dimension,
 	)
 
-	if len(sourceToTargetChunkIDMap) == 0 {
+	if len(sourceToTargetChunkIDMap) == 0 || len(sourceToTargetKBIDMap) == 0 {
 		log.Warn("[Milvus] Empty mapping, skipping copy")
 		return nil
+	}
+	if strings.TrimSpace(sourceKnowledgeBaseID) == "" || strings.TrimSpace(targetKnowledgeBaseID) == "" {
+		return fmt.Errorf("milvus copy: source and target knowledge base IDs are required")
+	}
+	if dimension <= 0 {
+		return fmt.Errorf("milvus copy: invalid dimension %d", dimension)
 	}
 
 	collectionName := m.getCollectionName(dimension)
@@ -1224,15 +1300,16 @@ func (m *milvusRepository) calculateStorageSize(embedding *MilvusVectorEmbedding
 
 // toMilvusVectorEmbedding converts IndexInfo to Milvus format
 func toMilvusVectorEmbedding(embedding *types.IndexInfo, additionalParams map[string]interface{}) *MilvusVectorEmbedding {
+	cleanContent := sanitizeMilvusString(embedding.Content)
 	vector := &MilvusVectorEmbedding{
-		Content:         embedding.Content,
-		Language:        detectAnalyzerName(embedding.Content),
-		SourceID:        embedding.SourceID,
+		Content:         cleanContent,
+		Language:        detectAnalyzerName(cleanContent),
+		SourceID:        sanitizeMilvusString(embedding.SourceID),
 		SourceType:      int(embedding.SourceType),
-		ChunkID:         embedding.ChunkID,
-		KnowledgeID:     embedding.KnowledgeID,
-		KnowledgeBaseID: embedding.KnowledgeBaseID,
-		TagID:           embedding.TagID,
+		ChunkID:         sanitizeMilvusString(embedding.ChunkID),
+		KnowledgeID:     sanitizeMilvusString(embedding.KnowledgeID),
+		KnowledgeBaseID: sanitizeMilvusString(embedding.KnowledgeBaseID),
+		TagID:           sanitizeMilvusString(embedding.TagID),
 		IsEnabled:       embedding.IsEnabled,
 	}
 	if additionalParams != nil && slices.Contains(slices.Collect(maps.Keys(additionalParams)), fieldEmbedding) {
@@ -1241,6 +1318,61 @@ func toMilvusVectorEmbedding(embedding *types.IndexInfo, additionalParams map[st
 		}
 	}
 	return vector
+}
+
+func sanitizeMilvusString(s string) string {
+	return strings.ReplaceAll(common.CleanInvalidUTF8(s), "\x00", "")
+}
+
+func validateMilvusFloatVector(vec []float32) error {
+	for i, v := range vec {
+		if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+			return fmt.Errorf("milvus vector contains non-finite float32 at index %d", i)
+		}
+	}
+	return nil
+}
+
+func isExplicitEmptyKBScope(kbIDs []string) bool {
+	if kbIDs == nil {
+		return false
+	}
+	for _, id := range kbIDs {
+		if strings.TrimSpace(id) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+func candidateSearchTopK(topK int, excludedKBIDs []string) int {
+	if len(excludedKBIDs) == 0 {
+		return topK
+	}
+	const maxMilvusTopK = 16384
+	candidate := max(topK*4, topK+16)
+	if candidate > maxMilvusTopK {
+		return maxMilvusTopK
+	}
+	return candidate
+}
+
+func filterExcludedGeneratedQuestions(results []*types.IndexWithScore, excludedKBIDs []string) []*types.IndexWithScore {
+	if len(excludedKBIDs) == 0 || len(results) == 0 {
+		return results
+	}
+	filtered := make([]*types.IndexWithScore, 0, len(results))
+	for _, r := range results {
+		if r == nil {
+			continue
+		}
+		if slices.Contains(excludedKBIDs, r.KnowledgeBaseID) &&
+			types.IsGeneratedQuestionSource(r.ChunkID, r.SourceID, r.SourceType) {
+			continue
+		}
+		filtered = append(filtered, r)
+	}
+	return filtered
 }
 
 // fromMilvusVectorEmbedding converts Milvus result to IndexWithScore domain model

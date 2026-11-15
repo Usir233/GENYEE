@@ -3,6 +3,7 @@ package milvus
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 func (m *milvusRepository) MoveKnowledgeIndices(
@@ -12,6 +13,12 @@ func (m *milvusRepository) MoveKnowledgeIndices(
 	dimension int,
 	_ string,
 ) error {
+	if strings.TrimSpace(sourceKB) == "" || strings.TrimSpace(targetKB) == "" || strings.TrimSpace(knowledgeID) == "" {
+		return fmt.Errorf("milvus move: sourceKB, targetKB, and knowledgeID are required")
+	}
+	if dimension <= 0 {
+		return fmt.Errorf("milvus move: invalid dimension %d", dimension)
+	}
 	collection := m.getCollectionName(dimension)
 	filter := &universalFilterCondition{Operator: operatorAnd, Value: []*universalFilterCondition{
 		{Field: fieldKnowledgeBaseID, Operator: operatorEqual, Value: sourceKB},

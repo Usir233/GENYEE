@@ -10,8 +10,9 @@ func collectionDimensionForBase(collectionName, baseName string) (int, bool) {
 	if !strings.HasPrefix(collectionName, prefix) {
 		return 0, false
 	}
-	dimension, err := strconv.Atoi(strings.TrimPrefix(collectionName, prefix))
-	if err != nil || dimension <= 0 {
+	suffix := strings.TrimPrefix(collectionName, prefix)
+	dimension, err := strconv.Atoi(suffix)
+	if err != nil || dimension <= 0 || suffix != strconv.Itoa(dimension) {
 		return 0, false
 	}
 	return dimension, true

@@ -67,6 +67,30 @@ type convertResult struct {
 
 type filter struct{}
 
+var allowedFilterFields = map[string]struct{}{
+	fieldID:              {},
+	fieldContent:         {},
+	fieldLanguage:        {},
+	fieldSourceID:        {},
+	fieldSourceType:      {},
+	fieldChunkID:         {},
+	fieldKnowledgeID:     {},
+	fieldKnowledgeBaseID: {},
+	fieldTagID:           {},
+	fieldIsEnabled:       {},
+}
+
+func validateFilterField(field string) (string, error) {
+	trimmed := strings.TrimSpace(field)
+	if trimmed == "" {
+		return "", fmt.Errorf("milvus filter condition is nil")
+	}
+	if _, ok := allowedFilterFields[trimmed]; !ok {
+		return "", fmt.Errorf("disallowed milvus filter field: %q", field)
+	}
+	return trimmed, nil
+}
+
 func (c *filter) Convert(cond *universalFilterCondition) (*convertResult, error) {
 	var counter int
 	return c.convertCondition(cond, &counter)
@@ -76,16 +100,19 @@ func (c *filter) convertComparisonCondition(
 	cond *universalFilterCondition,
 	counter *int,
 ) (*convertResult, error) {
-	condField := cond.Field
-	if condField == "" || cond.Value == nil {
+	if cond.Value == nil {
 		return nil, fmt.Errorf("milvus filter condition is nil")
+	}
+	condField, err := validateFilterField(cond.Field)
+	if err != nil {
+		return nil, err
 	}
 	operator, ok := comparisonOperators[cond.Operator]
 	if !ok {
 		return nil, fmt.Errorf("unsupported comparison operator: %s", cond.Operator)
 	}
 
-	paramName := c.convertParamName(cond.Field, counter)
+	paramName := c.convertParamName(condField, counter)
 	return &convertResult{
 		exprStr: fmt.Sprintf("%s %s {%s}", condField, operator, paramName),
 		params:  map[string]any{paramName: cond.Value},
@@ -160,9 +187,12 @@ func (c *filter) convertInCondition(
 	cond *universalFilterCondition,
 	counter *int,
 ) (*convertResult, error) {
-	condField := cond.Field
-	if condField == "" || cond.Value == nil {
+	if cond.Value == nil {
 		return nil, fmt.Errorf("milvus filter condition is nil")
+	}
+	condField, err := validateFilterField(cond.Field)
+	if err != nil {
+		return nil, err
 	}
 
 	s := reflect.ValueOf(cond.Value)
@@ -170,7 +200,7 @@ func (c *filter) convertInCondition(
 		return nil, fmt.Errorf("in operator value must be a slice with at least one value: %v", cond.Value)
 	}
 
-	paramName := c.convertParamName(cond.Field, counter)
+	paramName := c.convertParamName(condField, counter)
 	return &convertResult{
 		exprStr: fmt.Sprintf("%s %s {%s}", condField, strings.ToLower(cond.Operator), paramName),
 		params:  map[string]any{paramName: cond.Value},
@@ -181,9 +211,12 @@ func (c *filter) convertBetweenCondition(
 	cond *universalFilterCondition,
 	counter *int,
 ) (*convertResult, error) {
-	condField := cond.Field
-	if condField == "" || cond.Value == nil {
+	if cond.Value == nil {
 		return nil, fmt.Errorf("milvus filter condition is nil")
+	}
+	condField, err := validateFilterField(cond.Field)
+	if err != nil {
+		return nil, err
 	}
 
 	value := reflect.ValueOf(cond.Value)
@@ -191,7 +224,7 @@ func (c *filter) convertBetweenCondition(
 		return nil, fmt.Errorf("between operator value must be a slice with two elements: %v", cond.Value)
 	}
 
-	paramBase := c.convertParamName(cond.Field, counter)
+	paramBase := c.convertParamName(condField, counter)
 	paramName1 := fmt.Sprintf("%s_%d", paramBase, 0)
 	paramName2 := fmt.Sprintf("%s_%d", paramBase, 1)
 	return &convertResult{
