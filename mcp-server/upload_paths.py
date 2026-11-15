@@ -6,9 +6,10 @@ import builtins
 import io
 import os
 import stat
-from typing import BinaryIO, List, Optional, Tuple
+from typing import BinaryIO, Dict, List, Optional, Tuple
 
 _active_transport: Optional[str] = None
+_validated_root_stats: Dict[str, Tuple[str, Tuple[int, int]]] = {}
 
 _NETWORK_TRANSPORTS = frozenset({"http", "sse", "streamable-http"})
 
@@ -40,6 +41,7 @@ def clear_active_transport() -> None:
     """Reset startup transport override (for tests)."""
     global _active_transport
     _active_transport = None
+    _validated_root_stats.clear()
 
 
 def _current_transport() -> str:
@@ -163,10 +165,25 @@ def resolve_upload_file_path(file_path: str) -> str:
     if not stat.S_ISREG(st.st_mode):
         raise ValueError("file path must point to a regular file")
 
+    anchor_root = matched_roots[0]
+    try:
+        root_st = os.lstat(anchor_root)
+    except OSError as exc:
+        raise ValueError("allowed upload root is unavailable") from exc
+    if not stat.S_ISDIR(root_st.st_mode):
+        raise ValueError("allowed upload root must be a directory")
+    if len(_validated_root_stats) >= 1024:
+        _validated_root_stats.clear()
+    _validated_root_stats[resolved] = (anchor_root, (root_st.st_dev, root_st.st_ino))
+
     return resolved
 
 
-def _open_nofollow_from_root(anchor_root: str, target_path: str) -> int:
+def _open_nofollow_from_root(
+    anchor_root: str,
+    target_path: str,
+    expected_root_id: Optional[Tuple[int, int]] = None,
+) -> int:
     """Walk each relative component from ``anchor_root`` with ``O_NOFOLLOW`` so an
     intermediate directory swapped to a symlink after validation cannot escape."""
     rel = os.path.relpath(target_path, anchor_root)
@@ -179,6 +196,15 @@ def _open_nofollow_from_root(anchor_root: str, target_path: str) -> int:
 
     cur_fd = os.open(anchor_root, dir_flags)
     try:
+        opened_root_st = os.fstat(cur_fd)
+        if not stat.S_ISDIR(opened_root_st.st_mode):
+            raise ValueError("upload root is not a directory")
+        if expected_root_id is not None and (
+            opened_root_st.st_dev,
+            opened_root_st.st_ino,
+        ) != expected_root_id:
+            raise ValueError("upload root directory changed during open")
+
         for comp in parts[:-1]:
             next_fd = os.open(comp, dir_flags, dir_fd=cur_fd)
             os.close(cur_fd)
@@ -195,23 +221,39 @@ def open_upload_file_nofollow(resolved_path: str) -> BinaryIO:
         return builtins.open(resolved_path, "rb")
 
     abs_target = os.path.abspath(resolved_path)
+    roots = _allowed_upload_roots()
     anchor_root: Optional[str] = None
-    if os.name == "posix" and hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW"):
+    for root in roots:
         try:
-            for root in _allowed_upload_roots():
-                try:
-                    common = os.path.commonpath([root, abs_target])
-                except ValueError:
-                    continue
-                if common == root and abs_target != root:
-                    anchor_root = root
-                    break
+            common = os.path.commonpath([root, abs_target])
         except ValueError:
-            anchor_root = None
+            continue
+        if common == root and abs_target != root:
+            anchor_root = root
+            break
+
+    if anchor_root is None:
+        raise ValueError("file path is outside allowed upload directories")
+
+    recorded = _validated_root_stats.get(abs_target)
+    if recorded is not None:
+        recorded_root, expected_root_id = recorded
+        if recorded_root != anchor_root:
+            raise ValueError("upload root directory changed after validation")
+    else:
+        try:
+            root_st = os.lstat(anchor_root)
+        except OSError as exc:
+            raise ValueError("unable to verify upload root directory") from exc
+        if not stat.S_ISDIR(root_st.st_mode):
+            raise ValueError("upload root is not a directory")
+        expected_root_id = (root_st.st_dev, root_st.st_ino)
 
     try:
-        if anchor_root is not None:
-            fd = _open_nofollow_from_root(anchor_root, abs_target)
+        if os.name == "posix" and hasattr(os, "O_DIRECTORY") and hasattr(os, "O_NOFOLLOW"):
+            fd = _open_nofollow_from_root(anchor_root, abs_target, expected_root_id)
+        elif os.name == "posix":
+            raise ValueError("POSIX O_DIRECTORY and O_NOFOLLOW support is required")
         else:
             flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
             fd = os.open(abs_target, flags)

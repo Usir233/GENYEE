@@ -9,7 +9,19 @@ stderr，否则会破坏 MCP 协议流导致客户端判定"启动失败"。本�
 
 import asyncio
 import os
+from pathlib import Path
 import sys
+
+
+def ensure_module_path() -> str:
+    """Ensure the mcp-server directory is on sys.path for direct script invocation."""
+    module_dir = str(Path(__file__).resolve().parent)
+    if module_dir not in sys.path:
+        sys.path.insert(0, module_dir)
+    return module_dir
+
+
+ensure_module_path()
 
 
 def check_environment():
@@ -32,6 +44,7 @@ def check_environment():
 
 def main():
     """主函数"""
+    ensure_module_path()
     print("启动 GENYEE MCP Server...", file=sys.stderr)
     check_environment()
 

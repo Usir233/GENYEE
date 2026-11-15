@@ -278,6 +278,135 @@ def test_open_upload_file_nofollow_blocks_symlink_swap(monkeypatch, tmp_path):
             outside_dir.rmdir()
 
 
+def test_open_upload_file_nofollow_fails_closed_outside_roots_and_on_root_swap(
+    monkeypatch, tmp_path
+):
+    allowed_dir = tmp_path / "allowed"
+    allowed_dir.mkdir()
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    outside_secret = outside_dir / "secret.txt"
+    outside_secret.write_text("do-not-open", encoding="utf-8")
+
+    monkeypatch.setenv("MCP_ALLOWED_UPLOAD_DIRS", str(allowed_dir))
+
+    # Direct call outside allowed roots must fail closed before touching os.open
+    with mock.patch("upload_paths.os.open", side_effect=AssertionError("os.open called")):
+        with pytest.raises(ValueError, match="outside allowed upload directories"):
+            open_upload_file_nofollow(str(outside_secret))
+
+    # Network transport with unconfigured MCP_ALLOWED_UPLOAD_DIRS must also fail closed
+    monkeypatch.delenv("MCP_ALLOWED_UPLOAD_DIRS", raising=False)
+    set_active_transport("http")
+    safe_file = allowed_dir / "doc.txt"
+    safe_file.write_text("content", encoding="utf-8")
+    with mock.patch("upload_paths.os.open", side_effect=AssertionError("os.open called")):
+        with pytest.raises(ValueError, match="disabled"):
+            open_upload_file_nofollow(str(safe_file))
+
+    # Root directory swapped to symlink pointing outside between validate and open
+    clear_active_transport()
+    monkeypatch.setenv("MCP_ALLOWED_UPLOAD_DIRS", str(allowed_dir))
+    resolved = resolve_upload_file_path(str(safe_file))
+    safe_file.unlink()
+    allowed_dir.rmdir()
+    allowed_dir.symlink_to(outside_dir, target_is_directory=True)
+    try:
+        with pytest.raises(ValueError):
+            open_upload_file_nofollow(resolved)
+    finally:
+        if allowed_dir.is_symlink():
+            allowed_dir.unlink()
+
+    # Root directory replaced by a distinct directory (different inode) between validate and open
+    allowed_dir.mkdir()
+    fresh_doc = allowed_dir / "doc.txt"
+    fresh_doc.write_text("original root content", encoding="utf-8")
+    resolved_fresh = resolve_upload_file_path(str(fresh_doc))
+    replacement_dir = tmp_path / "replacement_allowed"
+    replacement_dir.mkdir()
+    (replacement_dir / "doc.txt").write_text("swapped root content", encoding="utf-8")
+    fresh_doc.unlink()
+    allowed_dir.rmdir()
+    replacement_dir.rename(allowed_dir)
+    with pytest.raises(ValueError, match="upload root directory changed"):
+        open_upload_file_nofollow(resolved_fresh)
+
+
+def test_open_upload_file_nofollow_closes_root_fd_on_fstat_mismatch(
+    monkeypatch, tmp_path
+):
+    allowed_dir = tmp_path / "allowed_fstat"
+    allowed_dir.mkdir()
+    doc = allowed_dir / "doc.txt"
+    doc.write_text("ok", encoding="utf-8")
+    monkeypatch.setenv("MCP_ALLOWED_UPLOAD_DIRS", str(allowed_dir))
+
+    resolved = resolve_upload_file_path(str(doc))
+
+    real_os_open = os.open
+    real_os_close = os.close
+    real_os_fstat = os.fstat
+    opened_fds: list[int] = []
+    closed_fds: list[int] = []
+
+    def tracking_open(path, flags, *args, **kwargs):
+        fd = real_os_open(path, flags, *args, **kwargs)
+        opened_fds.append(fd)
+        return fd
+
+    def tracking_close(fd):
+        closed_fds.append(fd)
+        return real_os_close(fd)
+
+    def mismatched_fstat(fd):
+        st = real_os_fstat(fd)
+        return os.stat_result(
+            (
+                st.st_mode,
+                st.st_ino + 999999,
+                st.st_dev,
+                st.st_nlink,
+                st.st_uid,
+                st.st_gid,
+                st.st_size,
+                st.st_atime,
+                st.st_mtime,
+                st.st_ctime,
+            )
+        )
+
+    monkeypatch.setattr("upload_paths.os.open", tracking_open)
+    monkeypatch.setattr("upload_paths.os.close", tracking_close)
+    monkeypatch.setattr("upload_paths.os.fstat", mismatched_fstat)
+
+    with pytest.raises(ValueError, match="upload root directory changed during open"):
+        open_upload_file_nofollow(resolved)
+
+    assert len(opened_fds) == 1
+    assert closed_fds == opened_fds
+
+
+def test_run_server_bootstraps_sys_path_outside_mcp_dir(monkeypatch, tmp_path):
+    run_server_path = Path(__file__).resolve().parents[1] / "run_server.py"
+    mcp_dir = str(run_server_path.parent)
+    monkeypatch.chdir(tmp_path)
+    cleaned_path = [p for p in os.sys.path if os.path.abspath(p or ".") != mcp_dir]
+    monkeypatch.setattr(os.sys, "path", cleaned_path)
+
+    spec = importlib.util.spec_from_file_location("run_server_isolated", run_server_path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    async def _noop_run():
+        return None
+
+    assert mcp_dir in os.sys.path
+    with mock.patch("genyee_mcp_server.run", side_effect=_noop_run):
+        mod.main()
+
+
 # ---------------------------------------------------------------------------
 # GENYEE-MED-12: Token length, TransportSecuritySettings & admin tools gate
 # ---------------------------------------------------------------------------
