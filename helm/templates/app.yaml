@@ -133,10 +133,13 @@ spec:
                   name: {{ include "genyee.secretName" . }}
                   key: GRPC_AUTH_TOKEN
             {{- if and .Values.docreader.tls .Values.docreader.tls.enabled }}
+            {{- $_ := include "genyee.docreader.tlsSecretName" . }}
             - name: GRPC_TLS_ENABLED
               value: "true"
+            {{- if .Values.docreader.tls.caProvided }}
             - name: GRPC_TLS_CA
-              value: "/etc/docreader-tls/ca.crt"
+              value: {{ printf "/etc/docreader-tls/%s" (include "genyee.docreader.tlsCAKey" .) | quote }}
+            {{- end }}
             {{- if .Values.docreader.tls.serverName }}
             - name: GRPC_TLS_SERVER_NAME
               value: {{ .Values.docreader.tls.serverName | quote }}
@@ -151,7 +154,7 @@ spec:
               value: {{ .Values.app.env.LOCAL_STORAGE_BASE_DIR | quote }}
             # Document reader
             - name: DOCREADER_ADDR
-              value: {{ printf "%s:50051" (include "genyee.serviceName" (dict "component" "docreader" "context" .)) | quote }}
+              value: {{ printf "%s:%d" (include "genyee.serviceName" (dict "component" "docreader" "context" .)) (int (.Values.docreader.service.port | default 50051)) | quote }}
             # Processing
             - name: AUTO_RECOVER_DIRTY
               value: {{ .Values.app.env.AUTO_RECOVER_DIRTY | quote }}
@@ -188,7 +191,7 @@ spec:
           volumeMounts:
             - name: data-files
               mountPath: /data/files
-            {{- if and .Values.docreader.tls .Values.docreader.tls.enabled .Values.docreader.tls.secretName }}
+            {{- if and .Values.docreader.tls .Values.docreader.tls.enabled .Values.docreader.tls.caProvided }}
             - name: docreader-tls
               mountPath: /etc/docreader-tls
               readOnly: true
@@ -215,10 +218,14 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
-        {{- if and .Values.docreader.tls .Values.docreader.tls.enabled .Values.docreader.tls.secretName }}
+        {{- if and .Values.docreader.tls .Values.docreader.tls.enabled .Values.docreader.tls.caProvided }}
+        {{- $caKey := include "genyee.docreader.tlsCAKey" . }}
         - name: docreader-tls
           secret:
-            secretName: {{ .Values.docreader.tls.secretName | quote }}
+            secretName: {{ include "genyee.docreader.tlsSecretName" . | quote }}
+            items:
+              - key: {{ $caKey | quote }}
+                path: {{ $caKey | quote }}
         {{- end }}
         {{- with .Values.app.extraVolumes }}
         # Additional volumes

@@ -5,6 +5,12 @@ SPDX-License-Identifier: MIT
 GENYEE Document Reader (gRPC) Deployment and Service.
 */}}
 {{- if .Values.docreader.enabled }}
+{{- $docreaderPort := int (.Values.docreader.service.port | default 50051) }}
+{{- $tlsEnabled := and .Values.docreader.tls .Values.docreader.tls.enabled }}
+{{- $tlsSecretName := "" }}
+{{- if $tlsEnabled }}
+{{- $tlsSecretName = include "genyee.docreader.tlsSecretName" . }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -42,7 +48,7 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           ports:
-            - containerPort: 50051
+            - containerPort: {{ $docreaderPort }}
               name: grpc
               protocol: TCP
           env:
@@ -50,12 +56,14 @@ spec:
               value: {{ .Values.docreader.env.STORAGE_TYPE | quote }}
             - name: MAX_FILE_SIZE_MB
               value: {{ .Values.global.maxFileSizeMB | quote }}
+            - name: DOCREADER_GRPC_PORT
+              value: {{ $docreaderPort | quote }}
             - name: GRPC_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ include "genyee.secretName" . }}
                   key: GRPC_AUTH_TOKEN
-            {{- if and .Values.docreader.tls .Values.docreader.tls.enabled }}
+            {{- if $tlsEnabled }}
             - name: GRPC_TLS_ENABLED
               value: "true"
             - name: GRPC_TLS_CERT
@@ -63,7 +71,7 @@ spec:
             - name: GRPC_TLS_KEY
               value: "/etc/docreader-tls/tls.key"
             {{- end }}
-          {{- if and .Values.docreader.tls .Values.docreader.tls.enabled .Values.docreader.tls.secretName }}
+          {{- if $tlsEnabled }}
           volumeMounts:
             - name: docreader-tls
               mountPath: /etc/docreader-tls
@@ -76,7 +84,16 @@ spec:
             exec:
               command:
                 - grpc_health_probe
-                - -addr=localhost:50051
+                - {{ printf "-addr=localhost:%d" $docreaderPort | quote }}
+                {{- if $tlsEnabled }}
+                - -tls
+                {{- if .Values.docreader.tls.caProvided }}
+                - {{ printf "-tls-ca-cert=/etc/docreader-tls/%s" (include "genyee.docreader.tlsCAKey" .) | quote }}
+                {{- end }}
+                {{- if .Values.docreader.tls.serverName }}
+                - {{ printf "-tls-server-name=%s" .Values.docreader.tls.serverName | quote }}
+                {{- end }}
+                {{- end }}
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -85,16 +102,25 @@ spec:
             exec:
               command:
                 - grpc_health_probe
-                - -addr=localhost:50051
+                - {{ printf "-addr=localhost:%d" $docreaderPort | quote }}
+                {{- if $tlsEnabled }}
+                - -tls
+                {{- if .Values.docreader.tls.caProvided }}
+                - {{ printf "-tls-ca-cert=/etc/docreader-tls/%s" (include "genyee.docreader.tlsCAKey" .) | quote }}
+                {{- end }}
+                {{- if .Values.docreader.tls.serverName }}
+                - {{ printf "-tls-server-name=%s" .Values.docreader.tls.serverName | quote }}
+                {{- end }}
+                {{- end }}
             initialDelaySeconds: 10
             periodSeconds: 5
             timeoutSeconds: 3
             failureThreshold: 3
-      {{- if and .Values.docreader.tls .Values.docreader.tls.enabled .Values.docreader.tls.secretName }}
+      {{- if $tlsEnabled }}
       volumes:
         - name: docreader-tls
           secret:
-            secretName: {{ .Values.docreader.tls.secretName | quote }}
+            secretName: {{ $tlsSecretName | quote }}
       {{- end }}
       {{- with .Values.docreader.nodeSelector }}
       nodeSelector:

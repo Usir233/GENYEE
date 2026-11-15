@@ -317,8 +317,14 @@ docreader:
   tls:
     # -- Enable gRPC TLS on docreader and app client
     enabled: false
-    # -- Kubernetes TLS Secret containing tls.crt, tls.key, and optional ca.crt
+    # -- Kubernetes TLS Secret containing tls.crt and tls.key (required when tls.enabled=true)
     secretName: ""
+    # -- Set true when secretName also includes a custom/private CA certificate (e.g. ca.crt)
+    # so app injects GRPC_TLS_CA and docreader health probes pass -tls-ca-cert. Leave false for
+    # standard kubernetes.io/tls Secrets signed by a public/system CA without ca.crt.
+    caProvided: false
+    # -- Secret key name for the CA certificate inside secretName when caProvided=true
+    caKey: "ca.crt"
     # -- Optional TLS server name override for certificate verification
     serverName: ""
 

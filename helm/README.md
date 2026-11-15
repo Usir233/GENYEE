@@ -327,6 +327,12 @@ pre-existing Service name does not automatically transfer its ownership to Helm.
 | `docreader.replicaCount` | Number of replicas | `1` |
 | `docreader.image.repository` | Image repository | `genyee/genyee-docreader` |
 | `docreader.image.tag` | Image tag | `""` (uses appVersion) |
+| `docreader.service.port` | gRPC Service, container, and health probe port | `50051` |
+| `docreader.tls.enabled` | Enable gRPC TLS on DocReader and App client | `false` |
+| `docreader.tls.secretName` | Kubernetes TLS Secret name (`tls.crt` + `tls.key`; required when `tls.enabled=true`) | `""` |
+| `docreader.tls.caProvided` | Whether `secretName` includes a custom CA certificate (`GRPC_TLS_CA` / `-tls-ca-cert`) | `false` |
+| `docreader.tls.caKey` | CA certificate key inside `secretName` when `caProvided=true` | `"ca.crt"` |
+| `docreader.tls.serverName` | Optional TLS server name override for certificate verification | `""` |
 
 ### PostgreSQL (ParadeDB)
 

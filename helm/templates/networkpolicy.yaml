@@ -28,7 +28,7 @@ spec:
               {{- include "genyee.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
       ports:
         - protocol: TCP
-          port: 50051
+          port: {{ int (.Values.docreader.service.port | default 50051) }}
 ---
 {{- end }}
 {{- if .Values.postgresql.enabled }}

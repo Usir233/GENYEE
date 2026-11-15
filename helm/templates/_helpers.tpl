@@ -230,3 +230,31 @@ securityContext:
 {{- toYaml . | nindent 2 }}
 {{- end }}
 {{- end }}
+
+{{/*
+Validate and return docreader.tls.secretName when TLS is enabled.
+*/}}
+{{- define "genyee.docreader.tlsSecretName" -}}
+{{- $secretName := "" -}}
+{{- if and .Values.docreader.tls .Values.docreader.tls.secretName -}}
+{{- $secretName = trim (toString .Values.docreader.tls.secretName) -}}
+{{- end -}}
+{{- required "docreader.tls.secretName is required when docreader.tls.enabled is true" $secretName -}}
+{{- end }}
+
+{{/*
+Validate and return the CA certificate key inside docreader.tls.secretName.
+*/}}
+{{- define "genyee.docreader.tlsCAKey" -}}
+{{- $caKey := "ca.crt" -}}
+{{- if and .Values.docreader.tls .Values.docreader.tls.caKey -}}
+{{- $trimmed := trim (toString .Values.docreader.tls.caKey) -}}
+{{- if $trimmed -}}
+{{- $caKey = $trimmed -}}
+{{- end -}}
+{{- end -}}
+{{- if or (contains "/" $caKey) (eq $caKey ".") (eq $caKey "..") -}}
+{{- fail "docreader.tls.caKey must be a valid Secret key name without path separators" -}}
+{{- end -}}
+{{- $caKey -}}
+{{- end }}
