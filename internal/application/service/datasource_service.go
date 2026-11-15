@@ -66,6 +66,22 @@ func NewDataSourceService(
 	}
 }
 
+func (s *DataSourceService) w3aAuthorizeDataSourceCtx(
+	ctx context.Context, tenantID uint64, kbID string, required types.OrgMemberRole,
+) error {
+	if kbID != "" {
+		if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kbID); err != nil {
+			return err
+		}
+	}
+	if callerTenant, ok := types.TenantIDFromContext(ctx); ok && callerTenant != 0 && tenantID != 0 && callerTenant != tenantID {
+		if !access.HasKBGrant(ctx, kbID, tenantID, required) {
+			return werrors.NewForbiddenError("forbidden")
+		}
+	}
+	return nil
+}
+
 // CreateDataSource creates a new data source configuration
 func (s *DataSourceService) CreateDataSource(ctx context.Context, ds *types.DataSource) (*types.DataSource, error) {
 	if ds == nil {
@@ -82,6 +98,9 @@ func (s *DataSourceService) CreateDataSource(ctx context.Context, ds *types.Data
 	}
 	if kb.TenantID != ds.TenantID {
 		return nil, datasource.ErrKnowledgeBaseNotFound
+	}
+	if err := s.w3aAuthorizeDataSourceCtx(ctx, kb.TenantID, kb.ID, types.OrgRoleEditor); err != nil {
+		return nil, err
 	}
 
 	// Validate connector type
@@ -108,7 +127,7 @@ func (s *DataSourceService) CreateDataSource(ctx context.Context, ds *types.Data
 	}
 
 	// Register cron schedule if configured
-	if ds.SyncSchedule != "" && ds.Status == types.DataSourceStatusActive {
+	if ds.SyncSchedule != "" && ds.Status == types.DataSourceStatusActive && s.scheduler != nil {
 		if err := s.scheduler.AddOrUpdate(ds); err != nil {
 			logger.Warnf(ctx, "failed to register cron for ds=%s: %v", ds.ID, err)
 		}
@@ -132,6 +151,18 @@ func (s *DataSourceService) GetDataSource(ctx context.Context, id string) (*type
 
 // ListDataSources lists all data sources for a knowledge base
 func (s *DataSourceService) ListDataSources(ctx context.Context, kbID string) ([]*types.DataSource, error) {
+	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kbID); err != nil {
+		return nil, err
+	}
+	if callerTenant, ok := types.TenantIDFromContext(ctx); ok && callerTenant != 0 && s.kbService != nil {
+		kb, kbErr := s.kbService.GetKnowledgeBaseByID(ctx, kbID)
+		if kbErr != nil || kb == nil {
+			return nil, datasource.ErrKnowledgeBaseNotFound
+		}
+		if err := s.w3aAuthorizeDataSourceCtx(ctx, kb.TenantID, kb.ID, types.OrgRoleViewer); err != nil {
+			return nil, err
+		}
+	}
 	dataSources, err := s.dsRepo.FindByKnowledgeBase(ctx, kbID)
 	if err != nil {
 		logger.Errorf(ctx, "failed to list data sources: %v", err)
@@ -174,6 +205,9 @@ func (s *DataSourceService) updateDataSource(
 	// Verify data source exists
 	existing, err := s.dsRepo.FindByID(ctx, ds.ID)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.w3aAuthorizeDataSourceCtx(ctx, existing.TenantID, existing.KnowledgeBaseID, types.OrgRoleEditor); err != nil {
 		return nil, err
 	}
 
@@ -258,8 +292,10 @@ func (s *DataSourceService) updateDataSource(
 	}
 
 	// Update cron schedule
-	if err := s.scheduler.AddOrUpdate(ds); err != nil {
-		logger.Warnf(ctx, "failed to update cron for ds=%s: %v", ds.ID, err)
+	if s.scheduler != nil {
+		if err := s.scheduler.AddOrUpdate(ds); err != nil {
+			logger.Warnf(ctx, "failed to update cron for ds=%s: %v", ds.ID, err)
+		}
 	}
 
 	logger.Infof(ctx, "data source updated: id=%s", ds.ID)
@@ -282,6 +318,9 @@ func (s *DataSourceService) UpdateDataSourceCredentials(
 	}
 	existing, err := s.dsRepo.FindByID(ctx, id)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.w3aAuthorizeDataSourceCtx(ctx, existing.TenantID, existing.KnowledgeBaseID, types.OrgRoleEditor); err != nil {
 		return nil, err
 	}
 	parsed, err := existing.ParseConfig()
@@ -325,6 +364,9 @@ func (s *DataSourceService) ClearDataSourceCredentials(ctx context.Context, id s
 	if err != nil {
 		return err
 	}
+	if err := s.w3aAuthorizeDataSourceCtx(ctx, existing.TenantID, existing.KnowledgeBaseID, types.OrgRoleEditor); err != nil {
+		return err
+	}
 	parsed, err := existing.ParseConfig()
 	if err != nil {
 		return err
@@ -364,6 +406,9 @@ func (s *DataSourceService) DeleteDataSource(ctx context.Context, id string) err
 	if err != nil {
 		return err
 	}
+	if err := s.w3aAuthorizeDataSourceCtx(ctx, existing.TenantID, existing.KnowledgeBaseID, types.OrgRoleEditor); err != nil {
+		return err
+	}
 
 	if err := s.dsRepo.Delete(ctx, id); err != nil {
 		logger.Errorf(ctx, "failed to delete data source: %v", err)
@@ -371,7 +416,9 @@ func (s *DataSourceService) DeleteDataSource(ctx context.Context, id string) err
 	}
 
 	// Remove cron schedule
-	s.scheduler.Remove(id)
+	if s.scheduler != nil {
+		s.scheduler.Remove(id)
+	}
 
 	// Cancel any pending/running sync logs so queued asynq tasks won't retry
 	if err := s.syncLogRepo.CancelPendingByDataSource(ctx, id); err != nil {
@@ -389,6 +436,9 @@ func (s *DataSourceService) DeleteDataSource(ctx context.Context, id string) err
 func (s *DataSourceService) ValidateConnection(ctx context.Context, dsID string) error {
 	ds, err := s.GetDataSource(ctx, dsID)
 	if err != nil {
+		return err
+	}
+	if err := s.w3aAuthorizeDataSourceCtx(ctx, ds.TenantID, ds.KnowledgeBaseID, types.OrgRoleEditor); err != nil {
 		return err
 	}
 
@@ -433,6 +483,9 @@ func (s *DataSourceService) ListAvailableResources(
 	if err != nil {
 		return nil, err
 	}
+	if err := s.w3aAuthorizeDataSourceCtx(ctx, ds.TenantID, ds.KnowledgeBaseID, types.OrgRoleEditor); err != nil {
+		return nil, err
+	}
 
 	// Get connector
 	connector, err := s.connectorRegistry.Get(ds.Type)
@@ -469,6 +522,9 @@ func (s *DataSourceService) ResolveResourceAncestors(
 	if err != nil {
 		return nil, err
 	}
+	if err := s.w3aAuthorizeDataSourceCtx(ctx, ds.TenantID, ds.KnowledgeBaseID, types.OrgRoleEditor); err != nil {
+		return nil, err
+	}
 
 	connector, err := s.connectorRegistry.Get(ds.Type)
 	if err != nil {
@@ -493,6 +549,9 @@ func (s *DataSourceService) ResolveResourceAncestors(
 func (s *DataSourceService) ManualSync(ctx context.Context, dsID string) (*types.SyncLog, error) {
 	ds, err := s.GetDataSource(ctx, dsID)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.w3aAuthorizeDataSourceCtx(ctx, ds.TenantID, ds.KnowledgeBaseID, types.OrgRoleEditor); err != nil {
 		return nil, err
 	}
 
@@ -564,6 +623,9 @@ func (s *DataSourceService) PauseDataSource(ctx context.Context, id string) erro
 	if err != nil {
 		return err
 	}
+	if err := s.w3aAuthorizeDataSourceCtx(ctx, ds.TenantID, ds.KnowledgeBaseID, types.OrgRoleEditor); err != nil {
+		return err
+	}
 
 	ds.Status = types.DataSourceStatusPaused
 	if err := s.dsRepo.Update(ctx, ds); err != nil {
@@ -572,7 +634,9 @@ func (s *DataSourceService) PauseDataSource(ctx context.Context, id string) erro
 	}
 
 	// Remove cron schedule
-	s.scheduler.Remove(id)
+	if s.scheduler != nil {
+		s.scheduler.Remove(id)
+	}
 
 	logger.Infof(ctx, "data source paused: id=%s", id)
 	recordKBActivity(ctx, s.audit, ds.TenantID, ds.KnowledgeBaseID, types.AuditActionDataSourcePaused,
@@ -586,6 +650,9 @@ func (s *DataSourceService) ResumeDataSource(ctx context.Context, id string) err
 	if err != nil {
 		return err
 	}
+	if err := s.w3aAuthorizeDataSourceCtx(ctx, ds.TenantID, ds.KnowledgeBaseID, types.OrgRoleEditor); err != nil {
+		return err
+	}
 	if err := datasource.ValidateSyncSchedule(ds.SyncSchedule); err != nil {
 		return err
 	}
@@ -597,8 +664,10 @@ func (s *DataSourceService) ResumeDataSource(ctx context.Context, id string) err
 	}
 
 	// Re-register cron schedule
-	if err := s.scheduler.AddOrUpdate(ds); err != nil {
-		logger.Warnf(ctx, "failed to re-register cron for ds=%s: %v", ds.ID, err)
+	if s.scheduler != nil {
+		if err := s.scheduler.AddOrUpdate(ds); err != nil {
+			logger.Warnf(ctx, "failed to re-register cron for ds=%s: %v", ds.ID, err)
+		}
 	}
 
 	logger.Infof(ctx, "data source resumed: id=%s", id)
@@ -609,6 +678,17 @@ func (s *DataSourceService) ResumeDataSource(ctx context.Context, id string) err
 
 // GetSyncLogs retrieves sync history for a data source
 func (s *DataSourceService) GetSyncLogs(ctx context.Context, dsID string, limit int, offset int) ([]*types.SyncLog, error) {
+	if _, hasTenant := types.TenantIDFromContext(ctx); hasTenant || func() bool { _, ok := types.TenantAPIKeyScopeFromContext(ctx); return ok }() {
+		if s.dsRepo != nil {
+			ds, err := s.dsRepo.FindByID(ctx, dsID)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.w3aAuthorizeDataSourceCtx(ctx, ds.TenantID, ds.KnowledgeBaseID, types.OrgRoleViewer); err != nil {
+				return nil, err
+			}
+		}
+	}
 	logs, err := s.syncLogRepo.FindByDataSource(ctx, dsID, limit, offset)
 	if err != nil {
 		logger.Errorf(ctx, "failed to get sync logs: %v", err)
@@ -622,6 +702,17 @@ func (s *DataSourceService) GetSyncLog(ctx context.Context, syncLogID string) (*
 	log, err := s.syncLogRepo.FindByID(ctx, syncLogID)
 	if err != nil {
 		return nil, err
+	}
+	if _, hasTenant := types.TenantIDFromContext(ctx); hasTenant || func() bool { _, ok := types.TenantAPIKeyScopeFromContext(ctx); return ok }() {
+		var kbID string
+		if s.dsRepo != nil && log.DataSourceID != "" {
+			if ds, dsErr := s.dsRepo.FindByID(ctx, log.DataSourceID); dsErr == nil && ds != nil {
+				kbID = ds.KnowledgeBaseID
+			}
+		}
+		if err := s.w3aAuthorizeDataSourceCtx(ctx, log.TenantID, kbID, types.OrgRoleViewer); err != nil {
+			return nil, err
+		}
 	}
 	return log, nil
 }
@@ -654,6 +745,9 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) e
 	if err != nil {
 		return fmt.Errorf("read sync log: %w", err)
 	}
+	if syncLog.DataSourceID != "" && syncLog.DataSourceID != payload.DataSourceID {
+		return fmt.Errorf("%w: sync log %s does not belong to data source %s", asynq.SkipRetry, payload.SyncLogID, payload.DataSourceID)
+	}
 	if sourceMissing {
 		logger.Warnf(ctx, "data source not found, cancelling sync: ds=%s", payload.DataSourceID)
 		syncLog.Status = types.SyncLogStatusCanceled
@@ -661,6 +755,27 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) e
 		syncLog.ErrorMessage = "data source has been deleted"
 		_ = s.syncLogRepo.Update(ctx, syncLog)
 		return nil
+	}
+	if (payload.TenantID != 0 && ds.TenantID != 0 && ds.TenantID != payload.TenantID) ||
+		(syncLog.TenantID != 0 && ds.TenantID != 0 && syncLog.TenantID != ds.TenantID) {
+		return fmt.Errorf("%w: data source tenant mismatch", asynq.SkipRetry)
+	}
+	if s.tenantRepo != nil && ds.TenantID != 0 {
+		tenant, tErr := s.tenantRepo.GetTenantByID(ctx, ds.TenantID)
+		if errors.Is(tErr, apprepo.ErrTenantNotFound) || (tErr == nil && (tenant == nil || w3aIsWorkspaceInactiveStatus(tenant.Status))) {
+			logger.Warnf(ctx, "workspace unavailable, cancelling sync: tenant=%d ds=%s", ds.TenantID, ds.ID)
+			if s.scheduler != nil {
+				s.scheduler.Remove(ds.ID)
+			}
+			syncLog.Status = types.SyncLogStatusCanceled
+			syncLog.FinishedAt = timePtr(time.Now().UTC())
+			syncLog.ErrorMessage = "workspace is inactive or deleted"
+			_ = s.syncLogRepo.Update(ctx, syncLog)
+			return nil
+		}
+		if tErr != nil {
+			return fmt.Errorf("read tenant for sync: %w", tErr)
+		}
 	}
 
 	kb, kbErr := s.kbService.GetKnowledgeBaseByID(ctx, ds.KnowledgeBaseID)

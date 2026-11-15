@@ -48,7 +48,7 @@ func (s *knowledgeService) ListFAQEntries(ctx context.Context,
 
 	if len(tagUUIDs) == 0 && legacyTagSeqID > 0 {
 		tag, err := s.tagRepo.GetBySeqID(ctx, effectiveTenantID, legacyTagSeqID)
-		if err != nil {
+		if err != nil || validateFAQTagScope(tag, effectiveTenantID, kb.ID) != nil {
 			return nil, werrors.NewNotFoundError("标签不存在")
 		}
 		tagUUIDs = []string{tag.ID}
@@ -264,13 +264,19 @@ func (s *knowledgeService) GetFAQEntry(ctx context.Context,
 		return nil, werrors.NewBadRequestError("条目ID不能为空")
 	}
 
+	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kbID); err != nil {
+		return nil, err
+	}
 	kb, err := s.validateFAQKnowledgeBase(ctx, kbID)
 	if err != nil {
 		return nil, err
 	}
 	kb.EnsureDefaults()
 
-	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
+	tenantID, err := resolveKBReadTenant(ctx, kb, s.kbShareService)
+	if err != nil {
+		return nil, err
+	}
 
 	// 获取chunk by seq_id
 	chunk, err := s.chunkRepo.GetChunkBySeqID(ctx, tenantID, entrySeqID)
@@ -379,6 +385,9 @@ func (s *knowledgeService) UpdateFAQEntry(ctx context.Context,
 		tag, tagErr := s.tagRepo.GetBySeqID(ctx, tenantID, payload.TagID)
 		if tagErr != nil {
 			return nil, werrors.NewNotFoundError("标签不存在")
+		}
+		if err := validateFAQTagScope(tag, tenantID, kb.ID); err != nil {
+			return nil, err
 		}
 		chunk.TagID = tag.ID
 	} else {
@@ -907,8 +916,18 @@ func (s *knowledgeService) UpdateFAQEntryTagBatch(ctx context.Context, kbID stri
 func (s *knowledgeService) SearchFAQEntries(ctx context.Context,
 	kbID string, req *types.FAQSearchRequest,
 ) ([]*types.FAQEntry, error) {
+	if req == nil {
+		return nil, werrors.NewBadRequestError("请求体不能为空")
+	}
+	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kbID); err != nil {
+		return nil, err
+	}
 	// Validate FAQ knowledge base
 	kb, err := s.validateFAQKnowledgeBase(ctx, kbID)
+	if err != nil {
+		return nil, err
+	}
+	tenantID, err := resolveKBReadTenant(ctx, kb, s.kbShareService)
 	if err != nil {
 		return nil, err
 	}
@@ -924,9 +943,7 @@ func (s *knowledgeService) SearchFAQEntries(ctx context.Context,
 		req.MatchCount = 50
 	}
 
-	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
-
-	// Convert tag seq_ids to UUIDs
+	// Convert tag seq_ids to UUIDs (strictly scoped to this KB)
 	var firstPriorityTagUUIDs, secondPriorityTagUUIDs []string
 	firstPrioritySeqIDSet := make(map[int64]struct{})
 	secondPrioritySeqIDSet := make(map[int64]struct{})
@@ -936,6 +953,9 @@ func (s *knowledgeService) SearchFAQEntries(ctx context.Context,
 		if err == nil {
 			firstPriorityTagUUIDs = make([]string, 0, len(tags))
 			for _, tag := range tags {
+				if validateFAQTagScope(tag, tenantID, kb.ID) != nil {
+					continue
+				}
 				firstPriorityTagUUIDs = append(firstPriorityTagUUIDs, tag.ID)
 				firstPrioritySeqIDSet[tag.SeqID] = struct{}{}
 			}
@@ -946,6 +966,9 @@ func (s *knowledgeService) SearchFAQEntries(ctx context.Context,
 		if err == nil {
 			secondPriorityTagUUIDs = make([]string, 0, len(tags))
 			for _, tag := range tags {
+				if validateFAQTagScope(tag, tenantID, kb.ID) != nil {
+					continue
+				}
 				secondPriorityTagUUIDs = append(secondPriorityTagUUIDs, tag.ID)
 				secondPrioritySeqIDSet[tag.SeqID] = struct{}{}
 			}
@@ -1043,6 +1066,7 @@ func (s *knowledgeService) SearchFAQEntries(ctx context.Context,
 			VectorThreshold:      req.VectorThreshold,
 			MatchCount:           req.MatchCount,
 			DisableKeywordsMatch: true,
+			OnlyRecommended:      req.OnlyRecommended,
 		}
 		var err error
 		searchResults, err = s.kbService.HybridSearch(ctx, kbID, searchParams)
@@ -1302,12 +1326,18 @@ func (s *knowledgeService) DeleteFAQEntries(ctx context.Context,
 // 机器人回答(必填-多个用##分隔), 是否全部回复(选填-默认FALSE), 是否停用(选填-默认FALSE),
 // 是否禁止被推荐(选填-默认False 可被推荐)
 func (s *knowledgeService) ExportFAQEntries(ctx context.Context, kbID string) ([]byte, error) {
+	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kbID); err != nil {
+		return nil, err
+	}
 	kb, err := s.validateFAQKnowledgeBase(ctx, kbID)
 	if err != nil {
 		return nil, err
 	}
 
-	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
+	tenantID, err := resolveKBReadTenant(ctx, kb, s.kbShareService)
+	if err != nil {
+		return nil, err
+	}
 	faqKnowledge, err := s.findFAQKnowledge(ctx, tenantID, kb.ID)
 	if err != nil {
 		return nil, err
@@ -1335,12 +1365,18 @@ func (s *knowledgeService) ExportFAQEntries(ctx context.Context, kbID string) ([
 // ExportFAQEntriesJSON 以 JSON 数组形式导出 FAQ 知识库下的全部条目，
 // 字段与 FAQEntryPayload 兼容，便于"导出 → 编辑 → 重新 append 导入"循环。
 func (s *knowledgeService) ExportFAQEntriesJSON(ctx context.Context, kbID string) ([]byte, error) {
+	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kbID); err != nil {
+		return nil, err
+	}
 	kb, err := s.validateFAQKnowledgeBase(ctx, kbID)
 	if err != nil {
 		return nil, err
 	}
 
-	tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
+	tenantID, err := resolveKBReadTenant(ctx, kb, s.kbShareService)
+	if err != nil {
+		return nil, err
+	}
 	faqKnowledge, err := s.findFAQKnowledge(ctx, tenantID, kb.ID)
 	if err != nil {
 		return nil, err

@@ -801,25 +801,38 @@ func (s *DataTableSummaryService) indexToVectorDB(
 // 思路：删除已创建的chunk和对应的向量索引，避免脏数据残留
 func (s *DataTableSummaryService) cleanupOnFailure(ctx context.Context, resources *extractionResources, chunks []*types.Chunk, indexErr error) {
 	logger.Warnf(ctx, "Starting cleanup due to failure: %v", indexErr)
-
-	// 1. 更新知识状态为失败
-	before, after := *resources.knowledge, *resources.knowledge
-	after.ParseStatus = types.ParseStatusFailed
-	after.ErrorMessage = indexErr.Error()
-	if err := s.knowledgeService.GetRepository().UpdateKnowledgeForTransfer(ctx, &before, &after); err != nil {
-		logger.Warnf(ctx, "Table summary cleanup skipped after knowledge changed: %v", err)
+	if resources == nil || resources.knowledge == nil {
 		return
+	}
+	cleanCtx := context.WithoutCancel(ctx)
+
+	// 1. 通过 CAS 校验文档未被并发迁移；仅在最后一次尝试失败时写入 ParseStatusFailed，重试阶段保持原处理状态。
+	if s.knowledgeService != nil && s.knowledgeService.GetRepository() != nil {
+		before, after := *resources.knowledge, *resources.knowledge
+		if !attemptStillHasRetry(ctx) {
+			after.ParseStatus = types.ParseStatusFailed
+		}
+		if indexErr != nil {
+			after.ErrorMessage = indexErr.Error()
+		}
+		if err := s.knowledgeService.GetRepository().UpdateKnowledgeForTransfer(cleanCtx, &before, &after); err != nil {
+			logger.Warnf(ctx, "Table summary cleanup skipped after knowledge changed: %v", err)
+			return
+		}
 	}
 
 	// 提取chunk IDs
 	chunkIDs := make([]string, 0, len(chunks))
 	for _, chunk := range chunks {
-		chunkIDs = append(chunkIDs, chunk.ID)
+		if chunk != nil && chunk.ID != "" {
+			chunkIDs = append(chunkIDs, chunk.ID)
+		}
 	}
 
 	// 删除已创建的chunks
-	if len(chunkIDs) > 0 {
-		if err := s.chunkService.GetRepository().DeleteChunks(ctx, resources.knowledge.TenantID, chunkIDs); err != nil {
+	if len(chunkIDs) > 0 && resources != nil && resources.knowledge != nil &&
+		s.chunkService != nil && s.chunkService.GetRepository() != nil {
+		if err := s.chunkService.GetRepository().DeleteChunks(cleanCtx, resources.knowledge.TenantID, chunkIDs); err != nil {
 			logger.Errorf(ctx, "Failed to delete chunks: %v", err)
 		} else {
 			logger.Infof(ctx, "Deleted %d chunks", len(chunkIDs))
@@ -827,9 +840,9 @@ func (s *DataTableSummaryService) cleanupOnFailure(ctx context.Context, resource
 	}
 
 	// 删除对应的向量索引
-	if len(chunkIDs) > 0 {
+	if len(chunkIDs) > 0 && resources != nil && resources.retrieveEngine != nil && resources.embeddingModel != nil {
 		if err := resources.retrieveEngine.DeleteBySourceIDList(
-			ctx, chunkIDs, resources.embeddingModel.GetDimensions(), types.KnowledgeBaseTypeDocument,
+			cleanCtx, chunkIDs, resources.embeddingModel.GetDimensions(), types.KnowledgeBaseTypeDocument,
 		); err != nil {
 			logger.Errorf(ctx, "Failed to delete vector index: %v", err)
 		} else {

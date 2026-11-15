@@ -128,6 +128,18 @@ func (s *kbShareService) ShareKnowledgeBase(ctx context.Context, kbID string, or
 			if err != nil {
 				return nil, err
 			}
+			if existingShare.SourceTenantID != tenantID {
+				return nil, ErrNotKBOwner
+			}
+			record := shareRecord{
+				sharedByUserID: existingShare.SharedByUserID,
+				sourceTenantID: existingShare.SourceTenantID,
+				orgID:          existingShare.OrganizationID,
+				permission:     existingShare.Permission,
+			}
+			if !canManageShare(ctx, s.orgRepo, record, permission, userID, tenantID) {
+				return nil, ErrSharePermissionDenied
+			}
 			existingShare.Permission = permission
 			existingShare.UpdatedAt = time.Now()
 			if err := s.shareRepo.Update(ctx, existingShare); err != nil {

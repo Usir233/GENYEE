@@ -511,7 +511,11 @@ func (s *ImageMultimodalService) processImage(
 	}
 
 	// Index chunks so they can be retrieved
-	s.indexChunks(ctx, *payload, newChunks, imgBytes, out)
+	if err := s.indexChunks(ctx, *payload, newChunks, imgBytes, out); err != nil {
+		out[keyOutcome] = outcomeFailed
+		handleErr = fmt.Errorf("index multimodal chunks: %w", err)
+		return handleErr
+	}
 	out[keyIndexed] = true
 	// Only an image that reached this point with no verdict of its own is a
 	// plain success: a partial failure was already recorded by the OCR clause
@@ -710,17 +714,40 @@ func isFinalAsynqAttempt(ctx context.Context) bool {
 	return ok && retried >= maxRetry
 }
 
+func (s *ImageMultimodalService) w3aRollbackMultimodalChunks(ctx context.Context, tenantID uint64, chunks []*types.Chunk) {
+	if s == nil || s.chunkService == nil || s.chunkService.GetRepository() == nil || len(chunks) == 0 {
+		return
+	}
+	ids := make([]string, 0, len(chunks))
+	for _, c := range chunks {
+		if c != nil && c.ID != "" {
+			ids = append(ids, c.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return
+	}
+	if err := s.chunkService.GetRepository().DeleteChunks(context.WithoutCancel(ctx), tenantID, ids); err != nil {
+		logger.Warnf(ctx, "[ImageMultimodal] Failed to roll back %d unindexed multimodal chunks: %v", len(ids), err)
+	}
+}
+
 // indexChunks indexes the newly created multimodal chunks into the retrieval engine
 // so they can participate in semantic search, then embeds the image itself
 // when the knowledge base opted in and its embedding model takes images.
 func (s *ImageMultimodalService) indexChunks(
 	ctx context.Context, payload types.ImageMultimodalPayload, chunks []*types.Chunk,
 	img []byte, out types.JSONMap,
-) {
+) error {
 	kb, err := s.kbService.GetKnowledgeBaseByIDOnly(ctx, payload.KnowledgeBaseID)
-	if err != nil || kb == nil {
+	if err != nil {
 		logger.Warnf(ctx, "[ImageMultimodal] Failed to get KB for indexing: %v", err)
-		return
+		s.w3aRollbackMultimodalChunks(ctx, payload.TenantID, chunks)
+		return err
+	}
+	if kb == nil {
+		logger.Warnf(ctx, "[ImageMultimodal] KB %s not found for indexing; skipping vector index", payload.KnowledgeBaseID)
+		return nil
 	}
 
 	// Skip vector/keyword indexing when the KB has no embedding-based pipeline enabled
@@ -742,19 +769,27 @@ func (s *ImageMultimodalService) indexChunks(
 				logger.Warnf(ctx, "[ImageMultimodal] Failed to update chunk %s status to indexed: %v", chunk.ID, uerr)
 			}
 		}
-		return
+		return nil
+	}
+	if s.modelService == nil {
+		return nil
 	}
 
 	embeddingModel, err := s.modelService.GetEmbeddingModel(ctx, kb.EmbeddingModelID)
 	if err != nil {
 		logger.Warnf(ctx, "[ImageMultimodal] Failed to get embedding model for indexing: %v", err)
-		return
+		s.w3aRollbackMultimodalChunks(ctx, payload.TenantID, chunks)
+		return err
 	}
 
 	tenantInfo, err := s.tenantRepo.GetTenantByID(ctx, payload.TenantID)
-	if err != nil {
+	if err != nil || tenantInfo == nil {
+		if err == nil {
+			err = fmt.Errorf("tenant %d not found for multimodal indexing", payload.TenantID)
+		}
 		logger.Warnf(ctx, "[ImageMultimodal] Failed to get tenant for indexing: %v", err)
-		return
+		s.w3aRollbackMultimodalChunks(ctx, payload.TenantID, chunks)
+		return err
 	}
 	// The factory's unbound path reads TenantInfo from ctx; make sure it's there.
 	ctx = context.WithValue(ctx, types.TenantInfoContextKey, tenantInfo)
@@ -765,7 +800,8 @@ func (s *ImageMultimodalService) indexChunks(
 		ctx, s.retrieveEngine, s.ownership, payload.TenantID, kb.VectorStoreID)
 	if err != nil {
 		logger.Warnf(ctx, "[ImageMultimodal] Failed to init retrieve engine: %v", err)
-		return
+		s.w3aRollbackMultimodalChunks(ctx, payload.TenantID, chunks)
+		return err
 	}
 
 	indexInfoList := make([]*types.IndexInfo, 0, len(chunks))
@@ -786,7 +822,8 @@ func (s *ImageMultimodalService) indexChunks(
 
 	if err := engine.BatchIndex(ctx, embeddingModel, indexInfoList); err != nil {
 		logger.Errorf(ctx, "[ImageMultimodal] Failed to index multimodal chunks: %v", err)
-		return
+		s.w3aRollbackMultimodalChunks(ctx, payload.TenantID, chunks)
+		return err
 	}
 
 	// Mark chunks as indexed.
@@ -810,6 +847,7 @@ func (s *ImageMultimodalService) indexChunks(
 	if status := s.indexImageVector(ctx, kb, payload, img, chunks, embeddingModel, engine); status != "" {
 		out["image_vector"] = status
 	}
+	return nil
 }
 
 // indexImageVector embeds the image itself with a multimodal embedding model
@@ -1025,6 +1063,10 @@ func (s *ImageMultimodalService) imageReader() knowledgeImageReader {
 // a batched payload carries several images and only the first one is mirrored
 // onto the legacy single-image fields.
 func (s *ImageMultimodalService) readImageBytes(ctx context.Context, payload types.ImageMultimodalPayload) ([]byte, error) {
+	maxBytes := secutils.GetMaxFileSize()
+	if maxBytes <= 0 {
+		maxBytes = 50 << 20
+	}
 	if isStoredImageURL(payload.ImageURL) {
 		fileSvc := s.resolveFileServiceForPayload(ctx, payload)
 		if fileSvc == nil {
@@ -1035,15 +1077,25 @@ func (s *ImageMultimodalService) readImageBytes(ctx context.Context, payload typ
 			return nil, fmt.Errorf("file service get %s: %w", payload.ImageURL, err)
 		}
 		defer reader.Close()
-		data, err := io.ReadAll(reader)
+		data, err := io.ReadAll(io.LimitReader(reader, maxBytes+1))
 		if err != nil {
 			return nil, fmt.Errorf("read %s: %w", payload.ImageURL, err)
+		}
+		if int64(len(data)) > maxBytes {
+			return nil, fmt.Errorf("stored image %s exceeds maximum size (%d bytes)", payload.ImageURL, maxBytes)
 		}
 		return data, nil
 	}
 
 	if payload.ImageLocalPath != "" {
-		if data, err := os.ReadFile(payload.ImageLocalPath); err == nil {
+		if st, err := os.Stat(payload.ImageLocalPath); err != nil {
+			logger.Warnf(ctx, "[ImageMultimodal] Local file %s not available (%v), falling back to URL", payload.ImageLocalPath, err)
+		} else if st.Size() > maxBytes {
+			return nil, fmt.Errorf("local image %s exceeds maximum size (%d bytes)", payload.ImageLocalPath, maxBytes)
+		} else if data, err := os.ReadFile(payload.ImageLocalPath); err == nil {
+			if int64(len(data)) > maxBytes {
+				return nil, fmt.Errorf("local image %s exceeds maximum size (%d bytes)", payload.ImageLocalPath, maxBytes)
+			}
 			return data, nil
 		} else {
 			logger.Warnf(ctx, "[ImageMultimodal] Local file %s not available (%v), falling back to URL", payload.ImageLocalPath, err)

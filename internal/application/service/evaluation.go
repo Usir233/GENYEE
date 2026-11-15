@@ -12,7 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Usir233/GENYEE/internal/application/access"
+	"github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/config"
+	werrors "github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
@@ -166,11 +169,41 @@ func cloneEvaluationDetail(src *types.EvaluationDetail) *types.EvaluationDetail 
 	return dst
 }
 
+const w3aMaxTerminalEvaluationTasks = 500
+
+func (e *evaluationMemoryStorage) w3aPruneTerminalLocked() {
+	for {
+		terminalCount := 0
+		oldestID := ""
+		var oldestTime time.Time
+		for id, detail := range e.store {
+			if detail == nil || detail.Task == nil {
+				delete(e.store, id)
+				continue
+			}
+			st := detail.Task.Status
+			if st == types.EvaluationStatuePending || st == types.EvaluationStatueRunning {
+				continue
+			}
+			terminalCount++
+			if oldestID == "" || detail.Task.StartTime.Before(oldestTime) {
+				oldestID = id
+				oldestTime = detail.Task.StartTime
+			}
+		}
+		if terminalCount <= w3aMaxTerminalEvaluationTasks || oldestID == "" {
+			return
+		}
+		delete(e.store, oldestID)
+	}
+}
+
 func (e *evaluationMemoryStorage) register(params *types.EvaluationDetail) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	logger.Infof(context.Background(), "Registering evaluation task: %s", params.Task.ID)
 	e.store[params.Task.ID] = cloneEvaluationDetail(params)
+	e.w3aPruneTerminalLocked()
 	e.persistLocked()
 }
 
@@ -193,6 +226,7 @@ func (e *evaluationMemoryStorage) update(taskID string, fn func(params *types.Ev
 		return errors.New("task not found")
 	}
 	fn(params)
+	e.w3aPruneTerminalLocked()
 	e.persistLocked()
 	return nil
 }
@@ -201,13 +235,17 @@ func (e *EvaluationService) EvaluationResult(ctx context.Context, taskID string)
 	logger.Info(ctx, "Start getting evaluation result")
 	logger.Infof(ctx, "Task ID: %s", taskID)
 
+	tenantID, ok := types.TenantIDFromContext(ctx)
+	if !ok || tenantID == 0 {
+		return nil, werrors.NewUnauthorizedError("Unauthorized")
+	}
+
 	detail, err := e.evaluationMemoryStorage.get(taskID)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to get evaluation task: %v", err)
 		return nil, err
 	}
 
-	tenantID := types.MustTenantIDFromContext(ctx)
 	logger.Infof(
 		ctx,
 		"Checking tenant ID match, task tenant ID: %d, current tenant ID: %d",
@@ -236,7 +274,10 @@ func (e *EvaluationService) Evaluation(ctx context.Context,
 		datasetID, knowledgeBaseID, chatModelID, rerankModelID)
 
 	// Get tenant ID from context for multi-tenancy support
-	tenantID := types.MustTenantIDFromContext(ctx)
+	tenantID, ok := types.TenantIDFromContext(ctx)
+	if !ok || tenantID == 0 {
+		return nil, werrors.NewUnauthorizedError("Unauthorized")
+	}
 	logger.Infof(ctx, "Tenant ID: %d", tenantID)
 
 	// Handle knowledge base creation if not provided
@@ -271,18 +312,42 @@ func (e *EvaluationService) Evaluation(ctx context.Context,
 		logger.Infof(ctx, "Created new knowledge base with ID: %s", knowledgeBaseID)
 	} else {
 		logger.Infof(ctx, "Using existing knowledge base ID: %s", knowledgeBaseID)
+		if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, knowledgeBaseID); err != nil {
+			return nil, err
+		}
 		// Create evaluation-specific knowledge base based on existing one
 		kb, err := e.knowledgeBaseService.GetKnowledgeBaseByID(ctx, knowledgeBaseID)
 		if err != nil {
 			logger.Errorf(ctx, "Failed to get knowledge base: %v", err)
 			return nil, err
 		}
+		if kb == nil || (kb.TenantID != 0 && kb.TenantID != tenantID && !access.HasKBGrant(ctx, kb.ID, kb.TenantID, types.OrgRoleViewer)) {
+			return nil, repository.ErrKnowledgeBaseNotFound
+		}
+		embeddingModelID := kb.EmbeddingModelID
+		summaryModelID := kb.SummaryModelID
+		if (embeddingModelID == "" || summaryModelID == "") && e.modelService != nil {
+			models, mErr := e.modelService.ListModels(ctx)
+			if mErr != nil {
+				return nil, mErr
+			}
+			if embeddingModelID == "" {
+				if defEmb := types.PickDefaultModel(models, types.ModelTypeEmbedding); defEmb != nil {
+					embeddingModelID = defEmb.ID
+				}
+			}
+			if summaryModelID == "" {
+				if defLLM := types.PickChatModel(models, ""); defLLM != nil {
+					summaryModelID = defLLM.ID
+				}
+			}
+		}
 
 		kb, err = e.knowledgeBaseService.CreateKnowledgeBase(ctx, &types.KnowledgeBase{
 			Name:             "evaluation",
 			Description:      "evaluation",
-			EmbeddingModelID: kb.EmbeddingModelID,
-			SummaryModelID:   kb.SummaryModelID,
+			EmbeddingModelID: embeddingModelID,
+			SummaryModelID:   summaryModelID,
 		})
 		if err != nil {
 			logger.Errorf(ctx, "Failed to create knowledge base: %v", err)

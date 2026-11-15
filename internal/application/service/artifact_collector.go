@@ -585,8 +585,12 @@ func (c *ArtifactCollector) hashStoredArtifact(ctx context.Context, art types.Me
 		return ""
 	}
 	defer file.Close()
-	data, err := io.ReadAll(file)
-	if err != nil {
+	limit := c.config.MaxFileBytes
+	if limit <= 0 {
+		limit = defaultMaxArtifactFileBytes
+	}
+	data, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil || int64(len(data)) > limit {
 		return ""
 	}
 	return artifactContentHash(data)

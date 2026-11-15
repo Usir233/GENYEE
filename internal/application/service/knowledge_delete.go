@@ -708,20 +708,32 @@ func (s *knowledgeService) cleanupKnowledgeResources(ctx context.Context, knowle
 	if err != nil {
 		return fmt.Errorf("resolve cleanup knowledge base: %w", err)
 	}
-	tenantInfo := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
+	ownerTenantID := knowledge.TenantID
+	if ownerTenantID == 0 && kb != nil {
+		ownerTenantID = kb.TenantID
+	}
+	if ownerTenantID == 0 {
+		if tenantInfo, _ := ctx.Value(types.TenantInfoContextKey).(*types.Tenant); tenantInfo != nil {
+			ownerTenantID = tenantInfo.ID
+		}
+	}
 	if knowledge.EmbeddingModelID != "" {
+		execCtx := ctx
+		if ownerTenantID != 0 {
+			execCtx = types.WithExecutionTenant(ctx, ownerTenantID)
+		}
 		retrieveEngine, err := retriever.CreateRetrieveEngineForKB(
-			ctx, s.retrieveEngine, s.ownership, tenantInfo.ID, kb.VectorStoreID)
+			execCtx, s.retrieveEngine, s.ownership, ownerTenantID, kb.VectorStoreID)
 		if err != nil {
 			logger.GetLogger(ctx).WithField("error", err).Error("Failed to init retrieve engine during cleanup")
 			cleanupErr = errors.Join(cleanupErr, err)
 		} else {
-			embeddingModel, modelErr := s.modelService.GetEmbeddingModel(ctx, knowledge.EmbeddingModelID)
+			embeddingModel, modelErr := s.modelService.GetEmbeddingModel(execCtx, knowledge.EmbeddingModelID)
 			if modelErr != nil {
 				logger.GetLogger(ctx).WithField("error", modelErr).Error("Failed to get embedding model during cleanup")
 				cleanupErr = errors.Join(cleanupErr, modelErr)
 			} else {
-				if err := retrieveEngine.DeleteByKnowledgeIDList(ctx, []string{knowledge.ID}, embeddingModel.GetDimensions(), knowledge.Type); err != nil {
+				if err := retrieveEngine.DeleteByKnowledgeIDList(execCtx, []string{knowledge.ID}, embeddingModel.GetDimensions(), knowledge.Type); err != nil {
 					logger.GetLogger(ctx).WithField("error", err).Error("Failed to delete manual knowledge index")
 					cleanupErr = errors.Join(cleanupErr, err)
 				}
@@ -731,7 +743,7 @@ func (s *knowledgeService) cleanupKnowledgeResources(ctx context.Context, knowle
 
 	// Collect image URLs before chunks are deleted
 	fileSvc := s.resolveFileService(ctx, kb)
-	chunkImageInfos, imgErr := s.chunkService.GetRepository().ListImageInfoByKnowledgeIDs(ctx, tenantInfo.ID, []string{knowledge.ID})
+	chunkImageInfos, imgErr := s.chunkService.GetRepository().ListImageInfoByKnowledgeIDs(ctx, ownerTenantID, []string{knowledge.ID})
 	if imgErr != nil {
 		logger.GetLogger(ctx).WithField("error", imgErr).Error("Failed to collect image URLs for cleanup")
 		cleanupErr = errors.Join(cleanupErr, imgErr)
@@ -767,13 +779,11 @@ func (s *knowledgeService) cleanupKnowledgeResources(ctx context.Context, knowle
 	}
 
 	if knowledge.StorageSize > 0 {
-		tenantInfo.StorageUsed -= knowledge.StorageSize
-		if tenantInfo.StorageUsed < 0 {
-			tenantInfo.StorageUsed = 0
-		}
-		if err := s.tenantRepo.AdjustStorageUsed(ctx, tenantInfo.ID, -knowledge.StorageSize); err != nil {
-			logger.GetLogger(ctx).WithField("error", err).Error("Failed to adjust storage usage during manual cleanup")
-			cleanupErr = errors.Join(cleanupErr, err)
+		if s.tenantRepo != nil && ownerTenantID != 0 {
+			if err := s.tenantRepo.AdjustStorageUsed(ctx, ownerTenantID, -knowledge.StorageSize); err != nil {
+				logger.GetLogger(ctx).WithField("error", err).Error("Failed to adjust storage usage during manual cleanup")
+				cleanupErr = errors.Join(cleanupErr, err)
+			}
 		}
 		knowledge.StorageSize = 0
 	}

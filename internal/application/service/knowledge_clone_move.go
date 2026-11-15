@@ -21,6 +21,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/tracing/langfuse"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
+	secutils "github.com/Usir233/GENYEE/internal/utils"
 	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
@@ -145,6 +146,28 @@ func cloneChunkImageInfo(
 	urlCache map[string]string,
 	catalog interfaces.ResourceCatalog,
 ) (newImageInfo string, copiedURLs []string, err error) {
+	return w3aCloneChunkImageInfoWithResolver(
+		ctx,
+		func(string) interfaces.FileService { return dstSvc },
+		dstSvc,
+		srcImageInfo,
+		tenantID,
+		knowledgeID,
+		urlCache,
+		catalog,
+	)
+}
+
+func w3aCloneChunkImageInfoWithResolver(
+	ctx context.Context,
+	resolveSrc func(string) interfaces.FileService,
+	dstSvc interfaces.FileService,
+	srcImageInfo string,
+	tenantID uint64,
+	knowledgeID string,
+	urlCache map[string]string,
+	catalog interfaces.ResourceCatalog,
+) (newImageInfo string, copiedURLs []string, err error) {
 	if srcImageInfo == "" {
 		return "", nil, nil
 	}
@@ -162,8 +185,14 @@ func cloneChunkImageInfo(
 
 		newURL, cached := urlCache[img.URL]
 		if !cached {
+			srcSvc := dstSvc
+			if resolveSrc != nil {
+				if resolved := resolveSrc(img.URL); resolved != nil {
+					srcSvc = resolved
+				}
+			}
 			newURL, err = copyOwnedObject(
-				ctx, dstSvc, dstSvc, img.URL, tenantID, knowledgeID,
+				ctx, srcSvc, dstSvc, img.URL, tenantID, knowledgeID,
 				catalog, types.ResourceRelationExtractedImage)
 			if err != nil {
 				return "", copiedURLs, fmt.Errorf("failed to copy chunk image %q: %w", img.URL, err)
@@ -513,8 +542,12 @@ func (s *knowledgeService) CloneChunk(ctx context.Context, src, dst *types.Knowl
 		// the complete old->new mapping (image objects live in independent
 		// child chunks, so a parent text chunk's ![](url) reference cannot be
 		// rewritten until its child image chunk has been processed).
-		newImageInfo, copied, copyErr := cloneChunkImageInfo(
-			ctx, dstSvc, sourceChunk.ImageInfo, dst.TenantID, dst.ID, urlCache, s.resourceCatalog)
+		newImageInfo, copied, copyErr := w3aCloneChunkImageInfoWithResolver(
+			ctx,
+			func(rawURL string) interfaces.FileService {
+				return s.resolveFileServiceForPath(ctx, sourceKB, rawURL)
+			},
+			dstSvc, sourceChunk.ImageInfo, dst.TenantID, dst.ID, urlCache, s.resourceCatalog)
 		copiedURLs = append(copiedURLs, copied...)
 		if copyErr != nil {
 			err = fmt.Errorf("clone chunk image copy failed: %w", copyErr)
@@ -1121,8 +1154,12 @@ func (s *knowledgeService) cloneFAQKnowledgeBase(
 
 			// Deep-copy extracted images into objects owned by the destination
 			// FAQ knowledge so deleting the source never breaks this clone.
-			newImageInfo, copied, copyErr := cloneChunkImageInfo(
-				ctx, dstSvc, srcChunk.ImageInfo, dstKB.TenantID, dstKnowledge.ID, imageURLCache, s.resourceCatalog)
+			newImageInfo, copied, copyErr := w3aCloneChunkImageInfoWithResolver(
+				ctx,
+				func(rawURL string) interfaces.FileService {
+					return s.resolveFileServiceForPath(ctx, srcKB, rawURL)
+				},
+				dstSvc, srcChunk.ImageInfo, dstKB.TenantID, dstKnowledge.ID, imageURLCache, s.resourceCatalog)
 			copiedImageURLs = append(copiedImageURLs, copied...)
 			if copyErr != nil {
 				logger.Errorf(ctx, "Failed to copy FAQ chunk images: %v", copyErr)
@@ -1276,8 +1313,48 @@ func (s *knowledgeService) getOrCreateFAQKnowledge(ctx context.Context, kb *type
 	return knowledge, nil
 }
 
-// saveKBCloneProgress saves the KB clone progress to Redis
+func (s *knowledgeService) w3aAuthorizeTaskProgress(ctx context.Context, taskID, kbID string) error {
+	if kbID != "" {
+		if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, kbID); err != nil {
+			return err
+		}
+	}
+	callerTenant, hasTenant := types.TenantIDFromContext(ctx)
+	if !hasTenant || callerTenant == 0 {
+		return nil
+	}
+	caller := types.CallerFromContext(ctx)
+	if parsedTenant, tErr := secutils.TaskTenantID(taskID); tErr == nil && parsedTenant != 0 {
+		if parsedTenant == callerTenant || (caller.TenantID != 0 && parsedTenant == caller.TenantID) {
+			return nil
+		}
+		if kbID != "" && access.HasKBGrant(ctx, kbID, parsedTenant, types.OrgRoleViewer) {
+			return nil
+		}
+		return werrors.NewNotFoundError("task not found")
+	}
+	if kbID != "" && s.kbService != nil {
+		if kb, kbErr := s.kbService.GetKnowledgeBaseByID(ctx, kbID); kbErr == nil && kb != nil && kb.TenantID != 0 {
+			if kb.TenantID != callerTenant &&
+				(caller.TenantID == 0 || kb.TenantID != caller.TenantID) &&
+				!access.HasKBGrant(ctx, kb.ID, kb.TenantID, types.OrgRoleViewer) {
+				return werrors.NewNotFoundError("task not found")
+			}
+		}
+	}
+	return nil
+}
+
+// saveKBCloneProgress saves the KB clone progress to Redis (or in-memory fallback in Lite mode)
 func (s *knowledgeService) saveKBCloneProgress(ctx context.Context, progress *types.KBCloneProgress) error {
+	if progress == nil {
+		return nil
+	}
+	if s.redisClient == nil {
+		cp := *progress
+		s.memKBCloneProgress.Store(progress.TaskID, &cp)
+		return nil
+	}
 	key := getKBCloneProgressKey(progress.TaskID)
 	data, err := json.Marshal(progress)
 	if err != nil {
@@ -1288,6 +1365,14 @@ func (s *knowledgeService) saveKBCloneProgress(ctx context.Context, progress *ty
 
 // SaveKBCloneProgress saves the KB clone progress to Redis (public method for handler use)
 func (s *knowledgeService) SaveKBCloneProgress(ctx context.Context, progress *types.KBCloneProgress) error {
+	if progress == nil {
+		return nil
+	}
+	if s.redisClient == nil {
+		cp := *progress
+		s.memKBCloneProgress.LoadOrStore(progress.TaskID, &cp)
+		return nil
+	}
 	data, err := json.Marshal(progress)
 	if err != nil {
 		return err
@@ -1297,18 +1382,28 @@ func (s *knowledgeService) SaveKBCloneProgress(ctx context.Context, progress *ty
 
 // GetKBCloneProgress retrieves the progress of a knowledge base clone task
 func (s *knowledgeService) GetKBCloneProgress(ctx context.Context, taskID string) (*types.KBCloneProgress, error) {
-	key := getKBCloneProgressKey(taskID)
-	data, err := s.redisClient.Get(ctx, key).Bytes()
-	if err != nil {
-		if errors.Is(err, redis.Nil) {
+	var progress types.KBCloneProgress
+	if s.redisClient == nil {
+		val, ok := s.memKBCloneProgress.Load(taskID)
+		if !ok {
 			return nil, werrors.NewNotFoundError("KB clone task not found")
 		}
-		return nil, fmt.Errorf("failed to get progress from Redis: %w", err)
+		progress = *(val.(*types.KBCloneProgress))
+	} else {
+		key := getKBCloneProgressKey(taskID)
+		data, err := s.redisClient.Get(ctx, key).Bytes()
+		if err != nil {
+			if errors.Is(err, redis.Nil) {
+				return nil, werrors.NewNotFoundError("KB clone task not found")
+			}
+			return nil, fmt.Errorf("failed to get progress from Redis: %w", err)
+		}
+		if err := json.Unmarshal(data, &progress); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal progress: %w", err)
+		}
 	}
-
-	var progress types.KBCloneProgress
-	if err := json.Unmarshal(data, &progress); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal progress: %w", err)
+	if err := s.w3aAuthorizeTaskProgress(ctx, taskID, progress.SourceID); err != nil {
+		return nil, err
 	}
 	return &progress, nil
 }
@@ -1323,6 +1418,14 @@ func getKnowledgeMoveProgressKey(taskID string) string {
 }
 
 func (s *knowledgeService) saveKnowledgeMoveProgress(ctx context.Context, progress *types.KnowledgeMoveProgress) error {
+	if progress == nil {
+		return nil
+	}
+	if s.redisClient == nil {
+		cp := *progress
+		s.memKnowledgeMoveProgress.Store(progress.TaskID, &cp)
+		return nil
+	}
 	key := getKnowledgeMoveProgressKey(progress.TaskID)
 	data, err := json.Marshal(progress)
 	if err != nil {
@@ -1333,6 +1436,14 @@ func (s *knowledgeService) saveKnowledgeMoveProgress(ctx context.Context, progre
 
 // SaveKnowledgeMoveProgress saves the knowledge move progress to Redis (public method for handler use)
 func (s *knowledgeService) SaveKnowledgeMoveProgress(ctx context.Context, progress *types.KnowledgeMoveProgress) error {
+	if progress == nil {
+		return nil
+	}
+	if s.redisClient == nil {
+		cp := *progress
+		s.memKnowledgeMoveProgress.LoadOrStore(progress.TaskID, &cp)
+		return nil
+	}
 	data, err := json.Marshal(progress)
 	if err != nil {
 		return err
@@ -1342,18 +1453,28 @@ func (s *knowledgeService) SaveKnowledgeMoveProgress(ctx context.Context, progre
 
 // GetKnowledgeMoveProgress retrieves the progress of a knowledge move task
 func (s *knowledgeService) GetKnowledgeMoveProgress(ctx context.Context, taskID string) (*types.KnowledgeMoveProgress, error) {
-	key := getKnowledgeMoveProgressKey(taskID)
-	data, err := s.redisClient.Get(ctx, key).Bytes()
-	if err != nil {
-		if errors.Is(err, redis.Nil) {
+	var progress types.KnowledgeMoveProgress
+	if s.redisClient == nil {
+		val, ok := s.memKnowledgeMoveProgress.Load(taskID)
+		if !ok {
 			return nil, werrors.NewNotFoundError("Knowledge move task not found")
 		}
-		return nil, fmt.Errorf("failed to get move progress from Redis: %w", err)
+		progress = *(val.(*types.KnowledgeMoveProgress))
+	} else {
+		key := getKnowledgeMoveProgressKey(taskID)
+		data, err := s.redisClient.Get(ctx, key).Bytes()
+		if err != nil {
+			if errors.Is(err, redis.Nil) {
+				return nil, werrors.NewNotFoundError("Knowledge move task not found")
+			}
+			return nil, fmt.Errorf("failed to get move progress from Redis: %w", err)
+		}
+		if err := json.Unmarshal(data, &progress); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal move progress: %w", err)
+		}
 	}
-
-	var progress types.KnowledgeMoveProgress
-	if err := json.Unmarshal(data, &progress); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal move progress: %w", err)
+	if err := s.w3aAuthorizeTaskProgress(ctx, taskID, progress.SourceKBID); err != nil {
+		return nil, err
 	}
 	return &progress, nil
 }

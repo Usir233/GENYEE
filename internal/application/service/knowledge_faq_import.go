@@ -56,8 +56,21 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 	taskID := strings.TrimSpace(payload.TaskID)
 	if taskID == "" {
 		taskID = secutils.GenerateTaskID("faq_import", tenantID, kbID)
-	} else if err := secutils.ValidateTaskID(taskID); err != nil {
-		return "", werrors.NewBadRequestError("task_id 格式不合法")
+	} else {
+		if err := secutils.ValidateTaskID(taskID); err != nil {
+			return "", werrors.NewBadRequestError("task_id 格式不合法")
+		}
+		caller := types.CallerFromContext(ctx)
+		if parsedTenant, tErr := secutils.TaskTenantID(taskID); tErr == nil && parsedTenant != 0 {
+			if parsedTenant != tenantID && (caller.TenantID == 0 || parsedTenant != caller.TenantID) {
+				return "", werrors.NewBadRequestError("task_id 格式不合法")
+			}
+		}
+		if existingProg, pErr := s.GetFAQImportProgress(context.Background(), taskID); pErr == nil && existingProg != nil {
+			if existingProg.KBID != "" && existingProg.KBID != kbID {
+				return "", werrors.NewBadRequestError("task_id 已被其他任务占用")
+			}
+		}
 	}
 
 	var knowledgeID string
@@ -232,6 +245,11 @@ func (s *knowledgeService) UpsertFAQEntries(ctx context.Context,
 	info, err := s.task.Enqueue(task)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to enqueue FAQ import task: %v", err)
+		if taskPayload.EntriesURL != "" && s.fileSvc != nil {
+			if delErr := s.fileSvc.DeleteFile(context.WithoutCancel(ctx), taskPayload.EntriesURL); delErr != nil {
+				logger.Warnf(ctx, "Failed to clean up uploaded FAQ entries %s after enqueue error: %v", taskPayload.EntriesURL, delErr)
+			}
+		}
 		return "", fmt.Errorf("failed to enqueue task: %w", err)
 	}
 	logger.Infof(ctx, "Enqueued FAQ import task: id=%s queue=%s task_id=%s dry_run=%v", info.ID, info.Queue, taskID, payload.DryRun)
@@ -2343,6 +2361,11 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 	// 检查是否已有验证结果（用于重试时跳过验证）
 	// 注意：必须在保存新 progress 之前查询，否则会被覆盖
 	existingProgress, _ := s.GetFAQImportProgress(ctx, payload.TaskID)
+	if existingProgress != nil && existingProgress.Status == types.FAQImportStatusCompleted {
+		logger.Infof(ctx, "FAQ import task already completed, skipping duplicate delivery: task_id=%s", payload.TaskID)
+		_ = s.clearRunningFAQImportInfoIfMatches(ctx, payload.KBID, payload.TaskID, payload.InstanceID, payload.EnqueuedAt)
+		return nil
+	}
 
 	progress := &types.FAQImportProgress{
 		TaskID:         payload.TaskID,
@@ -2361,19 +2384,24 @@ func (s *knowledgeService) ProcessFAQImport(ctx context.Context, t *asynq.Task) 
 		UpdatedAt:      time.Now().Unix(),
 		DryRun:         payload.DryRun,
 	}
-	if err := s.saveFAQImportProgress(ctx, progress); err != nil {
-		logger.Warnf(ctx, "Failed to save initial FAQ import progress: %v", err)
-	}
 
 	var validEntryIndices []int
 	if existingProgress != nil && len(existingProgress.ValidEntryIndices) > 0 {
 		// 重试时直接使用之前的验证结果
 		validEntryIndices = existingProgress.ValidEntryIndices
+		progress.ValidEntryIndices = existingProgress.ValidEntryIndices
 		progress.FailedCount = existingProgress.FailedCount
+		progress.PartialFailedCount = existingProgress.PartialFailedCount
 		progress.FailedEntries = existingProgress.FailedEntries
+		if err := s.saveFAQImportProgress(ctx, progress); err != nil {
+			logger.Warnf(ctx, "Failed to save initial FAQ import progress: %v", err)
+		}
 		logger.Infof(ctx, "Reusing previous validation result: valid=%d, failed=%d",
 			len(validEntryIndices), progress.FailedCount)
 	} else {
+		if err := s.saveFAQImportProgress(ctx, progress); err != nil {
+			logger.Warnf(ctx, "Failed to save initial FAQ import progress: %v", err)
+		}
 		// 第一步：执行验证（无论是 dry run 还是 import 模式都需要验证）
 		validEntryIndices = s.executeFAQDryRunValidation(ctx, &payload, progress)
 		// 保存验证通过的索引，用于重试时跳过验证
@@ -2818,11 +2846,33 @@ func getFAQImportRunningKey(kbID string) string {
 	return faqImportRunningKeyPrefix + kbID
 }
 
+func w3aCloneFAQImportProgress(src *types.FAQImportProgress) *types.FAQImportProgress {
+	if src == nil {
+		return nil
+	}
+	cp := *src
+	if src.FailedEntries != nil {
+		cp.FailedEntries = append([]types.FAQFailedEntry(nil), src.FailedEntries...)
+	}
+	if src.SuccessEntries != nil {
+		cp.SuccessEntries = append([]types.FAQSuccessEntry(nil), src.SuccessEntries...)
+	}
+	if src.ValidEntryIndices != nil {
+		cp.ValidEntryIndices = append([]int(nil), src.ValidEntryIndices...)
+	}
+	return &cp
+}
+
 // saveFAQImportProgress saves the FAQ import progress to Redis
 func (s *knowledgeService) saveFAQImportProgress(ctx context.Context, progress *types.FAQImportProgress) error {
+	if progress == nil {
+		return nil
+	}
 	if s.redisClient == nil {
-		progress.UpdatedAt = time.Now().Unix()
-		s.memFAQProgress.Store(progress.TaskID, progress)
+		cp := w3aCloneFAQImportProgress(progress)
+		cp.UpdatedAt = time.Now().Unix()
+		progress.UpdatedAt = cp.UpdatedAt
+		s.memFAQProgress.Store(progress.TaskID, cp)
 		return nil
 	}
 	key := getFAQImportProgressKey(progress.TaskID)
@@ -2836,44 +2886,62 @@ func (s *knowledgeService) saveFAQImportProgress(ctx context.Context, progress *
 
 // GetFAQImportProgress retrieves the progress of an FAQ import task
 func (s *knowledgeService) GetFAQImportProgress(ctx context.Context, taskID string) (*types.FAQImportProgress, error) {
+	var progress types.FAQImportProgress
 	if s.redisClient == nil {
-		if v, ok := s.memFAQProgress.Load(taskID); ok {
-			return v.(*types.FAQImportProgress), nil
-		}
-		return nil, werrors.NewNotFoundError("FAQ import task not found")
-	}
-	key := getFAQImportProgressKey(taskID)
-	data, err := s.redisClient.Get(ctx, key).Bytes()
-	if err != nil {
-		if errors.Is(err, redis.Nil) {
+		v, ok := s.memFAQProgress.Load(taskID)
+		if !ok {
 			return nil, werrors.NewNotFoundError("FAQ import task not found")
 		}
-		return nil, fmt.Errorf("failed to get FAQ import progress from Redis: %w", err)
+		progress = *w3aCloneFAQImportProgress(v.(*types.FAQImportProgress))
+	} else {
+		key := getFAQImportProgressKey(taskID)
+		data, err := s.redisClient.Get(ctx, key).Bytes()
+		if err != nil {
+			if errors.Is(err, redis.Nil) {
+				return nil, werrors.NewNotFoundError("FAQ import task not found")
+			}
+			return nil, fmt.Errorf("failed to get FAQ import progress from Redis: %w", err)
+		}
+
+		if err := json.Unmarshal(data, &progress); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal FAQ import progress: %w", err)
+		}
 	}
 
-	var progress types.FAQImportProgress
-	if err := json.Unmarshal(data, &progress); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal FAQ import progress: %w", err)
+	if err := s.w3aAuthorizeTaskProgress(ctx, taskID, progress.KBID); err != nil {
+		return nil, err
 	}
 
 	// If task is completed, enrich with persisted result fields from database
-	if progress.Status == types.FAQImportStatusCompleted && progress.KnowledgeID != "" {
-		tenantID := ctx.Value(types.TenantIDContextKey).(uint64)
-		knowledge, err := s.repo.GetKnowledgeByID(ctx, tenantID, progress.KnowledgeID)
-		if err == nil && knowledge != nil {
-			if result, err := knowledge.GetLastFAQImportResult(); err == nil && result != nil {
-				progress.SuccessCount = result.SuccessCount
-				progress.FailedCount = result.FailedCount
-				progress.PartialFailedCount = result.PartialFailedCount
-				progress.SkippedCount = result.SkippedCount
-				progress.MergedCount = result.MergedCount
-				progress.AddedCount = result.AddedCount
-				progress.ImportMode = result.ImportMode
-				progress.ImportedAt = result.ImportedAt
-				progress.DisplayStatus = result.DisplayStatus
-				progress.ProcessingTime = result.ProcessingTime
-				if result.FailedEntriesURL != "" {
-					progress.FailedEntriesURL = result.FailedEntriesURL
+	if progress.Status == types.FAQImportStatusCompleted && progress.KnowledgeID != "" && s.repo != nil {
+		tenantID, _ := types.TenantIDFromContext(ctx)
+		if tenantID == 0 && progress.KBID != "" && s.kbService != nil {
+			if kb, kbErr := s.kbService.GetKnowledgeBaseByID(ctx, progress.KBID); kbErr == nil && kb != nil {
+				tenantID = kb.TenantID
+			}
+		}
+		if tenantID == 0 {
+			if parsed, tErr := secutils.TaskTenantID(taskID); tErr == nil {
+				tenantID = parsed
+			}
+		}
+		if tenantID != 0 {
+			knowledge, err := s.repo.GetKnowledgeByID(ctx, tenantID, progress.KnowledgeID)
+			if err == nil && knowledge != nil {
+				if result, err := knowledge.GetLastFAQImportResult(); err == nil && result != nil {
+					progress.SuccessCount = result.SuccessCount
+					progress.FailedCount = result.FailedCount
+					progress.PartialFailedCount = result.PartialFailedCount
+					progress.SkippedCount = result.SkippedCount
+					progress.MergedCount = result.MergedCount
+					progress.AddedCount = result.AddedCount
+					progress.ImportMode = result.ImportMode
+					progress.ImportedAt = result.ImportedAt
+					progress.DisplayStatus = result.DisplayStatus
+					progress.ProcessingTime = result.ProcessingTime
+					if result.FailedEntriesURL != "" {
+						progress.FailedEntriesURL = result.FailedEntriesURL
+					}
 				}
 			}
 		}

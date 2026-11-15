@@ -192,9 +192,25 @@ func (s *knowledgeService) getVLMConfig(ctx context.Context, kb *types.Knowledge
 	}, nil
 }
 
+func (s *knowledgeService) w3aTenantInfoForKB(ctx context.Context, kb *types.KnowledgeBase) *types.Tenant {
+	ctxTenant, _ := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
+	if kb == nil || kb.TenantID == 0 {
+		return ctxTenant
+	}
+	if ctxTenant != nil && ctxTenant.ID == kb.TenantID {
+		return ctxTenant
+	}
+	if s != nil && s.tenantRepo != nil {
+		if ownerTenant, err := s.tenantRepo.GetTenantByID(ctx, kb.TenantID); err == nil && ownerTenant != nil {
+			return ownerTenant
+		}
+	}
+	return ctxTenant
+}
+
 func (s *knowledgeService) buildStorageConfig(ctx context.Context, kb *types.KnowledgeBase) *types.DocParserStorageConfig {
 	provider := kb.GetStorageProvider()
-	tenant, _ := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
+	tenant := s.w3aTenantInfoForKB(ctx, kb)
 	backendID := ""
 	if kb.StorageBackendID != nil {
 		backendID = *kb.StorageBackendID
@@ -347,7 +363,7 @@ func (s *knowledgeService) resolveFileService(ctx context.Context, kb *types.Kno
 
 	provider := kb.GetStorageProvider()
 
-	tenant, _ := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
+	tenant := s.w3aTenantInfoForKB(ctx, kb)
 	backendID := ""
 	if kb.StorageBackendID != nil {
 		backendID = strings.TrimSpace(*kb.StorageBackendID)
@@ -408,7 +424,7 @@ func (s *knowledgeService) resolveFileServiceForPath(ctx context.Context, kb *ty
 	}
 
 	if backendID, inner, ok := types.ParseStorageBackendPath(filePath); ok && s.storageResolver != nil {
-		tenant, _ := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
+		tenant := s.w3aTenantInfoForKB(ctx, kb)
 		if tenant != nil {
 			provider := types.ParseProviderScheme(inner)
 			baseDir := strings.TrimSpace(os.Getenv("LOCAL_STORAGE_BASE_DIR"))
@@ -431,7 +447,7 @@ func (s *knowledgeService) resolveFileServiceForPath(ctx context.Context, kb *ty
 
 	configured := kb.GetStorageProvider()
 	if configured == "" {
-		tenant, _ := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
+		tenant := s.w3aTenantInfoForKB(ctx, kb)
 		if tenant != nil && tenant.StorageEngineConfig != nil {
 			configured = strings.ToLower(strings.TrimSpace(tenant.StorageEngineConfig.DefaultProvider))
 		}

@@ -73,8 +73,10 @@ type knowledgeService struct {
 	taskPendingRepo interfaces.TaskPendingOpsRepository
 
 	// In-memory fallbacks for Lite mode (no Redis)
-	memFAQProgress      sync.Map // taskID -> *types.FAQImportProgress
-	memFAQRunningImport sync.Map // kbID -> *runningFAQImportInfo
+	memFAQProgress           sync.Map // taskID -> *types.FAQImportProgress
+	memFAQRunningImport      sync.Map // kbID -> *runningFAQImportInfo
+	memKBCloneProgress       sync.Map // taskID -> *types.KBCloneProgress
+	memKnowledgeMoveProgress sync.Map // taskID -> *types.KnowledgeMoveProgress
 	wikiRepo            interfaces.WikiPageRepository
 	wikiService         interfaces.WikiPageService
 
@@ -561,7 +563,7 @@ func (s *knowledgeService) updateKnowledgeUnlessSourceReplaced(ctx context.Conte
 func (s *knowledgeService) checkStorageEngineConfigured(ctx context.Context, kb *types.KnowledgeBase) error {
 	provider := kb.GetStorageProvider()
 	if provider == "" {
-		tenant, _ := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
+		tenant := s.w3aTenantInfoForKB(ctx, kb)
 		if tenant != nil && tenant.StorageEngineConfig != nil {
 			provider = strings.ToLower(strings.TrimSpace(tenant.StorageEngineConfig.DefaultProvider))
 		}

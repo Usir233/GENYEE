@@ -581,6 +581,7 @@ func (t *spanTracker) SkipSpan(ctx context.Context, span *Span, reason string) {
 	if span == nil {
 		return
 	}
+	t.takeStart(span.SpanID)
 	now := time.Now()
 	row := &types.KnowledgeProcessingSpan{
 		KnowledgeID:  span.KnowledgeID,
@@ -828,12 +829,18 @@ func (t *spanTracker) FinalizeAttempt(ctx context.Context, knowledgeID string, a
 		}
 	}
 	if root == nil {
+		for i := range rows {
+			t.takeStart(rows[i].SpanID)
+		}
 		// No root means nothing to close — likely an attempt that
 		// predates the tracker or whose OpenAttempt write failed.
 		return
 	}
 	if root.Status == types.SpanStatusDone || root.Status == types.SpanStatusFailed ||
 		root.Status == types.SpanStatusCancelled || root.Status == types.SpanStatusSkipped {
+		for i := range rows {
+			t.takeStart(rows[i].SpanID)
+		}
 		return
 	}
 	now := time.Now()
@@ -869,6 +876,9 @@ func (t *spanTracker) FinalizeAttempt(ctx context.Context, knowledgeID string, a
 		logger.Warnf(ctx, "[SpanTracker] FinalizeAttempt upsert failed kid=%s attempt=%d: %v",
 			knowledgeID, attempt, err)
 		return
+	}
+	for i := range rows {
+		t.takeStart(rows[i].SpanID)
 	}
 	t.touchKnowledgeHeartbeat(ctx, knowledgeID, types.SpanKindRoot)
 }

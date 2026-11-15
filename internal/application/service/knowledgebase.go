@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -984,7 +985,13 @@ func (s *knowledgeBaseService) DeleteKnowledgeBase(ctx context.Context, id strin
 	logger.Infof(ctx, "Deleting knowledge base, ID: %s", id)
 
 	// Get tenant ID from context
-	tenantID := types.MustTenantIDFromContext(ctx)
+	tenantID, ok := types.TenantIDFromContext(ctx)
+	if !ok || tenantID == 0 {
+		return ErrInvalidTenantID
+	}
+	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, id); err != nil {
+		return err
+	}
 	tenantInfo, _ := types.TenantInfoFromContext(ctx)
 
 	// Load the KB before soft-delete so we can snapshot its VectorStoreID
@@ -996,6 +1003,15 @@ func (s *knowledgeBaseService) DeleteKnowledgeBase(ctx context.Context, id strin
 			"knowledge_base_id": id,
 		})
 		return err
+	}
+	if kb == nil {
+		return repository.ErrKnowledgeBaseNotFound
+	}
+	if kb.TenantID != 0 && kb.TenantID != tenantID {
+		return repository.ErrKnowledgeBaseNotFound
+	}
+	if caller := types.CallerFromContext(ctx); caller.TenantID != 0 && kb.TenantID != 0 && caller.TenantID != kb.TenantID {
+		return apperrors.NewForbiddenError("Only the owner workspace can delete this knowledge base")
 	}
 	var vectorStoreIDSnapshot *string
 	if kb != nil {
@@ -1200,18 +1216,23 @@ func (s *knowledgeBaseService) ProcessKBDelete(ctx context.Context, t *asynq.Tas
 			}
 			embeddingGroups := make(map[groupKey][]string)
 			for _, knowledge := range knowledgeList {
+				if strings.TrimSpace(knowledge.EmbeddingModelID) == "" {
+					continue
+				}
 				key := groupKey{EmbeddingModelID: knowledge.EmbeddingModelID, Type: knowledge.Type}
 				embeddingGroups[key] = append(embeddingGroups[key], knowledge.ID)
 			}
 
-			for key, knowledgeGroup := range embeddingGroups {
-				embeddingModel, err := s.modelService.GetEmbeddingModel(ctx, key.EmbeddingModelID)
-				if err != nil {
-					logger.Warnf(ctx, "Failed to get embedding model %s: %v", key.EmbeddingModelID, err)
-					continue
-				}
-				if err := retrieveEngine.DeleteByKnowledgeIDList(ctx, knowledgeGroup, embeddingModel.GetDimensions(), key.Type); err != nil {
-					logger.Warnf(ctx, "Failed to delete embeddings for model %s: %v", key.EmbeddingModelID, err)
+			if s.modelService != nil && retrieveEngine != nil {
+				for key, knowledgeGroup := range embeddingGroups {
+					embeddingModel, err := s.modelService.GetEmbeddingModel(ctx, key.EmbeddingModelID)
+					if err != nil {
+						logger.Warnf(ctx, "Failed to get embedding model %s: %v", key.EmbeddingModelID, err)
+						continue
+					}
+					if err := retrieveEngine.DeleteByKnowledgeIDList(ctx, knowledgeGroup, embeddingModel.GetDimensions(), key.Type); err != nil {
+						logger.Warnf(ctx, "Failed to delete embeddings for model %s: %v", key.EmbeddingModelID, err)
+					}
 				}
 			}
 		}
@@ -1241,14 +1262,18 @@ func (s *knowledgeBaseService) ProcessKBDelete(ctx context.Context, t *asynq.Tas
 		storageAdjust := int64(0)
 		for _, knowledge := range knowledgeList {
 			if knowledge.FilePath != "" {
-				if err := deleteKnowledgeSource(ctx, s.fileSvc, s.resourceCatalog, knowledge.ID, knowledge.FilePath); err != nil {
+				resolvedFileSvc := s.w3aResolveDeleteFileService(ctx, tenantID, knowledge.FilePath)
+				if err := deleteKnowledgeSource(ctx, resolvedFileSvc, s.resourceCatalog, knowledge.ID, knowledge.FilePath); err != nil {
 					logger.Warnf(ctx, "Failed to delete file %s: %v", knowledge.FilePath, err)
 				}
 			}
 			storageAdjust -= knowledge.StorageSize
 		}
-		deleteExtractedImages(ctx, s.fileSvc, knowledgeResourceOwners(s.resourceCatalog, knowledgeIDs...), imageURLs)
-		if storageAdjust != 0 {
+		releaser := knowledgeResourceOwners(s.resourceCatalog, knowledgeIDs...)
+		for _, imgURL := range imageURLs {
+			deleteExtractedImages(ctx, s.w3aResolveDeleteFileService(ctx, tenantID, imgURL), releaser, []string{imgURL})
+		}
+		if storageAdjust != 0 && s.tenantRepo != nil {
 			if err := s.tenantRepo.AdjustStorageUsed(ctx, tenantID, storageAdjust); err != nil {
 				logger.Warnf(ctx, "Failed to adjust tenant storage: %v", err)
 			}
@@ -1281,6 +1306,43 @@ func (s *knowledgeBaseService) ProcessKBDelete(ctx context.Context, t *asynq.Tas
 
 	logger.Infof(ctx, "KB resource cleanup finished, knowledge base ID: %s", kbID)
 	return nil
+}
+
+func (s *knowledgeBaseService) w3aResolveDeleteFileService(
+	ctx context.Context, tenantID uint64, filePath string,
+) interfaces.FileService {
+	if filePath == "" || s.storageResolver == nil {
+		return s.fileSvc
+	}
+	baseDir := strings.TrimSpace(os.Getenv("LOCAL_STORAGE_BASE_DIR"))
+	if _, ok := types.ParseResourcePath(filePath); ok && s.resourceCatalog != nil && s.tenantRepo != nil {
+		if resource, err := s.resourceCatalog.Resolve(ctx, filePath); err == nil && resource != nil {
+			if ownerTenant, tErr := s.tenantRepo.GetTenantByID(ctx, resource.TenantID); tErr == nil && ownerTenant != nil {
+				if resolved, _, rErr := s.storageResolver.ResolveFileService(
+					ctx, ownerTenant, resource.StorageBackendID, resource.Provider, baseDir,
+				); rErr == nil && resolved != nil {
+					return resolved
+				}
+			}
+		}
+	}
+	if backendID, inner, ok := types.ParseStorageBackendPath(filePath); ok {
+		tenant, _ := types.TenantInfoFromContext(ctx)
+		if (tenant == nil || (tenantID != 0 && tenant.ID != tenantID)) && s.tenantRepo != nil && tenantID != 0 {
+			if ownerTenant, tErr := s.tenantRepo.GetTenantByID(ctx, tenantID); tErr == nil && ownerTenant != nil {
+				tenant = ownerTenant
+			}
+		}
+		if tenant != nil {
+			provider := types.ParseProviderScheme(inner)
+			if resolved, _, rErr := s.storageResolver.ResolveFileService(
+				ctx, tenant, backendID, provider, baseDir,
+			); rErr == nil && resolved != nil {
+				return resolved
+			}
+		}
+	}
+	return s.fileSvc
 }
 
 // cleanupWikiForKnowledgeBase removes wiki pages, folders, revisions, and
@@ -1409,6 +1471,9 @@ func (s *knowledgeBaseService) SetEmbeddingModel(ctx context.Context, id string,
 	}
 
 	logger.Infof(ctx, "Setting embedding model for knowledge base, knowledge base ID: %s, model ID: %s", id, modelID)
+	if err := types.AuthorizeTenantAPIKeyKnowledgeBases(ctx, id); err != nil {
+		return err
+	}
 
 	// Get the knowledge base
 	kb, err := s.getKnowledgeBaseByIDDecrypted(ctx, id)
@@ -1417,6 +1482,14 @@ func (s *knowledgeBaseService) SetEmbeddingModel(ctx context.Context, id string,
 			"knowledge_base_id": id,
 		})
 		return err
+	}
+	if kb == nil {
+		return repository.ErrKnowledgeBaseNotFound
+	}
+	if tenantID, ok := types.TenantIDFromContext(ctx); ok && tenantID != 0 && kb.TenantID != 0 && kb.TenantID != tenantID {
+		if !access.HasKBGrant(ctx, kb.ID, kb.TenantID, types.OrgRoleEditor) {
+			return repository.ErrKnowledgeBaseNotFound
+		}
 	}
 
 	// Update the knowledge base's embedding model
@@ -1496,37 +1569,31 @@ func (s *knowledgeBaseService) CopyKnowledgeBase(ctx context.Context,
 		if err := access.RequireKBTransfer(ctx, sourceKB, reserved, access.KBTransferClone); err != nil {
 			return nil, nil, err
 		}
-		var faqConfig *types.FAQConfig
-		if sourceKB.FAQConfig != nil {
-			cfg := *sourceKB.FAQConfig
-			faqConfig = &cfg
+		cloned, err := cloneKnowledgeBaseConfiguration(sourceKB)
+		if err != nil {
+			return nil, nil, err
 		}
-		var profileConfig *types.KnowledgeBaseProfileConfig
-		if sourceKB.ProfileConfig != nil {
-			cfg := *sourceKB.ProfileConfig
-			profileConfig = &cfg
-		}
-		// Preserve VectorStoreID so the cloned KB lands on the same
-		// physical index. GORM `<-:create` permits the value at INSERT.
-		targetKB = &types.KnowledgeBase{
-			ID:                    destinationID,
-			CreatorID:             creatorID,
-			Name:                  sourceKB.Name,
-			Type:                  sourceKB.Type,
-			Description:           sourceKB.Description,
-			TenantID:              tenantID,
-			ChunkingConfig:        sourceKB.ChunkingConfig,
-			ImageProcessingConfig: sourceKB.ImageProcessingConfig,
-			EmbeddingModelID:      sourceKB.EmbeddingModelID,
-			SummaryModelID:        sourceKB.SummaryModelID,
-			VLMConfig:             sourceKB.VLMConfig,
-			StorageProviderConfig: sourceKB.StorageProviderConfig,
-			StorageBackendID:      sourceKB.StorageBackendID,
-			StorageConfig:         sourceKB.StorageConfig,
-			FAQConfig:             faqConfig,
-			ProfileConfig:         profileConfig,
-			VectorStoreID:         sourceKB.VectorStoreID,
-		}
+		// Preserve VectorStoreID, IndexingStrategy, WikiConfig, ExtractConfig,
+		// QuestionGenerationConfig, ASRConfig, AutoTagConfig, FAQConfig, and
+		// ProfileConfig while resetting content/runtime counters.
+		cloned.GeneratedProfile = nil
+		cloned.ID = destinationID
+		cloned.CreatorID = creatorID
+		cloned.Name = sourceKB.Name
+		cloned.Description = sourceKB.Description
+		cloned.TenantID = tenantID
+		cloned.DeletedAt.Valid = false
+		cloned.DeletedAt.Time = time.Time{}
+		cloned.IsTemporary = false
+		cloned.IsPinned = false
+		cloned.PinnedAt = nil
+		cloned.KnowledgeCount = 0
+		cloned.ChunkCount = 0
+		cloned.IsProcessing = false
+		cloned.ProcessingCount = 0
+		cloned.ShareCount = 0
+		cloned.CreatorName = ""
+		targetKB = cloned
 		// The clone is owned by the caller, not the original creator —
 		// otherwise a Contributor copying someone else's KB would still
 		// not be able to edit the result. Skip synthetic API-key users

@@ -97,16 +97,13 @@ func enqueueSummaryRefresh(
 		}
 	}
 	if repo == nil || taskEnqueuer == nil || kbReader == nil {
-		markFailed()
 		return fmt.Errorf("summary refresh dependencies are unavailable")
 	}
 	kb, err := kbReader.GetKnowledgeBaseByID(ctx, knowledge.KnowledgeBaseID)
 	if err != nil {
-		markFailed()
 		return err
 	}
-	if kb.SummaryModelID == "" {
-		markFailed()
+	if kb == nil || kb.SummaryModelID == "" {
 		return fmt.Errorf("summary model is not configured")
 	}
 	if tracker == nil {
@@ -124,7 +121,6 @@ func enqueueSummaryRefresh(
 	langfuse.InjectTracing(ctx, &payload)
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		markFailed()
 		return err
 	}
 	task := asynq.NewTask(types.TypeSummaryGeneration, payloadBytes,
@@ -142,8 +138,7 @@ func enqueueSummaryRefresh(
 func (s *knowledgeService) RequestKnowledgeSummaryRefresh(
 	ctx context.Context, knowledgeID string,
 ) error {
-	tenantID := types.MustTenantIDFromContext(ctx)
-	knowledge, err := s.repo.GetKnowledgeByID(ctx, tenantID, knowledgeID)
+	knowledge, _, err := loadKnowledgeWrite(ctx, s.repo, s.kbService, knowledgeID)
 	if err != nil {
 		return err
 	}

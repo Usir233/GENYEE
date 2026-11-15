@@ -134,8 +134,8 @@ func (s *knowledgeService) createKnowledgeFromFile(ctx context.Context,
 	}
 
 	// Check storage quota
-	tenantInfo := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
-	if tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo, replacement) >= tenantInfo.StorageQuota {
+	tenantInfo := s.w3aTenantInfoForKB(ctx, kb)
+	if tenantInfo != nil && tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo, replacement) >= tenantInfo.StorageQuota {
 		logger.Error(ctx, "Storage quota exceeded")
 		return nil, types.NewStorageQuotaExceededError()
 	}
@@ -143,7 +143,8 @@ func (s *knowledgeService) createKnowledgeFromFile(ctx context.Context,
 	// Convert metadata to JSON format if provided
 	var metadataJSON types.JSON
 	if metadata != nil {
-		metadataBytes, err := json.Marshal(metadata)
+		sanitized := w3aSanitizeUserKnowledgeMetadata(metadata)
+		metadataBytes, err := json.Marshal(sanitized)
 		if err != nil {
 			logger.Errorf(ctx, "Failed to marshal metadata: %v", err)
 			return nil, err
@@ -401,8 +402,8 @@ func (s *knowledgeService) createKnowledgeFromURL(ctx context.Context,
 	}
 
 	// Check storage quota
-	tenantInfo := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
-	if tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo, replacement) >= tenantInfo.StorageQuota {
+	tenantInfo := s.w3aTenantInfoForKB(ctx, kb)
+	if tenantInfo != nil && tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo, replacement) >= tenantInfo.StorageQuota {
 		logger.Error(ctx, "Storage quota exceeded")
 		return nil, types.NewStorageQuotaExceededError()
 	}
@@ -640,8 +641,8 @@ func (s *knowledgeService) createKnowledgeFromFileURLWithReplacement(
 	}
 
 	// Check storage quota
-	tenantInfo := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
-	if tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo, replacement) >= tenantInfo.StorageQuota {
+	tenantInfo := s.w3aTenantInfoForKB(ctx, kb)
+	if tenantInfo != nil && tenantInfo.StorageQuota > 0 && knowledgeCreationStorageUsed(tenantInfo, replacement) >= tenantInfo.StorageQuota {
 		logger.Error(ctx, "Storage quota exceeded")
 		return nil, types.NewStorageQuotaExceededError()
 	}

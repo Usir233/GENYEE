@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -256,6 +257,15 @@ func failed(reason string) runOutcome {
 	return runOutcome{status: types.AutomationRunFailed, reason: reason}
 }
 
+func w3aIsWorkspaceInactiveStatus(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "inactive", "disabled", "suspended":
+		return true
+	default:
+		return false
+	}
+}
+
 // ownerContext is ctx acting as a's owner, rechecked now: the account is
 // active and still a member of the workspace.
 func (s *AutomationService) ownerContext(ctx context.Context, a *types.Automation) (context.Context, error) {
@@ -277,7 +287,7 @@ func (s *AutomationService) ownerContext(ctx context.Context, a *types.Automatio
 	if err != nil {
 		return nil, err
 	}
-	if tenant == nil {
+	if tenant == nil || (w3aIsWorkspaceInactiveStatus(tenant.Status) && !user.IsSystemAdmin && !user.CanAccessAllTenants) {
 		return nil, fmt.Errorf("%w: the workspace is unavailable", errOwnerUnavailable)
 	}
 	ctx = context.WithValue(ctx, types.TenantIDContextKey, a.TenantID)

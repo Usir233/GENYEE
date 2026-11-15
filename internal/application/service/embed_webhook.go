@@ -74,15 +74,14 @@ func DispatchEmbedWebhook(ch *types.EmbedChannel, eventType, sessionID string, p
 		logger.Warnf(context.Background(), "[embed_webhook] skip dispatch %s: %v", eventType, err)
 		return
 	}
-	body := map[string]any{
-		"type":       eventType,
-		"channel_id": ch.ID,
-		"session_id": sessionID,
-		"timestamp":  time.Now().UTC().Format(time.RFC3339),
-	}
+	body := make(map[string]any, len(payload)+4)
 	for k, v := range payload {
 		body[k] = v
 	}
+	body["type"] = eventType
+	body["channel_id"] = ch.ID
+	body["session_id"] = sessionID
+	body["timestamp"] = time.Now().UTC().Format(time.RFC3339)
 	raw, err := json.Marshal(body)
 	if err != nil {
 		return
@@ -124,7 +123,7 @@ func DispatchEmbedWebhook(ch *types.EmbedChannel, eventType, sessionID string, p
 			return
 		}
 		defer resp.Body.Close()
-		_, _ = io.Copy(io.Discard, resp.Body)
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 64<<10))
 		if resp.StatusCode >= 300 {
 			logger.Warnf(context.Background(), "[embed_webhook] dispatch %s HTTP %d", eventType, resp.StatusCode)
 		}

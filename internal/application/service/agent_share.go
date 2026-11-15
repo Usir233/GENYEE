@@ -168,12 +168,14 @@ func (s *agentShareService) sharedAgentInfo(
 			info.SharedByUsername = u.Username
 		}
 	}
-	cacheKey := fmt.Sprintf("%d:%t:%s", share.SourceTenantID, share.Agent.Config.WebSearchEnabled, share.Agent.Config.WebSearchProviderID)
-	if ready, ok := webSearchReadyCache[cacheKey]; ok {
-		info.WebSearchReady = ready
-	} else {
-		info.WebSearchReady = s.isAgentWebSearchReady(ctx, share.Agent, share.SourceTenantID)
-		webSearchReadyCache[cacheKey] = info.WebSearchReady
+	if share.Agent != nil {
+		cacheKey := fmt.Sprintf("%d:%t:%s", share.SourceTenantID, share.Agent.Config.WebSearchEnabled, share.Agent.Config.WebSearchProviderID)
+		if ready, ok := webSearchReadyCache[cacheKey]; ok {
+			info.WebSearchReady = ready
+		} else {
+			info.WebSearchReady = s.isAgentWebSearchReady(ctx, share.Agent, share.SourceTenantID)
+			webSearchReadyCache[cacheKey] = info.WebSearchReady
+		}
 	}
 	return info
 }
@@ -261,8 +263,18 @@ func (s *agentShareService) ShareAgent(ctx context.Context, agentID string, orgI
 
 	if err := s.shareRepo.Create(ctx, share); err != nil {
 		if errors.Is(err, repository.ErrAgentShareAlreadyExists) {
-			existing, err := s.shareRepo.GetByAgentAndOrg(ctx, agentID, orgID)
-			if err != nil {
+			shares, listErr := s.shareRepo.ListByAgent(ctx, agentID)
+			if listErr != nil {
+				return nil, listErr
+			}
+			var existing *types.AgentShare
+			for _, candidate := range shares {
+				if candidate != nil && candidate.SourceTenantID == tenantID && candidate.OrganizationID == orgID {
+					existing = candidate
+					break
+				}
+			}
+			if existing == nil {
 				return nil, err
 			}
 			existing.Permission = types.OrgRoleViewer
@@ -316,7 +328,17 @@ func (s *agentShareService) ListSharesByAgent(
 	if agent.TenantID != tenantID {
 		return nil, ErrNotAgentOwner
 	}
-	return s.shareRepo.ListByAgent(ctx, agentID)
+	shares, err := s.shareRepo.ListByAgent(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]*types.AgentShare, 0, len(shares))
+	for _, sh := range shares {
+		if sh != nil && sh.SourceTenantID == tenantID {
+			filtered = append(filtered, sh)
+		}
+	}
+	return filtered, nil
 }
 
 // ListSharesByOrganization lists all agent shares for an organization
@@ -553,7 +575,7 @@ func (s *agentShareService) GetSharedAgentForTenant(
 		}
 		return nil, err
 	}
-	if isBuiltinAgent(agent) {
+	if agent == nil || isBuiltinAgent(agent) {
 		return nil, ErrAgentNotFoundForShare
 	}
 	types.ApplyBuiltinAgentLocalization(ctx, agent)

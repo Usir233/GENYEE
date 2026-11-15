@@ -236,6 +236,29 @@ func (s *knowledgeService) discardReplacementFile(ctx context.Context, fileSvc i
 	}
 }
 
+func w3aIsReservedKnowledgeMetadataKey(key string) bool {
+	switch strings.TrimSpace(key) {
+	case types.KnowledgeTransferMetadataKey, "process_overrides":
+		return true
+	default:
+		return false
+	}
+}
+
+func w3aSanitizeUserKnowledgeMetadata(updates map[string]string) map[string]string {
+	if len(updates) == 0 {
+		return updates
+	}
+	cleaned := make(map[string]string, len(updates))
+	for k, v := range updates {
+		if w3aIsReservedKnowledgeMetadataKey(k) {
+			continue
+		}
+		cleaned[k] = v
+	}
+	return cleaned
+}
+
 // mergeKnowledgeMetadata overlays updates on the stored metadata object, so
 // entries the caller does not manage (e.g. process overrides) survive.
 func mergeKnowledgeMetadata(current types.JSON, updates map[string]string) (types.JSON, error) {
@@ -247,6 +270,9 @@ func mergeKnowledgeMetadata(current types.JSON, updates map[string]string) (type
 		merged = map[string]interface{}{}
 	}
 	for k, v := range updates {
+		if w3aIsReservedKnowledgeMetadataKey(k) {
+			continue
+		}
 		merged[k] = v
 	}
 	b, err := json.Marshal(merged)

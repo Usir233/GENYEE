@@ -715,7 +715,11 @@ func (s *chunkService) ListChunkRevisions(ctx context.Context, chunkID string) (
 func (s *chunkService) RevertDocumentChunk(
 	ctx context.Context, chunkID string, revision int, expectedRevision *int,
 ) (*types.Chunk, error) {
-	item, err := s.chunkRepository.GetChunkRevision(ctx, types.MustTenantIDFromContext(ctx), chunkID, revision)
+	target, err := s.writableChunk(ctx, chunkID)
+	if err != nil {
+		return nil, err
+	}
+	item, err := s.chunkRepository.GetChunkRevision(ctx, target.TenantID, chunkID, revision)
 	if err != nil {
 		return nil, err
 	}
@@ -828,11 +832,15 @@ func (s *chunkService) syncChunkIndex(ctx context.Context, chunk *types.Chunk) e
 	if !kb.NeedsEmbeddingModel() {
 		return nil
 	}
-	embedder, err := s.modelService.GetEmbeddingModel(ctx, kb.EmbeddingModelID)
+	execCtx := ctx
+	if chunk.TenantID != 0 {
+		execCtx = types.WithExecutionTenant(ctx, chunk.TenantID)
+	}
+	embedder, err := s.modelService.GetEmbeddingModel(execCtx, kb.EmbeddingModelID)
 	if err != nil {
 		return err
 	}
-	engine, err := retriever.CreateRetrieveEngineForKB(ctx, s.retrieveEngine, s.ownership, chunk.TenantID, kb.VectorStoreID)
+	engine, err := retriever.CreateRetrieveEngineForKB(execCtx, s.retrieveEngine, s.ownership, chunk.TenantID, kb.VectorStoreID)
 	if err != nil {
 		return err
 	}
@@ -937,17 +945,15 @@ func (s *chunkService) UpsertGeneratedQuestion(
 func (s *chunkService) DeleteGeneratedQuestion(ctx context.Context, chunkID string, questionID string) error {
 	logger.Infof(ctx, "Deleting generated question, chunk ID: %s, question ID: %s", chunkID, questionID)
 
-	tenantID := types.MustTenantIDFromContext(ctx)
-
-	// 1. Get the chunk
+	// 1. Get the chunk (validates caller write authorization & resolves owner tenant)
 	chunk, err := s.writableChunk(ctx, chunkID)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
-			"chunk_id":  chunkID,
-			"tenant_id": tenantID,
+			"chunk_id": chunkID,
 		})
 		return fmt.Errorf("failed to get chunk: %w", err)
 	}
+	tenantID := chunk.TenantID
 
 	// 2. Parse the metadata
 	meta, err := chunk.DocumentMetadata()
@@ -984,31 +990,36 @@ func (s *chunkService) DeleteGeneratedQuestion(ctx context.Context, chunkID stri
 		return fmt.Errorf("failed to get knowledge base: %w", err)
 	}
 
-	// 5. Delete the vector index for this question
-	// The source_id format is: {chunk_id}-{question_id}
-	sourceID := types.GeneratedQuestionSourceID(chunkID, questionID)
+	// 5. Delete the vector index for this question when the KB uses vector indexing
+	if kb != nil && kb.NeedsEmbeddingModel() && s.retrieveEngine != nil && s.modelService != nil {
+		sourceID := types.GeneratedQuestionSourceID(chunkID, questionID)
+		execCtx := ctx
+		if tenantID != 0 {
+			execCtx = types.WithExecutionTenant(ctx, tenantID)
+		}
 
-	retrieveEngine, err := retriever.CreateRetrieveEngineForKB(
-		ctx, s.retrieveEngine, s.ownership, tenantID, kb.VectorStoreID)
-	if err != nil {
-		logger.ErrorWithFields(ctx, err, map[string]interface{}{
-			"chunk_id": chunkID,
-		})
-		return fmt.Errorf("failed to create retrieve engine: %w", err)
-	}
+		retrieveEngine, err := retriever.CreateRetrieveEngineForKB(
+			execCtx, s.retrieveEngine, s.ownership, tenantID, kb.VectorStoreID)
+		if err != nil {
+			logger.ErrorWithFields(ctx, err, map[string]interface{}{
+				"chunk_id": chunkID,
+			})
+			return fmt.Errorf("failed to create retrieve engine: %w", err)
+		}
 
-	embeddingModel, err := s.modelService.GetEmbeddingModel(ctx, kb.EmbeddingModelID)
-	if err != nil {
-		logger.ErrorWithFields(ctx, err, map[string]interface{}{
-			"embedding_model_id": kb.EmbeddingModelID,
-		})
-		return fmt.Errorf("failed to get embedding model: %w", err)
-	}
+		embeddingModel, err := s.modelService.GetEmbeddingModel(execCtx, kb.EmbeddingModelID)
+		if err != nil {
+			logger.ErrorWithFields(ctx, err, map[string]interface{}{
+				"embedding_model_id": kb.EmbeddingModelID,
+			})
+			return fmt.Errorf("failed to get embedding model: %w", err)
+		}
 
-	// Delete the vector index by source ID
-	if err := retrieveEngine.DeleteBySourceIDList(ctx, []string{sourceID}, embeddingModel.GetDimensions(), kb.Type); err != nil {
-		logger.Warnf(ctx, "Failed to delete vector index for question (may not exist): %v", err)
-		// Continue even if vector deletion fails - the question might not have been indexed
+		// Delete the vector index by source ID
+		if err := retrieveEngine.DeleteBySourceIDList(execCtx, []string{sourceID}, embeddingModel.GetDimensions(), kb.Type); err != nil {
+			logger.Warnf(ctx, "Failed to delete vector index for question (may not exist): %v", err)
+			// Continue even if vector deletion fails - the question might not have been indexed
+		}
 	}
 
 	// 6. Remove the question from metadata
