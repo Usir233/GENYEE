@@ -2,6 +2,7 @@ package access
 
 import (
 	"context"
+	"strings"
 
 	"github.com/Usir233/GENYEE/internal/types"
 )
@@ -91,4 +92,20 @@ func (p *KBPermissions) Check(kbID string, ownerTenantID uint64, required types.
 		return false, nil
 	}
 	return p.shares.Check(kbID, required)
+}
+
+type presentedAccessTokenKey struct{}
+
+// WithPresentedAccessToken attaches the raw Bearer access token presented at
+// the HTTP boundary so session-scoped operations (such as SwitchTenant without
+// a refresh_token) can inherit and re-verify the live login session.
+func WithPresentedAccessToken(ctx context.Context, token string) context.Context {
+	return context.WithValue(ctx, presentedAccessTokenKey{}, strings.TrimSpace(token))
+}
+
+// PresentedAccessTokenFromContext returns the Bearer access token attached by
+// WithPresentedAccessToken, or "" when none was attached.
+func PresentedAccessTokenFromContext(ctx context.Context) string {
+	token, _ := ctx.Value(presentedAccessTokenKey{}).(string)
+	return token
 }

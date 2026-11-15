@@ -586,3 +586,34 @@ func (r *authTokenRepository) RevokeTokenSession(ctx context.Context, access *ty
 			Updates(map[string]interface{}{"is_revoked": true, "updated_at": time.Now()}).Error
 	})
 }
+
+// IssueSessionAccessToken mints a tenant-scoped access token inside an existing
+// login session without issuing a refresh token or starting a new session.
+// Under lockAuthUser it re-verifies that currentAccess is still live so a
+// concurrent Logout or SetUserActive(false) cannot leave a usable token behind.
+func (r *authTokenRepository) IssueSessionAccessToken(ctx context.Context, currentAccess, replacementAccess *types.AuthToken) error {
+	if !validSessionToken(currentAccess, "access_token") ||
+		!validSessionToken(replacementAccess, "access_token") ||
+		currentAccess.UserID != replacementAccess.UserID ||
+		currentAccess.SessionID != replacementAccess.SessionID ||
+		currentAccess.ID == replacementAccess.ID ||
+		replacementAccess.ExpiresAt.After(currentAccess.ExpiresAt) {
+		return errors.New("invalid access token session")
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := lockAuthUser(tx, currentAccess.UserID); err != nil {
+			return err
+		}
+		var liveCount int64
+		if err := tx.Model(&types.AuthToken{}).
+			Where("id = ? AND user_id = ? AND session_id = ? AND token = ? AND token_type = ? AND is_revoked = ? AND expires_at > ?",
+				currentAccess.ID, currentAccess.UserID, currentAccess.SessionID, currentAccess.Token, "access_token", false, time.Now()).
+			Count(&liveCount).Error; err != nil {
+			return err
+		}
+		if liveCount != 1 {
+			return errors.New("token is revoked, expired or not found")
+		}
+		return tx.Omit(clause.Associations).Create(replacementAccess).Error
+	})
+}

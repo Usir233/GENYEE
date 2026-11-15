@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Usir233/GENYEE/internal/application/access"
 	"github.com/Usir233/GENYEE/internal/config"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
@@ -43,18 +44,27 @@ type countingAuthTokenRepo struct {
 	createCalls int
 }
 
-func (s *countingAuthTokenRepo) CreateToken(context.Context, *types.AuthToken) error {
+func (s *countingAuthTokenRepo) CreateToken(ctx context.Context, token *types.AuthToken) error {
 	s.createCalls++
-	return nil
+	return s.stubAuthTokenRepo.CreateToken(ctx, token)
 }
 
 func newSwitchTenantTestService(repo *switchTenantUserRepo, memberSvc interfaces.TenantMemberService) *userService {
 	return &userService{
 		userRepo:      repo,
-		tokenRepo:     &stubAuthTokenRepo{},
+		tokenRepo:     &stubAuthTokenRepo{tokens: map[string]*types.AuthToken{}},
 		tenantService: &provisioningTenantService{},
 		memberService: memberSvc,
 	}
+}
+
+func withLiveSwitchSession(t *testing.T, ctx context.Context, svc *userService, user *types.User) context.Context {
+	t.Helper()
+	accessTok, _, err := svc.generateTokensForTenant(ctx, user, user.TenantID)
+	if err != nil {
+		t.Fatalf("seed switch session: %v", err)
+	}
+	return access.WithPresentedAccessToken(ctx, accessTok)
 }
 
 // TestSwitchTenantRecordsLastActiveTenantPreference pins the landing
@@ -65,7 +75,7 @@ func newSwitchTenantTestService(repo *switchTenantUserRepo, memberSvc interfaces
 func TestSwitchTenantRecordsLastActiveTenantPreference(t *testing.T) {
 	ctx := context.Background()
 	repo := &switchTenantUserRepo{users: map[string]types.User{
-		"alice": {ID: "alice", TenantID: 7},
+		"alice": {ID: "alice", TenantID: 7, IsActive: true},
 	}}
 	memberSvc := &membershipLookupService{
 		byTenant: map[uint64]*types.TenantMember{
@@ -74,10 +84,14 @@ func TestSwitchTenantRecordsLastActiveTenantPreference(t *testing.T) {
 	}
 	svc := newSwitchTenantTestService(repo, memberSvc)
 	user, _ := repo.GetUserByID(ctx, "alice")
+	ctx = withLiveSwitchSession(t, ctx, svc, user)
 
 	resp, err := svc.SwitchTenant(ctx, user, 42, "")
 	if err != nil {
 		t.Fatalf("SwitchTenant: %v", err)
+	}
+	if resp.RefreshToken != "" {
+		t.Fatalf("RefreshToken = %q, want empty when switching without refresh_token", resp.RefreshToken)
 	}
 
 	stored, _ := repo.GetUserByID(ctx, "alice")
@@ -100,7 +114,7 @@ func TestSwitchTenantRecordsLastActiveTenantPreference(t *testing.T) {
 func TestSwitchTenantBackToHomeWritesHomePreference(t *testing.T) {
 	ctx := context.Background()
 	repo := &switchTenantUserRepo{users: map[string]types.User{
-		"alice": {ID: "alice", TenantID: 7},
+		"alice": {ID: "alice", TenantID: 7, IsActive: true},
 	}}
 	memberSvc := &membershipLookupService{
 		byTenant: map[uint64]*types.TenantMember{
@@ -109,6 +123,7 @@ func TestSwitchTenantBackToHomeWritesHomePreference(t *testing.T) {
 	}
 	svc := newSwitchTenantTestService(repo, memberSvc)
 	user, _ := repo.GetUserByID(ctx, "alice")
+	ctx = withLiveSwitchSession(t, ctx, svc, user)
 
 	if _, err := svc.SwitchTenant(ctx, user, 7, ""); err != nil {
 		t.Fatalf("SwitchTenant back to home: %v", err)
@@ -129,7 +144,7 @@ func TestSwitchTenantBackToHomeWritesHomePreference(t *testing.T) {
 func TestSwitchTenantPreferenceWriteFailureAbortsSwitch(t *testing.T) {
 	ctx := context.Background()
 	repo := &switchTenantUserRepo{
-		users:       map[string]types.User{"alice": {ID: "alice", TenantID: 7}},
+		users:       map[string]types.User{"alice": {ID: "alice", TenantID: 7, IsActive: true}},
 		failUpdates: true,
 	}
 	memberSvc := &membershipLookupService{
@@ -138,10 +153,12 @@ func TestSwitchTenantPreferenceWriteFailureAbortsSwitch(t *testing.T) {
 			42: {TenantID: 42, Status: types.TenantMemberStatusActive},
 		},
 	}
-	tokens := &countingAuthTokenRepo{}
+	tokens := &countingAuthTokenRepo{stubAuthTokenRepo: stubAuthTokenRepo{tokens: map[string]*types.AuthToken{}}}
 	svc := newSwitchTenantTestService(repo, memberSvc)
 	svc.tokenRepo = tokens
 	user, _ := repo.GetUserByID(ctx, "alice")
+	ctx = withLiveSwitchSession(t, ctx, svc, user)
+	tokens.createCalls = 0
 
 	resp, err := svc.SwitchTenant(ctx, user, 42, "")
 	if err == nil {
@@ -168,11 +185,12 @@ func TestSwitchTenantPreferenceWriteFailureAbortsSwitch(t *testing.T) {
 func TestSwitchTenantSuperuserRecordsPreferenceWithoutMembership(t *testing.T) {
 	ctx := context.Background()
 	repo := &switchTenantUserRepo{users: map[string]types.User{
-		"alice": {ID: "alice", TenantID: 7, CanAccessAllTenants: true},
+		"alice": {ID: "alice", TenantID: 7, IsActive: true, CanAccessAllTenants: true},
 	}}
 	svc := newSwitchTenantTestService(repo, &membershipLookupService{byTenant: map[uint64]*types.TenantMember{}})
 	svc.config = &config.Config{Tenant: &config.TenantConfig{EnableCrossTenantAccess: true}}
 	user, _ := repo.GetUserByID(ctx, "alice")
+	ctx = withLiveSwitchSession(t, ctx, svc, user)
 
 	resp, err := svc.SwitchTenant(ctx, user, 42, "")
 	if err != nil {
@@ -196,6 +214,7 @@ func TestSwitchTenantPreservesOidcOnlyLogin(t *testing.T) {
 		"alice": {
 			ID:       "alice",
 			TenantID: 7,
+			IsActive: true,
 			Preferences: types.UserPreferences{
 				OidcOnlyLogin: &oidcOnly,
 			},
@@ -208,6 +227,7 @@ func TestSwitchTenantPreservesOidcOnlyLogin(t *testing.T) {
 	}
 	svc := newSwitchTenantTestService(repo, memberSvc)
 	user, _ := repo.GetUserByID(ctx, "alice")
+	ctx = withLiveSwitchSession(t, ctx, svc, user)
 
 	if _, err := svc.SwitchTenant(ctx, user, 42, ""); err != nil {
 		t.Fatalf("SwitchTenant: %v", err)
@@ -228,10 +248,11 @@ func TestSwitchTenantPreservesOidcOnlyLogin(t *testing.T) {
 func TestSwitchTenantNonMemberWritesNoPreference(t *testing.T) {
 	ctx := context.Background()
 	repo := &switchTenantUserRepo{users: map[string]types.User{
-		"alice": {ID: "alice", TenantID: 7},
+		"alice": {ID: "alice", TenantID: 7, IsActive: true},
 	}}
 	svc := newSwitchTenantTestService(repo, &membershipLookupService{byTenant: map[uint64]*types.TenantMember{}})
 	user, _ := repo.GetUserByID(ctx, "alice")
+	ctx = withLiveSwitchSession(t, ctx, svc, user)
 
 	if _, err := svc.SwitchTenant(ctx, user, 42, ""); !errors.Is(err, ErrMembershipNotFound) {
 		t.Fatalf("SwitchTenant for non-member: err = %v, want ErrMembershipNotFound", err)

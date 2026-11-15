@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/Usir233/GENYEE/internal/application/access"
 	"github.com/Usir233/GENYEE/internal/config"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/require"
@@ -32,19 +33,26 @@ func TestSwitchTenantRequiresEnabledCrossTenantPrivilege(t *testing.T) {
 				members.byTenant[42] = &types.TenantMember{TenantID: 42, Status: types.TenantMemberStatusActive}
 			}
 			svc.memberService = members
-			resp, err := svc.SwitchTenant(ctx, user, 42, "")
+			initialAccess, _, err := svc.GenerateTokens(ctx, user)
+			require.NoError(t, err)
+			var beforeCount int64
+			require.NoError(t, db.Model(&types.AuthToken{}).Count(&beforeCount).Error)
+
+			switchCtx := access.WithPresentedAccessToken(ctx, initialAccess)
+			resp, err := svc.SwitchTenant(switchCtx, user, 42, "")
 			if tc.wantAllowed {
 				require.NoError(t, err)
 				require.NotNil(t, resp)
+				require.Empty(t, resp.RefreshToken)
 				_, tenant, err := svc.ValidateToken(ctx, resp.Token)
 				require.NoError(t, err)
 				require.EqualValues(t, 42, tenant)
 			} else {
 				require.ErrorIs(t, err, ErrMembershipNotFound)
 				require.Nil(t, resp)
-				var count int64
-				require.NoError(t, db.Model(&types.AuthToken{}).Count(&count).Error)
-				require.Zero(t, count)
+				var afterCount int64
+				require.NoError(t, db.Model(&types.AuthToken{}).Count(&afterCount).Error)
+				require.Equal(t, beforeCount, afterCount)
 				stored, err := svc.userRepo.GetUserByID(ctx, user.ID)
 				require.NoError(t, err)
 				require.Nil(t, stored.Preferences.LastActiveTenantID)

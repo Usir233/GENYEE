@@ -228,3 +228,49 @@ func TestAuthSessionAllUserRevocationAllowsDisabledUser(t *testing.T) {
 		}
 	})
 }
+
+func TestAuthSessionLogoutSerializesWithConcurrentSessionAccessIssue(t *testing.T) {
+	userStatusBackends(t, func(t *testing.T, db *gorm.DB) {
+		ctx := context.Background()
+		seedStatusUser(t, db, "switch-session-owner", false, true)
+		repo := NewAuthTokenRepository(db).(*authTokenRepository)
+		for range 20 {
+			access, refresh := sessionTestPair("switch-session-owner", uuid.NewString())
+			require.NoError(t, repo.CreateToken(ctx, access))
+			require.NoError(t, repo.CreateToken(ctx, refresh))
+
+			start := make(chan struct{})
+			var wg sync.WaitGroup
+			var logoutErr error
+			const contenders = 6
+			issueErrs := make([]error, contenders)
+			wg.Add(contenders + 1)
+			go func() {
+				defer wg.Done()
+				<-start
+				logoutErr = repo.RevokeTokenSession(ctx, access)
+			}()
+			for i := range contenders {
+				go func() {
+					defer wg.Done()
+					replacement, _ := sessionTestPair(access.UserID, access.SessionID)
+					replacement.ExpiresAt = access.ExpiresAt
+					<-start
+					issueErrs[i] = repo.IssueSessionAccessToken(ctx, access, replacement)
+				}()
+			}
+			close(start)
+			wg.Wait()
+			require.NoError(t, logoutErr)
+			for _, err := range issueErrs {
+				if err != nil {
+					require.ErrorContains(t, err, "revoked")
+				}
+			}
+			var live int64
+			require.NoError(t, db.Model(&types.AuthToken{}).
+				Where("session_id = ? AND is_revoked = ?", access.SessionID, false).Count(&live).Error)
+			require.Zero(t, live, "no session-scoped access token may survive completed logout")
+		}
+	})
+}

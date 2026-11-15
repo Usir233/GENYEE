@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Usir233/GENYEE/internal/application/access"
 	"github.com/Usir233/GENYEE/internal/application/repository"
 	"github.com/Usir233/GENYEE/internal/config"
 	"github.com/Usir233/GENYEE/internal/types"
@@ -116,6 +117,9 @@ func (r *failingSessionRepo) RotateRefreshToken(context.Context, *types.AuthToke
 func (r *failingSessionRepo) RevokeTokenSession(context.Context, *types.AuthToken) error {
 	return r.err
 }
+func (r *failingSessionRepo) IssueSessionAccessToken(context.Context, *types.AuthToken, *types.AuthToken) error {
+	return r.err
+}
 
 func TestSessionMutationErrorsDoNotReportSuccess(t *testing.T) {
 	ctx := context.Background()
@@ -150,4 +154,60 @@ func TestLogoutRejectsStoredExpiredAccessWithoutRevokingRefresh(t *testing.T) {
 	require.Error(t, svc.Logout(ctx, access))
 	_, _, err = svc.RefreshToken(ctx, refresh)
 	require.NoError(t, err)
+}
+
+func TestSwitchTenantWithoutRefreshInheritsSessionAndExpiryAndHonorsLogout(t *testing.T) {
+	ctx := context.Background()
+	svc, user, db := logoutSessionService(t)
+	svc.tenantService = &provisioningTenantService{}
+
+	initialAccess, initialRefresh, err := svc.GenerateTokens(ctx, user)
+	require.NoError(t, err)
+
+	shortExpiry := time.Now().Add(2 * time.Hour).UTC().Truncate(time.Second)
+	require.NoError(t, db.Model(&types.AuthToken{}).Where("token = ?", initialAccess).
+		Update("expires_at", shortExpiry).Error)
+	initialRecord, err := svc.tokenRepo.GetTokenByValue(ctx, initialAccess)
+	require.NoError(t, err)
+
+	switchCtx := access.WithPresentedAccessToken(ctx, initialAccess)
+	resp, err := svc.SwitchTenant(switchCtx, user, 42, "")
+	require.NoError(t, err)
+	require.NotEmpty(t, resp.Token)
+	require.Empty(t, resp.RefreshToken, "switching without refresh_token must not mint a new refresh token")
+
+	_, tenantID, err := svc.ValidateToken(ctx, resp.Token)
+	require.NoError(t, err)
+	require.EqualValues(t, 42, tenantID)
+
+	switchedRecord, err := svc.tokenRepo.GetTokenByValue(ctx, resp.Token)
+	require.NoError(t, err)
+	require.Equal(t, initialRecord.SessionID, switchedRecord.SessionID, "switched access token must stay in original session")
+	require.WithinDuration(t, shortExpiry, switchedRecord.ExpiresAt, time.Second, "switched access token must inherit original session expiry")
+
+	var refreshCount int64
+	require.NoError(t, db.Model(&types.AuthToken{}).Where("token_type = ?", "refresh_token").Count(&refreshCount).Error)
+	require.EqualValues(t, 1, refreshCount, "no second refresh_token row may be created")
+
+	// Logout with original access token immediately revokes both the switched access token and the session refresh token.
+	require.NoError(t, svc.Logout(ctx, initialAccess))
+	_, _, err = svc.ValidateToken(ctx, resp.Token)
+	require.Error(t, err, "switched access token must not survive session logout")
+	_, _, err = svc.RefreshToken(ctx, initialRefresh)
+	require.Error(t, err, "session refresh token must be revoked by logout")
+
+	// A revoked access token cannot switch workspaces again.
+	_, err = svc.SwitchTenant(switchCtx, user, 42, "")
+	require.Error(t, err)
+
+	// Missing presented access token without refresh_token fails closed.
+	_, err = svc.SwitchTenant(ctx, user, 42, "")
+	require.Error(t, err)
+
+	// Disabled user fails closed even if caller passes a stale in-memory user struct with IsActive=true.
+	freshAccess, _, err := svc.GenerateTokens(ctx, user)
+	require.NoError(t, err)
+	require.NoError(t, db.Model(&types.User{}).Where("id = ?", user.ID).Update("is_active", false).Error)
+	_, err = svc.SwitchTenant(access.WithPresentedAccessToken(ctx, freshAccess), user, 42, "")
+	require.Error(t, err)
 }

@@ -15,6 +15,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/Usir233/GENYEE/internal/application/access"
 	"github.com/Usir233/GENYEE/internal/application/service"
 	"github.com/Usir233/GENYEE/internal/config"
 	"github.com/Usir233/GENYEE/internal/errors"
@@ -983,6 +984,11 @@ func (h *AuthHandler) SwitchTenant(c *gin.Context) {
 		appErr := errors.NewUnauthorizedError("not authenticated")
 		c.Error(appErr)
 		return
+	}
+
+	authHeader := strings.TrimSpace(c.GetHeader("Authorization"))
+	if parts := strings.SplitN(authHeader, " ", 2); len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+		ctx = access.WithPresentedAccessToken(ctx, strings.TrimSpace(parts[1]))
 	}
 
 	resp, err := h.userService.SwitchTenant(ctx, user, req.TenantID, req.RefreshToken)

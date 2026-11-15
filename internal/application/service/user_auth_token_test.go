@@ -110,6 +110,20 @@ func (s *stubAuthTokenRepo) RevokeTokensByUserID(_ context.Context, userID strin
 	s.revokedUserIDs = append(s.revokedUserIDs, userID)
 	return nil
 }
+func (s *stubAuthTokenRepo) IssueSessionAccessToken(ctx context.Context, currentAccess, replacementAccess *types.AuthToken) error {
+	stored, err := s.GetTokenByValue(ctx, currentAccess.Token)
+	if err != nil {
+		return err
+	}
+	if stored == nil || stored.IsRevoked || stored.SessionID == "" || !stored.ExpiresAt.After(time.Now()) {
+		return errors.New("token is revoked, expired or not found")
+	}
+	if replacementAccess == nil || replacementAccess.SessionID != stored.SessionID ||
+		replacementAccess.UserID != stored.UserID || replacementAccess.ExpiresAt.After(stored.ExpiresAt) {
+		return errors.New("invalid access token session")
+	}
+	return s.CreateToken(ctx, replacementAccess)
+}
 
 type stubUserRepoForAuth struct {
 	users       map[string]*types.User

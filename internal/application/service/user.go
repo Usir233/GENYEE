@@ -1331,10 +1331,67 @@ func (s *userService) issueTokensForSession(
 	return accessToken, refreshToken, nil
 }
 
+type sessionAccessTokenIssuer interface {
+	IssueSessionAccessToken(ctx context.Context, currentAccess, replacementAccess *types.AuthToken) error
+}
+
+func (s *userService) issueAccessTokenForCurrentSession(
+	ctx context.Context,
+	user *types.User,
+	activeTenantID uint64,
+	currentAccess *types.AuthToken,
+) (string, error) {
+	if currentAccess == nil || currentAccess.SessionID == "" {
+		return "", errors.New("current access token session is required")
+	}
+	now := time.Now()
+	expiresAt := currentAccess.ExpiresAt
+	if !expiresAt.After(now) || expiresAt.Unix() <= now.Unix() {
+		return "", errors.New("access token session is expired")
+	}
+	issuer, ok := s.tokenRepo.(sessionAccessTokenIssuer)
+	if !ok {
+		return "", errors.New("token repository does not support session-scoped access token issuance")
+	}
+
+	accessTokenID := uuid.New().String()
+	accessClaims := jwt.MapClaims{
+		"jti":       accessTokenID,
+		"user_id":   user.ID,
+		"email":     user.Email,
+		"tenant_id": activeTenantID,
+		"exp":       expiresAt.Unix(),
+		"iat":       now.Unix(),
+		"type":      "access",
+	}
+	accessTokenObj := jwt.NewWithClaims(jwt.SigningMethodHS256, accessClaims)
+	accessToken, err := accessTokenObj.SignedString([]byte(getJwtSecret()))
+	if err != nil {
+		return "", err
+	}
+
+	replacementRecord := &types.AuthToken{
+		ID:        accessTokenID,
+		SessionID: currentAccess.SessionID,
+		UserID:    user.ID,
+		Token:     accessToken,
+		TokenType: "access_token",
+		ExpiresAt: expiresAt,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	if err := issuer.IssueSessionAccessToken(ctx, currentAccess, replacementRecord); err != nil {
+		return "", fmt.Errorf("issue session access token: %w", err)
+	}
+	return accessToken, nil
+}
+
 // SwitchTenant verifies that user has an active membership in
-// targetTenantID and issues a new token pair scoped to that tenant.
+// targetTenantID and issues tenant-scoped credentials.
 // A provided refresh token is atomically rotated in the same login session.
-// Calls without one start a separate session, as with a new login.
+// When refresh_token is omitted, SwitchTenant inherits the caller's live
+// access-token session and expiry under lockAuthUser without minting a new
+// refresh token or escaping session logout.
 //
 // On success the target is also recorded as the user's last-active-
 // tenant preference. Refresh tokens do not carry tenant_id, so
@@ -1380,7 +1437,10 @@ func (s *userService) SwitchTenant(
 		return nil, fmt.Errorf("load target workspace: %w", err)
 	}
 
-	var previous *types.AuthToken
+	var (
+		previous      *types.AuthToken
+		currentAccess *types.AuthToken
+	)
 	if strings.TrimSpace(currentRefreshToken) != "" {
 		var refreshUser *types.User
 		previous, refreshUser, err = s.validateRefreshTokenRecord(ctx, currentRefreshToken)
@@ -1389,6 +1449,22 @@ func (s *userService) SwitchTenant(
 		}
 		if refreshUser.ID != user.ID {
 			return nil, errors.New("refresh token belongs to a different user")
+		}
+	} else {
+		presentedAccess := access.PresentedAccessTokenFromContext(ctx)
+		if presentedAccess == "" {
+			return nil, errors.New("active session token is required to switch workspace")
+		}
+		var accessUser *types.User
+		currentAccess, accessUser, _, err = s.validateAccessTokenRecord(ctx, presentedAccess)
+		if err != nil {
+			return nil, fmt.Errorf("validate current access token: %w", err)
+		}
+		if accessUser.ID != user.ID {
+			return nil, errors.New("access token belongs to a different user")
+		}
+		if currentAccess.SessionID == "" || currentAccess.ID == "" || !currentAccess.ExpiresAt.After(time.Now()) {
+			return nil, errors.New("access token session is invalid or expired")
 		}
 	}
 
@@ -1400,9 +1476,17 @@ func (s *userService) SwitchTenant(
 		return nil, fmt.Errorf("record last-active-tenant preference: %w", err)
 	}
 
-	accessToken, refreshToken, err := s.issueTokensForSession(ctx, user, targetTenantID, previous)
-	if err != nil {
-		return nil, fmt.Errorf("generate tokens: %w", err)
+	var accessToken, refreshToken string
+	if previous != nil {
+		accessToken, refreshToken, err = s.issueTokensForSession(ctx, user, targetTenantID, previous)
+		if err != nil {
+			return nil, fmt.Errorf("generate tokens: %w", err)
+		}
+	} else {
+		accessToken, err = s.issueAccessTokenForCurrentSession(ctx, user, targetTenantID, currentAccess)
+		if err != nil {
+			return nil, fmt.Errorf("generate session access token: %w", err)
+		}
 	}
 
 	memberships := s.buildMembershipsForUser(ctx, user, tenant)
