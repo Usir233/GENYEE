@@ -422,25 +422,25 @@
       ],
       "invariants_checked": [
         "All GORM sql.Scanner implementations across internal/types accept both []byte (PostgreSQL JSONB/BYTEA) and string (SQLite TEXT/JSON affinity) values as well as empty inputs without silently dropping data.",
-        "AES-GCM encrypted database column types (ModelParameters, MCPAuthConfig, StorageBackendConfig, APIPrincipalConfig, TenantSandboxConfig, ConnectionConfig, WebSearchProviderParameters) decrypt enc:v1: payloads identically across PostgreSQL and SQLite drivers and redact secrets in Redacted()/MaskSensitive() helpers.",
-        "Context extraction and binding helpers (CallerFromContext, TenantIDFromContext, TenantInfoFromContext, RequestIDFromContext, LanguageFromContext, AgentOperationFromContext, With*) handle nil context.Context safely without panicking, and RenderPromptPlaceholders never mutates caller-supplied extra maps.",
+        "AES-GCM encrypted database column types (ModelParameters, MCPAuthConfig, StorageBackendConfig, TenantSandboxConfig, CredentialsConfig, ConnectionConfig, WebSearchProviderParameters) decrypt enc:v1: payloads identically across PostgreSQL and SQLite drivers and redact secrets in Redacted()/MaskSensitive() helpers.",
+        "Context extraction and binding helpers (CallerFromContext, PrincipalFromContext, TenantIDFromContext, TenantInfoFromContext, RequestIDFromContext, LanguageFromContext, AgentOperationFromContext, RunModeFromContext, With*) handle nil context.Context safely without panicking, and RenderPromptPlaceholders never mutates caller-supplied extra maps.",
         "GENYEE brand/API-key/assistant constants (BuiltinGENYEEAssistantID, gy_ prefixes) contain zero legacy brand residues."
       ],
       "findings": [
         {
           "id": "W3-REPO-TYPES-05",
           "severity": "P1",
-          "file": "internal/types/json.go:16-36; internal/types/knowledgebase.go:255-268; internal/types/model.go:216-248; internal/types/mcp.go:349-380; internal/types/storagebackend.go:200-231; internal/types/principal.go:167-196; internal/types/tenant.go:391-425; internal/types/web_search_provider.go:118-151",
-          "summary": "StringArray.Scan and multiple custom JSON/AES-GCM Scan() implementations only type-asserted []byte and silently returned nil when GORM's SQLite driver yielded string values from TEXT/JSON columns—causing TenantAPIKey.KnowledgeBaseIDs to scan as empty on SQLite (making IsKnowledgeBaseRestricted() return false and escalating KB-scoped API keys to full workspace access) and silently dropping encrypted provider/MCP/storage/principal/sandbox configurations on SQLite.",
-          "regression_test": "TestSQLiteStringScanning_TenantAPIKeyKnowledgeBaseRestrictionPreserved, TestSQLiteStringScanning_EncryptedConfigsDecryptFromString, TestSQLiteStringScanning_JSONStructsAndSlicesAcceptStringAndEmpty",
+          "file": "internal/types/json.go:86-108; internal/types/knowledgebase.go:234-240, 377-840; internal/types/model.go:281-284; internal/types/mcp.go:259-383; internal/types/storagebackend.go:127-130; internal/types/tenant.go:165-912; internal/types/vectorstore.go:180-277; internal/types/session.go:323-408; internal/types/web_search_provider.go:112-115",
+          "summary": "StringArray.Scan and multiple custom JSON/AES-GCM Scan() implementations only type-asserted []byte and silently returned nil when GORM's SQLite driver yielded string values from TEXT/JSON columns—causing TenantAPIKey.KnowledgeBaseIDs to scan as empty on SQLite (making IsKnowledgeBaseRestricted() return false and escalating KB-scoped API keys to full workspace access) and silently dropping encrypted provider/MCP/storage/sandbox/connection configurations and JSON structs on SQLite.",
+          "regression_test": "TestStringArrayAndEncryptedConfigsScanFromSQLiteString",
           "commit": "a63dd27700addcce3aaa1f9feb4e830180314b2f"
         },
         {
           "id": "W3-REPO-TYPES-06",
           "severity": "P2",
-          "file": "internal/types/caller.go:88-115; internal/types/context_helpers.go:13-85; internal/types/agent_operation.go:25-39; internal/types/run_mode.go:20-34; internal/types/search.go:26-59; internal/types/placeholder.go:230-264; internal/types/vectorstore.go:303-312",
+          "file": "internal/types/caller.go:24-49; internal/types/context_helpers.go:27-455; internal/types/principal.go:82-247; internal/types/agent_grant.go:111-140; internal/types/agent_operation.go:27-70; internal/types/run_mode.go:36-65; internal/types/memory.go:164-166; internal/types/tenant_api_key.go:279-281; internal/types/wiki_page_write_snapshot.go:16-26; internal/types/search.go:301-342; internal/types/placeholder.go:206-222; internal/types/vectorstore.go:591-596",
           "summary": "Context helpers panicked on nil context.Context, Pagination.Limit/Offset panicked on nil receiver and overflowed int on large Page*PageSize, NewVectorStoreResponse panicked on nil VectorStore, and RenderPromptPlaceholders mutated caller-supplied extra maps when nil or shared across goroutines.",
-          "regression_test": "TestContextHelpersAndPagination_NilAndOverflowSafety",
+          "regression_test": "TestPaginationNilReceiverAndOverflowSafety, TestNewVectorStoreResponseNilSafe, TestRenderPromptPlaceholdersNilAndImmutableCallerMap, TestNilContextHelpersDoNotPanic",
           "commit": "a63dd27700addcce3aaa1f9feb4e830180314b2f"
         }
       ],
@@ -513,15 +513,15 @@
       ],
       "invariants_checked": [
         "All 55 service, repository, retriever, sandbox, and storage interface contracts maintain backward-compatible exported signatures across the backend.",
-        "Cross-tenant resource authorization context helpers in internal/types/interfaces/file.go scope authorization strictly to trimmed non-empty storage references and fail closed on nil contexts or mismatched references."
+        "File storage context helpers in internal/types/interfaces/file.go (WithCrossTenantResourceAccess, HasCrossTenantResourceAccess, WithIndependentFileWrites, IndependentFileWrites) handle nil context.Context safely without panicking and scope cross-tenant resource authorization strictly to trimmed non-empty storage references."
       ],
       "findings": [
         {
           "id": "W3-REPO-TYPES-07",
           "severity": "P2",
-          "file": "internal/types/interfaces/file.go:53-77",
-          "summary": "WithCrossTenantResourceAccess and HasCrossTenantResourceAccess dereferenced ctx.Value without guarding nil context.Context, panicking if a caller passed a nil context while checking or stamping cross-tenant resource authorization.",
-          "regression_test": "TestCrossTenantResourceAccess_NilContextAndScoping",
+          "file": "internal/types/interfaces/file.go:45-58",
+          "summary": "WithIndependentFileWrites and IndependentFileWrites dereferenced ctx.Value without guarding nil context.Context, panicking if a caller passed a nil context when marking or checking independent file write isolation.",
+          "regression_test": "TestIndependentFileWritesNilContextSafe",
           "commit": "a63dd27700addcce3aaa1f9feb4e830180314b2f"
         }
       ],
@@ -581,9 +581,9 @@
         {
           "id": "W3-REPO-TYPES-08",
           "severity": "P2",
-          "file": "internal/container/cleanup.go:50-86; internal/container/engine_factory.go:108-127; internal/container/container.go:1232-1280",
+          "file": "internal/container/cleanup.go:108-134; internal/container/engine_factory.go:412-436; internal/container/container.go:880-910",
           "summary": "ResourceCleaner.Cleanup aborted remaining shutdown hooks if an earlier closer panicked; hostFromAddr split bare IPv6 literals on the last colon (producing invalid URLs like 'http://::8030' for '::1'); and registerChatLocalImageResolver omitted the '/data/files' fallback when LOCAL_STORAGE_BASE_DIR was unset and read provider/resource image streams with unbounded io.ReadAll.",
-          "regression_test": "TestResourceCleaner_RecoversFromPanickingCleanupAndRunsRemaining, TestHostFromAddr_IPv6Safety, TestChatLocalImageResolver_DefaultBaseDirAndSizeCap",
+          "regression_test": "TestCleanupRecoversPanickingHookAndRunsRemainingHooks, TestHostFromAddrHandlesIPv4HostnameAndIPv6, TestRegisterChatLocalImageResolverDefaultsBaseDirAndBoundsRead",
           "commit": "cadfac75ce5c506e70eb8e157dc83b0309f5b38c"
         }
       ],
@@ -616,9 +616,9 @@
         {
           "id": "W3-REPO-TYPES-09",
           "severity": "P2",
-          "file": "internal/event/event.go:142-270",
+          "file": "internal/event/event.go:148-246",
           "summary": "EventBus.On accepted nil EventHandler registrations; Emit and EmitAndWait shared the live map slice backing array after RUnlock (risking element clobbering during concurrent On append); and synchronous Emit neither isolated Event.Metadata per handler nor recovered panics from misbehaving subscribers.",
-          "regression_test": "TestSyncEmitIsolatesHandlersAndRecoversPanics",
+          "regression_test": "TestSyncEmitIsolatesHandlerMetadataMutations, TestSyncEmitRecoversPanickingHandler, TestOnIgnoresNilHandler",
           "commit": "cadfac75ce5c506e70eb8e157dc83b0309f5b38c"
         }
       ],
@@ -652,15 +652,15 @@
         {
           "id": "W3-REPO-TYPES-10",
           "severity": "P1",
-          "file": "internal/storageurl/storageurl.go:100-110",
+          "file": "internal/storageurl/storageurl.go:100-111",
           "summary": "Rewriter.Ref used unanchored Pattern.MatchString(ref) followed by w.String(ctx, ref), allowing an attacker-controlled external URL containing an embedded storage handle (e.g. 'https://evil.example/pixel?leak=resource://...') passed to Ref() to have its embedded handle replaced with a live signed download URL/token.",
-          "regression_test": "TestRewriterRefRejectsEmbeddedExternalURLs",
+          "regression_test": "TestRewriter_Ref",
           "commit": "e4680e1f72ba6bf7d6a701bc717a1edb7ed1557f"
         },
         {
           "id": "W3-REPO-TYPES-11",
           "severity": "P1",
-          "file": "internal/storageurl/resolver.go:48-63, 109-136",
+          "file": "internal/storageurl/resolver.go:48-76, 134-146",
           "summary": "crossTenantAuthorizedFileService did not record which caller tenant triggered WithAuthorization and stamped WithCrossTenantResourceAccess even if the returned FileService wrapper was invoked under a different tenant context (or with untrimmed ref spacing), risking cross-tenant authorization bleed if a resolved FileService handle was reused.",
           "regression_test": "TestCrossTenantAuthorizedWrapperScopesToAuthorizedRefAndTenant",
           "commit": "e4680e1f72ba6bf7d6a701bc717a1edb7ed1557f"
