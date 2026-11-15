@@ -56,6 +56,14 @@ end
 return n
 `)
 
+var sealScript = redis.NewScript(`
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  redis.call('PERSIST', KEYS[1])
+  return 1
+end
+return 0
+`)
+
 // RedisRegistry is the distributed admission registry.
 type RedisRegistry struct {
 	client redis.UniversalClient
@@ -141,6 +149,9 @@ func (r *RedisRegistry) ActiveExcept(ctx context.Context, scope Scope, except ..
 
 // Close stops new holds on scope until the barrier is released.
 func (r *RedisRegistry) Close(ctx context.Context, scope Scope, ttl time.Duration) (Barrier, error) {
+	if ttl <= 0 {
+		ttl = DefaultHoldTTL
+	}
 	token, err := redislock.NewToken()
 	if err != nil {
 		return nil, err
@@ -191,7 +202,10 @@ func (r *RedisRegistry) Close(ctx context.Context, scope Scope, ttl time.Duratio
 		relCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if persist {
-			_ = r.client.Persist(relCtx, key).Err()
+			sealed, err := sealScript.Run(relCtx, r.client, []string{key}, token).Int()
+			if err != nil || sealed == 0 {
+				b.markLost()
+			}
 			return
 		}
 		_, _ = redislock.Release(relCtx, r.client, key, token)

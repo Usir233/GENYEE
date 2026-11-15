@@ -394,3 +394,55 @@ func TestSealKeepsTheScopeClosedWithoutReportingLoss(t *testing.T) {
 		require.NoError(t, barrier.Check())
 	})
 }
+
+func TestRedisCloseDefaultsNonPositiveTTL(t *testing.T) {
+	reg, mini := newRedis(t)
+	ctx := context.Background()
+	scope := ConfigCreateScope(9, "cfg-zero-ttl")
+
+	barrier, err := reg.Close(ctx, scope, 0)
+	require.NoError(t, err)
+	defer barrier.Release()
+
+	require.NoError(t, barrier.Check())
+	key := prefix + "{config:9:cfg-zero-ttl}:create:closed"
+	require.Greater(t, mini.TTL(key), time.Minute)
+}
+
+func TestRedisSealVerifiesBarrierOwnership(t *testing.T) {
+	reg, mini := newRedis(t)
+	ctx := context.Background()
+
+	t.Run("does not strip replacement barrier TTL", func(t *testing.T) {
+		scope := ConfigCreateScope(10, "cfg-replaced")
+		key := prefix + "{config:10:cfg-replaced}:create:closed"
+
+		stale, err := reg.Close(ctx, scope, 300*time.Millisecond)
+		require.NoError(t, err)
+		mini.FastForward(time.Second)
+
+		replacement, err := reg.Close(ctx, scope, 30*time.Second)
+		require.NoError(t, err)
+		defer replacement.Release()
+
+		stale.Seal()
+
+		require.Greater(t, mini.TTL(key), time.Duration(0),
+			"stale Seal must not persist a key owned by another barrier")
+		require.ErrorIs(t, stale.Check(), ErrLeaseLost)
+	})
+
+	t.Run("reports loss when key already expired", func(t *testing.T) {
+		scope := ConfigCreateScope(10, "cfg-expired")
+		key := prefix + "{config:10:cfg-expired}:create:closed"
+
+		expired, err := reg.Close(ctx, scope, 300*time.Millisecond)
+		require.NoError(t, err)
+		mini.FastForward(time.Second)
+
+		expired.Seal()
+
+		require.False(t, mini.Exists(key))
+		require.ErrorIs(t, expired.Check(), ErrLeaseLost)
+	})
+}
