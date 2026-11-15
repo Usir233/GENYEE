@@ -7,7 +7,6 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/Usir233/GENYEE/internal/models/utils"
 	"github.com/panjf2000/ants/v2"
 )
 
@@ -18,11 +17,6 @@ type batchEmbedder struct {
 
 func NewBatchEmbedder(pool *ants.Pool) EmbedderPooler {
 	return &batchEmbedder{pool: pool, submitSlot: make(chan struct{}, 1)}
-}
-
-type textEmbedding struct {
-	text    string
-	results []float32
 }
 
 func (e *batchEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, texts []string) ([][]float32, error) {
@@ -90,12 +84,13 @@ func (e *batchEmbedder) batchEmbed(ctx context.Context, model Embedder, texts []
 	if batchSize <= 0 {
 		return nil, fmt.Errorf("BATCH_EMBED_SIZE must be greater than 0")
 	}
-	textEmbeddings := utils.MapSlice(texts, func(text string) *textEmbedding {
-		return &textEmbedding{text: text}
-	})
+	if len(texts) == 0 {
+		return [][]float32{}, nil
+	}
+	results := make([][]float32, len(texts))
 
 	// Function to process each document chunk
-	processChunk := func(texts []*textEmbedding) func() {
+	processChunk := func(start int, chunk []string) func() {
 		return func() {
 			defer wg.Done()
 			// If an error has already occurred, don't continue processing. The
@@ -111,9 +106,7 @@ func (e *batchEmbedder) batchEmbed(ctx context.Context, model Embedder, texts []
 				return
 			}
 			// Embed text
-			embedding, err := model.BatchEmbed(ctx, utils.MapSlice(texts, func(text *textEmbedding) string {
-				return text.text
-			}))
+			embedding, err := model.BatchEmbed(ctx, chunk)
 			if err != nil {
 				mu.Lock()
 				if firstErr == nil {
@@ -122,33 +115,31 @@ func (e *batchEmbedder) batchEmbed(ctx context.Context, model Embedder, texts []
 				mu.Unlock()
 				return
 			}
-			if len(embedding) != len(texts) {
+			if len(embedding) != len(chunk) {
 				mu.Lock()
 				if firstErr == nil {
-					firstErr = fmt.Errorf("embedding model returned %d embeddings for %d inputs", len(embedding), len(texts))
+					firstErr = fmt.Errorf("embedding model returned %d embeddings for %d inputs", len(embedding), len(chunk))
 				}
 				mu.Unlock()
 				return
 			}
-			mu.Lock()
-			for i, text := range texts {
-				if text == nil {
-					continue
-				}
-				text.results = embedding[i]
-			}
-			mu.Unlock()
+			copy(results[start:start+len(chunk)], embedding)
 		}
 	}
 
-	// Submit all tasks to the goroutine pool
-	for _, texts := range utils.ChunkSlice(textEmbeddings, batchSize) {
+	// Submit tasks to the goroutine pool batch by batch without upfront per-item allocation
+	for start := 0; start < len(texts); {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		end := start + min(batchSize, len(texts)-start)
+		chunk := texts[start:end]
 		wg.Add(1)
-		err := e.submit(ctx, processChunk(texts))
-		if err != nil {
+		if err := e.submit(ctx, processChunk(start, chunk)); err != nil {
 			wg.Done() // Submit did not accept this callback.
 			return nil, err
 		}
+		start = end
 	}
 
 	// Wait for all tasks to complete
@@ -159,8 +150,5 @@ func (e *batchEmbedder) batchEmbed(ctx context.Context, model Embedder, texts []
 		return nil, firstErr
 	}
 
-	results := utils.MapSlice(textEmbeddings, func(text *textEmbedding) []float32 {
-		return text.results
-	})
 	return results, nil
 }

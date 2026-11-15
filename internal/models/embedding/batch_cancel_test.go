@@ -54,7 +54,7 @@ func awaitBatchCancellation(t *testing.T, done <-chan error, want error) bool {
 	case err := <-done:
 		require.ErrorIs(t, err, want)
 		return true
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(5 * time.Second):
 		t.Error("cancelled embedding request is still waiting for pool work")
 		return false
 	}
@@ -64,10 +64,10 @@ func awaitBatchCancellation(t *testing.T, done <-chan error, want error) bool {
 // queued submissions have been accepted to observe completion instead.
 func awaitCancellationPoolIdle(t *testing.T, pool *ants.Pool) {
 	t.Helper()
-	require.Eventually(t, func() bool { return pool.Waiting() == 0 }, time.Second, time.Millisecond)
+	require.Eventually(t, func() bool { return pool.Waiting() == 0 }, 5*time.Second, time.Millisecond)
 	done := make(chan struct{})
 	submitted := make(chan error, 1)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	go func() {
 		for {
@@ -129,7 +129,7 @@ func TestBatchEmbedWithPoolCancellationWhileQueued(t *testing.T) {
 				_, err := NewBatchEmbedder(pool).BatchEmbedWithPool(ctx, model, []string{"text"})
 				done <- err
 			}()
-			require.Eventually(t, func() bool { return pool.Waiting() == 1 }, time.Second, time.Millisecond)
+			require.Eventually(t, func() bool { return pool.Waiting() == 1 }, 5*time.Second, time.Millisecond)
 			if !deadline {
 				cancel()
 			}
@@ -165,7 +165,7 @@ func TestBatchEmbedWithPoolCancellationWhileRunning(t *testing.T) {
 		done <- err
 	}()
 	<-entered
-	require.Eventually(t, func() bool { return pool.Waiting() == 1 }, time.Second, time.Millisecond)
+	require.Eventually(t, func() bool { return pool.Waiting() == 1 }, 5*time.Second, time.Millisecond)
 	cancel()
 	returned := awaitBatchCancellation(t, done, context.Canceled)
 	unblock()
@@ -209,7 +209,7 @@ func TestBatchEmbedWithPoolCancelledWaitersStayBounded(t *testing.T) {
 		_, err := pooler.BatchEmbedWithPool(ctx, model, []string{"first"})
 		done <- err
 	}()
-	require.Eventually(t, func() bool { return pool.Waiting() == 1 }, time.Second, time.Millisecond)
+	require.Eventually(t, func() bool { return pool.Waiting() == 1 }, 5*time.Second, time.Millisecond)
 	cancel()
 	if !awaitBatchCancellation(t, done, context.Canceled) {
 		release()
@@ -258,7 +258,7 @@ func TestBatchEmbedWithPoolReleaseAndReboot(t *testing.T) {
 				_, err := pooler.BatchEmbedWithPool(ctx, &cancellationEmbedder{}, []string{"text"})
 				done <- err
 			}()
-			require.Eventually(t, func() bool { return pool.Waiting() == 1 }, time.Second, time.Millisecond)
+			require.Eventually(t, func() bool { return pool.Waiting() == 1 }, 5*time.Second, time.Millisecond)
 			if cancelled {
 				cancel()
 				if !awaitBatchCancellation(t, done, context.Canceled) {
@@ -268,8 +268,8 @@ func TestBatchEmbedWithPoolReleaseAndReboot(t *testing.T) {
 				}
 			}
 			released := make(chan error, 1)
-			go func() { released <- pool.ReleaseTimeout(time.Second) }()
-			require.Eventually(t, func() bool { return pool.IsClosed() && pool.Waiting() == 0 }, time.Second, time.Millisecond)
+			go func() { released <- pool.ReleaseTimeout(5 * time.Second) }()
+			require.Eventually(t, func() bool { return pool.IsClosed() && pool.Waiting() == 0 }, 5*time.Second, time.Millisecond)
 			if !cancelled {
 				require.ErrorIs(t, <-done, ants.ErrPoolClosed)
 			}

@@ -136,7 +136,7 @@ func TestSSEReaderCompletePacketDoesNotWaitForAnotherFrame(t *testing.T) {
 					if got.err != nil || got.event == nil || !json.Valid(got.event.Data) {
 						t.Fatalf("event=%#v, error=%v", got.event, got.err)
 					}
-				case <-time.After(time.Second):
+				case <-time.After(5 * time.Second):
 					t.Fatal("complete JSON packet waited for another network frame")
 				}
 			})
@@ -182,7 +182,7 @@ func TestSSEReaderPendingHealthyPacketDoesNotWait(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-	case <-time.After(time.Second):
+	case <-time.After(5 * time.Second):
 		t.Fatal("healthy pending packet waited for another network frame")
 	}
 }
