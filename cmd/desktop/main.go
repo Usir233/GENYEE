@@ -47,8 +47,8 @@ import (
 // which the native Objective-C handler in WailsContext.m converts to
 // [NSWindow performWindowDragWithEvent:].
 const dragHandlerJS = `(function(){
-if(window.__wkDragBound)return;
-window.__wkDragBound=true;
+if(window.__genyeeDragBound)return;
+window.__genyeeDragBound=true;
 document.documentElement.classList.add('wails-desktop');
 
 // Disable rubber-band overscroll that reveals the dark window background
@@ -173,8 +173,8 @@ window.open=function(url){
 };
 })();`
 
-// wailsThemeSyncJS：与 index.html 首屏一致，在 DomReady 再跑一遍，覆盖 Ctrl+R 后 runtime 就绪时机
-const wailsThemeSyncJS = `(function(){try{var t=localStorage.getItem('GENYEE_theme')||'light';if(t==='system')t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';var bg=t==='dark'?'#181818':'#eee';document.documentElement.setAttribute('theme-mode',t);document.documentElement.style.background=bg;document.documentElement.style.minHeight='100%';document.documentElement.style.colorScheme=t==='dark'?'dark':'light';if(document.body){document.body.style.background=bg;document.body.style.minHeight='100%';}var w=window.runtime;if(!w)return;if(t==='dark'){if(w.WindowSetDarkTheme)w.WindowSetDarkTheme();if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(24,24,24,255);}else{if(w.WindowSetLightTheme)w.WindowSetLightTheme();if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(238,238,238,255);}}catch(e){}})()`
+// wailsThemeSyncJS：与 index.html 首屏及 preferenceStorage.ts 一致，在 DomReady 再跑一遍，覆盖 Ctrl+R 后 runtime 就绪时机
+const wailsThemeSyncJS = `(function(){try{var uid='anon';try{var raw=localStorage.getItem('genyee_user');if(raw){var u=JSON.parse(raw);if(u&&u.id)uid=String(u.id);}}catch(_){}var t=localStorage.getItem('GENYEE_'+uid+'_theme')||localStorage.getItem('GENYEE_anon_theme')||'light';if(t!=='light'&&t!=='dark'&&t!=='system')t='light';if(t==='system')t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';var bg=t==='dark'?'#181818':'#eee';document.documentElement.setAttribute('theme-mode',t);document.documentElement.style.background=bg;document.documentElement.style.minHeight='100%';document.documentElement.style.colorScheme=t==='dark'?'dark':'light';if(document.body){document.body.style.background=bg;document.body.style.minHeight='100%';}var w=window.runtime;if(!w)return;if(t==='dark'){if(w.WindowSetDarkTheme)w.WindowSetDarkTheme();if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(24,24,24,255);}else{if(w.WindowSetLightTheme)w.WindowSetLightTheme();if(w.WindowSetBackgroundColour)w.WindowSetBackgroundColour(238,238,238,255);}}catch(e){}})()`
 
 // ensureDesktopLiteEdition marks this process as Lite. cmd/desktop is the
 // Lite app; packaged builds also inject this via ldflags. wails dev often
