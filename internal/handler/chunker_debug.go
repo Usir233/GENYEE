@@ -32,6 +32,11 @@ import (
 // PreviewChunking should switch to it for true cancellation.
 const previewMaxChars = 64 * 1024
 
+// previewMaxBodyBytes caps the raw JSON body before ShouldBindJSON buffers it.
+// 1 MiB accommodates 64k 4-byte UTF-8 runes plus JSON framing and config while
+// stopping multi-megabyte request bodies at the reader layer.
+const previewMaxBodyBytes = 1 << 20
+
 // previewMaxChunks caps the number of chunks returned in a single preview
 // response so the UI doesn't choke on pathological splits. Stats are
 // computed over the full chunk set before truncation so the displayed
@@ -125,8 +130,17 @@ func PreviewChunking(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), previewTimeout)
 	defer cancel()
 
+	limitJSONBody(c, previewMaxBodyBytes)
 	var req PreviewChunkingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		if isRequestBodyTooLarge(err) {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+				"success": false,
+				"error":   "text exceeds preview limit",
+				"limit":   previewMaxChars,
+			})
+			return
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"success": false, "error": "invalid request body: " + err.Error()})
 		return
 	}

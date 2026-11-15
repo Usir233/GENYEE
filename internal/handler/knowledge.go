@@ -3078,8 +3078,8 @@ func (h *KnowledgeHandler) MoveKnowledge(c *gin.Context) {
 		return
 	}
 
-	tenantID, exists := c.Get(types.TenantIDContextKey.String())
-	if !exists {
+	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
+	if callerTenantID == 0 {
 		c.Error(errors.NewUnauthorizedError("Unauthorized"))
 		return
 	}
@@ -3098,7 +3098,7 @@ func (h *KnowledgeHandler) MoveKnowledge(c *gin.Context) {
 		c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
-	if sourceKB.TenantID != tenantID.(uint64) {
+	if sourceKB.TenantID != callerTenantID {
 		c.Error(errors.NewForbiddenError("No permission to access source knowledge base"))
 		return
 	}
@@ -3117,7 +3117,7 @@ func (h *KnowledgeHandler) MoveKnowledge(c *gin.Context) {
 		c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
-	if targetKB.TenantID != tenantID.(uint64) {
+	if targetKB.TenantID != callerTenantID {
 		c.Error(errors.NewForbiddenError("No permission to access target knowledge base"))
 		return
 	}
@@ -3135,7 +3135,7 @@ func (h *KnowledgeHandler) MoveKnowledge(c *gin.Context) {
 		_ = c.Error(err)
 		return
 	}
-	taskID := utils.GenerateTaskID("kg_move", tenantID.(uint64), req.SourceKBID)
+	taskID := utils.GenerateTaskID("kg_move", callerTenantID, req.SourceKBID)
 	ctx, err = access.WithKBTransfer(c.Request.Context(), sourceKB, targetKB, access.KBTransferMove, taskID, false)
 	if err != nil {
 		_ = c.Error(kbAccessHTTPError(err))
@@ -3171,7 +3171,7 @@ func (h *KnowledgeHandler) MoveKnowledge(c *gin.Context) {
 			c.Error(errors.NewBadRequestError(fmt.Sprintf("Knowledge item %s not found", kID)))
 			return
 		}
-		if knowledge == nil || knowledge.ID != kID || knowledge.TenantID != tenantID.(uint64) ||
+		if knowledge == nil || knowledge.ID != kID || knowledge.TenantID != callerTenantID ||
 			knowledge.KnowledgeBaseID != req.SourceKBID {
 			_ = c.Error(
 				errors.NewBadRequestError(
@@ -3188,7 +3188,7 @@ func (h *KnowledgeHandler) MoveKnowledge(c *gin.Context) {
 
 	// Create move payload
 	payload := types.KnowledgeMovePayload{
-		TenantID:     tenantID.(uint64),
+		TenantID:     callerTenantID,
 		TaskID:       taskID,
 		KnowledgeIDs: req.KnowledgeIDs,
 		SourceKBID:   req.SourceKBID,

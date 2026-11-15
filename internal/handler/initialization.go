@@ -2472,8 +2472,21 @@ func (h *InitializationHandler) TestMultimodalFunction(c *gin.Context) {
 
 	logger.Info(ctx, "Testing multimodal functionality")
 
+	// 验证文件大小 — MAX_FILE_SIZE_MB env (50MB 默认)。
+	// 见 utils/filesize.go 注释：故意保留为部署期 env，不做 runtime setting。
+	maxSizeMB := utils.GetMaxFileSizeMB()
+	maxSize := maxSizeMB * 1024 * 1024
+	// 上限必须在 multipart 解析（ShouldBind / FormFile）之前生效，否则 Gin 会先把整个
+	// 请求体缓冲到内存和临时文件，之后的限制无法阻止大文件放大。
+	limitUploadBody(c, maxSize)
+
 	var req testMultimodalForm
 	if err := c.ShouldBind(&req); err != nil {
+		if isRequestBodyTooLarge(err) {
+			logger.Error(ctx, "File size too large")
+			c.Error(newRequestEntityTooLargeError(fmt.Sprintf("图片文件大小不能超过%dMB", maxSizeMB)))
+			return
+		}
 		logger.Error(ctx, "Failed to parse form data", err)
 		c.Error(errors.NewBadRequestError("表单参数解析失败"))
 		return
@@ -2520,21 +2533,12 @@ func (h *InitializationHandler) TestMultimodalFunction(c *gin.Context) {
 		return
 	}
 
-	// 验证文件大小 — MAX_FILE_SIZE_MB env (50MB 默认)。
-	// 见 utils/filesize.go 注释：故意保留为部署期 env，不做 runtime setting。
-	maxSizeMB := utils.GetMaxFileSizeMB()
-	maxSize := maxSizeMB * 1024 * 1024
-	// 上限必须在 multipart 解析之前生效：FormFile 会先把整个 body 缓冲下来
-	// （超出内存部分落临时文件），之后的 header.Size 检查看到的已是收完的上传。
-	// nginx 的 location /api/ 仍是 MAX_FILE_SIZE；这里是直连 app 时的同一道上限。
-	limitUploadBody(c, maxSize)
-
 	// 获取上传的图片文件
 	file, header, err := c.Request.FormFile("image")
 	if err != nil {
 		if isRequestBodyTooLarge(err) {
 			logger.Error(ctx, "File size too large")
-			c.Error(errors.NewBadRequestError(fmt.Sprintf("图片文件大小不能超过%dMB", maxSizeMB)))
+			c.Error(newRequestEntityTooLargeError(fmt.Sprintf("图片文件大小不能超过%dMB", maxSizeMB)))
 			return
 		}
 		logger.Error(ctx, "Failed to get uploaded image", err)
@@ -2552,7 +2556,7 @@ func (h *InitializationHandler) TestMultimodalFunction(c *gin.Context) {
 
 	if header.Size > maxSize {
 		logger.Error(ctx, "File size too large")
-		c.Error(errors.NewBadRequestError(fmt.Sprintf("图片文件大小不能超过%dMB", maxSizeMB)))
+		c.Error(newRequestEntityTooLargeError(fmt.Sprintf("图片文件大小不能超过%dMB", maxSizeMB)))
 		return
 	}
 	logger.Infof(ctx, "Processing image: %s", utils.SanitizeForLog(header.Filename))

@@ -7,8 +7,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	apperrors "github.com/Usir233/GENYEE/internal/errors"
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
+
+func newRequestEntityTooLargeError(message string) *apperrors.AppError {
+	return &apperrors.AppError{
+		Code:     apperrors.ErrBadRequest,
+		Message:  message,
+		HTTPCode: http.StatusRequestEntityTooLarge,
+	}
+}
 
 // uploadEnvelopeSlack is the multipart framing allowed on top of the file
 // itself, so a body cap refuses a genuinely oversized upload without

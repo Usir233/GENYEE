@@ -52,6 +52,10 @@ func (h *DataSourceCredentialsHandler) ownDataSource(c *gin.Context) (*types.Dat
 		c.Error(errors.NewNotFoundError("data source not found"))
 		return nil, false
 	}
+	if err := requireTenantAPIKeyKnowledgeBase(ctx, ds.KnowledgeBaseID); err != nil {
+		c.Error(err)
+		return nil, false
+	}
 	return ds, true
 }
 
@@ -78,8 +82,13 @@ func (h *DataSourceCredentialsHandler) Put(c *gin.Context) {
 	if !ok {
 		return
 	}
+	limitJSONBody(c, skillSourceJSONMaxBytes)
 	var req dataSourceCredentialsPutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		if isRequestBodyTooLarge(err) {
+			c.Error(newRequestEntityTooLargeError("request body is too large"))
+			return
+		}
 		c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}

@@ -44,6 +44,14 @@ func NewIMHandler(imService *im.Service) *IMHandler {
 	}
 }
 
+func imTenantIDFromContext(c *gin.Context) (uint64, bool) {
+	if tenantID := c.GetUint64(types.TenantIDContextKey.String()); tenantID != 0 {
+		return tenantID, true
+	}
+	tenantID, ok := c.Request.Context().Value(types.TenantIDContextKey).(uint64)
+	return tenantID, ok && tenantID != 0
+}
+
 // ── Channel CRUD handlers ──
 
 // CreateIMChannel creates a new IM channel for an agent.
@@ -54,7 +62,7 @@ func (h *IMHandler) CreateIMChannel(c *gin.Context) {
 		return
 	}
 
-	tenantID, ok := c.Request.Context().Value(types.TenantIDContextKey).(uint64)
+	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -141,7 +149,7 @@ func (h *IMHandler) CreateIMChannel(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": channel})
+	c.JSON(http.StatusOK, gin.H{"data": im.SummarizeIMChannel(*channel)})
 }
 
 // ListIMChannels lists all IM channels for an agent.
@@ -152,7 +160,7 @@ func (h *IMHandler) ListIMChannels(c *gin.Context) {
 		return
 	}
 
-	tenantID, ok := c.Request.Context().Value(types.TenantIDContextKey).(uint64)
+	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -171,7 +179,7 @@ func (h *IMHandler) ListIMChannels(c *gin.Context) {
 // agents, for the cross-agent overview page. Credentials are intentionally
 // NOT included in the response.
 func (h *IMHandler) ListAllIMChannels(c *gin.Context) {
-	tenantID, ok := c.Request.Context().Value(types.TenantIDContextKey).(uint64)
+	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -209,7 +217,7 @@ func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 		return
 	}
 
-	tenantID, ok := c.Request.Context().Value(types.TenantIDContextKey).(uint64)
+	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -291,7 +299,7 @@ func (h *IMHandler) UpdateIMChannel(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"data": channel})
+	c.JSON(http.StatusOK, gin.H{"data": im.SummarizeIMChannel(*channel)})
 }
 
 func normalizeIMLocale(locale string) (string, error) {
@@ -326,7 +334,7 @@ func (h *IMHandler) DeleteIMChannel(c *gin.Context) {
 		return
 	}
 
-	tenantID, ok := c.Request.Context().Value(types.TenantIDContextKey).(uint64)
+	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return
@@ -361,7 +369,7 @@ func (h *IMHandler) ToggleIMChannel(c *gin.Context) {
 		return
 	}
 
-	tenantID, ok := c.Request.Context().Value(types.TenantIDContextKey).(uint64)
+	tenantID, ok := imTenantIDFromContext(c)
 	if !ok {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 		return

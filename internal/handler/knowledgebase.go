@@ -1417,8 +1417,8 @@ func (h *KnowledgeBaseHandler) DeleteKnowledgeBase(c *gin.Context) {
 	}
 
 	// Only owner (admin with matching tenant) can delete knowledge base
-	tenantID, _ := c.Get(types.TenantIDContextKey.String())
-	if kb.TenantID != tenantID.(uint64) || permission != types.OrgRoleAdmin {
+	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
+	if callerTenantID == 0 || kb.TenantID != callerTenantID || permission != types.OrgRoleAdmin {
 		c.Error(apperrors.NewForbiddenError("Only knowledge base owner can delete"))
 		return
 	}
@@ -1643,6 +1643,14 @@ func (h *KnowledgeBaseHandler) DuplicateKnowledgeBase(c *gin.Context) {
 	}
 
 	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
+	if callerTenantID == 0 {
+		c.Error(apperrors.NewUnauthorizedError("Unauthorized"))
+		return
+	}
+	if err := requireTenantAPIKeyKnowledgeBase(ctx, sourceID); err != nil {
+		c.Error(err)
+		return
+	}
 	sourceKB, err := h.service.GetKnowledgeBaseByID(ctx, sourceID)
 	if err != nil {
 		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
@@ -1832,9 +1840,13 @@ func (h *KnowledgeBaseHandler) ListMoveTargets(c *gin.Context) {
 		return
 	}
 
-	tenantID, exists := c.Get(types.TenantIDContextKey.String())
-	if !exists {
+	callerTenantID := c.GetUint64(types.TenantIDContextKey.String())
+	if callerTenantID == 0 {
 		c.Error(apperrors.NewUnauthorizedError("Unauthorized"))
+		return
+	}
+	if err := requireTenantAPIKeyKnowledgeBase(ctx, sourceKBID); err != nil {
+		c.Error(err)
 		return
 	}
 
@@ -1848,7 +1860,7 @@ func (h *KnowledgeBaseHandler) ListMoveTargets(c *gin.Context) {
 		c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
-	if sourceKB.TenantID != tenantID.(uint64) {
+	if sourceKB.TenantID != callerTenantID {
 		c.Error(errors.NewForbiddenError("No permission to access this knowledge base"))
 		return
 	}
@@ -1859,6 +1871,7 @@ func (h *KnowledgeBaseHandler) ListMoveTargets(c *gin.Context) {
 		c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
+	allKBs = filterKnowledgeBasesForAPIKeyScope(ctx, allKBs)
 
 	// Filter eligible targets
 	targets := make([]*types.KnowledgeBase, 0)
