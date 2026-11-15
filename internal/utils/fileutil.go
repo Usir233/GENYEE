@@ -2,13 +2,20 @@ package utils
 
 import "strings"
 
+func normalizeFileExt(ext string) string {
+	ext = strings.TrimRight(strings.TrimSpace(ext), " .")
+	return strings.ToLower(ext)
+}
+
 // IsActiveBrowserContentExt reports whether a file extension can execute script
 // or otherwise participate as active same-origin browser content when served
 // inline. User-uploaded files with these extensions must be downloaded instead
 // of previewed inline.
 func IsActiveBrowserContentExt(ext string) bool {
-	switch strings.ToLower(ext) {
-	case ".svg", ".svgz", ".html", ".htm", ".xhtml", ".xml", ".js", ".mjs", ".css":
+	switch normalizeFileExt(ext) {
+	case ".svg", ".svgz", ".html", ".htm", ".xhtml", ".shtml",
+		".mht", ".mhtml", ".xml", ".xsl", ".xslt", ".rdf", ".mathml",
+		".js", ".mjs", ".css", ".swf":
 		return true
 	default:
 		return false
@@ -17,10 +24,11 @@ func IsActiveBrowserContentExt(ext string) bool {
 
 // GetContentTypeByExt returns the content type based on file extension
 func GetContentTypeByExt(ext string) string {
+	ext = normalizeFileExt(ext)
 	if IsActiveBrowserContentExt(ext) {
 		return "application/octet-stream"
 	}
-	switch strings.ToLower(ext) {
+	switch ext {
 	case ".csv":
 		return "text/csv; charset=utf-8"
 	case ".json":
@@ -71,11 +79,14 @@ func GetContentTypeByExt(ext string) string {
 // SafeContentTypeByFilename returns a browser-safe content type for serving
 // user-controlled files and whether that file may be displayed inline.
 func SafeContentTypeByFilename(filename string) (string, bool) {
-	ext := filename
-	if idx := strings.LastIndex(ext, "."); idx >= 0 {
-		ext = ext[idx:]
-	} else {
-		ext = ""
+	base := filename
+	if slash := strings.LastIndexAny(base, `/\`); slash >= 0 {
+		base = base[slash+1:]
+	}
+	base = strings.TrimRight(strings.TrimSpace(base), " .")
+	var ext string
+	if idx := strings.LastIndex(base, "."); idx >= 0 {
+		ext = base[idx:]
 	}
 	if IsActiveBrowserContentExt(ext) {
 		return "application/octet-stream", false
