@@ -1,0 +1,211 @@
+{
+  "wave": "W4",
+  "slice": "w4-vec-sql-qdrant",
+  "cross_package_notes": [
+    {
+      "file": "internal/application/service/knowledgebase_search.go:200-310",
+      "note": "Verified read-only cross-package caller contract of RetrieveVectorStore.Retrieve: HybridSearch constructs RetrieveParams with explicit KnowledgeBaseIDs, KnowledgeIDs, TagIDs, ExcludeKnowledgeIDs, ExcludeChunkIDs, and ExcludeGeneratedQuestionKBIDs. When callers pass a non-nil KnowledgeBaseIDs slice that resolves to zero non-blank IDs ([]string{} or []string{\"\"}) all four backends now fail closed with empty RetrieveResult slices and zero database/gRPC queries, while nil KnowledgeBaseIDs preserves existing standalone repository test contracts."
+    },
+    {
+      "file": "internal/application/service/knowledge_clone_move_test.go:1-120",
+      "note": "Verified read-only cross-package caller contract of CopyIndices and MoveKnowledgeIndices: document clone and cross-KB move flows pass non-empty sourceKnowledgeBaseID, targetKnowledgeBaseID, and knowledge/chunk ID maps; empty or blank scope identifiers are now rejected consistently across postgres, sqlite, qdrant, and milvus."
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "internal/application/repository/retriever/postgres",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/repository/retriever/postgres/hnsw_index.go",
+        "internal/application/repository/retriever/postgres/hnsw_index_test.go",
+        "internal/application/repository/retriever/postgres/keyword_score_integration_test.go",
+        "internal/application/repository/retriever/postgres/keyword_score_test.go",
+        "internal/application/repository/retriever/postgres/move.go",
+        "internal/application/repository/retriever/postgres/repository.go",
+        "internal/application/repository/retriever/postgres/structs.go",
+        "internal/application/repository/retriever/postgres/w4_audit_test.go"
+      ],
+      "invariants_checked": [
+        "All SQL predicates in KeywordsRetrieve, VectorRetrieve, CopyIndices, MoveKnowledgeIndices, DeleteBy*, and BatchUpdate* bind user-supplied IDs, tags, and search queries via positional parameters ($1..$N); dynamic SQL fragments are restricted to validated integer dimensions in HNSW DDL/cast expressions and probe-verified ParadeDB score function names (paradedb.score vs pdb.score).",
+        "Explicit empty KnowledgeBaseIDs ([]string{} or blank-only entries) fail closed in both KeywordsRetrieve and VectorRetrieve without issuing SQL queries, and ExcludeKnowledgeIDs / ExcludeChunkIDs exclusions are enforced consistently across both keyword and vector retrieval.",
+        "Save, BatchSave, and VectorRetrieve validate finite float32 vector components (rejecting NaN and +/-Inf), guard nil IndexInfo elements and empty slices without emitting invalid SQL or gorm.ErrEmptySlice, and short-circuit TopK <= 0 or zero-dimension embeddings before slicing or casting halfvec(0).",
+        "Background HNSW index builds use pg_try_advisory_lock per dimension, sync.Map in-flight deduplication, context-aware connection lifecycle cleanup, and transactional multi-group BatchUpdateChunkEnabledStatus / BatchUpdateChunkTagID / BatchUpdateChunkContent mutations verified race-free under -race."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SQL-QDRANT-05",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/postgres/repository.go:535-655",
+          "summary": "VectorRetrieve sliced results[:params.TopK] without guarding params.TopK <= 0 (panicking on negative TopK) and interpolated len(params.Embedding) == 0 into halfvec(0) SQL; neither KeywordsRetrieve nor VectorRetrieve failed closed on non-nil empty KnowledgeBaseIDs ([]string{}), rejected NaN/Inf embeddings, short-circuited blank keyword queries, or applied RetrieveParams.ExcludeKnowledgeIDs and ExcludeChunkIDs filters.",
+          "regression_test": "TestW4PostgresAudit_RetrieveBoundsFailClosedNaNAndExclusions",
+          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-06",
+          "severity": "P2",
+          "file": "internal/application/repository/retriever/postgres/repository.go:195-295, 420-470, 660-910; internal/application/repository/retriever/postgres/move.go:15-65",
+          "summary": "BatchSave passed empty slices directly to GORM Create (returning gorm.ErrEmptySlice), Save/BatchSave/EstimateStorageSize lacked nil IndexInfo element guards, DeleteByChunkIDList and DeleteByKnowledgeIDList lacked empty-list guards, MoveKnowledgeIndices and CopyIndices lacked blank KB/document scope validation, and BatchUpdateChunkEnabledStatus / BatchUpdateChunkTagID / BatchUpdateChunkContent executed multi-group UPDATE loops without a wrapping DB transaction.",
+          "regression_test": "TestW4PostgresAudit_WriteDeleteMoveAndBatchUpdateGuards",
+          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/postgres/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/repository/retriever/sqlite",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/repository/retriever/sqlite/batch_update_test.go",
+        "internal/application/repository/retriever/sqlite/delete_atomicity_test.go",
+        "internal/application/repository/retriever/sqlite/fts_query_test.go",
+        "internal/application/repository/retriever/sqlite/index_write_errors_test.go",
+        "internal/application/repository/retriever/sqlite/move.go",
+        "internal/application/repository/retriever/sqlite/move_test.go",
+        "internal/application/repository/retriever/sqlite/repository.go",
+        "internal/application/repository/retriever/sqlite/repository_test.go",
+        "internal/application/repository/retriever/sqlite/save_test.go",
+        "internal/application/repository/retriever/sqlite/w4_audit_test.go"
+      ],
+      "invariants_checked": [
+        "FTS5 MATCH queries wrap every token in double-quoted phrase literals with internal quotes doubled and ASCII/Unicode control runes (including NUL \\x00) treated as token separators, neutralizing FTS5 operators (NEAR, OR, AND, NOT, *, ^, column: prefixes) and C-string truncation syntax errors.",
+        "Tenant and knowledge-base isolation holds across CopyIndices (scoping source reads by sourceKnowledgeBaseID and mapped knowledge_id/chunk_id), MoveKnowledgeIndices, VectorRetrieve, and KeywordsRetrieve (failing closed on explicit empty KnowledgeBaseIDs and enforcing ExcludeKnowledgeIDs / ExcludeChunkIDs).",
+        "Vector writes and reads reject NaN and +/-Inf float32 components, guard nil IndexInfo elements and TopK <= 0 before sqlite-vec k=? or Go slice operations, and preserve multi-table transaction atomicity across embeddings, embeddings_fts, and embeddings_vec_<dim>.",
+        "Dimension-specific vec0 virtual table DDL validates dimension > 0, caches created dimensions safely under sync.Map, and passes -race both with and without -tags sqlite_fts5."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SQL-QDRANT-07",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/sqlite/repository.go:258-340; internal/application/repository/retriever/sqlite/move.go:15-95",
+          "summary": "CopyIndices ignored sourceKnowledgeBaseID (_ string) and queried embeddings solely by chunk_id IN ?, allowing a caller with chunk IDs from another knowledge base to clone cross-KB content and vectors (inserting unmapped KnowledgeID values as empty strings); MoveKnowledgeIndices and CopyIndices also lacked blank KB/knowledge ID scope validation.",
+          "regression_test": "TestW4SQLiteAudit_CopyIndicesEnforcesSourceKBAndMappedKnowledge",
+          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-08",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/sqlite/repository.go:130-255, 420-690, 705-775",
+          "summary": "tokenizeCJKBigram treated control characters (including NUL \\x00) as non-whitespace, embedding raw NUL bytes inside FTS5 phrase literals where SQLite C-string truncation produced unterminated-quote fts5 syntax errors; VectorRetrieve and Save/BatchSave accepted NaN/Inf embeddings (allowing NaN cosine similarity to bypass score < Threshold), TopK <= 0 reached sqlite-vec k=? / slice bounds, explicit empty KnowledgeBaseIDs ([]string{}) failed open across all KBs, and buildFilterWhere omitted ExcludeKnowledgeIDs and ExcludeChunkIDs.",
+          "regression_test": "TestW4SQLiteAudit_FTS5ControlCharNaNVectorsFailClosedAndExclusions",
+          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/sqlite/... (exit 0)",
+        "GOMAXPROCS=2 go test -tags sqlite_fts5 -race -p 1 -count=1 ./internal/application/repository/retriever/sqlite/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/repository/retriever/qdrant",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/repository/retriever/qdrant/copy_test.go",
+        "internal/application/repository/retriever/qdrant/move.go",
+        "internal/application/repository/retriever/qdrant/repository.go",
+        "internal/application/repository/retriever/qdrant/repository_test.go",
+        "internal/application/repository/retriever/qdrant/structs.go",
+        "internal/application/repository/retriever/qdrant/w4_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Qdrant payload filters construct typed protobuf Condition predicates (Must on is_enabled and knowledge_base_id / knowledge_id / tag_id, MustNot on ExcludeKnowledgeIDs and ExcludeChunkIDs), fail closed when non-nil KnowledgeBaseIDs resolves to zero non-blank IDs, and guard DeleteBy* / BatchUpdate* against empty ID slices so unconditioned deletes never execute.",
+        "Collection naming defaults to the GENYEE prefix (genyee_embeddings_<dim>) with zero legacy brand residues, strict positive-integer dimension suffix matching, per-dimension mutex initialization avoiding partial-init races, and NotFound cache eviction on externally dropped collections.",
+        "VectorRetrieve and KeywordsRetrieve guard TopK <= 0 before uint64/uint32 casts or result-slice truncation, reject NaN/Inf embeddings on read and write, filter ExcludeGeneratedQuestionKBIDs hits before TopK truncation, and extract both UUID and numeric Qdrant PointId variants.",
+        "MoveKnowledgeIndices and CopyIndices validate non-empty source/target KB and knowledge IDs, verify dimension > 0, and treat missing source collections as clean no-ops."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SQL-QDRANT-09",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/qdrant/repository.go:555-765",
+          "summary": "VectorRetrieve and KeywordsRetrieve cast negative params.TopK directly to uint64/uint32 (underflowing to math.MaxUint64 / math.MaxUint32 in Qdrant QueryPoints limits) and subsequently panicked with slice bounds out of range on allResults[:params.TopK].",
+          "regression_test": "TestW4QdrantAudit_NegativeAndZeroTopKNoUnderflowOrPanic",
+          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-10",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/qdrant/repository.go:255-360, 555-820; internal/application/repository/retriever/qdrant/move.go:15-155",
+          "summary": "VectorRetrieve and KeywordsRetrieve failed open across collections when KnowledgeBaseIDs was an explicit empty slice ([]string{}), ignored RetrieveParams.ExcludeGeneratedQuestionKBIDs, lacked NaN/Inf vector and nil IndexInfo validation, dropped numeric PointId_Num IDs when deleting old points during CopyIndices/MoveKnowledgeIndices, and lacked empty KB/knowledge scope and NotFound collection guards in MoveKnowledgeIndices.",
+          "regression_test": "TestW4QdrantAudit_FailClosedScopeNaNVectorsGeneratedQuestionAndMoveGuards",
+          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/qdrant/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/repository/retriever/milvus",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/repository/retriever/milvus/analyzer.go",
+        "internal/application/repository/retriever/milvus/analyzer_test.go",
+        "internal/application/repository/retriever/milvus/collection_names.go",
+        "internal/application/repository/retriever/milvus/collection_names_test.go",
+        "internal/application/repository/retriever/milvus/copy_test.go",
+        "internal/application/repository/retriever/milvus/filter.go",
+        "internal/application/repository/retriever/milvus/keywords_test.go",
+        "internal/application/repository/retriever/milvus/move.go",
+        "internal/application/repository/retriever/milvus/move_test.go",
+        "internal/application/repository/retriever/milvus/repository.go",
+        "internal/application/repository/retriever/milvus/repository_test.go",
+        "internal/application/repository/retriever/milvus/score_test.go",
+        "internal/application/repository/retriever/milvus/structs.go",
+        "internal/application/repository/retriever/milvus/w4_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Milvus delete predicates escape backslashes and double quotes and reject ASCII control characters via buildMilvusStringInExpr instead of milvusclient.DeleteOption.WithStringIDs raw fmt.Sprintf('\"%s\"') interpolation; query/search filters bind values through WithTemplateParam placeholders and enforce an explicit scalar-field allowlist in filter.Convert.",
+        "Collection naming defaults to genyee_embeddings_<dim> with zero legacy brand residues and strict canonical positive decimal dimension suffix parsing (rejecting +dim, -dim, and leading-zero suffixes).",
+        "VectorRetrieve and KeywordsRetrieve fail closed on explicit empty KnowledgeBaseIDs ([]string{}), guard TopK <= 0, empty embeddings, and blank keyword queries, reject NaN/Inf vectors on read and write, sanitize NUL/invalid-UTF8 VarChar payloads, and filter ExcludeGeneratedQuestionKBIDs hits prior to TopK truncation.",
+        "BatchUpdateChunkTagID, BatchUpdateChunkEnabledStatus, MoveKnowledgeIndices, and CopyIndices propagate query/analyzer/upsert errors via errors.Join instead of silently succeeding, validate non-empty KB/knowledge scopes, and pass -race with per-dimension initialization locks."
+      ],
+      "findings": [
+        {
+          "id": "W4-VEC-SQL-QDRANT-01",
+          "severity": "P0",
+          "file": "internal/application/repository/retriever/milvus/repository.go:539-578",
+          "summary": "DeleteByChunkIDList, DeleteByKnowledgeIDList, and DeleteBySourceIDList built Milvus delete expressions via milvusclient.DeleteOption.WithStringIDs, which interpolates each ID with raw fmt.Sprintf(\"\\\"%s\\\"\", id) without escaping quotes or backslashes—allowing crafted chunk/knowledge/source IDs containing '\"' to inject arbitrary Milvus boolean predicates (e.g. '|| knowledge_base_id != \"\"') and delete records across tenants—and failed when target dimension collections did not exist.",
+          "regression_test": "TestW4MilvusAudit_DeleteEscapesQuotesBackslashesAndRejectsControlChars",
+          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-02",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/milvus/filter.go:95-215",
+          "summary": "universalFilterCondition.Convert interpolated cond.Field verbatim into Milvus filter expressions and template parameter names without validating against an allowlist of collection scalar fields, allowing untrusted JSON filter conditions to inject arbitrary boolean expressions via Field.",
+          "regression_test": "TestW4MilvusAudit_FilterRejectsDisallowedFieldInjection",
+          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-03",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/milvus/repository.go:1003-1055",
+          "summary": "BatchUpdateChunkTagID logged warnings and continued when searchByFilter, collectionAnalyzerMode, or client.Upsert failed on a collection, returning nil to callers despite partial or complete tag update failure.",
+          "regression_test": "TestW4MilvusAudit_BatchUpdateChunkTagIDPropagatesErrors",
+          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+        },
+        {
+          "id": "W4-VEC-SQL-QDRANT-04",
+          "severity": "P1",
+          "file": "internal/application/repository/retriever/milvus/collection_names.go:15-35; internal/application/repository/retriever/milvus/move.go:15-155; internal/application/repository/retriever/milvus/repository.go:420-520, 610-810",
+          "summary": "collectionDimensionForBase accepted non-canonical strconv.Atoi suffixes (+768, 0768), VectorRetrieve and KeywordsRetrieve failed open on explicit empty KnowledgeBaseIDs ([]string{}), ignored RetrieveParams.ExcludeGeneratedQuestionKBIDs, lacked TopK <= 0 / empty-embedding / blank-query / NaN-Inf vector / nil-IndexInfo / NUL-byte VarChar guards, and MoveKnowledgeIndices / CopyIndices lacked empty KB/knowledge scope validation.",
+          "regression_test": "TestW4MilvusAudit_CollectionNameStrictDigitsAndRetrieveWriteGuards",
+          "commit": "27c980830090a979b664b39676c35f9f615d6cc1"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/milvus/... (exit 0)"
+      ]
+    }
+  ]
+}
