@@ -80,7 +80,13 @@ func TestInstallManagerFilesStayInsideVersionDir(t *testing.T) {
 	require.Equal(t, "print(1)", string(got))
 	st, err := m.StatSessionFile(ctx, "s1", "scripts/run.py")
 	require.NoError(t, err)
+	require.Equal(t, sandbox.RemoteEntryFile, st.Type)
 	require.Equal(t, int64(len("print(1)")), st.Size)
+
+	require.NoError(t, os.Symlink(filepath.Join(dir, "scripts", "run.py"), filepath.Join(dir, "scripts", "link.py")))
+	linkSt, err := m.StatSessionFile(ctx, "s1", "scripts/link.py")
+	require.NoError(t, err)
+	require.Equal(t, sandbox.RemoteEntryOther, linkSt.Type)
 
 	err = m.WriteSessionFile(ctx, "s1", filepath.Join(filepath.Dir(dir), "other-1", "x"), []byte("x"))
 	require.ErrorIs(t, err, localsandbox.ErrPathDenied)

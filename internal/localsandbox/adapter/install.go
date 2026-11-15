@@ -160,11 +160,9 @@ func (m *InstallManager) StatSessionFile(
 	if err != nil {
 		return nil, err
 	}
-	entryType := sandbox.RemoteEntryFile
-	if info.IsDir() {
-		entryType = sandbox.RemoteEntryDir
-	}
-	return &sandbox.RemoteStatEntry{Path: target, Type: entryType, Size: info.Size(), ModTime: info.ModTime()}, nil
+	return &sandbox.RemoteStatEntry{
+		Path: target, Type: remoteEntryType(info.Mode()), Size: info.Size(), ModTime: info.ModTime(),
+	}, nil
 }
 
 // ReadSessionFile reads p inside the version directory.

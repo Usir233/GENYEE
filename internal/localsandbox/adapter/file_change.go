@@ -22,6 +22,14 @@ func fileApprovalFrom(ctx context.Context) *localsandbox.FileApproval {
 	return a
 }
 
+func fileApprovalForSession(ctx context.Context, sessionID string) *localsandbox.FileApproval {
+	a := fileApprovalFrom(ctx)
+	if a == nil || sessionID == "" || a.SessionID != sessionID {
+		return nil
+	}
+	return a
+}
+
 // AuthorizeFileChange asks the session's approver for one out-of-scope write.
 func (a *Adapter) AuthorizeFileChange(
 	ctx context.Context, sessionID string, change sandbox.FileChange,

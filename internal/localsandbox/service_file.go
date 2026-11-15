@@ -38,10 +38,12 @@ type FileChangeRequest struct {
 	Reviewer Approver
 }
 
-// FileApproval lets one tool call write Path with exactly the approved bytes.
+// FileApproval lets one tool call write Path with exactly the approved bytes
+// in the session that requested it.
 type FileApproval struct {
-	Grant  Grant
-	Digest [32]byte
+	SessionID string
+	Grant     Grant
+	Digest    [32]byte
 }
 
 // AuthorizeFileChange approves one write outside the session's scope. It
@@ -119,7 +121,7 @@ func (s *Service) AuthorizeFileChange(ctx context.Context, req FileChangeRequest
 	}
 	logger.Infof(ctx, "[LocalSandbox] file write approved session=%s path=%s mode=%s session_scope=%t",
 		req.SessionID, grant.Path, req.Mode, t.remember(d))
-	return &FileApproval{Grant: grant, Digest: sha256.Sum256(next)}, nil
+	return &FileApproval{SessionID: req.SessionID, Grant: grant, Digest: sha256.Sum256(next)}, nil
 }
 
 // applyFileChange computes the new file. Why it failed stays in the log: the
@@ -146,6 +148,9 @@ func readForChange(guard *PathGuard, path, mode string) ([]byte, bool, error) {
 	}
 	if err != nil {
 		return nil, false, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, true, fmt.Errorf("%w: %q is not a regular file", ErrPathDenied, path)
 	}
 	if mode != "edit" && mode != "append" {
 		return nil, true, nil

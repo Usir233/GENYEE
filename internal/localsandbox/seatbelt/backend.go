@@ -248,14 +248,17 @@ func withSandboxTemp(env []string, cwd string, explicit map[string]string) []str
 	// inherited host TMPDIR (Go tests set one under /var/folders) would
 	// otherwise skip injection and leave python/git writing outside the
 	// writable root.
-	if _, ok := explicit["TMPDIR"]; ok {
-		return env
+	for k := range explicit {
+		if strings.EqualFold(k, "TMPDIR") {
+			return env
+		}
 	}
 	out := make([]string, 0, len(env)+3)
 	for _, kv := range env {
-		if strings.HasPrefix(kv, "TMPDIR=") ||
-			strings.HasPrefix(kv, "TMP=") ||
-			strings.HasPrefix(kv, "TEMP=") {
+		name, _, _ := strings.Cut(kv, "=")
+		if strings.EqualFold(name, "TMPDIR") ||
+			strings.EqualFold(name, "TMP") ||
+			strings.EqualFold(name, "TEMP") {
 			continue
 		}
 		out = append(out, kv)
@@ -267,6 +270,8 @@ func withSandboxTemp(env []string, cwd string, explicit map[string]string) []str
 	)
 }
 
+const seatbeltKillDrainGrace = 100 * time.Millisecond
+
 type seatbeltProcess struct {
 	cmd      *exec.Cmd
 	pid      int
@@ -275,9 +280,10 @@ type seatbeltProcess struct {
 	started  time.Time
 	waitDone chan struct{}
 
-	mu     sync.Mutex
-	killed bool
-	reaped bool
+	mu        sync.Mutex
+	killed    bool
+	reaped    bool
+	closeOnce sync.Once
 }
 
 func (p *seatbeltProcess) Stdout() io.Reader { return p.stdout }
@@ -301,7 +307,8 @@ func (p *seatbeltProcess) watchContext(ctx context.Context) {
 }
 
 // Kill terminates the entire process group. Killing only the root would leave
-// descendants running after a timeout.
+// descendants running after a timeout. Holding mu across syscall.Kill closes
+// the race window between Wait reaping the PID and Kill signalling -pid.
 func (p *seatbeltProcess) Kill() error {
 	p.mu.Lock()
 	// reaped is set under this lock as soon as Wait returns. Cmd.ProcessState
@@ -312,16 +319,28 @@ func (p *seatbeltProcess) Kill() error {
 	}
 	p.killed = true
 	pid := p.pid
+	var killErr error
+	if pid != 0 {
+		if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil && err != syscall.ESRCH {
+			killErr = fmt.Errorf("localsandbox: kill process group: %w", err)
+		}
+	}
 	p.mu.Unlock()
 
-	if pid == 0 {
-		return nil
-	}
-	if err := syscall.Kill(-pid, syscall.SIGKILL); err != nil &&
-		err != syscall.ESRCH {
-		return fmt.Errorf("localsandbox: kill process group: %w", err)
-	}
-	return nil
+	p.closeOnce.Do(func() {
+		go func() {
+			timer := time.NewTimer(seatbeltKillDrainGrace)
+			defer timer.Stop()
+			select {
+			case <-p.waitDone:
+				return
+			case <-timer.C:
+				_ = p.stdout.Close()
+				_ = p.stderr.Close()
+			}
+		}()
+	})
+	return killErr
 }
 
 func (p *seatbeltProcess) Wait(context.Context) (core.ExitStatus, error) {

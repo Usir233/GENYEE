@@ -562,3 +562,71 @@ func TestServiceRunWithPolicyRejectsInvalidPolicy(t *testing.T) {
 	require.Error(t, err)
 	require.Empty(t, backend.prepared)
 }
+
+type pipeHoldingProcess struct {
+	stdoutR *io.PipeReader
+	stdoutW *io.PipeWriter
+	stderrR *io.PipeReader
+	stderrW *io.PipeWriter
+	killed  chan struct{}
+	once    sync.Once
+}
+
+func newPipeHoldingProcess() *pipeHoldingProcess {
+	outR, outW := io.Pipe()
+	errR, errW := io.Pipe()
+	return &pipeHoldingProcess{
+		stdoutR: outR, stdoutW: outW,
+		stderrR: errR, stderrW: errW,
+		killed: make(chan struct{}),
+	}
+}
+
+func (p *pipeHoldingProcess) Stdout() io.Reader { return p.stdoutR }
+func (p *pipeHoldingProcess) Stderr() io.Reader { return p.stderrR }
+func (p *pipeHoldingProcess) PID() int          { return 4242 }
+func (p *pipeHoldingProcess) Kill() error {
+	// Simulate root process dying while an escaped setsid() grandchild keeps
+	// stdoutW/stderrW open indefinitely.
+	p.once.Do(func() { close(p.killed) })
+	return nil
+}
+
+func (p *pipeHoldingProcess) Wait(context.Context) (ExitStatus, error) {
+	<-p.killed
+	return ExitStatus{Code: -1, Killed: true}, nil
+}
+
+func TestServiceRunUnblocksDrainWhenEscapedGrandchildHoldsPipeAfterTimeout(t *testing.T) {
+	proc := newPipeHoldingProcess()
+	t.Cleanup(func() {
+		_ = proc.stdoutW.Close()
+		_ = proc.stderrW.Close()
+	})
+	backend := &fakeBackend{proc: proc}
+	svc := serviceFixture(t, backend, ModeAuto)
+
+	done := make(chan *RunResult, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		res, err := svc.Run(context.Background(), RunRequest{
+			SessionID: "s1",
+			Command:   "setsid sleep 300",
+			Timeout:   40 * time.Millisecond,
+		})
+		if err != nil {
+			errCh <- err
+			return
+		}
+		done <- res
+	}()
+
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case res := <-done:
+		require.True(t, res.Exit.Killed)
+	case <-time.After(1500 * time.Millisecond):
+		t.Fatal("Service.Run hung in drain() after timeout when grandchild kept pipes open")
+	}
+}

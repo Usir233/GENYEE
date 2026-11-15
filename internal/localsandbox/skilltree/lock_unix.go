@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"syscall"
 )
 
@@ -25,7 +26,11 @@ func (t *Tree) lock(name string, wait bool) (func(), bool, error) {
 	if err := validName(name); err != nil {
 		return nil, false, err
 	}
-	f, err := os.OpenFile(filepath.Join(t.root, locksDir, name+".lock"), os.O_CREATE|os.O_RDWR, 0o600)
+	f, err := os.OpenFile(
+		filepath.Join(t.root, locksDir, name+".lock"),
+		os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW,
+		0o600,
+	)
 	if err != nil {
 		return nil, false, err
 	}
@@ -40,8 +45,11 @@ func (t *Tree) lock(name string, wait bool) (func(), bool, error) {
 		}
 		return nil, false, err
 	}
+	var once sync.Once
 	return func() {
-		_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
-		_ = f.Close()
+		once.Do(func() {
+			_ = syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+			_ = f.Close()
+		})
 	}, true, nil
 }

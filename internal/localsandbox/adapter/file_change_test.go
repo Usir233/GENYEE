@@ -198,3 +198,26 @@ func TestStoppedTurnDoesNotWriteAfterApproval(t *testing.T) {
 	_, statErr := os.Stat(target)
 	require.True(t, os.IsNotExist(statErr))
 }
+
+func TestFileApprovalCannotBeReplayedAcrossSessions(t *testing.T) {
+	a := newTestAdapter(t)
+	target := filepath.Join(outsideDir(t), "shared.md")
+	require.NoError(t, os.WriteFile(target, []byte("before"), 0o644))
+	ctx := sandbox.WithCommandApproval(context.Background(), sandbox.CommandApproval{
+		Approver: &approveAll{}, Tool: "write_sandbox_file",
+	})
+
+	authed, err := a.AuthorizeFileChange(ctx, "s1", sandbox.FileChange{
+		Path: target, Mode: "overwrite",
+		Apply: func([]byte, bool) ([]byte, error) { return []byte("after"), nil },
+	})
+	require.NoError(t, err)
+
+	_, err = a.ReadSessionFile(authed, "s2", target)
+	require.Error(t, err, "s1 approval must not grant s2 read access")
+	err = a.WriteSessionWorkspaceFile(authed, "s2", target, []byte("after"))
+	require.Error(t, err, "s1 approval must not grant s2 write access")
+	got, readErr := os.ReadFile(target)
+	require.NoError(t, readErr)
+	require.Equal(t, "before", string(got))
+}

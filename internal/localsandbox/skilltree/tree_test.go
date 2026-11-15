@@ -45,7 +45,7 @@ func TestNewVersionNumbersPerSkill(t *testing.T) {
 
 func TestInvalidNamesAreRejected(t *testing.T) {
 	tree := newTree(t)
-	for _, name := range []string{"", ".", "..", "a/b", `a\b`, "a\x00b"} {
+	for _, name := range []string{"", ".", "..", ".versions", ".locks", ".next-pdf", ".hidden", "a/b", `a\b`, "a\x00b"} {
 		_, err := tree.NewVersion(name)
 		require.ErrorIs(t, err, ErrInvalidName, name)
 	}
@@ -166,8 +166,25 @@ func TestLockIsExclusivePerSkill(t *testing.T) {
 	tree := newTree(t)
 	unlock, err := tree.Lock("pdf")
 	require.NoError(t, err)
+	_, ok, err := tree.tryLock("pdf")
+	require.NoError(t, err)
+	require.False(t, ok, "tryLock must report busy while Lock is held")
 	unlock()
 	unlock2, err := tree.Lock("pdf")
 	require.NoError(t, err)
 	unlock2()
+}
+
+func TestSweepRemovesMalformedNextSymlinksWithoutError(t *testing.T) {
+	tree := newTree(t)
+	bad1 := filepath.Join(tree.Root(), ".next-")
+	bad2 := filepath.Join(tree.Root(), ".next-.hidden")
+	require.NoError(t, os.Symlink("/nonexistent", bad1))
+	require.NoError(t, os.Symlink("/nonexistent", bad2))
+
+	require.NoError(t, tree.Sweep())
+	_, err := os.Lstat(bad1)
+	require.True(t, os.IsNotExist(err))
+	_, err = os.Lstat(bad2)
+	require.True(t, os.IsNotExist(err))
 }

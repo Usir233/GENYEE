@@ -263,6 +263,36 @@ func TestAdapterListSessionFilesSkipsDeniedSymlinksAndDirs(t *testing.T) {
 	require.Equal(t, "allowed.txt", entries[0].Name)
 }
 
+func TestAdapterStatAndListClassifyNonRegularEntriesAsOtherAndHonorContextCancel(t *testing.T) {
+	a := New(testService(t, &stubBackend{}))
+	ctx := context.Background()
+
+	require.NoError(t, a.WriteSessionWorkspaceFile(ctx, "s1", "real.txt", []byte("ok")))
+	layout, err := a.SessionWorkspaceLayout(ctx, "s1")
+	require.NoError(t, err)
+
+	inScopeLink := filepath.Join(layout.Root, "alias.txt")
+	require.NoError(t, os.Symlink(filepath.Join(layout.Root, "real.txt"), inScopeLink))
+
+	stat, err := a.StatSessionFile(ctx, "s1", "alias.txt")
+	require.NoError(t, err)
+	require.Equal(t, sandbox.RemoteEntryOther, stat.Type, "symlinks must report RemoteEntryOther")
+
+	entries, err := a.ListSessionFiles(ctx, "s1", ".")
+	require.NoError(t, err)
+	typesByName := map[string]sandbox.RemoteDirEntryType{}
+	for _, e := range entries {
+		typesByName[e.Name] = e.Type
+	}
+	require.Equal(t, sandbox.RemoteEntryFile, typesByName["real.txt"])
+	require.Equal(t, sandbox.RemoteEntryOther, typesByName["alias.txt"])
+
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	_, err = a.ListSessionFiles(canceled, "s1", ".")
+	require.ErrorIs(t, err, context.Canceled)
+}
+
 type stubProjects struct{}
 
 func (stubProjects) ProjectDirForSession(context.Context, string) (string, bool, error) {

@@ -314,6 +314,8 @@ func commandCwd(policy Policy, workDir string) (string, error) {
 	return NewPathGuard(policy).CheckDir(workDir)
 }
 
+const killDrainGrace = 100 * time.Millisecond
+
 func watchKill(ctx context.Context, done <-chan struct{}, proc Process) {
 	select {
 	case <-done:
@@ -325,6 +327,24 @@ func watchKill(ctx context.Context, done <-chan struct{}, proc Process) {
 		return
 	default:
 		_ = proc.Kill()
+	}
+	// If an escaped setsid() descendant inherited stdout/stderr and keeps the
+	// write end open after the process group is killed, close the read end
+	// after a brief grace window so drain(proc) cannot hang forever.
+	timer := time.NewTimer(killDrainGrace)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return
+	case <-timer.C:
+		closeStream(proc.Stdout())
+		closeStream(proc.Stderr())
+	}
+}
+
+func closeStream(r io.Reader) {
+	if c, ok := r.(io.Closer); ok {
+		_ = c.Close()
 	}
 }
 

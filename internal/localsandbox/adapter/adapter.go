@@ -176,7 +176,7 @@ func executeResult(ctx context.Context, sessionID string, res *localsandbox.RunR
 func (a *Adapter) guard(
 	ctx context.Context, sessionID string,
 ) (*localsandbox.PathGuard, localsandbox.Workspace, error) {
-	if approval := fileApprovalFrom(ctx); approval != nil {
+	if approval := fileApprovalForSession(ctx, sessionID); approval != nil {
 		return a.svc.GuardForSession(ctx, sessionID, approval.Grant)
 	}
 	return a.svc.GuardForSession(ctx, sessionID)
@@ -220,6 +220,9 @@ func (a *Adapter) ListSessionFiles(
 
 	var out []sandbox.RemoteDirEntry
 	err = filepath.WalkDir(resolved, func(p string, d os.DirEntry, walkErr error) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if _, checkErr := guard.CheckRead(p); checkErr != nil {
 			if p == resolved {
 				return checkErr
@@ -245,7 +248,7 @@ func (a *Adapter) ListSessionFiles(
 		out = append(out, sandbox.RemoteDirEntry{
 			Name:    d.Name(),
 			Path:    p,
-			Type:    sandbox.RemoteEntryFile,
+			Type:    remoteEntryType(info.Mode()),
 			Size:    info.Size(),
 			ModTime: info.ModTime(),
 		})
@@ -275,12 +278,8 @@ func (a *Adapter) StatSessionFile(
 		}
 		return nil, err
 	}
-	entryType := sandbox.RemoteEntryFile
-	if info.IsDir() {
-		entryType = sandbox.RemoteEntryDir
-	}
 	return &sandbox.RemoteStatEntry{
-		Path: target, Type: entryType, Size: info.Size(), ModTime: info.ModTime(),
+		Path: target, Type: remoteEntryType(info.Mode()), Size: info.Size(), ModTime: info.ModTime(),
 	}, nil
 }
 
@@ -318,7 +317,7 @@ func (a *Adapter) WriteSessionWorkspaceFile(
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	writePath, err := fileGrantWrite(guard, fileApprovalFrom(ctx), target, content)
+	writePath, err := fileGrantWrite(guard, fileApprovalForSession(ctx, sessionID), target, content)
 	if err != nil {
 		return err
 	}
@@ -366,4 +365,15 @@ func absoluteIn(root, p string) string {
 		return filepath.Clean(p)
 	}
 	return filepath.Join(root, p)
+}
+
+func remoteEntryType(mode os.FileMode) sandbox.RemoteDirEntryType {
+	switch {
+	case mode.IsDir():
+		return sandbox.RemoteEntryDir
+	case mode.IsRegular():
+		return sandbox.RemoteEntryFile
+	default:
+		return sandbox.RemoteEntryOther
+	}
 }

@@ -35,7 +35,7 @@ type Tree struct {
 // New prepares root and its bookkeeping directories.
 func New(root string) (*Tree, error) {
 	clean := filepath.Clean(strings.TrimSpace(root))
-	if clean == "" || !filepath.IsAbs(clean) || clean == string(filepath.Separator) {
+	if clean == "" || !filepath.IsAbs(clean) || filepath.Dir(clean) == clean {
 		return nil, fmt.Errorf("skilltree: invalid root %q", root)
 	}
 	for _, dir := range []string{clean, filepath.Join(clean, versionsDir), filepath.Join(clean, locksDir)} {
@@ -53,7 +53,7 @@ func (t *Tree) Root() string { return t.root }
 func (t *Tree) VersionsRoot() string { return filepath.Join(t.root, versionsDir) }
 
 func validName(name string) error {
-	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\\x00") {
+	if name == "" || strings.HasPrefix(name, ".") || strings.ContainsAny(name, "/\\\x00") {
 		return fmt.Errorf("%w %q", ErrInvalidName, name)
 	}
 	return nil
@@ -246,6 +246,12 @@ func (t *Tree) Sweep() error {
 		}
 		p := filepath.Join(t.root, e.Name())
 		if name, ok := strings.CutPrefix(e.Name(), nextPrefix); ok {
+			if validName(name) != nil {
+				if err := os.Remove(p); err != nil && !errors.Is(err, os.ErrNotExist) {
+					errs = append(errs, err)
+				}
+				continue
+			}
 			errs = append(errs, t.sweepLocked(name, p))
 			continue
 		}
