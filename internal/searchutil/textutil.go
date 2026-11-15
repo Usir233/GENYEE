@@ -3,6 +3,7 @@ package searchutil
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"math"
 	"strings"
 	"unicode"
 
@@ -44,7 +45,7 @@ func TokenizeSimple(text string) map[string]struct{} {
 	}
 
 	var words []string
-	if ContainsChinese(text) {
+	if ContainsChinese(text) && types.Jieba != nil {
 		// Use jieba for Chinese text segmentation (search mode for finer granularity)
 		words = types.Jieba.CutForSearch(text, true)
 	} else {
@@ -156,6 +157,12 @@ func TokenOverlapRatio(tokA, tokB map[string]struct{}) float64 {
 
 // ClampFloat clamps a float value to the specified range [minV, maxV].
 func ClampFloat(v, minV, maxV float64) float64 {
+	if minV > maxV {
+		minV, maxV = maxV, minV
+	}
+	if math.IsNaN(v) {
+		return minV
+	}
 	if v < minV {
 		return minV
 	}

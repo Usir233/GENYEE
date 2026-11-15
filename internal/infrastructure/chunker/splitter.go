@@ -279,6 +279,7 @@ func SplitText(text string, cfg SplitterConfig) []Chunk {
 	if text == "" {
 		return nil
 	}
+	text = sanitizeUTF8(text)
 
 	chunkSize := cfg.ChunkSize
 	chunkOverlap := cfg.ChunkOverlap

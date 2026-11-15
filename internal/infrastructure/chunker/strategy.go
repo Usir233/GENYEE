@@ -35,6 +35,7 @@ func Split(text string, cfg SplitterConfig) []Chunk {
 	if text == "" {
 		return nil
 	}
+	text = sanitizeUTF8(text)
 	cfg = ensureDefaults(cfg)
 	chain, profile := resolveChainWithProfile(text, cfg)
 	totalChars := len([]rune(text))
@@ -96,6 +97,7 @@ func SplitWithDiagnostics(text string, cfg SplitterConfig) ([]Chunk, *Diagnostic
 	if text == "" {
 		return nil, diag
 	}
+	text = sanitizeUTF8(text)
 	cfg = ensureDefaults(cfg)
 	chain, profile := resolveChainWithProfile(text, cfg)
 	budget := tokenRuneBudget(cfg)

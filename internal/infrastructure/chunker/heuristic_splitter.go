@@ -35,6 +35,16 @@ func splitByHeuristicsImpl(text string, cfg SplitterConfig, _ *DocProfile) []Chu
 	if text == "" {
 		return nil
 	}
+	text = sanitizeUTF8(text)
+	if cfg.ChunkSize <= 0 {
+		cfg.ChunkSize = DefaultChunkSize
+	}
+	if cfg.ChunkOverlap < 0 {
+		cfg.ChunkOverlap = 0
+	}
+	if cfg.ChunkOverlap >= cfg.ChunkSize {
+		cfg.ChunkOverlap = cfg.ChunkSize / 2
+	}
 	runes := []rune(text)
 	totalRunes := len(runes)
 	if totalRunes <= cfg.ChunkSize {
@@ -94,8 +104,10 @@ func splitByHeuristicsImpl(text string, cfg SplitterConfig, _ *DocProfile) []Chu
 			// Flush accumulated content as a chunk, restart at curEnd.
 			out = appendChunk(out, runes, chunkStart, curEnd, &seq)
 			// Snap overlap start to the nearest semantic boundary or line
-			// break instead of slicing mid-line / mid-word.
-			chunkStart = applyOverlapAligned(runes, curEnd, cfg.ChunkOverlap, bounds)
+			// break instead of slicing mid-line / mid-word, while ensuring
+			// Start strictly advances and the next chunk stays within ChunkSize.
+			minStart := max(chunkStart+1, curEnd-(cfg.ChunkSize-blockLen))
+			chunkStart = applyOverlapAligned(runes, curEnd, cfg.ChunkOverlap, minStart, bounds)
 		}
 		curEnd = nextEnd
 	}
@@ -121,12 +133,9 @@ func findHeuristicBoundaries(text string, langs []string) []boundary {
 	lines := strings.Split(text, "\n")
 	chapterPatterns := ChapterPatternsForLangs(langs)
 	pos := 0
-	inFence := false
+	var fence markdownFence
 	for i, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if strings.HasPrefix(trimmed, "```") {
-			inFence = !inFence
-		} else if !inFence {
+		if code, _ := fence.consume(line); !code {
 			runeStart := pos
 			added := false
 			for _, pat := range chapterPatterns {
@@ -277,18 +286,21 @@ func appendOversizeBlock(out []Chunk, runes []rune, start, end int, cfg Splitter
 // curEnd itself is always a boundary (the bin-packer flushes at boundary
 // positions), so we exclude it from the search — picking it would yield
 // zero overlap, defeating the purpose of this function.
-func applyOverlapAligned(runes []rune, curEnd, overlap int, bounds []boundary) int {
-	if overlap <= 0 {
+func applyOverlapAligned(runes []rune, curEnd, overlap, minStart int, bounds []boundary) int {
+	if overlap <= 0 || minStart >= curEnd {
 		return curEnd
 	}
-	target := curEnd - overlap
-	if target < 0 {
-		target = 0
+	if minStart < 0 {
+		minStart = 0
 	}
-	// Allowed search window: [curEnd - 2*overlap, curEnd)
+	target := curEnd - overlap
+	if target < minStart {
+		target = minStart
+	}
+	// Allowed search window: [max(curEnd - 2*overlap, minStart), curEnd)
 	windowStart := curEnd - 2*overlap
-	if windowStart < 0 {
-		windowStart = 0
+	if windowStart < minStart {
+		windowStart = minStart
 	}
 
 	// Prefer a semantic boundary strictly inside the window.

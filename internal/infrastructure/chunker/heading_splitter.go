@@ -33,6 +33,16 @@ func splitByHeadingsImpl(text string, cfg SplitterConfig, profile *DocProfile) [
 	if text == "" {
 		return nil
 	}
+	text = sanitizeUTF8(text)
+	if cfg.ChunkSize <= 0 {
+		cfg.ChunkSize = DefaultChunkSize
+	}
+	if cfg.ChunkOverlap < 0 {
+		cfg.ChunkOverlap = 0
+	}
+	if cfg.ChunkOverlap >= cfg.ChunkSize {
+		cfg.ChunkOverlap = cfg.ChunkSize / 2
+	}
 	if profile == nil {
 		profile = ProfileDocument(text)
 	}

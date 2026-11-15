@@ -169,6 +169,9 @@ func cleanPassageProse(text string) string {
 // Generated questions are omitted when the knowledge base has turned question
 // generation off.
 func EnrichedPassage(ctx context.Context, result *types.SearchResult) string {
+	if result == nil {
+		return ""
+	}
 	combinedText := CleanPassage(result.Content)
 	var enrichments []string
 	// An image OCR or caption chunk's body is that same text, and its

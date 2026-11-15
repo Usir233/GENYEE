@@ -59,6 +59,9 @@ func CollectImageInfoByChunkIDs(
 	tenantID uint64,
 	chunkIDs []string,
 ) map[string]string {
+	if chunkRepo == nil {
+		return nil
+	}
 	return collectImageInfoByChunkIDs(chunkIDs, func(parentIDs []string) ([]*types.Chunk, error) {
 		return chunkRepo.ListChunksByParentIDs(ctx, tenantID, parentIDs)
 	})
@@ -73,6 +76,9 @@ func CollectImageInfoByChunkIDsOnly(
 	chunkRepo interfaces.ChunkRepository,
 	chunkIDs []string,
 ) map[string]string {
+	if chunkRepo == nil {
+		return nil
+	}
 	return collectImageInfoByChunkIDs(chunkIDs, func(parentIDs []string) ([]*types.Chunk, error) {
 		return chunkRepo.ListChunksByParentIDsOnly(ctx, parentIDs)
 	})
@@ -169,7 +175,7 @@ func collectChildEvidence(
 	textToParent := make(map[string]string)
 
 	for _, child := range children {
-		if !child.IsEnabled {
+		if child == nil || !child.IsEnabled {
 			continue
 		}
 		switch child.ChunkType {
@@ -186,7 +192,7 @@ func collectChildEvidence(
 		grandChildren, err := listChildren(textChildIDs)
 		if err == nil {
 			for _, gc := range grandChildren {
-				if !gc.IsEnabled {
+				if gc == nil || !gc.IsEnabled {
 					continue
 				}
 				if gc.ChunkType != types.ChunkTypeImageOCR && gc.ChunkType != types.ChunkTypeImageCaption {
@@ -228,6 +234,9 @@ func EnrichSearchResultsImageInfo(
 	tenantID uint64,
 	results []*types.SearchResult,
 ) {
+	if chunkRepo == nil {
+		return
+	}
 	enrichSearchResultsImageInfo(results, func(parentIDs []string) ([]*types.Chunk, error) {
 		return chunkRepo.ListChunksByParentIDs(ctx, tenantID, parentIDs)
 	})
@@ -242,6 +251,9 @@ func EnrichSearchResultsImageInfoOnly(
 	chunkRepo interfaces.ChunkRepository,
 	results []*types.SearchResult,
 ) {
+	if chunkRepo == nil {
+		return
+	}
 	enrichSearchResultsImageInfo(results, func(parentIDs []string) ([]*types.Chunk, error) {
 		return chunkRepo.ListChunksByParentIDsOnly(ctx, parentIDs)
 	})
@@ -251,9 +263,15 @@ func enrichSearchResultsImageInfo(
 	results []*types.SearchResult,
 	listChildren func(parentIDs []string) ([]*types.Chunk, error),
 ) {
+	if listChildren == nil {
+		return
+	}
 	var chunkIDs []string
 	seen := make(map[string]bool)
 	for _, r := range results {
+		if r == nil || r.ID == "" {
+			continue
+		}
 		// Results that already carry image info only need their children
 		// again when they are scanned pages waiting for recognized text.
 		if r.ImageInfo != "" && !scannedPagesOnly(r.SourceLocators) {
@@ -271,6 +289,9 @@ func enrichSearchResultsImageInfo(
 	infoMap, pageQuotes := collectChildEvidence(chunkIDs, listChildren)
 
 	for _, r := range results {
+		if r == nil {
+			continue
+		}
 		if merged, ok := infoMap[r.ID]; ok && r.ImageInfo == "" {
 			r.ImageInfo = merged
 		}
@@ -602,6 +623,9 @@ func BuildImageInfoMarkdownWithURL(url string, img *types.ImageInfo) string {
 
 // BuildImageInfoXML returns XML-tagged caption / ocr for one image.
 func BuildImageInfoXML(img *types.ImageInfo) string {
+	if img == nil {
+		return ""
+	}
 	var b strings.Builder
 	if img.Caption != "" {
 		b.WriteString(fmt.Sprintf("<image_caption>%s</image_caption>\n", img.Caption))
@@ -741,6 +765,9 @@ func EnrichContentCaptionAndOCR(content string, imageInfoJSON string) string {
 // wrapper) used by EnrichContentCaptionAndOCR. Empty string when the image
 // has neither caption nor OCR.
 func buildCaptionOCRBlock(img *types.ImageInfo) string {
+	if img == nil {
+		return ""
+	}
 	var parts []string
 	if img.Caption != "" {
 		parts = append(parts, fmt.Sprintf("<image_caption>%s</image_caption>", img.Caption))

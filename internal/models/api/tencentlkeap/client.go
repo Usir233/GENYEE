@@ -3,12 +3,15 @@ package tencentlkeap
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
 	"github.com/tencentcloud/tencentcloud-sdk-go/tencentcloud/common"
@@ -53,12 +56,20 @@ func (h *transportErrHolder) get() error {
 
 // httpClientRoundTripper adapts an *http.Client (including its CheckRedirect
 // policy and Timeout) to http.RoundTripper so Tencent Cloud SDK's
-// WithHttpTransport honors SSRF redirect validation and request deadlines.
+// WithHttpTransport honors SSRF redirect validation, request deadlines, and
+// bounded response reads.
 type httpClientRoundTripper struct {
-	client *http.Client
+	client   *http.Client
+	maxBytes int64
 }
 
 func (rt httpClientRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	limit := rt.maxBytes
+	if limit <= 0 {
+		limit = api.MaxResponseBytes
+	}
+	holder, _ := req.Context().Value(transportErrKey{}).(*transportErrHolder)
+
 	cloned := req.Clone(req.Context())
 	cloned.RequestURI = ""
 	resp, err := rt.client.Do(cloned)
@@ -66,19 +77,75 @@ func (rt httpClientRoundTripper) RoundTrip(req *http.Request) (*http.Response, e
 		if resp != nil && resp.Body != nil {
 			_ = resp.Body.Close()
 		}
-		if holder, ok := req.Context().Value(transportErrKey{}).(*transportErrHolder); ok {
+		if holder != nil {
 			holder.set(err)
 		}
 		return nil, err
 	}
+	if resp.ContentLength > limit {
+		if resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		overErr := fmt.Errorf("%w (%d bytes > %d cap)", api.ErrResponseTooLarge, resp.ContentLength, limit)
+		if holder != nil {
+			holder.set(overErr)
+		}
+		return nil, overErr
+	}
+	if resp.Body != nil {
+		resp.Body = &cappedReadCloser{
+			rc:        resp.Body,
+			remaining: limit,
+			limit:     limit,
+			holder:    holder,
+		}
+	}
 	return resp, nil
+}
+
+type cappedReadCloser struct {
+	rc        io.ReadCloser
+	remaining int64
+	limit     int64
+	holder    *transportErrHolder
+}
+
+func (c *cappedReadCloser) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if c.remaining < 0 {
+		err := fmt.Errorf("%w (%d bytes)", api.ErrResponseTooLarge, c.limit)
+		if c.holder != nil {
+			c.holder.set(err)
+		}
+		return 0, err
+	}
+	maxRead := c.remaining + 1
+	if int64(len(p)) > maxRead {
+		p = p[:maxRead]
+	}
+	n, err := c.rc.Read(p)
+	c.remaining -= int64(n)
+	if c.remaining < 0 {
+		overErr := fmt.Errorf("%w (%d bytes)", api.ErrResponseTooLarge, c.limit)
+		if c.holder != nil {
+			c.holder.set(overErr)
+		}
+		return n, overErr
+	}
+	return n, err
+}
+
+func (c *cappedReadCloser) Close() error {
+	return c.rc.Close()
 }
 
 func resolveEndpointAndScheme(config Config) (string, string, error) {
 	if rawURL := strings.TrimSpace(config.BaseURL); rawURL != "" {
 		parsed, err := url.Parse(rawURL)
 		if err != nil || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-			return "", "", fmt.Errorf("invalid LKEAP base URL %q", config.BaseURL)
+			return "", "", fmt.Errorf("invalid LKEAP base URL")
 		}
 		if !strings.EqualFold(parsed.Scheme, "http") && !strings.EqualFold(parsed.Scheme, "https") {
 			return "", "", fmt.Errorf("unsupported LKEAP base URL scheme %q", parsed.Scheme)
@@ -91,9 +158,17 @@ func resolveEndpointAndScheme(config Config) (string, string, error) {
 	if endpoint == "" {
 		endpoint = LKEAPRerankEndpoint
 	}
+	if strings.Contains(endpoint, "://") ||
+		strings.ContainsAny(endpoint, "@?#") ||
+		strings.IndexFunc(endpoint, unicode.IsSpace) >= 0 {
+		return "", "", fmt.Errorf("invalid LKEAP endpoint")
+	}
 	scheme := strings.ToUpper(strings.TrimSpace(config.Scheme))
 	if scheme == "" {
 		scheme = "HTTPS"
+	}
+	if scheme != "HTTPS" && scheme != "HTTP" {
+		return "", "", fmt.Errorf("unsupported LKEAP scheme %q", scheme)
 	}
 	return endpoint, scheme, nil
 }
@@ -105,6 +180,7 @@ func resolveEndpointAndScheme(config Config) (string, string, error) {
 // and enforced by protocolReranker, like every other vendor's.
 type lkeapClient struct {
 	modelName string
+	secretKey string
 	client    *lkeap.Client
 }
 
@@ -138,17 +214,20 @@ func New(config Config) (api.Reranker, error) {
 
 	client, err := lkeap.NewClient(credential, region, cpf)
 	if err != nil {
-		return nil, fmt.Errorf("create LKEAP client: %w", err)
+		return nil, redactStringInError(fmt.Errorf("create LKEAP client: %w", err), secretKey)
 	}
 	if httpClient != nil {
-		client.WithHttpTransport(httpClientRoundTripper{client: httpClient})
+		client.WithHttpTransport(httpClientRoundTripper{
+			client:   httpClient,
+			maxBytes: api.MaxResponseBytes,
+		})
 	}
 
 	modelName := strings.TrimSpace(config.Model)
 	if modelName == "" {
 		modelName = LKEAPDefaultRerankModel
 	}
-	return &lkeapClient{modelName: modelName, client: client}, nil
+	return &lkeapClient{modelName: modelName, secretKey: secretKey, client: client}, nil
 }
 
 // Rerank scores one batch. RunRerank answers a bare score list in input
@@ -156,6 +235,13 @@ func New(config Config) (api.Reranker, error) {
 func (r *lkeapClient) Rerank(
 	ctx context.Context, query string, documents []string,
 ) ([]api.RerankResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if len(documents) == 0 {
+		return []api.RerankResult{}, nil
+	}
+
 	req := lkeap.NewRunRerankRequest()
 	req.Query = common.StringPtr(query)
 	req.Docs = common.StringPtrs(documents)
@@ -166,14 +252,28 @@ func (r *lkeapClient) Rerank(
 	resp, err := r.client.RunRerankWithContext(callCtx, req)
 	if err != nil {
 		if transportErr := holder.get(); transportErr != nil {
-			return nil, fmt.Errorf("LKEAP RunRerank: %w: %w", err, transportErr)
+			if errors.Is(transportErr, api.ErrResponseTooLarge) {
+				return nil, redactStringInError(fmt.Errorf("LKEAP RunRerank: %w", transportErr), r.secretKey)
+			}
+			return nil, redactStringInError(fmt.Errorf("LKEAP RunRerank: %w: %w", err, transportErr), r.secretKey)
 		}
-		return nil, fmt.Errorf("LKEAP RunRerank: %w", err)
+		return nil, redactStringInError(fmt.Errorf("LKEAP RunRerank: %w", err), r.secretKey)
 	}
 	if resp == nil || resp.Response == nil || len(resp.Response.ScoreList) == 0 {
 		return nil, fmt.Errorf("LKEAP rerank API returned empty score list")
 	}
 	return resultsFromScores(documents, resp.Response.ScoreList)
+}
+
+func redactStringInError(err error, secret string) error {
+	if err == nil || secret == "" {
+		return err
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, secret) {
+		return err
+	}
+	return errors.New(strings.ReplaceAll(msg, secret, "[REDACTED]"))
 }
 
 func resultsFromScores(documents []string, scores []*float64) ([]api.RerankResult, error) {

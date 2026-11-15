@@ -109,15 +109,38 @@ func isGermanUmlaut(r rune) bool {
 // on borrowed terms are acceptable.
 func hasGermanWords(s string) bool {
 	const sample = 512
-	if len(s) > sample {
-		s = s[:sample]
-	}
+	s = truncateUTF8Bytes(s, sample)
 	for _, w := range []string{" der ", " die ", " das ", " und ", " ist ", " nicht ", " mit ", " auf "} {
 		if containsLower(s, w) {
 			return true
 		}
 	}
 	return false
+}
+
+// truncateUTF8Bytes slices s to at most maxBytes without splitting inside a
+// multi-byte UTF-8 rune.
+func truncateUTF8Bytes(s string, maxBytes int) string {
+	if maxBytes <= 0 {
+		return ""
+	}
+	if len(s) <= maxBytes {
+		return s
+	}
+	for maxBytes > 0 && !utf8.RuneStart(s[maxBytes]) {
+		maxBytes--
+	}
+	return s[:maxBytes]
+}
+
+// sanitizeUTF8 ensures s is valid UTF-8 before chunking so malformed upstream
+// bytes never propagate into Chunk.Content or Chunk.ContextHeader and fail
+// PostgreSQL UTF8 TEXT inserts. Valid UTF-8 returns s without allocating.
+func sanitizeUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	return string([]rune(s))
 }
 
 func containsLower(haystack, needle string) bool {

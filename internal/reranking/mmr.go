@@ -18,21 +18,40 @@ func SelectMMR(ctx context.Context, results []*types.SearchResult, k int, lambda
 	if k <= 0 || len(results) == 0 {
 		return nil
 	}
+	if math.IsNaN(lambda) {
+		lambda = DefaultMMRLambda
+	} else if lambda < 0 {
+		lambda = 0
+	} else if lambda > 1 {
+		lambda = 1
+	}
+
 	// The first pick has no redundancy term. Avoid passage cleaning and
 	// tokenization when the caller only wants that pick.
 	if k == 1 {
-		best, bestScore := 0, math.Inf(-1)
+		best, bestScore := -1, math.Inf(-1)
 		for i, r := range results {
-			if score := lambda*r.Score - (1.0-lambda)*0; score > bestScore {
+			if r == nil {
+				continue
+			}
+			if score := mmrRelevance(lambda, r.Score); score > bestScore {
 				best, bestScore = i, score
 			}
+		}
+		if best < 0 {
+			return nil
 		}
 		return []int{best}
 	}
 
-	remaining := make([]int, len(results))
-	for i := range results {
-		remaining[i] = i
+	remaining := make([]int, 0, len(results))
+	for i, r := range results {
+		if r != nil {
+			remaining = append(remaining, i)
+		}
+	}
+	if len(remaining) == 0 {
+		return nil
 	}
 	tokens, offsets, postings := buildMMRPostings(ctx, results)
 
@@ -43,12 +62,12 @@ func SelectMMR(ctx context.Context, results []*types.SearchResult, k int, lambda
 	intersections := make([]int, len(results))
 	taken := make([]bool, len(results))
 	touched := make([]int, 0, len(results))
-	selected := make([]int, 0, min(k, len(results)))
+	selected := make([]int, 0, min(k, len(remaining)))
 	for len(selected) < k && len(remaining) > 0 {
 		bestPos := 0
 		bestScore := math.Inf(-1)
 		for pos, i := range remaining {
-			mmr := lambda*results[i].Score - (1.0-lambda)*maxRedundancy[i]
+			mmr := mmrRelevance(lambda, results[i].Score) - (1.0-lambda)*maxRedundancy[i]
 			if mmr > bestScore {
 				bestScore = mmr
 				bestPos = pos
@@ -121,4 +140,18 @@ func buildMMRPostings(
 		}
 	}
 	return tokens, offsets, postings
+}
+
+// mmrRelevance computes lambda*score safely without producing IEEE-754 0*Inf = NaN.
+func mmrRelevance(lambda, score float64) float64 {
+	if lambda == 0 {
+		return 0
+	}
+	if math.IsNaN(score) || math.IsInf(score, -1) {
+		return -1e300
+	}
+	if math.IsInf(score, 1) {
+		return 1e300
+	}
+	return lambda * score
 }

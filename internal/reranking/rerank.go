@@ -102,6 +102,8 @@ type Result struct {
 	Passages    []string
 	ModelScores []rerank.RankResult
 	Scored      []*types.SearchResult
+
+	passedCandidates map[int]bool
 }
 
 // Rerank scores results against query with model and returns the rows that
@@ -178,6 +180,10 @@ func Rerank(
 	passing, outcome, effective := applyThreshold(valid, opts)
 	res.Diagnostics.Outcome = outcome
 	res.Diagnostics.EffectiveThreshold = effective
+	res.passedCandidates = make(map[int]bool, len(passing))
+	for _, rr := range passing {
+		res.passedCandidates[rr.Index] = true
+	}
 
 	scored := make([]*types.SearchResult, 0, len(passing))
 	scoredIdx := make([]int, 0, len(passing))
@@ -344,12 +350,13 @@ func scoredCopy(r *types.SearchResult, modelScore, faqBoost float64) *types.Sear
 	if c.Metadata == nil {
 		c.Metadata = make(map[string]string, 3)
 	}
-	base := r.Score
+	base := sanitizeUnitScore(r.Score)
+	modelScore = sanitizeUnitScore(modelScore)
 	c.Metadata["base_score"] = strconv.FormatFloat(base, 'f', 4, 64)
 	c.Metadata["model_score"] = strconv.FormatFloat(modelScore, 'f', 4, 64)
 	c.Score = CompositeScore(&c, modelScore, base)
 	c.Metadata[CompositeScoreKey] = strconv.FormatFloat(c.Score, 'f', 4, 64)
-	if faqBoost > 1.0 && c.ChunkType == string(types.ChunkTypeFAQ) {
+	if !math.IsNaN(faqBoost) && !math.IsInf(faqBoost, 0) && faqBoost > 1.0 && c.ChunkType == string(types.ChunkTypeFAQ) {
 		c.Metadata["faq_boosted"] = "true"
 		c.Metadata["faq_original_score"] = strconv.FormatFloat(c.Score, 'f', 4, 64)
 		c.Score = math.Min(c.Score*faqBoost, 1.0)
@@ -362,15 +369,35 @@ func scoredCopy(r *types.SearchResult, modelScore, faqBoost float64) *types.Sear
 // come from entity lookups, not similarity search), so the model score stands
 // in for it rather than a made-up constant.
 func CompositeScore(r *types.SearchResult, modelScore, baseScore float64) float64 {
+	modelScore = sanitizeUnitScore(modelScore)
+	baseScore = sanitizeUnitScore(baseScore)
 	sourceWeight := 1.0
-	if strings.EqualFold(r.KnowledgeSource, "web_search") {
-		sourceWeight = 0.95
-	}
-	if r.MatchType == types.MatchTypeGraph {
-		baseScore = modelScore
+	if r != nil {
+		if strings.EqualFold(r.KnowledgeSource, "web_search") {
+			sourceWeight = 0.95
+		}
+		if r.MatchType == types.MatchTypeGraph {
+			baseScore = modelScore
+		}
 	}
 	composite := 0.6*modelScore + 0.3*baseScore + 0.1*sourceWeight
-	return math.Min(math.Max(composite, 0), 1)
+	if math.IsNaN(composite) || composite < 0 {
+		return 0
+	}
+	if composite > 1 {
+		return 1
+	}
+	return composite
+}
+
+func sanitizeUnitScore(v float64) float64 {
+	if math.IsNaN(v) || math.IsInf(v, -1) {
+		return 0
+	}
+	if math.IsInf(v, 1) {
+		return 1
+	}
+	return v
 }
 
 // PreBoostScore returns the score to compare against absolute thresholds such

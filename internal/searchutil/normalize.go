@@ -1,6 +1,9 @@
 package searchutil
 
-import "sort"
+import (
+	"math"
+	"sort"
+)
 
 // KeywordScoreCallbacks allows callers to hook into normalization telemetry.
 type KeywordScoreCallbacks struct {
@@ -28,14 +31,38 @@ func NormalizeKeywordScores[T any](
 	}
 
 	if len(keywordResults) == 1 {
+		raw := getScore(keywordResults[0])
+		if math.IsNaN(raw) || math.IsInf(raw, -1) {
+			setScore(keywordResults[0], 0.0)
+			return
+		}
 		setScore(keywordResults[0], 1.0)
 		return
 	}
 
-	minS := getScore(keywordResults[0])
+	finiteScores := make([]float64, 0, len(keywordResults))
+	for _, r := range keywordResults {
+		s := getScore(r)
+		if !math.IsNaN(s) && !math.IsInf(s, 0) {
+			finiteScores = append(finiteScores, s)
+		}
+	}
+
+	if len(finiteScores) == 0 {
+		for _, r := range keywordResults {
+			s := getScore(r)
+			if math.IsInf(s, 1) {
+				setScore(r, 1.0)
+			} else {
+				setScore(r, 0.0)
+			}
+		}
+		return
+	}
+
+	minS := finiteScores[0]
 	maxS := minS
-	for _, r := range keywordResults[1:] {
-		score := getScore(r)
+	for _, score := range finiteScores[1:] {
 		if score < minS {
 			minS = score
 		}
@@ -46,7 +73,12 @@ func NormalizeKeywordScores[T any](
 
 	if maxS <= minS {
 		for _, r := range keywordResults {
-			setScore(r, 1.0)
+			s := getScore(r)
+			if math.IsNaN(s) || math.IsInf(s, -1) {
+				setScore(r, 0.0)
+			} else {
+				setScore(r, 1.0)
+			}
 		}
 		if callbacks.OnNoVariance != nil {
 			callbacks.OnNoVariance(len(keywordResults), minS)
@@ -57,11 +89,9 @@ func NormalizeKeywordScores[T any](
 	normalizeMin := minS
 	normalizeMax := maxS
 
-	if len(keywordResults) >= 10 {
-		scores := make([]float64, len(keywordResults))
-		for i, r := range keywordResults {
-			scores[i] = getScore(r)
-		}
+	if len(finiteScores) >= 10 {
+		scores := make([]float64, len(finiteScores))
+		copy(scores, finiteScores)
 		sort.Float64s(scores)
 		p5Idx := len(scores) * 5 / 100
 		p95Idx := len(scores) * 95 / 100
@@ -74,16 +104,25 @@ func NormalizeKeywordScores[T any](
 	}
 
 	rangeSize := normalizeMax - normalizeMin
-	if rangeSize > 0 {
+	if rangeSize > 0 && !math.IsNaN(rangeSize) && !math.IsInf(rangeSize, 0) {
 		for _, r := range keywordResults {
-			clamped := getScore(r)
+			raw := getScore(r)
+			if math.IsNaN(raw) || math.IsInf(raw, -1) {
+				setScore(r, 0.0)
+				continue
+			}
+			if math.IsInf(raw, 1) {
+				setScore(r, 1.0)
+				continue
+			}
+			clamped := raw
 			if clamped < normalizeMin {
 				clamped = normalizeMin
 			} else if clamped > normalizeMax {
 				clamped = normalizeMax
 			}
 			ns := (clamped - normalizeMin) / rangeSize
-			if ns < 0 {
+			if math.IsNaN(ns) || ns < 0 {
 				ns = 0
 			} else if ns > 1 {
 				ns = 1
@@ -104,6 +143,11 @@ func NormalizeKeywordScores[T any](
 
 	// Fallback when percentile filtering collapses the range.
 	for _, r := range keywordResults {
-		setScore(r, 1.0)
+		raw := getScore(r)
+		if math.IsNaN(raw) || math.IsInf(raw, -1) {
+			setScore(r, 0.0)
+		} else {
+			setScore(r, 1.0)
+		}
 	}
 }

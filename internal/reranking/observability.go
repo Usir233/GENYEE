@@ -37,19 +37,27 @@ func summarizeSelection(input []*types.SearchResult, res *Result, opts Options,
 	}
 	returned := make(map[int]*types.SearchResult, len(res.Indices))
 	for i, index := range res.Indices {
-		returned[index] = res.Results[i]
+		if i < len(res.Results) {
+			returned[index] = res.Results[i]
+		}
 	}
 	modelScores := make(map[int]float64, len(res.ModelScores))
 	for _, score := range res.ModelScores {
 		modelScores[score.Index] = score.RelevanceScore
 	}
-	passed := make(map[string]bool, len(res.Scored))
-	for _, r := range res.Scored {
-		passed[r.ID] = true
+	passedByID := make(map[string]bool, len(res.Scored))
+	if res.passedCandidates == nil {
+		for _, r := range res.Scored {
+			if r != nil {
+				passedByID[r.ID] = true
+			}
+		}
 	}
 	inputTypes, candidateTypes, outputTypes := map[string]int{}, map[string]int{}, map[string]int{}
 	for _, r := range res.Candidates {
-		candidateTypes[r.ChunkType]++
+		if r != nil {
+			candidateTypes[r.ChunkType]++
+		}
 	}
 	for _, r := range res.Results {
 		if r != nil {
@@ -70,19 +78,25 @@ func summarizeSelection(input []*types.SearchResult, res *Result, opts Options,
 		imageCount++
 		pos, candidate := candidates[r]
 		score, hasScore := modelScores[pos]
+		passed := false
+		if res.passedCandidates != nil {
+			passed = res.passedCandidates[pos]
+		} else {
+			passed = passedByID[r.ID]
+		}
 		decision := "candidate_cap_or_empty_passage"
 		if kept, ok := returned[i]; ok {
 			decision = "kept"
 			if res.Diagnostics.Outcome == types.RerankOutcomeModelError {
 				decision = "model_error_fallback"
-			} else if kept.Metadata[types.MetadataKeptBy] == types.KeptByImageVector {
+			} else if kept != nil && kept.Metadata[types.MetadataKeptBy] == types.KeptByImageVector {
 				decision = "image_vector_fallback"
 			}
 		} else if candidate {
 			switch {
 			case !hasScore:
 				decision = "no_model_score"
-			case passed[r.ID]:
+			case passed:
 				decision = "top_k_mmr_cut"
 			default:
 				decision = "rerank_rejected"

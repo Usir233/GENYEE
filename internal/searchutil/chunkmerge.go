@@ -181,8 +181,15 @@ func MergeTextChunks(chunks []*types.Chunk, gapSep string) string {
 		return ""
 	}
 
-	sorted := make([]*types.Chunk, len(chunks))
-	copy(sorted, chunks)
+	sorted := make([]*types.Chunk, 0, len(chunks))
+	for _, c := range chunks {
+		if c != nil && c.Content != "" {
+			sorted = append(sorted, c)
+		}
+	}
+	if len(sorted) == 0 {
+		return ""
+	}
 	sort.SliceStable(sorted, func(i, j int) bool {
 		if sorted[i].StartAt == sorted[j].StartAt {
 			return sorted[i].ChunkIndex < sorted[j].ChunkIndex

@@ -170,10 +170,7 @@ func ProfileDocument(text string) *DocProfile {
 
 	// Sample a slice of the document for language detection — avoids paying
 	// O(N) scan cost on huge inputs while still giving a stable signal.
-	sample := text
-	if len(sample) > 4096 {
-		sample = sample[:4096]
-	}
+	sample := truncateUTF8Bytes(text, 4096)
 	lang := DetectLanguage(sample)
 	p.DetectedLangs = []string{lang}
 	if lang == LangMixed {

@@ -3,6 +3,9 @@ package reranking
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
 	"sort"
 	"sync"
 	"unicode/utf8"
@@ -118,20 +121,29 @@ func scoreCandidates(
 	ctx context.Context, model rerank.Reranker, query string, passages []string,
 	imagePositions []int, images []rerank.Image,
 ) (scores []rerank.RankResult, scoredAsImage map[int]bool, err error) {
+	if model == nil {
+		return nil, nil, errors.New("rerank model is nil")
+	}
 	scoredAsImage = make(map[int]bool, len(imagePositions))
 	if len(images) > 0 {
-		imageModel, _ := rerank.AsImageReranker(model)
-		imageScores, imgErr := imageModel.RerankImages(ctx, query, images)
-		if imgErr != nil {
-			logger.Warnf(ctx, "[Rerank] Image scoring failed, scoring those hits as text: %v", imgErr)
-		} else {
-			for _, s := range imageScores {
-				if s.Index < 0 || s.Index >= len(imagePositions) {
-					continue
+		imageModel, ok := rerank.AsImageReranker(model)
+		if ok {
+			imageScores, imgErr := imageModel.RerankImages(ctx, query, images)
+			if imgErr != nil {
+				logger.Warnf(ctx, "[Rerank] Image scoring failed, scoring those hits as text: %v", imgErr)
+			} else if hasNonFiniteRankScore(imageScores) {
+				logger.Warnf(ctx, "[Rerank] Image scoring returned non-finite score, scoring those hits as text")
+			} else {
+				seenImage := make(map[int]bool, len(imagePositions))
+				for _, s := range imageScores {
+					if s.Index < 0 || s.Index >= len(imagePositions) || seenImage[s.Index] {
+						continue
+					}
+					seenImage[s.Index] = true
+					s.Index = imagePositions[s.Index]
+					scoredAsImage[s.Index] = true
+					scores = append(scores, s)
 				}
-				s.Index = imagePositions[s.Index]
-				scoredAsImage[s.Index] = true
-				scores = append(scores, s)
 			}
 		}
 	}
@@ -144,21 +156,36 @@ func scoreCandidates(
 		}
 	}
 	if len(textPassages) == 0 {
+		sort.SliceStable(scores, func(i, j int) bool { return scores[i].RelevanceScore > scores[j].RelevanceScore })
 		return scores, scoredAsImage, nil
 	}
 	textScores, err := model.Rerank(ctx, query, textPassages)
 	if err != nil {
 		return nil, nil, err
 	}
+	seenText := make(map[int]bool, len(textPositions))
 	for _, s := range textScores {
-		if s.Index < 0 || s.Index >= len(textPositions) {
+		if math.IsNaN(s.RelevanceScore) || math.IsInf(s.RelevanceScore, 0) {
+			return nil, nil, fmt.Errorf("rerank model returned non-finite score %v", s.RelevanceScore)
+		}
+		if s.Index < 0 || s.Index >= len(textPositions) || seenText[s.Index] {
 			continue
 		}
+		seenText[s.Index] = true
 		s.Index = textPositions[s.Index]
 		scores = append(scores, s)
 	}
 	sort.SliceStable(scores, func(i, j int) bool { return scores[i].RelevanceScore > scores[j].RelevanceScore })
 	return scores, scoredAsImage, nil
+}
+
+func hasNonFiniteRankScore(scores []rerank.RankResult) bool {
+	for _, s := range scores {
+		if math.IsNaN(s.RelevanceScore) || math.IsInf(s.RelevanceScore, 0) {
+			return true
+		}
+	}
+	return false
 }
 
 // keptImages picks the pictorial image hits a text reranker rejected that
