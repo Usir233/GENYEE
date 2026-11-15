@@ -90,7 +90,7 @@ func VerifyBinding(
 	if tenantID == 0 || strings.TrimSpace(storeID) == "" {
 		return ErrVectorStoreForbidden
 	}
-	if registry == nil || ownership == nil {
+	if ownership == nil {
 		return ErrVectorStoreUnavailable
 	}
 	owned, err := ownership.StoreOwnedBy(ctx, storeID, tenantID)
@@ -100,12 +100,11 @@ func VerifyBinding(
 	if !owned {
 		return ErrVectorStoreForbidden
 	}
-	svc, err := registry.GetOrLoadByStoreID(ctx, tenantID, storeID)
-	if err != nil {
-		return classifyLookupError(err)
-	}
-	if svc == nil {
+	if registry == nil {
 		return ErrVectorStoreUnavailable
+	}
+	if _, err := registry.GetOrLoadByStoreID(ctx, tenantID, storeID); err != nil {
+		return classifyLookupError(err)
 	}
 	return nil
 }
@@ -212,7 +211,7 @@ func resolveBoundEngine(
 	if tenantID == 0 || strings.TrimSpace(storeID) == "" {
 		return nil, ErrVectorStoreForbidden
 	}
-	if registry == nil || ownership == nil {
+	if ownership == nil {
 		return nil, ErrVectorStoreUnavailable
 	}
 	owned, err := ownership.StoreOwnedBy(ctx, storeID, tenantID)
@@ -241,6 +240,9 @@ func resolveBoundEngine(
 			"[retriever.factory] cross-tenant store access attempted: tenant=%d store=%s",
 			tenantID, storeID)
 		return nil, ErrVectorStoreForbidden
+	}
+	if registry == nil {
+		return nil, ErrVectorStoreUnavailable
 	}
 
 	svc, err := registry.GetOrLoadByStoreID(ctx, tenantID, storeID)

@@ -45,8 +45,12 @@ func TestFactoryAndOwnership_FailClosedOnZeroTenantBlankStoreNilDepsAndTypedNilT
 	_, err = CreateRetrieveEngineForKB(ctx, registry, ownership, 1, &blankStore)
 	assert.ErrorIs(t, err, ErrVectorStoreForbidden, "whitespace storeID must not bypass unbound normalization into GetOrLoad")
 
+	ownedBy1 := &fakeOwnership{owned: map[string]uint64{"store-A": 1}}
 	require.NotPanics(t, func() {
-		assert.ErrorIs(t, VerifyBinding(ctx, nil, ownership, 1, "store-A"), ErrVectorStoreUnavailable)
+		assert.ErrorIs(t, VerifyBinding(ctx, nil, ownership, 1, "store-A"), ErrVectorStoreForbidden,
+			"unowned store must return ErrVectorStoreForbidden even when registry is nil")
+		assert.ErrorIs(t, VerifyBinding(ctx, nil, ownedBy1, 1, "store-A"), ErrVectorStoreUnavailable,
+			"owned store with nil registry must return ErrVectorStoreUnavailable")
 		assert.ErrorIs(t, VerifyBinding(ctx, registry, nil, 1, "store-A"), ErrVectorStoreUnavailable)
 	})
 
