@@ -103,11 +103,14 @@ func Pregrantable(a Action) bool {
 
 // Covers reports whether a grant approved for risk granted applies to a call
 // of risk r: a grant never covers a riskier call than it was approved for.
-func Covers(granted, r Risk) bool { return r.Valid() && !r.Above(granted) }
+func Covers(granted, r Risk) bool { return granted.Valid() && r.Valid() && !r.Above(granted) }
 
 // Offered reports whether an action of risk should be offered to the model
 // at all under level. A read-only run is not shown changes it cannot make,
 // nor anything whose risk is unknown.
 func Offered(level types.AssistantAccessLevel, risk Risk) bool {
+	if level != "" && !level.Valid() {
+		return false
+	}
 	return level != types.AssistantAccessReadOnly || risk == RiskRead || risk == RiskProbe
 }

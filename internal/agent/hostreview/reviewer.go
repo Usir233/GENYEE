@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -61,6 +62,9 @@ func (r *Reviewer) review(ctx context.Context, turn Turn, req sandbox.CommandApp
 	if r == nil || r.model == nil {
 		return Verdict{Reason: "auto review is unavailable; ask the user to switch to ask mode"}
 	}
+	if strings.TrimSpace(turn.SessionID) == "" || (req.SessionID != "" && req.SessionID != turn.SessionID) {
+		return Verdict{Reason: "auto review could not verify the session; ask the user to switch to ask mode"}
+	}
 	if !req.TargetsComplete {
 		return Verdict{Reason: "too many targets to review automatically; ask the user to switch to ask mode"}
 	}
@@ -84,7 +88,7 @@ func (r *Reviewer) review(ctx context.Context, turn Turn, req sandbox.CommandApp
 	current, earlier := splitTranscript(msgs, turn.RequestID)
 	// Only this turn can authorize. An empty current list would leave the
 	// model guessing from earlier messages or the untrusted action.
-	if turn.RequestID == "" || len(current) == 0 {
+	if turn.RequestID == "" || !hasCurrentTurnText(current) {
 		return Verdict{Reason: "auto review could not identify this turn's user messages; " +
 			"ask the user to switch to ask mode"}
 	}

@@ -550,7 +550,7 @@ func (b *Broker) Resolve(ctx context.Context, req ResolveRequest) (Resolution, e
 		(req.SessionID != "" && row.SessionID != req.SessionID) {
 		return Resolution{}, ErrPromptNotFound
 	}
-	if row.TenantID != req.TenantID {
+	if req.TenantID == 0 || row.TenantID == 0 || row.TenantID != req.TenantID {
 		return Resolution{}, ErrTenantMismatch
 	}
 	// An empty caller userID is a mismatch (fail-close) so a missing auth
@@ -574,9 +574,9 @@ func (b *Broker) Resolve(ctx context.Context, req ResolveRequest) (Resolution, e
 
 	now := time.Now()
 	// A pending prompt whose owner stopped renewing has no waiter left to
-	// wake. Suspend it as the reaper would, so the answer resumes the run
-	// instead of being recorded for nobody.
-	if row.Status == types.AgentPromptPending && row.Suspendable &&
+	// wake. Reap it first (suspending if suspendable, expiring otherwise)
+	// so an answer is never recorded for a vanished waiter.
+	if row.Status == types.AgentPromptPending &&
 		row.LeaseUntil != nil && row.LeaseUntil.Before(now) {
 		b.reapPending(ctx, now, row, b.hooks())
 		if row, err = b.store.Get(ctx, req.PromptID); err != nil {

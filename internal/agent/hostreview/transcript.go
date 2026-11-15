@@ -1,6 +1,10 @@
 package hostreview
 
-import "github.com/Usir233/GENYEE/internal/types"
+import (
+	"strings"
+
+	"github.com/Usir233/GENYEE/internal/types"
+)
 
 const (
 	transcriptFetch    = 20
@@ -19,6 +23,9 @@ const (
 // cannot authorize on their own.
 func splitTranscript(msgs []*types.Message, requestID string) (current, earlier []string) {
 	for _, m := range msgs {
+		if m == nil {
+			continue
+		}
 		if requestID != "" && m.RequestID == requestID {
 			current = append(current, m.Content)
 			continue
@@ -29,6 +36,15 @@ func splitTranscript(msgs []*types.Message, requestID string) (current, earlier 
 		earlier = earlier[len(earlier)-maxEarlierMessages:]
 	}
 	return current, earlier
+}
+
+func hasCurrentTurnText(current []string) bool {
+	for _, text := range current {
+		if strings.TrimSpace(text) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func currentTurnTooLong(current []string) bool {

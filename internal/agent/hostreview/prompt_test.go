@@ -93,3 +93,43 @@ func TestReviewReasonNamesTheKindOfQuestion(t *testing.T) {
 	require.Equal(t, "sandbox_denied", reviewReason(sandbox.CommandApprovalRequest{Reason: "sandbox_denied"}))
 	require.Equal(t, "file_write", reviewReason(sandbox.CommandApprovalRequest{Reason: "file_write"}))
 }
+
+func TestPromptMasksSecretEnvValuesWhileEnforcingRawSizeLimit(t *testing.T) {
+	req := sandbox.CommandApprovalRequest{
+		Tool:    "shell_exec",
+		Command: "./deploy.sh",
+		Reason:  "sandbox_denied",
+		Env: map[string]string{
+			"OPENAI_API_KEY":        "sk-live-secret-123",
+			"GITHUB_TOKEN":          "ghp_secret_456",
+			"DB_PASSWORD":           "hunter2-pw",
+			"AWS_SECRET_ACCESS_KEY": "aws-super-secret",
+			"SESSION_COOKIE":        "sid=secretcookie",
+			"SAFE_MODE":             "production",
+		},
+		TargetsComplete: true,
+	}
+	prompt, err := buildUserPrompt([]string{"run deploy"}, nil, req)
+	require.NoError(t, err)
+	require.Contains(t, prompt, `"SAFE_MODE":"production"`)
+	require.Contains(t, prompt, `"OPENAI_API_KEY":"***"`)
+	require.Contains(t, prompt, `"GITHUB_TOKEN":"***"`)
+	require.Contains(t, prompt, `"DB_PASSWORD":"***"`)
+	require.Contains(t, prompt, `"AWS_SECRET_ACCESS_KEY":"***"`)
+	require.Contains(t, prompt, `"SESSION_COOKIE":"***"`)
+	for _, secret := range []string{"sk-live-secret-123", "ghp_secret_456", "hunter2-pw", "aws-super-secret", "sid=secretcookie"} {
+		require.NotContains(t, prompt, secret)
+	}
+
+	// Oversized secret env values must still trip actionSize before masking shrinks them to "***".
+	huge := sandbox.CommandApprovalRequest{
+		Tool:            "shell_exec",
+		Command:         "echo hi",
+		Reason:          "sandbox_denied",
+		Env:             map[string]string{"OPENAI_API_KEY": strings.Repeat("x", maxActionBytes)},
+		TargetsComplete: true,
+	}
+	sz, err := actionSize(huge)
+	require.NoError(t, err)
+	require.Greater(t, sz, maxActionBytes)
+}

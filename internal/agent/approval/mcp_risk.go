@@ -2,6 +2,7 @@ package approval
 
 import (
 	"context"
+	"errors"
 
 	"github.com/Usir233/GENYEE/internal/agent/policy"
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -54,9 +55,15 @@ func PendingDowngrade(row *types.MCPToolApproval, declared policy.Risk) bool {
 // Action is the policy action of calling tool: its risk, and whether the
 // workspace marked it as always requiring approval.
 func (g *Gate) Action(ctx context.Context, tenantID uint64, serviceID string, tool *types.MCPTool) policy.Action {
-	declared := DeclaredRisk(tool)
-	if g == nil || g.checker == nil || tenantID == 0 || serviceID == "" || tool == nil || tool.Name == "" {
+	declared := policy.RiskWrite
+	if tool != nil {
+		declared = DeclaredRisk(tool)
+	}
+	if g == nil || g.checker == nil {
 		return policy.Action{Risk: declared}
+	}
+	if tenantID == 0 || serviceID == "" || tool == nil || tool.Name == "" {
+		return g.failedAction(ctx, errors.New("missing tenant or tool identity"))
 	}
 	risks, ok := g.checker.(RiskChecker)
 	if !ok {
@@ -92,27 +99,60 @@ func (g *Gate) failedAction(ctx context.Context, err error) policy.Action {
 func (g *Gate) ToolRisks(
 	ctx context.Context, tenantID uint64, serviceID string, tools []*types.MCPTool,
 ) (map[string]policy.Risk, error) {
-	rows := map[string]*types.MCPToolApproval{}
-	if g != nil && g.checker != nil && tenantID != 0 && serviceID != "" {
-		lister, ok := g.checker.(interface {
-			ListByService(context.Context, uint64, string) ([]*types.MCPToolApproval, error)
-		})
-		if !ok {
-			if adapter, isAdapter := g.checker.(*Adapter); isAdapter && adapter != nil {
-				lister, ok = adapter.Svc.(interface {
-					ListByService(context.Context, uint64, string) ([]*types.MCPToolApproval, error)
-				})
+	if g == nil || g.checker == nil {
+		risks := make(map[string]policy.Risk, len(tools))
+		for _, tool := range tools {
+			if tool != nil {
+				risks[tool.Name] = DeclaredRisk(tool)
 			}
 		}
-		if ok {
-			list, err := lister.ListByService(ctx, tenantID, serviceID)
+		return risks, nil
+	}
+	if tenantID == 0 || serviceID == "" {
+		return nil, errors.New("missing tenant or service identity")
+	}
+	rows := map[string]*types.MCPToolApproval{}
+	lister, ok := g.checker.(interface {
+		ListByService(context.Context, uint64, string) ([]*types.MCPToolApproval, error)
+	})
+	if !ok {
+		if adapter, isAdapter := g.checker.(*Adapter); isAdapter && adapter != nil {
+			lister, ok = adapter.Svc.(interface {
+				ListByService(context.Context, uint64, string) ([]*types.MCPToolApproval, error)
+			})
+		}
+	}
+	if ok {
+		list, err := lister.ListByService(ctx, tenantID, serviceID)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range list {
+			if row != nil && row.TenantID == tenantID && row.ServiceID == serviceID {
+				rows[row.ToolName] = row
+			}
+		}
+	} else {
+		riskChecker, hasRisk := g.checker.(RiskChecker)
+		if !hasRisk {
+			risks := make(map[string]policy.Risk, len(tools))
+			for _, tool := range tools {
+				if tool != nil {
+					risks[tool.Name] = policy.RiskWrite
+				}
+			}
+			return risks, nil
+		}
+		for _, tool := range tools {
+			if tool == nil || tool.Name == "" {
+				continue
+			}
+			row, err := riskChecker.Policy(ctx, tenantID, serviceID, tool.Name)
 			if err != nil {
 				return nil, err
 			}
-			for _, row := range list {
-				if row != nil && row.TenantID == tenantID && row.ServiceID == serviceID {
-					rows[row.ToolName] = row
-				}
+			if row != nil && row.TenantID == tenantID && row.ServiceID == serviceID {
+				rows[tool.Name] = row
 			}
 		}
 	}

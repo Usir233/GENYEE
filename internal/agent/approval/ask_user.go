@@ -132,6 +132,12 @@ func (g *Gate) AskUser(ctx context.Context, req AskRequest) (Answer, error) {
 
 // ResumeAnswer implements UserAsker.
 func (g *Gate) ResumeAnswer(ctx context.Context, prompt *types.AgentPrompt, bus *event.EventBus) Answer {
+	if g == nil || g.broker == nil || prompt == nil {
+		return Answer{Reason: "missing prompt or gate"}
+	}
+	if prompt.Kind != types.AgentPromptKindAskUser {
+		return Answer{PromptID: prompt.ID, Reason: "unexpected prompt kind"}
+	}
 	a := askAnswer(hitl.Outcome{Prompt: prompt, Answered: true})
 	g.consumeAnswer(ctx, &a, bus, prompt.SessionID, prompt.AssistantMessageID, prompt.RequestID)
 	return a

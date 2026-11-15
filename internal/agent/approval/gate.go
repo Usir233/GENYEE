@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -372,6 +373,12 @@ func (g *Gate) RequestHostAndWait(ctx context.Context, req HostPendingRequest) (
 		}, nil
 	}
 	d := toolApprovalDecision(out)
+	if !req.Host.AllowSession && d.Scope == "session" {
+		d.Scope = ""
+	}
+	if req.Host.GrantAccess == "read" && d.Access == "write" {
+		d.Access = "read"
+	}
 	// A stop and an answer can be ready together. The stop must win, or an
 	// approval given as the user pressed Stop would still run the command.
 	if ctx.Err() != nil && d.Approved {
@@ -516,6 +523,12 @@ func promptWaitSeconds(p *types.AgentPrompt, wait, fallback time.Duration) int {
 // into the decision for its blocked call, as if RequestAndWait had just
 // returned it.
 func (g *Gate) ResumeDecision(ctx context.Context, prompt *types.AgentPrompt, bus *event.EventBus) Decision {
+	if g == nil || g.broker == nil || prompt == nil {
+		return Decision{Reason: "missing prompt or gate"}
+	}
+	if prompt.Kind != types.AgentPromptKindToolApproval {
+		return Decision{PendingID: prompt.ID, Reason: "unexpected prompt kind"}
+	}
 	d := toolApprovalDecision(hitl.Outcome{Prompt: prompt, Answered: true})
 	g.consumeDecision(ctx, &d, bus, prompt)
 	return d
@@ -700,10 +713,10 @@ func (g *Gate) ResolveForResume(ctx context.Context, req ResolveRequest) (hitl.R
 		r := types.ToolApprovalPromptResponse{
 			Approved: req.Decision.Approved,
 			Reason:   req.Decision.Reason,
-			Scope:    req.Decision.Scope,
-			Access:   req.Decision.Access,
 		}
 		if r.Approved {
+			r.Scope = req.Decision.Scope
+			r.Access = req.Decision.Access
 			r.ModifiedArgs = req.Decision.ModifiedArgs
 			r.AllowInSession = req.Decision.AllowInSession
 		}
@@ -766,9 +779,11 @@ func toolApprovalDecision(out hitl.Outcome) Decision {
 		return d
 	}
 	d.Approved, d.Reason = r.Approved, r.Reason
-	d.Scope, d.Access = r.Scope, r.Access
-	if r.Approved && len(r.ModifiedArgs) > 0 {
-		d.ModifiedArgs = r.ModifiedArgs
+	if r.Approved {
+		d.Scope, d.Access = r.Scope, r.Access
+		if len(r.ModifiedArgs) > 0 {
+			d.ModifiedArgs = r.ModifiedArgs
+		}
 	}
 	d.AllowInSession = r.Approved && r.AllowInSession
 	return d
@@ -811,8 +826,25 @@ func validateToolApprovalResponse(request, response json.RawMessage) error {
 	if err := dec.Decode(&r); err != nil {
 		return err
 	}
+	var extra any
+	if dec.Decode(&extra) != io.EOF {
+		return errors.New("unexpected trailing JSON")
+	}
 	if r.Approved == nil {
 		return errors.New(`"approved" is required`)
+	}
+	switch r.Scope {
+	case "", "once", "session":
+	default:
+		return errors.New("scope must be once or session")
+	}
+	switch r.Access {
+	case "", "read", "write":
+	default:
+		return errors.New("access must be read or write")
+	}
+	if !*r.Approved && (r.Scope != "" || r.Access != "") {
+		return errors.New("scope and access are only allowed on approval")
 	}
 	if r.AllowInSession {
 		if !*r.Approved {
@@ -838,8 +870,23 @@ func validateToolApprovalResponse(request, response json.RawMessage) error {
 }
 
 func validateMCPOAuthResponse(_, response json.RawMessage) error {
-	var r types.MCPOAuthPromptResponse
-	return json.Unmarshal(response, &r)
+	var r struct {
+		Authorized *bool  `json:"authorized"`
+		Reason     string `json:"reason,omitempty"`
+	}
+	dec := json.NewDecoder(bytes.NewReader(response))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&r); err != nil {
+		return err
+	}
+	var extra any
+	if dec.Decode(&extra) != io.EOF {
+		return errors.New("unexpected trailing JSON")
+	}
+	if r.Authorized == nil {
+		return errors.New(`"authorized" is required`)
+	}
+	return nil
 }
 
 // Adapter makes MCPToolApprovalService satisfy Checker without importing the service package here.

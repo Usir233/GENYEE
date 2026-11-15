@@ -2,9 +2,12 @@ package hostreview
 
 import (
 	"encoding/json"
+	"regexp"
 
 	"github.com/Usir233/GENYEE/internal/sandbox"
 )
+
+var secretEnvName = regexp.MustCompile(`(?i)token|secret|passw|credential|api_?key|private_?key|auth|cookie|_key$`)
 
 // maxActionBytes caps the serialized action. Above it the review would be
 // judging a truncated view, so auto refuses instead.
@@ -90,10 +93,29 @@ func reviewReason(req sandbox.CommandApprovalRequest) string {
 	}
 }
 
-func actionOf(req sandbox.CommandApprovalRequest) promptAction {
+func maskPromptEnv(env map[string]string) map[string]string {
+	if len(env) == 0 {
+		return nil
+	}
+	masked := make(map[string]string, len(env))
+	for k, v := range env {
+		if secretEnvName.MatchString(k) {
+			masked[k] = "***"
+		} else {
+			masked[k] = v
+		}
+	}
+	return masked
+}
+
+func buildPromptAction(req sandbox.CommandApprovalRequest, maskSecrets bool) promptAction {
+	env := req.Env
+	if maskSecrets {
+		env = maskPromptEnv(req.Env)
+	}
 	a := promptAction{
 		ReviewReason: reviewReason(req), Tool: req.Tool, Command: req.Command,
-		Env: req.Env, SkillName: req.SkillName, Cwd: req.Cwd, WorkspaceRoot: req.WorkspaceRoot,
+		Env: env, SkillName: req.SkillName, Cwd: req.Cwd, WorkspaceRoot: req.WorkspaceRoot,
 		DenialSnippet: req.DenialSnippet, FirstAttemptRan: req.FirstAttemptRan,
 		WriteMode: req.WriteMode, WriteContent: req.WriteContent, EditDiff: req.EditDiff, Targets: req.Targets,
 		Scripts: req.Scripts,
@@ -109,9 +131,14 @@ func actionOf(req sandbox.CommandApprovalRequest) promptAction {
 	return a
 }
 
-// actionSize is the serialized size of the action alone.
+func actionOf(req sandbox.CommandApprovalRequest) promptAction {
+	return buildPromptAction(req, true)
+}
+
+// actionSize is the serialized size of the action alone, measured before
+// masking secret env values so oversized secrets still refuse auto review.
 func actionSize(req sandbox.CommandApprovalRequest) (int, error) {
-	b, err := json.Marshal(actionOf(req))
+	b, err := json.Marshal(buildPromptAction(req, false))
 	return len(b), err
 }
 

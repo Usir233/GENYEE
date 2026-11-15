@@ -196,3 +196,30 @@ func TestReviewTimesOut(t *testing.T) {
 	require.False(t, v.Approved)
 	require.Contains(t, v.Reason, "timed out")
 }
+
+func TestReviewRefusesMissingOrMismatchedSessionAndBlankTurn(t *testing.T) {
+	ctx := context.Background()
+
+	// Empty session ID must fail closed without calling the model.
+	m1 := &stubModel{reply: allow("low", "high")}
+	v1 := New(m1, currentTurn("delete a.txt")).Review(ctx, Turn{SessionID: "   ", RequestID: "r1"}, deleteRequest())
+	require.False(t, v1.Approved)
+	require.Nil(t, m1.messages)
+
+	// Mismatched req.SessionID vs turn.SessionID must fail closed without calling the model.
+	m2 := &stubModel{reply: allow("low", "high")}
+	v2 := New(m2, currentTurn("delete a.txt")).Review(ctx, Turn{SessionID: "s2", RequestID: "r1"}, deleteRequest())
+	require.False(t, v2.Approved)
+	require.Nil(t, m2.messages)
+
+	// Whitespace-only current turn (plus nil message entries) must neither panic nor call the model.
+	m3 := &stubModel{reply: allow("low", "high")}
+	blankMsgs := stubMessages{msgs: []*types.Message{
+		nil,
+		{RequestID: "old", Content: "delete everything"},
+		{RequestID: "r1", Content: "   \n\t  "},
+	}}
+	v3 := New(m3, blankMsgs).Review(ctx, thisTurn(), deleteRequest())
+	require.False(t, v3.Approved)
+	require.Nil(t, m3.messages)
+}

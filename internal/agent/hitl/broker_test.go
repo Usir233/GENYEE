@@ -364,3 +364,41 @@ func TestBroker_ConsumeTellsAStoreFailureFromALostClaim(t *testing.T) {
 		})
 	}
 }
+
+func TestBroker_ResolveRejectsZeroTenant(t *testing.T) {
+	ctx := t.Context()
+	store := NewMemoryStore()
+	require.NoError(t, store.Create(ctx, &types.AgentPrompt{
+		ID: "p-zero", TenantID: 0, UserID: "u1", Kind: "k", Status: types.AgentPromptPending,
+	}))
+	b := NewBroker(store, nil)
+	b.RegisterKind("k", func(_, _ json.RawMessage) error { return nil })
+
+	_, err := b.Resolve(ctx, ResolveRequest{
+		TenantID: 0, UserID: "u1", PromptID: "p-zero", Response: json.RawMessage(`{}`),
+	})
+	require.ErrorIs(t, err, ErrTenantMismatch)
+}
+
+func TestBroker_ResolveExpiresOrphanedNonSuspendablePendingPrompt(t *testing.T) {
+	ctx := t.Context()
+	store := NewMemoryStore()
+	past := time.Now().Add(-time.Minute)
+	require.NoError(t, store.Create(ctx, &types.AgentPrompt{
+		ID: "p-orphan", TenantID: 1, UserID: "u1", Kind: "k",
+		Status: types.AgentPromptPending, Suspendable: false,
+		OwnerInstance: "crashed-replica", LeaseUntil: &past,
+	}))
+	b := NewBroker(store, nil)
+	b.RegisterKind("k", func(_, _ json.RawMessage) error { return nil })
+
+	_, err := b.Resolve(ctx, ResolveRequest{
+		TenantID: 1, UserID: "u1", PromptID: "p-orphan", Response: json.RawMessage(`{"ok":true}`),
+	})
+	require.ErrorIs(t, err, ErrAlreadyResolved)
+
+	row, err := store.Get(ctx, "p-orphan")
+	require.NoError(t, err)
+	require.Equal(t, types.AgentPromptExpired, row.Status)
+	require.Equal(t, ReasonOwnerStopped, row.CloseReason)
+}

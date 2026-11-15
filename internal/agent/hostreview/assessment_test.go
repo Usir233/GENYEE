@@ -41,3 +41,14 @@ func TestVerdictNeedsAllowLowRiskAndAuthorization(t *testing.T) {
 		require.NotEmpty(t, v.Reason, tc.raw)
 	}
 }
+
+func TestParseAssessmentRejectsUnknownFieldsAndTrailingJSON(t *testing.T) {
+	for _, raw := range []string{
+		`{"risk_level":"low","user_authorization":"high","outcome":"allow","rationale":"ok","extra":"surprise"}`,
+		`{"risk_level":"low","user_authorization":"high","outcome":"allow","rationale":"ok"}{"outcome":"deny"}`,
+	} {
+		v := parseAssessment(raw).verdict()
+		require.False(t, v.Approved, raw)
+		require.NotEmpty(t, v.Reason, raw)
+	}
+}

@@ -67,3 +67,19 @@ func TestPregrantableAndCovers(t *testing.T) {
 	assert.False(t, Covers("", RiskWrite))
 	assert.False(t, Covers(RiskDestructive, "bogus"))
 }
+
+func TestMalformedNonEmptyAccessLevelFailsClosed(t *testing.T) {
+	for _, malformed := range []types.AssistantAccessLevel{"readonly", "none", "bogus", "ADMIN"} {
+		for _, risk := range []Risk{RiskRead, RiskProbe, RiskWrite, RiskDestructive, "unknown"} {
+			assert.False(t, Offered(malformed, risk), "level=%q risk=%q must not be offered", malformed, risk)
+			assert.Equal(t, Deny, Decide(Action{Risk: risk}, Rules{Level: malformed}), "level=%q risk=%q must deny", malformed, risk)
+		}
+	}
+	// Zero-value "" remains the default confirm level for callers omitting Rules.Level.
+	assert.True(t, Offered("", RiskWrite))
+	assert.Equal(t, Ask, Decide(Action{Risk: RiskWrite}, Rules{Level: ""}))
+	assert.Equal(t, Allow, Decide(Action{Risk: RiskRead}, Rules{Level: ""}))
+
+	// Malformed granted risk never covers any call.
+	assert.False(t, Covers("bogus", RiskRead))
+}

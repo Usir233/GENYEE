@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/agent/hitl"
@@ -51,11 +52,17 @@ var _ SecureFormAsker = (*Gate)(nil)
 // RequestSecureForm shows the card and waits for the submission, the
 // timeout, or the suspension of the run.
 func (g *Gate) RequestSecureForm(ctx context.Context, req SecureFormRequest) (SecureFormAnswer, error) {
-	if g == nil {
+	if g == nil || g.broker == nil {
 		return SecureFormAnswer{}, fmt.Errorf("secure form: nil gate")
 	}
 	if req.EventBus == nil {
 		return SecureFormAnswer{}, fmt.Errorf("secure form: EventBus is nil")
+	}
+	if req.TenantID == 0 {
+		return SecureFormAnswer{}, fmt.Errorf("secure form: tenant is required")
+	}
+	if strings.TrimSpace(req.UserID) == "" {
+		return SecureFormAnswer{}, fmt.Errorf("secure form: session owner is unknown")
 	}
 	request, err := json.Marshal(req.Form)
 	if err != nil {
@@ -130,6 +137,12 @@ func (g *Gate) RequestSecureForm(ctx context.Context, req SecureFormRequest) (Se
 
 // ResumeSecureForm implements SecureFormAsker.
 func (g *Gate) ResumeSecureForm(ctx context.Context, prompt *types.AgentPrompt, bus *event.EventBus) SecureFormAnswer {
+	if g == nil || g.broker == nil || prompt == nil {
+		return SecureFormAnswer{Reason: "missing prompt or gate"}
+	}
+	if prompt.Kind != types.AgentPromptKindSecureForm {
+		return SecureFormAnswer{PromptID: prompt.ID, Reason: "unexpected prompt kind"}
+	}
 	a := secureFormAnswer(hitl.Outcome{Prompt: prompt, Answered: true})
 	g.consumeSecureForm(ctx, &a, bus, prompt.SessionID, prompt.AssistantMessageID, prompt.RequestID)
 	return a
@@ -137,6 +150,9 @@ func (g *Gate) ResumeSecureForm(ctx context.Context, prompt *types.AgentPrompt, 
 
 // SecureFormPrompt reads a prompt row for the submission endpoint.
 func (g *Gate) SecureFormPrompt(ctx context.Context, promptID string) (*types.AgentPrompt, error) {
+	if g == nil || g.broker == nil {
+		return nil, fmt.Errorf("gate is nil")
+	}
 	return g.broker.Store().Get(ctx, promptID)
 }
 
@@ -144,8 +160,14 @@ func (g *Gate) SecureFormPrompt(ctx context.Context, promptID string) (*types.Ag
 // the submission endpoint calls it; the generic prompt endpoints refuse the
 // kind because it is absent from AnswerableKinds.
 func (g *Gate) ResolveSecureForm(ctx context.Context, req hitl.ResolveRequest) (hitl.Resolution, error) {
-	if g == nil {
+	if g == nil || g.broker == nil {
 		return hitl.Resolution{}, fmt.Errorf("gate is nil")
+	}
+	if req.TenantID == 0 {
+		return hitl.Resolution{}, ErrTenantMismatch
+	}
+	if strings.TrimSpace(req.UserID) == "" {
+		return hitl.Resolution{}, ErrUserMismatch
 	}
 	req.Kind = types.AgentPromptKindSecureForm
 	return g.broker.Resolve(ctx, req)

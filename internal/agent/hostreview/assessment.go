@@ -2,6 +2,7 @@ package hostreview
 
 import (
 	"encoding/json"
+	"io"
 	"strings"
 )
 
@@ -23,7 +24,13 @@ func parseAssessment(raw string) assessment {
 		return assessment{failure: "auto review returned nothing"}
 	}
 	var a assessment
-	if err := json.Unmarshal([]byte(jsonCandidate(raw)), &a); err != nil {
+	dec := json.NewDecoder(strings.NewReader(jsonCandidate(raw)))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&a); err != nil {
+		return assessment{failure: "auto review did not return valid JSON"}
+	}
+	var extra any
+	if dec.Decode(&extra) != io.EOF {
 		return assessment{failure: "auto review did not return valid JSON"}
 	}
 	a.RiskLevel = strings.ToLower(strings.TrimSpace(a.RiskLevel))
