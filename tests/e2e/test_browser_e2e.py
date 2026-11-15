@@ -39,15 +39,15 @@ def dismiss_guides_if_present(page: Page) -> None:
     try:
         page.evaluate("""() => {
             const keys = [
-                'weknora:new-user-guide-done:v1',
-                'weknora:assistant-entry-guide-done:v0.9.0',
-                'weknora:contextual-guide-kb-list:v2',
-                'weknora:contextual-guide-kb-create:v3',
-                'weknora:contextual-guide-tenant-models:v1',
-                'weknora:contextual-guide-kb-detail:v1',
-                'weknora:contextual-guide-chat:v1',
-                'weknora:contextual-guide-agent-list:v1',
-                'weknora:contextual-guide-agent-create:v1'
+                'genyee:new-user-guide-done:v1',
+                'genyee:assistant-entry-guide-done:v0.9.0',
+                'genyee:contextual-guide-kb-list:v2',
+                'genyee:contextual-guide-kb-create:v3',
+                'genyee:contextual-guide-tenant-models:v1',
+                'genyee:contextual-guide-kb-detail:v1',
+                'genyee:contextual-guide-chat:v1',
+                'genyee:contextual-guide-agent-list:v1',
+                'genyee:contextual-guide-agent-create:v1'
             ];
             keys.forEach(k => {
                 try { localStorage.setItem(k, '1'); } catch (e) {}
@@ -222,18 +222,18 @@ class E2ETestRunner:
             ), f"Expected redirection to /platform/knowledge-bases, got: {page.url}"
 
             # Assert localStorage token and user email
-            token = page.evaluate("localStorage.getItem('weknora_token')")
-            user_json = page.evaluate("localStorage.getItem('weknora_user')")
+            token = page.evaluate("localStorage.getItem('genyee_token')")
+            user_json = page.evaluate("localStorage.getItem('genyee_user')")
             details["token_length"] = len(token) if token else 0
             details["user_json_preview"] = (
                 user_json[:60] + "..." if user_json else None
             )
 
             assert token is not None and len(token) > 50, (
-                "weknora_token missing or invalid in localStorage"
+                "genyee_token missing or invalid in localStorage"
             )
             assert user_json is not None and TEST_EMAIL in user_json, (
-                f"User email {TEST_EMAIL} not found in weknora_user localStorage"
+                f"User email {TEST_EMAIL} not found in genyee_user localStorage"
             )
 
             # Dismiss onboarding tours to ensure clean testing environment
