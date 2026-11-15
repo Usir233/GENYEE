@@ -1,0 +1,213 @@
+{
+  "wave": "W0",
+  "status": "verified_findings_fixed",
+  "branch": "codex/genyee-residue-remediation",
+  "base_commit": "05ed2dd8f8912d882e242f9c8e703d13c52d1efb",
+  "commits": [
+    {
+      "sha": "6aebb100e92f6f29e61b6d9f642f86091365ccc6",
+      "source_branch": "swarm/w0-miniprogram",
+      "source_commit": "158c814ea754b431c41026d89e8c0788152df2df",
+      "subject": "chore(clients): remove WeChat miniprogram client and references",
+      "deleted_count": 34,
+      "modified_count": 11
+    },
+    {
+      "sha": "f481427c1d14602cd9f74d91b7dbb9a8fe093546",
+      "source_branch": "swarm/w0-rebrand-clean",
+      "source_commit": "5bce01fceddcc3d545be04c5ad790528f6dc8b07",
+      "subject": "chore(rebrand): remove obsolete upstream assets and sweep GENYEE omissions",
+      "deleted_count": 45,
+      "modified_count": 13
+    }
+  ],
+  "deleted_files_count": 79,
+  "deleted_files": [
+    "docs/images/readme/icons/phone.svg",
+    "docs/release-v0.8.3-audit.md",
+    "docs/release-v0.9.0-announcement.md",
+    "docs/release-v0.9.0-audit.md",
+    "docs/release-v0.9.0-commits.tsv",
+    "docs/release-v0.9.0-files.tsv",
+    "miniprogram/README.md",
+    "miniprogram/app.js",
+    "miniprogram/app.json",
+    "miniprogram/app.wxss",
+    "miniprogram/assets/tab/chat-active.png",
+    "miniprogram/assets/tab/chat.png",
+    "miniprogram/assets/tab/knowledge-active.png",
+    "miniprogram/assets/tab/knowledge.png",
+    "miniprogram/assets/tab/settings-active.png",
+    "miniprogram/assets/tab/settings.png",
+    "miniprogram/package.json",
+    "miniprogram/pages/chat/chat.js",
+    "miniprogram/pages/chat/chat.json",
+    "miniprogram/pages/chat/chat.wxml",
+    "miniprogram/pages/chat/chat.wxss",
+    "miniprogram/pages/index/index.js",
+    "miniprogram/pages/index/index.json",
+    "miniprogram/pages/index/index.wxml",
+    "miniprogram/pages/index/index.wxss",
+    "miniprogram/pages/settings/settings.js",
+    "miniprogram/pages/settings/settings.json",
+    "miniprogram/pages/settings/settings.wxml",
+    "miniprogram/pages/settings/settings.wxss",
+    "miniprogram/project.config.json",
+    "miniprogram/project.private.config.json.example",
+    "miniprogram/sitemap.json",
+    "miniprogram/test/config.test.js",
+    "miniprogram/utils/config.js",
+    "miniprogram/utils/i18n.js",
+    "miniprogram/utils/request.js",
+    "miniprogram/utils/sse.js",
+    "misc/intro-video/.gitignore",
+    "misc/intro-video/README.md",
+    "misc/intro-video/assets/logo-dark.png",
+    "misc/intro-video/assets/logo-light.png",
+    "misc/intro-video/index.html",
+    "misc/intro-video/make-logos.py",
+    "misc/intro-video/package.json",
+    "misc/intro-video/render.mjs",
+    "misc/release-v0.9.0-demo/README.md",
+    "misc/release-v0.9.0-demo/报名须知.md",
+    "misc/release-v0.9.0-demo/活动介绍.md",
+    "misc/release-v0.9.0-demo/筹备安排.md",
+    "misc/release-v0.9.0-video/.gitignore",
+    "misc/release-v0.9.0-video/README.md",
+    "misc/release-v0.9.0-video/assets/INTER-LICENSE.txt",
+    "misc/release-v0.9.0-video/index.html",
+    "misc/release-v0.9.0-video/package-lock.json",
+    "misc/release-v0.9.0-video/package.json",
+    "misc/release-v0.9.0-video/preview.html",
+    "misc/release-v0.9.0-video/release-film/README.md",
+    "misc/release-v0.9.0-video/release-film/assets/inter-latin.woff2",
+    "misc/release-v0.9.0-video/release-film/assets/logo-dark.png",
+    "misc/release-v0.9.0-video/release-film/assets/logo-light.png",
+    "misc/release-v0.9.0-video/release-film/check.mjs",
+    "misc/release-v0.9.0-video/release-film/film.css",
+    "misc/release-v0.9.0-video/release-film/film.js",
+    "misc/release-v0.9.0-video/release-film/foundation.js",
+    "misc/release-v0.9.0-video/release-film/icons.js",
+    "misc/release-v0.9.0-video/release-film/index.html",
+    "misc/release-v0.9.0-video/release-film/knowledge-scenes.css",
+    "misc/release-v0.9.0-video/release-film/knowledge-scenes.js",
+    "misc/release-v0.9.0-video/release-film/mix.py",
+    "misc/release-v0.9.0-video/release-film/narration-plan.json",
+    "misc/release-v0.9.0-video/release-film/narration.js",
+    "misc/release-v0.9.0-video/release-film/narration.py",
+    "misc/release-v0.9.0-video/release-film/reference.css",
+    "misc/release-v0.9.0-video/release-film/render.mjs",
+    "misc/release-v0.9.0-video/release-film/requirements-voice.txt",
+    "misc/release-v0.9.0-video/release-film/sfx.py",
+    "misc/release-v0.9.0-video/release-film/validate.py",
+    "tests/miniprogram/miniprogram.test.js",
+    "website-docs/05-clients/04-miniprogram.md"
+  ],
+  "modified_files_count": 24,
+  "modified_files": [
+    ".gitattributes",
+    ".github/dependabot.yml",
+    ".gitignore",
+    "README.md",
+    "README_CN.md",
+    "README_JA.md",
+    "README_KO.md",
+    "cli/cmd/doc/upload.go",
+    "docs/design/agent-automation.md",
+    "docs/design/agent-hitl-suspend-resume.md",
+    "docs/design/agent-permission-model.md",
+    "docs/design/assistant-agent-collaboration.md",
+    "docs/design/confluence-table-markdown.md",
+    "docs/poc/docker-sandbox/README.md",
+    "docs/poc/docker-sandbox/main.go",
+    "scripts/export-source.sh",
+    "scripts/model_catalog_diff.py",
+    "website-docs/01-getting-started/01-introduction.md",
+    "website-docs/02-architecture/01-overview.md",
+    "website-docs/06-development/01-dev-guide.md",
+    "website-docs/07-releases/v0.9.0.md",
+    "website-docs/MIGRATION.md",
+    "website-docs/README.md",
+    "website-docs/homepage/README.md"
+  ],
+  "preserved_invariants": [
+    "Zero overlapping paths between Wave 0 commits (45 + 58 = 103 distinct file paths: 79 deleted, 24 modified).",
+    "Personal WeChat and WeCom IM bot channels (internal/im/wechat and internal/im/wecom) remain 100% untouched (0-byte diff).",
+    "MIT copyright and third-party attribution files (LICENSE*, THIRD_PARTY_NOTICES.md across all 4 copies, licenses/, OFFLINE_LICENSES/, dataset/README*, third_party/anydoc-go/LICENSE, REBRAND_RESERVED.md) are byte-identical to 05ed2dd8f.",
+    "Bottom Attribution & Non-Affiliation Notice sections in README.md, README_CN.md, README_JA.md, and README_KO.md remain 100% intact.",
+    "Historical changelogs and archived audit records (CHANGELOG.md, cli/CHANGELOG.md, mcp-server/CHANGELOG.md, BRANCH_GUIDE.md, WEKNORA_RESIDUE_REMEDIATION.md, AUDIT_REPORT.md, test-reports/module-audit-20261113/*) remain untouched.",
+    "Intentional negative security and compliance guards (cmd/desktop/webview_js_test.go, internal/utils/crypto*.go, internal/utils/presign_test.go, internal/application/service/user_jwt_secret_test.go, scripts/verify-commercial-compliance.sh, tests/adversarial/*, tests/stress/*) remain intact.",
+    "Vendored icon font sprite frontend/public/tdesign-icons/0.4.1/fonts/index.js and misc/dex-config.yaml remain untouched.",
+    ".gitattributes and scripts/export-source.sh retain export-ignore exclusion for test-reports, AUDIT_REPORT.md, REBRAND_RESERVED.md, BRANCH_GUIDE.md, docs/poc, and docs/design."
+  ],
+  "residue_audit_summary": {
+    "retired_client_scan": {
+      "active_product_hits": 0,
+      "excused_historical_or_vendor_files": [
+        "CHANGELOG.md",
+        "AUDIT_REPORT.md",
+        "WEKNORA_RESIDUE_REMEDIATION.md",
+        "frontend/public/tdesign-icons/0.4.1/fonts/index.js",
+        "test-reports/module-audit-20261113/coverage.json",
+        "test-reports/module-audit-v2/wave0-foundation.json"
+      ]
+    },
+    "upstream_brand_prefix_scan": {
+      "unexcused_active_product_hits": 0,
+      "categories": [
+        {
+          "category": "mit_and_third_party_attribution_notices",
+          "tracked_files": 17,
+          "line_hits": 93,
+          "status": "required_by_mit_license_byte_identical"
+        },
+        {
+          "category": "negative_security_and_compliance_guards",
+          "tracked_files": 9,
+          "line_hits": 103,
+          "status": "intentional_rejection_guards_and_export_exclusion"
+        },
+        {
+          "category": "historical_changelogs_specs_and_archived_reports",
+          "tracked_files": 15,
+          "line_hits": 258,
+          "status": "preserved_historical_records_export_ignored"
+        }
+      ]
+    }
+  },
+  "verification_commands": [
+    {
+      "command": "GOMAXPROCS=2 go test -p 1 -count=1 ./website-docs/... ./docs/... ./internal/productdocs/...",
+      "exit_code": 0
+    },
+    {
+      "command": "(cd cli && GOMAXPROCS=2 go test -p 1 -count=1 ./cmd/doc/...)",
+      "exit_code": 0
+    },
+    {
+      "command": "(cd docs/poc/docker-sandbox && GOMAXPROCS=2 go build -p 1 ./... && GOMAXPROCS=2 go vet -p 1 ./...)",
+      "exit_code": 0
+    },
+    {
+      "command": "python3 -m py_compile scripts/model_catalog_diff.py",
+      "exit_code": 0
+    },
+    {
+      "command": "node website-docs/scripts/check-links.mjs",
+      "exit_code": 0
+    },
+    {
+      "command": "node website-docs/scripts/check-mermaid.mjs",
+      "exit_code": 0
+    },
+    {
+      "command": "bash scripts/check-license-bundle.sh",
+      "exit_code": 0
+    },
+    {
+      "command": "GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh",
+      "exit_code": 0
+    }
+  ]
+}
