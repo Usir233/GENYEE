@@ -342,6 +342,21 @@ func (v *KeywordsVectorHybridRetrieveEngineService) BatchUpdateChunkTagID(
 	return v.indexRepository.BatchUpdateChunkTagID(ctx, chunkTagMap)
 }
 
+// BatchUpdateChunkContent updates the indexed text content of primary chunk rows in batch.
+func (v *KeywordsVectorHybridRetrieveEngineService) BatchUpdateChunkContent(
+	ctx context.Context,
+	chunkContentMap map[string]string,
+) error {
+	if len(chunkContentMap) == 0 {
+		return nil
+	}
+	updater, ok := v.indexRepository.(interfaces.ChunkContentUpdater)
+	if !ok {
+		return fmt.Errorf("retriever %s does not support updating chunk content", v.EngineType())
+	}
+	return updater.BatchUpdateChunkContent(ctx, chunkContentMap)
+}
+
 // ValidateKnowledgeIndexMove checks backend support before any mutation.
 func (v *KeywordsVectorHybridRetrieveEngineService) ValidateKnowledgeIndexMove(ctx context.Context) error {
 	if _, ok := v.indexRepository.(interfaces.KnowledgeIndexMover); !ok {

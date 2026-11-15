@@ -169,3 +169,11 @@ type KnowledgeIndexMover interface {
 		knowledgeType string,
 	) error
 }
+
+// ChunkContentUpdater updates the indexed text content of primary chunk rows
+// in place without recomputing or overwriting their embeddings (for example,
+// when cloned chunks rewrite embedded resource:// image handles).
+// chunkContentMap maps chunk ID (matching source_id == chunkID) to new content.
+type ChunkContentUpdater interface {
+	BatchUpdateChunkContent(ctx context.Context, chunkContentMap map[string]string) error
+}

@@ -217,6 +217,9 @@ func TestBatchPayloadUpdates(t *testing.T) {
 		{"tags", 2, func(ctx context.Context, repo *qdrantRepository) error {
 			return repo.BatchUpdateChunkTagID(ctx, map[string]string{"one": "tag-a", "two": "tag-b"})
 		}},
+		{"content", 2, func(ctx context.Context, repo *qdrantRepository) error {
+			return repo.BatchUpdateChunkContent(ctx, map[string]string{"one": "content-a", "two": "content-b"})
+		}},
 	}
 	for _, operation := range operations {
 		t.Run(operation.name, func(t *testing.T) {
@@ -249,7 +252,9 @@ func TestBatchPayloadUpdates(t *testing.T) {
 							failures = append(failures, failure)
 							description := fmt.Sprintf("set chunk tag_id %q",
 								request.Payload[fieldTagID].GetStringValue())
-							if enabled, ok := request.Payload[fieldIsEnabled]; ok {
+							if _, ok := request.Payload[fieldContent]; ok {
+								description = "set chunk content"
+							} else if enabled, ok := request.Payload[fieldIsEnabled]; ok {
 								description = "disable chunks"
 								if enabled.GetBoolValue() {
 									description = "enable chunks"
@@ -344,6 +349,48 @@ func TestBatchPayloadUpdatesEmptyInput(t *testing.T) {
 	}
 	if err := repo.BatchUpdateChunkTagID(context.Background(), nil); err != nil {
 		t.Fatal(err)
+	}
+	if err := repo.BatchUpdateChunkContent(context.Background(), nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBatchUpdateChunkContentFiltersPrimarySourceID(t *testing.T) {
+	var captured *qdrant.SetPayloadPoints
+	repo := newPayloadUpdateTestRepository(t, []string{"vectors_768"}, nil,
+		func(_ context.Context, request *qdrant.SetPayloadPoints) error {
+			captured = request
+			return nil
+		})
+	err := repo.BatchUpdateChunkContent(context.Background(), map[string]string{
+		"chunk-1": "Doc\n![](resource://newhandle)",
+	})
+	if err != nil {
+		t.Fatalf("BatchUpdateChunkContent: %v", err)
+	}
+	if captured == nil {
+		t.Fatal("expected SetPayload call")
+	}
+	if got := captured.Payload[fieldContent].GetStringValue(); got != "Doc\n![](resource://newhandle)" {
+		t.Fatalf("payload content = %q", got)
+	}
+	filter := captured.GetPointsSelector().GetFilter()
+	if filter == nil || len(filter.Must) != 2 {
+		t.Fatalf("expected 2 Must filter conditions (chunk_id + source_id), got %+v", filter)
+	}
+	seenFields := map[string][]string{}
+	for _, cond := range filter.Must {
+		f := cond.GetField()
+		if f == nil || f.GetMatch() == nil {
+			t.Fatalf("expected field match condition, got %+v", cond)
+		}
+		seenFields[f.Key] = f.GetMatch().GetKeywords().GetStrings()
+	}
+	if !slices.Equal(seenFields[fieldChunkID], []string{"chunk-1"}) {
+		t.Fatalf("chunk_id filter = %v, want [chunk-1]", seenFields[fieldChunkID])
+	}
+	if !slices.Equal(seenFields[fieldSourceID], []string{"chunk-1"}) {
+		t.Fatalf("source_id filter = %v, want [chunk-1]", seenFields[fieldSourceID])
 	}
 }
 
@@ -919,6 +966,9 @@ func TestPointWritesWaitForApplication(t *testing.T) {
 		}},
 		{"tags", 2, func(ctx context.Context, repo *qdrantRepository) error {
 			return repo.BatchUpdateChunkTagID(ctx, map[string]string{"one": "tag-a", "two": "tag-b"})
+		}},
+		{"content", 2, func(ctx context.Context, repo *qdrantRepository) error {
+			return repo.BatchUpdateChunkContent(ctx, map[string]string{"one": "content-a", "two": "content-b"})
 		}},
 		{"move", 1, func(ctx context.Context, repo *qdrantRepository) error {
 			return repo.MoveKnowledgeIndices(ctx, "kb-src", "kb-dst", "know-1", nil, 4, "doc")

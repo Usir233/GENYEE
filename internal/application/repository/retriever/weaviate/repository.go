@@ -509,6 +509,98 @@ func (w *weaviateRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTag
 
 }
 
+// BatchUpdateChunkContent updates the indexed content of primary chunk rows in batch
+func (w *weaviateRepository) BatchUpdateChunkContent(ctx context.Context, chunkContentMap map[string]string) error {
+	log := logger.GetLogger(ctx)
+	if len(chunkContentMap) == 0 {
+		log.Warn("[Weaviate] Empty chunk content map provided, skipping")
+		return nil
+	}
+
+	log.Infof("[Weaviate] Batch updating chunk content, count: %d", len(chunkContentMap))
+
+	collections, err := w.ListCollections(ctx)
+	if err != nil {
+		log.Errorf("[Weaviate] Failed to list collections: %v", err)
+		return fmt.Errorf("failed to list collections: %w", err)
+	}
+
+	sourceIDs := slices.Sorted(maps.Keys(chunkContentMap))
+	const batchSize = 64
+	for _, collectionName := range collections {
+		if len(collectionName) <= len(w.collectionBaseName) ||
+			collectionName[:len(w.collectionBaseName)] != w.collectionBaseName {
+			continue
+		}
+		for batch := range slices.Chunk(sourceIDs, batchSize) {
+			where := filters.Where().
+				WithPath([]string{fieldSourceID}).
+				WithOperator(filters.ContainsAny).
+				WithValueText(batch...)
+			result, err := w.client.GraphQL().Get().
+				WithClassName(collectionName).
+				WithWhere(where).
+				WithLimit(len(batch) * 2).
+				WithFields(
+					graphql.Field{Name: fieldSourceID},
+					graphql.Field{Name: fieldChunkID},
+					graphql.Field{Name: "_additional", Fields: []graphql.Field{{Name: "id"}}},
+				).
+				Do(ctx)
+			if err != nil {
+				return fmt.Errorf("query chunk content targets in %s: %w", collectionName, err)
+			}
+			if result == nil || len(result.Errors) > 0 {
+				return fmt.Errorf("graphql query chunk content targets in %s failed", collectionName)
+			}
+			get, ok := result.Data["Get"].(map[string]interface{})
+			if !ok || get[collectionName] == nil {
+				continue
+			}
+			rows, ok := get[collectionName].([]interface{})
+			if !ok {
+				continue
+			}
+			for _, raw := range rows {
+				data, ok := raw.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				srcID, _ := data[fieldSourceID].(string)
+				chkID, _ := data[fieldChunkID].(string)
+				if srcID == "" || srcID != chkID {
+					continue
+				}
+				content, ok := chunkContentMap[srcID]
+				if !ok {
+					continue
+				}
+				additional, ok := data["_additional"].(map[string]interface{})
+				if !ok {
+					continue
+				}
+				objectID, _ := additional["id"].(string)
+				if objectID == "" {
+					continue
+				}
+				if err := w.client.Data().Updater().
+					WithClassName(collectionName).
+					WithID(objectID).
+					WithMerge().
+					WithProperties(map[string]interface{}{
+						fieldContent: content,
+					}).
+					Do(ctx); err != nil {
+					return fmt.Errorf("update chunk %s content in %s: %w", srcID, collectionName, err)
+				}
+			}
+		}
+	}
+
+	log.Infof("[Weaviate] Batch update chunk content completed")
+	return nil
+}
+
 func (w *weaviateRepository) getBaseFilter(params types.RetrieveParams) *filters.WhereBuilder {
 	var operands []*filters.WhereBuilder
 	operands = append(operands, filters.Where().

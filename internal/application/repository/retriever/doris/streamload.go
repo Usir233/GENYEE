@@ -342,6 +342,43 @@ func (r *dorisRepository) BatchUpdateChunkTagID(ctx context.Context,
 	}, "rewrite tag_id")
 }
 
+// BatchUpdateChunkContent 批量更新主分块索引行（source_id == chunk_id）的 content 字段，保留原有向量。
+func (r *dorisRepository) BatchUpdateChunkContent(ctx context.Context,
+	chunkContentMap map[string]string,
+) error {
+	if len(chunkContentMap) == 0 {
+		return nil
+	}
+	compatMode, err := r.resolveCompatMode(ctx)
+	if err != nil {
+		return err
+	}
+	if !compatMode.usesRewriteChunkUpdates() {
+		return r.batchUpdateChunkContentLegacy(ctx, chunkContentMap)
+	}
+
+	chunkIDs := make([]string, 0, len(chunkContentMap))
+	for id := range chunkContentMap {
+		chunkIDs = append(chunkIDs, id)
+	}
+
+	return r.rewriteChunkRows(ctx, chunkIDs, func(row *DorisVectorEmbedding) bool {
+		if row.SourceID != row.ChunkID {
+			return false
+		}
+		content, ok := chunkContentMap[row.SourceID]
+		if !ok {
+			return false
+		}
+		cleaned := common.CleanInvalidUTF8(content)
+		if row.Content == cleaned {
+			return false
+		}
+		row.Content = cleaned
+		return true
+	}, "rewrite content")
+}
+
 func (r *dorisRepository) rewriteChunkRows(ctx context.Context,
 	chunkIDs []string,
 	mutate func(*DorisVectorEmbedding) bool,
@@ -446,6 +483,98 @@ func (r *dorisRepository) batchUpdateChunkTagIDLegacy(ctx context.Context,
 		}
 	}
 	return nil
+}
+
+func (r *dorisRepository) batchUpdateChunkContentLegacy(ctx context.Context,
+	chunkContentMap map[string]string,
+) error {
+	chunkIDs := make([]string, 0, len(chunkContentMap))
+	for id := range chunkContentMap {
+		chunkIDs = append(chunkIDs, id)
+	}
+
+	mapping, err := r.lookupPrimaryChunkRowKeys(ctx, chunkIDs)
+	if err != nil {
+		return err
+	}
+
+	byTable := make(map[string][]map[string]any)
+	for chunkID, locations := range mapping {
+		content, ok := chunkContentMap[chunkID]
+		if !ok {
+			continue
+		}
+		cleaned := common.CleanInvalidUTF8(content)
+		for _, loc := range locations {
+			byTable[loc.table] = append(byTable[loc.table], map[string]any{
+				fieldID:      loc.id,
+				fieldContent: cleaned,
+			})
+		}
+	}
+	for table, rows := range byTable {
+		if err := r.partialUpdateRows(ctx, table, []string{fieldID, fieldContent}, rows); err != nil {
+			return fmt.Errorf("partial update content in %s: %w", table, err)
+		}
+	}
+	return nil
+}
+
+func (r *dorisRepository) lookupPrimaryChunkRowKeys(ctx context.Context,
+	chunkIDs []string,
+) (map[string][]rowLocation, error) {
+	if len(chunkIDs) == 0 {
+		return nil, nil
+	}
+	tables, err := r.listEmbeddingTables(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list tables: %w", err)
+	}
+	if len(tables) == 0 {
+		return nil, nil
+	}
+
+	placeholders := make([]string, len(chunkIDs))
+	args := make([]any, 0, len(chunkIDs)*2)
+	for i, v := range chunkIDs {
+		placeholders[i] = "?"
+		args = append(args, v)
+	}
+	for _, v := range chunkIDs {
+		args = append(args, v)
+	}
+	inClause := strings.Join(placeholders, ", ")
+
+	out := make(map[string][]rowLocation)
+	for _, table := range tables {
+		stmt := fmt.Sprintf(
+			"SELECT %s, %s, %s FROM `%s` WHERE %s IN (%s) AND %s IN (%s)",
+			fieldID, fieldChunkID, fieldSourceID, table,
+			fieldChunkID, inClause,
+			fieldSourceID, inClause,
+		)
+		rows, err := r.db.QueryContext(ctx, stmt, args...)
+		if err != nil {
+			return nil, fmt.Errorf("lookup primary chunk row keys in %s: %w", table, err)
+		}
+		for rows.Next() {
+			var id, chunkID, sourceID string
+			if err := rows.Scan(&id, &chunkID, &sourceID); err != nil {
+				_ = rows.Close()
+				return nil, fmt.Errorf("scan primary row keys: %w", err)
+			}
+			if sourceID != chunkID {
+				continue
+			}
+			out[chunkID] = append(out[chunkID], rowLocation{table: table, id: id})
+		}
+		if err := rows.Err(); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		_ = rows.Close()
+	}
+	return out, nil
 }
 
 func (r *dorisRepository) loadRowsByChunkIDs(ctx context.Context,

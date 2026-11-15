@@ -235,6 +235,53 @@ func (r *repository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMap map[
 	return nil
 }
 
+func (r *repository) BatchUpdateChunkContent(ctx context.Context, chunkContentMap map[string]string) error {
+	if len(chunkContentMap) == 0 {
+		return nil
+	}
+	bm25, err := r.bm25Encoder()
+	if err != nil {
+		return err
+	}
+	collections, err := r.client.Database(r.databaseName).ListCollection(ctx)
+	if err != nil {
+		return fmt.Errorf("tencent vectordb list collections: %w", err)
+	}
+
+	grouped := make(map[string][]string)
+	for chunkID, content := range chunkContentMap {
+		cleaned := cleanInvalidUTF8(content)
+		grouped[cleaned] = append(grouped[cleaned], chunkID)
+	}
+
+	for content, chunkIDs := range grouped {
+		sparseVecs, err := bm25.EncodeTexts([]string{content})
+		if err != nil {
+			return fmt.Errorf("tencent vectordb encode BM25 sparse vectors: %w", err)
+		}
+		if len(sparseVecs) != 1 {
+			return fmt.Errorf("tencent vectordb encoded sparse vector count mismatch: got %d, want 1", len(sparseVecs))
+		}
+		filter := tcvectordb.NewFilter(
+			tcvectordb.In(fieldChunkID, chunkIDs) + " and " + tcvectordb.In(fieldSourceID, chunkIDs),
+		)
+		for _, collection := range collections.Collections {
+			if !r.matchesCollection(collection.CollectionName) {
+				continue
+			}
+			_, err := r.client.Database(r.databaseName).Collection(collection.CollectionName).Update(ctx, tcvectordb.UpdateDocumentParams{
+				QueryFilter:     filter,
+				UpdateFields:    map[string]tcvectordb.Field{fieldContent: {Val: content}},
+				UpdateSparseVec: sparseVecs[0],
+			})
+			if err != nil {
+				return fmt.Errorf("tencent vectordb update chunk content in %s: %w", collection.CollectionName, err)
+			}
+		}
+	}
+	return nil
+}
+
 func (r *repository) Retrieve(ctx context.Context, params types.RetrieveParams) ([]*types.RetrieveResult, error) {
 	switch params.RetrieverType {
 	case types.VectorRetrieverType:

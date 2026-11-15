@@ -659,6 +659,68 @@ func (m *milvusRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMa
 	return nil
 }
 
+// BatchUpdateChunkContent updates the indexed content of primary chunk rows in batch
+func (m *milvusRepository) BatchUpdateChunkContent(ctx context.Context, chunkContentMap map[string]string) error {
+	log := logger.GetLogger(ctx)
+	if len(chunkContentMap) == 0 {
+		log.Warn("[Milvus] Empty chunk content map provided, skipping")
+		return nil
+	}
+
+	log.Infof("[Milvus] Batch updating chunk content, count: %d", len(chunkContentMap))
+
+	collections, err := m.client.ListCollections(ctx, client.NewListCollectionOption())
+	if err != nil {
+		log.Errorf("[Milvus] Failed to list collections: %v", err)
+		return fmt.Errorf("failed to list collections: %w", err)
+	}
+
+	sourceIDs := slices.Sorted(maps.Keys(chunkContentMap))
+	var updateErrs []error
+	for _, collectionName := range collections {
+		if !matchesDimensionCollection(collectionName, m.collectionBaseName) {
+			continue
+		}
+		embeddings, _, err := m.searchByFilter(ctx, collectionName, &universalFilterCondition{
+			Field:    fieldSourceID,
+			Operator: operatorIn,
+			Value:    sourceIDs,
+		}, nil, nil)
+		if err != nil {
+			updateErrs = append(updateErrs, fmt.Errorf("search chunks in %s: %w", collectionName, err))
+			continue
+		}
+		upsertEmbeddings := make([]*MilvusVectorEmbedding, 0, len(embeddings))
+		for _, embedding := range embeddings {
+			if embedding.SourceID != embedding.ChunkID {
+				continue
+			}
+			content, ok := chunkContentMap[embedding.SourceID]
+			if !ok || embedding.Content == content {
+				continue
+			}
+			embedding.Content = content
+			upsertEmbeddings = append(upsertEmbeddings, &embedding.MilvusVectorEmbedding)
+		}
+		if len(upsertEmbeddings) == 0 {
+			continue
+		}
+		if _, err := m.collectionAnalyzerMode(ctx, collectionName); err != nil {
+			updateErrs = append(updateErrs, fmt.Errorf("inspect collection %s analyzer mode: %w", collectionName, err))
+			continue
+		}
+		if _, err := m.client.Upsert(ctx, createUpsert(collectionName, upsertEmbeddings)); err != nil {
+			updateErrs = append(updateErrs, fmt.Errorf("upsert chunk content in %s: %w", collectionName, err))
+		}
+	}
+	if err := errors.Join(updateErrs...); err != nil {
+		return err
+	}
+
+	log.Infof("[Milvus] Batch update chunk content completed")
+	return nil
+}
+
 func (m *milvusRepository) getBaseFilterForQuery(params types.RetrieveParams) (string, map[string]any, error) {
 	filters := make([]*universalFilterCondition, 0)
 	if len(params.KnowledgeBaseIDs) > 0 {

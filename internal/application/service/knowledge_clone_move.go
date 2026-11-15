@@ -546,12 +546,18 @@ func (s *knowledgeService) CloneChunk(ctx context.Context, src, dst *types.Knowl
 			Metadata:        sourceChunk.Metadata,
 			ContentHash:     sourceChunk.ContentHash,
 			ImageInfo:       newImageInfo,
+			ContextHeader:   sourceChunk.ContextHeader,
 			SourceLocators:  sourceChunk.SourceLocators,
 			CreatedAt:       now,
 			UpdatedAt:       now,
 		}
 		targetChunks = append(targetChunks, targetChunk)
 		srcTodst[sourceChunk.ID] = targetChunk.ID
+	}
+
+	beforeRewriteContent := make([]string, len(targetChunks))
+	for i, chunk := range targetChunks {
+		beforeRewriteContent[i] = chunk.Content
 	}
 
 	// Image metadata can live in separate children, so wait for the complete
@@ -625,7 +631,74 @@ func (s *knowledgeService) CloneChunk(ctx context.Context, src, dst *types.Knowl
 	if err := retrieveEngine.BatchUpdateChunkTagID(ctx, chunkTags); err != nil {
 		return fmt.Errorf("failed to update cloned index tags: %w", err)
 	}
+	indexKnowledge := stored
+	if dst != nil && strings.TrimSpace(dst.Title) != "" {
+		indexKnowledge = dst
+	}
+	chunkContents := make(map[string]string)
+	for i, chunk := range targetChunks {
+		if chunk.Content == beforeRewriteContent[i] ||
+			chunk.ChunkType == types.ChunkTypeImageVector ||
+			chunk.ChunkType == types.ChunkTypeParentText {
+			continue
+		}
+		chunkContents[chunk.ID] = clonedChunkIndexContent(indexKnowledge, chunk)
+	}
+	if len(chunkContents) > 0 {
+		if err := retrieveEngine.BatchUpdateChunkContent(ctx, chunkContents); err != nil {
+			return fmt.Errorf("failed to update cloned index content: %w", err)
+		}
+	}
 	return nil
+}
+
+func clonedChunkIndexContent(knowledge *types.Knowledge, chunk *types.Chunk) string {
+	if (chunk.ChunkType == types.ChunkTypeImageOCR || chunk.ChunkType == types.ChunkTypeImageCaption) &&
+		chunk.ContentRevision == 0 {
+		return chunk.Content
+	}
+	return buildKnowledgeIndexContent(knowledge, chunk.EmbeddingContent())
+}
+
+func rewriteClonedFAQMetadata(raw types.JSON, urls map[string]string) types.JSON {
+	if len(raw) == 0 || len(urls) == 0 {
+		return raw
+	}
+	var meta types.FAQChunkMetadata
+	if err := json.Unmarshal(raw, &meta); err != nil {
+		return raw
+	}
+	changed := false
+	if updated := rewriteContentImageURLs(meta.StandardQuestion, urls); updated != meta.StandardQuestion {
+		meta.StandardQuestion = updated
+		changed = true
+	}
+	for i, q := range meta.SimilarQuestions {
+		if updated := rewriteContentImageURLs(q, urls); updated != q {
+			meta.SimilarQuestions[i] = updated
+			changed = true
+		}
+	}
+	for i, q := range meta.NegativeQuestions {
+		if updated := rewriteContentImageURLs(q, urls); updated != q {
+			meta.NegativeQuestions[i] = updated
+			changed = true
+		}
+	}
+	for i, ans := range meta.Answers {
+		if updated := rewriteContentImageURLs(ans, urls); updated != ans {
+			meta.Answers[i] = updated
+			changed = true
+		}
+	}
+	if !changed {
+		return raw
+	}
+	encoded, err := json.Marshal(meta)
+	if err != nil {
+		return raw
+	}
+	return encoded
 }
 
 const (
@@ -1069,7 +1142,7 @@ func (s *knowledgeService) cloneFAQKnowledgeBase(
 				IsEnabled:       srcChunk.IsEnabled,
 				Flags:           srcChunk.Flags,
 				ChunkType:       types.ChunkTypeFAQ,
-				Metadata:        srcChunk.Metadata,
+				Metadata:        rewriteClonedFAQMetadata(srcChunk.Metadata, imageURLCache),
 				ContentHash:     srcChunk.ContentHash,
 				ImageInfo:       newImageInfo,
 				Status:          int(types.ChunkStatusStored), // Initially stored, will be indexed

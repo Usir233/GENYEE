@@ -511,6 +511,49 @@ func (r *sqliteRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMa
 	return errors.Join(updateErrs...)
 }
 
+func (r *sqliteRepository) BatchUpdateChunkContent(ctx context.Context, chunkContentMap map[string]string) error {
+	var updateErrs []error
+	for chunkID, content := range chunkContentMap {
+		cleaned := common.CleanInvalidUTF8(content)
+		err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			var rows []sqliteEmbedding
+			if err := tx.Where("chunk_id = ? AND source_id = ?", chunkID, chunkID).Find(&rows).Error; err != nil {
+				return err
+			}
+			if len(rows) == 0 {
+				logger.GetLogger(ctx).Warnf(
+					"[SQLite] update of %s.content matched 0 rows for chunk %s",
+					sqliteEmbedding{}.TableName(), chunkID,
+				)
+				return nil
+			}
+			if err := tx.Model(&sqliteEmbedding{}).
+				Where("chunk_id = ? AND source_id = ?", chunkID, chunkID).
+				Update("content", cleaned).Error; err != nil {
+				return err
+			}
+			if r.ftsUnavailable {
+				return nil
+			}
+			for i := range rows {
+				if err := tx.Exec("DELETE FROM lite_embeddings_fts WHERE rowid = ?", rows[i].ID).Error; err != nil {
+					return fmt.Errorf("[SQLite] failed to delete keyword index row %d: %w", rows[i].ID, err)
+				}
+				rows[i].Content = cleaned
+				if err := r.syncFTS5Insert(tx, &rows[i]); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			updateErrs = append(updateErrs,
+				fmt.Errorf("[SQLite] failed to update content for chunk %s: %w", chunkID, err))
+		}
+	}
+	return errors.Join(updateErrs...)
+}
+
 // updateChunkIndexColumn applies a single per-chunk UPDATE to the retrieval
 // index copy. A statement matching no row is not an error -- that row may never
 // have reached the index -- but it would otherwise stay completely invisible,

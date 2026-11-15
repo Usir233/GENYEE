@@ -166,6 +166,44 @@ func TestBatchUpdateChunkEnabledStatus_Empty_NoOp(t *testing.T) {
 	}
 }
 
+func TestBatchUpdateChunkContent_TargetsPrimaryChunkAndSourceID(t *testing.T) {
+	var (
+		mu     sync.Mutex
+		bodies []string
+	)
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "_update_by_query") {
+			b, _ := io.ReadAll(r.Body)
+			mu.Lock()
+			bodies = append(bodies, string(b))
+			mu.Unlock()
+			_, _ = w.Write([]byte(`{"updated":1,"version_conflicts":0,"failures":[]}`))
+			return
+		}
+		_, _ = w.Write([]byte(`{}`))
+	}
+	repo, ts := newTestRepo(t, handler)
+	defer ts.Close()
+
+	err := repo.BatchUpdateChunkContent(context.Background(), map[string]string{
+		"c1": "Doc\n![](resource://newhandle)",
+	})
+	if err != nil {
+		t.Fatalf("BatchUpdateChunkContent: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(bodies) != 1 {
+		t.Fatalf("want 1 update_by_query call, got %d: %v", len(bodies), bodies)
+	}
+	for _, want := range []string{`"chunk_id":["c1"]`, `"source_id":["c1"]`, `ctx._source.content = params.v`, `resource://newhandle`} {
+		if !strings.Contains(bodies[0], want) {
+			t.Errorf("update_by_query body missing %q\n%s", want, bodies[0])
+		}
+	}
+}
+
 // TestInspectByQueryResponse covers the success path and the failure path,
 // asserting cluster-side reason text is NOT surfaced in the returned error.
 func TestInspectByQueryResponse(t *testing.T) {

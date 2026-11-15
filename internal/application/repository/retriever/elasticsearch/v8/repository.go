@@ -895,3 +895,60 @@ func (e *elasticsearchRepository) BatchUpdateChunkTagID(
 	log.Infof("[Elasticsearch] Successfully batch updated chunk tag ID")
 	return nil
 }
+
+// BatchUpdateChunkContent updates the indexed content of primary chunk rows in batch
+func (e *elasticsearchRepository) BatchUpdateChunkContent(
+	ctx context.Context,
+	chunkContentMap map[string]string,
+) error {
+	log := logger.GetLogger(ctx)
+	if len(chunkContentMap) == 0 {
+		log.Warnf("[Elasticsearch] Chunk content map is empty, skipping update")
+		return nil
+	}
+
+	log.Infof("[Elasticsearch] Batch updating chunk content, count: %d", len(chunkContentMap))
+
+	contentGroups := make(map[string][]string)
+	for chunkID, content := range chunkContentMap {
+		contentGroups[content] = append(contentGroups[content], chunkID)
+	}
+
+	for content, chunkIDs := range contentGroups {
+		contentJSON, err := json.Marshal(content)
+		if err != nil {
+			return fmt.Errorf("marshal chunk content: %w", err)
+		}
+		query := types.NewQuery()
+		query.Bool = &types.BoolQuery{
+			Must: []types.Query{
+				{Terms: &types.TermsQuery{
+					TermsQuery: map[string]types.TermsQueryField{
+						e.idField("chunk_id"): chunkIDs,
+					},
+				}},
+				{Terms: &types.TermsQuery{
+					TermsQuery: map[string]types.TermsQueryField{
+						e.idField("source_id"): chunkIDs,
+					},
+				}},
+			},
+		}
+		source := "ctx._source.content = params.content"
+		lang := scriptlanguage.Painless
+		script := types.Script{
+			Source: &source,
+			Lang:   &lang,
+			Params: map[string]json.RawMessage{
+				"content": contentJSON,
+			},
+		}
+		if _, err := e.client.UpdateByQuery(e.index).Query(query).Script(&script).Refresh(true).Do(ctx); err != nil {
+			log.Errorf("[Elasticsearch] Failed to update chunk content: %v", err)
+			return err
+		}
+	}
+
+	log.Infof("[Elasticsearch] Successfully batch updated chunk content")
+	return nil
+}

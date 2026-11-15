@@ -636,6 +636,68 @@ func (q *qdrantRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMa
 	return nil
 }
 
+// BatchUpdateChunkContent updates the indexed content of primary chunk rows in batch
+func (q *qdrantRepository) BatchUpdateChunkContent(ctx context.Context, chunkContentMap map[string]string) error {
+	log := logger.GetLogger(ctx)
+	if len(chunkContentMap) == 0 {
+		log.Warn("[Qdrant] Empty chunk content map provided, skipping")
+		return nil
+	}
+
+	log.Infof("[Qdrant] Batch updating chunk content, count: %d", len(chunkContentMap))
+
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
+	collections, err := q.client.ListCollections(ctx)
+	if err != nil {
+		log.Errorf("[Qdrant] Failed to list collections: %v", err)
+		return fmt.Errorf("failed to list collections: %w", errors.Join(err, ctx.Err()))
+	}
+
+	contentGroups := make(map[string][]string)
+	for chunkID, content := range chunkContentMap {
+		contentGroups[content] = append(contentGroups[content], chunkID)
+	}
+
+	var updateErr error
+	for _, collectionName := range collections {
+		if !q.matchesCollectionName(collectionName) {
+			continue
+		}
+		for content, chunkIDs := range contentGroups {
+			if err := ctx.Err(); err != nil {
+				return errors.Join(updateErr, err)
+			}
+			wait := true
+			_, err := q.client.SetPayload(ctx, &qdrant.SetPayloadPoints{
+				CollectionName: collectionName,
+				Wait:           &wait,
+				Payload:        newQdrantValueMap(map[string]any{fieldContent: content}),
+				PointsSelector: qdrant.NewPointsSelectorFilter(&qdrant.Filter{
+					Must: []*qdrant.Condition{
+						qdrant.NewMatchKeywords(fieldChunkID, chunkIDs...),
+						qdrant.NewMatchKeywords(fieldSourceID, chunkIDs...),
+					},
+				}),
+			})
+			if err != nil {
+				log.Warnf("[Qdrant] Failed to update chunk content in %s: %v", collectionName, err)
+				updateErr = errors.Join(updateErr,
+					fmt.Errorf("set chunk content in collection %s: %w", collectionName, err))
+			}
+		}
+	}
+
+	if err := errors.Join(updateErr, ctx.Err()); err != nil {
+		return err
+	}
+
+	log.Infof("[Qdrant] Batch update chunk content completed")
+	return nil
+}
+
 func (q *qdrantRepository) getBaseFilter(params types.RetrieveParams) *qdrant.Filter {
 	must := make([]*qdrant.Condition, 0)
 	mustNot := make([]*qdrant.Condition, 0)

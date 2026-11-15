@@ -1479,3 +1479,81 @@ func (e *elasticsearchRepository) BatchUpdateChunkTagID(
 	log.Infof("[ElasticsearchV7] Successfully batch updated chunk tag ID")
 	return nil
 }
+
+// BatchUpdateChunkContent updates the indexed content of primary chunk rows in batch
+func (e *elasticsearchRepository) BatchUpdateChunkContent(
+	ctx context.Context,
+	chunkContentMap map[string]string,
+) error {
+	log := logger.GetLogger(ctx)
+	if len(chunkContentMap) == 0 {
+		log.Warnf("[ElasticsearchV7] Chunk content map is empty, skipping update")
+		return nil
+	}
+
+	log.Infof("[ElasticsearchV7] Batch updating chunk content, count: %d", len(chunkContentMap))
+
+	contentGroups := make(map[string][]string)
+	for chunkID, content := range chunkContentMap {
+		contentGroups[content] = append(contentGroups[content], chunkID)
+	}
+
+	refresh := true
+	for content, chunkIDs := range contentGroups {
+		query := map[string]interface{}{
+			"query": map[string]interface{}{
+				"bool": map[string]interface{}{
+					"must": []interface{}{
+						map[string]interface{}{
+							"terms": map[string]interface{}{
+								e.idField("chunk_id"): chunkIDs,
+							},
+						},
+						map[string]interface{}{
+							"terms": map[string]interface{}{
+								e.idField("source_id"): chunkIDs,
+							},
+						},
+					},
+				},
+			},
+			"script": map[string]interface{}{
+				"source": "ctx._source.content = params.content",
+				"lang":   "painless",
+				"params": map[string]interface{}{
+					"content": content,
+				},
+			},
+		}
+		queryJSON, err := json.Marshal(query)
+		if err != nil {
+			return fmt.Errorf("marshal chunk content update query: %w", err)
+		}
+		res, err := esapi.UpdateByQueryRequest{
+			Index:   []string{e.index},
+			Refresh: &refresh,
+			Body:    strings.NewReader(string(queryJSON)),
+		}.Do(ctx, e.client)
+		if err != nil {
+			log.Errorf("[ElasticsearchV7] Failed to update chunk content: %v", err)
+			return err
+		}
+		isErr := res.IsError()
+		statusCode := res.StatusCode
+		if isErr {
+			var errBody map[string]interface{}
+			if decodeErr := json.NewDecoder(res.Body).Decode(&errBody); decodeErr != nil {
+				log.Errorf("[ElasticsearchV7] Error parsing response body: %v", decodeErr)
+			} else {
+				log.Errorf("[ElasticsearchV7] Error updating chunk content: %v", errBody["error"])
+			}
+		}
+		_ = res.Body.Close()
+		if isErr {
+			return fmt.Errorf("elasticsearch update_by_query failed with status: %d", statusCode)
+		}
+	}
+
+	log.Infof("[ElasticsearchV7] Successfully batch updated chunk content")
+	return nil
+}

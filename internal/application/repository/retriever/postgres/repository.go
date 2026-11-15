@@ -808,6 +808,35 @@ func (g *pgRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMap ma
 	return nil
 }
 
+// BatchUpdateChunkContent updates the indexed content of primary chunk rows in batch
+func (g *pgRepository) BatchUpdateChunkContent(ctx context.Context, chunkContentMap map[string]string) error {
+	if len(chunkContentMap) == 0 {
+		logger.GetLogger(ctx).Warnf("[Postgres] Chunk content map is empty, skipping update")
+		return nil
+	}
+
+	logger.GetLogger(ctx).Infof("[Postgres] Batch updating chunk content, count: %d", len(chunkContentMap))
+
+	contentGroups := make(map[string][]string)
+	for chunkID, content := range chunkContentMap {
+		cleaned := common.CleanInvalidUTF8(content)
+		contentGroups[cleaned] = append(contentGroups[cleaned], chunkID)
+	}
+
+	for content, chunkIDs := range contentGroups {
+		result := g.db.WithContext(ctx).Model(&pgVector{}).
+			Where("chunk_id IN ? AND source_id IN ?", chunkIDs, chunkIDs).
+			Update("content", content)
+		if result.Error != nil {
+			logger.GetLogger(ctx).Errorf("[Postgres] Failed to update chunk content: %v", result.Error)
+			return result.Error
+		}
+	}
+
+	logger.GetLogger(ctx).Infof("[Postgres] Successfully batch updated chunk content")
+	return nil
+}
+
 func generatedQuestionExclusionClause(kbIDs []string) clause.Expression {
 	if len(kbIDs) == 0 {
 		return nil

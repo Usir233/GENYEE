@@ -68,6 +68,70 @@ func (r *Repository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMap map[
 	return nil
 }
 
+// BatchUpdateChunkContent sets content on primary chunk index documents
+// (matching both chunk_id and source_id so generated question rows keep their
+// question text), grouped by content value.
+func (r *Repository) BatchUpdateChunkContent(ctx context.Context, chunkContentMap map[string]string) error {
+	if len(chunkContentMap) == 0 {
+		return nil
+	}
+	groups := map[string][]string{}
+	for id, content := range chunkContentMap {
+		groups[content] = append(groups[content], id)
+	}
+	contents := make([]string, 0, len(groups))
+	for content := range groups {
+		contents = append(contents, content)
+	}
+	sort.Strings(contents)
+	for _, content := range contents {
+		ids := groups[content]
+		sort.Strings(ids)
+		if err := r.updatePrimaryChunkByQueryScript(ctx, ids,
+			"ctx._source.content = params.v", map[string]any{"v": content}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *Repository) updatePrimaryChunkByQueryScript(
+	ctx context.Context, chunkIDs []string, source string, params map[string]any,
+) error {
+	body, err := json.Marshal(map[string]any{
+		"query": map[string]any{
+			"bool": map[string]any{
+				"filter": []any{
+					map[string]any{"terms": map[string]any{"chunk_id": chunkIDs}},
+					map[string]any{"terms": map[string]any{"source_id": chunkIDs}},
+				},
+			},
+		},
+		"script": map[string]any{
+			"lang":   "painless",
+			"source": source,
+			"params": params,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("opensearch: marshal update_by_query body: %w", err)
+	}
+	refresh := true
+	resp, err := r.client.UpdateByQuery(ctx, osapi.UpdateByQueryReq{
+		Indices: []string{r.baseIndex + "_*"},
+		Body:    bytes.NewReader(body),
+		Params:  osapi.UpdateByQueryParams{Refresh: &refresh},
+	})
+	if err != nil {
+		return wrapTransport(err)
+	}
+	if resp == nil {
+		return nil
+	}
+	defer drainAndClose(resp.Inspect().Response.Body)
+	return inspectByQueryResponse(io.LimitReader(resp.Inspect().Response.Body, 16<<20))
+}
+
 // updateByQueryScript runs an _update_by_query over the cross-dim <base>_*
 // pattern, matching the given chunk ids via a terms filter and applying a
 // constant Painless source with caller values flowing only through bound

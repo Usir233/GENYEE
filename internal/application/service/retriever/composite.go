@@ -153,6 +153,27 @@ func (c *CompositeRetrieveEngine) BatchUpdateChunkTagID(
 	})
 }
 
+// BatchUpdateChunkContent updates the indexed text content of primary chunk rows in batch.
+func (c *CompositeRetrieveEngine) BatchUpdateChunkContent(
+	ctx context.Context,
+	chunkContentMap map[string]string,
+) error {
+	if len(chunkContentMap) == 0 {
+		return nil
+	}
+	for _, info := range c.engineInfos {
+		if info == nil {
+			continue
+		}
+		if _, ok := info.retrieveEngine.(interfaces.ChunkContentUpdater); !ok {
+			return fmt.Errorf("retriever %s does not support updating chunk content", info.retrieveEngine.EngineType())
+		}
+	}
+	return c.concurrentExecWithError(ctx, func(ctx context.Context, engineInfo *engineInfo) error {
+		return engineInfo.retrieveEngine.(interfaces.ChunkContentUpdater).BatchUpdateChunkContent(ctx, chunkContentMap)
+	})
+}
+
 // concurrentRetrieve is a helper function for concurrent processing of retrieval parameters
 // and collecting results
 func concurrentRetrieve(
