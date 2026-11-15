@@ -39,13 +39,21 @@ func TestWebSearchProviderResponse_ViewerStripsIntegrationDetail(t *testing.T) {
 	e := &types.WebSearchProviderEntity{
 		ID: "wsp-2",
 		Parameters: types.WebSearchProviderParameters{
+			BaseURL:     "http://searxng.internal:8080",
 			ProxyURL:    "http://proxy:8080",
 			ExtraConfig: map[string]string{"token": "secret"},
 		},
 	}
 	resp := NewWebSearchProviderResponse(viewerContext(), e)
+	assert.Empty(t, resp.Parameters.BaseURL)
 	assert.Empty(t, resp.Parameters.ProxyURL)
 	assert.Nil(t, resp.Parameters.ExtraConfig)
+
+	chatKeyCtx := types.WithTenantAPIKeyScope(viewerContext(), types.TenantAPIKeyScope{
+		Capabilities: types.StringArray{string(types.APIKeyCapabilityChat)},
+	})
+	chatResp := NewWebSearchProviderResponse(chatKeyCtx, e)
+	assert.Empty(t, chatResp.Parameters.BaseURL)
 }
 
 func TestWebSearchProviderResponse_NilSafe(t *testing.T) {

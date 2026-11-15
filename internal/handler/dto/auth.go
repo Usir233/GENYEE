@@ -37,7 +37,7 @@ func NewAuthLoginResponse(resp *types.LoginResponse) *AuthLoginResponse {
 	return &AuthLoginResponse{
 		Success:      resp.Success,
 		Message:      resp.Message,
-		User:         resp.User,
+		User:         sanitizeUserForResponse(resp.User),
 		ActiveTenant: NewTenantResponseWithRole(resp.ActiveTenant, role),
 		Memberships:  resp.Memberships,
 		Token:        resp.Token,
@@ -57,13 +57,22 @@ func NewAuthOIDCCallbackResponse(resp *types.OIDCCallbackResponse) *AuthOIDCCall
 	return &AuthOIDCCallbackResponse{
 		Success:      resp.Success,
 		Message:      resp.Message,
-		User:         resp.User,
+		User:         sanitizeUserForResponse(resp.User),
 		Tenant:       NewTenantResponseWithRole(resp.Tenant, role),
 		Memberships:  resp.Memberships,
 		Token:        resp.Token,
 		RefreshToken: resp.RefreshToken,
 		IsNewUser:    resp.IsNewUser,
 	}
+}
+
+func sanitizeUserForResponse(u *types.User) *types.User {
+	if u == nil || u.Tenant == nil {
+		return u
+	}
+	copied := *u
+	copied.Tenant = nil
+	return &copied
 }
 
 func membershipRoleForTenant(memberships []types.Membership, tenantID uint64) types.TenantRole {

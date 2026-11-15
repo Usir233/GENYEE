@@ -46,6 +46,7 @@ func NewWebSearchProviderResponse(ctx context.Context, e *types.WebSearchProvide
 		ExtraConfig: e.Parameters.ExtraConfig,
 	}
 	if !CanViewIntegrationSecrets(ctx) {
+		params.BaseURL = ""
 		params.ProxyURL = ""
 		params.ExtraConfig = nil
 	}

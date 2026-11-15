@@ -35,16 +35,19 @@ type TenantResponse struct {
 
 // NewTenantResponse converts a stored tenant into its HTTP response shape.
 func NewTenantResponse(ctx context.Context, tenant *types.Tenant) *TenantResponse {
-	return NewTenantResponseWithRole(tenant, RoleFromContext(ctx))
+	return newTenantResponse(tenant, CanViewIntegrationSecrets(ctx))
 }
 
 // NewTenantResponseWithRole converts a stored tenant using an explicit role
 // (for auth flows where tenant role is not yet in request context).
 func NewTenantResponseWithRole(tenant *types.Tenant, role types.TenantRole) *TenantResponse {
+	return newTenantResponse(tenant, role.HasPermission(types.TenantRoleAdmin))
+}
+
+func newTenantResponse(tenant *types.Tenant, includeSecrets bool) *TenantResponse {
 	if tenant == nil {
 		return nil
 	}
-	includeSecrets := role.HasPermission(types.TenantRoleAdmin)
 	resp := &TenantResponse{
 		ID:                tenant.ID,
 		Name:              tenant.Name,

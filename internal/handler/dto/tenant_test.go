@@ -56,6 +56,31 @@ func TestTenantResponsesCrossTenant_RedactsEvenForOwnerContext(t *testing.T) {
 	assert.NotContains(t, s, "parser-secret-123")
 }
 
+func TestTenantResponse_ManageTenantSettingsAPIKeyGetsRedactedConfigs(t *testing.T) {
+	tenant := sampleSecretTenant()
+	ctx := types.WithTenantAPIKeyScope(viewerContext(), types.TenantAPIKeyScope{
+		Capabilities: types.StringArray{string(types.APIKeyCapabilityManageTenantSettings)},
+	})
+	resp := NewTenantResponse(ctx, tenant)
+	require.NotNil(t, resp.WebSearchConfig)
+	assert.Equal(t, types.RedactedSecretPlaceholder, resp.WebSearchConfig.ProxyURL)
+	require.NotNil(t, resp.ParserEngineConfig)
+	assert.Equal(t, types.RedactedSecretPlaceholder, resp.ParserEngineConfig.MinerUAPIKey)
+	require.NotNil(t, resp.StorageEngineConfig)
+}
+
+func TestTenantResponse_NarrowedAPIKeyOmitsConfigsEvenWithOwnerRole(t *testing.T) {
+	tenant := sampleSecretTenant()
+	ctx := types.WithTenantAPIKeyScope(ownerContext(), types.TenantAPIKeyScope{
+		Capabilities: types.StringArray{string(types.APIKeyCapabilityChat)},
+	})
+	resp := NewTenantResponse(ctx, tenant)
+	assert.Nil(t, resp.WebSearchConfig)
+	assert.Nil(t, resp.ParserEngineConfig)
+	assert.Nil(t, resp.StorageEngineConfig)
+	assert.Nil(t, resp.Credentials)
+}
+
 func sampleSecretTenant() *types.Tenant {
 	return &types.Tenant{
 		ID:   42,

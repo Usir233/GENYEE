@@ -58,3 +58,37 @@ func TestAuthOIDCCallbackResponse_ViewerOmitsTenantSecrets(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, string(body), "tenant-api-key-123")
 }
+
+func TestAuthResponses_StripEmbeddedUserTenantSecrets(t *testing.T) {
+	secretTenant := sampleSecretTenant()
+	user := &types.User{
+		ID:       "user-1",
+		Username: "alice",
+		TenantID: secretTenant.ID,
+		Tenant:   secretTenant,
+	}
+
+	loginResp := NewAuthLoginResponse(&types.LoginResponse{
+		Success:      true,
+		User:         user,
+		ActiveTenant: secretTenant,
+		Memberships:  []types.Membership{{TenantID: secretTenant.ID, Role: types.TenantRoleViewer}},
+	})
+	loginBody, err := json.Marshal(loginResp)
+	require.NoError(t, err)
+	assert.NotContains(t, string(loginBody), "minio-secret-789")
+	assert.NotContains(t, string(loginBody), "parser-secret-123")
+	assert.NotContains(t, string(loginBody), "legacy-search-secret-999")
+	assert.NotNil(t, user.Tenant, "input User struct must not be mutated in place")
+
+	oidcResp := NewAuthOIDCCallbackResponse(&types.OIDCCallbackResponse{
+		Success:     true,
+		User:        user,
+		Tenant:      secretTenant,
+		Memberships: []types.Membership{{TenantID: secretTenant.ID, Role: types.TenantRoleViewer}},
+	})
+	oidcBody, err := json.Marshal(oidcResp)
+	require.NoError(t, err)
+	assert.NotContains(t, string(oidcBody), "minio-secret-789")
+	assert.NotContains(t, string(oidcBody), "parser-secret-123")
+}
