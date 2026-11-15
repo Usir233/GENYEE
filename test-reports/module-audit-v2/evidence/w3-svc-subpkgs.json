@@ -1,0 +1,497 @@
+{
+  "wave": "W3",
+  "slice": "w3-svc-subpkgs",
+  "cross_package_notes": [
+    {
+      "file": "internal/application/service/knowledgebase.go, internal/application/service/session.go, internal/handler/knowledgebase.go",
+      "note": "Verified read-only caller compatibility across internal/application/... and internal/handler/... via go vet -p 1: all exported symbols in access, attachment, chat_pipeline, credential, file, memory, retriever, and sandboxalloc preserve exact signatures."
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "internal/application/access",
+      "wave": "W3",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/access/README.md",
+        "internal/application/access/context.go",
+        "internal/application/access/context_test.go",
+        "internal/application/access/files.go",
+        "internal/application/access/files_test.go",
+        "internal/application/access/kb_search.go",
+        "internal/application/access/kb_shares.go",
+        "internal/application/access/kb_shares_test.go",
+        "internal/application/access/kb_transfer.go",
+        "internal/application/access/kb_transfer_test.go",
+        "internal/application/access/kb_write.go",
+        "internal/application/access/kb_write_test.go",
+        "internal/application/access/knowledge_state.go",
+        "internal/application/access/knowledgebase.go",
+        "internal/application/access/knowledgebase_test.go",
+        "internal/application/access/message_files.go",
+        "internal/application/access/ownership.go",
+        "internal/application/access/ownership_test.go",
+        "internal/application/access/superuser.go"
+      ],
+      "invariants_checked": [
+        "Workspace RBAC, KB owner-workspace checks, organization/share grant resolution, and API-key KB resource scopes fail closed on missing/zero TenantID, invalid required roles, or mismatched caller contexts.",
+        "ResolveKB, KBAccess.WithGrant, and KBAccess.Context verify caller identity against both materialized CallerContextKey and unmaterialized TenantIDContextKey / UserID / Principal / Role context values before minting grants or switching execution tenant.",
+        "ResolveKBFile, ResolveSessionFile, and ResolveAttachment enforce non-zero caller TenantID, grant-to-KB tenant consistency (KnowledgeBase.TenantID == EffectiveTenantID), stored resource catalog TenantID matching, and binding verification before returning physical storage paths.",
+        "AuthorizeKBAccess and KB search target resolution reject nil/zero-tenant KnowledgeBase records without panicking; zero legacy brand residues present."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-01",
+          "severity": "P1",
+          "file": "internal/application/access/knowledgebase.go:108-188",
+          "summary": "ResolveKB, KBAccess.WithGrant, and KBAccess.Context only checked CallerContextKey when already materialized, allowing callers on contexts carrying only TenantIDContextKey/UserContextKey/Principal to mint grants or switch execution tenants across mismatched callers; ResolveKB also accepted zero kb.TenantID or invalid requiredRole values instead of failing closed.",
+          "regression_test": "TestResolveKBAndWithGrantRejectUnmaterializedCallerMismatchAndInvalidRole",
+          "commit": "7ea4b310382da9cff40d96a134cb32ea7f38ca63"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-02",
+          "severity": "P1",
+          "file": "internal/application/access/files.go:79-115, internal/application/access/kb_search.go:53-68",
+          "summary": "callerMatchesContext allowed zero-value unauthenticated KBAccess.Caller (TenantID=0) to match an unauthenticated context in ResolveKBFile, ResolveKBFile did not verify grant.KnowledgeBase.TenantID == grant.EffectiveTenantID before resolving files, and AuthorizeKBAccess dereferenced nil *types.KnowledgeBase elements in target slices.",
+          "regression_test": "TestResolveKBFileRejectsZeroCallerAndMismatchedKBTenant, TestAuthorizeKBAccessRejectsNilKnowledgeBaseWithoutPanic",
+          "commit": "7ea4b310382da9cff40d96a134cb32ea7f38ca63"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/access/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/access (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/attachment",
+      "wave": "W3",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/application/attachment/README.md",
+        "internal/application/attachment/images.go",
+        "internal/application/attachment/reader.go",
+        "internal/application/attachment/reader_test.go"
+      ],
+      "invariants_checked": [
+        "Processor enforces strict tenant/session scoping, file size and MIME/extension validation, and bounded stream reads when ingesting, extracting text/OCR, and storing chat attachments.",
+        "Storage backend resolution and cleanup preserve physical-path isolation without leaking host paths or cross-tenant references; zero weknora/knora/wk_ residues present.",
+        "Concurrent attachment processing passes go test -race cleanly."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/attachment/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/attachment (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/service/chat_pipeline",
+      "wave": "W3",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/service/chat_pipeline/audit_regression_test.go",
+        "internal/application/service/chat_pipeline/chat_completion.go",
+        "internal/application/service/chat_pipeline/chat_completion_stream.go",
+        "internal/application/service/chat_pipeline/chat_completion_stream_test.go",
+        "internal/application/service/chat_pipeline/chat_pipeline.go",
+        "internal/application/service/chat_pipeline/chat_pipeline_test.go",
+        "internal/application/service/chat_pipeline/citation_sources.go",
+        "internal/application/service/chat_pipeline/citation_sources_test.go",
+        "internal/application/service/chat_pipeline/common.go",
+        "internal/application/service/chat_pipeline/common_history_test.go",
+        "internal/application/service/chat_pipeline/common_image_requirement_test.go",
+        "internal/application/service/chat_pipeline/context_images_test.go",
+        "internal/application/service/chat_pipeline/data_analysis.go",
+        "internal/application/service/chat_pipeline/data_analysis_plan_test.go",
+        "internal/application/service/chat_pipeline/data_analysis_storage_test.go",
+        "internal/application/service/chat_pipeline/data_analysis_test.go",
+        "internal/application/service/chat_pipeline/extract_entity.go",
+        "internal/application/service/chat_pipeline/extract_entity_test.go",
+        "internal/application/service/chat_pipeline/faq_direct_answer_test.go",
+        "internal/application/service/chat_pipeline/filter_top_k.go",
+        "internal/application/service/chat_pipeline/filter_top_k_test.go",
+        "internal/application/service/chat_pipeline/into_chat_message.go",
+        "internal/application/service/chat_pipeline/into_chat_message_metadata_test.go",
+        "internal/application/service/chat_pipeline/load_history.go",
+        "internal/application/service/chat_pipeline/memory_affinity.go",
+        "internal/application/service/chat_pipeline/memory_affinity_test.go",
+        "internal/application/service/chat_pipeline/memory_recall.go",
+        "internal/application/service/chat_pipeline/memory_recall_test.go",
+        "internal/application/service/chat_pipeline/memory_retrieval_test.go",
+        "internal/application/service/chat_pipeline/merge.go",
+        "internal/application/service/chat_pipeline/merge_expand.go",
+        "internal/application/service/chat_pipeline/merge_expand_edit_test.go",
+        "internal/application/service/chat_pipeline/merge_faq.go",
+        "internal/application/service/chat_pipeline/merge_group_deterministic_test.go",
+        "internal/application/service/chat_pipeline/merge_history.go",
+        "internal/application/service/chat_pipeline/merge_history_test.go",
+        "internal/application/service/chat_pipeline/merge_overlap.go",
+        "internal/application/service/chat_pipeline/merge_parent_resolve_test.go",
+        "internal/application/service/chat_pipeline/merge_parent_shared_test.go",
+        "internal/application/service/chat_pipeline/merge_position_path_test.go",
+        "internal/application/service/chat_pipeline/merge_shared_lookup_test.go",
+        "internal/application/service/chat_pipeline/overlap_dedup_test.go",
+        "internal/application/service/chat_pipeline/plugin_test.go",
+        "internal/application/service/chat_pipeline/progress.go",
+        "internal/application/service/chat_pipeline/progress_test.go",
+        "internal/application/service/chat_pipeline/prompt_boundary_test.go",
+        "internal/application/service/chat_pipeline/query_expansion.go",
+        "internal/application/service/chat_pipeline/query_expansion_test.go",
+        "internal/application/service/chat_pipeline/query_image_vector_test.go",
+        "internal/application/service/chat_pipeline/query_understand.go",
+        "internal/application/service/chat_pipeline/query_understand_test.go",
+        "internal/application/service/chat_pipeline/references.go",
+        "internal/application/service/chat_pipeline/references_test.go",
+        "internal/application/service/chat_pipeline/rerank.go",
+        "internal/application/service/chat_pipeline/rerank_test.go",
+        "internal/application/service/chat_pipeline/search.go",
+        "internal/application/service/chat_pipeline/search_entity.go",
+        "internal/application/service/chat_pipeline/search_entity_metadata_test.go",
+        "internal/application/service/chat_pipeline/search_entity_scope_test.go",
+        "internal/application/service/chat_pipeline/search_error_test.go",
+        "internal/application/service/chat_pipeline/search_image_error_test.go",
+        "internal/application/service/chat_pipeline/search_parallel.go",
+        "internal/application/service/chat_pipeline/search_test.go",
+        "internal/application/service/chat_pipeline/shared_chat_model_test.go",
+        "internal/application/service/chat_pipeline/web_fetch.go",
+        "internal/application/service/chat_pipeline/wiki_boost.go"
+      ],
+      "invariants_checked": [
+        "Plugin chain ordering across QueryUnderstand, ExtractEntity, Search, SearchEntity, Rerank, WikiBoost, WebFetch, Merge (including history merge and citation source expansion), DataAnalysis, FilterTopK, IntoChatMessage, and ChatCompletion/ChatCompletionStream preserves context boundaries and untrusted source-data framing.",
+        "getSearchResultFromHistory clones historical KnowledgeReferences so stored ChatManage.History entries are never mutated in place, and filterHistoryResults enforces current-turn SearchTargets / KnowledgeBaseIDs / KnowledgeIDs / WebSearchEnabled scope so revoked KBs, tag-restricted KBs without document proof, and disabled web-search results cannot leak from prior turns.",
+        "attachCitationSources requires non-empty ParentChunkID before recording or matching sibling parent links so unrelated top-level chunks (ParentChunkID == '') in the same document are never cross-linked.",
+        "Goroutines spawned by RunParallel, PluginSearch, PluginChatCompletionStream, and PluginWebFetch isolate panics via recover(), preventing single-plugin/provider panics from crashing the server process or deadlocking WaitGroups.",
+        "PluginWikiBoost guards nil kbService/entries and restricts score boosting strictly to chunks belonging to wiki-enabled target KBs; LLM/repository nil responses in chat_completion, query_understand, data_analysis, and extract_entity fail safely without nil-pointer dereferences."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-03",
+          "severity": "P1",
+          "file": "internal/application/service/chat_pipeline/search.go:166-215, internal/application/service/chat_pipeline/merge_history.go:13-135",
+          "summary": "filterHistoryResults and getSearchResultFromHistory re-injected prior-turn KnowledgeReferences without checking whether their KB, tag scope, or web_search source remained authorized in the current turn's SearchTargets/WebSearchEnabled, and mutated ChatManage.History[i].KnowledgeReferences in place.",
+          "regression_test": "TestFilterHistoryResults_EnforcesCurrentTurnScopeAndDoesNotMutateHistory",
+          "commit": "2269f11e91f0eeead6f3b68dc142f5cacd10f408"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-04",
+          "severity": "P1",
+          "file": "internal/application/service/chat_pipeline/citation_sources.go:96-135",
+          "summary": "attachCitationSources inserted empty c.ParentChunkID ('') into allowedParents and matched allowedParents[c.ParentChunkID] without requiring non-empty ParentChunkID, cross-linking unrelated top-level chunks from the shared byID map into another result's CitationSources.",
+          "regression_test": "TestAttachCitationSources_DoesNotCrossLinkTopLevelChunksWithEmptyParentID",
+          "commit": "2269f11e91f0eeead6f3b68dc142f5cacd10f408"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-05",
+          "severity": "P1",
+          "file": "internal/application/service/chat_pipeline/common.go:218-248, internal/application/service/chat_pipeline/chat_completion_stream.go:135-171, internal/application/service/chat_pipeline/web_fetch.go:82-160, internal/application/service/chat_pipeline/search.go:98-135",
+          "summary": "Concurrent goroutines in RunParallel, PluginChatCompletionStream, PluginWebFetch, and PluginSearch lacked panic recovery (and nil client/page guards in WebFetch), allowing a panicking task, stream consumer, or web fetcher to crash the entire Go process or hang wg.Wait().",
+          "regression_test": "TestPipelineGoroutinePanicIsolation_RunParallelStreamAndWebFetch",
+          "commit": "2269f11e91f0eeead6f3b68dc142f5cacd10f408"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-06",
+          "severity": "P2",
+          "file": "internal/application/service/chat_pipeline/wiki_boost.go:53-110, internal/application/service/chat_pipeline/chat_completion.go:63-75, internal/application/service/chat_pipeline/query_understand.go:132-145, internal/application/service/chat_pipeline/data_analysis.go:89-95,213-220, internal/application/service/chat_pipeline/extract_entity.go:116-128,197-205",
+          "summary": "PluginWikiBoost boosted every ChunkTypeWikiPage result across all KBs whenever at least one target KB had wiki enabled (and panicked if kbService was nil), and chat_completion, query_understand, data_analysis, and extract_entity lacked nil-response guards on (nil, nil) adapter returns.",
+          "regression_test": "TestPluginWikiBoost_NilServiceSafetyAndScopedToWikiEnabledKB",
+          "commit": "2269f11e91f0eeead6f3b68dc142f5cacd10f408"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/chat_pipeline/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/chat_pipeline (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/service/credential",
+      "wave": "W3",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/service/credential/canary_test.go",
+        "internal/application/service/credential/handle_domain_revocation_test.go",
+        "internal/application/service/credential/handles.go",
+        "internal/application/service/credential/handles_test.go",
+        "internal/application/service/credential/helpers_test.go",
+        "internal/application/service/credential/submit.go",
+        "internal/application/service/credential/submit_test.go",
+        "internal/application/service/credential/vault.go",
+        "internal/application/service/credential/vault_test.go"
+      ],
+      "invariants_checked": [
+        "OwnerFromContext resolves personal vault ownership strictly from CallerFromContext(ctx).TenantID (never a shared agent's execution tenant), rejects API-key scoped contexts, and allows only verified web_user and api_external_user principals.",
+        "Vault AES-GCM secret sealing binds TenantID, UserID, and ItemID into authenticated envelope metadata and verifies owner match on open so cross-tenant row tampering fails closed with ErrCredentialUnavailable and zero secret leakage in errors/logs.",
+        "HandleStore encrypts one-time and vault-backed secret handles in Redis under SYSTEM_AES_KEY, enforces non-zero Owner on Create/Resolve/Complete, and uses atomic Lua ownership verification before deleting handles in Complete.",
+        "Submitter validates non-zero Owner/prompt TenantID, validates stored SecureFormRequest schema before minting handles or vault items, and discards orphan handles on HITL resolution races."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-07",
+          "severity": "P1",
+          "file": "internal/application/service/credential/handles.go:69-75,180-225",
+          "summary": "HandleStore.Complete deleted Redis secret handles by sessionID + handle token without verifying tenantID or userID (allowing cross-user/cross-tenant handle destruction if session/handle IDs were observed) and HandleStore.Create accepted zero-value Owner.",
+          "regression_test": "TestHandleStoreCompleteRequiresOwnerAndRejectsZeroOwner",
+          "commit": "7ea4b310382da9cff40d96a134cb32ea7f38ca63"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-08",
+          "severity": "P1",
+          "file": "internal/application/service/credential/vault.go:70-108,240-298, internal/application/service/credential/submit.go:63-95",
+          "summary": "OwnerFromContext read TenantIDFromContext(ctx) instead of CallerFromContext(ctx).TenantID (routing personal vault operations into a shared agent's execution tenant under WithExecutionTenant) and did not reject TenantAPIKeyScope contexts; Vault envelope sealing did not bind TenantID/UserID/ItemID against DB row tampering; Submitter.Submit lacked zero-owner and stored SecureFormRequest.Validate() guards.",
+          "regression_test": "TestOwnerFromContextPreservesCallerUnderExecutionTenantAndRejectsAPIKey, TestVaultRejectsCrossTenantCiphertextAndZeroOwner, TestSubmitRejectsZeroOwnerAndInvalidFormPrompt",
+          "commit": "7ea4b310382da9cff40d96a134cb32ea7f38ca63"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/credential/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/credential (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/service/file",
+      "wave": "W3",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/service/file/backend_scoped.go",
+        "internal/application/service/file/backend_scoped_test.go",
+        "internal/application/service/file/canonical_path_parse_test.go",
+        "internal/application/service/file/cloud_isolation_security_test.go",
+        "internal/application/service/file/cos.go",
+        "internal/application/service/file/cos_parse_test.go",
+        "internal/application/service/file/dns_fixture_test.go",
+        "internal/application/service/file/dummy.go",
+        "internal/application/service/file/endpoint_security_test.go",
+        "internal/application/service/file/errors.go",
+        "internal/application/service/file/factory.go",
+        "internal/application/service/file/ks3.go",
+        "internal/application/service/file/ks3_path_test.go",
+        "internal/application/service/file/ks3_redirect_test.go",
+        "internal/application/service/file/local.go",
+        "internal/application/service/file/local_copy_test.go",
+        "internal/application/service/file/local_test.go",
+        "internal/application/service/file/minio.go",
+        "internal/application/service/file/object_storage_http.go",
+        "internal/application/service/file/object_storage_http_test.go",
+        "internal/application/service/file/obs.go",
+        "internal/application/service/file/obs_test.go",
+        "internal/application/service/file/oss.go",
+        "internal/application/service/file/oss_test.go",
+        "internal/application/service/file/provider_resource_lifecycle_test.go",
+        "internal/application/service/file/resolve_tenant.go",
+        "internal/application/service/file/resource_catalog.go",
+        "internal/application/service/file/resource_catalog_test.go",
+        "internal/application/service/file/resource_content_dedup_test.go",
+        "internal/application/service/file/s3.go",
+        "internal/application/service/file/s3_test.go",
+        "internal/application/service/file/security_audit_test.go",
+        "internal/application/service/file/tos.go"
+      ],
+      "invariants_checked": [
+        "LocalFileService resolves ancestor and leaf components via Lstat + EvalSymlinks containment checks (resolveLocalPathNoSymlinks) across GetFile, DeleteFile, CopyFile, SaveFile, and SaveBytes, preventing symlink reads, writes, copies, or deletions outside baseDir.",
+        "All object storage backends (Local, MinIO, S3, COS, TOS, OSS, OBS, KS3) enforce non-zero tenantID, single-segment non-traversal knowledgeID, non-nil multipart FileHeader, SafeObjectKey validation, and SSRF-safe dialer/redirect policies.",
+        "COS bucket and region identifiers enforce strict RFC-1123 label validation (isValidCOSLabel) across primary and temp buckets so crafted bucket/region strings cannot break out of <bucket>.cos.<region>.myqcloud.com.",
+        "NewFileServiceFromStorageConfig fails closed when a non-empty Local.PathPrefix is invalid/traversal instead of silently falling back to root baseDir, and ResolveTenantFileServiceWithFallback safely handles nil tenant pointers."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-09",
+          "severity": "P1",
+          "file": "internal/application/service/file/local.go:70-310",
+          "summary": "LocalFileService.checkFilePath only performed lexical filepath.Abs/Rel prefix checks without os.Lstat or filepath.EvalSymlinks verification, allowing symlinks inside a tenant's local directory to read, overwrite, copy, or delete arbitrary host files outside baseDir.",
+          "regression_test": "TestLocalFileService_RejectsSymlinkEscape",
+          "commit": "57ee92d9156f4f0599fcb0b191562464951e76e4"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-10",
+          "severity": "P1",
+          "file": "internal/application/service/file/cos.go:46-115,195-295, internal/application/service/file/local.go:102-250, internal/application/service/file/s3.go:320-455, internal/application/service/file/minio.go:175-305, internal/application/service/file/oss.go:180-320, internal/application/service/file/tos.go:180-320, internal/application/service/file/obs.go:180-320, internal/application/service/file/ks3.go:180-320",
+          "summary": "newCosClient interpolated bucketName/region directly into fmt.Sprintf('https://%s.cos.%s.myqcloud.com') without RFC-1123 label validation (allowing URL authority breakout via '/', '@', '#', or dots), and SaveFile/SaveBytes/CopyFile across storage providers lacked zero-tenantID, traversal-knowledgeID ('../other-tenant'), and nil-*multipart.FileHeader guards.",
+          "regression_test": "TestFileProviders_RejectInvalidTenantOrTraversalKnowledgeIDAndCOSHostInjection",
+          "commit": "57ee92d9156f4f0599fcb0b191562464951e76e4"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-11",
+          "severity": "P2",
+          "file": "internal/application/service/file/factory.go:96-112, internal/application/service/file/resolve_tenant.go:34-60",
+          "summary": "NewFileServiceFromStorageConfig silently ignored invalid/traversal Local.PathPrefix values by falling back to root localBaseDir instead of failing closed, and ResolveTenantFileServiceWithFallback dereferenced nil *types.Tenant pointers in log fields on the fallback branch.",
+          "regression_test": "TestNewFileServiceFromStorageConfig_RejectsTraversalLocalPathPrefix, TestResolveTenantFileServiceWithFallback_NilTenantNoPanic",
+          "commit": "57ee92d9156f4f0599fcb0b191562464951e76e4"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/file/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/file (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/service/memory",
+      "wave": "W3",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/service/memory/admin.go",
+        "internal/application/service/memory/admin_capacity_review_test.go",
+        "internal/application/service/memory/admin_rejection_race_test.go",
+        "internal/application/service/memory/admin_test.go",
+        "internal/application/service/memory/audit_regression_test.go",
+        "internal/application/service/memory/clear_fencing_test.go",
+        "internal/application/service/memory/consistency_test.go",
+        "internal/application/service/memory/consolidate.go",
+        "internal/application/service/memory/consolidate_test.go",
+        "internal/application/service/memory/coverage_test.go",
+        "internal/application/service/memory/doc_affinity_manager_test.go",
+        "internal/application/service/memory/eval_model_test.go",
+        "internal/application/service/memory/eval_test.go",
+        "internal/application/service/memory/evalset.json",
+        "internal/application/service/memory/extract.go",
+        "internal/application/service/memory/extract_test.go",
+        "internal/application/service/memory/lexical.go",
+        "internal/application/service/memory/lexical_test.go",
+        "internal/application/service/memory/persistence_consistency_test.go",
+        "internal/application/service/memory/postgres_consistency_test.go",
+        "internal/application/service/memory/quality_test.go",
+        "internal/application/service/memory/recall_trace.go",
+        "internal/application/service/memory/regression_test.go",
+        "internal/application/service/memory/retrieval_test.go",
+        "internal/application/service/memory/review_consistency_test.go",
+        "internal/application/service/memory/scope.go",
+        "internal/application/service/memory/scope_test.go",
+        "internal/application/service/memory/search.go",
+        "internal/application/service/memory/search_test.go",
+        "internal/application/service/memory/service.go",
+        "internal/application/service/memory/service_test.go",
+        "internal/application/service/memory/stubs_test.go",
+        "internal/application/service/memory/topic_eval_test.go",
+        "internal/application/service/memory/topic_evalset.json",
+        "internal/application/service/memory/topic_manager_test.go",
+        "internal/application/service/memory/topic_resolve.go",
+        "internal/application/service/memory/topic_resolve_test.go",
+        "internal/application/service/memory/vector.go",
+        "internal/application/service/memory/vector_postgres_test.go",
+        "internal/application/service/memory/vector_scope_test.go",
+        "internal/application/service/memory/vector_test.go"
+      ],
+      "invariants_checked": [
+        "Strict (tenant_id, user_id) scoping via callerScope/enabledScope isolates all personal conversational and long-term memories across Recall, Remember, Update, Forget, Search, List, Episodes, DocAffinity, Extraction, and Consolidation so User A's memories never leak into User B's prompts.",
+        "FamiliarKnowledgeIDs enforces workspace, agent, and user memory opt-out switches via enabledScope before returning document affinity boosts.",
+        "Recall falls back to persisted subject.BlockText only when loading active resident memories fails (residentErr != nil), never resurrecting archived/deleted memories when the resident query succeeds with zero active rows.",
+        "Under cross-workspace shared-agent execution (WithExecutionTenant), scopeModelContext re-binds ModelService calls to the caller's own workspace and ScheduleExtraction strips foreign chatModelID values so caller memory tasks never reference or invoke foreign workspace models."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-12",
+          "severity": "P1",
+          "file": "internal/application/service/memory/scope.go:46-66, internal/application/service/memory/extract.go:54-82, internal/application/service/memory/vector.go:70-125, internal/application/service/memory/consolidate.go:195-215, internal/application/service/memory/topic_resolve.go:65-80",
+          "summary": "Under shared-agent execution (WithExecutionTenant), memory embedding, topic resolution, consolidation, and extraction passed the foreign execution tenant's ctx (TenantIDContextKey / TenantInfoContextKey) to ModelService and persisted the foreign agent's chatModelID into the caller's async MemoryExtractPayload.",
+          "regression_test": "TestExecutionTenant_ModelLookupsAndScheduledExtractionUseCallerWorkspace",
+          "commit": "2269f11e91f0eeead6f3b68dc142f5cacd10f408"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-13",
+          "severity": "P2",
+          "file": "internal/application/service/memory/service.go:130-150,480-496",
+          "summary": "FamiliarKnowledgeIDs bypassed workspace, agent, and user memory opt-out switches by calling callerScope instead of enabledScope, and Recall fell back to stale subject.BlockText whenever resident == '' even when loadResidentText succeeded with zero active items after archival/deletion.",
+          "regression_test": "TestFamiliarKnowledgeIDs_HonorsWorkspaceAgentAndUserSwitches, TestRecall_DoesNotResurrectStaleSubjectBlockWhenResidentLoadSucceedsEmpty",
+          "commit": "2269f11e91f0eeead6f3b68dc142f5cacd10f408"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/memory/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/memory (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/service/retriever",
+      "wave": "W3",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/service/retriever/audit_regression_test.go",
+        "internal/application/service/retriever/composite.go",
+        "internal/application/service/retriever/composite_partial_test.go",
+        "internal/application/service/retriever/factory.go",
+        "internal/application/service/retriever/factory_test.go",
+        "internal/application/service/retriever/keywords_vector_hybrid_indexer.go",
+        "internal/application/service/retriever/keywords_vector_hybrid_indexer_test.go",
+        "internal/application/service/retriever/keywords_vector_hybrid_indexer_window_test.go",
+        "internal/application/service/retriever/move_test.go",
+        "internal/application/service/retriever/normalizer.go",
+        "internal/application/service/retriever/normalizer_test.go",
+        "internal/application/service/retriever/ownership.go",
+        "internal/application/service/retriever/precomputed.go",
+        "internal/application/service/retriever/precomputed_test.go",
+        "internal/application/service/retriever/registry.go",
+        "internal/application/service/retriever/registry_rehydrate_test.go",
+        "internal/application/service/retriever/registry_test.go",
+        "internal/application/service/retriever/storage_estimate_test.go"
+      ],
+      "invariants_checked": [
+        "VerifyBinding, CreateRetrieveEngineForKB, CreateRetrieveEngineFromPayload, resolveBoundEngine, and vectorStoreRepoOwnership.StoreOwnedBy enforce non-zero tenantID, non-blank storeID, and non-nil registry/ownership/tenantInfo dependencies fail-closed.",
+        "Store sentinels omit raw store UUIDs, backend endpoints, and credentials while preserving retryable (ErrVectorStoreUnavailable / context error) vs permanent (ErrVectorStoreForbidden / ErrVectorStoreNotFound) classification for async workers.",
+        "CompositeRetrieveEngine guards nil receivers, nil engineInfo/retrieveEngine entries, and nil *types.IndexInfo elements across Retrieve, SupportRetriever, BatchIndex, BatchIndexVectors, BatchUpdateChunkContent, ValidateKnowledgeIndexMove, and concurrentExecWithError under -race."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-14",
+          "severity": "P1",
+          "file": "internal/application/service/retriever/factory.go:83-109,165-172,205-265, internal/application/service/retriever/ownership.go:30-41",
+          "summary": "VerifyBinding and resolveBoundEngine did not reject tenantID == 0 or whitespace-only storeID strings fail-closed (allowing whitespace *vectorStoreID to bypass empty-string unbound normalization into GetOrLoadByStoreID), panicked on nil registry/ownership, and CreateRetrieveEngineForKB panicked on typed-nil *types.Tenant in context.",
+          "regression_test": "TestFactoryAndOwnership_FailClosedOnZeroTenantBlankStoreNilDepsAndTypedNilTenantInfo",
+          "commit": "2269f11e91f0eeead6f3b68dc142f5cacd10f408"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-15",
+          "severity": "P2",
+          "file": "internal/application/service/retriever/composite.go:41-60,93-140,169-180,227-245,294-310,408-420, internal/application/service/retriever/precomputed.go:33-42",
+          "summary": "CompositeRetrieveEngine dereferenced nil engineInfo / retrieveEngine entries in concurrentExecWithError, Retrieve, BatchUpdateChunkContent, and ValidateKnowledgeIndexMove, and dereferenced nil *types.IndexInfo elements in BatchIndex and BatchIndexVectors.",
+          "regression_test": "TestCompositeRetrieveEngine_NilSafetyOnNilEntriesAndBatchIndex",
+          "commit": "2269f11e91f0eeead6f3b68dc142f5cacd10f408"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/retriever (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/application/service/sandboxalloc",
+      "wave": "W3",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/service/sandboxalloc/audit_regression_test.go",
+        "internal/application/service/sandboxalloc/cleanup.go",
+        "internal/application/service/sandboxalloc/cleanup_test.go",
+        "internal/application/service/sandboxalloc/convert.go",
+        "internal/application/service/sandboxalloc/gc.go",
+        "internal/application/service/sandboxalloc/gc_test.go",
+        "internal/application/service/sandboxalloc/multireplica_test.go",
+        "internal/application/service/sandboxalloc/owner.go",
+        "internal/application/service/sandboxalloc/service.go",
+        "internal/application/service/sandboxalloc/service_test.go"
+      ],
+      "invariants_checked": [
+        "Service.Place validates non-zero SessionTenantID and non-blank SessionID and verifies session ownership via s.sessions.GetByID(ctx, req.SessionTenantID, req.SessionID) BEFORE returning an existing placement from Lookup, preventing cross-tenant session ID probing or shared UserMachine disclosure.",
+        "VerifySessionAllocation enforces active (unreleased) assignment, matching config/digest address, current session owner digest match, and current auth-source eligibility for shared user machines.",
+        "UserMachineGC coordinates single-replica scans via redislock, synchronizes renewer goroutine shutdown before lock release, skips Release when lock renewal fails, and fences Redis cursor writes/deletes with an atomic Lua lock-token check so a replica whose lock expired can never overwrite or delete a new holder's cursor."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-16",
+          "severity": "P1",
+          "file": "internal/application/service/sandboxalloc/service.go:91-125",
+          "summary": "Service.place returned existing assignments from unscoped Lookup(ctx, req.SessionID) before verifying s.sessions.GetByID(ctx, req.SessionTenantID, req.SessionID), allowing a cross-tenant caller supplying another tenant's placed SessionID to read back that tenant's Assignment and shared UserMachine identity.",
+          "regression_test": "TestPlaceRejectsCrossTenantAndInvalidSession",
+          "commit": "2269f11e91f0eeead6f3b68dc142f5cacd10f408"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-17",
+          "severity": "P2",
+          "file": "internal/application/service/sandboxalloc/gc.go:64-155,186-198,255-296",
+          "summary": "UserMachineGC.saveCursor wrote/deleted UserMachineGCCursorKey via context.WithoutCancel(ctx) without fencing against the active UserMachineGCLockKey token (allowing a replica whose lock lease expired mid-scan to overwrite or DEL the new lock holder's cursor), and RunOnce did not synchronize renewer goroutine exit before releasing the lock.",
+          "regression_test": "TestGCFencesCursorAndReleaseWhenLockIsLost",
+          "commit": "2269f11e91f0eeead6f3b68dc142f5cacd10f408"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/sandboxalloc/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/sandboxalloc (exit 0)"
+      ]
+    }
+  ]
+}
