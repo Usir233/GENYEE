@@ -152,6 +152,11 @@ func EmbedAuth(
 			c.Abort()
 			return
 		}
+		if isWorkspaceInactive(tenant.Status) {
+			c.JSON(http.StatusForbidden, gin.H{"error": "workspace inactive"})
+			c.Abort()
+			return
+		}
 
 		user := &types.User{
 			ID:       fmt.Sprintf("embed-%s", channelID),

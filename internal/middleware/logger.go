@@ -469,10 +469,17 @@ func redactDataURI(match string) string {
 
 var sensitiveQueryFields = map[string]struct{}{
 	"access_token":          {},
+	"api_key":               {},
+	"apikey":                {},
 	"authorization_attempt": {},
+	"client_secret":         {},
 	"code":                  {},
 	"id_token":              {},
+	"password":              {},
 	"refresh_token":         {},
+	"secret":                {},
+	"sig":                   {},
+	"signature":             {},
 	"state":                 {},
 	// ticket is the sandbox terminal's WebSocket handshake credential. A
 	// browser cannot set Authorization on an upgrade, so it travels in the
@@ -566,12 +573,25 @@ func readRequestBody(c *gin.Context) string {
 	return sanitizeBody(string(bodyBytes))
 }
 
+func isValidRequestIDHeader(s string) bool {
+	if len(s) == 0 || len(s) > 128 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x21 || s[i] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
 // RequestID middleware adds a unique request ID to the context
 func RequestID() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Get request ID from header or generate a new one
-		requestID := c.GetHeader("X-Request-ID")
-		if requestID == "" {
+		// Accept caller X-Request-ID only when bounded and printable visible ASCII;
+		// otherwise mint a fresh UUID to prevent header/log injection.
+		requestID := strings.TrimSpace(c.GetHeader("X-Request-ID"))
+		if !isValidRequestIDHeader(requestID) {
 			requestID = uuid.New().String()
 		}
 		safeRequestID := secutils.SanitizeForLog(requestID)

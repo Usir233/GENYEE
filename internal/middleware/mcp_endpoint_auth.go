@@ -51,7 +51,7 @@ func MCPEndpointAuth(svc interfaces.MCPEndpointService, tenantSvc interfaces.Ten
 			c.Abort()
 			return
 		}
-		if strings.EqualFold(tenant.Status, "inactive") || strings.EqualFold(tenant.Status, "disabled") {
+		if isWorkspaceInactive(tenant.Status) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "workspace inactive"})
 			c.Abort()
 			return

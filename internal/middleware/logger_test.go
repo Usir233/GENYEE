@@ -286,3 +286,51 @@ func TestSkipsBodyLoggingForSecretRoutes(t *testing.T) {
 		}
 	}
 }
+
+func TestSanitizeQueryRedactsPresignedSigAndQuerySecrets(t *testing.T) {
+	raw := "expires=1700000000&sig=hmac-secret-hex&signature=s3-sig&api_key=gy_123&apikey=k2&client_secret=cs1&secret=sec9&password=pw9&inline=1"
+	got := sanitizeQuery(raw)
+	for _, secret := range []string{"hmac-secret-hex", "s3-sig", "gy_123", "k2", "cs1", "sec9", "pw9"} {
+		if strings.Contains(got, secret) {
+			t.Fatalf("sanitizeQuery() leaked %q in %q", secret, got)
+		}
+	}
+	if !strings.Contains(got, "expires=1700000000") || !strings.Contains(got, "inline=1") {
+		t.Fatalf("sanitizeQuery() dropped non-sensitive params: %q", got)
+	}
+}
+
+func TestRequestIDRejectsControlCharsAndOversizedValues(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(RequestID())
+	r.GET("/ping", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	// Valid bounded visible-ASCII request ID is preserved.
+	okReq := httptest.NewRequest(http.MethodGet, "/ping", nil)
+	okReq.Header.Set("X-Request-ID", "req-abc_123.45:ok")
+	okW := httptest.NewRecorder()
+	r.ServeHTTP(okW, okReq)
+	if got := okW.Header().Get("X-Request-ID"); got != "req-abc_123.45:ok" {
+		t.Fatalf("valid X-Request-ID replaced unexpectedly: got %q", got)
+	}
+
+	// Malformed or oversized X-Request-IDs are replaced with a fresh UUID.
+	for _, bad := range []string{
+		"bad\r\nSet-Cookie: evil=1",
+		"bad with spaces",
+		"bad\x00null",
+		strings.Repeat("a", 129),
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/ping", nil)
+		req.Header.Set("X-Request-ID", bad)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		got := w.Header().Get("X-Request-ID")
+		if got == "" || got == bad || len(got) != 36 {
+			t.Fatalf("malformed X-Request-ID %q was not replaced with UUID: got %q", bad, got)
+		}
+	}
+}

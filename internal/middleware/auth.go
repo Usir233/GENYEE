@@ -105,6 +105,15 @@ func isTenantOptionalAPI(path, method string) bool {
 	}
 }
 
+func isWorkspaceInactive(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "inactive", "disabled", "suspended":
+		return true
+	default:
+		return false
+	}
+}
+
 func attachTenantlessUserContext(c *gin.Context, user *types.User) {
 	applyAuthSession(c, authSession{
 		User:        user,
@@ -292,6 +301,19 @@ func authenticateJWTUser(
 		return false
 	}
 
+	if isWorkspaceInactive(tenant.Status) && !user.IsSystemAdmin && !access.UserCanAccessAllTenants(user, cfg) {
+		if strings.TrimSpace(c.GetHeader("X-Tenant-ID")) == "" &&
+			isTenantOptionalAPI(c.Request.URL.Path, c.Request.Method) {
+			attachTenantlessUserContext(c, user)
+			return true
+		}
+		c.JSON(http.StatusForbidden, gin.H{
+			"error": "workspace inactive",
+		})
+		c.Abort()
+		return false
+	}
+
 	logger.Infof(ctx,
 		"[auth] resolved role=%s for user=%s in tenant=%d (jwt_tenant=%d, header=%q, cross_switch=%v)",
 		role, user.ID, targetTenantID, jwtTenantID, c.GetHeader("X-Tenant-ID"), crossTenantSwitch)
@@ -413,7 +435,7 @@ func resolveFirstMembershipTarget(
 			continue
 		}
 		tenant, err := tenantService.GetTenantByID(ctx, member.TenantID)
-		if err == nil && tenant != nil {
+		if err == nil && tenant != nil && !isWorkspaceInactive(tenant.Status) {
 			return member.TenantID
 		}
 	}
@@ -547,9 +569,14 @@ func attachAPIKeyAuthContext(
 	key *types.TenantAPIKey,
 ) {
 	t, err := tenantService.GetTenantByID(c.Request.Context(), tenantID)
-	if err != nil {
+	if err != nil || t == nil {
 		logger.Warnf(c.Request.Context(), "[auth] API key tenant lookup failed: tenant=%d err=%v", tenantID, err)
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized: invalid API key"})
+		c.Abort()
+		return
+	}
+	if (key == nil || !key.IsPlatform()) && isWorkspaceInactive(t.Status) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "workspace inactive"})
 		c.Abort()
 		return
 	}
@@ -565,7 +592,9 @@ func attachAPIKeyAuthContext(
 		user.TenantID = tenantID
 		authSource = types.AuthSourceAPIPlatformKey
 	} else {
-		user, err = userService.GetUserByTenantID(c.Request.Context(), tenantID)
+		if userService != nil {
+			user, err = userService.GetUserByTenantID(c.Request.Context(), tenantID)
+		}
 		if err != nil || user == nil {
 			user = &types.User{
 				ID:       fmt.Sprintf("system-%d", tenantID),

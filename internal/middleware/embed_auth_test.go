@@ -554,3 +554,30 @@ func TestEmbedAuthHostAllowlist(t *testing.T) {
 func (f *fakeTenantService) UpdateTenantProfile(context.Context, uint64, *string, *string) (*types.Tenant, error) {
 	panic("unexpected UpdateTenantProfile call")
 }
+
+func TestEmbedAuthRejectsInactiveWorkspace(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	svc := &fakeEmbedChannelService{channels: map[string]*types.EmbedChannel{
+		"channel": {
+			ID:             "channel",
+			TenantID:       11,
+			Enabled:        true,
+			PublishToken:   "em_test",
+			AllowedOrigins: []byte(`["https://a.example"]`),
+		},
+	}}
+	r := gin.New()
+	tenantSvc := &fakeTenantService{tenant: &types.Tenant{ID: 11, Status: "inactive"}}
+	r.GET("/api/v1/embed/:channel_id/config", EmbedAuth(svc, tenantSvc, nil), func(c *gin.Context) {
+		c.Status(200)
+	})
+	req := httptest.NewRequest("GET", "https://a.example/api/v1/embed/channel/config", nil)
+	req.URL.Path = "/api/v1/embed/channel/config"
+	req.Header.Set("Authorization", "Embed em_test")
+	req.Header.Set("Origin", "https://a.example")
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != 403 {
+		t.Fatalf("status = %d, want 403 for inactive workspace: %s", w.Code, w.Body.String())
+	}
+}
