@@ -128,6 +128,9 @@ func (s *Server) handleUpdateDocument(ctx context.Context, req mcp.CallToolReque
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
+	if err := access.RequireKBWrite(ctx, kb); err != nil {
+		return mcp.NewToolResultError("this endpoint is not allowed to write to knowledge base " + kb.ID), nil
+	}
 	title := strings.TrimSpace(req.GetString("title", ""))
 	if title == "" {
 		title = existing.Title
@@ -163,6 +166,9 @@ func (s *Server) handleDeleteDocument(ctx context.Context, req mcp.CallToolReque
 	ctx, err = s.scopedKBContext(ctx, kb, types.OrgRoleEditor)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := access.RequireKBWrite(ctx, kb); err != nil {
+		return mcp.NewToolResultError("this endpoint is not allowed to write to knowledge base " + kb.ID), nil
 	}
 	if err := s.knowledgeService.DeleteKnowledge(ctx, existing.ID); err != nil {
 		return mcp.NewToolResultErrorFromErr("failed to delete document", err), nil

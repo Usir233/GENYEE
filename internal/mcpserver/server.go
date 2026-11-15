@@ -12,8 +12,10 @@
 package mcpserver
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -38,6 +40,8 @@ const (
 )
 
 var errNoEndpoint = errors.New("mcp endpoint missing from request context")
+
+var maxMCPServerRequestBytes int64 = 4 << 20
 
 // Server wires the tool catalog onto an mcp-go server and exposes it as an
 // http.Handler.
@@ -118,11 +122,45 @@ func NewServer(
 		server.WithInstructions(serverInstructions),
 	)
 	s.mcp.AddTools(s.toolCatalog()...)
-	s.handler = server.NewStreamableHTTPServer(
+	streamHandler := server.NewStreamableHTTPServer(
 		s.mcp,
 		server.WithStateLess(true),
 	)
+	s.handler = boundedMCPRequestHandler(streamHandler)
 	return s
+}
+
+func boundedMCPRequestHandler(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		limit := maxMCPServerRequestBytes
+		if r.Method == http.MethodPost && r.Body != nil && limit > 0 {
+			if r.ContentLength > limit {
+				writeRequestTooLarge(w)
+				return
+			}
+			defer func() { _ = r.Body.Close() }()
+			body, err := io.ReadAll(io.LimitReader(r.Body, limit+1))
+			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"failed to read request body"}}`))
+				return
+			}
+			if int64(len(body)) > limit {
+				writeRequestTooLarge(w)
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			r.ContentLength = int64(len(body))
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func writeRequestTooLarge(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusRequestEntityTooLarge)
+	_, _ = w.Write([]byte(`{"jsonrpc":"2.0","id":null,"error":{"code":-32600,"message":"request body exceeds maximum allowed size"}}`))
 }
 
 // Handler returns the http.Handler to mount under /mcp/:endpoint_id. The
@@ -216,6 +254,11 @@ func (s *Server) touchLastUsed(ctx context.Context, endpointID string) {
 	go func() {
 		bg, cancel := context.WithTimeout(logger.CloneContext(ctx), 5*time.Second)
 		defer cancel()
+		defer func() {
+			if rec := recover(); rec != nil {
+				logger.Errorf(bg, "[mcpserver] panic in touch last_used for %s: %v", endpointID, rec)
+			}
+		}()
 		if err := s.endpointRepo.TouchLastUsed(bg, endpointID); err != nil {
 			logger.Warnf(bg, "[mcpserver] touch last_used failed for %s: %v", endpointID, err)
 		}

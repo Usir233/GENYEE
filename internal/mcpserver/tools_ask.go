@@ -401,6 +401,18 @@ func (s *Server) runQA(
 			defer closeDone()
 			defer closeComplete()
 		}
+		defer func() {
+			if rec := recover(); rec != nil {
+				logger.Errorf(ctx, "[mcpserver] panic during ask QA (session=%s): %v", session.ID, rec)
+				mu.Lock()
+				if qaErr == nil {
+					qaErr = fmt.Errorf("internal error while generating answer")
+				}
+				mu.Unlock()
+				closeDone()
+				closeComplete()
+			}
+		}()
 		req := &types.QARequest{
 			Session:            session,
 			Query:              question,
