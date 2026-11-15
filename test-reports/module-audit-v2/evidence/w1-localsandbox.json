@@ -1,0 +1,325 @@
+{
+  "wave": "W1",
+  "slice": "w1-localsandbox",
+  "base_commit": "b1d6bdefb1518936e692c8748bd43a0014c7bcd4",
+  "commits": [
+    {
+      "sha": "a9f89fdb160a3afed31439f08a20105c2a31c52e",
+      "subject": "fix(localsandbox): harden command classification, pathguard, and env sanitization"
+    },
+    {
+      "sha": "117e94638268a91f86af75611f42158e57625b2f",
+      "subject": "fix(localsandbox): bound post-kill pipe drain, session-scope file approvals, and harden adapter and skilltree"
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "internal/localsandbox",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "file_count": 26,
+      "tracked_files": [
+        "internal/localsandbox/aliases.go",
+        "internal/localsandbox/approval.go",
+        "internal/localsandbox/backend_darwin.go",
+        "internal/localsandbox/backend_other.go",
+        "internal/localsandbox/backend_test.go",
+        "internal/localsandbox/backend_windows.go",
+        "internal/localsandbox/command_assignment_boundary_test.go",
+        "internal/localsandbox/diff.go",
+        "internal/localsandbox/hardening_test.go",
+        "internal/localsandbox/rootlock.go",
+        "internal/localsandbox/service.go",
+        "internal/localsandbox/service_approval.go",
+        "internal/localsandbox/service_approval_test.go",
+        "internal/localsandbox/service_auto_test.go",
+        "internal/localsandbox/service_file.go",
+        "internal/localsandbox/service_file_test.go",
+        "internal/localsandbox/service_mode.go",
+        "internal/localsandbox/service_mode_test.go",
+        "internal/localsandbox/service_pipeline_test.go",
+        "internal/localsandbox/service_test.go",
+        "internal/localsandbox/session_state.go",
+        "internal/localsandbox/session_state_test.go",
+        "internal/localsandbox/start.go",
+        "internal/localsandbox/start_test.go",
+        "internal/localsandbox/targets.go",
+        "internal/localsandbox/targets_test.go"
+      ],
+      "invariants_checked": [
+        "Service.Run enforces shipped ApprovalMode only (ModeAuto, ModeAsk), resolves WorkDir through PathGuard.CheckDir (O_NOFOLLOW directory walk), serialises concurrent operations per workspace root via ref-counted rootLocks while running approval prompts outside the root lock, and masks secret assignments in command preview logs.",
+        "Process lifecycle kills the child process group on timeout or context cancellation, stops watchKill before PID reuse, caps captured stdout/stderr streams at 1 MiB per stream, and closes pipe readers after a 100ms post-kill grace window so escaped setsid() descendants cannot hang drain(proc).",
+        "FileApproval binds out-of-scope file writes to both the SHA-256 content digest and the originating SessionID, and readForChange rejects non-regular files via Lstat before reading.",
+        "Session state (grants, delete rules, approval mode overrides) is keyed per sessionID, mutex-protected under -race, and released cleanly on ReleaseSession; zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-LOCALSANDBOX-01",
+          "severity": "P1",
+          "file": "internal/localsandbox/service.go",
+          "summary": "watchKill signalled proc.Kill() on timeout/cancel without closing stdout/stderr reader pipes after a post-kill grace period, allowing an escaped setsid() grandchild holding inherited stdout/stderr descriptors open to hang drain(proc) and hold the workspace root lock indefinitely.",
+          "regression_test": "TestServiceRunUnblocksDrainWhenEscapedGrandchildHoldsPipeAfterTimeout",
+          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+        },
+        {
+          "id": "W1-LOCALSANDBOX-02",
+          "severity": "P1",
+          "file": "internal/localsandbox/service_file.go",
+          "summary": "FileApproval lacked SessionID binding and readForChange did not reject non-regular files (symlinks, FIFOs, devices) via Lstat before opening target paths during AuthorizeFileChange.",
+          "regression_test": "TestFileApprovalCannotBeReplayedAcrossSessions",
+          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/localsandbox/adapter",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "file_count": 10,
+      "tracked_files": [
+        "internal/localsandbox/adapter/adapter.go",
+        "internal/localsandbox/adapter/adapter_test.go",
+        "internal/localsandbox/adapter/approval.go",
+        "internal/localsandbox/adapter/approval_mode_test.go",
+        "internal/localsandbox/adapter/approval_test.go",
+        "internal/localsandbox/adapter/file_change.go",
+        "internal/localsandbox/adapter/file_change_test.go",
+        "internal/localsandbox/adapter/install.go",
+        "internal/localsandbox/adapter/install_test.go",
+        "internal/localsandbox/adapter/layout.go"
+      ],
+      "invariants_checked": [
+        "Adapter bounds all host file store operations (EnsureSessionDir, ListSessionFiles, StatSessionFile, ReadSessionFile, WriteSessionWorkspaceFile) through PathGuard and workspace root locks, refuses DestroySession and VersionsWorkspace on user host folders, and enforces FileApproval session + SHA-256 digest binding.",
+        "StatSessionFile and ListSessionFiles (and InstallManager.StatSessionFile) classify regular files, directories, and non-regular entries (symlinks, FIFOs, sockets, devices) identically to remote sandbox adapters (RemoteEntryOther) and honor ctx.Err() cancellation.",
+        "InstallManager isolates maintenance sessions per bound skill version directory, never implements SessionCapabilityProvider (preventing chat agents from reaching an open-network shell), and redirects UV/PIP/npm caches and GENYEE_SKILL_DIR inside .genyee/cache; zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-LOCALSANDBOX-03",
+          "severity": "P1",
+          "file": "internal/localsandbox/adapter/adapter.go, internal/localsandbox/adapter/file_change.go",
+          "summary": "Adapter.guard and Adapter.WriteSessionWorkspaceFile trusted fileApprovalFrom(ctx) without verifying approval.SessionID == sessionID, allowing an out-of-scope FileApproval context from one session to grant read/write access in another session.",
+          "regression_test": "TestFileApprovalCannotBeReplayedAcrossSessions",
+          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+        },
+        {
+          "id": "W1-LOCALSANDBOX-04",
+          "severity": "P2",
+          "file": "internal/localsandbox/adapter/adapter.go, internal/localsandbox/adapter/install.go",
+          "summary": "Adapter.StatSessionFile, Adapter.ListSessionFiles, and InstallManager.StatSessionFile classified symlinks and special files as RemoteEntryFile instead of RemoteEntryOther, and ListSessionFiles ignored ctx.Err() during WalkDir traversal.",
+          "regression_test": "TestAdapterStatAndListClassifyNonRegularEntriesAsOtherAndHonorContextCancel, TestInstallManagerFilesStayInsideVersionDir",
+          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/localsandbox/core",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "file_count": 26,
+      "tracked_files": [
+        "internal/localsandbox/core/backend.go",
+        "internal/localsandbox/core/backend_test.go",
+        "internal/localsandbox/core/command.go",
+        "internal/localsandbox/core/command_test.go",
+        "internal/localsandbox/core/denial.go",
+        "internal/localsandbox/core/denial_test.go",
+        "internal/localsandbox/core/env.go",
+        "internal/localsandbox/core/env_test.go",
+        "internal/localsandbox/core/escalation.go",
+        "internal/localsandbox/core/escalation_test.go",
+        "internal/localsandbox/core/file_grant_test.go",
+        "internal/localsandbox/core/grant_hardening_test.go",
+        "internal/localsandbox/core/pathguard.go",
+        "internal/localsandbox/core/pathguard_file.go",
+        "internal/localsandbox/core/pathguard_file_other.go",
+        "internal/localsandbox/core/pathguard_file_unix.go",
+        "internal/localsandbox/core/pathguard_file_unix_test.go",
+        "internal/localsandbox/core/pathguard_fileinfo_unix.go",
+        "internal/localsandbox/core/pathguard_mtime_unix.go",
+        "internal/localsandbox/core/pathguard_test.go",
+        "internal/localsandbox/core/policy.go",
+        "internal/localsandbox/core/policy_builder.go",
+        "internal/localsandbox/core/policy_builder_test.go",
+        "internal/localsandbox/core/policy_test.go",
+        "internal/localsandbox/core/workspace.go",
+        "internal/localsandbox/core/workspace_test.go"
+      ],
+      "invariants_checked": [
+        "PolicyBuilder and Escalation protect credential roots (~/.ssh, ~/.aws, ~/.gnupg, ~/.kube, ~/Library/Keychains, appData, .bsk), shell startup files, system/root directories, home dot-directories, and .git metadata (including worktrees and bare repos with HEAD+objects+refs), resolving symlinks on longest existing prefixes before granting access.",
+        "PathGuard enforces lexical and symlink-resolved DenyRead, DenyWrite, ReadOnlySubpaths, WritableRoots, and WritableFiles, walks relative components fd-by-fd on Unix with O_NOFOLLOW|O_CLOEXEC and O_NONBLOCK leaf opens, verifies S_IFREG before reading/truncating, and caps ReadFile at 64 MiB.",
+        "BuildCommandEnv and FilterInheritedEnv allowlist safe locale/toolchain host variables, strip dynamic-linker injection (LD_*, DYLD_*), runtime startup hooks (NODE_OPTIONS, PYTHONSTARTUP, RUBYOPT, PERL5OPT, JAVA_TOOL_OPTIONS, BASH_ENV, ENV, PROMPT_COMMAND, GIT_SSH_COMMAND, etc.) case-insensitively, reject '=' and NUL smuggling in keys/values, and force GIT_TERMINAL_PROMPT=0.",
+        "Command delete classification covers rm/rmdir/unlink, find (-delete/-exec rm, BSD/GNU pre-path flags, symlink-following -L/-H/-follow), git (clean/rm with -C, -C<dir>, --work-tree, --git-dir, and escaping pathspecs), shell -c, eval, substitutions, and env/sudo wrappers (-C/-D/--chdir, env -S/--split-string); zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-LOCALSANDBOX-05",
+          "severity": "P1",
+          "file": "internal/localsandbox/core/command.go",
+          "summary": "ClassifyCommand, DeleteLocations, and DeletesStayBelow missed attached/long git directory options (-C<dir>, --work-tree, --git-dir), git rm/clean pathspecs escaping cwd, BSD/GNU find pre-path flags (-L, -H, -P, -f <path>) and symlink-following (-L, -H, -follow), and wrapper chdir/split-string forms (env -C, sudo -D, env -S, --split-string), allowing destructive out-of-cwd or root/home deletes to bypass dangerous-command refusal or ModeAuto review.",
+          "regression_test": "TestCommandClassificationHandlesGitFindAndWrapperEscapeForms",
+          "commit": "a9f89fdb160a3afed31439f08a20105c2a31c52e"
+        },
+        {
+          "id": "W1-LOCALSANDBOX-06",
+          "severity": "P1",
+          "file": "internal/localsandbox/core/pathguard.go, internal/localsandbox/core/pathguard_file.go, internal/localsandbox/core/policy.go",
+          "summary": "PathGuard.allowWrite (used by WriteFile and MkdirAll) omitted g.writeDenied(path) (Policy.DenyWrite), NewPathGuard did not resolve symlink aliases on DenyRead, DenyWrite, and ReadOnlySubpaths, and Policy/PathGuard accepted NUL bytes in path strings.",
+          "regression_test": "TestPathGuardWriteFileAndMkdirAllEnforceDenyWrite, TestPathGuardEnforcesSymlinkedDenyAndReadOnlyAliases, TestPolicyAndPathGuardRejectNULBytes",
+          "commit": "a9f89fdb160a3afed31439f08a20105c2a31c52e"
+        },
+        {
+          "id": "W1-LOCALSANDBOX-07",
+          "severity": "P1",
+          "file": "internal/localsandbox/core/pathguard_file_unix.go, internal/localsandbox/core/pathguard_file_other.go",
+          "summary": "PathGuard.ReadFile and WriteFile opened leaf files without O_NONBLOCK and without verifying S_IFREG (allowing workspace FIFOs to block goroutines forever in openat while holding workspace locks, or writes to non-regular files), and ReadFile used unbounded io.ReadAll.",
+          "regression_test": "TestPathGuardRejectsFIFOWithoutBlockingAndCapsOversizeReads",
+          "commit": "a9f89fdb160a3afed31439f08a20105c2a31c52e"
+        },
+        {
+          "id": "W1-LOCALSANDBOX-08",
+          "severity": "P2",
+          "file": "internal/localsandbox/core/env.go",
+          "summary": "BuildCommandEnv matched blockedExplicitEnv case-sensitively, allowed '=' and NUL bytes in explicit env keys/values (enabling KEY=VAL smuggling past exact-name blocklist lookup when flattened by EnvSlice), and did not normalize mixed-case Windows Path.",
+          "regression_test": "TestBuildCommandEnvBlocksCaseVariantsAndSmuggledEqualsOrNUL",
+          "commit": "a9f89fdb160a3afed31439f08a20105c2a31c52e"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/localsandbox/seatbelt",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "file_count": 5,
+      "tracked_files": [
+        "internal/localsandbox/seatbelt/backend.go",
+        "internal/localsandbox/seatbelt/backend_test.go",
+        "internal/localsandbox/seatbelt/base.sbpl",
+        "internal/localsandbox/seatbelt/compiler.go",
+        "internal/localsandbox/seatbelt/compiler_test.go"
+      ],
+      "invariants_checked": [
+        "Seatbelt compiler never interpolates paths directly into SBPL source: every dynamic path is passed out-of-band via sandbox-exec -D KEY=VALUE parameters and referenced through (param \"...\"), eliminating quote/parenthesis/newline SBPL injection.",
+        "resolvePolicyPaths canonicalizes WritableRoots, ReadOnlySubpaths, WritableFiles, ReadableRoots, PrivateRoots, DenyRead, DenyWrite, and Cwd via EvalSymlinks on longest existing prefixes so macOS /var -> /private/var and /tmp -> /private/tmp symlinks match kernel path evaluation.",
+        "Base SBPL profile denies default operations, restricts network unless NetworkUnrestricted, confines file-write* to parameterized writable roots/files, carves out PrivateRoots/DenyRead, DenyWrite, ReadOnlySubpaths, and .git metadata (last-rule-wins), hardcodes /usr/bin/sandbox-exec, spawns with Setpgid: true, and redirects TMPDIR/TMP/TEMP to Cwd."
+      ],
+      "findings": [
+        {
+          "id": "W1-LOCALSANDBOX-09",
+          "severity": "P2",
+          "file": "internal/localsandbox/seatbelt/backend.go",
+          "summary": "seatbeltProcess.Kill unlocked p.mu prior to syscall.Kill(-pid, SIGKILL) (leaving a race window with Wait reaping pid) and lacked a post-kill pipe close fallback for escaped setsid() descendants, and withSandboxTemp stripped inherited TMPDIR/TMP/TEMP case-sensitively.",
+          "regression_test": "GOOS=darwin GOARCH=arm64 go test -c ./internal/localsandbox/seatbelt + TestServiceRunUnblocksDrainWhenEscapedGrandchildHoldsPipeAfterTimeout",
+          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/localsandbox/skilltree",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "file_count": 4,
+      "tracked_files": [
+        "internal/localsandbox/skilltree/lock_other.go",
+        "internal/localsandbox/skilltree/lock_unix.go",
+        "internal/localsandbox/skilltree/tree.go",
+        "internal/localsandbox/skilltree/tree_test.go"
+      ],
+      "invariants_checked": [
+        "Skill names are restricted to single non-dot path segments without slashes or NUL bytes, preventing traversal outside <root> or collisions with .versions, .locks, and .next-* bookkeeping entries.",
+        "Version directories live immutably under <root>/.versions/<name>-<n>, Activate atomically swaps <root>/.next-<name> onto <root>/<name>, Discard and Prune verify version ownership before RemoveAll, and Sweep skips skills locked by active installers.",
+        "Advisory locks open <root>/.locks/<name>.lock with O_NOFOLLOW on Unix and enforce process-local mutual exclusion on non-Unix platforms, with idempotent sync.Once unlock functions; zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-LOCALSANDBOX-10",
+          "severity": "P2",
+          "file": "internal/localsandbox/skilltree/tree.go, internal/localsandbox/skilltree/lock_unix.go, internal/localsandbox/skilltree/lock_other.go",
+          "summary": "validName permitted dot-prefixed names (.versions, .locks, .next-*), New checked clean == string(filepath.Separator) instead of filepath.Dir(clean) == clean (missing Windows drive roots), Sweep returned an error on malformed .next- symlinks instead of removing them, lock_unix.go omitted O_NOFOLLOW/sync.Once, and lock_other.go was a no-op that broke tryLock exclusivity on non-Unix.",
+          "regression_test": "TestInvalidNamesAreRejected, TestLockIsExclusivePerSkill, TestSweepRemovesMalformedNextSymlinksWithoutError",
+          "commit": "117e94638268a91f86af75611f42158e57625b2f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/localsandbox/winhost",
+      "wave": "W1",
+      "status": "verified_no_findings",
+      "file_count": 1,
+      "tracked_files": [
+        "internal/localsandbox/winhost/backend.go"
+      ],
+      "invariants_checked": [
+        "Windows stub backend compiles cleanly under GOOS=windows GOARCH=amd64 and fails closed with core.ErrUnsupportedPlatform across Available, EnsureReady, Prepare, and Spawn, never falling back to unsandboxed host command execution.",
+        "Zero weknora/wk_ residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/localsandbox/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -p 1 ./internal/localsandbox/skilltree (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=darwin GOARCH=arm64 GOMAXPROCS=2 go test -c -o /dev/null -overlay <scratch>/nocgo-overlay.json ./internal/localsandbox/seatbelt (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)",
+        "GOOS=windows GOARCH=amd64 GOMAXPROCS=2 go build -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/localsandbox/... (exit 0)"
+      ]
+    }
+  ]
+}
