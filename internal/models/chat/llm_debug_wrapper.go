@@ -45,6 +45,7 @@ func (d *debugChat) ChatStream(ctx context.Context, messages []Message, opts *Ch
 		var toolCalls []types.LLMToolCall
 		var streamErr error
 
+		streamLoop:
 		for resp := range ch {
 			if resp.ResponseType == types.ResponseTypeAnswer && resp.Content != "" {
 				content.WriteString(resp.Content)
@@ -58,7 +59,18 @@ func (d *debugChat) ChatStream(ctx context.Context, messages []Message, opts *Ch
 			if len(resp.ToolCalls) > 0 {
 				toolCalls = resp.ToolCalls
 			}
-			wrapped <- resp
+			select {
+			case wrapped <- resp:
+			case <-ctx.Done():
+				if streamErr == nil {
+					streamErr = ctx.Err()
+				}
+				go func() {
+					for range ch {
+					}
+				}()
+				break streamLoop
+			}
 		}
 
 		logLLMDebugStream(ctx, d.inner.GetModelName(), messages, opts,

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -96,13 +95,14 @@ func (p *ExaProvider) Search(
 		return nil, fmt.Errorf("failed to execute Exa request: %w", err)
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxExaResponseBytes))
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		preview := readErrorPreview(resp.Body)
+		logger.Warnf(ctx, "[WebSearch][Exa] API returned status %d: %s", resp.StatusCode, preview)
+		return nil, fmt.Errorf("exa API returned status %d: %s", resp.StatusCode, preview)
+	}
+	body, err := readCapped(resp.Body, maxExaResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read Exa response: %w", err)
-	}
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		logger.Warnf(ctx, "[WebSearch][Exa] API returned status %d: %s", resp.StatusCode, string(body))
-		return nil, fmt.Errorf("exa API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var data exaSearchResponse
@@ -110,7 +110,7 @@ func (p *ExaProvider) Search(
 		return nil, fmt.Errorf("failed to unmarshal Exa response: %w", err)
 	}
 	if data.Error != "" {
-		return nil, fmt.Errorf("exa API error: %s", data.Error)
+		return nil, fmt.Errorf("exa API error: %s", errorPreviewString([]byte(data.Error)))
 	}
 
 	results := make([]*types.WebSearchResult, 0, len(data.Results))

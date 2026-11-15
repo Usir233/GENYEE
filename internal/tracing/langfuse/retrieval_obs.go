@@ -2,10 +2,23 @@ package langfuse
 
 import (
 	"fmt"
+	"math"
 	"sort"
 
 	"github.com/Usir233/GENYEE/internal/types"
 )
+
+func scoreDescLess(aScore, bScore float64, aID, bID string) bool {
+	aNaN := math.IsNaN(aScore)
+	bNaN := math.IsNaN(bScore)
+	if aNaN != bNaN {
+		return !aNaN
+	}
+	if !aNaN && aScore != bScore {
+		return aScore > bScore
+	}
+	return aID < bID
+}
 
 const defaultHitPreviewLimit = 25
 
@@ -42,7 +55,12 @@ func SummarizeRetrieveOutput(results []*types.RetrieveResult) map[string]interfa
 		if rr == nil {
 			continue
 		}
-		count := len(rr.Results)
+		count := 0
+		for _, h := range rr.Results {
+			if h != nil {
+				count++
+			}
+		}
 		out["total_hits"] = out["total_hits"].(int) + count
 		if rr.RetrieverType == types.VectorRetrieverType {
 			out["vector_hits"] = out["vector_hits"].(int) + count
@@ -75,12 +93,18 @@ func SummarizeSearchResults(results []*types.SearchResult, limit int) map[string
 		return out
 	}
 
-	sorted := append([]*types.SearchResult(nil), results...)
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].Score != sorted[j].Score {
-			return sorted[i].Score > sorted[j].Score
+	sorted := make([]*types.SearchResult, 0, len(results))
+	for _, sr := range results {
+		if sr != nil {
+			sorted = append(sorted, sr)
 		}
-		return sorted[i].ID < sorted[j].ID
+	}
+	out["count"] = len(sorted)
+	if len(sorted) == 0 {
+		return out
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return scoreDescLess(sorted[i].Score, sorted[j].Score, sorted[i].ID, sorted[j].ID)
 	})
 
 	hits := make([]map[string]interface{}, 0, minInt(limit, len(sorted)))
@@ -142,12 +166,17 @@ func summarizeIndexHits(hits []*types.IndexWithScore, limit int) []map[string]in
 	if len(hits) == 0 {
 		return nil
 	}
-	sorted := append([]*types.IndexWithScore(nil), hits...)
-	sort.Slice(sorted, func(i, j int) bool {
-		if sorted[i].Score != sorted[j].Score {
-			return sorted[i].Score > sorted[j].Score
+	sorted := make([]*types.IndexWithScore, 0, len(hits))
+	for _, h := range hits {
+		if h != nil {
+			sorted = append(sorted, h)
 		}
-		return sorted[i].ChunkID < sorted[j].ChunkID
+	}
+	if len(sorted) == 0 {
+		return nil
+	}
+	sort.Slice(sorted, func(i, j int) bool {
+		return scoreDescLess(sorted[i].Score, sorted[j].Score, sorted[i].ChunkID, sorted[j].ChunkID)
 	})
 
 	n := minInt(limit, len(sorted))
@@ -200,12 +229,17 @@ func summarizeRetrieveHits(
 		if rr == nil || len(rr.Results) == 0 {
 			continue
 		}
-		hits := append([]*types.IndexWithScore(nil), rr.Results...)
-		sort.SliceStable(hits, func(i, j int) bool {
-			if hits[i].Score != hits[j].Score {
-				return hits[i].Score > hits[j].Score
+		hits := make([]*types.IndexWithScore, 0, len(rr.Results))
+		for _, h := range rr.Results {
+			if h != nil {
+				hits = append(hits, h)
 			}
-			return hits[i].ChunkID < hits[j].ChunkID
+		}
+		if len(hits) == 0 {
+			continue
+		}
+		sort.SliceStable(hits, func(i, j int) bool {
+			return scoreDescLess(hits[i].Score, hits[j].Score, hits[i].ChunkID, hits[j].ChunkID)
 		})
 		groups = append(groups, retrieveHitGroup{
 			engine:    rr.RetrieverEngineType,
@@ -285,6 +319,20 @@ func SummarizePassagePreviews(
 	out := make([]map[string]interface{}, 0, n)
 	for i := 0; i < n; i++ {
 		sr := candidates[i]
+		if sr == nil {
+			out = append(out, map[string]interface{}{
+				"index":           i,
+				"chunk_id":        "",
+				"knowledge_id":    "",
+				"knowledge_title": "",
+				"retrieval_score": "0.0000",
+				"match_type":      types.MatchType(0),
+				"chunk_type":      types.ChunkType(""),
+				"vector_score":    "0.0000",
+				"preview":         TruncateRunes(passages[i], 160),
+			})
+			continue
+		}
 		out = append(out, map[string]interface{}{
 			"index":           i,
 			"chunk_id":        sr.ID,

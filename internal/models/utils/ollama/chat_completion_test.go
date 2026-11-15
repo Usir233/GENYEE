@@ -1,6 +1,7 @@
 package ollama
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -8,8 +9,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"strings"
 	"testing"
 
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/ollama/ollama/api"
 )
 
@@ -122,3 +126,64 @@ func TestChatPreservesCancellationBeforeDone(t *testing.T) {
 		t.Fatalf("Chat error = %v, want context.Canceled", err)
 	}
 }
+
+func TestGetOllamaServiceValidatesURLAndRedactsCredentials(t *testing.T) {
+	var logBuf bytes.Buffer
+	logger.SetOutput(&logBuf)
+	defer logger.SetOutput(os.Stdout)
+
+	for name, badURL := range map[string]string{
+		"ftp scheme":       "ftp://localhost:11434",
+		"missing host":     "http:///api",
+		"malformed secret": "http://ollamauser:OllamaPass999@127.0.0.1:badport",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("OLLAMA_BASE_URL", badURL)
+			_, err := GetOllamaService()
+			if err == nil {
+				t.Fatalf("expected error for invalid OLLAMA_BASE_URL %q", badURL)
+			}
+			if strings.Contains(err.Error(), "OllamaPass999") {
+				t.Fatalf("error leaked password: %v", err)
+			}
+		})
+	}
+
+	t.Setenv("OLLAMA_BASE_URL", "http://ollamauser:OllamaPass999@127.0.0.1:11434")
+	if _, err := GetOllamaService(); err != nil {
+		t.Fatalf("valid http URL with basic auth should succeed: %v", err)
+	}
+	if strings.Contains(logBuf.String(), "OllamaPass999") {
+		t.Fatalf("logger output leaked OLLAMA_BASE_URL password: %s", logBuf.String())
+	}
+}
+
+func TestGenerateRejectsResponsesWithoutDone(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		if r.URL.Path != "/api/generate" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/x-ndjson")
+		w.WriteHeader(http.StatusOK)
+		_, _ = io.WriteString(w, `{"response":"partial","done":false}`+"\n")
+	}))
+	defer server.Close()
+
+	baseURL, err := url.Parse(server.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := &OllamaService{client: api.NewClient(baseURL, server.Client())}
+	err = svc.Generate(t.Context(), &api.GenerateRequest{Model: "m"}, func(api.GenerateResponse) error {
+		return nil
+	})
+	if !errors.Is(err, io.ErrUnexpectedEOF) {
+		t.Fatalf("Generate error = %v, want io.ErrUnexpectedEOF", err)
+	}
+}
+

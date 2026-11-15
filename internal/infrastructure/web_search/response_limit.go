@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
+	"regexp"
 	"strings"
 	"unicode/utf8"
 )
@@ -72,4 +74,91 @@ func errorPreviewString(body []byte) string {
 		detail = detail[:maxErrorPreviewBytes]
 	}
 	return trimPartialUTF8(detail)
+}
+
+var (
+	urlUserinfoSecretRE = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	urlQuerySecretRE    = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password)=)[^&\s"']+`)
+)
+
+// redactURLForDisplay masks basic-auth credentials and secret query parameters
+// before a URL is written to logs or surfaced in an error message.
+func redactURLForDisplay(rawURL string) string {
+	if u, err := url.Parse(rawURL); err == nil && u.Scheme != "" && u.Host != "" {
+		if u.User != nil {
+			if _, hasPass := u.User.Password(); hasPass {
+				u.User = url.UserPassword(u.User.Username(), "REDACTED")
+			}
+		}
+		return redactSecretText(u.String())
+	}
+	return redactSecretText(rawURL)
+}
+
+func redactSecretText(s string, secrets ...string) string {
+	out := urlUserinfoSecretRE.ReplaceAllString(s, "${1}:[REDACTED]@")
+	out = urlQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	for _, secret := range secrets {
+		secret = strings.TrimSpace(secret)
+		if secret == "" {
+			continue
+		}
+		out = strings.ReplaceAll(out, secret, "[REDACTED]")
+		if esc := url.QueryEscape(secret); esc != "" && esc != secret {
+			out = strings.ReplaceAll(out, esc, "[REDACTED]")
+		}
+	}
+	return out
+}
+
+type redactedSearchError struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedSearchError) Error() string        { return e.msg }
+func (e *redactedSearchError) Is(target error) bool { return errors.Is(e.cause, target) }
+
+func redactSearchError(err error, secrets ...string) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	redacted := redactSecretText(raw, secrets...)
+	if redacted == raw {
+		return err
+	}
+	return &redactedSearchError{msg: redacted, cause: err}
+}
+
+type cappedReadCloser struct {
+	body      io.ReadCloser
+	remaining int64
+	limit     int64
+}
+
+func newCappedReadCloser(body io.ReadCloser, limit int64) io.ReadCloser {
+	if limit <= 0 {
+		limit = maxJSONResponseBytes
+	}
+	return &cappedReadCloser{body: body, remaining: limit + 1, limit: limit}
+}
+
+func (c *cappedReadCloser) Read(p []byte) (int, error) {
+	if c.remaining <= 0 {
+		return 0, fmt.Errorf("%w (%d bytes)", errResponseTooLarge, c.limit)
+	}
+	if int64(len(p)) > c.remaining {
+		p = p[:c.remaining]
+	}
+	n, err := c.body.Read(p)
+	c.remaining -= int64(n)
+	if c.remaining <= 0 {
+		return 0, fmt.Errorf("%w (%d bytes)", errResponseTooLarge, c.limit)
+	}
+	return n, err
+}
+
+func (c *cappedReadCloser) Close() error {
+	return c.body.Close()
 }

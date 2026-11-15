@@ -227,7 +227,7 @@ func readZhipuResponseBody(reader io.Reader) ([]byte, error) {
 func zhipuHTTPError(statusCode int, body []byte) error {
 	var response zhipuSearchResponse
 	if err := json.Unmarshal(body, &response); err == nil && (response.Error.Code != "" || response.Error.Message != "") {
-		return fmt.Errorf("Zhipu API returned status %d (%s): %s", statusCode, response.Error.Code, response.Error.Message)
+		return fmt.Errorf("Zhipu API returned status %d (%s): %s", statusCode, errorPreviewString([]byte(response.Error.Code)), errorPreviewString([]byte(response.Error.Message)))
 	}
 	detail := errorPreviewString(body)
 

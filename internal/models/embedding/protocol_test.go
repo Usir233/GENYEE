@@ -8,11 +8,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
 	"github.com/Usir233/GENYEE/internal/models/limiter"
+	"github.com/Usir233/GENYEE/internal/models/utils/ollama"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/panjf2000/ants/v2"
 	"github.com/stretchr/testify/assert"
@@ -189,3 +191,116 @@ func TestEmbedCarriesTheQueryMark(t *testing.T) {
 	assert.Equal(t, "query", up.requests[0].body["input_type"])
 	assert.Equal(t, "passage", up.requests[1].body["input_type"])
 }
+
+func TestOllamaEmbedderEmptyBatchCountMismatchNaNAndNilPooler(t *testing.T) {
+	var embedHits atomic.Int32
+	var replyBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/":
+			w.WriteHeader(http.StatusOK)
+		case "/api/tags":
+			_, _ = fmt.Fprint(w, `{"models":[{"name":"nomic-embed-text:latest"}]}`)
+		case "/api/embed":
+			embedHits.Add(1)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprint(w, replyBody)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	t.Setenv("OLLAMA_BASE_URL", srv.URL)
+	t.Setenv("OLLAMA_OPTIONAL", "")
+	svc, err := ollama.GetOllamaService()
+	require.NoError(t, err)
+
+	emb, err := NewEmbedder(Config{
+		Source:    types.ModelSourceLocal,
+		ModelName: "nomic-embed-text",
+	}, nil, svc)
+	require.NoError(t, err)
+
+	// 1. Empty batch must short-circuit with zero /api/embed network calls.
+	vecs, err := emb.BatchEmbed(context.Background(), nil)
+	require.NoError(t, err)
+	require.Nil(t, vecs)
+	require.Zero(t, embedHits.Load(), "empty batch should not hit /api/embed")
+
+	// 2. Empty embeddings response must return a real error without %!w(<nil>).
+	replyBody = `{"embeddings":[]}`
+	_, err = emb.Embed(context.Background(), "hello")
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), "%!w(<nil>)")
+
+	_, err = emb.BatchEmbed(context.Background(), []string{"a", "b"})
+	require.Error(t, err, "BatchEmbed must reject vector count mismatch")
+
+	// 3. Ragged vectors must be rejected.
+	replyBody = `{"embeddings":[[0.1,0.2],[0.3]]}`
+	_, err = emb.BatchEmbed(context.Background(), []string{"a", "b"})
+	require.Error(t, err, "BatchEmbed must reject ragged dimensions")
+
+	// 4. Nil pooler fallback must not panic when BatchEmbedWithPool is called.
+	replyBody = `{"embeddings":[[0.5,0.6]]}`
+	require.NotPanics(t, func() {
+		vecs, err = emb.BatchEmbedWithPool(context.Background(), emb, []string{"ok"})
+	})
+	require.NoError(t, err)
+	require.Equal(t, [][]float32{{0.5, 0.6}}, vecs)
+}
+
+func TestRemoteProtocolsRejectNaNEmptyAndRaggedVectors(t *testing.T) {
+	allowLoopback(t)
+	saved := retryPolicy
+	retryPolicy = func() api.RetryPolicy { return api.RetryPolicy{} }
+	t.Cleanup(func() { retryPolicy = saved })
+
+	t.Run("gemini rejects empty vector values", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = fmt.Fprint(w, `{"embeddings":[{"values":[]}]}`)
+		}))
+		defer srv.Close()
+
+		emb, err := newEmbedder(Config{
+			Source: types.ModelSourceRemote, Provider: "gemini",
+			BaseURL: srv.URL, ModelName: "gemini-embedding-001", APIKey: "k",
+		}, nil, nil)
+		require.NoError(t, err)
+
+		_, err = emb.BatchEmbed(context.Background(), []string{"hello"})
+		require.Error(t, err)
+	})
+
+	t.Run("ark rejects ragged vectors across requests", func(t *testing.T) {
+		var call atomic.Int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if call.Add(1) == 1 {
+				_, _ = fmt.Fprint(w, `{"data":{"embedding":[0.1,0.2]}}`)
+				return
+			}
+			_, _ = fmt.Fprint(w, `{"data":{"embedding":[0.1,0.2,0.3]}}`)
+		}))
+		defer srv.Close()
+
+		emb, err := newEmbedder(Config{
+			Source: types.ModelSourceRemote, Provider: "volcengine",
+			BaseURL: srv.URL, ModelName: "doubao-embedding-vision-251215", APIKey: "k",
+		}, nil, nil)
+		require.NoError(t, err)
+
+		_, err = emb.BatchEmbed(context.Background(), []string{"first", "second"})
+		require.Error(t, err)
+
+		// Nil pooler fallback on protocolEmbedder must also not panic.
+		call.Store(0)
+		var single [][]float32
+		require.NotPanics(t, func() {
+			single, err = emb.BatchEmbedWithPool(context.Background(), emb, []string{"only-one"})
+		})
+		require.NoError(t, err)
+		require.Equal(t, [][]float32{{0.1, 0.2}}, single)
+	})
+}
+

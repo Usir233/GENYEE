@@ -1,6 +1,7 @@
 package web_search
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -96,10 +97,15 @@ func (p *DuckDuckGoProvider) searchHTML(
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		return nil, fmt.Errorf("duckduckgo HTML returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("duckduckgo HTML returned status %d: %s", resp.StatusCode, readErrorPreview(resp.Body))
 	}
 
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	bodyBytes, err := readCapped(resp.Body, 0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read HTML response: %w", err)
+	}
+
+	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(bodyBytes))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse HTML: %w", err)
 	}

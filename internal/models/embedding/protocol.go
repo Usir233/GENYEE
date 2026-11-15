@@ -129,6 +129,16 @@ func (e *protocolEmbedder) GetModelName() string { return e.modelName }
 func (e *protocolEmbedder) GetModelID() string   { return e.modelID }
 func (e *protocolEmbedder) GetDimensions() int   { return e.dimensions }
 
+func (e *protocolEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, texts []string) ([][]float32, error) {
+	if e != nil && e.EmbedderPooler != nil {
+		return e.EmbedderPooler.BatchEmbedWithPool(ctx, model, texts)
+	}
+	if model != nil && model != Embedder(e) {
+		return model.BatchEmbed(ctx, texts)
+	}
+	return e.BatchEmbed(ctx, texts)
+}
+
 func (e *protocolEmbedder) Embed(ctx context.Context, text string) ([]float32, error) {
 	vectors, err := e.BatchEmbed(ctx, []string{text})
 	if err != nil {
@@ -165,6 +175,9 @@ func (e *protocolEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]
 			)
 		}
 		copy(out[batch.Start:], vectors)
+	}
+	if err := api.ValidateEmbeddingVectors(out); err != nil {
+		return nil, fmt.Errorf("%s embedding: %w", e.modelName, err)
 	}
 	return out, nil
 }
@@ -210,6 +223,9 @@ func (e *protocolEmbedder) BatchEmbedImages(ctx context.Context, images []Image)
 			)
 		}
 		copy(out[start:], vectors)
+	}
+	if err := api.ValidateEmbeddingVectors(out); err != nil {
+		return nil, fmt.Errorf("%s embedding: %w", e.modelName, err)
 	}
 	return out, nil
 }

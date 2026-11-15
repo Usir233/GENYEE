@@ -3,6 +3,8 @@ package langfuse
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"sync/atomic"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -23,6 +25,7 @@ type Trace struct {
 	// metadata holds the metadata set at StartTrace so Finish can merge (not
 	// overwrite) the finish-time metadata into it before serializing.
 	metadata map[string]interface{}
+	finished atomic.Bool
 }
 
 // Generation represents a single model invocation (LLM / embedding / VLM / ASR).
@@ -35,6 +38,7 @@ type Generation struct {
 	// autoTrace is a non-nil root trace this generation implicitly opened
 	// because ctx carried none; Finish must End it so the root is exported.
 	autoTrace *Trace
+	finished  atomic.Bool
 }
 
 // Span represents a logical unit of work that isn't itself an LLM call — for
@@ -52,6 +56,7 @@ type Span struct {
 	// autoTrace is a non-nil root trace this span implicitly opened because
 	// ctx carried none; Finish must End it so the root is exported.
 	autoTrace *Trace
+	finished  atomic.Bool
 }
 
 // TraceOptions configures a new trace.
@@ -116,13 +121,14 @@ func (m *Manager) StartTrace(ctx context.Context, opts TraceOptions) (context.Co
 	if rel != "" {
 		attrs = append(attrs, attribute.String(attrRelease, rel))
 	}
+	clonedMeta := cloneMetadataMap(opts.Metadata)
 	attrs = append(attrs, jsonAttr(attrTraceInput, opts.Input))
-	attrs = append(attrs, jsonAttr(attrTraceMetadata, opts.Metadata))
+	attrs = append(attrs, jsonAttr(attrTraceMetadata, clonedMeta))
 	if len(opts.Tags) > 0 {
 		attrs = append(attrs, jsonAttr(attrTraceTags, opts.Tags))
 	}
 	ctx, span := m.tracer.Start(ctx, name, trace.WithTimestamp(time.Now()), trace.WithAttributes(attrs...))
-	t := &Trace{ID: span.SpanContext().TraceID().String(), span: span, manager: m, metadata: opts.Metadata}
+	t := &Trace{ID: span.SpanContext().TraceID().String(), span: span, manager: m, metadata: clonedMeta}
 	return withTrace(ctx, t), t
 }
 
@@ -133,6 +139,9 @@ func (m *Manager) StartTrace(ctx context.Context, opts TraceOptions) (context.Co
 // both the open's correlation and the finish outcome survive.
 func (t *Trace) Finish(output interface{}, metadata map[string]interface{}) {
 	if t == nil || t.manager == nil || !t.manager.Enabled() || t.span == nil {
+		return
+	}
+	if !t.finished.CompareAndSwap(false, true) {
 		return
 	}
 	attrs := []attribute.KeyValue{jsonAttr(attrTraceOutput, output)}
@@ -226,10 +235,11 @@ func (m *Manager) startSpan(ctx context.Context, opts SpanOptions, createTrace b
 		// never exported and this span's parent points at a missing span.
 		ctx, autoTrace = m.StartTrace(ctx, TraceOptions{Name: opts.Name})
 	}
+	clonedMeta := cloneMetadataMap(opts.Metadata)
 	attrs := []attribute.KeyValue{
 		attribute.String(attrObsType, obsTypeSpan),
 		jsonAttr(attrObsInput, opts.Input),
-		jsonAttr(attrObsMetadata, opts.Metadata),
+		jsonAttr(attrObsMetadata, clonedMeta),
 	}
 	ctx, span := m.tracer.Start(ctx, opts.Name, trace.WithTimestamp(time.Now()), trace.WithAttributes(attrs...))
 	return ctx, &Span{
@@ -237,7 +247,7 @@ func (m *Manager) startSpan(ctx context.Context, opts SpanOptions, createTrace b
 		span:      span,
 		manager:   m,
 		name:      opts.Name,
-		metadata:  opts.Metadata,
+		metadata:  clonedMeta,
 		autoTrace: autoTrace,
 	}
 }
@@ -252,14 +262,18 @@ func (s *Span) Finish(output interface{}, metadata map[string]interface{}, err e
 	if s == nil || s.manager == nil || !s.manager.Enabled() || s.span == nil {
 		return
 	}
+	if !s.finished.CompareAndSwap(false, true) {
+		return
+	}
 	attrs := []attribute.KeyValue{jsonAttr(attrObsOutput, output)}
 	if merged := mergeMetadata(s.metadata, metadata); merged != nil {
 		attrs = append(attrs, jsonAttr(attrObsMetadata, merged))
 	}
 	s.span.SetAttributes(attrs...)
 	if err != nil {
-		s.span.RecordError(err)
-		s.span.SetStatus(codes.Error, err.Error())
+		msg := redactLangfuseText(err.Error())
+		s.span.RecordError(errors.New(msg))
+		s.span.SetStatus(codes.Error, msg)
 	}
 	s.span.End()
 	if s.autoTrace != nil {
@@ -307,19 +321,34 @@ func (g *Generation) Finish(output interface{}, usage *TokenUsage, err error) {
 	if g == nil || g.manager == nil || !g.manager.Enabled() || g.span == nil {
 		return
 	}
+	if !g.finished.CompareAndSwap(false, true) {
+		return
+	}
 	attrs := []attribute.KeyValue{jsonAttr(attrObsOutput, output)}
 	if usage != nil {
 		attrs = append(attrs, jsonAttr(attrObsUsageDetails, usage))
 	}
 	g.span.SetAttributes(attrs...)
 	if err != nil {
-		g.span.RecordError(err)
-		g.span.SetStatus(codes.Error, err.Error())
+		msg := redactLangfuseText(err.Error())
+		g.span.RecordError(errors.New(msg))
+		g.span.SetStatus(codes.Error, msg)
 	}
 	g.span.End()
 	if g.autoTrace != nil {
 		g.autoTrace.Finish(nil, nil)
 	}
+}
+
+func cloneMetadataMap(in map[string]interface{}) map[string]interface{} {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]interface{}, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
 }
 
 // MarkCompletionStart records the time at which the first token was received

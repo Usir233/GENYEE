@@ -1,6 +1,7 @@
 package api
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -41,3 +42,19 @@ func TestPlaceEmbeddingsRefusesAReplyThatDoesNotCoverEachInputOnce(t *testing.T)
 		})
 	}
 }
+
+func TestPlaceEmbeddingsRefusesNaNInfAndRaggedDimensions(t *testing.T) {
+	cases := map[string][]placed{
+		"nan component":     {{0, []float32{1, float32(math.NaN())}}, {1, []float32{1, 2}}},
+		"pos inf component": {{0, []float32{1, 2}}, {1, []float32{float32(math.Inf(1)), 2}}},
+		"neg inf component": {{0, []float32{float32(math.Inf(-1)), 2}}, {1, []float32{1, 2}}},
+		"ragged dimension":  {{0, []float32{1, 2, 3}}, {1, []float32{1, 2}}},
+	}
+	for name, reply := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := place(2, reply)
+			require.Error(t, err)
+		})
+	}
+}
+

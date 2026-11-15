@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Usir233/GENYEE/internal/models/api"
 	"github.com/Usir233/GENYEE/internal/tracing/langfuse"
 	"github.com/Usir233/GENYEE/internal/types"
 )
@@ -86,6 +87,7 @@ func (l *langfuseChat) ChatStream(ctx context.Context, messages []Message, opts 
 		var firstToken bool
 		var streamErr error
 
+		streamLoop:
 		for resp := range ch {
 			if resp.ResponseType == types.ResponseTypeError {
 				streamErr = fmt.Errorf("%s", resp.Content)
@@ -117,7 +119,18 @@ func (l *langfuseChat) ChatStream(ctx context.Context, messages []Message, opts 
 			if resp.FinishReason != "" {
 				finishReason = resp.FinishReason
 			}
-			wrapped <- resp
+			select {
+			case wrapped <- resp:
+			case <-ctx.Done():
+				if streamErr == nil {
+					streamErr = ctx.Err()
+				}
+				go func() {
+					for range ch {
+					}
+				}()
+				break streamLoop
+			}
 		}
 
 		output := buildLangfuseGenerationOutput(
@@ -184,7 +197,7 @@ func buildLangfuseMessages(messages []Message) []map[string]interface{} {
 			entry["content"] = m.Content
 		}
 		if len(m.MultiContent) > 0 {
-			entry["content"] = m.MultiContent
+			entry["content"] = sanitizeLangfuseMultiContent(m.MultiContent)
 		}
 		if len(m.Images) > 0 {
 			images := make([]string, len(m.Images))
@@ -218,6 +231,19 @@ func describeLangfuseImage(img string) string {
 	}
 	mediaType, _, _ := strings.Cut(strings.TrimPrefix(img, "data:"), ";")
 	return fmt.Sprintf("data:%s (%d KB)", mediaType, (len(img)+1023)/1024)
+}
+
+func sanitizeLangfuseMultiContent(parts []api.MessageContentPart) []api.MessageContentPart {
+	sanitized := make([]api.MessageContentPart, len(parts))
+	for i, part := range parts {
+		if part.ImageURL != nil {
+			imgCopy := *part.ImageURL
+			imgCopy.URL = describeLangfuseImage(imgCopy.URL)
+			part.ImageURL = &imgCopy
+		}
+		sanitized[i] = part
+	}
+	return sanitized
 }
 
 func buildLangfuseGenerationOutput(

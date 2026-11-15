@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -124,14 +123,15 @@ func (p *BaiduProvider) doSearch(ctx context.Context, req *http.Request, include
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 2<<20)) // 2MB limit
-	if err != nil {
-		return nil, err
+	if resp.StatusCode != http.StatusOK {
+		preview := readErrorPreview(resp.Body)
+		logger.Warnf(ctx, "[WebSearch][Baidu] API returned status %d: %s", resp.StatusCode, preview)
+		return nil, fmt.Errorf("baidu API returned status %d: %s", resp.StatusCode, preview)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		logger.Warnf(ctx, "[WebSearch][Baidu] API returned status %d: %s", resp.StatusCode, string(body))
-		return nil, fmt.Errorf("baidu API returned status %d: %s", resp.StatusCode, string(body))
+	body, err := readCapped(resp.Body, 0)
+	if err != nil {
+		return nil, err
 	}
 
 	var respData baiduSearchResponse
@@ -141,7 +141,7 @@ func (p *BaiduProvider) doSearch(ctx context.Context, req *http.Request, include
 
 	// Check for API-level error (returned with 200 status)
 	if respData.Code != 0 {
-		return nil, fmt.Errorf("baidu API error (code %d): %s", respData.Code, respData.Message)
+		return nil, fmt.Errorf("baidu API error (code %d): %s", respData.Code, errorPreviewString([]byte(respData.Message)))
 	}
 
 	results := make([]*types.WebSearchResult, 0, len(respData.References))

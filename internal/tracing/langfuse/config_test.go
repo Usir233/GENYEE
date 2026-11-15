@@ -1,6 +1,9 @@
 package langfuse
 
 import (
+	"math"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -95,5 +98,63 @@ func TestConfigValidate(t *testing.T) {
 				t.Fatalf("err=%v wantErr=%v", err, tc.wantErr)
 			}
 		})
+	}
+}
+
+func TestConfigValidateNormalizeAndReinitShutdown(t *testing.T) {
+	badCases := []Config{
+		{Enabled: true, Host: "ftp://langfuse.example.com"},
+		{Enabled: true, Host: "://bad-url"},
+		{Enabled: true, Host: "langfuse.example.com"},
+		{Enabled: true, Host: "https://x", SampleRate: -0.1},
+		{Enabled: true, Host: "https://x", SampleRate: 1.5},
+		{Enabled: true, Host: "https://x", SampleRate: math.NaN()},
+		{Enabled: true, Host: "https://x", SampleRate: math.Inf(1)},
+	}
+	for i, cfg := range badCases {
+		if err := cfg.Validate(); err == nil {
+			t.Fatalf("case %d (%+v): expected validation error, got nil", i, cfg)
+		}
+	}
+
+	t.Setenv("LANGFUSE_HOST", "https://example.langfuse.com")
+	t.Setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
+	t.Setenv("LANGFUSE_SECRET_KEY", "sk-test")
+	t.Setenv("LANGFUSE_QUEUE_SIZE", "999999999")
+	t.Setenv("LANGFUSE_FLUSH_AT", "999999999")
+	envCfg := LoadConfigFromEnv()
+	if envCfg.QueueSize <= 0 || envCfg.QueueSize > 65536 {
+		t.Fatalf("expected bounded QueueSize <= 65536, got %d", envCfg.QueueSize)
+	}
+	if envCfg.FlushAt <= 0 || envCfg.FlushAt > envCfg.QueueSize {
+		t.Fatalf("expected bounded FlushAt <= QueueSize (%d), got %d", envCfg.QueueSize, envCfg.FlushAt)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	m1, err := Init(Config{
+		Enabled: true,
+		Host:    srv.URL,
+	})
+	if err != nil {
+		t.Fatalf("Init programmatic defaults failed: %v", err)
+	}
+	if m1.cfg.QueueSize != 2048 || m1.cfg.FlushAt != 15 || m1.cfg.SampleRate != 1.0 || m1.cfg.FlushInterval != 3*time.Second {
+		t.Fatalf("programmatic Init did not normalize zero-value defaults: %+v", m1.cfg)
+	}
+	if !m1.Enabled() {
+		t.Fatal("expected m1 to be enabled")
+	}
+
+	// Re-initializing global singleton must shut down the replaced BatchSpanProcessor manager.
+	_, err = Init(Config{Enabled: false})
+	if err != nil {
+		t.Fatalf("re-Init disabled failed: %v", err)
+	}
+	if m1.Enabled() {
+		t.Fatal("expected replaced manager m1 to be shut down on re-Init")
 	}
 }

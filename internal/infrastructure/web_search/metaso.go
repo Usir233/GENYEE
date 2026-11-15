@@ -167,7 +167,7 @@ func metasoHTTPError(statusCode int, body []byte) error {
 			detail = strings.TrimSpace(apiError.Error)
 		}
 		if detail != "" {
-			return fmt.Errorf("Metaso API returned status %d: %s", statusCode, detail)
+			return fmt.Errorf("Metaso API returned status %d: %s", statusCode, errorPreviewString([]byte(detail)))
 		}
 	}
 	detail := errorPreviewString(body)

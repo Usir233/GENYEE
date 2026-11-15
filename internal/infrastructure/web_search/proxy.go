@@ -16,7 +16,7 @@ func ValidateProxyURL(proxyURL string) error {
 	if proxyURL == "" {
 		return nil
 	}
-	return utils.ValidateURLForSSRF(proxyURL)
+	return redactSearchError(utils.ValidateURLForSSRF(proxyURL))
 }
 
 // NewSearchHTTPClient builds an http.Client for outbound web search requests.
@@ -37,7 +37,7 @@ func NewSearchHTTPClient(timeout time.Duration, proxyURL string) (*http.Client, 
 		}
 		u, err := url.Parse(proxyURL)
 		if err != nil {
-			return nil, fmt.Errorf("invalid proxy_url: %w", err)
+			return nil, fmt.Errorf("invalid proxy_url: %w", redactSearchError(err))
 		}
 		if u.Scheme == "" || u.Host == "" {
 			return nil, fmt.Errorf("invalid proxy_url: scheme and host are required")

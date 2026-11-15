@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"math"
 )
 
 // EmbeddingAPI names an embedding wire protocol. Like RerankAPI it is its own
@@ -111,5 +112,32 @@ func PlaceEmbeddings(want, got int, at func(i int) (int, []float32)) ([][]float3
 			return nil, fmt.Errorf("no embedding returned for input %d of %d", i, want)
 		}
 	}
+	if err := ValidateEmbeddingVectors(out); err != nil {
+		return nil, err
+	}
 	return out, nil
+}
+
+// ValidateEmbeddingVectors verifies that every returned vector in a batch is
+// non-empty, contains only finite numbers (no NaN/Inf), and shares a uniform
+// vector dimension across the batch.
+func ValidateEmbeddingVectors(vectors [][]float32) error {
+	if len(vectors) == 0 {
+		return nil
+	}
+	expectedDim := len(vectors[0])
+	for i, vector := range vectors {
+		if len(vector) == 0 {
+			return fmt.Errorf("no embedding returned for input %d of %d", i, len(vectors))
+		}
+		if len(vector) != expectedDim {
+			return fmt.Errorf("embedding dimension mismatch at input %d: got %d, want %d", i, len(vector), expectedDim)
+		}
+		for j, v := range vector {
+			if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) {
+				return fmt.Errorf("non-finite embedding value at input %d[%d]", i, j)
+			}
+		}
+	}
+	return nil
 }

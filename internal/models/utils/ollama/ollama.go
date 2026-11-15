@@ -4,12 +4,14 @@ package ollama
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -29,19 +31,21 @@ type OllamaService struct {
 
 // GetOllamaService gets Ollama service instance (singleton pattern)
 func GetOllamaService() (*OllamaService, error) {
-	// Get Ollama base URL from environment variable, if not set use provided baseURL or default value
-	logger.GetLogger(context.Background()).Infof("Ollama base URL: %s", os.Getenv("OLLAMA_BASE_URL"))
 	baseURL := "http://localhost:11434"
-	envURL := os.Getenv("OLLAMA_BASE_URL")
-	if envURL != "" {
+	if envURL := strings.TrimSpace(os.Getenv("OLLAMA_BASE_URL")); envURL != "" {
 		baseURL = envURL
 	}
 
-	// Create URL object
 	parsedURL, err := url.Parse(baseURL)
 	if err != nil {
-		return nil, fmt.Errorf("invalid Ollama service URL: %w", err)
+		return nil, fmt.Errorf("invalid Ollama service URL: %w", redactOllamaError(err))
 	}
+	scheme := strings.ToLower(parsedURL.Scheme)
+	if (scheme != "http" && scheme != "https") || strings.TrimSpace(parsedURL.Host) == "" {
+		return nil, fmt.Errorf("invalid Ollama service URL: scheme must be http or https and host is required")
+	}
+
+	logger.GetLogger(context.Background()).Infof("Ollama base URL: %s", redactOllamaURL(parsedURL))
 
 	// Dedicated HTTP client for Ollama instead of http.DefaultClient.
 	// - Dial timeout prevents hanging when Ollama process is down or port unreachable
@@ -53,6 +57,7 @@ func GetOllamaService() (*OllamaService, error) {
 			IdleConnTimeout:     90 * time.Second,
 			MaxIdleConns:        10,
 		},
+		CheckRedirect: ollamaCheckRedirect,
 	}
 	client := api.NewClient(parsedURL, ollamaHTTPClient)
 
@@ -65,19 +70,81 @@ func GetOllamaService() (*OllamaService, error) {
 
 	service := &OllamaService{
 		client:     client,
-		baseURL:    baseURL,
+		baseURL:    redactOllamaURL(parsedURL),
 		isOptional: isOptional,
 	}
 
 	return service, nil
 }
 
+var (
+	ollamaUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	ollamaQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password)=)[^&\s"']+`)
+)
+
+func redactOllamaURL(u *url.URL) string {
+	if u == nil {
+		return ""
+	}
+	cloned := *u
+	if cloned.User != nil {
+		if _, hasPass := cloned.User.Password(); hasPass {
+			cloned.User = url.UserPassword(cloned.User.Username(), "REDACTED")
+		}
+	}
+	return ollamaQuerySecretRE.ReplaceAllString(cloned.String(), "${1}[REDACTED]")
+}
+
+type redactedOllamaErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedOllamaErr) Error() string        { return e.msg }
+func (e *redactedOllamaErr) Is(target error) bool { return errors.Is(e.cause, target) }
+
+func redactOllamaError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	redacted := ollamaUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	redacted = ollamaQuerySecretRE.ReplaceAllString(redacted, "${1}[REDACTED]")
+	if redacted == raw {
+		return err
+	}
+	return &redactedOllamaErr{msg: redacted, cause: err}
+}
+
+func ollamaCheckRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 5 {
+		return fmt.Errorf("stopped after 5 redirects")
+	}
+	scheme := strings.ToLower(req.URL.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("redirect blocked: unsupported scheme %s", scheme)
+	}
+	if len(via) > 0 && (!strings.EqualFold(via[0].URL.Scheme, req.URL.Scheme) || !strings.EqualFold(via[0].URL.Host, req.URL.Host)) {
+		if via[0].Method != http.MethodGet && via[0].Method != http.MethodHead {
+			return fmt.Errorf("cross-origin redirect replay is forbidden")
+		}
+		req.Header.Del("Authorization")
+		req.Header.Del("Cookie")
+		req.Header.Del("Proxy-Authorization")
+		req.URL.User = nil
+	}
+	return nil
+}
+
 // StartService checks if Ollama service is available
 func (s *OllamaService) StartService(ctx context.Context) error {
+	if s == nil || s.client == nil {
+		return fmt.Errorf("ollama service is not initialized")
+	}
 	// Network IO belongs to this caller's context, not the shared state lock.
 	// A slow health check must not block another caller's cancellation or
 	// readers of the last completed availability result.
-	err := s.client.Heartbeat(ctx)
+	err := redactOllamaError(s.client.Heartbeat(ctx))
 	s.mu.Lock()
 	s.isAvailable = err == nil
 	s.mu.Unlock()
@@ -373,8 +440,24 @@ func (s *OllamaService) Generate(ctx context.Context, req *api.GenerateRequest, 
 		return err
 	}
 
-	// Use official client Generate method
-	return s.client.Generate(ctx, req, fn)
+	completed := false
+	err := s.client.Generate(ctx, req, func(resp api.GenerateResponse) error {
+		completed = completed || resp.Done
+		if fn == nil {
+			return nil
+		}
+		return fn(resp)
+	})
+	if err != nil {
+		return redactOllamaError(err)
+	}
+	if !completed {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		return fmt.Errorf("ollama generate ended before done: %w", io.ErrUnexpectedEOF)
+	}
+	return nil
 }
 
 // GetClient returns the underlying ollama client for advanced operations

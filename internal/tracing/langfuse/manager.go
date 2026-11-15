@@ -2,8 +2,10 @@ package langfuse
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/Usir233/GENYEE/internal/logger"
 	"go.opentelemetry.io/otel/attribute"
@@ -51,6 +53,9 @@ func Init(cfg Config) (*Manager, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
+	if cfg.Enabled {
+		cfg = normalizeConfig(cfg)
+	}
 	m := &Manager{cfg: cfg}
 	if cfg.Enabled {
 		resAttrs := []attribute.KeyValue{
@@ -74,7 +79,7 @@ func Init(cfg Config) (*Manager, error) {
 		} else {
 			exp, err := newExporter(context.Background(), cfg)
 			if err != nil {
-				return nil, err
+				return nil, errors.New(redactLangfuseText(err.Error()))
 			}
 			sp = sdktrace.NewBatchSpanProcessor(exp,
 				sdktrace.WithBatchTimeout(cfg.FlushInterval),
@@ -98,13 +103,20 @@ func Init(cfg Config) (*Manager, error) {
 	}
 
 	globalMu.Lock()
+	old := global
 	global = m
 	globalMu.Unlock()
+
+	if old != nil && old != m && old.cfg.testExporter == nil && old.Enabled() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		_ = old.Shutdown(shutdownCtx)
+		cancel()
+	}
 
 	if cfg.Enabled {
 		logger.Infof(context.Background(),
 			"[Langfuse] enabled host=%s flush_at=%d flush_interval=%s sample_rate=%.2f (OTLP/OTel SDK)",
-			cfg.Host, cfg.FlushAt, cfg.FlushInterval, cfg.SampleRate,
+			redactLangfuseText(cfg.Host), cfg.FlushAt, cfg.FlushInterval, cfg.SampleRate,
 		)
 	}
 	return m, nil

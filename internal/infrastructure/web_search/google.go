@@ -3,6 +3,9 @@ package web_search
 import (
 	"context"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
 	"time"
 
 	"google.golang.org/api/customsearch/v1"
@@ -20,13 +23,40 @@ type GoogleProvider struct {
 	engineID string
 }
 
+type googleAPIKeyTransport struct {
+	base   http.RoundTripper
+	apiKey string
+}
+
+func (t *googleAPIKeyTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	cloned := req.Clone(req.Context())
+	q := cloned.URL.Query()
+	q.Set("key", t.apiKey)
+	cloned.URL.RawQuery = q.Encode()
+
+	resp, err := t.base.RoundTrip(cloned)
+	if err != nil {
+		return nil, redactSearchError(err, t.apiKey)
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		preview := redactSecretText(readErrorPreview(resp.Body), t.apiKey)
+		_ = resp.Body.Close()
+		resp.Body = io.NopCloser(strings.NewReader(preview))
+		return resp, nil
+	}
+	resp.Body = newCappedReadCloser(resp.Body, maxJSONResponseBytes)
+	return resp, nil
+}
+
 // NewGoogleProvider creates a new Google provider from parameters (no environment variables).
 // The API endpoint is the official Google Custom Search endpoint — not tenant-configurable.
 func NewGoogleProvider(params types.WebSearchProviderParameters) (interfaces.WebSearcher, error) {
-	if params.APIKey == "" {
+	apiKey := strings.TrimSpace(params.APIKey)
+	if apiKey == "" {
 		return nil, fmt.Errorf("API key is required for Google provider")
 	}
-	if params.EngineID == "" {
+	engineID := strings.TrimSpace(params.EngineID)
+	if engineID == "" {
 		return nil, fmt.Errorf("engine ID is required for Google provider")
 	}
 
@@ -34,18 +64,24 @@ func NewGoogleProvider(params types.WebSearchProviderParameters) (interfaces.Web
 	if err != nil {
 		return nil, err
 	}
-	clientOpts := []option.ClientOption{
-		option.WithAPIKey(params.APIKey),
-		option.WithHTTPClient(httpClient),
+	// Official Google CSE endpoint never requires following redirects; blocking
+	// redirects ensures the API key query parameter cannot be forwarded elsewhere.
+	httpClient.CheckRedirect = func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
 	}
-	srv, err := customsearch.NewService(context.Background(), clientOpts...)
+	httpClient.Transport = &googleAPIKeyTransport{
+		base:   httpClient.Transport,
+		apiKey: apiKey,
+	}
+
+	srv, err := customsearch.NewService(context.Background(), option.WithHTTPClient(httpClient))
 	if err != nil {
-		return nil, err
+		return nil, redactSearchError(err, apiKey)
 	}
 	return &GoogleProvider{
 		srv:      srv,
-		apiKey:   params.APIKey,
-		engineID: params.EngineID,
+		apiKey:   apiKey,
+		engineID: engineID,
 	}, nil
 }
 
@@ -75,8 +111,9 @@ func (p *GoogleProvider) Search(
 
 	resp, err := cseCall.Do()
 	if err != nil {
-		logger.Warnf(ctx, "[WebSearch][Google] failed: %v", err)
-		return nil, err
+		safeErr := redactSearchError(err, p.apiKey)
+		logger.Warnf(ctx, "[WebSearch][Google] failed: %v", safeErr)
+		return nil, safeErr
 	}
 	results := make([]*types.WebSearchResult, 0)
 	for _, item := range resp.Items {

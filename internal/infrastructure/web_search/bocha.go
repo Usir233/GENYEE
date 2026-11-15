@@ -179,7 +179,7 @@ func bochaHTTPError(statusCode int, body []byte) error {
 			detail = strings.TrimSpace(apiError.Msg)
 		}
 		if detail != "" {
-			return fmt.Errorf("Bocha API returned status %d: %s", statusCode, detail)
+			return fmt.Errorf("Bocha API returned status %d: %s", statusCode, errorPreviewString([]byte(detail)))
 		}
 	}
 	detail := errorPreviewString(body)

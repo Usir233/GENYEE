@@ -279,7 +279,7 @@ func parseDeepSeekDate(value string) (time.Time, bool) {
 
 func deepseekHTTPError(statusCode int, body []byte) error {
 	if message := deepseekErrorMessage(body); message != "" {
-		return fmt.Errorf("DeepSeek API returned status %d: %s", statusCode, message)
+		return fmt.Errorf("DeepSeek API returned status %d: %s", statusCode, errorPreviewString([]byte(message)))
 	}
 	detail := errorPreviewString(body)
 	if detail == "" {

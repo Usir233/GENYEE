@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/Usir233/GENYEE/internal/types"
 )
 
 // fillerReader streams size bytes without allocating them, so a test can hand an
@@ -141,3 +143,128 @@ func TestBingProviderBoundsFailedResponseInError(t *testing.T) {
 			"response is being echoed unbounded", len(err.Error()), bodySize, limit)
 	}
 }
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestDuckDuckGoHTMLRejectsOversizedBody(t *testing.T) {
+	p := &DuckDuckGoProvider{
+		client: &http.Client{
+			Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+				if req.URL.Host == "html.duckduckgo.com" {
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Header:     make(http.Header),
+						Body:       io.NopCloser(&fillerReader{remaining: maxJSONResponseBytes + (1 << 16)}),
+						Request:    req,
+					}, nil
+				}
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Header:     make(http.Header),
+					Body:       io.NopCloser(strings.NewReader(`{}`)),
+					Request:    req,
+				}, nil
+			}),
+		},
+	}
+
+	_, err := p.searchHTML(context.Background(), "golang", 3)
+	if err == nil {
+		t.Fatal("expected oversized DuckDuckGo HTML response to be rejected")
+	}
+	if !errors.Is(err, errResponseTooLarge) {
+		t.Fatalf("expected errResponseTooLarge, got: %v", err)
+	}
+}
+
+func TestBaiduAndExaProvidersRejectOversizedAndBoundFailedBodies(t *testing.T) {
+	t.Run("baidu rejects oversized 200 and bounds 502 preview", func(t *testing.T) {
+		var failMode bool
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			if failMode {
+				w.WriteHeader(http.StatusBadGateway)
+				_, _ = io.Copy(w, &fillerReader{remaining: 512 << 10})
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"references":[`))
+			_, _ = io.Copy(w, &fillerReader{remaining: maxJSONResponseBytes + (1 << 16)})
+		}))
+		defer srv.Close()
+
+		p := &BaiduProvider{client: srv.Client(), baseURL: srv.URL, apiKey: "bd-test"}
+		req, err := p.buildRequest(context.Background(), "hello", 3)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = p.doSearch(context.Background(), req, false)
+		if !errors.Is(err, errResponseTooLarge) {
+			t.Fatalf("expected errResponseTooLarge from Baidu 200 oversized body, got: %v", err)
+		}
+
+		failMode = true
+		req, err = p.buildRequest(context.Background(), "hello", 3)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = p.doSearch(context.Background(), req, false)
+		if err == nil {
+			t.Fatal("expected error from Baidu 502")
+		}
+		if len(err.Error()) > maxErrorPreviewBytes+128 {
+			t.Fatalf("Baidu failed response echoed unbounded: len=%d", len(err.Error()))
+		}
+	})
+
+	t.Run("exa rejects oversized 200 and bounds 502 preview", func(t *testing.T) {
+		var failMode bool
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			if failMode {
+				w.WriteHeader(http.StatusBadGateway)
+				_, _ = io.Copy(w, &fillerReader{remaining: 512 << 10})
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`{"results":[`))
+			_, _ = io.Copy(w, &fillerReader{remaining: maxExaResponseBytes + (1 << 16)})
+		}))
+		defer srv.Close()
+
+		p := &ExaProvider{client: srv.Client(), baseURL: srv.URL, apiKey: "exa-test"}
+		_, err := p.Search(context.Background(), types.WebSearchRequest{Query: "hello", MaxResults: 2})
+		if !errors.Is(err, errResponseTooLarge) {
+			t.Fatalf("expected errResponseTooLarge from Exa 200 oversized body, got: %v", err)
+		}
+
+		failMode = true
+		_, err = p.Search(context.Background(), types.WebSearchRequest{Query: "hello", MaxResults: 2})
+		if err == nil {
+			t.Fatal("expected error from Exa 502")
+		}
+		if len(err.Error()) > maxErrorPreviewBytes+128 {
+			t.Fatalf("Exa failed response echoed unbounded: len=%d", len(err.Error()))
+		}
+	})
+
+	t.Run("json error helpers bound oversized message fields", func(t *testing.T) {
+		hugeMsg := `{"message":"` + strings.Repeat("中", maxErrorPreviewBytes) + `","error":{"code":"500","message":"` + strings.Repeat("文", maxErrorPreviewBytes) + `"}}`
+		for name, err := range map[string]error{
+			"bocha":    bochaHTTPError(500, []byte(hugeMsg)),
+			"metaso":   metasoHTTPError(500, []byte(hugeMsg)),
+			"deepseek": deepseekHTTPError(500, []byte(hugeMsg)),
+			"zhipu":    zhipuHTTPError(500, []byte(hugeMsg)),
+		} {
+			if err == nil {
+				t.Fatalf("%s returned nil error", name)
+			}
+			if len(err.Error()) > maxErrorPreviewBytes+128 {
+				t.Errorf("%s error message unbounded: len=%d", name, len(err.Error()))
+			}
+		}
+	})
+}
+

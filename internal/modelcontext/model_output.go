@@ -174,8 +174,9 @@ func (r *sourceRegistry) modelDocumentInfoOutput(data map[string]interface{}, fa
 		if status := stringValue(row, "parse_status"); status != "" {
 			fmt.Fprintf(&b, " parse_status=\"%s\"", escapeAttr(status))
 		}
-		if updated := stringValue(row, "updated_at"); len(updated) >= 10 {
-			fmt.Fprintf(&b, " updated_at=\"%s\"", escapeAttr(updated[:10]))
+		if updated := strings.TrimSpace(stringValue(row, "updated_at")); len(updated) >= 10 {
+			prefix, _ := truncateModelEvidence(updated, 10)
+			fmt.Fprintf(&b, " updated_at=\"%s\"", escapeAttr(prefix))
 		}
 		b.WriteString(">\n")
 		if description := stringValue(row, "description"); description != "" {

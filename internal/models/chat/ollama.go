@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -27,6 +26,12 @@ type OllamaChat struct {
 
 // NewOllamaChat 创建 Ollama 聊天实例
 func NewOllamaChat(config *ChatConfig, ollamaService *ollama.OllamaService) (*OllamaChat, error) {
+	if config == nil {
+		return nil, fmt.Errorf("ollama chat config is nil")
+	}
+	if ollamaService == nil {
+		return nil, fmt.Errorf("ollama service is nil")
+	}
 	return &OllamaChat{
 		modelName:     config.ModelName,
 		modelID:       config.ModelID,
@@ -115,7 +120,10 @@ func resolveImageForOllama(ctx context.Context, imageURL string) ollamaapi.Image
 			return nil
 		}
 		defer resp.Body.Close()
-		data, err := io.ReadAll(io.LimitReader(resp.Body, 20*1024*1024))
+		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+			return nil
+		}
+		data, err := api.ReadResponseCapped(resp.Body, 20*1024*1024)
 		if err != nil {
 			return nil
 		}
@@ -259,28 +267,64 @@ func (c *OllamaChat) ChatStream(
 	go func() {
 		defer close(streamChan)
 
-		var thinking api.ThinkingEmitter
+		send := func(item types.StreamResponse) bool {
+			select {
+			case streamChan <- item:
+				return true
+			case <-ctx.Done():
+				return false
+			}
+		}
+
+		thinkingActive := false
+		emitThinking := func(content string) bool {
+			thinkingActive = true
+			return send(types.StreamResponse{
+				ResponseType: types.ResponseTypeThinking,
+				Content:      content,
+				Done:         false,
+			})
+		}
+		finishThinking := func() bool {
+			if !thinkingActive {
+				return true
+			}
+			thinkingActive = false
+			return send(types.StreamResponse{
+				ResponseType: types.ResponseTypeThinking,
+				Done:         true,
+			})
+		}
+
 		err := c.ollamaService.Chat(ctx, chatReq, func(resp ollamaapi.ChatResponse) error {
 			// 发送思考内容（支持 Qwen3、DeepSeek 等推理模型）
 			if resp.Message.Thinking != "" {
-				thinking.Emit(streamChan, resp.Message.Thinking)
+				if !emitThinking(resp.Message.Thinking) {
+					return ctx.Err()
+				}
 			}
 
 			if resp.Message.Content != "" {
 				// 思考阶段结束后，发送思考完成事件
-				thinking.Finish(streamChan)
-				streamChan <- types.StreamResponse{
+				if !finishThinking() {
+					return ctx.Err()
+				}
+				if !send(types.StreamResponse{
 					ResponseType: types.ResponseTypeAnswer,
 					Content:      resp.Message.Content,
 					Done:         false,
+				}) {
+					return ctx.Err()
 				}
 			}
 
 			if len(resp.Message.ToolCalls) > 0 {
-				streamChan <- types.StreamResponse{
+				if !send(types.StreamResponse{
 					ResponseType: types.ResponseTypeToolCall,
 					ToolCalls:    c.toolCallTo(resp.Message.ToolCalls),
 					Done:         false,
+				}) {
+					return ctx.Err()
 				}
 
 				// Ollama returns tool calls as complete objects (not incremental deltas).
@@ -299,7 +343,7 @@ func (c *OllamaChat) ChatStream(
 					switch tc.Function.Name {
 					case "thinking":
 						if thought, ok := argsMap["thought"].(string); ok && thought != "" {
-							streamChan <- types.StreamResponse{
+							if !send(types.StreamResponse{
 								ResponseType: types.ResponseTypeThinking,
 								Content:      thought,
 								Done:         false,
@@ -307,6 +351,8 @@ func (c *OllamaChat) ChatStream(
 									"source":       "thinking_tool",
 									"tool_call_id": tooli2s(tc.Function.Index),
 								},
+							}) {
+								return ctx.Err()
 							}
 						}
 					}
@@ -324,13 +370,15 @@ func (c *OllamaChat) ChatStream(
 					usage.MarkPromptCacheUnsupported()
 				}
 				api.LogUsage(ctx, c.modelName, usage)
-				streamChan <- types.StreamResponse{
+				if !send(types.StreamResponse{
 					ResponseType: types.ResponseTypeAnswer,
 					Done:         true,
 					Usage:        usage,
 					// 与非流式分支一致：透传 done_reason，否则 num_predict 打满
 					// 的截断在流式里看起来像正常结束。
 					FinishReason: resp.DoneReason,
+				}) {
+					return ctx.Err()
 				}
 			}
 
@@ -339,11 +387,11 @@ func (c *OllamaChat) ChatStream(
 		if err != nil {
 			logger.GetLogger(ctx).Errorf("流式聊天请求失败: %v", err)
 			// 发送错误响应
-			streamChan <- types.StreamResponse{
+			_ = send(types.StreamResponse{
 				ResponseType: types.ResponseTypeError,
 				Content:      err.Error(),
 				Done:         true,
-			}
+			})
 		}
 	}()
 
@@ -352,6 +400,9 @@ func (c *OllamaChat) ChatStream(
 
 // 确保模型可用
 func (c *OllamaChat) ensureModelAvailable(ctx context.Context) error {
+	if c == nil || c.ollamaService == nil {
+		return fmt.Errorf("ollama service is nil")
+	}
 	logger.GetLogger(ctx).Infof("确保模型 %s 可用", c.modelName)
 	return c.ollamaService.EnsureModelAvailable(ctx, c.modelName)
 }

@@ -229,3 +229,44 @@ func TestGinMiddlewareIgnoresOversizedMetadataHeader(t *testing.T) {
 		t.Fatal("no span exported despite oversized header (request must still be traced)")
 	}
 }
+
+func TestGinMiddlewareRedactsSensitiveQueryParams(t *testing.T) {
+	_, exp := newTestManager(t)
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(GinMiddleware())
+	r.POST("/api/v1/knowledge-chat/:id", func(c *gin.Context) {
+		c.Status(http.StatusOK)
+	})
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/knowledge-chat/sess-1?api_key=sk-secret-key-12345&access_token=tok_abc987&password=pw123&page=2&lang=zh",
+		nil,
+	)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", w.Code)
+	}
+	spans := exp.GetSpans()
+	if len(spans) == 0 {
+		t.Fatal("no span exported")
+	}
+	spanMeta := spanAttr(spans[len(spans)-1].Attributes, attrTraceMetadata)
+	for _, secret := range []string{"sk-secret-key-12345", "tok_abc987", "pw123"} {
+		if strings.Contains(spanMeta, secret) {
+			t.Fatalf("trace metadata leaked query secret %q: %s", secret, spanMeta)
+		}
+	}
+	var got map[string]interface{}
+	if err := json.Unmarshal([]byte(spanMeta), &got); err != nil {
+		t.Fatalf("metadata json: %v", err)
+	}
+	q, _ := got["http.query"].(string)
+	if !strings.Contains(q, "page=2") || !strings.Contains(q, "lang=zh") || !strings.Contains(q, "[REDACTED]") {
+		t.Fatalf("unexpected redacted http.query: %q", q)
+	}
+}

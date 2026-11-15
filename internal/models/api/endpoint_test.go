@@ -1,13 +1,17 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/stretchr/testify/require"
 )
@@ -87,3 +91,84 @@ func TestRetryAfterOnNilError(t *testing.T) {
 	require.Zero(t, e.RetryAfter())
 	require.Zero(t, (&HTTPError{StatusCode: 503}).RetryAfter())
 }
+
+type failingRoundTripper struct {
+	err error
+}
+
+func (f failingRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
+	return nil, f.err
+}
+
+func TestEndpointResolveDeterministicAndRedactsSecretsInLogsAndErrors(t *testing.T) {
+	ep := Endpoint{
+		BaseURL: "https://api.example.com/",
+		Query: map[string]string{
+			"zeta":  "3",
+			"alpha": "1",
+			"mid":   "2",
+		},
+	}
+	const wantResolved = "https://api.example.com/v1/embeddings?alpha=1&mid=2&zeta=3"
+	for i := 0; i < 30; i++ {
+		require.Equal(t, wantResolved, ep.Resolve("/v1/embeddings"))
+	}
+
+	var logBuf bytes.Buffer
+	logger.SetOutput(&logBuf)
+	defer logger.SetOutput(os.Stdout)
+
+	const (
+		urlPass = "UrlPassSecret888"
+		urlKey  = "AIzaQuerySecret777"
+		hdrKey  = "sk-header-secret-token-999"
+	)
+	LogRequest(
+		context.Background(),
+		"https://admin:"+urlPass+"@llm.example.com/v1beta/models/gemini:generateContent?key="+urlKey+"&alt=sse",
+		"gemini-pro",
+		[]byte(`{"hello":"world"}`),
+		true,
+	)
+	logged := logBuf.String()
+	require.NotContains(t, logged, urlPass)
+	require.NotContains(t, logged, urlKey)
+	require.Contains(t, logged, "alt=sse")
+
+	// TransportError redacts URL secrets and outbound auth credentials.
+	req, err := http.NewRequestWithContext(
+		context.Background(),
+		http.MethodPost,
+		"https://llm.example.com/v1?key="+urlKey,
+		strings.NewReader(`{}`),
+	)
+	require.NoError(t, err)
+	BearerAuth(hdrKey)(req, nil)
+
+	_, err = Endpoint{
+		Client: &http.Client{
+			Transport: failingRoundTripper{
+				err: errors.New("dial failed for https://admin:" + urlPass + "@llm.example.com/v1?key=" + urlKey + " auth=" + hdrKey),
+			},
+		},
+	}.Do(req)
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), urlPass)
+	require.NotContains(t, err.Error(), urlKey)
+	require.NotContains(t, err.Error(), hdrKey)
+
+	// HTTPError redacts outbound API key if upstream echoes it back.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":"invalid api key ` + r.Header.Get("Authorization") + `"}`))
+	}))
+	defer srv.Close()
+
+	httpReq, err := http.NewRequestWithContext(context.Background(), http.MethodPost, srv.URL, nil)
+	require.NoError(t, err)
+	BearerAuth(hdrKey)(httpReq, nil)
+	_, err = Endpoint{Client: srv.Client()}.Do(httpReq)
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), hdrKey)
+}
+

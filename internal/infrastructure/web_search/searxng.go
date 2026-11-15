@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -29,7 +30,34 @@ const defaultSearxngTimeout = 12 * time.Second
 type SearxngProvider struct {
 	client           *http.Client
 	baseURL          string
+	mu               sync.Mutex
 	lastUnresponsive [][]string
+}
+
+func (p *SearxngProvider) setLastUnresponsive(engines [][]string) {
+	var copied [][]string
+	if len(engines) > 0 {
+		copied = make([][]string, len(engines))
+		for i, row := range engines {
+			copied[i] = append([]string(nil), row...)
+		}
+	}
+	p.mu.Lock()
+	p.lastUnresponsive = copied
+	p.mu.Unlock()
+}
+
+func (p *SearxngProvider) getLastUnresponsive() [][]string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.lastUnresponsive) == 0 {
+		return nil
+	}
+	copied := make([][]string, len(p.lastUnresponsive))
+	for i, row := range p.lastUnresponsive {
+		copied[i] = append([]string(nil), row...)
+	}
+	return copied
 }
 
 // ValidateSearxngBaseURL validates a SearXNG instance URL: must be a non-empty,
@@ -52,7 +80,7 @@ func ValidateSearxngBaseURL(rawURL string) error {
 		return fmt.Errorf("invalid SearXNG base_url: must not contain query or fragment")
 	}
 	if err := utils.ValidateURLForSSRF(base); err != nil {
-		return fmt.Errorf("invalid SearXNG base_url: %w", err)
+		return fmt.Errorf("invalid SearXNG base_url: %w", redactSearchError(err))
 	}
 	return nil
 }
@@ -80,7 +108,7 @@ func (p *SearxngProvider) Name() string { return "searxng" }
 // EmptyResultDiagnostics explains why the most recent search returned no
 // usable results. Used by the settings "test connection" flow.
 func (p *SearxngProvider) EmptyResultDiagnostics() string {
-	if detail := formatUnresponsiveEngines(p.lastUnresponsive); detail != "" {
+	if detail := formatUnresponsiveEngines(p.getLastUnresponsive()); detail != "" {
 		return detail + "; check that upstream search engines can reach the internet"
 	}
 	return "verify the instance URL is reachable and JSON format is enabled in settings.yml"
@@ -110,23 +138,23 @@ func (p *SearxngProvider) Search(
 	q.Set("language", "all")
 
 	reqURL := p.baseURL + "/search?" + q.Encode()
-	logger.Infof(ctx, "[WebSearch][SearXNG] query=%q maxResults=%d url=%s", query, maxResults, p.baseURL)
+	logger.Infof(ctx, "[WebSearch][SearXNG] query=%q maxResults=%d url=%s", query, maxResults, redactURLForDisplay(p.baseURL))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", redactSearchError(err))
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("User-Agent", "GENYEE/1.0")
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to execute request: %w", redactSearchError(err))
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("searxng returned status %d: %s", resp.StatusCode, readErrorPreview(resp.Body))
+		return nil, fmt.Errorf("searxng returned status %d: %s", resp.StatusCode, redactSecretText(readErrorPreview(resp.Body)))
 	}
 
 	bodyBytes, err := readCapped(resp.Body, 0)
@@ -136,10 +164,10 @@ func (p *SearxngProvider) Search(
 
 	var data searxngResponse
 	if err := json.Unmarshal(bodyBytes, &data); err != nil {
-		p.lastUnresponsive = nil
+		p.setLastUnresponsive(nil)
 		return nil, fmt.Errorf("failed to decode SearXNG response (ensure JSON format is enabled in settings.yml): %w", err)
 	}
-	p.lastUnresponsive = data.UnresponsiveEngines
+	p.setLastUnresponsive(data.UnresponsiveEngines)
 
 	results := make([]*types.WebSearchResult, 0, maxResults)
 	for _, r := range data.Results {

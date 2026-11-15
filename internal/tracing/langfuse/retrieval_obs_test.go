@@ -2,6 +2,7 @@ package langfuse
 
 import (
 	"fmt"
+	"math"
 	"testing"
 
 	"github.com/Usir233/GENYEE/internal/types"
@@ -106,5 +107,50 @@ func TestRetrievalPreviewsPreserveImageSourceAndRawVectorScore(t *testing.T) {
 	groupHit := groups[0]["top_hits"].([]map[string]interface{})[0]
 	if groupHit["source_type"] != types.ImageSourceType || groupHit["vector_score"] != "0.2688" {
 		t.Fatalf("per-retriever image identity/raw score lost: %#v", groupHit)
+	}
+}
+
+func TestRetrievalObsHandlesNilElementsAndNaNScores(t *testing.T) {
+	retOut := SummarizeRetrieveOutput([]*types.RetrieveResult{
+		nil,
+		{
+			RetrieverEngineType: types.PostgresRetrieverEngineType,
+			RetrieverType:       types.VectorRetrieverType,
+			Results: []*types.IndexWithScore{
+				nil,
+				{ChunkID: "nan-hit", Score: math.NaN(), Content: "nan"},
+				{ChunkID: "good-hit", Score: 0.85, Content: "good"},
+			},
+		},
+	})
+	if retOut["total_hits"] != 2 {
+		t.Fatalf("expected total_hits=2 excluding nil hit, got %v", retOut["total_hits"])
+	}
+	retHits := retOut["top_hits"].([]map[string]interface{})
+	if len(retHits) != 2 || retHits[0]["chunk_id"] != "good-hit" {
+		t.Fatalf("expected finite score ahead of NaN, got %#v", retHits)
+	}
+
+	searchOut := SummarizeSearchResults([]*types.SearchResult{
+		nil,
+		{ID: "nan-1", Score: math.NaN(), Content: "n1"},
+		{ID: "top-1", Score: 0.91, Content: "t1"},
+		{ID: "low-1", Score: 0.12, Content: "l1"},
+		nil,
+	}, 10)
+	if searchOut["count"] != 3 {
+		t.Fatalf("expected count=3 non-nil search results, got %v", searchOut["count"])
+	}
+	topHits := searchOut["top_hits"].([]map[string]interface{})
+	if len(topHits) != 3 || topHits[0]["chunk_id"] != "top-1" || topHits[1]["chunk_id"] != "low-1" || topHits[2]["chunk_id"] != "nan-1" {
+		t.Fatalf("unexpected NaN/nil search ordering: %#v", topHits)
+	}
+
+	previews := SummarizePassagePreviews([]*types.SearchResult{
+		nil,
+		{ID: "c2", Score: 0.5},
+	}, []string{"first passage", "second passage"}, 5)
+	if len(previews) != 2 || previews[1]["chunk_id"] != "c2" {
+		t.Fatalf("unexpected passage previews with nil candidate: %#v", previews)
 	}
 }

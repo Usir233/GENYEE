@@ -3,9 +3,11 @@ package langfuse
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -482,4 +484,63 @@ func TestAttachTraceparent_LeavesExistingTrace(t *testing.T) {
 		return
 	}
 	t.Fatal("generation span not exported")
+}
+
+func TestTracerRedactsErrorSecretsAndClonesMetadataConcurrently(t *testing.T) {
+	m, exp := newTestManager(t)
+
+	traceMeta := map[string]interface{}{"request_id": "req-race"}
+	spanMeta := map[string]interface{}{"stage": "embed"}
+	ctx, tr := m.StartTrace(context.Background(), TraceOptions{Name: "race-root", Metadata: traceMeta})
+	ctx, sp := m.StartSpan(ctx, SpanOptions{Name: "secret-span", Metadata: spanMeta})
+	_, gen := m.StartGeneration(ctx, GenerationOptions{Name: "secret-gen", Model: "gpt-4o"})
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 32; i++ {
+			traceMeta[fmt.Sprintf("mut_%d", i)] = i
+			spanMeta[fmt.Sprintf("mut_%d", i)] = i
+		}
+	}()
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			gen.Finish(nil, nil, errors.New("upstream 401 with Authorization: Bearer sk-live-supersecret987654321 and key=AIzaSySecretKey1234567890"))
+			sp.Finish(nil, map[string]interface{}{"done": true}, errors.New("Post \"https://user:mySecretPass@api.example.com/v1?access_token=tok_xyz_999\": EOF"))
+			tr.Finish("ok", map[string]interface{}{"status": 500})
+		}()
+	}
+	wg.Wait()
+
+	var sawSpan, sawGen bool
+	for _, s := range exp.GetSpans() {
+		dump := s.Status.Description
+		for _, ev := range s.Events {
+			for _, kv := range ev.Attributes {
+				dump += " " + fmt.Sprint(kv.Value.AsInterface())
+			}
+		}
+		for _, secret := range []string{
+			"sk-live-supersecret987654321",
+			"AIzaSySecretKey1234567890",
+			"mySecretPass",
+			"tok_xyz_999",
+		} {
+			if strings.Contains(dump, secret) {
+				t.Fatalf("span %q leaked secret %q in error status/events: %s", s.Name, secret, dump)
+			}
+		}
+		if s.Name == "secret-span" {
+			sawSpan = true
+		}
+		if s.Name == "secret-gen" {
+			sawGen = true
+		}
+	}
+	if !sawSpan || !sawGen {
+		t.Fatalf("expected both secret-span and secret-gen exported, got span=%v gen=%v", sawSpan, sawGen)
+	}
 }

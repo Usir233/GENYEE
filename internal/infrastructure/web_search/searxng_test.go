@@ -1,6 +1,7 @@
 package web_search
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/utils"
 )
@@ -165,3 +167,90 @@ func TestSearxngProvider_Search_EmptyWithUnresponsiveEngines(t *testing.T) {
 		t.Fatalf("EmptyResultDiagnostics() = %q", got)
 	}
 }
+
+func TestSearxngProvider_ConcurrentSearchAndDiagnostics(t *testing.T) {
+	utils.ResetSSRFWhitelistForTest()
+	os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
+	defer func() {
+		os.Unsetenv("SSRF_WHITELIST")
+		utils.ResetSSRFWhitelistForTest()
+	}()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Query().Get("q") == "badjson" {
+			_, _ = w.Write([]byte(`not-json`))
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"results":              []any{},
+			"unresponsive_engines": [][]string{{"brave", "503"}, {"bing", "timeout"}},
+		})
+	}))
+	defer srv.Close()
+
+	provider, err := NewSearxngProvider(types.WebSearchProviderParameters{BaseURL: srv.URL})
+	if err != nil {
+		t.Fatalf("NewSearxngProvider: %v", err)
+	}
+	sp := provider.(*SearxngProvider)
+
+	done := make(chan struct{})
+	for i := 0; i < 6; i++ {
+		q := "ok"
+		if i%2 == 1 {
+			q = "badjson"
+		}
+		go func(query string) {
+			defer func() { done <- struct{}{} }()
+			for j := 0; j < 10; j++ {
+				_, _ = sp.Search(context.Background(), types.WebSearchRequest{Query: query, MaxResults: 1})
+				_ = sp.EmptyResultDiagnostics()
+			}
+		}(q)
+	}
+	for i := 0; i < 6; i++ {
+		<-done
+	}
+}
+
+func TestSearxngProvider_RedactsUserinfoInTransportErrors(t *testing.T) {
+	utils.ResetSSRFWhitelistForTest()
+	os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost")
+	defer func() {
+		os.Unsetenv("SSRF_WHITELIST")
+		utils.ResetSSRFWhitelistForTest()
+	}()
+
+	var logBuf bytes.Buffer
+	logger.SetOutput(&logBuf)
+	defer logger.SetOutput(os.Stdout)
+
+	closedSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
+	closedURL := strings.Replace(closedSrv.URL, "http://", "http://searxadmin:TopSecretPass123@", 1)
+	closedSrv.Close()
+
+	provider, err := NewSearxngProvider(types.WebSearchProviderParameters{BaseURL: closedURL})
+	if err != nil {
+		t.Fatalf("NewSearxngProvider: %v", err)
+	}
+	_, err = provider.Search(context.Background(), types.WebSearchRequest{Query: "hello", MaxResults: 1})
+	if err == nil {
+		t.Fatal("expected transport error on closed server")
+	}
+	if strings.Contains(err.Error(), "TopSecretPass123") {
+		t.Fatalf("transport error leaked basic auth password: %v", err)
+	}
+	if strings.Contains(logBuf.String(), "TopSecretPass123") {
+		t.Fatalf("log output leaked basic auth password: %s", logBuf.String())
+	}
+
+	_, err = NewSearchHTTPClient(0, "http://proxyadmin:ProxySecret456@127.0.0.1:badport")
+	if err == nil {
+		t.Fatal("expected invalid proxy port error")
+	}
+	if strings.Contains(err.Error(), "ProxySecret456") {
+		t.Fatalf("proxy parse error leaked password: %v", err)
+	}
+}
+

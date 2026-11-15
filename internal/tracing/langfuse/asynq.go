@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"strconv"
+	"strings"
 
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/hibiken/asynq"
@@ -166,10 +167,18 @@ func spanInputFromPayload(payload []byte) interface{} {
 		return nil
 	}
 	if len(payload) <= preview {
-		return string(payload)
+		return redactLangfuseText(strings.ToValidUTF8(string(payload), ""))
+	}
+	window := len(payload)
+	if window > preview+256 {
+		window = preview + 256
+	}
+	redacted := redactLangfuseText(trimUTF8Bytes(payload[:window]))
+	if len(redacted) > preview {
+		redacted = trimUTF8Bytes([]byte(redacted)[:preview])
 	}
 	return map[string]interface{}{
-		"preview": string(payload[:preview]) + "...",
+		"preview": redacted + "...",
 		"bytes":   len(payload),
 	}
 }

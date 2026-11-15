@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/logger"
+	"github.com/Usir233/GENYEE/internal/models/api"
 	"github.com/Usir233/GENYEE/internal/models/utils/ollama"
 	ollamaapi "github.com/ollama/ollama/api"
 )
@@ -42,6 +43,9 @@ func NewOllamaEmbedder(baseURL,
 	pooler EmbedderPooler,
 	ollamaService *ollama.OllamaService,
 ) (*OllamaEmbedder, error) {
+	if ollamaService == nil {
+		return nil, fmt.Errorf("ollama service is nil")
+	}
 	if modelName == "" {
 		modelName = "nomic-embed-text"
 	}
@@ -62,12 +66,27 @@ func NewOllamaEmbedder(baseURL,
 
 // ensureModelAvailable ensures that the model is available
 func (e *OllamaEmbedder) ensureModelAvailable(ctx context.Context) error {
+	if e == nil || e.ollamaService == nil {
+		return fmt.Errorf("ollama service is nil")
+	}
 	logger.GetLogger(ctx).Infof("Ensuring model %s is available", e.modelName)
 	return e.ollamaService.EnsureModelAvailable(ctx, e.modelName)
 }
 
 func (e *OllamaEmbedder) SetSupportsDimensionOverride(supported bool) {
 	e.supportsDimensionOverride = supported
+}
+
+// BatchEmbedWithPool delegates to the configured pooler, falling back to direct
+// BatchEmbed when no pooler was supplied.
+func (e *OllamaEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, texts []string) ([][]float32, error) {
+	if e != nil && e.EmbedderPooler != nil {
+		return e.EmbedderPooler.BatchEmbedWithPool(ctx, model, texts)
+	}
+	if model != nil && model != Embedder(e) {
+		return model.BatchEmbed(ctx, texts)
+	}
+	return e.BatchEmbed(ctx, texts)
 }
 
 // Embed converts text to vector
@@ -78,7 +97,7 @@ func (e *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 	}
 
 	if len(embedding) == 0 {
-		return nil, fmt.Errorf("failed to embed text: %w", err)
+		return nil, fmt.Errorf("failed to embed text: empty embedding response")
 	}
 
 	return embedding[0], nil
@@ -86,6 +105,9 @@ func (e *OllamaEmbedder) Embed(ctx context.Context, text string) ([]float32, err
 
 // BatchEmbed converts multiple texts to vectors in batch
 func (e *OllamaEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]float32, error) {
+	if len(texts) == 0 {
+		return nil, nil
+	}
 	// Ensure model is available
 	if err := e.ensureModelAvailable(ctx); err != nil {
 		return nil, err
@@ -113,6 +135,16 @@ func (e *OllamaEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]fl
 	resp, err := e.ollamaService.Embeddings(ctx, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get embedding vectors: %w", err)
+	}
+	if resp == nil || len(resp.Embeddings) != len(texts) {
+		got := 0
+		if resp != nil {
+			got = len(resp.Embeddings)
+		}
+		return nil, fmt.Errorf("%s embedding: %d vectors for %d inputs", e.modelName, got, len(texts))
+	}
+	if err := api.ValidateEmbeddingVectors(resp.Embeddings); err != nil {
+		return nil, fmt.Errorf("%s embedding: %w", e.modelName, err)
 	}
 
 	logger.GetLogger(ctx).Debugf("Embedding vector retrieval took: %v", time.Since(startTime))

@@ -177,3 +177,102 @@ func TestOllamaImageRequestPreservesSuccessfulInput(t *testing.T) {
 		})
 	}
 }
+
+func TestOllamaChatStreamExitsWithoutDrainOnCancelAndRejectsErrorImages(t *testing.T) {
+	t.Run("stream goroutine exits on context cancel without consumer draining", func(t *testing.T) {
+		handlerExited := make(chan struct{})
+		c := ollamaImageTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+			defer close(handlerExited)
+			w.Header().Set("Content-Type", "application/x-ndjson")
+			w.WriteHeader(http.StatusOK)
+			flusher := w.(http.Flusher)
+			_, _ = fmt.Fprintln(w, `{"message":{"role":"assistant","content":"chunk-1"},"done":false}`)
+			flusher.Flush()
+			_, _ = fmt.Fprintln(w, `{"message":{"role":"assistant","content":"chunk-2"},"done":false}`)
+			flusher.Flush()
+			<-r.Context().Done()
+		})
+
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		ch, err := c.ChatStream(ctx, []Message{{Role: "user", Content: "hi"}}, nil)
+		require.NoError(t, err)
+
+		first := <-ch
+		require.Equal(t, "chunk-1", first.Content)
+		// Consumer stops reading and cancels ctx.
+		cancel()
+
+		select {
+		case <-handlerExited:
+		case <-time.After(1 * time.Second):
+			t.Fatal("ollama /api/chat handler stayed alive after context cancel")
+		}
+		// Once handler exits, OllamaChat.ChatStream goroutine must close ch instead of deadlocking on send.
+		closed := make(chan struct{})
+		go func() {
+			for range ch {
+			}
+			close(closed)
+		}()
+		// Wait briefly BEFORE draining? No — test without reading ch by waiting for goroutine exit!
+		select {
+		case <-closed:
+		case <-time.After(1 * time.Second):
+			t.Fatal("ChatStream channel never closed")
+		}
+	})
+
+	t.Run("stream goroutine closes channel when nobody reads after cancel", func(t *testing.T) {
+		c := ollamaImageTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/x-ndjson")
+			w.WriteHeader(http.StatusOK)
+			_, _ = fmt.Fprintln(w, `{"message":{"role":"assistant","thinking":"step1"},"done":false}`)
+			_, _ = fmt.Fprintln(w, `{"message":{"role":"assistant","content":"ans"},"done":true}`)
+		})
+
+		ctx, cancel := context.WithCancel(t.Context())
+		ch, err := c.ChatStream(ctx, []Message{{Role: "user", Content: "hi"}}, nil)
+		require.NoError(t, err)
+		// Cancel immediately WITHOUT reading any item from ch.
+		cancel()
+
+		timer := time.NewTimer(500 * time.Millisecond)
+		defer timer.Stop()
+		// Wait 100ms while nobody reads, then verify ch was already closed without needing a receiver.
+		time.Sleep(100 * time.Millisecond)
+		select {
+		case _, ok := <-ch:
+			require.False(t, ok, "expected streamChan to be closed without blocking on unbuffered send")
+		case <-timer.C:
+			t.Fatal("OllamaChat.ChatStream goroutine leaked blocked on unbuffered streamChan send")
+		}
+	})
+
+	t.Run("resolveImageForOllama rejects non-2xx HTTP status", func(t *testing.T) {
+		requests := make(chan ollamaapi.ChatRequest, 1)
+		c := ollamaImageTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+			var req ollamaapi.ChatRequest
+			_ = json.NewDecoder(r.Body).Decode(&req)
+			requests <- req
+			_, _ = fmt.Fprint(w, `{"message":{"content":"ok"},"done":true}`)
+		})
+		notFoundImg := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "<html>404 Not Found</html>", http.StatusNotFound)
+		}))
+		defer notFoundImg.Close()
+
+		_, err := c.Chat(t.Context(), []Message{{Role: "user", Content: "check", Images: []string{notFoundImg.URL}}}, nil)
+		require.NoError(t, err)
+		req := <-requests
+		require.Empty(t, req.Messages[0].Images, "HTTP 404 body must not be forwarded to Ollama as image bytes")
+	})
+
+	t.Run("nil config guards return errors instead of panicking", func(t *testing.T) {
+		_, err := NewChat(nil, nil)
+		require.Error(t, err)
+		_, err = NewOllamaChat(nil, nil)
+		require.Error(t, err)
+	})
+}
+

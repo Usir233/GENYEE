@@ -135,3 +135,73 @@ func TestLangfuseChatStreamRecordsProviderError(t *testing.T) {
 		})
 	}
 }
+
+func TestLangfuseAndDebugChatStreamExitAndFinishOnContextCancel(t *testing.T) {
+	exported := make(chan *tracepb.Span, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err == nil {
+			var request collectortrace.ExportTraceServiceRequest
+			if proto.Unmarshal(body, &request) == nil {
+				for _, resource := range request.ResourceSpans {
+					for _, scope := range resource.ScopeSpans {
+						for _, span := range scope.Spans {
+							for _, attr := range span.Attributes {
+								if attr.Key == "langfuse.observation.type" && attr.Value.GetStringValue() == "generation" {
+									exported <- span
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	manager, err := langfuse.Init(langfuse.Config{
+		Enabled: true, Host: server.URL, PublicKey: "pk-test", SecretKey: "sk-test",
+		FlushAt: 1, FlushInterval: time.Hour, QueueSize: 32, RequestTimeout: time.Second, SampleRate: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = manager.Shutdown(context.Background())
+		_, _ = langfuse.Init(langfuse.Config{Enabled: false})
+	})
+
+	chunks := []types.StreamResponse{
+		{ResponseType: types.ResponseTypeAnswer, Content: "tok1"},
+		{ResponseType: types.ResponseTypeAnswer, Content: "tok2"},
+		{ResponseType: types.ResponseTypeAnswer, Done: true},
+	}
+	wrapper := &langfuseChat{
+		inner: &debugChat{
+			inner: &langfuseStreamChat{fakeChat: &fakeChat{id: "test-model"}, chunks: chunks},
+		},
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	out, err := wrapper.ChatStream(ctx, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := <-out
+	if first.Content != "tok1" {
+		t.Fatalf("unexpected first chunk: %+v", first)
+	}
+	// Cancel ctx and stop draining out; both debugChat and langfuseChat must exit and export generation span!
+	cancel()
+
+	select {
+	case span := <-exported:
+		if span.GetStatus().GetCode() != tracepb.Status_STATUS_CODE_ERROR {
+			t.Fatalf("expected cancelled stream generation status ERROR, got: %v", span.GetStatus())
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("cancelled stream deadlocked on wrapped channel send and never exported generation span")
+	}
+}
+

@@ -45,7 +45,7 @@ func NewStreamPacketDumper(modelName string, request any) *StreamPacketDumper {
 	if dir == "" {
 		return nil
 	}
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return nil
 	}
 
@@ -72,10 +72,11 @@ func NewStreamPacketDumper(modelName string, request any) *StreamPacketDumper {
 		return nil
 	}
 
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
 	if err != nil {
 		return nil
 	}
+	_ = os.Chmod(path, 0o600)
 
 	d := &StreamPacketDumper{file: f, path: path, model: modelName}
 	_ = d.writeRequest(request)
@@ -98,6 +99,9 @@ func (d *StreamPacketDumper) writeRequest(request any) error {
 func (d *StreamPacketDumper) writeLine(line []byte) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if d.file == nil {
+		return os.ErrClosed
+	}
 	if _, err := d.file.Write(line); err != nil {
 		return err
 	}
@@ -107,7 +111,7 @@ func (d *StreamPacketDumper) writeLine(line []byte) error {
 
 // WritePacketRaw appends one provider chunk as a single JSONL line (valid JSON written as-is).
 func (d *StreamPacketDumper) WritePacketRaw(raw []byte) {
-	if d == nil || d.file == nil || len(raw) == 0 {
+	if d == nil || len(raw) == 0 {
 		return
 	}
 	raw = bytesTrimSpace(raw)
@@ -117,6 +121,9 @@ func (d *StreamPacketDumper) WritePacketRaw(raw []byte) {
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	if d.file == nil {
+		return
+	}
 
 	d.seq++
 
@@ -138,7 +145,7 @@ func (d *StreamPacketDumper) WritePacketRaw(raw []byte) {
 
 // WriteError appends a terminal error record (stream read failure, API error, etc.).
 func (d *StreamPacketDumper) WriteError(message string) {
-	if d == nil || d.file == nil || strings.TrimSpace(message) == "" {
+	if d == nil || strings.TrimSpace(message) == "" {
 		return
 	}
 	line, err := json.Marshal(map[string]any{
@@ -155,7 +162,7 @@ func (d *StreamPacketDumper) WriteError(message string) {
 
 // WriteHTTPError appends a non-2xx HTTP response before any SSE packets.
 func (d *StreamPacketDumper) WriteHTTPError(statusCode int, body []byte) {
-	if d == nil || d.file == nil {
+	if d == nil {
 		return
 	}
 	entry := map[string]any{
@@ -206,7 +213,12 @@ func (d *StreamPacketDumper) Path() string {
 
 // Close flushes and closes the dump file.
 func (d *StreamPacketDumper) Close() {
-	if d == nil || d.file == nil {
+	if d == nil {
+		return
+	}
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.file == nil {
 		return
 	}
 	_ = d.file.Close()

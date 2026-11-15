@@ -12,12 +12,25 @@ package langfuse
 
 import (
 	"fmt"
+	"math"
+	"net/url"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+)
+
+const (
+	defaultLangfuseFlushAt        = 15
+	defaultLangfuseFlushInterval  = 3 * time.Second
+	defaultLangfuseQueueSize      = 2048
+	defaultLangfuseRequestTimeout = 10 * time.Second
+	maxLangfuseQueueSize          = 65536
+	maxLangfuseFlushAt            = 4096
 )
 
 // Config holds the runtime configuration for the Langfuse client.
@@ -118,6 +131,35 @@ func LoadConfigFromEnv() Config {
 		cfg.SampleRate = 1.0
 	}
 
+	return normalizeConfig(cfg)
+}
+
+func normalizeConfig(cfg Config) Config {
+	cfg.Host = strings.TrimSpace(cfg.Host)
+	cfg.PublicKey = strings.TrimSpace(cfg.PublicKey)
+	cfg.SecretKey = strings.TrimSpace(cfg.SecretKey)
+	if cfg.QueueSize <= 0 {
+		cfg.QueueSize = defaultLangfuseQueueSize
+	} else if cfg.QueueSize > maxLangfuseQueueSize {
+		cfg.QueueSize = maxLangfuseQueueSize
+	}
+	if cfg.FlushAt <= 0 {
+		cfg.FlushAt = defaultLangfuseFlushAt
+	} else if cfg.FlushAt > maxLangfuseFlushAt {
+		cfg.FlushAt = maxLangfuseFlushAt
+	}
+	if cfg.FlushAt > cfg.QueueSize {
+		cfg.FlushAt = cfg.QueueSize
+	}
+	if cfg.FlushInterval <= 0 {
+		cfg.FlushInterval = defaultLangfuseFlushInterval
+	}
+	if cfg.RequestTimeout <= 0 {
+		cfg.RequestTimeout = defaultLangfuseRequestTimeout
+	}
+	if cfg.SampleRate == 0 {
+		cfg.SampleRate = 1.0
+	}
 	return cfg
 }
 
@@ -126,8 +168,16 @@ func (c Config) Validate() error {
 	if !c.Enabled {
 		return nil
 	}
-	if strings.TrimSpace(c.Host) == "" {
+	host := strings.TrimSpace(c.Host)
+	if host == "" {
 		return fmt.Errorf("langfuse: host is required when enabled")
+	}
+	u, err := url.Parse(host)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("langfuse: host must be a valid http(s) URL")
+	}
+	if math.IsNaN(c.SampleRate) || math.IsInf(c.SampleRate, 0) || c.SampleRate < 0 || c.SampleRate > 1 {
+		return fmt.Errorf("langfuse: sample_rate must be between 0 and 1")
 	}
 	// Allow keyless standard OpenTelemetry / Jaeger collector connections.
 	// If credentials are provided, both public_key and secret_key are required.
@@ -135,6 +185,103 @@ func (c Config) Validate() error {
 		return fmt.Errorf("langfuse: both public_key and secret_key are required when credentials are provided")
 	}
 	return nil
+}
+
+var (
+	reURLUserInfo       = regexp.MustCompile(`(?i)(https?://)([^/\s@]+)@`)
+	reQuerySecretParam  = regexp.MustCompile(`(?i)([?&](?:api[_-]?key|apikey|key|access[_-]?token|refresh[_-]?token|id[_-]?token|token|client[_-]?secret|secret[_-]?key|secret|password|passwd|pwd|auth|authorization|sig|signature|x-amz-signature|x-amz-security-token)=)[^&\s"']+`)
+	reAuthHeaderScheme  = regexp.MustCompile(`(?i)\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]{6,}`)
+	reHeaderKeySecret   = regexp.MustCompile(`(?i)((?:x-api-key|api-key|authorization|proxy-authorization)\s*[:=]\s*)[^\s"',;]+`)
+	reProviderKeyToken  = regexp.MustCompile(`\b(?:sk-[A-Za-z0-9_-]{8,}|pk-lf-[A-Za-z0-9_-]{6,}|sk-lf-[A-Za-z0-9_-]{6,}|lf_[A-Za-z0-9_-]{8,}|AIza[0-9A-Za-z_-]{16,})\b`)
+	reJSONSecretKeyPair = regexp.MustCompile(`(?i)("(?:api[_-]?key|apikey|access[_-]?token|refresh[_-]?token|id[_-]?token|client[_-]?secret|secret[_-]?key|secret|password|passwd|pwd|authorization|auth[_-]?token|private[_-]?key|token)"\s*:\s*)"(?:\\.|[^"\\])*"`)
+)
+
+func isSensitiveTraceKey(rawKey string) bool {
+	k := strings.ToLower(strings.TrimSpace(rawKey))
+	if k == "" {
+		return false
+	}
+	switch k {
+	case "api_key", "apikey", "api-key", "x-api-key", "key",
+		"token", "access_token", "access-token", "refresh_token", "refresh-token", "id_token",
+		"secret", "secret_key", "secret-key", "client_secret", "client-secret", "private_key",
+		"password", "passwd", "pwd", "auth", "authorization", "cookie",
+		"sig", "signature", "x-amz-signature", "x-amz-security-token", "x-goog-signature":
+		return true
+	}
+	return strings.HasSuffix(k, "_secret") ||
+		strings.HasSuffix(k, "-secret") ||
+		strings.HasSuffix(k, "_token") ||
+		strings.HasSuffix(k, "-token") ||
+		strings.HasSuffix(k, "_password") ||
+		strings.HasSuffix(k, "-password") ||
+		strings.HasSuffix(k, "_api_key") ||
+		strings.HasSuffix(k, "_apikey")
+}
+
+func redactHTTPQuery(rawQuery string) string {
+	if rawQuery == "" {
+		return ""
+	}
+	parts := strings.Split(rawQuery, "&")
+	for i, part := range parts {
+		if part == "" {
+			continue
+		}
+		eq := strings.IndexByte(part, '=')
+		if eq < 0 {
+			if reProviderKeyToken.MatchString(part) {
+				parts[i] = "[REDACTED]"
+			}
+			continue
+		}
+		rawKey := part[:eq]
+		key, err := url.QueryUnescape(rawKey)
+		if err != nil {
+			key = rawKey
+		}
+		val := part[eq+1:]
+		if isSensitiveTraceKey(key) || reProviderKeyToken.MatchString(val) {
+			parts[i] = rawKey + "=[REDACTED]"
+		}
+	}
+	joined := strings.Join(parts, "&")
+	const maxQueryBytes = 2048
+	if len(joined) > maxQueryBytes {
+		return trimUTF8Bytes([]byte(joined)[:maxQueryBytes]) + "..."
+	}
+	return joined
+}
+
+func redactLangfuseText(s string) string {
+	if s == "" {
+		return ""
+	}
+	out := reURLUserInfo.ReplaceAllString(s, "${1}[REDACTED]@")
+	out = reQuerySecretParam.ReplaceAllString(out, "${1}[REDACTED]")
+	out = reAuthHeaderScheme.ReplaceAllString(out, "${1} [REDACTED]")
+	out = reHeaderKeySecret.ReplaceAllString(out, "${1}[REDACTED]")
+	out = reJSONSecretKeyPair.ReplaceAllString(out, `${1}"[REDACTED]"`)
+	out = reProviderKeyToken.ReplaceAllString(out, "[REDACTED]")
+	return out
+}
+
+// trimUTF8Bytes converts b to a valid UTF-8 string while dropping any
+// incomplete multi-byte rune at the end of a byte-sliced buffer.
+func trimUTF8Bytes(b []byte) string {
+	for len(b) > 0 && !utf8.Valid(b) {
+		r, size := utf8.DecodeLastRune(b)
+		if r == utf8.RuneError && size == 1 {
+			// Check whether the trailing 1..3 bytes are a valid prefix of a multi-byte UTF-8 rune.
+			b = b[:len(b)-1]
+			continue
+		}
+		break
+	}
+	if !utf8.Valid(b) {
+		return strings.ToValidUTF8(string(b), "")
+	}
+	return string(b)
 }
 
 func firstNonEmpty(values ...string) string {

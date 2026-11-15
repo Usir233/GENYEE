@@ -8,9 +8,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
@@ -74,17 +78,22 @@ func (e Endpoint) Resolve(defaultPath string) string {
 	if len(e.Query) == 0 {
 		return target
 	}
+	keys := make([]string, 0, len(e.Query))
+	for k := range e.Query {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	var b strings.Builder
 	b.WriteString(target)
 	sep := "?"
 	if strings.Contains(target, "?") {
 		sep = "&"
 	}
-	for k, v := range e.Query {
+	for _, k := range keys {
 		b.WriteString(sep)
-		b.WriteString(k)
+		b.WriteString(url.QueryEscape(k))
 		b.WriteString("=")
-		b.WriteString(v)
+		b.WriteString(url.QueryEscape(e.Query[k]))
 		sep = "&"
 	}
 	return b.String()
@@ -143,14 +152,17 @@ func (e Endpoint) newPost(ctx context.Context, url string, data []byte, contentT
 // Do sends the request and returns the response. Non-2xx responses are
 // turned into an error carrying the body so callers surface vendor messages.
 func (e Endpoint) Do(req *http.Request) (*http.Response, error) {
+	secrets := extractRequestAuthSecrets(req)
 	resp, err := e.httpClient().Do(req)
 	if err != nil {
-		return nil, &TransportError{Op: "send request", Err: err}
+		return nil, &TransportError{Op: "send request", Err: redactEndpointError(err, secrets...)}
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 		_ = resp.Body.Close()
-		return nil, &HTTPError{StatusCode: resp.StatusCode, Body: string(body), Header: resp.Header}
+		bodyText := trimEndpointUTF8(string(body))
+		bodyText = redactEndpointText(bodyText, secrets...)
+		return nil, &HTTPError{StatusCode: resp.StatusCode, Body: bodyText, Header: resp.Header}
 	}
 	return resp, nil
 }
@@ -267,5 +279,87 @@ func LogRequest(ctx context.Context, url, model string, body []byte, stream bool
 		pretty = buf.Bytes()
 	}
 	logger.Infof(ctx, "[LLM Request] endpoint=%s, model=%s, stream=%v, request:\n%s",
-		url, model, stream, secutils.CompactImageDataURLForLog(string(pretty)))
+		redactEndpointURL(url), model, stream, secutils.CompactImageDataURLForLog(string(pretty)))
+}
+
+var (
+	endpointUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	endpointQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+func redactEndpointURL(rawURL string) string {
+	if u, err := url.Parse(rawURL); err == nil && u.Scheme != "" && u.Host != "" {
+		if u.User != nil {
+			if _, hasPass := u.User.Password(); hasPass {
+				u.User = url.UserPassword(u.User.Username(), "REDACTED")
+			}
+		}
+		return redactEndpointText(u.String())
+	}
+	return redactEndpointText(rawURL)
+}
+
+func extractRequestAuthSecrets(req *http.Request) []string {
+	if req == nil {
+		return nil
+	}
+	var secrets []string
+	add := func(v string) {
+		v = strings.TrimSpace(v)
+		if len(v) >= 6 {
+			secrets = append(secrets, v)
+		}
+	}
+	for _, h := range []string{"Authorization", "Proxy-Authorization", "api-key", "x-api-key", "x-goog-api-key"} {
+		val := strings.TrimSpace(req.Header.Get(h))
+		if val == "" {
+			continue
+		}
+		add(val)
+		for _, prefix := range []string{"Bearer ", "bearer ", "Basic ", "basic "} {
+			if strings.HasPrefix(val, prefix) {
+				add(strings.TrimPrefix(val, prefix))
+			}
+		}
+	}
+	return secrets
+}
+
+func redactEndpointText(s string, secrets ...string) string {
+	out := endpointUserinfoRE.ReplaceAllString(s, "${1}:[REDACTED]@")
+	out = endpointQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	for _, secret := range secrets {
+		if secret == "" {
+			continue
+		}
+		out = strings.ReplaceAll(out, secret, "[REDACTED]")
+	}
+	return out
+}
+
+type redactedEndpointErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedEndpointErr) Error() string        { return e.msg }
+func (e *redactedEndpointErr) Is(target error) bool { return errors.Is(e.cause, target) }
+
+func redactEndpointError(err error, secrets ...string) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	redacted := redactEndpointText(raw, secrets...)
+	if redacted == raw {
+		return err
+	}
+	return &redactedEndpointErr{msg: redacted, cause: err}
+}
+
+func trimEndpointUTF8(s string) string {
+	for len(s) > 0 && !utf8.ValidString(s) {
+		s = s[:len(s)-1]
+	}
+	return s
 }

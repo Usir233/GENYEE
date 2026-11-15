@@ -1,10 +1,12 @@
 package chat
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/Usir233/GENYEE/internal/models/api"
 	"github.com/Usir233/GENYEE/internal/types"
 )
 
@@ -111,3 +113,32 @@ func TestTruncateLangfuseText(t *testing.T) {
 		t.Fatalf("got %q", got)
 	}
 }
+
+func TestBuildLangfuseMessagesRedactsMultiContentDataURIWithoutMutatingCaller(t *testing.T) {
+	rawBlob := strings.Repeat("B", 4096)
+	dataURI := "data:image/jpeg;base64," + rawBlob
+	msg := Message{
+		Role: "user",
+		MultiContent: []api.MessageContentPart{
+			{Type: "text", Text: "describe this"},
+			{Type: "image_url", ImageURL: &api.ImageURL{URL: dataURI, Detail: "high"}},
+			{Type: "image_url", ImageURL: &api.ImageURL{URL: "https://example.com/pic.jpg"}},
+		},
+	}
+
+	built := buildLangfuseMessages([]Message{msg})
+	encoded, err := json.Marshal(built)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+	if strings.Contains(string(encoded), rawBlob) {
+		t.Fatalf("buildLangfuseMessages leaked base64 data URI in MultiContent: len=%d", len(encoded))
+	}
+	if !strings.Contains(string(encoded), "data:image/jpeg (5 KB)") {
+		t.Fatalf("expected summarized data URI in MultiContent, got: %s", string(encoded))
+	}
+	if msg.MultiContent[1].ImageURL.URL != dataURI {
+		t.Fatalf("caller MultiContent was mutated in-place")
+	}
+}
+

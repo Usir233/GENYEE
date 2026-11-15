@@ -3,6 +3,7 @@ package modelcontext
 import (
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 func TestAnnotateSearchNotes(t *testing.T) {
@@ -95,3 +96,34 @@ func TestMatchAddsToContent(t *testing.T) {
 		t.Fatal("a snippet-only row keeps its snippet")
 	}
 }
+
+func TestModelDocumentInfoOutputPreservesValidUTF8UpdatedAt(t *testing.T) {
+	t.Parallel()
+	reg := newSourceRegistry(true)
+	got := reg.modelDocumentInfoOutput(map[string]interface{}{
+		"knowledge_base_id": "kb-uuid-1",
+		"documents": []map[string]interface{}{
+			{
+				"knowledge_id": "doc-uuid-1",
+				"title":        "Quarterly Report",
+				"updated_at":   "2026年03月04日 15:00",
+			},
+			{
+				"knowledge_id": "doc-uuid-2",
+				"title":        "ISO Doc",
+				"updated_at":   "2026-03-04T15:00:00Z",
+			},
+		},
+	}, "fallback")
+
+	if !utf8.ValidString(got) {
+		t.Fatalf("modelDocumentInfoOutput emitted invalid UTF-8: %q", got)
+	}
+	if !strings.Contains(got, `updated_at="2026-03-04"`) {
+		t.Fatalf("expected ISO date prefix preserved, got: %s", got)
+	}
+	if !strings.Contains(got, `updated_at="2026年03月04"`) {
+		t.Fatalf("expected rune-safe CJK date prefix preserved, got: %s", got)
+	}
+}
+

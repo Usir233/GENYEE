@@ -114,6 +114,9 @@ func ConfigFromModel(m *types.Model) *ChatConfig {
 
 // NewChat 创建聊天实例
 func NewChat(config *ChatConfig, ollamaService *ollama.OllamaService) (Chat, error) {
+	if config == nil {
+		return nil, fmt.Errorf("chat config is nil")
+	}
 	var c Chat
 	var err error
 	switch strings.ToLower(string(config.Source)) {

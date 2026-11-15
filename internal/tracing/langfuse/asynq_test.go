@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/hibiken/asynq"
@@ -119,5 +120,62 @@ func TestAsynqMiddleware_StandaloneTrace(t *testing.T) {
 	}
 	if !sawSpan {
 		t.Error("standalone run should open a worker span")
+	}
+}
+
+func TestAsynqSpanInputUTF8SafeAndRedactsSecrets(t *testing.T) {
+	_, exp := newTestManager(t)
+
+	// Construct a >1024-byte JSON payload whose 1024th byte lands inside a 3-byte CJK rune
+	// and embeds sensitive credentials.
+	prefix := `{"api_key":"sk-asynq-secret-1234567890","password":"myTopSecretPassword","text":"`
+	// Pad ASCII so byte 1024 lands mid-rune inside "中文测试".
+	padLen := (1023 - len(prefix))
+	raw := []byte(prefix + strings.Repeat("a", padLen) + strings.Repeat("中文测试", 40) + `"}`)
+	if len(raw) <= 1024 {
+		t.Fatalf("expected payload > 1024 bytes, got %d", len(raw))
+	}
+
+	mw := AsynqMiddleware()(asynq.HandlerFunc(func(context.Context, *asynq.Task) error { return nil }))
+	if err := mw.ProcessTask(context.Background(), asynq.NewTask("knowledge:ingest", raw)); err != nil {
+		t.Fatalf("handler err: %v", err)
+	}
+
+	// Also verify direct spanInputFromPayload preview validity before JSON marshaling
+	// (json.Marshal replaces invalid UTF-8 with U+FFFD, masking broken rune slicing unless checked directly).
+	direct := spanInputFromPayload(raw)
+	m, ok := direct.(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected map preview for >1024 payload, got %T", direct)
+	}
+	previewStr, _ := m["preview"].(string)
+	if !utf8.ValidString(previewStr) || strings.ContainsRune(previewStr, utf8.RuneError) {
+		t.Fatalf("spanInputFromPayload split multi-byte UTF-8 rune: %q", previewStr)
+	}
+	for _, secret := range []string{"sk-asynq-secret-1234567890", "myTopSecretPassword"} {
+		if strings.Contains(previewStr, secret) {
+			t.Fatalf("spanInputFromPayload leaked secret %q in preview: %q", secret, previewStr)
+		}
+	}
+
+	// Also check short payload <=1024 bytes redacts secrets.
+	short := []byte(`{"knowledge_id":"k1","secret_key":"super_secret_val"}`)
+	shortOut, _ := spanInputFromPayload(short).(string)
+	if strings.Contains(shortOut, "super_secret_val") {
+		t.Fatalf("short spanInputFromPayload leaked secret_key: %q", shortOut)
+	}
+
+	var sawWorkerSpan bool
+	for _, s := range exp.GetSpans() {
+		if s.Name == "asynq.knowledge:ingest" && spanType(s) == obsTypeSpan {
+			sawWorkerSpan = true
+			inp := spanAttr(s.Attributes, attrObsInput)
+			if strings.Contains(inp, "sk-asynq-secret-1234567890") || strings.Contains(inp, "myTopSecretPassword") {
+				t.Fatalf("exported asynq span input leaked secret: %s", inp)
+			}
+		}
+	}
+	if !sawWorkerSpan {
+		t.Fatal("asynq worker span not exported")
 	}
 }
