@@ -5,7 +5,7 @@
   "slice": "w3-svc-a-kb",
   "base_commit": "283a77ebc58fa05038c32efe0435ae5df2fda1b4",
   "commits": [
-    "489a2d0469d23911733b67ccde8241f93b553c17"
+    "9f293943815657c266d19c1451babc359d93dfb5"
   ],
   "status": "verified_findings_fixed",
   "file_count": 327,
@@ -356,7 +356,7 @@
       "file": "internal/application/service/automation_runner.go, internal/application/service/agent_collaboration.go, internal/application/service/datasource_service.go",
       "summary": "Background execution paths (AutomationRunner.ownerContext, AgentCollaborationService.workerContext, and DataSourceService.ProcessSync) did not check tenant status ('inactive'/'disabled'/'suspended'), allowing scheduled automations, sub-agent delegations, and connector syncs to keep running for suspended workspaces; DataSourceService methods also lacked service-layer API-key scope and zero-tenant guards and did not verify syncLog.DataSourceID == payload.DataSourceID.",
       "regression_test": "TestAuditW3A_InactiveWorkspaceBlockedInBackgroundPaths",
-      "commit": "489a2d0469d23911733b67ccde8241f93b553c17"
+      "commit": "9f293943815657c266d19c1451babc359d93dfb5"
     },
     {
       "id": "W3-SVCA-02",
@@ -364,7 +364,7 @@
       "file": "internal/application/service/agent_share.go, internal/application/service/kbshare.go",
       "summary": "CustomAgent uses composite primary key (id, tenant_id), so ListSharesByAgent and ShareAgent's ErrAgentShareAlreadyExists recovery could match or leak shares belonging to another workspace with the same agent ID (and sharedAgentInfo/GetSharedAgentForTenant dereferenced share.Agent without nil guards); ShareKnowledgeBase's ErrKBShareAlreadyExists update path skipped SourceTenantID and canManageShare checks before overwriting permission.",
       "regression_test": "TestAuditW3A_AgentAndKBShareIsolation",
-      "commit": "489a2d0469d23911733b67ccde8241f93b553c17"
+      "commit": "9f293943815657c266d19c1451babc359d93dfb5"
     },
     {
       "id": "W3-SVCA-03",
@@ -372,7 +372,7 @@
       "file": "internal/application/service/knowledgebase.go",
       "summary": "DeleteKnowledgeBase and SetEmbeddingModel lacked service-layer AuthorizeTenantAPIKeyKnowledgeBases and owner-workspace enforcement (allowing narrowed API keys or org-shared Editors to mutate/delete owner KBs); CopyKnowledgeBase constructed newly cloned target KBs with only 5 fields, dropping Wiki-only IndexingStrategy, WikiConfig, ExtractConfig, QuestionGenerationConfig, and VectorStoreID; ProcessKBDelete bypassed storageResolver/resourceCatalog when deleting custom-backend files and images and called GetEmbeddingModel on empty Wiki-only EmbeddingModelID.",
       "regression_test": "TestAuditW3A_KnowledgeBaseDeleteAndCopyIsolation",
-      "commit": "489a2d0469d23911733b67ccde8241f93b553c17"
+      "commit": "9f293943815657c266d19c1451babc359d93dfb5"
     },
     {
       "id": "W3-SVCA-04",
@@ -380,7 +380,7 @@
       "file": "internal/application/service/knowledge.go, internal/application/service/knowledge_util.go, internal/application/service/knowledge_clone_move.go, internal/application/service/knowledge_delete.go, internal/application/service/knowledge_create.go, internal/application/service/knowledge_replace.go",
       "summary": "Shared-KB operations read ctx TenantInfo (the caller's workspace) instead of resolving the KB owner workspace's Tenant when selecting storage backends; CloneChunk and cloneFAQKnowledgeBase read source images through destination storage services (breaking cross-backend clones); Save/GetKBCloneProgress and Save/GetKnowledgeMoveProgress panicked on nil Redis in Lite mode and lacked tenant/API-key progress authorization; cleanupKnowledgeResources panicked when TenantInfoContextKey was absent and mutated shared Tenant.StorageUsed in place; user metadata inputs could overwrite reserved _knowledge_transfer and process_overrides keys.",
       "regression_test": "TestAuditW3A_SharedKBStorageResolutionAndCrossBackendClone",
-      "commit": "489a2d0469d23911733b67ccde8241f93b553c17"
+      "commit": "9f293943815657c266d19c1451babc359d93dfb5"
     },
     {
       "id": "W3-SVCA-05",
@@ -388,7 +388,7 @@
       "file": "internal/application/service/knowledge_faq.go, internal/application/service/knowledge_faq_import.go",
       "summary": "ListFAQEntries, UpdateFAQEntry, and SearchFAQEntries did not call validateFAQTagScope (allowing same-tenant cross-KB tag binding/filtering), GetFAQEntry/SearchFAQEntries/ExportFAQEntries/ExportFAQEntriesJSON lacked service-layer KB read-grant and API-key scope checks, SearchFAQEntries panicked on nil request and dropped OnlyRecommended in the non-priority branch, UpsertFAQEntries accepted foreign-tenant caller TaskIDs and leaked uploaded EntriesURL blobs when Enqueue failed, GetFAQImportProgress lacked tenant/API-key checks and panicked without TenantIDContextKey, Lite-mode FAQ progress mutated shared pointers under -race, and duplicate ProcessFAQImport delivery overwrote Completed status.",
       "regression_test": "TestAuditW3A_FAQTagScopeAndTaskProgressIsolation",
-      "commit": "489a2d0469d23911733b67ccde8241f93b553c17"
+      "commit": "9f293943815657c266d19c1451babc359d93dfb5"
     },
     {
       "id": "W3-SVCA-06",
@@ -396,7 +396,7 @@
       "file": "internal/application/service/evaluation.go",
       "summary": "EvaluationService.Evaluation and EvaluationResult used MustTenantIDFromContext (panicking on missing tenant), did not enforce AuthorizeTenantAPIKeyKnowledgeBases or KB ownership/grant checks on target KnowledgeBaseID, left EmbeddingModelID/SummaryModelID empty when ListModels was consulted, and retained terminal tasks in evaluationMemoryStorage without an upper bound.",
       "regression_test": "TestAuditW3A_EvaluationAndChunkTenantIsolation",
-      "commit": "489a2d0469d23911733b67ccde8241f93b553c17"
+      "commit": "9f293943815657c266d19c1451babc359d93dfb5"
     },
     {
       "id": "W3-SVCA-07",
@@ -404,7 +404,7 @@
       "file": "internal/application/service/chunk.go",
       "summary": "RevertDocumentChunk queried GetChunkRevision before verifying writableChunk (exposing revision existence to unauthorized/viewer callers), DeleteGeneratedQuestion panicked via MustTenantIDFromContext on grant-only shared-Editor contexts and attempted vector index deletion on non-embedding Wiki-only KBs, and syncChunkIndex did not bind chunk.TenantID as execution tenant before retriever operations.",
       "regression_test": "TestAuditW3A_EvaluationAndChunkTenantIsolation",
-      "commit": "489a2d0469d23911733b67ccde8241f93b553c17"
+      "commit": "9f293943815657c266d19c1451babc359d93dfb5"
     },
     {
       "id": "W3-SVCA-08",
@@ -412,7 +412,7 @@
       "file": "internal/application/service/extract.go, internal/application/service/image_multimodal.go, internal/application/service/knowledge_summary_refresh.go, internal/application/service/knowledge_span_tracker.go, internal/application/service/artifact_collector.go, internal/application/service/embed_webhook.go",
       "summary": "DataTableSummaryService.cleanupOnFailure used potentially cancelled ctx and stamped ParseStatusFailed even when Asynq retries remained; ImageMultimodalService read stored/local images without size caps and swallowed BatchIndex/model/engine errors leaving unindexed SQL chunks behind; enqueueSummaryRefresh overwrote completed SummaryStatus to failed on pre-enqueue config checks and RequestKnowledgeSummaryRefresh skipped loadKnowledgeWrite; spanTracker leaked starts map entries on SkipSpan/FinalizeAttempt/AbortAttempt; ArtifactCollector.hashStoredArtifact read stored blobs without MaxFileBytes cap; DispatchEmbedWebhook allowed payload keys to spoof envelope fields ('type', 'channel_id', 'session_id', 'timestamp') and drained unbounded HTTP response bodies.",
       "regression_test": "TestAuditW3A_AsyncRetryAndResourceCleanup",
-      "commit": "489a2d0469d23911733b67ccde8241f93b553c17"
+      "commit": "9f293943815657c266d19c1451babc359d93dfb5"
     }
   ],
   "verification_commands": [

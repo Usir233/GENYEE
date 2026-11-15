@@ -174,7 +174,7 @@
           "file": "internal/application/repository/tag.go:28-30; internal/application/repository/chunk.go:563-612, 805",
           "summary": "knowledgeTagRepository.Update called GORM Save(tag) by primary key without tenant_id scoping (allowing a mismatched TenantID to overwrite another workspace's tag and reassign its tenant_id), chunkRepository.UpdateChunks omitted tenant_id predicates in both updateChunksPostgres and updateChunksRowByRow (and panicked on nil slice elements), and DeleteChunksByTagID deleted batch IDs without tenant_id/knowledge_base_id predicates.",
           "regression_test": "TestRepositoryAudit_TagUpdateEnforcesTenantScopeAndCaseInsensitiveSearch, TestRepositoryAudit_ChunkUpdateAndDeleteTenantIsolationAndEmptySlices",
-          "commit": "ee17bdabf007b9c5e694ffa08c0aa79b74279ebb"
+          "commit": "8e0e1da11ed27916ec58a8459198bead8f1eb371"
         },
         {
           "id": "W3-REPO-TYPES-02",
@@ -182,7 +182,7 @@
           "file": "internal/application/repository/tenant.go:164-181",
           "summary": "tenantRepository.AdjustStorageUsed relied on SELECT ... FOR UPDATE (a no-op on SQLite deferred transactions) followed by tx.Save(&tenant), rewriting every column on the tenants row—including chat_history_config outside MessageService's history lock and encrypted credential columns—instead of acquiring a dialect-safe lock and updating only storage_used with int64 overflow/underflow bounds.",
           "regression_test": "TestRepositoryAudit_TenantAdjustStorageUsedPreservesChatHistoryConfigAndClamps",
-          "commit": "ee17bdabf007b9c5e694ffa08c0aa79b74279ebb"
+          "commit": "8e0e1da11ed27916ec58a8459198bead8f1eb371"
         },
         {
           "id": "W3-REPO-TYPES-03",
@@ -190,7 +190,7 @@
           "file": "internal/application/repository/wiki_page.go:526-599, 854-909",
           "summary": "wikiPageRepository.ListBySourceRef, ListSlugsBySourceRef, and ListSummariesByKnowledgeIDs emitted PostgreSQL-only syntax (source_refs @> ?::jsonb and source_refs::text LIKE ? without ESCAPE ?), causing SQLite Lite-mode wiki ingest/retract source_refs queries to fail with syntax errors and leaving LIKE wildcards without an explicit ESCAPE character.",
           "regression_test": "TestRepositoryAudit_WikiPageSourceRefQueriesWorkOnSQLiteAndEscapeWildcards",
-          "commit": "ee17bdabf007b9c5e694ffa08c0aa79b74279ebb"
+          "commit": "8e0e1da11ed27916ec58a8459198bead8f1eb371"
         },
         {
           "id": "W3-REPO-TYPES-04",
@@ -198,7 +198,7 @@
           "file": "internal/application/repository/knowledge.go:379, 388-403, 420, 955-1175; internal/application/repository/message.go:65-78; internal/application/repository/message_artifact.go:261-327; internal/application/repository/session.go:170, 295; internal/application/repository/agent_prompt_repository.go:117-180",
           "summary": "SearchKnowledge and SearchKnowledgeInScopes joined knowledge_bases without filtering knowledge_bases.deleted_at IS NULL (and tenant_id in SearchKnowledge) and built fileTypes LIKE patterns without escaping %/_ wildcards; UpdateKnowledgeBatch left .Debug() enabled; GetMessagesBySession emitted negative OFFSET on page < 1 and LIMIT 0 on pageSize == 0; ListArtifactLibrary compared LOWER(ma.file_type) against un-lowercased FileTypes; and several batch/list methods lacked nil-struct or empty-slice guards.",
           "regression_test": "TestRepositoryAudit_KnowledgeSearchExcludesDeletedKBAndEscapesFileTypeWildcards, TestRepositoryAudit_MessageArtifactSessionAndAgentPromptGuards",
-          "commit": "ee17bdabf007b9c5e694ffa08c0aa79b74279ebb"
+          "commit": "8e0e1da11ed27916ec58a8459198bead8f1eb371"
         }
       ],
       "verification_commands": [
@@ -433,7 +433,7 @@
           "file": "internal/types/json.go:86-108; internal/types/knowledgebase.go:234-240, 377-840; internal/types/model.go:281-284; internal/types/mcp.go:259-383; internal/types/storagebackend.go:127-130; internal/types/tenant.go:165-912; internal/types/vectorstore.go:180-277; internal/types/session.go:323-408; internal/types/web_search_provider.go:112-115",
           "summary": "StringArray.Scan and multiple custom JSON/AES-GCM Scan() implementations only type-asserted []byte and silently returned nil when GORM's SQLite driver yielded string values from TEXT/JSON columns—causing TenantAPIKey.KnowledgeBaseIDs to scan as empty on SQLite (making IsKnowledgeBaseRestricted() return false and escalating KB-scoped API keys to full workspace access) and silently dropping encrypted provider/MCP/storage/sandbox/connection configurations and JSON structs on SQLite.",
           "regression_test": "TestStringArrayAndEncryptedConfigsScanFromSQLiteString",
-          "commit": "a63dd27700addcce3aaa1f9feb4e830180314b2f"
+          "commit": "4184e5229ec9727c34366baeae2f517f7e351563"
         },
         {
           "id": "W3-REPO-TYPES-06",
@@ -441,7 +441,7 @@
           "file": "internal/types/caller.go:24-49; internal/types/context_helpers.go:27-455; internal/types/principal.go:82-247; internal/types/agent_grant.go:111-140; internal/types/agent_operation.go:27-70; internal/types/run_mode.go:36-65; internal/types/memory.go:164-166; internal/types/tenant_api_key.go:279-281; internal/types/wiki_page_write_snapshot.go:16-26; internal/types/search.go:301-342; internal/types/placeholder.go:206-222; internal/types/vectorstore.go:591-596",
           "summary": "Context helpers panicked on nil context.Context, Pagination.Limit/Offset panicked on nil receiver and overflowed int on large Page*PageSize, NewVectorStoreResponse panicked on nil VectorStore, and RenderPromptPlaceholders mutated caller-supplied extra maps when nil or shared across goroutines.",
           "regression_test": "TestPaginationNilReceiverAndOverflowSafety, TestNewVectorStoreResponseNilSafe, TestRenderPromptPlaceholdersNilAndImmutableCallerMap, TestNilContextHelpersDoNotPanic",
-          "commit": "a63dd27700addcce3aaa1f9feb4e830180314b2f"
+          "commit": "4184e5229ec9727c34366baeae2f517f7e351563"
         }
       ],
       "verification_commands": [
@@ -522,7 +522,7 @@
           "file": "internal/types/interfaces/file.go:45-58",
           "summary": "WithIndependentFileWrites and IndependentFileWrites dereferenced ctx.Value without guarding nil context.Context, panicking if a caller passed a nil context when marking or checking independent file write isolation.",
           "regression_test": "TestIndependentFileWritesNilContextSafe",
-          "commit": "a63dd27700addcce3aaa1f9feb4e830180314b2f"
+          "commit": "4184e5229ec9727c34366baeae2f517f7e351563"
         }
       ],
       "verification_commands": [
@@ -584,7 +584,7 @@
           "file": "internal/container/cleanup.go:108-134; internal/container/engine_factory.go:412-436; internal/container/container.go:880-910",
           "summary": "ResourceCleaner.Cleanup aborted remaining shutdown hooks if an earlier closer panicked; hostFromAddr split bare IPv6 literals on the last colon (producing invalid URLs like 'http://::8030' for '::1'); and registerChatLocalImageResolver omitted the '/data/files' fallback when LOCAL_STORAGE_BASE_DIR was unset and read provider/resource image streams with unbounded io.ReadAll.",
           "regression_test": "TestCleanupRecoversPanickingHookAndRunsRemainingHooks, TestHostFromAddrHandlesIPv4HostnameAndIPv6, TestRegisterChatLocalImageResolverDefaultsBaseDirAndBoundsRead",
-          "commit": "cadfac75ce5c506e70eb8e157dc83b0309f5b38c"
+          "commit": "fd1937ef9b2b89b9c9ea45314d3195e54ebf670f"
         }
       ],
       "verification_commands": [
@@ -619,7 +619,7 @@
           "file": "internal/event/event.go:148-246",
           "summary": "EventBus.On accepted nil EventHandler registrations; Emit and EmitAndWait shared the live map slice backing array after RUnlock (risking element clobbering during concurrent On append); and synchronous Emit neither isolated Event.Metadata per handler nor recovered panics from misbehaving subscribers.",
           "regression_test": "TestSyncEmitIsolatesHandlerMetadataMutations, TestSyncEmitRecoversPanickingHandler, TestOnIgnoresNilHandler",
-          "commit": "cadfac75ce5c506e70eb8e157dc83b0309f5b38c"
+          "commit": "fd1937ef9b2b89b9c9ea45314d3195e54ebf670f"
         }
       ],
       "verification_commands": [
@@ -655,7 +655,7 @@
           "file": "internal/storageurl/storageurl.go:100-111",
           "summary": "Rewriter.Ref used unanchored Pattern.MatchString(ref) followed by w.String(ctx, ref), allowing an attacker-controlled external URL containing an embedded storage handle (e.g. 'https://evil.example/pixel?leak=resource://...') passed to Ref() to have its embedded handle replaced with a live signed download URL/token.",
           "regression_test": "TestRewriter_Ref",
-          "commit": "e4680e1f72ba6bf7d6a701bc717a1edb7ed1557f"
+          "commit": "cac9b57560c9a3479fb27e7a6c4159421891fb91"
         },
         {
           "id": "W3-REPO-TYPES-11",
@@ -663,7 +663,7 @@
           "file": "internal/storageurl/resolver.go:48-76, 134-146",
           "summary": "crossTenantAuthorizedFileService did not record which caller tenant triggered WithAuthorization and stamped WithCrossTenantResourceAccess even if the returned FileService wrapper was invoked under a different tenant context (or with untrimmed ref spacing), risking cross-tenant authorization bleed if a resolved FileService handle was reused.",
           "regression_test": "TestCrossTenantAuthorizedWrapperScopesToAuthorizedRefAndTenant",
-          "commit": "e4680e1f72ba6bf7d6a701bc717a1edb7ed1557f"
+          "commit": "cac9b57560c9a3479fb27e7a6c4159421891fb91"
         }
       ],
       "verification_commands": [

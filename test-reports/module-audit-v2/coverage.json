@@ -10,10 +10,10 @@
   "wave0_evidence_file": "test-reports/module-audit-v2/wave0-foundation.json",
   "legacy_ledger": "test-reports/module-audit-20261113/coverage.json",
   "summary": {
-    "total_tracked_files": 6518,
+    "total_tracked_files": 6535,
     "unit_count": 301,
-    "unit_files_total": 5992,
-    "support_files_total": 526,
+    "unit_files_total": 6005,
+    "support_files_total": 530,
     "uncovered_files": 0,
     "duplicate_files": 0,
     "stale_files": 0,
@@ -30,7 +30,7 @@
     "files_by_wave": {
       "W1": 376,
       "W2": 932,
-      "W3": 1264,
+      "W3": 1277,
       "W4": 170,
       "W5": 870,
       "W6": 1060,
@@ -38,10 +38,10 @@
       "W8": 470
     },
     "units_by_status": {
-      "pending": 188,
+      "pending": 173,
       "pending_reaudit": 77,
-      "verified_findings_fixed": 29,
-      "verified_no_findings": 7
+      "verified_findings_fixed": 43,
+      "verified_no_findings": 8
     },
     "units_by_legacy_status": {
       "audited": 36,
@@ -55,7 +55,7 @@
     "support_files_by_category": {
       "license_or_notice": 71,
       "historical_changelog_or_spec": 6,
-      "audit_ledger_or_archived_report": 80,
+      "audit_ledger_or_archived_report": 84,
       "static_binary_or_vendor_asset": 369
     }
   },
@@ -2713,7 +2713,7 @@
       "unit_id": "internal/application/access",
       "wave": "W3",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 19,
       "tracked_files": [
         "internal/application/access/README.md",
@@ -2736,16 +2736,41 @@
         "internal/application/access/ownership_test.go",
         "internal/application/access/superuser.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Workspace RBAC, KB owner-workspace checks, organization/share grant resolution, and API-key KB resource scopes fail closed on missing/zero TenantID, invalid required roles, or mismatched caller contexts.",
+        "ResolveKB, KBAccess.WithGrant, and KBAccess.Context verify caller identity against both materialized CallerContextKey and unmaterialized TenantIDContextKey / UserID / Principal / Role context values before minting grants or switching execution tenant.",
+        "ResolveKBFile, ResolveSessionFile, and ResolveAttachment enforce non-zero caller TenantID, grant-to-KB tenant consistency (KnowledgeBase.TenantID == EffectiveTenantID), stored resource catalog TenantID matching, and binding verification before returning physical storage paths.",
+        "AuthorizeKBAccess and KB search target resolution reject nil/zero-tenant KnowledgeBase records without panicking; zero legacy brand residues present."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-01",
+          "severity": "P1",
+          "file": "internal/application/access/knowledgebase.go:108-188",
+          "summary": "ResolveKB, KBAccess.WithGrant, and KBAccess.Context only checked CallerContextKey when already materialized, allowing callers on contexts carrying only TenantIDContextKey/UserContextKey/Principal to mint grants or switch execution tenants across mismatched callers; ResolveKB also accepted zero kb.TenantID or invalid requiredRole values instead of failing closed.",
+          "regression_test": "TestResolveKBAndWithGrantRejectUnmaterializedCallerMismatchAndInvalidRole",
+          "commit": "ae712c137c2de5c731cce8b6e2192742bd0077ac"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-02",
+          "severity": "P1",
+          "file": "internal/application/access/files.go:79-115, internal/application/access/kb_search.go:53-68",
+          "summary": "callerMatchesContext allowed zero-value unauthenticated KBAccess.Caller (TenantID=0) to match an unauthenticated context in ResolveKBFile, ResolveKBFile did not verify grant.KnowledgeBase.TenantID == grant.EffectiveTenantID before resolving files, and AuthorizeKBAccess dereferenced nil *types.KnowledgeBase elements in target slices.",
+          "regression_test": "TestResolveKBFileRejectsZeroCallerAndMismatchedKBTenant, TestAuthorizeKBAccessRejectsNilKnowledgeBaseWithoutPanic",
+          "commit": "ae712c137c2de5c731cce8b6e2192742bd0077ac"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/access/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/access (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json"
     },
     {
       "unit_id": "internal/application/attachment",
       "wave": "W3",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 4,
       "tracked_files": [
         "internal/application/attachment/README.md",
@@ -2753,17 +2778,24 @@
         "internal/application/attachment/reader.go",
         "internal/application/attachment/reader_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Processor enforces strict tenant/session scoping, file size and MIME/extension validation, and bounded stream reads when ingesting, extracting text/OCR, and storing chat attachments.",
+        "Storage backend resolution and cleanup preserve physical-path isolation without leaking host paths or cross-tenant references; zero weknora/knora/wk_ residues present.",
+        "Concurrent attachment processing passes go test -race cleanly."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/attachment/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/attachment (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json"
     },
     {
       "unit_id": "internal/application/repository",
       "wave": "W3",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 142,
+      "status": "verified_findings_fixed",
+      "file_count": 143,
       "tracked_files": [
         "internal/application/repository/agent_grant_repository.go",
         "internal/application/repository/agent_grant_repository_test.go",
@@ -2861,6 +2893,7 @@
         "internal/application/repository/organization.go",
         "internal/application/repository/organization_member_limit_test.go",
         "internal/application/repository/organization_sqlite_test.go",
+        "internal/application/repository/repository_audit_fixes_test.go",
         "internal/application/repository/resource.go",
         "internal/application/repository/resource_cleanup_test.go",
         "internal/application/repository/resource_content_hash_test.go",
@@ -2908,17 +2941,58 @@
         "internal/application/repository/wiki_page_write_snapshot.go",
         "internal/application/repository/wiki_page_write_snapshot_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Row-level tenant isolation (tenant_id scoping) is enforced across Get*, List*, Update*, Delete*, and batch mutation paths including knowledgeTagRepository.Update, chunkRepository.UpdateChunks (both PostgreSQL VALUES join and row-by-row dialects), and chunkRepository.DeleteChunksByTagID.",
+        "Dynamic ORDER BY columns use strict allowlists or clause.Column quoting; all LIKE/ILIKE filters escape %, _, and \\ via escapeLikeKeyword/escapeLikePattern paired with explicit ESCAPE clauses across both PostgreSQL and SQLite dialects, including SearchKnowledge/SearchKnowledgeInScopes fileTypes filters and wiki source_refs prefix lookups.",
+        "SQLite (Lite build) and PostgreSQL dialect parity holds across wiki_pages.source_refs queries (ListBySourceRef, ListSlugsBySourceRef, ListSummariesByKnowledgeIDs using json_each/json_valid on SQLite and JSONB containment + escaped text LIKE on PostgreSQL) and TenantRepository.AdjustStorageUsed writer-lock/column-scoped updates.",
+        "Empty-slice IN (?) guards, nil query/request struct guards, soft-deleted knowledge_bases join filtering, and integer-overflow-safe pagination offset helpers fail safely without emitting invalid SQL or panicking."
+      ],
+      "findings": [
+        {
+          "id": "W3-REPO-TYPES-01",
+          "severity": "P1",
+          "file": "internal/application/repository/tag.go:28-30; internal/application/repository/chunk.go:563-612, 805",
+          "summary": "knowledgeTagRepository.Update called GORM Save(tag) by primary key without tenant_id scoping (allowing a mismatched TenantID to overwrite another workspace's tag and reassign its tenant_id), chunkRepository.UpdateChunks omitted tenant_id predicates in both updateChunksPostgres and updateChunksRowByRow (and panicked on nil slice elements), and DeleteChunksByTagID deleted batch IDs without tenant_id/knowledge_base_id predicates.",
+          "regression_test": "TestRepositoryAudit_TagUpdateEnforcesTenantScopeAndCaseInsensitiveSearch, TestRepositoryAudit_ChunkUpdateAndDeleteTenantIsolationAndEmptySlices",
+          "commit": "8e0e1da11ed27916ec58a8459198bead8f1eb371"
+        },
+        {
+          "id": "W3-REPO-TYPES-02",
+          "severity": "P1",
+          "file": "internal/application/repository/tenant.go:164-181",
+          "summary": "tenantRepository.AdjustStorageUsed relied on SELECT ... FOR UPDATE (a no-op on SQLite deferred transactions) followed by tx.Save(&tenant), rewriting every column on the tenants row—including chat_history_config outside MessageService's history lock and encrypted credential columns—instead of acquiring a dialect-safe lock and updating only storage_used with int64 overflow/underflow bounds.",
+          "regression_test": "TestRepositoryAudit_TenantAdjustStorageUsedPreservesChatHistoryConfigAndClamps",
+          "commit": "8e0e1da11ed27916ec58a8459198bead8f1eb371"
+        },
+        {
+          "id": "W3-REPO-TYPES-03",
+          "severity": "P1",
+          "file": "internal/application/repository/wiki_page.go:526-599, 854-909",
+          "summary": "wikiPageRepository.ListBySourceRef, ListSlugsBySourceRef, and ListSummariesByKnowledgeIDs emitted PostgreSQL-only syntax (source_refs @> ?::jsonb and source_refs::text LIKE ? without ESCAPE ?), causing SQLite Lite-mode wiki ingest/retract source_refs queries to fail with syntax errors and leaving LIKE wildcards without an explicit ESCAPE character.",
+          "regression_test": "TestRepositoryAudit_WikiPageSourceRefQueriesWorkOnSQLiteAndEscapeWildcards",
+          "commit": "8e0e1da11ed27916ec58a8459198bead8f1eb371"
+        },
+        {
+          "id": "W3-REPO-TYPES-04",
+          "severity": "P2",
+          "file": "internal/application/repository/knowledge.go:379, 388-403, 420, 955-1175; internal/application/repository/message.go:65-78; internal/application/repository/message_artifact.go:261-327; internal/application/repository/session.go:170, 295; internal/application/repository/agent_prompt_repository.go:117-180",
+          "summary": "SearchKnowledge and SearchKnowledgeInScopes joined knowledge_bases without filtering knowledge_bases.deleted_at IS NULL (and tenant_id in SearchKnowledge) and built fileTypes LIKE patterns without escaping %/_ wildcards; UpdateKnowledgeBatch left .Debug() enabled; GetMessagesBySession emitted negative OFFSET on page < 1 and LIMIT 0 on pageSize == 0; ListArtifactLibrary compared LOWER(ma.file_type) against un-lowercased FileTypes; and several batch/list methods lacked nil-struct or empty-slice guards.",
+          "regression_test": "TestRepositoryAudit_KnowledgeSearchExcludesDeletedKBAndEscapesFileTypeWildcards, TestRepositoryAudit_MessageArtifactSessionAndAgentPromptGuards",
+          "commit": "8e0e1da11ed27916ec58a8459198bead8f1eb371"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json"
     },
     {
       "unit_id": "internal/application/service",
       "wave": "W3",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 610,
+      "status": "verified_findings_fixed",
+      "file_count": 614,
       "tracked_files": [
         "internal/application/service/agent_allowed_tools_test.go",
         "internal/application/service/agent_artifact_files.go",
@@ -2981,6 +3055,8 @@
         "internal/application/service/audit_log_retention.go",
         "internal/application/service/audit_log_retention_test.go",
         "internal/application/service/audit_log_test.go",
+        "internal/application/service/audit_w3a_isolation_test.go",
+        "internal/application/service/audit_w3a_pipeline_test.go",
         "internal/application/service/automation.go",
         "internal/application/service/automation_cancellation_race_test.go",
         "internal/application/service/automation_delete_race_test.go",
@@ -3471,6 +3547,8 @@
         "internal/application/service/vectorstore_opensearch_test.go",
         "internal/application/service/vectorstore_ssrf_test.go",
         "internal/application/service/vectorstore_test.go",
+        "internal/application/service/w3b_audit_platform_test.go",
+        "internal/application/service/w3b_audit_skills_wiki_test.go",
         "internal/application/service/web_search.go",
         "internal/application/service/web_search_compress.go",
         "internal/application/service/web_search_fetch_test.go",
@@ -3531,18 +3609,244 @@
         "internal/application/service/workspace_git_layout_test.go",
         "internal/application/service/workspace_reset.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All 325 baseline files in internal/application/service with basename < 'local_' (agent_*, artifact_*, audit_*, auth*, auto_tag_*, automation_*, builtin_skills/agent-browser/SKILL.md, chat_*, chunk*, clear_state*, context_*, data_source_*, datasource_*, desktop_*, dingtalk_*, document_*, embed_*, evaluation*, export_*, extract*, faq_*, feishu_*, file_*, graph*, helper_*, image_multimodal*, im_*, import_*, index_*, inline_*, invitation_*, kb*, knowledge*) were audited line-by-line with zero skimming across multi-tenant/cross-workspace share/API-key isolation, transactional & async compensation correctness, concurrency/context/memory bounds, and GENYEE rebrand hygiene.",
+        "Inactive, disabled, or suspended workspaces are fail-closed across background execution paths: scheduled/webhook AutomationRunner.ownerContext, delegated AgentCollaborationService.workerContext, and asynchronous DataSourceService.ProcessSync cancel or reject runs unless an explicit system-admin cross-tenant override applies.",
+        "DataSource CRUD, credential mutation, resource browsing, manual sync, pause/resume, and sync-log inspection enforce non-zero caller tenant binding, reject narrowed API-key scopes (APIKeyScopeAgent), and verify syncLog.DataSourceID == payload.DataSourceID and ds.TenantID consistency in ProcessSync.",
+        "Organization Agent shares (CustomAgent IDs are composite PK (id, tenant_id)) filter ListSharesByAgent and ShareAgent duplicate-recovery by SourceTenantID == tenantID and guard nil preloaded share.Agent; ShareKnowledgeBase duplicate-share overwrite enforces existingShare.SourceTenantID == tenantID and canManageShare.",
+        "KnowledgeBase destructive/config mutations (DeleteKnowledgeBase, SetEmbeddingModel) enforce safe TenantIDFromContext, AuthorizeTenantAPIKeyKnowledgeBases, and owner-workspace checks (blocking org-shared Editors from deleting the owner workspace's KB); CopyKnowledgeBase preserves non-default IndexingStrategy (including Wiki-only KBs), WikiConfig, ExtractConfig, QuestionGenerationConfig, ASRConfig, AutoTagConfig, FAQConfig, ProfileConfig, and VectorStoreID; ProcessKBDelete resolves per-KB custom storage backends and resource-catalog bindings before deleting source files and extracted images and skips empty EmbeddingModelID entries.",
+        "Shared-KB storage resolution (buildStorageConfig, resolveFileService, resolveFileServiceForPath, checkStorageEngineConfigured) resolves the KB owner workspace's Tenant via tenantRepo when ctx carries a shared caller's TenantInfo; CloneChunk and cloneFAQKnowledgeBase read source images via source-KB storage resolution so cross-backend clones succeed; Lite-mode (nil Redis) KB clone and knowledge move progress use sync.Map fallback without panicking, FAQ Lite progress deep-clones structs to eliminate -race data races, cleanupKnowledgeResources handles missing TenantInfo without mutating shared Tenant pointers, and reserved metadata keys (_knowledge_transfer, process_overrides) are stripped from user metadata inputs.",
+        "FAQ operations (ListFAQEntries, UpdateFAQEntry, SearchFAQEntries, GetFAQEntry, ExportFAQEntries, ExportFAQEntriesJSON, UpsertFAQEntries, GetFAQImportProgress) enforce KB-scoped tag validation (validateFAQTagScope), shared-KB read grants + API-key KB scopes, caller taskID tenant/KB validation, failed-Enqueue EntriesURL blob cleanup, OnlyRecommended search forwarding, and idempotent Completed status preservation on duplicate ProcessFAQImport delivery.",
+        "EvaluationService and ChunkService replace MustTenantIDFromContext panics with fail-closed tenant/grant checks, cap in-memory terminal evaluation tasks, enforce writableChunk before GetChunkRevision in RevertDocumentChunk, bind execution tenant in syncChunkIndex/DeleteGeneratedQuestion, and skip vector index deletion on non-embedding (Wiki-only) KBs.",
+        "Async compensation and resource bounds: DataTableSummaryService.cleanupOnFailure uses context.WithoutCancel while preserving UpdateKnowledgeForTransfer CAS fencing on moved documents and keeping ParseStatusProcessing while retries remain; ImageMultimodalService bounds stored/local image reads by GetMaxFileSize and rolls back unindexed SQL chunks on BatchIndex/model/engine failure so Asynq retries cleanly; enqueueSummaryRefresh preserves existing completed summaries on pre-enqueue validation errors and RequestKnowledgeSummaryRefresh enforces loadKnowledgeWrite; spanTracker cleans starts entries on SkipSpan/FinalizeAttempt/AbortAttempt; ArtifactCollector.hashStoredArtifact bounds reads to MaxFileBytes; DispatchEmbedWebhook protects envelope fields from payload spoofing and bounds response drains; zero legacy brand/key-prefix residues or host paths exist in the slice.",
+        "All 285 baseline files in internal/application/service with basename >= 'local_' (local_shell_job_*, mcp_*, message*, metric*, model*, operations*, organization*, platform_*, prompt_template*, rerank*, resource_cleaner*, sandbox_*, secret_*, session*, shell_job_*, skill_*, sse_*, stop_state*, storage_*, stream_*, system*, tag*, temporary_document_*, tenant*, tool_*, trace_*, turn_*, upload_*, user*, vectorstore*, web_search*, wiki_*, workspace_*, including local_shell_job_identity_darwin.go, local_shell_job_identity_other.go, and tenant_skill_verify.py) were audited 100% line-by-line with zero skimming across multi-tenant/user/workspace/org/platform isolation, transactional & async compensation consistency, concurrency/streaming/memory bounds, and GENYEE rebrand hygiene.",
+        "Session QA knowledge-base and tag-scope resolution enforces TenantAPIKey KB allowlists (AuthorizeTenantAPIKeyKnowledgeBases) and optional tag-ID authorization (AuthorizeTenantAPIKeyOptionalTagIDs) on explicit, session-bound, agent-configured, and fallback KB paths before constructing SearchTargets.",
+        "Model, MCP, UserEnv, TenantSandboxConfig, WebSearch, StorageBackend, Tenant, User, Organization, and Platform services isolate credentials per tenant/user, preserve encrypted secrets across redacted updates while honoring explicit secret-drop flags, hide internal __workspace_scripts_policy__ rows from user-facing sandbox inventories and env secret scopes, pin non-builtin model TenantID/IsBuiltin immutability, revoke sessions/tokens on password and status changes (including clearing OidcOnlyLogin on AdminResetPassword), and bound OIDC token/userinfo HTTP response reads to 1 MiB.",
+        "Session, Message, SessionFork, WorkspaceCheckpointer, and WorkspaceReset enforce session/tenant ownership, snapshot session-referenced temporary knowledge IDs prior to message row deletion in ClearSessionMessages, clone mutable Session/Model structs before spawning background title/Ollama goroutines, preserve Session.Kind across shared-machine forks, shell-quote checkpoint commit messages via shellSingleQuote, and refuse destructive git resets unless the runner advertises WorkspaceVersioning on a non-host, non-root layout with GitDir outside Root.",
+        "TenantSkill install/stop/remove/reinstall/heartbeat/bundle/progress flows serialize per-skill RMW row updates via process-local locks, fence cross-replica installer ownership via Redis genyee-skill-install-attempt tokens so superseded runs cannot overwrite newer attempts, normalize Windows backslash zip entries, reject Windows drive-prefixed paths and ZIP64 uint64->int64 size wraparound, truncate UTF-8 file previews on rune boundaries, decouple singleflight bundle builds from first-caller cancellation, and release SSE progress slots on subscriber context cancellation.",
+        "Wiki page CRUD, lint, ingest, and finalize tasks sanitize client-supplied ID/Version/InLinks/DeletedAt on user page creations, abort RunLint AutoFix on transient knowledge repository errors rather than deleting live pages, require source_ref knowledge documents to match both TenantID and KnowledgeBaseID, verify soft-deleted tenant liveness on kb.TenantID even when legacy task payloads carry TenantID == 0, and release/renew Redis slug and finalize locks exclusively via token-owned redislock scripts.",
+        "Intentional negative security test in internal/application/service/user_jwt_secret_test.go preserved untouched; zero unexcused weknora/wk_ residues in owned production code; all new package-private symbols prefixed with w3b and regression test files named w3b_audit_*_test.go for conflict-free merge with w3-svc-a-kb."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVCA-01",
+          "severity": "P1",
+          "file": "internal/application/service/automation_runner.go, internal/application/service/agent_collaboration.go, internal/application/service/datasource_service.go",
+          "summary": "Background execution paths (AutomationRunner.ownerContext, AgentCollaborationService.workerContext, and DataSourceService.ProcessSync) did not check tenant status ('inactive'/'disabled'/'suspended'), allowing scheduled automations, sub-agent delegations, and connector syncs to keep running for suspended workspaces; DataSourceService methods also lacked service-layer API-key scope and zero-tenant guards and did not verify syncLog.DataSourceID == payload.DataSourceID.",
+          "regression_test": "TestAuditW3A_InactiveWorkspaceBlockedInBackgroundPaths",
+          "commit": "9f293943815657c266d19c1451babc359d93dfb5"
+        },
+        {
+          "id": "W3-SVCA-02",
+          "severity": "P1",
+          "file": "internal/application/service/agent_share.go, internal/application/service/kbshare.go",
+          "summary": "CustomAgent uses composite primary key (id, tenant_id), so ListSharesByAgent and ShareAgent's ErrAgentShareAlreadyExists recovery could match or leak shares belonging to another workspace with the same agent ID (and sharedAgentInfo/GetSharedAgentForTenant dereferenced share.Agent without nil guards); ShareKnowledgeBase's ErrKBShareAlreadyExists update path skipped SourceTenantID and canManageShare checks before overwriting permission.",
+          "regression_test": "TestAuditW3A_AgentAndKBShareIsolation",
+          "commit": "9f293943815657c266d19c1451babc359d93dfb5"
+        },
+        {
+          "id": "W3-SVCA-03",
+          "severity": "P1",
+          "file": "internal/application/service/knowledgebase.go",
+          "summary": "DeleteKnowledgeBase and SetEmbeddingModel lacked service-layer AuthorizeTenantAPIKeyKnowledgeBases and owner-workspace enforcement (allowing narrowed API keys or org-shared Editors to mutate/delete owner KBs); CopyKnowledgeBase constructed newly cloned target KBs with only 5 fields, dropping Wiki-only IndexingStrategy, WikiConfig, ExtractConfig, QuestionGenerationConfig, and VectorStoreID; ProcessKBDelete bypassed storageResolver/resourceCatalog when deleting custom-backend files and images and called GetEmbeddingModel on empty Wiki-only EmbeddingModelID.",
+          "regression_test": "TestAuditW3A_KnowledgeBaseDeleteAndCopyIsolation",
+          "commit": "9f293943815657c266d19c1451babc359d93dfb5"
+        },
+        {
+          "id": "W3-SVCA-04",
+          "severity": "P1",
+          "file": "internal/application/service/knowledge.go, internal/application/service/knowledge_util.go, internal/application/service/knowledge_clone_move.go, internal/application/service/knowledge_delete.go, internal/application/service/knowledge_create.go, internal/application/service/knowledge_replace.go",
+          "summary": "Shared-KB operations read ctx TenantInfo (the caller's workspace) instead of resolving the KB owner workspace's Tenant when selecting storage backends; CloneChunk and cloneFAQKnowledgeBase read source images through destination storage services (breaking cross-backend clones); Save/GetKBCloneProgress and Save/GetKnowledgeMoveProgress panicked on nil Redis in Lite mode and lacked tenant/API-key progress authorization; cleanupKnowledgeResources panicked when TenantInfoContextKey was absent and mutated shared Tenant.StorageUsed in place; user metadata inputs could overwrite reserved _knowledge_transfer and process_overrides keys.",
+          "regression_test": "TestAuditW3A_SharedKBStorageResolutionAndCrossBackendClone",
+          "commit": "9f293943815657c266d19c1451babc359d93dfb5"
+        },
+        {
+          "id": "W3-SVCA-05",
+          "severity": "P1",
+          "file": "internal/application/service/knowledge_faq.go, internal/application/service/knowledge_faq_import.go",
+          "summary": "ListFAQEntries, UpdateFAQEntry, and SearchFAQEntries did not call validateFAQTagScope (allowing same-tenant cross-KB tag binding/filtering), GetFAQEntry/SearchFAQEntries/ExportFAQEntries/ExportFAQEntriesJSON lacked service-layer KB read-grant and API-key scope checks, SearchFAQEntries panicked on nil request and dropped OnlyRecommended in the non-priority branch, UpsertFAQEntries accepted foreign-tenant caller TaskIDs and leaked uploaded EntriesURL blobs when Enqueue failed, GetFAQImportProgress lacked tenant/API-key checks and panicked without TenantIDContextKey, Lite-mode FAQ progress mutated shared pointers under -race, and duplicate ProcessFAQImport delivery overwrote Completed status.",
+          "regression_test": "TestAuditW3A_FAQTagScopeAndTaskProgressIsolation",
+          "commit": "9f293943815657c266d19c1451babc359d93dfb5"
+        },
+        {
+          "id": "W3-SVCA-06",
+          "severity": "P1",
+          "file": "internal/application/service/evaluation.go",
+          "summary": "EvaluationService.Evaluation and EvaluationResult used MustTenantIDFromContext (panicking on missing tenant), did not enforce AuthorizeTenantAPIKeyKnowledgeBases or KB ownership/grant checks on target KnowledgeBaseID, left EmbeddingModelID/SummaryModelID empty when ListModels was consulted, and retained terminal tasks in evaluationMemoryStorage without an upper bound.",
+          "regression_test": "TestAuditW3A_EvaluationAndChunkTenantIsolation",
+          "commit": "9f293943815657c266d19c1451babc359d93dfb5"
+        },
+        {
+          "id": "W3-SVCA-07",
+          "severity": "P1",
+          "file": "internal/application/service/chunk.go",
+          "summary": "RevertDocumentChunk queried GetChunkRevision before verifying writableChunk (exposing revision existence to unauthorized/viewer callers), DeleteGeneratedQuestion panicked via MustTenantIDFromContext on grant-only shared-Editor contexts and attempted vector index deletion on non-embedding Wiki-only KBs, and syncChunkIndex did not bind chunk.TenantID as execution tenant before retriever operations.",
+          "regression_test": "TestAuditW3A_EvaluationAndChunkTenantIsolation",
+          "commit": "9f293943815657c266d19c1451babc359d93dfb5"
+        },
+        {
+          "id": "W3-SVCA-08",
+          "severity": "P2",
+          "file": "internal/application/service/extract.go, internal/application/service/image_multimodal.go, internal/application/service/knowledge_summary_refresh.go, internal/application/service/knowledge_span_tracker.go, internal/application/service/artifact_collector.go, internal/application/service/embed_webhook.go",
+          "summary": "DataTableSummaryService.cleanupOnFailure used potentially cancelled ctx and stamped ParseStatusFailed even when Asynq retries remained; ImageMultimodalService read stored/local images without size caps and swallowed BatchIndex/model/engine errors leaving unindexed SQL chunks behind; enqueueSummaryRefresh overwrote completed SummaryStatus to failed on pre-enqueue config checks and RequestKnowledgeSummaryRefresh skipped loadKnowledgeWrite; spanTracker leaked starts map entries on SkipSpan/FinalizeAttempt/AbortAttempt; ArtifactCollector.hashStoredArtifact read stored blobs without MaxFileBytes cap; DispatchEmbedWebhook allowed payload keys to spoof envelope fields ('type', 'channel_id', 'session_id', 'timestamp') and drained unbounded HTTP response bodies.",
+          "regression_test": "TestAuditW3A_AsyncRetryAndResourceCleanup",
+          "commit": "9f293943815657c266d19c1451babc359d93dfb5"
+        },
+        {
+          "id": "W3-SVCB-01",
+          "severity": "P1",
+          "file": "internal/application/service/session_qa_helpers.go",
+          "summary": "resolveKnowledgeBases returned session/agent/all-tenant KB IDs and req.TagScopes without enforcing AuthorizeTenantAPIKeyKnowledgeBases or AuthorizeTenantAPIKeyOptionalTagIDs, allowing a KB-restricted TenantAPIKey to search unauthorized KBs via pre-configured session/agent KBs or auto-select fallback and pass unauthorized tag scopes.",
+          "regression_test": "TestW3BAudit_ResolveKnowledgeBases_RejectsOutOfScopeTagScopesForRestrictedAPIKey",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-02",
+          "severity": "P1",
+          "file": "internal/application/service/model.go",
+          "summary": "UpdateModel dereferenced existingModel before nil-checking GetModelByID(nil, nil), did not pin model.TenantID = tenantID or model.IsBuiltin = false on non-builtin updates, and downloadModelAsync mutated caller-visible model fields in a background goroutine without cloning or guarding a nil ollamaService.",
+          "regression_test": "TestW3BAudit_UpdateModel_EnforcesExistenceAndPreventsBuiltinEscalation, TestW3BAudit_DownloadModelAsync_NilOllamaAndNoSharedStructMutationRace",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-03",
+          "severity": "P1",
+          "file": "internal/application/service/user_env.go, internal/application/service/tenant_sandbox_config.go",
+          "summary": "UserEnvService exposed the internal __workspace_scripts_policy__ sentinel TenantSandboxConfig row in ListScopes and accepted user env secrets against its ID, while TenantSandboxConfigService allowed creating a sandbox config named __workspace_scripts_policy__ (colliding with workspace scripts policy storage) and leaked the sentinel row in Inventory.",
+          "regression_test": "TestW3BAudit_SandboxWorkspacePolicySentinelRowIsHiddenAndReserved",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-04",
+          "severity": "P1",
+          "file": "internal/application/service/mcp_service.go",
+          "summary": "UpdateMCPService failed to clear AuthConfig.ClientSecret when MCPUpdateDropSecrets was requested, omitted Headers and MCPUpdateDropSecrets from needsReconnect detection, lacked nil s.mcpManager guards on disconnect paths, and TestMCPService omitted caller tenant fallback and MCPOAuthPrincipal propagation for OAuth-backed MCP transports.",
+          "regression_test": "TestW3BAudit_MCPService_DropSecretsClearsClientSecretAndTestUsesMCPOAuthPrincipal",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-05",
+          "severity": "P1",
+          "file": "internal/application/service/message.go",
+          "summary": "ClearSessionMessages queried GetKnowledgeIDsBySessionID after DeleteMessagesBySessionID had already deleted the session messages rows (leaving session-uploaded temporary knowledge orphaned on clear), launched cleanup even if message deletion failed, and rerankResults sliced results[rr.Index] without guarding negative provider indices.",
+          "regression_test": "TestW3BAudit_ClearSessionMessages_DeletesChatHistoryKBBeforeRowsDisappear",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-06",
+          "severity": "P1",
+          "file": "internal/application/service/session.go, internal/application/service/session_fork.go",
+          "summary": "GenerateTitleAsync passed the caller *types.Session pointer directly into a background goroutine that mutated session.Title concurrently with caller reads/serialization, UpdateSession did not check existing == nil when GetByID returned (nil, nil), and forkOnSharedMachine omitted Kind: source.Kind when persisting forked sessions.",
+          "regression_test": "TestW3BAudit_Session_GenerateTitleAsyncRace_UpdateNilGuard_AndSharedForkKind",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-07",
+          "severity": "P1",
+          "file": "internal/application/service/user.go",
+          "summary": "homeOrFirstMembershipTenant checked raw user.CanAccessAllTenants instead of access.UserCanAccessAllTenants(user, s.config) (honoring stale DB flags when CrossTenantAccessEnabled was disabled), AdminResetPassword left Preferences.OidcOnlyLogin = true so newly reset local passwords could still not sign in, and exchangeOIDCCode/fetchOIDCUserInfo used unbounded io.ReadAll on external IdP responses.",
+          "regression_test": "TestW3BAudit_UserService_TenantGate_AdminResetOidcFlag_AndBoundedOIDCRead",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-08",
+          "severity": "P1",
+          "file": "internal/application/service/web_search.go",
+          "summary": "matchesBlacklistRule checked strings.HasPrefix(rule, \"/\") && strings.HasSuffix(rule, \"/\") without requiring len(rule) >= 2, causing a single-character \"/\" blacklist rule to panic on rule[1:len(rule)-1] during web search result filtering.",
+          "regression_test": "TestW3BAudit_WebSearch_MatchesBlacklistRuleSingleSlashDoesNotPanic",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-09",
+          "severity": "P2",
+          "file": "internal/application/service/shell_job_index.go, internal/application/service/system_setting.go",
+          "summary": "ShellJobIndex.parseMember split member strings with SplitN(..., 5), corrupting SandboxID/WorkID whenever namespace or SandboxID contained colons (while still needing to preserve empty SandboxID entries), and system_setting.go converted float64 settings directly to int64 without rejecting NaN/Inf/overflow or accepting int32/numeric-string values in coerceToPositiveInt64.",
+          "regression_test": "TestW3BAudit_ShellJobIndex_PreservesColonInSandboxIDAndNamespace, TestW3BAudit_SystemSetting_RejectsNaNInfAndAcceptsInt32AndNumericStringConcurrency, TestSweepMarksLostWhenTheIndexHasNoSandbox",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-10",
+          "severity": "P1",
+          "file": "internal/application/service/tenant_skill_service.go, internal/application/service/tenant_skill_install.go, internal/application/service/tenant_skill_admin.go, internal/application/service/tenant_skill_stop.go, internal/application/service/tenant_skill_remove.go",
+          "summary": "Concurrent skill install heartbeats, progress persistence, SetSkillEnabled, SetSkillPublic, StopSkill, and RemoveSkill performed unsynchronized read-modify-write Update(row) cycles on tenant_skills rows (clobbering concurrent flag/state transitions), and cross-replica StopSkill/RemoveSkill/ReinstallSkill had no shared Redis attempt token to fence out an older replica's in-flight installer.",
+          "regression_test": "TestW3BAudit_Skill_CrossReplicaStopInvalidatesStaleRunOwnership",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-11",
+          "severity": "P2",
+          "file": "internal/application/service/tenant_skill_bundle.go, internal/application/service/tenant_skill_host.go, internal/application/service/tenant_skill_files.go, internal/application/service/tenant_skill_admin.go",
+          "summary": "Zip skill bundle extraction did not normalize Windows backslash path separators or reject Windows drive-prefixed paths, cast UncompressedSize64 directly to int64 before checking >= 1<<63 (allowing negative int64 wraparound), sliced UTF-8 file previews mid-rune, tied trySkillBundle singleflight builds to the first caller's cancellable context, and did not release SubscribeProgress concurrency slots automatically when subCtx cancelled.",
+          "regression_test": "TestW3BAudit_SkillBundle_BackslashNormalization_Zip64Overflow_UTF8Trunc_AndSingleflight, TestW3BAudit_SubscribeProgress_ReleaseUnblocksParkedPublisherGoroutine",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-12",
+          "severity": "P1",
+          "file": "internal/application/service/workspace_checkpointer.go, internal/application/service/workspace_reset.go",
+          "summary": "WorkspaceCheckpointer interpolated messageID inside single quotes (commit -m 'turn:%s') without shellSingleQuote (allowing single-quote shell injection if messageID was unvalidated), and workspaceLayoutFor executed destructive git --work-tree clean/reset without requiring WorkspaceVersioning, non-host layout, non-\"/\" Root, and GitDir outside Root.",
+          "regression_test": "TestW3BAudit_Workspace_CheckpointerShellInjectionAndResetLayoutGuards",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-13",
+          "severity": "P1",
+          "file": "internal/application/service/wiki_lint.go",
+          "summary": "RunLint treated transient GetKnowledgeBatch repository errors as missing source documents (enabling AutoFix to soft-delete live wiki pages during DB hiccups) and marked any existing Knowledge ID live without checking kn.TenantID == tenantID and kn.KnowledgeBaseID == kbID.",
+          "regression_test": "TestW3BAudit_WikiLint_AbortsOnTransientDBErrorAndRejectsCrossTenantSourceRef",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-14",
+          "severity": "P1",
+          "file": "internal/application/service/wiki_ingest_batch.go",
+          "summary": "ProcessWikiIngest and ProcessWikiFinalize skipped soft-deleted tenant liveness checks whenever legacy task payloads had payload.TenantID == 0 and did not reject non-zero payload.TenantID mismatches against kb.TenantID.",
+          "regression_test": "TestW3BAudit_WikiTasks_ZeroTenantPayloadStillEnforcesDeletedTenantAfterKBLoad",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-15",
+          "severity": "P2",
+          "file": "internal/application/service/wiki_page.go, internal/application/service/wiki_ingest.go, internal/application/service/wiki_ingest_batch.go",
+          "summary": "CreatePage accepted caller-supplied ID, Version, InLinks, and DeletedAt fields on user-authored wiki pages, while withSlugLock released its Redis lock via unconditional DEL(lockKey) (risking deletion of a successor holder's lock after TTL expiry) and ProcessWikiFinalize renewed its lock via bare Expire instead of token-owned redislock.Renew.",
+          "regression_test": "TestW3BAudit_WikiCreatePageSanitizesUserFields_AndSlugLockUsesTokenOwnership",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "W3-SVCB-16",
+          "severity": "P2",
+          "file": "internal/application/service/local_shell_job_service_test.go, internal/application/service/local_shell_job_followup_test.go",
+          "summary": "Under -tags desktop -race, localTestProcess.killCount was incremented in Kill() on the watcher goroutine while read unsynchronized in TestLocalStatusAndCancelArePerID, and TestLocalShellJobLargeStdinPreservesResultJSON/escaped-command used a word-boundary '#' comment suffix that MaskCommandAssignments conservatively redacts to '#***' instead of preserving an 8192-byte control-escaped command.",
+          "regression_test": "TestLocalStatusAndCancelArePerID, TestLocalShellJobLargeStdinPreservesResultJSON",
+          "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 -run TestAuditW3A ./internal/application/service (exit 0: 3.865s)",
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service (exit 0)",
+        "GOMAXPROCS=2 go test -p 1 -count=1 ./internal/application/service (exit 0: 154.506s)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 -timeout 30m ./internal/application/service (exit 0: 936.551s)",
+        "GOMAXPROCS=2 go vet -tags desktop -p 1 ./internal/application/service (exit 0)",
+        "GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/application/service (exit 0)",
+        "GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 GOMAXPROCS=2 go vet -tags desktop -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/application/service (exit 0)",
+        "GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 GOMAXPROCS=2 go build -tags desktop -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/application/service (exit 0)",
+        "GOOS=windows GOARCH=amd64 CGO_ENABLED=0 GOMAXPROCS=2 go vet -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/application/service (exit 0)",
+        "GOOS=windows GOARCH=amd64 CGO_ENABLED=0 GOMAXPROCS=2 go vet -tags desktop -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/application/service (exit 0)",
+        "GOOS=windows GOARCH=amd64 CGO_ENABLED=0 GOMAXPROCS=2 go build -tags desktop -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/application/service (exit 0)",
+        "GOMAXPROCS=2 go test -race -tags desktop -p 1 -count=1 ./internal/application/service -run 'TestLocal|TestW3BAudit' (exit 0: 10.052s)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 -timeout 30m ./internal/application/service (exit 0: 922.932s)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-a-kb.json,test-reports/module-audit-v2/evidence/w3-svc-b-platform.json"
     },
     {
       "unit_id": "internal/application/service/chat_pipeline",
       "wave": "W3",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 65,
+      "status": "verified_findings_fixed",
+      "file_count": 66,
       "tracked_files": [
+        "internal/application/service/chat_pipeline/audit_regression_test.go",
         "internal/application/service/chat_pipeline/chat_completion.go",
         "internal/application/service/chat_pipeline/chat_completion_stream.go",
         "internal/application/service/chat_pipeline/chat_completion_stream_test.go",
@@ -3609,16 +3913,58 @@
         "internal/application/service/chat_pipeline/web_fetch.go",
         "internal/application/service/chat_pipeline/wiki_boost.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Plugin chain ordering across QueryUnderstand, ExtractEntity, Search, SearchEntity, Rerank, WikiBoost, WebFetch, Merge (including history merge and citation source expansion), DataAnalysis, FilterTopK, IntoChatMessage, and ChatCompletion/ChatCompletionStream preserves context boundaries and untrusted source-data framing.",
+        "getSearchResultFromHistory clones historical KnowledgeReferences so stored ChatManage.History entries are never mutated in place, and filterHistoryResults enforces current-turn SearchTargets / KnowledgeBaseIDs / KnowledgeIDs / WebSearchEnabled scope so revoked KBs, tag-restricted KBs without document proof, and disabled web-search results cannot leak from prior turns.",
+        "attachCitationSources requires non-empty ParentChunkID before recording or matching sibling parent links so unrelated top-level chunks (ParentChunkID == '') in the same document are never cross-linked.",
+        "Goroutines spawned by RunParallel, PluginSearch, PluginChatCompletionStream, and PluginWebFetch isolate panics via recover(), preventing single-plugin/provider panics from crashing the server process or deadlocking WaitGroups.",
+        "PluginWikiBoost guards nil kbService/entries and restricts score boosting strictly to chunks belonging to wiki-enabled target KBs; LLM/repository nil responses in chat_completion, query_understand, data_analysis, and extract_entity fail safely without nil-pointer dereferences."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-03",
+          "severity": "P1",
+          "file": "internal/application/service/chat_pipeline/search.go:166-215, internal/application/service/chat_pipeline/merge_history.go:13-135",
+          "summary": "filterHistoryResults and getSearchResultFromHistory re-injected prior-turn KnowledgeReferences without checking whether their KB, tag scope, or web_search source remained authorized in the current turn's SearchTargets/WebSearchEnabled, and mutated ChatManage.History[i].KnowledgeReferences in place.",
+          "regression_test": "TestFilterHistoryResults_EnforcesCurrentTurnScopeAndDoesNotMutateHistory",
+          "commit": "073f14e6c0547d1ffec76f898a30739eb00d5156"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-04",
+          "severity": "P1",
+          "file": "internal/application/service/chat_pipeline/citation_sources.go:96-135",
+          "summary": "attachCitationSources inserted empty c.ParentChunkID ('') into allowedParents and matched allowedParents[c.ParentChunkID] without requiring non-empty ParentChunkID, cross-linking unrelated top-level chunks from the shared byID map into another result's CitationSources.",
+          "regression_test": "TestAttachCitationSources_DoesNotCrossLinkTopLevelChunksWithEmptyParentID",
+          "commit": "073f14e6c0547d1ffec76f898a30739eb00d5156"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-05",
+          "severity": "P1",
+          "file": "internal/application/service/chat_pipeline/common.go:218-248, internal/application/service/chat_pipeline/chat_completion_stream.go:135-171, internal/application/service/chat_pipeline/web_fetch.go:82-160, internal/application/service/chat_pipeline/search.go:98-135",
+          "summary": "Concurrent goroutines in RunParallel, PluginChatCompletionStream, PluginWebFetch, and PluginSearch lacked panic recovery (and nil client/page guards in WebFetch), allowing a panicking task, stream consumer, or web fetcher to crash the entire Go process or hang wg.Wait().",
+          "regression_test": "TestPipelineGoroutinePanicIsolation_RunParallelStreamAndWebFetch",
+          "commit": "073f14e6c0547d1ffec76f898a30739eb00d5156"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-06",
+          "severity": "P2",
+          "file": "internal/application/service/chat_pipeline/wiki_boost.go:53-110, internal/application/service/chat_pipeline/chat_completion.go:63-75, internal/application/service/chat_pipeline/query_understand.go:132-145, internal/application/service/chat_pipeline/data_analysis.go:89-95,213-220, internal/application/service/chat_pipeline/extract_entity.go:116-128,197-205",
+          "summary": "PluginWikiBoost boosted every ChunkTypeWikiPage result across all KBs whenever at least one target KB had wiki enabled (and panicked if kbService was nil), and chat_completion, query_understand, data_analysis, and extract_entity lacked nil-response guards on (nil, nil) adapter returns.",
+          "regression_test": "TestPluginWikiBoost_NilServiceSafetyAndScopedToWikiEnabledKB",
+          "commit": "073f14e6c0547d1ffec76f898a30739eb00d5156"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/chat_pipeline/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/chat_pipeline (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json"
     },
     {
       "unit_id": "internal/application/service/credential",
       "wave": "W3",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 9,
       "tracked_files": [
         "internal/application/service/credential/canary_test.go",
@@ -3631,17 +3977,42 @@
         "internal/application/service/credential/vault.go",
         "internal/application/service/credential/vault_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "OwnerFromContext resolves personal vault ownership strictly from CallerFromContext(ctx).TenantID (never a shared agent's execution tenant), rejects API-key scoped contexts, and allows only verified web_user and api_external_user principals.",
+        "Vault AES-GCM secret sealing binds TenantID, UserID, and ItemID into authenticated envelope metadata and verifies owner match on open so cross-tenant row tampering fails closed with ErrCredentialUnavailable and zero secret leakage in errors/logs.",
+        "HandleStore encrypts one-time and vault-backed secret handles in Redis under SYSTEM_AES_KEY, enforces non-zero Owner on Create/Resolve/Complete, and uses atomic Lua ownership verification before deleting handles in Complete.",
+        "Submitter validates non-zero Owner/prompt TenantID, validates stored SecureFormRequest schema before minting handles or vault items, and discards orphan handles on HITL resolution races."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-07",
+          "severity": "P1",
+          "file": "internal/application/service/credential/handles.go:69-75,180-225",
+          "summary": "HandleStore.Complete deleted Redis secret handles by sessionID + handle token without verifying tenantID or userID (allowing cross-user/cross-tenant handle destruction if session/handle IDs were observed) and HandleStore.Create accepted zero-value Owner.",
+          "regression_test": "TestHandleStoreCompleteRequiresOwnerAndRejectsZeroOwner",
+          "commit": "ae712c137c2de5c731cce8b6e2192742bd0077ac"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-08",
+          "severity": "P1",
+          "file": "internal/application/service/credential/vault.go:70-108,240-298, internal/application/service/credential/submit.go:63-95",
+          "summary": "OwnerFromContext read TenantIDFromContext(ctx) instead of CallerFromContext(ctx).TenantID (routing personal vault operations into a shared agent's execution tenant under WithExecutionTenant) and did not reject TenantAPIKeyScope contexts; Vault envelope sealing did not bind TenantID/UserID/ItemID against DB row tampering; Submitter.Submit lacked zero-owner and stored SecureFormRequest.Validate() guards.",
+          "regression_test": "TestOwnerFromContextPreservesCallerUnderExecutionTenantAndRejectsAPIKey, TestVaultRejectsCrossTenantCiphertextAndZeroOwner, TestSubmitRejectsZeroOwnerAndInvalidFormPrompt",
+          "commit": "ae712c137c2de5c731cce8b6e2192742bd0077ac"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/credential/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/credential (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json"
     },
     {
       "unit_id": "internal/application/service/file",
       "wave": "W3",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 32,
+      "status": "verified_findings_fixed",
+      "file_count": 33,
       "tracked_files": [
         "internal/application/service/file/backend_scoped.go",
         "internal/application/service/file/backend_scoped_test.go",
@@ -3674,24 +4045,59 @@
         "internal/application/service/file/resource_content_dedup_test.go",
         "internal/application/service/file/s3.go",
         "internal/application/service/file/s3_test.go",
+        "internal/application/service/file/security_audit_test.go",
         "internal/application/service/file/tos.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "LocalFileService resolves ancestor and leaf components via Lstat + EvalSymlinks containment checks (resolveLocalPathNoSymlinks) across GetFile, DeleteFile, CopyFile, SaveFile, and SaveBytes, preventing symlink reads, writes, copies, or deletions outside baseDir.",
+        "All object storage backends (Local, MinIO, S3, COS, TOS, OSS, OBS, KS3) enforce non-zero tenantID, single-segment non-traversal knowledgeID, non-nil multipart FileHeader, SafeObjectKey validation, and SSRF-safe dialer/redirect policies.",
+        "COS bucket and region identifiers enforce strict RFC-1123 label validation (isValidCOSLabel) across primary and temp buckets so crafted bucket/region strings cannot break out of <bucket>.cos.<region>.myqcloud.com.",
+        "NewFileServiceFromStorageConfig fails closed when a non-empty Local.PathPrefix is invalid/traversal instead of silently falling back to root baseDir, and ResolveTenantFileServiceWithFallback safely handles nil tenant pointers."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-09",
+          "severity": "P1",
+          "file": "internal/application/service/file/local.go:70-310",
+          "summary": "LocalFileService.checkFilePath only performed lexical filepath.Abs/Rel prefix checks without os.Lstat or filepath.EvalSymlinks verification, allowing symlinks inside a tenant's local directory to read, overwrite, copy, or delete arbitrary host files outside baseDir.",
+          "regression_test": "TestLocalFileService_RejectsSymlinkEscape",
+          "commit": "b2ab376144e86f8bbe1140f6d983dd1171b3cc76"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-10",
+          "severity": "P1",
+          "file": "internal/application/service/file/cos.go:46-115,195-295, internal/application/service/file/local.go:102-250, internal/application/service/file/s3.go:320-455, internal/application/service/file/minio.go:175-305, internal/application/service/file/oss.go:180-320, internal/application/service/file/tos.go:180-320, internal/application/service/file/obs.go:180-320, internal/application/service/file/ks3.go:180-320",
+          "summary": "newCosClient interpolated bucketName/region directly into fmt.Sprintf('https://%s.cos.%s.myqcloud.com') without RFC-1123 label validation (allowing URL authority breakout via '/', '@', '#', or dots), and SaveFile/SaveBytes/CopyFile across storage providers lacked zero-tenantID, traversal-knowledgeID ('../other-tenant'), and nil-*multipart.FileHeader guards.",
+          "regression_test": "TestFileProviders_RejectInvalidTenantOrTraversalKnowledgeIDAndCOSHostInjection",
+          "commit": "b2ab376144e86f8bbe1140f6d983dd1171b3cc76"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-11",
+          "severity": "P2",
+          "file": "internal/application/service/file/factory.go:96-112, internal/application/service/file/resolve_tenant.go:34-60",
+          "summary": "NewFileServiceFromStorageConfig silently ignored invalid/traversal Local.PathPrefix values by falling back to root localBaseDir instead of failing closed, and ResolveTenantFileServiceWithFallback dereferenced nil *types.Tenant pointers in log fields on the fallback branch.",
+          "regression_test": "TestNewFileServiceFromStorageConfig_RejectsTraversalLocalPathPrefix, TestResolveTenantFileServiceWithFallback_NilTenantNoPanic",
+          "commit": "b2ab376144e86f8bbe1140f6d983dd1171b3cc76"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/file/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/file (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json"
     },
     {
       "unit_id": "internal/application/service/memory",
       "wave": "W3",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 40,
+      "status": "verified_findings_fixed",
+      "file_count": 41,
       "tracked_files": [
         "internal/application/service/memory/admin.go",
         "internal/application/service/memory/admin_capacity_review_test.go",
         "internal/application/service/memory/admin_rejection_race_test.go",
         "internal/application/service/memory/admin_test.go",
+        "internal/application/service/memory/audit_regression_test.go",
         "internal/application/service/memory/clear_fencing_test.go",
         "internal/application/service/memory/consistency_test.go",
         "internal/application/service/memory/consolidate.go",
@@ -3729,18 +4135,44 @@
         "internal/application/service/memory/vector_scope_test.go",
         "internal/application/service/memory/vector_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Strict (tenant_id, user_id) scoping via callerScope/enabledScope isolates all personal conversational and long-term memories across Recall, Remember, Update, Forget, Search, List, Episodes, DocAffinity, Extraction, and Consolidation so User A's memories never leak into User B's prompts.",
+        "FamiliarKnowledgeIDs enforces workspace, agent, and user memory opt-out switches via enabledScope before returning document affinity boosts.",
+        "Recall falls back to persisted subject.BlockText only when loading active resident memories fails (residentErr != nil), never resurrecting archived/deleted memories when the resident query succeeds with zero active rows.",
+        "Under cross-workspace shared-agent execution (WithExecutionTenant), scopeModelContext re-binds ModelService calls to the caller's own workspace and ScheduleExtraction strips foreign chatModelID values so caller memory tasks never reference or invoke foreign workspace models."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-12",
+          "severity": "P1",
+          "file": "internal/application/service/memory/scope.go:46-66, internal/application/service/memory/extract.go:54-82, internal/application/service/memory/vector.go:70-125, internal/application/service/memory/consolidate.go:195-215, internal/application/service/memory/topic_resolve.go:65-80",
+          "summary": "Under shared-agent execution (WithExecutionTenant), memory embedding, topic resolution, consolidation, and extraction passed the foreign execution tenant's ctx (TenantIDContextKey / TenantInfoContextKey) to ModelService and persisted the foreign agent's chatModelID into the caller's async MemoryExtractPayload.",
+          "regression_test": "TestExecutionTenant_ModelLookupsAndScheduledExtractionUseCallerWorkspace",
+          "commit": "073f14e6c0547d1ffec76f898a30739eb00d5156"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-13",
+          "severity": "P2",
+          "file": "internal/application/service/memory/service.go:130-150,480-496",
+          "summary": "FamiliarKnowledgeIDs bypassed workspace, agent, and user memory opt-out switches by calling callerScope instead of enabledScope, and Recall fell back to stale subject.BlockText whenever resident == '' even when loadResidentText succeeded with zero active items after archival/deletion.",
+          "regression_test": "TestFamiliarKnowledgeIDs_HonorsWorkspaceAgentAndUserSwitches, TestRecall_DoesNotResurrectStaleSubjectBlockWhenResidentLoadSucceedsEmpty",
+          "commit": "073f14e6c0547d1ffec76f898a30739eb00d5156"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/memory/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/memory (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json"
     },
     {
       "unit_id": "internal/application/service/retriever",
       "wave": "W3",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 17,
+      "status": "verified_findings_fixed",
+      "file_count": 18,
       "tracked_files": [
+        "internal/application/service/retriever/audit_regression_test.go",
         "internal/application/service/retriever/composite.go",
         "internal/application/service/retriever/composite_partial_test.go",
         "internal/application/service/retriever/factory.go",
@@ -3759,18 +4191,44 @@
         "internal/application/service/retriever/registry_test.go",
         "internal/application/service/retriever/storage_estimate_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "VerifyBinding, CreateRetrieveEngineForKB, CreateRetrieveEngineFromPayload, resolveBoundEngine, and vectorStoreRepoOwnership.StoreOwnedBy enforce non-zero tenantID, non-blank storeID, and non-nil registry/ownership/tenantInfo dependencies fail-closed.",
+        "Store sentinels omit raw store UUIDs, backend endpoints, and credentials while preserving retryable (ErrVectorStoreUnavailable / context error) vs permanent (ErrVectorStoreForbidden / ErrVectorStoreNotFound) classification for async workers.",
+        "CompositeRetrieveEngine guards nil receivers, nil engineInfo/retrieveEngine entries, and nil *types.IndexInfo elements across Retrieve, SupportRetriever, BatchIndex, BatchIndexVectors, BatchUpdateChunkContent, ValidateKnowledgeIndexMove, and concurrentExecWithError under -race."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-14",
+          "severity": "P1",
+          "file": "internal/application/service/retriever/factory.go:83-109,165-172,205-265, internal/application/service/retriever/ownership.go:30-41",
+          "summary": "VerifyBinding and resolveBoundEngine did not reject tenantID == 0 or whitespace-only storeID strings fail-closed (allowing whitespace *vectorStoreID to bypass empty-string unbound normalization into GetOrLoadByStoreID), panicked on nil registry/ownership, and CreateRetrieveEngineForKB panicked on typed-nil *types.Tenant in context.",
+          "regression_test": "TestFactoryAndOwnership_FailClosedOnZeroTenantBlankStoreNilDepsAndTypedNilTenantInfo",
+          "commit": "028661b9d700f4cdab75764b9cec9efe809fe90b"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-15",
+          "severity": "P2",
+          "file": "internal/application/service/retriever/composite.go:41-60,93-140,169-180,227-245,294-310,408-420, internal/application/service/retriever/precomputed.go:33-42",
+          "summary": "CompositeRetrieveEngine dereferenced nil engineInfo / retrieveEngine entries in concurrentExecWithError, Retrieve, BatchUpdateChunkContent, and ValidateKnowledgeIndexMove, and dereferenced nil *types.IndexInfo elements in BatchIndex and BatchIndexVectors.",
+          "regression_test": "TestCompositeRetrieveEngine_NilSafetyOnNilEntriesAndBatchIndex",
+          "commit": "073f14e6c0547d1ffec76f898a30739eb00d5156"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/retriever/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/retriever (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service -run 'TestProcessChunksResolvesVectorStoreBeforeDeletingChunks|TestCreateKnowledgeBase_VectorStoreBinding|TestProcessKBDeleteCleansWikiWhenVectorStore' (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json"
     },
     {
       "unit_id": "internal/application/service/sandboxalloc",
       "wave": "W3",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 9,
+      "status": "verified_findings_fixed",
+      "file_count": 10,
       "tracked_files": [
+        "internal/application/service/sandboxalloc/audit_regression_test.go",
         "internal/application/service/sandboxalloc/cleanup.go",
         "internal/application/service/sandboxalloc/cleanup_test.go",
         "internal/application/service/sandboxalloc/convert.go",
@@ -3781,17 +4239,41 @@
         "internal/application/service/sandboxalloc/service.go",
         "internal/application/service/sandboxalloc/service_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Service.Place validates non-zero SessionTenantID and non-blank SessionID and verifies session ownership via s.sessions.GetByID(ctx, req.SessionTenantID, req.SessionID) BEFORE returning an existing placement from Lookup, preventing cross-tenant session ID probing or shared UserMachine disclosure.",
+        "VerifySessionAllocation enforces active (unreleased) assignment, matching config/digest address, current session owner digest match, and current auth-source eligibility for shared user machines.",
+        "UserMachineGC coordinates single-replica scans via redislock, synchronizes renewer goroutine shutdown before lock release, skips Release when lock renewal fails, and fences Redis cursor writes/deletes with an atomic Lua lock-token check so a replica whose lock expired can never overwrite or delete a new holder's cursor."
+      ],
+      "findings": [
+        {
+          "id": "W3-SVC-SUBPKGS-16",
+          "severity": "P1",
+          "file": "internal/application/service/sandboxalloc/service.go:91-125",
+          "summary": "Service.place returned existing assignments from unscoped Lookup(ctx, req.SessionID) before verifying s.sessions.GetByID(ctx, req.SessionTenantID, req.SessionID), allowing a cross-tenant caller supplying another tenant's placed SessionID to read back that tenant's Assignment and shared UserMachine identity.",
+          "regression_test": "TestPlaceRejectsCrossTenantAndInvalidSession",
+          "commit": "073f14e6c0547d1ffec76f898a30739eb00d5156"
+        },
+        {
+          "id": "W3-SVC-SUBPKGS-17",
+          "severity": "P2",
+          "file": "internal/application/service/sandboxalloc/gc.go:64-155,186-198,255-296",
+          "summary": "UserMachineGC.saveCursor wrote/deleted UserMachineGCCursorKey via context.WithoutCancel(ctx) without fencing against the active UserMachineGCLockKey token (allowing a replica whose lock lease expired mid-scan to overwrite or DEL the new lock holder's cursor), and RunOnce did not synchronize renewer goroutine exit before releasing the lock.",
+          "regression_test": "TestGCFencesCursorAndReleaseWhenLockIsLost",
+          "commit": "073f14e6c0547d1ffec76f898a30739eb00d5156"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/sandboxalloc/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/sandboxalloc (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json"
     },
     {
       "unit_id": "internal/container",
       "wave": "W3",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 35,
+      "status": "verified_findings_fixed",
+      "file_count": 36,
       "tracked_files": [
         "internal/container/audit_sink.go",
         "internal/container/audit_sink_test.go",
@@ -3813,6 +4295,7 @@
         "internal/container/gorm_logger_test.go",
         "internal/container/host_project_lookup.go",
         "internal/container/host_project_lookup_test.go",
+        "internal/container/local_image_resolver_test.go",
         "internal/container/nolocalsandbox_test.go",
         "internal/container/recover_pending_wiki_tasks.go",
         "internal/container/reset_pending_tasks.go",
@@ -3829,16 +4312,32 @@
         "internal/container/storagebackend_migration_test.go",
         "internal/container/vector_store_whitelist_only_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "DI container wiring, lifecycle cleanup registration, and ordered resource shutdown execute deterministically without skipping remaining closers on errors or panics.",
+        "Service endpoint construction in engine_factory.go formats IPv4, hostname, bare IPv6, and bracketed IPv6 addresses into valid RFC 3986 host:port URLs.",
+        "Local/provider/resource image resolution in registerChatLocalImageResolver enforces path containment within LOCAL_STORAGE_BASE_DIR (defaulting to /data/files), tenant isolation on provider/resource schemes, and bounded 50 MiB stream reads."
+      ],
+      "findings": [
+        {
+          "id": "W3-REPO-TYPES-08",
+          "severity": "P2",
+          "file": "internal/container/cleanup.go:108-134; internal/container/engine_factory.go:412-436; internal/container/container.go:880-910",
+          "summary": "ResourceCleaner.Cleanup aborted remaining shutdown hooks if an earlier closer panicked; hostFromAddr split bare IPv6 literals on the last colon (producing invalid URLs like 'http://::8030' for '::1'); and registerChatLocalImageResolver omitted the '/data/files' fallback when LOCAL_STORAGE_BASE_DIR was unset and read provider/resource image streams with unbounded io.ReadAll.",
+          "regression_test": "TestCleanupRecoversPanickingHookAndRunsRemainingHooks, TestHostFromAddrHandlesIPv4HostnameAndIPv6, TestRegisterChatLocalImageResolverDefaultsBaseDirAndBoundsRead",
+          "commit": "fd1937ef9b2b89b9c9ea45314d3195e54ebf670f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/container/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json"
     },
     {
       "unit_id": "internal/event",
       "wave": "W3",
       "legacy_status": "audited_fixed_validated",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 10,
       "tracked_files": [
         "internal/event/SUMMARY.md",
@@ -3852,16 +4351,31 @@
         "internal/event/middleware.go",
         "internal/event/usage_example.md"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "EventBus.On, Off, Emit, EmitAndWait, Clear, and HasHandlers synchronize handler map access under RWMutex without holding locks across subscriber execution (preventing re-entrant deadlocks) and pass -race under concurrent publish/subscribe churn.",
+        "Both synchronous and asynchronous EventBus emission clone handler slices before releasing RLock, isolate per-handler Event.Metadata maps against concurrent mutation races, ignore nil handler registrations, and recover panicking subscribers so remaining handlers still execute."
+      ],
+      "findings": [
+        {
+          "id": "W3-REPO-TYPES-09",
+          "severity": "P2",
+          "file": "internal/event/event.go:148-246",
+          "summary": "EventBus.On accepted nil EventHandler registrations; Emit and EmitAndWait shared the live map slice backing array after RUnlock (risking element clobbering during concurrent On append); and synchronous Emit neither isolated Event.Metadata per handler nor recovered panics from misbehaving subscribers.",
+          "regression_test": "TestSyncEmitIsolatesHandlerMetadataMutations, TestSyncEmitRecoversPanickingHandler, TestOnIgnoresNilHandler",
+          "commit": "fd1937ef9b2b89b9c9ea45314d3195e54ebf670f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/event/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json"
     },
     {
       "unit_id": "internal/storageurl",
       "wave": "W3",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 10,
       "tracked_files": [
         "internal/storageurl/mode.go",
@@ -3875,17 +4389,41 @@
         "internal/storageurl/stream_boundaries_test.go",
         "internal/storageurl/stream_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Rewriter.Ref only signs or rewrites strings whose entire value is a single canonical storage reference (local://, minio://, cos://, tos://, s3://, oss://, provider://, resource://), never rewriting storage handles embedded inside external http(s):// query parameters or markdown text.",
+        "crossTenantAuthorizedFileService stamps filesvc.WithCrossTenantResourceAccess strictly when both the requested filePath matches the authorized reference and any non-zero caller tenant on ctx matches the tenant for which authorization succeeded.",
+        "Local storage path validation and legacy file URL parsing enforce traversal-free segments and tenant-prefixed key confinement."
+      ],
+      "findings": [
+        {
+          "id": "W3-REPO-TYPES-10",
+          "severity": "P1",
+          "file": "internal/storageurl/storageurl.go:100-111",
+          "summary": "Rewriter.Ref used unanchored Pattern.MatchString(ref) followed by w.String(ctx, ref), allowing an attacker-controlled external URL containing an embedded storage handle (e.g. 'https://evil.example/pixel?leak=resource://...') passed to Ref() to have its embedded handle replaced with a live signed download URL/token.",
+          "regression_test": "TestRewriter_Ref",
+          "commit": "cac9b57560c9a3479fb27e7a6c4159421891fb91"
+        },
+        {
+          "id": "W3-REPO-TYPES-11",
+          "severity": "P1",
+          "file": "internal/storageurl/resolver.go:48-76, 134-146",
+          "summary": "crossTenantAuthorizedFileService did not record which caller tenant triggered WithAuthorization and stamped WithCrossTenantResourceAccess even if the returned FileService wrapper was invoked under a different tenant context (or with untrimmed ref spacing), risking cross-tenant authorization bleed if a resolved FileService handle was reused.",
+          "regression_test": "TestCrossTenantAuthorizedWrapperScopesToAuthorizedRefAndTenant",
+          "commit": "cac9b57560c9a3479fb27e7a6c4159421891fb91"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/storageurl/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json"
     },
     {
       "unit_id": "internal/types",
       "wave": "W3",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 207,
+      "status": "verified_findings_fixed",
+      "file_count": 208,
       "tracked_files": [
         "internal/types/agent.go",
         "internal/types/agent_grant.go",
@@ -4049,6 +4587,7 @@
         "internal/types/shared_agent_access.go",
         "internal/types/shared_agent_access_test.go",
         "internal/types/source_locator.go",
+        "internal/types/sqlite_scan_and_safety_test.go",
         "internal/types/storagebackend.go",
         "internal/types/storagebackend_test.go",
         "internal/types/sync_item_error_test.go",
@@ -4095,17 +4634,42 @@
         "internal/types/wiki_page_write_snapshot.go",
         "internal/types/wiki_page_write_snapshot_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All GORM sql.Scanner implementations across internal/types accept both []byte (PostgreSQL JSONB/BYTEA) and string (SQLite TEXT/JSON affinity) values as well as empty inputs without silently dropping data.",
+        "AES-GCM encrypted database column types (ModelParameters, MCPAuthConfig, StorageBackendConfig, TenantSandboxConfig, CredentialsConfig, ConnectionConfig, WebSearchProviderParameters) decrypt enc:v1: payloads identically across PostgreSQL and SQLite drivers and redact secrets in Redacted()/MaskSensitive() helpers.",
+        "Context extraction and binding helpers (CallerFromContext, PrincipalFromContext, TenantIDFromContext, TenantInfoFromContext, RequestIDFromContext, LanguageFromContext, AgentOperationFromContext, RunModeFromContext, With*) handle nil context.Context safely without panicking, and RenderPromptPlaceholders never mutates caller-supplied extra maps.",
+        "GENYEE brand/API-key/assistant constants (BuiltinGENYEEAssistantID, gy_ prefixes) contain zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W3-REPO-TYPES-05",
+          "severity": "P1",
+          "file": "internal/types/json.go:86-108; internal/types/knowledgebase.go:234-240, 377-840; internal/types/model.go:281-284; internal/types/mcp.go:259-383; internal/types/storagebackend.go:127-130; internal/types/tenant.go:165-912; internal/types/vectorstore.go:180-277; internal/types/session.go:323-408; internal/types/web_search_provider.go:112-115",
+          "summary": "StringArray.Scan and multiple custom JSON/AES-GCM Scan() implementations only type-asserted []byte and silently returned nil when GORM's SQLite driver yielded string values from TEXT/JSON columns—causing TenantAPIKey.KnowledgeBaseIDs to scan as empty on SQLite (making IsKnowledgeBaseRestricted() return false and escalating KB-scoped API keys to full workspace access) and silently dropping encrypted provider/MCP/storage/sandbox/connection configurations and JSON structs on SQLite.",
+          "regression_test": "TestStringArrayAndEncryptedConfigsScanFromSQLiteString",
+          "commit": "4184e5229ec9727c34366baeae2f517f7e351563"
+        },
+        {
+          "id": "W3-REPO-TYPES-06",
+          "severity": "P2",
+          "file": "internal/types/caller.go:24-49; internal/types/context_helpers.go:27-455; internal/types/principal.go:82-247; internal/types/agent_grant.go:111-140; internal/types/agent_operation.go:27-70; internal/types/run_mode.go:36-65; internal/types/memory.go:164-166; internal/types/tenant_api_key.go:279-281; internal/types/wiki_page_write_snapshot.go:16-26; internal/types/search.go:301-342; internal/types/placeholder.go:206-222; internal/types/vectorstore.go:591-596",
+          "summary": "Context helpers panicked on nil context.Context, Pagination.Limit/Offset panicked on nil receiver and overflowed int on large Page*PageSize, NewVectorStoreResponse panicked on nil VectorStore, and RenderPromptPlaceholders mutated caller-supplied extra maps when nil or shared across goroutines.",
+          "regression_test": "TestPaginationNilReceiverAndOverflowSafety, TestNewVectorStoreResponseNilSafe, TestRenderPromptPlaceholdersNilAndImmutableCallerMap, TestNilContextHelpersDoNotPanic",
+          "commit": "4184e5229ec9727c34366baeae2f517f7e351563"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/types/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json"
     },
     {
       "unit_id": "internal/types/interfaces",
       "wave": "W3",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 55,
+      "status": "verified_findings_fixed",
+      "file_count": 56,
       "tracked_files": [
         "internal/types/interfaces/agent.go",
         "internal/types/interfaces/agent_grant.go",
@@ -4122,6 +4686,7 @@
         "internal/types/interfaces/embed_channel.go",
         "internal/types/interfaces/evaluation.go",
         "internal/types/interfaces/file.go",
+        "internal/types/interfaces/file_test.go",
         "internal/types/interfaces/graph_search.go",
         "internal/types/interfaces/knowledge.go",
         "internal/types/interfaces/knowledgebase.go",
@@ -4163,10 +4728,25 @@
         "internal/types/interfaces/web_search_state.go",
         "internal/types/interfaces/wiki_page.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All 55 service, repository, retriever, sandbox, and storage interface contracts maintain backward-compatible exported signatures across the backend.",
+        "File storage context helpers in internal/types/interfaces/file.go (WithCrossTenantResourceAccess, HasCrossTenantResourceAccess, WithIndependentFileWrites, IndependentFileWrites) handle nil context.Context safely without panicking and scope cross-tenant resource authorization strictly to trimmed non-empty storage references."
+      ],
+      "findings": [
+        {
+          "id": "W3-REPO-TYPES-07",
+          "severity": "P2",
+          "file": "internal/types/interfaces/file.go:45-58",
+          "summary": "WithIndependentFileWrites and IndependentFileWrites dereferenced ctx.Value without guarding nil context.Context, panicking if a caller passed a nil context when marking or checking independent file write isolation.",
+          "regression_test": "TestIndependentFileWritesNilContextSafe",
+          "commit": "4184e5229ec9727c34366baeae2f517f7e351563"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/types/interfaces/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/doris",
@@ -10994,6 +11574,10 @@
       "test-reports/module-audit-v2/evidence/w2-handler-core.json",
       "test-reports/module-audit-v2/evidence/w2-handler-sess.json",
       "test-reports/module-audit-v2/evidence/w2-router-mw.json",
+      "test-reports/module-audit-v2/evidence/w3-repo-types.json",
+      "test-reports/module-audit-v2/evidence/w3-svc-a-kb.json",
+      "test-reports/module-audit-v2/evidence/w3-svc-b-platform.json",
+      "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json",
       "test-reports/module-audit-v2/verify_ledger.py",
       "test-reports/module-audit-v2/wave0-foundation.json",
       "test-reports/screenshots/01_login_page.png",
