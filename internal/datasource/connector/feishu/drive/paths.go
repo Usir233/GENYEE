@@ -2,6 +2,8 @@ package drive
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/Usir233/GENYEE/internal/datasource/connector/feishu/core"
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -56,7 +58,10 @@ func (o *driveOps) driveFolderName(
 func (o *driveOps) listDriveFilesForResource(
 	ctx context.Context, client *core.Client, resourceID string,
 ) ([]core.DriveFile, error) {
-	rootFolderToken, fileToken := parseDriveResourceID(resourceID)
+	rootFolderToken, fileToken := parseDriveResourceID(strings.TrimSpace(resourceID))
+	if strings.TrimSpace(rootFolderToken) == "" {
+		return nil, fmt.Errorf("invalid feishu drive resource id %q: empty root folder_token", resourceID)
+	}
 
 	rootBase := ""
 	if rootName, ok := o.driveFolderName(ctx, client, rootFolderToken); ok {

@@ -109,7 +109,10 @@ func (c *DriveConnector) ListResources(
 	}
 
 	// Lazy load: list only the direct children of the given folder.
-	rootFolderToken, folderToken := parseDriveResourceID(parentID)
+	rootFolderToken, folderToken := parseDriveResourceID(strings.TrimSpace(parentID))
+	if strings.TrimSpace(rootFolderToken) == "" {
+		return nil, fmt.Errorf("invalid feishu drive resource id %q: empty root folder_token", parentID)
+	}
 	if folderToken == "" {
 		// parentID is a bare root folder token -> list its children.
 		folderToken = rootFolderToken
@@ -158,8 +161,8 @@ func (c *DriveConnector) ResolveResourceAncestors(
 	}
 	rootSelections := make(map[string][]selection)
 	for _, rid := range resourceIDs {
-		rootFolderToken, fileToken := parseDriveResourceID(rid)
-		if fileToken == "" {
+		rootFolderToken, fileToken := parseDriveResourceID(strings.TrimSpace(rid))
+		if rootFolderToken == "" || fileToken == "" {
 			// A root-level selection is already a top-level node; nothing to reveal.
 			continue
 		}
@@ -178,6 +181,7 @@ func (c *DriveConnector) ResolveResourceAncestors(
 		}
 		// parentChain[fileToken] = resourceID of its parent folder
 		parentChain := make(map[string]string)
+		visitedFolders := map[string]bool{rootFolderToken: true}
 
 		queue := []string{rootFolderToken}
 		for len(queue) > 0 && len(remaining) > 0 {
@@ -198,7 +202,8 @@ func (c *DriveConnector) ResolveResourceAncestors(
 						add(a)
 					}
 				}
-				if f.Type == "folder" {
+				if f.Type == "folder" && f.Token != "" && !visitedFolders[f.Token] {
+					visitedFolders[f.Token] = true
 					parentChain[f.Token] = makeDriveResourceID(rootFolderToken, cur)
 					queue = append(queue, f.Token)
 				}
@@ -213,8 +218,13 @@ func (c *DriveConnector) ResolveResourceAncestors(
 // returning the resourceIDs (root, ... , cur's parent) in root-first order.
 func buildDriveAncestorChain(rootFolderToken, cur string, parentChain map[string]string) []string {
 	var chain []string
+	seen := make(map[string]bool)
 	node := cur
 	for node != "" && node != rootFolderToken {
+		if seen[node] {
+			break
+		}
+		seen[node] = true
 		parent, ok := parentChain[node]
 		if !ok {
 			break
@@ -547,8 +557,8 @@ func driveRootFolderToken(config *types.DataSourceConfig) string {
 	if config == nil || len(config.ResourceIDs) == 0 {
 		return ""
 	}
-	root, _ := parseDriveResourceID(config.ResourceIDs[0])
-	return root
+	root, _ := parseDriveResourceID(strings.TrimSpace(config.ResourceIDs[0]))
+	return strings.TrimSpace(root)
 }
 
 // driveFolderToResource builds the root Resource for a Drive folder. The root

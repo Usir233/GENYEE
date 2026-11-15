@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -56,8 +57,29 @@ func readCapped(body io.Reader, limit int64) ([]byte, error) {
 	return data, nil
 }
 
+func validateNotionID(kind, id string) error {
+	if id == "" {
+		return fmt.Errorf("notion %s is required", kind)
+	}
+	if id != strings.TrimSpace(id) || id == "." || id == ".." || strings.ContainsAny(id, "/\\?#") {
+		return fmt.Errorf("invalid notion %s %q", kind, id)
+	}
+	for i := 0; i < len(id); i++ {
+		if id[i] < 0x20 || id[i] == 0x7f {
+			return fmt.Errorf("invalid notion %s", kind)
+		}
+	}
+	return nil
+}
+
 // newClient creates a new Notion API client.
 func newClient(token, baseURL string) (*notionClient, error) {
+	for i := 0; i < len(token); i++ {
+		if token[i] < 0x20 || token[i] == 0x7f {
+			return nil, fmt.Errorf("%w: api_key contains invalid control characters", datasource.ErrInvalidCredentials)
+		}
+	}
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
@@ -195,7 +217,10 @@ func (c *notionClient) SearchPages(ctx context.Context) ([]notionPage, error) {
 
 // GetPage retrieves a single page by ID.
 func (c *notionClient) GetPage(ctx context.Context, pageID string) (*notionPage, error) {
-	respBody, err := c.doRequest(ctx, http.MethodGet, "/v1/pages/"+pageID, nil)
+	if err := validateNotionID("page id", pageID); err != nil {
+		return nil, err
+	}
+	respBody, err := c.doRequest(ctx, http.MethodGet, "/v1/pages/"+url.PathEscape(pageID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -217,7 +242,10 @@ type databaseInfo struct {
 // GetDatabaseInfo retrieves a database container by ID, returning both
 // the page metadata and the primary data source ID in a single API call.
 func (c *notionClient) GetDatabaseInfo(ctx context.Context, dbID string) (*databaseInfo, error) {
-	respBody, err := c.doRequest(ctx, http.MethodGet, "/v1/databases/"+dbID, nil)
+	if err := validateNotionID("database id", dbID); err != nil {
+		return nil, err
+	}
+	respBody, err := c.doRequest(ctx, http.MethodGet, "/v1/databases/"+url.PathEscape(dbID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -250,7 +278,10 @@ func (c *notionClient) GetDatabaseInfo(ctx context.Context, dbID string) (*datab
 // the target for record queries. The response includes database_parent to
 // locate the database in the workspace hierarchy.
 func (c *notionClient) GetDataSourceInfo(ctx context.Context, dsID string) (*notionPage, error) {
-	respBody, err := c.doRequest(ctx, http.MethodGet, "/v1/data_sources/"+dsID, nil)
+	if err := validateNotionID("data source id", dsID); err != nil {
+		return nil, err
+	}
+	respBody, err := c.doRequest(ctx, http.MethodGet, "/v1/data_sources/"+url.PathEscape(dsID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -266,14 +297,17 @@ func (c *notionClient) GetDataSourceInfo(ctx context.Context, dsID string) (*not
 // Used by discoverPages to quickly scan for child_page/child_database without
 // fetching the full block tree content.
 func (c *notionClient) GetBlockChildrenFlat(ctx context.Context, blockID string) ([]notionBlock, error) {
+	if err := validateNotionID("block id", blockID); err != nil {
+		return nil, err
+	}
 	var allBlocks []notionBlock
 	var startCursor string
 	seenCursors := make(map[string]struct{})
 
 	for page := 1; ; page++ {
-		path := fmt.Sprintf("/v1/blocks/%s/children", blockID)
+		path := fmt.Sprintf("/v1/blocks/%s/children", url.PathEscape(blockID))
 		if startCursor != "" {
-			path += "?start_cursor=" + startCursor
+			path += "?start_cursor=" + url.QueryEscape(startCursor)
 		}
 
 		respBody, err := c.doRequest(ctx, http.MethodGet, path, nil)
@@ -331,14 +365,17 @@ func (c *notionClient) GetBlockChildrenAll(ctx context.Context, blockID string) 
 }
 
 func (c *notionClient) getBlockChildrenRecursive(ctx context.Context, blockID string, depth int) ([]notionBlock, error) {
+	if err := validateNotionID("block id", blockID); err != nil {
+		return nil, err
+	}
 	var allBlocks []notionBlock
 	var startCursor string
 	seenCursors := make(map[string]struct{})
 
 	for page := 1; ; page++ {
-		path := fmt.Sprintf("/v1/blocks/%s/children", blockID)
+		path := fmt.Sprintf("/v1/blocks/%s/children", url.PathEscape(blockID))
 		if startCursor != "" {
-			path += "?start_cursor=" + startCursor
+			path += "?start_cursor=" + url.QueryEscape(startCursor)
 		}
 
 		respBody, err := c.doRequest(ctx, http.MethodGet, path, nil)
@@ -417,8 +454,11 @@ func (c *notionClient) getBlockChildrenRecursive(ctx context.Context, blockID st
 // The record set is read through created_time windows, so a data source holding
 // more rows than one vendor query can return is still read in full.
 func (c *notionClient) QueryDatabaseAll(ctx context.Context, id string) ([]notionPage, error) {
+	if err := validateNotionID("database/data_source id", id); err != nil {
+		return nil, err
+	}
 	// Try as data_source_id directly
-	records, err := c.queryDataSourceAll(ctx, fmt.Sprintf("/v1/data_sources/%s/query", id))
+	records, err := c.queryDataSourceAll(ctx, fmt.Sprintf("/v1/data_sources/%s/query", url.PathEscape(id)))
 	if err == nil {
 		return records, nil
 	}
@@ -439,14 +479,20 @@ func (c *notionClient) QueryDatabaseAll(ctx context.Context, id string) ([]notio
 	if info.DataSourceID == "" {
 		return nil, fmt.Errorf("database %s has no data sources", id)
 	}
-	return c.queryDataSourceAll(ctx, fmt.Sprintf("/v1/data_sources/%s/query", info.DataSourceID))
+	if err := validateNotionID("data source id", info.DataSourceID); err != nil {
+		return nil, err
+	}
+	return c.queryDataSourceAll(ctx, fmt.Sprintf("/v1/data_sources/%s/query", url.PathEscape(info.DataSourceID)))
 }
 
 // ResolveBlock re-fetches a single block to resolve file_upload URLs.
 // When a block contains a file_upload type, re-fetching it returns the resolved
 // download URL (temporary S3 signed URL, 1-hour expiry).
 func (c *notionClient) ResolveBlock(ctx context.Context, blockID string) (*notionBlock, error) {
-	respBody, err := c.doRequest(ctx, http.MethodGet, "/v1/blocks/"+blockID, nil)
+	if err := validateNotionID("block id", blockID); err != nil {
+		return nil, err
+	}
+	respBody, err := c.doRequest(ctx, http.MethodGet, "/v1/blocks/"+url.PathEscape(blockID), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -462,6 +508,13 @@ const maxDownloadSize = 100 * 1024 * 1024 // 100MB — prevent OOM from oversize
 // DownloadFile downloads a file from the given URL (typically an S3 signed URL).
 // Does not go through the rate limiter since it's not a Notion API call.
 func (c *notionClient) DownloadFile(ctx context.Context, fileURL string) ([]byte, error) {
+	parsed, err := url.Parse(strings.TrimSpace(fileURL))
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return nil, fmt.Errorf("attachment URL rejected: invalid URL")
+	}
+	if parsed.User != nil {
+		return nil, fmt.Errorf("attachment URL rejected: embedded userinfo is not allowed")
+	}
 	if err := utils.ValidateURLForSSRF(fileURL); err != nil {
 		return nil, fmt.Errorf("attachment URL rejected: %w", err)
 	}
@@ -571,7 +624,7 @@ func (c *notionClient) paginatePages(ctx context.Context, method, path string) (
 		} else {
 			p := path
 			if startCursor != "" {
-				p += "?start_cursor=" + startCursor + "&page_size=100"
+				p += "?start_cursor=" + url.QueryEscape(startCursor) + "&page_size=100"
 			}
 			respBody, err = c.doRequest(ctx, method, p, nil)
 		}

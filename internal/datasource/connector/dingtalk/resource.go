@@ -122,7 +122,7 @@ func validateResourceReference(ref resourceReference) error {
 }
 
 func validateExternalID(kind, value string) error {
-	if value == "" || value != strings.TrimSpace(value) {
+	if value == "" || value != strings.TrimSpace(value) || value == "." || value == ".." {
 		return fmt.Errorf("DingTalk resource has invalid %s ID", kind)
 	}
 	for _, r := range value {

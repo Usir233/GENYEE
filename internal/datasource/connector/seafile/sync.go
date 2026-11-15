@@ -17,8 +17,14 @@ import (
 	"github.com/Usir233/GENYEE/internal/utils"
 )
 
-// checkpointEvery bounds how many cursor mutations may be lost on a crash.
-const checkpointEvery = 50
+const (
+	// checkpointEvery bounds how many cursor mutations may be lost on a crash.
+	checkpointEvery = 50
+	// maxTraversalDepth bounds runaway or cyclic directory recursion during sync.
+	maxTraversalDepth = 256
+	// maxTraversalEntries bounds total directory entries inspected in a single sync run.
+	maxTraversalEntries = 1_000_000
+)
 
 // syncRun holds the state of one FetchStream / FetchFullStream execution.
 type syncRun struct {
@@ -34,6 +40,7 @@ type syncRun struct {
 	// seen records every supported file listed this run; anything known to
 	// the cursor but not seen is a deletion candidate.
 	seen    map[string]bool
+	entries int
 	unsaved int
 }
 
@@ -208,10 +215,19 @@ func validateListing(dir string, entries []dirent) error {
 	return nil
 }
 
+func pathDepth(p string) int {
+	cleaned := path.Clean(p)
+	if cleaned == "/" || cleaned == "." || cleaned == "" {
+		return 0
+	}
+	return strings.Count(strings.TrimPrefix(cleaned, "/"), "/") + 1
+}
+
 // walkDir traverses root depth-first with an explicit stack of paths. Each
 // level is listed once; files are synced before descending into
 // sub-directories, both in name order.
 func (r *syncRun) walkDir(root string, rootEntries []dirent) error {
+	rootDepth := pathDepth(root)
 	stack := []string{root}
 	for len(stack) > 0 {
 		dir := stack[len(stack)-1]
@@ -234,6 +250,11 @@ func (r *syncRun) walkDir(root string, rootEntries []dirent) error {
 		if err := validateListing(dir, entries); err != nil {
 			return r.abort(err)
 		}
+		r.entries += len(entries)
+		if r.entries > maxTraversalEntries {
+			return r.abort(fmt.Errorf("%w: Seafile traversal exceeded maximum of %d entries",
+				datasource.ErrFetchFailed, maxTraversalEntries))
+		}
 		sort.Slice(entries, func(i, j int) bool { return entries[i].Name < entries[j].Name })
 		for _, e := range entries {
 			if e.Type == "file" && utils.IsSupportedImportExtension(path.Ext(e.Name)) {
@@ -244,7 +265,12 @@ func (r *syncRun) walkDir(root string, rootEntries []dirent) error {
 		}
 		for i := len(entries) - 1; i >= 0; i-- {
 			if entries[i].Type == "dir" {
-				stack = append(stack, path.Join(dir, entries[i].Name))
+				sub := path.Join(dir, entries[i].Name)
+				if pathDepth(sub)-rootDepth > maxTraversalDepth {
+					return r.abort(fmt.Errorf("%w: Seafile directory depth exceeded maximum of %d at %s",
+						datasource.ErrFetchFailed, maxTraversalDepth, sub))
+				}
+				stack = append(stack, sub)
 			}
 		}
 	}

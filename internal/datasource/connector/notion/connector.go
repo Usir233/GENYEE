@@ -1025,7 +1025,12 @@ func computeExcludedSet(visibleIDs []string, parentOf map[string]string, selecte
 	excluded := make(map[string]bool, len(visibleIDs))
 	for _, id := range visibleIDs {
 		hasSelectedAncestor := false
+		visited := make(map[string]bool)
 		for cur := id; cur != ""; cur = parentOf[cur] {
+			if visited[cur] {
+				break
+			}
+			visited[cur] = true
 			if selected[cur] {
 				hasSelectedAncestor = true
 				break
@@ -1059,9 +1064,11 @@ func (c *Connector) excludedSetFromListResources(ctx context.Context, config *ty
 // --- Helpers ---
 
 func extractBaseURL(config *types.DataSourceConfig) string {
-	if config.Settings != nil {
-		if url, ok := config.Settings["base_url"].(string); ok && url != "" {
-			return url
+	if config != nil && config.Settings != nil {
+		if url, ok := config.Settings["base_url"].(string); ok {
+			if trimmed := strings.TrimRight(strings.TrimSpace(url), "/"); trimmed != "" {
+				return trimmed
+			}
 		}
 	}
 	return DefaultBaseURL

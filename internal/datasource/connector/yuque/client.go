@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -275,14 +276,28 @@ func (c *client) ListUserGroups(ctx context.Context, userID int64) ([]v2Group, e
 	return resp.Data, nil
 }
 
+func validateYuqueLogin(login string) error {
+	if login == "" || login != strings.TrimSpace(login) || login == "." || login == ".." ||
+		strings.ContainsAny(login, "/\\?#") || hasYuqueControlChar(login) {
+		return fmt.Errorf("invalid yuque login")
+	}
+	return nil
+}
+
 // ListUserRepos returns document-type (Book) repos owned by the given user login.
 func (c *client) ListUserRepos(ctx context.Context, login string) ([]v2Repo, error) {
-	return c.listReposPaginated(ctx, fmt.Sprintf("/api/v2/users/%s/repos", login))
+	if err := validateYuqueLogin(login); err != nil {
+		return nil, err
+	}
+	return c.listReposPaginated(ctx, fmt.Sprintf("/api/v2/users/%s/repos", url.PathEscape(login)))
 }
 
 // ListGroupRepos returns document-type (Book) repos owned by the given group login.
 func (c *client) ListGroupRepos(ctx context.Context, login string) ([]v2Repo, error) {
-	return c.listReposPaginated(ctx, fmt.Sprintf("/api/v2/groups/%s/repos", login))
+	if err := validateYuqueLogin(login); err != nil {
+		return nil, err
+	}
+	return c.listReposPaginated(ctx, fmt.Sprintf("/api/v2/groups/%s/repos", url.PathEscape(login)))
 }
 
 // listReposPaginated walks the pagination for a repo listing endpoint.

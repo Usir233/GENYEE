@@ -310,9 +310,13 @@ type DocxBlocksResponse struct {
 // listDocumentBlocks returns every block of a docx document as a flat,
 // pre-order array. Paginates at 500 blocks/page. documentID is the obj_token.
 func (c *Client) listDocumentBlocks(ctx context.Context, documentID string) ([]DocxBlock, error) {
+	if err := validateFeishuToken("document id", documentID); err != nil {
+		return nil, err
+	}
 	var all []DocxBlock
 	pageToken := ""
-	for {
+	seenPageTokens := make(map[string]struct{})
+	for hops := 0; hops < maxFeishuPaginationHops; hops++ {
 		path := fmt.Sprintf("/open-apis/docx/v1/documents/%s/blocks?page_size=500&document_revision_id=-1",
 			url.PathEscape(documentID))
 		if pageToken != "" {
@@ -339,6 +343,10 @@ func (c *Client) listDocumentBlocks(ctx context.Context, documentID string) ([]D
 		if !resp.Data.HasMore || resp.Data.PageToken == "" {
 			break
 		}
+		if _, exists := seenPageTokens[resp.Data.PageToken]; exists {
+			return nil, fmt.Errorf("feishu document blocks pagination repeated page token %q", resp.Data.PageToken)
+		}
+		seenPageTokens[resp.Data.PageToken] = struct{}{}
 		pageToken = resp.Data.PageToken
 	}
 	return all, nil
@@ -412,6 +420,12 @@ func (c *Client) sheetMerges(ctx context.Context, embedToken string) ([]sheetMer
 		return nil, fmt.Errorf("invalid sheet embed token: %q", embedToken)
 	}
 	spreadsheetToken, sheetID := embedToken[:idx], embedToken[idx+1:]
+	if err := validateFeishuToken("spreadsheet token", spreadsheetToken); err != nil {
+		return nil, err
+	}
+	if err := validateFeishuToken("sheet id", sheetID); err != nil {
+		return nil, err
+	}
 	path := "/open-apis/sheets/v3/spreadsheets/" + url.PathEscape(spreadsheetToken) + "/sheets/query"
 	var resp sheetQueryResponse
 	if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
@@ -438,6 +452,12 @@ func (c *Client) readSheetRange(ctx context.Context, embedToken string) ([][]str
 		return nil, false, fmt.Errorf("invalid sheet embed token: %q", embedToken)
 	}
 	spreadsheetToken, sheetID := embedToken[:idx], embedToken[idx+1:]
+	if err := validateFeishuToken("spreadsheet token", spreadsheetToken); err != nil {
+		return nil, false, err
+	}
+	if err := validateFeishuToken("sheet id", sheetID); err != nil {
+		return nil, false, err
+	}
 	path := fmt.Sprintf("/open-apis/sheets/v2/spreadsheets/%s/values/%s?valueRenderOption=ToString",
 		url.PathEscape(spreadsheetToken), url.PathEscape(sheetID))
 	var resp sheetValuesResponse
@@ -626,13 +646,19 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 		return nil, false, fmt.Errorf("invalid bitable embed token: %q", embedToken)
 	}
 	appToken, tableID := embedToken[:idx], embedToken[idx+1:]
+	if err := validateFeishuToken("bitable app token", appToken); err != nil {
+		return nil, false, err
+	}
+	if err := validateFeishuToken("bitable table id", tableID); err != nil {
+		return nil, false, err
+	}
 
 	var cols []bitableColumn
 	baseFPath := fmt.Sprintf("/open-apis/bitable/v1/apps/%s/tables/%s/fields?page_size=%d",
 		url.PathEscape(appToken), url.PathEscape(tableID), maxBitableFieldPageSize)
 	fieldPageToken := ""
 	seenFieldPageTokens := make(map[string]struct{})
-	for {
+	for hops := 0; hops < maxFeishuPaginationHops; hops++ {
 		fpath := baseFPath
 		if fieldPageToken != "" {
 			fpath += "&page_token=" + url.QueryEscape(fieldPageToken)
@@ -691,7 +717,8 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 	baseRPath := fmt.Sprintf("/open-apis/bitable/v1/apps/%s/tables/%s/records/search?page_size=500",
 		url.PathEscape(appToken), url.PathEscape(tableID))
 	pageToken := ""
-	for {
+	seenRecordPageTokens := make(map[string]struct{})
+	for hops := 0; hops < maxFeishuPaginationHops; hops++ {
 		rpath := baseRPath
 		if pageToken != "" {
 			rpath += "&page_token=" + url.QueryEscape(pageToken)
@@ -725,6 +752,11 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 		if !rec.Data.HasMore || rec.Data.PageToken == "" {
 			break
 		}
+		if _, exists := seenRecordPageTokens[rec.Data.PageToken]; exists {
+			return nil, false, fmt.Errorf("feishu bitable record pagination repeated page token %q",
+				rec.Data.PageToken)
+		}
+		seenRecordPageTokens[rec.Data.PageToken] = struct{}{}
 		pageToken = rec.Data.PageToken
 	}
 	dataRows, capped := capRows(dataRows)

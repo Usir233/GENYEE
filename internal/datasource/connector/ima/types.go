@@ -72,10 +72,22 @@ func parseIMAConfig(config *types.DataSourceConfig) (*Config, error) {
 	if strings.TrimSpace(cfg.APIKey) == "" {
 		return nil, fmt.Errorf("%w: api_key is required", datasource.ErrInvalidCredentials)
 	}
+	if hasControlChar(cfg.ClientID) || hasControlChar(cfg.APIKey) {
+		return nil, fmt.Errorf("%w: credentials contain invalid control characters", datasource.ErrInvalidCredentials)
+	}
 	if err := datasource.ValidateConnectorBaseURL(cfg.GetBaseURL()); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+func hasControlChar(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] == 0x7f {
+			return true
+		}
+	}
+	return false
 }
 
 // apiEnvelope is the uniform IMA response wrapper: `{ code, msg, data }`.

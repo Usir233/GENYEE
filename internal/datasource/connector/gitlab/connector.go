@@ -75,12 +75,19 @@ func (c *Connector) ListResources(ctx context.Context, ds *types.DataSourceConfi
 		return out, nil
 	}
 	id, dir := splitResourceID(parent)
+	if err := validateProjectID(id); err != nil {
+		return nil, err
+	}
+	normalizedDir, err := normalizePath(dir)
+	if err != nil {
+		return nil, err
+	}
 	p, err := c.client.project(ctx, id)
 	if err != nil {
 		return nil, err
 	}
 	ref := p.DefaultBranch
-	entries, err := c.client.tree(ctx, id, ref, dir)
+	entries, err := c.client.tree(ctx, id, ref, normalizedDir)
 	if err != nil {
 		return nil, err
 	}
@@ -352,8 +359,18 @@ func (c *Connector) walkFiles(ctx context.Context, id, ref string, roots []strin
 	if len(roots) == 0 {
 		roots = []string{""}
 	}
+	const maxWalkDirs = 100000
+	visitedDirs := make(map[string]bool)
 	var walk func(string) error
 	walk = func(dir string) error {
+		if visitedDirs[dir] {
+			return nil
+		}
+		if len(visitedDirs) >= maxWalkDirs {
+			return fmt.Errorf("gitlab repository traversal exceeded %d directories", maxWalkDirs)
+		}
+		visitedDirs[dir] = true
+
 		entries, err := c.client.tree(ctx, id, ref, dir)
 		if err != nil {
 			return err

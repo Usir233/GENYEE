@@ -97,7 +97,10 @@ func (c *Connector) ListResources(
 	}
 
 	// Lazy load: list only the direct children of the given space / node.
-	spaceID, nodeToken := parseWikiResourceID(parentID)
+	spaceID, nodeToken := parseWikiResourceID(strings.TrimSpace(parentID))
+	if strings.TrimSpace(spaceID) == "" {
+		return nil, fmt.Errorf("invalid feishu wiki resource id %q: empty space_id", parentID)
+	}
 	nodes, err := client.ListWikiNodes(ctx, spaceID, nodeToken)
 	if err != nil {
 		return nil, fmt.Errorf("list feishu wiki nodes under %s: %w", parentID, err)
@@ -134,7 +137,7 @@ func (c *Connector) ResolveResourceAncestors(
 	}
 
 	for _, rid := range resourceIDs {
-		spaceID, nodeToken := parseWikiResourceID(rid)
+		spaceID, nodeToken := parseWikiResourceID(strings.TrimSpace(rid))
 		if spaceID == "" || nodeToken == "" {
 			// A space-level selection is already a top-level node in the picker;
 			// there is nothing above it to reveal.
@@ -145,8 +148,9 @@ func (c *Connector) ResolveResourceAncestors(
 
 		// Walk up from the selection to the top, loading each intermediate
 		// parent so the path down to the selection becomes visible.
+		visited := map[string]bool{nodeToken: true}
 		current := nodeToken
-		for current != "" {
+		for depth := 0; current != "" && depth < 256; depth++ {
 			node, err := client.GetWikiNode(ctx, spaceID, current)
 			if err != nil {
 				// Best-effort: a broken path just stays collapsed, the rest of
@@ -154,9 +158,10 @@ func (c *Connector) ResolveResourceAncestors(
 				logger.Warnf(ctx, "[Feishu] resolve ancestors: get node %s:%s: %v", spaceID, current, err)
 				break
 			}
-			if node.ParentNodeID == "" {
+			if node.ParentNodeID == "" || visited[node.ParentNodeID] {
 				break
 			}
+			visited[node.ParentNodeID] = true
 			add(makeWikiNodeResourceID(spaceID, node.ParentNodeID))
 			current = node.ParentNodeID
 		}
@@ -283,7 +288,10 @@ func (o *wikiOps) spaceDirPrefix(ctx context.Context, client *core.Client, space
 }
 
 func (o *wikiOps) List(ctx context.Context, client *core.Client, resourceID string) ([]core.WikiNode, error, error) {
-	spaceID, nodeToken := parseWikiResourceID(resourceID)
+	spaceID, nodeToken := parseWikiResourceID(strings.TrimSpace(resourceID))
+	if strings.TrimSpace(spaceID) == "" {
+		return nil, nil, fmt.Errorf("invalid feishu wiki resource id %q: empty space_id", resourceID)
+	}
 	nodes, err := client.ListWikiNodesWithShortcuts(ctx, spaceID, nodeToken)
 	if err != nil {
 		var partial *core.PartialWikiNodeListError

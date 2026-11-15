@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/datasource"
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/Usir233/GENYEE/internal/utils"
 	"github.com/mmcdole/gofeed"
 )
 
@@ -130,6 +132,9 @@ func (c *Connector) FetchAll(
 func (c *Connector) FetchIncremental(
 	ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor,
 ) ([]types.FetchedItem, *types.SyncCursor, error) {
+	if config == nil {
+		return nil, nil, fmt.Errorf("%w: config is nil", datasource.ErrInvalidConfig)
+	}
 	var prev *rssCursor
 	if cursor != nil && cursor.ConnectorCursor != nil {
 		var p rssCursor
@@ -205,17 +210,23 @@ func (c *Connector) walk(
 	var feedErrors []string
 
 	for _, feedURL := range feedURLs {
+		if err := ctx.Err(); err != nil {
+			return nil, nil, err
+		}
 		data, err := cli.fetchFeed(ctx, feedURL)
 		if err != nil {
-			logger.Warnf(ctx, "[RSS] sync: fetch %s failed: %v", feedURL, err)
-			feedErrors = append(feedErrors, fmt.Sprintf("%s: %v", feedURL, err))
+			if ctxErr := ctx.Err(); ctxErr != nil {
+				return nil, nil, ctxErr
+			}
+			logger.Warnf(ctx, "[RSS] sync: fetch %s failed: %v", redactRSSURL(feedURL), err)
+			feedErrors = append(feedErrors, fmt.Sprintf("%s: %v", redactRSSURL(feedURL), err))
 			copyFeedCursor(newCursor, prev, feedURL)
 			continue
 		}
 		feed, err := parser.Parse(bytes.NewReader(data))
 		if err != nil {
-			logger.Warnf(ctx, "[RSS] sync: parse %s failed: %v", feedURL, err)
-			feedErrors = append(feedErrors, fmt.Sprintf("%s: %v", feedURL, err))
+			logger.Warnf(ctx, "[RSS] sync: parse %s failed: %v", redactRSSURL(feedURL), err)
+			feedErrors = append(feedErrors, fmt.Sprintf("%s: %v", redactRSSURL(feedURL), err))
 			copyFeedCursor(newCursor, prev, feedURL)
 			continue
 		}
@@ -233,6 +244,9 @@ func (c *Connector) walk(
 
 		var kept, skipped int
 		for _, item := range feed.Items {
+			if err := ctx.Err(); err != nil {
+				return nil, nil, err
+			}
 			if item == nil {
 				continue
 			}
@@ -261,6 +275,9 @@ func (c *Connector) walk(
 			}
 
 			resolved := c.resolveItem(ctx, cli, feed, item, feedURL, itemID, feedContent)
+			if err := ctx.Err(); err != nil {
+				return nil, nil, err
+			}
 			if incremental && resolved.articleFailed && prevItems[itemID] != "" && prevSignals[itemID] != "" {
 				// A cached signal records a successful resolution. Preserve its body
 				// and old signal so a changed entry retries without replacing the full
@@ -336,23 +353,30 @@ func (c *Connector) resolveItem(
 	feedURL, itemID, feedContent string,
 ) resolvedFeedItem {
 	title := firstNonEmpty(item.Title, "untitled")
+	rawLink := strings.TrimSpace(item.Link)
+	safeLink := sanitizeRSSItemLink(rawLink)
 
 	// Prefer full article text; fall back to feed-provided content on failure.
 	contentHTML := feedContent
 	articleFailed := false
-	if strings.TrimSpace(item.Link) != "" {
-		if articleHTML, articleTitle, err := cli.extractArticle(ctx, item.Link); err == nil {
+	if rawLink != "" && cli != nil {
+		if articleHTML, articleTitle, err := cli.extractArticle(ctx, rawLink); err == nil {
 			contentHTML = articleHTML
 			if item.Title == "" && articleTitle != "" {
 				title = articleTitle
 			}
 		} else {
 			articleFailed = true
-			logger.Warnf(ctx, "[RSS] full-text fetch failed for %s (using feed content): %v", item.Link, err)
+			logger.Warnf(ctx, "[RSS] full-text fetch failed for %s (using feed content): %v", redactRSSURL(rawLink), err)
 		}
 	}
 
 	content := htmlToMarkdown(contentHTML)
+	if safeLink != "" && (articleFailed || content == "") {
+		if err := utils.ValidateURLForSSRF(safeLink); err != nil {
+			safeLink = ""
+		}
+	}
 
 	updatedAt := time.Now().UTC()
 	switch {
@@ -368,7 +392,7 @@ func (c *Connector) resolveItem(
 	}
 
 	return resolvedFeedItem{
-		fingerprint:   itemFingerprint(title, item.Link, content),
+		fingerprint:   itemFingerprint(title, safeLink, content),
 		articleFailed: articleFailed,
 		item: types.FetchedItem{
 			ExternalID:       itemExternalID(feedURL, itemID),
@@ -376,7 +400,7 @@ func (c *Connector) resolveItem(
 			Content:          []byte(content),
 			ContentType:      "text/markdown",
 			FileName:         sanitizeFileName(title) + ".md",
-			URL:              item.Link,
+			URL:              safeLink,
 			UpdatedAt:        updatedAt,
 			SourceResourceID: feedURL,
 			Metadata: map[string]string{
@@ -384,11 +408,34 @@ func (c *Connector) resolveItem(
 				"feed_url":   feedURL,
 				"feed_title": feed.Title,
 				"guid":       item.GUID,
-				"link":       item.Link,
+				"link":       safeLink,
 				"author":     author,
 			},
 		},
 	}
+}
+
+func sanitizeRSSItemLink(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" || hasControlChar(trimmed) {
+		return ""
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil {
+		return ""
+	}
+	return trimmed
+}
+
+func redactRSSURL(raw string) string {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return "<invalid-url>"
+	}
+	parsed.User = nil
+	parsed.RawQuery = ""
+	parsed.Fragment = ""
+	return parsed.String()
 }
 
 // htmlToMarkdown converts HTML to Markdown, returning the trimmed original on

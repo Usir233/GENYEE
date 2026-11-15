@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	readability "codeberg.org/readeck/go-readability/v2"
@@ -46,24 +47,34 @@ func newClient(headers map[string]string) *client {
 // headers are only attached when withAuthHeaders is true (feed fetches); article
 // pages on third-party domains must not receive feed credentials.
 func (c *client) fetch(ctx context.Context, rawURL string, maxSize int64, withAuthHeaders bool) ([]byte, error) {
-	if err := utils.ValidateURLForSSRF(rawURL); err != nil {
-		return nil, fmt.Errorf("URL rejected: %w", err)
+	trimmed := strings.TrimSpace(rawURL)
+	if trimmed == "" || hasControlChar(trimmed) {
+		return nil, fmt.Errorf("URL rejected: invalid characters")
 	}
-	if _, err := url.Parse(rawURL); err != nil {
-		return nil, fmt.Errorf("invalid URL: %w", err)
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+		return nil, fmt.Errorf("URL rejected: invalid scheme or host")
+	}
+	if parsed.User != nil {
+		return nil, fmt.Errorf("URL rejected: embedded userinfo is not allowed")
+	}
+	if err := utils.ValidateURLForSSRF(trimmed); err != nil {
+		return nil, fmt.Errorf("URL rejected: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, requestTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, trimmed, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create request failed")
 	}
 
 	if withAuthHeaders {
 		for k, v := range c.headers {
-			req.Header.Set(k, v)
+			if !hasControlChar(k) && !hasHeaderControlChar(v) {
+				req.Header.Set(k, v)
+			}
 		}
 	}
 	if req.Header.Get("User-Agent") == "" {

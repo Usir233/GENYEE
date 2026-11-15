@@ -112,6 +112,9 @@ func newClient(baseURL, token string) (*client, error) {
 	if baseURL == "" || strings.TrimSpace(token) == "" {
 		return nil, fmt.Errorf("GitLab platform configuration is missing")
 	}
+	if hasControlChar(token) {
+		return nil, fmt.Errorf("%w: access_token contains invalid control characters", datasource.ErrInvalidCredentials)
+	}
 	if err := datasource.ValidateConnectorBaseURL(baseURL); err != nil {
 		return nil, err
 	}
@@ -207,6 +210,9 @@ func projectPath(id string) string {
 }
 
 func (c *client) project(ctx context.Context, id string) (*project, error) {
+	if err := validateProjectID(id); err != nil {
+		return nil, err
+	}
 	var p project
 	err := c.get(ctx, "/projects/"+projectPath(id), &p)
 	return &p, err
@@ -263,6 +269,12 @@ func (c *client) ping(ctx context.Context) error {
 }
 
 func (c *client) commitSHA(ctx context.Context, id, ref string) (string, error) {
+	if err := validateProjectID(id); err != nil {
+		return "", err
+	}
+	if err := validateGitRef(ref); err != nil {
+		return "", err
+	}
 	var v struct {
 		ID string `json:"id"`
 	}
@@ -271,6 +283,12 @@ func (c *client) commitSHA(ctx context.Context, id, ref string) (string, error) 
 }
 
 func (c *client) tree(ctx context.Context, id, ref, dir string) ([]treeEntry, error) {
+	if err := validateProjectID(id); err != nil {
+		return nil, err
+	}
+	if err := validateGitRef(ref); err != nil {
+		return nil, err
+	}
 	q := url.Values{"ref": {ref}, "per_page": {"100"}, "page": {"1"}}
 	if dir != "" {
 		q.Set("path", dir)
@@ -320,6 +338,12 @@ func (c *client) getPage(ctx context.Context, endpoint string, query url.Values,
 }
 
 func (c *client) raw(ctx context.Context, id, ref, file string) ([]byte, error) {
+	if err := validateProjectID(id); err != nil {
+		return nil, err
+	}
+	if err := validateGitRef(ref); err != nil {
+		return nil, err
+	}
 	q := url.Values{"ref": {ref}}
 	encodedFile := gitlabFilePathEscape(file)
 	rawEndpoint := "/projects/" + projectPath(id) + "/repository/files/" + encodedFile + "/raw?" + q.Encode()
@@ -350,6 +374,9 @@ func (c *client) raw(ctx context.Context, id, ref, file string) ([]byte, error) 
 	if err != nil {
 		return nil, fmt.Errorf("gitlab file %s: decode base64: %w", file, err)
 	}
+	if c.rawLimit > 0 && int64(len(content)) > c.rawLimit {
+		return nil, fmt.Errorf("gitlab file %s: response exceeds maximum size (%d bytes)", file, c.rawLimit)
+	}
 	return content, nil
 }
 
@@ -373,6 +400,15 @@ func gitlabFilePathEscape(file string) string {
 }
 
 func (c *client) compare(ctx context.Context, id, from, to string) (*comparison, error) {
+	if err := validateProjectID(id); err != nil {
+		return nil, err
+	}
+	if err := validateGitRef(from); err != nil {
+		return nil, err
+	}
+	if err := validateGitRef(to); err != nil {
+		return nil, err
+	}
 	// Sync compares snapshots, not changes since their merge base. The default
 	// comparison misses reverted files when a branch is reset or force-pushed.
 	q := url.Values{"from": {from}, "to": {to}, "straight": {"true"}}

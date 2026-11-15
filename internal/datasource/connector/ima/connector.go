@@ -227,6 +227,9 @@ func (c *Connector) FetchAll(
 func (c *Connector) FetchIncremental(
 	ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor,
 ) ([]types.FetchedItem, *types.SyncCursor, error) {
+	if config == nil {
+		return nil, nil, fmt.Errorf("%w: config is nil", datasource.ErrInvalidConfig)
+	}
 	resourceIDs := config.ResourceIDs
 	if len(resourceIDs) == 0 {
 		return nil, nil, fmt.Errorf("no resource IDs (knowledge base IDs) configured")
@@ -390,6 +393,7 @@ func listAllKBFiles(
 		path     string
 	}
 	stack := []todo{{folderID: "", path: ""}}
+	visitedFolders := map[string]bool{"": true}
 
 	for len(stack) > 0 {
 		cur := stack[len(stack)-1]
@@ -408,6 +412,10 @@ func listAllKBFiles(
 					continue // unrecognized shape, skip defensively
 				}
 				if ki.MediaType == mediaTypeFolder {
+					if visitedFolders[ki.MediaID] {
+						continue
+					}
+					visitedFolders[ki.MediaID] = true
 					// List entries identify folders by media_type. Their full
 					// media_id (including the folder_ prefix) is the recursion key.
 					child := cur.path
@@ -546,10 +554,14 @@ func fetchOneMedia(
 	// extension from the response instead.
 	if ext == "" {
 		if len(info.URLInfo.Headers) == 0 {
+			if err := validateIMARemoteURL(info.URLInfo.URL); err != nil {
+				logger.Warnf(ctx, "[IMA] skip media %s (title=%q): unsafe web URL rejected: %v", f.MediaID, f.Title, err)
+				return types.FetchedItem{}, fetchSkipped
+			}
 			return types.FetchedItem{
 				ExternalID:       externalID,
 				Title:            f.Title,
-				URL:              info.URLInfo.URL,
+				URL:              strings.TrimSpace(info.URLInfo.URL),
 				SourceResourceID: kbID,
 				UpdatedAt:        time.Now(),
 				Metadata:         baseMetadata(externalID, f, folderPath, info, kbID),

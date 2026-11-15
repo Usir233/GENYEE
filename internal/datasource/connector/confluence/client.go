@@ -88,7 +88,7 @@ func (c *client) get(ctx context.Context, endpoint string, output interface{}) e
 		}
 		c.authenticate(req)
 		req.Header.Set("Accept", "application/json")
-		resp, err := c.http.Do(req)
+		resp, err := c.imageHTTPClient().Do(req)
 		if err == nil {
 			body, readErr := io.ReadAll(io.LimitReader(resp.Body, maxJSONResponseBytes+1))
 			_ = resp.Body.Close()
@@ -119,7 +119,10 @@ func (c *client) get(ctx context.Context, endpoint string, output interface{}) e
 			}
 			continue
 		}
-		if attempt == requestAttempts-1 {
+		if errors.Is(err, errImageRedirectOffOrigin) ||
+			errors.Is(err, context.Canceled) ||
+			errors.Is(err, context.DeadlineExceeded) ||
+			attempt == requestAttempts-1 {
 			return fmt.Errorf("confluence API %s: %w", endpoint, err)
 		}
 		if err = waitRetry(ctx, "", attempt); err != nil {
@@ -327,6 +330,7 @@ func (c *client) downloadImage(ctx context.Context, absURL string) ([]byte, stri
 // still send Basic Auth to) — is refused outright rather than merely stripped of
 // credentials.
 func (c *client) imageHTTPClient() *http.Client {
+	baseCheck := c.http.CheckRedirect
 	return &http.Client{
 		Transport: c.http.Transport,
 		Timeout:   c.http.Timeout,
@@ -336,6 +340,9 @@ func (c *client) imageHTTPClient() *http.Client {
 			}
 			if !c.withinImageScope(req.URL) {
 				return errImageRedirectOffOrigin
+			}
+			if baseCheck != nil {
+				return baseCheck(req, via)
 			}
 			return nil
 		},
@@ -444,6 +451,9 @@ func withCloudPageQuery(next string) string {
 
 func (c *client) pages(ctx context.Context, s space) (pages []page, complete bool, err error) {
 	if c.cfg.cloud() {
+		if err := validateConfluenceSegment("space", s.ID); err != nil {
+			return nil, false, err
+		}
 		var all []page
 		start := "/api/v2/spaces/" + url.PathEscape(s.ID) + "/pages?status=current&depth=all&limit=250"
 		err := c.paginate(ctx, start, func(pageURL string) (string, error) {
@@ -467,6 +477,9 @@ func (c *client) pages(ctx context.Context, s space) (pages []page, complete boo
 			return next, nil
 		})
 		return all, true, err
+	}
+	if err := validateConfluenceSegment("space", s.Key); err != nil {
+		return nil, false, err
 	}
 	var all []page
 	complete = true
@@ -502,6 +515,9 @@ func (c *client) pages(ctx context.Context, s space) (pages []page, complete boo
 }
 
 func (c *client) pageInSpace(ctx context.Context, id, spaceKey string) (bool, error) {
+	if err := validateConfluenceSegment("page", id); err != nil {
+		return false, err
+	}
 	var result struct {
 		Status string `json:"status"`
 		Space  struct {
@@ -523,6 +539,9 @@ func (c *client) pageInSpace(ctx context.Context, id, spaceKey string) (bool, er
 }
 
 func (c *client) body(ctx context.Context, id string) (pageBody, error) {
+	if err := validateConfluenceSegment("page", id); err != nil {
+		return pageBody{}, err
+	}
 	if c.cfg.cloud() {
 		var result pageBody
 		err := c.get(ctx, "/api/v2/pages/"+url.PathEscape(id)+"?body-format=view", &result)
@@ -538,6 +557,9 @@ func (c *client) body(ctx context.Context, id string) (pageBody, error) {
 // temporarily unavailable, otherwise a transient content error would be
 // indistinguishable from a missing page during deletion reconciliation.
 func (c *client) pageDetail(ctx context.Context, id string) (page, error) {
+	if err := validateConfluenceSegment("page", id); err != nil {
+		return page{}, err
+	}
 	var result page
 	if c.cfg.cloud() {
 		err := c.get(ctx, "/api/v2/pages/"+url.PathEscape(id), &result)
@@ -653,6 +675,9 @@ func (c *client) topLevelPages(ctx context.Context, s space) ([]page, error) {
 	var pages []page
 	var err error
 	if c.cfg.cloud() {
+		if err := validateConfluenceSegment("space", s.ID); err != nil {
+			return nil, err
+		}
 		pages, err = c.listCloudHierarchy(
 			ctx,
 			"/api/v2/spaces/"+url.PathEscape(s.ID)+"/pages?status=current&depth=0&limit=250",
@@ -667,6 +692,9 @@ func (c *client) topLevelPages(ctx context.Context, s space) ([]page, error) {
 			pages = visible
 		}
 	} else {
+		if err := validateConfluenceSegment("space", s.Key); err != nil {
+			return nil, err
+		}
 		pages, err = c.listServerPages(ctx, serverTopLevelPagesEndpoint(s.Key))
 	}
 	if err == nil {
@@ -688,6 +716,9 @@ func (c *client) topLevelPages(ctx context.Context, s space) ([]page, error) {
 }
 
 func (c *client) directChildPages(ctx context.Context, _ space, pageID string) ([]page, error) {
+	if err := validateConfluenceSegment("page", pageID); err != nil {
+		return nil, err
+	}
 	if c.cfg.cloud() {
 		return c.visibleCloudPageChildren(ctx, pageID)
 	}
@@ -695,6 +726,9 @@ func (c *client) directChildPages(ctx context.Context, _ space, pageID string) (
 }
 
 func cloudDirectChildrenEndpoint(kind, id string) (string, error) {
+	if err := validateConfluenceSegment(kind, id); err != nil {
+		return "", err
+	}
 	plural := map[string]string{
 		"page": "pages", "folder": "folders", "database": "databases", "whiteboard": "whiteboards", "embed": "embeds",
 	}[kind]
@@ -788,6 +822,9 @@ func (c *client) walkCloudPageHierarchy(ctx context.Context, pageID string, desc
 // the space root. A selected page is fetched even if it is top-level, so a
 // forged page:{space}:{page} ID cannot cross a space boundary.
 func (c *client) pageAncestors(ctx context.Context, s space, pageID string) ([]page, error) {
+	if err := validateConfluenceSegment("page", pageID); err != nil {
+		return nil, err
+	}
 	if c.cfg.cloud() {
 		full, err := c.pageDetail(ctx, pageID)
 		if err != nil {

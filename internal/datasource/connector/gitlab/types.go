@@ -2,13 +2,65 @@ package gitlab
 
 import (
 	"fmt"
+	"net/url"
 	"path"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/datasource"
 	"github.com/Usir233/GENYEE/internal/types"
 )
+
+func hasControlChar(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] == 0x7f {
+			return true
+		}
+	}
+	return false
+}
+
+func validateProjectID(id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" || hasControlChar(id) || strings.ContainsAny(id, "\\?#") {
+		return fmt.Errorf("%w: invalid project_id", datasource.ErrInvalidConfig)
+	}
+	if n, err := strconv.ParseInt(id, 10, 64); err == nil {
+		if n <= 0 {
+			return fmt.Errorf("%w: invalid project_id", datasource.ErrInvalidConfig)
+		}
+		return nil
+	}
+	decoded := id
+	if strings.Contains(id, "%") {
+		unescaped, err := url.PathUnescape(id)
+		if err != nil {
+			return fmt.Errorf("%w: invalid project_id encoding", datasource.ErrInvalidConfig)
+		}
+		decoded = unescaped
+	}
+	if hasControlChar(decoded) || strings.ContainsAny(decoded, "\\?#") {
+		return fmt.Errorf("%w: invalid project_id", datasource.ErrInvalidConfig)
+	}
+	parts := strings.Split(decoded, "/")
+	for _, part := range parts {
+		if part == "" || part == "." || part == ".." {
+			return fmt.Errorf("%w: invalid project_id", datasource.ErrInvalidConfig)
+		}
+	}
+	return nil
+}
+
+func validateGitRef(ref string) error {
+	ref = strings.TrimSpace(ref)
+	if ref == "" || ref == "." || ref == ".." || strings.Contains(ref, "..") ||
+		strings.HasPrefix(ref, "/") || strings.HasSuffix(ref, "/") ||
+		hasControlChar(ref) || strings.ContainsAny(ref, "\\?#") {
+		return fmt.Errorf("%w: invalid git ref", datasource.ErrInvalidConfig)
+	}
+	return nil
+}
 
 type projectSelection struct {
 	ProjectID string   `json:"project_id"`
@@ -44,9 +96,18 @@ func parseConfig(ds *types.DataSourceConfig) (*config, error) {
 		if id == "" || seen[id] {
 			return nil, fmt.Errorf("%w: project_id must be unique and non-empty", datasource.ErrInvalidConfig)
 		}
+		if err := validateProjectID(id); err != nil {
+			return nil, err
+		}
 		seen[id] = true
 		ref, _ := m["ref"].(string)
-		p := projectSelection{ProjectID: id, Ref: strings.TrimSpace(ref)}
+		ref = strings.TrimSpace(ref)
+		if ref != "" {
+			if err := validateGitRef(ref); err != nil {
+				return nil, err
+			}
+		}
+		p := projectSelection{ProjectID: id, Ref: ref}
 		if rawPaths, exists := m["paths"]; exists {
 			values, ok := rawPaths.([]interface{})
 			if !ok {

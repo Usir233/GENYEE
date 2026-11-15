@@ -13,6 +13,7 @@ package notion
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/datasource"
@@ -41,8 +42,13 @@ func parseNotionConfig(config *types.DataSourceConfig) (*Config, error) {
 		return nil, fmt.Errorf("%w: missing api_key", datasource.ErrInvalidCredentials)
 	}
 	token, ok := tokenVal.(string)
-	if !ok || token == "" {
+	if !ok || strings.TrimSpace(token) == "" {
 		return nil, fmt.Errorf("%w: api_key must be a non-empty string", datasource.ErrInvalidCredentials)
+	}
+	for i := 0; i < len(token); i++ {
+		if token[i] < 0x20 || token[i] == 0x7f {
+			return nil, fmt.Errorf("%w: api_key contains invalid control characters", datasource.ErrInvalidCredentials)
+		}
 	}
 
 	return &Config{APIKey: token}, nil

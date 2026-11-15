@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net/url"
 	"strings"
 	"time"
 
@@ -69,7 +70,45 @@ func parseConfig(config *types.DataSourceConfig) (*Config, error) {
 	if len(cfg.feedURLList()) == 0 {
 		return nil, fmt.Errorf("%w: feed_urls is required", datasource.ErrInvalidCredentials)
 	}
+	for _, feedURL := range cfg.feedURLList() {
+		if hasControlChar(feedURL) {
+			return nil, fmt.Errorf("%w: feed URL contains invalid control characters", datasource.ErrInvalidCredentials)
+		}
+		parsed, err := url.Parse(feedURL)
+		if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
+			return nil, fmt.Errorf("%w: invalid feed URL", datasource.ErrInvalidCredentials)
+		}
+		if parsed.User != nil {
+			return nil, fmt.Errorf("%w: feed URL must not contain embedded userinfo", datasource.ErrInvalidCredentials)
+		}
+	}
+	if strings.TrimSpace(cfg.AuthHeaders) != "" {
+		for _, line := range strings.Split(cfg.AuthHeaders, "\n") {
+			line = strings.TrimSuffix(line, "\r")
+			if hasHeaderControlChar(line) {
+				return nil, fmt.Errorf("%w: auth_headers contains invalid control characters", datasource.ErrInvalidCredentials)
+			}
+		}
+	}
 	return &cfg, nil
+}
+
+func hasControlChar(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] == 0x7f {
+			return true
+		}
+	}
+	return false
+}
+
+func hasHeaderControlChar(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if (s[i] < 0x20 && s[i] != '\t') || s[i] == 0x7f {
+			return true
+		}
+	}
+	return false
 }
 
 func feedURLsFromSettings(settings map[string]interface{}) string {
@@ -130,7 +169,7 @@ func (c *Config) parseHeaders() map[string]string {
 		}
 		name := strings.TrimSpace(line[:idx])
 		value := strings.TrimSpace(line[idx+1:])
-		if name == "" {
+		if name == "" || hasControlChar(name) || hasHeaderControlChar(value) {
 			continue
 		}
 		headers[name] = value

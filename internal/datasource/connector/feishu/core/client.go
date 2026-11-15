@@ -360,16 +360,39 @@ func truncate(s string, maxLen int) string {
 	return s[:cut] + "..."
 }
 
+const (
+	maxFeishuPaginationHops = 10000
+	maxFeishuEmptyPages     = 3
+)
+
+// validateFeishuToken rejects empty, whitespace-padded, dot-segment, slash/query/fragment,
+// and control-character tokens before interpolating them into Feishu API paths.
+func validateFeishuToken(kind, token string) error {
+	if token == "" {
+		return fmt.Errorf("feishu %s is required", kind)
+	}
+	if token != strings.TrimSpace(token) || token == "." || token == ".." || strings.ContainsAny(token, "/\\?#") {
+		return fmt.Errorf("invalid feishu %s %q", kind, token)
+	}
+	for i := 0; i < len(token); i++ {
+		if token[i] < 0x20 || token[i] == 0x7f {
+			return fmt.Errorf("invalid feishu %s", kind)
+		}
+	}
+	return nil
+}
+
 // ListWikiSpaces returns all wiki spaces accessible to the app.
 func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 	var allSpaces []WikiSpace
 	pageToken := ""
 	seenPageTokens := make(map[string]struct{})
+	emptyPages := 0
 
-	for {
+	for hops := 0; hops < maxFeishuPaginationHops; hops++ {
 		path := "/open-apis/wiki/v2/spaces?page_size=50"
 		if pageToken != "" {
-			path += "&page_token=" + pageToken
+			path += "&page_token=" + url.QueryEscape(pageToken)
 		}
 
 		var resp WikiSpaceListResponse
@@ -391,6 +414,14 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 		if !resp.Data.HasMore || resp.Data.PageToken == "" {
 			break
 		}
+		if len(resp.Data.Items) == 0 {
+			emptyPages++
+			if emptyPages >= maxFeishuEmptyPages {
+				break
+			}
+		} else {
+			emptyPages = 0
+		}
 		if _, exists := seenPageTokens[resp.Data.PageToken]; exists {
 			return nil, fmt.Errorf("feishu wiki space pagination repeated page token %q", resp.Data.PageToken)
 		}
@@ -405,17 +436,27 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 // ListWikiNodes returns all nodes (documents) under a wiki space.
 // If parentNodeToken is empty, returns top-level nodes.
 func (c *Client) ListWikiNodes(ctx context.Context, spaceID string, parentNodeToken string) ([]WikiNode, error) {
+	if err := validateFeishuToken("space id", spaceID); err != nil {
+		return nil, err
+	}
+	if parentNodeToken != "" {
+		if err := validateFeishuToken("parent node token", parentNodeToken); err != nil {
+			return nil, err
+		}
+	}
+
 	var allNodes []WikiNode
 	pageToken := ""
 	seenPageTokens := make(map[string]struct{})
+	emptyPages := 0
 
-	for {
-		path := fmt.Sprintf("/open-apis/wiki/v2/spaces/%s/nodes?page_size=50", spaceID)
+	for hops := 0; hops < maxFeishuPaginationHops; hops++ {
+		path := fmt.Sprintf("/open-apis/wiki/v2/spaces/%s/nodes?page_size=50", url.PathEscape(spaceID))
 		if parentNodeToken != "" {
-			path += "&parent_node_token=" + parentNodeToken
+			path += "&parent_node_token=" + url.QueryEscape(parentNodeToken)
 		}
 		if pageToken != "" {
-			path += "&page_token=" + pageToken
+			path += "&page_token=" + url.QueryEscape(pageToken)
 		}
 
 		var resp WikiNodeListResponse
@@ -439,6 +480,14 @@ func (c *Client) ListWikiNodes(ctx context.Context, spaceID string, parentNodeTo
 		if !resp.Data.HasMore || resp.Data.PageToken == "" {
 			break
 		}
+		if len(resp.Data.Items) == 0 {
+			emptyPages++
+			if emptyPages >= maxFeishuEmptyPages {
+				break
+			}
+		} else {
+			emptyPages = 0
+		}
 		if _, exists := seenPageTokens[resp.Data.PageToken]; exists {
 			return nil, fmt.Errorf("feishu wiki node pagination repeated page token %q", resp.Data.PageToken)
 		}
@@ -451,6 +500,14 @@ func (c *Client) ListWikiNodes(ctx context.Context, spaceID string, parentNodeTo
 
 // GetWikiNode returns metadata for a single wiki node.
 func (c *Client) GetWikiNode(ctx context.Context, spaceID string, nodeToken string) (WikiNode, error) {
+	if spaceID != "" {
+		if err := validateFeishuToken("space id", spaceID); err != nil {
+			return WikiNode{}, err
+		}
+	}
+	if err := validateFeishuToken("node token", nodeToken); err != nil {
+		return WikiNode{}, err
+	}
 	path := fmt.Sprintf("/open-apis/wiki/v2/spaces/get_node?token=%s", url.QueryEscape(nodeToken))
 
 	var resp WikiNodeInfoResponse
@@ -479,10 +536,17 @@ func (c *Client) listAllWikiNodesRecursive(ctx context.Context, spaceID string) 
 
 	var allNodes []WikiNode
 	var failures []WikiNodeListFailure
+	visited := make(map[string]bool)
 	var walk func(nodes []WikiNode)
 
 	walk = func(nodes []WikiNode) {
 		for _, node := range nodes {
+			if node.NodeToken != "" {
+				if visited[node.NodeToken] {
+					continue
+				}
+				visited[node.NodeToken] = true
+			}
 			allNodes = append(allNodes, node)
 
 			// Recurse into child nodes if this node has children
@@ -549,10 +613,20 @@ func (c *Client) listWikiNodeDescendants(ctx context.Context, spaceID string, ro
 
 	var allNodes []WikiNode
 	var failures []WikiNodeListFailure
+	visited := make(map[string]bool)
+	if root.NodeToken != "" {
+		visited[root.NodeToken] = true
+	}
 	var walk func(nodes []WikiNode)
 
 	walk = func(nodes []WikiNode) {
 		for _, node := range nodes {
+			if node.NodeToken != "" {
+				if visited[node.NodeToken] {
+					continue
+				}
+				visited[node.NodeToken] = true
+			}
 			allNodes = append(allNodes, node)
 			if !node.HasChild {
 				continue
@@ -584,7 +658,10 @@ func (c *Client) listWikiNodeDescendants(ctx context.Context, spaceID string, ro
 // This returns plain text (not rich text / block structure).
 // Deprecated: prefer ExportAndDownload which preserves formatting.
 func (c *Client) getDocumentRawContent(ctx context.Context, documentID string) (string, error) {
-	path := fmt.Sprintf("/open-apis/docx/v1/documents/%s/raw_content", documentID)
+	if err := validateFeishuToken("document id", documentID); err != nil {
+		return "", err
+	}
+	path := fmt.Sprintf("/open-apis/docx/v1/documents/%s/raw_content", url.PathEscape(documentID))
 
 	var resp docRawContentResponse
 	if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
@@ -638,7 +715,13 @@ func (c *Client) createExportTask(ctx context.Context, token, objType, fileExten
 // Returns (fileToken, fileName, error). fileToken is non-empty only when the job succeeds.
 // The token parameter is the obj_token of the document being exported (required by the API).
 func (c *Client) getExportTaskStatus(ctx context.Context, ticket string, token string) (string, string, error) {
-	path := fmt.Sprintf("/open-apis/drive/v1/export_tasks/%s?token=%s", ticket, token)
+	if err := validateFeishuToken("export ticket", ticket); err != nil {
+		return "", "", err
+	}
+	if err := validateFeishuToken("export token", token); err != nil {
+		return "", "", err
+	}
+	path := fmt.Sprintf("/open-apis/drive/v1/export_tasks/%s?token=%s", url.PathEscape(ticket), url.QueryEscape(token))
 
 	var resp ExportTaskStatusResponse
 	if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
@@ -663,7 +746,10 @@ func (c *Client) getExportTaskStatus(ctx context.Context, ticket string, token s
 // The file_token is returned by getExportTaskStatus when the export job completes.
 // The file must be downloaded within 10 minutes of export completion.
 func (c *Client) downloadExportFile(ctx context.Context, fileToken string) ([]byte, error) {
-	path := fmt.Sprintf("/open-apis/drive/v1/export_tasks/file/%s/download", fileToken)
+	if err := validateFeishuToken("export file token", fileToken); err != nil {
+		return nil, err
+	}
+	path := fmt.Sprintf("/open-apis/drive/v1/export_tasks/file/%s/download", url.PathEscape(fileToken))
 	return c.downloadRawBytes(ctx, path)
 }
 
@@ -740,7 +826,10 @@ func (c *Client) ExportAndDownload(ctx context.Context, objToken, objType string
 // DownloadDriveFile downloads a file from Feishu Drive by its file token.
 // Used for wiki nodes with obj_type="file" (user-uploaded PDF, Word, images, etc.).
 func (c *Client) DownloadDriveFile(ctx context.Context, fileToken string) ([]byte, error) {
-	path := fmt.Sprintf("/open-apis/drive/v1/files/%s/download", fileToken)
+	if err := validateFeishuToken("file token", fileToken); err != nil {
+		return nil, err
+	}
+	path := fmt.Sprintf("/open-apis/drive/v1/files/%s/download", url.PathEscape(fileToken))
 	return c.downloadRawBytes(ctx, path)
 }
 
@@ -749,6 +838,9 @@ func (c *Client) DownloadDriveFile(ctx context.Context, fileToken string) ([]byt
 // different token space than standalone Drive files and must use the /medias/
 // endpoint rather than /files/.
 func (c *Client) downloadMediaFile(ctx context.Context, fileToken string) ([]byte, error) {
+	if err := validateFeishuToken("media token", fileToken); err != nil {
+		return nil, err
+	}
 	path := fmt.Sprintf("/open-apis/drive/v1/medias/%s/download", url.PathEscape(fileToken))
 	return c.downloadRawBytes(ctx, path)
 }
@@ -887,6 +979,9 @@ func (c *Client) listDriveFiles(
 		return nil, "", false, fmt.Errorf("root folder not supported; specify a concrete folder_token " +
 			"(root folder is not paginated and does not return shortcuts)")
 	}
+	if err := validateFeishuToken("folder token", folderToken); err != nil {
+		return nil, "", false, err
+	}
 
 	path := "/open-apis/drive/v1/files?folder_token=" + url.QueryEscape(folderToken)
 	path += "&page_size=200" // max
@@ -918,7 +1013,10 @@ func (c *Client) GetDriveFolderMeta(ctx context.Context, folderToken string) (dr
 	if folderToken == "" {
 		return resp, fmt.Errorf("root folder not supported; specify a concrete folder_token")
 	}
-	path := "/open-apis/drive/explorer/v2/folder/" + url.QueryEscape(folderToken) + "/meta"
+	if err := validateFeishuToken("folder token", folderToken); err != nil {
+		return resp, err
+	}
+	path := "/open-apis/drive/explorer/v2/folder/" + url.PathEscape(folderToken) + "/meta"
 	if err := c.DoRequest(ctx, http.MethodGet, path, nil, &resp); err != nil {
 		return resp, fmt.Errorf("get drive folder meta: %w", err)
 	}
@@ -933,7 +1031,8 @@ func (c *Client) ListDriveFilesAllPages(ctx context.Context, folderToken string)
 	var all []DriveFile
 	pageToken := ""
 	seenPageTokens := make(map[string]struct{})
-	for {
+	emptyPages := 0
+	for hops := 0; hops < maxFeishuPaginationHops; hops++ {
 		files, next, hasMore, err := c.listDriveFiles(ctx, folderToken, pageToken)
 		if err != nil {
 			return nil, err
@@ -941,6 +1040,14 @@ func (c *Client) ListDriveFilesAllPages(ctx context.Context, folderToken string)
 		all = append(all, files...)
 		if !hasMore || next == "" {
 			break
+		}
+		if len(files) == 0 {
+			emptyPages++
+			if emptyPages >= maxFeishuEmptyPages {
+				break
+			}
+		} else {
+			emptyPages = 0
 		}
 		if _, exists := seenPageTokens[next]; exists {
 			return nil, fmt.Errorf("feishu drive file pagination repeated page token %q", next)
@@ -1089,8 +1196,8 @@ func (c *Client) DocTitles(ctx context.Context, refs []pendingDocName) map[strin
 // callers degrade to a generic @ marker on any failure, so errors here never
 // block ingestion.
 func (c *Client) UserName(ctx context.Context, userID string) (string, error) {
-	if userID == "" {
-		return "", fmt.Errorf("empty user id")
+	if err := validateFeishuToken("user id", userID); err != nil {
+		return "", err
 	}
 	path := fmt.Sprintf("/open-apis/contact/v3/users/%s?user_id_type=open_id", url.PathEscape(userID))
 

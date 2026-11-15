@@ -3,7 +3,9 @@ package datasource
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -77,7 +79,7 @@ func (s *Scheduler) Start(ctx context.Context) error {
 	}
 
 	for _, ds := range dataSources {
-		if ds.SyncSchedule == "" {
+		if ds == nil || strings.TrimSpace(ds.ID) == "" || ds.SyncSchedule == "" {
 			continue
 		}
 		if err := s.addEntry(ds); err != nil {
@@ -94,7 +96,7 @@ func (s *Scheduler) Start(ctx context.Context) error {
 	}
 
 	s.cron.Start()
-	logger.Infof(ctx, "[Scheduler] started with %d cron entries", len(s.entries))
+	logger.Infof(ctx, "[Scheduler] started with %d cron entries", s.EntryCount())
 	return nil
 }
 
@@ -127,6 +129,9 @@ func (s *Scheduler) StopWithin(timeout time.Duration) {
 
 // AddOrUpdate registers (or re-registers) a cron entry for the given data source.
 func (s *Scheduler) AddOrUpdate(ds *types.DataSource) error {
+	if ds == nil || strings.TrimSpace(ds.ID) == "" {
+		return ErrInvalidConfig
+	}
 	// Reject an invalid replacement before removing the working entry. Inactive
 	// sources must still be removable even if their stored schedule is invalid.
 	if ds.Status == types.DataSourceStatusActive {
@@ -190,7 +195,8 @@ func (s *Scheduler) addEntryLocked(ds *types.DataSource) error {
 // Since robfig/cron fires at absolute wall-clock times, all instances trigger
 // at the same minute. The first Enqueue wins; others get ErrTaskIDConflict.
 func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	ds, err := s.dsRepo.FindByID(ctx, dataSourceID)
 	if err != nil || ds == nil || ds.Status != types.DataSourceStatusActive {
@@ -198,8 +204,13 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 		return
 	}
 
-	// Layer 1: prevent overlap with a still-running sync
-	if running, _ := s.syncLogRepo.HasRunningSync(ctx, dataSourceID); running {
+	// Layer 1: prevent overlap with a still-running sync (fail closed on DB errors).
+	running, err := s.syncLogRepo.HasRunningSync(ctx, dataSourceID)
+	if err != nil {
+		logger.Errorf(ctx, "[Scheduler] failed to check running sync for ds=%s: %v", dataSourceID, err)
+		return
+	}
+	if running {
 		logger.Infof(ctx, "[Scheduler] skipping sync for ds=%s (previous sync still running)", dataSourceID)
 		return
 	}
@@ -236,7 +247,7 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 		asynq.TaskID(taskID),
 	)
 	if err != nil {
-		if err == asynq.ErrTaskIDConflict {
+		if errors.Is(err, asynq.ErrTaskIDConflict) {
 			logger.Infof(ctx, "[Scheduler] sync already enqueued by another instance for ds=%s", dataSourceID)
 			syncLog.Status = types.SyncLogStatusCanceled
 			now := time.Now().UTC()

@@ -45,6 +45,9 @@ type boardPixel struct{ r, g, b, a uint8 }
 // shared downloadRawBytes policy; the 512 MB maxFeishuDownloadBytes cap
 // applies too (a real whiteboard PNG is orders of magnitude smaller).
 func (c *Client) downloadBoardAsImage(ctx context.Context, boardToken string) ([]byte, error) {
+	if err := validateFeishuToken("board token", boardToken); err != nil {
+		return nil, err
+	}
 	path := fmt.Sprintf("/open-apis/board/v1/whiteboards/%s/download_as_image", url.PathEscape(boardToken))
 	data, err := c.downloadRawBytes(ctx, path)
 	if err != nil {

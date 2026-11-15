@@ -78,10 +78,22 @@ func parseYuqueConfig(config *types.DataSourceConfig) (*Config, error) {
 	if strings.TrimSpace(cfg.APIToken) == "" {
 		return nil, fmt.Errorf("%w: api_token is required", datasource.ErrInvalidCredentials)
 	}
+	if hasYuqueControlChar(cfg.APIToken) {
+		return nil, fmt.Errorf("%w: api_token contains invalid control characters", datasource.ErrInvalidCredentials)
+	}
 	if err := datasource.ValidateConnectorBaseURL(cfg.GetBaseURL()); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+func hasYuqueControlChar(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] == 0x7f {
+			return true
+		}
+	}
+	return false
 }
 
 // --- Yuque API response types ---

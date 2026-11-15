@@ -78,8 +78,11 @@ const larkBaseURL = "https://open.larksuite.com"
 
 // GetBaseURL returns the effective base URL, defaulting to Feishu if not set.
 func (c *Config) GetBaseURL() string {
-	if c.BaseURL != "" {
-		return c.BaseURL
+	if c == nil {
+		return defaultBaseURL
+	}
+	if trimmed := strings.TrimRight(strings.TrimSpace(c.BaseURL), "/"); trimmed != "" {
+		return trimmed
 	}
 	return defaultBaseURL
 }

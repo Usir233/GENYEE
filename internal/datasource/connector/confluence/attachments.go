@@ -71,6 +71,9 @@ type attachment struct {
 }
 
 func syncAttachmentsEnabled(ds *types.DataSourceConfig) bool {
+	if ds == nil || ds.Settings == nil {
+		return false
+	}
 	v := ds.Settings["sync_attachments"]
 	return v == true || v == "true"
 }
@@ -99,6 +102,9 @@ func attachmentMIME(filename string) string {
 // Enumerate completely before reconciling removals. A failed later page must
 // never make an attachment that was not listed yet look deleted.
 func (c *client) attachments(ctx context.Context, pageID string) ([]attachment, error) {
+	if err := validateConfluenceSegment("page", pageID); err != nil {
+		return nil, err
+	}
 	start := "/rest/api/content/" + url.PathEscape(pageID) +
 		"/child/attachment?expand=version,metadata,extensions&limit=100"
 	if c.cfg.cloud() {

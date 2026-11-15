@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/datasource"
@@ -202,6 +203,8 @@ type client struct {
 	// downloadLimit overrides maxDocumentBytes; zero means the default.
 	downloadLimit int64
 
+	tokenMu     sync.Mutex
+	refreshMu   sync.Mutex
 	token       string
 	tokenExpiry time.Time
 }
@@ -239,9 +242,30 @@ type accessTokenResponse struct {
 	ExpireIn    int64  `json:"expireIn"`
 }
 
+func (c *client) currentToken() (string, time.Time) {
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+	return c.token, c.tokenExpiry
+}
+
+func (c *client) invalidateToken(expected string) {
+	c.tokenMu.Lock()
+	defer c.tokenMu.Unlock()
+	if c.token == expected {
+		c.token = ""
+		c.tokenExpiry = time.Time{}
+	}
+}
+
 func (c *client) accessToken(ctx context.Context) (string, error) {
-	if c.token != "" && time.Now().Before(c.tokenExpiry) {
-		return c.token, nil
+	if tok, exp := c.currentToken(); tok != "" && time.Now().Before(exp) {
+		return tok, nil
+	}
+
+	c.refreshMu.Lock()
+	defer c.refreshMu.Unlock()
+	if tok, exp := c.currentToken(); tok != "" && time.Now().Before(exp) {
+		return tok, nil
 	}
 
 	var response accessTokenResponse
@@ -264,9 +288,11 @@ func (c *client) accessToken(ctx context.Context) (string, error) {
 	if ttl > 5*time.Minute {
 		ttl -= 5 * time.Minute
 	}
+	c.tokenMu.Lock()
 	c.token = response.AccessToken
 	c.tokenExpiry = time.Now().Add(ttl)
-	return c.token, nil
+	c.tokenMu.Unlock()
+	return response.AccessToken, nil
 }
 
 func (c *client) doJSON(
@@ -329,10 +355,7 @@ func (c *client) doJSON(
 		}
 
 		if authenticated && resp.StatusCode == http.StatusUnauthorized && !refreshed {
-			if c.token == token {
-				c.token = ""
-				c.tokenExpiry = time.Time{}
-			}
+			c.invalidateToken(token)
 			refreshed = true
 			continue
 		}
@@ -370,8 +393,9 @@ func (c *client) doJSON(
 }
 
 func (c *client) redactAPIError(err error) error {
+	tok, _ := c.currentToken()
 	message := err.Error()
-	for _, sensitive := range []string{c.appKey, c.appSecret, c.operator, c.token} {
+	for _, sensitive := range []string{c.appKey, c.appSecret, c.operator, tok} {
 		if sensitive != "" {
 			message = strings.ReplaceAll(message, sensitive, "[REDACTED]")
 		}
@@ -462,6 +486,9 @@ func (c *client) listNodesPage(ctx context.Context, parentNodeID, pageToken stri
 }
 
 func (c *client) documentBlocks(ctx context.Context, documentID string) ([]json.RawMessage, error) {
+	if err := validateExternalID("document", documentID); err != nil {
+		return nil, err
+	}
 	const pageSize = 100
 	var all []json.RawMessage
 
@@ -507,6 +534,9 @@ type dentryRef struct {
 
 // resolveDentry maps a wiki node UUID to its 钉盘 storage identifiers.
 func (c *client) resolveDentry(ctx context.Context, documentID string) (dentryRef, error) {
+	if err := validateExternalID("document", documentID); err != nil {
+		return dentryRef{}, err
+	}
 	query := url.Values{"operatorId": {c.operator}}
 	path := "/v2.0/doc/dentries/" + url.PathEscape(documentID) +
 		"/queryDentryId?" + query.Encode()
@@ -519,6 +549,12 @@ func (c *client) resolveDentry(ctx context.Context, documentID string) (dentryRe
 	ref.SpaceID = strings.TrimSpace(ref.SpaceID)
 	if ref.DentryID == "" || ref.SpaceID == "" {
 		return dentryRef{}, errors.New("DingTalk returned no storage location for the document")
+	}
+	if err := validateExternalID("space", ref.SpaceID); err != nil {
+		return dentryRef{}, err
+	}
+	if err := validateExternalID("dentry", ref.DentryID); err != nil {
+		return dentryRef{}, err
 	}
 	return ref, nil
 }
@@ -542,6 +578,12 @@ type downloadInfoResponse struct {
 // preferIntranet stays false so the URL is reachable from outside DingTalk's
 // own network.
 func (c *client) requestDownloadURL(ctx context.Context, ref dentryRef) (downloadTarget, error) {
+	if err := validateExternalID("space", ref.SpaceID); err != nil {
+		return downloadTarget{}, err
+	}
+	if err := validateExternalID("dentry", ref.DentryID); err != nil {
+		return downloadTarget{}, err
+	}
 	query := url.Values{"unionId": {c.operator}}
 	path := "/v1.0/storage/spaces/" + url.PathEscape(ref.SpaceID) +
 		"/dentries/" + url.PathEscape(ref.DentryID) + "/downloadInfos/query?" + query.Encode()
@@ -614,14 +656,29 @@ func (c *client) downloadDocument(ctx context.Context, documentID string) ([]byt
 	return nil, lastErr
 }
 
+func hasHeaderControlChars(s string) bool {
+	for _, r := range s {
+		if r < 0x20 || r == 0x7f {
+			return true
+		}
+	}
+	return false
+}
+
 // fetchSigned transfers a document body from a pre-signed URL. It reports
 // whether the failure is worth retrying with a freshly signed URL.
 func (c *client) fetchSigned(ctx context.Context, target downloadTarget) ([]byte, bool, error) {
+	if hasHeaderControlChars(target.URL) {
+		return nil, false, errors.New("create DingTalk download request: invalid download URL")
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.URL, nil)
 	if err != nil {
-		return nil, false, fmt.Errorf("create DingTalk download request: %w", err)
+		return nil, false, errors.New("create DingTalk download request: invalid download URL")
 	}
 	for name, value := range target.Headers {
+		if hasHeaderControlChars(name) || hasHeaderControlChars(value) {
+			return nil, false, errors.New("create DingTalk download request: invalid signed header")
+		}
 		req.Header.Set(name, value)
 	}
 	// The signature covers the object as stored. Asking for an identity
@@ -631,7 +688,11 @@ func (c *client) fetchSigned(ctx context.Context, target downloadTarget) ([]byte
 
 	resp, err := c.transferHTTP().Do(req)
 	if err != nil {
-		return nil, true, fmt.Errorf("download DingTalk document: %w", redactRequestError(err))
+		reqErr := redactRequestError(err)
+		if !isContextError(reqErr) {
+			reqErr = c.redactAPIError(reqErr)
+		}
+		return nil, true, fmt.Errorf("download DingTalk document: %w", reqErr)
 	}
 	defer func() { _ = resp.Body.Close() }()
 

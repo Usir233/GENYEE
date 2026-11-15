@@ -2,6 +2,8 @@ package datasource
 
 import (
 	"context"
+	"sort"
+	"sync"
 
 	"github.com/Usir233/GENYEE/internal/types"
 )
@@ -120,6 +122,7 @@ type FullSyncWithCursor interface {
 
 // ConnectorRegistry manages the registration and lookup of available connectors
 type ConnectorRegistry struct {
+	mu         sync.RWMutex
 	connectors map[string]Connector
 }
 
@@ -138,12 +141,19 @@ func (r *ConnectorRegistry) Register(connector Connector) error {
 	if connector.Type() == "" {
 		return ErrConnectorTypeEmpty
 	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.connectors == nil {
+		r.connectors = make(map[string]Connector)
+	}
 	r.connectors[connector.Type()] = connector
 	return nil
 }
 
 // Get retrieves a connector by type
 func (r *ConnectorRegistry) Get(connectorType string) (Connector, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	connector, exists := r.connectors[connectorType]
 	if !exists {
 		return nil, ErrConnectorNotFound
@@ -153,10 +163,13 @@ func (r *ConnectorRegistry) Get(connectorType string) (Connector, error) {
 
 // List returns all registered connector types
 func (r *ConnectorRegistry) List() []string {
+	r.mu.RLock()
 	types := make([]string, 0, len(r.connectors))
 	for t := range r.connectors {
 		types = append(types, t)
 	}
+	r.mu.RUnlock()
+	sort.Strings(types)
 	return types
 }
 
@@ -329,23 +342,23 @@ var ConnectorMetadataRegistry = map[string]ConnectorMetadata{
 }
 
 // ListAvailableConnectors returns all available connector metadata
-// sorted by priority
+// sorted by priority (with deterministic tie-breaking by connector type).
 func ListAvailableConnectors() []ConnectorMetadata {
 	metadata := make([]ConnectorMetadata, 0, len(ConnectorMetadataRegistry))
 	for _, meta := range ConnectorMetadataRegistry {
-		metadata = append(metadata, meta)
+		cloned := meta
+		if meta.Capabilities != nil {
+			cloned.Capabilities = append([]string(nil), meta.Capabilities...)
+		}
+		metadata = append(metadata, cloned)
 	}
 
-	// Sort by priority (insertion sort for simplicity)
-	for i := 1; i < len(metadata); i++ {
-		key := metadata[i]
-		j := i - 1
-		for j >= 0 && metadata[j].Priority > key.Priority {
-			metadata[j+1] = metadata[j]
-			j--
+	sort.Slice(metadata, func(i, j int) bool {
+		if metadata[i].Priority != metadata[j].Priority {
+			return metadata[i].Priority < metadata[j].Priority
 		}
-		metadata[j+1] = key
-	}
+		return metadata[i].Type < metadata[j].Type
+	})
 
 	return metadata
 }

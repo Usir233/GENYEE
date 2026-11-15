@@ -250,6 +250,9 @@ func (c *Connector) ResolveResourceAncestors(
 func (c *Connector) FetchAll(
 	ctx context.Context, ds *types.DataSourceConfig, resourceIDs []string,
 ) ([]types.FetchedItem, error) {
+	if ds == nil {
+		return nil, datasource.ErrInvalidConfig
+	}
 	dsCopy := *ds
 	dsCopy.ResourceIDs = resourceIDs
 	return c.collect(ctx, &dsCopy, nil)

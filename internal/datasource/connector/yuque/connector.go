@@ -448,6 +448,9 @@ func (c *Connector) FetchIncremental(
 	config *types.DataSourceConfig,
 	cursor *types.SyncCursor,
 ) ([]types.FetchedItem, *types.SyncCursor, error) {
+	if config == nil {
+		return nil, nil, fmt.Errorf("%w: config is nil", datasource.ErrInvalidConfig)
+	}
 	resourceIDs := config.ResourceIDs
 	if len(resourceIDs) == 0 {
 		return nil, nil, fmt.Errorf("no resource IDs (book IDs) configured")

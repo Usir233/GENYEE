@@ -73,7 +73,19 @@ func parseConfig(ds *types.DataSourceConfig) (config, error) {
 	if cfg.secret == "" {
 		return config{}, fmt.Errorf("%w: credentials are required", datasource.ErrInvalidCredentials)
 	}
+	if hasControlChars(cfg.username) || hasControlChars(cfg.secret) {
+		return config{}, fmt.Errorf("%w: credentials contain invalid control characters", datasource.ErrInvalidCredentials)
+	}
 	return cfg, nil
+}
+
+func hasControlChars(s string) bool {
+	for _, r := range s {
+		if r < 0x20 || r == 0x7f {
+			return true
+		}
+	}
+	return false
 }
 
 func normalizeBaseURL(raw string, cloud bool) (string, error) {
@@ -81,14 +93,18 @@ func normalizeBaseURL(raw string, cloud bool) (string, error) {
 	if raw == "" {
 		return "", fmt.Errorf("%w: base_url and username are required", datasource.ErrInvalidCredentials)
 	}
+	if hasControlChars(raw) {
+		return "", fmt.Errorf("%w: invalid base_url", datasource.ErrInvalidCredentials)
+	}
 	if !strings.Contains(raw, "://") {
 		raw = "https://" + raw
 	}
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Host == "" || parsed.Scheme == "" {
+	if err != nil || parsed.Host == "" || parsed.Scheme == "" ||
+		parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return "", fmt.Errorf("%w: invalid base_url", datasource.ErrInvalidCredentials)
 	}
-	if cloud && isAtlassianCloudHost(parsed.Host) && strings.Trim(parsed.Path, "/") == "" {
+	if cloud && isAtlassianCloudHost(parsed.Hostname()) && strings.Trim(parsed.Path, "/") == "" {
 		parsed.Path = "/wiki"
 	}
 	return strings.TrimRight(parsed.String(), "/"), nil

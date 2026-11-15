@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 	"unicode/utf8"
@@ -357,6 +359,27 @@ func (c *client) GetNoteContent(ctx context.Context, noteID string) (string, err
 	return resp.Content, nil
 }
 
+func validateIMARemoteURL(rawURL string) error {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" || hasControlChar(rawURL) {
+		return fmt.Errorf("invalid media URL")
+	}
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("invalid media URL")
+	}
+	if (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.Host == "" {
+		return fmt.Errorf("media URL must use http or https")
+	}
+	if parsed.User != nil {
+		return fmt.Errorf("media URL must not contain embedded userinfo")
+	}
+	if err := utils.ValidateURLForSSRF(rawURL); err != nil {
+		return err
+	}
+	return nil
+}
+
 // DownloadURL fetches a URL returned by GetMediaInfo, respecting the auth
 // headers IMA may return alongside it. Enforces maxDownloadBytes to avoid a
 // runaway body blowing up sync memory.
@@ -364,11 +387,7 @@ func (c *client) DownloadURL(ctx context.Context, u urlInfo) ([]byte, string, er
 	if u.URL == "" {
 		return nil, "", fmt.Errorf("empty url")
 	}
-	// The URL comes from an API response, so it is attacker-influenced as far
-	// as this process is concerned. downloadClient already guards the dial and
-	// every redirect hop; this rejects an unsafe target before the first
-	// connection is even attempted.
-	if err := utils.ValidateURLForSSRF(u.URL); err != nil {
+	if err := validateIMARemoteURL(u.URL); err != nil {
 		return nil, "", fmt.Errorf("media URL rejected: %w", err)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.URL, nil)
@@ -376,6 +395,9 @@ func (c *client) DownloadURL(ctx context.Context, u urlInfo) ([]byte, string, er
 		return nil, "", fmt.Errorf("create download request: %w", err)
 	}
 	for k, v := range u.Headers {
+		if hasControlChar(k) || hasControlChar(v) {
+			return nil, "", fmt.Errorf("invalid media download header")
+		}
 		req.Header.Set(k, v)
 	}
 	req.Header.Set("User-Agent", userAgent)
