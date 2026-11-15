@@ -412,7 +412,24 @@ func createDorisEngine(store types.VectorStore) (interfaces.RetrieveEngineServic
 }
 
 // hostFromAddr 从 "host:port" 中拆出 host 部分；Addr 没有冒号时整段当作 host。
+// 对裸 IPv6 或 "[ipv6]:port" 返回带方括号的 "[ipv6]"，以便拼接成合法的 http:// URL。
 func hostFromAddr(addr string) string {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return ""
+	}
+	if strings.HasPrefix(addr, "[") && strings.HasSuffix(addr, "]") {
+		return addr
+	}
+	if host, _, err := net.SplitHostPort(addr); err == nil {
+		if strings.Contains(host, ":") {
+			return "[" + host + "]"
+		}
+		return host
+	}
+	if ip := net.ParseIP(addr); ip != nil && strings.Contains(addr, ":") {
+		return "[" + addr + "]"
+	}
 	if i := strings.LastIndex(addr, ":"); i > 0 {
 		return addr[:i]
 	}

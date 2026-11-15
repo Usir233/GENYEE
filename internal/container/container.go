@@ -880,6 +880,9 @@ func registerChatLocalImageResolver(
 			return nil, false
 		}
 		baseDir := strings.TrimSpace(os.Getenv("LOCAL_STORAGE_BASE_DIR"))
+		if baseDir == "" {
+			baseDir = "/data/files"
+		}
 		backendID, inner, scoped := types.ParseStorageBackendPath(physicalPath)
 		if resource != nil && resource.StorageBackendID != "" {
 			backendID = resource.StorageBackendID
@@ -901,8 +904,9 @@ func registerChatLocalImageResolver(
 			return nil, false
 		}
 		defer rc.Close()
-		data, err := io.ReadAll(rc)
-		if err != nil {
+		const maxChatLocalImageBytes = 50 << 20 // 50 MiB cap to prevent OOM on corrupted/huge blobs
+		data, err := io.ReadAll(io.LimitReader(rc, maxChatLocalImageBytes+1))
+		if err != nil || len(data) > maxChatLocalImageBytes {
 			return nil, false
 		}
 		return data, true

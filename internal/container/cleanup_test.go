@@ -74,3 +74,24 @@ func TestCleanupAlreadyCanceledContextStillRunsHooks(t *testing.T) {
 		t.Fatalf("ran %d hooks, want 2", n)
 	}
 }
+
+func TestCleanupRecoversPanickingHookAndRunsRemainingHooks(t *testing.T) {
+	cleaner := NewResourceCleaner()
+	var ran []string
+	cleaner.RegisterWithName("tail", func() error {
+		ran = append(ran, "tail")
+		return nil
+	})
+	cleaner.RegisterWithName("panicky", func() error {
+		ran = append(ran, "panicky")
+		panic("closer panic")
+	})
+
+	errs := cleaner.Cleanup(context.Background())
+	if len(ran) != 2 || ran[0] != "panicky" || ran[1] != "tail" {
+		t.Fatalf("ran = %v, want [panicky tail]", ran)
+	}
+	if len(errs) != 1 {
+		t.Fatalf("errs = %v, want 1 recovered panic error", errs)
+	}
+}

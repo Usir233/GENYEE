@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 	"sync"
 
 	"github.com/google/uuid"
@@ -146,6 +147,9 @@ func NewAsyncEventBus() *EventBus {
 // On registers an event handler for a specific event type
 // Multiple handlers can be registered for the same event type
 func (eb *EventBus) On(eventType EventType, handler EventHandler) {
+	if handler == nil {
+		return
+	}
 	eb.mu.Lock()
 	defer eb.mu.Unlock()
 
@@ -170,10 +174,10 @@ func (eb *EventBus) Emit(ctx context.Context, event Event) error {
 	}
 
 	eb.mu.RLock()
-	handlers, exists := eb.handlers[event.Type]
+	handlers := slices.Clone(eb.handlers[event.Type])
 	eb.mu.RUnlock()
 
-	if !exists || len(handlers) == 0 {
+	if len(handlers) == 0 {
 		// No handlers registered for this event type
 		return nil
 	}
@@ -185,6 +189,9 @@ func (eb *EventBus) Emit(ctx context.Context, event Event) error {
 		// map written from concurrent goroutines is a fatal concurrent-map
 		// panic the per-handler recover() cannot catch.
 		for _, handler := range handlers {
+			if handler == nil {
+				continue
+			}
 			h := handler // capture loop variable
 			e := snapshotEventForHandler(event)
 			go func() {
@@ -199,14 +206,27 @@ func (eb *EventBus) Emit(ctx context.Context, event Event) error {
 		return nil
 	}
 
-	// Sync mode: execute handlers sequentially
+	// Sync mode: execute handlers sequentially with isolated event metadata and panic recovery
 	for _, handler := range handlers {
-		if err := handler(ctx, event); err != nil {
+		if handler == nil {
+			continue
+		}
+		e := snapshotEventForHandler(event)
+		if err := callEventHandlerSafe(ctx, event.Type, handler, e); err != nil {
 			return fmt.Errorf("event handler failed for %s: %w", event.Type, err)
 		}
 	}
 
 	return nil
+}
+
+func callEventHandlerSafe(ctx context.Context, eventType EventType, handler EventHandler, event Event) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("event handler panic (type=%s): %v", eventType, r)
+		}
+	}()
+	return handler(ctx, event)
 }
 
 // EmitAndWait publishes an event and waits for all handlers to complete
@@ -219,10 +239,10 @@ func (eb *EventBus) EmitAndWait(ctx context.Context, event Event) error {
 	}
 
 	eb.mu.RLock()
-	handlers, exists := eb.handlers[event.Type]
+	handlers := slices.Clone(eb.handlers[event.Type])
 	eb.mu.RUnlock()
 
-	if !exists || len(handlers) == 0 {
+	if len(handlers) == 0 {
 		return nil
 	}
 

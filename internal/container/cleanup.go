@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -108,7 +109,7 @@ func (c *ResourceCleaner) Cleanup(ctx context.Context) (errs []error) {
 	}
 
 	for i := len(c.cleanups) - 1; i >= 0; i-- {
-		if err := c.cleanups[i].fn(); err != nil {
+		if err := runCleanupStepSafe(c.cleanups[i]); err != nil {
 			errs = append(errs, err)
 		}
 	}
@@ -116,6 +117,19 @@ func (c *ResourceCleaner) Cleanup(ctx context.Context) (errs []error) {
 		log.Printf("Resource cleanup continued past its deadline: %v", err)
 	}
 	return errs
+}
+
+func runCleanupStepSafe(entry cleanupEntry) (err error) {
+	if entry.fn == nil {
+		return nil
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Panic while cleaning up resource %s: %v", entry.name, r)
+			err = fmt.Errorf("panic cleaning up resource %q: %v", entry.name, r)
+		}
+	}()
+	return entry.fn()
 }
 
 // Reset clears all registered cleanup functions

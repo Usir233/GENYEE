@@ -89,3 +89,51 @@ func TestEmitAndWaitIsolatesHandlerMetadataMutations(t *testing.T) {
 	assert.NotContains(t, original.Metadata, "handler")
 	assert.NotContains(t, original.Metadata, "duration_ms")
 }
+
+func TestSyncEmitIsolatesHandlerMetadataMutations(t *testing.T) {
+	bus := NewEventBus()
+
+	original := Event{
+		Type:     EventQueryReceived,
+		Metadata: map[string]interface{}{"origin": "test"},
+	}
+
+	bus.On(EventQueryReceived, WithTiming()(func(_ context.Context, e Event) error {
+		e.Metadata["handler"] = "first"
+		return nil
+	}))
+	bus.On(EventQueryReceived, func(_ context.Context, e Event) error {
+		assert.Equal(t, "test", e.Metadata["origin"])
+		assert.NotContains(t, e.Metadata, "handler", "second handler must not inherit first handler mutations")
+		assert.NotContains(t, e.Metadata, "duration_ms", "second handler must not inherit first handler timing metadata")
+		return nil
+	})
+
+	require.NoError(t, bus.Emit(context.Background(), original))
+	assert.NotContains(t, original.Metadata, "handler")
+	assert.NotContains(t, original.Metadata, "duration_ms")
+}
+
+func TestSyncEmitRecoversPanickingHandler(t *testing.T) {
+	bus := NewEventBus()
+	bus.On(EventQueryReceived, func(context.Context, Event) error {
+		panic("subscriber boom")
+	})
+
+	var err error
+	require.NotPanics(t, func() {
+		err = bus.Emit(context.Background(), Event{Type: EventQueryReceived})
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "subscriber boom")
+}
+
+func TestOnIgnoresNilHandler(t *testing.T) {
+	bus := NewEventBus()
+	bus.On(EventQueryReceived, nil)
+
+	assert.False(t, bus.HasHandlers(EventQueryReceived))
+	assert.Equal(t, 0, bus.GetHandlerCount(EventQueryReceived))
+	require.NoError(t, bus.Emit(context.Background(), Event{Type: EventQueryReceived}))
+	require.NoError(t, bus.EmitAndWait(context.Background(), Event{Type: EventQueryReceived}))
+}
