@@ -116,7 +116,7 @@ func (h *Handler) TranscribeVoiceInput(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "voice input: failed to load ASR model %s: %v",
 			secutils.SanitizeForLog(agent.Config.ASRModelID), err)
-		_ = c.Error(apperrors.NewInternalServerError("failed to load ASR model").WithDetails(err.Error()))
+		_ = c.Error(apperrors.NewInternalServerError("failed to load ASR model"))
 		return
 	}
 	if language := voiceLanguageHint(c.PostForm("locale")); language != "" {
@@ -125,7 +125,7 @@ func (h *Handler) TranscribeVoiceInput(c *gin.Context) {
 	result, err := asrModel.Transcribe(runCtx, data, fileHeader.Filename)
 	if err != nil {
 		logger.Errorf(ctx, "voice input: transcription failed: %v", err)
-		_ = c.Error(apperrors.NewServiceUnavailableError("transcription failed").WithDetails(err.Error()))
+		_ = c.Error(apperrors.NewServiceUnavailableError("transcription failed"))
 		return
 	}
 

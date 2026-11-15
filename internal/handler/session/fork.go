@@ -62,7 +62,11 @@ func (h *Handler) ForkSession(c *gin.Context) {
 	}
 
 	var req ForkSessionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if tooLarge, err := bindJSONWithLimit(c, &req, maxSessionJSONBodyBytes); err != nil {
+		if tooLarge {
+			_ = c.Error(errors.NewBadRequestError("request body is too large"))
+			return
+		}
 		_ = c.Error(errors.NewBadRequestError("message_id is required"))
 		return
 	}

@@ -123,7 +123,8 @@ func (h *Handler) deleteArtifact(c *gin.Context, req *types.ArtifactDeleteReques
 	// The rows are gone from every listing at this point. Reclaiming the bytes
 	// is best-effort cleanup, not part of the user-visible outcome, so its
 	// failures are logged rather than turned into a failed delete.
-	h.reclaimArtifactBlobs(ctx, types.MustTenantIDFromContext(ctx), result.Reclaim)
+	tenantID, _ := types.TenantIDFromContext(ctx)
+	h.reclaimArtifactBlobs(ctx, tenantID, result.Reclaim)
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

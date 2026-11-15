@@ -28,13 +28,19 @@ func isUploadTooLarge(err error) bool {
 // a session-scoped document ID. Parsing continues in the document worker.
 func (h *Handler) UploadTemporaryDocument(c *gin.Context) {
 	ctx := c.Request.Context()
+	if h.temporaryDocuments == nil {
+		_ = c.Error(apperrors.NewServiceUnavailableError("temporary document storage is unavailable"))
+		return
+	}
 	sessionID := c.Param("session_id")
 	// Uploading attaches content to the session, so use the strict owner scope:
 	// a tenant admin may read an API-key session but must not add attachments.
-	if _, err := h.sessionService.GetOwnedSession(ctx, sessionID); err != nil {
+	session, err := h.sessionService.GetOwnedSession(ctx, sessionID)
+	if err != nil || session == nil {
 		c.Error(apperrors.NewNotFoundError("Session not found"))
 		return
 	}
+	sessionTenantID := sessionTenantOrContext(c, session)
 	maxBytes := secutils.GetMaxFileSizeMB()*1024*1024 + 1024*1024
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
 	fileHeader, err := c.FormFile("file")
@@ -75,7 +81,7 @@ func (h *Handler) UploadTemporaryDocument(c *gin.Context) {
 		// A shared agent parses in its owner's workspace, with the parser
 		// engines (and credentials) configured there: only the agent's own
 		// rules may pick one, not the caller.
-		if resourceTenantID != 0 && resourceTenantID != c.GetUint64(types.TenantIDContextKey.String()) {
+		if resourceTenantID != 0 && resourceTenantID != sessionTenantID {
 			options.ParserEngine = ""
 		}
 		if len(agent.Config.SupportedFileTypes) > 0 && !containsFileType(agent.Config.SupportedFileTypes, ext) {
@@ -107,7 +113,7 @@ func (h *Handler) UploadTemporaryDocument(c *gin.Context) {
 		}
 	}
 	document, err := h.temporaryDocuments.Create(
-		ctx, c.GetUint64(types.TenantIDContextKey.String()), sessionID,
+		ctx, sessionTenantID, sessionID,
 		fileHeader.Filename, fileHeader.Header.Get("Content-Type"), fileHeader.Size, file, options,
 	)
 	if err != nil {
@@ -119,12 +125,17 @@ func (h *Handler) UploadTemporaryDocument(c *gin.Context) {
 
 func (h *Handler) ListTemporaryDocuments(c *gin.Context) {
 	ctx := c.Request.Context()
+	if h.temporaryDocuments == nil {
+		_ = c.Error(apperrors.NewServiceUnavailableError("temporary document storage is unavailable"))
+		return
+	}
 	sessionID := sessionIDParam(c)
-	if _, err := h.sessionService.GetSession(ctx, sessionID); err != nil {
+	session, err := h.sessionService.GetSession(ctx, sessionID)
+	if err != nil || session == nil {
 		c.Error(apperrors.NewNotFoundError("Session not found"))
 		return
 	}
-	documents, err := h.temporaryDocuments.List(ctx, c.GetUint64(types.TenantIDContextKey.String()), sessionID)
+	documents, err := h.temporaryDocuments.List(ctx, sessionTenantOrContext(c, session), sessionID)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
 		c.Error(apperrors.NewInternalServerError("Failed to list attachments"))
@@ -138,12 +149,17 @@ func (h *Handler) ListTemporaryDocuments(c *gin.Context) {
 
 func (h *Handler) GetTemporaryDocument(c *gin.Context) {
 	ctx := c.Request.Context()
+	if h.temporaryDocuments == nil {
+		_ = c.Error(apperrors.NewServiceUnavailableError("temporary document storage is unavailable"))
+		return
+	}
 	sessionID := sessionIDParam(c)
-	if _, err := h.sessionService.GetSession(ctx, sessionID); err != nil {
+	session, err := h.sessionService.GetSession(ctx, sessionID)
+	if err != nil || session == nil {
 		c.Error(apperrors.NewNotFoundError("Session not found"))
 		return
 	}
-	document, err := h.temporaryDocuments.Get(ctx, c.GetUint64(types.TenantIDContextKey.String()), sessionID, c.Param("attachment_id"))
+	document, err := h.temporaryDocuments.Get(ctx, sessionTenantOrContext(c, session), sessionID, c.Param("attachment_id"))
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
 		c.Error(apperrors.NewInternalServerError("Failed to retrieve attachment"))
@@ -158,8 +174,13 @@ func (h *Handler) GetTemporaryDocument(c *gin.Context) {
 
 func (h *Handler) PreviewTemporaryDocument(c *gin.Context) {
 	ctx := c.Request.Context()
+	if h.temporaryDocuments == nil {
+		_ = c.Error(apperrors.NewServiceUnavailableError("temporary document storage is unavailable"))
+		return
+	}
 	sessionID := sessionIDParam(c)
-	if _, err := h.sessionService.GetSession(ctx, sessionID); err != nil {
+	session, err := h.sessionService.GetSession(ctx, sessionID)
+	if err != nil || session == nil {
 		c.Error(apperrors.NewNotFoundError("Session not found"))
 		return
 	}
@@ -169,7 +190,7 @@ func (h *Handler) PreviewTemporaryDocument(c *gin.Context) {
 		return
 	}
 	file, filename, err := h.temporaryDocuments.OpenFile(
-		ctx, c.GetUint64(types.TenantIDContextKey.String()), sessionID, attachmentID,
+		ctx, sessionTenantOrContext(c, session), sessionID, attachmentID,
 	)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "not found") {
@@ -189,19 +210,32 @@ func (h *Handler) PreviewTemporaryDocument(c *gin.Context) {
 
 func (h *Handler) DeleteTemporaryDocument(c *gin.Context) {
 	ctx := c.Request.Context()
+	if h.temporaryDocuments == nil {
+		_ = c.Error(apperrors.NewServiceUnavailableError("temporary document storage is unavailable"))
+		return
+	}
 	sessionID := sessionIDParam(c)
 	// Deleting mutates the session's attachments, so use the strict owner scope:
 	// a tenant admin may read an API-key session but must not remove attachments.
-	if _, err := h.sessionService.GetOwnedSession(ctx, sessionID); err != nil {
+	session, err := h.sessionService.GetOwnedSession(ctx, sessionID)
+	if err != nil || session == nil {
 		c.Error(apperrors.NewNotFoundError("Session not found"))
 		return
 	}
-	if err := h.temporaryDocuments.Delete(ctx, c.GetUint64(types.TenantIDContextKey.String()), sessionID, c.Param("attachment_id")); err != nil {
+	if err := h.temporaryDocuments.Delete(ctx, sessionTenantOrContext(c, session), sessionID, c.Param("attachment_id")); err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
 		c.Error(apperrors.NewInternalServerError("Failed to delete attachment"))
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func sessionTenantOrContext(c *gin.Context, session *types.Session) uint64 {
+	if session != nil && session.TenantID != 0 {
+		return session.TenantID
+	}
+	tid, _ := tenantIDFromGinOrContext(c)
+	return tid
 }
 
 func sessionIDParam(c *gin.Context) string {

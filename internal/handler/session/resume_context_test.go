@@ -125,10 +125,29 @@ type resumeMessageRepo struct {
 	messages *resumeMessages
 }
 
-type resumeSessionService struct{ interfaces.SessionService }
+type resumeSessionService struct {
+	interfaces.SessionService
+	ownedErr error
+	tenantID uint64
+}
 
-func (*resumeSessionService) GetSession(_ context.Context, id string) (*types.Session, error) {
-	return &types.Session{ID: id, TenantID: 1}, nil
+func (s *resumeSessionService) sessionFor(id string) *types.Session {
+	tid := s.tenantID
+	if tid == 0 {
+		tid = 1
+	}
+	return &types.Session{ID: id, TenantID: tid}
+}
+
+func (s *resumeSessionService) GetSession(_ context.Context, id string) (*types.Session, error) {
+	return s.sessionFor(id), nil
+}
+
+func (s *resumeSessionService) GetOwnedSession(_ context.Context, id string) (*types.Session, error) {
+	if s.ownedErr != nil {
+		return nil, s.ownedErr
+	}
+	return s.sessionFor(id), nil
 }
 
 func (r *resumeMessageRepo) GetMessage(ctx context.Context, sessionID, id string) (*types.Message, error) {

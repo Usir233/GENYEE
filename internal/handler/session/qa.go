@@ -929,10 +929,15 @@ func (h *Handler) SearchKnowledge(c *gin.Context) {
 	ctx := logger.CloneContext(c.Request.Context())
 	logger.Info(ctx, "Start processing knowledge search request")
 
-	// Parse request body
+	// Parse request body. Cap the reader before ShouldBindJSON buffers it:
+	// SearchKnowledge accepts at most one base64 query_image of maxQueryImageBytes.
 	var request SearchKnowledgeRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if tooLarge, err := bindJSONWithLimit(c, &request, maxSearchKnowledgeBodyBytes); err != nil {
 		logger.Error(ctx, "Failed to parse request data", err)
+		if tooLarge {
+			_ = c.Error(errors.NewBadRequestError("request body is too large"))
+			return
+		}
 		c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
@@ -1036,7 +1041,10 @@ func (h *Handler) SearchKnowledge(c *gin.Context) {
 
 // maxQueryImageBytes bounds a query image so one request cannot turn into a
 // large embed call. Multimodal embedding models work on far smaller images.
-const maxQueryImageBytes = 8 << 20 // 8 MiB
+const (
+	maxQueryImageBytes          = 8 << 20 // 8 MiB
+	maxSearchKnowledgeBodyBytes = int64(maxQueryImageBytes)*4/3 + 2*1024*1024
+)
 
 // queryImageMediaTypes are the image types a multimodal embedder accepts.
 var queryImageMediaTypes = map[string]string{
@@ -1066,6 +1074,9 @@ func decodeQueryImage(raw string) ([]byte, string, error) {
 		}
 		mediaType = strings.TrimSuffix(strings.TrimPrefix(header, "data:"), ";base64")
 		raw = payload
+	}
+	if base64.StdEncoding.DecodedLen(len(raw)) > maxQueryImageBytes+3 {
+		return nil, "", fmt.Errorf("query_image exceeds %d bytes", maxQueryImageBytes)
 	}
 	decoded, err := base64.StdEncoding.DecodeString(raw)
 	if err != nil {

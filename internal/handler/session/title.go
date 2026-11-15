@@ -50,8 +50,12 @@ func (h *Handler) GenerateTitle(c *gin.Context) {
 
 	// Parse request body
 	var request GenerateTitleRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if tooLarge, err := bindJSONWithLimit(c, &request, maxSteerRequestBodyBytes); err != nil {
 		logger.Error(ctx, "Failed to parse request data", err)
+		if tooLarge {
+			_ = c.Error(errors.NewBadRequestError("request body is too large"))
+			return
+		}
 		c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}

@@ -47,6 +47,9 @@ var (
 func (h *Handler) ResumeSuspendedRun(
 	c *gin.Context, prompt *types.AgentPrompt, ownerGone bool, ownerLeaseUntil *time.Time,
 ) {
+	if prompt == nil {
+		return
+	}
 	if h.HandlesDelegatedPrompt(c.Request.Context(), prompt) {
 		return
 	}
@@ -151,6 +154,12 @@ func (h *Handler) awaitSuspendedRunSettled(
 func (h *Handler) buildResumeRequest(
 	ctx context.Context, c *gin.Context, prompt *types.AgentPrompt,
 ) (*qaRequestContext, *types.AgentRunSuspension, error) {
+	if prompt == nil {
+		return nil, nil, fmt.Errorf("prompt is required")
+	}
+	if calledWithAPIKey(ctx) {
+		return nil, nil, fmt.Errorf("API keys cannot resume interactive prompts")
+	}
 	state, err := h.promptBroker.Suspensions().Get(ctx, prompt.AssistantMessageID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("read run state: %w", err)
@@ -170,9 +179,15 @@ func (h *Handler) buildResumeRequest(
 		ctx = context.WithValue(ctx, types.LanguageContextKey, req.Language)
 	}
 
-	session, err := h.sessionService.GetSession(ctx, prompt.SessionID)
+	session, err := h.sessionService.GetOwnedSession(ctx, prompt.SessionID)
 	if err != nil || session == nil {
 		return nil, state, fmt.Errorf("load session: %v", err)
+	}
+	if prompt.TenantID != 0 && session.TenantID != prompt.TenantID {
+		return nil, state, fmt.Errorf("prompt tenant mismatch for session %s", prompt.SessionID)
+	}
+	if callerTenant, ok := types.TenantIDFromContext(ctx); ok && callerTenant != 0 && session.TenantID != callerTenant {
+		return nil, state, fmt.Errorf("caller tenant mismatch for session %s", prompt.SessionID)
 	}
 	if session.Kind == types.SessionKindAgentDelegated {
 		return nil, state, fmt.Errorf("delegated prompts must resume through the scheduler")

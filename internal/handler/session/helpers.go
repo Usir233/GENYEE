@@ -3,7 +3,9 @@ package session
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -522,3 +524,44 @@ func searchResultFromMap(refMap map[string]interface{}) *types.SearchResult {
 // CustomAgent (builtin-quick-answer / smart-reasoning) and the tenant-level
 // ConversationConfig field was removed; deleting them avoids the only
 // remaining references to that defunct path.
+
+const (
+	// maxSessionJSONBodyBytes bounds small JSON control payloads (session CRUD,
+	// stop, fork, rewind) before Gin's ShouldBindJSON buffers the request body.
+	maxSessionJSONBodyBytes int64 = 64 * 1024
+
+	// maxSteerRequestBodyBytes bounds mid-run steer and title-generation JSON
+	// bodies before ShouldBindJSON buffers them.
+	maxSteerRequestBodyBytes int64 = 256 * 1024
+)
+
+func bindJSONWithLimit(c *gin.Context, dst any, maxBytes int64) (tooLarge bool, err error) {
+	if c.Request != nil && c.Request.Body != nil {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxBytes)
+	}
+	err = c.ShouldBindJSON(dst)
+	if err == nil {
+		return false, nil
+	}
+	var maxErr *http.MaxBytesError
+	return stderrors.As(err, &maxErr), err
+}
+
+func tenantIDFromGinOrContext(c *gin.Context) (uint64, bool) {
+	if c == nil {
+		return 0, false
+	}
+	if raw, exists := c.Get(types.TenantIDContextKey.String()); exists {
+		tid, ok := raw.(uint64)
+		if !ok || tid == 0 {
+			return 0, false
+		}
+		return tid, true
+	}
+	if c.Request != nil {
+		if tid, ok := types.TenantIDFromContext(c.Request.Context()); ok && tid != 0 {
+			return tid, true
+		}
+	}
+	return 0, false
+}

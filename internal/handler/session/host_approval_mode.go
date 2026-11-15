@@ -82,6 +82,10 @@ func (h *Handler) GetHostApprovalMode(c *gin.Context) {
 
 // SetHostApprovalMode switches the session's host approval mode.
 func (h *Handler) SetHostApprovalMode(c *gin.Context) {
+	if calledWithAPIKey(c.Request.Context()) {
+		_ = c.Error(errors.NewForbiddenError("API keys cannot modify host approval mode"))
+		return
+	}
 	id, ok := h.checkOwnedHostModeSession(c)
 	if !ok {
 		return

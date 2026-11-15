@@ -4,6 +4,7 @@ import (
 	"context"
 	stderrors "errors"
 	"net/http"
+	"strings"
 
 	"github.com/Usir233/GENYEE/internal/agent/hitl"
 	"github.com/Usir233/GENYEE/internal/application/service"
@@ -186,8 +187,12 @@ func (h *Handler) CreateSession(c *gin.Context) {
 	ctx := c.Request.Context()
 	// Parse and validate the request body
 	var request CreateSessionRequest
-	if err := c.ShouldBindJSON(&request); err != nil {
+	if tooLarge, err := bindJSONWithLimit(c, &request, maxSessionJSONBodyBytes); err != nil {
 		logger.Error(ctx, "Failed to validate session creation parameters", err)
+		if tooLarge {
+			_ = c.Error(errors.NewBadRequestError("request body is too large"))
+			return
+		}
 		c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
@@ -198,8 +203,8 @@ func (h *Handler) CreateSession(c *gin.Context) {
 	}
 
 	// Get tenant ID from context
-	tenantID, exists := c.Get(types.TenantIDContextKey.String())
-	if !exists {
+	tenantID, ok := tenantIDFromGinOrContext(c)
+	if !ok {
 		logger.Error(ctx, "Failed to get tenant ID")
 		c.Error(errors.NewUnauthorizedError("Unauthorized"))
 		return
@@ -214,6 +219,11 @@ func (h *Handler) CreateSession(c *gin.Context) {
 		tenantID,
 	)
 
+	if strings.TrimSpace(request.ProjectDir) != "" && calledWithAPIKey(ctx) {
+		_ = c.Error(errors.NewForbiddenError("API keys cannot bind host project directories"))
+		return
+	}
+
 	hostDir, ok := bindHostWorkspaceDir(request.ProjectDir, h.approvedDirs())
 	if !ok {
 		_ = c.Error(errors.NewBadRequestError("project_dir is not an approved project directory"))
@@ -222,7 +232,7 @@ func (h *Handler) CreateSession(c *gin.Context) {
 
 	// Create session object with base properties
 	createdSession := &types.Session{
-		TenantID:         tenantID.(uint64),
+		TenantID:         tenantID,
 		Kind:             request.Kind,
 		Title:            request.Title,
 		Description:      types.SanitizeClientSessionDescription(request.Description, ""),
@@ -346,6 +356,10 @@ func (h *Handler) GetSessionsByTenant(c *gin.Context) {
 		PageSize: pagination.PageSize,
 	})
 	if err != nil {
+		if appErr, ok := errors.IsAppError(err); ok {
+			_ = c.Error(appErr)
+			return
+		}
 		logger.ErrorWithFields(ctx, err, nil)
 		c.Error(errors.NewInternalServerError("Failed to list sessions"))
 		return
@@ -395,8 +409,8 @@ func (h *Handler) UpdateSession(c *gin.Context) {
 	}
 
 	// Verify tenant ID from context for authorization
-	tenantID, exists := c.Get(types.TenantIDContextKey.String())
-	if !exists {
+	tenantID, ok := tenantIDFromGinOrContext(c)
+	if !ok {
 		logger.Error(ctx, "Failed to get tenant ID")
 		c.Error(errors.NewUnauthorizedError("Unauthorized"))
 		return
@@ -404,14 +418,18 @@ func (h *Handler) UpdateSession(c *gin.Context) {
 
 	// Parse request body to session object
 	var session types.Session
-	if err := c.ShouldBindJSON(&session); err != nil {
+	if tooLarge, err := bindJSONWithLimit(c, &session, maxSessionJSONBodyBytes); err != nil {
 		logger.Error(ctx, "Failed to parse session data", err)
+		if tooLarge {
+			_ = c.Error(errors.NewBadRequestError("request body is too large"))
+			return
+		}
 		c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
 
 	session.ID = id
-	session.TenantID = tenantID.(uint64)
+	session.TenantID = tenantID
 
 	// Call service to update session
 	if err := h.sessionService.UpdateSession(ctx, &session); err != nil {
@@ -550,8 +568,12 @@ func (h *Handler) BatchDeleteSessions(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	var req batchDeleteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if tooLarge, err := bindJSONWithLimit(c, &req, maxSessionJSONBodyBytes); err != nil {
 		logger.Errorf(ctx, "Invalid batch delete request: %v", err)
+		if tooLarge {
+			_ = c.Error(errors.NewBadRequestError("request body is too large"))
+			return
+		}
 		c.Error(errors.NewBadRequestError("invalid request"))
 		return
 	}

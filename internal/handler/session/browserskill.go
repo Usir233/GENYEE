@@ -137,12 +137,20 @@ func (h *Handler) BrowserSkillConnection(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 40*time.Second)
 	defer cancel()
+	if calledWithAPIKey(ctx) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "API keys cannot access local browser controls"})
+		return
+	}
+	scope := browserSkillScope(ctx)
+	if scope.User == "" || scope.Tenant == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})
+		return
+	}
 	if _, err := h.sessionService.GetOwnedSession(ctx, id); err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "session not found"})
 		return
 	}
 	c.Header("Cache-Control", "no-store")
-	scope := browserSkillScope(ctx)
 	if c.Request.Method == http.MethodGet {
 		status, err := h.browserSkill.GetStatus(ctx, scope, id)
 		if err != nil {
@@ -203,6 +211,10 @@ func (h *Handler) BrowserSkillExtension(c *gin.Context) {
 func (h *Handler) BrowserSkillAccount(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
 	defer cancel()
+	if calledWithAPIKey(ctx) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "API keys cannot access local browser controls"})
+		return
+	}
 	scope := browserSkillScope(ctx)
 	if scope.User == "" || scope.Tenant == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "login required"})

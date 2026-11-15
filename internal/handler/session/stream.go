@@ -5,6 +5,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/errors"
@@ -250,61 +251,68 @@ func (h *Handler) StopSession(c *gin.Context) {
 		return
 	}
 
-	// Parse request body to get message_id
+	// Parse request body to get message_id (also reachable via public embed stop).
 	var req StopSessionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if tooLarge, err := bindJSONWithLimit(c, &req, maxSessionJSONBodyBytes); err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"session_id": sessionID,
 		})
-		c.JSON(400, gin.H{"error": "message_id is required"})
+		if tooLarge {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{"error": "request body is too large"})
+			return
+		}
+		c.JSON(http.StatusBadRequest, gin.H{"error": "message_id is required"})
 		return
 	}
 
-	assistantMessageID := secutils.SanitizeForLog(req.MessageID)
+	assistantMessageID := secutils.SanitizeForLog(strings.TrimSpace(req.MessageID))
+	if assistantMessageID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "message_id is required"})
+		return
+	}
 	logger.Infof(ctx, "Stop generation request for session: %s, message: %s", sessionID, assistantMessageID)
 
 	// Get tenant ID from context
-	tenantID, exists := c.Get(types.TenantIDContextKey.String())
-	if !exists {
+	tenantIDUint, ok := tenantIDFromGinOrContext(c)
+	if !ok {
 		logger.Error(ctx, "Failed to get tenant ID")
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-	tenantIDUint := tenantID.(uint64)
-
-	// Verify message ownership and status
-	message, err := h.messageService.GetMessage(ctx, sessionID, assistantMessageID)
-	if err != nil {
-		logger.ErrorWithFields(ctx, err, map[string]interface{}{
-			"session_id": sessionID,
-			"message_id": assistantMessageID,
-		})
-		c.JSON(404, gin.H{"error": "Message not found"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	// Verify message belongs to this session (double check)
-	if message.SessionID != sessionID {
-		logger.Warnf(ctx, "Message %s does not belong to session %s", assistantMessageID, sessionID)
-		c.JSON(403, gin.H{"error": "Message does not belong to this session"})
-		return
-	}
-
-	// Verify message belongs to the current tenant. Stopping generation mutates
-	// an in-flight run, so use the strict owner scope: a tenant admin may read an
-	// API-key session but must not be able to interrupt its (external) API calls.
+	// Verify session ownership and tenant binding FIRST. Stopping generation
+	// mutates an in-flight run, so use the strict owner scope before reading
+	// messages (GetMessage uses read-scoped lookup, which would let non-owner
+	// admins probe message IDs in unowned channel/API sessions).
 	session, err := h.sessionService.GetOwnedSession(ctx, sessionID)
-	if err != nil {
+	if err != nil || session == nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{
 			"session_id": sessionID,
 		})
-		c.JSON(404, gin.H{"error": "Session not found"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Session not found"})
 		return
 	}
 
 	if session.TenantID != tenantIDUint {
 		logger.Warnf(ctx, "Session %s does not belong to tenant %d", sessionID, tenantIDUint)
-		c.JSON(403, gin.H{"error": "Access denied"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "Access denied"})
+		return
+	}
+
+	// Verify message belongs to this session
+	message, err := h.messageService.GetMessage(ctx, sessionID, assistantMessageID)
+	if err != nil || message == nil {
+		logger.ErrorWithFields(ctx, err, map[string]interface{}{
+			"session_id": sessionID,
+			"message_id": assistantMessageID,
+		})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Message not found"})
+		return
+	}
+
+	if message.SessionID != sessionID {
+		logger.Warnf(ctx, "Message %s does not belong to session %s", assistantMessageID, sessionID)
+		c.JSON(http.StatusForbidden, gin.H{"error": "Message does not belong to this session"})
 		return
 	}
 

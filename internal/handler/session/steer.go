@@ -496,8 +496,12 @@ func (h *Handler) SteerMessage(c *gin.Context) {
 	}
 
 	var req SteerMessageRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if tooLarge, err := bindJSONWithLimit(c, &req, maxSteerRequestBodyBytes); err != nil {
 		logger.ErrorWithFields(ctx, err, map[string]interface{}{"session_id": sessionID})
+		if tooLarge {
+			_ = c.Error(errors.NewBadRequestError("request body is too large"))
+			return
+		}
 		_ = c.Error(errors.NewBadRequestError(err.Error()))
 		return
 	}
@@ -529,6 +533,15 @@ func (h *Handler) SteerMessage(c *gin.Context) {
 
 	if session.Kind == types.SessionKindAutomation {
 		_ = c.Error(errors.NewForbiddenError("automation conversations do not accept manual messages"))
+		return
+	}
+	if session.Kind == types.SessionKindAgentDelegated {
+		_ = c.Error(errors.NewForbiddenError("delegated conversations do not accept manual messages"))
+		return
+	}
+	kbIDs, knowledgeIDs := mergeKnowledgeTargets(nil, nil, req.MentionedItems)
+	if err := types.AuthorizeTenantAPIKeyKnowledgeTargets(ctx, kbIDs, knowledgeIDs); err != nil {
+		_ = c.Error(err)
 		return
 	}
 
@@ -666,6 +679,10 @@ func (h *Handler) PromoteSteerMessage(c *gin.Context) {
 
 	if session.Kind == types.SessionKindAutomation {
 		_ = c.Error(errors.NewForbiddenError("automation conversations do not accept manual messages"))
+		return
+	}
+	if session.Kind == types.SessionKindAgentDelegated {
+		_ = c.Error(errors.NewForbiddenError("delegated conversations do not accept manual messages"))
 		return
 	}
 
