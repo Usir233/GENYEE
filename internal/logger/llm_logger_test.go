@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -29,11 +30,15 @@ func TestLLMDebugLogWritesPrivateFileInsideDir(t *testing.T) {
 	root := t.TempDir()
 	dir := filepath.Join(root, "llm_debug")
 	t.Setenv("LLM_DEBUG_LOG", dir)
+	llmDebug.mu.Lock()
 	saved := llmDebug.dir
 	savedEnabled := llmDebug.enabled
+	llmDebug.mu.Unlock()
 	t.Cleanup(func() {
+		llmDebug.mu.Lock()
 		llmDebug.dir = saved
 		llmDebug.enabled = savedEnabled
+		llmDebug.mu.Unlock()
 	})
 	configureLLMDebugLog()
 
@@ -50,4 +55,40 @@ func TestLLMDebugLogWritesPrivateFileInsideDir(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, os.FileMode(0o700), dirInfo.Mode().Perm())
 	}
+}
+
+func TestLLMDebugConcurrentConfigureAndLog(t *testing.T) {
+	root := t.TempDir()
+	dir := filepath.Join(root, "llm_debug_race")
+	t.Setenv("LLM_DEBUG_LOG", dir)
+	llmDebug.mu.Lock()
+	saved := llmDebug.dir
+	savedEnabled := llmDebug.enabled
+	llmDebug.mu.Unlock()
+	t.Cleanup(func() {
+		llmDebug.mu.Lock()
+		llmDebug.dir = saved
+		llmDebug.enabled = savedEnabled
+		llmDebug.mu.Unlock()
+	})
+
+	var wg sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			configureLLMDebugLog()
+		}()
+		go func() {
+			defer wg.Done()
+			_ = LLMDebugEnabled()
+			ctx := WithRequestID(context.Background(), "race-req")
+			LLMDebugLog(ctx, &LLMCallRecord{CallType: "Chat", Model: "m"})
+		}()
+	}
+	wg.Wait()
+
+	t.Setenv("LLM_DEBUG_LOG", "false")
+	configureLLMDebugLog()
+	require.False(t, LLMDebugEnabled(), "LLM_DEBUG_LOG=false must disable debug logging on reconfigure")
 }

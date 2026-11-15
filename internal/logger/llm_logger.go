@@ -22,12 +22,15 @@ func init() {
 
 func configureLLMDebugLog() {
 	val := strings.TrimSpace(os.Getenv("LLM_DEBUG_LOG"))
-	if val == "" || val == "false" || val == "0" {
+	if val == "" || strings.EqualFold(val, "false") || val == "0" {
+		llmDebug.mu.Lock()
+		llmDebug.enabled = false
+		llmDebug.mu.Unlock()
 		return
 	}
 
 	var dir string
-	if val == "true" || val == "1" {
+	if strings.EqualFold(val, "true") || val == "1" {
 		dir = resolveLLMDebugDir()
 	} else {
 		dir = val
@@ -42,8 +45,10 @@ func configureLLMDebugLog() {
 		return
 	}
 
+	llmDebug.mu.Lock()
 	llmDebug.dir = dir
 	llmDebug.enabled = true
+	llmDebug.mu.Unlock()
 
 	go cleanupOldDebugFiles(dir, 7*24*time.Hour)
 
@@ -83,13 +88,16 @@ func cleanupOldDebugFiles(dir string, maxAge time.Duration) {
 
 // LLMDebugEnabled returns true when the dedicated LLM debug log is active.
 func LLMDebugEnabled() bool {
-	return llmDebug.enabled
+	llmDebug.mu.Lock()
+	enabled := llmDebug.enabled
+	llmDebug.mu.Unlock()
+	return enabled
 }
 
 // LLMDebugLog writes a complete model call record to a per-request log file.
 // All calls sharing the same request_id are appended to the same file.
 func LLMDebugLog(ctx context.Context, record *LLMCallRecord) {
-	if !llmDebug.enabled || record == nil {
+	if record == nil || !LLMDebugEnabled() {
 		return
 	}
 
@@ -100,6 +108,9 @@ func LLMDebugLog(ctx context.Context, record *LLMCallRecord) {
 
 	llmDebug.mu.Lock()
 	defer llmDebug.mu.Unlock()
+	if !llmDebug.enabled {
+		return
+	}
 
 	path := filepath.Join(llmDebug.dir, filename)
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)

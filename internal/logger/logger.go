@@ -91,13 +91,47 @@ func levelColorFor(level logrus.Level) string {
 	return ""
 }
 
+func sanitizeLogToken(s string) string {
+	var b strings.Builder
+	sanitized := false
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if ch < 0x20 || ch == 0x7f {
+			if !sanitized {
+				b.Grow(len(s))
+				b.WriteString(s[:i])
+				sanitized = true
+			}
+			b.WriteByte('_')
+			continue
+		}
+		if sanitized {
+			b.WriteByte(ch)
+		}
+	}
+	if !sanitized {
+		return s
+	}
+	return b.String()
+}
+
 func (f *CustomFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	timestamp := entry.Time.Format("2006-01-02 15:04:05.000")
 	level := strings.ToUpper(entry.Level.String())
 
 	// 提取已知字段
-	caller, _ := entry.Data["caller"].(string)
-	traceID, _ := entry.Data["request_id"].(string)
+	callerRaw, _ := entry.Data["caller"].(string)
+	caller := sanitizeLogToken(callerRaw)
+	var traceID string
+	hasRequestID := false
+	if rawReqID, ok := entry.Data["request_id"]; ok {
+		hasRequestID = true
+		if s, ok := rawReqID.(string); ok {
+			traceID = sanitizeLogToken(s)
+		} else {
+			traceID = sanitizeLogToken(fmt.Sprintf("%v", rawReqID))
+		}
+	}
 
 	// 剩余结构化字段
 	keys := make([]string, 0, len(entry.Data))
@@ -167,12 +201,12 @@ func (f *CustomFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	fields := ""
 
 	// request_id 优先输出
-	if v, ok := entry.Data["request_id"]; ok {
+	if hasRequestID {
 		if f.ForceColor {
-			fields += fmt.Sprintf("%s%v%s ",
-				colorBlue, v, colorReset)
+			fields += fmt.Sprintf("%s%s%s ",
+				colorBlue, traceID, colorReset)
 		} else {
-			fields += fmt.Sprintf("%v ", v)
+			fields += fmt.Sprintf("%s ", traceID)
 		}
 	}
 
@@ -502,13 +536,14 @@ func Errorf(c context.Context, format string, args ...interface{}) {
 
 // ErrorWithFields 输出带有额外字段的错误级别日志
 func ErrorWithFields(c context.Context, err error, fields logrus.Fields) {
-	if fields == nil {
-		fields = logrus.Fields{}
+	cloned := make(logrus.Fields, len(fields)+1)
+	for k, v := range fields {
+		cloned[k] = v
 	}
 	if err != nil {
-		fields["error"] = err.Error()
+		cloned["error"] = err.Error()
 	}
-	addCaller(GetLogger(c), 2).WithFields(fields).Error("发生错误")
+	addCaller(GetLogger(c), 2).WithFields(cloned).Error("发生错误")
 }
 
 // Fatal 输出致命级别的日志并退出程序

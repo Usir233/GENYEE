@@ -2,6 +2,7 @@ package logger
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 	"strings"
@@ -389,5 +390,43 @@ func TestCloneContextWithoutTraceDropsTheChatTrace(t *testing.T) {
 	got, _ := detached.Value(types.TenantIDContextKey).(uint64)
 	if got != tenantID {
 		t.Fatalf("TenantID = %d, want %d (identity must survive the detach)", got, tenantID)
+	}
+}
+
+func TestFormat_SanitizesRequestIDControlChars(t *testing.T) {
+	injected := "req-1\r\nERROR forged-line\x1b[31m"
+
+	for _, f := range []*CustomFormatter{
+		{},
+		{ForceColor: true},
+		{Template: "[%d] %level %traceId | %msg"},
+	} {
+		entry := newEntry(logrus.InfoLevel, "legit-msg", logrus.Fields{
+			"request_id": injected,
+		})
+		out, err := f.Format(entry)
+		if err != nil {
+			t.Fatalf("Format error: %v", err)
+		}
+		trimmed := strings.TrimSuffix(string(out), "\n")
+		if strings.ContainsAny(trimmed, "\r\n") {
+			t.Fatalf("log line contains forged newline in output: %q", string(out))
+		}
+		if !f.ForceColor && strings.Contains(trimmed, "\x1b") {
+			t.Fatalf("uncolored log line contains injected ESC sequence: %q", string(out))
+		}
+	}
+}
+
+func TestErrorWithFieldsDoesNotMutateCallerMap(t *testing.T) {
+	base := logrus.New()
+	base.SetOutput(io.Discard)
+	ctx := context.WithValue(context.Background(), types.LoggerContextKey, logrus.NewEntry(base))
+
+	callerFields := logrus.Fields{"component": "router"}
+	ErrorWithFields(ctx, errors.New("boom"), callerFields)
+
+	if _, mutated := callerFields["error"]; mutated {
+		t.Fatalf("ErrorWithFields mutated caller map in-place: %#v", callerFields)
 	}
 }
