@@ -48,9 +48,29 @@ func newCOSHTTPClient(secretID, secretKey string) *http.Client {
 	return client
 }
 
+func isValidCOSLabel(s string) bool {
+	if len(s) == 0 || len(s) > 63 {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		isAlphaNum := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+		if !isAlphaNum && c != '-' {
+			return false
+		}
+		if (i == 0 || i == len(s)-1) && c == '-' {
+			return false
+		}
+	}
+	return true
+}
+
 // newCosClient creates a bare cosFileService with just the SDK client initialised.
 // Shared by NewCosFileService* constructors and CheckCosConnectivity.
 func newCosClient(bucketName, region, secretID, secretKey string) (*cosFileService, error) {
+	if !isValidCOSLabel(bucketName) || !isValidCOSLabel(region) {
+		return nil, fmt.Errorf("invalid COS bucket or region")
+	}
 	bucketURL := fmt.Sprintf("https://%s.cos.%s.myqcloud.com/", bucketName, region)
 	u, err := url.Parse(bucketURL)
 	logger.Infof(context.Background(), "newCosClient: bucketURL: %s", bucketURL)
@@ -77,6 +97,9 @@ func NewCosFileServiceWithTempBucket(bucketName, region, secretId, secretKey, co
 	if tempBucketName != "" {
 		if tempRegion == "" {
 			tempRegion = region
+		}
+		if !isValidCOSLabel(tempBucketName) || !isValidCOSLabel(tempRegion) {
+			return nil, fmt.Errorf("invalid COS temp bucket or region")
 		}
 		tempBucketURL := fmt.Sprintf("https://%s.cos.%s.myqcloud.com/", tempBucketName, tempRegion)
 		tempU, err := url.Parse(tempBucketURL)
@@ -115,8 +138,14 @@ func CheckCosConnectivity(ctx context.Context, bucketName, region, secretID, sec
 func (s *cosFileService) SaveFile(ctx context.Context,
 	file *multipart.FileHeader, tenantID uint64, knowledgeID string,
 ) (string, error) {
+	if err := validateSaveTarget(tenantID, knowledgeID, file); err != nil {
+		return "", err
+	}
 	ext := filepath.Ext(file.Filename)
 	objectName := fmt.Sprintf("%s/%d/%s/%s%s", s.cosPathPrefix, tenantID, knowledgeID, uuid.New().String(), ext)
+	if err := utils.SafeObjectKey(objectName); err != nil {
+		return "", fmt.Errorf("invalid COS object key: %w", err)
+	}
 	src, err := file.Open()
 	if err != nil {
 		return "", fmt.Errorf("failed to open file: %w", err)
@@ -222,9 +251,15 @@ func (s *cosFileService) CopyFile(ctx context.Context,
 	if err := utils.SafeObjectKey(srcObjectKey); err != nil {
 		return "", fmt.Errorf("invalid source path: %w", err)
 	}
+	if err := validateCopyTarget(tenantID, knowledgeID); err != nil {
+		return "", err
+	}
 
 	ext := filepath.Ext(srcPath)
 	destKey := fmt.Sprintf("%s/%d/%s/%s%s", s.cosPathPrefix, tenantID, knowledgeID, uuid.New().String(), ext)
+	if err := utils.SafeObjectKey(destKey); err != nil {
+		return "", fmt.Errorf("invalid destination path: %w", err)
+	}
 
 	// sourceURL is the host + object key WITHOUT a scheme, per the COS SDK contract.
 	ctx, cancel := objectStorageTransferContext(ctx)
@@ -245,6 +280,9 @@ func (s *cosFileService) CopyFile(ctx context.Context,
 // If temp is true and temp bucket is configured, saves to temp bucket (with lifecycle auto-expiration)
 // Otherwise saves to main bucket
 func (s *cosFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+	if err := validateTenantID(tenantID); err != nil {
+		return "", err
+	}
 	safeName, err := utils.SafeFileName(fileName)
 	if err != nil {
 		return "", fmt.Errorf("invalid file name: %w", err)

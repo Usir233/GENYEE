@@ -173,6 +173,9 @@ func parseTOSFilePath(filePath string) (bucketName string, objectKey string, err
 }
 
 func (s *tosFileService) SaveFile(ctx context.Context, file *multipart.FileHeader, tenantID uint64, knowledgeID string) (string, error) {
+	if err := validateSaveTarget(tenantID, knowledgeID, file); err != nil {
+		return "", err
+	}
 	ext := filepath.Ext(file.Filename)
 	objectName := joinTOSObjectKey(
 		s.pathPrefix,
@@ -180,6 +183,9 @@ func (s *tosFileService) SaveFile(ctx context.Context, file *multipart.FileHeade
 		knowledgeID,
 		uuid.New().String()+ext,
 	)
+	if err := utils.SafeObjectKey(objectName); err != nil {
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
 
 	src, err := file.Open()
 	if err != nil {
@@ -207,6 +213,9 @@ func (s *tosFileService) SaveFile(ctx context.Context, file *multipart.FileHeade
 }
 
 func (s *tosFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+	if err := validateTenantID(tenantID); err != nil {
+		return "", err
+	}
 	safeName, err := utils.SafeFileName(fileName)
 	if err != nil {
 		return "", fmt.Errorf("invalid file name: %w", err)
@@ -273,6 +282,9 @@ func (s *tosFileService) CopyFile(ctx context.Context,
 	if err != nil {
 		return "", fmt.Errorf("tos copy rejected source %q: %w", srcPath, ErrCrossBackendCopy)
 	}
+	if err := validateCopyTarget(tenantID, knowledgeID); err != nil {
+		return "", err
+	}
 
 	ext := filepath.Ext(srcPath)
 	destKey := joinTOSObjectKey(
@@ -281,6 +293,9 @@ func (s *tosFileService) CopyFile(ctx context.Context,
 		knowledgeID,
 		uuid.New().String()+ext,
 	)
+	if err := utils.SafeObjectKey(destKey); err != nil {
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
 
 	_, err = s.client.CopyObject(ctx, &tos.CopyObjectInput{
 		Bucket:    s.bucketName,

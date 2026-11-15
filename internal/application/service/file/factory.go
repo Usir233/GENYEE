@@ -36,10 +36,12 @@ func NewFileServiceFromStorageConfig(
 	switch p {
 	case "local":
 		baseDir := localBaseDir
-		if sec != nil && sec.Local != nil {
-			if safeBaseDir, err := secutils.SafeJoinUnderBase(baseDir, sec.Local.PathPrefix); err == nil {
-				baseDir = safeBaseDir
+		if sec != nil && sec.Local != nil && strings.TrimSpace(sec.Local.PathPrefix) != "" {
+			safeBaseDir, err := secutils.SafeJoinUnderBase(baseDir, sec.Local.PathPrefix)
+			if err != nil {
+				return nil, p, fmt.Errorf("invalid local path prefix: %w", err)
 			}
+			baseDir = safeBaseDir
 		}
 		externalURL := strings.TrimSpace(os.Getenv("APP_EXTERNAL_URL"))
 		return NewLocalFileService(baseDir, externalURL), p, nil

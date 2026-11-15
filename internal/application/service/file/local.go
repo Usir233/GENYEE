@@ -24,6 +24,74 @@ type localFileService struct {
 
 const localScheme = "local://"
 
+func validateSaveTarget(tenantID uint64, knowledgeID string, file *multipart.FileHeader) error {
+	if file == nil {
+		return fmt.Errorf("file header is required")
+	}
+	return validateCopyTarget(tenantID, knowledgeID)
+}
+
+func validateCopyTarget(tenantID uint64, knowledgeID string) error {
+	if err := validateTenantID(tenantID); err != nil {
+		return err
+	}
+	if knowledgeID == "" || knowledgeID == "." || knowledgeID == ".." || strings.ContainsAny(knowledgeID, "/\\\x00") {
+		return fmt.Errorf("invalid knowledge ID: %q", knowledgeID)
+	}
+	return nil
+}
+
+func validateTenantID(tenantID uint64) error {
+	if tenantID == 0 {
+		return fmt.Errorf("invalid tenant ID: %d", tenantID)
+	}
+	return nil
+}
+
+// resolveLocalPathNoSymlinks validates that candidate resolves lexically inside
+// baseDir and that no existing path segment beneath baseDir is a symbolic link
+// (nor resolves outside the canonicalized baseDir).
+func resolveLocalPathNoSymlinks(baseDir, candidate string) (string, error) {
+	resolved, err := secutils.SafePathUnderBase(baseDir, candidate)
+	if err != nil {
+		return "", err
+	}
+	cleanBase := filepath.Clean(baseDir)
+	realBase := cleanBase
+	if evalBase, evalErr := filepath.EvalSymlinks(cleanBase); evalErr == nil {
+		realBase = evalBase
+	}
+	rel, err := filepath.Rel(cleanBase, resolved)
+	if err != nil {
+		return "", err
+	}
+	if rel != "." {
+		cur := cleanBase
+		for _, seg := range strings.Split(rel, string(filepath.Separator)) {
+			if seg == "" || seg == "." {
+				continue
+			}
+			cur = filepath.Join(cur, seg)
+			info, statErr := os.Lstat(cur)
+			if statErr != nil {
+				if os.IsNotExist(statErr) {
+					break
+				}
+				return "", statErr
+			}
+			if info.Mode()&os.ModeSymlink != 0 {
+				return "", fmt.Errorf("symbolic link not allowed in local storage path")
+			}
+		}
+	}
+	if evalTarget, evalErr := filepath.EvalSymlinks(resolved); evalErr == nil {
+		if _, err := secutils.SafePathUnderBase(realBase, evalTarget); err != nil {
+			return "", err
+		}
+	}
+	return resolved, nil
+}
+
 // CheckConnectivity verifies the local storage directory exists and is accessible.
 func (s *localFileService) CheckConnectivity(ctx context.Context) error {
 	info, err := os.Stat(s.baseDir)
@@ -53,12 +121,15 @@ func (s *localFileService) SaveFile(ctx context.Context,
 	file *multipart.FileHeader, tenantID uint64, knowledgeID string,
 ) (string, error) {
 	logger.Info(ctx, "Starting to save file locally")
+	if err := validateSaveTarget(tenantID, knowledgeID, file); err != nil {
+		return "", err
+	}
 	logger.Infof(ctx, "File information: name=%s, size=%d, tenant ID=%d, knowledge ID=%s",
 		file.Filename, file.Size, tenantID, knowledgeID)
 
 	// Create storage directory with tenant and knowledge ID
 	dir := filepath.Join(s.baseDir, fmt.Sprintf("%d", tenantID), knowledgeID)
-	if _, err := secutils.SafePathUnderBase(s.baseDir, dir); err != nil {
+	if _, err := resolveLocalPathNoSymlinks(s.baseDir, dir); err != nil {
 		logger.Errorf(ctx, "Path traversal denied for SaveFile dir: %v", err)
 		return "", fmt.Errorf("invalid path: %w", err)
 	}
@@ -72,6 +143,9 @@ func (s *localFileService) SaveFile(ctx context.Context,
 	ext := filepath.Ext(file.Filename)
 	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
 	filePath := filepath.Join(dir, filename)
+	if _, err := resolveLocalPathNoSymlinks(s.baseDir, filePath); err != nil {
+		return "", fmt.Errorf("invalid path: %w", err)
+	}
 	logger.Infof(ctx, "Generated file path: %s", filePath)
 
 	// Open source file for reading
@@ -113,7 +187,7 @@ func (s *localFileService) GetFile(ctx context.Context, filePath string) (io.Rea
 	logger.Infof(ctx, "Getting file: %s", filePath)
 
 	candidate := s.normalizePathForBase(filePath)
-	resolved, err := secutils.SafePathUnderBase(s.baseDir, candidate)
+	resolved, err := resolveLocalPathNoSymlinks(s.baseDir, candidate)
 	if err != nil {
 		logger.Errorf(ctx, "Path traversal denied for GetFile: %v", err)
 		return nil, fmt.Errorf("invalid file path: %w", err)
@@ -139,7 +213,7 @@ func (s *localFileService) DeleteFile(ctx context.Context, filePath string) erro
 	logger.Infof(ctx, "Deleting file: %s", filePath)
 
 	candidate := s.normalizePathForBase(filePath)
-	resolved, err := secutils.SafePathUnderBase(s.baseDir, candidate)
+	resolved, err := resolveLocalPathNoSymlinks(s.baseDir, candidate)
 	if err != nil {
 		logger.Errorf(ctx, "Path traversal denied for DeleteFile: %v", err)
 		return fmt.Errorf("invalid file path: %w", err)
@@ -171,15 +245,18 @@ func (s *localFileService) CopyFile(ctx context.Context,
 
 	// Validate and resolve the source path under baseDir (same guard as GetFile).
 	srcCandidate := s.normalizePathForBase(srcPath)
-	srcResolved, err := secutils.SafePathUnderBase(s.baseDir, srcCandidate)
+	srcResolved, err := resolveLocalPathNoSymlinks(s.baseDir, srcCandidate)
 	if err != nil {
 		logger.Errorf(ctx, "Path traversal denied for CopyFile src: %v", err)
 		return "", fmt.Errorf("invalid source path: %w", err)
 	}
+	if err := validateCopyTarget(tenantID, knowledgeID); err != nil {
+		return "", err
+	}
 
 	// Build destination path with the knowledge-owned layout.
 	dir := filepath.Join(s.baseDir, fmt.Sprintf("%d", tenantID), knowledgeID)
-	if _, err := secutils.SafePathUnderBase(s.baseDir, dir); err != nil {
+	if _, err := resolveLocalPathNoSymlinks(s.baseDir, dir); err != nil {
 		logger.Errorf(ctx, "Path traversal denied for CopyFile dir: %v", err)
 		return "", fmt.Errorf("invalid path: %w", err)
 	}
@@ -190,6 +267,9 @@ func (s *localFileService) CopyFile(ctx context.Context,
 	ext := filepath.Ext(srcPath)
 	filename := fmt.Sprintf("%d%s", time.Now().UnixNano(), ext)
 	dstPath := filepath.Join(dir, filename)
+	if _, err := resolveLocalPathNoSymlinks(s.baseDir, dstPath); err != nil {
+		return "", fmt.Errorf("invalid path: %w", err)
+	}
 
 	src, err := os.Open(srcResolved)
 	if err != nil {
@@ -218,6 +298,9 @@ func (s *localFileService) CopyFile(ctx context.Context,
 // fileName 仅允许安全文件名，禁止路径遍历（如 ../../）
 func (s *localFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
 	logger.Infof(ctx, "Saving bytes data: fileName=%s, size=%d, tenantID=%d, temp=%v", fileName, len(data), tenantID, temp)
+	if err := validateTenantID(tenantID); err != nil {
+		return "", err
+	}
 
 	safeName, err := secutils.SafeFileName(fileName)
 	if err != nil {
@@ -227,6 +310,10 @@ func (s *localFileService) SaveBytes(ctx context.Context, data []byte, tenantID 
 
 	// Create storage directory with tenant ID
 	dir := filepath.Join(s.baseDir, fmt.Sprintf("%d", tenantID), "exports")
+	if _, err := resolveLocalPathNoSymlinks(s.baseDir, dir); err != nil {
+		logger.Errorf(ctx, "Path traversal denied for SaveBytes dir: %v", err)
+		return "", fmt.Errorf("invalid path: %w", err)
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		logger.Errorf(ctx, "Failed to create directory: %v", err)
 		return "", fmt.Errorf("failed to create directory: %w", err)
@@ -237,6 +324,9 @@ func (s *localFileService) SaveBytes(ctx context.Context, data []byte, tenantID 
 	baseName := safeName[:len(safeName)-len(ext)]
 	uniqueFileName := fmt.Sprintf("%s_%d%s", baseName, time.Now().UnixNano(), ext)
 	filePath := filepath.Join(dir, uniqueFileName)
+	if _, err := resolveLocalPathNoSymlinks(s.baseDir, filePath); err != nil {
+		return "", fmt.Errorf("invalid path: %w", err)
+	}
 
 	// Write data to file
 	if err := os.WriteFile(filePath, data, 0o644); err != nil {

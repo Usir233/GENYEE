@@ -127,8 +127,14 @@ func (s *minioFileService) SaveFile(ctx context.Context,
 	file *multipart.FileHeader, tenantID uint64, knowledgeID string,
 ) (string, error) {
 	// Generate object name
+	if err := validateSaveTarget(tenantID, knowledgeID, file); err != nil {
+		return "", err
+	}
 	ext := filepath.Ext(file.Filename)
 	objectName := fmt.Sprintf("%d/%s/%s%s", tenantID, knowledgeID, uuid.New().String(), ext)
+	if err := utils.SafeObjectKey(objectName); err != nil {
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
 
 	// Open file
 	src, err := file.Open()
@@ -185,9 +191,15 @@ func (s *minioFileService) CopyFile(ctx context.Context,
 	if err != nil {
 		return "", fmt.Errorf("minio copy rejected source %q: %w", srcPath, ErrCrossBackendCopy)
 	}
+	if err := validateCopyTarget(tenantID, knowledgeID); err != nil {
+		return "", err
+	}
 
 	ext := filepath.Ext(srcPath)
 	destKey := fmt.Sprintf("%d/%s/%s%s", tenantID, knowledgeID, uuid.New().String(), ext)
+	if err := utils.SafeObjectKey(destKey); err != nil {
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
 
 	_, err = s.client.CopyObject(ctx,
 		minio.CopyDestOptions{Bucket: s.bucketName, Object: destKey},
@@ -205,6 +217,9 @@ func (s *minioFileService) CopyFile(ctx context.Context,
 // SaveBytes saves bytes data to MinIO and returns the file path
 // temp parameter is ignored for MinIO (no auto-expiration support in this implementation)
 func (s *minioFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+	if err := validateTenantID(tenantID); err != nil {
+		return "", err
+	}
 	safeName, err := utils.SafeFileName(fileName)
 	if err != nil {
 		return "", fmt.Errorf("invalid file name: %w", err)

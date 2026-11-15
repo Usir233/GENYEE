@@ -202,6 +202,9 @@ func (s *obsFileService) getPrifix() string {
 func (s *obsFileService) SaveFile(ctx context.Context,
 	file *multipart.FileHeader, tenantID uint64, knowledgeID string,
 ) (string, error) {
+	if err := validateSaveTarget(tenantID, knowledgeID, file); err != nil {
+		return "", err
+	}
 	ext := filepath.Ext(file.Filename)
 
 	var objectKey string
@@ -209,6 +212,9 @@ func (s *obsFileService) SaveFile(ctx context.Context,
 		objectKey = fmt.Sprintf("%s/%d/%s/%s%s", s.pathPrefix, tenantID, knowledgeID, uuid.New().String(), ext)
 	} else {
 		objectKey = fmt.Sprintf("%d/%s/%s%s", tenantID, knowledgeID, uuid.New().String(), ext)
+	}
+	if err := utils.SafeObjectKey(objectKey); err != nil {
+		return "", fmt.Errorf("invalid OBS object key: %w", err)
 	}
 
 	src, err := file.Open()
@@ -316,6 +322,9 @@ func (s *obsFileService) CopyFile(ctx context.Context,
 	if err != nil {
 		return "", fmt.Errorf("obs copy rejected source %q: %w", srcPath, ErrCrossBackendCopy)
 	}
+	if err := validateCopyTarget(tenantID, knowledgeID); err != nil {
+		return "", err
+	}
 
 	ext := filepath.Ext(srcPath)
 	var destKey string
@@ -323,6 +332,9 @@ func (s *obsFileService) CopyFile(ctx context.Context,
 		destKey = fmt.Sprintf("%s/%d/%s/%s%s", s.pathPrefix, tenantID, knowledgeID, uuid.New().String(), ext)
 	} else {
 		destKey = fmt.Sprintf("%d/%s/%s%s", tenantID, knowledgeID, uuid.New().String(), ext)
+	}
+	if err := utils.SafeObjectKey(destKey); err != nil {
+		return "", fmt.Errorf("invalid OBS object key: %w", err)
 	}
 
 	// CopySource is "bucket/key"; the '/' separators must NOT be percent-encoded
@@ -344,6 +356,9 @@ func (s *obsFileService) CopyFile(ctx context.Context,
 }
 
 func (s *obsFileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+	if err := validateTenantID(tenantID); err != nil {
+		return "", err
+	}
 	safeName, err := utils.SafeFileName(fileName)
 	if err != nil {
 		return "", fmt.Errorf("invalid file name: %w", err)

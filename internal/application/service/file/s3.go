@@ -242,9 +242,15 @@ func (s *s3FileService) parseS3FilePath(filePath string) (string, error) {
 func (s *s3FileService) SaveFile(ctx context.Context,
 	file *multipart.FileHeader, tenantID uint64, knowledgeID string,
 ) (string, error) {
+	if err := validateSaveTarget(tenantID, knowledgeID, file); err != nil {
+		return "", err
+	}
 	// Generate object name
 	ext := filepath.Ext(file.Filename)
 	objectName := fmt.Sprintf("%s%d/%s/%s%s", s.pathPrefix, tenantID, knowledgeID, uuid.New().String(), ext)
+	if err := utils.SafeObjectKey(objectName); err != nil {
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
 
 	// Open file
 	src, err := file.Open()
@@ -328,9 +334,15 @@ func (s *s3FileService) CopyFile(ctx context.Context,
 	if err != nil {
 		return "", fmt.Errorf("s3 copy rejected source %q: %w", srcPath, ErrCrossBackendCopy)
 	}
+	if err := validateCopyTarget(tenantID, knowledgeID); err != nil {
+		return "", err
+	}
 
 	ext := filepath.Ext(srcPath)
 	destKey := fmt.Sprintf("%s%d/%s/%s%s", s.pathPrefix, tenantID, knowledgeID, uuid.New().String(), ext)
+	if err := utils.SafeObjectKey(destKey); err != nil {
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
 
 	// CopySource is "bucket/key"; the '/' separators must NOT be percent-encoded
 	// (url.PathEscape would turn them into %2F and break the bucket/key split).
@@ -355,6 +367,9 @@ func (s *s3FileService) CopyFile(ctx context.Context,
 // SaveBytes saves bytes data to S3 and returns the file path
 // temp parameter is ignored for S3 (no auto-expiration support in this implementation)
 func (s *s3FileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+	if err := validateTenantID(tenantID); err != nil {
+		return "", err
+	}
 	safeName, err := utils.SafeFileName(fileName)
 	if err != nil {
 		return "", fmt.Errorf("invalid file name: %w", err)

@@ -184,8 +184,14 @@ func (s *ks3FileService) objectKey(filePath string) (string, error) {
 }
 
 func (s *ks3FileService) SaveFile(ctx context.Context, file *multipart.FileHeader, tenantID uint64, knowledgeID string) (string, error) {
+	if err := validateSaveTarget(tenantID, knowledgeID, file); err != nil {
+		return "", err
+	}
 	ext := filepath.Ext(file.Filename)
 	objectKey := joinKS3Key(s.pathPrefix, fmt.Sprintf("%d", tenantID), knowledgeID, uuid.New().String()+ext)
+	if err := utils.SafeObjectKey(objectKey); err != nil {
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
 
 	src, err := file.Open()
 	if err != nil {
@@ -214,6 +220,9 @@ func (s *ks3FileService) SaveFile(ctx context.Context, file *multipart.FileHeade
 }
 
 func (s *ks3FileService) SaveBytes(ctx context.Context, data []byte, tenantID uint64, fileName string, temp bool) (string, error) {
+	if err := validateTenantID(tenantID); err != nil {
+		return "", err
+	}
 	safeName, err := utils.SafeFileName(fileName)
 	if err != nil {
 		return "", fmt.Errorf("invalid file name: %w", err)
@@ -252,9 +261,15 @@ func (s *ks3FileService) CopyFile(ctx context.Context,
 	if err := utils.SafeObjectKey(srcKey); err != nil {
 		return "", fmt.Errorf("invalid source path: %w", err)
 	}
+	if err := validateCopyTarget(tenantID, knowledgeID); err != nil {
+		return "", err
+	}
 
 	ext := filepath.Ext(srcPath)
 	destKey := joinKS3Key(s.pathPrefix, fmt.Sprintf("%d", tenantID), knowledgeID, uuid.New().String()+ext)
+	if err := utils.SafeObjectKey(destKey); err != nil {
+		return "", fmt.Errorf("invalid file path: %w", err)
+	}
 
 	ctx, cancel := objectStorageTransferContext(ctx)
 	defer cancel()
