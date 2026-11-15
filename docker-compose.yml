@@ -473,8 +473,9 @@ services:
         - VERSION_ARG=${DOCREADER_VERSION:-unknown}
         - COMMIT_ID_ARG=${DOCREADER_COMMIT_ID:-unknown}
     container_name: GENYEE-docreader
-    # docreader gRPC ships without auth/TLS and is only consumed by the app
-    # container over the GENYEE-network (DOCREADER_ADDR defaults to
+    # docreader gRPC enforces GRPC_AUTH_TOKEN by default (fail-closed; TLS is
+    # disabled by default inside the compose network) and is only consumed by
+    # the app container over GENYEE-network (DOCREADER_ADDR defaults to
     # docreader:50051), so we don't publish 50051 to the host. `expose` keeps
     # the port reachable inside the compose network for documentation only.
     # If you need to call docreader from outside the host (e.g. for debugging),

@@ -95,12 +95,49 @@ _source_env_file() {
     local src="$1"
     local tmp
     tmp="$(mktemp)" || return 1
-    sed -e 's/\r$//' "$src" > "$tmp"
+    tr -d '\r' < "$src" > "$tmp"
     set -a
     # shellcheck source=/dev/null
     source "$tmp"
     set +a
     rm -f "$tmp"
+}
+
+# 与 start_all.sh / check-env.sh 对齐的初始空密钥列表
+DEV_AUTO_SECRET_KEYS=(
+    DB_PASSWORD
+    REDIS_PASSWORD
+    JWT_SECRET
+    SYSTEM_AES_KEY
+    SYSTEM_SIGNING_KEY
+    GRPC_AUTH_TOKEN
+    ODL_HYBRID_AUTH_TOKEN
+)
+
+_gen_dev_secret() (
+    set +o pipefail
+    LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$1"
+)
+
+# 为留空的必填及内部服务鉴权密钥自动生成随机值，同时兼容 LF 与 CRLF (\r\n) 的 .env
+ensure_dev_secrets() {
+    local env_file="${1:-.env}"
+    if [ ! -f "$env_file" ]; then
+        return 1
+    fi
+    local cr=$'\r'
+    local _secret_key _rand_val
+    for _secret_key in "${DEV_AUTO_SECRET_KEYS[@]}"; do
+        if grep -qE "^${_secret_key}=${cr}?$" "$env_file" 2>/dev/null; then
+            _rand_val="$(_gen_dev_secret 32)"
+            sed -i.bak \
+                -e "s|^${_secret_key}=${cr}$|${_secret_key}=${_rand_val}${cr}|" \
+                -e "s|^${_secret_key}=$|${_secret_key}=${_rand_val}|" \
+                "$env_file" && rm -f "${env_file}.bak"
+            log_info "已为 ${env_file} 自动生成初始 ${_secret_key}"
+        fi
+    done
+    return 0
 }
 
 load_env_files() {
@@ -194,15 +231,8 @@ start_services() {
         return 1
     fi
 
-    # 为留空的内部服务鉴权密钥自动生成随机值，避免 docreader / odl-hybrid fail-closed 启动失败
-    _gen_dev_secret() ( set +o pipefail; LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$1" )
-    for _secret_key in GRPC_AUTH_TOKEN ODL_HYBRID_AUTH_TOKEN; do
-        if grep -qE "^${_secret_key}=$" ".env" 2>/dev/null; then
-            _rand_val="$(_gen_dev_secret 32)"
-            sed -i.bak "s|^${_secret_key}=$|${_secret_key}=${_rand_val}|" ".env" && rm -f ".env.bak"
-            log_info "已为 .env 自动生成初始 ${_secret_key}"
-        fi
-    done
+    # 为留空的必填及内部服务鉴权密钥自动生成随机值（对齐 start_all.sh / check-env.sh，兼容 CRLF）
+    ensure_dev_secrets ".env"
 
     load_env_files
     if [ $? -ne 0 ]; then
@@ -470,6 +500,9 @@ start_app() {
     fi
     
     log_info "加载环境配置..."
+    if [ -f ".env" ]; then
+        ensure_dev_secrets ".env"
+    fi
     if ! load_env_files; then
         log_error ".env 文件不存在，请先创建配置文件"
         return 1
@@ -575,36 +608,38 @@ start_frontend() {
     npm run dev
 }
 
-# 解析命令
-CMD="${1:-help}"
-case "$CMD" in
-    start)
-        start_services "$@"
-        ;;
-    stop)
-        stop_services
-        ;;
-    restart)
-        restart_services
-        ;;
-    logs)
-        show_logs
-        ;;
-    status)
-        show_status
-        ;;
-    app)
-        start_app
-        ;;
-    frontend)
-        start_frontend
-        ;;
-    help|--help|-h)
-        show_help
-        ;;
-    *)
-        log_error "未知命令: $CMD"
-        show_help
-        exit 1
-        ;;
-esac
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    # 解析命令
+    CMD="${1:-help}"
+    case "$CMD" in
+        start)
+            start_services "$@"
+            ;;
+        stop)
+            stop_services
+            ;;
+        restart)
+            restart_services
+            ;;
+        logs)
+            show_logs
+            ;;
+        status)
+            show_status
+            ;;
+        app)
+            start_app
+            ;;
+        frontend)
+            start_frontend
+            ;;
+        help|--help|-h)
+            show_help
+            ;;
+        *)
+            log_error "未知命令: $CMD"
+            show_help
+            exit 1
+            ;;
+    esac
+fi

@@ -52,10 +52,14 @@ fi
 echo ""
 log_info "检查必要的环境变量..."
 
-# 加载 .env 文件
+# 加载 .env 文件（去掉行尾 \r 以兼容 CRLF）
+_tmp_env="$(mktemp)"
+tr -d '\r' < .env > "$_tmp_env"
 set -a
-source .env
+# shellcheck source=/dev/null
+source "$_tmp_env"
 set +a
+rm -f "$_tmp_env"
 
 # 检查必要的环境变量
 errors=0
