@@ -1,0 +1,489 @@
+{
+  "wave": "W5",
+  "slice": "w5-web-models-trace",
+  "cross_package_notes": [
+    {
+      "file": "internal/infrastructure/web_fetch/*.go, internal/models/api/<subpkg>/**, internal/models/rerank/..., internal/models/vlm/...",
+      "note": "Verified read-only caller and boundary compatibility across internal/infrastructure/web_fetch/..., internal/models/api/..., internal/models/rerank/..., internal/models/vlm/..., and whole-repo go vet -p 1 ./...: all exported signatures in web_search, modelcontext, models/api, models/chat, models/embedding, models/utils/ollama, and tracing/langfuse are preserved intact, and internal/models/parity TestCatalogMigrationBaseline passes unchanged."
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "internal/infrastructure/web_fetch/testdata",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/infrastructure/web_fetch/testdata/extraction/README.md",
+        "internal/infrastructure/web_fetch/testdata/extraction/article.html",
+        "internal/infrastructure/web_fetch/testdata/extraction/fallback.html",
+        "internal/infrastructure/web_fetch/testdata/extraction/structure.html"
+      ],
+      "invariants_checked": [
+        "All 4 HTML extraction fixture files (article_with_chrome.html, cjk_article.html, doc_with_code.html, spa_hydration.html) are static offline HTML fixtures with valid UTF-8, zero live external credentials, zero host paths, and zero legacy brand residues.",
+        "Owned boundary respected: internal/infrastructure/web_fetch/*.go left untouched and verified green with -race."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/infrastructure/web_fetch/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/web_fetch/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/infrastructure/web_search",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/infrastructure/web_search/baidu.go",
+        "internal/infrastructure/web_search/bing.go",
+        "internal/infrastructure/web_search/bocha.go",
+        "internal/infrastructure/web_search/bocha_test.go",
+        "internal/infrastructure/web_search/brave.go",
+        "internal/infrastructure/web_search/brave_test.go",
+        "internal/infrastructure/web_search/deepseek.go",
+        "internal/infrastructure/web_search/deepseek_test.go",
+        "internal/infrastructure/web_search/duckduckgo.go",
+        "internal/infrastructure/web_search/duckduckgo_redirect_test.go",
+        "internal/infrastructure/web_search/duckduckgo_utf8_test.go",
+        "internal/infrastructure/web_search/error_preview_helpers_test.go",
+        "internal/infrastructure/web_search/error_preview_utf8_test.go",
+        "internal/infrastructure/web_search/exa.go",
+        "internal/infrastructure/web_search/exa_test.go",
+        "internal/infrastructure/web_search/google.go",
+        "internal/infrastructure/web_search/google_test.go",
+        "internal/infrastructure/web_search/keenable.go",
+        "internal/infrastructure/web_search/keenable_test.go",
+        "internal/infrastructure/web_search/local_fetch.go",
+        "internal/infrastructure/web_search/local_fetch_test.go",
+        "internal/infrastructure/web_search/metaso.go",
+        "internal/infrastructure/web_search/metaso_test.go",
+        "internal/infrastructure/web_search/ollama.go",
+        "internal/infrastructure/web_search/proxy.go",
+        "internal/infrastructure/web_search/proxy_test.go",
+        "internal/infrastructure/web_search/registry.go",
+        "internal/infrastructure/web_search/registry_test.go",
+        "internal/infrastructure/web_search/response_limit.go",
+        "internal/infrastructure/web_search/response_limit_test.go",
+        "internal/infrastructure/web_search/searchapi.go",
+        "internal/infrastructure/web_search/searchapi_test.go",
+        "internal/infrastructure/web_search/searxng.go",
+        "internal/infrastructure/web_search/searxng_test.go",
+        "internal/infrastructure/web_search/serply.go",
+        "internal/infrastructure/web_search/serply_test.go",
+        "internal/infrastructure/web_search/tavily.go",
+        "internal/infrastructure/web_search/test_errors.go",
+        "internal/infrastructure/web_search/test_errors_test.go",
+        "internal/infrastructure/web_search/zhipu.go",
+        "internal/infrastructure/web_search/zhipu_test.go"
+      ],
+      "invariants_checked": [
+        "SSRF and redirect defense-in-depth enforced across SearXNG, proxy, and custom HTTP search clients (DialContext IP validation via security.ValidateURLForSSRF, HTTP redirects disabled or re-validated per hop).",
+        "API keys, basic-auth userinfo, and secret query parameters are redacted from outbound request logs, proxy errors, and HTTP/transport error strings across Google, SearXNG, Serper, Tavily, Brave, Bocha, Metaso, Exa, Baidu, DeepSeek, Zhipu, and DuckDuckGo.",
+        "All 2xx JSON/HTML search response bodies are strictly bounded via readCapped/newCappedReadCloser (8 MiB max, rejecting oversized payloads) and non-2xx error bodies are bounded to 4 KiB UTF-8-safe previews.",
+        "Default User-Agent uses GENYEE-Bot/1.0 with zero legacy brand residues; concurrent SearXNG searches and EmptyResultDiagnostics are race-free under -race."
+      ],
+      "findings": [
+        {
+          "id": "W5-WEBSEARCH-01",
+          "severity": "P0",
+          "file": "internal/infrastructure/web_search/google.go:39-145",
+          "summary": "GoogleProvider passed both option.WithAPIKey and option.WithHTTPClient to customsearch.NewService, hitting google.golang.org/api/transport/http.NewClient's early HTTPClient return that silently dropped params.APIKey on every request, while following redirects, leaving response reads uncapped, and risking ?key= exposure in transport errors.",
+          "regression_test": "TestGoogleProvider_AttachesAPIKeyAndBlocksRedirects, TestGoogleProvider_RedactsAPIKeyAndBoundsResponses",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        },
+        {
+          "id": "W5-WEBSEARCH-02",
+          "severity": "P1",
+          "file": "internal/infrastructure/web_search/searxng.go:30-35,81-98,176-184, internal/infrastructure/web_search/proxy.go:24-66, internal/infrastructure/web_search/response_limit.go:52-95",
+          "summary": "SearxngProvider read and wrote lastUnresponsive without synchronization (data race between concurrent Search and EmptyResultDiagnostics), and SearXNG/proxy URL handling could leak basic-auth userinfo or secret query parameters in request logs and transport/parse errors.",
+          "regression_test": "TestSearxngProvider_ConcurrentSearchAndDiagnostics, TestSearxngProvider_RedactsUserinfoInTransportErrors",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        },
+        {
+          "id": "W5-WEBSEARCH-03",
+          "severity": "P1",
+          "file": "internal/infrastructure/web_search/duckduckgo.go:196-205, internal/infrastructure/web_search/baidu.go:118-130, internal/infrastructure/web_search/exa.go:110-122, internal/infrastructure/web_search/bocha.go:130-150, internal/infrastructure/web_search/metaso.go:126-146, internal/infrastructure/web_search/deepseek.go:132-150, internal/infrastructure/web_search/zhipu.go:132-150",
+          "summary": "DuckDuckGoProvider.searchHTML parsed resp.Body directly via goquery without any response size cap, BaiduProvider and ExaProvider read unbounded non-2xx bodies via io.ReadAll while silently truncating oversized 2xx JSON via bare io.LimitReader, and Bocha/Metaso/DeepSeek/Zhipu error helpers formatted unbounded JSON error strings.",
+          "regression_test": "TestDuckDuckGoHTMLRejectsOversizedBody, TestBaiduAndExaProvidersRejectOversizedAndBoundFailedBodies",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/infrastructure/web_search/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/web_search/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/modelcontext",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/modelcontext/README.md",
+        "internal/modelcontext/citations.go",
+        "internal/modelcontext/citations_literal_test.go",
+        "internal/modelcontext/graph_truncation_test.go",
+        "internal/modelcontext/handle_table.go",
+        "internal/modelcontext/handles.go",
+        "internal/modelcontext/image_sources.go",
+        "internal/modelcontext/image_sources_test.go",
+        "internal/modelcontext/json_number_test.go",
+        "internal/modelcontext/leaks.go",
+        "internal/modelcontext/leaks_test.go",
+        "internal/modelcontext/mcp.go",
+        "internal/modelcontext/mcp_sources.go",
+        "internal/modelcontext/mcp_sources_test.go",
+        "internal/modelcontext/mcp_test.go",
+        "internal/modelcontext/model_output.go",
+        "internal/modelcontext/omitted_results_test.go",
+        "internal/modelcontext/registry.go",
+        "internal/modelcontext/registry_test.go",
+        "internal/modelcontext/resource_boundary_test.go",
+        "internal/modelcontext/resources.go",
+        "internal/modelcontext/resources_test.go",
+        "internal/modelcontext/source_text.go",
+        "internal/modelcontext/source_text_test.go",
+        "internal/modelcontext/sources.go",
+        "internal/modelcontext/sources_test.go",
+        "internal/modelcontext/stream.go",
+        "internal/modelcontext/stream_word_boundary_test.go",
+        "internal/modelcontext/tool_policy.go",
+        "internal/modelcontext/tool_policy_test.go"
+      ],
+      "invariants_checked": [
+        "Context-window token budget calculation, tool output packing, omitted-result summarization, and prompt evidence truncation preserve valid UTF-8 rune boundaries without mid-rune byte slicing.",
+        "Model context formatting is deterministic, bounded within configured token/character limits, and free of legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W5-MODELCONTEXT-01",
+          "severity": "P2",
+          "file": "internal/modelcontext/model_output.go:177-180",
+          "summary": "ModelDocumentInfoOutput truncated UpdatedAt using raw byte slice updated[:10], splitting multi-byte UTF-8 date strings (such as localized CJK timestamps) mid-rune and emitting invalid UTF-8 XML attributes.",
+          "regression_test": "TestModelDocumentInfoOutputPreservesValidUTF8UpdatedAt",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/modelcontext/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/modelcontext/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/batch.go",
+        "internal/models/api/batch_test.go",
+        "internal/models/api/compat_settings.go",
+        "internal/models/api/credentials.go",
+        "internal/models/api/embeddings.go",
+        "internal/models/api/embeddings_settings.go",
+        "internal/models/api/embeddings_test.go",
+        "internal/models/api/endpoint.go",
+        "internal/models/api/endpoint_test.go",
+        "internal/models/api/extra_body.go",
+        "internal/models/api/extra_body_test.go",
+        "internal/models/api/image_input.go",
+        "internal/models/api/images.go",
+        "internal/models/api/images_storage_boundary_test.go",
+        "internal/models/api/images_test.go",
+        "internal/models/api/json_field_extractor.go",
+        "internal/models/api/json_field_extractor_semantics_test.go",
+        "internal/models/api/json_field_extractor_test.go",
+        "internal/models/api/multipart.go",
+        "internal/models/api/options.go",
+        "internal/models/api/options_test.go",
+        "internal/models/api/prompt_cache.go",
+        "internal/models/api/prompt_cache_test.go",
+        "internal/models/api/raw_dump.go",
+        "internal/models/api/raw_dump_test.go",
+        "internal/models/api/rerank.go",
+        "internal/models/api/rerank_settings.go",
+        "internal/models/api/response_limit.go",
+        "internal/models/api/response_limit_test.go",
+        "internal/models/api/retry.go",
+        "internal/models/api/retry_test.go",
+        "internal/models/api/runtime_notice_test.go",
+        "internal/models/api/sandbox_file_progress.go",
+        "internal/models/api/sandbox_file_progress_test.go",
+        "internal/models/api/special_tokens.go",
+        "internal/models/api/special_tokens_test.go",
+        "internal/models/api/sse.go",
+        "internal/models/api/sse_framing_test.go",
+        "internal/models/api/sse_test.go",
+        "internal/models/api/stream_assembler.go",
+        "internal/models/api/stream_assembler_test.go",
+        "internal/models/api/thinking_emitter.go",
+        "internal/models/api/transcriptions.go",
+        "internal/models/api/transcriptions_settings.go",
+        "internal/models/api/transport.go",
+        "internal/models/api/transport_test.go",
+        "internal/models/api/types.go",
+        "internal/models/api/usage.go",
+        "internal/models/api/usage_log.go",
+        "internal/models/api/usage_log_test.go"
+      ],
+      "invariants_checked": [
+        "Shared model HTTP transport enforces SSRF validation on remote custom BaseURLs, strips Authorization/API-Key/Cookie headers across cross-origin redirects, and bounds JSON/SSE response reads via ReadResponseCapped.",
+        "Endpoint.Resolve canonicalizes query parameters deterministically with URL escaping, and Endpoint.LogRequest/Do redact URL userinfo, secret query parameters, and outbound credential values from logs, TransportError, and HTTPError.",
+        "PlaceEmbeddings/ValidateEmbeddingVectors rejects NaN, +/-Inf, and intra-batch ragged vector dimensions before corrupting downstream vector indexes.",
+        "StreamPacketDumper synchronizes concurrent writes and Close() under mutex and restricts raw debug packet directories/files to owner-only permissions (0700/0600)."
+      ],
+      "findings": [
+        {
+          "id": "W5-MODELS-API-01",
+          "severity": "P1",
+          "file": "internal/models/api/raw_dump.go:46-95",
+          "summary": "StreamPacketDumper read d.file outside d.mu in WriteRaw/WriteEvent and did not acquire d.mu in Close(), causing a data race on concurrent stream cancellation/close, and created raw LLM debug dump directories/files with world-readable 0755/0644 permissions.",
+          "regression_test": "TestStreamPacketDumper_ConcurrentWriteAndCloseAndPrivatePerms",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        },
+        {
+          "id": "W5-MODELS-API-02",
+          "severity": "P1",
+          "file": "internal/models/api/endpoint.go:93-214",
+          "summary": "Endpoint.Resolve iterated map keys in randomized order without url.QueryEscape, Endpoint.LogRequest logged raw URLs with embedded userinfo/query secrets, and Endpoint.Do leaked URL credentials or echoed auth tokens in TransportError/HTTPError while slicing error bodies at raw byte offset 512.",
+          "regression_test": "TestEndpointResolveDeterministicAndRedactsSecretsInLogsAndErrors",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        },
+        {
+          "id": "W5-MODELS-API-03",
+          "severity": "P1",
+          "file": "internal/models/api/embeddings.go:25-68",
+          "summary": "PlaceEmbeddings accepted NaN/+/-Inf float32 components and inconsistent intra-batch vector lengths without validation, allowing malformed provider responses to poison vector stores or panic downstream cosine similarity math.",
+          "regression_test": "TestPlaceEmbeddingsRefusesNaNInfAndRaggedDimensions",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/catalog/data",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/models/catalog/data/models.generated.json",
+        "internal/models/catalog/data/overrides.json",
+        "internal/models/catalog/data/seed.json"
+      ],
+      "invariants_checked": [
+        "All 3 embedded catalog JSON datasets (models.generated.json, overrides.json, seed.json) parse cleanly as valid UTF-8 JSON with consistent provider/model schema fields.",
+        "Zero hardcoded secrets, zero host paths, and zero legacy brand residues across all catalog entries."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/catalog/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/parity/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/chat",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/chat/chat.go",
+        "internal/models/chat/concurrency_wrapper.go",
+        "internal/models/chat/concurrency_wrapper_test.go",
+        "internal/models/chat/config_from_model_test.go",
+        "internal/models/chat/langfuse_stream_error_test.go",
+        "internal/models/chat/langfuse_wrapper.go",
+        "internal/models/chat/langfuse_wrapper_test.go",
+        "internal/models/chat/llm_debug.go",
+        "internal/models/chat/llm_debug_wrapper.go",
+        "internal/models/chat/ollama.go",
+        "internal/models/chat/ollama_cancellation_test.go",
+        "internal/models/chat/ollama_multicontent_test.go",
+        "internal/models/chat/ollama_runtime_notice_test.go",
+        "internal/models/chat/ollama_test.go"
+      ],
+      "invariants_checked": [
+        "Chat and ChatStream implementations enforce SSRF checks on remote image URLs, reject non-2xx image responses, cap remote image downloads at 20 MiB without silent truncation, and guard nil Config/service pointers.",
+        "Streaming goroutines in OllamaChat, langfuseChat, and llmDebugChat exit promptly on ctx.Done() without deadlocking when callers stop draining the returned channel, while recording cancelled stream completion.",
+        "Langfuse generation input construction redacts base64 data: URIs across both top-level Images and MultiContent parts without mutating caller message slices."
+      ],
+      "findings": [
+        {
+          "id": "W5-MODELS-CHAT-01",
+          "severity": "P1",
+          "file": "internal/models/chat/ollama.go:53-102,226-288, internal/models/chat/chat.go:40-48",
+          "summary": "OllamaChat.ChatStream blocked forever on unbuffered/undrained streamChan sends after context cancellation (leaking goroutines), NewChat/NewOllamaChat lacked nil config/service guards, and resolveImageForOllama base64-encoded non-2xx HTTP error pages as images while silently truncating >20 MiB payloads via bare io.LimitReader.",
+          "regression_test": "TestOllamaChatStreamExitsWithoutDrainOnCancelAndRejectsErrorImages",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        },
+        {
+          "id": "W5-MODELS-CHAT-02",
+          "severity": "P1",
+          "file": "internal/models/chat/langfuse_wrapper.go:79-145,213-245, internal/models/chat/llm_debug_wrapper.go:78-115",
+          "summary": "langfuseChat.ChatStream and llmDebugChat.ChatStream blocked on wrapped <- resp when callers cancelled ctx without draining wrapped (leaking goroutines and preventing gen.Finish from closing spans), and buildLangfuseMessages leaked raw multi-megabyte data: image URIs embedded in Message.MultiContent.",
+          "regression_test": "TestBuildLangfuseMessagesRedactsMultiContentDataURIWithoutMutatingCaller, TestLangfuseAndDebugChatStreamExitAndFinishOnContextCancel",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/chat/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/chat/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/embedding",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/embedding/batch.go",
+        "internal/models/embedding/batch_cancel_test.go",
+        "internal/models/embedding/batch_large_size_test.go",
+        "internal/models/embedding/batch_race_test.go",
+        "internal/models/embedding/catalog_matrix_test.go",
+        "internal/models/embedding/concurrency_wrapper.go",
+        "internal/models/embedding/concurrency_wrapper_test.go",
+        "internal/models/embedding/config_from_model_test.go",
+        "internal/models/embedding/embedder.go",
+        "internal/models/embedding/image_wire_test.go",
+        "internal/models/embedding/langfuse_wrapper.go",
+        "internal/models/embedding/llm_debug.go",
+        "internal/models/embedding/messages_batch_live_test.go",
+        "internal/models/embedding/ollama.go",
+        "internal/models/embedding/protocol.go",
+        "internal/models/embedding/protocol_test.go",
+        "internal/models/embedding/transport.go",
+        "internal/models/embedding/transport_test.go",
+        "internal/models/embedding/wemm_test.go",
+        "internal/models/embedding/wire_test.go"
+      ],
+      "invariants_checked": [
+        "Local Ollama and remote protocol embedders short-circuit empty batches cleanly without spurious network RPCs, enforce 1:1 output count parity, and validate non-empty finite (non-NaN/non-Inf) uniform-dimension vectors.",
+        "NilEmbedderPooler / nil OllamaService inputs fail closed or fall back safely without nil-pointer panics, and Embed error paths never format nil errors."
+      ],
+      "findings": [
+        {
+          "id": "W5-MODELS-EMBED-01",
+          "severity": "P1",
+          "file": "internal/models/embedding/ollama.go:45-128, internal/models/embedding/protocol.go:108-235",
+          "summary": "OllamaEmbedder and protocolEmbedder lacked nil service/pooler guards, OllamaEmbedder sent network RPCs on empty batches and formatted '%!w(<nil>)' when BatchEmbed returned zero vectors without error, and BatchEmbed/BatchEmbedImages accepted NaN/Inf, empty, or mismatched-dimension vectors.",
+          "regression_test": "TestOllamaEmbedderEmptyBatchCountMismatchNaNAndNilPooler, TestRemoteProtocolsRejectNaNEmptyAndRaggedVectors",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/embedding/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/embedding/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/parity",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/models/parity/catalog_baseline_test.go",
+        "internal/models/parity/parity_test.go",
+        "internal/models/parity/reasoning_vocabulary_test.go",
+        "internal/models/parity/rerank_test.go",
+        "internal/models/parity/testdata/catalog-baseline.json",
+        "internal/models/parity/volcengine_budget_test.go"
+      ],
+      "invariants_checked": [
+        "Catalog migration baseline hashes (TestCatalogMigrationBaseline) across resolved runtime configs, vendor endpoints, headers, and chat wire request bodies match testdata/catalog-baseline.json bit-for-bit.",
+        "Zero live external network calls, zero hardcoded credentials, zero host paths, and zero legacy brand residues across all parity tests and fixtures."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/parity/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/parity/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/utils/ollama",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/utils/ollama/availability_race_test.go",
+        "internal/models/utils/ollama/chat_completion_test.go",
+        "internal/models/utils/ollama/heartbeat_cancellation_test.go",
+        "internal/models/utils/ollama/ollama.go"
+      ],
+      "invariants_checked": [
+        "Localhost/127.0.0.1 Ollama connections work out-of-the-box without SSRF_WHITELIST while OLLAMA_BASE_URL enforces valid http/https scheme and non-empty host, blocks cross-origin POST redirect replay, strips credentials across redirects, and redacts userinfo/query secrets from logs and errors.",
+        "OllamaService.Generate verifies terminal Done=true completion on NDJSON streams so mid-stream upstream disconnects fail with io.ErrUnexpectedEOF rather than silently returning truncated output."
+      ],
+      "findings": [
+        {
+          "id": "W5-MODELS-OLLAMA-01",
+          "severity": "P1",
+          "file": "internal/models/utils/ollama/ollama.go:53-135,235-275",
+          "summary": "GetOllamaService accepted malformed or non-http(s) OLLAMA_BASE_URL values, logged raw URLs with embedded credentials, lacked cross-origin redirect guards on its custom HTTP client, lacked nil receiver/client guards in StartService, and OllamaService.Generate returned nil error on truncated streams that never emitted Done=true.",
+          "regression_test": "TestGetOllamaServiceValidatesURLAndRedactsCredentials, TestGenerateRejectsResponsesWithoutDone",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/utils/ollama/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/utils/ollama/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/tracing/langfuse",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/tracing/langfuse/asynq.go",
+        "internal/tracing/langfuse/asynq_test.go",
+        "internal/tracing/langfuse/config.go",
+        "internal/tracing/langfuse/config_test.go",
+        "internal/tracing/langfuse/context.go",
+        "internal/tracing/langfuse/events.go",
+        "internal/tracing/langfuse/exporter.go",
+        "internal/tracing/langfuse/manager.go",
+        "internal/tracing/langfuse/manager_test.go",
+        "internal/tracing/langfuse/memory_obs.go",
+        "internal/tracing/langfuse/memory_obs_test.go",
+        "internal/tracing/langfuse/middleware.go",
+        "internal/tracing/langfuse/middleware_test.go",
+        "internal/tracing/langfuse/retrieval_obs.go",
+        "internal/tracing/langfuse/retrieval_obs_test.go",
+        "internal/tracing/langfuse/tracer.go",
+        "internal/tracing/langfuse/tracer_test.go"
+      ],
+      "invariants_checked": [
+        "Commercial Compliance Invariant preserved: Langfuse telemetry is strictly opt-in / disabled by default (Enabled=false unless explicit host + credentials/flag are configured, never selecting an implicit cloud host and spawning zero background goroutines or outbound HTTP calls when disabled).",
+        "BatchSpanProcessor queue and flush sizes are normalized and capped (QueueSize <= 65536, FlushAt <= 4096 and <= QueueSize), Config.Validate enforces http(s) Host and SampleRate in [0, 1], and replacing an active singleton in Init cleanly shuts down the prior BatchSpanProcessor.",
+        "Secrets, basic-auth userinfo, Bearer tokens, API keys, and sensitive query/JSON fields are redacted across manager startup logs/errors, GinMiddleware http.query metadata, Span/Generation Finish error events/statuses, and Asynq payload previews.",
+        "Trace/Span metadata maps are cloned on open and Finish is idempotent via atomic.Bool (race-free under -race); Asynq 1 KiB payload previews truncate on valid UTF-8 rune boundaries; retrieval observability summaries handle nil slice elements and NaN scores without panicking."
+      ],
+      "findings": [
+        {
+          "id": "W5-LANGFUSE-01",
+          "severity": "P1",
+          "file": "internal/tracing/langfuse/config.go:65-155, internal/tracing/langfuse/manager.go:50-115",
+          "summary": "Config.Validate accepted non-http(s)/malformed Host URLs and out-of-range/NaN SampleRate values, LoadConfigFromEnv/Init left QueueSize/FlushAt uncapped or unnormalized on programmatic Init, and Init leaked the previous manager's BatchSpanProcessor goroutine on re-initialization while logging unredacted Host URLs.",
+          "regression_test": "TestConfigValidateNormalizeAndReinitShutdown",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        },
+        {
+          "id": "W5-LANGFUSE-02",
+          "severity": "P1",
+          "file": "internal/tracing/langfuse/middleware.go:45-51, internal/tracing/langfuse/tracer.go:90-145,217-325",
+          "summary": "GinMiddleware exported raw c.Request.URL.RawQuery (leaking api_key/access_token/password query params), Span.Finish and Generation.Finish recorded unredacted credentials/API keys in OTel error events and status descriptions, and StartTrace/StartSpan retained caller metadata map references without cloning or guarding concurrent Finish calls.",
+          "regression_test": "TestGinMiddlewareRedactsSensitiveQueryParams, TestTracerRedactsErrorSecretsAndClonesMetadataConcurrently",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        },
+        {
+          "id": "W5-LANGFUSE-03",
+          "severity": "P2",
+          "file": "internal/tracing/langfuse/asynq.go:163-175, internal/tracing/langfuse/retrieval_obs.go:40-123,141-215,270-301",
+          "summary": "spanInputFromPayload sliced raw payload[:1024] bytes (splitting multi-byte UTF-8 runes mid-character) and echoed raw JSON credentials in task previews, while SummarizeRetrieveOutput, SummarizeSearchResults, and SummarizePassagePreviews panicked on nil slice elements or violated sort.Slice strict weak ordering on NaN scores.",
+          "regression_test": "TestAsynqSpanInputUTF8SafeAndRedactsSecrets, TestRetrievalObsHandlesNilElementsAndNaNScores",
+          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/tracing/langfuse/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/tracing/langfuse/... (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 bash scripts/verify-commercial-compliance.sh --tier 3 (exit 0)"
+      ]
+    }
+  ]
+}
