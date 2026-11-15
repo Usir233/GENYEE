@@ -32,27 +32,48 @@ from upload_paths import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+def _positive_int_env(name: str, default: int) -> int:
+    raw = os.getenv(name, str(default))
+    try:
+        parsed = int(raw)
+    except ValueError:
+        logger.warning("%s is not a valid integer; falling back to %ds.", name, default)
+        return default
+    if parsed <= 0:
+        logger.warning("%s must be a positive integer; falling back to %ds.", name, default)
+        return default
+    return parsed
+
+
+def _default_mcp_port(default: int = 8000) -> int:
+    raw = os.getenv("MCP_PORT")
+    if raw is None or not raw.strip():
+        return default
+    try:
+        port = int(raw.strip())
+    except ValueError:
+        logger.warning("MCP_PORT is not a valid integer; falling back to %d.", default)
+        return default
+    if not (1 <= port <= 65535):
+        logger.warning("MCP_PORT=%d is out of range (1-65535); falling back to %d.", port, default)
+        return default
+    return port
+
+
 # Configuration - Load from environment variables with defaults
 GENYEE_BASE_URL = os.getenv("GENYEE_BASE_URL", "http://localhost:8080/api/v1")
 GENYEE_API_KEY = os.getenv("GENYEE_API_KEY", "")
 # Chat SSE read timeout in seconds. LLM responses can be slow; default 300s.
-try:
-    GENYEE_CHAT_TIMEOUT = int(os.getenv("GENYEE_CHAT_TIMEOUT", "300"))
-except ValueError:
-    logger.warning("GENYEE_CHAT_TIMEOUT is not a valid integer; falling back to 300s.")
-    GENYEE_CHAT_TIMEOUT = 300
+GENYEE_CHAT_TIMEOUT = _positive_int_env("GENYEE_CHAT_TIMEOUT", 300)
 
 # Timeout in seconds for the non-chat API requests (CRUD, search, uploads).
 # Without it requests waits forever, so a hung backend blocks the calling
 # tool indefinitely. Default 300s, matching the chat read timeout.
-try:
-    GENYEE_API_TIMEOUT = int(os.getenv("GENYEE_API_TIMEOUT", "300"))
-except ValueError:
-    logger.warning("GENYEE_API_TIMEOUT is not a valid integer; falling back to 300s.")
-    GENYEE_API_TIMEOUT = 300
+GENYEE_API_TIMEOUT = _positive_int_env("GENYEE_API_TIMEOUT", 300)
 
 # Bound the data accumulated while waiting for an SSE event's blank line.
 MAX_SSE_EVENT_BYTES = 8 * 1024 * 1024
+MAX_API_RESPONSE_BYTES = 32 * 1024 * 1024
 
 # Network transport defaults kept for backward compatibility with pre-2.x deployments.
 SSE_MESSAGE_PATH = "/sse/messages/"
@@ -262,8 +283,11 @@ class MCPAuthMiddleware:
         self.token = token
 
     async def __call__(self, scope, receive, send):
-        if scope.get("type") != "http":
+        scope_type = scope.get("type")
+        if scope_type == "lifespan":
             await self.app(scope, receive, send)
+            return
+        if scope_type not in ("http", "websocket"):
             return
 
         headers = {
@@ -280,6 +304,9 @@ class MCPAuthMiddleware:
         if not provided or not secrets.compare_digest(
             provided.encode("utf-8"), self.token.encode("utf-8")
         ):
+            if scope_type == "websocket":
+                await send({"type": "websocket.close", "code": 1008})
+                return
             body = b'{"error":"unauthorized"}'
             await send(
                 {
@@ -322,6 +349,9 @@ def _iter_sse_lines(response: requests.Response) -> Iterator[bytes]:
     """Split SSE lines without treating a CRLF split across chunks as two breaks."""
     pending = bytearray()
     skip_lf = False
+    # Allow small SSE field-prefix/BOM framing ("data: " + UTF-8 BOM) on top of
+    # MAX_SSE_EVENT_BYTES so exact-boundary event payloads remain valid.
+    max_line_bytes = MAX_SSE_EVENT_BYTES + 16
     for chunk in response.iter_content(chunk_size=512):
         if not chunk:
             continue
@@ -332,13 +362,86 @@ def _iter_sse_lines(response: requests.Response) -> Iterator[bytes]:
         skip_lf = chunk.endswith(b"\r")
         for part in chunk.splitlines(keepends=True):
             if part.endswith((b"\r", b"\n")):
-                pending.extend(part.rstrip(b"\r\n"))
+                body_part = part.rstrip(b"\r\n")
+                if len(pending) + len(body_part) > max_line_bytes:
+                    raise RequestException(
+                        f"SSE line exceeds {MAX_SSE_EVENT_BYTES} bytes"
+                    )
+                pending.extend(body_part)
                 yield bytes(pending)
                 pending.clear()
             else:
+                if len(pending) + len(part) > max_line_bytes:
+                    raise RequestException(
+                        f"SSE line exceeds {MAX_SSE_EVENT_BYTES} bytes"
+                    )
                 pending.extend(part)
     if pending:
         yield bytes(pending)
+
+
+def _canonical_http_origin(raw_url: str) -> tuple[str, str, int | None]:
+    parsed = urllib.parse.urlsplit(raw_url or "")
+    scheme = parsed.scheme.lower()
+    host = (parsed.hostname or "").lower()
+    port = parsed.port
+    if port is None:
+        if scheme == "http":
+            port = 80
+        elif scheme == "https":
+            port = 443
+    return scheme, host, port
+
+
+class _SameOriginSession(requests.Session):
+    """Refuses cross-origin or scheme-downgrade redirects to protect X-API-Key."""
+
+    def rebuild_auth(self, prepared_request, response):
+        super().rebuild_auth(prepared_request, response)
+        target = urllib.parse.urlsplit(prepared_request.url or "")
+        if target.username is not None or target.password is not None:
+            response.close()
+            raise RequestException(
+                "Refusing to follow redirect containing embedded URL credentials"
+            )
+        src_origin = _canonical_http_origin(response.request.url or "")
+        dst_origin = _canonical_http_origin(prepared_request.url or "")
+        if src_origin != dst_origin or dst_origin[0] not in ("http", "https"):
+            response.close()
+            raise RequestException(
+                "Refusing to follow cross-origin or scheme-changing redirect with API credentials"
+            )
+
+
+def _read_bounded_json_response(response: requests.Response) -> Dict[str, Any]:
+    if not isinstance(response, requests.Response):
+        response.raise_for_status()
+        return response.json()
+    try:
+        content_length = response.headers.get("Content-Length") if response.headers else None
+        if content_length is not None:
+            try:
+                if int(content_length) > MAX_API_RESPONSE_BYTES:
+                    raise RequestException(
+                        f"API response Content-Length {content_length} exceeds {MAX_API_RESPONSE_BYTES} bytes"
+                    )
+            except ValueError:
+                pass
+        buf = bytearray()
+        for chunk in response.iter_content(chunk_size=65536):
+            if not chunk:
+                continue
+            if len(buf) + len(chunk) > MAX_API_RESPONSE_BYTES:
+                raise RequestException(
+                    f"API response exceeds {MAX_API_RESPONSE_BYTES} bytes"
+                )
+            buf.extend(chunk)
+        response._content = bytes(buf)
+        response._content_consumed = True
+        response.raise_for_status()
+        return response.json()
+    finally:
+        response.close()
 
 
 class GENYEEClient:
@@ -363,7 +466,7 @@ class GENYEEClient:
         self._session_local = threading.local()
 
     def _new_session(self) -> requests.Session:
-        session = requests.Session()
+        session = _SameOriginSession()
         session.verify = self.verify_ssl
         session.headers.update(
             {
@@ -394,13 +497,11 @@ class GENYEEClient:
         # Bound the wait like the chat SSE path does; an explicit timeout
         # passed by the caller still wins.
         kwargs.setdefault("timeout", GENYEE_API_TIMEOUT)
+        kwargs.setdefault("stream", True)
         try:
             # Execute HTTP request with the specified method
             response = self.session.request(method, url, **kwargs)
-            # Raise exception for HTTP error status codes (4xx, 5xx)
-            response.raise_for_status()
-            # Parse and return JSON response
-            return response.json()
+            return _read_bounded_json_response(response)
         except RequestException as e:
             logger.error(f"API request failed: {e}")
             raise
@@ -560,9 +661,9 @@ class GENYEEClient:
                 data=data,
                 verify=self.verify_ssl,
                 timeout=GENYEE_API_TIMEOUT,
+                allow_redirects=False,
             )
-            response.raise_for_status()
-            return response.json()
+            return _read_bounded_json_response(response)
 
     def create_knowledge_from_url(
         self, kb_id: str, url: str, enable_multimodel: bool = True
@@ -1484,10 +1585,14 @@ def main():
     parser.add_argument(
         "--port",
         type=int,
-        default=int(os.getenv("MCP_PORT", "8000")),
+        default=_default_mcp_port(8000),
         help="Bind port for network transports (default: 8000)",
     )
     args = parser.parse_args()
+
+    if args.transport in ("sse", "http") and not (1 <= args.port <= 65535):
+        logger.error("Invalid port %d: must be between 1 and 65535.", args.port)
+        sys.exit(1)
 
     if args.transport == "stdio":
         asyncio.run(run_stdio())

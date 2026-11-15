@@ -60,6 +60,21 @@ def check_environment_variables():
     return True
 
 
+def _default_mcp_port(default: int = 8000) -> int:
+    raw = os.getenv("MCP_PORT")
+    if raw is None or not raw.strip():
+        return default
+    try:
+        port = int(raw.strip())
+    except ValueError:
+        print(f"警告: MCP_PORT 无效，已回退到默认端口 {default}", file=sys.stderr)
+        return default
+    if not (1 <= port <= 65535):
+        print(f"警告: MCP_PORT 超出范围 (1-65535)，已回退到默认端口 {default}", file=sys.stderr)
+        return default
+    return port
+
+
 def parse_arguments():
     """解析命令行参数"""
     parser = argparse.ArgumentParser(
@@ -102,7 +117,7 @@ def parse_arguments():
     parser.add_argument(
         "--port",
         type=int,
-        default=int(os.getenv("MCP_PORT", "8000")),
+        default=_default_mcp_port(8000),
         help="Bind port for network transports (default: 8000)",
     )
 
@@ -148,9 +163,13 @@ async def main():
             # Stdio mode: communication via stdin/stdout pipes (typical for CLI integrations)
             await run_stdio()
         elif args.transport == "sse":
+            if not (1 <= args.port <= 65535):
+                raise ValueError(f"端口超出范围 (1-65535): {args.port}")
             # SSE mode: HTTP server with Server-Sent Events for bidirectional streaming
             await run_sse(args.host, args.port)
         elif args.transport == "http":
+            if not (1 <= args.port <= 65535):
+                raise ValueError(f"端口超出范围 (1-65535): {args.port}")
             # HTTP mode: HTTP REST server with request/response model
             await run_http(args.host, args.port)
 

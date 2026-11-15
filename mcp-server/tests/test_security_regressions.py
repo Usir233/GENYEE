@@ -527,3 +527,202 @@ def test_mcp_demo_server_enforces_token_length_and_dns_rebinding_protection(
     settings = demo.build_transport_security_settings("0.0.0.0", 8010)
     assert settings.enable_dns_rebinding_protection is True
     assert "127.0.0.1:*" in settings.allowed_hosts
+
+
+# ---------------------------------------------------------------------------
+# Wave 1 Audit Regressions: Redirect API-Key Leak, Stream Bounds, ASGI & Env
+# ---------------------------------------------------------------------------
+
+
+def test_genyee_client_blocks_cross_origin_redirect_api_key_leak(tmp_path, monkeypatch):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+
+    captured_headers: list[dict[str, str]] = []
+
+    class AttackerHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            captured_headers.append({k.lower(): v for k, v in self.headers.items()})
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(b'{"data": []}')
+
+        def log_message(self, *_args):
+            pass
+
+    attacker_srv = HTTPServer(("127.0.0.1", 0), AttackerHandler)
+    attacker_port = attacker_srv.server_address[1]
+    attacker_thread = threading.Thread(target=attacker_srv.serve_forever, daemon=True)
+    attacker_thread.start()
+
+    class OriginHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            if self.path == "/api/v1/same-origin-hop":
+                self.send_response(307)
+                self.send_header("Location", "/api/v1/same-origin-final")
+                self.end_headers()
+                return
+            if self.path == "/api/v1/same-origin-final":
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(b'{"ok": true}')
+                return
+            self.send_response(302)
+            self.send_header("Location", f"http://127.0.0.1:{attacker_port}/steal")
+            self.end_headers()
+
+        def log_message(self, *_args):
+            pass
+
+    origin_srv = HTTPServer(("127.0.0.1", 0), OriginHandler)
+    origin_port = origin_srv.server_address[1]
+    origin_thread = threading.Thread(target=origin_srv.serve_forever, daemon=True)
+    origin_thread.start()
+
+    try:
+        client = srv.GENYEEClient(
+            f"http://127.0.0.1:{origin_port}/api/v1", "secret-x-api-key"
+        )
+        # Same-origin redirect remains allowed
+        assert client._request("GET", "/same-origin-hop") == {"ok": True}
+
+        # Cross-origin redirect must fail before forwarding X-API-Key
+        with pytest.raises(srv.RequestException):
+            client.list_tenants()
+        assert captured_headers == [], "X-API-Key must never reach redirected cross-origin host"
+    finally:
+        origin_srv.shutdown()
+        attacker_srv.shutdown()
+        origin_srv.server_close()
+        attacker_srv.server_close()
+
+    # Multipart upload must also disable cross-origin redirect following
+    monkeypatch.setenv("MCP_ALLOWED_UPLOAD_DIRS", str(tmp_path))
+    upload_doc = tmp_path / "note.txt"
+    upload_doc.write_text("hello", encoding="utf-8")
+    with mock.patch.object(srv.requests, "post") as post_mock:
+        post_mock.return_value = mock.Mock(
+            raise_for_status=lambda: None, json=lambda: {"data": {"id": "k-1"}}
+        )
+        upload_client = srv.GENYEEClient("http://example.invalid/api/v1", "secret-key")
+        upload_client.create_knowledge_from_file("kb-1", str(upload_doc))
+        assert post_mock.call_args.kwargs.get("allow_redirects") is False
+
+
+def test_iter_sse_lines_and_request_bound_oversized_responses(monkeypatch):
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+    import threading
+
+    monkeypatch.setattr(srv, "MAX_SSE_EVENT_BYTES", 2048)
+
+    class FakeStreamingResponse:
+        def iter_content(self, chunk_size=512):
+            for _ in range(10):
+                yield b"A" * 512
+
+    with pytest.raises(srv.RequestException, match="SSE line exceeds"):
+        list(srv._iter_sse_lines(FakeStreamingResponse()))
+
+    monkeypatch.setattr(srv, "MAX_API_RESPONSE_BYTES", 2048)
+
+    class OversizedJSONHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            body = ('{"pad":"' + ("B" * 8192) + '"}').encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *_args):
+            pass
+
+    json_srv = HTTPServer(("127.0.0.1", 0), OversizedJSONHandler)
+    port = json_srv.server_address[1]
+    thread = threading.Thread(target=json_srv.serve_forever, daemon=True)
+    thread.start()
+    try:
+        client = srv.GENYEEClient(f"http://127.0.0.1:{port}/api/v1", "key")
+        with pytest.raises(srv.RequestException, match="exceeds"):
+            client.list_tenants()
+    finally:
+        json_srv.shutdown()
+        json_srv.server_close()
+
+
+def test_mcp_auth_middleware_gates_websocket_and_preserves_lifespan():
+    async def run():
+        called: list[str] = []
+        sent: list[dict] = []
+
+        async def app(scope, receive, send):
+            called.append(scope["type"])
+
+        async def send(msg):
+            sent.append(msg)
+
+        async def receive():
+            return {"type": "websocket.connect"}
+
+        mw = srv.MCPAuthMiddleware(app, "secret-token")
+
+        # Lifespan passes through without auth headers
+        await mw({"type": "lifespan"}, receive, send)
+        assert called == ["lifespan"]
+
+        # Unauthenticated websocket must be rejected and never reach app
+        sent.clear()
+        await mw({"type": "websocket", "headers": []}, receive, send)
+        assert called == ["lifespan"]
+        assert any(m.get("type") == "websocket.close" and m.get("code") == 1008 for m in sent)
+
+        # Authenticated websocket passes through
+        await mw(
+            {
+                "type": "websocket",
+                "headers": [(b"authorization", b"Bearer secret-token")],
+            },
+            receive,
+            send,
+        )
+        assert called == ["lifespan", "websocket"]
+
+    asyncio.run(run())
+
+
+def test_non_positive_timeouts_and_invalid_mcp_port_env_handling():
+    import subprocess
+    import sys
+
+    mcp_dir = Path(__file__).resolve().parents[1]
+
+    for var_name in ("GENYEE_API_TIMEOUT", "GENYEE_CHAT_TIMEOUT"):
+        for bad_val in ("0", "-5"):
+            env = dict(os.environ)
+            env["PYTHONDONTWRITEBYTECODE"] = "1"
+            env[var_name] = bad_val
+            res = subprocess.run(
+                [sys.executable, "-c", f"import genyee_mcp_server as s; print(s.{var_name})"],
+                cwd=mcp_dir,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            assert res.returncode == 0, res.stderr
+            assert int(res.stdout.strip()) == 300
+
+    for bad_port in ("", "not-a-port"):
+        env = dict(os.environ)
+        env["PYTHONDONTWRITEBYTECODE"] = "1"
+        env["MCP_PORT"] = bad_port
+        res = subprocess.run(
+            [sys.executable, "main.py", "--check-only"],
+            cwd=mcp_dir,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert res.returncode == 0, res.stderr
