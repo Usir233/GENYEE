@@ -1,10 +1,13 @@
-DROP TABLE IF EXISTS tenants;
-DROP TABLE IF EXISTS models;
-DROP TABLE IF EXISTS knowledge_bases;
-DROP TABLE IF EXISTS knowledges;
-DROP TABLE IF EXISTS sessions;
-DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS chunk_revisions;
 DROP TABLE IF EXISTS chunks;
+DROP TABLE IF EXISTS message_suggestion_events;
+DROP TABLE IF EXISTS message_suggestion_sets;
+DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS sessions;
+DROP TABLE IF EXISTS knowledges;
+DROP TABLE IF EXISTS knowledge_bases;
+DROP TABLE IF EXISTS models;
+DROP TABLE IF EXISTS tenants;
 
 CREATE TABLE tenants (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,

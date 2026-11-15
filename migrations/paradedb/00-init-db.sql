@@ -23,8 +23,19 @@ CREATE TABLE IF NOT EXISTS tenants (
 
 COMMENT ON COLUMN tenants.agent_config IS 'Tenant-level agent configuration in JSON format';
 
--- Set the starting value for tenants id sequence
-ALTER SEQUENCE tenants_id_seq RESTART WITH 10000;
+-- Set the starting value for tenants id sequence (only if current value is less than 10000)
+DO $$
+DECLARE
+    current_val BIGINT;
+BEGIN
+    SELECT last_value INTO current_val FROM tenants_id_seq;
+    IF current_val < 10000 THEN
+        ALTER SEQUENCE tenants_id_seq RESTART WITH 10000;
+    END IF;
+EXCEPTION
+    WHEN undefined_table THEN
+        NULL;
+END $$;
 
 -- Add indexes
 CREATE INDEX IF NOT EXISTS idx_tenants_status ON tenants(status);
@@ -216,5 +227,6 @@ WITH (
         }
     }'
 );
-CREATE INDEX ON embeddings USING hnsw ((embedding::halfvec(3584)) halfvec_cosine_ops) WITH (m = 16, ef_construction = 64) WHERE (dimension = 3584);
-CREATE INDEX ON embeddings USING hnsw ((embedding::halfvec(798)) halfvec_cosine_ops) WITH (m = 16, ef_construction = 64) WHERE (dimension = 798);
+CREATE INDEX IF NOT EXISTS embeddings_embedding_idx_3584 ON embeddings USING hnsw ((embedding::halfvec(3584)) halfvec_cosine_ops) WITH (m = 16, ef_construction = 64) WHERE (dimension = 3584);
+CREATE INDEX IF NOT EXISTS embeddings_embedding_idx_798 ON embeddings USING hnsw ((embedding::halfvec(798)) halfvec_cosine_ops) WITH (m = 16, ef_construction = 64) WHERE (dimension = 798);
+CREATE INDEX IF NOT EXISTS embeddings_embedding_idx_1024 ON embeddings USING hnsw ((embedding::halfvec(1024)) halfvec_cosine_ops) WITH (m = 16, ef_construction = 64) WHERE (dimension = 1024);
