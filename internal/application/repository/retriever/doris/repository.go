@@ -4,7 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -17,6 +19,53 @@ const (
 	defaultTableBaseName = "genyee_embeddings"
 	envDorisTablePrefix  = "DORIS_TABLE_PREFIX"
 )
+
+var dorisURLCredPattern = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)([^/\s@]+)@`)
+
+func redactDorisCredentials(raw string) string {
+	if !strings.Contains(raw, "://") || !strings.Contains(raw, "@") {
+		return raw
+	}
+	return dorisURLCredPattern.ReplaceAllString(raw, "${1}[REDACTED]@")
+}
+
+func requireKnowledgeBaseIDs(kbIDs []string) ([]string, error) {
+	cleaned := make([]string, 0, len(kbIDs))
+	for _, id := range kbIDs {
+		if trimmed := strings.TrimSpace(id); trimmed != "" {
+			cleaned = append(cleaned, trimmed)
+		}
+	}
+	if len(cleaned) == 0 {
+		return nil, fmt.Errorf("knowledge_base_id filter is required")
+	}
+	return cleaned, nil
+}
+
+func sanitizeTargetIDs(ids []string, field string) ([]string, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	cleaned := make([]string, 0, len(ids))
+	for _, id := range ids {
+		trimmed := strings.TrimSpace(id)
+		if trimmed == "" {
+			return nil, fmt.Errorf("%s contains empty target ID", field)
+		}
+		cleaned = append(cleaned, trimmed)
+	}
+	return cleaned, nil
+}
+
+func effectiveTopK(topK int) int {
+	if topK <= 0 {
+		return 10
+	}
+	if topK > 10000 {
+		return 10000
+	}
+	return topK
+}
 
 // NewDorisRetrieveEngineRepository 创建 Doris 检索引擎仓储。
 //
@@ -98,6 +147,9 @@ func (r *dorisRepository) BatchSave(ctx context.Context,
 	if len(indexInfoList) == 0 {
 		return nil
 	}
+	if err := r.validateRepoIdentifiers(); err != nil {
+		return err
+	}
 	compatMode, err := r.resolveCompatMode(ctx)
 	if err != nil {
 		return err
@@ -105,6 +157,9 @@ func (r *dorisRepository) BatchSave(ctx context.Context,
 
 	groups := make(map[int][]*DorisVectorEmbedding)
 	for _, info := range indexInfoList {
+		if info == nil {
+			return fmt.Errorf("nil IndexInfo in BatchSave")
+		}
 		emb := toDorisVectorEmbedding(info, additionalParams, compatMode)
 		if len(emb.Embedding) == 0 {
 			log.Warnf("[Doris] Skipping empty embedding for chunk %s", info.ChunkID)
@@ -149,6 +204,9 @@ func (r *dorisRepository) insertRows(ctx context.Context,
 ) error {
 	if len(rows) == 0 {
 		return nil
+	}
+	if err := validateSQLIdentifier(table); err != nil {
+		return err
 	}
 
 	// 9 个普通占位符 + 1 个 embedding 字面量。
@@ -198,6 +256,9 @@ func (r *dorisRepository) deleteRowsByID(ctx context.Context,
 ) error {
 	if len(ids) == 0 {
 		return nil
+	}
+	if err := validateSQLIdentifier(table); err != nil {
+		return err
 	}
 
 	placeholders := make([]string, len(ids))
@@ -261,11 +322,24 @@ func (r *dorisRepository) deleteByField(ctx context.Context,
 	if len(ids) == 0 {
 		return nil
 	}
+	if dimension <= 0 {
+		return fmt.Errorf("invalid embedding dimension: %d", dimension)
+	}
+	if err := r.validateRepoIdentifiers(); err != nil {
+		return err
+	}
+	cleaned, err := sanitizeTargetIDs(ids, field)
+	if err != nil {
+		return err
+	}
 
 	table := r.getTableName(dimension)
-	placeholders := make([]string, len(ids))
-	args := make([]any, len(ids))
-	for i, v := range ids {
+	if err := validateSQLIdentifier(table); err != nil {
+		return err
+	}
+	placeholders := make([]string, len(cleaned))
+	args := make([]any, len(cleaned))
+	for i, v := range cleaned {
 		placeholders[i] = "?"
 		args[i] = v
 	}
@@ -276,7 +350,7 @@ func (r *dorisRepository) deleteByField(ctx context.Context,
 		log.Errorf("[Doris] Delete by %s failed: %v", field, err)
 		return fmt.Errorf("delete by %s: %w", field, err)
 	}
-	log.Infof("[Doris] Deleted %d rows from %s by %s", len(ids), table, field)
+	log.Infof("[Doris] Deleted %d rows from %s by %s", len(cleaned), table, field)
 	return nil
 }
 
@@ -300,8 +374,22 @@ func (r *dorisRepository) VectorRetrieve(ctx context.Context,
 	params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
 	log := logger.GetLogger(ctx)
+	if err := r.validateRepoIdentifiers(); err != nil {
+		return nil, err
+	}
+	kbIDs, err := requireKnowledgeBaseIDs(params.KnowledgeBaseIDs)
+	if err != nil {
+		return nil, err
+	}
+	params.KnowledgeBaseIDs = kbIDs
+	if len(params.Embedding) == 0 {
+		return nil, fmt.Errorf("empty query embedding")
+	}
 	if err := validateEmbedding(params.Embedding); err != nil {
 		return nil, fmt.Errorf("invalid query embedding: %w", err)
+	}
+	if math.IsNaN(params.Threshold) || math.IsInf(params.Threshold, 0) {
+		return nil, fmt.Errorf("invalid threshold: must be finite")
 	}
 	compatMode, err := r.resolveCompatMode(ctx)
 	if err != nil {
@@ -313,6 +401,9 @@ func (r *dorisRepository) VectorRetrieve(ctx context.Context,
 	}
 	dim := len(params.Embedding)
 	table := r.getTableName(dim)
+	if err := validateSQLIdentifier(table); err != nil {
+		return nil, err
+	}
 
 	exists, err := r.tableExists(ctx, table)
 	if err != nil {
@@ -325,6 +416,7 @@ func (r *dorisRepository) VectorRetrieve(ctx context.Context,
 
 	wb := buildBaseFilter(params)
 	whereClause, whereArgs := wb.build()
+	topK := effectiveTopK(params.TopK)
 
 	// embedding 必须用字面量，Doris 不支持 LIMIT/OFFSET 使用占位符，必须内联为字面量。
 	// 使用 HAVING 是因为 score 是 SELECT 列别名，WHERE 阶段还看不到。
@@ -341,7 +433,7 @@ func (r *dorisRepository) VectorRetrieve(ctx context.Context,
 		scoreExpr,
 		table,
 		whereClause,
-		params.TopK,
+		topK,
 	)
 	args := append(whereArgs, params.Threshold)
 
@@ -367,6 +459,17 @@ func (r *dorisRepository) KeywordsRetrieve(ctx context.Context,
 	params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
 	log := logger.GetLogger(ctx)
+	if err := r.validateRepoIdentifiers(); err != nil {
+		return nil, err
+	}
+	kbIDs, err := requireKnowledgeBaseIDs(params.KnowledgeBaseIDs)
+	if err != nil {
+		return nil, err
+	}
+	params.KnowledgeBaseIDs = kbIDs
+	if math.IsNaN(params.Threshold) || math.IsInf(params.Threshold, 0) {
+		return nil, fmt.Errorf("invalid threshold: must be finite")
+	}
 	query := strings.TrimSpace(params.Query)
 	if query == "" {
 		return buildRetrieveResult(nil, types.KeywordsRetrieverType), nil
@@ -382,19 +485,34 @@ func (r *dorisRepository) KeywordsRetrieve(ctx context.Context,
 
 	wb := buildBaseFilter(params)
 	whereClause, whereArgs := wb.build()
+	topK := effectiveTopK(params.TopK)
 
-	var all []*types.IndexWithScore
+	var (
+		all          []*types.IndexWithScore
+		failedTables int
+		firstErr     error
+	)
 	for _, table := range tables {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if err := validateSQLIdentifier(table); err != nil {
+			return nil, err
+		}
 		stmt := fmt.Sprintf(
 			"SELECT %s FROM `%s` WHERE %s AND %s MATCH_ANY ? LIMIT %d",
 			strings.Join(columnsForRetrieve, ", "),
 			table, whereClause, fieldContent,
-			params.TopK,
+			topK,
 		)
 		args := append(append([]any{}, whereArgs...), query)
 
 		rows, err := r.db.QueryContext(ctx, stmt, args...)
 		if err != nil {
+			failedTables++
+			if firstErr == nil {
+				firstErr = err
+			}
 			log.Warnf("[Doris] Keyword retrieve in %s failed: %v", table, err)
 			continue
 		}
@@ -406,8 +524,11 @@ func (r *dorisRepository) KeywordsRetrieve(ctx context.Context,
 		}
 		all = append(all, batch...)
 	}
-	if len(all) > params.TopK {
-		all = all[:params.TopK]
+	if failedTables == len(tables) && firstErr != nil {
+		return nil, fmt.Errorf("keyword retrieve failed across all %d tables: %w", len(tables), firstErr)
+	}
+	if len(all) > topK {
+		all = all[:topK]
 	}
 	log.Infof("[Doris] Keywords retrieval found %d results across %d tables", len(all), len(tables))
 	return buildRetrieveResult(all, types.KeywordsRetrieverType), nil
@@ -429,8 +550,16 @@ func (r *dorisRepository) CopyIndices(ctx context.Context,
 	_ string,
 ) error {
 	log := logger.GetLogger(ctx)
+	sourceKnowledgeBaseID = strings.TrimSpace(sourceKnowledgeBaseID)
+	targetKnowledgeBaseID = strings.TrimSpace(targetKnowledgeBaseID)
+	if sourceKnowledgeBaseID == "" || targetKnowledgeBaseID == "" {
+		return fmt.Errorf("CopyIndices requires non-empty source and target knowledge_base_id")
+	}
 	if len(sourceToTargetChunkIDMap) == 0 {
 		return nil
+	}
+	if dimension <= 0 {
+		return fmt.Errorf("invalid embedding dimension: %d", dimension)
 	}
 	if err := r.ensureTable(ctx, dimension); err != nil {
 		return err
@@ -521,6 +650,9 @@ func toDorisVectorEmbedding(
 	additionalParams map[string]any,
 	compatMode dorisCompatMode,
 ) *DorisVectorEmbedding {
+	if info == nil {
+		return &DorisVectorEmbedding{}
+	}
 	emb := &DorisVectorEmbedding{
 		ID:              info.ID,
 		Content:         info.Content,
@@ -619,6 +751,7 @@ func scanRetrieveRows(rows *sql.Rows, matchType types.MatchType) ([]*types.Index
 			KnowledgeID:     knowledgeID,
 			KnowledgeBaseID: knowledgeBaseID,
 			TagID:           tagID,
+			IsEnabled:       isEnabled,
 			Score:           score,
 			MatchType:       matchType,
 		})

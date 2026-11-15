@@ -68,7 +68,7 @@ func newTestRepo(t *testing.T) (*dorisRepository, sqlmock.Sqlmock, *httptest.Ser
 func primeCompatMode(repo *dorisRepository, mode dorisCompatMode, err error) {
 	repo.compatModeResolved = mode
 	repo.compatResolveErr = err
-	repo.compatResolveOnce.Do(func() {})
+	repo.compatResolved = true
 }
 
 // ---------------------------------------------------------------------------
@@ -377,7 +377,7 @@ func TestVectorRetrieve_SQLShape(t *testing.T) {
 	// Doris does not support placeholders for LIMIT, so TopK is inlined as a
 	// literal and is not a bound argument.
 	mock.ExpectQuery(`SELECT id, content, .*inner_product_approximate.*HAVING score >= \? ORDER BY score DESC LIMIT \d+`).
-		WithArgs(true, 0.5).
+		WithArgs(true, "kb1", 0.5).
 		WillReturnRows(
 			sqlmock.NewRows([]string{
 				"id", "content", "source_id", "source_type",
@@ -387,10 +387,11 @@ func TestVectorRetrieve_SQLShape(t *testing.T) {
 		)
 
 	results, err := repo.VectorRetrieve(context.Background(), types.RetrieveParams{
-		Embedding:     []float32{1, 2, 3},
-		TopK:          5,
-		Threshold:     0.5,
-		RetrieverType: types.VectorRetrieverType,
+		Embedding:        []float32{1, 2, 3},
+		TopK:             5,
+		Threshold:        0.5,
+		KnowledgeBaseIDs: []string{"kb1"},
+		RetrieverType:    types.VectorRetrieverType,
 	})
 	require.NoError(t, err)
 	require.Len(t, results, 1)
@@ -410,7 +411,7 @@ func TestVectorRetrieve_SQLShape_LegacyMode(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"c"}).AddRow(1))
 
 	mock.ExpectQuery(`SELECT id, content, .*cosine_distance_approximate.*HAVING score >= \? ORDER BY score DESC LIMIT \d+`).
-		WithArgs(true, 0.5).
+		WithArgs(true, "kb1", 0.5).
 		WillReturnRows(
 			sqlmock.NewRows([]string{
 				"id", "content", "source_id", "source_type",
@@ -420,10 +421,11 @@ func TestVectorRetrieve_SQLShape_LegacyMode(t *testing.T) {
 		)
 
 	results, err := repo.VectorRetrieve(context.Background(), types.RetrieveParams{
-		Embedding:     []float32{1, 2, 3},
-		TopK:          5,
-		Threshold:     0.5,
-		RetrieverType: types.VectorRetrieverType,
+		Embedding:        []float32{1, 2, 3},
+		TopK:             5,
+		Threshold:        0.5,
+		KnowledgeBaseIDs: []string{"kb1"},
+		RetrieverType:    types.VectorRetrieverType,
 	})
 	require.NoError(t, err)
 	require.Len(t, results, 1)
@@ -456,10 +458,10 @@ func TestKeywordsRetrieve_SQLShape(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"TABLE_NAME"}).
 			AddRow("genyee_embeddings_768"))
 
-	// LIMIT is inlined (see VectorRetrieve), so only is_enabled and the
-	// MATCH_ANY query string are bound arguments.
+	// LIMIT is inlined (see VectorRetrieve), so is_enabled, knowledge_base_id,
+	// and the MATCH_ANY query string are bound arguments.
 	mock.ExpectQuery(`MATCH_ANY \?`).
-		WithArgs(true, "你好").
+		WithArgs(true, "kb1", "你好").
 		WillReturnRows(
 			sqlmock.NewRows([]string{
 				"id", "content", "source_id", "source_type",
@@ -469,9 +471,10 @@ func TestKeywordsRetrieve_SQLShape(t *testing.T) {
 		)
 
 	results, err := repo.KeywordsRetrieve(context.Background(), types.RetrieveParams{
-		Query:         "你好",
-		TopK:          3,
-		RetrieverType: types.KeywordsRetrieverType,
+		Query:            "你好",
+		TopK:             3,
+		KnowledgeBaseIDs: []string{"kb1"},
+		RetrieverType:    types.KeywordsRetrieverType,
 	})
 	require.NoError(t, err)
 	require.Len(t, results, 1)

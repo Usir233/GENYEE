@@ -37,8 +37,9 @@ type dorisRepository struct {
 	bucketsNum          int // 0 -> default 10
 	replicationNum      int // 0 -> default 1
 	compatModeRequested dorisCompatMode
+	compatResolveMu     sync.Mutex
+	compatResolved      bool
 	compatModeResolved  dorisCompatMode
-	compatResolveOnce   sync.Once
 	compatResolveErr    error
 
 	// 已经确保过 ensureTable 的维度集合：dim -> true。

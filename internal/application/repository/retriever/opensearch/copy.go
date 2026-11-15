@@ -30,7 +30,7 @@ type copySourceDoc struct {
 	KnowledgeID     string    `json:"knowledge_id"`
 	KnowledgeBaseID string    `json:"knowledge_base_id"`
 	TagID           string    `json:"tag_id"`
-	IsEnabled       bool      `json:"is_enabled"`
+	IsEnabled       *bool     `json:"is_enabled"`
 	IsRecommended   bool      `json:"is_recommended"`
 	Embedding       []float32 `json:"embedding"`
 }
@@ -70,6 +70,11 @@ func (r *Repository) CopyIndices(
 	knowledgeType string,
 ) error {
 	log := logger.GetLogger(ctx)
+	sourceKnowledgeBaseID = strings.TrimSpace(sourceKnowledgeBaseID)
+	targetKnowledgeBaseID = strings.TrimSpace(targetKnowledgeBaseID)
+	if sourceKnowledgeBaseID == "" || targetKnowledgeBaseID == "" {
+		return fmt.Errorf("opensearch: CopyIndices requires non-empty source and target knowledge_base_id: %w", ErrConfigInvalid)
+	}
 	if len(sourceToTargetChunkIDMap) == 0 {
 		log.Warn("[OpenSearch] CopyIndices: empty chunk mapping, skipping")
 		return nil
@@ -114,7 +119,8 @@ func (r *Repository) CopyIndices(
 				// the Elasticsearch driver's convention.
 				embMap[targetSourceID] = d.Embedding
 			}
-			enabledMap[targetChunkID] = d.IsEnabled
+			isEnabled := d.IsEnabled == nil || *d.IsEnabled
+			enabledMap[targetChunkID] = isEnabled
 			infos = append(infos, &types.IndexInfo{
 				Content:         d.Content,
 				SourceID:        targetSourceID,
@@ -124,7 +130,7 @@ func (r *Repository) CopyIndices(
 				KnowledgeBaseID: targetKnowledgeBaseID,
 				KnowledgeType:   knowledgeType,
 				TagID:           d.TagID,
-				IsEnabled:       d.IsEnabled,
+				IsEnabled:       isEnabled,
 				IsRecommended:   d.IsRecommended,
 			})
 		}

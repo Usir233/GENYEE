@@ -7,9 +7,18 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strings"
 
 	osapi "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 )
+
+func cleanChunkIDKey(id string) (string, error) {
+	trimmed := strings.TrimSpace(id)
+	if trimmed == "" {
+		return "", fmt.Errorf("opensearch: batch update contains empty chunk ID: %w", ErrConfigInvalid)
+	}
+	return trimmed, nil
+}
 
 // BatchUpdateChunkEnabledStatus flips is_enabled for the given chunks. The
 // status map is grouped by value into one _update_by_query per distinct value
@@ -26,7 +35,11 @@ func (r *Repository) BatchUpdateChunkEnabledStatus(ctx context.Context, chunkSta
 	}
 	groups := map[bool][]string{}
 	for id, v := range chunkStatusMap {
-		groups[v] = append(groups[v], id)
+		cleanID, err := cleanChunkIDKey(id)
+		if err != nil {
+			return err
+		}
+		groups[v] = append(groups[v], cleanID)
 	}
 	// Deterministic order (false then true) for predictable behavior/tests.
 	for _, v := range []bool{false, true} {
@@ -50,7 +63,11 @@ func (r *Repository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMap map[
 	}
 	groups := map[string][]string{}
 	for id, tag := range chunkTagMap {
-		groups[tag] = append(groups[tag], id)
+		cleanID, err := cleanChunkIDKey(id)
+		if err != nil {
+			return err
+		}
+		groups[tag] = append(groups[tag], cleanID)
 	}
 	tags := make([]string, 0, len(groups))
 	for tag := range groups {
@@ -77,7 +94,11 @@ func (r *Repository) BatchUpdateChunkContent(ctx context.Context, chunkContentMa
 	}
 	groups := map[string][]string{}
 	for id, content := range chunkContentMap {
-		groups[content] = append(groups[content], id)
+		cleanID, err := cleanChunkIDKey(id)
+		if err != nil {
+			return err
+		}
+		groups[content] = append(groups[content], cleanID)
 	}
 	contents := make([]string, 0, len(groups))
 	for content := range groups {

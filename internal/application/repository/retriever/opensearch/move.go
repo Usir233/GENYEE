@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	osapi "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 )
@@ -19,6 +20,12 @@ func (r *Repository) MoveKnowledgeIndices(
 	_ int,
 	_ string,
 ) error {
+	sourceKB = strings.TrimSpace(sourceKB)
+	targetKB = strings.TrimSpace(targetKB)
+	knowledgeID = strings.TrimSpace(knowledgeID)
+	if sourceKB == "" || targetKB == "" || knowledgeID == "" {
+		return fmt.Errorf("opensearch: MoveKnowledgeIndices requires non-empty sourceKB, targetKB, and knowledgeID: %w", ErrConfigInvalid)
+	}
 	body, err := json.Marshal(map[string]any{
 		"query": map[string]any{"bool": map[string]any{"filter": []any{
 			map[string]any{"term": map[string]any{"knowledge_base_id": sourceKB}},

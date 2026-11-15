@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"strings"
 
 	osapi "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
@@ -13,6 +14,29 @@ import (
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 )
+
+func resolveDocID(info *types.IndexInfo) (string, error) {
+	if info == nil {
+		return "", fmt.Errorf("opensearch: nil IndexInfo: %w", ErrConfigInvalid)
+	}
+	if sid := strings.TrimSpace(info.SourceID); sid != "" {
+		return sid, nil
+	}
+	if cid := strings.TrimSpace(info.ChunkID); cid != "" {
+		return cid, nil
+	}
+	return "", fmt.Errorf("opensearch: IndexInfo requires non-empty SourceID or ChunkID: %w", ErrConfigInvalid)
+}
+
+func validateFiniteVector(emb []float32) error {
+	for i, v := range emb {
+		f := float64(v)
+		if math.IsNaN(f) || math.IsInf(f, 0) {
+			return fmt.Errorf("opensearch: embedding[%d] is not finite: %w", i, ErrDimensionMismatch)
+		}
+	}
+	return nil
+}
 
 // additionalParams contract (verified against
 // elasticsearch/structs.go:ToDBVectorEmbedding and
@@ -27,14 +51,22 @@ import (
 // dim-less keywords index). Missing "chunk_enabled" → IndexInfo's own
 // IsEnabled field is used as-is.
 
-// Save indexes a single chunk. Idempotent: _id is set to chunk_id so
-// re-indexing the same chunk overwrites instead of creating a duplicate.
+// Save indexes a single chunk. Idempotent: _id is set to source_id when
+// non-empty (falling back to chunk_id) so primary chunks and generated
+// questions each receive a stable, non-colliding document _id.
 func (r *Repository) Save(
 	ctx context.Context,
 	info *types.IndexInfo,
 	params map[string]any,
 ) error {
+	docID, err := resolveDocID(info)
+	if err != nil {
+		return err
+	}
 	emb := lookupEmbedding(params, info.SourceID)
+	if err := validateFiniteVector(emb); err != nil {
+		return err
+	}
 	enabled := lookupChunkEnabled(params, info.ChunkID, info.IsEnabled)
 	dim := len(emb)
 
@@ -59,7 +91,7 @@ func (r *Repository) Save(
 	}
 	req := osapi.IndexReq{
 		Index:      targetIndex,
-		DocumentID: info.ChunkID, // _id = chunk_id (idempotent)
+		DocumentID: docID,
 		Body:       bytes.NewReader(doc),
 	}
 	resp, err := r.client.Index(ctx, req)
@@ -150,10 +182,14 @@ func estimateBulkBodyBytes(n, dim int) int {
 func buildBulkBody(alias string, infos []*types.IndexInfo, emb [][]float32, params map[string]any) ([]byte, error) {
 	var buf bytes.Buffer
 	for i, info := range infos {
+		docID, err := resolveDocID(info)
+		if err != nil {
+			return nil, err
+		}
 		action := map[string]any{
 			"index": map[string]any{
 				"_index": alias,
-				"_id":    info.ChunkID,
+				"_id":    docID,
 			},
 		}
 		actionJSON, err := json.Marshal(action)
@@ -205,6 +241,12 @@ func inspectBulkResponse(body io.Reader) error {
 	for _, item := range r.Items {
 		for op, det := range item { // {"index": {...}}
 			if det.Error == nil {
+				if det.Status >= 400 {
+					total++
+					if len(msgs) < 5 {
+						msgs = append(msgs, fmt.Sprintf("[%s %s] status=%d", op, det.ID, det.Status))
+					}
+				}
 				continue
 			}
 			total++
@@ -218,7 +260,7 @@ func inspectBulkResponse(body io.Reader) error {
 		}
 	}
 	if total == 0 {
-		return nil // shouldn't happen if r.Errors=true, but defensive
+		return fmt.Errorf("opensearch: bulk reported errors=true without per-item failure detail: %w", ErrTransport)
 	}
 	return fmt.Errorf("opensearch: bulk partial failure (%d items failed, first 5: %s): %w",
 		total, strings.Join(msgs, "; "), ErrTransport)
@@ -304,7 +346,13 @@ func extractBatchEmbeddings(params map[string]any, infos []*types.IndexInfo) ([]
 	out := make([][]float32, len(infos))
 	dim := 0
 	for i, info := range infos {
+		if info == nil {
+			return nil, 0, fmt.Errorf("opensearch: nil IndexInfo at index %d: %w", i, ErrConfigInvalid)
+		}
 		emb := lookupEmbedding(params, info.SourceID)
+		if err := validateFiniteVector(emb); err != nil {
+			return nil, 0, err
+		}
 		out[i] = emb
 		if len(emb) > 0 {
 			if dim == 0 {
@@ -362,6 +410,14 @@ func (r *Repository) deleteByList(
 		return fmt.Errorf("opensearch: %s-delete batch %d > 1000 cap: %w",
 			field, len(ids), ErrBatchTooLarge)
 	}
+	cleaned := make([]string, 0, len(ids))
+	for _, id := range ids {
+		trimmed := strings.TrimSpace(id)
+		if trimmed == "" {
+			return fmt.Errorf("opensearch: %s-delete contains empty target ID: %w", field, ErrConfigInvalid)
+		}
+		cleaned = append(cleaned, trimmed)
+	}
 	var index string
 	if dim == 0 {
 		if err := r.ensureKeywordsIndex(ctx); err != nil {
@@ -374,7 +430,7 @@ func (r *Repository) deleteByList(
 		}
 		index = r.indexAlias(dim)
 	}
-	return r.deleteByTerms(ctx, index, field, ids)
+	return r.deleteByTerms(ctx, index, field, cleaned)
 }
 
 func (r *Repository) deleteByTerms(
@@ -398,8 +454,9 @@ func (r *Repository) deleteByTerms(
 	if err != nil {
 		return wrapTransport(err)
 	}
-	if resp != nil {
-		drainAndClose(resp.Inspect().Response.Body)
+	if resp == nil {
+		return nil
 	}
-	return nil
+	defer drainAndClose(resp.Inspect().Response.Body)
+	return inspectByQueryResponse(io.LimitReader(resp.Inspect().Response.Body, 16<<20))
 }

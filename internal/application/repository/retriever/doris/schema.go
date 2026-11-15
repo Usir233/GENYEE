@@ -3,11 +3,47 @@ package doris
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/logger"
 )
+
+func validateSQLIdentifier(ident string) error {
+	if ident == "" || len(ident) > 64 {
+		return fmt.Errorf("invalid Doris SQL identifier %q", ident)
+	}
+	for i := 0; i < len(ident); i++ {
+		c := ident[i]
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') {
+			return fmt.Errorf("invalid Doris SQL identifier %q", ident)
+		}
+	}
+	return nil
+}
+
+func (r *dorisRepository) validateRepoIdentifiers() error {
+	if err := validateSQLIdentifier(r.database); err != nil {
+		return fmt.Errorf("invalid Doris database identifier: %w", err)
+	}
+	if err := validateSQLIdentifier(r.tableBaseName); err != nil {
+		return fmt.Errorf("invalid Doris table base identifier: %w", err)
+	}
+	return nil
+}
+
+func (r *dorisRepository) matchesEmbeddingTable(name string) bool {
+	if validateSQLIdentifier(name) != nil {
+		return false
+	}
+	suffix, ok := strings.CutPrefix(name, r.tableBaseName+"_")
+	if !ok || suffix == "" {
+		return false
+	}
+	dim, err := strconv.Atoi(suffix)
+	return err == nil && dim > 0 && strconv.Itoa(dim) == suffix
+}
 
 // 默认的桶数 / 副本数。Doris 在 PROPERTIES 不指定时会用集群默认值，
 // 这里给一个对单机/小集群更友好的保守值。
@@ -35,6 +71,12 @@ func (r *dorisRepository) getTableName(dimension int) string {
 // 该方法在每次 Save / BatchSave 之前调用，结果缓存在 initializedTables 中，
 // 同一进程内同一 dimension 只会真正打一次 SHOW TABLES + DDL。
 func (r *dorisRepository) ensureTable(ctx context.Context, dimension int) error {
+	if dimension <= 0 {
+		return fmt.Errorf("invalid embedding dimension: %d", dimension)
+	}
+	if err := r.validateRepoIdentifiers(); err != nil {
+		return err
+	}
 	if _, ok := r.initializedTables.Load(dimension); ok {
 		return nil
 	}
@@ -45,6 +87,9 @@ func (r *dorisRepository) ensureTable(ctx context.Context, dimension int) error 
 
 	log := logger.GetLogger(ctx)
 	tableName := r.getTableName(dimension)
+	if err := validateSQLIdentifier(tableName); err != nil {
+		return err
+	}
 
 	exists, err := r.tableExists(ctx, tableName)
 	if err != nil {
@@ -86,6 +131,12 @@ func (r *dorisRepository) ensureTable(ctx context.Context, dimension int) error 
 // 不直接用 SHOW TABLES 是因为 Doris 4.1 对 SHOW TABLES LIKE 大小写敏感，
 // 而 information_schema 与 MySQL 兼容性更好。
 func (r *dorisRepository) tableExists(ctx context.Context, tableName string) (bool, error) {
+	if err := r.validateRepoIdentifiers(); err != nil {
+		return false, err
+	}
+	if err := validateSQLIdentifier(tableName); err != nil {
+		return false, err
+	}
 	const q = `SELECT COUNT(1) FROM information_schema.tables
 		WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ?`
 	var n int
@@ -98,6 +149,12 @@ func (r *dorisRepository) tableExists(ctx context.Context, tableName string) (bo
 // createTable 发出 CREATE TABLE DDL。Doris DDL 是同步的（除 ANN 索引构建外），
 // 返回成功即代表表已可写。
 func (r *dorisRepository) createTable(ctx context.Context, tableName string, dimension int, compatMode dorisCompatMode) error {
+	if dimension <= 0 {
+		return fmt.Errorf("invalid embedding dimension: %d", dimension)
+	}
+	if err := validateSQLIdentifier(tableName); err != nil {
+		return err
+	}
 	buckets := r.bucketsNum
 	if buckets <= 0 {
 		buckets = defaultBucketsNum
@@ -211,6 +268,9 @@ func (r *dorisRepository) waitANNReady(ctx context.Context, tableName string) er
 // 兼容策略：如果 SHOW INDEX 返回中找不到 idx_emb 行（极旧版本），视为已就绪，
 // 避免因为不同 Doris 版本的输出差异把启动卡死。
 func (r *dorisRepository) annIndexReady(ctx context.Context, tableName string) (bool, error) {
+	if err := validateSQLIdentifier(tableName); err != nil {
+		return false, err
+	}
 	rows, err := r.db.QueryContext(ctx,
 		fmt.Sprintf("SHOW INDEX FROM `%s`", tableName))
 	if err != nil {
@@ -276,6 +336,9 @@ func (r *dorisRepository) annIndexReady(ctx context.Context, tableName string) (
 // listEmbeddingTables 返回当前 database 下所有 <base>_% 命名的表，
 // 用于关键词检索 / 跨维度 BatchUpdate。
 func (r *dorisRepository) listEmbeddingTables(ctx context.Context) ([]string, error) {
+	if err := r.validateRepoIdentifiers(); err != nil {
+		return nil, err
+	}
 	const q = `SELECT TABLE_NAME FROM information_schema.tables
 		WHERE TABLE_SCHEMA = ? AND TABLE_NAME LIKE ?`
 	rows, err := r.db.QueryContext(ctx, q, r.database, r.tableBaseName+"\\_%")
@@ -288,6 +351,10 @@ func (r *dorisRepository) listEmbeddingTables(ctx context.Context) ([]string, er
 		var n string
 		if err := rows.Scan(&n); err != nil {
 			return nil, err
+		}
+		if !r.matchesEmbeddingTable(n) {
+			logger.GetLogger(ctx).Warnf("[Doris] Ignoring unexpected table name %q from information_schema", n)
+			continue
 		}
 		names = append(names, n)
 	}

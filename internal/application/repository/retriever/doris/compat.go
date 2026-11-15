@@ -45,99 +45,110 @@ func resolveConfiguredDorisCompatMode() (mode dorisCompatMode, invalid string) {
 }
 
 func (r *dorisRepository) resolveCompatMode(ctx context.Context) (dorisCompatMode, error) {
-	r.compatResolveOnce.Do(func() {
-		log := logger.GetLogger(ctx)
-		requested := r.compatModeRequested
-		if requested == "" {
-			r.compatModeResolved = dorisCompatModeInnerProductDuplicate
-			return
-		}
+	r.compatResolveMu.Lock()
+	defer r.compatResolveMu.Unlock()
 
-		existingMode, exampleTable, foundExisting, err := r.detectExistingCompatMode(ctx)
-		if err != nil {
-			r.compatResolveErr = err
-			return
-		}
+	if r.compatResolved {
+		return r.compatModeResolved, r.compatResolveErr
+	}
 
-		if foundExisting {
-			if requested != dorisCompatModeAuto && requested != existingMode {
-				r.compatResolveErr = fmt.Errorf(
-					"Doris compat mode %q does not match existing embedding tables (detected %q from %s). %s is not interchangeable after %s_* tables are created. Recreate the existing %s_* tables before switching modes, or set %s=%s",
-					requested,
-					existingMode,
-					exampleTable,
-					envDorisCompatMode,
-					r.tableBaseName,
-					r.tableBaseName,
-					envDorisCompatMode,
-					existingMode,
-				)
-				log.Errorf("[Doris] %v", r.compatResolveErr)
-				return
-			}
+	mode, err := r.computeCompatMode(ctx)
+	if err != nil {
+		return "", err
+	}
+	r.compatModeResolved = mode
+	r.compatResolveErr = nil
+	r.compatResolved = true
+	return mode, nil
+}
 
-			r.compatModeResolved = existingMode
-			log.Warnf(
-				"[Doris] Using compat mode %s from existing embedding tables (%s). %s is not interchangeable after %s_* tables are created; recreate those tables before switching modes.",
+func (r *dorisRepository) computeCompatMode(ctx context.Context) (dorisCompatMode, error) {
+	log := logger.GetLogger(ctx)
+	requested := r.compatModeRequested
+	if requested == "" {
+		return dorisCompatModeInnerProductDuplicate, nil
+	}
+
+	existingMode, exampleTable, foundExisting, err := r.detectExistingCompatMode(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	if foundExisting {
+		if requested != dorisCompatModeAuto && requested != existingMode {
+			mismatchErr := fmt.Errorf(
+				"Doris compat mode %q does not match existing embedding tables (detected %q from %s). %s is not interchangeable after %s_* tables are created. Recreate the existing %s_* tables before switching modes, or set %s=%s",
+				requested,
 				existingMode,
 				exampleTable,
 				envDorisCompatMode,
 				r.tableBaseName,
-			)
-			return
-		}
-
-		if requested == dorisCompatModeAuto {
-			probe, probeErr := r.probeCompatMode(ctx)
-			if probeErr != nil {
-				r.compatResolveErr = probeErr
-				log.Errorf("[Doris] %v", probeErr)
-				return
-			}
-			log.Infof(
-				"[Doris] Compat probe result: inner_product_approximate=%t, cosine_distance_approximate=%t",
-				probe.innerProductApproximate,
-				probe.cosineDistanceApproximate,
-			)
-
-			switch {
-			case probe.innerProductApproximate:
-				r.compatModeResolved = dorisCompatModeInnerProductDuplicate
-			case probe.cosineDistanceApproximate:
-				r.compatModeResolved = dorisCompatModeLegacy
-			default:
-				r.compatResolveErr = fmt.Errorf(
-					"Doris compatibility auto-detection could not find a supported vector function. Set %s=%s or %s=%s explicitly after verifying your Doris build. %s is not interchangeable after %s_* tables are created",
-					envDorisCompatMode,
-					dorisCompatModeInnerProductDuplicate,
-					envDorisCompatMode,
-					dorisCompatModeLegacy,
-					envDorisCompatMode,
-					r.tableBaseName,
-				)
-				log.Errorf("[Doris] %v", r.compatResolveErr)
-				return
-			}
-
-			log.Warnf(
-				"[Doris] Auto-selected compat mode %s for new embedding tables. %s is not interchangeable after %s_* tables are created; recreate those tables before switching modes.",
-				r.compatModeResolved,
-				envDorisCompatMode,
 				r.tableBaseName,
+				envDorisCompatMode,
+				existingMode,
 			)
-			return
+			log.Errorf("[Doris] %v", mismatchErr)
+			return "", mismatchErr
 		}
 
-		r.compatModeResolved = requested
 		log.Warnf(
-			"[Doris] Using configured compat mode %s for new embedding tables. %s is not interchangeable after %s_* tables are created; recreate those tables before switching modes.",
-			r.compatModeResolved,
+			"[Doris] Using compat mode %s from existing embedding tables (%s). %s is not interchangeable after %s_* tables are created; recreate those tables before switching modes.",
+			existingMode,
+			exampleTable,
 			envDorisCompatMode,
 			r.tableBaseName,
 		)
-	})
+		return existingMode, nil
+	}
 
-	return r.compatModeResolved, r.compatResolveErr
+	if requested == dorisCompatModeAuto {
+		probe, probeErr := r.probeCompatMode(ctx)
+		if probeErr != nil {
+			log.Errorf("[Doris] %v", probeErr)
+			return "", probeErr
+		}
+		log.Infof(
+			"[Doris] Compat probe result: inner_product_approximate=%t, cosine_distance_approximate=%t",
+			probe.innerProductApproximate,
+			probe.cosineDistanceApproximate,
+		)
+
+		var resolved dorisCompatMode
+		switch {
+		case probe.innerProductApproximate:
+			resolved = dorisCompatModeInnerProductDuplicate
+		case probe.cosineDistanceApproximate:
+			resolved = dorisCompatModeLegacy
+		default:
+			unsupportedErr := fmt.Errorf(
+				"Doris compatibility auto-detection could not find a supported vector function. Set %s=%s or %s=%s explicitly after verifying your Doris build. %s is not interchangeable after %s_* tables are created",
+				envDorisCompatMode,
+				dorisCompatModeInnerProductDuplicate,
+				envDorisCompatMode,
+				dorisCompatModeLegacy,
+				envDorisCompatMode,
+				r.tableBaseName,
+			)
+			log.Errorf("[Doris] %v", unsupportedErr)
+			return "", unsupportedErr
+		}
+
+		log.Warnf(
+			"[Doris] Auto-selected compat mode %s for new embedding tables. %s is not interchangeable after %s_* tables are created; recreate those tables before switching modes.",
+			resolved,
+			envDorisCompatMode,
+			r.tableBaseName,
+		)
+		return resolved, nil
+	}
+
+	log.Warnf(
+		"[Doris] Using configured compat mode %s for new embedding tables. %s is not interchangeable after %s_* tables are created; recreate those tables before switching modes.",
+		requested,
+		envDorisCompatMode,
+		r.tableBaseName,
+	)
+	return requested, nil
 }
 
 func (r *dorisRepository) detectExistingCompatMode(ctx context.Context) (dorisCompatMode, string, bool, error) {
@@ -180,6 +191,9 @@ func (r *dorisRepository) detectExistingCompatMode(ctx context.Context) (dorisCo
 }
 
 func (r *dorisRepository) showCreateTable(ctx context.Context, table string) (string, error) {
+	if err := validateSQLIdentifier(table); err != nil {
+		return "", err
+	}
 	row := r.db.QueryRowContext(ctx, fmt.Sprintf("SHOW CREATE TABLE `%s`", table))
 	var tableName, ddl string
 	if err := row.Scan(&tableName, &ddl); err != nil {
@@ -201,9 +215,15 @@ func compatModeFromDDL(ddl string) (dorisCompatMode, error) {
 }
 
 func (r *dorisRepository) probeCompatMode(ctx context.Context) (dorisCompatProbe, error) {
+	if err := ctx.Err(); err != nil {
+		return dorisCompatProbe{}, err
+	}
 	probe := dorisCompatProbe{}
 	probe.innerProductApproximate = r.vectorFunctionSupported(ctx, "inner_product_approximate([1.0],[1.0])")
 	probe.cosineDistanceApproximate = r.vectorFunctionSupported(ctx, "cosine_distance_approximate([1.0],[1.0])")
+	if err := ctx.Err(); err != nil {
+		return dorisCompatProbe{}, err
+	}
 	return probe, nil
 }
 

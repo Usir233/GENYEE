@@ -5,6 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"strings"
+
+	elasticsearchRetriever "github.com/Usir233/GENYEE/internal/application/repository/retriever/elasticsearch"
 )
 
 func (e *elasticsearchRepository) MoveKnowledgeIndices(
@@ -14,6 +18,13 @@ func (e *elasticsearchRepository) MoveKnowledgeIndices(
 	_ int,
 	_ string,
 ) error {
+	sourceKB = strings.TrimSpace(sourceKB)
+	targetKB = strings.TrimSpace(targetKB)
+	knowledgeID = strings.TrimSpace(knowledgeID)
+	if sourceKB == "" || targetKB == "" || knowledgeID == "" {
+		return fmt.Errorf("move indices requires non-empty sourceKB, targetKB, and knowledgeID")
+	}
+
 	body, err := json.Marshal(map[string]any{
 		"query": map[string]any{"bool": map[string]any{"filter": []any{
 			map[string]any{"term": map[string]any{e.idField("knowledge_base_id"): sourceKB}},
@@ -35,11 +46,11 @@ func (e *elasticsearchRepository) MoveKnowledgeIndices(
 		e.client.UpdateByQuery.WithRefresh(true),
 	)
 	if err != nil {
-		return err
+		return errorsWrapRedacted(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.IsError() {
-		return fmt.Errorf("move indices: %s", resp.String())
+		return fmt.Errorf("move indices failed with status %d", resp.StatusCode)
 	}
 	var result struct {
 		Total     *int64            `json:"total"`
@@ -48,7 +59,7 @@ func (e *elasticsearchRepository) MoveKnowledgeIndices(
 		Conflicts int               `json:"version_conflicts"`
 		Failures  []json.RawMessage `json:"failures"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxByQueryResponseBytes)).Decode(&result); err != nil {
 		return err
 	}
 	if result.Total == nil || result.Updated == nil || *result.Total < 0 || *result.Total != *result.Updated ||
@@ -56,4 +67,11 @@ func (e *elasticsearchRepository) MoveKnowledgeIndices(
 		return fmt.Errorf("move indices was incomplete")
 	}
 	return nil
+}
+
+func errorsWrapRedacted(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s", elasticsearchRetriever.RedactURLCredentials(err.Error()))
 }

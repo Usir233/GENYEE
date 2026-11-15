@@ -6,12 +6,27 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
+	"strings"
 
 	osapi "github.com/opensearch-project/opensearch-go/v4/opensearchapi"
 
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 )
+
+func requireKnowledgeBaseIDs(kbIDs []string) ([]string, error) {
+	cleaned := make([]string, 0, len(kbIDs))
+	for _, id := range kbIDs {
+		if trimmed := strings.TrimSpace(id); trimmed != "" {
+			cleaned = append(cleaned, trimmed)
+		}
+	}
+	if len(cleaned) == 0 {
+		return nil, fmt.Errorf("opensearch: knowledge_base_id filter is required: %w", ErrConfigInvalid)
+	}
+	return cleaned, nil
+}
 
 // Retrieve dispatches to vectorRetrieve or keywordsRetrieve based on
 // params.RetrieverType. Returns exactly one *RetrieveResult — the
@@ -31,6 +46,14 @@ func (r *Repository) Retrieve(
 	ctx context.Context,
 	params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
+	kbIDs, err := requireKnowledgeBaseIDs(params.KnowledgeBaseIDs)
+	if err != nil {
+		return nil, err
+	}
+	params.KnowledgeBaseIDs = kbIDs
+	if math.IsNaN(params.Threshold) || math.IsInf(params.Threshold, 0) {
+		return nil, fmt.Errorf("opensearch: threshold must be finite: %w", ErrConfigInvalid)
+	}
 	dim, multiIndex := resolveDim(params)
 
 	switch params.RetrieverType {
@@ -39,6 +62,9 @@ func (r *Repository) Retrieve(
 			return nil, fmt.Errorf(
 				"opensearch: vector retrieve requires embedding or AdditionalParams[\"dim\"]: %w",
 				ErrDimensionMismatch)
+		}
+		if err := validateFiniteVector(params.Embedding); err != nil {
+			return nil, err
 		}
 		if err := r.ensureReady(ctx, dim); err != nil {
 			return nil, err
@@ -183,9 +209,9 @@ func wrapResults(ctx context.Context, hits []hit, rt types.RetrieverType, mt typ
 		if rt == types.VectorRetrieverType {
 			score = knnScoreToCosine(score)
 		}
-		if h.ID != h.Source.ChunkID {
-			log.Warnf("[OpenSearch] hit._id=%q != _source.chunk_id=%q (D12 invariant violation)",
-				h.ID, h.Source.ChunkID)
+		if h.ID != h.Source.ChunkID && (h.Source.SourceID == "" || h.ID != h.Source.SourceID) {
+			log.Warnf("[OpenSearch] hit._id=%q != _source.chunk_id=%q / source_id=%q (D12 invariant violation)",
+				h.ID, h.Source.ChunkID, h.Source.SourceID)
 		}
 		out = append(out, &types.IndexWithScore{
 			ID:              h.ID,

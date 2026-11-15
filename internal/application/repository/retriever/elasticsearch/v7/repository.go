@@ -10,8 +10,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
+	"io"
+	"math"
 	"strings"
 
 	elasticsearchRetriever "github.com/Usir233/GENYEE/internal/application/repository/retriever/elasticsearch"
@@ -22,6 +23,15 @@ import (
 	"github.com/elastic/go-elasticsearch/v7"
 	"github.com/elastic/go-elasticsearch/v7/esapi"
 	"github.com/google/uuid"
+)
+
+const (
+	maxSearchResponseBytes  = 16 << 20
+	maxCopyResponseBytes    = 64 << 20
+	maxBulkResponseBytes    = 64 << 20
+	maxByQueryResponseBytes = 16 << 20
+	maxMappingResponseBytes = 4 << 20
+	maxErrorBodyPreview     = 4 << 10
 )
 
 type elasticsearchRepository struct {
@@ -83,13 +93,13 @@ func (e *elasticsearchRepository) detectFieldTypes(ctx context.Context) {
 	defer resp.Body.Close()
 
 	if resp.IsError() {
-		log.Warnf("[ElasticsearchV7] GetMapping returned error: %s, defaulting to .keyword suffix", resp.String())
+		log.Warnf("[ElasticsearchV7] GetMapping returned status %d, defaulting to .keyword suffix", resp.StatusCode)
 		e.useKeywordSuffix = true
 		return
 	}
 
 	var result map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxMappingResponseBytes)).Decode(&result); err != nil {
 		log.Warnf("[ElasticsearchV7] Failed to parse mapping response: %v, defaulting to .keyword suffix", err)
 		e.useKeywordSuffix = true
 		return
@@ -174,8 +184,8 @@ func (e *elasticsearchRepository) createIndexIfNotExists(ctx context.Context) er
 	defer createRes.Body.Close()
 
 	if createRes.IsError() {
-		// Log detailed response server-side; return generic message to avoid leaking cluster info
-		log.Errorf("[ElasticsearchV7] Create index response: %s", createRes.String())
+		preview, _ := io.ReadAll(io.LimitReader(createRes.Body, maxErrorBodyPreview))
+		log.Errorf("[ElasticsearchV7] Create index failed (status=%d): %s", createRes.StatusCode, string(preview))
 		return fmt.Errorf("failed to create index %s", e.index)
 	}
 
@@ -241,11 +251,13 @@ func (e *elasticsearchRepository) Save(ctx context.Context,
 	embedding *typesLocal.IndexInfo, additionalParams map[string]any,
 ) error {
 	log := logger.GetLogger(ctx)
+	if embedding == nil || strings.TrimSpace(embedding.ChunkID) == "" {
+		return fmt.Errorf("elasticsearch v7: Save requires non-empty chunk ID")
+	}
 	log.Debugf("[ElasticsearchV7] Saving index for chunk ID: %s", embedding.ChunkID)
 
 	embeddingDB := elasticsearchRetriever.ToDBVectorEmbedding(embedding, additionalParams)
-	if len(embeddingDB.Embedding) == 0 {
-		err := fmt.Errorf("empty embedding vector for chunk ID: %s", embedding.ChunkID)
+	if err := elasticsearchRetriever.ValidateEmbedding(embeddingDB.Embedding); err != nil {
 		log.Errorf("[ElasticsearchV7] %v", err)
 		return err
 	}
@@ -266,14 +278,16 @@ func (e *elasticsearchRepository) Save(ctx context.Context,
 		e.client.Create.WithContext(ctx),
 	)
 	if err != nil {
+		err = errorsWrapRedacted(err)
 		log.Errorf("[ElasticsearchV7] Failed to create document: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.IsError() {
-		log.Errorf("[ElasticsearchV7] Failed to index document: %s", resp.String())
-		return fmt.Errorf("failed to index document: %s", resp.String())
+		preview, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyPreview))
+		log.Errorf("[ElasticsearchV7] Failed to index document (status=%d): %s", resp.StatusCode, string(preview))
+		return fmt.Errorf("failed to index document (status %d)", resp.StatusCode)
 	}
 
 	log.Infof(
@@ -340,12 +354,22 @@ func (e *elasticsearchRepository) prepareBulkRequestBody(ctx context.Context,
 
 	// Prepare bulk request body
 	for _, embedding := range embeddingList {
+		if embedding == nil || strings.TrimSpace(embedding.ChunkID) == "" {
+			return nil, 0, fmt.Errorf("elasticsearch v7: BatchSave item requires non-empty chunk ID")
+		}
 		// Convert to Elasticsearch document format
 		embeddingDB := elasticsearchRetriever.ToDBVectorEmbedding(embedding, additionalParams)
+		if err := elasticsearchRetriever.ValidateEmbedding(embeddingDB.Embedding); err != nil {
+			return nil, 0, err
+		}
 
-		// Generate document ID and metadata line
+		// Generate document ID and metadata line via encoding/json
 		docID := uuid.New().String()
-		meta := []byte(fmt.Sprintf(`{ "index" : { "_id" : "%s" } }%s`, docID, "\n"))
+		metaJSON, err := json.Marshal(map[string]any{"index": map[string]any{"_id": docID}})
+		if err != nil {
+			return nil, 0, err
+		}
+		meta := append(metaJSON, '\n')
 
 		// Marshal document to JSON
 		data, err := json.Marshal(embeddingDB)
@@ -387,8 +411,9 @@ func (e *elasticsearchRepository) processBulkResponse(ctx context.Context,
 
 	// Check for bulk operation errors
 	if resp.IsError() {
-		log.Errorf("[ElasticsearchV7] Bulk operation failed: %s", resp.String())
-		return fmt.Errorf("failed to index documents: %s", resp.String())
+		preview, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyPreview))
+		log.Errorf("[ElasticsearchV7] Bulk operation failed (status=%d): %s", resp.StatusCode, string(preview))
+		return fmt.Errorf("failed to index documents (status %d)", resp.StatusCode)
 	}
 
 	// Parse bulk response to check for individual document errors. A body that
@@ -397,7 +422,7 @@ func (e *elasticsearchRepository) processBulkResponse(ctx context.Context,
 		Errors bool                          `json:"errors"`
 		Items  []map[string]bulkResponseItem `json:"items"`
 	}
-	if err := json.NewDecoder(resp.Body).Decode(&bulkResponse); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxBulkResponseBytes)).Decode(&bulkResponse); err != nil {
 		log.Errorf("[ElasticsearchV7] Could not parse bulk response: %v", err)
 		return fmt.Errorf("failed to parse bulk response: %w", err)
 	}
@@ -463,51 +488,78 @@ func (e *elasticsearchRepository) DeleteByKnowledgeIDList(ctx context.Context,
 // deleteByFieldList Delete documents by field value list
 func (e *elasticsearchRepository) deleteByFieldList(ctx context.Context, field string, valueList []string) error {
 	log := logger.GetLogger(ctx)
-	if len(valueList) == 0 {
+	cleaned, err := elasticsearchRetriever.SanitizeDeleteTargetIDs(valueList)
+	if err != nil {
+		return err
+	}
+	if len(cleaned) == 0 {
 		log.Warnf("[ElasticsearchV7] Empty %s list provided for deletion, skipping", field)
 		return nil
 	}
 
-	log.Infof("[ElasticsearchV7] Deleting indices by %s, count: %d", field, len(valueList))
-	ids, err := json.Marshal(valueList)
+	log.Infof("[ElasticsearchV7] Deleting indices by %s, count: %d", field, len(cleaned))
+	queryBytes, err := json.Marshal(map[string]any{
+		"query": map[string]any{
+			"terms": map[string]any{
+				field: cleaned,
+			},
+		},
+	})
 	if err != nil {
-		log.Errorf("[ElasticsearchV7] Failed to marshal %s list: %v", field, err)
+		log.Errorf("[ElasticsearchV7] Failed to marshal %s delete query: %v", field, err)
 		return err
 	}
 
-	query := fmt.Sprintf(`{"query": {"terms": {"%s": %s}}}`, field, ids)
-	log.Debugf("[ElasticsearchV7] Executing delete by query: %s", query)
-
 	resp, err := e.client.DeleteByQuery(
 		[]string{e.index},
-		bytes.NewReader([]byte(query)),
+		bytes.NewReader(queryBytes),
 		e.client.DeleteByQuery.WithContext(ctx),
 	)
 	if err != nil {
+		err = errorsWrapRedacted(err)
 		log.Errorf("[ElasticsearchV7] Failed to execute delete by query: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
 
-	if resp.IsError() {
-		errMsg := fmt.Sprintf("failed to delete by query: %s", resp.String())
-		log.Errorf("[ElasticsearchV7] %s", errMsg)
-		return fmt.Errorf("failed to delete by query: %s", resp.String())
+	if err := inspectV7ByQueryResponse(ctx, resp, "delete_by_query"); err != nil {
+		return err
 	}
+	log.Infof("[ElasticsearchV7] Successfully deleted documents by %s", field)
+	return nil
+}
 
-	// Try to extract deletion count from response
-	var deleteResponse map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&deleteResponse); err != nil {
-		log.Warnf("[ElasticsearchV7] Could not parse delete response: %v", err)
-	} else {
-		if deleted, ok := deleteResponse["deleted"].(float64); ok {
-			log.Infof("[ElasticsearchV7] Successfully deleted %d documents by %s", int(deleted), field)
-		} else {
-			log.Infof("[ElasticsearchV7] Successfully deleted documents by %s", field)
+func inspectV7ByQueryResponse(ctx context.Context, resp *esapi.Response, op string) error {
+	log := logger.GetLogger(ctx)
+	if resp.IsError() {
+		preview, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyPreview))
+		log.Errorf("[ElasticsearchV7] %s failed (status=%d): %s", op, resp.StatusCode, string(preview))
+		return fmt.Errorf("elasticsearch %s failed with status: %d", op, resp.StatusCode)
+	}
+	var parsed struct {
+		Failures []struct {
+			ID    string `json:"id"`
+			Cause struct {
+				Type   string `json:"type"`
+				Reason string `json:"reason"`
+			} `json:"cause"`
+		} `json:"failures"`
+	}
+	if err := json.NewDecoder(io.LimitReader(resp.Body, maxByQueryResponseBytes)).Decode(&parsed); err != nil {
+		return fmt.Errorf("elasticsearch %s: decode response: %w", op, err)
+	}
+	if len(parsed.Failures) == 0 {
+		return nil
+	}
+	msgs := make([]string, 0, bulkErrorSummaryLimit)
+	for _, f := range parsed.Failures {
+		log.Debugf("[ElasticsearchV7] %s failure: id=%s type=%s reason=%s", op, f.ID, f.Cause.Type, f.Cause.Reason)
+		if len(msgs) < bulkErrorSummaryLimit {
+			msgs = append(msgs, fmt.Sprintf("[%s] %s", f.ID, f.Cause.Type))
 		}
 	}
-
-	return nil
+	return fmt.Errorf("elasticsearch %s partial failure (%d failed, first %d: %s)",
+		op, len(parsed.Failures), len(msgs), strings.Join(msgs, "; "))
 }
 
 // getBaseConds Construct base Elasticsearch query conditions based on retrieval parameters
@@ -665,12 +717,28 @@ func (e *elasticsearchRepository) buildVectorSearchQuery(ctx context.Context,
 ) (string, error) {
 	log := logger.GetLogger(ctx)
 
+	kbIDs, err := elasticsearchRetriever.RequireKnowledgeBaseIDs(params.KnowledgeBaseIDs)
+	if err != nil {
+		return "", err
+	}
+	params.KnowledgeBaseIDs = kbIDs
+
+	if len(params.Embedding) == 0 {
+		return "", fmt.Errorf("elasticsearch v7: empty query embedding")
+	}
+	if err := elasticsearchRetriever.ValidateEmbedding(params.Embedding); err != nil {
+		return "", err
+	}
+	if math.IsNaN(params.Threshold) || math.IsInf(params.Threshold, 0) {
+		return "", fmt.Errorf("elasticsearch v7: invalid threshold")
+	}
+
 	// Parse filter conditions
 	var filterQuery map[string]interface{}
 	filterJSON := e.getBaseConds(params)
 	if err := json.Unmarshal([]byte(filterJSON), &filterQuery); err != nil {
 		log.Errorf("[ElasticsearchV7] Failed to unmarshal filter: %v", err)
-		filterQuery = map[string]interface{}{}
+		return "", fmt.Errorf("failed to build filter: %w", err)
 	}
 
 	// Construct the script_score query using structured objects
@@ -691,7 +759,7 @@ func (e *elasticsearchRepository) buildVectorSearchQuery(ctx context.Context,
 				"min_score": params.Threshold,
 			},
 		},
-		"size": params.TopK,
+		"size": elasticsearchRetriever.EffectiveTopK(params.TopK),
 	}
 
 	// Marshal to JSON string
@@ -766,18 +834,49 @@ func (e *elasticsearchRepository) buildKeywordSearchQuery(ctx context.Context,
 	params typesLocal.RetrieveParams,
 ) (string, error) {
 	log := logger.GetLogger(ctx)
-	content, err := json.Marshal(params.Query)
+
+	kbIDs, err := elasticsearchRetriever.RequireKnowledgeBaseIDs(params.KnowledgeBaseIDs)
 	if err != nil {
-		log.Errorf("[ElasticsearchV7] Failed to marshal query: %v", err)
+		return "", err
+	}
+	params.KnowledgeBaseIDs = kbIDs
+
+	if math.IsNaN(params.Threshold) || math.IsInf(params.Threshold, 0) {
+		return "", fmt.Errorf("elasticsearch v7: invalid threshold")
+	}
+
+	var filterQuery map[string]interface{}
+	if err := json.Unmarshal([]byte(e.getBaseConds(params)), &filterQuery); err != nil {
+		log.Errorf("[ElasticsearchV7] Failed to unmarshal filter: %v", err)
+		return "", fmt.Errorf("failed to build filter: %w", err)
+	}
+
+	queryObj := map[string]interface{}{
+		"query": map[string]interface{}{
+			"bool": map[string]interface{}{
+				"must": []interface{}{
+					map[string]interface{}{
+						"match": map[string]interface{}{
+							"content": params.Query,
+						},
+					},
+				},
+				"filter": []interface{}{filterQuery},
+			},
+		},
+		"size": elasticsearchRetriever.EffectiveTopK(params.TopK),
+	}
+	if params.Threshold > 0 {
+		queryObj["min_score"] = params.Threshold
+	}
+
+	queryBytes, err := json.Marshal(queryObj)
+	if err != nil {
+		log.Errorf("[ElasticsearchV7] Failed to marshal keyword query: %v", err)
 		return "", err
 	}
 
-	filter := e.getBaseConds(params)
-	query := fmt.Sprintf(
-		`{"query": {"bool": {"must": [{"match": {"content": %s}}], "filter": [%s]}}}`,
-		string(content), filter,
-	)
-
+	query := string(queryBytes)
 	log.Debugf("[ElasticsearchV7] Executing keyword search with query: %s", query)
 	return query, nil
 }
@@ -816,9 +915,9 @@ func (e *elasticsearchRepository) processSearchResponse(ctx context.Context,
 	log := logger.GetLogger(ctx)
 
 	if response.IsError() {
-		errMsg := fmt.Sprintf("failed to retrieve: %s", response.String())
-		log.Errorf("[ElasticsearchV7] %s", errMsg)
-		return nil, errors.New(errMsg)
+		preview, _ := io.ReadAll(io.LimitReader(response.Body, maxErrorBodyPreview))
+		log.Errorf("[ElasticsearchV7] Search failed (status=%d): %s", response.StatusCode, string(preview))
+		return nil, fmt.Errorf("failed to retrieve (status %d)", response.StatusCode)
 	}
 
 	// Decode response body
@@ -852,7 +951,7 @@ func (e *elasticsearchRepository) decodeSearchResponse(ctx context.Context,
 	log := logger.GetLogger(ctx)
 	var rJson map[string]any
 
-	if err := json.NewDecoder(response.Body).Decode(&rJson); err != nil {
+	if err := json.NewDecoder(io.LimitReader(response.Body, maxSearchResponseBytes)).Decode(&rJson); err != nil {
 		log.Errorf("[ElasticsearchV7] Failed to decode search response: %v", err)
 		return nil, err
 	}
@@ -928,10 +1027,14 @@ func (e *elasticsearchRepository) processHit(ctx context.Context,
 		return nil, fmt.Errorf("hit %s missing _source", docID)
 	}
 
-	// Get score
-	score, ok := hitMap["_score"].(float64)
-	if !ok {
-		return nil, fmt.Errorf("hit %s missing score", docID)
+	// Get score (may be nil on unscored queries)
+	score := 0.0
+	if hitMap["_score"] != nil {
+		s, ok := hitMap["_score"].(float64)
+		if !ok {
+			return nil, fmt.Errorf("hit %s missing score", docID)
+		}
+		score = s
 	}
 
 	// Convert source to embedding
@@ -940,14 +1043,15 @@ func (e *elasticsearchRepository) processHit(ctx context.Context,
 		return nil, err
 	}
 
-	result := elasticsearchRetriever.FromDBVectorEmbeddingWithScore(
-		docID, embedding, typesLocal.MatchTypeKeywords,
-	)
-
+	resultMatchType := typesLocal.MatchTypeKeywords
 	matchType := "keyword"
 	if retrieverType == typesLocal.VectorRetrieverType {
+		resultMatchType = typesLocal.MatchTypeEmbedding
 		matchType = "vector"
 	}
+	result := elasticsearchRetriever.FromDBVectorEmbeddingWithScore(
+		docID, embedding, resultMatchType,
+	)
 	log.Debugf("[ElasticsearchV7] %s search result: id=%s, score=%.4f", matchType, docID, score)
 
 	return result, nil
@@ -1012,6 +1116,12 @@ func (e *elasticsearchRepository) CopyIndices(ctx context.Context,
 		"[ElasticsearchV7] Copying indices from source knowledge base %s to target knowledge base %s, count: %d",
 		sourceKnowledgeBaseID, targetKnowledgeBaseID, len(sourceToTargetChunkIDMap),
 	)
+
+	sourceKnowledgeBaseID = strings.TrimSpace(sourceKnowledgeBaseID)
+	targetKnowledgeBaseID = strings.TrimSpace(targetKnowledgeBaseID)
+	if sourceKnowledgeBaseID == "" || targetKnowledgeBaseID == "" {
+		return fmt.Errorf("copy indices requires non-empty source and target knowledge base IDs")
+	}
 
 	if len(sourceToTargetChunkIDMap) == 0 {
 		log.Warnf("[ElasticsearchV7] Empty mapping, skipping copy")
@@ -1112,13 +1222,14 @@ func (e *elasticsearchRepository) querySourceBatch(ctx context.Context,
 	defer response.Body.Close()
 
 	if response.IsError() {
-		log.Errorf("[ElasticsearchV7] Failed to query source index data: %s", response.String())
-		return nil, fmt.Errorf("failed to query source index data: %s", response.String())
+		preview, _ := io.ReadAll(io.LimitReader(response.Body, maxErrorBodyPreview))
+		log.Errorf("[ElasticsearchV7] Failed to query source index data (status=%d): %s", response.StatusCode, string(preview))
+		return nil, fmt.Errorf("failed to query source index data (status %d)", response.StatusCode)
 	}
 
 	// 解析搜索结果
 	var searchResult map[string]interface{}
-	if err := json.NewDecoder(response.Body).Decode(&searchResult); err != nil {
+	if err := json.NewDecoder(io.LimitReader(response.Body, maxCopyResponseBytes)).Decode(&searchResult); err != nil {
 		log.Errorf("[ElasticsearchV7] Failed to parse query result: %v", err)
 		return nil, err
 	}
@@ -1320,6 +1431,28 @@ func (e *elasticsearchRepository) saveCopiedIndices(ctx context.Context,
 	return nil
 }
 
+func (e *elasticsearchRepository) execV7UpdateByQuery(
+	ctx context.Context, query map[string]interface{}, refresh bool,
+) error {
+	queryJSON, err := json.Marshal(query)
+	if err != nil {
+		return fmt.Errorf("marshal update_by_query: %w", err)
+	}
+	req := esapi.UpdateByQueryRequest{
+		Index: []string{e.index},
+		Body:  bytes.NewReader(queryJSON),
+	}
+	if refresh {
+		req.Refresh = &refresh
+	}
+	res, err := req.Do(ctx, e.client)
+	if err != nil {
+		return errorsWrapRedacted(err)
+	}
+	defer res.Body.Close()
+	return inspectV7ByQueryResponse(ctx, res, "update_by_query")
+}
+
 // BatchUpdateChunkEnabledStatus updates the enabled status of chunks in batch
 func (e *elasticsearchRepository) BatchUpdateChunkEnabledStatus(
 	ctx context.Context,
@@ -1338,10 +1471,13 @@ func (e *elasticsearchRepository) BatchUpdateChunkEnabledStatus(
 	disabledChunkIDs := make([]string, 0)
 
 	for chunkID, enabled := range chunkStatusMap {
+		if err := elasticsearchRetriever.ValidateChunkKey(chunkID); err != nil {
+			return err
+		}
 		if enabled {
-			enabledChunkIDs = append(enabledChunkIDs, chunkID)
+			enabledChunkIDs = append(enabledChunkIDs, strings.TrimSpace(chunkID))
 		} else {
-			disabledChunkIDs = append(disabledChunkIDs, chunkID)
+			disabledChunkIDs = append(disabledChunkIDs, strings.TrimSpace(chunkID))
 		}
 	}
 
@@ -1358,24 +1494,9 @@ func (e *elasticsearchRepository) BatchUpdateChunkEnabledStatus(
 				"lang":   "painless",
 			},
 		}
-		queryJSON, _ := json.Marshal(query)
-		res, err := esapi.UpdateByQueryRequest{
-			Index: []string{e.index},
-			Body:  strings.NewReader(string(queryJSON)),
-		}.Do(ctx, e.client)
-		if err != nil {
+		if err := e.execV7UpdateByQuery(ctx, query, false); err != nil {
 			log.Errorf("[ElasticsearchV7] Failed to update enabled chunks: %v", err)
 			return err
-		}
-		defer res.Body.Close()
-		if res.IsError() {
-			var e map[string]interface{}
-			if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
-				log.Errorf("[ElasticsearchV7] Error parsing the response body: %v", err)
-			} else {
-				log.Errorf("[ElasticsearchV7] Error updating enabled chunks: %v", e["error"])
-			}
-			return fmt.Errorf("elasticsearch update_by_query failed with status: %d", res.StatusCode)
 		}
 		log.Infof("[ElasticsearchV7] Updated %d chunks to enabled", len(enabledChunkIDs))
 	}
@@ -1393,24 +1514,9 @@ func (e *elasticsearchRepository) BatchUpdateChunkEnabledStatus(
 				"lang":   "painless",
 			},
 		}
-		queryJSON, _ := json.Marshal(query)
-		res, err := esapi.UpdateByQueryRequest{
-			Index: []string{e.index},
-			Body:  strings.NewReader(string(queryJSON)),
-		}.Do(ctx, e.client)
-		if err != nil {
+		if err := e.execV7UpdateByQuery(ctx, query, false); err != nil {
 			log.Errorf("[ElasticsearchV7] Failed to update disabled chunks: %v", err)
 			return err
-		}
-		defer res.Body.Close()
-		if res.IsError() {
-			var e map[string]interface{}
-			if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
-				log.Errorf("[ElasticsearchV7] Error parsing the response body: %v", err)
-			} else {
-				log.Errorf("[ElasticsearchV7] Error updating disabled chunks: %v", e["error"])
-			}
-			return fmt.Errorf("elasticsearch update_by_query failed with status: %d", res.StatusCode)
 		}
 		log.Infof("[ElasticsearchV7] Updated %d chunks to disabled", len(disabledChunkIDs))
 	}
@@ -1435,7 +1541,10 @@ func (e *elasticsearchRepository) BatchUpdateChunkTagID(
 	// Group chunks by tag ID for batch updates
 	tagGroups := make(map[string][]string)
 	for chunkID, tagID := range chunkTagMap {
-		tagGroups[tagID] = append(tagGroups[tagID], chunkID)
+		if err := elasticsearchRetriever.ValidateChunkKey(chunkID); err != nil {
+			return err
+		}
+		tagGroups[tagID] = append(tagGroups[tagID], strings.TrimSpace(chunkID))
 	}
 
 	// Batch update chunks for each tag ID using update_by_query
@@ -1454,24 +1563,9 @@ func (e *elasticsearchRepository) BatchUpdateChunkTagID(
 				},
 			},
 		}
-		queryJSON, _ := json.Marshal(query)
-		res, err := esapi.UpdateByQueryRequest{
-			Index: []string{e.index},
-			Body:  strings.NewReader(string(queryJSON)),
-		}.Do(ctx, e.client)
-		if err != nil {
+		if err := e.execV7UpdateByQuery(ctx, query, false); err != nil {
 			log.Errorf("[ElasticsearchV7] Failed to update chunks with tag_id %s: %v", tagID, err)
 			return err
-		}
-		defer res.Body.Close()
-		if res.IsError() {
-			var e map[string]interface{}
-			if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
-				log.Errorf("[ElasticsearchV7] Error parsing the response body: %v", err)
-			} else {
-				log.Errorf("[ElasticsearchV7] Error updating chunks with tag_id: %v", e["error"])
-			}
-			return fmt.Errorf("elasticsearch update_by_query failed with status: %d", res.StatusCode)
 		}
 		log.Infof("[ElasticsearchV7] Updated %d chunks to tag_id=%s", len(chunkIDs), tagID)
 	}
@@ -1495,10 +1589,12 @@ func (e *elasticsearchRepository) BatchUpdateChunkContent(
 
 	contentGroups := make(map[string][]string)
 	for chunkID, content := range chunkContentMap {
-		contentGroups[content] = append(contentGroups[content], chunkID)
+		if err := elasticsearchRetriever.ValidateChunkKey(chunkID); err != nil {
+			return err
+		}
+		contentGroups[content] = append(contentGroups[content], strings.TrimSpace(chunkID))
 	}
 
-	refresh := true
 	for content, chunkIDs := range contentGroups {
 		query := map[string]interface{}{
 			"query": map[string]interface{}{
@@ -1525,32 +1621,9 @@ func (e *elasticsearchRepository) BatchUpdateChunkContent(
 				},
 			},
 		}
-		queryJSON, err := json.Marshal(query)
-		if err != nil {
-			return fmt.Errorf("marshal chunk content update query: %w", err)
-		}
-		res, err := esapi.UpdateByQueryRequest{
-			Index:   []string{e.index},
-			Refresh: &refresh,
-			Body:    strings.NewReader(string(queryJSON)),
-		}.Do(ctx, e.client)
-		if err != nil {
+		if err := e.execV7UpdateByQuery(ctx, query, true); err != nil {
 			log.Errorf("[ElasticsearchV7] Failed to update chunk content: %v", err)
 			return err
-		}
-		isErr := res.IsError()
-		statusCode := res.StatusCode
-		if isErr {
-			var errBody map[string]interface{}
-			if decodeErr := json.NewDecoder(res.Body).Decode(&errBody); decodeErr != nil {
-				log.Errorf("[ElasticsearchV7] Error parsing response body: %v", decodeErr)
-			} else {
-				log.Errorf("[ElasticsearchV7] Error updating chunk content: %v", errBody["error"])
-			}
-		}
-		_ = res.Body.Close()
-		if isErr {
-			return fmt.Errorf("elasticsearch update_by_query failed with status: %d", statusCode)
 		}
 	}
 

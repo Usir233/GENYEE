@@ -101,6 +101,9 @@ func newDorisStreamLoadHTTPClient() *http.Client {
 		if len(via) == 0 {
 			return nil
 		}
+		if req.URL.User != nil {
+			return fmt.Errorf("%w: stream load redirect URL must not embed userinfo", secutils.ErrSSRFRedirectBlocked)
+		}
 
 		// Stream Load deliberately replays PUT bodies to a BE. Keep this
 		// exception local to Doris; generic clients must not replay requests
@@ -161,6 +164,12 @@ func (r *dorisRepository) streamLoadOnce(ctx context.Context,
 	if len(rows) == 0 {
 		return nil
 	}
+	if err := validateSQLIdentifier(r.database); err != nil {
+		return fmt.Errorf("invalid Doris database identifier: %w", err)
+	}
+	if err := validateSQLIdentifier(table); err != nil {
+		return fmt.Errorf("invalid Doris table identifier: %w", err)
+	}
 
 	body, err := json.Marshal(rows)
 	if err != nil {
@@ -172,11 +181,11 @@ func (r *dorisRepository) streamLoadOnce(ctx context.Context,
 	// vector-store configuration is created. This covers stored/env configs and
 	// keeps the tainted value from reaching http.Client.Do unchecked.
 	if err := secutils.ValidateURLForSSRF(url); err != nil {
-		return fmt.Errorf("stream load URL blocked by SSRF validation: %w", err)
+		return fmt.Errorf("stream load URL blocked by SSRF validation: %s", redactDorisCredentials(err.Error()))
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, bytes.NewReader(body))
 	if err != nil {
-		return fmt.Errorf("build stream load request: %w", err)
+		return fmt.Errorf("build stream load request: %s", redactDorisCredentials(err.Error()))
 	}
 
 	// GetBody 让 redirect 时可以重新读 body（FE -> BE 的 307 需要重发 PUT body）。
@@ -198,6 +207,9 @@ func (r *dorisRepository) streamLoadOnce(ctx context.Context,
 
 	resp, err := r.httpClient.Do(req)
 	if err != nil {
+		if redacted := redactDorisCredentials(err.Error()); redacted != err.Error() {
+			return fmt.Errorf("stream load HTTP: %s", redacted)
+		}
 		return fmt.Errorf("stream load HTTP: %w", err)
 	}
 	defer resp.Body.Close()
@@ -205,7 +217,7 @@ func (r *dorisRepository) streamLoadOnce(ctx context.Context,
 	if resp.StatusCode/100 != 2 {
 		preview, _ := io.ReadAll(io.LimitReader(resp.Body, maxStreamLoadErrorPreviewBytes+1))
 		return fmt.Errorf("stream load HTTP %d: %s", resp.StatusCode,
-			common.TruncateUTF8Bytes(string(preview), maxStreamLoadErrorPreviewBytes))
+			common.TruncateUTF8Bytes(redactDorisCredentials(string(preview)), maxStreamLoadErrorPreviewBytes))
 	}
 
 	respBody, err := readStreamLoadResponse(resp.Body)
@@ -216,7 +228,7 @@ func (r *dorisRepository) streamLoadOnce(ctx context.Context,
 	var result streamLoadResponse
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return fmt.Errorf("decode stream load response: %w (raw=%s)", err,
-			common.TruncateUTF8Bytes(string(respBody), maxStreamLoadErrorPreviewBytes))
+			common.TruncateUTF8Bytes(redactDorisCredentials(string(respBody)), maxStreamLoadErrorPreviewBytes))
 	}
 
 	switch result.Status {
@@ -225,8 +237,11 @@ func (r *dorisRepository) streamLoadOnce(ctx context.Context,
 			table, result.NumberTotalRows, result.NumberLoadedRows, result.Label)
 		return nil
 	default:
+		statusPreview := common.TruncateUTF8Bytes(redactDorisCredentials(result.Status), 128)
+		msgPreview := common.TruncateUTF8Bytes(redactDorisCredentials(result.Message), maxStreamLoadErrorPreviewBytes)
+		urlPreview := common.TruncateUTF8Bytes(redactDorisCredentials(result.ErrorURL), 512)
 		return fmt.Errorf("stream load failed: status=%s msg=%s err_url=%s",
-			result.Status, result.Message, result.ErrorURL)
+			statusPreview, msgPreview, urlPreview)
 	}
 }
 
@@ -289,21 +304,26 @@ func (r *dorisRepository) BatchUpdateChunkEnabledStatus(ctx context.Context,
 	if len(chunkStatusMap) == 0 {
 		return nil
 	}
+	cleanedMap := make(map[string]bool, len(chunkStatusMap))
+	chunkIDs := make([]string, 0, len(chunkStatusMap))
+	for id, v := range chunkStatusMap {
+		cleanID := strings.TrimSpace(id)
+		if cleanID == "" {
+			return fmt.Errorf("BatchUpdateChunkEnabledStatus contains empty chunk ID")
+		}
+		cleanedMap[cleanID] = v
+		chunkIDs = append(chunkIDs, cleanID)
+	}
 	compatMode, err := r.resolveCompatMode(ctx)
 	if err != nil {
 		return err
 	}
 	if !compatMode.usesRewriteChunkUpdates() {
-		return r.batchUpdateChunkEnabledStatusLegacy(ctx, chunkStatusMap)
-	}
-
-	chunkIDs := make([]string, 0, len(chunkStatusMap))
-	for id := range chunkStatusMap {
-		chunkIDs = append(chunkIDs, id)
+		return r.batchUpdateChunkEnabledStatusLegacy(ctx, cleanedMap)
 	}
 
 	return r.rewriteChunkRows(ctx, chunkIDs, func(row *DorisVectorEmbedding) bool {
-		enabled, ok := chunkStatusMap[row.ChunkID]
+		enabled, ok := cleanedMap[row.ChunkID]
 		if !ok || row.IsEnabled == enabled {
 			return false
 		}
@@ -319,21 +339,26 @@ func (r *dorisRepository) BatchUpdateChunkTagID(ctx context.Context,
 	if len(chunkTagMap) == 0 {
 		return nil
 	}
+	cleanedMap := make(map[string]string, len(chunkTagMap))
+	chunkIDs := make([]string, 0, len(chunkTagMap))
+	for id, v := range chunkTagMap {
+		cleanID := strings.TrimSpace(id)
+		if cleanID == "" {
+			return fmt.Errorf("BatchUpdateChunkTagID contains empty chunk ID")
+		}
+		cleanedMap[cleanID] = v
+		chunkIDs = append(chunkIDs, cleanID)
+	}
 	compatMode, err := r.resolveCompatMode(ctx)
 	if err != nil {
 		return err
 	}
 	if !compatMode.usesRewriteChunkUpdates() {
-		return r.batchUpdateChunkTagIDLegacy(ctx, chunkTagMap)
-	}
-
-	chunkIDs := make([]string, 0, len(chunkTagMap))
-	for id := range chunkTagMap {
-		chunkIDs = append(chunkIDs, id)
+		return r.batchUpdateChunkTagIDLegacy(ctx, cleanedMap)
 	}
 
 	return r.rewriteChunkRows(ctx, chunkIDs, func(row *DorisVectorEmbedding) bool {
-		tagID, ok := chunkTagMap[row.ChunkID]
+		tagID, ok := cleanedMap[row.ChunkID]
 		if !ok || row.TagID == tagID {
 			return false
 		}
@@ -349,24 +374,29 @@ func (r *dorisRepository) BatchUpdateChunkContent(ctx context.Context,
 	if len(chunkContentMap) == 0 {
 		return nil
 	}
+	cleanedMap := make(map[string]string, len(chunkContentMap))
+	chunkIDs := make([]string, 0, len(chunkContentMap))
+	for id, v := range chunkContentMap {
+		cleanID := strings.TrimSpace(id)
+		if cleanID == "" {
+			return fmt.Errorf("BatchUpdateChunkContent contains empty chunk ID")
+		}
+		cleanedMap[cleanID] = v
+		chunkIDs = append(chunkIDs, cleanID)
+	}
 	compatMode, err := r.resolveCompatMode(ctx)
 	if err != nil {
 		return err
 	}
 	if !compatMode.usesRewriteChunkUpdates() {
-		return r.batchUpdateChunkContentLegacy(ctx, chunkContentMap)
-	}
-
-	chunkIDs := make([]string, 0, len(chunkContentMap))
-	for id := range chunkContentMap {
-		chunkIDs = append(chunkIDs, id)
+		return r.batchUpdateChunkContentLegacy(ctx, cleanedMap)
 	}
 
 	return r.rewriteChunkRows(ctx, chunkIDs, func(row *DorisVectorEmbedding) bool {
 		if row.SourceID != row.ChunkID {
 			return false
 		}
-		content, ok := chunkContentMap[row.SourceID]
+		content, ok := cleanedMap[row.SourceID]
 		if !ok {
 			return false
 		}
@@ -582,6 +612,9 @@ func (r *dorisRepository) loadRowsByChunkIDs(ctx context.Context,
 ) ([]*DorisVectorEmbedding, error) {
 	if len(chunkIDs) == 0 {
 		return nil, nil
+	}
+	if err := validateSQLIdentifier(table); err != nil {
+		return nil, err
 	}
 
 	placeholders := make([]string, len(chunkIDs))

@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
+	elasticsearchRetriever "github.com/Usir233/GENYEE/internal/application/repository/retriever/elasticsearch"
 	"github.com/elastic/go-elasticsearch/v8/typedapi/types"
 )
 
@@ -16,6 +18,13 @@ func (e *elasticsearchRepository) MoveKnowledgeIndices(
 	_ int,
 	_ string,
 ) error {
+	sourceKB = strings.TrimSpace(sourceKB)
+	targetKB = strings.TrimSpace(targetKB)
+	knowledgeID = strings.TrimSpace(knowledgeID)
+	if sourceKB == "" || targetKB == "" || knowledgeID == "" {
+		return fmt.Errorf("move indices requires non-empty sourceKB, targetKB, and knowledgeID")
+	}
+
 	query := &types.Query{Bool: &types.BoolQuery{Filter: []types.Query{
 		{
 			Terms: &types.TermsQuery{
@@ -36,7 +45,7 @@ func (e *elasticsearchRepository) MoveKnowledgeIndices(
 	script := &types.Script{Source: &source, Params: map[string]json.RawMessage{"target": target}}
 	result, err := e.client.UpdateByQuery(e.index).Query(query).Script(script).Refresh(true).Do(ctx)
 	if err != nil {
-		return err
+		return errorsWrapRedacted(err)
 	}
 	if result == nil || result.Total == nil || result.Updated == nil ||
 		*result.Total < 0 || *result.Total != *result.Updated || (result.TimedOut != nil && *result.TimedOut) ||
@@ -45,4 +54,11 @@ func (e *elasticsearchRepository) MoveKnowledgeIndices(
 		return fmt.Errorf("move indices was incomplete")
 	}
 	return nil
+}
+
+func errorsWrapRedacted(err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s", elasticsearchRetriever.RedactURLCredentials(err.Error()))
 }
