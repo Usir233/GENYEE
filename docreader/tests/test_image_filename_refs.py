@@ -1,14 +1,17 @@
 """Image references agree with the Go resolver's shared contract fixtures."""
 
 import base64
+from email.message import EmailMessage
 import io
 import json
 from pathlib import Path
 import unittest
+from urllib.parse import quote
 
 from PIL import Image
 
 from docreader.parser import Parser
+from docreader.parser.mhtml_parser import MHTMLParser
 from docreader.parser.pdf_parser import PDFParser, PDFScannedParser
 from docreader.tests.test_docreader_stream import _scanned_pdf
 from docreader.tests.test_pdf_image_sources import mixed_image_pdf
@@ -69,6 +72,42 @@ class ImageFilenameReferenceTest(unittest.TestCase):
             self.assertEqual(stream.document.metadata, doc.metadata)
             self.assertEqual(set(stream.document.images), set(doc.images))
             self.assertEqual(list(stream.images), [])
+
+    def test_mhtml_image_keys_and_markdown_refs_agree_with_shared_contract(self):
+        data = io.BytesIO()
+        Image.new("RGB", (64, 64), "blue").save(data, format="PNG")
+        payload = data.getvalue()
+        for case in CASES:
+            filename = case["filename"]
+            # Empty filenames and path separators fall back to random UUID refs in MHTML.
+            if not filename or "/" in filename or "\\" in filename or "\n" in filename:
+                continue
+            with self.subTest(filename=filename):
+                encoded_segment = quote(filename, safe="")
+                location = f"https://example.com/media/{encoded_segment}"
+                root = EmailMessage()
+                root["Subject"] = "Contract MHTML"
+                root.make_related()
+
+                main = EmailMessage()
+                main.set_content(
+                    f'<html><body><p><img alt="pic" src="{location}"></p></body></html>',
+                    subtype="html",
+                )
+                main["Content-Location"] = "https://example.com/page.html"
+                root.attach(main)
+
+                img_part = EmailMessage()
+                img_part.set_content(payload, maintype="image", subtype="png")
+                img_part["Content-Location"] = location
+                root.attach(img_part)
+
+                doc = MHTMLParser(
+                    file_name="contract.mhtml", file_type="mhtml"
+                ).parse_into_text(root.as_bytes())
+                self.assertEqual(set(doc.images), {case["image_ref"]})
+                self.assertEqual(doc.content, f"![pic]({case['image_ref']})")
+                self.assertEqual(base64.b64decode(doc.images[case["image_ref"]]), payload)
 
 
 if __name__ == "__main__":

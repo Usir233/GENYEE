@@ -10,7 +10,7 @@ import logging
 import os
 from email.header import decode_header
 from email.message import Message
-from urllib.parse import unquote, urljoin, urlparse
+from urllib.parse import quote, unquote, urljoin, urlparse
 import uuid
 from typing import Dict
 
@@ -279,7 +279,7 @@ class MHTMLParser(BaseParser):
     def _image_path_for_part(
         cls, part, content_type: str, images: Dict[str, str]
     ) -> str:
-        """Choose a stable image path when the MHTML part exposes a filename."""
+        """Choose a stable URL-encoded image path when the MHTML part exposes a filename."""
         ext = cls._image_extension(content_type)
         location = _header_str(part.get("Content-Location", "")).strip()
         filename = cls._filename_from_content_location(location)
@@ -289,25 +289,26 @@ class MHTMLParser(BaseParser):
         stem, location_ext = os.path.splitext(filename)
         if not location_ext:
             filename = f"{filename}{ext}"
-        image_path = f"images/{filename}"
+        image_path = f"images/{quote(filename, safe='')}"
         if image_path not in images:
             return image_path
 
         suffix = 2
         stem, location_ext = os.path.splitext(filename)
         while True:
-            candidate = f"images/{stem}_{suffix}{location_ext}"
+            candidate = f"images/{quote(f'{stem}_{suffix}{location_ext}', safe='')}"
             if candidate not in images:
                 return candidate
             suffix += 1
 
     @staticmethod
     def _filename_from_content_location(location: str) -> str:
-        decoded = unquote(html.unescape(_header_str(location).strip()))
-        if not decoded or decoded.lower().startswith("cid:"):
+        unescaped = html.unescape(_header_str(location).strip())
+        if not unescaped or unescaped.lower().startswith("cid:"):
             return ""
-        path = urlparse(decoded).path or decoded
-        filename = os.path.basename(path)
+        raw_path = urlparse(unescaped).path or unescaped
+        raw_name = os.path.basename(raw_path)
+        filename = unquote(raw_name)
         if not filename or filename in {".", ".."}:
             return ""
         if "/" in filename or "\\" in filename:
@@ -511,7 +512,9 @@ class MHTMLParser(BaseParser):
                 unquote(html.unescape(src)),
             ]
             if base_location:
-                candidates.append(urljoin(base_location, src))
+                joined = urljoin(base_location, src)
+                candidates.append(joined)
+                candidates.append(unquote(joined))
             base_name = os.path.basename(unquote(html.unescape(src)))
             if base_name:
                 candidates.append(base_name)

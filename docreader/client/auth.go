@@ -42,7 +42,7 @@ func LoadAuthConfigFromEnv() *AuthConfig {
 		KeyFile:    os.Getenv("GRPC_TLS_KEY"),
 		CAFile:     os.Getenv("GRPC_TLS_CA"),
 		ServerName: os.Getenv("GRPC_TLS_SERVER_NAME"),
-		AuthToken:  os.Getenv("GRPC_AUTH_TOKEN"),
+		AuthToken:  strings.TrimSpace(os.Getenv("GRPC_AUTH_TOKEN")),
 	}
 }
 
@@ -95,6 +95,7 @@ func (c *AuthConfig) EffectiveForAddr(addr string) *AuthConfig {
 		return &AuthConfig{}
 	}
 	cp := *c
+	cp.AuthToken = strings.TrimSpace(cp.AuthToken)
 	if cp.AuthToken != "" && !IsTrustedDocReaderAddr(addr) {
 		cp.AuthToken = ""
 	}

@@ -5,6 +5,7 @@ import unittest
 from email.header import Header
 from email.message import EmailMessage
 from pathlib import Path
+from urllib.parse import quote
 
 from docreader.parser.mhtml_parser import MHTMLParser, _header_str
 from docreader.parser.registry import registry
@@ -307,20 +308,24 @@ class MHTMLParserTest(unittest.TestCase):
             file_name="titled-image.mhtml", file_type="mhtml"
         ).parse_into_text(fixture.read_bytes())
 
-        self.assertEqual(document.content, contract["markdown_content"])
         self.assertEqual(len(document.images), 1)
         image_contract = contract["images"][0]
-        self.assertIn(image_contract["original_ref"], document.images)
+        encoded_ref = f"images/{quote(image_contract['filename'], safe='')}"
+        expected_markdown = contract["markdown_content"].replace(
+            image_contract["original_ref"], encoded_ref
+        )
+        self.assertEqual(document.content, expected_markdown)
+        self.assertIn(encoded_ref, document.images)
         self.assertEqual(
-            base64.b64decode(document.images[image_contract["original_ref"]]),
+            base64.b64decode(document.images[encoded_ref]),
             base64.b64decode(image_contract["image_data_base64"]),
         )
         self.assertIn(
-            '| 赛季制建立 | BP、Rank |\n\n![图片](images/第 1 页 (测试).gif "阶段 1) 图片")',
+            f'| 赛季制建立 | BP、Rank |\n\n![图片]({encoded_ref} "阶段 1) 图片")',
             document.content,
         )
         self.assertIn(
-            '![图片](images/第 1 页 (测试).gif "阶段 1) 图片")\n\n高机动性身法与独特枪械反馈',
+            f'![图片]({encoded_ref} "阶段 1) 图片")\n\n高机动性身法与独特枪械反馈',
             document.content,
         )
         self.assertNotIn("\n\n\n", document.content.split("```", 1)[0])
@@ -347,14 +352,77 @@ class MHTMLParserTest(unittest.TestCase):
             file_name="article.mhtml", file_type="mhtml"
         ).parse_into_text(_mhtml_with_8bit_utf8_headers())
 
+        encoded_ref = f"images/{quote('图片.png', safe='')}"
         self.assertIn("中文主文", document.content)
         self.assertNotIn("广告正文", document.content)
-        self.assertIn("images/图片.png", document.images)
-        self.assertIn("images/图片.png", document.content)
-        self.assertEqual(document.content.count("images/图片.png"), 3)
+        self.assertIn(encoded_ref, document.images)
+        self.assertIn(encoded_ref, document.content)
+        self.assertEqual(document.content.count(encoded_ref), 3)
         self.assertNotIn("cid:图片@local", document.content)
         self.assertNotIn("\ufffd", document.content)
         self.assertTrue(all("\ufffd" not in key for key in document.images))
+
+    def test_image_filenames_with_spaces_and_parens_are_url_encoded_consistently(self):
+        png = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR"
+        filenames = [
+            "foo bar.png",
+            "foo (1).png",
+            "unbalanced).png",
+            "open(.png",
+        ]
+        root = EmailMessage()
+        root["Subject"] = "Special image filenames"
+        root.make_related()
+
+        img_tags = "".join(
+            f'<p><img alt="img-{idx}" src="https://example.com/assets/{quote(name, safe="")}"></p>'
+            for idx, name in enumerate(filenames)
+        )
+        # Also include a duplicate filename to verify collision suffix encoding.
+        img_tags += '<p><img alt="img-dup" src="https://example.com/dup/foo%20%281%29.png"></p>'
+
+        main = EmailMessage()
+        main.set_content(f"<html><body>{img_tags}</body></html>", subtype="html")
+        main["Content-Location"] = "https://example.com/index.html"
+        root.attach(main)
+
+        for name in filenames:
+            part = EmailMessage()
+            part.set_content(png, maintype="image", subtype="png")
+            part["Content-Location"] = f"https://example.com/assets/{name}"
+            root.attach(part)
+
+        dup_part = EmailMessage()
+        dup_part.set_content(png, maintype="image", subtype="png")
+        dup_part["Content-Location"] = "https://example.com/dup/foo (1).png"
+        root.attach(dup_part)
+
+        document = MHTMLParser(
+            file_name="special.mhtml", file_type="mhtml"
+        ).parse_into_text(root.as_bytes())
+
+        expected_refs = {
+            "images/foo%20bar.png",
+            "images/foo%20%281%29.png",
+            "images/unbalanced%29.png",
+            "images/open%28.png",
+            "images/foo%20%281%29_2.png",
+        }
+        self.assertEqual(set(document.images), expected_refs)
+        for idx, ref in enumerate(
+            [
+                "images/foo%20bar.png",
+                "images/foo%20%281%29.png",
+                "images/unbalanced%29.png",
+                "images/open%28.png",
+            ]
+        ):
+            self.assertIn(f"![img-{idx}]({ref})", document.content)
+        self.assertIn("![img-dup](images/foo%20%281%29_2.png)", document.content)
+        for ref in document.images:
+            self.assertNotIn(" ", ref)
+            self.assertNotIn("(", ref)
+            self.assertNotIn(")", ref)
 
     def test_registry_resolves_mhtml(self):
         self.assertIs(registry.get_parser_class("", "mhtml"), MHTMLParser)
