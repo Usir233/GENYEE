@@ -367,17 +367,16 @@ func TestServiceRunCallsEnsureReadyBeforePrepare(t *testing.T) {
 }
 
 func TestServiceRunKillsOnParentCancel(t *testing.T) {
-	proc := newRecordingProcess(ExitStatus{Code: 0})
-	proc.blockUntilKill = true
-	backend := &fakeBackend{proc: proc}
-	svc := serviceFixture(t, backend, ModeAuto)
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		cancel()
-	}()
+
+	proc := newRecordingProcess(ExitStatus{Code: 0})
+	proc.blockUntilKill = true
+	backend := &fakeBackend{
+		proc:    proc,
+		onSpawn: func() { go cancel() },
+	}
+	svc := serviceFixture(t, backend, ModeAuto)
 
 	res, err := svc.Run(ctx, RunRequest{SessionID: "s1", Command: "sleep 60"})
 	require.NoError(t, err)

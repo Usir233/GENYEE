@@ -635,29 +635,49 @@ type embedWebhookEventRequest struct {
 	MessageID string `json:"message_id"`
 }
 
+const (
+	embedRelayedEventTTL        = 30 * time.Minute
+	embedRelayedEventMaxEntries = 4096
+)
+
 var embedRelayedMessageSeen struct {
 	mu      sync.Mutex
 	entries map[string]time.Time
 }
 
 func claimEmbedRelayedEventOnce(key string, now time.Time) bool {
-	const ttl = 30 * time.Minute
 	embedRelayedMessageSeen.mu.Lock()
 	defer embedRelayedMessageSeen.mu.Unlock()
 	if embedRelayedMessageSeen.entries == nil {
 		embedRelayedMessageSeen.entries = make(map[string]time.Time)
 	}
-	if len(embedRelayedMessageSeen.entries) > 4096 {
+	if exp, exists := embedRelayedMessageSeen.entries[key]; exists {
+		if now.Before(exp) {
+			return false
+		}
+		delete(embedRelayedMessageSeen.entries, key)
+	}
+	if len(embedRelayedMessageSeen.entries) >= embedRelayedEventMaxEntries {
 		for k, exp := range embedRelayedMessageSeen.entries {
-			if now.After(exp) {
+			if !now.Before(exp) {
 				delete(embedRelayedMessageSeen.entries, k)
 			}
 		}
+		for len(embedRelayedMessageSeen.entries) >= embedRelayedEventMaxEntries {
+			var oldestKey string
+			var oldestExp time.Time
+			first := true
+			for k, exp := range embedRelayedMessageSeen.entries {
+				if first || exp.Before(oldestExp) {
+					oldestKey = k
+					oldestExp = exp
+					first = false
+				}
+			}
+			delete(embedRelayedMessageSeen.entries, oldestKey)
+		}
 	}
-	if exp, exists := embedRelayedMessageSeen.entries[key]; exists && now.Before(exp) {
-		return false
-	}
-	embedRelayedMessageSeen.entries[key] = now.Add(ttl)
+	embedRelayedMessageSeen.entries[key] = now.Add(embedRelayedEventTTL)
 	return true
 }
 
@@ -724,9 +744,18 @@ func (h *EmbedChannelHandler) EmbedRelayWebhookEvent(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"error": "webhook event does not match a persisted session message"})
 		return
 	}
+	now := time.Now()
+	msgTime := message.UpdatedAt
+	if msgTime.IsZero() {
+		msgTime = message.CreatedAt
+	}
+	if !msgTime.IsZero() && now.Sub(msgTime) > embedRelayedEventTTL {
+		c.JSON(http.StatusForbidden, gin.H{"error": "webhook event message expired"})
+		return
+	}
 	payload := map[string]any{"message_id": message.ID, contentKey: message.Content}
 	dedupKey := ch.ID + "|" + pathSessionID + "|" + eventType + "|" + message.ID
-	if !claimEmbedRelayedEventOnce(dedupKey, time.Now()) {
+	if !claimEmbedRelayedEventOnce(dedupKey, now) {
 		c.JSON(http.StatusOK, gin.H{"success": true})
 		return
 	}

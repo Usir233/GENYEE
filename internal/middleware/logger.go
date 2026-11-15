@@ -54,18 +54,19 @@ func (r loggerResponseBodyWriter) Write(b []byte) (int, error) {
 
 // sensitiveFieldRegex is the fallback redactor for truncated or non-JSON text bodies.
 // Complete JSON payloads are redacted by redactJSONBytes first so nested maps
-// (values/envs/credentials/custom_headers), escaped quotes, and non-string secrets
+// (values/envs/env_vars/credentials/headers/custom_headers), escaped quotes, and non-string secrets
 // are recursively masked while preserving key order.
 var sensitiveFieldRegex = regexp.MustCompile(
-	`(?i)("(?P<k>value|values|envs|credentials|custom[_-]?headers|` +
-		`passwd|ticket|assertion|authorization|authorization[_-]?url|authorization[_-]?attempt|pairing[_-]?link|` +
+	`(?i)("(?P<k>value|values|envs|env[_-]?vars|credentials|headers|custom[_-]?headers|` +
+		`passwd|ticket|assertion|cookie|set[_-]?cookie|proxy[_-]?authorization|` +
+		`authorization|authorization[_-]?url|authorization[_-]?attempt|pairing[_-]?link|` +
 		`[a-z0-9_-]*secret[a-z0-9_-]*|[a-z0-9_-]*token[a-z0-9_-]*|` +
 		`[a-z0-9_-]*password[a-z0-9_-]*|[a-z0-9_-]*key[a-z0-9_-]*)")\s*:\s*"(?:\\.|[^"\\])*"`,
 )
 
 // sensitiveContainerFallbackRegex redacts truncated/non-parsed object maps on container keys.
 var sensitiveContainerFallbackRegex = regexp.MustCompile(
-	`(?i)("(?:values|envs|credentials|custom[_-]?headers)")\s*:\s*\{[^{}]*\}`,
+	`(?i)("(?:values|envs|env[_-]?vars|credentials|headers|custom[_-]?headers)")\s*:\s*\{[^{}]*\}`,
 )
 
 // dataURIRegex matches an inline data URI whose payload is base64. Request logs
@@ -74,7 +75,8 @@ var dataURIRegex = regexp.MustCompile(`(?i)\bdata:[^\s"'<>]{0,128};base64,[A-Za-
 
 func isSensitiveContainerKey(key string) bool {
 	switch strings.ToLower(strings.TrimSpace(key)) {
-	case "values", "envs", "credentials", "custom_headers", "customheaders", "custom-headers":
+	case "values", "envs", "env_vars", "envvars", "env-vars",
+		"credentials", "headers", "custom_headers", "customheaders", "custom-headers":
 		return true
 	default:
 		return false
@@ -87,7 +89,10 @@ func isSensitiveFieldKey(key string) bool {
 		return false
 	}
 	switch lower {
-	case "value", "passwd", "ticket", "assertion", "authorization",
+	case "value", "passwd", "ticket", "assertion",
+		"cookie", "set-cookie", "set_cookie", "setcookie",
+		"proxy-authorization", "proxy_authorization", "proxyauthorization",
+		"authorization",
 		"authorization_url", "authorizationurl", "authorization-url",
 		"authorization_attempt", "authorizationattempt", "authorization-attempt",
 		"pairing_link", "pairinglink", "pairing-link":
@@ -494,17 +499,40 @@ func sanitizeQuery(raw string) string {
 	return values.Encode()
 }
 
+func sanitizeFormBody(raw string) string {
+	if strings.TrimSpace(raw) == "" {
+		return raw
+	}
+	values, err := url.ParseQuery(raw)
+	if err != nil {
+		return "[invalid form body omitted]"
+	}
+	for key, list := range values {
+		lower := strings.ToLower(strings.TrimSpace(key))
+		_, inQuery := sensitiveQueryFields[lower]
+		if inQuery || isSensitiveFieldKey(key) || isSensitiveContainerKey(key) {
+			values[key] = []string{"***"}
+			continue
+		}
+		for i, item := range list {
+			list[i] = dataURIRegex.ReplaceAllStringFunc(item, redactDataURI)
+		}
+	}
+	return values.Encode()
+}
+
 // readRequestBody 读取请求体（限制大小用于日志，但把剩余字节原样交还后续handler）
 func readRequestBody(c *gin.Context) string {
 	if c.Request.Body == nil {
 		return ""
 	}
 
-	// 检查Content-Type，只记录JSON类型
+	// 检查Content-Type，只记录文本/JSON/表单类型
 	contentType := c.GetHeader("Content-Type")
-	if !strings.Contains(contentType, "application/json") &&
-		!strings.Contains(contentType, "application/x-www-form-urlencoded") &&
-		!strings.Contains(contentType, "text/") {
+	lowerContentType := strings.ToLower(contentType)
+	if !strings.Contains(lowerContentType, "application/json") &&
+		!strings.Contains(lowerContentType, "application/x-www-form-urlencoded") &&
+		!strings.Contains(lowerContentType, "text/") {
 		return "[非文本类型，已跳过]"
 	}
 
@@ -529,6 +557,10 @@ func readRequestBody(c *gin.Context) string {
 
 	if len(bodyBytes) > maxBodySize {
 		return bodyTruncatedMarker
+	}
+
+	if strings.Contains(lowerContentType, "application/x-www-form-urlencoded") {
+		return sanitizeFormBody(string(bodyBytes))
 	}
 
 	return sanitizeBody(string(bodyBytes))
