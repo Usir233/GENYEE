@@ -254,3 +254,24 @@ func TestInferScope_Priority(t *testing.T) {
 		})
 	}
 }
+
+func TestMiddleware_MalformedPayloadAndInvalidUTF8Error_StayDBInsertable(t *testing.T) {
+	repo := &fakeRepo{}
+	corruptPayload := []byte{'{', 'b', 'a', 'd', 0xff, 0xfe}
+	corruptErr := errors.New("binary error: \xff\xfe detail")
+
+	_ = runMiddleware(repo, "corrupt:task", corruptPayload, corruptErr)
+	if got := repo.rowCount(); got != 1 {
+		t.Fatalf("expected 1 dead-letter row, got %d", got)
+	}
+	row := repo.captureRow(0)
+	if !json.Valid(row.Payload) || !utf8.Valid(row.Payload) {
+		t.Fatalf("Payload must be valid UTF-8 JSON for JSON/JSONB columns, got %q", string(row.Payload))
+	}
+	if _, err := json.Marshal(row); err != nil {
+		t.Fatalf("dead-letter row failed json.Marshal: %v", err)
+	}
+	if !utf8.ValidString(row.LastError) {
+		t.Fatalf("LastError must be valid UTF-8, got %q", row.LastError)
+	}
+}

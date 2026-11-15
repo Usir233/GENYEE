@@ -15,8 +15,10 @@ package asynqdl
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -88,7 +90,7 @@ func MiddlewareWithCallback(repo interfaces.TaskDeadLetterRepository, cb OnDeadL
 					if insertErr := repo.Insert(context.Background(), dl); insertErr != nil {
 						logger.Warnf(ctx,
 							"asynq dead-letter: failed to record %s task: %v (original task error: %v)",
-							t.Type(), insertErr, err,
+							taskType(t), insertErr, err,
 						)
 					}
 				}
@@ -103,10 +105,17 @@ func MiddlewareWithCallback(repo interfaces.TaskDeadLetterRepository, cb OnDeadL
 	}
 }
 
+func taskType(t *asynq.Task) string {
+	if t == nil {
+		return "<nil>"
+	}
+	return t.Type()
+}
+
 func safeInvokeCallback(ctx context.Context, t *asynq.Task, taskErr error, cb OnDeadLetter) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Warnf(ctx, "asynq dead-letter callback panicked for %s: %v", t.Type(), r)
+			logger.Warnf(ctx, "asynq dead-letter callback panicked for %s: %v", taskType(t), r)
 		}
 	}()
 	cb(context.Background(), t, taskErr)
@@ -154,11 +163,22 @@ func buildDeadLetter(t *asynq.Task, taskErr error, attempts int) *types.TaskDead
 	scope, scopeID := inferScope(probe)
 	relatedID := probe.KnowledgeID
 
-	// asynq stores the payload as raw bytes; preserve it verbatim so a
-	// future requeue can reuse it directly.
+	// asynq stores the payload as raw bytes; preserve it verbatim when valid
+	// UTF-8 JSON so a future requeue can reuse it directly, and base64-wrap
+	// corrupt payloads so JSON/JSONB database columns never reject the row.
 	rawPayload := t.Payload()
 	if len(rawPayload) == 0 {
 		rawPayload = []byte("{}")
+	} else if !utf8.Valid(rawPayload) || !json.Valid(rawPayload) {
+		wrapped, _ := json.Marshal(map[string]string{
+			"_invalid_json_base64": base64.StdEncoding.EncodeToString(rawPayload),
+		})
+		rawPayload = wrapped
+	}
+
+	errText := ""
+	if taskErr != nil {
+		errText = taskErr.Error()
 	}
 
 	return &types.TaskDeadLetter{
@@ -168,7 +188,7 @@ func buildDeadLetter(t *asynq.Task, taskErr error, attempts int) *types.TaskDead
 		ScopeID:   scopeID,
 		RelatedID: relatedID,
 		Payload:   json.RawMessage(rawPayload),
-		LastError: truncateError(taskErr.Error(), 8192),
+		LastError: truncateError(errText, 8192),
 		FailCount: attempts,
 		FailedAt:  time.Now(),
 	}
@@ -233,6 +253,7 @@ func inferScope(p payloadProbe) (string, string) {
 // the dead-letter table beyond the disk capacity reasonably allotted
 // to it.
 func truncateError(s string, max int) string {
+	s = strings.ToValidUTF8(s, "\ufffd")
 	if max <= 0 || len(s) <= max {
 		return s
 	}

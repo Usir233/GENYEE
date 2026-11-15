@@ -27,3 +27,11 @@ func TestRecoverMiddleware_PanicReachesDeadLetterCallback(t *testing.T) {
 	assert.Equal(t, err, callbackErr)
 	assert.Equal(t, 1, repo.rowCount())
 }
+
+func TestCallRecovered_NilTaskDoesNotPanic(t *testing.T) {
+	err := CallRecovered(context.Background(), nil, func(context.Context, *asynq.Task) error {
+		panic("unexpected nil task panic")
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "<nil> panicked")
+}
