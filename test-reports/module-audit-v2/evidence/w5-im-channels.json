@@ -1,0 +1,441 @@
+{
+  "wave": "W5",
+  "slice": "w5-im-channels",
+  "cross_package_notes": [
+    {
+      "file": "internal/im/service.go:216, internal/im/outbound_files.go:108-190, internal/im/resource_storage_test.go:130-246",
+      "note": "Verified #128 cross-unit storageurl tenant scoping note in internal/im/service.go:216: newOutboundFileServiceResolver resolves storage backends strictly from the owning tenant (req.tenant.ID) and authorized shared-agent/KB resource catalogs via resolveResourceStorageForTenant, rejecting disabled/deleted or cross-tenant unshared backends before presigning or rewriting APP_EXTERNAL_URL links."
+    },
+    {
+      "file": "migrations/versioned/000038_im_session_agent_id.up.sql:8-17, internal/im/service.go:1792-1856, 2328-2460",
+      "note": "Verified read-only schema parity with im_channel_sessions partial unique indexes idx_channel_lookup (platform, user_id, chat_id, tenant_id, agent_id) and idx_channel_thread_lookup (platform, chat_id, thread_id, tenant_id, agent_id): resolveUserSession and resolveThreadSession predicate every lookup and insert on channel.TenantID + channel.AgentID + platform, checkDuplicateBot prevents cross-tenant duplicate bot registration, and sessionService.GetSession executes under tenant-scoped sessionCtx."
+    },
+    {
+      "file": "internal/handler/im.go, internal/handler/wechat_qrcode.go",
+      "note": "Verified read-only HTTP handler callers propagate authenticated c.Request.Context() (carrying types.TenantIDContextKey) into QRCodeService.GetLoginQRCode and PollQRCodeStatus and run VerifyCallback prior to HandleURLVerification and ParseCallback on every IM webhook route."
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "internal/im",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/im/adapter.go",
+        "internal/im/audit_w5_test.go",
+        "internal/im/callback_validation_test.go",
+        "internal/im/channel_agent_name_test.go",
+        "internal/im/channel_kb_scope_test.go",
+        "internal/im/channel_mapping_test.go",
+        "internal/im/channel_security.go",
+        "internal/im/channel_security_test.go",
+        "internal/im/cmd_clear.go",
+        "internal/im/cmd_help.go",
+        "internal/im/cmd_info.go",
+        "internal/im/cmd_search.go",
+        "internal/im/cmd_stop.go",
+        "internal/im/command.go",
+        "internal/im/command_registry.go",
+        "internal/im/content_rewrite_test.go",
+        "internal/im/credentials.go",
+        "internal/im/file_message_test.go",
+        "internal/im/full_output_test.go",
+        "internal/im/global_resource_storage_test.go",
+        "internal/im/identity_test.go",
+        "internal/im/im_attachment_filename_test.go",
+        "internal/im/im_config_warning_test.go",
+        "internal/im/im_file_service_test.go",
+        "internal/im/mode.go",
+        "internal/im/oauth_notice_test.go",
+        "internal/im/qa_exit_test.go",
+        "internal/im/qaqueue.go",
+        "internal/im/resource_access.go",
+        "internal/im/resource_access_test.go",
+        "internal/im/resource_storage_test.go",
+        "internal/im/security_regression_test.go",
+        "internal/im/service.go",
+        "internal/im/service_agent_test.go",
+        "internal/im/service_lifecycle_test.go",
+        "internal/im/service_quote_test.go",
+        "internal/im/session_not_found_test.go",
+        "internal/im/session_test.go",
+        "internal/im/session_title_test.go",
+        "internal/im/stream_delivery_test.go",
+        "internal/im/stream_display_test.go",
+        "internal/im/stream_exit_test.go",
+        "internal/im/stream_lifecycle_test.go",
+        "internal/im/stream_section.go",
+        "internal/im/stream_test.go",
+        "internal/im/supervisor.go",
+        "internal/im/think.go",
+        "internal/im/think_test.go",
+        "internal/im/tool_display.go",
+        "internal/im/tool_display_test.go",
+        "internal/im/types.go",
+        "internal/im/types_summary_test.go",
+        "internal/im/types_test.go",
+        "internal/im/webhook_body.go",
+        "internal/im/webhook_body_test.go"
+      ],
+      "invariants_checked": [
+        "IMChannel.computeBotIdentity hashes secret webhook tokens (Mattermost outgoing_token, Yunzhijia yzjtoken, and malformed colon-less Telegram bot_token fallbacks) with SHA-256 so IMChannelSummary responses and plaintext bot_identity DB columns never expose raw credentials, while SYSTEM_AES_KEY AES-256-GCM encrypts stored channel credentials.",
+        "HandleMessage deduplication keys are scoped by channelID + messageID across both Redis SetNX (genyee:im:dedup:*, fail-closed on Redis errors) and single-instance sync.Map caches, preventing cross-tenant/cross-channel message ID collisions, and dynamic DB fallback refuses to start disabled channels.",
+        "Multi-tenant session routing (resolveUserSession, resolveThreadSession), per-user sliding-window rate limiting (genyee:im:ratelimit:*), bounded QA worker queues, distributed leader election (Lua-fenced genyee:im:leader:*), inbound webhook/attachment size caps (LimitWebhookBody 1 MiB, ReadIMResponse 10 MiB, ReadIMAttachmentResponse 100 MiB), outbound storageurl tenant scoping (#128), and /info + /search KBSelectionMode enforcement all uphold tenant and agent isolation with zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-01",
+          "severity": "P1",
+          "file": "internal/im/types.go:218-234",
+          "summary": "IMChannel.computeBotIdentity stored raw Mattermost outgoing_token secrets (\"mattermost:wh:\" + tok) and colon-less Telegram bot_token fallbacks in plaintext bot_identity, leaking webhook credentials through IMChannelSummary list APIs and unencrypted DB columns.",
+          "regression_test": "TestComputeBotIdentity_HashesWebhookSecrets",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        },
+        {
+          "id": "W5-IM-02",
+          "severity": "P1",
+          "file": "internal/im/service.go:1703-1734",
+          "summary": "HandleMessage keyed message deduplication on unscoped msg.MessageID across all channels/tenants (allowing sequential or colliding platform-local message IDs to drop another tenant's messages for 5 minutes) and dynamically started disabled DB channels when absent from the active adapter map.",
+          "regression_test": "TestHandleMessage_ScopesDedupPerChannel, TestHandleMessage_DoesNotRestartDisabledChannel",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        },
+        {
+          "id": "W5-IM-03",
+          "severity": "P1",
+          "file": "internal/im/cmd_info.go:25-98; internal/im/cmd_search.go:38-105",
+          "summary": "InfoCommand listed stale Config.KnowledgeBases names even when KBSelectionMode was \"none\", SearchCommand invoked SearchKnowledge with empty kbIDs when KBs were disabled/unconfigured, and both commands lacked nil-service/context guards.",
+          "regression_test": "TestInfoAndSearchCommands_EnforceAgentKBScope",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/im/dingtalk",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/im/dingtalk/adapter.go",
+        "internal/im/dingtalk/adapter_test.go",
+        "internal/im/dingtalk/audit_w5_test.go",
+        "internal/im/dingtalk/download_test.go",
+        "internal/im/dingtalk/factory.go",
+        "internal/im/dingtalk/longconn.go",
+        "internal/im/dingtalk/response_limit_test.go",
+        "internal/im/dingtalk/session_webhook_test.go"
+      ],
+      "invariants_checked": [
+        "VerifyCallback enforces non-empty clientSecret, mandatory timestamp and sign headers, 1-hour millisecond replay window, and constant-time HMAC-SHA256 verification before callback parsing.",
+        "Temporary file download URLs and session_webhook reply URLs enforce HTTPS without userinfo on strict DingTalk/Aliyun OSS host suffixes backed by SSRFSafeHTTPClient dial-time IP validation and bounded response readers.",
+        "OpenAPI replies honor configured apiBaseURL for both direct and group chats, and FinalizeStream surfaces card streaming errors so Service triggers its plain-text SendReply fallback."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-DINGTALK-01",
+          "severity": "P1",
+          "file": "internal/im/dingtalk/adapter.go:434-458",
+          "summary": "defaultValidateFileDownloadURL and isAllowedDingTalkDownloadHost matched .aliyuncs.com and .dingtalk.com host suffixes without requiring https scheme, rejecting URL userinfo, or rejecting bare suffix hostnames, bypassing ValidateURLForSSRF on non-HTTPS or credential-bearing URLs.",
+          "regression_test": "TestValidateFileDownloadURL_RejectsNonHTTPSAndUserinfo",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        },
+        {
+          "id": "W5-IM-DINGTALK-02",
+          "severity": "P2",
+          "file": "internal/im/dingtalk/adapter.go:596-603, 921-927",
+          "summary": "replyViaOpenAPI hardcoded https://api.dingtalk.com instead of configured apiBaseURL, and FinalizeStream swallowed streamingUpdateCard failures instead of returning an error for plain-text fallback delivery.",
+          "regression_test": "TestReplyViaOpenAPIAndFinalizeStream_HonorBaseURLAndSurfaceFailure",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/dingtalk/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/dingtalk (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/im/feishu",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/im/feishu/adapter.go",
+        "internal/im/feishu/adapter_test.go",
+        "internal/im/feishu/audit_w5_test.go",
+        "internal/im/feishu/content_disposition_test.go",
+        "internal/im/feishu/factory.go",
+        "internal/im/feishu/longconn.go",
+        "internal/im/feishu/longconn_test.go",
+        "internal/im/feishu/region.go",
+        "internal/im/feishu/region_test.go",
+        "internal/im/feishu/send_e2e_test.go",
+        "internal/im/feishu/stream_reaper_test.go"
+      ],
+      "invariants_checked": [
+        "VerifyCallback fails closed when verificationToken is empty, validates X-Lark-Request-Timestamp (5-minute skew) and X-Lark-Signature (constant-time SHA-256) prior to AES-CBC decryption whenever present, and requires both headers on all encrypted non-url_verification events.",
+        "Adapter.decrypt enforces minimum 2-block length and 16-byte AES block alignment prior to cipher.CBCDecrypter.CryptBlocks and validates PKCS#7 padding in constant time across the final block.",
+        "Feishu/Lark regional endpoints, SSRFSafeHTTPClient media downloads, Content-Disposition RFC 5987 filename decoding, WebSocket long-connection lifecycle, and stream reaper cleanup operate race-free."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-FEISHU-01",
+          "severity": "P0",
+          "file": "internal/im/feishu/adapter.go:295-362, 1550-1575",
+          "summary": "Adapter.decrypt invoked cipher.CBCDecrypter.CryptBlocks after stripping the 16-byte IV without checking block alignment or non-empty ciphertext, allowing an unauthenticated webhook request with non-block-aligned base64 ciphertext to panic the server before X-Lark-Signature was checked.",
+          "regression_test": "TestDecrypt_RejectsNonBlockAlignedCiphertextWithoutPanic, TestVerifyCallback_ChecksSignatureBeforeDecrypt",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/feishu/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/feishu (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/im/mattermost",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/im/mattermost/adapter.go",
+        "internal/im/mattermost/adapter_test.go",
+        "internal/im/mattermost/audit_w5_test.go",
+        "internal/im/mattermost/client.go",
+        "internal/im/mattermost/factory.go",
+        "internal/im/mattermost/form_parse.go",
+        "internal/im/mattermost/truncate_utf8_test.go",
+        "internal/im/mattermost/webhook_body_limit_test.go"
+      ],
+      "invariants_checked": [
+        "VerifyCallback fails closed immediately when outgoingToken is empty before reading or parsing the request body, enforces LimitWebhookBody (1 MiB) and bounded form key/parameter counts, and compares outgoing tokens with subtle.ConstantTimeCompare.",
+        "Mattermost REST v4 client validates server URLs via ValidateURLForSSRF + SSRFSafeHTTPClient, validates postID and fileID path segments against traversal/query/fragment injection before authenticated Bearer requests, and truncates error previews on valid UTF-8 rune boundaries."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-MATTERMOST-01",
+          "severity": "P1",
+          "file": "internal/im/mattermost/client.go:113-245; internal/im/mattermost/adapter.go:71-75",
+          "summary": "GetPost, PatchPostMessage, GetFileInfo, and GetFileReader interpolated webhook-supplied postID and fileID values directly into authenticated REST v4 URL paths without path-segment validation (enabling ../ traversal onto arbitrary Mattermost API routes), and VerifyCallback parsed untrusted bodies before checking empty outgoingToken.",
+          "regression_test": "TestClient_RejectsPathTraversalInPostAndFileIDs, TestVerifyCallback_RejectsEmptyOutgoingTokenBeforeParsing",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/mattermost/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/mattermost (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/im/qqbot",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/im/qqbot/adapter.go",
+        "internal/im/qqbot/adapter_test.go",
+        "internal/im/qqbot/audit_w5_test.go",
+        "internal/im/qqbot/client.go",
+        "internal/im/qqbot/factory.go",
+        "internal/im/qqbot/longconn.go",
+        "internal/im/qqbot/types.go"
+      ],
+      "invariants_checked": [
+        "Webhook callback verification derives the Ed25519 key deterministically from non-empty appSecret, enforces 5-minute X-Signature-Timestamp skew and hex signature decoding, and signs url-verification responses only after Ed25519 verification.",
+        "REST and WebSocket clients enforce SSRF validation on api_base_url and wss:// gateway_url, resolve /gateway against configured apiBaseURL, and validate C2C/group OpenIDs before path construction.",
+        "LongConnClient synchronizes sequence numbers under c.mu, serializes WebSocket JSON writes under c.writeMu, bounds frame sizes (1 MiB), guards DialContext/Stop races, and cancels per-connection heartbeat goroutines cleanly on reconnect or shutdown."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-QQBOT-01",
+          "severity": "P1",
+          "file": "internal/im/qqbot/longconn.go:22-26, 78-190; internal/im/qqbot/client.go:62-70, 115-143",
+          "summary": "LongConnClient mutated and shared c.seq without locking while heartbeatLoop marshaled it concurrently (data race), wrote concurrently to ws.Conn without a write mutex, leaked heartbeat goroutines across reconnects, and raced Stop() with DialContext; Client.GatewayURL also hardcoded defaultGatewayURL instead of c.apiBaseURL and omitted path-segment validation on openID/groupOpenID.",
+          "regression_test": "TestLongConnClient_ConcurrentSeqHeartbeatAndStopSafety, TestClient_GatewayURLUsesConfiguredAPIBaseAndValidatesOpenIDs",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/qqbot/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/qqbot (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/im/slack",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/im/slack/adapter.go",
+        "internal/im/slack/adapter_test.go",
+        "internal/im/slack/audit_w5_test.go",
+        "internal/im/slack/download_test.go",
+        "internal/im/slack/factory.go",
+        "internal/im/slack/longconn.go"
+      ],
+      "invariants_checked": [
+        "VerifyCallback fails closed when signingSecret is empty, caps inbound webhook bodies via LimitWebhookBody, and verifies Slack HMAC-SHA256 signatures and 5-minute replay timestamps via slack.NewSecretsVerifier.",
+        "DownloadFile strictly restricts Bearer-authenticated file downloads to https://files.slack.com and https://slack.com/files-pri/ on default port 443 without userinfo via SSRFSafeHTTPClient.",
+        "Socket Mode factory requires non-empty app_token and bot_token before starting background workers, LongConnClient guards closed Events channels and nil evt.Request pointers, and FinalizeStream surfaces chat.update errors for fallback delivery."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-SLACK-01",
+          "severity": "P2",
+          "file": "internal/im/slack/longconn.go:65-93; internal/im/slack/factory.go:33-42; internal/im/slack/adapter.go:261-297",
+          "summary": "LongConnClient.Start panicked on EventsAPI events with nil evt.Request and busy-spun if client.Events closed before ctx cancellation; NewFactory spawned Socket Mode goroutines with empty app_token/bot_token; and FinalizeStream swallowed UpdateMessageContext errors.",
+          "regression_test": "TestLongConnClient_NilEventRequestAndClosedEventsChannelDoNotPanic, TestSlackFactoryAndFinalizeStream_RequireTokensAndSurfaceError",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/slack/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/slack (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/im/telegram",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/im/telegram/adapter.go",
+        "internal/im/telegram/adapter_test.go",
+        "internal/im/telegram/audit_w5_test.go",
+        "internal/im/telegram/factory.go",
+        "internal/im/telegram/longconn.go"
+      ],
+      "invariants_checked": [
+        "VerifyCallback fails closed when secretToken or X-Telegram-Bot-Api-Secret-Token is empty and compares tokens with subtle.ConstantTimeCompare.",
+        "All Bot API and file download transport errors redact embedded bot<token> URL credentials while preserving error unwrapping (errors.Is/As), DownloadFile validates getFile file_path against traversal/query/fragment injection, FinalizeStream surfaces terminal edit failures, and websocket mode rejects empty bot_token."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-TELEGRAM-01",
+          "severity": "P1",
+          "file": "internal/im/telegram/adapter.go:266-326, 476-535; internal/im/telegram/longconn.go:95-105; internal/im/telegram/factory.go:31-36",
+          "summary": "Telegram HTTP transport errors wrapped *url.Error values containing cleartext /bot<bot_token>/ URLs into logs and caller errors; DownloadFile interpolated unvalidated getFile file_path into /file/bot<token>/<file_path>; FinalizeStream swallowed plain-text retry errors; and websocket factory accepted empty bot_token.",
+          "regression_test": "TestTelegramRedactsBotTokenFromTransportErrors, TestDownloadFileAndFinalizeStream_PathValidationAndErrorPropagation",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/telegram/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/telegram (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/im/wechat",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/im/wechat/adapter.go",
+        "internal/im/wechat/adapter_test.go",
+        "internal/im/wechat/audit_w5_test.go",
+        "internal/im/wechat/crypto.go",
+        "internal/im/wechat/factory.go",
+        "internal/im/wechat/longpoll.go",
+        "internal/im/wechat/qrcode.go"
+      ],
+      "invariants_checked": [
+        "Personal WeChat iLink bot channel preserved and hardened: AES-128-ECB PKCS#7 media encryption/decryption validates key length (16 bytes), block alignment, and constant-bounds padding, and bounds encrypted media downloads via ReadIMAttachmentResponse (100 MiB).",
+        "QRCodeService binds issued login QR tokens to the requesting tenant (types.TenantIDFromContext) with 10-minute TTL eviction so cross-tenant PollQRCodeStatus calls cannot hijack pending bot_token credentials, cancels upstream long-polls on client disconnect (context.Canceled), and never echoes raw response bodies in errors.",
+        "LongPollClient bounds concurrent message-handler goroutines with a semaphore and waits for in-flight handlers via sync.WaitGroup before Start returns on channel stop or token expiry."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-WECHAT-01",
+          "severity": "P1",
+          "file": "internal/im/wechat/qrcode.go:48-235; internal/im/wechat/longpoll.go:33-69, 177-200",
+          "summary": "Singleton QRCodeService allowed cross-tenant PollQRCodeStatus polling of another tenant's login qrcode token, leaked raw response bodies (potentially containing bot_token) on JSON decode errors, and ignored client disconnects; LongPollClient spawned unbounded detached message-handler goroutines without waiting on channel stop.",
+          "regression_test": "TestQRCodeService_IsolatesTenantsAndRedactsSecretsOnDecodeError, TestLongPollClient_WaitsForInFlightHandlersOnStop",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/wechat/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/wechat (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/im/wecom",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/im/wecom/audit_w5_test.go",
+        "internal/im/wecom/endpoint_test.go",
+        "internal/im/wecom/factory.go",
+        "internal/im/wecom/longconn.go",
+        "internal/im/wecom/longconn_close_test.go",
+        "internal/im/wecom/mention_test.go",
+        "internal/im/wecom/mixed_test.go",
+        "internal/im/wecom/quote.go",
+        "internal/im/wecom/quote_test.go",
+        "internal/im/wecom/reconnect_test.go",
+        "internal/im/wecom/webhook_adapter.go",
+        "internal/im/wecom/webhook_adapter_test.go",
+        "internal/im/wecom/ws_adapter.go"
+      ],
+      "invariants_checked": [
+        "Enterprise WeCom bot channel preserved and hardened across both webhook and aibot WebSocket modes: VerifyCallback fails closed on empty token, enforces 5-minute timestamp skew, caps XML body reads via LimitWebhookBody, and checks SHA-1 signatures with subtle.ConstantTimeCompare.",
+        "WebhookAdapter validates 32-byte decoded EncodingAESKey at construction, verifies 32-byte PKCS#7 padding and corp_id in constant time without leaking expected corp_id, guards 20+msgLen against uint32 overflow slice panics, URL-escapes query credentials, and redacts access_token/corpsecret from transport errors.",
+        "WSAdapter bounds encrypted media downloads via ReadIMAttachmentResponse (100 MiB) instead of unbounded io.ReadAll, strips full 1..32-byte WeCom PKCS#7 padding in decryptAESCBC, enforces HTTPS without userinfo in isAllowedIMAPIHost, and sets a 4 MiB WebSocket frame read limit."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-WECOM-01",
+          "severity": "P0",
+          "file": "internal/im/wecom/webhook_adapter.go:125-133, 548-585",
+          "summary": "WebhookAdapter.decrypt checked uint32(len(plaintext)) < 20+msgLen, allowing crafted msgLen >= 0xFFFFFFEC to wrap uint32 addition to 0..19 and panic with slice bounds out of range [20:0]; it also leaked expected corpID on mismatch and accepted wrong-length EncodingAESKey at construction.",
+          "regression_test": "TestWebhookAdapterDecrypt_RejectsMsgLenUint32OverflowWithoutPanic",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        },
+        {
+          "id": "W5-IM-WECOM-02",
+          "severity": "P1",
+          "file": "internal/im/wecom/ws_adapter.go:107-112, 168-172; internal/im/wecom/webhook_adapter.go:346-480, 644-652, 752-762; internal/im/wecom/longconn.go:392-397",
+          "summary": "WSAdapter.DownloadFile read encrypted media via unbounded io.ReadAll(reader) (enabling OOM) and rejected valid 17..32-byte WeCom PKCS#7 padding in decryptAESCBC; isAllowedIMAPIHost accepted non-HTTPS/userinfo URLs; and query tokens lacked URL escaping and error redaction.",
+          "regression_test": "TestWSAdapterDownloadFile_CapsSizeSupports32BytePaddingAndHTTPSAllowlist",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/wecom/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/wecom (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/im/yunzhijia",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/im/yunzhijia/adapter.go",
+        "internal/im/yunzhijia/adapter_test.go",
+        "internal/im/yunzhijia/audit_w5_test.go",
+        "internal/im/yunzhijia/factory.go",
+        "internal/im/yunzhijia/sign.go",
+        "internal/im/yunzhijia/types.go",
+        "internal/im/yunzhijia/url.go",
+        "internal/im/yunzhijia/url_test.go",
+        "internal/im/yunzhijia/url_whitelist_only_test.go",
+        "internal/im/yunzhijia/websocket.go",
+        "internal/im/yunzhijia/websocket_test.go"
+      ],
+      "invariants_checked": [
+        "VerifyCallback fails closed when appSecret or sign header is empty, enforces 5-minute millisecond timestamp replay window, caps body reads via LimitWebhookBody, and verifies canonical HMAC-SHA1 signatures in constant time.",
+        "SendReply, WebSocket URLs, and attachment downloads enforce HTTPS/WSS without userinfo, strict host suffix allowlisting, SSRF_DNS_WHITELIST_ONLY compliance, single-redirect off-host Authorization stripping, and 20 MiB download caps.",
+        "HTTP and WebSocket dial errors scrub yzjtoken query secrets while preserving error unwrapping, and LongConnClient checks closed state under c.mu immediately after DialContext so concurrent Stop() never blocks on ReadMessage."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-YUNZHIJIA-01",
+          "severity": "P1",
+          "file": "internal/im/yunzhijia/adapter.go:378-438; internal/im/yunzhijia/websocket.go:123-138",
+          "summary": "Adapter.SendReply and LongConnClient.connectAndRun surfaced *url.Error strings containing cleartext ?yzjtoken=<secret> query credentials into logs and caller errors, and connectAndRun assigned c.conn without re-checking c.closed under c.mu after DialContext (causing Stop() races to block for the 45s read timeout).",
+          "regression_test": "TestSendReplyAndWebSocketDial_RedactYzjTokenFromErrors, TestLongConnClient_StopRacingWithDialClosesConnectionImmediately",
+          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/yunzhijia/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/yunzhijia (exit 0)"
+      ]
+    }
+  ]
+}
