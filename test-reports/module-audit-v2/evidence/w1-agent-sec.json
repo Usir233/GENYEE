@@ -1,0 +1,254 @@
+{
+  "wave": "W1",
+  "slice": "w1-agent-sec",
+  "cross_package_notes": [
+    {
+      "file": "internal/agent/tools/host_approval.go:50",
+      "note": "Informational cross-package observation (outside w1-agent-sec boundary, untouched): HostApprovals.attach reads tenantID via types.TenantIDFromContext(ctx) rather than types.CallerFromContext(ctx).TenantID (unlike mcp_tool.go:249, confirmed_tool.go:110, ask_user.go:115, secure_form.go:145, and page_tools.go:326). Safe today because Lite host tools are single-workspace, but worth keeping aligned if Lite host tools are ever exposed across shared-agent workspaces."
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "internal/browserskill",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/browserskill/authorization.go",
+        "internal/browserskill/cluster.go",
+        "internal/browserskill/cluster_test.go",
+        "internal/browserskill/daemon.go",
+        "internal/browserskill/daemon_security_test.go",
+        "internal/browserskill/errors.go",
+        "internal/browserskill/errors_test.go",
+        "internal/browserskill/extension_test.go",
+        "internal/browserskill/focus.go",
+        "internal/browserskill/human.go",
+        "internal/browserskill/human_test.go",
+        "internal/browserskill/manager.go",
+        "internal/browserskill/manager_test.go",
+        "internal/browserskill/result.go",
+        "internal/browserskill/result_test.go",
+        "internal/browserskill/security_audit_test.go",
+        "internal/browserskill/shared_test.go",
+        "internal/browserskill/stop.go",
+        "internal/browserskill/stop_test.go",
+        "internal/browserskill/store.go",
+        "internal/browserskill/store_test.go"
+      ],
+      "invariants_checked": [
+        "Extension origin validation (validExtensionOrigin) strictly requires chrome-extension://<32 lowercase a-p chars> on both AuthorizeHTTP and WebSocket ServeHTTP, blocking arbitrary web page CSRF and DNS-rebinding hijacks.",
+        "Pairing and renewal token handling stores only SHA-256 hex digests in DB, enforces single-use atomic pairing exchange, requires explicit 'Bearer ' authorization header scheme, validates canonical 32-byte base64url tokens on both HTTP and WebSocket subprotocol entry points, and uses subtle.ConstantTimeCompare for secret/token equality checks.",
+        "Daemon Unix socket gatekeeper enforces 0700 private runtime directories (rejecting /tmp, /var/tmp, /private/tmp), constant-time per-daemon secret verification before proxying to inner bsk socket, and 24 MiB frame bounds.",
+        "Cluster inter-node RPC verifies HMAC-SHA256 signatures with hmac.Equal over timestamp + method + path + body, enforces 60s clock skew and nonce replay cache, and restricts internal forwarding URLs.",
+        "Multi-tenant and per-user Scope{Tenant, User} isolation binds device records, leases, and conversation task maps, stripping caller-supplied session_id / browser_instance_id overrides.",
+        "Navigation URL validation (navigate and tab_create) rejects dangerous schemes (file://, javascript:, chrome:, chrome-extension:, data:, devtools:, view-source:), control characters, and missing hosts before auto-starting sessions or dispatching RPCs.",
+        "WebSocket/HTTP body and screenshot preview payload bounds (ReadLimit, http.MaxBytesReader, maxFrame, preview size checks) and concurrent disconnect/pause/cancel races verified under -race; reserved BrowserSkill identifiers preserved per REBRAND_RESERVED.md with zero weknora/wk_ residues."
+      ],
+      "findings": [
+        {
+          "id": "W1-AGENT-SEC-01",
+          "severity": "P1",
+          "file": "internal/browserskill/manager.go:867, internal/browserskill/result.go:10",
+          "summary": "Manager.Call (callLocal) forwarded params['url'] in navigate and tab_create to the local Chrome extension without scheme validation (unlike statusPageURL), allowing prompt-injected tool calls to auto-start a browser window and open file://, javascript:, chrome://, chrome-extension://, data:, or devtools:// URLs.",
+          "regression_test": "TestCallRejectsDangerousNavigationAndTabCreateSchemes",
+          "commit": "0e562ab1c693453ebf1f24fdefce53330d4046da"
+        },
+        {
+          "id": "W1-AGENT-SEC-02",
+          "severity": "P2",
+          "file": "internal/browserskill/authorization.go:61-69, internal/browserskill/manager.go:384",
+          "summary": "AuthorizeHTTP used strings.TrimPrefix(..., 'Bearer '), accepting raw tokens without a 'Bearer ' prefix and comparing token == input.NextToken non-constant-time; ServeHTTP checked len(token) != 43 instead of canonical 32-byte base64url validToken(token) before querying storage.",
+          "regression_test": "TestAuthorizeHTTPRequiresBearerSchemeAndServeHTTPValidatesCanonicalToken",
+          "commit": "0e562ab1c693453ebf1f24fdefce53330d4046da"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/browserskill/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/browserskill/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/agent/approval",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/agent/approval/ask_user.go",
+        "internal/agent/approval/ask_user_test.go",
+        "internal/agent/approval/consume_failure_test.go",
+        "internal/agent/approval/gate.go",
+        "internal/agent/approval/gate_host_test.go",
+        "internal/agent/approval/gate_test.go",
+        "internal/agent/approval/grants.go",
+        "internal/agent/approval/mcp_risk.go",
+        "internal/agent/approval/mcp_risk_test.go",
+        "internal/agent/approval/page_action.go",
+        "internal/agent/approval/page_action_test.go",
+        "internal/agent/approval/secure_form.go",
+        "internal/agent/approval/secure_form_test.go",
+        "internal/agent/approval/security_audit_test.go",
+        "internal/agent/approval/session_grant_test.go",
+        "internal/agent/approval/tool_policy.go",
+        "internal/agent/approval/tool_policy_test.go"
+      ],
+      "invariants_checked": [
+        "Multi-tenant and per-user ownership binding enforced across RequestAndWait, RequestHostAndWait, RequestOAuthAndWait, AskUser, RequestSecureForm, PageAction, ResolveForResume, ResolveResponse, and ResolveSecureForm.",
+        "AnswerableKinds excludes mcp_oauth and secure_form from generic user prompt resolution so OAuth callbacks and server-side credential vault handlers remain the sole resolvers for those kinds.",
+        "Session and standing automation grant bindings hash canonical tool arguments / domains (BindingHash) and verify Risk coverage via policy.Covers so TOCTOU argument changes or risk escalations invalidate prior grants.",
+        "Single-use consumption via hitl.Broker.Consume transitions answered prompts to executing/done under owner-instance verification, preventing replay of expired, canceled, or already-consumed approvals.",
+        "Strict JSON decoding with DisallowUnknownFields and trailing-EOF rejection enforced on tool_approval, mcp_oauth, ask_user, secure_form, and page_action response validators, plus host Scope/Access clamping against proposed AllowSession and GrantAccess.",
+        "MCP policy lookups (IsEnabled, Action, ToolRisks) fail closed on missing tenant/service/tool identity or checker errors; ResumeDecision, ResumeAnswer, and ResumeSecureForm guard against nil receivers/prompts and kind confusion."
+      ],
+      "findings": [
+        {
+          "id": "W1-AGENT-SEC-03",
+          "severity": "P1",
+          "file": "internal/agent/approval/gate.go:374-386,700-715,768-845",
+          "summary": "validateToolApprovalResponse did not validate Scope ('once'/'session') or Access ('read'/'write'), allowed Scope/Access on rejections, and ignored trailing JSON tokens (as did validateMCPOAuthResponse, which also lacked DisallowUnknownFields and required 'authorized'); furthermore, RequestHostAndWait passed client-supplied Scope='session' when AllowSession=false and Access='write' when GrantAccess='read', allowing callers on /agent/prompts/{id} to widen a read-only host grant into a write grant.",
+          "regression_test": "TestResolveResponseValidatesScopeAccessAndTrailingJSON, TestRequestHostAndWaitCannotWidenProposedGrantOrSessionScope",
+          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+        },
+        {
+          "id": "W1-AGENT-SEC-04",
+          "severity": "P1",
+          "file": "internal/agent/approval/mcp_risk.go:56-65,92-160",
+          "summary": "Gate.Action failed open to DeclaredRisk(tool) (allowing readOnlyHint=true tools without approval) when tenantID==0, serviceID=='', or tool identity was empty despite a configured checker; Gate.ToolRisks likewise skipped policy lookup on missing tenant/service, ignored RiskChecker.Policy when ListByService was unimplemented, and trusted readOnlyHint instead of RiskWrite when Checker did not implement RiskChecker.",
+          "regression_test": "TestGateActionAndToolRisksFailClosedOnMissingIdentityOrCheckerType",
+          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+        },
+        {
+          "id": "W1-AGENT-SEC-05",
+          "severity": "P2",
+          "file": "internal/agent/approval/secure_form.go:53-68,132-168, internal/agent/approval/ask_user.go:134-144, internal/agent/approval/gate.go:522-535",
+          "summary": "RequestSecureForm and ResolveSecureForm lacked explicit non-zero TenantID and non-blank UserID guards, SecureFormPrompt lacked nil gate/broker guards, and ResumeDecision / ResumeAnswer / ResumeSecureForm lacked nil prompt and Prompt.Kind verification before unmarshaling and consuming.",
+          "regression_test": "TestSecureFormAndResumeEntryPointsFailClosedOnMissingOwnerOrKind",
+          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/agent/approval/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/approval/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/agent/hitl",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/agent/hitl/broker.go",
+        "internal/agent/hitl/broker_test.go",
+        "internal/agent/hitl/delegation.go",
+        "internal/agent/hitl/delegation_test.go",
+        "internal/agent/hitl/reaper.go",
+        "internal/agent/hitl/reaper_error_test.go",
+        "internal/agent/hitl/resume_test.go",
+        "internal/agent/hitl/store.go",
+        "internal/agent/hitl/suspend_test.go"
+      ],
+      "invariants_checked": [
+        "Broker.Resolve enforces non-zero matching TenantID, fail-close per-user UserID matching, optional SessionID/Kind scoping (returning ErrPromptNotFound to prevent cross-session probing), and registered kind response validation before state transition.",
+        "Atomic compare-and-swap transitions in MemoryStore and SQL Store guard status, owner_instance, and lease_until so concurrent Resolve, timeout, cancellation, reaper, and Consume operations never double-consume or lose answers.",
+        "Waiter channel registration and close-once wakeup broadcast via sync/Redis pubsub are race-free under concurrent Await/Resolve/Cancel/Reap.",
+        "Orphaned pending prompts with expired owner leases are reaped prior to Resolve (suspended when suspendable, expired with owner_stopped otherwise) so answers are never recorded onto dead non-suspendable prompts."
+      ],
+      "findings": [
+        {
+          "id": "W1-AGENT-SEC-06",
+          "severity": "P1",
+          "file": "internal/agent/hitl/broker.go:553",
+          "summary": "Broker.Resolve checked row.TenantID != req.TenantID without rejecting zero TenantIDs, allowing an unattributed request (TenantID=0) to match an unattributed prompt row (TenantID=0) instead of failing closed with ErrTenantMismatch.",
+          "regression_test": "TestBroker_ResolveRejectsZeroTenant",
+          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+        },
+        {
+          "id": "W1-AGENT-SEC-07",
+          "severity": "P2",
+          "file": "internal/agent/hitl/broker.go:579-581",
+          "summary": "Broker.Resolve only invoked reapPending on lease-expired Pending prompts when row.Suspendable was true, allowing a non-suspendable prompt whose waiting replica had crashed to transition to a permanent zombie Answered row with no waiter or suspension state.",
+          "regression_test": "TestBroker_ResolveExpiresOrphanedNonSuspendablePendingPrompt",
+          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/agent/hitl/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/hitl/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/agent/hostreview",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/agent/hostreview/assessment.go",
+        "internal/agent/hostreview/assessment_test.go",
+        "internal/agent/hostreview/prompt.go",
+        "internal/agent/hostreview/prompt_test.go",
+        "internal/agent/hostreview/reviewer.go",
+        "internal/agent/hostreview/reviewer_test.go",
+        "internal/agent/hostreview/transcript.go"
+      ],
+      "invariants_checked": [
+        "Reviewer fails closed on nil reviewer/model, empty or mismatched SessionID, missing RequestID, empty/whitespace-only current-turn user messages, incomplete wildcard targets (TargetsComplete=false), incomplete scripts (ScriptsIncomplete=true), oversized actions (>64 KiB pre-masking), oversized current-turn transcripts (>64 KiB), model timeouts, cancellations, or tool-call attempts.",
+        "Prompt serialization isolates untrusted action fields inside structured JSON, caps earlier background messages while keeping current-turn authorization messages whole, and masks secret-named environment variables before sending prompts to external review models.",
+        "Assessment parser enforces a single JSON object (optionally inside one markdown fence without trailing text), DisallowUnknownFields, trailing-EOF rejection, and requires outcome=allow with risk_level in {low,medium} and user_authorization in {medium,high}."
+      ],
+      "findings": [
+        {
+          "id": "W1-AGENT-SEC-08",
+          "severity": "P1",
+          "file": "internal/agent/hostreview/prompt.go:96-135",
+          "summary": "actionOf serialized req.Env values in plaintext into the external LLM user prompt (unlike tools/host_approval.go which masks secret-looking env keys on UI cards), leaking API keys, tokens, passwords, and cookies to the review model.",
+          "regression_test": "TestPromptMasksSecretEnvValuesWhileEnforcingRawSizeLimit",
+          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+        },
+        {
+          "id": "W1-AGENT-SEC-09",
+          "severity": "P2",
+          "file": "internal/agent/hostreview/reviewer.go:65-95, internal/agent/hostreview/transcript.go:24-48",
+          "summary": "Reviewer.review did not reject blank turn.SessionID or mismatched req.SessionID != turn.SessionID, accepted whitespace-only current-turn user messages, and splitTranscript dereferenced nil *types.Message entries without guarding.",
+          "regression_test": "TestReviewRefusesMissingOrMismatchedSessionAndBlankTurn",
+          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+        },
+        {
+          "id": "W1-AGENT-SEC-10",
+          "severity": "P2",
+          "file": "internal/agent/hostreview/assessment.go:26-35",
+          "summary": "parseAssessment used json.Unmarshal without DisallowUnknownFields or trailing-token EOF verification, accepting malformed multi-field / unknown-key JSON replies instead of failing closed.",
+          "regression_test": "TestParseAssessmentRejectsUnknownFieldsAndTrailingJSON",
+          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/agent/hostreview/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/hostreview/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/agent/policy",
+      "wave": "W1",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/agent/policy/policy.go",
+        "internal/agent/policy/policy_test.go",
+        "internal/agent/policy/record.go"
+      ],
+      "invariants_checked": [
+        "Decide and Offered enforce read-only mutation denial, treat unknown Risk values as destructive (Ask under auto_write/confirm, Deny under read_only), and fail closed (Deny / not offered) on any non-empty malformed AssistantAccessLevel while preserving empty default confirm semantics.",
+        "Grantable restricts in-run session grants to non-Always RiskWrite actions, Pregrantable restricts standing automation grants to non-Always RiskWrite/RiskDestructive actions, and Covers requires both granted and call Risk values to be valid with call risk not exceeding granted risk."
+      ],
+      "findings": [
+        {
+          "id": "W1-AGENT-SEC-11",
+          "severity": "P2",
+          "file": "internal/agent/policy/policy.go:106-116",
+          "summary": "Offered checked level != AssistantAccessReadOnly without validating non-empty levels via level.Valid(), causing malformed access levels (e.g. 'readonly', 'none', 'bogus') to fail open (offering mutating/destructive tools and returning Allow on read/probe); Covers also did not explicitly require granted.Valid().",
+          "regression_test": "TestMalformedNonEmptyAccessLevelFailsClosed",
+          "commit": "71c23ad08532ec1bf6ac781a86da62f93fc56191"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/agent/policy/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/policy/... (exit 0)"
+      ]
+    }
+  ]
+}
