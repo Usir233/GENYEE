@@ -278,7 +278,6 @@ modelRequest := &client.CreateModelRequest{
         "temperature": 0.7,
         "top_p":       0.9,
     },
-    IsDefault: true,
 }
 model, err := apiClient.CreateModel(context.Background(), modelRequest)
 if err != nil {

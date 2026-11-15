@@ -67,40 +67,29 @@ type TenantListResponse struct {
 	} `json:"data"`
 }
 
-// TenantAPIKeyRole is the tenant RBAC role bound to a revocable API key.
-type TenantAPIKeyRole string
-
-const (
-	TenantAPIKeyRoleViewer      TenantAPIKeyRole = "viewer"
-	TenantAPIKeyRoleContributor TenantAPIKeyRole = "contributor"
-	TenantAPIKeyRoleAdmin       TenantAPIKeyRole = "admin"
-)
-
 // TenantAPIKey is the API key metadata returned by list/create APIs.
 type TenantAPIKey struct {
-	ID               uint64           `json:"id"`
-	TenantID         uint64           `json:"tenant_id"`
-	ScopeType        string           `json:"scope_type"`
-	Name             string           `json:"name"`
-	APIKey           string           `json:"api_key"`
-	Role             TenantAPIKeyRole `json:"role"`
-	FullAccess       bool             `json:"full_access"`
-	KnowledgeBaseIDs []string         `json:"knowledge_base_ids"`
-	Capabilities     []string         `json:"capabilities"`
-	LastUsedAt       *time.Time       `json:"last_used_at,omitempty"`
-	ExpiresAt        *time.Time       `json:"expires_at,omitempty"`
-	CreatedAt        time.Time        `json:"created_at"`
-	UpdatedAt        time.Time        `json:"updated_at"`
+	ID               uint64     `json:"id"`
+	TenantID         uint64     `json:"tenant_id"`
+	ScopeType        string     `json:"scope_type"`
+	Name             string     `json:"name"`
+	APIKey           string     `json:"api_key"`
+	FullAccess       bool       `json:"full_access"`
+	KnowledgeBaseIDs []string   `json:"knowledge_base_ids"`
+	Capabilities     []string   `json:"capabilities"`
+	LastUsedAt       *time.Time `json:"last_used_at,omitempty"`
+	ExpiresAt        *time.Time `json:"expires_at,omitempty"`
+	CreatedAt        time.Time  `json:"created_at"`
+	UpdatedAt        time.Time  `json:"updated_at"`
 }
 
 // CreateTenantAPIKeyRequest creates a revocable tenant API key.
 type CreateTenantAPIKeyRequest struct {
-	Name             string           `json:"name"`
-	Role             TenantAPIKeyRole `json:"role,omitempty"`
-	FullAccess       bool             `json:"full_access,omitempty"`
-	KnowledgeBaseIDs []string         `json:"knowledge_base_ids,omitempty"`
-	Capabilities     []string         `json:"capabilities,omitempty"`
-	ExpiresAtUnix    *int64           `json:"expires_at_unix,omitempty"`
+	Name             string   `json:"name"`
+	FullAccess       bool     `json:"full_access,omitempty"`
+	KnowledgeBaseIDs []string `json:"knowledge_base_ids,omitempty"`
+	Capabilities     []string `json:"capabilities,omitempty"`
+	ExpiresAtUnix    *int64   `json:"expires_at_unix,omitempty"`
 }
 
 // UpdateTenantAPIKeyRequest replaces an existing tenant API key's configurable attributes.
@@ -358,6 +347,100 @@ func (c *Client) UpdateTenantKV(ctx context.Context, key string, value any) (jso
 		return nil, err
 	}
 	return result.Data, nil
+}
+
+// TenantKVKeyDefaultSettings is the tenant KV key for workspace default model bindings.
+const TenantKVKeyDefaultSettings = "default-settings"
+
+// DefaultSettings binds a tenant's default model IDs by capability slot.
+type DefaultSettings struct {
+	ChatModelID      string `json:"chat_model_id"`
+	UtilityModelID   string `json:"utility_model_id"`
+	EmbeddingModelID string `json:"embedding_model_id"`
+	RerankModelID    string `json:"rerank_model_id"`
+	VLMModelID       string `json:"vlm_model_id"`
+	ASRModelID       string `json:"asr_model_id"`
+}
+
+// SlotModelID returns the configured default model ID for mt and whether mt maps
+// to a tenant default model slot.
+func (s *DefaultSettings) SlotModelID(mt ModelType) (string, bool) {
+	if s == nil {
+		return "", false
+	}
+	switch mt {
+	case ModelTypeKnowledgeQA:
+		return s.ChatModelID, true
+	case ModelTypeEmbedding:
+		return s.EmbeddingModelID, true
+	case ModelTypeRerank:
+		return s.RerankModelID, true
+	case ModelTypeVLLM:
+		return s.VLMModelID, true
+	case ModelTypeASR:
+		return s.ASRModelID, true
+	default:
+		return "", false
+	}
+}
+
+// SetSlotModelID updates the default model slot corresponding to mt. Returns
+// false when mt does not map to a supported default model slot.
+func (s *DefaultSettings) SetSlotModelID(mt ModelType, modelID string) bool {
+	if s == nil {
+		return false
+	}
+	switch mt {
+	case ModelTypeKnowledgeQA:
+		s.ChatModelID = modelID
+	case ModelTypeEmbedding:
+		s.EmbeddingModelID = modelID
+	case ModelTypeRerank:
+		s.RerankModelID = modelID
+	case ModelTypeVLLM:
+		s.VLMModelID = modelID
+	case ModelTypeASR:
+		s.ASRModelID = modelID
+	default:
+		return false
+	}
+	return true
+}
+
+// GetDefaultSettings retrieves the workspace default model bindings via
+// GET /api/v1/tenants/kv/default-settings.
+func (c *Client) GetDefaultSettings(ctx context.Context) (*DefaultSettings, error) {
+	raw, err := c.GetTenantKV(ctx, TenantKVKeyDefaultSettings)
+	if err != nil {
+		return nil, err
+	}
+	var settings DefaultSettings
+	if len(raw) > 0 && string(raw) != "null" {
+		if err := json.Unmarshal(raw, &settings); err != nil {
+			return nil, fmt.Errorf("decode default-settings: %w", err)
+		}
+	}
+	return &settings, nil
+}
+
+// UpdateDefaultSettings updates the workspace default model bindings via
+// PUT /api/v1/tenants/kv/default-settings.
+func (c *Client) UpdateDefaultSettings(ctx context.Context, settings *DefaultSettings) (*DefaultSettings, error) {
+	if settings == nil {
+		settings = &DefaultSettings{}
+	}
+	raw, err := c.UpdateTenantKV(ctx, TenantKVKeyDefaultSettings, settings)
+	if err != nil {
+		return nil, err
+	}
+	var updated DefaultSettings
+	if len(raw) > 0 && string(raw) != "null" {
+		if err := json.Unmarshal(raw, &updated); err != nil {
+			return nil, fmt.Errorf("decode default-settings: %w", err)
+		}
+		return &updated, nil
+	}
+	return settings, nil
 }
 
 // APIPrincipalMode controls how X-API-Key requests map to terminal principals.

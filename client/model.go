@@ -97,7 +97,6 @@ type CreateModelRequest struct {
 	Source      ModelSource     `json:"source"`
 	Description string          `json:"description"`
 	Parameters  ModelParameters `json:"parameters"`
-	IsDefault   bool            `json:"is_default"`
 }
 
 // UpdateModelRequest model update request
@@ -106,7 +105,22 @@ type UpdateModelRequest struct {
 	DisplayName string          `json:"display_name"`
 	Description string          `json:"description"`
 	Parameters  ModelParameters `json:"parameters"`
-	IsDefault   bool            `json:"is_default"`
+}
+
+// CredentialFieldMetadata reports whether a write-only credential slot is configured.
+type CredentialFieldMetadata struct {
+	Configured bool `json:"configured"`
+}
+
+// CredentialsResponse is returned when updating write-only model credentials.
+type CredentialsResponse struct {
+	Fields map[string]CredentialFieldMetadata `json:"fields"`
+}
+
+// ModelCredentialsRequest rotates one or more write-only model credential fields.
+type ModelCredentialsRequest struct {
+	APIKey    *string `json:"api_key,omitempty"`
+	AppSecret *string `json:"app_secret,omitempty"`
 }
 
 // ModelResponse model response
@@ -197,6 +211,36 @@ func (c *Client) DeleteModel(ctx context.Context, modelID string) error {
 	}
 
 	return parseResponse(resp, &response)
+}
+
+// UpdateModelCredentials rotates write-only credentials for a model via
+// PUT /api/v1/models/{id}/credentials.
+func (c *Client) UpdateModelCredentials(ctx context.Context, modelID string, request *ModelCredentialsRequest) (*CredentialsResponse, error) {
+	path := fmt.Sprintf("/api/v1/models/%s/credentials", escapePathSegment(modelID))
+	resp, err := c.doRequest(ctx, http.MethodPut, path, request, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var response struct {
+		Success bool                `json:"success"`
+		Data    CredentialsResponse `json:"data"`
+	}
+	if err := parseResponse(resp, &response); err != nil {
+		return nil, err
+	}
+	return &response.Data, nil
+}
+
+// DeleteModelCredential clears a single write-only credential slot ("api_key"
+// or "app_secret") via DELETE /api/v1/models/{id}/credentials/{field}.
+func (c *Client) DeleteModelCredential(ctx context.Context, modelID, field string) error {
+	path := fmt.Sprintf("/api/v1/models/%s/credentials/%s", escapePathSegment(modelID), escapePathSegment(field))
+	resp, err := c.doRequest(ctx, http.MethodDelete, path, nil, nil)
+	if err != nil {
+		return err
+	}
+	return parseResponse(resp, nil)
 }
 
 // ModelProvider represents a model provider with its supported types and default URLs

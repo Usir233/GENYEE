@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -126,6 +129,8 @@ func (r *ModelCheckResult) UnmarshalJSON(data []byte) error {
 	if result.Available != nil {
 		r.Available = *result.Available
 		r.Success = *result.Available
+	} else {
+		r.Available = r.Success
 	}
 	return nil
 }
@@ -379,6 +384,47 @@ func (c *Client) CheckRerankModel(ctx context.Context, params map[string]string)
 	return result.Data, nil
 }
 
+var multipartQuoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"", "\r", "%0D", "\n", "%0A")
+
+func detectMultimodalImageContentType(filename string, head []byte) string {
+	if len(head) > 0 {
+		sniffed := http.DetectContentType(head)
+		if mediaType, _, err := mime.ParseMediaType(sniffed); err == nil && strings.HasPrefix(mediaType, "image/") {
+			return mediaType
+		}
+	}
+	switch strings.ToLower(filepath.Ext(filename)) {
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".webp":
+		return "image/webp"
+	case ".bmp":
+		return "image/bmp"
+	case ".svg":
+		return "image/svg+xml"
+	case ".tif", ".tiff":
+		return "image/tiff"
+	case ".ico":
+		return "image/x-icon"
+	case ".avif":
+		return "image/avif"
+	case ".heic":
+		return "image/heic"
+	case ".heif":
+		return "image/heif"
+	}
+	if extType := mime.TypeByExtension(filepath.Ext(filename)); extType != "" {
+		if mediaType, _, err := mime.ParseMediaType(extType); err == nil && strings.HasPrefix(mediaType, "image/") {
+			return mediaType
+		}
+	}
+	return "image/png"
+}
+
 // TestMultimodalFunction uploads one local image and the model/storage form
 // fields to the multimodal test endpoint. Exactly one image path is required.
 // The variadic argument preserves source compatibility with old callers,
@@ -392,13 +438,24 @@ func (c *Client) TestMultimodalFunction(ctx context.Context, params map[string]s
 		return nil, fmt.Errorf("open multimodal test image: %w", err)
 	}
 	defer file.Close()
+
+	var sniffBuf [512]byte
+	n, sniffErr := io.ReadFull(file, sniffBuf[:])
+	if sniffErr != nil && sniffErr != io.EOF && sniffErr != io.ErrUnexpectedEOF {
+		return nil, fmt.Errorf("read multimodal test image: %w", sniffErr)
+	}
+
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
-	part, err := writer.CreateFormFile("image", filepath.Base(imagePaths[0]))
+	partHeader := make(textproto.MIMEHeader)
+	safeFilename := multipartQuoteEscaper.Replace(filepath.Base(imagePaths[0]))
+	partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="image"; filename="%s"`, safeFilename))
+	partHeader.Set("Content-Type", detectMultimodalImageContentType(imagePaths[0], sniffBuf[:n]))
+	part, err := writer.CreatePart(partHeader)
 	if err != nil {
 		return nil, err
 	}
-	if _, err := io.Copy(part, file); err != nil {
+	if _, err := io.Copy(part, io.MultiReader(bytes.NewReader(sniffBuf[:n]), file)); err != nil {
 		return nil, err
 	}
 	for name, value := range params {

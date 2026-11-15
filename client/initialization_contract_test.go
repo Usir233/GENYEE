@@ -174,6 +174,9 @@ func TestMultimodalUploadWireContract(t *testing.T) {
 			return
 		}
 		defer image.Close()
+		if ct := header.Header.Get("Content-Type"); ct != "image/png" {
+			t.Errorf("part Content-Type = %q, want image/png", ct)
+		}
 		data, err := io.ReadAll(image)
 		if err != nil || string(data) != "image-fixture" || header.Filename != "test-image.png" {
 			t.Errorf("unexpected upload: %s %q %v", header.Filename, data, err)
@@ -209,8 +212,61 @@ func TestModelCheckOutcomeDoesNotUseEnvelopeSuccess(t *testing.T) {
 		if err := json.Unmarshal([]byte(tc.body), &got); err != nil {
 			t.Fatal(err)
 		}
-		if got.Success != tc.success || got.Dimension != tc.dimension {
+		if got.Success != tc.success || got.Available != tc.success || got.Dimension != tc.dimension {
 			t.Errorf("body=%s got=%+v", tc.body, got)
 		}
+		encoded, err := json.Marshal(got)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var roundTrip ModelCheckResult
+		if err := json.Unmarshal(encoded, &roundTrip); err != nil {
+			t.Fatal(err)
+		}
+		if roundTrip.Success != tc.success || roundTrip.Available != tc.success || roundTrip.Dimension != tc.dimension {
+			t.Errorf("round-trip lost outcome: body=%s encoded=%s roundTrip=%+v", tc.body, string(encoded), roundTrip)
+		}
+	}
+}
+
+func TestMultimodalUploadDetectsMagicBytesAndEscapesFilenameQuotes(t *testing.T) {
+	jpegHeader := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 'J', 'F', 'I', 'F', 0x00}
+	path := filepath.Join(t.TempDir(), `sample"quote.bin`)
+	if err := os.WriteFile(path, jpegHeader, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseMultipartForm(4096); err != nil {
+			t.Errorf("parse multipart failed: %v", err)
+			return
+		}
+		defer r.MultipartForm.RemoveAll()
+		f, header, err := r.FormFile("image")
+		if err != nil {
+			t.Errorf("FormFile(image) failed: %v", err)
+			return
+		}
+		defer f.Close()
+		if ct := header.Header.Get("Content-Type"); ct != "image/jpeg" {
+			t.Errorf("Content-Type = %q, want image/jpeg", ct)
+		}
+		if header.Filename != `sample"quote.bin` {
+			t.Errorf("Filename = %q, want sample\"quote.bin", header.Filename)
+		}
+		raw, err := io.ReadAll(f)
+		if err != nil || string(raw) != string(jpegHeader) {
+			t.Errorf("uploaded bytes mismatch: got %v (err=%v)", raw, err)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"success":true,"data":{"success":true,"caption":"jpeg"}}`)
+	}))
+	defer s.Close()
+
+	got, err := NewClient(s.URL).TestMultimodalFunction(context.Background(), map[string]string{"vlm_model": "vlm"}, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || !got.Success || !got.Available {
+		t.Fatalf("expected successful multimodal result, got %+v", got)
 	}
 }
