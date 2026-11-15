@@ -4,6 +4,7 @@ package weaviate
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/weaviate/weaviate-go-client/v5/weaviate/filters"
 	"github.com/weaviate/weaviate-go-client/v5/weaviate/graphql"
@@ -16,10 +17,23 @@ func (w *weaviateRepository) MoveKnowledgeIndices(
 	dimension int,
 	_ string,
 ) error {
+	src := strings.TrimSpace(sourceKB)
+	dst := strings.TrimSpace(targetKB)
+	docID := strings.TrimSpace(knowledgeID)
+	if src == "" || dst == "" || docID == "" {
+		return fmt.Errorf("weaviate: move indices requires non-empty sourceKB, targetKB, and knowledgeID")
+	}
+	if dimension <= 0 {
+		return fmt.Errorf("weaviate: invalid dimension %d for move indices", dimension)
+	}
+	if w.client == nil {
+		return fmt.Errorf("weaviate: client is nil")
+	}
+
 	collection := w.getCollectionName(dimension)
 	where := filters.Where().WithOperator(filters.And).WithOperands([]*filters.WhereBuilder{
-		filters.Where().WithPath([]string{fieldKnowledgeBaseID}).WithOperator(filters.Equal).WithValueString(sourceKB),
-		filters.Where().WithPath([]string{fieldKnowledgeID}).WithOperator(filters.Equal).WithValueString(knowledgeID),
+		filters.Where().WithPath([]string{fieldKnowledgeBaseID}).WithOperator(filters.Equal).WithValueString(src),
+		filters.Where().WithPath([]string{fieldKnowledgeID}).WithOperator(filters.Equal).WithValueString(docID),
 	})
 	seen := make(map[string]bool)
 	for {
@@ -29,7 +43,7 @@ func (w *weaviateRepository) MoveKnowledgeIndices(
 		if err != nil {
 			return err
 		}
-		if result == nil || len(result.Errors) != 0 {
+		if result == nil || len(result.Errors) != 0 || result.Data == nil {
 			return fmt.Errorf("failed to list move indices")
 		}
 		get, ok := result.Data["Get"].(map[string]interface{})
@@ -68,7 +82,7 @@ func (w *weaviateRepository) MoveKnowledgeIndices(
 		// follow-up query proves completion, including after partial-page updates.
 		for _, id := range ids {
 			if err := w.client.Data().Updater().WithClassName(collection).WithID(id).WithMerge().
-				WithProperties(map[string]interface{}{fieldKnowledgeBaseID: targetKB, fieldTagID: ""}).
+				WithProperties(map[string]interface{}{fieldKnowledgeBaseID: dst, fieldTagID: ""}).
 				Do(ctx); err != nil {
 				return err
 			}

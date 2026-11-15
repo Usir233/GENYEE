@@ -126,7 +126,7 @@ func TestAddGraphConsumesBothWriteResults(t *testing.T) {
 	tx := &graphWriteTransaction{}
 	session := &graphWriteSession{tx: tx}
 	repo := NewNeo4jRepository(&graphWriteDriver{session: session})
-	require.NoError(t, repo.AddGraph(context.Background(), types.NameSpace{}, []*types.GraphData{{}}))
+	require.NoError(t, repo.AddGraph(context.Background(), types.NameSpace{KnowledgeBase: "kb", Knowledge: "doc"}, []*types.GraphData{{}}))
 	assert.Equal(t, 2, tx.calls)
 	assert.Equal(t, 2, tx.consumed)
 	assert.True(t, session.closed)

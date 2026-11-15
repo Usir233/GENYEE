@@ -3,6 +3,8 @@ package tencentvectordb
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/tencent/vectordatabase-sdk-go/tcvectordb"
 )
@@ -14,20 +16,26 @@ func (r *repository) MoveKnowledgeIndices(
 	dimension int,
 	_ string,
 ) error {
+	src := strings.TrimSpace(sourceKB)
+	dst := strings.TrimSpace(targetKB)
+	docID := strings.TrimSpace(knowledgeID)
+	if src == "" || dst == "" || docID == "" {
+		return fmt.Errorf("tencent vectordb move indices requires non-empty sourceKB, targetKB, and knowledgeID")
+	}
+	if r.useDimensionSuffix && dimension <= 0 {
+		return fmt.Errorf("tencent vectordb invalid dimension %d for move indices", dimension)
+	}
+	if r.client == nil {
+		return fmt.Errorf("tencent vectordb client is nil")
+	}
 	filter := tcvectordb.NewFilter(
-		tcvectordb.In(
-			fieldKnowledgeBaseID,
-			[]string{sourceKB},
-		) + " and " + tcvectordb.In(
-			fieldKnowledgeID,
-			[]string{knowledgeID},
-		),
+		filterIn(fieldKnowledgeBaseID, []string{src}) + " and " + filterIn(fieldKnowledgeID, []string{docID}),
 	)
 	_, err := r.client.Database(r.databaseName).
 		Collection(r.collectionName(dimension)).
 		Update(ctx, tcvectordb.UpdateDocumentParams{
 			QueryFilter:  filter,
-			UpdateFields: map[string]tcvectordb.Field{fieldKnowledgeBaseID: {Val: targetKB}, fieldTagID: {Val: ""}},
+			UpdateFields: map[string]tcvectordb.Field{fieldKnowledgeBaseID: {Val: dst}, fieldTagID: {Val: ""}},
 		})
-	return err
+	return redactTencentErr(err)
 }

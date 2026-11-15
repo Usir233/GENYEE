@@ -49,13 +49,148 @@ const (
 	defaultCopyQueryLimit = 10000
 )
 
+var weaviateClassNamePattern = regexp.MustCompile(`^[A-Z][_0-9A-Za-z]*$`)
+
+func isValidWeaviateClassName(name string) bool {
+	return weaviateClassNamePattern.MatchString(name)
+}
+
+func isPositiveDimensionSuffix(suffix string) bool {
+	if suffix == "" || suffix[0] < '1' || suffix[0] > '9' {
+		return false
+	}
+	for i := 1; i < len(suffix); i++ {
+		if suffix[i] < '0' || suffix[i] > '9' {
+			return false
+		}
+	}
+	dim, err := strconv.Atoi(suffix)
+	return err == nil && dim > 0
+}
+
+func sanitizeWeaviateCollectionBase(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return defaultCollectionName
+	}
+	var b strings.Builder
+	b.Grow(len(trimmed))
+	for i := 0; i < len(trimmed); i++ {
+		ch := trimmed[i]
+		if (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9') || ch == '_' {
+			b.WriteByte(ch)
+		} else {
+			b.WriteByte('_')
+		}
+	}
+	cleaned := strings.Trim(b.String(), "_")
+	if cleaned == "" {
+		return defaultCollectionName
+	}
+	if cleaned[0] >= 'a' && cleaned[0] <= 'z' {
+		cleaned = string(cleaned[0]-('a'-'A')) + cleaned[1:]
+	} else if cleaned[0] < 'A' || cleaned[0] > 'Z' {
+		cleaned = "G_" + cleaned
+	}
+	if !isValidWeaviateClassName(cleaned) {
+		return defaultCollectionName
+	}
+	return cleaned
+}
+
+func cleanNonEmptyIDs(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(values))
+	for _, v := range values {
+		if trimmed := strings.TrimSpace(v); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+func hasValidRetrieveScope(params types.RetrieveParams) bool {
+	kbIDs := cleanNonEmptyIDs(params.KnowledgeBaseIDs)
+	kIDs := cleanNonEmptyIDs(params.KnowledgeIDs)
+	tagIDs := cleanNonEmptyIDs(params.TagIDs)
+	if len(params.KnowledgeBaseIDs) > 0 && len(kbIDs) == 0 {
+		return false
+	}
+	if len(params.KnowledgeIDs) > 0 && len(kIDs) == 0 {
+		return false
+	}
+	if len(params.TagIDs) > 0 && len(tagIDs) == 0 {
+		return false
+	}
+	return len(kbIDs) > 0 || len(kIDs) > 0
+}
+
+func weaviateObjectID(sourceID, chunkID string) string {
+	src := strings.TrimSpace(sourceID)
+	chk := strings.TrimSpace(chunkID)
+	key := src
+	if key == "" {
+		key = chk
+	}
+	if key == "" {
+		return uuid.New().String()
+	}
+	if key == chk {
+		if parsed, err := uuid.Parse(key); err == nil {
+			return parsed.String()
+		}
+	}
+	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(key)).String()
+}
+
+func checkBatchResponseErrors(resp []models.ObjectsGetResponse) error {
+	for _, r := range resp {
+		if r.Result == nil || r.Result.Errors == nil {
+			continue
+		}
+		for _, itemErr := range r.Result.Errors.Error {
+			if itemErr != nil && itemErr.Message != "" {
+				return fmt.Errorf("weaviate object batch error: %s", itemErr.Message)
+			}
+		}
+		return fmt.Errorf("weaviate object batch failed")
+	}
+	return nil
+}
+
+func filterWeaviateGeneratedQuestions(results []*types.IndexWithScore, excludedKBIDs []string) []*types.IndexWithScore {
+	cleaned := cleanNonEmptyIDs(excludedKBIDs)
+	if len(results) == 0 || len(cleaned) == 0 {
+		return results
+	}
+	excluded := make(map[string]struct{}, len(cleaned))
+	for _, id := range cleaned {
+		excluded[id] = struct{}{}
+	}
+	filtered := make([]*types.IndexWithScore, 0, len(results))
+	for _, hit := range results {
+		if hit == nil {
+			continue
+		}
+		if _, blocked := excluded[hit.KnowledgeBaseID]; blocked && types.IsGeneratedQuestionSource(hit.ChunkID, hit.SourceID, hit.SourceType) {
+			continue
+		}
+		filtered = append(filtered, hit)
+	}
+	return filtered
+}
+
 // NewWeaviateRetrieveEngineRepository creates and initializes a new Weaviate repository.
 // indexCfg is optional — pass nil to use env var / default values (env path).
 func NewWeaviateRetrieveEngineRepository(client *weaviate.Client, indexCfg *types.IndexConfig) interfaces.RetrieveEngineRepository {
 	log := logger.GetLogger(context.Background())
 	log.Info("[Weaviate] Initializing Weaviate retriever engine repository")
 
-	collectionBaseName := types.ResolveCollectionName(indexCfg, envWeaviateCollection, defaultCollectionName)
+	collectionBaseName := sanitizeWeaviateCollectionBase(
+		types.ResolveCollectionName(indexCfg, envWeaviateCollection, defaultCollectionName),
+	)
 
 	res := &weaviateRepository{
 		client:             client,
@@ -68,8 +203,26 @@ func NewWeaviateRetrieveEngineRepository(client *weaviate.Client, indexCfg *type
 	return res
 }
 
+func (w *weaviateRepository) normalizedBaseName() string {
+	if isValidWeaviateClassName(w.collectionBaseName) {
+		return w.collectionBaseName
+	}
+	return sanitizeWeaviateCollectionBase(w.collectionBaseName)
+}
+
 func (w *weaviateRepository) getCollectionName(dimension int) string {
-	return fmt.Sprintf("%s_%d", w.collectionBaseName, dimension)
+	return fmt.Sprintf("%s_%d", w.normalizedBaseName(), dimension)
+}
+
+func (w *weaviateRepository) matchesCollection(collectionName string) bool {
+	if !isValidWeaviateClassName(collectionName) {
+		return false
+	}
+	prefix := w.normalizedBaseName() + "_"
+	if !strings.HasPrefix(collectionName, prefix) {
+		return false
+	}
+	return isPositiveDimensionSuffix(strings.TrimPrefix(collectionName, prefix))
 }
 
 func (w *weaviateRepository) ensureCollection(ctx context.Context, dimension int) error {
@@ -222,6 +375,12 @@ func (w *weaviateRepository) Save(ctx context.Context,
 	embedding *types.IndexInfo, additionalParams map[string]any,
 ) error {
 	log := logger.GetLogger(ctx)
+	if embedding == nil {
+		return fmt.Errorf("weaviate: nil index info")
+	}
+	if w.client == nil {
+		return fmt.Errorf("weaviate: client is nil")
+	}
 	log.Debugf("[Weaviate] Saving index for chunk ID: %s", embedding.ChunkID)
 
 	embeddingDB := toWeaviateVectorEmbedding(embedding, additionalParams)
@@ -238,7 +397,7 @@ func (w *weaviateRepository) Save(ctx context.Context,
 	collectionName := w.getCollectionName(dimension)
 	dataSchema := createPayload(embeddingDB)
 
-	id := embedding.ChunkID
+	id := weaviateObjectID(embeddingDB.SourceID, embeddingDB.ChunkID)
 	// Create point in Weaviate
 	_, err := w.client.Data().Creator().
 		WithClassName(collectionName).
@@ -255,7 +414,7 @@ func (w *weaviateRepository) Save(ctx context.Context,
 	return nil
 }
 
-// BatchSave stores multiple points in Milvus using batch insert
+// BatchSave stores multiple points in Weaviate using batch insert
 func (w *weaviateRepository) BatchSave(ctx context.Context,
 	embeddingList []*types.IndexInfo, additionalParams map[string]any,
 ) error {
@@ -264,6 +423,9 @@ func (w *weaviateRepository) BatchSave(ctx context.Context,
 		log.Warn("[Weaviate] Empty list provided to BatchSave, skipping")
 		return nil
 	}
+	if w.client == nil {
+		return fmt.Errorf("weaviate: client is nil")
+	}
 
 	log.Infof("[Weaviate] Batch saving %d indices", len(embeddingList))
 
@@ -271,6 +433,9 @@ func (w *weaviateRepository) BatchSave(ctx context.Context,
 	embeddingsByDimension := make(map[int][]*types.IndexInfo)
 
 	for _, embedding := range embeddingList {
+		if embedding == nil {
+			continue
+		}
 		embeddingDB := toWeaviateVectorEmbedding(embedding, additionalParams)
 		if len(embeddingDB.Embedding) == 0 {
 			log.Warnf("[Weaviate] Skipping empty embedding for chunk ID: %s", embedding.ChunkID)
@@ -301,15 +466,20 @@ func (w *weaviateRepository) BatchSave(ctx context.Context,
 
 			obj := &models.Object{
 				Class:      collectionName,
-				ID:         strfmt.UUID(embeddingDB.ChunkID),
+				ID:         strfmt.UUID(weaviateObjectID(embeddingDB.SourceID, embeddingDB.ChunkID)),
 				Properties: dataSchema,
 				Vector:     embeddingDB.Embedding,
 			}
 			batcher.WithObjects(obj)
 		}
 		// Flush batch
-		if _, err := batcher.Do(ctx); err != nil {
+		resp, err := batcher.Do(ctx)
+		if err != nil {
 			log.Errorf("[Weaviate] Failed to execute batch operation for dimension %d: %v", dimension, err)
+			return fmt.Errorf("failed to batch save (dimension %d): %w", dimension, err)
+		}
+		if err := checkBatchResponseErrors(resp); err != nil {
+			log.Errorf("[Weaviate] Batch save object error for dimension %d: %v", dimension, err)
 			return fmt.Errorf("failed to batch save (dimension %d): %w", dimension, err)
 		}
 		totalSaved += len(embeddings)
@@ -323,24 +493,29 @@ func (w *weaviateRepository) BatchSave(ctx context.Context,
 // DeleteByChunkIDList removes points from the collection based on chunk IDs
 func (w *weaviateRepository) DeleteByChunkIDList(ctx context.Context, chunkIDList []string, dimension int, knowledgeType string) error {
 	log := logger.GetLogger(ctx)
-	if len(chunkIDList) == 0 {
+	cleaned := cleanNonEmptyIDs(chunkIDList)
+	if len(cleaned) == 0 {
 		log.Warn("[Weaviate] Empty chunk ID list provided for deletion, skipping")
 		return nil
 	}
+	if dimension <= 0 {
+		return fmt.Errorf("weaviate: invalid dimension %d for chunk deletion", dimension)
+	}
+	if w.client == nil {
+		return fmt.Errorf("weaviate: client is nil")
+	}
 
 	collectionName := w.getCollectionName(dimension)
-	log.Infof("[Weaviate] Deleting indices by chunk IDs from %s, count: %d", collectionName, len(chunkIDList))
+	log.Infof("[Weaviate] Deleting indices by chunk IDs from %s, count: %d", collectionName, len(cleaned))
 
-	//define filter
 	filter := w.client.Batch().ObjectsBatchDeleter().
 		WithClassName(collectionName).
 		WithWhere(filters.Where().
 			WithPath([]string{fieldChunkID}).
 			WithOperator(filters.ContainsAny).
-			WithValueText(chunkIDList...)).
+			WithValueText(cleaned...)).
 		WithOutput("minimal")
 
-	// Execute deletion
 	if _, err := filter.Do(ctx); err != nil {
 		log.Errorf("[Weaviate] Failed to delete by chunk IDs: %v", err)
 		return fmt.Errorf("failed to delete by chunk IDs: %w", err)
@@ -354,24 +529,29 @@ func (w *weaviateRepository) DeleteByKnowledgeIDList(ctx context.Context,
 	knowledgeIDList []string, dimension int, knowledgeType string,
 ) error {
 	log := logger.GetLogger(ctx)
-	if len(knowledgeIDList) == 0 {
+	cleaned := cleanNonEmptyIDs(knowledgeIDList)
+	if len(cleaned) == 0 {
 		log.Warn("[Weaviate] Empty knowledge ID list provided for deletion, skipping")
 		return nil
 	}
+	if dimension <= 0 {
+		return fmt.Errorf("weaviate: invalid dimension %d for knowledge deletion", dimension)
+	}
+	if w.client == nil {
+		return fmt.Errorf("weaviate: client is nil")
+	}
 
 	collectionName := w.getCollectionName(dimension)
-	log.Infof("[Weaviate] Deleting indices by knowledge IDs from %s, count: %d", collectionName, len(knowledgeIDList))
+	log.Infof("[Weaviate] Deleting indices by knowledge IDs from %s, count: %d", collectionName, len(cleaned))
 
-	//define filter
 	filter := w.client.Batch().ObjectsBatchDeleter().
 		WithClassName(collectionName).
 		WithWhere(filters.Where().
 			WithPath([]string{fieldKnowledgeID}).
 			WithOperator(filters.ContainsAny).
-			WithValueText(knowledgeIDList...)).
+			WithValueText(cleaned...)).
 		WithOutput("minimal")
 
-	// Execute deletion
 	if _, err := filter.Do(ctx); err != nil {
 		log.Errorf("[Weaviate] Failed to delete by knowledge IDs: %v", err)
 		return fmt.Errorf("failed to delete by knowledge IDs: %w", err)
@@ -385,28 +565,123 @@ func (w *weaviateRepository) DeleteBySourceIDList(ctx context.Context,
 	sourceIDList []string, dimension int, knowledgeType string,
 ) error {
 	log := logger.GetLogger(ctx)
-	if len(sourceIDList) == 0 {
+	cleaned := cleanNonEmptyIDs(sourceIDList)
+	if len(cleaned) == 0 {
 		log.Warn("[Weaviate] Empty Source ID list provided for deletion, skipping")
 		return nil
 	}
+	if dimension <= 0 {
+		return fmt.Errorf("weaviate: invalid dimension %d for source deletion", dimension)
+	}
+	if w.client == nil {
+		return fmt.Errorf("weaviate: client is nil")
+	}
 	collectionName := w.getCollectionName(dimension)
-	log.Infof("[Weaviate] Deleting indices by source IDs from %s, count: %d", collectionName, len(sourceIDList))
+	log.Infof("[Weaviate] Deleting indices by source IDs from %s, count: %d", collectionName, len(cleaned))
 
-	//define filter
 	filter := w.client.Batch().ObjectsBatchDeleter().
 		WithClassName(collectionName).
 		WithWhere(filters.Where().
 			WithPath([]string{fieldSourceID}).
 			WithOperator(filters.ContainsAny).
-			WithValueText(sourceIDList...)).
+			WithValueText(cleaned...)).
 		WithOutput("minimal")
 
-	// Execute deletion
 	if _, err := filter.Do(ctx); err != nil {
 		log.Errorf("[Weaviate] Failed to delete by source IDs: %v", err)
 		return fmt.Errorf("failed to delete by source IDs: %w", err)
 	}
 	log.Infof("[Weaviate] Successfully deleted documents by source IDs")
+	return nil
+}
+
+func (w *weaviateRepository) updateObjectsByChunkIDs(
+	ctx context.Context,
+	chunkIDs []string,
+	buildProps func(chunkID string) (map[string]any, bool),
+) error {
+	cleaned := cleanNonEmptyIDs(chunkIDs)
+	if len(cleaned) == 0 {
+		return nil
+	}
+	if w.client == nil {
+		return fmt.Errorf("weaviate: client is nil")
+	}
+
+	collections, err := w.ListCollections(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to list collections: %w", err)
+	}
+
+	const batchSize = 64
+	for _, collectionName := range collections {
+		if !w.matchesCollection(collectionName) {
+			continue
+		}
+		for batch := range slices.Chunk(cleaned, batchSize) {
+			limit := len(batch) * 16
+			if limit < 100 {
+				limit = 100
+			}
+			where := filters.Where().
+				WithPath([]string{fieldChunkID}).
+				WithOperator(filters.ContainsAny).
+				WithValueText(batch...)
+			result, queryErr := w.client.GraphQL().Get().
+				WithClassName(collectionName).
+				WithWhere(where).
+				WithLimit(limit).
+				WithFields(
+					graphql.Field{Name: fieldChunkID},
+					graphql.Field{Name: "_additional", Fields: []graphql.Field{{Name: "id"}}},
+				).
+				Do(ctx)
+			if queryErr != nil {
+				return fmt.Errorf("query chunk update targets in %s: %w", collectionName, queryErr)
+			}
+			if result == nil || len(result.Errors) > 0 {
+				return fmt.Errorf("graphql query chunk update targets in %s failed", collectionName)
+			}
+			if result.Data == nil {
+				continue
+			}
+			get, ok := result.Data["Get"].(map[string]interface{})
+			if !ok || get[collectionName] == nil {
+				continue
+			}
+			rows, ok := get[collectionName].([]interface{})
+			if !ok {
+				continue
+			}
+			for _, raw := range rows {
+				data, ok := raw.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				chkID, _ := data[fieldChunkID].(string)
+				props, ok := buildProps(chkID)
+				if !ok {
+					continue
+				}
+				additional, ok := data["_additional"].(map[string]interface{})
+				if !ok {
+					continue
+				}
+				objectID, _ := additional["id"].(string)
+				if objectID == "" {
+					continue
+				}
+				if updateErr := w.client.Data().Updater().
+					WithClassName(collectionName).
+					WithID(objectID).
+					WithMerge().
+					WithProperties(props).
+					Do(ctx); updateErr != nil {
+					return fmt.Errorf("update chunk %s in %s: %w", chkID, collectionName, updateErr)
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -419,44 +694,16 @@ func (w *weaviateRepository) BatchUpdateChunkEnabledStatus(ctx context.Context, 
 	}
 
 	log.Infof("[Weaviate] Batch updating chunk enabled status, count: %d", len(chunkStatusMap))
-
-	// Get all collections
-	collections, err := w.ListCollections(ctx)
-	if err != nil {
-		log.Errorf("[Weaviate] Failed to list collections: %v", err)
-		return fmt.Errorf("failed to list collections: %w", err)
-	}
-
-	// Update in all matching collections
-	for _, collectionName := range collections {
-		// Only process collections that start with our base name
-		if len(collectionName) <= len(w.collectionBaseName) ||
-			collectionName[:len(w.collectionBaseName)] != w.collectionBaseName {
-			continue
+	chunkIDs := slices.Sorted(maps.Keys(chunkStatusMap))
+	if err := w.updateObjectsByChunkIDs(ctx, chunkIDs, func(chunkID string) (map[string]any, bool) {
+		enabled, ok := chunkStatusMap[chunkID]
+		if !ok {
+			return nil, false
 		}
-		for chunkID, enabled := range chunkStatusMap {
-			if err != nil {
-				log.Errorf("[Weaviate] Failed to search ID by chunk ID %s in %s: %v", chunkID, collectionName, err)
-				continue
-			}
-			err = w.client.Data().Updater().
-				WithClassName(collectionName).
-				WithID(chunkID).
-				WithProperties(map[string]interface{}{
-					fieldIsEnabled: enabled,
-				}).
-				Do(ctx)
-
-			isEnabled := "enabled"
-			if !enabled {
-				isEnabled = "disabled"
-			}
-
-			if err != nil {
-				log.Errorf("[Weaviate] Failed to update chunk %s status in %s: %v", isEnabled, collectionName, err)
-				continue
-			}
-		}
+		return map[string]any{fieldIsEnabled: enabled}, true
+	}); err != nil {
+		log.Errorf("[Weaviate] Batch update chunk enabled status failed: %v", err)
+		return err
 	}
 	log.Infof("[Weaviate] Batch update chunk enabled status completed")
 	return nil
@@ -471,42 +718,19 @@ func (w *weaviateRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTag
 	}
 
 	log.Infof("[Weaviate] Batch updating chunk tag ID, count: %d", len(chunkTagMap))
-
-	// Get all collections
-	collections, err := w.ListCollections(ctx)
-	if err != nil {
-		log.Errorf("[Weaviate] Failed to list collections: %v", err)
-		return fmt.Errorf("failed to list collections: %w", err)
-	}
-
-	for _, collectionName := range collections {
-		// Only process collections that start with our base name
-		if len(collectionName) <= len(w.collectionBaseName) ||
-			collectionName[:len(w.collectionBaseName)] != w.collectionBaseName {
-			continue
+	chunkIDs := slices.Sorted(maps.Keys(chunkTagMap))
+	if err := w.updateObjectsByChunkIDs(ctx, chunkIDs, func(chunkID string) (map[string]any, bool) {
+		tagID, ok := chunkTagMap[chunkID]
+		if !ok {
+			return nil, false
 		}
-
-		for chunkID, tagID := range chunkTagMap {
-			if err != nil {
-				log.Warnf("[Weaviate] Failed to search ID by chunk ID %s in %s: %v", chunkID, collectionName, err)
-				continue
-			}
-			err = w.client.Data().Updater().
-				WithClassName(collectionName).
-				WithID(chunkID).
-				WithProperties(map[string]interface{}{
-					fieldTagID: tagID,
-				}).
-				Do(ctx)
-			if err != nil {
-				log.Warnf("[Weaviate] Failed to update chunk %s tag ID in %s: %v", chunkID, collectionName, err)
-				continue
-			}
-		}
+		return map[string]any{fieldTagID: tagID}, true
+	}); err != nil {
+		log.Errorf("[Weaviate] Batch update chunk tag ID failed: %v", err)
+		return err
 	}
 	log.Infof("[Weaviate] Batch update chunk tag ID completed")
 	return nil
-
 }
 
 // BatchUpdateChunkContent updates the indexed content of primary chunk rows in batch
@@ -515,6 +739,9 @@ func (w *weaviateRepository) BatchUpdateChunkContent(ctx context.Context, chunkC
 	if len(chunkContentMap) == 0 {
 		log.Warn("[Weaviate] Empty chunk content map provided, skipping")
 		return nil
+	}
+	if w.client == nil {
+		return fmt.Errorf("weaviate: client is nil")
 	}
 
 	log.Infof("[Weaviate] Batch updating chunk content, count: %d", len(chunkContentMap))
@@ -525,11 +752,13 @@ func (w *weaviateRepository) BatchUpdateChunkContent(ctx context.Context, chunkC
 		return fmt.Errorf("failed to list collections: %w", err)
 	}
 
-	sourceIDs := slices.Sorted(maps.Keys(chunkContentMap))
+	sourceIDs := cleanNonEmptyIDs(slices.Sorted(maps.Keys(chunkContentMap)))
+	if len(sourceIDs) == 0 {
+		return nil
+	}
 	const batchSize = 64
 	for _, collectionName := range collections {
-		if len(collectionName) <= len(w.collectionBaseName) ||
-			collectionName[:len(w.collectionBaseName)] != w.collectionBaseName {
+		if !w.matchesCollection(collectionName) {
 			continue
 		}
 		for batch := range slices.Chunk(sourceIDs, batchSize) {
@@ -552,6 +781,9 @@ func (w *weaviateRepository) BatchUpdateChunkContent(ctx context.Context, chunkC
 			}
 			if result == nil || len(result.Errors) > 0 {
 				return fmt.Errorf("graphql query chunk content targets in %s failed", collectionName)
+			}
+			if result.Data == nil {
+				continue
 			}
 			get, ok := result.Data["Get"].(map[string]interface{})
 			if !ok || get[collectionName] == nil {
@@ -602,42 +834,52 @@ func (w *weaviateRepository) BatchUpdateChunkContent(ctx context.Context, chunkC
 }
 
 func (w *weaviateRepository) getBaseFilter(params types.RetrieveParams) *filters.WhereBuilder {
+	if !hasValidRetrieveScope(params) {
+		return filters.Where().
+			WithOperator(filters.And).
+			WithOperands([]*filters.WhereBuilder{
+				filters.Where().
+					WithPath([]string{fieldIsEnabled}).
+					WithOperator(filters.Equal).
+					WithValueBoolean(false),
+			})
+	}
+
 	var operands []*filters.WhereBuilder
 	operands = append(operands, filters.Where().
 		WithPath([]string{fieldIsEnabled}).
 		WithOperator(filters.Equal).
 		WithValueBoolean(true))
 
-	if len(params.KnowledgeBaseIDs) > 0 {
+	if kbIDs := cleanNonEmptyIDs(params.KnowledgeBaseIDs); len(kbIDs) > 0 {
 		operands = append(operands, filters.Where().
 			WithPath([]string{fieldKnowledgeBaseID}).
 			WithOperator(filters.ContainsAny).
-			WithValueText(params.KnowledgeBaseIDs...))
+			WithValueText(kbIDs...))
 	}
-	if len(params.KnowledgeIDs) > 0 {
+	if kIDs := cleanNonEmptyIDs(params.KnowledgeIDs); len(kIDs) > 0 {
 		operands = append(operands, filters.Where().
 			WithPath([]string{fieldKnowledgeID}).
 			WithOperator(filters.ContainsAny).
-			WithValueText(params.KnowledgeIDs...))
+			WithValueText(kIDs...))
 	}
-
-	if len(params.TagIDs) > 0 {
+	if tagIDs := cleanNonEmptyIDs(params.TagIDs); len(tagIDs) > 0 {
 		operands = append(operands, filters.Where().
 			WithPath([]string{fieldTagID}).
 			WithOperator(filters.ContainsAny).
-			WithValueText(params.TagIDs...))
+			WithValueText(tagIDs...))
 	}
-	if len(params.ExcludeKnowledgeIDs) > 0 {
+	for _, excludedDocID := range cleanNonEmptyIDs(params.ExcludeKnowledgeIDs) {
 		operands = append(operands, filters.Where().
 			WithPath([]string{fieldKnowledgeID}).
 			WithOperator(filters.NotEqual).
-			WithValueText(params.ExcludeKnowledgeIDs...))
+			WithValueText(excludedDocID))
 	}
-	if len(params.ExcludeChunkIDs) > 0 {
+	for _, excludedChunkID := range cleanNonEmptyIDs(params.ExcludeChunkIDs) {
 		operands = append(operands, filters.Where().
 			WithPath([]string{fieldChunkID}).
 			WithOperator(filters.NotEqual).
-			WithValueText(params.ExcludeChunkIDs...))
+			WithValueText(excludedChunkID))
 	}
 
 	return filters.Where().
@@ -669,14 +911,23 @@ func (w *weaviateRepository) VectorRetrieve(ctx context.Context,
 	params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
 	log := logger.GetLogger(ctx)
+	if !hasValidRetrieveScope(params) {
+		log.Warn("[Weaviate] Empty or invalid retrieval scope for vector search, returning empty results")
+		return buildRetrieveResult(nil, types.VectorRetrieverType), nil
+	}
 	dimension := len(params.Embedding)
+	if dimension <= 0 {
+		log.Warn("[Weaviate] Empty embedding vector provided to VectorRetrieve, returning empty results")
+		return buildRetrieveResult(nil, types.VectorRetrieverType), nil
+	}
+	if w.client == nil {
+		return nil, fmt.Errorf("weaviate: client is nil")
+	}
 	log.Infof("[Weaviate] Vector retrieval: dim=%d, topK=%d, threshold=%.4f",
 		dimension, params.TopK, params.Threshold)
 
-	// Get collection name based on embedding dimension
 	collectionName := w.getCollectionName(dimension)
 
-	// Check if collection exists
 	hasCollection, err := w.client.Schema().ClassExistenceChecker().WithClassName(collectionName).Do(ctx)
 	if err != nil {
 		log.Errorf("[Weaviate] Failed to check collection existence: %v", err)
@@ -688,7 +939,17 @@ func (w *weaviateRepository) VectorRetrieve(ctx context.Context,
 	}
 
 	where := w.getBaseFilter(params)
-	limit := params.TopK
+	topK := params.TopK
+	if topK <= 0 {
+		topK = 10
+	}
+	limit := topK
+	if len(cleanNonEmptyIDs(params.ExcludeGeneratedQuestionKBIDs)) > 0 {
+		limit = topK * 4
+		if limit < 32 {
+			limit = 32
+		}
+	}
 	// Weaviate's certainty is (1 + cos) / 2; callers pass a cosine
 	// similarity threshold, the scale every other engine uses. A zero
 	// threshold means no filtering, so it stays 0 rather than becoming 0.5.
@@ -710,9 +971,19 @@ func (w *weaviateRepository) VectorRetrieve(ctx context.Context,
 		log.Errorf("[Weaviate] Vector search failed: %v", err)
 		return nil, fmt.Errorf("failed to search: %w", err)
 	}
+	if result == nil {
+		return nil, fmt.Errorf("graphql search failed: nil response")
+	}
 	if len(result.Errors) > 0 {
+		msg := "graphql error"
+		if result.Errors[0] != nil && result.Errors[0].Message != "" {
+			msg = result.Errors[0].Message
+		}
 		log.Errorf("[Weaviate] Vector search failed: %v", result.Errors)
-		return nil, fmt.Errorf("graphql search failed: %s", result.Errors[0].Message)
+		return nil, fmt.Errorf("graphql search failed: %s", msg)
+	}
+	if result.Data == nil {
+		return buildRetrieveResult(nil, types.VectorRetrieverType), nil
 	}
 
 	data, ok := result.Data["Get"].(map[string]interface{})
@@ -720,8 +991,15 @@ func (w *weaviateRepository) VectorRetrieve(ctx context.Context,
 		log.Warnf("[Weaviate] No vector matches found that meet threshold %.4f", params.Threshold)
 		return buildRetrieveResult(nil, types.VectorRetrieverType), nil
 	}
-	items := data[collectionName].([]interface{})
+	items, ok := data[collectionName].([]interface{})
+	if !ok {
+		return buildRetrieveResult(nil, types.VectorRetrieverType), nil
+	}
 	results := parseGraphQLResponse(items, collectionName, types.MatchTypeEmbedding)
+	results = filterWeaviateGeneratedQuestions(results, params.ExcludeGeneratedQuestionKBIDs)
+	if len(results) > topK {
+		results = results[:topK]
+	}
 
 	if len(results) == 0 {
 		log.Warnf("[Weaviate] No vector matches found that meet threshold %.4f", params.Threshold)
@@ -739,38 +1017,55 @@ func (w *weaviateRepository) KeywordsRetrieve(ctx context.Context,
 	params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
 	log := logger.GetLogger(ctx)
+	if !hasValidRetrieveScope(params) {
+		log.Warn("[Weaviate] Empty or invalid retrieval scope for keywords search, returning empty results")
+		return buildRetrieveResult(nil, types.KeywordsRetrieverType), nil
+	}
+	if strings.TrimSpace(params.Query) == "" {
+		log.Warn("[Weaviate] Empty query provided to KeywordsRetrieve, returning empty results")
+		return buildRetrieveResult(nil, types.KeywordsRetrieverType), nil
+	}
+	if w.client == nil {
+		return nil, fmt.Errorf("weaviate: client is nil")
+	}
 	log.Infof("[Weaviate] Performing keywords retrieval with query: %s, topK: %d", params.Query, params.TopK)
 
-	// Get all collections that match our base name pattern
 	collections, err := w.ListCollections(ctx)
 	if err != nil {
 		log.Errorf("[Weaviate] Failed to list collections: %v", err)
 		return nil, fmt.Errorf("failed to list collections: %w", err)
 	}
 
+	topK := params.TopK
+	if topK <= 0 {
+		topK = 10
+	}
+	queryLimit := topK
+	if len(cleanNonEmptyIDs(params.ExcludeGeneratedQuestionKBIDs)) > 0 {
+		queryLimit = topK * 4
+		if queryLimit < 32 {
+			queryLimit = 32
+		}
+	}
+
 	var allResults []*types.IndexWithScore
+	filter := w.getBaseFilter(params)
+	fields := getKeywordsFields()
 
 	for _, collectionName := range collections {
 		log.Debugf("[Weaviate] Checking collection: %s", collectionName)
-		// Only process collections that start with our base name
-		if len(collectionName) <= len(w.collectionBaseName) ||
-			collectionName[:len(w.collectionBaseName)] != w.collectionBaseName {
+		if !w.matchesCollection(collectionName) {
 			log.Debugf("[Weaviate] Skipping collection %s (doesn't match base name %s)", collectionName, w.collectionBaseName)
 			continue
 		}
 
-		filter := w.getBaseFilter(params)
-
-		//bm25 search
 		bm25 := w.client.GraphQL().Bm25ArgBuilder().
 			WithQuery(params.Query).
 			WithProperties([]string{fieldContent}...)
 
-		fields := getKeywordsFields()
-
 		result, err := w.client.GraphQL().Get().WithClassName(collectionName).
 			WithWhere(filter).
-			WithLimit(params.TopK).
+			WithLimit(queryLimit).
 			WithFields(fields...).
 			WithBM25(bm25).
 			Do(ctx)
@@ -779,23 +1074,46 @@ func (w *weaviateRepository) KeywordsRetrieve(ctx context.Context,
 			log.Errorf("[Weaviate] keywords search failed: %v", err)
 			return nil, fmt.Errorf("failed to search: %w", err)
 		}
+		if result == nil {
+			return nil, fmt.Errorf("graphql search failed: nil response")
+		}
 		if len(result.Errors) > 0 {
+			msg := "graphql error"
+			if result.Errors[0] != nil && result.Errors[0].Message != "" {
+				msg = result.Errors[0].Message
+			}
 			log.Errorf("[Weaviate] keywords search failed: %v", result.Errors)
-			return nil, fmt.Errorf("graphql search failed: %s", result.Errors[0].Message)
+			return nil, fmt.Errorf("graphql search failed: %s", msg)
+		}
+		if result.Data == nil {
+			continue
 		}
 		data, ok := result.Data["Get"].(map[string]interface{})
 		if !ok || data[collectionName] == nil {
-			log.Warnf("[Weaviate] No keywords matches found that meet threshold %.4f", params.Threshold)
+			log.Warnf("[Weaviate] No keywords matches found in collection %s", collectionName)
 			continue
 		}
-		items := data[collectionName].([]interface{})
+		items, ok := data[collectionName].([]interface{})
+		if !ok {
+			continue
+		}
 		results := parseGraphQLResponse(items, collectionName, types.MatchTypeKeywords)
+		results = filterWeaviateGeneratedQuestions(results, params.ExcludeGeneratedQuestionKBIDs)
 		allResults = append(allResults, results...)
 	}
 
-	// Limit results to topK
-	if len(allResults) > params.TopK {
-		allResults = allResults[:params.TopK]
+	slices.SortStableFunc(allResults, func(a, b *types.IndexWithScore) int {
+		switch {
+		case a.Score > b.Score:
+			return -1
+		case a.Score < b.Score:
+			return 1
+		default:
+			return 0
+		}
+	})
+	if len(allResults) > topK {
+		allResults = allResults[:topK]
 	}
 
 	if len(allResults) == 0 {
@@ -816,32 +1134,32 @@ func (w *weaviateRepository) CopyIndices(ctx context.Context,
 	knowledgeType string,
 ) error {
 	log := logger.GetLogger(ctx)
+	sourceKB := strings.TrimSpace(sourceKnowledgeBaseID)
+	targetKB := strings.TrimSpace(targetKnowledgeBaseID)
+	if sourceKB == "" || targetKB == "" {
+		return fmt.Errorf("weaviate: copy indices requires non-empty source and target knowledge_base_id")
+	}
+	if dimension <= 0 {
+		return fmt.Errorf("weaviate: invalid dimension %d for copy indices", dimension)
+	}
 	log.Infof("[Weaviate] Copying indices from %s to %s, count: %d",
-		sourceKnowledgeBaseID, targetKnowledgeBaseID, len(sourceToTargetChunkIDMap))
+		sourceKB, targetKB, len(sourceToTargetChunkIDMap))
 
 	if len(sourceToTargetChunkIDMap) == 0 {
 		return nil
+	}
+	if w.client == nil {
+		return fmt.Errorf("weaviate: client is nil")
 	}
 
 	collectionName := w.getCollectionName(dimension)
 	reader := newCopySourceReader(w, collectionName, getVectorFields())
 	totalCopied := 0
 
-	// Read the rows the mapping names, in batches of source chunk IDs. The
-	// mapping is the set of chunks this copy has to move, so a predicate over
-	// it makes every read self-contained.
-	//
-	// The cursor walk this replaces could not be made correct: Weaviate refuses
-	// `after` together with `where` and `limit` ("where cannot be set with
-	// after and limit parameters"), and anywhere a cursor is accepted it is a
-	// position in a result order the data node never promised to keep between
-	// requests. Every request still succeeds, which is how such a walk reports
-	// an incomplete target as a finished copy. A mapping predicate has no
-	// cursor that can drift.
-	sourceChunkIDs := slices.Sorted(maps.Keys(sourceToTargetChunkIDMap))
+	sourceChunkIDs := cleanNonEmptyIDs(slices.Sorted(maps.Keys(sourceToTargetChunkIDMap)))
 	const chunkBatchSize = 64
 	for chunkBatch := range slices.Chunk(sourceChunkIDs, chunkBatchSize) {
-		objects, err := reader.readBatch(ctx, sourceKnowledgeBaseID, chunkBatch)
+		objects, err := reader.readBatch(ctx, sourceKB, chunkBatch)
 		if err != nil {
 			return err
 		}
@@ -861,9 +1179,6 @@ func (w *weaviateRepository) CopyIndices(ctx context.Context,
 				continue
 			}
 
-			// The id is no longer a cursor, but a row whose id cannot be read
-			// is still a response this copy does not understand; it must not be
-			// counted towards a copy reported as complete.
 			if id, ok := additional["id"].(string); !ok || id == "" {
 				return fmt.Errorf("weaviate: copy indices source object has no id")
 			}
@@ -883,23 +1198,17 @@ func (w *weaviateRepository) CopyIndices(ctx context.Context,
 
 			targetChunkID, ok1 := sourceToTargetChunkIDMap[sourceChunkID]
 			targetKnowledgeID, ok2 := sourceToTargetKBIDMap[sourceKnowledgeID]
-			if !ok1 || !ok2 {
+			if !ok1 || !ok2 || strings.TrimSpace(targetChunkID) == "" || strings.TrimSpace(targetKnowledgeID) == "" {
 				continue
 			}
 
-			// Handle SourceID transformation for generated questions
-			// Generated questions have SourceID format: {chunkID}-{questionID}
-			// Regular chunks have SourceID == ChunkID
 			var targetSourceID string
 			if originalSourceID == sourceChunkID {
-				// Regular chunk, use targetChunkID as SourceID
 				targetSourceID = targetChunkID
 			} else if strings.HasPrefix(originalSourceID, sourceChunkID+"-") {
-				// This is a generated question, preserve the questionID part
 				questionID := strings.TrimPrefix(originalSourceID, sourceChunkID+"-")
 				targetSourceID = fmt.Sprintf("%s-%s", targetChunkID, questionID)
 			} else {
-				// For other complex scenarios, generate new unique SourceID
 				targetSourceID = uuid.New().String()
 			}
 
@@ -908,21 +1217,30 @@ func (w *weaviateRepository) CopyIndices(ctx context.Context,
 				continue
 			}
 			vector := make([]float32, len(vectorRaw))
+			validVector := true
 			for i, v := range vectorRaw {
-				vector[i] = float32(v.(float64))
+				f, ok := v.(float64)
+				if !ok {
+					validVector = false
+					break
+				}
+				vector[i] = float32(f)
+			}
+			if !validVector {
+				continue
 			}
 
 			isEnabled := true
 			newObj := &models.Object{
 				Class: collectionName,
-				ID:    strfmt.UUID(uuid.New().String()),
+				ID:    strfmt.UUID(weaviateObjectID(targetSourceID, targetChunkID)),
 				Properties: map[string]interface{}{
 					fieldContent:         data[fieldContent],
 					fieldSourceID:        targetSourceID,
 					fieldSourceType:      data[fieldSourceType],
 					fieldChunkID:         targetChunkID,
 					fieldKnowledgeID:     targetKnowledgeID,
-					fieldKnowledgeBaseID: targetKnowledgeBaseID,
+					fieldKnowledgeBaseID: targetKB,
 					fieldTagID:           data[fieldTagID],
 					fieldIsEnabled:       isEnabled,
 				},
@@ -936,10 +1254,9 @@ func (w *weaviateRepository) CopyIndices(ctx context.Context,
 			if err != nil {
 				return fmt.Errorf("batch upsert failed: %w", err)
 			}
-			for _, r := range resp {
-				if r.Result.Errors != nil {
-					log.Errorf("[Weaviate] Object error: %v", r.Result.Errors.Error[0].Message)
-				}
+			if err := checkBatchResponseErrors(resp); err != nil {
+				log.Errorf("[Weaviate] Copy batch object error: %v", err)
+				return fmt.Errorf("batch upsert failed: %w", err)
 			}
 			totalCopied += len(targetObjects)
 			log.Infof("[Weaviate] Successfully copied batch, total: %d", totalCopied)
@@ -1050,8 +1367,14 @@ func (r *copySourceReader) query(ctx context.Context,
 	switch {
 	case err != nil:
 		queryError = err.Error()
+	case result == nil:
+		queryError = "nil graphql response"
 	case len(result.Errors) > 0:
-		queryError = result.Errors[0].Message
+		if result.Errors[0] != nil && result.Errors[0].Message != "" {
+			queryError = result.Errors[0].Message
+		} else {
+			queryError = "graphql error"
+		}
 	}
 	if queryError != "" {
 		if serverLimit, ok := queryMaximumResults(queryError); ok && serverLimit < r.limit {
@@ -1072,6 +1395,9 @@ func (r *copySourceReader) query(ctx context.Context,
 		return nil, fmt.Errorf("weaviate: copy indices query failed: %s", queryError)
 	}
 
+	if result.Data == nil {
+		return nil, fmt.Errorf("weaviate: copy indices invalid response")
+	}
 	get, ok := result.Data["Get"].(map[string]interface{})
 	if !ok {
 		return nil, fmt.Errorf("weaviate: copy indices invalid response")
@@ -1104,13 +1430,21 @@ func queryMaximumResults(message string) (int, bool) {
 }
 
 func (w *weaviateRepository) ListCollections(ctx context.Context) ([]string, error) {
+	if w.client == nil {
+		return nil, fmt.Errorf("weaviate: client is nil")
+	}
 	schema, err := w.client.Schema().Getter().Do(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("weaviate 获取 schema 失败: %w", err)
 	}
+	if schema == nil {
+		return nil, nil
+	}
 	var collectionNames []string
 	for _, class := range schema.Classes {
-		collectionNames = append(collectionNames, class.Class)
+		if class != nil && class.Class != "" {
+			collectionNames = append(collectionNames, class.Class)
+		}
 	}
 
 	return collectionNames, nil
@@ -1208,18 +1542,36 @@ func parseGraphQLResponse(items []interface{}, collectionName string, matchType 
 		additionalName = "score"
 	}
 	for _, item := range items {
-		obj := item.(map[string]interface{})
-		additional := obj["_additional"].(map[string]interface{})
+		obj, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		additional, ok := obj["_additional"].(map[string]interface{})
+		if !ok {
+			continue
+		}
 
-		pointID := additional["id"].(string)
+		pointID, ok := additional["id"].(string)
+		if !ok || pointID == "" {
+			continue
+		}
 		score := 0.0
-		if s, ok := additional[additionalName].(float64); ok {
+		switch rawScore := additional[additionalName].(type) {
+		case float64:
 			if matchType == types.MatchTypeKeywords {
-				score = 1.0
+				score = rawScore
 			} else {
 				// certainty = (1 + cos) / 2; report cosine similarity so
 				// scores compare with the other engines and thresholds.
-				score = 2*s - 1
+				score = 2*rawScore - 1
+			}
+		case string:
+			if parsed, err := strconv.ParseFloat(strings.TrimSpace(rawScore), 64); err == nil {
+				if matchType == types.MatchTypeKeywords {
+					score = parsed
+				} else {
+					score = 2*parsed - 1
+				}
 			}
 		}
 
@@ -1230,10 +1582,20 @@ func parseGraphQLResponse(items []interface{}, collectionName string, matchType 
 			return ""
 		}
 		getInt := func(key string) int {
-			if v, ok := obj[key].(float64); ok {
+			switch v := obj[key].(type) {
+			case float64:
 				return int(v)
+			case int:
+				return v
+			case int64:
+				return int(v)
+			default:
+				return 0
 			}
-			return 0
+		}
+		isEnabled := true
+		if rawEnabled, ok := obj[fieldIsEnabled].(bool); ok {
+			isEnabled = rawEnabled
 		}
 
 		embedding := &WeaviateVectorEmbeddingWithScore{
@@ -1245,6 +1607,7 @@ func parseGraphQLResponse(items []interface{}, collectionName string, matchType 
 				KnowledgeID:     getString(fieldKnowledgeID),
 				KnowledgeBaseID: getString(fieldKnowledgeBaseID),
 				TagID:           getString(fieldTagID),
+				IsEnabled:       isEnabled,
 			},
 			float64(score),
 		}
@@ -1289,6 +1652,9 @@ func (w *weaviateRepository) calculateStorageSize(embedding *WeaviateVectorEmbed
 
 // toWeaviateVectorEmbedding converts IndexInfo to Weaviate payload format
 func toWeaviateVectorEmbedding(embedding *types.IndexInfo, additionalParams map[string]interface{}) *WeaviateVectorEmbedding {
+	if embedding == nil {
+		return &WeaviateVectorEmbedding{}
+	}
 	vector := &WeaviateVectorEmbedding{
 		Content:         embedding.Content,
 		SourceID:        embedding.SourceID,
@@ -1312,6 +1678,10 @@ func fromWeaviateVectorEmbedding(id string,
 	embedding *WeaviateVectorEmbeddingWithScore,
 	matchType types.MatchType,
 ) *types.IndexWithScore {
+	var vectorScore float64
+	if matchType == types.MatchTypeEmbedding {
+		vectorScore = embedding.Score
+	}
 	return &types.IndexWithScore{
 		ID:              id,
 		SourceID:        embedding.SourceID,
@@ -1322,6 +1692,8 @@ func fromWeaviateVectorEmbedding(id string,
 		TagID:           embedding.TagID,
 		Content:         embedding.Content,
 		Score:           embedding.Score,
+		VectorScore:     vectorScore,
 		MatchType:       matchType,
+		IsEnabled:       embedding.IsEnabled,
 	}
 }

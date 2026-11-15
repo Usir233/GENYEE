@@ -32,7 +32,7 @@ func graphSearchProjection(alias string) string {
 // graphSearchLabel quotes every identifier. KB IDs are data, never Cypher,
 // including imported/legacy IDs containing punctuation or backticks.
 func (n *Neo4jRepository) graphSearchLabel(namespace types.NameSpace) (string, error) {
-	if namespace.KnowledgeBase == "" || namespace.Knowledge != "" {
+	if strings.TrimSpace(namespace.KnowledgeBase) == "" || namespace.Knowledge != "" {
 		return "", fmt.Errorf("graph search requires exactly one knowledge base")
 	}
 	labels := n.Labels(namespace)
@@ -52,6 +52,9 @@ func (n *Neo4jRepository) SearchGraph(
 	label, err := n.graphSearchLabel(namespace)
 	if err != nil {
 		return nil, err
+	}
+	if strings.TrimSpace(query) == "" {
+		return nil, fmt.Errorf("graph search query must not be empty")
 	}
 	session := n.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
 	defer func() {

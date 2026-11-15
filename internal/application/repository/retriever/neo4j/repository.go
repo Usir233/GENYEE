@@ -25,7 +25,55 @@ const (
 	// graphSearchMaxRows bounds returned (node, relation) rows as a backstop
 	// for hub entities whose neighbourhood alone is huge.
 	graphSearchMaxRows = 2000
+
+	delGraphApocQuery = `
+		CALL apoc.periodic.iterate(
+			$iterateQuery,
+			$actionQuery,
+			{batchSize: 1000, parallel: false, params: $iterateParams}
+		) YIELD batches, total, failedBatches, errorMessages
+		RETURN total, failedBatches, errorMessages
+	`
 )
+
+func validateWriteNamespace(namespace types.NameSpace) error {
+	if strings.TrimSpace(namespace.KnowledgeBase) == "" || strings.TrimSpace(namespace.Knowledge) == "" {
+		return fmt.Errorf("graph write requires non-empty knowledge base and knowledge IDs")
+	}
+	return nil
+}
+
+func validateKnowledgeBaseNamespace(namespace types.NameSpace) error {
+	if strings.TrimSpace(namespace.KnowledgeBase) == "" {
+		return fmt.Errorf("graph namespace requires a non-empty knowledge base")
+	}
+	return nil
+}
+
+func sanitizeRelType(relType string) string {
+	cleaned := strings.ReplaceAll(relType, "`", "")
+	cleaned = strings.ReplaceAll(cleaned, "\x00", "")
+	return strings.TrimSpace(cleaned)
+}
+
+func cleanSearchTerms(nodes []string) []string {
+	if len(nodes) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(nodes))
+	out := make([]string, 0, len(nodes))
+	for _, node := range nodes {
+		if strings.TrimSpace(node) == "" {
+			continue
+		}
+		if _, ok := seen[node]; ok {
+			continue
+		}
+		seen[node] = struct{}{}
+		out = append(out, node)
+	}
+	return out
+}
 
 // NewNeo4jRepository creates a new Neo4j repository
 func NewNeo4jRepository(driver neo4j.Driver) interfaces.RetrieveGraphRepository {
@@ -62,7 +110,13 @@ func (n *Neo4jRepository) AddGraph(ctx context.Context, namespace types.NameSpac
 		logger.Warnf(ctx, "NOT SUPPORT RETRIEVE GRAPH")
 		return nil
 	}
+	if err := validateWriteNamespace(namespace); err != nil {
+		return err
+	}
 	for _, graph := range graphs {
+		if graph == nil {
+			continue
+		}
 		if err := n.addGraph(ctx, namespace, graph); err != nil {
 			return err
 		}
@@ -75,6 +129,7 @@ func (n *Neo4jRepository) addGraph(ctx context.Context, namespace types.NameSpac
 	session := n.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
 	defer session.Close(ctx)
 
+	labels := n.Labels(namespace)
 	_, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (interface{}, error) {
 		// Node import query
 		node_import_query := `
@@ -85,12 +140,23 @@ func (n *Neo4jRepository) addGraph(ctx context.Context, namespace types.NameSpac
 		`
 		nodeData := []map[string]interface{}{}
 		for _, node := range graph.Node {
+			if node == nil || strings.TrimSpace(node.Name) == "" {
+				continue
+			}
+			chunks := node.Chunks
+			if chunks == nil {
+				chunks = []string{}
+			}
+			attributes := node.Attributes
+			if attributes == nil {
+				attributes = []string{}
+			}
 			nodeData = append(nodeData, map[string]interface{}{
 				"name":         node.Name,
 				"knowledge_id": namespace.Knowledge,
-				"props":        map[string][]string{"attributes": node.Attributes},
-				"chunks":       node.Chunks,
-				"labels":       n.Labels(namespace),
+				"props":        map[string][]string{"attributes": attributes},
+				"chunks":       chunks,
+				"labels":       labels,
 			})
 		}
 		// Keep driver errors recognizable by ExecuteWrite's bounded retry.
@@ -113,13 +179,20 @@ func (n *Neo4jRepository) addGraph(ctx context.Context, namespace types.NameSpac
 		`
 		relData := []map[string]interface{}{}
 		for _, rel := range graph.Relation {
+			if rel == nil {
+				continue
+			}
+			relType := sanitizeRelType(rel.Type)
+			if strings.TrimSpace(rel.Node1) == "" || strings.TrimSpace(rel.Node2) == "" || relType == "" {
+				continue
+			}
 			relData = append(relData, map[string]interface{}{
 				"source":        rel.Node1,
 				"target":        rel.Node2,
 				"knowledge_id":  namespace.Knowledge,
-				"type":          rel.Type,
-				"source_labels": n.Labels(namespace),
-				"target_labels": n.Labels(namespace),
+				"type":          relType,
+				"source_labels": labels,
+				"target_labels": labels,
 			})
 		}
 		result, err = tx.Run(ctx, rel_import_query, map[string]interface{}{"data": relData})
@@ -138,41 +211,80 @@ func (n *Neo4jRepository) addGraph(ctx context.Context, namespace types.NameSpac
 	return nil
 }
 
+func (n *Neo4jRepository) delGraphStatement(namespace types.NameSpace) (string, map[string]any, error) {
+	if err := validateKnowledgeBaseNamespace(namespace); err != nil {
+		return "", nil, err
+	}
+	labelExpr := n.Label(namespace)
+	if labelExpr == "" {
+		return "", nil, fmt.Errorf("graph namespace resolved to an empty label")
+	}
+
+	var iterateQuery string
+	iterateParams := map[string]any{}
+	if strings.TrimSpace(namespace.Knowledge) != "" {
+		iterateQuery = "MATCH (n:" + labelExpr + " {kg: $knowledge_id}) RETURN n"
+		iterateParams["knowledge_id"] = namespace.Knowledge
+	} else {
+		iterateQuery = "MATCH (n:" + labelExpr + ") RETURN n"
+	}
+
+	params := map[string]any{
+		"iterateQuery":  iterateQuery,
+		"actionQuery":   "DETACH DELETE n",
+		"iterateParams": iterateParams,
+	}
+	return delGraphApocQuery, params, nil
+}
+
 // DelGraph deletes a graph from the Neo4j repository
 func (n *Neo4jRepository) DelGraph(ctx context.Context, namespaces []types.NameSpace) error {
 	if n.driver == nil {
 		logger.Warnf(ctx, "NOT SUPPORT RETRIEVE GRAPH")
 		return nil
 	}
+	if len(namespaces) == 0 {
+		return nil
+	}
+
+	type preparedDelete struct {
+		query  string
+		params map[string]any
+	}
+	prepared := make([]preparedDelete, 0, len(namespaces))
+	for _, namespace := range namespaces {
+		query, params, err := n.delGraphStatement(namespace)
+		if err != nil {
+			return err
+		}
+		prepared = append(prepared, preparedDelete{query: query, params: params})
+	}
+
 	session := n.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
 	defer session.Close(ctx)
 
 	result, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (interface{}, error) {
-		for _, namespace := range namespaces {
-			labelExpr := n.Label(namespace)
-
-			deleteRelsQuery := `
-				CALL apoc.periodic.iterate(
-					"MATCH (n:` + labelExpr + ` {kg: $knowledge_id})-[r]-(m:` + labelExpr + ` {kg: $knowledge_id}) RETURN r",
-					"DELETE r",
-					{batchSize: 1000, parallel: true, params: {knowledge_id: $knowledge_id}}
-				) YIELD batches, total
-				RETURN total
-        	`
-			if _, err := tx.Run(ctx, deleteRelsQuery, map[string]interface{}{"knowledge_id": namespace.Knowledge}); err != nil {
-				return nil, fmt.Errorf("failed to delete relationships: %v", err)
+		for _, stmt := range prepared {
+			res, err := tx.Run(ctx, stmt.query, stmt.params)
+			if err != nil {
+				return nil, fmt.Errorf("failed to delete graph nodes: %w", err)
 			}
-
-			deleteNodesQuery := `
-				CALL apoc.periodic.iterate(
-					"MATCH (n:` + labelExpr + ` {kg: $knowledge_id}) RETURN n",
-					"DELETE n",
-					{batchSize: 1000, parallel: true, params: {knowledge_id: $knowledge_id}}
-				) YIELD batches, total
-				RETURN total
-        	`
-			if _, err := tx.Run(ctx, deleteNodesQuery, map[string]interface{}{"knowledge_id": namespace.Knowledge}); err != nil {
-				return nil, fmt.Errorf("failed to delete nodes: %v", err)
+			for res.Next(ctx) {
+				record := res.Record()
+				if record == nil {
+					continue
+				}
+				failedBatches, _, fErr := neo4j.GetRecordValue[int64](record, "failedBatches")
+				if fErr == nil && failedBatches > 0 {
+					errMsgs, _ := record.Get("errorMessages")
+					return nil, fmt.Errorf("failed to delete graph nodes: %d APOC batch(es) failed: %v", failedBatches, errMsgs)
+				}
+			}
+			if err := res.Err(); err != nil {
+				return nil, fmt.Errorf("failed to read delete graph result: %w", err)
+			}
+			if _, err := res.Consume(ctx); err != nil {
+				return nil, fmt.Errorf("failed to consume delete graph result: %w", err)
 			}
 		}
 		return nil, nil
@@ -198,14 +310,22 @@ func (n *Neo4jRepository) SearchNode(
 		logger.Warnf(ctx, "NOT SUPPORT RETRIEVE GRAPH")
 		return nil, nil
 	}
+	if err := validateKnowledgeBaseNamespace(namespace); err != nil {
+		return nil, err
+	}
+	cleanedNodes := cleanSearchTerms(nodes)
+	if len(cleanedNodes) == 0 {
+		return &types.GraphData{}, nil
+	}
+
 	session := n.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
 	defer session.Close(ctx)
 
 	result, err := session.ExecuteRead(ctx, func(tx neo4j.ManagedTransaction) (interface{}, error) {
-		query, params := graphSearchCypher(n.Label(namespace), nodes)
+		query, params := graphSearchCypher(n.Label(namespace), cleanedNodes)
 		result, err := tx.Run(ctx, query, params)
 		if err != nil {
-			return nil, fmt.Errorf("failed to run query: %v", err)
+			return nil, fmt.Errorf("failed to run query: %w", err)
 		}
 
 		graphData, err := decodeGraphSearchResult(ctx, result)
@@ -228,7 +348,7 @@ func (n *Neo4jRepository) SearchNode(
 				graphSearchMaxSeedNodes, graphSearchMaxRows)
 		}
 		return graphData, nil
-	})
+	}, neo4j.WithTxTimeout(types.GraphSearchTimeout))
 	if err != nil {
 		logger.Errorf(ctx, "search node failed: %v", err)
 		return nil, err
@@ -358,7 +478,7 @@ func graphSearchCypher(labelExpr string, nodes []string) (string, map[string]int
 		RETURN n, r, m
 	`
 	params := map[string]interface{}{
-		"nodes":        nodes,
+		"nodes":        cleanSearchTerms(nodes),
 		"maxSeedNodes": graphSearchMaxSeedNodes,
 		"maxRows":      graphSearchMaxRows,
 	}
