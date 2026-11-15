@@ -752,10 +752,18 @@ func applyOIDCEnvOverrides(cfg *Config) {
 	}
 
 	if value := strings.TrimSpace(os.Getenv("OIDC_AUTH_ENABLE")); value != "" {
-		cfg.OIDCAuth.Enable = strings.EqualFold(value, "true")
+		if enabled, err := strconv.ParseBool(value); err == nil {
+			cfg.OIDCAuth.Enable = enabled
+		} else {
+			fmt.Printf("[config] OIDC_AUTH_ENABLE=%q is not a boolean, ignoring\n", value)
+		}
 	}
 	if value := strings.TrimSpace(os.Getenv("OIDC_AUTH_PKCE_ENABLED")); value != "" {
-		cfg.OIDCAuth.PKCEEnabled = strings.EqualFold(value, "true")
+		if enabled, err := strconv.ParseBool(value); err == nil {
+			cfg.OIDCAuth.PKCEEnabled = enabled
+		} else {
+			fmt.Printf("[config] OIDC_AUTH_PKCE_ENABLED=%q is not a boolean, ignoring\n", value)
+		}
 	}
 	if value := strings.TrimSpace(os.Getenv("OIDC_AUTH_ISSUER_URL")); value != "" {
 		cfg.OIDCAuth.IssuerURL = value
@@ -916,14 +924,20 @@ func applyAuthAndTenantDefaults(cfg *Config) {
 		cfg.Tenant = &TenantConfig{}
 	}
 
-	if legacy := strings.TrimSpace(os.Getenv("DISABLE_REGISTRATION")); strings.EqualFold(legacy, "true") {
-		prev := strings.TrimSpace(cfg.Auth.RegistrationMode)
-		cfg.Auth.RegistrationMode = AuthRegistrationModeInviteOnly
-		if prev != "" && prev != AuthRegistrationModeInviteOnly {
-			fmt.Printf(
-				"[config] DISABLE_REGISTRATION=true overrides auth.registration_mode=%q -> %q\n",
-				prev, AuthRegistrationModeInviteOnly,
-			)
+	if legacy := strings.TrimSpace(os.Getenv("DISABLE_REGISTRATION")); legacy != "" {
+		if disabled, err := strconv.ParseBool(legacy); err == nil {
+			if disabled {
+				prev := strings.TrimSpace(cfg.Auth.RegistrationMode)
+				cfg.Auth.RegistrationMode = AuthRegistrationModeInviteOnly
+				if prev != "" && prev != AuthRegistrationModeInviteOnly {
+					fmt.Printf(
+						"[config] DISABLE_REGISTRATION=%s overrides auth.registration_mode=%q -> %q\n",
+						legacy, prev, AuthRegistrationModeInviteOnly,
+					)
+				}
+			}
+		} else {
+			fmt.Printf("[config] DISABLE_REGISTRATION=%q is not a boolean, ignoring\n", legacy)
 		}
 	}
 
@@ -934,6 +948,8 @@ func applyAuthAndTenantDefaults(cfg *Config) {
 	if value := strings.TrimSpace(os.Getenv("GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED")); value != "" {
 		if parsed, err := strconv.ParseBool(value); err == nil {
 			cfg.Auth.ComplexPasswordEnabled = parsed
+		} else {
+			fmt.Printf("[config] GENYEE_AUTH_COMPLEX_PASSWORD_ENABLED=%q is not a boolean, ignoring\n", value)
 		}
 	}
 
@@ -945,8 +961,11 @@ func applyAuthAndTenantDefaults(cfg *Config) {
 	}
 
 	if value := strings.TrimSpace(os.Getenv("GENYEE_TENANT_ENABLE_RBAC")); value != "" {
-		v := strings.EqualFold(value, "true")
-		cfg.Tenant.EnableRBAC = &v
+		if v, err := strconv.ParseBool(value); err == nil {
+			cfg.Tenant.EnableRBAC = &v
+		} else {
+			fmt.Printf("[config] GENYEE_TENANT_ENABLE_RBAC=%q is not a boolean, ignoring\n", value)
+		}
 	}
 	if cfg.Tenant.EnableRBAC == nil {
 		// Default: enforce. Operators opt out of enforcement explicitly
@@ -962,7 +981,11 @@ func applyAuthAndTenantDefaults(cfg *Config) {
 	// effect and the documented env override is silently ignored. The default
 	// stays whatever config.yaml provides (false unless set there).
 	if value := strings.TrimSpace(os.Getenv("GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS")); value != "" {
-		cfg.Tenant.EnableCrossTenantAccess = strings.EqualFold(value, "true")
+		if enabled, err := strconv.ParseBool(value); err == nil {
+			cfg.Tenant.EnableCrossTenantAccess = enabled
+		} else {
+			fmt.Printf("[config] GENYEE_TENANT_ENABLE_CROSS_TENANT_ACCESS=%q is not a boolean, ignoring\n", value)
+		}
 	}
 
 	if value := strings.TrimSpace(os.Getenv("GENYEE_TENANT_SELF_SERVICE_CREATION_ENABLED")); value != "" {

@@ -196,3 +196,40 @@ func TestValidateInvitationRegistrationMode(t *testing.T) {
 		t.Fatalf("invitation registration mode rejected: %v", err)
 	}
 }
+
+func TestApplyAuthAndTenantDefaults_EnableRBACFailsClosedOnTruthyOrInvalidEnv(t *testing.T) {
+	cases := []struct {
+		name    string
+		envVal  string
+		yamlVal *bool
+		want    bool
+	}{
+		{"unset defaults to enforced", "", nil, true},
+		{"1 keeps RBAC enforced", "1", nil, true},
+		{"true keeps RBAC enforced", "true", nil, true},
+		{"0 disables RBAC explicitly", "0", nil, false},
+		{"false disables RBAC explicitly", "false", nil, false},
+		{"malformed typo preserves default enforcement", "ture", nil, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("GENYEE_TENANT_ENABLE_RBAC", tc.envVal)
+			t.Setenv("DISABLE_REGISTRATION", "")
+			cfg := &Config{Tenant: &TenantConfig{EnableRBAC: tc.yamlVal}}
+			applyAuthAndTenantDefaults(cfg)
+			if got := cfg.Tenant.IsRBACEnforced(); got != tc.want {
+				t.Fatalf("GENYEE_TENANT_ENABLE_RBAC=%q: IsRBACEnforced()=%v, want %v", tc.envVal, got, tc.want)
+			}
+		})
+	}
+
+	t.Run("DISABLE_REGISTRATION=1 coerces to invite_only", func(t *testing.T) {
+		t.Setenv("DISABLE_REGISTRATION", "1")
+		t.Setenv("GENYEE_TENANT_ENABLE_RBAC", "")
+		cfg := &Config{Auth: &AuthConfig{RegistrationMode: AuthRegistrationModeSelfServe}}
+		applyAuthAndTenantDefaults(cfg)
+		if cfg.Auth.RegistrationMode != AuthRegistrationModeInviteOnly {
+			t.Fatalf("registration_mode = %q, want %q", cfg.Auth.RegistrationMode, AuthRegistrationModeInviteOnly)
+		}
+	})
+}
