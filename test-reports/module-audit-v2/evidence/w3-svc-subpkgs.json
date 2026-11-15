@@ -433,7 +433,7 @@
           "file": "internal/application/service/retriever/factory.go:83-109,165-172,205-265, internal/application/service/retriever/ownership.go:30-41",
           "summary": "VerifyBinding and resolveBoundEngine did not reject tenantID == 0 or whitespace-only storeID strings fail-closed (allowing whitespace *vectorStoreID to bypass empty-string unbound normalization into GetOrLoadByStoreID), panicked on nil registry/ownership, and CreateRetrieveEngineForKB panicked on typed-nil *types.Tenant in context.",
           "regression_test": "TestFactoryAndOwnership_FailClosedOnZeroTenantBlankStoreNilDepsAndTypedNilTenantInfo",
-          "commit": "2269f11e91f0eeead6f3b68dc142f5cacd10f408"
+          "commit": "1000d94dc26f839164a7012abccd096984c20cab"
         },
         {
           "id": "W3-SVC-SUBPKGS-15",
@@ -446,7 +446,8 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/retriever/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/retriever (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/retriever (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service -run 'TestProcessChunksResolvesVectorStoreBeforeDeletingChunks|TestCreateKnowledgeBase_VectorStoreBinding|TestProcessKBDeleteCleansWikiWhenVectorStore' (exit 0)"
       ]
     },
     {
