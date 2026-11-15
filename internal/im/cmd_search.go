@@ -36,6 +36,9 @@ func (c *SearchCommand) Description() string {
 }
 
 func (c *SearchCommand) Execute(ctx context.Context, cmdCtx *CommandContext, args []string) (*CommandResult, error) {
+	if cmdCtx == nil {
+		return nil, fmt.Errorf("command context is nil")
+	}
 	if len(args) == 0 {
 		return &CommandResult{
 			Content: "请输入搜索内容，例如：`/search 退款政策`",
@@ -50,28 +53,33 @@ func (c *SearchCommand) Execute(ctx context.Context, cmdCtx *CommandContext, arg
 	if cmdCtx.CustomAgent != nil {
 		switch cmdCtx.CustomAgent.Config.KBSelectionMode {
 		case "all":
-			allKBs, err := c.kbService.ListKnowledgeBases(ctx)
-			if err == nil {
-				// Same capability filter as the QA pipeline's
-				// resolveKnowledgeBasesFromAgent (`all` branch) so `/search`
-				// agrees with what the agent's tools can actually reach.
-				// Agent-mode aware: quick-answer enforces RAG-only KBs.
-				agentMode := cmdCtx.CustomAgent.Config.AgentMode
-				allowed := cmdCtx.CustomAgent.Config.AllowedTools
-				filter := tools.DeriveKBFilterForAgent(agentMode, allowed)
-				skipped := 0
-				for _, kb := range allKBs {
-					if !filter.IsEmpty() &&
-						!tools.KBSatisfiesAgentRequirements(kb.Capabilities(), agentMode, allowed) {
-						skipped++
-						continue
+			if c.kbService != nil {
+				allKBs, err := c.kbService.ListKnowledgeBases(ctx)
+				if err == nil {
+					// Same capability filter as the QA pipeline's
+					// resolveKnowledgeBasesFromAgent (`all` branch) so `/search`
+					// agrees with what the agent's tools can actually reach.
+					// Agent-mode aware: quick-answer enforces RAG-only KBs.
+					agentMode := cmdCtx.CustomAgent.Config.AgentMode
+					allowed := cmdCtx.CustomAgent.Config.AllowedTools
+					filter := tools.DeriveKBFilterForAgent(agentMode, allowed)
+					skipped := 0
+					for _, kb := range allKBs {
+						if kb == nil {
+							continue
+						}
+						if !filter.IsEmpty() &&
+							!tools.KBSatisfiesAgentRequirements(kb.Capabilities(), agentMode, allowed) {
+							skipped++
+							continue
+						}
+						kbIDs = append(kbIDs, kb.ID)
 					}
-					kbIDs = append(kbIDs, kb.ID)
-				}
-				if skipped > 0 {
-					logger.Infof(ctx,
-						"/search(agent=%s, mode=all): capability filter removed %d of %d KBs",
-						cmdCtx.CustomAgent.ID, skipped, len(allKBs))
+					if skipped > 0 {
+						logger.Infof(ctx,
+							"/search(agent=%s, mode=all): capability filter removed %d of %d KBs",
+							cmdCtx.CustomAgent.ID, skipped, len(allKBs))
+					}
 				}
 			}
 		case "none":
@@ -84,17 +92,25 @@ func (c *SearchCommand) Execute(ctx context.Context, cmdCtx *CommandContext, arg
 		}
 	}
 
-	retrieval, err := c.sessionService.SearchKnowledge(ctx, kbIDs, nil, nil, query, nil)
-	if err != nil {
-		return nil, fmt.Errorf("search knowledge: %w", err)
-	}
-	results := retrieval.Results
-
-	if len(results) == 0 {
+	if len(kbIDs) == 0 {
 		return &CommandResult{
 			Content: fmt.Sprintf("未在知识库中找到与「%s」相关的内容。", query),
 		}, nil
 	}
+	if c.sessionService == nil {
+		return nil, fmt.Errorf("session service is not configured")
+	}
+
+	retrieval, err := c.sessionService.SearchKnowledge(ctx, kbIDs, nil, nil, query, nil)
+	if err != nil {
+		return nil, fmt.Errorf("search knowledge: %w", err)
+	}
+	if retrieval == nil || len(retrieval.Results) == 0 {
+		return &CommandResult{
+			Content: fmt.Sprintf("未在知识库中找到与「%s」相关的内容。", query),
+		}, nil
+	}
+	results := retrieval.Results
 
 	// Cap the number of results shown in IM (wall of text is unhelpful).
 	shown := results

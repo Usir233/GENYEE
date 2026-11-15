@@ -3,6 +3,7 @@ package slack
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	slackpkg "github.com/slack-go/slack"
 
@@ -30,9 +31,14 @@ func NewFactory() im.AdapterFactory {
 			return adapter, func() {}, nil
 
 		case "websocket":
+			appToken := strings.TrimSpace(im.GetString(creds, "app_token"))
+			botToken := strings.TrimSpace(im.GetString(creds, "bot_token"))
+			if appToken == "" || botToken == "" {
+				return nil, nil, fmt.Errorf("slack websocket mode requires app_token and bot_token")
+			}
 			client := NewLongConnClient(
-				im.GetString(creds, "app_token"),
-				im.GetString(creds, "bot_token"),
+				appToken,
+				botToken,
 				msgHandler,
 			)
 

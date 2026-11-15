@@ -15,12 +15,16 @@ package wechat
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/im"
+	"github.com/Usir233/GENYEE/internal/types"
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
@@ -41,9 +45,18 @@ type LoginResult struct {
 	BaseURL     string `json:"baseurl"`       // API base URL (may override default)
 }
 
+const qrCodeOwnerTTL = 10 * time.Minute
+
+type qrCodeOwner struct {
+	tenantID  uint64
+	expiresAt time.Time
+}
+
 // QRCodeService handles WeChat QR code login operations.
 type QRCodeService struct {
 	client *http.Client
+	mu     sync.Mutex
+	owners map[string]qrCodeOwner
 }
 
 // NewQRCodeService creates a new QR code service.
@@ -53,7 +66,54 @@ func NewQRCodeService() *QRCodeService {
 			Timeout:      pollTimeout,
 			MaxRedirects: 5,
 		}),
+		owners: make(map[string]qrCodeOwner),
 	}
+}
+
+func (s *QRCodeService) recordOwner(qrcode string, tenantID uint64) {
+	if qrcode == "" || tenantID == 0 {
+		return
+	}
+	now := time.Now()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.owners == nil {
+		s.owners = make(map[string]qrCodeOwner)
+	}
+	for k, v := range s.owners {
+		if now.After(v.expiresAt) {
+			delete(s.owners, k)
+		}
+	}
+	s.owners[qrcode] = qrCodeOwner{
+		tenantID:  tenantID,
+		expiresAt: now.Add(qrCodeOwnerTTL),
+	}
+}
+
+func (s *QRCodeService) verifyOwner(ctx context.Context, qrcode string) error {
+	now := time.Now()
+	s.mu.Lock()
+	owner, tracked := s.owners[qrcode]
+	if tracked && now.After(owner.expiresAt) {
+		delete(s.owners, qrcode)
+		tracked = false
+	}
+	s.mu.Unlock()
+	if !tracked {
+		return nil
+	}
+	callerTenant, ok := types.TenantIDFromContext(ctx)
+	if !ok || callerTenant != owner.tenantID {
+		return fmt.Errorf("qrcode does not belong to current tenant")
+	}
+	return nil
+}
+
+func (s *QRCodeService) clearOwner(qrcode string) {
+	s.mu.Lock()
+	delete(s.owners, qrcode)
+	s.mu.Unlock()
 }
 
 // GetLoginQRCode requests a new login QR code from iLink API.
@@ -86,11 +146,15 @@ func (s *QRCodeService) GetLoginQRCode(ctx context.Context) (*QRCodeResult, erro
 		QRCodeImgContent string `json:"qrcode_img_content"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("decode response: %w (body: %s)", err, string(body))
+		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
 	if result.QRCode == "" {
-		return nil, fmt.Errorf("empty qrcode in response: %s", string(body))
+		return nil, fmt.Errorf("empty qrcode in response")
+	}
+
+	if tenantID, ok := types.TenantIDFromContext(ctx); ok && tenantID != 0 {
+		s.recordOwner(result.QRCode, tenantID)
 	}
 
 	return &QRCodeResult{
@@ -111,13 +175,30 @@ const pollTimeout = 38 * time.Second
 // is a status change or ~35 seconds elapse.
 // Status values: "wait", "scaned", "confirmed", "expired"
 func (s *QRCodeService) PollQRCodeStatus(ctx context.Context, qrcode string) (*LoginResult, error) {
+	qrcode = strings.TrimSpace(qrcode)
+	if qrcode == "" || len(qrcode) > 512 {
+		return nil, fmt.Errorf("invalid qrcode")
+	}
+	if err := s.verifyOwner(ctx, qrcode); err != nil {
+		return nil, err
+	}
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return nil, ctx.Err()
+	}
+
 	u := ilinkBaseURL + "/ilink/bot/get_qrcode_status?qrcode=" + url.QueryEscape(qrcode)
 
 	// Use a DETACHED context with our own timeout so we are not bound by the
-	// caller's (gin) request context which may be shorter than the iLink
-	// long-poll hold time.
+	// caller's (gin) request context deadline which may be shorter than the iLink
+	// long-poll hold time, while still cancelling promptly on client disconnect.
 	pollCtx, cancel := context.WithTimeout(context.Background(), pollTimeout)
 	defer cancel()
+	stopCancel := context.AfterFunc(ctx, func() {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			cancel()
+		}
+	})
+	defer stopCancel()
 
 	req, err := http.NewRequestWithContext(pollCtx, http.MethodGet, u, nil)
 	if err != nil {
@@ -127,6 +208,9 @@ func (s *QRCodeService) PollQRCodeStatus(ctx context.Context, qrcode string) (*L
 
 	resp, err := s.client.Do(req)
 	if err != nil {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return nil, ctx.Err()
+		}
 		// Client-side timeout is normal for long-poll; return "wait" status
 		if pollCtx.Err() != nil {
 			return &LoginResult{Status: "wait"}, nil
@@ -141,7 +225,7 @@ func (s *QRCodeService) PollQRCodeStatus(ctx context.Context, qrcode string) (*L
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("qrcode status API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("qrcode status API returned status %d", resp.StatusCode)
 	}
 
 	var result struct {
@@ -152,7 +236,11 @@ func (s *QRCodeService) PollQRCodeStatus(ctx context.Context, qrcode string) (*L
 		BaseURL     string `json:"baseurl"`
 	}
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, fmt.Errorf("decode response: %w (body: %s)", err, string(body))
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+
+	if result.Status == "confirmed" || result.Status == "expired" {
+		s.clearOwner(qrcode)
 	}
 
 	return &LoginResult{

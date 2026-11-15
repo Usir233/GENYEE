@@ -110,8 +110,25 @@ func (c *Client) CreatePost(ctx context.Context, channelID, rootID, message stri
 	return created.ID, nil
 }
 
+func validateMattermostID(id string) error {
+	if id == "" || len(id) > 128 {
+		return fmt.Errorf("invalid mattermost resource id")
+	}
+	for i := 0; i < len(id); i++ {
+		ch := id[i]
+		isAlphaNum := (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')
+		if !isAlphaNum && ch != '_' && ch != '-' {
+			return fmt.Errorf("invalid mattermost resource id")
+		}
+	}
+	return nil
+}
+
 // GetPost fetches a post by ID, returning its root_id (empty if top-level).
 func (c *Client) GetPost(ctx context.Context, postID string) (rootID string, err error) {
+	if err := validateMattermostID(postID); err != nil {
+		return "", err
+	}
 	url := fmt.Sprintf("%s/posts/%s", c.baseURL, postID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -146,6 +163,9 @@ func (c *Client) GetPost(ctx context.Context, postID string) (rootID string, err
 
 // PatchPostMessage updates a post's message field.
 func (c *Client) PatchPostMessage(ctx context.Context, postID, message string) error {
+	if err := validateMattermostID(postID); err != nil {
+		return err
+	}
 	payload, err := json.Marshal(map[string]string{"message": message})
 	if err != nil {
 		return err
@@ -183,6 +203,9 @@ type FileInfo struct {
 
 // GetFileInfo fetches file metadata.
 func (c *Client) GetFileInfo(ctx context.Context, fileID string) (*FileInfo, error) {
+	if err := validateMattermostID(fileID); err != nil {
+		return nil, err
+	}
 	url := fmt.Sprintf("%s/files/%s/info", c.baseURL, fileID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
@@ -214,6 +237,9 @@ func (c *Client) GetFileInfo(ctx context.Context, fileID string) (*FileInfo, err
 
 // GetFileReader opens a download stream for file content.
 func (c *Client) GetFileReader(ctx context.Context, fileID string) (io.ReadCloser, error) {
+	if err := validateMattermostID(fileID); err != nil {
+		return nil, err
+	}
 	url := fmt.Sprintf("%s/files/%s", c.baseURL, fileID)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {

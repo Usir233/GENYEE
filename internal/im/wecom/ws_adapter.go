@@ -104,8 +104,8 @@ func (a *WSAdapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (
 		return reader, fileName, nil
 	}
 
-	// Read all encrypted content
-	encryptedData, err := io.ReadAll(reader)
+	// Read bounded encrypted attachment content (capped at maxIMAttachmentBytes).
+	encryptedData, err := im.ReadIMAttachmentResponse(reader)
 	reader.Close()
 	if err != nil {
 		return nil, "", fmt.Errorf("read encrypted file: %w", err)
@@ -166,7 +166,7 @@ func decryptAESCBC(ciphertext []byte, aesKeyB64 string) ([]byte, error) {
 		return nil, fmt.Errorf("empty plaintext after decryption")
 	}
 	padLen := int(plaintext[len(plaintext)-1])
-	if padLen > aes.BlockSize || padLen == 0 || padLen > len(plaintext) {
+	if padLen > wecomPKCS7BlockSize || padLen == 0 || padLen > len(plaintext) {
 		// No valid PKCS#7 padding — return as-is (some implementations may not pad)
 		return plaintext, nil
 	}

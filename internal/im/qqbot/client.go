@@ -64,7 +64,7 @@ func (c *Client) GatewayURL(ctx context.Context) (string, error) {
 		return c.gatewayURL, nil
 	}
 	var result gatewayResponse
-	if err := c.doJSON(ctx, http.MethodGet, defaultGatewayURL, nil, &result); err != nil {
+	if err := c.doJSON(ctx, http.MethodGet, c.apiBaseURL+"/gateway", nil, &result); err != nil {
 		return "", err
 	}
 	if result.URL == "" {
@@ -112,12 +112,32 @@ func validateGatewayURL(raw string) error {
 	return nil
 }
 
+func validateQQBotID(id string) error {
+	if id == "" || len(id) > 128 || strings.Contains(id, "..") {
+		return fmt.Errorf("invalid qqbot target id")
+	}
+	for i := 0; i < len(id); i++ {
+		ch := id[i]
+		isAlphaNum := (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')
+		if !isAlphaNum && ch != '_' && ch != '-' && ch != '.' {
+			return fmt.Errorf("invalid qqbot target id")
+		}
+	}
+	return nil
+}
+
 func (c *Client) SendC2CMessage(ctx context.Context, openID, content, msgID string) error {
+	if err := validateQQBotID(openID); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/v2/users/%s/messages", openID)
 	return c.sendText(ctx, path, content, msgID)
 }
 
 func (c *Client) SendGroupMessage(ctx context.Context, groupOpenID, content, msgID string) error {
+	if err := validateQQBotID(groupOpenID); err != nil {
+		return err
+	}
 	path := fmt.Sprintf("/v2/groups/%s/messages", groupOpenID)
 	return c.sendText(ctx, path, content, msgID)
 }

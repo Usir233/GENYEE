@@ -432,6 +432,13 @@ var allowedDingTalkDownloadHostSuffixes = []string{
 var validateFileDownloadURL = defaultValidateFileDownloadURL
 
 func defaultValidateFileDownloadURL(rawURL string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return fmt.Errorf("invalid file download URL")
+	}
+	if !strings.EqualFold(u.Scheme, "https") || u.User != nil {
+		return fmt.Errorf("file download URL must use https without userinfo")
+	}
 	if isAllowedDingTalkDownloadHost(rawURL) {
 		return nil
 	}
@@ -440,12 +447,12 @@ func defaultValidateFileDownloadURL(rawURL string) error {
 
 func isAllowedDingTalkDownloadHost(rawURL string) bool {
 	u, err := url.Parse(rawURL)
-	if err != nil {
+	if err != nil || !strings.EqualFold(u.Scheme, "https") || u.User != nil {
 		return false
 	}
 	hostname := strings.ToLower(u.Hostname())
 	for _, suffix := range allowedDingTalkDownloadHostSuffixes {
-		if strings.HasSuffix(hostname, suffix) {
+		if len(hostname) > len(suffix) && strings.HasSuffix(hostname, suffix) {
 			return true
 		}
 	}
@@ -586,11 +593,12 @@ func (a *Adapter) replyViaOpenAPI(ctx context.Context, incoming *im.IncomingMess
 		"msgParam":  string(msgParam),
 	}
 
+	base := strings.TrimRight(apiBaseURL, "/")
 	if incoming.ChatType == im.ChatTypeGroup {
-		apiURL = "https://api.dingtalk.com/v1.0/robot/groupMessages/send"
+		apiURL = base + "/v1.0/robot/groupMessages/send"
 		body["openConversationId"] = incoming.ChatID
 	} else {
-		apiURL = "https://api.dingtalk.com/v1.0/robot/oToMessages/batchSend"
+		apiURL = base + "/v1.0/robot/oToMessages/batchSend"
 		body["userIds"] = []string{incoming.UserID}
 	}
 
@@ -915,6 +923,7 @@ func (a *Adapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessa
 	if outTrackID != "" {
 		if err := a.streamingUpdateCard(ctx, outTrackID, finalContent, false); err != nil {
 			logger.Warnf(ctx, "[DingTalk] Failed to finalize card stream: %v", err)
+			return err
 		}
 	}
 	return nil

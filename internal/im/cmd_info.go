@@ -23,6 +23,9 @@ func (c *InfoCommand) Name() string        { return "info" }
 func (c *InfoCommand) Description() string { return "查看当前智能体的信息与能力" }
 
 func (c *InfoCommand) Execute(ctx context.Context, cmdCtx *CommandContext, _ []string) (*CommandResult, error) {
+	if cmdCtx == nil {
+		return nil, fmt.Errorf("command context is nil")
+	}
 	var sb strings.Builder
 
 	// Note: Feishu card markdown only renders **bold** when it occupies the
@@ -60,28 +63,36 @@ func (c *InfoCommand) Execute(ctx context.Context, cmdCtx *CommandContext, _ []s
 	// "selected" uses the explicit KnowledgeBases list, "none"/empty means disabled.
 	sb.WriteString("\n📚 **知识库**\n")
 	if cfg.KBSelectionMode == "all" {
-		kbs, err := c.kbService.ListKnowledgeBasesByTenantID(ctx, cmdCtx.TenantID)
-		if err == nil && len(kbs) > 0 {
-			for _, kb := range kbs {
-				sb.WriteString(fmt.Sprintf("  · %s\n", kb.Name))
+		if c.kbService != nil {
+			kbs, err := c.kbService.ListKnowledgeBasesByTenantID(ctx, cmdCtx.TenantID)
+			if err == nil && len(kbs) > 0 {
+				for _, kb := range kbs {
+					sb.WriteString(fmt.Sprintf("  · %s\n", kb.Name))
+				}
+				sb.WriteString(fmt.Sprintf("  共 %d 个（全部启用）\n", len(kbs)))
+			} else {
+				sb.WriteString("  全部启用\n")
 			}
-			sb.WriteString(fmt.Sprintf("  共 %d 个（全部启用）\n", len(kbs)))
 		} else {
 			sb.WriteString("  全部启用\n")
 		}
-	} else if len(cfg.KnowledgeBases) > 0 {
-		kbs, err := c.kbService.ListKnowledgeBasesByTenantID(ctx, cmdCtx.TenantID)
-		if err == nil {
-			nameMap := make(map[string]string, len(kbs))
-			for _, kb := range kbs {
-				nameMap[kb.ID] = kb.Name
-			}
-			for _, id := range cfg.KnowledgeBases {
-				label := id
-				if n, ok := nameMap[id]; ok {
-					label = n
+	} else if cfg.KBSelectionMode != "none" && len(cfg.KnowledgeBases) > 0 {
+		if c.kbService != nil {
+			kbs, err := c.kbService.ListKnowledgeBasesByTenantID(ctx, cmdCtx.TenantID)
+			if err == nil {
+				nameMap := make(map[string]string, len(kbs))
+				for _, kb := range kbs {
+					nameMap[kb.ID] = kb.Name
 				}
-				sb.WriteString(fmt.Sprintf("  · %s\n", label))
+				for _, id := range cfg.KnowledgeBases {
+					label := id
+					if n, ok := nameMap[id]; ok {
+						label = n
+					}
+					sb.WriteString(fmt.Sprintf("  · %s\n", label))
+				}
+			} else {
+				sb.WriteString(fmt.Sprintf("  已选择 %d 个\n", len(cfg.KnowledgeBases)))
 			}
 		} else {
 			sb.WriteString(fmt.Sprintf("  已选择 %d 个\n", len(cfg.KnowledgeBases)))

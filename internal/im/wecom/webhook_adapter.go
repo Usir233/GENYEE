@@ -122,10 +122,13 @@ func NewWebhookAdapter(corpID, agentSecret, token, encodingAESKey string, corpAg
 	if token == "" {
 		return nil, fmt.Errorf("token is required for WeCom webhook mode")
 	}
-	// Decode the AES key from base64
+	// Decode the AES key from base64 (43 chars + "=" -> 32 bytes)
 	aesKey, err := base64.StdEncoding.DecodeString(encodingAESKey + "=")
 	if err != nil {
 		return nil, fmt.Errorf("decode encoding_aes_key: %w", err)
+	}
+	if len(aesKey) != wecomPKCS7BlockSize {
+		return nil, fmt.Errorf("invalid encoding_aes_key: decoded length %d, want %d", len(aesKey), wecomPKCS7BlockSize)
 	}
 
 	if apiBaseURL == "" {
@@ -340,6 +343,34 @@ func (a *WebhookAdapter) SendReply(ctx context.Context, incoming *im.IncomingMes
 	return a.sendToUser(ctx, accessToken, incoming.UserID, reply)
 }
 
+type redactedWeComError struct {
+	msg string
+	err error
+}
+
+func (e *redactedWeComError) Error() string { return e.msg }
+func (e *redactedWeComError) Unwrap() error { return e.err }
+
+func redactWeComSecrets(err error, secrets ...string) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	replaced := msg
+	for _, s := range secrets {
+		if s != "" {
+			replaced = strings.ReplaceAll(replaced, s, "[REDACTED]")
+			if esc := url.QueryEscape(s); esc != s {
+				replaced = strings.ReplaceAll(replaced, esc, "[REDACTED]")
+			}
+		}
+	}
+	if replaced == msg {
+		return err
+	}
+	return &redactedWeComError{msg: replaced, err: err}
+}
+
 // sendToAppChat sends a message to a WeCom group chat via the appchat API.
 // Reference: https://developer.work.weixin.qq.com/document/path/90248
 func (a *WebhookAdapter) sendToAppChat(ctx context.Context, accessToken, chatID string, reply *im.ReplyMessage) error {
@@ -356,16 +387,16 @@ func (a *WebhookAdapter) sendToAppChat(ctx context.Context, accessToken, chatID 
 		return fmt.Errorf("marshal payload: %w", err)
 	}
 
-	sendURL := fmt.Sprintf("%s/cgi-bin/appchat/send?access_token=%s", a.apiBaseURL, accessToken)
+	sendURL := fmt.Sprintf("%s/cgi-bin/appchat/send?access_token=%s", a.apiBaseURL, url.QueryEscape(accessToken))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, sendURL, bytes.NewReader(payloadBytes))
 	if err != nil {
-		return fmt.Errorf("create request: %w", err)
+		return fmt.Errorf("create request: %w", redactWeComSecrets(err, accessToken))
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("send appchat message: %w", err)
+		return fmt.Errorf("send appchat message: %w", redactWeComSecrets(err, accessToken))
 	}
 	defer resp.Body.Close()
 
@@ -400,16 +431,16 @@ func (a *WebhookAdapter) sendToUser(ctx context.Context, accessToken, userID str
 		return fmt.Errorf("marshal payload: %w", err)
 	}
 
-	sendURL := fmt.Sprintf("%s/cgi-bin/message/send?access_token=%s", a.apiBaseURL, accessToken)
+	sendURL := fmt.Sprintf("%s/cgi-bin/message/send?access_token=%s", a.apiBaseURL, url.QueryEscape(accessToken))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, sendURL, bytes.NewReader(payloadBytes))
 	if err != nil {
-		return fmt.Errorf("create request: %w", err)
+		return fmt.Errorf("create request: %w", redactWeComSecrets(err, accessToken))
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("send message: %w", err)
+		return fmt.Errorf("send message: %w", redactWeComSecrets(err, accessToken))
 	}
 	defer resp.Body.Close()
 
@@ -438,16 +469,16 @@ func (a *WebhookAdapter) getAccessToken(ctx context.Context) (string, error) {
 	}
 
 	tokenURL := fmt.Sprintf("%s/cgi-bin/gettoken?corpid=%s&corpsecret=%s",
-		a.apiBaseURL, a.corpID, a.agentSecret)
+		a.apiBaseURL, url.QueryEscape(a.corpID), url.QueryEscape(a.agentSecret))
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, tokenURL, nil)
 	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+		return "", fmt.Errorf("create request: %w", redactWeComSecrets(err, a.agentSecret))
 	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("request access token: %w", err)
+		return "", fmt.Errorf("request access token: %w", redactWeComSecrets(err, a.agentSecret))
 	}
 	defer resp.Body.Close()
 
@@ -514,15 +545,22 @@ func (a *WebhookAdapter) decrypt(encrypted string) ([]byte, error) {
 	mode := cipher.NewCBCDecrypter(block, iv)
 	mode.CryptBlocks(ciphertext, ciphertext)
 
-	// Remove and verify PKCS#7 padding
+	// Remove and verify PKCS#7 padding in constant time across the tail window.
 	padLen := int(ciphertext[len(ciphertext)-1])
-	if padLen > wecomPKCS7BlockSize || padLen == 0 || padLen > len(ciphertext) {
-		return nil, fmt.Errorf("invalid padding")
+	padValid := subtle.ConstantTimeLessOrEq(1, padLen) &
+		subtle.ConstantTimeLessOrEq(padLen, wecomPKCS7BlockSize) &
+		subtle.ConstantTimeLessOrEq(padLen, len(ciphertext))
+	maxCheck := wecomPKCS7BlockSize
+	if len(ciphertext) < maxCheck {
+		maxCheck = len(ciphertext)
 	}
-	for i := 0; i < padLen; i++ {
-		if ciphertext[len(ciphertext)-1-i] != byte(padLen) {
-			return nil, fmt.Errorf("invalid padding")
-		}
+	for i := 0; i < maxCheck; i++ {
+		inPad := subtle.ConstantTimeLessOrEq(i+1, padLen)
+		eq := subtle.ConstantTimeByteEq(ciphertext[len(ciphertext)-1-i], byte(padLen))
+		padValid &= (^inPad) | eq
+	}
+	if padValid != 1 {
+		return nil, fmt.Errorf("invalid padding")
 	}
 	plaintext := ciphertext[:len(ciphertext)-padLen]
 
@@ -532,16 +570,17 @@ func (a *WebhookAdapter) decrypt(encrypted string) ([]byte, error) {
 	}
 
 	msgLen := binary.BigEndian.Uint32(plaintext[16:20])
-	if uint32(len(plaintext)) < 20+msgLen {
+	if uint64(msgLen) > uint64(len(plaintext)-20) {
 		return nil, fmt.Errorf("message length mismatch")
 	}
 
-	msgBytes := plaintext[20 : 20+msgLen]
+	end := 20 + int(msgLen)
+	msgBytes := plaintext[20:end]
 
-	// Verify corp_id from plaintext tail
-	corpIDBytes := plaintext[20+msgLen:]
-	if string(corpIDBytes) != a.corpID {
-		return nil, fmt.Errorf("corp_id mismatch: expected %s, got %s", a.corpID, string(corpIDBytes))
+	// Verify corp_id from plaintext tail without leaking expected corp_id.
+	corpIDBytes := plaintext[end:]
+	if subtle.ConstantTimeCompare(corpIDBytes, []byte(a.corpID)) != 1 {
+		return nil, fmt.Errorf("corp_id mismatch")
 	}
 
 	return msgBytes, nil
@@ -603,8 +642,12 @@ func (a *WebhookAdapter) DownloadFile(ctx context.Context, msg *im.IncomingMessa
 	}
 
 	apiURL := fmt.Sprintf("%s/cgi-bin/media/get?access_token=%s&media_id=%s",
-		a.apiBaseURL, accessToken, msg.FileKey)
-	return downloadFromURL(ctx, apiURL, fileName, a.extraAllowedHost)
+		a.apiBaseURL, url.QueryEscape(accessToken), url.QueryEscape(msg.FileKey))
+	rc, name, dlErr := downloadFromURL(ctx, apiURL, fileName, a.extraAllowedHost)
+	if dlErr != nil {
+		return nil, "", redactWeComSecrets(dlErr, accessToken)
+	}
+	return rc, name, nil
 }
 
 // downloadFromURL performs a GET request and returns the response body.
@@ -708,10 +751,13 @@ var allowedIMAPIHosts = []string{
 // extraHost is an optional additional trusted hostname (e.g. from a private deployment).
 func isAllowedIMAPIHost(rawURL string, extraHost string) bool {
 	u, err := url.Parse(rawURL)
-	if err != nil {
+	if err != nil || !strings.EqualFold(u.Scheme, "https") || u.User != nil {
 		return false
 	}
 	hostname := strings.ToLower(u.Hostname())
+	if hostname == "" {
+		return false
+	}
 	if extraHost != "" && hostname == extraHost {
 		return true
 	}

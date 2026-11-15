@@ -1700,10 +1700,16 @@ func (s *Service) isDuplicate(ctx context.Context, messageID string) bool {
 
 // HandleMessage processes an incoming IM message end-to-end using channel config.
 func (s *Service) HandleMessage(ctx context.Context, msg *IncomingMessage, channelID string) error {
-	// Dedup: skip if this message was already processed (IM platforms may retry)
+	// Dedup: skip if this message was already processed (IM platforms may retry).
+	// Scope by channelID so sequential/predictable platform-local IDs cannot collide
+	// across tenants or channels.
 	if msg.MessageID != "" {
-		if s.isDuplicate(ctx, msg.MessageID) {
-			logger.Infof(ctx, "[IM] Skipping duplicate message: %s", msg.MessageID)
+		dedupKey := msg.MessageID
+		if channelID != "" {
+			dedupKey = channelID + ":" + msg.MessageID
+		}
+		if s.isDuplicate(ctx, dedupKey) {
+			logger.Infof(ctx, "[IM] Skipping duplicate message: channel=%s msgid=%s", channelID, msg.MessageID)
 			return nil
 		}
 	}
@@ -1722,6 +1728,9 @@ func (s *Service) HandleMessage(ctx context.Context, msg *IncomingMessage, chann
 		ch, err := s.GetChannelByID(channelID)
 		if err != nil {
 			return fmt.Errorf("channel not found: %s", channelID)
+		}
+		if !ch.Enabled {
+			return fmt.Errorf("channel is disabled: %s", channelID)
 		}
 		// Start it dynamically
 		if err := s.StartChannel(ch); err != nil {

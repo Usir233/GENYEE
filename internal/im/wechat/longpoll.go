@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/im"
@@ -29,7 +30,8 @@ const (
 	longPollHTTPTimeout  = 40 * time.Second // slightly longer than poll timeout
 	reconnectBaseDelay   = 1 * time.Second
 	reconnectMaxDelay    = 30 * time.Second
-	maxReconnectAttempts = -1 // infinite
+	maxReconnectAttempts      = -1 // infinite
+	maxConcurrentPollHandlers = 32
 )
 
 // ErrTokenExpired indicates the bot token has expired and a re-login is required.
@@ -42,6 +44,8 @@ type LongPollClient struct {
 	handler    func(ctx context.Context, msg *im.IncomingMessage) error
 	httpClient *http.Client
 	cursor     string // get_updates_buf: opaque cursor for pagination
+	wg         sync.WaitGroup
+	sem        chan struct{}
 }
 
 // NewLongPollClient creates a new WeChat long-polling client.
@@ -54,12 +58,14 @@ func NewLongPollClient(botToken, ilinkBotID string, handler func(ctx context.Con
 			Timeout:      longPollHTTPTimeout,
 			MaxRedirects: 5,
 		}),
+		sem: make(chan struct{}, maxConcurrentPollHandlers),
 	}
 }
 
 // Start begins the long-polling loop. It reconnects automatically on transient errors.
 // Returns ErrTokenExpired when the bot token expires (errcode -14).
 func (c *LongPollClient) Start(ctx context.Context) error {
+	defer c.wg.Wait()
 	logger.Infof(ctx, "[IM] WeChat long-poll starting (bot_id=%s)...", c.ilinkBotID)
 
 	attempts := 0
@@ -168,8 +174,23 @@ func (c *LongPollClient) poll(ctx context.Context) error {
 			continue
 		}
 
-		// Handle in a detached goroutine so we don't block polling
+		// Handle in a bounded goroutine so polling stays responsive without
+		// leaking unbounded goroutines or racing after channel stop.
+		if c.sem != nil {
+			select {
+			case c.sem <- struct{}{}:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		c.wg.Add(1)
 		go func(m *im.IncomingMessage) {
+			defer func() {
+				if c.sem != nil {
+					<-c.sem
+				}
+				c.wg.Done()
+			}()
 			if err := c.handler(ctx, m); err != nil {
 				logger.Errorf(ctx, "[WeChat] Handle message error: %v", err)
 			}

@@ -62,7 +62,10 @@ func (c *LongConnClient) Start(ctx context.Context) error {
 			select {
 			case <-ctx.Done():
 				return
-			case evt := <-c.client.Events:
+			case evt, ok := <-c.client.Events:
+				if !ok {
+					return
+				}
 				switch evt.Type {
 				case socketmode.EventTypeConnecting:
 					logger.Infof(ctx, "[Slack] Connecting to Slack with Socket Mode...")
@@ -74,6 +77,10 @@ func (c *LongConnClient) Start(ctx context.Context) error {
 					eventsAPIEvent, ok := evt.Data.(slackevents.EventsAPIEvent)
 					if !ok {
 						logger.Warnf(ctx, "[Slack] Ignored %+v", evt)
+						continue
+					}
+					if evt.Request == nil {
+						logger.Warnf(ctx, "[Slack] Ignored EventsAPI event with nil request")
 						continue
 					}
 

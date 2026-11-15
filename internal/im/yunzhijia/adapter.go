@@ -377,13 +377,13 @@ func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, r
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, a.sendMsgURL, bytes.NewReader(jsonBody))
 	if err != nil {
-		return fmt.Errorf("create request: %w", err)
+		return fmt.Errorf("create request: %w", redactYunzhijiaErr(err))
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := a.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("send reply: %w", err)
+		return fmt.Errorf("send reply: %w", redactYunzhijiaErr(err))
 	}
 	defer resp.Body.Close()
 
@@ -396,6 +396,43 @@ func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, r
 	}
 
 	return nil
+}
+
+type redactedYunzhijiaError struct {
+	msg string
+	err error
+}
+
+func (e *redactedYunzhijiaError) Error() string { return e.msg }
+func (e *redactedYunzhijiaError) Unwrap() error { return e.err }
+
+func redactYunzhijiaErr(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	lower := strings.ToLower(msg)
+	if !strings.Contains(lower, "yzjtoken=") {
+		return err
+	}
+	var b strings.Builder
+	b.Grow(len(msg))
+	i := 0
+	for i < len(msg) {
+		idx := strings.Index(strings.ToLower(msg[i:]), "yzjtoken=")
+		if idx < 0 {
+			b.WriteString(msg[i:])
+			break
+		}
+		b.WriteString(msg[i : i+idx+len("yzjtoken=")])
+		b.WriteString("[REDACTED]")
+		j := i + idx + len("yzjtoken=")
+		for j < len(msg) && msg[j] != '&' && msg[j] != '"' && msg[j] != '\'' && msg[j] != ' ' && msg[j] != ')' && msg[j] != '>' {
+			j++
+		}
+		i = j
+	}
+	return &redactedYunzhijiaError{msg: b.String(), err: err}
 }
 
 // DownloadFile downloads a file/image resource sent by Yunzhijia.

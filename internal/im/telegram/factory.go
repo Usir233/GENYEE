@@ -3,6 +3,7 @@ package telegram
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/Usir233/GENYEE/internal/im"
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -28,6 +29,10 @@ func NewFactory() im.AdapterFactory {
 			return adapter, nil, nil
 
 		case "websocket":
+			botToken = strings.TrimSpace(botToken)
+			if botToken == "" {
+				return nil, nil, fmt.Errorf("telegram bot_token is required")
+			}
 			client := NewLongConnClient(botToken, msgHandler)
 
 			wsCtx, wsCancel := context.WithCancel(context.Background())

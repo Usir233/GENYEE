@@ -393,6 +393,8 @@ func (c *LongConnClient) connectAndRun(ctx context.Context) error {
 		return fmt.Errorf("client stopped")
 	}
 
+	conn.SetReadLimit(4 << 20)
+
 	// Authenticate
 	if err := c.authenticate(ctx); err != nil {
 		return fmt.Errorf("authenticate: %w", err)

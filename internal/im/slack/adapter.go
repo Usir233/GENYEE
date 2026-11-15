@@ -259,6 +259,14 @@ func (a *Adapter) StartStream(ctx context.Context, incoming *im.IncomingMessage)
 }
 
 func (a *Adapter) UpdateStreamContent(ctx context.Context, incoming *im.IncomingMessage, streamID string, fullContent string) error {
+	return a.updateStreamContent(ctx, streamID, fullContent, false)
+}
+
+func (a *Adapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessage, streamID string, finalContent string) error {
+	return a.updateStreamContent(ctx, streamID, finalContent, true)
+}
+
+func (a *Adapter) updateStreamContent(ctx context.Context, streamID string, fullContent string, surfaceErr bool) error {
 	if fullContent == "" {
 		return nil
 	}
@@ -280,12 +288,11 @@ func (a *Adapter) UpdateStreamContent(ctx context.Context, incoming *im.Incoming
 	_, _, _, err := a.api.UpdateMessageContext(ctx, channel, ts, slack.MsgOptionText(fullContent, false))
 	if err != nil {
 		logger.Warnf(ctx, "[Slack] Failed to update stream content: %v", err)
+		if surfaceErr {
+			return err
+		}
 	}
 	return nil
-}
-
-func (a *Adapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessage, streamID string, finalContent string) error {
-	return a.UpdateStreamContent(ctx, incoming, streamID, finalContent)
 }
 
 func (a *Adapter) SendStreamChunk(ctx context.Context, incoming *im.IncomingMessage, streamID string, content string) error {

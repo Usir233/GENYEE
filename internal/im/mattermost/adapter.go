@@ -69,6 +69,9 @@ func (a *Adapter) HandleURLVerification(c *gin.Context) bool {
 }
 
 func (a *Adapter) VerifyCallback(c *gin.Context) error {
+	if a.outgoingToken == "" {
+		return fmt.Errorf("invalid outgoing webhook token")
+	}
 	im.LimitWebhookBody(c)
 	bodyBytes, err := io.ReadAll(c.Request.Body)
 	if err != nil {

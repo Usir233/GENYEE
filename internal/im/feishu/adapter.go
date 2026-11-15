@@ -305,6 +305,29 @@ func (a *Adapter) VerifyCallback(c *gin.Context) error {
 	// Always restore body for subsequent reads (HandleURLVerification / ParseCallback)
 	defer func() { c.Request.Body = io.NopCloser(bytes.NewReader(bodyBytes)) }()
 
+	tsHeader := strings.TrimSpace(c.GetHeader("X-Lark-Request-Timestamp"))
+	nonceHeader := c.GetHeader("X-Lark-Request-Nonce")
+	sigHeader := strings.TrimSpace(c.GetHeader("X-Lark-Signature"))
+
+	if tsHeader != "" {
+		if err := verifyFeishuTimestamp(tsHeader); err != nil {
+			return err
+		}
+	}
+	// Verify X-Lark-Signature prior to AES-CBC decryption whenever present so
+	// unauthenticated callers cannot reach the cipher/padding path.
+	if a.encryptKey != "" && sigHeader != "" {
+		h := sha256.New()
+		h.Write([]byte(tsHeader))
+		h.Write([]byte(nonceHeader))
+		h.Write([]byte(a.encryptKey))
+		h.Write(bodyBytes)
+		expectedSig := fmt.Sprintf("%x", h.Sum(nil))
+		if subtle.ConstantTimeCompare([]byte(expectedSig), []byte(strings.ToLower(sigHeader))) != 1 {
+			return fmt.Errorf("invalid X-Lark-Signature")
+		}
+	}
+
 	raw, err := a.decodeCallbackPayload(bodyBytes)
 	if err != nil {
 		return err
@@ -329,29 +352,9 @@ func (a *Adapter) VerifyCallback(c *gin.Context) error {
 		return fmt.Errorf("invalid verification token")
 	}
 
-	tsHeader := strings.TrimSpace(c.GetHeader("X-Lark-Request-Timestamp"))
-	nonceHeader := c.GetHeader("X-Lark-Request-Nonce")
-	sigHeader := strings.TrimSpace(c.GetHeader("X-Lark-Signature"))
-
 	if a.encryptKey != "" && eventBody.Type != "url_verification" {
 		if tsHeader == "" || sigHeader == "" {
 			return fmt.Errorf("missing X-Lark-Request-Timestamp or X-Lark-Signature header")
-		}
-	}
-	if tsHeader != "" {
-		if err := verifyFeishuTimestamp(tsHeader); err != nil {
-			return err
-		}
-	}
-	if a.encryptKey != "" && (eventBody.Type != "url_verification" || sigHeader != "") {
-		h := sha256.New()
-		h.Write([]byte(tsHeader))
-		h.Write([]byte(nonceHeader))
-		h.Write([]byte(a.encryptKey))
-		h.Write(bodyBytes)
-		expectedSig := fmt.Sprintf("%x", h.Sum(nil))
-		if subtle.ConstantTimeCompare([]byte(expectedSig), []byte(strings.ToLower(sigHeader))) != 1 {
-			return fmt.Errorf("invalid X-Lark-Signature")
 		}
 	}
 
@@ -1547,8 +1550,8 @@ func (a *Adapter) decrypt(encrypted string) ([]byte, error) {
 		return nil, fmt.Errorf("new cipher: %w", err)
 	}
 
-	if len(ciphertext) < aes.BlockSize {
-		return nil, fmt.Errorf("ciphertext too short")
+	if len(ciphertext) < aes.BlockSize*2 || (len(ciphertext)-aes.BlockSize)%aes.BlockSize != 0 {
+		return nil, fmt.Errorf("invalid ciphertext length")
 	}
 
 	iv := ciphertext[:aes.BlockSize]
@@ -1557,18 +1560,16 @@ func (a *Adapter) decrypt(encrypted string) ([]byte, error) {
 	mode := cipher.NewCBCDecrypter(block, iv)
 	mode.CryptBlocks(ciphertext, ciphertext)
 
-	// Remove and verify PKCS#7 padding
-	if len(ciphertext) == 0 {
-		return nil, fmt.Errorf("empty plaintext")
-	}
+	// Remove and verify PKCS#7 padding in constant time across the final block.
 	padLen := int(ciphertext[len(ciphertext)-1])
-	if padLen > aes.BlockSize || padLen == 0 || padLen > len(ciphertext) {
-		return nil, fmt.Errorf("invalid padding")
+	padValid := subtle.ConstantTimeLessOrEq(1, padLen) & subtle.ConstantTimeLessOrEq(padLen, aes.BlockSize)
+	for i := 0; i < aes.BlockSize; i++ {
+		inPad := subtle.ConstantTimeLessOrEq(i+1, padLen)
+		eq := subtle.ConstantTimeByteEq(ciphertext[len(ciphertext)-1-i], byte(padLen))
+		padValid &= (^inPad) | eq
 	}
-	for i := 0; i < padLen; i++ {
-		if ciphertext[len(ciphertext)-1-i] != byte(padLen) {
-			return nil, fmt.Errorf("invalid padding")
-		}
+	if padValid != 1 {
+		return nil, fmt.Errorf("invalid encrypted payload")
 	}
 
 	return ciphertext[:len(ciphertext)-padLen], nil

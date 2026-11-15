@@ -263,6 +263,40 @@ var httpClient = secutils.NewSSRFSafeHTTPClient(secutils.SSRFSafeHTTPClientConfi
 	MaxRedirects: 5,
 })
 
+type redactedTelegramError struct {
+	msg string
+	err error
+}
+
+func (e *redactedTelegramError) Error() string { return e.msg }
+func (e *redactedTelegramError) Unwrap() error { return e.err }
+
+func redactTelegramErr(err error, botToken string) error {
+	if err == nil || botToken == "" {
+		return err
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, botToken) {
+		return err
+	}
+	return &redactedTelegramError{
+		msg: strings.ReplaceAll(msg, botToken, "[REDACTED]"),
+		err: err,
+	}
+}
+
+func validateTelegramFilePath(filePath string) error {
+	if filePath == "" || strings.HasPrefix(filePath, "/") || strings.ContainsAny(filePath, "\\?#\r\n\x00") {
+		return fmt.Errorf("invalid telegram file_path")
+	}
+	for _, seg := range strings.Split(filePath, "/") {
+		if seg == "" || seg == "." || seg == ".." {
+			return fmt.Errorf("invalid telegram file_path")
+		}
+	}
+	return nil
+}
+
 // callAPI calls the Telegram Bot API, discarding the result.
 func (a *Adapter) callAPI(ctx context.Context, method string, body interface{}) error {
 	return a.callAPIWithResult(ctx, method, body, nil)
@@ -279,13 +313,13 @@ func (a *Adapter) callAPIWithResult(ctx context.Context, method string, body int
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(jsonBody))
 	if err != nil {
-		return fmt.Errorf("create request: %w", err)
+		return fmt.Errorf("create request: %w", redactTelegramErr(err, a.botToken))
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("do request: %w", err)
+		return fmt.Errorf("do request: %w", redactTelegramErr(err, a.botToken))
 	}
 	defer resp.Body.Close()
 
@@ -447,6 +481,7 @@ func (a *Adapter) FinalizeStream(ctx context.Context, incoming *im.IncomingMessa
 		logger.Warnf(ctx, "[Telegram] Markdown finalize failed, retrying plain: %v", err)
 		if retryErr := a.editMessage(ctx, chatID, msgID, finalContent, ""); retryErr != nil {
 			logger.Warnf(ctx, "[Telegram] Failed to finalize stream: %v", retryErr)
+			return retryErr
 		}
 	}
 	return nil
@@ -485,17 +520,20 @@ func (a *Adapter) DownloadFile(ctx context.Context, msg *im.IncomingMessage) (io
 	if err := a.callAPIWithResult(ctx, "getFile", map[string]string{"file_id": msg.FileKey}, &fileInfo); err != nil {
 		return nil, "", fmt.Errorf("get file info: %w", err)
 	}
+	if err := validateTelegramFilePath(fileInfo.FilePath); err != nil {
+		return nil, "", err
+	}
 
 	// Download the file
 	downloadURL := fmt.Sprintf("https://api.telegram.org/file/bot%s/%s", a.botToken, fileInfo.FilePath)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
-		return nil, "", fmt.Errorf("create download request: %w", err)
+		return nil, "", fmt.Errorf("create download request: %w", redactTelegramErr(err, a.botToken))
 	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return nil, "", fmt.Errorf("download file: %w", err)
+		return nil, "", fmt.Errorf("download file: %w", redactTelegramErr(err, a.botToken))
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()

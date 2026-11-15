@@ -217,11 +217,12 @@ func (ch *IMChannel) computeBotIdentity() string {
 		}
 	case "telegram":
 		if botToken := str("bot_token"); botToken != "" {
-			// Use the bot ID part (before the colon) as identity.
+			// Use the bot ID part (before the colon) as identity; hash malformed tokens
+			// so raw credentials are never persisted in plaintext bot_identity.
 			if idx := strings.Index(botToken, ":"); idx > 0 {
 				return "telegram:" + botToken[:idx]
 			}
-			return "telegram:" + botToken
+			return fmt.Sprintf("telegram:sha256:%x", sha256.Sum256([]byte(botToken)))
 		}
 	case "dingtalk":
 		if clientID := str("client_id"); clientID != "" {
@@ -229,7 +230,7 @@ func (ch *IMChannel) computeBotIdentity() string {
 		}
 	case "mattermost":
 		if tok := str("outgoing_token"); tok != "" {
-			return "mattermost:wh:" + tok
+			return fmt.Sprintf("mattermost:wh:%x", sha256.Sum256([]byte(tok)))
 		}
 	case "wechat":
 		if botID := str("ilink_bot_id"); botID != "" {

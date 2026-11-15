@@ -19,10 +19,11 @@ type LongConnClient struct {
 	client  *Client
 	handler MessageHandler
 
-	mu     sync.Mutex
-	conn   *ws.Conn
-	seq    *int64
-	closed bool
+	mu      sync.Mutex
+	writeMu sync.Mutex
+	conn    *ws.Conn
+	seq     *int64
+	closed  bool
 }
 
 func NewLongConnClient(client *Client, handler MessageHandler) *LongConnClient {
@@ -76,9 +77,22 @@ func (c *LongConnClient) connectAndRun(ctx context.Context) error {
 		return err
 	}
 	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
+		_ = conn.Close()
+		return fmt.Errorf("qqbot client stopped")
+	}
 	c.conn = conn
 	c.mu.Unlock()
+
+	conn.SetReadLimit(1 << 20)
+	connCtx, connCancel := context.WithCancel(ctx)
+	var heartbeatCancel context.CancelFunc
 	defer func() {
+		if heartbeatCancel != nil {
+			heartbeatCancel()
+		}
+		connCancel()
 		c.mu.Lock()
 		if c.conn == conn {
 			c.conn = nil
@@ -98,11 +112,20 @@ func (c *LongConnClient) connectAndRun(ctx context.Context) error {
 			continue
 		}
 		if payload.S != nil {
-			c.seq = payload.S
+			seqVal := *payload.S
+			c.mu.Lock()
+			c.seq = &seqVal
+			c.mu.Unlock()
 		}
 		switch payload.Op {
 		case opHello:
-			if err := c.handleHello(ctx, conn, payload.D); err != nil {
+			if heartbeatCancel != nil {
+				heartbeatCancel()
+			}
+			hbCtx, hbCancel := context.WithCancel(connCtx)
+			heartbeatCancel = hbCancel
+			if err := c.handleHello(hbCtx, conn, payload.D); err != nil {
+				hbCancel()
 				return err
 			}
 		case opDispatch:
@@ -121,6 +144,12 @@ func (c *LongConnClient) connectAndRun(ctx context.Context) error {
 		case opHeartbeatACK:
 		}
 	}
+}
+
+func (c *LongConnClient) writeJSON(conn *ws.Conn, v any) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	return conn.WriteJSON(v)
 }
 
 func (c *LongConnClient) handleHello(ctx context.Context, conn *ws.Conn, raw json.RawMessage) error {
@@ -144,7 +173,7 @@ func (c *LongConnClient) handleHello(ctx context.Context, conn *ws.Conn, raw jso
 	if err != nil {
 		return err
 	}
-	if err := conn.WriteJSON(gatewayPayload{Op: opIdentify, D: payloadBytes}); err != nil {
+	if err := c.writeJSON(conn, gatewayPayload{Op: opIdentify, D: payloadBytes}); err != nil {
 		return err
 	}
 	go c.heartbeatLoop(ctx, conn, time.Duration(hello.HeartbeatInterval)*time.Millisecond)
@@ -161,7 +190,7 @@ func (c *LongConnClient) heartbeatLoop(ctx context.Context, conn *ws.Conn, inter
 		case <-ticker.C:
 			heartbeat, err := c.heartbeatPayload()
 			if err == nil {
-				err = conn.WriteJSON(heartbeat)
+				err = c.writeJSON(conn, heartbeat)
 			}
 			if err != nil {
 				return
@@ -172,7 +201,11 @@ func (c *LongConnClient) heartbeatLoop(ctx context.Context, conn *ws.Conn, inter
 
 func (c *LongConnClient) heartbeatPayload() (gatewayPayload, error) {
 	c.mu.Lock()
-	seq := c.seq
+	var seq *int64
+	if c.seq != nil {
+		v := *c.seq
+		seq = &v
+	}
 	c.mu.Unlock()
 	data, err := json.Marshal(seq)
 	if err != nil {

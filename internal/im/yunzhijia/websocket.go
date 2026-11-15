@@ -123,10 +123,15 @@ func (c *LongConnClient) Stop() {
 func (c *LongConnClient) connectAndRun(ctx context.Context) error {
 	conn, _, err := c.dialer.DialContext(ctx, c.url, nil)
 	if err != nil {
-		return fmt.Errorf("dial websocket: %w", err)
+		return fmt.Errorf("dial websocket: %w", redactYunzhijiaErr(err))
 	}
 
 	c.mu.Lock()
+	if c.closed.Load() {
+		c.mu.Unlock()
+		_ = conn.Close()
+		return nil
+	}
 	c.conn = conn
 	c.mu.Unlock()
 	defer func() {
