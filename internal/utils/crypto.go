@@ -15,7 +15,10 @@ import (
 const EncPrefix = "enc:v1:"
 
 func isPlaceholderAESKey(raw string) bool {
-	return raw == "genyee-system-aes-key-32bytes!!" || raw == "your-32-byte-long-encryption-key!"
+	lower := strings.ToLower(strings.TrimSpace(raw))
+	return strings.HasPrefix(lower, "genyee-system-aes-key") ||
+		strings.HasPrefix(lower, "weknora-system-aes-key") ||
+		strings.HasPrefix(lower, "your-32-byte-long-encryption-key")
 }
 
 // IsReleaseMode reports whether GIN_MODE is explicitly set to release.

@@ -31,7 +31,7 @@ func SystemHMACKey() []byte {
 	if key == "" {
 		key = os.Getenv("SYSTEM_AES_KEY")
 	}
-	if len(key) < 16 || key == "genyee-system-aes-key-32bytes!!" || key == "your-32-byte-long-encryption-key!" {
+	if len(key) < 16 || isPlaceholderAESKey(key) {
 		return nil
 	}
 	return []byte(key)

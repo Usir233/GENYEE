@@ -156,4 +156,17 @@ func TestGetAESKey(t *testing.T) {
 		key := GetAESKey()
 		assert.Nil(t, key)
 	})
+
+	t.Run("rejects 32-byte placeholder variants", func(t *testing.T) {
+		for _, placeholder := range []string{
+			"genyee-system-aes-key-32bytes!!!",
+			"weknora-system-aes-key-32bytes!!",
+			"your-32-byte-long-encryption-key",
+		} {
+			require.Len(t, placeholder, 32)
+			t.Setenv("SYSTEM_AES_KEY", placeholder)
+			assert.Nil(t, GetAESKey(), "GetAESKey must reject %q", placeholder)
+			assert.Error(t, ValidateProductionAESKey(), "ValidateProductionAESKey must reject %q", placeholder)
+		}
+	})
 }

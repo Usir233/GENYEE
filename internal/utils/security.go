@@ -993,19 +993,18 @@ func SSRFSafeDialContext(ctx context.Context, network, addr string) (net.Conn, e
 // Whitelisted entries bypass the normal SSRF checks performed by isSSRFSafeURL.
 
 var (
-	// ssrfWhitelistOnce protects the cold-start ENV-only path. Once
-	// SystemSettingService has called SetSSRFWhitelistFromRaw, the
-	// atomic pointer below takes over and this Once is never observed
-	// again — we keep it for tests (resetSSRFWhitelistForTest) and the
-	// rare deployment that runs without DB-backed system_settings.
-	ssrfWhitelistOnce sync.Once
-	ssrfWhitelist     *ssrfWhitelistConfig
+	// ssrfEnvWhitelistAtomic caches the cold-start ENV-only whitelist
+	// (SSRF_WHITELIST + SSRF_WHITELIST_EXTRA). Guarded by ssrfEnvWhitelistMu on
+	// lazy initialization and ResetSSRFWhitelistForTest so concurrent HTTP
+	// dialers and test cleanup never race.
+	ssrfEnvWhitelistMu     sync.Mutex
+	ssrfEnvWhitelistAtomic atomic.Pointer[ssrfWhitelistConfig]
 
 	// ssrfWhitelistAtomic is the runtime-tunable whitelist source.
 	// SystemSettingService writes here at preload, on every Update,
 	// and on every pubsub-driven reload (multi-replica fan-out). When
-	// non-nil, it takes precedence over the ENV-only Once-cached
-	// `ssrfWhitelist`. nil means "service hasn't pushed yet"; the
+	// non-nil, it takes precedence over the ENV-only cached
+	// `ssrfEnvWhitelistAtomic`. nil means "service hasn't pushed yet"; the
 	// loadSSRFWhitelist fallback then reads ENV directly.
 	//
 	// We use atomic.Pointer so reads on the SSRF hot path
@@ -1023,7 +1022,7 @@ type ssrfWhitelistConfig struct {
 // order:
 //  1. ssrfWhitelistAtomic — set by SystemSettingService whenever DB
 //     ssrf.whitelist changes. This is the runtime-tunable path.
-//  2. ENV fallback — sync.Once-cached parse of SSRF_WHITELIST and
+//  2. ENV fallback — atomic-cached parse of SSRF_WHITELIST and
 //     SSRF_WHITELIST_EXTRA. Used during the startup window before
 //     the service has finished its preload, and on deployments that
 //     don't run system_settings (lite mode).
@@ -1031,16 +1030,26 @@ func loadSSRFWhitelist() *ssrfWhitelistConfig {
 	if cur := ssrfWhitelistAtomic.Load(); cur != nil {
 		return cur
 	}
-	ssrfWhitelistOnce.Do(func() {
-		raw := os.Getenv("SSRF_WHITELIST")
-		// SSRF_WHITELIST_EXTRA is merged in addition to SSRF_WHITELIST so that
-		// deployment-managed defaults (e.g. docker-compose injected sidecar host
-		// names like "searxng") aren't accidentally clobbered when an operator
-		// overrides SSRF_WHITELIST in their .env.
-		extra := os.Getenv("SSRF_WHITELIST_EXTRA")
-		ssrfWhitelist = parseSSRFWhitelistRaw(mergeSSRFWhitelistRaws(raw, extra))
-	})
-	return ssrfWhitelist
+	if envCur := ssrfEnvWhitelistAtomic.Load(); envCur != nil {
+		return envCur
+	}
+	ssrfEnvWhitelistMu.Lock()
+	defer ssrfEnvWhitelistMu.Unlock()
+	if cur := ssrfWhitelistAtomic.Load(); cur != nil {
+		return cur
+	}
+	if envCur := ssrfEnvWhitelistAtomic.Load(); envCur != nil {
+		return envCur
+	}
+	raw := os.Getenv("SSRF_WHITELIST")
+	// SSRF_WHITELIST_EXTRA is merged in addition to SSRF_WHITELIST so that
+	// deployment-managed defaults (e.g. docker-compose injected sidecar host
+	// names like "searxng") aren't accidentally clobbered when an operator
+	// overrides SSRF_WHITELIST in their .env.
+	extra := os.Getenv("SSRF_WHITELIST_EXTRA")
+	parsed := parseSSRFWhitelistRaw(mergeSSRFWhitelistRaws(raw, extra))
+	ssrfEnvWhitelistAtomic.Store(parsed)
+	return parsed
 }
 
 // SetSSRFWhitelistFromRaw atomically replaces the active SSRF whitelist
@@ -1076,6 +1085,83 @@ func SetSSRFWhitelistFromRaw(raw string) {
 // Callers that want hard rejection (e.g. ValidateSSRFWhitelistEntries
 // for the system_settings Update path) should pre-validate before
 // passing the raw string here.
+type ssrfWhitelistEntryKind int
+
+const (
+	ssrfWhitelistEntryCIDR ssrfWhitelistEntryKind = iota + 1
+	ssrfWhitelistEntrySuffix
+	ssrfWhitelistEntryExact
+)
+
+type parsedSSRFWhitelistEntry struct {
+	kind      ssrfWhitelistEntryKind
+	cidr      *net.IPNet
+	suffix    string
+	exactHost string
+}
+
+// parseSSRFWhitelistEntry validates and canonicalizes a single non-empty,
+// trimmed SSRF whitelist entry. Shared by parseSSRFWhitelistRaw and
+// ValidateSSRFWhitelistEntries so admin-UI validation and runtime parsing
+// stay strictly in lockstep.
+func parseSSRFWhitelistEntry(entry string) (parsedSSRFWhitelistEntry, error) {
+	if strings.Contains(entry, "://") {
+		return parsedSSRFWhitelistEntry{}, fmt.Errorf("whitelist entry %q must be a host, wildcard, or CIDR, not a URL", entry)
+	}
+	if strings.ContainsAny(entry, "?#@\\") {
+		return parsedSSRFWhitelistEntry{}, fmt.Errorf("whitelist entry %q contains invalid URL characters", entry)
+	}
+	// CIDR range — entries containing '/' are exclusively CIDRs.
+	// A parse failure must NOT fall through to the exact-host
+	// branch (which would store "10.0.0.0/333" as a literal
+	// hostname that can never match anything).
+	if strings.Contains(entry, "/") {
+		_, ipNet, err := net.ParseCIDR(entry)
+		if err != nil {
+			return parsedSSRFWhitelistEntry{}, fmt.Errorf("invalid CIDR %q: %w", entry, err)
+		}
+		return parsedSSRFWhitelistEntry{kind: ssrfWhitelistEntryCIDR, cidr: ipNet}, nil
+	}
+	// Wildcard domain: *.example.com
+	if strings.HasPrefix(entry, "*.") {
+		domainPart := entry[2:]
+		if domainPart == "" {
+			return parsedSSRFWhitelistEntry{}, fmt.Errorf("wildcard entry %q is missing a domain (use *.example.com)", entry)
+		}
+		if strings.Contains(domainPart, "*") {
+			return parsedSSRFWhitelistEntry{}, fmt.Errorf("wildcard pattern %q is not supported (only the \"*.\" prefix is allowed)", entry)
+		}
+		if strings.ContainsAny(domainPart, ":[]") {
+			return parsedSSRFWhitelistEntry{}, fmt.Errorf("wildcard entry %q must not include a port or IPv6 literal", entry)
+		}
+		normDomain, normErr := normalizeSSRFHostname(domainPart)
+		if normErr != "" {
+			return parsedSSRFWhitelistEntry{}, fmt.Errorf("invalid wildcard entry %q: %s", entry, normErr)
+		}
+		if net.ParseIP(normDomain) != nil || isIPLikeHostname(normDomain) {
+			return parsedSSRFWhitelistEntry{}, fmt.Errorf("wildcard entry %q must target a domain name, not an IP literal (use CIDR instead)", entry)
+		}
+		return parsedSSRFWhitelistEntry{kind: ssrfWhitelistEntrySuffix, suffix: "." + normDomain}, nil
+	}
+	// Reject mid-string wildcards like "foo.*.bar" — they look
+	// useful but neither parseSSRFWhitelistRaw nor IsSSRFWhitelisted
+	// implement glob matching, so the entry would silently never
+	// match. Surface it loudly.
+	if strings.Contains(entry, "*") {
+		return parsedSSRFWhitelistEntry{}, fmt.Errorf("wildcard pattern %q is not supported (only the \"*.\" prefix is allowed)", entry)
+	}
+	// Exact host or literal IP (ports and bracketed literals are rejected so
+	// entries cannot look valid at save time while failing parsed.Hostname() match).
+	normEntry, normErr := normalizeSSRFHostname(entry)
+	if normErr != "" {
+		return parsedSSRFWhitelistEntry{}, fmt.Errorf("invalid host entry %q: %s", entry, normErr)
+	}
+	if strings.ContainsAny(normEntry, ":[]") && net.ParseIP(normEntry) == nil {
+		return parsedSSRFWhitelistEntry{}, fmt.Errorf("host entry %q must not include a port or brackets", entry)
+	}
+	return parsedSSRFWhitelistEntry{kind: ssrfWhitelistEntryExact, exactHost: normEntry}, nil
+}
+
 func parseSSRFWhitelistRaw(raw string) *ssrfWhitelistConfig {
 	cfg := &ssrfWhitelistConfig{
 		exactHosts: make(map[string]bool),
@@ -1088,40 +1174,18 @@ func parseSSRFWhitelistRaw(raw string) *ssrfWhitelistConfig {
 		if entry == "" {
 			continue
 		}
-		// CIDR range — entries containing '/' are exclusively CIDRs.
-		// A parse failure must NOT fall through to the exact-host
-		// branch (which would store "10.0.0.0/333" as a literal
-		// hostname that can never match anything).
-		if strings.Contains(entry, "/") {
-			_, ipNet, err := net.ParseCIDR(entry)
-			if err != nil {
-				log.Printf("[ssrf-whitelist] dropping invalid CIDR entry %q: %v", entry, err)
-				continue
-			}
-			cfg.cidrNets = append(cfg.cidrNets, ipNet)
+		parsed, err := parseSSRFWhitelistEntry(entry)
+		if err != nil {
+			log.Printf("[ssrf-whitelist] dropping invalid entry %q: %v", entry, err)
 			continue
 		}
-		// Wildcard domain: *.example.com
-		if strings.HasPrefix(entry, "*.") {
-			suffix := strings.TrimRight(strings.ToLower(entry[1:]), ".") // ".example.com"
-			if len(suffix) <= 1 || strings.Contains(suffix, "..") {
-				log.Printf("[ssrf-whitelist] dropping bare wildcard entry %q (need *.<domain>)", entry)
-				continue
-			}
-			cfg.suffixHosts = append(cfg.suffixHosts, suffix)
-			continue
-		}
-		// Reject mid-string wildcards like "foo.*.bar" — they look
-		// useful but neither parseSSRFWhitelistRaw nor IsSSRFWhitelisted
-		// implement glob matching, so the entry would silently never
-		// match. Surface it loudly.
-		if strings.Contains(entry, "*") {
-			log.Printf("[ssrf-whitelist] dropping unsupported wildcard pattern %q (only \"*.\" prefix is supported)", entry)
-			continue
-		}
-		// Exact host or IP
-		if normEntry, normErr := normalizeSSRFHostname(entry); normErr == "" {
-			cfg.exactHosts[normEntry] = true
+		switch parsed.kind {
+		case ssrfWhitelistEntryCIDR:
+			cfg.cidrNets = append(cfg.cidrNets, parsed.cidr)
+		case ssrfWhitelistEntrySuffix:
+			cfg.suffixHosts = append(cfg.suffixHosts, parsed.suffix)
+		case ssrfWhitelistEntryExact:
+			cfg.exactHosts[parsed.exactHost] = true
 		}
 	}
 	return cfg
@@ -1133,32 +1197,19 @@ func parseSSRFWhitelistRaw(raw string) *ssrfWhitelistConfig {
 // to give the UI a clear 400 instead of silently dropping bad input
 // at parse-time.
 //
-// Validation rules mirror parseSSRFWhitelistRaw exactly:
-//   - "<a>/<b>" must be a valid CIDR
-//   - "*.<domain>" must have a non-empty domain after the prefix
+// Validation rules share parseSSRFWhitelistEntry with parseSSRFWhitelistRaw:
+//   - "<a>/<b>" must be a valid CIDR (URLs with "://" are rejected)
+//   - "*.<domain>" must normalize as a valid domain without extra "*", ports, or IP literals
 //   - mid-string "*" is not supported
-//   - everything else is treated as an exact host or literal IP
-//     (we don't pre-resolve DNS here; that's a runtime concern)
+//   - everything else must normalize as a valid exact host or literal IP without ports/brackets
 func ValidateSSRFWhitelistEntries(entries []string) error {
 	for _, entry := range entries {
 		entry = strings.TrimSpace(entry)
 		if entry == "" {
 			continue
 		}
-		if strings.Contains(entry, "/") {
-			if _, _, err := net.ParseCIDR(entry); err != nil {
-				return fmt.Errorf("invalid CIDR %q: %w", entry, err)
-			}
-			continue
-		}
-		if strings.HasPrefix(entry, "*.") {
-			if len(entry) <= 2 {
-				return fmt.Errorf("wildcard entry %q is missing a domain (use *.example.com)", entry)
-			}
-			continue
-		}
-		if strings.Contains(entry, "*") {
-			return fmt.Errorf("wildcard pattern %q is not supported (only the \"*.\" prefix is allowed)", entry)
+		if _, err := parseSSRFWhitelistEntry(entry); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -1321,9 +1372,10 @@ func CheckDialWhitelistOnly(host string) error {
 // cached via the first sync.Once.Do(). NOT for production use — the ForTest
 // suffix is the contract.
 func ResetSSRFWhitelistForTest() {
-	ssrfWhitelistOnce = sync.Once{}
-	ssrfWhitelist = nil
+	ssrfEnvWhitelistMu.Lock()
+	ssrfEnvWhitelistAtomic.Store(nil)
 	ssrfWhitelistAtomic.Store(nil)
+	ssrfEnvWhitelistMu.Unlock()
 	invalidateSSRFOutboundValidationCache()
 }
 

@@ -470,10 +470,10 @@ func TestValidateAndSecureSQL_WithStructuredSearchScopes(t *testing.T) {
 	for _, want := range []string{
 		"chunks.knowledge_base_id = 'kb-full'",
 		"chunks.knowledge_base_id = 'kb-doc' AND chunks.knowledge_id IN ('doc-1')",
-		"chunks.knowledge_base_id = 'kb-tag' AND EXISTS",
-		"knowledge_tag_relations",
-		"ktr.knowledge_id = chunks.knowledge_id",
-		"ktr.tag_id IN ('tag-a', 'tag-b')",
+		"chunks.knowledge_base_id = 'kb-tag' AND (chunks.tag_id IN ('tag-a', 'tag-b') OR EXISTS",
+		"knowledge_tag_relations __genyee_ktr",
+		"__genyee_ktr.knowledge_id = chunks.knowledge_id",
+		"__genyee_ktr.tag_id IN ('tag-a', 'tag-b')",
 		" OR ",
 	} {
 		if !strings.Contains(securedSQL, want) {
@@ -514,16 +514,16 @@ func TestValidateAndSecureSQL_ScopeCombinesDocumentAndTagFilters(t *testing.T) {
 		t.Fatalf("expected validation to pass, got %#v", validation.Errors)
 	}
 	for _, want := range []string{
-		"chunks.knowledge_base_id = 'kb-1'",
-		"chunks.knowledge_id IN ('doc-1')",
-		"ktr.tag_id IN ('tag-a')",
+		"chunks.knowledge_base_id = 'kb-1' AND chunks.knowledge_id IN ('doc-1') AND (chunks.tag_id IN ('tag-a') OR EXISTS",
+		"__genyee_ktr.knowledge_id = chunks.knowledge_id",
+		"__genyee_ktr.tag_id IN ('tag-a')",
 	} {
 		if !strings.Contains(securedSQL, want) {
 			t.Fatalf("secured SQL missing %q:\n%s", want, securedSQL)
 		}
 	}
-	if strings.Contains(securedSQL, " OR ") {
-		t.Fatalf("a single scope must not be split into alternatives:\n%s", securedSQL)
+	if strings.Count(securedSQL, " OR ") != 1 {
+		t.Fatalf("a single scope must only OR chunk tag_id with knowledge_tag_relations, not split document/tag filters:\n%s", securedSQL)
 	}
 }
 

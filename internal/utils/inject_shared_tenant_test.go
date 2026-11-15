@@ -20,7 +20,7 @@ func sharedTenantFixture(t *testing.T) *sql.DB {
 	_, err = db.Exec(`
 CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, name TEXT);
 CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, title TEXT);
-CREATE TABLE chunks (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, knowledge_id TEXT);
+CREATE TABLE chunks (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, knowledge_id TEXT, tag_id TEXT DEFAULT '');
 CREATE TABLE knowledge_tag_relations (knowledge_id TEXT, tag_id TEXT);
 CREATE TABLE sessions (id TEXT, tenant_id INTEGER);
 CREATE TABLE tenants (id INTEGER, name TEXT);
@@ -35,13 +35,13 @@ INSERT INTO knowledges VALUES
  ('own-doc', 2, 'own-kb', 'swapped-owner'),
  ('other-doc', 2, 'shared-kb', 'outside-document'),
  ('untagged-doc', 2, 'shared-kb', 'outside-tag');
-INSERT INTO chunks VALUES
- ('own', 1, 'own-kb', 'own-doc'), ('shared', 2, 'shared-kb', 'shared-doc'),
- ('private', 2, 'private-kb', 'private-doc'),
- ('wrong-owner', 1, 'shared-kb', 'shared-doc'),
- ('swapped-owner', 2, 'own-kb', 'own-doc'),
- ('outside-document', 2, 'shared-kb', 'other-doc'),
- ('outside-tag', 2, 'shared-kb', 'untagged-doc');
+INSERT INTO chunks (id, tenant_id, knowledge_base_id, knowledge_id, tag_id) VALUES
+ ('own', 1, 'own-kb', 'own-doc', ''), ('shared', 2, 'shared-kb', 'shared-doc', ''),
+ ('private', 2, 'private-kb', 'private-doc', ''),
+ ('wrong-owner', 1, 'shared-kb', 'shared-doc', ''),
+ ('swapped-owner', 2, 'own-kb', 'own-doc', ''),
+ ('outside-document', 2, 'shared-kb', 'other-doc', ''),
+ ('outside-tag', 2, 'shared-kb', 'untagged-doc', '');
 INSERT INTO knowledge_tag_relations VALUES
  ('own-doc', 'own-tag'), ('shared-doc', 'shared-tag'), ('other-doc', 'shared-tag');
 INSERT INTO sessions VALUES ('own-session', 1), ('other-session', 2);
@@ -174,15 +174,54 @@ func TestStructuredScopePreservesLegacyTenantFiltering(t *testing.T) {
 	}
 }
 
-// The owner/KB predicate must remain bound to the outer table when a
-// user-chosen alias also occurs inside an injected subquery.
+// The owner/KB/tag predicate must remain bound to the outer table when a
+// user-chosen alias matches ktr (or internal subquery aliases), without relying
+// on a caller-supplied WHERE clause to hide untagged rows.
 func TestStructuredScopeTagAliasRetainsTenantBinding(t *testing.T) {
 	db := sharedTenantFixture(t)
+	scopeOpt := WithSearchScopes([]SearchScope{
+		{TenantID: 2, KnowledgeBaseID: "shared-kb", TagIDs: []string{"shared-tag"}},
+	})
+	for _, query := range []string{
+		"SELECT ktr.id FROM chunks ktr ORDER BY ktr.id",
+		`SELECT "ktr".id FROM chunks "ktr" ORDER BY "ktr".id`,
+		`SELECT "KTR".id FROM chunks "KTR" ORDER BY "KTR".id`,
+		"SELECT __genyee_ktr.id FROM chunks __genyee_ktr ORDER BY __genyee_ktr.id",
+		"SELECT __genyee_ktr_.id FROM chunks __genyee_ktr_ ORDER BY __genyee_ktr_.id",
+	} {
+		t.Run(query, func(t *testing.T) {
+			assertSharedTenantQuery(t, db, query, []string{"outside-document", "shared"},
+				WithTenantIsolation(1), scopeOpt)
+		})
+	}
 	assertSharedTenantQuery(t, db,
-		"SELECT ktr.id FROM chunks ktr WHERE ktr.knowledge_id = 'shared-doc' ORDER BY ktr.id", []string{"shared"},
-		WithTenantIsolation(1), WithSearchScopes([]SearchScope{
-			{TenantID: 2, KnowledgeBaseID: "shared-kb", TagIDs: []string{"shared-tag"}},
-		}))
+		"SELECT ktr.title FROM knowledges ktr ORDER BY ktr.title", []string{"outside-document", "shared"},
+		WithTenantIsolation(1), scopeOpt)
+}
+
+func TestStructuredScopeFAQChunkTagIDFiltering(t *testing.T) {
+	db := sharedTenantFixture(t)
+	if _, err := db.Exec(`
+INSERT INTO knowledge_bases VALUES ('faq-kb', 1, 'faq');
+INSERT INTO knowledges VALUES ('faq-doc', 1, 'faq-kb', 'faq-container');
+INSERT INTO chunks (id, tenant_id, knowledge_base_id, knowledge_id, tag_id) VALUES
+ ('faq-allowed', 1, 'faq-kb', 'faq-doc', 'faq-tag-1'),
+ ('faq-other-tag', 1, 'faq-kb', 'faq-doc', 'faq-tag-2'),
+ ('faq-untagged', 1, 'faq-kb', 'faq-doc', '');`); err != nil {
+		t.Fatal(err)
+	}
+	faqScope := WithSearchScopes([]SearchScope{
+		{TenantID: 1, KnowledgeBaseID: "faq-kb", TagIDs: []string{"faq-tag-1"}},
+	})
+	for _, query := range []string{
+		"SELECT c.id FROM chunks c ORDER BY c.id",
+		"SELECT ktr.id FROM chunks ktr ORDER BY ktr.id",
+	} {
+		t.Run(query, func(t *testing.T) {
+			assertSharedTenantQuery(t, db, query, []string{"faq-allowed"},
+				WithTenantIsolation(1), faqScope)
+		})
+	}
 }
 
 func TestStructuredScopeCallerZeroRemainsRestricted(t *testing.T) {

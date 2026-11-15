@@ -152,6 +152,9 @@ func TestSystemHMACKeyConfiguration(t *testing.T) {
 		},
 		{"legacy fallback", "", "legacy-aes-key-32-bytes-long!!!!!", "legacy-aes-key-32-bytes-long!!!!!"},
 		{"invalid explicit key fails closed", "short", "legacy-aes-key-32-bytes-long!!!!!", ""},
+		{"genyee 32-byte placeholder rejected", "", "genyee-system-aes-key-32bytes!!!", ""},
+		{"weknora 32-byte placeholder rejected", "", "weknora-system-aes-key-32bytes!!", ""},
+		{"example 32-byte placeholder rejected", "", "your-32-byte-long-encryption-key", ""},
 		{"no keys", "", "", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -1385,11 +1385,28 @@ func (v *sqlValidator) buildKnowledgeBaseScopeCondition(alias string, scopes []S
 	return joinOrClauses(clauses)
 }
 
+func unquoteSQLIdentifier(ident string) string {
+	trimmed := strings.TrimSpace(ident)
+	if len(trimmed) >= 2 && trimmed[0] == '"' && trimmed[len(trimmed)-1] == '"' {
+		return strings.ReplaceAll(trimmed[1:len(trimmed)-1], `""`, `"`)
+	}
+	return trimmed
+}
+
+func tagRelationSubqueryAlias(outerAlias string) string {
+	outer := unquoteSQLIdentifier(outerAlias)
+	subAlias := "__genyee_ktr"
+	for strings.EqualFold(outer, subAlias) {
+		subAlias += "_"
+	}
+	return subAlias
+}
+
 // buildScopeClause renders one scope. A scope's document whitelist and tag
 // filter are ANDed: each is an independent narrowing of the same KB, so
 // applying only one of them would admit rows the other excludes. Scopes are
 // ORed against each other by joinOrClauses because they are alternatives.
-func (v *sqlValidator) buildScopeClause(alias, knowledgeIDColumn string, scope SearchScope) string {
+func (v *sqlValidator) buildScopeClause(alias, knowledgeIDColumn string, includeChunkTagID bool, scope SearchScope) string {
 	if scope.KnowledgeBaseID == "" {
 		return ""
 	}
@@ -1403,10 +1420,20 @@ func (v *sqlValidator) buildScopeClause(alias, knowledgeIDColumn string, scope S
 		))
 	}
 	if len(scope.TagIDs) > 0 {
-		conditions = append(conditions, fmt.Sprintf(
-			"EXISTS (SELECT 1 FROM knowledge_tag_relations ktr WHERE ktr.knowledge_id = %s.%s AND ktr.tag_id IN (%s))",
-			alias, knowledgeIDColumn, strings.Join(quoteStringSlice(scope.TagIDs), ", "),
-		))
+		quotedTagIDs := strings.Join(quoteStringSlice(scope.TagIDs), ", ")
+		subAlias := tagRelationSubqueryAlias(alias)
+		tagRelClause := fmt.Sprintf(
+			"EXISTS (SELECT 1 FROM knowledge_tag_relations %s WHERE %s.knowledge_id = %s.%s AND %s.tag_id IN (%s))",
+			subAlias, subAlias, alias, knowledgeIDColumn, subAlias, quotedTagIDs,
+		)
+		if includeChunkTagID {
+			conditions = append(conditions, fmt.Sprintf(
+				"(%s.tag_id IN (%s) OR %s)",
+				alias, quotedTagIDs, tagRelClause,
+			))
+		} else {
+			conditions = append(conditions, tagRelClause)
+		}
 	}
 	if tenant := v.scopeTenantCondition(alias, scope); tenant != "" {
 		conditions = append(conditions, tenant)
@@ -1420,7 +1447,7 @@ func (v *sqlValidator) buildScopeClause(alias, knowledgeIDColumn string, scope S
 func (v *sqlValidator) buildKnowledgeScopeCondition(alias string, scopes []SearchScope) string {
 	clauses := make([]string, 0, len(scopes))
 	for _, scope := range scopes {
-		if clause := v.buildScopeClause(alias, "id", scope); clause != "" {
+		if clause := v.buildScopeClause(alias, "id", false, scope); clause != "" {
 			clauses = append(clauses, clause)
 		}
 	}
@@ -1433,7 +1460,7 @@ func (v *sqlValidator) buildKnowledgeScopeCondition(alias string, scopes []Searc
 func (v *sqlValidator) buildChunkScopeCondition(alias string, scopes []SearchScope) string {
 	clauses := make([]string, 0, len(scopes))
 	for _, scope := range scopes {
-		if clause := v.buildScopeClause(alias, "knowledge_id", scope); clause != "" {
+		if clause := v.buildScopeClause(alias, "knowledge_id", true, scope); clause != "" {
 			clauses = append(clauses, clause)
 		}
 	}

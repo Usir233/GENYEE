@@ -35,7 +35,15 @@ func TestJWTSecretProductionFailureRemainsClosed(t *testing.T) {
 }
 
 func TestReleaseModeRejectsMissingOrPlaceholderAESKey(t *testing.T) {
-	for _, badAES := range []string{"", "short", "genyee-system-aes-key-32bytes!!", "your-32-byte-long-encryption-key!"} {
+	for _, badAES := range []string{
+		"",
+		"short",
+		"genyee-system-aes-key-32bytes!!",
+		"genyee-system-aes-key-32bytes!!!",
+		"weknora-system-aes-key-32bytes!!",
+		"your-32-byte-long-encryption-key",
+		"your-32-byte-long-encryption-key!",
+	} {
 		t.Run(badAES, func(t *testing.T) {
 			isolateJWTSecret(t)
 			t.Setenv("GIN_MODE", "release")

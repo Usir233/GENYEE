@@ -371,9 +371,7 @@ func TestProjectPathEncodesNamespaceWithoutDoubleEscaping(t *testing.T) {
 }
 
 func TestRawFallsBackToBase64FileDetail(t *testing.T) {
-	t.Setenv("SSRF_WHITELIST", "127.0.0.1,::1,localhost")
-	secutils.ResetSSRFWhitelistForTest()
-	t.Cleanup(secutils.ResetSSRFWhitelistForTest)
+	allowLocalGitLabServer(t)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.EscapedPath() {
@@ -386,12 +384,13 @@ func TestRawFallsBackToBase64FileDetail(t *testing.T) {
 			http.NotFound(w, r)
 		}
 	}))
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	c, err := newClient(server.URL, "token")
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(c.http.CloseIdleConnections)
 	content, err := c.raw(context.Background(), "18724", "master", "docs/internal/readme.md")
 	if err != nil {
 		t.Fatal(err)

@@ -4,6 +4,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -308,4 +309,91 @@ func parseIPForTest(t *testing.T, s string) net.IP {
 		t.Fatalf("invalid test IP: %s", s)
 	}
 	return ip
+}
+
+func TestValidateSSRFWhitelistEntriesMatchesRuntimeParser(t *testing.T) {
+	validCases := []struct {
+		entry      string
+		matchHost  string
+		wantMatch  bool
+	}{
+		{entry: "internal.corp", matchHost: "internal.corp", wantMatch: true},
+		{entry: "internal.corp.", matchHost: "internal.corp", wantMatch: true},
+		{entry: "*.example.com", matchHost: "sub.example.com", wantMatch: true},
+		{entry: "*.example.com.", matchHost: "sub.example.com", wantMatch: true},
+		{entry: "10.0.0.0/8", matchHost: "10.1.2.3", wantMatch: true},
+		{entry: "2001:db8::/32", matchHost: "2001:db8::1", wantMatch: true},
+		{entry: "127.0.0.1", matchHost: "127.0.0.1", wantMatch: true},
+		{entry: "2001:4860:4860::8888", matchHost: "2001:4860:4860::8888", wantMatch: true},
+	}
+	for _, tc := range validCases {
+		if err := ValidateSSRFWhitelistEntries([]string{tc.entry}); err != nil {
+			t.Fatalf("ValidateSSRFWhitelistEntries(%q) unexpected error: %v", tc.entry, err)
+		}
+		cfg := parseSSRFWhitelistRaw(tc.entry)
+		if got := whitelistedByName(cfg, tc.matchHost); got != tc.wantMatch {
+			t.Fatalf("whitelistedByName(parse(%q), %q) = %v, want %v", tc.entry, tc.matchHost, got, tc.wantMatch)
+		}
+	}
+
+	invalidEntries := []string{
+		"10.0.0.0/333",
+		"https://internal.corp",
+		"http://internal.corp/api",
+		"internal.corp:8080",
+		"127.0.0.1:8080",
+		"[::1]",
+		"[::1]:8080",
+		".internal.corp",
+		"a..b.corp",
+		".",
+		"*.",
+		"*...",
+		"*.a..b",
+		"*..example.com",
+		"*.example.com:8443",
+		"*.foo*.example.com",
+		"*.127.0.0.1",
+		"*.0177.0.0.1",
+		"*.[::1]",
+		"foo.*.bar",
+		"host with space",
+	}
+	for _, entry := range invalidEntries {
+		if err := ValidateSSRFWhitelistEntries([]string{entry}); err == nil {
+			t.Fatalf("ValidateSSRFWhitelistEntries(%q) = nil, want validation error", entry)
+		}
+		cfg := parseSSRFWhitelistRaw(entry)
+		if len(cfg.exactHosts) != 0 || len(cfg.suffixHosts) != 0 || len(cfg.cidrNets) != 0 {
+			t.Fatalf("parseSSRFWhitelistRaw(%q) accepted invalid entry: %+v", entry, cfg)
+		}
+	}
+}
+
+func TestResetSSRFWhitelistForTestConcurrentWithReads(t *testing.T) {
+	t.Setenv("SSRF_WHITELIST", "127.0.0.1,*.internal.example")
+	ResetSSRFWhitelistForTest()
+	t.Cleanup(ResetSSRFWhitelistForTest)
+
+	var wg sync.WaitGroup
+	for range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 200 {
+				_ = IsSSRFWhitelisted("127.0.0.1")
+				_ = IsSSRFWhitelisted("api.internal.example")
+			}
+		}()
+	}
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 100 {
+				ResetSSRFWhitelistForTest()
+			}
+		}()
+	}
+	wg.Wait()
 }
