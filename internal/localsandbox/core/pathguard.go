@@ -14,6 +14,14 @@ import (
 // model which secret paths exist is itself a small leak.
 var ErrPathDenied = errors.New("localsandbox: path is outside the permitted workspace")
 
+// ErrFileTooLarge is returned when a host-privileged file read exceeds maxGuardReadBytes.
+var ErrFileTooLarge = errors.New("localsandbox: file exceeds the maximum safe read size")
+
+// maxGuardReadBytes bounds a single PathGuard.ReadFile allocation (above
+// ArtifactCollector's 50 MiB limit and read_file's 8 MiB limit) so a multi-GiB
+// sparse or growing file cannot exhaust host memory.
+const maxGuardReadBytes int64 = 64 << 20
+
 // PathGuard validates filesystem access performed by GENYEE itself, which
 // runs with the user's full privileges and therefore cannot be constrained by
 // the OS sandbox. It derives from the same Policy the backend compiles, so
@@ -35,14 +43,36 @@ type PathGuard struct {
 // NewPathGuard builds a PathGuard from p. The guard copies the policy's path
 // lists so later mutations of p do not change enforcement.
 func NewPathGuard(p Policy) *PathGuard {
+	writable := make([]WritableRoot, len(p.WritableRoots))
+	for i, wr := range p.WritableRoots {
+		writable[i] = WritableRoot{
+			Path:               wr.Path,
+			ReadOnlySubpaths:   expandResolvedPaths(wr.ReadOnlySubpaths),
+			ProtectGitDirs:     wr.ProtectGitDirs,
+			ProtectBareGitDirs: wr.ProtectBareGitDirs,
+		}
+	}
 	g := &PathGuard{
-		writable:      append([]WritableRoot(nil), p.WritableRoots...),
+		writable:      writable,
 		writableFiles: append([]string(nil), p.WritableFiles...),
 		readable:      append([]string(nil), p.ReadableRoots...),
-		denyRead:      append([]string(nil), p.DenyRead...),
-		denyWrite:     append([]string(nil), p.DenyWrite...),
+		denyRead:      expandResolvedPaths(p.DenyRead),
+		denyWrite:     expandResolvedPaths(p.DenyWrite),
 	}
 	return g
+}
+
+func expandResolvedPaths(paths []string) []string {
+	if len(paths) == 0 {
+		return nil
+	}
+	out := append([]string(nil), paths...)
+	for _, p := range paths {
+		if resolved, err := resolveExistingPrefix(p); err == nil && !samePath(resolved, p) {
+			out = append(out, resolved)
+		}
+	}
+	return out
 }
 
 // CheckWrite reports whether writing path is permitted after following
@@ -155,7 +185,7 @@ func (g *PathGuard) writeDenied(resolved string) bool {
 // re-joins the remainder. Resolving only the existing prefix is what stops a
 // symlinked parent directory from widening the guard.
 func (g *PathGuard) resolve(path string) (string, error) {
-	if path == "" || !filepath.IsAbs(path) {
+	if path == "" || strings.IndexByte(path, 0) >= 0 || !filepath.IsAbs(path) {
 		return "", fmt.Errorf("%w: %q is not absolute", ErrPathDenied, path)
 	}
 	cur := filepath.Clean(path)

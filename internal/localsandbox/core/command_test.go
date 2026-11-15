@@ -295,3 +295,65 @@ func TestDeleteSegmentsDoesNotLetAVisibleRmCoverAHiddenOne(t *testing.T) {
 		}}, got, tc.command)
 	}
 }
+
+func TestCommandClassificationHandlesGitFindAndWrapperEscapeForms(t *testing.T) {
+	const home = "/Users/dev"
+	const cwd = "/Users/dev/proj"
+
+	dangerousCases := []string{
+		"git -C/ clean -fd",
+		"git -C~ clean -fdx",
+		"git -C/Users/dev clean -fdx",
+		"git --work-tree / clean -fdx",
+		"git --work-tree=/ clean -fdx",
+		"git --work-tree ~ clean -fdx",
+		"git --work-tree=~ clean -fdx",
+		"find -L / -delete",
+		"find -P ~ -delete",
+		"find -f / -delete",
+		"find -f ~ -delete",
+		"env -C ~ git clean -fdx",
+		"env -C / rm -rf *",
+		`env -S "git -C ~ clean -fdx"`,
+		`env --split-string="find / -delete"`,
+	}
+	for _, cmd := range dangerousCases {
+		got := ClassifyCommand(cmd, home)
+		require.True(t, got.Deletes, "must classify as delete: %s", cmd)
+		require.True(t, got.Dangerous, "must classify as dangerous: %s", cmd)
+	}
+
+	deleteNotStayBelowCases := []string{
+		"git -C../other clean -fdx",
+		"git --work-tree ../other clean -fdx",
+		"git --work-tree=../other clean -fdx",
+		"git --git-dir ../other/.git rm -rf a.txt",
+		"git rm ../other/a.txt",
+		"git clean -fd ..",
+		"find -P ../other -delete",
+		"find -f ../other -delete",
+		"find -L . -delete",
+		"find -H sub -delete",
+		"find . -follow -delete",
+		"env -C ../other rm a.txt",
+		`env -S "rm a.txt"`,
+	}
+	for _, cmd := range deleteNotStayBelowCases {
+		got := ClassifyCommand(cmd, home)
+		require.True(t, got.Deletes, "must classify as delete: %s", cmd)
+		require.False(t, DeletesStayBelow(cmd, cwd, home), "must not stay below cwd: %s", cmd)
+	}
+
+	require.Equal(t, []DeleteLocation{{Path: "../other", Directory: true}},
+		DeleteLocations("git -C../other clean -fdx", home))
+	require.Equal(t, []DeleteLocation{{Path: "../other", Directory: true}},
+		DeleteLocations("git --work-tree ../other clean -fdx", home))
+	require.Equal(t, []DeleteLocation{{Path: "../other", Directory: true}},
+		DeleteLocations("git --work-tree=../other clean -fdx", home))
+	require.Equal(t, []DeleteLocation{{Path: "../other", Directory: true}},
+		DeleteLocations("find -P ../other -delete", home))
+	require.Equal(t, []DeleteLocation{{Path: "../other", Directory: true}},
+		DeleteLocations("find -f ../other -delete", home))
+	require.Equal(t, []DeleteLocation{{Path: "../other/a.txt"}},
+		DeleteLocations("env -C ../other rm a.txt", home))
+}

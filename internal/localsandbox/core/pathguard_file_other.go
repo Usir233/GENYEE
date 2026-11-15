@@ -4,6 +4,7 @@ package core
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -12,6 +13,9 @@ func (g *PathGuard) writeRel(root, rel, orig string, data []byte, perm os.FileMo
 	target, err := joinNoFollow(root, rel, orig)
 	if err != nil {
 		return err
+	}
+	if info, statErr := os.Lstat(target); statErr == nil && !info.Mode().IsRegular() {
+		return fmt.Errorf("%w: %q", ErrPathDenied, orig)
 	}
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		return err
@@ -24,7 +28,29 @@ func (g *PathGuard) readRel(root, rel, orig string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return os.ReadFile(target)
+	info, err := os.Lstat(target)
+	if err != nil {
+		return nil, err
+	}
+	if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("%w: %q", ErrPathDenied, orig)
+	}
+	if info.Size() > maxGuardReadBytes {
+		return nil, fmt.Errorf("%w: %q (%d bytes)", ErrFileTooLarge, orig, info.Size())
+	}
+	f, err := os.Open(target)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	data, err := io.ReadAll(io.LimitReader(f, maxGuardReadBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxGuardReadBytes {
+		return nil, fmt.Errorf("%w: %q", ErrFileTooLarge, orig)
+	}
+	return data, nil
 }
 
 func (g *PathGuard) mkdirRel(root, rel, orig string, perm os.FileMode) error {

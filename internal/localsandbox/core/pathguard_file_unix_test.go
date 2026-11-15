@@ -6,8 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sys/unix"
 )
 
 // The file tools run unsandboxed. Check-then-os.WriteFile follows a parent
@@ -138,4 +140,55 @@ func TestPathGuardCheckDirDoesNotFollowReplacedParent(t *testing.T) {
 
 	_, err = g.CheckDir(inner)
 	require.ErrorIs(t, err, ErrPathDenied)
+}
+
+func TestPathGuardRejectsFIFOWithoutBlockingAndCapsOversizeReads(t *testing.T) {
+	root, g := guardFixture(t)
+	fifo := filepath.Join(root, "pipe")
+	require.NoError(t, unix.Mkfifo(fifo, 0o600))
+	t.Cleanup(func() {
+		if fd, err := unix.Open(fifo, unix.O_RDWR|unix.O_NONBLOCK|unix.O_CLOEXEC, 0); err == nil {
+			_ = unix.Close(fd)
+		}
+	})
+
+	readDone := make(chan error, 1)
+	go func() {
+		_, err := g.ReadFile(fifo)
+		readDone <- err
+	}()
+	select {
+	case err := <-readDone:
+		require.Error(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("PathGuard.ReadFile blocked on FIFO")
+	}
+
+	writeDone := make(chan error, 1)
+	go func() {
+		writeDone <- g.WriteFile(fifo, []byte("nope"), 0o644)
+	}()
+	select {
+	case err := <-writeDone:
+		require.Error(t, err)
+	case <-time.After(time.Second):
+		t.Fatal("PathGuard.WriteFile blocked on FIFO")
+	}
+
+	// Even when a peer holds the FIFO open so open(O_NONBLOCK) succeeds, Fstat must reject non-regular files.
+	rfd, err := unix.Open(fifo, unix.O_RDONLY|unix.O_NONBLOCK|unix.O_CLOEXEC, 0)
+	require.NoError(t, err)
+	defer func() { _ = unix.Close(rfd) }()
+	require.Error(t, g.WriteFile(fifo, []byte("nope"), 0o644))
+	_, err = g.ReadFile(fifo)
+	require.Error(t, err)
+
+	// Sparse oversize file (> 64 MiB) must be refused without reading multi-GiB into memory.
+	huge := filepath.Join(root, "huge.bin")
+	f, err := os.Create(huge)
+	require.NoError(t, err)
+	require.NoError(t, f.Truncate((64<<20)+1))
+	require.NoError(t, f.Close())
+	_, err = g.ReadFile(huge)
+	require.Error(t, err)
 }

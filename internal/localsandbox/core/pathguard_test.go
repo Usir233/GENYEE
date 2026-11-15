@@ -110,3 +110,87 @@ func TestPathGuardReadFileReturnsContents(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, []byte("hi"), got)
 }
+
+func TestPathGuardWriteFileAndMkdirAllEnforceDenyWrite(t *testing.T) {
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
+	root := filepath.Join(base, "proj")
+	bsk := filepath.Join(root, ".bsk")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+
+	p := Policy{
+		WritableRoots: []WritableRoot{{Path: root}},
+		DenyWrite:     []string{bsk},
+		Cwd:           root,
+	}
+	require.NoError(t, p.Validate())
+	g := NewPathGuard(p)
+
+	_, err = g.CheckWrite(filepath.Join(bsk, "daemon.json"))
+	require.ErrorIs(t, err, ErrPathDenied)
+	require.ErrorIs(t, g.MkdirAll(bsk, 0o755), ErrPathDenied)
+	require.ErrorIs(t, g.WriteFile(filepath.Join(bsk, "daemon.json"), []byte("x"), 0o644), ErrPathDenied)
+	require.NoDirExists(t, bsk)
+
+	// DenyWrite must still allow reads when the path is not in DenyRead.
+	require.NoError(t, os.MkdirAll(bsk, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(bsk, "readable.json"), []byte("ok"), 0o644))
+	got, err := g.ReadFile(filepath.Join(bsk, "readable.json"))
+	require.NoError(t, err)
+	require.Equal(t, []byte("ok"), got)
+}
+
+func TestPathGuardEnforcesSymlinkedDenyAndReadOnlyAliases(t *testing.T) {
+	base, err := filepath.EvalSymlinks(t.TempDir())
+	require.NoError(t, err)
+
+	realHome := filepath.Join(base, "real-home")
+	aliasHome := filepath.Join(base, "alias-home")
+	root := filepath.Join(realHome, "proj")
+	secrets := filepath.Join(realHome, ".ssh")
+	bsk := filepath.Join(realHome, "bsk")
+	gitMeta := filepath.Join(root, "gitmeta")
+	require.NoError(t, os.MkdirAll(root, 0o755))
+	require.NoError(t, os.MkdirAll(secrets, 0o700))
+	require.NoError(t, os.MkdirAll(bsk, 0o755))
+	require.NoError(t, os.MkdirAll(gitMeta, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(secrets, "id_rsa"), []byte("KEY"), 0o600))
+	require.NoError(t, os.Symlink(realHome, aliasHome))
+
+	p := Policy{
+		WritableRoots: []WritableRoot{
+			{Path: realHome},
+			{Path: root, ReadOnlySubpaths: []string{filepath.Join(aliasHome, "proj", "gitmeta")}},
+		},
+		DenyRead:  []string{filepath.Join(aliasHome, ".ssh")},
+		DenyWrite: []string{filepath.Join(aliasHome, "bsk")},
+		Cwd:       root,
+	}
+	g := NewPathGuard(p)
+
+	_, err = g.CheckRead(filepath.Join(realHome, ".ssh", "id_rsa"))
+	require.ErrorIs(t, err, ErrPathDenied)
+	_, err = g.ReadFile(filepath.Join(realHome, ".ssh", "id_rsa"))
+	require.ErrorIs(t, err, ErrPathDenied)
+
+	_, err = g.CheckWrite(filepath.Join(realHome, "bsk", "state.json"))
+	require.ErrorIs(t, err, ErrPathDenied)
+	require.ErrorIs(t, g.WriteFile(filepath.Join(realHome, "bsk", "state.json"), []byte("x"), 0o644), ErrPathDenied)
+
+	_, err = g.CheckWrite(filepath.Join(gitMeta, "HEAD"))
+	require.ErrorIs(t, err, ErrPathDenied)
+	require.ErrorIs(t, g.WriteFile(filepath.Join(gitMeta, "HEAD"), []byte("x"), 0o644), ErrPathDenied)
+}
+
+func TestPolicyAndPathGuardRejectNULBytes(t *testing.T) {
+	root, g := guardFixture(t)
+	bad := root + "\x00/extra"
+	p := Policy{
+		WritableRoots: []WritableRoot{{Path: bad}},
+		Cwd:           bad,
+	}
+	require.Error(t, p.Validate())
+	_, err := g.CheckRead(bad)
+	require.ErrorIs(t, err, ErrPathDenied)
+	require.ErrorIs(t, g.WriteFile(bad, []byte("x"), 0o644), ErrPathDenied)
+}

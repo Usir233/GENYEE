@@ -8,7 +8,7 @@ import (
 )
 
 func cleanAbs(path string) (string, error) {
-	if path == "" || !filepath.IsAbs(path) {
+	if path == "" || strings.IndexByte(path, 0) >= 0 || !filepath.IsAbs(path) {
 		return "", fmt.Errorf("%w: %q is not absolute", ErrPathDenied, path)
 	}
 	return filepath.Clean(path), nil
@@ -45,7 +45,7 @@ func (g *PathGuard) allowWrite(path string) (root, rel string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	if g.denied(path) {
+	if g.denied(path) || g.writeDenied(path) {
 		return "", "", fmt.Errorf("%w: %q", ErrPathDenied, path)
 	}
 	if g.readOnly(path) {

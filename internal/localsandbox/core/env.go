@@ -2,6 +2,7 @@ package core
 
 import (
 	"os"
+	"runtime"
 	"strings"
 )
 
@@ -28,11 +29,12 @@ var blockedExplicitEnvNames = map[string]struct{}{
 var blockedExplicitEnvPrefixes = []string{"DYLD_", "LD_", "BASH_FUNC_"}
 
 func blockedExplicitEnv(name string) bool {
-	if _, blocked := blockedExplicitEnvNames[name]; blocked {
+	upper := strings.ToUpper(name)
+	if _, blocked := blockedExplicitEnvNames[upper]; blocked {
 		return true
 	}
 	for _, prefix := range blockedExplicitEnvPrefixes {
-		if strings.HasPrefix(name, prefix) {
+		if strings.HasPrefix(upper, prefix) {
 			return true
 		}
 	}
@@ -43,11 +45,19 @@ func blockedExplicitEnv(name string) bool {
 func FilterInheritedEnv(environ []string) []string {
 	out := make([]string, 0, len(inheritedEnvNames))
 	for _, kv := range environ {
-		name, _, ok := strings.Cut(kv, "=")
-		if !ok {
+		name, val, ok := strings.Cut(kv, "=")
+		if !ok || strings.ContainsRune(name, 0) || strings.ContainsRune(val, 0) {
 			continue
 		}
-		if _, allowed := inheritedEnvNames[name]; allowed || strings.HasPrefix(name, "LC_") {
+		lookup := name
+		if runtime.GOOS == "windows" {
+			lookup = strings.ToUpper(name)
+		}
+		if _, allowed := inheritedEnvNames[lookup]; allowed || strings.HasPrefix(lookup, "LC_") {
+			if runtime.GOOS == "windows" && lookup == "PATH" {
+				out = append(out, "PATH="+val)
+				continue
+			}
 			out = append(out, kv)
 		}
 	}
@@ -58,6 +68,9 @@ func FilterInheritedEnv(environ []string) []string {
 func EnvSlice(env map[string]string) []string {
 	out := make([]string, 0, len(env))
 	for k, v := range env {
+		if k == "" || strings.ContainsAny(k, "=\x00") || strings.ContainsRune(v, 0) {
+			continue
+		}
 		out = append(out, k+"="+v)
 	}
 	return out
@@ -74,11 +87,14 @@ func EnvSlice(env map[string]string) []string {
 func BuildCommandEnv(explicit map[string]string, extraPATH []string) map[string]string {
 	out := environToMap(FilterInheritedEnv(os.Environ()))
 	for k, v := range explicit {
-		if k == "" {
+		if k == "" || strings.ContainsAny(k, "=\x00") || strings.ContainsRune(v, 0) {
 			continue
 		}
 		if blockedExplicitEnv(k) {
 			continue
+		}
+		if runtime.GOOS == "windows" && strings.EqualFold(k, "PATH") {
+			k = "PATH"
 		}
 		out[k] = v
 	}

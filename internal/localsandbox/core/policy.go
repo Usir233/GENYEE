@@ -153,7 +153,7 @@ func PathUnder(child, root string) bool {
 
 func checkAbsolute(paths ...string) error {
 	for _, p := range paths {
-		if p == "" || !filepath.IsAbs(p) || filepath.Clean(p) != p {
+		if p == "" || strings.IndexByte(p, 0) >= 0 || !filepath.IsAbs(p) || filepath.Clean(p) != p {
 			return fmt.Errorf("%w: %q", ErrRelativePath, p)
 		}
 	}

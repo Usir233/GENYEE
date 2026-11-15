@@ -133,9 +133,13 @@ var wrapperPrograms = map[string]bool{
 // the program: xargs -n 1 rm runs rm, not 1.
 var wrapperValueOptions = map[string]map[string]bool{
 	"xargs": {"-n": true, "-L": true, "-I": true, "-P": true, "-s": true, "-d": true, "-E": true, "-a": true},
-	"sudo":  {"-u": true, "-g": true, "-C": true, "-h": true, "-p": true, "-U": true},
-	"env":   {"-u": true, "-C": true, "-S": true},
-	"nice":  {"-n": true},
+	"sudo": {
+		"-u": true, "-g": true, "-C": true, "-h": true, "-p": true, "-U": true, "-D": true,
+		"--chdir": true, "--user": true, "--group": true, "--host": true,
+		"--prompt": true, "--other-user": true, "--close-from": true,
+	},
+	"env":  {"-u": true, "-C": true, "--unset": true, "--chdir": true},
+	"nice": {"-n": true, "--adjustment": true},
 }
 
 // shellPrograms run their -c argument as a script.
@@ -289,11 +293,12 @@ func DeleteLocations(command, homeDir string) []DeleteLocation {
 		if i >= len(words) {
 			continue
 		}
+		wrapperDir, hasChdir, dirOK := wrapperChdir(words, i, homeDir)
 		args := words[i+1:]
 		switch programName(words[i]) {
 		case "rm", "rmdir", "unlink":
 			for _, arg := range deleteOperands(args) {
-				if target, ok := expandHome(arg, homeDir); ok {
+				if target, ok := applyWrapperDir(wrapperDir, hasChdir, dirOK, arg, homeDir); ok {
 					out = append(out, DeleteLocation{Path: target})
 				}
 			}
@@ -302,7 +307,7 @@ func DeleteLocations(command, homeDir string) []DeleteLocation {
 				continue
 			}
 			for _, root := range findRoots(args) {
-				if target, ok := expandHome(root, homeDir); ok {
+				if target, ok := applyWrapperDir(wrapperDir, hasChdir, dirOK, root, homeDir); ok {
 					out = append(out, DeleteLocation{Path: target, Directory: true})
 				}
 			}
@@ -311,13 +316,9 @@ func DeleteLocations(command, homeDir string) []DeleteLocation {
 			if sub != "rm" && sub != "clean" {
 				continue
 			}
-			for j := 0; j+1 < len(args); j++ {
-				if args[j] != "-C" {
-					continue
-				}
-				if target, ok := expandHome(args[j+1], homeDir); ok {
-					out = append(out, DeleteLocation{Path: target, Directory: true})
-				}
+			dirs, _, _, _ := gitWriteDirs(args, wrapperDir, hasChdir, dirOK, homeDir)
+			for _, target := range dirs {
+				out = append(out, DeleteLocation{Path: target, Directory: true})
 			}
 		}
 	}
@@ -346,8 +347,9 @@ func DeleteTargets(command, homeDir string) []string {
 		default:
 			continue
 		}
+		wrapperDir, hasChdir, dirOK := wrapperChdir(words, i, homeDir)
 		for _, arg := range deleteOperands(words[i+1:]) {
-			if target, ok := expandHome(arg, homeDir); ok {
+			if target, ok := applyWrapperDir(wrapperDir, hasChdir, dirOK, arg, homeDir); ok {
 				out = append(out, target)
 			}
 		}
@@ -371,11 +373,13 @@ func DeletesStayBelow(command, cwd, homeDir string) bool {
 		if i >= len(words) {
 			continue
 		}
+		wrapperDir, hasChdir, dirOK := wrapperChdir(words, i, homeDir)
 		args := words[i+1:]
 		switch programName(words[i]) {
 		case "rm", "rmdir", "unlink":
 			for _, arg := range deleteOperands(args) {
-				if !operandBelow(arg, cwd, homeDir, false) {
+				resolved, ok := applyWrapperDir(wrapperDir, hasChdir, dirOK, arg, homeDir)
+				if !ok || !operandBelow(resolved, cwd, homeDir, false) {
 					return false
 				}
 			}
@@ -383,17 +387,37 @@ func DeletesStayBelow(command, cwd, homeDir string) bool {
 			if len(findActions(args)) == 0 {
 				continue
 			}
+			if findFollowsSymlinks(args) {
+				return false
+			}
 			for _, root := range findRoots(args) {
-				if !operandBelow(root, cwd, homeDir, true) {
+				resolved, ok := applyWrapperDir(wrapperDir, hasChdir, dirOK, root, homeDir)
+				if !ok || !operandBelow(resolved, cwd, homeDir, true) {
 					return false
 				}
 			}
 		case "git":
-			if sub, _ := gitSubcommandArgs(args); sub != "rm" && sub != "clean" {
+			sub, rest := gitSubcommandArgs(args)
+			if sub != "rm" && sub != "clean" {
 				continue
 			}
-			for j := 0; j+1 < len(args); j++ {
-				if args[j] == "-C" && !operandBelow(args[j+1], cwd, homeDir, true) {
+			dirs, gitCwd, cwdMoved, allOK := gitWriteDirs(args, wrapperDir, hasChdir, dirOK, homeDir)
+			if !allOK {
+				return false
+			}
+			for _, d := range dirs {
+				if !operandBelow(d, cwd, homeDir, true) {
+					return false
+				}
+			}
+			ops, opsOK := gitDeleteOperands(sub, rest)
+			if !opsOK {
+				return false
+			}
+			allowOpCwd := sub == "clean"
+			for _, op := range ops {
+				resolved, ok := applyWrapperDir(gitCwd, cwdMoved, true, op, homeDir)
+				if !ok || !operandBelow(resolved, cwd, homeDir, allowOpCwd) {
 					return false
 				}
 			}
@@ -420,19 +444,94 @@ func deleteOperands(args []string) []string {
 	return out
 }
 
+var findFPrimaries = map[string]bool{
+	"-false": true, "-fls": true, "-follow": true,
+	"-fprint": true, "-fprint0": true, "-fprintf": true, "-fstype": true,
+}
+
+func isFindPrePathFlags(arg string) bool {
+	if len(arg) < 2 || arg[0] != '-' {
+		return false
+	}
+	for i := 1; i < len(arg); i++ {
+		switch arg[i] {
+		case 'E', 'H', 'L', 'P', 'X', 'd', 's', 'x':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // findRoots are the start paths before find's first expression; none means ".".
 func findRoots(args []string) []string {
 	var roots []string
-	for _, arg := range args {
+	inPaths := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if !inPaths {
+			switch {
+			case arg == "--":
+				inPaths = true
+				continue
+			case arg == "-f" || arg == "-D":
+				if i+1 < len(args) {
+					if arg == "-f" {
+						roots = append(roots, args[i+1])
+					}
+					i++
+				}
+				continue
+			case strings.HasPrefix(arg, "-f") && len(arg) > 2 && !findFPrimaries[arg]:
+				roots = append(roots, arg[2:])
+				continue
+			case arg == "-O" || arg == "-O0" || arg == "-O1" || arg == "-O2" || arg == "-O3":
+				continue
+			case isFindPrePathFlags(arg):
+				continue
+			}
+		}
 		if strings.HasPrefix(arg, "-") || arg == "(" || arg == "!" {
 			break
 		}
+		inPaths = true
 		roots = append(roots, arg)
 	}
 	if len(roots) == 0 {
 		return []string{"."}
 	}
 	return roots
+}
+
+func findFollowsSymlinks(args []string) bool {
+	mode := byte('P')
+	inExpr := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "-follow" {
+			return true
+		}
+		if inExpr {
+			continue
+		}
+		switch {
+		case arg == "--":
+			inExpr = true
+		case arg == "-f" || arg == "-D":
+			i++
+		case strings.HasPrefix(arg, "-f") && len(arg) > 2 && !findFPrimaries[arg]:
+		case arg == "-O" || arg == "-O0" || arg == "-O1" || arg == "-O2" || arg == "-O3":
+		case isFindPrePathFlags(arg):
+			for j := 1; j < len(arg); j++ {
+				if arg[j] == 'H' || arg[j] == 'L' || arg[j] == 'P' {
+					mode = arg[j]
+				}
+			}
+		default:
+			inExpr = true
+		}
+	}
+	return mode != 'P'
 }
 
 // operandBelow reports whether arg names an entry strictly inside cwd, or
@@ -645,8 +744,11 @@ func hiddenScripts(command string) []string {
 }
 
 // segmentScript reports whether words run a script given on the command
-// line (eval, or a shell with -c) and returns that script.
+// line (eval, env -S, or a shell with -c) and returns that script.
 func segmentScript(words []string) (string, bool) {
+	if script, ok := envSplitScript(words); ok {
+		return script, true
+	}
 	i := programIndex(words)
 	if i >= len(words) {
 		return "", false
@@ -661,6 +763,36 @@ func segmentScript(words []string) (string, bool) {
 	for j, arg := range args {
 		if arg == "-c" || (strings.HasPrefix(arg, "-") && !strings.HasPrefix(arg, "--") && strings.Contains(arg, "c")) {
 			return strings.Join(args[j+1:], " "), true
+		}
+	}
+	return "", false
+}
+
+func envSplitScript(words []string) (string, bool) {
+	wrapper := ""
+	for i := 0; i < len(words); i++ {
+		word := words[i]
+		switch {
+		case isAssignment(word):
+		case wrapperPrograms[programName(word)]:
+			wrapper = programName(word)
+		case wrapper == "env" && (word == "-S" || word == "--split-string"):
+			if i+1 >= len(words) {
+				return "", false
+			}
+			return strings.Join(words[i+1:], " "), true
+		case wrapper == "env" && strings.HasPrefix(word, "-S") && len(word) > 2:
+			rest := append([]string{word[2:]}, words[i+1:]...)
+			return strings.Join(rest, " "), true
+		case wrapper == "env" && strings.HasPrefix(word, "--split-string="):
+			rest := append([]string{strings.TrimPrefix(word, "--split-string=")}, words[i+1:]...)
+			return strings.Join(rest, " "), true
+		case strings.HasPrefix(word, "-"):
+			if wrapperValueOptions[wrapper][word] {
+				i++
+			}
+		default:
+			return "", false
 		}
 	}
 	return "", false
@@ -695,6 +827,21 @@ func hidesDelete(command string) bool {
 }
 
 func mentionsDangerousDelete(command, homeDir string) bool {
+	return mentionsDangerousAt(command, homeDir, 0)
+}
+
+func mentionsDangerousAt(command, homeDir string, depth int) bool {
+	if depth > 6 {
+		return false
+	}
+	if segmentDangerous(visibleDeleteSegments(command, homeDir)) {
+		return true
+	}
+	for _, script := range hiddenScripts(command) {
+		if mentionsDangerousAt(script, homeDir, depth+1) {
+			return true
+		}
+	}
 	flat := strings.NewReplacer("'", " ", `"`, " ", "`", " ", `\`, " ").Replace(command)
 	words := strings.Fields(flat)
 	for i := 0; i < len(words); i++ {
@@ -721,11 +868,21 @@ func mentionsDangerousDelete(command, homeDir string) bool {
 // or the home directory. find ~/Desktop -delete is not that: it has a
 // narrower root the sandbox can ask about.
 func findDeletesRootOrHome(args []string, homeDir string) bool {
+	return findDeletesRootOrHomeInDir(args, "", false, true, homeDir)
+}
+
+func findDeletesRootOrHomeInDir(
+	args []string, wrapperDir string, hasChdir, dirOK bool, homeDir string,
+) bool {
 	if len(findActions(args)) == 0 {
 		return false
 	}
 	for _, root := range findRoots(args) {
-		if isRootOrHome(root, homeDir) {
+		if !hasChdir && isRootOrHome(root, homeDir) {
+			return true
+		}
+		if resolved, ok := applyWrapperDir(wrapperDir, hasChdir, dirOK, root, homeDir); ok &&
+			isRootOrHome(resolved, homeDir) {
 			return true
 		}
 	}
@@ -733,14 +890,27 @@ func findDeletesRootOrHome(args []string, homeDir string) bool {
 }
 
 // gitCleanRootOrHome reports git clean pointed at / or the home directory
-// with -C. A clean of the cwd is the workspace, not the home directory.
+// with -C or --work-tree (or a wrapper chdir). A clean of the cwd is the
+// workspace, not the home directory.
 func gitCleanRootOrHome(args []string, homeDir string) bool {
+	return gitCleanRootOrHomeInDir(args, "", false, true, homeDir)
+}
+
+func gitCleanRootOrHomeInDir(
+	args []string, wrapperDir string, hasChdir, dirOK bool, homeDir string,
+) bool {
 	sub, _ := gitSubcommandArgs(args)
 	if sub != "clean" {
 		return false
 	}
-	for i := 0; i+1 < len(args); i++ {
-		if args[i] == "-C" && isRootOrHome(args[i+1], homeDir) {
+	for _, raw := range gitRawWorkDirs(args) {
+		if !hasChdir && isRootOrHome(raw, homeDir) {
+			return true
+		}
+	}
+	dirs, _, _, _ := gitWriteDirs(args, wrapperDir, hasChdir, dirOK, homeDir)
+	for _, dir := range dirs {
+		if isRootOrHome(dir, homeDir) {
 			return true
 		}
 	}
@@ -778,25 +948,93 @@ func programIndex(words []string) int {
 	return len(words)
 }
 
+func wrapperChdir(words []string, limit int, homeDir string) (string, bool, bool) {
+	wrapper := ""
+	dir := ""
+	hasChdir := false
+	dirOK := true
+	addDir := func(raw string) {
+		hasChdir = true
+		expanded, ok := expandHome(raw, homeDir)
+		if !ok {
+			dirOK = false
+			return
+		}
+		if filepath.IsAbs(expanded) || dir == "" {
+			dir = expanded
+			return
+		}
+		if dirOK {
+			dir = filepath.Join(dir, expanded)
+		}
+	}
+	for i := 0; i < limit && i < len(words); i++ {
+		word := words[i]
+		switch {
+		case isAssignment(word):
+		case wrapperPrograms[programName(word)]:
+			wrapper = programName(word)
+		case (wrapper == "env" && (word == "-C" || word == "--chdir")) ||
+			(wrapper == "sudo" && (word == "-D" || word == "--chdir")):
+			if i+1 < limit {
+				addDir(words[i+1])
+			} else {
+				hasChdir = true
+				dirOK = false
+			}
+			i++
+		case wrapper == "env" && strings.HasPrefix(word, "-C") && len(word) > 2:
+			addDir(word[2:])
+		case wrapper == "sudo" && strings.HasPrefix(word, "-D") && len(word) > 2:
+			addDir(word[2:])
+		case (wrapper == "env" || wrapper == "sudo") && strings.HasPrefix(word, "--chdir="):
+			addDir(strings.TrimPrefix(word, "--chdir="))
+		case strings.HasPrefix(word, "-"):
+			if wrapperValueOptions[wrapper][word] {
+				i++
+			}
+		default:
+			return dir, hasChdir, dirOK
+		}
+	}
+	return dir, hasChdir, dirOK
+}
+
+func applyWrapperDir(wrapperDir string, hasChdir, dirOK bool, raw, homeDir string) (string, bool) {
+	target, ok := expandHome(raw, homeDir)
+	if !ok {
+		return "", false
+	}
+	if !hasChdir || filepath.IsAbs(target) {
+		return target, true
+	}
+	if !dirOK {
+		return "", false
+	}
+	return filepath.Join(wrapperDir, target), true
+}
+
 func classifySegment(words []string, homeDir string) (deletes, dangerous bool) {
 	i := programIndex(words)
 	if i >= len(words) {
 		return false, false
 	}
+	wrapperDir, hasChdir, dirOK := wrapperChdir(words, i, homeDir)
 	program, args := programName(words[i]), words[i+1:]
 	switch program {
 	case "rm":
-		return true, recursiveOnHome(args, homeDir)
+		return true, recursiveOnHomeInDir(args, wrapperDir, hasChdir, dirOK, homeDir)
 	case "rmdir", "unlink":
 		return true, false
 	case "git":
 		sub, _ := gitSubcommandArgs(args)
-		return sub == "rm" || sub == "clean", gitCleanRootOrHome(args, homeDir)
+		return sub == "rm" || sub == "clean",
+			gitCleanRootOrHomeInDir(args, wrapperDir, hasChdir, dirOK, homeDir)
 	case "find":
 		if len(findActions(args)) == 0 {
 			return false, false
 		}
-		return true, findDeletesRootOrHome(args, homeDir)
+		return true, findDeletesRootOrHomeInDir(args, wrapperDir, hasChdir, dirOK, homeDir)
 	}
 	return false, false
 }
@@ -806,22 +1044,162 @@ func isAssignment(word string) bool {
 	return eq > 0 && !strings.HasPrefix(word, "-")
 }
 
+var gitGlobalValueOpts = map[string]bool{
+	"-C": true, "-c": true,
+	"--git-dir": true, "--work-tree": true,
+	"--namespace": true, "--super-prefix": true, "--config-env": true,
+}
+
 // gitSubcommandArgs returns git's subcommand and the arguments after it,
-// skipping global options such as -C dir.
+// skipping global options such as -C dir and --work-tree dir.
 func gitSubcommandArgs(args []string) (string, []string) {
 	for i := 0; i < len(args); i++ {
+		arg := args[i]
 		switch {
-		case args[i] == "-C" || args[i] == "-c":
+		case arg == "--":
+			if i+1 < len(args) {
+				return args[i+1], args[i+2:]
+			}
+			return "", nil
+		case gitGlobalValueOpts[arg]:
 			i++
-		case strings.HasPrefix(args[i], "-"):
+		case strings.HasPrefix(arg, "-"):
 		default:
-			return args[i], args[i+1:]
+			return arg, args[i+1:]
 		}
 	}
 	return "", nil
 }
 
+func gitRawWorkDirs(args []string) []string {
+	var out []string
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--":
+			return out
+		case arg == "-C" || arg == "--work-tree":
+			if i+1 < len(args) {
+				out = append(out, args[i+1])
+			}
+			i++
+		case strings.HasPrefix(arg, "-C") && len(arg) > 2:
+			out = append(out, arg[2:])
+		case strings.HasPrefix(arg, "--work-tree="):
+			out = append(out, strings.TrimPrefix(arg, "--work-tree="))
+		case gitGlobalValueOpts[arg]:
+			i++
+		case strings.HasPrefix(arg, "-"):
+		default:
+			return out
+		}
+	}
+	return out
+}
+
+func gitWriteDirs(
+	args []string, wrapperDir string, hasChdir, dirOK bool, homeDir string,
+) (dirs []string, effectiveCwd string, cwdMoved bool, allOK bool) {
+	curDir := wrapperDir
+	moved := hasChdir
+	ok := !hasChdir || dirOK
+	var extra []string
+
+	stepCwd := func(raw string) {
+		moved = true
+		expanded, vOK := expandHome(raw, homeDir)
+		if !vOK {
+			ok = false
+			return
+		}
+		if filepath.IsAbs(expanded) || curDir == "" {
+			curDir = expanded
+			return
+		}
+		if ok {
+			curDir = filepath.Join(curDir, expanded)
+		}
+	}
+	addExtra := func(raw string) {
+		resolved, vOK := applyWrapperDir(curDir, moved, ok, raw, homeDir)
+		if !vOK {
+			ok = false
+			return
+		}
+		extra = append(extra, resolved)
+	}
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--":
+			i = len(args)
+		case arg == "-C":
+			if i+1 < len(args) {
+				stepCwd(args[i+1])
+			} else {
+				moved = true
+				ok = false
+			}
+			i++
+		case strings.HasPrefix(arg, "-C") && len(arg) > 2:
+			stepCwd(arg[2:])
+		case arg == "--work-tree" || arg == "--git-dir":
+			if i+1 < len(args) {
+				addExtra(args[i+1])
+			} else {
+				ok = false
+			}
+			i++
+		case strings.HasPrefix(arg, "--work-tree="):
+			addExtra(strings.TrimPrefix(arg, "--work-tree="))
+		case strings.HasPrefix(arg, "--git-dir="):
+			addExtra(strings.TrimPrefix(arg, "--git-dir="))
+		case gitGlobalValueOpts[arg]:
+			i++
+		case strings.HasPrefix(arg, "-"):
+		default:
+			i = len(args)
+		}
+	}
+	if moved && ok && curDir != "" {
+		dirs = append(dirs, curDir)
+	}
+	dirs = append(dirs, extra...)
+	return dirs, curDir, moved, ok
+}
+
+func gitDeleteOperands(sub string, rest []string) ([]string, bool) {
+	var out []string
+	afterDashDash := false
+	for i := 0; i < len(rest); i++ {
+		arg := rest[i]
+		if afterDashDash {
+			out = append(out, arg)
+			continue
+		}
+		switch {
+		case arg == "--":
+			afterDashDash = true
+		case sub == "rm" && (arg == "--pathspec-from-file" || strings.HasPrefix(arg, "--pathspec-from-file=")):
+			return nil, false
+		case sub == "clean" && (arg == "-e" || arg == "--exclude"):
+			i++
+		case strings.HasPrefix(arg, "-"):
+		default:
+			out = append(out, arg)
+		}
+	}
+	return out, true
+}
+
 func recursiveOnHome(args []string, homeDir string) bool {
+	return recursiveOnHomeInDir(args, "", false, true, homeDir)
+}
+
+func recursiveOnHomeInDir(
+	args []string, wrapperDir string, hasChdir, dirOK bool, homeDir string,
+) bool {
 	recursive := false
 	var targets []string
 	for _, a := range args {
@@ -841,7 +1219,11 @@ func recursiveOnHome(args []string, homeDir string) bool {
 		return false
 	}
 	for _, target := range targets {
-		if isRootOrHome(target, homeDir) {
+		if !hasChdir && isRootOrHome(target, homeDir) {
+			return true
+		}
+		if resolved, ok := applyWrapperDir(wrapperDir, hasChdir, dirOK, target, homeDir); ok &&
+			isRootOrHome(resolved, homeDir) {
 			return true
 		}
 	}

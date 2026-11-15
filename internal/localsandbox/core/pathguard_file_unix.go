@@ -13,9 +13,23 @@ import (
 )
 
 func (g *PathGuard) writeRel(root, rel, orig string, data []byte, perm os.FileMode) error {
-	fd, err := walkOpen(root, rel, true, unix.O_WRONLY|unix.O_CREAT|unix.O_TRUNC, uint32(perm.Perm()))
+	fd, err := walkOpen(root, rel, true, unix.O_WRONLY|unix.O_CREAT|unix.O_NONBLOCK, uint32(perm.Perm()))
 	if err != nil {
 		return mapWalkErr(orig, err)
+	}
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return err
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFREG {
+		_ = unix.Close(fd)
+		return fmt.Errorf("%w: %q", ErrPathDenied, orig)
+	}
+	_ = unix.SetNonblock(fd, false)
+	if err := unix.Ftruncate(fd, 0); err != nil {
+		_ = unix.Close(fd)
+		return err
 	}
 	f := os.NewFile(uintptr(fd), orig)
 	defer func() { _ = f.Close() }()
@@ -30,13 +44,34 @@ func (g *PathGuard) writeRel(root, rel, orig string, data []byte, perm os.FileMo
 }
 
 func (g *PathGuard) readRel(root, rel, orig string) ([]byte, error) {
-	fd, err := walkOpen(root, rel, false, unix.O_RDONLY, 0)
+	fd, err := walkOpen(root, rel, false, unix.O_RDONLY|unix.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, mapWalkErr(orig, err)
 	}
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		_ = unix.Close(fd)
+		return nil, err
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFREG {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("%w: %q", ErrPathDenied, orig)
+	}
+	if st.Size > maxGuardReadBytes {
+		_ = unix.Close(fd)
+		return nil, fmt.Errorf("%w: %q (%d bytes)", ErrFileTooLarge, orig, st.Size)
+	}
+	_ = unix.SetNonblock(fd, false)
 	f := os.NewFile(uintptr(fd), orig)
 	defer func() { _ = f.Close() }()
-	return io.ReadAll(f)
+	data, err := io.ReadAll(io.LimitReader(f, maxGuardReadBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > maxGuardReadBytes {
+		return nil, fmt.Errorf("%w: %q", ErrFileTooLarge, orig)
+	}
+	return data, nil
 }
 
 func (g *PathGuard) mkdirRel(root, rel, orig string, perm os.FileMode) error {
@@ -180,7 +215,7 @@ func mapWalkErr(path string, err error) error {
 	if errors.Is(err, ErrPathDenied) {
 		return fmt.Errorf("%w: %q", ErrPathDenied, path)
 	}
-	if errors.Is(err, unix.ELOOP) {
+	if errors.Is(err, unix.ELOOP) || errors.Is(err, unix.ENXIO) {
 		return fmt.Errorf("%w: %q", ErrPathDenied, path)
 	}
 	return err
