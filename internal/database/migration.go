@@ -3,8 +3,13 @@ package database
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
+	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -14,6 +19,109 @@ import (
 	sqlite3migrate "github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
+
+var (
+	dsnURLUserinfoRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://[^/\s"\\:@]+:)([^@\s"]+)@`)
+	dsnPasswordKVRE  = regexp.MustCompile(`(?i)((?:[?&;\s]|^)password\s*=\s*)([^&\s"';\\]+)`)
+)
+
+func extractDSNSecrets(dsn string, extra ...string) []string {
+	seen := make(map[string]struct{})
+	var secrets []string
+	add := func(v string) {
+		if v == "" {
+			return
+		}
+		if _, ok := seen[v]; ok {
+			return
+		}
+		seen[v] = struct{}{}
+		secrets = append(secrets, v)
+	}
+
+	for _, e := range extra {
+		add(e)
+		add(strings.TrimRight(e, "\r\n"))
+	}
+
+	for _, candidate := range []string{dsn, strings.TrimRight(dsn, "\r\n")} {
+		if candidate == "" {
+			continue
+		}
+		if idx := strings.Index(candidate, "://"); idx >= 0 {
+			rest := candidate[idx+3:]
+			auth := rest
+			if end := strings.IndexAny(auth, "/?#"); end >= 0 {
+				auth = auth[:end]
+			}
+			if at := strings.LastIndexByte(auth, '@'); at >= 0 {
+				ui := auth[:at]
+				if colon := strings.IndexByte(ui, ':'); colon >= 0 {
+					add(ui[colon+1:])
+				}
+				if lastAt := strings.LastIndexByte(rest, '@'); lastAt > len(auth) && at+1 < len(auth) {
+					add(auth[at+1:])
+				}
+			}
+			if lastAt := strings.LastIndexByte(rest, '@'); lastAt >= 0 {
+				ui := rest[:lastAt]
+				if colon := strings.IndexByte(ui, ':'); colon >= 0 {
+					add(ui[colon+1:])
+				}
+			}
+		}
+		for _, m := range dsnPasswordKVRE.FindAllStringSubmatch(candidate, -1) {
+			if len(m) >= 3 {
+				add(m[2])
+			}
+		}
+	}
+	return secrets
+}
+
+func redactDSNString(msg string, secrets ...string) string {
+	if msg == "" {
+		return ""
+	}
+	out := msg
+	for _, sec := range secrets {
+		if sec == "" {
+			continue
+		}
+		quoted := strconv.Quote(sec)
+		quotedInner := quoted[1 : len(quoted)-1]
+		userEnc := strings.TrimPrefix(url.UserPassword("u", sec).String(), "u:")
+		for _, variant := range []string{
+			sec,
+			quotedInner,
+			userEnc,
+			url.QueryEscape(sec),
+			url.PathEscape(sec),
+		} {
+			if variant != "" {
+				out = strings.ReplaceAll(out, variant, "[REDACTED]")
+			}
+		}
+	}
+	out = dsnURLUserinfoRE.ReplaceAllString(out, "${1}[REDACTED]@")
+	out = dsnPasswordKVRE.ReplaceAllString(out, "${1}[REDACTED]")
+	return out
+}
+
+func sanitizeMigrationErr(err error, secrets ...string) error {
+	if err == nil {
+		return nil
+	}
+	if errors.Is(err, migrate.ErrNoChange) || errors.Is(err, migrate.ErrNilVersion) {
+		return err
+	}
+	raw := err.Error()
+	redacted := redactDSNString(raw, secrets...)
+	if redacted == raw {
+		return err
+	}
+	return errors.New(redacted)
+}
 
 var (
 	migrationStateMu        sync.RWMutex
@@ -56,14 +164,19 @@ func setMigrationState(version uint, dirty bool, errMsg string, versionKnown boo
 		currentMigrationVersion = version
 		currentMigrationDirty = dirty
 		migrationVersionSet = true
+	} else {
+		currentMigrationVersion = 0
+		currentMigrationDirty = false
+		migrationVersionSet = false
 	}
 	currentMigrationError = errMsg
 }
 
 // captureMigrationFailure best-effort queries m for the current version so the
 // system info endpoint can show "N (failed)" instead of vanishing the row, and
-// stores the human-readable error message. Always returns the original error.
-func captureMigrationFailure(m *migrate.Migrate, err error) error {
+// stores the redacted error message. Always returns the sanitized error.
+func captureMigrationFailure(m *migrate.Migrate, err error, secrets ...string) error {
+	safeErr := sanitizeMigrationErr(err, secrets...)
 	versionKnown := false
 	var ver uint
 	var dirty bool
@@ -74,8 +187,8 @@ func captureMigrationFailure(m *migrate.Migrate, err error) error {
 			ver, dirty = v, d
 		}
 	}
-	setMigrationState(ver, dirty, err.Error(), versionKnown)
-	return err
+	setMigrationState(ver, dirty, safeErr.Error(), versionKnown)
+	return safeErr
 }
 
 // RunMigrations executes all pending database migrations
@@ -100,11 +213,12 @@ type MigrationOptions struct {
 // RunMigrationsWithOptions executes all pending database migrations with custom options
 func RunMigrationsWithOptions(dsn string, opts MigrationOptions) error {
 	ctx := context.Background()
+	secrets := extractDSNSecrets(dsn)
 
 	logger.Infof(ctx, "Starting database migration...")
 
 	migrationsPath := "file://migrations/versioned"
-	if strings.HasPrefix(dsn, "sqlite3://") {
+	if opts.SQLiteDBPath != "" || strings.HasPrefix(dsn, "sqlite3://") {
 		migrationsPath = "file://migrations/sqlite"
 	}
 
@@ -112,23 +226,30 @@ func RunMigrationsWithOptions(dsn string, opts MigrationOptions) error {
 	if opts.SQLiteDBPath != "" {
 		sqlDB, err := sql.Open("sqlite3", opts.SQLiteDBPath)
 		if err != nil {
-			logger.Errorf(ctx, "Failed to open sqlite db for migration: %v", err)
-			wrapped := fmt.Errorf("failed to open sqlite db for migration: %w", err)
+			safeErr := sanitizeMigrationErr(err, secrets...)
+			logger.Errorf(ctx, "Failed to open sqlite db for migration: %v", safeErr)
+			wrapped := fmt.Errorf("failed to open sqlite db for migration: %w", safeErr)
 			setMigrationState(0, false, wrapped.Error(), false)
 			return wrapped
 		}
+		sqlDB.SetMaxOpenConns(1)
+		_, _ = sqlDB.ExecContext(ctx, "PRAGMA busy_timeout = 5000")
 		driver, err := sqlite3migrate.WithInstance(sqlDB, &sqlite3migrate.Config{})
 		if err != nil {
-			sqlDB.Close()
-			logger.Errorf(ctx, "Failed to create sqlite3 migrate driver: %v", err)
-			wrapped := fmt.Errorf("failed to create sqlite3 migrate driver: %w", err)
+			_ = sqlDB.Close()
+			safeErr := sanitizeMigrationErr(err, secrets...)
+			logger.Errorf(ctx, "Failed to create sqlite3 migrate driver: %v", safeErr)
+			wrapped := fmt.Errorf("failed to create sqlite3 migrate driver: %w", safeErr)
 			setMigrationState(0, false, wrapped.Error(), false)
 			return wrapped
 		}
 		m, err = migrate.NewWithDatabaseInstance(migrationsPath, "sqlite3", driver)
 		if err != nil {
-			logger.Errorf(ctx, "Failed to create migrate instance: %v", err)
-			wrapped := fmt.Errorf("failed to create migrate instance: %w", err)
+			_ = driver.Close()
+			_ = sqlDB.Close()
+			safeErr := sanitizeMigrationErr(err, secrets...)
+			logger.Errorf(ctx, "Failed to create migrate instance: %v", safeErr)
+			wrapped := fmt.Errorf("failed to create migrate instance: %w", safeErr)
 			setMigrationState(0, false, wrapped.Error(), false)
 			return wrapped
 		}
@@ -136,8 +257,9 @@ func RunMigrationsWithOptions(dsn string, opts MigrationOptions) error {
 		var err error
 		m, err = migrate.New(migrationsPath, dsn)
 		if err != nil {
-			logger.Errorf(ctx, "Failed to create migrate instance: %v", err)
-			wrapped := fmt.Errorf("failed to create migrate instance: %w", err)
+			safeErr := sanitizeMigrationErr(err, secrets...)
+			logger.Errorf(ctx, "Failed to create migrate instance: %v", safeErr)
+			wrapped := fmt.Errorf("failed to create migrate instance: %w", safeErr)
 			setMigrationState(0, false, wrapped.Error(), false)
 			return wrapped
 		}
@@ -147,8 +269,9 @@ func RunMigrationsWithOptions(dsn string, opts MigrationOptions) error {
 	// Check current version and dirty state before migration
 	oldVersion, oldDirty, versionErr := m.Version()
 	if versionErr != nil && versionErr != migrate.ErrNilVersion {
-		logger.Errorf(ctx, "Failed to get migration version: %v", versionErr)
-		return captureMigrationFailure(m, fmt.Errorf("failed to get migration version: %w", versionErr))
+		safeErr := sanitizeMigrationErr(versionErr, secrets...)
+		logger.Errorf(ctx, "Failed to get migration version: %v", safeErr)
+		return captureMigrationFailure(m, fmt.Errorf("failed to get migration version: %w", safeErr), secrets...)
 	}
 
 	if versionErr == migrate.ErrNilVersion {
@@ -163,7 +286,7 @@ func RunMigrationsWithOptions(dsn string, opts MigrationOptions) error {
 		if opts.AutoRecoverDirty {
 			logger.Infof(ctx, "AutoRecoverDirty is enabled, attempting recovery...")
 			if err := recoverFromDirtyState(ctx, m, oldVersion); err != nil {
-				return captureMigrationFailure(m, err)
+				return captureMigrationFailure(m, err, secrets...)
 			}
 			// Update oldVersion after recovery
 			oldVersion, _, _ = m.Version()
@@ -186,14 +309,15 @@ func RunMigrationsWithOptions(dsn string, opts MigrationOptions) error {
 				forceVersion,
 				forceVersion,
 				forceVersion,
-			))
+			), secrets...)
 		}
 	}
 
 	// Run all pending migrations
 	logger.Infof(ctx, "Running pending migrations...")
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		logger.Errorf(ctx, "Migration failed: %v", err)
+		safeUpErr := sanitizeMigrationErr(err, secrets...)
+		logger.Errorf(ctx, "Migration failed: %v", safeUpErr)
 		// Check if error is due to dirty state (in case it became dirty during migration)
 		currentVersion, currentDirty, versionCheckErr := m.Version()
 		if versionCheckErr == nil && currentDirty {
@@ -202,13 +326,14 @@ func RunMigrationsWithOptions(dsn string, opts MigrationOptions) error {
 				logger.Infof(ctx, "Attempting to recover from dirty state...")
 				// Try to recover and retry
 				if recoverErr := recoverFromDirtyState(ctx, m, currentVersion); recoverErr != nil {
-					return captureMigrationFailure(m, recoverErr)
+					return captureMigrationFailure(m, recoverErr, secrets...)
 				}
 				// Retry migration after recovery
 				logger.Infof(ctx, "Retrying migration after recovery...")
 				if retryErr := m.Up(); retryErr != nil && retryErr != migrate.ErrNoChange {
-					logger.Errorf(ctx, "Migration failed after recovery attempt: %v", retryErr)
-					return captureMigrationFailure(m, fmt.Errorf("migration failed after recovery attempt: %w", retryErr))
+					safeRetryErr := sanitizeMigrationErr(retryErr, secrets...)
+					logger.Errorf(ctx, "Migration failed after recovery attempt: %v", safeRetryErr)
+					return captureMigrationFailure(m, fmt.Errorf("migration failed after recovery attempt: %w", safeRetryErr), secrets...)
 				}
 			} else {
 				// Calculate the version to force to (usually the previous version)
@@ -229,17 +354,18 @@ func RunMigrationsWithOptions(dsn string, opts MigrationOptions) error {
 					forceVersion,
 					forceVersion,
 					forceVersion,
-				))
+				), secrets...)
 			}
 		} else {
-			return captureMigrationFailure(m, fmt.Errorf("failed to run migrations: %w", err))
+			return captureMigrationFailure(m, fmt.Errorf("failed to run migrations: %w", safeUpErr), secrets...)
 		}
 	}
 
 	// Get current version after migration
 	version, dirty, err := m.Version()
 	if err != nil && err != migrate.ErrNilVersion {
-		return captureMigrationFailure(m, fmt.Errorf("failed to get migration version: %w", err))
+		safeErr := sanitizeMigrationErr(err, secrets...)
+		return captureMigrationFailure(m, fmt.Errorf("failed to get migration version: %w", safeErr), secrets...)
 	}
 
 	setMigrationState(version, dirty, "", true)
@@ -300,26 +426,38 @@ func recoverFromDirtyState(ctx context.Context, m *migrate.Migrate, dirtyVersion
 
 // GetMigrationVersion returns the current migration version
 func GetMigrationVersion() (uint, bool, error) {
-	dbURL := fmt.Sprintf(
-		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_NAME"),
-	)
+	dbUser := strings.TrimRight(os.Getenv("DB_USER"), "\r\n")
+	dbPass := os.Getenv("DB_PASSWORD")
+	dbHost := strings.TrimSpace(os.Getenv("DB_HOST"))
+	dbPort := strings.TrimSpace(os.Getenv("DB_PORT"))
+	dbName := strings.TrimSpace(os.Getenv("DB_NAME"))
+
+	host := dbHost
+	if dbPort != "" {
+		host = net.JoinHostPort(dbHost, dbPort)
+	}
+	u := &url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(dbUser, dbPass),
+		Host:     host,
+		Path:     "/" + strings.TrimPrefix(dbName, "/"),
+		RawQuery: "sslmode=disable",
+	}
+	dbURL := u.String()
+	secrets := extractDSNSecrets(dbURL, dbPass)
 
 	migrationsPath := "file://migrations/versioned"
 
 	m, err := migrate.New(migrationsPath, dbURL)
 	if err != nil {
-		return 0, false, fmt.Errorf("failed to create migrate instance: %w", err)
+		safeErr := sanitizeMigrationErr(err, secrets...)
+		return 0, false, fmt.Errorf("failed to create migrate instance: %w", safeErr)
 	}
 	defer m.Close()
 
 	version, dirty, err := m.Version()
 	if err != nil {
-		return 0, false, err
+		return 0, false, sanitizeMigrationErr(err, secrets...)
 	}
 
 	return version, dirty, nil
