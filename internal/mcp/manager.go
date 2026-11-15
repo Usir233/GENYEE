@@ -74,24 +74,49 @@ func NewMCPManager(oauthRepo interfaces.MCPOAuthRepository) *MCPManager {
 // keyed per principal (each identity connects with its own token); all other
 // services share a single connection per service ID.
 func cacheKey(service *types.MCPService, principal types.Principal) string {
+	return tenantCacheKey(service, service.TenantID, principal)
+}
+
+// principalCacheKey is the cache key of one principal's connection to an
+// OAuth service when no explicit tenant scope is recorded.
+func principalCacheKey(serviceID string, principal types.Principal) string {
+	return serviceID + "\x00" + principal.StorageID()
+}
+
+func tenantPrincipalCacheKey(serviceID string, tenantID uint64, principal types.Principal) string {
+	if tenantID == 0 {
+		return principalCacheKey(serviceID, principal)
+	}
+	return fmt.Sprintf("%s\x00%d\x00%s", serviceID, tenantID, principal.StorageID())
+}
+
+func tenantCacheKey(service *types.MCPService, tenantID uint64, principal types.Principal) string {
 	if service.AuthConfig.IsOAuth() {
-		return principalCacheKey(service.ID, principal)
+		return tenantPrincipalCacheKey(service.ID, tenantID, principal)
+	}
+	if service.IsBuiltin && tenantID != 0 {
+		return fmt.Sprintf("%s\x00tenant:%d", service.ID, tenantID)
 	}
 	return service.ID
 }
 
-// principalCacheKey is the cache key of one principal's connection to an
-// OAuth service.
-func principalCacheKey(serviceID string, principal types.Principal) string {
-	return serviceID + "\x00" + principal.StorageID()
+func matchesPrincipalCacheKey(key, serviceID string, principal types.Principal) bool {
+	storageID := principal.StorageID()
+	if storageID == "" {
+		return false
+	}
+	if key == principalCacheKey(serviceID, principal) {
+		return true
+	}
+	return strings.HasPrefix(key, serviceID+"\x00") && strings.HasSuffix(key, "\x00"+storageID)
 }
 
 // GetOrCreateClient gets an existing client or creates a new one
 // Caches and reuses existing connections for SSE/HTTP Streamable
 // Note: Stdio transport is disabled for security reasons
 //
-// For OAuth-enabled services the connection is keyed per principal (derived from
-// ctx) so each identity connects with its own token.
+// For OAuth-enabled services the connection is keyed per (tenant, principal)
+// so each workspace identity connects with its own token.
 func (m *MCPManager) GetOrCreateClient(ctx context.Context, service *types.MCPService) (MCPClient, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -106,17 +131,23 @@ func (m *MCPManager) GetOrCreateClient(ctx context.Context, service *types.MCPSe
 		return nil, fmt.Errorf("stdio transport is disabled for security reasons; please use SSE or HTTP Streamable transport instead")
 	}
 
-	var tenantID uint64
+	ctxTenantID, _ := types.TenantIDFromContext(ctx)
+	if !service.IsBuiltin && service.TenantID != 0 && ctxTenantID != 0 && ctxTenantID != service.TenantID {
+		return nil, fmt.Errorf("MCP service %s does not belong to tenant %d", service.ID, ctxTenantID)
+	}
+	tenantID := ctxTenantID
+	if tenantID == 0 {
+		tenantID = service.TenantID
+	}
+
 	var principal types.Principal
 	if service.AuthConfig.IsOAuth() {
-		tenantID, _ = types.TenantIDFromContext(ctx)
-		principal, _ = types.PrincipalFromContext(ctx)
 		principal = types.MCPOAuthPrincipalFromContext(ctx)
 		if !principal.Valid() {
 			return nil, fmt.Errorf("principal context is required to connect to OAuth MCP service %s", service.Name)
 		}
 	}
-	key := cacheKey(service, principal)
+	key := tenantCacheKey(service, tenantID, principal)
 
 	var retired MCPClient
 	m.clientsMu.Lock()
@@ -277,11 +308,35 @@ func (m *MCPManager) CloseClient(serviceID string) error {
 // they have in flight are not canceled. A service without OAuth shares one
 // connection that carries no per-user credential; it is left alone.
 func (m *MCPManager) CloseClientForPrincipal(serviceID string, principal types.Principal) error {
+	principal = principal.Normalize()
 	if serviceID == "" || !principal.Valid() {
 		return nil
 	}
 	detached := make(map[string]MCPClient)
 	m.clientsMu.Lock()
+	for key := range m.connecting {
+		if matchesPrincipalCacheKey(key, serviceID, principal) {
+			m.detachLocked(key, detached)
+		}
+	}
+	for key := range m.clients {
+		if matchesPrincipalCacheKey(key, serviceID, principal) {
+			m.detachLocked(key, detached)
+		}
+	}
+	m.clientsMu.Unlock()
+	m.disconnectDetached(serviceID, detached)
+	return nil
+}
+
+func (m *MCPManager) closeClientForTenantPrincipal(serviceID string, tenantID uint64, principal types.Principal) error {
+	principal = principal.Normalize()
+	if serviceID == "" || !principal.Valid() {
+		return nil
+	}
+	detached := make(map[string]MCPClient)
+	m.clientsMu.Lock()
+	m.detachLocked(tenantPrincipalCacheKey(serviceID, tenantID, principal), detached)
 	m.detachLocked(principalCacheKey(serviceID, principal), detached)
 	m.clientsMu.Unlock()
 	m.disconnectDetached(serviceID, detached)
@@ -314,13 +369,14 @@ func (m *MCPManager) CloseClientForPrincipal(serviceID string, principal types.P
 func (m *MCPManager) CloseClientsAfterAuthorization(
 	ctx context.Context, tenantID uint64, serviceID string, principal types.Principal,
 ) error {
+	principal = principal.Normalize()
 	if serviceID == "" {
 		return nil
 	}
 	if m.oauthRepo == nil {
 		// Without the repository no OAuth connection can be built, so there is
 		// no registration to compare against.
-		return m.CloseClientForPrincipal(serviceID, principal)
+		return m.closeClientForTenantPrincipal(serviceID, tenantID, principal)
 	}
 	registration, err := m.oauthRepo.GetClient(ctx, tenantID, serviceID)
 	if err != nil && ctx.Err() != nil {
@@ -328,7 +384,7 @@ func (m *MCPManager) CloseClientsAfterAuthorization(
 			"Failed to read MCP OAuth client registration service=%s, closing only principal=%s: %v",
 			serviceID, principal.StorageID(), err,
 		)
-		return m.CloseClientForPrincipal(serviceID, principal)
+		return m.closeClientForTenantPrincipal(serviceID, tenantID, principal)
 	}
 	if err != nil {
 		logger.GetLogger(ctx).Warnf(
@@ -344,6 +400,7 @@ func (m *MCPManager) CloseClientsAfterAuthorization(
 	detached := make(map[string]MCPClient)
 	m.clientsMu.Lock()
 	if principal.Valid() {
+		m.detachLocked(tenantPrincipalCacheKey(serviceID, tenantID, principal), detached)
 		m.detachLocked(principalCacheKey(serviceID, principal), detached)
 	}
 	for key, client := range m.clients {

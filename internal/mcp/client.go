@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -203,6 +204,16 @@ func NewMCPClient(config *ClientConfig) (MCPClient, error) {
 	if config == nil || config.Service == nil {
 		return nil, fmt.Errorf("MCP client config and service are required")
 	}
+	cfgCopy := *config
+	config = &cfgCopy
+	if !config.Service.IsBuiltin && config.Service.TenantID != 0 {
+		if config.TenantID != 0 && config.TenantID != config.Service.TenantID {
+			return nil, fmt.Errorf("MCP service %s does not belong to tenant %d", config.Service.ID, config.TenantID)
+		}
+		if config.TenantID == 0 {
+			config.TenantID = config.Service.TenantID
+		}
+	}
 	if err := ValidateServiceOutboundURLs(config.Service); err != nil {
 		return nil, err
 	}
@@ -213,7 +224,26 @@ func NewMCPClient(config *ClientConfig) (MCPClient, error) {
 	clientCfg := secutils.DefaultSSRFSafeHTTPClientConfig()
 	clientCfg.SameOriginRedirectsOnly = true
 	clientCfg.Timeout = timeout
-	httpClient := secutils.NewSSRFSafeHTTPClient(clientCfg)
+	baseHTTPClient := secutils.NewSSRFSafeHTTPClient(clientCfg)
+	baseTransport := baseHTTPClient.Transport
+
+	var pinnedOrigin *url.URL
+	if config.Service.URL != nil && strings.TrimSpace(*config.Service.URL) != "" {
+		parsedOrigin, parseErr := url.Parse(strings.TrimSpace(*config.Service.URL))
+		if parseErr != nil {
+			return nil, fmt.Errorf("invalid MCP service URL: %w", parseErr)
+		}
+		pinnedOrigin = parsedOrigin
+	}
+
+	httpClient := *baseHTTPClient
+	httpClient.Transport = newTransportGuardRoundTripper(
+		baseTransport,
+		pinnedOrigin,
+		func() int64 { return maxMCPResponseBytes },
+		func() int64 { return maxMCPSSEEventBytes },
+		nil,
+	)
 
 	// Build headers
 	headers := make(map[string]string)
@@ -225,8 +255,9 @@ func NewMCPClient(config *ClientConfig) (MCPClient, error) {
 	// Build OAuth config when this service uses the OAuth strategy. The
 	// client_id comes from the dynamically-registered client persisted at
 	// authorization time; the token store loads the invoking user's token
-	// and transparently refreshes it.
-	oauthConfig, useOAuth, err := buildOAuthConfig(config, httpClient)
+	// and transparently refreshes it. OAuth talks to the authorization server
+	// (which may live on a distinct origin from the MCP resource server).
+	oauthConfig, useOAuth, err := buildOAuthConfig(config, newOAuthHTTPClientWithTimeout(timeout))
 	if err != nil {
 		return nil, err
 	}
@@ -239,10 +270,18 @@ func NewMCPClient(config *ClientConfig) (MCPClient, error) {
 			return nil, fmt.Errorf("URL is required for SSE transport")
 		}
 		// SSE keeps its GET response body open for the connection lifetime.
-		// OAuth retains the bounded HTTP client; SSE bounds startup and RPCs
-		// separately without putting an expiration on the event stream.
-		sseHTTPClient := *httpClient
+		// OAuth retains the bounded HTTP client; SSE bounds startup, single
+		// events, and RPCs separately without expiring a healthy stream.
+		sseConn := &boundedSSEConnection{timeout: timeout, baseURL: pinnedOrigin}
+		sseHTTPClient := *baseHTTPClient
 		sseHTTPClient.Timeout = 0
+		sseHTTPClient.Transport = newTransportGuardRoundTripper(
+			baseTransport,
+			pinnedOrigin,
+			func() int64 { return maxMCPResponseBytes },
+			func() int64 { return maxMCPSSEEventBytes },
+			sseConn.abort,
+		)
 		options := []transport.ClientOption{
 			transport.WithHTTPClient(&sseHTTPClient),
 			transport.WithHeaders(headers),
@@ -256,13 +295,14 @@ func NewMCPClient(config *ClientConfig) (MCPClient, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create SSE client: %w", err)
 		}
-		connection = &boundedSSEConnection{SSE: sse, timeout: timeout}
+		sseConn.SSE = sse
+		connection = sseConn
 	case types.MCPTransportHTTPStreamable:
 		if config.Service.URL == nil || *config.Service.URL == "" {
 			return nil, fmt.Errorf("URL is required for HTTP Streamable transport")
 		}
 		options := []transport.StreamableHTTPCOption{
-			transport.WithHTTPBasicClient(httpClient),
+			transport.WithHTTPBasicClient(&httpClient),
 			transport.WithHTTPHeaders(headers),
 		}
 		if useOAuth {
@@ -295,6 +335,7 @@ func NewMCPClient(config *ClientConfig) (MCPClient, error) {
 			*config.Service.URL,
 			oauthConfig,
 		)
+		instance.oauth.enforceOutboundPolicy = true
 	}
 	probeConfig := *config
 	instance.newProbe = func() (*mcpGoClient, error) {

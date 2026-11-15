@@ -37,6 +37,15 @@ var (
 	// ErrToolCallOutcomeUnknown means a call was attempted but its response
 	// does not establish whether the server executed the tool.
 	ErrToolCallOutcomeUnknown = errors.New("MCP tool execution outcome is unknown")
+
+	// ErrMCPResponseTooLarge is returned when an MCP HTTP response or SSE event
+	// exceeds the configured maximum byte size.
+	ErrMCPResponseTooLarge = errors.New("MCP response exceeds maximum allowed size")
+)
+
+var (
+	maxMCPResponseBytes int64 = 16 << 20
+	maxMCPSSEEventBytes int64 = 16 << 20
 )
 
 // IsToolCallRetrySafe identifies rejections before tool execution. A missing

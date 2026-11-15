@@ -61,13 +61,14 @@ func (e *OAuthRefreshTemporaryError) Error() string {
 func (e *OAuthRefreshTemporaryError) Unwrap() error { return e.Err }
 
 type oauthRuntime struct {
-	repo          interfaces.MCPOAuthRepository
-	tenantID      uint64
-	principal     types.Principal
-	serviceID     string
-	clientID      string
-	handler       *transport.OAuthHandler
-	leaseDuration time.Duration
+	repo                  interfaces.MCPOAuthRepository
+	tenantID              uint64
+	principal             types.Principal
+	serviceID             string
+	clientID              string
+	handler               *transport.OAuthHandler
+	leaseDuration         time.Duration
+	enforceOutboundPolicy bool
 }
 
 func newOAuthRuntime(
@@ -218,6 +219,9 @@ func (r *oauthRuntime) refreshAsLeaseOwner(
 	if handler == nil {
 		handler = r.handler
 	}
+	if metaErr := r.validateRefreshMetadata(ctx, handler); metaErr != nil {
+		return &OAuthRefreshTemporaryError{Err: metaErr}
+	}
 	refreshed, refreshErr := handler.RefreshToken(ctx, current.RefreshToken)
 	if refreshErr == nil && refreshed != nil && refreshed.AccessToken != "" {
 		logger.GetLogger(ctx).Infof("MCP OAuth token refreshed: service=%s principal=%s", r.serviceID, r.principal.StorageID())
@@ -231,6 +235,22 @@ func (r *oauthRuntime) refreshAsLeaseOwner(
 		return r.invalidateToken(ctx, resetClient, "the refresh token or OAuth client is no longer valid")
 	}
 	return &OAuthRefreshTemporaryError{Err: refreshErr}
+}
+
+func (r *oauthRuntime) validateRefreshMetadata(ctx context.Context, handler *transport.OAuthHandler) error {
+	if r.enforceOutboundPolicy {
+		_, err := validateOAuthServerMetadata(ctx, handler, false, true, false)
+		return err
+	}
+	metadata, err := handler.GetServerMetadata(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get authorization server metadata: %w", err)
+	}
+	if metadata == nil {
+		return fmt.Errorf("%w: empty authorization server metadata", ErrInvalidOAuthEndpoint)
+	}
+	_, err = validateOAuthEndpointSyntax(metadata.TokenEndpoint, "token_endpoint")
+	return err
 }
 
 func oauthTokenMaterialChanged(current, observed *types.MCPOAuthToken) bool {

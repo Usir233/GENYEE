@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"mime"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -55,27 +58,37 @@ func ValidateServiceOutboundURLs(service *types.MCPService) error {
 	return nil
 }
 
+// validateOAuthEndpointSyntax ensures an OAuth endpoint URL uses strictly
+// http/https without embedded credentials, fragments, or control characters.
+func validateOAuthEndpointSyntax(rawURL, fieldName string) (string, error) {
+	trimmed := strings.TrimSpace(rawURL)
+	if trimmed == "" {
+		return "", fmt.Errorf("%w: %s is empty", ErrInvalidOAuthEndpoint, fieldName)
+	}
+	if strings.ContainsAny(trimmed, "\\\r\n\t") {
+		return "", fmt.Errorf("%w: %s contains invalid control characters", ErrInvalidOAuthEndpoint, fieldName)
+	}
+	parsed, err := url.Parse(trimmed)
+	if err != nil {
+		return "", fmt.Errorf("%w: malformed %s: %v", ErrInvalidOAuthEndpoint, fieldName, err)
+	}
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return "", fmt.Errorf("%w: %s must use http or https scheme, got %q", ErrInvalidOAuthEndpoint, fieldName, parsed.Scheme)
+	}
+	if parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" {
+		return "", fmt.Errorf("%w: %s must have a valid host without userinfo or fragment", ErrInvalidOAuthEndpoint, fieldName)
+	}
+	return trimmed, nil
+}
+
 // ValidateOAuthEndpointURL ensures an OAuth endpoint URL discovered from remote
 // metadata (or returned as authorization_url) uses strictly http/https without
 // embedded credentials/fragments and passes SSRF validation.
 func ValidateOAuthEndpointURL(rawURL, fieldName string) error {
-	trimmed := strings.TrimSpace(rawURL)
-	if trimmed == "" {
-		return fmt.Errorf("%w: %s is empty", ErrInvalidOAuthEndpoint, fieldName)
-	}
-	if strings.ContainsAny(trimmed, "\\\r\n\t") {
-		return fmt.Errorf("%w: %s contains invalid control characters", ErrInvalidOAuthEndpoint, fieldName)
-	}
-	parsed, err := url.Parse(trimmed)
+	trimmed, err := validateOAuthEndpointSyntax(rawURL, fieldName)
 	if err != nil {
-		return fmt.Errorf("%w: malformed %s: %v", ErrInvalidOAuthEndpoint, fieldName, err)
-	}
-	scheme := strings.ToLower(parsed.Scheme)
-	if scheme != "http" && scheme != "https" {
-		return fmt.Errorf("%w: %s must use http or https scheme, got %q", ErrInvalidOAuthEndpoint, fieldName, parsed.Scheme)
-	}
-	if parsed.Hostname() == "" || parsed.User != nil || parsed.Fragment != "" {
-		return fmt.Errorf("%w: %s must have a valid host without userinfo or fragment", ErrInvalidOAuthEndpoint, fieldName)
+		return err
 	}
 	if err := secutils.ValidateURLForSSRF(trimmed); err != nil {
 		return fmt.Errorf("%w: %s failed SSRF validation: %v", ErrInvalidOAuthEndpoint, fieldName, err)
@@ -228,4 +241,202 @@ func isLoopbackOAuthHost(host string) bool {
 	}
 	ip := net.ParseIP(h)
 	return ip != nil && ip.IsLoopback()
+}
+
+func validatePinnedTransportURL(target, base *url.URL) error {
+	if target == nil || base == nil {
+		return fmt.Errorf("missing MCP transport target URL")
+	}
+	scheme := strings.ToLower(target.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("MCP transport target must use http or https scheme, got %q", target.Scheme)
+	}
+	if target.User != nil || target.Fragment != "" || strings.ContainsAny(target.String(), "\\\r\n\t") {
+		return fmt.Errorf("MCP transport target must not contain userinfo, fragment, or control characters")
+	}
+	if !sameHTTPOriginURL(target, base) {
+		return fmt.Errorf("MCP transport target origin does not match configured service origin")
+	}
+	return nil
+}
+
+type transportGuardRoundTripper struct {
+	base          http.RoundTripper
+	pinnedOrigin  *url.URL
+	maxBodyBytes  func() int64
+	maxSSEBytes   func() int64
+	onStreamAbort func(error)
+}
+
+func newTransportGuardRoundTripper(
+	base http.RoundTripper,
+	pinnedOrigin *url.URL,
+	maxBodyBytes func() int64,
+	maxSSEBytes func() int64,
+	onStreamAbort func(error),
+) http.RoundTripper {
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	return &transportGuardRoundTripper{
+		base:          base,
+		pinnedOrigin:  pinnedOrigin,
+		maxBodyBytes:  maxBodyBytes,
+		maxSSEBytes:   maxSSEBytes,
+		onStreamAbort: onStreamAbort,
+	}
+}
+
+func (g *transportGuardRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	if g.pinnedOrigin != nil {
+		if err := validatePinnedTransportURL(req.URL, g.pinnedOrigin); err != nil {
+			return nil, err
+		}
+	}
+	resp, err := g.base.RoundTrip(req)
+	if err != nil || resp == nil || resp.Body == nil {
+		return resp, err
+	}
+	if isEventStreamResponse(resp) {
+		if g.maxSSEBytes != nil {
+			if limit := g.maxSSEBytes(); limit > 0 {
+				resp.Body = newSSEBoundedReadCloser(resp.Body, limit, g.onStreamAbort)
+			}
+		}
+		return resp, nil
+	}
+	if g.maxBodyBytes != nil {
+		if limit := g.maxBodyBytes(); limit > 0 {
+			if resp.ContentLength > limit {
+				_ = resp.Body.Close()
+				return nil, fmt.Errorf("%w: content-length %d exceeds %d bytes", ErrMCPResponseTooLarge, resp.ContentLength, limit)
+			}
+			resp.Body = newBoundedReadCloser(resp.Body, limit)
+		}
+	}
+	return resp, nil
+}
+
+func isEventStreamResponse(resp *http.Response) bool {
+	ct := strings.TrimSpace(resp.Header.Get("Content-Type"))
+	if ct == "" {
+		return false
+	}
+	mediaType, _, err := mime.ParseMediaType(ct)
+	if err != nil {
+		return strings.HasPrefix(strings.ToLower(ct), "text/event-stream")
+	}
+	return strings.EqualFold(mediaType, "text/event-stream")
+}
+
+type boundedReadCloser struct {
+	rc    io.ReadCloser
+	limit int64
+	read  int64
+}
+
+func newBoundedReadCloser(rc io.ReadCloser, limit int64) io.ReadCloser {
+	return &boundedReadCloser{rc: rc, limit: limit}
+}
+
+func (b *boundedReadCloser) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return b.rc.Read(p)
+	}
+	remaining := b.limit - b.read
+	if remaining < 0 {
+		return 0, fmt.Errorf("%w: HTTP response exceeds %d bytes", ErrMCPResponseTooLarge, b.limit)
+	}
+	maxRead := remaining + 1
+	if int64(len(p)) > maxRead {
+		p = p[:maxRead]
+	}
+	n, err := b.rc.Read(p)
+	b.read += int64(n)
+	if b.read > b.limit {
+		_ = b.rc.Close()
+		return 0, fmt.Errorf("%w: HTTP response exceeds %d bytes", ErrMCPResponseTooLarge, b.limit)
+	}
+	return n, err
+}
+
+func (b *boundedReadCloser) Close() error {
+	return b.rc.Close()
+}
+
+func readBoundedBody(rc io.Reader, limit int64) ([]byte, error) {
+	lr := io.LimitReader(rc, limit+1)
+	data, err := io.ReadAll(lr)
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("%w: HTTP response exceeds %d bytes", ErrMCPResponseTooLarge, limit)
+	}
+	return data, nil
+}
+
+type sseBoundedReadCloser struct {
+	rc          io.ReadCloser
+	limit       int64
+	onAbort     func(error)
+	lineLen     int64
+	eventBytes  int64
+	lineNonCR   bool
+	lineComment bool
+}
+
+func newSSEBoundedReadCloser(rc io.ReadCloser, limit int64, onAbort func(error)) io.ReadCloser {
+	return &sseBoundedReadCloser{rc: rc, limit: limit, onAbort: onAbort}
+}
+
+func (s *sseBoundedReadCloser) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return s.rc.Read(p)
+	}
+	if int64(len(p)) > s.limit+1 {
+		p = p[:s.limit+1]
+	}
+	n, err := s.rc.Read(p)
+	for i := 0; i < n; i++ {
+		b := p[i]
+		if b == '\n' {
+			if !s.lineNonCR {
+				s.eventBytes = 0
+			} else if !s.lineComment {
+				s.eventBytes += s.lineLen + 1
+				if s.eventBytes > s.limit {
+					return s.fail()
+				}
+			}
+			s.lineLen = 0
+			s.lineNonCR = false
+			s.lineComment = false
+			continue
+		}
+		if s.lineLen == 0 && b == ':' {
+			s.lineComment = true
+		}
+		if b != '\r' {
+			s.lineNonCR = true
+		}
+		s.lineLen++
+		if s.lineLen > s.limit || (!s.lineComment && s.eventBytes+s.lineLen > s.limit) {
+			return s.fail()
+		}
+	}
+	return n, err
+}
+
+func (s *sseBoundedReadCloser) fail() (int, error) {
+	err := fmt.Errorf("%w: SSE event exceeds %d bytes", ErrMCPResponseTooLarge, s.limit)
+	_ = s.rc.Close()
+	if s.onAbort != nil {
+		s.onAbort(err)
+	}
+	return 0, err
+}
+
+func (s *sseBoundedReadCloser) Close() error {
+	return s.rc.Close()
 }

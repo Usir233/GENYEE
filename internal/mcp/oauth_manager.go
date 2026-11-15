@@ -81,13 +81,28 @@ func (m *OAuthManager) newHandler(
 }
 
 // newOAuthHTTPClient builds the client for every request sent to an
-// authorization server: addresses are checked against SSRF rules when dialing
-// and only same-origin redirects are followed.
+// authorization server: addresses are checked against SSRF rules when dialing,
+// only same-origin redirects are followed, and response bodies are bounded.
 func newOAuthHTTPClient() *http.Client {
+	return newOAuthHTTPClientWithTimeout(30 * time.Second)
+}
+
+func newOAuthHTTPClientWithTimeout(timeout time.Duration) *http.Client {
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
 	httpCfg := secutils.DefaultSSRFSafeHTTPClientConfig()
 	httpCfg.SameOriginRedirectsOnly = true
-	httpCfg.Timeout = 30 * time.Second
-	return secutils.NewSSRFSafeHTTPClient(httpCfg)
+	httpCfg.Timeout = timeout
+	c := secutils.NewSSRFSafeHTTPClient(httpCfg)
+	c.Transport = newTransportGuardRoundTripper(
+		c.Transport,
+		nil,
+		func() int64 { return maxTokenResponseBytes },
+		nil,
+		nil,
+	)
+	return c
 }
 
 // preRegisteredClient returns the OAuth client an administrator registered

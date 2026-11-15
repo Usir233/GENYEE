@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"context"
+	"net/url"
 	"sync"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 type boundedSSEConnection struct {
 	*transport.SSE
 	timeout time.Duration
+	baseURL *url.URL
 	mu      sync.Mutex
 	cancel  context.CancelCauseFunc
 }
@@ -33,10 +35,25 @@ func (c *boundedSSEConnection) Start(ctx context.Context) error {
 	if cause := context.Cause(lifetime); cause != nil {
 		err = cause
 	}
+	if err == nil && c.baseURL != nil {
+		if epErr := validatePinnedTransportURL(c.SSE.GetEndpoint(), c.baseURL); epErr != nil {
+			err = epErr
+			_ = c.SSE.Close()
+		}
+	}
 	if err != nil {
 		cancel(err)
 	}
 	return err
+}
+
+func (c *boundedSSEConnection) abort(cause error) {
+	c.mu.Lock()
+	cancel := c.cancel
+	c.mu.Unlock()
+	if cancel != nil {
+		cancel(cause)
+	}
 }
 
 func (c *boundedSSEConnection) SendRequest(

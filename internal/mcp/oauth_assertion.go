@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -143,7 +142,7 @@ func requestToken(
 		return nil, fmt.Errorf("failed to send token request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxTokenResponseBytes))
+	body, err := readBoundedBody(resp.Body, maxTokenResponseBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read token response: %w", err)
 	}
