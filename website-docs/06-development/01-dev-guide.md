@@ -230,7 +230,7 @@ make lint            # go vet
 
 ### tests/ 目录与前端测试 {#_4-4-tests-目录与前端测试}
 
-- `tests/miniprogram/miniprogram.test.js` — 小程序客户端的集成测试（Node 测试脚本），是 `tests/` 目前唯一内容；
+- `tests/` — 端到端（`e2e/`）、安全回归（`adversarial/`）与压力测试（`stress/`）等 Python 专项测试脚本；
 - 前端：`cd frontend && npm run type-check`（vue-tsc）与 `npm test`（`tsx --test`，Node test runner）。
 
 ## 代码规范与提交流程 {#_5-代码规范与提交流程}

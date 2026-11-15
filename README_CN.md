@@ -183,7 +183,7 @@ docker compose up -d    # 用新镜像重建容器
 - **v0.6.2** —— 按批次解析配置（`process_config`）+ 上传确认对话框；文档重新解析（reparse）支持覆盖配置；`genyee` CLI v0.9（内置 Agent Skills、`session stop`、auth/profile 统一）；知识库框选多选；pgvector 1024 维 HNSW 索引；对话资源 Store 重构；仅保留 Langfuse 追踪（移除 Jaeger）。
 - **v0.6.1** —— 文档解析追踪时间线（Langfuse 风格 Span 树，逐阶段进度展示 + 解析中止）；OpenSearch 向量库驱动；YAML 声明式内置模型配置；系统管理员与统一平台设置 + 审计日志；新用户引导；设置页 UI 重构；`genyee` CLI v0.7 / v0.8（Agent 优先线协议、NDJSON、`--dry-run`）；OpenDataLoader 与 PaddleOCR-VL 解析引擎；MCP Server 多传输（stdio / SSE / HTTP）；按模型的思考模式配置；腾讯云 LKEAP 重排 + 原生 Gemini Embedding + MiniMax-M3。
 - **v0.6.0** —— 空间 RBAC（四级角色矩阵 `Owner` / `Admin` / `Contributor` / `Viewer` + 按 KB 归属 + 每空间审计日志）、空间成员管理与多工作区 UX、自助创建工作区；`genyee` CLI v0.4 正式版 + `mcp serve`；KB 检索跨向量库扇出；MCP / 数据源凭据 AES-256-GCM 加密 + docreader gRPC TLS + Token；新增智谱 Embedding 与华为云 OBS；服务端用户偏好；Go 1.26.0。详见[多租户与认证](./website-docs/03-features/01-tenant-auth.md)。
-- **v0.5.2** —— Wiki 入库支撑万级文档知识库（任务队列 + 死信队列）；MCP 工具人机审批；Anthropic / Apache Doris / 腾讯云 VectorDB / 金山云 KS3 / SearXNG 后端；自适应三层分块 + 实时调试面板；全局 ⌘K 命令面板；语雀连接器 + 微信小程序；`genyee` CLI 早期版本。
+- **v0.5.2** —— Wiki 入库支撑万级文档知识库（任务队列 + 死信队列）；MCP 工具人机审批；Anthropic / Apache Doris / 腾讯云 VectorDB / 金山云 KS3 / SearXNG 后端；自适应三层分块 + 实时调试面板；全局 ⌘K 命令面板；语雀连接器；`genyee` CLI 早期版本。
 - **v0.5.1** —— 知识库批量管理；空间级 IM 频道总览；会话搜索 + 用户级置顶；模型 / 网页搜索 / MCP 统一卡片化设置；按 Agent LLM 调用超时；桌面端空间切换。
 - **v0.5.0** —— Wiki 模式正式版 —— Agent 从原始文档自治生成结构化、相互链接的 Markdown Wiki 页面及知识图谱；Wiki 浏览器 + 可视化图谱。
 - **v0.4.0** —— GENYEE Cloud（托管模型 + 解析）；Chrome 插件；ClawHub Skill；微信 IM；附件处理；Azure OpenAI / 阿里云 OSS；Notion 连接器；百度 + Ollama 网页搜索；VectorStore 管理。
@@ -310,7 +310,6 @@ docker compose up -d    # 用新镜像重建容器
 |:-:|--------|------|
 | <img src="./docs/images/readme/icons/plug.svg" width="22" height="22" alt=""> | [**内置 MCP Server**](./website-docs/03-features/08-mcp.md) | 通过 Streamable HTTP 把知识库开放给 Cursor、Claude 等 MCP 客户端；[`mcp-server/`](./mcp-server/MCP_CONFIG.md) 下的 Python 服务已弃用 |
 | <img src="./website-docs/homepage/public/docs/_home/brands/browserskill.png" width="22" height="22" alt=""> | [**本地浏览器（BrowserSkill）**](./website-docs/05-clients/09-local-browser.md) | 让智能体操作用户自己的 Chrome / Edge |
-| <img src="./docs/images/readme/icons/phone.svg" width="22" height="22" alt=""> | [**微信小程序**](./miniprogram/README.md) | 轻量移动端：配置 GENYEE API、选择知识库、导入 URL，并在微信内向知识库提问 |
 | <img src="./website-docs/homepage/public/docs/_home/brands/deepseek-color.svg" width="22" height="22" alt=""> | [**DeepSeek Harness 插件**](./website-docs/05-clients/08-deepseek-harness.md) | 为 `dsh` 编码 Agent 提供四个只读工具：检索、读取文档、提问、列出知识库 |
 | <img src="./docs/images/readme/icons/code.svg" width="22" height="22" alt=""> | [**网站嵌入 Widget**](./website-docs/03-features/13-embed-channel.md) | 将智能体发布到外部站点 |
 | <img src="./docs/images/readme/icons/braces.svg" width="22" height="22" alt=""> | [**Go SDK**](./website-docs/05-clients/03-go-sdk.md) | 知识库、文档、会话等资源的 CRUD 与 SSE 流式问答 |

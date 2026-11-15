@@ -183,7 +183,7 @@ docker compose up -d    # 新しいイメージでコンテナを再作成
 - **v0.6.2** — アップロード単位の解析設定（`process_config`）+ アップロード確認ダイアログ；reparse 時の設定上書き；`genyee` CLI v0.9（同梱 Agent Skills、`session stop`、auth/profile 統合）；KB マーキー複数選択；pgvector 1024 次元 HNSW インデックス；チャットリソース Store 刷新；Langfuse のみのトレーシング（Jaeger 削除）。
 - **v0.6.1** — ドキュメント解析トレースタイムライン（Langfuse 風の Span ツリー、ステージごとの進捗表示 + 解析中止）；OpenSearch ベクター DB ドライバー；YAML 宣言型ビルトインモデル設定；システム管理者と統合プラットフォーム設定 + 監査ログ；新規ユーザーオンボーディングガイド；設定 UI 刷新；`genyee` CLI v0.7 / v0.8（Agent ファースト ワイヤープロトコル、NDJSON、`--dry-run`）；OpenDataLoader と PaddleOCR-VL 解析エンジン；MCP サーバーのマルチトランスポート（stdio / SSE / HTTP）；モデル単位の思考モード設定；Tencent LKEAP リランク + ネイティブ Gemini Embedding + MiniMax-M3。
 - **v0.6.0** — テナント RBAC（4 階層ロールマトリクス `Owner` / `Admin` / `Contributor` / `Viewer` + KB 単位の所有 + テナントごとの監査ログ）、テナントメンバー管理とマルチワークスペース UX、セルフサービスでのワークスペース作成；`genyee` CLI v0.4 GA + `mcp serve`；KB 検索の複数ベクター DB ファンアウト；MCP / データソース資格情報の AES-256-GCM 暗号化 + docreader gRPC TLS + Token；Zhipu Embedder と華為雲 OBS の追加；サーバーサイドユーザー設定；Go 1.26.0。詳細は[テナントと認証](./website-docs/03-features/01-tenant-auth.md)（中国語）を参照。
-- **v0.5.2** — Wiki インジェストが万件規模 KB に対応（タスクキュー + DLQ）；MCP 工具人機審批；Anthropic / Apache Doris / Tencent VectorDB / 金山雲 KS3 / SearXNG バックエンド；適応型 3 段階チャンキング + ライブプレビュー；グローバル ⌘K コマンドパレット；Yuque コネクタ + WeChat ミニプログラム；`genyee` CLI プレビュー版。
+- **v0.5.2** — Wiki インジェストが万件規模 KB に対応（タスクキュー + DLQ）；MCP 工具人機審批；Anthropic / Apache Doris / Tencent VectorDB / 金山雲 KS3 / SearXNG バックエンド；適応型 3 段階チャンキング + ライブプレビュー；グローバル ⌘K コマンドパレット；Yuque コネクタ；`genyee` CLI プレビュー版。
 - **v0.5.1** — KB 一括管理；テナント全体の IM チャネル概観；セッション検索 + ユーザー単位ピン留め；モデル / Web 検索 / MCP 統一カード設定；Agent ごとの LLM タイムアウト；デスクトップ版テナント切替。
 - **v0.5.0** — Wiki モード GA — Agent が原文書から構造化・相互リンクされた Markdown Wiki ページとナレッジグラフを自動生成、Wiki ブラウザと可視化グラフを UI に搭載。
 - **v0.4.0** — GENYEE Cloud（ホスティング LLM + 解析）；Chrome 拡張機能；ClawHub Skill；WeChat IM；添付ファイル処理；Azure OpenAI / Alibaba OSS；Notion コネクタ；Baidu + Ollama Web 検索；VectorStore 管理。
@@ -310,7 +310,6 @@ docker compose up -d    # 新しいイメージでコンテナを再作成
 |:-:|------------|------|
 | <img src="./docs/images/readme/icons/plug.svg" width="22" height="22" alt=""> | [**組み込み MCP Server**](./website-docs/03-features/08-mcp.md) | Streamable HTTP でナレッジベースを Cursor、Claude などの MCP クライアントに公開。[`mcp-server/`](./mcp-server/MCP_CONFIG.md) の Python サーバーは非推奨 |
 | <img src="./website-docs/homepage/public/docs/_home/brands/browserskill.png" width="22" height="22" alt=""> | [**ローカルブラウザ（BrowserSkill）**](./website-docs/05-clients/09-local-browser.md) | エージェントがユーザー自身の Chrome / Edge を操作 |
-| <img src="./docs/images/readme/icons/phone.svg" width="22" height="22" alt=""> | [**WeChat ミニプログラム**](./miniprogram/README.md) | 軽量なモバイルクライアント。API の設定、ナレッジベースの選択、URL のインポート、WeChat からのナレッジ Q&A |
 | <img src="./website-docs/homepage/public/docs/_home/brands/deepseek-color.svg" width="22" height="22" alt=""> | [**DeepSeek Harness プラグイン**](./website-docs/05-clients/08-deepseek-harness.md) | `dsh` のコーディングエージェントに 4 つの読み取り専用ツール（検索、ドキュメント読み取り、質問、ナレッジベース一覧）を提供 |
 | <img src="./docs/images/readme/icons/code.svg" width="22" height="22" alt=""> | [**ウェブ埋め込み Widget**](./website-docs/03-features/13-embed-channel.md) | エージェントを外部サイトに公開 |
 | <img src="./docs/images/readme/icons/braces.svg" width="22" height="22" alt=""> | [**Go SDK**](./website-docs/05-clients/03-go-sdk.md) | ナレッジベース・ドキュメント・セッションなどの CRUD と SSE ストリーミング Q&A |
