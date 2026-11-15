@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+
+	"github.com/Usir233/GENYEE/cli/internal/config"
 )
 
 func TestCheckFormatFlags(t *testing.T) {
@@ -272,5 +274,37 @@ func TestResolveDefault_NoEnvNoFlag_UsesDefault(t *testing.T) {
 	o.ResolveDefault(false)
 	if o.Mode != DefaultFormatMode {
 		t.Errorf("no flag + no env must fall back to default %v; got %v", DefaultFormatMode, o.Mode)
+	}
+}
+
+func TestResolveDefault_HonorsConfigDefaultsFormat(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("GENYEE_FORMAT", "")
+
+	cfg := &config.Config{}
+	cfg.Defaults.Format = "text"
+	if err := config.Save(cfg); err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	o := &FormatOptions{}
+	o.ResolveDefault(false)
+	if o.Mode != FormatText {
+		t.Fatalf("expected config defaults.format=text to resolve FormatText, got %q", o.Mode)
+	}
+
+	// --jq promotes a configured text default to JSON so the filter executes.
+	withJQ := &FormatOptions{JQ: ".data"}
+	withJQ.ResolveDefault(false)
+	if withJQ.Mode != FormatJSON {
+		t.Fatalf("expected --jq to promote defaults.format=text to FormatJSON, got %q", withJQ.Mode)
+	}
+
+	// GENYEE_FORMAT env outranks config defaults.format.
+	t.Setenv("GENYEE_FORMAT", "ndjson")
+	envOverride := &FormatOptions{}
+	envOverride.ResolveDefault(false)
+	if envOverride.Mode != FormatNDJSON {
+		t.Fatalf("expected GENYEE_FORMAT=ndjson to outrank defaults.format=text, got %q", envOverride.Mode)
 	}
 }

@@ -93,7 +93,7 @@ func TestDryRunCoverageMatchesExpectation(t *testing.T) {
 
 	var unlisted, wrong []string
 	eachLeafCommand(root, func(c *cobra.Command) {
-		key := strings.TrimPrefix(strings.TrimPrefix(c.CommandPath(), "genyee "), "genyee ")
+		key := strings.TrimPrefix(c.CommandPath(), "genyee ")
 		want, declared := dryRunExpectation[key]
 		if !declared {
 			unlisted = append(unlisted, key)

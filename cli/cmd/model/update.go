@@ -34,6 +34,9 @@ type modelUpdateFlags struct{ displayName, description, baseURL, def bool }
 type UpdateService interface {
 	GetModel(ctx context.Context, id string) (*sdk.Model, error)
 	UpdateModel(ctx context.Context, id string, req *sdk.UpdateModelRequest) (*sdk.Model, error)
+	UpdateModelCredentials(ctx context.Context, id string, req *sdk.ModelCredentialsRequest) (*sdk.CredentialsResponse, error)
+	GetDefaultSettings(ctx context.Context) (*sdk.DefaultSettings, error)
+	UpdateDefaultSettings(ctx context.Context, settings *sdk.DefaultSettings) (*sdk.DefaultSettings, error)
 }
 
 // NewCmdUpdate builds `genyee model update <model-id>` — update a registered
@@ -130,22 +133,7 @@ func modelUpdateHasFlag(o *UpdateOptions) bool {
 }
 
 func runUpdate(ctx context.Context, opts *UpdateOptions, fopts *cmdutil.FormatOptions, svc UpdateService, id string, params map[string]any) error {
-	// Fetch-then-update: UpdateModel is a full PUT, so start from the server's
-	// current state and overlay only what the user changed.
-	cur, err := svc.GetModel(ctx, id)
-	if err != nil {
-		return cmdutil.WrapHTTP(err, "fetch model %s", id)
-	}
-	merged := sdk.ModelParameters{}
-	for k, v := range cur.Parameters {
-		merged[k] = v
-	}
-	for k, v := range params {
-		merged[k] = v
-	}
-	if opts.flags.baseURL {
-		merged["base_url"] = opts.BaseURL
-	}
+	var rotatedKey string
 	if opts.APIKeyStdin {
 		key, err := readStdinTrimmed(opts.StdinReader)
 		if err != nil {
@@ -154,30 +142,73 @@ func runUpdate(ctx context.Context, opts *UpdateOptions, fopts *cmdutil.FormatOp
 		if key == "" {
 			return cmdutil.NewError(cmdutil.CodeInputMissingFlag, "--api-key-stdin requires the key piped to stdin")
 		}
-		merged["api_key"] = key
+		rotatedKey = key
 	}
 
-	req := &sdk.UpdateModelRequest{
-		Name:        cur.Name,
-		DisplayName: cur.DisplayName,
-		Description: cur.Description,
-		Parameters:  merged,
-		IsDefault:   cur.IsDefault,
-	}
-	if opts.flags.displayName {
-		req.DisplayName = opts.DisplayName
-	}
-	if opts.flags.description {
-		req.Description = opts.Description
-	}
-	if opts.flags.def {
-		req.IsDefault = opts.Default
-	}
-
-	updated, err := svc.UpdateModel(ctx, id, req)
+	// Fetch-then-update: UpdateModel is a full PUT, so start from the server's
+	// current state and overlay only what the user changed.
+	cur, err := svc.GetModel(ctx, id)
 	if err != nil {
-		return cmdutil.WrapHTTP(err, "update model %s", id)
+		return cmdutil.WrapHTTP(err, "fetch model %s", id)
 	}
+	if opts.flags.def && !(&sdk.DefaultSettings{}).SetSlotModelID(cur.Type, id) {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("model %s (type %q) does not support workspace --default binding", id, cur.Type))
+	}
+
+	updated := cur
+	hasModelFields := opts.flags.displayName || opts.flags.description || opts.flags.baseURL || len(params) > 0
+	if hasModelFields {
+		merged := sdk.ModelParameters{}
+		for k, v := range cur.Parameters {
+			if k == "api_key" || k == "app_secret" {
+				continue
+			}
+			merged[k] = v
+		}
+		for k, v := range params {
+			merged[k] = v
+		}
+		if opts.flags.baseURL {
+			merged["base_url"] = opts.BaseURL
+		}
+
+		req := &sdk.UpdateModelRequest{
+			Name:        cur.Name,
+			DisplayName: cur.DisplayName,
+			Description: cur.Description,
+			Parameters:  merged,
+		}
+		if opts.flags.displayName {
+			req.DisplayName = opts.DisplayName
+		}
+		if opts.flags.description {
+			req.Description = opts.Description
+		}
+
+		updated, err = svc.UpdateModel(ctx, id, req)
+		if err != nil {
+			return cmdutil.WrapHTTP(err, "update model %s", id)
+		}
+	}
+
+	if opts.APIKeyStdin {
+		if _, err := svc.UpdateModelCredentials(ctx, id, &sdk.ModelCredentialsRequest{APIKey: &rotatedKey}); err != nil {
+			return cmdutil.WrapHTTP(err, "rotate credentials for model %s", id)
+		}
+	}
+
+	if opts.flags.def {
+		targetType := updated.Type
+		if targetType == "" {
+			targetType = cur.Type
+		}
+		if err := applyWorkspaceDefaultModel(ctx, svc, targetType, id, opts.Default); err != nil {
+			return err
+		}
+		updated.IsDefault = opts.Default
+	}
+
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, updated, nil)
 	}

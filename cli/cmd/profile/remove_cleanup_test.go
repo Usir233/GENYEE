@@ -30,3 +30,30 @@ func TestRemoveKeepsProfileWhenCredentialsCannotBeDeleted(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, cfg, saved)
 }
+
+func TestRemoveDeletesOrphanedSecretsWithEmptyRefsAndSkipsEnvRefs(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	_, _ = iostreams.SetForTest(t)
+	store := secrets.NewMemStore()
+	require.NoError(t, store.Set("staging", "access", "orphan-jwt"))
+	require.NoError(t, store.Set("staging", "refresh", "orphan-rfr"))
+	require.NoError(t, store.Set("staging", "api_key", "keep-for-env"))
+
+	cfg := &config.Config{
+		CurrentProfile: "prod",
+		Profiles: map[string]config.Profile{
+			"prod":    {Host: "https://prod.example"},
+			"staging": {Host: "https://staging.example", APIKeyRef: "env:GENYEE_API_KEY"},
+		},
+	}
+	require.NoError(t, config.Save(cfg))
+
+	require.NoError(t, runRemove(&RemoveOptions{}, &cmdutil.FormatOptions{Mode: cmdutil.FormatJSON}, "staging", store, &testutil.ConfirmPrompter{}))
+	_, err := store.Get("staging", "access")
+	require.ErrorIs(t, err, secrets.ErrNotFound)
+	_, err = store.Get("staging", "refresh")
+	require.ErrorIs(t, err, secrets.ErrNotFound)
+	v, err := store.Get("staging", "api_key")
+	require.NoError(t, err)
+	require.Equal(t, "keep-for-env", v)
+}

@@ -1,6 +1,6 @@
 ---
 name: genyee-rag-search
-description: Use when retrieving from or asking questions against a GENYEE knowledge base via the `genyee` (or `genyee`) CLI — and especially when unsure whether to use `chat`, `session ask`, or `search chunks` for a given goal.
+description: Use when retrieving from or asking questions against a GENYEE knowledge base via the `genyee` CLI — and especially when unsure whether to use `chat`, `session ask`, or `search chunks` for a given goal.
 metadata:
   tested_against: v0.10
 ---

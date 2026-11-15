@@ -139,10 +139,12 @@ func (f *FileStore) Delete(profile, key string) error {
 		return err
 	}
 	err = os.Remove(p)
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
-	return err
+	// Best-effort cleanup of `<root>/<profile>` once its last credential file is gone.
+	_ = os.Remove(filepath.Dir(p))
+	return nil
 }
 
 // Ref returns the file:// URI under which a secret would be stored. Path

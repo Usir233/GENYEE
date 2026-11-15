@@ -1,6 +1,6 @@
 ---
 name: genyee-shared
-description: Use when driving a GENYEE RAG server through the `genyee` (or `genyee`) CLI as an agent — authenticating, managing knowledge bases / documents / sessions / agents, running search or chat, or interpreting the CLI's JSON envelopes and exit codes. Read this before any other genyee-* skill.
+description: Use when driving a GENYEE RAG server through the `genyee` CLI as an agent — authenticating, managing knowledge bases / documents / sessions / agents, running search or chat, or interpreting the CLI's JSON envelopes and exit codes. Read this before any other genyee-* skill.
 metadata:
   tested_against: v0.10
 ---

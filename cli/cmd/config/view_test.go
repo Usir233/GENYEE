@@ -2,6 +2,8 @@ package configcmd
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,6 +12,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/config"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/projectlink"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -117,4 +120,45 @@ func TestConfigView_EnvCredentialSurfaced(t *testing.T) {
 	env := runViewJSON(t, networkFreeFactory(t))
 	assert.Contains(t, env.Data.AuthSource, "GENYEE_API_KEY env")
 	assert.Equal(t, "https://env-override.example.com", env.Data.Host, "host must be the env override, not the profile host")
+}
+
+func TestConfigView_GenyeeProfileEnvAndProjectLinkSources(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cfg := &config.Config{
+		CurrentProfile: "prod",
+		Profiles: map[string]config.Profile{
+			"prod":    {Host: "https://prod.example.com"},
+			"staging": {Host: "https://staging.example.com"},
+			"envprof": {Host: "https://env.example.com"},
+		},
+	}
+	cfg.Defaults.Format = "text"
+	require.NoError(t, config.Save(cfg))
+
+	projDir := t.TempDir()
+	prev, err := os.Getwd()
+	require.NoError(t, err)
+	require.NoError(t, os.Chdir(projDir))
+	t.Cleanup(func() { _ = os.Chdir(prev) })
+
+	require.NoError(t, projectlink.Save(filepath.Join(projDir, ".genyee", "project.yaml"), &projectlink.Project{
+		Profile: "staging",
+		KBID:    "11111111-1111-4111-8111-111111111111",
+	}))
+
+	// Project link profile reported accurately.
+	linkEnv := runViewJSON(t, networkFreeFactory(t))
+	assert.Equal(t, "staging", linkEnv.Data.ActiveProfile)
+	assert.Contains(t, linkEnv.Data.ProfileSource, ".genyee/project.yaml")
+	assert.Equal(t, "https://staging.example.com", linkEnv.Data.Host)
+	assert.Equal(t, "text", linkEnv.Data.FormatDefault)
+
+	// GENYEE_PROFILE env reported as "GENYEE_PROFILE env", never "--profile flag".
+	t.Setenv("GENYEE_PROFILE", "envprof")
+	t.Setenv("GENYEE_FORMAT", "ndjson")
+	envView := runViewJSON(t, networkFreeFactory(t))
+	assert.Equal(t, "envprof", envView.Data.ActiveProfile)
+	assert.Equal(t, "GENYEE_PROFILE env", envView.Data.ProfileSource)
+	assert.Equal(t, "https://env.example.com", envView.Data.Host)
+	assert.Equal(t, "ndjson", envView.Data.FormatDefault)
 }

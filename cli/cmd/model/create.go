@@ -63,6 +63,8 @@ type CreateOptions struct {
 type CreateService interface {
 	CreateModel(ctx context.Context, req *sdk.CreateModelRequest) (*sdk.Model, error)
 	ListModelProviders(ctx context.Context, modelType string) ([]sdk.ModelProvider, error)
+	GetDefaultSettings(ctx context.Context) (*sdk.DefaultSettings, error)
+	UpdateDefaultSettings(ctx context.Context, settings *sdk.DefaultSettings) (*sdk.DefaultSettings, error)
 }
 
 // frontendModelType maps the create enum to the server's /models/providers
@@ -149,7 +151,7 @@ else goes through repeatable --param key=value.`,
 				Action: "model.create",
 				// Never echo the API key into the plan (it is read from stdin
 				// precisely so it never lands in argv / history / dry-run output).
-				Args: map[string]any{"name": opts.Name, "type": opts.Type, "source": opts.Source, "provider": opts.Provider},
+				Args: map[string]any{"name": opts.Name, "type": opts.Type, "source": opts.Source, "provider": opts.Provider, "default": opts.Default},
 			}); handled {
 				return err
 			}
@@ -220,6 +222,11 @@ func parseParams(kvs []string) (map[string]any, error) {
 }
 
 func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOptions, svc CreateService, params map[string]any) error {
+	modelType := sdk.ModelType(opts.Type)
+	if opts.Default && !(&sdk.DefaultSettings{}).SetSlotModelID(modelType, "probe") {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("model type %q does not support workspace --default binding", opts.Type))
+	}
 	// Remote models: validate --provider against the server's live provider
 	// catalog for this model type, and default --base-url from it when omitted.
 	// Uses the authoritative /models/providers data (via the SDK) instead of a
@@ -256,20 +263,63 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 	req := &sdk.CreateModelRequest{
 		Name:        opts.Name,
 		DisplayName: opts.DisplayName,
-		Type:        sdk.ModelType(opts.Type),
+		Type:        modelType,
 		Source:      sdk.ModelSource(opts.Source),
 		Description: opts.Description,
 		Parameters:  parameters,
-		IsDefault:   opts.Default,
 	}
 	created, err := svc.CreateModel(ctx, req)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "create model")
 	}
+	if opts.Default {
+		targetType := created.Type
+		if targetType == "" {
+			targetType = modelType
+		}
+		if err := applyWorkspaceDefaultModel(ctx, svc, targetType, created.ID, true); err != nil {
+			return err
+		}
+		created.IsDefault = true
+	}
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, created, nil)
 	}
 	fmt.Fprintf(iostreams.IO.Out, "✓ Created model %q (id: %s, type: %s)\n", created.Name, created.ID, created.Type)
+	return nil
+}
+
+type defaultSettingsService interface {
+	GetDefaultSettings(ctx context.Context) (*sdk.DefaultSettings, error)
+	UpdateDefaultSettings(ctx context.Context, settings *sdk.DefaultSettings) (*sdk.DefaultSettings, error)
+}
+
+func applyWorkspaceDefaultModel(ctx context.Context, svc defaultSettingsService, mt sdk.ModelType, modelID string, makeDefault bool) error {
+	probe := &sdk.DefaultSettings{}
+	if !probe.SetSlotModelID(mt, modelID) {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("model type %q does not support workspace --default binding", mt))
+	}
+	settings, err := svc.GetDefaultSettings(ctx)
+	if err != nil {
+		return cmdutil.WrapHTTP(err, "fetch workspace default settings")
+	}
+	if settings == nil {
+		settings = &sdk.DefaultSettings{}
+	}
+	if makeDefault {
+		settings.SetSlotModelID(mt, modelID)
+		if _, err := svc.UpdateDefaultSettings(ctx, settings); err != nil {
+			return cmdutil.WrapHTTP(err, "set default model %s", modelID)
+		}
+		return nil
+	}
+	if curID, ok := settings.SlotModelID(mt); ok && curID == modelID {
+		settings.SetSlotModelID(mt, "")
+		if _, err := svc.UpdateDefaultSettings(ctx, settings); err != nil {
+			return cmdutil.WrapHTTP(err, "unset default model %s", modelID)
+		}
+	}
 	return nil
 }
 

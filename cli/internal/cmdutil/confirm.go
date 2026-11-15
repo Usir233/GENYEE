@@ -2,6 +2,8 @@ package cmdutil
 
 import (
 	"fmt"
+	"os"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -181,10 +183,31 @@ func confirmGated(p prompt.Prompter, yes, jsonOut bool, verb, what, id, action, 
 }
 
 // Pin the resolved profile so an approved retry cannot fall back to a different
-// default after a one-shot --profile selection.
+// default after a one-shot --profile selection. Skips injection when stateless
+// env auth is active without GENYEE_PROFILE, when argv already specifies
+// --profile, or when the command targets profile-independent global operations
+// (`profile remove`, `auth logout --all`).
 func confirmationRetryArgv(argv []string) []string {
 	if globalProfile == "" || len(argv) == 0 || argv[0] != "genyee" {
 		return argv
+	}
+	if active, _ := EnvCredential(); active && os.Getenv("GENYEE_PROFILE") == "" {
+		return argv
+	}
+	for _, tok := range argv[1:] {
+		if tok == "--profile" || strings.HasPrefix(tok, "--profile=") {
+			return argv
+		}
+	}
+	if len(argv) >= 3 && argv[1] == "profile" && argv[2] == "remove" {
+		return argv
+	}
+	if len(argv) >= 3 && argv[1] == "auth" && argv[2] == "logout" {
+		for _, tok := range argv[3:] {
+			if tok == "--all" || (strings.HasPrefix(tok, "--all=") && tok != "--all=false") {
+				return argv
+			}
+		}
 	}
 	out := []string{argv[0], "--profile", globalProfile}
 	return append(out, argv[1:]...)

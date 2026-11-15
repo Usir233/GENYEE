@@ -80,6 +80,7 @@ user explicitly asked to bind this directory; don't run it as a side effect.`,
 			// rejects identically to the live path. resolveProfile only reads
 			// config; the non-TTY-without-`--kb` check is a flag-shape error.
 			// Same typed errors as runLink (kept there for direct callers).
+			f.IgnoreProjectLink = true
 			if _, err := resolveProfile(f); err != nil {
 				return err
 			}

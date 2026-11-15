@@ -187,13 +187,16 @@ func pickLogoutTargets(opts *LogoutOptions, cfg *config.Config) ([]string, error
 }
 
 // clearProfileSecrets leaves failures visible so configuration references are
-// retained until every referenced credential has been deleted.
+// retained until every stored credential slot has been deleted. Slots backed by
+// an external `env:` reference are skipped; empty refs still call Delete so
+// orphaned secrets left behind by manual edits or partial switches are purged.
 func clearProfileSecrets(store secrets.Store, c config.Profile, name string) error {
 	for _, slot := range []struct{ key, ref string }{{"access", c.TokenRef}, {"refresh", c.RefreshRef}, {"api_key", c.APIKeyRef}} {
-		if slot.ref != "" {
-			if err := store.Delete(name, slot.key); err != nil {
-				return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "delete %s credential for profile %q", slot.key, name)
-			}
+		if strings.HasPrefix(slot.ref, "env:") {
+			continue
+		}
+		if err := store.Delete(name, slot.key); err != nil {
+			return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "delete %s credential for profile %q", slot.key, name)
 		}
 	}
 	return nil

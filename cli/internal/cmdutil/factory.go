@@ -52,6 +52,88 @@ type Factory struct {
 	// invocation only - set by the global --profile flag in PersistentPreRun.
 	// Buildable Config() / Client() honor it without writing to disk.
 	ProfileOverride string
+
+	// IgnoreProjectLink skips `.genyee/project.yaml` profile lookup when
+	// executing `genyee link`, which overwrites the link from the user's
+	// selected profile rather than inheriting a stale profile from the old link.
+	IgnoreProjectLink bool
+}
+
+// ProfileSourceKind identifies which layer supplied the active profile.
+type ProfileSourceKind int
+
+const (
+	ProfileSourceNone ProfileSourceKind = iota
+	ProfileSourceFlag
+	ProfileSourceEnv
+	ProfileSourceProjectLink
+	ProfileSourceConfig
+)
+
+func discoverProjectLinkProfile() (name, linkPath string, found bool, err error) {
+	cwd, werr := os.Getwd()
+	if werr != nil {
+		return "", "", false, nil
+	}
+	path, ok, derr := projectlink.Discover(cwd)
+	if derr != nil || !ok {
+		return "", "", false, nil
+	}
+	p, lerr := projectlink.Load(path)
+	if lerr != nil {
+		return "", path, true, Wrapf(CodeProjectLinkCorrupt, lerr, "read project link")
+	}
+	if p.Profile == "" {
+		return "", path, false, nil
+	}
+	if perr := ValidateProfileName(p.Profile); perr != nil {
+		return "", path, true, Wrapf(CodeProjectLinkCorrupt, perr, "invalid profile in project link")
+	}
+	return p.Profile, path, true, nil
+}
+
+func (f *Factory) resolveTransientProfile() (name, source string, kind ProfileSourceKind, err error) {
+	if f.ProfileOverride != "" {
+		return f.ProfileOverride, "--profile flag", ProfileSourceFlag, nil
+	}
+	if v := os.Getenv("GENYEE_PROFILE"); v != "" {
+		return v, "GENYEE_PROFILE env", ProfileSourceEnv, nil
+	}
+	if !f.IgnoreProjectLink {
+		pName, linkPath, found, perr := discoverProjectLinkProfile()
+		if perr != nil {
+			return "", "project link " + linkPath, ProfileSourceProjectLink, perr
+		}
+		if found {
+			return pName, "project link " + linkPath, ProfileSourceProjectLink, nil
+		}
+	}
+	return "", "", ProfileSourceNone, nil
+}
+
+// ResolveProfile returns the resolved profile name and human-readable source
+// across the 4-level precedence chain:
+//  1. --profile flag (f.ProfileOverride)
+//  2. GENYEE_PROFILE env
+//  3. .genyee/project.yaml profile
+//  4. config.yaml current_profile
+func (f *Factory) ResolveProfile() (name, source string) {
+	tName, tSource, kind, err := f.resolveTransientProfile()
+	if err == nil && kind != ProfileSourceNone {
+		return tName, tSource
+	}
+	if err != nil {
+		if cfg, cerr := config.Load(); cerr == nil && cfg != nil && cfg.CurrentProfile != "" {
+			return cfg.CurrentProfile, "config current_profile"
+		}
+		return "", "(none)"
+	}
+	if f.Config != nil {
+		if cfg, cerr := f.Config(); cerr == nil && cfg != nil && cfg.CurrentProfile != "" {
+			return cfg.CurrentProfile, "config current_profile"
+		}
+	}
+	return "", "(none)"
 }
 
 // New constructs a production Factory wired to real config / SDK client.
@@ -85,8 +167,12 @@ func New() *Factory {
 			}
 			return nil, Wrapf(CodeLocalFileIO, err, "load config")
 		}
-		if f.ProfileOverride != "" {
-			cfg.CurrentProfile = f.ProfileOverride
+		tName, _, kind, terr := f.resolveTransientProfile()
+		if terr != nil {
+			return nil, terr
+		}
+		if kind != ProfileSourceNone {
+			cfg.CurrentProfile = tName
 		}
 		return cfg, nil
 	}
@@ -109,12 +195,12 @@ func New() *Factory {
 	return f
 }
 
-// SaveConfig persists profile edits without turning a one-shot override into
-// the default profile. Commands that intentionally switch profiles use
-// config.Save directly.
+// SaveConfig persists profile edits without turning a transient override
+// (--profile, GENYEE_PROFILE, or .genyee/project.yaml) into the default profile.
+// Commands that intentionally switch profiles use config.Save directly.
 func (f *Factory) SaveConfig(cfg *config.Config) error {
 	toSave := *cfg
-	if f.ProfileOverride != "" {
+	if _, _, kind, err := f.resolveTransientProfile(); err == nil && kind != ProfileSourceNone {
 		persisted, err := config.Load()
 		if err != nil {
 			return err
@@ -150,24 +236,28 @@ func buildClient(f *Factory) (*sdk.Client, error) {
 			WithHint("add one first: `genyee profile add <name> --host <url> --use`, then `genyee auth login` (or set GENYEE_API_KEY + GENYEE_HOST for headless use)").
 			WithRetryArgv([]string{"genyee", "profile", "add", "--help"})
 	}
+	_, _, sourceKind, _ := f.resolveTransientProfile()
 	if err := ValidateProfileName(profileName); err != nil {
-		if f.ProfileOverride != "" {
+		if sourceKind == ProfileSourceFlag || sourceKind == ProfileSourceEnv {
 			return nil, err
+		}
+		if sourceKind == ProfileSourceProjectLink {
+			return nil, Wrapf(CodeProjectLinkCorrupt, err, "invalid profile in project link")
 		}
 		return nil, Wrapf(CodeLocalConfigCorrupt, err, "invalid current_profile %q", profileName)
 	}
 	prof, ok := cfg.Profiles[profileName]
 	if !ok {
-		// If the user explicitly overrode the profile (via --profile flag or
-		// GENYEE_PROFILE env), it's a bad argument - not a corrupt config file.
-		// The destructive "remove config.yaml" hint would be catastrophic for a typo.
-		if f.ProfileOverride != "" {
+		// If a transient override (--profile, GENYEE_PROFILE, or .genyee/project.yaml)
+		// selected an unknown profile, surface CodeInputInvalidArgument rather than
+		// blaming config.yaml as corrupt.
+		if sourceKind != ProfileSourceNone {
 			return nil, NewError(CodeInputInvalidArgument,
 				fmt.Sprintf("profile %q not configured", profileName)).
 				WithHint("list available profiles with `genyee profile list`").
 				WithRetryArgv([]string{"genyee", "profile", "list"})
 		}
-		// ProfileOverride is empty: config.CurrentProfile points at a missing entry.
+		// No transient override: config.CurrentProfile points at a missing entry.
 		// That's a genuinely corrupt config file.
 		return nil, NewError(CodeLocalConfigCorrupt, fmt.Sprintf("config references unknown profile %q", profileName))
 	}
@@ -417,14 +507,24 @@ func refreshAccessToken(ctx context.Context, store secrets.Store, host, profileN
 // ActiveProfile returns the resolved profile name for this invocation:
 //  1. ProfileOverride (set by --profile flag in root PersistentPreRunE)
 //  2. GENYEE_PROFILE env var
-//  3. Config's CurrentProfile (the persisted active profile name)
-//  4. Empty string when nothing is configured (envelope omits the field).
+//  3. Empty string when stateless env auth (GENYEE_TOKEN / GENYEE_API_KEY) is active
+//  4. .genyee/project.yaml profile
+//  5. Config's CurrentProfile (the persisted active profile name)
+//  6. Empty string when nothing is configured (envelope omits the field).
 func (f *Factory) ActiveProfile() string {
 	if f.ProfileOverride != "" {
 		return f.ProfileOverride
 	}
 	if v := os.Getenv("GENYEE_PROFILE"); v != "" {
 		return v
+	}
+	if active, _ := EnvCredential(); active {
+		return ""
+	}
+	if !f.IgnoreProjectLink {
+		if pName, _, found, err := discoverProjectLinkProfile(); err == nil && found {
+			return pName
+		}
 	}
 	if f.Config == nil {
 		return ""

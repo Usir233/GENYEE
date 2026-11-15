@@ -2,6 +2,7 @@ package profilecmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -148,13 +149,16 @@ func runRemove(opts *RemoveOptions, fopts *cmdutil.FormatOptions, name string, s
 }
 
 // clearProfileSecrets reports failed cleanup before the profile is removed,
-// keeping the references available for a later retry.
+// keeping the references available for a later retry. Non-env slots are deleted
+// unconditionally even when their config ref is empty so orphaned secrets do
+// not survive profile removal.
 func clearProfileSecrets(store secrets.Store, c config.Profile, name string) error {
 	for _, slot := range []struct{ key, ref string }{{"access", c.TokenRef}, {"refresh", c.RefreshRef}, {"api_key", c.APIKeyRef}} {
-		if slot.ref != "" {
-			if err := store.Delete(name, slot.key); err != nil {
-				return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "delete %s credential for profile %q", slot.key, name)
-			}
+		if strings.HasPrefix(slot.ref, "env:") {
+			continue
+		}
+		if err := store.Delete(name, slot.key); err != nil {
+			return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "delete %s credential for profile %q", slot.key, name)
 		}
 	}
 	return nil

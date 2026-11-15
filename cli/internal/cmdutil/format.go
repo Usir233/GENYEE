@@ -11,6 +11,7 @@ import (
 	"github.com/itchyny/gojq"
 	"github.com/spf13/cobra"
 
+	"github.com/Usir233/GENYEE/cli/internal/config"
 	"github.com/Usir233/GENYEE/cli/internal/format"
 	"github.com/Usir233/GENYEE/cli/internal/output"
 )
@@ -158,34 +159,45 @@ func mapJQError(err error) error {
 	return err
 }
 
+// ResolveConfiguredFormat returns the effective default output format when
+// `--format` is not passed on the command line:
+//  1. GENYEE_FORMAT env (if text | json | ndjson)
+//  2. config.yaml defaults.format (if text | json | ndjson)
+//  3. DefaultFormatMode (json)
+func ResolveConfiguredFormat() FormatMode {
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("GENYEE_FORMAT"))); v == "text" || v == "json" || v == "ndjson" {
+		return FormatMode(v)
+	}
+	if cfg, err := config.Load(); err == nil && cfg != nil {
+		if v := strings.ToLower(strings.TrimSpace(cfg.Defaults.Format)); v == "text" || v == "json" || v == "ndjson" {
+			return FormatMode(v)
+		}
+	}
+	return DefaultFormatMode
+}
+
 // ResolveDefault fills in Mode when the caller has not explicitly set it:
-//   - Mode defaults to FormatJSON, regardless of TTY
+//   - Precedence: explicit --format > GENYEE_FORMAT > config defaults.format > FormatJSON
+//   - When --jq is supplied without explicit --format / GENYEE_FORMAT, promotes a
+//     configured text default to FormatJSON so the jq filter can execute.
 //   - TTY only affects the indent decision (auto-indent in TTY; compact in pipe)
-//   - For human-readable rendering, pass --format text explicitly
-//
-// JSON-always (not a TTY switch to text on a terminal) is deliberate: an
-// agent-first CLI values output predictability over terminal ergonomics, so
-// the default never depends on whether stdout is a TTY. Humans opt into
-// human-readable output with `--format text`.
 func (o *FormatOptions) ResolveDefault(tty bool) {
 	o.TTY = tty
-	// Apply GENYEE_FORMAT before the hard default so the documented
-	// precedence holds: explicit --format (already set on o.Mode by
-	// CheckFormatFlag) > GENYEE_FORMAT > DefaultFormatMode. FromEnv is a
-	// no-op when --format was passed. Folded in here because nearly every
-	// command calls ResolveDefault but only a couple called FromEnv, so the
-	// env var was silently ignored on success output across the CLI.
 	o.FromEnv()
-	if o.Mode == "" {
-		o.Mode = DefaultFormatMode
+	if o.Mode != "" {
+		return
 	}
+	configured := ResolveConfiguredFormat()
+	if o.JQ != "" && configured == FormatText {
+		o.Mode = FormatJSON
+		return
+	}
+	o.Mode = configured
 }
 
 // FromEnv reads GENYEE_FORMAT and applies it when Mode hasn't been set
-// by --format. ResolveDefault now calls this, so commands get the env var
-// applied automatically; explicit callers (e.g. the root PersistentPreRunE,
-// which resolves the error-envelope mode before any command RunE) remain
-// valid and idempotent.
+// by --format. ResolveDefault calls this first so GENYEE_FORMAT outranks
+// config.yaml defaults.format.
 //
 // Invalid env values are silently ignored (the user's --format on a
 // later invocation will still take precedence).
@@ -193,7 +205,7 @@ func (o *FormatOptions) FromEnv() {
 	if o.Mode != "" {
 		return
 	}
-	v := os.Getenv("GENYEE_FORMAT")
+	v := strings.ToLower(strings.TrimSpace(os.Getenv("GENYEE_FORMAT")))
 	switch v {
 	case "text", "json", "ndjson":
 		o.Mode = FormatMode(v)

@@ -26,3 +26,30 @@ func TestConfirmationRetryPinsResolvedProfile(t *testing.T) {
 		require.Equal(t, []string{"genyee", "doc", "delete", "doc-1", "-y"}, original, "must not mutate caller argv")
 	}
 }
+
+func TestConfirmationRetrySkipsEnvAuthDeduplicatesAndExcludesGlobalOps(t *testing.T) {
+	iostreams.SetForTest(t)
+	previous := globalProfile
+	SetProfile("staging")
+	t.Cleanup(func() { SetProfile(previous) })
+
+	// Already contains --profile -> no duplicate injection.
+	alreadyPinned := []string{"genyee", "--profile", "staging", "doc", "delete", "doc-1", "-y"}
+	require.Equal(t, alreadyPinned, confirmationRetryArgv(alreadyPinned))
+
+	alreadyEq := []string{"genyee", "--profile=staging", "doc", "delete", "doc-1", "-y"}
+	require.Equal(t, alreadyEq, confirmationRetryArgv(alreadyEq))
+
+	// profile remove and auth logout --all must not inject --profile.
+	profRemove := []string{"genyee", "profile", "remove", "staging", "-y"}
+	require.Equal(t, profRemove, confirmationRetryArgv(profRemove))
+
+	logoutAll := []string{"genyee", "auth", "logout", "--all", "-y"}
+	require.Equal(t, logoutAll, confirmationRetryArgv(logoutAll))
+
+	// Stateless env auth without GENYEE_PROFILE must not inject local profile.
+	t.Setenv("GENYEE_API_KEY", "sk-stateless")
+	t.Setenv("GENYEE_PROFILE", "")
+	docDel := []string{"genyee", "doc", "delete", "doc-1", "-y"}
+	require.Equal(t, docDel, confirmationRetryArgv(docDel))
+}

@@ -167,21 +167,11 @@ func resolveView(cmd *cobra.Command, f *cmdutil.Factory) viewData {
 	return d
 }
 
-// resolveProfile mirrors Factory.ActiveProfile's precedence but also reports
-// which level supplied the value, so `config view` can explain the choice.
+// resolveProfile delegates to Factory.ResolveProfile so `config view` shares
+// the exact 4-level resolution chain (--profile flag > GENYEE_PROFILE env >
+// .genyee/project.yaml > config current_profile).
 func resolveProfile(f *cmdutil.Factory) (name, source string) {
-	if f.ProfileOverride != "" {
-		return f.ProfileOverride, "--profile flag"
-	}
-	if v := os.Getenv("GENYEE_PROFILE"); v != "" {
-		return v, "GENYEE_PROFILE env"
-	}
-	if f.Config != nil {
-		if cfg, err := f.Config(); err == nil && cfg != nil && cfg.CurrentProfile != "" {
-			return cfg.CurrentProfile, "config current_profile"
-		}
-	}
-	return "", "(none)"
+	return f.ResolveProfile()
 }
 
 // resolveKB reports the locally-resolved KB id and its source. ResolveKBLocal
@@ -222,19 +212,10 @@ func resolveLogLevel(cmd *cobra.Command) (level, source string) {
 	return level, "default"
 }
 
-// resolveFormatDefault reports the configured default output format: the
-// config.yaml defaults.format value, else GENYEE_FORMAT, else the hard
-// default. This is the *default* used when --format is unset — not the
-// per-invocation --format flag value.
+// resolveFormatDefault reports the effective default output format when
+// --format is unset: GENYEE_FORMAT > config.yaml defaults.format > DefaultFormatMode.
 func resolveFormatDefault() string {
-	cfg, err := config.Load()
-	if err == nil && cfg != nil && cfg.Defaults.Format != "" {
-		return cfg.Defaults.Format
-	}
-	if v := os.Getenv("GENYEE_FORMAT"); v == "text" || v == "json" || v == "ndjson" {
-		return v
-	}
-	return string(cmdutil.DefaultFormatMode)
+	return string(cmdutil.ResolveConfiguredFormat())
 }
 
 // resolveSecrets reports where credentials are stored: "file <path-root>" when

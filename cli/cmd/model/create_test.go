@@ -16,10 +16,12 @@ import (
 )
 
 type fakeCreateSvc struct {
-	got       *sdk.CreateModelRequest
-	resp      *sdk.Model
-	err       error
-	providers []sdk.ModelProvider // returned by ListModelProviders; nil → default catalog
+	got         *sdk.CreateModelRequest
+	resp        *sdk.Model
+	err         error
+	providers   []sdk.ModelProvider // returned by ListModelProviders; nil → default catalog
+	defaults    sdk.DefaultSettings
+	gotDefaults *sdk.DefaultSettings
 }
 
 func (f *fakeCreateSvc) CreateModel(_ context.Context, req *sdk.CreateModelRequest) (*sdk.Model, error) {
@@ -28,6 +30,18 @@ func (f *fakeCreateSvc) CreateModel(_ context.Context, req *sdk.CreateModelReque
 		f.resp = &sdk.Model{ID: "model_new", Name: req.Name, Type: req.Type, Source: req.Source}
 	}
 	return f.resp, f.err
+}
+
+func (f *fakeCreateSvc) GetDefaultSettings(_ context.Context) (*sdk.DefaultSettings, error) {
+	cp := f.defaults
+	return &cp, nil
+}
+
+func (f *fakeCreateSvc) UpdateDefaultSettings(_ context.Context, settings *sdk.DefaultSettings) (*sdk.DefaultSettings, error) {
+	cp := *settings
+	f.defaults = cp
+	f.gotDefaults = &cp
+	return &cp, nil
 }
 
 func (f *fakeCreateSvc) ListModelProviders(_ context.Context, _ string) ([]sdk.ModelProvider, error) {
@@ -56,7 +70,8 @@ func TestModelCreate_BuildsRequest(t *testing.T) {
 	assert.Equal(t, "nomic-embed-text", svc.got.Name)
 	assert.Equal(t, sdk.ModelTypeEmbedding, svc.got.Type)
 	assert.Equal(t, sdk.ModelSource("local"), svc.got.Source)
-	assert.True(t, svc.got.IsDefault)
+	require.NotNil(t, svc.gotDefaults, "--default must update workspace default-settings KV")
+	assert.Equal(t, "model_new", svc.gotDefaults.EmbeddingModelID)
 	assert.Equal(t, "http://localhost:11434", svc.got.Parameters["base_url"])
 	assert.Equal(t, "ollama", svc.got.Parameters["provider"])
 	emb, ok := svc.got.Parameters["embedding_parameters"].(map[string]any)
@@ -70,6 +85,7 @@ func TestModelCreate_BuildsRequest(t *testing.T) {
 	require.NoError(t, json.Unmarshal(out.Bytes(), &env))
 	assert.True(t, env.OK)
 	assert.Equal(t, "model_new", env.Data.ID)
+	assert.True(t, env.Data.IsDefault)
 }
 
 func TestModelCreate_APIKeyFromStdin(t *testing.T) {

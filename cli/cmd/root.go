@@ -52,19 +52,12 @@ func resolveFormatEarly(args []string) {
 		}
 	}
 	if mode == "" {
-		if v := os.Getenv("GENYEE_FORMAT"); v != "" {
-			mode = strings.ToLower(v)
-		}
+		mode = string(cmdutil.ResolveConfiguredFormat())
 	}
 	switch mode {
 	case "ndjson", "text":
 		cmdutil.SetFormatMode(mode)
 	default:
-		// "json", "" (no flag/env), or an invalid value all route the cobra-side
-		// error through the JSON envelope. Cobra parse errors fire before
-		// PersistentPreRunE runs ResolveDefault, so we apply the same default
-		// here (DefaultFormatMode) — otherwise the error path would emit prose
-		// while the success path emits the envelope.
 		cmdutil.SetFormatMode(string(cmdutil.DefaultFormatMode))
 	}
 }
@@ -160,12 +153,10 @@ a curated read-only MCP tool surface for AI agents.`,
 			if err := cmdutil.CheckSafeArgs(args, c.Flags()); err != nil {
 				return err
 			}
-			// Propagate the global --profile flag (or GENYEE_PROFILE env) into
-			// the Factory for this invocation only - single-shot override, no disk write.
-			// Flag takes precedence over env; env takes precedence over config file.
+			// Propagate ONLY the explicit global --profile flag into f.ProfileOverride.
+			// GENYEE_PROFILE env and .genyee/project.yaml are resolved at their own
+			// precedence levels inside Factory so `config view` reports the exact source.
 			if v, _ := c.Flags().GetString("profile"); v != "" {
-				f.ProfileOverride = v
-			} else if v := os.Getenv("GENYEE_PROFILE"); v != "" {
 				f.ProfileOverride = v
 			}
 			// Pin --format mode for cmdutil.PrintError envelope vs prose decision.

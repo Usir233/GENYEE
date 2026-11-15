@@ -266,9 +266,13 @@ func persistAPIKey(opts *LoginOptions, fopts *cmdutil.FormatOptions, f *cmdutil.
 		return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "save api key")
 	}
 	// Switching credential mode: this profile is now an API-key profile, so
-	// any leftover JWT refs (from a prior password login) are stale. Set the
-	// api-key ref and clear the token/refresh refs; keep Host + existing
-	// User/TenantID (merged in saveProfileRef via applyUser).
+	// purge any leftover JWT secrets from the store in addition to clearing refs.
+	if err := store.Delete(opts.Profile, "access"); err != nil {
+		return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "clear stale access token")
+	}
+	if err := store.Delete(opts.Profile, "refresh"); err != nil {
+		return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "clear stale refresh token")
+	}
 	mutate := func(prof *config.Profile) {
 		prof.APIKeyRef = store.Ref(opts.Profile, "api_key")
 		prof.TokenRef = ""
@@ -288,16 +292,25 @@ func persistJWT(opts *LoginOptions, fopts *cmdutil.FormatOptions, f *cmdutil.Fac
 	if err := store.Set(opts.Profile, "access", resp.Token); err != nil {
 		return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "save access token")
 	}
+	refreshRef := ""
 	if resp.RefreshToken != "" {
 		if err := store.Set(opts.Profile, "refresh", resp.RefreshToken); err != nil {
 			return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "save refresh token")
 		}
+		refreshRef = store.Ref(opts.Profile, "refresh")
+	} else {
+		if err := store.Delete(opts.Profile, "refresh"); err != nil {
+			return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "clear stale refresh token")
+		}
+	}
+	if err := store.Delete(opts.Profile, "api_key"); err != nil {
+		return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "clear stale api key")
 	}
 	// Switching to a JWT profile: set token refs and drop any stale api-key
 	// ref; keep Host + existing User/TenantID (merged in saveProfileRef via applyUser).
 	mutate := func(prof *config.Profile) {
 		prof.TokenRef = store.Ref(opts.Profile, "access")
-		prof.RefreshRef = store.Ref(opts.Profile, "refresh")
+		prof.RefreshRef = refreshRef
 		prof.APIKeyRef = ""
 		applyUser(prof, resp.User)
 	}

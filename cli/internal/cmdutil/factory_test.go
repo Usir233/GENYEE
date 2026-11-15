@@ -522,3 +522,74 @@ func TestSecurity_RejectsPathTraversalInProfileAndProjectLink(t *testing.T) {
 		assert.Equal(t, CodeInputInvalidArgument, typed.Code)
 	})
 }
+
+func TestFactory_ProfilePrecedenceAndProjectLink(t *testing.T) {
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	t.Setenv("GENYEE_PROFILE", "")
+	t.Setenv("GENYEE_API_KEY", "")
+	t.Setenv("GENYEE_TOKEN", "")
+
+	require.NoError(t, config.Save(&config.Config{
+		CurrentProfile: "prod",
+		Profiles: map[string]config.Profile{
+			"prod":    {Host: "https://prod.example.com"},
+			"staging": {Host: "https://staging.example.com"},
+			"envprof": {Host: "https://env.example.com"},
+			"flagprf": {Host: "https://flag.example.com"},
+		},
+	}))
+
+	projDir := t.TempDir()
+	subDir := filepath.Join(projDir, "nested", "dir")
+	require.NoError(t, os.MkdirAll(subDir, 0o755))
+	linkFile := filepath.Join(projDir, ".genyee", "project.yaml")
+	require.NoError(t, projectlink.Save(linkFile, &projectlink.Project{
+		Profile: "staging",
+		KBID:    "11111111-1111-4111-8111-111111111111",
+	}))
+	resolveKBChdir(t, subDir)
+
+	f := New()
+
+	// 1. .genyee/project.yaml profile wins over config current_profile.
+	cfg, err := f.Config()
+	require.NoError(t, err)
+	assert.Equal(t, "staging", cfg.CurrentProfile)
+	assert.Equal(t, "staging", f.ActiveProfile())
+	name, src := f.ResolveProfile()
+	assert.Equal(t, "staging", name)
+	assert.Contains(t, src, ".genyee/project.yaml")
+
+	// SaveConfig must not persist project-link profile into config.yaml current_profile.
+	require.NoError(t, f.SaveConfig(cfg))
+	onDisk, err := config.Load()
+	require.NoError(t, err)
+	assert.Equal(t, "prod", onDisk.CurrentProfile)
+
+	// 2. GENYEE_PROFILE wins over .genyee/project.yaml.
+	t.Setenv("GENYEE_PROFILE", "envprof")
+	cfg, err = f.Config()
+	require.NoError(t, err)
+	assert.Equal(t, "envprof", cfg.CurrentProfile)
+	assert.Equal(t, "envprof", f.ActiveProfile())
+	name, src = f.ResolveProfile()
+	assert.Equal(t, "envprof", name)
+	assert.Equal(t, "GENYEE_PROFILE env", src)
+
+	// 3. Explicit --profile flag (f.ProfileOverride) wins over GENYEE_PROFILE.
+	f.ProfileOverride = "flagprf"
+	cfg, err = f.Config()
+	require.NoError(t, err)
+	assert.Equal(t, "flagprf", cfg.CurrentProfile)
+	assert.Equal(t, "flagprf", f.ActiveProfile())
+	name, src = f.ResolveProfile()
+	assert.Equal(t, "flagprf", name)
+	assert.Equal(t, "--profile flag", src)
+
+	// 4. Stateless env credential without --profile or GENYEE_PROFILE makes ActiveProfile() return "".
+	f.ProfileOverride = ""
+	t.Setenv("GENYEE_PROFILE", "")
+	t.Setenv("GENYEE_API_KEY", "sk-stateless")
+	assert.Equal(t, "", f.ActiveProfile())
+}
