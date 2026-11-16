@@ -47,6 +47,15 @@ def _positive_int(key: str, default: int) -> int:
     return value
 
 
+def _positive_int_keys(keys: Iterable[str], default: int) -> int:
+    key_list = list(keys)
+    value = _get_int(key_list, default)
+    if value <= 0:
+        logger.warning("%s must be positive; using %d", "/".join(key_list), default)
+        return default
+    return value
+
+
 def _mask_secret(v: str) -> str:
     if not v:
         return ""
@@ -56,6 +65,28 @@ def _mask_secret(v: str) -> str:
 
 
 _RAW_URL_CRED_RE = re.compile(r"((?:[a-zA-Z][a-zA-Z0-9+.-]*://)?[^/\s@:]+:)([^/\s@]+)(@)")
+_URL_TOKEN_RE = re.compile(r"https?://[^\s\"'<>)\]]+", re.IGNORECASE)
+_AUTH_HEADER_SECRET_RE = re.compile(
+    r"(?i)(\bauthorization\s*[:=]\s*(?:bearer|basic|token)\s+)([^\s,;\"']+)"
+)
+_BEARER_SECRET_RE = re.compile(r"(?i)(\bbearer\s+)(sk-[A-Za-z0-9_-]{8,}|[A-Za-z0-9._~+/=-]{12,})")
+_KV_SECRET_RE = re.compile(
+    r"(?i)(\b(?:api[_-]?key|access[_-]?token|auth[_-]?token|secret|password)\s*[=:]\s*)([^\s,&\"'?;]+)"
+)
+_SK_TOKEN_RE = re.compile(r"\bsk-[A-Za-z0-9_-]{12,}\b")
+
+
+def redact_secrets(text: str) -> str:
+    """Redact credentials, bearer tokens, and API keys from log/error strings."""
+    if not text:
+        return ""
+    out = _URL_TOKEN_RE.sub(lambda m: mask_proxy_url(m.group(0)), str(text))
+    out = _RAW_URL_CRED_RE.sub(r"\1***\3", out)
+    out = _AUTH_HEADER_SECRET_RE.sub(r"\1***", out)
+    out = _BEARER_SECRET_RE.sub(r"\1***", out)
+    out = _KV_SECRET_RE.sub(r"\1***", out)
+    out = _SK_TOKEN_RE.sub("sk-***", out)
+    return out
 
 
 def mask_proxy_url(url: str) -> str:
@@ -145,13 +176,18 @@ class DocReaderConfig:
 def load_config() -> DocReaderConfig:
     """Load config from environment variables (lightweight version)."""
 
-    grpc_max_workers = _get_int(["DOCREADER_GRPC_MAX_WORKERS", "GRPC_MAX_WORKERS"], 4)
+    grpc_max_workers = _positive_int_keys(
+        ["DOCREADER_GRPC_MAX_WORKERS", "GRPC_MAX_WORKERS"], 4
+    )
     grpc_max_file_size_mb = (
-        _get_int(["DOCREADER_GRPC_MAX_FILE_SIZE_MB", "MAX_FILE_SIZE_MB"], 50)
+        _positive_int_keys(
+            ["DOCREADER_GRPC_MAX_FILE_SIZE_MB", "MAX_FILE_SIZE_MB"], 50
+        )
         * 1024
         * 1024
     )
-    grpc_port = _get_int(["DOCREADER_GRPC_PORT", "PORT"], 50051)
+    raw_port = _get_int(["DOCREADER_GRPC_PORT", "PORT"], 50051)
+    grpc_port = raw_port if 1 <= raw_port <= 65535 else 50051
     docx_max_pages = _get_int(["DOCREADER_DOCX_MAX_PAGES"], 0)
     markitdown_max_workers = _get_int(["DOCREADER_MARKITDOWN_MAX_WORKERS"], 1)
     markitdown_xlsx_max_table_cells = _positive_int(
@@ -182,10 +218,10 @@ def load_config() -> DocReaderConfig:
     # CPU-constrained containers; this is the main lever to cut that wall time.
     # Default scales with CPU count but is capped so we don't oversubscribe.
     _cpu = os.cpu_count() or 1
-    pdf_render_parallelism = _get_int(
-        ["DOCREADER_PDF_RENDER_PARALLELISM"], max(1, min(4, _cpu))
+    pdf_render_parallelism = _positive_int(
+        "DOCREADER_PDF_RENDER_PARALLELISM", max(1, min(4, _cpu))
     )
-    pdf_render_dpi = _get_int(["DOCREADER_PDF_RENDER_DPI"], 200)
+    pdf_render_dpi = _positive_int("DOCREADER_PDF_RENDER_DPI", 200)
     pdf_jpeg_quality = _get_int(["DOCREADER_PDF_JPEG_QUALITY"], 85)
     # Cap the long edge (px) of rendered/extracted page images. Without this,
     # PDFs declaring very large page boxes render to 100+ MP JPEGs that blow the

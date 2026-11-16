@@ -70,7 +70,9 @@ Image.MAX_IMAGE_PIXELS = 40_000_000
 
 from docreader.config import CONFIG
 from docreader.models.document import Document as DocumentModel
+from docreader.parser.archive import ArchiveLimitError
 from docreader.parser.base_parser import BaseParser
+from docreader.parser.concurrency import ParserCancelled
 from docreader.utils import endecode
 
 logger = logging.getLogger(__name__)
@@ -479,6 +481,8 @@ class DocxParser(BaseParser):
 
             image_parts.update(inline_images)
             return DocumentModel(content=text, images=image_parts)
+        except (ArchiveLimitError, ParserCancelled):
+            raise
         except Exception as e:
             logger.error(f"Error parsing DOCX document: {str(e)}")
             logger.error(f"Detailed stack trace: {traceback.format_exc()}")
@@ -1009,8 +1013,16 @@ class Docx:
 
         temp_file = tempfile.NamedTemporaryFile(delete=False)
         temp_file_path = temp_file.name
-        temp_file.write(binary)
-        temp_file.close()
+        try:
+            temp_file.write(binary)
+            temp_file.close()
+        except BaseException:
+            try:
+                temp_file.close()
+            except OSError:
+                pass
+            self._cleanup_temp_file(temp_file_path)
+            raise
         return temp_file_path
 
     def _prepare_multiprocess_args(
@@ -1072,24 +1084,26 @@ class Docx:
             )
             results: List[LineData] = []
             temp_img_paths = set()
-            for args in args_list:
-                page_num = args[0]
-                try:
-                    page_lines = process_page_multiprocess(*args)
-                    for line in page_lines:
-                        for image_data in line.images:
-                            if image_data.local_path and self._is_docx_temp_img_path(
-                                image_data.local_path
-                            ):
-                                temp_img_paths.add(image_data.local_path)
-                    results.extend(page_lines)
-                except Exception as e:
-                    logger.error(f"Error processing page {page_num}: {str(e)}")
-                    logger.error(
-                        f"Detailed traceback for page {page_num}: {traceback.format_exc()}"
-                    )
-            self._process_multiprocess_results(results)
-            self._cleanup_temp_image_files(temp_img_paths)
+            try:
+                for args in args_list:
+                    page_num = args[0]
+                    try:
+                        page_lines = process_page_multiprocess(*args)
+                        for line in page_lines:
+                            for image_data in line.images:
+                                if image_data.local_path and self._is_docx_temp_img_path(
+                                    image_data.local_path
+                                ):
+                                    temp_img_paths.add(image_data.local_path)
+                        results.extend(page_lines)
+                    except Exception as e:
+                        logger.error(f"Error processing page {page_num}: {str(e)}")
+                        logger.error(
+                            f"Detailed traceback for page {page_num}: {traceback.format_exc()}"
+                        )
+                self._process_multiprocess_results(results)
+            finally:
+                self._cleanup_temp_image_files(temp_img_paths)
             return
 
         logger.info(
@@ -1178,48 +1192,49 @@ class Docx:
         results = []
         temp_img_paths = set()  # Collect all temporary image paths
 
-        for future in as_completed(future_to_idx):
-            idx = future_to_idx[future]
-            page_num = args_list[idx][0]
-            try:
-                page_lines = future.result()
+        try:
+            for future in as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                page_num = args_list[idx][0]
+                try:
+                    page_lines = future.result()
 
-                # Collect temporary image paths for later cleanup
-                for line in page_lines:
-                    for image_data in line.images:
-                        if image_data.local_path and self._is_docx_temp_img_path(
-                            image_data.local_path
-                        ):
-                            temp_img_paths.add(image_data.local_path)
+                    # Collect temporary image paths for later cleanup
+                    for line in page_lines:
+                        for image_data in line.images:
+                            if image_data.local_path and self._is_docx_temp_img_path(
+                                image_data.local_path
+                            ):
+                                temp_img_paths.add(image_data.local_path)
 
-                results.extend(page_lines)
-                completed_count += 1
+                    results.extend(page_lines)
+                    completed_count += 1
 
-                if completed_count % max(
-                    1, len(args_list) // 10
-                ) == 0 or completed_count == len(args_list):
-                    elapsed_ms = int((time.time() - batch_start_time) * 1000)
-                    progress_pct = int((completed_count / len(args_list)) * 100)
-                    logger.info(
-                        f"Progress: {completed_count}/{len(args_list)} pages processed "
-                        f"({progress_pct}%, elapsed: {elapsed_ms}ms)"
+                    if completed_count % max(
+                        1, len(args_list) // 10
+                    ) == 0 or completed_count == len(args_list):
+                        elapsed_ms = int((time.time() - batch_start_time) * 1000)
+                        progress_pct = int((completed_count / len(args_list)) * 100)
+                        logger.info(
+                            f"Progress: {completed_count}/{len(args_list)} pages processed "
+                            f"({progress_pct}%, elapsed: {elapsed_ms}ms)"
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error processing page {page_num}: {str(e)}")
+                    logger.error(
+                        f"Detailed traceback for page {page_num}: {traceback.format_exc()}"
                     )
 
-            except Exception as e:
-                logger.error(f"Error processing page {page_num}: {str(e)}")
-                logger.error(
-                    f"Detailed traceback for page {page_num}: {traceback.format_exc()}"
-                )
+            # Process completion
+            processing_elapsed_ms = int((time.time() - batch_start_time) * 1000)
+            logger.info(f"All processing completed in {processing_elapsed_ms}ms")
 
-        # Process completion
-        processing_elapsed_ms = int((time.time() - batch_start_time) * 1000)
-        logger.info(f"All processing completed in {processing_elapsed_ms}ms")
-
-        # Process results
-        self._process_multiprocess_results(results)
-
-        # Clean up temporary image files
-        self._cleanup_temp_image_files(temp_img_paths)
+            # Process results
+            self._process_multiprocess_results(results)
+        finally:
+            # Clean up temporary image files
+            self._cleanup_temp_image_files(temp_img_paths)
 
     def _process_multiprocess_results(self, results: List[LineData]):
         """Process multiprocess results
@@ -1563,6 +1578,8 @@ def _save_image_to_temp(logger, image, page_num, img_idx):
     import os
     import tempfile
 
+    temp_dir = None
+    temp_file_path = None
     try:
         # Create a temporary file
         temp_dir = tempfile.mkdtemp(prefix="docx_img_")
@@ -1576,6 +1593,16 @@ def _save_image_to_temp(logger, image, page_num, img_idx):
 
         return temp_file_path
     except Exception as e:
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.unlink(temp_file_path)
+            except OSError:
+                pass
+        if temp_dir and os.path.exists(temp_dir):
+            try:
+                os.rmdir(temp_dir)
+            except OSError:
+                pass
         logger.error(f"[PID:{os.getpid()}] Failed to save image to temp file: {str(e)}")
         return None
 
@@ -1606,6 +1633,7 @@ def process_page_multiprocess(
     Returns:
         list: List of processed result lines
     """
+    saved_temp_paths: List[str] = []
     try:
         # Set process-level logging
         process_logger = logging.getLogger(__name__)
@@ -1659,6 +1687,7 @@ def process_page_multiprocess(
                     process_logger, image_object, page_num, i
                 )
                 if img_path:
+                    saved_temp_paths.append(img_path)
                     # Create ImageData object
                     image_data = ImageData()
                     image_data.local_path = img_path
@@ -1698,6 +1727,15 @@ def process_page_multiprocess(
         return page_lines
 
     except Exception as e:
+        for orphan_path in saved_temp_paths:
+            try:
+                if os.path.exists(orphan_path):
+                    os.unlink(orphan_path)
+                parent_dir = os.path.dirname(orphan_path)
+                if os.path.exists(parent_dir):
+                    os.rmdir(parent_dir)
+            except OSError:
+                pass
         process_logger = logging.getLogger(__name__)
         process_logger.error(
             f"[PID:{os.getpid()}] Error processing page {page_num}: {str(e)}"

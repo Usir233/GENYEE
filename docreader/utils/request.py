@@ -1,5 +1,6 @@
 import contextlib
 import logging
+import re
 import time
 import uuid
 from contextvars import ContextVar
@@ -12,11 +13,17 @@ logger = logging.getLogger(__name__)
 # 定义上下文变量
 request_id_var = ContextVar("request_id", default=None)
 _request_start_time_ctx = ContextVar("request_start_time", default=None)
+_REQ_ID_CTRL_RE = re.compile(r"[\r\n\x00-\x1f\x7f]+")
+
+
+def _sanitize_request_id(request_id: Optional[str]) -> str:
+    cleaned = _REQ_ID_CTRL_RE.sub("_", str(request_id or "")).strip()
+    return cleaned[:128] if cleaned else str(uuid.uuid4())
 
 
 def set_request_id(request_id: str) -> None:
     """设置当前上下文的请求ID"""
-    request_id_var.set(request_id)
+    request_id_var.set(_sanitize_request_id(request_id))
 
 
 def get_request_id() -> Optional[str]:
@@ -130,7 +137,7 @@ def request_id_context(request_id: str = None):
             logging.info("Processing request")
     """
     # Generate or use provided request ID
-    req_id = request_id or str(uuid.uuid4())
+    req_id = _sanitize_request_id(request_id) if request_id else str(uuid.uuid4())
 
     # Set start time and request ID
     start_time = time.time()

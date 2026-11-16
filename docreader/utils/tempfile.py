@@ -5,6 +5,14 @@ import tempfile
 logger = logging.getLogger(__name__)
 
 
+def _sanitize_suffix(suffix: str) -> str:
+    raw = str(suffix or "").replace("\x00", "").replace("\\", "/")
+    base = os.path.basename(raw).strip()
+    if base in {"", ".", ".."}:
+        return ""
+    return base
+
+
 class TempFileContext:
     def __init__(self, file_content: bytes, suffix: str):
         """
@@ -13,7 +21,7 @@ class TempFileContext:
         :param suffix: File suffix
         """
         self.file_content = file_content
-        self.suffix = suffix
+        self.suffix = _sanitize_suffix(suffix)
         self.file = None
 
     def _cleanup(self):
@@ -44,6 +52,7 @@ class TempFileContext:
         try:
             self.temp_file.write(self.file_content)
             self.temp_file.flush()
+            self.temp_file.close()
         except BaseException:
             self._cleanup()
             raise
@@ -75,7 +84,7 @@ class TempDirContext:
         """
         Create directory when entering context
         """
-        self.temp_dir = tempfile.TemporaryDirectory()
+        self.temp_dir = tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         logger.info(f"Created temporary directory: {self.temp_dir.name}")
         return self.temp_dir.name
 

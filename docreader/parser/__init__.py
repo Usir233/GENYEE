@@ -13,6 +13,10 @@ The parsers extract content from documents and can split them into
 meaningful chunks for further processing and indexing.
 """
 
+from PIL import Image
+
+Image.MAX_IMAGE_PIXELS = 40_000_000
+
 from .doc_parser import DocParser
 from .docx2_parser import Docx2Parser
 from .excel_parser import ExcelParser

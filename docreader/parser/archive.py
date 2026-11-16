@@ -5,6 +5,8 @@ from __future__ import annotations
 import bz2
 from dataclasses import dataclass
 import io
+import lzma
+import struct
 import weakref
 import zipfile
 import zlib
@@ -12,6 +14,7 @@ import zlib
 MAX_UNCOMPRESSED_ARCHIVE_BYTES = 100 * 1024 * 1024
 MAX_COMPRESSION_RATIO = 100.0
 MAX_ARCHIVE_ENTRIES = 10_000
+MAX_LZMA_DICT_BYTES = 64 * 1024 * 1024
 ZIP_STREAM_CHUNK_BYTES = 64 * 1024
 _RATIO_MIN_DECOMPRESSED_BYTES = 1024 * 1024
 
@@ -175,7 +178,12 @@ def _stream_zip_entry_bounded(
             raw_fileobj is not None
             and is_unencrypted
             and info.compress_type
-            in (zipfile.ZIP_STORED, zipfile.ZIP_DEFLATED, zipfile.ZIP_BZIP2)
+            in (
+                zipfile.ZIP_STORED,
+                zipfile.ZIP_DEFLATED,
+                zipfile.ZIP_BZIP2,
+                zipfile.ZIP_LZMA,
+            )
         ):
             comp_left = int(info.compress_size)
             if info.compress_type == zipfile.ZIP_STORED:
@@ -222,7 +230,7 @@ def _stream_zip_entry_bounded(
                     raise zipfile.BadZipFile(
                         f"Corrupt deflate stream for {info.filename!r}: {exc}"
                     ) from exc
-            else:
+            elif info.compress_type == zipfile.ZIP_BZIP2:
                 bz2_dec = bz2.BZ2Decompressor()
                 while not bz2_dec.eof:
                     rem_budget = min(
@@ -243,6 +251,64 @@ def _stream_zip_entry_bounded(
                     else:
                         break
                     _record_chunk(out)
+            else:
+                if comp_left < 4:
+                    raise zipfile.BadZipFile(
+                        f"Truncated LZMA header for {info.filename!r}"
+                    )
+                lzma_hdr = raw_fileobj.read(4)
+                if len(lzma_hdr) != 4:
+                    raise EOFError(
+                        f"Truncated LZMA header for {info.filename!r}"
+                    )
+                comp_left -= 4
+                _, _, props_size = struct.unpack("<BBH", lzma_hdr)
+                if props_size == 0 or props_size > 64 or comp_left < props_size:
+                    raise zipfile.BadZipFile(
+                        f"Invalid LZMA properties size ({props_size}) for {info.filename!r}"
+                    )
+                props_raw = raw_fileobj.read(props_size)
+                if len(props_raw) != props_size:
+                    raise EOFError(
+                        f"Truncated LZMA properties for {info.filename!r}"
+                    )
+                comp_left -= props_size
+                try:
+                    lzma_filter = lzma._decode_filter_properties(
+                        lzma.FILTER_LZMA1, props_raw
+                    )
+                    dict_size = int(lzma_filter.get("dict_size", 0))
+                    if dict_size > MAX_LZMA_DICT_BYTES:
+                        raise ArchiveLimitError(
+                            f"Archive entry {info.filename} LZMA dictionary size "
+                            f"({dict_size}) exceeds limit ({MAX_LZMA_DICT_BYTES})"
+                        )
+                    lzma_dec = lzma.LZMADecompressor(
+                        lzma.FORMAT_RAW, filters=[lzma_filter]
+                    )
+                    while not lzma_dec.eof:
+                        rem_budget = min(
+                            eff_max_member - member_bytes,
+                            eff_max_total - active_budget.total_bytes,
+                        )
+                        step_cap = min(read_step, max(1, rem_budget + 1))
+                        if not lzma_dec.needs_input:
+                            out = lzma_dec.decompress(b"", max_length=step_cap)
+                        elif comp_left > 0:
+                            raw = raw_fileobj.read(min(read_step, comp_left))
+                            if not raw:
+                                raise EOFError(
+                                    f"Truncated LZMA ZIP entry: {info.filename!r}"
+                                )
+                            comp_left -= len(raw)
+                            out = lzma_dec.decompress(raw, max_length=step_cap)
+                        else:
+                            break
+                        _record_chunk(out)
+                except lzma.LZMAError as exc:
+                    raise zipfile.BadZipFile(
+                        f"Corrupt LZMA stream for {info.filename!r}: {exc}"
+                    ) from exc
 
             expected_crc = getattr(info, "CRC", None)
             if (

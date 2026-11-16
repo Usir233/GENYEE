@@ -9,7 +9,7 @@ from typing import List, Optional
 from docreader.config import mask_proxy_url
 from docreader.models.document import Document
 from docreader.parser.docx2_parser import Docx2Parser
-from docreader.parser.archive import ArchiveLimitError
+from docreader.parser.archive import ArchiveLimitError, MAX_UNCOMPRESSED_ARCHIVE_BYTES
 from docreader.parser.concurrency import ParserCancelled, check_cancellation
 from docreader.parser.soffice_sandbox import (
     BLOCKING_LOCAL_PROXY,
@@ -308,6 +308,15 @@ class DocParser(Docx2Parser):
                 )
                 for file in docx_file:
                     converted_file = os.path.join(temp_dir, file)
+                    if os.path.islink(converted_file) or not os.path.isfile(
+                        converted_file
+                    ):
+                        continue
+                    file_size = os.path.getsize(converted_file)
+                    if file_size > MAX_UNCOMPRESSED_ARCHIVE_BYTES:
+                        raise ArchiveLimitError(
+                            f"Converted DOCX size ({file_size}) exceeds limit ({MAX_UNCOMPRESSED_ARCHIVE_BYTES})"
+                        )
                     logger.info(f"Found converted file: {converted_file}")
 
                     # Read the converted file content

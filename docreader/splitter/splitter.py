@@ -99,9 +99,17 @@ class TextSplitter(BaseModel, Generic[T]):
         Raises:
             ValueError: If chunk_overlap is larger than chunk_size
         """
-        if chunk_overlap > chunk_size:
+        if chunk_size <= 0:
             raise ValueError(
-                f"Got a larger chunk overlap ({chunk_overlap}) than chunk size "
+                f"chunk_size ({chunk_size}) must be greater than 0."
+            )
+        if chunk_overlap < 0:
+            raise ValueError(
+                f"chunk_overlap ({chunk_overlap}) must be non-negative."
+            )
+        if chunk_overlap >= chunk_size:
+            raise ValueError(
+                f"Got a chunk overlap ({chunk_overlap}) >= chunk size "
                 f"({chunk_size}), should be smaller."
             )
 
@@ -128,6 +136,12 @@ class TextSplitter(BaseModel, Generic[T]):
         """
         if text == "":
             return []
+
+        # Reset stateful header tracker per split_text invocation so table headers
+        # from an earlier document never leak into subsequent documents.
+        self.header_hook = HeaderTracker(
+            header_hook_configs=self.header_hook.header_hook_configs
+        )
 
         # Step 1: Split text by separators recursively
         splits = self._split(text)
@@ -173,6 +187,9 @@ class TextSplitter(BaseModel, Generic[T]):
             splits = split_fn(text)
             if len(splits) > 1:
                 break
+
+        if len(splits) <= 1:
+            return [text]
 
         # Process each split: keep if small enough, otherwise recursively split further
         new_splits = []
@@ -221,8 +238,9 @@ class TextSplitter(BaseModel, Generic[T]):
             # Warn if a single split exceeds chunk size (shouldn't happen after _split)
             if split_len > self.chunk_size:
                 logger.error(
-                    f"Got a split of size {split_len}, ",
-                    f"larger than chunk size {self.chunk_size}.",
+                    "Got a split of size %d, larger than chunk size %d.",
+                    split_len,
+                    self.chunk_size,
                 )
 
             # Update header tracking with current split
@@ -243,8 +261,9 @@ class TextSplitter(BaseModel, Generic[T]):
             # If headers are too large, skip them to avoid oversized chunks
             if cur_headers_len > self.chunk_size:
                 logger.error(
-                    f"Got headers of size {cur_headers_len}, ",
-                    f"larger than chunk size {self.chunk_size}.",
+                    "Got headers of size %d, larger than chunk size %d.",
+                    cur_headers_len,
+                    self.chunk_size,
                 )
                 cur_headers, cur_headers_len = "", 0
 
@@ -566,6 +585,8 @@ class TextSplitter(BaseModel, Generic[T]):
         last_end = 0
 
         for start_pos, end_pos, chunk_text in sorted_chunks:
+            if end_pos <= last_end:
+                continue
             result_parts.append(chunk_text[last_end - end_pos :])
             last_end = end_pos
 

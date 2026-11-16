@@ -20,7 +20,7 @@ from docreader.auth import (
     load_tls_credentials,
 )
 from docreader import config
-from docreader.config import CONFIG
+from docreader.config import CONFIG, redact_secrets
 from docreader.parser import Parser
 from docreader.parser.parser import sanitize_engine_overrides
 
@@ -53,6 +53,10 @@ def to_valid_utf8_text(s: Optional[str]) -> str:
         return ""
     s = _SURROGATE_RE.sub("\ufffd", s)
     return s.encode("utf-8", errors="replace").decode("utf-8")
+
+
+def _safe_error_text(s: Optional[str]) -> str:
+    return to_valid_utf8_text(redact_secrets(s or ""))
 
 
 for handler in logging.root.handlers[:]:
@@ -222,7 +226,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
         engine_overrides = dict(cfg.parser_engine_overrides) if cfg else {}
 
         if request.url:
-            logger.info("Read(URL): url=%s", request.url)
+            logger.info("Read(URL): url=%s", _safe_error_text(request.url))
             result = self.parser.parse_url(
                 request.url,
                 request.title,
@@ -230,7 +234,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                 engine_overrides=engine_overrides,
                 context=context,
             )
-            return result, request.url
+            return result, _safe_error_text(request.url)
 
         file_type = request.file_type or os.path.splitext(request.file_name)[1][1:]
         file_content = request.file_content
@@ -261,7 +265,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                 result, source_desc = self._parse_request(request, context)
 
                 if not result or not result.content:
-                    error_msg = f"Failed to parse: {source_desc}"
+                    error_msg = _safe_error_text(f"Failed to parse: {source_desc}")
                     logger.error(error_msg)
                     return ReadResponse(error=error_msg)
 
@@ -285,10 +289,11 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                 return response
 
             except Exception as e:
-                error_msg = f"Error reading document: {e}"
+                safe_exc = _safe_error_text(str(e))
+                error_msg = f"Error reading document: {safe_exc}"
                 logger.error(error_msg)
-                logger.info("Traceback: %s", traceback.format_exc())
-                return ReadResponse(error=str(e))
+                logger.info("Traceback: %s", _safe_error_text(traceback.format_exc()))
+                return ReadResponse(error=safe_exc)
 
     def ReadStream(self, request: ReadRequest, context):
         """Yield metadata first, then images as each parser produces them."""
@@ -338,12 +343,13 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                     result = parsed_stream.document
                     source_desc = request.file_name
             except Exception as e:
-                logger.error("Error reading document: %s", e)
-                logger.info("Traceback: %s", traceback.format_exc())
+                safe_exc = _safe_error_text(str(e))
+                logger.error("Error reading document: %s", safe_exc)
+                logger.info("Traceback: %s", _safe_error_text(traceback.format_exc()))
                 if parsed_stream is not None:
                     parsed_stream.close()
                 del request
-                yield ReadStreamResponse(meta=ReadStreamMeta(error=str(e)))
+                yield ReadStreamResponse(meta=ReadStreamMeta(error=safe_exc))
                 return
 
             # PDF parser streams own a temporary source file; drop the request's
@@ -351,7 +357,7 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
             del request
 
             if not result or not result.content:
-                error_msg = f"Failed to parse: {source_desc}"
+                error_msg = _safe_error_text(f"Failed to parse: {source_desc}")
                 logger.error(error_msg)
                 parsed_stream.close()
                 yield ReadStreamResponse(meta=ReadStreamMeta(error=error_msg))

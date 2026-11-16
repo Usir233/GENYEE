@@ -86,11 +86,14 @@ class SSRFProxy:
             writer.write((headers + "\r\n").encode())
             await writer.drain()
             response = await asyncio.wait_for(reader.readuntil(b"\r\n\r\n"), 15)
-            if response.split(b" ", 2)[1] != b"200":
+            status_parts = response.split(b" ", 2)
+            if len(status_parts) < 2 or status_parts[1] != b"200":
                 raise ValueError("upstream proxy refused connection")
             return reader, writer
         except BaseException:
             writer.close()
+            with contextlib.suppress(OSError):
+                await writer.wait_closed()
             raise
 
     async def _handle(self, reader, writer):
@@ -153,6 +156,8 @@ class SSRFProxy:
             await asyncio.gather(*relays, return_exceptions=True)
             if upstream_writer:
                 upstream_writer.close()
+                with contextlib.suppress(OSError):
+                    await upstream_writer.wait_closed()
             writer.close()
             with contextlib.suppress(OSError):
                 await writer.wait_closed()

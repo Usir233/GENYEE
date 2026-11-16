@@ -26,6 +26,36 @@ func TestNewClientDoesNotChangeGlobalGRPCResolver(t *testing.T) {
 	}
 }
 
+func TestClientConfiguresNamespacedFileSizeGuardsEmptyAddrMasksLogsAndIsConcurrencySafe(t *testing.T) {
+	t.Setenv("DOCREADER_GRPC_MAX_FILE_SIZE_MB", "  2 \n")
+	t.Setenv("MAX_FILE_SIZE_MB", "50")
+	if got := getMaxFileSize(); got != 2*1024*1024 {
+		t.Fatalf("expected DOCREADER_GRPC_MAX_FILE_SIZE_MB=2 MiB to take precedence, got %d", got)
+	}
+
+	if _, err := NewClientWithAuth("   ", &AuthConfig{}); err == nil {
+		t.Fatal("expected empty docreader address to return error")
+	}
+
+	var nilConnClient Client
+	if err := nilConnClient.Close(); err != nil {
+		t.Fatalf("expected nil-conn Close() to be safe no-op, got %v", err)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := 0; i < 100; i++ {
+			nilConnClient.SetDebug(i%2 == 0)
+		}
+	}()
+	for i := 0; i < 100; i++ {
+		nilConnClient.Log("DEBUG", "iter %d", i)
+	}
+	<-done
+}
+
+
 func init() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)

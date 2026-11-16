@@ -5,8 +5,11 @@ registry.
 """
 
 import json
+import re
 
 from docreader.proto.docreader_pb2 import SourceBlock
+
+_SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
 
 
 def source_blocks_to_proto(document) -> list:
@@ -22,11 +25,13 @@ def source_blocks_to_proto(document) -> list:
             locator = block["locator"]
             if end <= start or start < 0 or not locator.get("type"):
                 continue
+            raw_json = json.dumps(locator, ensure_ascii=False)
+            safe_json = _SURROGATE_RE.sub("\ufffd", raw_json)
             out.append(
                 SourceBlock(
                     start=start,
                     end=end,
-                    locator_json=json.dumps(locator, ensure_ascii=False),
+                    locator_json=safe_json,
                 )
             )
         except (KeyError, TypeError, ValueError, AttributeError):

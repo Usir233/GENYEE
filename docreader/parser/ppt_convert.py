@@ -7,6 +7,7 @@ import os
 import tempfile
 import time
 
+from docreader.parser.archive import ArchiveLimitError, MAX_UNCOMPRESSED_ARCHIVE_BYTES
 from docreader.parser.excel_convert import find_soffice
 from docreader.parser.soffice_sandbox import (
     run_soffice_convert,
@@ -86,6 +87,11 @@ def convert_ppt_to_pptx_bytes(content: bytes, suffix: str = ".ppt") -> bytes | N
                     out_path = os.path.join(out_dir, name)
                     if os.path.islink(out_path) or not os.path.isfile(out_path):
                         continue
+                    out_size = os.path.getsize(out_path)
+                    if out_size > MAX_UNCOMPRESSED_ARCHIVE_BYTES:
+                        raise ArchiveLimitError(
+                            f"Converted PPTX size ({out_size}) exceeds limit ({MAX_UNCOMPRESSED_ARCHIVE_BYTES})"
+                        )
                     with open(out_path, "rb") as handle:
                         converted = handle.read()
                     logger.info(

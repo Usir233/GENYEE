@@ -15,13 +15,14 @@ from docreader.parser.archive import (
     MAX_ARCHIVE_ENTRIES,
     MAX_COMPRESSION_RATIO,
     ZIP_STREAM_CHUNK_BYTES,
+    safe_read_zip_member,
     validate_zip_archive,
 )
 from docreader.parser.base_parser import BaseParser
 
 
 MAX_CONTENT_BYTES = 32 * 1024 * 1024
-_RATIO_MIN_BYTES = 1024 * 1024
+MAX_TOPIC_DEPTH = 256
 
 
 @dataclass
@@ -41,9 +42,11 @@ def _clean_text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ""
 
 
-def _topic_from_json(value: object) -> _Topic | None:
+def _topic_from_json(value: object, depth: int = 0) -> _Topic | None:
     if not isinstance(value, dict):
         return None
+    if depth > MAX_TOPIC_DEPTH:
+        raise ValueError("XMind topic nesting depth exceeds the maximum limit")
 
     note = ""
     notes = value.get("notes")
@@ -62,7 +65,7 @@ def _topic_from_json(value: object) -> _Topic | None:
             if not isinstance(group, list):
                 continue
             for child in group:
-                topic = _topic_from_json(child)
+                topic = _topic_from_json(child, depth + 1)
                 if topic is not None:
                     topics.append(topic)
 
@@ -110,7 +113,9 @@ def _element_text(element: Element | None) -> str:
     return "".join(element.itertext()).strip()
 
 
-def _topic_from_xml(element: Element) -> _Topic:
+def _topic_from_xml(element: Element, depth: int = 0) -> _Topic:
+    if depth > MAX_TOPIC_DEPTH:
+        raise ValueError("XMind topic nesting depth exceeds the maximum limit")
     notes = _first_child(element, "notes")
     plain = _first_child(notes, "plain") if notes is not None else None
 
@@ -118,7 +123,7 @@ def _topic_from_xml(element: Element) -> _Topic:
     for children in _direct_children(element, "children"):
         for topic_group in _direct_children(children, "topics"):
             topics.extend(
-                _topic_from_xml(topic)
+                _topic_from_xml(topic, depth + 1)
                 for topic in _direct_children(topic_group, "topic")
             )
 
@@ -170,28 +175,21 @@ def _read_content_entry(content: bytes) -> tuple[str, bytes]:
             if info.file_size > MAX_CONTENT_BYTES:
                 raise ValueError("XMind content entry exceeds the 32 MiB limit")
 
-            chunks: list[bytes] = []
-            read_so_far = 0
-            with archive.open(info) as entry:
-                while True:
-                    chunk = entry.read(ZIP_STREAM_CHUNK_BYTES)
-                    if not chunk:
-                        break
-                    read_so_far += len(chunk)
-                    if read_so_far > MAX_CONTENT_BYTES:
-                        raise ValueError(
-                            "XMind content entry exceeds the 32 MiB limit"
-                        )
-                    if (
-                        info.compress_size > 0
-                        and read_so_far > _RATIO_MIN_BYTES
-                        and (read_so_far / info.compress_size) > MAX_COMPRESSION_RATIO
-                    ):
-                        raise ArchiveLimitError(
-                            f"Suspicious compression ratio for XMind {info.filename}"
-                        )
-                    chunks.append(chunk)
-            payload = b"".join(chunks)
+            try:
+                payload = safe_read_zip_member(
+                    archive,
+                    info,
+                    max_member_bytes=MAX_CONTENT_BYTES,
+                    max_total_bytes=MAX_CONTENT_BYTES,
+                    max_ratio=MAX_COMPRESSION_RATIO,
+                    chunk_size=ZIP_STREAM_CHUNK_BYTES,
+                )
+            except ArchiveLimitError as exc:
+                if "compression ratio" in str(exc).lower():
+                    raise
+                raise ArchiveLimitError(
+                    "XMind content entry exceeds the 32 MiB limit"
+                ) from exc
             return content_format, payload
     except zipfile.BadZipFile as exc:
         raise ValueError("invalid XMind archive") from exc

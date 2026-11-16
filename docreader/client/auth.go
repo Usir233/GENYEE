@@ -32,16 +32,25 @@ type AuthConfig struct {
 	AuthToken string
 }
 
+func parseEnvBool(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "true", "1", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 // LoadAuthConfigFromEnv reads docreader gRPC auth knobs from the process
 // environment. The caller must pass the result to BuildDialOptions to apply
 // them to a gRPC connection.
 func LoadAuthConfigFromEnv() *AuthConfig {
 	return &AuthConfig{
-		TLSEnabled: os.Getenv("GRPC_TLS_ENABLED") == "true",
-		CertFile:   os.Getenv("GRPC_TLS_CERT"),
-		KeyFile:    os.Getenv("GRPC_TLS_KEY"),
-		CAFile:     os.Getenv("GRPC_TLS_CA"),
-		ServerName: os.Getenv("GRPC_TLS_SERVER_NAME"),
+		TLSEnabled: parseEnvBool("GRPC_TLS_ENABLED"),
+		CertFile:   strings.TrimSpace(os.Getenv("GRPC_TLS_CERT")),
+		KeyFile:    strings.TrimSpace(os.Getenv("GRPC_TLS_KEY")),
+		CAFile:     strings.TrimSpace(os.Getenv("GRPC_TLS_CA")),
+		ServerName: strings.TrimSpace(os.Getenv("GRPC_TLS_SERVER_NAME")),
 		AuthToken:  strings.TrimSpace(os.Getenv("GRPC_AUTH_TOKEN")),
 	}
 }
@@ -73,11 +82,36 @@ func normalizeDocReaderAddr(raw string) string {
 		return ""
 	}
 	if strings.Contains(s, "://") {
-		if u, err := url.Parse(s); err == nil && u.Host != "" {
-			return strings.ToLower(strings.TrimSuffix(u.Host, "."))
+		u, err := url.Parse(s)
+		if err != nil || u.User != nil {
+			return ""
+		}
+		switch strings.ToLower(u.Scheme) {
+		case "dns", "passthrough":
+			if u.Host != "" {
+				s = u.Host + u.Path
+			} else {
+				s = strings.TrimPrefix(u.Path, "/")
+			}
+		default:
+			if u.Host == "" {
+				return ""
+			}
+			s = u.Host
 		}
 	}
-	return strings.ToLower(strings.TrimSuffix(s, "."))
+	s = strings.TrimSpace(s)
+	if s == "" || strings.Contains(s, "@") {
+		return ""
+	}
+	if h, p, err := net.SplitHostPort(s); err == nil {
+		cleanHost := strings.TrimSuffix(strings.ToLower(strings.Trim(h, "[]")), ".")
+		if cleanHost == "" {
+			return ""
+		}
+		return net.JoinHostPort(cleanHost, p)
+	}
+	return strings.TrimSuffix(strings.ToLower(s), ".")
 }
 
 func extractDocReaderHost(addr string) string {

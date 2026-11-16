@@ -213,7 +213,7 @@ class AuthInterceptor(grpc.ServerInterceptor):
 
         metadata = dict(handler_call_details.invocation_metadata or [])
         raw = metadata.get("authorization", "") or ""
-        if raw.startswith("Bearer "):
+        if raw[:7].lower() == "bearer ":
             raw = raw[7:]
         token_bytes = raw.encode("utf-8")
 

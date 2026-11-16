@@ -114,3 +114,50 @@ func TestEffectiveForAddrAllowsLoopbackWhenDocReaderAddrUnset(t *testing.T) {
 		t.Fatalf("expected external endpoint to strip token when DOCREADER_ADDR is unset, got %q", got.AuthToken)
 	}
 }
+
+func TestLoadAuthConfigFromEnvParsesTLSEnabledCaseAndWhitespace(t *testing.T) {
+	for _, truthy := range []string{"true", "TRUE", " 1\n", "yes", "on"} {
+		t.Setenv("GRPC_TLS_ENABLED", truthy)
+		t.Setenv("GRPC_TLS_CERT", "  /etc/certs/tls.crt\n")
+		t.Setenv("GRPC_TLS_KEY", " /etc/certs/tls.key\t")
+		t.Setenv("GRPC_TLS_CA", " /etc/certs/ca.crt\r\n")
+		t.Setenv("GRPC_TLS_SERVER_NAME", " docreader.internal \n")
+		cfg := LoadAuthConfigFromEnv()
+		if !cfg.TLSEnabled {
+			t.Fatalf("expected GRPC_TLS_ENABLED=%q to enable TLS", truthy)
+		}
+		if cfg.CertFile != "/etc/certs/tls.crt" || cfg.KeyFile != "/etc/certs/tls.key" ||
+			cfg.CAFile != "/etc/certs/ca.crt" || cfg.ServerName != "docreader.internal" {
+			t.Fatalf("expected trimmed TLS paths/server name, got %+v", cfg)
+		}
+	}
+}
+
+func TestIsTrustedDocReaderAddrNormalizesSchemesFQDNsAndRejectsUserinfo(t *testing.T) {
+	t.Setenv("DOCREADER_ADDR", "")
+	for _, trusted := range []string{
+		"dns:///127.0.0.1:50051",
+		"passthrough:///localhost:50051",
+		"localhost.:50051",
+		"[::1]:50051",
+	} {
+		if !IsTrustedDocReaderAddr(trusted) {
+			t.Fatalf("expected %q to be trusted loopback when DOCREADER_ADDR is unset", trusted)
+		}
+	}
+	for _, untrusted := range []string{
+		"http://user:secret@127.0.0.1:50051",
+		"dns:///203.0.113.5:50051",
+		"",
+	} {
+		if IsTrustedDocReaderAddr(untrusted) {
+			t.Fatalf("expected %q to be untrusted", untrusted)
+		}
+	}
+
+	t.Setenv("DOCREADER_ADDR", "docreader.svc.cluster.local.:50051")
+	if !IsTrustedDocReaderAddr("dns:///docreader.svc.cluster.local:50051") {
+		t.Fatal("expected FQDN trailing dot before port and dns:/// scheme to normalize identically")
+	}
+}
+

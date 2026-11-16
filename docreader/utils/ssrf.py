@@ -116,6 +116,8 @@ def normalize_hostname(raw_hostname: Optional[str]) -> Tuple[str, str]:
         return "", "URL has no hostname"
     if any(ch.isspace() or ord(ch) < 33 or ord(ch) == 127 for ch in host):
         return "", "invalid control character in hostname"
+    if "%" in host:
+        return "", "invalid zone or percent character in hostname"
     if ":" not in host:
         labels = host.split(".")
         if any(not label for label in labels):
@@ -186,7 +188,13 @@ def _is_whitelisted(hostname: str) -> bool:
 
 
 def _is_ip_like_hostname(hostname: str) -> bool:
-    return any(pattern.search(hostname) for pattern in _IP_LIKE_PATTERNS)
+    if any(pattern.search(hostname) for pattern in _IP_LIKE_PATTERNS):
+        return True
+    if ":" not in hostname:
+        last_label = hostname.rsplit(".", 1)[-1]
+        if last_label.isdigit() or re.fullmatch(r"(?i)0x[0-9a-f]+", last_label):
+            return True
+    return False
 
 
 def _is_restricted_ip(ip: Union[ipaddress.IPv4Address, ipaddress.IPv6Address]) -> Optional[str]:
@@ -276,15 +284,33 @@ def is_ssrf_safe_url(raw_url: str) -> Tuple[bool, str]:
     if not raw_url or not raw_url.strip():
         return False, "URL is empty"
 
-    normalized = _normalize_url(raw_url.strip())
+    raw_stripped = raw_url.strip()
+    authority_and_path = re.split(r"[?#]", raw_stripped, maxsplit=1)[0]
+    if "\\" in authority_and_path:
+        return False, "backslash in URL authority or path is not allowed"
+
+    normalized = _normalize_url(raw_stripped)
     parsed = urlparse(normalized)
     scheme = (parsed.scheme or "").lower()
     if scheme not in {"http", "https"}:
         return False, f"invalid scheme: {scheme or '(none)'} (only http/https allowed)"
 
+    if parsed.username is not None or parsed.password is not None:
+        return False, "embedded URL credentials are not allowed"
+
     hostname_lower, host_err = normalize_hostname(parsed.hostname)
     if host_err:
         return False, host_err
+
+    try:
+        port = parsed.port
+    except ValueError as exc:
+        return False, f"invalid port: {exc}"
+    if port is not None:
+        if port <= 0 or port > 65535:
+            return False, f"invalid port: {port}"
+        if str(port) in BLOCKED_PORTS:
+            return False, f"port {port} is blocked for security reasons"
 
     if _is_whitelisted(hostname_lower):
         return True, ""

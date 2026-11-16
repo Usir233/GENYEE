@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strconv"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/Usir233/GENYEE/docreader/proto"
@@ -15,12 +18,28 @@ import (
 )
 
 func getMaxFileSize() int {
-	if sizeStr := os.Getenv("MAX_FILE_SIZE_MB"); sizeStr != "" {
-		if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 {
-			return size * 1024 * 1024
+	for _, key := range []string{"DOCREADER_GRPC_MAX_FILE_SIZE_MB", "MAX_FILE_SIZE_MB"} {
+		if sizeStr := strings.TrimSpace(os.Getenv(key)); sizeStr != "" {
+			if size, err := strconv.Atoi(sizeStr); err == nil && size > 0 && size <= 4096 {
+				return size * 1024 * 1024
+			}
 		}
 	}
 	return 50 * 1024 * 1024
+}
+
+func maskAddrForLog(addr string) string {
+	s := strings.TrimSpace(addr)
+	if strings.Contains(s, "://") {
+		if u, err := url.Parse(s); err == nil && u.User != nil {
+			u.User = url.UserPassword("***", "***")
+			return u.String()
+		}
+	}
+	if at := strings.LastIndex(s, "@"); at >= 0 {
+		return "***@" + s[at+1:]
+	}
+	return s
 }
 
 var Logger = log.New(os.Stdout, "[DocReader] ", log.LstdFlags|log.Lmicroseconds)
@@ -37,7 +56,7 @@ type ImageRefInfo struct {
 type Client struct {
 	conn *grpc.ClientConn
 	proto.DocReaderClient
-	debug bool
+	debug atomic.Bool
 }
 
 func NewClient(addr string) (*Client, error) {
@@ -46,7 +65,11 @@ func NewClient(addr string) (*Client, error) {
 }
 
 func NewClientWithAuth(addr string, authConfig *AuthConfig) (*Client, error) {
-	Logger.Printf("INFO: Creating new DocReader client connecting to %s", addr)
+	trimmedAddr := strings.TrimSpace(addr)
+	if trimmedAddr == "" {
+		return nil, fmt.Errorf("docreader address must not be empty")
+	}
+	Logger.Printf("INFO: Creating new DocReader client connecting to %s", maskAddrForLog(trimmedAddr))
 
 	// Reserve the same bounded envelope allowance as the App and Python server.
 	// The raw file cap is checked separately in Read and ReadStream.
@@ -56,14 +79,19 @@ func NewClientWithAuth(addr string, authConfig *AuthConfig) (*Client, error) {
 		authConfig = &AuthConfig{}
 	}
 
-	opts, err := authConfig.BuildDialOptionsForAddr(addr, maxMsgSize)
+	opts, err := authConfig.BuildDialOptionsForAddr(trimmedAddr, maxMsgSize)
 	if err != nil {
 		Logger.Printf("ERROR: Failed to build dial options: %v", err)
 		return nil, err
 	}
 
+	dialTarget := "dns:///" + trimmedAddr
+	if strings.HasPrefix(trimmedAddr, "dns:///") || strings.HasPrefix(trimmedAddr, "passthrough:///") {
+		dialTarget = trimmedAddr
+	}
+
 	startTime := time.Now()
-	conn, err := grpc.Dial("dns:///"+addr, opts...)
+	conn, err := grpc.Dial(dialTarget, opts...)
 	if err != nil {
 		Logger.Printf("ERROR: Failed to connect to DocReader service: %v", err)
 		return nil, err
@@ -73,11 +101,13 @@ func NewClientWithAuth(addr string, authConfig *AuthConfig) (*Client, error) {
 	return &Client{
 		conn:            conn,
 		DocReaderClient: proto.NewDocReaderClient(conn),
-		debug:           false,
 	}, nil
 }
 
 func validateFileContentSize(req *proto.ReadRequest) error {
+	if req == nil {
+		return nil
+	}
 	maxFileSize := getMaxFileSize()
 	if size := len(req.GetFileContent()); size > maxFileSize {
 		return status.Errorf(codes.ResourceExhausted,
@@ -108,15 +138,18 @@ func (c *Client) ReadStream(
 
 func (c *Client) Close() error {
 	Logger.Printf("INFO: Closing DocReader client connection")
+	if c == nil || c.conn == nil {
+		return nil
+	}
 	return c.conn.Close()
 }
 
 func (c *Client) SetDebug(debug bool) {
-	c.debug = debug
+	c.debug.Store(debug)
 }
 
 func (c *Client) Log(level string, format string, args ...interface{}) {
-	if level == "DEBUG" && !c.debug {
+	if level == "DEBUG" && !c.debug.Load() {
 		return
 	}
 	Logger.Printf("%s: %s", level, fmt.Sprintf(format, args...))

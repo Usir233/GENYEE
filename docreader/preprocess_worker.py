@@ -39,6 +39,7 @@ def process_image(image, limits):
     from docreader.parser.image_preprocess import preprocess, warp_ordered
     from docreader.proto.docreader_pb2 import PreprocessImageResponse
 
+    Image.MAX_IMAGE_PIXELS = 40_000_000
     try:
         # Inspect the header before allocating the full decoded image. The
         # encoded gRPC message size alone says nothing about pixel memory.
@@ -92,6 +93,8 @@ def process_image(image, limits):
                 rect = cv2.rotate(rect, cv2.ROTATE_180)
         # The edge limit applies to the CROP, not to the source page: a small
         # text block keeps its pixels even when the page around it is huge.
+        if rect.size == 0 or min(rect.shape[:2]) <= 0:
+            return PreprocessImageResponse(fallback_needed=True, status="low_quality", **fields)
         crop_scale = min(1.0, limits.max_edge / max(rect.shape[:2]))
         if crop_scale < 1:
             rect = cv2.resize(

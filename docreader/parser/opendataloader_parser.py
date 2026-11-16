@@ -13,14 +13,18 @@ from __future__ import annotations
 import base64
 import contextlib
 import html
+import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.resources as resources
+import ipaddress
 import json
 import logging
 import os
 import re
 import shutil
 import signal
+import socket
+import ssl
 import subprocess
 import tempfile
 import threading
@@ -35,7 +39,13 @@ from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
 from docreader.parser.concurrency import check_cancellation, parser_worker_limit
 from docreader.parser.soffice_sandbox import build_minimal_sandbox_env
-from docreader.utils.ssrf import is_ssrf_safe_url
+from docreader.utils.ssrf import (
+    _is_restricted_ip,
+    _is_whitelisted,
+    _resolve_host_ips,
+    is_ssrf_safe_url,
+    normalize_hostname,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +69,77 @@ class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
+
+
+class _SSRFDeniedError(ValueError):
+    """Raised when SSRF policy or DNS-rebinding check blocks an outbound URL."""
+
+
+def _resolve_and_pin_target_ip(target_url: str) -> Tuple[str, str]:
+    """Validate URL via SSRF policy, re-resolve and check all IPs, and return (pinned_ip, sni_host)."""
+    safe, reason = is_ssrf_safe_url(target_url)
+    if not safe:
+        raise _SSRFDeniedError(reason)
+
+    parsed = urlsplit(target_url)
+    raw_host = (parsed.hostname or "").strip()
+    if not raw_host:
+        raise _SSRFDeniedError("URL has no hostname")
+
+    try:
+        ip_obj = ipaddress.ip_address(raw_host)
+        return str(ip_obj), raw_host
+    except ValueError:
+        pass
+
+    norm_host, host_err = normalize_hostname(raw_host)
+    if host_err:
+        raise _SSRFDeniedError(host_err)
+
+    ips, resolve_err = _resolve_host_ips(norm_host)
+    if resolve_err or not ips:
+        raise urllib.error.URLError(resolve_err or f"DNS resolution failed for {norm_host}")
+
+    if not _is_whitelisted(norm_host):
+        for ip in ips:
+            restricted_reason = _is_restricted_ip(ip)
+            if restricted_reason:
+                raise _SSRFDeniedError(
+                    f"hostname {norm_host} resolves to restricted IP {ip}: {restricted_reason}"
+                )
+
+    return str(ips[0]), norm_host
+
+
+def _build_pinned_opener(pinned_ip: str, sni_host: str) -> urllib.request.OpenerDirector:
+    class _PinnedHTTPConnection(http.client.HTTPConnection):
+        def connect(self) -> None:
+            self.sock = socket.create_connection(
+                (pinned_ip, self.port), self.timeout, self.source_address
+            )
+
+    class _PinnedHTTPSConnection(http.client.HTTPSConnection):
+        def connect(self) -> None:
+            raw_sock = socket.create_connection(
+                (pinned_ip, self.port), self.timeout, self.source_address
+            )
+            ctx = self._context or ssl.create_default_context()
+            self.sock = ctx.wrap_socket(raw_sock, server_hostname=sni_host)
+
+    class _PinnedHTTPHandler(urllib.request.HTTPHandler):
+        def http_open(self, req):
+            return self.do_open(_PinnedHTTPConnection, req)
+
+    class _PinnedHTTPSHandler(urllib.request.HTTPSHandler):
+        def https_open(self, req):
+            return self.do_open(_PinnedHTTPSConnection, req)
+
+    return urllib.request.build_opener(
+        urllib.request.ProxyHandler({}),
+        _NoRedirectHandler(),
+        _PinnedHTTPHandler(),
+        _PinnedHTTPSHandler(),
+    )
 
 
 def _override_str(overrides: Optional[Mapping[str, Any]], key: str, default: str = "") -> str:
@@ -102,19 +183,27 @@ def _ping_hybrid(
 
     base = url.rstrip("/")
     health_url = f"{base}/health"
-    safe, reason = is_ssrf_safe_url(health_url)
-    if not safe:
-        return False, f"OpenDataLoader hybrid URL 被 SSRF 防护拦截: {reason}"
+    try:
+        pinned_ip, sni_host = _resolve_and_pin_target_ip(health_url)
+    except _SSRFDeniedError as exc:
+        return False, f"OpenDataLoader hybrid URL 被 SSRF 防护拦截: {exc}"
+    except urllib.error.URLError as exc:
+        return False, f"无法连接 OpenDataLoader hybrid 服务 ({health_url}): {exc}"
 
-    opener = urllib.request.build_opener(_NoRedirectHandler())
+    opener = _build_pinned_opener(pinned_ip, sni_host)
     last_err = ""
     for attempt in range(max(1, retries)):
         try:
+            if attempt > 0:
+                pinned_ip, sni_host = _resolve_and_pin_target_ip(health_url)
+                opener = _build_pinned_opener(pinned_ip, sni_host)
             req = urllib.request.Request(health_url, method="GET")
             with opener.open(req, timeout=timeout_sec) as resp:
                 if 200 <= resp.status < 300:
                     return True, ""
                 last_err = f"hybrid 健康检查 HTTP {resp.status}: {health_url}"
+        except _SSRFDeniedError as e:
+            return False, f"OpenDataLoader hybrid URL 被 SSRF 防护拦截: {e}"
         except urllib.error.URLError as e:
             last_err = f"无法连接 OpenDataLoader hybrid 服务 ({health_url}): {e}"
         except Exception as e:
@@ -315,11 +404,17 @@ def _local_hybrid_auth_proxy(
                 self._send_json(400, {"error": "Upstream origin mismatch"})
                 return
 
-            safe, reason = is_ssrf_safe_url(target_url)
-            if not safe:
+            try:
+                pinned_ip, sni_host = _resolve_and_pin_target_ip(target_url)
+            except _SSRFDeniedError as exc:
                 self._send_json(
                     403,
-                    {"error": f"OpenDataLoader hybrid URL blocked by SSRF policy: {reason}"},
+                    {"error": f"OpenDataLoader hybrid URL blocked by SSRF policy: {exc}"},
+                )
+                return
+            except urllib.error.URLError:
+                self._send_json(
+                    502, {"error": "Failed to resolve OpenDataLoader hybrid service"}
                 )
                 return
 
@@ -358,10 +453,7 @@ def _local_hybrid_auth_proxy(
             if body is not None:
                 out_headers["Content-Length"] = str(len(body))
 
-            opener = urllib.request.build_opener(
-                urllib.request.ProxyHandler({}),
-                _NoRedirectHandler(),
-            )
+            opener = _build_pinned_opener(pinned_ip, sni_host)
             upstream_req = urllib.request.Request(
                 target_url,
                 data=body,
@@ -370,7 +462,12 @@ def _local_hybrid_auth_proxy(
             )
             try:
                 with opener.open(upstream_req, timeout=eff_timeout) as resp:
-                    resp_body = resp.read()
+                    resp_body = resp.read(eff_max_body + 1)
+                    if len(resp_body) > eff_max_body:
+                        self._send_json(
+                            502, {"error": "Upstream response exceeds maximum size"}
+                        )
+                        return
                     resp_ct = resp.headers.get("Content-Type", "application/json")
                     self.send_response(resp.status)
                     self.send_header("Content-Type", resp_ct)
@@ -387,7 +484,11 @@ def _local_hybrid_auth_proxy(
                             {"error": "Upstream redirect disallowed by SSRF security policy"},
                         )
                         return
-                    err_body = exc.read() if exc.fp is not None else b""
+                    err_body = (
+                        exc.read(min(eff_max_body, 1 << 20))
+                        if exc.fp is not None
+                        else b""
+                    )
                     err_ct = (
                         exc.headers.get("Content-Type", "application/json")
                         if exc.headers is not None

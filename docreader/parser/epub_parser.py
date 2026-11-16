@@ -22,6 +22,7 @@ warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
 
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
+from docreader.parser.concurrency import ParserCancelled, check_cancellation
 from docreader.parser.mhtml_parser import MHTMLParser
 
 from docreader.parser.archive import (
@@ -241,7 +242,7 @@ class EPUBParser(BaseParser):
             )
             metadata["image_count"] = len(images)
             return Document(content=markdown_content, images=images, metadata=metadata)
-        except ArchiveLimitError:
+        except (ArchiveLimitError, ParserCancelled):
             raise
         except ValueError as e:
             if "uncompressed size" in str(e).lower() or "compression ratio" in str(e).lower():
@@ -293,7 +294,7 @@ class EPUBParser(BaseParser):
                                 "utf-8"
                             )
                             self._add_image_aliases(image_aliases, img_file, img_path)
-                        except ArchiveLimitError:
+                        except (ArchiveLimitError, ParserCancelled):
                             raise
                         except Exception as e:
                             logger.warning(
@@ -301,6 +302,7 @@ class EPUBParser(BaseParser):
                             )
 
             for html_file in html_files:
+                check_cancellation(self.context)
                 try:
                     html_content = safe_read_zip_member(epub_zip, html_file).decode(
                         "utf-8", errors="ignore"
@@ -318,7 +320,7 @@ class EPUBParser(BaseParser):
                     title = title.replace("_", " ").replace("-", " ").title()
                     if chapter_md.strip():
                         markdown_parts.append(f"## {title}\n\n{chapter_md}")
-                except ArchiveLimitError:
+                except (ArchiveLimitError, ParserCancelled):
                     raise
                 except Exception as e:
                     logger.warning("Failed to process %s: %s", html_file, e)
@@ -362,6 +364,7 @@ class EPUBParser(BaseParser):
 
         if self.extract_images:
             for item in package.manifest:
+                check_cancellation(self.context)
                 if item.is_image:
                     img_data = self._read_item(epub_zip, item)
                     if img_data is None:
@@ -372,6 +375,7 @@ class EPUBParser(BaseParser):
                     self._add_image_aliases(image_aliases, item.name, img_path)
 
         for item in self._documents_in_reading_order(package):
+            check_cancellation(self.context)
             html_content = self._read_item(epub_zip, item)
             if html_content is None:
                 continue

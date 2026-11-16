@@ -41,16 +41,19 @@ class Chunk(BaseModel):
 
     def __eq__(self, other):
         """Equal function."""
+        if not isinstance(other, Chunk):
+            return NotImplemented
         return self.content == other.content
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any], **kwargs: Any):  # type: ignore
         """Create Chunk from dict."""
+        payload = dict(data)
         if isinstance(kwargs, dict):
-            data.update(kwargs)
+            payload.update(kwargs)
 
-        data.pop("class_name", None)
-        return cls(**data)
+        payload.pop("class_name", None)
+        return cls(**payload)
 
     @classmethod
     def from_json(cls, data_str: str, **kwargs: Any):  # type: ignore
