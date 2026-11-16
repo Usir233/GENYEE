@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Icon } from "./ui";
-import { homeAssets } from "../../shared/header";
+import { homeAssets, sanitizeExternalHttpUrl } from "../../shared/header";
 import s from "./home.module.css";
 
 export type GalleryShot = { label?: string; icon?: string; image: string; alt: string; available: boolean };
@@ -90,9 +90,9 @@ export function ProductGallery({ id, label, slides, layout = "sidebar" }: { id: 
               </button>;
             })}
           </div>}
-          {(slide.link || slide.external) && <div className={s.slideLinks}>
+          {(slide.link || sanitizeExternalHttpUrl(slide.external?.href)) && <div className={s.slideLinks}>
             {slide.link && <a className={s.textLink} href={slide.link}>了解更多 <Icon name="arrow" /></a>}
-            {slide.external && <a className={`${s.textLink} ${s.externalLink}`} href={slide.external.href} target="_blank" rel="noreferrer">{slide.external.logo && <Image src={`${homeAssets}/brands/${slide.external.logo}`} alt="" aria-hidden="true" width={20} height={20} />}{slide.external.label}<Icon name="github" /></a>}
+            {slide.external && sanitizeExternalHttpUrl(slide.external.href) && <a className={`${s.textLink} ${s.externalLink}`} href={sanitizeExternalHttpUrl(slide.external.href)} target="_blank" rel="noopener noreferrer">{slide.external.logo && <Image src={`${homeAssets}/brands/${slide.external.logo}`} alt="" aria-hidden="true" width={20} height={20} />}{slide.external.label}<Icon name="github" /></a>}
           </div>}
         </div>
       </div>)}
@@ -102,7 +102,7 @@ export function ProductGallery({ id, label, slides, layout = "sidebar" }: { id: 
         <span><Icon name={activeShot.icon ?? active.icon} />{active.name}{active.shots.length > 1 && activeShot.label && <em className={s.viewLabel}>· {activeShot.label}</em>}</span>
         <div className={s.cardActions}>
           {activeShot.available
-            ? <a className={s.textLink} href={`${homeAssets}/product/${activeShot.image}.png`} target="_blank" rel="noreferrer" aria-label={`查看${active.name}原图（新窗口）`}>查看原图 <Icon name="external" /></a>
+            ? <a className={s.textLink} href={`${homeAssets}/product/${activeShot.image}.png`} target="_blank" rel="noopener noreferrer" aria-label={`查看${active.name}原图（新窗口）`}>查看原图 <Icon name="external" /></a>
             : <span className={s.pendingLabel}>待补充</span>}
         </div>
       </div>

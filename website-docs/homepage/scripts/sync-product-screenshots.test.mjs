@@ -25,3 +25,15 @@ test('refreshes changed source images and aliases without replacing homepage-onl
   syncProductScreenshots(source, destination);
   assert.equal(readFileSync(join(destination, 'wiki-graph-groups.png'), 'utf8'), 'updated graph again');
 });
+
+test('ignores Object.prototype keys like toString in destination filenames', t => {
+  const root = mkdtempSync(join(tmpdir(), 'genyee-shots-proto-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const source = join(root, 'source');
+  const destination = join(root, 'product');
+  mkdirSync(source);
+  mkdirSync(destination);
+  writeFileSync(join(destination, 'toString'), 'keep prototype-named asset');
+  assert.equal(syncProductScreenshots(source, destination), 0);
+  assert.equal(readFileSync(join(destination, 'toString'), 'utf8'), 'keep prototype-named asset');
+});

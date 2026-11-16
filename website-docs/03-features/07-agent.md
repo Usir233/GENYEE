@@ -146,6 +146,7 @@ Handler 层（`internal/handler/custom_agent.go`）提供 `CreateAgent`、`GetAg
 | `builtin-wiki-researcher` | 维基问答 | `smart-reasoning` / `wiki-qa` | 模板 `wiki_researcher`；`max_iterations: 30`；工具：wiki_search、wiki_read_page、read_document、wiki_flag_issue（只读 + 报障）；关闭 web 搜索 |
 | `builtin-wiki-fixer` | 维基修订 | `smart-reasoning` / `custom` | 模板 `wiki_fixer`；`retain_retrieval_history: true`（修订需要跨轮记住页面内容）；工具共 9 个：wiki_search、wiki_read_page、read_document、wiki_write_page、wiki_replace_text、wiki_rename_page、wiki_delete_page、wiki_read_issue、wiki_update_issue（不含 wiki_flag_issue）；`kb_selection_mode: selected` |
 | `builtin-skill-installer` | 技能安装器 | `smart-reasoning` / `custom` | 模板 `skill_installer`；temperature 0.2；`max_completion_tokens: 24576`；`max_iterations: 30`；工具：shell_exec、write_skill_file、edit_skill_file；`kb_selection_mode: none`；由沙箱配置的技能上传流程调用 |
+| `builtin-genyee-assistant` | GENYEE 助手 | `smart-reasoning` / `custom` | 模板 `genyee_assistant`；按用户身份与页面上下文提供产品问答、资源管理、协作与自动化编排，见 [GENYEE 助手](26-genyee-assistant.md) |
 
 补充说明（来自 `internal/types/custom_agent.go`）：
 

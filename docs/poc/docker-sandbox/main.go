@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"time"
 
@@ -30,8 +31,9 @@ import (
 )
 
 const (
-	baseImage = "python:3.11-slim"
-	execUser  = "user"
+	baseImage           = "python:3.11-slim"
+	execUser            = "user"
+	maxArchiveReadBytes = 16 << 20
 )
 
 var failures int
@@ -46,318 +48,355 @@ func step(name string, err error, detail string) {
 }
 
 func main() {
-	ctx := context.Background()
-	cli, err := client.New(client.WithHostFromEnv(), client.WithAPIVersionNegotiation())
-	if err != nil {
-		fmt.Println("cannot reach docker:", err)
-		os.Exit(1)
+	os.Exit(run())
+}
+
+func runWithSteps(fn func() (int, func())) int {
+	failed, cleanup := fn()
+	if cleanup != nil {
+		cleanup()
 	}
-	defer cli.Close()
-
-	ping, err := cli.Ping(ctx, client.PingOptions{})
-	step("Health: ping control plane", err, fmt.Sprintf("api=%s", ping.APIVersion))
-
-	tmplImage := "genyee-poc/template:v2"
-	err = buildTemplateImage(ctx, cli, tmplImage)
-	step("Template: base image with uid-1000 user", err, tmplImage)
-	if err != nil {
-		os.Exit(1)
+	fmt.Println()
+	if failed == 0 {
+		fmt.Println("RESULT: all checks passed")
+		return 0
 	}
+	fmt.Printf("RESULT: %d check(s) failed\n", failed)
+	return 1
+}
 
-	sessionID := fmt.Sprintf("poc-session-%d", time.Now().Unix())
-	labels := map[string]string{
-		"genyee.managed":   "true",
-		"genyee.tenant":    "1",
-		"genyee.session":   sessionID,
-		"genyee.config":    "cfg-poc",
-		"genyee.createdAt": time.Now().UTC().Format(time.RFC3339),
-	}
-
-	// --- Create -------------------------------------------------------------
-	id, err := createSandbox(ctx, cli, tmplImage, labels)
-	step("Create: container as session sandbox", err, short(id))
-	if err != nil {
-		os.Exit(1)
-	}
-	defer remove(cli, id)
-
-	// --- Connect / Get ------------------------------------------------------
-	fresh, err := client.New(client.WithHostFromEnv(), client.WithAPIVersionNegotiation())
-	if err == nil {
-		defer fresh.Close()
-		var insp client.ContainerInspectResult
-		insp, err = fresh.ContainerInspect(ctx, id, client.ContainerInspectOptions{})
-		if err == nil && insp.Container.Config.Labels["genyee.session"] != sessionID {
-			err = errors.New("metadata labels not preserved")
+func run() int {
+	return runWithSteps(func() (int, func()) {
+		failures = 0
+		var cleanups []func()
+		pushCleanup := func(fn func()) {
+			cleanups = append(cleanups, fn)
 		}
-		step("Connect+Metadata: re-attach from a new client", err,
-			fmt.Sprintf("state=%s session=%s", insp.Container.State.Status,
-				insp.Container.Config.Labels["genyee.session"]))
-	}
-
-	// --- List by metadata ---------------------------------------------------
-	listed, err := cli.ContainerList(ctx, client.ContainerListOptions{
-		All:     true,
-		Filters: client.Filters{}.Add("label", "genyee.session="+sessionID),
-	})
-	if err == nil && len(listed.Items) != 1 {
-		err = fmt.Errorf("expected 1 container, got %d", len(listed.Items))
-	}
-	step("List: server-side metadata filter", err, fmt.Sprintf("matched=%d", len(listed.Items)))
-
-	// --- Exec: user / workdir / env / stdin / demux / exit code -------------
-	res, err := execIn(ctx, cli, id, execRequest{
-		cmd:     []string{"bash", "-lc", `cat; echo "user=$(id -un) cwd=$(pwd) env=$GREET"; echo oops >&2; exit 7`},
-		user:    execUser,
-		workDir: "/workspace",
-		env:     []string{"GREET=hello"},
-		stdin:   "stdin-payload\n",
-	})
-	if err == nil {
-		switch {
-		case res.exitCode != 7:
-			err = fmt.Errorf("exit code %d, want 7", res.exitCode)
-		case !strings.Contains(res.stdout, "user=user cwd=/workspace env=hello"):
-			err = fmt.Errorf("stdout mismatch: %q", res.stdout)
-		case !strings.Contains(res.stdout, "stdin-payload"):
-			err = fmt.Errorf("stdin not delivered: %q", res.stdout)
-		case !strings.Contains(res.stderr, "oops"):
-			err = fmt.Errorf("stderr not separated: %q", res.stderr)
+		runCleanups := func() {
+			for i := len(cleanups) - 1; i >= 0; i-- {
+				cleanups[i]()
+			}
 		}
-	}
-	step("Exec: user/workdir/env/stdin/demux/exit", err,
-		fmt.Sprintf("exit=%d stdout=%q stderr=%q", res.exitCode, oneline(res.stdout), oneline(res.stderr)))
 
-	// --- Exec cancellation: does a client-side cancel kill the process? -----
-	cancelCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-	_, execErr := execIn(cancelCtx, cli, id, execRequest{
-		cmd: []string{"bash", "-lc", "sleep 30"},
-	})
-	cancel()
-	time.Sleep(1 * time.Second)
-	probe, _ := execIn(ctx, cli, id, execRequest{
-		cmd: []string{"bash", "-lc", "ps -eo args= | grep -c '^sleep 30$' || true"},
-	})
-	step("Exec cancel: client cancel does NOT kill process (GAP)", nil,
-		fmt.Sprintf("clientErr=%v surviving 'sleep' procs=%s", execErr != nil, oneline(probe.stdout)))
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		pushCleanup(cancel)
 
-	// --- Timeout enforced inside the container ------------------------------
-	start := time.Now()
-	killRes, err := execIn(ctx, cli, id, execRequest{
-		cmd: []string{"timeout", "-s", "KILL", "2", "bash", "-lc", "sleep 30"},
-	})
-	elapsed := time.Since(start)
-	if err == nil && killRes.exitCode != 137 {
-		err = fmt.Errorf("exit code %d, want 137 (SIGKILL)", killRes.exitCode)
-	}
-	step("Timeout: enforce via in-container timeout(1)", err,
-		fmt.Sprintf("exit=%d after=%s", killRes.exitCode, elapsed.Round(100*time.Millisecond)))
+		cli, err := client.New(client.WithHostFromEnv(), client.WithAPIVersionNegotiation())
+		if err != nil {
+			fmt.Println("cannot reach docker:", err)
+			return 1, runCleanups
+		}
+		pushCleanup(func() { _ = cli.Close() })
 
-	// --- Filesystem: write / read / stat / mkdir / list / remove ------------
-	err = writeFile(ctx, cli, id, "/workspace/input/attachment.txt", []byte("attachment payload\n"))
-	step("WriteFile: PUT /containers/{id}/archive", err, "/workspace/input/attachment.txt")
+		ping, err := cli.Ping(ctx, client.PingOptions{})
+		step("Health: ping control plane", err, fmt.Sprintf("api=%s", ping.APIVersion))
+		if err != nil {
+			return failures, runCleanups
+		}
 
-	content, err := readFile(ctx, cli, id, "/workspace/input/attachment.txt")
-	if err == nil && string(content) != "attachment payload\n" {
-		err = fmt.Errorf("content mismatch: %q", content)
-	}
-	step("ReadFile: GET /containers/{id}/archive", err, fmt.Sprintf("%d bytes", len(content)))
+		tmplImage := "genyee-poc/template:v2"
+		err = buildTemplateImage(ctx, cli, tmplImage)
+		step("Template: base image with uid-1000 user", err, tmplImage)
+		if err != nil {
+			return failures, runCleanups
+		}
 
-	stat, err := cli.ContainerStatPath(ctx, id, client.ContainerStatPathOptions{
-		Path: "/workspace/input/attachment.txt",
-	})
-	step("Stat: HEAD /containers/{id}/archive", err,
-		fmt.Sprintf("size=%d mode=%v mtime=%s", stat.Stat.Size, stat.Stat.Mode.Perm(),
-			stat.Stat.Mtime.Format(time.RFC3339)))
+		sessionID := fmt.Sprintf("poc-session-%d", time.Now().Unix())
+		labels := map[string]string{
+			"genyee.managed":   "true",
+			"genyee.tenant":    "1",
+			"genyee.session":   sessionID,
+			"genyee.config":    "cfg-poc",
+			"genyee.createdAt": time.Now().UTC().Format(time.RFC3339),
+		}
 
-	rootMk, _ := execIn(ctx, cli, id, execRequest{cmd: []string{"mkdir", "-p", "/workspace/output/rootdir"}})
-	step("CapDrop ALL: root cannot bypass mode bits (GAP)", nil,
-		fmt.Sprintf("mkdir as root exit=%d stderr=%q", rootMk.exitCode, oneline(rootMk.stderr)))
+		// --- Create -------------------------------------------------------------
+		id, err := createSandbox(ctx, cli, tmplImage, labels)
+		step("Create: container as session sandbox", err, short(id))
+		if err != nil {
+			return failures, runCleanups
+		}
+		pushCleanup(func() { remove(cli, id) })
 
-	_, err = mustExec(ctx, cli, id, execRequest{
-		cmd:  []string{"mkdir", "-p", "/workspace/output/nested"},
-		user: execUser,
-	})
-	step("MakeDir: exec mkdir -p as sandbox user", err, "/workspace/output/nested")
+		// --- Connect / Get ------------------------------------------------------
+		fresh, err := client.New(client.WithHostFromEnv(), client.WithAPIVersionNegotiation())
+		if err == nil {
+			var insp client.ContainerInspectResult
+			insp, err = fresh.ContainerInspect(ctx, id, client.ContainerInspectOptions{})
+			_ = fresh.Close()
+			if err == nil && inspectLabel(insp, "genyee.session") != sessionID {
+				err = errors.New("metadata labels not preserved")
+			}
+			step("Connect+Metadata: re-attach from a new client", err,
+				fmt.Sprintf("state=%s session=%s", inspectStatus(insp), inspectLabel(insp, "genyee.session")))
+		} else {
+			step("Connect+Metadata: re-attach from a new client", err, "")
+		}
 
-	if _, err = mustExec(ctx, cli, id, execRequest{
-		cmd:  []string{"bash", "-lc", "echo body > /workspace/output/nested/report.txt"},
-		user: execUser,
-	}); err != nil {
-		step("ListDir: seed a file to list", err, "")
-	}
-	lsRes, err := mustExec(ctx, cli, id, execRequest{
-		cmd:  []string{"find", "/workspace/output", "-mindepth", "1", "-printf", `%y\t%s\t%T@\t%p\n`},
-		user: execUser,
-	})
-	if err == nil && !strings.Contains(lsRes.stdout, "report.txt") {
-		err = fmt.Errorf("listing missing report.txt: %q", lsRes.stdout)
-	}
-	step("ListDir: exec find (no native API)", err,
-		fmt.Sprintf("exit=%d out=%q err=%q", lsRes.exitCode, oneline(lsRes.stdout), oneline(lsRes.stderr)))
+		// --- List by metadata ---------------------------------------------------
+		listed, err := cli.ContainerList(ctx, client.ContainerListOptions{
+			All:     true,
+			Filters: client.Filters{}.Add("label", "genyee.session="+sessionID),
+		})
+		if err == nil && len(listed.Items) != 1 {
+			err = fmt.Errorf("expected 1 container, got %d", len(listed.Items))
+		}
+		step("List: server-side metadata filter", err, fmt.Sprintf("matched=%d", len(listed.Items)))
 
-	_, err = mustExec(ctx, cli, id, execRequest{
-		cmd:  []string{"rm", "-rf", "/workspace/input/attachment.txt"},
-		user: execUser,
-	})
-	step("Remove: exec rm (no native API)", err, "removed")
+		// --- Exec: user / workdir / env / stdin / demux / exit code -------------
+		res, err := execIn(ctx, cli, id, execRequest{
+			cmd:     []string{"bash", "-lc", `cat; echo "user=$(id -un) cwd=$(pwd) env=$GREET"; echo oops >&2; exit 7`},
+			user:    execUser,
+			workDir: "/workspace",
+			env:     []string{"GREET=hello"},
+			stdin:   "stdin-payload\n",
+		})
+		if err == nil {
+			switch {
+			case res.exitCode != 7:
+				err = fmt.Errorf("exit code %d, want 7", res.exitCode)
+			case !strings.Contains(res.stdout, "user=user cwd=/workspace env=hello"):
+				err = fmt.Errorf("stdout mismatch: %q", res.stdout)
+			case !strings.Contains(res.stdout, "stdin-payload"):
+				err = fmt.Errorf("stdin not delivered: %q", res.stdout)
+			case !strings.Contains(res.stderr, "oops"):
+				err = fmt.Errorf("stderr not separated: %q", res.stderr)
+			}
+		}
+		step("Exec: user/workdir/env/stdin/demux/exit", err,
+			fmt.Sprintf("exit=%d stdout=%q stderr=%q", res.exitCode, oneline(res.stdout), oneline(res.stderr)))
 
-	// --- Session-scoped state persists across executions --------------------
-	installRes, err := execIn(ctx, cli, id, execRequest{
-		cmd:  []string{"bash", "-lc", "pip install --quiet --no-cache-dir --user cowsay==6.1 && echo 1 > /workspace/output/counter.txt"},
-		user: execUser,
-	})
-	if err == nil && installRes.exitCode != 0 {
-		err = fmt.Errorf("install failed: %s %s", oneline(installRes.stdout), oneline(installRes.stderr))
-	}
-	if err == nil {
-		var second execResult
-		second, err = execIn(ctx, cli, id, execRequest{
-			cmd:  []string{"bash", "-lc", `python -c 'import cowsay; print("cowsay ok")' && cat /workspace/output/counter.txt`},
+		// --- Exec cancellation: does a client-side cancel kill the process? -----
+		cancelCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		_, execErr := execIn(cancelCtx, cli, id, execRequest{
+			cmd: []string{"bash", "-lc", "sleep 30"},
+		})
+		cancel()
+		time.Sleep(1 * time.Second)
+		probe, _ := execIn(ctx, cli, id, execRequest{
+			cmd: []string{"bash", "-lc", "ps -eo args= | grep -c '^sleep 30$' || true"},
+		})
+		step("Exec cancel: client cancel does NOT kill process (GAP)", nil,
+			fmt.Sprintf("clientErr=%v surviving 'sleep' procs=%s", execErr != nil, oneline(probe.stdout)))
+
+		// --- Timeout enforced inside the container ------------------------------
+		start := time.Now()
+		killRes, err := execIn(ctx, cli, id, execRequest{
+			cmd: []string{"timeout", "-s", "KILL", "2", "bash", "-lc", "sleep 30"},
+		})
+		elapsed := time.Since(start)
+		if err == nil && killRes.exitCode != 137 {
+			err = fmt.Errorf("exit code %d, want 137 (SIGKILL)", killRes.exitCode)
+		}
+		step("Timeout: enforce via in-container timeout(1)", err,
+			fmt.Sprintf("exit=%d after=%s", killRes.exitCode, elapsed.Round(100*time.Millisecond)))
+
+		// --- Filesystem: write / read / stat / mkdir / list / remove ------------
+		err = writeFile(ctx, cli, id, "/workspace/input/attachment.txt", []byte("attachment payload\n"))
+		step("WriteFile: PUT /containers/{id}/archive", err, "/workspace/input/attachment.txt")
+
+		content, err := readFile(ctx, cli, id, "/workspace/input/attachment.txt")
+		if err == nil && string(content) != "attachment payload\n" {
+			err = fmt.Errorf("content mismatch: %q", content)
+		}
+		step("ReadFile: GET /containers/{id}/archive", err, fmt.Sprintf("%d bytes", len(content)))
+
+		stat, err := cli.ContainerStatPath(ctx, id, client.ContainerStatPathOptions{
+			Path: "/workspace/input/attachment.txt",
+		})
+		step("Stat: HEAD /containers/{id}/archive", err,
+			fmt.Sprintf("size=%d mode=%v mtime=%s", stat.Stat.Size, stat.Stat.Mode.Perm(),
+				stat.Stat.Mtime.Format(time.RFC3339)))
+
+		rootMk, _ := execIn(ctx, cli, id, execRequest{cmd: []string{"mkdir", "-p", "/workspace/output/rootdir"}})
+		step("CapDrop ALL: root cannot bypass mode bits (GAP)", nil,
+			fmt.Sprintf("mkdir as root exit=%d stderr=%q", rootMk.exitCode, oneline(rootMk.stderr)))
+
+		_, err = mustExec(ctx, cli, id, execRequest{
+			cmd:  []string{"mkdir", "-p", "/workspace/output/nested"},
 			user: execUser,
 		})
-		if err == nil && (!strings.Contains(second.stdout, "cowsay ok") || !strings.Contains(second.stdout, "1")) {
-			err = fmt.Errorf("state lost between executions: %q %q", second.stdout, second.stderr)
-		}
-	}
-	step("Session state: pip install survives next exec", err, "package + file both visible")
+		step("MakeDir: exec mkdir -p as sandbox user", err, "/workspace/output/nested")
 
-	// --- Pause / Unpause (memory kept resident) -----------------------------
-	_, err = cli.ContainerPause(ctx, id, client.ContainerPauseOptions{})
-	if err == nil {
-		insp, _ := cli.ContainerInspect(ctx, id, client.ContainerInspectOptions{})
-		if insp.Container.State.Status != "paused" {
-			err = fmt.Errorf("state=%s", insp.Container.State.Status)
+		if _, err = mustExec(ctx, cli, id, execRequest{
+			cmd:  []string{"bash", "-lc", "echo body > /workspace/output/nested/report.txt"},
+			user: execUser,
+		}); err != nil {
+			step("ListDir: seed a file to list", err, "")
 		}
-	}
-	if err == nil {
-		_, err = cli.ContainerUnpause(ctx, id, client.ContainerUnpauseOptions{})
-	}
-	if err == nil {
-		var after execResult
-		after, err = execIn(ctx, cli, id, execRequest{cmd: []string{"cat", "/workspace/output/counter.txt"}})
-		if err == nil && !strings.Contains(after.stdout, "1") {
-			err = fmt.Errorf("state lost after unpause: %q", after.stdout)
-		}
-	}
-	step("Pause/Unpause: cgroup freezer round-trip", err,
-		"RAM + processes retained, host memory still occupied")
-
-	// --- Stop / Start (filesystem kept, processes lost) ---------------------
-	_, _ = execIn(ctx, cli, id, execRequest{cmd: []string{"bash", "-lc", "nohup sleep 900 >/dev/null 2>&1 & echo started"}})
-	timeoutSec := 5
-	_, err = cli.ContainerStop(ctx, id, client.ContainerStopOptions{Timeout: &timeoutSec})
-	if err == nil {
-		_, err = cli.ContainerStart(ctx, id, client.ContainerStartOptions{})
-	}
-	var afterRestart execResult
-	if err == nil {
-		afterRestart, err = execIn(ctx, cli, id, execRequest{
-			cmd: []string{"bash", "-lc", "cat /workspace/output/counter.txt; ps -eo args= | grep -c '^sleep 900$' || true"},
+		lsRes, err := mustExec(ctx, cli, id, execRequest{
+			cmd:  []string{"find", "/workspace/output", "-mindepth", "1", "-printf", `%y\t%s\t%T@\t%p\n`},
+			user: execUser,
 		})
-		if err == nil && !strings.Contains(afterRestart.stdout, "1") {
-			err = fmt.Errorf("filesystem lost after restart: %q", afterRestart.stdout)
+		if err == nil && !strings.Contains(lsRes.stdout, "report.txt") {
+			err = fmt.Errorf("listing missing report.txt: %q", lsRes.stdout)
 		}
-	}
-	step("Stop/Start: filesystem survives, processes do not", err,
-		fmt.Sprintf("counter+sleep-count=%s", oneline(afterRestart.stdout)))
+		step("ListDir: exec find (no native API)", err,
+			fmt.Sprintf("exit=%d out=%q err=%q", lsRes.exitCode, oneline(lsRes.stdout), oneline(lsRes.stderr)))
 
-	// --- Snapshot workflow --------------------------------------------------
-	mgmtID, err := createSandbox(ctx, cli, tmplImage,
-		map[string]string{"genyee.managed": "true", "genyee.role": "snapshot-builder"})
-	step("Snapshot: create workspace management sandbox", err, short(mgmtID))
-	if err != nil {
-		report()
-		return
-	}
-	defer remove(cli, mgmtID)
-
-	skillRes, err := execIn(ctx, cli, mgmtID, execRequest{
-		cmd: []string{"bash", "-lc", "pip install --quiet --no-cache-dir requests==2.32.3 && mkdir -p /opt/skills/pdf && echo 'skill v1' > /opt/skills/pdf/SKILL.md"},
-	})
-	if err == nil && skillRes.exitCode != 0 {
-		err = fmt.Errorf("skill install failed: %s", oneline(skillRes.stderr))
-	}
-	step("Snapshot: install a skill into that sandbox", err, "requests==2.32.3 + /opt/skills/pdf")
-
-	snapV1 := "genyee-poc/snapshot:v1"
-	commitRes, err := cli.ContainerCommit(ctx, mgmtID, client.ContainerCommitOptions{
-		Reference: snapV1,
-		Comment:   "genyee snapshot v1",
-		Changes:   []string{`LABEL genyee.snapshot.version=1`, `LABEL genyee.snapshot.tenant=1`},
-	})
-	step("Snapshot: commit container -> image", err, short(commitRes.ID))
-
-	snapSessionID, err := createSandbox(ctx, cli, snapV1,
-		map[string]string{"genyee.managed": "true", "genyee.session": sessionID + "-from-snapshot"})
-	step("Snapshot: session sandbox boots from snapshot", err, short(snapSessionID))
-	if err == nil {
-		defer remove(cli, snapSessionID)
-		var check execResult
-		check, err = execIn(ctx, cli, snapSessionID, execRequest{
-			cmd: []string{"bash", "-lc", `python -c 'import requests; print(requests.__version__)' && cat /opt/skills/pdf/SKILL.md`},
+		_, err = mustExec(ctx, cli, id, execRequest{
+			cmd:  []string{"rm", "-rf", "/workspace/input/attachment.txt"},
+			user: execUser,
 		})
-		if err == nil && (!strings.Contains(check.stdout, "2.32.3") || !strings.Contains(check.stdout, "skill v1")) {
-			err = fmt.Errorf("snapshot content missing: %q %q", check.stdout, check.stderr)
+		step("Remove: exec rm (no native API)", err, "removed")
+
+		// --- Session-scoped state persists across executions --------------------
+		installRes, err := execIn(ctx, cli, id, execRequest{
+			cmd:  []string{"bash", "-lc", "pip install --quiet --no-cache-dir --user cowsay==6.1 && echo 1 > /workspace/output/counter.txt"},
+			user: execUser,
+		})
+		if err == nil && installRes.exitCode != 0 {
+			err = fmt.Errorf("install failed: %s %s", oneline(installRes.stdout), oneline(installRes.stderr))
 		}
-		step("Snapshot: installed skill present in new sandbox", err, oneline(check.stdout))
-	}
-
-	// Incremental snapshot update: install a second skill on top of v1.
-	upgradeID, err := createSandbox(ctx, cli, snapV1, map[string]string{"genyee.role": "snapshot-builder"})
-	if err == nil {
-		defer remove(cli, upgradeID)
-		_, err = execIn(ctx, cli, upgradeID, execRequest{
-			cmd: []string{"bash", "-lc", "mkdir -p /opt/skills/chart && echo 'skill v2' > /opt/skills/chart/SKILL.md"},
-		})
-	}
-	snapV2 := "genyee-poc/snapshot:v2"
-	if err == nil {
-		_, err = cli.ContainerCommit(ctx, upgradeID, client.ContainerCommitOptions{
-			Reference: snapV2,
-			Changes:   []string{`LABEL genyee.snapshot.version=2`},
-		})
-	}
-	step("Snapshot: incremental update v1 -> v2", err, snapV2)
-
-	imgs, err := cli.ImageList(ctx, client.ImageListOptions{
-		All:     true,
-		Filters: client.Filters{}.Add("label", "genyee.snapshot.version"),
-	})
-	step("Snapshot: list snapshots by label", err, fmt.Sprintf("count=%d", len(imgs.Items)))
-
-	insp, err := cli.ImageInspect(ctx, snapV2)
-	if err == nil {
-		step("Snapshot: layer/size accounting", nil,
-			fmt.Sprintf("layers=%d size=%.1fMB (image layer hard limit: 127)",
-				len(insp.RootFS.Layers), float64(insp.Size)/1e6))
-	} else {
-		step("Snapshot: layer/size accounting", err, "")
-	}
-
-	// Does a snapshot preserve running processes / RAM? (E2B pause does.)
-	_, _ = execIn(ctx, cli, mgmtID, execRequest{cmd: []string{"bash", "-lc", "nohup sleep 600 >/dev/null 2>&1 & echo started"}})
-	procSnap := "genyee-poc/snapshot:proc"
-	_, err = cli.ContainerCommit(ctx, mgmtID, client.ContainerCommitOptions{Reference: procSnap})
-	if err == nil {
-		var procID string
-		procID, err = createSandbox(ctx, cli, procSnap, map[string]string{"genyee.role": "proc-check"})
 		if err == nil {
-			defer remove(cli, procID)
-			var out execResult
-			out, err = execIn(ctx, cli, procID, execRequest{cmd: []string{"bash", "-lc", "ps -eo args= | grep -c '^sleep 600$' || true"}})
-			step("Snapshot: running processes NOT captured (GAP)", err,
-				fmt.Sprintf("'sleep' procs in restored sandbox=%s", oneline(out.stdout)))
+			var second execResult
+			second, err = execIn(ctx, cli, id, execRequest{
+				cmd:  []string{"bash", "-lc", `python -c 'import cowsay; print("cowsay ok")' && cat /workspace/output/counter.txt`},
+				user: execUser,
+			})
+			if err == nil && (!strings.Contains(second.stdout, "cowsay ok") || !strings.Contains(second.stdout, "1")) {
+				err = fmt.Errorf("state lost between executions: %q %q", second.stdout, second.stderr)
+			}
 		}
-	}
+		step("Session state: pip install survives next exec", err, "package + file both visible")
 
-	insp2, err := cli.ContainerInspect(ctx, id, client.ContainerInspectOptions{})
-	step("Idle TTL: daemon has none, only timestamps (GAP)", err,
-		fmt.Sprintf("startedAt=%s -> GENYEE must sweep", insp2.Container.State.StartedAt))
+		// --- Pause / Unpause (memory kept resident) -----------------------------
+		_, err = cli.ContainerPause(ctx, id, client.ContainerPauseOptions{})
+		if err == nil {
+			var insp client.ContainerInspectResult
+			insp, err = cli.ContainerInspect(ctx, id, client.ContainerInspectOptions{})
+			if err == nil && inspectStatus(insp) != "paused" {
+				err = fmt.Errorf("state=%s", inspectStatus(insp))
+			}
+		}
+		if err == nil {
+			_, err = cli.ContainerUnpause(ctx, id, client.ContainerUnpauseOptions{})
+		}
+		if err == nil {
+			var after execResult
+			after, err = execIn(ctx, cli, id, execRequest{cmd: []string{"cat", "/workspace/output/counter.txt"}})
+			if err == nil && !strings.Contains(after.stdout, "1") {
+				err = fmt.Errorf("state lost after unpause: %q", after.stdout)
+			}
+		}
+		step("Pause/Unpause: cgroup freezer round-trip", err,
+			"RAM + processes retained, host memory still occupied")
 
-	checkCLIOrphan(ctx)
+		// --- Stop / Start (filesystem kept, processes lost) ---------------------
+		_, _ = execIn(ctx, cli, id, execRequest{cmd: []string{"bash", "-lc", "nohup sleep 900 >/dev/null 2>&1 & echo started"}})
+		timeoutSec := 5
+		_, err = cli.ContainerStop(ctx, id, client.ContainerStopOptions{Timeout: &timeoutSec})
+		if err == nil {
+			_, err = cli.ContainerStart(ctx, id, client.ContainerStartOptions{})
+		}
+		var afterRestart execResult
+		if err == nil {
+			afterRestart, err = execIn(ctx, cli, id, execRequest{
+				cmd: []string{"bash", "-lc", "cat /workspace/output/counter.txt; ps -eo args= | grep -c '^sleep 900$' || true"},
+			})
+			if err == nil && !strings.Contains(afterRestart.stdout, "1") {
+				err = fmt.Errorf("filesystem lost after restart: %q", afterRestart.stdout)
+			}
+		}
+		step("Stop/Start: filesystem survives, processes do not", err,
+			fmt.Sprintf("counter+sleep-count=%s", oneline(afterRestart.stdout)))
 
-	report()
+		// --- Snapshot workflow --------------------------------------------------
+		mgmtID, err := createSandbox(ctx, cli, tmplImage,
+			map[string]string{"genyee.managed": "true", "genyee.role": "snapshot-builder"})
+		step("Snapshot: create workspace management sandbox", err, short(mgmtID))
+		if err != nil {
+			return failures, runCleanups
+		}
+		pushCleanup(func() { remove(cli, mgmtID) })
+
+		skillRes, err := execIn(ctx, cli, mgmtID, execRequest{
+			cmd: []string{"bash", "-lc", "pip install --quiet --no-cache-dir requests==2.32.3 && mkdir -p /opt/skills/pdf && echo 'skill v1' > /opt/skills/pdf/SKILL.md"},
+		})
+		if err == nil && skillRes.exitCode != 0 {
+			err = fmt.Errorf("skill install failed: %s", oneline(skillRes.stderr))
+		}
+		step("Snapshot: install a skill into that sandbox", err, "requests==2.32.3 + /opt/skills/pdf")
+
+		snapV1 := "genyee-poc/snapshot:v1"
+		commitRes, err := cli.ContainerCommit(ctx, mgmtID, client.ContainerCommitOptions{
+			Reference: snapV1,
+			Comment:   "genyee snapshot v1",
+			Changes:   []string{`LABEL genyee.snapshot.version=1`, `LABEL genyee.snapshot.tenant=1`},
+		})
+		step("Snapshot: commit container -> image", err, short(commitRes.ID))
+
+		snapSessionID, err := createSandbox(ctx, cli, snapV1,
+			map[string]string{"genyee.managed": "true", "genyee.session": sessionID + "-from-snapshot"})
+		step("Snapshot: session sandbox boots from snapshot", err, short(snapSessionID))
+		if err == nil {
+			pushCleanup(func() { remove(cli, snapSessionID) })
+			var check execResult
+			check, err = execIn(ctx, cli, snapSessionID, execRequest{
+				cmd: []string{"bash", "-lc", `python -c 'import requests; print(requests.__version__)' && cat /opt/skills/pdf/SKILL.md`},
+			})
+			if err == nil && (!strings.Contains(check.stdout, "2.32.3") || !strings.Contains(check.stdout, "skill v1")) {
+				err = fmt.Errorf("snapshot content missing: %q %q", check.stdout, check.stderr)
+			}
+			step("Snapshot: installed skill present in new sandbox", err, oneline(check.stdout))
+		}
+
+		// Incremental snapshot update: install a second skill on top of v1.
+		upgradeID, err := createSandbox(ctx, cli, snapV1, map[string]string{"genyee.role": "snapshot-builder"})
+		if err == nil {
+			pushCleanup(func() { remove(cli, upgradeID) })
+			_, err = execIn(ctx, cli, upgradeID, execRequest{
+				cmd: []string{"bash", "-lc", "mkdir -p /opt/skills/chart && echo 'skill v2' > /opt/skills/chart/SKILL.md"},
+			})
+		}
+		snapV2 := "genyee-poc/snapshot:v2"
+		if err == nil {
+			_, err = cli.ContainerCommit(ctx, upgradeID, client.ContainerCommitOptions{
+				Reference: snapV2,
+				Changes:   []string{`LABEL genyee.snapshot.version=2`},
+			})
+		}
+		step("Snapshot: incremental update v1 -> v2", err, snapV2)
+
+		imgs, err := cli.ImageList(ctx, client.ImageListOptions{
+			All:     true,
+			Filters: client.Filters{}.Add("label", "genyee.snapshot.version"),
+		})
+		step("Snapshot: list snapshots by label", err, fmt.Sprintf("count=%d", len(imgs.Items)))
+
+		insp, err := cli.ImageInspect(ctx, snapV2)
+		if err == nil {
+			step("Snapshot: layer/size accounting", nil,
+				fmt.Sprintf("layers=%d size=%.1fMB (image layer hard limit: 127)",
+					len(insp.RootFS.Layers), float64(insp.Size)/1e6))
+		} else {
+			step("Snapshot: layer/size accounting", err, "")
+		}
+
+		// Does a snapshot preserve running processes / RAM? (E2B pause does.)
+		_, _ = execIn(ctx, cli, mgmtID, execRequest{cmd: []string{"bash", "-lc", "nohup sleep 600 >/dev/null 2>&1 & echo started"}})
+		procSnap := "genyee-poc/snapshot:proc"
+		_, err = cli.ContainerCommit(ctx, mgmtID, client.ContainerCommitOptions{Reference: procSnap})
+		if err == nil {
+			var procID string
+			procID, err = createSandbox(ctx, cli, procSnap, map[string]string{"genyee.role": "proc-check"})
+			if err == nil {
+				pushCleanup(func() { remove(cli, procID) })
+				var out execResult
+				out, err = execIn(ctx, cli, procID, execRequest{cmd: []string{"bash", "-lc", "ps -eo args= | grep -c '^sleep 600$' || true"}})
+				step("Snapshot: running processes NOT captured (GAP)", err,
+					fmt.Sprintf("'sleep' procs in restored sandbox=%s", oneline(out.stdout)))
+			}
+		}
+
+		insp2, err := cli.ContainerInspect(ctx, id, client.ContainerInspectOptions{})
+		step("Idle TTL: daemon has none, only timestamps (GAP)", err,
+			fmt.Sprintf("startedAt=%s -> GENYEE must sweep", inspectStartedAt(insp2)))
+
+		checkCLIOrphan(ctx)
+
+		return failures, runCleanups
+	})
 }
 
 // checkCLIOrphan reproduces what today's CLI-based DockerSandbox does on
@@ -373,14 +412,18 @@ func checkCLIOrphan(ctx context.Context) {
 	runCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(runCtx, "docker", "run", "--rm", "--name", name,
+		"--cap-drop=ALL", "--security-opt=no-new-privileges", "--network=none",
+		"--pids-limit=64", "--memory=128m",
 		baseImage, "sleep", "120")
 	cliErr := cmd.Run()
 	time.Sleep(2 * time.Second)
 
-	out, err := exec.CommandContext(ctx, "docker", "ps", "--filter", "name="+name,
+	cleanCtx, cleanCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cleanCancel()
+	out, err := exec.CommandContext(cleanCtx, "docker", "ps", "--filter", "name="+name,
 		"--format", "{{.State}} {{.Status}}").Output()
 	state := oneline(string(out))
-	_ = exec.CommandContext(ctx, "docker", "rm", "-f", name).Run()
+	_ = exec.CommandContext(cleanCtx, "docker", "rm", "-f", name).Run()
 	if state == "" {
 		state = "gone"
 	}
@@ -388,17 +431,28 @@ func checkCLIOrphan(ctx context.Context) {
 		fmt.Sprintf("cliErr=%v container=%s", cliErr != nil, state))
 }
 
-func report() {
-	fmt.Println()
-	if failures == 0 {
-		fmt.Println("RESULT: all checks passed")
-		return
+// --- helpers -----------------------------------------------------------------
+
+func inspectStatus(insp client.ContainerInspectResult) string {
+	if insp.Container.State == nil {
+		return ""
 	}
-	fmt.Printf("RESULT: %d check(s) failed\n", failures)
-	os.Exit(1)
+	return string(insp.Container.State.Status)
 }
 
-// --- helpers -----------------------------------------------------------------
+func inspectStartedAt(insp client.ContainerInspectResult) string {
+	if insp.Container.State == nil {
+		return ""
+	}
+	return insp.Container.State.StartedAt
+}
+
+func inspectLabel(insp client.ContainerInspectResult, key string) string {
+	if insp.Container.Config == nil {
+		return ""
+	}
+	return insp.Container.Config.Labels[key]
+}
 
 func remove(cli *client.Client, id string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -435,33 +489,61 @@ WORKDIR /workspace
 	return err
 }
 
-func createSandbox(ctx context.Context, cli *client.Client, img string, labels map[string]string) (string, error) {
-	pids := int64(256)
-	created, err := cli.ContainerCreate(ctx, client.ContainerCreateOptions{
-		Image: img,
-		Config: &container.Config{
-			Cmd:        []string{"sleep", "infinity"},
-			WorkingDir: "/workspace",
-			Labels:     labels,
-		},
-		HostConfig: &container.HostConfig{
-			Resources: container.Resources{
-				Memory:     1 << 30,
-				MemorySwap: 1 << 30,
-				NanoCPUs:   1_000_000_000,
-				PidsLimit:  &pids,
-			},
-			CapDrop:     []string{"ALL"},
-			SecurityOpt: []string{"no-new-privileges"},
-		},
-	})
+func createAndStartContainer(
+	ctx context.Context,
+	createFn func(context.Context) (string, error),
+	startFn func(context.Context, string) error,
+	removeFn func(context.Context, string, bool),
+) (string, error) {
+	id, err := createFn(ctx)
 	if err != nil {
 		return "", err
 	}
-	if _, err := cli.ContainerStart(ctx, created.ID, client.ContainerStartOptions{}); err != nil {
-		return created.ID, err
+	if err := startFn(ctx, id); err != nil {
+		cleanCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		removeFn(cleanCtx, id, true)
+		return "", err
 	}
-	return created.ID, nil
+	return id, nil
+}
+
+func createSandbox(ctx context.Context, cli *client.Client, img string, labels map[string]string) (string, error) {
+	pids := int64(256)
+	return createAndStartContainer(
+		ctx,
+		func(c context.Context) (string, error) {
+			created, err := cli.ContainerCreate(c, client.ContainerCreateOptions{
+				Image: img,
+				Config: &container.Config{
+					Cmd:        []string{"sleep", "infinity"},
+					WorkingDir: "/workspace",
+					Labels:     labels,
+				},
+				HostConfig: &container.HostConfig{
+					Resources: container.Resources{
+						Memory:     1 << 30,
+						MemorySwap: 1 << 30,
+						NanoCPUs:   1_000_000_000,
+						PidsLimit:  &pids,
+					},
+					CapDrop:     []string{"ALL"},
+					SecurityOpt: []string{"no-new-privileges"},
+				},
+			})
+			if err != nil {
+				return "", err
+			}
+			return created.ID, nil
+		},
+		func(c context.Context, id string) error {
+			_, err := cli.ContainerStart(c, id, client.ContainerStartOptions{})
+			return err
+		},
+		func(c context.Context, id string, force bool) {
+			_, _ = cli.ContainerRemove(c, id, client.ContainerRemoveOptions{Force: force})
+		},
+	)
 }
 
 type execRequest struct {
@@ -545,13 +627,40 @@ func mustExec(ctx context.Context, cli *client.Client, id string, req execReques
 	return res, nil
 }
 
+func cleanArchiveDest(dest string) (dir, base string, err error) {
+	if dest == "" || !strings.HasPrefix(dest, "/") || strings.HasSuffix(dest, "/") {
+		return "", "", fmt.Errorf("invalid archive destination %q", dest)
+	}
+	for _, seg := range strings.Split(dest, "/") {
+		if seg == ".." || seg == "." {
+			return "", "", fmt.Errorf("archive destination %q must not contain dot segments", dest)
+		}
+	}
+	cleaned := path.Clean(dest)
+	if cleaned == "/" {
+		return "", "", fmt.Errorf("invalid archive destination %q", dest)
+	}
+	dir = path.Dir(cleaned)
+	base = path.Base(cleaned)
+	if base == "" || base == "/" || base == "." {
+		return "", "", fmt.Errorf("invalid archive base name in %q", dest)
+	}
+	return dir, base, nil
+}
+
 func writeFile(ctx context.Context, cli *client.Client, id, dest string, content []byte) error {
-	if _, err := execIn(ctx, cli, id, execRequest{cmd: []string{"mkdir", "-p", dirOf(dest)}}); err != nil {
+	dir, name, err := cleanArchiveDest(dest)
+	if err != nil {
+		return err
+	}
+	if _, err := mustExec(ctx, cli, id, execRequest{
+		cmd:  []string{"mkdir", "-p", dir},
+		user: execUser,
+	}); err != nil {
 		return err
 	}
 	var buf bytes.Buffer
 	tw := tar.NewWriter(&buf)
-	name := dest[strings.LastIndex(dest, "/")+1:]
 	if err := tw.WriteHeader(&tar.Header{
 		Name: name, Mode: 0o644, Size: int64(len(content)), Uid: 1000, Gid: 1000,
 	}); err != nil {
@@ -563,21 +672,16 @@ func writeFile(ctx context.Context, cli *client.Client, id, dest string, content
 	if err := tw.Close(); err != nil {
 		return err
 	}
-	_, err := cli.CopyToContainer(ctx, id, client.CopyToContainerOptions{
-		DestinationPath: dirOf(dest),
+	_, err = cli.CopyToContainer(ctx, id, client.CopyToContainerOptions{
+		DestinationPath: dir,
 		Content:         &buf,
 		CopyUIDGID:      true,
 	})
 	return err
 }
 
-func readFile(ctx context.Context, cli *client.Client, id, src string) ([]byte, error) {
-	res, err := cli.CopyFromContainer(ctx, id, client.CopyFromContainerOptions{SourcePath: src})
-	if err != nil {
-		return nil, err
-	}
-	defer res.Content.Close()
-	tr := tar.NewReader(res.Content)
+func readTarRegBounded(r io.Reader, maxBytes int64) ([]byte, error) {
+	tr := tar.NewReader(r)
 	for {
 		header, err := tr.Next()
 		if err == io.EOF {
@@ -587,17 +691,28 @@ func readFile(ctx context.Context, cli *client.Client, id, src string) ([]byte, 
 			return nil, err
 		}
 		if header.Typeflag == tar.TypeReg {
-			return io.ReadAll(tr)
+			if header.Size > maxBytes {
+				return nil, fmt.Errorf("archive entry %q size %d exceeds limit %d", header.Name, header.Size, maxBytes)
+			}
+			data, err := io.ReadAll(io.LimitReader(tr, maxBytes+1))
+			if err != nil {
+				return nil, err
+			}
+			if int64(len(data)) > maxBytes {
+				return nil, fmt.Errorf("archive entry %q exceeds limit %d", header.Name, maxBytes)
+			}
+			return data, nil
 		}
 	}
 }
 
-func dirOf(p string) string {
-	idx := strings.LastIndex(p, "/")
-	if idx <= 0 {
-		return "/"
+func readFile(ctx context.Context, cli *client.Client, id, src string) ([]byte, error) {
+	res, err := cli.CopyFromContainer(ctx, id, client.CopyFromContainerOptions{SourcePath: src})
+	if err != nil {
+		return nil, err
 	}
-	return p[:idx]
+	defer res.Content.Close()
+	return readTarRegBounded(res.Content, maxArchiveReadBytes)
 }
 
 func short(id string) string {

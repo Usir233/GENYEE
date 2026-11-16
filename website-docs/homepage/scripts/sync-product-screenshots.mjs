@@ -8,7 +8,8 @@ export function syncProductScreenshots(source, destination) {
   let copied = 0;
   for (const entry of readdirSync(destination, { withFileTypes: true })) {
     if (!entry.isFile()) continue;
-    const original = join(source, aliases[entry.name] ?? entry.name);
+    const mapped = Object.hasOwn(aliases, entry.name) ? aliases[entry.name] : entry.name;
+    const original = join(source, mapped);
     if (!existsSync(original)) continue;
     copyFileSync(original, join(destination, entry.name));
     copied++;

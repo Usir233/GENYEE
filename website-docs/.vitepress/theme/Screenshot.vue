@@ -12,9 +12,13 @@ const props = defineProps<{
 }>()
 
 const { theme } = useData()
-const size = computed(() => theme.value.genyeeScreenshotSizes?.[props.src])
+const safeSrc = computed(() => (props.src.startsWith('/') && !props.src.startsWith('//') ? props.src : ''))
+const size = computed(() => {
+  const table = theme.value.genyeeScreenshotSizes
+  return safeSrc.value && table && Object.hasOwn(table, safeSrc.value) ? table[safeSrc.value] : undefined
+})
 const failed = ref(false)
-const resolved = computed(() => withBase(props.src))
+const resolved = computed(() => (safeSrc.value ? withBase(safeSrc.value) : ''))
 watch(resolved, () => { failed.value = false })
 </script>
 

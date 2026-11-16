@@ -65,7 +65,7 @@ docker compose ps                 # 等所有服务变成 healthy/running
 
 启动后在浏览器打开 `http://localhost` 就是前端（端口由 `FRONTEND_PORT` 决定，默认 80），首次访问会落到注册页。前端 Nginx 把 `/api/` 反代到后端，所以接口调用同样走 `http://localhost/api/v1`；后端 `8080` 端口也直接映射到宿主机，`curl http://localhost:8080/health` 可用于确认后端就绪。
 
-> 注意：`docker-compose.yml` 的 app 服务使用 `env_file: [.env]`，`.env` 不存在会导致 compose 解析失败。`make docker-run` / `start_all.sh` 会自动 `cp .env.example .env` 或 `touch .env` 兜底。
+> 注意：`docker-compose.yml` 通过 Compose 变量展开将 `.env` 中显式声明的环境变量注入 `app` 服务（不使用 `env_file` 整文件透传）。`make start-all` / `start_all.sh` 会自动基于 `.env.example` 初始化 `.env` 并补齐空白密钥。
 
 ### 版本升级
 
@@ -74,7 +74,7 @@ docker compose ps                 # 等所有服务变成 healthy/running
 > 如果数据库仍为 ParadeDB `v0.22.2-pg17`，先按 [ParadeDB 升级说明](06-paradedb-upgrade.md) 停止写入、备份、保留数据卷更换镜像并完成 `pg_search` 扩展升级，再恢复应用。仅替换镜像不会更新已有数据库的扩展 SQL；迁移 `000099` 会处理 GENYEE 库中符合条件的 `0.22.2–0.22.5`，其他数据库仍需单独检查。
 
 ```bash
-# 在 .env 中将 GENYEE_VERSION 设为目标版本（如 0.9.0），或保持 latest
+# 在 .env 中将 GENYEE_VERSION 设为目标版本（如 v0.9.0），或保持 latest
 docker compose pull
 docker compose up -d
 ```
@@ -86,7 +86,7 @@ docker compose up -d
 | 服务 | 镜像 | 端口（宿主:容器） | 依赖 | 说明 |
 | --- | --- | --- | --- | --- |
 | `frontend` | `genyee/genyee-ui:${GENYEE_VERSION:-latest}` | `${FRONTEND_PORT:-80}:80` | app（healthy） | Nginx 托管 SPA 并反代到 app；`APP_HOST`/`APP_BACKEND_PORT`/`APP_SCHEME` 可指向远程后端 |
-| `app` | `genyee/genyee-app` | `${APP_PORT:-8080}:8080` | postgres（healthy）、redis、docreader（healthy） | Go 后端；挂载 `./config/config.yaml`、`data-files` 卷；健康检查 `GET /health` |
+| `app` | `genyee/genyee-app` | `${APP_BIND:-127.0.0.1}:${APP_PORT:-8080}:8080` | postgres（healthy）、redis、docreader（healthy） | Go 后端（默认仅绑定本机回环）；挂载 `./config/config.yaml`、`data-files` 卷；健康检查 `GET /health` |
 | `docreader` | `genyee/genyee-docreader` | 仅 `expose: 50051`（不发布到宿主机） | — | 文档解析 gRPC 服务；健康检查 `grpc_health_probe`；与 app 共享 `docreader-tmp` 卷传递图片 |
 | `postgres` | `paradedb/paradedb:v0.25.11-pg17` | 不映射宿主端口 | — | ParadeDB = PostgreSQL 17 + BM25/向量扩展，默认检索引擎 |
 | `redis` | `redis:7.0-alpine` | 不映射宿主端口 | — | `--appendonly yes --requirepass ${REDIS_PASSWORD}` |
@@ -98,14 +98,14 @@ docker compose up -d
 | profile | 服务 | 端口 | 用途 |
 | --- | --- | --- | --- |
 | `searxng`（含 `full`） | `searxng-init` + `searxng` | `127.0.0.1:8888`（`SEARXNG_BIND`/`SEARXNG_PORT`） | 自建 Web 搜索；默认仅绑定回环，公开前必须轮换 `SEARXNG_SECRET` |
-| `minio`（含 `full`） | `minio` | 9000（S3）/ 9001（控制台） | S3 兼容对象存储（`STORAGE_TYPE=minio`），默认账号 `minioadmin/minioadmin` |
-| `neo4j`（含 `full`） | `neo4j` | 7474 / 7687 | 知识图谱（`NEO4J_ENABLE=true`），默认 `neo4j/password` |
+| `minio`（含 `full`） | `minio` | 9000（S3）/ 9001（控制台） | S3 兼容对象存储（`STORAGE_TYPE=minio`），启用前须在 `.env` 配置 `MINIO_ACCESS_KEY_ID` / `MINIO_SECRET_ACCESS_KEY` |
+| `neo4j`（含 `full`） | `neo4j` | 7474 / 7687 | 知识图谱（`NEO4J_ENABLE=true`），启用前须设置 `NEO4J_PASSWORD` |
 | `qdrant`（含 `full`） | `qdrant` | 6333（REST）/ 6334（gRPC） | 向量库（`RETRIEVE_DRIVER=qdrant`） |
 | `milvus` | `milvus` | 19530 / 9091 | 向量库（standalone，内嵌 etcd） |
 | `weaviate` | `weaviate` | 9035（HTTP）/ 50052（gRPC） | 向量库 |
 | `doris` | `doris-fe` + `doris-be` | 8030（FE HTTP）/ 9030（FE MySQL）/ 8040（BE） | Apache Doris 4.1 检索引擎（需 >= 3.0，HNSW ANN） |
 | `dex`（含 `full`） | `dex` | 5556 | OIDC 测试用 IdP（配置在 `misc/dex-config.yaml`） |
-| `langfuse`（含 `full`） | `langfuse-db-init`、`langfuse-clickhouse`、`langfuse-minio`、`langfuse-worker`、`langfuse-web` | 3000（UI）/ 9100/9101（专用 MinIO） | 自建 Langfuse 可观测栈，复用 GENYEE 的 postgres（新建 `langfuse` 库）与 redis（DB 1） |
+| `langfuse` | `langfuse-db-init`、`langfuse-clickhouse`、`langfuse-minio`、`langfuse-worker`、`langfuse-web` | 3000（UI）/ 9100/9101（专用 MinIO） | 自建 Langfuse 可观测栈（独立 profile，不含在 `full` 中），复用 GENYEE 的 postgres（新建 `langfuse` 库）与 redis（DB 1） |
 | `odl-hybrid` | `odl-hybrid` | expose 5002 | OpenDataLoader/Docling PDF 混合解析后端（仅本地构建，配 `DOCREADER_ODL_HYBRID` 使用） |
 | `full` | `sandbox`、`mcp` 及上述带 full 标记的服务 | mcp: `${MCP_PORT:-8082}:8000` | `sandbox` 仅用于 build/pull 镜像（`command: ["true"]`，非常驻）。Docker 沙箱默认关闭，需设 `GENYEE_SANDBOX_DOCKER_ENABLED=true` 并挂载 `docker.sock`（等同宿主机 root）；Cube/E2B 不依赖本机 daemon。`mcp` 为 MCP Server |
 
@@ -134,7 +134,7 @@ make dev-logs / dev-status / dev-stop / dev-restart
 | --- | --- | --- |
 | `docker/Dockerfile.app` | `genyee/genyee-app` | 三阶段：先构建 BrowserSkill 的 `bsk` 与配套 Chrome 扩展（装入 `/opt/genyee/browserskill/`，见[本机浏览器](../05-clients/09-local-browser.md)）；再用 `golang:1.26-bookworm` 编译（`make build-prod`，默认 `WITH_ANYDOC=1` 链接进程内 office 解析引擎，注入版本信息，预下载 DuckDB 扩展 `cmd/download/duckdb`）→ `debian:12.12-slim` 运行层（含 `migrate` 迁移工具、python3/node/uvx（供 stdio MCP 使用）、ffmpeg（ASR）、gosu 降权，以及第三方许可证文本）。入口 `scripts/docker-entrypoint.sh`：修复挂载目录属主；若挂载了 docker.sock，按 socket GID 把 appuser 加入对应组（compose `group_add` 在 gosu 后无效），再以 appuser 运行 `./GENYEE`。`EXPOSE 8080` |
 | `docker/Dockerfile.docreader` | `genyee/genyee-docreader` | Python 3.10 + uv 依赖锁定；生成 protobuf；运行层安装 LibreOffice、OpenJDK 17、antiword、Playwright（webkit）与 `grpc_health_probe`。轻量版不含 PaddleOCR。`EXPOSE 50051`。支持 `APT_MIRROR`、`PLAYWRIGHT_DOWNLOAD_HOST` 和 `PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST` 构建参数 |
-| `docker/Dockerfile.odl-hybrid` | `genyee/genyee-odl-hybrid:local` | 安装 `opendataloader-pdf[hybrid]`（Docling），监听 5002，默认 `--no-ocr`；仅本地构建不发布 |
+| `docker/Dockerfile.odl-hybrid` | `${GENYEE_REGISTRY:-genyee}/genyee-odl-hybrid:${GENYEE_VERSION:-latest}` | 安装 `opendataloader-pdf[hybrid]`（Docling），监听 5002，默认 `--no-ocr`；按需构建启用 |
 | `docker/Dockerfile.sandbox` | `genyee/genyee-sandbox` | Agent 会话沙箱镜像。基础环境为 Python 3.12-slim + Node 22 + uv/pnpm，默认 `root` 执行，保留 `user`(UID 1000) 供显式选择。默认构建目标 `sandbox` 供 Docker 后端使用；另有 `cube`（含 Cube envd）、`desktop` / `desktop-cube`（带图形桌面）等目标，见[沙箱部署](../06-development/04-sandbox-deployment.md) |
 | `frontend/Dockerfile` | `genyee/genyee-ui` | 两阶段：digest 锁定的 `node:24-bookworm-slim`（`$BUILDPLATFORM`，避免多架构 CI 用 QEMU 跑 Vite）内 `npm ci` + `npm run build`（`VITE_IS_DOCKER` / `VITE_FRONTEND_COMMIT`），可选 `NPM_REGISTRY` / `NODE_MAX_OLD_SPACE_SIZE`；运行层为按 digest 固定的 `nginx:1.30.3-alpine`（兼容 CentOS 7 旧内核）。无需宿主机预构建 `dist/` |
 

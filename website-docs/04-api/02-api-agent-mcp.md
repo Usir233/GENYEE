@@ -459,6 +459,17 @@ curl -X POST $BASE/api/v1/agent/mcp-oauth-resolutions/p-1 -H "Authorization: Bea
 curl -X POST $BASE/api/v1/agent/mcp-oauth-resolutions/p-1/cancel -H "Authorization: Bearer $TOKEN"
 ```
 
+### POST /api/v1/agent/prompts/:prompt_id 与安全表单 / 授权管理
+
+持久化人工审批、安全凭据表单与会话/自动化授权接口（`internal/handler/agent_prompts.go`，均要求登录 JWT `Viewer+` 且校验发起者身份，API Key 默认拒绝）：
+
+| 方法+路径 | 用途 |
+| --- | --- |
+| `POST /api/v1/agent/prompts/:prompt_id` | 提交待处理的持久化审批或提问回复（驱动挂起运行恢复或拒绝） |
+| `POST /api/v1/agent/secure-forms/:prompt_id` | 提交加密凭据安全表单响应（敏感值不进入对话历史或模型上下文） |
+| `GET /api/v1/agent/grants` | 查询当前用户的已生效授权（可选 `?session_id=` 或 `?automation_id=` 过滤） |
+| `DELETE /api/v1/agent/grants/:id` | 撤销指定的会话级或自动化长期授权 |
+
 ## 技能、沙箱与个人变量
 
 `GET /api/v1/skills?sandbox_config_id=...` 返回指定配置下可用技能的名称/说明及 skills_available；传 `agent_id` + `agent_source_tenant_id` 时按共享智能体的来源空间和其沙箱配置返回，详见[沙箱与技能 API](02-api-sandbox-skills.md#沙箱内技能)。目录收录、安装、模板、进度、文件与个人变量的完整接口见[沙箱与技能 API](02-api-sandbox-skills.md)。

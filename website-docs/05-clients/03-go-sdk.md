@@ -9,7 +9,7 @@ SDK 的 module 路径定义在 `client/go.mod`：
 ```
 module github.com/Usir233/GENYEE/client
 
-go 1.24.2
+go 1.26.10
 ```
 
 安装方式：
@@ -66,9 +66,9 @@ SDK 支持两种凭证，可同时配置，HTTP 层 `X-API-Key` 优先：
 ```go
 c := client.NewClient("http://localhost:8080")
 loginResp, err := c.Login(ctx, client.LoginRequest{ /* email + password */ })
-// 然后用返回的 access token 重建带认证的客户端
+// 然后用返回的 JWT token 重建带认证的客户端
 authed := client.NewClient("http://localhost:8080",
-    client.WithBearerToken(loginResp.AccessToken))
+    client.WithBearerToken(loginResp.Token))
 ```
 
 ### 租户（Tenant）与请求头注入

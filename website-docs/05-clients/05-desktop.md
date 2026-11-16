@@ -11,7 +11,7 @@ GENYEE Lite 桌面应用基于 [Wails v2](https://wails.io)，在桌面进程中
 v0.8.3 起，macOS 桌面版可在工具箱安装、升级并运行本机技能，详见[本机技能](../03-features/22-skills-sandbox.md#在-lite-桌面版安装本机技能)。
 
 
-v0.9.0 默认临时会话目录使用 `~/.genyee/sessions/session-*`。本机删除和扩大沙箱访问范围的操作可触发审批，卡片会说明命令、路径和影响。此审批与偏好中的 `approval_mode=auto` 不是同一配置；`ask`、`full` 仍不是可选的全局模式。详见[本机沙箱](../03-features/22-skills-sandbox.md#lite-host)。
+v0.9.0 默认临时会话目录使用 `~/.genyee/sessions/session-*`。本机删除和扩大沙箱访问范围的操作可触发审批，卡片会说明命令、路径和影响。偏好中的 `approval_mode` 默认为 `ask`，支持 `ask` 与 `auto`；`full` 仍不是可选的全局模式。详见[本机沙箱](../03-features/22-skills-sandbox.md#lite-host)。
 
 ## 总体架构 {#_1-总体架构}
 
@@ -60,7 +60,7 @@ flowchart LR
 | `cmd/desktop/app.go` | `App` 结构体与全部 Wails 绑定方法 |
 | `cmd/desktop/prefs.go` | 桌面偏好设置的读写（`desktop-prefs.json`），含本机沙箱的已批准项目目录 |
 | `cmd/desktop/signing_key.go` | 首次启动生成并持久化签名密钥 |
-| `cmd/desktop/update.go` | 基于 GitHub Releases 的检查更新 / 下载 / 安装重启逻辑 |
+| `cmd/desktop/update.go` | 默认关闭的在线更新检查、SHA-256 / Ed25519 校验与安装重启逻辑（需显式配置更新源） |
 | `cmd/desktop/wails.json` | Wails 构建配置 |
 | `cmd/desktop/build/` | 打包资源：`appicon.png`（应用图标）、`darwin/Info.plist`（macOS bundle 模板）、`windows/installer/project.nsi`（Windows NSIS 安装器模板） |
 
@@ -92,13 +92,13 @@ flowchart LR
 | `GetDesktopHTTPBindPublicSetting` | `(): Promise<boolean>` | 读取是否监听所有网卡（`0.0.0.0`）的偏好 |
 | `SetDesktopHTTPBindPublicSetting` | `(v: boolean): Promise<void>` | 保存 LAN/公开监听偏好；需重启应用生效 |
 | `GetDesktopListenPublicActive` | `(): Promise<boolean>` | 当前会话是否**实际**在所有网卡上监听（运行时状态，而非保存的偏好） |
-| `CheckForUpdates` | `(): Promise<void>` | 手动触发更新检查（有"已是最新"等对话框反馈） |
-| `AutoCheckForUpdates` | `(): Promise<void>` | 静默检查更新并自动后台下载 |
+| `CheckForUpdates` | `(): Promise<void>` | 手动触发更新检查（需配置 `GENYEE_UPDATE_URL` 或 `GENYEE_UPDATE_REPO`，否则提示未配置在线更新源） |
+| `AutoCheckForUpdates` | `(): Promise<void>` | 静默检查更新并自动后台下载（默认关闭，仅当显式设置 `GENYEE_AUTO_UPDATE=true` 且已配置更新源时执行） |
 | `GetAutoSetupToken` | `(): Promise<string>` | 返回本次进程的免登录凭据，前端用它调用 `POST /api/v1/auth/auto-setup` |
 | `PickProjectDir` | `(): Promise<string>` | 打开系统目录选择框，把选中的目录加入本机沙箱已批准列表并返回；取消时为空 |
 | `GetProjectDirs` | `(): Promise<string[]>` | 读取已批准的项目目录 |
 | `RemoveProjectDir` | `(dir: string): Promise<void>` | 从已批准列表移除一个目录 |
-| `GetApprovalMode` / `SetApprovalMode` | `(): Promise<string>` / `(mode: string): Promise<void>` | 读写本机沙箱审批模式；当前只接受 `auto` |
+| `GetApprovalMode` / `SetApprovalMode` | `(): Promise<string>` / `(mode: string): Promise<void>` | 读写本机沙箱审批模式；默认 `ask`，支持 `ask` 与 `auto` |
 
 ## 偏好设置存储（cmd/desktop/prefs.go） {#_5-偏好设置存储-cmd-desktop-prefs-go}
 
@@ -115,7 +115,7 @@ flowchart LR
 | `http_port` | int | 0 | 内嵌 API 服务监听端口；0 或非法值（超出 1–65535）表示每次启动使用随机空闲端口 |
 | `http_bind_public` | bool | false | 是否监听 `0.0.0.0`（允许局域网/公网访问内嵌 API） |
 | `project_dirs` | string[] | 空 | 通过系统目录选择框批准的本机项目目录（绝对路径）；只有列表中的目录能绑定到会话 |
-| `approval_mode` | string | `auto` | 本机沙箱审批模式；未知值按 `auto` 处理，`ask`、`full` 尚未提供，保存时被拒绝 |
+| `approval_mode` | string | `ask` | 本机沙箱审批模式；支持 `ask` 与 `auto`，未知值回退为 `ask`，`full` 尚未开放并在保存时被拒绝 |
 
 读写入口：`LoadDesktopPrefsHTTPPort()` / `LoadDesktopHTTPBindPublic()` / `SaveDesktopHTTPPortPreference()` / `SaveDesktopHTTPBindPublicPreference()`，以及本机沙箱用的 `LoadProjectDirs()` / `LoadApprovalMode()`，读取失败或解析失败时静默回退为零值。`project_dirs` 只能通过目录选择框（`PickProjectDir` 或 `POST /api/v1/system/host-project-dir`）追加，手工输入的路径不会被当作授权。
 
@@ -128,18 +128,20 @@ flowchart LR
 
 ## 自动更新机制（cmd/desktop/update.go） {#_6-自动更新机制-cmd-desktop-update-go}
 
+在线更新检查**默认关闭**，不会在未配置更新源时发起外网请求：仅当配置了 `GENYEE_UPDATE_URL`（完整发布版本 JSON 地址，须为 `https://` 或本地回环 `http://`）或 `GENYEE_UPDATE_REPO`（`owner/repo`）时才启用；后台静默检查还需同时设置 `GENYEE_AUTO_UPDATE=true`。
+
 `checkUpdate(ctx, currentVersion, showUpToDate, autoDownload)` 在 goroutine 中执行：
 
-1. **版本来源**：`desktopAboutVersion()` 优先使用构建时 ldflags 注入的 `handler.Version`，否则向上查找仓库根目录的 `VERSION` 文件；无法确定版本时放弃检查。
-2. **检查**：通过配置的更新服务或发行版本接口检查最新版本（超时 10s，带 `User-Agent: GENYEE-Lite-Desktop-App`；若设置了环境变量 `GITHUB_TOKEN` 则附带 `Authorization` 头以提升速率限制）。用 `golang.org/x/mod/semver` 比较 `tag_name` 与当前版本。
-3. **选择资产**：`findBestAsset()` 按 `runtime.GOOS/GOARCH` 匹配 release assets 文件名——OS 关键词（`mac`/`win`/`linux`）+ 架构关键词（`amd64`/`arm64`，兼容 `universal`/`aarch64`），逐级回退：OS+Arch → 仅 OS → macOS 的 `.dmg` → Windows 的 `.exe`；均无匹配时打开 release 页面。
-4. **下载**：`downloadAndInstall()` 下载到系统临时目录；`autoDownload` 模式静默下载，手动模式先弹 "Update Available" 对话框。下载完成后询问 "Restart Now / Later"。
+1. **版本来源**：`desktopAboutVersion()` 优先使用构建时 ldflags 注入的 `handler.Version`，否则向上查找仓库根目录的 `VERSION` 文件；无法确定版本或未配置更新源时直接结束（手动检查会提示未配置在线更新源）。
+2. **检查**：请求已配置的更新接口（超时 10s，带 `User-Agent: GENYEE-Lite-Desktop-App`；若设置了环境变量 `GITHUB_TOKEN` 则附带 `Authorization` 头以提升速率限制）。用 `golang.org/x/mod/semver` 比较 `tag_name` 与当前版本。
+3. **选择资产与校验元数据**：`findBestAsset()` 按 `runtime.GOOS/GOARCH` 匹配 release assets 文件名——OS 关键词（`mac`/`win`/`linux`）+ 架构关键词（`amd64`/`arm64`，兼容 `universal`/`aarch64`），逐级回退：OS+Arch → 仅 OS → macOS 的 `.dmg` → Windows 的 `.exe`；同时解析 SHA-256 摘要（asset `digest` 或同版本 checksums 清单）与可选 Ed25519 签名（配置 `GENYEE_UPDATE_PUBLIC_KEY` 时强制校验 `.sig`）。
+4. **下载与完整性校验**：`downloadAndInstall()` 仅允许 `https://`（或本地回环 `http://`）下载地址，写入系统临时目录并校验 SHA-256 摘要（缺失或不匹配即拒绝安装）；`autoDownload` 模式静默下载，手动模式先弹 "Update Available" 对话框。下载完成后询问 "Restart Now / Later"。
 5. **安装与重启**（`applyUpdateAndRestart()`，平台差异）：
    - **Windows**：写临时 `genyee_update.bat`（延时 2 秒 → 静默运行安装包 `/S` → 重启原程序 → 自删除），`cmd.exe /C start /b` 执行后退出应用。
    - **macOS（.dmg）**：`hdiutil attach` 挂载到临时挂载点，找到其中的 `.app`，写临时 `genyee_update.sh`：`rm -rf` 旧 bundle 并 `cp -a` 新 bundle（失败时通过 `osascript … with administrator privileges` 提权重试）→ `hdiutil detach` → `open` 新应用 → 自删除；非 `.dmg` 或异常时回退为 `open` 下载文件。
    - **Linux**：`xdg-open` 打开下载文件后退出。
 
-触发入口：macOS 菜单 `Check for Updates...`（手动，显示结果）、绑定方法 `CheckForUpdates()`（手动）与 `AutoCheckForUpdates()`（静默 + 自动下载，前端 `frontend/src/App.vue` 在检测到 `window.go.main.App.AutoCheckForUpdates` 存在时会调用）。
+触发入口：macOS 菜单 `Check for Updates...`（手动，显示结果）、绑定方法 `CheckForUpdates()`（手动）与 `AutoCheckForUpdates()`（前端 `frontend/src/App.vue` 检测到绑定存在时会调用，未开启 `GENYEE_AUTO_UPDATE=true` 时立即无操作返回）。
 
 ## Wails 构建配置（cmd/desktop/wails.json） {#_7-wails-构建配置-cmd-desktop-wails-json}
 
@@ -170,7 +172,7 @@ flowchart LR
 
 ## 构建方式 {#_9-构建方式}
 
-macOS 打包脚本为 `scripts/package-mac-app.sh`（根目录 `Makefile` 中没有 desktop 相关 target）：
+macOS 打包脚本为 `scripts/package-mac-app.sh`（也可在仓库根目录执行 `make package-mac-app`）：
 
 ```bash
 # 完整构建（前端 + Wails 打包 + 组装 .app）

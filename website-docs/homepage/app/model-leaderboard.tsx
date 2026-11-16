@@ -20,8 +20,10 @@ function paintMetricBars(root: ParentNode) {
 }
 
 function scrollToSection(behavior: ScrollBehavior) {
-  const id = window.location.hash.replace(/^#/, "");
-  if (!id) return;
+  const raw = window.location.hash.replace(/^#/, "");
+  if (!raw) return;
+  let id = raw;
+  try { id = decodeURIComponent(raw); } catch { /* Keep raw fragment if malformed. */ }
   const motion = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : behavior;
   document.getElementById(id)?.scrollIntoView({ behavior: motion, block: "start" });
 }
@@ -423,8 +425,8 @@ export function ModelLeaderboard() {
           </div>
         </dl>
         <div className="note info dataset-note">
-          <strong>数据与流程即将开源</strong>
-          评测数据集、评估流程与更多模型的评测结果正在整理，将在近期陆续开源，届时在本页补充仓库与下载链接。
+          <strong>评测数据说明</strong>
+          评测基于统一分块、检索与判分口径完成；合成评估样例随产品发行包 <code>dataset/samples</code> 目录提供。
         </div>
       </div>
     </div>

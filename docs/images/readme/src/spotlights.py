@@ -71,14 +71,19 @@ def drop_shadow(canvas, win, xy, theme):
     canvas.alpha_composite(win, (x, y))
 
 
-for name, (main, side, crop, side_w, corner) in SETS.items():
-    for theme in THEMES:
-        canvas = Image.new("RGBA", (W * SCALE, H * SCALE), (0, 0, 0, 0))
-        a = window(os.path.join(SHOTS, main), 1180, theme)
-        b = window(os.path.join(SHOTS, side), side_w, theme, crop)
-        main_x = 24 if corner == "right" else W - 1180 - 24
-        side_x = W - side_w - 24 if corner == "right" else 24
-        drop_shadow(canvas, a, (main_x * SCALE, 24 * SCALE), theme)
-        drop_shadow(canvas, b, (side_x * SCALE, (H - 24) * SCALE - b.height), theme)
-        canvas.save(os.path.join(OUT, f"spotlight-{name}-{theme}.webp"), "WEBP", quality=84, method=6)
-print("ok")
+def main():
+    for name, (main_shot, side, crop, side_w, corner) in SETS.items():
+        for theme in THEMES:
+            canvas = Image.new("RGBA", (W * SCALE, H * SCALE), (0, 0, 0, 0))
+            a = window(os.path.join(SHOTS, main_shot), 1180, theme)
+            b = window(os.path.join(SHOTS, side), side_w, theme, crop)
+            main_x = 24 if corner == "right" else W - 1180 - 24
+            side_x = W - side_w - 24 if corner == "right" else 24
+            drop_shadow(canvas, a, (main_x * SCALE, 24 * SCALE), theme)
+            drop_shadow(canvas, b, (side_x * SCALE, (H - 24) * SCALE - b.height), theme)
+            canvas.save(os.path.join(OUT, f"spotlight-{name}-{theme}.webp"), "WEBP", quality=84, method=6)
+    print("ok")
+
+
+if __name__ == "__main__":
+    main()

@@ -10,11 +10,9 @@ into alpha (dark variant recolors the navy lettering and keeps the gold).
 """
 import base64, io, os
 from PIL import Image, ImageFont
-import numpy as np
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.dirname(HERE)
-os.makedirs(OUT, exist_ok=True)
 
 THEMES = {
     "light": dict(panel="#fdfcfa", card="#ffffff", rule="rgba(16,31,56,.12)", rule_soft="rgba(16,31,56,.07)",
@@ -58,10 +56,23 @@ ICONS = {
     "model": '<path d="m12 2 10 5-10 5L2 7l10-5Zm-10 10 10 5 10-5M2 17l10 5 10-5"/>',
 }
 
-try:  # Only used to measure latin text for line wrapping.
-    LATIN = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial.ttf", 100)
-except OSError:
-    LATIN = ImageFont.truetype("Arial.ttf", 100)
+def _load_latin_font():
+    """Load a proportional Latin font for approximate line-wrap width measurement."""
+    for candidate in (
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "Arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "DejaVuSans.ttf",
+    ):
+        try:
+            return ImageFont.truetype(candidate, 100)
+        except OSError:
+            continue
+    return ImageFont.load_default(size=100)
+
+
+LATIN = _load_latin_font()
 
 
 def is_wide(ch):
@@ -314,10 +325,10 @@ ARCH = {
         pipeline_head="知识处理流水线",
         pipeline=["导入", "解析", "分块", "向量化", "索引", "富化"],
         pipeline_note="摘要、问题、图谱与标签由异步任务队列分阶段处理",
-        platform=[("shield", "空间与权限", "RBAC · 审计日志"), ("model", "模型目录", "27 家厂商"),
+        platform=[("shield", "空间与权限", "RBAC · 审计日志"), ("model", "模型目录", "30 家厂商"),
                   ("server", "任务队列", "Worker 池治理"), ("trace", "可观测性", "Langfuse 追踪")],
         services=[("file", "文档解析", "docreader · gRPC"), ("sandbox", "会话沙箱", "Docker · E2B · Cube"),
-                  ("model", "模型服务", "27 家厂商 · Ollama"), ("search", "联网搜索", "Bing · 博查 · SearXNG 等"),
+                  ("model", "模型服务", "30 家厂商 · Ollama"), ("search", "联网搜索", "Bing · 博查 · SearXNG 等"),
                   ("plug", "外部 MCP 服务", "工具 · OAuth2"), ("sources", "数据源", "飞书 · Confluence 等")],
         stores=[("PostgreSQL", "业务数据 · BM25 · pgvector"), ("Redis", "任务队列 · 流 · 限流"),
                 ("向量库", "ES · Qdrant · Milvus 等（可选）"), ("对象存储", "本地 · MinIO · COS · S3 等"),
@@ -335,10 +346,10 @@ ARCH = {
         pipeline_head="Knowledge pipeline",
         pipeline=["Ingest", "Parse", "Chunk", "Embed", "Index", "Enrich"],
         pipeline_note="Summaries, questions, graph and tags run stage by stage on the async task queue",
-        platform=[("shield", "Workspaces", "RBAC · audit log"), ("model", "Model catalog", "27 vendors"),
+        platform=[("shield", "Workspaces", "RBAC · audit log"), ("model", "Model catalog", "30 vendors"),
                   ("server", "Task queue", "Worker pools"), ("trace", "Observability", "Langfuse tracing")],
         services=[("file", "Document parsing", "docreader · gRPC"), ("sandbox", "Session sandbox", "Docker · E2B · Cube"),
-                  ("model", "Model providers", "27 vendors · Ollama"), ("search", "Web search", "Bing · SearXNG …"),
+                  ("model", "Model providers", "30 vendors · Ollama"), ("search", "Web search", "Bing · SearXNG …"),
                   ("plug", "External MCP", "Tools · OAuth2"), ("sources", "Data sources", "Feishu · Confluence …")],
         stores=[("PostgreSQL", "Data · BM25 · pgvector"), ("Redis", "Queue · streams · limits"),
                 ("Vector store", "ES · Qdrant · Milvus … (optional)"), ("Object storage", "Local · MinIO · COS · S3 …"),
@@ -356,10 +367,10 @@ ARCH = {
         pipeline_head="ナレッジ処理パイプライン",
         pipeline=["取り込み", "解析", "チャンク", "埋め込み", "索引", "拡充"],
         pipeline_note="要約・質問・グラフ・タグは非同期タスクキューで段階的に処理",
-        platform=[("shield", "ワークスペース", "RBAC · 監査ログ"), ("model", "モデルカタログ", "27 ベンダー"),
+        platform=[("shield", "ワークスペース", "RBAC · 監査ログ"), ("model", "モデルカタログ", "30 ベンダー"),
                   ("server", "タスクキュー", "Worker プール"), ("trace", "可観測性", "Langfuse トレース")],
         services=[("file", "文書解析", "docreader · gRPC"), ("sandbox", "サンドボックス", "Docker · E2B · Cube"),
-                  ("model", "モデル", "27 ベンダー · Ollama"), ("search", "Web 検索", "Bing · SearXNG など"),
+                  ("model", "モデル", "30 ベンダー · Ollama"), ("search", "Web 検索", "Bing · SearXNG など"),
                   ("plug", "外部 MCP", "ツール · OAuth2"), ("sources", "データソース", "Feishu · Confluence など")],
         stores=[("PostgreSQL", "業務データ · BM25 · pgvector"), ("Redis", "タスクキュー · ストリーム"),
                 ("ベクトル DB", "ES · Qdrant · Milvus など（任意）"), ("オブジェクト ストレージ", "ローカル · MinIO · COS · S3 など"),
@@ -377,10 +388,10 @@ ARCH = {
         pipeline_head="지식 처리 파이프라인",
         pipeline=["가져오기", "파싱", "청킹", "임베딩", "인덱싱", "보강"],
         pipeline_note="요약·질문·그래프·태그는 비동기 작업 큐에서 단계별로 처리",
-        platform=[("shield", "워크스페이스", "RBAC · 감사 로그"), ("model", "모델 카탈로그", "27개 벤더"),
+        platform=[("shield", "워크스페이스", "RBAC · 감사 로그"), ("model", "모델 카탈로그", "30개 벤더"),
                   ("server", "작업 큐", "Worker 풀"), ("trace", "관측 가능성", "Langfuse 추적")],
         services=[("file", "문서 파싱", "docreader · gRPC"), ("sandbox", "샌드박스", "Docker · E2B · Cube"),
-                  ("model", "모델", "27개 벤더 · Ollama"), ("search", "웹 검색", "Bing · SearXNG 등"),
+                  ("model", "모델", "30개 벤더 · Ollama"), ("search", "웹 검색", "Bing · SearXNG 등"),
                   ("plug", "외부 MCP", "도구 · OAuth2"), ("sources", "데이터 소스", "Feishu · Confluence 등")],
         stores=[("PostgreSQL", "업무 데이터 · BM25 · pgvector"), ("Redis", "작업 큐 · 스트림"),
                 ("벡터 DB", "ES · Qdrant · Milvus 등(선택)"), ("오브젝트 스토리지", "로컬 · MinIO · COS · S3 등"),
@@ -576,18 +587,6 @@ def architecture(lang, theme):
     return head + "\n" + "\n".join(o) + "\n</svg>"
 
 
-for lang in ARCH:
-    for theme in THEMES:
-        print(f"architecture {lang} {theme}")
-        open(f"{OUT}/architecture-{lang}-{theme}.svg", "w").write(architecture(lang, theme))
-
-
-for lang in COPY:
-    for theme in THEMES:
-        open(f"{OUT}/hero-{lang}-{theme}.svg", "w").write(hero(lang, theme))
-        open(f"{OUT}/capabilities-{lang}-{theme}.svg", "w").write(cards(lang, theme))
-print("ok")
-
 # Small gold line icons for README tables; the gold reads on both GitHub themes.
 TABLE_ICONS = {
     "terminal": '<rect x="2" y="3" width="20" height="18" rx="2"/><path d="m6 8 4 4-4 4m7 0h5"/>',
@@ -598,8 +597,32 @@ TABLE_ICONS = {
     "braces": '<path d="M8 3H7a2 2 0 0 0-2 2v4.5a2.5 2.5 0 0 1-2.5 2.5A2.5 2.5 0 0 1 5 14.5V19a2 2 0 0 0 2 2h1m8-18h1a2 2 0 0 1 2 2v4.5a2.5 2.5 0 0 0 2.5 2.5 2.5 2.5 0 0 0-2.5 2.5V19a2 2 0 0 1-2 2h-1"/>',
     "server": ICONS["server"],
 }
-os.makedirs(f"{OUT}/icons", exist_ok=True)
-for name, body in TABLE_ICONS.items():
-    open(f"{OUT}/icons/{name}.svg", "w").write(
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b8863b" '
-        f'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">{body}</svg>\n')
+
+
+def main():
+    os.makedirs(OUT, exist_ok=True)
+    for lang in ARCH:
+        for theme in THEMES:
+            print(f"architecture {lang} {theme}")
+            with open(f"{OUT}/architecture-{lang}-{theme}.svg", "w", encoding="utf-8") as fh:
+                fh.write(architecture(lang, theme))
+
+    for lang in COPY:
+        for theme in THEMES:
+            with open(f"{OUT}/hero-{lang}-{theme}.svg", "w", encoding="utf-8") as fh:
+                fh.write(hero(lang, theme))
+            with open(f"{OUT}/capabilities-{lang}-{theme}.svg", "w", encoding="utf-8") as fh:
+                fh.write(cards(lang, theme))
+    print("ok")
+
+    os.makedirs(f"{OUT}/icons", exist_ok=True)
+    for name, body in TABLE_ICONS.items():
+        with open(f"{OUT}/icons/{name}.svg", "w", encoding="utf-8") as fh:
+            fh.write(
+                f'<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#b8863b" '
+                f'stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">{body}</svg>\n'
+            )
+
+
+if __name__ == "__main__":
+    main()

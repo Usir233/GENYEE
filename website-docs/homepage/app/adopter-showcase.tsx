@@ -2,11 +2,13 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { homeAssets } from "../../shared/header";
+import { homeAssets, sanitizeExternalHttpUrl } from "../../shared/header";
 import { adopters, adopterIssue } from "./adopters";
 import { Icon } from "./ui";
 import s from "./home.module.css";
 import a from "./adopters.module.css";
+
+const safeAdopterIssue = sanitizeExternalHttpUrl(adopterIssue);
 
 export function AdopterShowcase() {
   const root = useRef<HTMLElement>(null);
@@ -39,7 +41,7 @@ export function AdopterShowcase() {
     <div ref={inner} className={`${s.shell} ${a.inner}`}>
       <div className={a.heading} onPointerEnter={event => { if (event.pointerType === "mouse") setActive(null); }}>
         <h2 id="adopters-title">典型行业与落地场景</h2>
-        <a className={a.join} href={adopterIssue} target="_blank" rel="noreferrer">分享你的实践 <Icon name="arrow" /></a>
+        {safeAdopterIssue && <a className={a.join} href={safeAdopterIssue} target="_blank" rel="noopener noreferrer">分享你的实践 <Icon name="arrow" /></a>}
       </div>
       <div id="adopter-logos" className={a.viewport}>
         <div className={a.track}>

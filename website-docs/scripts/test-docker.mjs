@@ -1,9 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
 
-const image = process.argv[2] || 'genyee-site:0.8.3';
+const defaultVersion = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)), '../VERSION'), 'utf8').trim().replace(/^v/, '');
+const image = process.argv[2] || `genyee-site:${defaultVersion}`;
 const name = `genyee-site-test-${randomUUID()}`;
 function docker(...args) {
   const result = spawnSync('docker', args, { encoding: 'utf8' });

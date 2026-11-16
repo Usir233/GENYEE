@@ -143,7 +143,8 @@ flowchart LR
 | `LOG_LEVEL` / `LOG_PATH` / `GENYEE_LOG_FORMAT` | debug / 空 / 空 | 日志级别、文件路径（空则仅 stdout）、自定义格式（非空须含 `%msg`；未设置时兼容旧 `LOG_FORMAT`，显式空值禁用回退；不支持 `json` 关键字） |
 | `LLM_DEBUG_LOG` | false | true 时在 LOG_PATH 同目录写 `llm_debug.log` |
 | `TZ` | Asia/Shanghai | 时区 |
-| `DEFAULT_LOCALE` | 空 | 前端界面默认语言（frontend 容器读取）：`zh-CN` / `en-US` / `ru-RU` / `ko-KR` / `ja-JP`，非法值忽略。仅影响未手动切换过语言的用户，优先级：用户已选语言 > 本变量 > `zh-CN`；改完重启 frontend 容器即可，无需重建镜像 |
+| `DEFAULT_LOCALE` | 空 | 前端界面默认语言（frontend 容器读取）：`zh-CN` / `zh-TW` / `en-US` / `ru-RU` / `ko-KR` / `ja-JP`，非法值忽略。仅影响未手动切换过语言的用户，优先级：用户已选语言 > 本变量 > `zh-CN`；改完重启 frontend 容器即可，无需重建镜像 |
+| `GENYEE_CHROME_EXTENSION_URL` / `GENYEE_CLAWHUB_SKILL_URL` | 空 / 空 | 前端「设置 → 发布集成」中 Chrome 插件与 ClawHub 技能入口的运行时地址（仅接受 `http(s)://`）；默认留空时对应入口隐藏 |
 | `GENYEE_LANGUAGE` | 空 | 文档处理语言（问题/摘要生成）。优先级：本变量 > 请求的 `Accept-Language` > 内置 `zh-CN`。文档处理语言可独立于界面语言设置，例如使用英文界面处理韩文文档。未设置回复语言的 IM 渠道也以本变量（未设置时为 `zh-CN`）作为默认回复语言 |
 | `AUTO_MIGRATE` | true | 启动时自动执行数据库迁移。PostgreSQL 下也控制按维度后台建 HNSW 索引，设为 `false` 时两者都不做（见[检索引擎](../03-features/05-retrieval-engines.md)） |
 | `AUTO_RECOVER_DIRTY` | true | 自动修复 golang-migrate 的 dirty 状态（上次迁移中断留下的）。手工排查迁移问题时应临时设为 false，否则启动会自动改写迁移版本记录，见[数据库与迁移](../06-development/02-database-schema.md) |
@@ -192,7 +193,7 @@ flowchart LR
 | `DORIS_ADDR/HTTP_PORT/DATABASE/USERNAME/PASSWORD/TABLE_PREFIX/COMPAT_MODE` | 空 | Apache Doris 4.1+ |
 | `TENCENT_VECTORDB_ADDR/USERNAME/API_KEY/DATABASE/COLLECTION/REPLICA_NUMBER` | 空 | 腾讯云 VectorDB |
 | `MULTI_STORE_RETRIEVE_TIMEOUT_SEC` | 空 | 多引擎并行检索超时 |
-| `NEO4J_ENABLE` / `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` | 空 / bolt://neo4j:7687 / neo4j / password | 知识图谱唯一开关（`ENABLE_GRAPH_RAG` 自 v0.1.6 起废弃） |
+| `NEO4J_ENABLE` / `NEO4J_URI` / `NEO4J_USERNAME` / `NEO4J_PASSWORD` | 空 / bolt://neo4j:7687 / neo4j / 空（启用时必填） | 知识图谱唯一开关（`ENABLE_GRAPH_RAG` 自 v0.1.6 起废弃） |
 
 ### 文件存储
 
@@ -201,7 +202,7 @@ flowchart LR
 | `STORAGE_TYPE` | local | `local` / `minio` / `cos` / `tos` / `s3` / `obs` / `oss` |
 | `STORAGE_ALLOW_LIST` | 空 | 允许用户选择的存储类型白名单（逗号分隔），可选值 `local`、`minio`、`cos`、`tos`、`s3`、`oss`、`ks3`、`obs` |
 | `LOCAL_STORAGE_BASE_DIR` | /data/files | 本地存储根目录 |
-| `MINIO_ENDPOINT/ACCESS_KEY_ID/SECRET_ACCESS_KEY/BUCKET_NAME/USE_SSL` | minio:9000 / minioadmin / minioadmin / 空 / false | MinIO |
+| `MINIO_ENDPOINT/ACCESS_KEY_ID/SECRET_ACCESS_KEY/BUCKET_NAME/USE_SSL` | minio:9000 / 空 / 空 / 空 / false | MinIO（启用时凭据必填） |
 | `COS_SECRET_ID/SECRET_KEY/REGION/BUCKET_NAME/APP_ID/PATH_PREFIX` | 空 | 腾讯云 COS（另有 TEMP_BUCKET/TEMP_REGION） |
 | `S3_*` / `OBS_*` / `OSS_*` / `TOS_*` | 见 `.env.example` B4 节 | AWS S3 / 华为 OBS / 阿里 OSS / 火山 TOS，均含 ENDPOINT/REGION/KEY/BUCKET/PATH_PREFIX 等 |
 
@@ -262,7 +263,7 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 仍未覆盖的出站路径，按影响排序：
 
 1. **gRPC 向量库的运行时解析**：qdrant / milvus 客户端由 gRPC 自己的 resolver 解析 target，拨号器拿到的已是地址，因此这类主机是在**建客户端之前按名字**判断的（环境变量配置在启动时判断，控制台保存的配置走 URL 校验），而不是每次连接前。
-2. **Langfuse 的 OTLP 导出器**自带 HTTP 客户端，完全不走本机制。`LANGFUSE_HOST` 默认是 SaaS 地址，离线部署请关闭追踪或改成内网地址。
+2. **Langfuse 的 OTLP 导出器**自带 HTTP 客户端，完全不走本机制。追踪默认关闭（`LANGFUSE_ENABLED=false` 且 `LANGFUSE_HOST` 默认为空），离线部署仅在指向内网自建地址时开启。
 3. **`HTTP(S)_PROXY`**：拨号器对代理主机的放行条件是「拨号地址与代理 URL 的 host 完全相等」。相等时代理主机即使不在白名单也会被解析和连接；不相等时（例如代理 URL 没写端口）会被当成非白名单直接拒绝。离线部署请 unset 代理，或把代理主机一并写进白名单。
 
 ### 镜像构建参数（从源码构建时）
@@ -351,7 +352,7 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 
 ### 可观测性（Langfuse）
 
-`LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` 同时设置即自动启用；`LANGFUSE_HOST`（默认 `https://cloud.langfuse.com`，自建栈填 `http://langfuse-web:3000`）、`LANGFUSE_ENABLED`、`LANGFUSE_RELEASE`、`LANGFUSE_ENVIRONMENT`、`LANGFUSE_SAMPLE_RATE`、`LANGFUSE_FLUSH_AT/FLUSH_INTERVAL/QUEUE_SIZE/REQUEST_TIMEOUT/DEBUG` 为调优项；`--profile langfuse` 自建栈另有 `LANGFUSE_SALT`、`LANGFUSE_ENCRYPTION_KEY`、`LANGFUSE_NEXTAUTH_SECRET`、`LANGFUSE_INIT_*`（首启自动建组织/项目/管理员）等，见 `.env.example` I1/I2 节。
+默认关闭（`LANGFUSE_ENABLED=false`，`LANGFUSE_HOST` 默认留空，不会自动向外部云端上报）。启用时需显式设置 `LANGFUSE_ENABLED=true`、`LANGFUSE_HOST`（自建栈填 `http://langfuse-web:3000`）、`LANGFUSE_PUBLIC_KEY` 与 `LANGFUSE_SECRET_KEY`；另有 `LANGFUSE_RELEASE`、`LANGFUSE_ENVIRONMENT`、`LANGFUSE_SAMPLE_RATE`、`LANGFUSE_FLUSH_AT/FLUSH_INTERVAL/QUEUE_SIZE/REQUEST_TIMEOUT/DEBUG` 调优项。`--profile langfuse` 自建栈另配 `LANGFUSE_SALT`、`LANGFUSE_ENCRYPTION_KEY`、`LANGFUSE_NEXTAUTH_SECRET`、`LANGFUSE_INIT_*`（首启自动建组织/项目/管理员）等，见 `.env.example` I1/I2 节。
 
 ### 可选服务：SearXNG 与 MCP Server
 
@@ -365,7 +366,7 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 | `SEARXNG_BIND` | 127.0.0.1 | **默认只监听本机**。GENYEE 打包的配置关掉了 SearXNG 自身的限流（否则后端会被节流），所以不应直接暴露到 LAN；确实要开放请显式改成 `0.0.0.0` 并自行加固 |
 | `SEARXNG_SECRET` | 空 | 入口脚本用它替换 `settings.yml` 里的 `secret_key`，对外开放时必须设 |
 
-自建 SearXNG 时记得把 `127.0.0.1` 加进 `SSRF_WHITELIST`，否则后端的 SSRF 防护会拦掉本机地址。用法见[网络搜索与网页抓取](../03-features/11-web-search.md)。
+标准 Compose 部署中 `app` 容器使用 `http://searxng:8080`（已包含在默认 `SSRF_WHITELIST_EXTRA` 中）；宿主机开发模式直连 `http://127.0.0.1:8888` 时需把 `127.0.0.1` 加进 `SSRF_WHITELIST`。用法见[网络搜索与网页抓取](../03-features/11-web-search.md)。
 
 **MCP Server**（把 GENYEE 暴露给 Claude Desktop 等 MCP 客户端，`--profile full`）：
 
@@ -430,11 +431,12 @@ AWS S3 的 `S3_ACCESS_KEY` / `S3_SECRET_KEY` 可以**同时留空**，此时走 
 
 ## config/builtin_agents.yaml：内置 Agent
 
-定义随系统分发、对所有租户可见的 Agent（`BuiltinAgentEntry`，`internal/types/builtin_agent_config.go`）。每条含 `id`、`avatar`、`is_builtin: true`、`i18n`（default/zh-CN/zh-TW/ja-JP/ko-KR 的名称与描述）与完整 `config`（`CustomAgentConfig`）。文件内置五个 Agent：
+定义随系统分发、对所有租户可见的 Agent（`BuiltinAgentEntry`，`internal/types/builtin_agent_config.go`）。每条含 `id`、`avatar`、`is_builtin: true`、`i18n`（default/zh-CN/zh-TW/ja-JP/ko-KR 的名称与描述）与完整 `config`（`CustomAgentConfig`）。文件内置七个 Agent：
 
 - `builtin-quick-answer`：`agent_mode: quick-answer`，引用 `system_prompt_id: default_kb` 与 `context_template_id: default_context`，带完整检索参数（`embedding_top_k: 10`、`vector_threshold: 0.5`、`rerank_threshold: 0.3`、FAQ 直答阈值 0.9 等）；
 - `builtin-smart-reasoning`：`agent_mode: smart-reasoning`、`agent_type: rag-qa`、`max_iterations: 50`；
-- `builtin-data-analyst`、`builtin-wiki-researcher`、`builtin-wiki-fixer`：分别面向表格分析与 Wiki 场景。
+- `builtin-data-analyst`、`builtin-wiki-researcher`、`builtin-wiki-fixer`：分别面向表格分析与 Wiki 问答/修订场景；
+- `builtin-skill-installer`、`builtin-genyee-assistant`：分别用于沙箱技能安装验证与内置 GENYEE 工作助手。
 
 `config` 中的 `system_prompt_id` 在启动时由 `resolveBuiltinAgentPromptIDs` 解析为 `agent_system_prompt.yaml` 中的实际内容。修改此文件并重启即可调整内置 Agent 行为。
 
@@ -448,7 +450,7 @@ builtin_models:
     type: KnowledgeQA              # KnowledgeQA | Embedding | Rerank | VLLM | ASR
     source: remote                 # remote（默认）| local
     is_default: true               # 是否设为该类型默认模型
-    name: ${LLM_MODEL_NAME}        # 字符串字段均支持 ${ENV} 引用（.env 经 env_file 注入容器）
+    name: ${LLM_MODEL_NAME}        # 字符串字段均支持 ${ENV} 引用（Compose 需在 app.environment 显式透传自定义变量）
     parameters:
       base_url: ${LLM_BASE_URL}
       api_key: ${LLM_API_KEY}
@@ -458,7 +460,7 @@ builtin_models:
         truncate_prompt_tokens: 0
 ```
 
-注意：未设置的 `${ENV}` 会保留字面量以便暴露配置错误；非字符串字段（`type`、`source`、`is_default`、`dimension` 等）必须写字面值；从文件删除条目**不会**自动删库，需手动清理。
+注意：未设置的 `${ENV}` 会保留字面量以便暴露配置错误；非字符串字段（`type`、`source`、`is_default`、`dimension` 等）必须写字面值；从文件中移除原本由该文件托管（`managed_by='yaml'`）的条目后，下次启动会自动将其软删除（`pruneOrphanYAMLManagedModels`）。
 
 本地 Ollama：把 `source` 写成 `local`，`name` 用 Ollama 模型名（向量侧可用 `${EMBEDDING_MODEL_NAME}`）。完整注释示例见 `config/builtin_models.yaml.example` 的 “one local Ollama” 段；`dimension` 须为字面量（CLI 示例 `nomic-embed-text` 为 768）。
 

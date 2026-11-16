@@ -19,7 +19,7 @@
 | `NEO4J_ENABLE` | string | 空（关闭） | 置为 `true` 启用图谱；`internal/container/container.go` 的 `initNeo4jClient` 与任务入队 / 检索管线都会检查它 |
 | `NEO4J_URI` | string | `bolt://neo4j:7687` | Neo4j 连接地址 |
 | `NEO4J_USERNAME` | string | `neo4j` | 用户名 |
-| `NEO4J_PASSWORD` | string | `password` | 密码 |
+| `NEO4J_PASSWORD` | string | 空（启用时必填） | 密码 |
 
 `initNeo4jClient` 启动时最多重试 30 次（间隔 2s）建立并验证连接；未启用时返回 `nil` driver，此时原有构建、删除及内部 `SearchNode` 路径降级为 no-op（日志 `NOT SUPPORT RETRIEVE GRAPH`）。独立公共查询接口则明确返回 503，不把未配置后端伪装成“没有匹配”。`GET /system` 信息接口通过 `getGraphDatabaseEngine()` 报告 `"Neo4j"` 或 `"Not Enabled"`（`internal/handler/system.go`）。
 

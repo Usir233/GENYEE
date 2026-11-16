@@ -53,7 +53,7 @@ GENYEE 采用"主服务 + 前端 + 文档解析微服务"的三进程核心架�
 
 | 层 | 技术 | 版本/说明 |
 | --- | --- | --- |
-| 后端语言 | Go | `go.mod` 声明 `go 1.26.0` |
+| 后端语言 | Go | `go.mod` 声明 `go 1.26.10` |
 | Web 框架 | `github.com/gin-gonic/gin` | v1.12.0 |
 | ORM | `gorm.io/gorm` + postgres/sqlite driver | v1.31.1；SQLite 附带 `sqlite-vec` 向量扩展 |
 | 依赖注入 | `go.uber.org/dig` | v1.19.0（构造函数注入，见后端设计篇） |
@@ -65,7 +65,7 @@ GENYEE 采用"主服务 + 前端 + 文档解析微服务"的三进程核心架�
 | 配置 | `github.com/spf13/viper` + `config/config.yaml` + 环境变量 | — |
 | 可观测 | OpenTelemetry + Langfuse（`internal/tracing/langfuse`） | LLM 调用级 trace |
 | gRPC | `google.golang.org/grpc` v1.81.0 | 调用 docreader |
-| LLM 接入 | 自研协议层 `internal/models/api`（OpenAI / Anthropic / Gemini / DashScope 等线格式各一个包）、Ollama、腾讯云 LKE SDK 等 | 27 家厂商由 `internal/models/providers` 声明，见[模型管理](../03-features/06-models.md) |
+| LLM 接入 | 自研协议层 `internal/models/api`（OpenAI / Anthropic / Gemini / DashScope 等线格式各一个包）、Ollama、腾讯云 LKE SDK 等 | 30 家厂商由 `internal/models/providers` 声明，见[模型管理](../03-features/06-models.md) |
 | 向量/检索 | pgvector、ES v7/v8、OpenSearch、Qdrant、Milvus、Weaviate、Doris、腾讯 VectorDB、sqlite-vec | 由 `RETRIEVE_DRIVER` 与 `vector_stores` 表动态装配 |
 | 知识图谱 | `neo4j-go-driver/v6` | 可选 |
 | 数据分析 | DuckDB（`duckdb-go/v2`）、`pg_query_go` SQL 校验 | Agent 数据分析工具 |

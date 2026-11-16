@@ -392,6 +392,7 @@ curl -X POST $BASE/api/v1/embed/ec-1/sessions/s-1/events \
 | `POST /api/v1/embed/:channel_id/sessions/:session_id/mcp-services/:id/oauth/authorize-url` | 生成授权 URL（体：`redirect_uri` 必填） |
 | `GET /api/v1/embed/:channel_id/sessions/:session_id/mcp-services/:id/oauth/status` | 查询授权状态 |
 | `POST /api/v1/embed/:channel_id/sessions/:session_id/tool-approvals/:pending_id` | 工具审批（体：`decision` 必填） |
+| `POST /api/v1/embed/:channel_id/sessions/:session_id/prompts/:prompt_id` | 裁决或回复持久化交互提示（`agent_prompt_required`） |
 
 ```bash
 curl -X POST $BASE/api/v1/embed/ec-1/sessions/s-1/tool-approvals/p-1 \

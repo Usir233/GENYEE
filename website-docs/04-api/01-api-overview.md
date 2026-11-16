@@ -72,7 +72,7 @@ Authorization: Bearer <endpoint_token>
 flowchart TD
     A["客户端请求"] --> B{"路径在免认证白名单?<br/>(login/register/oidc/presigned...)"}
     B -- "是" --> H["直接进入 Handler"]
-    B -- "否" --> C{"Authorization: Bearer <JWT>?"}
+    B -- "否" --> C{"Authorization: Bearer &lt;JWT&gt;?"}
     C -- "有效" --> D{"X-Tenant-ID 请求头?"}
     D -- "无" --> E["使用 JWT 内 tenant_id"]
     D -- "有" --> F{"IsTenantAccessible?<br/>(成员/跨空间超管)"}
@@ -161,7 +161,7 @@ flowchart TD
 | `page` | int | 否 | 页码，默认 1，必须 ≥1 |
 | `page_size` | int | 否 | 每页条数，默认 20，范围 1-100 |
 
-超范围或非法值返回校验错误（code 1010）。列表响应携带 `total/page/page_size`。部分接口使用游标分页：审计日志（`after_id`+`limit`，响应带 `next_cursor`）、系统运行时任务（`cursor`+`page_size`，响应带 `next_cursor/has_more`）、Wiki index/log（`cursor`+`limit`）。
+超范围或非法值返回校验错误（code 1010）。列表响应携带 `total/page/page_size`。部分接口使用游标分页：审计日志（`after_id`+`limit`，响应带 `next_cursor`）、系统运行时任务（`cursor`+`page_size`，响应带 `next_cursor/has_more`）、Wiki index（`cursor`+`limit`）。
 
 ## 流式接口协议（SSE）
 
@@ -179,7 +179,7 @@ X-Accel-Buffering: no
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | `id` | string | 请求 ID |
-| `response_type` | string | `answer` / `references` / `thinking` / `tool_call` / `tool_result` / `command_output` / `reflection` / `session_title` / `agent_query` / `artifacts_pending` / `memory_recalled` / `user_message_injected` / `context_compacted` / `tool_approval_required` / `tool_approval_resolved` / `mcp_oauth_required` / `mcp_oauth_resolved` / `error` / `complete`；技能安装记录流另有 `install_prompt` / `install_output` |
+| `response_type` | string | `answer` / `references` / `thinking` / `tool_call` / `tool_result` / `command_output` / `progress` / `work_started` / `work_event` / `work_finished` / `reflection` / `session_title` / `agent_query` / `artifacts_pending` / `memory_recalled` / `user_message_injected` / `steer` / `context_compacted` / `run_suspended` / `run_resumed` / `agent_prompt_required` / `agent_prompt_resolved` / `tool_approval_required` / `tool_approval_resolved` / `mcp_oauth_required` / `mcp_oauth_resolved` / `error` / `complete`；技能安装记录流另有 `install_prompt` / `install_output` |
 | `content` | string | 增量文本 |
 | `done` | bool | 该类型事件是否结束 |
 | `knowledge_references` | []SearchResult | `references` 事件携带的引用 |
@@ -343,7 +343,7 @@ rerank 模型加载失败或调用出错时，请求不会失败，而是按召�
 | --- | --- | --- |
 | 公开分享链接接口（`/auth/invitations/lookup`、`/auth/register-by-invite`） | 每 IP 30 次/分钟（两个端点共享额度），超限 429（code 1006） | `internal/middleware/auth_public_ratelimit.go` |
 | Embed 公开路由 | 每 (channel, IP) `rate_limit_per_minute`（默认 30）/分钟；channel 级 `rate_limit_per_minute*20`（下限 120）/分钟；channel 级 `rate_limit_per_day`（默认 10000）/天；超限 429 | `internal/middleware/embed_auth.go` |
-| 反代信任 | 仅信任 `GENYEE_TRUSTED_PROXIES`（默认回环+内网段）的 `X-Forwarded-For`，防止伪造 IP 绕过限流 | `router.go` `trustedProxies()` |
+| 反代信任 | 仅信任 `GENYEE_TRUSTED_PROXIES`（默认仅回环 `127.0.0.0/8`、`::1/128`；容器或独立反代网段需显式配置）的 `X-Forwarded-For`，防止伪造 IP 绕过限流 | `router.go` `trustedProxies()` |
 
 其余业务接口无全局限流；自助创建空间等配额类拒绝同样使用 429（code 1006）。
 

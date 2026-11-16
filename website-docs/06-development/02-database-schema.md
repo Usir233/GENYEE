@@ -20,14 +20,14 @@ GENYEE 使用版本化迁移维护数据库结构，PostgreSQL 与 SQLite 分别
 
 ```text
 migrations/
-├── versioned/     # PostgreSQL/ParadeDB 版本化迁移：000000-000134 共 135 版（270 个 .up/.down.sql 文件）
-├── sqlite/        # SQLite 迁移：000000_init（压平的全量 schema）+ 000001-000051 增量版本
+├── versioned/     # PostgreSQL/ParadeDB 版本化迁移：000000-000138 共 139 版（278 个 .up/.down.sql 文件）
+├── sqlite/        # SQLite 迁移：000000_init（压平的全量 schema）+ 000001-000054 增量版本
 ├── paradedb/      # ParadeDB 附加脚本：00-init-db.sql、01-migrate-to-paradedb.sql（存量库切换）
 └── mysql/         # 00-init-db.sql，遗留的一次性 MySQL 建表脚本（未接入代码）
 ```
 
-- PostgreSQL 的 `versioned/` 从 `000000_init` 到 `000134_tenant_default_settings`；
-- `sqlite/` 以 `000000_init` 作为压平后的全量初始化（JSONB→TEXT、SERIAL→AUTOINCREMENT 等方言差异已适配），其后追加增量版本（当前到 `000051_tenant_default_settings`），同样由 golang-migrate 顺序执行；
+- PostgreSQL 的 `versioned/` 从 `000000_init` 到 `000138_principal_widths_and_org_join_index`；
+- `sqlite/` 以 `000000_init` 作为压平后的全量初始化（JSONB→TEXT、SERIAL→AUTOINCREMENT 等方言差异已适配），其后追加增量版本（当前到 `000054_index_parity`），同样由 golang-migrate 顺序执行；
 - `uuid-ossp`、`vector`、`pg_trgm`、`pg_search` 等扩展由 `versioned/` 迁移自行创建（000000、000002）；BM25 索引使用中文 Lindera 分词器建在 `embeddings.content` 上；
 - `paradedb/00-init-db.sql` 除扩展外还含一份旧版建表语句，**没有被 compose 或代码引用**。不要把它挂成数据库 initdb 脚本：它先建出的旧表会让 `000000_init` 失败。
 
@@ -106,7 +106,10 @@ migrations/
 | 000130 | 会话沙箱分配与用户共享机器 |
 | 000131–000133 | 自动化执行时长、模型覆盖、统一由助手执行 |
 | 000134 | `tenants.default_settings`（JSONB），保存空间默认模型 ID；未设置时保留部署默认回退行为 |
+| 000135 | 扩宽 `audit_logs` 主体标识与角色等字段长度 |
+| 000136 | `credential_vault` 表，持久化加密凭据库 |
 | 000137 | `auth_tokens.session_id` 关联一次登录及其刷新轮换；撤销无法安全配对的历史令牌，用户需重新登录，账号和业务数据保留 |
+| 000138 | 扩宽主体标识列宽度并补充组织加入申请索引 |
 
 SQLite 版本号独立演进，不能与 PostgreSQL 数字一一对应：
 
@@ -133,15 +136,17 @@ SQLite 版本号独立演进，不能与 PostgreSQL 数字一一对应：
 | 000034 | 补齐 MCP usage_instructions 与 mcp_metadata（对应 000092） |
 | 000035 | Agent 显式默认工具（对应 000116） |
 | 000036 | 有效用户消息附件查询索引（对应 000117，SQLite 使用普通索引） |
-| 000053 | `auth_tokens.session_id` 与历史令牌失效处理（对应 PostgreSQL 000137） |
 | 000037–000039 | 持久化审批、租户助手配置、会话 kind（对应 000119–000121） |
 | 000040 | 飞书 / Lark 重同步（对应 000122） |
 | 000041–000044 | 协作、空图片分块清理、MCP 风险与授权（对应 000124–000127） |
 | 000045–000047 | 自动化、会话认证来源、沙箱分配（对应 000128–000130） |
 | 000048–000050 | 自动化执行时长、模型覆盖、助手执行（对应 000131–000133） |
 | 000051 | `tenants.default_settings`（TEXT，存储 JSON；对应 000134） |
+| 000052 | `credential_vault` 加密凭据库表（对应 000136） |
+| 000053 | `auth_tokens.session_id` 与历史令牌失效处理（对应 PostgreSQL 000137） |
+| 000054 | 主体与组织关联索引对齐（对应 PostgreSQL 000138） |
 
-PostgreSQL 的 000099、000112、000115、000118、000123 没有 SQLite 对应版本。
+PostgreSQL 的 000099、000112、000115、000118、000123、000135 没有 SQLite 对应版本。
 
 基线 schema 与后续增量共同决定新建库和已有库的最终结果；不能只看新增迁移文件名判断 Lite 是否有某张表。
 

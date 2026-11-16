@@ -150,7 +150,7 @@ A 网站嵌入 B 的 GENYEE 时，白名单填 A。标准 Nginx 使用 `/api/v1/
 ```
 
 - 会话写入 `sessions` 表，`Description` 标记为 `embed_channel:{channel_id}`，`UserID` 使用 `EmbedSessionPrincipal(tenantID, channelID, sessionID).StorageID()` 生成的不透明访客标识；
-- `sig` 为 **会话签名**：`HMAC-SHA256(channel.PublishToken, "{channel_id}|{session_id}")`。此后每次访问 `/sessions/:session_id/*` 都必须携带请求头 `X-Embed-Session: <sig>`，服务端做常量时间比较（`internal/handler/embed_channel.go`）。这防止仅凭 session_id 冒用他人会话；轮换 publish token 后所有签名同时失效。
+- `sig` 为 **会话签名**：`Base64URL(HMAC-SHA256(SystemHMACKey, "embed-session:v2|" + channel.PublishToken + "|" + channel_id + "|" + session_id))`（服务端密钥优先读取 `SYSTEM_SIGNING_KEY`，未设置时回退有效的 `SYSTEM_AES_KEY`）。此后每次访问 `/sessions/:session_id/*` 都必须携带请求头 `X-Embed-Session: <sig>`，服务端做常量时间比较（`internal/handler/embed_channel.go`）。这防止仅凭页面可见的静态 `em_` token 或 `session_id` 伪造他人会话；轮换 publish token 或服务端签名密钥后所有签名同时失效。
 
 前端还可附带 `X-Embed-Visitor: <uuid>` 用于访客维度统计。会话 id 与 sig 会按渠道缓存到 `localStorage`，页面刷新后直接恢复会话（`frontend/src/composables/useEmbedBridge.ts`）。
 
@@ -321,7 +321,7 @@ sequenceDiagram
 
 - **宿主白名单**：嵌入 HTML 设置渠道级 `CSP frame-ancestors`，限制所有祖先页面；iframe 内同源 API 正常放行。`allowed_origins` 为空时拒绝所有请求；`*` 仅开发模式可用；支持 `*.example.com` 子域名通配。同源管理端预览允许。
 - **双 token 体系**：安全模式下 publish token 不出服务端，浏览器只持有 30 分钟短效 `ems_` token。
-- **会话签名**：`X-Embed-Session` HMAC 签名把会话绑定到（渠道、会话、当前 publish token）三元组，轮换 token 即可全量吊销。
+- **会话签名**：`X-Embed-Session` 使用服务端 `SYSTEM_SIGNING_KEY`（回退 `SYSTEM_AES_KEY`）计算 `embed-session:v2` HMAC 签名，将会话绑定到（渠道、会话、当前 publish token）三元组，轮换 token 或签名密钥即可全量吊销。
 - **三层限流**：单 IP/分钟、渠道/分钟（20 倍单 IP、下限 120）、渠道/天，Redis Lua 原子实现。
 - **Webhook SSRF 防护**：HTTP/HTTPS、默认拒绝内网地址、重定向逐跳校验、5 秒超时。
 

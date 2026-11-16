@@ -36,8 +36,17 @@ for (const file of pages) {
   const base = new URL(route, 'https://genyee.test');
   for (const match of html.matchAll(/<(?:a|link|img|script|source|video)\b[^>]*>/g)) {
     const tag = match[0];
-    for (const [, raw] of tag.matchAll(/(?:href|src|poster)="([^"]+)"/g)) {
-      const url = new URL(raw.replaceAll('&amp;', '&'), base);
+    for (const [, raw] of tag.matchAll(/(?:href|src|poster)="([^"]*)"/g)) {
+      const cleaned = raw.replaceAll('&amp;', '&').trim();
+      if (!cleaned) {
+        failures.push(`${route}: empty link or asset attribute in ${tag}`);
+        continue;
+      }
+      if (/^(?:javascript:|vbscript:|data:text\/html)/i.test(cleaned)) {
+        failures.push(`${route}: unsafe URL scheme ${cleaned}`);
+        continue;
+      }
+      const url = new URL(cleaned, base);
       if (url.origin !== base.origin) continue;
       // The upstream router forwards only these two prefixes to this service.
       if (url.pathname !== base.pathname && url.pathname !== '/' && !url.pathname.startsWith('/docs/')) failures.push(`${route}: ${url.pathname} is outside / and /docs/`);

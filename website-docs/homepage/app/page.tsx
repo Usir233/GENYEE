@@ -2,14 +2,14 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { BrandLogo } from "./brand-logo";
 import { Icon } from "./ui";
-import { homeAssets } from "../../shared/header";
+import { homeAssets, sanitizeExternalHttpUrl } from "../../shared/header";
 import { ProductGallery, type GalleryShot, type GallerySlide } from "./product-gallery";
 import { Header } from "./interactive";
 import { AdopterShowcase } from "./adopter-showcase";
 import { clients, dataSources, modelProviders, IntegrationMark } from "./brands";
 import s from "./home.module.css";
 
-const repo = process.env.NEXT_PUBLIC_GITHUB_URL || "";
+const repo = sanitizeExternalHttpUrl(process.env.NEXT_PUBLIC_GITHUB_URL).replace(/\/+$/, "");
 const changelog = repo ? `${repo}/blob/HEAD/CHANGELOG.md` : "/docs/07-releases/v0.9.0.html";
 const docs = "/docs/";
 const guide = (path: string) => `${docs}${path}.html`;
@@ -89,13 +89,13 @@ export default function Home() {
         <div className={s.heroGrid}>
           <h1 id="hero-title">帮你找到答案，<br /><em>并将知识付诸实践。</em></h1>
           <div className={s.heroAside}>
-            <p className={s.eyebrow}>OPEN SOURCE · GENYEE</p>
-            <p className={s.heroDescription}>开源的企业级知识管理框架。<br />汇集团队资料，用于知识问答、任务执行和 Wiki 整理。</p>
-            <div className={s.actions}><a className={s.primary} href="#get-started">开始使用 <Icon name="arrow" /></a>{repo && <a className={s.secondary} href={repo} target="_blank" rel="noreferrer"><Icon name="github" /> GitHub</a>}</div>
+            <p className={s.eyebrow}>ENTERPRISE AI · GENYEE</p>
+            <p className={s.heroDescription}>企业级知识管理框架。<br />汇集团队资料，用于知识问答、任务执行和 Wiki 整理。</p>
+            <div className={s.actions}><a className={s.primary} href="#get-started">开始使用 <Icon name="arrow" /></a>{repo && <a className={s.secondary} href={repo} target="_blank" rel="noopener noreferrer"><Icon name="github" /> GitHub</a>}</div>
             <p className={s.heroNote}>RAG 问答 / Agent 推理 / 自动 Wiki</p>
           </div>
         </div>
-        <div className={s.trustBar}><span><Icon name="github" /> 开源 · MIT License</span><span><Icon name="server" /> 支持私有化部署</span><span><Icon name="model" /> 自由选择模型与存储</span></div>
+        <div className={s.trustBar}><span><Icon name="shield" /> 企业级智能知识库</span><span><Icon name="server" /> 支持私有化部署</span><span><Icon name="model" /> 自由选择模型与存储</span></div>
       </section>
       <AdopterShowcase />
       <section id="capabilities" className={`${s.chapter}`} data-tone="base" aria-labelledby="capabilities-title"><div className={s.shell}>
@@ -110,7 +110,7 @@ export default function Home() {
         </article>)}</div>
       </div></section>
       <section id="release" className={`${s.chapter} ${s.chapterTint}`} data-tone="subtle" aria-labelledby="release-title"><div className={s.shell}>
-        <div className={s.sectionHeading}><div><p className={s.eyebrow}>02 / INTRODUCING v0.9.0</p><h2 id="release-title">GENYEE 助手、多智能体协作与自动化</h2></div><a className={s.textLink} href={guide("07-releases/v0.9.0")}>版本说明与发布视频 <Icon name="arrow" /></a></div>
+        <div className={s.sectionHeading}><div><p className={s.eyebrow}>02 / INTRODUCING v0.9.0</p><h2 id="release-title">GENYEE 助手、多智能体协作与自动化</h2></div><a className={s.textLink} href={guide("07-releases/v0.9.0")}>查看版本说明 <Icon name="arrow" /></a></div>
         <ProductGallery id="release-gallery" label="v0.9.0" slides={releaseSlides} layout="compact" />
         <div className={s.releaseExtras}><span>本次更新还包括</span>{releaseExtras.map(item => <a className={s.textLink} key={item.name} href={guide(item.link)}>{item.name} <Icon name="arrow" /></a>)}</div>
       </div></section>
@@ -170,6 +170,6 @@ export default function Home() {
         </div>
       </div></section>
     </main>
-    <footer className={`${s.shell} ${s.footer}`}><a className={s.brand} href="/" aria-label="GENYEE 首页"><BrandLogo /></a><p>Open Source · MIT License</p><nav aria-label="页脚导航"><a href={docs}>文档</a>{repo && <a href={repo} target="_blank" rel="noreferrer">GitHub <Icon name="external" /></a>}<a href={changelog} target="_blank" rel="noreferrer">更新日志</a></nav></footer>
+    <footer className={`${s.shell} ${s.footer}`}><a className={s.brand} href="/" aria-label="GENYEE 首页"><BrandLogo /></a><p>© GENYEE · Commercial License</p><nav aria-label="页脚导航"><a href={docs}>文档</a>{repo && <a href={repo} target="_blank" rel="noopener noreferrer">GitHub <Icon name="external" /></a>}<a href={changelog} {...(repo ? { target: "_blank", rel: "noopener noreferrer" } : {})}>更新日志</a></nav></footer>
   </div>;
 }

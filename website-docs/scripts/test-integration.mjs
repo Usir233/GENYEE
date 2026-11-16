@@ -59,7 +59,8 @@ try {
   assert.match(await page.locator('.VPDoc h1').innerText(), /快速上手/);
   assert.equal(await page.getByRole('link', { name: '文档首页', exact: true }).count(), 0);
   assert.deepEqual((await headerGeometry(page)).controls, masthead.controls);
-  assert.deepEqual((await headerGeometry(page)).links.map(link => link[0]), ['快速开始', '架构', '功能', 'API', '客户端', '开发', '版本', 'GitHub']);
+  const expectedDocsNav = ['快速开始', '架构', '功能', 'API', '客户端', '开发', '版本', ...(masthead.links.some(link => link[0].startsWith('GitHub')) ? ['GitHub'] : [])];
+  assert.deepEqual((await headerGeometry(page)).links.map(link => link[0]), expectedDocsNav);
   assert.equal(await page.locator('.gy-header').evaluate(el => el.getBoundingClientRect().height), 64);
   assert.equal(context.pages().length, 1);
   // Switching distant sections must reveal the selected sidebar item in both directions.

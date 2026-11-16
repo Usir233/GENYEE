@@ -417,7 +417,7 @@ func (r *Registry) NewFetcher(providerType string, params types.WebSearchProvide
 
 ### 现有实现
 
-`internal/infrastructure/web_search/` 目录：`duckduckgo.go`、`google.go`、`bing.go`、`brave.go`、`tavily.go`、`ollama.go`、`baidu.go`、`searxng.go`、`keenable.go`、`zhipu.go`、`exa.go`、`metaso.go`、`bocha.go`、`serply.go`、`searchapi.go`（另有 `proxy.go` 出站代理支持）。类型常量在 `internal/types/web_search_provider.go`（`WebSearchProviderTypeXxx`，与注册 ID 一一对应）。
+`internal/infrastructure/web_search/` 目录：`duckduckgo.go`、`google.go`、`bing.go`、`brave.go`、`tavily.go`、`ollama.go`、`baidu.go`、`searxng.go`、`keenable.go`、`zhipu.go`、`deepseek.go`、`exa.go`、`metaso.go`、`bocha.go`、`serply.go`、`searchapi.go`（另有 `proxy.go` 出站代理支持）。类型常量在 `internal/types/web_search_provider.go`（`WebSearchProviderTypeXxx`，与注册 ID 一一对应）。
 
 ### 新增步骤
 
@@ -746,7 +746,7 @@ default:
 | 分块策略 | tier 函数 `func(text, cfg, profile) []Chunk` | `internal/infrastructure/chunker/strategy.go` | 同文件 `runTier()` + 策略常量 |
 | 检索引擎 | `RetrieveEngineRepository` | `internal/types/interfaces/retriever.go` | `container.go` `initRetrieveEngineRegistry()`（`RETRIEVE_DRIVER` 门控） |
 | 模型厂商 | `providers.Definition`（+ 协议层 `Reranker` / `Embedder` / `Transcriber`、`chat.Chat`） | `internal/models/providers/definition.go` | `internal/models/providers/builtin.go` `Builtins()` + `internal/models/catalog/data/seed.json` |
-| 联网搜索 | `WebSearchProvider` | `internal/types/interfaces/web_search.go` | `container.go` `registerWebSearchProviders()` |
+| 联网搜索 | `WebSearcher`（可选 `WebFetcher`） | `internal/types/interfaces/web_search.go` | `container.go` `registerWebSearchProviders()` |
 | 数据源连接器 | `Connector` / `StreamingConnector` | `internal/datasource/connector.go` | `container.go` `initConnectorRegistry()` + `ConnectorMetadataRegistry` |
 | IM 适配器 | `Adapter`（+`StreamSender`/`FileDownloader`） | `internal/im/adapter.go` | `container.go` `registerIMAdapterFactories()` |
 | Agent 工具 | `types.Tool` | `internal/types/agent.go` | `internal/agent/tools/definitions.go` + `ToolRegistry.RegisterTool` |

@@ -645,7 +645,7 @@ curl -X POST $BASE/api/v1/knowledge/k-1/cancel-parse -H "Authorization: Bearer $
 
 ### GET /api/v1/knowledge/:id/download
 
-用途：下载原始源文件（比预览更严格：Contributor+ 且 KB write；组织共享 Viewer 不可下载源文件）。API key `retrieve`/full。
+用途：下载原始源文件（权限：Contributor+ 且 KB write；组织共享 Viewer 不可下载源文件）。API key `retrieve`/full。
 
 响应：200 二进制流（`application/octet-stream`）。
 
@@ -655,7 +655,7 @@ curl -OJ $BASE/api/v1/knowledge/k-1/download -H "Authorization: Bearer $TOKEN"
 
 ### GET /api/v1/knowledge/:id/preview
 
-用途：预览解析后的文件内容。权限：Viewer+，KB read。
+用途：预览文件内容。权限：Contributor+ 且 KB write（组织共享 Viewer 不可预览）；API key `retrieve`/full。
 
 响应：200 预览流（文本/HTML）。
 

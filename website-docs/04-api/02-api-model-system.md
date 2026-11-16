@@ -192,7 +192,7 @@ curl -X DELETE $BASE/api/v1/models/m-1/credentials/api_key -H "Authorization: Be
 
 ## 初始化（/api/v1/initialization）
 
-Handler: `internal/handler/initialization.go`。KB 配置类：API key `manage_kbs`（写）/`retrieve`（读）；模型检测类：`manage_models`（均可 full-access）。
+Handler: `internal/handler/initialization.go`。KB 配置类：API key `manage_kbs`（写）/`retrieve`（读）；模型连通性与存在性检测：`manage_models`（均可 full-access）；Ollama 下载与任务查询仅开放给登录 SystemAdmin（API Key 默认拒绝）。
 
 ### GET /api/v1/initialization/config/:kbId
 
@@ -281,7 +281,7 @@ curl -X POST $BASE/api/v1/initialization/ollama/models/check -H "Authorization: 
 
 ### POST /api/v1/initialization/ollama/models/download
 
-用途：拉取 Ollama 模型（异步任务）。权限：Admin+。请求体：`{"modelName":"llama3"}`（`binding:"required"`）。
+用途：拉取 Ollama 模型（异步任务）。权限：SystemAdmin，仅登录 JWT（API Key 默认拒绝）。请求体：`{"modelName":"llama3"}`（`binding:"required"`）。
 
 响应：200 `{"success":true,"data":{"taskId","modelName","status","progress"}}`
 
@@ -292,7 +292,7 @@ curl -X POST $BASE/api/v1/initialization/ollama/models/download -H "Authorizatio
 
 ### GET /api/v1/initialization/ollama/download/progress/:taskId
 
-用途：下载任务进度。权限：Viewer+。
+用途：下载任务进度。权限：SystemAdmin，仅登录 JWT（API Key 默认拒绝）。
 
 响应：200 `{"success":true,"data":{id,modelName,status,progress,message,startTime,endTime}}`
 
@@ -302,7 +302,7 @@ curl $BASE/api/v1/initialization/ollama/download/progress/task-1 -H "Authorizati
 
 ### GET /api/v1/initialization/ollama/download/tasks
 
-用途：全部下载任务列表。权限：Viewer+。
+用途：全部下载任务列表。权限：SystemAdmin，仅登录 JWT（API Key 默认拒绝）。
 
 响应：200 `{"success":true,"data":[DownloadTask]}`
 

@@ -41,7 +41,9 @@ RUN apk add --no-cache bash
 ARG WEBSITE_NGINX_PORT=80
 ENV WEBSITE_NGINX_PORT=${WEBSITE_NGINX_PORT}
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
-RUN mkdir -p /etc/nginx/templates \
+RUN case "${WEBSITE_NGINX_PORT}" in ''|*[!0-9]*) echo "Invalid WEBSITE_NGINX_PORT" >&2; exit 1 ;; esac \
+    && [ "${WEBSITE_NGINX_PORT}" -ge 1 ] && [ "${WEBSITE_NGINX_PORT}" -le 65535 ] \
+    && mkdir -p /etc/nginx/templates \
     && sed 's/listen 80;/listen ${WEBSITE_NGINX_PORT};/' /etc/nginx/conf.d/default.conf \
       > /etc/nginx/templates/default.conf.template \
     && sed "s/listen 80;/listen ${WEBSITE_NGINX_PORT};/" /etc/nginx/conf.d/default.conf \

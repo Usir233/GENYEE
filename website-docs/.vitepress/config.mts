@@ -44,12 +44,16 @@ function itemText(dir: string, file: string): string {
 
 /** 版本号按数字比较，v0.10.0 排在 v0.9.0 之后 */
 function compareVersions(a: string, b: string): number {
-  const parts = (f: string) => f.replace(/^v|\.md$/g, '').split('.').map(Number)
+  const parts = (f: string) =>
+    f.replace(/^v|\.md$/g, '').split('.').map((seg) => {
+      const n = Number.parseInt(seg, 10)
+      return Number.isFinite(n) ? n : 0
+    })
   const [x, y] = [parts(a), parts(b)]
   for (let i = 0; i < Math.max(x.length, y.length); i++) {
     if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) - (y[i] ?? 0)
   }
-  return 0
+  return a.localeCompare(b)
 }
 
 function itemsOf(dir: string, newestFirst = false): DefaultTheme.SidebarItem[] {
@@ -190,7 +194,7 @@ export default withMermaid(
       },
 
       footer: {
-        message: `基于 GENYEE ${repoVersionLabel} 源码整理 · MIT License`,
+        message: `GENYEE ${repoVersionLabel} 官方文档`,
         copyright: '© GENYEE',
       },
     },

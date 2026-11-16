@@ -43,7 +43,7 @@
 
 <Screenshot
   src="/screenshots/sandbox-session-skill-rollout.png"
-  alt="每会话一台沙箱时可以选择技能镜像更新策略"
+  caption="每会话一台沙箱时可以选择技能镜像更新策略"
 />
 
 ### 支持的来源
@@ -172,7 +172,7 @@ macOS 桌面版可在「工具箱 → 技能管理」将技能安装到「本机
 
 <Screenshot
   src="/screenshots/sandbox-user-skill-rollout.png"
-  alt="共用沙箱模式隐藏技能镜像更新策略，保留空置沙箱保留天数设置"
+  caption="共用沙箱模式隐藏技能镜像更新策略，保留空置沙箱保留天数设置"
 />
 
 能进共用机器的只有两类身份：Web 登录账号，以及带外部用户标识的 API 调用。同一把 API Key、但不带外部用户标识的会话仍分别分配沙箱。

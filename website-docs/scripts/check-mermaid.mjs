@@ -1,24 +1,60 @@
 // 用 mermaid 自带的解析器校验文档里所有 ```mermaid 代码块。
 // 站点构建不会检查图表语法——语法错的图只在浏览器里报错，
 // 所以这里在 CI/本地提前拦住。
-import { readFileSync, readdirSync, statSync } from 'node:fs'
-import { join, relative, dirname } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { JSDOM } from 'jsdom'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
+import { join, relative, dirname, resolve } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const siblingFrontendModules = resolve(root, '..', 'frontend', 'node_modules')
 
-// mermaid 是浏览器库，parse() 需要 DOM 才能初始化。
-const dom = new JSDOM('<!DOCTYPE html><body></body>', { pretendToBeVisual: true })
-globalThis.window = dom.window
-globalThis.document = dom.window.document
-// Node 22 的 globalThis.navigator 只有 getter，只能用 defineProperty 覆盖。
-Object.defineProperty(globalThis, 'navigator', {
-  value: dom.window.navigator,
-  configurable: true,
-})
+async function loadMermaid() {
+  try {
+    const { JSDOM } = await import('jsdom')
+    const dom = new JSDOM('<!DOCTYPE html><body></body>', { pretendToBeVisual: true })
+    globalThis.window = dom.window
+    globalThis.document = dom.window.document
+    Object.defineProperty(globalThis, 'navigator', {
+      value: dom.window.navigator,
+      configurable: true,
+    })
+    const { default: mermaid } = await import('mermaid')
+    return mermaid
+  } catch (primaryErr) {
+    const xmldomEntry = resolve(siblingFrontendModules, '@xmldom/xmldom/lib/index.js')
+    const mermaidEntry = resolve(siblingFrontendModules, 'mermaid/dist/mermaid.core.mjs')
+    if (!existsSync(xmldomEntry) || !existsSync(mermaidEntry)) throw primaryErr
+    const { DOMParser } = await import(pathToFileURL(xmldomEntry).href)
+    function SilentDOMParser() {
+      return new DOMParser({ onError: () => {} })
+    }
+    function Node() {}
+    function Element() {}
+    function DocumentFragment() {}
+    function HTMLTemplateElement() {}
+    function NamedNodeMap() {}
+    const doc = new SilentDOMParser().parseFromString('<!DOCTYPE html><html><body></body></html>', 'text/html')
+    doc.createNodeIterator = () => ({ nextNode: () => null })
+    doc.implementation.createHTMLDocument = () => doc
+    globalThis.document = doc
+    globalThis.window = {
+      document: doc,
+      DOMParser: SilentDOMParser,
+      Node,
+      Element,
+      DocumentFragment,
+      HTMLTemplateElement,
+      NamedNodeMap,
+      NodeFilter: { SHOW_ELEMENT: 1, SHOW_COMMENT: 128, SHOW_TEXT: 4 },
+      addEventListener() {},
+      getComputedStyle: () => ({ getPropertyValue: () => '' }),
+    }
+    const { default: mermaid } = await import(pathToFileURL(mermaidEntry).href)
+    return mermaid
+  }
+}
 
-const { default: mermaid } = await import('mermaid')
+const mermaid = await loadMermaid()
 mermaid.initialize({ startOnLoad: false, securityLevel: 'loose' })
 
 function walk(dir, out = []) {

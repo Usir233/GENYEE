@@ -8,21 +8,21 @@ GENYEE 的 Web 前端是一个基于 **Vue 3 + TypeScript + Vite** 的单页应�
 
 ## 技术栈总览
 
-依据 `frontend/package.json`（版本 0.8.3）：
+依据 `frontend/package.json`（版本 0.9.0）：
 
 | 类别 | 选型 | 版本 | 说明 |
 | --- | --- | --- | --- |
-| 框架 | Vue | ^3.5.34 | Composition API，`<script setup>` 风格 |
+| 框架 | Vue | ^3.5.42 | Composition API，`<script setup>` 风格 |
 | 语言 | TypeScript | ~6.0.3 | `vue-tsc` 做类型检查（`npm run type-check`） |
-| 构建工具 | Vite | ^7.3.5 | 插件：`@vitejs/plugin-vue`、`@vitejs/plugin-vue-jsx` |
+| 构建工具 | Vite | ^7.3.7 | 插件：`@vitejs/plugin-vue`、`@vitejs/plugin-vue-jsx` |
 | UI 组件库 | TDesign (tdesign-vue-next) | ^1.19.2 | 配合 `tdesign-icons-vue-next` 0.4.4（版本被 overrides 锁定） |
 | 状态管理 | Pinia | ^3.0.4 | 全部 store 位于 `frontend/src/stores/` |
 | 路由 | Vue Router | ^4.5.0 | `createWebHistory`，见 `frontend/src/router/index.ts` |
-| 多语言 | vue-i18n | ^11.4.2 | zh-CN / en-US / ru-RU / ko-KR / ja-JP |
-| HTTP | axios | ^1.16.0 | 统一实例封装于 `frontend/src/utils/request.ts` |
+| 多语言 | vue-i18n | ^11.4.14 | zh-CN / zh-TW / en-US / ru-RU / ko-KR / ja-JP |
+| HTTP | axios | ^1.20.0 | 统一实例封装于 `frontend/src/utils/request.ts` |
 | SSE 流式 | @microsoft/fetch-event-source | ^2.0.1 | 聊天流式回复，见 `frontend/src/api/chat/streame.ts` |
 | Markdown 渲染 | marked / marked-katex-extension / katex / highlight.js / mermaid | — | 聊天答案富文本渲染（公式、代码高亮、图表） |
-| 安全 | dompurify | ^3.4.11 | v-html 内容统一消毒（`frontend/src/utils/markdownDomPurify.ts`） |
+| 安全 | dompurify | ^3.4.17 | v-html 内容统一消毒（`frontend/src/utils/markdownDomPurify.ts`） |
 | 文档预览 | docx-preview / @vue-office/pptx / xlsx / papaparse | — | 站内预览 Word / PPT / Excel / CSV |
 | 长列表 | vue-virtual-scroller | 2.0.0-beta.8 | 消息列表虚拟滚动 |
 | 样式 | Less + CSS Variables | less ^4.6.4 | 主题变量见 `frontend/src/assets/theme/theme.css` |
@@ -120,6 +120,7 @@ flowchart TB
 | `/platform/knowledge-bases/:kbId` | `knowledgeBaseDetail` | `src/views/knowledge/KnowledgeBase.vue` | 知识库详情：文档列表（可按更新时间 / 创建时间 / 文件名排序，排序在服务端完成，默认创建时间倒序）、上传、解析状态、会话入口、Wiki 等 |
 | `/platform/agents` | `agentList` | `src/views/agent/AgentList.vue` | 智能体（Agent）列表与管理，编辑走 `AgentEditorModal.vue`；需部署能力 `agents` |
 | `/platform/toolbox/:section?` | `toolbox` | `src/views/toolbox/Toolbox.vue` | 工具箱：`skills`（技能）、`mcp`（MCP 服务）、`browserconnection`（浏览器连接）三个标签页，见下方「工具箱」 |
+| `/platform/automations/:automationId?` | `automations` | `src/views/automation/AutomationList.vue` | 自动化任务列表、计划配置与运行记录 |
 | `/platform/artifacts` | `artifactLibrary` | `src/views/artifacts/ArtifactLibrary.vue` | 产物库：汇总智能体在各会话中生成的文件；需部署能力 `settings.sandbox` |
 | `/platform/creatChat` | `globalCreatChat` | `src/views/creatChat/creatChat.vue` | 新建对话页：推荐问题、选择知识库/Agent/模型后发起会话 |
 | `/platform/knowledge-bases/:kbId/creatChat` | `kbCreatChat` | `src/views/creatChat/creatChat.vue` | 从某个知识库上下文发起新对话（同一组件） |
@@ -143,11 +144,11 @@ flowchart TB
 | 分组 | 分区（`section` 值） |
 | --- | --- |
 | 账户 | `general`（个人偏好）、`userprofile`、`mymemory`（个人记忆）、`envvars`（个人变量） |
-| 空间 | `tenant`（空间信息）、`members`（成员）、`chathistory`、`memory`（空间记忆） |
+| 空间 | `tenant`（空间信息）、`members`（成员）、`defaults`（空间默认设置）、`assistant`（GENYEE 助手）、`chathistory`、`memory`（空间记忆） |
 | 模型与运行 | `models`、`ollama` |
 | 发布集成 | `integration-im`、`integration-embed`、`integration-api`、`integration-mcpserver`、`integration-cli`、`integration-chrome`、`integration-claw` |
 | 数据与扩展 | `vectorstore`、`parser`、`storage`、`sandbox`、`websearch` |
-| 系统管理 | `system-global`、`runtime-queues`、`platform-api-keys`、`system-audit-log` |
+| 系统管理 | `system-global`、`model-catalog`、`runtime-queues`、`platform-api-keys`、`system-audit-log` |
 | 平台 | `system`（版本信息） |
 
 发布集成的标签页由 `frontend/src/config/integrations.ts` 的 `INTEGRATION_TABS` / `INTEGRATION_PREVIEW_ITEMS` 注册，分区值统一为 `integration-<tab>`；旧的 `/platform/integrations?tab=<tab>` 会被归一成对应分区。
@@ -156,9 +157,9 @@ flowchart TB
 
 可见性由三套规则决定，且**前端只做收敛展示，后端路由守卫才是权威**：
 
-- **空间角色门槛**：`frontend/src/config/settingsAccess.ts` 的 `SETTINGS_SECTION_MIN_ROLE` 给每个分区规定最低角色。`general` / `models` / `system` / `userprofile` / `tenant` / `members` / `mymemory` / `envvars` 是 `viewer` 起（只读可见），`ollama`、`websearch`、`chathistory`、`memory`、`vectorstore`、`parser`、`storage`、`sandbox` 要求 `admin`；发布集成中的 `integration-api` 要求 `owner`（`INTEGRATION_TAB_MIN_ROLE`）。另有 `SETTINGS_MANAGEMENT_SHORTCUT_MIN_ROLE`：头像菜单里那些标着「管理」的快捷入口门槛更高（成员管理要 `owner`，模型管理要 `admin`），避免把只读页面伪装成管理入口。
+- **空间角色门槛**：`frontend/src/config/settingsAccess.ts` 的 `SETTINGS_SECTION_MIN_ROLE` 给每个分区规定最低角色。`general` / `models` / `system` / `userprofile` / `tenant` / `members` / `mymemory` / `envvars` 是 `viewer` 起（只读可见），`defaults`、`assistant`、`ollama`、`websearch`、`chathistory`、`memory`、`vectorstore`、`parser`、`storage`、`sandbox` 要求 `admin`；发布集成中的 `integration-api` 要求 `owner`（`INTEGRATION_TAB_MIN_ROLE`）。另有 `SETTINGS_MANAGEMENT_SHORTCUT_MIN_ROLE`：头像菜单里那些标着「管理」的快捷入口门槛更高（成员管理要 `owner`，模型管理要 `admin`），避免把只读页面伪装成管理入口。
 - **部署能力**：`frontend/src/config/deploymentCapabilities.ts` 的 `SETTINGS_SECTION_CAPABILITY` / `INTEGRATION_TAB_CAPABILITY` 把分区映射到 `GET /api/v1/system/capabilities` 返回的能力键（如 `settings.sandbox`、`integrations.mcpserver`），能力明确为 `supported: false` 时隐藏入口，见下方「设置导航与部署能力」。
-- **系统管理员白名单**：`SYSTEM_ADMIN_SETTINGS_SECTIONS`（`system-global`、`runtime-queues`、`platform-api-keys`、`system-audit-log`）只对系统管理员显示，与空间角色无关，详见[租户、用户与认证授权](../03-features/01-tenant-auth.md)的「系统管理员与平台控制台」。
+- **系统管理员白名单**：`SYSTEM_ADMIN_SETTINGS_SECTIONS`（`system-global`、`model-catalog`、`runtime-queues`、`platform-api-keys`、`system-audit-log`）只对系统管理员显示，与空间角色无关，详见[租户、用户与认证授权](../03-features/01-tenant-auth.md)的「系统管理员与平台控制台」。
 
 ### 工具箱
 

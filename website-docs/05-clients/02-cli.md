@@ -1,6 +1,6 @@
 # GENYEE CLI（genyee 命令行工具）
 
-GENYEE CLI（命令名 `genyee` / `genyee`）用于管理知识库与文档、执行检索和流式问答。交互使用可选择可读输出，脚本和 AI Agent 可使用 JSON 响应、类型化错误、`--dry-run` 预演及 `genyee schema` 契约查询；`genyee mcp serve` 提供 MCP 服务。
+GENYEE CLI（命令名 `genyee`）用于管理知识库与文档、执行检索和流式问答。交互使用可选择可读输出，脚本和 AI Agent 可使用 JSON 响应、类型化错误、`--dry-run` 预演及 `genyee schema` 契约查询；`genyee mcp serve` 提供 MCP 服务。
 
 源码位于 `cli/`，是独立的 Go module（`github.com/Usir233/GENYEE/cli`），源码构建需要 Go 1.26+。命令入口为 `cli/cmd/root.go`。
 

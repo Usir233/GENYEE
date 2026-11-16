@@ -50,7 +50,7 @@
 |----------|------|------|
 | `RETRIEVE_DRIVER` | `postgres` | 逗号分隔多驱动：`postgres` / `sqlite` / `elasticsearch_v7` / `elasticsearch_v8` / `opensearch` / `qdrant` / `milvus` / `weaviate` / `doris` / `tencent_vectordb`。多驱动时写操作广播到全部，检索按类型路由 |
 | `MULTI_STORE_RETRIEVE_TIMEOUT_SEC` | 30 | 多 store 并行检索每组超时 |
-| `ELASTICSEARCH_ADDR` / `_USERNAME` / `_PASSWORD` / `_INDEX` | — / `GENYEE` | ES v7/v8 共用 |
+| `ELASTICSEARCH_ADDR` / `_USERNAME` / `_PASSWORD` / `_INDEX` | — / `xwrag_default`（`.env.example` 为小写 `genyee`） | ES v7/v8 共用（索引名须全小写） |
 | `OPENSEARCH_ADDR` / `_USERNAME` / `_PASSWORD` / `_INDEX` / `_INSECURE_SKIP_VERIFY` | — | OpenSearch |
 | `QDRANT_HOST` / `_PORT` / `_COLLECTION` / `_API_KEY` / `_USE_TLS` | `localhost` / 6334 / `genyee_embeddings` | Qdrant（gRPC 端口） |
 | `MILVUS_ADDRESS` / `_COLLECTION` / `_METRIC_TYPE` / `_USERNAME` / `_PASSWORD` / `_DB_NAME` | `localhost:19530` / `genyee_embeddings` / `IP` | metric 改后需重建 collection |
@@ -158,7 +158,7 @@ flowchart TD
 
 #### Elasticsearch v8 {#_2-3-elasticsearch-v8}
 
-`internal/application/repository/retriever/elasticsearch/v8/repository.go`。typed client，单索引（`ELASTICSEARCH_INDEX`，默认 `GENYEE`），文档含 `dense_vector` embedding 字段。
+`internal/application/repository/retriever/elasticsearch/v8/repository.go`。typed client，单索引（`ELASTICSEARCH_INDEX`，未设置时默认 `xwrag_default`，`.env.example` 示例为小写 `genyee`），文档含 `dense_vector` embedding 字段。
 
 - **向量检索**：`script_score` 查询，脚本 `Math.max(cosineSimilarity(params.query_vector, 'embedding'), 0.0)`，threshold 过滤在应用侧。Lucene 拒绝负的最终分数，未截断时只要有一个向量与查询方向相反，整个检索请求就会返回 400；截断到 0 后值域为 [0,1]，这类文档排在最后，也会被任何正阈值过滤掉。
 - **关键词检索**：`match` 查询 content 字段（BM25）。

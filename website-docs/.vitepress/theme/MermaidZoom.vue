@@ -21,8 +21,22 @@ function reset() {
 }
 
 function close() {
+  dragging = false
   open.value = false
   document.documentElement.style.removeProperty('overflow')
+}
+
+function sanitizeClonedSvg(svg: SVGElement) {
+  svg.querySelectorAll('script').forEach((s) => s.remove())
+  for (const node of [svg, ...svg.querySelectorAll('*')]) {
+    for (const attr of [...node.attributes]) {
+      const name = attr.name.toLowerCase()
+      const value = attr.value.trim().toLowerCase()
+      if (name.startsWith('on') || ((name === 'href' || name === 'xlink:href') && value.startsWith('javascript:'))) {
+        node.removeAttribute(attr.name)
+      }
+    }
+  }
 }
 
 async function show(source: SVGElement) {
@@ -37,6 +51,7 @@ async function show(source: SVGElement) {
   // mermaid 的 svg 内联样式以 #id 作用域，且插件会对同 id 元素重新渲染，
   // 因此副本必须换一个 id 并同步改写内部样式表
   const clone = source.cloneNode(true) as SVGElement
+  sanitizeClonedSvg(clone)
   const oldId = source.id
   if (oldId) {
     const newId = `${oldId}-zoom`

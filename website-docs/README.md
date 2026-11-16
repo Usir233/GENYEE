@@ -98,7 +98,7 @@ docker run -d --name genyee-site --restart unless-stopped -e WEBSITE_NGINX_PORT=
 
 也可以只复制 `website-docs/` 目录，在该目录执行 `docker build -t genyee-site:0.9.0 .`。构建上下文必须是 `website-docs/`，宿主机的依赖、旧构建产物和部署包由 `.dockerignore` 排除。
 
-从旧文档镜像迁移时，将容器端口映射或反向代理目标端口从 `8081` 改为 `80`（宿主机端口可自行选择，例如 `-p 8081:80`）。域名根路径 `/` 现在提供官网，`/docs/` 提供文档，反向代理需覆盖整个站点并保留请求路径。容器使用 Nginx 官方镜像的默认入口，无需额外的 `docker-entrypoint.sh`。
+从旧文档镜像迁移时，将容器端口映射或反向代理目标端口从 `8081` 改为 `80`（宿主机端口可自行选择，例如 `-p 8081:80`）。域名根路径 `/` 现在提供官网，`/docs/` 提供文档，反向代理需覆盖整个站点并保留请求路径。容器通过内置的 `/docker-entrypoint.sh` 校验并应用 `WEBSITE_NGINX_PORT` 后启动 Nginx。
 
 构建后可在安装了 Node.js 24 和 Docker 的机器上执行以下检查，无需安装 npm 依赖。检查会临时启动容器并自动清理，验证两站路由、静态资源、404、压缩和响应头：
 
