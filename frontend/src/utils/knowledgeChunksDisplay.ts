@@ -22,20 +22,30 @@ export function getKnowledgeChunksSummaryHtml(
       : t('agentStream.knowledgeChunksList.queryNoMatch', params)
   }
 
+  const safeFetched = Number.isFinite(Number(toolData.fetched_chunks))
+    ? String(Number(toolData.fetched_chunks))
+    : '0'
+  const safeTotal =
+    toolData.total_chunks === undefined || toolData.total_chunks === null
+      ? '?'
+      : Number.isFinite(Number(toolData.total_chunks))
+      ? String(Number(toolData.total_chunks))
+      : '?'
   const parts: string[] = [
     t('agentStream.knowledgeChunksList.chunkRange', {
-      fetched: `<strong>${toolData.fetched_chunks ?? 0}</strong>`,
-      total: `<strong>${toolData.total_chunks ?? '?'}</strong>`,
+      fetched: `<strong>${safeFetched}</strong>`,
+      total: `<strong>${safeTotal}</strong>`,
     }),
   ]
 
-  const total = Number(toolData.total_chunks ?? 0)
-  const fetched = Number(toolData.fetched_chunks ?? 0)
+  const total = Number.isFinite(Number(toolData.total_chunks)) ? Number(toolData.total_chunks) : 0
+  const fetched = Number.isFinite(Number(toolData.fetched_chunks)) ? Number(toolData.fetched_chunks) : 0
   // read_document pages by offset and may return fewer than page_size chunks
   // to stay within the output budget, so a page number would be misleading.
   if (toolData.offset !== undefined) {
-    if (fetched > 0 && fetched < total) {
-      const from = Number(toolData.offset) + 1
+    const rawOffset = Number(toolData.offset)
+    if (fetched > 0 && fetched < total && Number.isFinite(rawOffset)) {
+      const from = rawOffset + 1
       parts.push(
         t('agentStream.knowledgeChunksList.offsetRange', { from, to: from + fetched - 1 }),
       )
@@ -43,11 +53,12 @@ export function getKnowledgeChunksSummaryHtml(
     return parts.join(' · ')
   }
 
-  const pageSize = Number(toolData.page_size ?? 0)
+  const pageSize = Number.isFinite(Number(toolData.page_size)) ? Number(toolData.page_size) : 0
   if (total > pageSize && pageSize > 0) {
+    const safePage = Number.isFinite(Number(toolData.page)) ? Number(toolData.page) : 1
     parts.push(
       t('agentStream.knowledgeChunksList.page', {
-        page: toolData.page ?? 1,
+        page: safePage,
         pageSize,
       }),
     )

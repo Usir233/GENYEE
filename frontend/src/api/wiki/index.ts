@@ -4,8 +4,17 @@ import { get, post, put, del } from "../../utils/request";
 // "foo/bar baz?") so the URL is safe while preserving the "/" separators
 // between segments. Using encodeURIComponent on the whole slug would also
 // escape the "/" and break hierarchical routing on the backend.
-function encodeSlugPath(slug: string): string {
-  return slug.split("/").map(encodeURIComponent).join("/");
+export function encodeSlugPath(slug: string): string {
+  const resolved: string[] = [];
+  for (const rawSeg of String(slug || "").split("/")) {
+    if (!rawSeg || rawSeg === "." || rawSeg.toLowerCase() === "%2e") continue;
+    if (rawSeg === ".." || /^(?:\.|%2e){2}$/i.test(rawSeg)) {
+      resolved.pop();
+      continue;
+    }
+    resolved.push(encodeURIComponent(rawSeg));
+  }
+  return resolved.join("/");
 }
 
 // Wiki Page Types
@@ -133,7 +142,7 @@ export function listWikiPages(kbId: string, params?: {
     });
   }
   const qs = query.toString();
-  return get(`/api/v1/knowledgebase/${kbId}/wiki/pages${qs ? '?' + qs : ''}`);
+  return get(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/pages${qs ? '?' + qs : ''}`);
 }
 
 // listWikiFolders returns the direct child folders of parentId ("" = root),
@@ -147,12 +156,12 @@ export function listWikiFolders(kbId: string, parentId = '', pageTypes = '') {
   if (parentId) query.set('parent_id', parentId);
   if (pageTypes) query.set('page_types', pageTypes);
   const qs = query.toString();
-  return get(`/api/v1/knowledgebase/${kbId}/wiki/folders${qs ? '?' + qs : ''}`);
+  return get(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/folders${qs ? '?' + qs : ''}`);
 }
 
 // createWikiFolder creates a new empty folder under parentId ("" = root).
 export function createWikiFolder(kbId: string, parentId: string, name: string) {
-  return post(`/api/v1/knowledgebase/${kbId}/wiki/folders`, { parent_id: parentId, name });
+  return post(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/folders`, { parent_id: parentId, name });
 }
 
 // updateWikiFolder renames and/or reparents a folder. Pass move_parent: true
@@ -162,26 +171,26 @@ export function updateWikiFolder(
   folderId: string,
   data: { name?: string; parent_id?: string; move_parent?: boolean },
 ) {
-  return put(`/api/v1/knowledgebase/${kbId}/wiki/folders/${folderId}`, data);
+  return put(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/folders/${encodeURIComponent(folderId)}`, data);
 }
 
 // deleteWikiFolder removes an empty folder (no pages, no sub-folders).
 export function deleteWikiFolder(kbId: string, folderId: string) {
-  return del(`/api/v1/knowledgebase/${kbId}/wiki/folders/${folderId}`);
+  return del(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/folders/${encodeURIComponent(folderId)}`);
 }
 
 // moveWikiPage relocates a page into folderId ("" = root). The slug is sent in
 // the body because wiki slugs are hierarchical.
 export function moveWikiPage(kbId: string, slug: string, folderId: string) {
-  return put(`/api/v1/knowledgebase/${kbId}/wiki/move-page`, { slug, folder_id: folderId });
+  return put(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/move-page`, { slug, folder_id: folderId });
 }
 
 export function createWikiPage(kbId: string, data: Partial<WikiPage>) {
-  return post(`/api/v1/knowledgebase/${kbId}/wiki/pages`, data);
+  return post(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/pages`, data);
 }
 
 export function getWikiPage(kbId: string, slug: string) {
-  return get(`/api/v1/knowledgebase/${kbId}/wiki/pages/${encodeSlugPath(slug)}`);
+  return get(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/pages/${encodeSlugPath(slug)}`);
 }
 
 // WikiPageUpdatePayload is a partial update: absent fields keep their stored
@@ -199,11 +208,11 @@ export interface WikiPageUpdatePayload {
 }
 
 export function updateWikiPage(kbId: string, slug: string, data: WikiPageUpdatePayload) {
-  return put(`/api/v1/knowledgebase/${kbId}/wiki/pages/${encodeSlugPath(slug)}`, data);
+  return put(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/pages/${encodeSlugPath(slug)}`, data);
 }
 
 export function deleteWikiPage(kbId: string, slug: string) {
-  return del(`/api/v1/knowledgebase/${kbId}/wiki/pages/${encodeSlugPath(slug)}`);
+  return del(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/pages/${encodeSlugPath(slug)}`);
 }
 
 // WikiPageRevision is one immutable snapshot of a superseded page version.
@@ -241,19 +250,19 @@ export function listWikiRevisions(kbId: string, slug: string, params?: { limit?:
   if (params?.limit !== undefined) query.set('limit', String(params.limit));
   if (params?.offset !== undefined) query.set('offset', String(params.offset));
   const qs = query.toString();
-  return get(`/api/v1/knowledgebase/${kbId}/wiki/revisions/${encodeSlugPath(slug)}${qs ? '?' + qs : ''}`);
+  return get(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/revisions/${encodeSlugPath(slug)}${qs ? '?' + qs : ''}`);
 }
 
 // getWikiRevision returns one snapshot with full content.
 export function getWikiRevision(kbId: string, slug: string, version: number) {
-  return get(`/api/v1/knowledgebase/${kbId}/wiki/revisions/${encodeSlugPath(slug)}?version=${version}`);
+  return get(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/revisions/${encodeSlugPath(slug)}?version=${encodeURIComponent(String(version))}`);
 }
 
 // revertWikiPage rolls the page back to a stored revision. Applied as a
 // regular edit: the pre-revert state is snapshotted and version advances,
 // so a revert is itself revertable.
 export function revertWikiPage(kbId: string, slug: string, version: number) {
-  return post(`/api/v1/knowledgebase/${kbId}/wiki/revert`, { slug, version });
+  return post(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/revert`, { slug, version });
 }
 
 export interface WikiIndexEntryDTO {
@@ -298,7 +307,7 @@ export function getWikiIndex(
   }
   const qs = query.toString();
   const suffix = qs ? `?${qs}` : '';
-  return get(`/api/v1/knowledgebase/${kbId}/wiki/index${suffix}`);
+  return get(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/index${suffix}`);
 }
 
 export interface WikiGraphQueryParams {
@@ -326,7 +335,7 @@ export function getWikiGraph(kbId: string, params?: WikiGraphQueryParams) {
     }
   }
   const qs = query.toString();
-  return get(`/api/v1/knowledgebase/${kbId}/wiki/graph${qs ? '?' + qs : ''}`).then((res: any) => {
+  return get(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/graph${qs ? '?' + qs : ''}`).then((res: any) => {
     // Older backends serialize an edgeless subgraph as `"edges": null`.
     const graph = res?.data || res;
     if (graph && typeof graph === 'object') {
@@ -338,26 +347,26 @@ export function getWikiGraph(kbId: string, params?: WikiGraphQueryParams) {
 }
 
 export function getWikiStats(kbId: string) {
-  return get(`/api/v1/knowledgebase/${kbId}/wiki/stats`);
+  return get(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/stats`);
 }
 
 export function searchWikiPages(kbId: string, q: string, limit?: number) {
   const params = new URLSearchParams({ q });
   if (limit) params.set('limit', String(limit));
-  return get(`/api/v1/knowledgebase/${kbId}/wiki/search?${params.toString()}`);
+  return get(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/search?${params.toString()}`);
 }
 
 export function listWikiIssues(kbId: string, slug?: string, status?: string) {
   const params = new URLSearchParams();
   if (slug) params.set('slug', slug);
   if (status) params.set('status', status);
-  return get(`/api/v1/knowledgebase/${kbId}/wiki/issues?${params.toString()}`);
+  return get(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/issues?${params.toString()}`);
 }
 
 export function updateWikiIssueStatus(kbId: string, issueId: string, status: string) {
-  return put(`/api/v1/knowledgebase/${kbId}/wiki/issues/${issueId}/status`, { status });
+  return put(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/issues/${encodeURIComponent(issueId)}/status`, { status });
 }
 
 export function rebuildWikiLinks(kbId: string) {
-  return post(`/api/v1/knowledgebase/${kbId}/wiki/rebuild-links`, {});
+  return post(`/api/v1/knowledgebase/${encodeURIComponent(kbId)}/wiki/rebuild-links`, {});
 }

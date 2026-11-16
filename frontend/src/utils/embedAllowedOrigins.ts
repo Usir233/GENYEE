@@ -28,7 +28,18 @@ export function validateAllowedOrigins(
     }
     let host = origin
     if (origin.startsWith('*.')) {
-      host = `https://${origin.slice(2)}`
+      const suffix = origin.slice(2)
+      const hostOnly = suffix.split(':')[0] || ''
+      if (
+        !hostOnly.includes('.') ||
+        hostOnly.startsWith('.') ||
+        hostOnly.endsWith('.') ||
+        /^\d+(?:\.\d+){3}$/.test(hostOnly) ||
+        hostOnly.includes('[')
+      ) {
+        return { ok: false, error: { code: 'invalid', origin } }
+      }
+      host = `https://${suffix}`
     }
     try {
       if (!/^https?:\/\/[^/?#\\\s]+\/?$/i.test(host)) {

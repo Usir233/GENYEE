@@ -6,7 +6,14 @@ export function buildQueryWithHostContext(
   if (!hostContext || !Object.keys(hostContext).length) return query
   const lines = Object.entries(hostContext)
     .filter(([, v]) => v !== undefined && v !== null && v !== '')
-    .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
+    .map(([k, v]) => {
+      const safeKey = String(k).replace(/[\r\n]+/g, ' ').trim()
+      const safeVal =
+        typeof v === 'string'
+          ? v.replace(/\r/g, '\\r').replace(/\n/g, '\\n')
+          : JSON.stringify(v)
+      return `${safeKey}: ${safeVal}`
+    })
   if (!lines.length) return query
   return `[Host context]\n${lines.join('\n')}\n\n${query}`
 }

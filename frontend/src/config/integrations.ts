@@ -1,13 +1,25 @@
 import type { DeploymentCapabilityKey } from './deploymentCapabilities'
 
+function sanitizeExternalHttpUrl(raw: unknown): string {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed || !/^https?:\/\//i.test(trimmed)) return ''
+  try {
+    const parsed = new URL(trimmed)
+    if ((parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || !parsed.host) return ''
+    return trimmed
+  } catch {
+    return ''
+  }
+}
+
 export function getChromeExtensionUrl(): string {
   if (typeof window === 'undefined') return ''
-  return String((window as any).__RUNTIME_CONFIG__?.GENYEE_CHROME_EXTENSION_URL || '').trim()
+  return sanitizeExternalHttpUrl((window as any).__RUNTIME_CONFIG__?.GENYEE_CHROME_EXTENSION_URL)
 }
 
 export function getClawhubSkillUrl(): string {
   if (typeof window === 'undefined') return ''
-  return String((window as any).__RUNTIME_CONFIG__?.GENYEE_CLAWHUB_SKILL_URL || '').trim()
+  return sanitizeExternalHttpUrl((window as any).__RUNTIME_CONFIG__?.GENYEE_CLAWHUB_SKILL_URL)
 }
 
 export const CHROME_EXTENSION_URL = getChromeExtensionUrl()

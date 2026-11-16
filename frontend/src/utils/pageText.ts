@@ -157,8 +157,18 @@ export function markdownOutline(value: string, limit = 60): OutlineEntry[] {
 const SECRET_LABEL =
   /\b(api[\s_-]?key|secret|passwords?|passwd|passphrase|access[\s_-]?key|private[\s_-]?key|client[\s_-]?secret|bearer|(auth|access|refresh|api|bot|app)[\s_-]?token|credentials?|cookie)\b|密钥|秘钥|密码|口令|令牌|凭证|凭据/i
 
+function normalizeIdentifierWords(raw: string): string {
+  return raw
+    .replace(/([a-z\d])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+    .replace(/[_\-./:]+/g, ' ')
+}
+
 export function isSecretLabel(...texts: Array<string | null | undefined>): boolean {
-  return texts.some(text => !!text && SECRET_LABEL.test(text))
+  return texts.some((text) => {
+    if (!text) return false
+    return SECRET_LABEL.test(text) || SECRET_LABEL.test(normalizeIdentifierWords(text))
+  })
 }
 
 /** How a fill changed a text field, for the model and the undo card. */

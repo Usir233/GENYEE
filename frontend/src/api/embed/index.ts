@@ -245,7 +245,7 @@ export async function ensureEmbedMessageSuggestions(
   regenerate = false,
 ) {
   return post<{ success: boolean; data: EmbedMessageSuggestionSet }>(
-    `/api/v1/embed/${channelId}/sessions/${sessionId}/messages/${messageId}/suggestions`,
+    `/api/v1/embed/${encodeURIComponent(channelId)}/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/suggestions`,
     { regenerate },
     { headers: embedSessionHeaders(token, sessionSig, visitorId) },
   )
@@ -711,10 +711,10 @@ function escapeHtmlAttr(value: string): string {
 
 /** Validate that a base URL is a well-formed http(s) origin; fall back otherwise. */
 function safeBaseUrl(raw?: string): string {
-  const fallback = window.location.origin
+  const fallback = resolveEmbedBaseUrl() || (typeof window !== 'undefined' ? window.location.origin : '')
   if (!raw) return fallback
   try {
-    const u = new URL(raw, window.location.href)
+    const u = new URL(raw, typeof window !== 'undefined' ? window.location.href : undefined)
     if (u.protocol !== 'http:' && u.protocol !== 'https:') return fallback
     return u.origin
   } catch {
@@ -781,7 +781,7 @@ export function buildSecureWidgetSnippet(
  */
 export function buildSecureServerNodeExample(channelId: string, opts?: { baseUrl?: string }) {
   const base = safeBaseUrl(opts?.baseUrl)
-  const exchangeUrl = `${base}/api/v1/embed/${encodeURIComponent(channelId)}/exchange`
+  const exchangeUrl = `${base}/api/v1/embed/${encodeURIComponent(channelId).replace(/'/g, '%27')}/exchange`
   return [
     `// Node/Express — keep GENYEE_PUBLISH_TOKEN only on the server (env var).`,
     `app.get('/genyee/embed-token', async (req, res) => {`,
@@ -807,7 +807,7 @@ export function buildSecureServerNodeExample(channelId: string, opts?: { baseUrl
 
 export function buildSecureServerGoExample(channelId: string, opts?: { baseUrl?: string }) {
   const base = safeBaseUrl(opts?.baseUrl)
-  const exchangeUrl = `${base}/api/v1/embed/${encodeURIComponent(channelId)}/exchange`
+  const exchangeUrl = `${base}/api/v1/embed/${encodeURIComponent(channelId).replace(/'/g, '%27')}/exchange`
   return [
     `// Go net/http — keep GENYEE_PUBLISH_TOKEN only on the server (env var).`,
     `func embedTokenHandler(w http.ResponseWriter, r *http.Request) {`,

@@ -94,6 +94,14 @@ function setupTest(legacyTokenMarker = false) {
       if (name === '@/stores/chatResources') return { useChatResourcesStore: () => chatStoreMock }
       if (name === '@/stores/editorResources') return { useEditorResourcesStore: () => editorStoreMock }
       if (name === '@/stores/organization') return { useOrganizationStore: () => orgStoreMock }
+      if (name === '@/stores/browserConnection') return { useBrowserConnectionStore: () => ({ reset() {} }) }
+      if (name === '@/stores/deploymentCapabilities') return { useDeploymentCapabilitiesStore: () => ({ reset() {} }) }
+      if (name === '@/stores/knowledge') return { knowledgeStore: () => ({ cardList: [], total: 0 }) }
+      if (name === '@/stores/menu') return { useMenuStore: () => ({ resetSessionMenu() {} }) }
+      if (name === '@/stores/modelProviders') return { useModelProvidersStore: () => ({ reset() {} }) }
+      if (name === '@/stores/settings') return { useSettingsStore: () => ({ resetForSessionChange() {} }) }
+      if (name === '@/stores/ui') return { useUIStore: () => ({ resetSessionUI() {} }) }
+      if (name === '@/stores/uploadConfirm') return { useUploadConfirmStore: () => ({ rejectConfirm() {} }) }
       if (name === '@/stores/sequencedRefresh') {
         return {
           createSequencedRefresh: () => ({

@@ -74,6 +74,10 @@ export const useOrganizationStore = defineStore('organization', () => {
   let sharedAgentsLoadedLocale = ''
   let sharedAgentsInflightLocale = ''
   let searchableOrganizationsQuery = ''
+  let stateGeneration = 0
+  let previewRequestSeq = 0
+  let membersRequestSeq = 0
+  let searchableRequestSeq = 0
   const searchableOrganizationCache = new Map<
     string,
     { data: SearchableOrganizationItem[]; loadedAt: number }
@@ -261,11 +265,14 @@ export const useOrganizationStore = defineStore('organization', () => {
    * Preview an organization by invite code (without joining)
    */
   async function preview(inviteCode: string) {
+    const reqGen = stateGeneration
+    const reqSeq = ++previewRequestSeq
     loading.value = true
     error.value = null
     previewData.value = null
     try {
       const response = await previewOrganization(inviteCode)
+      if (reqGen !== stateGeneration || reqSeq !== previewRequestSeq) return null
       if (response.success && response.data) {
         previewData.value = response.data
         return response.data
@@ -274,10 +281,14 @@ export const useOrganizationStore = defineStore('organization', () => {
         return null
       }
     } catch (e: any) {
-      error.value = e.message || 'Failed to preview organization'
+      if (reqGen === stateGeneration && reqSeq === previewRequestSeq) {
+        error.value = e.message || 'Failed to preview organization'
+      }
       return null
     } finally {
-      loading.value = false
+      if (reqGen === stateGeneration && reqSeq === previewRequestSeq) {
+        loading.value = false
+      }
     }
   }
 
@@ -361,10 +372,13 @@ export const useOrganizationStore = defineStore('organization', () => {
    * Fetch members of an organization
    */
   async function fetchMembers(orgId: string) {
+    const reqGen = stateGeneration
+    const reqSeq = ++membersRequestSeq
     loading.value = true
     error.value = null
     try {
       const response = await listMembers(orgId)
+      if (reqGen !== stateGeneration || reqSeq !== membersRequestSeq) return []
       if (response.success && response.data) {
         currentMembers.value = response.data.members
         return response.data.members
@@ -373,10 +387,14 @@ export const useOrganizationStore = defineStore('organization', () => {
         return []
       }
     } catch (e: any) {
-      error.value = e.message || 'Failed to fetch members'
+      if (reqGen === stateGeneration && reqSeq === membersRequestSeq) {
+        error.value = e.message || 'Failed to fetch members'
+      }
       return []
     } finally {
-      loading.value = false
+      if (reqGen === stateGeneration && reqSeq === membersRequestSeq) {
+        loading.value = false
+      }
     }
   }
 
@@ -545,6 +563,8 @@ export const useOrganizationStore = defineStore('organization', () => {
     query: string,
     options?: { force?: boolean; limit?: number }
   ) {
+    const reqGen = stateGeneration
+    const reqSeq = ++searchableRequestSeq
     const normalizedQuery = query.trim()
     searchableOrganizationsQuery = normalizedQuery
     const cached = searchableOrganizationCache.get(normalizedQuery)
@@ -558,21 +578,23 @@ export const useOrganizationStore = defineStore('organization', () => {
     }
 
     const response = await searchSearchableOrganizations(normalizedQuery, options?.limit ?? 20)
+    if (reqGen !== stateGeneration) return []
     if (response.success && response.data) {
       const data = response.data.data.filter(organization => !organization.is_already_member)
       searchableOrganizationCache.set(normalizedQuery, { data, loadedAt: Date.now() })
-      if (searchableOrganizationsQuery === normalizedQuery) {
+      if (reqSeq === searchableRequestSeq && searchableOrganizationsQuery === normalizedQuery) {
         searchableOrganizations.value = data
       }
       return data
     }
-    if (searchableOrganizationsQuery === normalizedQuery) {
+    if (reqSeq === searchableRequestSeq && searchableOrganizationsQuery === normalizedQuery) {
       searchableOrganizations.value = []
     }
     return []
   }
 
   function clearSearchableOrganizations() {
+    searchableRequestSeq++
     searchableOrganizationsQuery = ''
     searchableOrganizations.value = []
   }
@@ -741,6 +763,7 @@ export const useOrganizationStore = defineStore('organization', () => {
   }
 
   function clearCurrentOrganizationContext() {
+    membersRequestSeq++
     currentOrganization.value = null
     currentMembers.value = []
   }
@@ -778,6 +801,11 @@ export const useOrganizationStore = defineStore('organization', () => {
    * Clear all state
    */
   function clearState() {
+    stateGeneration++
+    previewRequestSeq++
+    membersRequestSeq++
+    searchableRequestSeq++
+    loading.value = false
     organizations.value = []
     currentOrganization.value = null
     currentMembers.value = []

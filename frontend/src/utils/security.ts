@@ -20,6 +20,7 @@ import {
   type ProtectedFileAccessContext,
 } from './protectedFileAccess.ts';
 import { clearArtifactBlobCache } from './sandboxArtifactRefs.ts';
+import { clearCitationChunkCache } from './citationChunkCache.ts';
 
 const PROVIDER_IMAGE_PLACEHOLDER = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
 const PROVIDER_IMG_SRC_RE = new RegExp(
@@ -61,19 +62,19 @@ const DOMPurifyConfig = {
     'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     'ul', 'ol', 'li', 'blockquote', 'pre', 'code',
     'a', 'img', 'table', 'thead', 'tbody', 'tr', 'th', 'td',
-    'div', 'span', 'figure', 'figcaption', 'details', 'summary', 'think', 'button',
+    'div', 'span', 'section', 'figure', 'figcaption', 'details', 'summary', 'think', 'button',
     // Mermaid SVG 支持的标签
     'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon',
     'polyline', 'text', 'tspan', 'defs', 'marker', 'filter', 'use',
     'clippath', 'lineargradient', 'radialgradient', 'stop', 'pattern',
-    'image', 'foreignobject', 'desc', 'title', 'switch', 'symbol', 'mask',
+    'image', 'desc', 'title', 'switch', 'symbol', 'mask',
     // KaTeX MathML 支持的标签
     'math', 'annotation', 'semantics', 'mo', 'mi', 'mn', 'msup', 'mrow', 'mfrac', 'msqrt', 'mroot', 'mstyle'
   ],
   // 允许的属性
   ALLOWED_ATTR: [
     'href', 'title', 'alt', 'src', 'class', 'id', 'style', 'data-protected-src', 'data-img-loading',
-    'data-artifact-index', 'data-protected-resource', 'download',
+    'data-artifact-index', 'data-protected-resource', 'data-epub-section', 'download',
     'target', 'rel', 'width', 'height', 'open',
     'type', 'aria-label', 'disabled', 'role', 'tabindex',
     // Mermaid SVG 支持的属性
@@ -120,6 +121,68 @@ const STATIC_SVG_ALLOWED_ATTR = [
   'clippathunits', 'maskunits', 'filterunits', 'primitiveunits', 'direction',
 ];
 
+const STATIC_SVG_ALLOWED_TAG_SET = new Set<string>(STATIC_SVG_ALLOWED_TAGS);
+const STATIC_SVG_ALLOWED_ATTR_SET = new Set<string>(STATIC_SVG_ALLOWED_ATTR);
+
+/**
+ * Fallback static SVG allowlist sanitizer for headless/Node runtimes where
+ * `DOMPurify.isSupported` is false (no browser `window`). Strips DTD/ENTITY,
+ * comments, processing instructions, all non-allowlisted elements (with their
+ * subtrees for dangerous containers like `<script>` / `<style>` / `<foreignObject>`),
+ * and all non-allowlisted or URL-bearing attributes.
+ */
+function sanitizeStaticSvgFallback(svgSource: string): string {
+  const withoutProlog = svgSource
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/<!DOCTYPE[\s\S]*?>/gi, '')
+    .replace(/<\?[\s\S]*?\?>/g, '')
+    .replace(/<(script|style|foreignobject|iframe|object|embed|a|use|image|animate|animatemotion|animatetransform|set|mpath)\b[\s\S]*?<\/\1\s*>/gi, '')
+    .replace(/<(script|style|foreignobject|iframe|object|embed|a|use|image|animate|animatemotion|animatetransform|set|mpath)\b[^>]*\/?>/gi, '');
+
+  const svgMatch = withoutProlog.match(/<svg\b[\s\S]*<\/svg\s*>|<svg\b[^>]*\/>/i);
+  if (!svgMatch) return '';
+
+  const tagRe = /<\/?([A-Za-z_][\w:.-]*)([^>]*?)(\/?)>/g;
+  const attrRe = /([A-Za-z_][\w:.-]*)\s*=\s*(?:"([^"]*)"|'([^']*)')/g;
+  let out = '';
+  let lastIdx = 0;
+  let match: RegExpExecArray | null;
+  while ((match = tagRe.exec(svgMatch[0])) !== null) {
+    const textChunk = svgMatch[0].slice(lastIdx, match.index);
+    if (textChunk) {
+      out += escapeHTML(textChunk.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&'));
+    }
+    lastIdx = tagRe.lastIndex;
+    const fullTag = match[0];
+    const rawName = match[1];
+    const localLower = (rawName.includes(':') ? rawName.split(':').pop()! : rawName).toLowerCase();
+    const isClose = fullTag.startsWith('</');
+    const isSelfClose = Boolean(match[3]);
+    if (!STATIC_SVG_ALLOWED_TAG_SET.has(localLower)) continue;
+    if (isClose) {
+      out += `</${localLower}>`;
+      continue;
+    }
+    const safeAttrs: string[] = [];
+    let hasXmlns = false;
+    attrRe.lastIndex = 0;
+    let am: RegExpExecArray | null;
+    while ((am = attrRe.exec(match[2])) !== null) {
+      const attrLower = am[1].toLowerCase();
+      const rawVal = am[2] ?? am[3] ?? '';
+      if (attrLower.startsWith('on') || !STATIC_SVG_ALLOWED_ATTR_SET.has(attrLower)) continue;
+      if (/url\s*\(/i.test(rawVal) && !/url\s*\(\s*['"]?#[A-Za-z0-9_.-]+['"]?\s*\)/i.test(rawVal)) continue;
+      if (attrLower === 'xmlns') hasXmlns = true;
+      safeAttrs.push(`${attrLower}="${escapeAttr(rawVal)}"`);
+    }
+    if (localLower === 'svg' && !hasXmlns) {
+      safeAttrs.unshift('xmlns="http://www.w3.org/2000/svg"');
+    }
+    out += `<${localLower}${safeAttrs.length ? ' ' + safeAttrs.join(' ') : ''}${isSelfClose ? '/>' : '>'}`;
+  }
+  return /^<svg[\s>]/i.test(out) ? out : '';
+}
+
 /**
  * Sanitize untrusted SVG markup to pure static vector elements and encode it as
  * an opaque-origin `data:image/svg+xml` URI (never a same-origin `blob:` URL).
@@ -127,23 +190,25 @@ const STATIC_SVG_ALLOWED_ATTR = [
 export function sanitizeSvgForDataUrl(svgSource: string): string {
   if (!svgSource || typeof svgSource !== 'string') return '';
   try {
-    const cleaned = DOMPurify.sanitize(svgSource, {
-      ALLOWED_TAGS: STATIC_SVG_ALLOWED_TAGS,
-      ALLOWED_ATTR: STATIC_SVG_ALLOWED_ATTR,
-      FORBID_TAGS: [
-        ...domPurifySecurityOptions.FORBID_TAGS,
-        'foreignobject', 'a', 'use', 'image', 'animate', 'animatemotion', 'animatetransform', 'set', 'mpath',
-      ],
-      FORBID_ATTR: [
-        ...domPurifySecurityOptions.FORBID_ATTR,
-        'href', 'xlink:href', 'style',
-      ],
-      KEEP_CONTENT: false,
-      RETURN_DOM: false,
-      RETURN_DOM_FRAGMENT: false,
-      SANITIZE_DOM: true,
-      SANITIZE_NAMED_PROPS: true,
-    } as unknown as Config).trim();
+    const cleaned = DOMPurify.isSupported
+      ? DOMPurify.sanitize(svgSource, {
+          ALLOWED_TAGS: STATIC_SVG_ALLOWED_TAGS,
+          ALLOWED_ATTR: STATIC_SVG_ALLOWED_ATTR,
+          FORBID_TAGS: [
+            ...domPurifySecurityOptions.FORBID_TAGS,
+            'foreignobject', 'a', 'use', 'image', 'animate', 'animatemotion', 'animatetransform', 'set', 'mpath',
+          ],
+          FORBID_ATTR: [
+            ...domPurifySecurityOptions.FORBID_ATTR,
+            'href', 'xlink:href', 'style',
+          ],
+          KEEP_CONTENT: false,
+          RETURN_DOM: false,
+          RETURN_DOM_FRAGMENT: false,
+          SANITIZE_DOM: true,
+          SANITIZE_NAMED_PROPS: true,
+        } as unknown as Config).trim()
+      : sanitizeStaticSvgFallback(svgSource).trim();
     if (!cleaned || !/<svg[\s>]/i.test(cleaned)) return '';
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(cleaned)}`;
   } catch (error) {
@@ -266,20 +331,21 @@ function buildProtectedImageTag(
   protectedSrc: string,
   after: string,
 ): string {
+  const safeProtectedSrc = escapeAttr(protectedSrc);
   // Reuse the already-hydrated file if we have one under the current
   // userId:tenantId scope, so repeated re-renders (typewriter streaming) keep
   // the same stable image or download card without leaking across tenants.
   const cached = protectedFileBySource.get(scopedProtectedSourceKey(protectedSrc));
   if (cached) {
     if (isRasterProtectedImage(cached)) {
-      return `<img${before} src=${quote}${cached.blobURL}${quote} data-protected-src=${quote}${protectedSrc}${quote}${after}>`;
+      return `<img${before} src=${quote}${escapeAttr(cached.blobURL)}${quote} data-protected-src=${quote}${safeProtectedSrc}${quote}${after}>`;
     }
     return buildProtectedFileCardTag(cached, protectedSrc, imageAltFromTag(before, after));
   }
   // Not hydrated yet: render the 1x1 placeholder but tag it so CSS can give
   // it a stable skeleton box. Otherwise width:auto/height:auto collapse the
   // 1x1 gif to a ~1px line that violently jumps to full size once loaded.
-  return `<img${before} src=${quote}${PROVIDER_IMAGE_PLACEHOLDER}${quote} data-protected-src=${quote}${protectedSrc}${quote} data-img-loading=${quote}1${quote}${after}>`;
+  return `<img${before} src=${quote}${PROVIDER_IMAGE_PLACEHOLDER}${quote} data-protected-src=${quote}${safeProtectedSrc}${quote} data-img-loading=${quote}1${quote}${after}>`;
 }
 
 export function protectProviderImageSrcInHTML(html: string): string {
@@ -469,9 +535,7 @@ export function createSafeImage(src: string, alt: string = '', title: string = '
     return '';
   }
   
-  // src is validated by isValidImageURL; keep URL structure unchanged.
-  // Only escape quotes to avoid breaking attributes.
-  const safeSrc = src.replace(/"/g, '&quot;');
+  const safeSrc = escapeAttr(src.trim());
   const safeAlt = escapeHTML(alt);
   const safeTitle = escapeHTML(title);
   
@@ -635,6 +699,7 @@ export function clearProtectedFileCache(): void {
   protectedFileFailureCache.clear();
   protectedFileInflight.clear();
   clearArtifactBlobCache();
+  clearCitationChunkCache();
 }
 
 /**
@@ -823,7 +888,10 @@ export async function hydrateProtectedFileImages(
               headers,
               credentials: 'include',
             });
-            if (taskEpoch !== protectedFileCacheState.clearEpoch) {
+            if (
+              taskEpoch !== protectedFileCacheState.clearEpoch ||
+              resolveProtectedFileCacheScope(resolvedAccess) !== cacheScope
+            ) {
               return { status: 'failed' };
             }
             if (!resp.ok) {
@@ -835,10 +903,20 @@ export async function hydrateProtectedFileImages(
               throw new Error(`HTTP ${resp.status}`);
             }
             const blob = await resp.blob();
-            if (taskEpoch !== protectedFileCacheState.clearEpoch) {
+            if (
+              taskEpoch !== protectedFileCacheState.clearEpoch ||
+              resolveProtectedFileCacheScope(resolvedAccess) !== cacheScope
+            ) {
               return { status: 'failed' };
             }
             const blobURL = URL.createObjectURL(blob);
+            if (
+              taskEpoch !== protectedFileCacheState.clearEpoch ||
+              resolveProtectedFileCacheScope(resolvedAccess) !== cacheScope
+            ) {
+              try { URL.revokeObjectURL(blobURL); } catch { /* ignore */ }
+              return { status: 'failed' };
+            }
             const file = { blobURL, blob, fileName: responseFileName(resp.headers.get("Content-Disposition"), sourceURL) };
             protectedFileBlobCache.set(requestKey, file);
             protectedFileFailureCache.delete(requestKey);
@@ -862,7 +940,10 @@ export async function hydrateProtectedFileImages(
     }
 
     const result = await loadTask;
-    if (startEpoch !== protectedFileCacheState.clearEpoch) {
+    if (
+      startEpoch !== protectedFileCacheState.clearEpoch ||
+      resolveProtectedFileCacheScope(resolvedAccess) !== cacheScope
+    ) {
       img.dataset.authHydrated = '0';
       return;
     }

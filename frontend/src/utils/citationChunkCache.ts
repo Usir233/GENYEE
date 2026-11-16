@@ -1,5 +1,6 @@
 export type CitationChunkCacheValue = { content: string; error?: string; retryable?: boolean; retryAfter?: number }
 
+const MAX_CITATION_CHUNK_CACHE_ENTRIES = 500
 const chunkCache = new Map<string, CitationChunkCacheValue>()
 
 export function makeCitationCacheKey(scope: string, chunkId: string): string {
@@ -18,7 +19,14 @@ export function setCitationChunkCache(
   chunkId: string,
   value: CitationChunkCacheValue,
 ): void {
-  chunkCache.set(makeCitationCacheKey(scope, chunkId), value)
+  const key = makeCitationCacheKey(scope, chunkId)
+  if (chunkCache.has(key)) {
+    chunkCache.delete(key)
+  } else if (chunkCache.size >= MAX_CITATION_CHUNK_CACHE_ENTRIES) {
+    const oldest = chunkCache.keys().next().value
+    if (oldest !== undefined) chunkCache.delete(oldest)
+  }
+  chunkCache.set(key, value)
 }
 
 export function clearCitationChunkCache(scope?: string): void {

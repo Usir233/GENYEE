@@ -23,18 +23,15 @@ const STREAMING_MERMAID_PLACEHOLDER = buildMermaidLoadingHtml();
 export const replaceIncompleteImageWithPlaceholder = (content: string): string => {
   if (!content) return '';
 
-  const lastImgStart = content.lastIndexOf('![');
+  const masked = content.replace(/(```[\s\S]*?```|~~~[\s\S]*?~~~|`+[^`\n]*`+)/g, (m) => ' '.repeat(m.length));
+  if (/(?:^|\n) {0,3}(?:`{3,}|~{3,})/.test(masked)) return content;
+  if ((masked.split('`').length - 1) % 2 === 1) return content;
+
+  const lastImgStart = masked.lastIndexOf('![');
   if (lastImgStart < 0) return content;
 
-  const tail = content.slice(lastImgStart);
-  const hasImageOpen = tail.startsWith('![');
-  const hasBracketClose = tail.includes(']');
-  const hasParenOpen = tail.includes('(');
-  const hasParenClose = tail.includes(')');
-  if (!hasImageOpen) return content;
-
-  // Incomplete image syntax at stream tail, e.g. ![alt](local://...
-  if (!hasBracketClose || (hasParenOpen && !hasParenClose)) {
+  const tail = masked.slice(lastImgStart);
+  if (/^!\[[^\]\n]*$/.test(tail) || /^!\[[^\]\n]*\]\([^)\n]*$/.test(tail)) {
     return content.slice(0, lastImgStart) + STREAMING_IMAGE_PLACEHOLDER;
   }
 

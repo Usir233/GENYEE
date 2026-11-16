@@ -8,7 +8,20 @@ export function resolveDocsBaseUrl(): string {
       : undefined
   if (typeof configured === 'string' && configured.trim() !== '') {
     const trimmed = configured.trim()
-    return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
+    if (/[\u0000-\u001f\u007f\\]/.test(trimmed)) return ''
+    if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+      return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
+    }
+    if (/^https?:\/\//i.test(trimmed)) {
+      try {
+        const parsed = new URL(trimmed)
+        if ((parsed.protocol === 'http:' || parsed.protocol === 'https:') && parsed.host) {
+          return trimmed.endsWith('/') ? trimmed : `${trimmed}/`
+        }
+      } catch {
+        return ''
+      }
+    }
   }
   return ''
 }

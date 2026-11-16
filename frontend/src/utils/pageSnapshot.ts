@@ -33,7 +33,7 @@ const SKIPPED_TAGS = new Set(['SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'SVG', 
 // What a container must be descended into for, instead of read as one text.
 const SIGNIFICANT = [
   'input', 'textarea', 'select', 'button', 'a[href]', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'table', 'ul', 'ol',
-  'img[alt]', '[role]', '[data-assistant-ref]', '[data-assistant-ignore]', '.t-select', '.t-switch',
+  'img[alt]', '[role]', '[data-assistant-ref]', '[data-assistant-ignore]', '[data-assistant-redact]', '.t-select', '.t-switch',
   '.t-checkbox', '.t-radio', '.t-radio-button', '.t-input-number', '.t-alert', '.t-tabs__nav-item',
 ].join(',')
 const CONTAINER_ROLES = new Set(['dialog', 'alertdialog', 'form', 'region', 'navigation', 'list', 'tablist', 'menu', 'grid', 'tree'])
@@ -450,9 +450,14 @@ function isSelected(el: HTMLElement): boolean {
 function emitTable(table: HTMLTableElement, depth: number, state: WalkState) {
   const caption = collapse(table.getAttribute('aria-label')) || textOf(table.caption)
   emit(state, depth, caption ? `table ${quote(caption)}` : 'table')
-  const rows = [...table.rows].filter(row => !isHidden(row))
+  const rows = [...table.rows].filter(row => !isHidden(row) && !row.closest(IGNORED))
   rows.slice(0, MAX_TABLE_ROWS).forEach(row => {
-    const cells = [...row.cells].map(cell => clip(textOf(cell), 120))
+    if (row.closest('[data-assistant-redact]')) return
+    const cells = [...row.cells].map(cell => {
+      if (cell.closest(IGNORED)) return ''
+      if (cell.closest('[data-assistant-redact]')) return '[redacted]'
+      return clip(textOf(cell), 120)
+    })
     if (!cells.some(Boolean)) return
     const header = [...row.cells].every(cell => cell.tagName === 'TH')
     const ref = row.getAttribute('data-assistant-ref') || row.closest('[data-assistant-ref]')?.getAttribute('data-assistant-ref')
@@ -482,6 +487,7 @@ function walkElement(el: HTMLElement, depth: number, state: WalkState) {
   }
   if (SKIPPED_TAGS.has(el.tagName) || el.matches(IGNORED) || isHidden(el)) return
   const field = fieldOf(el)
+  if (!field && el.hasAttribute('data-assistant-redact')) return
   if (field) {
     const ref = field.disabled || field.readonly || field.secret ? '' : refFor(field.control)
     const { line, block } = describeField(field, ref)

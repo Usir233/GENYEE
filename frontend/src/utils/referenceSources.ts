@@ -62,12 +62,24 @@ export function normalizeReferenceUrl(url: string): string {
   }
 }
 
-export function getWebSearchUrl(item: KnowledgeReferenceLike): string {
-  if (item.metadata?.url) return item.metadata.url
-  if (item.id && (item.id.startsWith('http://') || item.id.startsWith('https://'))) {
-    return item.id
+function toSafeHttpUrl(raw: string | undefined): string {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return ''
+  try {
+    const parsed = new URL(trimmed)
+    if ((parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || !parsed.hostname) {
+      return ''
+    }
+    return trimmed
+  } catch {
+    return ''
   }
-  return ''
+}
+
+export function getWebSearchUrl(item: KnowledgeReferenceLike): string {
+  const fromMeta = toSafeHttpUrl(item.metadata?.url)
+  if (fromMeta) return fromMeta
+  return toSafeHttpUrl(item.id)
 }
 
 export function getDomainFromUrl(url: string): string {
@@ -79,12 +91,10 @@ export function getDomainFromUrl(url: string): string {
   }
 }
 
-export function getFaviconUrl(urlOrDomain: string): string {
-  const domain = urlOrDomain.includes('://')
-    ? getDomainFromUrl(urlOrDomain)
-    : urlOrDomain.replace(/^www\./i, '')
-  if (!domain) return ''
-  return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=32`
+export function getFaviconUrl(_urlOrDomain: string): string {
+  // Never emit third-party Google favicon requests: air-gapped deployments
+  // time out and internal domains would leak to an external service.
+  return ''
 }
 
 function truncateText(text: string, maxLen: number): string {

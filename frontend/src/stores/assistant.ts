@@ -244,8 +244,18 @@ export const useAssistantStore = defineStore('assistant', () => {
   /** The workspace's name for the assistant; empty means the default. */
   const displayName = computed(() => workspaceConfig.value?.display_name?.trim() || '')
 
+  // A message for the open conversation, sent by the conversation itself.
+  const queuedMessage = shallowRef<{ id: number; query: string } | null>(null)
+  let queuedSeq = 0
+  const pageDraft = ref<AssistantPageDraft | null>(null)
+
   const restore = () => {
     clearActionSuggestions()
+    pendingRequest.value = null
+    queuedMessage.value = null
+    pageSelection.value = null
+    pageDraft.value = null
+    dismissedKey.value = ''
     try {
       sessionId.value = sessionStorage.getItem(storageKey(SESSION_KEY_PREFIX)) || ''
       visible.value = sessionStorage.getItem(storageKey(VISIBLE_KEY_PREFIX)) === '1'
@@ -396,9 +406,6 @@ export const useAssistantStore = defineStore('assistant', () => {
     pageSelection.value = selection
   }
 
-  // A message for the open conversation, sent by the conversation itself.
-  const queuedMessage = shallowRef<{ id: number; query: string } | null>(null)
-  let queuedSeq = 0
   /** Asks in the open conversation, or starts one when there is none. */
   const ask = (query: string) => {
     clearActionSuggestions()
@@ -433,7 +440,6 @@ export const useAssistantStore = defineStore('assistant', () => {
     ask(action.query)
   }
 
-  const pageDraft = ref<AssistantPageDraft | null>(null)
   const setPageDraft = (draft: AssistantPageDraft | null) => {
     pageDraft.value = draft
   }

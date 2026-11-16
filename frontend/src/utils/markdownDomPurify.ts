@@ -14,11 +14,12 @@ export const domPurifyForbidTags = [
   'base',
   'meta',
   'link',
+  'foreignobject',
 ] as const;
 export const domPurifyForbidAttr = ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'] as const;
 
 export const domPurifyAllowedUriRegexp =
-  /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp|blob):|data:image\/|(?:resource|storage|local|minio|cos|tos|s3|oss|ks3|obs):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
+  /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|cid|xmpp|blob):|data:image\/(?:png|gif|jpe?g|webp|bmp|avif|x-icon|vnd\.microsoft\.icon)[;,]|(?:resource|storage|local|minio|cos|tos|s3|oss|ks3|obs):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i;
 
 /** Shared DOMPurify security options (FORBID_*, URI scheme, DOM flags). */
 export const domPurifySecurityOptions = {
@@ -39,8 +40,11 @@ export const domPurifySecurityHooks = {
   beforeSanitizeElements: (currentNode: Node) => {
     if (!('tagName' in currentNode) || !('hasAttribute' in currentNode)) return;
     const element = currentNode as Element;
-    if (element.tagName === 'SCRIPT') {
-      element.remove();
+    const tag = String(element.tagName || '').toLowerCase();
+    if (tag === 'script' || tag === 'foreignobject') {
+      if ('remove' in element && typeof element.remove === 'function') {
+        element.remove();
+      }
       return;
     }
     domPurifyForbidAttr.forEach((attr) => {
@@ -48,6 +52,30 @@ export const domPurifySecurityHooks = {
         element.removeAttribute(attr);
       }
     });
+    if ('attributes' in element && element.attributes) {
+      for (const attr of Array.from(element.attributes)) {
+        if (attr?.name && attr.name.toLowerCase().startsWith('on')) {
+          element.removeAttribute(attr.name);
+        }
+      }
+    }
+    // SVG <use> may only reference same-document #fragment IDs, never data: or external SVG documents.
+    if (tag === 'use' && 'getAttribute' in element) {
+      for (const attrName of ['href', 'xlink:href']) {
+        const val = element.getAttribute(attrName);
+        if (val !== null && !val.trim().startsWith('#')) {
+          element.removeAttribute(attrName);
+        }
+      }
+    }
+    if ((tag === 'a' || tag === 'area') && 'getAttribute' in element) {
+      for (const attrName of ['href', 'xlink:href']) {
+        const val = element.getAttribute(attrName);
+        if (val !== null && /^\s*data:/i.test(val)) {
+          element.removeAttribute(attrName);
+        }
+      }
+    }
     // target is allowed only so the afterSanitizeElements hook can add
     // target="_blank" together with rel="noopener noreferrer"; never keep an
     // author-supplied value (SVG <a>, <area>, non-http hrefs skip the hook).
@@ -58,14 +86,15 @@ export const domPurifySecurityHooks = {
   afterSanitizeElements: (currentNode: Node) => {
     if (!('tagName' in currentNode) || !('getAttribute' in currentNode)) return;
     const element = currentNode as Element;
-    if (element.tagName === 'A') {
-      const href = element.getAttribute('href');
-      if (href && href.startsWith('http')) {
+    const tag = String(element.tagName || '').toLowerCase();
+    if (tag === 'a' || tag === 'area') {
+      const href = (element.getAttribute('href') || element.getAttribute('xlink:href') || '').trim();
+      if (/^(?:https?:|\/\/)/i.test(href)) {
         element.setAttribute('rel', 'noopener noreferrer');
         element.setAttribute('target', '_blank');
       }
     }
-    if (element.tagName === 'IMG' && !element.getAttribute('alt')) {
+    if (tag === 'img' && !element.getAttribute('alt')) {
       element.setAttribute('alt', '');
     }
   },
@@ -78,7 +107,8 @@ export const markdownDomPurifySecurityHooks = {
     domPurifySecurityHooks.afterSanitizeElements(currentNode);
     if (!('tagName' in currentNode) || !('getAttribute' in currentNode)) return;
     const element = currentNode as Element;
-    if (element.tagName === 'A' && element.getAttribute('href')) {
+    const tag = String(element.tagName || '').toLowerCase();
+    if (tag === 'a' && (element.getAttribute('href') || element.getAttribute('xlink:href'))) {
       const className = element.getAttribute('class') || '';
       if (/\bprotected-resource-card\b/.test(className) || element.hasAttribute('download')) {
         element.removeAttribute('target');
@@ -99,7 +129,7 @@ export const markdownDomPurifyConfig = {
     'svg', 'g', 'path', 'rect', 'circle', 'ellipse', 'line', 'polygon',
     'polyline', 'text', 'tspan', 'defs', 'marker', 'filter', 'use',
     'clippath', 'lineargradient', 'radialgradient', 'stop', 'pattern',
-    'image', 'foreignobject', 'desc', 'title', 'switch', 'symbol', 'mask',
+    'image', 'desc', 'title', 'switch', 'symbol', 'mask',
     'math', 'annotation', 'semantics', 'mo', 'mi', 'mn', 'msup', 'mrow', 'mfrac', 'msqrt', 'mroot', 'mstyle',
     'button',
   ],

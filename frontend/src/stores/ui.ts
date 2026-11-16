@@ -137,6 +137,13 @@ export const useUIStore = defineStore('ui', {
       this.selectedTagIds = []
     },
 
+    resetSessionUI() {
+      this.closeSettings()
+      this.closeKBEditor()
+      this.closeManualEditor()
+      this.clearSelectedTagIds()
+    },
+
     setSidebarBrowserStatus(visible: boolean) {
       this.sidebarBrowserStatus = visible
       localStorage.setItem('sidebar_browser_status', String(visible))

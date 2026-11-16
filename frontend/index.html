@@ -57,7 +57,8 @@
   try {
     if (localStorage.getItem('genyee_lite_mode') !== 'true') return;
     var saved = sessionStorage.getItem('genyee_lite_last_path');
-    if (!saved || saved.indexOf('/platform/') !== 0 || saved.indexOf('/platform/organizations') === 0) return;
+    if (!saved || saved.indexOf('/platform/') !== 0 || saved.indexOf('/platform/organizations') === 0 || /[\u0000-\u001f\u007f\\]/.test(saved)) return;
+    if (window.location.search || window.location.hash) return;
     var path = window.location.pathname;
     if (path !== '/' && path !== '/platform' && path !== '/platform/knowledge-bases') return;
     var target = saved.indexOf('#') >= 0 ? saved.slice(0, saved.indexOf('#')) : saved;

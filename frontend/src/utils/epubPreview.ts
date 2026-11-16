@@ -5,6 +5,7 @@
  * blob URLs. The result must still be sanitized before it reaches the DOM.
  */
 import JSZip from 'jszip'
+import { sanitizeSvgForDataUrl } from './security'
 
 export type EpubPreview = {
   html: string
@@ -18,8 +19,27 @@ const IMAGE_MIME: Record<string, string> = {
   jpeg: 'image/jpeg',
   gif: 'image/gif',
   webp: 'image/webp',
-  svg: 'image/svg+xml',
   bmp: 'image/bmp',
+}
+
+function decodeSvgDataUrl(dataUrl: string): string {
+  const commaIdx = dataUrl.indexOf(',')
+  if (commaIdx < 0) return ''
+  const header = dataUrl.slice(0, commaIdx)
+  const payload = dataUrl.slice(commaIdx + 1)
+  try {
+    if (/;base64/i.test(header)) {
+      if (typeof Buffer !== 'undefined') {
+        return Buffer.from(payload, 'base64').toString('utf8')
+      }
+      const bin = atob(payload)
+      const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0))
+      return new TextDecoder().decode(bytes)
+    }
+    return decodeURIComponent(payload)
+  } catch {
+    return ''
+  }
 }
 
 /** Resolve `href` against the directory of `base` inside the archive. */
@@ -77,10 +97,15 @@ export async function renderEpubPreview(data: ArrayBuffer): Promise<EpubPreview>
   const imageUrls = new Map<string, string>()
   const imageUrl = async (path: string): Promise<string> => {
     const cached = imageUrls.get(path)
-    if (cached) return cached
+    if (cached !== undefined) return cached
     const file = zip.file(path)
     if (!file) return ''
     const ext = path.split('.').pop()?.toLowerCase() || ''
+    if (ext === 'svg') {
+      const safeSvgUrl = sanitizeSvgForDataUrl(await file.async('string'))
+      imageUrls.set(path, safeSvgUrl)
+      return safeSvgUrl
+    }
     const blob = new Blob([await file.async('arraybuffer')], { type: IMAGE_MIME[ext] || 'application/octet-stream' })
     const url = URL.createObjectURL(blob)
     objectUrls.push(url)
@@ -89,10 +114,19 @@ export async function renderEpubPreview(data: ArrayBuffer): Promise<EpubPreview>
   }
 
   // Inline images already contain their bytes; they are not ZIP entries.
-  // The caller still sanitizes the rendered HTML before inserting it.
+  // Allow only safe raster data URLs or sanitized static SVG data URLs.
   const resolveImageUrl = (chapter: string, source: string): Promise<string> => {
-    if (/^data:image\//i.test(source.trim())) return Promise.resolve(source)
-    return imageUrl(resolveEpubPath(chapter, source))
+    const trimmed = source.trim()
+    if (/^data:image\/(?:png|gif|jpe?g|webp|bmp|avif)[;,]/i.test(trimmed)) {
+      return Promise.resolve(trimmed)
+    }
+    if (/^data:image\/svg\+xml[;,]/i.test(trimmed)) {
+      return Promise.resolve(sanitizeSvgForDataUrl(decodeSvgDataUrl(trimmed)))
+    }
+    if (/^(?:data|javascript|vbscript):/i.test(trimmed)) {
+      return Promise.resolve('')
+    }
+    return imageUrl(resolveEpubPath(chapter, trimmed))
   }
 
   try {

@@ -9,10 +9,18 @@ import { reloadThemeFromStorage } from '@/composables/useTheme'
 import { safeRemoveItem, userKey } from '@/composables/preferenceStorage'
 import { resetMigrationLatch } from '@/composables/preferenceStorage'
 import { BUILTIN_QUICK_ANSWER_ID } from '@/api/agent'
+import { useBrowserConnectionStore } from '@/stores/browserConnection'
 import { useChatResourcesStore } from '@/stores/chatResources'
+import { useDeploymentCapabilitiesStore } from '@/stores/deploymentCapabilities'
 import { useEditorResourcesStore } from '@/stores/editorResources'
+import { knowledgeStore } from '@/stores/knowledge'
+import { useMenuStore } from '@/stores/menu'
+import { useModelProvidersStore } from '@/stores/modelProviders'
 import { useOrganizationStore } from '@/stores/organization'
 import { createSequencedRefresh } from '@/stores/sequencedRefresh'
+import { useSettingsStore } from '@/stores/settings'
+import { useUIStore } from '@/stores/ui'
+import { useUploadConfirmStore } from '@/stores/uploadConfirm'
 import { invalidateAuthRefresh } from '@/utils/authRefresh'
 import { notifyAuthTokensChanged, readAuthTokens, subscribeAuthTokens, writeAuthTokens } from '@/utils/authTokens'
 import { clearProtectedFileCache, setProtectedFileCacheScope } from '@/utils/security'
@@ -23,6 +31,15 @@ function clearSessionResourceCaches() {
   useChatResourcesStore().invalidate()
   useEditorResourcesStore().invalidate()
   useOrganizationStore().clearState()
+  useModelProvidersStore().reset()
+  useBrowserConnectionStore().reset()
+  useMenuStore().resetSessionMenu()
+  useUIStore().resetSessionUI()
+  useUploadConfirmStore().rejectConfirm()
+  useDeploymentCapabilitiesStore().reset()
+  const kbStore = knowledgeStore()
+  kbStore.cardList = []
+  kbStore.total = 0
 }
 
 // Per-user UI preferences are namespaced by user id in localStorage.
@@ -66,6 +83,7 @@ export const useAuthStore = defineStore('auth', () => {
   const canCreateTenant = ref(false)
 
   const autoAcceptInvitation = ref(false)
+  let sessionEpoch = 0
 
   // 计算属性
   const isLoggedIn = computed(() => {
@@ -202,7 +220,13 @@ export const useAuthStore = defineStore('auth', () => {
     // 保存到localStorage
     localStorage.setItem('genyee_user', JSON.stringify(userData))
     if (previousId && previousId !== userData.id) {
-      clearProtectedFileCache()
+      sessionEpoch++
+      authMeSynced = false
+      authMeRequest.invalidate()
+      pendingInvitationCount.value = 0
+      allTenants.value = []
+      clearTenantScopedClientState()
+      clearSessionResourceCaches()
     }
     syncProtectedFileScope()
     if (previousId !== userData.id) {
@@ -287,6 +311,19 @@ export const useAuthStore = defineStore('auth', () => {
           parsed.selectedKnowledgeBases = []
           parsed.selectedFiles = []
           parsed.selectedFileKbMap = {}
+          parsed.selectedTags = []
+          parsed.selectedMCPServices = []
+          parsed.selectedSkills = []
+          parsed.selectedTools = []
+          parsed.apiKey = ''
+          parsed.modelConfig = {
+            chatModels: [],
+            embeddingModels: [],
+            rerankModels: [],
+            vllmModels: [],
+          }
+          parsed.localBrowserEnabled = false
+          parsed.webSearchEnabled = false
           parsed.knowledgeBaseId = ''
           localStorage.setItem('GENYEE_settings', JSON.stringify(parsed))
         }
@@ -294,6 +331,11 @@ export const useAuthStore = defineStore('auth', () => {
     } catch (e) {
       // localStorage may be disabled or contain malformed JSON — best effort.
       console.warn('[auth] failed to clear tenant-scoped client state', e)
+    }
+    try {
+      useSettingsStore().resetForSessionChange()
+    } catch {
+      // Settings store may not be mounted in isolated unit tests.
     }
   }
 
@@ -355,9 +397,11 @@ export const useAuthStore = defineStore('auth', () => {
     // store, axios interceptor, and i18n bootstrapping. The store is
     // imported by very early modules in main.ts; a top-level api
     // import would tighten that graph unnecessarily.
+    const reqEpoch = sessionEpoch
     try {
       const { getMyPendingInvitationCount } = await import('@/api/tenant/invitations')
       const resp = await getMyPendingInvitationCount()
+      if (reqEpoch !== sessionEpoch || !token.value) return
       if (resp.success && resp.data) {
         setPendingInvitationCount(resp.data.pending_count)
       }
@@ -475,7 +519,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const logout = () => {
+    sessionEpoch++
     invalidateAuthRefresh()
+    clearTenantScopedClientState()
     // 清空状态
     user.value = null
     tenant.value = null
@@ -622,6 +668,20 @@ export const useAuthStore = defineStore('auth', () => {
       if (e.key === null || e.key === 'genyee_token' || e.key === 'genyee_refresh_token') {
         syncTokenFromStorage()
         if (!token.value) {
+          sessionEpoch++
+          authMeSynced = false
+          authMeRequest.invalidate()
+          user.value = null
+          tenant.value = null
+          knowledgeBases.value = []
+          currentKnowledgeBase.value = null
+          selectedTenantId.value = null
+          selectedTenantName.value = null
+          allTenants.value = []
+          memberships.value = []
+          pendingInvitationCount.value = 0
+          canCreateTenant.value = false
+          autoAcceptInvitation.value = false
           setProtectedFileCacheScope('', '')
           clearSessionResourceCaches()
         }

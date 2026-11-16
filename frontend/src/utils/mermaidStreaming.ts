@@ -1,7 +1,7 @@
 export type CachedMermaidSvgHtml = string | readonly (string | null | undefined)[] | null | undefined;
 
 const MERMAID_FENCE_START = '```mermaid';
-const COMPLETE_MERMAID_FENCE_RE = /```mermaid[\s\S]*?```/;
+const COMPLETE_MERMAID_FENCE_RE = /```mermaid[ \t]*\r?\n[\s\S]*?```/;
 
 export const replaceIncompleteMermaidWithPlaceholder = (
   content: string,
@@ -13,6 +13,7 @@ export const replaceIncompleteMermaidWithPlaceholder = (
   if (start < 0) return content;
 
   const tail = content.slice(start + MERMAID_FENCE_START.length);
+  if (tail.length > 0 && !/^[ \t\r\n]/.test(tail)) return content;
   if (tail.includes('```')) return content;
 
   return content.slice(0, start) + placeholder;
@@ -21,7 +22,9 @@ export const replaceIncompleteMermaidWithPlaceholder = (
 /** Keep every mermaid fence as a stable placeholder; render SVG via cache injection. */
 export const maskMermaidBlocksForStreaming = (content: string, placeholder: string): string => {
   if (!content) return '';
-  const masked = content.replace(/```mermaid[\s\S]*?```/g, placeholder);
+  const masked = content.replace(/```mermaid[ \t]*\r?\n([\s\S]*?)```/g, (match, inner: string) =>
+    inner.trim() ? placeholder : match,
+  );
   return replaceIncompleteMermaidWithPlaceholder(masked, placeholder);
 };
 
@@ -45,7 +48,7 @@ export const prepareStreamingMermaidMarkdown = (
 export const extractMermaidCodes = (content: string): string[] => {
   if (!content) return [];
   const codes: string[] = [];
-  const re = /```mermaid([\s\S]*?)```/g;
+  const re = /```mermaid[ \t]*\r?\n([\s\S]*?)```/g;
   let match: RegExpExecArray | null;
   while ((match = re.exec(content)) !== null) {
     const code = match[1].trim();

@@ -25,17 +25,25 @@ export const useDeploymentCapabilitiesStore = defineStore('deploymentCapabilitie
         edition.value = response.data?.edition || ''
         capabilities.value = response.data?.capabilities || {}
         loadError.value = ''
+        loaded.value = true
       } catch (error) {
-        // 能力探测失败时保持 fail-open；权限仍由后端路由最终校验。
+        // 能力探测失败时保持 fail-open，并允许后续路由/组件自动重试。
         capabilities.value = {}
         loadError.value = error instanceof Error ? error.message : String(error)
       } finally {
-        loaded.value = true
         loadingPromise = null
       }
     })()
 
     return loadingPromise
+  }
+
+  const reset = () => {
+    edition.value = ''
+    capabilities.value = {}
+    loaded.value = false
+    loadError.value = ''
+    loadingPromise = null
   }
 
   const isSupported = (key?: DeploymentCapabilityKey) => {
@@ -52,6 +60,7 @@ export const useDeploymentCapabilitiesStore = defineStore('deploymentCapabilitie
     loaded,
     loadError,
     ensureLoaded,
+    reset,
     isSupported,
   }
 })

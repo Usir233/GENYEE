@@ -89,7 +89,8 @@
     function scheduleRefresh(expiresInSec) {
       if (!tokenEndpoint) return;
       if (refreshTimer) clearTimeout(refreshTimer);
-      var ttl = Number(expiresInSec) > 0 ? Number(expiresInSec) : 1800;
+      var parsedTtl = Number(expiresInSec);
+      var ttl = Number.isFinite(parsedTtl) && parsedTtl > 0 ? parsedTtl : 1800;
       // Refresh at ~80% of the lifetime, never sooner than 30s.
       var delayMs = Math.max(Math.floor(ttl * 0.8), 30) * 1000;
       refreshTimer = setTimeout(function () {
@@ -145,16 +146,29 @@
       }
     }
 
-    var panelWidth = Number(opts.width) > 0 ? Number(opts.width) : DEFAULT_WIDTH;
-    var panelHeight = Number(opts.height) > 0 ? Number(opts.height) : DEFAULT_HEIGHT;
+    var rawWidth = Number(opts.width);
+    var rawHeight = Number(opts.height);
+    var panelWidth = Number.isFinite(rawWidth) && rawWidth > 0 ? rawWidth : DEFAULT_WIDTH;
+    var panelHeight = Number.isFinite(rawHeight) && rawHeight > 0 ? rawHeight : DEFAULT_HEIGHT;
     var embedUrl = baseUrl + '/embed/' + encodeURIComponent(channelId);
-    var embedOrigin = baseUrl;
+    var embedOrigin = '';
     try {
-      // Derive the exact origin (scheme + host + port) rather than trusting the
-      // raw baseUrl string, so postMessage origin checks are precise.
-      embedOrigin = new URL(embedUrl, global.location ? global.location.href : undefined).origin;
+      // Derive the exact origin (scheme + host + port) and require http(s) so
+      // javascript:/data: baseUrl values can never reach iframe.src.
+      var parsedEmbedUrl = new URL(embedUrl, global.location ? global.location.href : undefined);
+      if (
+        (parsedEmbedUrl.protocol !== 'http:' && parsedEmbedUrl.protocol !== 'https:') ||
+        !parsedEmbedUrl.origin ||
+        parsedEmbedUrl.origin === 'null'
+      ) {
+        console.warn('[GENYEE] invalid embed baseUrl protocol');
+        return null;
+      }
+      embedUrl = parsedEmbedUrl.toString();
+      embedOrigin = parsedEmbedUrl.origin;
     } catch (e) {
-      embedOrigin = baseUrl;
+      console.warn('[GENYEE] invalid embed baseUrl');
+      return null;
     }
     var destroyed = false;
     var panelOpen = false;

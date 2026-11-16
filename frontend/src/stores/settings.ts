@@ -520,6 +520,38 @@ export const useSettingsStore = defineStore("settings", {
       return this.settings.selectedAgentId || BUILTIN_QUICK_ANSWER_ID;
     },
 
+    resetForSessionChange() {
+      this._defaultsSnapshot = null;
+      this._pendingNewChatReferences = null;
+      this._isApplyingSessionState = false;
+      this.reasoningEffortOverride = '';
+      this.settings.apiKey = "";
+      this.settings.knowledgeBaseId = "";
+      this.settings.isAgentEnabled = false;
+      this.settings.selectedAgentId = BUILTIN_QUICK_ANSWER_ID;
+      this.settings.selectedAgentSourceTenantId = null;
+      this.settings.selectedKnowledgeBases = [];
+      this.settings.selectedFiles = [];
+      this.settings.selectedFileKbMap = {};
+      this.settings.selectedTags = [];
+      this.settings.selectedMCPServices = [];
+      this.settings.selectedSkills = [];
+      this.settings.selectedTools = [];
+      this.settings.modelConfig = {
+        chatModels: [],
+        embeddingModels: [],
+        rerankModels: [],
+        vllmModels: [],
+      };
+      this.settings.conversationModels = {
+        summaryModelId: "",
+        rerankModelId: "",
+        selectedChatModelId: "",
+      };
+      this.settings.localBrowserEnabled = false;
+      this.settings.webSearchEnabled = false;
+    },
+
     // —— 会话级输入态恢复 —— //
     //
     // 输入栏的 agent / 模型 / KB / 联网 / MCP 等选择由本 store 持有，跨会话共享。

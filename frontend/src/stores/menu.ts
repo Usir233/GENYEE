@@ -150,6 +150,18 @@ export const useMenuStore = defineStore('menuStore', () => {
     return q
   }
 
+  const resetSessionMenu = () => {
+    clearMenuArr()
+    isFirstSession.value = false
+    firstQuery.value = ''
+    firstMentionedItems.value = []
+    firstModelId.value = ''
+    firstImageFiles.value = []
+    firstAttachmentFiles.value = []
+    firstQuestionOrigin.value = null
+    prefillQuery.value = ''
+  }
+
   return {
     menuArr,
     visibleMenuArr,
@@ -162,6 +174,7 @@ export const useMenuStore = defineStore('menuStore', () => {
     firstQuestionOrigin,
     prefillQuery,
     clearMenuArr,
+    resetSessionMenu,
     updatemenuArr,
     updataMenuChildren,
     updatasessionTitle,

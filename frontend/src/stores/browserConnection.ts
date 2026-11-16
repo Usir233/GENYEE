@@ -115,5 +115,25 @@ export const useBrowserConnectionStore = defineStore('browserConnection', {
         if (state.inFlight === current) state.inFlight = undefined
       }
     },
+    reset() {
+      const state = pollState(this)
+      state.generation++
+      state.requestSequence++
+      state.inFlight = undefined
+      state.controller?.abort()
+      clearTimeout(state.timer)
+      state.timer = undefined
+      this.enabled = false
+      this.connected = false
+      this.device = undefined
+      this.extension_available = false
+      this.loaded = false
+      if (this.subscribers > 0) {
+        state.controller = new AbortController()
+        void this.poll()
+      } else {
+        state.controller = undefined
+      }
+    },
   },
 })

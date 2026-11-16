@@ -8,6 +8,7 @@ import { autoSetup, userInfoFromApi } from '@/api/auth'
 import type { DeploymentCapabilityKey } from '@/config/deploymentCapabilities'
 import { MessagePlugin } from 'tdesign-vue-next'
 import i18n from '@/i18n'
+import { SYSTEM_ADMIN_SETTINGS_SECTIONS } from '@/config/settingsAccess'
 import { normalizeSettingsSection } from '@/config/settingsRoute'
 import { isToolboxSection, toolboxLocation } from '@/config/toolbox'
 
@@ -24,6 +25,7 @@ function isLiteEdition(authStore: ReturnType<typeof useAuthStore>) {
 }
 
 function isLiteSpaDefaultEntry(to: RouteLocationNormalized) {
+  if (to.hash || Object.keys(to.query).length > 0) return false
   return (
     to.path === '/' ||
     to.path === '/platform' ||
@@ -33,13 +35,24 @@ function isLiteSpaDefaultEntry(to: RouteLocationNormalized) {
 }
 
 function isSafeLiteRestoreTarget(path: string) {
-  return path.startsWith('/platform/') && !path.startsWith('/platform/organizations')
+  return (
+    path.startsWith('/platform/') &&
+    !path.startsWith('/platform/organizations') &&
+    !/[\u0000-\u001f\u007f\\]/.test(path)
+  )
 }
 
-function hasPendingOIDCCallback() {
-  if (typeof window === 'undefined') return false
-  const hash = window.location.hash || ''
-  return hash.includes('oidc_result=') || hash.includes('oidc_error=')
+export function hasPendingOIDCCallback(rawHash?: string) {
+  const hash =
+    rawHash !== undefined
+      ? rawHash
+      : typeof window !== 'undefined'
+      ? window.location.hash || ''
+      : ''
+  const trimmed = hash.startsWith('#') ? hash.slice(1) : hash
+  if (!trimmed) return false
+  const params = new URLSearchParams(trimmed)
+  return Boolean(params.get('oidc_result')?.trim() || params.get('oidc_error')?.trim())
 }
 
 const router = createRouter({
@@ -294,8 +307,17 @@ router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
 
   // OIDC 回跳登录结果依赖 App.vue 在挂载后消费 URL hash。
-  // 如果这里先按“未登录”拦截到 /login，会导致回调结果没有机会落盘。
-  if (hasPendingOIDCCallback()) {
+  // 未登录时重定向到 /login#oidc_... 以免先挂载受保护的 /platform 视图或丢失 hash。
+  const callbackHash = to.hash || (typeof window !== 'undefined' ? window.location.hash || '' : '')
+  if (hasPendingOIDCCallback(callbackHash)) {
+    if (!authStore.isLoggedIn && to.meta.requiresAuth !== false) {
+      next({
+        path: '/login',
+        hash: callbackHash.startsWith('#') ? callbackHash : `#${callbackHash}`,
+        replace: true,
+      })
+      return
+    }
     next()
     return
   }
@@ -403,7 +425,17 @@ router.beforeEach(async (to, from, next) => {
   // out gets redirected to /login first (consistent with how the rest
   // of the auth flow works), and only an authenticated non-admin sees
   // the bounce. This is UI-only; the server enforces the real check.
-  if (to.meta.requiresSystemAdmin === true) {
+  const settingsSection =
+    to.path === '/platform/settings' && typeof to.query.section === 'string'
+      ? normalizeSettingsSection(
+          to.query.section,
+          typeof to.query.tab === 'string' ? to.query.tab : undefined,
+        )
+      : ''
+  if (
+    to.meta.requiresSystemAdmin === true ||
+    (settingsSection !== '' && SYSTEM_ADMIN_SETTINGS_SECTIONS.has(settingsSection))
+  ) {
     if (!authStore.isSystemAdmin) {
       next('/platform/knowledge-bases')
       return

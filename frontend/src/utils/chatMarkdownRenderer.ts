@@ -68,20 +68,19 @@ export function preprocessMathDelimiters(rawText: string): string {
 export function replaceIncompleteImageWithPlaceholder(content: string): string {
   if (!content) return ''
 
-  const lastImgStart = content.lastIndexOf('![')
+  // Mask completed code blocks and inline code spans with equal-length spaces so
+  // offsets stay 1:1 with `content`, and bail if inside an unclosed code fence.
+  const masked = content.replace(/(```[\s\S]*?```|~~~[\s\S]*?~~~|`+[^`\n]*`+)/g, (m) => ' '.repeat(m.length))
+  if (/(?:^|\n) {0,3}(?:`{3,}|~{3,})/.test(masked)) return content
+  if ((masked.split('`').length - 1) % 2 === 1) return content
+
+  const lastImgStart = masked.lastIndexOf('![')
   if (lastImgStart < 0) return content
 
-  const tail = content.slice(lastImgStart)
-  const hasImageOpen = tail.startsWith('![')
-  const hasBracketClose = tail.includes(']')
-  const hasParenOpen = tail.includes('(')
-  const hasParenClose = tail.includes(')')
-  if (!hasImageOpen) return content
-
-  if (!hasBracketClose || (hasParenOpen && !hasParenClose)) {
+  const tail = masked.slice(lastImgStart)
+  if (/^!\[[^\]\n]*$/.test(tail) || /^!\[[^\]\n]*\]\([^)\n]*$/.test(tail)) {
     return content.slice(0, lastImgStart) + STREAMING_IMAGE_PLACEHOLDER
   }
-
   return content
 }
 
@@ -516,7 +515,9 @@ export function renderChatMarkdown(rawMarkdown: unknown, options: RenderChatMark
   // marked would split the destination on. Collapse each reference into a
   // single token before parsing.
   const artifactSafe = normalizeSandboxArtifactRefs(normalizedImageMarkdown)
-  const imageSafe = replaceIncompleteImageWithPlaceholder(artifactSafe)
+  const imageSafe = options.streaming
+    ? replaceIncompleteImageWithPlaceholder(artifactSafe)
+    : artifactSafe
   const mathSafe = preprocessMathDelimiters(imageSafe)
   const restoredTags = restoreCitationTags(mathSafe, tags)
   const inlineTags = joinCitationTagsToPreviousLine(restoredTags)

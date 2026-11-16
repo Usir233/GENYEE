@@ -12,8 +12,14 @@
 
 export type PtyEchoWrite = (chunk: string | Uint8Array) => void
 
+const ANSI_ESCAPE_RE = /\x1b(?:\[[0-?]*[ -/]*[@-~]|\][^\x07\x1b]*(?:\x07|\x1b\\)|[@-Z\\-_])/g
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_ESCAPE_RE, '')
+}
+
 export function looksLikeSecretPrompt(text: string): boolean {
-  const line = (text.split(/\r\n|\n|\r/).pop() ?? '').trimEnd()
+  const line = stripAnsi(text.split(/\r\n|\n|\r/).pop() ?? '').trimEnd()
   if (/(?:password|passphrase|密码)/i.test(line)) {
     return true
   }
@@ -63,7 +69,7 @@ export function createPtyEchoPredictor(write: PtyEchoWrite) {
       return
     }
     if (!secretPrompt) return
-    const line = recentRemote.split(/\r\n|\n|\r/).pop() ?? ''
+    const line = stripAnsi(recentRemote.split(/\r\n|\n|\r/).pop() ?? '')
     if (line.trim() !== '') {
       secretPrompt = false
     }

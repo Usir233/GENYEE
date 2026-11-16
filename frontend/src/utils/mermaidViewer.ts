@@ -2,7 +2,27 @@
  * Mermaid 图表全屏查看器
  * 支持：点击放大、滚轮缩放、鼠标拖拽、高清导出
  */
+import DOMPurify, { type Config } from 'dompurify';
 import i18n from '@/i18n';
+import { domPurifySecurityHooks, domPurifySecurityOptions, markdownDomPurifyConfig } from './markdownDomPurify';
+
+const boundMermaidElements = new WeakSet<HTMLElement>();
+
+function sanitizeMermaidDiagramSvg(svgMarkup: string): string {
+  if (!DOMPurify.isSupported) return '';
+  DOMPurify.addHook('beforeSanitizeElements', domPurifySecurityHooks.beforeSanitizeElements);
+  DOMPurify.addHook('afterSanitizeElements', domPurifySecurityHooks.afterSanitizeElements);
+  try {
+    return DOMPurify.sanitize(svgMarkup, {
+      ...markdownDomPurifyConfig,
+      FORBID_TAGS: [...domPurifySecurityOptions.FORBID_TAGS],
+      FORBID_ATTR: [...domPurifySecurityOptions.FORBID_ATTR],
+    } as unknown as Config);
+  } finally {
+    DOMPurify.removeHook('afterSanitizeElements', domPurifySecurityHooks.afterSanitizeElements);
+    DOMPurify.removeHook('beforeSanitizeElements', domPurifySecurityHooks.beforeSanitizeElements);
+  }
+}
 
 /**
  * 下载 SVG 为 PNG 图片（使用实际渲染尺寸）
@@ -98,7 +118,7 @@ export const openMermaidFullscreen = (
   // 创建内容区域
   const content = document.createElement('div')
   content.style.cssText = 'position:absolute;left:50%;top:50%;background:#fff;border-radius:12px;padding:32px;box-shadow:0 8px 32px rgba(0,0,0,0.2);transform-origin:0 0;'
-  if (typeof diagram === 'string') content.innerHTML = diagram
+  if (typeof diagram === 'string') content.innerHTML = sanitizeMermaidDiagramSvg(diagram)
   else content.append(diagram.cloneNode())
   const svgEl = content.querySelector('svg')
   if (svgEl) {
@@ -223,15 +243,15 @@ export const bindMermaidClickEvents = (container: HTMLElement): void => {
   mermaidDivs.forEach((div) => {
     const divEl = div as HTMLElement
     divEl.style.cursor = 'pointer'
-    const clickHandler = (e: Event) => {
+    if (boundMermaidElements.has(divEl)) return
+    boundMermaidElements.add(divEl)
+    divEl.addEventListener('click', (e: Event) => {
       e.stopPropagation()
       e.preventDefault()
       const svg = divEl.querySelector('svg')
       if (svg) {
         openMermaidFullscreen(svg.outerHTML)
       }
-    }
-    divEl.removeEventListener('click', clickHandler)
-    divEl.addEventListener('click', clickHandler)
+    })
   })
 }

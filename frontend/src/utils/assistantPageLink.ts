@@ -33,7 +33,7 @@ export interface AssistantPageLink {
 /** Where a navigated link's back button goes: an in-app path only. */
 export function pageLinkReturnPath(link: AssistantPageLink): string {
   const path = link.navigated ? link.return_path || '' : ''
-  return path.startsWith('/') && !path.startsWith('//') && !path.includes('\\') ? path : ''
+  return path.startsWith('/') && !path.startsWith('//') && !/[\u0000-\u001f\u007f\\]/.test(path) ? path : ''
 }
 
 export interface PageLinkLocation {

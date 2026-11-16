@@ -61,6 +61,44 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
+function isSafeHttpUrl(raw: string): boolean {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return false
+  try {
+    const parsed = new URL(trimmed)
+    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && Boolean(parsed.hostname)
+  } catch {
+    return false
+  }
+}
+
+const MARKDOWN_CODE_SPAN_OR_FENCE_RE = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`+[^`\n]*`+)/g
+const MARKDOWN_FENCED_BLOCK_RE = /(^ {0,3}(?:`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^ {0,3}(?:`{3,}|~{3,})\s*$|(?![\s\S])))/gm
+
+function transformOutsideMarkdownCode(
+  content: string,
+  transform: (segment: string) => string,
+): string {
+  if (!content) return content
+  const parts = content.split(MARKDOWN_CODE_SPAN_OR_FENCE_RE)
+  for (let i = 0; i < parts.length; i += 2) {
+    if (parts[i]) parts[i] = transform(parts[i])
+  }
+  return parts.join('')
+}
+
+function transformOutsideFencedCode(
+  content: string,
+  transform: (segment: string) => string,
+): string {
+  if (!content) return content
+  const parts = content.split(MARKDOWN_FENCED_BLOCK_RE)
+  for (let i = 0; i < parts.length; i += 2) {
+    if (parts[i]) parts[i] = transform(parts[i])
+  }
+  return parts.join('')
+}
+
 function truncateMiddle(text: string, maxLength = 13): string {
   if (!text) return ''
   if (text.length <= maxLength) return text
@@ -153,9 +191,9 @@ export function preprocessCitationTags(
   return contentStr
     .replace(WEB_TAG_ATTR_RE, (_m, attrString: string) => {
       const attrs = parseTagAttributes(attrString)
-      const url = attrs.url || ''
+      const url = (attrs.url || '').trim()
       const title = attrs.title || ''
-      if (!url) return ''
+      if (!isSafeHttpUrl(url)) return ''
 
       let domain = url
       try {
@@ -164,11 +202,12 @@ export function preprocessCitationTags(
         const parts = host.split('.')
         domain = parts.length >= 2 ? parts.slice(-2).join('.') : host || url
       } catch {
-        // keep original
+        // validated above
       }
+      const safeDomain = escapeHtml(domain)
       const safeTitle = escapeHtml(title)
       const safeUrl = escapeHtml(url)
-      return `<a class="citation citation-web" data-url="${safeUrl}" href="${safeUrl}" target="_blank" rel="noopener noreferrer"><span class="citation-icon citation-icon--web" aria-hidden="true"></span><span class="citation-domain">${domain}</span><span class="citation-tip"><span class="tip-title">${safeTitle}</span><span class="tip-url">${safeUrl}</span></span></a>`
+      return `<a class="citation citation-web" data-url="${safeUrl}" href="${safeUrl}" target="_blank" rel="noopener noreferrer"><span class="citation-icon citation-icon--web" aria-hidden="true"></span><span class="citation-domain">${safeDomain}</span><span class="citation-tip"><span class="tip-title">${safeTitle}</span><span class="tip-url">${safeUrl}</span></span></a>`
     })
     .replace(KB_TAG_ATTR_RE, (_m, attrString: string) => {
       const attrs = parseTagAttributes(attrString)
@@ -213,9 +252,11 @@ export function extractCitationHtmlPlaceholders(
     return `@@GENYEE_HTML_PLACEHOLDER_${idx}@@`
   }
 
-  const content = contentStr
-    .replace(KB_WEB_TAG_RE, (match) => storeHtml(preprocessCitationTags(match, refs)))
-    .replace(/\[\[([^\]]+)\]\]/g, (match) => storeHtml(preprocessCitationTags(match, refs)))
+  const content = transformOutsideMarkdownCode(contentStr, (segment) =>
+    segment
+      .replace(KB_WEB_TAG_RE, (match) => storeHtml(preprocessCitationTags(match, refs)))
+      .replace(/\[\[([^\]]+)\]\]/g, (match) => storeHtml(preprocessCitationTags(match, refs))),
+  )
 
   return { content, htmlSnippets }
 }
@@ -236,45 +277,45 @@ function isFencedCodeDelimiterLine(line: string): boolean {
 export function joinCitationTagsToPreviousLine(content: string): string {
   if (!content) return content
 
-  let result = content
+  return transformOutsideFencedCode(content, (segment) => {
+    let result = segment
 
-  // Newlines between consecutive citation tags
-  let prev = ''
-  while (result !== prev) {
-    prev = result
-    result = result.replace(
-      /(<(?:kb|web)\b[^>]*?\s*\/?>)\s*\n+\s*(<(?:kb|web)\b)/gi,
-      '$1 $2',
-    )
-  }
-
-  // Blank lines before citations: join to the previous content. Fenced-code
-  // delimiters are the only exception because ``` / ~~~ must stay on their own line.
-  result = result.replace(/\n[ \t]*\n+([ \t]*<(?:kb|web)\b)/gi, (match, kbStart, offset, full) => {
-    const before = full.slice(0, offset)
-    const lastLine = before.split('\n').filter((line: string) => line.trim()).pop() || ''
-    if (isFencedCodeDelimiterLine(lastLine)) {
-      return `\n\n${kbStart}`
+    // Newlines between consecutive citation tags
+    let prev = ''
+    while (result !== prev) {
+      prev = result
+      result = result.replace(
+        /(<(?:kb|web)\b[^>]*?\s*\/?>)\s*\n+\s*(<(?:kb|web)\b)/gi,
+        '$1 $2',
+      )
     }
-    return ` ${kbStart.trimStart()}`
-  })
 
-  // Single newline before citation when it follows text or another citation (not after a blank line)
-  result = result.replace(
-    /(?<!\n)(<(?:kb|web)\b[^>]*?\s*\/?>|[ \t]*\S[^\n]*?)\n([ \t]*<(?:kb|web)\b)/g,
-    (match, beforePart: string, kbStart: string, offset: number, full: string) => {
-      // Resolve the full preceding line: lazy capture + lookbehind can grab only a
-      // partial line (e.g. ``` captured as ``), which would skip the fence check.
-      const lineStart = full.lastIndexOf('\n', offset - 1) + 1
-      const fullPrevLine = full.slice(lineStart, offset + beforePart.length)
-      if (isFencedCodeDelimiterLine(fullPrevLine)) {
-        return match
+    // Blank lines before citations: join to the previous content. Fenced-code
+    // delimiters are the only exception because ``` / ~~~ must stay on their own line.
+    result = result.replace(/\n[ \t]*\n+([ \t]*<(?:kb|web)\b)/gi, (_match, kbStart, offset, full) => {
+      const before = full.slice(0, offset)
+      const lastLine = before.split('\n').filter((line: string) => line.trim()).pop() || ''
+      if (isFencedCodeDelimiterLine(lastLine)) {
+        return `\n\n${kbStart}`
       }
-      return `${beforePart} ${kbStart.trimStart()}`
-    },
-  )
+      return ` ${kbStart.trimStart()}`
+    })
 
-  return result
+    // Single newline before citation when it follows text or another citation (not after a blank line)
+    result = result.replace(
+      /(?<!\n)(<(?:kb|web)\b[^>]*?\s*\/?>|[ \t]*\S[^\n]*?)\n([ \t]*<(?:kb|web)\b)/g,
+      (match, beforePart: string, kbStart: string, offset: number, full: string) => {
+        const lineStart = full.lastIndexOf('\n', offset - 1) + 1
+        const fullPrevLine = full.slice(lineStart, offset + beforePart.length)
+        if (isFencedCodeDelimiterLine(fullPrevLine)) {
+          return match
+        }
+        return `${beforePart} ${kbStart.trimStart()}`
+      },
+    )
+
+    return result
+  })
 }
 
 const CITATION_HTML_FRAGMENT =
@@ -304,11 +345,13 @@ export function collapseStandaloneCitationParagraphs(html: string): string {
 /** Preserve raw <kb>/<web> tags before sanitizers that would strip them. */
 export function preserveCitationTags(contentStr: string): { text: string; tags: string[] } {
   const tags: string[] = []
-  const text = contentStr.replace(KB_WEB_TAG_RE, (match) => {
-    const idx = tags.length
-    tags.push(match)
-    return `\x00TAG${idx}\x00`
-  })
+  const text = transformOutsideMarkdownCode(contentStr, (segment) =>
+    segment.replace(KB_WEB_TAG_RE, (match) => {
+      const idx = tags.length
+      tags.push(match)
+      return `\x00TAG${idx}\x00`
+    }),
+  )
   return { text, tags }
 }
 
@@ -338,27 +381,28 @@ export function stripCitationTagsForMarkdown(
 
   const sources: string[] = []
   const seen = new Set<string>()
-  KB_TAG_ATTR_RE.lastIndex = 0
-  for (const match of content.matchAll(KB_TAG_ATTR_RE)) {
-    const doc = (parseTagAttributes(match[1]).doc || '').trim()
-    if (doc && !seen.has(doc)) {
-      seen.add(doc)
-      sources.push(doc)
+  const text = transformOutsideMarkdownCode(content, (segment) => {
+    KB_TAG_ATTR_RE.lastIndex = 0
+    for (const match of segment.matchAll(KB_TAG_ATTR_RE)) {
+      const doc = (parseTagAttributes(match[1]).doc || '').trim()
+      if (doc && !seen.has(doc)) {
+        seen.add(doc)
+        sources.push(doc)
+      }
     }
-  }
-
-  const text = content
-    .replace(WEB_TAG_ATTR_RE, (_match, attrString: string) => {
-      const attrs = parseTagAttributes(attrString)
-      const url = (attrs.url || '').trim()
-      if (!url) return ''
-      // Brackets inside the label would break the link syntax we emit.
-      const label = (attrs.title || '').trim().replace(/[[\]]/g, ' ').trim() || url
-      return `[${label}](${url})`
-    })
-    .replace(KB_ONLY_LINE_RE, '')
-    .replace(KB_INLINE_TAG_RE, '')
-    .trim()
+    return segment
+      .replace(WEB_TAG_ATTR_RE, (_match, attrString: string) => {
+        const attrs = parseTagAttributes(attrString)
+        const url = (attrs.url || '').trim()
+        if (!isSafeHttpUrl(url)) return ''
+        // Brackets inside the label or parentheses in the URL would break link syntax.
+        const safeMarkdownUrl = url.replace(/\(/g, '%28').replace(/\)/g, '%29')
+        const label = (attrs.title || '').trim().replace(/[[\]]/g, ' ').trim() || url
+        return `[${label}](${safeMarkdownUrl})`
+      })
+      .replace(KB_ONLY_LINE_RE, '')
+      .replace(KB_INLINE_TAG_RE, '')
+  }).trim()
 
   return { text, sources }
 }

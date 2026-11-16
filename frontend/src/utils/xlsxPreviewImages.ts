@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { sanitizeSvgForDataUrl } from './security';
 
 export interface XlsxCellImage {
   src: string;
@@ -123,6 +124,14 @@ export async function extractXlsxCellImages(arrayBuffer: ArrayBuffer): Promise<S
       const mime = MIME_BY_EXT[ext];
       if (!mime) return;
       try {
+        if (ext === 'svg') {
+          const svgText = await zip.files[name].async('string');
+          const safeUrl = sanitizeSvgForDataUrl(svgText);
+          if (safeUrl) {
+            mediaDataUrls.set(name, safeUrl);
+          }
+          return;
+        }
         const b64 = await zip.files[name].async('base64');
         if (b64) {
           mediaDataUrls.set(name, `data:${mime};base64,${b64}`);
@@ -370,7 +379,7 @@ export function injectSheetHtmlImages(
       const imgHtml = images
         .map(
           (img) =>
-            `<img class="excel-cell-image" src="${img.src}" alt="${escapeHtmlAttr(img.alt || '图片')}" />`,
+            `<img class="excel-cell-image" src="${escapeHtmlAttr(img.src)}" alt="${escapeHtmlAttr(img.alt || '图片')}" />`,
         )
         .join('');
 

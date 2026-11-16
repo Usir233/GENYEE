@@ -69,10 +69,6 @@ export function useStream() {
   let controller = new AbortController()
   let streamGeneration = 0
 
-  // 流式渲染缓冲
-  let buffer: string[] = []
-  let renderTimer: number | null = null
-
   // 启动流式请求
   const startStream = async (params: { session_id: any; query: any; knowledge_base_ids?: string[]; knowledge_ids?: string[]; tag_ids?: string[]; agent_enabled?: boolean; agent_id?: string; agent_source_tenant_id?: string | number; web_search_enabled?: boolean; local_browser_enabled?: boolean; summary_model_id?: string; reasoning_effort?: string; mcp_service_ids?: string[]; skill_names?: string[]; mentioned_items?: Array<{id: string; name: string; type: string; kb_type?: string; kb_id?: string; kb_name?: string; service_id?: string; skill_name?: string}>; images?: Array<{data: string}>; attachment_uploads?: Array<{data: string; file_name: string; file_size: number}>; attachment_ids?: string[]; suggestion_attribution?: { suggestion_set_id: string; question_id: string }; question_origin?: { knowledge_base_id: string; knowledge_id?: string }; page_context?: PageContextPayload; assistant_access?: AssistantAccessLevel; method: string; url: string; resume_pending_id?: string; embed_token?: string; embed_session_sig?: string; embed_visitor_id?: string }) => {
     const myGeneration = ++streamGeneration
@@ -135,10 +131,11 @@ export function useStream() {
 
 
     try {
+      const encodedSessionId = encodeURIComponent(String(params.session_id ?? ''));
       let url =
         params.method == "POST"
-          ? `${apiUrl}${params.url}/${params.session_id}`
-          : `${apiUrl}${params.url}/${params.session_id}?message_id=${params.query}`;
+          ? `${apiUrl}${params.url}/${encodedSessionId}`
+          : `${apiUrl}${params.url}/${encodedSessionId}?message_id=${encodeURIComponent(String(params.query ?? ''))}`;
       if (params.method === "GET" && params.resume_pending_id) {
         url += `&resume_pending_id=${encodeURIComponent(params.resume_pending_id)}`;
       }
@@ -314,7 +311,6 @@ export function useStream() {
             firstAnswerLogged = true;
             console.log(`[TTFB] response:first_answer request_id=${requestID} elapsed_ms=${(performance.now() - sentAt).toFixed(1)}`);
           }
-          buffer.push(parsed); // 数据存入缓冲
           // 执行自定义处理
           if (chunkHandler) {
             chunkHandler(parsed);
