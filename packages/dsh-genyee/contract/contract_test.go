@@ -189,6 +189,7 @@ func TestResponseFieldsThePluginReadsStillExist(t *testing.T) {
 			SessionID:           "session-1",
 			KnowledgeReferences: types.References{{ID: "chunk-1"}},
 			ToolCalls:           []types.LLMToolCall{{ID: "call-1", Type: "function"}},
+			Data:                map[string]any{"tool_name": "knowledge_search", "tool_call_id": "call-1"},
 		},
 		"types.LLMToolCall": types.LLMToolCall{ID: "call-1", Type: "function"},
 		"types.FunctionCall": types.FunctionCall{

@@ -1,6 +1,6 @@
 /** Minimal GENYEE REST client: JSON endpoints plus the SSE chat streams. */
 
-import type { ResolvedConfig } from './config.ts'
+import { redactSecrets, type ResolvedConfig } from './config.ts'
 
 /** One retrieval hit, as returned by GENYEE's `SearchResult`. */
 export interface SearchResult {
@@ -60,12 +60,17 @@ export interface StreamedAnswer {
   toolCalls: string[]
 }
 
+const MAX_ERROR_BODY_BYTES = 1 * 1024 * 1024
+const MAX_JSON_RESPONSE_BYTES = 16 * 1024 * 1024
+const MAX_SSE_EVENT_BYTES = 4 * 1024 * 1024
+const MAX_SSE_STREAM_BYTES = 16 * 1024 * 1024
+
 /** Raised for any non-2xx response or transport failure, with the key redacted. */
 export class GenyeeApiError extends Error {
   readonly status: number | undefined
 
-  constructor(message: string, status?: number) {
-    super(message)
+  constructor(message: string, status?: number, extraSecret?: string) {
+    super(redactSecrets(message, extraSecret))
     this.name = 'GenyeeApiError'
     this.status = status
   }
@@ -158,19 +163,18 @@ export class GenyeeClient {
     return this.config.resourceUrls === 'public' && !this.publicModeBlocked ? 'public' : 'handle'
   }
 
-  private url(path: string, query?: Record<string, string | number | undefined>): string {
+  private url(path: string, query: Record<string, string | number | undefined> | undefined, usePublic: boolean): string {
     const url = new URL(`${this.config.baseUrl}${path}`)
     for (const [key, value] of Object.entries(query ?? {})) {
       if (value !== undefined) url.searchParams.set(key, String(value))
     }
-    if (this.resourceMode() === 'public') url.searchParams.set('resource_urls', 'public')
+    if (usePublic) url.searchParams.set('resource_urls', 'public')
     return url.toString()
   }
 
-  private isPublicModeForbidden(error: unknown): boolean {
-    return error instanceof GenyeeApiError
-      && this.config.resourceUrls === 'public'
-      && !this.publicModeBlocked
+  private isPublicModeForbidden(error: unknown, usedPublic: boolean): boolean {
+    return usedPublic
+      && error instanceof GenyeeApiError
       && error.status === 403
       && error.message.includes('resource_urls=public')
   }
@@ -180,12 +184,13 @@ export class GenyeeClient {
     init: { method: 'GET' | 'POST', body?: unknown, query?: Record<string, string | number | undefined> },
     signal: AbortSignal,
   ): Promise<Envelope<T>> {
+    const usedPublic = this.resourceMode() === 'public'
     try {
-      return await this.fetchJsonOnce(path, init, signal)
+      return await this.fetchJsonOnce(path, init, signal, usedPublic)
     } catch (error) {
-      if (!this.isPublicModeForbidden(error)) throw error
+      if (!this.isPublicModeForbidden(error, usedPublic)) throw error
       this.publicModeBlocked = true
-      return await this.fetchJsonOnce(path, init, signal)
+      return await this.fetchJsonOnce(path, init, signal, false)
     }
   }
 
@@ -193,8 +198,10 @@ export class GenyeeClient {
     path: string,
     init: { method: 'GET' | 'POST', body?: unknown, query?: Record<string, string | number | undefined> },
     signal: AbortSignal,
+    usePublic: boolean,
   ): Promise<Envelope<T>> {
-    const url = this.url(path, init.query)
+    const url = this.url(path, init.query, usePublic)
+    const label = `${init.method} ${path}`
     let response: Response
     try {
       response = await fetch(url, {
@@ -205,16 +212,17 @@ export class GenyeeClient {
         signal: deadline(signal, this.config.requestTimeoutMs),
       })
     } catch (cause) {
-      throw new GenyeeApiError(`${init.method} ${path} failed: ${describeTransportFailure(cause, signal)}`)
+      throw new GenyeeApiError(`${label} failed: ${describeTransportFailure(cause, signal)}`, undefined, this.config.apiKey)
     }
-    const text = await response.text()
     if (!response.ok) {
-      throw new GenyeeApiError(`${init.method} ${path} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status)
+      const text = await readBoundedText(response, MAX_ERROR_BODY_BYTES, true, label, this.config.apiKey)
+      throw new GenyeeApiError(`${label} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status, this.config.apiKey)
     }
+    const text = await readBoundedText(response, MAX_JSON_RESPONSE_BYTES, false, label, this.config.apiKey)
     try {
       return JSON.parse(text) as Envelope<T>
     } catch {
-      throw new GenyeeApiError(`${init.method} ${path} returned a non-JSON body: ${snippet(text)}`, response.status)
+      throw new GenyeeApiError(`${label} returned a non-JSON body: ${snippet(text)}`, response.status, this.config.apiKey)
     }
   }
 
@@ -321,10 +329,10 @@ export class GenyeeClient {
       ...input.agentId === undefined ? {} : { agent_id: input.agentId, agent_enabled: true },
       ...input.webSearch ? { web_search_enabled: true } : {},
     }
-    const open = async (): Promise<Response> => {
+    const open = async (usePublic: boolean): Promise<Response> => {
       const combined = deadline(signal, this.config.chatTimeoutMs)
       try {
-        return await fetch(this.url(path), {
+        return await fetch(this.url(path, undefined, usePublic), {
           method: 'POST',
           headers: { ...this.headers(), Accept: 'text/event-stream' },
           redirect: 'error',
@@ -332,26 +340,66 @@ export class GenyeeClient {
           signal: combined,
         })
       } catch (cause) {
-        throw new GenyeeApiError(`POST ${path} failed: ${describeTransportFailure(cause, signal)}`)
+        throw new GenyeeApiError(`POST ${path} failed: ${describeTransportFailure(cause, signal)}`, undefined, this.config.apiKey)
       }
     }
-    let response = await open()
+    const usedPublic = this.resourceMode() === 'public'
+    let response = await open(usedPublic)
     if (!response.ok) {
-      const text = await response.text()
-      const error = new GenyeeApiError(`POST ${path} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status)
-      if (!this.isPublicModeForbidden(error)) throw error
+      const text = await readBoundedText(response, MAX_ERROR_BODY_BYTES, true, `POST ${path}`, this.config.apiKey)
+      const error = new GenyeeApiError(`POST ${path} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status, this.config.apiKey)
+      if (!this.isPublicModeForbidden(error, usedPublic)) throw error
       this.publicModeBlocked = true
-      response = await open()
+      response = await open(false)
     }
     if (!response.ok) {
-      const text = await response.text()
-      throw new GenyeeApiError(`POST ${path} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status)
+      const text = await readBoundedText(response, MAX_ERROR_BODY_BYTES, true, `POST ${path}`, this.config.apiKey)
+      throw new GenyeeApiError(`POST ${path} failed with HTTP ${response.status}: ${reasonOf(text)}`, response.status, this.config.apiKey)
     }
     if (response.body === null) {
-      throw new GenyeeApiError(`POST ${path} returned no response body`)
+      throw new GenyeeApiError(`POST ${path} returned no response body`, undefined, this.config.apiKey)
     }
-    return await assembleStream(response.body, input.sessionId, path, signal)
+    return await assembleStream(response.body, input.sessionId, path, signal, this.config.apiKey)
   }
+}
+
+/** Read a UTF-8 response body up to `maxBytes` without buffering unbounded data. */
+async function readBoundedText(
+  response: Response,
+  maxBytes: number,
+  truncateOnOverflow: boolean,
+  label: string,
+  apiKey?: string,
+): Promise<string> {
+  if (response.body === null) return ''
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  const parts: string[] = []
+  let totalBytes = 0
+  let truncated = false
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (totalBytes + value.byteLength > maxBytes) {
+        if (!truncateOnOverflow) {
+          throw new GenyeeApiError(`${label} response exceeded ${maxBytes} bytes`, response.status, apiKey)
+        }
+        const remaining = Math.max(0, maxBytes - totalBytes)
+        if (remaining > 0) {
+          parts.push(decoder.decode(value.subarray(0, remaining), { stream: false }))
+        }
+        truncated = true
+        break
+      }
+      totalBytes += value.byteLength
+      parts.push(decoder.decode(value, { stream: true }))
+    }
+    if (!truncated) parts.push(decoder.decode())
+  } finally {
+    await reader.cancel().catch(() => undefined)
+  }
+  return parts.join('')
 }
 
 /** Turn an aborted or refused fetch into a message that names the real cause. */
@@ -369,6 +417,7 @@ interface StreamEvent {
   content?: string
   knowledge_references?: SearchResult[]
   session_id?: string
+  data?: { tool_name?: unknown }
   tool_calls?: { function?: { name?: string }, name?: string }[]
 }
 
@@ -383,6 +432,7 @@ async function assembleStream(
   sessionId: string,
   path: string,
   callerSignal: AbortSignal,
+  apiKey?: string,
 ): Promise<StreamedAnswer> {
   const decoder = new TextDecoder()
   const reader = body.getReader()
@@ -391,11 +441,21 @@ async function assembleStream(
   let references: SearchResult[] = []
   let resolvedSessionId = sessionId
   let buffer = ''
+  let eventType = 'message'
+  let dataLines: string[] = []
+  let frameBytes = 0
+  let streamBytes = 0
   let completed = false
 
-  const consumeLine = (line: string): void => {
-    if (!line.startsWith('data:')) return
-    const payload = line.slice(5).trim()
+  const dispatchFrame = (): void => {
+    const currentType = eventType
+    const lines = dataLines
+    eventType = 'message'
+    dataLines = []
+    frameBytes = 0
+    if (lines.length === 0) return
+    if (currentType !== '' && currentType !== 'message') return
+    const payload = lines.join('\n').trim()
     if (payload === '' || payload === '[DONE]') return
     let event: StreamEvent
     try {
@@ -412,13 +472,16 @@ async function assembleStream(
         if (Array.isArray(event.knowledge_references)) references = event.knowledge_references
         break
       case 'tool_call':
+        if (typeof event.data?.tool_name === 'string' && event.data.tool_name !== '' && !toolCalls.includes(event.data.tool_name)) {
+          toolCalls.push(event.data.tool_name)
+        }
         for (const call of event.tool_calls ?? []) {
           const name = call.function?.name ?? call.name
           if (typeof name === 'string' && name !== '' && !toolCalls.includes(name)) toolCalls.push(name)
         }
         break
       case 'error':
-        throw new GenyeeApiError(`POST ${path} streamed an error: ${event.content ?? 'unknown error'}`)
+        throw new GenyeeApiError(`POST ${path} streamed an error: ${event.content ?? 'unknown error'}`, undefined, apiKey)
       case 'complete':
         completed = true
         break
@@ -427,23 +490,60 @@ async function assembleStream(
     }
   }
 
+  const processLine = (rawLine: string): void => {
+    const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
+    if (line === '') {
+      dispatchFrame()
+      return
+    }
+    if (line.startsWith(':')) return
+    frameBytes += Buffer.byteLength(line, 'utf8') + 1
+    if (frameBytes > MAX_SSE_EVENT_BYTES) {
+      throw new GenyeeApiError(`POST ${path} SSE event exceeded ${MAX_SSE_EVENT_BYTES} bytes`, undefined, apiKey)
+    }
+    if (line.startsWith('event:')) {
+      eventType = line.slice(6).trim()
+    } else if (line.startsWith('data:')) {
+      dataLines.push(line.startsWith('data: ') ? line.slice(6) : line.slice(5))
+    }
+  }
+
   try {
     while (!completed) {
       const { done, value } = await reader.read()
-      if (done) break
+      if (done) {
+        buffer += decoder.decode()
+        let newline = buffer.indexOf('\n')
+        while (newline >= 0) {
+          processLine(buffer.slice(0, newline))
+          buffer = buffer.slice(newline + 1)
+          if (completed) break
+          newline = buffer.indexOf('\n')
+        }
+        break
+      }
+      streamBytes += value.byteLength
+      if (streamBytes > MAX_SSE_STREAM_BYTES) {
+        throw new GenyeeApiError(`POST ${path} stream exceeded ${MAX_SSE_STREAM_BYTES} bytes`, undefined, apiKey)
+      }
       buffer += decoder.decode(value, { stream: true })
+      if (buffer.length > MAX_SSE_EVENT_BYTES) {
+        const firstNewline = buffer.indexOf('\n')
+        if (firstNewline < 0 || firstNewline > MAX_SSE_EVENT_BYTES) {
+          throw new GenyeeApiError(`POST ${path} SSE event exceeded ${MAX_SSE_EVENT_BYTES} bytes`, undefined, apiKey)
+        }
+      }
       let newline = buffer.indexOf('\n')
       while (newline >= 0) {
-        consumeLine(buffer.slice(0, newline).replace(/\r$/, ''))
+        processLine(buffer.slice(0, newline))
         buffer = buffer.slice(newline + 1)
         if (completed) break
         newline = buffer.indexOf('\n')
       }
     }
-    if (!completed && buffer !== '') consumeLine(buffer.replace(/\r$/, ''))
   } catch (cause) {
     if (cause instanceof GenyeeApiError) throw cause
-    throw new GenyeeApiError(`POST ${path} stream failed: ${describeTransportFailure(cause, callerSignal)}`)
+    throw new GenyeeApiError(`POST ${path} stream failed: ${describeTransportFailure(cause, callerSignal)}`, undefined, apiKey)
   } finally {
     await reader.cancel().catch(() => undefined)
   }
@@ -452,8 +552,12 @@ async function assembleStream(
   // cut short, and handing the model the partial text would present a truncated
   // answer as a whole one.
   if (!completed) {
-    throw new GenyeeApiError(`POST ${path} ended before GENYEE completed the answer; `
-      + `${answer.join('').length} character(s) had streamed`)
+    throw new GenyeeApiError(
+      `POST ${path} ended before GENYEE completed the answer; `
+      + `${answer.join('').length} character(s) had streamed`,
+      undefined,
+      apiKey,
+    )
   }
 
   return { answer: answer.join(''), references, sessionId: resolvedSessionId, toolCalls }

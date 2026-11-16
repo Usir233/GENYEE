@@ -524,7 +524,7 @@ export function createTools(client: GenyeeClient, config: ResolvedConfig): ToolD
         // the request names, and answers from nothing when it names nothing.
         const knowledgeBaseIds = agentId === undefined
           ? await resolveScope(requested, [], exec.signal)
-          : requested.length > 0 ? requested : config.knowledgeBaseIds
+          : requested
         if (agentId === undefined && knowledgeBaseIds.length === 0) {
           throw new Error(`${toolName}: this GENYEE credential can see no knowledge base, so there is `
             + 'nothing to answer from. Check the deployment\'s API key scope.')

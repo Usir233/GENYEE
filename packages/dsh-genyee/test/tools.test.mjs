@@ -368,3 +368,40 @@ test('handle mode keeps internal resource handles instead of public URLs', async
   const hit = value.results.find(result => result.knowledge_id === 'doc-architecture')
   assert.ok(hit.content.includes(`![系统架构](${ARCH_HANDLE})`))
 })
+
+test('W7-DSH-04: concurrent search + findDocuments both fall back from public URLs on KB-restricted key', async () => {
+  const mock = await startMockGenyee({ forbidPublicResourceUrls: true })
+  after(() => mock.close())
+  const config = resolveConfig({ baseUrl: mock.url, knowledgeBaseIds: ['kb-product'] })
+  const tools = createTools(new GenyeeClient(config), config)
+  const search = tools.find(tool => tool.name === 'genyee_search')
+  const { value } = await call(search, { query: '默认的检索阈值是多少' })
+  assert.ok(value.count > 0)
+})
+
+test('W7-DSH-04: configured knowledgeBaseIds does not override custom agent server-side scope unless explicitly passed', async () => {
+  const { byName, mock } = await toolset({ agentId: 'agent-42', knowledgeBaseIds: ['kb-product'] })
+  await call(byName.get('genyee_ask'), { query: '部署方式有哪些' })
+  const implicitChat = mock.requests.at(-1)
+  assert.equal(implicitChat.path.startsWith('/api/v1/agent-chat/'), true)
+  assert.equal(implicitChat.body.knowledge_base_ids, undefined)
+
+  await call(byName.get('genyee_ask'), { query: '部署方式有哪些', knowledge_base_ids: ['kb-ops'] })
+  const explicitChat = mock.requests.at(-1)
+  assert.deepEqual(explicitChat.body.knowledge_base_ids, ['kb-ops'])
+})
+
+test('W7-DSH-04: cordis.patch.yml trims whitespace around comma-separated GENYEE_KNOWLEDGE_BASE_IDS', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const { dirname, join } = await import('node:path')
+  const { fileURLToPath } = await import('node:url')
+  const patchText = await readFile(join(dirname(fileURLToPath(import.meta.url)), '..', 'cordis.patch.yml'), 'utf8')
+  const line = patchText.split('\n').find(entry => entry.includes('GENYEE_KNOWLEDGE_BASE_IDS'))
+  assert.ok(line, 'cordis.patch.yml must configure GENYEE_KNOWLEDGE_BASE_IDS')
+  const expr = line.replace(/^.*!!js\s+/, '')
+  const fn = new Function('process', `return (${expr})`)
+  assert.deepEqual(
+    fn({ env: { GENYEE_KNOWLEDGE_BASE_IDS: ' kb-1 , , kb-2 ' } }),
+    ['kb-1', 'kb-2'],
+  )
+})

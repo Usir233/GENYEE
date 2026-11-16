@@ -110,6 +110,7 @@
       "content",
       "knowledge_references",
       "session_id",
+      "data",
       "tool_calls"
     ],
     "types.LLMToolCall": ["function"],

@@ -76,3 +76,45 @@ test('base URLs with query strings or fragments are rejected', () => {
     assert.throws(() => resolveConfig({ baseUrl: bad }), /baseUrl must not include query or fragment/)
   }
 })
+
+test('W7-DSH-03: rejects baseUrl credentials without leaking them and rejects control chars in headers', () => {
+  for (const credUrl of ['https://admin:supersecret123@kb.example.com', 'http://user:pass999@127.0.0.1:8080/api/v1']) {
+    assert.throws(
+      () => normalizeBaseUrl(credUrl),
+      error => {
+        assert.ok(error instanceof ConfigError)
+        assert.match(error.message, /baseUrl must not include credentials/)
+        assert.equal(error.message.includes('supersecret123'), false)
+        assert.equal(error.message.includes('pass999'), false)
+        return true
+      },
+    )
+    assert.throws(
+      () => resolveConfig({ baseUrl: credUrl }),
+      error => {
+        assert.ok(error instanceof ConfigError)
+        assert.match(error.message, /baseUrl must not include credentials/)
+        assert.equal(error.message.includes('supersecret123'), false)
+        assert.equal(error.message.includes('pass999'), false)
+        return true
+      },
+    )
+  }
+
+  assert.throws(
+    () => resolveConfig({ apiKey: 'gy_bad\r\nX-Evil: 1' }),
+    error => {
+      assert.ok(error instanceof ConfigError)
+      assert.match(error.message, /apiKey must not contain control characters/)
+      return true
+    },
+  )
+  assert.throws(
+    () => resolveConfig({ tenantId: '42\nX-Injected: 1' }),
+    error => {
+      assert.ok(error instanceof ConfigError)
+      assert.match(error.message, /tenantId must not contain control characters/)
+      return true
+    },
+  )
+})

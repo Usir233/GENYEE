@@ -66,10 +66,30 @@ const DEFAULTS = {
   toolPrefix: 'genyee',
 } as const
 
+const SECRET_PATTERNS: [RegExp, string][] = [
+  [/([a-z][a-z0-9+.-]*:\/\/)[^/\s@"']+@/gi, '$1[REDACTED]@'],
+  [/\bBearer\s+\S+/gi, 'Bearer [REDACTED]'],
+  [/\bgy_[A-Za-z0-9_-]+/g, '[REDACTED]'],
+]
+
+const CONTROL_CHARS = /[\x00-\x1f\x7f]/
+
+/** Redact credentials and bearer/API tokens before formatting error messages. */
+export function redactSecrets(text: string, extraSecret?: string): string {
+  let out = text
+  if (extraSecret !== undefined && extraSecret !== '') {
+    out = out.replaceAll(extraSecret, '[REDACTED]')
+  }
+  for (const [pattern, replacement] of SECRET_PATTERNS) {
+    out = out.replace(pattern, replacement)
+  }
+  return out
+}
+
 /** Thrown when a patch row configures this plugin in a way it cannot serve. */
 export class ConfigError extends Error {
   constructor(violations: string[]) {
-    super(`dsh-genyee configuration is invalid:\n  - ${violations.join('\n  - ')}`)
+    super(`dsh-genyee configuration is invalid:\n  - ${violations.map(v => redactSecrets(v)).join('\n  - ')}`)
     this.name = 'ConfigError'
   }
 }
@@ -85,7 +105,16 @@ const TOOL_PREFIX = /^[a-z][a-z0-9_]*$/
 export function normalizeBaseUrl(raw: string): string {
   const trimmed = raw.trim()
   if (/[?#]/.test(trimmed)) {
-    throw new ConfigError([`baseUrl must not include query or fragment, received ${JSON.stringify(raw)}`])
+    throw new ConfigError([`baseUrl must not include query or fragment, received ${JSON.stringify(redactSecrets(raw))}`])
+  }
+  let parsed: URL
+  try {
+    parsed = new URL(trimmed)
+  } catch {
+    throw new ConfigError([`baseUrl must be an absolute URL, received ${JSON.stringify(redactSecrets(raw))}`])
+  }
+  if (parsed.username !== '' || parsed.password !== '') {
+    throw new ConfigError(['baseUrl must not include credentials'])
   }
   const stripped = trimmed.replace(/\/+$/, '')
   return API_ROOT.test(stripped) ? stripped : `${stripped}/api/v1`
@@ -155,16 +184,32 @@ export function resolveConfig(raw: Config | undefined): ResolvedConfig {
     violations.push(`baseUrl must be an absolute URL, received ${JSON.stringify(baseUrlInput)}`)
   }
   if (rawParsedUrl) {
+    let urlValid = true
     if (rawParsedUrl.protocol !== 'http:' && rawParsedUrl.protocol !== 'https:') {
       violations.push(`baseUrl must use http or https, received ${rawParsedUrl.protocol}`)
+      urlValid = false
     } else if (rawParsedUrl.protocol === 'http:' && !isLoopbackHostname(rawParsedUrl.hostname)) {
       violations.push(`baseUrl must use https for non-loopback hosts, received ${rawParsedUrl.origin}`)
+      urlValid = false
+    }
+    if (rawParsedUrl.username !== '' || rawParsedUrl.password !== '') {
+      violations.push('baseUrl must not include credentials')
+      urlValid = false
     }
     if (rawParsedUrl.search || rawParsedUrl.hash || /[?#]/.test(baseUrlInput)) {
       violations.push(`baseUrl must not include query or fragment, received ${JSON.stringify(baseUrlInput)}`)
-    } else {
+      urlValid = false
+    }
+    if (urlValid) {
       baseUrl = new URL(normalizeBaseUrl(baseUrlInput)).toString().replace(/\/+$/, '')
     }
+  }
+
+  if (typeof config.apiKey === 'string' && CONTROL_CHARS.test(config.apiKey)) {
+    violations.push('apiKey must not contain control characters')
+  }
+  if (typeof config.tenantId === 'string' && CONTROL_CHARS.test(config.tenantId)) {
+    violations.push('tenantId must not contain control characters')
   }
 
   const resourceUrls = config.resourceUrls ?? DEFAULTS.resourceUrls

@@ -188,3 +188,84 @@ test('refuses cross-origin redirects so X-API-Key and X-Tenant-ID never leak', a
     redirector.close()
   }
 })
+
+test('W7-DSH-02: rejects oversized JSON responses and handles multi-line SSE frames while rejecting unterminated frames', async () => {
+  const http = await import('node:http')
+  const server = http.createServer((req, res) => {
+    if (req.url?.startsWith('/api/v1/knowledge-bases')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.write('{"success":true,"data":["')
+      res.write('x'.repeat(17 * 1024 * 1024))
+      res.end('"]}')
+      return
+    }
+    if (req.url?.startsWith('/api/v1/knowledge-chat/multiline')) {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+      res.write(': comment line\n')
+      res.write('event: heartbeat\ndata: {"response_type":"error","content":"must be ignored"}\n\n')
+      res.write('data: {"response_type":"answer",\ndata: "content":"multi-line answer","session_id":"multiline"}\n\n')
+      res.write('data: {"response_type":"complete","done":true,"session_id":"multiline"}\n\n')
+      res.end()
+      return
+    }
+    if (req.url?.startsWith('/api/v1/knowledge-chat/unterminated')) {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream' })
+      res.write('data: {"response_type":"answer","content":"partial","session_id":"unterminated"}\n\n')
+      // Missing trailing blank line on the final frame (e.g. mid-frame connection drop)
+      res.write('data: {"response_type":"complete","done":true,"session_id":"unterminated"}')
+      res.end()
+      return
+    }
+    res.writeHead(404)
+    res.end()
+  })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const port = server.address().port
+  try {
+    const client = new GenyeeClient(resolveConfig({ baseUrl: `http://127.0.0.1:${port}/api/v1` }))
+    await assert.rejects(client.listKnowledgeBases(never), /exceeded .* bytes/)
+
+    const multiline = await client.ask(
+      { sessionId: 'multiline', query: 'q', knowledgeBaseIds: ['kb-1'], agentId: undefined, webSearch: false },
+      never,
+    )
+    assert.equal(multiline.answer, 'multi-line answer')
+
+    await assert.rejects(
+      client.ask({ sessionId: 'unterminated', query: 'q', knowledgeBaseIds: ['kb-1'], agentId: undefined, webSearch: false }, never),
+      /ended before GENYEE completed the answer/,
+    )
+  } finally {
+    server.close()
+  }
+})
+
+test('W7-DSH-03: GenyeeApiError redacts configured API keys and bearer/gy_ tokens echoed by servers', async () => {
+  const http = await import('node:http')
+  const rawKey = 'custom-secret-token-98765'
+  const gyKey = 'gy_live_secret_token_abcdef123456'
+  const server = http.createServer((req, res) => {
+    res.writeHead(401, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({
+      error: { message: `rejected key ${rawKey} and ${gyKey} and Bearer eyJhbGciOiJIUzI1NiJ9.secret` },
+    }))
+  })
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+  const port = server.address().port
+  try {
+    const client = new GenyeeClient(resolveConfig({
+      baseUrl: `http://127.0.0.1:${port}/api/v1`,
+      apiKey: rawKey,
+    }))
+    await assert.rejects(client.listKnowledgeBases(never), error => {
+      assert.ok(error instanceof GenyeeApiError)
+      assert.equal(error.message.includes(rawKey), false, 'configured apiKey must be redacted')
+      assert.equal(error.message.includes(gyKey), false, 'gy_ token must be redacted')
+      assert.equal(error.message.includes('eyJhbGciOiJIUzI1NiJ9.secret'), false, 'Bearer token must be redacted')
+      assert.match(error.message, /\[REDACTED\]/)
+      return true
+    })
+  } finally {
+    server.close()
+  }
+})
