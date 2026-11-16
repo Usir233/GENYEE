@@ -13,7 +13,10 @@ package nimrerank
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math"
+	"regexp"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
 )
@@ -107,6 +110,12 @@ func (c *Client) AcceptsImages() bool { return true }
 // Rerank scores documents against the query. The returned scores are logits;
 // see the package comment.
 func (c *Client) Rerank(ctx context.Context, query string, documents []string) ([]api.RerankResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if len(documents) == 0 {
+		return nil, nil
+	}
 	body, err := c.BuildRequestBody(query, documents)
 	if err != nil {
 		return nil, err
@@ -121,6 +130,12 @@ func (c *Client) Rerank(ctx context.Context, query string, documents []string) (
 // RerankImages scores image passages against the query; indices refer to
 // images.
 func (c *Client) RerankImages(ctx context.Context, query string, images []api.EmbedImage) ([]api.RerankResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if len(images) == 0 {
+		return nil, nil
+	}
 	body, err := c.BuildImageRequestBody(query, images)
 	if err != nil {
 		return nil, err
@@ -132,7 +147,7 @@ func (c *Client) post(ctx context.Context, body map[string]any, count int) ([]ap
 	var decoded response
 	url := c.cfg.Endpoint.Resolve(c.cfg.Settings.Path)
 	if err := c.cfg.Endpoint.PostJSON(ctx, url, body, &decoded); err != nil {
-		return nil, err
+		return nil, redactNIMError(err)
 	}
 	if decoded.Rankings == nil {
 		return nil, fmt.Errorf("NIM rerank response has no rankings array")
@@ -147,6 +162,9 @@ func (c *Client) post(ctx context.Context, body map[string]any, count int) ([]ap
 		if index < 0 || index >= count {
 			return nil, fmt.Errorf("rerank index %d out of range for %d documents", index, count)
 		}
+		if math.IsNaN(*item.Logit) || math.IsInf(*item.Logit, 0) {
+			return nil, fmt.Errorf("NIM rerank logit is non-finite (%v) at index %d", *item.Logit, index)
+		}
 		if seen[index] {
 			return nil, fmt.Errorf("NIM rerank returned duplicate index %d", index)
 		}
@@ -154,6 +172,40 @@ func (c *Client) post(ctx context.Context, body map[string]any, count int) ([]ap
 		out = append(out, api.RerankResult{Index: index, Score: *item.Logit})
 	}
 	return out, nil
+}
+
+var (
+	nimUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	nimQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedNIMErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedNIMErr) Error() string        { return e.msg }
+func (e *redactedNIMErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedNIMErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactNIMError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := nimUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = nimQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedNIMErr{msg: out, cause: err}
 }
 
 // roundTrip renders a body through JSON, so golden tests compare plain maps.

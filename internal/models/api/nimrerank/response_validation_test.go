@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
@@ -123,4 +124,46 @@ func validationClient(t *testing.T, payload string) *Client {
 	}))
 	t.Cleanup(server.Close)
 	return newClient(t, server.URL, api.RerankSettings{ImageInput: api.ImageInput{ImageField: "image"}})
+}
+
+func TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets(t *testing.T) {
+	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
+	secutils.ResetSSRFWhitelistForTest()
+	t.Cleanup(secutils.ResetSSRFWhitelistForTest)
+
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		_, _ = w.Write([]byte(`{"rankings":[{"index":0,"logit":0.9}]}`))
+	}))
+	defer srv.Close()
+
+	c := newClient(t, srv.URL, api.RerankSettings{})
+	got, err := c.Rerank(nil, "q", nil)
+	require.NoError(t, err)
+	require.Empty(t, got)
+	gotImg, err := c.RerankImages(nil, "q", nil)
+	require.NoError(t, err)
+	require.Empty(t, gotImg)
+	require.Zero(t, hits.Load(), "empty documents/images slice must not send HTTP POST")
+
+	got, err = c.Rerank(nil, "q", []string{"doc"})
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+
+	gotImg, err = c.RerankImages(nil, "q", []api.EmbedImage{{Data: []byte{1}, MIMEType: "image/png"}})
+	require.NoError(t, err)
+	require.Len(t, gotImg, 1)
+
+	bad := New(Config{
+		Endpoint: api.Endpoint{
+			BaseURL: "https://user:supersecretpw@ai.api.nvidia.com\x7f",
+			Model:   "nvidia/nv-rerankqa-mistral-4b-v3",
+			Query:   map[string]string{"api_key": "nvapi-secret-token-999"},
+		},
+	})
+	_, err = bad.Rerank(nil, "q", []string{"doc"})
+	require.Error(t, err)
+	require.NotContains(t, err.Error(), "supersecretpw")
+	require.NotContains(t, err.Error(), "nvapi-secret-token-999")
 }
