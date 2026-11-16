@@ -1,0 +1,256 @@
+{
+  "stage": "Stage 2B",
+  "slice": "up-docs-py-ops",
+  "base_commit": "cabe3d63781239b56bfcb911319ed21ecd2d5c3b",
+  "upstream_range": "cbdcebabf48c5ee2d6868b370326aa8341703f62..f64dbf002490fd947b4bce48a8cd4fa0dff6dcbd",
+  "merge_range": "89ce71ff86af78cfb3cf5f637787ecfbe3389e11..cabe3d63781239b56bfcb911319ed21ecd2d5c3b",
+  "audited_files": [
+    ".gitattributes",
+    ".github/workflows/docreader.yml",
+    "docreader/parser/markdown_parser.py",
+    "docreader/tests/test_markdown_inline_images.py",
+    "scripts/build-anydoc-lib.sh",
+    "website-docs/03-features/08-mcp.md",
+    "website-docs/06-development/02-database-schema.md",
+    "website-docs/homepage/BRAND-ASSETS.md",
+    "website-docs/homepage/README.md",
+    "website-docs/homepage/app/adopter-showcase.tsx",
+    "website-docs/homepage/app/adopters.module.css",
+    "website-docs/shared/header.ts"
+  ],
+  "deleted_files": [
+    "misc/pr-assets/adopter-card-layout.png",
+    "misc/pr-assets/adopter-navigation.png"
+  ],
+  "extra_unit_files": {
+    "docreader/tests": [
+      "docreader/tests/test_markdown_inline_images.py"
+    ]
+  },
+  "units": [
+    {
+      "unit_id": "root-runtime",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        ".gitattributes"
+      ],
+      "invariants_checked": [
+        "misc/pr-assets is marked export-ignore in .gitattributes as defense-in-depth alongside removal of upstream PR screenshot PNGs (misc/pr-assets/adopter-card-layout.png and misc/pr-assets/adopter-navigation.png remain absent from git ls-files).",
+        "test-reports and test-reports/** remain export-ignore so audit evidence JSON files never leak into customer git archive source bundles; all upstream notice byte-preservation attributes remain intact."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 bash scripts/verify-commercial-compliance.sh --tier 5 (exit 0)"
+      ]
+    },
+    {
+      "unit_id": ".github/workflows",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        ".github/workflows/docreader.yml"
+      ],
+      "invariants_checked": [
+        "Workflow retains least-privilege top-level permissions (contents: read), 40-char commit SHA action pins, and ubuntu-24.04 runner configuration.",
+        "Zero GitHub Actions ${{ ... }} template expressions are interpolated inside run: shell blocks; runtime variables expand safely via shell environment variables.",
+        "Start DocReader gRPC server provisions an ephemeral 256-bit GRPC_AUTH_TOKEN (masked in logs and exported to GITHUB_ENV for Go client loopback authentication), stores the server PID under RUNNER_TEMP instead of /tmp, and fails fast with kill -0 if the process exits prematurely."
+      ],
+      "findings": [
+        {
+          "id": "UP-OPS-WF-001",
+          "severity": "P1",
+          "file": ".github/workflows/docreader.yml:55-115",
+          "summary": "Start DocReader gRPC server launched python -m docreader.main without GRPC_AUTH_TOKEN, causing immediate fail-closed AuthConfigError (sys.exit(1)) under GENYEE's hardened AuthInterceptor and hanging 30s before failing CI; run: blocks also interpolated ${{ env.PYTHON_VERSION }} directly and wrote the server PID to world-writable /tmp/docreader.pid.",
+          "regression_test": "test_up_ops_docreader_workflow_enforces_grpc_auth_and_shell_hygiene",
+          "commit": "44999991c65992a19ff5aa4c59133ecddc25d982"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_markdown_inline_images.py -k workflow (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "scripts",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "scripts/build-anydoc-lib.sh"
+      ],
+      "invariants_checked": [
+        "Crate source download verifies 64-hex SHA-256 digests against licenses/sources/anydoc.tsv (stripping GNU sha256sum leading backslash escapes), removes pre-existing destination symlinks before curl -o, and deletes unverified tarballs immediately on checksum mismatch.",
+        "Unpacked crate trees are scanned with find -type l to reject symlinks before copying into third_party/anydoc-go/patched-anydoc, and archive installation verifies a regular non-symlink artifact and unlinks $dest/$lib_name prior to copy.",
+        "strip_llvm_lto_sections matches dotted/hyphenated LLVM bitcode section names (\\.llvm[a-zA-Z0-9_.-]+, including .llvm.lto) and stages objcopy output via a temporary file so cross-target objcopy failures never corrupt $dest/$lib_name in place."
+      ],
+      "findings": [
+        {
+          "id": "UP-OPS-SH-001",
+          "severity": "P2",
+          "file": "scripts/build-anydoc-lib.sh:86-120,181-214",
+          "summary": "prepare_patched_anydoc did not unlink pre-existing tarball symlinks before curl -o, left mismatched tarballs on disk on SHA-256 failure, and accepted symlinks inside unpacked crate archives; strip_llvm_lto_sections missed dotted .llvm.lto section names and mutated $dest/$lib_name in-place rather than staging via a temporary file.",
+          "regression_test": "test_up_ops_build_anydoc_lib_sha256_symlink_and_llvm_strip_safety",
+          "commit": "44999991c65992a19ff5aa4c59133ecddc25d982"
+        }
+      ],
+      "verification_commands": [
+        "bash -n scripts/build-anydoc-lib.sh (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest scripts/tests/test_anydoc_build.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_markdown_inline_images.py -k anydoc (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docreader/parser",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "docreader/parser/markdown_parser.py"
+      ],
+      "invariants_checked": [
+        "MarkdownImageUtil scans prose in guaranteed O(N) linear time while preserving fenced code blocks (_transform_outside_fences) and paired inline backtick code spans (_inline_code_spans), preventing O(N^3) ReDoS on unclosed ![...](data:image/...) or ![...](...) inputs and preventing unclosed inline-code image openers from hiding subsequent real images.",
+        "extract_base64 enforces pre-decode base64 character caps (derived from MAX_INLINE_IMAGE_BYTES = 20 MiB) before slicing/decoding, per-document count (1000) and cumulative byte (100 MiB) budgets, strict raster MIME subtype allowlisting (blocking SVG/XML/EMF/WMF/EPS and path-traversal subtypes), and Pillow header verification under Image.MAX_IMAGE_PIXELS = 40_000_000 with DecompressionBombWarning promoted to error.",
+        "MarkdownParser performs zero outbound network fetches on external http/https image URLs, delegating remote image downloads exclusively to Go's SSRF-guarded ImageResolver.ResolveRemoteImages."
+      ],
+      "findings": [
+        {
+          "id": "UP-DOC-PY-001",
+          "severity": "P1",
+          "file": "docreader/parser/markdown_parser.py:415-698",
+          "summary": "MarkdownImageUtil regexes (b64_pattern, image_pattern, replace_pattern) suffered O(N^3) catastrophic backtracking on unclosed ![alt](data:image/...) and ![alt](...) inputs (>8s at n=400 / 12.8 KB), and an unclosed '![' inside an inline code span caused b64_pattern to span across prose and skip extracting a subsequent real base64 image.",
+          "regression_test": "test_up_doc_py_redos_linear_time_and_inline_code_unclosed_opener",
+          "commit": "44999991c65992a19ff5aa4c59133ecddc25d982"
+        },
+        {
+          "id": "UP-DOC-PY-002",
+          "severity": "P1",
+          "file": "docreader/parser/markdown_parser.py:34-60,360-388,493-568",
+          "summary": "MarkdownImageUtil.extract_base64 lacked pre-decode base64 payload size caps and per-document budgets (allowing oversized inline base64 OOM), omitted Image.MAX_IMAGE_PIXELS = 40_000_000 raster header validation (allowing multi-hundred-megapixel PNG decompression bombs to bypass Go's ResolveDataURIImages checks via result.ImageRefs), and interpolated raw data:image/<subtype> strings into image_path (allowing ../ traversal, SVG/vector MIME types, and spoofed non-raster payloads).",
+          "regression_test": "test_up_doc_py_inline_image_size_cap_pixel_bomb_and_raster_mime_allowlist",
+          "commit": "44999991c65992a19ff5aa4c59133ecddc25d982"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/parser/markdown_parser.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docreader/tests",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "docreader/tests/test_markdown_inline_images.py"
+      ],
+      "invariants_checked": [
+        "All upstream inline-code and fenced-code base64 preservation tests plus 4 new GENYEE security regression tests pass deterministically without writing bytecode caches or host paths."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_markdown_inline_images.py (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/03-features",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "website-docs/03-features/08-mcp.md"
+      ],
+      "invariants_checked": [
+        "MCP Rerank model guidance accurately documents that external MCP services and built-in MCP Server search_knowledge/grep_chunks endpoints do not require Rerank, while smart-reasoning Agents using built-in search_knowledge do.",
+        "All internal links and all 3 Mermaid diagrams in 08-mcp.md parse with 0 errors and 0 legacy upstream brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/06-development",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "website-docs/06-development/02-database-schema.md"
+      ],
+      "invariants_checked": [
+        "PostgreSQL versioned migration inventory (000000-000139, 140 versions / 280 SQL files, ending at 000139_im_session_mode_indexes) and SQLite incremental inventory (000001-000055, ending at 000055_im_session_mode_indexes) match migrations/versioned/ and migrations/sqlite/ on disk.",
+        "Core ER Mermaid diagram and internal links pass validation with 0 errors and 0 legacy upstream brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./website-docs/... ./internal/productdocs/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/homepage",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "website-docs/homepage/BRAND-ASSETS.md",
+        "website-docs/homepage/README.md"
+      ],
+      "invariants_checked": [
+        "BRAND-ASSETS.md and homepage/README.md document only the 6 self-authored MIT enterprise scenario SVGs under public/docs/_home/adopters/ and same-origin /docs/_home/ assets with zero third-party adopter logos or external CDN beacons."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/*.test.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/homepage/app",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "website-docs/homepage/app/adopter-showcase.tsx",
+        "website-docs/homepage/app/adopters.module.css"
+      ],
+      "invariants_checked": [
+        "AdopterShowcase sanitizes adopterIssue and adopter.link.href via sanitizeExternalHttpUrl, omits empty links, attaches target=\"_blank\" rel=\"noopener noreferrer\" to all external anchors, and loads scenario icons strictly from local ${homeAssets}/adopters/ SVGs.",
+        "adopters.module.css uses --gy-* design tokens exclusively (defined in shared/brand.css) with zero legacy CSS custom property prefixes."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/*.test.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/shared",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/shared/header.ts"
+      ],
+      "invariants_checked": [
+        "siteNavigation links to '/#adopters' under GENYEE '行业场景' framing and keeps repositoryUrl empty.",
+        "sanitizeExternalHttpUrl enforces http:/https: protocols only, rejects ASCII control characters, and rejects URLs carrying embedded username/password userinfo."
+      ],
+      "findings": [
+        {
+          "id": "UP-DOCS-WEB-001",
+          "severity": "P2",
+          "file": "website-docs/shared/header.ts:38-49",
+          "summary": "sanitizeExternalHttpUrl permitted http:/https: URLs containing embedded username/password userinfo (e.g. https://user:secret@example.com or @-authority phishing URLs https://genyee.com@evil.example) to pass through into external anchor href attributes.",
+          "regression_test": "UP-DOCS-WEB-001: sanitizeExternalHttpUrl rejects embedded userinfo credentials and dangerous schemes",
+          "commit": "44999991c65992a19ff5aa4c59133ecddc25d982"
+        }
+      ],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/*.test.mjs (exit 0)"
+      ]
+    }
+  ],
+  "summary": {
+    "audited_live_files": 12,
+    "verified_deleted_files": 2,
+    "units_total": 10,
+    "units_with_findings": 4,
+    "units_no_findings": 6,
+    "findings_total": 5,
+    "findings_by_severity": {
+      "P0": 0,
+      "P1": 3,
+      "P2": 2
+    }
+  }
+}
