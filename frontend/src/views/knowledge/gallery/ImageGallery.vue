@@ -611,6 +611,7 @@ function sourceLabel(img: ImageAsset): string {
 onBeforeUnmount(() => {
   if (searchTimer) clearTimeout(searchTimer)
   if (sourceTimer) clearTimeout(sourceTimer)
+  if (prefsTimer) clearTimeout(prefsTimer)
   // Orphan any in-flight listing so it cannot map new blobs after unmount.
   listToken++
   initToken++

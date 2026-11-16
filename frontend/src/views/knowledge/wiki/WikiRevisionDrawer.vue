@@ -175,7 +175,8 @@ const snapshotMissing = ref(false)
 
 // A null value caches "known not retained" so the 404 is not re-fetched on
 // every diff reload.
-const snapshotCache = new Map<number, WikiRevisionSnapshot | null>()
+const snapshotCache = new Map<string, WikiRevisionSnapshot | null>()
+const snapshotCacheKey = (kbId: string, slug: string, version: number) => `${kbId}:${slug}:${version}`
 
 const currentVersion = computed(() => props.currentPage?.version ?? null)
 
@@ -269,9 +270,9 @@ const diffSections = computed(() => {
 })
 
 watch(
-  () => [props.visible, props.slug] as const,
-  ([visible]) => {
-    if (visible && props.slug) {
+  () => [props.visible, props.kbId, props.slug] as const,
+  ([visible, kbId, slug]) => {
+    if (visible && kbId && slug) {
       resetAndLoad()
     }
   },
@@ -324,17 +325,20 @@ async function loadVersionSnapshot(version: number): Promise<WikiRevisionSnapsho
   if (version === props.currentPage.version) {
     return snapshotFromPage(props.currentPage)
   }
-  const cached = snapshotCache.get(version)
+  const targetKbId = props.kbId
+  const targetSlug = props.slug
+  const cacheKey = snapshotCacheKey(targetKbId, targetSlug, version)
+  const cached = snapshotCache.get(cacheKey)
   if (cached !== undefined) return cached
   try {
-    const res = await getWikiRevision(props.kbId, props.slug, version)
+    const res = await getWikiRevision(targetKbId, targetSlug, version)
     const data = (res as any).data || (res as any)
     const snap = snapshotFromRevisionData(data, data.content || '')
-    snapshotCache.set(version, snap)
+    snapshotCache.set(cacheKey, snap)
     return snap
   } catch (e: any) {
     if (e?.status === 404) {
-      snapshotCache.set(version, null)
+      snapshotCache.set(cacheKey, null)
       return null
     }
     throw e
@@ -409,7 +413,10 @@ async function loadDiffPair() {
   }
 }
 
+let listRequestSeq = 0
+
 function resetAndLoad() {
+  listRequestSeq++
   detailRequestSeq++
   diffRequestSeq++
   snapshotCache.clear()
@@ -428,9 +435,13 @@ function resetAndLoad() {
 }
 
 async function loadList(offset: number) {
+  const seq = ++listRequestSeq
+  const targetKbId = props.kbId
+  const targetSlug = props.slug
   loadingList.value = true
   try {
-    const res = await listWikiRevisions(props.kbId, props.slug, { limit: PAGE_SIZE, offset })
+    const res = await listWikiRevisions(targetKbId, targetSlug, { limit: PAGE_SIZE, offset })
+    if (seq !== listRequestSeq || targetKbId !== props.kbId || targetSlug !== props.slug) return
     const data = (res as any).data || (res as any)
     const items: WikiPageRevision[] = data.revisions || []
     if (offset === 0) {
@@ -444,9 +455,10 @@ async function loadList(offset: number) {
     }
     total.value = data.total ?? revisions.value.length
   } catch (e: any) {
+    if (seq !== listRequestSeq) return
     MessagePlugin.error(e?.message || t('knowledgeEditor.wikiBrowser.revisionLoadFailed'))
   } finally {
-    loadingList.value = false
+    if (seq === listRequestSeq) loadingList.value = false
   }
 }
 
@@ -477,12 +489,17 @@ async function selectRevision(rev: WikiPageRevision) {
   viewMode.value = 'incremental'
   loadingDetail.value = true
   try {
-    const res = await getWikiRevision(props.kbId, props.slug, rev.version)
-    if (seq !== detailRequestSeq) return
+    const targetKbId = props.kbId
+    const targetSlug = props.slug
+    const res = await getWikiRevision(targetKbId, targetSlug, rev.version)
+    if (seq !== detailRequestSeq || targetKbId !== props.kbId || targetSlug !== props.slug) return
     const data = (res as any).data || (res as any)
     selectedRevision.value = { ...rev, ...data }
     detailContent.value = data.content || ''
-    snapshotCache.set(rev.version, snapshotFromRevisionData(data, data.content || ''))
+    snapshotCache.set(
+      snapshotCacheKey(targetKbId, targetSlug, rev.version),
+      snapshotFromRevisionData(data, data.content || ''),
+    )
   } catch (e: any) {
     if (seq !== detailRequestSeq) return
     // 404 = snapshot not retained (pre-revision history or pruned); the raw

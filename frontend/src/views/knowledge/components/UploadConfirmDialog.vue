@@ -706,11 +706,15 @@ const imageAttrSchema = ref<ImageAttrSchema | null>(null)
 const displaySchema = computed<ImageAttrSchema>(
   () => imageAttrSchema.value ?? FALLBACK_IMAGE_ATTR_SCHEMA,
 )
+let schemaLoadSeq = 0
 async function loadImageAttrSchema(kbId: string) {
+  const seq = ++schemaLoadSeq
   try {
-    imageAttrSchema.value = await fetchImageAttrSchema(kbId)
+    const schema = await fetchImageAttrSchema(kbId)
+    if (seq !== schemaLoadSeq || props.kbInfo?.id !== kbId) return
+    imageAttrSchema.value = schema
   } catch {
-    imageAttrSchema.value = null
+    if (seq === schemaLoadSeq) imageAttrSchema.value = null
   }
 }
 
@@ -1492,24 +1496,31 @@ async function loadSystemInfo() {
   }
 }
 
+let tagsLoadSeq = 0
+
 async function loadTags() {
+  const seq = ++tagsLoadSeq
   const kbId = props.kbInfo?.id
   availableTags.value = []
   tagsLoadFailed.value = false
-  if (!kbId || props.mode === 'reparse') return
+  if (!kbId || props.mode === 'reparse') {
+    tagsLoading.value = false
+    return
+  }
 
   tagsLoading.value = true
   try {
     const response: any = await listKnowledgeTags(kbId, { page: 1, page_size: 1000 })
+    if (seq !== tagsLoadSeq || props.kbInfo?.id !== kbId) return
     const tags = response?.data?.data || []
     availableTags.value = tags.map((tag: any) => ({
       id: String(tag.id),
       name: String(tag.name || ''),
     }))
   } catch {
-    tagsLoadFailed.value = true
+    if (seq === tagsLoadSeq) tagsLoadFailed.value = true
   } finally {
-    tagsLoading.value = false
+    if (seq === tagsLoadSeq) tagsLoading.value = false
   }
 }
 

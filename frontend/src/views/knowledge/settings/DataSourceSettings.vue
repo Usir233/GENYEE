@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useConnectorLabel } from '@/composables/useConnectorLabel'
@@ -36,25 +36,33 @@ const logsVisible = ref(false)
 const logsDsId = ref('')
 const logsDsName = ref('')
 const pollTimer = ref<number | null>(null)
+let isUnmounted = false
+let loadSeq = 0
 
 function stopPolling() {
   if (pollTimer.value !== null) {
-    window.clearTimeout(pollTimer.value)
+    clearTimeout(pollTimer.value)
     pollTimer.value = null
   }
 }
 
 function schedulePolling() {
   stopPolling()
-  pollTimer.value = window.setTimeout(() => {
-    loadList(true)
-  }, 3000)
+  if (isUnmounted) return
+  pollTimer.value = setTimeout(() => {
+    pollTimer.value = null
+    if (!isUnmounted) void loadList(true)
+  }, 3000) as unknown as number
 }
 
 async function loadList(silent = false) {
+  const targetKbId = props.kbId
+  if (!targetKbId || isUnmounted) return
+  const seq = ++loadSeq
   if (!silent) loading.value = true
   try {
-    const res = await listDataSources(props.kbId)
+    const res = await listDataSources(targetKbId)
+    if (isUnmounted || seq !== loadSeq || targetKbId !== props.kbId) return
     dataSources.value = res?.data || res || []
     emit('count', dataSources.value.length)
 
@@ -65,9 +73,9 @@ async function loadList(silent = false) {
       stopPolling()
     }
   } catch (e: any) {
-    console.error(e)
+    if (!isUnmounted && seq === loadSeq) console.error(e)
   } finally {
-    if (!silent) loading.value = false
+    if (!silent && seq === loadSeq) loading.value = false
   }
 }
 
@@ -183,8 +191,21 @@ function onEditorSaved() {
 }
 
 onMounted(loadList)
+watch(() => props.kbId, (next, prev) => {
+  if (next === prev) return
+  loadSeq++
+  stopPolling()
+  editorVisible.value = false
+  logsVisible.value = false
+  dataSources.value = []
+  void loadList()
+})
 useAssistantDataChange(() => { void loadList(true) }, { areas: ['data_source'] })
-onBeforeUnmount(stopPolling)
+onBeforeUnmount(() => {
+  isUnmounted = true
+  loadSeq++
+  stopPolling()
+})
 </script>
 
 <template>

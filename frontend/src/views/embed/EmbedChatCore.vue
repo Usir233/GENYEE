@@ -182,6 +182,8 @@ const visitorIdRef = toRef(props, 'visitorId')
 const suggestedQuestions = ref<SuggestedQuestion[]>([])
 const suggestedLoading = ref(false)
 const hostContextRef = ref<Record<string, unknown>>(props.hostContext || {})
+let disposed = false
+let suggestedSeq = 0
 
 const loadFollowUpSuggestions = async (
   message: Record<string, unknown>,
@@ -190,7 +192,7 @@ const loadFollowUpSuggestions = async (
 ) => {
   const messageId = String(message.id || message.assistant_message_id || '')
   const targetSessionId = props.sessionId
-  if (!props.showSuggestedQuestions || !messageId || !targetSessionId || message.suggestionsDismissed) return
+  if (disposed || !props.showSuggestedQuestions || !messageId || !targetSessionId || message.suggestionsDismissed) return
   if (isAwaitingInput(message)) return
   message.suggestionLoading = true
   try {
@@ -201,20 +203,22 @@ const loadFollowUpSuggestions = async (
       : await getEmbedMessageSuggestions(
         props.channelId, props.token, targetSessionId, messageId, props.sessionSig, props.visitorId,
       )
+    if (disposed || props.sessionId !== targetSessionId || message.suggestionsDismissed) return
     let set = response?.data
     for (let attempt = 0; set?.status === 'generating' && attempt < 120; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 1000))
-      if (props.sessionId !== targetSessionId || message.suggestionsDismissed) return
+      if (disposed || props.sessionId !== targetSessionId || message.suggestionsDismissed) return
       response = await getEmbedMessageSuggestions(
         props.channelId, props.token, targetSessionId, messageId, props.sessionSig, props.visitorId,
       )
+      if (disposed || props.sessionId !== targetSessionId || message.suggestionsDismissed) return
       set = response?.data
     }
     message.suggestionSet = set?.status === 'ready' ? set : null
   } catch {
-    message.suggestionSet = null
+    if (!disposed) message.suggestionSet = null
   } finally {
-    message.suggestionLoading = false
+    if (!disposed) message.suggestionLoading = false
   }
 }
 
@@ -327,18 +331,21 @@ const showSuggestedBlock = computed(() =>
   && (suggestedLoading.value || suggestedQuestions.value.length > 0))
 
 const fetchSuggestedQuestions = async () => {
+  const seq = ++suggestedSeq
   if (!props.showSuggestedQuestions || !props.channelId || !props.token) {
     suggestedQuestions.value = []
+    suggestedLoading.value = false
     return
   }
   suggestedLoading.value = true
   try {
     const res = await getEmbedSuggestedQuestions(props.channelId, props.token)
+    if (disposed || seq !== suggestedSeq) return
     suggestedQuestions.value = res?.data?.questions || []
   } catch {
-    suggestedQuestions.value = []
+    if (!disposed && seq === suggestedSeq) suggestedQuestions.value = []
   } finally {
-    suggestedLoading.value = false
+    if (!disposed && seq === suggestedSeq) suggestedLoading.value = false
   }
 }
 
@@ -404,6 +411,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  disposed = true
+  suggestedSeq++
   removeOpenQueryListener?.()
 })
 

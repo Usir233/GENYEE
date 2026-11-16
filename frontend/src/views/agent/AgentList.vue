@@ -1076,31 +1076,51 @@ const applyAgentListData = (res: { data: CustomAgent[]; disabled_own_agent_ids: 
   void checkAndOpenEditModal()
 }
 
+let fetchListSeq = 0
+let spaceAgentsSeq = 0
+
 const fetchList = (force = false) => {
+  const seq = ++fetchListSeq
   loading.value = true
   return Promise.all([
-    chatResources.fetchAgentsForList({ creator: creatorFilter.value }, force).then(applyAgentListData),
+    chatResources.fetchAgentsForList({ creator: creatorFilter.value }, force).then((res) => {
+      if (seq === fetchListSeq) applyAgentListData(res)
+    }),
     orgStore.fetchOrganizations({ force }),
     orgStore.fetchSharedAgents({ force }),
-  ]).finally(() => { loading.value = false }).then(() => {
+  ]).then(() => {
+    if (seq !== fetchListSeq) return
     void checkAndOpenEditModal()
     // 各空间智能体数量已由 GET /organizations 的 resource_counts 带回，存于 orgStore.resourceCounts
     const counts = orgStore.resourceCounts?.agents?.by_organization
     if (counts) spaceAgentCountByOrg.value = { ...counts }
+  }).catch((err) => {
+    if (seq === fetchListSeq) console.error('Failed to load agent list:', err)
+  }).finally(() => {
+    if (seq === fetchListSeq) loading.value = false
   })
+}
+
+const resolveSharedAgentForDeepLink = (editId: string, sourceTenantId?: string): SharedAgentInfo | null => {
+  if (!sourceTenantId) return null
+  const ownMatch = agents.value.find(
+    a => a.id === editId && a.tenant_id != null && String(a.tenant_id) === sourceTenantId,
+  )
+  if (ownMatch) return null
+  return sharedAgents.value.find(
+    s => s.agent?.id === editId && String(s.source_tenant_id) === sourceTenantId,
+  ) || null
 }
 
 // 检查 URL 参数并打开编辑模态框
 const resolveAgentForEdit = (editId: string, sourceTenantId?: string): CustomAgent | null => {
-  const own = agents.value.find(a => a.id === editId)
-  if (own) return own
   if (sourceTenantId) {
-    const shared = sharedAgents.value.find(
-      s => s.agent?.id === editId && String(s.source_tenant_id) === sourceTenantId,
+    const ownByTenant = agents.value.find(
+      a => a.id === editId && (a.tenant_id == null || String(a.tenant_id) === sourceTenantId),
     )
-    if (shared?.agent) return shared.agent as CustomAgent
+    return ownByTenant ?? null
   }
-  return null
+  return agents.value.find(a => a.id === editId) ?? null
 }
 
 let editOpenGeneration = 0
@@ -1119,6 +1139,13 @@ const checkAndOpenEditModal = async () => {
     return
   }
   if (editId) {
+    const sharedTarget = resolveSharedAgentForDeepLink(editId, sourceTenantId)
+    if (sharedTarget) {
+      openSharedAgentDetail(sharedTarget)
+      const { edit: _e, section: _s, highlight: _h, sourceTenantId: _st, ...rest } = route.query
+      router.replace({ path: route.path, query: rest })
+      return
+    }
     const agent = resolveAgentForEdit(editId, sourceTenantId)
     // A route change can remove a creator filter before the corresponding
     // all-agent fetch completes. Keep the deep-link query intact so the list
@@ -1179,20 +1206,25 @@ const handleOpenAgentEditor = (event: CustomEvent) => {
 
 // 选中空间时请求该空间内全部智能体（含我共享的）
 watch(spaceSelection, (val) => {
+  const seq = ++spaceAgentsSeq
   if (!val || RESERVED_SCOPES.has(val)) {
     spaceAgentsList.value = []
+    spaceAgentsLoading.value = false
     return
   }
   spaceAgentsLoading.value = true
   listOrganizationSharedAgents(val).then((res) => {
+    if (seq !== spaceAgentsSeq) return
     if (res.success && res.data) {
       spaceAgentsList.value = res.data
       spaceAgentCountByOrg.value = { ...spaceAgentCountByOrg.value, [val]: res.data.length }
     } else {
       spaceAgentsList.value = []
     }
+  }).catch(() => {
+    if (seq === spaceAgentsSeq) spaceAgentsList.value = []
   }).finally(() => {
-    spaceAgentsLoading.value = false
+    if (seq === spaceAgentsSeq) spaceAgentsLoading.value = false
   })
 }, { immediate: true })
 
@@ -1303,7 +1335,16 @@ const handleEdit = (agent: AgentWithUI) => {
 // agents" rule. The server still enforces the same matrix on every
 // mutation; this gate just hides buttons the user has no authority
 // to use.
-function canManageAgent(agent: AgentWithUI): boolean {
+function canManageAgent(agent: AgentWithUI | DisplayAgent): boolean {
+  if ('isMine' in agent && !agent.isMine) return false
+  const activeTenantId = Number(authStore.effectiveTenantId ?? authStore.currentTenantId ?? 0)
+  if (activeTenantId && agent.tenant_id && Number(agent.tenant_id) !== activeTenantId) return false
+  if (
+    sharedAgents.value.some(s => s.agent?.id === agent.id)
+    && !agents.value.some(own => own.id === agent.id && own.tenant_id === agent.tenant_id)
+  ) {
+    return false
+  }
   const userId = authStore.user?.id || ''
   const creatorId = (agent as any).created_by || ''
   // A creator demoted to Viewer no longer manages it (access.CreatorRoleFloor).

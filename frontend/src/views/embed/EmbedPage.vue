@@ -177,8 +177,17 @@ watch(sessionId, (id) => {
 
 const kbIds = computed(() => config.value?.knowledge_base_ids ?? [])
 
+const safePrimaryColor = computed(() => {
+  const raw = config.value?.primary_color?.trim() || ''
+  if (!raw || raw.length > 64) return ''
+  if (/[;{}<>\\]|url\s*\(|expression\s*\(/i.test(raw)) return ''
+  return /^(#[0-9a-fA-F]{3,8}|(?:rgb|rgba|hsl|hsla|oklch|oklab|lch|lab)\([0-9.,%\s/+-]+\)|[a-zA-Z]{3,24})$/.test(raw)
+    ? raw
+    : ''
+})
+
 const pageStyle = computed(() => {
-  const color = config.value?.primary_color
+  const color = safePrimaryColor.value
   if (!color) return {}
   return {
     '--embed-primary': color,
@@ -189,7 +198,7 @@ const pageStyle = computed(() => {
 })
 
 const badgeStyle = computed(() => {
-  const color = config.value?.primary_color
+  const color = safePrimaryColor.value
   if (!color) return {}
   return {
     background: `color-mix(in srgb, ${color} 12%, transparent)`,

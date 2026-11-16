@@ -18,9 +18,19 @@ const hasMore = ref(false)
 const expandedId = ref('')
 const pageSize = 50
 
-async function fetchLogs(reset = true) {
-  if (!props.dataSourceId) return
+let fetchSeq = 0
 
+async function fetchLogs(reset = true) {
+  const targetDsId = props.dataSourceId
+  if (!targetDsId) {
+    logs.value = []
+    hasMore.value = false
+    loading.value = false
+    loadingMore.value = false
+    return
+  }
+
+  const seq = ++fetchSeq
   if (reset) {
     loading.value = true
   } else {
@@ -29,24 +39,40 @@ async function fetchLogs(reset = true) {
 
   try {
     const offset = reset ? 0 : logs.value.length
-    const res = await getSyncLogs(props.dataSourceId, pageSize, offset)
+    const res = await getSyncLogs(targetDsId, pageSize, offset)
+    if (seq !== fetchSeq || targetDsId !== props.dataSourceId) return
     const items = res?.data || res || []
     logs.value = reset ? items : [...logs.value, ...items]
     hasMore.value = items.length === pageSize
-  } catch { /* ignore */ }
-
-  if (reset) {
-    loading.value = false
-  } else {
-    loadingMore.value = false
+  } catch { /* ignore */ } finally {
+    if (seq === fetchSeq) {
+      if (reset) {
+        loading.value = false
+      } else {
+        loadingMore.value = false
+      }
+    }
   }
 }
 
-watch(visible, (v) => {
-  if (!v) return
-  expandedId.value = ''
-  fetchLogs(true)
-})
+watch(
+  [visible, () => props.dataSourceId],
+  ([v, dsId], [, prevDsId]) => {
+    if (!v) {
+      fetchSeq++
+      loading.value = false
+      loadingMore.value = false
+      return
+    }
+    if (dsId !== prevDsId) {
+      logs.value = []
+      hasMore.value = false
+    }
+    expandedId.value = ''
+    void fetchLogs(true)
+  },
+  { immediate: true },
+)
 
 function toggleExpand(id: string) {
   expandedId.value = expandedId.value === id ? '' : id
@@ -299,7 +325,7 @@ const groupedLogs = computed(() => {
                       started_at: log.started_at,
                       items_total: log.items_total,
                       items_failed: log.items_failed,
-                      error_message: log.error_message.slice(0, 1000),
+                      error_message: (log.error_message || '').slice(0, 1000),
                       error_samples: failedItems(log).slice(0, 5).map(e => formatSyncError(e).slice(0, 300)),
                     }, null, 2),
                   }" />

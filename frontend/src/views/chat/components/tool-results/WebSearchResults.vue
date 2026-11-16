@@ -20,8 +20,8 @@
             <div class="result-header">
               <div class="result-index">#{{ result.result_index }}</div>
               <a 
-                v-if="result.url"
-                :href="result.url" 
+                v-if="safeHttpUrl(result.url)"
+                :href="safeHttpUrl(result.url)" 
                 :title="result.url"
                 target="_blank" 
                 rel="noopener noreferrer"
@@ -65,6 +65,20 @@ const props = defineProps<Props>();
 const { t, locale } = useI18n();
 
 const results = computed(() => props.data.results || []);
+
+const safeHttpUrl = (raw?: string): string => {
+  const trimmed = typeof raw === 'string' ? raw.trim() : '';
+  if (!trimmed) return '';
+  try {
+    if (typeof URL === 'function') {
+      const parsed = new URL(trimmed);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? trimmed : '';
+    }
+    return /^https?:\/\/[^\s"'<>]+$/i.test(trimmed) ? trimmed : '';
+  } catch {
+    return '';
+  }
+};
 
 // Group results by source first, then by domain if source is missing
 type Group = { key: string; label: string; items: WebSearchResultItem[] };

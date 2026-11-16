@@ -121,7 +121,7 @@
 
               <!-- MCP tool human approval (issue #1173) -->
               <div v-else-if="event.type === 'tool_approval_required' && showInlineToolApproval(event)" class="tool-event">
-                <ToolApprovalCard :pending-id="event.pending_id" :delegated-task="event.delegated_task" :service-name="event.service_name || ''"
+                <ToolApprovalCard :pending-id="event.pending_id" :delegated-task="event.delegated_task" :service-id="event.service_id || ''" :service-name="event.service_name || ''"
                   :mcp-tool-name="event.mcp_tool_name || ''" :description="event.description"
                   :args-json="event.args_json" :grant-scope="event.grant_scope" :grant-lapsed="event.grant_lapsed" :timeout-seconds="event.timeout_seconds"
                   :requested-at="event.requested_at" :resolved="event.resolved" :approved="event.approved" :canceled="event.canceled"
@@ -170,7 +170,7 @@
               </div>
 
               <div v-else-if="showInlineToolApproval(event)" class="tool-event">
-                <ToolApprovalCard :pending-id="event.pending_id" :service-name="event.service_name || ''"
+                <ToolApprovalCard :pending-id="event.pending_id" :service-id="event.service_id || ''" :service-name="event.service_name || ''"
                   :mcp-tool-name="event.mcp_tool_name || ''" :description="event.description"
                   :args-json="event.args_json" :timeout-seconds="event.timeout_seconds"
                   :requested-at="event.requested_at" :resolved="event.resolved" :approved="event.approved"
@@ -427,7 +427,7 @@
 
             <!-- MCP tool human approval -->
             <div v-else-if="event.type === 'tool_approval_required' && showInlineToolApproval(event)" class="tool-event">
-              <ToolApprovalCard :pending-id="event.pending_id" :delegated-task="event.delegated_task" :service-name="event.service_name || ''"
+              <ToolApprovalCard :pending-id="event.pending_id" :delegated-task="event.delegated_task" :service-id="event.service_id || ''" :service-name="event.service_name || ''"
                 :mcp-tool-name="event.mcp_tool_name || ''" :description="event.description" :args-json="event.args_json"
                 :grant-scope="event.grant_scope" :grant-lapsed="event.grant_lapsed" :timeout-seconds="event.timeout_seconds" :requested-at="event.requested_at" :resolved="event.resolved"
                 :approved="event.approved" :canceled="event.canceled" :resolve-reason="event.resolve_reason" :suspendable="event.suspendable"
@@ -474,7 +474,7 @@
             </div>
 
             <div v-else-if="showInlineToolApproval(event)" class="tool-event">
-              <ToolApprovalCard :pending-id="event.pending_id" :service-name="event.service_name || ''"
+              <ToolApprovalCard :pending-id="event.pending_id" :service-id="event.service_id || ''" :service-name="event.service_name || ''"
                 :mcp-tool-name="event.mcp_tool_name || ''" :description="event.description"
                 :args-json="event.args_json" :timeout-seconds="event.timeout_seconds"
                 :requested-at="event.requested_at" :resolved="event.resolved" :approved="event.approved"
@@ -1116,14 +1116,20 @@ watch(wikiDrawerContent, async () => {
   }
 });
 
+let wikiDrawerRequestSeq = 0;
+let isUnmounted = false;
+
 const openWikiDrawer = async (kbId: string, slug: string) => {
   if (!kbId || !slug) return;
+  const seq = ++wikiDrawerRequestSeq;
   try {
-    currentWikiKbId.value = kbId;
     const res = await getWikiPage(kbId, slug);
+    if (isUnmounted || seq !== wikiDrawerRequestSeq) return;
+    currentWikiKbId.value = kbId;
     wikiDrawerPage.value = (res as any).data || res as any;
     wikiDrawerVisible.value = true;
   } catch (e) {
+    if (isUnmounted || seq !== wikiDrawerRequestSeq) return;
     console.error(`Failed to load page ${slug}:`, e);
     MessagePlugin.warning(t('agentStream.citation.loadFailed'));
   }
@@ -2617,19 +2623,30 @@ const handleCitationActivate = (el: HTMLElement) => {
     return;
   }
   if (!url) return;
+  let safeUrl = '';
+  try {
+    const base = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://localhost';
+    const parsed = new URL(url.trim(), base);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+      safeUrl = url.trim();
+    }
+  } catch {
+    safeUrl = '';
+  }
+  if (!safeUrl) return;
   try {
     // @ts-ignore: Wails runtime check
     if (window.runtime && window.runtime.BrowserOpenURL) {
       // @ts-ignore
-      window.runtime.BrowserOpenURL(url);
+      window.runtime.BrowserOpenURL(safeUrl);
     } else {
-      const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+      const newWindow = window.open(safeUrl, '_blank', 'noopener,noreferrer');
       if (!newWindow) {
-        window.location.assign(url);
+        window.location.assign(safeUrl);
       }
     }
   } catch {
-    window.location.assign(url);
+    window.location.assign(safeUrl);
   }
 };
 
@@ -2883,6 +2900,9 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+  isUnmounted = true;
+  wikiDrawerRequestSeq++;
+  wikiDrawerVisible.value = false;
   const root = rootElement.value;
   if (!root) return;
   root.removeEventListener('click', onRootClick, true);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import {
@@ -814,6 +814,24 @@ const displayedCredentialFields = computed(() => {
 // then be closed — or reopened with a different form.
 let drawerSession = 0
 let tempDsPromise: Promise<string> | null = null
+let tempDsCredentialsDirty = false
+
+onBeforeUnmount(() => {
+  drawerSession++
+  tempDsPromise = null
+  tempDsCredentialsDirty = false
+  if (!isEdit.value && tempDsId.value) {
+    const orphanId = tempDsId.value
+    tempDsId.value = ''
+    void (async () => {
+      try {
+        await deleteDataSource(orphanId)
+      } catch {
+        // Ignore cleanup errors
+      }
+    })()
+  }
+})
 
 watch(visible, async (v) => {
   // Both edges start a new session: opening begins one, closing ends it.
@@ -821,6 +839,7 @@ watch(visible, async (v) => {
   // A create from the session that was just left is not something a session
   // starting now may join, so the shared slot is emptied on both edges.
   tempDsPromise = null
+  tempDsCredentialsDirty = false
   if (!v) {
     if (!isEdit.value && tempDsId.value) {
       try {
@@ -913,6 +932,9 @@ watch(visible, async (v) => {
 watch(
   () => form.value.config.credentials,
   () => {
+    if (!isEdit.value && tempDsId.value) {
+      tempDsCredentialsDirty = true
+    }
     if (needsConnectionTest()) {
       testResult.value = ''
       testErrorMsg.value = ''
@@ -945,6 +967,20 @@ watch(
 
 function selectType(def: ConnectorDef) {
   if (!def.available) return
+  if (!isEdit.value && tempDsId.value) {
+    const orphanId = tempDsId.value
+    tempDsId.value = ''
+    tempDsCredentialsDirty = false
+    drawerSession++
+    tempDsPromise = null
+    void (async () => {
+      try {
+        await deleteDataSource(orphanId)
+      } catch {
+        // Ignore cleanup errors
+      }
+    })()
+  }
   form.value.type = def.type
   form.value.name = t(`datasource.connector.${def.type}`)
   form.value.config.credentials = def.type === "confluence" ? { edition: "server" } : {}
@@ -1049,6 +1085,17 @@ function canCreateTempDataSource(): boolean {
 // session nor be left behind as an orphan.
 async function ensureTempDataSource(persist = false): Promise<string> {
   if (tempDsId.value) {
+    if (!isEdit.value && tempDsCredentialsDirty) {
+      syncRssAuthHeadersToCredentials()
+      syncConfluencePublicFieldsToSettings()
+      const filled = Object.entries(form.value.config.credentials).filter(
+        ([, v]) => (typeof v === 'string' ? v !== '' : v != null),
+      )
+      if (filled.length > 0) {
+        await putDataSourceCredentials(tempDsId.value, Object.fromEntries(filled))
+      }
+      tempDsCredentialsDirty = false
+    }
     if (persist || !isEdit.value) {
       await updateDataSource(tempDsId.value, {
         ...form.value,

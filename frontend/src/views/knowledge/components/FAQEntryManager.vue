@@ -193,7 +193,7 @@
                         {{ entry.standard_question }}
                       </div>
                       <div class="faq-card-actions">
-                        <t-popup v-if="canManage" v-model="entry.showMore" overlayClassName="card-more-popup"
+                        <t-popup v-if="canEdit" v-model="entry.showMore" overlayClassName="card-more-popup"
                           trigger="click" destroy-on-close placement="bottom-right"
                           @visible-change="(visible: boolean) => (entry.showMore = visible)">
                           <div class="card-more-btn" @click.stop>
@@ -368,7 +368,7 @@
                         :aria-label="entry.is_enabled ? $t('knowledgeEditor.faq.statusEnabled') : $t('knowledgeEditor.faq.statusDisabled')"
                         @change="(value: boolean) => handleEntryStatusChange(entry, value)" />
                     </t-tooltip>
-                    <t-popup v-if="canManage" v-model="entry.showMore" overlayClassName="card-more-popup"
+                    <t-popup v-if="canEdit" v-model="entry.showMore" overlayClassName="card-more-popup"
                       trigger="click" destroy-on-close placement="bottom-right">
                       <button type="button" class="card-more-btn faq-list-more" :aria-label="$t('knowledgeBase.columnActions')">
                         <t-icon name="more" size="16px" />
@@ -980,6 +980,12 @@ const currentSharedKb = computed(() =>
 // tenants); share-list presence is the authoritative signal.
 const isViaShare = computed(() => !!currentSharedKb.value)
 
+const effectiveKBPermission = computed(
+  () => orgStore.getKBPermission?.(props.kbId) || (kbInfo.value as any)?.my_permission || '',
+)
+const faqPermissionAllowsEdit = (p: string) => p === 'owner' || p === 'admin' || p === 'editor'
+const faqPermissionAllowsManage = (p: string) => p === 'owner' || p === 'admin'
+
 // Can edit: when accessed via an organization share, ONLY the share grant
 // counts — even if the current user happens to be the original creator of
 // the KB. The backend's RBAC middleware authorizes based on the active
@@ -987,20 +993,24 @@ const isViaShare = computed(() => !!currentSharedKb.value)
 // different tenant context will be 403'd on write. Otherwise: KB creator
 // (Contributor+) or tenant Admin+ in the home tenant.
 const canEdit = computed(() => {
+  const permission = effectiveKBPermission.value
+  if (permission) return faqPermissionAllowsEdit(permission)
   if (isViaShare.value) return orgStore.canEditKB(props.kbId, false)
   if (isOwner.value) return true
   if (authStore.hasRole('admin')) return true
-  return orgStore.canEditKB(props.kbId, false)
+  return orgStore.canEditKB?.(props.kbId, false) ?? false
 })
 
 // Can manage (delete, settings, share): same isViaShare-first rule. For
 // shared KBs only an 'admin' share grant qualifies — editor/viewer (and
 // even being the creator viewed via share) never grant delete/settings.
 const canManage = computed(() => {
+  const permission = effectiveKBPermission.value
+  if (permission) return faqPermissionAllowsManage(permission)
   if (isViaShare.value) return orgStore.canManageKB(props.kbId, false)
   if (isOwner.value) return true
   if (authStore.hasRole('admin')) return true
-  return orgStore.canManageKB(props.kbId, false)
+  return orgStore.canManageKB?.(props.kbId, false) ?? false
 })
 
 const canSelectEntries = computed(() => canEdit.value || canManage.value)
@@ -2006,24 +2016,43 @@ const normalizePayload = (payload: Partial<FAQEntryPayload>): FAQEntryPayload =>
   is_enabled: payload.is_enabled !== undefined ? payload.is_enabled : undefined,
 })
 
+let kbSwitchGen = 0
+let isFaqUnmounted = false
+let progressCloseTimer: ReturnType<typeof setTimeout> | null = null
+
 const stopPolling = () => {
   if (importState.pollingInterval) {
     clearInterval(importState.pollingInterval)
     importState.pollingInterval = null
   }
+  if (progressCloseTimer) {
+    clearTimeout(progressCloseTimer)
+    progressCloseTimer = null
+  }
 }
 
 const startPolling = (taskId: string) => {
+  const pollingKbId = props.kbId
+  const gen = kbSwitchGen
+  if (!pollingKbId || isFaqUnmounted) return
   stopPolling()
   // 保存taskId到localStorage，以便刷新后恢复
-  saveTaskIdToStorage(taskId)
+  saveTaskIdToStorage(taskId, pollingKbId)
 
   // 记录上次已处理数量，用于判断是否需要刷新列表
   let lastProcessed = 0
 
   importState.pollingInterval = setInterval(async () => {
+    if (isFaqUnmounted || gen !== kbSwitchGen || props.kbId !== pollingKbId) {
+      stopPolling()
+      return
+    }
     try {
       const res: any = await getFAQImportProgress(taskId)
+      if (isFaqUnmounted || gen !== kbSwitchGen || props.kbId !== pollingKbId) {
+        stopPolling()
+        return
+      }
       const progressData = res?.data
       if (progressData) {
         // 从Redis进度数据中提取状态
@@ -2055,6 +2084,7 @@ const startPolling = (taskId: string) => {
           lastProcessed = processed
           await loadEntries()
           await loadTags(true)
+          if (isFaqUnmounted || gen !== kbSwitchGen || props.kbId !== pollingKbId) return
         }
 
         // 任务完成或失败，停止轮询（但不自动关闭进度条，让用户手动关闭）
@@ -2063,7 +2093,7 @@ const startPolling = (taskId: string) => {
           if (status === 'success') {
             // 保存已完成的 taskId 用于后续加载结果
             if (importState.taskId) {
-              saveLastCompletedTaskId(importState.taskId)
+              saveLastCompletedTaskId(importState.taskId, pollingKbId)
             }
             MessagePlugin.success(progressData.message || t('knowledgeEditor.faqImport.importSuccess'))
             // 清除筛选条件，确保用户能看到所有新导入的数据
@@ -2076,8 +2106,9 @@ const startPolling = (taskId: string) => {
             await loadTags(true)
             await loadImportResult() // 加载最新的导入结果统计
             // 任务完成后，3秒后自动关闭进度条
-            setTimeout(() => {
-              if (importState.taskStatus?.status === 'success') {
+            progressCloseTimer = setTimeout(() => {
+              progressCloseTimer = null
+              if (!isFaqUnmounted && gen === kbSwitchGen && importState.taskStatus?.status === 'success') {
                 handleCloseProgress()
               }
             }, 3000)
@@ -2088,10 +2119,11 @@ const startPolling = (taskId: string) => {
         }
       }
     } catch (error: any) {
+      if (isFaqUnmounted || gen !== kbSwitchGen || props.kbId !== pollingKbId) return
       console.error('Failed to poll task status:', error)
       // 如果任务不存在或已过期，清除存储
       if (error?.response?.status === 404 || error?.message?.includes('not found')) {
-        clearTaskIdFromStorage()
+        clearTaskIdFromStorage(pollingKbId)
         stopPolling()
         importState.taskId = null
         importState.taskStatus = null
@@ -2117,33 +2149,33 @@ const handleCloseProgress = () => {
 }
 
 // localStorage相关函数
-const getStorageKey = () => {
-  return `faq_import_task_${props.kbId}`
+const getStorageKey = (targetKbId = props.kbId) => {
+  return `faq_import_task_${targetKbId}`
 }
 
-const saveTaskIdToStorage = (taskId: string) => {
-  if (!props.kbId) return
+const saveTaskIdToStorage = (taskId: string, targetKbId = props.kbId) => {
+  if (!targetKbId) return
   try {
-    localStorage.setItem(getStorageKey(), taskId)
+    localStorage.setItem(getStorageKey(targetKbId), taskId)
   } catch (error) {
     console.error('Failed to save taskId to localStorage:', error)
   }
 }
 
-const getTaskIdFromStorage = (): string | null => {
-  if (!props.kbId) return null
+const getTaskIdFromStorage = (targetKbId = props.kbId): string | null => {
+  if (!targetKbId) return null
   try {
-    return localStorage.getItem(getStorageKey())
+    return localStorage.getItem(getStorageKey(targetKbId))
   } catch (error) {
     console.error('Failed to get taskId from localStorage:', error)
     return null
   }
 }
 
-const clearTaskIdFromStorage = () => {
-  if (!props.kbId) return
+const clearTaskIdFromStorage = (targetKbId = props.kbId) => {
+  if (!targetKbId) return
   try {
-    localStorage.removeItem(getStorageKey())
+    localStorage.removeItem(getStorageKey(targetKbId))
   } catch (error) {
     console.error('Failed to clear taskId from localStorage:', error)
   }
@@ -2151,14 +2183,17 @@ const clearTaskIdFromStorage = () => {
 
 // 恢复导入任务状态（用于刷新后恢复）
 const restoreImportTask = async () => {
-  if (!props.kbId) return
+  const targetKbId = props.kbId
+  const gen = kbSwitchGen
+  if (!targetKbId || isFaqUnmounted) return
 
-  const savedTaskId = getTaskIdFromStorage()
+  const savedTaskId = getTaskIdFromStorage(targetKbId)
   if (!savedTaskId) return
 
   try {
     // 查询Redis中的进度状态
     const res: any = await getFAQImportProgress(savedTaskId)
+    if (isFaqUnmounted || gen !== kbSwitchGen || props.kbId !== targetKbId) return
     const progressData = res?.data
 
     if (progressData) {
@@ -2190,39 +2225,40 @@ const restoreImportTask = async () => {
         startPolling(savedTaskId)
       } else {
         // 任务已完成或失败，清除存储
-        clearTaskIdFromStorage()
+        clearTaskIdFromStorage(targetKbId)
       }
     } else {
       // 任务不存在，清除存储
-      clearTaskIdFromStorage()
+      clearTaskIdFromStorage(targetKbId)
     }
   } catch (error: any) {
+    if (isFaqUnmounted || gen !== kbSwitchGen || props.kbId !== targetKbId) return
     console.error('Failed to restore import task:', error)
     // 如果任务不存在或已过期，清除存储
     if (error?.response?.status === 404 || error?.message?.includes('not found')) {
-      clearTaskIdFromStorage()
+      clearTaskIdFromStorage(targetKbId)
     }
   }
 }
 
 // localStorage key for last completed task
-const getLastCompletedTaskKey = () => {
-  return `faq_import_last_completed_${props.kbId}`
+const getLastCompletedTaskKey = (targetKbId = props.kbId) => {
+  return `faq_import_last_completed_${targetKbId}`
 }
 
-const saveLastCompletedTaskId = (taskId: string) => {
-  if (!props.kbId) return
+const saveLastCompletedTaskId = (taskId: string, targetKbId = props.kbId) => {
+  if (!targetKbId) return
   try {
-    localStorage.setItem(getLastCompletedTaskKey(), taskId)
+    localStorage.setItem(getLastCompletedTaskKey(targetKbId), taskId)
   } catch (error) {
     console.error('Failed to save last completed taskId:', error)
   }
 }
 
-const getLastCompletedTaskId = (): string | null => {
-  if (!props.kbId) return null
+const getLastCompletedTaskId = (targetKbId = props.kbId): string | null => {
+  if (!targetKbId) return null
   try {
-    return localStorage.getItem(getLastCompletedTaskKey())
+    return localStorage.getItem(getLastCompletedTaskKey(targetKbId))
   } catch (error) {
     return null
   }
@@ -2230,9 +2266,11 @@ const getLastCompletedTaskId = (): string | null => {
 
 // 加载持久化的导入结果统计
 const loadImportResult = async () => {
-  if (!props.kbId) return
+  const targetKbId = props.kbId
+  const gen = kbSwitchGen
+  if (!targetKbId || isFaqUnmounted) return
 
-  const lastTaskId = getLastCompletedTaskId()
+  const lastTaskId = getLastCompletedTaskId(targetKbId)
   if (!lastTaskId) {
     importResult.value = null
     return
@@ -2240,6 +2278,7 @@ const loadImportResult = async () => {
 
   try {
     const res: any = await getFAQImportProgress(lastTaskId)
+    if (isFaqUnmounted || gen !== kbSwitchGen || props.kbId !== targetKbId) return
     const data = res?.data
     if (data && data.status === 'completed') {
       // 检查后端返回的 display_status，如果是 close 则不显示
@@ -2269,6 +2308,7 @@ const loadImportResult = async () => {
       importResult.value = null
     }
   } catch (error) {
+    if (isFaqUnmounted || gen !== kbSwitchGen || props.kbId !== targetKbId) return
     console.error('Failed to load FAQ import result:', error)
     importResult.value = null
   }
@@ -2290,12 +2330,32 @@ const closeImportResult = async () => {
 
 // 下载失败条目原因
 const downloadFailedEntries = () => {
-  if (!importResult.value?.failed_entries_url) {
+  const rawUrl = String(importResult.value?.failed_entries_url || '').trim()
+  if (!rawUrl) {
     MessagePlugin.warning(t('faqManager.import.noFailedRecords'))
     return
   }
-  // 直接打开下载链接
-  window.open(importResult.value.failed_entries_url, '_blank')
+  let safeUrl = ''
+  try {
+    if (rawUrl.startsWith('/') && !rawUrl.startsWith('//')) {
+      safeUrl = rawUrl
+    } else if (typeof URL === 'function') {
+      const base = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://localhost'
+      const parsed = new URL(rawUrl, base)
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        safeUrl = rawUrl
+      }
+    } else if (/^https?:\/\/[^\s"'<>]+$/i.test(rawUrl)) {
+      safeUrl = rawUrl
+    }
+  } catch {
+    safeUrl = ''
+  }
+  if (!safeUrl) {
+    MessagePlugin.warning(t('faqManager.import.noFailedRecords'))
+    return
+  }
+  window.open(safeUrl, '_blank', 'noopener,noreferrer')
 }
 
 // 格式化导入时间
@@ -2518,6 +2578,25 @@ const handleExportJSON = () => handleExportFAQ('json')
 watch(
   () => props.kbId,
   async (newKbId) => {
+    const gen = ++kbSwitchGen
+    stopPolling()
+    importState.importing = false
+    importState.taskId = null
+    importState.taskStatus = null
+    importResult.value = null
+    importVisible.value = false
+    editorVisible.value = false
+    entries.value = []
+    selectedRowKeys.value = []
+    if (tagSearchDebounce) {
+      clearTimeout(tagSearchDebounce)
+      tagSearchDebounce = null
+    }
+    if (entrySearchDebounce) {
+      clearTimeout(entrySearchDebounce)
+      entrySearchDebounce = null
+    }
+
     currentPage = 1
     hasMore.value = true
     selectedTagIds.value = []
@@ -2528,23 +2607,18 @@ watch(
 
     if (!newKbId) {
       kbInfo.value = null
-      // kbId变化时，清除之前的任务状态
-      stopPolling()
-      importState.taskId = null
-      importState.taskStatus = null
-      clearTaskIdFromStorage()
       return
     }
 
     const info = await loadKnowledgeInfo(newKbId)
-    if (!info || info.type !== 'faq') {
+    if (isFaqUnmounted || gen !== kbSwitchGen || !info || info.type !== 'faq') {
       return
     }
 
     loadEntries()
     loadTags(true)
-    // 恢复导入任务状态（如果存在）
     await restoreImportTask()
+    await loadImportResult()
   },
   { immediate: true },
 )
@@ -2748,10 +2822,11 @@ useAssistantDataChange((changes) => {
 }, { areas: ['faq'] })
 
 onMounted(async () => {
-  // Ensure shared knowledge bases are loaded before loading the knowledge list
-  orgStore.fetchSharedKnowledgeBases()
-  loadKnowledgeList()
   window.addEventListener('resize', handleResize)
+  // Ensure shared knowledge bases are loaded before loading the knowledge list
+  await orgStore.fetchSharedKnowledgeBases()
+  if (isFaqUnmounted) return
+  loadKnowledgeList()
   // 如果已有kbId，恢复导入任务状态
   if (props.kbId) {
     await restoreImportTask()
@@ -2760,7 +2835,18 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  isFaqUnmounted = true
+  kbSwitchGen++
+  stopPolling()
   window.removeEventListener('resize', handleResize)
+  if (tagSearchDebounce) {
+    clearTimeout(tagSearchDebounce)
+    tagSearchDebounce = null
+  }
+  if (entrySearchDebounce) {
+    clearTimeout(entrySearchDebounce)
+    entrySearchDebounce = null
+  }
   if (arrangeCardsTimer) {
     clearTimeout(arrangeCardsTimer)
   }

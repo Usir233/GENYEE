@@ -229,7 +229,7 @@ const submit = async (decline: boolean) => {
 
 /** Enter submits while the form is docked, except inside a select dropdown. */
 const handleKey = (e: KeyboardEvent): boolean => {
-  if (!interactive.value || !isSubmitKey(e)) return false
+  if (e.repeat || !interactive.value || !isSubmitKey(e)) return false
   const target = e.target as HTMLElement | null
   if (target?.closest('.t-select, .t-select__wrap')) return false
   void submit(false)

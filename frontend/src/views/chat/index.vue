@@ -891,6 +891,7 @@ const loadFollowUpSuggestions = async (message, ensure = false, regenerate = fal
     if (isAutomationSession.value) return;
     const messageId = resolveAssistantMessageId(message);
     const targetSessionId = session_id.value;
+    const version = chatLoadVersion;
     if (!messageId || !targetSessionId || message.suggestionsDismissed) return;
     if (isAwaitingInput(message)) return;
     message.suggestionLoading = true;
@@ -898,15 +899,18 @@ const loadFollowUpSuggestions = async (message, ensure = false, regenerate = fal
         let response = ensure
             ? await ensureMessageSuggestions(targetSessionId, messageId, regenerate)
             : await getMessageSuggestions(targetSessionId, messageId);
+        if (version !== chatLoadVersion || session_id.value !== targetSessionId || message.suggestionsDismissed) return;
         let set = response?.data;
         for (let attempt = 0; set?.status === 'generating' && attempt < 120; attempt++) {
             await new Promise((resolve) => setTimeout(resolve, 1000));
-            if (session_id.value !== targetSessionId || message.suggestionsDismissed) return;
+            if (version !== chatLoadVersion || session_id.value !== targetSessionId || message.suggestionsDismissed) return;
             response = await getMessageSuggestions(targetSessionId, messageId);
+            if (version !== chatLoadVersion || session_id.value !== targetSessionId || message.suggestionsDismissed) return;
             set = response?.data;
         }
         message.suggestionSet = set?.status === 'ready' ? set : null;
     } catch (error) {
+        if (version !== chatLoadVersion) return;
         if (ensure) console.warn('[FollowUpSuggestions] Failed to generate:', error);
         message.suggestionSet = null;
     } finally {
@@ -1490,12 +1494,13 @@ const attachSteerFollowUp = async (completedAssistantId) => {
     const queued = steerQueue.value.filter(item => !item.failed);
     if (!queued.length || attachingSteerFollowUp || !session_id.value) return;
     const sessionId = session_id.value;
+    const version = chatLoadVersion;
     attachingSteerFollowUp = true;
     isReplying.value = true;
     loading.value = true;
     let attached = false;
     let attachedAssistantId = '';
-    const sessionChanged = () => session_id.value !== sessionId;
+    const sessionChanged = () => version !== chatLoadVersion || session_id.value !== sessionId;
     try {
         for (let attempt = 0; attempt < 40; attempt++) {
             if (sessionChanged()) return;
@@ -1825,6 +1830,7 @@ const recoverIncompleteMessage = () => {
 let attachingResumedRun = false;
 const resumeSuspendedRun = async (pendingId) => {
     const sessionId = session_id.value;
+    const version = chatLoadVersion;
     const message = findLastMessage((m) => m.role === 'assistant' && (m.agentEventStream || []).some(
         (e) => isPromptCard(e) && e.pending_id === pendingId,
     ));
@@ -1837,7 +1843,7 @@ const resumeSuspendedRun = async (pendingId) => {
     try {
         for (let attempt = 0; attempt < 60; attempt++) {
             await new Promise((resolve) => setTimeout(resolve, 500));
-            if (session_id.value !== sessionId) return;
+            if (version !== chatLoadVersion || session_id.value !== sessionId) return;
             await startStream({
                 session_id: sessionId,
                 query: resumeId,
@@ -1845,12 +1851,12 @@ const resumeSuspendedRun = async (pendingId) => {
                 url: '/api/v1/sessions/continue-stream',
                 resume_pending_id: pendingId,
             });
-            if (!error.value) return;
+            if (!error.value || version !== chatLoadVersion) return;
         }
     } finally {
         attachingResumedRun = false;
     }
-    if (error.value && session_id.value === sessionId) {
+    if (error.value && version === chatLoadVersion && session_id.value === sessionId) {
         MessagePlugin.error(error.value);
         isReplying.value = false;
         loading.value = false;
@@ -1998,6 +2004,7 @@ onMounted(async () => {
 })
 const clearData = () => {
     chatLoadVersion++;
+    cancelSuggestedQuestionsFetch();
     if (!props.embeddedMode) sessionActivity.detach(activitySessionId.value);
     activitySessionId.value = '';
     stopStream();
@@ -2010,6 +2017,7 @@ const clearData = () => {
 }
 onUnmounted(() => {
     chatLoadVersion++;
+    cancelSuggestedQuestionsFetch();
     if (!props.embeddedMode) sessionActivity.detach(activitySessionId.value);
     activitySessionId.value = '';
     window.removeEventListener(SESSION_MUTATION_EVENT, handleSessionMutation);

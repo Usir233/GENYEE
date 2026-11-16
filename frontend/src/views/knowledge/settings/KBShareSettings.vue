@@ -236,11 +236,20 @@ async function loadOrganizations() {
   }
 }
 
+let shareLoadSeq = 0
+
 async function loadShares() {
-  if (!props.kbId) return
+  const targetKbId = props.kbId
+  if (!targetKbId) {
+    shares.value = []
+    loadingShares.value = false
+    return
+  }
+  const seq = ++shareLoadSeq
   loadingShares.value = true
   try {
-    const result = await listKBShares(props.kbId)
+    const result = await listKBShares(targetKbId)
+    if (seq !== shareLoadSeq || targetKbId !== props.kbId) return
     if (result.success && result.data) {
       const sharesData = (result.data as { shares?: KnowledgeBaseShare[] }).shares || result.data
       const sharesList = Array.isArray(sharesData) ? sharesData : []
@@ -250,9 +259,9 @@ async function loadShares() {
       }))
     }
   } catch (e) {
-    console.error('Failed to load shares:', e)
+    if (seq === shareLoadSeq) console.error('Failed to load shares:', e)
   } finally {
-    loadingShares.value = false
+    if (seq === shareLoadSeq) loadingShares.value = false
   }
 }
 

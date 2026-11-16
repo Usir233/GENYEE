@@ -1137,25 +1137,37 @@ const applyKbListData = (data: any[]) => {
   }))
 }
 
+let fetchListSeq = 0
+let spaceKbsSeq = 0
+
 const fetchList = (force = false) => {
+  const seq = ++fetchListSeq
   loading.value = true
   // The creator filter only applies to the caller's own tenant KBs (the
   // first call). Shared KBs are inherently "not mine" so we don't filter
   // them server-side; the segmented control is also hidden whenever the
   // user is browsing the shared / per-space scopes.
   return Promise.all([
-    chatResources.fetchKnowledgeBasesForList({ creator: creatorFilter.value }, force).then(applyKbListData),
+    chatResources.fetchKnowledgeBasesForList({ creator: creatorFilter.value }, force).then((data) => {
+      if (seq === fetchListSeq) applyKbListData(data)
+    }),
     orgStore.fetchSharedKnowledgeBases({ force }),
     orgStore.fetchOrganizations({ force }),
-  ]).finally(() => { loading.value = false }).then(() => {
+  ]).then(() => {
+    if (seq !== fetchListSeq) return
     // 各空间知识库数量已由 GET /organizations 的 resource_counts 带回，存于 orgStore.resourceCounts
     const counts = orgStore.resourceCounts?.knowledge_bases?.by_organization
     if (counts) spaceCountByOrg.value = { ...counts }
+  }).catch((err) => {
+    if (seq === fetchListSeq) console.error('Failed to load knowledge bases:', err)
+  }).finally(() => {
+    if (seq === fetchListSeq) loading.value = false
   })
 }
 
 // 选中空间时请求该空间内全部知识库（含我共享的）
 watch(spaceSelection, (val) => {
+  const seq = ++spaceKbsSeq
   // Stale URL guard: an older "协作" view used scope=shared; that view
   // was removed, so normalize back to "all" instead of letting the
   // value fall through to the per-space fetch branch (which would 404
@@ -1166,18 +1178,22 @@ watch(spaceSelection, (val) => {
   }
   if (val === 'all' || val === 'mine' || val === 'favorites' || val === 'recents' || !val) {
     spaceKbsList.value = []
+    spaceKbsLoading.value = false
     return
   }
   spaceKbsLoading.value = true
   listOrganizationSharedKnowledgeBases(val).then((res) => {
+    if (seq !== spaceKbsSeq) return
     if (res.success && res.data) {
       spaceKbsList.value = res.data
       spaceCountByOrg.value = { ...spaceCountByOrg.value, [val]: res.data.length }
     } else {
       spaceKbsList.value = []
     }
+  }).catch(() => {
+    if (seq === spaceKbsSeq) spaceKbsList.value = []
   }).finally(() => {
-    spaceKbsLoading.value = false
+    if (seq === spaceKbsSeq) spaceKbsLoading.value = false
   })
 }, { immediate: true })
 

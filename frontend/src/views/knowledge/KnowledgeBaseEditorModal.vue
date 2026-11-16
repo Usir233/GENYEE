@@ -566,7 +566,7 @@
       </div>
 
       <!-- 共享设置（仅编辑模式） -->
-      <div v-if="editorMode === 'edit' && activeKbId && currentSection === 'share'" class="section">
+      <div v-if="editorMode === 'edit' && activeKbId && isKbInActiveTenant && currentSection === 'share'" class="section">
         <KBShareSettings :kb-id="activeKbId" :can-share="canShareKB" />
       </div>
 
@@ -644,10 +644,13 @@ const imageAttrSchema = ref<ImageAttrSchema | null>(null)
 const displaySchema = computed<ImageAttrSchema>(
   () => imageAttrSchema.value ?? FALLBACK_IMAGE_ATTR_SCHEMA,
 )
-async function loadImageAttrSchema(kbId: string) {
+async function loadImageAttrSchema(kbId: string, generation?: number) {
   try {
-    imageAttrSchema.value = await fetchImageAttrSchema(kbId)
+    const schema = await fetchImageAttrSchema(kbId)
+    if (generation !== undefined && !isCurrentKBLoad(generation, kbId)) return
+    imageAttrSchema.value = schema
   } catch {
+    if (generation !== undefined && !isCurrentKBLoad(generation, kbId)) return
     imageAttrSchema.value = null
   }
 }
@@ -777,21 +780,31 @@ const kbTenantId = ref<number>(0)
 // shares. Org-admins on a shared KB do NOT pass this guard, so they
 // would only see 403s if we let them try. Mirror the matrix here so
 // the buttons disappear instead of failing.
-const canShareKB = computed(() => {
-  if (!activeKbId.value) return false
-  const userId = authStore.user?.id || ''
-  if (kbCreatorId.value && userId && kbCreatorId.value === userId) return true
-  return authStore.hasRole('admin')
+const activeWorkspaceTenantId = computed(() =>
+  Number(authStore.effectiveTenantId ?? authStore.currentTenantId ?? 0),
+)
+
+const isKbInActiveTenant = computed(() => {
+  const kbTid = Number(kbTenantId.value || 0)
+  const activeTid = activeWorkspaceTenantId.value
+  if (!kbTid || !activeTid) return true
+  return kbTid === activeTid
 })
 
 const isKbOwner = computed(() => {
   const userId = authStore.user?.id || ''
-  return Boolean(kbCreatorId.value && userId && kbCreatorId.value === userId)
+  return Boolean(kbCreatorId.value && userId && kbCreatorId.value === userId && authStore.hasRole('contributor'))
+})
+
+const canShareKB = computed(() => {
+  if (!activeKbId.value || !isKbInActiveTenant.value) return false
+  if (isKbOwner.value) return true
+  return authStore.hasRole('admin')
 })
 
 const canViewActivity = computed(() => {
   if (editorMode.value !== 'edit' || !activeKbId.value) return false
-  if (Number(kbTenantId.value || 0) !== Number(authStore.currentTenantId || 0)) return false
+  if (Number(kbTenantId.value || 0) !== activeWorkspaceTenantId.value) return false
   return isKbOwner.value || authStore.hasRole('admin')
 })
 // 用户是否在分块设置中手动改过任何值。一旦为 true，就不再根据索引策略自动调整默认分块参数。
@@ -845,7 +858,7 @@ const navItems = computed(() => {
       items.push({ key: 'datasource', icon: 'cloud-download', label: t('knowledgeEditor.sidebar.datasource'), badge: dsCount.value || undefined })
     }
   }
-  if (editorMode.value === 'edit' && activeKbId.value && !authStore.isLiteMode) {
+  if (editorMode.value === 'edit' && activeKbId.value && isKbInActiveTenant.value && !authStore.isLiteMode) {
     items.push({ key: 'share', icon: 'share', label: t('knowledgeEditor.sidebar.share') })
   }
   if (canViewActivity.value) {
@@ -1452,19 +1465,22 @@ const handleQuestionGenerationUpdate = (config: any) => {
 const handleGenerateProfile = async () => {
   const kbId = activeKbId.value
   if (!kbId || generatingProfile.value) return
+  const generation = kbEditorLoadGeneration
   generatingProfile.value = true
   try {
     const result: any = await generateKnowledgeBaseProfile(kbId)
+    if (!isCurrentKBLoad(generation, kbId)) return
     if (!result?.success) {
       throw new Error(result?.message || t('knowledgeEditor.basic.profile.generateFailed'))
     }
     generatedProfile.value = result.data || null
     MessagePlugin.success(t('knowledgeEditor.basic.profile.generated'))
   } catch (error: any) {
+    if (!isCurrentKBLoad(generation, kbId)) return
     console.error('Generate knowledge base profile failed:', error)
     MessagePlugin.error(error?.message || t('knowledgeEditor.basic.profile.generateFailed'))
   } finally {
-    generatingProfile.value = false
+    if (isCurrentKBLoad(generation, kbId)) generatingProfile.value = false
   }
 }
 
@@ -1925,6 +1941,10 @@ const resetState = () => {
   currentSection.value = 'basic'
   formData.value = null
   hasFiles.value = false
+  generatedProfile.value = null
+  generatingProfile.value = false
+  imageAttrSchema.value = null
+  dsCount.value = 0
   initialStorageProvider.value = ''
   tenantDefaultStorageProvider.value = 'local'
   initialIndexingStrategy.value = null

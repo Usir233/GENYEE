@@ -208,7 +208,16 @@ const handleUrlDialogConfirm = () => {
     return
   }
   try {
-    new URL(url)
+    if (typeof URL === 'function') {
+      const parsed = new URL(url)
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        MessagePlugin.warning(t('knowledgeBase.invalidURL'))
+        return
+      }
+    } else if (!/^https?:\/\/[^\s"'<>]+$/i.test(url)) {
+      MessagePlugin.warning(t('knowledgeBase.invalidURL'))
+      return
+    }
   } catch {
     MessagePlugin.warning(t('knowledgeBase.invalidURL'))
     return

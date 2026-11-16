@@ -712,29 +712,35 @@ function openDetail(context: { row: KnowledgeBaseActivity }) {
   detailVisible.value = true
 }
 
+let fetchSeq = 0
+
 async function fetchPage(reset = false) {
-  if (!props.kbId || loading.value || (!reset && !hasMore.value)) return
+  if (!props.kbId || (!reset && (loading.value || !hasMore.value))) return
+  const seq = ++fetchSeq
+  const targetKbId = props.kbId
   loading.value = true
   error.value = ''
   if (reset) {
     entries.value = []
   }
   try {
-    const response = await listKnowledgeBaseActivity(props.kbId, {
+    const response = await listKnowledgeBaseActivity(targetKbId, {
       limit: pageSize,
       after_id: reset ? undefined : cursor.value || undefined,
       outcome: outcome.value,
       action: action.value,
     })
+    if (seq !== fetchSeq || targetKbId !== props.kbId) return
     const page = response.data || []
     entries.value = reset ? page : [...entries.value, ...page]
     cursor.value = response.next_cursor || 0
     hasMore.value = !!response.next_cursor && page.length > 0
     loadedOnce.value = true
   } catch (err: any) {
+    if (seq !== fetchSeq || targetKbId !== props.kbId) return
     error.value = err?.message || t('knowledgeEditor.activity.loadFailed')
   } finally {
-    loading.value = false
+    if (seq === fetchSeq) loading.value = false
   }
 }
 

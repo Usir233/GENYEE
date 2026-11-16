@@ -373,15 +373,18 @@ useAssistantDataChange(changes => {
 async function loadGrants() {
   const a = props.automation
   if (!a) return
+  const version = detailVersion
   grantsLoading.value = true
   try {
     const [g, c] = await Promise.all([listAutomationGrants(a.id), listAutomationGrantCandidates(a.id)])
+    if (version !== detailVersion) return
     grants.value = g.data ?? []
     candidates.value = c.data ?? []
   } catch (e: any) {
+    if (version !== detailVersion) return
     MessagePlugin.error(e?.message || t('common.operationFailed'))
   } finally {
-    grantsLoading.value = false
+    if (version === detailVersion) grantsLoading.value = false
   }
 }
 
@@ -389,6 +392,7 @@ watch([() => props.visible, () => props.automation?.id], ([open, id]) => {
   ++detailVersion
   refreshRunsAfterLoad = false
   instructionExpanded.value = false
+  busy.value = ''
   clearInterval(poll)
   if (!open || !id) return
   grantsVisible.value = false
@@ -410,9 +414,11 @@ async function runNow() {
   if (busy.value) return
   const a = props.automation
   if (!a) return
+  const version = detailVersion
   busy.value = 'run'
   try {
     const res = await runAutomationNow(a.id)
+    if (version !== detailVersion) return
     MessagePlugin.success(t('automation.messages.queued'))
     if (res.data) {
       grantsVisible.value = false
@@ -420,9 +426,10 @@ async function runNow() {
       runsTotal.value += 1
     }
   } catch (e: any) {
+    if (version !== detailVersion) return
     MessagePlugin.error(e?.message || t('common.operationFailed'))
   } finally {
-    busy.value = ''
+    if (version === detailVersion) busy.value = ''
   }
 }
 
@@ -433,14 +440,17 @@ async function toggle() {
     MessagePlugin.warning(t('automation.scheduleEndedHint'))
     return
   }
+  const version = detailVersion
   busy.value = 'toggle'
   try {
     const res = a.enabled ? await pauseAutomation(a.id) : await resumeAutomation(a.id)
+    if (version !== detailVersion) return
     emit('changed', res.data)
   } catch (e: any) {
+    if (version !== detailVersion) return
     MessagePlugin.error(e?.message || t('common.operationFailed'))
   } finally {
-    busy.value = ''
+    if (version === detailVersion) busy.value = ''
   }
 }
 
@@ -450,10 +460,13 @@ function openRun(run: AutomationRun) {
 }
 
 async function cancel(run: AutomationRun) {
+  const version = detailVersion
   try {
     const res = await cancelAutomationRun(run.id)
+    if (version !== detailVersion) return
     runs.value = runs.value.map((r) => (r.id === run.id ? res.data : r))
   } catch (e: any) {
+    if (version !== detailVersion) return
     MessagePlugin.error(e?.message || t('common.operationFailed'))
   }
 }

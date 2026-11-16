@@ -233,6 +233,7 @@ import {
 import { formatArtifactDateTime, formatArtifactSize } from '@/utils/sessionArtifacts'
 import { resolveFilePreviewExt } from '@/utils/filePreview'
 import { useConfirmDelete } from '@/components/settings/useConfirmDelete'
+import { useAuthStore } from '@/stores/auth'
 import EmptyState from '@/components/EmptyState.vue'
 import ResourceIcon from '@/components/icons/ResourceIcon.vue'
 import DocumentPreview from '@/components/document-preview.vue'
@@ -244,6 +245,7 @@ const SEARCH_DEBOUNCE_MS = 300
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 const confirmDelete = useConfirmDelete()
 
 const category = ref<ArtifactCategory>(parseArtifactCategory(route.query.type))
@@ -354,6 +356,15 @@ watch(category, () => {
   syncQuery()
   reload()
 })
+watch(
+  [() => authStore.user?.id, () => authStore.effectiveTenantId],
+  (next, prev) => {
+    if (!prev || (next[0] === prev[0] && next[1] === prev[1])) return
+    previewVisible.value = false
+    previewItem.value = null
+    reload()
+  },
+)
 
 function openPreview(item: ArtifactLibraryItem) {
   previewItem.value = item
@@ -362,7 +373,7 @@ function openPreview(item: ArtifactLibraryItem) {
 
 function openSession(item: ArtifactLibraryItem) {
   previewVisible.value = false
-  void router.push(`/platform/chat/${item.session_id}`)
+  void router.push(`/platform/chat/${encodeURIComponent(item.session_id)}`)
 }
 
 function itemKey(item: ArtifactLibraryItem) {

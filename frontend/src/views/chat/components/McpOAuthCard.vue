@@ -8,7 +8,7 @@
         <span v-if="secondsLeft >= 0" class="action-timer" :class="timerClass">{{ formatCountdown(secondsLeft) }}</span>
       </div>
       <div class="prompt-footer-actions">
-        <button type="button" class="prompt-btn" :disabled="canceling || authorizing" @click="skip">
+        <button type="button" class="prompt-btn" :disabled="canceling" @click="skip">
           {{ $t('agentStream.mcpOAuth.skip') }}
         </button>
         <button type="button" class="prompt-btn is-primary" :disabled="authorizing || canceling" @click="authorize">
@@ -42,7 +42,7 @@
 
 <script setup lang="ts">
 import ChatTimelineIcon from '@/components/ChatTimelineIcon.vue'
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import {
@@ -106,6 +106,9 @@ const canceling = ref(false)
 const now = ref(Date.now())
 let clock: number | null = null
 let poll: number | null = null
+let unmounted = false
+let pollingStatus = false
+let activePopup: Window | null = null
 
 const deadline = computed(() => {
   const base = (props.requestedAt || 0) * 1000
@@ -168,11 +171,30 @@ function stopPoll() {
     window.clearInterval(poll)
     poll = null
   }
+  pollingStatus = false
 }
 
+function closeActivePopup() {
+  if (activePopup) {
+    try { activePopup.close() } catch { /* cross-origin close may throw */ }
+    activePopup = null
+  }
+}
+
+watch(open, (isOpen) => {
+  if (!isOpen) {
+    stopPoll()
+    closeActivePopup()
+    authorizing.value = false
+  }
+})
+
 const skip = async () => {
-  if (props.resolved || canceling.value) return
+  if (!open.value || canceling.value) return
   canceling.value = true
+  stopPoll()
+  closeActivePopup()
+  authorizing.value = false
   try {
     if (useEmbedOAuth()) {
       await cancelEmbedMCPOAuth(
@@ -196,7 +218,7 @@ const skip = async () => {
 }
 
 const authorize = async () => {
-  if (props.resolved || authorizing.value) return
+  if (!open.value || authorizing.value) return
   authorizing.value = true
   try {
     const redirectUri = window.location.origin + MCP_OAUTH_CALLBACK_PATH
@@ -217,62 +239,104 @@ const authorize = async () => {
         redirect_uri: redirectUri,
         frontend_redirect: frontendRedirect,
       })
-    if (!authorization.authorizationUrl || !authorization.authorizationAttempt) {
+    let safeAuthorizationUrl = ''
+    try {
+      const rawAuthUrl = String(authorization.authorizationUrl || '').trim()
+      if (typeof URL === 'function') {
+        const parsed = new URL(rawAuthUrl)
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          safeAuthorizationUrl = rawAuthUrl
+        }
+      } else if (/^https?:\/\/[^\s"'<>]+$/i.test(rawAuthUrl)) {
+        safeAuthorizationUrl = rawAuthUrl
+      }
+    } catch {
+      safeAuthorizationUrl = ''
+    }
+    if (!safeAuthorizationUrl || !authorization.authorizationAttempt) {
       MessagePlugin.error(t('agentStream.mcpOAuth.startFailed'))
       authorizing.value = false
       return
     }
-    const popup = window.open(authorization.authorizationUrl, 'mcp_oauth', 'width=600,height=720')
+    if (unmounted || !open.value) {
+      authorizing.value = false
+      return
+    }
+    const popup = window.open(safeAuthorizationUrl, 'mcp_oauth', 'width=600,height=720')
+    if (popup) {
+      try { popup.opener = null } catch { /* ignore cross-origin opener assignment errors */ }
+    }
+    activePopup = popup
+    stopPoll()
     poll = window.setInterval(async () => {
-      const closed = !popup || popup.closed
-      let ok = false
-      try {
-        ok = useEmbedOAuth()
-          ? await getEmbedMCPOAuthStatus(
-            props.embedChannelId!,
-            props.embedToken!,
-            props.embedSessionId!,
-            props.embedSessionSig!,
-            props.embedVisitorId!,
-            props.serviceId,
-            authorization.authorizationAttempt,
-          )
-          : await getMCPOAuthStatus(props.serviceId, authorization.authorizationAttempt)
-      } catch {
-        /* transient; keep polling */
-      }
-      if (ok) {
+      if (unmounted || !open.value) {
         stopPoll()
-        try { popup?.close() } catch { /* cross-origin close may throw */ }
+        closeActivePopup()
+        authorizing.value = false
+        return
+      }
+      if (pollingStatus) return
+      pollingStatus = true
+      try {
+        const closed = !popup || popup.closed
+        let ok = false
         try {
-          if (useEmbedOAuth()) {
-            await resolveEmbedMCPOAuth(
+          ok = useEmbedOAuth()
+            ? await getEmbedMCPOAuthStatus(
               props.embedChannelId!,
               props.embedToken!,
               props.embedSessionId!,
               props.embedSessionSig!,
               props.embedVisitorId!,
-              props.pendingId,
-              { service_id: props.serviceId, decision: 'authorize' },
+              props.serviceId,
+              authorization.authorizationAttempt,
             )
-          } else {
-            await resolveMCPOAuth(props.pendingId, { service_id: props.serviceId, decision: 'authorize' })
-            try {
-              await refreshMCPMetadata(props.serviceId)
-            } catch {
-              /* next describe/list will live-fill this user's directory */
-            }
-          }
-          markPromptSubmitted(props.pendingId, { authorized: true })
-          MessagePlugin.success(t('agentStream.mcpOAuth.authorizedToast'))
-        } catch (e: any) {
-          const msg = e?.response?.data?.error?.message || e?.message || t('agentStream.mcpOAuth.resumeFailed')
-          MessagePlugin.error(msg)
+            : await getMCPOAuthStatus(props.serviceId, authorization.authorizationAttempt)
+        } catch {
+          /* transient; keep polling */
         }
-        authorizing.value = false
-      } else if (closed) {
-        stopPoll()
-        authorizing.value = false
+        if (unmounted || !open.value) {
+          stopPoll()
+          closeActivePopup()
+          authorizing.value = false
+          return
+        }
+        if (ok) {
+          stopPoll()
+          closeActivePopup()
+          try {
+            if (useEmbedOAuth()) {
+              await resolveEmbedMCPOAuth(
+                props.embedChannelId!,
+                props.embedToken!,
+                props.embedSessionId!,
+                props.embedSessionSig!,
+                props.embedVisitorId!,
+                props.pendingId,
+                { service_id: props.serviceId, decision: 'authorize' },
+              )
+            } else {
+              await resolveMCPOAuth(props.pendingId, { service_id: props.serviceId, decision: 'authorize' })
+              try {
+                await refreshMCPMetadata(props.serviceId)
+              } catch {
+                /* next describe/list will live-fill this user's directory */
+              }
+            }
+            markPromptSubmitted(props.pendingId, { authorized: true })
+            MessagePlugin.success(t('agentStream.mcpOAuth.authorizedToast'))
+          } catch (e: any) {
+            const msg = e?.response?.data?.error?.message || e?.message || t('agentStream.mcpOAuth.resumeFailed')
+            MessagePlugin.error(msg)
+          }
+          authorizing.value = false
+        } else if (closed) {
+          stopPoll()
+          activePopup = null
+          authorizing.value = false
+        }
+      } finally {
+        pollingStatus = false
       }
     }, 1500)
   } catch (e: any) {
@@ -289,13 +353,15 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  unmounted = true
   if (clock) window.clearInterval(clock)
   stopPoll()
+  closeActivePopup()
 })
 
 /** Enter starts authorization while docked. */
 const handleKey = (e: KeyboardEvent): boolean => {
-  if (!interactive.value || !isSubmitKey(e) || authorizing.value || canceling.value) return false
+  if (e.repeat || !interactive.value || !isSubmitKey(e) || authorizing.value || canceling.value) return false
   void authorize()
   return true
 }

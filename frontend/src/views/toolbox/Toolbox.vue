@@ -42,7 +42,7 @@
       </div>
 
       <section v-if="selectedItem" class="toolbox-main" role="tabpanel">
-        <div class="toolbox-panel">
+        <div class="toolbox-panel" :key="authStore.effectiveTenantId ?? 0">
           <SkillSettings v-if="selectedItem.key === 'skills'" ref="panel" :key="sandboxId"
             :initial-sandbox-id="sandboxId" @count="counts.skills = $event" />
           <McpSettings v-else-if="selectedItem.key === 'mcp'" ref="panel" @count="counts.mcp = $event" />
@@ -56,7 +56,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
@@ -114,16 +114,45 @@ watch([selectedItem, visibleItems], () => {
 }, { immediate: true })
 
 // Tab badges for tools that are not open; the open panel keeps its own badge current.
-const summaries: Record<ToolboxSection, () => Promise<void>> = {
-  skills: async () => { counts.skills = (await listSkillCatalog())?.data?.length ?? 0 },
-  mcp: async () => { counts.mcp = (await listMCPServices()).length },
-  browserconnection: async () => { if (!browserConnection.loaded) await browserConnection.refresh() },
+let summaryEpoch = 0
+
+const runSummary = async (key: ToolboxSection, epoch: number) => {
+  if (key === 'skills') {
+    const count = (await listSkillCatalog())?.data?.length ?? 0
+    if (epoch === summaryEpoch) counts.skills = count
+    return
+  }
+  if (key === 'mcp') {
+    const count = (await listMCPServices()).length
+    if (epoch === summaryEpoch) counts.mcp = count
+    return
+  }
+  if (!browserConnection.loaded) await browserConnection.refresh()
 }
+
 watch(() => visibleItems.value.map((item) => item.key), (keys, previous = []) => {
+  const epoch = summaryEpoch
   for (const key of keys) {
-    if (!previous.includes(key)) summaries[key]().catch(() => {})
+    if (!previous.includes(key)) runSummary(key, epoch).catch(() => {})
   }
 }, { immediate: true })
+
+watch(
+  [() => authStore.user?.id, () => authStore.effectiveTenantId],
+  (next, prev) => {
+    if (!prev || (next[0] === prev[0] && next[1] === prev[1])) return
+    const epoch = ++summaryEpoch
+    delete counts.skills
+    delete counts.mcp
+    for (const item of visibleItems.value) {
+      runSummary(item.key, epoch).catch(() => {})
+    }
+  },
+)
+
+onBeforeUnmount(() => {
+  summaryEpoch++
+})
 </script>
 
 <style scoped lang="less">

@@ -10,8 +10,8 @@
           <div class="result-title">
             <span class="result-index">#{{ index + 1 }}</span>
             <a
-              v-if="item.url"
-              :href="item.url"
+              v-if="safeHttpUrl(item.url)"
+              :href="safeHttpUrl(item.url)"
               class="result-link"
               target="_blank"
               rel="noopener noreferrer"
@@ -19,7 +19,7 @@
             >
               <span class="result-domain">{{ safeHostname(item.url) }}</span>
             </a>
-            <span v-else class="result-domain">{{ $t('chat.unknownLink') }}</span>
+            <span v-else class="result-domain">{{ item.url ? safeHostname(item.url) : $t('chat.unknownLink') }}</span>
           </div>
           <div class="result-meta">
             <span
@@ -42,12 +42,12 @@
               <span class="field-label">URL</span>
               <span class="field-value">
                 <a
-                  v-if="item.url"
-                  :href="item.url"
+                  v-if="safeHttpUrl(item.url)"
+                  :href="safeHttpUrl(item.url)"
                   target="_blank"
                   rel="noopener noreferrer"
                 >{{ item.url }}</a>
-                <span v-else>{{ $t('chat.notProvided') }}</span>
+                <span v-else>{{ item.url || $t('chat.notProvided') }}</span>
               </span>
             </div>
           </div>
@@ -195,6 +195,20 @@ const truncate = (content: string, maxLength = 480): string => {
   if (!content) return '';
   if (content.length <= maxLength) return content;
   return `${content.substring(0, maxLength)}…`;
+};
+
+const safeHttpUrl = (raw?: string): string => {
+  const trimmed = typeof raw === 'string' ? raw.trim() : '';
+  if (!trimmed) return '';
+  try {
+    if (typeof URL === 'function') {
+      const parsed = new URL(trimmed);
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? trimmed : '';
+    }
+    return /^https?:\/\/[^\s"'<>]+$/i.test(trimmed) ? trimmed : '';
+  } catch {
+    return '';
+  }
 };
 
 const safeHostname = (url: string): string => {

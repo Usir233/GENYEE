@@ -301,6 +301,7 @@ function onPreviewResizeEnd() {
 }
 
 function cleanupPreviewResize() {
+    if (!previewResizing.value) return
     document.removeEventListener('mousemove', onPreviewResizeMove)
     document.removeEventListener('mouseup', onPreviewResizeEnd)
     document.body.style.cursor = ''
@@ -312,32 +313,63 @@ function onWindowResize() {
     previewWidth.value = clampPreviewWidth(previewWidth.value)
 }
 
+let loadSeq = 0
+
+async function reloadMessageArtifacts() {
+    const seq = ++loadSeq
+    if (!props.visible) return
+    if (props.artifacts && props.artifacts.length) {
+        fetched.value = []
+        loading.value = false
+        applyRequestedPreview()
+        return
+    }
+    if (!props.sessionId || !props.messageId) {
+        fetched.value = []
+        loading.value = false
+        return
+    }
+    loading.value = true
+    try {
+        const res: any = await listMessageArtifacts(props.sessionId, props.messageId)
+        if (seq !== loadSeq) return
+        const data = (res && (res.data || res)) as ArtifactMeta[] | undefined
+        fetched.value = Array.isArray(data) ? data : []
+        applyRequestedPreview()
+    } catch (err) {
+        if (seq !== loadSeq) return
+        console.error('[ChatArtifactsDrawer] load failed:', err)
+        fetched.value = []
+    } finally {
+        if (seq === loadSeq) loading.value = false
+    }
+}
+
 watch(
     () => props.visible,
-    async (open) => {
+    (open) => {
         if (!open) {
+            loadSeq++
+            loading.value = false
             suppressDrawerClose = false
             previewItem.value = null
             previewOpenedDirectly.value = false
             return
         }
-        if (props.artifacts && props.artifacts.length) {
-            fetched.value = []
-            applyRequestedPreview()
-            return
-        }
-        if (!props.sessionId || !props.messageId) return
-        loading.value = true
-        try {
-            const res: any = await listMessageArtifacts(props.sessionId, props.messageId)
-            const data = (res && (res.data || res)) as ArtifactMeta[] | undefined
-            fetched.value = Array.isArray(data) ? data : []
-            applyRequestedPreview()
-        } catch (err) {
-            console.error('[ChatArtifactsDrawer] load failed:', err)
-            fetched.value = []
-        } finally {
-            loading.value = false
+        void reloadMessageArtifacts()
+    },
+)
+
+watch(
+    () => [props.sessionId, props.messageId] as const,
+    ([nextSession, nextMessage], [prevSession, prevMessage]) => {
+        if (nextSession === prevSession && nextMessage === prevMessage) return
+        loadSeq++
+        fetched.value = []
+        previewItem.value = null
+        previewOpenedDirectly.value = false
+        if (props.visible) {
+            void reloadMessageArtifacts()
         }
     },
 )

@@ -24,8 +24,8 @@
         @mouseleave="scheduleCitationClose">
         <template v-if="citationFloat.type === 'web'">
           <div class="embed-citation-float__title">{{ citationFloat.title || citationFloat.url }}</div>
-          <a v-if="citationFloat.url" class="embed-citation-float__link" :href="citationFloat.url" target="_blank"
-            rel="noopener noreferrer">{{ citationFloat.url }}</a>
+          <a v-if="safeCitationUrl" class="embed-citation-float__link" :href="safeCitationUrl" target="_blank"
+            rel="noopener noreferrer">{{ safeCitationUrl }}</a>
         </template>
         <template v-else>
           <div class="embed-citation-float__title">{{ citationFloat.title }}</div>
@@ -137,6 +137,21 @@ const {
     getKnowledgeReferences: () => props.session?.knowledge_references,
   },
 )
+
+const safeCitationUrl = computed(() => {
+  const raw = String(citationFloat.value?.url || '').trim()
+  if (!raw) return ''
+  try {
+    if (typeof URL === 'function') {
+      const base = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://localhost'
+      const parsed = new URL(raw, base)
+      return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? raw : ''
+    }
+    return /^https?:\/\/[^\s"'<>]+$/i.test(raw) ? raw : ''
+  } catch {
+    return ''
+  }
+})
 
 // Smooth the streamed answer into a steady typewriter cadence (shared with the
 // Agent path). History reloads arrive complete and snap to full.

@@ -109,6 +109,7 @@ const props = defineProps<{
   delegatedTask?: string
   // dock: the approval form, shown above the composer. inline: the timeline row.
   variant?: 'dock' | 'inline'
+  serviceId?: string
   serviceName: string
   mcpToolName: string
   description?: string
@@ -176,14 +177,19 @@ const submission = computed(() => promptSubmission(props.pendingId))
 const open = computed(() => !props.resolved && !submission.value)
 // A handled approval returns to a compact timeline row, including local submits.
 watch([open, () => props.pendingId], () => { argsExpanded.value = false })
+watch([() => props.pendingId, () => props.argsJson], () => {
+  argsText.value = formatJson(props.argsJson || '{}')
+  allowInSession.value = false
+})
 // Without a dock (a view that does not provide one) the row stays answerable.
 const interactive = computed(() => open.value && (props.variant === 'dock' || !dock))
 const awaitingInDock = computed(() => open.value && props.variant !== 'dock' && Boolean(dock?.isDocked(props.pendingId)))
 
 const hasArgs = computed(() => argsText.value.trim().length > 0)
 
-// The service name the backend gives its own operations (run_operation).
-const isOperation = computed(() => props.serviceName === 'GENYEE')
+// The service name the backend gives its own operations (run_operation);
+// external MCP services carry a non-empty serviceId and must never spoof it.
+const isOperation = computed(() => props.serviceName === 'GENYEE' && !props.serviceId)
 
 // A batch operation ends its description with one "- " line per item it acts
 // on; those render as a list so every item stays visible. "Label: value"
@@ -423,7 +429,7 @@ const submit = async (decision: 'approve' | 'reject') => {
 
 /** Enter approves while docked; in the args editor it needs Cmd/Ctrl. */
 const handleKey = (e: KeyboardEvent): boolean => {
-  if (!interactive.value || !isSubmitKey(e)) return false
+  if (e.repeat || !interactive.value || !isSubmitKey(e)) return false
   const inArgs = (e.target as HTMLElement | null)?.tagName === 'TEXTAREA'
   if (inArgs && !e.metaKey && !e.ctrlKey) return false
   if (!isJsonValid.value) return false

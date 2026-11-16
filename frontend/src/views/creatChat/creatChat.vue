@@ -70,7 +70,7 @@
         @update:visible="(val) => val ? null : uiStore.closeKBEditor()" @success="handleKBEditorSuccess" />
 </template>
 <script setup lang="ts">
-import { ref, watch, onMounted, nextTick, computed } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount, nextTick, computed } from 'vue';
 import ContextualGuide from '@/components/ContextualGuide.vue';
 import InputField from '@/components/Input-field.vue';
 import { createSessions } from "@/api/chat/index";
@@ -233,6 +233,14 @@ onMounted(() => {
     fetchSuggestedQuestions();
 });
 
+onBeforeUnmount(() => {
+    if (debounceTimer) {
+        clearTimeout(debounceTimer);
+        debounceTimer = null;
+    }
+    suggestedQuestionsFetchId++;
+});
+
 const inputFieldRef = ref();
 
 // The suggestion's source rides with this send to the new session's first
@@ -277,10 +285,11 @@ async function createNewSession(value: string, modelId: string, mentionedItems: 
 }
 
 const navigateToSession = async (sessionId: string, value: string, modelId: string, mentionedItems: any[], imageFiles: any[] = [], attachmentFiles: any[] = [], options: SendMessageOptions = {}) => {
+    const encodedSessionId = encodeURIComponent(sessionId);
     const now = new Date().toISOString();
     let obj = {
         title: t('createChat.newSessionTitle'),
-        path: `chat/${sessionId}`,
+        path: `chat/${encodedSessionId}`,
         id: sessionId,
         isMore: false,
         isNoTitle: true,
@@ -290,7 +299,7 @@ const navigateToSession = async (sessionId: string, value: string, modelId: stri
     usemenuStore.updataMenuChildren(obj);
     usemenuStore.changeIsFirstSession(true);
     usemenuStore.changeFirstQuery(value, mentionedItems, modelId, imageFiles, attachmentFiles, options.questionOrigin ?? null);
-    router.push(`/platform/chat/${sessionId}`);
+    router.push(`/platform/chat/${encodedSessionId}`);
 }
 
 const handleKBEditorSuccess = (kbId: string) => {

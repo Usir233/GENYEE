@@ -231,7 +231,7 @@ const submit = async (decline: boolean) => {
 
 /** Keyboard shortcuts while docked: a letter picks an option, Enter submits. */
 const handleKey = (e: KeyboardEvent): boolean => {
-  if (!interactive.value) return false
+  if (e.repeat || !interactive.value) return false
   const target = e.target as HTMLElement | null
   if (isSubmitKey(e)) {
     // Enter inside a select picks from its dropdown.

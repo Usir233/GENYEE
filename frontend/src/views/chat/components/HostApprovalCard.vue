@@ -1,12 +1,12 @@
 <template>
-  <div class="host-approval" :class="{ 'is-resolved': resolved }">
+  <div class="host-approval" :class="{ 'is-resolved': effectiveResolved }">
     <div class="host-approval__header">
       <t-icon class="host-approval__icon" :name="headerIcon" />
       <span class="host-approval__title">{{ $t(titleKey) }}</span>
-      <span v-if="!resolved && secondsLeft >= 0" class="host-approval__timer" :class="timerClass">
+      <span v-if="!effectiveResolved && secondsLeft >= 0" class="host-approval__timer" :class="timerClass">
         {{ formatCountdown(secondsLeft) }}
       </span>
-      <span v-else-if="resolved" class="host-approval__status">{{ statusLine }}</span>
+      <span v-else-if="effectiveResolved" class="host-approval__status">{{ statusLine }}</span>
     </div>
 
     <div class="host-approval__body">
@@ -58,18 +58,18 @@
       <template v-if="host.grant_path && host.reason !== 'file_write'">
         <div class="host-approval__label">{{ $t('agentStream.hostApproval.grantPath') }}</div>
         <pre class="host-approval__code">{{ host.grant_path }}</pre>
-        <t-radio-group v-if="!resolved && canNarrowAccess(host)" v-model="access" variant="default-filled" size="small">
+        <t-radio-group v-if="!effectiveResolved && canNarrowAccess(host)" v-model="access" variant="default-filled" size="small">
           <t-radio-button value="write">{{ $t('agentStream.hostApproval.accessWrite') }}</t-radio-button>
           <t-radio-button value="read">{{ $t('agentStream.hostApproval.accessRead') }}</t-radio-button>
         </t-radio-group>
       </template>
 
-      <div v-if="showsRerunNotice(host, resolved)" class="host-approval__notice">
+      <div v-if="showsRerunNotice(host, effectiveResolved)" class="host-approval__notice">
         <t-icon name="info-circle" />
         <span>{{ $t('agentStream.hostApproval.firstAttemptRan') }}</span>
       </div>
 
-      <template v-if="!resolved && sessionRules.length">
+      <template v-if="!effectiveResolved && sessionRules.length">
         <div class="host-approval__label">{{ $t('agentStream.hostApproval.sessionRules') }}</div>
         <pre class="host-approval__code is-muted">{{ sessionRules.join('\n') }}</pre>
       </template>
@@ -83,7 +83,7 @@
       </template>
     </div>
 
-    <div v-if="!resolved" class="host-approval__actions">
+    <div v-if="!effectiveResolved" class="host-approval__actions">
       <t-button variant="outline" :disabled="submitting" @click="submit('reject', 'once')">
         {{ $t('agentStream.hostApproval.reject') }}
       </t-button>
@@ -100,10 +100,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, inject, watch, onMounted, onBeforeUnmount } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import { resolveToolApproval } from '@/api/mcp-service'
+import { resumeSuspendedRunKey } from '@/utils/suspendedRun'
+import { markPromptSubmitted, promptSubmission } from '@/composables/usePromptDock'
 import {
   buildHostResolveBody,
   canNarrowAccess,
@@ -129,11 +131,22 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
+const resumeSuspendedRun = inject(resumeSuspendedRunKey, undefined)
 const submitting = ref(false)
 const snippetExpanded = ref(false)
 const previewExpanded = ref(false)
 const PREVIEW_LIMIT = 64 * 1024
 const access = ref<HostApprovalAccess>(props.host.grant_access === 'read' ? 'read' : 'write')
+const localScope = ref<HostApprovalScope>('once')
+const submission = computed(() => promptSubmission(props.pendingId))
+const effectiveResolved = computed(() => Boolean(props.resolved || submission.value))
+const effectiveApproved = computed(() => (
+  props.resolved ? Boolean(props.approved) : Boolean(submission.value?.approved)
+))
+watch([() => props.pendingId, () => props.host.grant_access], () => {
+  access.value = props.host.grant_access === 'read' ? 'read' : 'write'
+  localScope.value = 'once'
+})
 const now = ref(Date.now())
 let timer: ReturnType<typeof setInterval> | null = null
 
@@ -153,7 +166,7 @@ const writeModeLabel = computed(() => {
 })
 
 const secondsLeft = computed(() => {
-  if (props.resolved) return -1
+  if (effectiveResolved.value) return -1
   const deadline = (props.requestedAt || 0) * 1000 + (props.timeoutSeconds || 600) * 1000
   return Math.max(0, Math.floor((deadline - now.value) / 1000))
 })
@@ -165,13 +178,14 @@ const timerClass = computed(() => {
 })
 
 const headerIcon = computed(() => {
-  if (!props.resolved) return 'secured'
-  return props.approved ? 'check-circle' : 'close-circle'
+  if (!effectiveResolved.value) return 'secured'
+  return effectiveApproved.value ? 'check-circle' : 'close-circle'
 })
 
 const statusLine = computed(() => {
-  if (!props.approved) return t('agentStream.hostApproval.rejectedTag')
-  return props.resolveScope === 'session'
+  if (!effectiveApproved.value) return t('agentStream.hostApproval.rejectedTag')
+  const scope = props.resolved ? props.resolveScope : localScope.value
+  return scope === 'session'
     ? t('agentStream.hostApproval.approvedSession')
     : t('agentStream.hostApproval.approvedOnce')
 })
@@ -192,10 +206,10 @@ onBeforeUnmount(() => {
 })
 
 const submit = async (decision: 'approve' | 'reject', scope: HostApprovalScope) => {
-  if (props.resolved || submitting.value) return
+  if (effectiveResolved.value || submitting.value) return
   submitting.value = true
   try {
-    await resolveToolApproval(
+    const res = await resolveToolApproval(
       props.pendingId,
       buildHostResolveBody(decision, {
         scope,
@@ -205,9 +219,12 @@ const submit = async (decision: 'approve' | 'reject', scope: HostApprovalScope) 
         reason: decision === 'reject' ? t('agentStream.hostApproval.userRejected') : undefined,
       }),
     )
+    localScope.value = scope
+    markPromptSubmitted(props.pendingId, { approved: decision === 'approve' })
     // The resolved SSE event may be held back like the prompt was.
     clearComposerApproval(props.pendingId)
     MessagePlugin.success(t('agentStream.hostApproval.submitted'))
+    if (res?.resumed) resumeSuspendedRun?.(props.pendingId)
   } catch (e: any) {
     const msg = e?.response?.data?.error?.message || e?.message || t('agentStream.hostApproval.submitFailed')
     MessagePlugin.error(msg)

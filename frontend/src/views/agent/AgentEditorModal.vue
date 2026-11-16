@@ -233,7 +233,7 @@
                       @mousedown.prevent="insertPlaceholder(placeholder.name, true)"
                       @mouseenter="selectedPlaceholderIndex = index">
                       <div class="placeholder-name">
-                        <code v-html="`{{${placeholder.name}}}`"></code>
+                        <code v-text="'{{' + placeholder.name + '}}'"></code>
                       </div>
                       <div class="placeholder-desc">{{ placeholder.description }}</div>
                     </div>
@@ -281,7 +281,7 @@
                       @mousedown.prevent="insertContextPlaceholder(placeholder.name, true)"
                       @mouseenter="selectedContextPlaceholderIndex = index">
                       <div class="placeholder-name">
-                        <code v-html="`{{${placeholder.name}}}`"></code>
+                        <code v-text="'{{' + placeholder.name + '}}'"></code>
                       </div>
                       <div class="placeholder-desc">{{ placeholder.description }}</div>
                     </div>
@@ -354,7 +354,7 @@
                           @mousedown.prevent="insertGenericPlaceholder('intent', placeholder.name, true)"
                           @mouseenter="intentPromptPopup.selectedIndex = index">
                           <div class="placeholder-name">
-                            <code v-html="`{{${placeholder.name}}}`" />
+                            <code v-text="'{{' + placeholder.name + '}}'" />
                           </div>
                           <div class="placeholder-desc">{{ placeholder.description }}</div>
                         </div>
@@ -404,7 +404,7 @@
                         @mousedown.prevent="insertGenericPlaceholder('rewriteSystem', placeholder.name, true)"
                         @mouseenter="rewriteSystemPopup.selectedIndex = index">
                         <div class="placeholder-name">
-                          <code v-html="`{{${placeholder.name}}}`"></code>
+                          <code v-text="'{{' + placeholder.name + '}}'"></code>
                         </div>
                         <div class="placeholder-desc">{{ placeholder.description }}</div>
                       </div>
@@ -449,7 +449,7 @@
                         @mousedown.prevent="insertGenericPlaceholder('rewriteUser', placeholder.name, true)"
                         @mouseenter="rewriteUserPopup.selectedIndex = index">
                         <div class="placeholder-name">
-                          <code v-html="`{{${placeholder.name}}}`"></code>
+                          <code v-text="'{{' + placeholder.name + '}}'"></code>
                         </div>
                         <div class="placeholder-desc">{{ placeholder.description }}</div>
                       </div>
@@ -530,7 +530,7 @@
                         @mousedown.prevent="insertGenericPlaceholder('fallback', placeholder.name, true)"
                         @mouseenter="fallbackPromptPopup.selectedIndex = index">
                         <div class="placeholder-name">
-                          <code v-html="`{{${placeholder.name}}}`"></code>
+                          <code v-text="'{{' + placeholder.name + '}}'"></code>
                         </div>
                         <div class="placeholder-desc">{{ placeholder.description }}</div>
                       </div>
@@ -1819,7 +1819,7 @@
       </div>
 
       <!-- 共享管理（仅编辑模式且非内置智能体） -->
-      <div v-if="editorMode === 'edit' && editorAgent?.id && !editorAgent?.is_builtin"
+      <div v-if="editorMode === 'edit' && !props.readOnly && editorAgent?.id && !editorAgent?.is_builtin"
         v-show="currentSection === 'share'" class="section">
         <AgentShareSettings :agent-id="editorAgent.id" :agent="editorAgent" />
       </div>
@@ -2113,6 +2113,22 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener(AGENT_EDITOR_FOCUS_SECTION_EVENT, onAgentEditorFocusSection)
+  stopCatalogPoll()
+  clearFieldHighlight()
+  if (placeholderPopupTimer) {
+    clearTimeout(placeholderPopupTimer)
+    placeholderPopupTimer = null
+  }
+  if (contextPlaceholderPopupTimer) {
+    clearTimeout(contextPlaceholderPopupTimer)
+    contextPlaceholderPopupTimer = null
+  }
+  for (const popupRef of [intentPromptPopup, rewriteSystemPopup, rewriteUserPopup, fallbackPromptPopup]) {
+    if (popupRef.value.timer) {
+      clearTimeout(popupRef.value.timer)
+      popupRef.value.timer = null
+    }
+  }
 })
 
 const saving = ref(false);
@@ -2852,8 +2868,8 @@ const navItems = computed(() => {
     items.push({ key: 'mcp', icon: 'server', label: t('agentEditor.mcp.label') });
     items.push({ key: 'skills', icon: SKILL_ICON, label: t('agent.editor.skillsConfig') });
   }
-  // 发布（仅编辑模式）
-  if (editorMode.value === 'edit' && editorAgent.value?.id && !editorAgent.value?.is_builtin && !authStore.isLiteMode) {
+  // 发布（仅编辑模式且非只读）
+  if (editorMode.value === 'edit' && !props.readOnly && editorAgent.value?.id && !editorAgent.value?.is_builtin && !authStore.isLiteMode) {
     items.push({ key: 'share', icon: 'share', label: t('knowledgeEditor.sidebar.share') });
   }
   return items;
@@ -4224,7 +4240,7 @@ const modalShell = useModalShell({
   visible: () => props.visible,
   loading: () => editorInitializing.value,
   close: handleClose,
-  snapshot: () => formData.value,
+  snapshot: () => (props.readOnly ? null : formData.value),
   ignoreEscape: () =>
     showPlaceholderPopup.value ||
     showContextPlaceholderPopup.value ||

@@ -289,7 +289,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
 import SettingsModalShell from '@/components/SettingsModalShell.vue'
@@ -401,8 +401,19 @@ const modalShell = useModalShell({
   snapshot: () => ({ form, schedule, timezone: timezone.value, maxMinutes: maxMinutes.value }),
 })
 
+const previewRuns = ref<string[]>([])
+const previewError = ref('')
+const previewLoading = ref(false)
+let previewSeq = 0
+let previewTimer: ReturnType<typeof setTimeout> | undefined
+
 watch(() => props.visible, (open) => {
-  if (!open) return
+  if (!open) {
+    clearTimeout(previewTimer)
+    previewSeq++
+    previewLoading.value = false
+    return
+  }
   const a = props.automation
   section.value = 'basic'
   Object.assign(form, blank())
@@ -431,11 +442,10 @@ watch(() => props.visible, (open) => {
   modalShell.markClean()
 }, { immediate: true })
 
-const previewRuns = ref<string[]>([])
-const previewError = ref('')
-const previewLoading = ref(false)
-let previewSeq = 0
-let previewTimer: ReturnType<typeof setTimeout> | undefined
+onBeforeUnmount(() => {
+  clearTimeout(previewTimer)
+  previewSeq++
+})
 
 watch([trigger, () => props.visible], () => {
   clearTimeout(previewTimer)

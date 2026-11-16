@@ -299,7 +299,17 @@ const fallbackWarning = computed(() => {
   return result.value.selected_tier === 'legacy' && (result.value.rejected || []).length > 0
 })
 
+let previewSeq = 0
+
+watch(open, (isOpen) => {
+  if (!isOpen) {
+    previewSeq++
+    loading.value = false
+  }
+})
+
 const runPreview = async () => {
+  const seq = ++previewSeq
   loading.value = true
   error.value = ''
   result.value = null
@@ -324,6 +334,7 @@ const runPreview = async () => {
       }
     }
     const resp = await previewChunking(input)
+    if (seq !== previewSeq) return
     // The axios interceptor in utils/request.ts already unwraps the
     // outer envelope and returns the response body. So resp here is
     // { success: true, data: PreviewChunkingResponse } directly.
@@ -341,6 +352,7 @@ const runPreview = async () => {
     previewInput.value = input
     result.value = resp.data
   } catch (e: any) {
+    if (seq !== previewSeq) return
     // Pull a useful message out of the error shapes our request layer
     // produces: rejected interceptor sends { status, message, ... }.
     const msg =
@@ -353,7 +365,7 @@ const runPreview = async () => {
     // Toast for visibility.
     MessagePlugin.error(t('knowledgeEditor.chunking.debug.errorPrefix') + ': ' + msg)
   } finally {
-    loading.value = false
+    if (seq === previewSeq) loading.value = false
   }
 }
 

@@ -153,14 +153,17 @@ const stopWikiStatusPolling = () => {
     wikiStatusTimer = null
   }
 }
+let wikiStatusDisposed = false
 const clearWikiStatusProbes = () => {
   wikiStatusProbeTimers.forEach(t => clearTimeout(t))
   wikiStatusProbeTimers = []
 }
 const fetchWikiStatusOnce = async () => {
-  if (!kbId.value || !isWiki.value) return
+  const reqKbId = kbId.value
+  if (wikiStatusDisposed || !reqKbId || !isWiki.value) return
   try {
-    const res: any = await getWikiStats(kbId.value)
+    const res: any = await getWikiStats(reqKbId)
+    if (wikiStatusDisposed || kbId.value !== reqKbId || !isWiki.value) return
     const data = res?.data || res
     if (!data) return
     wikiStatus.value = {
@@ -200,6 +203,7 @@ watch([kbId, isWiki], ([newKbId, newIsWiki]) => {
   }
 }, { immediate: true })
 onUnmounted(() => {
+  wikiStatusDisposed = true
   stopWikiStatusPolling()
   clearWikiStatusProbes()
 })
@@ -1226,6 +1230,23 @@ watch(activeKbTab, (tab) => {
 })
 
 watch(() => kbId.value, (newKbId, oldKbId) => {
+  if (oldKbId !== undefined && newKbId !== oldKbId) {
+    autoOpenRequest++;
+    stopMovePoll();
+    moveSubmitting.value = false;
+    moveMenuMode.value = 'normal';
+    isCardDetails.value = false;
+    batchMode.value = false;
+    batchTagDialogVisible.value = false;
+    if (tagSearchDebounce) {
+      clearTimeout(tagSearchDebounce);
+      tagSearchDebounce = null;
+    }
+    if (docSearchDebounce) {
+      clearTimeout(docSearchDebounce);
+      docSearchDebounce = null;
+    }
+  }
   if (!newKbId) {
     kbInfo.value = null;
     cardList.value = [];
@@ -1431,6 +1452,15 @@ onUnmounted(() => {
   window.removeEventListener('openURLImportDialog', handleOpenURLImportDialog as EventListener);
   window.removeEventListener('genyee:knowledge-file-drop', handleKnowledgeFileDrop as EventListener);
   window.removeEventListener('genyee:open-knowledge', handleOpenKnowledgeEvent as EventListener);
+  autoOpenRequest++;
+  if (tagSearchDebounce) {
+    clearTimeout(tagSearchDebounce);
+    tagSearchDebounce = null;
+  }
+  if (docSearchDebounce) {
+    clearTimeout(docSearchDebounce);
+    docSearchDebounce = null;
+  }
   stopMovePoll();
   statusPollingDisposed = true;
   resetStatusPolling();
@@ -1771,10 +1801,19 @@ const handleMoveConfirm = async () => {
 };
 
 const startMovePoll = (taskId: string) => {
+  const pollKbId = kbId.value;
   if (movePollTimer) clearInterval(movePollTimer);
   movePollTimer = setInterval(async () => {
+    if (wikiStatusDisposed || kbId.value !== pollKbId) {
+      stopMovePoll();
+      return;
+    }
     try {
       const res: any = await getKnowledgeMoveProgress(taskId);
+      if (wikiStatusDisposed || kbId.value !== pollKbId) {
+        stopMovePoll();
+        return;
+      }
       const data = res.data;
       if (!data) return;
       if (data.status === 'completed') {

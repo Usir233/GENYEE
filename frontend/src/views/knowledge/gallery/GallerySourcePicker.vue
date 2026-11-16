@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { listKnowledgeFiles } from '@/api/knowledge-base'
@@ -117,15 +117,25 @@ function cancelSearch() {
 }
 
 watch(
-  () => props.visible,
-  (open) => {
+  () => [props.visible, props.kbId] as const,
+  ([open]) => {
     cancelSearch()
-    if (!open) return
+    if (!open) {
+      fetchToken++
+      loading.value = false
+      bulkLoading.value = false
+      return
+    }
     keyword.value = ''
     void loadPage(true)
   },
   { immediate: true },
 )
+
+onBeforeUnmount(() => {
+  cancelSearch()
+  fetchToken++
+})
 
 function onKeywordChange(value: string) {
   keyword.value = value

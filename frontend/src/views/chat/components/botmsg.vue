@@ -45,7 +45,7 @@
             <deepThink :deepSession="session" v-if="session.showThink && !session.isAgentMode"></deepThink>
         </div>
         <!-- 非 Agent 模式下才显示传统的 markdown 渲染 -->
-        <div ref="parentMd" v-if="!session.hideContent && !session.isAgentMode">
+        <div ref="parentMd" v-if="!session.hideContent && !session.isAgentMode" @click.capture="handleMarkdownImageClick">
             <!-- 直接渲染完整内容，避免切分导致的问题，样式与 thinking 一致 -->
             <!-- 只有当有实际内容时才显示包围框 -->
             <div class="content-wrapper" v-if="hasActualContent">
@@ -146,7 +146,7 @@
     </div>
 </template>
 <script setup>
-import { onMounted, onBeforeUnmount, watch, computed, ref, reactive, nextTick, onUpdated } from 'vue';
+import { onMounted, watch, computed, ref, reactive, nextTick, onUpdated } from 'vue';
 import 'katex/dist/katex.min.css';
 import docInfo from './docInfo.vue';
 import deepThink from './deepThink.vue';
@@ -546,22 +546,12 @@ onUpdated(() => {
 });
 
 onMounted(async () => {
-    // 为 markdown-content 中的图片添加点击事件
     nextTick(async () => {
-        if (parentMd.value) {
-            parentMd.value.addEventListener('click', handleMarkdownImageClick, true);
-        }
         rebindCitations();
         await hydrateProtectedFileImages(parentMd.value, protectedFileAccess.value);
         await hydrateArtifactImages(parentMd.value, artifactRefContext.value);
         await enhanceMarkdownContainer(parentMd.value);
     });
-});
-
-onBeforeUnmount(() => {
-    if (parentMd.value) {
-        parentMd.value.removeEventListener('click', handleMarkdownImageClick, true);
-    }
 });
 </script>
 <style lang="less" scoped>

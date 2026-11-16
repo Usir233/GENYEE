@@ -331,7 +331,7 @@
                   <template v-for="item in activeTreeRows" :key="item.rowKey">
                     <div v-if="item.kind === 'directory'"
                       :class="['wiki-directory-item', { 'wiki-directory-item--drop': dropTargetKey === item.pathKey }]"
-                      :style="{ '--wiki-tree-depth': item.depth }" :draggable="editingFolderId !== item.folderId"
+                      :style="{ '--wiki-tree-depth': item.depth }" :draggable="Boolean(props.canEdit) && editingFolderId !== item.folderId"
                       @click="toggleDirectory(item.pathKey)"
                       @dragstart="onFolderDragStart($event, item.folderId, item.path)" @dragend="onPageDragEnd"
                       @dragover.prevent.stop="onDirectoryDragOver($event, item.pathKey)"
@@ -347,7 +347,7 @@
                         <span class="wiki-directory-title">{{ item.label }}</span>
                         <div class="wiki-tree-trailing">
                           <span class="wiki-directory-count">{{ item.count }}</span>
-                          <WikiFolderActions v-if="item.folderId" :name="item.label" :page-count="item.count"
+                          <WikiFolderActions v-if="props.canEdit && item.folderId" :name="item.label" :page-count="item.count"
                             :has-children="item.hasChildren"
                             @create="(name: string) => createFolder(item.folderId, item.path, name)"
                             @rename="() => startRenameFolder(item.folderId, item.label)"
@@ -366,7 +366,7 @@
                     </div>
                     <div v-else
                       :class="['wiki-page-item', 'wiki-page-item--tree', { active: selectedPage?.id === item.page.id }]"
-                      :style="{ '--wiki-tree-depth': item.depth }" :title="item.page.title" draggable="true"
+                      :style="{ '--wiki-tree-depth': item.depth }" :title="item.page.title" :draggable="Boolean(props.canEdit)"
                       @click="selectPage(item.page)" @dragstart="onPageDragStart($event, item.page)"
                       @dragend="onPageDragEnd">
                       <t-icon :name="getPageIcon(item.page)"
@@ -732,7 +732,7 @@
                 {{ issue.reported_by === 'wiki-researcher-agent' ? $t('knowledgeEditor.wikiBrowser.issueAiLinter') :
                   $t('knowledgeEditor.wikiBrowser.issueReportedBy', { reporter: issue.reported_by }) }}
               </span>
-              <div class="wiki-issue-popup-actions">
+              <div v-if="props.canEdit" class="wiki-issue-popup-actions">
                 <span class="wiki-issue-popup-action" @click="navigateToSlugAndFix(issue.slug)"
                   style="font-weight: 500;">
                   <t-icon name="arrow-right-circle" style="margin-right: 4px;" />{{
@@ -1680,14 +1680,33 @@ watch(graphDrawerContent, async () => {
   }
 })
 
+function escapeWikiHtml(raw: string): string {
+  return String(raw)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function escapeMarkdownText(raw: string): string {
+  return String(raw).replace(/([\\`*_{}[\]<>|])/g, '\\$1').replace(/\r?\n+/g, ' ')
+}
+
 function renderMarkdown(content: string): string {
-  // Pre-process wiki links [[slug|name]] to custom HTML tags
-  let preprocessed = content.replace(/\[\[([^\]]+)\]\]/g, (_, inner: string) => {
+  // Mask fenced and inline code spans before replacing [[slug|name]] wiki links.
+  const codeTokens: string[] = []
+  const masked = content.replace(/```[\s\S]*?```|`[^`\n]+`/g, (match) => {
+    const idx = codeTokens.push(match) - 1
+    return `\u0000WIKICODE_${idx}\u0000`
+  })
+  const linked = masked.replace(/\[\[([^\]]+)\]\]/g, (_, inner: string) => {
     const pipeIdx = inner.indexOf('|')
     const slug = pipeIdx > 0 ? inner.substring(0, pipeIdx).trim() : inner.trim()
     const display = pipeIdx > 0 ? inner.substring(pipeIdx + 1).trim() : slugDisplayName(slug)
-    return `<a href="#" class="wiki-content-link" data-slug="${slug}">${display}</a>`
+    return `<a href="#" class="wiki-content-link" data-slug="${escapeWikiHtml(slug)}">${escapeWikiHtml(display)}</a>`
   })
+  const preprocessed = linked.replace(/\u0000WIKICODE_(\d+)\u0000/g, (_, idx) => codeTokens[Number(idx)] ?? '')
 
   const html = marked.parse(preprocessed, { breaks: true, async: false, renderer: wikiRenderer })
   return sanitizeMarkdownHTML(html)
@@ -2428,12 +2447,13 @@ function primeDragData(e: DragEvent) {
 }
 
 function onPageDragStart(e: DragEvent, page: WikiPage) {
+  if (!props.canEdit) return
   draggedItem.value = { kind: 'page', page }
   primeDragData(e)
 }
 
 function onFolderDragStart(e: DragEvent, folderId: string, path: string[]) {
-  if (!folderId) return
+  if (!props.canEdit || !folderId) return
   draggedItem.value = { kind: 'folder', folderId, path }
   primeDragData(e)
 }
@@ -2474,7 +2494,7 @@ function onDropOnDirectory(e: DragEvent, folderId: string, path: string[]) {
   const item = draggedItem.value
   draggedItem.value = null
   dropTargetKey.value = ''
-  if (!item) return
+  if (!props.canEdit || !item) return
   const targetPath = path.join('/')
 
   if (item.kind === 'page') {
@@ -2823,14 +2843,15 @@ function appendIndexDirectoryLines(items: WikiIndexEntryDTO[]): string {
       const key = parts.join('/')
       if (emittedDirs.has(key)) continue
       emittedDirs.add(key)
-      out += `${'  '.repeat(i)}**${path[i]}**\n`
+      out += `${'  '.repeat(i)}**${escapeMarkdownText(path[i])}**\n`
     }
-    const display = entry.title || entry.slug
+    const rawDisplay = (entry.title || entry.slug).replace(/[\]|]/g, ' ').replace(/\r?\n+/g, ' ')
+    const safeSlug = String(entry.slug || '').replace(/[\]|]/g, '')
     const indent = '  '.repeat(path.length)
     if (entry.summary) {
-      out += `${indent}[[${entry.slug}|${display}]] — ${entry.summary}\n`
+      out += `${indent}[[${safeSlug}|${rawDisplay}]] — ${escapeMarkdownText(entry.summary)}\n`
     } else {
-      out += `${indent}[[${entry.slug}|${display}]]\n`
+      out += `${indent}[[${safeSlug}|${rawDisplay}]]\n`
     }
   }
   return out
@@ -3012,10 +3033,16 @@ async function loadPages() {
 }
 
 let statsTimer: ReturnType<typeof setInterval> | null = null
+let isWikiUnmounted = false
+let kbEpoch = 0
 
 async function loadStats() {
+  const targetKbId = props.knowledgeBaseId
+  const epoch = kbEpoch
+  if (!targetKbId || isWikiUnmounted) return
   try {
-    const res = await getWikiStats(props.knowledgeBaseId)
+    const res = await getWikiStats(targetKbId)
+    if (isWikiUnmounted || epoch !== kbEpoch || targetKbId !== props.knowledgeBaseId) return
     stats.value = (res as any).data || res as any
 
     // Notify parent so it can reflect wiki status (e.g. indexing badge in the breadcrumb)
@@ -3029,7 +3056,7 @@ async function loadStats() {
 
     // Poll if there are pending tasks or wiki ingest is active
     if (stats.value && (stats.value.pending_tasks > 0 || stats.value.is_active)) {
-      if (!statsTimer) {
+      if (!statsTimer && !isWikiUnmounted) {
         statsTimer = setInterval(() => {
           loadStats()
         }, 5000)
@@ -5204,6 +5231,33 @@ watch(() => route.query.slug, (newSlug) => {
   }
 })
 
+watch(() => props.knowledgeBaseId, (nextKb, prevKb) => {
+  if (!nextKb || nextKb === prevKb) return
+  kbEpoch++
+  if (statsTimer) {
+    clearInterval(statsTimer)
+    statsTimer = null
+  }
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
+  }
+  editingPage.value = false
+  selectedPage.value = null
+  navHistory.value = []
+  activeSystemView.value = ''
+  indexMarkdown.value = ''
+  indexSectionIdx.value = 0
+  indexSections.value = {}
+  showGlobalIssuesDrawer.value = false
+  showRevisionDrawer.value = false
+  graphDrawerVisible.value = false
+  initialSidebarLoad = true
+  void loadPages()
+  void loadStats()
+  if (props.view === 'graph') void loadGraph()
+})
+
 useAssistantDataChange((changes) => {
   if (!changes.some(change => change.ids.knowledgeBaseIds.includes(props.knowledgeBaseId))) return
   void loadPages()
@@ -5219,9 +5273,16 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  isWikiUnmounted = true
+  kbEpoch++
   disposeGraphPanZoom()
   if (statsTimer) {
     clearInterval(statsTimer)
+    statsTimer = null
+  }
+  if (searchTimer) {
+    clearTimeout(searchTimer)
+    searchTimer = null
   }
   if (graphHoverLeaveTimer) {
     clearTimeout(graphHoverLeaveTimer)

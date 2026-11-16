@@ -183,8 +183,9 @@ const getDocumentHref = (group) => {
 };
 
 const getWebSearchUrl = (item) => {
-    if (item.metadata?.url) {
-        return item.metadata.url;
+    const rawUrl = typeof item?.metadata?.url === 'string' ? item.metadata.url.trim() : '';
+    if (rawUrl && (rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))) {
+        return rawUrl;
     }
     if (item.id && (item.id.startsWith('http://') || item.id.startsWith('https://'))) {
         return item.id;

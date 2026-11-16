@@ -10,6 +10,7 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { getKnowledgeChunksSummaryHtml } from '@/utils/knowledgeChunksDisplay';
+import { sanitizeHTML } from '@/utils/security';
 import type { KnowledgeChunksListData } from '@/types/tool-results';
 
 const props = defineProps<{
@@ -18,7 +19,7 @@ const props = defineProps<{
 
 const { t } = useI18n();
 
-const summaryHtml = computed(() => getKnowledgeChunksSummaryHtml(t, props.data));
+const summaryHtml = computed(() => sanitizeHTML(getKnowledgeChunksSummaryHtml(t, props.data)));
 </script>
 
 <style lang="less" scoped>
