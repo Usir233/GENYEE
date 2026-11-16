@@ -1,0 +1,674 @@
+{
+  "wave": "W7",
+  "slice": "w7-docs-website",
+  "units": [
+    {
+      "unit_id": "docs",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "docs/LITE.md",
+        "docs/README.md",
+        "docs/docs.go",
+        "docs/readme_src_test.go",
+        "docs/subpath-deployment.md",
+        "docs/swag.overrides",
+        "docs/swagger.json",
+        "docs/swagger.yaml",
+        "docs/swagger_contract_test.go"
+      ],
+      "invariants_checked": [
+        "docs.go, swagger.json, and swagger.yaml remain 100% synchronized across all 353 API paths under basePath /api/v1 with zero broken $ref pointers.",
+        "Security definitions accurately document ApiKeyAuth (X-API-Key header) and BearerAuth (Authorization header) with zero stale upstream struct prefixes or retired client references.",
+        "docs/LITE.md, docs/README.md, docs/subpath-deployment.md, and docs/swag.overrides align with current GENYEE v0.9.0 routes, deployment variables, and commercial compliance rules."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docs/design",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "docs/design/agent-automation.md",
+        "docs/design/agent-hitl-suspend-resume.md",
+        "docs/design/agent-permission-model.md",
+        "docs/design/assistant-agent-collaboration.md",
+        "docs/design/confluence-table-markdown.md",
+        "docs/design/image-pipeline-naming.md"
+      ],
+      "invariants_checked": [
+        "All 6 architecture design documents (agent-automation, agent-hitl-suspend-resume, agent-permission-model, assistant-agent-collaboration, confluence-table-markdown, image-pipeline-naming) contain valid Mermaid diagrams, accurate internal route/table references, and zero upstream brand or host-path residue."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docs/images/readme/src",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "docs/images/readme/src/generate.py",
+        "docs/images/readme/src/spotlights.py"
+      ],
+      "invariants_checked": [
+        "generate.py and spotlights.py import cleanly without top-level file-generation side effects, unused third-party dependencies (numpy), or unclosed file descriptors.",
+        "Font loading falls back cleanly from macOS system fonts to Linux fonts and Pillow ImageFont.load_default(size=100), and localized spotlight copy matches the 30 built-in model providers across cn/en/ja/ko."
+      ],
+      "findings": [
+        {
+          "id": "W7-IMG-01",
+          "severity": "P2",
+          "file": "docs/images/readme/src/generate.py:1-150, docs/images/readme/src/spotlights.py:1-220",
+          "summary": "generate.py and spotlights.py executed SVG/PNG writes unconditionally at module import time, imported unused numpy, crashed on Linux hosts lacking /System/Library/Fonts, left open(..., 'w') handles unclosed, and spotlights.py still advertised 27 model vendors instead of 30 across cn/en/ja/ko.",
+          "regression_test": "TestW7IMG01_ReadmeArtworkScriptsImportCleanlyAndMatchVendorCount",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docs/poc/docker-sandbox",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "docs/poc/docker-sandbox/README.md",
+        "docs/poc/docker-sandbox/go.mod",
+        "docs/poc/docker-sandbox/go.sum",
+        "docs/poc/docker-sandbox/main.go",
+        "docs/poc/docker-sandbox/main_test.go"
+      ],
+      "invariants_checked": [
+        "run() executes all deferred container/network/volume cleanups before calling os.Exit on step failure, preventing leaked Docker resources.",
+        "createSandbox removes partially created containers when ContainerStart fails, enforces ReadOnlyRootfs, CapDrop ALL, no-new-privileges:true, PidsLimit, MemorySwap=Memory, and network=none defaults.",
+        "inspectStatus/inspectStartedAt/inspectLabel guard nil Container.State and Container.Config pointers, cleanArchiveDest rejects relative/traversal archive paths while creating parent directories as non-root execUser, readTarRegBounded caps tar reads at 16 MiB, and checkCLIOrphan uses bounded hardened container flags with independent cleanup context."
+      ],
+      "findings": [
+        {
+          "id": "W7-POC-01",
+          "severity": "P1",
+          "file": "docs/poc/docker-sandbox/main.go:88-105, 195-248, 390-460, 560-645",
+          "summary": "main() called os.Exit(1) before deferred container/volume/network cleanups could run, createSandbox leaked created containers on ContainerStart failure, ContainerInspect callers dereferenced nil State/Config on error, writeFile created parent dirs as root without validating absolute container paths, readFile called unbounded io.ReadAll on tar entries, and checkCLIOrphan lacked cap-drop/pids/memory flags.",
+          "regression_test": "TestW7POC01_RunExecutesDefersInsteadOfExitingProcess, TestW7POC01_CreateSandboxRemovesContainerOnStartFailure, TestW7POC01_InspectHelpersNilSafeOnError, TestW7POC01_ArchiveDestValidationAndBoundedTarRead",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "(cd docs/poc/docker-sandbox && GOMAXPROCS=2 go build -p 1 ./... && GOMAXPROCS=2 go vet -p 1 ./... && GOMAXPROCS=2 go test -race -p 1 -count=1 ./... && rm -f docker-sandbox) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/.dockerignore",
+        "website-docs/.gitignore",
+        "website-docs/.nvmrc",
+        "website-docs/Dockerfile",
+        "website-docs/MIGRATION.md",
+        "website-docs/README.md",
+        "website-docs/VERSION",
+        "website-docs/deploy/nginx.conf",
+        "website-docs/embed_contract_test.go",
+        "website-docs/index.md",
+        "website-docs/package-lock.json",
+        "website-docs/package.json",
+        "website-docs/sample-data/01-产品手册-智能家居中控.md",
+        "website-docs/sample-data/02-会议纪要-Q1产品规划.md",
+        "website-docs/sample-data/03-员工手册-报销与休假.md",
+        "website-docs/sample-data/04-技术方案-售后知识库POC.md",
+        "website-docs/sample-data/05-常见问题-FAQ导入样例.json"
+      ],
+      "invariants_checked": [
+        "website-docs/LICENSE and website-docs/THIRD_PARTY_NOTICES.md remain 100% untouched byte-for-byte, and deploy/nginx.conf serves strictly local static assets without external CDN dependencies.",
+        "website-docs/Dockerfile and website-docs/README.md document and wire numeric-validated WEBSITE_NGINX_PORT port substitution, and embedded docs contract tests enforce runtime, security, and commercial compliance invariants across all Markdown sections."
+      ],
+      "findings": [
+        {
+          "id": "W7-ENT-01-DOC",
+          "severity": "P2",
+          "file": "website-docs/Dockerfile:35-44, website-docs/README.md:105-115",
+          "summary": "Aligned Dockerfile comments and README container port documentation with strict 1-65535 integer validation on WEBSITE_NGINX_PORT in docker-entrypoint.sh.",
+          "regression_test": "W7-ENT-01: docker-entrypoint.sh validates WEBSITE_NGINX_PORT and blocks Nginx directive injection",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/.vitepress",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/.vitepress/config.mts",
+        "website-docs/.vitepress/screenshot-sizes.mjs",
+        "website-docs/.vitepress/theme-config.d.ts",
+        "website-docs/.vitepress/version.ts"
+      ],
+      "invariants_checked": [
+        "VitePress configuration loads zero external Google Fonts, analytics beacons, or third-party scripts, preserving air-gapped operation.",
+        "Site footer reflects commercial proprietary copyright rather than false MIT License claims, and compareVersions handles malformed version segments deterministically without NaN ordering bugs."
+      ],
+      "findings": [
+        {
+          "id": "W7-LIC-01-VP",
+          "severity": "P1",
+          "file": "website-docs/.vitepress/config.mts:34-46, 170-178",
+          "summary": "VitePress footer falsely declared 'Released under the MIT License.' contradicting the root proprietary GENYEE commercial license, and compareVersions did not guard non-numeric semver segments against NaN.",
+          "regression_test": "W7-LIC-01: commercial licensing alignment and zero external Unsplash remotePatterns",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/.vitepress/theme",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/.vitepress/theme/MermaidZoom.vue",
+        "website-docs/.vitepress/theme/Screenshot.vue",
+        "website-docs/.vitepress/theme/SidebarNavigationSync.vue",
+        "website-docs/.vitepress/theme/SiteHeader.vue",
+        "website-docs/.vitepress/theme/index.ts",
+        "website-docs/.vitepress/theme/style.css"
+      ],
+      "invariants_checked": [
+        "SiteHeader.vue sanitizes repositoryUrl via sanitizeExternalHttpUrl, hides external repository anchors when repositoryUrl is empty, uses dynamic theme.genyeeVersion instead of hardcoded v0.8.3, and sets rel='noopener noreferrer' on target='_blank' links.",
+        "MermaidZoom.vue resets dragging state on modal close and strips <script>, inline on* handlers, and javascript: attributes from cloned SVG diagrams before innerHTML assignment while preserving Mermaid <foreignObject> HTML labels.",
+        "Screenshot.vue uses Object.hasOwn on screenshotSizes to avoid Object.prototype collisions and rejects protocol-relative // src paths."
+      ],
+      "findings": [
+        {
+          "id": "W7-SEC-01-THEME",
+          "severity": "P1",
+          "file": "website-docs/.vitepress/theme/SiteHeader.vue:15-95, website-docs/.vitepress/theme/MermaidZoom.vue:55-95, website-docs/.vitepress/theme/Screenshot.vue:12-30",
+          "summary": "SiteHeader.vue hardcoded /docs/07-releases/v0.8.3 and rendered broken empty-href GitHub links when repositoryUrl was blank; MermaidZoom.vue assigned unsanitized SVG outerHTML via v-html and left dragging=true on close; Screenshot.vue indexed screenshotSizes without Object.hasOwn and accepted // paths.",
+          "regression_test": "W7-SEC-01: external URL sanitization, conditional repo links, noopener, and MermaidZoom SVG hardening",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/01-getting-started",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/01-getting-started/01-introduction.md",
+        "website-docs/01-getting-started/02-installation.md",
+        "website-docs/01-getting-started/03-quickstart.md",
+        "website-docs/01-getting-started/04-configuration.md",
+        "website-docs/01-getting-started/05-troubleshooting.md",
+        "website-docs/01-getting-started/06-paradedb-upgrade.md"
+      ],
+      "invariants_checked": [
+        "Installation and configuration guides match docker-compose.yml explicit variable whitelist (no env_file pass-through), mandatory user-supplied MinIO/Neo4j credentials, independent langfuse profile, default-off LANGFUSE_HOST, startup soft-deletion of removed YAML-managed models, zh-TW locale, builtin-genyee-assistant, and GENYEE_CHROME_EXTENSION_URL / GENYEE_CLAWHUB_SKILL_URL overrides.",
+        "Zero references to discontinued managed cloud aliases, stale upstream names, or broken internal links/Mermaid blocks."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOC-01-GS",
+          "severity": "P1",
+          "file": "website-docs/01-getting-started/02-installation.md:68, 101-108, website-docs/01-getting-started/04-configuration.md:20-35, 92-115, 315-425",
+          "summary": "02-installation.md and 04-configuration.md falsely claimed docker-compose.yml passed .env via env_file, documented removed weak minioadmin/password defaults, marked langfuse as part of full profile, claimed LANGFUSE_HOST defaulted to SaaS cloud.langfuse.com, contradicted pruneOrphanYAMLManagedModels soft-deletion, referenced a discontinued cloud provider alias, and omitted zh-TW, builtin-genyee-assistant, and integration URL env vars.",
+          "regression_test": "TestW7DOC01_EmbeddedDocsDefaultOffAndDiscontinuedCloudCompliance, TestW7DOC02_EmbeddedDocsRuntimeAndSecurityContracts",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/02-architecture",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/02-architecture/01-overview.md",
+        "website-docs/02-architecture/02-backend-design.md",
+        "website-docs/02-architecture/03-document-pipeline.md",
+        "website-docs/02-architecture/04-rag-pipeline.md",
+        "website-docs/02-architecture/05-async-tasks.md"
+      ],
+      "invariants_checked": [
+        "Architecture overview and pipeline docs accurately reflect 30 built-in model providers, current Go/Python/Vue service boundaries, and valid Mermaid flowcharts/sequence diagrams."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOC-02-ARCH",
+          "severity": "P2",
+          "file": "website-docs/02-architecture/01-overview.md:94",
+          "summary": "01-overview.md stated 27 built-in model providers instead of the 30 providers registered in internal/models/providers/builtin.go.",
+          "regression_test": "TestW7DOC02_EmbeddedDocsRuntimeAndSecurityContracts",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/03-features",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/03-features/01-tenant-auth.md",
+        "website-docs/03-features/02-knowledge-base.md",
+        "website-docs/03-features/03-document-parsing.md",
+        "website-docs/03-features/04-chunking.md",
+        "website-docs/03-features/05-retrieval-engines.md",
+        "website-docs/03-features/06-models.md",
+        "website-docs/03-features/07-agent.md",
+        "website-docs/03-features/08-mcp.md",
+        "website-docs/03-features/09-knowledge-graph.md",
+        "website-docs/03-features/10-datasource.md",
+        "website-docs/03-features/11-web-search.md",
+        "website-docs/03-features/12-im-integration.md",
+        "website-docs/03-features/13-embed-channel.md",
+        "website-docs/03-features/14-wiki.md",
+        "website-docs/03-features/15-evaluation.md",
+        "website-docs/03-features/16-observability.md",
+        "website-docs/03-features/17-faq.md",
+        "website-docs/03-features/18-chat-experience.md",
+        "website-docs/03-features/19-storage-backends.md",
+        "website-docs/03-features/20-platform-admin.md",
+        "website-docs/03-features/21-file-access.md",
+        "website-docs/03-features/22-skills-sandbox.md",
+        "website-docs/03-features/23-memory.md",
+        "website-docs/03-features/24-feishu-drive.md",
+        "website-docs/03-features/25-seafile.md",
+        "website-docs/03-features/26-genyee-assistant.md",
+        "website-docs/03-features/26-nextcloud.md",
+        "website-docs/03-features/27-automations.md",
+        "website-docs/03-features/28-agent-permissions.md"
+      ],
+      "invariants_checked": [
+        "All 29 feature guides align with runtime defaults and security contracts: lowercase genyee Elasticsearch index default, 30 built-in model providers, 3 built-in agents including builtin-genyee-assistant, mandatory NEO4J_PASSWORD, embed-session:v2 HMAC signed with SYSTEM_SIGNING_KEY / SYSTEM_AES_KEY, default-off LANGFUSE_HOST, zero discontinued cloud aliases, and non-empty caption attributes on every <Screenshot/> component."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOC-02-FEAT",
+          "severity": "P1",
+          "file": "website-docs/03-features/05-retrieval-engines.md:107, 179, website-docs/03-features/06-models.md:3, 18, 93-95, website-docs/03-features/07-agent.md:36-45, website-docs/03-features/09-knowledge-graph.md:36, website-docs/03-features/13-embed-channel.md:91-101, website-docs/03-features/16-observability.md:99, website-docs/03-features/22-skills-sandbox.md:99-103",
+          "summary": "Feature docs documented invalid uppercase GENYEE ES index default, mismatched 31 vs 30 provider count, omitted builtin-genyee-assistant, listed removed weak NEO4J_PASSWORD default, documented outdated PublishToken-keyed embed session HMAC instead of embed-session:v2 keyed by SYSTEM_SIGNING_KEY/SYSTEM_AES_KEY, claimed LANGFUSE_HOST defaulted to SaaS, referenced discontinued cloud provider alias, and omitted required caption props on 3 <Screenshot/> tags.",
+          "regression_test": "TestW7DOC01_EmbeddedDocsDefaultOffAndDiscontinuedCloudCompliance, TestW7DOC02_EmbeddedDocsRuntimeAndSecurityContracts",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/04-api",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/04-api/01-api-overview.md",
+        "website-docs/04-api/02-api-agent-mcp.md",
+        "website-docs/04-api/02-api-auth.md",
+        "website-docs/04-api/02-api-automations.md",
+        "website-docs/04-api/02-api-channels.md",
+        "website-docs/04-api/02-api-chat.md",
+        "website-docs/04-api/02-api-chunks.md",
+        "website-docs/04-api/02-api-faq-wiki.md",
+        "website-docs/04-api/02-api-infra.md",
+        "website-docs/04-api/02-api-knowledge.md",
+        "website-docs/04-api/02-api-memory.md",
+        "website-docs/04-api/02-api-model-system.md",
+        "website-docs/04-api/02-api-org.md",
+        "website-docs/04-api/02-api-sandbox-skills.md",
+        "website-docs/04-api/02-api-system.md",
+        "website-docs/04-api/02-api-tenant.md"
+      ],
+      "invariants_checked": [
+        "All 16 API reference pages accurately match internal/router/router.go and Swagger routes, X-API-Key (sk- / mcp_ / em_ / ems_) and Bearer JWT authentication, GENYEE_TRUSTED_PROXIES loopback-only default, RBAC/SystemAdmin gates, and HITL prompt/grant/secure-form endpoints."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOC-03-API",
+          "severity": "P1",
+          "file": "website-docs/04-api/01-api-overview.md:33, 62, 169, 326-346, website-docs/04-api/02-api-model-system.md:95-99, website-docs/04-api/02-api-knowledge.md:54, website-docs/04-api/02-api-agent-mcp.md:116-126, website-docs/04-api/02-api-channels.md:145-155",
+          "summary": "API docs falsely stated GENYEE_TRUSTED_PROXIES trusted private subnets by default (only 127.0.0.1/::1 are trusted by default), used unescaped <JWT> in a Mermaid label stripped by DOMPurify, cited removed Wiki log endpoints, misdocumented SystemAdmin-only Ollama pull/task endpoints as Admin+/Viewer+, misdocumented GET /knowledge/:id/preview as Viewer+ instead of Contributor+ & KB write, and omitted v0.9.0 HITL agent prompt/secure-form/grant and embed prompt routes and SSE events.",
+          "regression_test": "TestW7DOC03_EmbeddedAPIClientsAndDevContracts",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/05-clients",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/05-clients/01-frontend.md",
+        "website-docs/05-clients/02-cli.md",
+        "website-docs/05-clients/03-go-sdk.md",
+        "website-docs/05-clients/05-desktop.md",
+        "website-docs/05-clients/08-deepseek-harness.md",
+        "website-docs/05-clients/09-local-browser.md"
+      ],
+      "invariants_checked": [
+        "All 6 client guides (Web frontend, CLI, Go SDK, Python SDK, Desktop, Local Browser) match v0.9.0 package/Go versions, client.LoginResponse.Token field name, /platform/automations route and settings sections, Desktop default-off GENYEE_AUTO_UPDATE + SHA-256/Ed25519 verification, and ask/auto approval_mode semantics."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOC-03-CLIENTS",
+          "severity": "P1",
+          "file": "website-docs/05-clients/01-frontend.md:11-26, 122-162, website-docs/05-clients/02-cli.md:3, website-docs/05-clients/03-go-sdk.md:12, 71, website-docs/05-clients/05-desktop.md:14, 63, 95-145, 175",
+          "summary": "03-go-sdk.md used non-existent loginResp.AccessToken (compile error vs LoginResponse.Token); 05-desktop.md misdocumented approval_mode as auto-only (ask is default alongside auto) and omitted default-off GENYEE_AUTO_UPDATE / update-source gating and SHA-256 verification; 01-frontend.md lagged at 0.8.3 and omitted /platform/automations, defaults, assistant, and model-catalog; 02-cli.md had duplicated 'genyee / genyee' from rename.",
+          "regression_test": "TestW7DOC03_EmbeddedAPIClientsAndDevContracts",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/06-development",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/06-development/01-dev-guide.md",
+        "website-docs/06-development/02-database-schema.md",
+        "website-docs/06-development/03-extension-points.md",
+        "website-docs/06-development/04-sandbox-deployment.md",
+        "website-docs/06-development/05-agent-prompts.md",
+        "website-docs/06-development/06-wemm-transformers.md"
+      ],
+      "invariants_checked": [
+        "All 6 development guides match Go 1.26.10 / frontend 0.9.0, PostgreSQL migrations 000000-000138 and SQLite migrations 000000-000054 in chronological order, WebSearcher/WebFetcher interfaces and deepseek.go provider, and Desktop host sandbox ask/auto approval_mode."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOC-03-DEV",
+          "severity": "P2",
+          "file": "website-docs/06-development/01-dev-guide.md:11-13, website-docs/06-development/02-database-schema.md:23-30, 108-145, website-docs/06-development/03-extension-points.md:420, 749, website-docs/06-development/04-sandbox-deployment.md:116",
+          "summary": "02-database-schema.md stopped at PG 000134 / SQLite 000051 (missing 000135/000136/000138 and 000052/000054) and placed SQLite 000053 out of order before 000037; 03-extension-points.md referenced removed WebSearchProvider interface instead of WebSearcher/WebFetcher and omitted deepseek.go; 04-sandbox-deployment.md claimed approval_mode only supported auto; 01-dev-guide.md listed stale 0.8.3 / Go 1.26.0 versions.",
+          "regression_test": "TestW7DOC03_EmbeddedAPIClientsAndDevContracts",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/07-releases",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/07-releases/v0.8.0.md",
+        "website-docs/07-releases/v0.8.2.md",
+        "website-docs/07-releases/v0.8.3.md",
+        "website-docs/07-releases/v0.9.0.md"
+      ],
+      "invariants_checked": [
+        "Release notes (index.md, v0.8.2.md, v0.8.3.md, v0.9.0.md) contain accurate internal links, updated v0.9.0 PostgreSQL 000119-000138 / SQLite 000037-000054 migration ranges, and zero references to discontinued cloud aliases."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOC-01-REL",
+          "severity": "P2",
+          "file": "website-docs/07-releases/v0.9.0.md:79, 93",
+          "summary": "v0.9.0.md referenced a discontinued cloud provider alias in release highlights and listed pre-patch migration upper bounds (000134 / 000051 instead of 000138 / 000054).",
+          "regression_test": "TestW7DOC01_EmbeddedDocsDefaultOffAndDiscontinuedCloudCompliance",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/docker-entrypoint.sh",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/docker-entrypoint.sh"
+      ],
+      "invariants_checked": [
+        "docker-entrypoint.sh validates WEBSITE_NGINX_PORT as a base-10 integer in 1..65535 (normalizing leading zeros) in a standalone variable assignment before export so POSIX /bin/sh set -e aborts immediately on invalid input before envsubst or nginx runs.",
+        "envsubst substitutes strictly ${WEBSITE_NGINX_PORT}, preserving Nginx runtime variables ($uri) and blocking Nginx directive injection via newlines, spaces, or semicolons."
+      ],
+      "findings": [
+        {
+          "id": "W7-ENT-01",
+          "severity": "P1",
+          "file": "website-docs/docker-entrypoint.sh:1-24",
+          "summary": "docker-entrypoint.sh passed unvalidated WEBSITE_NGINX_PORT directly into envsubst on /etc/nginx/conf.d/default.conf, permitting arbitrary Nginx directive injection via semicolons/newlines or invalid port 0/65536 values.",
+          "regression_test": "W7-ENT-01: docker-entrypoint.sh validates WEBSITE_NGINX_PORT and blocks Nginx directive injection",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/embed.go",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "website-docs/embed.go"
+      ],
+      "invariants_checked": [
+        "website-docs/embed.go embeds strictly Markdown documentation directories 01-getting-started through 07-releases into websitedocs.Pages without bundling build artifacts, node_modules, or host paths, and parses cleanly through internal/productdocs."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/homepage",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/homepage/BRAND-ASSETS.md",
+        "website-docs/homepage/README.md",
+        "website-docs/homepage/eslint.config.mjs",
+        "website-docs/homepage/next-env.d.ts",
+        "website-docs/homepage/next.config.ts",
+        "website-docs/homepage/package-lock.json",
+        "website-docs/homepage/package.json",
+        "website-docs/homepage/postcss.config.mjs",
+        "website-docs/homepage/tsconfig.json"
+      ],
+      "invariants_checked": [
+        "Next.js static export config (next.config.ts) uses unoptimized local images with zero external image CDN remotePatterns (removed unused images.unsplash.com) and zero external font/telemetry fetches."
+      ],
+      "findings": [
+        {
+          "id": "W7-LIC-01-NEXT",
+          "severity": "P2",
+          "file": "website-docs/homepage/next.config.ts:6-15",
+          "summary": "homepage/next.config.ts configured an unused external images.unsplash.com remotePatterns allowlist despite static export bundling only local assets.",
+          "regression_test": "W7-LIC-01: commercial licensing alignment and zero external Unsplash remotePatterns",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/homepage/app",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/homepage/app/adopter-showcase.tsx",
+        "website-docs/homepage/app/adopters.module.css",
+        "website-docs/homepage/app/adopters.ts",
+        "website-docs/homepage/app/brand-logo.tsx",
+        "website-docs/homepage/app/brands.tsx",
+        "website-docs/homepage/app/docs/models/layout.tsx",
+        "website-docs/homepage/app/docs/models/page.tsx",
+        "website-docs/homepage/app/globals.css",
+        "website-docs/homepage/app/home.module.css",
+        "website-docs/homepage/app/interactive.tsx",
+        "website-docs/homepage/app/layout.tsx",
+        "website-docs/homepage/app/model-leaderboard.css",
+        "website-docs/homepage/app/model-leaderboard.tsx",
+        "website-docs/homepage/app/page.tsx",
+        "website-docs/homepage/app/product-gallery.tsx",
+        "website-docs/homepage/app/theme.ts",
+        "website-docs/homepage/app/ui.tsx"
+      ],
+      "invariants_checked": [
+        "Homepage app components (page.tsx, layout.tsx, interactive.tsx, adopter-showcase.tsx, product-gallery.tsx, model-leaderboard.tsx) contain zero false MIT/Open-Source claims, zero retired release-video claims, and accurate v0.9.0 commercial framing.",
+        "External hrefs are sanitized via sanitizeExternalHttpUrl, empty repositoryUrl / adopterIssue links are omitted instead of rendering current-page href='' anchors, all target='_blank' anchors carry rel='noopener noreferrer', and decodeURIComponent in model-leaderboard.tsx catches URIError."
+      ],
+      "findings": [
+        {
+          "id": "W7-LIC-01",
+          "severity": "P1",
+          "file": "website-docs/homepage/app/page.tsx:588-690, website-docs/homepage/app/layout.tsx:10-32, website-docs/homepage/app/model-leaderboard.tsx:465-475",
+          "summary": "Homepage hero, footer, metadata, and model leaderboard falsely advertised GENYEE as 'Open Source' / 'MIT License' / '开源' / '即将开源', referenced retired release videos, and had stale v0.8.3 metadata.",
+          "regression_test": "W7-LIC-01: commercial licensing alignment and zero external Unsplash remotePatterns",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        },
+        {
+          "id": "W7-SEC-01-HOME",
+          "severity": "P1",
+          "file": "website-docs/homepage/app/interactive.tsx:20-95, website-docs/homepage/app/adopter-showcase.tsx:10-128, website-docs/homepage/app/page.tsx:668-695, website-docs/homepage/app/product-gallery.tsx:310-335, website-docs/homepage/app/model-leaderboard.tsx:320-332",
+          "summary": "Homepage header/footer/adopter showcase rendered target='_blank' anchors with empty href='' when repositoryUrl/adopterIssue were blank, lacked rel='noopener noreferrer' on gallery/footer blank-target links, did not validate external URL schemes, and called unguarded decodeURIComponent on asset paths.",
+          "regression_test": "W7-SEC-01: external URL sanitization, conditional repo links, noopener, and MermaidZoom SVG hardening",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/homepage/scripts",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/homepage/scripts/audit-content.mjs",
+        "website-docs/homepage/scripts/sync-product-screenshots.mjs",
+        "website-docs/homepage/scripts/sync-product-screenshots.test.mjs"
+      ],
+      "invariants_checked": [
+        "sync-product-screenshots.mjs checks alias keys via Object.hasOwn(aliases, entry.name) so filenames colliding with Object.prototype properties (such as toString or constructor) never resolve prototype functions as path strings."
+      ],
+      "findings": [
+        {
+          "id": "W7-SCR-02",
+          "severity": "P2",
+          "file": "website-docs/homepage/scripts/sync-product-screenshots.mjs:25-32",
+          "summary": "syncProductScreenshots accessed aliases[entry.name] without Object.hasOwn, causing Object.prototype keys like 'toString' in destination filenames to pass truthiness checks and throw TypeError in join(sourceDir, sourceName).",
+          "regression_test": "ignores Object.prototype keys like toString in destination filenames",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/scripts",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/scripts/build-site.mjs",
+        "website-docs/scripts/check-links.mjs",
+        "website-docs/scripts/check-mermaid.mjs",
+        "website-docs/scripts/check-site.mjs",
+        "website-docs/scripts/generate-npm-notices.mjs",
+        "website-docs/scripts/npm-license-policy.json",
+        "website-docs/scripts/npm-license-sources/algolia-autocomplete.txt",
+        "website-docs/scripts/npm-license-sources/cc0-terms.txt",
+        "website-docs/scripts/npm-license-sources/definitely-typed.txt",
+        "website-docs/scripts/npm-license-sources/docsearch.txt",
+        "website-docs/scripts/npm-license-sources/humanfs.txt",
+        "website-docs/scripts/npm-license-sources/mermaid.txt",
+        "website-docs/scripts/npm-license-sources/mit-terms.txt",
+        "website-docs/scripts/npm-license-sources/next.txt",
+        "website-docs/scripts/npm-license-sources/react.txt",
+        "website-docs/scripts/npm-license-sources/saxes.txt",
+        "website-docs/scripts/npm-license-sources/simple-icons.txt",
+        "website-docs/scripts/npm-license-sources/unrs-resolver.txt",
+        "website-docs/scripts/package-site.mjs",
+        "website-docs/scripts/probe.mjs",
+        "website-docs/scripts/screenshot-sizes.test.mjs",
+        "website-docs/scripts/serve-site.mjs",
+        "website-docs/scripts/site-files.mjs",
+        "website-docs/scripts/site-security.test.mjs",
+        "website-docs/scripts/test-docker.mjs",
+        "website-docs/scripts/test-integration.mjs"
+      ],
+      "invariants_checked": [
+        "check-site.mjs rejects empty href='', javascript:, data:, and vbscript: links; serve-site.mjs guards decodeURIComponent against malformed percent-encoding and enforces root-confined static path resolution; package-site.mjs validates VERSION against safe semver/tag characters to block path traversal out of release/.",
+        "test-docker.mjs and test-integration.mjs run docker/git/curl subprocesses via execFileSync argv arrays without shell interpolation, and check-mermaid.mjs uses pathToFileURL for portable dynamic ESM imports.",
+        "generate-npm-notices.mjs remains byte-identical with frontend/scripts/generate-npm-notices.mjs."
+      ],
+      "findings": [
+        {
+          "id": "W7-SCR-01",
+          "severity": "P2",
+          "file": "website-docs/scripts/check-site.mjs:95-115, website-docs/scripts/package-site.mjs:15-30, website-docs/scripts/serve-site.mjs:35-55, website-docs/scripts/test-docker.mjs:10-45, website-docs/scripts/test-integration.mjs:12-30, website-docs/scripts/check-mermaid.mjs:30-45",
+          "summary": "check-site.mjs silently skipped empty href='' and javascript:/data:/vbscript: links; package-site.mjs interpolated unvalidated VERSION contents into archive output paths; serve-site.mjs lacked try/catch around decodeURIComponent; test-docker.mjs and test-integration.mjs invoked shell command strings via execSync instead of execFileSync argv arrays.",
+          "regression_test": "W7-SCR-01: check-site.mjs rejects empty href and javascript: URLs, and package-site.mjs rejects VERSION traversal",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "website-docs/shared",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "website-docs/shared/brand.css",
+        "website-docs/shared/header.css",
+        "website-docs/shared/header.ts"
+      ],
+      "invariants_checked": [
+        "shared/header.ts exposes sanitizeExternalHttpUrl enforcing valid http:/https: URLs free of control characters, shared/adopters.ts contains clean adopter records, and shared/site-header.css contains purely local styling rules."
+      ],
+      "findings": [
+        {
+          "id": "W7-SEC-01-SHARED",
+          "severity": "P1",
+          "file": "website-docs/shared/header.ts:1-42",
+          "summary": "shared/header.ts lacked URL scheme/control-character sanitization helper for external repository/community links shared across VitePress and Next.js homepage headers.",
+          "regression_test": "W7-SEC-01: external URL sanitization, conditional repo links, noopener, and MermaidZoom SVG hardening",
+          "commit": "bf005fa925e2556c5a6304c1dbb20da61475bbb9"
+        }
+      ],
+      "verification_commands": [
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)"
+      ]
+    }
+  ]
+}
