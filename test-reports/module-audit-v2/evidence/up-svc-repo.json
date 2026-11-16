@@ -1,7 +1,7 @@
 {
   "wave": "Stage2B-Upstream-Incremental",
   "slice": "up-aud-svc-repo",
-  "branch": "codex/genyee-residue-remediation",
+  "branch": "main",
   "base_commit": "cabe3d63781239b56bfcb911319ed21ecd2d5c3b",
   "merge_diff_range": "89ce71ff86af78cfb3cf5f637787ecfbe3389e11..cabe3d63781239b56bfcb911319ed21ecd2d5c3b",
   "upstream_diff_range": "cbdcebabf48c5ee2d6868b370326aa8341703f62..f64dbf002490fd947b4bce48a8cd4fa0dff6dcbd",

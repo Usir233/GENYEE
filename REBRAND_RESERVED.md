@@ -2,6 +2,8 @@
 
 本文档记录在将项目全量重构为 **GENYEE**（`github.com/Usir233/GENYEE`）过程中，所有自研镜像的统一参数化机制、私有镜像仓库（如阿里云 ACR / 内网 Harbor）覆盖方式，以及保留的浏览器扩展兼容项说明。
 
+> **适用范围与主干晋升记录（2026-11-16）**：商业合规改造、上游残留标识清零（`B0`–`B5`、`R1`–`R2`）、全仓模块安全审计（`W0`–`W8`）及上游 `f64dbf002` 合并审计已全部完成并正式晋升为仓库默认主分支 `main`（早期未裁剪版纯换皮 `main` 已归档至 `archive/legacy-pure-rebrand-main`）。本文档所有镜像参数化规范与第三方 `BrowserSkill` 保留规则直接适用于 `main` 主干及后续全部上游同步（详见 [BRANCH_GUIDE.md](BRANCH_GUIDE.md) 与 [WEKNORA_RESIDUE_REMEDIATION.md](WEKNORA_RESIDUE_REMEDIATION.md)）。
+
 ---
 
 ## 一、自研 Docker 镜像与仓库前缀参数化（已完成切换）

@@ -1,12 +1,12 @@
 # WeKnora 上游残留标识修复规范（Residue Remediation Spec）
 
-> **适用分支**：`chore/commercial-compliance-cleanup`（商业合规精简分支）。依据 [BRANCH_GUIDE.md](BRANCH_GUIDE.md) 第二节第 3 条第 4 项“上游品牌残留清理”，本规范内的所有改动**仅在本分支实施，不同步到 `main`**。
+> **适用分支与主干晋升状态（2026-11-16 更新）**：本规范最初在 `chore/commercial-compliance-cleanup` 与 `codex/genyee-residue-remediation` 阶段分支制定并实施；目前全部整改批次（`B0`–`B5`、`R1`–`R2`）、全仓 301 个模块单元零遗漏安全审计（`W0`–`W8`）以及上游 `f64dbf002` 合并增量审计均已通过全量门禁，并**正式晋升为仓库唯一默认主分支 `main`**（旧版未裁剪纯换皮 `main` 已只读归档至 `archive/legacy-pure-rebrand-main`）。今后所有上游同步直接按 [BRANCH_GUIDE.md](BRANCH_GUIDE.md) 双层架构（`upstream` $\rightarrow$ `main`）在 `main` 上持续执行本规范。
 >
 > **文档性质**：内部维护文档，已在 `.gitattributes` 中标记 `export-ignore`，并在 `scripts/export-source.sh` 中加入禁止清单，不会进入客户源码包。
 >
-> **版本**：v2.1（2026-11-12）。v1 按“需兼容已上线客户”编写；经项目负责人确认，**目前没有已交付或正在使用的客户**，因此 v2 **取消全部向后兼容要求**，并基于提交 `a1079cbf7` 重新扫描。v2.1 补充：缩写 `wk` 经核实为 WeKnora 简写，统一改为 `gy`（5.5）；D1 版本历史处理的推荐方案（第十一节）；D3 结论为不需要自有品牌扩展。
+> **版本**：v2.2（2026-11-16 主干晋升定稿；v2.0/v2.1 制定于 2026-11-12）。v1 按“需兼容已上线客户”编写；经项目负责人确认，**没有历史遗留客户包袱**，因此 v2 **取消全部向后兼容要求**，并基于提交 `a1079cbf7` 重新扫描。v2.1 补充：缩写 `wk` 经核实为 WeKnora 简写，统一改为 `gy`（5.5）；D1 版本历史处理的推荐方案（第十一节）；D3 结论为不需要自有品牌扩展。v2.2 补充：`W0` 彻底移除微信小程序 `miniprogram/`（保留 `internal/im/{wechat,wecom}` IM 机器人渠道），完成 `W0`–`W8` 全仓模块审计、上游 `f64dbf002` 合并及 `main` 主干晋升。
 >
-> **状态**：B0 已完成；B1 **已完成**；B2 已完成；B3 代码及专项测试已完成，部署回归在 B5 验收；B4 已完成；B5 已完成（D1 历史重写按负责人决定暂缓）。每完成一个批次，须更新第十节进度表。
+> **状态**：**已全部完成并晋升至 `main` 主干**（B0–B5 已完成；R1–R2 已完成；W0–W8 全仓模块安全审计 301/301 已完成；上游 `f64dbf002` 合并与 18 项增量缺陷修复已完成；D1 历史重写按负责人决定维持现状例外）。详见第十节进度表。
 
 ---
 
@@ -62,7 +62,7 @@
 | **P4 统一命名规则** | 按第五节第 1 条的大小写映射执行，与现有换皮代码保持一致；遇到“改名后与现有名字重名”的情况必须人工处理（第五节第 2 条），禁止盲目全局替换。 |
 | **P5 测试同步修改** | 每处改名同步修改对应测试；删除的功能同步删除其测试。 |
 | **P6 分批提交、每批全量验证** | 按第八节分批实施，每批单独提交，提交前完成第九节全部验证。 |
-| **P7 不碰 `main`** | 本分支改名与删除会增加未来 `main → 本分支` 合并的冲突，这是已接受的代价。合并时以本分支命名为准，并对上游新增文件补做本规范的替换；WeKnora Cloud 相关改动一律保持删除。 |
+| **P7 统一主干与上游同步** | 旧版未裁剪纯换皮分支已归档至 `archive/legacy-pure-rebrand-main`，本规范全部成果已晋升为默认主分支 `main`。今后从 `upstream` 同步至 `main` 时，以 `main` 命名体系为准，对上游新增文件按本规范补齐替换；`miniprogram` 与 `WeKnoraCloud` / `GENYEECloud` 相关改动一律保持删除。 |
 | **P8 联动组件同批发布** | 后端、前端、沙箱镜像、Helm、`.env.example`、`docker-compose.yml` 之间共享的名字（路径、标签、协议头、默认值）必须在**同一批次**内一起改，保证每个提交都能独立构建、部署、运行。 |
 
 ---
@@ -84,7 +84,7 @@
 
 ### 4.1 WeKnora Cloud 功能（含“GENYEE Cloud”别名）
 
-**决策**：2026-11-12 由项目负责人确认，WeKnora Cloud 服务已停用，从本分支彻底删除。此决策替代 BRANCH_GUIDE.md 原“保留代码、默认关闭”策略（BRANCH_GUIDE 已同步修订）。Langfuse 的 Opt-in 策略不变。
+**决策**：2026-11-12 由项目负责人确认，WeKnora Cloud 服务已停用，从主干（`main`）彻底删除（未来同步上游时一律保持删除）。此决策替代早期 BRANCH_GUIDE.md 原“保留代码、默认关闭”策略（[BRANCH_GUIDE.md](BRANCH_GUIDE.md) 已同步修订）。Langfuse 的 Opt-in（`LANGFUSE_ENABLED=false`）策略不变。
 
 **v2 新发现**：前端与 README 中，WeKnora Cloud 已被前一轮换皮改名为 **“GENYEE Cloud”**（`GENYEECloud`、`GENYEE_CLOUD_PROVIDER`、`GENYEE_CLOUD_BASE_URL`、文案“GENYEE Cloud”），这些不含 `weknora` 字样，**必须一并删除**，否则会残留一个不存在的云服务入口。
 
@@ -426,6 +426,8 @@ find . -regextype posix-extended -iregex '.*(^|[/_-])wk([_.-]|$).*'
 | B5 | 已完成（D1 暂缓） | `6f22f35bd`、`93b4b32a8` | 已构建全套本地镜像并在独立空数据卷启动，完成注册登录、知识库创建、TXT/PDF 上传解析、检索问答与引用、内置助手和两项文档工具、CLI 登录/完整 RAG、MCP HTTP、嵌入会话/问答及 HMAC 签名验证；浏览器设置、备用下载、配对剪贴板、真实扩展与容器 Linux daemon 执行均通过。问答使用本地确定性协议模拟模型，不调用外部模型服务。真实扩展专项、Docker 沙箱集成、文档站 Docker/浏览器检查及最终 Go/CLI/前端/文档检查通过。导出包 6280 文件，66 份许可证逐字节不变，除 D1 历史和法定署名外无旧品牌、旧文件名或缩写残留。收尾移除改名冲突造成的重复 URI 分支、主题键回退、审批品牌条件和大小写重复签名设置，并更新过期兼容说明。负责人于 2026-11-13 明确同意保留数据迁移：已备份原库/文件/配置，将数据库改名为 genyee，保留 2 个用户且密码哈希与权限不变，原超管登录、Neo4j/docreader/数据库/前后端健康检查均通过；部署镜像为本地已验证版本，未推送远程。独立复核已删除旧云签名 AuthSigned/Signer、模型 AppID、传输层及 chat/embedding/vlm 无用 secret 透传和专属 DNS 测试；保留 LKEAP/Volcengine 重排的 AppSecret。云镜像脚本仅筛选当前 registry 的旧标签，4 项新行为测试及脚本/Compose/Helm 共 34 项测试通过。新增 signed overlay 拒绝用例；API 文档重生成、完整 Go build/vet/test、前端 2719 项测试与类型/国际化/构建、官网构建与检查通过。最终应用/前端/文档解析器镜像 local-remediation-93b4b32a8 已部署；docreader 运行源、锁定依赖与协议 59 文件逐字节一致，复用已验证依赖重建元数据层。最终版本在全新空数据卷重跑注册登录、RAG/CLI、MCP、助手文档工具、PDF 解析、真实浏览器任务预览及 iframe widget/签名均通过；实际局域网入口 http://192.168.1.13/ 登录原超管成功，应用和 docreader 均报告提交 93b4b32a8，Neo4j/anydoc/数据库/前后端检查正常。全部变更与配置留在本机，未推送远程或发布公网。 |
 | R1 审查修复 | 已完成（追加独立复审通过） | `fde01687a` 及追加验证提交 | 修复当前登录会话退出后 refresh 仍有效、嵌入 Webhook 在落库前发送及按文本匹配、失效 Milvus/桌面迁移说明。会话 ID 贯穿刷新与租户换签，刷新/登出/批量撤销采用数据库事务与同一用户行锁；同时拒绝换签使用其他用户 refresh。新增 PostgreSQL 000137 / SQLite 000053，无法安全配对的历史登录令牌失效，账号与业务数据保留。嵌入事件按持久化消息 ID 校验，覆盖 hostContext、重复文本、完成/暂停/停止/断线恢复且不重放旧历史。修正 PostgreSQL 索引回滚测试固定边界和桌面存储路径说明，重新生成 Swagger。完整 Go build/vet/test（145 包）、CLI build/vet/test（33 包）、Go SDK、前端类型/国际化/构建与 2726 项用例、文档站构建及 83 页/413 路由素材检查、34 项合规检查通过；Markdown 浏览器用例指定 Chromium 首次超时，用本机 Chrome 独立复跑通过。SQLite/真实 PostgreSQL 迁移与并发回归通过，仓储 AuthSession race 检查通过。独立复审未发现确认的新增可操作缺陷；已补充 EmbedAuth → 真实 SQLite Session/Message 服务及仓储 → HTTP Webhook 集成测试，验证自有消息、签名、跨会话/租户拒绝及真实数据库故障后的恢复投递，连续 3 轮通过。补齐数据库文档后再次通过完整 Go build/vet/test 与文档站构建检查。独立 PostgreSQL 测试容器已清理。仅本地代码与测试，不切换现有部署，不推送远程。 |
 | R2 审计补丁 | 已完成 | `13dc9c7c0`、`bde46c3a5` | 原样应用外部补丁 `genyee-audit-13plus-fixes.patch`（32 个文件，`git apply --check` 通过）：SSRF 主机名规范化（FQDN 末尾点、空标签、控制字符在白名单/黑名单与 DNS 之前拒绝）；MCP stdio 仅允许裸 `uvx`/`npx`；前端受保护文件缓存清空代次（清空后迟到的响应丢弃）；MCP Server 层级 Wiki slug 校验与逐级 `O_NOFOLLOW` 打开；DSH 插件路径段校验并拒绝重定向；小程序 baseURL/路径段校验；WeMM 远程 `trust_remote_code` 必须锁定 40 位提交 SHA；`dev.sh` 自动生成留空的内部鉴权密钥、`check-env.sh` 检查 `JWT_SECRET`/`GRPC_AUTH_TOKEN`；导出包中缺失内部文件时相关测试改为跳过；README/发布说明残留 `weknora` 改为 `genyee`。另补前端回归测试 `protectedFileClearEpoch.test.ts`（对补丁前代码失败、补丁后通过）。验证：Go build/vet 与 `go test ./...` 145 包、CLI 33 包、前端类型检查/国际化/2754 项用例（1 项跳过）/生产构建、docreader 694 项（18 项可选依赖跳过）、MCP Server 150 项、DSH 62 项、小程序 10 项、脚本与 Helm 49 项（含真实 Compose/Helm 渲染 33 项）、WeMM 13 项（临时 CPU torch 环境）、`gy-secret-fill` 与 Node 测试、`check-license-bundle.sh`、CLI wire 词表检查、`export-source.sh` 均通过；在导出源码包内运行 CLI/Helm/docreader 相关测试，缺失内部文件的用例按设计跳过，其余通过。首次并行跑全量测试时 `TestSSRFRedirectDNSHonorsHTTPClientTimeout`（30ms 预算）因机器满载失败一次；单独运行与满载对比（补丁前后各 150 次）均 0 失败，单独重跑全量通过。导出包残留扫描：除 D1 保留的版本历史与法定署名外无 `weknora`、旧文件名、“GENYEE Cloud”或 `wk` 残留。未切换本机部署。 |
+| W0–W8 全仓模块安全审计 | 已完成 | `05ed2dd8f..89ce71ff8` | `W0` 彻底删除微信小程序客户端 `miniprogram/` 及配套测试/文档（共删除 79 个历史遗留与冗余素材文件，完整保留 `internal/im/wechat` 与 `internal/im/wecom` IM 机器人渠道）；`W1`–`W8` 完成全仓 `git ls-files` 100% 零遗漏模块级安全、并发、多租户隔离与契约审计（覆盖全部 301 个单元、累计修复 434 项缺陷并配套 TDD 回归测试），通过 `verify_ledger.py --summary --final` 与 `verify-commercial-compliance.sh`（34/34）。 |
+| 上游 `f64dbf002` 合并与主干晋升 (`main`) | 已完成 | `cabe3d637..4e598875e` 及主干晋升提交 | 将旧版未裁剪纯换皮 `main`（`74434f730`）归档至 `archive/legacy-pure-rebrand-main`；`upstream` 纯快进同步至 `f64dbf002`；完成全量合并、SQLite `000055` / PostgreSQL `000139` 迁移序号顺延对齐、55 个变更单元逐行增量安全审计与 18 项新增缺陷修复（累计 452 项修复、`6,762` 个追踪文件 100% 台账对齐），全量 5 大门禁验收通过并正式晋升为默认主分支 `main`。 |
 
 ---
 

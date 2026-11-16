@@ -1,80 +1,104 @@
 # GENYEE 仓库分支架构与维护规范声明 (Branch Guide)
 
 > **重要声明（AI 助手与开发者必读）**：
-> 在对本仓库执行任何拉取、合并、换皮或组件清理操作前，**必须先阅读本文档**，严格区分各分支的职责边界，严禁将不同分支的用途混为一谈。
+> 在对本仓库执行任何拉取、合并、品牌适配或合规维护操作前，**必须先阅读本文档**。自 2026-11-16 主干晋升完成后，本仓库采用精简的 **双层分支架构（`upstream` $\rightarrow$ `main`）**，`main` 即为唯一商业合规、安全加固与 `GENYEE` 品牌统一的默认主干分支。
 
 ---
 
-## 一、分支拓扑与派生流向
+## 一、分支拓扑与演进归档
 
 ```text
 [上游官方仓库: Tencent/WeKnora (main)]
         │
-        ▼ (1:1 原样快进同步，不做任何修改)
+        ▼ (1:1 原样快进同步，严禁任何本地修改)
   ┌────────────┐
-  │  upstream  │  <-- 原项目纯净备份分支
+  │  upstream  │  <-- 上游纯净镜像分支（只读快进）
   └────────────┘
         │
-        ▼ (合并上游更新 + 适配 GENYEE 品牌/包名/Logo，保留全量功能)
+        ▼ (直接合并入主干 + GENYEE 品牌适配 + 迁移重排 + 增量安全审计 + 34/34 合规门禁)
   ┌────────────┐
-  │    main    │  <-- 纯换皮主分支（仓库默认分支，未删减任何组件）
+  │    main    │  <-- 默认主干分支（商业合规、GENYEE 换皮与全仓安全加固统一主干）
   └────────────┘
-        │
-        ▼ (基于 main 派生，专门剔除非可商用/专有/未自建组件)
-  ┌────────────────────────────────────────┐
-  │  chore/commercial-compliance-cleanup   │  <-- 商业合规精简分支（去组件分支）
-  └────────────────────────────────────────┘
+
+[历史归档与过渡分支说明]
+- archive/legacy-pure-rebrand-main (74434f7303bade6b9fb90c2f315721f060d6af15)
+  └── 早期未裁剪组件的旧版纯换皮 main 快照（永久只读归档保留，不再接收日常合入）
+- chore/commercial-compliance-cleanup & codex/genyee-residue-remediation
+  └── 商业合规改造、上游残留清零与全仓模块安全审计（W0–W8）历史阶段分支，已全量快进合流至 main
 ```
 
 ---
 
-## 二、各分支职责定位与铁律
+## 二、各分支职责定位与合规铁律
 
-### 1. `upstream` 分支 —— 原项目纯净备份支
+### 1. `upstream` 分支 —— 上游官方仓库纯净镜像支
 - **定位**：1:1 追踪并备份上游官方仓库 `https://github.com/Tencent/WeKnora.git` 的 `main` 分支。
-- **规则**：
-  - **严禁**在 `upstream` 分支上进行任何换皮、包名修改或业务代码改动。
-  - 仅用于通过 `git fetch upstream` 拉取上游 `main` 分支后执行快进更新（Fast-forward）并推送到 `origin/upstream`。
+- **铁律**：
+  - **严禁**在 `upstream` 分支上进行任何品牌替换、包名修改、组件裁剪或业务代码改动。
+  - **严禁**向远程 `upstream`（`Tencent/WeKnora`）执行任何 `git push`；仅允许通过 `git fetch upstream` 获取更新后，快进本地 `upstream` 并推送至自有远端 `origin/upstream`。
 
-### 2. `main` 分支 —— 纯换皮主分支（默认主分支）
-- **定位**：基于 `upstream` 分支进行**纯品牌换皮**后的主分支（项目名 `GENYEE`、Go 模块路径 `github.com/Usir233/GENYEE`、替换品牌 Logo 与仓库地址，保留外部硬指向依赖，详见 [REBRAND_RESERVED.md](REBRAND_RESERVED.md)）。
-- **规则**：
-  - **`main` 是纯换皮分支，完整保留原项目的所有功能与组件**（**不做**非可商用或专有组件的裁剪删除）。
-  - **口令约定**：当用户指示**“拉取上游更新，然后合并到换皮后的项目中”**时，**指的始终是将 `upstream` 合并到 `main` 分支**（`Tencent/WeKnora:main` $\rightarrow$ `upstream` $\rightarrow$ `main`），并对上游新增/修改文件补齐 `GENYEE` 包名与品牌词替换。
+### 2. `main` 分支 —— 商业合规与安全加固默认主干
+- **定位**：项目唯一默认主干分支（Go 模块路径 `github.com/Usir233/GENYEE`、统一 `GENYEE_*` / `genyee_*` / `--gy-*` / `gy-*` 命名体系），集成了商业许可证治理、上游标识清零、全仓 301 个模块单元安全审计加固（`W0`–`W8`）及私有化离线/源码交付体系。
+- **`main` 主干长期固化的核心产品与合规边界**：
+  1. **永久移除项（上游同步时一律保持删除）**：
+     - **微信小程序客户端（`miniprogram/`）**：已彻底移除小程序客户端目录、测试与文档；**但完整保留**个人微信（`internal/im/wechat`）与企业微信（`internal/im/wecom`）IM 机器人渠道能力。
+     - **已停用云服务（`WeKnoraCloud` / `GENYEECloud`）**：后端、前端、模型目录、配置开关与文档中的相关实现已彻底删除；未来合并 `upstream` 时若触及该模块，一律**保持删除**。
+     - **非可商用依赖与不合规素材**：禁止引入 `shakinm/xlsReader`（GPL-3.0）、`ebooklib`（AGPL-3.0）、`textract`、MS MARCO 非商用样本、上游宣传视频或第三方客户徽标素材（如 `misc/pr-assets/*`）。
+  2. **可选可观测组件默认关闭（Opt-in）**：
+     - **`Langfuse`**：保留代码与编排支持，但在代码、`.env.example`、`.env.lite.example` 与 `docker-compose*.yml` 中**强制默认关闭**（`LANGFUSE_ENABLED=false`、`PROFILES=""`、容器置于 `--profile langfuse` 下，且严禁默认指向 `cloud.langfuse.com`）。
+  3. **MIT 法定署名与第三方归属保护铁律（零字节篡改红线）**：
+     - 根目录 [`LICENSE`](LICENSE) 为 GENYEE Commercial License（约束自有商业化材料），`frontend/LICENSE`、`website-docs/LICENSE`、`mcp-server/LICENSE.GENYEE`、`mcp-server/LICENSE`、全部 4 份 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md)、[`licenses/`](licenses/)、[`OFFLINE_LICENSES/`](OFFLINE_LICENSES/README.md)、`dataset/README*`、`third_party/anydoc-go/LICENSE` 以及 `README*.md` 底部的 “Attribution & Non-Affiliation Notice” 法定声明受严格保护，未经专项法务与合规复核**严禁删改**。
+     - 第三方开源浏览器扩展 `BrowserSkill` 的上游仓库署名与 Chrome/Edge 官方商店链接按 [`REBRAND_RESERVED.md`](REBRAND_RESERVED.md) 原样保留。
+  4. **自研镜像参数化与私有化交付规范**：
+     - 全部自研镜像统一采用 `${GENYEE_REGISTRY:-genyee}/genyee-*` 参数化命名（详见 [`REBRAND_RESERVED.md`](REBRAND_RESERVED.md)），Helm 锁定第三方基础镜像版本（如 `redis:7.2-alpine`）。
+     - 离线镜像交付统一使用 `./scripts/offline-bundle.sh` 与 `./scripts/offline-load.sh`。
+     - **客户源码包导出铁律**：向客户交付源码时，**严禁**直接打包包含 `.git/` 历史与内部维护文档的工作目录，**必须**执行 `./scripts/export-source.sh`（依托 `.gitattributes` `export-ignore` 与门禁校验自动剥离 `.git/`、`BRANCH_GUIDE.md`、`REBRAND_RESERVED.md`、`WEKNORA_RESIDUE_REMEDIATION.md`、`AUDIT_REPORT.md`、`test-reports/`、`tests/{adversarial,e2e,stress}`、`misc/pr-assets/` 等内部文件）。
 
-### 3. `chore/commercial-compliance-cleanup` 分支 —— 商业合规去组件支
-- **定位**：**专门基于 `main`（纯换皮主分支）派生**的独立分支，用于在换皮基础上完成商业化合规改造、许可证风险清理与私有化交付配套。
-- **本分支实施的五项核心商业合规工程**：
-  1. **架构去耦与无用高风险依赖清理**：移除非可商用数据集、未使用的受限依赖及未自建专有组件，确保主模块仅保留可商用开源依赖。
-  2. **可选云服务与可观测栈默认关闭（Opt-in）**：`Langfuse` 保留代码及编排能力以维持与 `main` 分支合并零冲突，但在代码、`.env.example` 与 `docker-compose*.yml` 中**默认关闭**（`LANGFUSE_ENABLED=false`、Langfuse 容器置于 `--profile langfuse` 下按需启用）。
-     - **`WeKnoraCloud` 例外（2026-11-12 决策变更）**：该服务已停用，本分支**彻底删除** WeKnora Cloud 功能，不再沿用“保留代码、默认关闭”策略。今后 `main` → 本分支合并时，对 WeKnora Cloud 相关改动一律“**保持删除**”。删除范围、数据兼容与实施步骤见 [`WEKNORA_RESIDUE_REMEDIATION.md`](WEKNORA_RESIDUE_REMEDIATION.md) 第四节。
-  3. **商业授权与开源声明配套**：根目录 [`LICENSE`](LICENSE) 为 GENYEE Commercial License，仅约束其声明范围内的自有材料；上游 MIT 与第三方原始授权、版权声明保留在 [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) 和 [`licenses/`](licenses/)，不受商业授权条款限制。镜像交付配套位于 [`OFFLINE_LICENSES/`](OFFLINE_LICENSES/README.md)，含许可证矩阵与 [`WRITTEN_OFFER.md`](OFFLINE_LICENSES/WRITTEN_OFFER.md)。
-  4. **上游品牌残留清理与自研镜像参数化**：清除源码、脚本、OpenAPI/Swagger、Helm Chart 及构建产物中的上游品牌残留；将全部自研镜像切换为 `${GENYEE_REGISTRY:-genyee}/genyee-*`，并固定第三方基础设施镜像版本（如 `redis:7.2-alpine` BSD-3-Clause）。
-     - 源码中剩余的 `WeKnora` / `weknora` 标识（存储键、协议头、数据默认名、代码标识符等）的分类、处理规则、兼容要求与分批实施计划，统一遵循 [`WEKNORA_RESIDUE_REMEDIATION.md`](WEKNORA_RESIDUE_REMEDIATION.md)，**禁止全局查找替换**。
-  5. **私有化离线交付包与纯净源码导出机制**：
-     - 离线镜像交付包：使用 `./scripts/offline-bundle.sh` 导出全量固定版本镜像、`MANIFEST.json`、`SHA256SUMS` 与 `OFFLINE_LICENSES/`，客户侧通过 `./scripts/offline-load.sh --registry <private-registry>` 一键校验并导入内网仓库。
-     - 客户源码交付规范：**严禁直接将包含 `.git/` 历史与内部审计文档的工作目录打包发给客户**；向客户交付源码时，**必须**运行 `./scripts/export-source.sh`（基于 `.gitattributes` 中的 `export-ignore` 规则自动剔除 `.git/`、`COMMERCIAL_COMPLIANCE_AUDIT.md`、`AUDIT_REPORT.md`、`REBRAND_RESERVED.md`、`BRANCH_GUIDE.md`、`WEKNORA_RESIDUE_REMEDIATION.md`、`test-reports/`、`.trellis/`、`.claude/`、`.github/` 等内部维护文件）。
-- **规则**：
-  - 所有商业合规裁剪与默认关闭策略**仅限在此分支进行**，严禁混入 `main` 分支。
-  - 当 `main` 分支合并了上游新功能后，如需同步到此分支，应从更新后的 `main` 分支向此分支合并（`main` $\rightarrow$ `chore/commercial-compliance-cleanup`）。
+### 3. `archive/legacy-pure-rebrand-main` 分支 —— 旧版纯换皮归档支
+- **定位**：固定指向历史提交 `74434f7303bade6b9fb90c2f315721f060d6af15`（主干晋升前未执行组件裁剪与深度残留清零的旧版纯换皮快照），仅作历史对照归档，**严禁**向其合入新代码或将其重新设为默认分支。
 
 ---
 
-## 三、标准同步与跨分支操作守则
+## 三、上游更新同步标准作业流程（`upstream` $\rightarrow$ `main`）
 
-### 1. 日常同步上游到纯换皮主分支（`upstream` $\rightarrow$ `main`）
-1. 拉取上游最新 `main` 分支并更新 `upstream` 分支：
-   ```bash
-   git fetch upstream
-   git branch -f upstream refs/remotes/upstream/main
-   git push origin upstream
-   ```
-2. 合并 `upstream` 到 `main` 分支，并对本次上游新增/修改的文件执行换皮适配：
-   - 将新增 `.go` 文件中的 `github.com/Tencent/WeKnora` 替换为 `github.com/Usir233/GENYEE`。
-   - 将新增前端多语言/文档中的用户可见品牌词 `WeKnora` 替换为 `GENYEE`（注意保留外部硬指向依赖）。
-   - 运行 `go build ./...`、`go vet ./...` 与 `npm run check-i18n` 验证无误后，提交并推送到 `origin/main`。
+当需要将上游 `Tencent/WeKnora` 的新提交同步到本仓库时，**直接从 `upstream` 合并至 `main`**，严禁绕过以下门禁：
 
-### 2. 多窗口/跨分支防冲突铁律（使用 `git worktree`）
-- 如果本地主工作目录 `<repo-root>` 当前正检出在 `chore/commercial-compliance-cleanup`（或其他分支），甚至有后台任务正在修改文件：
-  - **严禁**直接在 `<repo-root>` 目录下强行执行 `git checkout main`、`git stash` 或 `git merge`，以免打断或污染另一个分支的未提交工作。
-  - **必须**使用独立的临时工作树（`git worktree add <临时目录> main`）在隔离目录中完成 `main` 分支的合并、换皮适配、编译测试与 `git push origin main`，完成后清理临时 `worktree`。
+### 1. 拉取并快进更新 `upstream` 镜像分支
+```bash
+git fetch upstream --prune
+git checkout upstream
+git merge --ff-only refs/remotes/upstream/main
+git push origin upstream:refs/heads/upstream
+```
+> 注：核对 `upstream` 工作区与 `refs/remotes/upstream/main` 完全一致，**绝不**向 `upstream` 远端推送。
+
+### 2. 合并至 `main` 并完成品牌、迁移与安全对齐
+```bash
+git checkout main
+git merge --no-commit --no-ff upstream
+```
+在提交合并前逐项完成以下对齐：
+1. **品牌与契约替换**：按 [`WEKNORA_RESIDUE_REMEDIATION.md`](WEKNORA_RESIDUE_REMEDIATION.md) 第五节规则，将上游新增/修改文件中的 Go 导入路径（`github.com/Tencent/WeKnora` $\rightarrow$ `github.com/Usir233/GENYEE`）、环境变量（`GENYEE_*`）、存储键/路由/工具标识（`genyee_*`）、前端与文档样式前缀（`--gy-*` / `.gy-*`）统一适配为 `GENYEE` 规范，禁止盲目全局替换破坏受保护许可证文件。
+2. **已移除组件保持删除**：对触及 `miniprogram/`、`WeKnoraCloud` / `GENYEECloud` 或 `misc/pr-assets/` 的上游变更一律保持删除，并确保 `internal/im/{wechat,wecom}` 与 `LANGFUSE_ENABLED=false` 策略不被回退。
+3. **数据库迁移序号重排与初始化脚本对齐**：若上游新增 `migrations/sqlite/*` 或 `migrations/versioned/*` 与本仓已有自研迁移版本号冲突，必须顺延重排上游新增迁移序号，同步对齐 `.down.sql`、`migrations/paradedb/00-init-db.sql`、`migrations/mysql/00-init-db.sql`、`website-docs/06-development/02-database-schema.md` 及 `internal/database/` 迁移测试。
+4. **增量安全审计与台账同步**：对本次上游变更涉及的全部文件逐行开展多租户隔离、SSRF、注入、并发竞态与前端 XSS/生命周期安全审计，修复缺陷并同步更新 `test-reports/module-audit-v2/coverage.json`。
+
+### 3. 全量门禁验收与推送
+合并及修复提交推送到 `origin/main` 前，**必须全部通过（exit 0）**：
+```bash
+# 1. 模块审计台账完整性校验（100% git ls-files 覆盖、0 遗漏）
+PYTHONDONTWRITEBYTECODE=1 python3 test-reports/module-audit-v2/verify_ledger.py --summary --final
+
+# 2. Go / Python / 前端构建与测试门禁
+GOMAXPROCS=2 go build -p 1 ./... && GOMAXPROCS=2 go vet -p 1 ./...
+GOMAXPROCS=2 go test -p 1 -count=1 ./...
+(cd frontend && npx tsx --test src/i18n/localeKeyAudit.test.ts)
+
+# 3. 许可证包、34 项商业合规门禁与客户纯净源码导出校验
+bash scripts/check-license-bundle.sh
+PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh
+bash scripts/export-source.sh /tmp/genyee-export-check/genyee-source.tar.gz HEAD && rm -rf /tmp/genyee-export-check
+```
+
+### 4. 多窗口并行开发隔离守则（`git worktree`）
+- 若本地主工作目录 `<repo-root>` 存在未提交改动或其他任务正在运行，**严禁**在 `<repo-root>` 直接强行切换分支或执行合并；必须使用 `git worktree add <临时目录> <分支名>` 在独立工作树中完成同步、审计与测试验证，验收通过后再合入并清理临时 `worktree`。

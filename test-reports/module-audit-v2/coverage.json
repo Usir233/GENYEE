@@ -1,7 +1,8 @@
 {
   "schema_version": "2.0",
   "objective": "100% git ls-files zero-omission module-by-module security, correctness, concurrency, and GENYEE contract audit ledger",
-  "branch": "codex/genyee-residue-remediation",
+  "branch": "main",
+  "baseline_branch": "main",
   "base_commit": "05ed2dd8f8912d882e242f9c8e703d13c52d1efb",
   "wave0_commits": [
     "6aebb100e92f6f29e61b6d9f642f86091365ccc6",
