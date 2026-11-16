@@ -38,7 +38,7 @@
           "file": "cli/acceptance/contract/errorcodes_test.go:100-156,208-210, cli/acceptance/contract/helpers_test.go:47-68",
           "summary": "errorcodes_test.go omitted CodeLocalUnimplemented from identToErrorCode and only scanned cmdutil.NewError/Wrapf call expressions (missing &cmdutil.Error{Code: ...} struct literals used across cli/cmd/**); helpers_test.go did not clear ambient GENYEE_* env vars or set f.IgnoreProjectLink=true.",
           "regression_test": "TestAllReferencedCodesAreRegistered",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -88,7 +88,7 @@
           "file": "cli/AGENTS.md:78-92,124-133,470-578, cli/Makefile:26-47",
           "summary": "cli/AGENTS.md falsely documented --format json on chat/session ask as un-enveloped NDJSON with {\"type\":\"thinking\"}, omitted GENYEE_API_KEY/GENYEE_TOKEN/GENYEE_HOST from the env table, claimed init carried message_id, and referenced removed kb/agent edit verbs; cli/Makefile help produced empty output due to missing ## target comments.",
           "regression_test": "TestSkillsReferenceLiveCommandsAndFlags",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -132,7 +132,7 @@
           "file": "cli/cmd/root.go:156-177, cli/cmd/schema.go:112-146,244-255, cli/cmd/coverage_helpers_test.go:10-35",
           "summary": "root.go PersistentPreRunE propagated unvalidated --profile / GENYEE_PROFILE values into envelope metadata without ValidateProfileName; resolveSchemaTarget panicked with index-out-of-range on Unicode-whitespace-only args (e.g. U+3000) and ignored trailing tokens after leaf commands; emitSchemaIndex and eachLeafCommand omitted runnable parent command `kb config`.",
           "regression_test": "TestW7RootRejectsInvalidProfileOverrideAndSchemaHandlesEdgeCases",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -178,7 +178,7 @@
           "file": "cli/cmd/agent/create.go:109-185,234,272-310, cli/cmd/agent/edit.go:113-155,218-280,366-376, cli/cmd/agent/delete.go:72-76,112-116, cli/cmd/agent/view.go:58-62, cli/cmd/agent/status.go:55-59, cli/cmd/agent/check.go:58-62",
           "summary": "Agent commands lacked ValidateResourceID on <agent-id>/--from (allowing traversal IDs to report reachable:false or inject unsafe tokens into exit-10 retry_argv), permitted --temperature NaN/Inf via IEEE-754 comparison, clobbered copied.Description on `agent create --from` when --description was unset, ignored KB names in `agent update --remove-kb`, and opened --config-file/--system-prompt-file in PreRunE before --dry-run/ConfirmWrite with unbounded io.ReadAll.",
           "regression_test": "TestW7AgentResourceIDAndNaNAndCopyPreservationAndRemoveKBName",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -225,7 +225,7 @@
           "file": "cli/cmd/auth/login.go:167-196,413-442, cli/cmd/auth/token.go:118-158, cli/cmd/auth/refresh.go:64-85,133-156, cli/cmd/auth/logout.go:170-195",
           "summary": "auth login --with-token read unbounded stdin and let multi-line/control-char tokens fail inside net/http as network.error; auth token ignored `env:<VAR>` profile refs supported by logout/remove; auth refresh skipped NormalizeHost/ValidateProfileName on config entries; auth logout --all iterated map keys in non-deterministic order without validating profile names.",
           "regression_test": "TestW7AuthLoginWithTokenBoundsAndControlCharsAndEnvRefsAndDeterministicLogout",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -281,7 +281,7 @@
           "file": "cli/cmd/doc/download.go:97-195",
           "summary": "refuseIfExists used os.Stat instead of os.Lstat (allowing dangling symlinks to bypass --clobber=false and create arbitrary target files), server-suggested Content-Disposition filename=\"-\" hijacked stdout, Windows backslashes in server filenames were unnormalized on Unix, and server-suggested filenames followed pre-existing CWD symlinks.",
           "regression_test": "TestW7DownloadBlocksDanglingSymlinkOverwriteAndServerFilenameTricks",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         },
         {
           "id": "W7-CLI-DOC-02",
@@ -289,7 +289,7 @@
           "file": "cli/cmd/doc/upload_recursive.go:96-108, cli/cmd/doc/upload.go:247-273, cli/cmd/doc/wait.go:57-69,161-175,287-291, cli/cmd/doc/list.go:53,108,142-154",
           "summary": "runUploadRecursive returned unwrapped SDK errors from RunBatch (misclassifying duplicates and HTTP errors as internal.error), doc upload --dry-run skipped --recursive+--name and --glob validation, doc wait emitted ok:true on context.Canceled and accepted <=0 --interval/--timeout, and doc list rejected finalizing/cancelled/deleting/draft statuses and checked --start-time/--end-time after auth.",
           "regression_test": "TestW7UploadRecursiveClassifiesDuplicateAndDryRunValidatesFlags, TestW7DocWaitCancelledContextAndInvalidIntervals, TestW7DocListStatusEnumAndTimeValidationBeforeAuth",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -321,7 +321,7 @@
           "file": "cli/cmd/doctor/doctor.go:109-117,191-204",
           "summary": "runChecks marked auth_credential StatusOK whenever GetCurrentUser returned err==nil even if resp==nil or resp.Data.User==nil, and doctor --offline aborted early in buildServices when config.yaml was corrupt instead of running local credential_storage checks.",
           "regression_test": "TestW7DoctorRejectsEmptyAuthUserAndAllowsOfflineWhenConfigBroken",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -360,7 +360,7 @@
           "file": "cli/cmd/profile/profile.go:9-23, cli/cmd/profile/add.go:73,125, cli/cmd/profile/list.go:64, cli/cmd/profile/remove.go:66,107, cli/cmd/profile/use.go:37-95,122-130",
           "summary": "profile commands called raw config.Load()/Save() without mapping config.ErrCorrupt to CodeLocalConfigCorrupt or I/O errors to CodeLocalFileIO, profile use --dry-run succeeded on nonexistent profiles, and profileKeys iterated map keys in random order.",
           "regression_test": "TestW7ProfileUseDryRunValidatesAndCorruptConfigMapsTypedCodeAndSortedHints",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -435,7 +435,7 @@
           "file": "cli/internal/cmdutil/profilename.go:25-38, cli/internal/cmdutil/host.go:10-71, cli/internal/cmdutil/authretry.go:40-198, cli/internal/cmdutil/factory.go:95-115,279-309,494-559, cli/internal/cmdutil/agentconfig.go:45-55,147",
           "summary": "ValidateProfileName allowed leading '-' (injecting flags like `-y` into retry_argv); ValidateHTTPURL/NormalizeHost accepted URL userinfo (echoing raw passwords in errors), empty hostnames (`http://:8080`), and query/fragment suffixes; AuthRetryTransport only compared initial vs final URL (re-attaching Bearer tokens on 2-hop boomerang redirects), missed path-prefixed /auth/refresh, and ran unbounded io.Copy in drainAndClose; buildClient ignored `env:<VAR>` refs.",
           "regression_test": "TestW7ValidateProfileNameRejectsLeadingDash, TestW7NormalizeHostAndValidateHTTPURLHardening, TestW7AuthRetryTransportBoomerangAndPrefixedAuthAndBoundedDrain, TestW7BuildClientSupportsEnvPrefixedProfileSecretRefs",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -468,7 +468,7 @@
           "file": "cli/internal/secrets/secrets.go:93-195, cli/internal/secrets/keyring.go:30-75",
           "summary": "FileStore.Get used os.ReadFile (following symlinks on <root>, <root>/<profile>, and leaf <key> to exfiltrate arbitrary local files via `auth token` or HTTP auth headers), FileStore.Set did not reject symlinked <root>/<profile> directories or repair permissive 0755 directory modes to 0700, and KeyringStore.{Get,Set,Delete} skipped validateSecretSegment.",
           "regression_test": "TestW7FileStoreRejectsSymlinkReadAndDirSymlinksAndRepairsDirPerms, TestW7KeyringStoreRejectsTraversalSegments",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -494,7 +494,7 @@
           "file": "cli/internal/skillparity/parity_test.go:94-99",
           "summary": "Removed duplicate dead `strings.Index(line, \"genyee \")` fallback branch left over from rebrand cleanup in TestSkillsReferenceLiveCommandsAndFlags.",
           "regression_test": "TestSkillsReferenceLiveCommandsAndFlags",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -522,7 +522,7 @@
           "file": "cli/scripts/check-secret-tokens.sh:15-65, cli/scripts/check-skill-wire-vocab.sh:42-59",
           "summary": "check-secret-tokens.sh missed `gy_` GENYEE API keys, skipped entire lines whenever `<[a-z]` appeared anywhere on the same line, word-split git ls-files output, and did not redact JWTs; check-skill-wire-vocab.sh omitted `--` before grep pattern and suppressed grep errors >= 2.",
           "regression_test": "TestSkillsReferenceLiveCommandsAndFlags",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -552,7 +552,7 @@
           "file": "cli/skills/genyee-shared/SKILL.md:49-55, cli/skills/genyee-rag-search/references/chat.md:15,32, cli/skills/genyee-rag-search/references/search-chunks.md:14",
           "summary": "genyee-shared/SKILL.md and genyee-rag-search references contradicted live `f.ResolveKB` behavior by claiming `search *` and `chat` always require an explicit `--kb` flag, and chat.md documented `tool_call` SSE events with `tool_calls:[...]` instead of `data:{\"tool_name\":...}`.",
           "regression_test": "TestSkillsReferenceLiveCommandsAndFlags",
-          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+          "commit": "1f9171fbd890ff6e013bbffa168ca42b40695f77"
         }
       ],
       "verification_commands": [
@@ -643,7 +643,7 @@
           "file": "client/client.go:175-205",
           "summary": "crossOriginRedirectCredentialStripper only compared via[0] against req.URL (so a 2-hop boomerang redirect OriginA -> EvilB -> OriginA re-attached Authorization/X-API-Key/X-Tenant-ID on hop 2), omitted X-Request-ID stripping, and allowed cross-origin 307/308 redirects to replay non-GET/HEAD request bodies.",
           "regression_test": "TestW7RedirectBoomerangRequestIDAndBodyReplayBlocked",
-          "commit": "6f67b65bd181475b728bdaea077008cade2e9cfb"
+          "commit": "bfcc53a049cc63aaa5ae66f69781b18824ecc23f"
         },
         {
           "id": "W7-SDK-02",
@@ -651,7 +651,7 @@
           "file": "client/faq.go:375-384",
           "summary": "ExportFAQEntries read the entire CSV export response via unbounded io.ReadAll(resp.Body), bypassing maxResponseBodyBytes (16 MiB) and allowing a rogue/proxied endpoint to exhaust client memory.",
           "regression_test": "TestW7ExportFAQEntriesCapsResponseBody",
-          "commit": "6f67b65bd181475b728bdaea077008cade2e9cfb"
+          "commit": "bfcc53a049cc63aaa5ae66f69781b18824ecc23f"
         },
         {
           "id": "W7-SDK-03",
@@ -659,7 +659,7 @@
           "file": "client/sse.go:11-36, client/session.go:339-388,434-475, client/agent.go:135-182",
           "summary": "SSE stream readers concatenated unbounded multi-line `data:` lines into a single string (O(N^2) allocations bypassing the 4 MiB scanner line cap) and KnowledgeQAStream / processAgentSSEStream attempted to JSON-decode named non-`message` SSE frames (e.g. `event: progress`) as chat payloads instead of ignoring them.",
           "regression_test": "TestW7SSEMultiLineFrameCapAndNamedEventFiltering",
-          "commit": "6f67b65bd181475b728bdaea077008cade2e9cfb"
+          "commit": "bfcc53a049cc63aaa5ae66f69781b18824ecc23f"
         },
         {
           "id": "W7-SDK-04",
@@ -667,7 +667,7 @@
           "file": "client/client.go:142-173,215-245,320-335, client/knowledge.go:606, client/session.go:301,399,546, client/agent.go:100,127, client/tenant.go:153, client/README.md, client/README_EN.md",
           "summary": "validateAPIPath missed `#` fragments after `?`, scheme-relative `//`, and `\\`; Client.Raw allowed percent-encoded `%2e%2e`/`%2f` traversal; buildRequest accepted empty/schemeless baseURL; nil request/callback pointers caused SIGSEGV panics; README.md and README_EN.md contained stale uncompilable snippets and an unmatched code fence.",
           "regression_test": "TestW7ValidateAPIPathRawAndNilGuards",
-          "commit": "6f67b65bd181475b728bdaea077008cade2e9cfb"
+          "commit": "bfcc53a049cc63aaa5ae66f69781b18824ecc23f"
         }
       ],
       "verification_commands": [
@@ -702,7 +702,7 @@
           "file": "packages/dsh-genyee/cordis.patch.yml:12",
           "summary": "cordis.patch.yml split GENYEE_KNOWLEDGE_BASE_IDS with `.split(',').filter(Boolean)` without `.map(s => s.trim())`, retaining padded IDs and failing plugin startup with ConfigError on whitespace-only comma segments.",
           "regression_test": "W7-DSH-04: cordis.patch.yml trims whitespace around comma-separated GENYEE_KNOWLEDGE_BASE_IDS",
-          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+          "commit": "10d0f1f30a8e3045395145416a463d68ca737e1b"
         }
       ],
       "verification_commands": [
@@ -729,7 +729,7 @@
           "file": "packages/dsh-genyee/contract/contract_test.go:185-194",
           "summary": "contract_test.go only populated StreamResponse.ToolCalls in its fixture sample and never verified StreamResponse.Data (`data`), allowing drift from internal/handler/session/agent_stream_handler.go which emits tool_call names inside `data.tool_name`.",
           "regression_test": "TestResponseFieldsThePluginReadsStillExist",
-          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+          "commit": "10d0f1f30a8e3045395145416a463d68ca737e1b"
         }
       ],
       "verification_commands": [
@@ -762,7 +762,7 @@
           "file": "packages/dsh-genyee/src/client.ts:404-465",
           "summary": "assembleStream only inspected `event.tool_calls` on `response_type === 'tool_call'`, whereas GENYEE's `/agent-chat/:id` handler emits `{\"response_type\":\"tool_call\",\"data\":{\"tool_name\":\"...\"}}` and leaves `tool_calls` unset, causing `genyee_ask` to always return `tool_calls: []` against real GENYEE servers.",
           "regression_test": "an agent id routes to agent-chat and reports the server-side tools",
-          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+          "commit": "10d0f1f30a8e3045395145416a463d68ca737e1b"
         },
         {
           "id": "W7-DSH-02",
@@ -770,7 +770,7 @@
           "file": "packages/dsh-genyee/src/client.ts:63-70,210-226,356-532",
           "summary": "fetchJsonOnce/ask called unbounded `response.text()` and `assembleStream` accumulated unbounded SSE buffers while parsing each `data:` line individually (dropping valid multi-line SSE frames and accepting unterminated trailing frames without a blank line at EOF).",
           "regression_test": "W7-DSH-02: rejects oversized JSON responses and handles multi-line SSE frames while rejecting unterminated frames",
-          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+          "commit": "10d0f1f30a8e3045395145416a463d68ca737e1b"
         },
         {
           "id": "W7-DSH-03",
@@ -778,7 +778,7 @@
           "file": "packages/dsh-genyee/src/config.ts:69-125,186-215, packages/dsh-genyee/src/client.ts:71-79",
           "summary": "GenyeeApiError and ConfigError never redacted echoed API keys, `gy_...` tokens, `Bearer` tokens, or URL userinfo credentials; normalizeBaseUrl/resolveConfig accepted `https://user:pass@host` URLs; resolveConfig accepted CR/LF control characters in `apiKey` and `tenantId`.",
           "regression_test": "W7-DSH-03: GenyeeApiError redacts configured API keys and bearer/gy_ tokens echoed by servers, W7-DSH-03: rejects baseUrl credentials without leaking them and rejects control chars in headers",
-          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+          "commit": "10d0f1f30a8e3045395145416a463d68ca737e1b"
         },
         {
           "id": "W7-DSH-04",
@@ -786,7 +786,7 @@
           "file": "packages/dsh-genyee/src/client.ts:174-203,345-365, packages/dsh-genyee/src/tools.ts:525-527",
           "summary": "Concurrent `Promise.all([client.search, client.findDocuments])` in `genyee_search` raced on `this.publicModeBlocked` when a KB-restricted key returned HTTP 403 for `resource_urls=public`, failing the second in-flight call; `tools.ts` forwarded `config.knowledgeBaseIds` to `/agent-chat/:id`, overriding the custom agent's server-side KBSelectionMode.",
           "regression_test": "W7-DSH-04: concurrent search + findDocuments both fall back from public URLs on KB-restricted key, W7-DSH-04: configured knowledgeBaseIds does not override custom agent server-side scope unless explicitly passed",
-          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+          "commit": "10d0f1f30a8e3045395145416a463d68ca737e1b"
         }
       ],
       "verification_commands": [
@@ -817,7 +817,7 @@
           "file": "packages/dsh-genyee/test/fixtures/api-contract.json:108-116",
           "summary": "api-contract.json omitted `data` from `responseFieldsRead['types.StreamResponse']`, hiding the `event.data.tool_name` contract mismatch between dsh-genyee and GENYEE's `/agent-chat` handler.",
           "regression_test": "every stream event the plugin handles is declared in the fixture",
-          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+          "commit": "10d0f1f30a8e3045395145416a463d68ca737e1b"
         }
       ],
       "verification_commands": [
@@ -861,7 +861,7 @@
           "file": "packages/dsh-genyee/test/helpers/mock-genyee.mjs:322-331",
           "summary": "mock-genyee.mjs emitted `tool_calls: [{ id, function: { name } }]` on `/agent-chat` SSE streams instead of GENYEE's real `data: { tool_name, arguments, tool_call_id }` shape, masking the broken `tool_call` parser in `src/client.ts`.",
           "regression_test": "an agent id routes to agent-chat and reports the server-side tools",
-          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+          "commit": "10d0f1f30a8e3045395145416a463d68ca737e1b"
         }
       ],
       "verification_commands": [

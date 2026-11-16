@@ -88,7 +88,7 @@
           "file": "docker-compose.yml:660-716; docker-compose.dev.yml:40-93",
           "summary": "minio started without validating non-empty MINIO_ROOT_USER/MINIO_ROOT_PASSWORD (silently falling back to minioadmin:minioadmin when --profile minio was started with empty .env keys), and searxng defaulted SEARXNG_SECRET to a hardcoded public repository constant enabling forged /image_proxy HMAC signatures.",
           "regression_test": "test_minio_enforces_non_empty_credentials_and_searxng_avoids_static_public_secret",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         },
         {
           "id": "W7-DOCKER-02",
@@ -96,7 +96,7 @@
           "file": "docker-compose.yml:638,918-936; docker-compose.dev.yml:18,409-426",
           "summary": "langfuse-db-init interpolated host ${DB_USER} and ${LANGFUSE_DB_NAME} directly into sh -c and psql SQL strings without identifier validation, and postgres healthcheck interpolated unquoted ${DB_USER}/${DB_NAME} into CMD-SHELL.",
           "regression_test": "test_langfuse_db_init_and_postgres_healthcheck_avoid_host_shell_sql_interpolation",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         },
         {
           "id": "W7-DOCKER-03",
@@ -104,7 +104,7 @@
           "file": "docker/Dockerfile.app:180; docker/Dockerfile.odl-hybrid:56; docker-compose.yml:105-118,624; docker-compose.dev.yml:380",
           "summary": "Dockerfile.app copied /root/.duckdb into /home/appuser/.duckdb without --chown=appuser:appuser, Dockerfile.odl-hybrid expanded ${ODL_HYBRID_EXTRA_ARGS} via unquoted bash -c word-splitting/globbing, and docker-compose omitted runtime env passthroughs (GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID, GENYEE_CORS_ALLOWED_ORIGINS, DUCKDB_SKIP_EXTENSION_LOAD, GENYEE_LLM_*_TIMEOUT_SECONDS, GENYEE_WEB_FETCH_CHROMIUM_CONCURRENCY, ODL_HYBRID_MAX_FILE_SIZE_MB).",
           "regression_test": "test_dockerfile_duckdb_chown_odl_shlex_cmd_and_compose_env_passthrough",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         }
       ],
       "verification_commands": [
@@ -137,7 +137,7 @@
           "file": "docker/odl-hybrid/opendataloader_pdf/hybrid_server.py:253-267,405",
           "summary": "Setting ODL_HYBRID_PORT='' crashed main() with ValueError before argparse could parse CLI flags, and HybridSecurityASGIWrapper accepted negative Content-Length headers instead of rejecting them with HTTP 400.",
           "regression_test": "test_odl_hybrid_empty_port_env_fallback_and_negative_content_length_rejected",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         }
       ],
       "verification_commands": [
@@ -182,7 +182,7 @@
           "file": "docker/scripts/gy-secret-fill.mjs:26-34,128-140",
           "summary": "ACTIVE_FIELD read raw el.getAttribute('type') before checking tagName === 'INPUT' and IDL el.type, allowing a page with <textarea type='password'> or whitespace-padded <input type=' password '> (IDL type 'text') to receive cleartext password fills, and fillFields invoked focus(field.ref) before checking originStatus on the current frame URL.",
           "regression_test": "ACTIVE_FIELD rejects textarea[type=password] and padded input type spoofing, fillFields checks originStatus before focusing any ref and main forwards expectedBrowserId",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         },
         {
           "id": "W7-DS-02",
@@ -190,7 +190,7 @@
           "file": "docker/scripts/cdp-cookies.mjs:76-129,294-305; docker/scripts/gy-browser-sync.mjs:161; docker/scripts/gy-ua-governor.mjs:223; docker/scripts/gy-secret-fill.mjs:180,210",
           "summary": "getBrowserWsUrl accepted arbitrary webSocketDebuggerUrl hosts/ports/paths from /json/version without loopback/port/path validation, getBrowserVersion lacked an AbortSignal timeout on stalled endpoints, and connectBrowser did not verify expectedBrowserId against CDP port reuse.",
           "regression_test": "getBrowserWsUrl rejects non-loopback or mismatched-port debugger URLs and connectBrowser enforces expectedBrowserId, getBrowserVersion aborts stalled /json/version endpoints",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         },
         {
           "id": "W7-DS-03",
@@ -198,7 +198,7 @@
           "file": "docker/scripts/agent-browser-wrapper.sh:47-58",
           "summary": "agent-browser-wrapper.sh did not consume value-taking global flags (--proxy, --download-path, --user-agent, --headers, etc.) before subcommand detection and missed attached short -p<provider> flags, allowing callers to shift SUBCMD past the connect and password-eval security guards.",
           "regression_test": "t_value_taking_global_flags_cannot_bypass_connect_or_eval_guards",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         },
         {
           "id": "W7-DS-04",
@@ -206,7 +206,7 @@
           "file": "docker/scripts/gy-cookie-plan.mjs:59-75,97-103,163-248; docker/scripts/gy-chrome.sh:54-62; docker/scripts/gy-display.sh:57; docker/scripts/gy-ua-governor.sh:8",
           "summary": "planSync indexed plain objects with cookie domain names without Object.hasOwn guards (throwing TypeError on Object.prototype keys like 'constructor'/'toString'/'__proto__'), gy-chrome.sh appended session click logs to shared /tmp/gy-chrome.log instead of a 0600 file inside the session browser root, gy-display.sh valid_sid allowed '.'/'..'/leading-dot/leading-dash IDs, and gy-ua-governor.sh lacked chmod 0700 on LOCK_DIR and a run.sh test harness entry.",
           "regression_test": "planSync handles Object.prototype domain keys without throwing, t_session_log_is_written_under_browser_root_not_world_readable_tmp, t_valid_sid_rejects_dot_and_hyphen_prefixed_ids, test_gy_ua_governor.sh",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         }
       ],
       "verification_commands": [
@@ -286,7 +286,7 @@
           "file": "examples/mcp-demo/server.py:147-156; examples/mcp-demo/start.sh:1-54; examples/mcp-demo/test_tools.py:15-35; examples/mcp-demo/README.md:24-58; examples/mcp-demo/.gitignore:1-2",
           "summary": "MCPAuthMiddleware forwarded non-http ASGI scopes (including unauthenticated websocket connections) directly to the inner app instead of restricting passthrough to lifespan, and start.sh/test_tools.py defaulted MCP_SERVER_AUTH_TOKEN to 17-char 'genyee-demo-token' (failing server.py's 32-char minimum out of the box) while echoing raw caller tokens to stdout.",
           "regression_test": "test_mcp_auth_middleware_blocks_unauthenticated_websocket_and_start_sh_mints_32char_token_without_echoing_secret",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         }
       ],
       "verification_commands": [
@@ -346,7 +346,7 @@
           "file": "helm/templates/_helpers.tpl:123-145; helm/templates/serviceaccount.yaml:12; helm/templates/secrets.yaml:42; helm/templates/ingress.yaml:26,33; helm/templates/pvc.yaml:22,41,60,79; helm/templates/frontend.yaml:31,52; helm/templates/app.yaml:46,81-184,217; helm/templates/docreader.yaml:37,64; helm/templates/postgres.yaml:30,51-61,94; helm/templates/redis.yaml:30,55,60,97; helm/templates/neo4j.yaml:31,56,98",
           "summary": "Unquoted user-controlled scalar values (serviceAccountName, secretName, claimName, ingressClassName, tls.secretName, PVC storage sizes, frontend.env keys) allowed YAML boolean/number coercion or newline key injection, and genyee.formatImage did not reject whitespace or quote characters in image registry/repository/tag inputs.",
           "regression_test": "test_scalar_values_are_quoted_against_yaml_coercion_and_injection, test_format_image_rejects_whitespace_and_quotes_while_keeping_image_unquoted",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         },
         {
           "id": "W7-HELM-02",
@@ -354,7 +354,7 @@
           "file": "helm/templates/secrets.yaml:36; helm/templates/postgres.yaml:48-90; helm/templates/networkpolicy.yaml:122-128",
           "summary": "secrets.yaml accepted explicit secrets.systemAesKey values whose byte length was not 32 (causing app release-mode startup crash), postgres.yaml hardcoded '-U postgres' in liveness/readiness probes (failing when secrets.dbUser != 'postgres'), and networkpolicy.yaml blocked component=app peer pod traffic on TCP 8080 needed by multi-replica BrowserSkill cluster forwarding.",
           "regression_test": "test_system_aes_key_enforces_exact_32_byte_length, test_postgres_probes_use_secret_backed_pguser_and_app_networkpolicy_allows_peer_pods",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         }
       ],
       "verification_commands": [
@@ -419,7 +419,7 @@
           "file": "rerank_server_demo.py:28-46,97-106,245; Makefile:141-163,235-251; Formula/genyee-lite.rb:74-90; .env.example:727-729",
           "summary": "rerank_server_demo.py crashed on empty integer env vars and accepted non-SHA branch/tag names (e.g. 'main') or unpinned local hub refs when RERANK_TRUST_REMOTE_CODE=true; Makefile ran unquoted eval on get_version.sh env and unquoted migration arguments; Formula/genyee-lite.rb exported .env.lite keys without shell identifier validation.",
           "regression_test": "test_rerank_server_demo_handles_empty_int_env_and_pins_trust_remote_code, test_homebrew_formula_skips_invalid_env_identifiers",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         }
       ],
       "verification_commands": [
@@ -478,7 +478,7 @@
           "file": "scripts/build_images.sh:105-338; scripts/get_version.sh:5-95",
           "summary": "build_images.sh disabled Go module checksum verification by default (GOSUMDB_ARG=${GOSUMDB:-off}), read CWD-relative VERSION, and left --platform/--build-arg expansions unquoted; get_version.sh emitted unescaped EDITION/VERSION/COMMIT_ID values consumed via shell eval and JSON templates.",
           "regression_test": "test_build_images_enforces_gosumdb_by_default_and_quotes_build_args, test_get_version_quotes_env_output_and_resolves_project_root_from_any_cwd",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         },
         {
           "id": "W7-SCR-02",
@@ -486,7 +486,7 @@
           "file": "scripts/start_all.sh:104-160,406,504,561,709; scripts/dev.sh:128-145; scripts/test-homebrew.sh:97-130; scripts/migrate.sh:8-78,129-134",
           "summary": "start_all.sh skipped secret generation on pre-copied .env files with empty keys and sourced CRLF .env files raw; dev.sh ensure_dev_secrets did not enforce 0600 permissions; migrate.sh let .env clobber explicit caller DB_* env vars, left DB_USER/DB_NAME unencoded in postgres:// URLs, leaked query-string ?password= in REDACTED_DB_URL, and lacked integer validation on force.",
           "regression_test": "test_start_all_and_dev_populate_precopied_crlf_env_secrets_with_0600_mode, test_migrate_respects_caller_env_urlencodes_user_and_db_and_redacts_query_password",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         },
         {
           "id": "W7-SCR-03",
@@ -494,7 +494,7 @@
           "file": "scripts/offline-load.sh:82-86; scripts/offline-bundle.sh:250-256; scripts/export-source.sh:63-84",
           "summary": "offline-load.sh scanned regular files (-type f) without rejecting symlinks inside the bundle directory, offline-bundle.sh omitted SEARXNG_SECRET generation when the searxng profile was enabled, and export-source.sh passed unvalidated GIT_REF to git archive (allowing leading '-' option injection) and resolved relative OUTPUT_TAR against PROJECT_ROOT instead of caller CWD.",
           "regression_test": "test_offline_load_rejects_symlinks_bundle_sets_searxng_secret_and_export_source_blocks_option_refs",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         }
       ],
       "verification_commands": [
@@ -527,7 +527,7 @@
           "file": "scripts/cloud-image/prepare.sh:35-56,140-175,251-266; scripts/cloud-image/cleanup.sh:70-72",
           "summary": "prepare.sh extracted tarballs as root without --no-same-owner/--no-same-permissions, omitted bind-mounted docker/searxng/settings.yml and misc/dex-config.yaml, and left /opt/GENYEE hardcoded in installed systemd units when GENYEE_DIR was customized; cleanup.sh wrote secret-scan paths to predictable /tmp/cleanup-secrets-found.txt.",
           "regression_test": "test_cloud_image_prepare_copies_bind_configs_substitutes_genyee_dir_and_cleanup_avoids_tmp_sink",
-          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+          "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
         }
       ],
       "verification_commands": [

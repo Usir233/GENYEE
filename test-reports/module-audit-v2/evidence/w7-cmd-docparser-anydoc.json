@@ -36,7 +36,7 @@
           "file": "cmd/desktop/main.go:252-415,560-568, cmd/desktop/app.go:13-175",
           "summary": "Embedded desktop HTTP server lacked Slowloris ReadHeaderTimeout/IdleTimeout/MaxHeaderBytes guards, and main() slept a fixed 500ms while reading/writing App.backendURL, App.apiLanBaseURL, App.listenPublic, and App.ctx across goroutines without synchronization.",
           "regression_test": "TestNewDesktopHTTPServer_HasSlowlorisAndHeaderTimeouts, TestApp_ConcurrentEndpointsAndStartupRaceFree",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         },
         {
           "id": "W7-DESK-002",
@@ -44,7 +44,7 @@
           "file": "cmd/desktop/update.go:145-236,373-405,545-555,659-676",
           "summary": "Desktop updater attached GITHUB_TOKEN unconditionally to non-GitHub custom GENYEE_UPDATE_URL hosts, accepted cleartext non-loopback HTTP/unsafe-scheme URLs and unvalidated redirects across release/manifest/installer fetches and BrowserOpenURL, accepted path-traversal segments in GENYEE_UPDATE_REPO, and formatted nil err on invalid GENYEE_UPDATE_PUBLIC_KEY.",
           "regression_test": "TestResolveUpdateReleaseURL_RejectsCleartextRemoteAndRepoTraversal, TestUpdateSecurity_GitHubTokenScopeRedirectValidationAndManifestError",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         }
       ],
       "verification_commands": [
@@ -71,7 +71,7 @@
           "file": "cmd/download/duckdb/duckdb.go:17-95",
           "summary": "downloadExtensions executed unbounded background SQL without timeout, extension identifier validation, allow_unsigned_extensions verification, or HTTPS validation on custom extension repositories.",
           "regression_test": "TestDuckDBDownloadGuards_RejectUnsafeExtensionAndCleartextRepoAndUnsignedMode",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         }
       ],
       "verification_commands": [
@@ -103,7 +103,7 @@
           "file": "cmd/server/main.go:47-166,199-225",
           "summary": "Primary HTTP server omitted ReadHeaderTimeout, IdleTimeout, and MaxHeaderBytes, formatted listen addresses with fmt.Sprintf breaking IPv6 literals, leaked background subscriber contexts on Serve errors, and cancelled background Redis/DB subscribers only after resourceCleaner.Cleanup closed underlying pools.",
           "regression_test": "TestNewHTTPServer_SlowlorisAndHeaderGuards, TestFormatServerAddr_IPv4IPv6AndEmptyHost, TestRunHTTPServerLifecycle_CancelsBackgroundBeforeCleanupAndOnServeError",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         }
       ],
       "verification_commands": [
@@ -212,7 +212,7 @@
           "file": "internal/infrastructure/docparser/json_converter.go:15-245, internal/infrastructure/docparser/builtin_converter.go:72-77",
           "summary": "jsonToMarkdown ignored caller context cancellation, lacked an output Markdown byte cap, and measured chunk size inclusive of ancestor wrapper paths with unbounded split recursion, amplifying small deeply-wrapped JSON arrays into multi-GiB Markdown.",
           "regression_test": "TestAuditW7_JSONToMarkdown_DeepPathAmplificationAndContextCancel",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         },
         {
           "id": "W7-DOCP-002",
@@ -220,7 +220,7 @@
           "file": "internal/infrastructure/docparser/markdown_image_scanner.go:15-48,87-148",
           "summary": "scanMarkdownImageTargets and findMarkdownImageTargetEnd exhibited quadratic O(N^2) scanning on repeated unclosed ![ markers, unclosed angle destinations, blank lines, and deep parentheses.",
           "regression_test": "TestAuditW7_MarkdownImageScanner_LinearTimeOnUnclosedImageSyntax",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         },
         {
           "id": "W7-DOCP-003",
@@ -228,7 +228,7 @@
           "file": "internal/infrastructure/docparser/image_resolver.go:205-242,299-362,477-504,691-710,963-970,2070-2118, internal/infrastructure/docparser/mineru_cloud_converter.go:473-482",
           "summary": "ImageResolver fell back to unsanitized ref.Filename extensions (allowing .html/.js/backslash names), keyed filename deduplication without content hashes (colliding distinct images sharing a basename across folders), allowed XML <!DOCTYPE/<!ENTITY directives in SVGs, trusted remote Content-Type: image/* headers without body magic/SVG validation or pixel-bomb checks, and copied full Markdown strings per image replacement.",
           "regression_test": "TestAuditW7_ImageResolver_SafeStorageExtRemoteSniffAndSVGDoctypeBlock, TestAuditW7_ImageResolver_DistinctSameBasenameImagesNotCollided",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         },
         {
           "id": "W7-DOCP-004",
@@ -236,7 +236,7 @@
           "file": "internal/infrastructure/docparser/grpc_parser.go:192-203,263-355, internal/infrastructure/docparser/mineru_converter.go:140-155,392-485, internal/infrastructure/docparser/paddleocr_vl_converter.go:72-86,220-285, internal/infrastructure/docparser/paddleocr_vl_cloud_converter.go:336-395",
           "summary": "GRPCDocumentReader.readStream/readUnary, MinerUReader.processImages, PaddleOCRVLReader.processImages, and PaddleOCRVLCloudReader.downloadImages omitted cumulative GENYEE_MINERU_MAX_IMAGE_BYTES caps, re-scanned full Markdown via regex per image, and GRPCDocumentReader.Close() left conn/client non-nil so IsConnected() stayed true.",
           "regression_test": "TestAuditW7_ImageBudgetAndGRPCCloseState",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         },
         {
           "id": "W7-DOCP-005",
@@ -244,7 +244,7 @@
           "file": "internal/infrastructure/docparser/mineru_cloud_parts.go:17-225, internal/infrastructure/docparser/mineru_cloud_converter.go:70-95,264-295, internal/infrastructure/docparser/mineru_v1_client.go:543-556, internal/infrastructure/docparser/paddleocr_vl_converter.go:174-184, internal/infrastructure/docparser/paddleocr_vl_cloud_converter.go:100-106,130-140,173-205, internal/infrastructure/docparser/html_table_normalizer.go:65-80, internal/infrastructure/docparser/http_parser.go:63-295",
           "summary": "Cloud readers sent unsanitized multipart filenames, omitted url.PathEscape on jobID/batchID poll URLs, dropped SourceBlocks when FileType was empty, buffered all split PDF part bytes in RAM without overall timeout/image-budget caps, read up to 1 GiB before checking non-200 HTTP status, inverted fenced code spans after mid-line triple backticks in NormalizeHTMLTables, and HTTPDocumentReader lacked getMaxFileSize() and operator DOCREADER_ADDR SSRF handling.",
           "regression_test": "TestAuditW7_CloudUploadFilenameSanitizationAndSourceBlocksFileTypeFallback, TestAuditW7_HTTPDocumentReader_MaxFileSizeTrustedAddrAndBareHostPort, TestAuditW7_CloudPollPathEscapeErrorPreviewAndHTMLTableFences",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         }
       ],
       "verification_commands": [
@@ -412,7 +412,7 @@
           "file": "docreader/Makefile:1-25, docreader/pyproject.toml:7-36, docreader/uv.lock:346-425, docreader/README.md:1-165",
           "summary": "docreader/Makefile referenced non-existent ./src/client and src/server/server.py paths, docreader/pyproject.toml declared grpcio>=1.78.0 below generated stub runtime gate 1.80.0 while omitting direct runtime imports (defusedxml, charset-normalizer, python-pptx), and docreader/README.md omitted fail-closed GRPC_AUTH_TOKEN while instructing operators to inject cloud storage secret keys into docreader.",
           "regression_test": "test_makefile_targets_reference_existing_entrypoints, test_pyproject_grpc_floor_and_direct_runtime_dependencies, test_readme_documents_fail_closed_auth_and_excludes_cloud_secret_keys",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         }
       ],
       "verification_commands": [
@@ -459,7 +459,7 @@
           "file": "docreader/scripts/generate_proto.sh:1-38",
           "summary": "generate_proto.sh hardcoded repo-root-relative paths (failing under `make -C docreader proto`), used bashism `&> /dev/null` (which backgrounds `command -v` and exits 0 under POSIX /bin/sh dash even when protoc-gen-go is absent) and `==`, and left path variables unquoted.",
           "regression_test": "test_generate_proto_sh_posix_and_cwd_independent",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         }
       ],
       "verification_commands": [
@@ -550,7 +550,7 @@
           "file": "docreader/tests/test_security_audit_fixes.py:18-80,810-910, docreader/tests/test_dependency_security.py:1-78",
           "summary": "test_security_audit_fixes.py imported pytest unconditionally (crashing stdlib unittest discovery when pytest is absent) and both test_security_audit_fixes.py and test_dependency_security.py defined top-level functions only, causing `python -m unittest discover` to skip all 16 security regressions.",
           "regression_test": "test_security_regressions_discoverable_by_unittest_without_pytest",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         }
       ],
       "verification_commands": [
@@ -611,7 +611,7 @@
           "file": "tests/adversarial/test_security_auth_adversarial.py:405-496,543-565",
           "summary": "Brand scan checked only 'tencent weknora' combos on frontend bundle and /auth/me + /sessions payloads (missing standalone weknora leaks), test_negative_export returned early as PASSED when explicit TEST_EMAIL/TEST_PASSWORD login failed, and standalone main() aborted before writing challenger_1_summary.json on early suite failure.",
           "regression_test": "test_adversarial_auth_suite_brand_and_explicit_credentials_and_main_summary",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         }
       ],
       "verification_commands": [
@@ -636,7 +636,7 @@
           "file": "tests/e2e/test_browser_e2e.py:108-115,178-662,672,835-842",
           "summary": "Unprotected page.screenshot() inside stage except blocks aborted before record_stage() and generate_reports() when browser target closed, empty stage results evaluated all([]) == True ('PASSED'), and Stage 6 hardcoded target KB UUID without honoring TEST_KB_ID.",
           "regression_test": "test_browser_e2e_safe_screenshot_and_empty_results_status",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         }
       ],
       "verification_commands": [
@@ -664,7 +664,7 @@
           "file": "tests/stress/test_r3_r2_adversarial_challenger.py:1-14,50-99,119-297",
           "summary": "TestFormulaPosixSedAdversarial extracted cls.extracted_sh_script from Formula/genyee-lite.rb in setUpClass but never executed it, instead running hardcoded inline bash referencing stale weknora.db and /weknora paths across 4 test methods.",
           "regression_test": "test_r3_r2_challenger_uses_formula_script_and_genyee_db",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         },
         {
           "id": "W7-STRESS-002",
@@ -672,7 +672,7 @@
           "file": "tests/stress/test_hybrid_search_stress.py:261-273",
           "summary": "run_stress_suite() logged active PostgreSQL connections (expected <= 1) in Phase 3 leak check but omitted active_conns <= 1 from its return boolean, exiting 0 even when active queries leaked.",
           "regression_test": "test_hybrid_search_stress_fails_on_pg_active_connection_leak",
-          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+          "commit": "04e9db9e011605870c0e862d7ddcfb0d6cafe340"
         }
       ],
       "verification_commands": [
