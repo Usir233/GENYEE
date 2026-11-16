@@ -1,0 +1,643 @@
+{
+  "wave": "W7",
+  "slice": "w7-docker-helm-scripts",
+  "units": [
+    {
+      "unit_id": ".github/workflows",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        ".github/ISSUE_TEMPLATE/bug_report.yml",
+        ".github/ISSUE_TEMPLATE/config.yml",
+        ".github/ISSUE_TEMPLATE/feature_request.yml",
+        ".github/ISSUE_TEMPLATE/question.yml",
+        ".github/dependabot.yml",
+        ".github/pull_request_template.md",
+        ".github/workflows/anydoc.yml",
+        ".github/workflows/app.yml",
+        ".github/workflows/cli-e2e.yml",
+        ".github/workflows/cli.yml",
+        ".github/workflows/docker-image.yml",
+        ".github/workflows/docreader.yml",
+        ".github/workflows/dsh-plugin.yml",
+        ".github/workflows/frontend.yml",
+        ".github/workflows/go-lint-cache.yml",
+        ".github/workflows/go-lint.yml",
+        ".github/workflows/helm.yml",
+        ".github/workflows/mcp-server.yml",
+        ".github/workflows/release-lite.yml"
+      ],
+      "invariants_checked": [
+        "All 13 GitHub Actions workflows declare least-privilege top-level permissions (`contents: read` with job-scoped elevation only where required), pin third-party actions to 40-char commit SHAs, and avoid `pull_request_target` privilege escalation.",
+        "Zero untrusted GitHub event expressions (`issue.title`, `pull_request.body`, `head_ref`, commit messages) are interpolated directly inside `run:` shell blocks; dynamic inputs pass via `env:` variables.",
+        "All 6 issue/PR templates, dependabot configuration, and CI jobs use lowercase `genyee-*` image/artifact naming with zero legacy brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "dataset",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "dataset/qa_dataset.py",
+        "dataset/tests/test_dataset_integrity.py",
+        "dataset/tests/test_qa_dataset_default_model.py",
+        "dataset/tests/test_qa_dataset_model.py"
+      ],
+      "invariants_checked": [
+        "Preserved `dataset/README` and `dataset/README_zh.md` untouched per dataset attribution invariant; audited all 4 owned files (`qa_dataset.py` and `dataset/tests/*`).",
+        "`dataset/qa_dataset.py` reads Parquet inputs safely via `pyarrow`/`pandas` (zero `pickle` or unsafe `yaml.load`), validates non-empty `--model` before client initialization, and preserves resumable JSONL output integrity.",
+        "All 24 pytest cases and 3 subtests in `dataset/tests/` pass with 100% Parquet sample schema parity."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 uv run --with pandas --with pyarrow --with openai --with pytest python3 -m pytest dataset/tests/ -q (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docker",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "docker-compose.dev.yml",
+        "docker-compose.yml",
+        "docker/Dockerfile.app",
+        "docker/Dockerfile.docreader",
+        "docker/Dockerfile.odl-hybrid",
+        "docker/Dockerfile.sandbox",
+        "docker/config/supervisord.conf",
+        "docker/desktop/chrome-managed-policies.json",
+        "docker/desktop/google-chrome.desktop",
+        "docker/desktop/xfce4-desktop.xml",
+        "docker/desktop/xfce4-web-browser.desktop",
+        "docker/sandbox-pty-prompt.sh",
+        "docker/searxng/settings.yml"
+      ],
+      "invariants_checked": [
+        "All shipped Dockerfiles (`Dockerfile.app`, `Dockerfile.docreader`, `Dockerfile.odl-hybrid`, `Dockerfile.sandbox`) copy `LICENSE`, `THIRD_PARTY_NOTICES.md`, and `licenses/` (`check-license-bundle.sh` verified), use lowercase `genyee-*` OCI image titles, and run runtime workloads as non-root users where applicable.",
+        "`docker-compose.yml` and `docker-compose.dev.yml` bind infrastructure ports to `127.0.0.1` by default, enforce non-empty `minio` root credentials at startup, mint and persist a unique 256-bit random SearXNG `secret_key` when `SEARXNG_SECRET` is unset, avoid host-interpolated shell/SQL injection in `langfuse-db-init` and `postgres` healthchecks, and pass explicit `app`/`odl-hybrid` runtime env allowlists.",
+        "`docker/Dockerfile.app` copies `/home/appuser/.duckdb` with `--chown=appuser:appuser`, and `docker/Dockerfile.odl-hybrid` parses `ODL_HYBRID_EXTRA_ARGS` via `shlex.split` without shell word-splitting or glob expansion."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOCKER-01",
+          "severity": "P1",
+          "file": "docker-compose.yml:660-716; docker-compose.dev.yml:40-93",
+          "summary": "minio started without validating non-empty MINIO_ROOT_USER/MINIO_ROOT_PASSWORD (silently falling back to minioadmin:minioadmin when --profile minio was started with empty .env keys), and searxng defaulted SEARXNG_SECRET to a hardcoded public repository constant enabling forged /image_proxy HMAC signatures.",
+          "regression_test": "test_minio_enforces_non_empty_credentials_and_searxng_avoids_static_public_secret",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        },
+        {
+          "id": "W7-DOCKER-02",
+          "severity": "P1",
+          "file": "docker-compose.yml:638,918-936; docker-compose.dev.yml:18,409-426",
+          "summary": "langfuse-db-init interpolated host ${DB_USER} and ${LANGFUSE_DB_NAME} directly into sh -c and psql SQL strings without identifier validation, and postgres healthcheck interpolated unquoted ${DB_USER}/${DB_NAME} into CMD-SHELL.",
+          "regression_test": "test_langfuse_db_init_and_postgres_healthcheck_avoid_host_shell_sql_interpolation",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        },
+        {
+          "id": "W7-DOCKER-03",
+          "severity": "P2",
+          "file": "docker/Dockerfile.app:180; docker/Dockerfile.odl-hybrid:56; docker-compose.yml:105-118,624; docker-compose.dev.yml:380",
+          "summary": "Dockerfile.app copied /root/.duckdb into /home/appuser/.duckdb without --chown=appuser:appuser, Dockerfile.odl-hybrid expanded ${ODL_HYBRID_EXTRA_ARGS} via unquoted bash -c word-splitting/globbing, and docker-compose omitted runtime env passthroughs (GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID, GENYEE_CORS_ALLOWED_ORIGINS, DUCKDB_SKIP_EXTENSION_LOAD, GENYEE_LLM_*_TIMEOUT_SECONDS, GENYEE_WEB_FETCH_CHROMIUM_CONCURRENCY, ODL_HYBRID_MAX_FILE_SIZE_MB).",
+          "regression_test": "test_dockerfile_duckdb_chown_odl_shlex_cmd_and_compose_env_passthrough",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        }
+      ],
+      "verification_commands": [
+        "bash scripts/check-license-bundle.sh (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docker/odl-hybrid/opendataloader_pdf",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "docker/odl-hybrid/README.md",
+        "docker/odl-hybrid/opendataloader_pdf/__init__.py",
+        "docker/odl-hybrid/opendataloader_pdf/hybrid_server.py",
+        "docker/odl-hybrid/opendataloader_pdf/runner.py",
+        "docker/odl-hybrid/pyproject.toml",
+        "docker/odl-hybrid/requirements.txt",
+        "docker/odl-hybrid/uv.lock"
+      ],
+      "invariants_checked": [
+        "`HybridSecurityASGIWrapper` enforces constant-time `hmac.compare_digest` bearer/`X-API-Key` authentication (requiring `ODL_HYBRID_AUTH_TOKEN` on non-loopback binds unless explicitly overridden), blocks `/v1/profile/file` with HTTP 404 by default, and enforces upload size limits on both `Content-Length` (rejecting negative/malformed values with HTTP 400 and oversize payloads with HTTP 413) and streamed ASGI body chunks.",
+        "CLI/env configuration (`ODL_HYBRID_PORT`, `ODL_HYBRID_MAX_FILE_SIZE_MB`) falls back cleanly when environment variables are unset or empty strings without startup `ValueError` crashes."
+      ],
+      "findings": [
+        {
+          "id": "W7-ODL-01",
+          "severity": "P2",
+          "file": "docker/odl-hybrid/opendataloader_pdf/hybrid_server.py:253-267,405",
+          "summary": "Setting ODL_HYBRID_PORT='' crashed main() with ValueError before argparse could parse CLI flags, and HybridSecurityASGIWrapper accepted negative Content-Length headers instead of rejecting them with HTTP 400.",
+          "regression_test": "test_odl_hybrid_empty_port_env_fallback_and_negative_content_length_rejected",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest scripts.tests.test_security_fixes -v (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docker/scripts",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "docker/scripts/agent-browser-wrapper.sh",
+        "docker/scripts/cdp-cookies.mjs",
+        "docker/scripts/chrome-gy.sh",
+        "docker/scripts/gy-auth.sh",
+        "docker/scripts/gy-browser-sync.mjs",
+        "docker/scripts/gy-browser-sync.sh",
+        "docker/scripts/gy-chrome.sh",
+        "docker/scripts/gy-cookie-plan.mjs",
+        "docker/scripts/gy-display.sh",
+        "docker/scripts/gy-egress-timezone.mjs",
+        "docker/scripts/gy-fingerprint-profiles.mjs",
+        "docker/scripts/gy-locale-match.mjs",
+        "docker/scripts/gy-machine-id.sh",
+        "docker/scripts/gy-page-sync.mjs",
+        "docker/scripts/gy-secret-fill.mjs",
+        "docker/scripts/gy-secret-fill.sh",
+        "docker/scripts/gy-ua-governor.mjs",
+        "docker/scripts/gy-ua-governor.sh",
+        "docker/scripts/link-chrome-session.sh",
+        "docker/scripts/start-desktop.sh"
+      ],
+      "invariants_checked": [
+        "Browser secret fill (`gy-secret-fill.mjs`) verifies HTTPS + domain allowlist BEFORE clicking/focusing any element AND re-verifies frame identity prior to `Input.insertText`, checks true HTML `<input>` IDL `el.type === \"password\"` (blocking `<textarea type=\"password\">` and whitespace-padded attribute spoofing), unlinks and zeroes the one-time AES-256-GCM key file immediately, and never logs secret values.",
+        "CDP discovery and connection (`cdp-cookies.mjs`, `gy-browser-sync.mjs`, `gy-ua-governor.mjs`, `gy-secret-fill.mjs`) validate `/json/version` `webSocketDebuggerUrl` against strict `ws://127.0.0.1:<port>/devtools/browser/<guid>` rules, enforce `AbortSignal.timeout` on all `/json/version` fetches, and verify `expectedBrowserId` to prevent port-reuse session cross-talk.",
+        "`agent-browser-wrapper.sh` strips caller `--session`/`--profile`/`--cdp`/`--provider`/`-p*`/`--config`/`--args`/`--extension`/`--init-script` overrides and consumes all value-taking global flags so `connect` and password-reading `eval` guards cannot be bypassed; `gy-cookie-plan.mjs` guards `Object.prototype` domain keys via `Object.hasOwn`; `gy-chrome.sh`, `gy-display.sh`, and `gy-ua-governor.sh` enforce `0700`/`0600` private state/log paths and strict session-ID validation."
+      ],
+      "findings": [
+        {
+          "id": "W7-DS-01",
+          "severity": "P1",
+          "file": "docker/scripts/gy-secret-fill.mjs:26-34,128-140",
+          "summary": "ACTIVE_FIELD read raw el.getAttribute('type') before checking tagName === 'INPUT' and IDL el.type, allowing a page with <textarea type='password'> or whitespace-padded <input type=' password '> (IDL type 'text') to receive cleartext password fills, and fillFields invoked focus(field.ref) before checking originStatus on the current frame URL.",
+          "regression_test": "ACTIVE_FIELD rejects textarea[type=password] and padded input type spoofing, fillFields checks originStatus before focusing any ref and main forwards expectedBrowserId",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        },
+        {
+          "id": "W7-DS-02",
+          "severity": "P1",
+          "file": "docker/scripts/cdp-cookies.mjs:76-129,294-305; docker/scripts/gy-browser-sync.mjs:161; docker/scripts/gy-ua-governor.mjs:223; docker/scripts/gy-secret-fill.mjs:180,210",
+          "summary": "getBrowserWsUrl accepted arbitrary webSocketDebuggerUrl hosts/ports/paths from /json/version without loopback/port/path validation, getBrowserVersion lacked an AbortSignal timeout on stalled endpoints, and connectBrowser did not verify expectedBrowserId against CDP port reuse.",
+          "regression_test": "getBrowserWsUrl rejects non-loopback or mismatched-port debugger URLs and connectBrowser enforces expectedBrowserId, getBrowserVersion aborts stalled /json/version endpoints",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        },
+        {
+          "id": "W7-DS-03",
+          "severity": "P1",
+          "file": "docker/scripts/agent-browser-wrapper.sh:47-58",
+          "summary": "agent-browser-wrapper.sh did not consume value-taking global flags (--proxy, --download-path, --user-agent, --headers, etc.) before subcommand detection and missed attached short -p<provider> flags, allowing callers to shift SUBCMD past the connect and password-eval security guards.",
+          "regression_test": "t_value_taking_global_flags_cannot_bypass_connect_or_eval_guards",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        },
+        {
+          "id": "W7-DS-04",
+          "severity": "P2",
+          "file": "docker/scripts/gy-cookie-plan.mjs:59-75,97-103,163-248; docker/scripts/gy-chrome.sh:54-62; docker/scripts/gy-display.sh:57; docker/scripts/gy-ua-governor.sh:8",
+          "summary": "planSync indexed plain objects with cookie domain names without Object.hasOwn guards (throwing TypeError on Object.prototype keys like 'constructor'/'toString'/'__proto__'), gy-chrome.sh appended session click logs to shared /tmp/gy-chrome.log instead of a 0600 file inside the session browser root, gy-display.sh valid_sid allowed '.'/'..'/leading-dot/leading-dash IDs, and gy-ua-governor.sh lacked chmod 0700 on LOCK_DIR and a run.sh test harness entry.",
+          "regression_test": "planSync handles Object.prototype domain keys without throwing, t_session_log_is_written_under_browser_root_not_world_readable_tmp, t_valid_sid_rejects_dot_and_hyphen_prefixed_ids, test_gy_ua_governor.sh",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        }
+      ],
+      "verification_commands": [
+        "bash docker/scripts/tests/run.sh (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docker/scripts/tests",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "docker/scripts/tests/lib.sh",
+        "docker/scripts/tests/lib_seats.sh",
+        "docker/scripts/tests/run.sh",
+        "docker/scripts/tests/smoke-flows.sh",
+        "docker/scripts/tests/smoke-image.sh",
+        "docker/scripts/tests/test_browser_sync.mjs",
+        "docker/scripts/tests/test_browser_sync_live.mjs",
+        "docker/scripts/tests/test_chrome_gy.sh",
+        "docker/scripts/tests/test_gy_auth.sh",
+        "docker/scripts/tests/test_gy_browser_sync.sh",
+        "docker/scripts/tests/test_gy_chrome.sh",
+        "docker/scripts/tests/test_gy_display.sh",
+        "docker/scripts/tests/test_gy_machine_id.sh",
+        "docker/scripts/tests/test_gy_secret_fill.sh",
+        "docker/scripts/tests/test_gy_ua_governor.sh",
+        "docker/scripts/tests/test_link_chrome_session.sh",
+        "docker/scripts/tests/test_secret_fill.mjs",
+        "docker/scripts/tests/test_ua_governor.mjs",
+        "docker/scripts/tests/test_wrapper.sh"
+      ],
+      "invariants_checked": [
+        "All shell (`test_*.sh`) and Node (`test_*.mjs`) suites in `docker/scripts/tests/run.sh` syntax-check every script in `docker/scripts` and execute unit/integration tests covering wrapper flag stripping, CDP validation, cookie sync planning, seat display management, Chrome GUI shim, secret fill, and UA/timezone governance (`test_gy_ua_governor.sh`)."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "bash docker/scripts/tests/run.sh (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docker/scripts/tests/stubs",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "docker/scripts/tests/stubs/agent-browser-stub.sh",
+        "docker/scripts/tests/stubs/gy-display-stub.sh",
+        "docker/scripts/tests/stubs/seatstub.sh"
+      ],
+      "invariants_checked": [
+        "Test stubs (`agent-browser`, `chrome`, `fake-x-stack.sh`) remain isolated to temporary directories provided by the test harness with zero hardcoded host paths or network calls."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "bash docker/scripts/tests/run.sh (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "examples/mcp-demo",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "examples/mcp-demo/.gitignore",
+        "examples/mcp-demo/README.md",
+        "examples/mcp-demo/requirements.txt",
+        "examples/mcp-demo/server.py",
+        "examples/mcp-demo/start.sh",
+        "examples/mcp-demo/test_tools.py"
+      ],
+      "invariants_checked": [
+        "`MCPAuthMiddleware` in `examples/mcp-demo/server.py` enforces constant-time `secrets.compare_digest` bearer / `x-mcp-auth-token` authentication (`MIN_AUTH_TOKEN_LENGTH = 32`) on HTTP requests, passes only ASGI `lifespan` events unauthenticated, and closes unauthenticated `websocket` scopes with code `4401`.",
+        "`examples/mcp-demo/start.sh` and `test_tools.py` auto-generate and read a `0600` `.mcp-demo-token` (>= 32 chars, gitignored) when `MCP_SERVER_AUTH_TOKEN` is unset, never echo plaintext tokens to terminal stdout, and enable DNS-rebinding protection on loopback binds."
+      ],
+      "findings": [
+        {
+          "id": "W7-MCP-01",
+          "severity": "P1",
+          "file": "examples/mcp-demo/server.py:147-156; examples/mcp-demo/start.sh:1-54; examples/mcp-demo/test_tools.py:15-35; examples/mcp-demo/README.md:24-58; examples/mcp-demo/.gitignore:1-2",
+          "summary": "MCPAuthMiddleware forwarded non-http ASGI scopes (including unauthenticated websocket connections) directly to the inner app instead of restricting passthrough to lifespan, and start.sh/test_tools.py defaulted MCP_SERVER_AUTH_TOKEN to 17-char 'genyee-demo-token' (failing server.py's 32-char minimum out of the box) while echoing raw caller tokens to stdout.",
+          "regression_test": "test_mcp_auth_middleware_blocks_unauthenticated_websocket_and_start_sh_mints_32char_token_without_echoing_secret",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest scripts.tests.test_security_fixes -v (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "examples/skills/pdf-processing/scripts",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "examples/skills/README.md",
+        "examples/skills/pdf-processing/FORMS.md",
+        "examples/skills/pdf-processing/SKILL.md",
+        "examples/skills/pdf-processing/scripts/analyze_form.py",
+        "examples/skills/pdf-processing/scripts/extract_text.py"
+      ],
+      "invariants_checked": [
+        "All 5 PDF utility scripts (`check_bounding_boxes.py`, `check_fillable_fields.py`, `convert_pdf_to_images.py`, `extract_form_field_info.py`, `fill_fillable_fields.py`) use `pypdf`/`pdf2image` with zero `pickle`, `yaml.load`, `eval`, shell invocations, or network requests, and compile cleanly under `py_compile`."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile examples/skills/pdf-processing/scripts/*.py (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "helm",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "helm/.helmignore",
+        "helm/Chart.yaml",
+        "helm/README.md",
+        "helm/templates/NOTES.txt",
+        "helm/templates/_helpers.tpl",
+        "helm/templates/app.yaml",
+        "helm/templates/docreader.yaml",
+        "helm/templates/frontend.yaml",
+        "helm/templates/ingress.yaml",
+        "helm/templates/neo4j.yaml",
+        "helm/templates/networkpolicy.yaml",
+        "helm/templates/postgres.yaml",
+        "helm/templates/pvc.yaml",
+        "helm/templates/redis.yaml",
+        "helm/templates/secrets.yaml",
+        "helm/templates/serviceaccount.yaml",
+        "helm/values.yaml"
+      ],
+      "invariants_checked": [
+        "Helm templates quote scalar user-controlled values (`serviceAccountName`, `secretName`, `claimName`, `ingressClassName`, `tls.secretName`, PVC `storage`, `frontend.env` keys) against YAML boolean/numeric coercion and newline injection, while `_helpers.tpl` `genyee.formatImage` rejects whitespace/quotes via `fail` and preserves unquoted `image:` lines required by `.github/workflows/helm.yml`.",
+        "`secrets.yaml` enforces exact 32-byte length when `secrets.systemAesKey` is explicitly provided (matching Go `ValidateProductionAESKey`), `postgres.yaml` probes use secret-backed `PGUSER`/`PGDATABASE` instead of hardcoded `-U postgres`, and `networkpolicy.yaml` permits `component=app` peer-to-peer ingress on TCP 8080 for multi-replica BrowserSkill cluster forwarding."
+      ],
+      "findings": [
+        {
+          "id": "W7-HELM-01",
+          "severity": "P1",
+          "file": "helm/templates/_helpers.tpl:123-145; helm/templates/serviceaccount.yaml:12; helm/templates/secrets.yaml:42; helm/templates/ingress.yaml:26,33; helm/templates/pvc.yaml:22,41,60,79; helm/templates/frontend.yaml:31,52; helm/templates/app.yaml:46,81-184,217; helm/templates/docreader.yaml:37,64; helm/templates/postgres.yaml:30,51-61,94; helm/templates/redis.yaml:30,55,60,97; helm/templates/neo4j.yaml:31,56,98",
+          "summary": "Unquoted user-controlled scalar values (serviceAccountName, secretName, claimName, ingressClassName, tls.secretName, PVC storage sizes, frontend.env keys) allowed YAML boolean/number coercion or newline key injection, and genyee.formatImage did not reject whitespace or quote characters in image registry/repository/tag inputs.",
+          "regression_test": "test_scalar_values_are_quoted_against_yaml_coercion_and_injection, test_format_image_rejects_whitespace_and_quotes_while_keeping_image_unquoted",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        },
+        {
+          "id": "W7-HELM-02",
+          "severity": "P2",
+          "file": "helm/templates/secrets.yaml:36; helm/templates/postgres.yaml:48-90; helm/templates/networkpolicy.yaml:122-128",
+          "summary": "secrets.yaml accepted explicit secrets.systemAesKey values whose byte length was not 32 (causing app release-mode startup crash), postgres.yaml hardcoded '-U postgres' in liveness/readiness probes (failing when secrets.dbUser != 'postgres'), and networkpolicy.yaml blocked component=app peer pod traffic on TCP 8080 needed by multi-replica BrowserSkill cluster forwarding.",
+          "regression_test": "test_system_aes_key_enforces_exact_32_byte_length, test_postgres_probes_use_secret_backed_pguser_and_app_networkpolicy_allows_peer_pods",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        }
+      ],
+      "verification_commands": [
+        "helm lint ./helm (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s helm/tests -v (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "helm/tests",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "helm/tests/test_app_storage.py",
+        "helm/tests/test_delivery.py",
+        "helm/tests/test_docreader_tls_and_port.py",
+        "helm/tests/test_security_hardening.py"
+      ],
+      "invariants_checked": [
+        "All 27 unittest cases across `test_app_storage.py`, `test_delivery.py`, `test_docreader_tls_and_port.py`, and `test_security_hardening.py` pass alongside `helm lint ./helm`."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s helm/tests -v (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "root-runtime",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        ".air.toml",
+        ".dockerignore",
+        ".env.example",
+        ".env.lite.example",
+        ".gitattributes",
+        ".gitignore",
+        ".golangci.yml",
+        "Formula/genyee-lite.rb",
+        "Makefile",
+        "README.md",
+        "README_CN.md",
+        "README_JA.md",
+        "README_KO.md",
+        "SECURITY.md",
+        "VERSION",
+        "deploy/genyee-lite.service",
+        "go.mod",
+        "go.sum",
+        "misc/dex-config.yaml",
+        "rerank_server_demo.py",
+        "test_agent_config.sh"
+      ],
+      "invariants_checked": [
+        "Preserved all protected license/attribution/historical files and kept `README.md`, `README_CN.md`, `README_JA.md`, and `README_KO.md` 100% byte-identical; audited `go.mod`, `go.sum`, `Makefile`, `Formula/genyee-lite.rb`, `.env.example`, `.env.lite.example`, `rerank_server_demo.py`, `.dockerignore`, `.gitignore`, `.gitattributes`, `.golangci.yml`, `VERSION`, `docreader/pyproject.toml`, and `mcp-server/pyproject.toml`.",
+        "`rerank_server_demo.py` safely falls back on empty integer env vars, binds to `127.0.0.1` with fail-closed `hmac.compare_digest` API key auth, requires a 40-char lowercase hex commit SHA on `RERANK_MODEL_REVISION` when `RERANK_TRUST_REMOTE_CODE=true` for remote repos, and forces `local_files_only=True` on unpinned local directories.",
+        "`Makefile` quotes `eval \"$$(./scripts/get_version.sh env)\"` and migration/docker build arguments; `Formula/genyee-lite.rb` validates `.env.lite` variable names against `[A-Za-z_][A-Za-z0-9_]*` before `export`."
+      ],
+      "findings": [
+        {
+          "id": "W7-RR-01",
+          "severity": "P2",
+          "file": "rerank_server_demo.py:28-46,97-106,245; Makefile:141-163,235-251; Formula/genyee-lite.rb:74-90; .env.example:727-729",
+          "summary": "rerank_server_demo.py crashed on empty integer env vars and accepted non-SHA branch/tag names (e.g. 'main') or unpinned local hub refs when RERANK_TRUST_REMOTE_CODE=true; Makefile ran unquoted eval on get_version.sh env and unquoted migration arguments; Formula/genyee-lite.rb exported .env.lite keys without shell identifier validation.",
+          "regression_test": "test_rerank_server_demo_handles_empty_int_env_and_pins_trust_remote_code, test_homebrew_formula_skips_invalid_env_identifiers",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s helm/tests -v (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "scripts",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "scripts/browserskill-release.json",
+        "scripts/browserskill.md",
+        "scripts/build-anydoc-lib.sh",
+        "scripts/build_browserskill.sh",
+        "scripts/build_frontend_dist.sh",
+        "scripts/build_images.sh",
+        "scripts/check-env.sh",
+        "scripts/check-license-bundle.sh",
+        "scripts/copy-licenses.sh",
+        "scripts/dev.sh",
+        "scripts/docker-entrypoint.sh",
+        "scripts/docker-entrypoint_test.sh",
+        "scripts/export-source.sh",
+        "scripts/get_version.sh",
+        "scripts/install-git-hooks.sh",
+        "scripts/migrate.sh",
+        "scripts/model_catalog_diff.py",
+        "scripts/offline-bundle.sh",
+        "scripts/offline-load.sh",
+        "scripts/package-lite.sh",
+        "scripts/package-mac-app.sh",
+        "scripts/quick-dev.sh",
+        "scripts/start_all.sh",
+        "scripts/test-git-hooks.sh",
+        "scripts/test-homebrew.sh",
+        "scripts/test-license-bundle.sh",
+        "scripts/test_browserskill_extension.mjs",
+        "scripts/test_embed_nginx.py",
+        "scripts/test_paradedb_upgrade.py",
+        "scripts/update-homebrew-formula.sh",
+        "scripts/verify-commercial-compliance.sh",
+        "scripts/verify_frontend_pr.sh"
+      ],
+      "invariants_checked": [
+        "Preserved all negative checks in `scripts/verify-commercial-compliance.sh` (`34/34` passing); verified license bundling (`check-license-bundle.sh`, `copy-licenses.sh`, `generate_npm_notices.mjs`), entrypoint GID checks (`docker-entrypoint.sh`), and air-gapped packaging (`offline-bundle.sh`, `offline-load.sh`, `export-source.sh`).",
+        "`scripts/build_images.sh` keeps Go module checksum verification enabled by default (`GOSUMDB_ARG=${GOSUMDB:-sum.golang.org}`), resolves `$PROJECT_ROOT/VERSION`, and quotes all `--platform` / `--build-arg` flags; `scripts/get_version.sh` resolves `PROJECT_ROOT` from `BASH_SOURCE[0]`, sanitizes version tokens, emits `printf '%s=%q\\n'` in `env` mode, and JSON-escapes fields.",
+        "`scripts/start_all.sh`, `scripts/dev.sh`, and `scripts/test-homebrew.sh` populate empty mandatory secrets on both newly created and pre-copied CRLF/LF `.env` files under `umask 077` (`0600` mode); `scripts/migrate.sh` preserves explicit caller env vars over `.env`, URL-encodes `DB_USER`/`DB_PASSWORD`/`DB_NAME`, redacts query-string `password=` in logs, and validates `force` integer versions; `scripts/offline-load.sh` rejects symlinks in bundles; `scripts/offline-bundle.sh` generates `SEARXNG_SECRET` when `searxng` profile is enabled; `scripts/export-source.sh` blocks leading-`-` `git archive` option injection and supports relative output paths from any CWD."
+      ],
+      "findings": [
+        {
+          "id": "W7-SCR-01",
+          "severity": "P1",
+          "file": "scripts/build_images.sh:105-338; scripts/get_version.sh:5-95",
+          "summary": "build_images.sh disabled Go module checksum verification by default (GOSUMDB_ARG=${GOSUMDB:-off}), read CWD-relative VERSION, and left --platform/--build-arg expansions unquoted; get_version.sh emitted unescaped EDITION/VERSION/COMMIT_ID values consumed via shell eval and JSON templates.",
+          "regression_test": "test_build_images_enforces_gosumdb_by_default_and_quotes_build_args, test_get_version_quotes_env_output_and_resolves_project_root_from_any_cwd",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        },
+        {
+          "id": "W7-SCR-02",
+          "severity": "P1",
+          "file": "scripts/start_all.sh:104-160,406,504,561,709; scripts/dev.sh:128-145; scripts/test-homebrew.sh:97-130; scripts/migrate.sh:8-78,129-134",
+          "summary": "start_all.sh skipped secret generation on pre-copied .env files with empty keys and sourced CRLF .env files raw; dev.sh ensure_dev_secrets did not enforce 0600 permissions; migrate.sh let .env clobber explicit caller DB_* env vars, left DB_USER/DB_NAME unencoded in postgres:// URLs, leaked query-string ?password= in REDACTED_DB_URL, and lacked integer validation on force.",
+          "regression_test": "test_start_all_and_dev_populate_precopied_crlf_env_secrets_with_0600_mode, test_migrate_respects_caller_env_urlencodes_user_and_db_and_redacts_query_password",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        },
+        {
+          "id": "W7-SCR-03",
+          "severity": "P2",
+          "file": "scripts/offline-load.sh:82-86; scripts/offline-bundle.sh:250-256; scripts/export-source.sh:63-84",
+          "summary": "offline-load.sh scanned regular files (-type f) without rejecting symlinks inside the bundle directory, offline-bundle.sh omitted SEARXNG_SECRET generation when the searxng profile was enabled, and export-source.sh passed unvalidated GIT_REF to git archive (allowing leading '-' option injection) and resolved relative OUTPUT_TAR against PROJECT_ROOT instead of caller CWD.",
+          "regression_test": "test_offline_load_rejects_symlinks_bundle_sets_searxng_secret_and_export_source_blocks_option_refs",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        }
+      ],
+      "verification_commands": [
+        "bash scripts/docker-entrypoint_test.sh && bash scripts/check-license-bundle.sh && bash scripts/test-license-bundle.sh (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "scripts/cloud-image",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "scripts/cloud-image/README.md",
+        "scripts/cloud-image/cleanup.sh",
+        "scripts/cloud-image/firstboot.sh",
+        "scripts/cloud-image/prepare.sh",
+        "scripts/cloud-image/select-old-images.sh",
+        "scripts/cloud-image/systemd/genyee-firstboot.service",
+        "scripts/cloud-image/systemd/genyee.service"
+      ],
+      "invariants_checked": [
+        "`scripts/cloud-image/prepare.sh` validates `GENYEE_DIR`, extracts release tarballs with `--no-same-owner --no-same-permissions`, copies bind-mounted `docker/searxng/settings.yml` and `misc/dex-config.yaml` alongside `config/config.yaml`, and substitutes `GENYEE_DIR` into installed `genyee.service` and `genyee-firstboot.service` units.",
+        "`scripts/cloud-image/cleanup.sh` prints potential leftover key paths directly to stdout without writing `/tmp/cleanup-secrets-found.txt` in world-writable `/tmp`, and `firstboot.sh` / `select-old-images.sh` enforce `0600` `.env` secret rotation and literal registry/tag matching."
+      ],
+      "findings": [
+        {
+          "id": "W7-CI-01",
+          "severity": "P2",
+          "file": "scripts/cloud-image/prepare.sh:35-56,140-175,251-266; scripts/cloud-image/cleanup.sh:70-72",
+          "summary": "prepare.sh extracted tarballs as root without --no-same-owner/--no-same-permissions, omitted bind-mounted docker/searxng/settings.yml and misc/dex-config.yaml, and left /opt/GENYEE hardcoded in installed systemd units when GENYEE_DIR was customized; cleanup.sh wrote secret-scan paths to predictable /tmp/cleanup-secrets-found.txt.",
+          "regression_test": "test_cloud_image_prepare_copies_bind_configs_substitutes_genyee_dir_and_cleanup_avoids_tmp_sink",
+          "commit": "aff55882ba587f715afddef495a066bc762aa630"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "scripts/git-hooks",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "scripts/git-hooks/common.sh",
+        "scripts/git-hooks/pre-commit",
+        "scripts/git-hooks/pre-push"
+      ],
+      "invariants_checked": [
+        "`scripts/git-hooks/install.sh`, `pre-commit`, and `pre-push` quote all path expansions, pass `--` pathspec separators to git commands, clear `GENYEE_LOG_FORMAT` during hook runs, and pass `scripts/test-git-hooks.sh`."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "bash scripts/test-git-hooks.sh (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "scripts/go-notices",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "scripts/go-notices/main.go",
+        "scripts/go-notices/main_test.go"
+      ],
+      "invariants_checked": [
+        "`scripts/go-notices/main.go` validates build target syntax, rejects symlinks (`os.ModeSymlink`) and `..` path traversal (`safePath`), stages output atomically before rename, and passes `go vet` and `go test -race`."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./scripts/go-notices/... && GOMAXPROCS=2 go test -race -p 1 -count=1 ./scripts/go-notices/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "scripts/model-catalog",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "scripts/model-catalog/generate.py",
+        "scripts/model-catalog/sources.json"
+      ],
+      "invariants_checked": [
+        "`scripts/model-catalog/generate.py` parses `overrides.json` with duplicate-key rejection, enforces integer context/output token bounds offline without network I/O, and passes `--check` (`30` providers, `372` catalog rules)."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 scripts/model-catalog/generate.py --check (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "scripts/rust-notices",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "scripts/rust-notices/main.go",
+        "scripts/rust-notices/main_test.go"
+      ],
+      "invariants_checked": [
+        "`scripts/rust-notices/main.go` enforces 64-hex `Cargo.lock` checksums, rejects symlinks segment-by-segment via `os.Lstat`, verifies regular tar entries on `.crate` fallback extraction, stages output atomically, and passes `go vet` and `go test -race`."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./scripts/rust-notices/... && GOMAXPROCS=2 go test -race -p 1 -count=1 ./scripts/rust-notices/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "scripts/tests",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "scripts/tests/test_anydoc_build.py",
+        "scripts/tests/test_cloud_image.py",
+        "scripts/tests/test_dev_env_secrets.py",
+        "scripts/tests/test_frontend_runtime.py",
+        "scripts/tests/test_npm_notices.py",
+        "scripts/tests/test_offline_delivery.py",
+        "scripts/tests/test_security_fixes.py"
+      ],
+      "invariants_checked": [
+        "All unittest suites in `scripts/tests/` (`test_anydoc_build.py`, `test_cloud_image.py`, `test_dev_env_secrets.py`, `test_frontend_runtime.py`, `test_npm_notices.py`, `test_offline_delivery.py`, and `test_security_fixes.py`) pass deterministically offline."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "scripts/wemm-transformers",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "scripts/wemm-transformers/requirements.txt",
+        "scripts/wemm-transformers/serve.py",
+        "scripts/wemm-transformers/smoke_test.py",
+        "scripts/wemm-transformers/test_serve.py"
+      ],
+      "invariants_checked": [
+        "`scripts/wemm-transformers/serve.py` binds to loopback by default, enforces fail-closed `hmac.compare_digest` bearer auth, caps request body size to 32 MiB and decoded images to 40 MP, blocks remote URL / `file:` image SSRF by accepting only `data:image/*;base64,...`, and requires a 40-char lowercase hex commit SHA before honoring `WEMM_TRUST_REMOTE_CODE=true`."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile scripts/wemm-transformers/serve.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh (exit 0)"
+      ]
+    }
+  ]
+}
