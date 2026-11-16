@@ -1,10 +1,13 @@
 package common
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
+	"math"
+	"reflect"
 	"regexp"
 	"slices"
 	"sort"
@@ -71,21 +74,31 @@ func DeduplicateWithScore[T ScoreComparable, K comparable](keyFunc func(T) K, it
 		key := keyFunc(item)
 		if existing, exists := seen[key]; !exists {
 			seen[key] = item
-		} else if item.GetScore() > existing.GetScore() {
-			seen[key] = item
+		} else {
+			newScore := item.GetScore()
+			oldScore := existing.GetScore()
+			if (math.IsNaN(oldScore) && !math.IsNaN(newScore)) || newScore > oldScore {
+				seen[key] = item
+			}
 		}
 	}
 	result := slices.Collect(maps.Values(seen))
-	// Sort by score descending
+	// Sort by score descending, placing NaN deterministically last.
 	slices.SortFunc(result, func(a, b T) int {
 		scoreA := a.GetScore()
 		scoreB := b.GetScore()
-		if scoreA > scoreB {
-			return -1
-		} else if scoreA < scoreB {
+		nanA := math.IsNaN(scoreA)
+		nanB := math.IsNaN(scoreB)
+		if nanA && nanB {
+			return 0
+		}
+		if nanA {
 			return 1
 		}
-		return 0
+		if nanB {
+			return -1
+		}
+		return cmp.Compare(scoreB, scoreA)
 	})
 	return result
 }
@@ -266,10 +279,16 @@ func PipelineError(ctx context.Context, stage, action string, fields map[string]
 }
 
 func formatPipelineLogValue(value interface{}) string {
+	if value == nil {
+		return "<nil>"
+	}
 	switch v := value.(type) {
 	case string:
 		return strconv.Quote(truncatePipelineValue(v))
 	case fmt.Stringer:
+		if rv := reflect.ValueOf(v); rv.Kind() == reflect.Ptr && rv.IsNil() {
+			return "<nil>"
+		}
 		return strconv.Quote(truncatePipelineValue(v.String()))
 	case json.RawMessage:
 		bytes, _ := v.MarshalJSON()

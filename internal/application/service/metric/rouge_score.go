@@ -85,6 +85,9 @@ func (n *Ngrams) Union(others ...*Ngrams) *Ngrams {
 
 func getNgrams(n int, text []string, exclusive bool) *Ngrams {
 	ngramSet := NewNgrams(exclusive)
+	if n <= 0 || len(text) < n {
+		return ngramSet
+	}
 	for i := 0; i <= len(text)-n; i++ {
 		ngramSet.Add(strings.Join(text[i:i+n], " "))
 	}
@@ -118,23 +121,22 @@ func reconLcs(x, y []string, exclusive bool) *Ngrams {
 	i, j := len(x), len(y)
 	table := lcs(x, y)
 
-	var reconFunc func(int, int) []string
-	reconFunc = func(i, j int) []string {
-		if i == 0 || j == 0 {
-			return []string{}
-		} else if x[i-1] == y[j-1] {
-			return append(reconFunc(i-1, j-1), x[i-1])
+	reconRev := make([]string, 0, table[i][j])
+	for i > 0 && j > 0 {
+		if x[i-1] == y[j-1] {
+			reconRev = append(reconRev, x[i-1])
+			i--
+			j--
 		} else if table[i-1][j] > table[i][j-1] {
-			return reconFunc(i-1, j)
+			i--
 		} else {
-			return reconFunc(i, j-1)
+			j--
 		}
 	}
 
-	reconList := reconFunc(i, j)
 	ngramList := NewNgrams(exclusive)
-	for _, word := range reconList {
-		ngramList.Add(word)
+	for k := len(reconRev) - 1; k >= 0; k-- {
+		ngramList.Add(reconRev[k])
 	}
 	return ngramList
 }

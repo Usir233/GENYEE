@@ -41,15 +41,24 @@ func (l *Lifecycle) Begin(
 	ctx context.Context, s interfaces.SessionRef, a interfaces.BackgroundActivity,
 	lease time.Duration, kindCap int, start func(context.Context) error,
 ) error {
+	if start == nil {
+		return fmt.Errorf("background start callback is required")
+	}
 	if err := l.Registry.Add(ctx, s, a, lease, kindCap); err != nil {
 		return err
 	}
-	if err := start(ctx); err != nil {
-		if rmErr := l.Registry.Remove(context.WithoutCancel(ctx), s, a.ID); rmErr != nil {
-			l.logf(ctx, "[Background] remove after failed start session=%s id=%s: %v", s.SessionID, a.ID, rmErr)
+	committed := false
+	defer func() {
+		if !committed {
+			if rmErr := l.Registry.Remove(context.WithoutCancel(ctx), s, a.ID); rmErr != nil {
+				l.logf(ctx, "[Background] remove after failed start session=%s id=%s: %v", s.SessionID, a.ID, rmErr)
+			}
 		}
+	}()
+	if err := start(ctx); err != nil {
 		return err
 	}
+	committed = true
 	l.keepAlive(ctx, s)
 	return nil
 }

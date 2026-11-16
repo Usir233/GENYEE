@@ -1,6 +1,7 @@
 package errors
 
 import (
+	stderrors "errors"
 	"fmt"
 	"net/http"
 )
@@ -69,6 +70,9 @@ type AppError struct {
 
 // Error implements the error interface
 func (e *AppError) Error() string {
+	if e == nil {
+		return ""
+	}
 	return fmt.Sprintf("error code: %d, error message: %s", e.Code, e.Message)
 }
 
@@ -295,8 +299,14 @@ func NewVectorStoreUnavailableError(message string) *AppError {
 	}
 }
 
-// IsAppError checks if the error is an AppError type
+// IsAppError checks if the error is or wraps a non-nil *AppError.
 func IsAppError(err error) (*AppError, bool) {
-	appErr, ok := err.(*AppError)
-	return appErr, ok
+	if err == nil {
+		return nil, false
+	}
+	var appErr *AppError
+	if stderrors.As(err, &appErr) && appErr != nil {
+		return appErr, true
+	}
+	return nil, false
 }

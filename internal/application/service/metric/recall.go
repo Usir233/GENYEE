@@ -14,6 +14,9 @@ func NewRecallMetric() *RecallMetric {
 
 // Compute calculates the recall score
 func (r *RecallMetric) Compute(metricInput *types.MetricInput) float64 {
+	if metricInput == nil {
+		return 0
+	}
 	// Get ground truth and predicted IDs
 	gts := metricInput.RetrievalGT
 	ids := metricInput.RetrievalIDs

@@ -60,3 +60,39 @@ func TestFrameAncestors(t *testing.T) {
 		}
 	}
 }
+
+func TestRejectTrailingDotEmptyPortAndMalformedHosts(t *testing.T) {
+	invalidPatterns := []string{
+		"https://a.example:",
+		"*.example.com:",
+		"https://a.example:0",
+		"https://a.example:65536",
+		"https://a.example:0443",
+		"*.example.com:0",
+		"*.example.com:99999",
+		"*.example.com:0443",
+		"https://.example.com",
+		"*..example.com",
+		"*...",
+		"https://a..example.com",
+		"https://a.example.",
+		"*.example.com.",
+		"https://[fe80::1%25eth0]",
+		"https://a.example`",
+		"https://a.example<x>",
+	}
+	for _, raw := range invalidPatterns {
+		if got, err := NormalizePattern(raw); err == nil {
+			t.Errorf("NormalizePattern(%q) unexpectedly succeeded with %q", raw, got)
+		}
+	}
+	if got := FrameAncestors([]string{"*.example.com:", "*..example.com", "https://a.example."}); got != "frame-ancestors 'none'" {
+		t.Fatalf("FrameAncestors accepted malformed patterns: %q", got)
+	}
+	if Allows("https://shop.example.com:8443", []string{"*.example.com:"}) {
+		t.Fatal("dangling colon pattern must not wildcard ports")
+	}
+	if Allows("https://shop.example.com.", []string{"*.example.com"}) {
+		t.Fatal("trailing-dot origin must not match")
+	}
+}

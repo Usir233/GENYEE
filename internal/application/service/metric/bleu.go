@@ -17,7 +17,6 @@ package metric
 
 import (
 	"encoding/json"
-	"log"
 	"math"
 	"strings"
 
@@ -45,8 +44,30 @@ var (
 )
 
 func (b *BLEUMetric) Compute(metricInput *types.MetricInput) float64 {
+	if metricInput == nil || len(b.weights) == 0 {
+		return 0
+	}
+	for _, w := range b.weights {
+		if math.IsNaN(w) || math.IsInf(w, 0) || w < 0 {
+			return 0
+		}
+	}
+
 	candidate := splitIntoWords(splitSentences(metricInput.GeneratedTexts))
+	if len(candidate) == 0 {
+		return 0
+	}
 	references := []Sentence{splitIntoWords(splitSentences(metricInput.GeneratedGT))}
+	hasNonEmptyRef := false
+	for _, ref := range references {
+		if len(ref) > 0 {
+			hasNonEmptyRef = true
+			break
+		}
+	}
+	if !hasNonEmptyRef {
+		return 0
+	}
 
 	for i := range candidate {
 		candidate[i] = strings.ToLower(candidate[i])
@@ -71,7 +92,7 @@ func (b *BLEUMetric) Compute(metricInput *types.MetricInput) float64 {
 		if !b.smoothing && w > 0 && pn == 0 {
 			return 0
 		}
-		if pn > 0.0 {
+		if w > 0 && pn > 0.0 {
 			overlap++
 			s += w * math.Log(pn)
 		}
@@ -82,7 +103,11 @@ func (b *BLEUMetric) Compute(metricInput *types.MetricInput) float64 {
 	}
 
 	bp := b.brevityPenalty(candidate, references)
-	return bp * math.Exp(s)
+	score := bp * math.Exp(s)
+	if math.IsNaN(score) || math.IsInf(score, 0) {
+		return 0
+	}
+	return score
 }
 
 type phrase []string
@@ -90,7 +115,7 @@ type phrase []string
 func (p phrase) String() string {
 	b, err := json.Marshal(p)
 	if err != nil {
-		log.Fatal("encode error:", err)
+		return strings.Join(p, "\x00")
 	}
 	return string(b)
 }
@@ -149,7 +174,10 @@ func (b *BLEUMetric) modifiedPrecision(candidate Sentence, references []Sentence
 
 func (b *BLEUMetric) brevityPenalty(candidate Sentence, references []Sentence) float64 {
 	c := len(candidate)
-	refLens := []int{}
+	if c == 0 || len(references) == 0 {
+		return 0
+	}
+	refLens := make([]int, 0, len(references))
 	for i := range references {
 		refLens = append(refLens, len(references[i]))
 	}

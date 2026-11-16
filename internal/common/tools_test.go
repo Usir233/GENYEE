@@ -1,6 +1,8 @@
 package common
 
 import (
+	"math"
+	"net/url"
 	"testing"
 	"unicode/utf8"
 )
@@ -63,5 +65,39 @@ func BenchmarkParseLLMJsonResponse_Fenced(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		var p payload
 		_ = ParseLLMJsonResponse(content, &p)
+	}
+}
+
+type scoredTestItem struct {
+	id    string
+	score float64
+}
+
+func (s scoredTestItem) GetScore() float64 { return s.score }
+
+func TestDeduplicateWithScoreNaNAndTypedNilPipelineLog(t *testing.T) {
+	got := DeduplicateWithScore(func(it scoredTestItem) string { return it.id },
+		scoredTestItem{id: "a", score: math.NaN()},
+		scoredTestItem{id: "a", score: 0.9},
+		scoredTestItem{id: "b", score: math.NaN()},
+		scoredTestItem{id: "c", score: 0.5},
+	)
+	if len(got) != 3 {
+		t.Fatalf("len(got) = %d, want 3", len(got))
+	}
+	if got[0].id != "a" || got[0].score != 0.9 {
+		t.Fatalf("expected finite 0.9 score to replace NaN and sort first, got %+v", got)
+	}
+	if got[1].id != "c" || got[1].score != 0.5 {
+		t.Fatalf("expected second item to be c (0.5), got %+v", got)
+	}
+	if got[2].id != "b" || !math.IsNaN(got[2].score) {
+		t.Fatalf("expected NaN item sorted last, got %+v", got)
+	}
+
+	var nilURL *url.URL
+	logLine := PipelineLog("FETCH", "check", map[string]interface{}{"url": nilURL})
+	if logLine == "" {
+		t.Fatal("expected non-empty PipelineLog output for typed-nil Stringer")
 	}
 }

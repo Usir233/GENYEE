@@ -14,6 +14,9 @@ func NewMAPMetric() *MAPMetric {
 
 // Compute calculates the Mean Average Precision score
 func (m *MAPMetric) Compute(metricInput *types.MetricInput) float64 {
+	if metricInput == nil {
+		return 0
+	}
 	// Convert ground truth to sets for efficient lookup
 	gts := metricInput.RetrievalGT
 	ids := metricInput.RetrievalIDs

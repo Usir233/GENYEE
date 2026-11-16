@@ -71,6 +71,17 @@ func (m *MemoryStreamManager) getStream(sessionID, messageID string) *memoryStre
 	return nil
 }
 
+func cloneStreamEvent(ev interfaces.StreamEvent) interfaces.StreamEvent {
+	if ev.Data != nil {
+		copied := make(map[string]interface{}, len(ev.Data))
+		for k, v := range ev.Data {
+			copied[k] = v
+		}
+		ev.Data = copied
+	}
+	return ev
+}
+
 // AppendEvent appends a single event to the stream
 func (m *MemoryStreamManager) AppendEvent(
 	ctx context.Context,
@@ -82,13 +93,14 @@ func (m *MemoryStreamManager) AppendEvent(
 	stream.mu.Lock()
 	defer stream.mu.Unlock()
 
+	ev := cloneStreamEvent(event)
 	// Set timestamp if not already set
-	if event.Timestamp.IsZero() {
-		event.Timestamp = time.Now()
+	if ev.Timestamp.IsZero() {
+		ev.Timestamp = time.Now()
 	}
 
 	// Append event
-	stream.events = append(stream.events, event)
+	stream.events = append(stream.events, ev)
 	stream.lastUpdated = time.Now()
 
 	return nil
@@ -114,6 +126,9 @@ func (m *MemoryStreamManager) GetEvents(
 	sessionID, messageID string,
 	fromOffset int,
 ) ([]interfaces.StreamEvent, int, error) {
+	if fromOffset < 0 {
+		fromOffset = 0
+	}
 	stream := m.getStream(sessionID, messageID)
 	if stream == nil {
 		// Stream doesn't exist yet
@@ -134,7 +149,9 @@ func (m *MemoryStreamManager) GetEvents(
 
 	// Return copy of events to avoid race conditions
 	eventsCopy := make([]interfaces.StreamEvent, len(events))
-	copy(eventsCopy, events)
+	for i := range events {
+		eventsCopy[i] = cloneStreamEvent(events[i])
+	}
 
 	return eventsCopy, nextOffset, nil
 }
@@ -152,17 +169,22 @@ func (m *MemoryStreamManager) AppendSteerEvents(
 
 	seen := make(map[string]bool, len(stream.steerEvents))
 	for _, event := range stream.steerEvents {
-		seen[event.ID] = true
+		if event.ID != "" {
+			seen[event.ID] = true
+		}
 	}
 	for i := range events {
-		if events[i].ID != "" && seen[events[i].ID] {
+		ev := cloneStreamEvent(events[i])
+		if ev.ID != "" && seen[ev.ID] {
 			continue
 		}
-		seen[events[i].ID] = true
-		if events[i].Timestamp.IsZero() {
-			events[i].Timestamp = time.Now()
+		if ev.ID != "" {
+			seen[ev.ID] = true
 		}
-		stream.steerEvents = append(stream.steerEvents, events[i])
+		if ev.Timestamp.IsZero() {
+			ev.Timestamp = time.Now()
+		}
+		stream.steerEvents = append(stream.steerEvents, ev)
 	}
 	stream.lastUpdated = time.Now()
 	return nil
@@ -174,6 +196,9 @@ func (m *MemoryStreamManager) GetSteerEvents(
 	sessionID, messageID string,
 	fromOffset int,
 ) ([]interfaces.StreamEvent, int, error) {
+	if fromOffset < 0 {
+		fromOffset = 0
+	}
 	stream := m.getStream(sessionID, messageID)
 	if stream == nil {
 		return []interfaces.StreamEvent{}, fromOffset, nil
@@ -189,7 +214,9 @@ func (m *MemoryStreamManager) GetSteerEvents(
 	events := stream.steerEvents[fromOffset:]
 	nextOffset := len(stream.steerEvents)
 	eventsCopy := make([]interfaces.StreamEvent, len(events))
-	copy(eventsCopy, events)
+	for i := range events {
+		eventsCopy[i] = cloneStreamEvent(events[i])
+	}
 	return eventsCopy, nextOffset, nil
 }
 

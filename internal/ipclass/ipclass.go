@@ -159,6 +159,10 @@ func IsPublic(ip net.IP) bool {
 }
 
 func classifyIPv6(ip net.IP) (Class, string) {
+	// RFC 6666 discard-only address block (100::/64).
+	if ip[0] == 0x01 && ip[1] == 0x00 && isZeros(ip[2:8]) {
+		return Reserved, "discard-only IPv6 address"
+	}
 	// RFC 8215 local-use translation prefix. Its embedded IPv4 layout is
 	// deployment-specific, so none of it is safe as a public destination.
 	if ip[0] == 0 && ip[1] == 0x64 && ip[2] == 0xff && ip[3] == 0x9b && ip[4] == 0 && ip[5] == 1 {
@@ -202,6 +206,9 @@ func embeddedIPv4(ip net.IP) (net.IP, string) {
 	case ip[0] == 0x00 && ip[1] == 0x64 && ip[2] == 0xff && ip[3] == 0x9b &&
 		isZeros(ip[4:12]):
 		return net.IP(ip[12:16]), "NAT64 embedded"
+	// RFC 2765 SIIT IPv4-translated address, ::ffff:0:a.b.c.d (::ffff:0:0:0/96).
+	case isZeros(ip[0:8]) && ip[8] == 0xff && ip[9] == 0xff && ip[10] == 0x00 && ip[11] == 0x00:
+		return net.IP(ip[12:16]), "IPv4-translated"
 	// IPv4-compatible ::a.b.c.d, deprecated by RFC 4291. ::ffff:a.b.c.d never
 	// reaches here (To4 handles it), and :: and ::1 are already classified.
 	case isZeros(ip[0:12]):

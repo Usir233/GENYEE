@@ -265,8 +265,8 @@ func validateOperation(
 	if key == "" || token == "" {
 		return errors.New("redis lock key and token are required")
 	}
-	if lease <= 0 {
-		return errors.New("redis lock lease must be positive")
+	if lease < time.Millisecond {
+		return errors.New("redis lock lease must be at least 1ms")
 	}
 	return nil
 }

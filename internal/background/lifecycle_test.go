@@ -180,3 +180,14 @@ func (failingInbox) Pending(context.Context, interfaces.SessionRef) ([]interface
 func (failingInbox) Ack(context.Context, interfaces.SessionRef, []string) error { return nil }
 
 func (failingInbox) Clear(context.Context, interfaces.SessionRef) error { return nil }
+
+func TestBeginRemovesRegistrationWhenStartPanics(t *testing.T) {
+	f := newLifecycleFixture()
+	require.PanicsWithValue(t, "boom-start", func() {
+		_ = f.l.Begin(context.Background(), lcSess, lcActivity("sj_panic"), time.Minute, 1,
+			func(context.Context) error { panic("boom-start") })
+	})
+	require.Empty(t, liveIDs(t, f.registry), "panicking start callback must rollback registration")
+	require.NoError(t, f.l.Begin(context.Background(), lcSess, lcActivity("sj_after"), time.Minute, 1,
+		func(context.Context) error { return nil }))
+}

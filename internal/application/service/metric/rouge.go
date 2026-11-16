@@ -1,6 +1,11 @@
 package metric
 
-import "github.com/Usir233/GENYEE/internal/types"
+import (
+	"math"
+	"strings"
+
+	"github.com/Usir233/GENYEE/internal/types"
+)
 
 // reference: https://github.com/dd-Rebecca/rouge
 
@@ -46,6 +51,15 @@ func NewRougeMetric(exclusive bool, metrics, stats string) *RougeMetric {
 
 // Compute calculates the ROUGE score between generated text and reference text
 func (r *RougeMetric) Compute(metricInput *types.MetricInput) float64 {
+	if metricInput == nil {
+		return 0
+	}
+	fn, ok := AvailableMetrics[strings.ToLower(strings.TrimSpace(r.metric))]
+	if !ok || fn == nil {
+		return 0
+	}
+	statKey := strings.ToLower(strings.TrimSpace(r.stats))
+
 	hyps := []string{metricInput.GeneratedTexts} // Generated/hypothesis text
 	refs := []string{metricInput.GeneratedGT}    // Reference/ground truth text
 
@@ -57,10 +71,8 @@ func (r *RougeMetric) Compute(metricInput *types.MetricInput) float64 {
 		hyp := splitSentences(hyps[i]) // Split into sentences
 		ref := splitSentences(refs[i])
 
-		// Get appropriate ROUGE calculation function
-		fn := AvailableMetrics[r.metric]
 		sc := fn(hyp, ref, r.exclusive)
-		scores += sc[r.stats] // Accumulate specified statistic (f1/precision/recall)
+		scores += sc[statKey] // Accumulate specified statistic (f1/precision/recall)
 
 		count++
 	}
@@ -68,5 +80,9 @@ func (r *RougeMetric) Compute(metricInput *types.MetricInput) float64 {
 	if count == 0 {
 		return 0 // Avoid division by zero
 	}
-	return scores / float64(count) // Return average score
+	avg := scores / float64(count)
+	if math.IsNaN(avg) || math.IsInf(avg, 0) {
+		return 0
+	}
+	return avg // Return average score
 }

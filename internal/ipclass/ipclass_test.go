@@ -128,3 +128,37 @@ func TestIsPublic(t *testing.T) {
 		}
 	}
 }
+
+func TestClassifyRFC2765AndDiscardIPv6(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name       string
+		ip         string
+		wantClass  Class
+		wantPublic bool
+	}{
+		{"SIIT metadata", "::ffff:0:169.254.169.254", Translated, false},
+		{"SIIT loopback", "::ffff:0:127.0.0.1", Translated, false},
+		{"SIIT private", "::ffff:0:10.0.0.1", Translated, false},
+		{"SIIT public", "::ffff:0:8.8.8.8", Public, true},
+		{"RFC6666 discard-only", "100::1", Reserved, false},
+	}
+	for _, tc := range cases {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			parsed := net.ParseIP(tc.ip)
+			if parsed == nil {
+				t.Fatalf("failed to parse %s", tc.ip)
+			}
+			gotClass, reason := Classify(parsed)
+			if gotClass != tc.wantClass {
+				t.Fatalf("Classify(%s) = %v (%q), want %v", tc.ip, gotClass, reason, tc.wantClass)
+			}
+			if got := IsPublic(parsed); got != tc.wantPublic {
+				t.Fatalf("IsPublic(%s) = %v, want %v", tc.ip, got, tc.wantPublic)
+			}
+		})
+	}
+}

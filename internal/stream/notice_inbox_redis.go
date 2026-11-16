@@ -65,7 +65,7 @@ func NewRedisNoticeInbox(m *RedisStreamManager, clock func() time.Time) *RedisNo
 }
 
 func (b *RedisNoticeInbox) key(s interfaces.SessionRef) string {
-	return fmt.Sprintf("%s:%s:bg-inbox", b.mgr.prefix, s.SessionID)
+	return fmt.Sprintf("%s:%d:%s:bg-inbox", b.mgr.prefix, s.TenantID, s.SessionID)
 }
 
 // Push implements interfaces.NoticeInbox. An error means the notice was not

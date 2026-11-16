@@ -41,21 +41,22 @@ func SilenceGinRouteSpam() {
 		logger.Info(context.Background(), "[gin] "+msg)
 	}
 	// Expose a way to print the suppressed count once routes are wired up.
-	ginRouteCount = &count
+	ginRouteCount.Store(&count)
 }
 
 // ginRouteCount is set by SilenceGinRouteSpam and read by LogGinRouteCount
 // so callers can print a one-line summary after router build.
-var ginRouteCount *int64
+var ginRouteCount atomic.Pointer[int64]
 
 // LogGinRouteCount writes a single summary line for the number of routes
 // Gin registered. Safe to call even if SilenceGinRouteSpam wasn't called
 // (it just becomes a no-op).
 func LogGinRouteCount(ctx context.Context) {
-	if ginRouteCount == nil {
+	countPtr := ginRouteCount.Load()
+	if countPtr == nil {
 		return
 	}
-	logger.Infof(ctx, "[gin] registered %d routes", atomic.LoadInt64(ginRouteCount))
+	logger.Infof(ctx, "[gin] registered %d routes", atomic.LoadInt64(countPtr))
 }
 
 // envVarSpec describes one env var to surface in the startup banner.
@@ -163,5 +164,5 @@ func formatEnvValue(s envVarSpec, val string) string {
 	if s.sensitive {
 		return fmt.Sprintf("set (%d chars)", len(val))
 	}
-	return val
+	return utils.SanitizeForLog(val)
 }

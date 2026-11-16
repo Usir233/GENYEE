@@ -235,3 +235,18 @@ func TestOwnershipContextCancelsWhenRenewalLosesOwnership(t *testing.T) {
 
 	require.ErrorIs(t, err, redislock.ErrLockOwnershipLost)
 }
+
+func TestSubMillisecondLeaseRejectedBeforeZeroPexpire(t *testing.T) {
+	client, _ := newTokenLockTestClient(t)
+	ctx := context.Background()
+	key := "lock:subms"
+
+	_, err := redislock.TryAcquire(ctx, client, key, "owner-a", 500*time.Microsecond)
+	require.Error(t, err)
+
+	require.NoError(t, client.Set(ctx, key, "owner-a", time.Minute).Err())
+	renewed, err := redislock.Renew(ctx, client, key, "owner-a", 500*time.Microsecond)
+	require.Error(t, err)
+	require.False(t, renewed)
+	require.Equal(t, "owner-a", client.Get(ctx, key).Val(), "rejected sub-ms renew must not expire held lock")
+}

@@ -23,6 +23,13 @@ const maxUnits = 200000
 // maxZipEntryBytes bounds a single archive member read during extraction.
 const maxZipEntryBytes = 64 << 20
 
+// maxArchiveReadBytes bounds cumulative decompressed bytes read across all
+// archive members of a single document so repeated spine/slide references
+// cannot amplify a compressed part into gigabytes of memory.
+const maxArchiveReadBytes = 128 << 20
+
+var errArchiveBudgetExceeded = errors.New("sourceloc: archive decompression budget exceeded")
+
 // SupportsStructure reports whether StructureUnits can read fileType.
 func SupportsStructure(fileType string) bool {
 	switch normalizeType(fileType) {
@@ -205,7 +212,8 @@ func pptxUnits(data []byte) ([]Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	presXML, err := readZipFile(zr, "ppt/presentation.xml")
+	budget := int64(maxArchiveReadBytes)
+	presXML, err := readZipFileWithBudget(zr, "ppt/presentation.xml", &budget)
 	if err != nil {
 		return nil, err
 	}
@@ -213,7 +221,7 @@ func pptxUnits(data []byte) ([]Unit, error) {
 	if err := xml.Unmarshal(presXML, &pres); err != nil {
 		return nil, err
 	}
-	rels, err := readRels(zr, "ppt/_rels/presentation.xml.rels")
+	rels, err := readRels(zr, "ppt/_rels/presentation.xml.rels", &budget)
 	if err != nil {
 		return nil, err
 	}
@@ -223,9 +231,15 @@ func pptxUnits(data []byte) ([]Unit, error) {
 		if !ok {
 			continue
 		}
-		slidePath := resolvePart("ppt", target.Target)
-		slideXML, err := readZipFile(zr, slidePath)
+		slidePath, ok := resolvePart("ppt", target.Target)
+		if !ok {
+			continue
+		}
+		slideXML, err := readZipFileWithBudget(zr, slidePath, &budget)
 		if err != nil {
+			if errors.Is(err, errArchiveBudgetExceeded) {
+				return nil, err
+			}
 			continue
 		}
 		loc := types.SourceLocator{Type: types.SourceLocatorSlide, Slide: i + 1}
@@ -233,11 +247,21 @@ func pptxUnits(data []byte) ([]Unit, error) {
 			units = append(units, Unit{Text: p, Locator: loc})
 		}
 		// Speaker notes render after the slide in every parser we use.
-		slideRels, err := readRels(zr, relsPathFor(slidePath))
+		slideRels, err := readRels(zr, relsPathFor(slidePath), &budget)
+		if errors.Is(err, errArchiveBudgetExceeded) {
+			return nil, err
+		}
 		if err == nil {
 			for _, rel := range slideRels {
 				if strings.HasSuffix(rel.Type, "/notesSlide") {
-					notesXML, err := readZipFile(zr, resolvePart(path.Dir(slidePath), rel.Target))
+					notesPath, ok := resolvePart(path.Dir(slidePath), rel.Target)
+					if !ok {
+						continue
+					}
+					notesXML, err := readZipFileWithBudget(zr, notesPath, &budget)
+					if errors.Is(err, errArchiveBudgetExceeded) {
+						return nil, err
+					}
 					if err == nil {
 						for _, p := range drawingParagraphs(notesXML) {
 							units = append(units, Unit{Text: p, Locator: loc})
@@ -299,7 +323,10 @@ func drawingParagraphs(doc []byte) []string {
 // Rows are streamed so a large workbook is never materialized whole, and
 // reading stops once maxUnits rows are listed.
 func xlsxUnits(data []byte) ([]Unit, error) {
-	f, err := excelize.OpenReader(bytes.NewReader(data))
+	f, err := excelize.OpenReader(bytes.NewReader(data), excelize.Options{
+		UnzipSizeLimit:    maxArchiveReadBytes,
+		UnzipXMLSizeLimit: maxZipEntryBytes,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -394,7 +421,8 @@ func epubUnits(data []byte) ([]Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	containerXML, err := readZipFile(zr, "META-INF/container.xml")
+	budget := int64(maxArchiveReadBytes)
+	containerXML, err := readZipFileWithBudget(zr, "META-INF/container.xml", &budget)
 	if err != nil {
 		return nil, err
 	}
@@ -402,8 +430,11 @@ func epubUnits(data []byte) ([]Unit, error) {
 	if err := xml.Unmarshal(containerXML, &container); err != nil || len(container.Rootfiles) == 0 {
 		return nil, errors.New("epub: no rootfile")
 	}
-	opfPath := container.Rootfiles[0].FullPath
-	opfXML, err := readZipFile(zr, opfPath)
+	opfPath, ok := resolvePart("", container.Rootfiles[0].FullPath)
+	if !ok {
+		return nil, errors.New("epub: invalid rootfile path")
+	}
+	opfXML, err := readZipFileWithBudget(zr, opfPath, &budget)
 	if err != nil {
 		return nil, err
 	}
@@ -421,8 +452,15 @@ func epubUnits(data []byte) ([]Unit, error) {
 		if !ok {
 			continue
 		}
-		doc, err := readZipFile(zr, resolvePart(path.Dir(opfPath), stripFragment(href)))
+		partPath, ok := resolvePart(path.Dir(opfPath), stripFragment(href))
+		if !ok {
+			continue
+		}
+		doc, err := readZipFileWithBudget(zr, partPath, &budget)
 		if err != nil {
+			if errors.Is(err, errArchiveBudgetExceeded) {
+				return nil, err
+			}
 			continue
 		}
 		title, blocks := htmlBlocks(doc)
@@ -502,6 +540,17 @@ func isHTMLBlock(tag string) bool {
 // ---- zip helpers ----------------------------------------------------------
 
 func readZipFile(zr *zip.Reader, name string) ([]byte, error) {
+	budget := int64(maxArchiveReadBytes)
+	return readZipFileWithBudget(zr, name, &budget)
+}
+
+func readZipFileWithBudget(zr *zip.Reader, name string, remaining *int64) ([]byte, error) {
+	if name == "" || name == "." || name == ".." || strings.HasPrefix(name, "../") {
+		return nil, fmt.Errorf("%s: invalid archive path", name)
+	}
+	if *remaining <= 0 {
+		return nil, fmt.Errorf("%s: %w", name, errArchiveBudgetExceeded)
+	}
 	for _, f := range zr.File {
 		if f.Name == name {
 			if f.UncompressedSize64 > maxZipEntryBytes {
@@ -512,14 +561,27 @@ func readZipFile(zr *zip.Reader, name string) ([]byte, error) {
 				return nil, err
 			}
 			defer func() { _ = rc.Close() }()
-			return io.ReadAll(io.LimitReader(rc, maxZipEntryBytes))
+			capBytes := min(int64(maxZipEntryBytes), *remaining)
+			data, err := io.ReadAll(io.LimitReader(rc, capBytes+1))
+			if err != nil {
+				return nil, err
+			}
+			if int64(len(data)) > maxZipEntryBytes {
+				return nil, fmt.Errorf("%s: entry too large", name)
+			}
+			if int64(len(data)) > *remaining {
+				*remaining = 0
+				return nil, fmt.Errorf("%s: %w", name, errArchiveBudgetExceeded)
+			}
+			*remaining -= int64(len(data))
+			return data, nil
 		}
 	}
 	return nil, fmt.Errorf("%s: not found", name)
 }
 
-func readRels(zr *zip.Reader, name string) (map[string]struct{ Type, Target string }, error) {
-	raw, err := readZipFile(zr, name)
+func readRels(zr *zip.Reader, name string, remaining *int64) (map[string]struct{ Type, Target string }, error) {
+	raw, err := readZipFileWithBudget(zr, name, remaining)
 	if err != nil {
 		return nil, err
 	}
@@ -541,12 +603,25 @@ func relsPathFor(part string) string {
 }
 
 // resolvePart resolves a relationship target against the directory of its
-// source part. Absolute targets are rooted at the package root.
-func resolvePart(dir, target string) string {
-	if strings.HasPrefix(target, "/") {
-		return strings.TrimPrefix(path.Clean(target), "/")
+// source part. Absolute targets are rooted at the package root; targets
+// escaping the archive root via ".." are rejected.
+func resolvePart(dir, target string) (string, bool) {
+	target = strings.TrimSpace(target)
+	if target == "" {
+		return "", false
 	}
-	return path.Clean(path.Join(dir, target))
+	var cleaned string
+	if strings.HasPrefix(target, "/") {
+		cleaned = strings.TrimPrefix(path.Clean(target), "/")
+	} else if dir == "" || dir == "." {
+		cleaned = path.Clean(target)
+	} else {
+		cleaned = path.Clean(path.Join(dir, target))
+	}
+	if cleaned == "" || cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") {
+		return "", false
+	}
+	return cleaned, true
 }
 
 func stripFragment(href string) string {

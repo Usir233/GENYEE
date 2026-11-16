@@ -45,6 +45,9 @@ func (x *Index) Locators(start, end int) types.SourceLocators {
 	}
 	start = max(start, 0)
 	end = min(end, len(x.runes))
+	if end <= start {
+		return nil
+	}
 	// Blocks before i all end at or before start.
 	i := sort.Search(len(x.blocks), func(k int) bool { return x.maxEnd[k] > start })
 	var out types.SourceLocators

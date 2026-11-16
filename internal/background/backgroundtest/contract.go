@@ -67,6 +67,17 @@ func RunActivityRegistryContract(
 		require.Empty(t, listIDs(t, r, sessB))
 	})
 
+	t.Run("TenantsAreIsolated", func(t *testing.T) {
+		r, _ := newRegistry(t)
+		t1 := interfaces.SessionRef{TenantID: 1, SessionID: "shared-session"}
+		t2 := interfaces.SessionRef{TenantID: 2, SessionID: "shared-session"}
+		require.NoError(t, r.Add(ctx, t1, activity("sj_1", "shell_job"), time.Minute, 1))
+		require.Empty(t, listIDs(t, r, t2))
+		require.NoError(t, r.Add(ctx, t2, activity("sj_2", "shell_job"), time.Minute, 1))
+		require.Equal(t, []string{"sj_1"}, listIDs(t, r, t1))
+		require.Equal(t, []string{"sj_2"}, listIDs(t, r, t2))
+	})
+
 	t.Run("CapIsPerKind", func(t *testing.T) {
 		r, _ := newRegistry(t)
 		require.NoError(t, r.Add(ctx, sessA, activity("a1", "k1"), time.Minute, 2))
@@ -269,6 +280,23 @@ func RunNoticeInboxContract(
 		require.NoError(t, in.Clear(ctx, sessA))
 		require.Empty(t, pendingIDs(t, in, sessA))
 		require.Equal(t, []string{"n2"}, pendingIDs(t, in, sessB))
+	})
+
+	t.Run("TenantsAreIsolated", func(t *testing.T) {
+		in, _ := newInbox(t)
+		t1 := interfaces.SessionRef{TenantID: 1, SessionID: "shared-session"}
+		t2 := interfaces.SessionRef{TenantID: 2, SessionID: "shared-session"}
+		first, err := in.Push(ctx, t1, notice("n1", start))
+		require.NoError(t, err)
+		require.True(t, first)
+		require.Empty(t, pendingIDs(t, in, t2))
+
+		first, err = in.Push(ctx, t2, notice("n1", start))
+		require.NoError(t, err)
+		require.True(t, first, "same notice ID in another tenant must not collide")
+		require.NoError(t, in.Clear(ctx, t1))
+		require.Empty(t, pendingIDs(t, in, t1))
+		require.Equal(t, []string{"n1"}, pendingIDs(t, in, t2))
 	})
 
 	t.Run("PreservesFields", func(t *testing.T) {

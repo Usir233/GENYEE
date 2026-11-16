@@ -3,6 +3,7 @@ package background
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
@@ -34,6 +35,9 @@ func NewListeners(
 
 // Register appends a listener.
 func (l *Listeners) Register(listener interfaces.SessionLifecycleListener) {
+	if listener == nil {
+		return
+	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.listeners = append(l.listeners, listener)
@@ -45,10 +49,19 @@ func (l *Listeners) snapshot() []interfaces.SessionLifecycleListener {
 	return append([]interfaces.SessionLifecycleListener(nil), l.listeners...)
 }
 
+func callListenerSafely(fn func() error) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("listener panic: %v", r)
+		}
+	}()
+	return fn()
+}
+
 // NotifyStop calls OnStop on every listener. Errors are logged, never returned.
 func (l *Listeners) NotifyStop(ctx context.Context, s interfaces.SessionRef) {
 	for _, listener := range l.snapshot() {
-		if err := listener.OnStop(ctx, s); err != nil {
+		if err := callListenerSafely(func() error { return listener.OnStop(ctx, s) }); err != nil {
 			l.logf(ctx, "[Background] OnStop listener failed session=%s: %v", s.SessionID, err)
 		}
 	}
@@ -60,7 +73,7 @@ func (l *Listeners) NotifyStop(ctx context.Context, s interfaces.SessionRef) {
 func (l *Listeners) NotifyDelete(ctx context.Context, s interfaces.SessionRef) error {
 	var failures []error
 	for _, listener := range l.snapshot() {
-		if err := listener.OnDelete(ctx, s); err != nil {
+		if err := callListenerSafely(func() error { return listener.OnDelete(ctx, s) }); err != nil {
 			l.logf(ctx, "[Background] OnDelete listener failed session=%s: %v", s.SessionID, err)
 			failures = append(failures, err)
 		}
@@ -95,7 +108,7 @@ func (l *Listeners) NotifyDeleteAborted(ctx context.Context, s interfaces.Sessio
 		if rollback, ok := listener.(interface {
 			OnDeleteAborted(context.Context, interfaces.SessionRef) error
 		}); ok {
-			if err := rollback.OnDeleteAborted(ctx, s); err != nil {
+			if err := callListenerSafely(func() error { return rollback.OnDeleteAborted(ctx, s) }); err != nil {
 				l.logf(ctx, "[Background] reopen session after failed deletion session=%s: %v", s.SessionID, err)
 			}
 		}

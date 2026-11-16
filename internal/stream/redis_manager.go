@@ -36,12 +36,15 @@ func NewRedisStreamManager(redisAddr, redisUsername, redisPassword string,
 	})
 
 	// Verify connection
-	_, err := client.Ping(context.Background()).Result()
+	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_, err := client.Ping(pingCtx).Result()
 	if err != nil {
+		_ = client.Close()
 		return nil, fmt.Errorf("failed to connect to Redis: %w", err)
 	}
 
-	if ttl == 0 {
+	if ttl <= 0 {
 		ttl = 24 * time.Hour // Default TTL: 24 hours
 	}
 
@@ -93,7 +96,7 @@ func (r *RedisStreamManager) AppendEvent(
 	}
 
 	// Set/refresh TTL on the key
-	if err := r.client.Expire(ctx, key, r.ttl).Err(); err != nil {
+	if err := r.client.PExpire(ctx, key, r.ttl).Err(); err != nil {
 		return fmt.Errorf("failed to set TTL: %w", err)
 	}
 	r.touchLiveRun(ctx, sessionID)
@@ -116,6 +119,9 @@ func (r *RedisStreamManager) GetEvents(
 	sessionID, messageID string,
 	fromOffset int,
 ) ([]interfaces.StreamEvent, int, error) {
+	if fromOffset < 0 {
+		fromOffset = 0
+	}
 	key := r.buildKey(sessionID, messageID)
 
 	// Get all events from offset to end using LRange
@@ -168,10 +174,11 @@ func (r *RedisStreamManager) AppendSteerEvents(
 
 	payloads := make([]interface{}, 0, len(events))
 	for i := range events {
-		if events[i].Timestamp.IsZero() {
-			events[i].Timestamp = time.Now()
+		ev := events[i]
+		if ev.Timestamp.IsZero() {
+			ev.Timestamp = time.Now()
 		}
-		eventJSON, err := json.Marshal(events[i])
+		eventJSON, err := json.Marshal(ev)
 		if err != nil {
 			return fmt.Errorf("failed to marshal steer event: %w", err)
 		}
@@ -180,11 +187,12 @@ func (r *RedisStreamManager) AppendSteerEvents(
 
 	// Deduplication is atomic with append: a timed-out POST can be retried
 	// while another replica is still accepting the same client ID.
-	args := append([]interface{}{int64(r.ttl / time.Second)}, payloads...)
+	ttlMS := max(r.ttl.Milliseconds(), int64(1))
+	args := append([]interface{}{ttlMS}, payloads...)
 	if err := steerAppendUnique.Run(ctx, r.client, []string{key}, args...).Err(); err != nil {
 		return fmt.Errorf("failed to append steer events to Redis: %w", err)
 	}
-	_ = r.client.Expire(ctx, r.buildLiveRunKey(sessionID), r.ttl).Err()
+	_ = r.client.PExpire(ctx, r.buildLiveRunKey(sessionID), r.ttl).Err()
 	return nil
 }
 
@@ -201,7 +209,7 @@ for i = 2, #ARGV do
     if event.id then seen[event.id] = true end
   end
 end
-redis.call('EXPIRE', KEYS[1], ARGV[1])
+redis.call('PEXPIRE', KEYS[1], ARGV[1])
 return 1
 `)
 
@@ -211,6 +219,9 @@ func (r *RedisStreamManager) GetSteerEvents(
 	sessionID, messageID string,
 	fromOffset int,
 ) ([]interfaces.StreamEvent, int, error) {
+	if fromOffset < 0 {
+		fromOffset = 0
+	}
 	key := r.buildSteerKey(sessionID, messageID)
 
 	results, err := r.client.LRange(ctx, key, int64(fromOffset), -1).Result()
@@ -306,7 +317,7 @@ func (r *RedisStreamManager) UpdateSteerEventData(
 			return false, fmt.Errorf("failed to update steer event in Redis: %w", err)
 		}
 		if updated == 1 {
-			_ = r.client.Expire(ctx, key, r.ttl).Err()
+			_ = r.client.PExpire(ctx, key, r.ttl).Err()
 			return true, nil
 		}
 		// Someone rewrote or removed that slot; re-read and try again.
@@ -465,7 +476,7 @@ func (r *RedisStreamManager) touchLiveRun(ctx context.Context, sessionID string)
 	if sessionID == "" {
 		return
 	}
-	_ = r.client.Expire(ctx, r.buildLiveRunKey(sessionID), r.ttl).Err()
+	_ = r.client.PExpire(ctx, r.buildLiveRunKey(sessionID), r.ttl).Err()
 }
 
 // clearLiveRunCAS deletes the marker only when it still names the run being

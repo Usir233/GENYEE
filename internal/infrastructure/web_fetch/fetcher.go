@@ -192,6 +192,9 @@ func (f *Fetcher) Fetch(ctx context.Context, rawURL string) (string, error) {
 	if (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Hostname() == "" {
 		return "", newFetchError(ErrorInvalidURL, false, "invalid URL format")
 	}
+	if parsedURL.User != nil {
+		return "", newFetchError(ErrorSSRFRejected, false, "URL rejected: credentials in URL are forbidden")
+	}
 	requestCtx, cancel := context.WithTimeout(ctx, f.timeout)
 	defer cancel()
 	if err := f.validateURL(requestCtx, rawURL); err != nil {
@@ -318,17 +321,33 @@ func decodeHTMLBody(body []byte, contentType string) []byte {
 
 func (f *Fetcher) pinnedDialContext() func(context.Context, string, string) (net.Conn, error) {
 	return func(ctx context.Context, network, address string) (net.Conn, error) {
-		host, port, err := net.SplitHostPort(address)
+		rawHost, port, err := net.SplitHostPort(address)
 		if err != nil {
 			return nil, fmt.Errorf("invalid address %s: %w", address, err)
 		}
-		if utils.IsSystemProxy(address) || utils.IsSSRFWhitelistedContext(ctx, host) {
+		if utils.IsSystemProxy(address) {
 			return (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext(ctx, network, address)
+		}
+		host, err := canonicalizeFetchHost(rawHost)
+		if err != nil {
+			return nil, fmt.Errorf("connection blocked: %w", err)
+		}
+		if utils.IsSSRFWhitelistedContext(ctx, host) {
+			return (&net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second}).DialContext(ctx, network, net.JoinHostPort(host, port))
+		}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		if blockedProxyPorts[port] {
+			return nil, fmt.Errorf("connection blocked: port %s is restricted", port)
 		}
 		// Whitelist-only mode refuses a non-whitelisted name before the
 		// lookup (#3378).
 		if err := utils.CheckDialWhitelistOnly(host); err != nil {
 			return nil, fmt.Errorf("connection blocked: %w", err)
+		}
+		if isRestrictedFetchHostname(host) {
+			return nil, fmt.Errorf("connection blocked: restricted hostname %s", host)
 		}
 		ips, err := f.resolveIPs(ctx, host)
 		if err != nil {
@@ -378,39 +397,59 @@ func (f *Fetcher) resolvePinnedTarget(ctx context.Context, rawURL string) (pinne
 	if err != nil {
 		return pinnedTarget{}, newFetchError(ErrorInvalidURL, false, "invalid URL: %v", err)
 	}
+	scheme := strings.ToLower(parsedURL.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return pinnedTarget{}, newFetchError(ErrorInvalidURL, false, "invalid URL scheme %q", parsedURL.Scheme)
+	}
+	if parsedURL.User != nil {
+		return pinnedTarget{}, newFetchError(ErrorSSRFRejected, false, "credentials in URL are forbidden")
+	}
+	host, err := canonicalizeFetchHost(parsedURL.Hostname())
+	if err != nil {
+		return pinnedTarget{}, newFetchError(ErrorSSRFRejected, false, "%v", err)
+	}
 	port := parsedURL.Port()
 	if port == "" {
 		port = "443"
-		if parsedURL.Scheme == "http" {
+		if scheme == "http" {
 			port = "80"
 		}
 	}
 	// Whitelist-only mode refuses a host outside the whitelist before the
 	// lookup (#3378); a whitelisted one is still resolved to pin the render.
-	if err := utils.CheckSSRFWhitelistOnly(parsedURL.Hostname()); err != nil {
+	if err := utils.CheckSSRFWhitelistOnly(host); err != nil {
 		return pinnedTarget{}, newFetchError(ErrorSSRFRejected, false, "%w", err)
 	}
-	ips, err := f.resolveIPs(ctx, parsedURL.Hostname())
+	whitelisted := utils.IsSSRFWhitelistedContext(ctx, host)
+	if err := ctx.Err(); err != nil {
+		return pinnedTarget{}, classifyValidationError(err)
+	}
+	if !whitelisted {
+		if blockedProxyPorts[port] {
+			return pinnedTarget{}, newFetchError(ErrorSSRFRejected, false, "port %s is restricted", port)
+		}
+		if isRestrictedFetchHostname(host) {
+			return pinnedTarget{}, newFetchError(ErrorSSRFRejected, false, "restricted hostname %s", host)
+		}
+	}
+	ips, err := f.resolveIPs(ctx, host)
 	if err != nil {
 		if ctx.Err() != nil {
 			return pinnedTarget{}, classifyValidationError(ctx.Err())
 		}
-		return pinnedTarget{}, newFetchError(ErrorDNS, true, "DNS lookup failed for %s: %w", parsedURL.Hostname(), err)
+		return pinnedTarget{}, newFetchError(ErrorDNS, true, "DNS lookup failed for %s: %w", host, err)
 	}
 	if len(ips) == 0 {
-		return pinnedTarget{}, newFetchError(ErrorDNS, true, "DNS lookup returned no addresses for %s", parsedURL.Hostname())
+		return pinnedTarget{}, newFetchError(ErrorDNS, true, "DNS lookup returned no addresses for %s", host)
 	}
-	if !utils.IsSSRFWhitelistedContext(ctx, parsedURL.Hostname()) {
-		if err := ctx.Err(); err != nil {
-			return pinnedTarget{}, classifyValidationError(err)
-		}
+	if !whitelisted {
 		for _, ip := range ips {
 			if !utils.IsPublicIP(ip) {
 				return pinnedTarget{}, newFetchError(ErrorSSRFRejected, false, "host resolves to restricted IP %s", ip)
 			}
 		}
 	}
-	return pinnedTarget{URL: parsedURL, Host: parsedURL.Hostname(), Port: port, IP: ips[0]}, nil
+	return pinnedTarget{URL: parsedURL, Host: host, Port: port, IP: ips[0]}, nil
 }
 
 func lookupPublicDNS(ctx context.Context, host string) ([]net.IP, error) {

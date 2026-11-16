@@ -93,3 +93,35 @@ func (f listenerFunc) OnDelete(ctx context.Context, s interfaces.SessionRef) err
 	f(ctx, s)
 	return nil
 }
+
+type panickingListener struct{}
+
+func (panickingListener) OnStop(context.Context, interfaces.SessionRef) error {
+	panic("listener-stop-panic")
+}
+
+func (panickingListener) OnDelete(context.Context, interfaces.SessionRef) error {
+	panic("listener-delete-panic")
+}
+
+func TestListenersRecoverPanicIgnoreNilAndRunRemainingListeners(t *testing.T) {
+	ctx := context.Background()
+	s := interfaces.SessionRef{TenantID: 1, SessionID: "s"}
+	registry := NewMemoryActivityRegistry(nil)
+	inbox := NewMemoryNoticeInbox(nil)
+	require.NoError(t, registry.Add(ctx, s, interfaces.BackgroundActivity{ID: "sj_1", Kind: "k"}, time.Hour, 0))
+
+	var log []string
+	l := NewListeners(registry, inbox, nil)
+	l.Register(nil)
+	l.Register(panickingListener{})
+	l.Register(recordingListener{name: "healthy", log: &log})
+
+	require.NotPanics(t, func() { l.NotifyStop(ctx, s) })
+	err := l.NotifyDelete(ctx, s)
+	require.Error(t, err)
+	require.Equal(t, []string{"healthy:stop", "healthy:delete"}, log)
+	items, listErr := registry.List(ctx, s)
+	require.NoError(t, listErr)
+	require.Len(t, items, 1, "failed listener panic on delete must preserve shared state")
+}

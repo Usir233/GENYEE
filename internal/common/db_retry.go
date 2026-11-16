@@ -14,6 +14,9 @@ const defaultMaxDeadlockRetries = 3
 // Retries up to 3 times with exponential backoff (50ms, 100ms, 200ms).
 // Safe for all DB drivers — non-deadlock errors are returned immediately.
 func WithDeadlockRetry(ctx context.Context, fn func() error) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var err error
 	for attempt := 0; attempt <= defaultMaxDeadlockRetries; attempt++ {
 		err = fn()

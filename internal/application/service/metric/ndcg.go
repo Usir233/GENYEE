@@ -18,6 +18,9 @@ func NewNDCGMetric(k int) *NDCGMetric {
 
 // Compute calculates the NDCG score
 func (n *NDCGMetric) Compute(metricInput *types.MetricInput) float64 {
+	if metricInput == nil || n.k <= 0 {
+		return 0
+	}
 	gts := metricInput.RetrievalGT
 	ids := metricInput.RetrievalIDs
 

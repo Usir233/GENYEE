@@ -266,3 +266,39 @@ func TestCSVUnits(t *testing.T) {
 	require.Len(t, units, 3)
 	assert.Equal(t, 3, units[2].Locator.RowStart)
 }
+
+func TestOfficeUnitsBoundCumulativeZipAmplificationAndTraversal(t *testing.T) {
+	// 1. Repeated spine references to a single compressed 18 MiB XHTML comment entry (8x = 144 MiB > 128 MiB budget)
+	// must stop cleanly before unbounded memory amplification.
+	chapter := "<html><body><h1>Ch</h1><!-- " + strings.Repeat("A", 18<<20) + " --><p>ok</p></body></html>"
+	var spine strings.Builder
+	for i := 0; i < 8; i++ {
+		spine.WriteString(`<itemref idref="c1"/>`)
+	}
+	epub := zipOf(t, map[string]string{
+		"META-INF/container.xml": `<container><rootfiles><rootfile full-path="/OEBPS/content.opf"/></rootfiles></container>`,
+		"OEBPS/content.opf":      `<package><manifest><item id="c1" href="ch1.xhtml"/></manifest><spine>` + spine.String() + `</spine></package>`,
+		"OEBPS/ch1.xhtml":        chapter,
+	})
+	units, err := epubUnits(epub)
+	require.Error(t, err, "cumulative spine decompression exceeding budget must return an error")
+	require.Less(t, len(units), 20)
+
+	// 2. Leading slash in container rootfile works within budget, while ../ traversal outside root is rejected.
+	validEpub := zipOf(t, map[string]string{
+		"META-INF/container.xml": `<container><rootfiles><rootfile full-path="/OEBPS/content.opf"/></rootfiles></container>`,
+		"OEBPS/content.opf": `<package><manifest><item id="c1" href="ch1.xhtml"/><item id="esc" href="../../outside.xhtml"/></manifest>` +
+			`<spine><itemref idref="c1"/><itemref idref="esc"/></spine></package>`,
+		"OEBPS/ch1.xhtml": `<html><body><h1>第一章</h1><p>内容正常</p></body></html>`,
+		"outside.xhtml":   `<html><body><p>不应读取</p></body></html>`,
+	})
+	units, err = epubUnits(validEpub)
+	require.NoError(t, err)
+	for _, u := range units {
+		require.NotContains(t, u.Text, "不应读取")
+	}
+
+	// 3. Index.Locators with start beyond markdown length returns nil cleanly.
+	idx := NewIndex("短文本", []types.SourceBlock{{Start: 0, End: 20, Locator: types.SourceLocator{Type: "pdf", Page: 1}}})
+	require.Nil(t, idx.Locators(10, 15))
+}

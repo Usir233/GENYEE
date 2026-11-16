@@ -83,3 +83,23 @@ func TestMarkResourceLimitLeavesOtherFailuresRetryable(t *testing.T) {
 		t.Fatalf("limit without detail = %q, want the permanent-failure reason", got.Error())
 	}
 }
+
+func TestShouldRetryTextOnlySkipsResourceLimitAndNormalizesFormat(t *testing.T) {
+	budgetErr := fmt.Errorf("anydoc: image extraction failed: %w", &fakeConvertError{
+		kind:   "resource_limit",
+		detail: "part exceeds 2000000 xml nodes",
+	})
+	if shouldRetryTextOnly(budgetErr) {
+		t.Fatal("shouldRetryTextOnly returned true for resource_limit error; would double-parse hostile document")
+	}
+	modelErr := fmt.Errorf("anydoc: image extraction failed: %w", &fakeConvertError{
+		kind:   "pdf_no_model",
+		detail: "PDF has no document model",
+	})
+	if !shouldRetryTextOnly(modelErr) {
+		t.Fatal("shouldRetryTextOnly returned false for non-resource-limit model fallback")
+	}
+	if got := normalizeOptions(Options{Format: " .PDF ", WithAssets: true}); got.Format != "pdf" || got.WithAssets {
+		t.Fatalf("normalizeOptions(.PDF, WithAssets=true) = %+v, want Format=pdf WithAssets=false", got)
+	}
+}

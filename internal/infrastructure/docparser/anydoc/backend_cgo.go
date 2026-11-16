@@ -51,6 +51,9 @@ func backendConvert(data []byte, opts Options) (*Result, error) {
 	// (for image bytes and placements) and the rendered Markdown.
 	document, markdown, err := upstream.ToDocumentWithAssetLinks(data, format)
 	if err != nil {
+		if !shouldRetryTextOnly(err) {
+			return nil, fmt.Errorf("anydoc: markdown conversion failed: %w", err)
+		}
 		markdown, mdErr := upstream.ToMarkdownBytes(data, format)
 		if mdErr != nil {
 			return nil, fmt.Errorf("anydoc: markdown conversion failed: %w", mdErr)
@@ -108,6 +111,8 @@ type placement struct {
 	section string
 }
 
+const maxASTWalkDepth = 512
+
 // placeAssets walks the document body and records, per asset, the alt text of
 // the image that referenced it and the heading it sat under. The walk
 // recurses into lists, tables, and quotes, since an image can be nested
@@ -115,24 +120,27 @@ type placement struct {
 func placeAssets(blocks []upstream.Block) map[uint64]placement {
 	placements := make(map[uint64]placement)
 	section := ""
-	walkBlocks(blocks, &section, placements)
+	walkBlocks(blocks, &section, placements, 0)
 	return placements
 }
 
-func walkBlocks(blocks []upstream.Block, section *string, placements map[uint64]placement) {
+func walkBlocks(blocks []upstream.Block, section *string, placements map[uint64]placement, depth int) {
+	if depth > maxASTWalkDepth {
+		return
+	}
 	for _, block := range blocks {
 		switch block.Kind {
 		case "heading":
-			*section = inlineText(block.Content)
-			walkInlines(block.Content, *section, placements)
+			*section = inlineText(block.Content, depth+1)
+			walkInlines(block.Content, *section, placements, depth+1)
 		case "paragraph":
-			walkInlines(block.Content, *section, placements)
+			walkInlines(block.Content, *section, placements, depth+1)
 		case "block_quote":
-			walkBlocks(block.Blocks, section, placements)
+			walkBlocks(block.Blocks, section, placements, depth+1)
 		case "list":
 			if block.List != nil {
 				for _, item := range block.List.Items {
-					walkBlocks(item.Blocks, section, placements)
+					walkBlocks(item.Blocks, section, placements, depth+1)
 				}
 			}
 		case "table":
@@ -140,7 +148,7 @@ func walkBlocks(blocks []upstream.Block, section *string, placements map[uint64]
 				for _, row := range block.Table.Grid {
 					for _, slot := range row {
 						if slot.Cell != nil {
-							walkBlocks(slot.Cell.Blocks, section, placements)
+							walkBlocks(slot.Cell.Blocks, section, placements, depth+1)
 						}
 					}
 				}
@@ -149,7 +157,10 @@ func walkBlocks(blocks []upstream.Block, section *string, placements map[uint64]
 	}
 }
 
-func walkInlines(inlines []upstream.Inline, section string, placements map[uint64]placement) {
+func walkInlines(inlines []upstream.Inline, section string, placements map[uint64]placement, depth int) {
+	if depth > maxASTWalkDepth {
+		return
+	}
 	for _, inline := range inlines {
 		switch inline.Kind {
 		case "image":
@@ -167,14 +178,17 @@ func walkInlines(inlines []upstream.Inline, section string, placements map[uint6
 				placements[*inline.Source.AssetID] = placement{alt: alt, section: section}
 			}
 		case "link":
-			walkInlines(inline.Content, section, placements)
+			walkInlines(inline.Content, section, placements, depth+1)
 		}
 	}
 }
 
 // inlineText flattens inline content to plain text, which is all a heading is
 // needed for here.
-func inlineText(inlines []upstream.Inline) string {
+func inlineText(inlines []upstream.Inline, depth int) string {
+	if depth > maxASTWalkDepth {
+		return ""
+	}
 	var text strings.Builder
 	for _, inline := range inlines {
 		switch inline.Kind {
@@ -189,7 +203,7 @@ func inlineText(inlines []upstream.Inline) string {
 				text.WriteString("[ ]")
 			}
 		case "link":
-			text.WriteString(inlineText(inline.Content))
+			text.WriteString(inlineText(inline.Content, depth+1))
 		}
 	}
 	return strings.TrimSpace(text.String())

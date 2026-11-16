@@ -75,3 +75,35 @@ func TestServeActiveContentAndStreamingRange(t *testing.T) {
 	require.Equal(t, "none", w.Header().Get("Accept-Ranges"))
 	require.Equal(t, "attachment; filename=payload.svg", w.Header().Get("Content-Disposition"))
 }
+
+func TestServeBlocksWindowsBackslashTraversalAndInlineActiveContentType(t *testing.T) {
+	t.Run("windows_backslash_filename", func(t *testing.T) {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/file", nil)
+		reader := &seekFile{Reader: bytes.NewReader([]byte("<svg onload=alert(1)/>"))}
+		require.NoError(t, Serve(w, req, reader, Options{Filename: `..\..\evil\payload.svg`}))
+		require.Equal(t, "application/octet-stream", w.Header().Get("Content-Type"))
+		require.Equal(t, "attachment; filename=payload.svg", w.Header().Get("Content-Disposition"))
+		require.Equal(t, "nosniff", w.Header().Get("X-Content-Type-Options"))
+	})
+
+	t.Run("degenerate_dot_filenames", func(t *testing.T) {
+		for _, bad := range []string{"/", `\`, ".", ".."} {
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/file", nil)
+			require.NoError(t, Serve(w, req, io.NopCloser(strings.NewReader("data")), Options{Filename: bad}))
+			require.NotContains(t, w.Header().Get("Content-Disposition"), "filename=")
+		}
+	})
+
+	t.Run("caller_active_content_type_without_download_is_forced_safe", func(t *testing.T) {
+		for _, ct := range []string{"text/html; charset=utf-8", "image/svg+xml", "application/xhtml+xml", "text/javascript"} {
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/file", nil)
+			reader := &seekFile{Reader: bytes.NewReader([]byte("<script>alert(1)</script>"))}
+			require.NoError(t, Serve(w, req, reader, Options{Filename: "safe.txt", ContentType: ct}))
+			require.Equal(t, "application/octet-stream", w.Header().Get("Content-Type"), ct)
+			require.Contains(t, w.Header().Get("Content-Disposition"), "attachment", ct)
+		}
+	})
+}

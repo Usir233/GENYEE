@@ -108,3 +108,55 @@ func TestForgedStreamSizeDoesNotOverAllocate(t *testing.T) {
 		require.Equal(t, "1", cells(wb.Sheets[0])["A1"])
 	}
 }
+
+func TestFATCycleOversizeReaderArgAndNonOLE2SignatureRejected(t *testing.T) {
+	good := buildWorkbookFile(workbookSpec{sheets: []testSheet{{name: "S", records: func(b *biffBuilder) {
+		b.rec(recNumber, cell(0, 0), f64(1))
+	}}}})
+
+	// 1. Corrupt FAT[0] -> 0 (self-loop in Workbook sector chain).
+	dataSectors := (len(good) - 512 - 512 - 512) / 512
+	fatOffset := 512 + (dataSectors+1)*512
+	cyclic := append([]byte(nil), good...)
+	binary.LittleEndian.PutUint32(cyclic[fatOffset:], 0)
+	_, err := readBytes(t, cyclic)
+	require.Error(t, err, "cyclic FAT chain in Workbook stream must be rejected")
+
+	// 2. Corrupt FAT[0] -> freeSect (0xFFFFFFFF) in Workbook sector chain.
+	dangling := append([]byte(nil), good...)
+	binary.LittleEndian.PutUint32(dangling[fatOffset:], 0xFFFFFFFF)
+	_, err = readBytes(t, dangling)
+	require.Error(t, err, "unallocated sector in Workbook FAT chain must be rejected")
+
+	// 3. Forged 64 MiB directory stream size + forged 16 GiB caller size arg on a ~5 KiB file must not preallocate 64 MiB.
+	sizeOff := 512 + dataSectors*512 + 128 + 120
+	forged := append([]byte(nil), good...)
+	binary.LittleEndian.PutUint32(forged[sizeOff:], 64<<20)
+	var before, after runtime.MemStats
+	runtime.GC()
+	runtime.ReadMemStats(&before)
+	_, _ = Read(bytesReaderAt(forged), 1<<34)
+	runtime.ReadMemStats(&after)
+	require.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(8<<20),
+		"forged caller size + forged stream size must not preallocate tens of megabytes")
+
+	// 4. >=512-byte non-OLE2 payload whose bytes[30:32] happen to equal sectorShift=9 must still return ErrUnsupported.
+	fakeZip := make([]byte, 1024)
+	copy(fakeZip, "PK\x03\x04")
+	binary.LittleEndian.PutUint16(fakeZip[30:], 9)
+	_, err = readBytes(t, fakeZip)
+	require.ErrorIs(t, err, ErrUnsupported)
+}
+
+type bytesReaderAt []byte
+
+func (b bytesReaderAt) ReadAt(p []byte, off int64) (int, error) {
+	if off < 0 || off >= int64(len(b)) {
+		return 0, ErrUnsupported
+	}
+	n := copy(p, b[off:])
+	if n < len(p) {
+		return n, ErrUnsupported
+	}
+	return n, nil
+}

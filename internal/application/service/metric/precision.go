@@ -14,6 +14,9 @@ func NewPrecisionMetric() *PrecisionMetric {
 
 // Compute calculates the precision score
 func (r *PrecisionMetric) Compute(metricInput *types.MetricInput) float64 {
+	if metricInput == nil {
+		return 0
+	}
 	// Get ground truth and predicted IDs
 	gts := metricInput.RetrievalGT
 	ids := metricInput.RetrievalIDs

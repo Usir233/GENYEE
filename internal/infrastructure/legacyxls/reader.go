@@ -67,9 +67,17 @@ var (
 // Grid limits of BIFF5 and BIFF8 worksheets. Cells outside them cannot be
 // written by Excel and are ignored.
 const (
-	maxRows = 1 << 16
-	maxCols = 1 << 8
+	maxRows                = 1 << 16
+	maxCols                = 1 << 8
+	maxWorkbookStreamBytes = 256 << 20
+	initialStreamBufferCap = 64 << 10
+
+	oleMaxRegSect = 0xFFFFFFFA
+	oleEndOfChain = 0xFFFFFFFE
+	oleNoStream   = 0xFFFFFFFF
 )
+
+var ole2Signature = []byte{0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1}
 
 // Record identifiers ([MS-XLS] 2.3).
 const (
@@ -139,6 +147,9 @@ func checkCompoundHeader(ra io.ReaderAt, size int64) error {
 	if _, err := ra.ReadAt(h[:], 0); err != nil {
 		return fmt.Errorf("legacyxls: read compound file header: %w", err)
 	}
+	if !bytes.Equal(h[:8], ole2Signature) {
+		return fmt.Errorf("%w: invalid compound document signature", ErrUnsupported)
+	}
 	sectorShift := binary.LittleEndian.Uint16(h[30:])
 	if sectorShift != 9 && sectorShift != 12 {
 		return fmt.Errorf("%w: invalid sector size", ErrUnsupported)
@@ -166,7 +177,7 @@ func workbookStream(ra io.ReaderAt, size int64) ([]byte, error) {
 		}
 		switch {
 		case strings.EqualFold(entry.Name, "Workbook"):
-			return readStream(entry, size)
+			return readStream(ra, entry, size)
 		case strings.EqualFold(entry.Name, "Book") && book == nil:
 			book = entry
 		}
@@ -174,17 +185,245 @@ func workbookStream(ra io.ReaderAt, size int64) ([]byte, error) {
 	if book == nil {
 		return nil, ErrUnsupported
 	}
-	return readStream(book, size)
+	return readStream(ra, book, size)
 }
 
-// readStream reads a stream. Its declared size is untrusted, so neither the
-// preallocation nor the read may exceed the size of the file itself.
-func readStream(f *mscfb.File, fileSize int64) ([]byte, error) {
+// validateOLEStreamChain verifies that the named root-level stream's FAT or
+// MiniFAT chain contains no cycles or unallocated/special sector markers and
+// returns the maximum byte length backed by that chain. mscfb checks cycles on
+// DIFAT, Directory, and MiniStream chains, but not when reading stream data.
+func validateOLEStreamChain(ra io.ReaderAt, targetName string, declaredSize int64) (int64, error) {
+	var h [512]byte
+	if _, err := ra.ReadAt(h[:], 0); err != nil {
+		return 0, err
+	}
+	sectorShift := binary.LittleEndian.Uint16(h[30:])
+	sectorSize := int64(1) << sectorShift
+	entriesPerFAT := uint32(sectorSize / 4)
+	numFatSectors := binary.LittleEndian.Uint32(h[44:])
+	dirStart := binary.LittleEndian.Uint32(h[48:])
+	miniFatStart := binary.LittleEndian.Uint32(h[60:])
+	numMiniFat := binary.LittleEndian.Uint32(h[64:])
+	difatStart := binary.LittleEndian.Uint32(h[68:])
+	numDifat := binary.LittleEndian.Uint32(h[72:])
+
+	difats := make([]uint32, 0, 109+int(min(uint64(numDifat)*uint64(entriesPerFAT-1), 64000)))
+	for i := 0; i < 109; i++ {
+		difats = append(difats, binary.LittleEndian.Uint32(h[76+4*i:]))
+	}
+	secBuf := make([]byte, sectorSize)
+	difatSector := difatStart
+	seenDifat := make(map[uint32]struct{})
+	for i := uint32(0); i < numDifat; i++ {
+		if difatSector > oleMaxRegSect {
+			return 0, fmt.Errorf("legacyxls: invalid DIFAT sector 0x%X", difatSector)
+		}
+		if _, dup := seenDifat[difatSector]; dup {
+			return 0, errors.New("legacyxls: cycle in DIFAT chain")
+		}
+		seenDifat[difatSector] = struct{}{}
+		if _, err := ra.ReadAt(secBuf, int64(difatSector+1)*sectorSize); err != nil {
+			return 0, err
+		}
+		for j := uint32(0); j < entriesPerFAT-1; j++ {
+			difats = append(difats, binary.LittleEndian.Uint32(secBuf[4*j:]))
+		}
+		difatSector = binary.LittleEndian.Uint32(secBuf[sectorSize-4:])
+	}
+
+	fatNext := func(sn uint32) (uint32, error) {
+		idx := sn / entriesPerFAT
+		if uint64(idx) >= uint64(len(difats)) || uint64(idx) >= uint64(numFatSectors) {
+			return 0, fmt.Errorf("legacyxls: sector %d outside FAT", sn)
+		}
+		fatSec := difats[idx]
+		if fatSec > oleMaxRegSect {
+			return 0, fmt.Errorf("legacyxls: unallocated FAT sector for %d", sn)
+		}
+		var raw [4]byte
+		off := int64(fatSec+1)*sectorSize + int64(sn%entriesPerFAT)*4
+		if _, err := ra.ReadAt(raw[:], off); err != nil {
+			return 0, err
+		}
+		return binary.LittleEndian.Uint32(raw[:]), nil
+	}
+
+	// Read directory entries along dirStart to locate root's children.
+	type rawDir struct {
+		name      string
+		objType   byte
+		leftSib   uint32
+		rightSib  uint32
+		child     uint32
+		startSect uint32
+	}
+	var dirs []rawDir
+	seenDir := make(map[uint32]struct{})
+	for sn := dirStart; sn != oleEndOfChain; {
+		if sn > oleMaxRegSect {
+			return 0, fmt.Errorf("legacyxls: invalid directory sector 0x%X", sn)
+		}
+		if _, dup := seenDir[sn]; dup {
+			return 0, errors.New("legacyxls: directory sector cycle")
+		}
+		seenDir[sn] = struct{}{}
+		if _, err := ra.ReadAt(secBuf, int64(sn+1)*sectorSize); err != nil {
+			return 0, err
+		}
+		for off := int64(0); off+128 <= sectorSize; off += 128 {
+			e := secBuf[off : off+128]
+			nameLen := binary.LittleEndian.Uint16(e[64:66])
+			var name string
+			if nameLen >= 4 && nameLen <= 64 {
+				units := make([]uint16, nameLen/2-1)
+				for k := range units {
+					units[k] = binary.LittleEndian.Uint16(e[2*k:])
+				}
+				name = string(utf16.Decode(units))
+			}
+			dirs = append(dirs, rawDir{
+				name:      name,
+				objType:   e[66],
+				leftSib:   binary.LittleEndian.Uint32(e[68:72]),
+				rightSib:  binary.LittleEndian.Uint32(e[72:76]),
+				child:     binary.LittleEndian.Uint32(e[76:80]),
+				startSect: binary.LittleEndian.Uint32(e[116:120]),
+			})
+		}
+		next, err := fatNext(sn)
+		if err != nil {
+			return 0, err
+		}
+		sn = next
+	}
+	if len(dirs) == 0 || dirs[0].child == oleNoStream || uint64(dirs[0].child) >= uint64(len(dirs)) {
+		return 0, ErrUnsupported
+	}
+
+	// Walk the root storage's red-black sibling tree to find targetName.
+	var found *rawDir
+	visitedNodes := make(map[uint32]struct{})
+	stack := []uint32{dirs[0].child}
+	for len(stack) > 0 {
+		id := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		if id == oleNoStream || uint64(id) >= uint64(len(dirs)) {
+			continue
+		}
+		if _, seen := visitedNodes[id]; seen {
+			continue
+		}
+		visitedNodes[id] = struct{}{}
+		d := &dirs[id]
+		if d.objType == 2 && strings.EqualFold(d.name, targetName) {
+			found = d
+			break
+		}
+		if d.rightSib != oleNoStream {
+			stack = append(stack, d.rightSib)
+		}
+		if d.leftSib != oleNoStream {
+			stack = append(stack, d.leftSib)
+		}
+	}
+	if found == nil {
+		return 0, ErrUnsupported
+	}
+
+	const miniStreamCutoff = 4096
+	if declaredSize < miniStreamCutoff {
+		if numMiniFat == 0 || miniFatStart == oleEndOfChain {
+			return 0, errors.New("legacyxls: missing MiniFAT for mini-stream workbook")
+		}
+		miniFatSectors := make([]uint32, 0, numMiniFat)
+		seenMF := make(map[uint32]struct{})
+		for sn := miniFatStart; sn != oleEndOfChain && uint32(len(miniFatSectors)) < numMiniFat; {
+			if sn > oleMaxRegSect {
+				return 0, fmt.Errorf("legacyxls: invalid MiniFAT sector 0x%X", sn)
+			}
+			if _, dup := seenMF[sn]; dup {
+				return 0, errors.New("legacyxls: cycle in MiniFAT chain")
+			}
+			seenMF[sn] = struct{}{}
+			miniFatSectors = append(miniFatSectors, sn)
+			next, err := fatNext(sn)
+			if err != nil {
+				return 0, err
+			}
+			sn = next
+		}
+		miniNext := func(msn uint32) (uint32, error) {
+			idx := msn / entriesPerFAT
+			if uint64(idx) >= uint64(len(miniFatSectors)) {
+				return 0, fmt.Errorf("legacyxls: minisector %d outside MiniFAT", msn)
+			}
+			var raw [4]byte
+			off := int64(miniFatSectors[idx]+1)*sectorSize + int64(msn%entriesPerFAT)*4
+			if _, err := ra.ReadAt(raw[:], off); err != nil {
+				return 0, err
+			}
+			return binary.LittleEndian.Uint32(raw[:]), nil
+		}
+		seenMini := make(map[uint32]struct{})
+		var count int64
+		for msn := found.startSect; msn != oleEndOfChain; {
+			if msn > oleMaxRegSect {
+				return 0, fmt.Errorf("legacyxls: invalid minisector 0x%X in stream chain", msn)
+			}
+			if _, dup := seenMini[msn]; dup {
+				return 0, errors.New("legacyxls: cycle in workbook mini-stream chain")
+			}
+			seenMini[msn] = struct{}{}
+			count++
+			next, err := miniNext(msn)
+			if err != nil {
+				return 0, err
+			}
+			msn = next
+		}
+		return count * 64, nil
+	}
+
+	seenChain := make(map[uint32]struct{})
+	var count int64
+	for sn := found.startSect; sn != oleEndOfChain; {
+		if sn > oleMaxRegSect {
+			return 0, fmt.Errorf("legacyxls: invalid sector 0x%X in workbook FAT chain", sn)
+		}
+		if _, dup := seenChain[sn]; dup {
+			return 0, errors.New("legacyxls: cycle in workbook FAT chain")
+		}
+		seenChain[sn] = struct{}{}
+		count++
+		if count*sectorSize > maxWorkbookStreamBytes {
+			return 0, fmt.Errorf("legacyxls: workbook stream exceeds %d bytes", maxWorkbookStreamBytes)
+		}
+		next, err := fatNext(sn)
+		if err != nil {
+			return 0, err
+		}
+		sn = next
+	}
+	return count * sectorSize, nil
+}
+
+// readStream reads a stream. Its declared size and the caller's fileSize are
+// untrusted, so we validate the FAT/MiniFAT chain first and cap both initial
+// preallocation and total read bytes to the verified chain capacity.
+func readStream(ra io.ReaderAt, f *mscfb.File, fileSize int64) ([]byte, error) {
 	if f.Size <= 0 {
 		return nil, ErrUnsupported
 	}
-	limit := min(f.Size, fileSize)
-	buf := bytes.NewBuffer(make([]byte, 0, int(limit)))
+	chainCap, err := validateOLEStreamChain(ra, f.Name, f.Size)
+	if err != nil {
+		return nil, fmt.Errorf("legacyxls: validate workbook stream: %w", err)
+	}
+	if chainCap <= 0 {
+		return nil, ErrUnsupported
+	}
+	limit := min(f.Size, fileSize, chainCap, maxWorkbookStreamBytes)
+	initCap := int(min(limit, initialStreamBufferCap))
+	buf := bytes.NewBuffer(make([]byte, 0, initCap))
 	if _, err := io.Copy(buf, io.LimitReader(f, limit)); err != nil {
 		return nil, fmt.Errorf("legacyxls: read workbook stream: %w", err)
 	}
@@ -200,15 +439,15 @@ type record struct {
 // nextRecord decodes the record at offset pos and returns the offset of the
 // following one. ok is false at the end of the stream or on a truncated header.
 func nextRecord(stream []byte, pos int) (rec record, next int, ok bool) {
-	if pos < 0 || pos+4 > len(stream) {
+	if pos < 0 || pos > len(stream)-4 {
 		return record{}, pos, false
 	}
 	id := binary.LittleEndian.Uint16(stream[pos:])
 	size := int(binary.LittleEndian.Uint16(stream[pos+2:]))
 	start := pos + 4
-	end := start + size
-	if end > len(stream) {
-		end = len(stream) // tolerate a truncated final record
+	end := len(stream)
+	if size <= len(stream)-start {
+		end = start + size
 	}
 	return record{id: id, data: stream[start:end]}, end, true
 }
@@ -539,9 +778,9 @@ func parseSST(segments [][]byte) []string {
 	}
 	// Every string takes at least 3 bytes, which bounds a forged count.
 	limit := r.remaining() / 3
-	n := int(min(int64(unique), int64(limit)))
+	n := int(min(uint64(unique), uint64(limit)))
 	sst := make([]string, 0, n)
-	for i := 0; i < int(unique); i++ {
+	for i := 0; i < n; i++ {
 		s, ok := r.richExtendedString()
 		if !ok {
 			break

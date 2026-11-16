@@ -5,8 +5,45 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 )
+
+func isValidOriginHostAndPort(u *url.URL) bool {
+	if u == nil || u.Host == "" || strings.HasSuffix(u.Host, ":") {
+		return false
+	}
+	if port := u.Port(); port != "" {
+		if strings.HasPrefix(port, "0") {
+			return false
+		}
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 1 || n > 65535 {
+			return false
+		}
+	}
+	hostname := strings.ToLower(u.Hostname())
+	if hostname == "" {
+		return false
+	}
+	if strings.HasPrefix(u.Host, "[") {
+		if strings.Contains(u.Host, "%") || net.ParseIP(hostname) == nil {
+			return false
+		}
+		return true
+	}
+	if strings.HasPrefix(hostname, ".") || strings.HasSuffix(hostname, ".") || strings.Contains(hostname, "..") {
+		return false
+	}
+	for i := 0; i < len(hostname); i++ {
+		c := hostname[i]
+		isAlphaNum := (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+		if !isAlphaNum && c != '.' && c != '-' {
+			return false
+		}
+	}
+	return true
+}
 
 // NormalizeOrigin accepts an HTTP(S) origin, with an optional trailing slash.
 // Reject URL components that cannot appear in an Origin or CSP host source.
@@ -15,7 +52,8 @@ func NormalizeOrigin(raw string) (string, error) {
 	u, err := url.Parse(raw)
 	if err != nil || u == nil || (u.Scheme != "http" && u.Scheme != "https") || u.Hostname() == "" ||
 		u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.ForceQuery ||
-		strings.Contains(raw, "#") || strings.ContainsAny(u.Host, " \t\r\n'\";,*\\") {
+		strings.Contains(raw, "#") || strings.ContainsAny(u.Host, " \t\r\n'\";,*\\") ||
+		!isValidOriginHostAndPort(u) {
 		return "", fmt.Errorf("invalid allowed origin: %q", raw)
 	}
 	host := strings.ToLower(u.Host)

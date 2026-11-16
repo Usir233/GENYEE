@@ -252,3 +252,38 @@ func TestResetEventsDropsEventsAndKeepsSteer(t *testing.T) {
 		})
 	}
 }
+
+func TestStreamManagersClampNegativeOffsetSubSecondTTLAndSharedSliceRace(t *testing.T) {
+	subSecondRedis, _ := newTestRedisStreamManager(t, 500*time.Millisecond)
+	for name, manager := range map[string]interfaces.StreamManager{
+		"memory": NewMemoryStreamManager(),
+		"redis":  subSecondRedis,
+	} {
+		t.Run(name, func(t *testing.T) {
+			ctx := context.Background()
+			require.NoError(t, manager.AppendEvent(ctx, "s", "m", interfaces.StreamEvent{ID: "e1", Content: "hello"}))
+
+			events, next, err := manager.GetEvents(ctx, "s", "m", -5)
+			require.NoError(t, err)
+			require.Len(t, events, 1)
+			require.Equal(t, 1, next)
+
+			// Shared slice with zero Timestamp across goroutines + sub-second TTL on Redis.
+			shared := []interfaces.StreamEvent{{ID: "st-1", Content: "steer"}}
+			errs := make(chan error, 6)
+			for i := 0; i < 6; i++ {
+				go func() {
+					errs <- manager.AppendSteerEvents(ctx, "s", "m", shared)
+				}()
+			}
+			for i := 0; i < 6; i++ {
+				require.NoError(t, <-errs)
+			}
+
+			steers, steerNext, err := manager.GetSteerEvents(ctx, "s", "m", -3)
+			require.NoError(t, err)
+			require.Len(t, steers, 1)
+			require.Equal(t, 1, steerNext)
+		})
+	}
+}

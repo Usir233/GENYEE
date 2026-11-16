@@ -250,3 +250,127 @@ func TestChromiumConcurrencyGateHonorsEnvLimitAndContextTimeout(t *testing.T) {
 	}
 	rel3()
 }
+
+func TestWebFetchBlocksTrailingDotRestrictedHostsPortsAndCredentials(t *testing.T) {
+	var upstreamSawHost string
+	publicSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		upstreamSawHost = r.Host
+		fmt.Fprint(w, "<html><body>OK</body></html>")
+	}))
+	defer publicSrv.Close()
+	publicAddr := publicSrv.Listener.Addr().String()
+
+	pinnedURL, _ := url.Parse("http://spa.public.example/app")
+	proxy, err := startChromiumSSRFProxy(
+		pinnedTarget{
+			URL:  pinnedURL,
+			Host: "spa.public.example",
+			Port: "80",
+			IP:   net.ParseIP("93.184.216.34"),
+		},
+		func(p *chromiumSSRFProxy) {
+			// Simulate permissive validator to test proxy dialTarget / handleHTTP defenses directly.
+			p.validateURL = func(context.Context, string) error { return nil }
+			p.resolveIPs = func(_ context.Context, host string) ([]net.IP, error) {
+				return []net.IP{net.ParseIP("93.184.216.34")}, nil
+			}
+			p.dialContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+				host, _, _ := net.SplitHostPort(address)
+				if host == "93.184.216.34" {
+					return (&net.Dialer{}).DialContext(ctx, network, publicAddr)
+				}
+				return nil, fmt.Errorf("unexpected dial to %s", address)
+			}
+		},
+	)
+	if err != nil {
+		t.Fatalf("startChromiumSSRFProxy: %v", err)
+	}
+	defer proxy.Close()
+
+	proxyURL, _ := url.Parse(proxy.ProxyURL())
+	proxyClient := &http.Client{
+		Timeout:   3 * time.Second,
+		Transport: &http.Transport{Proxy: http.ProxyURL(proxyURL)},
+	}
+
+	// 1. Trailing-dot restricted hostnames must be blocked in proxy HTTP and CONNECT.
+	for _, badURL := range []string{
+		"http://localhost./admin",
+		"http://sub.localhost./admin",
+		"http://metadata.google.internal./computeMetadata/v1/",
+		"http://db.corp./status",
+	} {
+		resp, reqErr := proxyClient.Get(badURL)
+		if reqErr == nil {
+			_ = resp.Body.Close()
+			if resp.StatusCode != http.StatusForbidden {
+				t.Fatalf("expected 403 for %s, got %d", badURL, resp.StatusCode)
+			}
+		}
+	}
+	for _, authority := range []string{"localhost.:443", "metadata.google.internal.:443", "redis.internal.:443"} {
+		conn, dialErr := net.DialTimeout("tcp", proxy.Addr(), 2*time.Second)
+		if dialErr != nil {
+			t.Fatalf("dial proxy: %v", dialErr)
+		}
+		_, _ = fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", authority, authority)
+		resp, readErr := http.ReadResponse(bufio.NewReader(conn), &http.Request{Method: http.MethodConnect})
+		_ = conn.Close()
+		if readErr != nil || resp.StatusCode != http.StatusForbidden {
+			t.Fatalf("expected CONNECT %s to return 403, got err=%v resp=%v", authority, readErr, resp)
+		}
+	}
+
+	// 2. Mismatched Host header in HTTP proxy request must be rewritten to validated URL host.
+	conn, err := net.DialTimeout("tcp", proxy.Addr(), 2*time.Second)
+	if err != nil {
+		t.Fatalf("dial proxy: %v", err)
+	}
+	_, _ = io.WriteString(conn, "GET http://spa.public.example/app HTTP/1.1\r\nHost: 169.254.169.254\r\nConnection: close\r\n\r\n")
+	resp, err := http.ReadResponse(bufio.NewReader(conn), nil)
+	if err == nil {
+		_, _ = io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+	}
+	_ = conn.Close()
+	if upstreamSawHost != "spa.public.example" {
+		t.Fatalf("upstream Host header = %q, want spa.public.example", upstreamSawHost)
+	}
+
+	// 3. pinnedDialContext must reject restricted service ports and trailing-dot internal names before DNS.
+	dnsLookups := 0
+	f := &Fetcher{
+		resolveIPs: func(context.Context, string) ([]net.IP, error) {
+			dnsLookups++
+			return []net.IP{net.ParseIP("93.184.216.34")}, nil
+		},
+	}
+	for _, addr := range []string{"example.com:6379", "example.com:22", "localhost.:80", "metadata.google.internal.:80"} {
+		if _, err := f.pinnedDialContext()(context.Background(), "tcp", addr); err == nil {
+			t.Fatalf("pinnedDialContext(%q) unexpectedly succeeded", addr)
+		}
+	}
+	if dnsLookups != 0 {
+		t.Fatalf("restricted port/host triggered %d DNS lookups, want 0", dnsLookups)
+	}
+
+	// 4. Fetch and resolvePinnedTarget must reject URLs carrying userinfo credentials or restricted ports.
+	fetcher := NewPipelineFetcher()
+	for _, credURL := range []string{
+		"https://user:secret@example.com/page",
+		"http://admin@example.com/page",
+	} {
+		_, fetchErr := fetcher.Fetch(context.Background(), credURL)
+		code, _, _ := ErrorDetails(fetchErr)
+		if code != ErrorSSRFRejected {
+			t.Fatalf("Fetch(%q) code = %q, want %q (err=%v)", credURL, code, ErrorSSRFRejected, fetchErr)
+		}
+	}
+	if _, err := f.resolvePinnedTarget(context.Background(), "https://user:secret@example.com/page"); err == nil {
+		t.Fatal("resolvePinnedTarget accepted userinfo credentials")
+	}
+	if _, err := f.resolvePinnedTarget(context.Background(), "https://example.com:6379/page"); err == nil {
+		t.Fatal("resolvePinnedTarget accepted restricted port 6379")
+	}
+}

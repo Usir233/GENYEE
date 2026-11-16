@@ -189,6 +189,30 @@ func UnavailableReason() string { return backendUnavailableReason() }
 // when no binding is linked.
 func Version() string { return backendVersion() }
 
+// shouldRetryTextOnly reports whether a document-model conversion failure
+// warrants falling back to the text-only Markdown renderer. Permanent resource
+// budget rejections must not re-parse the same hostile document a second time.
+func shouldRetryTextOnly(err error) bool {
+	if err == nil {
+		return false
+	}
+	var limiter resourceLimiter
+	if errors.As(err, &limiter) && limiter.ResourceLimit() {
+		return false
+	}
+	return true
+}
+
+func normalizeOptions(opts Options) Options {
+	opts.Format = normalizeExt(opts.Format)
+	// PDF has no document model, so asset extraction would only produce an
+	// error the caller has to special-case. Drop the request instead.
+	if opts.Format == "pdf" {
+		opts.WithAssets = false
+	}
+	return opts
+}
+
 // Convert turns document bytes into Markdown. It returns ErrUnavailable when
 // the binding is not linked into this build.
 func Convert(data []byte, opts Options) (*Result, error) {
@@ -198,11 +222,7 @@ func Convert(data []byte, opts Options) (*Result, error) {
 	if !backendAvailable() {
 		return nil, fmt.Errorf("%w: %s", ErrUnavailable, backendUnavailableReason())
 	}
-	// PDF has no document model, so asset extraction would only produce an
-	// error the caller has to special-case. Drop the request instead.
-	if opts.Format == "pdf" {
-		opts.WithAssets = false
-	}
+	opts = normalizeOptions(opts)
 	result, err := backendConvert(data, opts)
 	if err != nil {
 		err = markResourceLimit(err)

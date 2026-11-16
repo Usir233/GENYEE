@@ -14,6 +14,9 @@ func NewMRRMetric() *MRRMetric {
 
 // Compute calculates the Mean Reciprocal Rank score
 func (m *MRRMetric) Compute(metricInput *types.MetricInput) float64 {
+	if metricInput == nil {
+		return 0
+	}
 	// Get ground truth and predicted IDs
 	gts := metricInput.RetrievalGT
 	ids := metricInput.RetrievalIDs

@@ -82,6 +82,65 @@ var blockedProxyPorts = map[string]bool{
 	"4001":  true,
 }
 
+var blockedFetchHostnames = map[string]bool{
+	"localhost":                            true,
+	"0.0.0.0":                              true,
+	"metadata.google.internal":             true,
+	"metadata.tencentyun.com":              true,
+	"metadata.aws.internal":                true,
+	"host.docker.internal":                 true,
+	"gateway.docker.internal":              true,
+	"kubernetes.docker.internal":           true,
+	"kubernetes":                           true,
+	"kubernetes.default":                   true,
+	"kubernetes.default.svc":               true,
+	"kubernetes.default.svc.cluster.local": true,
+}
+
+var blockedFetchHostSuffixes = []string{
+	".localhost",
+	".local",
+	".internal",
+	".corp",
+	".lan",
+	".home",
+	".localdomain",
+	".svc.cluster.local",
+	".pod.cluster.local",
+}
+
+func canonicalizeFetchHost(raw string) (string, error) {
+	host := strings.ToLower(strings.TrimSpace(raw))
+	if host == "" {
+		return "", fmt.Errorf("missing target hostname")
+	}
+	if strings.HasPrefix(host, ".") || strings.Contains(host, "..") {
+		return "", fmt.Errorf("invalid hostname %q", raw)
+	}
+	host = strings.TrimRight(host, ".")
+	if host == "" {
+		return "", fmt.Errorf("missing target hostname")
+	}
+	for _, r := range host {
+		if r <= 32 || r == 127 {
+			return "", fmt.Errorf("invalid control character in hostname")
+		}
+	}
+	return host, nil
+}
+
+func isRestrictedFetchHostname(hostCanon string) bool {
+	if blockedFetchHostnames[hostCanon] {
+		return true
+	}
+	for _, suffix := range blockedFetchHostSuffixes {
+		if strings.HasSuffix(hostCanon, suffix) {
+			return true
+		}
+	}
+	return false
+}
+
 // ChromiumConcurrencyLimit returns the bounded global limit for concurrent
 // headless Chromium renders, configured via GENYEE_WEB_FETCH_CHROMIUM_CONCURRENCY.
 func ChromiumConcurrencyLimit() int {
@@ -226,7 +285,11 @@ func startChromiumSSRFProxy(target pinnedTarget, opts ...chromiumProxyOption) (*
 		conns:       make(map[net.Conn]struct{}),
 	}
 	if target.Host != "" && target.IP != nil {
-		p.pinned[strings.ToLower(target.Host)] = target.IP
+		if canon, canonErr := canonicalizeFetchHost(target.Host); canonErr == nil {
+			p.pinned[canon] = target.IP
+		} else {
+			p.pinned[strings.ToLower(target.Host)] = target.IP
+		}
 	}
 	for _, opt := range opts {
 		if opt != nil {
@@ -333,19 +396,25 @@ func (p *chromiumSSRFProxy) validateTargetURL(ctx context.Context, rawURL string
 	if parsed.User != nil {
 		return fmt.Errorf("credentials in target URL are forbidden")
 	}
-	host := parsed.Hostname()
-	if host == "" {
-		return fmt.Errorf("missing target hostname")
+	host, err := canonicalizeFetchHost(parsed.Hostname())
+	if err != nil {
+		return err
 	}
 	if !utils.IsSSRFWhitelistedContext(ctx, host) {
 		if err := ctx.Err(); err != nil {
 			return err
+		}
+		if port := parsed.Port(); port != "" && blockedProxyPorts[port] {
+			return fmt.Errorf("connection blocked: port %s is restricted", port)
 		}
 		if err := utils.CheckSSRFWhitelistOnly(host); err != nil {
 			return err
 		}
 		if net.ParseIP(host) != nil {
 			return fmt.Errorf("direct IP literal %s is forbidden", host)
+		}
+		if isRestrictedFetchHostname(host) {
+			return fmt.Errorf("connection blocked: restricted hostname %s", host)
 		}
 	}
 	if p.validateURL != nil {
@@ -357,14 +426,17 @@ func (p *chromiumSSRFProxy) validateTargetURL(ctx context.Context, rawURL string
 }
 
 func (p *chromiumSSRFProxy) dialTarget(ctx context.Context, network, address string) (net.Conn, error) {
-	host, port, err := net.SplitHostPort(address)
+	rawHost, port, err := net.SplitHostPort(address)
 	if err != nil {
 		return nil, fmt.Errorf("invalid target address %q: %w", address, err)
 	}
-	host = strings.TrimSpace(host)
 	port = strings.TrimSpace(port)
-	if host == "" || port == "" {
+	if rawHost == "" || port == "" {
 		return nil, fmt.Errorf("empty host or port in %q", address)
+	}
+	host, err := canonicalizeFetchHost(rawHost)
+	if err != nil {
+		return nil, fmt.Errorf("connection blocked: %w", err)
 	}
 	portNum, err := strconv.Atoi(port)
 	if err != nil || portNum < 1 || portNum > 65535 {
@@ -385,15 +457,13 @@ func (p *chromiumSSRFProxy) dialTarget(ctx context.Context, network, address str
 		if net.ParseIP(host) != nil {
 			return nil, fmt.Errorf("connection blocked: direct IP literal %s is forbidden", host)
 		}
-		hostLower := strings.ToLower(host)
-		if hostLower == "localhost" || strings.HasSuffix(hostLower, ".localhost") ||
-			strings.HasSuffix(hostLower, ".local") || strings.HasSuffix(hostLower, ".internal") {
+		if isRestrictedFetchHostname(host) {
 			return nil, fmt.Errorf("connection blocked: restricted hostname %s", host)
 		}
 	}
 
 	var ips []net.IP
-	if pinnedIP, ok := p.pinned[strings.ToLower(host)]; ok && pinnedIP != nil {
+	if pinnedIP, ok := p.pinned[host]; ok && pinnedIP != nil {
 		ips = []net.IP{pinnedIP}
 	} else if parsedIP := net.ParseIP(host); parsedIP != nil {
 		ips = []net.IP{parsedIP}
@@ -449,6 +519,7 @@ func (p *chromiumSSRFProxy) handleHTTP(w http.ResponseWriter, r *http.Request) {
 
 	outReq := r.Clone(r.Context())
 	outReq.RequestURI = ""
+	outReq.Host = outReq.URL.Host
 	stripHopHeaders(outReq.Header)
 
 	resp, err := p.transport.RoundTrip(outReq)
