@@ -88,7 +88,7 @@
           "file": "internal/infrastructure/web_search/google.go:39-145",
           "summary": "GoogleProvider passed both option.WithAPIKey and option.WithHTTPClient to customsearch.NewService, hitting google.golang.org/api/transport/http.NewClient's early HTTPClient return that silently dropped params.APIKey on every request, while following redirects, leaving response reads uncapped, and risking ?key= exposure in transport errors.",
           "regression_test": "TestGoogleProvider_AttachesAPIKeyAndBlocksRedirects, TestGoogleProvider_RedactsAPIKeyAndBoundsResponses",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         },
         {
           "id": "W5-WEBSEARCH-02",
@@ -96,7 +96,7 @@
           "file": "internal/infrastructure/web_search/searxng.go:30-35,81-98,176-184, internal/infrastructure/web_search/proxy.go:24-66, internal/infrastructure/web_search/response_limit.go:52-95",
           "summary": "SearxngProvider read and wrote lastUnresponsive without synchronization (data race between concurrent Search and EmptyResultDiagnostics), and SearXNG/proxy URL handling could leak basic-auth userinfo or secret query parameters in request logs and transport/parse errors.",
           "regression_test": "TestSearxngProvider_ConcurrentSearchAndDiagnostics, TestSearxngProvider_RedactsUserinfoInTransportErrors",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         },
         {
           "id": "W5-WEBSEARCH-03",
@@ -104,7 +104,7 @@
           "file": "internal/infrastructure/web_search/duckduckgo.go:196-205, internal/infrastructure/web_search/baidu.go:118-130, internal/infrastructure/web_search/exa.go:110-122, internal/infrastructure/web_search/bocha.go:130-150, internal/infrastructure/web_search/metaso.go:126-146, internal/infrastructure/web_search/deepseek.go:132-150, internal/infrastructure/web_search/zhipu.go:132-150",
           "summary": "DuckDuckGoProvider.searchHTML parsed resp.Body directly via goquery without any response size cap, BaiduProvider and ExaProvider read unbounded non-2xx bodies via io.ReadAll while silently truncating oversized 2xx JSON via bare io.LimitReader, and Bocha/Metaso/DeepSeek/Zhipu error helpers formatted unbounded JSON error strings.",
           "regression_test": "TestDuckDuckGoHTMLRejectsOversizedBody, TestBaiduAndExaProvidersRejectOversizedAndBoundFailedBodies",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         }
       ],
       "verification_commands": [
@@ -159,7 +159,7 @@
           "file": "internal/modelcontext/model_output.go:177-180",
           "summary": "ModelDocumentInfoOutput truncated UpdatedAt using raw byte slice updated[:10], splitting multi-byte UTF-8 date strings (such as localized CJK timestamps) mid-rune and emitting invalid UTF-8 XML attributes.",
           "regression_test": "TestModelDocumentInfoOutputPreservesValidUTF8UpdatedAt",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         }
       ],
       "verification_commands": [
@@ -236,7 +236,7 @@
           "file": "internal/models/api/raw_dump.go:46-95",
           "summary": "StreamPacketDumper read d.file outside d.mu in WriteRaw/WriteEvent and did not acquire d.mu in Close(), causing a data race on concurrent stream cancellation/close, and created raw LLM debug dump directories/files with world-readable 0755/0644 permissions.",
           "regression_test": "TestStreamPacketDumper_ConcurrentWriteAndCloseAndPrivatePerms",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         },
         {
           "id": "W5-MODELS-API-02",
@@ -244,7 +244,7 @@
           "file": "internal/models/api/endpoint.go:93-214",
           "summary": "Endpoint.Resolve iterated map keys in randomized order without url.QueryEscape, Endpoint.LogRequest logged raw URLs with embedded userinfo/query secrets, and Endpoint.Do leaked URL credentials or echoed auth tokens in TransportError/HTTPError while slicing error bodies at raw byte offset 512.",
           "regression_test": "TestEndpointResolveDeterministicAndRedactsSecretsInLogsAndErrors",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         },
         {
           "id": "W5-MODELS-API-03",
@@ -252,7 +252,7 @@
           "file": "internal/models/api/embeddings.go:25-68",
           "summary": "PlaceEmbeddings accepted NaN/+/-Inf float32 components and inconsistent intra-batch vector lengths without validation, allowing malformed provider responses to poison vector stores or panic downstream cosine similarity math.",
           "regression_test": "TestPlaceEmbeddingsRefusesNaNInfAndRaggedDimensions",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         }
       ],
       "verification_commands": [
@@ -312,7 +312,7 @@
           "file": "internal/models/chat/ollama.go:53-102,226-288, internal/models/chat/chat.go:40-48",
           "summary": "OllamaChat.ChatStream blocked forever on unbuffered/undrained streamChan sends after context cancellation (leaking goroutines), NewChat/NewOllamaChat lacked nil config/service guards, and resolveImageForOllama base64-encoded non-2xx HTTP error pages as images while silently truncating >20 MiB payloads via bare io.LimitReader.",
           "regression_test": "TestOllamaChatStreamExitsWithoutDrainOnCancelAndRejectsErrorImages",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         },
         {
           "id": "W5-MODELS-CHAT-02",
@@ -320,7 +320,7 @@
           "file": "internal/models/chat/langfuse_wrapper.go:79-145,213-245, internal/models/chat/llm_debug_wrapper.go:78-115",
           "summary": "langfuseChat.ChatStream and llmDebugChat.ChatStream blocked on wrapped <- resp when callers cancelled ctx without draining wrapped (leaking goroutines and preventing gen.Finish from closing spans), and buildLangfuseMessages leaked raw multi-megabyte data: image URIs embedded in Message.MultiContent.",
           "regression_test": "TestBuildLangfuseMessagesRedactsMultiContentDataURIWithoutMutatingCaller, TestLangfuseAndDebugChatStreamExitAndFinishOnContextCancel",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         }
       ],
       "verification_commands": [
@@ -365,7 +365,7 @@
           "file": "internal/models/embedding/ollama.go:45-128, internal/models/embedding/protocol.go:108-235",
           "summary": "OllamaEmbedder and protocolEmbedder lacked nil service/pooler guards, OllamaEmbedder sent network RPCs on empty batches and formatted '%!w(<nil>)' when BatchEmbed returned zero vectors without error, and BatchEmbed/BatchEmbedImages accepted NaN/Inf, empty, or mismatched-dimension vectors.",
           "regression_test": "TestOllamaEmbedderEmptyBatchCountMismatchNaNAndNilPooler, TestRemoteProtocolsRejectNaNEmptyAndRaggedVectors",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         }
       ],
       "verification_commands": [
@@ -416,7 +416,7 @@
           "file": "internal/models/utils/ollama/ollama.go:53-135,235-275",
           "summary": "GetOllamaService accepted malformed or non-http(s) OLLAMA_BASE_URL values, logged raw URLs with embedded credentials, lacked cross-origin redirect guards on its custom HTTP client, lacked nil receiver/client guards in StartService, and OllamaService.Generate returned nil error on truncated streams that never emitted Done=true.",
           "regression_test": "TestGetOllamaServiceValidatesURLAndRedactsCredentials, TestGenerateRejectsResponsesWithoutDone",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         }
       ],
       "verification_commands": [
@@ -460,7 +460,7 @@
           "file": "internal/tracing/langfuse/config.go:65-155, internal/tracing/langfuse/manager.go:50-115",
           "summary": "Config.Validate accepted non-http(s)/malformed Host URLs and out-of-range/NaN SampleRate values, LoadConfigFromEnv/Init left QueueSize/FlushAt uncapped or unnormalized on programmatic Init, and Init leaked the previous manager's BatchSpanProcessor goroutine on re-initialization while logging unredacted Host URLs.",
           "regression_test": "TestConfigValidateNormalizeAndReinitShutdown",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         },
         {
           "id": "W5-LANGFUSE-02",
@@ -468,7 +468,7 @@
           "file": "internal/tracing/langfuse/middleware.go:45-51, internal/tracing/langfuse/tracer.go:90-145,217-325",
           "summary": "GinMiddleware exported raw c.Request.URL.RawQuery (leaking api_key/access_token/password query params), Span.Finish and Generation.Finish recorded unredacted credentials/API keys in OTel error events and status descriptions, and StartTrace/StartSpan retained caller metadata map references without cloning or guarding concurrent Finish calls.",
           "regression_test": "TestGinMiddlewareRedactsSensitiveQueryParams, TestTracerRedactsErrorSecretsAndClonesMetadataConcurrently",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         },
         {
           "id": "W5-LANGFUSE-03",
@@ -476,7 +476,7 @@
           "file": "internal/tracing/langfuse/asynq.go:163-175, internal/tracing/langfuse/retrieval_obs.go:40-123,141-215,270-301",
           "summary": "spanInputFromPayload sliced raw payload[:1024] bytes (splitting multi-byte UTF-8 runes mid-character) and echoed raw JSON credentials in task previews, while SummarizeRetrieveOutput, SummarizeSearchResults, and SummarizePassagePreviews panicked on nil slice elements or violated sort.Slice strict weak ordering on NaN scores.",
           "regression_test": "TestAsynqSpanInputUTF8SafeAndRedactsSecrets, TestRetrievalObsHandlesNilElementsAndNaNScores",
-          "commit": "efec0923f615af06537d8ffa22b2096191d78612"
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
         }
       ],
       "verification_commands": [

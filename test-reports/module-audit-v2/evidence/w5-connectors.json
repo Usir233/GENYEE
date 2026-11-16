@@ -3,7 +3,7 @@
   "slice": "w5-connectors",
   "base_commit": "fb0119d9089a7a733debb4be3c6c11e43bc7edfc",
   "commits": [
-    "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+    "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
   ],
   "cross_package_notes": [
     {
@@ -50,7 +50,7 @@
           "file": "internal/datasource/httpclient.go:25-60",
           "summary": "ValidateConnectorBaseURL accepted embedded userinfo (https://user:pass@host), query strings (?override=1), URL fragments (#frag), and control characters, and echoed raw url.Parse errors containing embedded passwords when percent-encoding failed.",
           "regression_test": "TestW5DatasourceAudit_ValidateConnectorBaseURLBlocksUserinfoQueryFragmentAndRedactsSecret",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         },
         {
           "id": "W5-CONNECTORS-02",
@@ -58,7 +58,7 @@
           "file": "internal/datasource/connector.go:105-185",
           "summary": "ConnectorRegistry accessed its internal connectors map without mutex synchronization (data race under concurrent Register/Get/List) and returned non-deterministic map iteration order; ListAvailableConnectors also aliased shared Capabilities backing slices and iterated an unsorted map.",
           "regression_test": "TestW5DatasourceAudit_RegistryConcurrencyAndMetadataImmutability",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         },
         {
           "id": "W5-CONNECTORS-03",
@@ -66,7 +66,7 @@
           "file": "internal/datasource/scheduler.go:80-210",
           "summary": "Scheduler.AddOrUpdate dereferenced nil DataSource pointers and accepted blank IDs, triggerSync failed open to enqueue overlapping syncs when HasRunningSync returned a DB error, and wrapped asynq.ErrTaskIDConflict was checked with == instead of errors.Is (marking deduplicated tasks Failed instead of Canceled).",
           "regression_test": "TestW5DatasourceAudit_SchedulerNilGuardErrorFailClosedAndWrappedConflict",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [
@@ -114,7 +114,7 @@
           "file": "internal/datasource/connector/confluence/resource.go:25-95; internal/datasource/connector/confluence/types.go:65-175; internal/datasource/connector/confluence/client.go:180-360",
           "summary": "parseResourceID and Confluence REST v1/v2 path builders accepted dot-segment IDs ('.', '..') that traversed /rest/api/content/.. to /rest/api, normalizeBaseURL used parsed.Host instead of parsed.Hostname() (missing *.atlassian.net:443 Cloud suffix detection) and allowed embedded userinfo, and parseConfig accepted CRLF/control characters in credentials.",
           "regression_test": "TestW5ConfluenceAudit_RejectsDotSegmentTraversalAndHeaderInjection",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         },
         {
           "id": "W5-CONNECTORS-05",
@@ -122,7 +122,7 @@
           "file": "internal/datasource/connector/confluence/client.go:65-120; internal/datasource/connector/confluence/connector.go:145-165; internal/datasource/connector/confluence/attachments.go:95-145",
           "summary": "Authenticated Confluence API HTTP client allowed same-origin redirects escaping the configured BaseURL context path (e.g. /wiki -> /other-app) with PAT/Basic Authorization headers intact, and Connector.FetchAll panicked on nil DataSourceConfig before parseConfig ran.",
           "regression_test": "TestW5ConfluenceAudit_APIRedirectStaysWithinContextPathAndNilFetchAll",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [
@@ -169,7 +169,7 @@
           "file": "internal/datasource/connector/dingtalk/client.go:115-235",
           "summary": "doJSON invalidated c.token and c.tokenExpiry on HTTP 401 without holding c.tokenMu and redact() read c.token unlocked while concurrent goroutines refreshed tokens, causing a Go data race under -race.",
           "regression_test": "TestW5DingTalkAudit_ConcurrentAccessTokenRefreshAndInvalidationRace",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         },
         {
           "id": "W5-CONNECTORS-07",
@@ -177,7 +177,7 @@
           "file": "internal/datasource/connector/dingtalk/resource.go:35-120; internal/datasource/connector/dingtalk/client.go:250-430",
           "summary": "decodeResourceReference and DingTalk API path builders accepted dot-segment IDs ('.', '..') enabling URL path traversal, and fetchSigned passed unvalidated upstream pre-signed header values to net/http (which echoes raw header secrets in control-character errors).",
           "regression_test": "TestW5DingTalkAudit_RejectsDotSegmentIDsAndRedactsSignedDownloadErrors",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [
@@ -235,7 +235,7 @@
           "file": "internal/datasource/connector/feishu/core/types.go:60-90; internal/datasource/connector/feishu/core/client.go:255-760; internal/datasource/connector/feishu/core/blocks.go:30-75; internal/datasource/connector/feishu/core/board.go:45-70",
           "summary": "Feishu core API methods interpolated spaceID, nodeToken, documentID, fileToken, ticket, appToken, tableID, whiteboardID, userID, and pagination page_token directly into URL paths and raw query strings without dot-segment/separator validation or url.PathEscape/url.QueryEscape, and Config.GetBaseURL did not strip trailing slashes.",
           "regression_test": "TestW5FeishuCoreAudit_EscapesPathAndQueryAndRejectsDotSegments",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         },
         {
           "id": "W5-CONNECTORS-09",
@@ -243,7 +243,7 @@
           "file": "internal/datasource/connector/feishu/core/client.go:315-415; internal/datasource/connector/feishu/core/blocks.go:35-85, 595-655",
           "summary": "listAllWikiNodesRecursive and listWikiNodeDescendants recursed indefinitely on cyclic wiki node graphs without a visited set, and listDocumentBlocks / readBitableRecords lacked repeated page_token and max pagination hop guards when upstream repeated HasMore=true.",
           "regression_test": "TestW5FeishuCoreAudit_BreaksWikiNodeCyclesAndRepeatedBlockRecordTokens",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [
@@ -279,7 +279,7 @@
           "file": "internal/datasource/connector/feishu/drive/connector.go:105-210; internal/datasource/connector/feishu/drive/paths.go:45-95",
           "summary": "ResolveResourceAncestors and buildDriveAncestorChain lacked visited-folder cycle guards (recursing infinitely on cyclic Drive folder graphs), and ListResources / listDriveFilesForResource accepted malformed ':token' IDs with an empty rootFolderToken (falling open to tenant root listing).",
           "regression_test": "TestW5FeishuDriveAudit_ResolveAncestorsBreaksFolderCycleAndValidatesParentID",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [
@@ -320,7 +320,7 @@
           "file": "internal/datasource/connector/feishu/wiki/connector.go:95-195",
           "summary": "ResolveResourceAncestors walked ParentNodeID chains via GetWikiNode without a visited set or depth bound (looping infinitely on cyclic parent pointers), and ListResources / wikiOps.List accepted ':nodeToken' resource IDs with an empty spaceID.",
           "regression_test": "TestW5FeishuWikiAudit_ResolveAncestorsBreaksParentCycleAndRejectsEmptySpaceID",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [
@@ -358,7 +358,7 @@
           "file": "internal/datasource/connector/gitlab/types.go:85-165; internal/datasource/connector/gitlab/client.go:65-95, 225-335; internal/datasource/connector/gitlab/connector.go:105-155",
           "summary": "GitLab project_id, ref, and ListResources parentID accepted raw and percent-encoded dot-segments ('..', 'group/../admin', '../etc') and query/fragment characters, and newClient accepted control characters in PRIVATE-TOKEN headers (risking secret exposure via net/http header errors).",
           "regression_test": "TestW5GitLabAudit_RejectsProjectTraversalAndTokenControlChars",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         },
         {
           "id": "W5-CONNECTORS-13",
@@ -366,7 +366,7 @@
           "file": "internal/datasource/connector/gitlab/connector.go:295-355; internal/datasource/connector/gitlab/client.go:335-380",
           "summary": "walkFiles recursed into repository tree entries without tracking visited directory paths or bounding directory count (looping infinitely on cyclic tree responses), and client.raw's base64 JSON fallback allocated base64FileBytes(c.rawLimit) (+1024 bytes slack) without re-checking len(decoded) > c.rawLimit after base64 decoding.",
           "regression_test": "TestW5GitLabAudit_BreaksCyclicTreeWalkAndEnforcesDecodedBase64Cap",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [
@@ -404,7 +404,7 @@
           "file": "internal/datasource/connector/ima/connector.go:180-205, 310-355",
           "summary": "Connector.FetchIncremental dereferenced config.ResourceIDs before checking config == nil (panicking on nil config), and listAllKBFiles recursed into sub-folders without tracking visited folder IDs or capping folder count on cyclic upstream folder graphs.",
           "regression_test": "TestW5IMAAudit_NilIncrementalConfigAndFolderCycleProtection",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         },
         {
           "id": "W5-CONNECTORS-15",
@@ -412,7 +412,7 @@
           "file": "internal/datasource/connector/ima/connector.go:445-485; internal/datasource/connector/ima/client.go:255-315; internal/datasource/connector/ima/types.go:55-95",
           "summary": "fetchOneMedia emitted bare web-link items (Content=nil, URL=detail.URLInfo.URL) without scheme/userinfo/SSRF validation — allowing upstream-supplied http://169.254.169.254/... or file:///... URLs to reach downstream CreateKnowledgeFromURL — and parseIMAConfig / DownloadURL lacked control-character validation on credentials and signed headers.",
           "regression_test": "TestW5IMAAudit_BlocksUnsafeBareWebURLAndCredentialControlChars",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [
@@ -491,7 +491,7 @@
           "file": "internal/datasource/connector/notion/client.go:80-115, 315-565; internal/datasource/connector/notion/types.go:50-85; internal/datasource/connector/notion/connector.go:840-855",
           "summary": "Notion API methods interpolated pageID, databaseID, dataSourceID, and blockID into /v1/... paths without dot-segment/separator validation or url.PathEscape, concatenated unescaped start_cursor into query strings, did not trim trailing slashes in extractBaseURL/newClient, and accepted control characters in api_key.",
           "regression_test": "TestW5NotionAudit_RejectsDotSegmentIDsEscapesCursorAndTrimsBaseURL",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         },
         {
           "id": "W5-CONNECTORS-17",
@@ -499,7 +499,7 @@
           "file": "internal/datasource/connector/notion/connector.go:805-835; internal/datasource/connector/notion/client.go:570-615",
           "summary": "computeExcludedSet walked parentMap chains without a visited-node guard (hanging indefinitely on cyclic parent pointers), and DownloadFile accepted URLs with embedded userinfo and echoed raw parse errors.",
           "regression_test": "TestW5NotionAudit_ComputeExcludedSetBreaksParentCycleAndDownloadRejectsUserinfo",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [
@@ -534,7 +534,7 @@
           "file": "internal/datasource/connector/rss/connector.go:130-150, 207-275",
           "summary": "FetchIncremental dereferenced config.ResourceIDs before checking config == nil (panicking on nil config), and walk swallowed caller context cancellation inside resolveItem's fallback-to-summary path instead of aborting the sync loop immediately.",
           "regression_test": "TestW5RSSAudit_NilIncrementalConfigAndContextCancellation",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         },
         {
           "id": "W5-CONNECTORS-19",
@@ -542,7 +542,7 @@
           "file": "internal/datasource/connector/rss/connector.go:330-395; internal/datasource/connector/rss/types.go:53-142; internal/datasource/connector/rss/client.go:48-75",
           "summary": "resolveItem copied raw item.Link into FetchedItem.URL even when extractArticle rejected the URL or feedContent was empty (allowing http://169.254.169.254/..., javascript:..., or userinfo URLs to reach CreateKnowledgeFromURL), and parseConfig/fetch lacked userinfo and control-character validation with secret-redacted errors.",
           "regression_test": "TestW5RSSAudit_BlocksUnsafeItemLinksUserinfoAndHeaderSecretLeak",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [
@@ -584,7 +584,7 @@
           "file": "internal/datasource/connector/seafile/sync.go:20-39, 214-252",
           "summary": "Unlike nextcloud/sync.go, Seafile's walkDir pushed subdirectory paths onto its traversal stack without bounding directory nesting depth (maxTraversalDepth) or total enumerated entries (maxTraversalEntries), allowing a misbehaving or cyclic self-hosted Seafile server to recurse until context timeout or OOM.",
           "regression_test": "TestW5SeafileAudit_BoundsRunawayDirectoryDepth",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [
@@ -621,7 +621,7 @@
           "file": "internal/datasource/connector/yuque/connector.go:446-456; internal/datasource/connector/yuque/client.go:278-287; internal/datasource/connector/yuque/types.go:78-85",
           "summary": "Connector.FetchIncremental dereferenced config.ResourceIDs before checking config == nil (panicking on nil config), ListUserRepos and ListGroupRepos interpolated raw login strings into /api/v2/{users,groups}/%s/repos without dot-segment/separator validation or url.PathEscape, and parseYuqueConfig accepted control characters in api_token.",
           "regression_test": "TestW5YuqueAudit_NilIncrementalConfigLoginTraversalAndTokenControlChars",
-          "commit": "b7b5937cbaa4a36cc19a47afd46dd45ed00764c7"
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
         }
       ],
       "verification_commands": [

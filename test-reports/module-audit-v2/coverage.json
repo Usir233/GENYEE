@@ -10,10 +10,10 @@
   "wave0_evidence_file": "test-reports/module-audit-v2/wave0-foundation.json",
   "legacy_ledger": "test-reports/module-audit-20261113/coverage.json",
   "summary": {
-    "total_tracked_files": 6555,
+    "total_tracked_files": 6588,
     "unit_count": 301,
-    "unit_files_total": 6021,
-    "support_files_total": 534,
+    "unit_files_total": 6050,
+    "support_files_total": 538,
     "uncovered_files": 0,
     "duplicate_files": 0,
     "stale_files": 0,
@@ -32,16 +32,16 @@
       "W2": 932,
       "W3": 1277,
       "W4": 186,
-      "W5": 870,
+      "W5": 899,
       "W6": 1060,
       "W7": 850,
       "W8": 470
     },
     "units_by_status": {
-      "pending": 153,
+      "pending": 113,
       "pending_reaudit": 77,
-      "verified_findings_fixed": 60,
-      "verified_no_findings": 11
+      "verified_findings_fixed": 95,
+      "verified_no_findings": 16
     },
     "units_by_legacy_status": {
       "audited": 36,
@@ -55,7 +55,7 @@
     "support_files_by_category": {
       "license_or_notice": 71,
       "historical_changelog_or_spec": 6,
-      "audit_ledger_or_archived_report": 88,
+      "audit_ledger_or_archived_report": 92,
       "static_binary_or_vendor_asset": 369
     }
   },
@@ -5669,8 +5669,8 @@
       "unit_id": "internal/agent",
       "wave": "W5",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
-      "file_count": 66,
+      "status": "verified_findings_fixed",
+      "file_count": 67,
       "tracked_files": [
         "internal/agent/act.go",
         "internal/agent/act_order_test.go",
@@ -5737,19 +5737,45 @@
         "internal/agent/tool_images.go",
         "internal/agent/tool_images_test.go",
         "internal/agent/tool_output_preview_test.go",
-        "internal/agent/turn_usage_test.go"
+        "internal/agent/turn_usage_test.go",
+        "internal/agent/w5_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "ReAct loop enforces maxIterations, round cancellation checks before and after tool dispatch, UTF-8 safe tool output truncation, and natural-stop continuation draftBoundary placement prior to newly injected background or user messages.",
+        "HITL suspend/resume snapshots persist and replay pending tool calls, answered/remaining calls, BackgroundInjected completions, and prior AgentSteps, while ensuring collaboration parent leases (EndParentRun) are always released even on early Resume validation errors.",
+        "Streaming and background agent runs propagate caller context cancellation cleanly without marking canceled runs IsComplete, recover tool panics without crashing the process, and isolate session/tenant execution contexts under -race.",
+        "Builtin assistant prompts, headers, and event payloads align with GENYEE branding with zero unexcused legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W5-AGENT-001",
+          "severity": "P1",
+          "file": "internal/agent/resume.go:108-186, internal/agent/suspend.go:95-145",
+          "summary": "Resume dropped snap.BackgroundInjected messages when reconstructing the LLM transcript and omitted snap.Steps when initializing state.AgentSteps, losing completed background subagent/shell notifications and pre-suspension reasoning/tool history across HITL suspend/resume.",
+          "regression_test": "TestResumeReplaysBackgroundInjectionsAndDisplaySteps",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-AGENT-002",
+          "severity": "P1",
+          "file": "internal/agent/engine.go:635-720, internal/agent/act.go:210-265, internal/agent/resume.go:70-125",
+          "summary": "executeLoop marked state.IsComplete = true when context cancellation raced with a round boundary, tryContinueAfterNaturalStop recorded draftBoundary after appending newly injected background/user input (causing continuation suppression or mis-scoping), and early errors in Resume leaked collaborationParent.EndParentRun leases.",
+          "regression_test": "TestExecuteLoopCancelAtRoundBoundaryLeavesIsCompleteFalse, TestNaturalStopContinuationPlacesDraftBoundaryBeforeInjectedInput, TestResumeEarlyErrorEndsCollaborationParentLease",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json"
     },
     {
       "unit_id": "internal/agent/collaboration",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 11,
+      "status": "verified_findings_fixed",
+      "file_count": 12,
       "tracked_files": [
         "internal/agent/collaboration/binding.go",
         "internal/agent/collaboration/continuation_test.go",
@@ -5761,19 +5787,36 @@
         "internal/agent/collaboration/runtime_test.go",
         "internal/agent/collaboration/status.go",
         "internal/agent/collaboration/status_test.go",
-        "internal/agent/collaboration/store.go"
+        "internal/agent/collaboration/store.go",
+        "internal/agent/collaboration/w5_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Sub-agent delegation enforces max recursion depth, active/total child spawn budgets, parent tenant/caller binding, and narrowed KB/tool/MCP/host scope intersection so prompt-injected tasks cannot escalate privileges beyond the parent run.",
+        "Idempotent spawn deduplication verifies both RequestKey and normalized target/task payload equality, rejecting cross-round tool-call ID collisions instead of silently returning stale child runs.",
+        "Parent-run lifecycle cleanup cancels in-flight child runs, drains completion queues, and prevents goroutine or lease leaks under concurrent Spawn/Wait/Close (-race)."
+      ],
+      "findings": [
+        {
+          "id": "W5-COLLAB-001",
+          "severity": "P1",
+          "file": "internal/agent/collaboration/runtime.go:305-365, internal/agent/tools/collaboration.go:195-235, internal/agent/tools/exec_context.go:15-55",
+          "summary": "Runtime.Spawn returned an existing child record on RequestKey match without checking TargetID/Task equality, and collaborationSpawnTool derived RequestKey without Round/ToolIndex, causing providers that reuse tool_call IDs (e.g. 'call_1') across ReAct rounds to silently alias distinct sub-agent spawns.",
+          "regression_test": "TestSpawnRejectsMismatchedRequestKeyReuse, TestCollaborationSpawnAcrossRoundsWithRepeatedToolCallID",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/collaboration/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json"
     },
     {
       "unit_id": "internal/agent/compaction",
       "wave": "W5",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 20,
+      "status": "verified_findings_fixed",
+      "file_count": 21,
       "tracked_files": [
         "internal/agent/compaction/checkpoint_test.go",
         "internal/agent/compaction/compaction_test.go",
@@ -5794,18 +5837,51 @@
         "internal/agent/compaction/settings.go",
         "internal/agent/compaction/stream_http_test.go",
         "internal/agent/compaction/stream_start_timeout_test.go",
-        "internal/agent/compaction/stream_test.go"
+        "internal/agent/compaction/stream_test.go",
+        "internal/agent/compaction/w5_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Compactor propagates caller context cancellation and deadlines immediately instead of masking ctx.Err() behind deterministic fallback summaries.",
+        "Conversation serialization, tool-call argument rendering, and deterministic fallback summaries enforce explicit token/character budgets with UTF-8 rune-safe truncation.",
+        "Settings.Normalize clamps ReserveTokens and KeepRecentTokens relative to small contextWindow budgets so ShouldCompact remains reachable and monotonic."
+      ],
+      "findings": [
+        {
+          "id": "W5-COMPACT-001",
+          "severity": "P1",
+          "file": "internal/agent/compaction/compactor.go:118-175",
+          "summary": "Compactor.Compact treated caller context cancellation/deadline errors from the summarization LLM identically to transient model failures and fell back to deterministic summarization instead of returning ctx.Err().",
+          "regression_test": "TestCompactPropagatesContextCancellation",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-COMPACT-002",
+          "severity": "P1",
+          "file": "internal/agent/compaction/fallback.go:95-155, internal/agent/compaction/serialize.go:65-120",
+          "summary": "SplitTurnFallbackSummary concatenated history and turn-prefix fallback summaries without enforcing maxSummaryTokens, and SerializeConversation serialized msg.ToolCalls[i].Function.Arguments without size caps.",
+          "regression_test": "TestSplitTurnFallbackAndToolCallSerializationRespectBudgets",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-COMPACT-003",
+          "severity": "P2",
+          "file": "internal/agent/compaction/settings.go:55-95",
+          "summary": "Settings.Normalize did not clamp KeepRecentTokens below contextWindow - ReserveTokens on small context windows, preventing compaction from freeing budget or triggering reliably.",
+          "regression_test": "TestSettingsNormalizeClampsKeepRecentOnSmallWindows",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/compaction/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json"
     },
     {
       "unit_id": "internal/agent/operations",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 19,
       "tracked_files": [
         "internal/agent/operations/agent_rerank_test.go",
@@ -5828,17 +5904,24 @@
         "internal/agent/operations/system_admin_test.go",
         "internal/agent/operations/workspace_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Background operation registry, lease heartbeats, status transitions, and output ring buffers enforce tenant/session scoping and bounded retention.",
+        "Cancellation, completion wakeup channels, and reaper cleanup terminate cleanly without data races or leaked goroutines under -race.",
+        "Operation metadata, error envelopes, and event names conform to GENYEE contracts with zero legacy brand residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/operations/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json"
     },
     {
       "unit_id": "internal/agent/skills",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 18,
+      "status": "verified_findings_fixed",
+      "file_count": 19,
       "tracked_files": [
         "internal/agent/skills/env_resolver.go",
         "internal/agent/skills/env_resolver_test.go",
@@ -5857,35 +5940,75 @@
         "internal/agent/skills/source.go",
         "internal/agent/skills/tenant_source.go",
         "internal/agent/skills/tenant_source_test.go",
-        "internal/agent/skills/testdata/skillhub_nested_name.md"
+        "internal/agent/skills/testdata/skillhub_nested_name.md",
+        "internal/agent/skills/w5_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Skill discovery and ReadSkillFile enforce realpath containment via filepath.EvalSymlinks so symlinks inside a skill directory cannot escape to arbitrary host files, and Loader caches are concurrency-safe under sync.RWMutex.",
+        "Resolved skill environment injection blocks dynamic linker, interpreter startup, and shell hook variables (LD_*, DYLD_*, PYTHONSTARTUP, PYTHONPATH, NODE_OPTIONS, BASH_ENV, ENV, SHELLOPTS, BASHOPTS, IFS, etc.) as well as reserved runtime variables (PATH, HOME, GENYEE_SKILL_DIR, GENYEE_OUTPUT_DIR, GENYEE_INPUT_DIR).",
+        "Host skill shell execution strips inherited parent environment secrets and clears GENYEE_INPUT_DIR when no input directory is mounted, preserving tenant isolation across skill invocations."
+      ],
+      "findings": [
+        {
+          "id": "W5-SKILLS-001",
+          "severity": "P1",
+          "file": "internal/agent/skills/loader.go:35-265",
+          "summary": "Loader mutated metadataCache and loadedSkills maps without synchronization under concurrent agent runs, and ReadSkillFile / discoverSkillsInDir checked lexical paths without filepath.EvalSymlinks realpath containment against symlink escapes.",
+          "regression_test": "TestLoaderConcurrentAndContainmentSafety",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-SKILLS-002",
+          "severity": "P1",
+          "file": "internal/agent/skills/env_resolver.go:95-175, internal/agent/skills/shell_environment.go:55-120",
+          "summary": "ApplyResolvedEnv allowed stored skill env keys to inject dynamic-linker/interpreter startup hooks (LD_PRELOAD, PYTHONSTARTUP, NODE_OPTIONS, BASH_ENV, IFS, etc.) or overwrite reserved runtime paths (PATH, HOME, GENYEE_SKILL_DIR, GENYEE_OUTPUT_DIR, GENYEE_INPUT_DIR), and PrepareSkillShellCommand leaked parent GENYEE_INPUT_DIR on host executions.",
+          "regression_test": "TestApplyResolvedEnvBlocksReservedVarsAndHostClearsInputDir",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/skills/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json"
     },
     {
       "unit_id": "internal/agent/token",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 3,
       "tracked_files": [
         "internal/agent/token/estimator.go",
         "internal/agent/token/estimator_test.go",
         "internal/agent/token/reasoning_artifacts_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Token estimation accounts for text, multimodal parts, tool calls, and message framing without double-counting mirrored Content and MultiContent text payloads.",
+        "Nil and zero-value Estimator receivers safely fall back to DefaultCharsPerToken without division-by-zero panics."
+      ],
+      "findings": [
+        {
+          "id": "W5-TOKEN-001",
+          "severity": "P1",
+          "file": "internal/agent/token/estimator.go:25-95",
+          "summary": "EstimateMessage counted both msg.Content and msg.MultiContent text parts when messages carried mirrored representations, inflating token estimates ~2x and triggering premature context compaction; zero/nil Estimator receivers also lacked DefaultCharsPerToken guards.",
+          "regression_test": "TestEstimateMessageDoesNotDoubleCountMultiContent, TestEstimatorNilAndZeroValueSafety",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/token/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json"
     },
     {
       "unit_id": "internal/agent/tools",
       "wave": "W5",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 242,
+      "status": "verified_findings_fixed",
+      "file_count": 243,
       "tracked_files": [
         "internal/agent/tools/allowed.go",
         "internal/agent/tools/allowed_test.go",
@@ -6097,6 +6220,7 @@
         "internal/agent/tools/tool_policy_coverage_test.go",
         "internal/agent/tools/truncate.go",
         "internal/agent/tools/truncate_test.go",
+        "internal/agent/tools/w5_regression_test.go",
         "internal/agent/tools/web_fetch.go",
         "internal/agent/tools/web_fetch_provider_test.go",
         "internal/agent/tools/web_fetch_test.go",
@@ -6130,17 +6254,99 @@
         "internal/agent/tools/workspace_reader.go",
         "internal/agent/tools/workspace_reader_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All HITL, host-approval, and MCP OAuth prompts bind tenant identity to CallerFromContext(ctx).TenantID (resolving cross-unit note #71 in host_approval.go and mcp_oauth.go), enforce UTF-8 safe preview slicing, and re-run CastParams + ValidateParams on user-modified arguments in ConfirmedTool.",
+        "Knowledge base, knowledge graph, wiki, document list, and data analysis tools strictly enforce tenant ownership, narrowed API-key/mention searchTargets (@kb, @tag, @file), fail-closed empty/whitespace target rejection, and shared-KB owner-tenant storage resolution.",
+        "Conversation search requires non-empty authenticated ownerID and wraps historical message snippets in untrusted-data prompt-injection framing.",
+        "DataAnalysisTool blocks DuckDB environment/filesystem/introspection functions (getenv, current_setting, read_*, duckdb_*, information_schema), isolates session-scoped SQL-quoted table names, and DatabaseQueryTool fails closed on nil DB or zero tenantID.",
+        "Sandbox and skill file tools enforce absolute base directories, reject symlink targets and symlink/non-directory ancestors via StatSessionFile, serialize per-file mutations with lockSandboxFile, and prevent input map mutation and integer/float overflow panics."
+      ],
+      "findings": [
+        {
+          "id": "W5-TOOLS-001",
+          "severity": "P1",
+          "file": "internal/agent/tools/sequentialthinking.go:105-205",
+          "summary": "SequentialThinkingTool.Execute mutated shared thoughtHistory and branches state without mutex protection and emitted non-deterministic map key ordering under concurrent tool invocations.",
+          "regression_test": "TestSequentialThinkingConcurrentExecute",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-TOOLS-002",
+          "severity": "P1",
+          "file": "internal/agent/tools/host_approval.go:45-165, internal/agent/tools/mcp_oauth.go:40-85",
+          "summary": "HostApprovals.attach and emitMCPOAuthRequiredNotice resolved tenantID via types.TenantIDFromContext(ctx) instead of types.CallerFromContext(ctx).TenantID on shared-agent workspaces (#71), and HostApprovals sliced WritePreview/Stdin by raw byte index across multi-byte UTF-8 runes.",
+          "regression_test": "TestHostApprovalsUsesCallerWorkspaceAndValidUTF8Preview",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-TOOLS-003",
+          "severity": "P1",
+          "file": "internal/agent/tools/param_validate.go:95-155, internal/agent/tools/param_cast.go:80-135, internal/agent/tools/confirmed_tool.go:95-190",
+          "summary": "ValidateParams and CastParams overflowed int64(float64) conversion at math.MaxInt64 / large float exponents, and ConfirmedTool executed decision.ModifiedArgs without re-running CastParams/ValidateParams while dropping inner OutputLimitChars, ExecutionTimeout, and Cleanup delegation.",
+          "regression_test": "TestValidateParamsAcceptsMaxInt64AndConfirmedToolValidatesModifiedArgs",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-TOOLS-004",
+          "severity": "P1",
+          "file": "internal/agent/tools/skill_file.go:65-240",
+          "summary": "WriteSkillFileTool and EditSkillFileTool accepted non-absolute skillDir paths, did not inspect ancestor components or target files via StatSessionFile to block symlink escapes, and lacked per-file lockSandboxFile serialization.",
+          "regression_test": "TestSkillFileToolsRejectSymlinkTargetsAndAncestors",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-TOOLS-005",
+          "severity": "P1",
+          "file": "internal/agent/tools/scope_authorization.go:60-115, internal/agent/tools/search_knowledge.go:155-295, internal/agent/tools/query_knowledge_graph.go:70-120",
+          "summary": "validateKnowledgeBaseIDsInSearchTargets ignored whitespace-only KB IDs, and SearchKnowledgeTool collapsed targets carrying ScopeTagIDs or DisableRecallThresholds into unfiltered whole-KB batches and treated malformed narrowed targets with empty KnowledgeIDs as unrestricted whole-KB searches.",
+          "regression_test": "TestSearchKnowledgeEnforcesScopeTagIDsAndEmptyTargets",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-TOOLS-006",
+          "severity": "P1",
+          "file": "internal/agent/tools/search_conversations.go:75-175",
+          "summary": "SearchConversationsTool did not fail closed when ownerID was blank, risked nil-element dereference on SearchMessages results, and returned raw cross-session user/assistant text without untrusted-data prompt-injection framing.",
+          "regression_test": "TestSearchConversationsRequiresOwnerIDAndFramesUntrustedOutput",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-TOOLS-007",
+          "severity": "P1",
+          "file": "internal/agent/tools/data_analysis.go:195-965, internal/agent/tools/database_query.go:95-155",
+          "summary": "DataAnalysisTool permitted DuckDB environment/file/catalog functions (getenv, current_setting, read_*, duckdb_*, information_schema), used session-colliding unquoted table names, re-materialized loaded knowledge files, and resolved shared-KB storage under viewer tenant instead of knowledge.TenantID; DatabaseQueryTool lacked nil DB and zero-tenant fail-closed guards.",
+          "regression_test": "TestDataAnalysisBlocksDuckDBEnvFunctionsIsolatesTablesAndResolvesSharedStorage",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-TOOLS-008",
+          "severity": "P1",
+          "file": "internal/agent/tools/wiki_tools.go:240-360, internal/agent/tools/wiki_source_refs.go:95-175, internal/agent/tools/wiki_write_page.go:80-195, internal/agent/tools/wiki_replace_text.go:70-150, internal/agent/tools/wiki_rename_page.go:55-120, internal/agent/tools/wiki_delete_page.go:55-115, internal/agent/tools/wiki_flag_issue.go:85-145, internal/agent/tools/wiki_read_issue.go:45-95, internal/agent/tools/wiki_update_issue.go:45-115",
+          "summary": "Wiki read/write/replace/flag tools failed to enforce narrowed @file/@tag scopes on linked page summaries and existing target pages, wiki_write_page left TenantID=0 and accepted arbitrary page_type or reserved 'index' writes, wiki_rename_page/wiki_delete_page failed to protect 'index' and 'summary/*' pages, and wiki issue tools lacked enum/slug validation.",
+          "regression_test": "TestWikiToolsEnforceNarrowedScopePopulateTenantIDAndProtectIndex",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        },
+        {
+          "id": "W5-TOOLS-009",
+          "severity": "P2",
+          "file": "internal/agent/tools/workspace_reader.go:95-145, internal/agent/tools/read_file.go:55-95, internal/agent/tools/read_file_attachment.go:45-85, internal/agent/tools/list_documents.go:95-155, internal/agent/tools/browserskill_schema.go:115-150, internal/agent/tools/browser_fill_secret.go:55-95, internal/agent/tools/product_docs.go:55-135, internal/agent/tools/work.go:65-165, internal/agent/tools/shell_exec_async.go:175-225",
+          "summary": "renderFileLinePage panicked on negative LineOffset, ReadFileTool.WithAttachments(nil) panicked in ExecutionTimeout, ListDocumentsTool overflowed page*pageSize on large page inputs, observationTokensFromTextChars overflowed float-to-int to 1, BrowserFillSecret/ProductDocs/Work tools lacked nil dependency guards, and ShellExecAsyncTool mutated caller input.Env maps.",
+          "regression_test": "TestToolsRejectNegativeLineOffsetPageOverflowAndNilDeps",
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/tools/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json"
     },
     {
       "unit_id": "internal/datasource",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 13,
+      "status": "verified_findings_fixed",
+      "file_count": 14,
       "tracked_files": [
         "internal/datasource/CONNECTOR_IMPLEMENTATION_GUIDE.md",
         "internal/datasource/README.md",
@@ -6154,19 +6360,53 @@
         "internal/datasource/httpclient_test.go",
         "internal/datasource/scheduler.go",
         "internal/datasource/scheduler_retention_test.go",
-        "internal/datasource/scheduler_test.go"
+        "internal/datasource/scheduler_test.go",
+        "internal/datasource/w5_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "ValidateConnectorBaseURL and NewConnectorHTTPClient enforce http/https schemes, non-empty hosts, SSRF safe-dialer validation blocking loopback/RFC1918/link-local/metadata IPs, cross-origin credential-stripping on redirects, and reject control characters, embedded userinfo, query strings, and URL fragments without echoing raw credential secrets in error messages.",
+        "ConnectorRegistry synchronizes concurrent Register, Get, and List calls under sync.RWMutex with deterministic sorted output, and ListAvailableConnectors returns deep-cloned ConnectorMetadata slices in deterministic order so caller mutations never corrupt global connector capabilities.",
+        "Scheduler guards nil/blank DataSource inputs in AddOrUpdate, fails closed without enqueuing duplicate sync tasks when HasRunningSync returns a repository error, and classifies wrapped asynq.ErrTaskIDConflict via errors.Is as SyncLogStatusCanceled rather than SyncLogStatusFailed.",
+        "SanitizeFileName strips path separators, dot-segments, and oversized UTF-8 titles safely on rune boundaries; zero legacy brand residues exist across all files."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-01",
+          "severity": "P1",
+          "file": "internal/datasource/httpclient.go:25-60",
+          "summary": "ValidateConnectorBaseURL accepted embedded userinfo (https://user:pass@host), query strings (?override=1), URL fragments (#frag), and control characters, and echoed raw url.Parse errors containing embedded passwords when percent-encoding failed.",
+          "regression_test": "TestW5DatasourceAudit_ValidateConnectorBaseURLBlocksUserinfoQueryFragmentAndRedactsSecret",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        },
+        {
+          "id": "W5-CONNECTORS-02",
+          "severity": "P2",
+          "file": "internal/datasource/connector.go:105-185",
+          "summary": "ConnectorRegistry accessed its internal connectors map without mutex synchronization (data race under concurrent Register/Get/List) and returned non-deterministic map iteration order; ListAvailableConnectors also aliased shared Capabilities backing slices and iterated an unsorted map.",
+          "regression_test": "TestW5DatasourceAudit_RegistryConcurrencyAndMetadataImmutability",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        },
+        {
+          "id": "W5-CONNECTORS-03",
+          "severity": "P2",
+          "file": "internal/datasource/scheduler.go:80-210",
+          "summary": "Scheduler.AddOrUpdate dereferenced nil DataSource pointers and accepted blank IDs, triggerSync failed open to enqueue overlapping syncs when HasRunningSync returned a DB error, and wrapped asynq.ErrTaskIDConflict was checked with == instead of errors.Is (marking deduplicated tasks Failed instead of Canceled).",
+          "regression_test": "TestW5DatasourceAudit_SchedulerNilGuardErrorFailClosedAndWrappedConflict",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/confluence",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 19,
+      "status": "verified_findings_fixed",
+      "file_count": 20,
       "tracked_files": [
         "internal/datasource/connector/confluence/asset_resolver.go",
         "internal/datasource/connector/confluence/asset_resolver_test.go",
@@ -6186,19 +6426,45 @@
         "internal/datasource/connector/confluence/resource_test.go",
         "internal/datasource/connector/confluence/sync_plan.go",
         "internal/datasource/connector/confluence/types.go",
-        "internal/datasource/connector/confluence/types_test.go"
+        "internal/datasource/connector/confluence/types_test.go",
+        "internal/datasource/connector/confluence/w5_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Confluence Cloud and Server/DC BaseURL normalization enforces SSRF validation, preserves explicit ports on *.atlassian.net when auto-appending /wiki, rejects embedded userinfo/query/fragment/control characters, and rejects CRLF/control characters in PAT and Basic credentials without echoing secrets.",
+        "Resource IDs and upstream space/page/attachment IDs reject dot-segments ('.', '..'), slashes, backslashes, and control characters and apply url.PathEscape across all REST v1/v2 endpoints.",
+        "Authenticated REST API redirects are restricted to both same-origin and the configured BaseURL context path prefix (e.g. /wiki) so sibling reverse-proxied apps on the same host cannot receive PAT/Basic credentials, while attachment downloads strip auth headers on cross-origin redirects and bound reads with io.LimitReader.",
+        "CQL/v2 cursor pagination detects repeated cursors and caps page hops, and FetchAll/FetchIncremental fail closed on nil DataSourceConfig."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-04",
+          "severity": "P1",
+          "file": "internal/datasource/connector/confluence/resource.go:25-95; internal/datasource/connector/confluence/types.go:65-175; internal/datasource/connector/confluence/client.go:180-360",
+          "summary": "parseResourceID and Confluence REST v1/v2 path builders accepted dot-segment IDs ('.', '..') that traversed /rest/api/content/.. to /rest/api, normalizeBaseURL used parsed.Host instead of parsed.Hostname() (missing *.atlassian.net:443 Cloud suffix detection) and allowed embedded userinfo, and parseConfig accepted CRLF/control characters in credentials.",
+          "regression_test": "TestW5ConfluenceAudit_RejectsDotSegmentTraversalAndHeaderInjection",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        },
+        {
+          "id": "W5-CONNECTORS-05",
+          "severity": "P1",
+          "file": "internal/datasource/connector/confluence/client.go:65-120; internal/datasource/connector/confluence/connector.go:145-165; internal/datasource/connector/confluence/attachments.go:95-145",
+          "summary": "Authenticated Confluence API HTTP client allowed same-origin redirects escaping the configured BaseURL context path (e.g. /wiki -> /other-app) with PAT/Basic Authorization headers intact, and Connector.FetchAll panicked on nil DataSourceConfig before parseConfig ran.",
+          "regression_test": "TestW5ConfluenceAudit_APIRedirectStaysWithinContextPathAndNilFetchAll",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/confluence"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/dingtalk",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 18,
+      "status": "verified_findings_fixed",
+      "file_count": 19,
       "tracked_files": [
         "internal/datasource/connector/dingtalk/client.go",
         "internal/datasource/connector/dingtalk/client_test.go",
@@ -6217,19 +6483,45 @@
         "internal/datasource/connector/dingtalk/settings.go",
         "internal/datasource/connector/dingtalk/sync_safety_test.go",
         "internal/datasource/connector/dingtalk/validate_selection_test.go",
-        "internal/datasource/connector/dingtalk/validate_test.go"
+        "internal/datasource/connector/dingtalk/validate_test.go",
+        "internal/datasource/connector/dingtalk/w5_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Access token caching, refresh, and 401/400 invalidation in client.go synchronize c.token and c.tokenExpiry exclusively under c.tokenMu (race-free under -race) and redact appSecret, operator unionId, and access tokens from error messages.",
+        "Resource references and upstream workspace/node/dentry/space/document IDs reject empty, untrimmed, control-character, and dot-segment ('.', '..') values before URL path interpolation with url.PathEscape.",
+        "Pre-signed OSS/CDN attachment downloads use an SSRF-safe client that never attaches DingTalk API tokens, validates pre-signed header names/values against control characters without echoing secret signatures in errors, and caps body reads via io.LimitReader.",
+        "Cursor pagination across workspaces, wiki nodes, and document blocks enforces seen-token cycle detection and hard page limits."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-06",
+          "severity": "P1",
+          "file": "internal/datasource/connector/dingtalk/client.go:115-235",
+          "summary": "doJSON invalidated c.token and c.tokenExpiry on HTTP 401 without holding c.tokenMu and redact() read c.token unlocked while concurrent goroutines refreshed tokens, causing a Go data race under -race.",
+          "regression_test": "TestW5DingTalkAudit_ConcurrentAccessTokenRefreshAndInvalidationRace",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        },
+        {
+          "id": "W5-CONNECTORS-07",
+          "severity": "P1",
+          "file": "internal/datasource/connector/dingtalk/resource.go:35-120; internal/datasource/connector/dingtalk/client.go:250-430",
+          "summary": "decodeResourceReference and DingTalk API path builders accepted dot-segment IDs ('.', '..') enabling URL path traversal, and fetchSigned passed unvalidated upstream pre-signed header values to net/http (which echoes raw header secrets in control-character errors).",
+          "regression_test": "TestW5DingTalkAudit_RejectsDotSegmentIDsAndRedactsSignedDownloadErrors",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/dingtalk"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/feishu/core",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 29,
+      "status": "verified_findings_fixed",
+      "file_count": 30,
       "tracked_files": [
         "internal/datasource/connector/feishu/core/blocks.go",
         "internal/datasource/connector/feishu/core/blocks_test.go",
@@ -6259,19 +6551,45 @@
         "internal/datasource/connector/feishu/core/token_log_test.go",
         "internal/datasource/connector/feishu/core/truncate_utf8_test.go",
         "internal/datasource/connector/feishu/core/types.go",
+        "internal/datasource/connector/feishu/core/w5_audit_test.go",
         "internal/datasource/connector/feishu/core/wiki_shortcuts.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Feishu/Lark BaseURL configuration trims trailing slashes and whitespace, enforces ValidateConnectorBaseURL SSRF/userinfo/query/fragment checks, synchronizes tenant_access_token refresh under mutex, and redacts app_secret and access tokens.",
+        "All wiki, docx, drive, bitable, board, export, and contact API calls validate token/ID segments (rejecting '.', '..', '/', '\\\\', '?', '#', and control characters) and escape both URL path segments (url.PathEscape) and query parameters (url.QueryEscape).",
+        "Recursive wiki node walks track visited node tokens to break cyclic parent/child graphs, and paginated list loops across wiki spaces/nodes, drive files, docx blocks, and bitable records enforce repeated page_token detection, empty-page limits, and maxFeishuPaginationHops bounds.",
+        "All API JSON payloads and media/export downloads are bounded via io.LimitReader with GENYEE User-Agent headers and zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-08",
+          "severity": "P1",
+          "file": "internal/datasource/connector/feishu/core/types.go:60-90; internal/datasource/connector/feishu/core/client.go:255-760; internal/datasource/connector/feishu/core/blocks.go:30-75; internal/datasource/connector/feishu/core/board.go:45-70",
+          "summary": "Feishu core API methods interpolated spaceID, nodeToken, documentID, fileToken, ticket, appToken, tableID, whiteboardID, userID, and pagination page_token directly into URL paths and raw query strings without dot-segment/separator validation or url.PathEscape/url.QueryEscape, and Config.GetBaseURL did not strip trailing slashes.",
+          "regression_test": "TestW5FeishuCoreAudit_EscapesPathAndQueryAndRejectsDotSegments",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        },
+        {
+          "id": "W5-CONNECTORS-09",
+          "severity": "P1",
+          "file": "internal/datasource/connector/feishu/core/client.go:315-415; internal/datasource/connector/feishu/core/blocks.go:35-85, 595-655",
+          "summary": "listAllWikiNodesRecursive and listWikiNodeDescendants recursed indefinitely on cyclic wiki node graphs without a visited set, and listDocumentBlocks / readBitableRecords lacked repeated page_token and max pagination hop guards when upstream repeated HasMore=true.",
+          "regression_test": "TestW5FeishuCoreAudit_BreaksWikiNodeCyclesAndRepeatedBlockRecordTokens",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/core"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/feishu/drive",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 8,
+      "status": "verified_findings_fixed",
+      "file_count": 9,
       "tracked_files": [
         "internal/datasource/connector/feishu/drive/connector.go",
         "internal/datasource/connector/feishu/drive/connector_paths_test.go",
@@ -6280,19 +6598,36 @@
         "internal/datasource/connector/feishu/drive/helpers_test.go",
         "internal/datasource/connector/feishu/drive/junk_test.go",
         "internal/datasource/connector/feishu/drive/pagination_test.go",
-        "internal/datasource/connector/feishu/drive/paths.go"
+        "internal/datasource/connector/feishu/drive/paths.go",
+        "internal/datasource/connector/feishu/drive/w5_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Drive folder traversal in ResolveResourceAncestors, buildDriveAncestorChain, and recursive file listing tracks visited folder tokens so cyclic parent/child metadata from upstream cannot trigger infinite API recursion.",
+        "Compound resource identifiers ('rootFolder:itemToken') fail closed when rootFolderToken is empty (e.g. ':subA') in both ListResources and listDriveFilesForResource instead of listing the tenant root folder.",
+        "Incremental sync cursor tracking, file size limits, and GENYEE metadata contracts pass cleanly under -race."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-10",
+          "severity": "P1",
+          "file": "internal/datasource/connector/feishu/drive/connector.go:105-210; internal/datasource/connector/feishu/drive/paths.go:45-95",
+          "summary": "ResolveResourceAncestors and buildDriveAncestorChain lacked visited-folder cycle guards (recursing infinitely on cyclic Drive folder graphs), and ListResources / listDriveFilesForResource accepted malformed ':token' IDs with an empty rootFolderToken (falling open to tenant root listing).",
+          "regression_test": "TestW5FeishuDriveAudit_ResolveAncestorsBreaksFolderCycleAndValidatesParentID",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/drive"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/feishu/wiki",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 13,
+      "status": "verified_findings_fixed",
+      "file_count": 14,
       "tracked_files": [
         "internal/datasource/connector/feishu/wiki/connector.go",
         "internal/datasource/connector/feishu/wiki/connector_convergence_test.go",
@@ -6306,19 +6641,36 @@
         "internal/datasource/connector/feishu/wiki/parse_mode_sync_test.go",
         "internal/datasource/connector/feishu/wiki/paths.go",
         "internal/datasource/connector/feishu/wiki/paths_regression_test.go",
-        "internal/datasource/connector/feishu/wiki/paths_test.go"
+        "internal/datasource/connector/feishu/wiki/paths_test.go",
+        "internal/datasource/connector/feishu/wiki/w5_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "ResolveResourceAncestors tracks visited parent_node_token values and enforces a hard depth cap (256) so cyclic ParentNodeID chains from GetWikiNode terminate deterministically.",
+        "Compound wiki resource IDs ('spaceID:nodeToken') fail closed when spaceID is empty in ListResources and FetchAll/FetchIncremental.",
+        "Exported document and whiteboard assets obey Feishu core SSRF and io.LimitReader bounds and pass -race."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-11",
+          "severity": "P1",
+          "file": "internal/datasource/connector/feishu/wiki/connector.go:95-195",
+          "summary": "ResolveResourceAncestors walked ParentNodeID chains via GetWikiNode without a visited set or depth bound (looping infinitely on cyclic parent pointers), and ListResources / wikiOps.List accepted ':nodeToken' resource IDs with an empty spaceID.",
+          "regression_test": "TestW5FeishuWikiAudit_ResolveAncestorsBreaksParentCycleAndRejectsEmptySpaceID",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/wiki"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/gitlab",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 10,
+      "status": "verified_findings_fixed",
+      "file_count": 11,
       "tracked_files": [
         "internal/datasource/connector/gitlab/client.go",
         "internal/datasource/connector/gitlab/client_test.go",
@@ -6329,19 +6681,44 @@
         "internal/datasource/connector/gitlab/pagination_guard_test.go",
         "internal/datasource/connector/gitlab/projects_test.go",
         "internal/datasource/connector/gitlab/types.go",
-        "internal/datasource/connector/gitlab/types_test.go"
+        "internal/datasource/connector/gitlab/types_test.go",
+        "internal/datasource/connector/gitlab/w5_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Self-hosted and SaaS GitLab BaseURLs pass ValidateConnectorBaseURL SSRF/userinfo/query/fragment checks, PRIVATE-TOKEN credentials reject control characters without leaking secrets in errors, and cross-origin redirects strip auth headers.",
+        "Project IDs (numeric or namespace/project paths), git refs, and repository paths reject dot-segment traversal ('.', '..', 'group/../admin', percent-encoded '%2e%2e'), query/fragment delimiters, backslashes, and control characters before url.PathEscape encoding.",
+        "Repository tree walks track visited directory paths and cap total walked directories (maxWalkDirs = 10000) to prevent cyclic submodule/tree loops, and both raw and base64-fallback file downloads enforce c.rawLimit on decoded payload bytes."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-12",
+          "severity": "P1",
+          "file": "internal/datasource/connector/gitlab/types.go:85-165; internal/datasource/connector/gitlab/client.go:65-95, 225-335; internal/datasource/connector/gitlab/connector.go:105-155",
+          "summary": "GitLab project_id, ref, and ListResources parentID accepted raw and percent-encoded dot-segments ('..', 'group/../admin', '../etc') and query/fragment characters, and newClient accepted control characters in PRIVATE-TOKEN headers (risking secret exposure via net/http header errors).",
+          "regression_test": "TestW5GitLabAudit_RejectsProjectTraversalAndTokenControlChars",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        },
+        {
+          "id": "W5-CONNECTORS-13",
+          "severity": "P1",
+          "file": "internal/datasource/connector/gitlab/connector.go:295-355; internal/datasource/connector/gitlab/client.go:335-380",
+          "summary": "walkFiles recursed into repository tree entries without tracking visited directory paths or bounding directory count (looping infinitely on cyclic tree responses), and client.raw's base64 JSON fallback allocated base64FileBytes(c.rawLimit) (+1024 bytes slack) without re-checking len(decoded) > c.rawLimit after base64 decoding.",
+          "regression_test": "TestW5GitLabAudit_BreaksCyclicTreeWalkAndEnforcesDecodedBase64Cap",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/gitlab"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/ima",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 10,
+      "status": "verified_findings_fixed",
+      "file_count": 11,
       "tracked_files": [
         "internal/datasource/connector/ima/client.go",
         "internal/datasource/connector/ima/client_cap_test.go",
@@ -6352,18 +6729,43 @@
         "internal/datasource/connector/ima/pagination_guard_test.go",
         "internal/datasource/connector/ima/truncate_utf8_test.go",
         "internal/datasource/connector/ima/types.go",
-        "internal/datasource/connector/ima/types_test.go"
+        "internal/datasource/connector/ima/types_test.go",
+        "internal/datasource/connector/ima/w5_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "IMA OpenAPI BaseURL enforces ValidateConnectorBaseURL SSRF validation, ClientID/APIKey and pre-signed COS download headers reject control characters without echoing secrets, and COS downloads run through a dedicated SSRF-safe HTTP client bounded by io.LimitReader.",
+        "Bare web-bookmark items (mediaTypeWeb with empty Content) validate upstream URLInfo.URL via validateIMARemoteURL (enforcing http/https, no embedded userinfo, no control characters, and ValidateURLForSSRF) before populating FetchedItem.URL for downstream CreateKnowledgeFromURL ingestion.",
+        "Knowledge-base folder recursion in listAllKBFiles tracks visited folder IDs and caps folder count (maxFoldersPerKB = 10000), cursor pagination detects repeated cursors, and FetchIncremental fails closed on nil DataSourceConfig."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-14",
+          "severity": "P1",
+          "file": "internal/datasource/connector/ima/connector.go:180-205, 310-355",
+          "summary": "Connector.FetchIncremental dereferenced config.ResourceIDs before checking config == nil (panicking on nil config), and listAllKBFiles recursed into sub-folders without tracking visited folder IDs or capping folder count on cyclic upstream folder graphs.",
+          "regression_test": "TestW5IMAAudit_NilIncrementalConfigAndFolderCycleProtection",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        },
+        {
+          "id": "W5-CONNECTORS-15",
+          "severity": "P1",
+          "file": "internal/datasource/connector/ima/connector.go:445-485; internal/datasource/connector/ima/client.go:255-315; internal/datasource/connector/ima/types.go:55-95",
+          "summary": "fetchOneMedia emitted bare web-link items (Content=nil, URL=detail.URLInfo.URL) without scheme/userinfo/SSRF validation — allowing upstream-supplied http://169.254.169.254/... or file:///... URLs to reach downstream CreateKnowledgeFromURL — and parseIMAConfig / DownloadURL lacked control-character validation on credentials and signed headers.",
+          "regression_test": "TestW5IMAAudit_BlocksUnsafeBareWebURLAndCredentialControlChars",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/ima"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/nextcloud",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 14,
       "tracked_files": [
         "internal/datasource/connector/nextcloud/client.go",
@@ -6381,17 +6783,24 @@
         "internal/datasource/connector/nextcloud/types.go",
         "internal/datasource/connector/nextcloud/types_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "WebDAV BaseURL and PROPFIND/GET requests enforce SSRF safe-dialer validation, restrict redirects to same-origin within the user's DAV root so Basic-Auth credentials never leak cross-origin or across DAV roots, and redact app passwords and usernames from errors/logs.",
+        "PROPFIND XML parsing uses bounded io.LimitReader bodies with strict XML decoder entity/token protections (no XXE or billion-laughs expansion) and validates href path containment against dot-segment escape.",
+        "Directory traversal enforces maxTraversalDepth (256), maxTraversalEntries (1,000,000), canonical path deduplication, per-file size caps, and streaming checkpoint cancellation propagation cleanly under -race."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/nextcloud"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/notion",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 19,
+      "status": "verified_findings_fixed",
+      "file_count": 20,
       "tracked_files": [
         "internal/datasource/connector/notion/attachment_retry_test.go",
         "internal/datasource/connector/notion/block_retry_test.go",
@@ -6411,19 +6820,44 @@
         "internal/datasource/connector/notion/table_linebreak_test.go",
         "internal/datasource/connector/notion/truncation_test.go",
         "internal/datasource/connector/notion/types.go",
-        "internal/datasource/connector/notion/types_test.go"
+        "internal/datasource/connector/notion/types_test.go",
+        "internal/datasource/connector/notion/w5_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Notion API BaseURL trims trailing slashes, enforces ValidateConnectorBaseURL SSRF/userinfo/query/fragment checks, rejects control characters in Integration/OAuth tokens without echoing secrets, and strips Authorization headers on cross-origin redirects.",
+        "All page, database, data-source, and block IDs are validated via validateNotionID (rejecting empty, dot-segment, slash, query/fragment, and control-character inputs) and escaped with url.PathEscape, and start_cursor query parameters are escaped with url.QueryEscape.",
+        "S3/external file downloads via DownloadFile reject embedded userinfo without leaking credentials, enforce SSRF validation and io.LimitReader caps, and computeExcludedSet breaks cyclic parent relationships deterministically without hanging."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-16",
+          "severity": "P1",
+          "file": "internal/datasource/connector/notion/client.go:80-115, 315-565; internal/datasource/connector/notion/types.go:50-85; internal/datasource/connector/notion/connector.go:840-855",
+          "summary": "Notion API methods interpolated pageID, databaseID, dataSourceID, and blockID into /v1/... paths without dot-segment/separator validation or url.PathEscape, concatenated unescaped start_cursor into query strings, did not trim trailing slashes in extractBaseURL/newClient, and accepted control characters in api_key.",
+          "regression_test": "TestW5NotionAudit_RejectsDotSegmentIDsEscapesCursorAndTrimsBaseURL",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        },
+        {
+          "id": "W5-CONNECTORS-17",
+          "severity": "P1",
+          "file": "internal/datasource/connector/notion/connector.go:805-835; internal/datasource/connector/notion/client.go:570-615",
+          "summary": "computeExcludedSet walked parentMap chains without a visited-node guard (hanging indefinitely on cyclic parent pointers), and DownloadFile accepted URLs with embedded userinfo and echoed raw parse errors.",
+          "regression_test": "TestW5NotionAudit_ComputeExcludedSetBreaksParentCycleAndDownloadRejectsUserinfo",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/notion"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/rss",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 7,
+      "status": "verified_findings_fixed",
+      "file_count": 8,
       "tracked_files": [
         "internal/datasource/connector/rss/article_retry_test.go",
         "internal/datasource/connector/rss/client.go",
@@ -6431,19 +6865,44 @@
         "internal/datasource/connector/rss/connector.go",
         "internal/datasource/connector/rss/connector_test.go",
         "internal/datasource/connector/rss/item_identity_test.go",
-        "internal/datasource/connector/rss/types.go"
+        "internal/datasource/connector/rss/types.go",
+        "internal/datasource/connector/rss/w5_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "RSS/Atom/JSON feed fetches and readability article fetches run through SSRF-safe HTTP clients with 10 MiB / 5 MiB io.LimitReader body caps, custom AuthHeaders are sent exclusively to configured feed URLs (never to article links), and parseConfig/fetch reject embedded userinfo, non-http(s) schemes, and header control characters without echoing secrets.",
+        "resolveItem sanitizes item.Link and strips non-http(s), userinfo-bearing, and SSRF-blocked links before populating FetchedItem.URL / Metadata['link'] so empty-summary feed items cannot smuggle internal/metadata URLs into downstream CreateKnowledgeFromURL.",
+        "FetchIncremental guards nil DataSourceConfig with ErrInvalidConfig, and walk propagates outer caller context cancellation immediately across both feed and per-item article loops rather than mistaking cancelled article fetches for transient fallback-to-summary failures."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-18",
+          "severity": "P1",
+          "file": "internal/datasource/connector/rss/connector.go:130-150, 207-275",
+          "summary": "FetchIncremental dereferenced config.ResourceIDs before checking config == nil (panicking on nil config), and walk swallowed caller context cancellation inside resolveItem's fallback-to-summary path instead of aborting the sync loop immediately.",
+          "regression_test": "TestW5RSSAudit_NilIncrementalConfigAndContextCancellation",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        },
+        {
+          "id": "W5-CONNECTORS-19",
+          "severity": "P1",
+          "file": "internal/datasource/connector/rss/connector.go:330-395; internal/datasource/connector/rss/types.go:53-142; internal/datasource/connector/rss/client.go:48-75",
+          "summary": "resolveItem copied raw item.Link into FetchedItem.URL even when extractArticle rejected the URL or feedContent was empty (allowing http://169.254.169.254/..., javascript:..., or userinfo URLs to reach CreateKnowledgeFromURL), and parseConfig/fetch lacked userinfo and control-character validation with secret-redacted errors.",
+          "regression_test": "TestW5RSSAudit_BlocksUnsafeItemLinksUserinfoAndHeaderSecretLeak",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/rss"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/seafile",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 14,
+      "status": "verified_findings_fixed",
+      "file_count": 15,
       "tracked_files": [
         "internal/datasource/connector/seafile/client.go",
         "internal/datasource/connector/seafile/client_test.go",
@@ -6458,19 +6917,36 @@
         "internal/datasource/connector/seafile/sync_scale_test.go",
         "internal/datasource/connector/seafile/sync_test.go",
         "internal/datasource/connector/seafile/types.go",
-        "internal/datasource/connector/seafile/types_test.go"
+        "internal/datasource/connector/seafile/types_test.go",
+        "internal/datasource/connector/seafile/w5_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Seafile API BaseURL and seafhttp file-server download links enforce SSRF safe-dialer validation, reject userinfo/query/fragment/control characters, never forward API Authorization tokens to seafhttp signed download URLs, and redact tokens and signed links from sync logs and error items.",
+        "Repo UUIDs and directory/file paths enforce strict format and canonical path validation (rejecting dot-segments, backslashes, duplicate names, and negative sizes), and file downloads enforce io.LimitReader caps against utils.GetMaxFileSize().",
+        "walkDir enforces both maxTraversalDepth (256) and maxTraversalEntries (1,000,000) so runaway or cyclic Seafile directory listings abort cleanly with ErrFetchFailed without emitting spurious reconcile deletions."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-20",
+          "severity": "P2",
+          "file": "internal/datasource/connector/seafile/sync.go:20-39, 214-252",
+          "summary": "Unlike nextcloud/sync.go, Seafile's walkDir pushed subdirectory paths onto its traversal stack without bounding directory nesting depth (maxTraversalDepth) or total enumerated entries (maxTraversalEntries), allowing a misbehaving or cyclic self-hosted Seafile server to recurse until context timeout or OOM.",
+          "regression_test": "TestW5SeafileAudit_BoundsRunawayDirectoryDepth",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/seafile"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/datasource/connector/yuque",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 9,
+      "status": "verified_findings_fixed",
+      "file_count": 10,
       "tracked_files": [
         "internal/datasource/connector/yuque/client.go",
         "internal/datasource/connector/yuque/client_test.go",
@@ -6480,21 +6956,39 @@
         "internal/datasource/connector/yuque/toc_test.go",
         "internal/datasource/connector/yuque/truncate_utf8_test.go",
         "internal/datasource/connector/yuque/types.go",
-        "internal/datasource/connector/yuque/types_test.go"
+        "internal/datasource/connector/yuque/types_test.go",
+        "internal/datasource/connector/yuque/w5_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Yuque public and enterprise BaseURLs enforce ValidateConnectorBaseURL SSRF/userinfo/query/fragment checks, X-Auth-Token values reject control characters without echoing tokens in errors and log only redacted prefixes once per client, and all JSON responses are capped at 16 MiB via readCapped.",
+        "User and group logins in ListUserRepos / ListGroupRepos reject empty, untrimmed, dot-segment ('.', '..'), slash/backslash, query/fragment, and control-character inputs and apply url.PathEscape; numeric userID, bookID, and docID parameters use integer formatting.",
+        "Offset pagination in listReposPaginated and ListBookDocs enforces maxPaginationHops (10000) and repeated-first-ID stall detection, buildTOCPaths enforces visited-UUID cycle protection and maxTOCDepth (32), truncate backs off to UTF-8 rune boundaries, and FetchIncremental guards nil DataSourceConfig."
+      ],
+      "findings": [
+        {
+          "id": "W5-CONNECTORS-21",
+          "severity": "P1",
+          "file": "internal/datasource/connector/yuque/connector.go:446-456; internal/datasource/connector/yuque/client.go:278-287; internal/datasource/connector/yuque/types.go:78-85",
+          "summary": "Connector.FetchIncremental dereferenced config.ResourceIDs before checking config == nil (panicking on nil config), ListUserRepos and ListGroupRepos interpolated raw login strings into /api/v2/{users,groups}/%s/repos without dot-segment/separator validation or url.PathEscape, and parseYuqueConfig accepted control characters in api_token.",
+          "regression_test": "TestW5YuqueAudit_NilIncrementalConfigLoginTraversalAndTokenControlChars",
+          "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/yuque"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
     },
     {
       "unit_id": "internal/im",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 54,
+      "status": "verified_findings_fixed",
+      "file_count": 55,
       "tracked_files": [
         "internal/im/adapter.go",
+        "internal/im/audit_w5_test.go",
         "internal/im/callback_validation_test.go",
         "internal/im/channel_agent_name_test.go",
         "internal/im/channel_kb_scope_test.go",
@@ -6549,40 +7043,98 @@
         "internal/im/webhook_body.go",
         "internal/im/webhook_body_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "IMChannel.computeBotIdentity hashes secret webhook tokens (Mattermost outgoing_token, Yunzhijia yzjtoken, and malformed colon-less Telegram bot_token fallbacks) with SHA-256 so IMChannelSummary responses and plaintext bot_identity DB columns never expose raw credentials, while SYSTEM_AES_KEY AES-256-GCM encrypts stored channel credentials.",
+        "HandleMessage deduplication keys are scoped by channelID + messageID across both Redis SetNX (genyee:im:dedup:*, fail-closed on Redis errors) and single-instance sync.Map caches, preventing cross-tenant/cross-channel message ID collisions, and dynamic DB fallback refuses to start disabled channels.",
+        "Multi-tenant session routing (resolveUserSession, resolveThreadSession), per-user sliding-window rate limiting (genyee:im:ratelimit:*), bounded QA worker queues, distributed leader election (Lua-fenced genyee:im:leader:*), inbound webhook/attachment size caps (LimitWebhookBody 1 MiB, ReadIMResponse 10 MiB, ReadIMAttachmentResponse 100 MiB), outbound storageurl tenant scoping (#128), and /info + /search KBSelectionMode enforcement all uphold tenant and agent isolation with zero legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-01",
+          "severity": "P1",
+          "file": "internal/im/types.go:218-234",
+          "summary": "IMChannel.computeBotIdentity stored raw Mattermost outgoing_token secrets (\"mattermost:wh:\" + tok) and colon-less Telegram bot_token fallbacks in plaintext bot_identity, leaking webhook credentials through IMChannelSummary list APIs and unencrypted DB columns.",
+          "regression_test": "TestComputeBotIdentity_HashesWebhookSecrets",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        },
+        {
+          "id": "W5-IM-02",
+          "severity": "P1",
+          "file": "internal/im/service.go:1703-1734",
+          "summary": "HandleMessage keyed message deduplication on unscoped msg.MessageID across all channels/tenants (allowing sequential or colliding platform-local message IDs to drop another tenant's messages for 5 minutes) and dynamically started disabled DB channels when absent from the active adapter map.",
+          "regression_test": "TestHandleMessage_ScopesDedupPerChannel, TestHandleMessage_DoesNotRestartDisabledChannel",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        },
+        {
+          "id": "W5-IM-03",
+          "severity": "P1",
+          "file": "internal/im/cmd_info.go:25-98; internal/im/cmd_search.go:38-105",
+          "summary": "InfoCommand listed stale Config.KnowledgeBases names even when KBSelectionMode was \"none\", SearchCommand invoked SearchKnowledge with empty kbIDs when KBs were disabled/unconfigured, and both commands lacked nil-service/context guards.",
+          "regression_test": "TestInfoAndSearchCommands_EnforceAgentKBScope",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
     },
     {
       "unit_id": "internal/im/dingtalk",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 7,
+      "status": "verified_findings_fixed",
+      "file_count": 8,
       "tracked_files": [
         "internal/im/dingtalk/adapter.go",
         "internal/im/dingtalk/adapter_test.go",
+        "internal/im/dingtalk/audit_w5_test.go",
         "internal/im/dingtalk/download_test.go",
         "internal/im/dingtalk/factory.go",
         "internal/im/dingtalk/longconn.go",
         "internal/im/dingtalk/response_limit_test.go",
         "internal/im/dingtalk/session_webhook_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "VerifyCallback enforces non-empty clientSecret, mandatory timestamp and sign headers, 1-hour millisecond replay window, and constant-time HMAC-SHA256 verification before callback parsing.",
+        "Temporary file download URLs and session_webhook reply URLs enforce HTTPS without userinfo on strict DingTalk/Aliyun OSS host suffixes backed by SSRFSafeHTTPClient dial-time IP validation and bounded response readers.",
+        "OpenAPI replies honor configured apiBaseURL for both direct and group chats, and FinalizeStream surfaces card streaming errors so Service triggers its plain-text SendReply fallback."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-DINGTALK-01",
+          "severity": "P1",
+          "file": "internal/im/dingtalk/adapter.go:434-458",
+          "summary": "defaultValidateFileDownloadURL and isAllowedDingTalkDownloadHost matched .aliyuncs.com and .dingtalk.com host suffixes without requiring https scheme, rejecting URL userinfo, or rejecting bare suffix hostnames, bypassing ValidateURLForSSRF on non-HTTPS or credential-bearing URLs.",
+          "regression_test": "TestValidateFileDownloadURL_RejectsNonHTTPSAndUserinfo",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        },
+        {
+          "id": "W5-IM-DINGTALK-02",
+          "severity": "P2",
+          "file": "internal/im/dingtalk/adapter.go:596-603, 921-927",
+          "summary": "replyViaOpenAPI hardcoded https://api.dingtalk.com instead of configured apiBaseURL, and FinalizeStream swallowed streamingUpdateCard failures instead of returning an error for plain-text fallback delivery.",
+          "regression_test": "TestReplyViaOpenAPIAndFinalizeStream_HonorBaseURLAndSurfaceFailure",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/dingtalk/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/dingtalk (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
     },
     {
       "unit_id": "internal/im/feishu",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 10,
+      "status": "verified_findings_fixed",
+      "file_count": 11,
       "tracked_files": [
         "internal/im/feishu/adapter.go",
         "internal/im/feishu/adapter_test.go",
+        "internal/im/feishu/audit_w5_test.go",
         "internal/im/feishu/content_disposition_test.go",
         "internal/im/feishu/factory.go",
         "internal/im/feishu/longconn.go",
@@ -6592,111 +7144,211 @@
         "internal/im/feishu/send_e2e_test.go",
         "internal/im/feishu/stream_reaper_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "VerifyCallback fails closed when verificationToken is empty, validates X-Lark-Request-Timestamp (5-minute skew) and X-Lark-Signature (constant-time SHA-256) prior to AES-CBC decryption whenever present, and requires both headers on all encrypted non-url_verification events.",
+        "Adapter.decrypt enforces minimum 2-block length and 16-byte AES block alignment prior to cipher.CBCDecrypter.CryptBlocks and validates PKCS#7 padding in constant time across the final block.",
+        "Feishu/Lark regional endpoints, SSRFSafeHTTPClient media downloads, Content-Disposition RFC 5987 filename decoding, WebSocket long-connection lifecycle, and stream reaper cleanup operate race-free."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-FEISHU-01",
+          "severity": "P0",
+          "file": "internal/im/feishu/adapter.go:295-362, 1550-1575",
+          "summary": "Adapter.decrypt invoked cipher.CBCDecrypter.CryptBlocks after stripping the 16-byte IV without checking block alignment or non-empty ciphertext, allowing an unauthenticated webhook request with non-block-aligned base64 ciphertext to panic the server before X-Lark-Signature was checked.",
+          "regression_test": "TestDecrypt_RejectsNonBlockAlignedCiphertextWithoutPanic, TestVerifyCallback_ChecksSignatureBeforeDecrypt",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/feishu/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/feishu (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
     },
     {
       "unit_id": "internal/im/mattermost",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 7,
+      "status": "verified_findings_fixed",
+      "file_count": 8,
       "tracked_files": [
         "internal/im/mattermost/adapter.go",
         "internal/im/mattermost/adapter_test.go",
+        "internal/im/mattermost/audit_w5_test.go",
         "internal/im/mattermost/client.go",
         "internal/im/mattermost/factory.go",
         "internal/im/mattermost/form_parse.go",
         "internal/im/mattermost/truncate_utf8_test.go",
         "internal/im/mattermost/webhook_body_limit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "VerifyCallback fails closed immediately when outgoingToken is empty before reading or parsing the request body, enforces LimitWebhookBody (1 MiB) and bounded form key/parameter counts, and compares outgoing tokens with subtle.ConstantTimeCompare.",
+        "Mattermost REST v4 client validates server URLs via ValidateURLForSSRF + SSRFSafeHTTPClient, validates postID and fileID path segments against traversal/query/fragment injection before authenticated Bearer requests, and truncates error previews on valid UTF-8 rune boundaries."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-MATTERMOST-01",
+          "severity": "P1",
+          "file": "internal/im/mattermost/client.go:113-245; internal/im/mattermost/adapter.go:71-75",
+          "summary": "GetPost, PatchPostMessage, GetFileInfo, and GetFileReader interpolated webhook-supplied postID and fileID values directly into authenticated REST v4 URL paths without path-segment validation (enabling ../ traversal onto arbitrary Mattermost API routes), and VerifyCallback parsed untrusted bodies before checking empty outgoingToken.",
+          "regression_test": "TestClient_RejectsPathTraversalInPostAndFileIDs, TestVerifyCallback_RejectsEmptyOutgoingTokenBeforeParsing",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/mattermost/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/mattermost (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
     },
     {
       "unit_id": "internal/im/qqbot",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 6,
+      "status": "verified_findings_fixed",
+      "file_count": 7,
       "tracked_files": [
         "internal/im/qqbot/adapter.go",
         "internal/im/qqbot/adapter_test.go",
+        "internal/im/qqbot/audit_w5_test.go",
         "internal/im/qqbot/client.go",
         "internal/im/qqbot/factory.go",
         "internal/im/qqbot/longconn.go",
         "internal/im/qqbot/types.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Webhook callback verification derives the Ed25519 key deterministically from non-empty appSecret, enforces 5-minute X-Signature-Timestamp skew and hex signature decoding, and signs url-verification responses only after Ed25519 verification.",
+        "REST and WebSocket clients enforce SSRF validation on api_base_url and wss:// gateway_url, resolve /gateway against configured apiBaseURL, and validate C2C/group OpenIDs before path construction.",
+        "LongConnClient synchronizes sequence numbers under c.mu, serializes WebSocket JSON writes under c.writeMu, bounds frame sizes (1 MiB), guards DialContext/Stop races, and cancels per-connection heartbeat goroutines cleanly on reconnect or shutdown."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-QQBOT-01",
+          "severity": "P1",
+          "file": "internal/im/qqbot/longconn.go:22-26, 78-190; internal/im/qqbot/client.go:62-70, 115-143",
+          "summary": "LongConnClient mutated and shared c.seq without locking while heartbeatLoop marshaled it concurrently (data race), wrote concurrently to ws.Conn without a write mutex, leaked heartbeat goroutines across reconnects, and raced Stop() with DialContext; Client.GatewayURL also hardcoded defaultGatewayURL instead of c.apiBaseURL and omitted path-segment validation on openID/groupOpenID.",
+          "regression_test": "TestLongConnClient_ConcurrentSeqHeartbeatAndStopSafety, TestClient_GatewayURLUsesConfiguredAPIBaseAndValidatesOpenIDs",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/qqbot/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/qqbot (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
     },
     {
       "unit_id": "internal/im/slack",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 5,
+      "status": "verified_findings_fixed",
+      "file_count": 6,
       "tracked_files": [
         "internal/im/slack/adapter.go",
         "internal/im/slack/adapter_test.go",
+        "internal/im/slack/audit_w5_test.go",
         "internal/im/slack/download_test.go",
         "internal/im/slack/factory.go",
         "internal/im/slack/longconn.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "VerifyCallback fails closed when signingSecret is empty, caps inbound webhook bodies via LimitWebhookBody, and verifies Slack HMAC-SHA256 signatures and 5-minute replay timestamps via slack.NewSecretsVerifier.",
+        "DownloadFile strictly restricts Bearer-authenticated file downloads to https://files.slack.com and https://slack.com/files-pri/ on default port 443 without userinfo via SSRFSafeHTTPClient.",
+        "Socket Mode factory requires non-empty app_token and bot_token before starting background workers, LongConnClient guards closed Events channels and nil evt.Request pointers, and FinalizeStream surfaces chat.update errors for fallback delivery."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-SLACK-01",
+          "severity": "P2",
+          "file": "internal/im/slack/longconn.go:65-93; internal/im/slack/factory.go:33-42; internal/im/slack/adapter.go:261-297",
+          "summary": "LongConnClient.Start panicked on EventsAPI events with nil evt.Request and busy-spun if client.Events closed before ctx cancellation; NewFactory spawned Socket Mode goroutines with empty app_token/bot_token; and FinalizeStream swallowed UpdateMessageContext errors.",
+          "regression_test": "TestLongConnClient_NilEventRequestAndClosedEventsChannelDoNotPanic, TestSlackFactoryAndFinalizeStream_RequireTokensAndSurfaceError",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/slack/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/slack (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
     },
     {
       "unit_id": "internal/im/telegram",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 4,
+      "status": "verified_findings_fixed",
+      "file_count": 5,
       "tracked_files": [
         "internal/im/telegram/adapter.go",
         "internal/im/telegram/adapter_test.go",
+        "internal/im/telegram/audit_w5_test.go",
         "internal/im/telegram/factory.go",
         "internal/im/telegram/longconn.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "VerifyCallback fails closed when secretToken or X-Telegram-Bot-Api-Secret-Token is empty and compares tokens with subtle.ConstantTimeCompare.",
+        "All Bot API and file download transport errors redact embedded bot<token> URL credentials while preserving error unwrapping (errors.Is/As), DownloadFile validates getFile file_path against traversal/query/fragment injection, FinalizeStream surfaces terminal edit failures, and websocket mode rejects empty bot_token."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-TELEGRAM-01",
+          "severity": "P1",
+          "file": "internal/im/telegram/adapter.go:266-326, 476-535; internal/im/telegram/longconn.go:95-105; internal/im/telegram/factory.go:31-36",
+          "summary": "Telegram HTTP transport errors wrapped *url.Error values containing cleartext /bot<bot_token>/ URLs into logs and caller errors; DownloadFile interpolated unvalidated getFile file_path into /file/bot<token>/<file_path>; FinalizeStream swallowed plain-text retry errors; and websocket factory accepted empty bot_token.",
+          "regression_test": "TestTelegramRedactsBotTokenFromTransportErrors, TestDownloadFileAndFinalizeStream_PathValidationAndErrorPropagation",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/telegram/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/telegram (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
     },
     {
       "unit_id": "internal/im/wechat",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 6,
+      "status": "verified_findings_fixed",
+      "file_count": 7,
       "tracked_files": [
         "internal/im/wechat/adapter.go",
         "internal/im/wechat/adapter_test.go",
+        "internal/im/wechat/audit_w5_test.go",
         "internal/im/wechat/crypto.go",
         "internal/im/wechat/factory.go",
         "internal/im/wechat/longpoll.go",
         "internal/im/wechat/qrcode.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Personal WeChat iLink bot channel preserved and hardened: AES-128-ECB PKCS#7 media encryption/decryption validates key length (16 bytes), block alignment, and constant-bounds padding, and bounds encrypted media downloads via ReadIMAttachmentResponse (100 MiB).",
+        "QRCodeService binds issued login QR tokens to the requesting tenant (types.TenantIDFromContext) with 10-minute TTL eviction so cross-tenant PollQRCodeStatus calls cannot hijack pending bot_token credentials, cancels upstream long-polls on client disconnect (context.Canceled), and never echoes raw response bodies in errors.",
+        "LongPollClient bounds concurrent message-handler goroutines with a semaphore and waits for in-flight handlers via sync.WaitGroup before Start returns on channel stop or token expiry."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-WECHAT-01",
+          "severity": "P1",
+          "file": "internal/im/wechat/qrcode.go:48-235; internal/im/wechat/longpoll.go:33-69, 177-200",
+          "summary": "Singleton QRCodeService allowed cross-tenant PollQRCodeStatus polling of another tenant's login qrcode token, leaked raw response bodies (potentially containing bot_token) on JSON decode errors, and ignored client disconnects; LongPollClient spawned unbounded detached message-handler goroutines without waiting on channel stop.",
+          "regression_test": "TestQRCodeService_IsolatesTenantsAndRedactsSecretsOnDecodeError, TestLongPollClient_WaitsForInFlightHandlersOnStop",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/wechat/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/wechat (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
     },
     {
       "unit_id": "internal/im/wecom",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 12,
+      "status": "verified_findings_fixed",
+      "file_count": 13,
       "tracked_files": [
+        "internal/im/wecom/audit_w5_test.go",
         "internal/im/wecom/endpoint_test.go",
         "internal/im/wecom/factory.go",
         "internal/im/wecom/longconn.go",
@@ -6710,20 +7362,45 @@
         "internal/im/wecom/webhook_adapter_test.go",
         "internal/im/wecom/ws_adapter.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Enterprise WeCom bot channel preserved and hardened across both webhook and aibot WebSocket modes: VerifyCallback fails closed on empty token, enforces 5-minute timestamp skew, caps XML body reads via LimitWebhookBody, and checks SHA-1 signatures with subtle.ConstantTimeCompare.",
+        "WebhookAdapter validates 32-byte decoded EncodingAESKey at construction, verifies 32-byte PKCS#7 padding and corp_id in constant time without leaking expected corp_id, guards 20+msgLen against uint32 overflow slice panics, URL-escapes query credentials, and redacts access_token/corpsecret from transport errors.",
+        "WSAdapter bounds encrypted media downloads via ReadIMAttachmentResponse (100 MiB) instead of unbounded io.ReadAll, strips full 1..32-byte WeCom PKCS#7 padding in decryptAESCBC, enforces HTTPS without userinfo in isAllowedIMAPIHost, and sets a 4 MiB WebSocket frame read limit."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-WECOM-01",
+          "severity": "P0",
+          "file": "internal/im/wecom/webhook_adapter.go:125-133, 548-585",
+          "summary": "WebhookAdapter.decrypt checked uint32(len(plaintext)) < 20+msgLen, allowing crafted msgLen >= 0xFFFFFFEC to wrap uint32 addition to 0..19 and panic with slice bounds out of range [20:0]; it also leaked expected corpID on mismatch and accepted wrong-length EncodingAESKey at construction.",
+          "regression_test": "TestWebhookAdapterDecrypt_RejectsMsgLenUint32OverflowWithoutPanic",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        },
+        {
+          "id": "W5-IM-WECOM-02",
+          "severity": "P1",
+          "file": "internal/im/wecom/ws_adapter.go:107-112, 168-172; internal/im/wecom/webhook_adapter.go:346-480, 644-652, 752-762; internal/im/wecom/longconn.go:392-397",
+          "summary": "WSAdapter.DownloadFile read encrypted media via unbounded io.ReadAll(reader) (enabling OOM) and rejected valid 17..32-byte WeCom PKCS#7 padding in decryptAESCBC; isAllowedIMAPIHost accepted non-HTTPS/userinfo URLs; and query tokens lacked URL escaping and error redaction.",
+          "regression_test": "TestWSAdapterDownloadFile_CapsSizeSupports32BytePaddingAndHTTPSAllowlist",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/wecom/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/wecom (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
     },
     {
       "unit_id": "internal/im/yunzhijia",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 10,
+      "status": "verified_findings_fixed",
+      "file_count": 11,
       "tracked_files": [
         "internal/im/yunzhijia/adapter.go",
         "internal/im/yunzhijia/adapter_test.go",
+        "internal/im/yunzhijia/audit_w5_test.go",
         "internal/im/yunzhijia/factory.go",
         "internal/im/yunzhijia/sign.go",
         "internal/im/yunzhijia/types.go",
@@ -6733,16 +7410,32 @@
         "internal/im/yunzhijia/websocket.go",
         "internal/im/yunzhijia/websocket_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "VerifyCallback fails closed when appSecret or sign header is empty, enforces 5-minute millisecond timestamp replay window, caps body reads via LimitWebhookBody, and verifies canonical HMAC-SHA1 signatures in constant time.",
+        "SendReply, WebSocket URLs, and attachment downloads enforce HTTPS/WSS without userinfo, strict host suffix allowlisting, SSRF_DNS_WHITELIST_ONLY compliance, single-redirect off-host Authorization stripping, and 20 MiB download caps.",
+        "HTTP and WebSocket dial errors scrub yzjtoken query secrets while preserving error unwrapping, and LongConnClient checks closed state under c.mu immediately after DialContext so concurrent Stop() never blocks on ReadMessage."
+      ],
+      "findings": [
+        {
+          "id": "W5-IM-YUNZHIJIA-01",
+          "severity": "P1",
+          "file": "internal/im/yunzhijia/adapter.go:378-438; internal/im/yunzhijia/websocket.go:123-138",
+          "summary": "Adapter.SendReply and LongConnClient.connectAndRun surfaced *url.Error strings containing cleartext ?yzjtoken=<secret> query credentials into logs and caller errors, and connectAndRun assigned c.conn without re-checking c.closed under c.mu after DialContext (causing Stop() races to block for the 45s read timeout).",
+          "regression_test": "TestSendReplyAndWebSocketDial_RedactYzjTokenFromErrors, TestLongConnClient_StopRacingWithDialClosesConnectionImmediately",
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/im/yunzhijia/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/yunzhijia (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
     },
     {
       "unit_id": "internal/infrastructure/web_fetch/testdata",
       "wave": "W5",
       "legacy_status": "uncovered_in_v1",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 4,
       "tracked_files": [
         "internal/infrastructure/web_fetch/testdata/extraction/README.md",
@@ -6750,17 +7443,23 @@
         "internal/infrastructure/web_fetch/testdata/extraction/fallback.html",
         "internal/infrastructure/web_fetch/testdata/extraction/structure.html"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "All 4 HTML extraction fixture files (article_with_chrome.html, cjk_article.html, doc_with_code.html, spa_hydration.html) are static offline HTML fixtures with valid UTF-8, zero live external credentials, zero host paths, and zero legacy brand residues.",
+        "Owned boundary respected: internal/infrastructure/web_fetch/*.go left untouched and verified green with -race."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/infrastructure/web_fetch/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/web_fetch/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json"
     },
     {
       "unit_id": "internal/infrastructure/web_search",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 40,
+      "status": "verified_findings_fixed",
+      "file_count": 41,
       "tracked_files": [
         "internal/infrastructure/web_search/baidu.go",
         "internal/infrastructure/web_search/bing.go",
@@ -6778,6 +7477,7 @@
         "internal/infrastructure/web_search/exa.go",
         "internal/infrastructure/web_search/exa_test.go",
         "internal/infrastructure/web_search/google.go",
+        "internal/infrastructure/web_search/google_test.go",
         "internal/infrastructure/web_search/keenable.go",
         "internal/infrastructure/web_search/keenable_test.go",
         "internal/infrastructure/web_search/local_fetch.go",
@@ -6803,16 +7503,49 @@
         "internal/infrastructure/web_search/zhipu.go",
         "internal/infrastructure/web_search/zhipu_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "SSRF and redirect defense-in-depth enforced across SearXNG, proxy, and custom HTTP search clients (DialContext IP validation via security.ValidateURLForSSRF, HTTP redirects disabled or re-validated per hop).",
+        "API keys, basic-auth userinfo, and secret query parameters are redacted from outbound request logs, proxy errors, and HTTP/transport error strings across Google, SearXNG, Serper, Tavily, Brave, Bocha, Metaso, Exa, Baidu, DeepSeek, Zhipu, and DuckDuckGo.",
+        "All 2xx JSON/HTML search response bodies are strictly bounded via readCapped/newCappedReadCloser (8 MiB max, rejecting oversized payloads) and non-2xx error bodies are bounded to 4 KiB UTF-8-safe previews.",
+        "Default User-Agent uses GENYEE-Bot/1.0 with zero legacy brand residues; concurrent SearXNG searches and EmptyResultDiagnostics are race-free under -race."
+      ],
+      "findings": [
+        {
+          "id": "W5-WEBSEARCH-01",
+          "severity": "P0",
+          "file": "internal/infrastructure/web_search/google.go:39-145",
+          "summary": "GoogleProvider passed both option.WithAPIKey and option.WithHTTPClient to customsearch.NewService, hitting google.golang.org/api/transport/http.NewClient's early HTTPClient return that silently dropped params.APIKey on every request, while following redirects, leaving response reads uncapped, and risking ?key= exposure in transport errors.",
+          "regression_test": "TestGoogleProvider_AttachesAPIKeyAndBlocksRedirects, TestGoogleProvider_RedactsAPIKeyAndBoundsResponses",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        },
+        {
+          "id": "W5-WEBSEARCH-02",
+          "severity": "P1",
+          "file": "internal/infrastructure/web_search/searxng.go:30-35,81-98,176-184, internal/infrastructure/web_search/proxy.go:24-66, internal/infrastructure/web_search/response_limit.go:52-95",
+          "summary": "SearxngProvider read and wrote lastUnresponsive without synchronization (data race between concurrent Search and EmptyResultDiagnostics), and SearXNG/proxy URL handling could leak basic-auth userinfo or secret query parameters in request logs and transport/parse errors.",
+          "regression_test": "TestSearxngProvider_ConcurrentSearchAndDiagnostics, TestSearxngProvider_RedactsUserinfoInTransportErrors",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        },
+        {
+          "id": "W5-WEBSEARCH-03",
+          "severity": "P1",
+          "file": "internal/infrastructure/web_search/duckduckgo.go:196-205, internal/infrastructure/web_search/baidu.go:118-130, internal/infrastructure/web_search/exa.go:110-122, internal/infrastructure/web_search/bocha.go:130-150, internal/infrastructure/web_search/metaso.go:126-146, internal/infrastructure/web_search/deepseek.go:132-150, internal/infrastructure/web_search/zhipu.go:132-150",
+          "summary": "DuckDuckGoProvider.searchHTML parsed resp.Body directly via goquery without any response size cap, BaiduProvider and ExaProvider read unbounded non-2xx bodies via io.ReadAll while silently truncating oversized 2xx JSON via bare io.LimitReader, and Bocha/Metaso/DeepSeek/Zhipu error helpers formatted unbounded JSON error strings.",
+          "regression_test": "TestDuckDuckGoHTMLRejectsOversizedBody, TestBaiduAndExaProvidersRejectOversizedAndBoundFailedBodies",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/infrastructure/web_search/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/web_search/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json"
     },
     {
       "unit_id": "internal/modelcontext",
       "wave": "W5",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 30,
       "tracked_files": [
         "internal/modelcontext/README.md",
@@ -6846,17 +7579,32 @@
         "internal/modelcontext/tool_policy.go",
         "internal/modelcontext/tool_policy_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Context-window token budget calculation, tool output packing, omitted-result summarization, and prompt evidence truncation preserve valid UTF-8 rune boundaries without mid-rune byte slicing.",
+        "Model context formatting is deterministic, bounded within configured token/character limits, and free of legacy brand residues."
+      ],
+      "findings": [
+        {
+          "id": "W5-MODELCONTEXT-01",
+          "severity": "P2",
+          "file": "internal/modelcontext/model_output.go:177-180",
+          "summary": "ModelDocumentInfoOutput truncated UpdatedAt using raw byte slice updated[:10], splitting multi-byte UTF-8 date strings (such as localized CJK timestamps) mid-rune and emitting invalid UTF-8 XML attributes.",
+          "regression_test": "TestModelDocumentInfoOutputPreservesValidUTF8UpdatedAt",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/modelcontext/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/modelcontext/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json"
     },
     {
       "unit_id": "internal/models/api",
       "wave": "W5",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
-      "file_count": 49,
+      "status": "verified_findings_fixed",
+      "file_count": 50,
       "tracked_files": [
         "internal/models/api/batch.go",
         "internal/models/api/batch_test.go",
@@ -6882,6 +7630,7 @@
         "internal/models/api/prompt_cache.go",
         "internal/models/api/prompt_cache_test.go",
         "internal/models/api/raw_dump.go",
+        "internal/models/api/raw_dump_test.go",
         "internal/models/api/rerank.go",
         "internal/models/api/rerank_settings.go",
         "internal/models/api/response_limit.go",
@@ -6908,32 +7657,72 @@
         "internal/models/api/usage_log.go",
         "internal/models/api/usage_log_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Shared model HTTP transport enforces SSRF validation on remote custom BaseURLs, strips Authorization/API-Key/Cookie headers across cross-origin redirects, and bounds JSON/SSE response reads via ReadResponseCapped.",
+        "Endpoint.Resolve canonicalizes query parameters deterministically with URL escaping, and Endpoint.LogRequest/Do redact URL userinfo, secret query parameters, and outbound credential values from logs, TransportError, and HTTPError.",
+        "PlaceEmbeddings/ValidateEmbeddingVectors rejects NaN, +/-Inf, and intra-batch ragged vector dimensions before corrupting downstream vector indexes.",
+        "StreamPacketDumper synchronizes concurrent writes and Close() under mutex and restricts raw debug packet directories/files to owner-only permissions (0700/0600)."
+      ],
+      "findings": [
+        {
+          "id": "W5-MODELS-API-01",
+          "severity": "P1",
+          "file": "internal/models/api/raw_dump.go:46-95",
+          "summary": "StreamPacketDumper read d.file outside d.mu in WriteRaw/WriteEvent and did not acquire d.mu in Close(), causing a data race on concurrent stream cancellation/close, and created raw LLM debug dump directories/files with world-readable 0755/0644 permissions.",
+          "regression_test": "TestStreamPacketDumper_ConcurrentWriteAndCloseAndPrivatePerms",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        },
+        {
+          "id": "W5-MODELS-API-02",
+          "severity": "P1",
+          "file": "internal/models/api/endpoint.go:93-214",
+          "summary": "Endpoint.Resolve iterated map keys in randomized order without url.QueryEscape, Endpoint.LogRequest logged raw URLs with embedded userinfo/query secrets, and Endpoint.Do leaked URL credentials or echoed auth tokens in TransportError/HTTPError while slicing error bodies at raw byte offset 512.",
+          "regression_test": "TestEndpointResolveDeterministicAndRedactsSecretsInLogsAndErrors",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        },
+        {
+          "id": "W5-MODELS-API-03",
+          "severity": "P1",
+          "file": "internal/models/api/embeddings.go:25-68",
+          "summary": "PlaceEmbeddings accepted NaN/+/-Inf float32 components and inconsistent intra-batch vector lengths without validation, allowing malformed provider responses to poison vector stores or panic downstream cosine similarity math.",
+          "regression_test": "TestPlaceEmbeddingsRefusesNaNInfAndRaggedDimensions",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json"
     },
     {
       "unit_id": "internal/models/catalog/data",
       "wave": "W5",
       "legacy_status": "uncovered_in_v1",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 3,
       "tracked_files": [
         "internal/models/catalog/data/models.generated.json",
         "internal/models/catalog/data/overrides.json",
         "internal/models/catalog/data/seed.json"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "All 3 embedded catalog JSON datasets (models.generated.json, overrides.json, seed.json) parse cleanly as valid UTF-8 JSON with consistent provider/model schema fields.",
+        "Zero hardcoded secrets, zero host paths, and zero legacy brand residues across all catalog entries."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/catalog/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/parity/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json"
     },
     {
       "unit_id": "internal/models/chat",
       "wave": "W5",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 14,
       "tracked_files": [
         "internal/models/chat/chat.go",
@@ -6951,16 +7740,40 @@
         "internal/models/chat/ollama_runtime_notice_test.go",
         "internal/models/chat/ollama_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Chat and ChatStream implementations enforce SSRF checks on remote image URLs, reject non-2xx image responses, cap remote image downloads at 20 MiB without silent truncation, and guard nil Config/service pointers.",
+        "Streaming goroutines in OllamaChat, langfuseChat, and llmDebugChat exit promptly on ctx.Done() without deadlocking when callers stop draining the returned channel, while recording cancelled stream completion.",
+        "Langfuse generation input construction redacts base64 data: URIs across both top-level Images and MultiContent parts without mutating caller message slices."
+      ],
+      "findings": [
+        {
+          "id": "W5-MODELS-CHAT-01",
+          "severity": "P1",
+          "file": "internal/models/chat/ollama.go:53-102,226-288, internal/models/chat/chat.go:40-48",
+          "summary": "OllamaChat.ChatStream blocked forever on unbuffered/undrained streamChan sends after context cancellation (leaking goroutines), NewChat/NewOllamaChat lacked nil config/service guards, and resolveImageForOllama base64-encoded non-2xx HTTP error pages as images while silently truncating >20 MiB payloads via bare io.LimitReader.",
+          "regression_test": "TestOllamaChatStreamExitsWithoutDrainOnCancelAndRejectsErrorImages",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        },
+        {
+          "id": "W5-MODELS-CHAT-02",
+          "severity": "P1",
+          "file": "internal/models/chat/langfuse_wrapper.go:79-145,213-245, internal/models/chat/llm_debug_wrapper.go:78-115",
+          "summary": "langfuseChat.ChatStream and llmDebugChat.ChatStream blocked on wrapped <- resp when callers cancelled ctx without draining wrapped (leaking goroutines and preventing gen.Finish from closing spans), and buildLangfuseMessages leaked raw multi-megabyte data: image URIs embedded in Message.MultiContent.",
+          "regression_test": "TestBuildLangfuseMessagesRedactsMultiContentDataURIWithoutMutatingCaller, TestLangfuseAndDebugChatStreamExitAndFinishOnContextCancel",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/chat/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/chat/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json"
     },
     {
       "unit_id": "internal/models/embedding",
       "wave": "W5",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 20,
       "tracked_files": [
         "internal/models/embedding/batch.go",
@@ -6984,16 +7797,31 @@
         "internal/models/embedding/wemm_test.go",
         "internal/models/embedding/wire_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Local Ollama and remote protocol embedders short-circuit empty batches cleanly without spurious network RPCs, enforce 1:1 output count parity, and validate non-empty finite (non-NaN/non-Inf) uniform-dimension vectors.",
+        "NilEmbedderPooler / nil OllamaService inputs fail closed or fall back safely without nil-pointer panics, and Embed error paths never format nil errors."
+      ],
+      "findings": [
+        {
+          "id": "W5-MODELS-EMBED-01",
+          "severity": "P1",
+          "file": "internal/models/embedding/ollama.go:45-128, internal/models/embedding/protocol.go:108-235",
+          "summary": "OllamaEmbedder and protocolEmbedder lacked nil service/pooler guards, OllamaEmbedder sent network RPCs on empty batches and formatted '%!w(<nil>)' when BatchEmbed returned zero vectors without error, and BatchEmbed/BatchEmbedImages accepted NaN/Inf, empty, or mismatched-dimension vectors.",
+          "regression_test": "TestOllamaEmbedderEmptyBatchCountMismatchNaNAndNilPooler, TestRemoteProtocolsRejectNaNEmptyAndRaggedVectors",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/embedding/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/embedding/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json"
     },
     {
       "unit_id": "internal/models/parity",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 6,
       "tracked_files": [
         "internal/models/parity/catalog_baseline_test.go",
@@ -7003,16 +7831,22 @@
         "internal/models/parity/testdata/catalog-baseline.json",
         "internal/models/parity/volcengine_budget_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Catalog migration baseline hashes (TestCatalogMigrationBaseline) across resolved runtime configs, vendor endpoints, headers, and chat wire request bodies match testdata/catalog-baseline.json bit-for-bit.",
+        "Zero live external network calls, zero hardcoded credentials, zero host paths, and zero legacy brand residues across all parity tests and fixtures."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/parity/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/parity/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json"
     },
     {
       "unit_id": "internal/models/utils/ollama",
       "wave": "W5",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 4,
       "tracked_files": [
         "internal/models/utils/ollama/availability_race_test.go",
@@ -7020,16 +7854,31 @@
         "internal/models/utils/ollama/heartbeat_cancellation_test.go",
         "internal/models/utils/ollama/ollama.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Localhost/127.0.0.1 Ollama connections work out-of-the-box without SSRF_WHITELIST while OLLAMA_BASE_URL enforces valid http/https scheme and non-empty host, blocks cross-origin POST redirect replay, strips credentials across redirects, and redacts userinfo/query secrets from logs and errors.",
+        "OllamaService.Generate verifies terminal Done=true completion on NDJSON streams so mid-stream upstream disconnects fail with io.ErrUnexpectedEOF rather than silently returning truncated output."
+      ],
+      "findings": [
+        {
+          "id": "W5-MODELS-OLLAMA-01",
+          "severity": "P1",
+          "file": "internal/models/utils/ollama/ollama.go:53-135,235-275",
+          "summary": "GetOllamaService accepted malformed or non-http(s) OLLAMA_BASE_URL values, logged raw URLs with embedded credentials, lacked cross-origin redirect guards on its custom HTTP client, lacked nil receiver/client guards in StartService, and OllamaService.Generate returned nil error on truncated streams that never emitted Done=true.",
+          "regression_test": "TestGetOllamaServiceValidatesURLAndRedactsCredentials, TestGenerateRejectsResponsesWithoutDone",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/utils/ollama/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/utils/ollama/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json"
     },
     {
       "unit_id": "internal/tracing/langfuse",
       "wave": "W5",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 17,
       "tracked_files": [
         "internal/tracing/langfuse/asynq.go",
@@ -7050,10 +7899,44 @@
         "internal/tracing/langfuse/tracer.go",
         "internal/tracing/langfuse/tracer_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Commercial Compliance Invariant preserved: Langfuse telemetry is strictly opt-in / disabled by default (Enabled=false unless explicit host + credentials/flag are configured, never selecting an implicit cloud host and spawning zero background goroutines or outbound HTTP calls when disabled).",
+        "BatchSpanProcessor queue and flush sizes are normalized and capped (QueueSize <= 65536, FlushAt <= 4096 and <= QueueSize), Config.Validate enforces http(s) Host and SampleRate in [0, 1], and replacing an active singleton in Init cleanly shuts down the prior BatchSpanProcessor.",
+        "Secrets, basic-auth userinfo, Bearer tokens, API keys, and sensitive query/JSON fields are redacted across manager startup logs/errors, GinMiddleware http.query metadata, Span/Generation Finish error events/statuses, and Asynq payload previews.",
+        "Trace/Span metadata maps are cloned on open and Finish is idempotent via atomic.Bool (race-free under -race); Asynq 1 KiB payload previews truncate on valid UTF-8 rune boundaries; retrieval observability summaries handle nil slice elements and NaN scores without panicking."
+      ],
+      "findings": [
+        {
+          "id": "W5-LANGFUSE-01",
+          "severity": "P1",
+          "file": "internal/tracing/langfuse/config.go:65-155, internal/tracing/langfuse/manager.go:50-115",
+          "summary": "Config.Validate accepted non-http(s)/malformed Host URLs and out-of-range/NaN SampleRate values, LoadConfigFromEnv/Init left QueueSize/FlushAt uncapped or unnormalized on programmatic Init, and Init leaked the previous manager's BatchSpanProcessor goroutine on re-initialization while logging unredacted Host URLs.",
+          "regression_test": "TestConfigValidateNormalizeAndReinitShutdown",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        },
+        {
+          "id": "W5-LANGFUSE-02",
+          "severity": "P1",
+          "file": "internal/tracing/langfuse/middleware.go:45-51, internal/tracing/langfuse/tracer.go:90-145,217-325",
+          "summary": "GinMiddleware exported raw c.Request.URL.RawQuery (leaking api_key/access_token/password query params), Span.Finish and Generation.Finish recorded unredacted credentials/API keys in OTel error events and status descriptions, and StartTrace/StartSpan retained caller metadata map references without cloning or guarding concurrent Finish calls.",
+          "regression_test": "TestGinMiddlewareRedactsSensitiveQueryParams, TestTracerRedactsErrorSecretsAndClonesMetadataConcurrently",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        },
+        {
+          "id": "W5-LANGFUSE-03",
+          "severity": "P2",
+          "file": "internal/tracing/langfuse/asynq.go:163-175, internal/tracing/langfuse/retrieval_obs.go:40-123,141-215,270-301",
+          "summary": "spanInputFromPayload sliced raw payload[:1024] bytes (splitting multi-byte UTF-8 runes mid-character) and echoed raw JSON credentials in task previews, while SummarizeRetrieveOutput, SummarizeSearchResults, and SummarizePassagePreviews panicked on nil slice elements or violated sort.Slice strict weak ordering on NaN scores.",
+          "regression_test": "TestAsynqSpanInputUTF8SafeAndRedactsSecrets, TestRetrievalObsHandlesNilElementsAndNaNScores",
+          "commit": "a3c8dfef3d979d114eeecf9b630d073066499e89"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/tracing/langfuse/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/tracing/langfuse/... (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 bash scripts/verify-commercial-compliance.sh --tier 3 (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json"
     },
     {
       "unit_id": "frontend/build-runtime",
@@ -12069,6 +12952,10 @@
       "test-reports/module-audit-v2/evidence/w4-vec-cloud-graph.json",
       "test-reports/module-audit-v2/evidence/w4-vec-search.json",
       "test-reports/module-audit-v2/evidence/w4-vec-sql-qdrant.json",
+      "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json",
+      "test-reports/module-audit-v2/evidence/w5-connectors.json",
+      "test-reports/module-audit-v2/evidence/w5-im-channels.json",
+      "test-reports/module-audit-v2/evidence/w5-web-models-trace.json",
       "test-reports/module-audit-v2/verify_ledger.py",
       "test-reports/module-audit-v2/wave0-foundation.json",
       "test-reports/screenshots/01_login_page.png",

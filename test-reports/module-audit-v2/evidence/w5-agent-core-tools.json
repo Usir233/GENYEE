@@ -88,7 +88,7 @@
           "file": "internal/agent/resume.go:108-186, internal/agent/suspend.go:95-145",
           "summary": "Resume dropped snap.BackgroundInjected messages when reconstructing the LLM transcript and omitted snap.Steps when initializing state.AgentSteps, losing completed background subagent/shell notifications and pre-suspension reasoning/tool history across HITL suspend/resume.",
           "regression_test": "TestResumeReplaysBackgroundInjectionsAndDisplaySteps",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-AGENT-002",
@@ -96,7 +96,7 @@
           "file": "internal/agent/engine.go:635-720, internal/agent/act.go:210-265, internal/agent/resume.go:70-125",
           "summary": "executeLoop marked state.IsComplete = true when context cancellation raced with a round boundary, tryContinueAfterNaturalStop recorded draftBoundary after appending newly injected background/user input (causing continuation suppression or mis-scoping), and early errors in Resume leaked collaborationParent.EndParentRun leases.",
           "regression_test": "TestExecuteLoopCancelAtRoundBoundaryLeavesIsCompleteFalse, TestNaturalStopContinuationPlacesDraftBoundaryBeforeInjectedInput, TestResumeEarlyErrorEndsCollaborationParentLease",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         }
       ],
       "verification_commands": [
@@ -134,7 +134,7 @@
           "file": "internal/agent/collaboration/runtime.go:305-365, internal/agent/tools/collaboration.go:195-235, internal/agent/tools/exec_context.go:15-55",
           "summary": "Runtime.Spawn returned an existing child record on RequestKey match without checking TargetID/Task equality, and collaborationSpawnTool derived RequestKey without Round/ToolIndex, causing providers that reuse tool_call IDs (e.g. 'call_1') across ReAct rounds to silently alias distinct sub-agent spawns.",
           "regression_test": "TestSpawnRejectsMismatchedRequestKeyReuse, TestCollaborationSpawnAcrossRoundsWithRepeatedToolCallID",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         }
       ],
       "verification_commands": [
@@ -181,7 +181,7 @@
           "file": "internal/agent/compaction/compactor.go:118-175",
           "summary": "Compactor.Compact treated caller context cancellation/deadline errors from the summarization LLM identically to transient model failures and fell back to deterministic summarization instead of returning ctx.Err().",
           "regression_test": "TestCompactPropagatesContextCancellation",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-COMPACT-002",
@@ -189,7 +189,7 @@
           "file": "internal/agent/compaction/fallback.go:95-155, internal/agent/compaction/serialize.go:65-120",
           "summary": "SplitTurnFallbackSummary concatenated history and turn-prefix fallback summaries without enforcing maxSummaryTokens, and SerializeConversation serialized msg.ToolCalls[i].Function.Arguments without size caps.",
           "regression_test": "TestSplitTurnFallbackAndToolCallSerializationRespectBudgets",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-COMPACT-003",
@@ -197,7 +197,7 @@
           "file": "internal/agent/compaction/settings.go:55-95",
           "summary": "Settings.Normalize did not clamp KeepRecentTokens below contextWindow - ReserveTokens on small context windows, preventing compaction from freeing budget or triggering reliably.",
           "regression_test": "TestSettingsNormalizeClampsKeepRecentOnSmallWindows",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         }
       ],
       "verification_commands": [
@@ -278,7 +278,7 @@
           "file": "internal/agent/skills/loader.go:35-265",
           "summary": "Loader mutated metadataCache and loadedSkills maps without synchronization under concurrent agent runs, and ReadSkillFile / discoverSkillsInDir checked lexical paths without filepath.EvalSymlinks realpath containment against symlink escapes.",
           "regression_test": "TestLoaderConcurrentAndContainmentSafety",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-SKILLS-002",
@@ -286,7 +286,7 @@
           "file": "internal/agent/skills/env_resolver.go:95-175, internal/agent/skills/shell_environment.go:55-120",
           "summary": "ApplyResolvedEnv allowed stored skill env keys to inject dynamic-linker/interpreter startup hooks (LD_PRELOAD, PYTHONSTARTUP, NODE_OPTIONS, BASH_ENV, IFS, etc.) or overwrite reserved runtime paths (PATH, HOME, GENYEE_SKILL_DIR, GENYEE_OUTPUT_DIR, GENYEE_INPUT_DIR), and PrepareSkillShellCommand leaked parent GENYEE_INPUT_DIR on host executions.",
           "regression_test": "TestApplyResolvedEnvBlocksReservedVarsAndHostClearsInputDir",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         }
       ],
       "verification_commands": [
@@ -314,7 +314,7 @@
           "file": "internal/agent/token/estimator.go:25-95",
           "summary": "EstimateMessage counted both msg.Content and msg.MultiContent text parts when messages carried mirrored representations, inflating token estimates ~2x and triggering premature context compaction; zero/nil Estimator receivers also lacked DefaultCharsPerToken guards.",
           "regression_test": "TestEstimateMessageDoesNotDoubleCountMultiContent, TestEstimatorNilAndZeroValueSafety",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         }
       ],
       "verification_commands": [
@@ -585,7 +585,7 @@
           "file": "internal/agent/tools/sequentialthinking.go:105-205",
           "summary": "SequentialThinkingTool.Execute mutated shared thoughtHistory and branches state without mutex protection and emitted non-deterministic map key ordering under concurrent tool invocations.",
           "regression_test": "TestSequentialThinkingConcurrentExecute",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-TOOLS-002",
@@ -593,7 +593,7 @@
           "file": "internal/agent/tools/host_approval.go:45-165, internal/agent/tools/mcp_oauth.go:40-85",
           "summary": "HostApprovals.attach and emitMCPOAuthRequiredNotice resolved tenantID via types.TenantIDFromContext(ctx) instead of types.CallerFromContext(ctx).TenantID on shared-agent workspaces (#71), and HostApprovals sliced WritePreview/Stdin by raw byte index across multi-byte UTF-8 runes.",
           "regression_test": "TestHostApprovalsUsesCallerWorkspaceAndValidUTF8Preview",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-TOOLS-003",
@@ -601,7 +601,7 @@
           "file": "internal/agent/tools/param_validate.go:95-155, internal/agent/tools/param_cast.go:80-135, internal/agent/tools/confirmed_tool.go:95-190",
           "summary": "ValidateParams and CastParams overflowed int64(float64) conversion at math.MaxInt64 / large float exponents, and ConfirmedTool executed decision.ModifiedArgs without re-running CastParams/ValidateParams while dropping inner OutputLimitChars, ExecutionTimeout, and Cleanup delegation.",
           "regression_test": "TestValidateParamsAcceptsMaxInt64AndConfirmedToolValidatesModifiedArgs",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-TOOLS-004",
@@ -609,7 +609,7 @@
           "file": "internal/agent/tools/skill_file.go:65-240",
           "summary": "WriteSkillFileTool and EditSkillFileTool accepted non-absolute skillDir paths, did not inspect ancestor components or target files via StatSessionFile to block symlink escapes, and lacked per-file lockSandboxFile serialization.",
           "regression_test": "TestSkillFileToolsRejectSymlinkTargetsAndAncestors",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-TOOLS-005",
@@ -617,7 +617,7 @@
           "file": "internal/agent/tools/scope_authorization.go:60-115, internal/agent/tools/search_knowledge.go:155-295, internal/agent/tools/query_knowledge_graph.go:70-120",
           "summary": "validateKnowledgeBaseIDsInSearchTargets ignored whitespace-only KB IDs, and SearchKnowledgeTool collapsed targets carrying ScopeTagIDs or DisableRecallThresholds into unfiltered whole-KB batches and treated malformed narrowed targets with empty KnowledgeIDs as unrestricted whole-KB searches.",
           "regression_test": "TestSearchKnowledgeEnforcesScopeTagIDsAndEmptyTargets",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-TOOLS-006",
@@ -625,7 +625,7 @@
           "file": "internal/agent/tools/search_conversations.go:75-175",
           "summary": "SearchConversationsTool did not fail closed when ownerID was blank, risked nil-element dereference on SearchMessages results, and returned raw cross-session user/assistant text without untrusted-data prompt-injection framing.",
           "regression_test": "TestSearchConversationsRequiresOwnerIDAndFramesUntrustedOutput",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-TOOLS-007",
@@ -633,7 +633,7 @@
           "file": "internal/agent/tools/data_analysis.go:195-965, internal/agent/tools/database_query.go:95-155",
           "summary": "DataAnalysisTool permitted DuckDB environment/file/catalog functions (getenv, current_setting, read_*, duckdb_*, information_schema), used session-colliding unquoted table names, re-materialized loaded knowledge files, and resolved shared-KB storage under viewer tenant instead of knowledge.TenantID; DatabaseQueryTool lacked nil DB and zero-tenant fail-closed guards.",
           "regression_test": "TestDataAnalysisBlocksDuckDBEnvFunctionsIsolatesTablesAndResolvesSharedStorage",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-TOOLS-008",
@@ -641,7 +641,7 @@
           "file": "internal/agent/tools/wiki_tools.go:240-360, internal/agent/tools/wiki_source_refs.go:95-175, internal/agent/tools/wiki_write_page.go:80-195, internal/agent/tools/wiki_replace_text.go:70-150, internal/agent/tools/wiki_rename_page.go:55-120, internal/agent/tools/wiki_delete_page.go:55-115, internal/agent/tools/wiki_flag_issue.go:85-145, internal/agent/tools/wiki_read_issue.go:45-95, internal/agent/tools/wiki_update_issue.go:45-115",
           "summary": "Wiki read/write/replace/flag tools failed to enforce narrowed @file/@tag scopes on linked page summaries and existing target pages, wiki_write_page left TenantID=0 and accepted arbitrary page_type or reserved 'index' writes, wiki_rename_page/wiki_delete_page failed to protect 'index' and 'summary/*' pages, and wiki issue tools lacked enum/slug validation.",
           "regression_test": "TestWikiToolsEnforceNarrowedScopePopulateTenantIDAndProtectIndex",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         },
         {
           "id": "W5-TOOLS-009",
@@ -649,7 +649,7 @@
           "file": "internal/agent/tools/workspace_reader.go:95-145, internal/agent/tools/read_file.go:55-95, internal/agent/tools/read_file_attachment.go:45-85, internal/agent/tools/list_documents.go:95-155, internal/agent/tools/browserskill_schema.go:115-150, internal/agent/tools/browser_fill_secret.go:55-95, internal/agent/tools/product_docs.go:55-135, internal/agent/tools/work.go:65-165, internal/agent/tools/shell_exec_async.go:175-225",
           "summary": "renderFileLinePage panicked on negative LineOffset, ReadFileTool.WithAttachments(nil) panicked in ExecutionTimeout, ListDocumentsTool overflowed page*pageSize on large page inputs, observationTokensFromTextChars overflowed float-to-int to 1, BrowserFillSecret/ProductDocs/Work tools lacked nil dependency guards, and ShellExecAsyncTool mutated caller input.Env maps.",
           "regression_test": "TestToolsRejectNegativeLineOffsetPageOverflowAndNilDeps",
-          "commit": "94e890230c2ecc594460bb35937ff496be463407"
+          "commit": "bd2d9d66cee89ffbbc95cacba7e287162fcbee55"
         }
       ],
       "verification_commands": [

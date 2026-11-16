@@ -89,7 +89,7 @@
           "file": "internal/im/types.go:218-234",
           "summary": "IMChannel.computeBotIdentity stored raw Mattermost outgoing_token secrets (\"mattermost:wh:\" + tok) and colon-less Telegram bot_token fallbacks in plaintext bot_identity, leaking webhook credentials through IMChannelSummary list APIs and unencrypted DB columns.",
           "regression_test": "TestComputeBotIdentity_HashesWebhookSecrets",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         },
         {
           "id": "W5-IM-02",
@@ -97,7 +97,7 @@
           "file": "internal/im/service.go:1703-1734",
           "summary": "HandleMessage keyed message deduplication on unscoped msg.MessageID across all channels/tenants (allowing sequential or colliding platform-local message IDs to drop another tenant's messages for 5 minutes) and dynamically started disabled DB channels when absent from the active adapter map.",
           "regression_test": "TestHandleMessage_ScopesDedupPerChannel, TestHandleMessage_DoesNotRestartDisabledChannel",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         },
         {
           "id": "W5-IM-03",
@@ -105,7 +105,7 @@
           "file": "internal/im/cmd_info.go:25-98; internal/im/cmd_search.go:38-105",
           "summary": "InfoCommand listed stale Config.KnowledgeBases names even when KBSelectionMode was \"none\", SearchCommand invoked SearchKnowledge with empty kbIDs when KBs were disabled/unconfigured, and both commands lacked nil-service/context guards.",
           "regression_test": "TestInfoAndSearchCommands_EnforceAgentKBScope",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         }
       ],
       "verification_commands": [
@@ -139,7 +139,7 @@
           "file": "internal/im/dingtalk/adapter.go:434-458",
           "summary": "defaultValidateFileDownloadURL and isAllowedDingTalkDownloadHost matched .aliyuncs.com and .dingtalk.com host suffixes without requiring https scheme, rejecting URL userinfo, or rejecting bare suffix hostnames, bypassing ValidateURLForSSRF on non-HTTPS or credential-bearing URLs.",
           "regression_test": "TestValidateFileDownloadURL_RejectsNonHTTPSAndUserinfo",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         },
         {
           "id": "W5-IM-DINGTALK-02",
@@ -147,7 +147,7 @@
           "file": "internal/im/dingtalk/adapter.go:596-603, 921-927",
           "summary": "replyViaOpenAPI hardcoded https://api.dingtalk.com instead of configured apiBaseURL, and FinalizeStream swallowed streamingUpdateCard failures instead of returning an error for plain-text fallback delivery.",
           "regression_test": "TestReplyViaOpenAPIAndFinalizeStream_HonorBaseURLAndSurfaceFailure",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         }
       ],
       "verification_commands": [
@@ -184,7 +184,7 @@
           "file": "internal/im/feishu/adapter.go:295-362, 1550-1575",
           "summary": "Adapter.decrypt invoked cipher.CBCDecrypter.CryptBlocks after stripping the 16-byte IV without checking block alignment or non-empty ciphertext, allowing an unauthenticated webhook request with non-block-aligned base64 ciphertext to panic the server before X-Lark-Signature was checked.",
           "regression_test": "TestDecrypt_RejectsNonBlockAlignedCiphertextWithoutPanic, TestVerifyCallback_ChecksSignatureBeforeDecrypt",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         }
       ],
       "verification_commands": [
@@ -217,7 +217,7 @@
           "file": "internal/im/mattermost/client.go:113-245; internal/im/mattermost/adapter.go:71-75",
           "summary": "GetPost, PatchPostMessage, GetFileInfo, and GetFileReader interpolated webhook-supplied postID and fileID values directly into authenticated REST v4 URL paths without path-segment validation (enabling ../ traversal onto arbitrary Mattermost API routes), and VerifyCallback parsed untrusted bodies before checking empty outgoingToken.",
           "regression_test": "TestClient_RejectsPathTraversalInPostAndFileIDs, TestVerifyCallback_RejectsEmptyOutgoingTokenBeforeParsing",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         }
       ],
       "verification_commands": [
@@ -250,7 +250,7 @@
           "file": "internal/im/qqbot/longconn.go:22-26, 78-190; internal/im/qqbot/client.go:62-70, 115-143",
           "summary": "LongConnClient mutated and shared c.seq without locking while heartbeatLoop marshaled it concurrently (data race), wrote concurrently to ws.Conn without a write mutex, leaked heartbeat goroutines across reconnects, and raced Stop() with DialContext; Client.GatewayURL also hardcoded defaultGatewayURL instead of c.apiBaseURL and omitted path-segment validation on openID/groupOpenID.",
           "regression_test": "TestLongConnClient_ConcurrentSeqHeartbeatAndStopSafety, TestClient_GatewayURLUsesConfiguredAPIBaseAndValidatesOpenIDs",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         }
       ],
       "verification_commands": [
@@ -282,7 +282,7 @@
           "file": "internal/im/slack/longconn.go:65-93; internal/im/slack/factory.go:33-42; internal/im/slack/adapter.go:261-297",
           "summary": "LongConnClient.Start panicked on EventsAPI events with nil evt.Request and busy-spun if client.Events closed before ctx cancellation; NewFactory spawned Socket Mode goroutines with empty app_token/bot_token; and FinalizeStream swallowed UpdateMessageContext errors.",
           "regression_test": "TestLongConnClient_NilEventRequestAndClosedEventsChannelDoNotPanic, TestSlackFactoryAndFinalizeStream_RequireTokensAndSurfaceError",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         }
       ],
       "verification_commands": [
@@ -312,7 +312,7 @@
           "file": "internal/im/telegram/adapter.go:266-326, 476-535; internal/im/telegram/longconn.go:95-105; internal/im/telegram/factory.go:31-36",
           "summary": "Telegram HTTP transport errors wrapped *url.Error values containing cleartext /bot<bot_token>/ URLs into logs and caller errors; DownloadFile interpolated unvalidated getFile file_path into /file/bot<token>/<file_path>; FinalizeStream swallowed plain-text retry errors; and websocket factory accepted empty bot_token.",
           "regression_test": "TestTelegramRedactsBotTokenFromTransportErrors, TestDownloadFileAndFinalizeStream_PathValidationAndErrorPropagation",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         }
       ],
       "verification_commands": [
@@ -345,7 +345,7 @@
           "file": "internal/im/wechat/qrcode.go:48-235; internal/im/wechat/longpoll.go:33-69, 177-200",
           "summary": "Singleton QRCodeService allowed cross-tenant PollQRCodeStatus polling of another tenant's login qrcode token, leaked raw response bodies (potentially containing bot_token) on JSON decode errors, and ignored client disconnects; LongPollClient spawned unbounded detached message-handler goroutines without waiting on channel stop.",
           "regression_test": "TestQRCodeService_IsolatesTenantsAndRedactsSecretsOnDecodeError, TestLongPollClient_WaitsForInFlightHandlersOnStop",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         }
       ],
       "verification_commands": [
@@ -384,7 +384,7 @@
           "file": "internal/im/wecom/webhook_adapter.go:125-133, 548-585",
           "summary": "WebhookAdapter.decrypt checked uint32(len(plaintext)) < 20+msgLen, allowing crafted msgLen >= 0xFFFFFFEC to wrap uint32 addition to 0..19 and panic with slice bounds out of range [20:0]; it also leaked expected corpID on mismatch and accepted wrong-length EncodingAESKey at construction.",
           "regression_test": "TestWebhookAdapterDecrypt_RejectsMsgLenUint32OverflowWithoutPanic",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         },
         {
           "id": "W5-IM-WECOM-02",
@@ -392,7 +392,7 @@
           "file": "internal/im/wecom/ws_adapter.go:107-112, 168-172; internal/im/wecom/webhook_adapter.go:346-480, 644-652, 752-762; internal/im/wecom/longconn.go:392-397",
           "summary": "WSAdapter.DownloadFile read encrypted media via unbounded io.ReadAll(reader) (enabling OOM) and rejected valid 17..32-byte WeCom PKCS#7 padding in decryptAESCBC; isAllowedIMAPIHost accepted non-HTTPS/userinfo URLs; and query tokens lacked URL escaping and error redaction.",
           "regression_test": "TestWSAdapterDownloadFile_CapsSizeSupports32BytePaddingAndHTTPSAllowlist",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         }
       ],
       "verification_commands": [
@@ -429,7 +429,7 @@
           "file": "internal/im/yunzhijia/adapter.go:378-438; internal/im/yunzhijia/websocket.go:123-138",
           "summary": "Adapter.SendReply and LongConnClient.connectAndRun surfaced *url.Error strings containing cleartext ?yzjtoken=<secret> query credentials into logs and caller errors, and connectAndRun assigned c.conn without re-checking c.closed under c.mu after DialContext (causing Stop() races to block for the 45s read timeout).",
           "regression_test": "TestSendReplyAndWebSocketDial_RedactYzjTokenFromErrors, TestLongConnClient_StopRacingWithDialClosesConnectionImmediately",
-          "commit": "2abb1c4fee44d05ed5653b3ddbb2b61e5a8aa73b"
+          "commit": "fc68b5b4efbda92d94419c33c1c15bb58d1be7fe"
         }
       ],
       "verification_commands": [
