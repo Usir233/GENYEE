@@ -42,10 +42,15 @@ type AgentConfigFlags struct {
 // tags (snake_case) are the single source of truth for key names. yaml.v3
 // alone would lowercase field names (KnowledgeBases → knowledgebases),
 // which doesn't match the JSON schema users see elsewhere.
+const maxAgentConfigBytes = 4 << 20 // 4 MiB
+
 func LoadAgentConfig(r io.Reader, kind string) (*sdk.AgentConfig, error) {
-	body, err := io.ReadAll(r)
+	body, err := io.ReadAll(io.LimitReader(r, maxAgentConfigBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read config: %w", err)
+	}
+	if len(body) > maxAgentConfigBytes {
+		return nil, fmt.Errorf("config exceeds %d bytes", maxAgentConfigBytes)
 	}
 	var cfg sdk.AgentConfig
 	switch strings.ToLower(kind) {
@@ -139,7 +144,7 @@ mcp_services: []
 
 # Knowledge base attachment
 kb_selection_mode: ""     # "all" / "selected" / "none"; also settable via --kb-selection-mode
-knowledge_bases: []       # KB ids; also settable via repeated --kb
+knowledge_bases: []       # KB ids; also settable via repeated --attach-kb
 supported_file_types: []
 
 # FAQ

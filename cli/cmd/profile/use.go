@@ -2,6 +2,7 @@ package profilecmd
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/spf13/cobra"
 
@@ -39,13 +40,20 @@ the global --profile flag instead, which writes nothing to disk.`,
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			cfg, err := loadProfileConfig()
+			if err != nil {
+				return err
+			}
+			if _, ok := cfg.Profiles[args[0]]; !ok {
+				return notFoundError(args[0], cfg)
+			}
 			if handled, err := cmdutil.HandleDryRun(c, dryRun, cmdutil.DryRunPlan{
 				Action: "profile.use",
 				Args:   map[string]any{"name": args[0]},
 			}); handled {
 				return err
 			}
-			return runUse(args[0], fopts)
+			return runUseWithConfig(args[0], cfg, fopts)
 		},
 	}
 	cmdutil.AddFormatFlag(cmd, profileUseFields...)
@@ -65,17 +73,21 @@ type useResult struct {
 }
 
 func runUse(name string, fopts *cmdutil.FormatOptions) error {
-	cfg, err := config.Load()
+	cfg, err := loadProfileConfig()
 	if err != nil {
 		return err
 	}
 	if _, ok := cfg.Profiles[name]; !ok {
 		return notFoundError(name, cfg)
 	}
+	return runUseWithConfig(name, cfg, fopts)
+}
+
+func runUseWithConfig(name string, cfg *config.Config, fopts *cmdutil.FormatOptions) error {
 	prev := cfg.CurrentProfile
 	cfg.CurrentProfile = name
 	if err := config.Save(cfg); err != nil {
-		return err
+		return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "save config")
 	}
 	result := useResult{CurrentProfile: name, PreviousProfile: prev}
 	if fopts.WantsJSON() {
@@ -117,5 +129,6 @@ func profileKeys(m map[string]config.Profile) []string {
 	for k := range m {
 		out = append(out, k)
 	}
+	sort.Strings(out)
 	return out
 }

@@ -63,7 +63,7 @@ in scripted / --format json invocations (exit code 10; see cli/README.md).`,
 			// --dry-run rejects unknown profile names identically to the live
 			// path. Same notFoundError as runRemove (kept there for direct
 			// callers).
-			cfg, cfgErr := config.Load()
+			cfg, cfgErr := loadProfileConfig()
 			if cfgErr != nil {
 				return cfgErr
 			}
@@ -105,7 +105,7 @@ in scripted / --format json invocations (exit code 10; see cli/README.md).`,
 }
 
 func runRemove(opts *RemoveOptions, fopts *cmdutil.FormatOptions, name string, store secrets.Store, p prompt.Prompter) error {
-	cfg, err := config.Load()
+	cfg, err := loadProfileConfig()
 	if err != nil {
 		return err
 	}

@@ -33,9 +33,6 @@ if [ -e AGENTS.md ] || [ -e ../.git ]; then
   SCAN_TARGETS+=(AGENTS.md)
 fi
 
-# The v0.10 retry_command miss happened because the scan silently covered less
-# than the docs that needed covering. Fail loudly if a target disappears in the
-# git repository rather than quietly shrinking coverage again.
 for target in "${SCAN_TARGETS[@]}"; do
   if [ ! -e "$target" ]; then
     echo "scan target '$target' does not exist — update SCAN_TARGETS" >&2
@@ -47,10 +44,15 @@ fail=0
 for entry in "${BANNED[@]}"; do
   term="${entry%%:*}"
   why="${entry#*:}"
-  if hits=$(grep -rn --include='*.md' -F "$term" "${SCAN_TARGETS[@]}" 2>/dev/null); then
+  rc=0
+  hits=$(grep -rn --include='*.md' -F -- "$term" "${SCAN_TARGETS[@]}") || rc=$?
+  if [ "$rc" -eq 0 ]; then
     echo "BANNED wire vocab '$term' found (use: $why):"
     echo "$hits"
     fail=1
+  elif [ "$rc" -ge 2 ]; then
+    echo "grep failed scanning for '$term' (exit $rc)" >&2
+    exit "$rc"
   fi
 done
-exit $fail
+exit "$fail"

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -170,14 +171,21 @@ func pickLogoutTargets(opts *LogoutOptions, cfg *config.Config) ([]string, error
 	if opts.All {
 		names := make([]string, 0, len(cfg.Profiles))
 		for n := range cfg.Profiles {
+			if err := cmdutil.ValidateProfileName(n); err != nil {
+				return nil, cmdutil.Wrapf(cmdutil.CodeLocalConfigCorrupt, err, "invalid profile %q in config", n)
+			}
 			names = append(names, n)
 		}
+		sort.Strings(names)
 		return names, nil
 	}
 	name := cfg.CurrentProfile
 	if name == "" {
 		return nil, cmdutil.NewError(cmdutil.CodeInputMissingFlag,
 			"no active profile set; use the global --profile <profile> or --all")
+	}
+	if err := cmdutil.ValidateProfileName(name); err != nil {
+		return nil, cmdutil.Wrapf(cmdutil.CodeLocalConfigCorrupt, err, "invalid profile %q in config", name)
 	}
 	if _, ok := cfg.Profiles[name]; !ok {
 		return nil, cmdutil.NewError(cmdutil.CodeLocalProfileNotFound,

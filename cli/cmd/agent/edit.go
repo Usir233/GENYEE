@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"sort"
 	"strings"
 
@@ -111,6 +112,13 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			opts.AgentID = args[0]
+			if err := cmdutil.ValidateResourceID("agent-id", opts.AgentID); err != nil {
+				return err
+			}
+			if systemPromptFile == "-" && configFile == "-" {
+				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+					"cannot read both --system-prompt-file and --config-file from stdin ('-')")
+			}
 			opts.flags.nameSet = cmd.Flags().Changed("name")
 			opts.flags.descriptionSet = cmd.Flags().Changed("description")
 			opts.flags.modelSet = cmd.Flags().Changed("model")
@@ -125,7 +133,7 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 
 			// --temperature is bounded 0.0..2.0. Reject out-of-range
 			// early with a typed input.invalid_argument.
-			if opts.flags.temperatureSet && (opts.Temperature < 0.0 || opts.Temperature > 2.0) {
+			if opts.flags.temperatureSet && (math.IsNaN(opts.Temperature) || math.IsInf(opts.Temperature, 0) || opts.Temperature < 0.0 || opts.Temperature > 2.0) {
 				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
 					fmt.Sprintf("--temperature must be in 0.0..2.0, got %g", opts.Temperature))
 			}
@@ -134,22 +142,6 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 			// (typed exit 5) rather than letting the server fail the update.
 			if err := validateAgentModeFlags(&opts.AgentMode, &opts.KBSelectionMode); err != nil {
 				return err
-			}
-
-			if systemPromptFile != "" {
-				r, err := cmdutil.OpenInput(systemPromptFile)
-				if err != nil {
-					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file: %v", err))
-				}
-				opts.SystemPromptReader = r
-			}
-			if configFile != "" {
-				r, kind, err := openConfigFile(configFile)
-				if err != nil {
-					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--config-file: %v", err))
-				}
-				opts.ConfigFileBody = r
-				opts.ConfigFileKind = kind
 			}
 			return nil
 		},
@@ -226,6 +218,27 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 			if err := cmdutil.ConfirmWrite(f.Prompter(), yes, fopts.WantsJSON(), "update", "agent", opts.AgentID, "agent.update", retryCmd); err != nil {
 				return err
 			}
+			if systemPromptFile != "" {
+				r, oerr := cmdutil.OpenInput(systemPromptFile)
+				if oerr != nil {
+					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file: %v", oerr))
+				}
+				if c, ok := r.(io.Closer); ok {
+					defer c.Close()
+				}
+				opts.SystemPromptReader = r
+			}
+			if configFile != "" {
+				r, kind, oerr := openConfigFile(configFile)
+				if oerr != nil {
+					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--config-file: %v", oerr))
+				}
+				if c, ok := r.(io.Closer); ok {
+					defer c.Close()
+				}
+				opts.ConfigFileBody = r
+				opts.ConfigFileKind = kind
+			}
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -243,6 +256,32 @@ func NewCmdEdit(f *cmdutil.Factory) *cobra.Command {
 					resolved = append(resolved, id)
 				}
 				opts.AddKBs = resolved
+			}
+			if len(opts.RemoveKBs) > 0 {
+				var kbByName map[string]string
+				resolved := make([]string, 0, len(opts.RemoveKBs))
+				for _, raw := range opts.RemoveKBs {
+					if cmdutil.IsKBID(raw) {
+						resolved = append(resolved, raw)
+						continue
+					}
+					if kbByName == nil {
+						kbs, lerr := cli.ListKnowledgeBases(cmd.Context())
+						if lerr != nil {
+							return cmdutil.WrapHTTP(lerr, "list knowledge bases")
+						}
+						kbByName = make(map[string]string, len(kbs))
+						for _, kb := range kbs {
+							kbByName[kb.Name] = kb.ID
+						}
+					}
+					if id, ok := kbByName[raw]; ok {
+						resolved = append(resolved, id)
+					} else {
+						resolved = append(resolved, raw)
+					}
+				}
+				opts.RemoveKBs = resolved
 			}
 			return runEdit(cmd.Context(), opts, fopts, cli)
 		},
@@ -325,10 +364,14 @@ func runEdit(ctx context.Context, opts *EditOptions, fopts *cmdutil.FormatOption
 	}
 
 	// Resolve --system-prompt-file before flag overlay.
+	const maxSystemPromptBytes = 4 << 20 // 4 MiB
 	if opts.SystemPromptReader != nil {
-		body, err := io.ReadAll(opts.SystemPromptReader)
+		body, err := io.ReadAll(io.LimitReader(opts.SystemPromptReader, maxSystemPromptBytes+1))
 		if err != nil {
 			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file read: %v", err))
+		}
+		if len(body) > maxSystemPromptBytes {
+			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file exceeds %d bytes", maxSystemPromptBytes))
 		}
 		opts.SystemPrompt = strings.TrimSpace(string(body))
 	}

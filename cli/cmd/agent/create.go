@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"path/filepath"
 	"strings"
 
@@ -50,6 +51,7 @@ type CreateOptions struct {
 // createFlagSet records which hot-path flags the user explicitly passed so
 // MergeAgentConfig knows which fields to overlay onto the base config.
 type createFlagSet struct {
+	descriptionSet     bool
 	agentModeSet       bool
 	systemPromptSet    bool
 	rerankModelSet     bool
@@ -108,6 +110,16 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			if opts.Model == "" {
 				return cmdutil.NewFlagError(fmt.Errorf(`required flag(s) "model" not set`))
 			}
+			if opts.From != "" {
+				if err := cmdutil.ValidateResourceID("--from", opts.From); err != nil {
+					return err
+				}
+			}
+			if systemPromptFile == "-" && configFile == "-" {
+				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+					"cannot read both --system-prompt-file and --config-file from stdin ('-')")
+			}
+			opts.flags.descriptionSet = cmd.Flags().Changed("description")
 			opts.flags.agentModeSet = cmd.Flags().Changed("agent-mode")
 			opts.flags.systemPromptSet = cmd.Flags().Changed("system-prompt") || cmd.Flags().Changed("system-prompt-file")
 			opts.flags.rerankModelSet = cmd.Flags().Changed("rerank-model")
@@ -118,7 +130,7 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			// --temperature is bounded 0.0..2.0. Reject out-of-range
 			// early with a typed input.invalid_argument so users don't
 			// burn a roundtrip on a value the server would also reject.
-			if opts.flags.temperatureSet && (opts.Temperature < 0.0 || opts.Temperature > 2.0) {
+			if opts.flags.temperatureSet && (math.IsNaN(opts.Temperature) || math.IsInf(opts.Temperature, 0) || opts.Temperature < 0.0 || opts.Temperature > 2.0) {
 				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
 					fmt.Sprintf("--temperature must be in 0.0..2.0, got %g", opts.Temperature))
 			}
@@ -127,22 +139,6 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 			// (typed exit 5) rather than letting the server fail the create.
 			if err := validateAgentModeFlags(&opts.AgentMode, &opts.KBSelectionMode); err != nil {
 				return err
-			}
-
-			if systemPromptFile != "" {
-				r, err := cmdutil.OpenInput(systemPromptFile)
-				if err != nil {
-					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file: %v", err))
-				}
-				opts.SystemPromptReader = r
-			}
-			if configFile != "" {
-				r, kind, err := openConfigFile(configFile)
-				if err != nil {
-					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--config-file: %v", err))
-				}
-				opts.ConfigFileBody = r
-				opts.ConfigFileKind = kind
 			}
 			return nil
 		},
@@ -164,6 +160,27 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 				Args:   planArgs,
 			}); handled {
 				return err
+			}
+			if systemPromptFile != "" {
+				r, oerr := cmdutil.OpenInput(systemPromptFile)
+				if oerr != nil {
+					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file: %v", oerr))
+				}
+				if c, ok := r.(io.Closer); ok {
+					defer c.Close()
+				}
+				opts.SystemPromptReader = r
+			}
+			if configFile != "" {
+				r, kind, oerr := openConfigFile(configFile)
+				if oerr != nil {
+					return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--config-file: %v", oerr))
+				}
+				if c, ok := r.(io.Closer); ok {
+					defer c.Close()
+				}
+				opts.ConfigFileBody = r
+				opts.ConfigFileKind = kind
 			}
 			cli, err := f.Client()
 			if err != nil {
@@ -217,6 +234,7 @@ func NewCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	// Power-user / utility
 	cmd.Flags().StringVar(&opts.From, "from", "", "Copy from existing agent id (then apply other flags)")
 	cmd.Flags().StringVar(&configFile, "config-file", "", "Full AgentConfig YAML or JSON (use '-' for stdin)")
+	cmd.MarkFlagsMutuallyExclusive("from", "config-file")
 	cmd.Flags().BoolVar(&opts.GenerateSkeleton, "generate-skeleton", false, "Emit blank AgentConfig YAML to stdout and exit")
 
 	cmdutil.AddFormatFlag(cmd, agentViewFields...)
@@ -252,10 +270,14 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 	}
 
 	// 2. Resolve system prompt (file/stdin > flag string)
+	const maxSystemPromptBytes = 4 << 20 // 4 MiB
 	if opts.SystemPromptReader != nil {
-		body, err := io.ReadAll(opts.SystemPromptReader)
+		body, err := io.ReadAll(io.LimitReader(opts.SystemPromptReader, maxSystemPromptBytes+1))
 		if err != nil {
 			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file read: %v", err))
+		}
+		if len(body) > maxSystemPromptBytes {
+			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("--system-prompt-file exceeds %d bytes", maxSystemPromptBytes))
 		}
 		opts.SystemPrompt = strings.TrimSpace(string(body))
 	}
@@ -280,11 +302,15 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 		// and the copy's KB list passes through unchanged.
 		cfg := applyCreateOverrides(&base, opts)
 
+		desc := copied.Description
+		if opts.flags.descriptionSet || opts.Description != "" {
+			desc = opts.Description
+		}
 		// Apply overrides on top of copied state via UpdateAgent (no
 		// server-side template-parameters route, so we do two roundtrips).
 		updateReq := &sdk.UpdateAgentRequest{
 			Name:        opts.Name,
-			Description: opts.Description,
+			Description: desc,
 			Config:      cfg,
 		}
 		updated, err := svc.UpdateAgent(ctx, copied.ID, updateReq)

@@ -94,9 +94,15 @@ func discoverProjectLinkProfile() (name, linkPath string, found bool, err error)
 
 func (f *Factory) resolveTransientProfile() (name, source string, kind ProfileSourceKind, err error) {
 	if f.ProfileOverride != "" {
+		if perr := ValidateProfileName(f.ProfileOverride); perr != nil {
+			return "", "--profile flag", ProfileSourceFlag, perr
+		}
 		return f.ProfileOverride, "--profile flag", ProfileSourceFlag, nil
 	}
 	if v := os.Getenv("GENYEE_PROFILE"); v != "" {
+		if perr := ValidateProfileName(v); perr != nil {
+			return "", "GENYEE_PROFILE env", ProfileSourceEnv, perr
+		}
 		return v, "GENYEE_PROFILE env", ProfileSourceEnv, nil
 	}
 	if !f.IgnoreProjectLink {
@@ -271,16 +277,22 @@ func buildClient(f *Factory) (*sdk.Client, error) {
 	prof.Host = normalizedHost
 
 	opts := []sdk.ClientOption{}
-	store, err := f.Secrets()
-	if err != nil {
-		return nil, Wrapf(CodeLocalKeychainDenied, err, "init secrets store")
+	needsStore := (prof.TokenRef != "" && !strings.HasPrefix(prof.TokenRef, "env:")) ||
+		(prof.APIKeyRef != "" && !strings.HasPrefix(prof.APIKeyRef, "env:")) ||
+		(prof.TokenRef != "" && prof.RefreshRef != "")
+	var store secrets.Store
+	if needsStore {
+		store, err = f.Secrets()
+		if err != nil {
+			return nil, Wrapf(CodeLocalKeychainDenied, err, "init secrets store")
+		}
 	}
 	// Only fetch the secrets the profile actually references. Skipping the
 	// unused fetch avoids a `security` exec (macOS) / DBus call (Linux) per
 	// authenticated invocation.
 	var accessToken string
 	if prof.TokenRef != "" {
-		if access, err := LoadSecret(store, profileName, "access"); err != nil {
+		if access, err := ResolveSecretRef(store, profileName, "access", prof.TokenRef); err != nil {
 			return nil, err
 		} else if access != "" {
 			accessToken = access
@@ -288,7 +300,7 @@ func buildClient(f *Factory) (*sdk.Client, error) {
 		}
 	}
 	if prof.APIKeyRef != "" {
-		if apiKey, err := LoadSecret(store, profileName, "api_key"); err != nil {
+		if apiKey, err := ResolveSecretRef(store, profileName, "api_key", prof.APIKeyRef); err != nil {
 			return nil, err
 		} else if apiKey != "" {
 			opts = append(opts, sdk.WithAPIKey(apiKey))
@@ -479,12 +491,28 @@ func (f *Factory) ApplyLogLevel(cmd *cobra.Command, stderr io.Writer) error {
 	return nil
 }
 
+// ResolveSecretRef resolves a credential reference from either an `env:<VAR>`
+// external reference or the secret store slot named by key.
+func ResolveSecretRef(store secrets.Store, profile, key, ref string) (string, error) {
+	if strings.HasPrefix(ref, "env:") {
+		envVar := strings.TrimSpace(strings.TrimPrefix(ref, "env:"))
+		if envVar == "" {
+			return "", NewError(CodeLocalConfigCorrupt, fmt.Sprintf("profile %q %s ref %q names no environment variable", profile, key, ref))
+		}
+		return strings.TrimSpace(os.Getenv(envVar)), nil
+	}
+	return LoadSecret(store, profile, key)
+}
+
 // LoadSecret fetches a named secret for the given profile from the keyring.
 // Returns ("", nil) when the secret is absent (ErrNotFound); a real keyring
 // access failure surfaces as CodeLocalKeychainDenied. Used by buildClient
 // to assemble SDK auth options and by `auth token` to expose the raw
 // credential for shell scripting.
 func LoadSecret(store secrets.Store, profile, key string) (string, error) {
+	if store == nil {
+		return "", Wrapf(CodeLocalKeychainDenied, errors.New("nil secrets store"), "load %s", key)
+	}
 	v, err := store.Get(profile, key)
 	if errors.Is(err, secrets.ErrNotFound) {
 		return "", nil
@@ -512,18 +540,24 @@ func refreshAccessToken(ctx context.Context, store secrets.Store, host, profileN
 //  5. Config's CurrentProfile (the persisted active profile name)
 //  6. Empty string when nothing is configured (envelope omits the field).
 func (f *Factory) ActiveProfile() string {
+	safe := func(name string) string {
+		if ValidateProfileName(name) != nil {
+			return ""
+		}
+		return name
+	}
 	if f.ProfileOverride != "" {
-		return f.ProfileOverride
+		return safe(f.ProfileOverride)
 	}
 	if v := os.Getenv("GENYEE_PROFILE"); v != "" {
-		return v
+		return safe(v)
 	}
 	if active, _ := EnvCredential(); active {
 		return ""
 	}
 	if !f.IgnoreProjectLink {
 		if pName, _, found, err := discoverProjectLinkProfile(); err == nil && found {
-			return pName
+			return safe(pName)
 		}
 	}
 	if f.Config == nil {
@@ -533,5 +567,5 @@ func (f *Factory) ActiveProfile() string {
 	if err != nil || cfg == nil {
 		return ""
 	}
-	return cfg.CurrentProfile
+	return safe(cfg.CurrentProfile)
 }

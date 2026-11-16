@@ -9,6 +9,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/secrets"
 )
 
 // authTokenFields lists fields surfaced in `--help` as a hint for `--jq`
@@ -118,37 +119,42 @@ func runToken(f *cmdutil.Factory, fopts *cmdutil.FormatOptions) error {
 		return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
 			"no active profile configured")
 	}
+	if err := cmdutil.ValidateProfileName(profileName); err != nil {
+		if f.ProfileOverride != "" {
+			return err
+		}
+		return cmdutil.Wrapf(cmdutil.CodeLocalConfigCorrupt, err, "invalid profile %q in config", profileName)
+	}
 	ctx, ok := cfg.Profiles[profileName]
 	if !ok {
 		return cmdutil.NewError(cmdutil.CodeLocalProfileNotFound,
 			fmt.Sprintf("profile %q not found", profileName))
 	}
 
-	store, err := f.Secrets()
-	if err != nil {
-		return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "init secrets store")
-	}
-
 	// Resolve the stored credential. Prefer bearer (JWT) when both refs
 	// are present - JWT is the more capable mode and what `buildClient`
 	// uses for the Authorization header (see factory.go buildClient).
-	var token, mode string
+	var slotKey, slotRef, mode string
 	switch {
 	case ctx.TokenRef != "":
-		v, ferr := cmdutil.LoadSecret(store, profileName, "access")
-		if ferr != nil {
-			return ferr
-		}
-		token, mode = v, ModeBearer
+		slotKey, slotRef, mode = "access", ctx.TokenRef, ModeBearer
 	case ctx.APIKeyRef != "":
-		v, ferr := cmdutil.LoadSecret(store, profileName, "api_key")
-		if ferr != nil {
-			return ferr
-		}
-		token, mode = v, ModeAPIKey
+		slotKey, slotRef, mode = "api_key", ctx.APIKeyRef, ModeAPIKey
 	default:
 		return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
 			fmt.Sprintf("profile %q has no stored credential; run `genyee auth login`", profileName))
+	}
+
+	var store secrets.Store
+	if !strings.HasPrefix(slotRef, "env:") {
+		store, err = f.Secrets()
+		if err != nil {
+			return cmdutil.Wrapf(cmdutil.CodeLocalKeychainDenied, err, "init secrets store")
+		}
+	}
+	token, err := cmdutil.ResolveSecretRef(store, profileName, slotKey, slotRef)
+	if err != nil {
+		return err
 	}
 
 	if token == "" {

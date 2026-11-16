@@ -114,6 +114,9 @@ func resolveSchemaTarget(root *cobra.Command, args []string) (*cobra.Command, er
 		flat = append(flat, strings.Fields(a)...)
 	}
 	args = flat
+	if len(args) == 0 {
+		return nil, cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "command path must not be blank")
+	}
 
 	target, rest, err := root.Find(args)
 	// Find returns root (with the args unconsumed) when nothing matched; a
@@ -130,12 +133,14 @@ func resolveSchemaTarget(root *cobra.Command, args []string) (*cobra.Command, er
 			WithHint(hint).
 			WithRetryArgv([]string{"genyee", "schema"})
 	}
-	// Leftover args that are not the command's own resource positionals mean a
-	// deeper path was requested that doesn't exist (e.g. `schema kb bogus`).
-	if len(rest) > 0 && target.HasSubCommands() {
+	if len(rest) > 0 {
+		hint := "leaf command takes no subcommands"
+		if target.HasSubCommands() {
+			hint = fmt.Sprintf("available: %s", strings.Join(availableSubcommandNames(target), ", "))
+		}
 		return nil, cmdutil.NewError(cmdutil.CodeInputUnknownSubcommand,
 			fmt.Sprintf("no subcommand %q under %q", rest[0], trimRootPrefix(target.CommandPath()))).
-			WithHint(fmt.Sprintf("available: %s", strings.Join(availableSubcommandNames(target), ", "))).
+			WithHint(hint).
 			WithRetryArgv(append([]string{"genyee", "schema"}, strings.Fields(trimRootPrefix(target.CommandPath()))...))
 	}
 	return target, nil
@@ -241,6 +246,12 @@ func emitSchemaIndex(root *cobra.Command, fopts *cmdutil.FormatOptions) error {
 				continue
 			}
 			if sub.HasSubCommands() {
+				if ah, ok := cmdutil.AgentHelpFor(sub); ok {
+					entries = append(entries, schemaIndexEntry{
+						Command: trimRootPrefix(sub.CommandPath()),
+						UsedFor: ah.UsedFor,
+					})
+				}
 				walk(sub)
 				continue
 			}

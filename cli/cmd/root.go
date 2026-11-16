@@ -153,12 +153,6 @@ a curated read-only MCP tool surface for AI agents.`,
 			if err := cmdutil.CheckSafeArgs(args, c.Flags()); err != nil {
 				return err
 			}
-			// Propagate ONLY the explicit global --profile flag into f.ProfileOverride.
-			// GENYEE_PROFILE env and .genyee/project.yaml are resolved at their own
-			// precedence levels inside Factory so `config view` reports the exact source.
-			if v, _ := c.Flags().GetString("profile"); v != "" {
-				f.ProfileOverride = v
-			}
 			// Pin --format mode for cmdutil.PrintError envelope vs prose decision.
 			// Safe on commands that don't register --format: CheckFormatFlag returns
 			// {Mode:""}, ResolveDefault falls back to TTY detection.
@@ -166,6 +160,19 @@ a curated read-only MCP tool surface for AI agents.`,
 				fopts.FromEnv()
 				fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 				cmdutil.SetFormatMode(string(fopts.Mode))
+			}
+			// Propagate ONLY the explicit global --profile flag into f.ProfileOverride.
+			// GENYEE_PROFILE env and .genyee/project.yaml are resolved at their own
+			// precedence levels inside Factory so `config view` reports the exact source.
+			if v, _ := c.Flags().GetString("profile"); v != "" {
+				if err := cmdutil.ValidateProfileName(v); err != nil {
+					return err
+				}
+				f.ProfileOverride = v
+			} else if envProf := os.Getenv("GENYEE_PROFILE"); envProf != "" {
+				if err := cmdutil.ValidateProfileName(envProf); err != nil {
+					return err
+				}
 			}
 			// Record the resolved profile for envelope.profile and NDJSON init.profile.
 			cmdutil.SetProfile(f.ActiveProfile())

@@ -23,25 +23,25 @@ LDFLAGS := -s -w \
 
 .PHONY: build test test-coverage lint tidy clean help
 
-build:
+build: ## Compile ./bin/genyee with version metadata
 	@mkdir -p $(BUILD_DIR)
 	go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY) .
 
-test:
+test: ## Run Go unit and contract tests
 	go test ./...
 
-test-coverage:
+test-coverage: ## Run tests and print function coverage report
 	go test -coverprofile=coverage.out ./...
 	go tool cover -func=coverage.out
 
-lint:
+lint: ## Run go vet static analysis
 	go vet ./...
 
-tidy:
+tidy: ## Tidy cli/go.mod and cli/go.sum
 	go mod tidy
 
-clean:
+clean: ## Remove build artifacts and coverage profile
 	rm -rf $(BUILD_DIR) coverage.out
 
-help:
+help: ## Show available make targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'

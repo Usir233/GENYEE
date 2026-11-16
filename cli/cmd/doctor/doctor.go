@@ -107,9 +107,12 @@ func NewCmd(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
-			svc, err := buildServices(f)
-			if err != nil {
-				return err
+			var svc Services
+			if !opts.Offline {
+				svc, err = buildServices(f)
+				if err != nil {
+					return err
+				}
 			}
 			cliVer, _, _ := build.Info()
 			r := runChecks(c.Context(), opts, svc, cliVer)
@@ -187,10 +190,14 @@ func runChecks(ctx context.Context, opts *Options, svc Services, cliVer string) 
 
 	// 2. auth_credential - needs base_url.
 	if !cascade(&checks[1], opts.Offline, &checks[0]) {
-		if _, err := svc.GetCurrentUser(ctx); err != nil {
+		if resp, err := svc.GetCurrentUser(ctx); err != nil {
 			checks[1].Status = StatusFail
 			checks[1].Hint = "run `genyee auth login`"
 			checks[1].Details = err.Error()
+		} else if resp == nil || resp.Data.User == nil {
+			checks[1].Status = StatusFail
+			checks[1].Hint = "run `genyee auth login`"
+			checks[1].Details = "server returned empty user identity"
 		} else {
 			checks[1].Status = StatusOK
 		}

@@ -48,10 +48,22 @@ func newTestFactory(t *testing.T, mockServer *httptest.Server, mockClient *sdk.C
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	for _, k := range []string{
+		"GENYEE_TOKEN",
+		"GENYEE_API_KEY",
+		"GENYEE_HOST",
+		"GENYEE_PROFILE",
+		"GENYEE_KB_ID",
+		"GENYEE_FORMAT",
+		"GENYEE_LOG_LEVEL",
+	} {
+		t.Setenv(k, "")
+	}
 	if mockServer != nil {
 		t.Setenv("GENYEE_BASE_URL", mockServer.URL)
 	}
 	f := cmdutil.New()
+	f.IgnoreProjectLink = true
 	if mockClient != nil {
 		f.Client = func() (*sdk.Client, error) { return mockClient, nil }
 	}

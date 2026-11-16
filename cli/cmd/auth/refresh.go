@@ -69,6 +69,9 @@ refresh semantic. Rotate the key in the server UI instead.`,
 				return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
 					"no active profile configured; run `genyee auth login` to set one up")
 			}
+			if err := cmdutil.ValidateProfileName(name); err != nil {
+				return cmdutil.Wrapf(cmdutil.CodeLocalConfigCorrupt, err, "invalid profile %q in config", name)
+			}
 			prof, ok := cfg.Profiles[name]
 			if !ok {
 				return cmdutil.NewError(cmdutil.CodeLocalProfileNotFound,
@@ -77,6 +80,9 @@ refresh semantic. Rotate the key in the server UI instead.`,
 			if prof.Host == "" {
 				return cmdutil.NewError(cmdutil.CodeLocalConfigCorrupt,
 					fmt.Sprintf("profile %q has no host", name))
+			}
+			if _, err := cmdutil.NormalizeHost(prof.Host); err != nil {
+				return cmdutil.Wrapf(cmdutil.CodeLocalConfigCorrupt, err, "profile %q has invalid host", name)
 			}
 			if prof.RefreshRef == "" {
 				hint := "api-key profiles can't be refreshed - rotate the key in the server UI and run `genyee auth login --with-token`"
@@ -132,6 +138,9 @@ func runRefresh(ctx context.Context, opts *RefreshOptions, fopts *cmdutil.Format
 		return cmdutil.NewError(cmdutil.CodeAuthUnauthenticated,
 			"no active profile configured; run `genyee auth login` to set one up")
 	}
+	if err := cmdutil.ValidateProfileName(name); err != nil {
+		return cmdutil.Wrapf(cmdutil.CodeLocalConfigCorrupt, err, "invalid profile %q in config", name)
+	}
 	c, ok := cfg.Profiles[name]
 	if !ok {
 		return cmdutil.NewError(cmdutil.CodeLocalProfileNotFound,
@@ -140,6 +149,10 @@ func runRefresh(ctx context.Context, opts *RefreshOptions, fopts *cmdutil.Format
 	if c.Host == "" {
 		return cmdutil.NewError(cmdutil.CodeLocalConfigCorrupt,
 			fmt.Sprintf("profile %q has no host", name))
+	}
+	normalizedHost, err := cmdutil.NormalizeHost(c.Host)
+	if err != nil {
+		return cmdutil.Wrapf(cmdutil.CodeLocalConfigCorrupt, err, "profile %q has invalid host", name)
 	}
 	if c.RefreshRef == "" {
 		hint := "api-key profiles can't be refreshed - rotate the key in the server UI and run `genyee auth login --with-token`"
@@ -157,7 +170,7 @@ func runRefresh(ctx context.Context, opts *RefreshOptions, fopts *cmdutil.Format
 	if err != nil {
 		return err
 	}
-	if _, err := cmdutil.RefreshAndPersist(ctx, store, refresherFor(c.Host), name); err != nil {
+	if _, err := cmdutil.RefreshAndPersist(ctx, store, refresherFor(normalizedHost), name); err != nil {
 		return err
 	}
 

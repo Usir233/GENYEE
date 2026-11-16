@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
-	"github.com/Usir233/GENYEE/cli/internal/config"
 	"github.com/Usir233/GENYEE/cli/internal/format"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/output"
@@ -62,7 +61,7 @@ the CLI can talk to; "auth list" is the catalog of *how*.`,
 }
 
 func runList(fopts *cmdutil.FormatOptions) error {
-	cfg, err := config.Load()
+	cfg, err := loadProfileConfig()
 	if err != nil {
 		return err
 	}

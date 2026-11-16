@@ -71,6 +71,9 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 			opts.AgentID = args[0]
+			if err := cmdutil.ValidateResourceID("agent-id", opts.AgentID); err != nil {
+				return err
+			}
 			opts.Yes, _ = cmd.Flags().GetBool("yes")
 			if handled, err := cmdutil.HandleDryRun(cmd, opts.DryRun, cmdutil.DryRunPlan{
 				Action: "agent.delete",
@@ -107,6 +110,9 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 }
 
 func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc DeleteService, p prompt.Prompter) error {
+	if err := cmdutil.ValidateResourceID("agent-id", opts.AgentID); err != nil {
+		return err
+	}
 	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "agent", opts.AgentID, "agent.delete", []string{"genyee", "agent", "delete", opts.AgentID, "-y"}); err != nil {
 		return err
 	}

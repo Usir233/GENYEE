@@ -59,6 +59,14 @@ For fail-fast semantics, use shell composition:
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			if opts.Timeout <= 0 {
+				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+					fmt.Sprintf("--timeout must be > 0, got %s", opts.Timeout))
+			}
+			if opts.Interval <= 0 {
+				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+					fmt.Sprintf("--interval must be > 0, got %s", opts.Interval))
+			}
 
 			opts.IDs = args
 			cli, err := f.Client()
@@ -150,7 +158,15 @@ const (
 //
 // Exponential backoff starts at opts.Interval, doubles each tick, caps at
 // maxBackoffInterval, with up to jitterMax random jitter added per sleep.
-func waitForDocs(ctx context.Context, ids []string, svc WaitService, opts WaitOptions) (*WaitResult, error) {
+func waitForDocs(parentCtx context.Context, ids []string, svc WaitService, opts WaitOptions) (*WaitResult, error) {
+	if opts.Timeout <= 0 {
+		return nil, cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("--timeout must be > 0, got %s", opts.Timeout))
+	}
+	if opts.Interval <= 0 {
+		return nil, cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("--interval must be > 0, got %s", opts.Interval))
+	}
 	// Dedup ids while preserving first-seen order.
 	seen := make(map[string]struct{}, len(ids))
 	deduped := make([]string, 0, len(ids))
@@ -163,7 +179,7 @@ func waitForDocs(ctx context.Context, ids []string, svc WaitService, opts WaitOp
 	}
 	ids = deduped
 
-	ctx, cancel := context.WithTimeout(ctx, opts.Timeout)
+	ctx, cancel := context.WithTimeout(parentCtx, opts.Timeout)
 	defer cancel()
 
 	// Completed is non-omitempty (always present in the partition), so start it
@@ -269,6 +285,9 @@ func waitForDocs(ctx context.Context, ids []string, svc WaitService, opts WaitOp
 		}(id)
 	}
 	wg.Wait()
+	if errors.Is(parentCtx.Err(), context.Canceled) {
+		return nil, cmdutil.NewError(cmdutil.CodeOperationCancelled, "wait cancelled")
+	}
 	return result, nil
 }
 

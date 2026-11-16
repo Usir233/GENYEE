@@ -3,6 +3,7 @@ package doc
 import (
 	"cmp"
 	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/output"
+	sdk "github.com/Usir233/GENYEE/client"
 )
 
 // uploadedFile holds the server-side result for a successful per-file upload.
@@ -98,7 +100,11 @@ func runUploadRecursive(ctx context.Context, opts *UploadOptions, fopts *cmdutil
 			if !fopts.WantsJSON() {
 				fmt.Fprintf(iostreams.IO.Out, "FAIL %s: %v\n", filepath.Base(p), err)
 			}
-			return err
+			if errors.Is(err, sdk.ErrDuplicateFile) {
+				return cmdutil.Wrapf(cmdutil.CodeResourceAlreadyExists, err,
+					"file already uploaded to this knowledge base")
+			}
+			return cmdutil.WrapHTTP(err, "upload %s", p)
 		}
 		id, name := "", ""
 		if k != nil {

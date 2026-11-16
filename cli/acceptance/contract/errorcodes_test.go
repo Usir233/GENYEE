@@ -98,41 +98,61 @@ func walkAndScan(t *testing.T, fset *token.FileSet, root string, out map[cmdutil
 }
 
 func collectErrorCodes(fset *token.FileSet, f *ast.File, out map[cmdutil.ErrorCode][]token.Position) {
-	ast.Inspect(f, func(n ast.Node) bool {
-		call, ok := n.(*ast.CallExpr)
-		if !ok || len(call.Args) == 0 {
-			return true
-		}
-		sel, ok := call.Fun.(*ast.SelectorExpr)
-		if !ok {
-			return true
-		}
-		x, ok := sel.X.(*ast.Ident)
-		if !ok || x.Name != "cmdutil" {
-			return true
-		}
-		if sel.Sel.Name != "NewError" && sel.Sel.Name != "Wrapf" {
-			return true
-		}
-		// First arg should be cmdutil.CodeXxx (SelectorExpr ident).
-		// If it's a function call (e.g. cmdutil.ClassifyHTTPError(err)), skip
-		// - bridge handles those.
-		arg0Sel, ok := call.Args[0].(*ast.SelectorExpr)
-		if !ok {
-			return true
-		}
-		argX, ok := arg0Sel.X.(*ast.Ident)
+	recordSelector := func(sel *ast.SelectorExpr, pos token.Pos) {
+		argX, ok := sel.X.(*ast.Ident)
 		if !ok || argX.Name != "cmdutil" {
-			return true
+			return
 		}
-		code, ok := identToErrorCode(arg0Sel.Sel.Name)
+		code, ok := identToErrorCode(sel.Sel.Name)
 		if !ok {
-			// Unknown ident name - record as bogus so the test fails with
-			// a clear "code referenced but not registered" message.
-			code = cmdutil.ErrorCode("UNKNOWN_REF:" + arg0Sel.Sel.Name)
+			code = cmdutil.ErrorCode("UNKNOWN_REF:" + sel.Sel.Name)
 		}
-		pos := fset.Position(call.Pos())
-		out[code] = append(out[code], pos)
+		out[code] = append(out[code], fset.Position(pos))
+	}
+
+	ast.Inspect(f, func(n ast.Node) bool {
+		switch node := n.(type) {
+		case *ast.CallExpr:
+			if len(node.Args) == 0 {
+				return true
+			}
+			sel, ok := node.Fun.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			x, ok := sel.X.(*ast.Ident)
+			if !ok || x.Name != "cmdutil" {
+				return true
+			}
+			if sel.Sel.Name != "NewError" && sel.Sel.Name != "Wrapf" {
+				return true
+			}
+			if arg0Sel, ok := node.Args[0].(*ast.SelectorExpr); ok {
+				recordSelector(arg0Sel, node.Pos())
+			}
+		case *ast.CompositeLit:
+			sel, ok := node.Type.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			x, ok := sel.X.(*ast.Ident)
+			if !ok || x.Name != "cmdutil" || sel.Sel.Name != "Error" {
+				return true
+			}
+			for _, elt := range node.Elts {
+				kv, ok := elt.(*ast.KeyValueExpr)
+				if !ok {
+					continue
+				}
+				key, ok := kv.Key.(*ast.Ident)
+				if !ok || key.Name != "Code" {
+					continue
+				}
+				if valSel, ok := kv.Value.(*ast.SelectorExpr); ok {
+					recordSelector(valSel, kv.Pos())
+				}
+			}
+		}
 		return true
 	})
 }
@@ -187,6 +207,8 @@ func identToErrorCode(name string) (cmdutil.ErrorCode, bool) {
 		return cmdutil.CodeLocalFileIO, true
 	case "CodeLocalProfileNotFound":
 		return cmdutil.CodeLocalProfileNotFound, true
+	case "CodeLocalUnimplemented":
+		return cmdutil.CodeLocalUnimplemented, true
 	case "CodeKBIDRequired":
 		return cmdutil.CodeKBIDRequired, true
 	case "CodeKBNotFound":

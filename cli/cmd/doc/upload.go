@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -251,6 +252,23 @@ func validateUploadFlags(opts *UploadOptions, args []string) error {
 		// that requires a positional argument.
 		return cmdutil.NewFlagError(errors.New(
 			"a file path is required (or use `genyee doc fetch` for URLs, `genyee doc create` for inline text)"))
+	}
+	if opts.Recursive {
+		if opts.Name != "" {
+			return &cmdutil.Error{
+				Code:    cmdutil.CodeInputInvalidArgument,
+				Message: "--name cannot be combined with --recursive (one name can't apply to N files)",
+				Hint:    "drop --name or upload files one at a time",
+			}
+		}
+		if opts.Glob != "" {
+			if _, err := filepath.Match(opts.Glob, ""); err != nil {
+				return &cmdutil.Error{
+					Code:    cmdutil.CodeInputInvalidArgument,
+					Message: fmt.Sprintf("invalid --glob %q: %v", opts.Glob, err),
+				}
+			}
+		}
 	}
 	return nil
 }

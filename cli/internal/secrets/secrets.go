@@ -10,8 +10,10 @@ package secrets
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/Usir233/GENYEE/cli/internal/xdg"
@@ -88,15 +90,58 @@ func (f *FileStore) path(profile, key string) string {
 	return filepath.Join(f.root, "_invalid_")
 }
 
+func checkNoDirSymlinks(dirs ...string) error {
+	for _, d := range dirs {
+		info, err := os.Lstat(d)
+		if errors.Is(err, os.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("stat secrets dir: %w", err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return fmt.Errorf("secrets directory %q must be a real directory, not a symlink or file", d)
+		}
+	}
+	return nil
+}
+
 func (f *FileStore) Get(profile, key string) (string, error) {
 	p, err := f.safePath(profile, key)
 	if err != nil {
 		return "", err
 	}
-	data, err := os.ReadFile(p)
+	profDir := filepath.Dir(p)
+	rootDir := filepath.Dir(profDir)
+	if err := checkNoDirSymlinks(rootDir, profDir); err != nil {
+		return "", err
+	}
+	linfo, err := os.Lstat(p)
 	if errors.Is(err, os.ErrNotExist) {
 		return "", ErrNotFound
 	}
+	if err != nil {
+		return "", fmt.Errorf("stat secret: %w", err)
+	}
+	if linfo.Mode()&os.ModeSymlink != 0 || !linfo.Mode().IsRegular() {
+		return "", fmt.Errorf("read secret: credential file must be a regular non-symlink file")
+	}
+	fd, err := os.Open(p)
+	if errors.Is(err, os.ErrNotExist) {
+		return "", ErrNotFound
+	}
+	if err != nil {
+		return "", fmt.Errorf("read secret: %w", err)
+	}
+	defer fd.Close()
+	finfo, err := fd.Stat()
+	if err != nil {
+		return "", fmt.Errorf("stat open secret: %w", err)
+	}
+	if !os.SameFile(linfo, finfo) || !finfo.Mode().IsRegular() {
+		return "", fmt.Errorf("read secret: credential file changed during open")
+	}
+	data, err := io.ReadAll(io.LimitReader(fd, 64<<10))
 	if err != nil {
 		return "", fmt.Errorf("read secret: %w", err)
 	}
@@ -109,8 +154,23 @@ func (f *FileStore) Set(profile, key, value string) error {
 		return err
 	}
 	dir := filepath.Dir(p)
+	rootDir := filepath.Dir(dir)
+	if err := checkNoDirSymlinks(rootDir, dir); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("mkdir secrets dir: %w", err)
+	}
+	if err := checkNoDirSymlinks(rootDir, dir); err != nil {
+		return err
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(rootDir, 0o700); err != nil {
+			return fmt.Errorf("chmod secrets root: %w", err)
+		}
+		if err := os.Chmod(dir, 0o700); err != nil {
+			return fmt.Errorf("chmod secrets dir: %w", err)
+		}
 	}
 	// A new 0600 inode also repairs permissions left by restored files and
 	// replaces a credential symlink without overwriting its target.
@@ -138,12 +198,17 @@ func (f *FileStore) Delete(profile, key string) error {
 	if err != nil {
 		return err
 	}
+	dir := filepath.Dir(p)
+	rootDir := filepath.Dir(dir)
+	if err := checkNoDirSymlinks(rootDir, dir); err != nil {
+		return err
+	}
 	err = os.Remove(p)
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	// Best-effort cleanup of `<root>/<profile>` once its last credential file is gone.
-	_ = os.Remove(filepath.Dir(p))
+	_ = os.Remove(dir)
 	return nil
 }
 

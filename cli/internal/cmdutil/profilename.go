@@ -29,6 +29,13 @@ func ValidateProfileName(name string) error {
 			Hint:    "use letters, digits, dashes, underscores, or dots",
 		}
 	}
+	if strings.HasPrefix(name, "-") || strings.HasPrefix(name, ".") {
+		return &Error{
+			Code:    CodeInputInvalidArgument,
+			Message: fmt.Sprintf("profile name %q must start with a letter or digit", name),
+			Hint:    "use letters, digits, dashes, underscores, or dots",
+		}
+	}
 	for _, r := range name {
 		switch {
 		case r >= 'a' && r <= 'z',

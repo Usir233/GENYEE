@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -100,15 +101,24 @@ func runDownload(ctx context.Context, opts *DownloadOptions, fopts *cmdutil.Form
 	}
 	defer body.Close()
 
-	dest, err := resolveDownloadDest(opts, suggested)
-	if err != nil {
-		return err
-	}
-	if dest == "-" {
+	if opts.Output == "-" {
 		// Raw bytes go to stdout — suppress any JSON envelope regardless of
 		// --format json because both can't occupy stdout simultaneously.
 		_, err := io.Copy(iostreams.IO.Out, body)
 		return err
+	}
+	dest, err := resolveDownloadDest(opts, suggested)
+	if err != nil {
+		return err
+	}
+	if opts.Output == "" {
+		if linfo, lerr := os.Lstat(dest); lerr == nil && linfo.Mode()&os.ModeSymlink != 0 {
+			return &cmdutil.Error{
+				Code:    cmdutil.CodeInputInvalidArgument,
+				Message: fmt.Sprintf("refusing to write server-suggested filename %q through existing symlink", dest),
+				Hint:    "pass --output FILE explicitly if you intend to write through a symlink",
+			}
+		}
 	}
 	if err := refuseIfExists(dest, opts.Clobber); err != nil {
 		return err
@@ -119,8 +129,8 @@ func runDownload(ctx context.Context, opts *DownloadOptions, fopts *cmdutil.Form
 // resolveDownloadDest returns the final destination ("-" for stdout, an
 // absolute or relative path otherwise) after applying the --output flag
 // and sanitizing the server-suggested name. A server that returns a path-
-// like filename (..\, /etc/foo) is rejected - only the basename is
-// accepted.
+// like filename (..\, /etc/foo) is sanitized to its basename; unusable or
+// reserved names ("-", "..", control chars) are rejected.
 func resolveDownloadDest(opts *DownloadOptions, suggested string) (string, error) {
 	if opts.Output == "-" {
 		return "-", nil
@@ -135,24 +145,41 @@ func resolveDownloadDest(opts *DownloadOptions, suggested string) (string, error
 			Hint:    "pass --output FILE (or --output - for stdout)",
 		}
 	}
-	base := filepath.Base(suggested)
-	if base == "" || base == "." || base == ".." || base == string(filepath.Separator) {
+	normalized := strings.ReplaceAll(suggested, `\`, "/")
+	base := filepath.Base(normalized)
+	if base == "" || base == "." || base == ".." || base == "-" || base == "/" || base == string(filepath.Separator) {
 		return "", &cmdutil.Error{
 			Code:    cmdutil.CodeInputInvalidArgument,
 			Message: fmt.Sprintf("server returned an unusable filename %q", suggested),
 			Hint:    "pass --output FILE explicitly",
 		}
 	}
+	if err := cmdutil.CheckSafeText(base, "server filename"); err != nil {
+		return "", &cmdutil.Error{
+			Code:    cmdutil.CodeInputInvalidArgument,
+			Message: fmt.Sprintf("server returned an unsafe filename %q", suggested),
+			Hint:    "pass --output FILE explicitly",
+		}
+	}
+	for _, r := range base {
+		if r < 0x20 || r == 0x7f {
+			return "", &cmdutil.Error{
+				Code:    cmdutil.CodeInputInvalidArgument,
+				Message: fmt.Sprintf("server returned an unsafe filename %q", suggested),
+				Hint:    "pass --output FILE explicitly",
+			}
+		}
+	}
 	return base, nil
 }
 
-// refuseIfExists returns CodeInputInvalidArgument when path is present on
-// disk and clobber is false. Missing-file is success.
+// refuseIfExists returns CodeInputInvalidArgument when path (including a
+// dangling symlink) is present on disk and clobber is false. Missing-file is success.
 func refuseIfExists(path string, clobber bool) error {
 	if clobber {
 		return nil
 	}
-	_, err := os.Stat(path)
+	_, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil
 	}

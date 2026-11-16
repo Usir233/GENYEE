@@ -94,10 +94,6 @@ func TestSkillsReferenceLiveCommandsAndFlags(t *testing.T) {
 				prefixLen := len("genyee")
 				idx := strings.Index(line, "genyee ")
 				if idx < 0 {
-					idx = strings.Index(line, "genyee ")
-					prefixLen = len("genyee")
-				}
-				if idx < 0 {
 					continue
 				}
 				inv := line[idx+prefixLen:]

@@ -70,7 +70,7 @@ adds leave the current profile untouched unless --use is passed.`,
 			if err != nil {
 				return err
 			}
-			cfg, err := config.Load()
+			cfg, err := loadProfileConfig()
 			if err != nil {
 				return err
 			}
@@ -122,7 +122,7 @@ func runAdd(opts *AddOptions, fopts *cmdutil.FormatOptions, name string) error {
 		return err
 	}
 
-	cfg, err := config.Load()
+	cfg, err := loadProfileConfig()
 	if err != nil {
 		return err
 	}

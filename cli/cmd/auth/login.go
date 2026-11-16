@@ -165,14 +165,15 @@ func runLogin(ctx context.Context, opts *LoginOptions, fopts *cmdutil.FormatOpti
 		return err
 	}
 	opts.Profile = name
-	opts.Host = host
-	if svc == nil {
-		svc = loginServiceFor(host)
-	}
-
-	if err := validateHost(opts.Host); err != nil {
+	normalizedHost, err := cmdutil.NormalizeHost(host)
+	if err != nil {
 		return err
 	}
+	opts.Host = normalizedHost
+	if svc == nil {
+		svc = loginServiceFor(opts.Host)
+	}
+
 	// Reject shell-metacharacter / path-like names up-front so opts.Profile
 	// stays safe to interpolate into the keyring namespace, config.yaml
 	// keys, and envelope.error.retry_argv. Matches `profile add`.
@@ -183,10 +184,13 @@ func runLogin(ctx context.Context, opts *LoginOptions, fopts *cmdutil.FormatOpti
 	if opts.WithToken {
 		key, err := readStdinTrimmed(opts.StdinReader)
 		if err != nil {
-			return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "read stdin")
+			return err
 		}
 		if key == "" {
 			return cmdutil.NewError(cmdutil.CodeInputMissingFlag, "--with-token requires an API key piped to stdin")
+		}
+		if err := validateTokenValue(key); err != nil {
+			return err
 		}
 		opts.APIKey = key
 		// Validate against the server before persisting so a typo'd /
@@ -406,16 +410,34 @@ func warnOnFileFallback(store secrets.Store) {
 	fmt.Fprintln(iostreams.IO.Err, "         install / unlock the keyring (or use `genyee doctor` to inspect) for OS-backed storage.")
 }
 
-// readStdinTrimmed reads all of r and returns the result with surrounding
-// whitespace stripped. Empty result is returned as-is for the caller to
-// validate.
+const maxTokenStdinBytes = 16 << 10 // 16 KiB
+
+// readStdinTrimmed reads up to maxTokenStdinBytes from r and returns the
+// result with surrounding whitespace stripped.
 func readStdinTrimmed(r io.Reader) (string, error) {
 	if r == nil {
 		return "", nil
 	}
-	b, err := io.ReadAll(r)
+	b, err := io.ReadAll(io.LimitReader(r, maxTokenStdinBytes+1))
 	if err != nil {
-		return "", err
+		return "", cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "read stdin")
+	}
+	if len(b) > maxTokenStdinBytes {
+		return "", cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("--with-token stdin exceeds %d bytes", maxTokenStdinBytes))
 	}
 	return strings.TrimSpace(string(b)), nil
+}
+
+func validateTokenValue(key string) error {
+	if err := cmdutil.CheckSafeText(key, "--with-token"); err != nil {
+		return err
+	}
+	for _, r := range key {
+		if r < 0x20 || r == 0x7f || r == '\r' || r == '\n' || r == '\t' {
+			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+				"--with-token must be a single-line credential without control characters or whitespace")
+		}
+	}
+	return nil
 }

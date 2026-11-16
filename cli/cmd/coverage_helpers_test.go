@@ -1,12 +1,15 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
 
-// eachLeafCommand invokes fn for every runnable leaf command (no real
-// subcommands) in the tree rooted at root, skipping cobra's generated
-// `completion`/`help` subtrees and hidden commands. Shared by the agent-help
-// and dry-run coverage drift guards so they agree, byte-for-byte, on what
-// counts as a leaf.
+	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
+)
+
+// eachLeafCommand invokes fn for every runnable command (leaves plus parent
+// commands that expose an explicit AgentHelp contract such as `kb config`) in
+// the tree rooted at root, skipping cobra's generated `completion`/`help`
+// subtrees and hidden commands.
 func eachLeafCommand(root *cobra.Command, fn func(*cobra.Command)) {
 	exempt := map[string]bool{"completion": true, "help": true}
 	var walk func(c *cobra.Command)
@@ -19,8 +22,13 @@ func eachLeafCommand(root *cobra.Command, fn func(*cobra.Command)) {
 			realKids++
 			walk(k)
 		}
-		if c == root || realKids > 0 || exempt[c.Name()] {
-			return // group command or exempt — not a leaf
+		if c == root || exempt[c.Name()] {
+			return
+		}
+		if realKids > 0 {
+			if _, ok := cmdutil.AgentHelpFor(c); !ok {
+				return // pure group command — not runnable on its own
+			}
 		}
 		fn(c)
 	}

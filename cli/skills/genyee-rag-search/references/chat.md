@@ -12,7 +12,7 @@ genyee chat "<query>" --kb <name-or-id> [--session <id>]
 genyee session ask "<query>" --agent <agent-id> [--session <id>]
 ```
 
-- `--kb` (chat) is required name-or-id. `--agent` (session ask) is required.
+- `--kb` (`chat`) resolves via `--kb` flag → `GENYEE_KB_ID` → `genyee link`. `--agent` (`session ask`) is required.
 - `--session <id>` continues an existing conversation; omit to start a new one.
 - `--format json` returns one `{ok,data:{events:[...]}}` envelope; `--format
   text` streams the same projection as readable text; `--format ndjson` emits
@@ -29,7 +29,7 @@ events through verbatim:
 ```jsonc
 {"type":"init","session_id":"sess_abc","kb_id":"…","profile":"prod"}   // session ask: agent_id instead of kb_id
 {"response_type":"thinking","content":"…"}
-{"response_type":"tool_call","tool_calls":[…]}        // agent only
+{"response_type":"tool_call","data":{"tool_name":"…"}} // agent only
 {"response_type":"tool_result","content":"…"}         // agent only
 {"response_type":"references","knowledge_references":[…]}
 {"response_type":"answer","content":"partial text…"}   // streamed in pieces

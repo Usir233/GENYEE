@@ -43,6 +43,7 @@ type AuthRetryTransport struct {
 	currentToken string
 	originScheme string
 	originHost   string
+	originPath   string
 	refreshFn    func(context.Context) (string, error)
 }
 
@@ -76,19 +77,24 @@ func NewAuthRetryTransportWithOrigin(
 	if u, err := url.Parse(strings.TrimSpace(baseURL)); err == nil && u.Scheme != "" && u.Host != "" {
 		rt.originScheme = strings.ToLower(u.Scheme)
 		rt.originHost = strings.ToLower(u.Host)
+		rt.originPath = strings.TrimRight(u.Path, "/")
 	}
 	return rt
 }
 
-func initialRequestOrigin(req *http.Request) *url.URL {
-	if req == nil {
-		return nil
+func redirectChainCrossedOrigin(req *http.Request) bool {
+	if req == nil || req.URL == nil {
+		return true
 	}
 	cur := req
 	for cur.Response != nil && cur.Response.Request != nil {
-		cur = cur.Response.Request
+		prev := cur.Response.Request
+		if prev.URL == nil || !sameOriginURL(prev.URL, req.URL) {
+			return true
+		}
+		cur = prev
 	}
-	return cur.URL
+	return false
 }
 
 func sameOriginURL(a, b *url.URL) bool {
@@ -102,7 +108,7 @@ func (t *AuthRetryTransport) matchesTrustedOrigin(req *http.Request) bool {
 	if req == nil || req.URL == nil {
 		return false
 	}
-	if initial := initialRequestOrigin(req); initial != nil && !sameOriginURL(initial, req.URL) {
+	if redirectChainCrossedOrigin(req) {
 		return false
 	}
 	t.mu.Lock()
@@ -127,6 +133,7 @@ func (t *AuthRetryTransport) RoundTrip(req *http.Request) (*http.Response, error
 		clean.Header.Del("Authorization")
 		clean.Header.Del("X-API-Key")
 		clean.Header.Del("X-Tenant-ID")
+		clean.Header.Del("X-Request-ID")
 		return t.base.RoundTrip(clean)
 	}
 
@@ -144,7 +151,7 @@ func (t *AuthRetryTransport) RoundTrip(req *http.Request) (*http.Response, error
 	if token == "" {
 		return resp, nil
 	}
-	if isAuthEndpoint(req.URL.Path) {
+	if t.isAuthEndpoint(req.URL.Path) {
 		return resp, nil
 	}
 	if req.Body != nil && req.GetBody == nil {
@@ -182,22 +189,32 @@ func (t *AuthRetryTransport) RoundTrip(req *http.Request) (*http.Response, error
 	return t.base.RoundTrip(replay)
 }
 
+const maxAuthRetryDrainBytes = 64 << 10 // 64 KiB
+
 // isAuthEndpoint reports whether path is one of the auth endpoints where
 // 401 retry would either recurse (refresh) or duplicate work (login). The
 // path constants are sourced from the SDK so the CLI and SDK can never
 // drift on the canonical paths.
-func isAuthEndpoint(path string) bool {
-	return strings.HasPrefix(path, sdk.PathAuthLogin) ||
-		strings.HasPrefix(path, sdk.PathAuthRefresh)
+func (t *AuthRetryTransport) isAuthEndpoint(path string) bool {
+	if strings.HasPrefix(path, sdk.PathAuthLogin) || strings.HasPrefix(path, sdk.PathAuthRefresh) {
+		return true
+	}
+	t.mu.Lock()
+	prefix := t.originPath
+	t.mu.Unlock()
+	if prefix != "" && strings.HasPrefix(path, prefix) {
+		rel := strings.TrimPrefix(path, prefix)
+		return strings.HasPrefix(rel, sdk.PathAuthLogin) || strings.HasPrefix(rel, sdk.PathAuthRefresh)
+	}
+	return false
 }
 
-// drainAndClose consumes the response body so the underlying connection
-// can be reused, then closes it. Errors are ignored because the response
-// is being discarded anyway.
+// drainAndClose consumes up to maxAuthRetryDrainBytes of the response body
+// so the underlying connection can be reused without unbounded reads, then closes it.
 func drainAndClose(resp *http.Response) {
 	if resp == nil || resp.Body == nil {
 		return
 	}
-	_, _ = io.Copy(io.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxAuthRetryDrainBytes))
 	_ = resp.Body.Close()
 }

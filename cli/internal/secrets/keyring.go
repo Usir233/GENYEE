@@ -28,6 +28,12 @@ func (k *KeyringStore) service(profile string) string {
 }
 
 func (k *KeyringStore) Get(profile, key string) (string, error) {
+	if err := validateSecretSegment("profile", profile); err != nil {
+		return "", err
+	}
+	if err := validateSecretSegment("key", key); err != nil {
+		return "", err
+	}
 	v, err := keyring.Get(k.service(profile), key)
 	if errors.Is(err, keyring.ErrNotFound) {
 		return "", ErrNotFound
@@ -39,6 +45,12 @@ func (k *KeyringStore) Get(profile, key string) (string, error) {
 }
 
 func (k *KeyringStore) Set(profile, key, value string) error {
+	if err := validateSecretSegment("profile", profile); err != nil {
+		return err
+	}
+	if err := validateSecretSegment("key", key); err != nil {
+		return err
+	}
 	if err := keyring.Set(k.service(profile), key, value); err != nil {
 		return fmt.Errorf("keyring set: %w", err)
 	}
@@ -46,6 +58,12 @@ func (k *KeyringStore) Set(profile, key, value string) error {
 }
 
 func (k *KeyringStore) Delete(profile, key string) error {
+	if err := validateSecretSegment("profile", profile); err != nil {
+		return err
+	}
+	if err := validateSecretSegment("key", key); err != nil {
+		return err
+	}
 	err := keyring.Delete(k.service(profile), key)
 	if errors.Is(err, keyring.ErrNotFound) {
 		return nil

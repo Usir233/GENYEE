@@ -75,21 +75,19 @@ details.
 `detail` carries structured per-error context (e.g. `unknown_subcommand`'s
 `available[]` list).
 
-### NDJSON event stream (chat / session ask)
+### Streaming & projected answers (`chat` / `session ask` / `session resume`)
 
-`--format json` and `--format ndjson` both produce one JSON event per line —
-no envelope wrapping. The CLI injects exactly one event (`init`) at the head;
-all subsequent events pass through verbatim from the SDK:
+`chat` and `session ask` buffer a bounded answer projection into a single `--format json` envelope (`{ok, data:{events:[...]}}`) by default; pass `--reference` for citations and `--verbose` for execution events. Pass `--format ndjson` for the raw one-JSON-object-per-line stream (no envelope wrapping). The CLI injects one `init` event at the head; subsequent lines pass through verbatim from the SDK:
 
-```
+```json
 {"type":"init","session_id":"...","kb_id":"...","profile":"...","agent_id":"..."}
-{"type":"thinking","content":"..."}
-{"type":"answer","content":"Hello"}
-{"type":"tool_call","name":"...","input":{}}
-{"type":"complete","done":true}
+{"response_type":"thinking","content":"..."}
+{"response_type":"answer","content":"Hello"}
+{"response_type":"tool_call","data":{"tool_name":"..."}}
+{"response_type":"complete","done":true}
 ```
 
-For prose rendering, pass `--format text`.
+For live human-readable rendering, pass `--format text`. `session resume` always streams NDJSON.
 
 ### `_notice` evolution policy
 
@@ -125,6 +123,9 @@ Make errors structured, actionable, and specific.
 
 | Variable | Purpose |
 |---|---|
+| `GENYEE_API_KEY` | Stateless API-key credential (used with `GENYEE_HOST`); bypasses profile/keyring lookup. |
+| `GENYEE_TOKEN` | Stateless Bearer JWT credential (used with `GENYEE_HOST`); takes precedence over `GENYEE_API_KEY`. |
+| `GENYEE_HOST` | Server base URL when authenticating statelessly via `GENYEE_TOKEN` or `GENYEE_API_KEY`. |
 | `GENYEE_PROFILE` | Active profile name. Equivalent to the global `--profile <name>` flag; overridden by `--profile`. Useful in CI scripts that cannot pass global flags. |
 | `GENYEE_FORMAT` | Default `--format` value (`text \| json \| ndjson`). Overridden by explicit `--format`. Invalid values ignored silently. |
 | `GENYEE_KB_ID` | Default KB ID for commands that accept `--kb`. Overridden by `--kb`. |
@@ -168,7 +169,7 @@ is or isn't aligned with.
 
 | | |
 |---|---|
-| **GENYEE** | streaming commands (`chat`, `session ask`) emit bare `{type:...}` per line; no envelope |
+| **GENYEE** | under `--format ndjson`, streaming commands (`chat`, `session ask`, `session resume`) emit bare event lines with no envelope |
 | **Rationale** | This matches established practice across NDJSON-emitting CLIs and webhook protocols. A streaming envelope requires unwrap before dispatch — net burden with no benefit. |
 
 ### 5. No `schema_version` field in payload
@@ -466,7 +467,7 @@ The server **replays all stored events from the start** of the assistant message
 ### Agent contract
 
 1. **Dedupe by message_id** (or maintain a per-message event hash set). Naively processing all received events causes duplicate side effects (re-running tool calls, re-rendering answers).
-2. **Capture message_id from the init event** of the original `chat` or `session ask` invocation — the CLI injects `{"event":"init", "session_id":"...", "message_id":"..."}` as the first NDJSON line.
+2. **Capture `assistant_message_id` from the `agent_query` frame** of the original `chat` or `session ask` `--format ndjson` stream (`init` carries `session_id`; the server's `agent_query` event carries `assistant_message_id`).
 3. **Handle `local.sse_stream_aborted` typed error**: server-side buffer expired (TTL exceeded) or process restarted (memory mode). The message is no longer recoverable; restart the original query.
 
 ### Server-side buffer TTL
@@ -480,7 +481,7 @@ After TTL, `genyee session resume` returns the typed error `local.sse_stream_abo
 
 ## Dry-run contract
 
-The `--dry-run` flag is available on every mutation cobra command (`kb create/edit/delete`, `agent create/edit/delete`, `doc create/upload/fetch/delete`, `chunk delete`, `session delete`, `auth refresh/logout`, `link/unlink`, `profile add/remove`) and on `genyee api` (POST/PUT/PATCH/DELETE only; GET rejected with FlagError exit 2).
+The `--dry-run` flag is available on every mutation cobra command (`kb create/update/delete/pin/unpin`, `kb config set`, `agent create/update/delete`, `model create/update/delete`, `doc create/upload/fetch/update/reparse/delete`, `chunk delete`, `message delete`, `session delete/stop/tool-approval resolve`, `auth refresh/logout`, `link/unlink`, `profile add/use/remove`, `skills install`) and on `genyee api` (POST/PUT/PATCH/DELETE only; GET rejected with FlagError exit 2).
 
 ### Envelope shape on dry-run
 
@@ -508,8 +509,8 @@ The dry-run path is **offline** — no SDK calls, no Factory.Client() init, no R
 | `--dry-run` + `-y` | Equivalent to single `--dry-run`; `-y` is no-op (dry-run early-exits before ConfirmDestructive) |
 | `--dry-run` + `api -X GET` (or default GET) | FlagError exit 2: "--dry-run requires explicit -X POST/PUT/PATCH/DELETE; default GET is read-only with no side effect to preview" |
 | `--dry-run` + `--jq <expr>` | jq applied to envelope output normally |
-| `--dry-run` + `kb edit my-kb` | plan.args contains user raw input (NOT ResolveKB-resolved); agent verifies kb name correctness |
-| `--dry-run` + fetch-then-update (`kb edit / agent edit`) | plan.args contains user-explicit fields ONLY; agent infers server-side fetch-then-update preserves unmentioned fields |
+| `--dry-run` + `kb update my-kb` | plan.args contains user raw input (NOT ResolveKB-resolved); agent verifies kb name correctness |
+| `--dry-run` + fetch-then-update (`kb update / agent update`) | plan.args contains user-explicit fields ONLY; agent infers server-side fetch-then-update preserves unmentioned fields |
 | `--dry-run` + body containing secrets (`--input` payload) | **plan.body echoes the full body to stdout** so the agent can verify what would be sent; avoid piping secret-bearing bodies through dry-run for inspection |
 
 ### Streaming commands explicitly excluded
@@ -524,7 +525,7 @@ echo '{"query":"...","kb":"..."}' | genyee api -X POST /api/v1/sessions/<id>/age
 
 Agents see the same `risk.action` string (in the form `noun.verb`) on three independent surfaces:
 
-1. **Error envelope** — `envelope.error.risk.action` on an exit-10 confirmation-required error, so the agent can decide whether to escalate to the user. 11 unique values: `kb.delete`, `kb.edit`, `agent.delete`, `agent.edit`, `doc.delete`, `doc.delete_all`, `session.delete`, `chunk.delete`, `profile.remove`, `auth.logout`, `api.delete`.
+1. **Error envelope** — `envelope.error.risk.action` on an exit-10 confirmation-required error, so the agent can decide whether to escalate to the user (e.g. `kb.delete`, `kb.update`, `agent.delete`, `agent.update`, `doc.delete`, `doc.delete_all`, `session.delete`, `chunk.delete`, `profile.remove`, `auth.logout`, `api.delete`).
 
 2. **Help text** — a `Risk: <action> (destructive)` line prepended to the top of `--help` output on the 9 destructive cobra commands. `genyee api` is intentionally excluded: it is a generic HTTP passthrough whose risk depends on the method, so a static Risk: line would mislead for non-DELETE methods.
 
@@ -574,7 +575,7 @@ Required-input idioms in this codebase:
 
 - Positional required: `cobra.ExactArgs(N)` or `cobra.MinimumNArgs(1)`
 - Flag required: `cmd.MarkFlagRequired("flag")`
-- Custom required (e.g., `agent edit` needs at-least-one-edit-flag): RunE-level validation that returns `input.invalid_argument`
+- Custom required (e.g., `agent update` needs at-least-one-update-flag): RunE-level validation that returns `input.invalid_argument`
 - Mutex: `cmd.MarkFlagsMutuallyExclusive("a", "b")`
 
 Reasons hard-required-flags is the v0.5+ default:

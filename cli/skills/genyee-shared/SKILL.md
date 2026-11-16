@@ -48,9 +48,9 @@ genyee auth status          # verify: who am I, which tenant
 
 `--kb` accepts a **name or a UUID** (resolved server-side). Resolution order:
 `--kb` flag → `GENYEE_KB_ID` env → directory link (`genyee link --kb X` binds
-the cwd) → error. Read/create commands that operate "inside a project" inherit
-the link; **`search *` and destructive `--all` operations always require an
-explicit `--kb`** (so an agent never silently hits the wrong corpus).
+the cwd) → error. KB-scoped commands (`doc *`, `chat`, `search chunks`, `search docs`)
+all follow this 4-level chain; **destructive `--all` operations (`doc delete --all`)
+require an explicit `--kb` or `GENYEE_KB_ID`** so an agent never wipes a corpus via a stale link.
 
 **A KB must have an embedding model bound to be searchable.** A freshly created
 KB is `retrieval_ready:false` — uploaded docs stay unindexed and `search`/`chat`
