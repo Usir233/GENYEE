@@ -62,7 +62,7 @@
           "file": "cli/cmd/api/api.go:87-149,193-217,278-282,350-500",
           "summary": "genyee api allowed protocol-relative //host URLs, dot/percent-encoded traversal paths, and invalid HTTP method tokens through --dry-run and exit-10 confirmation (misclassifying SDK Raw rejections as retryable network.error), read --input and HTTP responses without size or page bounds, and failed json.Marshal on -F NaN/Inf.",
           "regression_test": "TestW8_API_RejectsTraversalProtocolRelativeBadMethodAndNaNField",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -92,7 +92,7 @@
           "file": "cli/cmd/chat/chat.go:100-185,250-325",
           "summary": "genyee chat did not validate --session/KB IDs via ValidateResourceID, panicked on nil CreateSession responses, lacked a buffered event/byte cap in JSON mode, and ignored terminal SSE error frames when transport returned nil.",
           "regression_test": "TestW8_Chat_ValidatesIDsNilSessionAndTerminalError",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -128,7 +128,7 @@
           "file": "cli/cmd/chunk/delete.go:85-175, cli/cmd/chunk/list.go:126-220, cli/cmd/chunk/view.go:70-170",
           "summary": "chunk subcommands omitted ValidateResourceID on <chunk-id> and --doc, called f.Client() before ConfirmDestructive on chunk delete, panicked on nil GetChunkByIDOnly responses, lacked an --all-pages safety bound, and wrote raw chunk content with potential OSC 52 sequences to stdout.",
           "regression_test": "TestW8_Chunk_ValidatesIDsConfirmationOrderNilViewAndSanitizesText",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -158,7 +158,7 @@
           "file": "cli/cmd/config/view.go:124-146,247-259",
           "summary": "config view echoed embedded URL userinfo credentials (user:password@host) from GENYEE_HOST or profile host settings in plaintext JSON and text output.",
           "regression_test": "TestW8_ConfigView_RedactsHostUserInfoCredentials",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -210,7 +210,7 @@
           "file": "cli/cmd/kb/view.go:50-130, cli/cmd/kb/edit.go:77-180, cli/cmd/kb/delete.go:62-120, cli/cmd/kb/pin.go:57-145, cli/cmd/kb/status.go:64-130, cli/cmd/kb/check.go:67-165, cli/cmd/kb/config.go:42-115, cli/cmd/kb/config_set.go:58-170",
           "summary": "kb subcommands lacked ValidateResourceID on <kb-id> (allowing traversal strings into --dry-run, retry_argv, and reachable:false probes), ran f.Client() before confirmation gates, accepted blank --name on kb update, and panicked on nil KB responses in kb check/view/create/pin.",
           "regression_test": "TestW8_KB_ValidatesResourceIDsConfirmOrderAndNilResponses",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -242,7 +242,7 @@
           "file": "cli/cmd/link/link.go:146-248",
           "summary": "genyee link did not validate CurrentProfile syntax or verify profile existence in config.Profiles when --kb was a UUID, allowing --profile <nonexistent> or corrupt config to write an unusable .genyee/project.yaml.",
           "regression_test": "TestW8_Link_RejectsNonexistentOrUnsafeProfile",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -294,7 +294,7 @@
           "file": "cli/cmd/message/delete.go:72-125, cli/cmd/message/list.go:85-138, cli/cmd/message/search.go:88-153",
           "summary": "message subcommands omitted ValidateResourceID on <message-id> and --session, called f.Client() before ConfirmDestructive on delete and before --before parsing on list, and dereferenced nil items in message search.",
           "regression_test": "TestW8_Message_ValidatesIDsConfirmOrderBeforeFlagAndNilSearchItems",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -333,7 +333,7 @@
           "file": "cli/cmd/model/model.go:45-60, cli/cmd/model/create.go:145-160,236-305,380-405, cli/cmd/model/update.go:64-90,145-240, cli/cmd/model/delete.go:41-90, cli/cmd/model/view.go:40-95, cli/cmd/model/list.go:100-190",
           "summary": "model create/update read --api-key-stdin with unbounded io.ReadAll and accepted multiline/control characters; model subcommands lacked preflight ID/base-url/dimension/enum checks before dry-run/Client() and did not scrub api_key/app_secret from returned Model.Parameters.",
           "regression_test": "TestW8_Model_CapsStdinValidatesIDsBaseURLAndScrubsSecrets",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -370,7 +370,7 @@
           "file": "cli/cmd/search/chunks.go:123-220, cli/cmd/search/docs.go:90-200, cli/cmd/search/sessions.go:78-175, cli/cmd/search/kb.go:115-120",
           "summary": "search chunks accepted NaN/Inf/out-of-range similarity thresholds (failing json.Marshal as retryable network.error) and rendered raw chunk content without nil or OSC 52 guards; search docs/sessions checked --page-size after f.Client() and had unbounded pagination loops.",
           "regression_test": "TestW8_Search_ValidatesThresholdsPageSizeBeforeClientAndSanitizesChunks",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -415,7 +415,7 @@
           "file": "cli/cmd/session/ask.go:90-290, cli/cmd/session/delete.go:70-155, cli/cmd/session/list.go:92-250, cli/cmd/session/resume.go:97-160, cli/cmd/session/stop.go:60-125, cli/cmd/session/tool_approval.go:90-235, cli/cmd/session/view.go:76-195",
           "summary": "session subcommands lacked ValidateResourceID preflight (allowing session resume to write an init frame before failing and destructive gates to run after f.Client()), parseSinceDuration overflowed int64 on large/NaN/Inf <N>d values, and session ask lacked nil-session and terminal-error guards.",
           "regression_test": "TestW8_Session_ValidatesIDsSinceOverflowConfirmOrderAndResumeCleanStdout",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -444,7 +444,7 @@
           "file": "cli/cmd/skills/skills.go:156-295",
           "summary": "writeSkills used os.Stat (treating dangling symlinks as non-existent when !force) followed by os.MkdirAll and os.WriteFile, allowing dangling or --force symlinks and symlinked subdirectories to overwrite or create arbitrary files outside --dir.",
           "regression_test": "TestW8_SkillsInstall_RejectsDanglingSymlinkAndSymlinkSubdir",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -497,7 +497,7 @@
           "file": "cli/internal/compat/version_check.go:30-42, cli/internal/compat/cache.go:14-46, cli/internal/compat/compat.go:47-95",
           "summary": "compat.Probe panicked on nil SystemInfo responses, LoadCache used unbounded symlink-following os.ReadFile and treated future-dated ProbedAt timestamps as fresh forever, and Compat accepted negative semver numbers and interpolated unsanitized server versions into hints.",
           "regression_test": "TestW8_Probe_NilResponseDoesNotPanic",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -526,7 +526,7 @@
           "file": "cli/internal/config/config.go:52-75",
           "summary": "config.Load used raw os.ReadFile without symlink checks, regular-file verification, or size bounds, allowing symlinked config.yaml/genyee dirs or named pipes to leak external files or block CLI startup.",
           "regression_test": "TestW8_Load_RejectsSymlinkAndOversizedConfig",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -562,7 +562,7 @@
           "file": "cli/internal/format/dash.go:8-14, cli/internal/format/filter.go:14-48,92-99",
           "summary": "DashIfEmpty returned unsanitized strings containing terminal escape sequences to human table renderers, and WriteJSONFiltered/writeJQ used json.Marshal (HTML-escaping <, >, & and omitting trailing newline on field-filtered payloads).",
           "regression_test": "TestW8_DashIfEmpty_SanitizesTerminalEscapes",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -616,7 +616,7 @@
           "file": "cli/internal/mcp/tools.go:25-82,295-350,490-515,570-620,710-760,800-820",
           "summary": "MCP tools leaked raw Bearer/gy_/sk- tokens in error text, panicked on nil CreateSession responses, buffered unbounded SSE events in chat/session_ask, ignored terminal error frames when streamErr==nil, and accepted negative pagination, invalid statuses, and out-of-range thresholds.",
           "regression_test": "TestW8_MCP_BoundsValidationTerminalErrorAndRedaction",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -667,7 +667,7 @@
           "file": "cli/internal/projectlink/projectlink.go:36-112",
           "summary": "projectlink.Discover/Load/Remove followed symlinked .genyee directories and project.yaml files (allowing malicious repositories to read or unlink external files on `genyee unlink` or hang on FIFOs).",
           "regression_test": "TestW8_ProjectLink_RejectsSymlinkDiscoverLoadAndRemove",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -719,7 +719,7 @@
           "file": "cli/internal/sse/accumulator.go:18-75, cli/internal/sse/agent_accumulator.go:54-85, cli/internal/sse/projector.go:35-410",
           "summary": "sse.TextRenderer wrote raw SSE chunks and reference IDs to terminals without stripping split OSC 52/ANSI escape sequences, Projector discarded terminal error frame state, and Accumulator/AgentAccumulator grew without memory bounds.",
           "regression_test": "TestW8_TextRenderer_StripsSplitOSC52AndControlSequences",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -777,7 +777,7 @@
           "file": "cli/internal/text/sanitize.go:1-171, cli/internal/text/truncate.go:15-24, cli/internal/text/oneline.go:9-11, cli/internal/text/displayname.go:12-20, cli/internal/text/timeago.go:17-33, cli/internal/text/timeago_string.go:20-28",
           "summary": "text helpers lacked ANSI/OSC 52/C1/Bidi terminal sanitization (allowing untrusted server titles, filenames, and unparseable timestamps to inject terminal escapes) and FuzzyAgo overflowed time.Duration for dates >292 years in the future into 'less than a minute from now'.",
           "regression_test": "TestW8_SanitizeAndTruncate_StripOSC52CSIC1AndBidi",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [
@@ -806,7 +806,7 @@
           "file": "cli/internal/xdg/xdg.go:22-160",
           "summary": "xdg.Path accepted relative XDG_* paths (violating XDG Base Dir spec and enabling CWD config hijacking), WriteAtomicYAML followed symlinked parent dirs and left permissive parent dir modes unchanged, and xdg lacked a symlink/FIFO/size-guarded ReadSecureFile helper.",
           "regression_test": "TestW8_Path_IgnoresRelativeXDGEnv",
-          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
         }
       ],
       "verification_commands": [

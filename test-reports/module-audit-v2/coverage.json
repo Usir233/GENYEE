@@ -10,10 +10,10 @@
   "wave0_evidence_file": "test-reports/module-audit-v2/wave0-foundation.json",
   "legacy_ledger": "test-reports/module-audit-20261113/coverage.json",
   "summary": {
-    "total_tracked_files": 6642,
+    "total_tracked_files": 6688,
     "unit_count": 301,
-    "unit_files_total": 6096,
-    "support_files_total": 546,
+    "unit_files_total": 6138,
+    "support_files_total": 550,
     "uncovered_files": 0,
     "duplicate_files": 0,
     "stale_files": 0,
@@ -34,13 +34,12 @@
       "W4": 186,
       "W5": 899,
       "W6": 1086,
-      "W7": 870,
-      "W8": 470
+      "W7": 871,
+      "W8": 511
     },
     "units_by_status": {
-      "pending_reaudit": 77,
-      "verified_findings_fixed": 174,
-      "verified_no_findings": 50
+      "verified_findings_fixed": 234,
+      "verified_no_findings": 67
     },
     "units_by_legacy_status": {
       "audited": 36,
@@ -54,7 +53,7 @@
     "support_files_by_category": {
       "license_or_notice": 71,
       "historical_changelog_or_spec": 6,
-      "audit_ledger_or_archived_report": 100,
+      "audit_ledger_or_archived_report": 104,
       "static_binary_or_vendor_asset": 369
     }
   },
@@ -11364,7 +11363,7 @@
       "wave": "W7",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 67,
+      "file_count": 68,
       "tracked_files": [
         "docreader/tests/epub_builder.py",
         "docreader/tests/generate_source_location_browser_fixtures.py",
@@ -11425,6 +11424,7 @@
         "docreader/tests/test_table_cell_pipes.py",
         "docreader/tests/test_tempfile_context.py",
         "docreader/tests/test_utils_split.py",
+        "docreader/tests/test_w8_docreader_reaudit.py",
         "docreader/tests/test_web_http_status.py",
         "docreader/tests/test_web_parser.py",
         "docreader/tests/test_xlsx_percent_format.py",
@@ -13241,69 +13241,114 @@
       "unit_id": "cli",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 1,
       "tracked_files": [
         "cli/main.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "cli/main.go installs signal.NotifyContext for SIGINT/SIGTERM, flushes terminal error envelopes cleanly, maps cancelled contexts to Unix exit code 130, and never echoes raw credentials or host paths.",
+        "Zero legacy brand tokens or hardcoded secrets exist in the binary entry point."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/acceptance",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 1,
       "tracked_files": [
         "cli/acceptance/doc.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "cli/acceptance/doc.go documents the contract vs acceptance_e2e test tier split accurately without executable side effects or stale brand references."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/api",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 5,
+      "status": "verified_findings_fixed",
+      "file_count": 6,
       "tracked_files": [
         "cli/cmd/api/api.go",
         "cli/cmd/api/api_dry_run_test.go",
         "cli/cmd/api/api_raw_integer_precision_test.go",
         "cli/cmd/api/api_test.go",
-        "cli/cmd/api/paginate_text_test.go"
+        "cli/cmd/api/paginate_text_test.go",
+        "cli/cmd/api/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Raw API passthrough rejects protocol-relative paths (//host), non-slash-prefixed paths, fragments (#), backslashes, dot traversal segments, and percent-encoded path separators/traversals (%2e%2e, %2f, %5c, %00) with input.invalid_argument before --dry-run, exit-10 confirmation, or network dispatch.",
+        "HTTP method tokens are validated per RFC 9110 before --dry-run and confirmation gates; DELETE is destructive-gated and PUT/PATCH are write-gated unless -y is supplied.",
+        "Request body reads (--input file/stdin) are bounded to 16 MiB, response bodies and --paginate accumulation are bounded to 64 MiB and 1000 pages, non-2xx body snippets are truncated and terminal-sanitized, and -F/--field NaN/Inf tokens serialize safely as strings instead of crashing json.Marshal."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-API-001",
+          "severity": "P1",
+          "file": "cli/cmd/api/api.go:87-149,193-217,278-282,350-500",
+          "summary": "genyee api allowed protocol-relative //host URLs, dot/percent-encoded traversal paths, and invalid HTTP method tokens through --dry-run and exit-10 confirmation (misclassifying SDK Raw rejections as retryable network.error), read --input and HTTP responses without size or page bounds, and failed json.Marshal on -F NaN/Inf.",
+          "regression_test": "TestW8_API_RejectsTraversalProtocolRelativeBadMethodAndNaNField",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/chat",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "cli/cmd/chat/chat.go",
-        "cli/cmd/chat/chat_test.go"
+        "cli/cmd/chat/chat_test.go",
+        "cli/cmd/chat/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "chat validates resolved --kb and optional --session IDs via cmdutil.ValidateResourceID before opening sessions or SSE streams.",
+        "Auto-created sessions guard against nil/empty CreateSession responses (server.session_create_failed) and terminal-sanitize session IDs written to stderr notices.",
+        "Buffered JSON and live text modes surface terminal SSE error frames (projector.TerminalError) as typed stream errors rather than ok=true, and JSON mode caps buffered events/bytes (8192 events / 16 MiB)."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-CHAT-001",
+          "severity": "P1",
+          "file": "cli/cmd/chat/chat.go:100-185,250-325",
+          "summary": "genyee chat did not validate --session/KB IDs via ValidateResourceID, panicked on nil CreateSession responses, lacked a buffered event/byte cap in JSON mode, and ignored terminal SSE error frames when transport returned nil.",
+          "regression_test": "TestW8_Chat_ValidatesIDsNilSessionAndTerminalError",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/chunk",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 8,
+      "status": "verified_findings_fixed",
+      "file_count": 9,
       "tracked_files": [
         "cli/cmd/chunk/chunk.go",
         "cli/cmd/chunk/delete.go",
@@ -13312,35 +13357,68 @@
         "cli/cmd/chunk/list_test.go",
         "cli/cmd/chunk/list_truncation_test.go",
         "cli/cmd/chunk/view.go",
-        "cli/cmd/chunk/view_test.go"
+        "cli/cmd/chunk/view_test.go",
+        "cli/cmd/chunk/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "chunk delete, chunk list, and chunk view validate <chunk-id> and --doc resource IDs via cmdutil.ValidateResourceID before --dry-run, exit-10 confirmation, or SDK client construction.",
+        "chunk delete enforces exit-10 confirmation before constructing the SDK client so unapproved destructive calls fail with input.confirmation_required even without active credentials.",
+        "chunk list bounds --all-pages pagination, chunk view guards against nil SDK responses, and human text renderers sanitize untrusted chunk metadata and content against ANSI/OSC 52 terminal injection."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-CHUNK-001",
+          "severity": "P1",
+          "file": "cli/cmd/chunk/delete.go:85-175, cli/cmd/chunk/list.go:126-220, cli/cmd/chunk/view.go:70-170",
+          "summary": "chunk subcommands omitted ValidateResourceID on <chunk-id> and --doc, called f.Client() before ConfirmDestructive on chunk delete, panicked on nil GetChunkByIDOnly responses, lacked an --all-pages safety bound, and wrote raw chunk content with potential OSC 52 sequences to stdout.",
+          "regression_test": "TestW8_Chunk_ValidatesIDsConfirmationOrderNilViewAndSanitizesText",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/config",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 3,
+      "status": "verified_findings_fixed",
+      "file_count": 4,
       "tracked_files": [
         "cli/cmd/config/config.go",
         "cli/cmd/config/view.go",
-        "cli/cmd/config/view_test.go"
+        "cli/cmd/config/view_test.go",
+        "cli/cmd/config/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "config view inspects the 4-level profile/KB resolution chain purely locally without network calls or secret store reads.",
+        "URL userinfo credentials embedded in GENYEE_HOST or profile host strings (https://user:pass@host) are stripped before emitting JSON or text output, and text cells sanitize terminal escapes via format.DashIfEmpty."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-CFGVIEW-001",
+          "severity": "P2",
+          "file": "cli/cmd/config/view.go:124-146,247-259",
+          "summary": "config view echoed embedded URL userinfo credentials (user:password@host) from GENYEE_HOST or profile host settings in plaintext JSON and text output.",
+          "regression_test": "TestW8_ConfigView_RedactsHostUserInfoCredentials",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/kb",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 24,
+      "status": "verified_findings_fixed",
+      "file_count": 25,
       "tracked_files": [
         "cli/cmd/kb/check.go",
         "cli/cmd/kb/check_test.go",
@@ -13365,52 +13443,90 @@
         "cli/cmd/kb/status.go",
         "cli/cmd/kb/status_test.go",
         "cli/cmd/kb/view.go",
-        "cli/cmd/kb/view_test.go"
+        "cli/cmd/kb/view_test.go",
+        "cli/cmd/kb/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All ID-addressed kb subcommands (view, update, delete, pin, unpin, status, check, config, config set) validate <kb-id> via cmdutil.ValidateResourceID before --dry-run, exit-10 confirmation, or SDK client construction.",
+        "kb delete, kb update, and kb config set enforce exit-10 confirmation before f.Client(), and kb update rejects empty/whitespace-only --name values across --dry-run and live execution.",
+        "kb check/status/view/create/pin guard against nil SDK responses, kb check bounds failed-doc pagination and wraps errors via cmdutil.WrapHTTP, and all human text outputs sanitize untrusted server fields."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-KB-001",
+          "severity": "P1",
+          "file": "cli/cmd/kb/view.go:50-130, cli/cmd/kb/edit.go:77-180, cli/cmd/kb/delete.go:62-120, cli/cmd/kb/pin.go:57-145, cli/cmd/kb/status.go:64-130, cli/cmd/kb/check.go:67-165, cli/cmd/kb/config.go:42-115, cli/cmd/kb/config_set.go:58-170",
+          "summary": "kb subcommands lacked ValidateResourceID on <kb-id> (allowing traversal strings into --dry-run, retry_argv, and reachable:false probes), ran f.Client() before confirmation gates, accepted blank --name on kb update, and panicked on nil KB responses in kb check/view/create/pin.",
+          "regression_test": "TestW8_KB_ValidatesResourceIDsConfirmOrderAndNilResponses",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/link",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 5,
+      "status": "verified_findings_fixed",
+      "file_count": 6,
       "tracked_files": [
         "cli/cmd/link/dryrun_validation_test.go",
         "cli/cmd/link/link.go",
         "cli/cmd/link/link_test.go",
         "cli/cmd/link/unlink.go",
-        "cli/cmd/link/unlink_test.go"
+        "cli/cmd/link/unlink_test.go",
+        "cli/cmd/link/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "genyee link validates the resolved profile name via cmdutil.ValidateProfileName and verifies the profile exists in config.Profiles (local.profile_not_found) before writing .genyee/project.yaml.",
+        "Resolved KB IDs are validated via cmdutil.ValidateResourceID, interactive KB prompts and text outputs sanitize untrusted KB names/IDs, and genyee unlink safely delegates symlink-guarded removal to projectlink."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-LINK-001",
+          "severity": "P2",
+          "file": "cli/cmd/link/link.go:146-248",
+          "summary": "genyee link did not validate CurrentProfile syntax or verify profile existence in config.Profiles when --kb was a UUID, allowing --profile <nonexistent> or corrupt config to write an unusable .genyee/project.yaml.",
+          "regression_test": "TestW8_Link_RejectsNonexistentOrUnsafeProfile",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/mcp",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 2,
       "tracked_files": [
         "cli/cmd/mcp/mcp.go",
         "cli/cmd/mcp/serve.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "genyee mcp serve lazily constructs the SDK client on RunE, suppresses stdout log pollution over the JSON-RPC stdio transport, and delegates all 10 tool handlers to cli/internal/mcp."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/message",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 7,
+      "status": "verified_findings_fixed",
+      "file_count": 8,
       "tracked_files": [
         "cli/cmd/message/delete.go",
         "cli/cmd/message/delete_test.go",
@@ -13418,19 +13534,35 @@
         "cli/cmd/message/list_test.go",
         "cli/cmd/message/message.go",
         "cli/cmd/message/search.go",
-        "cli/cmd/message/search_test.go"
+        "cli/cmd/message/search_test.go",
+        "cli/cmd/message/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "message delete, message list, and message search validate <message-id> and --session resource IDs via cmdutil.ValidateResourceID before --dry-run, exit-10 confirmation, or SDK client construction.",
+        "message delete enforces exit-10 confirmation before f.Client(), message list validates --before RFC3339 timestamps before f.Client(), and message search rejects blank queries, filters nil group items, and sanitizes text table cells."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-MSG-001",
+          "severity": "P1",
+          "file": "cli/cmd/message/delete.go:72-125, cli/cmd/message/list.go:85-138, cli/cmd/message/search.go:88-153",
+          "summary": "message subcommands omitted ValidateResourceID on <message-id> and --session, called f.Client() before ConfirmDestructive on delete and before --before parsing on list, and dereferenced nil items in message search.",
+          "regression_test": "TestW8_Message_ValidatesIDsConfirmOrderBeforeFlagAndNilSearchItems",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/model",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 11,
+      "status": "verified_findings_fixed",
+      "file_count": 12,
       "tracked_files": [
         "cli/cmd/model/create.go",
         "cli/cmd/model/create_test.go",
@@ -13442,19 +13574,36 @@
         "cli/cmd/model/update.go",
         "cli/cmd/model/update_test.go",
         "cli/cmd/model/view.go",
-        "cli/cmd/model/view_test.go"
+        "cli/cmd/model/view_test.go",
+        "cli/cmd/model/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "--api-key-stdin reads are bounded to 16 KiB and reject embedded CR/LF or control characters with input.invalid_argument across model create and model update.",
+        "model view, update, and delete validate <model-id> via ValidateResourceID; model create and update validate --base-url via ValidateHTTPURL and reject negative --dimension; model list validates --type/--source enums before f.Client(); model delete confirms before f.Client().",
+        "Provider secrets (api_key, app_secret) in Model.Parameters are scrubbed before emitting JSON or text output across create, update, view, and list."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-MODEL-001",
+          "severity": "P1",
+          "file": "cli/cmd/model/model.go:45-60, cli/cmd/model/create.go:145-160,236-305,380-405, cli/cmd/model/update.go:64-90,145-240, cli/cmd/model/delete.go:41-90, cli/cmd/model/view.go:40-95, cli/cmd/model/list.go:100-190",
+          "summary": "model create/update read --api-key-stdin with unbounded io.ReadAll and accepted multiline/control characters; model subcommands lacked preflight ID/base-url/dimension/enum checks before dry-run/Client() and did not scrub api_key/app_secret from returned Model.Parameters.",
+          "regression_test": "TestW8_Model_CapsStdinValidatesIDsBaseURLAndScrubsSecrets",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/search",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 10,
+      "status": "verified_findings_fixed",
+      "file_count": 11,
       "tracked_files": [
         "cli/cmd/search/chunks.go",
         "cli/cmd/search/chunks_test.go",
@@ -13465,19 +13614,35 @@
         "cli/cmd/search/search.go",
         "cli/cmd/search/search_test.go",
         "cli/cmd/search/sessions.go",
-        "cli/cmd/search/sessions_test.go"
+        "cli/cmd/search/sessions_test.go",
+        "cli/cmd/search/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "search chunks validates --vector-threshold and --keyword-threshold for NaN, Inf, and [0, 1] bounds as input.invalid_argument, validates resolved KB IDs, filters nil SearchResult pointers, and strips ANSI/OSC 52 escape sequences in text rendering.",
+        "search docs and search sessions validate --page-size before resolving KBs or constructing the SDK client, enforce a 10,000-page safety cap on --all-pages loops, and sanitize human table output."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-SEARCH-001",
+          "severity": "P1",
+          "file": "cli/cmd/search/chunks.go:123-220, cli/cmd/search/docs.go:90-200, cli/cmd/search/sessions.go:78-175, cli/cmd/search/kb.go:115-120",
+          "summary": "search chunks accepted NaN/Inf/out-of-range similarity thresholds (failing json.Marshal as retryable network.error) and rendered raw chunk content without nil or OSC 52 guards; search docs/sessions checked --page-size after f.Client() and had unbounded pagination loops.",
+          "regression_test": "TestW8_Search_ValidatesThresholdsPageSizeBeforeClientAndSanitizesChunks",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/session",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 17,
+      "status": "verified_findings_fixed",
+      "file_count": 18,
       "tracked_files": [
         "cli/cmd/session/ask.go",
         "cli/cmd/session/ask_test.go",
@@ -13495,83 +13660,155 @@
         "cli/cmd/session/tool_approval_retry_argv_test.go",
         "cli/cmd/session/tool_approval_test.go",
         "cli/cmd/session/view.go",
-        "cli/cmd/session/view_test.go"
+        "cli/cmd/session/view_test.go",
+        "cli/cmd/session/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "session ask, delete, resume, stop, view, and tool-approval resolve validate session/agent/message/pending IDs via cmdutil.ValidateResourceID before --dry-run, NDJSON init emission, exit-10 confirmation, or f.Client().",
+        "session delete and session tool-approval resolve enforce exit-10 confirmation before f.Client(); session resume leaves stdout completely empty when rejecting invalid IDs.",
+        "session list validates --since before f.Client() and rejects NaNd, Infd, non-positive, and >36500d durations that would overflow time.Duration; session ask guards nil CreateSession responses, caps buffered events/bytes, and surfaces terminal SSE error frames."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-SESSION-001",
+          "severity": "P1",
+          "file": "cli/cmd/session/ask.go:90-290, cli/cmd/session/delete.go:70-155, cli/cmd/session/list.go:92-250, cli/cmd/session/resume.go:97-160, cli/cmd/session/stop.go:60-125, cli/cmd/session/tool_approval.go:90-235, cli/cmd/session/view.go:76-195",
+          "summary": "session subcommands lacked ValidateResourceID preflight (allowing session resume to write an init frame before failing and destructive gates to run after f.Client()), parseSinceDuration overflowed int64 on large/NaN/Inf <N>d values, and session ask lacked nil-session and terminal-error guards.",
+          "regression_test": "TestW8_Session_ValidatesIDsSinceOverflowConfirmOrderAndResumeCleanStdout",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/cmd/skills",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "cli/cmd/skills/skills.go",
-        "cli/cmd/skills/skills_test.go"
+        "cli/cmd/skills/skills_test.go",
+        "cli/cmd/skills/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "skills install confines embedded relative paths under the target directory, verifies every subdirectory and target file via os.Lstat to reject symlinks (including dangling symlinks without --force and symlinked files with --force), and writes skill files atomically via temp file + 0644 chmod + rename.",
+        "resolveDir rejects whitespace-only --dir values, expands ~, ~/, and ~\\ prefixes consistently, and initializes installed as an empty slice [] rather than null when all files are skipped."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-SKILLS-001",
+          "severity": "P1",
+          "file": "cli/cmd/skills/skills.go:156-295",
+          "summary": "writeSkills used os.Stat (treating dangling symlinks as non-existent when !force) followed by os.MkdirAll and os.WriteFile, allowing dangling or --force symlinks and symlinked subdirectories to overwrite or create arbitrary files outside --dir.",
+          "regression_test": "TestW8_SkillsInstall_RejectsDanglingSymlinkAndSymlinkSubdir",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)",
+        "bash cli/scripts/check-skill-wire-vocab.sh (exit 0)",
+        "bash cli/scripts/check-secret-tokens.sh (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/build",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 2,
       "tracked_files": [
         "cli/internal/build/build.go",
         "cli/internal/build/build_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Build metadata defaults (Version, Commit, Date) are pure ldflags-overridable string vars with deterministic UserAgent formatting and zero external I/O."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/compat",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 6,
+      "status": "verified_findings_fixed",
+      "file_count": 7,
       "tracked_files": [
         "cli/internal/compat/cache.go",
         "cli/internal/compat/cache_test.go",
         "cli/internal/compat/compat.go",
         "cli/internal/compat/compat_test.go",
         "cli/internal/compat/version_check.go",
-        "cli/internal/compat/version_check_test.go"
+        "cli/internal/compat/version_check_test.go",
+        "cli/internal/compat/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Probe guards against (nil, nil) GetSystemInfo responses without panicking; LoadCache reads server-info.yaml via symlink- and size-guarded xdg.ReadSecureFile (64 KiB cap) and rejects future-dated ProbedAt timestamps as stale.",
+        "Compat rejects signed/negative semver segments as unparseable fail-open OK and sanitizes untrusted serverVersion/cliVersion strings before interpolating human hint messages."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-COMPAT-001",
+          "severity": "P2",
+          "file": "cli/internal/compat/version_check.go:30-42, cli/internal/compat/cache.go:14-46, cli/internal/compat/compat.go:47-95",
+          "summary": "compat.Probe panicked on nil SystemInfo responses, LoadCache used unbounded symlink-following os.ReadFile and treated future-dated ProbedAt timestamps as fresh forever, and Compat accepted negative semver numbers and interpolated unsanitized server versions into hints.",
+          "regression_test": "TestW8_Probe_NilResponseDoesNotPanic",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/config",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "cli/internal/config/config.go",
-        "cli/internal/config/config_test.go"
+        "cli/internal/config/config_test.go",
+        "cli/internal/config/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "config.Load reads $XDG_CONFIG_HOME/genyee/config.yaml via xdg.ReadSecureFile (1 MiB cap, Lstat symlink/non-regular rejection on parent dir and file, TOCTOU SameFile verification) while preserving zero-value Config on os.ErrNotExist.",
+        "config.Save persists YAML atomically with 0600 file permissions and 0700 directory permissions via xdg.WriteAtomicYAML."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-CONFIG-001",
+          "severity": "P1",
+          "file": "cli/internal/config/config.go:52-75",
+          "summary": "config.Load used raw os.ReadFile without symlink checks, regular-file verification, or size bounds, allowing symlinked config.yaml/genyee dirs or named pipes to leak external files or block CLI startup.",
+          "regression_test": "TestW8_Load_RejectsSymlinkAndOversizedConfig",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/format",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 9,
+      "status": "verified_findings_fixed",
+      "file_count": 10,
       "tracked_files": [
         "cli/internal/format/bare.go",
         "cli/internal/format/bare_test.go",
@@ -13581,34 +13818,55 @@
         "cli/internal/format/ndjson.go",
         "cli/internal/format/ndjson_test.go",
         "cli/internal/format/references.go",
-        "cli/internal/format/references_test.go"
+        "cli/internal/format/references_test.go",
+        "cli/internal/format/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "DashIfEmpty strips ANSI/OSC/C0/C1/Bidi terminal control sequences via text.SanitizeInline and returns '-' when an input consists solely of stripped escape codes.",
+        "WriteJSON, WriteJSONFiltered (field filters), and writeJQ disable HTML escaping (<, >, &) consistently and terminate JSON lines with '\\n'."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-FORMAT-001",
+          "severity": "P2",
+          "file": "cli/internal/format/dash.go:8-14, cli/internal/format/filter.go:14-48,92-99",
+          "summary": "DashIfEmpty returned unsanitized strings containing terminal escape sequences to human table renderers, and WriteJSONFiltered/writeJQ used json.Marshal (HTML-escaping <, >, & and omitting trailing newline on field-filtered payloads).",
+          "regression_test": "TestW8_DashIfEmpty_SanitizesTerminalEscapes",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/iostreams",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 2,
       "tracked_files": [
         "cli/internal/iostreams/iostreams.go",
         "cli/internal/iostreams/iostreams_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "IOStreams encapsulates In/Out/Err writers and TTY capability flags cleanly with deterministic SetForTest / SetForTestWithTTY test isolation helpers."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/mcp",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 8,
+      "status": "verified_findings_fixed",
+      "file_count": 9,
       "tracked_files": [
         "cli/internal/mcp/download_bytes_test.go",
         "cli/internal/mcp/server.go",
@@ -13617,18 +13875,35 @@
         "cli/internal/mcp/tools.go",
         "cli/internal/mcp/tools_error_test.go",
         "cli/internal/mcp/tools_security_test.go",
-        "cli/internal/mcp/tools_test.go"
+        "cli/internal/mcp/tools_test.go",
+        "cli/internal/mcp/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "toolErrorResult redacts Bearer tokens, gy_* API keys, sk-* provider keys, and URL userinfo credentials from upstream error messages and hints before returning MCP CallToolResult payloads.",
+        "chat and session_ask guard against nil/empty CreateSession responses, enforce buffered event/payload caps (4096 events / 4 MiB) in long-lived mcp serve processes, and fail when SSE emits a terminal error frame even if transport returns nil.",
+        "doc_list, search_chunks, and chunk_list reject negative page/page_size/limit values, out-of-[0,1] or NaN/Inf similarity thresholds, invalid doc parse statuses, and inverted start_time > end_time windows."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-MCP-001",
+          "severity": "P1",
+          "file": "cli/internal/mcp/tools.go:25-82,295-350,490-515,570-620,710-760,800-820",
+          "summary": "MCP tools leaked raw Bearer/gy_/sk- tokens in error text, panicked on nil CreateSession responses, buffered unbounded SSE events in chat/session_ask, ignored terminal error frames when streamErr==nil, and accepted negative pagination, invalid statuses, and out-of-range thresholds.",
+          "regression_test": "TestW8_MCP_BoundsValidationTerminalErrorAndRedaction",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/output",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 6,
       "tracked_files": [
         "cli/internal/output/batch.go",
@@ -13638,82 +13913,129 @@
         "cli/internal/output/ndjson_stream.go",
         "cli/internal/output/ndjson_stream_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Envelope, BatchResult, and NDJSON stream writers disable HTML escaping, enforce bare-data vs envelope contracts deterministically, and never mutate or execute untrusted strings."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/projectlink",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "cli/internal/projectlink/projectlink.go",
-        "cli/internal/projectlink/projectlink_test.go"
+        "cli/internal/projectlink/projectlink_test.go",
+        "cli/internal/projectlink/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Discover walks at most 64 parent directories and uses os.Lstat on both .genyee and .genyee/project.yaml so symlinked directories, symlinked files, and FIFOs/devices are never treated as project links.",
+        "Load uses xdg.ReadSecureFile (64 KiB cap), Save uses symlink-safe 0600 xdg.WriteAtomicYAML, and Remove verifies via os.Lstat that neither .genyee nor project.yaml is a symlink before unlinking."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-PROJLINK-001",
+          "severity": "P1",
+          "file": "cli/internal/projectlink/projectlink.go:36-112",
+          "summary": "projectlink.Discover/Load/Remove followed symlinked .genyee directories and project.yaml files (allowing malicious repositories to read or unlink external files on `genyee unlink` or hang on FIFOs).",
+          "regression_test": "TestW8_ProjectLink_RejectsSymlinkDiscoverLoadAndRemove",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/prompt",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 3,
       "tracked_files": [
         "cli/internal/prompt/prompt.go",
         "cli/internal/prompt/prompt_test.go",
         "cli/internal/prompt/tty.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "TTYPrompter bounds line reads via bufio.Scanner and treats EOF as declined confirmation; AgentPrompter deterministically fails interactive prompts in non-TTY contexts."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/sse",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 6,
+      "status": "verified_findings_fixed",
+      "file_count": 7,
       "tracked_files": [
         "cli/internal/sse/accumulator.go",
         "cli/internal/sse/accumulator_test.go",
         "cli/internal/sse/agent_accumulator.go",
         "cli/internal/sse/agent_accumulator_test.go",
         "cli/internal/sse/projector.go",
-        "cli/internal/sse/projector_test.go"
+        "cli/internal/sse/projector_test.go",
+        "cli/internal/sse/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "TextRenderer runs a stateful streaming ANSI/OSC/DCS/CSI/C0/C1/Bidi sanitizer across chunk boundaries so split OSC 52 clipboard-hijack or title-spoof sequences are stripped completely.",
+        "Projector records terminal error frames (TerminalError) alongside lifecycle Done state, and Accumulator / AgentAccumulator bound buffered answer/thinking bytes (16 MiB) and tool events (4096)."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-SSE-001",
+          "severity": "P1",
+          "file": "cli/internal/sse/accumulator.go:18-75, cli/internal/sse/agent_accumulator.go:54-85, cli/internal/sse/projector.go:35-410",
+          "summary": "sse.TextRenderer wrote raw SSE chunks and reference IDs to terminals without stripping split OSC 52/ANSI escape sequences, Projector discarded terminal error frame state, and Accumulator/AgentAccumulator grew without memory bounds.",
+          "regression_test": "TestW8_TextRenderer_StripsSplitOSC52AndControlSequences",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/testutil",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 2,
       "tracked_files": [
         "cli/internal/testutil/prompter.go",
         "cli/internal/testutil/xdg.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Test-only prompter and XDG temp-dir helpers isolate XDG_CONFIG_HOME / XDG_CACHE_HOME / XDG_DATA_HOME cleanly via t.TempDir() without production side effects."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/text",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 12,
+      "status": "verified_findings_fixed",
+      "file_count": 14,
       "tracked_files": [
         "cli/internal/text/displayname.go",
         "cli/internal/text/match.go",
@@ -13721,52 +14043,92 @@
         "cli/internal/text/oneline_test.go",
         "cli/internal/text/pluralize.go",
         "cli/internal/text/pluralize_test.go",
+        "cli/internal/text/sanitize.go",
         "cli/internal/text/timeago.go",
         "cli/internal/text/timeago_string.go",
         "cli/internal/text/timeago_string_test.go",
         "cli/internal/text/timeago_test.go",
         "cli/internal/text/truncate.go",
-        "cli/internal/text/truncate_test.go"
+        "cli/internal/text/truncate_test.go",
+        "cli/internal/text/w8_audit_regression_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "SanitizeTerminal and SanitizeInline strip CSI, OSC (including OSC 52 payloads), DCS/SOS/PM/APC, 2-byte/nF escapes, C0/DEL/C1 controls, bare CR line-overwrite spoofing, and Unicode Bidi overrides while preserving valid UTF-8 and display-width truncation in Truncate, OneLine, KnowledgeDisplayName, and FuzzyAgoStr.",
+        "FuzzyAgo handles timestamps >292 years in the past or future via float64 Unix-second fallback instead of overflowing time.Duration at math.MinInt64/MaxInt64."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-TEXT-001",
+          "severity": "P1",
+          "file": "cli/internal/text/sanitize.go:1-171, cli/internal/text/truncate.go:15-24, cli/internal/text/oneline.go:9-11, cli/internal/text/displayname.go:12-20, cli/internal/text/timeago.go:17-33, cli/internal/text/timeago_string.go:20-28",
+          "summary": "text helpers lacked ANSI/OSC 52/C1/Bidi terminal sanitization (allowing untrusted server titles, filenames, and unparseable timestamps to inject terminal escapes) and FuzzyAgo overflowed time.Duration for dates >292 years in the future into 'less than a minute from now'.",
+          "regression_test": "TestW8_SanitizeAndTruncate_StripOSC52CSIC1AndBidi",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/internal/xdg",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
+        "cli/internal/xdg/w8_audit_regression_test.go",
         "cli/internal/xdg/xdg.go",
         "cli/internal/xdg/xdg_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "xdg.Path ignores relative XDG_* environment variable values per the XDG Base Directory Specification and falls back to $HOME/<fallbackDir>/genyee.",
+        "xdg.WriteAtomicYAML rejects symlinked parent directories and symlinked/non-regular target files via os.Lstat, tightens permissive parent directory modes to 0700 on Unix, and writes atomically with mode 0600; xdg.ReadSecureFile enforces Lstat + fstat SameFile + maxBytes bounds."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-XDG-001",
+          "severity": "P1",
+          "file": "cli/internal/xdg/xdg.go:22-160",
+          "summary": "xdg.Path accepted relative XDG_* paths (violating XDG Base Dir spec and enabling CWD config hijacking), WriteAtomicYAML followed symlinked parent dirs and left permissive parent dir modes unchanged, and xdg lacked a symlink/FIFO/size-guarded ReadSecureFile helper.",
+          "regression_test": "TestW8_Path_IgnoresRelativeXDGEnv",
+          "commit": "45e8325ca4f11cddb945ed2bc16742fb2df06edf"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "cli/skills",
       "wave": "W8",
       "legacy_status": "audited",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 1,
       "tracked_files": [
         "cli/skills/embed.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "cli/skills/embed.go embeds prompts/* read-only, parses frontmatter deterministically, returns sorted skill/file slices, and passes check-skill-wire-vocab.sh and check-secret-tokens.sh."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)",
+        "bash cli/scripts/check-skill-wire-vocab.sh (exit 0)",
+        "bash cli/scripts/check-secret-tokens.sh (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json"
     },
     {
       "unit_id": "docreader",
       "wave": "W8",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 7,
       "tracked_files": [
         "docreader/auth.py",
@@ -13777,16 +14139,41 @@
         "docreader/preprocess_worker.py",
         "docreader/source_wire.py"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "gRPC server authentication fails closed unless GRPC_AUTH_TOKEN is configured (or DOCREADER_ALLOW_UNAUTHENTICATED=true is explicitly set for isolated local dev/test), compares tokens in constant time via hmac.compare_digest, and accepts RFC-6750 case-insensitive Bearer prefixes.",
+        "DocReaderConfig enforces positive integer bounds on gRPC worker counts, raw file size / gRPC message size caps, listen ports (1-65535), PDF render DPI/parallelism, OpenDataLoader heap/timeouts, and subprocess image-preprocessing limits.",
+        "Unary Read and streaming ReadStream RPCs scrub URL userinfo credentials, Bearer tokens, sk-* keys, and api_key/secret/password parameters from logs, tracebacks, and error responses while replacing lone UTF-16 surrogates across markdown, metadata, error payloads, and SourceBlock locator_json.",
+        "Image preprocessing runs in isolated, non-blocking socket-supervised child processes with PR_SET_PDEATHSIG, RLIMIT_AS, RSS supervision, MAX_IMAGE_PIXELS=40_000_000, and empty-crop guards; ARM OpenSSL SIGILL startup probe uses os.execvpe safely with zero upstream brand or host-path residues."
+      ],
+      "findings": [
+        {
+          "id": "W8-DOC-001",
+          "severity": "P1",
+          "file": "docreader/main.py:51-59,228-237,267-300,345-366, docreader/config.py:58-87, docreader/source_wire.py:7-38",
+          "summary": "Read and ReadStream logged raw request.url and exception tracebacks and returned unredacted str(e) in ReadResponse.error / ReadStreamMeta.error (leaking URL credentials, Bearer tokens, and API keys), and lone UTF-16 surrogates in exception strings or SourceBlock locator_json raised UnicodeEncodeError during protobuf serialization.",
+          "regression_test": "test_w8_doc_redacts_secrets_and_sanitizes_surrogates_in_rpc_and_wire",
+          "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        },
+        {
+          "id": "W8-DOC-002",
+          "severity": "P1",
+          "file": "docreader/config.py:42-57,179-192,220-225, docreader/auth.py:214-219, docreader/preprocess_worker.py:39-44,94-98",
+          "summary": "load_config() accepted zero/negative env values for DOCREADER_GRPC_MAX_FILE_SIZE_MB (producing <=0 or -1 unlimited gRPC receive caps), DOCREADER_GRPC_MAX_WORKERS, DOCREADER_GRPC_PORT, DOCREADER_PDF_RENDER_DPI, and DOCREADER_PDF_RENDER_PARALLELISM; AuthInterceptor rejected lowercase/uppercase RFC-6750 'bearer ' prefixes; and preprocess_worker lacked an explicit MAX_IMAGE_PIXELS=40_000_000 ceiling and empty-crop guard.",
+          "regression_test": "test_w8_doc_auth_interceptor_case_insensitive_bearer_and_config_bounds",
+          "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/*.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_w8_docreader_reaudit.py docreader/tests/test_config.py docreader/tests/test_docreader_envelope.py docreader/tests/test_docreader_stream.py docreader/tests/test_preprocess_runner.py (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-docreader-reaudit.json"
     },
     {
       "unit_id": "docreader/client",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 5,
       "tracked_files": [
         "docreader/client/auth.go",
@@ -13795,32 +14182,70 @@
         "docreader/client/client_envelope_test.go",
         "docreader/client/client_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "LoadAuthConfigFromEnv parses GRPC_TLS_ENABLED case-insensitively with whitespace trimming (true/1/yes/on, matching Python server _env_bool) and trims mounted secret/cert paths so K8s newline-padded env vars never silently downgrade TLS to plaintext.",
+        "EffectiveForAddr and IsTrustedDocReaderAddr scope GRPC_AUTH_TOKEN strictly to the operator-configured DOCREADER_ADDR (or loopback when unset), normalizing dns:/// and passthrough:/// schemes and FQDN trailing dots before ports while rejecting embedded URL userinfo.",
+        "Client honors DOCREADER_GRPC_MAX_FILE_SIZE_MB before MAX_FILE_SIZE_MB, rejects empty dial addresses, masks credentials in connection logs, synchronizes SetDebug/Log via atomic.Bool, and guards Close() on nil connections."
+      ],
+      "findings": [
+        {
+          "id": "W8-DOC-CLI-001",
+          "severity": "P1",
+          "file": "docreader/client/auth.go:35-62,79-115",
+          "summary": "LoadAuthConfigFromEnv checked os.Getenv(\"GRPC_TLS_ENABLED\") == \"true\" without trimming or case/numeric normalization (silently downgrading TLS to plaintext and disabling RequireTransportSecurity on 'TRUE', '1', or trailing-newline secrets), and normalizeDocReaderAddr failed to strip dns:/// or passthrough:/// schemes, failed to trim FQDN trailing dots before ':port', and accepted URLs containing embedded userinfo.",
+          "regression_test": "TestLoadAuthConfigFromEnvParsesTLSEnabledCaseAndWhitespace, TestIsTrustedDocReaderAddrNormalizesSchemesFQDNsAndRejectsUserinfo",
+          "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        },
+        {
+          "id": "W8-DOC-CLI-002",
+          "severity": "P2",
+          "file": "docreader/client/client.go:19-41,54-156",
+          "summary": "getMaxFileSize() ignored DOCREADER_GRPC_MAX_FILE_SIZE_MB and untrimmed env values, NewClientWithAuth dialed 'dns:///' on blank addresses and logged unmasked userinfo credentials, Close() panicked on nil conn, and Client.debug raced between SetDebug and Log under -race.",
+          "regression_test": "TestClientConfiguresNamespacedFileSizeGuardsEmptyAddrMasksLogsAndIsConcurrencySafe",
+          "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./docreader/client/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docreader/client/... (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-docreader-reaudit.json"
     },
     {
       "unit_id": "docreader/models",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 3,
       "tracked_files": [
         "docreader/models/__init__.py",
         "docreader/models/document.py",
         "docreader/models/read_config.py"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Document, Chunk, and ChunkingConfig schemas preserve backward-compatible serialization, non-mutating deserialization, and safe equality semantics across non-Chunk comparisons."
+      ],
+      "findings": [
+        {
+          "id": "W8-DOC-MDL-001",
+          "severity": "P2",
+          "file": "docreader/models/document.py:42-57",
+          "summary": "Chunk.__eq__ accessed other.content unconditionally (raising AttributeError when compared against None or non-Chunk objects instead of returning NotImplemented), and Chunk.from_dict mutated the caller's input dictionary in place via update() and pop('class_name').",
+          "regression_test": "test_w8_models_chunk_eq_non_chunk_and_from_dict_immutability",
+          "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/models/*.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_w8_docreader_reaudit.py -k models (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-docreader-reaudit.json"
     },
     {
       "unit_id": "docreader/parser",
       "wave": "W8",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 33,
       "tracked_files": [
         "docreader/parser/__init__.py",
@@ -13857,31 +14282,78 @@
         "docreader/parser/xlsx_rows.py",
         "docreader/parser/xmind_parser.py"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All ZIP/OOXML/EPUB/XMind archive admissions enforce entry count, compression ratio, member/cumulative decompressed byte ceilings across STORED, DEFLATED, BZIP2, and LZMA streams (including LZMA dictionary header bounds <= 64 MiB), and XML parsers disable entity resolution and network access (defusedxml / lxml resolve_entities=False, no_network=True).",
+        "Pillow Image.MAX_IMAGE_PIXELS=40_000_000 is enforced at package import across in-process and subprocess parsers; ImageMagick delegates are restricted to raster formats with resource caps; LibreOffice conversions run inside clean-env + bwrap --unshare-net sandboxes with symlink and output-size checks.",
+        "WebParser routes all Playwright browser traffic through SSRFProxy + route guards with proxy fallback support, and OpenDataLoader hybrid health/forwarder requests enforce SSRF validation, DNS-rebinding IP pinning, ProxyHandler({}), no-redirect handling, and bounded upstream response reads.",
+        "PDFium native operations are serialized under _PDFIUM_LOCK (always acquired after render semaphores), RapidOCR instances are isolated in threading.local(), and ArchiveLimitError / ParserCancelled propagate without triggering fallback parsers or leaking temporary files/directories."
+      ],
+      "findings": [
+        {
+          "id": "W8-DOC-PAR-001",
+          "severity": "P1",
+          "file": "docreader/parser/archive.py:12-19,176-306, docreader/parser/xmind_parser.py:13-30,45-75,116-135,173-195",
+          "summary": "_stream_zip_entry_bounded omitted zipfile.ZIP_LZMA, causing spoofed-file_size LZMA zip bombs to fall back to stdlib ZipExtFile.read() (which decompresses unbounded LZMA streams in C without max_length, raised BadZipFile on truncated CRC, and was silently ignored by verify_zip_stream_limits) and allowing multi-hundred-MiB LZMA dictionary header allocations; XMindParser also read ZIP entries directly instead of safe_read_zip_member and lacked a topic recursion depth cap.",
+          "regression_test": "test_w8_parser_lzma_spoofed_zip_bomb_aborts_with_bounded_memory, test_w8_parser_xmind_lzma_bomb_and_deep_topic_recursion_guarded",
+          "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        },
+        {
+          "id": "W8-DOC-PAR-002",
+          "severity": "P1",
+          "file": "docreader/parser/docx_parser.py:482-490,1014-1028,1085-1110,1191-1240,1581-1615,1636-1750, docreader/parser/epub_parser.py:245-260,297-335,365-395, docreader/parser/doc_parser.py:309-328, docreader/parser/excel_convert.py:102-112, docreader/parser/ppt_convert.py:88-98",
+          "summary": "DocxParser and EPUBParser caught broad Exception and swallowed ParserCancelled/ArchiveLimitError into fallback parsers; DocxParser leaked NamedTemporaryFile/mkdtemp image directories when write() or image.save() failed or exceptions interrupted page collection; and DocParser/excel_convert/ppt_convert lacked symlink (in DocParser) and converted-file size guards before reading LibreOffice output into memory.",
+          "regression_test": "test_w8_parser_docx_and_epub_propagate_cancellation_and_cleanup_tempfiles",
+          "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        },
+        {
+          "id": "W8-DOC-PAR-003",
+          "severity": "P1",
+          "file": "docreader/parser/opendataloader_parser.py:67-215,407-485, docreader/parser/web_parser.py:170-173",
+          "summary": "OpenDataLoader _ping_hybrid inherited ambient proxy env vars and both _ping_hybrid and _local_hybrid_auth_proxy re-resolved DNS on connect after is_ssrf_safe_url (DNS-rebinding TOCTOU), _local_hybrid_auth_proxy called unbounded resp.read() on upstream responses, and StdWebParser ignored CONFIG.external_http_proxy when external_https_proxy was unset.",
+          "regression_test": "test_w8_parser_odl_proxy_bounds_upstream_response_and_pins_dns",
+          "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/parser/*.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_w8_docreader_reaudit.py docreader/tests/test_security_audit_fixes.py docreader/tests/test_branch_audit_regressions.py (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-docreader-reaudit.json"
     },
     {
       "unit_id": "docreader/splitter",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 2,
       "tracked_files": [
         "docreader/splitter/header_hook.py",
         "docreader/splitter/splitter.py"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "TextSplitter enforces chunk_size > 0, chunk_overlap >= 0, and chunk_overlap < chunk_size, terminates _split() without infinite recursion when an unsplittable multi-byte unit exceeds chunk_size, resets HeaderTracker state per split_text() call, formats oversized-split/header error logs cleanly, and skips duplicate/contained ranges in restore_text()."
+      ],
+      "findings": [
+        {
+          "id": "W8-DOC-SPL-001",
+          "severity": "P1",
+          "file": "docreader/splitter/splitter.py:102-116,137-146,184-196,238-269,587-594",
+          "summary": "TextSplitter accepted chunk_size <= 0, chunk_overlap < 0, and chunk_overlap == chunk_size, infinitely recursed in _split() when a single character's custom length_function exceeded chunk_size, passed two positional strings with zero format placeholders to logger.error() (causing logging TypeError), leaked active HeaderTracker table headers across consecutive split_text() calls, and duplicated chunks in restore_text() when end_pos <= last_end.",
+          "regression_test": "test_w8_splitter_guards_overlap_recursion_logging_header_state_and_restore",
+          "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/splitter/*.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_w8_docreader_reaudit.py -k splitter (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-docreader-reaudit.json"
     },
     {
       "unit_id": "docreader/utils",
       "wave": "W8",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 9,
       "tracked_files": [
         "docreader/utils/__init__.py",
@@ -13894,16 +14366,40 @@
         "docreader/utils/ssrf_proxy.py",
         "docreader/utils/tempfile.py"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "is_ssrf_safe_url enforces http/https schemes only, rejects backslashes in authority/path, embedded URL credentials, IPv6 zone/percent characters, shorthand/octal/hex numeric IPv4 literals, private/loopback/link-local/metadata/NAT64/6to4/Teredo IPs, and validates port bounds (1-65535) and BLOCKED_PORTS even on whitelisted hostnames.",
+        "SSRFProxy pins resolved numeric IPs at socket connection time across redirects, handles malformed upstream proxy status lines without unhandled IndexError, and awaits stream transport closure cleanly.",
+        "TempFileContext strips path separators and null bytes from suffixes, closes file descriptors before yielding to external converters, and guarantees unlink on enter/exit failures; request_id_context scrubs CR/LF/control characters against log injection."
+      ],
+      "findings": [
+        {
+          "id": "W8-DOC-UTL-001",
+          "severity": "P1",
+          "file": "docreader/utils/ssrf.py:117-125,190-200,282-322, docreader/utils/ssrf_proxy.py:88-99,157-163",
+          "summary": "is_ssrf_safe_url permitted backslashes in URL authority (allowing WHATWG vs urlparse differential SSRF such as http://169.254.169.254\\@example.com/), permitted embedded userinfo, skipped port bounds and BLOCKED_PORTS checks on whitelisted hosts, and missed shorthand/octal/hex IPv4 forms (127.1, 0, 017700000001, 127.0x0.0.1) before DNS; SSRFProxy._connect raised unhandled IndexError on malformed upstream proxy status lines.",
+          "regression_test": "test_w8_utils_ssrf_blocks_backslash_userinfo_shorthand_ips_before_dns, test_w8_utils_ssrf_enforces_port_bounds_and_blocked_ports_on_whitelisted_host, test_w8_utils_ssrf_proxy_handles_malformed_upstream_and_tempfile_request_hygiene",
+          "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        },
+        {
+          "id": "W8-DOC-UTL-002",
+          "severity": "P2",
+          "file": "docreader/utils/tempfile.py:8-27,52-57,87, docreader/utils/request.py:16-28,139",
+          "summary": "TempFileContext passed unsanitized suffixes to NamedTemporaryFile (failing or traversing on '/' or '\\' in caller-supplied filenames) and left the writable fd open during context body execution, TempDirContext lacked ignore_cleanup_errors=True, and request_id_context logged raw CR/LF control characters from untrusted ReadRequest.request_id.",
+          "regression_test": "test_w8_utils_ssrf_proxy_handles_malformed_upstream_and_tempfile_request_hygiene",
+          "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/utils/*.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_w8_docreader_reaudit.py docreader/tests/test_ssrf.py docreader/tests/test_ssrf_proxy.py docreader/tests/test_tempfile_context.py (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-docreader-reaudit.json"
     },
     {
       "unit_id": "internal/application/service/metric",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 17,
       "tracked_files": [
         "internal/application/service/metric/bleu.go",
@@ -13924,32 +14420,56 @@
         "internal/application/service/metric/rouge.go",
         "internal/application/service/metric/rouge_score.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All seven evaluation calculators (BLEU, ROUGE, NDCG, MAP, MRR, Precision, Recall) handle nil MetricInput, empty/duplicate retrieval sets, and zero denominators without panicking or emitting NaN/Inf scores.",
+        "NDCGMetric rejects non-positive cutoffs (k <= 0) before slicing RetrievalIDs, and deduplicates repeated retrieved document IDs while preserving rank discounts.",
+        "Smoothed BLEU returns 0 when candidate or reference ground truth has zero lexical tokens, rejects negative/NaN/Inf weights, avoids log.Fatal in phrase serialization, and ROUGE normalizes metric/stat selectors while reconstructing LCS iteratively without call-stack recursion."
+      ],
+      "findings": [
+        {
+          "id": "W8-METRIC-001",
+          "severity": "P1",
+          "file": "internal/application/service/metric/ndcg.go:20-28; internal/application/service/metric/bleu.go:47-96,150-185; internal/application/service/metric/rouge.go:48-85; internal/application/service/metric/rouge_score.go:86-140",
+          "summary": "NDCGMetric.Compute panicked on negative k cutoffs (ids[:n.k]), smoothed BLEUMetric returned 0.5-0.84 against empty/punctuation-only ground-truth references and called log.Fatal in phrase.String(), RougeMetric panicked with a nil-function dereference on unknown/uppercase metric names and used O(N+M) stack recursion in reconLcs, and all seven metric calculators dereferenced nil MetricInput without guarding.",
+          "regression_test": "TestMetricsGuardNegativeCutoffEmptyReferenceUnknownRougeAndNilInput",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/automation",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 3,
       "tracked_files": [
         "internal/automation/instruction.go",
         "internal/automation/trigger.go",
         "internal/automation/trigger_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Cron and one-shot triggers validate timezones via embedded time/tzdata, forbid CRON_TZ=/TZ= expression overrides, preserve sub-second RFC3339Nano instants across normalization, and enforce DefaultMinInterval across upcoming firing gaps.",
+        "RenderInstruction substitutes placeholders in a single strings.NewReplacer pass (preventing second-pass placeholder injection from AutomationName/RunID), and RunQuery truncates carried prior results strictly on UTF-8 rune boundaries."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/background",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 9,
       "tracked_files": [
         "internal/background/lifecycle.go",
@@ -13962,30 +14482,53 @@
         "internal/background/run_notices.go",
         "internal/background/run_notices_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Lifecycle.Begin registers activity before invoking start and rolls back registration on both returned errors and recovered panics so per-kind concurrency caps never leak.",
+        "Lifecycle.Finish writes the completion notice before removing live registration and emits work_finished only on the winning first Push.",
+        "Listeners snapshots registered SessionLifecycleListeners under RWMutex, ignores nil registrations, recovers per-listener panics in NotifyStop/NotifyDelete/NotifyDeleteAborted so remaining listeners still execute, and preserves shared registry/inbox state when any OnDelete listener fails or panics."
+      ],
+      "findings": [
+        {
+          "id": "W8-BG-001",
+          "severity": "P2",
+          "file": "internal/background/lifecycle.go:40-62; internal/background/listeners.go:36-118",
+          "summary": "Lifecycle.Begin leaked the registered ActivityRegistry slot if the start callback panicked, and Listeners accepted nil registrations and allowed a single panicking listener to abort remaining session stop/delete cleanup hooks.",
+          "regression_test": "TestBeginRemovesRegistrationWhenStartPanics, TestListenersRecoverPanicIgnoreNilAndRunRemainingListeners",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/background/backgroundtest",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 1,
       "tracked_files": [
         "internal/background/backgroundtest/contract.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "RunActivityRegistryContract and RunNoticeInboxContract verify per-session isolation, cross-tenant isolation across identical SessionIDs (TenantsAreIsolated), per-kind concurrency caps under goroutine contention, lease renewal/expiry, first-push idempotency, retention pruning, and race-free Ack/Clear semantics."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/common",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 6,
       "tracked_files": [
         "internal/common/db_retry.go",
@@ -13995,92 +14538,178 @@
         "internal/common/tools_test.go",
         "internal/common/truncate_utf8_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "RedisTLSConfig enforces TLS 1.2+ with certificate verification enabled by default unless REDIS_TLS_INSECURE_SKIP_VERIFY=true.",
+        "TruncateUTF8Bytes and CleanInvalidUTF8 preserve valid UTF-8 boundaries and strip NUL bytes, PipelineLog sanitizes structured log values against log injection and typed-nil Stringers, WithDeadlockRetry honors context cancellation, and DeduplicateWithScore maintains a strict weak ordering even in the presence of NaN scores."
+      ],
+      "findings": [
+        {
+          "id": "W8-COMMON-001",
+          "severity": "P2",
+          "file": "internal/common/tools.go:71-108,281-300; internal/common/db_retry.go:16-22",
+          "summary": "DeduplicateWithScore allowed a first-seen NaN score to shadow valid finite scores for the same key and violated slices.SortFunc strict weak ordering when sorting NaN entries, formatPipelineLogValue panicked on typed-nil fmt.Stringer values (such as (*url.URL)(nil)), and WithDeadlockRetry did not guard nil contexts.",
+          "regression_test": "TestDeduplicateWithScoreNaNAndTypedNilPipelineLog",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/common/redislock",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 2,
       "tracked_files": [
         "internal/common/redislock/token_lock.go",
         "internal/common/redislock/token_lock_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Cryptographically random 128-bit hex owner tokens guard atomic Lua compare-and-delete (Release) and compare-and-pexpire (Renew) scripts so an expired holder never deletes or extends another holder's lock.",
+        "WithRenewableLock separates caller cancellation from OwnershipContext cancellation, enforces 0 < renewInterval < lease and lease >= 1ms, and reports ErrLockOwnershipLost if renewal or release loses ownership."
+      ],
+      "findings": [
+        {
+          "id": "W8-LOCK-001",
+          "severity": "P2",
+          "file": "internal/common/redislock/token_lock.go:256-272",
+          "summary": "validateOperation accepted positive sub-millisecond leases (0 < lease < 1ms), causing Renew to pass lease.Milliseconds() == 0 into PEXPIRE and immediately delete the caller's owned lock in Redis while reporting renewed=true.",
+          "regression_test": "TestSubMillisecondLeaseRejectedBeforeZeroPexpire",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/embedpolicy",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 2,
       "tracked_files": [
         "internal/embedpolicy/origin.go",
         "internal/embedpolicy/origin_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "NormalizeOrigin and NormalizePattern accept only http/https origins or *.domain[:port] / * patterns without userinfo, paths, queries, fragments, IP wildcards, IPv6 zone IDs, empty/leading-zero/out-of-range ports, trailing/leading/empty DNS labels, or CSP-breaking characters.",
+        "Allows enforces exact scheme+host+port matching or strict dot-boundary subdomain matching (preventing evil-example.com suffix tricks and port mismatches), and FrameAncestors fails closed to frame-ancestors 'none' when patterns are empty or invalid."
+      ],
+      "findings": [
+        {
+          "id": "W8-EMBED-001",
+          "severity": "P1",
+          "file": "internal/embedpolicy/origin.go:11-56",
+          "summary": "NormalizeOrigin and NormalizePattern accepted dangling empty-port colons (https://a.example:, *.example.com:), out-of-range/leading-zero ports (:0, :65536, :0443), leading/consecutive/trailing FQDN dots (*..example.com, *.example.com.), IPv6 % zone IDs, and unsafe characters (<, >, `), causing FrameAncestors to emit broken CSP tokens (http://*.example.com::*) and Allows to wildcard all ports on *.example.com:.",
+          "regression_test": "TestRejectTrailingDotEmptyPortAndMalformedHosts",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/envfile",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 2,
       "tracked_files": [
         "internal/envfile/envfile.go",
         "internal/envfile/envfile_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Load honors explicit ENV_FILE across all builds, restricts implicit dotenv loading strictly to .env.lite on Lite builds (executable directory first, then CWD), ignores stray .env files, and never overwrites existing process environment variables."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/errors",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 3,
+      "status": "verified_findings_fixed",
+      "file_count": 4,
       "tracked_files": [
         "internal/errors/errors.go",
+        "internal/errors/errors_test.go",
         "internal/errors/parse_error_codes.go",
         "internal/errors/session.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All HTTP/application ErrorCode constants, parse-stage wire codes, and session sentinel errors preserve stable numeric/string values and generic anti-enumeration messages.",
+        "IsAppError unwraps %w-wrapped error chains via errors.As while rejecting nil and typed-nil *AppError pointers, and (*AppError).Error() is nil-receiver safe."
+      ],
+      "findings": [
+        {
+          "id": "W8-ERRORS-001",
+          "severity": "P2",
+          "file": "internal/errors/errors.go:70-79,302-313",
+          "summary": "IsAppError used a direct err.(*AppError) type assertion instead of errors.As, missing %w-wrapped AppErrors and returning (nil, true) on typed-nil *AppError values, while (*AppError).Error() panicked on a nil receiver.",
+          "regression_test": "TestIsAppErrorUnwrapsWrappedAndRejectsTypedNil",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/filetransport",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 2,
       "tracked_files": [
         "internal/filetransport/response.go",
         "internal/filetransport/response_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Serve always closes reader on every path (including HEAD and 416 Range errors), sets X-Content-Type-Options: nosniff, strips Unix/Windows path components and control characters from Content-Disposition filenames, and forces attachment + application/octet-stream whenever active browser content (.svg, .html, .xml, .js, etc. or active MIME types) is served without Download: true."
+      ],
+      "findings": [
+        {
+          "id": "W8-FILETRANS-001",
+          "severity": "P2",
+          "file": "internal/filetransport/response.go:25-115",
+          "summary": "Serve used platform-specific filepath.Base in Content-Disposition (leaking Windows backslash traversal segments on Linux and emitting filename=\"/\" or \"..\" on degenerate inputs) and allowed caller-supplied active ContentType values (text/html, image/svg+xml, text/javascript) to override SafeContentTypeByFilename when Download was false.",
+          "regression_test": "TestServeBlocksWindowsBackslashTraversalAndInlineActiveContentType",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/infrastructure/docparser/anydoc",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 11,
       "tracked_files": [
         "internal/infrastructure/docparser/anydoc/anydoc.go",
@@ -14095,16 +14724,31 @@
         "internal/infrastructure/docparser/anydoc/stress_linked_test.go",
         "internal/infrastructure/docparser/anydoc/upgrade_linked_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "In-process anydoc conversions enforce empty-input rejection, normalize format extensions consistently, drop WithAssets on PDF inputs, classify typed resource_limit failures permanently via ErrResourceLimit without re-parsing hostile inputs, cap AST block/inline walk depth, and report ErrUnavailable cleanly when built without -tags anydoc."
+      ],
+      "findings": [
+        {
+          "id": "W8-ANYDOC-001",
+          "severity": "P2",
+          "file": "internal/infrastructure/docparser/anydoc/anydoc.go:192-235; internal/infrastructure/docparser/anydoc/backend_cgo.go:49-66,114-208",
+          "summary": "backendConvert unconditionally retried ToMarkdownBytes after ToDocumentWithAssetLinks hit a permanent resource_limit rejection (parsing hostile XML/ZIP bombs twice), Convert compared opts.Format == \"pdf\" without normalizeExt normalization, and AST block/inline walkers lacked a recursion depth guard.",
+          "regression_test": "TestShouldRetryTextOnlySkipsResourceLimitAndNormalizesFormat",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/infrastructure/legacyxls",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 8,
       "tracked_files": [
         "internal/infrastructure/legacyxls/builder_test.go",
@@ -14116,16 +14760,33 @@
         "internal/infrastructure/legacyxls/reader_test.go",
         "internal/infrastructure/legacyxls/robustness_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Compound header validation verifies the 8-byte OLE2 signature, 512/4096 sector shifts, and header sector counts before mscfb allocation, returning ErrUnsupported on non-OLE2 inputs.",
+        "validateOLEStreamChain verifies DIFAT, Directory, FAT, and MiniFAT chains for cycles and unallocated/special sector markers before reading Workbook/Book streams, and readStream bounds both initial buffer capacity (64 KiB) and total stream bytes (256 MiB and verified chain capacity) regardless of forged streamSize or caller fileSize.",
+        "BIFF5/BIFF8 record parsing bounds SST allocations/iterations, skips overlapping BoundSheet substreams to prevent quadratic re-parsing, enforces worksheet row/col grid limits, and recovers panics as errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-XLS-001",
+          "severity": "P1",
+          "file": "internal/infrastructure/legacyxls/reader.go:67-79,138-395,779-790",
+          "summary": "mscfb stream reads lacked FAT/MiniFAT cycle and special-sector validation (allowing cyclic FAT[0]=0 chains to synthesize repeated workbook sectors up to declared stream size), readStream preallocated min(f.Size, fileSize) upfront before reading bytes, checkCompoundHeader omitted the 8-byte OLE2 magic check (failing to return ErrUnsupported on >=512B non-OLE2 files with 0x0009 at offset 30), and parseSST looped over raw uint32 unique counts.",
+          "regression_test": "TestFATCycleOversizeReaderArgAndNonOLE2SignatureRejected",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/infrastructure/web_fetch",
       "wave": "W8",
       "legacy_status": "audited_findings_fixed",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 10,
       "tracked_files": [
         "internal/infrastructure/web_fetch/chromium_proxy.go",
@@ -14139,31 +14800,62 @@
         "internal/infrastructure/web_fetch/markdown_base_test.go",
         "internal/infrastructure/web_fetch/markdown_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "HTTP and headless Chromium fetches enforce SSRF validation on initial URLs, redirect hops, DNS-pinned dials, and local Chromium HTTP/CONNECT proxy requests, blocking loopback, RFC1918, CGNAT, link-local metadata, IPv4-in-IPv6 translations, restricted ports, userinfo credentials, and FQDN trailing-dot internal hostnames.",
+        "Chromium child processes run with a strict minimal environment allowlist (blanking parent secrets and LD_*/DYLD_* variables), bounded global concurrency semaphore, <-loopback> proxy enforcement, Host-header normalization on HTTP proxy requests, and bounded response/DOM body sizes."
+      ],
+      "findings": [
+        {
+          "id": "W8-WEBFETCH-001",
+          "severity": "P1",
+          "file": "internal/infrastructure/web_fetch/chromium_proxy.go:85-143,287-293,399-525; internal/infrastructure/web_fetch/fetcher.go:192-198,322-455",
+          "summary": "chromiumSSRFProxy and Fetcher.pinnedDialContext/resolvePinnedTarget did not canonicalize FQDN trailing dots (allowing http://localhost./, http://metadata.google.internal./, and .corp. to bypass hostname suffix checks), pinnedDialContext omitted restricted-port checks before DNS resolution, Fetch and resolvePinnedTarget accepted userinfo credentials in URLs, and chromiumSSRFProxy.handleHTTP did not pin outReq.Host to outReq.URL.Host.",
+          "regression_test": "TestWebFetchBlocksTrailingDotRestrictedHostsPortsAndCredentials",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/ipclass",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 2,
       "tracked_files": [
         "internal/ipclass/ipclass.go",
         "internal/ipclass/ipclass_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Classify fails closed (Invalid) on nil or malformed net.IP slices and categorizes loopback, RFC1918, IPv6 ULA (fc00::/7), site-local (fec0::/10), link-local (169.254.0.0/16, fe80::/10), CGNAT (100.64.0.0/10), 0.0.0.0/8, 240.0.0.0/4, RFC 2544/6890 reserved, RFC 6666 discard-only (100::/64), TEST-NET documentation, IPv4-mapped (::ffff:0:0/96), RFC 2765 SIIT IPv4-translated (::ffff:0:0:0/96), 6to4 (2002::/16), Teredo (2001::/32), NAT64 (64:ff9b::/96, 64:ff9b:1::/48), and IPv4-compatible (::a.b.c.d) addresses."
+      ],
+      "findings": [
+        {
+          "id": "W8-IPCLASS-001",
+          "severity": "P1",
+          "file": "internal/ipclass/ipclass.go:161-218",
+          "summary": "classifyIPv6 and embeddedIPv4 omitted RFC 2765 SIIT IPv4-translated addresses (::ffff:0:a.b.c.d, e.g. ::ffff:0:169.254.169.254 and ::ffff:0:127.0.0.1) and RFC 6666 discard-only IPv6 addresses (100::/64), misclassifying them as Public.",
+          "regression_test": "TestClassifyRFC2765AndDiscardIPv6",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/models",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 4,
       "tracked_files": [
         "internal/models/capabilities.go",
@@ -14171,109 +14863,214 @@
         "internal/models/model.go",
         "internal/models/model_type.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "ModelSpec, ModelCost, Capabilities, ExtraConfig key constants, and ParseModelType are pure value types and side-effect-free helpers with zero mutable global state.",
+        "ParseModelType maps chat/embedding/rerank/vlm/asr aliases deterministically without mutating inputs; zero legacy brand or host-path residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/anthropicmessages",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 3,
+      "status": "verified_findings_fixed",
+      "file_count": 4,
       "tracked_files": [
         "internal/models/api/anthropicmessages/anthropicmessages_test.go",
         "internal/models/api/anthropicmessages/client.go",
-        "internal/models/api/anthropicmessages/request.go"
+        "internal/models/api/anthropicmessages/request.go",
+        "internal/models/api/anthropicmessages/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Non-streaming responses read via api.ReadResponseCapped (64 MiB cap) and SSE streams read via bounded api.NewSSEReader; incomplete streamed tool_use blocks are dropped before execution.",
+        "Inline data: base64 image payloads enforce a 20 MiB decoded ceiling before base64.StdEncoding.DecodeString allocates; remote image URLs require http/https with non-empty host.",
+        "URL() preserves Endpoint.Query across all BaseURL shapes, Chat/ChatStream tolerate nil context, and request-creation/transport errors redact URL userinfo and query-string secrets."
+      ],
+      "findings": [
+        {
+          "id": "W8-ANTHROPIC-001",
+          "severity": "P1",
+          "file": "internal/models/api/anthropicmessages/client.go:46-156, internal/models/api/anthropicmessages/request.go:494-518",
+          "summary": "imageSourceFor decoded arbitrary-size data: base64 payloads without a pre-allocation byte ceiling, URL() dropped Endpoint.Query when Endpoint.URL was unset, Chat/ChatStream panicked on nil context, and NewRequest failures leaked URL userinfo/query secrets.",
+          "regression_test": "TestChatNilContextAndSecretRedactionInRequestCreationError, TestURLPreservesEndpointQueryParameters, TestImageSourceForRejectsOversizedBase64BeforeAllocating",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/anthropicmessages (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/anthropicmessages (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/arkembeddings",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "internal/models/api/arkembeddings/client.go",
-        "internal/models/api/arkembeddings/golden_test.go"
+        "internal/models/api/arkembeddings/golden_test.go",
+        "internal/models/api/arkembeddings/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Responses are bounded via Endpoint.PostJSONWithRetry (64 MiB cap), single-item fusion invariant (len == 1) is enforced for text and image requests, and returned vectors are checked via api.ValidateEmbeddingVectors.",
+        "Nil context is normalized safely and URL userinfo/query-parameter secrets are redacted from request-creation and transport errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-ARKEMBED-001",
+          "severity": "P1",
+          "file": "internal/models/api/arkembeddings/client.go:126-154",
+          "summary": "post returned decoded float32 vectors without running api.ValidateEmbeddingVectors (permitting NaN/Inf values), did not normalize nil context, and leaked URL userinfo/query secrets on NewRequest failures.",
+          "regression_test": "TestEmbedNilContextAndRedactsSecretsInRequestError, TestPostValidatesEmbeddingVectorFinity",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/arkembeddings (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/arkembeddings (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/dashscopeembeddings",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "internal/models/api/dashscopeembeddings/client.go",
-        "internal/models/api/dashscopeembeddings/golden_test.go"
+        "internal/models/api/dashscopeembeddings/golden_test.go",
+        "internal/models/api/dashscopeembeddings/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Responses are bounded via Endpoint.PostJSONWithRetry and re-indexed/validated via api.PlaceEmbeddings (out-of-range index, duplicate index, empty vector, dimension uniformity, NaN/Inf rejection).",
+        "Empty text/image slices short-circuit without issuing network POSTs, nil context is normalized, and URL userinfo/query secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-DASHSCOPEEMBED-001",
+          "severity": "P2",
+          "file": "internal/models/api/dashscopeembeddings/client.go:90-130",
+          "summary": "Embed and EmbedImages issued empty-contents HTTP POSTs on empty batches, did not normalize nil context, and leaked URL userinfo/query secrets on NewRequest failures.",
+          "regression_test": "TestEmbedEmptyShortCircuitsAndNilContextRedactsSecrets",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/dashscopeembeddings (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/dashscopeembeddings (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/googleembeddings",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "internal/models/api/googleembeddings/client.go",
-        "internal/models/api/googleembeddings/golden_test.go"
+        "internal/models/api/googleembeddings/golden_test.go",
+        "internal/models/api/googleembeddings/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Model segment in batchEmbedContents URL is path-escaped after stripping optional models/ prefix so ?/#// characters cannot inject query parameters or traverse paths.",
+        "Query-string API keys (?key=...) and URL userinfo credentials are redacted across all request-creation, SSRF, and transport errors.",
+        "Empty text/image batches short-circuit without network calls, nil context is normalized, and responses are validated via api.PlaceEmbeddings."
+      ],
+      "findings": [
+        {
+          "id": "W8-GOOGLEEMBED-001",
+          "severity": "P1",
+          "file": "internal/models/api/googleembeddings/client.go:59-67,131-196",
+          "summary": "url() interpolated Endpoint.Model into the URL path without url.PathEscape (allowing query/fragment/path injection), empty batches issued invalid HTTP POSTs, nil context was not normalized, and NewRequest/url.Error failures leaked ?key= and URL userinfo secrets.",
+          "regression_test": "TestEmbedRedactsQueryKeyAndUserinfoInErrors, TestEmbedEscapesModelSegmentAndShortCircuitsEmptyInputs",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/googleembeddings (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/googleembeddings (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/googlegenai",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 3,
+      "status": "verified_findings_fixed",
+      "file_count": 4,
       "tracked_files": [
         "internal/models/api/googlegenai/client.go",
         "internal/models/api/googlegenai/googlegenai_test.go",
-        "internal/models/api/googlegenai/request.go"
+        "internal/models/api/googlegenai/request.go",
+        "internal/models/api/googlegenai/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Non-streaming responses read via api.ReadResponseCapped and SSE streams read via bounded api.NewSSEReader; requestURL path-escapes Model after stripping optional models/ prefix.",
+        "imagePart restricts non-data fileData.fileUri references to http/https/gs schemes with non-empty host (preventing unresolved resource:///local:///file:// URIs from leaking onto the wire) and caps inline data: payloads at 20 MiB.",
+        "Chat/ChatStream normalize nil context and redact ?key= query secrets and URL userinfo across request-creation and transport errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-GOOGLEGENAI-001",
+          "severity": "P1",
+          "file": "internal/models/api/googlegenai/client.go:47-156, internal/models/api/googlegenai/request.go:217-286",
+          "summary": "requestURL interpolated unescaped Endpoint.Model into the URL path, imagePart forwarded unresolved resource:///local:///file:// URIs as fileData.fileUri and lacked a 20 MiB cap on data: payloads, Chat/ChatStream panicked on nil context, and NewRequest errors leaked ?key=/userinfo secrets.",
+          "regression_test": "TestChatRedactsQueryKeyAndUserinfoInRequestCreationError, TestRequestURLEscapesModelNameAndNormalizesPrefix, TestImagePartRejectsUnsafeSchemesAndOversizedDataURI",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/googlegenai (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/googlegenai (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/openaichataudio",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "internal/models/api/openaichataudio/client.go",
-        "internal/models/api/openaichataudio/golden_test.go"
+        "internal/models/api/openaichataudio/golden_test.go",
+        "internal/models/api/openaichataudio/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "BuildRequestBody rejects empty audio and verifies MaxEncodedBytes against base64.StdEncoding.EncodedLen before allocating the base64 data URI string.",
+        "Responses are bounded via Endpoint.PostJSONWithRetry, non-finite/negative usage.seconds durations are sanitized to 0, nil context is normalized, and URL secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-CHATAUDIO-001",
+          "severity": "P1",
+          "file": "internal/models/api/openaichataudio/client.go:84-165",
+          "summary": "BuildRequestBody base64-encoded req.Audio in full before checking MaxEncodedBytes and accepted empty audio payloads, while Transcribe did not guard nil context, non-finite usage.seconds, or URL secret leaks in NewRequest errors.",
+          "regression_test": "TestBuildRequestBodyRejectsEmptyAudioAndChecksSizeBeforeEncoding, TestTranscribeNilContextAndRedactsSecretsInRequestError",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/openaichataudio (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openaichataudio (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/openaicompletions",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 9,
+      "status": "verified_findings_fixed",
+      "file_count": 10,
       "tracked_files": [
         "internal/models/api/openaicompletions/client.go",
         "internal/models/api/openaicompletions/content_parts_test.go",
@@ -14283,110 +15080,223 @@
         "internal/models/api/openaicompletions/golden_test.go",
         "internal/models/api/openaicompletions/request.go",
         "internal/models/api/openaicompletions/session_headers_test.go",
-        "internal/models/api/openaicompletions/stream_tool_index_test.go"
+        "internal/models/api/openaicompletions/stream_tool_index_test.go",
+        "internal/models/api/openaicompletions/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Non-streaming responses read via api.ReadResponseCapped and SSE streams read via bounded api.NewSSEReader; dsmlFilter bounds unclosed <｜DSML｜ holdback buffers to 1 MiB.",
+        "Chat/ChatStream normalize nil context before WithLLMTimeout and redact URL userinfo/query secrets across request-creation and transport errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-COMPLETIONS-001",
+          "severity": "P1",
+          "file": "internal/models/api/openaicompletions/client.go:53-118, internal/models/api/openaicompletions/dsml.go:34-98",
+          "summary": "dsmlFilter.Feed buffered unclosed <｜DSML｜ stream output in memory without bound, Chat/ChatStream panicked on nil context, and NewRequest errors leaked URL userinfo/query secrets.",
+          "regression_test": "TestDSMLFilterBoundsUnclosedHeldBuffer, TestChatNilContextAndSecretRedactionInRequestCreationError",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/openaicompletions (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openaicompletions (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/openaiembeddings",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "internal/models/api/openaiembeddings/client.go",
-        "internal/models/api/openaiembeddings/golden_test.go"
+        "internal/models/api/openaiembeddings/golden_test.go",
+        "internal/models/api/openaiembeddings/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Responses are bounded via Endpoint.PostJSONWithRetry and validated via api.PlaceEmbeddings (index range, duplicates, uniform dimensions, NaN/Inf rejection).",
+        "Empty text and image batches short-circuit cleanly across both input-array and messages wire formats, nil context is normalized, and URL secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-OPENAIEMBED-001",
+          "severity": "P2",
+          "file": "internal/models/api/openaiembeddings/client.go:150-240",
+          "summary": "Embed (when TextAsMessages was false) and EmbedImages (object format) sent HTTP POSTs for empty slices instead of short-circuiting like postMessages, did not normalize nil context, and leaked URL secrets on NewRequest failures.",
+          "regression_test": "TestEmbedEmptyShortCircuitsAndNilContextRedactsSecrets",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/openaiembeddings (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openaiembeddings (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/openairesponses",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 4,
+      "status": "verified_findings_fixed",
+      "file_count": 5,
       "tracked_files": [
         "internal/models/api/openairesponses/client.go",
         "internal/models/api/openairesponses/openairesponses_test.go",
         "internal/models/api/openairesponses/refusal_test.go",
-        "internal/models/api/openairesponses/request.go"
+        "internal/models/api/openairesponses/request.go",
+        "internal/models/api/openairesponses/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Non-streaming and streaming incomplete responses (status == \"incomplete\") never report finish_reason == \"tool_calls\", even when incomplete_details is null or carries an unknown reason.",
+        "convertMessages extracts text from system messages carrying MultiContent parts, Chat/ChatStream normalize nil context, and URL secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-RESPONSES-001",
+          "severity": "P1",
+          "file": "internal/models/api/openairesponses/client.go:51-118,202-220, internal/models/api/openairesponses/request.go:75-110",
+          "summary": "rawResponse.finishReason fell through to \"tool_calls\" on non-streaming status==\"incomplete\" responses when incomplete_details was nil or unrecognized (allowing truncated tool-call arguments to execute), convertMessages dropped MultiContent system instructions, Chat/ChatStream panicked on nil context, and NewRequest errors leaked URL secrets.",
+          "regression_test": "TestNonStreamIncompleteResponseWithoutDetailsDoesNotReportToolCalls, TestSystemMessageMultiContentPreservedInInstructions, TestChatRedactsSecretsInRequestCreationError",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/openairesponses (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openairesponses (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/openaitranscriptions",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "internal/models/api/openaitranscriptions/client.go",
-        "internal/models/api/openaitranscriptions/golden_test.go"
+        "internal/models/api/openaitranscriptions/golden_test.go",
+        "internal/models/api/openaitranscriptions/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "url() defaults empty Settings.Path to /audio/transcriptions, and Transcribe enforces non-empty audio and Settings.MaxFileBytes before api.EncodeMultipart copies upload bytes.",
+        "Responses are bounded via PostMultipartWithRetry, negative/non-finite durations and segment timestamps are sanitized to 0, nil context is normalized, and URL secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-TRANSCRIPTIONS-001",
+          "severity": "P1",
+          "file": "internal/models/api/openaitranscriptions/client.go:38-52,88-160",
+          "summary": "url() resolved to BaseURL root when Settings.Path was empty instead of /audio/transcriptions, Transcribe buffered multipart payloads before checking MaxFileBytes, accepted negative/non-finite durations, did not normalize nil context, and leaked URL secrets on NewRequest errors.",
+          "regression_test": "TestDefaultPathMaxFileBytesAndNilContextSecretRedaction",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/openaitranscriptions (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openaitranscriptions (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/pineconerank",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "internal/models/api/pineconerank/client.go",
-        "internal/models/api/pineconerank/golden_test.go"
+        "internal/models/api/pineconerank/golden_test.go",
+        "internal/models/api/pineconerank/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Responses are bounded via Endpoint.PostJSON and validate non-nil data array, exact score count, in-bounds non-duplicate indexes, and finite (non-NaN/Inf) scores.",
+        "Empty document slices short-circuit without issuing TopN:0 HTTP POSTs, nil context is normalized, and URL userinfo/query secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-PINECONE-001",
+          "severity": "P2",
+          "file": "internal/models/api/pineconerank/client.go:95-155",
+          "summary": "Rerank sent invalid TopN:0 HTTP POSTs on empty document slices, lacked explicit finite-score checks and nil-context normalization, and leaked URL secrets on NewRequest errors.",
+          "regression_test": "TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/pineconerank (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/pineconerank (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/teirank",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "internal/models/api/teirank/client.go",
-        "internal/models/api/teirank/golden_test.go"
+        "internal/models/api/teirank/golden_test.go",
+        "internal/models/api/teirank/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Responses are bounded via Endpoint.PostJSON and validate exact rank count, in-bounds non-duplicate indexes, and non-nil finite scores.",
+        "Empty document slices short-circuit without issuing empty texts:[] HTTP POSTs, nil context is normalized, and URL userinfo/query secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-TEIRANK-001",
+          "severity": "P2",
+          "file": "internal/models/api/teirank/client.go:73-125",
+          "summary": "Rerank issued HTTP POSTs on empty document slices, lacked finite-score guards and nil-context normalization, and leaked URL secrets on NewRequest errors.",
+          "regression_test": "TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/teirank (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/teirank (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/api/volcengineknowledge",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 1,
+      "status": "verified_findings_fixed",
+      "file_count": 2,
       "tracked_files": [
-        "internal/models/api/volcengineknowledge/client.go"
+        "internal/models/api/volcengineknowledge/client.go",
+        "internal/models/api/volcengineknowledge/client_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "BaseURL is validated for http/https scheme, non-empty host, absence of userinfo/query/fragment, and secutils.ValidateURLForSSRF; empty BaseURL preserves the SDK's default endpoint.",
+        "Underlying vikingdb-go-sdk HTTP client is wrapped in cappedRoundTripper + cappedReadCloser enforcing api.MaxResponseBytes (64 MiB) on both Content-Length and chunked streams without retrying oversized responses.",
+        "Rerank normalizes nil context, short-circuits empty document slices without RPCs, rejects NaN/Inf scores, and redacts SecretKey and URL secrets from all returned errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-VOLCKNOWLEDGE-001",
+          "severity": "P1",
+          "file": "internal/models/api/volcengineknowledge/client.go:38-295",
+          "summary": "New overwrote the SDK default endpoint when BaseURL was empty and skipped scheme/userinfo/SSRF validation when set; SDK responses were read via unbounded io.ReadAll without a 64 MiB cap; Rerank lacked nil-context and empty-batch guards, finite-score validation, and SecretKey/URL redaction on errors.",
+          "regression_test": "TestNewValidatesBaseURLAndRedactsSecrets, TestRerankNilContextAndEmptyDocumentsShortCircuit, TestRerankCapsOversizedResponsesWithoutRetrying, TestRerankRedactsSecretKeyInError",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/volcengineknowledge (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/volcengineknowledge (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/asr",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 7,
+      "status": "verified_findings_fixed",
+      "file_count": 8,
       "tracked_files": [
         "internal/models/asr/asr.go",
         "internal/models/asr/catalog_matrix_test.go",
@@ -14394,82 +15304,151 @@
         "internal/models/asr/langfuse_wrapper.go",
         "internal/models/asr/protocol.go",
         "internal/models/asr/transport.go",
+        "internal/models/asr/w8_audit_test.go",
         "internal/models/asr/wire_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Both resolved.BaseURL and endpoint.URL are SSRF-validated via validateASRBaseURL with URL userinfo/query secrets redacted in errors and [ASR] request logs.",
+        "protocolASR enforces vendor MaxFileBytes (or a 100 MiB fallback ceiling for generic endpoints) before multipart encoding, normalizes nil context in WithLanguage/languageFrom/Transcribe, and sanitizes non-finite/negative durations before Langfuse JSON reporting.",
+        "ConfigFromModel clones ExtraConfig and CustomHeaders maps so caller mutations never alias shared types.Model parameters."
+      ],
+      "findings": [
+        {
+          "id": "W8-ASR-001",
+          "severity": "P1",
+          "file": "internal/models/asr/asr.go:31-47,73-93, internal/models/asr/protocol.go:129-185, internal/models/asr/transport.go:11-36, internal/models/asr/langfuse_wrapper.go:45-71",
+          "summary": "WithLanguage/languageFrom panicked on nil context, ConfigFromModel aliased ExtraConfig and CustomHeaders maps, generic endpoints with MaxFileBytes==0 had no upload size ceiling, non-finite durations poisoned Langfuse JSON/integer conversion, and validateASRBaseURL/logs echoed unredacted URL secrets.",
+          "regression_test": "TestWithLanguageNilContextAndConfigFromModelMapIsolation, TestValidateASRBaseURLRedactsSecretsAndSanitizesDuration",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/asr (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/asr (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/catalog",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 2,
       "tracked_files": [
         "internal/models/catalog/catalog.go",
         "internal/models/catalog/loader.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Embedded catalog JSON files are parsed once via sync.Once with DisallowUnknownFields(), and New, Models, ModelsByType, and FindModel deep-copy entries via configcopy.Clone so callers cannot mutate catalog state.",
+        "Glob matching in matchPattern uses iterative two-pointer backtracking with zero exponential regex/recursion behavior and zero legacy brand residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/catalog (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/catalog (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/imageprep",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 2,
       "tracked_files": [
         "internal/models/imageprep/prepare.go",
         "internal/models/imageprep/prepare_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Decompression bombs are blocked before image.Decode via maxImagePixels (40,000,000) and maxImageSide (32,768), and recognized formats with corrupt/truncated headers are rejected even on the pass-through path.",
+        "LimitsOf clones ImageMIMETypes slice so callers cannot mutate vendor settings."
+      ],
+      "findings": [
+        {
+          "id": "W8-IMAGEPREP-001",
+          "severity": "P2",
+          "file": "internal/models/imageprep/prepare.go:75-92",
+          "summary": "Prepare ignored non-ErrFormat image.DecodeConfig errors on the fast pass-through path, forwarding truncated or corrupt PNG/JPEG/GIF/BMP/WebP headers to upstream vision/embedding endpoints when MIME and byte length matched.",
+          "regression_test": "TestPrepareImageRejectsCorruptHeaderOnPassThrough",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/imageprep (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/imageprep (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/internal/configcopy",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 1,
+      "status": "verified_findings_fixed",
+      "file_count": 2,
       "tracked_files": [
-        "internal/models/internal/configcopy/copy.go"
+        "internal/models/internal/configcopy/copy.go",
+        "internal/models/internal/configcopy/copy_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Clone deep-copies pointers, interfaces, slices, maps, and exported struct fields recursively while preserving scalar and unexported struct fields without reflect.Value.Set panics."
+      ],
+      "findings": [
+        {
+          "id": "W8-CONFIGCOPY-001",
+          "severity": "P2",
+          "file": "internal/models/internal/configcopy/copy.go:53-61",
+          "summary": "cloneValue called out.Field(i).Set(...) unconditionally on every struct field, panicking with reflect.Value.Set unaddressable/unexported error if any copied struct contained an unexported field.",
+          "regression_test": "TestCloneDeepCopiesExportedContainersAndSurvivesUnexportedFields",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/internal/configcopy (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/internal/configcopy (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/limiter",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 6,
+      "status": "verified_findings_fixed",
+      "file_count": 7,
       "tracked_files": [
         "internal/models/limiter/governor.go",
         "internal/models/limiter/governor_test.go",
         "internal/models/limiter/heartbeat_test.go",
         "internal/models/limiter/limiter.go",
         "internal/models/limiter/limiter_test.go",
-        "internal/models/limiter/local_limit_update_test.go"
+        "internal/models/limiter/local_limit_update_test.go",
+        "internal/models/limiter/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Both localLimiter and redisLimiter fail open on backend errors or context cancellation, release slots idempotently via sync.Once, and run race-free under concurrent limit updates and -race.",
+        "GateNamedN, RuntimeStats, localLimiter.Acquire, and redisLimiter.Acquire/RuntimeStats normalize nil context safely; redisLimiter guards non-positive ttl/pollInterval and bounds detached heartbeat/release Redis RPCs with 5s timeouts."
+      ],
+      "findings": [
+        {
+          "id": "W8-LIMITER-001",
+          "severity": "P1",
+          "file": "internal/models/limiter/governor.go:60-98,125-140, internal/models/limiter/limiter.go:117-265",
+          "summary": "GateNamedN, RuntimeStats, localLimiter.Acquire, and redisLimiter.Acquire/RuntimeStats panicked on nil context, redisLimiter.hold panicked in time.NewTicker(l.ttl/3) when ttl < 3ns or busy-spun when pollInterval <= 0, and background lease refresh/release Redis calls used unbounded context.Background().",
+          "regression_test": "TestNilContextAndZeroDurationSafetyAcrossLimiters",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/limiter (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/limiter (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/providers",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 36,
+      "status": "verified_findings_fixed",
+      "file_count": 37,
       "tracked_files": [
         "internal/models/providers/aliyun.go",
         "internal/models/providers/anthropic.go",
@@ -14506,19 +15485,35 @@
         "internal/models/providers/runcrate_test.go",
         "internal/models/providers/siliconflow.go",
         "internal/models/providers/volcengine.go",
+        "internal/models/providers/w8_audit_test.go",
         "internal/models/providers/zhipu.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All 34 vendor definitions register deterministic metadata, auth styles, endpoint hooks, and GenyeeCloud-compliant branding with zero legacy brand/prefix residues.",
+        "Definition receiver methods handle nil receivers without panicking, and CredentialLabelFor returns a deep-cloned CredentialLabel so callers cannot mutate registered provider definitions."
+      ],
+      "findings": [
+        {
+          "id": "W8-PROVIDERS-001",
+          "severity": "P2",
+          "file": "internal/models/providers/definition.go:101-120,238-310",
+          "summary": "Definition methods (SupportsType, LocalizedName, LocalizedDescription, CredentialLabelFor, AuthStyleFor, ValidateConfig) panicked on nil receivers unlike GetDefaultURL, and CredentialLabelFor returned a pointer into the internal CredentialLabels slice.",
+          "regression_test": "TestDefinitionNilReceiverSafetyAndCredentialLabelIsolation",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/providers (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/providers (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/rerank",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 20,
+      "status": "verified_findings_fixed",
+      "file_count": 21,
       "tracked_files": [
         "internal/models/rerank/catalog_matrix_test.go",
         "internal/models/rerank/cohere_test.go",
@@ -14539,19 +15534,36 @@
         "internal/models/rerank/transport.go",
         "internal/models/rerank/transport_security_test.go",
         "internal/models/rerank/volcengine_reranker.go",
+        "internal/models/rerank/w8_audit_test.go",
         "internal/models/rerank/wire_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "newReranker validates both resolved.BaseURL and endpoint.URL against SSRF with URL secrets redacted in errors and debug request previews.",
+        "protocolReranker.Rerank and RerankImages bound concurrency via errgroup.SetLimit, normalize nil context, and reject out-of-range, duplicate, or non-finite (NaN/Inf) scores before logistic scaling and sort.SliceStable.",
+        "ConfigFromModel clones ExtraConfig and CustomHeaders maps, and newVolcengineClient guards nil config/resolved and honors Rerank.RequestTimeout."
+      ],
+      "findings": [
+        {
+          "id": "W8-RERANK-001",
+          "severity": "P1",
+          "file": "internal/models/rerank/protocol.go:37-100, internal/models/rerank/image.go:72-125, internal/models/rerank/reranker.go:142-200, internal/models/rerank/logging.go:24-30, internal/models/rerank/transport.go:11-36, internal/models/rerank/volcengine_reranker.go:18-48",
+          "summary": "protocolReranker.Rerank and RerankImages panicked on nil context and accepted NaN/Inf scores (breaking sort.SliceStable weak ordering and poisoning Langfuse stats), newReranker skipped SSRF validation on endpoint.URL, ConfigFromModel aliased maps, newVolcengineClient dereferenced nil config/resolved, and debug/SSRF helpers echoed URL secrets.",
+          "regression_test": "TestProtocolRerankerNilContextAndRejectsNonFiniteScores, TestConfigFromModelMapIsolationAndDebugRedaction",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/rerank (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/rerank (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/runtime",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 17,
+      "status": "verified_findings_fixed",
+      "file_count": 18,
       "tracked_files": [
         "internal/models/runtime/catalog_test.go",
         "internal/models/runtime/compat.go",
@@ -14569,34 +15581,56 @@
         "internal/models/runtime/runtime.go",
         "internal/models/runtime/snapshot.go",
         "internal/models/runtime/validate.go",
-        "internal/models/runtime/validate_test.go"
+        "internal/models/runtime/validate_test.go",
+        "internal/models/runtime/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Resolve deep-copies Vendor, ThinkingLevels (*string pointers), Spec.Input, and Capabilities().Input so caller mutations never corrupt live Runtime provider generations under concurrent access.",
+        "loadOverlayIcon enforces relative-path confinement via EvalSymlinks, 256 KiB size cap, SVG root element check, and rejects XML <!ENTITY (XXE), <script>, <foreignObject>, javascript: URIs, and event-handler attributes.",
+        "DecodeCompat, upsertOverlayModel, and applyOverlayProvider reject trailing JSON tokens and non-object model_overrides.*.compat payloads while guarding nil Resolved/Provider receivers."
+      ],
+      "findings": [
+        {
+          "id": "W8-RUNTIME-001",
+          "severity": "P1",
+          "file": "internal/models/runtime/resolve.go:129-145,275-310, internal/models/runtime/overlay.go:188-370,475-555, internal/models/runtime/compat.go:61-75, internal/models/runtime/connection.go:25-30, internal/models/runtime/registry.go:23-45",
+          "summary": "Resolve copied *string pointers from live uncloned vendor.ThinkingLevels without cloning (allowing callers to mutate shared registry state concurrently) and aliased Spec.Input in Capabilities(); loadOverlayIcon allowed SVG <!ENTITY (XXE) and <script>/onload/javascript: XSS payloads; DecodeCompat/upsertOverlayModel accepted trailing JSON tokens and applyPatch silently ignored malformed model_overrides.*.compat.",
+          "regression_test": "TestResolveThinkingLevelsAndCapabilitiesInputAreIsolatedFromRegistry, TestLoadOverlayIconRejectsXXEEntityAndScriptPayloads, TestDecodeCompatAndOverlayRejectTrailingTokensAndMalformedOverrideCompat",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/runtime (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/runtime (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/utils",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 2,
       "tracked_files": [
         "internal/models/utils/slices.go",
         "internal/models/utils/slices_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "ChunkSlice and MapSlice handle empty slices, non-positive chunkSize, overflow-safe slice preallocation (1 + (len-1)/chunkSize), and callback panic propagation cleanly."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/utils (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/utils (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/models/vlm",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
-      "file_count": 15,
+      "status": "verified_findings_fixed",
+      "file_count": 16,
       "tracked_files": [
         "internal/models/vlm/concurrency_wrapper.go",
         "internal/models/vlm/config_from_model_test.go",
@@ -14612,18 +15646,34 @@
         "internal/models/vlm/spec_override_test.go",
         "internal/models/vlm/transport.go",
         "internal/models/vlm/transport_security_test.go",
-        "internal/models/vlm/vlm.go"
+        "internal/models/vlm/vlm.go",
+        "internal/models/vlm/w8_audit_test.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "NewVLM, NewRemoteAPIVLM, and NewOllamaVLM guard nil Config without panicking; ConfigFromModel clones CustomHeaders while preserving Spec pointer identity.",
+        "RemoteAPIVLM and OllamaVLM normalize nil context, enforce 20 MiB per-image and 64 MiB total-request byte caps plus 40M-pixel/32768-side decompression-bomb checks before base64 encoding, reject non-finite/negative temperature overrides, and redact URL secrets in validateVLMBaseURL."
+      ],
+      "findings": [
+        {
+          "id": "W8-VLM-001",
+          "severity": "P1",
+          "file": "internal/models/vlm/vlm.go:93-97,125-136, internal/models/vlm/remote_api.go:70-105,135-220, internal/models/vlm/ollama.go:20-52, internal/models/vlm/transport.go:11-36",
+          "summary": "NewVLM/NewRemoteAPIVLM/NewOllamaVLM panicked on nil config, PredictWithOptions panicked on nil context and lacked per-image/total byte caps and pixel-bomb dimension checks before base64 allocation, NewRemoteAPIVLM accepted NaN/Inf temperature strings, ConfigFromModel aliased CustomHeaders, and validateVLMBaseURL echoed URL secrets.",
+          "regression_test": "TestNilConfigConstructorsReturnErrorInsteadOfPanicking, TestConfigFromModelClonesCustomHeadersWhilePreservingSpecPointer, TestRemoteAPIVLMGuardsImageBoundsNilContextAndNonFiniteTemperature",
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/vlm (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/vlm (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
     },
     {
       "unit_id": "internal/runtime",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 6,
       "tracked_files": [
         "internal/runtime/container.go",
@@ -14633,16 +15683,33 @@
         "internal/runtime/shutdown_test.go",
         "internal/runtime/startup.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "MarkServerStarted, ServerStartedAt, ServerUptime, SilenceGinRouteSpam, and LogGinRouteCount synchronize global state via atomic.Pointer without data races.",
+        "LogStartupEnv redacts sensitive secrets to character lengths only, warns on invalid SYSTEM_AES_KEY lengths, missing HMAC signing keys, and insecure Redis TLS, and sanitizes non-sensitive env values against CR/LF log injection.",
+        "ShutdownBudgets splits total grace periods into positive HTTP drain and resource cleanup budgets summing to total."
+      ],
+      "findings": [
+        {
+          "id": "W8-RUNTIME-001",
+          "severity": "P2",
+          "file": "internal/runtime/server.go:1-38; internal/runtime/startup.go:43-61,160-168",
+          "summary": "MarkServerStarted/ServerStartedAt/ServerUptime read and wrote a non-atomic package-level time.Time struct and SilenceGinRouteSpam/LogGinRouteCount shared a non-atomic *int64 pointer (triggering -race data races under concurrent access), and formatEnvValue logged non-sensitive environment variables without stripping CR/LF log-injection characters.",
+          "regression_test": "TestServerStartedGinCountConcurrencyAndStartupLogSanitization",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/sourceloc",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 8,
       "tracked_files": [
         "internal/sourceloc/align.go",
@@ -14654,31 +15721,54 @@
         "internal/sourceloc/sourceloc_test.go",
         "internal/sourceloc/text.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Align indexes normalized unit keys in a single linear pass, preserves numeric signs/decimals/inequalities, rejects unaccounted TOC/duplicate occurrences, and never attributes unmapped gaps to adjacent pages/blocks.",
+        "Office/EPUB structure extractors enforce per-entry (64 MiB, verified on actual decompressed stream rather than declared ZIP header alone) and cumulative per-archive (128 MiB) decompression budgets across docx, pptx, xlsx (via excelize UnzipSizeLimit/UnzipXMLSizeLimit), and epub, while rejecting ../ archive root escapes.",
+        "Index.Locators clamps out-of-range offsets safely without slice bounds panics and marks chunks containing unmapped text as Partial."
+      ],
+      "findings": [
+        {
+          "id": "W8-SOURCELOC-001",
+          "severity": "P1",
+          "file": "internal/sourceloc/office.go:23-30,210-275,325-332,419-475,542-620; internal/sourceloc/assign.go:46-50",
+          "summary": "epubUnits and pptxUnits lacked a cumulative archive decompression budget (allowing repeated spine/slide references to a single compressed member to amplify memory without hitting maxUnits), xlsxUnits called excelize.OpenReader without UnzipSizeLimit/UnzipXMLSizeLimit, readZipFile silently truncated entries spoofing UncompressedSize64, resolvePart allowed ../ traversal and epubUnits failed on leading-slash rootfiles, and Index.Locators did not re-check end <= start after clamping.",
+          "regression_test": "TestOfficeUnitsBoundCumulativeZipAmplificationAndTraversal",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/storageallowlist",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 2,
       "tracked_files": [
         "internal/storageallowlist/allowlist.go",
         "internal/storageallowlist/allowlist_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "AllowedMap, AllowedList, FirstAllowed, and IsAllowed normalize delimiters and casing against the closed 8-provider canonical list (local, minio, cos, tos, s3, oss, ks3, obs), returning defensive copies and ignoring unknown provider tokens."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/stream",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_findings_fixed",
       "file_count": 6,
       "tracked_files": [
         "internal/stream/factory.go",
@@ -14688,25 +15778,55 @@
         "internal/stream/redis_live_run_test.go",
         "internal/stream/redis_manager.go"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "RedisNoticeInbox namespaces keys by both TenantID and SessionID, writes notices with atomic HSETNX+PEXPIRE Lua scripts, and deletes expired notices via compare-and-HDEL Lua scripts so concurrently re-pushed IDs survive.",
+        "MemoryStreamManager and RedisStreamManager clamp negative fromOffset values to 0, clone StreamEvent structs/Data maps to prevent caller-slice/map data races, use millisecond PEXPIRE/PExpire TTLs so sub-second TTLs never truncate to 0s key deletion, bound initial Redis Ping timeouts while closing failed clients, and guard LiveRun transitions with SetNX and CAS Lua scripts."
+      ],
+      "findings": [
+        {
+          "id": "W8-STREAM-001",
+          "severity": "P1",
+          "file": "internal/stream/notice_inbox_redis.go:67-69",
+          "summary": "RedisNoticeInbox.key omitted SessionRef.TenantID from the Redis hash key (fmt.Sprintf(\"%s:%s:bg-inbox\", prefix, SessionID)), allowing sessions sharing a SessionID across different tenants to read, collide with, acknowledge, or clear each other's background completion notices.",
+          "regression_test": "TestRedisNoticeInboxContract",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        },
+        {
+          "id": "W8-STREAM-002",
+          "severity": "P1",
+          "file": "internal/stream/memory_manager.go:74-220; internal/stream/redis_manager.go:38-50,98-135,175-250,319,475",
+          "summary": "GetEvents and GetSteerEvents panicked on negative fromOffset in MemoryStreamManager (slice bounds out of range) and queried tail elements with negative nextOffset in RedisStreamManager; AppendSteerEvents mutated caller slice Timestamps in place (racing on shared slices) and truncated sub-second Redis TTLs to EXPIRE 0 (immediately deleting the steer list); and NewRedisStreamManager leaked Redis client pools on Ping failure.",
+          "regression_test": "TestStreamManagersClampNegativeOffsetSubSecondTTLAndSharedSliceRace",
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     },
     {
       "unit_id": "internal/textconv",
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
-      "status": "pending_reaudit",
+      "status": "verified_no_findings",
       "file_count": 2,
       "tracked_files": [
         "internal/textconv/simplified.go",
         "internal/textconv/simplified_test.go"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "ToSimplified uses immutable post-init dictionaries with bounded <=10-rune greedy phrase-then-character matching, verified concurrent-safe and bit-identical against the 13,177-entry SHA-256 historical FAQ corpus."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json"
     }
   ],
   "support_files": {
@@ -14884,6 +16004,10 @@
       "test-reports/module-audit-v2/evidence/w7-cmd-docparser-anydoc.json",
       "test-reports/module-audit-v2/evidence/w7-docker-helm-scripts.json",
       "test-reports/module-audit-v2/evidence/w7-docs-website.json",
+      "test-reports/module-audit-v2/evidence/w8-cli-reaudit.json",
+      "test-reports/module-audit-v2/evidence/w8-docreader-reaudit.json",
+      "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json",
+      "test-reports/module-audit-v2/evidence/w8-models-reaudit.json",
       "test-reports/module-audit-v2/verify_ledger.py",
       "test-reports/module-audit-v2/wave0-foundation.json",
       "test-reports/screenshots/01_login_page.png",

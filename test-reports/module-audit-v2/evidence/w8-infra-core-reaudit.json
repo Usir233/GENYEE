@@ -37,7 +37,7 @@
           "file": "internal/application/service/metric/ndcg.go:20-28; internal/application/service/metric/bleu.go:47-96,150-185; internal/application/service/metric/rouge.go:48-85; internal/application/service/metric/rouge_score.go:86-140",
           "summary": "NDCGMetric.Compute panicked on negative k cutoffs (ids[:n.k]), smoothed BLEUMetric returned 0.5-0.84 against empty/punctuation-only ground-truth references and called log.Fatal in phrase.String(), RougeMetric panicked with a nil-function dereference on unknown/uppercase metric names and used O(N+M) stack recursion in reconLcs, and all seven metric calculators dereferenced nil MetricInput without guarding.",
           "regression_test": "TestMetricsGuardNegativeCutoffEmptyReferenceUnknownRougeAndNilInput",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -93,7 +93,7 @@
           "file": "internal/background/lifecycle.go:40-62; internal/background/listeners.go:36-118",
           "summary": "Lifecycle.Begin leaked the registered ActivityRegistry slot if the start callback panicked, and Listeners accepted nil registrations and allowed a single panicking listener to abort remaining session stop/delete cleanup hooks.",
           "regression_test": "TestBeginRemovesRegistrationWhenStartPanics, TestListenersRecoverPanicIgnoreNilAndRunRemainingListeners",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -142,7 +142,7 @@
           "file": "internal/common/tools.go:71-108,281-300; internal/common/db_retry.go:16-22",
           "summary": "DeduplicateWithScore allowed a first-seen NaN score to shadow valid finite scores for the same key and violated slices.SortFunc strict weak ordering when sorting NaN entries, formatPipelineLogValue panicked on typed-nil fmt.Stringer values (such as (*url.URL)(nil)), and WithDeadlockRetry did not guard nil contexts.",
           "regression_test": "TestDeduplicateWithScoreNaNAndTypedNilPipelineLog",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -170,7 +170,7 @@
           "file": "internal/common/redislock/token_lock.go:256-272",
           "summary": "validateOperation accepted positive sub-millisecond leases (0 < lease < 1ms), causing Renew to pass lease.Milliseconds() == 0 into PEXPIRE and immediately delete the caller's owned lock in Redis while reporting renewed=true.",
           "regression_test": "TestSubMillisecondLeaseRejectedBeforeZeroPexpire",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -198,7 +198,7 @@
           "file": "internal/embedpolicy/origin.go:11-56",
           "summary": "NormalizeOrigin and NormalizePattern accepted dangling empty-port colons (https://a.example:, *.example.com:), out-of-range/leading-zero ports (:0, :65536, :0443), leading/consecutive/trailing FQDN dots (*..example.com, *.example.com.), IPv6 % zone IDs, and unsafe characters (<, >, `), causing FrameAncestors to emit broken CSP tokens (http://*.example.com::*) and Allows to wildcard all ports on *.example.com:.",
           "regression_test": "TestRejectTrailingDotEmptyPortAndMalformedHosts",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -246,7 +246,7 @@
           "file": "internal/errors/errors.go:70-79,302-313",
           "summary": "IsAppError used a direct err.(*AppError) type assertion instead of errors.As, missing %w-wrapped AppErrors and returning (nil, true) on typed-nil *AppError values, while (*AppError).Error() panicked on a nil receiver.",
           "regression_test": "TestIsAppErrorUnwrapsWrappedAndRejectsTypedNil",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -273,7 +273,7 @@
           "file": "internal/filetransport/response.go:25-115",
           "summary": "Serve used platform-specific filepath.Base in Content-Disposition (leaking Windows backslash traversal segments on Linux and emitting filename=\"/\" or \"..\" on degenerate inputs) and allowed caller-supplied active ContentType values (text/html, image/svg+xml, text/javascript) to override SafeContentTypeByFilename when Download was false.",
           "regression_test": "TestServeBlocksWindowsBackslashTraversalAndInlineActiveContentType",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -309,7 +309,7 @@
           "file": "internal/infrastructure/docparser/anydoc/anydoc.go:192-235; internal/infrastructure/docparser/anydoc/backend_cgo.go:49-66,114-208",
           "summary": "backendConvert unconditionally retried ToMarkdownBytes after ToDocumentWithAssetLinks hit a permanent resource_limit rejection (parsing hostile XML/ZIP bombs twice), Convert compared opts.Format == \"pdf\" without normalizeExt normalization, and AST block/inline walkers lacked a recursion depth guard.",
           "regression_test": "TestShouldRetryTextOnlySkipsResourceLimitAndNormalizesFormat",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -344,7 +344,7 @@
           "file": "internal/infrastructure/legacyxls/reader.go:67-79,138-395,779-790",
           "summary": "mscfb stream reads lacked FAT/MiniFAT cycle and special-sector validation (allowing cyclic FAT[0]=0 chains to synthesize repeated workbook sectors up to declared stream size), readStream preallocated min(f.Size, fileSize) upfront before reading bytes, checkCompoundHeader omitted the 8-byte OLE2 magic check (failing to return ErrUnsupported on >=512B non-OLE2 files with 0x0009 at offset 30), and parseSST looped over raw uint32 unique counts.",
           "regression_test": "TestFATCycleOversizeReaderArgAndNonOLE2SignatureRejected",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -380,7 +380,7 @@
           "file": "internal/infrastructure/web_fetch/chromium_proxy.go:85-143,287-293,399-525; internal/infrastructure/web_fetch/fetcher.go:192-198,322-455",
           "summary": "chromiumSSRFProxy and Fetcher.pinnedDialContext/resolvePinnedTarget did not canonicalize FQDN trailing dots (allowing http://localhost./, http://metadata.google.internal./, and .corp. to bypass hostname suffix checks), pinnedDialContext omitted restricted-port checks before DNS resolution, Fetch and resolvePinnedTarget accepted userinfo credentials in URLs, and chromiumSSRFProxy.handleHTTP did not pin outReq.Host to outReq.URL.Host.",
           "regression_test": "TestWebFetchBlocksTrailingDotRestrictedHostsPortsAndCredentials",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -407,7 +407,7 @@
           "file": "internal/ipclass/ipclass.go:161-218",
           "summary": "classifyIPv6 and embeddedIPv4 omitted RFC 2765 SIIT IPv4-translated addresses (::ffff:0:a.b.c.d, e.g. ::ffff:0:169.254.169.254 and ::ffff:0:127.0.0.1) and RFC 6666 discard-only IPv6 addresses (100::/64), misclassifying them as Public.",
           "regression_test": "TestClassifyRFC2765AndDiscardIPv6",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -440,7 +440,7 @@
           "file": "internal/runtime/server.go:1-38; internal/runtime/startup.go:43-61,160-168",
           "summary": "MarkServerStarted/ServerStartedAt/ServerUptime read and wrote a non-atomic package-level time.Time struct and SilenceGinRouteSpam/LogGinRouteCount shared a non-atomic *int64 pointer (triggering -race data races under concurrent access), and formatEnvValue logged non-sensitive environment variables without stripping CR/LF log-injection characters.",
           "regression_test": "TestServerStartedGinCountConcurrencyAndStartupLogSanitization",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -475,7 +475,7 @@
           "file": "internal/sourceloc/office.go:23-30,210-275,325-332,419-475,542-620; internal/sourceloc/assign.go:46-50",
           "summary": "epubUnits and pptxUnits lacked a cumulative archive decompression budget (allowing repeated spine/slide references to a single compressed member to amplify memory without hitting maxUnits), xlsxUnits called excelize.OpenReader without UnzipSizeLimit/UnzipXMLSizeLimit, readZipFile silently truncated entries spoofing UncompressedSize64, resolvePart allowed ../ traversal and epubUnits failed on leading-slash rootfiles, and Index.Locators did not re-check end <= start after clamping.",
           "regression_test": "TestOfficeUnitsBoundCumulativeZipAmplificationAndTraversal",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [
@@ -525,7 +525,7 @@
           "file": "internal/stream/notice_inbox_redis.go:67-69",
           "summary": "RedisNoticeInbox.key omitted SessionRef.TenantID from the Redis hash key (fmt.Sprintf(\"%s:%s:bg-inbox\", prefix, SessionID)), allowing sessions sharing a SessionID across different tenants to read, collide with, acknowledge, or clear each other's background completion notices.",
           "regression_test": "TestRedisNoticeInboxContract",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         },
         {
           "id": "W8-STREAM-002",
@@ -533,7 +533,7 @@
           "file": "internal/stream/memory_manager.go:74-220; internal/stream/redis_manager.go:38-50,98-135,175-250,319,475",
           "summary": "GetEvents and GetSteerEvents panicked on negative fromOffset in MemoryStreamManager (slice bounds out of range) and queried tail elements with negative nextOffset in RedisStreamManager; AppendSteerEvents mutated caller slice Timestamps in place (racing on shared slices) and truncated sub-second Redis TTLs to EXPIRE 0 (immediately deleting the steer list); and NewRedisStreamManager leaked Redis client pools on Ping failure.",
           "regression_test": "TestStreamManagersClampNegativeOffsetSubSecondTTLAndSharedSliceRace",
-          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+          "commit": "70d0407cb73124167eb63b86fcc36930364c5af6"
         }
       ],
       "verification_commands": [

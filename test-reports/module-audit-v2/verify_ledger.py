@@ -183,7 +183,12 @@ def validate_support_file(category: str, path: str) -> str | None:
     return f"unknown support_files category {category!r} for {path}"
 
 
-def validate(repo_root: Path, ledger_path: Path, wave0_path: Path) -> tuple[list[str], dict]:
+def validate(
+    repo_root: Path,
+    ledger_path: Path,
+    wave0_path: Path,
+    final: bool = False,
+) -> tuple[list[str], dict]:
     errors: list[str] = []
 
     if not ledger_path.is_file():
@@ -393,6 +398,78 @@ def validate(repo_root: Path, ledger_path: Path, wave0_path: Path) -> tuple[list
     if not wave0.get("residue_audit_summary"):
         errors.append("wave0-foundation.json residue_audit_summary must be non-empty")
 
+    total_findings = 0
+    unique_finding_commits: set[str] = set()
+    for unit in units:
+        if isinstance(unit, dict) and isinstance(unit.get("findings"), list):
+            for finding in unit["findings"]:
+                total_findings += 1
+                if isinstance(finding, dict) and isinstance(finding.get("commit"), str):
+                    unique_finding_commits.add(finding["commit"])
+
+    if final:
+        rev_list_head = set(
+            subprocess.check_output(["git", "rev-list", "HEAD"], cwd=repo_root)
+            .decode("utf-8")
+            .splitlines()
+        )
+        pending_cnt = computed_units_by_status.get("pending", 0)
+        pending_reaudit_cnt = computed_units_by_status.get("pending_reaudit", 0)
+        if pending_cnt != 0 or pending_reaudit_cnt != 0:
+            errors.append(
+                "--final requires 0 pending/pending_reaudit units, got "
+                f"pending={pending_cnt}, pending_reaudit={pending_reaudit_cnt}"
+            )
+        for unit in units:
+            if not isinstance(unit, dict):
+                continue
+            uid = unit.get("unit_id", "<unknown>")
+            st = unit.get("status")
+            if st not in {"verified_no_findings", "verified_findings_fixed"}:
+                errors.append(f"--final unit {uid} has unverified status: {st!r}")
+            if not unit.get("invariants_checked"):
+                errors.append(f"--final unit {uid} must have non-empty invariants_checked")
+            if not unit.get("verification_commands"):
+                errors.append(f"--final unit {uid} must have non-empty verification_commands")
+            ev_field = unit.get("evidence_file")
+            if not isinstance(ev_field, str) or not ev_field.strip():
+                errors.append(f"--final unit {uid} missing evidence_file")
+            else:
+                for ev_rel in (part.strip() for part in ev_field.split(",")):
+                    if not ev_rel or not (repo_root / ev_rel).is_file():
+                        errors.append(f"--final unit {uid} missing evidence file on disk: {ev_rel!r}")
+                    elif ev_rel not in live_set:
+                        errors.append(f"--final unit {uid} evidence file not git-tracked: {ev_rel!r}")
+            u_findings = unit.get("findings", [])
+            if st == "verified_findings_fixed" and not u_findings:
+                errors.append(f"--final unit {uid} has status verified_findings_fixed but 0 findings")
+            if st == "verified_no_findings" and u_findings:
+                errors.append(
+                    f"--final unit {uid} has status verified_no_findings but {len(u_findings)} finding(s)"
+                )
+            for f_idx, finding in enumerate(u_findings):
+                if not isinstance(finding, dict):
+                    errors.append(f"--final unit {uid} findings[{f_idx}] is not an object")
+                    continue
+                f_id = finding.get("id", f"idx:{f_idx}")
+                f_commit = finding.get("commit")
+                if (
+                    not isinstance(f_commit, str)
+                    or len(f_commit) != 40
+                    or any(ch not in "0123456789abcdef" for ch in f_commit)
+                ):
+                    errors.append(
+                        f"--final unit {uid} finding {f_id} has invalid 40-char commit SHA: {f_commit!r}"
+                    )
+                elif f_commit not in rev_list_head:
+                    errors.append(
+                        f"--final unit {uid} finding {f_id} commit {f_commit} not in git rev-list HEAD"
+                    )
+        for w0_c in commits:
+            w0_sha = w0_c.get("sha") if isinstance(w0_c, dict) else None
+            if not isinstance(w0_sha, str) or w0_sha not in rev_list_head:
+                errors.append(f"--final wave0-foundation.json commit {w0_sha!r} not in git rev-list HEAD")
+
     report = {
         "total_git_ls_files": len(live_files),
         "unit_count": len(units),
@@ -409,6 +486,9 @@ def validate(repo_root: Path, ledger_path: Path, wave0_path: Path) -> tuple[list
         "wave0_status": wave0.get("status"),
         "wave0_deleted_files": len(deleted_w0),
         "wave0_modified_files": len(modified_w0),
+        "final_mode": final,
+        "total_findings": total_findings,
+        "unique_finding_commits": len(unique_finding_commits),
     }
     return errors, report
 
@@ -419,6 +499,11 @@ def main() -> int:
         "--summary",
         action="store_true",
         help="Print deterministic coverage and wave breakdown summary.",
+    )
+    parser.add_argument(
+        "--final",
+        action="store_true",
+        help="Enforce final release gates: 0 pending/pending_reaudit units and all finding commits in git rev-list HEAD.",
     )
     parser.add_argument(
         "--repo-root",
@@ -432,7 +517,7 @@ def main() -> int:
     ledger_path = repo_root / "test-reports/module-audit-v2/coverage.json"
     wave0_path = repo_root / "test-reports/module-audit-v2/wave0-foundation.json"
 
-    errors, report = validate(repo_root, ledger_path, wave0_path)
+    errors, report = validate(repo_root, ledger_path, wave0_path, final=args.final)
 
     if args.summary and report:
         print("=== GENYEE Module Audit v2 Ledger Summary ===")
@@ -465,6 +550,12 @@ def main() -> int:
             f"\nWave 0 Foundation: status={report['wave0_status']}, "
             f"deleted={report['wave0_deleted_files']}, modified={report['wave0_modified_files']}"
         )
+        if report["final_mode"]:
+            print(
+                f"Final Release Gate:        0 pending/pending_reaudit, "
+                f"{report['total_findings']} findings across "
+                f"{report['unique_finding_commits']} commits verified in `git rev-list HEAD`"
+            )
 
     if errors:
         print(f"\n[FAIL] {len(errors)} validation error(s) detected:", file=sys.stderr)

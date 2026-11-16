@@ -50,7 +50,7 @@
           "file": "internal/models/api/anthropicmessages/client.go:46-156, internal/models/api/anthropicmessages/request.go:494-518",
           "summary": "imageSourceFor decoded arbitrary-size data: base64 payloads without a pre-allocation byte ceiling, URL() dropped Endpoint.Query when Endpoint.URL was unset, Chat/ChatStream panicked on nil context, and NewRequest failures leaked URL userinfo/query secrets.",
           "regression_test": "TestChatNilContextAndSecretRedactionInRequestCreationError, TestURLPreservesEndpointQueryParameters, TestImageSourceForRejectsOversizedBase64BeforeAllocating",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -78,7 +78,7 @@
           "file": "internal/models/api/arkembeddings/client.go:126-154",
           "summary": "post returned decoded float32 vectors without running api.ValidateEmbeddingVectors (permitting NaN/Inf values), did not normalize nil context, and leaked URL userinfo/query secrets on NewRequest failures.",
           "regression_test": "TestEmbedNilContextAndRedactsSecretsInRequestError, TestPostValidatesEmbeddingVectorFinity",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -106,7 +106,7 @@
           "file": "internal/models/api/dashscopeembeddings/client.go:90-130",
           "summary": "Embed and EmbedImages issued empty-contents HTTP POSTs on empty batches, did not normalize nil context, and leaked URL userinfo/query secrets on NewRequest failures.",
           "regression_test": "TestEmbedEmptyShortCircuitsAndNilContextRedactsSecrets",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -135,7 +135,7 @@
           "file": "internal/models/api/googleembeddings/client.go:59-67,131-196",
           "summary": "url() interpolated Endpoint.Model into the URL path without url.PathEscape (allowing query/fragment/path injection), empty batches issued invalid HTTP POSTs, nil context was not normalized, and NewRequest/url.Error failures leaked ?key= and URL userinfo secrets.",
           "regression_test": "TestEmbedRedactsQueryKeyAndUserinfoInErrors, TestEmbedEscapesModelSegmentAndShortCircuitsEmptyInputs",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -165,7 +165,7 @@
           "file": "internal/models/api/googlegenai/client.go:47-156, internal/models/api/googlegenai/request.go:217-286",
           "summary": "requestURL interpolated unescaped Endpoint.Model into the URL path, imagePart forwarded unresolved resource:///local:///file:// URIs as fileData.fileUri and lacked a 20 MiB cap on data: payloads, Chat/ChatStream panicked on nil context, and NewRequest errors leaked ?key=/userinfo secrets.",
           "regression_test": "TestChatRedactsQueryKeyAndUserinfoInRequestCreationError, TestRequestURLEscapesModelNameAndNormalizesPrefix, TestImagePartRejectsUnsafeSchemesAndOversizedDataURI",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -193,7 +193,7 @@
           "file": "internal/models/api/openaichataudio/client.go:84-165",
           "summary": "BuildRequestBody base64-encoded req.Audio in full before checking MaxEncodedBytes and accepted empty audio payloads, while Transcribe did not guard nil context, non-finite usage.seconds, or URL secret leaks in NewRequest errors.",
           "regression_test": "TestBuildRequestBodyRejectsEmptyAudioAndChecksSizeBeforeEncoding, TestTranscribeNilContextAndRedactsSecretsInRequestError",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -228,7 +228,7 @@
           "file": "internal/models/api/openaicompletions/client.go:53-118, internal/models/api/openaicompletions/dsml.go:34-98",
           "summary": "dsmlFilter.Feed buffered unclosed <｜DSML｜ stream output in memory without bound, Chat/ChatStream panicked on nil context, and NewRequest errors leaked URL userinfo/query secrets.",
           "regression_test": "TestDSMLFilterBoundsUnclosedHeldBuffer, TestChatNilContextAndSecretRedactionInRequestCreationError",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -256,7 +256,7 @@
           "file": "internal/models/api/openaiembeddings/client.go:150-240",
           "summary": "Embed (when TextAsMessages was false) and EmbedImages (object format) sent HTTP POSTs for empty slices instead of short-circuiting like postMessages, did not normalize nil context, and leaked URL secrets on NewRequest failures.",
           "regression_test": "TestEmbedEmptyShortCircuitsAndNilContextRedactsSecrets",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -286,7 +286,7 @@
           "file": "internal/models/api/openairesponses/client.go:51-118,202-220, internal/models/api/openairesponses/request.go:75-110",
           "summary": "rawResponse.finishReason fell through to \"tool_calls\" on non-streaming status==\"incomplete\" responses when incomplete_details was nil or unrecognized (allowing truncated tool-call arguments to execute), convertMessages dropped MultiContent system instructions, Chat/ChatStream panicked on nil context, and NewRequest errors leaked URL secrets.",
           "regression_test": "TestNonStreamIncompleteResponseWithoutDetailsDoesNotReportToolCalls, TestSystemMessageMultiContentPreservedInInstructions, TestChatRedactsSecretsInRequestCreationError",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -314,7 +314,7 @@
           "file": "internal/models/api/openaitranscriptions/client.go:38-52,88-160",
           "summary": "url() resolved to BaseURL root when Settings.Path was empty instead of /audio/transcriptions, Transcribe buffered multipart payloads before checking MaxFileBytes, accepted negative/non-finite durations, did not normalize nil context, and leaked URL secrets on NewRequest errors.",
           "regression_test": "TestDefaultPathMaxFileBytesAndNilContextSecretRedaction",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -342,7 +342,7 @@
           "file": "internal/models/api/pineconerank/client.go:95-155",
           "summary": "Rerank sent invalid TopN:0 HTTP POSTs on empty document slices, lacked explicit finite-score checks and nil-context normalization, and leaked URL secrets on NewRequest errors.",
           "regression_test": "TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -370,7 +370,7 @@
           "file": "internal/models/api/teirank/client.go:73-125",
           "summary": "Rerank issued HTTP POSTs on empty document slices, lacked finite-score guards and nil-context normalization, and leaked URL secrets on NewRequest errors.",
           "regression_test": "TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -398,7 +398,7 @@
           "file": "internal/models/api/volcengineknowledge/client.go:38-295",
           "summary": "New overwrote the SDK default endpoint when BaseURL was empty and skipped scheme/userinfo/SSRF validation when set; SDK responses were read via unbounded io.ReadAll without a 64 MiB cap; Rerank lacked nil-context and empty-batch guards, finite-score validation, and SecretKey/URL redaction on errors.",
           "regression_test": "TestNewValidatesBaseURLAndRedactsSecrets, TestRerankNilContextAndEmptyDocumentsShortCircuit, TestRerankCapsOversizedResponsesWithoutRetrying, TestRerankRedactsSecretKeyInError",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -432,7 +432,7 @@
           "file": "internal/models/asr/asr.go:31-47,73-93, internal/models/asr/protocol.go:129-185, internal/models/asr/transport.go:11-36, internal/models/asr/langfuse_wrapper.go:45-71",
           "summary": "WithLanguage/languageFrom panicked on nil context, ConfigFromModel aliased ExtraConfig and CustomHeaders maps, generic endpoints with MaxFileBytes==0 had no upload size ceiling, non-finite durations poisoned Langfuse JSON/integer conversion, and validateASRBaseURL/logs echoed unredacted URL secrets.",
           "regression_test": "TestWithLanguageNilContextAndConfigFromModelMapIsolation, TestValidateASRBaseURLRedactsSecretsAndSanitizesDuration",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -477,7 +477,7 @@
           "file": "internal/models/imageprep/prepare.go:75-92",
           "summary": "Prepare ignored non-ErrFormat image.DecodeConfig errors on the fast pass-through path, forwarding truncated or corrupt PNG/JPEG/GIF/BMP/WebP headers to upstream vision/embedding endpoints when MIME and byte length matched.",
           "regression_test": "TestPrepareImageRejectsCorruptHeaderOnPassThrough",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -503,7 +503,7 @@
           "file": "internal/models/internal/configcopy/copy.go:53-61",
           "summary": "cloneValue called out.Field(i).Set(...) unconditionally on every struct field, panicking with reflect.Value.Set unaddressable/unexported error if any copied struct contained an unexported field.",
           "regression_test": "TestCloneDeepCopiesExportedContainersAndSurvivesUnexportedFields",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -535,7 +535,7 @@
           "file": "internal/models/limiter/governor.go:60-98,125-140, internal/models/limiter/limiter.go:117-265",
           "summary": "GateNamedN, RuntimeStats, localLimiter.Acquire, and redisLimiter.Acquire/RuntimeStats panicked on nil context, redisLimiter.hold panicked in time.NewTicker(l.ttl/3) when ttl < 3ns or busy-spun when pollInterval <= 0, and background lease refresh/release Redis calls used unbounded context.Background().",
           "regression_test": "TestNilContextAndZeroDurationSafetyAcrossLimiters",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -597,7 +597,7 @@
           "file": "internal/models/providers/definition.go:101-120,238-310",
           "summary": "Definition methods (SupportsType, LocalizedName, LocalizedDescription, CredentialLabelFor, AuthStyleFor, ValidateConfig) panicked on nil receivers unlike GetDefaultURL, and CredentialLabelFor returned a pointer into the internal CredentialLabels slice.",
           "regression_test": "TestDefinitionNilReceiverSafetyAndCredentialLabelIsolation",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -644,7 +644,7 @@
           "file": "internal/models/rerank/protocol.go:37-100, internal/models/rerank/image.go:72-125, internal/models/rerank/reranker.go:142-200, internal/models/rerank/logging.go:24-30, internal/models/rerank/transport.go:11-36, internal/models/rerank/volcengine_reranker.go:18-48",
           "summary": "protocolReranker.Rerank and RerankImages panicked on nil context and accepted NaN/Inf scores (breaking sort.SliceStable weak ordering and poisoning Langfuse stats), newReranker skipped SSRF validation on endpoint.URL, ConfigFromModel aliased maps, newVolcengineClient dereferenced nil config/resolved, and debug/SSRF helpers echoed URL secrets.",
           "regression_test": "TestProtocolRerankerNilContextAndRejectsNonFiniteScores, TestConfigFromModelMapIsolationAndDebugRedaction",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -688,7 +688,7 @@
           "file": "internal/models/runtime/resolve.go:129-145,275-310, internal/models/runtime/overlay.go:188-370,475-555, internal/models/runtime/compat.go:61-75, internal/models/runtime/connection.go:25-30, internal/models/runtime/registry.go:23-45",
           "summary": "Resolve copied *string pointers from live uncloned vendor.ThinkingLevels without cloning (allowing callers to mutate shared registry state concurrently) and aliased Spec.Input in Capabilities(); loadOverlayIcon allowed SVG <!ENTITY (XXE) and <script>/onload/javascript: XSS payloads; DecodeCompat/upsertOverlayModel accepted trailing JSON tokens and applyPatch silently ignored malformed model_overrides.*.compat.",
           "regression_test": "TestResolveThinkingLevelsAndCapabilitiesInputAreIsolatedFromRegistry, TestLoadOverlayIconRejectsXXEEntityAndScriptPayloads, TestDecodeCompatAndOverlayRejectTrailingTokensAndMalformedOverrideCompat",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
@@ -746,7 +746,7 @@
           "file": "internal/models/vlm/vlm.go:93-97,125-136, internal/models/vlm/remote_api.go:70-105,135-220, internal/models/vlm/ollama.go:20-52, internal/models/vlm/transport.go:11-36",
           "summary": "NewVLM/NewRemoteAPIVLM/NewOllamaVLM panicked on nil config, PredictWithOptions panicked on nil context and lacked per-image/total byte caps and pixel-bomb dimension checks before base64 allocation, NewRemoteAPIVLM accepted NaN/Inf temperature strings, ConfigFromModel aliased CustomHeaders, and validateVLMBaseURL echoed URL secrets.",
           "regression_test": "TestNilConfigConstructorsReturnErrorInsteadOfPanicking, TestConfigFromModelClonesCustomHeadersWhilePreservingSpecPointer, TestRemoteAPIVLMGuardsImageBoundsNilContextAndNonFiniteTemperature",
-          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+          "commit": "405e918bdee1aef117881d6139d0d44a1e3eb01f"
         }
       ],
       "verification_commands": [
