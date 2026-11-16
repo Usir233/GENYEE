@@ -1,0 +1,794 @@
+{
+  "stage": "Stage 2B",
+  "slice": "up-agent-conn-im",
+  "base_commit": "cabe3d63781239b56bfcb911319ed21ecd2d5c3b",
+  "upstream_range": "cbdcebabf48c5ee2d6868b370326aa8341703f62..f64dbf002490fd947b4bce48a8cd4fa0dff6dcbd",
+  "merge_range": "89ce71ff86af78cfb3cf5f637787ecfbe3389e11..cabe3d63781239b56bfcb911319ed21ecd2d5c3b",
+  "audited_files": [
+    "internal/agent/finalize.go",
+    "internal/agent/finalize_empty_test.go",
+    "internal/agent/finalize_truncation_test.go",
+    "internal/agent/prompts_wiki.go",
+    "internal/agent/prompts_wiki_test.go",
+    "internal/agent/resume.go",
+    "internal/agent/resume_background_test.go",
+    "internal/agent/tools/data_analysis.go",
+    "internal/agent/tools/host_approval.go",
+    "internal/agent/tools/host_approval_test.go",
+    "internal/agent/tools/param_cast.go",
+    "internal/agent/tools/param_cast_integer_test.go",
+    "internal/agent/tools/read_document.go",
+    "internal/agent/tools/read_document_page_budget_test.go",
+    "internal/agent/tools/read_document_resources_test.go",
+    "internal/agent/tools/search_knowledge.go",
+    "internal/agent/tools/search_knowledge_budget_test.go",
+    "internal/agent/tools/shell_async_cache_test.go",
+    "internal/agent/tools/shell_exec_async.go",
+    "internal/agent/tools/wiki_sqlite_literal_integration_test.go",
+    "internal/database/migration_im_session_mode_test.go",
+    "internal/database/migration_postgres_im_session_mode_test.go",
+    "internal/database/migration_sqlite_versioned_schema_test.go",
+    "internal/datasource/connector/confluence/connector.go",
+    "internal/datasource/connector/confluence/full_sync_failed_page_test.go",
+    "internal/datasource/connector/feishu/core/blocks.go",
+    "internal/datasource/connector/feishu/core/blocks_test.go",
+    "internal/datasource/connector/feishu/core/client.go",
+    "internal/datasource/connector/feishu/core/wiki_shortcuts.go",
+    "internal/datasource/connector/feishu/core/wiki_shortcuts_test.go",
+    "internal/datasource/connector/feishu/drive/pagination_test.go",
+    "internal/datasource/connector/feishu/wiki/connector_test.go",
+    "internal/datasource/connector/ima/connector.go",
+    "internal/datasource/connector/ima/connector_test.go",
+    "internal/datasource/connector/ima/pagination_guard_test.go",
+    "internal/datasource/connector/ima/types.go",
+    "internal/datasource/connector/notion/block_retry_test.go",
+    "internal/datasource/connector/notion/client.go",
+    "internal/datasource/connector/notion/client_test.go",
+    "internal/datasource/connector/notion/code_fence_test.go",
+    "internal/datasource/connector/notion/connector.go",
+    "internal/datasource/connector/notion/discovery_failure_test.go",
+    "internal/datasource/connector/notion/markdown.go",
+    "internal/datasource/connector/notion/markdown_test.go",
+    "internal/datasource/connector/notion/nested_content_test.go",
+    "internal/datasource/connector/notion/pagination_guard_test.go",
+    "internal/datasource/connector/rss/cancellation_test.go",
+    "internal/datasource/connector/rss/client.go",
+    "internal/datasource/connector/rss/connector.go",
+    "internal/datasource/connector/rss/connector_test.go",
+    "internal/datasource/connector/rss/json_feed.go",
+    "internal/datasource/connector/rss/json_feed_test.go",
+    "internal/datasource/connector/rss/redirect_base_test.go",
+    "internal/datasource/connector/rss/types.go",
+    "internal/datasource/connector/yuque/cancel_sync_test.go",
+    "internal/datasource/connector/yuque/client.go",
+    "internal/datasource/connector/yuque/client_test.go",
+    "internal/datasource/connector/yuque/connector.go",
+    "internal/datasource/connector/yuque/connector_test.go",
+    "internal/datasource/connector/yuque/pagination_guard_test.go",
+    "internal/datasource/connector/yuque/toc_test.go",
+    "internal/datasource/connector/yuque/types.go",
+    "internal/datasource/connector/yuque/types_test.go",
+    "internal/datasource/connector/yuque/version_sync_test.go",
+    "internal/event/event_data.go",
+    "internal/handler/chunker_debug.go",
+    "internal/handler/chunker_preview_token_budget_test.go",
+    "internal/handler/session/qa.go",
+    "internal/handler/session/quick_answer_usage_test.go",
+    "internal/handler/session/stream.go",
+    "internal/handler/session/stream_persistence_error_test.go",
+    "internal/handler/wiki_rebuild_links_failure_test.go",
+    "internal/im/feishu/adapter.go",
+    "internal/im/feishu/adapter_decrypt_test.go",
+    "internal/im/file_ingestion_test.go",
+    "internal/im/service.go",
+    "internal/im/session_resolution_test.go",
+    "internal/im/tool_display.go",
+    "internal/im/tool_display_test.go",
+    "internal/infrastructure/chunker/budget.go",
+    "internal/infrastructure/docparser/mineru_converter.go",
+    "internal/infrastructure/docparser/mineru_tasks_client.go",
+    "internal/infrastructure/docparser/mineru_tasks_client_test.go",
+    "internal/infrastructure/docparser/mineru_tasks_edges_test.go",
+    "internal/infrastructure/docparser/mineru_v1_client.go",
+    "internal/mcpserver/tools_ask.go",
+    "internal/mcpserver/tools_ask_error_test.go",
+    "internal/models/api/googlegenai/nullable_schema_test.go",
+    "internal/models/api/googlegenai/request.go",
+    "internal/models/api/nimrerank/client.go",
+    "internal/models/api/nimrerank/response_validation_test.go",
+    "internal/models/api/openairesponses/client.go",
+    "internal/models/api/openairesponses/terminal_tool_calls_test.go",
+    "internal/models/chat/ollama.go",
+    "internal/models/chat/ollama_native_id_test.go",
+    "internal/models/chat/ollama_tool_frames_test.go",
+    "internal/router/router_files_test.go",
+    "internal/types/interfaces/knowledge.go",
+    "internal/types/search.go",
+    "internal/types/task.go",
+    "migrations/mysql/00-init-db.sql",
+    "migrations/mysql/README.md",
+    "migrations/paradedb/00-init-db.sql",
+    "migrations/sqlite/000055_im_session_mode_indexes.down.sql",
+    "migrations/sqlite/000055_im_session_mode_indexes.up.sql",
+    "migrations/versioned/000139_im_session_mode_indexes.down.sql",
+    "migrations/versioned/000139_im_session_mode_indexes.up.sql"
+  ],
+  "deleted_files": [
+    "migrations/sqlite/000053_im_session_mode_indexes.down.sql",
+    "migrations/sqlite/000053_im_session_mode_indexes.up.sql",
+    "migrations/versioned/000137_im_session_mode_indexes.down.sql",
+    "migrations/versioned/000137_im_session_mode_indexes.up.sql"
+  ],
+  "extra_unit_files": {
+    "internal/agent": [
+      "internal/agent/finalize_empty_test.go",
+      "internal/agent/finalize_truncation_test.go",
+      "internal/agent/resume_background_test.go"
+    ],
+    "internal/agent/tools": [
+      "internal/agent/tools/read_document_page_budget_test.go",
+      "internal/agent/tools/read_document_resources_test.go",
+      "internal/agent/tools/search_knowledge_budget_test.go",
+      "internal/agent/tools/shell_async_cache_test.go"
+    ],
+    "internal/database": [
+      "internal/database/migration_im_session_mode_test.go",
+      "internal/database/migration_postgres_im_session_mode_test.go"
+    ],
+    "internal/datasource/connector/confluence": [
+      "internal/datasource/connector/confluence/full_sync_failed_page_test.go"
+    ],
+    "internal/datasource/connector/feishu/core": [
+      "internal/datasource/connector/feishu/core/wiki_shortcuts_test.go"
+    ],
+    "internal/datasource/connector/notion": [
+      "internal/datasource/connector/notion/nested_content_test.go"
+    ],
+    "internal/datasource/connector/rss": [
+      "internal/datasource/connector/rss/cancellation_test.go",
+      "internal/datasource/connector/rss/json_feed.go",
+      "internal/datasource/connector/rss/json_feed_test.go",
+      "internal/datasource/connector/rss/redirect_base_test.go"
+    ],
+    "internal/datasource/connector/yuque": [
+      "internal/datasource/connector/yuque/cancel_sync_test.go",
+      "internal/datasource/connector/yuque/version_sync_test.go"
+    ],
+    "internal/handler": [
+      "internal/handler/chunker_preview_token_budget_test.go"
+    ],
+    "internal/handler/session": [
+      "internal/handler/session/quick_answer_usage_test.go",
+      "internal/handler/session/stream_persistence_error_test.go"
+    ],
+    "internal/im/feishu": [
+      "internal/im/feishu/adapter_decrypt_test.go"
+    ],
+    "internal/im": [
+      "internal/im/file_ingestion_test.go",
+      "internal/im/session_resolution_test.go"
+    ],
+    "internal/infrastructure/docparser": [
+      "internal/infrastructure/docparser/mineru_tasks_client.go",
+      "internal/infrastructure/docparser/mineru_tasks_client_test.go",
+      "internal/infrastructure/docparser/mineru_tasks_edges_test.go"
+    ],
+    "internal/mcpserver": [
+      "internal/mcpserver/tools_ask_error_test.go"
+    ],
+    "internal/models/api/googlegenai": [
+      "internal/models/api/googlegenai/nullable_schema_test.go"
+    ],
+    "internal/models/api/openairesponses": [
+      "internal/models/api/openairesponses/terminal_tool_calls_test.go"
+    ],
+    "internal/models/chat": [
+      "internal/models/chat/ollama_native_id_test.go",
+      "internal/models/chat/ollama_tool_frames_test.go"
+    ],
+    "migrations/sqlite": [
+      "migrations/sqlite/000055_im_session_mode_indexes.down.sql",
+      "migrations/sqlite/000055_im_session_mode_indexes.up.sql"
+    ],
+    "migrations/versioned": [
+      "migrations/versioned/000139_im_session_mode_indexes.down.sql",
+      "migrations/versioned/000139_im_session_mode_indexes.up.sql"
+    ]
+  },
+  "units": [
+    {
+      "unit_id": "internal/agent",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/agent/finalize.go",
+        "internal/agent/finalize_empty_test.go",
+        "internal/agent/finalize_truncation_test.go",
+        "internal/agent/prompts_wiki.go",
+        "internal/agent/prompts_wiki_test.go",
+        "internal/agent/resume.go",
+        "internal/agent/resume_background_test.go"
+      ],
+      "invariants_checked": [
+        "finalize.go rejects whitespace-only and think-only synthesis output before emitting a Done: true frame so empty synthesis falls back cleanly without premature stream completion, and records a Truncated: true step in agent history whenever synthesis hits length truncation across all roles.",
+        "prompts_wiki.go gates the primary-source removal notice strictly on HasRetractions && !HasAdditions so mixed add+remove maintenance turns do not falsely suppress synthesis.",
+        "resume.go replays persisted BackgroundInjections at original round boundaries while preserving session/collaboration ownership checks and guaranteed defer End cleanup."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/agent/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/agent/tools",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/agent/tools/data_analysis.go",
+        "internal/agent/tools/host_approval.go",
+        "internal/agent/tools/host_approval_test.go",
+        "internal/agent/tools/param_cast.go",
+        "internal/agent/tools/param_cast_integer_test.go",
+        "internal/agent/tools/read_document.go",
+        "internal/agent/tools/read_document_page_budget_test.go",
+        "internal/agent/tools/read_document_resources_test.go",
+        "internal/agent/tools/search_knowledge.go",
+        "internal/agent/tools/search_knowledge_budget_test.go",
+        "internal/agent/tools/shell_async_cache_test.go",
+        "internal/agent/tools/shell_exec_async.go",
+        "internal/agent/tools/wiki_sqlite_literal_integration_test.go"
+      ],
+      "invariants_checked": [
+        "data_analysis.go enforces authorizeKnowledgeInSearchTargets (tenant + narrowed API-key KB allowlist) before loading tabular documents and resolves shared-KB owner storage context locally without mutating caller ctx.",
+        "read_document.go computes XML-escaped page token budgets (including FAQ metadata lines) after enrichChunkImageInfo and emits compact canonical resource_references; search_knowledge.go binary-searches the largest ranked prefix fitting within the configured token budget.",
+        "host_approval.go truncates command previews UTF-8-safely via common.TruncateUTF8Bytes while masking secret environment variables; param_cast.go rejects overflowing/non-finite exponents before big.Rat.SetString; shell_exec_async.go invalidates sandbox file caches via noteSandboxMutation on inline completion regardless of exit code."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/agent/tools/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/database",
+      "wave": "W2",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/database/migration_im_session_mode_test.go",
+        "internal/database/migration_postgres_im_session_mode_test.go",
+        "internal/database/migration_sqlite_versioned_schema_test.go"
+      ],
+      "invariants_checked": [
+        "SQLite and PostgreSQL versioned migration suites verify expectedSQLiteMigrationVersion == 55, upgrade/downgrade idempotency across 000055/000139 im_session_mode_indexes, retention of agent_id on rollback to 54/138, partial unique index enforcement for user/chat vs thread modes, and GENYEE_MIGRATION_TEST_POSTGRES_DSN configuration."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/datasource/connector/confluence",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/datasource/connector/confluence/connector.go",
+        "internal/datasource/connector/confluence/full_sync_failed_page_test.go"
+      ],
+      "invariants_checked": [
+        "fetchStream retains deletion-reconciliation ownership for previously indexed pages whose body/markdown fetch fails during a forced full sync (storing an empty version marker so retries still re-fetch the body while later source-side deletions emit IsDeleted tombstones).",
+        "Confluence SSRF base-URL validation, credential fingerprint caching, and mass-deletion safeguards remain intact."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/confluence/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/datasource/connector/feishu/core",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/datasource/connector/feishu/core/blocks.go",
+        "internal/datasource/connector/feishu/core/blocks_test.go",
+        "internal/datasource/connector/feishu/core/client.go",
+        "internal/datasource/connector/feishu/core/wiki_shortcuts.go",
+        "internal/datasource/connector/feishu/core/wiki_shortcuts_test.go"
+      ],
+      "invariants_checked": [
+        "listDocumentBlocks, readBitableRecords (fields & records), ListWikiSpaces, ListWikiNodes, and ListDriveFilesAllPages fail closed with an explicit error whenever has_more=true is returned with a missing or repeated page_token, preventing silent partial listings and spurious deletion tombstones.",
+        "expandWikiShortcuts distinguishes permanent missing-origin metadata (errWikiShortcutMissingOrigin) from transient listing errors while still detecting and surfacing shortcut cycles."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/core/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/datasource/connector/feishu/drive",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/datasource/connector/feishu/drive/pagination_test.go"
+      ],
+      "invariants_checked": [
+        "Drive pagination tests pin repeated-token, missing-token-with-has_more, stale-token-with-has_more-false, and multi-page merge invariants under bounded timeouts."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/drive/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/datasource/connector/feishu/wiki",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/datasource/connector/feishu/wiki/connector_test.go"
+      ],
+      "invariants_checked": [
+        "Wiki pagination and shortcut tests verify URL-encoded continuation page_token preservation, fail-closed rejection on missing/repeated page tokens, and non-destructive partial child-listing handling."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/wiki/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/datasource/connector/ima",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/datasource/connector/ima/connector.go",
+        "internal/datasource/connector/ima/connector_test.go",
+        "internal/datasource/connector/ima/pagination_guard_test.go",
+        "internal/datasource/connector/ima/types.go"
+      ],
+      "invariants_checked": [
+        "listAllKBFiles rejects non-final pages missing next_cursor (is_end=false && next_cursor=='') so incomplete listings never advance the cursor or trigger spurious deletions.",
+        "walk retains the last resolved media_id in KBLogical when a replacement download transiently fails, preserving both replacement retry and subsequent deletion tombstone tracking."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/ima/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/datasource/connector/notion",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/datasource/connector/notion/block_retry_test.go",
+        "internal/datasource/connector/notion/client.go",
+        "internal/datasource/connector/notion/client_test.go",
+        "internal/datasource/connector/notion/code_fence_test.go",
+        "internal/datasource/connector/notion/connector.go",
+        "internal/datasource/connector/notion/discovery_failure_test.go",
+        "internal/datasource/connector/notion/markdown.go",
+        "internal/datasource/connector/notion/markdown_test.go",
+        "internal/datasource/connector/notion/nested_content_test.go",
+        "internal/datasource/connector/notion/pagination_guard_test.go"
+      ],
+      "invariants_checked": [
+        "BlocksToMarkdown renders nested children under paragraph and to_do blocks, escapes unbalanced parentheses/backslashes in Markdown link/image destinations without altering attachment URLs, and uses variable-length backtick delimiters for inline and fenced code.",
+        "getBlockChildrenRecursive skips 404 ErrResourceNotFound on unshared cross-page synced_block subtrees while propagating transient/auth failures, and FetchIncremental sorts databases ahead of standalone pages.",
+        "paginatePages, queryDataSourceWindow, and GetBlockChildrenFlat reject has_more=true without next_cursor, and FetchAll/fetchDatabase/fetchDatabaseIncremental propagate non-404 API and query errors so transient failures never emit spurious record deletions or advance cursors."
+      ],
+      "findings": [
+        {
+          "id": "UP-NOTION-001",
+          "severity": "P1",
+          "file": "internal/datasource/connector/notion/connector.go:149-169,471-479,504-516,551-563,1055-1065; internal/datasource/connector/notion/client.go:330-336,485-492,840-846",
+          "summary": "queryDataSourceWindow accepted has_more=true with an empty next_cursor as a complete database query, and FetchAll/fetchDatabase/fetchDatabaseIncremental swallowed non-404 errors from GetPage and queryDatabaseRecords. On transient API failures or incomplete pagination during incremental sync, Notion emitted spurious IsDeleted tombstones for previously indexed database records and advanced the database cursor; on full/first sync, API errors returned empty results with nil error.",
+          "regression_test": "TestNotionDatabaseQueryFailurePreservesCursorAndSkipsDeletions",
+          "commit": "77585df25cc5b411b13b22b4180834dafa8c9bab"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/notion/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/datasource/connector/rss",
+      "wave": "W5",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/datasource/connector/rss/cancellation_test.go",
+        "internal/datasource/connector/rss/client.go",
+        "internal/datasource/connector/rss/connector.go",
+        "internal/datasource/connector/rss/connector_test.go",
+        "internal/datasource/connector/rss/json_feed.go",
+        "internal/datasource/connector/rss/json_feed_test.go",
+        "internal/datasource/connector/rss/redirect_base_test.go",
+        "internal/datasource/connector/rss/types.go"
+      ],
+      "invariants_checked": [
+        "jsonFeedTranslator distinguishes plain-text JSON Feed entries from content_html so plainTextToMarkdown escapes Markdown punctuation without interpreting raw HTML tags or entities.",
+        "extractArticle resolves relative links and images against the post-redirect response URL via SSRF-safe HTTP transport without forwarding feed auth headers to article hosts, and walk aborts without checkpointing when ctx is canceled.",
+        "parseHeaders canonicalizes header keys case-insensitively (last value wins), client.fetchWithURL redacts URL query/userinfo secrets in *url.Error values, Validate/ListResources/walk redact feed URLs in errors and logs, and ListResources sanitizes feed.Link via sanitizeRSSItemLink."
+      ],
+      "findings": [
+        {
+          "id": "UP-RSS-001",
+          "severity": "P2",
+          "file": "internal/datasource/connector/rss/client.go:97-107; internal/datasource/connector/rss/connector.go:42-50,83-114,327-328",
+          "summary": "client.fetchWithURL returned raw *url.Error values containing unredacted feed query strings (leaking private feed ?token=/key= credentials into Validate errors, ListResources Resource.Description, PartialFetchError details, and logs), Validate/ListResources/walk logged or wrapped raw feedURL, and ListResources assigned unsanitized feed.Link values (such as javascript: URIs) directly to Resource.URL.",
+          "regression_test": "TestRSSQuerySecretRedactedAndUnsafeFeedLinkSanitized",
+          "commit": "b4ce669f9021137d8f646a8c15c45a41f1d8e785"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/rss/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/datasource/connector/yuque",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/datasource/connector/yuque/cancel_sync_test.go",
+        "internal/datasource/connector/yuque/client.go",
+        "internal/datasource/connector/yuque/client_test.go",
+        "internal/datasource/connector/yuque/connector.go",
+        "internal/datasource/connector/yuque/connector_test.go",
+        "internal/datasource/connector/yuque/pagination_guard_test.go",
+        "internal/datasource/connector/yuque/toc_test.go",
+        "internal/datasource/connector/yuque/types.go",
+        "internal/datasource/connector/yuque/types_test.go",
+        "internal/datasource/connector/yuque/version_sync_test.go"
+      ],
+      "invariants_checked": [
+        "ListBookDocs checks repeated first-ID stalls before stopping at meta.total, buildTOCPaths counts untitled ancestors toward maxTOCDepth, and isHTMLPageShell matches <!doctype html / <html tag boundaries without false-positiving on custom Markdown tags like <html-example>.",
+        "walk skips unchanged incremental docs only when ContentUpdatedAt is non-empty, discards partial batches/cursors on context cancellation, and parseRetryAfter honours both integer-second and HTTP-date Retry-After headers."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/yuque/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/event",
+      "wave": "W3",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/event/event_data.go"
+      ],
+      "invariants_checked": [
+        "AgentFinalAnswerData carries internal TokenUsage with json:\"-\" so final token counts reach quick-answer persistence handlers in-process without leaking internal struct fields over external SSE frames."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/event/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/handler",
+      "wave": "W2",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/handler/chunker_debug.go",
+        "internal/handler/chunker_preview_token_budget_test.go",
+        "internal/handler/wiki_rebuild_links_failure_test.go"
+      ],
+      "invariants_checked": [
+        "PreviewChunks enforces a 1 MiB request body cap, 64k rune cap, and 5s timeout while passing chunker.TokenBudgetLanguage(cfg) when TokenLimit > 0; wiki rebuild-links failure handler tests verify safe error mapping."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/handler/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/handler/session",
+      "wave": "W2",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/handler/session/qa.go",
+        "internal/handler/session/quick_answer_usage_test.go",
+        "internal/handler/session/stream.go",
+        "internal/handler/session/stream_persistence_error_test.go"
+      ],
+      "invariants_checked": [
+        "registerQuickAnswerCompletionHandler persists non-nil final Usage on quick-answer assistant messages, and SSE stream handlers terminate promptly upon receiving a final message_persistence error event instead of hanging until client timeout."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/handler/session/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/im",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/im/file_ingestion_test.go",
+        "internal/im/service.go",
+        "internal/im/session_resolution_test.go",
+        "internal/im/tool_display.go",
+        "internal/im/tool_display_test.go"
+      ],
+      "invariants_checked": [
+        "resolveUserSession scopes both initial lookup and unique-constraint race fallback to thread_id = '' AND deleted_at IS NULL and deletes orphaned losing sessions on race fallback.",
+        "processDownloadedFileToKnowledgeBase enforces utils.IsSupportedImportExtension and channel.TenantID isolation, and tool_display counts distinct non-web_search knowledge documents accurately."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/im/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/im/feishu",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/im/feishu/adapter.go",
+        "internal/im/feishu/adapter_decrypt_test.go"
+      ],
+      "invariants_checked": [
+        "decryptEvent verifies minimum IV+block length and AES block-size alignment before CBC CryptBlocks (eliminating panics on malformed/truncated ciphertexts), validates PKCS#7 padding in constant time, and verifies X-Lark-Signature prior to decryption."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/im/feishu/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/infrastructure/chunker",
+      "wave": "W4",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/infrastructure/chunker/budget.go"
+      ],
+      "invariants_checked": [
+        "TokenBudgetLanguage derives token-budget language fallback cleanly across explicit Language, Separators, and Punctuation without unbounded allocations."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/infrastructure/chunker/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/infrastructure/docparser",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/infrastructure/docparser/mineru_converter.go",
+        "internal/infrastructure/docparser/mineru_tasks_client.go",
+        "internal/infrastructure/docparser/mineru_tasks_client_test.go",
+        "internal/infrastructure/docparser/mineru_tasks_edges_test.go",
+        "internal/infrastructure/docparser/mineru_v1_client.go"
+      ],
+      "invariants_checked": [
+        "MinerU v1 tasks client and converter validate configured endpoints and cloud/remote ZIP download URLs via SSRF-safe HTTP clients, attach Bearer credentials strictly on sameOrigin requests while stripping sensitive headers on cross-origin redirects, cap ZIP downloads (1 GiB) and extracted images, url.PathEscape task IDs, and cancel non-terminal tasks on timeout/cancellation; GENYEE_MINERU_TIMEOUT naming verified."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/infrastructure/docparser/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/mcpserver",
+      "wave": "W1",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/mcpserver/tools_ask.go",
+        "internal/mcpserver/tools_ask_error_test.go"
+      ],
+      "invariants_checked": [
+        "handleAsk propagates stream/agent execution errors as IsError: true even after partial text chunks were emitted, preventing truncated partial output from being returned as a successful answer or minting public resource URLs."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/mcpserver/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/googlegenai",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/models/api/googlegenai/nullable_schema_test.go",
+        "internal/models/api/googlegenai/request.go"
+      ],
+      "invariants_checked": [
+        "sanitizeSchema clones and rewrites JSON Schema [T, \"null\"] type unions into scalar type + nullable: true without mutating caller json.RawMessage slices, and imagePart restricts remote URIs to http/https/gs schemes with a 20 MiB inline image cap."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/models/api/googlegenai/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/nimrerank",
+      "wave": "W4",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/nimrerank/client.go",
+        "internal/models/api/nimrerank/response_validation_test.go"
+      ],
+      "invariants_checked": [
+        "Rankings decoder rejects null/missing rankings arrays, null/missing index or logit fields, negative/out-of-range indices, non-finite (NaN/Inf) logits, and duplicate indices.",
+        "Rerank and RerankImages normalize nil contexts, short-circuit empty document/image slices without network calls, and redact embedded URL userinfo and query-string secrets from transport/request errors."
+      ],
+      "findings": [
+        {
+          "id": "UP-NIMRERANK-001",
+          "severity": "P2",
+          "file": "internal/models/api/nimrerank/client.go:109-203",
+          "summary": "Unlike sibling rerank clients (pineconerank, teirank), nimrerank.Client failed on nil context.Context, issued outbound HTTP POSTs for empty documents/images slices, lacked NaN/Inf logit guards, and returned unredacted URL userinfo and query-parameter secrets (api_key/token/secret) when pre-request URL/SSRF validation failed.",
+          "regression_test": "TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets",
+          "commit": "69690df2a27c89c4df3ed022bd9e5144a56cd9f8"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/models/api/nimrerank/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/openairesponses",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/models/api/openairesponses/client.go",
+        "internal/models/api/openairesponses/terminal_tool_calls_test.go"
+      ],
+      "invariants_checked": [
+        "Streaming tool-call assembly correlates deltas by item_id or output_index, recovers terminal-only function_call items without duplicating streamed arguments, maps incomplete terminal status to finish_reason=\"length\", and redacts URL secrets in errors."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/models/api/openairesponses/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/chat",
+      "wave": "W5",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/models/chat/ollama.go",
+        "internal/models/chat/ollama_native_id_test.go",
+        "internal/models/chat/ollama_tool_frames_test.go"
+      ],
+      "invariants_checked": [
+        "Ollama chat streaming accumulates toolCalls across intermediate frames for the terminal snapshot, preserves non-numeric native tool call IDs across multi-turn conversations, and validates remote image URLs via ValidateURLForSSRF + NewSSRFSafeHTTPClient with a 20 MiB cap."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/models/chat/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/router",
+      "wave": "W2",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/router/router_files_test.go"
+      ],
+      "invariants_checked": [
+        "Router static/file route tests verify route registration and auth boundaries cleanly."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/router/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/types",
+      "wave": "W3",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/types/search.go",
+        "internal/types/task.go"
+      ],
+      "invariants_checked": [
+        "SearchResult and Task payload types preserve exported field contracts and backward-compatible JSON serialization."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/types/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/types/interfaces",
+      "wave": "W3",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/types/interfaces/knowledge.go"
+      ],
+      "invariants_checked": [
+        "Knowledge interface signatures remain backward-compatible across service and handler callers."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go vet -p 1 ./internal/types/interfaces/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "migrations/mysql",
+      "wave": "W2",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "migrations/mysql/00-init-db.sql",
+        "migrations/mysql/README.md"
+      ],
+      "invariants_checked": [
+        "MySQL 00-init-db.sql virtual generated columns and unique indexes match partial IM session mode index semantics with zero brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "migrations/paradedb",
+      "wave": "W2",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "migrations/paradedb/00-init-db.sql"
+      ],
+      "invariants_checked": [
+        "ParadeDB 00-init-db.sql partial unique indexes idx_im_channel_sessions_user_chat and idx_im_channel_sessions_thread match versioned migration 000139."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "migrations/sqlite",
+      "wave": "W2",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "migrations/sqlite/000055_im_session_mode_indexes.down.sql",
+        "migrations/sqlite/000055_im_session_mode_indexes.up.sql"
+      ],
+      "invariants_checked": [
+        "000055_im_session_mode_indexes.{up,down}.sql use IF EXISTS / IF NOT EXISTS idempotently, scope unique active user/chat sessions to thread_id = '' AND deleted_at IS NULL and thread sessions to thread_id != '' AND deleted_at IS NULL, and preserve agent_id on rollback to v54."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "migrations/versioned",
+      "wave": "W2",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "migrations/versioned/000139_im_session_mode_indexes.down.sql",
+        "migrations/versioned/000139_im_session_mode_indexes.up.sql"
+      ],
+      "invariants_checked": [
+        "000139_im_session_mode_indexes.{up,down}.sql match SQLite 000055 and ParadeDB init schema index definitions and support clean idempotent up/down transitions."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+      ]
+    }
+  ],
+  "verification_commands": [
+    "GOMAXPROCS=2 GOFLAGS=-mod=readonly go vet -p 1 ./... (exit 0)",
+    "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/agent/... (exit 0)",
+    "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)",
+    "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/... (exit 0)",
+    "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/handler/... (exit 0)",
+    "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/im/... (exit 0)",
+    "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/infrastructure/chunker/... ./internal/infrastructure/docparser/... (exit 0)",
+    "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/mcpserver/... (exit 0)",
+    "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/models/... (exit 0)",
+    "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/router/... ./internal/event/... ./internal/types/... (exit 0)",
+    "PYTHONDONTWRITEBYTECODE=1 bash scripts/verify-commercial-compliance.sh --tier 5 (exit 0)"
+  ],
+  "summary": {
+    "audited_live_files": 107,
+    "verified_deleted_files": 4,
+    "units_total": 30,
+    "units_with_findings": 3,
+    "units_no_findings": 27,
+    "findings_total": 3,
+    "findings_by_severity": {
+      "P0": 0,
+      "P1": 1,
+      "P2": 2
+    }
+  }
+}
