@@ -1,0 +1,202 @@
+{
+  "wave": "Stage2B-Upstream-Incremental",
+  "slice": "up-aud-svc-repo",
+  "branch": "swarm/up-aud-svc-repo",
+  "base_commit": "cabe3d63781239b56bfcb911319ed21ecd2d5c3b",
+  "merge_diff_range": "89ce71ff86af78cfb3cf5f637787ecfbe3389e11..cabe3d63781239b56bfcb911319ed21ecd2d5c3b",
+  "upstream_diff_range": "cbdcebabf48c5ee2d6868b370326aa8341703f62..f64dbf002490fd947b4bce48a8cd4fa0dff6dcbd",
+  "commits": [
+    "4efacc4f81e7784bce6658896e091adea01e0f68"
+  ],
+  "status": "verified_findings_fixed",
+  "units": [
+    {
+      "unit_id": "internal/application/access",
+      "status": "verified_no_findings",
+      "files_count": 1
+    },
+    {
+      "unit_id": "internal/application/repository",
+      "status": "verified_no_findings",
+      "files_count": 8
+    },
+    {
+      "unit_id": "internal/application/repository/retriever/neo4j",
+      "status": "verified_no_findings",
+      "files_count": 2
+    },
+    {
+      "unit_id": "internal/application/repository/retriever/weaviate",
+      "status": "verified_no_findings",
+      "files_count": 2
+    },
+    {
+      "unit_id": "internal/application/service",
+      "status": "verified_findings_fixed",
+      "files_count": 54
+    },
+    {
+      "unit_id": "internal/application/service/chat_pipeline",
+      "status": "verified_no_findings",
+      "files_count": 4
+    },
+    {
+      "unit_id": "internal/application/service/file",
+      "status": "verified_findings_fixed",
+      "files_count": 2
+    }
+  ],
+  "files_audited": [
+    "internal/application/access/message_files.go",
+    "internal/application/repository/datasource_repo.go",
+    "internal/application/repository/knowledge.go",
+    "internal/application/repository/knowledge_finalize_attempt_test.go",
+    "internal/application/repository/knowledge_finalize_test.go",
+    "internal/application/repository/repository_audit_fixes_test.go",
+    "internal/application/repository/retriever/neo4j/graph_delete_test.go",
+    "internal/application/repository/retriever/neo4j/repository.go",
+    "internal/application/repository/retriever/weaviate/repository.go",
+    "internal/application/repository/retriever/weaviate/source_identity_test.go",
+    "internal/application/repository/wiki_page.go",
+    "internal/application/repository/wiki_page_test.go",
+    "internal/application/repository/wiki_page_write_snapshot_test.go",
+    "internal/application/service/agent_service.go",
+    "internal/application/service/agent_service_mcp_selection_test.go",
+    "internal/application/service/chat_pipeline/chat_completion_stream.go",
+    "internal/application/service/chat_pipeline/chat_completion_stream_test.go",
+    "internal/application/service/chat_pipeline/citation_sources.go",
+    "internal/application/service/chat_pipeline/citation_sources_test.go",
+    "internal/application/service/datasource_cancel_ack_test.go",
+    "internal/application/service/datasource_ingest_ack_test.go",
+    "internal/application/service/datasource_ingest_rejection_test.go",
+    "internal/application/service/datasource_pause_during_sync_test.go",
+    "internal/application/service/datasource_replay_guard_test.go",
+    "internal/application/service/datasource_service.go",
+    "internal/application/service/evaluation.go",
+    "internal/application/service/evaluation_cleanup_test.go",
+    "internal/application/service/extract.go",
+    "internal/application/service/file/obs.go",
+    "internal/application/service/file/obs_security_audit_test.go",
+    "internal/application/service/image_multimodal.go",
+    "internal/application/service/knowledge.go",
+    "internal/application/service/knowledge_create.go",
+    "internal/application/service/knowledge_finalizer_attempt_test.go",
+    "internal/application/service/knowledge_multimodal_slot_release_test.go",
+    "internal/application/service/knowledge_passage_sync_test.go",
+    "internal/application/service/knowledge_post_process.go",
+    "internal/application/service/knowledge_post_process_wiki_enqueue_test.go",
+    "internal/application/service/knowledge_process.go",
+    "internal/application/service/knowledge_process_base_read_test.go",
+    "internal/application/service/knowledge_process_span_retry_test.go",
+    "internal/application/service/knowledge_reparse_dequeue_test.go",
+    "internal/application/service/knowledge_subtask_slot_release_test.go",
+    "internal/application/service/knowledge_summary_state_test.go",
+    "internal/application/service/knowledgebase_search_rerank.go",
+    "internal/application/service/knowledgebase_search_rerank_revision_test.go",
+    "internal/application/service/knowledgebase_search_results.go",
+    "internal/application/service/knowledgebase_search_results_slots_test.go",
+    "internal/application/service/multimodal_generation_test.go",
+    "internal/application/service/multimodal_pending_counter.go",
+    "internal/application/service/multimodal_pending_counter_test.go",
+    "internal/application/service/session_knowledge_qa.go",
+    "internal/application/service/session_knowledge_qa_truncation_test.go",
+    "internal/application/service/session_shared_chat_model_test.go",
+    "internal/application/service/shared_kb_data_analysis_storage_test.go",
+    "internal/application/service/temporary_document.go",
+    "internal/application/service/temporary_document_cleanup_test.go",
+    "internal/application/service/temporary_document_parse.go",
+    "internal/application/service/temporary_document_parser_error_test.go",
+    "internal/application/service/up_svc_repo_audit_test.go",
+    "internal/application/service/w3b_audit_skills_wiki_test.go",
+    "internal/application/service/wiki_ingest.go",
+    "internal/application/service/wiki_ingest_batch.go",
+    "internal/application/service/wiki_ingest_page_retry_test.go",
+    "internal/application/service/wiki_ingest_reparse_test.go",
+    "internal/application/service/wiki_link_markdown_test.go",
+    "internal/application/service/wiki_page_backlinks_test.go",
+    "internal/application/service/wiki_page_revision_test.go",
+    "internal/application/service/wiki_page_test.go",
+    "internal/application/service/wiki_page_write_snapshot_test.go",
+    "internal/application/service/wiki_rebuild_links_failure_test.go",
+    "internal/application/service/wiki_search_test.go",
+    "internal/application/service/wiki_write_row_guard_test.go"
+  ],
+  "invariants_checked": [
+    "Dimension 1 (Multi-Tenant, Cross-Workspace, and API-Key Isolation): Audited all 71 upstream-changed files in internal/application/** line-by-line across both merge and upstream diffs. Verified access/message_files.go bounds session message attachment lookups by session_id + tenant_id; shared-KB data analysis storage resolution (knowledge.go, shared_kb_data_analysis_storage_test.go) resolves the KB owner workspace storage backend; agent_service.go MCP selection normalizes MCPSelectionMode and fails closed on empty, none, or unrecognized modes without enumerating tenant MCP services; datasource_service.go enforces caller tenant/API-key authorization, payload/syncLog/ds tenant & DataSourceID consistency, and suspended/deleted workspace blocking; knowledge finalizer/passage sync/rerank revision/search result slot paths preserve tenant_id and KB read/write grants; wiki_page.go and wiki_ingest*.go scope wiki pages, snapshots, links, backlinks, search, and live-knowledge checks by (tenant_id, knowledge_base_id); neo4j/repository.go scopes Entity/Relation/Chunk/Document graph deletes by Workspace label; and weaviate/repository.go scopes vector queries/deletes by tenant_id filter while preserving source_type/source_id identity.",
+    "Dimension 2 (State Machine and Rollback Correctness): Verified multimodal_pending_counter.go (Redis + Lite in-memory generation-fenced counters), knowledge_finalizer_attempt_test.go / repository/knowledge.go attempt-fenced MarkKnowledgeCompletedIfFinalizing CAS, knowledge_post_process.go / knowledge_process.go subtask slot release on retry/reparse/cancel/failure, datasource_service.go cancel/pause/replay/ingest state transitions (preserving terminal success/partial SyncLog rows on redelivery and returning cancelSyncLog DB errors for Asynq retry), evaluation.go cleanup without stranding tasks, temporary_document*.go storage/SQL/vector rollback on parser error or expiration, session_knowledge_qa.go truncation/fallback stream handling, and chat_pipeline/{chat_completion_stream,citation_sources}.go stream lifecycle and citation source population.",
+    "Dimension 3 (Concurrency Races, Streaming Memory Bounds, and SSRF): Verified mutex/atomic/Redis/Lite-mode concurrency safety under go test -race across all modified packages, bounded reads and objectStorageBoundReader / SafeObjectKey / SSRF endpoint + virtual-hosted bucket authority validation in service/file/obs.go, size-bounded document/image reads in temporary_document_parse.go and image_multimodal.go, bounded sync error slices in datasource_service.go, and optimistic-lock snapshot fencing (WithWikiPageWriteSnapshot) + table-row loss guards in repository/wiki_page.go and service/wiki_ingest_batch.go.",
+    "Dimension 4 (Contracts and GENYEE Alignment): Preserved all exported Go function/method/type signatures across internal/application/**; verified zero legacy upstream brand or key-prefix residues, zero hardcoded host paths, and 4/4 PASS on scripts/verify-commercial-compliance.sh --tier 5."
+  ],
+  "findings": [
+    {
+      "id": "UP-SVC-AGENT-MCP-001",
+      "severity": "P1",
+      "status": "fixed",
+      "file": "internal/application/service/agent_service.go",
+      "summary": "registerMCPTools changed empty MCPSelectionMode to default to 'none', but kept an open else branch calling ListMCPServices(ctx, tenantID) for anything other than literal 'none' or 'selected'. Unnormalized ('NONE', ' none ', ' Selected ') or unrecognized ('disabled', 'off', etc. via custom-agent creation or YAML import) MCPSelectionMode values bypassed 'none' and failed open, exposing all enabled workspace MCP tools to the agent.",
+      "fix": "Normalized MCPSelectionMode with strings.ToLower(strings.TrimSpace(...)) and switched explicitly on '', 'none' (no-op), 'selected' (ListMCPServicesByIDs when non-empty), and 'all' (ListMCPServices), failing closed with a warning on any unrecognized mode.",
+      "regression_test": "TestUpSvcRepoAudit_RegisterMCPToolsFailsClosedOnUnrecognizedOrUnnormalizedMode",
+      "commit": "4efacc4f81e7784bce6658896e091adea01e0f68"
+    },
+    {
+      "id": "UP-SVC-DATASOURCE-001",
+      "severity": "P1",
+      "status": "fixed",
+      "file": "internal/application/service/datasource_service.go",
+      "summary": "In DataSourceService.ProcessSync, the unavailable/suspended-workspace guard ignored syncLogRepo.Update errors and returned nil (allowing Asynq to acknowledge a SyncLog stuck in 'running' on transient DB failure), and both the unavailable-workspace and deleted-KB branches lacked the terminalResult ('success'/'partial') replay guard used by sourceMissing, overwriting finished SyncLogs to 'canceled' on redelivery.",
+      "fix": "Added terminalResult early-return preservation before cancelling on both unavailable-workspace and deleted-KB paths, and routed unavailable-workspace cancellation through s.cancelSyncLog so DB write errors return for Asynq retry.",
+      "regression_test": "TestUpSvcRepoAudit_ProcessSyncWorkspaceAndKBUnavailablePreserveTerminalAndRetryCancelWrite",
+      "commit": "4efacc4f81e7784bce6658896e091adea01e0f68"
+    },
+    {
+      "id": "UP-SVC-WIKI-ISOLATION-001",
+      "severity": "P1",
+      "status": "fixed",
+      "file": "internal/application/service/wiki_ingest.go, internal/application/service/wiki_ingest_batch.go",
+      "summary": "wikiIngestService.isKnowledgeGone used unscoped GetKnowledgeByIDOnly without checking kn.TenantID or kn.KnowledgeBaseID, and mapOneDocument read kn.Title without tenant/KB verification. A document moved to another KB while wiki ingest was queued or mid-reduce (especially in Lite mode without Redis tombstones) or a foreign-tenant knowledge ID would be treated as live, leaking source titles/updates across KB or tenant boundaries.",
+      "fix": "Enforced tenant_id and knowledge_base_id ownership checks in wikiIngestService.isKnowledgeGone, propagated payload/batch tenantID into context in mapOneDocument and reduceSlugUpdates when absent, and guarded mapOneDocument's kn.Title lookup by payload TenantID and KnowledgeBaseID.",
+      "regression_test": "TestUpSvcRepoAudit_WikiIngestRejectsForeignTenantAndMovedKnowledge",
+      "commit": "4efacc4f81e7784bce6658896e091adea01e0f68"
+    },
+    {
+      "id": "UP-SVC-OBS-001",
+      "severity": "P2",
+      "status": "fixed",
+      "file": "internal/application/service/file/obs.go",
+      "summary": "Upstream virtual-hosted OBS addressing ({bucket}.{endpointHost}) interpolated bucketName directly into outgoing S3/OBS hostnames and GetFileURL URLs without validating DNS label syntax (allowing userinfo, port, path/fragment delimiters, or IP literals), and obsFileService.SaveBytes omitted utils.SafeObjectKey validation unlike SaveFile and CopyFile.",
+      "fix": "Added validateOBSBucketName enforcing non-empty <=63-char non-IP DNS bucket labels across NewObsFileService, CheckObsConnectivity, and GetFileURL, and enforced utils.SafeObjectKey(objectKey) in SaveBytes prior to PutObject.",
+      "regression_test": "TestUpSvcRepoAudit_OBSRejectsBucketAuthorityInjectionAndTraversalObjectKey",
+      "commit": "4efacc4f81e7784bce6658896e091adea01e0f68"
+    }
+  ],
+  "verification_commands": [
+    {
+      "command": "GOMAXPROCS=2 go test -race -p 1 -count=1 -run 'TestUpSvcRepoAudit_' ./internal/application/service/file ./internal/application/service",
+      "exit_code": 0
+    },
+    {
+      "command": "GOMAXPROCS=2 go vet -p 1 ./internal/application/...",
+      "exit_code": 0
+    },
+    {
+      "command": "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/access/... ./internal/application/repository ./internal/application/repository/retriever/neo4j/... ./internal/application/repository/retriever/weaviate/... ./internal/application/service/chat_pipeline/... ./internal/application/service/file/...",
+      "exit_code": 0
+    },
+    {
+      "command": "GOMAXPROCS=2 go test -race -p 1 -count=1 -run 'TestUpSvcRepoAudit_|TestRegisterMCPTools|TestProcessSync|TestDataSource|TestEvalDataset|TestChunkExtract|TestConsumeFallbackStream|TestSharedKB|TestKnowledgeQASharedKB|TestDataAnalysisSharedKB|TestCleanupExpired|TestTemporaryDocument' ./internal/application/service",
+      "exit_code": 0
+    },
+    {
+      "command": "GOMAXPROCS=2 go test -race -p 1 -count=1 -run 'TestMultimodal|TestEnqueueImageMultimodal|TestLiteMultimodal|TestCheckAndFinalizeAllImages|TestImageMultimodal|TestEnqueueWithRetry|TestPostProcess|TestCreateKnowledgeFromPassageSync|TestSettleKnowledgeBaseReadFailure|TestConvert|TestReparseKnowledge|TestReplaceKnowledgeFile|TestFinalizeSubtask|TestReleaseSubtaskSlot|TestProcessSummaryGeneration|TestRegenerateKnowledgeSummary|TestCancelKnowledgeParse|TestTriggerManualProcessing|TestRerankEnrichment|TestSearchResults' ./internal/application/service",
+      "exit_code": 0
+    },
+    {
+      "command": "GOMAXPROCS=2 go test -race -p 1 -count=1 -run 'TestWiki|TestRebuildLinks|TestUpdatePage|TestPruneEmptyFolderChains|TestStripWikiInlineChunkCitations|TestUpdateWikiPage|TestParseOutLinks|TestRepairContentLinks|TestNormalizeSlug|TestNormalizeWiki|TestComputeGraphSubset|TestFindPagesByNormalizedTitle|TestMovePageIntoTypeLabel|TestSearchPagesAcross|TestIsInvalidWikiSearchQuery|TestW3BAudit|TestAuditW3A' ./internal/application/service",
+      "exit_code": 0
+    },
+    {
+      "command": "PYTHONDONTWRITEBYTECODE=1 bash scripts/verify-commercial-compliance.sh --tier 5",
+      "exit_code": 0
+    }
+  ]
+}
