@@ -1,0 +1,564 @@
+{
+  "wave": "W8",
+  "slice": "w8-infra-core-reaudit",
+  "units": [
+    {
+      "unit_id": "internal/application/service/metric",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/application/service/metric/bleu.go",
+        "internal/application/service/metric/bleu_test.go",
+        "internal/application/service/metric/common.go",
+        "internal/application/service/metric/common_test.go",
+        "internal/application/service/metric/map.go",
+        "internal/application/service/metric/map_test.go",
+        "internal/application/service/metric/mrr.go",
+        "internal/application/service/metric/mrr_test.go",
+        "internal/application/service/metric/ndcg.go",
+        "internal/application/service/metric/ndcg_test.go",
+        "internal/application/service/metric/precision.go",
+        "internal/application/service/metric/precision_test.go",
+        "internal/application/service/metric/recall.go",
+        "internal/application/service/metric/recall_test.go",
+        "internal/application/service/metric/retrieval_duplicates_test.go",
+        "internal/application/service/metric/rouge.go",
+        "internal/application/service/metric/rouge_score.go"
+      ],
+      "invariants_checked": [
+        "All seven evaluation calculators (BLEU, ROUGE, NDCG, MAP, MRR, Precision, Recall) handle nil MetricInput, empty/duplicate retrieval sets, and zero denominators without panicking or emitting NaN/Inf scores.",
+        "NDCGMetric rejects non-positive cutoffs (k <= 0) before slicing RetrievalIDs, and deduplicates repeated retrieved document IDs while preserving rank discounts.",
+        "Smoothed BLEU returns 0 when candidate or reference ground truth has zero lexical tokens, rejects negative/NaN/Inf weights, avoids log.Fatal in phrase serialization, and ROUGE normalizes metric/stat selectors while reconstructing LCS iteratively without call-stack recursion."
+      ],
+      "findings": [
+        {
+          "id": "W8-METRIC-001",
+          "severity": "P1",
+          "file": "internal/application/service/metric/ndcg.go:20-28; internal/application/service/metric/bleu.go:47-96,150-185; internal/application/service/metric/rouge.go:48-85; internal/application/service/metric/rouge_score.go:86-140",
+          "summary": "NDCGMetric.Compute panicked on negative k cutoffs (ids[:n.k]), smoothed BLEUMetric returned 0.5-0.84 against empty/punctuation-only ground-truth references and called log.Fatal in phrase.String(), RougeMetric panicked with a nil-function dereference on unknown/uppercase metric names and used O(N+M) stack recursion in reconLcs, and all seven metric calculators dereferenced nil MetricInput without guarding.",
+          "regression_test": "TestMetricsGuardNegativeCutoffEmptyReferenceUnknownRougeAndNilInput",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/automation",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/automation/instruction.go",
+        "internal/automation/trigger.go",
+        "internal/automation/trigger_test.go"
+      ],
+      "invariants_checked": [
+        "Cron and one-shot triggers validate timezones via embedded time/tzdata, forbid CRON_TZ=/TZ= expression overrides, preserve sub-second RFC3339Nano instants across normalization, and enforce DefaultMinInterval across upcoming firing gaps.",
+        "RenderInstruction substitutes placeholders in a single strings.NewReplacer pass (preventing second-pass placeholder injection from AutomationName/RunID), and RunQuery truncates carried prior results strictly on UTF-8 rune boundaries."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/background",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/background/lifecycle.go",
+        "internal/background/lifecycle_test.go",
+        "internal/background/listeners.go",
+        "internal/background/listeners_test.go",
+        "internal/background/memory_inbox.go",
+        "internal/background/memory_registry.go",
+        "internal/background/memory_test.go",
+        "internal/background/run_notices.go",
+        "internal/background/run_notices_test.go"
+      ],
+      "invariants_checked": [
+        "Lifecycle.Begin registers activity before invoking start and rolls back registration on both returned errors and recovered panics so per-kind concurrency caps never leak.",
+        "Lifecycle.Finish writes the completion notice before removing live registration and emits work_finished only on the winning first Push.",
+        "Listeners snapshots registered SessionLifecycleListeners under RWMutex, ignores nil registrations, recovers per-listener panics in NotifyStop/NotifyDelete/NotifyDeleteAborted so remaining listeners still execute, and preserves shared registry/inbox state when any OnDelete listener fails or panics."
+      ],
+      "findings": [
+        {
+          "id": "W8-BG-001",
+          "severity": "P2",
+          "file": "internal/background/lifecycle.go:40-62; internal/background/listeners.go:36-118",
+          "summary": "Lifecycle.Begin leaked the registered ActivityRegistry slot if the start callback panicked, and Listeners accepted nil registrations and allowed a single panicking listener to abort remaining session stop/delete cleanup hooks.",
+          "regression_test": "TestBeginRemovesRegistrationWhenStartPanics, TestListenersRecoverPanicIgnoreNilAndRunRemainingListeners",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/background/backgroundtest",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/background/backgroundtest/contract.go"
+      ],
+      "invariants_checked": [
+        "RunActivityRegistryContract and RunNoticeInboxContract verify per-session isolation, cross-tenant isolation across identical SessionIDs (TenantsAreIsolated), per-kind concurrency caps under goroutine contention, lease renewal/expiry, first-push idempotency, retention pruning, and race-free Ack/Clear semantics."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/common",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/common/db_retry.go",
+        "internal/common/redis_tls.go",
+        "internal/common/redis_tls_test.go",
+        "internal/common/tools.go",
+        "internal/common/tools_test.go",
+        "internal/common/truncate_utf8_test.go"
+      ],
+      "invariants_checked": [
+        "RedisTLSConfig enforces TLS 1.2+ with certificate verification enabled by default unless REDIS_TLS_INSECURE_SKIP_VERIFY=true.",
+        "TruncateUTF8Bytes and CleanInvalidUTF8 preserve valid UTF-8 boundaries and strip NUL bytes, PipelineLog sanitizes structured log values against log injection and typed-nil Stringers, WithDeadlockRetry honors context cancellation, and DeduplicateWithScore maintains a strict weak ordering even in the presence of NaN scores."
+      ],
+      "findings": [
+        {
+          "id": "W8-COMMON-001",
+          "severity": "P2",
+          "file": "internal/common/tools.go:71-108,281-300; internal/common/db_retry.go:16-22",
+          "summary": "DeduplicateWithScore allowed a first-seen NaN score to shadow valid finite scores for the same key and violated slices.SortFunc strict weak ordering when sorting NaN entries, formatPipelineLogValue panicked on typed-nil fmt.Stringer values (such as (*url.URL)(nil)), and WithDeadlockRetry did not guard nil contexts.",
+          "regression_test": "TestDeduplicateWithScoreNaNAndTypedNilPipelineLog",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/common/redislock",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/common/redislock/token_lock.go",
+        "internal/common/redislock/token_lock_test.go"
+      ],
+      "invariants_checked": [
+        "Cryptographically random 128-bit hex owner tokens guard atomic Lua compare-and-delete (Release) and compare-and-pexpire (Renew) scripts so an expired holder never deletes or extends another holder's lock.",
+        "WithRenewableLock separates caller cancellation from OwnershipContext cancellation, enforces 0 < renewInterval < lease and lease >= 1ms, and reports ErrLockOwnershipLost if renewal or release loses ownership."
+      ],
+      "findings": [
+        {
+          "id": "W8-LOCK-001",
+          "severity": "P2",
+          "file": "internal/common/redislock/token_lock.go:256-272",
+          "summary": "validateOperation accepted positive sub-millisecond leases (0 < lease < 1ms), causing Renew to pass lease.Milliseconds() == 0 into PEXPIRE and immediately delete the caller's owned lock in Redis while reporting renewed=true.",
+          "regression_test": "TestSubMillisecondLeaseRejectedBeforeZeroPexpire",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/embedpolicy",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/embedpolicy/origin.go",
+        "internal/embedpolicy/origin_test.go"
+      ],
+      "invariants_checked": [
+        "NormalizeOrigin and NormalizePattern accept only http/https origins or *.domain[:port] / * patterns without userinfo, paths, queries, fragments, IP wildcards, IPv6 zone IDs, empty/leading-zero/out-of-range ports, trailing/leading/empty DNS labels, or CSP-breaking characters.",
+        "Allows enforces exact scheme+host+port matching or strict dot-boundary subdomain matching (preventing evil-example.com suffix tricks and port mismatches), and FrameAncestors fails closed to frame-ancestors 'none' when patterns are empty or invalid."
+      ],
+      "findings": [
+        {
+          "id": "W8-EMBED-001",
+          "severity": "P1",
+          "file": "internal/embedpolicy/origin.go:11-56",
+          "summary": "NormalizeOrigin and NormalizePattern accepted dangling empty-port colons (https://a.example:, *.example.com:), out-of-range/leading-zero ports (:0, :65536, :0443), leading/consecutive/trailing FQDN dots (*..example.com, *.example.com.), IPv6 % zone IDs, and unsafe characters (<, >, `), causing FrameAncestors to emit broken CSP tokens (http://*.example.com::*) and Allows to wildcard all ports on *.example.com:.",
+          "regression_test": "TestRejectTrailingDotEmptyPortAndMalformedHosts",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/envfile",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/envfile/envfile.go",
+        "internal/envfile/envfile_test.go"
+      ],
+      "invariants_checked": [
+        "Load honors explicit ENV_FILE across all builds, restricts implicit dotenv loading strictly to .env.lite on Lite builds (executable directory first, then CWD), ignores stray .env files, and never overwrites existing process environment variables."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/errors",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/errors/errors.go",
+        "internal/errors/errors_test.go",
+        "internal/errors/parse_error_codes.go",
+        "internal/errors/session.go"
+      ],
+      "invariants_checked": [
+        "All HTTP/application ErrorCode constants, parse-stage wire codes, and session sentinel errors preserve stable numeric/string values and generic anti-enumeration messages.",
+        "IsAppError unwraps %w-wrapped error chains via errors.As while rejecting nil and typed-nil *AppError pointers, and (*AppError).Error() is nil-receiver safe."
+      ],
+      "findings": [
+        {
+          "id": "W8-ERRORS-001",
+          "severity": "P2",
+          "file": "internal/errors/errors.go:70-79,302-313",
+          "summary": "IsAppError used a direct err.(*AppError) type assertion instead of errors.As, missing %w-wrapped AppErrors and returning (nil, true) on typed-nil *AppError values, while (*AppError).Error() panicked on a nil receiver.",
+          "regression_test": "TestIsAppErrorUnwrapsWrappedAndRejectsTypedNil",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/filetransport",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/filetransport/response.go",
+        "internal/filetransport/response_test.go"
+      ],
+      "invariants_checked": [
+        "Serve always closes reader on every path (including HEAD and 416 Range errors), sets X-Content-Type-Options: nosniff, strips Unix/Windows path components and control characters from Content-Disposition filenames, and forces attachment + application/octet-stream whenever active browser content (.svg, .html, .xml, .js, etc. or active MIME types) is served without Download: true."
+      ],
+      "findings": [
+        {
+          "id": "W8-FILETRANS-001",
+          "severity": "P2",
+          "file": "internal/filetransport/response.go:25-115",
+          "summary": "Serve used platform-specific filepath.Base in Content-Disposition (leaking Windows backslash traversal segments on Linux and emitting filename=\"/\" or \"..\" on degenerate inputs) and allowed caller-supplied active ContentType values (text/html, image/svg+xml, text/javascript) to override SafeContentTypeByFilename when Download was false.",
+          "regression_test": "TestServeBlocksWindowsBackslashTraversalAndInlineActiveContentType",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/infrastructure/docparser/anydoc",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/infrastructure/docparser/anydoc/anydoc.go",
+        "internal/infrastructure/docparser/anydoc/anydoc_test.go",
+        "internal/infrastructure/docparser/anydoc/backend_cgo.go",
+        "internal/infrastructure/docparser/anydoc/backend_stub.go",
+        "internal/infrastructure/docparser/anydoc/benchmark_linked_test.go",
+        "internal/infrastructure/docparser/anydoc/convert_linked_test.go",
+        "internal/infrastructure/docparser/anydoc/corpus_linked_test.go",
+        "internal/infrastructure/docparser/anydoc/pdf_structure_linked_test.go",
+        "internal/infrastructure/docparser/anydoc/resource_limit_test.go",
+        "internal/infrastructure/docparser/anydoc/stress_linked_test.go",
+        "internal/infrastructure/docparser/anydoc/upgrade_linked_test.go"
+      ],
+      "invariants_checked": [
+        "In-process anydoc conversions enforce empty-input rejection, normalize format extensions consistently, drop WithAssets on PDF inputs, classify typed resource_limit failures permanently via ErrResourceLimit without re-parsing hostile inputs, cap AST block/inline walk depth, and report ErrUnavailable cleanly when built without -tags anydoc."
+      ],
+      "findings": [
+        {
+          "id": "W8-ANYDOC-001",
+          "severity": "P2",
+          "file": "internal/infrastructure/docparser/anydoc/anydoc.go:192-235; internal/infrastructure/docparser/anydoc/backend_cgo.go:49-66,114-208",
+          "summary": "backendConvert unconditionally retried ToMarkdownBytes after ToDocumentWithAssetLinks hit a permanent resource_limit rejection (parsing hostile XML/ZIP bombs twice), Convert compared opts.Format == \"pdf\" without normalizeExt normalization, and AST block/inline walkers lacked a recursion depth guard.",
+          "regression_test": "TestShouldRetryTextOnlySkipsResourceLimitAndNormalizesFormat",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/infrastructure/legacyxls",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/infrastructure/legacyxls/builder_test.go",
+        "internal/infrastructure/legacyxls/codepage.go",
+        "internal/infrastructure/legacyxls/continuation_test.go",
+        "internal/infrastructure/legacyxls/fuzz_test.go",
+        "internal/infrastructure/legacyxls/oracle_test.go",
+        "internal/infrastructure/legacyxls/reader.go",
+        "internal/infrastructure/legacyxls/reader_test.go",
+        "internal/infrastructure/legacyxls/robustness_test.go"
+      ],
+      "invariants_checked": [
+        "Compound header validation verifies the 8-byte OLE2 signature, 512/4096 sector shifts, and header sector counts before mscfb allocation, returning ErrUnsupported on non-OLE2 inputs.",
+        "validateOLEStreamChain verifies DIFAT, Directory, FAT, and MiniFAT chains for cycles and unallocated/special sector markers before reading Workbook/Book streams, and readStream bounds both initial buffer capacity (64 KiB) and total stream bytes (256 MiB and verified chain capacity) regardless of forged streamSize or caller fileSize.",
+        "BIFF5/BIFF8 record parsing bounds SST allocations/iterations, skips overlapping BoundSheet substreams to prevent quadratic re-parsing, enforces worksheet row/col grid limits, and recovers panics as errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-XLS-001",
+          "severity": "P1",
+          "file": "internal/infrastructure/legacyxls/reader.go:67-79,138-395,779-790",
+          "summary": "mscfb stream reads lacked FAT/MiniFAT cycle and special-sector validation (allowing cyclic FAT[0]=0 chains to synthesize repeated workbook sectors up to declared stream size), readStream preallocated min(f.Size, fileSize) upfront before reading bytes, checkCompoundHeader omitted the 8-byte OLE2 magic check (failing to return ErrUnsupported on >=512B non-OLE2 files with 0x0009 at offset 30), and parseSST looped over raw uint32 unique counts.",
+          "regression_test": "TestFATCycleOversizeReaderArgAndNonOLE2SignatureRejected",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/infrastructure/web_fetch",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/infrastructure/web_fetch/chromium_proxy.go",
+        "internal/infrastructure/web_fetch/fetcher.go",
+        "internal/infrastructure/web_fetch/fetcher_charset_test.go",
+        "internal/infrastructure/web_fetch/fetcher_dns_cancellation_test.go",
+        "internal/infrastructure/web_fetch/fetcher_ssrf_test.go",
+        "internal/infrastructure/web_fetch/fetcher_test.go",
+        "internal/infrastructure/web_fetch/fetcher_whitelist_only_test.go",
+        "internal/infrastructure/web_fetch/markdown.go",
+        "internal/infrastructure/web_fetch/markdown_base_test.go",
+        "internal/infrastructure/web_fetch/markdown_test.go"
+      ],
+      "invariants_checked": [
+        "HTTP and headless Chromium fetches enforce SSRF validation on initial URLs, redirect hops, DNS-pinned dials, and local Chromium HTTP/CONNECT proxy requests, blocking loopback, RFC1918, CGNAT, link-local metadata, IPv4-in-IPv6 translations, restricted ports, userinfo credentials, and FQDN trailing-dot internal hostnames.",
+        "Chromium child processes run with a strict minimal environment allowlist (blanking parent secrets and LD_*/DYLD_* variables), bounded global concurrency semaphore, <-loopback> proxy enforcement, Host-header normalization on HTTP proxy requests, and bounded response/DOM body sizes."
+      ],
+      "findings": [
+        {
+          "id": "W8-WEBFETCH-001",
+          "severity": "P1",
+          "file": "internal/infrastructure/web_fetch/chromium_proxy.go:85-143,287-293,399-525; internal/infrastructure/web_fetch/fetcher.go:192-198,322-455",
+          "summary": "chromiumSSRFProxy and Fetcher.pinnedDialContext/resolvePinnedTarget did not canonicalize FQDN trailing dots (allowing http://localhost./, http://metadata.google.internal./, and .corp. to bypass hostname suffix checks), pinnedDialContext omitted restricted-port checks before DNS resolution, Fetch and resolvePinnedTarget accepted userinfo credentials in URLs, and chromiumSSRFProxy.handleHTTP did not pin outReq.Host to outReq.URL.Host.",
+          "regression_test": "TestWebFetchBlocksTrailingDotRestrictedHostsPortsAndCredentials",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/ipclass",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/ipclass/ipclass.go",
+        "internal/ipclass/ipclass_test.go"
+      ],
+      "invariants_checked": [
+        "Classify fails closed (Invalid) on nil or malformed net.IP slices and categorizes loopback, RFC1918, IPv6 ULA (fc00::/7), site-local (fec0::/10), link-local (169.254.0.0/16, fe80::/10), CGNAT (100.64.0.0/10), 0.0.0.0/8, 240.0.0.0/4, RFC 2544/6890 reserved, RFC 6666 discard-only (100::/64), TEST-NET documentation, IPv4-mapped (::ffff:0:0/96), RFC 2765 SIIT IPv4-translated (::ffff:0:0:0/96), 6to4 (2002::/16), Teredo (2001::/32), NAT64 (64:ff9b::/96, 64:ff9b:1::/48), and IPv4-compatible (::a.b.c.d) addresses."
+      ],
+      "findings": [
+        {
+          "id": "W8-IPCLASS-001",
+          "severity": "P1",
+          "file": "internal/ipclass/ipclass.go:161-218",
+          "summary": "classifyIPv6 and embeddedIPv4 omitted RFC 2765 SIIT IPv4-translated addresses (::ffff:0:a.b.c.d, e.g. ::ffff:0:169.254.169.254 and ::ffff:0:127.0.0.1) and RFC 6666 discard-only IPv6 addresses (100::/64), misclassifying them as Public.",
+          "regression_test": "TestClassifyRFC2765AndDiscardIPv6",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/runtime",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/runtime/container.go",
+        "internal/runtime/server.go",
+        "internal/runtime/server_test.go",
+        "internal/runtime/shutdown.go",
+        "internal/runtime/shutdown_test.go",
+        "internal/runtime/startup.go"
+      ],
+      "invariants_checked": [
+        "MarkServerStarted, ServerStartedAt, ServerUptime, SilenceGinRouteSpam, and LogGinRouteCount synchronize global state via atomic.Pointer without data races.",
+        "LogStartupEnv redacts sensitive secrets to character lengths only, warns on invalid SYSTEM_AES_KEY lengths, missing HMAC signing keys, and insecure Redis TLS, and sanitizes non-sensitive env values against CR/LF log injection.",
+        "ShutdownBudgets splits total grace periods into positive HTTP drain and resource cleanup budgets summing to total."
+      ],
+      "findings": [
+        {
+          "id": "W8-RUNTIME-001",
+          "severity": "P2",
+          "file": "internal/runtime/server.go:1-38; internal/runtime/startup.go:43-61,160-168",
+          "summary": "MarkServerStarted/ServerStartedAt/ServerUptime read and wrote a non-atomic package-level time.Time struct and SilenceGinRouteSpam/LogGinRouteCount shared a non-atomic *int64 pointer (triggering -race data races under concurrent access), and formatEnvValue logged non-sensitive environment variables without stripping CR/LF log-injection characters.",
+          "regression_test": "TestServerStartedGinCountConcurrencyAndStartupLogSanitization",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/sourceloc",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/sourceloc/align.go",
+        "internal/sourceloc/alignment_index_test.go",
+        "internal/sourceloc/assign.go",
+        "internal/sourceloc/office.go",
+        "internal/sourceloc/precision_test.go",
+        "internal/sourceloc/remap.go",
+        "internal/sourceloc/sourceloc_test.go",
+        "internal/sourceloc/text.go"
+      ],
+      "invariants_checked": [
+        "Align indexes normalized unit keys in a single linear pass, preserves numeric signs/decimals/inequalities, rejects unaccounted TOC/duplicate occurrences, and never attributes unmapped gaps to adjacent pages/blocks.",
+        "Office/EPUB structure extractors enforce per-entry (64 MiB, verified on actual decompressed stream rather than declared ZIP header alone) and cumulative per-archive (128 MiB) decompression budgets across docx, pptx, xlsx (via excelize UnzipSizeLimit/UnzipXMLSizeLimit), and epub, while rejecting ../ archive root escapes.",
+        "Index.Locators clamps out-of-range offsets safely without slice bounds panics and marks chunks containing unmapped text as Partial."
+      ],
+      "findings": [
+        {
+          "id": "W8-SOURCELOC-001",
+          "severity": "P1",
+          "file": "internal/sourceloc/office.go:23-30,210-275,325-332,419-475,542-620; internal/sourceloc/assign.go:46-50",
+          "summary": "epubUnits and pptxUnits lacked a cumulative archive decompression budget (allowing repeated spine/slide references to a single compressed member to amplify memory without hitting maxUnits), xlsxUnits called excelize.OpenReader without UnzipSizeLimit/UnzipXMLSizeLimit, readZipFile silently truncated entries spoofing UncompressedSize64, resolvePart allowed ../ traversal and epubUnits failed on leading-slash rootfiles, and Index.Locators did not re-check end <= start after clamping.",
+          "regression_test": "TestOfficeUnitsBoundCumulativeZipAmplificationAndTraversal",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/storageallowlist",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/storageallowlist/allowlist.go",
+        "internal/storageallowlist/allowlist_test.go"
+      ],
+      "invariants_checked": [
+        "AllowedMap, AllowedList, FirstAllowed, and IsAllowed normalize delimiters and casing against the closed 8-provider canonical list (local, minio, cos, tos, s3, oss, ks3, obs), returning defensive copies and ignoring unknown provider tokens."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/stream",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/stream/factory.go",
+        "internal/stream/memory_manager.go",
+        "internal/stream/notice_inbox_redis.go",
+        "internal/stream/notice_inbox_redis_test.go",
+        "internal/stream/redis_live_run_test.go",
+        "internal/stream/redis_manager.go"
+      ],
+      "invariants_checked": [
+        "RedisNoticeInbox namespaces keys by both TenantID and SessionID, writes notices with atomic HSETNX+PEXPIRE Lua scripts, and deletes expired notices via compare-and-HDEL Lua scripts so concurrently re-pushed IDs survive.",
+        "MemoryStreamManager and RedisStreamManager clamp negative fromOffset values to 0, clone StreamEvent structs/Data maps to prevent caller-slice/map data races, use millisecond PEXPIRE/PExpire TTLs so sub-second TTLs never truncate to 0s key deletion, bound initial Redis Ping timeouts while closing failed clients, and guard LiveRun transitions with SetNX and CAS Lua scripts."
+      ],
+      "findings": [
+        {
+          "id": "W8-STREAM-001",
+          "severity": "P1",
+          "file": "internal/stream/notice_inbox_redis.go:67-69",
+          "summary": "RedisNoticeInbox.key omitted SessionRef.TenantID from the Redis hash key (fmt.Sprintf(\"%s:%s:bg-inbox\", prefix, SessionID)), allowing sessions sharing a SessionID across different tenants to read, collide with, acknowledge, or clear each other's background completion notices.",
+          "regression_test": "TestRedisNoticeInboxContract",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        },
+        {
+          "id": "W8-STREAM-002",
+          "severity": "P1",
+          "file": "internal/stream/memory_manager.go:74-220; internal/stream/redis_manager.go:38-50,98-135,175-250,319,475",
+          "summary": "GetEvents and GetSteerEvents panicked on negative fromOffset in MemoryStreamManager (slice bounds out of range) and queried tail elements with negative nextOffset in RedisStreamManager; AppendSteerEvents mutated caller slice Timestamps in place (racing on shared slices) and truncated sub-second Redis TTLs to EXPIRE 0 (immediately deleting the steer list); and NewRedisStreamManager leaked Redis client pools on Ping failure.",
+          "regression_test": "TestStreamManagersClampNegativeOffsetSubSecondTTLAndSharedSliceRace",
+          "commit": "3e2a1a2bbb243553f07aebbac364ac817166e959"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/textconv",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/textconv/simplified.go",
+        "internal/textconv/simplified_test.go"
+      ],
+      "invariants_checked": [
+        "ToSimplified uses immutable post-init dictionaries with bounded <=10-rune greedy phrase-then-character matching, verified concurrent-safe and bit-identical against the 13,177-entry SHA-256 historical FAQ corpus."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 -tags anydoc ./internal/infrastructure/docparser/anydoc (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/metric ./internal/automation ./internal/background ./internal/background/backgroundtest ./internal/common ./internal/common/redislock ./internal/embedpolicy ./internal/envfile ./internal/errors ./internal/filetransport ./internal/infrastructure/docparser/anydoc ./internal/infrastructure/legacyxls ./internal/infrastructure/web_fetch ./internal/ipclass ./internal/runtime ./internal/sourceloc ./internal/storageallowlist ./internal/stream ./internal/textconv (exit 0)"
+      ]
+    }
+  ]
+}
