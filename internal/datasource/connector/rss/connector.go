@@ -42,10 +42,10 @@ func (c *Connector) Validate(ctx context.Context, config *types.DataSourceConfig
 	for _, feedURL := range cfg.feedURLList() {
 		data, err := cli.fetchFeed(ctx, feedURL)
 		if err != nil {
-			return fmt.Errorf("fetch feed %s: %w", feedURL, err)
+			return fmt.Errorf("fetch feed %s: %w", redactRSSURL(feedURL), err)
 		}
 		if _, err := parser.Parse(bytes.NewReader(data)); err != nil {
-			return fmt.Errorf("parse feed %s: %w", feedURL, err)
+			return fmt.Errorf("parse feed %s: %w", redactRSSURL(feedURL), err)
 		}
 	}
 	return nil
@@ -81,22 +81,23 @@ func (c *Connector) ListResources(
 	feedURLs := cfg.feedURLList()
 	out := make([]types.Resource, 0, len(feedURLs))
 	for _, feedURL := range feedURLs {
+		redactedFeedURL := redactRSSURL(feedURL)
 		res := types.Resource{
 			ExternalID: feedURL,
 			Type:       "feed",
-			Name:       feedURL,
-			URL:        feedURL,
+			Name:       redactedFeedURL,
+			URL:        redactedFeedURL,
 		}
 		data, err := cli.fetchFeed(ctx, feedURL)
 		if err != nil {
-			logger.Warnf(ctx, "[RSS] list: fetch %s failed: %v", feedURL, err)
+			logger.Warnf(ctx, "[RSS] list: fetch %s failed: %v", redactedFeedURL, err)
 			res.Description = "fetch failed: " + err.Error()
 			out = append(out, res)
 			continue
 		}
 		feed, err := parser.Parse(bytes.NewReader(data))
 		if err != nil {
-			logger.Warnf(ctx, "[RSS] list: parse %s failed: %v", feedURL, err)
+			logger.Warnf(ctx, "[RSS] list: parse %s failed: %v", redactedFeedURL, err)
 			res.Description = "parse failed: " + err.Error()
 			out = append(out, res)
 			continue
@@ -105,8 +106,8 @@ func (c *Connector) ListResources(
 			res.Name = title
 		}
 		res.Description = strings.TrimSpace(feed.Description)
-		if feed.Link != "" {
-			res.URL = feed.Link
+		if safeFeedLink := sanitizeRSSItemLink(feed.Link); safeFeedLink != "" {
+			res.URL = safeFeedLink
 		}
 		if feed.UpdatedParsed != nil {
 			res.ModifiedAt = *feed.UpdatedParsed
@@ -324,7 +325,7 @@ func (c *Connector) walk(
 		}
 
 		logger.Infof(ctx, "[RSS] feed %s: items=%d fetched=%d skipped=%d",
-			feedURL, len(feed.Items), kept, skipped)
+			redactRSSURL(feedURL), len(feed.Items), kept, skipped)
 	}
 
 	// The caller may persist a returned cursor even on fetch failure.

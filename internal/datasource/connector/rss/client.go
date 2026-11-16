@@ -3,6 +3,7 @@ package rss
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -96,6 +97,12 @@ func (c *client) fetchWithURL(
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		var uErr *url.Error
+		if errors.As(err, &uErr) {
+			sanitized := *uErr
+			sanitized.URL = redactRSSURL(uErr.URL)
+			err = &sanitized
+		}
 		return nil, nil, fmt.Errorf("fetch failed: %w", err)
 	}
 	defer resp.Body.Close()

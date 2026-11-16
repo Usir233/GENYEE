@@ -1,6 +1,7 @@
 package rss
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/Usir233/GENYEE/internal/datasource"
+	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/Usir233/GENYEE/internal/utils"
 	"github.com/mmcdole/gofeed"
@@ -438,5 +440,63 @@ func TestResolveItem_FileNamePolicy(t *testing.T) {
 				t.Fatalf("source title changed: %q", result.item.Title)
 			}
 		})
+	}
+}
+
+func TestRSSQuerySecretRedactedAndUnsafeFeedLinkSanitized(t *testing.T) {
+	const secretToken = "rss-query-secret-token-98765"
+
+	var logs bytes.Buffer
+	logger.SetOutput(&logs)
+	t.Cleanup(func() { logger.ConfigureFromEnv() })
+
+	// Closed server produces a transport error (*url.Error) embedding the full request URL.
+	closedSrv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	closedFeedURL := closedSrv.URL + "/private.xml?token=" + secretToken
+	closedSrv.Close()
+
+	liveSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/rss+xml")
+		_, _ = fmt.Fprint(w, `<rss version="2.0"><channel><title>Hostile</title>
+<link>javascript:alert(1)</link><description>Feed</description>
+<item><guid>1</guid><title>Entry</title><description>Body</description></item>
+</channel></rss>`)
+	}))
+	defer liveSrv.Close()
+	liveFeedURL := liveSrv.URL + "/feed.xml?token=" + secretToken
+
+	conn := NewConnector()
+
+	valErr := conn.Validate(context.Background(), makeConfig(closedFeedURL, ""))
+	if valErr == nil {
+		t.Fatal("expected Validate error on closed server")
+	}
+	if strings.Contains(valErr.Error(), secretToken) {
+		t.Fatalf("Validate leaked feed query token in error: %v", valErr)
+	}
+
+	resources, err := conn.ListResources(context.Background(), makeConfig(closedFeedURL+","+liveFeedURL, ""), "")
+	if err != nil {
+		t.Fatalf("ListResources error: %v", err)
+	}
+	if len(resources) != 2 {
+		t.Fatalf("expected 2 resources, got %d", len(resources))
+	}
+	if strings.Contains(resources[0].Description, secretToken) {
+		t.Fatalf("ListResources Description leaked feed query token: %q", resources[0].Description)
+	}
+	if strings.HasPrefix(strings.ToLower(resources[1].URL), "javascript:") {
+		t.Fatalf("ListResources accepted unsafe javascript: feed.Link as Resource.URL: %q", resources[1].URL)
+	}
+
+	_, syncErr := conn.FetchAll(context.Background(), makeConfig(closedFeedURL+","+liveFeedURL, ""), nil)
+	if syncErr == nil {
+		t.Fatal("expected PartialFetchError when one feed fails")
+	}
+	if strings.Contains(syncErr.Error(), secretToken) {
+		t.Fatalf("FetchAll error leaked feed query token: %v", syncErr)
+	}
+	if strings.Contains(logs.String(), secretToken) {
+		t.Fatalf("RSS logs leaked feed query token:\n%s", logs.String())
 	}
 }
