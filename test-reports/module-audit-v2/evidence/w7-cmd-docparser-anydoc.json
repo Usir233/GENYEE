@@ -1,0 +1,683 @@
+{
+  "wave": "W7",
+  "slice": "w7-cmd-docparser-anydoc",
+  "units": [
+    {
+      "unit_id": "cmd/desktop",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "cmd/desktop/app.go",
+        "cmd/desktop/build/darwin/Info.plist",
+        "cmd/desktop/build/windows/installer/project.nsi",
+        "cmd/desktop/desktop_env.go",
+        "cmd/desktop/desktop_env_test.go",
+        "cmd/desktop/main.go",
+        "cmd/desktop/main_bindings.go",
+        "cmd/desktop/prefs.go",
+        "cmd/desktop/prefs_test.go",
+        "cmd/desktop/proxy_test.go",
+        "cmd/desktop/signing_key.go",
+        "cmd/desktop/signing_key_test.go",
+        "cmd/desktop/update.go",
+        "cmd/desktop/update_test.go",
+        "cmd/desktop/wails.json",
+        "cmd/desktop/webview_js_test.go"
+      ],
+      "invariants_checked": [
+        "Embedded HTTP backend binds 127.0.0.1 by default (0.0.0.0 only on explicit user preference), enforces Slowloris ReadHeaderTimeout/IdleTimeout/MaxHeaderBytes, and synchronizes backend port assignment via channel + RWMutex before Wails proxy initialization.",
+        "Desktop auto-update defaults to disabled, enforces HTTPS (loopback HTTP allowed for local test servers only) across release metadata, manifest/signature fetches, redirect hops, installer downloads, and BrowserOpenURL fallbacks, scopes GITHUB_TOKEN strictly to https://api.github.com, strips Authorization on cross-origin redirects, and verifies SHA-256 + optional Ed25519 signatures.",
+        "Local directory picker (PickProjectDir) serializes concurrent invocations, requires user-selected native dialog approval, and WebView JS injection preserves the __wkDragBound negative brand-residue guard."
+      ],
+      "findings": [
+        {
+          "id": "W7-DESK-001",
+          "severity": "P1",
+          "file": "cmd/desktop/main.go:252-415,560-568, cmd/desktop/app.go:13-175",
+          "summary": "Embedded desktop HTTP server lacked Slowloris ReadHeaderTimeout/IdleTimeout/MaxHeaderBytes guards, and main() slept a fixed 500ms while reading/writing App.backendURL, App.apiLanBaseURL, App.listenPublic, and App.ctx across goroutines without synchronization.",
+          "regression_test": "TestNewDesktopHTTPServer_HasSlowlorisAndHeaderTimeouts, TestApp_ConcurrentEndpointsAndStartupRaceFree",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        },
+        {
+          "id": "W7-DESK-002",
+          "severity": "P1",
+          "file": "cmd/desktop/update.go:145-236,373-405,545-555,659-676",
+          "summary": "Desktop updater attached GITHUB_TOKEN unconditionally to non-GitHub custom GENYEE_UPDATE_URL hosts, accepted cleartext non-loopback HTTP/unsafe-scheme URLs and unvalidated redirects across release/manifest/installer fetches and BrowserOpenURL, accepted path-traversal segments in GENYEE_UPDATE_REPO, and formatted nil err on invalid GENYEE_UPDATE_PUBLIC_KEY.",
+          "regression_test": "TestResolveUpdateReleaseURL_RejectsCleartextRemoteAndRepoTraversal, TestUpdateSecurity_GitHubTokenScopeRedirectValidationAndManifestError",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./cmd/desktop (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./cmd/desktop (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cmd/download/duckdb",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "cmd/download/duckdb/duckdb.go",
+        "cmd/download/duckdb/duckdb_test.go"
+      ],
+      "invariants_checked": [
+        "DuckDB extension bootstrap enforces a bounded context timeout, verifies allow_unsigned_extensions == false via duckdb_settings(), validates extension identifiers against SQL injection, and restricts any custom extension repository to clean HTTPS URLs without embedded credentials.",
+        "Single-file invocation compatibility (`go run cmd/download/duckdb/duckdb.go` in docker/Dockerfile.app) is preserved with stdlib + duckdb-go/v2 imports only."
+      ],
+      "findings": [
+        {
+          "id": "W7-DUCKDB-001",
+          "severity": "P2",
+          "file": "cmd/download/duckdb/duckdb.go:17-95",
+          "summary": "downloadExtensions executed unbounded background SQL without timeout, extension identifier validation, allow_unsigned_extensions verification, or HTTPS validation on custom extension repositories.",
+          "regression_test": "TestDuckDBDownloadGuards_RejectUnsafeExtensionAndCleartextRepoAndUnsignedMode",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./cmd/download/duckdb (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./cmd/download/duckdb (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cmd/server",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "cmd/server/bootstrap.go",
+        "cmd/server/listen.go",
+        "cmd/server/main.go",
+        "cmd/server/shutdown_test.go",
+        "cmd/server/signals_unix.go",
+        "cmd/server/signals_windows.go"
+      ],
+      "invariants_checked": [
+        "Primary HTTP server enforces Slowloris ReadHeaderTimeout (15s), IdleTimeout (120s), and MaxHeaderBytes (1 MiB) while leaving WriteTimeout unbounded for long-lived SSE chat streams.",
+        "Server listen address formatting uses net.JoinHostPort for IPv6 literal safety while preserving empty-host wildcard (:port) semantics.",
+        "Graceful shutdown cancels background Redis pubsub and model-catalog refresh contexts BEFORE resourceCleaner.Cleanup tears down Redis/DB pools, cancels background contexts on non-ErrServerClosed Serve failures, and exits signal watcher goroutines cleanly."
+      ],
+      "findings": [
+        {
+          "id": "W7-SRV-001",
+          "severity": "P1",
+          "file": "cmd/server/main.go:47-166,199-225",
+          "summary": "Primary HTTP server omitted ReadHeaderTimeout, IdleTimeout, and MaxHeaderBytes, formatted listen addresses with fmt.Sprintf breaking IPv6 literals, leaked background subscriber contexts on Serve errors, and cancelled background Redis/DB subscribers only after resourceCleaner.Cleanup closed underlying pools.",
+          "regression_test": "TestNewHTTPServer_SlowlorisAndHeaderGuards, TestFormatServerAddr_IPv4IPv6AndEmptyHost, TestRunHTTPServerLifecycle_CancelsBackgroundBeforeCleanupAndOnServeError",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./cmd/server (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./cmd/server (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/assets",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/assets/embed.go"
+      ],
+      "invariants_checked": [
+        "Embedded migration and static asset declarations contain only expected repo-local SQL/asset paths with zero external network fetches, path traversal sinks, or legacy brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/assets/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/infrastructure/docparser",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/infrastructure/docparser/anydoc_docx_vector_test.go",
+        "internal/infrastructure/docparser/anydoc_pptx_vector_test.go",
+        "internal/infrastructure/docparser/anydoc_reader.go",
+        "internal/infrastructure/docparser/anydoc_reader_linked_test.go",
+        "internal/infrastructure/docparser/anydoc_reader_test.go",
+        "internal/infrastructure/docparser/anydoc_vector_image_test.go",
+        "internal/infrastructure/docparser/audit_regressions_test.go",
+        "internal/infrastructure/docparser/builtin_converter.go",
+        "internal/infrastructure/docparser/builtin_image_filename_test.go",
+        "internal/infrastructure/docparser/cloud_poll_timeout_test.go",
+        "internal/infrastructure/docparser/csv_converter.go",
+        "internal/infrastructure/docparser/csv_converter_test.go",
+        "internal/infrastructure/docparser/csv_limits_test.go",
+        "internal/infrastructure/docparser/doc.go",
+        "internal/infrastructure/docparser/engine_registry.go",
+        "internal/infrastructure/docparser/engine_registry_reader_test.go",
+        "internal/infrastructure/docparser/engine_registry_test.go",
+        "internal/infrastructure/docparser/engines.go",
+        "internal/infrastructure/docparser/grpc_parser.go",
+        "internal/infrastructure/docparser/grpc_parser_envelope_test.go",
+        "internal/infrastructure/docparser/grpc_parser_image_count_test.go",
+        "internal/infrastructure/docparser/grpc_parser_resolver_test.go",
+        "internal/infrastructure/docparser/helpers.go",
+        "internal/infrastructure/docparser/html_table_normalizer.go",
+        "internal/infrastructure/docparser/html_table_normalizer_test.go",
+        "internal/infrastructure/docparser/html_table_normalizer_text_test.go",
+        "internal/infrastructure/docparser/http_parser.go",
+        "internal/infrastructure/docparser/http_parser_test.go",
+        "internal/infrastructure/docparser/image_filename_refs_test.go",
+        "internal/infrastructure/docparser/image_resolver.go",
+        "internal/infrastructure/docparser/image_resolver_relative_html_test.go",
+        "internal/infrastructure/docparser/image_resolver_test.go",
+        "internal/infrastructure/docparser/image_source_order_test.go",
+        "internal/infrastructure/docparser/json_converter.go",
+        "internal/infrastructure/docparser/json_converter_test.go",
+        "internal/infrastructure/docparser/json_deep_split_test.go",
+        "internal/infrastructure/docparser/json_limit.go",
+        "internal/infrastructure/docparser/json_limit_test.go",
+        "internal/infrastructure/docparser/markdown_image_scanner.go",
+        "internal/infrastructure/docparser/markdown_image_scanner_test.go",
+        "internal/infrastructure/docparser/mineru_cloud_converter.go",
+        "internal/infrastructure/docparser/mineru_cloud_download_test.go",
+        "internal/infrastructure/docparser/mineru_cloud_parts.go",
+        "internal/infrastructure/docparser/mineru_cloud_parts_test.go",
+        "internal/infrastructure/docparser/mineru_converter.go",
+        "internal/infrastructure/docparser/mineru_converter_ssrf_test.go",
+        "internal/infrastructure/docparser/mineru_converter_test.go",
+        "internal/infrastructure/docparser/mineru_image_budget.go",
+        "internal/infrastructure/docparser/mineru_layout.go",
+        "internal/infrastructure/docparser/mineru_layout_precision_test.go",
+        "internal/infrastructure/docparser/mineru_raw_response_test.go",
+        "internal/infrastructure/docparser/mineru_timeout_test.go",
+        "internal/infrastructure/docparser/mineru_v1_client.go",
+        "internal/infrastructure/docparser/mineru_v1_client_test.go",
+        "internal/infrastructure/docparser/paddleocr_vl_cloud_cancel_test.go",
+        "internal/infrastructure/docparser/paddleocr_vl_cloud_converter.go",
+        "internal/infrastructure/docparser/paddleocr_vl_converter.go",
+        "internal/infrastructure/docparser/paddleocr_vl_converter_test.go",
+        "internal/infrastructure/docparser/paddleocr_vl_layout.go",
+        "internal/infrastructure/docparser/resolve_remote_html_images_test.go",
+        "internal/infrastructure/docparser/resolve_remote_images_test.go",
+        "internal/infrastructure/docparser/source_blocks.go",
+        "internal/infrastructure/docparser/source_blocks_test.go",
+        "internal/infrastructure/docparser/text_decode_test.go",
+        "internal/infrastructure/docparser/zip_limits.go",
+        "internal/infrastructure/docparser/zip_limits_test.go"
+      ],
+      "invariants_checked": [
+        "Archive, CSV, JSON, HTTP, and gRPC document parsers enforce per-entry (maxZipEntryBytes = 64 MiB), package (maxResultPackageBytes = 1 GiB), control-plane JSON (16 MiB), error-preview (4 KiB), and cumulative image memory budgets (GENYEE_MINERU_MAX_IMAGE_BYTES = 512 MiB default) without OOM amplification.",
+        "JSON splitter respects context cancellation, caps split recursion depth, and measures chunk payload net of ancestor wrapper overhead; Markdown image target scanner executes in linear O(N) time on unclosed syntax; HTML table normalizer tracks CommonMark line-anchored fenced code blocks accurately.",
+        "ImageResolver allowlists stored image extensions, keys filename deduplication by SHA-256 content digest to prevent cross-directory basename collisions, rejects XML/SVG <!DOCTYPE and <!ENTITY directives, and validates remote image magic bytes and pixel budgets regardless of server Content-Type.",
+        "Cloud OCR readers (MinerU Cloud, PaddleOCR-VL Cloud) sanitize multipart upload filenames, percent-encode jobID/batchID path segments, infer SourceBlocks fileType from FileName when FileType is empty, and stream split PDF parts from disk under an overall timeout.",
+        "HTTPDocumentReader enforces getMaxFileSize() before base64 encoding, normalizes bare host:port addresses, and permits the exact operator-configured internal DOCREADER_ADDR with same-origin redirect pinning while enforcing full SSRF validation on all other URLs."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOCP-001",
+          "severity": "P1",
+          "file": "internal/infrastructure/docparser/json_converter.go:15-245, internal/infrastructure/docparser/builtin_converter.go:72-77",
+          "summary": "jsonToMarkdown ignored caller context cancellation, lacked an output Markdown byte cap, and measured chunk size inclusive of ancestor wrapper paths with unbounded split recursion, amplifying small deeply-wrapped JSON arrays into multi-GiB Markdown.",
+          "regression_test": "TestAuditW7_JSONToMarkdown_DeepPathAmplificationAndContextCancel",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        },
+        {
+          "id": "W7-DOCP-002",
+          "severity": "P1",
+          "file": "internal/infrastructure/docparser/markdown_image_scanner.go:15-48,87-148",
+          "summary": "scanMarkdownImageTargets and findMarkdownImageTargetEnd exhibited quadratic O(N^2) scanning on repeated unclosed ![ markers, unclosed angle destinations, blank lines, and deep parentheses.",
+          "regression_test": "TestAuditW7_MarkdownImageScanner_LinearTimeOnUnclosedImageSyntax",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        },
+        {
+          "id": "W7-DOCP-003",
+          "severity": "P1",
+          "file": "internal/infrastructure/docparser/image_resolver.go:205-242,299-362,477-504,691-710,963-970,2070-2118, internal/infrastructure/docparser/mineru_cloud_converter.go:473-482",
+          "summary": "ImageResolver fell back to unsanitized ref.Filename extensions (allowing .html/.js/backslash names), keyed filename deduplication without content hashes (colliding distinct images sharing a basename across folders), allowed XML <!DOCTYPE/<!ENTITY directives in SVGs, trusted remote Content-Type: image/* headers without body magic/SVG validation or pixel-bomb checks, and copied full Markdown strings per image replacement.",
+          "regression_test": "TestAuditW7_ImageResolver_SafeStorageExtRemoteSniffAndSVGDoctypeBlock, TestAuditW7_ImageResolver_DistinctSameBasenameImagesNotCollided",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        },
+        {
+          "id": "W7-DOCP-004",
+          "severity": "P1",
+          "file": "internal/infrastructure/docparser/grpc_parser.go:192-203,263-355, internal/infrastructure/docparser/mineru_converter.go:140-155,392-485, internal/infrastructure/docparser/paddleocr_vl_converter.go:72-86,220-285, internal/infrastructure/docparser/paddleocr_vl_cloud_converter.go:336-395",
+          "summary": "GRPCDocumentReader.readStream/readUnary, MinerUReader.processImages, PaddleOCRVLReader.processImages, and PaddleOCRVLCloudReader.downloadImages omitted cumulative GENYEE_MINERU_MAX_IMAGE_BYTES caps, re-scanned full Markdown via regex per image, and GRPCDocumentReader.Close() left conn/client non-nil so IsConnected() stayed true.",
+          "regression_test": "TestAuditW7_ImageBudgetAndGRPCCloseState",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        },
+        {
+          "id": "W7-DOCP-005",
+          "severity": "P1",
+          "file": "internal/infrastructure/docparser/mineru_cloud_parts.go:17-225, internal/infrastructure/docparser/mineru_cloud_converter.go:70-95,264-295, internal/infrastructure/docparser/mineru_v1_client.go:543-556, internal/infrastructure/docparser/paddleocr_vl_converter.go:174-184, internal/infrastructure/docparser/paddleocr_vl_cloud_converter.go:100-106,130-140,173-205, internal/infrastructure/docparser/html_table_normalizer.go:65-80, internal/infrastructure/docparser/http_parser.go:63-295",
+          "summary": "Cloud readers sent unsanitized multipart filenames, omitted url.PathEscape on jobID/batchID poll URLs, dropped SourceBlocks when FileType was empty, buffered all split PDF part bytes in RAM without overall timeout/image-budget caps, read up to 1 GiB before checking non-200 HTTP status, inverted fenced code spans after mid-line triple backticks in NormalizeHTMLTables, and HTTPDocumentReader lacked getMaxFileSize() and operator DOCREADER_ADDR SSRF handling.",
+          "regression_test": "TestAuditW7_CloudUploadFilenameSanitizationAndSourceBlocksFileTypeFallback, TestAuditW7_HTTPDocumentReader_MaxFileSizeTrustedAddrAndBareHostPort, TestAuditW7_CloudPollPathEscapeErrorPreviewAndHTMLTableFences",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/infrastructure/docparser (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/docparser (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/infrastructure/docparser/anydoc/testdata",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/infrastructure/docparser/anydoc/testdata/upstream/.gitattributes",
+        "internal/infrastructure/docparser/anydoc/testdata/upstream/README.md",
+        "internal/infrastructure/docparser/anydoc/testdata/upstream/csv/sheet.csv"
+      ],
+      "invariants_checked": [
+        "Testdata fixtures (.gitattributes, README.md, csv/sheet.csv) contain synthetic UTF-8 data only, with zero PII, secrets, or legacy brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/docparser (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/productdocs",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/productdocs/library.go",
+        "internal/productdocs/markdown.go",
+        "internal/productdocs/productdocs_test.go"
+      ],
+      "invariants_checked": [
+        "Embedded product documentation loader enforces strict slug/locale allowlists, cleans embedded FS paths against traversal, strips VitePress Screenshot Vue components cleanly, and contains zero legacy brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/productdocs/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/productdocs/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/testutil/dnstest",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/testutil/dnstest/resolver.go",
+        "internal/testutil/dnstest/resolver_test.go"
+      ],
+      "invariants_checked": [
+        "Deterministic in-memory DNS test resolver binds loopback UDP only, cleans up sockets via t.Cleanup, and exercises zero production bypasses."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/testutil/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/testutil/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/textconv/data",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/textconv/data/README.md",
+        "internal/textconv/data/TSCharacters.txt",
+        "internal/textconv/data/TSPhrases.txt"
+      ],
+      "invariants_checked": [
+        "OpenCC Traditional-to-Simplified dictionary files (TSCharacters.txt, TSPhrases.txt) match the exact Apache-2.0 provenance and SHA-256 checksums documented in internal/textconv/data/README.md."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/textconv/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "third_party/anydoc-go",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "third_party/anydoc-go/.gitignore",
+        "third_party/anydoc-go/Cargo.lock",
+        "third_party/anydoc-go/Cargo.toml",
+        "third_party/anydoc-go/README.md",
+        "third_party/anydoc-go/UPGRADE-0.2.4.md",
+        "third_party/anydoc-go/anydoc.go",
+        "third_party/anydoc-go/build.rs",
+        "third_party/anydoc-go/errors.go",
+        "third_party/anydoc-go/format.go",
+        "third_party/anydoc-go/go.mod",
+        "third_party/anydoc-go/lib_linux_gnu.go",
+        "third_party/anydoc-go/lib_linux_musl.go",
+        "third_party/anydoc-go/model.go",
+        "third_party/anydoc-go/version.go"
+      ],
+      "invariants_checked": [
+        "CGo bindings to libanydoc pass bounded byte slices/lengths, free Rust-allocated C strings via defer anydoc_free_string on every return path, preserve third_party/anydoc-go/LICENSE untouched, and pass go vet and go test -race."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd third_party/anydoc-go && GOMAXPROCS=2 go vet -p 1 ./... && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "third_party/anydoc-go/include",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "third_party/anydoc-go/include/anydoc.h"
+      ],
+      "invariants_checked": [
+        "C header third_party/anydoc-go/include/anydoc.h matches exported FFI signatures in third_party/anydoc-go/src/lib.rs 1:1."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd third_party/anydoc-go && GOMAXPROCS=2 go vet -p 1 ./... && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "third_party/anydoc-go/src",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "third_party/anydoc-go/src/asset_links.rs",
+        "third_party/anydoc-go/src/lib.rs",
+        "third_party/anydoc-go/src/model.rs"
+      ],
+      "invariants_checked": [
+        "Rust FFI wrapper wraps parse calls in catch_unwind to prevent unwinding across CGo FFI boundaries, sanitizes interior NUL bytes before CString::from_vec_unchecked, and enforces deterministic page/slide bounds."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd third_party/anydoc-go && GOMAXPROCS=2 go vet -p 1 ./... && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docreader/build-and-testdata",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "docreader/.pylintrc",
+        "docreader/Makefile",
+        "docreader/README.md",
+        "docreader/pyproject.toml",
+        "docreader/testdata/html_main_content/article_page.html",
+        "docreader/testdata/html_main_content/chrome_heavy_page.html",
+        "docreader/testdata/html_main_content/form_page.html",
+        "docreader/testdata/html_main_content/link_list_page.html",
+        "docreader/testdata/html_main_content/short_notice.html",
+        "docreader/testdata/test.html",
+        "docreader/testdata/test.md",
+        "docreader/testdata/test.txt",
+        "docreader/testdata/test_download.txt",
+        "docreader/uv.lock"
+      ],
+      "invariants_checked": [
+        "docreader/pyproject.toml and docreader/uv.lock enforce Python >=3.11, grpcio/grpcio-health-checking/grpcio-tools >=1.80.0 matching generated protobuf stubs, declare direct runtime imports (defusedxml, charset-normalizer, python-pptx), pin security floors on pypi.org with SHA-256 digests, and pass `uv lock --check --offline`.",
+        "docreader/Makefile targets reference real Go/Python entrypoints, docreader/README.md documents fail-closed GRPC_AUTH_TOKEN without instructing cloud secret-key injection into docreader, and HTML/Markdown/TXT fixtures contain synthetic data only."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOCR-BUILD-001",
+          "severity": "P1",
+          "file": "docreader/Makefile:1-25, docreader/pyproject.toml:7-36, docreader/uv.lock:346-425, docreader/README.md:1-165",
+          "summary": "docreader/Makefile referenced non-existent ./src/client and src/server/server.py paths, docreader/pyproject.toml declared grpcio>=1.78.0 below generated stub runtime gate 1.80.0 while omitting direct runtime imports (defusedxml, charset-normalizer, python-pptx), and docreader/README.md omitted fail-closed GRPC_AUTH_TOKEN while instructing operators to inject cloud storage secret keys into docreader.",
+          "regression_test": "test_makefile_targets_reference_existing_entrypoints, test_pyproject_grpc_floor_and_direct_runtime_dependencies, test_readme_documents_fail_closed_auth_and_excludes_cloud_secret_keys",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        }
+      ],
+      "verification_commands": [
+        "uv lock --check --offline --project docreader (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python3 -m unittest docreader/tests/test_build_scripts.py (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docreader/proto",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "docreader/proto/docreader.pb.go",
+        "docreader/proto/docreader.proto",
+        "docreader/proto/docreader_grpc.pb.go",
+        "docreader/proto/docreader_pb2.py",
+        "docreader/proto/docreader_pb2.pyi",
+        "docreader/proto/docreader_pb2_grpc.py"
+      ],
+      "invariants_checked": [
+        "docreader.proto and generated Go/Python stubs (docreader.pb.go, docreader_grpc.pb.go, docreader_pb2.py, docreader_pb2.pyi, docreader_pb2_grpc.py) maintain 100% RPC, message, field, and oneof parity across Read, ReadStream, ListEngines, PreprocessImage, and GetInfo."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./docreader/proto/... (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/proto/docreader_pb2.py docreader/proto/docreader_pb2_grpc.py (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docreader/scripts",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "docreader/scripts/generate_proto.sh",
+        "docreader/scripts/parse_local.py"
+      ],
+      "invariants_checked": [
+        "generate_proto.sh resolves paths relative to its own directory (CWD-independent), uses POSIX sh-compatible redirects/operators and quoted paths, and parse_local.py enforces realpath + commonpath containment against image path traversal."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOCR-SCRIPTS-001",
+          "severity": "P1",
+          "file": "docreader/scripts/generate_proto.sh:1-38",
+          "summary": "generate_proto.sh hardcoded repo-root-relative paths (failing under `make -C docreader proto`), used bashism `&> /dev/null` (which backgrounds `command -v` and exits 0 under POSIX /bin/sh dash even when protoc-gen-go is absent) and `==`, and left path variables unquoted.",
+          "regression_test": "test_generate_proto_sh_posix_and_cwd_independent",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        }
+      ],
+      "verification_commands": [
+        "sh -n docreader/scripts/generate_proto.sh && bash -n docreader/scripts/generate_proto.sh (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. python3 -m unittest docreader/tests/test_build_scripts.py (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docreader/tests",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "docreader/tests/epub_builder.py",
+        "docreader/tests/generate_source_location_browser_fixtures.py",
+        "docreader/tests/preprocess_worker_fixture.py",
+        "docreader/tests/test_audit_remediation.py",
+        "docreader/tests/test_branch_audit_regressions.py",
+        "docreader/tests/test_build_scripts.py",
+        "docreader/tests/test_challenger_audit_2.py",
+        "docreader/tests/test_config.py",
+        "docreader/tests/test_container_entrypoint.py",
+        "docreader/tests/test_decode_bytes_bom.py",
+        "docreader/tests/test_dependency_security.py",
+        "docreader/tests/test_doc_fallback.py",
+        "docreader/tests/test_docreader_envelope.py",
+        "docreader/tests/test_docreader_memory.py",
+        "docreader/tests/test_docreader_stream.py",
+        "docreader/tests/test_docx_merge.py",
+        "docreader/tests/test_docx_tables.py",
+        "docreader/tests/test_endecode.py",
+        "docreader/tests/test_epub_external_images.py",
+        "docreader/tests/test_epub_fallback_order.py",
+        "docreader/tests/test_epub_parser.py",
+        "docreader/tests/test_excel_parser.py",
+        "docreader/tests/test_excel_parser_adversarial.py",
+        "docreader/tests/test_gate2_adversarial_deep.py",
+        "docreader/tests/test_html_parser.py",
+        "docreader/tests/test_html_table_footer.py",
+        "docreader/tests/test_image_filename_refs.py",
+        "docreader/tests/test_image_preprocess.py",
+        "docreader/tests/test_markdown_image_fences.py",
+        "docreader/tests/test_markdown_image_titles.py",
+        "docreader/tests/test_markdown_table_fences.py",
+        "docreader/tests/test_markdown_table_util.py",
+        "docreader/tests/test_markitdown_xlsx_budget.py",
+        "docreader/tests/test_mhtml_charset.py",
+        "docreader/tests/test_mhtml_implicit_root.py",
+        "docreader/tests/test_mhtml_parser.py",
+        "docreader/tests/test_mhtml_root.py",
+        "docreader/tests/test_opendataloader_parser.py",
+        "docreader/tests/test_parser_concurrency.py",
+        "docreader/tests/test_parser_routing.py",
+        "docreader/tests/test_pdf_embedded_images.py",
+        "docreader/tests/test_pdf_image_sources.py",
+        "docreader/tests/test_pdf_repeat_threshold.py",
+        "docreader/tests/test_pdf_router.py",
+        "docreader/tests/test_percentage_rounding.py",
+        "docreader/tests/test_ppt_convert.py",
+        "docreader/tests/test_pptx_media.py",
+        "docreader/tests/test_preprocess_runner.py",
+        "docreader/tests/test_request_memory.py",
+        "docreader/tests/test_sandbox_executor.py",
+        "docreader/tests/test_security_audit_fixes.py",
+        "docreader/tests/test_source_combining_marks.py",
+        "docreader/tests/test_source_locator.py",
+        "docreader/tests/test_source_locator_pdf.py",
+        "docreader/tests/test_ssrf.py",
+        "docreader/tests/test_ssrf_proxy.py",
+        "docreader/tests/test_table_cell_pipes.py",
+        "docreader/tests/test_tempfile_context.py",
+        "docreader/tests/test_utils_split.py",
+        "docreader/tests/test_web_http_status.py",
+        "docreader/tests/test_web_parser.py",
+        "docreader/tests/test_xlsx_percent_format.py",
+        "docreader/tests/test_xlsx_repair.py",
+        "docreader/tests/test_xlsx_sparse_rows.py",
+        "docreader/tests/test_xlsx_styles_repair.py",
+        "docreader/tests/test_xmind_multiline_titles.py",
+        "docreader/tests/test_xmind_parser.py"
+      ],
+      "invariants_checked": [
+        "All 67 Python test modules parse cleanly, clean up temporary directories/processes/sockets deterministically, expose security regression suites to both pytest and stdlib unittest discovery even without pytest installed, and contain zero unsafe eval/shell sinks or brand/host-path residues."
+      ],
+      "findings": [
+        {
+          "id": "W7-DOCR-TESTS-001",
+          "severity": "P2",
+          "file": "docreader/tests/test_security_audit_fixes.py:18-80,810-910, docreader/tests/test_dependency_security.py:1-78",
+          "summary": "test_security_audit_fixes.py imported pytest unconditionally (crashing stdlib unittest discovery when pytest is absent) and both test_security_audit_fixes.py and test_dependency_security.py defined top-level functions only, causing `python -m unittest discover` to skip all 16 security regressions.",
+          "regression_test": "test_security_regressions_discoverable_by_unittest_without_pytest",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/tests/*.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. pytest -p no:cacheprovider docreader/tests/test_build_scripts.py docreader/tests/test_dependency_security.py docreader/tests/test_security_audit_fixes.py (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "docreader/tests/fixtures",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "docreader/tests/fixtures/generate_issue_2634_fixture.py",
+        "docreader/tests/fixtures/image_filename_refs.json"
+      ],
+      "invariants_checked": [
+        "Fixture generator generate_issue_2634_fixture.py and cross-language image URL-encoding contract image_filename_refs.json are deterministic, valid UTF-8, and free of secrets or brand residue."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/tests/fixtures/generate_issue_2634_fixture.py (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "testdata",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "testdata/chat_import_test.json",
+        "testdata/mhtml/titled-image-contract.json",
+        "testdata/mhtml/titled-image.mhtml",
+        "testdata/wiki_test/doc1_stardust_memo.md",
+        "testdata/wiki_test/doc2_psionic_engine.md",
+        "testdata/wiki_test/doc3_dr_cole_log.md"
+      ],
+      "invariants_checked": [
+        "Root testdata fixtures (chat_import_test.json, mhtml/titled-image.*, wiki_test/*.md) use synthetic GENYEE/example.com content, match MHTML contract assertions byte-for-byte, and contain zero PII or legacy brand residue."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. pytest -p no:cacheprovider docreader/tests/test_mhtml_parser.py (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "tests/adversarial",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "tests/adversarial/test_security_auth_adversarial.py"
+      ],
+      "invariants_checked": [
+        "Adversarial security/auth suite preserves intentional negative compliance checks (aud=\"weknora\" JWT rejection, *weknora*.png asset check, login error brand check), detects standalone weknora leaks in live API payloads, fails closed when explicit TEST_EMAIL/TEST_PASSWORD login fails, and writes challenger_1_summary.json even when earlier suites fail."
+      ],
+      "findings": [
+        {
+          "id": "W7-ADV-001",
+          "severity": "P2",
+          "file": "tests/adversarial/test_security_auth_adversarial.py:405-496,543-565",
+          "summary": "Brand scan checked only 'tencent weknora' combos on frontend bundle and /auth/me + /sessions payloads (missing standalone weknora leaks), test_negative_export returned early as PASSED when explicit TEST_EMAIL/TEST_PASSWORD login failed, and standalone main() aborted before writing challenger_1_summary.json on early suite failure.",
+          "regression_test": "test_adversarial_auth_suite_brand_and_explicit_credentials_and_main_summary",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile tests/adversarial/test_security_auth_adversarial.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. pytest -p no:cacheprovider -q tests/stress/test_repo_suites_regressions.py (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "tests/e2e",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "tests/e2e/test_browser_e2e.py"
+      ],
+      "invariants_checked": [
+        "Playwright E2E runner isolates failure screenshots via _safe_screenshot so closed-target errors never skip stage failure recording, guarantees e2e_summary.json/e2e_report.md generation in finally, reports FAILED when zero stages executed, and supports env-configurable TEST_KB_ID."
+      ],
+      "findings": [
+        {
+          "id": "W7-E2E-001",
+          "severity": "P2",
+          "file": "tests/e2e/test_browser_e2e.py:108-115,178-662,672,835-842",
+          "summary": "Unprotected page.screenshot() inside stage except blocks aborted before record_stage() and generate_reports() when browser target closed, empty stage results evaluated all([]) == True ('PASSED'), and Stage 6 hardcoded target KB UUID without honoring TEST_KB_ID.",
+          "regression_test": "test_browser_e2e_safe_screenshot_and_empty_results_status",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile tests/e2e/test_browser_e2e.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. pytest -p no:cacheprovider -q tests/stress/test_repo_suites_regressions.py (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "tests/stress",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "tests/stress/test_hybrid_search_stress.py",
+        "tests/stress/test_m1_excel_ocr_challenger.py",
+        "tests/stress/test_r3_r2_adversarial_challenger.py",
+        "tests/stress/test_repo_suites_regressions.py"
+      ],
+      "invariants_checked": [
+        "Formula POSIX sed adversarial challenger executes the actual .env.lite initialization block extracted from Formula/genyee-lite.rb with genyee.db paths while preserving negative stale-image compliance checks, M1 Excel OCR challenger passes clean, and hybrid search stress fails on active PostgreSQL connection leaks."
+      ],
+      "findings": [
+        {
+          "id": "W7-STRESS-001",
+          "severity": "P1",
+          "file": "tests/stress/test_r3_r2_adversarial_challenger.py:1-14,50-99,119-297",
+          "summary": "TestFormulaPosixSedAdversarial extracted cls.extracted_sh_script from Formula/genyee-lite.rb in setUpClass but never executed it, instead running hardcoded inline bash referencing stale weknora.db and /weknora paths across 4 test methods.",
+          "regression_test": "test_r3_r2_challenger_uses_formula_script_and_genyee_db",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        },
+        {
+          "id": "W7-STRESS-002",
+          "severity": "P2",
+          "file": "tests/stress/test_hybrid_search_stress.py:261-273",
+          "summary": "run_stress_suite() logged active PostgreSQL connections (expected <= 1) in Phase 3 leak check but omitted active_conns <= 1 from its return boolean, exiting 0 even when active queries leaked.",
+          "regression_test": "test_hybrid_search_stress_fails_on_pg_active_connection_leak",
+          "commit": "89afbb05a6e1e4943599face34c1d9a5c7cebbe5"
+        }
+      ],
+      "verification_commands": [
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. pytest -p no:cacheprovider -q tests/stress/test_r3_r2_adversarial_challenger.py tests/stress/test_repo_suites_regressions.py (exit 0)"
+      ]
+    }
+  ]
+}
