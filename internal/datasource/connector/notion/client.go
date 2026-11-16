@@ -327,8 +327,11 @@ func (c *notionClient) GetBlockChildrenFlat(ctx context.Context, blockID string)
 
 		allBlocks = append(allBlocks, blocks...)
 
-		if !resp.HasMore || resp.NextCursor == "" {
+		if !resp.HasMore {
 			break
+		}
+		if resp.NextCursor == "" {
+			return nil, fmt.Errorf("get block children for %s: has_more=true without a next_cursor", blockID)
 		}
 		next, err := advancePaginationCursor(ctx, seenCursors, resp.NextCursor, page)
 		if err != nil {
@@ -480,9 +483,12 @@ func (c *notionClient) QueryDatabaseAll(ctx context.Context, id string) ([]notio
 	}
 
 	// If 404, id might be a database container ID — resolve to data_source_id
+	if !errors.Is(err, datasource.ErrResourceNotFound) {
+		return nil, err
+	}
 	info, dbErr := c.GetDatabaseInfo(ctx, id)
 	if dbErr != nil {
-		return nil, fmt.Errorf("query database %s: not a data_source (%v) and not a database (%v)", id, err, dbErr)
+		return nil, fmt.Errorf("query database %s: not a data_source (%v) and not a database (%w)", id, err, dbErr)
 	}
 	if info.DataSourceID == "" {
 		return nil, fmt.Errorf("database %s has no data sources", id)
@@ -831,8 +837,11 @@ func (c *notionClient) queryDataSourceWindow(
 			}
 		}
 
-		if !resp.HasMore || resp.NextCursor == "" {
+		if !resp.HasMore {
 			return rows, lastCreatedTime, incompleteReason, nil
+		}
+		if resp.NextCursor == "" {
+			return nil, time.Time{}, "", fmt.Errorf("paginate %s: has_more=true without a next_cursor", path)
 		}
 		next, cursorErr := advancePaginationCursor(ctx, seenCursors, resp.NextCursor, page)
 		if cursorErr != nil {

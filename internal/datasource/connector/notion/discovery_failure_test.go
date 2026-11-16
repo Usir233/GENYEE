@@ -92,3 +92,86 @@ func TestFetchIncrementalSuccessfulEmptySearch(t *testing.T) {
 		t.Fatal("expected updated cursor after successful discovery")
 	}
 }
+
+func TestNotionDatabaseQueryFailurePreservesCursorAndSkipsDeletions(t *testing.T) {
+	t.Run("transient_query_error_incremental", func(t *testing.T) {
+		allowNotionTestServer(t)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			switch r.URL.Path {
+			case "/v1/search":
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"results":  []interface{}{truncationDataSourceRow()},
+					"has_more": false,
+				})
+			case "/v1/data_sources/ds-1":
+				_ = json.NewEncoder(w).Encode(windowDataSourceInfo())
+			case "/v1/data_sources/ds-1/query":
+				w.Header().Set("Retry-After", "0.01")
+				http.Error(w, "rate limited", http.StatusTooManyRequests)
+			default:
+				http.NotFound(w, r)
+			}
+		}))
+		defer server.Close()
+
+		config := makeNotionConfig(&Config{APIKey: "test-token"}, server.URL, []string{"ds-1"})
+		items, next, err := NewConnector().FetchIncremental(context.Background(), config, truncationPrevCursor())
+		if err == nil {
+			t.Fatalf("expected error on database query failure, got items=%+v cursor=%+v", items, next)
+		}
+		if len(items) != 0 || next != nil {
+			t.Fatalf("failed database query must not emit tombstones or advance cursor: items=%+v cursor=%+v", items, next)
+		}
+	})
+
+	t.Run("missing_next_cursor_in_datasource_query", func(t *testing.T) {
+		allowNotionTestServer(t)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			switch r.URL.Path {
+			case "/v1/search":
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"results":  []interface{}{truncationDataSourceRow()},
+					"has_more": false,
+				})
+			case "/v1/data_sources/ds-1":
+				_ = json.NewEncoder(w).Encode(windowDataSourceInfo())
+			case "/v1/data_sources/ds-1/query":
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"object":      "list",
+					"results":     []interface{}{truncationRecord("r1")},
+					"has_more":    true,
+					"next_cursor": nil,
+				})
+			default:
+				http.NotFound(w, r)
+			}
+		}))
+		defer server.Close()
+
+		config := makeNotionConfig(&Config{APIKey: "test-token"}, server.URL, []string{"ds-1"})
+		items, next, err := NewConnector().FetchIncremental(context.Background(), config, truncationPrevCursor())
+		if err == nil {
+			t.Fatalf("expected error when data_source query sets has_more=true without next_cursor, got items=%+v", items)
+		}
+		if len(items) != 0 || next != nil {
+			t.Fatalf("incomplete data_source query must not delete records or advance cursor: items=%+v cursor=%+v", items, next)
+		}
+	})
+
+	t.Run("transient_error_full_sync", func(t *testing.T) {
+		allowNotionTestServer(t)
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+		}))
+		defer server.Close()
+
+		config := makeNotionConfig(&Config{APIKey: "bad-token"}, server.URL, []string{"page-1"})
+		items, err := NewConnector().FetchAll(context.Background(), config, config.ResourceIDs)
+		if !errors.Is(err, datasource.ErrInvalidCredentials) {
+			t.Fatalf("expected ErrInvalidCredentials from FetchAll, got items=%+v err=%v", items, err)
+		}
+	})
+}
+

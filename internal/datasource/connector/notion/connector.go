@@ -156,6 +156,9 @@ func (c *Connector) FetchAll(ctx context.Context, config *types.DataSourceConfig
 			allItems = append(allItems, pageItems...)
 			continue
 		}
+		if !errors.Is(err, datasource.ErrResourceNotFound) {
+			return nil, err
+		}
 		// Not a page — treat as database/data_source.
 		// fetchDatabase handles both data_source IDs (from search) and
 		// database container IDs (from child_database blocks).
@@ -468,6 +471,9 @@ func (c *Connector) fetchPage(
 		case "child_page":
 			childPage, err := client.GetPage(ctx, block.ID)
 			if err != nil {
+				if !errors.Is(err, datasource.ErrResourceNotFound) {
+					return nil, truncated, fmt.Errorf("get child page %s: %w", block.ID, err)
+				}
 				logger.Warnf(ctx, "[Notion] failed to get child page %s: %v", block.ID, err)
 				continue
 			}
@@ -503,7 +509,10 @@ func (c *Connector) fetchDatabase(
 
 	records, dbTitle, queryID, truncated, err := c.queryDatabaseRecords(ctx, client, id)
 	if err != nil {
-		return nil, false, nil
+		if errors.Is(err, datasource.ErrResourceNotFound) {
+			return nil, false, nil
+		}
+		return nil, false, fmt.Errorf("query notion database %s: %w", id, err)
 	}
 	if len(records) == 0 {
 		return nil, truncated, nil
@@ -547,7 +556,10 @@ func (c *Connector) fetchDatabaseIncremental(
 
 	records, dbTitle, queryID, truncated, err := c.queryDatabaseRecords(ctx, client, id)
 	if err != nil {
-		return nil, nil, false, nil
+		if errors.Is(err, datasource.ErrResourceNotFound) {
+			return nil, nil, false, nil
+		}
+		return nil, nil, false, fmt.Errorf("query notion database %s: %w", id, err)
 	}
 	if queryID != "" && queryID != id {
 		if visited[queryID] {
@@ -1047,6 +1059,9 @@ func getDatabaseOrDataSourceInfo(ctx context.Context, client *notionClient, id s
 	ds, err := client.GetDataSourceInfo(ctx, id)
 	if err == nil {
 		return &databaseInfo{Page: *ds, DataSourceID: id}, nil
+	}
+	if !errors.Is(err, datasource.ErrResourceNotFound) {
+		return nil, err
 	}
 	return client.GetDatabaseInfo(ctx, id)
 }
