@@ -76,6 +76,8 @@ export function useCmdkSearch(options: {
   debounceMs?: number
   /** 当前部署是否提供智能体路由；不提供时不发起预加载请求。 */
   agentsEnabled?: () => boolean
+  /** Active user/workspace key; changing it flushes cross-workspace caches and in-flight requests. */
+  scopeKey?: () => string
 }) {
   const debounceMs = options.debounceMs ?? 350
   const query = ref('')
@@ -83,10 +85,12 @@ export function useCmdkSearch(options: {
   const hasSearched = ref(false)
   const searchFailures = ref<Array<'knowledge' | 'messages'>>([])
 
-  // All KBs the current user can see (own + shared). Loaded lazily & cached.
+  // All KBs the current user can see (own + shared). Loaded lazily & cached per workspace.
   const knowledgeBases = ref<CmdkKb[]>([])
   const kbsLoaded = ref(false)
   let kbsLoadingPromise: Promise<boolean> | null = null
+  let scopeEpoch = 0
+  let mounted = false
 
   const fileGroups = ref<CmdkFileGroup[]>([])
   const messageGroups = ref<CmdkMsgGroup[]>([])
@@ -104,10 +108,12 @@ export function useCmdkSearch(options: {
   const ensureKbs = async (): Promise<boolean> => {
     if (kbsLoaded.value) return true
     if (kbsLoadingPromise) return kbsLoadingPromise
+    const epoch = scopeEpoch
     kbsLoadingPromise = (async () => {
       try {
         const chatResources = useChatResourcesStore()
         await chatResources.ensureKnowledgeBases()
+        if (epoch !== scopeEpoch) return false
         const own: CmdkKb[] = chatResources.rawKnowledgeBases.map((kb: any) => ({
           id: String(kb.id),
           name: kb.name || '',
@@ -126,10 +132,12 @@ export function useCmdkSearch(options: {
         kbsLoaded.value = true
         return true
       } catch (e) {
-        console.error('[cmdk] failed to load knowledge bases', e)
+        if (epoch === scopeEpoch) {
+          console.error('[cmdk] failed to load knowledge bases', e)
+        }
         return false
       } finally {
-        kbsLoadingPromise = null
+        if (epoch === scopeEpoch) kbsLoadingPromise = null
       }
     })()
     return kbsLoadingPromise
@@ -157,10 +165,12 @@ export function useCmdkSearch(options: {
     if (options.agentsEnabled?.() === false) return
     if (agentsLoaded.value) return
     if (agentsLoadingPromise) return agentsLoadingPromise
+    const epoch = scopeEpoch
     agentsLoadingPromise = (async () => {
       try {
         const chatResources = useChatResourcesStore()
         await chatResources.ensureAgents()
+        if (epoch !== scopeEpoch) return
         const own: CmdkAgent[] = chatResources.agents.map((a: any) => ({
           id: String(a.id),
           name: a.name || '',
@@ -185,9 +195,11 @@ export function useCmdkSearch(options: {
         agents.value = [...own, ...sharedList]
         agentsLoaded.value = true
       } catch (e) {
-        console.error('[cmdk] failed to load agents', e)
+        if (epoch === scopeEpoch) {
+          console.error('[cmdk] failed to load agents', e)
+        }
       } finally {
-        agentsLoadingPromise = null
+        if (epoch === scopeEpoch) agentsLoadingPromise = null
       }
     })()
     return agentsLoadingPromise
@@ -237,6 +249,12 @@ export function useCmdkSearch(options: {
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
   const clearResults = () => {
+    requestSeq++
+    if (debounceTimer) {
+      clearTimeout(debounceTimer)
+      debounceTimer = null
+    }
+    loading.value = false
     searchFailures.value = []
     fileGroups.value = []
     messageGroups.value = []
@@ -381,12 +399,34 @@ export function useCmdkSearch(options: {
     }, debounceMs)
   })
 
+  if (options.scopeKey) {
+    watch(options.scopeKey, () => {
+      scopeEpoch++
+      kbsLoaded.value = false
+      kbsLoadingPromise = null
+      knowledgeBases.value = []
+      agentsLoaded.value = false
+      agentsLoadingPromise = null
+      agents.value = []
+      clearResults()
+      if (mounted) {
+        ensureKbs()
+        if (options.agentsEnabled?.() !== false) {
+          ensureAgents()
+        }
+      }
+    })
+  }
+
   onBeforeUnmount(() => {
+    mounted = false
+    scopeEpoch++
     requestSeq++
     if (debounceTimer) clearTimeout(debounceTimer)
   })
 
   onMounted(() => {
+    mounted = true
     // Preload KB and agent lists so name matches show up instantly on first
     // keystroke. Sessions come from the menuStore (already populated by the
     // sidebar) so no extra fetch needed here.

@@ -63,7 +63,7 @@
 <script setup lang="ts">
 import { sourceImageDigest } from '@/utils/sourceImage'
 import { buildProtectedFileRequest, resolveProtectedFileAccess } from '@/utils/protectedFileAccess'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import DocumentPreview from '@/components/document-preview.vue'
@@ -166,8 +166,33 @@ const webQuote = computed(() => {
   return quote.replace(/\s+/g, ' ').trim().slice(0, 280)
 })
 
-function isWebUrl(value: string) {
-  return /^https?:\/\//i.test(value || '')
+function toSafeWebUrl(value: string): string {
+  const trimmed = String(value || '').trim()
+  if (!trimmed) return ''
+  try {
+    const parsed = new URL(trimmed)
+    if ((parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || !parsed.hostname) {
+      return ''
+    }
+    return parsed.toString()
+  } catch {
+    return ''
+  }
+}
+
+function isWebUrl(value: string): boolean {
+  return Boolean(toSafeWebUrl(value))
+}
+
+function refreshKbName(version: number) {
+  if (!props.target.knowledgeBaseId) {
+    kbName.value = ''
+    return
+  }
+  chatResources
+    .fetchKnowledgeBaseById(props.target.knowledgeBaseId)
+    .then(kb => { if (version === loadVersion) kbName.value = kb?.name || '' })
+    .catch(() => {})
 }
 
 async function loadMeta(version: number) {
@@ -181,12 +206,8 @@ async function loadMeta(version: number) {
   // Non-blocking: the shared keyed cache dedupes concurrent lookups and the
   // same endpoint already serves the KB page this panel's "open document"
   // button links to, so the user's read access is established either way.
-  if (props.target.knowledgeBaseId) {
-    chatResources
-      .fetchKnowledgeBaseById(props.target.knowledgeBaseId)
-      .then(kb => { if (version === loadVersion) kbName.value = kb?.name || '' })
-      .catch(() => {})
-  }
+  refreshKbName(version)
+  if (!props.target.knowledgeId) return
   try {
     const res: any = await getKnowledgeDetails(props.target.knowledgeId)
     if (version !== loadVersion) return
@@ -311,8 +332,9 @@ async function load() {
   locate.value = null
   // Another citation in the open file: keep the preview mounted and only
   // move the highlight, instead of downloading and rendering the file again.
-  const sameFile = mode.value === 'file' && shownKnowledgeId === props.target.knowledgeId
+  const sameFile = Boolean(props.target.knowledgeId) && mode.value === 'file' && shownKnowledgeId === props.target.knowledgeId
   if (!sameFile) mode.value = 'loading'
+  else if (!kbName.value && props.target.knowledgeBaseId) refreshKbName(version)
   await Promise.all([sameFile ? Promise.resolve() : loadMeta(version), loadChunk(version)])
   if (version !== loadVersion) return
   shownKnowledgeId = props.target.knowledgeId
@@ -348,15 +370,27 @@ function onLocated(result: { found: boolean; precise: boolean; page?: number; gr
 }
 
 function openWebSource() {
-  const url = textFragmentUrl(meta.knowledgeSource, webQuote.value.slice(0, 120))
+  const safeBase = toSafeWebUrl(meta.knowledgeSource)
+  if (!safeBase) return
+  const url = textFragmentUrl(safeBase, webQuote.value.slice(0, 120))
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
 watch(
-  () => [props.target.chunkId, props.target.knowledgeId, props.target.anchorText],
+  () => [
+    props.target.chunkId,
+    props.target.knowledgeId,
+    props.target.knowledgeBaseId,
+    props.target.knowledgeSource,
+    props.target.anchorText,
+  ],
   () => void load(),
   { immediate: true },
 )
+
+onBeforeUnmount(() => {
+  ++loadVersion
+})
 </script>
 
 <style scoped lang="less">

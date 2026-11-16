@@ -100,3 +100,66 @@ for (const format of ['json', 'csv', 'xlsx']) {
     })
   }
 }
+
+test('FAQ import rejects oversized files, handles uppercase extensions, sanitizes malformed JSON fields, and isolates __proto__ CSV headers', async () => {
+  const f = fixture()
+  try {
+    // 1. Oversized file (>20 MiB) must be rejected before reading into memory
+    let readAttempted = false
+    await f.vm.processFile({
+      name: 'huge.json',
+      size: 25 * 1024 * 1024,
+      text: async () => { readAttempted = true; return '[]' },
+    })
+    assert.equal(readAttempted, false)
+    assert.equal(f.vm.importState.preview.length, 0)
+
+    // 2. Non-object JSON array items must reject cleanly instead of throwing TypeError
+    await f.vm.processFile({
+      name: 'bad.json',
+      size: 10,
+      text: async () => '[null]',
+    })
+    assert.equal(f.vm.importState.preview.length, 0)
+
+    // 3. Uppercase .JSON extension + malformed field types are coerced/sanitized safely
+    await f.vm.processFile({
+      name: 'IMPORT.JSON',
+      size: 200,
+      text: async () => JSON.stringify([{
+        standard_question: '  如何重置密码？ ',
+        answers: '单条字符串回答',
+        similar_questions: ['怎么改密码', 123, null, ''],
+        negative_questions: { bad: true },
+        tag_id: -5,
+        tag_name: '账户',
+        answer_strategy: 'evil_mode',
+        is_enabled: 'false',
+        is_recommended: 'yes',
+      }]),
+    })
+    assert.equal(f.vm.importState.preview.length, 1)
+    assert.deepEqual(JSON.parse(JSON.stringify(f.vm.importState.preview[0])), {
+      standard_question: '如何重置密码？',
+      answers: ['单条字符串回答'],
+      similar_questions: ['怎么改密码'],
+      negative_questions: [],
+      tag_name: '账户',
+      is_enabled: false,
+      is_recommended: true,
+    })
+
+    // 4. CSV with __proto__ column header must not pollute record prototype
+    await f.vm.processFile({
+      name: 'SAFE.CSV',
+      size: 120,
+      text: async () => '__proto__,问题,机器人回答\n"{\"polluted\":true}",Q1,A1\n',
+    })
+    assert.equal(f.vm.importState.preview.length, 1)
+    assert.equal(({} as any).polluted, undefined)
+    assert.equal(f.vm.importState.preview[0].standard_question, 'Q1')
+  } finally {
+    f.close()
+  }
+})
+

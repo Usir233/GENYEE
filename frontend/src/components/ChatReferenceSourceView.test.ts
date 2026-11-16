@@ -143,3 +143,19 @@ test('citation header shows the source knowledge base name', async t => {
   await flush()
   assert.ok(!nodeText(f2.root).includes('测试知识库'), 'no KB id, no provenance line')
 })
+
+test('hydrating knowledgeBaseId on the same document updates provenance and web citations reject hostless URLs', async t => {
+  const f = await fixture({ target: { ...target, knowledgeBaseId: undefined } }); t.after(f.dispose)
+  assert.ok(!nodeText(f.root).includes('测试知识库'))
+  f.props.target = { ...target, knowledgeBaseId: 'kb-77' }
+  await flush()
+  assert.ok(nodeText(f.root).includes('测试知识库'), 'hydrating knowledgeBaseId must refresh KB provenance')
+
+  // Hostless "https://" without knowledgeId must not call getKnowledgeDetails('') or enter web mode
+  const badWeb = await fixture({
+    target: { knowledgeId: '', title: 'Bad Web', knowledgeSource: 'https://', content: 'Snippet' } as any,
+  }); t.after(badWeb.dispose)
+  assert.deepEqual(badWeb.requests, [])
+  assert.deepEqual(badWeb.events, ['unavailable'])
+})
+

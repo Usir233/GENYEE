@@ -217,6 +217,8 @@ const MSG_LIMIT = 4
 const activeKbScope = ref<{ id: string; name: string } | null>(null)
 const scopeDismissed = ref(false) // user clicked ✕, remember for this session
 
+const workspaceScopeKey = () => `${authStore.user?.id ?? ''}:${authStore.effectiveTenantId ?? ''}`
+
 const {
   query, loading, hasSearched, searchFailures, retrySearch,
   fileGroups, messageGroups, kbMatches,
@@ -227,6 +229,7 @@ const {
 } = useCmdkSearch({
   lockedKbIds: () => (activeKbScope.value ? [activeKbScope.value.id] : []),
   agentsEnabled: () => deploymentCapabilities.isSupported('agents'),
+  scopeKey: workspaceScopeKey,
 })
 
 const settingsVisible = ref(false)
@@ -624,6 +627,25 @@ const onGlobalKey = (e: KeyboardEvent) => {
 // here in a plain `nextTick` is too early for t-dialog (the input may not be
 // attached to the document yet, so `.focus()` silently no-ops).
 watch(() => route.fullPath, () => { sourceTarget.value = null })
+watch(workspaceScopeKey, () => {
+  sourceTarget.value = null
+  activeKbScope.value = null
+  settingsVisible.value = false
+  if (open.value) commandPaletteStore.closePalette()
+})
+
+let focusRafId: number | null = null
+let focusTimer: ReturnType<typeof setTimeout> | null = null
+const cancelFocusRetry = () => {
+  if (focusRafId !== null && typeof cancelAnimationFrame === 'function') {
+    cancelAnimationFrame(focusRafId)
+  }
+  focusRafId = null
+  if (focusTimer !== null) {
+    clearTimeout(focusTimer)
+    focusTimer = null
+  }
+}
 
 watch(open, (val) => {
   if (val) {
@@ -645,6 +667,7 @@ watch(open, (val) => {
       activeKbScope.value = null
     }
   } else {
+    cancelFocusRetry()
     clearResults()
     query.value = ''
     settingsVisible.value = false
@@ -656,7 +679,9 @@ watch(open, (val) => {
 // attached, focus sticks. We also schedule a couple of retries because
 // some browsers defer focus when the dialog is mid-layout; costs nothing.
 const focusInputWithRetry = () => {
+  cancelFocusRetry()
   const tryFocus = () => {
+    if (!open.value) return false
     const el = inputRef.value
     if (!el) return false
     el.focus()
@@ -665,13 +690,19 @@ const focusInputWithRetry = () => {
       const len = el.value.length
       try { el.setSelectionRange(len, len) } catch { /* not all input types support this */ }
     }
-    return document.activeElement === el
+    return typeof document !== 'undefined' && document.activeElement === el
   }
   if (tryFocus()) return
-  requestAnimationFrame(() => {
-    if (tryFocus()) return
-    setTimeout(tryFocus, 50)
-  })
+  if (typeof requestAnimationFrame === 'function') {
+    focusRafId = requestAnimationFrame(() => {
+      focusRafId = null
+      if (tryFocus()) return
+      focusTimer = setTimeout(() => {
+        focusTimer = null
+        tryFocus()
+      }, 50)
+    })
+  }
 }
 
 const onDialogOpened = () => {
@@ -697,6 +728,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  cancelFocusRetry()
   window.removeEventListener('keydown', onGlobalKey)
 })
 </script>

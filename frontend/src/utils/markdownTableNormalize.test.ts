@@ -51,3 +51,24 @@ test('ordinary and already delimited tables are unchanged', () => {
   ]) assert.equal(normalizeSpuriousTablePrefixes(source), source);
 });
 
+test('pipe-prefixed lines inside CommonMark fenced code blocks are left untouched', () => {
+  const codeBlock = [
+    '````markdown',
+    '```',
+    '| | |',
+    '| --- | --- |',
+    '| Col A | Col B |',
+    '| 1 | 2 |',
+    '````',
+    '',
+    '~~~sh',
+    '| cmd_a | cmd_b |',
+    '| cmd_c | cmd_d |',
+    '~~~',
+  ].join('\n');
+  const withRealTable = `${codeBlock}\n\n| | |\n| --- | --- |\n| Real | Header |\n| x | y |`;
+  const normalized = normalizeSpuriousTablePrefixes(withRealTable);
+  assert.equal(normalized, `${codeBlock}\n\n| Real | Header |\n| --- | --- |\n| x | y |`);
+});
+
+

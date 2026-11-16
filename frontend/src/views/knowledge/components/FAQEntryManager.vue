@@ -1841,16 +1841,25 @@ const openImportDialog = () => {
   importState.importing = false
 }
 
+const MAX_FAQ_IMPORT_FILE_BYTES = 20 * 1024 * 1024
+
 const processFile = async (file: File) => {
   importState.file = file
 
+  if (typeof file.size === 'number' && file.size > MAX_FAQ_IMPORT_FILE_BYTES) {
+    MessagePlugin.warning(t('knowledgeEditor.faqImport.parseFailed'))
+    importState.preview = []
+    return
+  }
+
   try {
     let parsed: FAQEntryPayload[] = []
-    if (file.name.endsWith('.json')) {
+    const lowerName = String(file.name || '').toLowerCase()
+    if (lowerName.endsWith('.json')) {
       parsed = await parseJSONFile(file)
-    } else if (file.name.endsWith('.csv')) {
+    } else if (lowerName.endsWith('.csv')) {
       parsed = await parseCSVFile(file)
-    } else if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+    } else if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
       parsed = await parseExcelFile(file)
     } else {
       MessagePlugin.warning(t('knowledgeEditor.faqImport.unsupportedFormat'))
@@ -1880,10 +1889,10 @@ const handleFileDrop = async (event: DragEvent) => {
 const parseJSONFile = async (file: File): Promise<FAQEntryPayload[]> => {
   const text = await file.text()
   const data = JSON.parse(text)
-  if (!Array.isArray(data)) {
+  if (!Array.isArray(data) || data.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) {
     throw new Error(t('knowledgeEditor.faqImport.invalidJSON'))
   }
-  return data.map(normalizePayload)
+  return data.map((item) => normalizePayload(item))
 }
 
 const parseCSVFile = async (file: File): Promise<FAQEntryPayload[]> => {
@@ -1909,8 +1918,9 @@ const parseCSVFile = async (file: File): Promise<FAQEntryPayload[]> => {
         try {
           const payloads: FAQEntryPayload[] = []
           results.data.forEach((row: any) => {
-            const record: Record<string, string> = {}
-            // 将行数据转换为记录对象
+            if (!row || typeof row !== 'object') return
+            const record: Record<string, string> = Object.create(null)
+            // 将行数据转换为记录对象（使用无原型字典隔离 __proto__/constructor 列头）
             Object.keys(row).forEach((key) => {
               record[key] = String(row[key] || '').trim()
             })
@@ -1924,7 +1934,7 @@ const parseCSVFile = async (file: File): Promise<FAQEntryPayload[]> => {
                 answers: splitByDelimiter(record['机器人回答'] || record['answers']),
                 similar_questions: splitByDelimiter(record['相似问题'] || record['similar_questions']),
                 negative_questions: splitByDelimiter(record['反例问题'] || record['negative_questions']),
-                tag_id: record['tag_id'] ? Number(record['tag_id']) : undefined,
+                tag_id: normalizePositiveTagId(record['tag_id']),
                 tag_name: record['标签'] || record['分类'] || record['tag_name'] || '',
                 is_enabled: isDisabled !== undefined ? !isDisabled : undefined, // 是否停用：FALSE表示启用，TRUE表示停用，所以取反
                 answer_strategy: answerAll === undefined ? undefined : answerAll ? 'all' : 'random',
@@ -1948,7 +1958,8 @@ const parseExcelFile = async (file: File): Promise<FAQEntryPayload[]> => {
   const data = await file.arrayBuffer()
   const workbook = XLSX.read(data, { type: 'array' })
   const sheetName = workbook.SheetNames[0]
-  const worksheet = workbook.Sheets[sheetName]
+  const worksheet = sheetName ? workbook.Sheets[sheetName] : undefined
+  if (!worksheet) return []
   // 使用 raw: false 确保正确处理引号和转义
   const json = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet, {
     defval: '',
@@ -1956,7 +1967,7 @@ const parseExcelFile = async (file: File): Promise<FAQEntryPayload[]> => {
   })
   return json.map((row) => {
     // 获取原始表头（去除括号说明）
-    const normalizedRow: Record<string, string> = {}
+    const normalizedRow: Record<string, string> = Object.create(null)
     Object.keys(row).forEach((key) => {
       const normalizedKey = key.trim()
         .replace(/\([^)]*\)/g, '') // 移除括号及内容
@@ -1975,7 +1986,7 @@ const parseExcelFile = async (file: File): Promise<FAQEntryPayload[]> => {
       answers: splitByDelimiter(normalizedRow['机器人回答'] || normalizedRow['answers']),
       similar_questions: splitByDelimiter(normalizedRow['相似问题'] || normalizedRow['similar_questions']),
       negative_questions: splitByDelimiter(normalizedRow['反例问题'] || normalizedRow['negative_questions']),
-      tag_id: normalizedRow['tag_id'] ? Number(normalizedRow['tag_id']) : undefined,
+      tag_id: normalizePositiveTagId(normalizedRow['tag_id']),
       tag_name: normalizedRow['标签'] || normalizedRow['分类'] || normalizedRow['tag_name'] || '',
       is_enabled: isDisabled !== undefined ? !isDisabled : undefined, // 是否停用：FALSE表示启用，TRUE表示停用，所以取反
       answer_strategy: answerAll === undefined ? undefined : answerAll ? 'all' : 'random',
@@ -2015,16 +2026,46 @@ const parseBooleanField = (value?: string, defaultValue: boolean = true): boolea
   return defaultValue
 }
 
+const normalizeStringList = (val: unknown): string[] => {
+  if (Array.isArray(val)) {
+    return val
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+  if (typeof val === 'string') {
+    return splitByDelimiter(val)
+  }
+  return []
+}
+
+const normalizeOptionalBoolean = (val: unknown): boolean | undefined => {
+  if (typeof val === 'boolean') return val
+  if (typeof val === 'string') return parseBooleanField(val, undefined as unknown as boolean)
+  return undefined
+}
+
+const normalizePositiveTagId = (val: unknown): number | undefined => {
+  const num = typeof val === 'number'
+    ? val
+    : typeof val === 'string' && val.trim()
+      ? Number(val.trim())
+      : NaN
+  return Number.isSafeInteger(num) && num > 0 ? num : undefined
+}
+
 const normalizePayload = (payload: Partial<FAQEntryPayload>): FAQEntryPayload => ({
-  standard_question: payload.standard_question || '',
-  answers: payload.answers?.filter(Boolean) || [],
-  similar_questions: payload.similar_questions?.filter(Boolean) || [],
-  negative_questions: payload.negative_questions?.filter(Boolean) || [],
-  tag_id: payload.tag_id || undefined,
-  tag_name: payload.tag_name || '',
-  is_enabled: payload.is_enabled !== undefined ? payload.is_enabled : undefined,
-  answer_strategy: payload.answer_strategy,
-  is_recommended: payload.is_recommended,
+  standard_question: typeof payload?.standard_question === 'string' ? payload.standard_question.trim() : '',
+  answers: normalizeStringList(payload?.answers),
+  similar_questions: normalizeStringList(payload?.similar_questions),
+  negative_questions: normalizeStringList(payload?.negative_questions),
+  tag_id: normalizePositiveTagId(payload?.tag_id),
+  tag_name: typeof payload?.tag_name === 'string' ? payload.tag_name.trim() : '',
+  is_enabled: normalizeOptionalBoolean(payload?.is_enabled),
+  answer_strategy: payload?.answer_strategy === 'all' || payload?.answer_strategy === 'random'
+    ? payload.answer_strategy
+    : undefined,
+  is_recommended: normalizeOptionalBoolean(payload?.is_recommended),
 })
 
 let kbSwitchGen = 0

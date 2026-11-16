@@ -1,4 +1,4 @@
-import { KB_WEB_TAG_RE } from './citationMarkdown'
+import { KB_WEB_TAG_RE, toNormalizedSafeHttpUrl, transformOutsideMarkdownCode } from './citationMarkdown'
 
 export interface SessionExportAttachment {
   file_name?: string
@@ -89,17 +89,13 @@ export async function collectAllSessionMessages(
 }
 
 function cleanMessageContent(content?: string): string {
-  return String(content || '')
-    .replace(KB_WEB_TAG_RE, '')
-    .trim()
+  return transformOutsideMarkdownCode(String(content || ''), (segment) =>
+    segment.replace(KB_WEB_TAG_RE, ''),
+  ).trim()
 }
 
 function markdownListText(value: string): string {
   return value.replace(/\s+/g, ' ').replace(/([\\`*_[\]<>])/g, '\\$1').trim()
-}
-
-function isHttpUrl(value: string): boolean {
-  return /^https?:\/\//i.test(value)
 }
 
 function referenceLine(reference: SessionExportReference): string {
@@ -111,8 +107,9 @@ function referenceLine(reference: SessionExportReference): string {
   if (!title) return ''
 
   const source = reference.metadata?.url || reference.knowledge_source || ''
+  const safeUrl = toNormalizedSafeHttpUrl(source)
   const safeTitle = markdownListText(title)
-  return isHttpUrl(source) ? `- [${safeTitle}](${source})` : `- ${safeTitle}`
+  return safeUrl ? `- [${safeTitle}](${safeUrl})` : `- ${safeTitle}`
 }
 
 export function buildSessionMarkdown(options: {

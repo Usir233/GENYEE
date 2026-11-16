@@ -98,9 +98,9 @@ const saving = ref(false)
 const savingAction = ref<ManualStatus>('draft')
 const lastUpdatedAt = ref<string>('')
 // Closing and reopening the drawer starts a new visit, even for the same ID.
-// Reads from an older visit must never replace the current editable document.
-let loadVersion = 0
-const isCurrentLoad = (version: number) => version === loadVersion && visible.value
+// Reads and saves from an older visit must never replace or close the current editable document.
+let initGeneration = 0
+const isCurrentLoad = (generation: number) => generation === initGeneration && visible.value
 
 // ---------- view mode ----------
 type ViewMode = 'edit' | 'split' | 'preview'
@@ -806,9 +806,13 @@ const validateForm = (targetStatus: ManualStatus): boolean => {
 }
 
 const handleSave = async (targetStatus: ManualStatus) => {
-  if (saving.value || !validateForm(targetStatus)) {
+  if (saving.value || !visible.value || !validateForm(targetStatus)) {
     return
   }
+  const generation = initGeneration
+  const saveMode = mode.value
+  const saveKbId = form.kbId
+  const saveKnowledgeId = currentKnowledgeId.value
   saving.value = true
   savingAction.value = targetStatus
   try {
@@ -828,14 +832,15 @@ const handleSave = async (targetStatus: ManualStatus) => {
     if (targetStatus === 'publish') {
       let kbInfo: any
       try {
-        const kbRes: any = await getKnowledgeBaseById(form.kbId)
+        const kbRes: any = await getKnowledgeBaseById(saveKbId)
+        if (!isCurrentLoad(generation)) return
         kbInfo = kbRes?.data
       } catch {
-        MessagePlugin.error(t('manualEditor.error.fetchDetailFailed'))
+        if (isCurrentLoad(generation)) MessagePlugin.error(t('manualEditor.error.fetchDetailFailed'))
         return
       }
       if (!kbInfo) {
-        MessagePlugin.error(t('manualEditor.error.fetchDetailFailed'))
+        if (isCurrentLoad(generation)) MessagePlugin.error(t('manualEditor.error.fetchDetailFailed'))
         return
       }
       try {
@@ -843,13 +848,14 @@ const handleSave = async (targetStatus: ManualStatus) => {
           mode: 'manual',
           kbInfo,
           manual: {
-            kbId: form.kbId,
-            knowledgeId: currentKnowledgeId.value || undefined,
+            kbId: saveKbId,
+            knowledgeId: saveKnowledgeId || undefined,
             title: payload.title,
             content: payload.content,
             tagIds: [...manualTagIds.value],
           },
         })
+        if (!isCurrentLoad(generation)) return
         payload.process_config = confirmResult.processConfig
         manualTagIds.value = [...(confirmResult.tagIds || [])]
         payload.tag_ids = [...manualTagIds.value]
@@ -859,17 +865,18 @@ const handleSave = async (targetStatus: ManualStatus) => {
     }
 
     let response: any
-    let knowledgeID = currentKnowledgeId.value
-    let kbId = form.kbId
+    let knowledgeID = saveKnowledgeId
+    const kbId = saveKbId
 
-    if (mode.value === 'edit' && currentKnowledgeId.value) {
-      response = await updateManualKnowledge(currentKnowledgeId.value, payload)
+    if (saveMode === 'edit' && saveKnowledgeId) {
+      response = await updateManualKnowledge(saveKnowledgeId, payload)
+      if (!isCurrentLoad(generation)) return
     } else {
-      response = await createManualKnowledge(form.kbId, payload)
+      response = await createManualKnowledge(saveKbId, payload)
+      if (!isCurrentLoad(generation)) return
       knowledgeID = response?.data?.id || knowledgeID
       currentKnowledgeId.value = knowledgeID || null
       uiStore.manualEditorKnowledgeId = currentKnowledgeId.value
-      kbId = form.kbId
     }
 
     if (response?.success) {
@@ -892,10 +899,11 @@ const handleSave = async (targetStatus: ManualStatus) => {
       MessagePlugin.error(message)
     }
   } catch (error: any) {
+    if (!isCurrentLoad(generation)) return
     const message = error?.error?.message || error?.message || t('manualEditor.error.saveFailed')
     MessagePlugin.error(message)
   } finally {
-    saving.value = false
+    if (generation === initGeneration) saving.value = false
   }
 }
 
@@ -930,15 +938,16 @@ const handleClose = () => {
 }
 
 watch(visible, async (val) => {
-  const version = ++loadVersion
+  const generation = ++initGeneration
   kbLoading.value = false
   contentLoading.value = false
+  saving.value = false
   if (val) {
     await nextTick()
-    if (!isCurrentLoad(version)) return
-    await initialize(version)
+    if (!isCurrentLoad(generation)) return
+    await initialize(generation)
     await nextTick()
-    if (!isCurrentLoad(version)) return
+    if (!isCurrentLoad(generation)) return
     const length = form.content ? form.content.length : 0
     setSelectionRange(length, length)
   } else {
@@ -947,7 +956,7 @@ watch(visible, async (val) => {
 })
 
 onBeforeUnmount(() => {
-  ++loadVersion
+  ++initGeneration
   editorAreaObserver?.disconnect()
   editorAreaObserver = null
 })

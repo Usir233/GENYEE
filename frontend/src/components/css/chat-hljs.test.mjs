@@ -38,3 +38,13 @@ test('token colors come from variables, not hardcoded hex', () => {
   // dark override on specificity (#5300); keep every color on variables.
   assert.doesNotMatch(tokens, /#[0-9a-f]{3,8}\b/i)
 })
+
+test('both SPA and embed entrypoints load chat-hljs-theme.less and zero files reference deleted chat-hljs-dark.less', () => {
+  const mainEntry = readFileSync(join(here, '../../main.ts'), 'utf8')
+  const embedEntry = readFileSync(join(here, '../../embed-main.ts'), 'utf8')
+  assert.match(mainEntry, /chat-hljs-theme\.less/)
+  assert.match(embedEntry, /chat-hljs-theme\.less/)
+  assert.doesNotMatch(mainEntry, /chat-hljs-dark\.less/)
+  assert.doesNotMatch(embedEntry, /chat-hljs-dark\.less/)
+})
+

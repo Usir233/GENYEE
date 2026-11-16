@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { joinCitationTagsToPreviousLine } from './citationMarkdown.ts'
+import {
+  extractCitationHtmlPlaceholders,
+  joinCitationTagsToPreviousLine,
+  stripCitationTagsForMarkdown,
+} from './citationMarkdown.ts'
 
 const KB = '<kb id="11111111-1111-1111-1111-111111111111" />'
 const DD = '$$'
@@ -36,4 +40,26 @@ test('keeps fenced code delimiters on their own line', () => {
   const input = [F, 'code', F, '', KB].join('\n')
   const out = joinCitationTagsToPreviousLine(input)
   assert.ok(out.includes(F + '\n\n'), `fence must stay its own line, got: ${JSON.stringify(out)}`)
+})
+
+test('preserves literal citations inside 4-backtick fences containing 3-backtick lines', () => {
+  const nestedFence = [
+    '````md',
+    '```',
+    '<kb doc="inside.md" chunk_id="1" />',
+    '[[inside/wiki|Inside]]',
+    '````',
+  ].join('\n')
+  assert.equal(joinCitationTagsToPreviousLine(nestedFence), nestedFence)
+  const { content, htmlSnippets } = extractCitationHtmlPlaceholders(nestedFence)
+  assert.equal(htmlSnippets.length, 0)
+  assert.equal(content, nestedFence)
+})
+
+test('stripCitationTagsForMarkdown normalizes URL spaces/quotes and sanitizes fallback bracket labels', () => {
+  const { text } = stripCitationTagsForMarkdown(
+    'Ref <web url="https://example.com/a b?x=[1]" title=""/> and <web url="https://example.com/p" title="Line1\n<script>alert(1)</script>"/>',
+  )
+  assert.match(text, /\[https:\/\/example\.com\/a b\?x= 1 \]\(https:\/\/example\.com\/a%20b\?x=\[1\]\)/)
+  assert.doesNotMatch(text, /<script>/i)
 })

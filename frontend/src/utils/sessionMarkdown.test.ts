@@ -116,3 +116,64 @@ test('missing and invalid export timestamps have a deterministic fallback', asyn
   ])
   assert.deepEqual(result.map(message => message.id), ['missing', 'invalid', 'valid'])
 })
+
+test('buildSessionMarkdown preserves literal <kb/> and <web/> inside inline and fenced code blocks', () => {
+  const markdown = buildSessionMarkdown({
+    sessionId: 'session-code',
+    title: 'Code citations',
+    exportedAt: '2026-01-05T00:00:00Z',
+    labels,
+    messages: [
+      {
+        role: 'assistant',
+        content: [
+          'Inline `<kb doc="keep.md" chunk_id="1"/>` and `<web url="https://example.com"/>` stay literal.',
+          '````html',
+          '```',
+          '<kb doc="nested.md" chunk_id="2" />',
+          '````',
+          'Prose tag <kb doc="drop.md" chunk_id="3"/> is stripped.',
+        ].join('\n'),
+      },
+    ],
+  })
+  assert.match(markdown, /`<kb doc="keep\.md" chunk_id="1"\/>`/)
+  assert.match(markdown, /`<web url="https:\/\/example\.com"\/>`/)
+  assert.match(markdown, /<kb doc="nested\.md" chunk_id="2" \/>/)
+  assert.doesNotMatch(markdown, /drop\.md/)
+})
+
+test('buildSessionMarkdown encodes parentheses and spaces in reference URLs and rejects malformed schemes', () => {
+  const markdown = buildSessionMarkdown({
+    sessionId: 'session-url',
+    title: 'URL safety',
+    exportedAt: '2026-01-05T00:00:00Z',
+    labels,
+    messages: [
+      {
+        role: 'assistant',
+        content: 'See references.',
+        knowledge_references: [
+          {
+            knowledge_title: 'Wiki Spec',
+            knowledge_source: 'https://example.com/wiki_(v2) "evil" ) [Click](javascript:alert(1))',
+          },
+          {
+            knowledge_title: 'Invalid Host',
+            knowledge_source: 'https://',
+          },
+          {
+            knowledge_title: 'JS Scheme',
+            knowledge_source: 'javascript:alert(1)',
+          },
+        ],
+      },
+    ],
+  })
+  assert.doesNotMatch(markdown, /\[Click\]\(javascript:/i)
+  assert.doesNotMatch(markdown, /\(https:\/\/\)/)
+  assert.match(markdown, /- \[Wiki Spec\]\(https:\/\/example\.com\/wiki_%28v2%29%20%22evil%22%20%29%20\[Click\]%28javascript:alert%281%29%29\)/)
+  assert.match(markdown, /- Invalid Host/)
+  assert.match(markdown, /- JS Scheme/)
+})
+

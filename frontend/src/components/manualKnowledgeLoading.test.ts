@@ -168,3 +168,44 @@ test('a current detail error is still reported', async t => {
   assert.deepEqual(p.messages, ['manualEditor.error.fetchDetailFailed'])
   assert.equal(p.vm.contentLoading, false)
 })
+
+for (const outcome of ['success', 'failure'] as const) {
+  test(`an old in-flight save ${outcome} cannot close, unlock, or overwrite a reopened draft`, async t => {
+    const oldSave = deferred()
+    const currentSave = deferred()
+    let saveCalls = 0
+    const p = setup(t, {
+      updateManualKnowledge: async (id: string, payload: unknown) => {
+        const call = ++saveCalls
+        const res: any = await (call === 1 ? oldSave.promise : currentSave.promise)
+        p.writes.push({ id, payload })
+        return res
+      },
+    })
+    await p.open('a')
+    p.vm.form.content = 'Updated content A'
+    const first = p.vm.handleSave('draft')
+    await p.hide()
+    await p.open('b')
+    assert.equal(p.vm.saving, false, 'reopening for document B must reset saving state')
+    p.vm.form.content = 'Unsaved content B'
+    const second = p.vm.handleSave('draft')
+    assert.equal(p.vm.saving, true)
+
+    if (outcome === 'success') oldSave.resolve({ success: true })
+    else oldSave.reject(new Error('Old save failed'))
+    await first
+
+    assert.equal(p.ui.manualEditorVisible, true, 'stale save must not close reopened editor')
+    assert.equal(p.vm.saving, true, 'stale save finalizer must not unlock active save')
+    assert.equal(p.vm.currentKnowledgeId, 'b')
+    assert.equal(p.vm.form.content, 'Unsaved content B')
+    assert.deepEqual(p.messages, [])
+
+    currentSave.resolve({ success: true })
+    await second
+    assert.equal(p.ui.manualEditorVisible, false)
+    assert.equal(p.vm.saving, false)
+  })
+}
+

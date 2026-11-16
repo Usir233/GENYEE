@@ -47,7 +47,8 @@ function isEmptyRow(line: string): boolean {
 
 function separatorRowFor(headerLine: string): string {
   const cells = splitRowCells(headerLine);
-  return `| ${cells.map(() => '---').join(' | ')} |`;
+  const eol = headerLine.endsWith('\r') ? '\r' : '';
+  return `| ${cells.map(() => '---').join(' | ')} |${eol}`;
 }
 
 function normalizeTableBlock(block: string[]): string[] {
@@ -64,19 +65,43 @@ function normalizeTableBlock(block: string[]): string[] {
   return rows;
 }
 
-/** Fix MarkItDown-style tables: empty row + separator before real rows. */
+const FENCE_LINE_RE = /^ {0,3}(`{3,}|~{3,})([^\r\n]*)\r?$/;
+
+/** Fix MarkItDown-style tables: empty row + separator before real rows, skipping fenced code blocks. */
 export function normalizeSpuriousTablePrefixes(content: string): string {
   const lines = content.split('\n');
   const out: string[] = [];
+  let openFence: { char: string; length: number } | null = null;
   let i = 0;
   while (i < lines.length) {
-    if (!isTableRow(lines[i])) {
-      out.push(lines[i]);
+    const line = lines[i];
+    const fenceMatch = FENCE_LINE_RE.exec(line);
+    if (openFence) {
+      if (
+        fenceMatch &&
+        fenceMatch[1][0] === openFence.char &&
+        fenceMatch[1].length >= openFence.length &&
+        /^[ \t]*$/.test(fenceMatch[2])
+      ) {
+        openFence = null;
+      }
+      out.push(line);
+      i += 1;
+      continue;
+    }
+    if (fenceMatch && (fenceMatch[1][0] !== '`' || !fenceMatch[2].includes('`'))) {
+      openFence = { char: fenceMatch[1][0], length: fenceMatch[1].length };
+      out.push(line);
+      i += 1;
+      continue;
+    }
+    if (!isTableRow(line)) {
+      out.push(line);
       i += 1;
       continue;
     }
     const block: string[] = [];
-    while (i < lines.length && isTableRow(lines[i])) {
+    while (i < lines.length && !FENCE_LINE_RE.test(lines[i]) && isTableRow(lines[i])) {
       block.push(lines[i]);
       i += 1;
     }

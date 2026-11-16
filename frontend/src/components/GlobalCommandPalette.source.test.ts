@@ -25,6 +25,7 @@ type Host = {
 async function fixture(options: { kbId?: string; unsupported?: boolean; missingKb?: boolean } = {}) {
   const route = reactive({ fullPath: '/platform/creatChat', params: { kbId: options.kbId || '' } })
   const pushed: unknown[] = [], requests: string[] = [], recent: string[] = [], events: any[] = [], chats: unknown[][] = []
+  const auth = reactive({ effectiveTenantId: 1, user: { id: 'user-1' }, hasRole: () => false })
   const store = reactive({
     open: true, initialQuery: '', recentQueries: [] as string[],
     closePalette() { this.open = false },
@@ -79,7 +80,7 @@ async function fixture(options: { kbId?: string; unsupported?: boolean; missingK
         if (name === 'vue-router') return { useRouter: () => router, useRoute: () => route }
         if (name === 'pinia') return { storeToRefs: () => toRefs(store) }
         if (name === '@/stores/commandPalette') return { useCommandPaletteStore: () => store }
-        if (name === '@/stores/auth') return { useAuthStore: () => ({ hasRole: () => false }) }
+        if (name === '@/stores/auth') return { useAuthStore: () => auth }
         if (name === '@/stores/deploymentCapabilities') {
           return { useDeploymentCapabilitiesStore: () => ({ isSupported: () => true }) }
         }
@@ -154,7 +155,7 @@ async function fixture(options: { kbId?: string; unsupported?: boolean; missingK
     await flush()
   }
   const open = async () => { store.initialQuery = 'travel'; store.open = true; await flush() }
-  return { store, route, requests, pushed, recent, events, chats, find, click, key, open, preview: () => preview, hasDrawer: () => descendants(root).some(el => el.tag === 'drawer'), dispose: () => app.unmount() }
+  return { auth, store, route, requests, pushed, recent, events, chats, find, click, key, open, preview: () => preview, hasDrawer: () => descendants(root).some(el => el.tag === 'drawer'), dispose: () => app.unmount() }
 }
 
 test('mouse and keyboard open different chunks of the same document using current source evidence', async t => {
@@ -231,3 +232,16 @@ test('a result without a knowledge base closes the palette without opening a sou
   assert.equal(f.requests.length, 0)
   assert.deepEqual(f.pushed, [])
 })
+
+test('workspace or user switch dismisses an open source drawer and closes the palette', async t => {
+  const f = await fixture({ kbId: 'travel-kb' })
+  t.after(f.dispose)
+  await f.click('result', 0)
+  assert.equal(f.hasDrawer(), true)
+  await f.open()
+  f.auth.effectiveTenantId = 2
+  await flush()
+  assert.equal(f.hasDrawer(), false)
+  assert.equal(f.store.open, false)
+})
+

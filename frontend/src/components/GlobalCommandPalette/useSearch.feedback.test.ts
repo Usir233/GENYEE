@@ -17,18 +17,20 @@ const emptyMessages = { success: true, data: { items: [], total: 0 } }
 const knowledgeHit = { success: true, data: [{ id: 'chunk', knowledge_id: 'document', knowledge_base_id: 'kb', knowledge_title: 'Handbook', content: 'Passage' }] }
 const messageHit = { success: true, data: { items: [{ request_id: 'request', session_id: 'session', session_title: 'Conversation', query_content: 'Question', answer_content: 'Answer' }], total: 1 } }
 
-async function setup(t: TestContext, options: { noKbs?: boolean; discoveryFails?: boolean; scoped?: string[] } = {}) {
+async function setup(t: TestContext, options: { noKbs?: boolean; discoveryFails?: boolean; scoped?: string[]; initialWorkspace?: string } = {}) {
   const f = fixture(t)
   const scope = vue.ref(options.scoped ?? [])
+  const workspace = vue.ref(options.initialWorkspace ?? 'tenant-a')
+  const kbsRef = vue.ref(options.noKbs ? [] : [{ id: 'kb', name: 'Library' }])
   let discoveryFails = options.discoveryFails ?? false
   let discoveries = 0
-  const knowledge: Array<ReturnType<typeof deferred<Reply>> & { query: string }> = []
+  const knowledge: Array<ReturnType<typeof deferred<Reply>> & { query: string; kbIds?: string[] }> = []
   const messages: Array<ReturnType<typeof deferred<Reply>> & { query: string }> = []
   t.mock.method(console, 'error', () => {})
   const mod = f.evaluate(source, {
     vue,
-    '@/api/knowledge-base': { knowledgeSemanticSearch(params: { query: string }) {
-      const request = { ...deferred<Reply>(), query: params.query }
+    '@/api/knowledge-base': { knowledgeSemanticSearch(params: { query: string; knowledge_base_ids?: string[] }) {
+      const request = { ...deferred<Reply>(), query: params.query, kbIds: params.knowledge_base_ids }
       knowledge.push(request)
       return request.promise
     } },
@@ -39,12 +41,16 @@ async function setup(t: TestContext, options: { noKbs?: boolean; discoveryFails?
     } },
     '@/stores/chatResources': { useChatResourcesStore: () => ({
       async ensureKnowledgeBases() { discoveries++; if (discoveryFails) throw new Error('Unavailable') },
-      rawKnowledgeBases: options.noKbs ? [] : [{ id: 'kb', name: 'Library' }],
+      get rawKnowledgeBases() { return kbsRef.value },
     }) },
     '@/stores/organization': { useOrganizationStore: () => ({ sharedKnowledgeBases: [], sharedAgents: [] }) },
     '@/stores/menu': { useMenuStore: () => ({ menuArr: [] }) },
   })
-  const mounted = f.mount({ setup: () => mod.useCmdkSearch({ agentsEnabled: () => false, lockedKbIds: () => scope.value }) })
+  const mounted = f.mount({ setup: () => mod.useCmdkSearch({
+    agentsEnabled: () => false,
+    lockedKbIds: () => scope.value,
+    scopeKey: () => workspace.value,
+  }) })
   await flush()
   const start = async (query = 'question') => {
     mounted.vm.query = query
@@ -53,7 +59,7 @@ async function setup(t: TestContext, options: { noKbs?: boolean; discoveryFails?
     await flush()
   }
   const failures = () => Array.from(mounted.vm.searchFailures ?? [])
-  return { ...mounted, scope, knowledge, messages, start, failures,
+  return { ...mounted, scope, workspace, kbsRef, knowledge, messages, start, failures,
     discoveries: () => discoveries,
     setDiscoveryFailure: (value: boolean) => { discoveryFails = value },
   }
@@ -218,3 +224,28 @@ for (const change of ['query', 'scope', 'clear', 'unmount'] as const) {
     if (change !== 'unmount') assert.equal(f.vm.hasSearched, false)
   })
 }
+
+test('workspace switch invalidates cached KBs and drops in-flight cross-workspace search results', async t => {
+  const f = await setup(t)
+  await f.start('roadmap')
+  assert.deepEqual(Array.from(f.knowledge[0].kbIds ?? []), ['kb'])
+  f.kbsRef.value = [{ id: 'kb-tenant-b', name: 'Workspace B Library' }]
+  f.workspace.value = 'tenant-b'
+  await flush()
+
+  // Late responses from Workspace A must be dropped completely.
+  f.knowledge[0].resolve(knowledgeHit)
+  f.messages[0].resolve(messageHit)
+  await flush()
+  assert.equal(f.vm.fileGroups.length, 0)
+  assert.equal(f.vm.messageGroups.length, 0)
+  assert.equal(f.vm.loading, false)
+  assert.deepEqual(
+    Array.from(f.vm.knowledgeBases, (k: any) => k.id),
+    ['kb-tenant-b'],
+  )
+
+  await f.start('workspace b query')
+  assert.deepEqual(Array.from(f.knowledge[1].kbIds ?? []), ['kb-tenant-b'])
+})
+

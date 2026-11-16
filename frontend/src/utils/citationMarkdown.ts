@@ -61,30 +61,99 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;')
 }
 
-function isSafeHttpUrl(raw: string): boolean {
+export function toNormalizedSafeHttpUrl(raw: string): string {
   const trimmed = String(raw || '').trim()
-  if (!trimmed) return false
+  if (!trimmed) return ''
   try {
     const parsed = new URL(trimmed)
-    return (parsed.protocol === 'http:' || parsed.protocol === 'https:') && Boolean(parsed.hostname)
+    if ((parsed.protocol !== 'http:' && parsed.protocol !== 'https:') || !parsed.hostname) {
+      return ''
+    }
+    const normalized = parsed.pathname === '/' && !/^https?:\/\/[^/?#]+\//i.test(trimmed)
+      ? `${parsed.origin}${parsed.search}${parsed.hash}`
+      : parsed.href
+    return normalized.replace(/\(/g, '%28').replace(/\)/g, '%29')
   } catch {
-    return false
+    return ''
   }
 }
 
-const MARKDOWN_CODE_SPAN_OR_FENCE_RE = /(```[\s\S]*?(?:```|$)|~~~[\s\S]*?(?:~~~|$)|`+[^`\n]*`+)/g
-const MARKDOWN_FENCED_BLOCK_RE = /(^ {0,3}(?:`{3,}|~{3,})[^\n]*\n[\s\S]*?(?:^ {0,3}(?:`{3,}|~{3,})\s*$|(?![\s\S])))/gm
+function isSafeHttpUrl(raw: string): boolean {
+  return Boolean(toNormalizedSafeHttpUrl(raw))
+}
 
-function transformOutsideMarkdownCode(
+function findFencedCodeSpans(content: string): Array<[number, number]> {
+  const spans: Array<[number, number]> = []
+  const fenceRe = /^ {0,3}(`{3,}|~{3,})([^\r\n]*)\r?$/gm
+  let open: { index: number; marker: string } | null = null
+  for (const match of content.matchAll(fenceRe)) {
+    const marker = match[1]
+    const rest = match[2]
+    const index = match.index ?? 0
+    if (open) {
+      if (open.marker[0] === marker[0] && marker.length >= open.marker.length && /^[ \t]*$/.test(rest)) {
+        const lineEnd = content.indexOf('\n', index + match[0].length)
+        spans.push([open.index, lineEnd < 0 ? content.length : lineEnd + 1])
+        open = null
+      }
+    } else if (marker[0] !== '`' || !rest.includes('`')) {
+      open = { index, marker }
+    }
+  }
+  if (open) spans.push([open.index, content.length])
+  return spans
+}
+
+function findInlineCodeSpans(segment: string, offset: number): Array<[number, number]> {
+  const spans: Array<[number, number]> = []
+  const inlineRe = /(?<!`)(`+)(?!`)([^\n]*?)(?<!`)\1(?!`)/g
+  for (const match of segment.matchAll(inlineRe)) {
+    const start = offset + (match.index ?? 0)
+    spans.push([start, start + match[0].length])
+  }
+  return spans
+}
+
+function applyOutsideSpans(
+  content: string,
+  spans: Array<[number, number]>,
+  transform: (segment: string) => string,
+): string {
+  if (!spans.length) return transform(content)
+  const out: string[] = []
+  let cursor = 0
+  for (const [start, end] of spans) {
+    if (start > cursor) {
+      out.push(transform(content.slice(cursor, start)))
+    }
+    out.push(content.slice(start, end))
+    cursor = end
+  }
+  if (cursor < content.length) {
+    out.push(transform(content.slice(cursor)))
+  }
+  return out.join('')
+}
+
+export function transformOutsideMarkdownCode(
   content: string,
   transform: (segment: string) => string,
 ): string {
   if (!content) return content
-  const parts = content.split(MARKDOWN_CODE_SPAN_OR_FENCE_RE)
-  for (let i = 0; i < parts.length; i += 2) {
-    if (parts[i]) parts[i] = transform(parts[i])
+  const fenced = findFencedCodeSpans(content)
+  const allSpans: Array<[number, number]> = [...fenced]
+  let cursor = 0
+  for (const [start, end] of fenced) {
+    if (start > cursor) {
+      allSpans.push(...findInlineCodeSpans(content.slice(cursor, start), cursor))
+    }
+    cursor = end
   }
-  return parts.join('')
+  if (cursor < content.length) {
+    allSpans.push(...findInlineCodeSpans(content.slice(cursor), cursor))
+  }
+  allSpans.sort((a, b) => a[0] - b[0])
+  return applyOutsideSpans(content, allSpans, transform)
 }
 
 function transformOutsideFencedCode(
@@ -92,11 +161,7 @@ function transformOutsideFencedCode(
   transform: (segment: string) => string,
 ): string {
   if (!content) return content
-  const parts = content.split(MARKDOWN_FENCED_BLOCK_RE)
-  for (let i = 0; i < parts.length; i += 2) {
-    if (parts[i]) parts[i] = transform(parts[i])
-  }
-  return parts.join('')
+  return applyOutsideSpans(content, findFencedCodeSpans(content), transform)
 }
 
 function truncateMiddle(text: string, maxLength = 13): string {
@@ -415,10 +480,15 @@ export function stripCitationTagsForMarkdown(
       .replace(WEB_TAG_ATTR_RE, (_match, attrString: string) => {
         const attrs = parseTagAttributes(attrString)
         const url = (attrs.url || '').trim()
-        if (!isSafeHttpUrl(url)) return ''
-        // Brackets inside the label or parentheses in the URL would break link syntax.
-        const safeMarkdownUrl = url.replace(/\(/g, '%28').replace(/\)/g, '%29')
-        const label = (attrs.title || '').trim().replace(/[[\]]/g, ' ').trim() || url
+        const safeMarkdownUrl = toNormalizedSafeHttpUrl(url)
+        if (!safeMarkdownUrl) return ''
+        // Sanitize brackets, newlines, and HTML tags on both explicit titles and URL fallbacks.
+        const rawLabel = (attrs.title || '').trim() || url
+        const label = rawLabel
+          .replace(/[\r\n\t]+/g, ' ')
+          .replace(/[[\]]/g, ' ')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
         return `[${label}](${safeMarkdownUrl})`
       })
       .replace(KB_ONLY_LINE_RE, '')
