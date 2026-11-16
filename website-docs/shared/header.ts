@@ -41,6 +41,7 @@ export function sanitizeExternalHttpUrl(raw?: string): string {
   try {
     const parsed = new URL(trimmed);
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    if (parsed.username || parsed.password) return '';
     return parsed.toString();
   } catch {
     return '';

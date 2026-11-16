@@ -53,10 +53,10 @@ jobs:
           cache-dependency-glob: docreader/uv.lock
 
       - name: Install Python dependencies
-        run: uv sync --project docreader --locked --no-dev --python ${{ env.PYTHON_VERSION }}
+        run: uv sync --project docreader --locked --no-dev --python "$PYTHON_VERSION"
 
       - name: Compile Python sources
-        run: uv run --project docreader --python ${{ env.PYTHON_VERSION }} python -m compileall -q docreader
+        run: uv run --project docreader --python "$PYTHON_VERSION" python -m compileall -q docreader
 
       # Both the Python proxy integration tests and Go TestReadURL launch
       # WebKit, so install the browser and system libraries before either suite.
@@ -67,11 +67,11 @@ jobs:
           key: ${{ runner.os }}-playwright-webkit-${{ hashFiles('docreader/uv.lock') }}
 
       - name: Install Playwright WebKit
-        run: uv run --project docreader --python ${{ env.PYTHON_VERSION }} python -m playwright install --with-deps webkit
+        run: uv run --project docreader --python "$PYTHON_VERSION" python -m playwright install --with-deps webkit
 
       - name: Run Python tests
         # Collect both unittest classes and pytest function regressions.
-        run: uv run --project docreader --python ${{ env.PYTHON_VERSION }} --with pytest python -m pytest docreader/tests -v
+        run: uv run --project docreader --python "$PYTHON_VERSION" --with pytest python -m pytest docreader/tests -v
 
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
@@ -83,9 +83,18 @@ jobs:
 
       - name: Start DocReader gRPC server
         run: |
-          uv run --project docreader --python ${{ env.PYTHON_VERSION }} python -m docreader.main &
-          echo $! > /tmp/docreader.pid
+          token="$(python3 -c 'import secrets; print(secrets.token_hex(32))')"
+          echo "::add-mask::${token}"
+          echo "GRPC_AUTH_TOKEN=${token}" >> "$GITHUB_ENV"
+          GRPC_AUTH_TOKEN="${token}" uv run --project docreader --python "$PYTHON_VERSION" python -m docreader.main &
+          pid=$!
+          echo "$pid" > "${RUNNER_TEMP}/docreader.pid"
           for i in $(seq 1 30); do
+            if ! kill -0 "$pid" 2>/dev/null; then
+              echo "DocReader gRPC server exited prematurely"
+              wait "$pid" || true
+              exit 1
+            fi
             if nc -z 127.0.0.1 50051 2>/dev/null; then
               echo "DocReader gRPC server is ready"
               exit 0
@@ -101,6 +110,6 @@ jobs:
       - name: Stop DocReader gRPC server
         if: always()
         run: |
-          if [ -f /tmp/docreader.pid ]; then
-            kill "$(cat /tmp/docreader.pid)" 2>/dev/null || true
+          if [ -f "${RUNNER_TEMP}/docreader.pid" ]; then
+            kill "$(cat "${RUNNER_TEMP}/docreader.pid")" 2>/dev/null || true
           fi

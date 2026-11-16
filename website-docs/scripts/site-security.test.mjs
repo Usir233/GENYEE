@@ -132,3 +132,22 @@ test('W7-SCR-01: check-site.mjs rejects empty href and javascript: URLs, and pac
   const testDockerSrc = readFileSync(join(scriptsDir, 'test-docker.mjs'), 'utf8');
   assert.doesNotMatch(testDockerSrc, /0\.8\.3/, 'test-docker.mjs must not default to stale 0.8.3 tag');
 });
+
+test('UP-DOCS-WEB-001: sanitizeExternalHttpUrl rejects embedded userinfo credentials and dangerous schemes', async () => {
+  const { sanitizeExternalHttpUrl } = await import('../shared/header.ts');
+  assert.equal(sanitizeExternalHttpUrl('https://docs.example.com/guide?tab=1#sec'), 'https://docs.example.com/guide?tab=1#sec');
+  assert.equal(sanitizeExternalHttpUrl('http://example.com/path'), 'http://example.com/path');
+  for (const unsafe of [
+    '',
+    '   ',
+    'javascript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'vbscript:msgbox(1)',
+    'https://user:secret@example.com/path',
+    'https://genyee.com@evil.example/phish',
+    'http://admin@127.0.0.1:8080/',
+    'https://example.com/\u0000bad',
+  ]) {
+    assert.equal(sanitizeExternalHttpUrl(unsafe), '', `expected empty string for unsafe URL: ${unsafe}`);
+  }
+});

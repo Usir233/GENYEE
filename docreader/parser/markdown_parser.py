@@ -12,11 +12,16 @@ multiple stages: table formatting -> image processing.
 """
 
 import base64
+import bisect
+import io
 import logging
 import os
 import re
 import uuid
+import warnings
 from typing import Callable, Dict, List, Match, Optional, Tuple
+
+from PIL import Image, UnidentifiedImageError
 
 from docreader.models.document import Document
 from docreader.parser.base_parser import BaseParser
@@ -25,6 +30,32 @@ from docreader.utils import endecode
 
 # Get logger object
 logger = logging.getLogger(__name__)
+
+MAX_IMAGE_PIXELS = 40_000_000
+Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+
+MAX_INLINE_IMAGE_BYTES = 20 * 1024 * 1024  # 20 MiB per decoded inline image
+MAX_INLINE_TOTAL_IMAGE_BYTES = 100 * 1024 * 1024  # 100 MiB cumulative per document
+MAX_INLINE_IMAGES_PER_DOCUMENT = 1000
+MAX_INLINE_IMAGE_FRAMES = 256
+
+_ALLOWED_INLINE_RASTER_SUBTYPES: Dict[str, str] = {
+    "png": "png",
+    "x-png": "png",
+    "jpeg": "jpeg",
+    "jpg": "jpg",
+    "pjpeg": "jpeg",
+    "gif": "gif",
+    "webp": "webp",
+    "bmp": "bmp",
+    "x-bmp": "bmp",
+    "x-ms-bmp": "bmp",
+    "tiff": "tiff",
+    "tif": "tif",
+}
+_ALLOWED_PIL_FORMATS = frozenset({"PNG", "JPEG", "GIF", "WEBP", "BMP", "TIFF", "MPO"})
+_B64_RUN = re.compile(r"[A-Za-z0-9+/= \t\r\n]+")
+_WS_RUN = re.compile(r"[ \t\r\n]*")
 
 _SEPARATOR_CELL = re.compile(r"^:?-{3,}:?$")
 # A backslash escape, or a bare pipe. Scanning both keeps an escaped pipe
@@ -326,6 +357,126 @@ class MarkdownTableFormatter(BaseParser):
         return Document(content=text)
 
 
+def _validate_raster_image_bytes(data: bytes) -> bool:
+    """Verify decoded bytes represent a safe raster image within pixel/frame bounds."""
+    Image.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("error", Image.DecompressionBombWarning)
+            with Image.open(io.BytesIO(data)) as img:
+                fmt = (img.format or "").upper()
+                if fmt not in _ALLOWED_PIL_FORMATS:
+                    return False
+                width, height = img.size
+                if width <= 0 or height <= 0 or width * height > MAX_IMAGE_PIXELS:
+                    return False
+                n_frames = getattr(img, "n_frames", 1) or 1
+                if n_frames > MAX_INLINE_IMAGE_FRAMES:
+                    return False
+                if width * height * n_frames > MAX_IMAGE_PIXELS * 2:
+                    return False
+    except (
+        UnidentifiedImageError,
+        Image.DecompressionBombError,
+        Image.DecompressionBombWarning,
+        OSError,
+        ValueError,
+        SyntaxError,
+        EOFError,
+    ):
+        return False
+    return True
+
+
+def _parse_b64_title(prose: str, pos: int) -> Tuple[Optional[Tuple[str, int]], bool]:
+    """Parse an optional Markdown image title token at ``pos``.
+
+    Returns ``((title_str, next_index), hit_eof)``.
+    """
+    n = len(prose)
+    quote = prose[pos]
+    if quote in ("\"", "'"):
+        i = pos + 1
+        while i < n:
+            ch = prose[i]
+            if ch == "\\":
+                i += 2
+                if i > n:
+                    return None, True
+                continue
+            if ch == quote:
+                return (prose[pos : i + 1], i + 1), False
+            i += 1
+        return None, True
+    if quote == "(":
+        i = pos + 1
+        while i < n:
+            ch = prose[i]
+            if ch == "\\":
+                i += 2
+                if i > n:
+                    return None, True
+                continue
+            if ch == "(":
+                return None, False
+            if ch == ")":
+                return (prose[pos : i + 1], i + 1), False
+            i += 1
+        return None, True
+    return None, False
+
+
+def _sub_markdown_images(
+    content: str,
+    transform_fn: Callable[[str, str, str], str],
+) -> str:
+    """Linear-time O(N) replacement for standard ``![alt](target)`` references."""
+    n = len(content)
+    pos = 0
+    last_emit = 0
+    out_parts: List[str] = []
+
+    while pos < n:
+        img_start = content.find("![", pos)
+        if img_start < 0:
+            break
+        mid = content.find("](", img_start + 2)
+        if mid < 0:
+            break
+        next_open = content.find("![", img_start + 2, mid)
+        while next_open >= 0:
+            img_start = next_open
+            next_open = content.find("![", img_start + 2, mid)
+
+        r = mid + 2
+        while r < n:
+            ch = content[r]
+            if ch == ")" or ch in "\r\n" or (ch == "!" and r + 1 < n and content[r + 1] == "["):
+                break
+            r += 1
+        if r == n:
+            break
+        if content[r] != ")":
+            pos = r if r > mid + 2 else mid + 2
+            continue
+        if r == mid + 2:
+            pos = r + 1
+            continue
+
+        alt = content[img_start + 2 : mid]
+        target = content[mid + 2 : r]
+        full = content[img_start : r + 1]
+        out_parts.append(content[last_emit:img_start])
+        out_parts.append(transform_fn(full, alt, target))
+        last_emit = r + 1
+        pos = r + 1
+
+    if not out_parts:
+        return content
+    out_parts.append(content[last_emit:])
+    return "".join(out_parts)
+
+
 class MarkdownImageUtil:
     """Utility class for handling images in Markdown.
 
@@ -341,22 +492,11 @@ class MarkdownImageUtil:
     """
 
     def __init__(self):
-        # Pattern to match base64 embedded images
-        # Captures alt text, image format, base64 data, and an optional title.
-        # Alt text uses .*? (non-greedy) to allow literal ] (e.g. Windows paths).
-        # MIME subtype uses [^;]+ to handle types with hyphens like x-emf.
-        # Match the base64 run atomically to avoid backtracking on long images.
-        self.b64_pattern = re.compile(
-            r"!\[(.*?)\]\(data:image/([^;]+);base64,"
-            r"(?:(?=(?P<data>[A-Za-z0-9+/= \t\r\n]+))(?P=data)"
-            r"(?:(?<=[ \t\r\n])(?P<title>"
-            r"\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'|\((?:\\.|[^()\\])*\)))?"
-            r"[ \t\r\n]*|(?P<raw>[^)]+))\)"
-        )
-        # Pattern to match regular image syntax (alt text allows ])
-        self.image_pattern = re.compile(r"!\[(.*?)\]\(([^)]+)\)")
-        # Pattern for replacing image paths
-        self.replace_pattern = re.compile(r"!\[(.*?)\]\(([^)]+)\)")
+        # Retained for attribute compatibility; scanning uses linear O(N) parsers
+        # to eliminate O(N^3) backtracking on unclosed Markdown image syntax.
+        self.b64_pattern = re.compile(r"!\[([^\]\r\n]*)\]\(data:image/([^;)\r\n]+);base64,([^)]+)\)")
+        self.image_pattern = re.compile(r"!\[([^\]\r\n]*)\]\(([^)\r\n]+)\)")
+        self.replace_pattern = self.image_pattern
 
     def extract_image(
         self,
@@ -364,44 +504,18 @@ class MarkdownImageUtil:
         path_prefix: Optional[str] = None,
         replace: bool = True,
     ) -> Tuple[str, List[str]]:
-        """Extract image paths from Markdown content.
-
-        Args:
-            content: Markdown text containing images
-            path_prefix: Optional prefix to add to image paths
-            replace: Whether to replace image syntax in content
-
-        Returns:
-            Tuple of (processed_text, list_of_image_paths)
-
-        Example:
-            >>> util = MarkdownImageUtil()
-            >>> text, images = util.extract_image("![logo](img/logo.png)")
-            >>> print(images)
-            ['img/logo.png']
-        """
-        # List to store extracted image paths
+        """Extract image paths from Markdown content."""
         images: List[str] = []
 
-        def repl(match: Match[str]) -> str:
-            """Replacement function for each image match."""
-            title = match.group(1)  # Alt text
-            image_path = match.group(2)  # Image path
-
-            # Add prefix if specified
+        def repl(full_match: str, title: str, image_path: str) -> str:
             if path_prefix:
                 image_path = f"{path_prefix}/{image_path}"
-
             images.append(image_path)
-
-            # Keep original if replace is False
             if not replace:
-                return match.group(0)
-
-            # Replace image path with potentially prefixed path
+                return full_match
             return f"![{title}]({image_path})"
 
-        text = self.image_pattern.sub(repl, content)
+        text = _sub_markdown_images(content, repl)
         logger.debug(f"Extracted {len(images)} images from markdown")
         return text, images
 
@@ -411,119 +525,249 @@ class MarkdownImageUtil:
         path_prefix: Optional[str] = None,
         replace: bool = True,
     ) -> Tuple[str, Dict[str, bytes]]:
-        """Extract and decode base64 images outside fenced and inline code.
-
-        This method finds all base64-encoded images in the Markdown content,
-        decodes them to binary format, generates unique filenames, and
-        optionally replaces them with file path references.
-
-        Args:
-            content: Markdown text containing base64 images
-            path_prefix: Optional directory prefix for generated paths
-            replace: Whether to replace base64 syntax with file paths
-
-        Returns:
-            Tuple of (processed_text, dict_of_path_to_bytes)
-
-        Example:
-            >>> util = MarkdownImageUtil()
-            >>> text = "![logo](data:image/png;base64,iVBORw0KGg...)"
-            >>> new_text, images = util.extract_base64(text, "images")
-            >>> print(new_text)
-            ![logo](images/uuid.png)
-            >>> print(len(images))
-            1
-        """
-        # Dictionary mapping generated file paths to binary image data
+        """Extract and decode base64 images outside fenced and inline code."""
         images: Dict[str, bytes] = {}
+        total_decoded_bytes = 0
+        max_b64_chars = ((MAX_INLINE_IMAGE_BYTES + 2) // 3) * 4 + 65536
 
-        def repl(match: Match[str]) -> str:
-            """Replacement function for each base64 image match."""
-            title = match.group(1)  # Alt text
-            img_ext = match.group(2)  # Image format (png, jpg, etc.)
-            img_b64 = match.group("data") or match.group("raw")
-            image_title = match.group("title")
+        def _rejected(full_match: str, title: str) -> str:
+            return title if replace else full_match
 
-            # Decode base64 string to bytes
+        def handle_candidate(
+            prose: str,
+            full_start: int,
+            full_end: int,
+            title: str,
+            img_ext: str,
+            payload_start: int,
+            payload_end: int,
+            image_title: Optional[str],
+        ) -> str:
+            nonlocal total_decoded_bytes
+            full_match = prose[full_start:full_end]
+
+            normalized_subtype = img_ext.strip().lower()
+            safe_ext = _ALLOWED_INLINE_RASTER_SUBTYPES.get(normalized_subtype)
+            if not safe_ext:
+                logger.warning(
+                    "Skipping disallowed or non-raster inline image MIME subtype: image/%s",
+                    img_ext[:64],
+                )
+                return _rejected(full_match, title)
+
+            payload_len = payload_end - payload_start
+            if payload_len > max_b64_chars:
+                preview = prose[payload_start : min(payload_end, payload_start + 100)] + "..."
+                logger.warning(
+                    "Skipping oversized inline base64 image before decode (len=%d > max=%d): %s",
+                    payload_len,
+                    max_b64_chars,
+                    preview,
+                )
+                return _rejected(full_match, title)
+
+            img_b64 = prose[payload_start:payload_end]
             image_byte = endecode.encode_image(img_b64, errors="ignore")
             if not image_byte:
                 preview = img_b64[:100] + ("..." if len(img_b64) > 100 else "")
                 logger.error(
                     f"Failed to decode base64 image (len={len(img_b64)}) skip it: {preview}"
                 )
-                return title  # Return just the alt text if decode fails
+                return _rejected(full_match, title)
 
-            # Generate unique filename with original extension
-            image_path = f"{uuid.uuid4()}.{img_ext}"
+            if len(image_byte) > MAX_INLINE_IMAGE_BYTES:
+                logger.warning(
+                    "Skipping inline image exceeding byte cap (%d > %d)",
+                    len(image_byte),
+                    MAX_INLINE_IMAGE_BYTES,
+                )
+                return _rejected(full_match, title)
+
+            if (
+                len(images) >= MAX_INLINE_IMAGES_PER_DOCUMENT
+                or total_decoded_bytes + len(image_byte) > MAX_INLINE_TOTAL_IMAGE_BYTES
+            ):
+                logger.warning(
+                    "Skipping inline image exceeding per-document budget (count=%d, bytes=%d)",
+                    len(images),
+                    total_decoded_bytes + len(image_byte),
+                )
+                return _rejected(full_match, title)
+
+            if not _validate_raster_image_bytes(image_byte):
+                logger.warning(
+                    "Skipping invalid, spoofed, or decompression-bomb inline image (declared=image/%s, bytes=%d)",
+                    safe_ext,
+                    len(image_byte),
+                )
+                return _rejected(full_match, title)
+
+            image_path = f"{uuid.uuid4()}.{safe_ext}"
             if path_prefix:
                 image_path = f"{path_prefix}/{image_path}"
             images[image_path] = image_byte
+            total_decoded_bytes += len(image_byte)
 
-            # Keep original base64 if replace is False
             if not replace:
-                return match.group(0)
+                return full_match
 
-            # Replace base64 data with file path reference
             suffix = f" {image_title}" if image_title else ""
             return f"![{title}]({image_path}{suffix})"
 
         def extract_prose(prose: str) -> str:
-            spans = iter(_inline_code_spans(prose))
-            span = next(spans, None)
+            spans = _inline_code_spans(prose)
+            span_starts = [s[0] for s in spans]
 
-            def replace_image(match: Match[str]) -> str:
-                nonlocal span
-                while span is not None and span[1] <= match.start():
-                    span = next(spans, None)
-                if span is not None and span[0] <= match.start() < span[1]:
-                    return match.group(0)
-                return repl(match)
+            def code_span_at(offset: int) -> Optional[Tuple[int, int]]:
+                idx = bisect.bisect_right(span_starts, offset) - 1
+                if idx >= 0 and spans[idx][0] <= offset < spans[idx][1]:
+                    return spans[idx]
+                return None
 
-            return self.b64_pattern.sub(replace_image, prose)
+            n = len(prose)
+            pos = 0
+            last_emit = 0
+            out_parts: List[str] = []
+
+            while pos < n:
+                img_start = prose.find("![", pos)
+                if img_start < 0:
+                    break
+                sp = code_span_at(img_start)
+                if sp is not None:
+                    pos = sp[1]
+                    continue
+
+                search_from = img_start + 2
+                while True:
+                    mid = prose.find("](", search_from)
+                    if mid < 0:
+                        break
+                    mid_sp = code_span_at(mid)
+                    if mid_sp is None:
+                        break
+                    search_from = mid_sp[1]
+                if mid < 0:
+                    break
+
+                next_open = prose.find("![", img_start + 2, mid)
+                while next_open >= 0:
+                    open_sp = code_span_at(next_open)
+                    if open_sp is not None:
+                        next_open = prose.find("![", open_sp[1], mid)
+                    else:
+                        img_start = next_open
+                        next_open = prose.find("![", img_start + 2, mid)
+
+                target_start = mid + 2
+                if prose[target_start : target_start + 11].lower() != "data:image/":
+                    pos = target_start
+                    continue
+
+                fmt_start = target_start + 11
+                fmt_limit = min(n, fmt_start + 128)
+                semi_pos = -1
+                i = fmt_start
+                while i < fmt_limit:
+                    ch = prose[i]
+                    if ch == ";":
+                        semi_pos = i
+                        break
+                    if ch in ")\r\n" or (ch == "!" and i + 1 < n and prose[i + 1] == "["):
+                        break
+                    i += 1
+                if semi_pos <= fmt_start or prose[semi_pos : semi_pos + 8].lower() != ";base64,":
+                    pos = i if i > target_start else target_start + 1
+                    continue
+
+                img_ext = prose[fmt_start:semi_pos]
+                b64_start = semi_pos + 8
+                m_b64 = _B64_RUN.match(prose, b64_start)
+                k = m_b64.end() if m_b64 else b64_start
+                if k >= n:
+                    break
+
+                payload_end = -1
+                match_end = -1
+                image_title: Optional[str] = None
+                fallback_from = k
+
+                if k > b64_start and prose[k] == ")":
+                    payload_end = k
+                    match_end = k + 1
+                elif k > b64_start and prose[k - 1] in " \t\r\n" and prose[k] in "\"'(":
+                    parsed_title, hit_eof = _parse_b64_title(prose, k)
+                    if hit_eof:
+                        break
+                    if parsed_title is not None:
+                        t_str, after_title = parsed_title
+                        m_ws = _WS_RUN.match(prose, after_title)
+                        end_ws = m_ws.end() if m_ws else after_title
+                        if end_ws >= n:
+                            break
+                        if prose[end_ws] == ")":
+                            payload_end = k
+                            image_title = t_str
+                            match_end = end_ws + 1
+                        else:
+                            fallback_from = end_ws
+
+                if match_end < 0:
+                    r = fallback_from
+                    while r < n:
+                        ch = prose[r]
+                        if ch == ")" or ch in "\r\n" or (ch == "!" and r + 1 < n and prose[r + 1] == "["):
+                            break
+                        r += 1
+                    if r >= n:
+                        break
+                    if prose[r] != ")":
+                        pos = r if r > b64_start else b64_start
+                        continue
+                    if r == b64_start:
+                        pos = r + 1
+                        continue
+                    payload_end = r
+                    match_end = r + 1
+
+                title = prose[img_start + 2 : mid]
+                out_parts.append(prose[last_emit:img_start])
+                out_parts.append(
+                    handle_candidate(
+                        prose,
+                        img_start,
+                        match_end,
+                        title,
+                        img_ext,
+                        b64_start,
+                        payload_end,
+                        image_title,
+                    )
+                )
+                last_emit = match_end
+                pos = match_end
+
+            if not out_parts:
+                return prose
+            out_parts.append(prose[last_emit:])
+            return "".join(out_parts)
 
         text = _transform_outside_fences(content, extract_prose)
         logger.debug(f"Extracted {len(images)} base64 images from markdown")
         return text, images
 
     def replace_path(self, content: str, images: Dict[str, str]) -> str:
-        """Replace image paths in Markdown with new URLs.
-
-        This method is typically used to replace local file paths with
-        uploaded URLs after images have been stored.
-
-        Args:
-            content: Markdown text with image references
-            images: Mapping of old paths to new URLs
-
-        Returns:
-            Markdown text with updated image URLs
-
-        Example:
-            >>> util = MarkdownImageUtil()
-            >>> content = "![logo](temp/img.png)"
-            >>> mapping = {"temp/img.png": "https://cdn.com/img.png"}
-            >>> result = util.replace_path(content, mapping)
-            >>> print(result)
-            ![logo](https://cdn.com/img.png)
-        """
-        # Track which paths were actually replaced
+        """Replace image paths in Markdown with new URLs."""
         content_replace: set = set()
 
-        def repl(match: Match[str]) -> str:
-            """Replacement function for each image match."""
-            title = match.group(1)  # Alt text
-            image_path = match.group(2)  # Current image path
-
-            # Only replace if path exists in mapping
+        def repl(full_match: str, title: str, image_path: str) -> str:
             if image_path not in images:
-                return match.group(0)  # Keep original
-
+                return full_match
             content_replace.add(image_path)
-            # Get new URL from mapping
-            image_path = images[image_path]
-            return f"![{title}]({image_path})" if image_path else title
+            mapped_path = images[image_path]
+            return f"![{title}]({mapped_path})" if mapped_path else title
 
-        text = self.replace_pattern.sub(repl, content)
+        text = _sub_markdown_images(content, repl)
         logger.debug(f"Replaced {len(content_replace)} images in markdown")
         return text
 

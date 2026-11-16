@@ -85,6 +85,7 @@ prepare_patched_anydoc() {
   done
   if [ -z "$tarball" ]; then
     tarball="$crate_dir/.anydoc-$anydoc_version.crate"
+    rm -f "$tarball"
     echo "Fetching anydoc $anydoc_version to patch document_to_markdown into the public API"
     if ! curl -fsSL "https://rsproxy.cn/api/v1/crates/anydoc/$anydoc_version/download" -o "$tarball"; then
       curl -fsSL "https://static.crates.io/crates/anydoc/anydoc-$anydoc_version.crate" -o "$tarball"
@@ -92,11 +93,12 @@ prepare_patched_anydoc() {
   fi
   local actual_sha
   if command -v sha256sum >/dev/null 2>&1; then
-    actual_sha=$(sha256sum "$tarball" | awk '{print $1}')
+    actual_sha=$(sha256sum -- "$tarball" | awk '{sub(/^\\/, "", $1); print $1}')
   else
-    actual_sha=$(shasum -a 256 "$tarball" | awk '{print $1}')
+    actual_sha=$(shasum -a 256 -- "$tarball" | awk '{sub(/^\\/, "", $1); print $1}')
   fi
   if [ "$actual_sha" != "$anydoc_sha" ]; then
+    rm -f "$crate_dir/.anydoc-$anydoc_version.crate"
     echo "error: anydoc $anydoc_version source checksum mismatch" >&2
     exit 1
   fi
@@ -104,8 +106,14 @@ prepare_patched_anydoc() {
   rm -rf "$unpack"
   mkdir -p "$unpack"
   tar -xzf "$tarball" -C "$unpack"
+  if [ -n "$(find "$unpack" -type l -print -quit)" ]; then
+    rm -rf "$unpack" "$crate_dir/.anydoc-$anydoc_version.crate"
+    echo "error: unexpected symlink in unpacked anydoc-$anydoc_version crate archive" >&2
+    exit 1
+  fi
   src=$(find "$unpack" -maxdepth 1 -type d -name "anydoc-$anydoc_version" | head -1)
   if [ -z "$src" ]; then
+    rm -rf "$unpack" "$crate_dir/.anydoc-$anydoc_version.crate"
     echo "error: unpacked anydoc-$anydoc_version crate is missing" >&2
     exit 1
   fi
@@ -173,23 +181,36 @@ cargo build --release --locked --manifest-path "$crate_dir/Cargo.toml" --target 
 strip_llvm_lto_sections() {
   local lib="$1"
   command -v readelf >/dev/null 2>&1 && command -v objcopy >/dev/null 2>&1 || return 0
-  local sections section
-  sections=$(readelf -S "$lib" 2>/dev/null | grep -oE '\.llvm[a-zA-Z0-9_]+' | sort -u || true)
+  local sections section tmp_lib
+  sections=$(readelf -S "$lib" 2>/dev/null | grep -oE '\.llvm[a-zA-Z0-9_.-]+' | sort -u || true)
   [ -n "$sections" ] || return 0
+  tmp_lib="$lib.strip.tmp"
   while IFS= read -r section; do
     [ -n "$section" ] || continue
-    if ! objcopy --remove-section="$section" "$lib" 2>/dev/null; then
+    rm -f "$tmp_lib"
+    if objcopy --remove-section="$section" "$lib" "$tmp_lib" 2>/dev/null; then
+      mv "$tmp_lib" "$lib"
+    else
+      rm -f "$tmp_lib"
       echo "warning: could not strip $section from $lib; the Go linker may reject it" >&2
+      break
     fi
   done <<< "$sections"
 }
+
+built_lib="$cargo_target_dir/$target/release/$lib_name"
+if [ ! -f "$built_lib" ] || [ -L "$built_lib" ]; then
+  echo "error: expected regular archive file at $built_lib" >&2
+  exit 1
+fi
 
 dest="$crate_dir/lib/$lib_dir"
 mkdir -p "$dest"
 # Cargo may resolve a shared target directory from CARGO_TARGET_DIR or config.
 # Reuse its metadata path so a stale archive in the default directory can never
 # overwrite the fresh build (and absolute paths with spaces remain intact).
-cp "$cargo_target_dir/$target/release/$lib_name" "$dest/$lib_name"
+rm -f "$dest/$lib_name"
+cp "$built_lib" "$dest/$lib_name"
 strip_llvm_lto_sections "$dest/$lib_name"
 
 echo "Wrote $dest/$lib_name"
