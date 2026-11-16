@@ -37,6 +37,9 @@ func (r *protocolReranker) GetModelID() string   { return r.modelID }
 func (r *protocolReranker) Rerank(
 	ctx context.Context, query string, documents []string,
 ) ([]RankResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if len(documents) == 0 {
 		return nil, nil
 	}
@@ -84,6 +87,12 @@ func (r *protocolReranker) Rerank(
 					return fmt.Errorf(
 						"%s rerank: duplicate index %d in batch",
 						r.modelName, idx,
+					)
+				}
+				if math.IsNaN(out[j].Score) || math.IsInf(out[j].Score, 0) {
+					return fmt.Errorf(
+						"%s rerank: non-finite score %v at index %d",
+						r.modelName, out[j].Score, idx,
 					)
 				}
 				seen[idx] = true

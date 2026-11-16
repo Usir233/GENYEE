@@ -3,6 +3,7 @@ package asr
 import (
 	"context"
 	"fmt"
+	"math"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -16,6 +17,10 @@ import (
 	modelruntime "github.com/Usir233/GENYEE/internal/models/runtime"
 	"github.com/Usir233/GENYEE/internal/types"
 )
+
+// defaultMaxASRFileBytes bounds uploads on generic endpoints that declare no
+// vendor-specific file ceiling, preventing multi-GiB multipart buffering OOMs.
+const defaultMaxASRFileBytes = 100 << 20
 
 // retryPolicy is the transport-error retry budget, which is none. The
 // knowledge pipeline retries a failed transcription as a whole task, and a
@@ -127,10 +132,17 @@ func (a *protocolASR) GetModelName() string { return a.modelName }
 func (a *protocolASR) GetModelID() string   { return a.modelID }
 
 func (a *protocolASR) Transcribe(ctx context.Context, audio []byte, fileName string) (*TranscriptionResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if len(audio) == 0 {
 		return nil, fmt.Errorf("audio bytes are empty")
 	}
-	if limit := a.settings.MaxFileBytes; limit > 0 && len(audio) > limit {
+	limit := a.settings.MaxFileBytes
+	if limit <= 0 {
+		limit = defaultMaxASRFileBytes
+	}
+	if len(audio) > limit {
 		return nil, fmt.Errorf("%s transcription: the audio is %.1f MB; %s accepts at most %d MB per file",
 			a.modelName, float64(len(audio))/(1<<20), a.vendor, limit>>20)
 	}
@@ -146,7 +158,7 @@ func (a *protocolASR) Transcribe(ctx context.Context, audio []byte, fileName str
 		}
 	}
 	logger.Infof(ctx, "[ASR] transcribing model=%s endpoint=%s size=%d file=%s",
-		a.modelName, a.endpoint, len(audio), fileName)
+		a.modelName, redactASRText(a.endpoint), len(audio), fileName)
 
 	out, err := a.inner.Transcribe(ctx, api.TranscriptionRequest{
 		Audio: audio, FileName: fileName, Language: languageFrom(ctx),
@@ -154,10 +166,21 @@ func (a *protocolASR) Transcribe(ctx context.Context, audio []byte, fileName str
 	if err != nil {
 		return nil, fmt.Errorf("ASR transcription request failed: %w", err)
 	}
-	result := &TranscriptionResult{Text: out.Text, Duration: out.Duration}
+	result := &TranscriptionResult{Text: out.Text, Duration: sanitizeASRDuration(out.Duration)}
 	for _, s := range out.Segments {
-		result.Segments = append(result.Segments, Segment{Start: s.Start, End: s.End, Text: s.Text})
+		result.Segments = append(result.Segments, Segment{
+			Start: sanitizeASRDuration(s.Start),
+			End:   sanitizeASRDuration(s.End),
+			Text:  s.Text,
+		})
 	}
 	logger.Infof(ctx, "[ASR] transcription completed, text length=%d", len(result.Text))
 	return result, nil
+}
+
+func sanitizeASRDuration(v float64) float64 {
+	if math.IsNaN(v) || math.IsInf(v, 0) || v <= 0 {
+		return 0
+	}
+	return v
 }

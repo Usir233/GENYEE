@@ -14,7 +14,10 @@ package openaitranscriptions
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
+	"regexp"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
@@ -35,11 +38,16 @@ type Client struct {
 // New builds a client.
 func New(cfg Config) *Client { return &Client{cfg: cfg} }
 
+const defaultPath = "/audio/transcriptions"
+
 func (c *Client) url() string {
 	if c.cfg.Endpoint.URL != "" {
 		return c.cfg.Endpoint.Resolve("")
 	}
 	path := c.cfg.Settings.Path
+	if path == "" {
+		path = defaultPath
+	}
 	if strings.HasSuffix(strings.TrimRight(c.cfg.Endpoint.BaseURL, "/"), path) {
 		path = ""
 	}
@@ -86,6 +94,15 @@ type response struct {
 
 // Transcribe sends one audio file.
 func (c *Client) Transcribe(ctx context.Context, req api.TranscriptionRequest) (*api.Transcription, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if len(req.Audio) == 0 {
+		return nil, fmt.Errorf("audio bytes are empty")
+	}
+	if limit := c.cfg.Settings.MaxFileBytes; limit > 0 && len(req.Audio) > limit {
+		return nil, fmt.Errorf("audio size %d bytes exceeds limit %d bytes", len(req.Audio), limit)
+	}
 	body, contentType, err := api.EncodeMultipart(c.FormFields(req.Language), api.FormFile{
 		Field: "file", FileName: req.FileName, Data: req.Audio,
 	})
@@ -106,7 +123,7 @@ func (c *Client) Transcribe(ctx context.Context, req api.TranscriptionRequest) (
 		ctx, c.url(), body, contentType, &decoded, c.cfg.Retry, "transcription",
 	)
 	if err != nil {
-		return nil, err
+		return nil, redactTranscriptionsError(err)
 	}
 	if decoded.Error != nil && decoded.Error.Message != "" {
 		return nil, fmt.Errorf("transcription API error: %s", decoded.Error.Message)
@@ -117,14 +134,58 @@ func (c *Client) Transcribe(ctx context.Context, req api.TranscriptionRequest) (
 		}
 		return nil, fmt.Errorf("transcription reply carries no text")
 	}
-	out := &api.Transcription{Text: strings.TrimSpace(*decoded.Text), Duration: decoded.Duration}
-	if out.Duration == 0 {
-		out.Duration = decoded.Usage.Seconds
+	duration := sanitizeFiniteNonNegative(decoded.Duration)
+	if duration == 0 {
+		duration = sanitizeFiniteNonNegative(decoded.Usage.Seconds)
 	}
+	out := &api.Transcription{Text: strings.TrimSpace(*decoded.Text), Duration: duration}
 	for _, s := range decoded.Segments {
 		out.Segments = append(out.Segments, api.TranscriptionSegment{
-			Start: s.Start, End: s.End, Text: strings.TrimSpace(s.Text),
+			Start: sanitizeFiniteNonNegative(s.Start),
+			End:   sanitizeFiniteNonNegative(s.End),
+			Text:  strings.TrimSpace(s.Text),
 		})
 	}
 	return out, nil
+}
+
+func sanitizeFiniteNonNegative(v float64) float64 {
+	if math.IsNaN(v) || math.IsInf(v, 0) || v < 0 {
+		return 0
+	}
+	return v
+}
+
+var (
+	transcriptionsUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	transcriptionsQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedTranscriptionsErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedTranscriptionsErr) Error() string        { return e.msg }
+func (e *redactedTranscriptionsErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedTranscriptionsErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactTranscriptionsError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := transcriptionsUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = transcriptionsQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedTranscriptionsErr{msg: out, cause: err}
 }

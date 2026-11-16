@@ -490,6 +490,8 @@ func userBlocks(msg api.Message, content string) []contentBlock {
 	return blocks
 }
 
+const maxInlineImageBytes = 20 << 20
+
 // imageSourceFor converts a data URI or URL into an image source block.
 func imageSourceFor(ref string) *imageSource {
 	ref = api.ResolveImageURLForLLM(ref)
@@ -500,12 +502,15 @@ func imageSourceFor(ref string) *imageSource {
 		}
 		mediaType := strings.TrimPrefix(ref[:semi], "data:")
 		data := ref[semi+len(";base64,"):]
+		if base64.StdEncoding.DecodedLen(len(data)) > maxInlineImageBytes {
+			return nil
+		}
 		if _, err := base64.StdEncoding.DecodeString(data); err != nil {
 			return nil
 		}
 		return &imageSource{Type: "base64", MediaType: mediaType, Data: data}
 	}
-	if u, err := url.Parse(ref); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
+	if u, err := url.Parse(ref); err == nil && u.Host != "" && (u.Scheme == "http" || u.Scheme == "https") {
 		return &imageSource{Type: "url", URL: ref}
 	}
 	return nil

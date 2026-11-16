@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
@@ -70,6 +71,9 @@ func (r *protocolReranker) ImageLimits() imageprep.Limits {
 // sending any, splits them at the documented images per request, and puts
 // the scores on the scale Rerank uses.
 func (r *protocolReranker) RerankImages(ctx context.Context, query string, images []Image) ([]RankResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if r.images == nil {
 		return nil, fmt.Errorf("%s: %w", r.modelName, ErrImagesUnsupported)
 	}
@@ -107,6 +111,10 @@ func (r *protocolReranker) RerankImages(ctx context.Context, query string, image
 				if seen[idx] {
 					return fmt.Errorf("%s rerank: duplicate index %d in batch",
 						r.modelName, idx)
+				}
+				if math.IsNaN(out[j].Score) || math.IsInf(out[j].Score, 0) {
+					return fmt.Errorf("%s rerank: non-finite score %v at index %d",
+						r.modelName, out[j].Score, idx)
 				}
 				seen[idx] = true
 				out[j].Index = idx + b.start

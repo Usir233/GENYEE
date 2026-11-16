@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/logger"
-	modelruntime "github.com/Usir233/GENYEE/internal/models/runtime"
 	"github.com/Usir233/GENYEE/internal/models/utils/ollama"
 	"github.com/Usir233/GENYEE/internal/types"
 )
@@ -92,7 +92,7 @@ func ConfigFromModel(m *types.Model) *Config {
 		MaxConcurrency: m.Parameters.MaxConcurrency,
 		Spec:           m.Parameters.Spec,
 		Extra:          stringMapToAnyMap(m.Parameters.ExtraConfig),
-		CustomHeaders:  m.Parameters.CustomHeaders,
+		CustomHeaders:  maps.Clone(m.Parameters.CustomHeaders),
 	}
 }
 
@@ -123,15 +123,13 @@ func NewVLM(config *Config, ollamaService *ollama.OllamaService) (VLM, error) {
 }
 
 func newVLM(config *Config, ollamaService *ollama.OllamaService) (VLM, error) {
+	if config == nil {
+		return nil, fmt.Errorf("vlm config is nil")
+	}
 	ifType := strings.ToLower(config.InterfaceType)
 
 	if ifType == "ollama" || config.Source == types.ModelSourceLocal {
 		return NewOllamaVLM(config, ollamaService)
-	}
-
-	providerID := config.Provider
-	if providerID == "" {
-		providerID = modelruntime.DetectByURL(config.BaseURL)
 	}
 
 	return NewRemoteAPIVLM(config)

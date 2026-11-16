@@ -1,9 +1,15 @@
 package vlm
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"fmt"
+	"image"
+	_ "image/gif"
+	_ "image/jpeg"
+	_ "image/png"
+	"math"
 	"net/http"
 	"os"
 	"strconv"
@@ -13,6 +19,15 @@ import (
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/models/chat"
 	"github.com/Usir233/GENYEE/internal/types"
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/webp"
+)
+
+const (
+	maxVLMImageBytes      = 20 << 20
+	maxVLMTotalImageBytes = 64 << 20
+	maxVLMPixels          = 40_000_000
+	maxVLMImageSide       = 32_768
 )
 
 const (
@@ -68,6 +83,9 @@ type RemoteAPIVLM struct {
 
 // NewRemoteAPIVLM creates a remote-API backed VLM instance.
 func NewRemoteAPIVLM(config *Config) (*RemoteAPIVLM, error) {
+	if config == nil {
+		return nil, fmt.Errorf("vlm config is nil")
+	}
 	if err := validateVLMBaseURL(config.BaseURL); err != nil {
 		return nil, err
 	}
@@ -80,7 +98,7 @@ func NewRemoteAPIVLM(config *Config) (*RemoteAPIVLM, error) {
 		}
 	}
 	if raw, ok := extra["temperature"]; ok {
-		if f, err := strconv.ParseFloat(raw, 64); err == nil {
+		if f, err := strconv.ParseFloat(raw, 64); err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) && f >= 0 {
 			temp = f
 		}
 	}
@@ -120,6 +138,12 @@ func (v *RemoteAPIVLM) Predict(ctx context.Context, imgBytesList [][]byte, promp
 func (v *RemoteAPIVLM) PredictWithOptions(
 	ctx context.Context, imgBytesList [][]byte, prompt string, opts *PredictOptions,
 ) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := validateVLMImages(imgBytesList); err != nil {
+		return "", err
+	}
 	parts := []chat.MessageContentPart{{Type: "text", Text: prompt}}
 	totalImageSize := 0
 	for _, imgBytes := range imgBytesList {
@@ -174,4 +198,29 @@ func detectImageMIME(data []byte) string {
 		return ct
 	}
 	return "image/png"
+}
+
+func validateVLMImages(imgBytesList [][]byte) error {
+	total := 0
+	for i, imgBytes := range imgBytesList {
+		if len(imgBytes) == 0 {
+			continue
+		}
+		if len(imgBytes) > maxVLMImageBytes {
+			return fmt.Errorf("VLM image %d size %d bytes exceeds %d byte cap", i, len(imgBytes), maxVLMImageBytes)
+		}
+		total += len(imgBytes)
+		if total > maxVLMTotalImageBytes {
+			return fmt.Errorf("VLM total image payload %d bytes exceeds %d byte cap", total, maxVLMTotalImageBytes)
+		}
+		if cfg, _, err := image.DecodeConfig(bytes.NewReader(imgBytes)); err == nil {
+			if cfg.Width <= 0 || cfg.Height <= 0 {
+				return fmt.Errorf("invalid VLM image dimensions %dx%d", cfg.Width, cfg.Height)
+			}
+			if cfg.Width > maxVLMImageSide || cfg.Height > maxVLMImageSide || int64(cfg.Width)*int64(cfg.Height) > maxVLMPixels {
+				return fmt.Errorf("VLM image dimensions %dx%d exceed maximum %d pixels", cfg.Width, cfg.Height, maxVLMPixels)
+			}
+		}
+	}
+	return nil
 }

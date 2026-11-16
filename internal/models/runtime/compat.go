@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"reflect"
 
 	"github.com/Usir233/GENYEE/internal/models/internal/configcopy"
@@ -66,6 +67,9 @@ func DecodeCompat(raw json.RawMessage, into any) error {
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(into); err != nil {
 		return fmt.Errorf("decode compat: %w", err)
+	}
+	if err := dec.Decode(new(any)); err != io.EOF {
+		return fmt.Errorf("decode compat: expected a single JSON object")
 	}
 	return nil
 }

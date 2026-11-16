@@ -3,6 +3,7 @@ package runtime
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -128,14 +129,14 @@ func resolveWithVendor(ref Ref, vendor *Provider) (*Resolved, error) {
 
 	levels := api.ThinkingLevelMap{}
 	for k, v := range vendor.ThinkingLevels {
-		levels[k] = v
+		levels[k] = configcopy.Clone(v)
 	}
 	for k, v := range spec.ThinkingLevels {
-		levels[k] = v
+		levels[k] = configcopy.Clone(v)
 	}
 	if ref.Override != nil {
 		for k, v := range ref.Override.ThinkingLevels {
-			levels[api.ReasoningEffort(k)] = v
+			levels[api.ReasoningEffort(k)] = configcopy.Clone(v)
 		}
 	}
 
@@ -273,7 +274,7 @@ func applySpecOverride(spec *models.ModelSpec, o *types.ModelSpecOverride) {
 		spec.Reasoning = *o.Reasoning
 	}
 	if len(o.Input) > 0 {
-		spec.Input = o.Input
+		spec.Input = slices.Clone(o.Input)
 	}
 	if o.ContextWindow > 0 {
 		spec.ContextWindow = o.ContextWindow
@@ -291,12 +292,16 @@ func (r *Resolved) Capabilities() Capabilities {
 	if r == nil {
 		return Capabilities{}
 	}
+	var providerID string
+	if r.Vendor != nil {
+		providerID = r.Vendor.ID
+	}
 	caps := Capabilities{
-		Provider:        r.Vendor.ID,
+		Provider:        providerID,
 		API:             r.API,
 		Cataloged:       r.Cataloged,
 		Reasoning:       r.Spec.Reasoning,
-		Input:           r.Spec.Input,
+		Input:           slices.Clone(r.Spec.Input),
 		ContextWindow:   r.Spec.ContextWindow,
 		MaxOutputTokens: r.Spec.MaxOutputTokens,
 	}

@@ -6,7 +6,10 @@ package teirank
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
+	"regexp"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
@@ -71,9 +74,15 @@ func (c *Client) BuildRequestBody(query string, documents []string) map[string]a
 
 // Rerank scores documents with TEI and preserves their original indexes.
 func (c *Client) Rerank(ctx context.Context, query string, documents []string) ([]api.RerankResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if len(documents) == 0 {
+		return nil, nil
+	}
 	var decoded []rank
 	if err := c.cfg.Endpoint.PostJSON(ctx, c.url(), c.BuildRequestBody(query, documents), &decoded); err != nil {
-		return nil, err
+		return nil, redactTEIError(err)
 	}
 	if len(decoded) != len(documents) {
 		return nil, fmt.Errorf("TEI returned %d ranks for %d documents", len(decoded), len(documents))
@@ -90,8 +99,45 @@ func (c *Client) Rerank(ctx context.Context, query string, documents []string) (
 		if item.Score == nil {
 			return nil, fmt.Errorf("TEI rerank score is missing for index %d", *item.Index)
 		}
+		if math.IsNaN(*item.Score) || math.IsInf(*item.Score, 0) {
+			return nil, fmt.Errorf("TEI rerank score is non-finite (%v) for index %d", *item.Score, *item.Index)
+		}
 		seen[*item.Index] = true
 		out = append(out, api.RerankResult{Index: *item.Index, Score: *item.Score, Text: item.Text})
 	}
 	return out, nil
+}
+
+var (
+	teiUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	teiQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedTEIErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedTEIErr) Error() string        { return e.msg }
+func (e *redactedTEIErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedTEIErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactTEIError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := teiUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = teiQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedTEIErr{msg: out, cause: err}
 }

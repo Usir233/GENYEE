@@ -5,6 +5,7 @@ package imageprep
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -72,21 +73,22 @@ func Prepare(data []byte, limits Limits) (api.EmbedImage, error) {
 	if !strings.HasPrefix(mime, "image/") {
 		return api.EmbedImage{}, fmt.Errorf("not an image (%s)", mime)
 	}
-	if cfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
+	cfg, _, decodeCfgErr := image.DecodeConfig(bytes.NewReader(data))
+	if decodeCfgErr == nil {
 		if err := validateImageDimensions(cfg.Width, cfg.Height); err != nil {
 			return api.EmbedImage{}, err
 		}
+	} else if !errors.Is(decodeCfgErr, image.ErrFormat) {
+		// Recognized image format (PNG/JPEG/GIF/BMP/WebP) with a corrupt or
+		// truncated header must fail even on the pass-through path.
+		return api.EmbedImage{}, fmt.Errorf("decode %s: %w", mime, decodeCfgErr)
 	}
 	if acceptsMIME(limits, mime) && fitsBytes(limits, len(data)) {
 		return api.EmbedImage{Data: data, MIMEType: mime}, nil
 	}
 
-	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
-	if err != nil {
-		return api.EmbedImage{}, fmt.Errorf("decode %s: %w", mime, err)
-	}
-	if err := validateImageDimensions(cfg.Width, cfg.Height); err != nil {
-		return api.EmbedImage{}, err
+	if decodeCfgErr != nil {
+		return api.EmbedImage{}, fmt.Errorf("decode %s: %w", mime, decodeCfgErr)
 	}
 	src, _, err := image.Decode(bytes.NewReader(data))
 	if err != nil {

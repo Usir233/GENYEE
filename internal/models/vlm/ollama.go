@@ -18,6 +18,9 @@ type OllamaVLM struct {
 
 // NewOllamaVLM creates an Ollama-backed VLM instance.
 func NewOllamaVLM(config *Config, ollamaService *ollama.OllamaService) (*OllamaVLM, error) {
+	if config == nil {
+		return nil, fmt.Errorf("vlm config is nil")
+	}
 	if ollamaService == nil {
 		return nil, fmt.Errorf("ollama service is required for local VLM model")
 	}
@@ -38,6 +41,12 @@ func (v *OllamaVLM) Predict(ctx context.Context, imgBytesList [][]byte, prompt s
 func (v *OllamaVLM) PredictWithOptions(
 	ctx context.Context, imgBytesList [][]byte, prompt string, opts *PredictOptions,
 ) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := validateVLMImages(imgBytesList); err != nil {
+		return "", err
+	}
 	streamFlag := false
 	var images []ollamaapi.ImageData
 	for _, imgBytes := range imgBytesList {

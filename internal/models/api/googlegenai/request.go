@@ -214,9 +214,13 @@ func thoughtSignatureFromMetadata(md map[string]json.RawMessage) string {
 	return sig
 }
 
+const maxInlineImageBytes = 20 << 20
+
 // imagePart renders an image reference. Stored images are resolved to data
-// URIs first; data URIs become inlineData, everything else is passed as
-// fileData with a MIME type guessed from the extension.
+// URIs first; data URIs become inlineData, and safe remote/GCS URIs (http,
+// https, gs) are passed as fileData with a MIME type guessed from the
+// extension. Unresolved internal schemes (resource://, local://, file://) are
+// dropped rather than leaked onto the wire.
 func imagePart(ref string) part {
 	resolved := api.ResolveImageURLForLLM(ref)
 	if strings.HasPrefix(resolved, "data:") {
@@ -226,7 +230,16 @@ func imagePart(ref string) part {
 		}
 		return part{"inlineData": map[string]any{"mimeType": mimeType, "data": data}}
 	}
-	return part{"fileData": map[string]any{"mimeType": guessImageMIME(resolved), "fileUri": resolved}}
+	u, err := url.Parse(resolved)
+	if err != nil || u.Host == "" {
+		return nil
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http", "https", "gs":
+		return part{"fileData": map[string]any{"mimeType": guessImageMIME(resolved), "fileUri": resolved}}
+	default:
+		return nil
+	}
 }
 
 // parseDataURI splits "data:<mime>[;base64],<payload>" into the MIME type and
@@ -251,11 +264,20 @@ func parseDataURI(uri string) (mimeType, data string, ok bool) {
 		mimeType = defaultImageMIME
 	}
 	if isBase64 {
+		if base64.StdEncoding.DecodedLen(len(payload)) > maxInlineImageBytes {
+			return "", "", false
+		}
 		return mimeType, payload, true
+	}
+	if len(payload) > maxInlineImageBytes*3 {
+		return "", "", false
 	}
 	decoded, err := url.PathUnescape(payload)
 	if err != nil {
 		decoded = payload
+	}
+	if len(decoded) > maxInlineImageBytes {
+		return "", "", false
 	}
 	return mimeType, base64.StdEncoding.EncodeToString([]byte(decoded)), true
 }

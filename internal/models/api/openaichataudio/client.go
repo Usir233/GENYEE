@@ -16,8 +16,11 @@ package openaichataudio
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
+	"math"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
@@ -82,17 +85,22 @@ func DataURI(audio []byte, fileName string) (string, error) {
 
 // BuildRequestBody is the golden-test entry point.
 func (c *Client) BuildRequestBody(req api.TranscriptionRequest) (map[string]any, error) {
-	uri, err := DataURI(req.Audio, req.FileName)
-	if err != nil {
-		return nil, err
+	if len(req.Audio) == 0 {
+		return nil, fmt.Errorf("audio bytes are empty")
 	}
-	// The ceiling is on the whole string as sent — "encoded string size must
-	// not exceed 10 MB" — so the data: prefix counts too.
-	if limit := c.cfg.Settings.MaxEncodedBytes; limit > 0 && len(uri) > limit {
+	mediaType, ok := audioTypes[strings.ToLower(filepath.Ext(req.FileName))]
+	if !ok {
+		return nil, fmt.Errorf("cannot tell the audio format of %q from its extension", req.FileName)
+	}
+	// Check the exact encoded wire length BEFORE allocating the base64 string.
+	prefix := "data:" + mediaType + ";base64,"
+	encodedLen := len(prefix) + base64.StdEncoding.EncodedLen(len(req.Audio))
+	if limit := c.cfg.Settings.MaxEncodedBytes; limit > 0 && encodedLen > limit {
 		return nil, fmt.Errorf(
 			"the audio is %.1f MB and %.1f MB once base64-encoded; this model accepts at most %.1f MB encoded",
-			float64(len(req.Audio))/(1<<20), float64(len(uri))/(1<<20), float64(limit)/(1<<20))
+			float64(len(req.Audio))/(1<<20), float64(encodedLen)/(1<<20), float64(limit)/(1<<20))
 	}
+	uri := prefix + base64.StdEncoding.EncodeToString(req.Audio)
 	body := map[string]any{
 		"model": c.cfg.Endpoint.Model,
 		"messages": []any{map[string]any{
@@ -129,6 +137,9 @@ type response struct {
 
 // Transcribe sends one audio file.
 func (c *Client) Transcribe(ctx context.Context, req api.TranscriptionRequest) (*api.Transcription, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	body, err := c.BuildRequestBody(req)
 	if err != nil {
 		return nil, err
@@ -136,7 +147,7 @@ func (c *Client) Transcribe(ctx context.Context, req api.TranscriptionRequest) (
 	var decoded response
 	err = c.cfg.Endpoint.PostJSONWithRetry(ctx, c.url(), body, &decoded, c.cfg.Retry, "transcription")
 	if err != nil {
-		return nil, err
+		return nil, redactChatAudioError(err)
 	}
 	if decoded.Error != nil && decoded.Error.Message != "" {
 		return nil, fmt.Errorf("transcription API error: %s", decoded.Error.Message)
@@ -144,8 +155,46 @@ func (c *Client) Transcribe(ctx context.Context, req api.TranscriptionRequest) (
 	if len(decoded.Choices) == 0 || decoded.Choices[0].Message.Content == nil {
 		return nil, fmt.Errorf("transcription reply carries no message content")
 	}
+	duration := decoded.Usage.Seconds
+	if math.IsNaN(duration) || math.IsInf(duration, 0) || duration < 0 {
+		duration = 0
+	}
 	return &api.Transcription{
 		Text:     strings.TrimSpace(*decoded.Choices[0].Message.Content),
-		Duration: decoded.Usage.Seconds,
+		Duration: duration,
 	}, nil
+}
+
+var (
+	chatAudioUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	chatAudioQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedChatAudioErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedChatAudioErr) Error() string        { return e.msg }
+func (e *redactedChatAudioErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedChatAudioErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactChatAudioError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := chatAudioUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = chatAudioQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedChatAudioErr{msg: out, cause: err}
 }

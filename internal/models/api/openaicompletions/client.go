@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -51,7 +53,7 @@ func (c *Client) send(
 	url := c.url()
 	req, data, err := c.cfg.Endpoint.NewRequest(ctx, url, body, stream)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, redactCompletionsError(err)
 	}
 	if c.cfg.Settings.PromptCacheKey {
 		key := c.cfg.SessionID
@@ -63,13 +65,16 @@ func (c *Client) send(
 	api.LogRequest(ctx, url, c.cfg.Endpoint.Model, data, stream)
 	resp, err := c.cfg.Endpoint.Do(req)
 	if err != nil {
-		return nil, data, err
+		return nil, data, redactCompletionsError(err)
 	}
 	return resp, data, nil
 }
 
 // Chat performs a non-streaming completion.
 func (c *Client) Chat(ctx context.Context, messages []api.Message, opts *api.Options) (*types.ChatResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ctx, cancel := api.WithLLMTimeout(ctx, api.DefaultChatTimeout)
 	defer cancel()
 
@@ -101,6 +106,9 @@ func (c *Client) Chat(ctx context.Context, messages []api.Message, opts *api.Opt
 func (c *Client) ChatStream(
 	ctx context.Context, messages []api.Message, opts *api.Options,
 ) (<-chan types.StreamResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ctx, cancel := api.WithLLMTimeout(ctx, api.DefaultStreamTimeout)
 
 	resp, data, err := c.send(ctx, messages, opts, true)
@@ -542,4 +550,38 @@ func (c *Client) processStream(
 		}
 		assembler.Process(ch, delta)
 	}
+}
+
+var (
+	completionsUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	completionsQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedCompletionsErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedCompletionsErr) Error() string        { return e.msg }
+func (e *redactedCompletionsErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedCompletionsErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactCompletionsError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := completionsUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = completionsQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedCompletionsErr{msg: out, cause: err}
 }

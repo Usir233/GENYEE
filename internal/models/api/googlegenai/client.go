@@ -5,10 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -55,7 +57,8 @@ func (c *Client) requestURL(stream bool) string {
 		if stream {
 			method = methodStreamGenerate
 		}
-		ep.URL = fmt.Sprintf("%s/models/%s:%s", base, ep.Model, method)
+		escapedModel := url.PathEscape(strings.TrimPrefix(ep.Model, "models/"))
+		ep.URL = fmt.Sprintf("%s/models/%s:%s", base, escapedModel, method)
 	} else if stream && strings.HasSuffix(ep.URL, ":"+methodGenerate) {
 		// A vendor-supplied full URL names the non-streaming method; adding
 		// alt=sse to it would still return one buffered JSON document.
@@ -90,18 +93,21 @@ func (c *Client) send(
 	target := c.requestURL(stream)
 	req, data, err := c.cfg.Endpoint.NewRequest(ctx, target, body, stream)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, redactGoogleGenAIError(err)
 	}
 	api.LogRequest(ctx, target, c.cfg.Endpoint.Model, data, stream)
 	resp, err := c.cfg.Endpoint.Do(req)
 	if err != nil {
-		return nil, data, err
+		return nil, data, redactGoogleGenAIError(err)
 	}
 	return resp, data, nil
 }
 
 // Chat performs a non-streaming generation.
 func (c *Client) Chat(ctx context.Context, messages []api.Message, opts *api.Options) (*types.ChatResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ctx, cancel := api.WithLLMTimeout(ctx, api.DefaultChatTimeout)
 	defer cancel()
 
@@ -133,6 +139,9 @@ func (c *Client) Chat(ctx context.Context, messages []api.Message, opts *api.Opt
 func (c *Client) ChatStream(
 	ctx context.Context, messages []api.Message, opts *api.Options,
 ) (<-chan types.StreamResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ctx, cancel := api.WithLLMTimeout(ctx, api.DefaultStreamTimeout)
 
 	resp, data, err := c.send(ctx, messages, opts, true)
@@ -432,4 +441,38 @@ func (c *Client) processStream(
 			assembler.Process(ch, api.Delta{FinishReason: mapFinishReason(cand.FinishReason, toolIndex > 0)})
 		}
 	}
+}
+
+var (
+	googleGenAIUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	googleGenAIQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedGoogleGenAIErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedGoogleGenAIErr) Error() string        { return e.msg }
+func (e *redactedGoogleGenAIErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedGoogleGenAIErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactGoogleGenAIError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := googleGenAIUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = googleGenAIQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedGoogleGenAIErr{msg: out, cause: err}
 }

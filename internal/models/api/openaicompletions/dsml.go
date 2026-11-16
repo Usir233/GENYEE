@@ -31,7 +31,10 @@ import (
 var dsmlMarkers = []string{"<｜DSML｜", "<|DSML|", "<｜｜DSML", "<||DSML"}
 
 // dsmlIndexBase keeps recovered calls clear of the vendor's own indices.
-const dsmlIndexBase = 1 << 20
+const (
+	dsmlIndexBase    = 1 << 20
+	maxDSMLHeldBytes = 1 << 20
+)
 
 // dsmlBar is one or two bars: deepseek-flash doubles them.
 const dsmlBar = `(?:\s*[｜|]){1,2}\s*`
@@ -70,13 +73,22 @@ func (f *dsmlFilter) Feed(chunk string) string {
 		return ""
 	}
 	if f.capturing {
+		if f.held.Len()+len(chunk) > maxDSMLHeldBytes {
+			// A tool-call block exceeding 1 MiB without closing is malformed or plain
+			// prose: stop holding it back so the stream cannot buffer unboundedly.
+			shown := f.held.String() + chunk
+			f.held.Reset()
+			f.capturing = false
+			f.prefix.WriteString(shown)
+			return shown
+		}
 		f.held.WriteString(chunk)
 		return ""
 	}
 	buf := f.held.String() + chunk
 	f.held.Reset()
 	shown := buf
-	if idx := indexDSML(buf); idx >= 0 {
+	if idx := indexDSML(buf); idx >= 0 && len(buf)-idx <= maxDSMLHeldBytes {
 		f.capturing = true
 		f.held.WriteString(buf[idx:])
 		shown = buf[:idx]

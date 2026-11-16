@@ -3,9 +3,11 @@ package openairesponses
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -50,7 +52,7 @@ func (c *Client) send(
 	url := c.url()
 	req, data, err := c.cfg.Endpoint.NewRequest(ctx, url, body, stream)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, redactResponsesError(err)
 	}
 	if c.cfg.Settings.PromptCacheKey {
 		key := c.cfg.SessionID
@@ -62,13 +64,16 @@ func (c *Client) send(
 	api.LogRequest(ctx, url, c.cfg.Endpoint.Model, data, stream)
 	resp, err := c.cfg.Endpoint.Do(req)
 	if err != nil {
-		return nil, data, err
+		return nil, data, redactResponsesError(err)
 	}
 	return resp, data, nil
 }
 
 // Chat performs a non-streaming response creation.
 func (c *Client) Chat(ctx context.Context, messages []api.Message, opts *api.Options) (*types.ChatResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ctx, cancel := api.WithLLMTimeout(ctx, api.DefaultChatTimeout)
 	defer cancel()
 
@@ -100,6 +105,9 @@ func (c *Client) Chat(ctx context.Context, messages []api.Message, opts *api.Opt
 func (c *Client) ChatStream(
 	ctx context.Context, messages []api.Message, opts *api.Options,
 ) (<-chan types.StreamResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ctx, cancel := api.WithLLMTimeout(ctx, api.DefaultStreamTimeout)
 
 	resp, data, err := c.send(ctx, messages, opts, true)
@@ -201,14 +209,13 @@ type rawResponse struct {
 // vocabulary the rest of the engine understands.
 func (r *rawResponse) finishReason(hasToolCalls bool) string {
 	// An incomplete response is checked first: a tool call cut off by
-	// max_output_tokens carries truncated arguments and must not be run.
-	if r != nil && r.Status == "incomplete" && r.IncompleteDetails != nil {
-		switch r.IncompleteDetails.Reason {
-		case "max_output_tokens":
-			return "length"
-		case "content_filter":
+	// max_output_tokens (or missing incomplete_details) carries truncated
+	// arguments and must never report finish_reason=tool_calls.
+	if r != nil && r.Status == "incomplete" {
+		if r.IncompleteDetails != nil && r.IncompleteDetails.Reason == "content_filter" {
 			return "content_filter"
 		}
+		return "length"
 	}
 	if hasToolCalls {
 		return "tool_calls"
@@ -557,4 +564,38 @@ func (c *Client) completeStream(
 	assembler.Process(ch, api.Delta{FinishReason: finishReason})
 	assembler.ReasoningMetadata = reasoningMetadata(st.reasoningItems)
 	assembler.End(ch)
+}
+
+var (
+	responsesUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	responsesQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedResponsesErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedResponsesErr) Error() string        { return e.msg }
+func (e *redactedResponsesErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedResponsesErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactResponsesError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := responsesUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = responsesQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedResponsesErr{msg: out, cause: err}
 }

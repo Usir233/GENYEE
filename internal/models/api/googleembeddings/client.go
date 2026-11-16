@@ -18,7 +18,10 @@ package googleembeddings
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
@@ -62,7 +65,8 @@ func (c *Client) url() string {
 	}
 	endpoint := c.cfg.Endpoint
 	endpoint.BaseURL = strings.TrimSuffix(strings.TrimRight(endpoint.BaseURL, "/"), openAIFacade)
-	return endpoint.Resolve("/" + c.qualifiedModel() + method)
+	escapedModel := url.PathEscape(strings.TrimPrefix(endpoint.Model, "models/"))
+	return endpoint.Resolve("/models/" + escapedModel + method)
 }
 
 type response struct {
@@ -131,6 +135,9 @@ func (c *Client) body(parts []any, kind api.EmbedInputType) map[string]any {
 func (c *Client) Embed(
 	ctx context.Context, texts []string, kind api.EmbedInputType,
 ) ([][]float32, error) {
+	if len(texts) == 0 {
+		return nil, nil
+	}
 	return c.post(ctx, c.BuildRequestBody(texts, kind), len(texts))
 }
 
@@ -141,14 +148,20 @@ func (c *Client) AcceptsImages() bool { return true }
 func (c *Client) EmbedImages(
 	ctx context.Context, images []api.EmbedImage, kind api.EmbedInputType,
 ) ([][]float32, error) {
+	if len(images) == 0 {
+		return nil, nil
+	}
 	return c.post(ctx, c.BuildImageRequestBody(images, kind), len(images))
 }
 
 func (c *Client) post(ctx context.Context, body map[string]any, want int) ([][]float32, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var decoded response
 	err := c.cfg.Endpoint.PostJSONWithRetry(ctx, c.url(), body, &decoded, c.cfg.Retry, "embedding")
 	if err != nil {
-		return nil, err
+		return nil, redactGoogleEmbedError(err)
 	}
 	if decoded.Error != nil && decoded.Error.Message != "" {
 		return nil, fmt.Errorf("gemini embedding error: %s", decoded.Error.Message)
@@ -160,4 +173,38 @@ func (c *Client) post(ctx context.Context, body map[string]any, want int) ([][]f
 	return api.PlaceEmbeddings(want, len(decoded.Embeddings), func(i int) (int, []float32) {
 		return i, decoded.Embeddings[i].Values
 	})
+}
+
+var (
+	googleEmbedUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	googleEmbedQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedGoogleEmbedErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedGoogleEmbedErr) Error() string        { return e.msg }
+func (e *redactedGoogleEmbedErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedGoogleEmbedErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactGoogleEmbedError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := googleEmbedUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = googleEmbedQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedGoogleEmbedErr{msg: out, cause: err}
 }

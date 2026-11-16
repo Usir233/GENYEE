@@ -52,8 +52,11 @@ func cloneValue(v reflect.Value) reflect.Value {
 		return out
 	case reflect.Struct:
 		out := reflect.New(v.Type()).Elem()
+		out.Set(v)
 		for i := 0; i < v.NumField(); i++ {
-			out.Field(i).Set(cloneValue(v.Field(i)))
+			if out.Field(i).CanSet() {
+				out.Field(i).Set(cloneValue(v.Field(i)))
+			}
 		}
 		return out
 	default:

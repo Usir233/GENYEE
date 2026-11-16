@@ -3,9 +3,11 @@ package anthropicmessages
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/url"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -47,7 +49,8 @@ func (c *Client) URL() string {
 	if c.cfg.Endpoint.URL != "" {
 		return c.cfg.Endpoint.Resolve("")
 	}
-	base := strings.TrimRight(c.cfg.Endpoint.BaseURL, "/")
+	ep := c.cfg.Endpoint
+	base := strings.TrimRight(ep.BaseURL, "/")
 	u, err := url.Parse(base)
 	path := ""
 	if err == nil {
@@ -55,12 +58,13 @@ func (c *Client) URL() string {
 	}
 	switch {
 	case strings.HasSuffix(path, "/messages"):
-		return base
+		ep.URL = base
 	case strings.HasSuffix(path, "/v1") || strings.HasSuffix(path, "/v1beta"):
-		return base + "/messages"
+		ep.URL = base + "/messages"
 	default:
-		return base + "/v1/messages"
+		ep.URL = base + "/v1/messages"
 	}
+	return ep.Resolve("")
 }
 
 func (c *Client) send(
@@ -73,7 +77,7 @@ func (c *Client) send(
 	target := c.URL()
 	req, data, err := c.cfg.Endpoint.NewRequest(ctx, target, body, stream)
 	if err != nil {
-		return nil, err
+		return nil, redactAnthropicError(err)
 	}
 	// anthropic-version is mandatory; an empty value is rejected with 400, so
 	// fall back to the baseline version when the catalog left it unset.
@@ -88,7 +92,7 @@ func (c *Client) send(
 	api.LogRequest(ctx, target, c.cfg.Endpoint.Model, data, stream)
 	resp, err := c.cfg.Endpoint.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, redactAnthropicError(err)
 	}
 	return &httpResponse{body: resp.Body, contentType: resp.Header.Get("Content-Type"), data: data}, nil
 }
@@ -101,6 +105,9 @@ type httpResponse struct {
 
 // Chat performs a non-streaming call.
 func (c *Client) Chat(ctx context.Context, messages []api.Message, opts *api.Options) (*types.ChatResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ctx, cancel := api.WithLLMTimeout(ctx, api.DefaultChatTimeout)
 	defer cancel()
 	resp, err := c.send(ctx, messages, opts, false)
@@ -140,6 +147,9 @@ func (c *Client) Chat(ctx context.Context, messages []api.Message, opts *api.Opt
 func (c *Client) ChatStream(
 	ctx context.Context, messages []api.Message, opts *api.Options,
 ) (<-chan types.StreamResponse, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	ctx, cancel := api.WithLLMTimeout(ctx, api.DefaultStreamTimeout)
 	resp, err := c.send(ctx, messages, opts, true)
 	if err != nil {
@@ -603,4 +613,38 @@ func valueOrZero(v *int) int {
 		return 0
 	}
 	return *v
+}
+
+var (
+	anthropicUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	anthropicQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedAnthropicErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedAnthropicErr) Error() string        { return e.msg }
+func (e *redactedAnthropicErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedAnthropicErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactAnthropicError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := anthropicUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = anthropicQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedAnthropicErr{msg: out, cause: err}
 }

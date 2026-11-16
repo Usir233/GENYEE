@@ -7,6 +7,7 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/models"
 	"github.com/Usir233/GENYEE/internal/models/api"
+	"github.com/Usir233/GENYEE/internal/models/internal/configcopy"
 	"github.com/Usir233/GENYEE/internal/types"
 )
 
@@ -99,14 +100,19 @@ func (f ExtraField) LocalizedPlaceholder(locale string) string {
 // CredentialLabelFor returns the credential naming for a model type, or nil
 // when the vendor uses the generic API-key wording.
 func (v *Definition) CredentialLabelFor(modelType types.ModelType) *CredentialLabel {
+	if v == nil {
+		return nil
+	}
 	for i := range v.CredentialLabels {
 		c := &v.CredentialLabels[i]
 		if len(c.ModelTypes) == 0 {
-			return c
+			cloned := configcopy.Clone(*c)
+			return &cloned
 		}
 		for _, mt := range c.ModelTypes {
 			if mt == modelType {
-				return c
+				cloned := configcopy.Clone(*c)
+				return &cloned
 			}
 		}
 	}
@@ -236,6 +242,9 @@ func (v *Definition) GetDefaultURL(modelType types.ModelType) string {
 
 // SupportsType reports whether the vendor lists the model type.
 func (v *Definition) SupportsType(modelType types.ModelType) bool {
+	if v == nil {
+		return false
+	}
 	for _, t := range v.ModelTypes {
 		if t == modelType {
 			return true
@@ -246,6 +255,9 @@ func (v *Definition) SupportsType(modelType types.ModelType) bool {
 
 // LocalizedName returns the name for a locale, falling back to Name.
 func (v *Definition) LocalizedName(locale string) string {
+	if v == nil {
+		return ""
+	}
 	if n, ok := v.Names[locale]; ok && n != "" {
 		return n
 	}
@@ -254,6 +266,9 @@ func (v *Definition) LocalizedName(locale string) string {
 
 // LocalizedDescription returns the description for a locale.
 func (v *Definition) LocalizedDescription(locale string) string {
+	if v == nil {
+		return ""
+	}
 	if d, ok := v.Descriptions[locale]; ok && d != "" {
 		return d
 	}
@@ -263,6 +278,9 @@ func (v *Definition) LocalizedDescription(locale string) string {
 // AuthStyleFor returns the auth style this vendor uses for one protocol,
 // falling back to the vendor-wide Auth.
 func (v *Definition) AuthStyleFor(protocol api.API) AuthStyle {
+	if v == nil {
+		return ""
+	}
 	if style, ok := v.AuthByAPI[protocol]; ok && style != "" {
 		return style
 	}
@@ -289,6 +307,9 @@ func (v *Definition) AuthFunc(protocol api.API, creds api.Credentials) api.AuthF
 
 // ValidateConfig runs the vendor's validation.
 func (v *Definition) ValidateConfig(cfg *Config) error {
+	if v == nil {
+		return fmt.Errorf("provider definition is nil")
+	}
 	if v.Validate != nil {
 		return v.Validate(cfg)
 	}

@@ -186,13 +186,13 @@ func applyOverlayProvider(v *Provider, p OverlayProvider, baseDir string) error 
 		v.Name = p.Name
 	}
 	if len(p.Names) > 0 {
-		v.Names = p.Names
+		v.Names = configcopy.Clone(p.Names)
 	}
 	if p.Description != "" {
 		v.Description = p.Description
 	}
 	if len(p.Descriptions) > 0 {
-		v.Descriptions = p.Descriptions
+		v.Descriptions = configcopy.Clone(p.Descriptions)
 	}
 	if p.Website != "" {
 		v.Website = p.Website
@@ -240,7 +240,7 @@ func applyOverlayProvider(v *Provider, p OverlayProvider, baseDir string) error 
 		}
 	}
 	if len(p.URLPatterns) > 0 {
-		v.URLPatterns = p.URLPatterns
+		v.URLPatterns = configcopy.Clone(p.URLPatterns)
 	}
 	if p.Icon != "" {
 		icon, err := loadOverlayIcon(baseDir, p.Icon)
@@ -268,10 +268,10 @@ func applyOverlayProvider(v *Provider, p OverlayProvider, baseDir string) error 
 	if len(p.ThinkingLevels) > 0 {
 		levels := api.ThinkingLevelMap{}
 		for k, val := range v.ThinkingLevels {
-			levels[k] = val
+			levels[k] = configcopy.Clone(val)
 		}
 		for k, val := range p.ThinkingLevels {
-			levels[api.ReasoningEffort(k)] = val
+			levels[api.ReasoningEffort(k)] = configcopy.Clone(val)
 		}
 		v.ThinkingLevels = levels
 	}
@@ -295,7 +295,9 @@ func applyOverlayProvider(v *Provider, p OverlayProvider, baseDir string) error 
 			if strings.EqualFold(entries[i].ID, id) {
 				// Keep the candidate entry independent while applying the patch.
 				spec := cloneModelSpec(entries[i])
-				applyPatch(&spec, patch)
+				if err := applyPatch(&spec, patch); err != nil {
+					return fmt.Errorf("model_overrides %s: %w", id, err)
+				}
 				entries[i] = spec
 				found = true
 				break
@@ -303,7 +305,9 @@ func applyOverlayProvider(v *Provider, p OverlayProvider, baseDir string) error 
 		}
 		if !found {
 			spec := models.ModelSpec{ID: id}
-			applyPatch(&spec, patch)
+			if err := applyPatch(&spec, patch); err != nil {
+				return fmt.Errorf("model_overrides %s: %w", id, err)
+			}
 			entries = append(entries, spec)
 		}
 	}
@@ -325,10 +329,32 @@ const maxIconBytes = 256 * 1024
 // provider list into a file-disclosure endpoint for read-only tenants.
 // Hence: no absolute paths, no escaping the overlay's own directory
 // (symlinks included), a size cap, and the content must really be an SVG.
+var svgEventAttrRE = regexp.MustCompile(`(?i)\bon[a-z0-9_]+\s*=`)
+
+func validateSafeSVG(data []byte) error {
+	lower := strings.ToLower(string(data))
+	switch {
+	case strings.Contains(lower, "<!entity"):
+		return fmt.Errorf("icon: XML entity declarations are not allowed in SVG")
+	case strings.Contains(lower, "<script"):
+		return fmt.Errorf("icon: <script> elements are not allowed in SVG")
+	case strings.Contains(lower, "<foreignobject"):
+		return fmt.Errorf("icon: <foreignObject> elements are not allowed in SVG")
+	case strings.Contains(lower, "javascript:"):
+		return fmt.Errorf("icon: javascript: URIs are not allowed in SVG")
+	case svgEventAttrRE.Match(data):
+		return fmt.Errorf("icon: event handler attributes are not allowed in SVG")
+	}
+	return nil
+}
+
 func loadOverlayIcon(baseDir, ref string) ([]byte, error) {
 	if looksLikeSVG([]byte(ref)) {
 		if len(ref) > maxIconBytes {
 			return nil, fmt.Errorf("icon: inline svg is %d bytes, limit is %d", len(ref), maxIconBytes)
+		}
+		if err := validateSafeSVG([]byte(ref)); err != nil {
+			return nil, err
 		}
 		return []byte(ref), nil
 	}
@@ -365,6 +391,9 @@ func loadOverlayIcon(baseDir, ref string) ([]byte, error) {
 	}
 	if !looksLikeSVG(data) {
 		return nil, fmt.Errorf("icon: %q is not an SVG document", ref)
+	}
+	if err := validateSafeSVG(data); err != nil {
+		return nil, err
 	}
 	return data, nil
 }
@@ -448,6 +477,9 @@ func upsertOverlayModel(target *[]models.ModelSpec, raw json.RawMessage) error {
 	if err := dec.Decode(&spec); err != nil {
 		return fmt.Errorf("model entry: %w", err)
 	}
+	if err := dec.Decode(new(any)); err != io.EOF {
+		return fmt.Errorf("model entry: expected a single JSON object")
+	}
 	if spec.ID == "" {
 		return fmt.Errorf("model without id")
 	}
@@ -486,7 +518,7 @@ func cloneModelSpec(m models.ModelSpec) models.ModelSpec {
 	return configcopy.Clone(m)
 }
 
-func applyPatch(m *models.ModelSpec, p ModelSpecPatch) {
+func applyPatch(m *models.ModelSpec, p ModelSpecPatch) error {
 	if p.Name != "" {
 		m.Name = p.Name
 	}
@@ -497,7 +529,7 @@ func applyPatch(m *models.ModelSpec, p ModelSpecPatch) {
 		m.Reasoning = *p.Reasoning
 	}
 	if len(p.Input) > 0 {
-		m.Input = p.Input
+		m.Input = configcopy.Clone(p.Input)
 	}
 	if p.ContextWindow > 0 {
 		m.ContextWindow = p.ContextWindow
@@ -506,20 +538,24 @@ func applyPatch(m *models.ModelSpec, p ModelSpecPatch) {
 		m.MaxOutputTokens = p.MaxOutputTokens
 	}
 	if p.Cost != nil {
-		m.Cost = p.Cost
+		m.Cost = configcopy.Clone(p.Cost)
 	}
 	if len(p.ThinkingLevels) > 0 {
 		levels := api.ThinkingLevelMap{}
 		for k, v := range m.ThinkingLevels {
-			levels[k] = v
+			levels[k] = configcopy.Clone(v)
 		}
 		for k, v := range p.ThinkingLevels {
-			levels[k] = v
+			levels[k] = configcopy.Clone(v)
 		}
 		m.ThinkingLevels = levels
 	}
 	if len(p.Compat) > 0 {
-		m.Compat = mergeRawObjects(m.Compat, p.Compat)
+		merged, err := mergeRawObjects(m.Compat, p.Compat)
+		if err != nil {
+			return fmt.Errorf("compat: %w", err)
+		}
+		m.Compat = merged
 	}
 	if len(p.Aliases) > 0 {
 		m.Aliases = append(m.Aliases, p.Aliases...)
@@ -527,23 +563,27 @@ func applyPatch(m *models.ModelSpec, p ModelSpecPatch) {
 	if p.Deprecated != nil {
 		m.Deprecated = *p.Deprecated
 	}
+	return nil
 }
 
 // mergeRawObjects shallow-merges two JSON objects (b wins).
-func mergeRawObjects(a, b json.RawMessage) json.RawMessage {
+func mergeRawObjects(a, b json.RawMessage) (json.RawMessage, error) {
 	merged := map[string]json.RawMessage{}
 	if len(a) > 0 {
-		_ = json.Unmarshal(a, &merged)
+		if err := json.Unmarshal(a, &merged); err != nil {
+			return nil, err
+		}
 	}
 	patch := map[string]json.RawMessage{}
 	if len(b) > 0 {
-		_ = json.Unmarshal(b, &patch)
+		if err := json.Unmarshal(b, &patch); err != nil {
+			return nil, err
+		}
 	}
 	for k, v := range patch {
 		merged[k] = v
 	}
-	out, _ := json.Marshal(merged)
-	return out
+	return json.Marshal(merged)
 }
 
 // ApplyOverlay and LoadOverlay retain the legacy unvalidated composition API.

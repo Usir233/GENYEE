@@ -11,7 +11,9 @@ package dashscopeembeddings
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
 )
@@ -89,6 +91,9 @@ func (c *Client) body(contents []any) map[string]any {
 func (c *Client) Embed(
 	ctx context.Context, texts []string, kind api.EmbedInputType,
 ) ([][]float32, error) {
+	if len(texts) == 0 {
+		return nil, nil
+	}
 	return c.post(ctx, c.BuildRequestBody(texts, kind), len(texts))
 }
 
@@ -99,15 +104,21 @@ func (c *Client) AcceptsImages() bool { return true }
 func (c *Client) EmbedImages(
 	ctx context.Context, images []api.EmbedImage, kind api.EmbedInputType,
 ) ([][]float32, error) {
+	if len(images) == 0 {
+		return nil, nil
+	}
 	return c.post(ctx, c.BuildImageRequestBody(images, kind), len(images))
 }
 
 func (c *Client) post(ctx context.Context, body map[string]any, want int) ([][]float32, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var decoded response
 	url := c.cfg.Endpoint.Resolve(c.cfg.Settings.Path)
 	err := c.cfg.Endpoint.PostJSONWithRetry(ctx, url, body, &decoded, c.cfg.Retry, "embedding")
 	if err != nil {
-		return nil, err
+		return nil, redactDashScopeEmbedError(err)
 	}
 	// DashScope reports some failures in the body with a 200.
 	if decoded.Code != "" {
@@ -116,4 +127,38 @@ func (c *Client) post(ctx context.Context, body map[string]any, want int) ([][]f
 	return api.PlaceEmbeddings(want, len(decoded.Output.Embeddings), func(i int) (int, []float32) {
 		return decoded.Output.Embeddings[i].Index, decoded.Output.Embeddings[i].Embedding
 	})
+}
+
+var (
+	dashscopeEmbedUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	dashscopeEmbedQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedDashScopeEmbedErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedDashScopeEmbedErr) Error() string        { return e.msg }
+func (e *redactedDashScopeEmbedErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedDashScopeEmbedErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactDashScopeEmbedError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := dashscopeEmbedUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = dashscopeEmbedQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedDashScopeEmbedErr{msg: out, cause: err}
 }

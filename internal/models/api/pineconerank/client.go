@@ -5,7 +5,10 @@ package pineconerank
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"math"
+	"regexp"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
@@ -95,13 +98,19 @@ type result struct {
 func (c *Client) Rerank(
 	ctx context.Context, query string, documents []string,
 ) ([]api.RerankResult, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if len(documents) == 0 {
+		return nil, nil
+	}
 	body, err := c.BuildRequestBody(query, documents)
 	if err != nil {
 		return nil, err
 	}
 	var decoded response
 	if err := c.cfg.Endpoint.PostJSON(ctx, c.url(), body, &decoded); err != nil {
-		return nil, err
+		return nil, redactPineconeError(err)
 	}
 	if decoded.Data == nil {
 		return nil, fmt.Errorf("pinecone rerank response has no data array")
@@ -120,6 +129,9 @@ func (c *Client) Rerank(
 		if *item.Index < 0 || *item.Index >= len(documents) {
 			return nil, fmt.Errorf("rerank index %d out of range for %d documents", *item.Index, len(documents))
 		}
+		if math.IsNaN(*item.Score) || math.IsInf(*item.Score, 0) {
+			return nil, fmt.Errorf("pinecone rerank score is non-finite (%v) at index %d", *item.Score, *item.Index)
+		}
 		if seen[*item.Index] {
 			return nil, fmt.Errorf("pinecone rerank returned duplicate index %d", *item.Index)
 		}
@@ -129,4 +141,38 @@ func (c *Client) Rerank(
 		})
 	}
 	return out, nil
+}
+
+var (
+	pineconeUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	pineconeQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedPineconeErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedPineconeErr) Error() string        { return e.msg }
+func (e *redactedPineconeErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedPineconeErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactPineconeError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := pineconeUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = pineconeQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedPineconeErr{msg: out, cause: err}
 }

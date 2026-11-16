@@ -74,8 +74,8 @@ func (c *Client) convertMessages(messages []api.Message) (string, []any) {
 		msg = api.NeutralizeMessageSpecialTokens(msg)
 		switch msg.Role {
 		case "system":
-			if msg.Content != "" {
-				instructions = append(instructions, msg.Content)
+			if text := systemMessageText(msg); text != "" {
+				instructions = append(instructions, text)
 			}
 		case "assistant":
 			items = append(items, c.assistantItems(msg)...)
@@ -94,6 +94,19 @@ func (c *Client) convertMessages(messages []api.Message) (string, []any) {
 		}
 	}
 	return strings.Join(instructions, "\n\n"), items
+}
+
+func systemMessageText(msg api.Message) string {
+	if len(msg.MultiContent) == 0 {
+		return msg.Content
+	}
+	parts := make([]string, 0, len(msg.MultiContent))
+	for _, p := range msg.MultiContent {
+		if p.Type == "text" && p.Text != "" {
+			parts = append(parts, p.Text)
+		}
+	}
+	return strings.Join(parts, "\n")
 }
 
 // userContent renders a user message either as a plain string or as a list

@@ -114,9 +114,26 @@ func NewRedisLimiter(rdb *redis.Client) ModelConcurrencyLimiter {
 	}
 }
 
+func (l *redisLimiter) effectiveTTL() time.Duration {
+	if l == nil || l.ttl <= 0 {
+		return defaultLeaseTTL
+	}
+	return l.ttl
+}
+
+func (l *redisLimiter) effectivePollInterval() time.Duration {
+	if l == nil || l.pollInterval <= 0 {
+		return defaultPollInterval
+	}
+	return l.pollInterval
+}
+
 func (l *redisLimiter) Acquire(ctx context.Context, key string, limit int) (func(), error) {
 	if l == nil || l.rdb == nil || limit <= 0 || key == "" {
 		return noop, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	zkey := keyPrefix + key
@@ -126,7 +143,9 @@ func (l *redisLimiter) Acquire(ctx context.Context, key string, limit int) (func
 	tracked.waiting.Add(1)
 	defer tracked.waiting.Add(-1)
 	token := uuid.NewString()
-	ttlMs := l.ttl.Milliseconds()
+	ttl := l.effectiveTTL()
+	poll := l.effectivePollInterval()
+	ttlMs := max(ttl.Milliseconds(), int64(1))
 
 	// Reuse a single timer across poll iterations rather than allocating a new
 	// one via time.After each loop: under sustained contention a waiter can
@@ -151,7 +170,7 @@ func (l *redisLimiter) Acquire(ctx context.Context, key string, limit int) (func
 			return l.hold(zkey, token), nil
 		}
 
-		timer.Reset(l.pollInterval)
+		timer.Reset(poll)
 		select {
 		case <-ctx.Done():
 			// Fail open on cancellation too: let the inner call observe the
@@ -167,6 +186,9 @@ func (l *redisLimiter) RuntimeStats(ctx context.Context) ([]RuntimeStat, error) 
 	stats := make([]RuntimeStat, 0)
 	if l == nil || l.rdb == nil {
 		return stats, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 	var firstErr error
 	now := time.Now().UnixMilli()
@@ -200,8 +222,11 @@ func (l *redisLimiter) SetModelName(modelID, name string) {
 // release that stops the heartbeat and drops the slot.
 func (l *redisLimiter) hold(zkey, token string) func() {
 	stop := make(chan struct{})
+	ttl := l.effectiveTTL()
+	tickInterval := max(ttl/3, time.Millisecond)
+	ttlMs := max(ttl.Milliseconds(), int64(1))
 	go func() {
-		t := time.NewTicker(l.ttl / 3)
+		t := time.NewTicker(tickInterval)
 		defer t.Stop()
 		for {
 			select {
@@ -209,8 +234,9 @@ func (l *redisLimiter) hold(zkey, token string) func() {
 				return
 			case <-t.C:
 				now := time.Now().UnixMilli()
-				// Detached ctx: the heartbeat must outlive request ctx up to
-				// release. Best-effort; a failed refresh just risks early
+				// Detached ctx with bounded timeout: the heartbeat must outlive
+				// request ctx up to release, while never hanging forever on a
+				// wedged socket. Best-effort; a failed refresh just risks early
 				// reclamation, which the limit already tolerates.
 				//
 				// Refresh BOTH the member lease score AND the ZSET key's own
@@ -219,14 +245,15 @@ func (l *redisLimiter) hold(zkey, token string) func() {
 				// would otherwise let the whole key expire after ttl*2 —
 				// dropping every live lease and admitting over the limit. The
 				// heartbeat pushes the key TTL out in lockstep with the lease.
-				bg := context.Background()
+				bg, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				// A release or expiry may remove the token while this heartbeat
 				// is in flight. Refresh existing leases only; never recreate one.
 				_ = l.rdb.ZAddXX(bg, zkey, redis.Z{
-					Score:  float64(now + l.ttl.Milliseconds()),
+					Score:  float64(now + ttlMs),
 					Member: token,
 				}).Err()
-				_ = l.rdb.PExpire(bg, zkey, l.ttl*2).Err()
+				_ = l.rdb.PExpire(bg, zkey, ttl*2).Err()
+				cancel()
 			}
 		}
 	}()
@@ -235,7 +262,9 @@ func (l *redisLimiter) hold(zkey, token string) func() {
 	return func() {
 		once.Do(func() {
 			close(stop)
-			_ = l.rdb.ZRem(context.Background(), zkey, token).Err()
+			bg, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = l.rdb.ZRem(bg, zkey, token).Err()
 		})
 	}
 }

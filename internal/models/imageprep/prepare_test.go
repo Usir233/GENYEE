@@ -129,3 +129,13 @@ func TestPrepareImageRejectsExcessivePixelDimensions(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "exceed maximum")
 }
+
+func TestPrepareImageRejectsCorruptHeaderOnPassThrough(t *testing.T) {
+	// Valid PNG 8-byte magic signature so http.DetectContentType returns "image/png",
+	// followed by a truncated/corrupt IHDR chunk. Pass-through must reject it rather
+	// than forwarding corrupt image bytes to upstream providers.
+	corruptPNG := []byte("\x89PNG\r\n\x1a\ncorrupt-ihdr")
+	_, err := Prepare(corruptPNG, Limits{MaxBytes: 1 << 20, MIMETypes: []string{"image/png"}})
+	require.Error(t, err)
+}
+

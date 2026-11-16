@@ -19,7 +19,9 @@ package openaiembeddings
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
@@ -150,6 +152,9 @@ func (c *Client) body(key string, input any, kind api.EmbedInputType) map[string
 func (c *Client) Embed(
 	ctx context.Context, texts []string, kind api.EmbedInputType,
 ) ([][]float32, error) {
+	if len(texts) == 0 {
+		return nil, nil
+	}
 	if c.cfg.Settings.TextAsMessages {
 		return c.postMessages(ctx, len(texts), kind, func(i int) map[string]any {
 			return c.BuildTextMessageBody(texts[i], kind)
@@ -169,6 +174,9 @@ func (c *Client) EmbedImages(
 ) ([][]float32, error) {
 	switch c.cfg.Settings.OpenAIImageFormat() {
 	case api.EmbeddingImageObject:
+		if len(images) == 0 {
+			return nil, nil
+		}
 		return c.post(ctx, c.BuildImageRequestBody(images, kind), len(images))
 	case api.EmbeddingImageMessages:
 		return c.postMessages(ctx, len(images), kind, func(i int) map[string]any {
@@ -207,10 +215,13 @@ func (c *Client) postMessages(
 }
 
 func (c *Client) post(ctx context.Context, body map[string]any, want int) ([][]float32, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var decoded response
 	err := c.cfg.Endpoint.PostJSONWithRetry(ctx, c.url(), body, &decoded, c.cfg.Retry, "embedding")
 	if err != nil {
-		return nil, err
+		return nil, redactOpenAIEmbedError(err)
 	}
 	if decoded.Error != nil && decoded.Error.Message != "" {
 		return nil, fmt.Errorf("embedding API error: %s", decoded.Error.Message)
@@ -221,4 +232,38 @@ func (c *Client) post(ctx context.Context, body map[string]any, want int) ([][]f
 		}
 		return *decoded.Data[i].Index, decoded.Data[i].Embedding
 	})
+}
+
+var (
+	openAIEmbedUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	openAIEmbedQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedOpenAIEmbedErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedOpenAIEmbedErr) Error() string        { return e.msg }
+func (e *redactedOpenAIEmbedErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedOpenAIEmbedErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactOpenAIEmbedError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := openAIEmbedUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = openAIEmbedQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedOpenAIEmbedErr{msg: out, cause: err}
 }

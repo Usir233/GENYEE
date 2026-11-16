@@ -19,7 +19,9 @@ package arkembeddings
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"regexp"
 
 	"github.com/Usir233/GENYEE/internal/models/api"
 )
@@ -124,17 +126,62 @@ func (c *Client) EmbedImages(
 }
 
 func (c *Client) post(ctx context.Context, body map[string]any) ([][]float32, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var decoded response
 	url := c.cfg.Endpoint.Resolve(c.cfg.Settings.Path)
 	err := c.cfg.Endpoint.PostJSONWithRetry(ctx, url, body, &decoded, c.cfg.Retry, "embedding")
 	if err != nil {
-		return nil, err
+		return nil, redactArkEmbedError(err)
 	}
 	if decoded.Error != nil && decoded.Error.Message != "" {
 		return nil, fmt.Errorf("ark embedding error %s: %s", decoded.Error.Code, decoded.Error.Message)
 	}
-	if len(decoded.Data.Embedding) == 0 {
+	return validateArkVector(decoded.Data.Embedding)
+}
+
+func validateArkVector(vec []float32) ([][]float32, error) {
+	if len(vec) == 0 {
 		return nil, fmt.Errorf("ark embedding returned no vector")
 	}
-	return [][]float32{decoded.Data.Embedding}, nil
+	out := [][]float32{vec}
+	if err := api.ValidateEmbeddingVectors(out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+var (
+	arkEmbedUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	arkEmbedQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+type redactedArkEmbedErr struct {
+	msg   string
+	cause error
+}
+
+func (e *redactedArkEmbedErr) Error() string        { return e.msg }
+func (e *redactedArkEmbedErr) Is(target error) bool { return errors.Is(e.cause, target) }
+func (e *redactedArkEmbedErr) As(target any) bool {
+	switch target.(type) {
+	case **api.HTTPError, **api.TransportError:
+		return errors.As(e.cause, target)
+	default:
+		return false
+	}
+}
+
+func redactArkEmbedError(err error) error {
+	if err == nil {
+		return nil
+	}
+	raw := err.Error()
+	out := arkEmbedUserinfoRE.ReplaceAllString(raw, "${1}:[REDACTED]@")
+	out = arkEmbedQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+	if out == raw {
+		return err
+	}
+	return &redactedArkEmbedErr{msg: out, cause: err}
 }

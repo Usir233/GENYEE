@@ -47,9 +47,9 @@ func (l *langfuseASR) Transcribe(ctx context.Context, audioBytes []byte, fileNam
 		output["segment_count"] = len(result.Segments)
 		// The vendor's own figure when it gives one; otherwise the end of
 		// the last segment, which only verbose replies carry.
-		duration = result.Duration
+		duration = sanitizeASRDuration(result.Duration)
 		if n := len(result.Segments); duration == 0 && n > 0 {
-			duration = result.Segments[n-1].End
+			duration = sanitizeASRDuration(result.Segments[n-1].End)
 		}
 		if duration > 0 {
 			output["duration_seconds"] = duration
@@ -60,7 +60,7 @@ func (l *langfuseASR) Transcribe(ctx context.Context, audioBytes []byte, fileNam
 	// in the "Output" side of usage so users can configure per-model pricing
 	// in Langfuse (e.g. $0.006 per minute for Whisper-1).
 	var usage *langfuse.TokenUsage
-	if duration > 0 {
+	if duration > 0 && duration < 1e9 {
 		seconds := int(duration + 0.5)
 		usage = &langfuse.TokenUsage{
 			Output: seconds,

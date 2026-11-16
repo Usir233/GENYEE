@@ -1,18 +1,34 @@
 package rerank
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
+	"regexp"
 	"time"
 
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
+
+var (
+	rerankUserinfoRE    = regexp.MustCompile(`(https?://[^/\s:@]+):([^@\s/]+)@`)
+	rerankQuerySecretRE = regexp.MustCompile(`(?i)([?&](?:key|api_key|apikey|access_token|token|secret|password|sig|signature)=)[^&\s"']+`)
+)
+
+func redactRerankText(s string) string {
+	out := rerankUserinfoRE.ReplaceAllString(s, "${1}:[REDACTED]@")
+	return rerankQuerySecretRE.ReplaceAllString(out, "${1}[REDACTED]")
+}
 
 func validateRerankBaseURL(baseURL string) error {
 	if baseURL == "" {
 		return nil
 	}
 	if err := secutils.ValidateURLForSSRF(baseURL); err != nil {
+		msg := fmt.Sprintf("base URL SSRF check failed: %v", err)
+		if redacted := redactRerankText(msg); redacted != msg {
+			return errors.New(redacted)
+		}
 		return fmt.Errorf("base URL SSRF check failed: %w", err)
 	}
 	return nil

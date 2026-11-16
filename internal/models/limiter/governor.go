@@ -58,6 +58,9 @@ func GateN(ctx context.Context, modelID string, modelLimit int) func() {
 }
 
 func GateNamedN(ctx context.Context, modelID, modelName string, modelLimit int) func() {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	governorMu.RLock()
 	l, defaultLimit := governor, governorN
 	governorMu.RUnlock()
@@ -83,6 +86,9 @@ func GateNamedN(ctx context.Context, modelID, modelName string, modelLimit int) 
 // limiters report cluster-wide active holders; waiting callers remain local to
 // this instance by design.
 func RuntimeStats(ctx context.Context) ([]RuntimeStat, bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	governorMu.RLock()
 	l := governor
 	governorMu.RUnlock()
@@ -125,6 +131,9 @@ func NewLocalLimiter() ModelConcurrencyLimiter {
 func (l *localLimiter) Acquire(ctx context.Context, key string, limit int) (func(), error) {
 	if l == nil || limit <= 0 || key == "" {
 		return noop, nil
+	}
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
 	l.mu.Lock()

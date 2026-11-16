@@ -23,6 +23,9 @@ type Connection struct {
 // Endpoint assembles authentication, headers and vendor endpoint routing for
 // every capability. Protocol clients receive the result without knowing vendors.
 func (r *Resolved) Endpoint(kind types.ModelType, c Connection) (api.Endpoint, error) {
+	if r == nil || r.Vendor == nil {
+		return api.Endpoint{}, fmt.Errorf("resolved model is nil")
+	}
 	v := r.Vendor
 	creds := c.Credentials
 	if creds.APIKey == "" {

@@ -24,7 +24,7 @@ func buildRerankRequestDebug(model, endpoint, query string, documents []string) 
 	previewJSON, _ := json.Marshal(previews)
 	return fmt.Sprintf(
 		"rerank request endpoint=%s model=%s query_preview=%q query_runes=%d documents=%d preview_docs=%s",
-		endpoint,
+		redactRerankText(endpoint),
 		model,
 		compactForLog(query, maxLogTextRunes),
 		utf8.RuneCountInString(query),

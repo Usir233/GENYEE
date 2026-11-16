@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/Usir233/GENYEE/internal/logger"
@@ -140,8 +141,8 @@ func ConfigFromModel(m *types.Model, appSecret string) *RerankerConfig {
 		Source:        m.Source,
 		Provider:      m.Parameters.Provider,
 		Spec:          m.Parameters.Spec,
-		ExtraConfig:   m.Parameters.ExtraConfig,
-		CustomHeaders: m.Parameters.CustomHeaders,
+		ExtraConfig:   maps.Clone(m.Parameters.ExtraConfig),
+		CustomHeaders: maps.Clone(m.Parameters.CustomHeaders),
 		AppSecret:     appSecret,
 	}
 }
@@ -191,6 +192,11 @@ func newReranker(config *RerankerConfig) (Reranker, error) {
 	})
 	if err != nil {
 		return nil, err
+	}
+	if endpoint.URL != "" {
+		if err := validateRerankBaseURL(endpoint.URL); err != nil {
+			return nil, err
+		}
 	}
 
 	var client api.Reranker

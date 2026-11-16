@@ -2,6 +2,7 @@ package asr
 
 import (
 	"context"
+	"maps"
 	"strings"
 
 	"github.com/Usir233/GENYEE/internal/types"
@@ -29,10 +30,16 @@ type languageKey struct{}
 // a transcription. Empty and "auto" mean auto-detection, which is every
 // vendor's default, and send nothing.
 func WithLanguage(ctx context.Context, language string) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	return context.WithValue(ctx, languageKey{}, language)
 }
 
 func languageFrom(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
 	language, _ := ctx.Value(languageKey{}).(string)
 	language = strings.TrimSpace(language)
 	if strings.EqualFold(language, "auto") {
@@ -81,8 +88,8 @@ func ConfigFromModel(m *types.Model) *Config {
 		Source:        m.Source,
 		Provider:      m.Parameters.Provider,
 		Spec:          m.Parameters.Spec,
-		ExtraConfig:   m.Parameters.ExtraConfig,
-		CustomHeaders: m.Parameters.CustomHeaders,
+		ExtraConfig:   maps.Clone(m.Parameters.ExtraConfig),
+		CustomHeaders: maps.Clone(m.Parameters.CustomHeaders),
 	}
 }
 

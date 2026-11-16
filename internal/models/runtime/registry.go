@@ -21,15 +21,26 @@ type Provider struct {
 }
 
 // Models returns owned entries from this view, including hidden rules.
-func (p *Provider) Models() []models.ModelSpec { return p.catalog.Models() }
+func (p *Provider) Models() []models.ModelSpec {
+	if p == nil || p.catalog == nil {
+		return nil
+	}
+	return p.catalog.Models()
+}
 
 // ModelsByType returns visible entries for the requested capability.
 func (p *Provider) ModelsByType(kind types.ModelType) []models.ModelSpec {
+	if p == nil || p.catalog == nil {
+		return nil
+	}
 	return p.catalog.ModelsByType(kind)
 }
 
 // FindModel matches an exact ID, alias or family within this view.
 func (p *Provider) FindModel(name string, kind types.ModelType) (models.ModelSpec, bool) {
+	if p == nil || p.catalog == nil {
+		return models.ModelSpec{}, false
+	}
 	return p.catalog.FindModel(name, kind)
 }
 
