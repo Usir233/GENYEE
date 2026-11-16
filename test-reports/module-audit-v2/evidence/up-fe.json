@@ -1,0 +1,348 @@
+{
+  "stage": "Stage 2B",
+  "slice": "up-fe",
+  "base_commit": "cabe3d63781239b56bfcb911319ed21ecd2d5c3b",
+  "upstream_range": "cbdcebabf48c5ee2d6868b370326aa8341703f62..f64dbf002490fd947b4bce48a8cd4fa0dff6dcbd",
+  "merge_range": "89ce71ff86af78cfb3cf5f637787ecfbe3389e11..cabe3d63781239b56bfcb911319ed21ecd2d5c3b",
+  "audited_files": [
+    "frontend/src/components/AttachmentUpload.mounted.test.mjs",
+    "frontend/src/components/AttachmentUpload.session.test.mjs",
+    "frontend/src/components/AttachmentUpload.vue",
+    "frontend/src/components/ChatReferenceSourceView.test.ts",
+    "frontend/src/components/ChatReferenceSourceView.vue",
+    "frontend/src/components/GlobalCommandPalette.keyboard.test.ts",
+    "frontend/src/components/GlobalCommandPalette.source.test.ts",
+    "frontend/src/components/GlobalCommandPalette.vue",
+    "frontend/src/components/GlobalCommandPalette/useSearch.feedback.test.ts",
+    "frontend/src/components/GlobalCommandPalette/useSearch.ts",
+    "frontend/src/components/GlobalCommandPalette/useStartChat.ts",
+    "frontend/src/components/Input-field.prefill.test.ts",
+    "frontend/src/components/Input-field.vue",
+    "frontend/src/components/css/chat-hljs-theme.less",
+    "frontend/src/components/css/chat-hljs.less",
+    "frontend/src/components/css/chat-hljs.test.mjs",
+    "frontend/src/components/manual-knowledge-editor.vue",
+    "frontend/src/components/manualKnowledgeLoading.test.ts",
+    "frontend/src/i18n/locales/en-US.ts",
+    "frontend/src/i18n/locales/ja-JP.ts",
+    "frontend/src/i18n/locales/ko-KR.ts",
+    "frontend/src/i18n/locales/ru-RU.ts",
+    "frontend/src/i18n/locales/zh-CN.ts",
+    "frontend/src/i18n/locales/zh-TW.ts",
+    "frontend/src/main.ts",
+    "frontend/src/utils/agent-tool-display.test.mjs",
+    "frontend/src/utils/agent-tool-display.ts",
+    "frontend/src/utils/automationSchedule.test.ts",
+    "frontend/src/utils/automationSchedule.ts",
+    "frontend/src/utils/citationMarkdown.ts",
+    "frontend/src/utils/citationMarkdownMath.test.mjs",
+    "frontend/src/utils/markdownPreviewImageFences.test.ts",
+    "frontend/src/utils/markdownPreviewImages.ts",
+    "frontend/src/utils/markdownTableNormalize.test.ts",
+    "frontend/src/utils/markdownTableNormalize.ts",
+    "frontend/src/utils/pageFill.test.ts",
+    "frontend/src/utils/pageFill.ts",
+    "frontend/src/utils/pageText.overlap.test.ts",
+    "frontend/src/utils/pageText.test.ts",
+    "frontend/src/utils/pageText.ts",
+    "frontend/src/utils/sessionMarkdown.test.ts",
+    "frontend/src/utils/sessionMarkdown.ts",
+    "frontend/src/views/agent/AgentEditorModal.test.mjs",
+    "frontend/src/views/agent/AgentEditorModal.vue",
+    "frontend/src/views/automation/AutomationEditor.vue",
+    "frontend/src/views/automation/automationEditorLifecycle.test.ts",
+    "frontend/src/views/chat/components/AgentStreamDisplay.vue",
+    "frontend/src/views/knowledge/KnowledgeBase.test.ts",
+    "frontend/src/views/knowledge/KnowledgeBase.vue",
+    "frontend/src/views/knowledge/KnowledgeBaseEditorModal.vue",
+    "frontend/src/views/knowledge/components/FAQEntryManager.import.test.ts",
+    "frontend/src/views/knowledge/components/FAQEntryManager.vue"
+  ],
+  "deleted_files": [
+    "frontend/src/components/css/chat-hljs-dark.less"
+  ],
+  "removed_unit_files": {
+    "frontend/src/components": [
+      "frontend/src/components/css/chat-hljs-dark.less"
+    ]
+  },
+  "extra_unit_files": {
+    "frontend/src/components": [
+      "frontend/src/components/AttachmentUpload.mounted.test.mjs",
+      "frontend/src/components/AttachmentUpload.session.test.mjs",
+      "frontend/src/components/GlobalCommandPalette.keyboard.test.ts",
+      "frontend/src/components/GlobalCommandPalette/useSearch.feedback.test.ts",
+      "frontend/src/components/Input-field.prefill.test.ts",
+      "frontend/src/components/css/chat-hljs-theme.less",
+      "frontend/src/components/css/chat-hljs.test.mjs",
+      "frontend/src/components/manualKnowledgeLoading.test.ts"
+    ],
+    "frontend/src/utils": [
+      "frontend/src/utils/citationMarkdownMath.test.mjs",
+      "frontend/src/utils/markdownPreviewImageFences.test.ts",
+      "frontend/src/utils/markdownTableNormalize.test.ts",
+      "frontend/src/utils/pageFill.test.ts",
+      "frontend/src/utils/pageText.overlap.test.ts"
+    ],
+    "frontend/src/views/automation": [
+      "frontend/src/views/automation/automationEditorLifecycle.test.ts"
+    ],
+    "frontend/src/views/knowledge": [
+      "frontend/src/views/knowledge/components/FAQEntryManager.import.test.ts"
+    ]
+  },
+  "cross_package_notes": [
+    {
+      "file": "frontend/src/embed-main.ts:7 (owned by unit frontend/build-runtime alongside frontend/src/main.ts)",
+      "note": "Upstream extracted --chat-code-* token custom properties out of chat-hljs.less into chat-hljs-theme.less and imported it in main.ts, omitting embed-main.ts; added import '@/components/css/chat-hljs-theme.less' to embed-main.ts so EmbedPage code blocks inherit light/dark syntax-highlight tokens."
+    },
+    {
+      "file": "frontend/src/components/componentLifecycleRaces.test.ts:232-233",
+      "note": "Verified W6 lifecycle regression test asserting manual-knowledge-editor initGeneration fencing passes cleanly alongside all new upstream and Stage 2B tests (3033 passed, 0 failed)."
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "frontend/build-runtime",
+      "wave": "W6",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "frontend/src/main.ts"
+      ],
+      "invariants_checked": [
+        "main.ts installs the offline TDesign icon guard prior to app creation, reconciles auth capabilities via genyee_token before router.isReady(), and logs unhandled errors under [GENYEE] without leaking tokens or host paths.",
+        "Both SPA (main.ts) and embedded widget (embed-main.ts) entrypoints import chat-hljs-theme.less, and zero files in frontend/ reference deleted chat-hljs-dark.less.",
+        "frontend/LICENSE, frontend/THIRD_PARTY_NOTICES.md, and frontend/public/tdesign-icons/** remain byte-identical."
+      ],
+      "findings": [
+        {
+          "id": "UP-FE-005",
+          "severity": "P2",
+          "file": "frontend/src/embed-main.ts:7, frontend/src/main.ts:11, frontend/src/components/css/chat-hljs-theme.less:1-24",
+          "summary": "Upstream moved all --chat-code-* syntax-highlight custom properties from chat-hljs.less into chat-hljs-theme.less and imported it only in main.ts, leaving --chat-code-* undefined in the embedded chat widget entrypoint (embed-main.ts).",
+          "regression_test": "both SPA and embed entrypoints load chat-hljs-theme.less and zero files reference deleted chat-hljs-dark.less",
+          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/components/css/chat-hljs.test.mjs) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/components",
+      "wave": "W6",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "frontend/src/components/AttachmentUpload.mounted.test.mjs",
+        "frontend/src/components/AttachmentUpload.session.test.mjs",
+        "frontend/src/components/AttachmentUpload.vue",
+        "frontend/src/components/ChatReferenceSourceView.test.ts",
+        "frontend/src/components/ChatReferenceSourceView.vue",
+        "frontend/src/components/GlobalCommandPalette.keyboard.test.ts",
+        "frontend/src/components/GlobalCommandPalette.source.test.ts",
+        "frontend/src/components/GlobalCommandPalette.vue",
+        "frontend/src/components/GlobalCommandPalette/useSearch.feedback.test.ts",
+        "frontend/src/components/GlobalCommandPalette/useSearch.ts",
+        "frontend/src/components/GlobalCommandPalette/useStartChat.ts",
+        "frontend/src/components/Input-field.prefill.test.ts",
+        "frontend/src/components/Input-field.vue",
+        "frontend/src/components/css/chat-hljs-theme.less",
+        "frontend/src/components/css/chat-hljs.less",
+        "frontend/src/components/css/chat-hljs.test.mjs",
+        "frontend/src/components/manual-knowledge-editor.vue",
+        "frontend/src/components/manualKnowledgeLoading.test.ts"
+      ],
+      "invariants_checked": [
+        "AttachmentUpload fences upload progress, completion, status polling, and temporary-document deletion with sessionEpoch + disposed + reactive proxy tracking so switching sessions (including A -> B -> A) or unmounting never leaks or revives stale attachments.",
+        "GlobalCommandPalette and useCmdkSearch key KB/agent caches and in-flight discovery/search requests by user:effectiveTenantId, flushing stale results, closing the palette, dismissing any open ChatReferenceSourceView drawer, and cancelling pending focus retry RAF/timers on workspace switch, close, or unmount.",
+        "useStartChat and Input-field deliver prefill queries only after /platform/creatChat navigation succeeds (or duplicates onto the active composer), preserving current drafts on cancelled/redirected navigation and leaving embedded composers untouched.",
+        "manual-knowledge-editor fences initialize, loadKnowledgeBases, loadKnowledgeContent, and handleSave (draft + publish) with initGeneration and disconnects ResizeObserver on unmount so stale loads or saves from closed visits cannot overwrite, unlock, or close a reopened draft.",
+        "ChatReferenceSourceView validates web citation URLs via new URL (http:/https: with non-empty hostname), avoids empty-ID detail requests, refreshes kbName provenance when knowledgeBaseId hydrates on an open document, and increments loadVersion on unmount."
+      ],
+      "findings": [
+        {
+          "id": "UP-FE-001",
+          "severity": "P1",
+          "file": "frontend/src/components/manual-knowledge-editor.vue:100-103,808-910,940-963",
+          "summary": "Upstream renamed W6's initGeneration token to loadVersion (regressing componentLifecycleRaces.test.ts) and left handleSave() unfenced across async getKnowledgeBaseById, uploadConfirmStore.open, updateManualKnowledge, and createManualKnowledge awaits, allowing an in-flight save from a closed visit to overwrite currentKnowledgeId, unlock saving, or close a newly opened draft.",
+          "regression_test": "an old in-flight save success/failure cannot close, unlock, or overwrite a reopened draft",
+          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+        },
+        {
+          "id": "UP-FE-002",
+          "severity": "P1",
+          "file": "frontend/src/components/GlobalCommandPalette/useSearch.ts:70-196,251-264,402-437; frontend/src/components/GlobalCommandPalette.vue:220-233,629-706,730-733",
+          "summary": "GlobalCommandPalette stays mounted across workspace/user switches while useCmdkSearch permanently cached kbsLoaded/agentsLoaded and kept stale fileGroups/messageGroups and open sourceTarget drawers across effectiveTenantId changes; focusInputWithRetry also left RAF/setTimeout callbacks uncanceled on close/unmount.",
+          "regression_test": "workspace switch invalidates cached KBs and drops in-flight cross-workspace search results; workspace or user switch dismisses an open source drawer and closes the palette",
+          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+        },
+        {
+          "id": "UP-FE-006",
+          "severity": "P2",
+          "file": "frontend/src/components/ChatReferenceSourceView.vue:66,169-216,333-339,372-395",
+          "summary": "ChatReferenceSourceView omitted knowledgeBaseId and knowledgeSource from its target watcher, skipped kbName provenance refresh when knowledgeBaseId hydrated on an already open document, accepted hostless 'https://' URLs via regex, called getKnowledgeDetails('') on empty knowledgeId, and lacked an onBeforeUnmount loadVersion fence.",
+          "regression_test": "hydrating knowledgeBaseId on the same document updates provenance and web citations reject hostless URLs",
+          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/components/AttachmentUpload.mounted.test.mjs src/components/AttachmentUpload.session.test.mjs src/components/ChatReferenceSourceView.test.ts src/components/GlobalCommandPalette.keyboard.test.ts src/components/GlobalCommandPalette.source.test.ts src/components/GlobalCommandPalette/useSearch.feedback.test.ts src/components/Input-field.prefill.test.ts src/components/css/chat-hljs.test.mjs src/components/manualKnowledgeLoading.test.ts src/components/componentLifecycleRaces.test.ts) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/i18n",
+      "wave": "W6",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "frontend/src/i18n/locales/en-US.ts",
+        "frontend/src/i18n/locales/ja-JP.ts",
+        "frontend/src/i18n/locales/ko-KR.ts",
+        "frontend/src/i18n/locales/ru-RU.ts",
+        "frontend/src/i18n/locales/zh-CN.ts",
+        "frontend/src/i18n/locales/zh-TW.ts"
+      ],
+      "invariants_checked": [
+        "All 6 locales (en-US, ja-JP, ko-KR, ru-RU, zh-CN, zh-TW) maintain 100% key and interpolation placeholder parity, including new commandPalette.errors.{knowledge,messages} keys and Traditional Chinese terminology normalization ('支援') in zh-TW.ts.",
+        "Zero legacy upstream brand/prefix, mini-program, or host-path residues exist in any locale file."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/i18n/localeKeyAudit.test.ts src/i18n/indexInitAndParity.test.ts src/i18n/embedLocale.test.ts src/i18n/locales/workspaceTerminology.test.ts) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/utils",
+      "wave": "W6",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "frontend/src/utils/agent-tool-display.test.mjs",
+        "frontend/src/utils/agent-tool-display.ts",
+        "frontend/src/utils/automationSchedule.test.ts",
+        "frontend/src/utils/automationSchedule.ts",
+        "frontend/src/utils/citationMarkdown.ts",
+        "frontend/src/utils/citationMarkdownMath.test.mjs",
+        "frontend/src/utils/markdownPreviewImageFences.test.ts",
+        "frontend/src/utils/markdownPreviewImages.ts",
+        "frontend/src/utils/markdownTableNormalize.test.ts",
+        "frontend/src/utils/markdownTableNormalize.ts",
+        "frontend/src/utils/pageFill.test.ts",
+        "frontend/src/utils/pageFill.ts",
+        "frontend/src/utils/pageText.overlap.test.ts",
+        "frontend/src/utils/pageText.test.ts",
+        "frontend/src/utils/pageText.ts",
+        "frontend/src/utils/sessionMarkdown.test.ts",
+        "frontend/src/utils/sessionMarkdown.ts"
+      ],
+      "invariants_checked": [
+        "citationMarkdown escapes all HTML attributes/text, blocks javascript:/data:/vbscript: URLs via URL parsing, preserves blank lines after closing $$ display-math and fenced-code delimiters, and leaves literal <kb/>, <web/>, and [[wiki]] inside variable-length CommonMark fences and inline code spans untouched.",
+        "markdownPreviewImages resolves relative sibling images strictly within normalized knowledge-base folder boundaries, caps paginated folder scans at MAX_PREVIEW_IMAGE_LIST_PAGES = 20, validates generated URLs with isSafePreviewImageHref (revoking rejected blob: URLs immediately), and ignores image syntax inside CommonMark fences, HTML comments, inline code, and indented code.",
+        "markdownTableNormalize repairs MarkItDown spurious empty/separator table prefixes and escaped pipes while leaving pipe-prefixed lines inside CommonMark fenced code blocks untouched.",
+        "sessionMarkdown preserves Markdown hard breaks, fenced code whitespace, and literal <kb/>/<web/> inside code while normalizing and percent-encoding reference http(s) URLs so parentheses/spaces/quotes cannot break out of Markdown links.",
+        "pageFill, pageText, automationSchedule, and agent-tool-display reject overlapping ambiguous text anchors in O(N), preserve user edits on undo, reject DST-skipped/invalid wall-clock schedules while retaining exact one-shot instants, and count distinct knowledge documents accurately."
+      ],
+      "findings": [
+        {
+          "id": "UP-FE-003",
+          "severity": "P1",
+          "file": "frontend/src/utils/sessionMarkdown.ts:1,91-113; frontend/src/utils/citationMarkdown.ts:64-153,480-493; frontend/src/utils/markdownTableNormalize.ts:48-112",
+          "summary": "sessionMarkdown interpolated raw /^https?:\\/\\//i reference URLs into Markdown links without URL parsing or parenthesis/whitespace encoding (allowing 'https://example.com/p) [Click](javascript:alert(1))' link breakout) and stripped literal <kb/>/<web/> inside code blocks; citationMarkdown prematurely closed 4-backtick fences on inner 3-backtick lines and emitted unencoded spaces/unescaped fallback brackets or HTML in stripCitationTagsForMarkdown; markdownTableNormalize mutated pipe-prefixed lines inside fenced code blocks.",
+          "regression_test": "buildSessionMarkdown encodes parentheses and spaces in reference URLs and rejects malformed schemes; buildSessionMarkdown preserves literal <kb/> and <web/> inside inline and fenced code blocks; preserves literal citations inside 4-backtick fences containing 3-backtick lines; stripCitationTagsForMarkdown normalizes URL spaces/quotes and sanitizes fallback bracket labels; pipe-prefixed lines inside CommonMark fenced code blocks are left untouched",
+          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/utils/agent-tool-display.test.mjs src/utils/automationSchedule.test.ts src/utils/citationMarkdownMath.test.mjs src/utils/markdownPreviewImageFences.test.ts src/utils/markdownTableNormalize.test.ts src/utils/pageFill.test.ts src/utils/pageText.overlap.test.ts src/utils/pageText.test.ts src/utils/sessionMarkdown.test.ts src/utils/w6_utils_security.test.ts) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/views/agent",
+      "wave": "W6",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "frontend/src/views/agent/AgentEditorModal.test.mjs",
+        "frontend/src/views/agent/AgentEditorModal.vue"
+      ],
+      "invariants_checked": [
+        "AgentEditorModal requires a Rerank model in smart-reasoning mode only when agentRequiresRerankModel confirms built-in search_knowledge is active alongside knowledge bases, renders prompt actions in non-overlapping footer rows without v-html, and cleans up all popup/catalog/highlight timers on unmount."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/views/agent/AgentEditorModal.test.mjs src/views/agent/agentAuditW6.test.ts) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/views/automation",
+      "wave": "W6",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "frontend/src/views/automation/AutomationEditor.vue",
+        "frontend/src/views/automation/automationEditorLifecycle.test.ts"
+      ],
+      "invariants_checked": [
+        "AutomationEditor fences trigger validation previews with previewSeq + clearTimeout(previewTimer) and fences create/update saves with editorVersion so closing, unmounting, or reopening (including A -> B -> A) cancels pending previews and ignores stale save completions."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/views/automation/automationEditorLifecycle.test.ts) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/views/chat",
+      "wave": "W6",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "frontend/src/views/chat/components/AgentStreamDisplay.vue"
+      ],
+      "invariants_checked": [
+        "AgentStreamDisplay computes search result file counts via countSearchResultFiles (coercing numeric count/fileCount values before strong-tag interpolation), sanitizes streamed Markdown and citation HTML, and removes root click/keydown capture listeners on unmount."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/utils/agent-tool-display.test.mjs) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/views/knowledge",
+      "wave": "W6",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "frontend/src/views/knowledge/KnowledgeBase.test.ts",
+        "frontend/src/views/knowledge/KnowledgeBase.vue",
+        "frontend/src/views/knowledge/KnowledgeBaseEditorModal.vue",
+        "frontend/src/views/knowledge/components/FAQEntryManager.import.test.ts",
+        "frontend/src/views/knowledge/components/FAQEntryManager.vue"
+      ],
+      "invariants_checked": [
+        "KnowledgeBase fences auto-fill viewport pagination with documentPageGeneration + isCurrentKb(currentKbId) and backs off when a page returns no additional rows, preventing infinite auto-pagination loops or cross-KB state pollution.",
+        "KnowledgeBaseEditorModal places Wiki instruction counters and AssistantActionButton in a non-overlapping footer with kbEditorLoadGeneration async fencing and listener cleanup.",
+        "FAQEntryManager enforces a 20 MiB import file size cap, matches extensions case-insensitively, isolates CSV/Excel header records with Object.create(null) against __proto__ pollution, validates JSON array object items, and sanitizes operational fields (answer_strategy, booleans, positive integer tag_id, string lists) while fencing polling by kbSwitchGen + isFaqUnmounted."
+      ],
+      "findings": [
+        {
+          "id": "UP-FE-004",
+          "severity": "P2",
+          "file": "frontend/src/views/knowledge/components/FAQEntryManager.vue:1844-2069",
+          "summary": "FAQEntryManager read arbitrarily large import files into memory without a byte cap, rejected uppercase .JSON/.CSV/.XLSX extensions, stored CSV/Excel row columns in plain {} objects susceptible to __proto__ header collisions, and threw unhandled TypeErrors or forwarded unvalidated answer_strategy/tag_id/non-string-array values on malformed JSON imports.",
+          "regression_test": "FAQ import rejects oversized files, handles uppercase extensions, sanitizes malformed JSON fields, and isolates __proto__ CSV headers",
+          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/views/knowledge/KnowledgeBase.test.ts src/views/knowledge/components/FAQEntryManager.import.test.ts) (exit 0)"
+      ]
+    }
+  ],
+  "summary": {
+    "audited_live_files": 52,
+    "verified_deleted_files": 1,
+    "units_total": 8,
+    "units_with_findings": 4,
+    "units_no_findings": 4,
+    "findings_total": 6,
+    "findings_by_severity": {
+      "P0": 0,
+      "P1": 3,
+      "P2": 3
+    }
+  }
+}
