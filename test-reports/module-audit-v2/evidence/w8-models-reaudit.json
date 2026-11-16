@@ -1,0 +1,758 @@
+{
+  "wave": "W8",
+  "slice": "w8-models-reaudit",
+  "cross_package_notes": [
+    {
+      "file": "internal/models/parity/catalog_baseline_test.go, internal/models/api/*.go, internal/models/chat/..., internal/models/embedding/...",
+      "note": "Verified read-only boundary compatibility across all W4/W5 internal/models packages and downstream imageprep callers (internal/searchutil, internal/reranking): all exported signatures preserved intact, zero W4/W5 files modified, and TestCatalogMigrationBaseline passes unchanged under -race."
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "internal/models",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/models/capabilities.go",
+        "internal/models/legacy_keys.go",
+        "internal/models/model.go",
+        "internal/models/model_type.go"
+      ],
+      "invariants_checked": [
+        "ModelSpec, ModelCost, Capabilities, ExtraConfig key constants, and ParseModelType are pure value types and side-effect-free helpers with zero mutable global state.",
+        "ParseModelType maps chat/embedding/rerank/vlm/asr aliases deterministically without mutating inputs; zero legacy brand or host-path residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/anthropicmessages",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/anthropicmessages/anthropicmessages_test.go",
+        "internal/models/api/anthropicmessages/client.go",
+        "internal/models/api/anthropicmessages/request.go",
+        "internal/models/api/anthropicmessages/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Non-streaming responses read via api.ReadResponseCapped (64 MiB cap) and SSE streams read via bounded api.NewSSEReader; incomplete streamed tool_use blocks are dropped before execution.",
+        "Inline data: base64 image payloads enforce a 20 MiB decoded ceiling before base64.StdEncoding.DecodeString allocates; remote image URLs require http/https with non-empty host.",
+        "URL() preserves Endpoint.Query across all BaseURL shapes, Chat/ChatStream tolerate nil context, and request-creation/transport errors redact URL userinfo and query-string secrets."
+      ],
+      "findings": [
+        {
+          "id": "W8-ANTHROPIC-001",
+          "severity": "P1",
+          "file": "internal/models/api/anthropicmessages/client.go:46-156, internal/models/api/anthropicmessages/request.go:494-518",
+          "summary": "imageSourceFor decoded arbitrary-size data: base64 payloads without a pre-allocation byte ceiling, URL() dropped Endpoint.Query when Endpoint.URL was unset, Chat/ChatStream panicked on nil context, and NewRequest failures leaked URL userinfo/query secrets.",
+          "regression_test": "TestChatNilContextAndSecretRedactionInRequestCreationError, TestURLPreservesEndpointQueryParameters, TestImageSourceForRejectsOversizedBase64BeforeAllocating",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/anthropicmessages (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/anthropicmessages (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/arkembeddings",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/arkembeddings/client.go",
+        "internal/models/api/arkembeddings/golden_test.go",
+        "internal/models/api/arkembeddings/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Responses are bounded via Endpoint.PostJSONWithRetry (64 MiB cap), single-item fusion invariant (len == 1) is enforced for text and image requests, and returned vectors are checked via api.ValidateEmbeddingVectors.",
+        "Nil context is normalized safely and URL userinfo/query-parameter secrets are redacted from request-creation and transport errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-ARKEMBED-001",
+          "severity": "P1",
+          "file": "internal/models/api/arkembeddings/client.go:126-154",
+          "summary": "post returned decoded float32 vectors without running api.ValidateEmbeddingVectors (permitting NaN/Inf values), did not normalize nil context, and leaked URL userinfo/query secrets on NewRequest failures.",
+          "regression_test": "TestEmbedNilContextAndRedactsSecretsInRequestError, TestPostValidatesEmbeddingVectorFinity",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/arkembeddings (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/arkembeddings (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/dashscopeembeddings",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/dashscopeembeddings/client.go",
+        "internal/models/api/dashscopeembeddings/golden_test.go",
+        "internal/models/api/dashscopeembeddings/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Responses are bounded via Endpoint.PostJSONWithRetry and re-indexed/validated via api.PlaceEmbeddings (out-of-range index, duplicate index, empty vector, dimension uniformity, NaN/Inf rejection).",
+        "Empty text/image slices short-circuit without issuing network POSTs, nil context is normalized, and URL userinfo/query secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-DASHSCOPEEMBED-001",
+          "severity": "P2",
+          "file": "internal/models/api/dashscopeembeddings/client.go:90-130",
+          "summary": "Embed and EmbedImages issued empty-contents HTTP POSTs on empty batches, did not normalize nil context, and leaked URL userinfo/query secrets on NewRequest failures.",
+          "regression_test": "TestEmbedEmptyShortCircuitsAndNilContextRedactsSecrets",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/dashscopeembeddings (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/dashscopeembeddings (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/googleembeddings",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/googleembeddings/client.go",
+        "internal/models/api/googleembeddings/golden_test.go",
+        "internal/models/api/googleembeddings/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Model segment in batchEmbedContents URL is path-escaped after stripping optional models/ prefix so ?/#// characters cannot inject query parameters or traverse paths.",
+        "Query-string API keys (?key=...) and URL userinfo credentials are redacted across all request-creation, SSRF, and transport errors.",
+        "Empty text/image batches short-circuit without network calls, nil context is normalized, and responses are validated via api.PlaceEmbeddings."
+      ],
+      "findings": [
+        {
+          "id": "W8-GOOGLEEMBED-001",
+          "severity": "P1",
+          "file": "internal/models/api/googleembeddings/client.go:59-67,131-196",
+          "summary": "url() interpolated Endpoint.Model into the URL path without url.PathEscape (allowing query/fragment/path injection), empty batches issued invalid HTTP POSTs, nil context was not normalized, and NewRequest/url.Error failures leaked ?key= and URL userinfo secrets.",
+          "regression_test": "TestEmbedRedactsQueryKeyAndUserinfoInErrors, TestEmbedEscapesModelSegmentAndShortCircuitsEmptyInputs",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/googleembeddings (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/googleembeddings (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/googlegenai",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/googlegenai/client.go",
+        "internal/models/api/googlegenai/googlegenai_test.go",
+        "internal/models/api/googlegenai/request.go",
+        "internal/models/api/googlegenai/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Non-streaming responses read via api.ReadResponseCapped and SSE streams read via bounded api.NewSSEReader; requestURL path-escapes Model after stripping optional models/ prefix.",
+        "imagePart restricts non-data fileData.fileUri references to http/https/gs schemes with non-empty host (preventing unresolved resource:///local:///file:// URIs from leaking onto the wire) and caps inline data: payloads at 20 MiB.",
+        "Chat/ChatStream normalize nil context and redact ?key= query secrets and URL userinfo across request-creation and transport errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-GOOGLEGENAI-001",
+          "severity": "P1",
+          "file": "internal/models/api/googlegenai/client.go:47-156, internal/models/api/googlegenai/request.go:217-286",
+          "summary": "requestURL interpolated unescaped Endpoint.Model into the URL path, imagePart forwarded unresolved resource:///local:///file:// URIs as fileData.fileUri and lacked a 20 MiB cap on data: payloads, Chat/ChatStream panicked on nil context, and NewRequest errors leaked ?key=/userinfo secrets.",
+          "regression_test": "TestChatRedactsQueryKeyAndUserinfoInRequestCreationError, TestRequestURLEscapesModelNameAndNormalizesPrefix, TestImagePartRejectsUnsafeSchemesAndOversizedDataURI",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/googlegenai (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/googlegenai (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/openaichataudio",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/openaichataudio/client.go",
+        "internal/models/api/openaichataudio/golden_test.go",
+        "internal/models/api/openaichataudio/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "BuildRequestBody rejects empty audio and verifies MaxEncodedBytes against base64.StdEncoding.EncodedLen before allocating the base64 data URI string.",
+        "Responses are bounded via Endpoint.PostJSONWithRetry, non-finite/negative usage.seconds durations are sanitized to 0, nil context is normalized, and URL secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-CHATAUDIO-001",
+          "severity": "P1",
+          "file": "internal/models/api/openaichataudio/client.go:84-165",
+          "summary": "BuildRequestBody base64-encoded req.Audio in full before checking MaxEncodedBytes and accepted empty audio payloads, while Transcribe did not guard nil context, non-finite usage.seconds, or URL secret leaks in NewRequest errors.",
+          "regression_test": "TestBuildRequestBodyRejectsEmptyAudioAndChecksSizeBeforeEncoding, TestTranscribeNilContextAndRedactsSecretsInRequestError",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/openaichataudio (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openaichataudio (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/openaicompletions",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/openaicompletions/client.go",
+        "internal/models/api/openaicompletions/content_parts_test.go",
+        "internal/models/api/openaicompletions/dsml.go",
+        "internal/models/api/openaicompletions/dsml_recovery_test.go",
+        "internal/models/api/openaicompletions/dsml_test.go",
+        "internal/models/api/openaicompletions/golden_test.go",
+        "internal/models/api/openaicompletions/request.go",
+        "internal/models/api/openaicompletions/session_headers_test.go",
+        "internal/models/api/openaicompletions/stream_tool_index_test.go",
+        "internal/models/api/openaicompletions/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Non-streaming responses read via api.ReadResponseCapped and SSE streams read via bounded api.NewSSEReader; dsmlFilter bounds unclosed <｜DSML｜ holdback buffers to 1 MiB.",
+        "Chat/ChatStream normalize nil context before WithLLMTimeout and redact URL userinfo/query secrets across request-creation and transport errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-COMPLETIONS-001",
+          "severity": "P1",
+          "file": "internal/models/api/openaicompletions/client.go:53-118, internal/models/api/openaicompletions/dsml.go:34-98",
+          "summary": "dsmlFilter.Feed buffered unclosed <｜DSML｜ stream output in memory without bound, Chat/ChatStream panicked on nil context, and NewRequest errors leaked URL userinfo/query secrets.",
+          "regression_test": "TestDSMLFilterBoundsUnclosedHeldBuffer, TestChatNilContextAndSecretRedactionInRequestCreationError",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/openaicompletions (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openaicompletions (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/openaiembeddings",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/openaiembeddings/client.go",
+        "internal/models/api/openaiembeddings/golden_test.go",
+        "internal/models/api/openaiembeddings/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Responses are bounded via Endpoint.PostJSONWithRetry and validated via api.PlaceEmbeddings (index range, duplicates, uniform dimensions, NaN/Inf rejection).",
+        "Empty text and image batches short-circuit cleanly across both input-array and messages wire formats, nil context is normalized, and URL secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-OPENAIEMBED-001",
+          "severity": "P2",
+          "file": "internal/models/api/openaiembeddings/client.go:150-240",
+          "summary": "Embed (when TextAsMessages was false) and EmbedImages (object format) sent HTTP POSTs for empty slices instead of short-circuiting like postMessages, did not normalize nil context, and leaked URL secrets on NewRequest failures.",
+          "regression_test": "TestEmbedEmptyShortCircuitsAndNilContextRedactsSecrets",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/openaiembeddings (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openaiembeddings (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/openairesponses",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/openairesponses/client.go",
+        "internal/models/api/openairesponses/openairesponses_test.go",
+        "internal/models/api/openairesponses/refusal_test.go",
+        "internal/models/api/openairesponses/request.go",
+        "internal/models/api/openairesponses/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Non-streaming and streaming incomplete responses (status == \"incomplete\") never report finish_reason == \"tool_calls\", even when incomplete_details is null or carries an unknown reason.",
+        "convertMessages extracts text from system messages carrying MultiContent parts, Chat/ChatStream normalize nil context, and URL secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-RESPONSES-001",
+          "severity": "P1",
+          "file": "internal/models/api/openairesponses/client.go:51-118,202-220, internal/models/api/openairesponses/request.go:75-110",
+          "summary": "rawResponse.finishReason fell through to \"tool_calls\" on non-streaming status==\"incomplete\" responses when incomplete_details was nil or unrecognized (allowing truncated tool-call arguments to execute), convertMessages dropped MultiContent system instructions, Chat/ChatStream panicked on nil context, and NewRequest errors leaked URL secrets.",
+          "regression_test": "TestNonStreamIncompleteResponseWithoutDetailsDoesNotReportToolCalls, TestSystemMessageMultiContentPreservedInInstructions, TestChatRedactsSecretsInRequestCreationError",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/openairesponses (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openairesponses (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/openaitranscriptions",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/openaitranscriptions/client.go",
+        "internal/models/api/openaitranscriptions/golden_test.go",
+        "internal/models/api/openaitranscriptions/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "url() defaults empty Settings.Path to /audio/transcriptions, and Transcribe enforces non-empty audio and Settings.MaxFileBytes before api.EncodeMultipart copies upload bytes.",
+        "Responses are bounded via PostMultipartWithRetry, negative/non-finite durations and segment timestamps are sanitized to 0, nil context is normalized, and URL secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-TRANSCRIPTIONS-001",
+          "severity": "P1",
+          "file": "internal/models/api/openaitranscriptions/client.go:38-52,88-160",
+          "summary": "url() resolved to BaseURL root when Settings.Path was empty instead of /audio/transcriptions, Transcribe buffered multipart payloads before checking MaxFileBytes, accepted negative/non-finite durations, did not normalize nil context, and leaked URL secrets on NewRequest errors.",
+          "regression_test": "TestDefaultPathMaxFileBytesAndNilContextSecretRedaction",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/openaitranscriptions (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openaitranscriptions (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/pineconerank",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/pineconerank/client.go",
+        "internal/models/api/pineconerank/golden_test.go",
+        "internal/models/api/pineconerank/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Responses are bounded via Endpoint.PostJSON and validate non-nil data array, exact score count, in-bounds non-duplicate indexes, and finite (non-NaN/Inf) scores.",
+        "Empty document slices short-circuit without issuing TopN:0 HTTP POSTs, nil context is normalized, and URL userinfo/query secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-PINECONE-001",
+          "severity": "P2",
+          "file": "internal/models/api/pineconerank/client.go:95-155",
+          "summary": "Rerank sent invalid TopN:0 HTTP POSTs on empty document slices, lacked explicit finite-score checks and nil-context normalization, and leaked URL secrets on NewRequest errors.",
+          "regression_test": "TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/pineconerank (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/pineconerank (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/teirank",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/teirank/client.go",
+        "internal/models/api/teirank/golden_test.go",
+        "internal/models/api/teirank/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Responses are bounded via Endpoint.PostJSON and validate exact rank count, in-bounds non-duplicate indexes, and non-nil finite scores.",
+        "Empty document slices short-circuit without issuing empty texts:[] HTTP POSTs, nil context is normalized, and URL userinfo/query secrets are redacted from errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-TEIRANK-001",
+          "severity": "P2",
+          "file": "internal/models/api/teirank/client.go:73-125",
+          "summary": "Rerank issued HTTP POSTs on empty document slices, lacked finite-score guards and nil-context normalization, and leaked URL secrets on NewRequest errors.",
+          "regression_test": "TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/teirank (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/teirank (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/api/volcengineknowledge",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/api/volcengineknowledge/client.go",
+        "internal/models/api/volcengineknowledge/client_test.go"
+      ],
+      "invariants_checked": [
+        "BaseURL is validated for http/https scheme, non-empty host, absence of userinfo/query/fragment, and secutils.ValidateURLForSSRF; empty BaseURL preserves the SDK's default endpoint.",
+        "Underlying vikingdb-go-sdk HTTP client is wrapped in cappedRoundTripper + cappedReadCloser enforcing api.MaxResponseBytes (64 MiB) on both Content-Length and chunked streams without retrying oversized responses.",
+        "Rerank normalizes nil context, short-circuits empty document slices without RPCs, rejects NaN/Inf scores, and redacts SecretKey and URL secrets from all returned errors."
+      ],
+      "findings": [
+        {
+          "id": "W8-VOLCKNOWLEDGE-001",
+          "severity": "P1",
+          "file": "internal/models/api/volcengineknowledge/client.go:38-295",
+          "summary": "New overwrote the SDK default endpoint when BaseURL was empty and skipped scheme/userinfo/SSRF validation when set; SDK responses were read via unbounded io.ReadAll without a 64 MiB cap; Rerank lacked nil-context and empty-batch guards, finite-score validation, and SecretKey/URL redaction on errors.",
+          "regression_test": "TestNewValidatesBaseURLAndRedactsSecrets, TestRerankNilContextAndEmptyDocumentsShortCircuit, TestRerankCapsOversizedResponsesWithoutRetrying, TestRerankRedactsSecretKeyInError",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/volcengineknowledge (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/volcengineknowledge (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/asr",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/asr/asr.go",
+        "internal/models/asr/catalog_matrix_test.go",
+        "internal/models/asr/config_from_model_test.go",
+        "internal/models/asr/langfuse_wrapper.go",
+        "internal/models/asr/protocol.go",
+        "internal/models/asr/transport.go",
+        "internal/models/asr/w8_audit_test.go",
+        "internal/models/asr/wire_test.go"
+      ],
+      "invariants_checked": [
+        "Both resolved.BaseURL and endpoint.URL are SSRF-validated via validateASRBaseURL with URL userinfo/query secrets redacted in errors and [ASR] request logs.",
+        "protocolASR enforces vendor MaxFileBytes (or a 100 MiB fallback ceiling for generic endpoints) before multipart encoding, normalizes nil context in WithLanguage/languageFrom/Transcribe, and sanitizes non-finite/negative durations before Langfuse JSON reporting.",
+        "ConfigFromModel clones ExtraConfig and CustomHeaders maps so caller mutations never alias shared types.Model parameters."
+      ],
+      "findings": [
+        {
+          "id": "W8-ASR-001",
+          "severity": "P1",
+          "file": "internal/models/asr/asr.go:31-47,73-93, internal/models/asr/protocol.go:129-185, internal/models/asr/transport.go:11-36, internal/models/asr/langfuse_wrapper.go:45-71",
+          "summary": "WithLanguage/languageFrom panicked on nil context, ConfigFromModel aliased ExtraConfig and CustomHeaders maps, generic endpoints with MaxFileBytes==0 had no upload size ceiling, non-finite durations poisoned Langfuse JSON/integer conversion, and validateASRBaseURL/logs echoed unredacted URL secrets.",
+          "regression_test": "TestWithLanguageNilContextAndConfigFromModelMapIsolation, TestValidateASRBaseURLRedactsSecretsAndSanitizesDuration",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/asr (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/asr (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/catalog",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/models/catalog/catalog.go",
+        "internal/models/catalog/loader.go"
+      ],
+      "invariants_checked": [
+        "Embedded catalog JSON files are parsed once via sync.Once with DisallowUnknownFields(), and New, Models, ModelsByType, and FindModel deep-copy entries via configcopy.Clone so callers cannot mutate catalog state.",
+        "Glob matching in matchPattern uses iterative two-pointer backtracking with zero exponential regex/recursion behavior and zero legacy brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/catalog (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/catalog (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/imageprep",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/imageprep/prepare.go",
+        "internal/models/imageprep/prepare_test.go"
+      ],
+      "invariants_checked": [
+        "Decompression bombs are blocked before image.Decode via maxImagePixels (40,000,000) and maxImageSide (32,768), and recognized formats with corrupt/truncated headers are rejected even on the pass-through path.",
+        "LimitsOf clones ImageMIMETypes slice so callers cannot mutate vendor settings."
+      ],
+      "findings": [
+        {
+          "id": "W8-IMAGEPREP-001",
+          "severity": "P2",
+          "file": "internal/models/imageprep/prepare.go:75-92",
+          "summary": "Prepare ignored non-ErrFormat image.DecodeConfig errors on the fast pass-through path, forwarding truncated or corrupt PNG/JPEG/GIF/BMP/WebP headers to upstream vision/embedding endpoints when MIME and byte length matched.",
+          "regression_test": "TestPrepareImageRejectsCorruptHeaderOnPassThrough",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/imageprep (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/imageprep (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/internal/configcopy",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/internal/configcopy/copy.go",
+        "internal/models/internal/configcopy/copy_test.go"
+      ],
+      "invariants_checked": [
+        "Clone deep-copies pointers, interfaces, slices, maps, and exported struct fields recursively while preserving scalar and unexported struct fields without reflect.Value.Set panics."
+      ],
+      "findings": [
+        {
+          "id": "W8-CONFIGCOPY-001",
+          "severity": "P2",
+          "file": "internal/models/internal/configcopy/copy.go:53-61",
+          "summary": "cloneValue called out.Field(i).Set(...) unconditionally on every struct field, panicking with reflect.Value.Set unaddressable/unexported error if any copied struct contained an unexported field.",
+          "regression_test": "TestCloneDeepCopiesExportedContainersAndSurvivesUnexportedFields",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/internal/configcopy (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/internal/configcopy (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/limiter",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/limiter/governor.go",
+        "internal/models/limiter/governor_test.go",
+        "internal/models/limiter/heartbeat_test.go",
+        "internal/models/limiter/limiter.go",
+        "internal/models/limiter/limiter_test.go",
+        "internal/models/limiter/local_limit_update_test.go",
+        "internal/models/limiter/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Both localLimiter and redisLimiter fail open on backend errors or context cancellation, release slots idempotently via sync.Once, and run race-free under concurrent limit updates and -race.",
+        "GateNamedN, RuntimeStats, localLimiter.Acquire, and redisLimiter.Acquire/RuntimeStats normalize nil context safely; redisLimiter guards non-positive ttl/pollInterval and bounds detached heartbeat/release Redis RPCs with 5s timeouts."
+      ],
+      "findings": [
+        {
+          "id": "W8-LIMITER-001",
+          "severity": "P1",
+          "file": "internal/models/limiter/governor.go:60-98,125-140, internal/models/limiter/limiter.go:117-265",
+          "summary": "GateNamedN, RuntimeStats, localLimiter.Acquire, and redisLimiter.Acquire/RuntimeStats panicked on nil context, redisLimiter.hold panicked in time.NewTicker(l.ttl/3) when ttl < 3ns or busy-spun when pollInterval <= 0, and background lease refresh/release Redis calls used unbounded context.Background().",
+          "regression_test": "TestNilContextAndZeroDurationSafetyAcrossLimiters",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/limiter (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/limiter (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/providers",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/providers/aliyun.go",
+        "internal/models/providers/anthropic.go",
+        "internal/models/providers/azure_openai.go",
+        "internal/models/providers/builtin.go",
+        "internal/models/providers/cohere.go",
+        "internal/models/providers/cohere_test.go",
+        "internal/models/providers/compat.go",
+        "internal/models/providers/deepseek.go",
+        "internal/models/providers/definition.go",
+        "internal/models/providers/gemini.go",
+        "internal/models/providers/generic.go",
+        "internal/models/providers/gpustack.go",
+        "internal/models/providers/huggingface_tei.go",
+        "internal/models/providers/hunyuan.go",
+        "internal/models/providers/jina.go",
+        "internal/models/providers/litellm.go",
+        "internal/models/providers/lkeap.go",
+        "internal/models/providers/longcat.go",
+        "internal/models/providers/mimo.go",
+        "internal/models/providers/minimax.go",
+        "internal/models/providers/modelscope.go",
+        "internal/models/providers/moonshot.go",
+        "internal/models/providers/novita.go",
+        "internal/models/providers/nvidia.go",
+        "internal/models/providers/openai.go",
+        "internal/models/providers/openrouter.go",
+        "internal/models/providers/pinecone.go",
+        "internal/models/providers/providers_test.go",
+        "internal/models/providers/qianfan.go",
+        "internal/models/providers/qiniu.go",
+        "internal/models/providers/requesty.go",
+        "internal/models/providers/runcrate.go",
+        "internal/models/providers/runcrate_test.go",
+        "internal/models/providers/siliconflow.go",
+        "internal/models/providers/volcengine.go",
+        "internal/models/providers/w8_audit_test.go",
+        "internal/models/providers/zhipu.go"
+      ],
+      "invariants_checked": [
+        "All 34 vendor definitions register deterministic metadata, auth styles, endpoint hooks, and GenyeeCloud-compliant branding with zero legacy brand/prefix residues.",
+        "Definition receiver methods handle nil receivers without panicking, and CredentialLabelFor returns a deep-cloned CredentialLabel so callers cannot mutate registered provider definitions."
+      ],
+      "findings": [
+        {
+          "id": "W8-PROVIDERS-001",
+          "severity": "P2",
+          "file": "internal/models/providers/definition.go:101-120,238-310",
+          "summary": "Definition methods (SupportsType, LocalizedName, LocalizedDescription, CredentialLabelFor, AuthStyleFor, ValidateConfig) panicked on nil receivers unlike GetDefaultURL, and CredentialLabelFor returned a pointer into the internal CredentialLabels slice.",
+          "regression_test": "TestDefinitionNilReceiverSafetyAndCredentialLabelIsolation",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/providers (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/providers (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/rerank",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/rerank/catalog_matrix_test.go",
+        "internal/models/rerank/cohere_test.go",
+        "internal/models/rerank/config_from_model_test.go",
+        "internal/models/rerank/image.go",
+        "internal/models/rerank/image_wire_test.go",
+        "internal/models/rerank/langfuse_wrapper.go",
+        "internal/models/rerank/lkeap_reranker.go",
+        "internal/models/rerank/llm_debug.go",
+        "internal/models/rerank/logging.go",
+        "internal/models/rerank/passage_limit_test.go",
+        "internal/models/rerank/protocol.go",
+        "internal/models/rerank/protocol_test.go",
+        "internal/models/rerank/provider_detection_test.go",
+        "internal/models/rerank/reranker.go",
+        "internal/models/rerank/reranker_test.go",
+        "internal/models/rerank/sdk_clients_test.go",
+        "internal/models/rerank/transport.go",
+        "internal/models/rerank/transport_security_test.go",
+        "internal/models/rerank/volcengine_reranker.go",
+        "internal/models/rerank/w8_audit_test.go",
+        "internal/models/rerank/wire_test.go"
+      ],
+      "invariants_checked": [
+        "newReranker validates both resolved.BaseURL and endpoint.URL against SSRF with URL secrets redacted in errors and debug request previews.",
+        "protocolReranker.Rerank and RerankImages bound concurrency via errgroup.SetLimit, normalize nil context, and reject out-of-range, duplicate, or non-finite (NaN/Inf) scores before logistic scaling and sort.SliceStable.",
+        "ConfigFromModel clones ExtraConfig and CustomHeaders maps, and newVolcengineClient guards nil config/resolved and honors Rerank.RequestTimeout."
+      ],
+      "findings": [
+        {
+          "id": "W8-RERANK-001",
+          "severity": "P1",
+          "file": "internal/models/rerank/protocol.go:37-100, internal/models/rerank/image.go:72-125, internal/models/rerank/reranker.go:142-200, internal/models/rerank/logging.go:24-30, internal/models/rerank/transport.go:11-36, internal/models/rerank/volcengine_reranker.go:18-48",
+          "summary": "protocolReranker.Rerank and RerankImages panicked on nil context and accepted NaN/Inf scores (breaking sort.SliceStable weak ordering and poisoning Langfuse stats), newReranker skipped SSRF validation on endpoint.URL, ConfigFromModel aliased maps, newVolcengineClient dereferenced nil config/resolved, and debug/SSRF helpers echoed URL secrets.",
+          "regression_test": "TestProtocolRerankerNilContextAndRejectsNonFiniteScores, TestConfigFromModelMapIsolationAndDebugRedaction",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/rerank (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/rerank (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/runtime",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/runtime/catalog_test.go",
+        "internal/models/runtime/compat.go",
+        "internal/models/runtime/connection.go",
+        "internal/models/runtime/icon_test.go",
+        "internal/models/runtime/layers.go",
+        "internal/models/runtime/legacy.go",
+        "internal/models/runtime/legacy_rows_test.go",
+        "internal/models/runtime/overlay.go",
+        "internal/models/runtime/overlay_test.go",
+        "internal/models/runtime/refactor_test.go",
+        "internal/models/runtime/registry.go",
+        "internal/models/runtime/registry_test.go",
+        "internal/models/runtime/resolve.go",
+        "internal/models/runtime/runtime.go",
+        "internal/models/runtime/snapshot.go",
+        "internal/models/runtime/validate.go",
+        "internal/models/runtime/validate_test.go",
+        "internal/models/runtime/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "Resolve deep-copies Vendor, ThinkingLevels (*string pointers), Spec.Input, and Capabilities().Input so caller mutations never corrupt live Runtime provider generations under concurrent access.",
+        "loadOverlayIcon enforces relative-path confinement via EvalSymlinks, 256 KiB size cap, SVG root element check, and rejects XML <!ENTITY (XXE), <script>, <foreignObject>, javascript: URIs, and event-handler attributes.",
+        "DecodeCompat, upsertOverlayModel, and applyOverlayProvider reject trailing JSON tokens and non-object model_overrides.*.compat payloads while guarding nil Resolved/Provider receivers."
+      ],
+      "findings": [
+        {
+          "id": "W8-RUNTIME-001",
+          "severity": "P1",
+          "file": "internal/models/runtime/resolve.go:129-145,275-310, internal/models/runtime/overlay.go:188-370,475-555, internal/models/runtime/compat.go:61-75, internal/models/runtime/connection.go:25-30, internal/models/runtime/registry.go:23-45",
+          "summary": "Resolve copied *string pointers from live uncloned vendor.ThinkingLevels without cloning (allowing callers to mutate shared registry state concurrently) and aliased Spec.Input in Capabilities(); loadOverlayIcon allowed SVG <!ENTITY (XXE) and <script>/onload/javascript: XSS payloads; DecodeCompat/upsertOverlayModel accepted trailing JSON tokens and applyPatch silently ignored malformed model_overrides.*.compat.",
+          "regression_test": "TestResolveThinkingLevelsAndCapabilitiesInputAreIsolatedFromRegistry, TestLoadOverlayIconRejectsXXEEntityAndScriptPayloads, TestDecodeCompatAndOverlayRejectTrailingTokensAndMalformedOverrideCompat",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/runtime (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/runtime (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/utils",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "internal/models/utils/slices.go",
+        "internal/models/utils/slices_test.go"
+      ],
+      "invariants_checked": [
+        "ChunkSlice and MapSlice handle empty slices, non-positive chunkSize, overflow-safe slice preallocation (1 + (len-1)/chunkSize), and callback panic propagation cleanly."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/utils (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/utils (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "internal/models/vlm",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "internal/models/vlm/concurrency_wrapper.go",
+        "internal/models/vlm/config_from_model_test.go",
+        "internal/models/vlm/langfuse_wrapper.go",
+        "internal/models/vlm/langfuse_wrapper_test.go",
+        "internal/models/vlm/llm_debug.go",
+        "internal/models/vlm/ollama.go",
+        "internal/models/vlm/ollama_test.go",
+        "internal/models/vlm/remote_api.go",
+        "internal/models/vlm/remote_api_max_tokens_test.go",
+        "internal/models/vlm/remote_api_reasoning_test.go",
+        "internal/models/vlm/remote_api_temperature_test.go",
+        "internal/models/vlm/spec_override_test.go",
+        "internal/models/vlm/transport.go",
+        "internal/models/vlm/transport_security_test.go",
+        "internal/models/vlm/vlm.go",
+        "internal/models/vlm/w8_audit_test.go"
+      ],
+      "invariants_checked": [
+        "NewVLM, NewRemoteAPIVLM, and NewOllamaVLM guard nil Config without panicking; ConfigFromModel clones CustomHeaders while preserving Spec pointer identity.",
+        "RemoteAPIVLM and OllamaVLM normalize nil context, enforce 20 MiB per-image and 64 MiB total-request byte caps plus 40M-pixel/32768-side decompression-bomb checks before base64 encoding, reject non-finite/negative temperature overrides, and redact URL secrets in validateVLMBaseURL."
+      ],
+      "findings": [
+        {
+          "id": "W8-VLM-001",
+          "severity": "P1",
+          "file": "internal/models/vlm/vlm.go:93-97,125-136, internal/models/vlm/remote_api.go:70-105,135-220, internal/models/vlm/ollama.go:20-52, internal/models/vlm/transport.go:11-36",
+          "summary": "NewVLM/NewRemoteAPIVLM/NewOllamaVLM panicked on nil config, PredictWithOptions panicked on nil context and lacked per-image/total byte caps and pixel-bomb dimension checks before base64 allocation, NewRemoteAPIVLM accepted NaN/Inf temperature strings, ConfigFromModel aliased CustomHeaders, and validateVLMBaseURL echoed URL secrets.",
+          "regression_test": "TestNilConfigConstructorsReturnErrorInsteadOfPanicking, TestConfigFromModelClonesCustomHeadersWhilePreservingSpecPointer, TestRemoteAPIVLMGuardsImageBoundsNilContextAndNonFiniteTemperature",
+          "commit": "eae20495c00f4264787ef66bf54c5e97b1320fe9"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go vet -p 1 ./internal/models/vlm (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/vlm (exit 0)"
+      ]
+    }
+  ]
+}
