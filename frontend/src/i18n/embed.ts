@@ -1,4 +1,5 @@
 import { createI18n } from 'vue-i18n'
+import { pluralRules } from './pluralizationRules.ts'
 
 const messages = {
   "zh-CN": {
@@ -2786,6 +2787,7 @@ const i18n = createI18n({
   locale,
   fallbackLocale: 'en-US',
   globalInjection: true,
+  pluralRules,
   warnHtmlMessage: false,
   messages: EMBED_MESSAGES,
 })

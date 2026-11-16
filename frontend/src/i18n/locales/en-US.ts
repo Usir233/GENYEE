@@ -3545,7 +3545,7 @@ export default {
     name: 'Name',
     nameDesc: 'For admin lists and channel identification',
     namePlaceholder: 'e.g. Website support',
-    nameDefaultHint: 'Defaults to "{agent} · Web Embed" when an agent is selected. Leave blank on save to use the default name.',
+    nameDefaultHint: 'Defaults to "<Agent name> · Web Embed" when an agent is selected. Leave blank on save to use the default name.',
     defaultChannelName: 'Web Embed',
     defaultChannelNameWithAgent: '{agent} · Web Embed',
     welcomeMessage: 'Welcome message',

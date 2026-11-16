@@ -81,17 +81,33 @@ import IntegrationExternalCta from './IntegrationExternalCta.vue'
 import { buildCLIConnectCommand } from './cliIntegration'
 
 const { apiBaseUrlDisplay } = useApiBaseUrlDisplay()
-const githubUrl = computed(() => ((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim().replace(/\/+$/, ''))
-const steps = computed(() => [
-  {
-    key: 'install',
-    command: githubUrl.value
-      ? `git clone ${githubUrl.value}.git\ncd GENYEE/cli\ngo build -o genyee .\nexport PATH="$PWD:$PATH"`
-      : 'cd ./cli\ngo build -o genyee .\nexport PATH="$PWD:$PATH"',
-  },
-  { key: 'connect', command: buildCLIConnectCommand(apiBaseUrlDisplay.value, window.location.origin) },
-  { key: 'verify', command: 'genyee doctor\ngenyee kb list' },
-])
+const githubUrl = computed(() => {
+  const raw = ((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim().replace(/\/+$/, '').replace(/\.git$/i, '')
+  if (!raw) return ''
+  try {
+    const parsed = new URL(raw)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return ''
+    return `${parsed.origin}${parsed.pathname}`.replace(/\/+$/, '').replace(/\.git$/i, '')
+  } catch {
+    return ''
+  }
+})
+const steps = computed(() => {
+  const cloneTarget = githubUrl.value ? `${githubUrl.value}.git` : ''
+  const safeCloneTarget = /^[A-Za-z0-9._~:/%+-]+$/.test(cloneTarget)
+    ? cloneTarget
+    : `'${cloneTarget.replace(/'/g, `'\\''`)}'`
+  return [
+    {
+      key: 'install',
+      command: githubUrl.value
+        ? `git clone ${safeCloneTarget}\ncd GENYEE/cli\ngo build -o genyee .\nexport PATH="$PWD:$PATH"`
+        : 'cd ./cli\ngo build -o genyee .\nexport PATH="$PWD:$PATH"',
+    },
+    { key: 'connect', command: buildCLIConnectCommand(apiBaseUrlDisplay.value, window.location.origin) },
+    { key: 'verify', command: 'genyee doctor\ngenyee kb list' },
+  ]
+})
 const examples = [
   {
     key: 'commands',

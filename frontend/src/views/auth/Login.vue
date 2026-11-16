@@ -96,7 +96,7 @@
     </div>
 
     <!-- Logo - Top Left -->
-    <a v-if="githubUrl || websiteUrl" :href="githubUrl || websiteUrl" target="_blank" class="header-logo" :title="$t('common.website')">
+    <a v-if="githubUrl || websiteUrl" :href="githubUrl || websiteUrl" target="_blank" rel="noopener noreferrer" class="header-logo" :title="$t('common.website')">
       <img src="@/assets/img/genyee.png" alt="GENYEE" class="logo-image" />
     </a>
     <div v-else class="header-logo">
@@ -105,7 +105,7 @@
 
     <!-- Header Links - Top Right -->
     <div class="header-links">
-      <a v-if="websiteUrl" :href="websiteUrl" target="_blank" class="header-link" :title="$t('common.website')">
+      <a v-if="websiteUrl" :href="websiteUrl" target="_blank" rel="noopener noreferrer" class="header-link" :title="$t('common.website')">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
           stroke-linecap="round">
           <circle cx="12" cy="12" r="10" />
@@ -115,7 +115,7 @@
         <span class="link-text">{{ $t('common.website') }}</span>
       </a>
 
-      <a v-if="githubUrl" :href="githubUrl" target="_blank" class="header-link" :title="$t('common.info')">
+      <a v-if="githubUrl" :href="githubUrl" target="_blank" rel="noopener noreferrer" class="header-link" :title="$t('common.info')">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor">
           <path
             d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z" />
@@ -381,18 +381,30 @@ const authStore = useAuthStore()
 const { t, tm, locale } = useI18n()
 const { formatRole, roleIcon } = useRoleLabel()
 
+const safeHttpUrl = (raw: unknown): string => {
+  if (typeof raw !== 'string') return ''
+  const trimmed = raw.trim()
+  if (!trimmed) return ''
+  try {
+    const base = typeof window !== 'undefined' ? window.location?.origin : undefined
+    const parsed = new URL(trimmed, base && base !== 'null' ? base : 'https://localhost')
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? trimmed : ''
+  } catch {
+    return ''
+  }
+}
+
 const runtimeConfig = typeof window !== 'undefined' ? (window as any).__RUNTIME_CONFIG__ : undefined
 const websiteUrl = computed(() => {
   const configured = runtimeConfig?.WEBSITE_URL
   if (typeof configured === 'string') {
-    return configured.trim()
+    const trimmed = configured.trim()
+    if (!trimmed) return ''
+    return safeHttpUrl(trimmed) || docsUrl('home')
   }
   return docsUrl('home')
 })
-const githubUrl = computed(() => {
-  const configured = runtimeConfig?.GITHUB_URL
-  return typeof configured === 'string' ? configured.trim() : ''
-})
+const githubUrl = computed(() => safeHttpUrl(runtimeConfig?.GITHUB_URL))
 
 // Swiper modules
 const modules = [Autoplay, EffectFade, Pagination]
@@ -566,6 +578,13 @@ const persistLoginResponse = async (response: any, skipRedirect = false) => {
   // JWT, defaulting to the user's home tenant on a fresh login.
   const activeTenant = response.active_tenant || response.tenant
   if (response.user && response.token) {
+    // Purge any stale previous account session or cached settings before persisting new credentials.
+    authStore.logout()
+    try {
+      localStorage.removeItem('GENYEE_settings')
+    } catch {
+      // Ignore storage access errors in restricted environments.
+    }
     // user.tenant_id must be the user's HOME tenant (the immutable row
     // on the users table); useHomeTenant() and the home-badge logic both
     // assume so. The ACTIVE tenant (which can differ from home when the
@@ -645,7 +664,8 @@ const handleOIDCLogin = async () => {
     const response = await getOIDCAuthorizationURL(getBackendOIDCRedirectURI())
     const authorizationURL = response.authorization_url
 
-    if (!response.success || !authorizationURL) {
+    const safeAuthURL = safeHttpUrl(authorizationURL)
+    if (!response.success || !safeAuthURL) {
       MessagePlugin.error(response.message || t('auth.oidcLoginFailed'))
       return
     }
@@ -654,7 +674,7 @@ const handleOIDCLogin = async () => {
     if (inviteToken.value) {
       sessionStorage.setItem('genyee_pending_invite_token', inviteToken.value)
     }
-    window.location.href = authorizationURL
+    window.location.href = safeAuthURL
   } catch (error: any) {
     console.error('OIDC 登录跳转失败:', error)
     MessagePlugin.error(error.message || t('auth.oidcLoginFailed'))
@@ -808,10 +828,13 @@ onMounted(async () => {
       inviteLookupLoading.value = false
     }
 
-    // 2. 已登录则直接兑换 token 进入空间（三种模式通用）。
-    if (authStore.isLoggedIn && (await authStore.refreshFromAuthMe())) {
-      await acceptAndEnter(tokenFromQuery)
-      return
+    // 2. 已登录则直接兑换 token 进入空间（三种模式通用）；若会话已失效则清理残留态。
+    if (authStore.isLoggedIn) {
+      if (await authStore.refreshFromAuthMe()) {
+        await acceptAndEnter(tokenFromQuery)
+        return
+      }
+      authStore.logout()
     }
 
     // 3. Only enabled registration modes may create an invited account.
@@ -830,8 +853,9 @@ onMounted(async () => {
   try {
     const response = await autoSetup()
     if (response.success) {
+      await persistLoginResponse(response, true)
       authStore.setLiteMode(true)
-      await persistLoginResponse(response)
+      router.replace(authStore.hasValidTenant ? '/platform/knowledge-bases' : '/onboarding/workspace')
       return
     }
   } catch {

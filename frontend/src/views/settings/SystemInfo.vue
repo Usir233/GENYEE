@@ -271,7 +271,16 @@ const troubleshootingDocsURL = docsUrl('troubleshootingMigrations')
 // Pre-fills a new issue with the current migration error so users don't have to
 // paste it manually. Body is intentionally minimal — the bug template will fill
 // in the rest. Encode aggressively to survive newlines / quotes.
-const githubUrl = computed(() => ((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim().replace(/\/+$/, ''))
+const githubUrl = computed(() => {
+  const raw = ((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim().replace(/\/+$/, '')
+  if (!raw) return ''
+  try {
+    const parsed = new URL(raw)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? raw : ''
+  } catch {
+    return ''
+  }
+})
 
 const reportIssueURL = computed(() => {
   if (!githubUrl.value) return ''

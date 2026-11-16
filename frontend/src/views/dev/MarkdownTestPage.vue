@@ -122,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import 'katex/dist/katex.min.css';
 import { sanitizeMarkdownHTML } from '@/utils/security';
 import {
@@ -463,7 +463,10 @@ const startStream = () => {
   let idx = 0;
   const tick = () => {
     if (idx >= fullStreamText.length) {
-      if (streamTimer) clearInterval(streamTimer);
+      if (streamTimer) {
+        clearInterval(streamTimer);
+        streamTimer = null;
+      }
       isStreaming.value = false;
       return;
     }
@@ -473,7 +476,10 @@ const startStream = () => {
 };
 
 const resetStream = () => {
-  if (streamTimer) clearInterval(streamTimer);
+  if (streamTimer) {
+    clearInterval(streamTimer);
+    streamTimer = null;
+  }
   streamBuffer.value = '';
   streamMermaidSvgHtml.value = [];
   streamMermaidRenderTask = null;
@@ -511,6 +517,17 @@ watch(customInput, () => {
     customMermaidTimer = null;
     void refreshMermaid(customContainer.value);
   }, 200);
+});
+
+onBeforeUnmount(() => {
+  if (streamTimer) {
+    clearInterval(streamTimer);
+    streamTimer = null;
+  }
+  if (customMermaidTimer) {
+    clearTimeout(customMermaidTimer);
+    customMermaidTimer = null;
+  }
 });
 </script>
 

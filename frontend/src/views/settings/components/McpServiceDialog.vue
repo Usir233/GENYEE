@@ -697,12 +697,30 @@ async function startAuthorize(serviceId: string) {
       frontend_redirect: frontendRedirect,
     })
     if (!isCurrentOAuthRequest(generation, serviceId)) return
-    if (!authorization.authorizationUrl || !authorization.authorizationAttempt) {
+    let safeAuthorizationUrl = ''
+    if (authorization.authorizationUrl) {
+      try {
+        const parsed = new URL(authorization.authorizationUrl)
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          safeAuthorizationUrl = authorization.authorizationUrl
+        }
+      } catch {
+        safeAuthorizationUrl = ''
+      }
+    }
+    if (!safeAuthorizationUrl || !authorization.authorizationAttempt) {
       MessagePlugin.error(t('mcpServiceDialog.toasts.authorizeFailed', '发起授权失败') as string)
       oauthAuthorizing.value = false
       return
     }
-    const popup = window.open(authorization.authorizationUrl, 'mcp_oauth', 'width=600,height=720')
+    const popup = window.open(safeAuthorizationUrl, 'mcp_oauth', 'width=600,height=720')
+    if (popup) {
+      try {
+        popup.opener = null
+      } catch {
+        /* ignore read-only opener in restricted environments */
+      }
+    }
     // Poll for completion: either the popup closes or the status flips.
     oauthPollTimer = window.setInterval(async () => {
       if (!isCurrentOAuthRequest(generation, serviceId)) return

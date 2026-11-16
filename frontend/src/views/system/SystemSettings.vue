@@ -168,9 +168,9 @@
                       @update:model-value="onSsrfWhitelistModelUpdate" />
                   </div>
                 </t-popconfirm>
-                <t-input v-else v-model="editValues[item.key]" :placeholder="placeholderFor(item)"
-                  :aria-label="keyLabel(item.key)" :disabled="savingKey === item.key" class="setting-input" clearable
-                  @blur="onChange(item)" />
+                <t-input v-else v-model="editValues[item.key]" :type="item.is_secret ? 'password' : 'text'"
+                  :placeholder="placeholderFor(item)" :aria-label="keyLabel(item.key)"
+                  :disabled="savingKey === item.key" class="setting-input" clearable @blur="onChange(item)" />
 
                 <!--
             Per-row saving spinner. Appears next to the control while
@@ -621,6 +621,10 @@ function formatDate(isoString: string): string {
 function placeholderFor(item: SystemSettingItem): string {
   const v = item.value
   if (v === null || v === undefined) return ''
+  if (item.is_secret) {
+    const str = Array.isArray(v) ? v.join(', ') : String(v)
+    return str ? '••••••••' : ''
+  }
   if (Array.isArray(v)) return v.join(', ')
   return String(v)
 }

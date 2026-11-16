@@ -132,8 +132,11 @@ const capabilityIcons: Record<(typeof capabilityKeys)[number], string> = {
 const installCommand = 'genyee skills install'
 
 const envExample = computed(() => {
-  const base = apiBaseUrlDisplay.value || 'https://your-server.com/api/v1'
-  return `export GENYEE_BASE_URL="${base}"\nexport GENYEE_API_KEY="sk-your-api-key"`
+  const base = (apiBaseUrlDisplay.value || 'https://your-server.com/api/v1').replace(/[\r\n]+/g, '')
+  const quotedBase = /^[A-Za-z0-9._~:/%+-]+$/.test(base)
+    ? `"${base}"`
+    : `'${base.replace(/'/g, `'\\''`)}'`
+  return `export GENYEE_BASE_URL=${quotedBase}\nexport GENYEE_API_KEY="sk-your-api-key"`
 })
 
 const openClawHub = () => {

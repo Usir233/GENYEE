@@ -1211,7 +1211,7 @@ const isOwnerMember = (member: OrganizationMember): boolean => {
 
 const inviteLink = computed(() => {
   if (!inviteCode.value) return ''
-  return `${window.location.origin}/join?code=${inviteCode.value}`
+  return `${window.location.origin}/join?code=${encodeURIComponent(inviteCode.value)}`
 })
 
 const inviteValidityOptions = computed(() => [
@@ -1246,11 +1246,18 @@ const modalShell = useModalShell({
   snapshot: () => formData.value,
 })
 
+let orgContextLoadGen = 0
+
+const isStaleOrgLoad = (gen: number, targetOrgId: string | undefined) =>
+  gen !== orgContextLoadGen || !props.visible || props.orgId !== targetOrgId
+
 const fetchOrgDetail = async () => {
-  if (!props.orgId) return
+  const targetOrgId = props.orgId
+  if (!targetOrgId) return
+  const gen = orgContextLoadGen
   try {
-    const res = await getOrganization(props.orgId)
-    if (!props.visible) return
+    const res = await getOrganization(targetOrgId)
+    if (isStaleOrgLoad(gen, targetOrgId)) return
     if (res.success && res.data) {
       orgStore.setCurrentOrganization(res.data)
       const validity = res.data.invite_code_validity_days
@@ -1276,25 +1283,32 @@ const fetchOrgDetail = async () => {
 }
 
 const fetchMembers = async () => {
-  if (!props.orgId) return
+  const targetOrgId = props.orgId
+  if (!targetOrgId) return
+  const gen = orgContextLoadGen
   membersLoading.value = true
   try {
-    await orgStore.fetchMembers(props.orgId)
+    await orgStore.fetchMembers(targetOrgId)
   } catch (error) {
     console.error('Failed to fetch members:', error)
   } finally {
-    membersLoading.value = false
+    if (!isStaleOrgLoad(gen, targetOrgId)) {
+      membersLoading.value = false
+    }
   }
 }
 
 const fetchSharedKBs = async () => {
-  if (!props.orgId) return
+  const targetOrgId = props.orgId
+  if (!targetOrgId) return
+  const gen = orgContextLoadGen
   sharesLoading.value = true
   try {
     const [kbRes, agentRes] = await Promise.all([
-      listOrgShares(props.orgId),
-      listOrgAgentShares(props.orgId)
+      listOrgShares(targetOrgId),
+      listOrgAgentShares(targetOrgId)
     ])
+    if (isStaleOrgLoad(gen, targetOrgId)) return
     if (kbRes.success && kbRes.data) {
       sharedKnowledgeBases.value = kbRes.data.shares || []
     } else {
@@ -1306,11 +1320,14 @@ const fetchSharedKBs = async () => {
       sharedAgents.value = []
     }
   } catch (error) {
+    if (isStaleOrgLoad(gen, targetOrgId)) return
     console.error('Failed to fetch shared resources:', error)
     sharedKnowledgeBases.value = []
     sharedAgents.value = []
   } finally {
-    sharesLoading.value = false
+    if (!isStaleOrgLoad(gen, targetOrgId)) {
+      sharesLoading.value = false
+    }
   }
 }
 
@@ -1353,20 +1370,26 @@ function roleLabel(role: string) {
 }
 
 const fetchJoinRequests = async () => {
-  if (!props.orgId) return
+  const targetOrgId = props.orgId
+  if (!targetOrgId) return
+  const gen = orgContextLoadGen
   joinRequestsLoading.value = true
   try {
-    const res = await listJoinRequests(props.orgId)
+    const res = await listJoinRequests(targetOrgId)
+    if (isStaleOrgLoad(gen, targetOrgId)) return
     if (res.success && res.data) {
       joinRequests.value = res.data.requests || []
     } else {
       joinRequests.value = []
     }
   } catch (error) {
+    if (isStaleOrgLoad(gen, targetOrgId)) return
     console.error('Failed to fetch join requests:', error)
     joinRequests.value = []
   } finally {
-    joinRequestsLoading.value = false
+    if (!isStaleOrgLoad(gen, targetOrgId)) {
+      joinRequestsLoading.value = false
+    }
   }
 }
 
@@ -1847,6 +1870,7 @@ watch(() => props.visible, (newVal) => {
       modalShell.markClean()
       orgStore.clearCurrentOrganizationContext()
       sharedKnowledgeBases.value = []
+      sharedAgents.value = []
       inviteCode.value = ''
       inviteCodeExpiresAt.value = null
     } else if (props.orgId) {
@@ -1854,6 +1878,7 @@ watch(() => props.visible, (newVal) => {
       if (orgStore.currentOrganization?.id !== props.orgId) {
         orgStore.clearCurrentOrganizationContext()
         sharedKnowledgeBases.value = []
+        sharedAgents.value = []
       }
       fetchOrgDetail()
       fetchMembers()
@@ -1864,9 +1889,24 @@ watch(() => props.visible, (newVal) => {
   }
 }, { immediate: true })
 
-watch(() => props.orgId, () => {
+watch(() => props.orgId, (newOrgId, oldOrgId) => {
   if (props.visible) {
     void scrollContentToTop()
+    if (props.mode !== 'create' && newOrgId && newOrgId !== oldOrgId) {
+      orgStore.clearCurrentOrganizationContext()
+      sharedKnowledgeBases.value = []
+      sharedAgents.value = []
+      joinRequests.value = []
+      inviteCode.value = ''
+      inviteCodeExpiresAt.value = null
+      approvePopupRequestId.value = null
+      fetchOrgDetail()
+      fetchMembers()
+      fetchSharedKBs()
+      if (currentSection.value === 'joinRequests') {
+        fetchJoinRequests()
+      }
+    }
   }
 })
 
@@ -1879,12 +1919,14 @@ watch(currentSection, (section) => {
 
 // 同步失效，避免同一轮事件中关闭重开或切回原组织时，旧响应仍被当成当前结果。
 watch([() => props.visible, () => props.orgId], () => {
+  orgContextLoadGen += 1
   addMemberPopupVisible.value = false
   resetAddMemberDialog()
 }, { flush: 'sync' })
 
 onBeforeUnmount(() => {
   unlockBackgroundScroll()
+  orgContextLoadGen += 1
   resetAddMemberDialog()
 })
 

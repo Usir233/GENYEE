@@ -915,8 +915,16 @@ async function doPreviewFromInput() {
   await handleInvitePreview(code)
 }
 
+function clearSearchDebounce() {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+    searchDebounceTimer = null
+  }
+}
+
 // 关闭邀请预览弹框
 function closeInvitePreview() {
+  clearSearchDebounce()
   showInvitePreview.value = false
   inviteCode.value = ''
   joinInputCode.value = ''
@@ -1070,6 +1078,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  clearSearchDebounce()
   window.removeEventListener('openOrganizationDialog', handleOrganizationDialogEvent)
   teardownInviteBodyResizeObserver()
 })

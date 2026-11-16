@@ -176,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -271,10 +271,19 @@ const formatDate = (dateStr: string): string => {
   return date.toLocaleDateString()
 }
 
+let progressInterval: ReturnType<typeof setInterval> | null = null
+const clearProgressInterval = () => {
+  if (progressInterval) {
+    clearInterval(progressInterval)
+    progressInterval = null
+  }
+}
+
 // 下载模型
 const downloadModel = async () => {
   if (!downloadModelName.value.trim()) return
   
+  clearProgressInterval()
   downloading.value = true
   downloadProgress.value = 0
   
@@ -293,26 +302,26 @@ const downloadModel = async () => {
     
     // 查询下载进度
     const taskId = result.taskId
-    const progressInterval = setInterval(async () => {
+    progressInterval = setInterval(async () => {
       try {
         const task = await getDownloadProgress(taskId)
         downloadProgress.value = task.progress
         
         if (task.status === 'completed') {
-          clearInterval(progressInterval)
+          clearProgressInterval()
           MessagePlugin.success(t('ollamaSettings.toasts.downloadCompleted', { name: downloadModelName.value }))
           downloadModelName.value = ''
           downloadProgress.value = 0
           downloading.value = false
           refreshModels()
         } else if (task.status === 'failed') {
-          clearInterval(progressInterval)
+          clearProgressInterval()
           MessagePlugin.error(task.message || t('ollamaSettings.toasts.downloadFailed'))
           downloading.value = false
           downloadProgress.value = 0
         }
       } catch (error) {
-        clearInterval(progressInterval)
+        clearProgressInterval()
         MessagePlugin.error(t('ollamaSettings.toasts.progressFailed'))
         downloading.value = false
         downloadProgress.value = 0
@@ -364,6 +373,8 @@ onMounted(async () => {
   // 初始化服务地址，如果启用则直接使用返回的状态，避免重复调用
   await initOllamaBaseUrl()
 })
+
+onBeforeUnmount(clearProgressInterval)
 </script>
 
 <style lang="less" scoped>

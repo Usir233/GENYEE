@@ -330,6 +330,8 @@ async function load() {
   try {
     const [list, types] = await Promise.all([listStorageBackends(), listStorageBackendTypes()])
     backends.value = list.data || []; defaultID.value = list.default_storage_backend_id || ''; providers.value = types.data || []
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || t('settings.storageBackend.loadFailed', '加载存储后端失败'))
   } finally { loading.value = false }
 }
 function resetConfig() { form.config = blankConfig(); rawTestResult.value = null }
@@ -342,9 +344,19 @@ async function testRaw() {
     const r: any = editing.value ? await testStorageBackendByID(editing.value.id) : await testStorageBackend(form)
     if (r.success) { rawTestResult.value = 'ok'; MessagePlugin.success(t('settings.storageBackend.testSuccess')) }
     else { rawTestResult.value = 'error'; MessagePlugin.error(r.error || t('settings.storageBackend.testFailed')) }
+  } catch (e: any) {
+    rawTestResult.value = 'error'
+    MessagePlugin.error(e?.message || t('settings.storageBackend.testFailed'))
   } finally { testing.value = false }
 }
-async function testSaved(backend: StorageBackend) { const r: any = await testStorageBackendByID(backend.id); r.success ? MessagePlugin.success(t('settings.storageBackend.testSuccess')) : MessagePlugin.error(r.error || t('settings.storageBackend.testFailed')) }
+async function testSaved(backend: StorageBackend) {
+  try {
+    const r: any = await testStorageBackendByID(backend.id)
+    r.success ? MessagePlugin.success(t('settings.storageBackend.testSuccess')) : MessagePlugin.error(r.error || t('settings.storageBackend.testFailed'))
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || t('settings.storageBackend.testFailed'))
+  }
+}
 async function save() {
   if (!form.name.trim()) { MessagePlugin.warning(t('settings.storageBackend.nameRequired')); return }
   saving.value = true
@@ -354,7 +366,15 @@ async function save() {
     MessagePlugin.success(t('settings.storageBackend.saveSuccess')); visible.value = false; await load()
   } catch (e: any) { MessagePlugin.error(e?.message || t('settings.storageBackend.saveFailed')) } finally { saving.value = false }
 }
-async function makeDefault(backend: StorageBackend) { await setDefaultStorageBackend(backend.id); defaultID.value = backend.id; MessagePlugin.success(t('settings.storageBackend.defaultUpdated')) }
+async function makeDefault(backend: StorageBackend) {
+  try {
+    await setDefaultStorageBackend(backend.id)
+    defaultID.value = backend.id
+    MessagePlugin.success(t('settings.storageBackend.defaultUpdated'))
+  } catch (e: any) {
+    MessagePlugin.error(e?.message || t('settings.storageBackend.saveFailed'))
+  }
+}
 function remove(backend: StorageBackend) {
   const dialog = DialogPlugin.confirm({ theme: 'danger', confirmBtn: { content: t('common.delete'), theme: 'danger' }, header: t('settings.storageBackend.deleteTitle'), body: t('settings.storageBackend.deleteConfirm', { name: backend.name }), onConfirm: async () => { dialog.destroy(); try { await deleteStorageBackend(backend.id); await load(); MessagePlugin.success(t('settings.storageBackend.deleted')) } catch (e: any) { MessagePlugin.error(e?.message || t('settings.storageBackend.deleteFailed')) } }, onCancel: () => dialog.destroy() })
 }

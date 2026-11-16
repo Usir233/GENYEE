@@ -397,7 +397,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUIStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
@@ -643,12 +643,21 @@ function buildConfigPayload(): ParserEngineConfig {
   }
 }
 
+let checkMsgTimer: ReturnType<typeof setTimeout> | null = null
+function clearCheckMsgTimer() {
+  if (checkMsgTimer) {
+    clearTimeout(checkMsgTimer)
+    checkMsgTimer = null
+  }
+}
+
 async function onCheck() {
-  if (!connected) {
+  if (!connected.value && currentEngine.value?.Name !== 'builtin') {
     checkMessage.value = t('settings.parser.ensureDocreaderConnected')
     return
   }
   checking.value = true
+  clearCheckMsgTimer()
   checkMessage.value = ''
   saveMessage.value = ''
   try {
@@ -687,7 +696,10 @@ async function onCheck() {
       saveSuccess.value = true
     }
 
-    setTimeout(() => { checkMessage.value = '' }, 3000)
+    checkMsgTimer = setTimeout(() => {
+      checkMsgTimer = null
+      checkMessage.value = ''
+    }, 3000)
   } catch (e: any) {
     checkMessage.value = e?.message || t('settings.parser.checkFailed', '测试连接失败')
     saveSuccess.value = false
@@ -703,17 +715,20 @@ async function onSave() {
     await updateParserEngineConfig(buildConfigPayload())
     saveSuccess.value = true
     saveMessage.value = t('settings.parser.saveSuccess')
+    MessagePlugin.success(saveMessage.value)
     drawerVisible.value = false
     loadEngines()
   } catch (e: any) {
     saveSuccess.value = false
     saveMessage.value = e?.message || t('settings.parser.saveFailed')
+    MessagePlugin.error(saveMessage.value)
   } finally {
     saving.value = false
   }
 }
 
 onMounted(loadAll)
+onBeforeUnmount(clearCheckMsgTimer)
 </script>
 
 <style lang="less" scoped>

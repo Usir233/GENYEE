@@ -64,10 +64,21 @@ export function buildVsCodeClientSnippet(name: string, url: string, token: strin
   )
 }
 
+function shellQuoteArg(raw: string): string {
+  const clean = (raw || '').replace(/[\r\n]+/g, '')
+  if (/^[A-Za-z0-9._~:/%+-]+$/.test(clean)) return clean
+  return `'${clean.replace(/'/g, `'\\''`)}'`
+}
+
 /** One-liner for Claude Code. */
 export function buildClaudeCodeCommand(name: string, url: string, token: string, id = ''): string {
-  const auth = `Authorization: Bearer ${token || MCP_TOKEN_PLACEHOLDER}`
-  return `claude mcp add --transport http ${mcpServerKey(name, id)} ${url} --header "${auth}"`
+  const cleanToken = (token || MCP_TOKEN_PLACEHOLDER).replace(/[\r\n]+/g, '')
+  const auth = `Authorization: Bearer ${cleanToken}`
+  const quotedUrl = shellQuoteArg(url)
+  const quotedAuth = /^Authorization: Bearer [A-Za-z0-9._<>-]+$/.test(auth)
+    ? `"${auth}"`
+    : `'${auth.replace(/'/g, `'\\''`)}'`
+  return `claude mcp add --transport http ${mcpServerKey(name, id)} ${quotedUrl} --header ${quotedAuth}`
 }
 
 /** Fallback when native HTTP/Bearer setup is unavailable, including Claude Desktop without Request headers. */

@@ -150,7 +150,7 @@
           <h4 class="setting-drawer__section-title">{{ t('modelCatalog.fieldsSection') }}</h4>
           <p class="drawer-hint">
             {{ t(selectedInherited ? 'modelCatalog.fieldsHint' : 'modelCatalog.customHint') }}
-            <a v-if="selected.model.source" :href="String(selected.model.source)" target="_blank" rel="noopener noreferrer"
+            <a v-if="safeSourceUrl" :href="safeSourceUrl" target="_blank" rel="noopener noreferrer"
               class="drawer-link">{{ t('modelCatalog.sourceLink') }}<t-icon name="jump" /></a>
           </p>
           <div v-for="field in editFields" :key="field.key" class="drawer-row"
@@ -503,6 +503,16 @@ const form = reactive<Record<FieldKey, any>>({
 // Values the model falls back to without an administrator override. Models
 // added from this page have no lower layer, so there is nothing to restore.
 const selectedInherited = computed(() => selected.value ? layerIndexes.value.deployment.get(selected.value.key) : undefined)
+const safeSourceUrl = computed(() => {
+  const raw = String(selected.value?.model.source ?? '').trim()
+  if (!raw) return ''
+  try {
+    const parsed = new URL(raw)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? raw : ''
+  } catch {
+    return ''
+  }
+})
 const selectedOverride = computed(() => {
   const row = selected.value, p = row && state.value?.overlay.providers[row.provider]
   if (!row || !p) return {}

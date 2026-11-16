@@ -127,8 +127,8 @@
       <template v-if="selectedProviderType" #subtitle>
         <span>{{ selectedProviderType.name }}</span>
         <a
-          v-if="selectedProviderType.docs_url"
-          :href="selectedProviderType.docs_url"
+          v-if="safeSelectedDocsUrl"
+          :href="safeSelectedDocsUrl"
           target="_blank"
           rel="noopener noreferrer"
           class="doc-link doc-link--inline"
@@ -416,6 +416,17 @@ watch(
 // ===== Computed =====
 const selectedProviderType = computed(() => {
   return providerTypes.value.find(pt => pt.id === providerForm.value.provider)
+})
+
+const safeSelectedDocsUrl = computed(() => {
+  const raw = selectedProviderType.value?.docs_url?.trim() || ''
+  if (!raw) return ''
+  try {
+    const parsed = new URL(raw)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? raw : ''
+  } catch {
+    return ''
+  }
 })
 
 const selectedClients = computed(() => selectedProviderType.value?.clients)

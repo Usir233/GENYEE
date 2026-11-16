@@ -199,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import ModelSelector from '@/components/ModelSelector.vue'
@@ -225,12 +225,32 @@ const config = reactive<MemoryConfig>({
   vector_recall: true,
 })
 const isInitializing = ref(true)
+const loadSucceeded = ref(false)
+let loadGen = 0
+let initTimer: ReturnType<typeof setTimeout> | null = null
+let saveTimer: ReturnType<typeof setTimeout> | null = null
+
+const clearTimers = () => {
+  if (initTimer) {
+    clearTimeout(initTimer)
+    initTimer = null
+  }
+  if (saveTimer) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+  }
+}
 
 const canEdit = computed(() => authStore.hasRole('admin'))
 
 const loadConfig = async () => {
+  const gen = ++loadGen
+  clearTimers()
+  isInitializing.value = true
+  loadSucceeded.value = false
   try {
     const response = await getTenantMemoryConfig()
+    if (gen !== loadGen) return
     if (response.data) {
       config.enabled = response.data.enabled ?? false
       config.write_mode = response.data.write_mode === 'auto' ? 'auto' : 'explicit_only'
@@ -244,33 +264,45 @@ const loadConfig = async () => {
       config.embedding_model_id = response.data.embedding_model_id || ''
       config.vector_recall = response.data.vector_recall !== false
     }
+    loadSucceeded.value = true
   } catch (error: any) {
+    if (gen !== loadGen) return
     console.error('Failed to load memory config:', error)
+    MessagePlugin.error(error?.message || t('memoryWorkspaceSettings.toasts.saveFailed', { message: '' }))
   } finally {
-    // Give the switches a tick to settle so binding the loaded values does not
-    // immediately fire a save.
-    setTimeout(() => {
-      isInitializing.value = false
-    }, 100)
+    if (gen === loadGen) {
+      // Give the switches a tick to settle so binding the loaded values does not
+      // immediately fire a save.
+      initTimer = setTimeout(() => {
+        initTimer = null
+        if (gen === loadGen) {
+          isInitializing.value = false
+        }
+      }, 100)
+    }
   }
 }
 
 const saveConfig = async () => {
+  if (isInitializing.value || !loadSucceeded.value || !canEdit.value) return
+  const gen = loadGen
   try {
     await updateTenantMemoryConfig({ ...config })
+    if (gen !== loadGen) return
     MessagePlugin.success(t('memoryWorkspaceSettings.toasts.saveSuccess'))
   } catch (error: any) {
+    if (gen !== loadGen) return
     MessagePlugin.error(
       t('memoryWorkspaceSettings.toasts.saveFailed', { message: error?.message || '' }),
     )
   }
 }
 
-let saveTimer: number | null = null
 const debouncedSave = () => {
-  if (isInitializing.value || !canEdit.value) return
+  if (isInitializing.value || !loadSucceeded.value || !canEdit.value) return
   if (saveTimer) clearTimeout(saveTimer)
-  saveTimer = window.setTimeout(() => {
+  saveTimer = setTimeout(() => {
+    saveTimer = null
     saveConfig().catch(() => {})
   }, 500)
 }
@@ -292,7 +324,21 @@ const handleAddModel = (subSection: 'chat' | 'embedding') => {
   )
 }
 
+watch(
+  () => authStore.effectiveTenantId,
+  (nextTenantId, prevTenantId) => {
+    if (nextTenantId !== prevTenantId) {
+      void loadConfig()
+    }
+  },
+)
+
 onMounted(loadConfig)
+
+onBeforeUnmount(() => {
+  loadGen += 1
+  clearTimers()
+})
 </script>
 
 <style lang="less" scoped>

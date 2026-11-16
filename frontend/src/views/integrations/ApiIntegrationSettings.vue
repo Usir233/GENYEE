@@ -1175,8 +1175,8 @@ async function loadAPIKeys() {
       throw new Error(resp.message || t('integrations.api.loadApiKeysFailed'))
     }
     apiKeys.value = resp.data || []
-    if (!apiKey.value && apiKeys.value.length > 0) {
-      apiKey.value = apiKeys.value[0].api_key || ''
+    if (!apiKey.value || !apiKeys.value.some((item) => item.api_key === apiKey.value)) {
+      apiKey.value = apiKeys.value[0]?.api_key || ''
     }
   } catch (err: any) {
     MessagePlugin.error(err?.message || t('integrations.api.loadApiKeysFailed'))
@@ -1433,8 +1433,13 @@ const saveDesktopPort = async () => {
 
 function openApiDoc() {
   const url = docsUrl('apiOverview')
-  if (url) {
-    window.open(url, '_blank')
+  if (!url) return
+  try {
+    const parsed = new URL(url, window.location.origin)
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return
+    window.open(url, '_blank', 'noopener,noreferrer')
+  } catch {
+    return
   }
 }
 
