@@ -23,6 +23,7 @@ package chat
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -32,7 +33,13 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/output"
 	"github.com/Usir233/GENYEE/cli/internal/sse"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
+)
+
+const (
+	maxChatBufferedEvents = 8192
+	maxChatBufferedBytes  = 16 << 20
 )
 
 // chatFields enumerates the fields surfaced for `--jq` projection discovery
@@ -97,8 +104,16 @@ both flags for the complete projected stream.`,
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			if opts.SessionID != "" {
+				if err := cmdutil.ValidateResourceID("session", opts.SessionID); err != nil {
+					return err
+				}
+			}
 			kbID, err := f.ResolveKB(c)
 			if err != nil {
+				return err
+			}
+			if err := cmdutil.ValidateResourceID("kb", kbID); err != nil {
 				return err
 			}
 			opts.KBID = kbID
@@ -137,6 +152,14 @@ func runChat(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, s
 		// the direct-test entry point.
 		return cmdutil.NewError(cmdutil.CodeKBIDRequired, "kb id is required")
 	}
+	if err := cmdutil.ValidateResourceID("kb", opts.KBID); err != nil {
+		return err
+	}
+	if opts.SessionID != "" {
+		if err := cmdutil.ValidateResourceID("session", opts.SessionID); err != nil {
+			return err
+		}
+	}
 	if svc == nil {
 		return cmdutil.NewError(cmdutil.CodeServerError, "chat: no SDK client available")
 	}
@@ -162,6 +185,9 @@ func runChat(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, s
 			}
 			return cmdutil.Wrapf(code, err, "create chat session")
 		}
+		if sess == nil || strings.TrimSpace(sess.ID) == "" {
+			return cmdutil.NewError(cmdutil.CodeSessionCreateFailed, "create chat session returned an empty session ID")
+		}
 		sessionID = sess.ID
 		autoCreated = true
 	}
@@ -177,7 +203,7 @@ func runChat(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, s
 	// mid-stream still has the pointer to resume - no need to scroll back
 	// past tokens. Skipped in json/ndjson mode (session_id is in the output).
 	if autoCreated {
-		fmt.Fprintf(iostreams.IO.Err, "session: %s (use --session to continue)\n", sessionID)
+		fmt.Fprintf(iostreams.IO.Err, "session: %s (use --session to continue)\n", text.SanitizeInline(sessionID))
 	}
 
 	return runChatText(ctx, opts, sessionID, autoCreated, svc)
@@ -251,7 +277,8 @@ func runChatText(ctx context.Context, opts *Options, sessionID string, autoCreat
 		// missed the start-of-stream notice (it scrolls past mid-stream
 		// tokens, especially on ^C) can still recover with --session.
 		if autoCreated {
-			fmt.Fprintf(iostreams.IO.Err, "session: %s (resume with --session %s)\n", sessionID, sessionID)
+			safeSess := text.SanitizeInline(sessionID)
+			fmt.Fprintf(iostreams.IO.Err, "session: %s (resume with --session %s)\n", safeSess, safeSess)
 		}
 		// Context cancelled (Ctrl-C) → user-aborted, exit 130 lineage.
 		if cmdutil.IsCancelled(ctx, streamErr) {
@@ -268,12 +295,9 @@ func runChatText(ctx context.Context, opts *Options, sessionID string, autoCreat
 		return cmdutil.WrapStream(streamErr, "knowledge qa stream")
 	}
 
-	// SDK returned nil but we never saw a Done event - server closed the
-	// connection cleanly mid-stream. Treat as aborted so the user sees the
-	// truncation rather than a silent partial answer. Includes the empty-body
-	// case (Done frame never arrived AND no content): better to surface the
-	// abort than emit ok=true with answer="" - agents can't distinguish the
-	// model genuinely had nothing to say from the stream getting cut.
+	if errMsg, hasErr := projector.TerminalError(); hasErr {
+		return cmdutil.WrapStream(sdk.NewSSEStreamError(errMsg), "knowledge qa stream")
+	}
 	if !projector.Done() {
 		return cmdutil.NewError(cmdutil.CodeSSEStreamAborted, "stream ended without a terminal event")
 	}
@@ -293,18 +317,34 @@ func runChatJSON(ctx context.Context, opts *Options, fopts *cmdutil.FormatOption
 
 	projector := sse.NewProjector(opts.Verbose, opts.Reference, opts.KBID)
 	events := make([]sse.ProjectedEvent, 0)
+	bufferedBytes := 0
 	cb := func(r *sdk.StreamResponse) error {
 		if event, include := projector.Chat(r); include {
+			if len(events) >= maxChatBufferedEvents || bufferedBytes+len(event.Content) > maxChatBufferedBytes {
+				return cmdutil.NewError(cmdutil.CodeServerError, "stream exceeded buffered event limit")
+			}
+			bufferedBytes += len(event.Content)
 			events = append(events, event)
 		}
 		return nil
 	}
 
 	if err := svc.KnowledgeQAStream(ctx, sessionID, req, cb); err != nil {
+		var ce *cmdutil.Error
+		if errors.As(err, &ce) {
+			return chatStreamError(ce, sessionID, projector.AssistantMessageID())
+		}
 		if cmdutil.IsCancelled(ctx, err) {
 			return chatStreamError(cmdutil.Wrapf(cmdutil.CodeOperationCancelled, err, "chat cancelled"), sessionID, projector.AssistantMessageID())
 		}
 		return chatStreamError(cmdutil.WrapStream(err, "knowledge qa stream"), sessionID, projector.AssistantMessageID())
+	}
+	if errMsg, hasErr := projector.TerminalError(); hasErr {
+		return chatStreamError(
+			cmdutil.WrapStream(sdk.NewSSEStreamError(errMsg), "knowledge qa stream"),
+			sessionID,
+			projector.AssistantMessageID(),
+		)
 	}
 	if !projector.Done() {
 		return chatStreamError(

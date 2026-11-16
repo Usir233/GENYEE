@@ -9,6 +9,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/prompt"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 )
 
 // chunkDeleteFields enumerates the JSON discovery fields for `chunk delete`.
@@ -83,6 +84,14 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 			opts.Yes, _ = c.Flags().GetBool("yes")
+			if err := cmdutil.ValidateResourceID("doc", opts.DocID); err != nil {
+				return err
+			}
+			for _, id := range args {
+				if err := cmdutil.ValidateResourceID("chunk-id", id); err != nil {
+					return err
+				}
+			}
 			if handled, err := cmdutil.HandleDryRun(c, opts.DryRun, cmdutil.DryRunPlan{
 				Action: "chunk.delete",
 				Args: map[string]any{
@@ -92,17 +101,25 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 			}); handled {
 				return err
 			}
-			cli, err := f.Client()
-			if err != nil {
-				return err
-			}
 			if len(args) == 1 {
 				opts.ChunkID = args[0]
+				if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "chunk", opts.ChunkID, "chunk.delete", []string{"genyee", "chunk", "delete", opts.ChunkID, "--doc", opts.DocID, "-y"}); err != nil {
+					return err
+				}
+				opts.Yes = true
+				cli, err := f.Client()
+				if err != nil {
+					return err
+				}
 				return runDelete(c.Context(), opts, fopts, cli, f.Prompter())
 			}
 			batchRetry := append([]string{"genyee", "chunk", "delete"}, args...)
 			batchRetry = append(batchRetry, "--doc", opts.DocID, "-y")
 			if err := cmdutil.ConfirmDestructiveBatch(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "chunk", len(args), "chunk.delete", batchRetry); err != nil {
+				return err
+			}
+			cli, err := f.Client()
+			if err != nil {
 				return err
 			}
 			outcomes, runErr := cmdutil.RunBatch(c.Context(), args, func(ctx context.Context, id string) error {
@@ -146,6 +163,12 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 }
 
 func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc DeleteService, p prompt.Prompter) error {
+	if err := cmdutil.ValidateResourceID("doc", opts.DocID); err != nil {
+		return err
+	}
+	if err := cmdutil.ValidateResourceID("chunk-id", opts.ChunkID); err != nil {
+		return err
+	}
 	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "chunk", opts.ChunkID, "chunk.delete", []string{"genyee", "chunk", "delete", opts.ChunkID, "--doc", opts.DocID, "-y"}); err != nil {
 		return err
 	}
@@ -155,6 +178,6 @@ func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, deleteResult{ID: opts.ChunkID, Deleted: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted chunk %s\n", opts.ChunkID)
+	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted chunk %s\n", text.SanitizeInline(opts.ChunkID))
 	return nil
 }

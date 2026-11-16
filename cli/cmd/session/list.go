@@ -3,6 +3,7 @@ package sessioncmd
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"text/tabwriter"
@@ -101,6 +102,11 @@ func validateListOpts(opts *ListOptions) error {
 			Message: fmt.Sprintf("--limit must be in 1..10000, got %d", opts.Limit),
 		}
 	}
+	if opts.Since != "" {
+		if _, err := parseSinceDuration(opts.Since); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -138,6 +144,9 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 		accum := make([]sdk.Session, 0)
 		scanned := 0
 		for page := 1; ; page++ {
+			if page > 10000 {
+				return cmdutil.NewError(cmdutil.CodeServerError, "session list exceeded 10000-page safety limit")
+			}
 			chunk, total, err := svc.GetSessionsByTenant(ctx, page, opts.PageSize)
 			if err != nil {
 				return cmdutil.WrapHTTP(err, "list sessions")
@@ -184,11 +193,11 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 	fmt.Fprintln(tw, "ID\tTITLE\tUPDATED")
 	now := time.Now()
 	for _, s := range items {
-		title := text.Truncate(50, s.Title)
+		title := text.OneLine(50, s.Title)
 		if title == "" {
 			title = "-"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", s.ID, title, text.FuzzyAgoStr(now, s.UpdatedAt))
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", text.SanitizeInline(s.ID), title, text.FuzzyAgoStr(now, s.UpdatedAt))
 	}
 	return tw.Flush()
 }
@@ -196,18 +205,33 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 // parseSinceDuration accepts `time.ParseDuration` forms (1h30m, 24h, 30m)
 // plus a `<N>d` suffix for whole days (e.g. 7d). Returns an
 // input.invalid_argument *cmdutil.Error for unparseable inputs or
-// non-positive durations.
+// non-positive / overflowing durations.
 func parseSinceDuration(s string) (time.Duration, error) {
+	const maxDays = 36500 // 100 years; safely fits in time.Duration (~292y max)
 	raw := strings.TrimSpace(s)
 	var d time.Duration
 	var err error
 	if rest, ok := strings.CutSuffix(raw, "d"); ok {
 		num, perr := strconv.ParseFloat(rest, 64)
-		if perr != nil {
-			err = perr
-		} else {
-			d = time.Duration(num * float64(24*time.Hour))
+		if perr != nil || math.IsNaN(num) || math.IsInf(num, 0) {
+			return 0, &cmdutil.Error{
+				Code:    cmdutil.CodeInputInvalidArgument,
+				Message: fmt.Sprintf("--since %q is not a valid duration (try 7d, 24h, 30m, 1h30m)", s),
+			}
 		}
+		if num <= 0 {
+			return 0, &cmdutil.Error{
+				Code:    cmdutil.CodeInputInvalidArgument,
+				Message: fmt.Sprintf("--since must be positive, got %q", s),
+			}
+		}
+		if num > maxDays {
+			return 0, &cmdutil.Error{
+				Code:    cmdutil.CodeInputInvalidArgument,
+				Message: fmt.Sprintf("--since %q exceeds maximum supported window (%dd)", s, maxDays),
+			}
+		}
+		d = time.Duration(num * float64(24*time.Hour))
 	} else {
 		d, err = time.ParseDuration(raw)
 	}

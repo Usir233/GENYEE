@@ -2,7 +2,9 @@ package configcmd
 
 import (
 	"fmt"
+	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"text/tabwriter"
 
@@ -124,7 +126,7 @@ func resolveView(cmd *cobra.Command, f *cmdutil.Factory) viewData {
 	if d.ActiveProfile != "" && f.Config != nil {
 		if cfg, err := f.Config(); err == nil && cfg != nil {
 			if prof, ok := cfg.Profiles[d.ActiveProfile]; ok {
-				d.Host = prof.Host
+				d.Host = redactHostUserInfo(prof.Host)
 			}
 		}
 	}
@@ -137,7 +139,7 @@ func resolveView(cmd *cobra.Command, f *cmdutil.Factory) viewData {
 	if active, kind := cmdutil.EnvCredential(); active {
 		d.AuthSource = kind + " env (stateless; bypasses profile + keyring)"
 		if h := strings.TrimSpace(os.Getenv("GENYEE_HOST")); h != "" {
-			d.Host = h
+			d.Host = redactHostUserInfo(h)
 		}
 	} else if d.ActiveProfile != "" {
 		d.AuthSource = "profile + keyring"
@@ -240,6 +242,19 @@ func resolveSecrets(f *cmdutil.Factory) string {
 		return "file " + p
 	}
 	return "file"
+}
+
+var reRawUserInfo = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9+.-]*://)([^/\s@]+)@`)
+
+func redactHostUserInfo(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	if u, err := url.Parse(raw); err == nil && u.User != nil {
+		u.User = nil
+		return u.String()
+	}
+	return reRawUserInfo.ReplaceAllString(raw, "${1}")
 }
 
 // resolveProjectLink reports the discovered .genyee/project.yaml path or

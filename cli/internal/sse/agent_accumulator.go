@@ -51,6 +51,10 @@ func (a *AgentAccumulator) Thinking() string { return a.thinking.String() }
 // Done reports whether the stream emitted a terminal frame.
 func (a *AgentAccumulator) Done() bool { return a.done }
 
+// MaxToolEvents caps the number of tool_call / tool_result events retained in
+// memory by AgentAccumulator during a single stream.
+const MaxToolEvents = 4096
+
 // Append consumes one AgentStreamResponse event. Idempotent post-Done so
 // callers do not need to special-case late events.
 func (a *AgentAccumulator) Append(r *sdk.AgentStreamResponse) {
@@ -59,20 +63,22 @@ func (a *AgentAccumulator) Append(r *sdk.AgentStreamResponse) {
 	}
 	switch r.ResponseType {
 	case sdk.AgentResponseTypeAnswer:
-		if r.Content != "" {
-			a.answer.WriteString(r.Content)
-		}
+		appendBoundedUTF8(&a.answer, r.Content, MaxAccumulatedBytes)
 	case sdk.AgentResponseTypeThinking, sdk.AgentResponseTypeReflection:
-		if r.Content != "" {
-			a.thinking.WriteString(r.Content)
-		}
+		appendBoundedUTF8(&a.thinking, r.Content, MaxAccumulatedBytes)
 	case sdk.AgentResponseTypeToolCall, sdk.AgentResponseTypeToolResult:
-		a.ToolEvents = append(a.ToolEvents, AgentToolEvent{
-			ID:     r.ID,
-			Kind:   r.ResponseType,
-			Result: r.Content,
-			Data:   r.Data,
-		})
+		if len(a.ToolEvents) < MaxToolEvents {
+			res := r.Content
+			if len(res) > 1<<20 {
+				res = res[:1<<20]
+			}
+			a.ToolEvents = append(a.ToolEvents, AgentToolEvent{
+				ID:     r.ID,
+				Kind:   r.ResponseType,
+				Result: res,
+				Data:   r.Data,
+			})
+		}
 	}
 	// References can arrive on a dedicated `references` event OR
 	// piggyback on another event's KnowledgeReferences field; always

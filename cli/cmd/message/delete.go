@@ -9,6 +9,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/prompt"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 )
 
 var messageDeleteFields = []string{"id", "deleted"}
@@ -71,12 +72,22 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 			opts.MessageID = args[0]
 			opts.Yes, _ = c.Flags().GetBool("yes")
+			if err := cmdutil.ValidateResourceID("message-id", opts.MessageID); err != nil {
+				return err
+			}
+			if err := cmdutil.ValidateResourceID("session", opts.SessionID); err != nil {
+				return err
+			}
 			if handled, err := cmdutil.HandleDryRun(c, opts.DryRun, cmdutil.DryRunPlan{
 				Action: "message.delete",
 				Args:   map[string]any{"message_id": opts.MessageID, "session": opts.SessionID},
 			}); handled {
 				return err
 			}
+			if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "message", opts.MessageID, "message.delete", []string{"genyee", "message", "delete", opts.MessageID, "--session", opts.SessionID, "-y"}); err != nil {
+				return err
+			}
+			opts.Yes = true
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -103,6 +114,12 @@ func NewCmdDelete(f *cmdutil.Factory) *cobra.Command {
 }
 
 func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc DeleteService, p prompt.Prompter) error {
+	if err := cmdutil.ValidateResourceID("message-id", opts.MessageID); err != nil {
+		return err
+	}
+	if err := cmdutil.ValidateResourceID("session", opts.SessionID); err != nil {
+		return err
+	}
 	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "message", opts.MessageID, "message.delete", []string{"genyee", "message", "delete", opts.MessageID, "--session", opts.SessionID, "-y"}); err != nil {
 		return err
 	}
@@ -112,6 +129,6 @@ func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, deleteResult{ID: opts.MessageID, Deleted: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted message %s\n", opts.MessageID)
+	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted message %s\n", text.SanitizeInline(opts.MessageID))
 	return nil
 }

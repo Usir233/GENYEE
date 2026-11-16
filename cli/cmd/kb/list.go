@@ -150,10 +150,10 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 	fmt.Fprintln(tw, "ID\tNAME\tDOCS\tUPDATED")
 	now := time.Now()
 	for _, kb := range items {
-		name := text.Truncate(40, kb.Name)
+		name := text.OneLine(40, kb.Name)
 		docs := text.Pluralize(int(kb.KnowledgeCount), "doc")
 		updated := text.FuzzyAgo(now, kb.UpdatedAt)
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", kb.ID, name, docs, updated)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", text.SanitizeInline(kb.ID), name, docs, updated)
 	}
 	return tw.Flush()
 }

@@ -100,6 +100,12 @@ silently treated as NDJSON.`,
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			if err := cmdutil.ValidateResourceID("session-id", opts.SessionID); err != nil {
+				return err
+			}
+			if err := cmdutil.ValidateResourceID("message", opts.MessageID); err != nil {
+				return err
+			}
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -142,6 +148,12 @@ func runResume(ctx context.Context, opts *ResumeOptions, _ *cmdutil.FormatOption
 	}
 	if opts.MessageID == "" {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--message cannot be empty")
+	}
+	if err := cmdutil.ValidateResourceID("session-id", opts.SessionID); err != nil {
+		return err
+	}
+	if err := cmdutil.ValidateResourceID("message", opts.MessageID); err != nil {
+		return err
 	}
 	if svc == nil {
 		return cmdutil.NewError(cmdutil.CodeServerError, "session resume: no SDK client available")

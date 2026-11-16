@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -10,6 +11,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/output"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -127,6 +129,17 @@ func (o *ChunksOptions) validate() error {
 	if o.NoVector && o.NoKeyword {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--no-vector and --no-keyword cannot both be set")
 	}
+	if math.IsNaN(o.VectorThreshold) || math.IsInf(o.VectorThreshold, 0) || o.VectorThreshold < 0 || o.VectorThreshold > 1 {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--vector-threshold must be in 0..1")
+	}
+	if math.IsNaN(o.KeywordThreshold) || math.IsInf(o.KeywordThreshold, 0) || o.KeywordThreshold < 0 || o.KeywordThreshold > 1 {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--keyword-threshold must be in 0..1")
+	}
+	if o.KBID != "" {
+		if err := cmdutil.ValidateResourceID("kb", o.KBID); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -146,9 +159,15 @@ func runChunks(ctx context.Context, opts *ChunksOptions, fopts *cmdutil.FormatOp
 		DisableVectorMatch:   opts.NoVector,
 		DisableKeywordsMatch: opts.NoKeyword,
 	}
-	results, err := svc.HybridSearch(ctx, opts.KBID, params)
+	rawResults, err := svc.HybridSearch(ctx, opts.KBID, params)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "hybrid search")
+	}
+	results := make([]*sdk.SearchResult, 0, len(rawResults))
+	for _, r := range rawResults {
+		if r != nil {
+			results = append(results, r)
+		}
 	}
 	// match_count is the server's *primary-match* cap - after that, the
 	// service appends parent / nearby / relation chunks as context
@@ -162,9 +181,6 @@ func runChunks(ctx context.Context, opts *ChunksOptions, fopts *cmdutil.FormatOp
 	}
 
 	if fopts.WantsJSON() {
-		if results == nil {
-			results = []*sdk.SearchResult{}
-		}
 		meta := &output.Meta{Count: output.IntPtr(len(results)), HasMore: truncated, Hint: emptyContentSearchHint(len(results))}
 		return fopts.Emit(iostreams.IO.Out, results, meta)
 	}
@@ -175,18 +191,24 @@ func runChunks(ctx context.Context, opts *ChunksOptions, fopts *cmdutil.FormatOp
 // richer tabular renderer can replace this later without breaking the
 // JSON contract.
 func renderChunkResults(results []*sdk.SearchResult, kbID string) error {
-	if len(results) == 0 {
+	clean := make([]*sdk.SearchResult, 0, len(results))
+	for _, r := range results {
+		if r != nil {
+			clean = append(clean, r)
+		}
+	}
+	if len(clean) == 0 {
 		fmt.Fprintln(iostreams.IO.Out, "(no results)")
 		return nil
 	}
-	fmt.Fprintf(iostreams.IO.Out, "%d result(s) from kb=%s:\n\n", len(results), kbID)
-	for i, r := range results {
+	fmt.Fprintf(iostreams.IO.Out, "%d result(s) from kb=%s:\n\n", len(clean), text.SanitizeInline(kbID))
+	for i, r := range clean {
 		fmt.Fprintf(iostreams.IO.Out, "[%d] score=%.3f", i+1, r.Score)
 		if r.KnowledgeID != "" {
-			fmt.Fprintf(iostreams.IO.Out, "  doc=%s", r.KnowledgeID)
+			fmt.Fprintf(iostreams.IO.Out, "  doc=%s", text.SanitizeInline(r.KnowledgeID))
 		}
 		fmt.Fprintln(iostreams.IO.Out)
-		fmt.Fprintln(iostreams.IO.Out, indent(strings.TrimSpace(r.Content), "    "))
+		fmt.Fprintln(iostreams.IO.Out, indent(strings.TrimSpace(text.SanitizeTerminal(r.Content)), "    "))
 		fmt.Fprintln(iostreams.IO.Out)
 	}
 	return nil

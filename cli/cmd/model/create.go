@@ -3,6 +3,7 @@ package modelcmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -11,8 +12,11 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
+
+const maxAPIKeyStdinBytes = 16 << 10
 
 // modelCreateFields enumerates the fields surfaced for `--format json` discovery
 // on `model create`. The result is the created Model.
@@ -143,6 +147,14 @@ else goes through repeatable --param key=value.`,
 					"--provider applies to --source remote; a local model is pulled from Ollama by name").
 					WithHint("drop --provider, or switch to --source remote")
 			}
+			if opts.Dimension < 0 {
+				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--dimension must be >= 0")
+			}
+			if opts.BaseURL != "" {
+				if err := cmdutil.ValidateHTTPURL("--base-url", opts.BaseURL); err != nil {
+					return err
+				}
+			}
 			params, err := parseParams(opts.Params)
 			if err != nil {
 				return err
@@ -222,6 +234,14 @@ func parseParams(kvs []string) (map[string]any, error) {
 }
 
 func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOptions, svc CreateService, params map[string]any) error {
+	if opts.Dimension < 0 {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--dimension must be >= 0")
+	}
+	if opts.BaseURL != "" {
+		if err := cmdutil.ValidateHTTPURL("--base-url", opts.BaseURL); err != nil {
+			return err
+		}
+	}
 	modelType := sdk.ModelType(opts.Type)
 	if opts.Default && !(&sdk.DefaultSettings{}).SetSlotModelID(modelType, "probe") {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
@@ -252,6 +272,10 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 	if opts.APIKeyStdin {
 		key, err := readStdinTrimmed(opts.StdinReader)
 		if err != nil {
+			var ce *cmdutil.Error
+			if errors.As(err, &ce) {
+				return ce
+			}
 			return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "read API key from stdin")
 		}
 		if key == "" {
@@ -272,6 +296,10 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "create model")
 	}
+	if created == nil {
+		return cmdutil.NewError(cmdutil.CodeServerError, "empty model response from create")
+	}
+	scrubModelSecrets(created)
 	if opts.Default {
 		targetType := created.Type
 		if targetType == "" {
@@ -285,7 +313,7 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, created, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Created model %q (id: %s, type: %s)\n", created.Name, created.ID, created.Type)
+	fmt.Fprintf(iostreams.IO.Out, "✓ Created model %q (id: %s, type: %s)\n", text.SanitizeInline(created.Name), text.SanitizeInline(created.ID), text.SanitizeInline(string(created.Type)))
 	return nil
 }
 
@@ -350,16 +378,28 @@ func resolveRemoteProvider(ctx context.Context, svc CreateService, opts *CreateO
 		WithHint("supported providers: " + strings.Join(vals, ", "))
 }
 
-// readStdinTrimmed reads all of r and returns it whitespace-trimmed.
+// readStdinTrimmed reads up to maxAPIKeyStdinBytes from r, trims surrounding
+// whitespace, and rejects embedded newlines or control characters.
 func readStdinTrimmed(r io.Reader) (string, error) {
 	if r == nil {
 		return "", nil
 	}
-	b, err := io.ReadAll(r)
+	b, err := io.ReadAll(io.LimitReader(r, maxAPIKeyStdinBytes+1))
 	if err != nil {
 		return "", err
 	}
-	return strings.TrimSpace(string(b)), nil
+	if len(b) > maxAPIKeyStdinBytes {
+		return "", cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("--api-key-stdin exceeds %d-byte limit", maxAPIKeyStdinBytes))
+	}
+	s := strings.TrimSpace(string(b))
+	for _, rn := range s {
+		if rn < 0x20 || rn == 0x7f || (rn >= 0x80 && rn <= 0x9f) {
+			return "", cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+				"--api-key-stdin must be a single-line API key without embedded newlines or control characters")
+		}
+	}
+	return s, nil
 }
 
 // compile-time check: the production SDK client implements CreateService.

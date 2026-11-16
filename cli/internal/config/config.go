@@ -49,6 +49,8 @@ func Path() (string, error) {
 	return xdg.Path("XDG_CONFIG_HOME", ".config", "config.yaml")
 }
 
+const maxConfigBytes = 1 << 20
+
 // Load reads the config file. If it does not exist, returns a zero-value
 // Config with no error (commands like `version` and `--help` must not fail
 // just because the user has not run `auth login` yet).
@@ -57,7 +59,7 @@ func Load() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(p)
+	data, err := xdg.ReadSecureFile(p, maxConfigBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		return &Config{}, nil
 	}

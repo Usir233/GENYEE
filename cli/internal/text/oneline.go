@@ -7,7 +7,7 @@ import "strings"
 // Use for human-readable preview rows where multiline content would
 // break tabular layout.
 func OneLine(maxDisplayWidth int, s string) string {
-	return Truncate(maxDisplayWidth, lineReplacer.Replace(s))
+	return Truncate(maxDisplayWidth, SanitizeInline(s))
 }
 
 var lineReplacer = strings.NewReplacer("\n", " ", "\r", " ", "\t", " ")

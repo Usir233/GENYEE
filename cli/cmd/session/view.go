@@ -9,6 +9,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -75,6 +76,9 @@ Pass --full to also load the chat history (LoadMessages SDK call). Use
 			if err := validateViewOpts(opts); err != nil {
 				return err
 			}
+			if err := cmdutil.ValidateResourceID("session-id", args[0]); err != nil {
+				return err
+			}
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -119,10 +123,16 @@ func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOption
 	if err := validateViewOpts(opts); err != nil {
 		return err
 	}
+	if err := cmdutil.ValidateResourceID("session-id", id); err != nil {
+		return err
+	}
 
 	s, err := svc.GetSession(ctx, id)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "get session %q", id)
+	}
+	if s == nil {
+		return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("empty session response for %q", id))
 	}
 
 	var msgs []sdk.Message
@@ -151,22 +161,22 @@ func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOption
 	}
 
 	w := iostreams.IO.Out
-	fmt.Fprintf(w, "ID:        %s\n", s.ID)
+	fmt.Fprintf(w, "ID:        %s\n", text.SanitizeInline(s.ID))
 	if s.Title != "" {
-		fmt.Fprintf(w, "TITLE:     %s\n", s.Title)
+		fmt.Fprintf(w, "TITLE:     %s\n", text.SanitizeInline(s.Title))
 	}
 	if s.Description != "" {
-		fmt.Fprintf(w, "DESC:      %s\n", s.Description)
+		fmt.Fprintf(w, "DESC:      %s\n", text.SanitizeTerminal(s.Description))
 	}
 	if t, ok := parseTS(s.CreatedAt); ok {
 		fmt.Fprintf(w, "CREATED:   %s\n", t.Format("2006-01-02 15:04:05"))
 	} else if s.CreatedAt != "" {
-		fmt.Fprintf(w, "CREATED:   %s\n", s.CreatedAt)
+		fmt.Fprintf(w, "CREATED:   %s\n", text.SanitizeInline(s.CreatedAt))
 	}
 	if t, ok := parseTS(s.UpdatedAt); ok {
 		fmt.Fprintf(w, "UPDATED:   %s\n", t.Format("2006-01-02 15:04:05"))
 	} else if s.UpdatedAt != "" {
-		fmt.Fprintf(w, "UPDATED:   %s\n", s.UpdatedAt)
+		fmt.Fprintf(w, "UPDATED:   %s\n", text.SanitizeInline(s.UpdatedAt))
 	}
 
 	if opts.Full {
@@ -178,9 +188,9 @@ func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOption
 			if !m.CreatedAt.IsZero() {
 				ts = " " + m.CreatedAt.Format("2006-01-02 15:04:05")
 			}
-			fmt.Fprintf(w, "[%s]%s\n", m.Role, ts)
+			fmt.Fprintf(w, "[%s]%s\n", text.SanitizeInline(m.Role), ts)
 			if m.Content != "" {
-				fmt.Fprintln(w, m.Content)
+				fmt.Fprintln(w, text.SanitizeTerminal(m.Content))
 			}
 		}
 	}

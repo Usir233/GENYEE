@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
+	"math"
+	"regexp"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -16,6 +19,38 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/sse"
 	sdk "github.com/Usir233/GENYEE/client"
 )
+
+var (
+	reBearerToken = regexp.MustCompile(`(?i)\bBearer\s+[^\s"']+`)
+	reAPIKeyToken = regexp.MustCompile(`\b(gy_[A-Za-z0-9_-]{6,}|sk-[A-Za-z0-9_-]{8,})`)
+	reURLUserInfo = regexp.MustCompile(`(https?://)([^/\s:@]+):([^/\s@]+)@`)
+)
+
+func redactSensitiveText(s string) string {
+	if s == "" {
+		return ""
+	}
+	s = reBearerToken.ReplaceAllString(s, "Bearer [REDACTED]")
+	s = reAPIKeyToken.ReplaceAllString(s, "[REDACTED]")
+	s = reURLUserInfo.ReplaceAllString(s, "${1}[REDACTED]@")
+	return s
+}
+
+const (
+	maxMCPBufferedEvents = 4096
+	maxMCPProjectedBytes = 4 << 20
+)
+
+var validDocParseStatuses = []string{
+	"pending",
+	"processing",
+	"completed",
+	"failed",
+	"finalizing",
+	"cancelled",
+	"deleting",
+	"draft",
+}
 
 // toolErrorResult builds an error CallToolResult with IsError=true, a
 // human-readable text fallback (Content), and the error envelope payload
@@ -31,6 +66,8 @@ func toolErrorResult(err error) *mcpsdk.CallToolResult {
 		return nil
 	}
 	detail := cmdutil.ErrorToDetail(err)
+	detail.Message = redactSensitiveText(detail.Message)
+	detail.Hint = redactSensitiveText(detail.Hint)
 	textLine := detail.Type + ": " + detail.Message
 	if detail.Hint != "" {
 		textLine += "\nhint: " + detail.Hint
@@ -256,19 +293,33 @@ func addDocList(server *mcpsdk.Server, svc knowledgeService) {
 				return toolErrorResult(err), nil, nil
 			}
 		}
+		if in.Page < 0 {
+			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "page must be >= 1")), nil, nil
+		}
 		page := in.Page
-		if page < 1 {
+		if page == 0 {
 			page = 1
 		}
+		if in.PageSize < 0 {
+			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "page_size must be in 1..1000")), nil, nil
+		}
 		size := in.PageSize
-		if size < 1 {
+		if size == 0 {
 			size = 20
 		}
 		if size > 1000 {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "page_size must be in 1..1000")), nil, nil
 		}
+		normStatus := ""
+		if in.Status != "" {
+			var err error
+			normStatus, err = cmdutil.ValidateEnum("status", in.Status, validDocParseStatuses)
+			if err != nil {
+				return toolErrorResult(err), nil, nil
+			}
+		}
 		filter := sdk.KnowledgeListFilter{
-			ParseStatus: in.Status,
+			ParseStatus: normStatus,
 			Keyword:     in.Keyword,
 			FileType:    in.FileType,
 			Source:      in.Source,
@@ -287,6 +338,9 @@ func addDocList(server *mcpsdk.Server, svc knowledgeService) {
 				return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("end_time must be RFC3339 (e.g. 2006-01-02T15:04:05Z), got %q", in.EndTime))), nil, nil
 			}
 			filter.EndTime = t
+		}
+		if !filter.StartTime.IsZero() && !filter.EndTime.IsZero() && filter.StartTime.After(filter.EndTime) {
+			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "start_time must not be after end_time")), nil, nil
 		}
 		items, total, err := svc.ListKnowledgeWithFilter(ctx, in.KBID, page, size, filter)
 		if err != nil {
@@ -439,12 +493,21 @@ func addSearchChunks(server *mcpsdk.Server, svc knowledgeService) {
 		if strings.TrimSpace(in.Query) == "" {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputMissingFlag, "query cannot be empty")), nil, nil
 		}
+		if in.Limit < 0 {
+			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "limit must be in 1..1000")), nil, nil
+		}
 		limit := in.Limit
-		if limit < 1 {
+		if limit == 0 {
 			limit = 10
 		}
 		if limit > 1000 {
 			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "limit must be in 1..1000")), nil, nil
+		}
+		if math.IsNaN(in.VectorThreshold) || math.IsInf(in.VectorThreshold, 0) || in.VectorThreshold < 0 || in.VectorThreshold > 1 {
+			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "vector_threshold must be in 0..1")), nil, nil
+		}
+		if math.IsNaN(in.KeywordThreshold) || math.IsInf(in.KeywordThreshold, 0) || in.KeywordThreshold < 0 || in.KeywordThreshold > 1 {
+			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "keyword_threshold must be in 0..1")), nil, nil
 		}
 		results, err := svc.HybridSearch(ctx, in.KBID, &sdk.SearchParams{
 			QueryText:        in.Query,
@@ -515,6 +578,9 @@ func addChat(server *mcpsdk.Server, svc chatService) {
 			if err != nil {
 				return toolErrorResult(cmdutil.WrapHTTP(err, "create chat session")), nil, nil
 			}
+			if sess == nil || strings.TrimSpace(sess.ID) == "" {
+				return toolErrorResult(cmdutil.NewError(cmdutil.CodeSessionCreateFailed, "create chat session returned an empty session ID")), nil, nil
+			}
 			sessionID = sess.ID
 		}
 		req := &sdk.KnowledgeQARequest{
@@ -525,14 +591,26 @@ func addChat(server *mcpsdk.Server, svc chatService) {
 		}
 		projector := sse.NewProjector(in.Verbose, in.Reference, in.KBID)
 		events := make([]sse.ProjectedEvent, 0)
+		projectedBytes := 0
 		streamErr := svc.KnowledgeQAStream(ctx, sessionID, req, func(r *sdk.StreamResponse) error {
 			if event, include := projector.Chat(r); include {
+				if len(events) >= maxMCPBufferedEvents || projectedBytes+len(event.Content) > maxMCPProjectedBytes {
+					return cmdutil.NewError(cmdutil.CodeServerError, "stream exceeded MCP buffered event limit")
+				}
+				projectedBytes += len(event.Content)
 				events = append(events, event)
 			}
 			return nil
 		})
 		if streamErr != nil {
+			var cerr *cmdutil.Error
+			if errorsAsCmdError(streamErr, &cerr) {
+				return toolStreamError(cerr, sessionID, projector.AssistantMessageID()), nil, nil
+			}
 			return toolStreamError(cmdutil.WrapStream(streamErr, "knowledge qa stream"), sessionID, projector.AssistantMessageID()), nil, nil
+		}
+		if errMsg, hasErr := projector.TerminalError(); hasErr {
+			return toolStreamError(cmdutil.WrapStream(sdk.NewSSEStreamError(errMsg), "knowledge qa stream"), sessionID, projector.AssistantMessageID()), nil, nil
 		}
 		if !projector.Done() {
 			return toolStreamError(cmdutil.NewError(cmdutil.CodeSSEStreamAborted, "stream ended without a terminal event"), sessionID, projector.AssistantMessageID()), nil, nil
@@ -641,16 +719,31 @@ func addSessionAsk(server *mcpsdk.Server, svc sessionAskService) {
 			if err != nil {
 				return toolErrorResult(cmdutil.WrapHTTP(err, "create chat session")), nil, nil
 			}
+			if sess == nil || strings.TrimSpace(sess.ID) == "" {
+				return toolErrorResult(cmdutil.NewError(cmdutil.CodeSessionCreateFailed, "create chat session returned an empty session ID")), nil, nil
+			}
 			sessionID = sess.ID
 		}
+		projectedBytes := 0
 		streamErr := svc.AgentQAStreamWithRequest(ctx, sessionID, req, func(r *sdk.AgentStreamResponse) error {
 			if event, include := projector.Agent(r); include {
+				if len(events) >= maxMCPBufferedEvents || projectedBytes+len(event.Content) > maxMCPProjectedBytes {
+					return cmdutil.NewError(cmdutil.CodeServerError, "stream exceeded MCP buffered event limit")
+				}
+				projectedBytes += len(event.Content)
 				events = append(events, event)
 			}
 			return nil
 		})
 		if streamErr != nil {
+			var cerr *cmdutil.Error
+			if errorsAsCmdError(streamErr, &cerr) {
+				return toolStreamError(cerr, sessionID, ""), nil, nil
+			}
 			return toolStreamError(cmdutil.WrapStream(streamErr, "agent-chat stream"), sessionID, ""), nil, nil
+		}
+		if errMsg, hasErr := projector.TerminalError(); hasErr {
+			return toolStreamError(cmdutil.WrapStream(sdk.NewSSEStreamError(errMsg), "agent-chat stream"), sessionID, ""), nil, nil
 		}
 		if !projector.Done() {
 			return toolStreamError(cmdutil.NewError(cmdutil.CodeSSEStreamAborted, "stream ended without a terminal event"), sessionID, ""), nil, nil
@@ -709,8 +802,11 @@ func addChunkList(server *mcpsdk.Server, svc chunkListService) {
 		// before this handler runs. Default when unset; reject over-max
 		// (rather than silently clamping) so the agent's request is never
 		// quietly changed — matching search_chunks in this same file.
+		if in.Limit < 0 {
+			return toolErrorResult(cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("limit must be in 1..%d", chunkListMaxLimit))), nil, nil
+		}
 		limit := in.Limit
-		if limit < 1 {
+		if limit == 0 {
 			limit = chunkListDefaultLimit
 		}
 		if limit > chunkListMaxLimit {
@@ -754,4 +850,8 @@ func encodeDownload(buf []byte) (string, bool) {
 // pointer types for DestructiveHint and OpenWorldHint so that "explicit
 // false" can be distinguished from "field omitted (default true per MCP
 // spec 2025-06-18)".
+func errorsAsCmdError(err error, target **cmdutil.Error) bool {
+	return errors.As(err, target)
+}
+
 func bptr(b bool) *bool { return &b }

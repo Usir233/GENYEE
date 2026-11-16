@@ -20,6 +20,7 @@ const (
 	maxPageSize     = 1000
 	defaultLimit    = 50
 	maxLimit        = 10000
+	maxChunkPages   = 10000
 	previewWidth    = 80
 )
 
@@ -124,6 +125,11 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 // client is built (so a bad value surfaces as exit 5, not an auth error) and at
 // runList's top for direct callers; idempotent.
 func validateListOpts(opts *ListOptions) error {
+	if opts.DocID != "" {
+		if err := cmdutil.ValidateResourceID("doc", opts.DocID); err != nil {
+			return err
+		}
+	}
 	if opts.Limit < 1 || opts.Limit > maxLimit {
 		return &cmdutil.Error{
 			Code:    cmdutil.CodeInputInvalidArgument,
@@ -150,6 +156,9 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 	if opts.AllPages {
 		accum := make([]sdk.Chunk, 0)
 		for page := 1; ; page++ {
+			if page > maxChunkPages {
+				return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("chunk list exceeded %d-page safety limit", maxChunkPages))
+			}
 			chunks, total, err := svc.ListKnowledgeChunks(ctx, opts.DocID, page, opts.PageSize)
 			if err != nil {
 				return cmdutil.WrapHTTP(err, "list chunks for doc %s", opts.DocID)
@@ -203,12 +212,12 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 		if preview == "" {
 			preview = "-"
 		}
-		typ := c.ChunkType
+		typ := text.SanitizeInline(c.ChunkType)
 		if typ == "" {
 			typ = "-"
 		}
 		fmt.Fprintf(tw, "%s\t%d\t%s\t%s\t%s\t%s\n",
-			c.ID, c.ChunkIndex, typ, enabled, preview, text.FuzzyAgoStr(now, c.UpdatedAt))
+			text.SanitizeInline(c.ID), c.ChunkIndex, typ, enabled, preview, text.FuzzyAgoStr(now, c.UpdatedAt))
 	}
 	return tw.Flush()
 }

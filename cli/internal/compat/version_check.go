@@ -32,6 +32,9 @@ func Probe(ctx context.Context, c ProbeService) (*Info, error) {
 	if err != nil {
 		return nil, fmt.Errorf("probe server: %w", err)
 	}
+	if resp == nil {
+		return nil, fmt.Errorf("probe server: empty system info response")
+	}
 	return &Info{
 		ServerVersion: resp.Version,
 		ProbedAt:      time.Now(),

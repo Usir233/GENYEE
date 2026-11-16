@@ -8,6 +8,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -54,6 +55,9 @@ func newPinCmd(f *cmdutil.Factory, use string, want bool, short string) *cobra.C
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			if err := cmdutil.ValidateResourceID("kb-id", args[0]); err != nil {
+				return err
+			}
 			action := "kb.pin"
 			if !want {
 				action = "kb.unpin"
@@ -83,6 +87,9 @@ func newPinCmd(f *cmdutil.Factory, use string, want bool, short string) *cobra.C
 }
 
 func runPin(ctx context.Context, opts *PinOptions, fopts *cmdutil.FormatOptions, svc PinService, id string, want bool) error {
+	if err := cmdutil.ValidateResourceID("kb-id", id); err != nil {
+		return err
+	}
 	verb := "pin"
 	if !want {
 		verb = "unpin"
@@ -117,13 +124,16 @@ func runPin(ctx context.Context, opts *PinOptions, fopts *cmdutil.FormatOptions,
 		if fopts.WantsJSON() {
 			return fopts.Emit(iostreams.IO.Out, current, nil)
 		}
-		fmt.Fprintf(iostreams.IO.Out, "✓ %s is already %s\n", id, state)
+		fmt.Fprintf(iostreams.IO.Out, "✓ %s is already %s\n", text.SanitizeInline(id), state)
 		return nil
 	}
 
 	updated, err := svc.TogglePinKnowledgeBase(ctx, id)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "%s knowledge base %s", verb, id)
+	}
+	if updated == nil {
+		return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("empty knowledge base response for %s", id))
 	}
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, updated, nil)
@@ -132,6 +142,6 @@ func runPin(ctx context.Context, opts *PinOptions, fopts *cmdutil.FormatOptions,
 	if !updated.IsPinned {
 		state = "unpinned"
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ %s %s\n", id, state)
+	fmt.Fprintf(iostreams.IO.Out, "✓ %s %s\n", text.SanitizeInline(id), state)
 	return nil
 }

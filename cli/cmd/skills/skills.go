@@ -7,6 +7,7 @@
 package skillscmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -155,6 +156,9 @@ Existing files are left untouched unless --force is passed.`,
 // directory tree.
 func resolveDir(dir string) (string, error) {
 	if dir != "" {
+		if strings.TrimSpace(dir) == "" {
+			return "", cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--dir cannot be whitespace-only")
+		}
 		return expandTilde(dir)
 	}
 	home, err := os.UserHomeDir()
@@ -165,12 +169,12 @@ func resolveDir(dir string) (string, error) {
 	return filepath.Join(home, ".claude", "skills"), nil
 }
 
-// expandTilde resolves a leading "~" or "~/" path segment to the user's home
-// directory. Other forms (including "~user" and a ~ that isn't the first
-// segment) are returned unchanged — matching the common shell behavior a CLI
-// is expected to reproduce when it receives an unexpanded literal tilde.
+// expandTilde resolves a leading "~" or "~/" (or "~\") path segment to the
+// user's home directory. Other forms (including "~user" and a ~ that isn't the
+// first segment) are returned unchanged — matching the common shell behavior a
+// CLI is expected to reproduce when it receives an unexpanded literal tilde.
 func expandTilde(path string) (string, error) {
-	if path != "~" && !strings.HasPrefix(path, "~/") {
+	if path != "~" && !strings.HasPrefix(path, "~/") && !strings.HasPrefix(path, `~\`) {
 		return path, nil
 	}
 	home, err := os.UserHomeDir()
@@ -181,34 +185,121 @@ func expandTilde(path string) (string, error) {
 	if path == "~" {
 		return home, nil
 	}
-	return filepath.Join(home, path[len("~/"):]), nil
+	return filepath.Join(home, path[2:]), nil
 }
 
 // writeSkills writes every embedded skill file under target, creating parent
-// dirs. Without --force, an existing file is skipped (not overwritten). Returns
-// the paths actually written.
+// dirs safely without traversing symlinked subdirectories or overwriting
+// symlinked files. Without --force, an existing regular file is skipped.
 func writeSkills(skills []skillsfs.Skill, target string, force bool) ([]string, error) {
-	var written []string
+	written := make([]string, 0)
+	cleanTarget := filepath.Clean(target)
+	if err := os.MkdirAll(cleanTarget, 0o755); err != nil {
+		return written, cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "create target dir %s", cleanTarget)
+	}
+
 	for _, s := range skills {
 		for _, rel := range s.Files {
-			dst := filepath.Join(target, rel)
-			if !force {
-				if _, err := os.Stat(dst); err == nil {
-					continue // exists; leave it
+			cleanRel, err := sanitizeSkillRelPath(rel)
+			if err != nil {
+				return written, err
+			}
+			dst := filepath.Join(cleanTarget, cleanRel)
+			if err := ensureSafeSkillSubdirs(cleanTarget, filepath.Dir(cleanRel)); err != nil {
+				return written, err
+			}
+			linfo, err := os.Lstat(dst)
+			if err == nil {
+				if linfo.Mode()&os.ModeSymlink != 0 || !linfo.Mode().IsRegular() {
+					return written, cmdutil.NewError(cmdutil.CodeLocalFileIO,
+						fmt.Sprintf("refusing to write to symlink or non-regular path %s", dst))
 				}
+				if !force {
+					continue // regular file already exists; leave untouched
+				}
+			} else if !errors.Is(err, os.ErrNotExist) {
+				return written, cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "stat %s", dst)
 			}
-			if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
-				return written, cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "create dir for %s", dst)
-			}
+
 			b, err := skillsfs.ReadFile(rel)
 			if err != nil {
 				return written, cmdutil.Wrapf(cmdutil.CodeInternalError, err, "read embedded %s", rel)
 			}
-			if err := os.WriteFile(dst, b, 0o644); err != nil {
-				return written, cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "write %s", dst)
+			if err := writeSkillFileAtomic(dst, b); err != nil {
+				return written, err
 			}
 			written = append(written, dst)
 		}
 	}
 	return written, nil
+}
+
+func sanitizeSkillRelPath(rel string) (string, error) {
+	cleanRel := filepath.Clean(filepath.FromSlash(rel))
+	if cleanRel == "." || cleanRel == ".." || filepath.IsAbs(cleanRel) || strings.HasPrefix(cleanRel, ".."+string(filepath.Separator)) {
+		return "", cmdutil.NewError(cmdutil.CodeInternalError, fmt.Sprintf("unsafe embedded skill path %q", rel))
+	}
+	return cleanRel, nil
+}
+
+func ensureSafeSkillSubdirs(root, relDir string) error {
+	if relDir == "" || relDir == "." {
+		return nil
+	}
+	cur := root
+	for _, part := range strings.Split(relDir, string(filepath.Separator)) {
+		if part == "" || part == "." {
+			continue
+		}
+		cur = filepath.Join(cur, part)
+		fi, err := os.Lstat(cur)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				if mkErr := os.Mkdir(cur, 0o755); mkErr != nil {
+					return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, mkErr, "create skill subdir %s", cur)
+				}
+				continue
+			}
+			return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "lstat %s", cur)
+		}
+		if fi.Mode()&os.ModeSymlink != 0 || !fi.IsDir() {
+			return cmdutil.NewError(cmdutil.CodeLocalFileIO,
+				fmt.Sprintf("refusing to traverse symlink or non-directory %s", cur))
+		}
+	}
+	return nil
+}
+
+func writeSkillFileAtomic(dst string, data []byte) error {
+	dir := filepath.Dir(dst)
+	tmp, err := os.CreateTemp(dir, filepath.Base(dst)+".tmp.*")
+	if err != nil {
+		return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "create temp file in %s", dir)
+	}
+	tmpName := tmp.Name()
+	committed := false
+	defer func() {
+		if !committed {
+			_ = os.Remove(tmpName)
+		}
+	}()
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "write %s", tmpName)
+	}
+	if err := tmp.Close(); err != nil {
+		return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "close %s", tmpName)
+	}
+	if err := os.Chmod(tmpName, 0o644); err != nil {
+		return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "chmod %s", tmpName)
+	}
+	if fi, err := os.Lstat(dst); err == nil && (fi.Mode()&os.ModeSymlink != 0 || !fi.Mode().IsRegular()) {
+		return cmdutil.NewError(cmdutil.CodeLocalFileIO,
+			fmt.Sprintf("refusing to overwrite symlink or non-regular path %s", dst))
+	}
+	if err := os.Rename(tmpName, dst); err != nil {
+		return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "rename %s -> %s", tmpName, dst)
+	}
+	committed = true
+	return nil
 }

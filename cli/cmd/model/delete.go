@@ -8,6 +8,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -39,18 +40,21 @@ agent still referencing the model will fail until repointed.`,
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 			opts.Yes, _ = c.Flags().GetBool("yes")
 			id := args[0]
+			if err := cmdutil.ValidateResourceID("model-id", id); err != nil {
+				return err
+			}
 			if handled, err := cmdutil.HandleDryRun(c, opts.DryRun, cmdutil.DryRunPlan{
 				Action: "model.delete",
 				Args:   map[string]any{"model": id},
 			}); handled {
 				return err
 			}
-			cli, err := f.Client()
-			if err != nil {
-				return err
-			}
 			if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(),
 				"delete", "model", id, "model.delete", []string{"genyee", "model", "delete", id, "-y"}); err != nil {
+				return err
+			}
+			cli, err := f.Client()
+			if err != nil {
 				return err
 			}
 			return runDelete(c.Context(), fopts, cli, id)
@@ -73,13 +77,16 @@ agent still referencing the model will fail until repointed.`,
 }
 
 func runDelete(ctx context.Context, fopts *cmdutil.FormatOptions, svc DeleteService, id string) error {
+	if err := cmdutil.ValidateResourceID("model-id", id); err != nil {
+		return err
+	}
 	if err := svc.DeleteModel(ctx, id); err != nil {
 		return cmdutil.WrapHTTP(err, "delete model %q", id)
 	}
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, map[string]any{"id": id, "deleted": true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted model %s\n", id)
+	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted model %s\n", text.SanitizeInline(id))
 	return nil
 }
 

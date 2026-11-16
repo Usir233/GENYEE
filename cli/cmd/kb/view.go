@@ -48,6 +48,9 @@ func NewCmdView(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			if err := cmdutil.ValidateResourceID("kb-id", args[0]); err != nil {
+				return err
+			}
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -69,9 +72,15 @@ func NewCmdView(f *cmdutil.Factory) *cobra.Command {
 }
 
 func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOptions, svc ViewService, id string) error {
+	if err := cmdutil.ValidateResourceID("kb-id", id); err != nil {
+		return err
+	}
 	kb, err := svc.GetKnowledgeBase(ctx, id)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "get knowledge base %q", id)
+	}
+	if kb == nil {
+		return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("empty knowledge base response for %q", id))
 	}
 	// The single-KB GET doesn't stamp per-user pin state, so is_pinned would
 	// always read false here. Enrich it from the list (the canonical pin
@@ -92,13 +101,13 @@ func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOption
 	// vlm_config, etc.) are intentionally omitted from the text render —
 	// those are for `--format json | jq '.chunking_config'` workflows.
 	w := iostreams.IO.Out
-	fmt.Fprintf(w, "ID:        %s\n", kb.ID)
-	fmt.Fprintf(w, "NAME:      %s\n", kb.Name)
+	fmt.Fprintf(w, "ID:        %s\n", text.SanitizeInline(kb.ID))
+	fmt.Fprintf(w, "NAME:      %s\n", text.SanitizeInline(kb.Name))
 	if kb.Type != "" {
-		fmt.Fprintf(w, "TYPE:      %s\n", kb.Type)
+		fmt.Fprintf(w, "TYPE:      %s\n", text.SanitizeInline(kb.Type))
 	}
 	if kb.Description != "" {
-		fmt.Fprintf(w, "DESC:      %s\n", kb.Description)
+		fmt.Fprintf(w, "DESC:      %s\n", text.SanitizeTerminal(kb.Description))
 	}
 	if kb.IsPinned {
 		fmt.Fprintf(w, "PINNED:    yes\n")
@@ -112,10 +121,10 @@ func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOption
 		fmt.Fprintf(w, "PROCESSING: %s\n", text.Pluralize(int(kb.ProcessingCount), "doc"))
 	}
 	if kb.EmbeddingModelID != "" {
-		fmt.Fprintf(w, "EMBEDDING: %s\n", kb.EmbeddingModelID)
+		fmt.Fprintf(w, "EMBEDDING: %s\n", text.SanitizeInline(kb.EmbeddingModelID))
 	}
 	if kb.SummaryModelID != "" {
-		fmt.Fprintf(w, "SUMMARY MODEL: %s\n", kb.SummaryModelID)
+		fmt.Fprintf(w, "SUMMARY MODEL: %s\n", text.SanitizeInline(kb.SummaryModelID))
 	}
 	if !kb.CreatedAt.IsZero() {
 		fmt.Fprintf(w, "CREATED:   %s\n", kb.CreatedAt.Format("2006-01-02 15:04:05"))

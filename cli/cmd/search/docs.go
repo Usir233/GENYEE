@@ -90,6 +90,10 @@ reached or the KB is exhausted. Pass --all-pages=false to stop after one page.`,
 			if opts.Limit < 1 || opts.Limit > 1000 {
 				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--limit must be between 1 and 1000")
 			}
+			if opts.PageSize < 1 || opts.PageSize > docsMaxPageSize {
+				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+					fmt.Sprintf("--page-size must be in 1..%d, got %d", docsMaxPageSize, opts.PageSize))
+			}
 			fopts, err := cmdutil.CheckFormatFlag(c)
 			if err != nil {
 				return err
@@ -131,6 +135,11 @@ func runDocsSearch(ctx context.Context, opts *DocsSearchOptions, fopts *cmdutil.
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
 			fmt.Sprintf("--page-size must be in 1..%d, got %d", docsMaxPageSize, opts.PageSize))
 	}
+	if opts.KBID != "" {
+		if err := cmdutil.ValidateResourceID("kb", opts.KBID); err != nil {
+			return err
+		}
+	}
 	filter := sdk.KnowledgeListFilter{Keyword: opts.Query}
 	var matches []sdk.Knowledge
 
@@ -142,6 +151,9 @@ func runDocsSearch(ctx context.Context, opts *DocsSearchOptions, fopts *cmdutil.
 	// received so server-capped page_size doesn't truncate.
 	var serverTotal int64
 	for page := 1; ; page++ {
+		if page > 10000 {
+			return cmdutil.NewError(cmdutil.CodeServerError, "search docs exceeded 10000-page safety limit")
+		}
 		items, total, err := svc.ListKnowledgeWithFilter(ctx, opts.KBID, page, opts.PageSize, filter)
 		if err != nil {
 			return cmdutil.WrapHTTP(err, "list documents")
@@ -183,7 +195,7 @@ done:
 	fmt.Fprintln(tw, "ID\tFILE\tTYPE\tUPDATED")
 	for _, k := range matches {
 		name := text.Truncate(50, text.KnowledgeDisplayName(k.FileName, k.Title, k.ID))
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", k.ID, name, k.FileType, k.UpdatedAt.Format("2006-01-02"))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", text.SanitizeInline(k.ID), name, text.SanitizeInline(k.FileType), k.UpdatedAt.Format("2006-01-02"))
 	}
 	return tw.Flush()
 }

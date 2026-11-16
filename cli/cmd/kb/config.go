@@ -8,6 +8,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -39,6 +40,9 @@ Provider API keys are never shown.`,
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			if err := cmdutil.ValidateResourceID("kb-id", args[0]); err != nil {
+				return err
+			}
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -60,6 +64,9 @@ Provider API keys are never shown.`,
 }
 
 func runConfig(ctx context.Context, fopts *cmdutil.FormatOptions, svc ConfigService, kbID string) error {
+	if err := cmdutil.ValidateResourceID("kb-id", kbID); err != nil {
+		return err
+	}
 	cfg, err := svc.GetInitializationConfig(ctx, kbID)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "get config for knowledge base %q", kbID)
@@ -94,16 +101,16 @@ func slotLabel(s sdk.ModelSlotView) string {
 		return "(unset)"
 	}
 	if s.Source != "" {
-		return fmt.Sprintf("%s (%s)", s.ModelName, s.Source)
+		return fmt.Sprintf("%s (%s)", text.SanitizeInline(s.ModelName), text.SanitizeInline(s.Source))
 	}
-	return s.ModelName
+	return text.SanitizeInline(s.ModelName)
 }
 
 func rerankLabel(r sdk.RerankSlotView) string {
 	if !r.Enabled {
 		return "(disabled)"
 	}
-	return r.ModelName
+	return text.SanitizeInline(r.ModelName)
 }
 
 // compile-time check: the production SDK client implements ConfigService.

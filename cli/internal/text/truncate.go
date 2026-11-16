@@ -16,6 +16,7 @@ func Truncate(maxWidth int, s string) string {
 	if maxWidth <= 0 {
 		return ""
 	}
+	s = SanitizeTerminal(s)
 	if runewidth.StringWidth(s) <= maxWidth {
 		return s
 	}

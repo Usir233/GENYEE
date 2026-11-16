@@ -9,6 +9,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -64,6 +65,9 @@ verification including failed-doc aggregation.`,
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			if err := cmdutil.ValidateResourceID("kb-id", args[0]); err != nil {
+				return err
+			}
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -89,8 +93,11 @@ verification including failed-doc aggregation.`,
 // Never returns an error for "kb not reachable" (Reachable=false carries
 // the signal).
 func runCheck(ctx context.Context, svc CheckService, id string) (*CheckResult, error) {
+	if err := cmdutil.ValidateResourceID("kb-id", id); err != nil {
+		return nil, err
+	}
 	kb, err := svc.GetKnowledgeBase(ctx, id)
-	if err != nil {
+	if err != nil || kb == nil {
 		return &CheckResult{ID: id, Reachable: false}, nil
 	}
 	res := &CheckResult{
@@ -104,7 +111,7 @@ func runCheck(ctx context.Context, svc CheckService, id string) (*CheckResult, e
 	}
 	failed, err := aggregateFailedCount(ctx, svc, id)
 	if err != nil {
-		return res, fmt.Errorf("aggregate failed_count: %w", err)
+		return res, cmdutil.WrapHTTP(err, "aggregate failed_count for kb %s", id)
 	}
 	res.FailedCount = failed
 	return res, nil
@@ -114,10 +121,16 @@ func runCheck(ctx context.Context, svc CheckService, id string) (*CheckResult, e
 // returns the total count. Termination uses accumulated total (not
 // page*pageSize) so server-capped page sizes don't truncate.
 func aggregateFailedCount(ctx context.Context, svc CheckService, kbID string) (int64, error) {
-	const pageSize = 100
+	const (
+		pageSize = 100
+		maxPages = 10000
+	)
 	var total int64
 	page := 1
 	for {
+		if page > maxPages {
+			return total, cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("failed-doc aggregation exceeded %d-page safety limit", maxPages))
+		}
 		docs, totalAvailable, err := svc.ListKnowledgeWithFilter(ctx, kbID, page, pageSize, sdk.KnowledgeListFilter{ParseStatus: "failed"})
 		if err != nil {
 			return total, err
@@ -144,7 +157,7 @@ func emitCheck(res *CheckResult, fopts *cmdutil.FormatOptions, w io.Writer) erro
 }
 
 func writeCheckText(w io.Writer, res *CheckResult) error {
-	fmt.Fprintf(w, "ID:           %s\n", res.ID)
+	fmt.Fprintf(w, "ID:           %s\n", text.SanitizeInline(res.ID))
 	fmt.Fprintf(w, "Reachable:    %v\n", res.Reachable)
 	if !res.Reachable {
 		return nil

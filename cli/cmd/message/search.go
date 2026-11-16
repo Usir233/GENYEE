@@ -3,6 +3,7 @@ package messagecmd
 import (
 	"context"
 	"fmt"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -86,12 +87,20 @@ func NewCmdSearch(f *cmdutil.Factory) *cobra.Command {
 // surfaces as exit 5, not an auth error) and again at the top of runSearch
 // for direct callers; it is idempotent.
 func validateSearchOpts(opts *SearchOptions) error {
+	if strings.TrimSpace(opts.Query) == "" {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "query argument cannot be empty")
+	}
 	// 1..1000 mirrors `search chunks` (the sibling search command); the
 	// server itself does not cap limit (handler passes it through).
 	if opts.Limit < 1 || opts.Limit > 1000 {
 		return &cmdutil.Error{
 			Code:    cmdutil.CodeInputInvalidArgument,
 			Message: fmt.Sprintf("--limit must be in 1..1000, got %d", opts.Limit),
+		}
+	}
+	for _, sid := range opts.SessionIDs {
+		if err := cmdutil.ValidateResourceID("session", sid); err != nil {
+			return err
 		}
 	}
 	// Validate --mode against the closed server enum and normalize to the
@@ -122,9 +131,11 @@ func runSearch(ctx context.Context, opts *SearchOptions, fopts *cmdutil.FormatOp
 	if res == nil {
 		res = &sdk.MessageSearchResult{}
 	}
-	items := res.Items
-	if items == nil {
-		items = []*sdk.MessageSearchGroupItem{}
+	items := make([]*sdk.MessageSearchGroupItem, 0, len(res.Items))
+	for _, it := range res.Items {
+		if it != nil {
+			items = append(items, it)
+		}
 	}
 	if fopts.WantsJSON() {
 		meta := &output.Meta{Count: output.IntPtr(len(items)), TotalCount: output.IntPtr(res.Total)}
@@ -137,7 +148,7 @@ func runSearch(ctx context.Context, opts *SearchOptions, fopts *cmdutil.FormatOp
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "SESSION ID\tQUERY\tANSWER\tSCORE")
 	for _, it := range items {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%.2f\n", it.SessionID, text.OneLine(40, it.QueryContent), text.OneLine(40, it.AnswerContent), it.Score)
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%.2f\n", text.SanitizeInline(it.SessionID), text.OneLine(40, it.QueryContent), text.OneLine(40, it.AnswerContent), it.Score)
 	}
 	return tw.Flush()
 }

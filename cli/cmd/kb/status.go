@@ -9,6 +9,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -61,6 +62,9 @@ For full metadata (config / pinned / tenant), use 'genyee kb view <id>'.`,
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			if err := cmdutil.ValidateResourceID("kb-id", args[0]); err != nil {
+				return err
+			}
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -86,8 +90,11 @@ For full metadata (config / pinned / tenant), use 'genyee kb view <id>'.`,
 // Never returns an error for "kb not reachable" (Reachable=false carries
 // that signal).
 func runStatus(ctx context.Context, svc StatusService, id string) (*StatusResult, error) {
+	if err := cmdutil.ValidateResourceID("kb-id", id); err != nil {
+		return nil, err
+	}
 	kb, err := svc.GetKnowledgeBase(ctx, id)
-	if err != nil {
+	if err != nil || kb == nil {
 		return &StatusResult{ID: id, Reachable: false}, nil
 	}
 	return &StatusResult{
@@ -115,7 +122,7 @@ func emitStatus(res *StatusResult, fopts *cmdutil.FormatOptions, w io.Writer) er
 }
 
 func writeStatusText(w io.Writer, res *StatusResult) error {
-	fmt.Fprintf(w, "ID:           %s\n", res.ID)
+	fmt.Fprintf(w, "ID:           %s\n", text.SanitizeInline(res.ID))
 	fmt.Fprintf(w, "Reachable:    %v\n", res.Reachable)
 	if !res.Reachable {
 		return nil

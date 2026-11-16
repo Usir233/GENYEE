@@ -8,6 +8,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -37,6 +38,9 @@ func NewCmdView(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			if err := cmdutil.ValidateResourceID("model-id", args[0]); err != nil {
+				return err
+			}
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -55,31 +59,38 @@ func NewCmdView(f *cmdutil.Factory) *cobra.Command {
 }
 
 func runView(ctx context.Context, fopts *cmdutil.FormatOptions, svc ViewService, id string) error {
+	if err := cmdutil.ValidateResourceID("model-id", id); err != nil {
+		return err
+	}
 	m, err := svc.GetModel(ctx, id)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "get model %q", id)
 	}
+	if m == nil {
+		return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("empty model response for %q", id))
+	}
+	scrubModelSecrets(m)
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, m, nil)
 	}
 	w := iostreams.IO.Out
-	fmt.Fprintf(w, "ID:          %s\n", m.ID)
-	if label := modelLabel(*m); label != "" {
+	fmt.Fprintf(w, "ID:          %s\n", text.SanitizeInline(m.ID))
+	if label := text.SanitizeInline(modelLabel(*m)); label != "" {
 		fmt.Fprintf(w, "NAME:        %s\n", label)
 	}
-	fmt.Fprintf(w, "TYPE:        %s\n", m.Type)
-	fmt.Fprintf(w, "SOURCE:      %s\n", m.Source)
+	fmt.Fprintf(w, "TYPE:        %s\n", text.SanitizeInline(string(m.Type)))
+	fmt.Fprintf(w, "SOURCE:      %s\n", text.SanitizeInline(string(m.Source)))
 	if m.IsDefault {
 		fmt.Fprintf(w, "DEFAULT:     yes\n")
 	}
 	if m.Description != "" {
-		fmt.Fprintf(w, "DESCRIPTION: %s\n", m.Description)
+		fmt.Fprintf(w, "DESCRIPTION: %s\n", text.SanitizeTerminal(m.Description))
 	}
 	if m.CreatedAt != "" {
-		fmt.Fprintf(w, "CREATED:     %s\n", m.CreatedAt)
+		fmt.Fprintf(w, "CREATED:     %s\n", text.SanitizeInline(m.CreatedAt))
 	}
 	if m.UpdatedAt != "" {
-		fmt.Fprintf(w, "UPDATED:     %s\n", m.UpdatedAt)
+		fmt.Fprintf(w, "UPDATED:     %s\n", text.SanitizeInline(m.UpdatedAt))
 	}
 	return nil
 }

@@ -3,11 +3,13 @@ package kb
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -75,6 +77,9 @@ to the user first.`,
 				opts.Description = &desc
 			}
 			id := args[0]
+			if err := cmdutil.ValidateResourceID("kb-id", id); err != nil {
+				return err
+			}
 			// Validate pure-local "at least one mutation flag" before the
 			// dry-run gate so --dry-run rejects identically to the live path.
 			// Same typed Error as runEdit so live behavior is unchanged, just
@@ -85,6 +90,9 @@ to the user first.`,
 					Message: "kb update requires at least one of --name or --description",
 					Hint:    "pass --name <name> and/or --description <desc>",
 				}
+			}
+			if opts.Name != nil && strings.TrimSpace(*opts.Name) == "" {
+				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--name cannot be empty")
 			}
 			planArgs := map[string]any{"kb": id}
 			if opts.Name != nil {
@@ -99,14 +107,14 @@ to the user first.`,
 			}); handled {
 				return err
 			}
-			cli, err := f.Client()
-			if err != nil {
-				return err
-			}
 			// Build a retry command from the flags the user actually passed so
 			// agents can re-invoke with -y after explicit human approval.
 			retryCmd := cmdutil.BuildRetryArgv(c, []string{"genyee", "kb", "update", id}, "name", "description", "format")
 			if err := cmdutil.ConfirmWrite(f.Prompter(), opts.Yes, fopts.WantsJSON(), "update", "knowledge base", id, "kb.update", retryCmd); err != nil {
+				return err
+			}
+			cli, err := f.Client()
+			if err != nil {
 				return err
 			}
 			return runEdit(c.Context(), opts, fopts, cli, id)
@@ -134,12 +142,18 @@ to the user first.`,
 }
 
 func runEdit(ctx context.Context, opts *EditOptions, fopts *cmdutil.FormatOptions, svc EditService, id string) error {
+	if err := cmdutil.ValidateResourceID("kb-id", id); err != nil {
+		return err
+	}
 	if opts.Name == nil && opts.Description == nil {
 		return &cmdutil.Error{
 			Code:    cmdutil.CodeInputMissingFlag,
 			Message: "kb update requires at least one of --name or --description",
 			Hint:    "pass --name <name> and/or --description <desc>",
 		}
+	}
+	if opts.Name != nil && strings.TrimSpace(*opts.Name) == "" {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--name cannot be empty")
 	}
 
 	// Fetch current state so we can fill in fields the user didn't touch.
@@ -148,6 +162,9 @@ func runEdit(ctx context.Context, opts *EditOptions, fopts *cmdutil.FormatOption
 	current, err := svc.GetKnowledgeBase(ctx, id)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "fetch knowledge base %s", id)
+	}
+	if current == nil {
+		return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("empty knowledge base response for %s", id))
 	}
 	req := &sdk.UpdateKnowledgeBaseRequest{
 		Name:        current.Name,
@@ -164,9 +181,12 @@ func runEdit(ctx context.Context, opts *EditOptions, fopts *cmdutil.FormatOption
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "update knowledge base %s", id)
 	}
+	if updated == nil {
+		return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("empty updated knowledge base response for %s", id))
+	}
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, updated, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Updated knowledge base %s\n", id)
+	fmt.Fprintf(iostreams.IO.Out, "✓ Updated knowledge base %s\n", text.SanitizeInline(id))
 	return nil
 }

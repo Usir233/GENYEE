@@ -9,6 +9,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/prompt"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 )
 
 // kbDeleteFields enumerates the fields surfaced for `--format json` discovery
@@ -60,6 +61,10 @@ exactly to guard against unintended deletes.`,
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 			opts.Yes, _ = c.Flags().GetBool("yes")
+			id := args[0]
+			if err := cmdutil.ValidateResourceID("kb-id", id); err != nil {
+				return err
+			}
 			if handled, err := cmdutil.HandleDryRun(c, opts.DryRun, cmdutil.DryRunPlan{
 				Action: "kb.delete",
 				Args: map[string]any{
@@ -68,11 +73,15 @@ exactly to guard against unintended deletes.`,
 			}); handled {
 				return err
 			}
+			if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "knowledge base", id, "kb.delete", []string{"genyee", "kb", "delete", id, "-y"}); err != nil {
+				return err
+			}
+			opts.Yes = true
 			cli, err := f.Client()
 			if err != nil {
 				return err
 			}
-			return runDelete(c.Context(), opts, fopts, cli, f.Prompter(), args[0])
+			return runDelete(c.Context(), opts, fopts, cli, f.Prompter(), id)
 		},
 	}
 	cmdutil.AddFormatFlag(cmd, kbDeleteFields...)
@@ -95,6 +104,9 @@ exactly to guard against unintended deletes.`,
 }
 
 func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc DeleteService, p prompt.Prompter, id string) error {
+	if err := cmdutil.ValidateResourceID("kb-id", id); err != nil {
+		return err
+	}
 	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "knowledge base", id, "kb.delete", []string{"genyee", "kb", "delete", id, "-y"}); err != nil {
 		return err
 	}
@@ -106,6 +118,6 @@ func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, deleteResult{ID: id, Deleted: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted knowledge base %s\n", id)
+	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted knowledge base %s\n", text.SanitizeInline(id))
 	return nil
 }

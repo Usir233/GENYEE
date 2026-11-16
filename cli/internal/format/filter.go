@@ -25,9 +25,9 @@ func filterArrayItems(arrayRaw json.RawMessage, fields []string) (json.RawMessag
 		if err != nil {
 			return nil, err
 		}
-		items[i] = filtered
+		items[i] = bytes.TrimRight(filtered, "\n")
 	}
-	return json.Marshal(items)
+	return marshalJSON(items)
 }
 
 // filterObjectKeys produces a new object containing only the listed keys
@@ -43,7 +43,7 @@ func filterObjectKeys(objRaw json.RawMessage, fields []string) (json.RawMessage,
 			dst[k] = v
 		}
 	}
-	return json.Marshal(dst)
+	return marshalJSON(dst)
 }
 
 // JQError marks a failure attributable to the user-supplied --jq expression
@@ -89,11 +89,11 @@ func writeJQ(w io.Writer, raw []byte, expr string) error {
 			}
 			continue
 		}
-		out, err := json.Marshal(v)
+		out, err := marshalJSON(v)
 		if err != nil {
 			return err
 		}
-		if _, err := w.Write(append(out, '\n')); err != nil {
+		if _, err := w.Write(out); err != nil {
 			return err
 		}
 	}

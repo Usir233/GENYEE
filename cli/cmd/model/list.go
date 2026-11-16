@@ -104,17 +104,17 @@ func validateListOpts(opts *ListOptions) error {
 			Message: fmt.Sprintf("--limit must be in 1..10000, got %d", opts.Limit),
 		}
 	}
+	if _, err := cmdutil.ValidateEnum("type", opts.Type, modelTypeValues); err != nil {
+		return err
+	}
+	if _, err := cmdutil.ValidateEnum("source", opts.Source, modelSourceValues); err != nil {
+		return err
+	}
 	return nil
 }
 
 func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOptions, svc ListService) error {
 	if err := validateListOpts(opts); err != nil {
-		return err
-	}
-	if _, err := cmdutil.ValidateEnum("type", opts.Type, modelTypeValues); err != nil {
-		return err
-	}
-	if _, err := cmdutil.ValidateEnum("source", opts.Source, modelSourceValues); err != nil {
 		return err
 	}
 	items, err := svc.ListModels(ctx)
@@ -123,6 +123,9 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 	}
 	if items == nil {
 		items = []sdk.Model{} // ensure JSON [] not null
+	}
+	for i := range items {
+		scrubModelSecrets(&items[i])
 	}
 	hasFilter := opts.Type != "" || opts.Source != ""
 	if hasFilter {
@@ -179,7 +182,7 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 			def = "default"
 		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\t%s\n",
-			m.ID, text.Truncate(40, modelLabel(m)), m.Type, m.Source, def)
+			text.SanitizeInline(m.ID), text.OneLine(40, modelLabel(m)), text.SanitizeInline(string(m.Type)), text.SanitizeInline(string(m.Source)), def)
 	}
 	return tw.Flush()
 }

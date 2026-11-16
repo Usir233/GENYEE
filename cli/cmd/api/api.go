@@ -14,6 +14,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -24,7 +25,15 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
+)
+
+const (
+	maxAPIInputBytes        = 16 << 20
+	maxAPIResponseBytes     = 64 << 20
+	maxPaginatePages        = 1000
+	maxAPIErrorSnippetBytes = 4096
 )
 
 // apiFields is intentionally a marker - api wraps arbitrary HTTP responses
@@ -84,6 +93,16 @@ Examples:
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			method := resolveMethod(opts)
+			if err := validateHTTPMethod(method); err != nil {
+				return err
+			}
+			if err := validateAPIPath(args[0]); err != nil {
+				return err
+			}
+			if err := preflightBodyFlags(opts); err != nil {
+				return err
+			}
 			if opts.DryRun {
 				// --dry-run on the raw escape-hatch is only meaningful when a
 				// would-be mutation exists to preview. GET (default or explicit)
@@ -91,7 +110,6 @@ Examples:
 				// likely user error — signal it via FlagError exit 2 with the
 				// concrete repair. Use resolveMethod so --input auto-promotes
 				// GET → POST identically to the live path.
-				method := resolveMethod(opts)
 				if method == http.MethodGet {
 					return cmdutil.NewFlagError(fmt.Errorf(
 						"--dry-run requires explicit -X POST/PUT/PATCH/DELETE; default GET is read-only with no side effect to preview"))
@@ -123,7 +141,6 @@ Examples:
 					return err
 				}
 			}
-			method := resolveMethod(opts)
 			// Escape-hatch DELETE through `genyee api` is just as destructive
 			// as `genyee kb delete` - exit-10 destructive protocol must apply
 			// (cli/README.md). PUT/PATCH mutate server state like a typed
@@ -198,15 +215,27 @@ func readInput(opts *Options) ([]byte, error) {
 			r = iostreams.IO.In
 		}
 		var err error
-		b, err = io.ReadAll(r)
+		b, err = io.ReadAll(io.LimitReader(r, maxAPIInputBytes+1))
 		if err != nil {
 			return nil, cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "read request body from stdin")
 		}
+		if len(b) > maxAPIInputBytes {
+			return nil, cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+				fmt.Sprintf("--input from stdin exceeds %d-byte limit", maxAPIInputBytes))
+		}
 	} else {
-		var err error
-		b, err = os.ReadFile(opts.Input)
+		f, err := os.Open(opts.Input)
 		if err != nil {
 			return nil, cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "read input file %s", opts.Input)
+		}
+		defer f.Close()
+		b, err = io.ReadAll(io.LimitReader(f, maxAPIInputBytes+1))
+		if err != nil {
+			return nil, cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "read input file %s", opts.Input)
+		}
+		if len(b) > maxAPIInputBytes {
+			return nil, cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+				fmt.Sprintf("--input file %s exceeds %d-byte limit", opts.Input, maxAPIInputBytes))
 		}
 	}
 	if len(bytes.TrimSpace(b)) > 0 && !json.Valid(b) {
@@ -214,6 +243,35 @@ func readInput(opts *Options) ([]byte, error) {
 			"--input must be valid JSON (the request body is sent as a JSON document)")
 	}
 	return b, nil
+}
+
+// preflightBodyFlags validates non-streaming body flag combinations (-d / -F /
+// mutual exclusion) before confirmation prompts without consuming stdin.
+func preflightBodyFlags(opts *Options) error {
+	set := 0
+	if opts.Data != "" {
+		set++
+	}
+	if opts.Input != "" {
+		set++
+	}
+	if len(opts.Fields) > 0 {
+		set++
+	}
+	if set > 1 {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+			"-d/--data, --input, and -F/--field are mutually exclusive; supply the body one way")
+	}
+	if len(opts.Fields) > 0 {
+		if _, err := buildFieldBody(opts.Fields); err != nil {
+			return err
+		}
+	}
+	if opts.Data != "" && !json.Valid([]byte(opts.Data)) {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+			"-d/--data must be valid JSON (the request body is sent as a JSON document)")
+	}
+	return nil
 }
 
 // resolveBody returns the request body bytes from -d/--data (inline) or
@@ -275,10 +333,98 @@ func inferFieldValue(v string) any {
 	if i, err := strconv.ParseInt(v, 10, 64); err == nil {
 		return i
 	}
-	if f, err := strconv.ParseFloat(v, 64); err == nil {
+	if f, err := strconv.ParseFloat(v, 64); err == nil && !math.IsNaN(f) && !math.IsInf(f, 0) {
 		return f
 	}
 	return v
+}
+
+func isHTTPMethodToken(m string) bool {
+	if m == "" {
+		return false
+	}
+	for i := 0; i < len(m); i++ {
+		c := m[i]
+		isAlphaNum := (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')
+		isTokenPunct := strings.ContainsRune("!#$%&'*+-.^_`|~", rune(c))
+		if !isAlphaNum && !isTokenPunct {
+			return false
+		}
+	}
+	return true
+}
+
+func validateHTTPMethod(method string) error {
+	if method == "" {
+		return cmdutil.NewFlagError(fmt.Errorf("--method cannot be empty"))
+	}
+	if !isHTTPMethodToken(method) {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+			fmt.Sprintf("invalid HTTP method %q", method))
+	}
+	return nil
+}
+
+func validateAPIPath(raw string) error {
+	if !strings.HasPrefix(raw, "/") {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must start with /: %s", raw))
+	}
+	if strings.HasPrefix(raw, "//") {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must be a relative server path, not a protocol-relative URL: %s", raw))
+	}
+	for i := 0; i < len(raw); i++ {
+		if raw[i] < 0x20 || raw[i] == 0x7f || raw[i] == '\\' || raw[i] == '#' {
+			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path contains disallowed character: %s", raw))
+		}
+	}
+	pathPart, _, _ := strings.Cut(raw, "?")
+	lowerPath := strings.ToLower(pathPart)
+	if strings.Contains(lowerPath, "%2f") || strings.Contains(lowerPath, "%5c") || strings.Contains(lowerPath, "%00") {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must not contain percent-encoded separators or NUL bytes: %s", raw))
+	}
+	for _, seg := range strings.Split(pathPart, "/") {
+		if seg == "." || seg == ".." {
+			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must not contain dot traversal segments: %s", raw))
+		}
+	}
+	decoded, err := url.PathUnescape(pathPart)
+	if err != nil {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("malformed percent-encoding in path: %s", raw))
+	}
+	for i := 0; i < len(decoded); i++ {
+		if decoded[i] < 0x20 || decoded[i] == 0x7f || decoded[i] == '\\' {
+			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path contains disallowed percent-decoded character: %s", raw))
+		}
+	}
+	for _, seg := range strings.Split(decoded, "/") {
+		if seg == "." || seg == ".." {
+			return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must not contain percent-encoded traversal segments: %s", raw))
+		}
+	}
+	if u, err := url.Parse(raw); err != nil || u.Scheme != "" || u.Host != "" {
+		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must be a relative server path: %s", raw))
+	}
+	return nil
+}
+
+func readBoundedResponse(r io.Reader) ([]byte, error) {
+	b, err := io.ReadAll(io.LimitReader(r, maxAPIResponseBytes+1))
+	if err != nil {
+		return nil, cmdutil.Wrapf(cmdutil.CodeNetworkError, err, "read response body")
+	}
+	if len(b) > maxAPIResponseBytes {
+		return nil, cmdutil.NewError(cmdutil.CodeServerError,
+			fmt.Sprintf("response body exceeds %d-byte safety limit", maxAPIResponseBytes))
+	}
+	return b, nil
+}
+
+func formatErrorSnippet(respBody []byte) string {
+	s := strings.TrimSpace(string(respBody))
+	if len(s) > maxAPIErrorSnippetBytes {
+		s = s[:maxAPIErrorSnippetBytes] + "...(truncated)"
+	}
+	return text.SanitizeInline(s)
 }
 
 // buildFieldBody assembles -F/--field key=value pairs into a JSON object with
@@ -349,11 +495,11 @@ func runAPI(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, sv
 
 // runAPISingle is the original single-call implementation of runAPI.
 func runAPISingle(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, svc Service, method, path string) error {
-	if method == "" {
-		return cmdutil.NewFlagError(fmt.Errorf("--method cannot be empty"))
+	if err := validateHTTPMethod(method); err != nil {
+		return err
 	}
-	if !strings.HasPrefix(path, "/") {
-		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must start with /: %s", path))
+	if err := validateAPIPath(path); err != nil {
+		return err
 	}
 
 	// Resolve request body from -d/--data (inline) or --input (file / `-`).
@@ -374,16 +520,19 @@ func runAPISingle(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptio
 		// own; non-2xx responses still surface as resp != nil, err == nil).
 		return cmdutil.WrapHTTP(err, "%s %s", method, path)
 	}
+	if resp == nil || resp.Body == nil {
+		return cmdutil.NewError(cmdutil.CodeServerError, "empty HTTP response from server")
+	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := readBoundedResponse(resp.Body)
 	if err != nil {
-		return cmdutil.Wrapf(cmdutil.CodeNetworkError, err, "read response body")
+		return err
 	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		code := cmdutil.ClassifyHTTPStatus(resp.StatusCode)
-		ce := cmdutil.NewError(code, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(respBody))))
+		ce := cmdutil.NewError(code, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, formatErrorSnippet(respBody)))
 		if v := resp.Header.Get("Retry-After"); v != "" {
 			if s, perr := strconv.Atoi(v); perr == nil && s > 0 {
 				ce = ce.WithRetryAfter(s)
@@ -437,8 +586,8 @@ func runAPIPaginated(ctx context.Context, opts *Options, fopts *cmdutil.FormatOp
 	if fopts.Mode == cmdutil.FormatText && fopts.JQ != "" {
 		return cmdutil.NewFlagError(fmt.Errorf("--jq requires --format json|ndjson"))
 	}
-	if !strings.HasPrefix(path, "/") {
-		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, fmt.Sprintf("path must start with /: %s", path))
+	if err := validateAPIPath(path); err != nil {
+		return err
 	}
 
 	pageSize := extractPageSize(path)
@@ -448,23 +597,36 @@ func runAPIPaginated(ctx context.Context, opts *Options, fopts *cmdutil.FormatOp
 
 	allData := []json.RawMessage{}
 	var lastTotal int64
+	var totalBytes int64
 	page := 1
 
 	for {
+		if page > maxPaginatePages {
+			return cmdutil.NewError(cmdutil.CodeServerError,
+				fmt.Sprintf("--paginate exceeded %d-page safety limit", maxPaginatePages))
+		}
 		curPath := setPageParam(path, page, pageSize)
 		resp, err := svc.Raw(ctx, http.MethodGet, curPath, nil)
 		if err != nil {
 			return cmdutil.WrapHTTP(err, "GET %s", curPath)
 		}
-		body, err := io.ReadAll(resp.Body)
+		if resp == nil || resp.Body == nil {
+			return cmdutil.NewError(cmdutil.CodeServerError, "empty HTTP response from server")
+		}
+		body, err := readBoundedResponse(resp.Body)
 		resp.Body.Close()
 		if err != nil {
-			return cmdutil.Wrapf(cmdutil.CodeNetworkError, err, "read response body")
+			return err
+		}
+		totalBytes += int64(len(body))
+		if totalBytes > maxAPIResponseBytes {
+			return cmdutil.NewError(cmdutil.CodeServerError,
+				fmt.Sprintf("--paginate accumulated response exceeds %d-byte safety limit", maxAPIResponseBytes))
 		}
 
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 			code := cmdutil.ClassifyHTTPStatus(resp.StatusCode)
-			return cmdutil.NewError(code, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body))))
+			return cmdutil.NewError(code, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, formatErrorSnippet(body)))
 		}
 
 		var pageResp struct {

@@ -17,6 +17,15 @@ import (
 func FuzzyAgo(now, t time.Time) string {
 	d := now.Sub(t)
 	suffix := "ago"
+	if d == math.MinInt64 || d == math.MaxInt64 {
+		sec := float64(now.Unix()) - float64(t.Unix())
+		if sec < 0 {
+			sec = -sec
+			suffix = "from now"
+		}
+		years := int(math.Round(sec / (365 * 24 * 3600)))
+		return fmt.Sprintf("about %s %s", Pluralize(years, "year"), suffix)
+	}
 	if d < 0 {
 		d = -d
 		suffix = "from now"

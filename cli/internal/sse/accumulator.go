@@ -10,9 +10,32 @@ package sse
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	sdk "github.com/Usir233/GENYEE/client"
 )
+
+// MaxAccumulatedBytes caps in-memory buffered answer/thinking text per stream
+// accumulator (16 MiB) so an unbounded upstream SSE stream cannot exhaust CLI
+// memory.
+const MaxAccumulatedBytes = 16 << 20
+
+func appendBoundedUTF8(b *strings.Builder, s string, maxBytes int) {
+	if s == "" || b.Len() >= maxBytes {
+		return
+	}
+	rem := maxBytes - b.Len()
+	if len(s) <= rem {
+		b.WriteString(s)
+		return
+	}
+	for rem > 0 && !utf8.RuneStart(s[rem]) {
+		rem--
+	}
+	if rem > 0 {
+		b.WriteString(s[:rem])
+	}
+}
 
 // Accumulator buffers a KnowledgeQAStream callback sequence.
 //
@@ -42,20 +65,16 @@ func (a *Accumulator) Append(r *sdk.StreamResponse) {
 	}
 	switch r.ResponseType {
 	case sdk.ResponseTypeAnswer:
-		if r.Content != "" {
-			a.answer.WriteString(r.Content)
-		}
+		appendBoundedUTF8(&a.answer, r.Content, MaxAccumulatedBytes)
 	case sdk.ResponseTypeThinking, sdk.ResponseTypeReflection:
-		if r.Content != "" {
-			a.thinking.WriteString(r.Content)
-		}
+		appendBoundedUTF8(&a.thinking, r.Content, MaxAccumulatedBytes)
 	default:
 		// Frames without a typed ResponseType (legacy / metadata-only
 		// payloads) that still carry an answer fragment fall through here.
 		// Preserve the legacy contract by treating untyped Content as
 		// answer text.
 		if r.ResponseType == "" && r.Content != "" {
-			a.answer.WriteString(r.Content)
+			appendBoundedUTF8(&a.answer, r.Content, MaxAccumulatedBytes)
 		}
 	}
 	if r.SessionID != "" && a.SessionID == "" {

@@ -2,6 +2,7 @@ package sessioncmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,7 +12,13 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/output"
 	"github.com/Usir233/GENYEE/cli/internal/sse"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
+)
+
+const (
+	maxAskBufferedEvents = 8192
+	maxAskBufferedBytes  = 16 << 20
 )
 
 // sessionAskFields enumerates the fields surfaced for `--jq` projection
@@ -83,6 +90,17 @@ both flags for the complete projected stream.`,
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 			opts.Query = strings.TrimSpace(args[0])
+			if opts.Query == "" {
+				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "query argument cannot be empty")
+			}
+			if err := cmdutil.ValidateResourceID("agent", opts.AgentID); err != nil {
+				return err
+			}
+			if opts.SessionID != "" {
+				if err := cmdutil.ValidateResourceID("session", opts.SessionID); err != nil {
+					return err
+				}
+			}
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -116,6 +134,14 @@ func runAsk(ctx context.Context, opts *AskOptions, fopts *cmdutil.FormatOptions,
 	if opts.AgentID == "" {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "agent-id argument cannot be empty")
 	}
+	if err := cmdutil.ValidateResourceID("agent", opts.AgentID); err != nil {
+		return err
+	}
+	if opts.SessionID != "" {
+		if err := cmdutil.ValidateResourceID("session", opts.SessionID); err != nil {
+			return err
+		}
+	}
 	if svc == nil {
 		return cmdutil.NewError(cmdutil.CodeServerError, "session ask: no SDK client available")
 	}
@@ -136,6 +162,9 @@ func runAsk(ctx context.Context, opts *AskOptions, fopts *cmdutil.FormatOptions,
 			}
 			return cmdutil.Wrapf(code, err, "create chat session")
 		}
+		if sess == nil || strings.TrimSpace(sess.ID) == "" {
+			return cmdutil.NewError(cmdutil.CodeSessionCreateFailed, "create chat session returned an empty session ID")
+		}
 		sessionID = sess.ID
 		autoCreated = true
 	}
@@ -151,7 +180,7 @@ func runAsk(ctx context.Context, opts *AskOptions, fopts *cmdutil.FormatOptions,
 	// leaves a recoverable pointer. Skipped in json/ndjson mode (session_id
 	// is in the output).
 	if autoCreated {
-		fmt.Fprintf(iostreams.IO.Err, "session: %s (use --session to continue)\n", sessionID)
+		fmt.Fprintf(iostreams.IO.Err, "session: %s (use --session to continue)\n", text.SanitizeInline(sessionID))
 	}
 
 	return runAskText(ctx, opts, sessionID, autoCreated, svc)
@@ -218,7 +247,8 @@ func runAskText(ctx context.Context, opts *AskOptions, sessionID string, autoCre
 	streamErr := svc.AgentQAStreamWithRequest(ctx, sessionID, req, cb)
 	if streamErr != nil {
 		if autoCreated {
-			fmt.Fprintf(iostreams.IO.Err, "session: %s (resume with --session %s)\n", sessionID, sessionID)
+			safeSess := text.SanitizeInline(sessionID)
+			fmt.Fprintf(iostreams.IO.Err, "session: %s (resume with --session %s)\n", safeSess, safeSess)
 		}
 		if cmdutil.IsCancelled(ctx, streamErr) {
 			return cmdutil.Wrapf(cmdutil.CodeOperationCancelled, streamErr, "session ask cancelled")
@@ -229,6 +259,9 @@ func runAskText(ctx context.Context, opts *AskOptions, sessionID string, autoCre
 		return cmdutil.WrapStream(streamErr, "agent-chat stream")
 	}
 
+	if errMsg, hasErr := projector.TerminalError(); hasErr {
+		return cmdutil.WrapStream(sdk.NewSSEStreamError(errMsg), "agent-chat stream")
+	}
 	// Server closed cleanly but never sent a complete event — treat as aborted
 	// so agents don't silently emit a truncated answer as ok=true.
 	if !projector.Done() {
@@ -249,18 +282,33 @@ func runAskJSON(ctx context.Context, opts *AskOptions, fopts *cmdutil.FormatOpti
 
 	projector := sse.NewProjector(opts.Verbose, opts.Reference, "")
 	events := make([]sse.ProjectedEvent, 0)
+	bufferedBytes := 0
 	cb := func(r *sdk.AgentStreamResponse) error {
 		if event, include := projector.Agent(r); include {
+			if len(events) >= maxAskBufferedEvents || bufferedBytes+len(event.Content) > maxAskBufferedBytes {
+				return cmdutil.NewError(cmdutil.CodeServerError, "stream exceeded buffered event limit")
+			}
+			bufferedBytes += len(event.Content)
 			events = append(events, event)
 		}
 		return nil
 	}
 
 	if err := svc.AgentQAStreamWithRequest(ctx, sessionID, req, cb); err != nil {
+		var ce *cmdutil.Error
+		if errors.As(err, &ce) {
+			return askStreamError(ce, sessionID)
+		}
 		if cmdutil.IsCancelled(ctx, err) {
 			return askStreamError(cmdutil.Wrapf(cmdutil.CodeOperationCancelled, err, "session ask cancelled"), sessionID)
 		}
 		return askStreamError(cmdutil.WrapStream(err, "agent-chat stream"), sessionID)
+	}
+	if errMsg, hasErr := projector.TerminalError(); hasErr {
+		return askStreamError(
+			cmdutil.WrapStream(sdk.NewSSEStreamError(errMsg), "agent-chat stream"),
+			sessionID,
+		)
 	}
 	if !projector.Done() {
 		return askStreamError(

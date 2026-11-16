@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/Usir233/GENYEE/cli/internal/text"
 )
 
 // Level is the client-server version compat level.
@@ -43,13 +45,27 @@ func Compat(serverVer, cliVer string) (Level, string) {
 	if !ok {
 		return OK, ""
 	}
+	safeServer := text.SanitizeInline(serverVer)
+	safeCLI := text.SanitizeInline(cliVer)
 	if sMaj != cMaj {
-		return HardError, fmt.Sprintf("incompatible: client %s vs server %s - upgrade required", cliVer, serverVer)
+		return HardError, fmt.Sprintf("incompatible: client %s vs server %s - upgrade required", safeCLI, safeServer)
 	}
 	if cMin > sMin {
-		return SoftWarn, fmt.Sprintf("server is older (server %s, client %s); some new features may be unavailable", serverVer, cliVer)
+		return SoftWarn, fmt.Sprintf("server is older (server %s, client %s); some new features may be unavailable", safeServer, safeCLI)
 	}
 	return OK, ""
+}
+
+func isUnsignedDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // parseSemver extracts (major, minor) from "X.Y.Z" or "X.Y.Z-suffix".
@@ -68,7 +84,7 @@ func parseSemver(s string) (major, minor int, ok bool) {
 		s = s[:i]
 	}
 	parts := strings.SplitN(s, ".", 3)
-	if len(parts) < 2 {
+	if len(parts) < 2 || !isUnsignedDigits(parts[0]) || !isUnsignedDigits(parts[1]) {
 		return 0, 0, false
 	}
 	maj, err := strconv.Atoi(parts[0])

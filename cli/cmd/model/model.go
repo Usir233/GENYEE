@@ -41,3 +41,20 @@ func modelLabel(m sdk.Model) string {
 	}
 	return m.Name
 }
+
+// scrubModelSecrets removes sensitive credential fields (api_key, app_secret)
+// from Model.Parameters in place on a cloned map so provider secrets are never
+// echoed in JSON or text output.
+func scrubModelSecrets(m *sdk.Model) {
+	if m == nil || len(m.Parameters) == 0 {
+		return
+	}
+	cleaned := make(sdk.ModelParameters, len(m.Parameters))
+	for k, v := range m.Parameters {
+		if k == "api_key" || k == "app_secret" {
+			continue
+		}
+		cleaned[k] = v
+	}
+	m.Parameters = cleaned
+}

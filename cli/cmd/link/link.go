@@ -17,6 +17,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/projectlink"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 )
 
 // linkFields enumerates the fields surfaced for `--format json` discovery on
@@ -146,9 +147,9 @@ func runLink(ctx context.Context, opts *Options, fopts *cmdutil.FormatOptions, f
 		return fopts.Emit(iostreams.IO.Out, r, nil)
 	}
 	if kbName != "" {
-		fmt.Fprintf(iostreams.IO.Out, "✓ Linked %s to %s (kb=%s, id=%s)\n", linkPath, profileName, kbName, kbID)
+		fmt.Fprintf(iostreams.IO.Out, "✓ Linked %s to %s (kb=%s, id=%s)\n", linkPath, text.SanitizeInline(profileName), text.SanitizeInline(kbName), text.SanitizeInline(kbID))
 	} else {
-		fmt.Fprintf(iostreams.IO.Out, "✓ Linked %s to %s (kb_id=%s)\n", linkPath, profileName, kbID)
+		fmt.Fprintf(iostreams.IO.Out, "✓ Linked %s to %s (kb_id=%s)\n", linkPath, text.SanitizeInline(profileName), text.SanitizeInline(kbID))
 	}
 	return nil
 }
@@ -174,6 +175,14 @@ func resolveProfile(f *cmdutil.Factory) (string, error) {
 			WithHint("register one with `genyee profile add <name> --host <url> --use`; for a headless (GENYEE_API_KEY) workflow, skip `link` and pass --kb per command or set GENYEE_KB_ID").
 			WithRetryArgv([]string{"genyee", "profile", "add", "--help"})
 	}
+	if err := cmdutil.ValidateProfileName(cfg.CurrentProfile); err != nil {
+		return "", err
+	}
+	if _, ok := cfg.Profiles[cfg.CurrentProfile]; !ok {
+		return "", cmdutil.NewError(cmdutil.CodeLocalProfileNotFound,
+			fmt.Sprintf("profile %q is not registered", cfg.CurrentProfile)).
+			WithHint("run `genyee profile list` to inspect registered profiles or `genyee profile add <name> --host <url>` to create one")
+	}
 	return cfg.CurrentProfile, nil
 }
 
@@ -183,6 +192,9 @@ func resolveProfile(f *cmdutil.Factory) (string, error) {
 func resolveKB(ctx context.Context, opts *Options, f *cmdutil.Factory) (string, string, error) {
 	if opts.KB != "" {
 		if cmdutil.IsKBID(opts.KB) {
+			if err := cmdutil.ValidateResourceID("kb", opts.KB); err != nil {
+				return "", "", err
+			}
 			return opts.KB, "", nil
 		}
 		cli, err := f.Client()
@@ -191,6 +203,9 @@ func resolveKB(ctx context.Context, opts *Options, f *cmdutil.Factory) (string, 
 		}
 		id, err := cmdutil.ResolveKBNameToID(ctx, cli, opts.KB)
 		if err != nil {
+			return "", "", err
+		}
+		if err := cmdutil.ValidateResourceID("kb", id); err != nil {
 			return "", "", err
 		}
 		return id, opts.KB, nil
@@ -218,7 +233,7 @@ func promptForKB(ctx context.Context, svc cmdutil.KBLister, f *cmdutil.Factory) 
 	}
 	fmt.Fprintln(iostreams.IO.Err, "Available knowledge bases:")
 	for _, kb := range kbs {
-		fmt.Fprintf(iostreams.IO.Err, "  %s  %s\n", kb.ID, kb.Name)
+		fmt.Fprintf(iostreams.IO.Err, "  %s  %s\n", text.SanitizeInline(kb.ID), text.SanitizeInline(kb.Name))
 	}
 	p := f.Prompter()
 	answer, err := p.Input("Knowledge base id or name", "")
@@ -227,8 +242,11 @@ func promptForKB(ctx context.Context, svc cmdutil.KBLister, f *cmdutil.Factory) 
 	}
 	for _, kb := range kbs {
 		if kb.ID == answer || kb.Name == answer {
+			if err := cmdutil.ValidateResourceID("kb", kb.ID); err != nil {
+				return "", "", err
+			}
 			return kb.ID, kb.Name, nil
 		}
 	}
-	return "", "", cmdutil.NewError(cmdutil.CodeKBNotFound, fmt.Sprintf("knowledge base not found: %s", answer))
+	return "", "", cmdutil.NewError(cmdutil.CodeKBNotFound, fmt.Sprintf("knowledge base not found: %s", text.SanitizeInline(answer)))
 }

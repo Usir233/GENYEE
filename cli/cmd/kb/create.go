@@ -10,6 +10,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/output"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -149,19 +150,22 @@ func runCreate(ctx context.Context, opts *CreateOptions, fopts *cmdutil.FormatOp
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "create knowledge base")
 	}
+	if created == nil {
+		return cmdutil.NewError(cmdutil.CodeServerError, "empty knowledge base response from create")
+	}
 
 	// A KB with no embedding model can hold documents but never index/retrieve
 	// them — surface the next step at the point of creation instead of leaving
 	// the agent to discover a silent-draft KB via a later empty search.
 	var meta *output.Meta
 	if created.EmbeddingModelID == "" {
-		meta = &output.Meta{Hint: "retrieval_ready=false: no embedding model bound. Uploaded docs will not be searchable until you run `genyee kb config set " + created.ID + " --embedding-model <id> --chat-model <id>` (create the KB with --embedding-model/--chat-model to skip this step)."}
+		meta = &output.Meta{Hint: "retrieval_ready=false: no embedding model bound. Uploaded docs will not be searchable until you run `genyee kb config set " + text.SanitizeInline(created.ID) + " --embedding-model <id> --chat-model <id>` (create the KB with --embedding-model/--chat-model to skip this step)."}
 	}
 
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, created, meta)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Created knowledge base %q (id: %s)\n", created.Name, created.ID)
+	fmt.Fprintf(iostreams.IO.Out, "✓ Created knowledge base %q (id: %s)\n", text.SanitizeInline(created.Name), text.SanitizeInline(created.ID))
 	if meta != nil {
 		fmt.Fprintf(iostreams.IO.Out, "⚠ %s\n", meta.Hint)
 	}

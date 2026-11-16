@@ -83,11 +83,19 @@ func NewCmdList(f *cmdutil.Factory) *cobra.Command {
 // (so a bad value surfaces as exit 5, not an auth error) and at runList's top
 // for direct callers; idempotent.
 func validateListOpts(opts *ListOptions) error {
+	if opts.SessionID != "" {
+		if err := cmdutil.ValidateResourceID("session", opts.SessionID); err != nil {
+			return err
+		}
+	}
 	if opts.Limit < 1 || opts.Limit > 1000 {
 		return &cmdutil.Error{
 			Code:    cmdutil.CodeInputInvalidArgument,
 			Message: fmt.Sprintf("--limit must be in 1..1000, got %d", opts.Limit),
 		}
+	}
+	if _, err := cmdutil.ParseTimeFlag("--before", opts.Before); err != nil {
+		return err
 	}
 	return nil
 }
@@ -124,7 +132,7 @@ func runList(ctx context.Context, opts *ListOptions, fopts *cmdutil.FormatOption
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "ID\tROLE\tCONTENT\tCREATED")
 	for _, m := range items {
-		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", m.ID, m.Role, text.OneLine(60, m.Content), text.FuzzyAgo(now, m.CreatedAt))
+		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", text.SanitizeInline(m.ID), text.SanitizeInline(m.Role), text.OneLine(60, m.Content), text.FuzzyAgo(now, m.CreatedAt))
 	}
 	return tw.Flush()
 }

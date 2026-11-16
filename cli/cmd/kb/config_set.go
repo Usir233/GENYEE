@@ -9,6 +9,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -55,6 +56,9 @@ applying the change.`,
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 			opts.Yes, _ = c.Flags().GetBool("yes")
 			kbID := args[0]
+			if err := cmdutil.ValidateResourceID("kb-id", kbID); err != nil {
+				return err
+			}
 			// Validate required flags before the dry-run gate so --dry-run rejects
 			// identically to the live path.
 			if err := validateConfigSetFlags(opts); err != nil {
@@ -66,13 +70,13 @@ applying the change.`,
 			}); handled {
 				return err
 			}
-			cli, err := f.Client()
-			if err != nil {
-				return err
-			}
 			if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(),
 				"configure", "knowledge base", kbID, action,
 				cmdutil.BuildRetryArgv(c, append(append([]string{}, head...), kbID), "chat-model", "embedding-model", "format")); err != nil {
+				return err
+			}
+			cli, err := f.Client()
+			if err != nil {
 				return err
 			}
 			// Resolve name-or-id for the model flags (a UUID passes through; a
@@ -126,6 +130,9 @@ func validateConfigSetFlags(opts *ConfigSetOptions) error {
 }
 
 func runConfigSet(ctx context.Context, opts *ConfigSetOptions, fopts *cmdutil.FormatOptions, svc ConfigSetService, kbID string) error {
+	if err := cmdutil.ValidateResourceID("kb-id", kbID); err != nil {
+		return err
+	}
 	if err := validateConfigSetFlags(opts); err != nil {
 		return err
 	}
@@ -151,11 +158,12 @@ func runConfigSet(ctx context.Context, opts *ConfigSetOptions, fopts *cmdutil.Fo
 		return fopts.Emit(iostreams.IO.Out, result, nil)
 	}
 	fmt.Fprintf(iostreams.IO.Out, "✓ Configured knowledge base %s (chat: %s, embedding: %s)\n",
-		kbID, orUnset(result.LLM.ModelName), orUnset(result.Embedding.ModelName))
+		text.SanitizeInline(kbID), orUnset(result.LLM.ModelName), orUnset(result.Embedding.ModelName))
 	return nil
 }
 
 func orUnset(s string) string {
+	s = text.SanitizeInline(s)
 	if s == "" {
 		return "(unset)"
 	}

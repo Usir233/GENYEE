@@ -9,6 +9,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -73,6 +74,9 @@ func NewCmdView(f *cmdutil.Factory) *cobra.Command {
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 			opts.ChunkID = args[0]
+			if err := cmdutil.ValidateResourceID("chunk-id", opts.ChunkID); err != nil {
+				return err
+			}
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -92,9 +96,15 @@ func NewCmdView(f *cmdutil.Factory) *cobra.Command {
 }
 
 func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOptions, svc ViewService) error {
+	if err := cmdutil.ValidateResourceID("chunk-id", opts.ChunkID); err != nil {
+		return err
+	}
 	ch, err := svc.GetChunkByIDOnly(ctx, opts.ChunkID)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "fetch chunk %s", opts.ChunkID)
+	}
+	if ch == nil {
+		return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("empty chunk response for %s", opts.ChunkID))
 	}
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, ch, nil)
@@ -112,19 +122,22 @@ func runView(ctx context.Context, opts *ViewOptions, fopts *cmdutil.FormatOption
 // `doc_id` / `kb_id` are the human-friendly labels for the SDK fields
 // `knowledge_id` / `knowledge_base_id`; JSON output keeps the SDK names.
 func renderChunk(w io.Writer, c *sdk.Chunk) {
-	fmt.Fprintf(w, "id:           %s\n", c.ID)
+	if c == nil {
+		return
+	}
+	fmt.Fprintf(w, "id:           %s\n", text.SanitizeInline(c.ID))
 	if c.SeqID != 0 {
 		fmt.Fprintf(w, "seq_id:       %d\n", c.SeqID)
 	}
 	fmt.Fprintf(w, "chunk_index:  %d\n", c.ChunkIndex)
 	if c.KnowledgeID != "" {
-		fmt.Fprintf(w, "doc_id:       %s\n", c.KnowledgeID)
+		fmt.Fprintf(w, "doc_id:       %s\n", text.SanitizeInline(c.KnowledgeID))
 	}
 	if c.KnowledgeBaseID != "" {
-		fmt.Fprintf(w, "kb_id:        %s\n", c.KnowledgeBaseID)
+		fmt.Fprintf(w, "kb_id:        %s\n", text.SanitizeInline(c.KnowledgeBaseID))
 	}
 	if c.ChunkType != "" {
-		fmt.Fprintf(w, "type:         %s\n", c.ChunkType)
+		fmt.Fprintf(w, "type:         %s\n", text.SanitizeInline(c.ChunkType))
 	}
 	enabled := "no"
 	if c.IsEnabled {
@@ -141,19 +154,19 @@ func renderChunk(w io.Writer, c *sdk.Chunk) {
 		fmt.Fprintf(w, "end_at:       %d\n", c.EndAt)
 	}
 	if c.TagID != "" {
-		fmt.Fprintf(w, "tag_id:       %s\n", c.TagID)
+		fmt.Fprintf(w, "tag_id:       %s\n", text.SanitizeInline(c.TagID))
 	}
 	if c.ImageInfo != "" {
-		fmt.Fprintf(w, "image_info:   %s\n", c.ImageInfo)
+		fmt.Fprintf(w, "image_info:   %s\n", text.SanitizeInline(c.ImageInfo))
 	}
 	if c.CreatedAt != "" {
-		fmt.Fprintf(w, "created_at:   %s\n", c.CreatedAt)
+		fmt.Fprintf(w, "created_at:   %s\n", text.SanitizeInline(c.CreatedAt))
 	}
 	if c.UpdatedAt != "" {
-		fmt.Fprintf(w, "updated_at:   %s\n", c.UpdatedAt)
+		fmt.Fprintf(w, "updated_at:   %s\n", text.SanitizeInline(c.UpdatedAt))
 	}
-	// Content rendered verbatim, last entry, no truncation.
+	// Content rendered verbatim (with terminal escape sanitization), last entry, no truncation.
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "content:")
-	fmt.Fprintln(w, c.Content)
+	fmt.Fprintln(w, text.SanitizeTerminal(c.Content))
 }

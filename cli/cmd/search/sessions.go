@@ -78,6 +78,10 @@ to stop after one page.`,
 			if opts.Limit < 1 || opts.Limit > 1000 {
 				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--limit must be between 1 and 1000")
 			}
+			if opts.PageSize < 1 || opts.PageSize > sessionsMaxPageSize {
+				return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
+					fmt.Sprintf("--page-size must be in 1..%d, got %d", sessionsMaxPageSize, opts.PageSize))
+			}
 			fopts, err := cmdutil.CheckFormatFlag(c)
 			if err != nil {
 				return err
@@ -117,6 +121,9 @@ func runSessionsSearch(ctx context.Context, opts *SessionsSearchOptions, fopts *
 	// --all-pages=true (default) walks every server page; --all-pages=false
 	// stops after the first page.
 	for page := 1; ; page++ {
+		if page > 10000 {
+			return cmdutil.NewError(cmdutil.CodeServerError, "search sessions exceeded 10000-page safety limit")
+		}
 		items, total, err := svc.GetSessionsByTenant(ctx, page, opts.PageSize)
 		if err != nil {
 			return cmdutil.WrapHTTP(err, "list sessions")
@@ -160,11 +167,11 @@ done:
 	fmt.Fprintln(tw, "ID\tTITLE\tUPDATED")
 	now := time.Now()
 	for _, s := range matches {
-		title := text.Truncate(50, s.Title)
+		title := text.OneLine(50, s.Title)
 		if title == "" {
 			title = "-"
 		}
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", s.ID, title, text.FuzzyAgoStr(now, s.UpdatedAt))
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", text.SanitizeInline(s.ID), title, text.FuzzyAgoStr(now, s.UpdatedAt))
 	}
 	return tw.Flush()
 }

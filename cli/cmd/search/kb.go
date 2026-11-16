@@ -113,8 +113,8 @@ func runKBSearch(ctx context.Context, opts *KBSearchOptions, fopts *cmdutil.Form
 	tw := tabwriter.NewWriter(iostreams.IO.Out, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(tw, "ID\tNAME\tDOCS")
 	for _, kb := range matches {
-		name := text.Truncate(50, kb.Name)
-		fmt.Fprintf(tw, "%s\t%s\t%s\n", kb.ID, name, text.Pluralize(int(kb.KnowledgeCount), "doc"))
+		name := text.OneLine(50, kb.Name)
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", text.SanitizeInline(kb.ID), name, text.Pluralize(int(kb.KnowledgeCount), "doc"))
 	}
 	return tw.Flush()
 }

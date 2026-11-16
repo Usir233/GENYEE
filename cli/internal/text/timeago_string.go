@@ -19,7 +19,10 @@ func FuzzyAgoStr(now time.Time, ts string) string {
 	}
 	t, err := time.Parse(time.RFC3339, ts)
 	if err != nil {
-		return ts
+		if clean := SanitizeInline(ts); clean != "" {
+			return clean
+		}
+		return "-"
 	}
 	return FuzzyAgo(now, t)
 }

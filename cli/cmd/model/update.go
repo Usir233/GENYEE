@@ -2,6 +2,7 @@ package modelcmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -9,6 +10,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -62,6 +64,9 @@ Reversible write: without -y/--yes in a non-TTY / JSON context it exits 10
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 			id := args[0]
+			if err := cmdutil.ValidateResourceID("model-id", id); err != nil {
+				return err
+			}
 			opts.flags.displayName = c.Flags().Changed("display-name")
 			opts.flags.description = c.Flags().Changed("description")
 			opts.flags.baseURL = c.Flags().Changed("base-url")
@@ -71,6 +76,11 @@ Reversible write: without -y/--yes in a non-TTY / JSON context it exits 10
 					Code:    cmdutil.CodeInputInvalidArgument,
 					Message: "model update requires at least one flag",
 					Hint:    "pass e.g. --display-name, --base-url, --api-key-stdin, --param, or --default",
+				}
+			}
+			if opts.flags.baseURL && opts.BaseURL != "" {
+				if err := cmdutil.ValidateHTTPURL("--base-url", opts.BaseURL); err != nil {
+					return err
 				}
 			}
 			params, err := parseParams(opts.Params)
@@ -133,10 +143,22 @@ func modelUpdateHasFlag(o *UpdateOptions) bool {
 }
 
 func runUpdate(ctx context.Context, opts *UpdateOptions, fopts *cmdutil.FormatOptions, svc UpdateService, id string, params map[string]any) error {
+	if err := cmdutil.ValidateResourceID("model-id", id); err != nil {
+		return err
+	}
+	if opts.flags.baseURL && opts.BaseURL != "" {
+		if err := cmdutil.ValidateHTTPURL("--base-url", opts.BaseURL); err != nil {
+			return err
+		}
+	}
 	var rotatedKey string
 	if opts.APIKeyStdin {
 		key, err := readStdinTrimmed(opts.StdinReader)
 		if err != nil {
+			var ce *cmdutil.Error
+			if errors.As(err, &ce) {
+				return ce
+			}
 			return cmdutil.Wrapf(cmdutil.CodeLocalFileIO, err, "read API key from stdin")
 		}
 		if key == "" {
@@ -150,6 +172,9 @@ func runUpdate(ctx context.Context, opts *UpdateOptions, fopts *cmdutil.FormatOp
 	cur, err := svc.GetModel(ctx, id)
 	if err != nil {
 		return cmdutil.WrapHTTP(err, "fetch model %s", id)
+	}
+	if cur == nil {
+		return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("empty model response for %s", id))
 	}
 	if opts.flags.def && !(&sdk.DefaultSettings{}).SetSlotModelID(cur.Type, id) {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument,
@@ -190,6 +215,9 @@ func runUpdate(ctx context.Context, opts *UpdateOptions, fopts *cmdutil.FormatOp
 		if err != nil {
 			return cmdutil.WrapHTTP(err, "update model %s", id)
 		}
+		if updated == nil {
+			return cmdutil.NewError(cmdutil.CodeServerError, fmt.Sprintf("empty updated model response for %s", id))
+		}
 	}
 
 	if opts.APIKeyStdin {
@@ -209,10 +237,11 @@ func runUpdate(ctx context.Context, opts *UpdateOptions, fopts *cmdutil.FormatOp
 		updated.IsDefault = opts.Default
 	}
 
+	scrubModelSecrets(updated)
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, updated, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Updated model %q (id: %s)\n", updated.Name, updated.ID)
+	fmt.Fprintf(iostreams.IO.Out, "✓ Updated model %q (id: %s)\n", text.SanitizeInline(updated.Name), text.SanitizeInline(updated.ID))
 	return nil
 }
 

@@ -11,7 +11,10 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/xdg"
 )
 
-const ttl = 24 * time.Hour
+const (
+	ttl           = 24 * time.Hour
+	maxCacheBytes = 64 << 10
+)
 
 func cachePath() (string, error) {
 	return xdg.Path("XDG_CACHE_HOME", ".cache", "server-info.yaml")
@@ -26,7 +29,7 @@ func LoadCache() (*Info, bool, error) {
 	if err != nil {
 		return nil, false, err
 	}
-	data, err := os.ReadFile(p)
+	data, err := xdg.ReadSecureFile(p, maxCacheBytes)
 	if errors.Is(err, os.ErrNotExist) {
 		return nil, false, nil
 	}
@@ -37,7 +40,8 @@ func LoadCache() (*Info, bool, error) {
 	if err := yaml.Unmarshal(data, &info); err != nil {
 		return nil, false, fmt.Errorf("parse cache: %w", err)
 	}
-	fresh := time.Since(info.ProbedAt) < ttl
+	age := time.Since(info.ProbedAt)
+	fresh := !info.ProbedAt.IsZero() && age >= 0 && age < ttl
 	return &info, fresh, nil
 }
 

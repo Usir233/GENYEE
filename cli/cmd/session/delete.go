@@ -9,6 +9,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/prompt"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 )
 
 // sessionDeleteFields enumerates the fields surfaced for `--format json`
@@ -67,6 +68,11 @@ without the user's explicit go-ahead.`,
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			for _, id := range args {
+				if err := cmdutil.ValidateResourceID("session-id", id); err != nil {
+					return err
+				}
+			}
 			if handled, err := cmdutil.HandleDryRun(c, opts.DryRun, cmdutil.DryRunPlan{
 				Action: "session.delete",
 				Args: map[string]any{
@@ -75,17 +81,25 @@ without the user's explicit go-ahead.`,
 			}); handled {
 				return err
 			}
-			cli, err := f.Client()
-			if err != nil {
-				return err
-			}
 			// Single-id uses the simpler code path (bare {id, deleted}).
 			if len(args) == 1 {
+				if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "session", args[0], "session.delete", []string{"genyee", "session", "delete", args[0], "-y"}); err != nil {
+					return err
+				}
+				opts.Yes = true
+				cli, err := f.Client()
+				if err != nil {
+					return err
+				}
 				return runDelete(c.Context(), opts, fopts, cli, f.Prompter(), args[0])
 			}
 			batchRetry := append([]string{"genyee", "session", "delete"}, args...)
 			batchRetry = append(batchRetry, "-y")
 			if err := cmdutil.ConfirmDestructiveBatch(f.Prompter(), opts.Yes, fopts.WantsJSON(), "delete", "session", len(args), "session.delete", batchRetry); err != nil {
+				return err
+			}
+			cli, err := f.Client()
+			if err != nil {
 				return err
 			}
 			outcomes, runErr := cmdutil.RunBatch(c.Context(), args, func(ctx context.Context, id string) error {
@@ -126,6 +140,9 @@ without the user's explicit go-ahead.`,
 }
 
 func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOptions, svc DeleteService, p prompt.Prompter, id string) error {
+	if err := cmdutil.ValidateResourceID("session-id", id); err != nil {
+		return err
+	}
 	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), "delete", "session", id, "session.delete", []string{"genyee", "session", "delete", id, "-y"}); err != nil {
 		return err
 	}
@@ -137,6 +154,6 @@ func runDelete(ctx context.Context, opts *DeleteOptions, fopts *cmdutil.FormatOp
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, deleteResult{ID: id, Deleted: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted session %s\n", id)
+	fmt.Fprintf(iostreams.IO.Out, "✓ Deleted session %s\n", text.SanitizeInline(id))
 	return nil
 }

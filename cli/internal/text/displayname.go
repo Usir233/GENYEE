@@ -10,11 +10,11 @@ package text
 // Takes the three fields directly rather than `sdk.Knowledge` so this
 // package stays free of SDK imports.
 func KnowledgeDisplayName(fileName, title, id string) string {
-	if fileName != "" {
-		return fileName
+	if fn := SanitizeInline(fileName); fn != "" {
+		return fn
 	}
-	if title != "" {
-		return title
+	if t := SanitizeInline(title); t != "" {
+		return t
 	}
-	return id
+	return SanitizeInline(id)
 }

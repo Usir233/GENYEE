@@ -10,6 +10,7 @@ import (
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
 	"github.com/Usir233/GENYEE/cli/internal/prompt"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -88,6 +89,9 @@ func newCmdResolve(f *cmdutil.Factory) *cobra.Command {
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
 			opts.PendingID = args[0]
 			opts.Yes, _ = c.Flags().GetBool("yes")
+			if err := cmdutil.ValidateResourceID("pending-id", opts.PendingID); err != nil {
+				return err
+			}
 			// Validate inputs BEFORE the dry-run gate so --dry-run previews a
 			// valid action — an invalid --modified-args (e.g. "{}") must error
 			// the same way whether or not --dry-run is passed.
@@ -108,6 +112,11 @@ func newCmdResolve(f *cmdutil.Factory) *cobra.Command {
 			}); handled {
 				return err
 			}
+			decision := decisionOf(opts.Reject)
+			if err := cmdutil.ConfirmDestructive(f.Prompter(), opts.Yes, fopts.WantsJSON(), decision, "tool call", opts.PendingID, "session.tool_approval.resolve", buildResolveRetryArgv(opts)); err != nil {
+				return err
+			}
+			opts.Yes = true
 			cli, err := f.Client()
 			if err != nil {
 				return err
@@ -193,7 +202,21 @@ func validateModifiedArgs(opts *ResolveOptions) (json.RawMessage, error) {
 	return json.RawMessage(opts.ModifiedArgs), nil
 }
 
+func buildResolveRetryArgv(opts *ResolveOptions) []string {
+	retryCmd := append([]string{"genyee", "session", "tool-approval", "resolve", opts.PendingID}, retryArgOf(opts.Reject)...)
+	if opts.ModifiedArgs != "" {
+		retryCmd = append(retryCmd, "--modified-args", opts.ModifiedArgs)
+	}
+	if opts.Reason != "" {
+		retryCmd = append(retryCmd, "--reason", opts.Reason)
+	}
+	return append(retryCmd, "-y")
+}
+
 func runResolve(ctx context.Context, opts *ResolveOptions, fopts *cmdutil.FormatOptions, svc ResolveService, p prompt.Prompter) error {
+	if err := cmdutil.ValidateResourceID("pending-id", opts.PendingID); err != nil {
+		return err
+	}
 	modified, err := validateModifiedArgs(opts)
 	if err != nil {
 		return err
@@ -202,14 +225,7 @@ func runResolve(ctx context.Context, opts *ResolveOptions, fopts *cmdutil.Format
 	// The retry argv is the exact argv that would proceed (AGENTS.md exit-10
 	// contract): the decision-relevant flags belong in it, or the envelope
 	// advertises an approval of the original arguments.
-	retryCmd := append([]string{"genyee", "session", "tool-approval", "resolve", opts.PendingID}, retryArgOf(opts.Reject)...)
-	if opts.ModifiedArgs != "" {
-		retryCmd = append(retryCmd, "--modified-args", opts.ModifiedArgs)
-	}
-	if opts.Reason != "" {
-		retryCmd = append(retryCmd, "--reason", opts.Reason)
-	}
-	retryCmd = append(retryCmd, "-y")
+	retryCmd := buildResolveRetryArgv(opts)
 	if err := cmdutil.ConfirmDestructive(p, opts.Yes, fopts.WantsJSON(), decision, "tool call", opts.PendingID, "session.tool_approval.resolve", retryCmd); err != nil {
 		return err
 	}
@@ -223,6 +239,6 @@ func runResolve(ctx context.Context, opts *ResolveOptions, fopts *cmdutil.Format
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, resolveResult{PendingID: opts.PendingID, Decision: decision, Resolved: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ %s tool call %s\n", decisionPastTense(decision), opts.PendingID)
+	fmt.Fprintf(iostreams.IO.Out, "✓ %s tool call %s\n", decisionPastTense(decision), text.SanitizeInline(opts.PendingID))
 	return nil
 }

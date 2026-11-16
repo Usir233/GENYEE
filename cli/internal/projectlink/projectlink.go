@@ -33,7 +33,10 @@ const FileName = "project.yaml"
 // DirName is the project-link directory name.
 const DirName = ".genyee"
 
-const maxWalkDepth = 64
+const (
+	maxWalkDepth        = 64
+	maxProjectLinkBytes = 64 << 10
+)
 
 // Discover walks up from startDir looking for <DirName>/<FileName>.
 // Returns (path, true, nil) when found, (root, false, nil) when none is
@@ -44,16 +47,12 @@ func Discover(startDir string) (string, bool, error) {
 		return "", false, fmt.Errorf("resolve start dir: %w", err)
 	}
 	for range maxWalkDepth {
-		candidate := filepath.Join(dir, DirName, FileName)
-		info, err := os.Stat(candidate)
-		if err == nil && !info.IsDir() {
-			return candidate, true, nil
-		}
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			// Permission errors etc. - keep walking up; missing read access
-			// to a parent dir doesn't necessarily mean the project starts
-			// here. Cargo/npm have the same behavior.
-			// Fall through to parent walk.
+		linkDir := filepath.Join(dir, DirName)
+		if dirInfo, err := os.Lstat(linkDir); err == nil && dirInfo.Mode()&os.ModeSymlink == 0 && dirInfo.IsDir() {
+			candidate := filepath.Join(linkDir, FileName)
+			if info, err := os.Lstat(candidate); err == nil && info.Mode()&os.ModeSymlink == 0 && info.Mode().IsRegular() {
+				return candidate, true, nil
+			}
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
@@ -67,7 +66,7 @@ func Discover(startDir string) (string, bool, error) {
 
 // Load reads and parses the project link file at path.
 func Load(path string) (*Project, error) {
-	data, err := os.ReadFile(path)
+	data, err := xdg.ReadSecureFile(path, maxProjectLinkBytes)
 	if err != nil {
 		return nil, fmt.Errorf("read project link: %w", err)
 	}
@@ -88,6 +87,23 @@ func Save(path string, p *Project) error {
 // success so callers can stay idempotent under concurrent-removal races
 // - the post-condition (no file at path) holds in either case.
 func Remove(path string) error {
+	dir := filepath.Dir(path)
+	if dirInfo, err := os.Lstat(dir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("remove project link: %w", err)
+	} else if dirInfo.Mode()&os.ModeSymlink != 0 || !dirInfo.IsDir() {
+		return fmt.Errorf("remove project link: refusing to traverse symlink or non-directory %s", dir)
+	}
+	if fi, err := os.Lstat(path); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("remove project link: %w", err)
+	} else if fi.Mode()&os.ModeSymlink != 0 || !fi.Mode().IsRegular() {
+		return fmt.Errorf("remove project link: refusing to remove symlink or non-regular file %s", path)
+	}
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("remove project link: %w", err)
 	}

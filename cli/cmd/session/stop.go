@@ -17,6 +17,7 @@ import (
 
 	"github.com/Usir233/GENYEE/cli/internal/cmdutil"
 	"github.com/Usir233/GENYEE/cli/internal/iostreams"
+	"github.com/Usir233/GENYEE/cli/internal/text"
 	sdk "github.com/Usir233/GENYEE/client"
 )
 
@@ -62,6 +63,12 @@ Symmetric with 'session resume': both key on (session_id, message_id).`,
 				return err
 			}
 			fopts.ResolveDefault(iostreams.IO.IsStdoutTTY())
+			if err := cmdutil.ValidateResourceID("session-id", opts.SessionID); err != nil {
+				return err
+			}
+			if err := cmdutil.ValidateResourceID("message", opts.MessageID); err != nil {
+				return err
+			}
 			if handled, err := cmdutil.HandleDryRun(c, opts.DryRun, cmdutil.DryRunPlan{
 				Action: "session.stop",
 				Args:   map[string]any{"session": opts.SessionID, "message": opts.MessageID},
@@ -98,6 +105,12 @@ func runStop(ctx context.Context, opts *StopOptions, fopts *cmdutil.FormatOption
 	if opts.MessageID == "" {
 		return cmdutil.NewError(cmdutil.CodeInputInvalidArgument, "--message cannot be empty")
 	}
+	if err := cmdutil.ValidateResourceID("session-id", opts.SessionID); err != nil {
+		return err
+	}
+	if err := cmdutil.ValidateResourceID("message", opts.MessageID); err != nil {
+		return err
+	}
 	if svc == nil {
 		return cmdutil.NewError(cmdutil.CodeServerError, "session stop: no SDK client available")
 	}
@@ -110,7 +123,7 @@ func runStop(ctx context.Context, opts *StopOptions, fopts *cmdutil.FormatOption
 	if fopts.WantsJSON() {
 		return fopts.Emit(iostreams.IO.Out, stopResult{SessionID: opts.SessionID, MessageID: opts.MessageID, Stopped: true}, nil)
 	}
-	fmt.Fprintf(iostreams.IO.Out, "✓ Stopped generation for message %s\n", opts.MessageID)
+	fmt.Fprintf(iostreams.IO.Out, "✓ Stopped generation for message %s\n", text.SanitizeInline(opts.MessageID))
 	return nil
 }
 
