@@ -1550,6 +1550,9 @@ func (a *Adapter) decrypt(encrypted string) ([]byte, error) {
 		return nil, fmt.Errorf("new cipher: %w", err)
 	}
 
+	// CBC decrypts block by block and panics on a partial block, so the length
+	// must be checked here (requiring IV + at least one AES block): this runs on
+	// the webhook body before the verification token is compared.
 	if len(ciphertext) < aes.BlockSize*2 || (len(ciphertext)-aes.BlockSize)%aes.BlockSize != 0 {
 		return nil, fmt.Errorf("invalid ciphertext length")
 	}

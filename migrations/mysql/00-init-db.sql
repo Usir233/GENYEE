@@ -1,5 +1,7 @@
 DROP TABLE IF EXISTS chunk_revisions;
 DROP TABLE IF EXISTS chunks;
+DROP TABLE IF EXISTS im_channel_sessions;
+DROP TABLE IF EXISTS im_channels;
 DROP TABLE IF EXISTS message_suggestion_events;
 DROP TABLE IF EXISTS message_suggestion_sets;
 DROP TABLE IF EXISTS messages;
@@ -185,6 +187,62 @@ CREATE TABLE message_suggestion_events (
     KEY idx_message_suggestion_events_type (event_type, created_at),
     CONSTRAINT fk_message_suggestion_events_set
         FOREIGN KEY (suggestion_set_id) REFERENCES message_suggestion_sets(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE im_channels (
+    id VARCHAR(36) PRIMARY KEY,
+    tenant_id BIGINT NOT NULL,
+    agent_id VARCHAR(36) NOT NULL,
+    platform VARCHAR(20) NOT NULL,
+    name VARCHAR(255) NOT NULL DEFAULT '',
+    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+    mode VARCHAR(20) NOT NULL DEFAULT 'websocket',
+    output_mode VARCHAR(20) NOT NULL DEFAULT 'stream',
+    credentials JSON NOT NULL,
+    knowledge_base_id VARCHAR(36) DEFAULT '',
+    bot_identity VARCHAR(255) NOT NULL DEFAULT '',
+    session_mode VARCHAR(20) NOT NULL DEFAULT 'user',
+    locale VARCHAR(16) NOT NULL DEFAULT '',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    active_bot_identity VARCHAR(255) GENERATED ALWAYS AS (
+        CASE WHEN deleted_at IS NULL AND bot_identity <> '' THEN bot_identity ELSE NULL END
+    ) VIRTUAL,
+    KEY idx_im_channels_tenant (tenant_id),
+    KEY idx_im_channels_agent (agent_id),
+    UNIQUE KEY idx_im_channels_bot_identity (active_bot_identity),
+    CONSTRAINT chk_im_channels_session_mode CHECK (session_mode IN ('user', 'thread'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE im_channel_sessions (
+    id VARCHAR(36) PRIMARY KEY,
+    platform VARCHAR(20) NOT NULL,
+    user_id VARCHAR(128) NOT NULL,
+    chat_id VARCHAR(128) NOT NULL DEFAULT '',
+    session_id VARCHAR(36) NOT NULL,
+    tenant_id BIGINT NOT NULL,
+    agent_id VARCHAR(36) NOT NULL DEFAULT '',
+    im_channel_id VARCHAR(36) NOT NULL DEFAULT '',
+    thread_id VARCHAR(128) NOT NULL DEFAULT '',
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    metadata JSON DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP NULL DEFAULT NULL,
+    active_user_mode TINYINT GENERATED ALWAYS AS (
+        CASE WHEN deleted_at IS NULL AND thread_id = '' THEN 1 ELSE NULL END
+    ) VIRTUAL,
+    active_thread_mode TINYINT GENERATED ALWAYS AS (
+        CASE WHEN deleted_at IS NULL AND thread_id <> '' THEN 1 ELSE NULL END
+    ) VIRTUAL,
+    UNIQUE KEY idx_channel_lookup (platform, user_id, chat_id, tenant_id, agent_id, active_user_mode),
+    UNIQUE KEY idx_channel_thread_lookup (platform, chat_id, thread_id, tenant_id, agent_id, active_thread_mode),
+    KEY idx_im_channel_tenant (tenant_id),
+    KEY idx_im_channel_session (session_id),
+    KEY idx_im_channel_sessions_channel (im_channel_id),
+    CONSTRAINT fk_im_channel_sessions_session
+        FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE chunks (

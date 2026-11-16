@@ -1311,7 +1311,7 @@ func (s *wikiIngestService) finalizeWikiSubtask(ctx context.Context, knowledgeID
 	// attempt's counter, and draining now would release a slot of the new
 	// run, promoting it to completed before its own enrichment finished.
 	superseded := attemptSuperseded(ctx, s.tracker(), knowledgeID, attempt)
-	finalizeSubtaskDetached(ctx, s.knowledgeRepo, knowledgeID, "wiki", nil, superseded, true)
+	finalizeSubtaskDetached(ctx, s.knowledgeRepo, knowledgeID, "wiki", nil, superseded, true, attempt)
 }
 
 // requeueFailedOps records in-batch failures.
@@ -2474,7 +2474,7 @@ func (s *wikiIngestService) deduplicateExtractedBatch(
 	// flattened union, so validMerge below uses this per-item scoping to
 	// reject a merge whose target was pulled in for a *different* item —
 	// the class of hallucination the union otherwise enables (e.g. weak
-	// models emitting entity/tencent-open → entity/hiring-agent, which
+	// models emitting entity/acme-open → entity/hiring-agent, which
 	// share no trigram signal and were never candidates for each other).
 	candidatePages := make(map[string]*types.WikiPageLite)
 	itemCandidates := make(map[string]map[string]bool)

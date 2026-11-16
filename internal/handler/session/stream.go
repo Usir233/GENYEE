@@ -171,6 +171,9 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 	logger.Debugf(ctx, "Replaying %d existing events as %d frames", len(events), len(replay))
 	for _, evt := range replay {
 		emitStreamEvent(ctx, c, evt, message.RequestID, resourceRewriter)
+		if isFinalPersistenceError(evt) {
+			return
+		}
 	}
 
 	// If stream is already completed, send final event and return
@@ -214,6 +217,9 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 				}
 
 				emitStreamEvent(ctx, c, evt, message.RequestID, resourceRewriter)
+				if isFinalPersistenceError(evt) {
+					return
+				}
 			}
 
 			// Update offset
@@ -471,6 +477,9 @@ func (h *Handler) handleAgentEventsForSSE(
 				}
 
 				emitStreamEvent(ctx, c, evt, requestID, resourceRewriter)
+				if isFinalPersistenceError(evt) {
+					return
+				}
 			}
 
 			// Update offset
@@ -522,4 +531,11 @@ func (h *Handler) handleAgentEventsForSSE(
 			}
 		}
 	}
+}
+
+// Only a failed final write guarantees that no persisted completion can follow.
+// Other agent errors may still be followed by final output, artifacts and usage.
+func isFinalPersistenceError(evt interfaces.StreamEvent) bool {
+	return evt.Type == types.ResponseTypeError && evt.Done &&
+		evt.Data["stage"] == "message_persistence"
 }

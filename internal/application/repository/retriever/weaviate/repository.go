@@ -128,21 +128,7 @@ func hasValidRetrieveScope(params types.RetrieveParams) bool {
 }
 
 func weaviateObjectID(sourceID, chunkID string) string {
-	src := strings.TrimSpace(sourceID)
-	chk := strings.TrimSpace(chunkID)
-	key := src
-	if key == "" {
-		key = chk
-	}
-	if key == "" {
-		return uuid.New().String()
-	}
-	if key == chk {
-		if parsed, err := uuid.Parse(key); err == nil {
-			return parsed.String()
-		}
-	}
-	return uuid.NewSHA1(uuid.NameSpaceOID, []byte(key)).String()
+	return indexObjectID(sourceID, chunkID)
 }
 
 func checkBatchResponseErrors(resp []models.ObjectsGetResponse) error {
@@ -397,7 +383,7 @@ func (w *weaviateRepository) Save(ctx context.Context,
 	collectionName := w.getCollectionName(dimension)
 	dataSchema := createPayload(embeddingDB)
 
-	id := weaviateObjectID(embeddingDB.SourceID, embeddingDB.ChunkID)
+	id := indexObjectID(embeddingDB.SourceID, embeddingDB.ChunkID)
 	// Create point in Weaviate
 	_, err := w.client.Data().Creator().
 		WithClassName(collectionName).
@@ -466,7 +452,7 @@ func (w *weaviateRepository) BatchSave(ctx context.Context,
 
 			obj := &models.Object{
 				Class:      collectionName,
-				ID:         strfmt.UUID(weaviateObjectID(embeddingDB.SourceID, embeddingDB.ChunkID)),
+				ID:         strfmt.UUID(indexObjectID(embeddingDB.SourceID, embeddingDB.ChunkID)),
 				Properties: dataSchema,
 				Vector:     embeddingDB.Embedding,
 			}
@@ -595,142 +581,22 @@ func (w *weaviateRepository) DeleteBySourceIDList(ctx context.Context,
 	return nil
 }
 
-func (w *weaviateRepository) updateObjectsByChunkIDs(
-	ctx context.Context,
-	chunkIDs []string,
-	buildProps func(chunkID string) (map[string]any, bool),
-) error {
-	cleaned := cleanNonEmptyIDs(chunkIDs)
-	if len(cleaned) == 0 {
-		return nil
-	}
-	if w.client == nil {
-		return fmt.Errorf("weaviate: client is nil")
-	}
-
-	collections, err := w.ListCollections(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to list collections: %w", err)
-	}
-
-	const batchSize = 64
-	for _, collectionName := range collections {
-		if !w.matchesCollection(collectionName) {
-			continue
-		}
-		for batch := range slices.Chunk(cleaned, batchSize) {
-			limit := len(batch) * 16
-			if limit < 100 {
-				limit = 100
-			}
-			where := filters.Where().
-				WithPath([]string{fieldChunkID}).
-				WithOperator(filters.ContainsAny).
-				WithValueText(batch...)
-			result, queryErr := w.client.GraphQL().Get().
-				WithClassName(collectionName).
-				WithWhere(where).
-				WithLimit(limit).
-				WithFields(
-					graphql.Field{Name: fieldChunkID},
-					graphql.Field{Name: "_additional", Fields: []graphql.Field{{Name: "id"}}},
-				).
-				Do(ctx)
-			if queryErr != nil {
-				return fmt.Errorf("query chunk update targets in %s: %w", collectionName, queryErr)
-			}
-			if result == nil || len(result.Errors) > 0 {
-				return fmt.Errorf("graphql query chunk update targets in %s failed", collectionName)
-			}
-			if result.Data == nil {
-				continue
-			}
-			get, ok := result.Data["Get"].(map[string]interface{})
-			if !ok || get[collectionName] == nil {
-				continue
-			}
-			rows, ok := get[collectionName].([]interface{})
-			if !ok {
-				continue
-			}
-			for _, raw := range rows {
-				data, ok := raw.(map[string]interface{})
-				if !ok {
-					continue
-				}
-				chkID, _ := data[fieldChunkID].(string)
-				props, ok := buildProps(chkID)
-				if !ok {
-					continue
-				}
-				additional, ok := data["_additional"].(map[string]interface{})
-				if !ok {
-					continue
-				}
-				objectID, _ := additional["id"].(string)
-				if objectID == "" {
-					continue
-				}
-				if updateErr := w.client.Data().Updater().
-					WithClassName(collectionName).
-					WithID(objectID).
-					WithMerge().
-					WithProperties(props).
-					Do(ctx); updateErr != nil {
-					return fmt.Errorf("update chunk %s in %s: %w", chkID, collectionName, updateErr)
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// BatchUpdateChunkEnabledStatus updates the enabled status of chunks in batch
+// BatchUpdateChunkEnabledStatus updates every retrieval source belonging to the chunks.
 func (w *weaviateRepository) BatchUpdateChunkEnabledStatus(ctx context.Context, chunkStatusMap map[string]bool) error {
-	log := logger.GetLogger(ctx)
-	if len(chunkStatusMap) == 0 {
-		log.Warn("[Weaviate] Empty chunk status map provided, skipping")
-		return nil
+	updates := make(map[string]map[string]interface{}, len(chunkStatusMap))
+	for chunkID, enabled := range chunkStatusMap {
+		updates[chunkID] = map[string]interface{}{fieldIsEnabled: enabled}
 	}
-
-	log.Infof("[Weaviate] Batch updating chunk enabled status, count: %d", len(chunkStatusMap))
-	chunkIDs := slices.Sorted(maps.Keys(chunkStatusMap))
-	if err := w.updateObjectsByChunkIDs(ctx, chunkIDs, func(chunkID string) (map[string]any, bool) {
-		enabled, ok := chunkStatusMap[chunkID]
-		if !ok {
-			return nil, false
-		}
-		return map[string]any{fieldIsEnabled: enabled}, true
-	}); err != nil {
-		log.Errorf("[Weaviate] Batch update chunk enabled status failed: %v", err)
-		return err
-	}
-	log.Infof("[Weaviate] Batch update chunk enabled status completed")
-	return nil
+	return w.updateChunkProperties(ctx, updates)
 }
 
-// BatchUpdateChunkTagID updates the tag ID of chunks in batch
+// BatchUpdateChunkTagID updates every retrieval source belonging to the chunks.
 func (w *weaviateRepository) BatchUpdateChunkTagID(ctx context.Context, chunkTagMap map[string]string) error {
-	log := logger.GetLogger(ctx)
-	if len(chunkTagMap) == 0 {
-		log.Warn("[Weaviate] Empty chunk tag map provided, skipping")
-		return nil
+	updates := make(map[string]map[string]interface{}, len(chunkTagMap))
+	for chunkID, tagID := range chunkTagMap {
+		updates[chunkID] = map[string]interface{}{fieldTagID: tagID}
 	}
-
-	log.Infof("[Weaviate] Batch updating chunk tag ID, count: %d", len(chunkTagMap))
-	chunkIDs := slices.Sorted(maps.Keys(chunkTagMap))
-	if err := w.updateObjectsByChunkIDs(ctx, chunkIDs, func(chunkID string) (map[string]any, bool) {
-		tagID, ok := chunkTagMap[chunkID]
-		if !ok {
-			return nil, false
-		}
-		return map[string]any{fieldTagID: tagID}, true
-	}); err != nil {
-		log.Errorf("[Weaviate] Batch update chunk tag ID failed: %v", err)
-		return err
-	}
-	log.Infof("[Weaviate] Batch update chunk tag ID completed")
-	return nil
+	return w.updateChunkProperties(ctx, updates)
 }
 
 // BatchUpdateChunkContent updates the indexed content of primary chunk rows in batch
@@ -833,6 +699,101 @@ func (w *weaviateRepository) BatchUpdateChunkContent(ctx context.Context, chunkC
 	return nil
 }
 
+func (w *weaviateRepository) updateChunkProperties(
+	ctx context.Context, updates map[string]map[string]interface{},
+) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	if w.client == nil {
+		return fmt.Errorf("weaviate: client is nil")
+	}
+	chunkIDs := cleanNonEmptyIDs(slices.Sorted(maps.Keys(updates)))
+	if len(chunkIDs) == 0 {
+		return nil
+	}
+	collections, err := w.ListCollections(ctx)
+	if err != nil {
+		return err
+	}
+	for _, collection := range collections {
+		if !w.matchesCollection(collection) {
+			continue
+		}
+		for _, chunkID := range chunkIDs {
+			properties := updates[chunkID]
+			ids, err := w.chunkObjectIDs(ctx, collection, chunkID)
+			if err != nil {
+				return err
+			}
+			for _, id := range ids {
+				if err := w.client.Data().Updater().WithClassName(collection).WithID(id).WithMerge().
+					WithProperties(properties).Do(ctx); err != nil {
+					return fmt.Errorf("update chunk %s object %s: %w", chunkID, id, err)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// Object IDs identify individual retrieval sources, whereas chunk_id groups a
+// body and its generated questions. Resolve that group before changing metadata.
+func (w *weaviateRepository) chunkObjectIDs(ctx context.Context, collection, chunkID string) ([]string, error) {
+	limit := defaultCopyQueryLimit
+	for {
+		result, err := w.client.GraphQL().Get().WithClassName(collection).
+			WithWhere(filters.Where().WithPath([]string{fieldChunkID}).
+				WithOperator(filters.Equal).WithValueString(chunkID)).
+			WithFields(
+				graphql.Field{Name: fieldChunkID},
+				graphql.Field{Name: "_additional", Fields: []graphql.Field{{Name: "id"}}},
+			).
+			WithLimit(limit).Do(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if result == nil {
+			return nil, fmt.Errorf("invalid chunk object response")
+		}
+		if len(result.Errors) > 0 {
+			message := "graphql error"
+			if result.Errors[0] != nil && result.Errors[0].Message != "" {
+				message = result.Errors[0].Message
+			}
+			if serverLimit, ok := queryMaximumResults(message); ok && serverLimit < limit {
+				limit = serverLimit
+				continue
+			}
+			return nil, fmt.Errorf("list chunk %s objects: %s", chunkID, message)
+		}
+		get, ok := result.Data["Get"].(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid chunk object response")
+		}
+		rows, ok := get[collection].([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("invalid chunk object collection %s", collection)
+		}
+		if len(rows) >= limit {
+			return nil, fmt.Errorf("chunk %s reaches query limit %d; metadata update stopped", chunkID, limit)
+		}
+		ids := make([]string, 0, len(rows))
+		for _, row := range rows {
+			object, _ := row.(map[string]interface{})
+			if rowChunkID, ok := object[fieldChunkID].(string); ok && rowChunkID != "" && rowChunkID != chunkID {
+				continue
+			}
+			additional, _ := object["_additional"].(map[string]interface{})
+			id, _ := additional["id"].(string)
+			if id == "" {
+				return nil, fmt.Errorf("chunk %s object has no id", chunkID)
+			}
+			ids = append(ids, id)
+		}
+		return ids, nil
+	}
+}
 func (w *weaviateRepository) getBaseFilter(params types.RetrieveParams) *filters.WhereBuilder {
 	if !hasValidRetrieveScope(params) {
 		return filters.Where().
@@ -1448,6 +1409,24 @@ func (w *weaviateRepository) ListCollections(ctx context.Context) ([]string, err
 	}
 
 	return collectionNames, nil
+}
+
+// indexObjectID keeps the existing ID of a chunk's body while assigning each
+// generated question its own stable UUID. Source IDs are not necessarily UUIDs.
+// Deterministic IDs let a retried batch update the same objects.
+func indexObjectID(sourceID, chunkID string) string {
+	src := strings.TrimSpace(sourceID)
+	chk := strings.TrimSpace(chunkID)
+	if src == "" || src == chk {
+		if chk == "" {
+			return uuid.New().String()
+		}
+		if parsed, err := uuid.Parse(chk); err == nil {
+			return parsed.String()
+		}
+		return uuid.NewSHA1(uuid.NameSpaceURL, []byte(chk)).String()
+	}
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte(chk+"\x00"+src)).String()
 }
 
 func createPayload(embedding *WeaviateVectorEmbedding) map[string]interface{} {

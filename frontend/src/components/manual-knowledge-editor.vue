@@ -97,6 +97,10 @@ const contentLoading = ref(false)
 const saving = ref(false)
 const savingAction = ref<ManualStatus>('draft')
 const lastUpdatedAt = ref<string>('')
+// Closing and reopening the drawer starts a new visit, even for the same ID.
+// Reads from an older visit must never replace the current editable document.
+let loadVersion = 0
+const isCurrentLoad = (version: number) => version === loadVersion && visible.value
 
 // ---------- view mode ----------
 type ViewMode = 'edit' | 'split' | 'preview'
@@ -605,11 +609,12 @@ const lastUpdatedText = computed(() =>
   lastUpdatedAt.value ? t('manualEditor.status.lastUpdated', { time: lastUpdatedAt.value }) : '',
 )
 
-const loadKnowledgeBases = async () => {
+const loadKnowledgeBases = async (version: number) => {
   kbLoading.value = true
   try {
     // ensureKnowledgeBases 同时刷新自己的与共享的知识库快照。
     await chatResources.ensureKnowledgeBases()
+    if (!isCurrentLoad(version)) return
     const sharedKbs = organizationStore.sharedKnowledgeBases
 
     const isDocumentKb = (type?: string) => !type || type === 'document'
@@ -655,10 +660,11 @@ const loadKnowledgeBases = async () => {
       }
     }
   } catch (error) {
+    if (!isCurrentLoad(version)) return
     console.error('[ManualEditor] Failed to load knowledge base list:', error)
     kbOptions.value = []
   } finally {
-    kbLoading.value = false
+    if (isCurrentLoad(version)) kbLoading.value = false
   }
 }
 
@@ -687,9 +693,7 @@ const parseManualMetadata = (
   return null
 }
 
-let initGeneration = 0
-
-const loadKnowledgeContent = async (generation = initGeneration) => {
+const loadKnowledgeContent = async (version: number) => {
   const targetId = currentKnowledgeId.value
   if (!targetId) {
     return
@@ -697,7 +701,7 @@ const loadKnowledgeContent = async (generation = initGeneration) => {
   contentLoading.value = true
   try {
     const res: any = await getKnowledgeDetails(targetId)
-    if (generation !== initGeneration || currentKnowledgeId.value !== targetId) return
+    if (!isCurrentLoad(version) || currentKnowledgeId.value !== targetId) return
     const data: KnowledgeDetailResponse | undefined = res?.data
     if (!data) {
       MessagePlugin.error(t('manualEditor.error.fetchDetailFailed'))
@@ -725,11 +729,11 @@ const loadKnowledgeContent = async (generation = initGeneration) => {
       })
     }
   } catch (error) {
-    if (generation !== initGeneration) return
+    if (!isCurrentLoad(version)) return
     console.error('[ManualEditor] Failed to load manual knowledge:', error)
     MessagePlugin.error(t('manualEditor.error.fetchDetailFailed'))
   } finally {
-    if (generation === initGeneration) contentLoading.value = false
+    if (isCurrentLoad(version)) contentLoading.value = false
   }
 }
 
@@ -753,15 +757,13 @@ const generateDefaultTitle = () => {
   return `${t('manualEditor.defaultTitlePrefix')}-${new Date().toLocaleString()}`
 }
 
-const initialize = async () => {
-  const generation = ++initGeneration
+const initialize = async (version: number) => {
   resetForm()
-  await loadKnowledgeBases()
-  if (generation !== initGeneration) return
+  await loadKnowledgeBases(version)
+  if (!isCurrentLoad(version)) return
 
   if (mode.value === 'edit') {
-    await loadKnowledgeContent(generation)
-    if (generation !== initGeneration) return
+    await loadKnowledgeContent(version)
   } else {
     const presetKbId = uiStore.manualEditorKBId
     if (presetKbId) {
@@ -778,6 +780,7 @@ const initialize = async () => {
     form.content = form.content || ''
   }
 
+  if (!isCurrentLoad(version)) return
   initialLoaded.value = true
   markPristine()
 }
@@ -927,10 +930,15 @@ const handleClose = () => {
 }
 
 watch(visible, async (val) => {
+  const version = ++loadVersion
+  kbLoading.value = false
+  contentLoading.value = false
   if (val) {
     await nextTick()
-    await initialize()
+    if (!isCurrentLoad(version)) return
+    await initialize(version)
     await nextTick()
+    if (!isCurrentLoad(version)) return
     const length = form.content ? form.content.length : 0
     setSelectionRange(length, length)
   } else {
@@ -939,6 +947,7 @@ watch(visible, async (val) => {
 })
 
 onBeforeUnmount(() => {
+  ++loadVersion
   editorAreaObserver?.disconnect()
   editorAreaObserver = null
 })

@@ -173,6 +173,66 @@ COMMENT ON COLUMN messages.agent_steps IS 'Agent execution steps (reasoning proc
 CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages(session_id); 
 
 
+CREATE TABLE IF NOT EXISTS im_channels (
+    id VARCHAR(36) PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id BIGINT NOT NULL,
+    agent_id VARCHAR(36) NOT NULL,
+    platform VARCHAR(20) NOT NULL,
+    name VARCHAR(255) NOT NULL DEFAULT '',
+    enabled BOOLEAN NOT NULL DEFAULT true,
+    mode VARCHAR(20) NOT NULL DEFAULT 'websocket',
+    output_mode VARCHAR(20) NOT NULL DEFAULT 'stream',
+    credentials JSONB NOT NULL DEFAULT '{}',
+    knowledge_base_id VARCHAR(36) DEFAULT '',
+    bot_identity VARCHAR(255) NOT NULL DEFAULT '',
+    session_mode VARCHAR(20) NOT NULL DEFAULT 'user',
+    locale VARCHAR(16) NOT NULL DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE,
+    CONSTRAINT chk_im_channels_session_mode CHECK (session_mode IN ('user', 'thread'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_im_channels_tenant ON im_channels (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_im_channels_agent ON im_channels (agent_id);
+CREATE INDEX IF NOT EXISTS idx_im_channels_deleted ON im_channels (deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_im_channels_bot_identity
+    ON im_channels (bot_identity)
+    WHERE deleted_at IS NULL AND bot_identity != '';
+
+CREATE TABLE IF NOT EXISTS im_channel_sessions (
+    id VARCHAR(36) PRIMARY KEY DEFAULT uuid_generate_v4(),
+    platform VARCHAR(20) NOT NULL,
+    user_id VARCHAR(128) NOT NULL,
+    chat_id VARCHAR(128) NOT NULL DEFAULT '',
+    session_id VARCHAR(36) NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+    tenant_id BIGINT NOT NULL,
+    agent_id VARCHAR(36) DEFAULT '',
+    im_channel_id VARCHAR(36) DEFAULT '',
+    thread_id VARCHAR(128) NOT NULL DEFAULT '',
+    status VARCHAR(20) NOT NULL DEFAULT 'active',
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_channel_lookup
+    ON im_channel_sessions (platform, user_id, chat_id, tenant_id, agent_id)
+    WHERE deleted_at IS NULL AND thread_id = '';
+CREATE UNIQUE INDEX IF NOT EXISTS idx_channel_thread_lookup
+    ON im_channel_sessions (platform, chat_id, thread_id, tenant_id, agent_id)
+    WHERE deleted_at IS NULL AND thread_id != '';
+CREATE INDEX IF NOT EXISTS idx_im_channel_tenant ON im_channel_sessions (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_im_channel_session ON im_channel_sessions (session_id);
+CREATE INDEX IF NOT EXISTS idx_im_channel_sessions_channel
+    ON im_channel_sessions (im_channel_id)
+    WHERE im_channel_id != '';
+CREATE INDEX IF NOT EXISTS idx_im_channel_deleted
+    ON im_channel_sessions (deleted_at)
+    WHERE deleted_at IS NOT NULL;
+
+
 CREATE TABLE IF NOT EXISTS chunks (
     id VARCHAR(36) PRIMARY KEY DEFAULT uuid_generate_v4(),
     tenant_id INTEGER NOT NULL,

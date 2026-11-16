@@ -406,14 +406,15 @@ const previewError = ref('')
 const previewLoading = ref(false)
 let previewSeq = 0
 let previewTimer: ReturnType<typeof setTimeout> | undefined
+// A close/reopen is a new editing session, even for the same automation.
+// Already submitted saves may finish on the server, but must not close or
+// mark clean a newer draft.
+let editorVersion = 0
 
-watch(() => props.visible, (open) => {
-  if (!open) {
-    clearTimeout(previewTimer)
-    previewSeq++
-    previewLoading.value = false
-    return
-  }
+watch([() => props.visible, () => props.automation?.id], ([open]) => {
+  ++editorVersion
+  saving.value = false
+  if (!open) return
   const a = props.automation
   section.value = 'basic'
   Object.assign(form, blank())
@@ -442,19 +443,16 @@ watch(() => props.visible, (open) => {
   modalShell.markClean()
 }, { immediate: true })
 
-onBeforeUnmount(() => {
-  clearTimeout(previewTimer)
-  previewSeq++
-})
-
 watch([trigger, () => props.visible], () => {
   clearTimeout(previewTimer)
+  // Invalidate pending results even when the new schedule is incomplete/hidden.
+  const seq = ++previewSeq
+  previewLoading.value = false
   const current = trigger.value
   previewRuns.value = []
   previewError.value = ''
   if (!props.visible || !current) return
   previewLoading.value = true
-  const seq = ++previewSeq
   previewTimer = setTimeout(async () => {
     try {
       const res = await validateAutomationTrigger(current)
@@ -467,6 +465,12 @@ watch([trigger, () => props.visible], () => {
   }, 400)
 }, { deep: true })
 
+onBeforeUnmount(() => {
+  ++editorVersion
+  ++previewSeq
+  clearTimeout(previewTimer)
+})
+
 // The first section with a problem, with what to tell the user.
 function firstProblem(): [Section, string] | null {
   if (!form.name.trim()) return ['basic', t('automation.editor.errors.name')]
@@ -476,6 +480,9 @@ function firstProblem(): [Section, string] | null {
 }
 
 async function save() {
+  if (saving.value || !props.visible) return
+  const version = editorVersion
+  const automationId = props.automation?.id
   const problem = firstProblem()
   if (problem) {
     section.value = problem[0]
@@ -490,17 +497,18 @@ async function save() {
     limits: { max_duration_minutes: maxMinutes.value },
   }
   try {
-    const res = props.automation
-      ? await updateAutomation(props.automation.id, input)
+    const res = automationId
+      ? await updateAutomation(automationId, input)
       : await createAutomation(input)
-    MessagePlugin.success(props.automation ? t('common.saveSuccess') : t('common.createSuccess'))
+    if (version !== editorVersion) return
+    MessagePlugin.success(automationId ? t('common.saveSuccess') : t('common.createSuccess'))
     modalShell.markClean()
     emit('saved', res.data)
     close()
   } catch (e: any) {
-    MessagePlugin.error(e?.message || t('common.saveFailed'))
+    if (version === editorVersion) MessagePlugin.error(e?.message || t('common.saveFailed'))
   } finally {
-    saving.value = false
+    if (version === editorVersion) saving.value = false
   }
 }
 </script>

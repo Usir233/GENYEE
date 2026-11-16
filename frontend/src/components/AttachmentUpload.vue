@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { useI18n } from 'vue-i18n';
 import { MAX_FILE_SIZE_MB } from '@/utils';
@@ -46,6 +46,7 @@ const attachments = ref<AttachmentFile[]>([]);
 const fileInputRef = ref<HTMLInputElement>();
 const pollTimers = new Map<string, ReturnType<typeof setTimeout>>();
 let disposed = false;
+let sessionEpoch = 0;
 
 // Supported file types (matching backend)
 const supportedTypes = ref([
@@ -141,6 +142,7 @@ const emitFiles = () => emit('update:files', [...attachments.value]);
 
 const uploadAttachment = async (attachment: AttachmentFile) => {
   const uploadSessionId = props.sessionId;
+  const uploadEpoch = sessionEpoch;
   if (!uploadSessionId) return;
   (attachment as AttachmentFile & { _sessionId?: string })._sessionId = uploadSessionId;
   try {
@@ -151,17 +153,18 @@ const uploadAttachment = async (attachment: AttachmentFile) => {
       props.agentSourceTenantId,
       'auto',
       (progress) => {
-        if (disposed || props.sessionId !== uploadSessionId) return;
+        if (disposed || (props.sessionId !== uploadSessionId || sessionEpoch !== uploadEpoch) || !attachments.value.some(item => item.id === attachment.id)) return;
         attachment.progress = progress;
         emitFiles();
       },
     );
     attachment.documentId = response.data.id;
-    if (
-      disposed
-      || props.sessionId !== uploadSessionId
-      || !attachments.value.some(item => item.id === attachment.id)
-    ) {
+    if (disposed || (props.sessionId !== uploadSessionId || sessionEpoch !== uploadEpoch) || !attachments.value.some(item => item.id === attachment.id)) {
+      const index = attachments.value.findIndex(item => item.id === attachment.id);
+      if (index !== -1) {
+        attachments.value.splice(index, 1);
+        emitFiles();
+      }
       await deleteTemporaryAttachment(uploadSessionId, response.data.id).catch(() => undefined);
       return;
     }
@@ -169,44 +172,52 @@ const uploadAttachment = async (attachment: AttachmentFile) => {
     attachment.progress = 100;
     emitFiles();
     if (attachment.status !== 'ready' && attachment.status !== 'failed') {
-      scheduleStatusPoll(attachment);
+      scheduleStatusPoll(attachment, uploadSessionId, uploadEpoch);
     }
   } catch (error: any) {
-    if (disposed || props.sessionId !== uploadSessionId) return;
+    if (disposed || (props.sessionId !== uploadSessionId || sessionEpoch !== uploadEpoch) || !attachments.value.some(item => item.id === attachment.id)) {
+      const index = attachments.value.findIndex(item => item.id === attachment.id);
+      if (index !== -1) {
+        attachments.value.splice(index, 1);
+        emitFiles();
+      }
+      return;
+    }
     attachment.status = 'failed';
     attachment.error = error?.message || t('chat.attachmentUploadFailed');
     emitFiles();
   }
 };
 
-const scheduleStatusPoll = (attachment: AttachmentFile) => {
-  if (disposed) return;
+const scheduleStatusPoll = (attachment: AttachmentFile, uploadSessionId: string, uploadEpoch: number) => {
   clearPoll(attachment.id);
-  pollTimers.set(attachment.id, setTimeout(() => void pollStatus(attachment), 800));
+  pollTimers.set(attachment.id, setTimeout(() => void pollStatus(attachment, uploadSessionId, uploadEpoch), 800));
 };
 
-const pollStatus = async (attachment: AttachmentFile) => {
-  const uploadSessionId = (attachment as AttachmentFile & { _sessionId?: string })._sessionId || props.sessionId;
-  if (
-    disposed
-    || !uploadSessionId
-    || props.sessionId !== uploadSessionId
-    || !attachment.documentId
-    || !attachments.value.some(item => item.id === attachment.id)
-  ) return;
+const pollStatus = async (attachment: AttachmentFile, uploadSessionId: string, uploadEpoch: number) => {
+  if (!attachment.documentId || !attachments.value.some(item => item.id === attachment.id)) return;
+  const documentId = attachment.documentId;
+  const discardIfStale = () => {
+    if (props.sessionId === uploadSessionId && sessionEpoch === uploadEpoch && !disposed) return false;
+    const index = attachments.value.findIndex(item => item.id === attachment.id);
+    if (index !== -1) {
+      attachments.value.splice(index, 1);
+      emitFiles();
+    }
+    // A document already uploaded may have been sent while parsing. Keep the
+    // server copy; it is subject to the normal temporary-attachment expiry.
+    return true;
+  };
+  if (discardIfStale()) return;
   try {
-    const response = await getTemporaryAttachment(uploadSessionId, attachment.documentId);
-    if (
-      disposed
-      || props.sessionId !== uploadSessionId
-      || !attachments.value.some(item => item.id === attachment.id)
-    ) return;
+    const response = await getTemporaryAttachment(uploadSessionId, documentId);
+    if (discardIfStale() || !attachments.value.some(item => item.id === attachment.id)) return;
     attachment.status = response.data.status;
     attachment.error = response.data.error_message;
     emitFiles();
-    if (attachment.status !== 'ready' && attachment.status !== 'failed') scheduleStatusPoll(attachment);
+    if (attachment.status !== 'ready' && attachment.status !== 'failed') scheduleStatusPoll(attachment, uploadSessionId, uploadEpoch);
   } catch (error: any) {
-    if (disposed || props.sessionId !== uploadSessionId) return;
+    if (discardIfStale() || !attachments.value.some(item => item.id === attachment.id)) return;
     attachment.status = 'failed';
     attachment.error = error?.message || t('chat.attachmentParseFailed');
     emitFiles();
@@ -218,6 +229,20 @@ const clearPoll = (id: string) => {
   if (timer) clearTimeout(timer);
   pollTimers.delete(id);
 };
+
+// A mounted composer can be reused by the embedded assistant without a route
+// change. Do not leave A's attachments available to send in session B.
+watch(() => props.sessionId, (nextSession, previousSession) => {
+  sessionEpoch += 1;
+  // Local files selected before a new session exists belong to its first send.
+  if (!previousSession || nextSession === previousSession) return;
+  const pending = attachments.value;
+  attachments.value = [];
+  pending.forEach(attachment => {
+    clearPoll(attachment.id);
+  });
+  if (pending.length) emitFiles();
+}, { flush: 'sync' });
 
 const removeAttachment = (id: string) => {
   const index = attachments.value.findIndex(a => a.id === id);

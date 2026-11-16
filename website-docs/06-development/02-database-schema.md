@@ -20,14 +20,14 @@ GENYEE 使用版本化迁移维护数据库结构，PostgreSQL 与 SQLite 分别
 
 ```text
 migrations/
-├── versioned/     # PostgreSQL/ParadeDB 版本化迁移：000000-000138 共 139 版（278 个 .up/.down.sql 文件）
-├── sqlite/        # SQLite 迁移：000000_init（压平的全量 schema）+ 000001-000054 增量版本
+├── versioned/     # PostgreSQL/ParadeDB 版本化迁移：000000-000139 共 140 版（280 个 .up/.down.sql 文件）
+├── sqlite/        # SQLite 迁移：000000_init（压平的全量 schema）+ 000001-000055 增量版本
 ├── paradedb/      # ParadeDB 附加脚本：00-init-db.sql、01-migrate-to-paradedb.sql（存量库切换）
 └── mysql/         # 00-init-db.sql，遗留的一次性 MySQL 建表脚本（未接入代码）
 ```
 
-- PostgreSQL 的 `versioned/` 从 `000000_init` 到 `000138_principal_widths_and_org_join_index`；
-- `sqlite/` 以 `000000_init` 作为压平后的全量初始化（JSONB→TEXT、SERIAL→AUTOINCREMENT 等方言差异已适配），其后追加增量版本（当前到 `000054_index_parity`），同样由 golang-migrate 顺序执行；
+- PostgreSQL 的 `versioned/` 从 `000000_init` 到 `000139_im_session_mode_indexes`；
+- `sqlite/` 以 `000000_init` 作为压平后的全量初始化（JSONB→TEXT、SERIAL→AUTOINCREMENT 等方言差异已适配），其后追加增量版本（当前到 `000055_im_session_mode_indexes`），同样由 golang-migrate 顺序执行；
 - `uuid-ossp`、`vector`、`pg_trgm`、`pg_search` 等扩展由 `versioned/` 迁移自行创建（000000、000002）；BM25 索引使用中文 Lindera 分词器建在 `embeddings.content` 上；
 - `paradedb/00-init-db.sql` 除扩展外还含一份旧版建表语句，**没有被 compose 或代码引用**。不要把它挂成数据库 initdb 脚本：它先建出的旧表会让 `000000_init` 失败。
 
@@ -110,6 +110,7 @@ migrations/
 | 000136 | `credential_vault` 表，持久化加密凭据库 |
 | 000137 | `auth_tokens.session_id` 关联一次登录及其刷新轮换；撤销无法安全配对的历史令牌，用户需重新登录，账号和业务数据保留 |
 | 000138 | 扩宽主体标识列宽度并补充组织加入申请索引 |
+| 000139 | 区分 IM 渠道 `im_channel_sessions` 的用户模式与线程模式唯一索引 |
 
 SQLite 版本号独立演进，不能与 PostgreSQL 数字一一对应：
 
@@ -145,6 +146,7 @@ SQLite 版本号独立演进，不能与 PostgreSQL 数字一一对应：
 | 000052 | `credential_vault` 加密凭据库表（对应 000136） |
 | 000053 | `auth_tokens.session_id` 与历史令牌失效处理（对应 PostgreSQL 000137） |
 | 000054 | 主体与组织关联索引对齐（对应 PostgreSQL 000138） |
+| 000055 | 区分 IM 渠道会话用户模式与线程模式唯一索引（对应 PostgreSQL 000139） |
 
 PostgreSQL 的 000099、000112、000115、000118、000123、000135 没有 SQLite 对应版本。
 

@@ -411,8 +411,14 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 
 		allSpaces = append(allSpaces, resp.Data.Items...)
 
-		if !resp.Data.HasMore || resp.Data.PageToken == "" {
+		if !resp.Data.HasMore {
 			break
+		}
+		if resp.Data.PageToken == "" {
+			return nil, fmt.Errorf("feishu wiki space pagination: has_more=true with a missing page token")
+		}
+		if _, exists := seenPageTokens[resp.Data.PageToken]; exists {
+			return nil, fmt.Errorf("feishu wiki space pagination repeated page token %q", resp.Data.PageToken)
 		}
 		if len(resp.Data.Items) == 0 {
 			emptyPages++
@@ -421,9 +427,6 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 			}
 		} else {
 			emptyPages = 0
-		}
-		if _, exists := seenPageTokens[resp.Data.PageToken]; exists {
-			return nil, fmt.Errorf("feishu wiki space pagination repeated page token %q", resp.Data.PageToken)
 		}
 		seenPageTokens[resp.Data.PageToken] = struct{}{}
 		pageToken = resp.Data.PageToken
@@ -477,8 +480,14 @@ func (c *Client) ListWikiNodes(ctx context.Context, spaceID string, parentNodeTo
 			allNodes = append(allNodes, node)
 		}
 
-		if !resp.Data.HasMore || resp.Data.PageToken == "" {
+		if !resp.Data.HasMore {
 			break
+		}
+		if resp.Data.PageToken == "" {
+			return nil, fmt.Errorf("feishu wiki node pagination: has_more=true with a missing page token")
+		}
+		if _, exists := seenPageTokens[resp.Data.PageToken]; exists {
+			return nil, fmt.Errorf("feishu wiki node pagination repeated page token %q", resp.Data.PageToken)
 		}
 		if len(resp.Data.Items) == 0 {
 			emptyPages++
@@ -487,9 +496,6 @@ func (c *Client) ListWikiNodes(ctx context.Context, spaceID string, parentNodeTo
 			}
 		} else {
 			emptyPages = 0
-		}
-		if _, exists := seenPageTokens[resp.Data.PageToken]; exists {
-			return nil, fmt.Errorf("feishu wiki node pagination repeated page token %q", resp.Data.PageToken)
 		}
 		seenPageTokens[resp.Data.PageToken] = struct{}{}
 		pageToken = resp.Data.PageToken
@@ -1038,8 +1044,14 @@ func (c *Client) ListDriveFilesAllPages(ctx context.Context, folderToken string)
 			return nil, err
 		}
 		all = append(all, files...)
-		if !hasMore || next == "" {
+		if !hasMore {
 			break
+		}
+		if next == "" {
+			return nil, fmt.Errorf("feishu drive file pagination: has_more=true with a missing page token")
+		}
+		if _, exists := seenPageTokens[next]; exists {
+			return nil, fmt.Errorf("feishu drive file pagination repeated page token %q", next)
 		}
 		if len(files) == 0 {
 			emptyPages++
@@ -1048,9 +1060,6 @@ func (c *Client) ListDriveFilesAllPages(ctx context.Context, folderToken string)
 			}
 		} else {
 			emptyPages = 0
-		}
-		if _, exists := seenPageTokens[next]; exists {
-			return nil, fmt.Errorf("feishu drive file pagination repeated page token %q", next)
 		}
 		seenPageTokens[next] = struct{}{}
 		pageToken = next

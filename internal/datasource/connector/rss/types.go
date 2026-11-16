@@ -27,6 +27,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -152,7 +153,8 @@ func (c *Config) feedURLList() []string {
 }
 
 // parseHeaders turns the newline-separated "Name: Value" AuthHeaders blob into
-// a map. Lines without a colon, or with an empty name, are skipped.
+// a map. Header names are case-insensitive, and the last value wins.
+// Lines without a colon, or with an empty name, are skipped.
 func (c *Config) parseHeaders() map[string]string {
 	if c == nil || strings.TrimSpace(c.AuthHeaders) == "" {
 		return nil
@@ -172,7 +174,7 @@ func (c *Config) parseHeaders() map[string]string {
 		if name == "" || hasControlChar(name) || hasHeaderControlChar(value) {
 			continue
 		}
-		headers[name] = value
+		headers[http.CanonicalHeaderKey(name)] = value
 	}
 	if len(headers) == 0 {
 		return nil

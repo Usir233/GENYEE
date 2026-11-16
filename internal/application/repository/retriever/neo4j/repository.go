@@ -31,8 +31,8 @@ const (
 			$iterateQuery,
 			$actionQuery,
 			{batchSize: 1000, parallel: false, params: $iterateParams}
-		) YIELD batches, total, failedBatches, errorMessages
-		RETURN total, failedBatches, errorMessages
+		) YIELD batches, total, failedBatches, failedOperations, wasTerminated, errorMessages
+		RETURN total, failedBatches, failedOperations, wasTerminated, errorMessages
 	`
 )
 
@@ -211,30 +211,58 @@ func (n *Neo4jRepository) addGraph(ctx context.Context, namespace types.NameSpac
 	return nil
 }
 
-func (n *Neo4jRepository) delGraphStatement(namespace types.NameSpace) (string, map[string]any, error) {
+type preparedGraphDeleteStage struct {
+	stage  string
+	query  string
+	params map[string]any
+}
+
+func (n *Neo4jRepository) delGraphStatements(namespace types.NameSpace) ([]preparedGraphDeleteStage, error) {
 	if err := validateKnowledgeBaseNamespace(namespace); err != nil {
-		return "", nil, err
+		return nil, err
 	}
 	labelExpr := n.Label(namespace)
 	if labelExpr == "" {
-		return "", nil, fmt.Errorf("graph namespace resolved to an empty label")
+		return nil, fmt.Errorf("graph namespace resolved to an empty label")
 	}
 
-	var iterateQuery string
-	iterateParams := map[string]any{}
 	if strings.TrimSpace(namespace.Knowledge) != "" {
-		iterateQuery = "MATCH (n:" + labelExpr + " {kg: $knowledge_id}) RETURN n"
-		iterateParams["knowledge_id"] = namespace.Knowledge
-	} else {
-		iterateQuery = "MATCH (n:" + labelExpr + ") RETURN n"
+		iterateParams := map[string]any{"knowledge_id": namespace.Knowledge}
+		relIterate := "MATCH (n:" + labelExpr + " {kg: $knowledge_id})-[r]-(m:" + labelExpr + " {kg: $knowledge_id}) RETURN r"
+		nodeIterate := "MATCH (n:" + labelExpr + " {kg: $knowledge_id}) RETURN n"
+		return []preparedGraphDeleteStage{
+			{
+				stage: "relationships",
+				query: delGraphApocQuery,
+				params: map[string]any{
+					"iterateQuery":  relIterate,
+					"actionQuery":   "DELETE r",
+					"iterateParams": iterateParams,
+				},
+			},
+			{
+				stage: "nodes",
+				query: delGraphApocQuery,
+				params: map[string]any{
+					"iterateQuery":  nodeIterate,
+					"actionQuery":   "DETACH DELETE n",
+					"iterateParams": iterateParams,
+				},
+			},
+		}, nil
 	}
 
-	params := map[string]any{
-		"iterateQuery":  iterateQuery,
-		"actionQuery":   "DETACH DELETE n",
-		"iterateParams": iterateParams,
-	}
-	return delGraphApocQuery, params, nil
+	return []preparedGraphDeleteStage{
+		{
+			stage: "nodes",
+			query: delGraphApocQuery,
+			params: map[string]any{
+				"iterateQuery":  "MATCH (n:" + labelExpr + ") RETURN n",
+				"actionQuery":   "DETACH DELETE n",
+				"iterateParams": map[string]any{},
+			},
+		},
+	}, nil
 }
 
 // DelGraph deletes a graph from the Neo4j repository
@@ -247,17 +275,13 @@ func (n *Neo4jRepository) DelGraph(ctx context.Context, namespaces []types.NameS
 		return nil
 	}
 
-	type preparedDelete struct {
-		query  string
-		params map[string]any
-	}
-	prepared := make([]preparedDelete, 0, len(namespaces))
+	var prepared []preparedGraphDeleteStage
 	for _, namespace := range namespaces {
-		query, params, err := n.delGraphStatement(namespace)
+		stages, err := n.delGraphStatements(namespace)
 		if err != nil {
 			return err
 		}
-		prepared = append(prepared, preparedDelete{query: query, params: params})
+		prepared = append(prepared, stages...)
 	}
 
 	session := n.driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
@@ -265,26 +289,8 @@ func (n *Neo4jRepository) DelGraph(ctx context.Context, namespaces []types.NameS
 
 	result, err := session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (interface{}, error) {
 		for _, stmt := range prepared {
-			res, err := tx.Run(ctx, stmt.query, stmt.params)
-			if err != nil {
-				return nil, fmt.Errorf("failed to delete graph nodes: %w", err)
-			}
-			for res.Next(ctx) {
-				record := res.Record()
-				if record == nil {
-					continue
-				}
-				failedBatches, _, fErr := neo4j.GetRecordValue[int64](record, "failedBatches")
-				if fErr == nil && failedBatches > 0 {
-					errMsgs, _ := record.Get("errorMessages")
-					return nil, fmt.Errorf("failed to delete graph nodes: %d APOC batch(es) failed: %v", failedBatches, errMsgs)
-				}
-			}
-			if err := res.Err(); err != nil {
-				return nil, fmt.Errorf("failed to read delete graph result: %w", err)
-			}
-			if _, err := res.Consume(ctx); err != nil {
-				return nil, fmt.Errorf("failed to consume delete graph result: %w", err)
+			if err := runGraphDeleteBatches(ctx, tx, stmt.query, stmt.params); err != nil {
+				return nil, fmt.Errorf("failed to delete %s: %w", stmt.stage, err)
 			}
 		}
 		return nil, nil
@@ -293,6 +299,41 @@ func (n *Neo4jRepository) DelGraph(ctx context.Context, namespaces []types.NameS
 		return err
 	}
 	logger.Infof(ctx, "delete graph result: %v", result)
+	return nil
+}
+
+func runGraphDeleteBatches(
+	ctx context.Context, tx neo4j.ManagedTransaction, query string, params map[string]any,
+) error {
+	result, err := tx.Run(ctx, query, params)
+	if err != nil {
+		return err
+	}
+	// APOC can return a result row even when one of its inner batches failed.
+	for result.Next(ctx) {
+		record := result.Record()
+		if record == nil {
+			continue
+		}
+		failedBatches, _ := record.Get("failedBatches")
+		failedOperations, _ := record.Get("failedOperations")
+		terminated, _ := record.Get("wasTerminated")
+		errMsgs, _ := record.Get("errorMessages")
+		fb, _ := failedBatches.(int64)
+		fo, _ := failedOperations.(int64)
+		term, _ := terminated.(bool)
+		if fb != 0 || fo != 0 || term {
+			_, _ = result.Consume(ctx)
+			return fmt.Errorf("incomplete APOC deletion (failed batches: %v, failed operations: %v, terminated: %v, errors: %v)",
+				failedBatches, failedOperations, terminated, errMsgs)
+		}
+	}
+	if err := result.Err(); err != nil {
+		return err
+	}
+	if _, err := result.Consume(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 

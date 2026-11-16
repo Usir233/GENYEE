@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"regexp"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 
 	"github.com/Usir233/GENYEE/internal/agent/approval"
 	"github.com/Usir233/GENYEE/internal/agent/hostreview"
+	"github.com/Usir233/GENYEE/internal/common"
 	"github.com/Usir233/GENYEE/internal/event"
 	"github.com/Usir233/GENYEE/internal/sandbox"
 	"github.com/Usir233/GENYEE/internal/types"
@@ -144,27 +144,15 @@ func (a hostModelApprover) emit(ctx context.Context, typ event.EventType, id str
 	})
 }
 
-func truncatePreviewUTF8(s string, maxBytes int) string {
-	if len(s) <= maxBytes {
-		return s
-	}
-	s = s[:maxBytes]
-	for len(s) > 0 {
-		r, width := utf8.DecodeLastRuneInString(s)
-		if r != utf8.RuneError || width != 1 {
-			break
-		}
-		s = s[:len(s)-1]
-	}
-	return s
-}
-
+// hostPayload renders the approval card. The preview is cut by bytes, so it
+// backs off to a rune boundary: writes and diffs are frequently Chinese, and
+// a partial rune would reach the card as U+FFFD through the event JSON.
 func hostPayload(req sandbox.CommandApprovalRequest, reviewer string) event.HostApprovalPayload {
 	preview := req.WriteContent
 	if req.EditDiff != "" {
 		preview = req.EditDiff
 	}
-	preview = truncatePreviewUTF8(preview, hostPreviewLimit)
+	preview = common.TruncateUTF8Bytes(preview, hostPreviewLimit)
 	return event.HostApprovalPayload{
 		Reason:          req.Reason,
 		Reviewer:        reviewer,
@@ -207,12 +195,13 @@ func maskedEnv(env map[string]string) map[string]string {
 }
 
 // stdinData is stdin the command reads as data. A program on stdin is already
-// part of the command text the card shows.
+// part of the command text the card shows. Like the write preview, the bound
+// is a byte budget, so back off to a rune boundary before cutting.
 func stdinData(req sandbox.CommandApprovalRequest) string {
 	if req.StdinIsProgram {
 		return ""
 	}
-	return truncatePreviewUTF8(req.Stdin, hostPreviewLimit)
+	return common.TruncateUTF8Bytes(req.Stdin, hostPreviewLimit)
 }
 
 func hostScripts(scripts []sandbox.ScriptFact) []event.HostScript {

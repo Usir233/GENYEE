@@ -269,6 +269,8 @@ func TestRepositoryAudit_WikiPageSourceRefQueriesWorkOnSQLiteAndEscapeWildcards(
 
 	kbID := uuid.New().String()
 	otherKB := uuid.New().String()
+	require.NoError(t, db.Create(&types.KnowledgeBase{ID: kbID, TenantID: 1, Name: "kb-1"}).Error)
+	require.NoError(t, db.Create(&types.KnowledgeBase{ID: otherKB, TenantID: 1, Name: "kb-2"}).Error)
 
 	seedPage := func(kb, slug string, refs types.StringArray, content string) {
 		t.Helper()

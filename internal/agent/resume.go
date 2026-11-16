@@ -101,11 +101,11 @@ func (e *AgentEngine) Resume(
 		return nil
 	}
 	appendBackground := func(step types.AgentStep) {
-		for _, inj := range step.BackgroundInjections {
-			if strings.TrimSpace(inj.Content) == "" {
+		for _, injection := range step.BackgroundInjections {
+			if strings.TrimSpace(injection.Content) == "" {
 				continue
 			}
-			messages = append(messages, chat.Message{Role: "user", Content: inj.Content})
+			messages = append(messages, chat.Message{Role: "user", Content: injection.Content})
 		}
 	}
 	for i, step := range state.RoundSteps {

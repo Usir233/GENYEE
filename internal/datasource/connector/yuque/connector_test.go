@@ -15,16 +15,20 @@ import (
 	secutils "github.com/Usir233/GENYEE/internal/utils"
 )
 
-// TestMain whitelists loopback for the httptest servers and the default base
-// host so parseYuqueConfig does not resolve www.yuque.com over live DNS during
-// a unit test. Production keeps the default strict SSRF policy.
+const testYuqueCustomHost = "company.yuque.example"
+
+// TestMain whitelists loopback for the httptest servers and the base URLs
+// used by config tests so parsing does not require live DNS.
 func TestMain(m *testing.M) {
-	restore, err := dnstest.Install(map[string][]string{"company.yuque.com": {"93.184.216.34"}})
+	restore, err := dnstest.Install(map[string][]string{
+		"company.yuque.com": {"93.184.216.34"},
+		testYuqueCustomHost: {"93.184.216.34"},
+	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	_ = os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost,www.yuque.com")
+	_ = os.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost,www.yuque.com,"+testYuqueCustomHost)
 	secutils.ResetSSRFWhitelistForTest()
 	code := m.Run()
 	restore()
@@ -319,6 +323,7 @@ func TestConnector_FetchAll_SkipsEmptyBodiesAndHTMLShells(t *testing.T) {
 		{ID: 604, Type: "Doc", Status: "1", Title: "BOM Empty", Slug: "bom-empty"},
 		{ID: 605, Type: "Doc", Status: "1", Title: "BOM Shell", Slug: "bom-shell"},
 		{ID: 606, Type: "Doc", Status: "1", Title: "BOM Real", Slug: "bom-real"},
+		{ID: 607, Type: "Doc", Status: "1", Title: "HTML Example", Slug: "html-example"},
 	}})
 	emptyBody := " \n\t"
 	f.handleJSON("/api/v2/repos/docs/601", 200, v2DocDetailResponse{
@@ -342,6 +347,7 @@ func TestConnector_FetchAll_SkipsEmptyBodiesAndHTMLShells(t *testing.T) {
 		},
 	})
 	bomMarkdown := "\ufeff \n# real Markdown"
+	customElementMarkdown := "<html-example>Example</html-example>\n\n# Usage"
 	for _, doc := range []struct {
 		id   int64
 		body string
@@ -349,6 +355,7 @@ func TestConnector_FetchAll_SkipsEmptyBodiesAndHTMLShells(t *testing.T) {
 		{604, " \ufeff \n\t"},
 		{605, "\ufeff \n<!DOCTYPE html><html></html>"},
 		{606, bomMarkdown},
+		{607, customElementMarkdown},
 	} {
 		f.handleJSON(fmt.Sprintf("/api/v2/repos/docs/%d", doc.id), 200, v2DocDetailResponse{
 			Data: v2DocDetail{ID: doc.id, Format: "markdown", Body: doc.body, Status: "1"},
@@ -359,8 +366,8 @@ func TestConnector_FetchAll_SkipsEmptyBodiesAndHTMLShells(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchAll: %v", err)
 	}
-	if len(items) != 6 {
-		t.Fatalf("want 6 items (4 skips + 2 docs), got %d: %+v", len(items), items)
+	if len(items) != 7 {
+		t.Fatalf("want 7 items (4 skips + 3 docs), got %d: %+v", len(items), items)
 	}
 	wantReasons := map[string]string{
 		"601": "empty document body", "602": "document body is an HTML page shell",
@@ -368,6 +375,7 @@ func TestConnector_FetchAll_SkipsEmptyBodiesAndHTMLShells(t *testing.T) {
 	}
 	skipped := map[string]*types.FetchedItem{}
 	foundBOMMarkdown := false
+	foundCustomElementMarkdown := false
 	for i := range items {
 		if _, ok := wantReasons[items[i].ExternalID]; ok {
 			skipped[items[i].ExternalID] = &items[i]
@@ -378,9 +386,18 @@ func TestConnector_FetchAll_SkipsEmptyBodiesAndHTMLShells(t *testing.T) {
 				t.Errorf("BOM Markdown content = %q, want %q", items[i].Content, bomMarkdown)
 			}
 		}
+		if items[i].ExternalID == "607" {
+			foundCustomElementMarkdown = true
+			if string(items[i].Content) != customElementMarkdown {
+				t.Errorf("custom-element Markdown content = %q, want %q", items[i].Content, customElementMarkdown)
+			}
+		}
 	}
 	if !foundBOMMarkdown {
 		t.Fatal("missing BOM Markdown document")
+	}
+	if !foundCustomElementMarkdown {
+		t.Fatal("missing custom-element Markdown document")
 	}
 	for id, wantReason := range wantReasons {
 		it := skipped[id]
@@ -409,6 +426,8 @@ func TestIsHTMLPageShell(t *testing.T) {
 		"\ufeff \n<html data-kumuhana=\"default\"></html>",
 		" \n\ufeff \t<!DOCTYPE HTML>\n<html></html>",
 		"<html><head><script src=\"/app.js\"></script></head></html>",
+		"<HTML\nlang=\"zh\"></HTML>",
+		"<!doctype html PUBLIC \"-//W3C//DTD HTML 4.01//EN\"><html></html>",
 	}
 	for _, body := range shells {
 		if !isHTMLPageShell(body) {
@@ -422,6 +441,8 @@ func TestIsHTMLPageShell(t *testing.T) {
 		"<div>inline HTML is allowed in Markdown</div>",
 		"```html\n<!doctype html>\n```",
 		"<!-- a comment before prose -->\n\n# Title",
+		"<html-example>Example</html-example>\n\n# Usage",
+		"<!doctype html-example>\n\n# Usage",
 	}
 	for _, body := range markdown {
 		if isHTMLPageShell(body) {

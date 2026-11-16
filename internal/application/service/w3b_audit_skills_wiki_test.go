@@ -437,13 +437,14 @@ func TestW3BAudit_WikiLint_AbortsOnTransientDBErrorAndRejectsCrossTenantSourceRe
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	require.NoError(t, db.AutoMigrate(
-		&types.WikiFolder{}, &types.WikiPage{}, &types.WikiPageRevision{}, &types.WikiPageIssue{},
+		&types.KnowledgeBase{}, &types.WikiFolder{}, &types.WikiPage{}, &types.WikiPageRevision{}, &types.WikiPageIssue{},
 	))
 
 	ctx := context.Background()
 	repo := apprepo.NewWikiPageRepository(db)
 	wikiSvc := NewWikiPageService(repo, nil, nil, nil, nil, nil)
 	const kbID = "kb-wiki-1"
+	require.NoError(t, db.Create(&types.KnowledgeBase{ID: kbID, TenantID: 7, Name: "wiki-kb"}).Error)
 	body := strings.Repeat("Detailed architectural documentation for GENYEE wiki health verification. ", 2)
 
 	_, err = wikiSvc.CreatePage(ctx, &types.WikiPage{
@@ -561,8 +562,9 @@ func TestW3BAudit_WikiCreatePageSanitizesUserFields_AndSlugLockUsesTokenOwnershi
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = sqlDB.Close() })
 		require.NoError(t, db.AutoMigrate(
-			&types.WikiFolder{}, &types.WikiPage{}, &types.WikiPageRevision{}, &types.WikiPageIssue{},
+			&types.KnowledgeBase{}, &types.WikiFolder{}, &types.WikiPage{}, &types.WikiPageRevision{}, &types.WikiPageIssue{},
 		))
+		require.NoError(t, db.Create(&types.KnowledgeBase{ID: "kb-1", TenantID: 7, Name: "kb-1"}).Error)
 
 		repo := apprepo.NewWikiPageRepository(db)
 		svc := NewWikiPageService(repo, nil, nil, nil, nil, nil)

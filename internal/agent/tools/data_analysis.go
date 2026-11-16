@@ -1182,28 +1182,46 @@ func (t *DataAnalysisTool) resolveFileServiceForKnowledge(ctx context.Context, k
 		ownerTenantID = kb.TenantID
 	}
 	tenant, _ := ctx.Value(types.TenantInfoContextKey).(*types.Tenant)
-	if tenant == nil || (ownerTenantID > 0 && tenant.ID != ownerTenantID) {
-		tenantID := ownerTenantID
-		if tenantID == 0 {
-			if tid, ok := ctx.Value(types.TenantIDContextKey).(uint64); ok {
-				tenantID = tid
+	if ownerTenantID > 0 && (tenant == nil || tenant.ID != ownerTenantID) {
+		// A shared KB is read in the viewer's request context, but its storage
+		// backend is scoped to the KB owner's tenant. Resolve storage with the
+		// owner tenant without changing the caller's authorization context.
+		tenant = &types.Tenant{ID: ownerTenantID}
+		if t.tenantService != nil {
+			resolvedTenant, err := t.tenantService.GetTenantByID(ctx, ownerTenantID)
+			if err != nil {
+				logger.Warnf(ctx,
+					"[Tool][DataAnalysis][storage] get KB owner tenant failed: "+
+						"session_id=%s knowledge_id=%s kb_id=%s tenant_id=%d err=%v",
+					t.sessionID, knowledge.ID, kbID, ownerTenantID, err)
+			} else if resolvedTenant != nil && resolvedTenant.ID == ownerTenantID {
+				tenant = resolvedTenant
+			} else {
+				logger.Warnf(ctx,
+					"[Tool][DataAnalysis][storage] KB owner tenant lookup returned no matching tenant: "+
+						"session_id=%s knowledge_id=%s kb_id=%s tenant_id=%d",
+					t.sessionID, knowledge.ID, kbID, ownerTenantID)
 			}
+		}
+		logger.Infof(ctx,
+			"[Tool][DataAnalysis][storage] resolving KB storage as owner tenant: "+
+				"session_id=%s knowledge_id=%s kb_id=%s tenant_id=%d",
+			t.sessionID, knowledge.ID, kbID, ownerTenantID)
+	} else if tenant == nil {
+		tenantID := uint64(0)
+		if tid, ok := ctx.Value(types.TenantIDContextKey).(uint64); ok {
+			tenantID = tid
 		}
 		if tenantID > 0 && t.tenantService != nil {
 			resolvedTenant, err := t.tenantService.GetTenantByID(ctx, tenantID)
 			if err != nil {
 				logger.Warnf(ctx, "[Tool][DataAnalysis][storage] get tenant failed: session_id=%s knowledge_id=%s kb_id=%s tenant_id=%d err=%v",
 					t.sessionID, knowledge.ID, kbID, tenantID, err)
-				if ownerTenantID > 0 && tenant != nil && tenant.ID != ownerTenantID {
-					tenant = nil
-				}
 			} else if resolvedTenant != nil {
 				tenant = resolvedTenant
 				logger.Infof(ctx, "[Tool][DataAnalysis][storage] resolved tenant from service: session_id=%s knowledge_id=%s kb_id=%s tenant_id=%d",
 					t.sessionID, knowledge.ID, kbID, tenantID)
 			}
-		} else if ownerTenantID > 0 && tenant != nil && tenant.ID != ownerTenantID {
-			tenant = nil
 		}
 	}
 	if provider == "" && tenant != nil && tenant.StorageEngineConfig != nil {

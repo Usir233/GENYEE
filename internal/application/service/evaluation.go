@@ -548,11 +548,15 @@ func (e *EvaluationService) EvalDataset(ctx context.Context, detail *types.Evalu
 
 	// Create knowledge base from passages (sync: wait for indexing to complete before querying)
 	knowledge, err := e.knowledgeService.CreateKnowledgeFromPassageSync(ctx, knowledgeBaseID, passages, "")
+	// A failed synchronous call can still return its partially created knowledge.
+	// Record its ID before checking the error so the top-level defer cleans it up.
+	if knowledge != nil {
+		createdKnowledgeID = knowledge.ID
+	}
 	if err != nil {
 		logger.Errorf(ctx, "Failed to create knowledge from passages: %v", err)
 		return err
 	}
-	createdKnowledgeID = knowledge.ID
 	logger.Infof(ctx, "Knowledge created and indexed successfully, ID: %s", knowledge.ID)
 
 	// Initialize parallel evaluation metrics

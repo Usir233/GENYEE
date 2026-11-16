@@ -200,6 +200,7 @@ func (c *Connector) walk(
 
 	cli := newClient(cfg.parseHeaders())
 	parser := gofeed.NewParser()
+	parser.JSONTranslator = &jsonFeedTranslator{}
 
 	newCursor := &rssCursor{
 		LastSyncTime: time.Now().UTC(),
@@ -326,6 +327,12 @@ func (c *Connector) walk(
 			feedURL, len(feed.Items), kept, skipped)
 	}
 
+	// The caller may persist a returned cursor even on fetch failure.
+	// Discard the interrupted batch so a retry starts from the prior cursor.
+	if err := ctx.Err(); err != nil {
+		return nil, nil, err
+	}
+
 	if len(feedErrors) > 0 {
 		if len(out) == 0 && len(feedErrors) == len(feedURLs) {
 			return nil, newCursor, fmt.Errorf("all feeds failed: %s", strings.Join(feedErrors, "; "))
@@ -358,10 +365,12 @@ func (c *Connector) resolveItem(
 
 	// Prefer full article text; fall back to feed-provided content on failure.
 	contentHTML := feedContent
+	plainText := feed.FeedType == "json" && item.Custom["content_type"] == "text/plain"
 	articleFailed := false
 	if rawLink != "" && cli != nil {
 		if articleHTML, articleTitle, err := cli.extractArticle(ctx, rawLink); err == nil {
 			contentHTML = articleHTML
+			plainText = false
 			if item.Title == "" && articleTitle != "" {
 				title = articleTitle
 			}
@@ -371,7 +380,12 @@ func (c *Connector) resolveItem(
 		}
 	}
 
-	content := htmlToMarkdown(contentHTML)
+	var content string
+	if plainText {
+		content = plainTextToMarkdown(contentHTML)
+	} else {
+		content = htmlToMarkdown(contentHTML)
+	}
 	if safeLink != "" && (articleFailed || content == "") {
 		if err := utils.ValidateURLForSSRF(safeLink); err != nil {
 			safeLink = ""
