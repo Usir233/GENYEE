@@ -1,0 +1,400 @@
+{
+  "wave": "W6",
+  "slice": "w6-fe-admin-i18n",
+  "cross_package_notes": [
+    {
+      "file": "frontend/src/components/IMChannelPanel.vue:880-895 (imported by frontend/src/views/integrations/IMChannelSettings.vue and frontend/src/views/settings/AgentIMChannelPanel.vue)",
+      "note": "Verified read-only across all 130 base files in views/integrations and views/settings that zero QR codes or third-party QR image endpoints are constructed in this slice; WeChat QR rendering and QR poll timer teardown live in frontend/src/components/IMChannelPanel.vue (owned by Slice 2 w6-fe-components-hooks)."
+    },
+    {
+      "file": "frontend/src/App.vue, frontend/src/router/index.ts, frontend/src/stores/auth.ts (owned by Slice 1 w6-fe-core-utils)",
+      "note": "Verified read-only OIDC callback exchange (?oidc_code=), pending invitation token redemption (genyee_pending_invite_token), and authStore.logout() / clearTenantScopedClientState() interaction with Login.vue."
+    },
+    {
+      "file": "frontend/src/views/settings/AgentEmbedChannelPanel.vue:117",
+      "note": "Verified $t('embedPublish.nameDefaultHint') is invoked with zero interpolation parameters, confirming that removing the unpassed {agent} placeholder in en-US, ja-JP, and ru-RU fixes literal '{agent}' UI rendering and achieves 100% 6-locale placeholder parity."
+    }
+  ],
+  "units": [
+    {
+      "unit_id": "frontend/src/i18n",
+      "wave": "W6",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "frontend/src/i18n/auditActionLabel.ts",
+        "frontend/src/i18n/auditActionLocaleDefaults.ts",
+        "frontend/src/i18n/auditActionRegistry.ts",
+        "frontend/src/i18n/embed.ts",
+        "frontend/src/i18n/embedLocale.test.ts",
+        "frontend/src/i18n/index.ts",
+        "frontend/src/i18n/indexInitAndParity.test.ts",
+        "frontend/src/i18n/localeGapScan.ts",
+        "frontend/src/i18n/localeKeyAudit.test.ts",
+        "frontend/src/i18n/localeKeyAudit.ts",
+        "frontend/src/i18n/localeSerialize.ts",
+        "frontend/src/i18n/locales/embed/index.ts",
+        "frontend/src/i18n/locales/en-US.ts",
+        "frontend/src/i18n/locales/ja-JP.ts",
+        "frontend/src/i18n/locales/ko-KR.ts",
+        "frontend/src/i18n/locales/ru-RU.ts",
+        "frontend/src/i18n/locales/workspaceTerminology.test.ts",
+        "frontend/src/i18n/locales/zh-CN.ts",
+        "frontend/src/i18n/locales/zh-TW.ts",
+        "frontend/src/i18n/memoryKeyReferences.test.ts",
+        "frontend/src/i18n/pluralizationRules.ts",
+        "frontend/src/i18n/regeneratePrunedLocales.ts",
+        "frontend/src/i18n/resolveDefaultLocale.test.ts",
+        "frontend/src/i18n/resolveDefaultLocale.ts"
+      ],
+      "invariants_checked": [
+        "100% translation key parity, AST structure parity, vue-i18n message compilation, workspace terminology consistency, and 100% {placeholder} token parity across all 6 supported locales (zh-CN, zh-TW, en-US, ru-RU, ko-KR, ja-JP).",
+        "Zero legacy brand identifiers, legacy key prefixes, or deprecated mini-program client strings across all 23 i18n locale and audit script files, with clean GENYEE naming throughout.",
+        "Safe locale bootstrap in frontend/src/i18n/index.ts under SSR, Node test runners, and restricted browser storage (validating stored locale values against SUPPORTED_LOCALES before falling back to resolveDefaultLocale), plus Slavic 3-form pluralRules parity between main app i18n and embed i18n."
+      ],
+      "findings": [
+        {
+          "id": "W6-I18N-01",
+          "severity": "P2",
+          "file": "frontend/src/i18n/index.ts:8-42; frontend/src/i18n/embed.ts:1-2, 2784-2792",
+          "summary": "frontend/src/i18n/index.ts accessed localStorage, window.__RUNTIME_CONFIG__, and import.meta.env without guards and accepted arbitrary unsupported localStorage.locale strings without validation; frontend/src/i18n/embed.ts omitted pluralRules so Slavic 3-form plurals (ru-RU) degraded in embedded chat.",
+          "regression_test": "i18n index imports safely without browser globals and validates stored locale values, embed i18n configures Slavic 3-form pluralRules for ru-RU",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        },
+        {
+          "id": "W6-I18N-02",
+          "severity": "P2",
+          "file": "frontend/src/i18n/locales/en-US.ts:3548; frontend/src/i18n/locales/ja-JP.ts:3548; frontend/src/i18n/locales/ru-RU.ts:6262, 6455",
+          "summary": "embedPublish.nameDefaultHint in en-US, ja-JP, and ru-RU contained an unpassed {agent} placeholder (rendered literally as '{agent}' by AgentEmbedChannelPanel.vue:117), and ru-RU input.agentNotReadyDetail omitted the {agentName} placeholder passed by callers.",
+          "regression_test": "all 6 locales maintain 100% interpolation placeholder parity across every translation key",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/i18n/embedLocale.test.ts src/i18n/indexInitAndParity.test.ts src/i18n/localeKeyAudit.test.ts src/i18n/locales/workspaceTerminology.test.ts src/i18n/memoryKeyReferences.test.ts src/i18n/resolveDefaultLocale.test.ts) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/views/auth",
+      "wave": "W6",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "frontend/src/views/auth/Login.mobile.test.mjs",
+        "frontend/src/views/auth/Login.vue",
+        "frontend/src/views/auth/WorkspaceOnboarding.vue",
+        "frontend/src/views/auth/loginSecurity.test.ts",
+        "frontend/src/views/auth/registrationPolicy.test.ts",
+        "frontend/src/views/auth/registrationPolicy.ts"
+      ],
+      "invariants_checked": [
+        "OIDC authorization redirects and runtime-configured external header links (GITHUB_URL, WEBSITE_URL) strictly enforce http:/https: URL schemes and rel=\"noopener noreferrer\" on target=\"_blank\" anchors, blocking javascript:/data: XSS and reverse tabnabbing.",
+        "Cross-account login hygiene: persistLoginResponse purges prior session tokens, refresh tokens, memberships, lite-mode flags, and cached GENYEE_settings via authStore.logout() before persisting new credentials; expired sessions on invite ?token= landings are cleared via authStore.logout(); Lite edition autoSetup preserves isLiteMode=true after session reset.",
+        "Registration policy enforcement (self_serve, invite_register, invite_only, fail-closed on config fetch error), WorkspaceSetup onboarding tenant initialization, and password complexity rules."
+      ],
+      "findings": [
+        {
+          "id": "W6-AUTH-01",
+          "severity": "P1",
+          "file": "frontend/src/views/auth/Login.vue:99-125, 384-408, 667-677",
+          "summary": "handleOIDCLogin assigned response.authorization_url directly to window.location.href without http:/https: scheme validation, runtime GITHUB_URL/WEBSITE_URL values were bound to :href without protocol filtering, and Login.vue target=\"_blank\" anchors lacked rel=\"noopener noreferrer\".",
+          "regression_test": "handleOIDCLogin rejects non-http(s) authorization_url schemes and accepts https URLs, Login runtime GITHUB_URL/WEBSITE_URL reject unsafe schemes and external anchors use noopener noreferrer",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        },
+        {
+          "id": "W6-AUTH-02",
+          "severity": "P1",
+          "file": "frontend/src/views/auth/Login.vue:580-587, 831-857",
+          "summary": "persistLoginResponse wrote new user credentials atop existing Pinia/localStorage state without calling authStore.logout() or clearing GENYEE_settings (allowing stale refreshToken, memberships, isLiteMode, or settings from a previous account to bleed across logins), and expired sessions on invite ?token= landings were left half-logged-in when refreshFromAuthMe() returned false.",
+          "regression_test": "persistLoginResponse clears previous account state before storing new user and autoSetup retains lite mode, expired session on invite ?token= landing calls authStore.logout before showing login/register form",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/auth/Login.mobile.test.mjs src/views/auth/loginSecurity.test.ts src/views/auth/registrationPolicy.test.ts) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/views/integrations",
+      "wave": "W6",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "frontend/src/views/integrations/ApiIntegrationSettings.vue",
+        "frontend/src/views/integrations/ChromeExtensionLanding.vue",
+        "frontend/src/views/integrations/ClawSkillLanding.vue",
+        "frontend/src/views/integrations/CliIntegrationLanding.vue",
+        "frontend/src/views/integrations/IntegrationExternalCta.vue",
+        "frontend/src/views/integrations/IntegrationLandingLayout.vue",
+        "frontend/src/views/integrations/IntegrationSettingsSection.vue",
+        "frontend/src/views/integrations/McpServerIntegrationSettings.vue",
+        "frontend/src/views/integrations/apiKeyScope.test.ts",
+        "frontend/src/views/integrations/apiKeyScope.ts",
+        "frontend/src/views/integrations/apiPlaygroundSSE.test.ts",
+        "frontend/src/views/integrations/apiPlaygroundSSE.ts",
+        "frontend/src/views/integrations/cliIntegration.test.ts",
+        "frontend/src/views/integrations/cliIntegration.ts",
+        "frontend/src/views/integrations/integration-landing.less",
+        "frontend/src/views/integrations/integrationSecurity.test.ts",
+        "frontend/src/views/integrations/mcpServerIntegration.test.ts",
+        "frontend/src/views/integrations/mcpServerIntegration.ts"
+      ],
+      "invariants_checked": [
+        "Copy-pasteable CLI/shell snippets across MCP Server, CLI, and Claw Skill integration pages safely POSIX-quote shell metacharacters, strip CR/LF injection, validate http:/https: runtime repository URLs, and avoid duplicate .git.git clone suffixes.",
+        "API Integration & Playground secret handling: HMAC secrets are omitted from auto-save payloads unless explicitly edited (never overwriting stored secrets with masked placeholders), Playground AbortController streams cancel cleanly on close/unmount, and deleting/revoking the selected API key immediately rotates or clears apiKey state.",
+        "Connector settings (Notion, Confluence, Feishu, DingTalk, Nextcloud, Seafile), IM channel delegation, and external documentation popups enforce noopener,noreferrer and http:/https: URL validation."
+      ],
+      "findings": [
+        {
+          "id": "W6-INT-01",
+          "severity": "P1",
+          "file": "frontend/src/views/integrations/mcpServerIntegration.ts:67-82; frontend/src/views/integrations/CliIntegrationLanding.vue:84-112; frontend/src/views/integrations/ClawSkillLanding.vue:134-140",
+          "summary": "buildClaudeCodeCommand interpolated url unquoted and token inside double quotes without escaping shell metacharacters or newlines, CliIntegrationLanding interpolated unvalidated RUNTIME_CONFIG.GITHUB_URL into git clone (and duplicated .git.git when GITHUB_URL ended with .git), and ClawSkillLanding interpolated apiBaseUrlDisplay inside double-quoted export GENYEE_BASE_URL without quoting shell expansions.",
+          "regression_test": "buildClaudeCodeCommand quotes shell metacharacters in url and token while keeping clean tokens readable, CliIntegrationLanding validates http(s) GITHUB_URL, avoids .git.git duplication, and quotes clone URL, ClawSkillLanding envExample safely quotes GENYEE_BASE_URL against shell command substitution",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        },
+        {
+          "id": "W6-INT-02",
+          "severity": "P2",
+          "file": "frontend/src/views/integrations/ApiIntegrationSettings.vue:1177-1180, 1434-1444",
+          "summary": "loadAPIKeys only initialized apiKey when empty, leaving a deleted/revoked API key selected in API snippets and Playground requests after deletion, and openApiDoc opened target=\"_blank\" without noopener,noreferrer or http:/https: scheme validation.",
+          "regression_test": "ApiIntegrationSettings rotates or clears apiKey when selected key is revoked and opens docs with noopener,noreferrer",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/integrations/apiKeyScope.test.ts src/views/integrations/apiPlaygroundSSE.test.ts src/views/integrations/cliIntegration.test.ts src/views/integrations/integrationSecurity.test.ts src/views/integrations/mcpServerIntegration.test.ts) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/views/organization",
+      "wave": "W6",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "frontend/src/views/organization/OrganizationList.vue",
+        "frontend/src/views/organization/OrganizationMemberSearch.test.ts",
+        "frontend/src/views/organization/OrganizationSettingsModal.test.mjs",
+        "frontend/src/views/organization/OrganizationSettingsModal.vue",
+        "frontend/src/views/organization/OrganizationStateSync.test.mjs",
+        "frontend/src/views/organization/organizationRaceAndCleanup.test.ts"
+      ],
+      "invariants_checked": [
+        "OrganizationSettingsModal synchronizes request generation counters across visibility and orgId changes, reloads organization details/members/shares/join-requests when switching orgId while open, discards late responses from previous organizations or closed sessions, and URL-encodes invite codes in inviteLink.",
+        "OrganizationList and useOrganizationMemberSearch cancel pending debounce timers and ResizeObservers on dialog close and component unmount, preventing post-close/post-unmount searchable organization queries."
+      ],
+      "findings": [
+        {
+          "id": "W6-ORG-01",
+          "severity": "P1",
+          "file": "frontend/src/views/organization/OrganizationSettingsModal.vue:1212-1215, 1249-1395, 1871-1931",
+          "summary": "OrganizationSettingsModal lacked generation/orgId guards on fetchOrgDetail, fetchMembers, fetchSharedKBs, and fetchJoinRequests (allowing slow responses from Org A or a closed modal to overwrite Org B state), did not reload organization context when props.orgId changed while visible, and interpolated raw inviteCode.value into inviteLink without encodeURIComponent.",
+          "regression_test": "OrganizationSettingsModal encodes inviteLink, reloads when orgId changes while visible, and drops stale org responses",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        },
+        {
+          "id": "W6-ORG-02",
+          "severity": "P2",
+          "file": "frontend/src/views/organization/OrganizationList.vue:918-928, 1080-1084",
+          "summary": "OrganizationList left searchDebounceTimer pending across closeInvitePreview() and onUnmounted(), allowing a 300ms delayed fetchSearchableOrganizations() call to repopulate cleared store state after dialog close or unmount.",
+          "regression_test": "OrganizationList clears pending searchDebounceTimer on closeInvitePreview and unmount",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/organization/OrganizationMemberSearch.test.ts src/views/organization/OrganizationSettingsModal.test.mjs src/views/organization/OrganizationStateSync.test.mjs src/views/organization/organizationRaceAndCleanup.test.ts) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/views/platform",
+      "wave": "W6",
+      "status": "verified_no_findings",
+      "tracked_files": [
+        "frontend/src/views/platform/collectDroppedFiles.test.ts",
+        "frontend/src/views/platform/collectDroppedFiles.ts",
+        "frontend/src/views/platform/fileDrop.test.mjs",
+        "frontend/src/views/platform/index.vue"
+      ],
+      "invariants_checked": [
+        "Platform layout shell, sidebar navigation, tenant/workspace switching, global drag-and-drop file collection (collectDroppedFiles.ts, index.vue), and route-guarded child view rendering maintain tenant isolation, bounded directory traversal, and clean event listener teardown on unmount with zero defects."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/platform/collectDroppedFiles.test.ts src/views/platform/fileDrop.test.mjs) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/views/settings",
+      "wave": "W6",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "frontend/src/views/settings/AssistantSettings.test.ts",
+        "frontend/src/views/settings/AssistantSettings.vue",
+        "frontend/src/views/settings/BrowserConnectionSettings.vue",
+        "frontend/src/views/settings/BrowserSearchPreferences.test.ts",
+        "frontend/src/views/settings/BrowserSearchPreferences.vue",
+        "frontend/src/views/settings/ChatHistorySettings.test.ts",
+        "frontend/src/views/settings/ChatHistorySettings.vue",
+        "frontend/src/views/settings/CredentialVaultSettings.vue",
+        "frontend/src/views/settings/DefaultSettings.test.ts",
+        "frontend/src/views/settings/DefaultSettings.vue",
+        "frontend/src/views/settings/EnvVarSettings.vue",
+        "frontend/src/views/settings/GeneralSettings.vue",
+        "frontend/src/views/settings/McpSettings.test.ts",
+        "frontend/src/views/settings/McpSettings.vue",
+        "frontend/src/views/settings/MemorySettings.vue",
+        "frontend/src/views/settings/MemoryWorkspaceSettings.vue",
+        "frontend/src/views/settings/ModelSettings.vue",
+        "frontend/src/views/settings/OllamaSettings.vue",
+        "frontend/src/views/settings/ParserEngineSettings.vue",
+        "frontend/src/views/settings/RetrievalSettings.test.ts",
+        "frontend/src/views/settings/RetrievalSettings.vue",
+        "frontend/src/views/settings/RetrievalSettingsAutosave.test.ts",
+        "frontend/src/views/settings/SandboxSettings.vue",
+        "frontend/src/views/settings/Settings.vue",
+        "frontend/src/views/settings/SkillSettings.filters.test.ts",
+        "frontend/src/views/settings/SkillSettings.test.mjs",
+        "frontend/src/views/settings/SkillSettings.vue",
+        "frontend/src/views/settings/StorageBackendSettings.vue",
+        "frontend/src/views/settings/SystemInfo.vue",
+        "frontend/src/views/settings/TenantInfo.test.ts",
+        "frontend/src/views/settings/TenantInfo.vue",
+        "frontend/src/views/settings/TenantMembers.test.ts",
+        "frontend/src/views/settings/TenantMembers.vue",
+        "frontend/src/views/settings/UserProfile.vue",
+        "frontend/src/views/settings/VectorStoreSettings.vue",
+        "frontend/src/views/settings/WebSearchSettings.test.ts",
+        "frontend/src/views/settings/WebSearchSettings.vue",
+        "frontend/src/views/settings/components/HostApprovalDefaultSetting.vue",
+        "frontend/src/views/settings/components/McpMetadataPanel.test.ts",
+        "frontend/src/views/settings/components/McpMetadataPanel.vue",
+        "frontend/src/views/settings/components/McpServiceDialog.test.ts",
+        "frontend/src/views/settings/components/McpServiceDialog.vue",
+        "frontend/src/views/settings/components/McpToolsList.test.ts",
+        "frontend/src/views/settings/components/McpToolsList.vue",
+        "frontend/src/views/settings/defaultSettingsState.test.ts",
+        "frontend/src/views/settings/defaultSettingsState.ts",
+        "frontend/src/views/settings/envVarState.test.ts",
+        "frontend/src/views/settings/envVarState.ts",
+        "frontend/src/views/settings/modelUsageDetails.test.ts",
+        "frontend/src/views/settings/providerLogos.ts",
+        "frontend/src/views/settings/settingsNavigation.test.ts",
+        "frontend/src/views/settings/settingsSecurityAndLifecycle.test.ts"
+      ],
+      "invariants_checked": [
+        "MCP OAuth popup authorization validates http:/https: authorizationUrl schemes before window.open, severs popup.opener to block reverse tabnabbing while retaining popup.closed polling, and cancels polling intervals via generation counters on service switch, close, or unmount.",
+        "Secret credential handling across ModelSettings, McpServiceDialog, WebSearchSettings, VectorStoreSettings, ParserEngineSettings, StorageBackendSettings, and AgentEmbedChannelPanel preserves masked server credentials via CredentialResource / dirty-state tracking and never overwrites stored secrets with literal mask placeholders.",
+        "Workspace-scoped settings (MemoryWorkspaceSettings, RetrievalSettings, DefaultSettings, TenantInfo, TenantMembers) guard autosave against failed initial loads, cancel pending timers and reload cleanly on effectiveTenantId switches, catch rejected API promises with user-visible error toasts, and clear all timers/intervals on unmount."
+      ],
+      "findings": [
+        {
+          "id": "W6-SET-01",
+          "severity": "P1",
+          "file": "frontend/src/views/settings/components/McpServiceDialog.vue:700-725; frontend/src/views/settings/SystemInfo.vue:274-283; frontend/src/views/settings/WebSearchSettings.vue:129-135, 421-430",
+          "summary": "McpServiceDialog passed upstream OAuth authorizationUrl directly to window.open without http:/https: scheme validation and left window.opener exposed to the third-party OAuth popup; SystemInfo and WebSearchSettings bound runtime GITHUB_URL and provider docs_url to external links without http:/https: validation.",
+          "regression_test": "McpServiceDialog rejects non-http(s) OAuth authorizationUrl and severs window.opener on valid popups, SystemInfo and WebSearchSettings reject non-http(s) external URLs",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        },
+        {
+          "id": "W6-SET-02",
+          "severity": "P1",
+          "file": "frontend/src/views/settings/MemoryWorkspaceSettings.vue:202-343",
+          "summary": "MemoryWorkspaceSettings flipped isInitializing to false even when getTenantMemoryConfig failed (allowing debouncedSave to overwrite tenant memory config with hardcoded defaults), did not watch authStore.effectiveTenantId to cancel pending saves and reload on workspace switch, and leaked initTimer/saveTimer on unmount.",
+          "regression_test": "MemoryWorkspaceSettings blocks autosave when loadConfig fails, reloads on tenant switch, and clears timers on unmount",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        },
+        {
+          "id": "W6-SET-03",
+          "severity": "P1",
+          "file": "frontend/src/views/settings/ParserEngineSettings.vue:400, 646-732; frontend/src/views/settings/StorageBackendSettings.vue:328-378; frontend/src/views/settings/OllamaSettings.vue:179, 274-376",
+          "summary": "ParserEngineSettings tested the Vue Ref object (!connected, always false) instead of !connected.value in onCheck(), swallowed onSave() results without MessagePlugin toasts, and left its 3s checkMessage timer uncleaned; StorageBackendSettings lacked try/catch in load(), testRaw(), testSaved(), and makeDefault() causing unhandled promise rejections; OllamaSettings leaked its 1s getDownloadProgress setInterval across component unmount.",
+          "regression_test": "ParserEngineSettings checks connected.value, surfaces save toast errors, and clears checkMessage timer on unmount, StorageBackendSettings catches load, testRaw, testSaved, and makeDefault rejections without unhandled rejections, OllamaSettings clears download progress polling interval on unmount",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/settings/AssistantSettings.test.ts src/views/settings/BrowserSearchPreferences.test.ts src/views/settings/ChatHistorySettings.test.ts src/views/settings/DefaultSettings.test.ts src/views/settings/McpSettings.test.ts src/views/settings/RetrievalSettings.test.ts src/views/settings/RetrievalSettingsAutosave.test.ts src/views/settings/SkillSettings.filters.test.ts src/views/settings/SkillSettings.test.mjs src/views/settings/TenantInfo.test.ts src/views/settings/TenantMembers.test.ts src/views/settings/WebSearchSettings.test.ts src/views/settings/components/McpMetadataPanel.test.ts src/views/settings/components/McpServiceDialog.test.ts src/views/settings/components/McpToolsList.test.ts src/views/settings/defaultSettingsState.test.ts src/views/settings/envVarState.test.ts src/views/settings/modelUsageDetails.test.ts src/views/settings/settingsNavigation.test.ts src/views/settings/settingsSecurityAndLifecycle.test.ts) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/views/system",
+      "wave": "W6",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "frontend/src/views/system/CreateUserDialog.vue",
+        "frontend/src/views/system/DocumentProgress.test.ts",
+        "frontend/src/views/system/DocumentProgress.vue",
+        "frontend/src/views/system/ModelCatalog.vue",
+        "frontend/src/views/system/ModelCatalogFieldControl.vue",
+        "frontend/src/views/system/PlatformAPIKeys.vue",
+        "frontend/src/views/system/ResetPasswordDialog.test.mjs",
+        "frontend/src/views/system/ResetPasswordDialog.vue",
+        "frontend/src/views/system/RuntimeQueues.vue",
+        "frontend/src/views/system/SystemAuditLog.vue",
+        "frontend/src/views/system/SystemSettings.vue",
+        "frontend/src/views/system/UserManagement.vue",
+        "frontend/src/views/system/createUserDialogState.test.ts",
+        "frontend/src/views/system/createUserDialogState.ts",
+        "frontend/src/views/system/modelCatalogState.test.ts",
+        "frontend/src/views/system/modelCatalogState.ts",
+        "frontend/src/views/system/runtimeTaskPagination.test.ts",
+        "frontend/src/views/system/runtimeTaskPagination.ts",
+        "frontend/src/views/system/storageQuota.test.ts",
+        "frontend/src/views/system/storageQuota.ts",
+        "frontend/src/views/system/systemAdminDialog.less",
+        "frontend/src/views/system/systemSecurity.test.ts",
+        "frontend/src/views/system/systemSettingsEdit.test.ts",
+        "frontend/src/views/system/systemSettingsEdit.ts",
+        "frontend/src/views/system/userManagement.less"
+      ],
+      "invariants_checked": [
+        "ModelCatalog validates model.source URLs against http:/https: before rendering external anchor links, preventing DOM XSS from custom catalog overlays.",
+        "SystemSettings masks secret setting items (item.is_secret) in both input type (password) and placeholder attributes while preserving dirty-value comparison, high-risk SSRF/registration popconfirm guards, and storage quota bulk-apply confirmation.",
+        "UserManagement, CreateUserDialog, ResetPasswordDialog, AuditLogs, RuntimeTasks, and DocumentProgress enforce one-time password reveal safety, cursor pagination deduplication, and stale response generation guards."
+      ],
+      "findings": [
+        {
+          "id": "W6-SYS-01",
+          "severity": "P1",
+          "file": "frontend/src/views/system/ModelCatalog.vue:151-155, 505-515",
+          "summary": "ModelCatalog bound String(selected.model.source) directly to <a :href> without http:/https: scheme validation, allowing javascript:/data: URLs in admin-editable model catalog overlays to execute on click.",
+          "regression_test": "ModelCatalog only exposes http(s) model source URLs for external links",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        },
+        {
+          "id": "W6-SYS-02",
+          "severity": "P2",
+          "file": "frontend/src/views/system/SystemSettings.vue:171-173, 621-630",
+          "summary": "SystemSettings rendered string inputs as cleartext and echoed String(item.value) in DOM placeholder attributes even when item.is_secret was true.",
+          "regression_test": "SystemSettings masks secret placeholders and binds password input type when item.is_secret is true",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/system/DocumentProgress.test.ts src/views/system/ResetPasswordDialog.test.mjs src/views/system/createUserDialogState.test.ts src/views/system/modelCatalogState.test.ts src/views/system/runtimeTaskPagination.test.ts src/views/system/storageQuota.test.ts src/views/system/systemSecurity.test.ts src/views/system/systemSettingsEdit.test.ts) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "frontend/src/views/dev",
+      "wave": "W6",
+      "status": "verified_findings_fixed",
+      "tracked_files": [
+        "frontend/src/views/dev/MarkdownTestPage.test.ts",
+        "frontend/src/views/dev/MarkdownTestPage.vue"
+      ],
+      "invariants_checked": [
+        "Every v-html binding in MarkdownTestPage.vue (9/9 bindings) passes rendered HTML through sanitizeMarkdownHTML from @/utils/security before DOM insertion.",
+        "Streaming simulation interval (streamTimer) and custom Mermaid debounce timeout (customMermaidTimer) are cleared in onBeforeUnmount so unmounting during active streaming or typing cannot trigger post-unmount state mutations or DOM enhancements."
+      ],
+      "findings": [
+        {
+          "id": "W6-DEV-01",
+          "severity": "P2",
+          "file": "frontend/src/views/dev/MarkdownTestPage.vue:125, 464-485, 522-531",
+          "summary": "MarkdownTestPage.vue did not register an onBeforeUnmount hook to clear streamTimer (setInterval) or customMermaidTimer (setTimeout), leaving active timers mutating refs and invoking refreshMermaid after unmount.",
+          "regression_test": "MarkdownTestPage clears streamTimer and customMermaidTimer on unmount",
+          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/dev/MarkdownTestPage.test.ts) (exit 0)"
+      ]
+    }
+  ]
+}
