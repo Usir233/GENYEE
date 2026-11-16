@@ -540,15 +540,16 @@ func (c *minerUV1Client) doJSON(ctx context.Context, method, path string, in, ou
 		return fmt.Errorf("%s %s: %w", method, path, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 16<<20))
-	if err != nil {
-		return fmt.Errorf("read response: %w", err)
-	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return newMinerUV1APIError(resp.StatusCode, respBody)
+		errPreview, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrorPreviewBytes))
+		return newMinerUV1APIError(resp.StatusCode, errPreview)
 	}
 	if out == nil {
 		return nil
+	}
+	respBody, err := readCapped(resp.Body, maxJSONResponseBytes)
+	if err != nil {
+		return fmt.Errorf("read response: %w", err)
 	}
 	if err := json.Unmarshal(respBody, out); err != nil {
 		return fmt.Errorf("decode %s %s response: %w", method, path, err)

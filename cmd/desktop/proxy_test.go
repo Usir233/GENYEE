@@ -3,10 +3,12 @@
 package main
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -58,4 +60,33 @@ func TestDesktopAPIProxyKeepsHostForOtherRoutes(t *testing.T) {
 	require.NoError(t, resp.Body.Close())
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
 	require.Equal(t, "wails.localhost", got)
+}
+
+func TestNewDesktopHTTPServer_HasSlowlorisAndHeaderTimeouts(t *testing.T) {
+	srv := newDesktopHTTPServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	require.Greater(t, srv.ReadHeaderTimeout, int64(0))
+	require.Greater(t, srv.IdleTimeout, int64(0))
+	require.Greater(t, srv.MaxHeaderBytes, 0)
+}
+
+func TestApp_ConcurrentEndpointsAndStartupRaceFree(t *testing.T) {
+	app := NewApp()
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(2)
+		go func(idx int) {
+			defer wg.Done()
+			app.startup(context.Background())
+			app.setBackendEndpoints("http://127.0.0.1:18080", "http://192.168.1.2:18080/api/v1", idx%2 == 0)
+		}(i)
+		go func() {
+			defer wg.Done()
+			_ = app.GetAPIBaseURL()
+			_ = app.GetAPILanBaseURL()
+			_ = app.GetDesktopListenPublicActive()
+			_ = app.getContext()
+		}()
+	}
+	wg.Wait()
+	require.Equal(t, "http://127.0.0.1:18080/api/v1", app.GetAPIBaseURL())
 }

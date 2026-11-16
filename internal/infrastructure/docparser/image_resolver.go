@@ -3,8 +3,10 @@ package docparser
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -20,7 +22,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -203,8 +204,10 @@ func (r *ImageResolver) ResolveAndStore(
 	savedRefs := make(map[string]StoredImage)
 
 	matches := scanMarkdownImageTargets(markdown)
+	var rewrites []inlineRewrite
 
-	// Process in reverse order to preserve positions when replacing
+	// Process in reverse order (preserving legacy stored-image discovery order),
+	// then apply all non-overlapping substitutions in a single linear pass.
 	for i := len(matches) - 1; i >= 0; i-- {
 		match := matches[i]
 		rawTarget := markdown[match.TargetStart:match.TargetEnd]
@@ -226,11 +229,18 @@ func (r *ImageResolver) ResolveAndStore(
 		}
 		images = appendStoredImage(images, stored)
 
-		// Replace in markdown
 		absolutePathStart := match.TargetStart + pathStart
 		absolutePathEnd := match.TargetStart + pathEnd
-		markdown = markdown[:absolutePathStart] + stored.ServingURL + markdown[absolutePathEnd:]
+		rewrites = append(rewrites, inlineRewrite{
+			start: absolutePathStart,
+			end:   absolutePathEnd,
+			value: stored.ServingURL,
+		})
 	}
+	for l, rIdx := 0, len(rewrites)-1; l < rIdx; l, rIdx = l+1, rIdx-1 {
+		rewrites[l], rewrites[rIdx] = rewrites[rIdx], rewrites[l]
+	}
+	markdown = applyInlineRewrites(markdown, rewrites)
 
 	md5, imgRelativeHTML, _ := r.ResolveRelativeHTMLImages(ctx, markdown, fileSvc, tenantID, refMap, savedRefs)
 	markdown = md5
@@ -285,12 +295,15 @@ func (r *ImageResolver) saveReferencedImage(
 		return StoredImage{}, false
 	}
 
-	// Reuse a previously saved upload when the same source image (identified by
-	// ref.Filename) has already been persisted under a different markdown ref
-	// path (e.g. "images/foo.png" vs "./images/foo.png"). This avoids writing
-	// the same bytes to object storage multiple times.
+	// Reuse a previously saved upload when the exact same source image bytes
+	// (keyed by Filename + SHA-256 content digest) have already been persisted
+	// under a different markdown ref path (e.g. "images/foo.png" vs "./images/foo.png"),
+	// without colliding distinct images from different folders sharing a basename.
+	var filenameCacheKey string
 	if ref.Filename != "" {
-		if cached, ok := savedRefs["__filename__:"+ref.Filename]; ok {
+		sum := sha256.Sum256(ref.ImageData)
+		filenameCacheKey = "__filename__:" + ref.Filename + ":" + hex.EncodeToString(sum[:])
+		if cached, ok := savedRefs[filenameCacheKey]; ok {
 			stored := StoredImage{
 				OriginalRef: refPath,
 				ServingURL:  cached.ServingURL,
@@ -301,9 +314,18 @@ func (r *ImageResolver) saveReferencedImage(
 		}
 	}
 
-	ext := extFromMime(ref.MimeType)
+	effectiveMime := strings.TrimSpace(ref.MimeType)
+	if !strings.HasPrefix(strings.ToLower(effectiveMime), "image/") {
+		if sniffed := sniffInlineImageMime(ref.ImageData); sniffed != "" {
+			effectiveMime = sniffed
+		} else {
+			effectiveMime = "image/png"
+		}
+	}
+
+	ext := extFromMime(effectiveMime)
 	if ext == "" {
-		ext = filepath.Ext(ref.Filename)
+		ext = safeImageExtFromFilename(ref.Filename)
 	}
 	if ext == "" {
 		ext = ".png"
@@ -319,14 +341,26 @@ func (r *ImageResolver) saveReferencedImage(
 	stored := StoredImage{
 		OriginalRef: refPath,
 		ServingURL:  servingURL,
-		MimeType:    ref.MimeType,
+		MimeType:    effectiveMime,
 		NewlyStored: created,
 	}
 	savedRefs[refPath] = stored
-	if ref.Filename != "" {
-		savedRefs["__filename__:"+ref.Filename] = stored
+	if filenameCacheKey != "" {
+		savedRefs[filenameCacheKey] = stored
 	}
 	return stored, true
+}
+
+func safeImageExtFromFilename(rawName string) string {
+	normalized := strings.ReplaceAll(strings.TrimSpace(rawName), "\\", "/")
+	ext := strings.ToLower(path.Ext(path.Base(normalized)))
+	switch ext {
+	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg",
+		".tif", ".tiff", ".emf", ".wmf", ".x-emf", ".x-wmf", ".ico", ".avif", ".heic", ".heif":
+		return ext
+	default:
+		return ""
+	}
 }
 
 func extFromMime(mime string) string {
@@ -439,16 +473,25 @@ func sniffImageMime(data []byte) string {
 	return ""
 }
 
+func hasForbiddenXMLDirective(dir xml.Directive) bool {
+	upper := strings.ToUpper(string(dir))
+	return strings.Contains(upper, "DOCTYPE") || strings.Contains(upper, "ENTITY")
+}
+
 func sniffInlineImageMime(data []byte) string {
 	if mimeType := sniffImageMime(data); mimeType != "" {
 		return mimeType
 	}
-	// Read through declarations and comments without imposing a prefix length.
+	// Read through declarations and comments without imposing a prefix length,
+	// rejecting DTD/ENTITY directives before accepting SVG content.
 	decoder := xml.NewDecoder(bytes.NewReader(data))
 	for {
 		token, err := decoder.Token()
 		if err != nil {
 			break
+		}
+		if dir, ok := token.(xml.Directive); ok && hasForbiddenXMLDirective(dir) {
+			return ""
 		}
 		if text, ok := token.(xml.CharData); ok && len(bytes.TrimSpace(text)) != 0 {
 			break
@@ -644,6 +687,7 @@ func (r *ImageResolver) ResolveRelativeHTMLImages(
 		return markdown, nil, nil
 	}
 
+	var rewrites []inlineRewrite
 	for i := len(matches) - 1; i >= 0; i-- {
 		m := matches[i]
 		src := strings.TrimSpace(markdown[m[4]:m[5]])
@@ -657,8 +701,12 @@ func (r *ImageResolver) ResolveRelativeHTMLImages(
 			continue
 		}
 		images = appendStoredImage(images, stored)
-		markdown = markdown[:m[4]] + stored.ServingURL + markdown[m[5]:]
+		rewrites = append(rewrites, inlineRewrite{start: m[4], end: m[5], value: stored.ServingURL})
 	}
+	for l, rIdx := 0, len(rewrites)-1; l < rIdx; l, rIdx = l+1, rIdx-1 {
+		rewrites[l], rewrites[rIdx] = rewrites[rIdx], rewrites[l]
+	}
+	markdown = applyInlineRewrites(markdown, rewrites)
 
 	return markdown, images, nil
 }
@@ -912,6 +960,10 @@ func validateInlineImageData(data []byte) (complete, supported bool) {
 			return false, false
 		}
 		switch token := token.(type) {
+		case xml.Directive:
+			if hasForbiddenXMLDirective(token) {
+				return false, false
+			}
 		case xml.StartElement:
 			if depth == 0 {
 				roots++
@@ -2016,11 +2068,49 @@ func downloadImage(ctx context.Context, client *http.Client, remoteURL string) (
 
 	// If MIME was octet-stream, sniff the real type from body.
 	if mimeType == "application/octet-stream" {
-		detected := http.DetectContentType(body)
-		if strings.HasPrefix(detected, "image/") {
-			mimeType = detected
+		if sniffed := sniffInlineImageMime(body); sniffed != "" {
+			mimeType = sniffed
 		} else {
-			return nil, "", fmt.Errorf("downloaded data is not an image (sniffed: %s)", detected)
+			detected := http.DetectContentType(body)
+			if strings.HasPrefix(detected, "image/") {
+				mimeType = detected
+			} else {
+				return nil, "", fmt.Errorf("downloaded data is not an image (sniffed: %s)", detected)
+			}
+		}
+	}
+
+	// Verify body magic/XML structure and pixel budgets regardless of server Content-Type
+	// so spoofed HTML/SVG/XSS payloads and decompression pixel bombs are rejected.
+	sniffedMagic := sniffInlineImageMime(body)
+	switch mimeType {
+	case "image/svg+xml":
+		if _, supported := validateInlineImageData(body); !supported {
+			return nil, "", errors.New("downloaded SVG failed XML/DTD validation")
+		}
+	case "image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp":
+		if sniffedMagic != mimeType {
+			return nil, "", fmt.Errorf("downloaded body magic (%s) does not match declared Content-Type %s", sniffedMagic, mimeType)
+		}
+		cfg, _, cfgErr := image.DecodeConfig(bytes.NewReader(body))
+		if cfgErr != nil || cfg.Width <= 0 || cfg.Height <= 0 {
+			return nil, "", errors.New("downloaded raster image has invalid header")
+		}
+		if uint64(cfg.Width) > maxInlineImagePixels/uint64(cfg.Height) {
+			return nil, "", fmt.Errorf("downloaded %s image %dx%d exceeds pixel budget", mimeType, cfg.Width, cfg.Height)
+		}
+		if mimeType == "image/gif" {
+			if valid, withinBudget := gifDecodeBudget(body); !valid || !withinBudget {
+				return nil, "", errors.New("downloaded GIF exceeds frame pixel budget")
+			}
+		}
+	default:
+		trimmed := bytes.TrimSpace(body)
+		if len(trimmed) > 0 && trimmed[0] == '<' {
+			if _, supported := validateInlineImageData(body); !supported {
+				return nil, "", fmt.Errorf("downloaded XML/HTML payload rejected for Content-Type %s", mimeType)
+			}
+			mimeType = "image/svg+xml"
 		}
 	}
 

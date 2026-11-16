@@ -108,6 +108,13 @@ class E2ETestRunner:
         if error:
             print(f"       Error: {error}")
 
+    @staticmethod
+    def _safe_screenshot(page: Page, screenshot_path: str) -> None:
+        try:
+            page.screenshot(path=screenshot_path, full_page=True)
+        except Exception as screenshot_err:  # noqa: BLE001
+            print(f"       [warn] failure screenshot skipped: {screenshot_err}")
+
     def run_stage_1_login_page(self, page: Page) -> bool:
         """Stage 1: Login page navigation, title and logo assertion (GENYEE)"""
         stage_name = "Login Page Navigation & Brand Assertion"
@@ -169,7 +176,7 @@ class E2ETestRunner:
             )
             return True
         except Exception as e:  # noqa: BLE001
-            page.screenshot(path=screenshot_path, full_page=True)
+            self._safe_screenshot(page, screenshot_path)
             self.record_stage(
                 1,
                 stage_name,
@@ -253,7 +260,7 @@ class E2ETestRunner:
             )
             return True
         except Exception as e:  # noqa: BLE001
-            page.screenshot(path=screenshot_path, full_page=True)
+            self._safe_screenshot(page, screenshot_path)
             self.record_stage(
                 2,
                 stage_name,
@@ -351,7 +358,7 @@ class E2ETestRunner:
             )
             return True
         except Exception as e:  # noqa: BLE001
-            page.screenshot(path=screenshot_path, full_page=True)
+            self._safe_screenshot(page, screenshot_path)
             self.record_stage(
                 3,
                 stage_name,
@@ -440,7 +447,7 @@ class E2ETestRunner:
             )
             return True
         except Exception as e:  # noqa: BLE001
-            page.screenshot(path=screenshot_path, full_page=True)
+            self._safe_screenshot(page, screenshot_path)
             self.record_stage(
                 4,
                 stage_name,
@@ -551,7 +558,7 @@ class E2ETestRunner:
             )
             return True
         except Exception as e:  # noqa: BLE001
-            page.screenshot(path=screenshot_path, full_page=True)
+            self._safe_screenshot(page, screenshot_path)
             self.record_stage(
                 5,
                 stage_name,
@@ -574,7 +581,10 @@ class E2ETestRunner:
         try:
             dismiss_guides_if_present(page)
 
-            kb_url = f"{self.base_url}/platform/knowledge-bases/6459d8b2-9059-49f9-83a9-ea5d65ec8bca"
+            target_kb_id = os.environ.get(
+                "TEST_KB_ID", "6459d8b2-9059-49f9-83a9-ea5d65ec8bca"
+            )
+            kb_url = f"{self.base_url}/platform/knowledge-bases/{target_kb_id}"
             print(f"Navigating to {kb_url}...")
             page.goto(kb_url, wait_until="networkidle", timeout=15000)
             dismiss_guides_if_present(page)
@@ -647,7 +657,7 @@ class E2ETestRunner:
             )
             return True
         except Exception as e:  # noqa: BLE001
-            page.screenshot(path=screenshot_path, full_page=True)
+            self._safe_screenshot(page, screenshot_path)
             self.record_stage(
                 6,
                 stage_name,
@@ -663,7 +673,7 @@ class E2ETestRunner:
         """Write out test-reports/e2e_summary.json and test-reports/e2e_report.md"""
         end_time = datetime.now(UTC)
         total_duration = (end_time - self.start_time).total_seconds()
-        all_passed = all(r["passed"] for r in self.results)
+        all_passed = bool(self.results) and all(r["passed"] for r in self.results)
         passed_count = sum(1 for r in self.results if r["passed"])
         failed_count = sum(1 for r in self.results if not r["passed"])
 
@@ -823,10 +833,12 @@ class E2ETestRunner:
                     success = False
 
             finally:
-                context.close()
-                browser.close()
+                try:
+                    context.close()
+                finally:
+                    browser.close()
+                    self.generate_reports()
 
-        self.generate_reports()
         print("=" * 60)
         if success:
             print(

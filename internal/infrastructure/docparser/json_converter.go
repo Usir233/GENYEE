@@ -2,6 +2,7 @@ package docparser
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,16 +13,21 @@ import (
 
 // defaultJSONChunkSize is the target chunk size in bytes for JSON semantic
 // splitting. Approximates 512 tokens (1 token ≈ 3-4 bytes for mixed content).
-const defaultJSONChunkSize = 1536
+const (
+	defaultJSONChunkSize = 1536
+	maxJSONSplitDepth    = 32
+	maxJSONMarkdownBytes = maxZipEntryBytes
+)
 
 // minJSONChunkSize is the minimum chunk size. A new chunk is only started
 // when the current chunk has reached at least this size.
 var minJSONChunkSize = defaultJSONChunkSize - 200
 
-// Errors returned by ValidateJSONContent.
+// Errors returned by ValidateJSONContent and jsonToMarkdownContext.
 var (
-	ErrEmptyJSONContent   = errors.New("empty JSON content")
-	ErrInvalidJSONContent = errors.New("invalid JSON content")
+	ErrEmptyJSONContent     = errors.New("empty JSON content")
+	ErrInvalidJSONContent   = errors.New("invalid JSON content")
+	ErrJSONMarkdownTooLarge = errors.New("json markdown expansion exceeds limit")
 )
 
 // ValidateJSONContent reports whether data is well-formed JSON after stripping
@@ -48,6 +54,13 @@ func ValidateJSONContent(data []byte) error {
 //   - The output is a series of fenced ```json code blocks separated by \n\n,
 //     which the downstream text chunker can split at block boundaries.
 func jsonToMarkdown(data []byte) (string, error) {
+	return jsonToMarkdownContext(context.Background(), data, maxJSONMarkdownBytes)
+}
+
+func jsonToMarkdownContext(ctx context.Context, data []byte, limit int) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if err := ValidateJSONContent(data); err != nil {
 		return "", err
 	}
@@ -63,6 +76,9 @@ func jsonToMarkdown(data []byte) (string, error) {
 	if err := decoder.Decode(&parsed); err != nil {
 		return "", fmt.Errorf("failed to parse JSON: %w", err)
 	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 
 	// Normalize: convert top-level arrays to index-keyed dicts
 	normalized := listToDictPreprocess(parsed)
@@ -70,24 +86,46 @@ func jsonToMarkdown(data []byte) (string, error) {
 	// If the whole thing fits in one chunk, just format it
 	wholeSize := jsonSize(normalized)
 	if wholeSize <= defaultJSONChunkSize {
-		formatted := formatValue(normalized)
-		return wrapCodeBlock(formatted), nil
+		formatted := wrapCodeBlock(formatValue(normalized))
+		if limit > 0 && len(formatted) > limit {
+			return "", ErrJSONMarkdownTooLarge
+		}
+		return formatted, nil
 	}
 
 	// Recursive split
-	chunks := recursiveJSONSplit(normalized, nil, nil)
+	chunks, err := recursiveJSONSplitCtx(ctx, normalized, nil, nil)
+	if err != nil {
+		return "", err
+	}
 
-	// Convert each chunk dict to a fenced code block
+	// Convert each chunk dict to a fenced code block while enforcing the output cap.
 	blocks := make([]string, 0, len(chunks))
+	totalBytes := 0
 	for _, chunk := range chunks {
+		if err := ctx.Err(); err != nil {
+			return "", err
+		}
 		if len(chunk) == 0 {
 			continue
 		}
-		blocks = append(blocks, wrapCodeBlock(formatValue(chunk)))
+		block := wrapCodeBlock(formatValue(chunk))
+		if len(blocks) > 0 {
+			totalBytes += 2
+		}
+		totalBytes += len(block)
+		if limit > 0 && totalBytes > limit {
+			return "", ErrJSONMarkdownTooLarge
+		}
+		blocks = append(blocks, block)
 	}
 
 	if len(blocks) == 0 {
-		return wrapCodeBlock(formatValue(normalized)), nil
+		out := wrapCodeBlock(formatValue(normalized))
+		if limit > 0 && len(out) > limit {
+			return "", ErrJSONMarkdownTooLarge
+		}
+		return out, nil
 	}
 	return strings.Join(blocks, "\n\n"), nil
 }
@@ -106,54 +144,97 @@ func recursiveJSONSplit(
 	currentPath []string,
 	chunks []map[string]interface{},
 ) []map[string]interface{} {
+	out, _ := recursiveJSONSplitCtx(context.Background(), data, currentPath, chunks)
+	return out
+}
+
+func jsonPathOverhead(path []string) int {
+	if len(path) == 0 {
+		return 0
+	}
+	probe := map[string]interface{}{}
+	setNestedDict(probe, path, "")
+	if sz := jsonSize(probe); sz > 2 {
+		return sz - 2
+	}
+	return 0
+}
+
+func recursiveJSONSplitCtx(
+	ctx context.Context,
+	data interface{},
+	currentPath []string,
+	chunks []map[string]interface{},
+) ([]map[string]interface{}, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if chunks == nil {
 		chunks = []map[string]interface{}{{}}
 	}
 
 	dict, ok := data.(map[string]interface{})
-	if !ok {
-		// Scalar or already-processed value: place it at the current path
+	if !ok || len(currentPath) >= maxJSONSplitDepth {
+		// Scalar, already-processed value, or deep wrapper limit reached:
+		// keep subtree intact rather than repeating deep ancestor chains per leaf.
 		if len(currentPath) > 0 && len(chunks) > 0 {
 			setNestedDict(chunks[len(chunks)-1], currentPath, data)
 		}
-		return chunks
+		return chunks, nil
 	}
 
 	// Sort keys for deterministic output
 	keys := sortedKeys(dict)
+	pathOverhead := jsonPathOverhead(currentPath)
 
 	for _, key := range keys {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		value := dict[key]
 		newPath := append(append([]string{}, currentPath...), key)
 
-		// Measure sizes
-		chunkSize := jsonSize(chunks[len(chunks)-1])
+		// Measure payload size net of ancestor path wrappers so deep wrapper keys
+		// never force 1 scalar item per chunk.
+		rawChunkSize := jsonSize(chunks[len(chunks)-1])
+		chunkPayload := rawChunkSize
+		if rawChunkSize > 2 && pathOverhead > 0 {
+			if rawChunkSize > pathOverhead {
+				chunkPayload = rawChunkSize - pathOverhead
+			} else {
+				chunkPayload = 0
+			}
+		}
 		itemSize := jsonSize(map[string]interface{}{key: value})
-		remaining := defaultJSONChunkSize - chunkSize
+		remaining := defaultJSONChunkSize - chunkPayload
 
 		if itemSize <= remaining {
 			// Item fits in the current chunk — add it preserving the path
 			setNestedDict(chunks[len(chunks)-1], newPath, value)
 		} else {
 			// Item doesn't fit
-			if chunkSize >= minJSONChunkSize {
+			if chunkPayload >= minJSONChunkSize {
 				// Current chunk is big enough, start a new one
 				chunks = append(chunks, map[string]interface{}{})
 			}
 
 			// Check if the value itself is a dict/list that can be recursed into
 			normalized := listToDictPreprocess(value)
-			if subDict, isDict := normalized.(map[string]interface{}); isDict && canSplitDict(subDict) {
+			if subDict, isDict := normalized.(map[string]interface{}); isDict && len(newPath) < maxJSONSplitDepth && canSplitDict(subDict) {
 				// Recurse into the sub-object
-				chunks = recursiveJSONSplit(subDict, newPath, chunks)
+				var err error
+				chunks, err = recursiveJSONSplitCtx(ctx, subDict, newPath, chunks)
+				if err != nil {
+					return nil, err
+				}
 			} else {
-				// Cannot split further (scalar or single-key dict) — place as-is
+				// Cannot split further (scalar, single-key dict, or max depth) — place as-is
 				setNestedDict(chunks[len(chunks)-1], newPath, value)
 			}
 		}
 	}
 
-	return chunks
+	return chunks, nil
 }
 
 // setNestedDict sets a value in a nested dict structure, creating

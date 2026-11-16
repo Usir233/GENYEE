@@ -17,19 +17,80 @@ from __future__ import annotations
 
 import ast
 import asyncio
+import contextlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import re
 import struct
 import sys
+import tempfile
+import unittest
 import zipfile
 from unittest import mock
 
 from lxml import etree
 import openpyxl
 from PIL import Image
-import pytest
+
+try:
+    import pytest  # type: ignore[import-not-found]
+except ImportError:
+    pytest = None  # type: ignore[assignment]
+
+
+class _FallbackRaisesContext:
+    def __init__(self, expected_exc, match: str | None = None):
+        self.expected_exc = expected_exc
+        self.match = match
+        self.value = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, _tb):
+        if exc_type is None:
+            raise AssertionError(f"DID NOT RAISE {self.expected_exc}")
+        if not issubclass(exc_type, self.expected_exc):
+            return False
+        self.value = exc_val
+        if self.match and not re.search(self.match, str(exc_val)):
+            raise AssertionError(
+                f"Regex pattern {self.match!r} does not match {str(exc_val)!r}"
+            )
+        return True
+
+
+class _FallbackMark:
+    @staticmethod
+    def parametrize(argnames: str, argvalues):
+        def _decorator(fn):
+            fn._parametrize_spec = (argnames, list(argvalues))
+            return fn
+
+        return _decorator
+
+
+class _FallbackPytest:
+    mark = _FallbackMark()
+
+    @staticmethod
+    def raises(expected_exc, match: str | None = None):
+        return _FallbackRaisesContext(expected_exc, match=match)
+
+    @staticmethod
+    def fail(msg: str = "test failed"):
+        raise AssertionError(msg)
+
+    @staticmethod
+    def skip(reason: str = "skipped"):
+        raise unittest.SkipTest(reason)
+
+
+if pytest is None:
+    pytest = _FallbackPytest()  # type: ignore[assignment]
 
 from docreader.auth import AuthConfigError, AuthInterceptor
 from docreader.config import dump_config, load_config, mask_proxy_url
@@ -746,6 +807,105 @@ def test_rerank_server_demo_static_security_invariants():
     assert "RERANK_MODEL_PATH" in source
     assert "RERANK_API_KEY" in source
     assert "compare_digest" in source
-    assert "use_safetensors=True" in source
+    assert " use_safetensors=True" in source or "use_safetensors=True" in source
     assert '"127.0.0.1"' in source
     assert "MAX_RERANK_DOCUMENTS" in source
+
+
+@contextlib.contextmanager
+def _temp_monkeypatch():
+    env_snapshot = os.environ.copy()
+    stack = contextlib.ExitStack()
+
+    class _PatchHelper:
+        def setenv(self, key: str, value: str) -> None:
+            os.environ[key] = str(value)
+
+        def delenv(self, key: str, raising: bool = True) -> None:
+            if key in os.environ:
+                del os.environ[key]
+            elif raising:
+                raise KeyError(key)
+
+        def setattr(self, target, name=mock.DEFAULT, value=mock.DEFAULT) -> None:
+            if value is mock.DEFAULT:
+                stack.enter_context(mock.patch(target, new=name))
+            else:
+                stack.enter_context(mock.patch.object(target, name, new=value))
+
+    try:
+        yield _PatchHelper()
+    finally:
+        stack.close()
+        os.environ.clear()
+        os.environ.update(env_snapshot)
+
+
+class _SecurityAuditUnittestCases(unittest.TestCase):
+    """Bridge standalone security regression functions into unittest discovery."""
+
+    def test_docreader_auth_interceptor_fails_closed_by_default(self):
+        with _temp_monkeypatch() as mp:
+            test_docreader_auth_interceptor_fails_closed_by_default(mp)
+
+    def test_odl_hybrid_server_auth_size_limit_and_disabled_profile_endpoint(self):
+        with _temp_monkeypatch() as mp:
+            test_odl_hybrid_server_auth_size_limit_and_disabled_profile_endpoint(mp)
+
+    def test_soffice_blocking_proxy_and_minimal_env_strip_secrets(self):
+        with tempfile.TemporaryDirectory() as td:
+            test_soffice_blocking_proxy_and_minimal_env_strip_secrets(Path(td))
+
+    def test_proxy_url_credentials_masked_in_config_dump(self):
+        with _temp_monkeypatch() as mp:
+            test_proxy_url_credentials_masked_in_config_dump(mp)
+
+    def test_odl_hybrid_url_request_override_blocked_and_java_heap_bounded(self):
+        test_odl_hybrid_url_request_override_blocked_and_java_heap_bounded()
+
+    def test_odl_run_convert_local_auth_forwarder_end_to_end(self):
+        with _temp_monkeypatch() as mp, tempfile.TemporaryDirectory() as td:
+            test_odl_run_convert_local_auth_forwarder_end_to_end(mp, Path(td))
+
+    def test_safe_read_zip_member_aborts_on_spoofed_file_size_and_entry_cap(self):
+        test_safe_read_zip_member_aborts_on_spoofed_file_size_and_entry_cap()
+
+    def test_xlsx_media_extractor_propagates_archive_limit_on_spoofed_member(self):
+        test_xlsx_media_extractor_propagates_archive_limit_on_spoofed_member()
+
+    def test_xlsx_merge_clips_unpopulated_tail_and_enforces_cell_budget(self):
+        test_xlsx_merge_clips_unpopulated_tail_and_enforces_cell_budget()
+
+    def test_docx_merge_clamps_huge_grid_span(self):
+        with _temp_monkeypatch() as mp:
+            test_docx_merge_clamps_huge_grid_span(mp)
+
+    def test_ssrf_blocks_fqdn_trailing_dot_and_empty_labels_before_dns(self):
+        for bad_url in (
+            "http://localhost./admin",
+            "http://metadata.google.internal./computeMetadata/v1/",
+            "http://service.default.svc.cluster.local./api",
+            "http://127.0.0.1./",
+            "http://example..com/",
+            "http://.example.com/",
+            "http://./",
+        ):
+            with self.subTest(url=bad_url), _temp_monkeypatch() as mp:
+                test_ssrf_blocks_fqdn_trailing_dot_and_empty_labels_before_dns(mp, bad_url)
+
+    def test_normalize_hostname_strips_single_trailing_root_dot(self):
+        test_normalize_hostname_strips_single_trailing_root_dot()
+
+    def test_pptx_media_disallows_vector_delegates_and_caps_pillow_pixels(self):
+        test_pptx_media_disallows_vector_delegates_and_caps_pillow_pixels()
+
+    def test_xmind_and_parse_local_enforce_defusedxml_and_safe_image_paths(self):
+        with tempfile.TemporaryDirectory() as td:
+            test_xmind_and_parse_local_enforce_defusedxml_and_safe_image_paths(Path(td))
+
+    def test_rerank_server_demo_static_security_invariants(self):
+        test_rerank_server_demo_static_security_invariants()
+
+
+def load_tests(loader: unittest.TestLoader, _tests, _pattern):
+    return loader.loadTestsFromTestCase(_SecurityAuditUnittestCases)

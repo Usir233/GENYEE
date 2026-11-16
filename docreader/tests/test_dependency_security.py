@@ -4,6 +4,8 @@ import gzip
 import io
 import pickle
 from pathlib import Path
+import tempfile
+import unittest
 
 from pdfminer.high_level import extract_text
 
@@ -56,14 +58,23 @@ def _pdf_with_cmap(cmap_path):
     return bytes(data)
 
 
-def test_pdf_cmap_cannot_deserialize_an_external_pickle(tmp_path):
-    marker = tmp_path / "unpickled.txt"
-    cmap = tmp_path / "external-cmap"
-    with gzip.open(str(cmap) + ".pickle.gz", "wb") as file:
-        pickle.dump({"CODE2CID": _PickleMarker(marker)}, file)
+class TestDependencySecurity(unittest.TestCase):
+    """Ensure security regression checks execute under both pytest and unittest."""
 
-    pdf = _pdf_with_cmap(cmap)
-    # Run the actual dependency and the application's selectable PDF engine.
-    extract_text(io.BytesIO(pdf))
-    StdMarkitdownParser(file_name="external-cmap.pdf", file_type="pdf").parse(pdf)
-    assert not marker.exists(), "PDF input executed an external CMap pickle"
+    def test_pdf_cmap_cannot_deserialize_an_external_pickle(self):
+        with tempfile.TemporaryDirectory() as raw_tmp:
+            tmp_path = Path(raw_tmp)
+            marker = tmp_path / "unpickled.txt"
+            cmap = tmp_path / "external-cmap"
+            with gzip.open(str(cmap) + ".pickle.gz", "wb") as file:
+                pickle.dump({"CODE2CID": _PickleMarker(marker)}, file)
+
+            pdf = _pdf_with_cmap(cmap)
+            # Run the actual dependency and the application's selectable PDF engine.
+            extract_text(io.BytesIO(pdf))
+            StdMarkitdownParser(file_name="external-cmap.pdf", file_type="pdf").parse(pdf)
+            self.assertFalse(marker.exists(), "PDF input executed an external CMap pickle")
+
+
+if __name__ == "__main__":
+    unittest.main()

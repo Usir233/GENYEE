@@ -191,9 +191,13 @@ func (p *GRPCDocumentReader) GetVersionInfo(ctx context.Context) (string, string
 
 func (p *GRPCDocumentReader) Close() error {
 	p.mu.Lock()
-	defer p.mu.Unlock()
-	if p.conn != nil {
-		return p.conn.Close()
+	conn := p.conn
+	p.conn = nil
+	p.client = nil
+	p.addr = ""
+	p.mu.Unlock()
+	if conn != nil {
+		return conn.Close()
 	}
 	return nil
 }
@@ -258,6 +262,8 @@ func (p *GRPCDocumentReader) readStream(
 
 	result := &types.ReadResult{}
 	gotMeta := false
+	maxImages := minerUMaxImageBytes()
+	var totalImageBytes int64
 	for {
 		frame, recvErr := stream.Recv()
 		if recvErr == io.EOF {
@@ -281,12 +287,19 @@ func (p *GRPCDocumentReader) readStream(
 		}
 
 		if img := frame.GetImage(); img != nil {
+			imgData := img.GetImageData()
+			if int64(len(imgData)) > maxZipEntryBytes || totalImageBytes+int64(len(imgData)) > maxImages {
+				return nil, status.Errorf(codes.ResourceExhausted,
+					"docreader streamed images reached %d bytes and exceed configured limit %d bytes (%s)",
+					totalImageBytes+int64(len(imgData)), maxImages, mineruMaxImageBytesEnv)
+			}
+			totalImageBytes += int64(len(imgData))
 			result.ImageRefs = append(result.ImageRefs, types.ImageRef{
 				Filename:    img.GetFilename(),
 				OriginalRef: img.GetOriginalRef(),
 				MimeType:    img.GetMimeType(),
 				StorageKey:  img.GetStorageKey(),
-				ImageData:   img.GetImageData(),
+				ImageData:   imgData,
 			})
 		}
 	}
@@ -315,14 +328,23 @@ func (p *GRPCDocumentReader) readUnary(
 		SourceBlocks:    sourceBlocksFromProto(resp.GetSourceBlocks()),
 	}
 	if refs := resp.GetImageRefs(); len(refs) > 0 {
+		maxImages := minerUMaxImageBytes()
+		var totalImageBytes int64
 		result.ImageRefs = make([]types.ImageRef, 0, len(refs))
 		for _, img := range refs {
+			imgData := img.GetImageData()
+			if int64(len(imgData)) > maxZipEntryBytes || totalImageBytes+int64(len(imgData)) > maxImages {
+				return nil, status.Errorf(codes.ResourceExhausted,
+					"docreader images reached %d bytes and exceed configured limit %d bytes (%s)",
+					totalImageBytes+int64(len(imgData)), maxImages, mineruMaxImageBytesEnv)
+			}
+			totalImageBytes += int64(len(imgData))
 			result.ImageRefs = append(result.ImageRefs, types.ImageRef{
 				Filename:    img.GetFilename(),
 				OriginalRef: img.GetOriginalRef(),
 				MimeType:    img.GetMimeType(),
 				StorageKey:  img.GetStorageKey(),
-				ImageData:   img.GetImageData(),
+				ImageData:   imgData,
 			})
 		}
 	}

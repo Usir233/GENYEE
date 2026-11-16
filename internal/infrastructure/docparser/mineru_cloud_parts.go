@@ -19,15 +19,16 @@ type pdfPart struct {
 	first, last int
 }
 
-// splitCloudPDF bounds both page count and upload size, without rasterizing PDFs.
-func splitCloudPDF(ctx context.Context, content []byte) ([]pdfPart, error) {
-	dir, err := os.MkdirTemp("", "mineru-pdf-")
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = os.RemoveAll(dir) }()
+type pdfPartFile struct {
+	path        string
+	first, last int
+}
+
+const maxCloudPDFUploadPartBytes = 10 * 1024 * 1024
+
+func splitCloudPDFToDir(ctx context.Context, dir string, content []byte) ([]pdfPartFile, error) {
 	input := filepath.Join(dir, "input.pdf")
-	if err = os.WriteFile(input, content, 0o600); err != nil {
+	if err := os.WriteFile(input, content, 0o600); err != nil {
 		return nil, err
 	}
 	out, err := exec.CommandContext(ctx, "qpdf", "--show-npages", input).Output()
@@ -40,12 +41,17 @@ func splitCloudPDF(ctx context.Context, content []byte) ([]pdfPart, error) {
 	if err != nil || pages < 1 {
 		return nil, fmt.Errorf("invalid PDF page count %q", out)
 	}
-	if pages <= 100 && len(content) <= 10*1024*1024 {
-		return []pdfPart{{content, 1, pages}}, nil
+	if pages <= 100 && len(content) <= maxCloudPDFUploadPartBytes {
+		return []pdfPartFile{{path: input, first: 1, last: pages}}, nil
 	}
-	var parts []pdfPart
+
+	var parts []pdfPartFile
+	var totalBytes int64
 	var extract func(int, int) error
 	extract = func(first, last int) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		path := filepath.Join(dir, fmt.Sprintf("%d-%d.pdf", first, last))
 		output, e := exec.CommandContext(ctx, "qpdf", "--deterministic-id", input, "--pages", ".",
 			fmt.Sprintf("%d-%d", first, last), "--", path).CombinedOutput()
@@ -55,19 +61,27 @@ func splitCloudPDF(ctx context.Context, content []byte) ([]pdfPart, error) {
 				return fmt.Errorf("split PDF pages %d-%d: %s: %w", first, last, output, e)
 			}
 		}
-		b, e := os.ReadFile(path)
+		st, e := os.Stat(path)
 		if e != nil {
 			return e
 		}
-		_ = os.Remove(path)
-		if len(b) > 10*1024*1024 && first < last {
+		if st.Size() > maxCloudPDFUploadPartBytes {
+			_ = os.Remove(path)
+			if first == last {
+				return fmt.Errorf("PDF page %d alone is %d bytes and exceeds 10 MiB cloud part limit", first, st.Size())
+			}
 			mid := (first + last) / 2
 			if e = extract(first, mid); e != nil {
 				return e
 			}
 			return extract(mid+1, last)
 		}
-		parts = append(parts, pdfPart{b, first, last})
+		if totalBytes+st.Size() > maxResultPackageBytes {
+			_ = os.Remove(path)
+			return fmt.Errorf("%w: split PDF parts exceed %d bytes", errResultPackageTooLarge, maxResultPackageBytes)
+		}
+		totalBytes += st.Size()
+		parts = append(parts, pdfPartFile{path: path, first: first, last: last})
 		return nil
 	}
 	for first := 1; first <= pages; first += 100 {
@@ -78,6 +92,29 @@ func splitCloudPDF(ctx context.Context, content []byte) ([]pdfPart, error) {
 		if err = extract(first, last); err != nil {
 			return nil, err
 		}
+	}
+	return parts, nil
+}
+
+// splitCloudPDF bounds both page count and upload size, without rasterizing PDFs.
+func splitCloudPDF(ctx context.Context, content []byte) ([]pdfPart, error) {
+	dir, err := os.MkdirTemp("", "mineru-pdf-")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	partFiles, err := splitCloudPDFToDir(ctx, dir, content)
+	if err != nil {
+		return nil, err
+	}
+	parts := make([]pdfPart, 0, len(partFiles))
+	for _, pf := range partFiles {
+		b, err := os.ReadFile(pf.path)
+		if err != nil {
+			return nil, err
+		}
+		parts = append(parts, pdfPart{content: b, first: pf.first, last: pf.last})
 	}
 	return parts, nil
 }
@@ -96,7 +133,7 @@ func (c *MinerUCloudReader) readCloudPart(ctx context.Context, req *types.ReadRe
 	}
 	return &types.ReadResult{
 		MarkdownContent: md, ImageRefs: refs,
-		SourceBlocks: minerUSourceBlocks(md, contentList, req.FileType),
+		SourceBlocks: minerUSourceBlocks(md, contentList, fileTypeOf(req)),
 	}, nil
 }
 
@@ -110,7 +147,13 @@ func (c *MinerUCloudReader) readSplitPDF(ctx context.Context, req *types.ReadReq
 		}
 		return result, readErr
 	}
-	parts, err := splitCloudPDF(ctx, req.FileContent)
+	dir, err := os.MkdirTemp("", "mineru-pdf-")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+
+	parts, err := splitCloudPDFToDir(ctx, dir, req.FileContent)
 	if err != nil {
 		return nil, err
 	}
@@ -119,12 +162,22 @@ func (c *MinerUCloudReader) readSplitPDF(ctx context.Context, req *types.ReadReq
 		"pages": strconv.Itoa(parts[len(parts)-1].last), "ocr_parts": strconv.Itoa(len(parts)),
 	}}
 	var markdown strings.Builder
+	maxImages := minerUMaxImageBytes()
+	var totalImageBytes int64
 	for i, part := range parts {
+		partBytes, readErr := os.ReadFile(part.path)
+		if readErr != nil {
+			return nil, readErr
+		}
+		if part.path != filepath.Join(dir, "input.pdf") {
+			_ = os.Remove(part.path)
+		}
 		sub := *req
-		sub.FileContent = part.content
+		sub.FileContent = partBytes
 		sub.FileName = fmt.Sprintf("%s-pages-%d-%d.pdf",
 			strings.TrimSuffix(req.FileName, filepath.Ext(req.FileName)), part.first, part.last)
 		result, e := c.readCloudPart(ctx, &sub)
+		partBytes = nil
 		if e != nil {
 			return nil, fmt.Errorf("OCR part %d/%d (pages %d-%d): %w", i+1, len(parts), part.first, part.last, e)
 		}
@@ -132,6 +185,11 @@ func (c *MinerUCloudReader) readSplitPDF(ctx context.Context, req *types.ReadReq
 		blocks := append([]types.SourceBlock(nil), result.SourceBlocks...)
 		// MinerU parts can reuse image filenames. Namespace references before merging.
 		for _, ref := range result.ImageRefs {
+			if totalImageBytes+int64(len(ref.ImageData)) > maxImages {
+				return nil, fmt.Errorf("%w: merged MinerU Cloud images reached %d bytes and exceed limit %d bytes (%s)",
+					errResultPackageTooLarge, totalImageBytes+int64(len(ref.ImageData)), maxImages, mineruMaxImageBytesEnv)
+			}
+			totalImageBytes += int64(len(ref.ImageData))
 			old := ref.OriginalRef
 			ref.Filename = fmt.Sprintf("part-%d-%s", i+1, ref.Filename)
 			ref.OriginalRef = fmt.Sprintf("part-%d/%s", i+1, old)

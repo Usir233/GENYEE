@@ -67,19 +67,17 @@ func (c *MinerUCloudReader) Read(ctx context.Context, req *types.ReadRequest) (*
 		return &types.ReadResult{Error: "no file content provided"}, nil
 	}
 
-	logger.Infof(context.Background(), "[MinerUCloud] Parsing file=%s size=%d via %s", req.FileName, len(content), c.baseURL)
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
 
-	ext := filepath.Ext(req.FileName)
-	if ext == "" && req.FileType != "" {
-		ext = "." + req.FileType
-	}
+	fileName := minerUUploadFileName(req.FileName, req.FileType)
+	ext := strings.ToLower(filepath.Ext(fileName))
 	if ext == "" {
 		ext = ".pdf"
+		fileName = "document.pdf"
 	}
-	fileName := strings.TrimSuffix(req.FileName, ext) + ext
-	if fileName == ext {
-		fileName = "document" + ext
-	}
+
+	logger.Infof(context.Background(), "[MinerUCloud] Parsing file=%s size=%d via %s", fileName, len(content), c.baseURL)
 
 	copyReq := *req
 	copyReq.FileName = fileName
@@ -263,9 +261,13 @@ func (c *MinerUCloudReader) pollBatchResult(
 	return "", nil, nil, fmt.Errorf("MinerU Cloud task timed out after %s (%d polls)", c.timeout, pollCount)
 }
 
+func urlPathUnescape(s string) (string, error) {
+	return url.PathUnescape(s)
+}
+
 func (c *MinerUCloudReader) fetchBatchStatus(ctx context.Context, batchID string, headers map[string]string) ([]extractResultItem, error) {
-	url := fmt.Sprintf("%s/extract-results/batch/%s", c.baseURL, batchID)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	pollURL := fmt.Sprintf("%s/extract-results/batch/%s", c.baseURL, url.PathEscape(batchID))
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, pollURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -279,6 +281,11 @@ func (c *MinerUCloudReader) fetchBatchStatus(ctx context.Context, batchID string
 		return nil, err
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		preview := readErrorPreview(resp.Body)
+		return nil, fmt.Errorf("poll status %d: %s", resp.StatusCode, preview)
+	}
 
 	respBody, err := readCapped(resp.Body, maxResultResponseBytes)
 	if err != nil {
@@ -463,12 +470,12 @@ func extractMarkdownZipBounded(zipData []byte, logLabel string, maxImages int64)
 		}
 		imageBytes += int64(len(imgData))
 
-		ext := strings.ToLower(filepath.Ext(resolved.Name))
+		ext := safeImageExtFromFilename(resolved.Name)
 		if ext == "" {
 			ext = ".png"
 		}
 		mimeType := mime.TypeByExtension(ext)
-		if mimeType == "" {
+		if !strings.HasPrefix(strings.ToLower(mimeType), "image/") {
 			mimeType = "image/png"
 		}
 

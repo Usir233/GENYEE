@@ -11,10 +11,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -139,16 +142,95 @@ func extractChecksumForAsset(manifest string, safeFilename string) (string, erro
 	return "", fmt.Errorf("no sha256 entry found for %s", safeFilename)
 }
 
+var validGitHubRepoSegment = regexp.MustCompile(`^[A-Za-z0-9._-]{1,100}$`)
+
+func isLoopbackUpdateHost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+func validateSafeUpdateURL(raw string) (*url.URL, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return nil, errors.New("update URL is empty")
+	}
+	if strings.ContainsAny(trimmed, " \t\r\n\x00") {
+		return nil, errors.New("update URL contains unsafe whitespace or control characters")
+	}
+	u, err := url.Parse(trimmed)
+	if err != nil || u.Hostname() == "" {
+		return nil, fmt.Errorf("invalid update URL %q", raw)
+	}
+	if u.User != nil {
+		return nil, errors.New("update URL must not embed user credentials")
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return u, nil
+	case "http":
+		if isLoopbackUpdateHost(u.Hostname()) {
+			return u, nil
+		}
+		return nil, fmt.Errorf("cleartext HTTP update URL is only permitted on loopback: %s", u.Hostname())
+	default:
+		return nil, fmt.Errorf("unsupported update URL scheme %q", u.Scheme)
+	}
+}
+
+func isValidGitHubOwnerRepo(repo string) bool {
+	parts := strings.Split(repo, "/")
+	if len(parts) != 2 {
+		return false
+	}
+	for _, seg := range parts {
+		if seg == "." || seg == ".." || !validGitHubRepoSegment.MatchString(seg) {
+			return false
+		}
+	}
+	return true
+}
+
+func checkSafeUpdateRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 update redirects")
+	}
+	if _, err := validateSafeUpdateURL(req.URL.String()); err != nil {
+		return fmt.Errorf("blocked unsafe update redirect: %w", err)
+	}
+	if len(via) > 0 && (!strings.EqualFold(req.URL.Scheme, via[0].URL.Scheme) || !strings.EqualFold(req.URL.Host, via[0].URL.Host)) {
+		req.Header.Del("Authorization")
+	}
+	return nil
+}
+
+func newUpdateHTTPClient(timeout time.Duration) *http.Client {
+	return &http.Client{
+		Timeout:       timeout,
+		CheckRedirect: checkSafeUpdateRedirect,
+	}
+}
+
+func withSafeUpdateRedirects(client *http.Client, fallbackTimeout time.Duration) *http.Client {
+	if client == nil {
+		return newUpdateHTTPClient(fallbackTimeout)
+	}
+	copied := *client
+	copied.CheckRedirect = checkSafeUpdateRedirect
+	return &copied
+}
+
 func verifyManifestEd25519(manifest []byte, sigBytes []byte, pubKeyRaw string) error {
 	pubKeyStr := strings.TrimSpace(pubKeyRaw)
 	var pubBytes []byte
-	var err error
 	if decodedHex, hexErr := hex.DecodeString(pubKeyStr); hexErr == nil && len(decodedHex) == ed25519.PublicKeySize {
 		pubBytes = decodedHex
 	} else if decodedB64, b64Err := base64.StdEncoding.DecodeString(pubKeyStr); b64Err == nil && len(decodedB64) == ed25519.PublicKeySize {
 		pubBytes = decodedB64
 	} else {
-		return fmt.Errorf("invalid GENYEE_UPDATE_PUBLIC_KEY: %v", err)
+		return errors.New("invalid GENYEE_UPDATE_PUBLIC_KEY: must be a 32-byte Ed25519 public key in hex or standard base64")
 	}
 
 	sigTrimmed := strings.TrimSpace(string(sigBytes))
@@ -165,12 +247,17 @@ func verifyManifestEd25519(manifest []byte, sigBytes []byte, pubKeyRaw string) e
 }
 
 func fetchSmallAssetBytes(client *http.Client, downloadURL string) ([]byte, error) {
-	req, err := http.NewRequest(http.MethodGet, downloadURL, nil)
+	parsedURL, err := validateSafeUpdateURL(downloadURL)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(http.MethodGet, parsedURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "GENYEE-Lite-Desktop-App")
-	resp, err := client.Do(req)
+	safeClient := withSafeUpdateRedirects(client, 10*time.Second)
+	resp, err := safeClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -285,12 +372,22 @@ func validateSafeWindowsUpdatePath(p string) error {
 
 // resolveUpdateReleaseURL returns the release metadata endpoint configured via
 // GENYEE_UPDATE_URL or GENYEE_UPDATE_REPO (e.g. "owner/repo"). When neither is
-// set, it returns ("", false) so customer desktops never phone home by default.
+// set (or when the configured value fails transport/format validation), it
+// returns ("", false) so customer desktops never phone home or downgrade by default.
 func resolveUpdateReleaseURL() (string, bool) {
 	if u := strings.TrimSpace(os.Getenv("GENYEE_UPDATE_URL")); u != "" {
-		return u, true
+		parsed, err := validateSafeUpdateURL(u)
+		if err != nil {
+			logger.Warnf(context.Background(), "Ignoring unsafe GENYEE_UPDATE_URL: %v", err)
+			return "", false
+		}
+		return parsed.String(), true
 	}
 	if repo := strings.Trim(strings.TrimSpace(os.Getenv("GENYEE_UPDATE_REPO")), "/"); repo != "" {
+		if !isValidGitHubOwnerRepo(repo) {
+			logger.Warnf(context.Background(), "Ignoring invalid GENYEE_UPDATE_REPO %q (expected owner/repo)", repo)
+			return "", false
+		}
 		return fmt.Sprintf("https://api.github.com/repos/%s/releases/latest", repo), true
 	}
 	return "", false
@@ -308,6 +405,24 @@ func isAutoUpdateEnabled() bool {
 		return strings.EqualFold(v, "true") || v == "1"
 	}
 	return false
+}
+
+func buildUpdateReleaseRequest(releaseURL string, githubToken string) (*http.Request, error) {
+	parsedURL, err := validateSafeUpdateURL(releaseURL)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequest(http.MethodGet, parsedURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", "GENYEE-Lite-Desktop-App")
+	if trimmedToken := strings.TrimSpace(githubToken); trimmedToken != "" &&
+		strings.EqualFold(parsedURL.Scheme, "https") &&
+		strings.EqualFold(parsedURL.Hostname(), "api.github.com") {
+		req.Header.Set("Authorization", "Bearer "+trimmedToken)
+	}
+	return req, nil
 }
 
 func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, autoDownload bool) {
@@ -343,19 +458,11 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 			currentVersion = "v" + currentVersion
 		}
 
-		client := &http.Client{Timeout: 10 * time.Second}
-		req, err := http.NewRequest("GET", releaseURL, nil)
+		client := newUpdateHTTPClient(10 * time.Second)
+		req, err := buildUpdateReleaseRequest(releaseURL, os.Getenv("GITHUB_TOKEN"))
 		if err != nil {
 			logger.Warnf(context.Background(), "Check update failed: %v", err)
 			return
-		}
-
-		// Add User-Agent header which is required/recommended by GitHub API
-		req.Header.Set("User-Agent", "GENYEE-Lite-Desktop-App")
-
-		// Add Authorization header if GITHUB_TOKEN is present to increase rate limit
-		if token := os.Getenv("GITHUB_TOKEN"); token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
 		}
 
 		resp, err := client.Do(req)
@@ -439,7 +546,11 @@ func checkUpdate(ctx context.Context, currentVersion string, showUpToDate bool, 
 					if foundAsset && selectedAsset.BrowserDownloadURL != "" {
 						downloadAndInstall(ctx, selectedAsset.BrowserDownloadURL, safeName, expectedSHA256, currentVersion, latestVersion, false)
 					} else if release.HTMLURL != "" {
-						wailsruntime.BrowserOpenURL(ctx, release.HTMLURL)
+						if safeHTMLURL, urlErr := validateSafeUpdateURL(release.HTMLURL); urlErr == nil {
+							wailsruntime.BrowserOpenURL(ctx, safeHTMLURL.String())
+						} else {
+							logger.Warnf(context.Background(), "Blocked unsafe release HTML URL %q: %v", release.HTMLURL, urlErr)
+						}
 					}
 				}
 				return
@@ -546,6 +657,11 @@ func findBestAsset(assets []githubAsset, goos, goarch string) (string, string) {
 }
 
 func downloadAndInstall(ctx context.Context, downloadURL string, filename string, expectedSHA256 string, currentVersion string, latestVersion string, silent bool) {
+	safeDownloadURL, err := validateSafeUpdateURL(downloadURL)
+	if err != nil {
+		logger.Warnf(context.Background(), "Refusing download from unsafe URL %q: %v", downloadURL, err)
+		return
+	}
 	safeFilename, err := sanitizeUpdateAssetFilename(filename)
 	if err != nil {
 		logger.Warnf(context.Background(), "Refusing download with unsafe filename %q: %v", filename, err)
@@ -577,9 +693,15 @@ func downloadAndInstall(ctx context.Context, downloadURL string, filename string
 			}
 		}()
 
-		logger.Infof(context.Background(), "Starting download from %s to %s", downloadURL, savePath)
-		client := &http.Client{Timeout: 30 * time.Minute}
-		resp, err := client.Get(downloadURL)
+		logger.Infof(context.Background(), "Starting download from %s to %s", safeDownloadURL.String(), savePath)
+		client := newUpdateHTTPClient(30 * time.Minute)
+		req, reqErr := http.NewRequest(http.MethodGet, safeDownloadURL.String(), nil)
+		if reqErr != nil {
+			logger.Warnf(context.Background(), "Download request build failed: %v", reqErr)
+			return
+		}
+		req.Header.Set("User-Agent", "GENYEE-Lite-Desktop-App")
+		resp, err := client.Do(req)
 		if err != nil {
 			logger.Warnf(context.Background(), "Download failed: %v", err)
 			if !silent {

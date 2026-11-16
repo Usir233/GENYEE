@@ -403,7 +403,7 @@ def test_brand_residue_scan(valid_token=None):
         text=True,
     )
     if inspect_proc.returncode == 0 and inspect_proc.stdout.strip() == "true":
-        cmd = ["docker", "exec", "GENYEE-frontend", "grep", "-rioE", "Tencent.{0,20}WeKnora|WeKnora.{0,20}Tencent", "/usr/share/nginx/html"]
+        cmd = ["docker", "exec", "GENYEE-frontend", "grep", "-rioE", "Tencent.{0,20}WeKnora|WeKnora.{0,20}Tencent|weknora", "/usr/share/nginx/html"]
         p = subprocess.run(cmd, capture_output=True, text=True)
         zero_vendor_combo = (p.returncode == 1 and len(p.stdout.strip()) == 0)
         if not record_result("Zero 'Tencent WeKnora' Combos in Frontend Bundle", "Brand-Compliance", zero_vendor_combo, f"Found matches count: {len(p.stdout.strip().splitlines()) if p.stdout.strip() else 0}"):
@@ -440,12 +440,14 @@ def test_brand_residue_scan(valid_token=None):
     if valid_token:
         headers = {"Authorization": f"Bearer {valid_token}", "X-Tenant-Id": str(VALID_TENANT_ID)}
         r_me = requests.get(f"{BASE_URL}/api/v1/auth/me", headers=headers, timeout=5)
-        clean_me = ("tencent weknora" not in r_me.text.lower())
+        me_lower = r_me.text.lower()
+        clean_me = ("tencent weknora" not in me_lower) and ("weknora" not in me_lower)
         if not record_result("GET /api/v1/auth/me Payload Free of Vendor Brand", "Brand-Compliance", clean_me, "User profile JSON is clean", r_me.status_code):
             failures.append("GET /api/v1/auth/me Payload Free of Vendor Brand")
 
         r_sessions = requests.get(f"{BASE_URL}/api/v1/sessions", headers=headers, timeout=5)
-        clean_sessions = ("tencent weknora" not in r_sessions.text.lower())
+        sessions_lower = r_sessions.text.lower()
+        clean_sessions = ("tencent weknora" not in sessions_lower) and ("weknora" not in sessions_lower)
         if not record_result("GET /api/v1/sessions Payload Free of Vendor Brand", "Brand-Compliance", clean_sessions, "Sessions list JSON is clean", r_sessions.status_code):
             failures.append("GET /api/v1/sessions Payload Free of Vendor Brand")
 
@@ -476,8 +478,19 @@ def test_negative_export(valid_token=None):
         failures.append("Memory Export Forged Token Rejection")
 
     if not valid_token:
-        print("[WARN] Skipping authenticated negative tenant tests because valid_token is unavailable")
+        if EXPLICIT_TEST_CREDENTIALS:
+            record_result(
+                "Memory Export Authenticated Prerequisite",
+                "Negative-Export",
+                False,
+                "Explicit TEST_EMAIL/TEST_PASSWORD login failed; refusing to skip authenticated negative tenant checks",
+            )
+            failures.append("Memory Export Authenticated Prerequisite")
+            assert not failures, f"Negative export checks failed: {failures}"
         assert not failures, f"Negative export checks failed: {failures}"
+        if pytest is not None:
+            pytest.skip("Skipping authenticated negative tenant tests because implicit valid_token is unavailable")
+        print("[WARN] Skipping authenticated negative tenant tests because valid_token is unavailable")
         return
 
     # Case 3: Unauthorized tenant ID (e.g. 99999)
@@ -527,11 +540,18 @@ def main():
     print(f"  Time: {time.strftime('%Y-%m-%d %H:%M:%SZ', time.gmtime())}")
     print("=" * 70)
 
-    token, _ = _run_auth_login_boundaries(require_seeded_account=True)
-    test_protected_endpoints_tampered_jwt(token)
-    test_jwt_audience_validation_in_middleware()
-    test_brand_residue_scan(token)
-    test_negative_export(token)
+    token, auth_failures = _run_auth_login_boundaries(require_seeded_account=True)
+    suite_errors: list[str] = list(auth_failures)
+    for suite_fn in (
+        lambda: test_protected_endpoints_tampered_jwt(token),
+        test_jwt_audience_validation_in_middleware,
+        lambda: test_brand_residue_scan(token),
+        lambda: test_negative_export(token),
+    ):
+        try:
+            suite_fn()
+        except AssertionError as exc:
+            suite_errors.append(str(exc))
 
     print("\n" + "=" * 70)
     print(f"  SUMMARY: Total: {test_results['total']} | Passed: {test_results['passed']} | Failed: {test_results['failed']}")
@@ -543,7 +563,7 @@ def main():
         json.dump(test_results, f, indent=2)
     print(f"Wrote challenge summary to: {summary_path}")
 
-    if test_results["failed"] > 0:
+    if test_results["failed"] > 0 or suite_errors:
         print("\nVERDICT: REQUEST_CHANGES (Some adversarial tests failed)")
         sys.exit(1)
     else:

@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +17,8 @@ import (
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/Usir233/GENYEE/internal/types"
 	secutils "github.com/Usir233/GENYEE/internal/utils"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -59,21 +64,81 @@ type httpReadResponse struct {
 type HTTPDocumentReader struct {
 	mu      sync.RWMutex
 	baseURL string
+	trusted bool
 	client  *http.Client
 }
 
-func NewHTTPDocumentReader(baseURL string) (*HTTPDocumentReader, error) {
-	baseURL = strings.TrimSuffix(strings.TrimSpace(baseURL), "/")
-	if baseURL != "" {
-		if err := secutils.ValidateURLForSSRF(baseURL); err != nil {
-			return nil, fmt.Errorf("docreader address failed SSRF validation: %w", err)
+func normalizeHTTPDocReaderBaseURL(raw string) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+	if !strings.HasPrefix(strings.ToLower(trimmed), "http://") && !strings.HasPrefix(strings.ToLower(trimmed), "https://") {
+		trimmed = "http://" + trimmed
+	}
+	u, err := url.Parse(trimmed)
+	if err != nil || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return "", fmt.Errorf("invalid HTTP docreader base URL %q", raw)
+	}
+	if !strings.EqualFold(u.Scheme, "http") && !strings.EqualFold(u.Scheme, "https") {
+		return "", fmt.Errorf("unsupported HTTP docreader scheme %q", u.Scheme)
+	}
+	u.Scheme = strings.ToLower(u.Scheme)
+	u.Host = strings.ToLower(u.Host)
+	u.Path = strings.TrimRight(u.Path, "/")
+	return strings.TrimRight(u.String(), "/"), nil
+}
+
+func isTrustedHTTPDocReaderBaseURL(normalizedBase string) bool {
+	if normalizedBase == "" {
+		return false
+	}
+	configuredRaw := strings.TrimSpace(os.Getenv("DOCREADER_ADDR"))
+	if configuredRaw == "" {
+		return false
+	}
+	configuredNorm, err := normalizeHTTPDocReaderBaseURL(configuredRaw)
+	if err != nil || configuredNorm == "" {
+		return false
+	}
+	return configuredNorm == normalizedBase
+}
+
+func newHTTPDocReaderClient(trusted bool) *http.Client {
+	if trusted {
+		return &http.Client{
+			Timeout: 5 * time.Minute,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 5 {
+					return errors.New("stopped after 5 redirects")
+				}
+				if len(via) > 0 && (!strings.EqualFold(req.URL.Scheme, via[0].URL.Scheme) || !strings.EqualFold(req.URL.Host, via[0].URL.Host)) {
+					return errors.New("cross-origin redirect blocked for internal docreader")
+				}
+				return nil
+			},
 		}
 	}
 	clientCfg := secutils.DefaultSSRFSafeHTTPClientConfig()
 	clientCfg.Timeout = 5 * time.Minute
+	return secutils.NewSSRFSafeHTTPClient(clientCfg)
+}
+
+func NewHTTPDocumentReader(baseURL string) (*HTTPDocumentReader, error) {
+	normalized, err := normalizeHTTPDocReaderBaseURL(baseURL)
+	if err != nil {
+		return nil, err
+	}
+	trusted := isTrustedHTTPDocReaderBaseURL(normalized)
+	if normalized != "" && !trusted {
+		if err := secutils.ValidateURLForSSRF(normalized); err != nil {
+			return nil, fmt.Errorf("docreader address failed SSRF validation: %w", err)
+		}
+	}
 	p := &HTTPDocumentReader{
-		baseURL: baseURL,
-		client:  secutils.NewSSRFSafeHTTPClient(clientCfg),
+		baseURL: normalized,
+		trusted: trusted,
+		client:  newHTTPDocReaderClient(trusted),
 	}
 	if p.baseURL != "" {
 		logger.Infof(context.Background(), "INFO: HTTP docreader base URL: %s", p.baseURL)
@@ -81,22 +146,28 @@ func NewHTTPDocumentReader(baseURL string) (*HTTPDocumentReader, error) {
 	return p, nil
 }
 
-func (p *HTTPDocumentReader) base() string {
+func (p *HTTPDocumentReader) endpoint() (string, bool, *http.Client) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.baseURL
+	return p.baseURL, p.trusted, p.client
 }
 
 func (p *HTTPDocumentReader) Reconnect(addr string) error {
-	addr = strings.TrimSuffix(strings.TrimSpace(addr), "/")
-	if addr != "" {
-		if err := secutils.ValidateURLForSSRF(addr); err != nil {
+	normalized, err := normalizeHTTPDocReaderBaseURL(addr)
+	if err != nil {
+		return err
+	}
+	trusted := isTrustedHTTPDocReaderBaseURL(normalized)
+	if normalized != "" && !trusted {
+		if err := secutils.ValidateURLForSSRF(normalized); err != nil {
 			return fmt.Errorf("docreader address failed SSRF validation: %w", err)
 		}
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.baseURL = addr
+	p.baseURL = normalized
+	p.trusted = trusted
+	p.client = newHTTPDocReaderClient(trusted)
 	logger.Infof(context.Background(), "INFO: HTTP docreader base URL set to %s", p.baseURL)
 	return nil
 }
@@ -126,12 +197,14 @@ type httpListEnginesResponse struct {
 }
 
 func (p *HTTPDocumentReader) ListEngines(ctx context.Context, overrides map[string]string) ([]types.ParserEngineInfo, error) {
-	base := p.base()
+	base, trusted, client := p.endpoint()
 	if base == "" {
 		return nil, errNotConnected
 	}
-	if err := secutils.ValidateURLForSSRF(base); err != nil {
-		return nil, fmt.Errorf("docreader address failed SSRF validation: %w", err)
+	if !trusted {
+		if err := secutils.ValidateURLForSSRF(base); err != nil {
+			return nil, fmt.Errorf("docreader address failed SSRF validation: %w", err)
+		}
 	}
 
 	body := httpListEnginesRequest{ConfigOverrides: overrides}
@@ -146,7 +219,7 @@ func (p *HTTPDocumentReader) ListEngines(ctx context.Context, overrides map[stri
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	resp, err := p.client.Do(httpReq)
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("http list-engines failed: %w", err)
 	}
@@ -199,12 +272,19 @@ func fromHTTPReadResponse(resp *httpReadResponse) *types.ReadResult {
 }
 
 func (p *HTTPDocumentReader) Read(ctx context.Context, req *types.ReadRequest) (*types.ReadResult, error) {
-	base := p.base()
+	base, trusted, client := p.endpoint()
 	if base == "" {
 		return nil, errNotConnected
 	}
-	if err := secutils.ValidateURLForSSRF(base); err != nil {
-		return nil, fmt.Errorf("docreader address failed SSRF validation: %w", err)
+	maxFileSize := getMaxFileSize()
+	if len(req.FileContent) > maxFileSize {
+		return nil, status.Errorf(codes.ResourceExhausted,
+			"docreader file content size %d exceeds maximum %d", len(req.FileContent), maxFileSize)
+	}
+	if !trusted {
+		if err := secutils.ValidateURLForSSRF(base); err != nil {
+			return nil, fmt.Errorf("docreader address failed SSRF validation: %w", err)
+		}
 	}
 
 	body := httpReadRequest{
@@ -233,7 +313,7 @@ func (p *HTTPDocumentReader) Read(ctx context.Context, req *types.ReadRequest) (
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.ContentLength = int64(len(jsonBody))
 
-	resp, err := p.client.Do(httpReq)
+	resp, err := client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("http read failed: %w", err)
 	}

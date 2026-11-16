@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -248,18 +249,24 @@ func main() {
 	handler.SetLiteSetupToken(app.setupToken)
 	handler.SetHostProjectPicker(app.PickProjectDir)
 
-	// Error channel to capture server startup errors
+	// Error channel to capture server startup errors and readiness signal
 	serverErrCh := make(chan error, 1)
+	backendReadyCh := make(chan struct{})
+	var readyOnce sync.Once
+	markBackendReady := func() {
+		readyOnce.Do(func() { close(backendReadyCh) })
+	}
 
 	// Run backend in a separate goroutine
 	go func() {
 		defer close(app.shutdownDone)
+		defer markBackendReady()
 		err := c.Invoke(func(
 			cfg *config.Config,
 			router *gin.Engine,
 			resourceCleaner interfaces.ResourceCleaner,
 		) error {
-			server := &http.Server{Handler: router}
+			server := newDesktopHTTPServer(router)
 
 			runtime.LogGinRouteCount(context.Background())
 
@@ -273,15 +280,17 @@ func main() {
 
 			tcpAddr := listener.Addr().(*net.TCPAddr)
 			port := tcpAddr.Port
-			app.listenPublic = LoadDesktopHTTPBindPublic()
+			listenPublic := LoadDesktopHTTPBindPublic()
 			// Reverse proxy and webview API calls always use loopback; avoid 0.0.0.0 / [::] as dial target.
-			app.backendURL = fmt.Sprintf("http://127.0.0.1:%d", port)
-			app.apiLanBaseURL = ""
-			if app.listenPublic {
+			backendURL := fmt.Sprintf("http://127.0.0.1:%d", port)
+			apiLanBaseURL := ""
+			if listenPublic {
 				if ip := desktopPreferredLANIPv4(); ip != nil {
-					app.apiLanBaseURL = fmt.Sprintf("http://%s:%d/api/v1", ip.String(), port)
+					apiLanBaseURL = fmt.Sprintf("http://%s:%d/api/v1", ip.String(), port)
 				}
 			}
+			app.setBackendEndpoints(backendURL, apiLanBaseURL, listenPublic)
+			markBackendReady()
 
 			// Wails OnShutdown returns only after this goroutine closes
 			// serverStopped. Closing the listener by hand makes Serve return
@@ -310,15 +319,22 @@ func main() {
 			// Also listen for OS signals just in case
 			signals := make(chan os.Signal, 1)
 			signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
+			defer signal.Stop(signals)
 			go func() {
-				<-signals
 				select {
-				case app.shutdownCh <- struct{}{}:
-				default:
+				case _, ok := <-signals:
+					if !ok {
+						return
+					}
+					select {
+					case app.shutdownCh <- struct{}{}:
+					default:
+					}
+				case <-serverStopped:
 				}
 			}()
 
-			logger.Infof(context.Background(), "Server is running at %s (proxy -> %s)", tcpAddr.String(), app.backendURL)
+			logger.Infof(context.Background(), "Server is running at %s (proxy -> %s)", tcpAddr.String(), backendURL)
 			if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
 				return fmt.Errorf("server error: %v", err)
 			}
@@ -331,18 +347,23 @@ func main() {
 		}
 	}()
 
-	// Give the server a moment to start and determine its port
-	time.Sleep(500 * time.Millisecond)
+	// Wait deterministically for the embedded backend listener to bind its port.
+	select {
+	case <-backendReadyCh:
+	case <-time.After(15 * time.Second):
+		logger.Warnf(context.Background(), "Timed out waiting for embedded backend port assignment")
+	}
 
 	// Create application with options
 	// macOS app menu
 	AppMenu := menu.NewMenu()
 	FileMenu := AppMenu.AddSubmenu("GENYEE Lite")
 	FileMenu.AddText("About GENYEE Lite", keys.CmdOrCtrl("i"), func(_ *menu.CallbackData) {
-		if app.ctx == nil {
+		ctx := app.getContext()
+		if ctx == nil {
 			return
 		}
-		_, err := wailsruntime.MessageDialog(app.ctx, wailsruntime.MessageDialogOptions{
+		_, err := wailsruntime.MessageDialog(ctx, wailsruntime.MessageDialogOptions{
 			Type:          wailsruntime.InfoDialog,
 			Title:         "GENYEE Lite",
 			Message:       fmt.Sprintf("GENYEE Lite — Desktop Edition\n\nA RAG framework for document understanding and semantic Q&A over complex, heterogeneous content.\n\nVersion %s\n© 2026 GENYEE.", desktopAboutVersion()),
@@ -356,10 +377,11 @@ func main() {
 	})
 	if _, configured := resolveUpdateReleaseURL(); configured {
 		FileMenu.AddText("Check for Updates...", nil, func(_ *menu.CallbackData) {
-			if app.ctx == nil {
+			ctx := app.getContext()
+			if ctx == nil {
 				return
 			}
-			checkUpdate(app.ctx, desktopAboutVersion(), true, false)
+			checkUpdate(ctx, desktopAboutVersion(), true, false)
 		})
 	}
 	FileMenu.AddSeparator()
@@ -372,13 +394,14 @@ func main() {
 
 	ViewMenu := AppMenu.AddSubmenu("View")
 	ViewMenu.AddText("Reload", keys.CmdOrCtrl("r"), func(_ *menu.CallbackData) {
-		if app.ctx != nil {
-			wailsruntime.EventsEmit(app.ctx, "app:reload")
+		if ctx := app.getContext(); ctx != nil {
+			wailsruntime.EventsEmit(ctx, "app:reload")
 		}
 	})
 
-	// Wait for the backend URL to be set
-	targetURL, _ := url.Parse(app.backendURL)
+	// Build reverse proxy targeting the synchronized loopback backend URL
+	backendURL, _, _ := app.getBackendEndpoints()
+	targetURL, _ := url.Parse(backendURL)
 	proxy := desktopAPIProxy(targetURL)
 
 	// Start Wails application
@@ -398,12 +421,13 @@ func main() {
 			wailsruntime.WindowExecJS(ctx, wailsThemeSyncJS)
 			wailsruntime.WindowExecJS(ctx, dragHandlerJS)
 			// 注入真实 API 根路径（与 window.location.origin 不同）；无 Go 绑定时仍可显示。
-			if u := strings.TrimSpace(app.backendURL); u != "" {
+			curBackendURL, curLanURL, _ := app.getBackendEndpoints()
+			if u := strings.TrimSpace(curBackendURL); u != "" {
 				apiRoot := strings.TrimRight(u, "/") + "/api/v1"
 				inject := fmt.Sprintf(`try{window.__GENYEE_API_BASE__=%s}catch(e){}`, strconv.Quote(apiRoot))
 				wailsruntime.WindowExecJS(ctx, inject)
 			}
-			if lan := strings.TrimSpace(app.apiLanBaseURL); lan != "" {
+			if lan := strings.TrimSpace(curLanURL); lan != "" {
 				injectLan := fmt.Sprintf(`try{window.__GENYEE_API_LAN_BASE__=%s}catch(e){}`, strconv.Quote(lan))
 				wailsruntime.WindowExecJS(ctx, injectLan)
 			}
@@ -531,6 +555,15 @@ func desktopAPIProxy(target *url.URL) *httputil.ReverseProxy {
 				r.Out.Host = r.In.Host
 			}
 		},
+	}
+}
+
+func newDesktopHTTPServer(handler http.Handler) *http.Server {
+	return &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 15 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1 MiB
 	}
 }
 

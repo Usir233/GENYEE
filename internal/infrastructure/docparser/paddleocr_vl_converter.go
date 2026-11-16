@@ -69,7 +69,10 @@ func (c *PaddleOCRVLReader) Read(ctx context.Context, req *types.ReadRequest) (*
 	// not possible) before downstream processing.
 	mdContent = NormalizeHTMLTables(mdContent)
 
-	imageRefs, mdContent := c.processImages(mdContent, imagesB64)
+	imageRefs, mdContent, err := c.processImagesBounded(mdContent, imagesB64, minerUMaxImageBytes())
+	if err != nil {
+		return nil, fmt.Errorf("PaddleOCR-VL images: %w", err)
+	}
 	mdContent, imageRefs = ensureOriginalImageRef(req, mdContent, imageRefs)
 
 	logger.Infof(context.Background(), "[PaddleOCR-VL] Parsed successfully, markdown=%d chars, images=%d",
@@ -78,7 +81,7 @@ func (c *PaddleOCRVLReader) Read(ctx context.Context, req *types.ReadRequest) (*
 	return &types.ReadResult{
 		MarkdownContent: mdContent,
 		ImageRefs:       imageRefs,
-		SourceBlocks:    paddleOCRVLSourceBlocks(mdContent, layoutUnits, req.FileType),
+		SourceBlocks:    paddleOCRVLSourceBlocks(mdContent, layoutUnits, fileTypeOf(req)),
 	}, nil
 }
 
@@ -168,13 +171,14 @@ func (c *PaddleOCRVLReader) callLayoutParsing(
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		preview := readErrorPreview(resp.Body)
+		return "", nil, nil, fmt.Errorf("PaddleOCR-VL API status %d: %s", resp.StatusCode, preview)
+	}
+
 	respBody, err := readCapped(resp.Body, maxResultResponseBytes)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("read response body: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", nil, nil, fmt.Errorf("PaddleOCR-VL API status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	var result paddleOCRVLResponse
@@ -216,10 +220,19 @@ func (c *PaddleOCRVLReader) callLayoutParsing(
 func (c *PaddleOCRVLReader) processImages(
 	mdContent string, imagesB64 map[string]string,
 ) ([]types.ImageRef, string) {
+	refs, md, _ := c.processImagesBounded(mdContent, imagesB64, minerUMaxImageBytes())
+	return refs, md
+}
+
+func (c *PaddleOCRVLReader) processImagesBounded(
+	mdContent string, imagesB64 map[string]string, maxImages int64,
+) ([]types.ImageRef, string, error) {
 	var refs []types.ImageRef
+	var totalBytes int64
+	extracted := extractImageRefsFromContent(mdContent)
 
 	for ipath, b64Str := range imagesB64 {
-		matchedRefs := mineruImageOriginalRefs(mdContent, ipath)
+		matchedRefs := matchExtractedRefsForPath(extracted, ipath)
 		if len(matchedRefs) == 0 {
 			continue
 		}
@@ -247,8 +260,14 @@ func (c *PaddleOCRVLReader) processImages(
 			}
 		}
 
+		if int64(len(imgBytes)) > maxZipEntryBytes || totalBytes+int64(len(imgBytes)) > maxImages {
+			return nil, mdContent, fmt.Errorf("%w: PaddleOCR-VL inline images reached %d bytes and exceed limit %d bytes (%s)",
+				errResultPackageTooLarge, totalBytes+int64(len(imgBytes)), maxImages, mineruMaxImageBytesEnv)
+		}
+		totalBytes += int64(len(imgBytes))
+
 		mimeType := mime.TypeByExtension("." + ext)
-		if mimeType == "" {
+		if !strings.HasPrefix(strings.ToLower(mimeType), "image/") {
 			mimeType = "image/png"
 		}
 
@@ -262,7 +281,7 @@ func (c *PaddleOCRVLReader) processImages(
 		}
 	}
 
-	return refs, mdContent
+	return refs, mdContent, nil
 }
 
 // PingPaddleOCRVL checks whether a self-hosted PaddleOCR-VL service is reachable.

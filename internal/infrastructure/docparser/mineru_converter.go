@@ -137,8 +137,11 @@ func (c *MinerUReader) Read(ctx context.Context, req *types.ReadRequest) (*types
 	// by escaping headings and image syntax. Only apply narrow compatibility fixes.
 	mdContent = normalizeMinerUMarkdown(mdContent)
 
-	// Process images: decode base64, build ImageRef list, replace refs in markdown
-	imageRefs, mdContent := c.processImages(mdContent, imagesB64)
+	// Process images: decode base64, build ImageRef list, enforce cumulative budget
+	imageRefs, mdContent, err := c.processImagesBounded(mdContent, imagesB64, minerUMaxImageBytes())
+	if err != nil {
+		return nil, fmt.Errorf("MinerU images: %w", err)
+	}
 
 	mdContent, imageRefs = ensureOriginalImageRef(req, mdContent, imageRefs)
 
@@ -147,7 +150,7 @@ func (c *MinerUReader) Read(ctx context.Context, req *types.ReadRequest) (*types
 	return &types.ReadResult{
 		MarkdownContent: mdContent,
 		ImageRefs:       imageRefs,
-		SourceBlocks:    minerUSourceBlocks(mdContent, contentList, req.FileType),
+		SourceBlocks:    minerUSourceBlocks(mdContent, contentList, fileTypeOf(req)),
 	}, nil
 }
 
@@ -386,11 +389,51 @@ func (c *MinerUReader) callFileParse(
 
 // processImages decodes base64 images from MinerU response and returns ImageRef list.
 // It also replaces image references in the markdown content.
+func matchExtractedRefsForPath(extractedRefs []string, ipath string) []string {
+	cleanPath := strings.TrimPrefix(strings.ReplaceAll(ipath, "\\", "/"), "./")
+	baseName := filepath.Base(cleanPath)
+	seen := make(map[string]bool)
+	var out []string
+	for _, ref := range extractedRefs {
+		candidates := []string{strings.ReplaceAll(ref, "\\", "/")}
+		if decoded, err := neturlUnescape(candidates[0]); err == nil && decoded != candidates[0] {
+			candidates = append(candidates, decoded)
+		}
+		for _, c := range candidates {
+			cClean := strings.TrimPrefix(c, "./")
+			if cClean == cleanPath || filepath.Base(cClean) == baseName {
+				if !seen[ref] {
+					seen[ref] = true
+					out = append(out, ref)
+				}
+				break
+			}
+		}
+	}
+	return out
+}
+
+func neturlUnescape(s string) (string, error) {
+	if !strings.Contains(s, "%") {
+		return s, nil
+	}
+	return urlPathUnescape(s)
+}
+
 func (c *MinerUReader) processImages(mdContent string, imagesB64 map[string]string) ([]types.ImageRef, string) {
+	refs, md, _ := c.processImagesBounded(mdContent, imagesB64, minerUMaxImageBytes())
+	return refs, md
+}
+
+func (c *MinerUReader) processImagesBounded(
+	mdContent string, imagesB64 map[string]string, maxImages int64,
+) ([]types.ImageRef, string, error) {
 	var refs []types.ImageRef
+	var totalBytes int64
+	extracted := extractImageRefsFromContent(mdContent)
 
 	for ipath, b64Str := range imagesB64 {
-		matchedRefs := mineruImageOriginalRefs(mdContent, ipath)
+		matchedRefs := matchExtractedRefsForPath(extracted, ipath)
 		if len(matchedRefs) == 0 {
 			continue
 		}
@@ -420,8 +463,14 @@ func (c *MinerUReader) processImages(mdContent string, imagesB64 map[string]stri
 			}
 		}
 
+		if int64(len(imgBytes)) > maxZipEntryBytes || totalBytes+int64(len(imgBytes)) > maxImages {
+			return nil, mdContent, fmt.Errorf("%w: MinerU inline images reached %d bytes and exceed limit %d bytes (%s)",
+				errResultPackageTooLarge, totalBytes+int64(len(imgBytes)), maxImages, mineruMaxImageBytesEnv)
+		}
+		totalBytes += int64(len(imgBytes))
+
 		mimeType := mime.TypeByExtension("." + ext)
-		if mimeType == "" {
+		if !strings.HasPrefix(strings.ToLower(mimeType), "image/") {
 			mimeType = "image/png"
 		}
 
@@ -435,7 +484,7 @@ func (c *MinerUReader) processImages(mdContent string, imagesB64 map[string]stri
 		}
 	}
 
-	return refs, mdContent
+	return refs, mdContent, nil
 }
 
 // logMinerUResponseStructure logs the structure of the MinerU API response.

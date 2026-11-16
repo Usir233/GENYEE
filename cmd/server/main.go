@@ -24,9 +24,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -40,6 +43,117 @@ import (
 	"github.com/Usir233/GENYEE/internal/runtime"
 	"github.com/Usir233/GENYEE/internal/types/interfaces"
 )
+
+const (
+	serverReadHeaderTimeout = 15 * time.Second
+	serverIdleTimeout       = 120 * time.Second
+	serverMaxHeaderBytes    = 1 << 20 // 1 MiB
+)
+
+func newHTTPServer(handler http.Handler) *http.Server {
+	return &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: serverReadHeaderTimeout,
+		IdleTimeout:       serverIdleTimeout,
+		MaxHeaderBytes:    serverMaxHeaderBytes,
+	}
+}
+
+func formatServerAddr(host string, port int) string {
+	cleanHost := strings.Trim(strings.TrimSpace(host), "[]")
+	if cleanHost == "" {
+		return fmt.Sprintf(":%d", port)
+	}
+	return net.JoinHostPort(cleanHost, strconv.Itoa(port))
+}
+
+func runHTTPServerLifecycle(
+	server *http.Server,
+	listener net.Listener,
+	signals <-chan os.Signal,
+	shutdownTimeout time.Duration,
+	startBackground func(context.Context),
+	cleanup func(context.Context) []error,
+) error {
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	defer bgCancel()
+
+	if startBackground != nil {
+		startBackground(bgCtx)
+	}
+
+	stopSignalWatcher := make(chan struct{})
+	defer close(stopSignalWatcher)
+	shutdownDone := make(chan struct{})
+
+	go func() {
+		var sig os.Signal
+		select {
+		case s, ok := <-signals:
+			if !ok {
+				return
+			}
+			sig = s
+		case <-stopSignalWatcher:
+			return
+		}
+		defer close(shutdownDone)
+
+		logger.Infof(context.Background(), "Received signal: %v, starting server shutdown...", sig)
+
+		drainBudget, cleanupBudget := runtime.ShutdownBudgets(shutdownTimeout)
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), drainBudget)
+		defer shutdownCancel()
+
+		// Second signal → force close all connections immediately.
+		go func() {
+			select {
+			case secondSig, ok := <-signals:
+				if !ok {
+					return
+				}
+				logger.Warnf(context.Background(), "Received second signal: %v, forcing shutdown...", secondSig)
+				server.Close()
+			case <-shutdownDone:
+			case <-stopSignalWatcher:
+			}
+		}()
+
+		// Do NOT close the listener manually before Shutdown. Serve would
+		// return the raw accept error ("use of closed network connection")
+		// instead of ErrServerClosed, and logger.Fatalf → os.Exit(1) would
+		// kill the process before ResourceCleaner runs. Shutdown closes
+		// listeners first, so the port is released before the drain.
+		if err := server.Shutdown(shutdownCtx); err != nil {
+			logger.Errorf(context.Background(), "Server forced to shutdown: %v", err)
+			server.Close()
+		}
+
+		// Cancel background subscribers (Redis pubsub, catalog refreshers)
+		// BEFORE tearing down Redis/PostgreSQL pools in resourceCleaner.Cleanup.
+		bgCancel()
+
+		logger.Info(context.Background(), "Cleaning up resources...")
+		// Fresh context sized from the reserved slice of ShutdownTimeout.
+		// Drain must not hand cleanup an already-expired context, and the
+		// two slices must still add up to one supervisor grace period.
+		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), cleanupBudget)
+		defer cleanupCancel()
+		if cleanup != nil {
+			if errs := cleanup(cleanupCtx); len(errs) > 0 {
+				logger.Errorf(context.Background(), "Errors occurred during resource cleanup: %v", errs)
+			}
+		}
+		logger.Info(context.Background(), "Server has exited")
+	}()
+
+	if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("server error: %v", err)
+	}
+
+	<-shutdownDone
+	return nil
+}
 
 func main() {
 	// Load dotenv configuration before any container provider reads it.
@@ -83,77 +197,38 @@ func main() {
 		modelCatalogSvc *service.ModelCatalogService,
 	) error {
 		// Create HTTP server
-		server := &http.Server{
-			Handler: router,
-		}
+		server := newHTTPServer(router)
 
-		addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
+		addr := formatServerAddr(cfg.Server.Host, cfg.Server.Port)
 		listener, err := listenWithRetry(addr, 10, 300*time.Millisecond)
 		if err != nil {
 			return fmt.Errorf("failed to start server: %v", err)
 		}
 
-		ctx, done := context.WithCancel(context.Background())
-		modelCatalogSvc.Start(ctx)
-
-		// Start the system_settings pubsub subscriber. Runs in its own
-		// goroutine and exits when ctx is cancelled at shutdown. Best-
-		// effort: an error here only warns (Redis may legitimately be
-		// disabled in lite-mode deployments — the service no-ops in
-		// that case anyway).
-		if err := systemSettingSvc.SubscribeRedis(ctx); err != nil {
-			logger.Warnf(ctx, "[system_settings] subscribe failed: %v", err)
-		}
-
 		signals := make(chan os.Signal, 1)
 		signal.Notify(signals, shutdownSignals...)
-		go func() {
-			sig := <-signals
-			logger.Infof(context.Background(), "Received signal: %v, starting server shutdown...", sig)
-
-			drainBudget, cleanupBudget := runtime.ShutdownBudgets(cfg.Server.ShutdownTimeout)
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), drainBudget)
-			defer shutdownCancel()
-
-			// Second signal → force close all connections immediately.
-			go func() {
-				sig := <-signals
-				logger.Warnf(context.Background(), "Received second signal: %v, forcing shutdown...", sig)
-				server.Close()
-			}()
-
-			// Do NOT close the listener manually before Shutdown. Serve would
-			// return the raw accept error ("use of closed network connection")
-			// instead of ErrServerClosed, and logger.Fatalf → os.Exit(1) would
-			// kill the process before ResourceCleaner runs. Shutdown closes
-			// listeners first, so the port is released before the drain.
-			if err := server.Shutdown(shutdownCtx); err != nil {
-				logger.Errorf(context.Background(), "Server forced to shutdown: %v", err)
-				server.Close()
-			}
-
-			logger.Info(context.Background(), "Cleaning up resources...")
-			// Fresh context sized from the reserved slice of ShutdownTimeout.
-			// Drain must not hand cleanup an already-expired context, and the
-			// two slices must still add up to one supervisor grace period.
-			cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), cleanupBudget)
-			defer cleanupCancel()
-			errs := resourceCleaner.Cleanup(cleanupCtx)
-			if len(errs) > 0 {
-				logger.Errorf(context.Background(), "Errors occurred during resource cleanup: %v", errs)
-			}
-			logger.Info(context.Background(), "Server has exited")
-			done()
-		}()
+		defer signal.Stop(signals)
 
 		runtime.LogGinRouteCount(context.Background())
 		logger.Infof(context.Background(), "Server is running at %s", addr)
-		if err := server.Serve(listener); err != nil && err != http.ErrServerClosed {
-			return fmt.Errorf("server error: %v", err)
-		}
-
-		<-ctx.Done()
-		return nil
+		return runHTTPServerLifecycle(
+			server,
+			listener,
+			signals,
+			cfg.Server.ShutdownTimeout,
+			func(ctx context.Context) {
+				modelCatalogSvc.Start(ctx)
+				// Start the system_settings pubsub subscriber. Runs in its own
+				// goroutine and exits when ctx is cancelled at shutdown. Best-
+				// effort: an error here only warns (Redis may legitimately be
+				// disabled in lite-mode deployments — the service no-ops in
+				// that case anyway).
+				if err := systemSettingSvc.SubscribeRedis(ctx); err != nil {
+					logger.Warnf(ctx, "[system_settings] subscribe failed: %v", err)
+				}
+			},
+			resourceCleaner.Cleanup,
+		)
 	})
 	if err != nil {
 		logger.Fatalf(context.Background(), "Failed to run application: %v", err)

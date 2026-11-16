@@ -260,14 +260,16 @@ def run_stress_suite():
 
     # Check for active query leaks in postgres
     active_conns = pg_stats_after.get("active", 0)
+    no_conn_leak = active_conns <= 1
     print(f"[LEAK CHECK] Active PostgreSQL Connections: {active_conns} (expected <= 1, no hanging queries)")
     
     # Summary
+    suite_ok = all_passed and (concurrent_success == len(concurrent_queries)) and no_conn_leak
     print("\n================================================================================")
-    print(f"  Stress Test Result: {'ALL PASS' if (all_passed and concurrent_success == len(concurrent_queries)) else 'FAIL'}")
+    print(f"  Stress Test Result: {'ALL PASS' if suite_ok else 'FAIL'}")
     print("================================================================================")
     
-    return all_passed and (concurrent_success == len(concurrent_queries))
+    return suite_ok
 
 if __name__ == "__main__":
     success = run_stress_suite()

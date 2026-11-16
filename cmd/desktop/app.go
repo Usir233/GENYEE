@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -11,6 +12,7 @@ import (
 
 // App holds Wails-bound state for the desktop shell.
 type App struct {
+	mu            sync.RWMutex
 	ctx           context.Context
 	setupToken    string
 	backendURL    string
@@ -29,9 +31,31 @@ func NewApp() *App {
 	}
 }
 
+func (a *App) getContext() context.Context {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.ctx
+}
+
+func (a *App) setBackendEndpoints(backendURL, apiLanBaseURL string, listenPublic bool) {
+	a.mu.Lock()
+	a.backendURL = backendURL
+	a.apiLanBaseURL = apiLanBaseURL
+	a.listenPublic = listenPublic
+	a.mu.Unlock()
+}
+
+func (a *App) getBackendEndpoints() (backendURL, apiLanBaseURL string, listenPublic bool) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.backendURL, a.apiLanBaseURL, a.listenPublic
+}
+
 // startup is called when the application starts.
 func (a *App) startup(ctx context.Context) {
+	a.mu.Lock()
 	a.ctx = ctx
+	a.mu.Unlock()
 }
 
 func (a *App) shutdown(ctx context.Context) {
@@ -45,10 +69,11 @@ func (a *App) shutdown(ctx context.Context) {
 // GetAPIBaseURL returns the local HTTP base URL for REST API calls (e.g. http://127.0.0.1:PORT/api/v1).
 // The desktop shell proxies the webview to this address; window.location.origin is not the API host.
 func (a *App) GetAPIBaseURL() string {
-	if a.backendURL == "" {
+	backendURL, _, _ := a.getBackendEndpoints()
+	if backendURL == "" {
 		return ""
 	}
-	return strings.TrimRight(a.backendURL, "/") + "/api/v1"
+	return strings.TrimRight(backendURL, "/") + "/api/v1"
 }
 
 // GetDesktopHTTPPortSetting returns the saved local API port (0 = random port each launch).
@@ -73,18 +98,20 @@ func (a *App) SetDesktopHTTPBindPublicSetting(v bool) error {
 
 // GetAPILanBaseURL returns a suggested base URL for other devices on the LAN (…/api/v1), or empty if not in bind-public mode or IP detection failed.
 func (a *App) GetAPILanBaseURL() string {
-	return a.apiLanBaseURL
+	_, apiLanBaseURL, _ := a.getBackendEndpoints()
+	return apiLanBaseURL
 }
 
 // GetDesktopListenPublicActive is true when this session’s API server is listening on all interfaces (runtime), not the saved preference.
 func (a *App) GetDesktopListenPublicActive() bool {
-	return a.listenPublic
+	_, _, listenPublic := a.getBackendEndpoints()
+	return listenPublic
 }
 
 // CheckForUpdates manually triggers the update check from the frontend.
 func (a *App) CheckForUpdates() {
-	if a.ctx != nil {
-		checkUpdate(a.ctx, desktopAboutVersion(), true, false)
+	if ctx := a.getContext(); ctx != nil {
+		checkUpdate(ctx, desktopAboutVersion(), true, false)
 	}
 }
 
@@ -94,8 +121,8 @@ func (a *App) AutoCheckForUpdates() {
 	if !isAutoUpdateEnabled() {
 		return
 	}
-	if a.ctx != nil {
-		checkUpdate(a.ctx, desktopAboutVersion(), false, true)
+	if ctx := a.getContext(); ctx != nil {
+		checkUpdate(ctx, desktopAboutVersion(), false, true)
 	}
 }
 
@@ -133,7 +160,11 @@ func (a *App) PickProjectDir() (string, error) {
 	}
 	defer a.pickingDir.Store(false)
 
-	dir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
+	ctx := a.getContext()
+	if ctx == nil {
+		return "", fmt.Errorf("desktop window context is not initialized")
+	}
+	dir, err := wailsruntime.OpenDirectoryDialog(ctx, wailsruntime.OpenDialogOptions{
 		Title:                "Select Project Directory",
 		CanCreateDirectories: true,
 	})

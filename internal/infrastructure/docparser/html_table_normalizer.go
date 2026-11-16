@@ -16,10 +16,6 @@ var (
 	// block, the form OCR/layout engines such as PaddleOCR-VL emit tables in.
 	htmlTableBlockPattern = regexp.MustCompile(`(?is)<table\b[^>]*>.*?</table>`)
 
-	// fencedCodeBlockPattern matches CommonMark fenced code blocks so HTML
-	// <table> examples inside them are left untouched.
-	fencedCodeBlockPattern = regexp.MustCompile("(?s)(?:```|~~~)[^\\n]*\\n.*?(?:```|~~~)")
-
 	// htmlSpanAttrPattern detects rowspan/colspan values greater than 1, which
 	// Markdown tables cannot represent; such tables keep their HTML form
 	// (attributes stripped) instead. Span values of 1 (and the invalid 0) do
@@ -66,14 +62,14 @@ func NormalizeHTMLTables(md string) string {
 			table.NewTablePlugin(),
 		),
 	)
-	fences := fencedCodeBlockPattern.FindAllStringIndex(md, -1)
+	fences := fencedCodeLiteralRanges(md)
 
 	var b strings.Builder
 	last := 0
 	for _, loc := range locs {
 		b.WriteString(md[last:loc[0]])
 		block := md[loc[0]:loc[1]]
-		if indexInsideSpans(loc[0], fences) {
+		if _, insideFence := codeLiteralRangeAt(fences, loc[0]); insideFence {
 			b.WriteString(block)
 			last = loc[1]
 			continue

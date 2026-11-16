@@ -12,21 +12,30 @@ type markdownImageTargetSpan struct {
 	TargetEnd   int
 }
 
+const maxMarkdownImageParenDepth = 32
+
 func scanMarkdownImageTargets(markdown string) []markdownImageTargetSpan {
 	var spans []markdownImageTargetSpan
+	cachedAltEnd := -2
 	for i := 0; i+1 < len(markdown); i++ {
 		if markdown[i] != '!' || markdown[i+1] != '[' || isEscaped(markdown, i) {
 			continue
 		}
 
-		altEnd := findMarkdownImageAltEnd(markdown, i+2)
-		if altEnd == -1 {
-			continue
+		if cachedAltEnd < i+2 {
+			cachedAltEnd = findMarkdownImageAltEnd(markdown, i+2)
 		}
+		if cachedAltEnd == -1 {
+			break
+		}
+		altEnd := cachedAltEnd
 
 		targetStart := altEnd + 2
-		targetEnd, ok := findMarkdownImageTargetEnd(markdown, targetStart)
+		targetEnd, ok, noCloseRemaining := findMarkdownImageTargetEnd(markdown, targetStart)
 		if !ok {
+			if noCloseRemaining {
+				break
+			}
 			i = altEnd
 			continue
 		}
@@ -75,10 +84,11 @@ func findMarkdownImageAltEnd(markdown string, start int) int {
 	return -1
 }
 
-func findMarkdownImageTargetEnd(markdown string, start int) (int, bool) {
+func findMarkdownImageTargetEnd(markdown string, start int) (end int, ok bool, noCloseRemaining bool) {
 	parenDepth := 1
 	inAngleDestination := false
 	seenNonSpace := false
+	sawCloseParen := false
 	var inQuote byte
 
 	for i := start; i < len(markdown); i++ {
@@ -97,10 +107,26 @@ func findMarkdownImageTargetEnd(markdown string, start int) (int, bool) {
 		}
 
 		if inAngleDestination {
+			// CommonMark §6.3: angle-bracket link destinations cannot contain
+			// line endings or unescaped '<'.
+			if ch == '\n' || ch == '\r' || ch == '<' {
+				return 0, false, false
+			}
 			if ch == '>' {
 				inAngleDestination = false
 			}
 			continue
+		}
+
+		// Blank lines cannot appear inside inline image targets or titles.
+		if ch == '\n' {
+			j := i + 1
+			for j < len(markdown) && (markdown[j] == ' ' || markdown[j] == '\t' || markdown[j] == '\r') {
+				j++
+			}
+			if j < len(markdown) && markdown[j] == '\n' {
+				return 0, false, false
+			}
 		}
 
 		if inQuote != 0 {
@@ -118,14 +144,18 @@ func findMarkdownImageTargetEnd(markdown string, start int) (int, bool) {
 		switch ch {
 		case '(':
 			parenDepth++
+			if parenDepth > maxMarkdownImageParenDepth {
+				return 0, false, false
+			}
 		case ')':
+			sawCloseParen = true
 			parenDepth--
 			if parenDepth == 0 {
-				return i, true
+				return i, true, false
 			}
 		}
 	}
-	return 0, false
+	return 0, false, !sawCloseParen && inQuote == 0 && !inAngleDestination
 }
 
 func splitMarkdownImageTarget(

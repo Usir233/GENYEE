@@ -8,6 +8,7 @@ import (
 	"mime"
 	"mime/multipart"
 	"net/http"
+	neturl "net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -101,7 +102,7 @@ func (c *PaddleOCRVLCloudReader) Read(ctx context.Context, req *types.ReadReques
 	return &types.ReadResult{
 		MarkdownContent: mdContent,
 		ImageRefs:       imageRefs,
-		SourceBlocks:    paddleOCRVLSourceBlocks(mdContent, layoutUnits, req.FileType),
+		SourceBlocks:    paddleOCRVLSourceBlocks(mdContent, layoutUnits, fileTypeOf(req)),
 	}, nil
 }
 
@@ -126,20 +127,13 @@ func (c *PaddleOCRVLCloudReader) submitJob(ctx context.Context, req *types.ReadR
 		return "", fmt.Errorf("marshal optionalPayload: %w", err)
 	}
 
-	fileName := req.FileName
-	if fileName == "" {
-		ext := strings.TrimPrefix(req.FileType, ".")
-		if ext == "" {
-			ext = "pdf"
-		}
-		fileName = "document." + ext
-	}
+	fileName := minerUUploadFileName(req.FileName, req.FileType)
 
 	var body bytes.Buffer
 	writer := multipart.NewWriter(&body)
 	_ = writer.WriteField("model", c.model)
 	_ = writer.WriteField("optionalPayload", string(optional))
-	part, err := writer.CreateFormFile("file", filepath.Base(fileName))
+	part, err := writer.CreateFormFile("file", fileName)
 	if err != nil {
 		return "", fmt.Errorf("create form file: %w", err)
 	}
@@ -177,7 +171,7 @@ func (c *PaddleOCRVLCloudReader) submitJob(ctx context.Context, req *types.ReadR
 		return "", fmt.Errorf("decode response: %w", err)
 	}
 	if result.Data.JobID == "" {
-		return "", fmt.Errorf("API returned no jobId: %s", string(respBody))
+		return "", fmt.Errorf("API returned no jobId: %s", rawResponsePreview(string(respBody)))
 	}
 
 	logger.Infof(context.Background(), "[PaddleOCR-VL Cloud] job submitted: jobId=%s", result.Data.JobID)
@@ -203,7 +197,7 @@ type paddleOCRVLCloudPollResponse struct {
 func (c *PaddleOCRVLCloudReader) pollJob(ctx context.Context, jobID string) (string, error) {
 	deadline := time.Now().Add(c.timeout)
 	pollCount := 0
-	url := c.baseURL + "/" + jobID
+	pollURL := c.baseURL + "/" + neturl.PathEscape(jobID)
 
 	for time.Now().Before(deadline) {
 		// Bail out promptly when the caller cancels (task cancelled / timed
@@ -215,7 +209,7 @@ func (c *PaddleOCRVLCloudReader) pollJob(ctx context.Context, jobID string) (str
 		}
 		pollCount++
 
-		httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, pollURL, nil)
 		if err != nil {
 			return "", fmt.Errorf("create poll request: %w", err)
 		}
@@ -341,13 +335,16 @@ func (c *PaddleOCRVLCloudReader) fetchResults(ctx context.Context, jsonlURL stri
 // downloadImages fetches each referenced image URL and builds ImageRef entries.
 func (c *PaddleOCRVLCloudReader) downloadImages(ctx context.Context, mdContent string, imagesURL map[string]string) ([]types.ImageRef, error) {
 	var refs []types.ImageRef
+	var totalBytes int64
+	maxImages := minerUMaxImageBytes()
+	extracted := extractImageRefsFromContent(mdContent)
 	client := utils.NewSSRFSafeHTTPClient(utils.SSRFSafeHTTPClientConfig{Timeout: 60 * time.Second, MaxRedirects: 5})
 
 	for ipath, u := range imagesURL {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		matchedRefs := mineruImageOriginalRefs(mdContent, ipath)
+		matchedRefs := matchExtractedRefsForPath(extracted, ipath)
 		if len(matchedRefs) == 0 {
 			continue
 		}
@@ -365,22 +362,33 @@ func (c *PaddleOCRVLCloudReader) downloadImages(ctx context.Context, mdContent s
 			logger.Errorf(context.Background(), "[PaddleOCR-VL Cloud] download image %s: %v", ipath, err)
 			continue
 		}
+		if resp.StatusCode != http.StatusOK {
+			preview := readErrorPreview(resp.Body)
+			resp.Body.Close()
+			logger.Errorf(context.Background(), "[PaddleOCR-VL Cloud] read image %s status=%d body=%s", ipath, resp.StatusCode, preview)
+			continue
+		}
 		// A per-page crop, so the remote-image cap is the right ceiling rather
 		// than the JSON one, and image_resolver.go already applies that same
 		// cap to the images it fetches.
 		imgBytes, err := readCapped(resp.Body, maxRemoteImageSize)
 		resp.Body.Close()
-		if err != nil || resp.StatusCode != http.StatusOK {
-			logger.Errorf(context.Background(), "[PaddleOCR-VL Cloud] read image %s status=%d err=%v", ipath, resp.StatusCode, err)
+		if err != nil {
+			logger.Errorf(context.Background(), "[PaddleOCR-VL Cloud] read image %s err=%v", ipath, err)
 			continue
 		}
+		if totalBytes+int64(len(imgBytes)) > maxImages {
+			return nil, fmt.Errorf("%w: PaddleOCR-VL Cloud images reached %d bytes and exceed limit %d bytes (%s)",
+				errResultPackageTooLarge, totalBytes+int64(len(imgBytes)), maxImages, mineruMaxImageBytesEnv)
+		}
+		totalBytes += int64(len(imgBytes))
 
 		ext := strings.TrimPrefix(filepath.Ext(ipath), ".")
 		if ext == "" {
 			ext = "png"
 		}
 		mimeType := mime.TypeByExtension("." + ext)
-		if mimeType == "" {
+		if !strings.HasPrefix(strings.ToLower(mimeType), "image/") {
 			mimeType = "image/png"
 		}
 

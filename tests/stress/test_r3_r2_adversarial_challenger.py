@@ -2,7 +2,7 @@
 r"""Adversarial stress and empirical challenge suite for Milestone M1 (R3 & R2).
 
 Empirically tests:
-1. Formula/weknora-lite.rb POSIX sed replacement logic under extreme paths:
+1. Formula/genyee-lite.rb POSIX sed replacement logic under extreme paths:
    - Spaces, pipes `|`, ampersands `&`, backslashes `\`, quotes, dollar signs,
      special punctuation, emojis, and exotic Unicode characters.
    - Atomicity, exact literal value verification, absence of tempfile leaks.
@@ -48,39 +48,49 @@ class TestFormulaPosixSedAdversarial(unittest.TestCase):
             raise FileNotFoundError(f"Example env not found: {ENV_EXAMPLE_PATH}")
 
     @classmethod
-    def _extract_ruby_heredoc(cls) -> str:
+    def _extract_ruby_heredoc(cls, pkgshare_path: str = "/mock/pkgshare") -> str:
         """Extract and evaluate the Ruby heredoc to get the exact generated shell script."""
         ruby_cmd = [
             "ruby", "-e",
-            f"""
-            code = File.read('{FORMULA_PATH}')
-            lines = code.lines
-            start_idx = lines.find_index {{ |l| l.include?("<<~SH") }}
-            end_idx = lines.find_index {{ |l| l.strip == "SH" }}
-            heredoc_body = lines[(start_idx + 1)...end_idx].join
-            pkgshare = "/mock/pkgshare"
-            libexec = "/mock/libexec"
-            puts eval("<<~SH\\n#{{heredoc_body}}SH\\n")
             """
+            code = File.read(ARGV[0])
+            lines = code.lines
+            start_idx = lines.find_index { |l| l.include?("<<~SH") }
+            end_idx = lines.find_index { |l| l.strip == "SH" }
+            heredoc_body = lines[(start_idx + 1)...end_idx].join
+            pkgshare = ARGV[1]
+            libexec = "/mock/libexec"
+            puts eval("<<~SH\\n#{heredoc_body}SH\\n")
+            """,
+            str(FORMULA_PATH),
+            pkgshare_path,
         ]
         res = subprocess.run(ruby_cmd, capture_output=True, text=True, check=True)
         return res.stdout
 
+    @classmethod
+    def _extract_env_init_block(cls, pkgshare_path: str) -> str:
+        """Extract the exact `if [ ! -f "$CONFIG_DIR/.env.lite" ]; then ... fi` block from Formula/genyee-lite.rb."""
+        full_script = cls._extract_ruby_heredoc(pkgshare_path)
+        m = re.search(
+            r'(if \[ ! -f "\$CONFIG_DIR/\.env\.lite" \]; then\n.*?\nfi)',
+            full_script,
+            flags=re.DOTALL,
+        )
+        if not m:
+            raise AssertionError("Failed to locate .env.lite initialization block in Formula/genyee-lite.rb")
+        return "set -e\n" + m.group(1) + "\n"
+
     def _run_isolated_sed_replacement(self, data_dir: str) -> tuple[int, str, str, Path]:
-        """Execute the exact POSIX sed replacement logic against a fresh .env.lite."""
+        """Execute Formula/genyee-lite.rb's actual POSIX sed initialization block."""
         tmp_dir = Path(tempfile.mkdtemp(prefix="sed_stress_"))
         config_dir = tmp_dir / "config"
+        pkgshare_dir = tmp_dir / "pkgshare"
         config_dir.mkdir(parents=True, exist_ok=True)
-        env_file = config_dir / ".env.lite"
-        shutil.copy(ENV_EXAMPLE_PATH, env_file)
+        pkgshare_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy(ENV_EXAMPLE_PATH, pkgshare_dir / ".env.lite.example")
 
-        bash_script = """
-set -e
-ESCAPED_DB_PATH=$(printf '%s\n' "$DATA_DIR/weknora.db" | sed -e 's/[\\\\&|]/\\\\&/g')
-ESCAPED_STORAGE_DIR=$(printf '%s\n' "$DATA_DIR/files" | sed -e 's/[\\\\&|]/\\\\&/g')
-sed "s|DB_PATH=.*|DB_PATH=$ESCAPED_DB_PATH|" "$CONFIG_DIR/.env.lite" > "$CONFIG_DIR/.env.lite.tmp" && mv "$CONFIG_DIR/.env.lite.tmp" "$CONFIG_DIR/.env.lite"
-sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "$CONFIG_DIR/.env.lite" > "$CONFIG_DIR/.env.lite.tmp" && mv "$CONFIG_DIR/.env.lite.tmp" "$CONFIG_DIR/.env.lite"
-"""
+        bash_script = self._extract_env_init_block(str(pkgshare_dir))
         env = os.environ.copy()
         env["CONFIG_DIR"] = str(config_dir)
         env["DATA_DIR"] = str(data_dir)
@@ -106,69 +116,69 @@ sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "
         """Stress-test POSIX sed replacement against extensive adversarial paths."""
         adversarial_cases = [
             # 1. Spaces
-            ("space_simple", "/tmp/path with spaces/weknora"),
-            ("space_multiple", "/tmp/path  with   multiple    spaces/weknora"),
-            ("space_padded", "/tmp/   leading and trailing spaces   /weknora"),
-            ("space_tabs", "/tmp/path\twith\ttabs/weknora"),
+            ("space_simple", "/tmp/path with spaces/genyee"),
+            ("space_multiple", "/tmp/path  with   multiple    spaces/genyee"),
+            ("space_padded", "/tmp/   leading and trailing spaces   /genyee"),
+            ("space_tabs", "/tmp/path\twith\ttabs/genyee"),
 
             # 2. Delimiter: Pipes |
-            ("pipe_single", "/tmp/pipe|in|path/weknora"),
-            ("pipe_multiple", "/tmp/pipe|path|with|many|pipes/weknora"),
-            ("pipe_consecutive", "/tmp/pipe|||consecutive||pipes/weknora"),
-            ("pipe_delimiter_lookalike", "/tmp/s|DB_PATH=|replaced|g/weknora"),
+            ("pipe_single", "/tmp/pipe|in|path/genyee"),
+            ("pipe_multiple", "/tmp/pipe|path|with|many|pipes/genyee"),
+            ("pipe_consecutive", "/tmp/pipe|||consecutive||pipes/genyee"),
+            ("pipe_delimiter_lookalike", "/tmp/s|DB_PATH=|replaced|g/genyee"),
 
             # 3. Delimiter / Match token: Ampersands &
-            ("ampersand_simple", "/tmp/rock & roll/weknora"),
-            ("ampersand_multiple", "/tmp/a & b & c & d & e/weknora"),
-            ("ampersand_consecutive", "/tmp/&&&triple&&ampersands/weknora"),
-            ("ampersand_numbered", "/tmp/foo&1&2&3/weknora"),
+            ("ampersand_simple", "/tmp/rock & roll/genyee"),
+            ("ampersand_multiple", "/tmp/a & b & c & d & e/genyee"),
+            ("ampersand_consecutive", "/tmp/&&&triple&&ampersands/genyee"),
+            ("ampersand_numbered", "/tmp/foo&1&2&3/genyee"),
 
             # 4. Escape characters: Backslashes \
-            ("backslash_simple", r"/tmp/win\style\path/weknora"),
-            ("backslash_multiple", r"/tmp/win\\style\\\\deep\\path/weknora"),
-            ("backslash_subst_digits", r"/tmp/path\1\2\3\4\5\6\7\8\9/weknora"),
-            ("backslash_c_escapes", r"/tmp/path\n\t\r\v\f\a\b/weknora"),
-            ("backslash_pipe", r"/tmp/win\|pipe/weknora"),
-            ("backslash_amp", r"/tmp/win\&amp/weknora"),
+            ("backslash_simple", r"/tmp/win\style\path/genyee"),
+            ("backslash_multiple", r"/tmp/win\\style\\\\deep\\path/genyee"),
+            ("backslash_subst_digits", r"/tmp/path\1\2\3\4\5\6\7\8\9/genyee"),
+            ("backslash_c_escapes", r"/tmp/path\n\t\r\v\f\a\b/genyee"),
+            ("backslash_pipe", r"/tmp/win\|pipe/genyee"),
+            ("backslash_amp", r"/tmp/win\&amp/genyee"),
 
             # 5. Quotes and metacharacters
-            ("quotes_single", "/tmp/it's a path's test/weknora"),
-            ("quotes_double", '/tmp/path "with" double quotes/weknora'),
-            ("quotes_backtick", "/tmp/path`whoami`test/weknora"),
-            ("dollar_var", "/tmp/path$with$dollar/weknora"),
-            ("dollar_brace", "/tmp/path${HOME}_and_${USER}/weknora"),
-            ("dollar_subshell", "/tmp/path$(id -u)_subshell/weknora"),
-            ("dollar_arithmetic", "/tmp/path$((1+1))_arith/weknora"),
-            ("semicolons", "/tmp/path;rm -rf /tmp/data;echo 1/weknora"),
-            ("redirections", "/tmp/path>out<in>>append/weknora"),
-            ("wildcards", "/tmp/path*with?glob[chars]/weknora"),
-            ("parentheses_braces", "/tmp/path(paren)[bracket]{brace}/weknora"),
-            ("special_ascii_punct", "/tmp/spec!@#%^~-=_+:,./weknora"),
+            ("quotes_single", "/tmp/it's a path's test/genyee"),
+            ("quotes_double", '/tmp/path "with" double quotes/genyee'),
+            ("quotes_backtick", "/tmp/path`whoami`test/genyee"),
+            ("dollar_var", "/tmp/path$with$dollar/genyee"),
+            ("dollar_brace", "/tmp/path${HOME}_and_${USER}/genyee"),
+            ("dollar_subshell", "/tmp/path$(id -u)_subshell/genyee"),
+            ("dollar_arithmetic", "/tmp/path$((1+1))_arith/genyee"),
+            ("semicolons", "/tmp/path;rm -rf /tmp/data;echo 1/genyee"),
+            ("redirections", "/tmp/path>out<in>>append/genyee"),
+            ("wildcards", "/tmp/path*with?glob[chars]/genyee"),
+            ("parentheses_braces", "/tmp/path(paren)[bracket]{brace}/genyee"),
+            ("special_ascii_punct", "/tmp/spec!@#%^~-=_+:,./genyee"),
 
             # 6. Unicode and Multi-byte Characters
-            ("unicode_zh_cn", "/tmp/数据中心/企业知识库_向量检索/weknora"),
-            ("unicode_zh_tw", "/tmp/繁體資料/知識庫系統/weknora"),
-            ("unicode_japanese", "/tmp/データ分析/ナレッジベース/ひらがな/weknora"),
-            ("unicode_korean", "/tmp/데이터베이스/한국어_경로/weknora"),
-            ("unicode_emoji", "/tmp/🚀/🔥_🤖_✨_🎉/weknora"),
-            ("unicode_european_accents", "/tmp/café/über/mañana/smörgåsbord/weknora"),
-            ("unicode_rtl_arabic", "/tmp/مسار_البيانات/قاعدة_المعرفة/weknora"),
-            ("unicode_rtl_hebrew", "/tmp/נתיב_נתונים/בסיס_ידע/weknora"),
-            ("unicode_cyrillic", "/tmp/хранилище_данных/база_знаний/weknora"),
-            ("unicode_greek", "/tmp/ελληνικά_δεδομένα/βάση_γνώσεων/weknora"),
-            ("unicode_math", "/tmp/∑_∏_∆_≈_≠_≤_≥_∞_√/weknora"),
+            ("unicode_zh_cn", "/tmp/数据中心/企业知识库_向量检索/genyee"),
+            ("unicode_zh_tw", "/tmp/繁體資料/知識庫系統/genyee"),
+            ("unicode_japanese", "/tmp/データ分析/ナレッジベース/ひらがな/genyee"),
+            ("unicode_korean", "/tmp/데이터베이스/한국어_경로/genyee"),
+            ("unicode_emoji", "/tmp/🚀/🔥_🤖_✨_🎉/genyee"),
+            ("unicode_european_accents", "/tmp/café/über/mañana/smörgåsbord/genyee"),
+            ("unicode_rtl_arabic", "/tmp/مسار_البيانات/قاعدة_المعرفة/genyee"),
+            ("unicode_rtl_hebrew", "/tmp/נתיב_נתונים/בסיס_ידע/genyee"),
+            ("unicode_cyrillic", "/tmp/хранилище_данных/база_знаний/genyee"),
+            ("unicode_greek", "/tmp/ελληνικά_δεδομένα/βάση_γνώσεων/genyee"),
+            ("unicode_math", "/tmp/∑_∏_∆_≈_≠_≤_≥_∞_√/genyee"),
 
             # 7. Extreme Combinations
-            ("ultra_combo_1", r"""/tmp/path with 'spaces' & "quotes" | pipes \ backslashes $dollars `ticks` !@#%^*()_+-=[]{};:,.<>?/weknora"""),
-            ("ultra_combo_2", r"""/tmp/🚀 中文 & 繁體 | 日本語 \1 \2 \\ || && $HOME `id` "quote" 'single' ñoñó/weknora"""),
+            ("ultra_combo_1", r"""/tmp/path with 'spaces' & "quotes" | pipes \ backslashes $dollars `ticks` !@#%^*()_+-=[]{};:,.<>?/genyee"""),
+            ("ultra_combo_2", r"""/tmp/🚀 中文 & 繁體 | 日本語 \1 \2 \\ || && $HOME `id` "quote" 'single' ñoñó/genyee"""),
             ("pipe_start_end", "|pipe_start_and_end|"),
             ("amp_start_end", "&amp_start_and_end&"),
             ("backslash_start_end", "\\backslash_start_and_end\\"),
             ("consecutive_mixed_escapes", r"\\\\||||&&&&\\\\||"),
 
             # 8. Boundary conditions
-            ("deep_nesting", "/tmp/" + "/".join([f"level_{i}" for i in range(25)]) + "/weknora"),
-            ("long_path", "/tmp/" + "a" * 512 + "/weknora"),
+            ("deep_nesting", "/tmp/" + "/".join([f"level_{i}" for i in range(25)]) + "/genyee"),
+            ("long_path", "/tmp/" + "a" * 512 + "/genyee"),
         ]
 
         for case_name, path_val in adversarial_cases:
@@ -185,7 +195,7 @@ sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "
                     self.assertEqual(tmp_files[0].name, ".env.lite")
 
                     content = env_file.read_text(encoding="utf-8")
-                    expected_db_path = f"DB_PATH={path_val}/weknora.db"
+                    expected_db_path = f"DB_PATH={path_val}/genyee.db"
                     expected_storage_dir = f"LOCAL_STORAGE_BASE_DIR={path_val}/files"
 
                     # Verify exact literal string presence
@@ -207,20 +217,16 @@ sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "
         tmp_dir = Path(tempfile.mkdtemp(prefix="stale_tmp_"))
         try:
             config_dir = tmp_dir / "config"
+            pkgshare_dir = tmp_dir / "pkgshare"
             config_dir.mkdir(parents=True, exist_ok=True)
+            pkgshare_dir.mkdir(parents=True, exist_ok=True)
             env_file = config_dir / ".env.lite"
             stale_tmp_file = config_dir / ".env.lite.tmp"
-            shutil.copy(ENV_EXAMPLE_PATH, env_file)
+            shutil.copy(ENV_EXAMPLE_PATH, pkgshare_dir / ".env.lite.example")
             stale_tmp_file.write_text("CORRUPTED_STALE_TEMP_CONTENT_FROM_PREVIOUS_CRASH\n", encoding="utf-8")
 
             data_dir = "/tmp/normal_data"
-            bash_script = """
-set -e
-ESCAPED_DB_PATH=$(printf '%s\n' "$DATA_DIR/weknora.db" | sed -e 's/[\\\\&|]/\\\\&/g')
-ESCAPED_STORAGE_DIR=$(printf '%s\n' "$DATA_DIR/files" | sed -e 's/[\\\\&|]/\\\\&/g')
-sed "s|DB_PATH=.*|DB_PATH=$ESCAPED_DB_PATH|" "$CONFIG_DIR/.env.lite" > "$CONFIG_DIR/.env.lite.tmp" && mv "$CONFIG_DIR/.env.lite.tmp" "$CONFIG_DIR/.env.lite"
-sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "$CONFIG_DIR/.env.lite" > "$CONFIG_DIR/.env.lite.tmp" && mv "$CONFIG_DIR/.env.lite.tmp" "$CONFIG_DIR/.env.lite"
-"""
+            bash_script = self._extract_env_init_block(str(pkgshare_dir))
             env = os.environ.copy()
             env["CONFIG_DIR"] = str(config_dir)
             env["DATA_DIR"] = data_dir
@@ -229,7 +235,7 @@ sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "
             self.assertEqual(proc.returncode, 0, f"Failed with stale temp file: {proc.stderr}")
             self.assertFalse(stale_tmp_file.exists(), "Stale temp file still exists after mv!")
             content = env_file.read_text(encoding="utf-8")
-            self.assertIn("DB_PATH=/tmp/normal_data/weknora.db", content)
+            self.assertIn("DB_PATH=/tmp/normal_data/genyee.db", content)
             self.assertNotIn("CORRUPTED_STALE_TEMP_CONTENT", content)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -239,21 +245,17 @@ sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "
         tmp_dir = Path(tempfile.mkdtemp(prefix="crlf_test_"))
         try:
             config_dir = tmp_dir / "config"
+            pkgshare_dir = tmp_dir / "pkgshare"
             config_dir.mkdir(parents=True, exist_ok=True)
+            pkgshare_dir.mkdir(parents=True, exist_ok=True)
             env_file = config_dir / ".env.lite"
 
             raw_example = ENV_EXAMPLE_PATH.read_text(encoding="utf-8")
             crlf_example = raw_example.replace("\n", "\r\n")
-            env_file.write_text(crlf_example, encoding="utf-8")
+            (pkgshare_dir / ".env.lite.example").write_text(crlf_example, encoding="utf-8")
 
             data_dir = "/tmp/crlf_data"
-            bash_script = """
-set -e
-ESCAPED_DB_PATH=$(printf '%s\n' "$DATA_DIR/weknora.db" | sed -e 's/[\\\\&|]/\\\\&/g')
-ESCAPED_STORAGE_DIR=$(printf '%s\n' "$DATA_DIR/files" | sed -e 's/[\\\\&|]/\\\\&/g')
-sed "s|DB_PATH=.*|DB_PATH=$ESCAPED_DB_PATH|" "$CONFIG_DIR/.env.lite" > "$CONFIG_DIR/.env.lite.tmp" && mv "$CONFIG_DIR/.env.lite.tmp" "$CONFIG_DIR/.env.lite"
-sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "$CONFIG_DIR/.env.lite" > "$CONFIG_DIR/.env.lite.tmp" && mv "$CONFIG_DIR/.env.lite.tmp" "$CONFIG_DIR/.env.lite"
-"""
+            bash_script = self._extract_env_init_block(str(pkgshare_dir))
             env = os.environ.copy()
             env["CONFIG_DIR"] = str(config_dir)
             env["DATA_DIR"] = data_dir
@@ -261,7 +263,7 @@ sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "
 
             self.assertEqual(proc.returncode, 0)
             content = env_file.read_text(encoding="utf-8")
-            self.assertIn("DB_PATH=/tmp/crlf_data/weknora.db", content)
+            self.assertIn("DB_PATH=/tmp/crlf_data/genyee.db", content)
             self.assertIn("LOCAL_STORAGE_BASE_DIR=/tmp/crlf_data/files", content)
         finally:
             shutil.rmtree(tmp_dir, ignore_errors=True)
@@ -271,26 +273,22 @@ sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "
         tmp_dir = Path(tempfile.mkdtemp(prefix="idempotent_test_"))
         try:
             config_dir = tmp_dir / "config"
+            pkgshare_dir = tmp_dir / "pkgshare"
             config_dir.mkdir(parents=True, exist_ok=True)
+            pkgshare_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copy(ENV_EXAMPLE_PATH, pkgshare_dir / ".env.lite.example")
             env_file = config_dir / ".env.lite"
 
             custom_content = "DB_PATH=/custom/pre-existing/db.sqlite\nLOCAL_STORAGE_BASE_DIR=/custom/storage\n"
             env_file.write_text(custom_content, encoding="utf-8")
 
-            # Run sed replacement logic with a different DATA_DIR
+            # Run Formula's extracted initialization block with a different DATA_DIR
             data_dir = "/tmp/new_data_dir"
-            bash_script = f"""
-CONFIG_DIR='{config_dir}'
-DATA_DIR='{data_dir}'
-if [ ! -f "$CONFIG_DIR/.env.lite" ]; then
-    cp '{ENV_EXAMPLE_PATH}' "$CONFIG_DIR/.env.lite"
-    ESCAPED_DB_PATH=$(printf '%s\\n' "$DATA_DIR/weknora.db" | sed -e 's/[\\\\&|]/\\\\&/g')
-    ESCAPED_STORAGE_DIR=$(printf '%s\\n' "$DATA_DIR/files" | sed -e 's/[\\\\&|]/\\\\&/g')
-    sed "s|DB_PATH=.*|DB_PATH=$ESCAPED_DB_PATH|" "$CONFIG_DIR/.env.lite" > "$CONFIG_DIR/.env.lite.tmp" && mv "$CONFIG_DIR/.env.lite.tmp" "$CONFIG_DIR/.env.lite"
-    sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=$ESCAPED_STORAGE_DIR|" "$CONFIG_DIR/.env.lite" > "$CONFIG_DIR/.env.lite.tmp" && mv "$CONFIG_DIR/.env.lite.tmp" "$CONFIG_DIR/.env.lite"
-fi
-"""
-            proc = subprocess.run(["bash", "-c", bash_script], capture_output=True, text=True)
+            bash_script = self._extract_env_init_block(str(pkgshare_dir))
+            env = os.environ.copy()
+            env["CONFIG_DIR"] = str(config_dir)
+            env["DATA_DIR"] = data_dir
+            proc = subprocess.run(["bash", "-c", bash_script], env=env, capture_output=True, text=True)
             self.assertEqual(proc.returncode, 0)
             self.assertEqual(env_file.read_text(encoding="utf-8"), custom_content)
         finally:

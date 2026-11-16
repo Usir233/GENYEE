@@ -70,7 +70,7 @@ func (b *SimpleFormatReader) Read(ctx context.Context, req *types.ReadRequest) (
 		}
 		return &types.ReadResult{MarkdownContent: md}, nil
 	case ft == "json":
-		md, err := jsonToMarkdown(req.FileContent)
+		md, err := jsonToMarkdownContext(ctx, req.FileContent, maxJSONMarkdownBytes)
 		if err != nil {
 			return nil, fmt.Errorf("json conversion failed: %w", err)
 		}
