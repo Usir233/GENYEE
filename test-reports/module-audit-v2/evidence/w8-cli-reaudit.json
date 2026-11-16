@@ -1,0 +1,837 @@
+{
+  "wave": "W8",
+  "slice": "w8-cli-reaudit",
+  "units": [
+    {
+      "unit_id": "cli",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "file_count": 1,
+      "tracked_files": [
+        "cli/main.go"
+      ],
+      "invariants_checked": [
+        "cli/main.go installs signal.NotifyContext for SIGINT/SIGTERM, flushes terminal error envelopes cleanly, maps cancelled contexts to Unix exit code 130, and never echoes raw credentials or host paths.",
+        "Zero legacy brand tokens or hardcoded secrets exist in the binary entry point."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/acceptance",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "file_count": 1,
+      "tracked_files": [
+        "cli/acceptance/doc.go"
+      ],
+      "invariants_checked": [
+        "cli/acceptance/doc.go documents the contract vs acceptance_e2e test tier split accurately without executable side effects or stale brand references."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/api",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 6,
+      "tracked_files": [
+        "cli/cmd/api/api.go",
+        "cli/cmd/api/api_dry_run_test.go",
+        "cli/cmd/api/api_raw_integer_precision_test.go",
+        "cli/cmd/api/api_test.go",
+        "cli/cmd/api/paginate_text_test.go",
+        "cli/cmd/api/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "Raw API passthrough rejects protocol-relative paths (//host), non-slash-prefixed paths, fragments (#), backslashes, dot traversal segments, and percent-encoded path separators/traversals (%2e%2e, %2f, %5c, %00) with input.invalid_argument before --dry-run, exit-10 confirmation, or network dispatch.",
+        "HTTP method tokens are validated per RFC 9110 before --dry-run and confirmation gates; DELETE is destructive-gated and PUT/PATCH are write-gated unless -y is supplied.",
+        "Request body reads (--input file/stdin) are bounded to 16 MiB, response bodies and --paginate accumulation are bounded to 64 MiB and 1000 pages, non-2xx body snippets are truncated and terminal-sanitized, and -F/--field NaN/Inf tokens serialize safely as strings instead of crashing json.Marshal."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-API-001",
+          "severity": "P1",
+          "file": "cli/cmd/api/api.go:87-149,193-217,278-282,350-500",
+          "summary": "genyee api allowed protocol-relative //host URLs, dot/percent-encoded traversal paths, and invalid HTTP method tokens through --dry-run and exit-10 confirmation (misclassifying SDK Raw rejections as retryable network.error), read --input and HTTP responses without size or page bounds, and failed json.Marshal on -F NaN/Inf.",
+          "regression_test": "TestW8_API_RejectsTraversalProtocolRelativeBadMethodAndNaNField",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/chat",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 3,
+      "tracked_files": [
+        "cli/cmd/chat/chat.go",
+        "cli/cmd/chat/chat_test.go",
+        "cli/cmd/chat/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "chat validates resolved --kb and optional --session IDs via cmdutil.ValidateResourceID before opening sessions or SSE streams.",
+        "Auto-created sessions guard against nil/empty CreateSession responses (server.session_create_failed) and terminal-sanitize session IDs written to stderr notices.",
+        "Buffered JSON and live text modes surface terminal SSE error frames (projector.TerminalError) as typed stream errors rather than ok=true, and JSON mode caps buffered events/bytes (8192 events / 16 MiB)."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-CHAT-001",
+          "severity": "P1",
+          "file": "cli/cmd/chat/chat.go:100-185,250-325",
+          "summary": "genyee chat did not validate --session/KB IDs via ValidateResourceID, panicked on nil CreateSession responses, lacked a buffered event/byte cap in JSON mode, and ignored terminal SSE error frames when transport returned nil.",
+          "regression_test": "TestW8_Chat_ValidatesIDsNilSessionAndTerminalError",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/chunk",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 9,
+      "tracked_files": [
+        "cli/cmd/chunk/chunk.go",
+        "cli/cmd/chunk/delete.go",
+        "cli/cmd/chunk/delete_test.go",
+        "cli/cmd/chunk/list.go",
+        "cli/cmd/chunk/list_test.go",
+        "cli/cmd/chunk/list_truncation_test.go",
+        "cli/cmd/chunk/view.go",
+        "cli/cmd/chunk/view_test.go",
+        "cli/cmd/chunk/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "chunk delete, chunk list, and chunk view validate <chunk-id> and --doc resource IDs via cmdutil.ValidateResourceID before --dry-run, exit-10 confirmation, or SDK client construction.",
+        "chunk delete enforces exit-10 confirmation before constructing the SDK client so unapproved destructive calls fail with input.confirmation_required even without active credentials.",
+        "chunk list bounds --all-pages pagination, chunk view guards against nil SDK responses, and human text renderers sanitize untrusted chunk metadata and content against ANSI/OSC 52 terminal injection."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-CHUNK-001",
+          "severity": "P1",
+          "file": "cli/cmd/chunk/delete.go:85-175, cli/cmd/chunk/list.go:126-220, cli/cmd/chunk/view.go:70-170",
+          "summary": "chunk subcommands omitted ValidateResourceID on <chunk-id> and --doc, called f.Client() before ConfirmDestructive on chunk delete, panicked on nil GetChunkByIDOnly responses, lacked an --all-pages safety bound, and wrote raw chunk content with potential OSC 52 sequences to stdout.",
+          "regression_test": "TestW8_Chunk_ValidatesIDsConfirmationOrderNilViewAndSanitizesText",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/config",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 4,
+      "tracked_files": [
+        "cli/cmd/config/config.go",
+        "cli/cmd/config/view.go",
+        "cli/cmd/config/view_test.go",
+        "cli/cmd/config/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "config view inspects the 4-level profile/KB resolution chain purely locally without network calls or secret store reads.",
+        "URL userinfo credentials embedded in GENYEE_HOST or profile host strings (https://user:pass@host) are stripped before emitting JSON or text output, and text cells sanitize terminal escapes via format.DashIfEmpty."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-CFGVIEW-001",
+          "severity": "P2",
+          "file": "cli/cmd/config/view.go:124-146,247-259",
+          "summary": "config view echoed embedded URL userinfo credentials (user:password@host) from GENYEE_HOST or profile host settings in plaintext JSON and text output.",
+          "regression_test": "TestW8_ConfigView_RedactsHostUserInfoCredentials",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/kb",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 25,
+      "tracked_files": [
+        "cli/cmd/kb/check.go",
+        "cli/cmd/kb/check_test.go",
+        "cli/cmd/kb/config.go",
+        "cli/cmd/kb/config_set.go",
+        "cli/cmd/kb/config_set_test.go",
+        "cli/cmd/kb/config_test.go",
+        "cli/cmd/kb/create.go",
+        "cli/cmd/kb/create_dry_run_test.go",
+        "cli/cmd/kb/create_test.go",
+        "cli/cmd/kb/delete.go",
+        "cli/cmd/kb/delete_dry_run_test.go",
+        "cli/cmd/kb/delete_test.go",
+        "cli/cmd/kb/edit.go",
+        "cli/cmd/kb/edit_dry_run_test.go",
+        "cli/cmd/kb/edit_test.go",
+        "cli/cmd/kb/kb.go",
+        "cli/cmd/kb/list.go",
+        "cli/cmd/kb/list_test.go",
+        "cli/cmd/kb/pin.go",
+        "cli/cmd/kb/pin_test.go",
+        "cli/cmd/kb/status.go",
+        "cli/cmd/kb/status_test.go",
+        "cli/cmd/kb/view.go",
+        "cli/cmd/kb/view_test.go",
+        "cli/cmd/kb/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "All ID-addressed kb subcommands (view, update, delete, pin, unpin, status, check, config, config set) validate <kb-id> via cmdutil.ValidateResourceID before --dry-run, exit-10 confirmation, or SDK client construction.",
+        "kb delete, kb update, and kb config set enforce exit-10 confirmation before f.Client(), and kb update rejects empty/whitespace-only --name values across --dry-run and live execution.",
+        "kb check/status/view/create/pin guard against nil SDK responses, kb check bounds failed-doc pagination and wraps errors via cmdutil.WrapHTTP, and all human text outputs sanitize untrusted server fields."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-KB-001",
+          "severity": "P1",
+          "file": "cli/cmd/kb/view.go:50-130, cli/cmd/kb/edit.go:77-180, cli/cmd/kb/delete.go:62-120, cli/cmd/kb/pin.go:57-145, cli/cmd/kb/status.go:64-130, cli/cmd/kb/check.go:67-165, cli/cmd/kb/config.go:42-115, cli/cmd/kb/config_set.go:58-170",
+          "summary": "kb subcommands lacked ValidateResourceID on <kb-id> (allowing traversal strings into --dry-run, retry_argv, and reachable:false probes), ran f.Client() before confirmation gates, accepted blank --name on kb update, and panicked on nil KB responses in kb check/view/create/pin.",
+          "regression_test": "TestW8_KB_ValidatesResourceIDsConfirmOrderAndNilResponses",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/link",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 6,
+      "tracked_files": [
+        "cli/cmd/link/dryrun_validation_test.go",
+        "cli/cmd/link/link.go",
+        "cli/cmd/link/link_test.go",
+        "cli/cmd/link/unlink.go",
+        "cli/cmd/link/unlink_test.go",
+        "cli/cmd/link/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "genyee link validates the resolved profile name via cmdutil.ValidateProfileName and verifies the profile exists in config.Profiles (local.profile_not_found) before writing .genyee/project.yaml.",
+        "Resolved KB IDs are validated via cmdutil.ValidateResourceID, interactive KB prompts and text outputs sanitize untrusted KB names/IDs, and genyee unlink safely delegates symlink-guarded removal to projectlink."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-LINK-001",
+          "severity": "P2",
+          "file": "cli/cmd/link/link.go:146-248",
+          "summary": "genyee link did not validate CurrentProfile syntax or verify profile existence in config.Profiles when --kb was a UUID, allowing --profile <nonexistent> or corrupt config to write an unusable .genyee/project.yaml.",
+          "regression_test": "TestW8_Link_RejectsNonexistentOrUnsafeProfile",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/mcp",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "file_count": 2,
+      "tracked_files": [
+        "cli/cmd/mcp/mcp.go",
+        "cli/cmd/mcp/serve.go"
+      ],
+      "invariants_checked": [
+        "genyee mcp serve lazily constructs the SDK client on RunE, suppresses stdout log pollution over the JSON-RPC stdio transport, and delegates all 10 tool handlers to cli/internal/mcp."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/message",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 8,
+      "tracked_files": [
+        "cli/cmd/message/delete.go",
+        "cli/cmd/message/delete_test.go",
+        "cli/cmd/message/list.go",
+        "cli/cmd/message/list_test.go",
+        "cli/cmd/message/message.go",
+        "cli/cmd/message/search.go",
+        "cli/cmd/message/search_test.go",
+        "cli/cmd/message/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "message delete, message list, and message search validate <message-id> and --session resource IDs via cmdutil.ValidateResourceID before --dry-run, exit-10 confirmation, or SDK client construction.",
+        "message delete enforces exit-10 confirmation before f.Client(), message list validates --before RFC3339 timestamps before f.Client(), and message search rejects blank queries, filters nil group items, and sanitizes text table cells."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-MSG-001",
+          "severity": "P1",
+          "file": "cli/cmd/message/delete.go:72-125, cli/cmd/message/list.go:85-138, cli/cmd/message/search.go:88-153",
+          "summary": "message subcommands omitted ValidateResourceID on <message-id> and --session, called f.Client() before ConfirmDestructive on delete and before --before parsing on list, and dereferenced nil items in message search.",
+          "regression_test": "TestW8_Message_ValidatesIDsConfirmOrderBeforeFlagAndNilSearchItems",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/model",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 12,
+      "tracked_files": [
+        "cli/cmd/model/create.go",
+        "cli/cmd/model/create_test.go",
+        "cli/cmd/model/delete.go",
+        "cli/cmd/model/delete_test.go",
+        "cli/cmd/model/list.go",
+        "cli/cmd/model/list_test.go",
+        "cli/cmd/model/model.go",
+        "cli/cmd/model/update.go",
+        "cli/cmd/model/update_test.go",
+        "cli/cmd/model/view.go",
+        "cli/cmd/model/view_test.go",
+        "cli/cmd/model/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "--api-key-stdin reads are bounded to 16 KiB and reject embedded CR/LF or control characters with input.invalid_argument across model create and model update.",
+        "model view, update, and delete validate <model-id> via ValidateResourceID; model create and update validate --base-url via ValidateHTTPURL and reject negative --dimension; model list validates --type/--source enums before f.Client(); model delete confirms before f.Client().",
+        "Provider secrets (api_key, app_secret) in Model.Parameters are scrubbed before emitting JSON or text output across create, update, view, and list."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-MODEL-001",
+          "severity": "P1",
+          "file": "cli/cmd/model/model.go:45-60, cli/cmd/model/create.go:145-160,236-305,380-405, cli/cmd/model/update.go:64-90,145-240, cli/cmd/model/delete.go:41-90, cli/cmd/model/view.go:40-95, cli/cmd/model/list.go:100-190",
+          "summary": "model create/update read --api-key-stdin with unbounded io.ReadAll and accepted multiline/control characters; model subcommands lacked preflight ID/base-url/dimension/enum checks before dry-run/Client() and did not scrub api_key/app_secret from returned Model.Parameters.",
+          "regression_test": "TestW8_Model_CapsStdinValidatesIDsBaseURLAndScrubsSecrets",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/search",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 11,
+      "tracked_files": [
+        "cli/cmd/search/chunks.go",
+        "cli/cmd/search/chunks_test.go",
+        "cli/cmd/search/docs.go",
+        "cli/cmd/search/docs_test.go",
+        "cli/cmd/search/kb.go",
+        "cli/cmd/search/kb_test.go",
+        "cli/cmd/search/search.go",
+        "cli/cmd/search/search_test.go",
+        "cli/cmd/search/sessions.go",
+        "cli/cmd/search/sessions_test.go",
+        "cli/cmd/search/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "search chunks validates --vector-threshold and --keyword-threshold for NaN, Inf, and [0, 1] bounds as input.invalid_argument, validates resolved KB IDs, filters nil SearchResult pointers, and strips ANSI/OSC 52 escape sequences in text rendering.",
+        "search docs and search sessions validate --page-size before resolving KBs or constructing the SDK client, enforce a 10,000-page safety cap on --all-pages loops, and sanitize human table output."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-SEARCH-001",
+          "severity": "P1",
+          "file": "cli/cmd/search/chunks.go:123-220, cli/cmd/search/docs.go:90-200, cli/cmd/search/sessions.go:78-175, cli/cmd/search/kb.go:115-120",
+          "summary": "search chunks accepted NaN/Inf/out-of-range similarity thresholds (failing json.Marshal as retryable network.error) and rendered raw chunk content without nil or OSC 52 guards; search docs/sessions checked --page-size after f.Client() and had unbounded pagination loops.",
+          "regression_test": "TestW8_Search_ValidatesThresholdsPageSizeBeforeClientAndSanitizesChunks",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/session",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 18,
+      "tracked_files": [
+        "cli/cmd/session/ask.go",
+        "cli/cmd/session/ask_test.go",
+        "cli/cmd/session/delete.go",
+        "cli/cmd/session/delete_test.go",
+        "cli/cmd/session/list.go",
+        "cli/cmd/session/list_filter_limit_test.go",
+        "cli/cmd/session/list_test.go",
+        "cli/cmd/session/resume.go",
+        "cli/cmd/session/resume_test.go",
+        "cli/cmd/session/session.go",
+        "cli/cmd/session/stop.go",
+        "cli/cmd/session/stop_test.go",
+        "cli/cmd/session/tool_approval.go",
+        "cli/cmd/session/tool_approval_retry_argv_test.go",
+        "cli/cmd/session/tool_approval_test.go",
+        "cli/cmd/session/view.go",
+        "cli/cmd/session/view_test.go",
+        "cli/cmd/session/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "session ask, delete, resume, stop, view, and tool-approval resolve validate session/agent/message/pending IDs via cmdutil.ValidateResourceID before --dry-run, NDJSON init emission, exit-10 confirmation, or f.Client().",
+        "session delete and session tool-approval resolve enforce exit-10 confirmation before f.Client(); session resume leaves stdout completely empty when rejecting invalid IDs.",
+        "session list validates --since before f.Client() and rejects NaNd, Infd, non-positive, and >36500d durations that would overflow time.Duration; session ask guards nil CreateSession responses, caps buffered events/bytes, and surfaces terminal SSE error frames."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-SESSION-001",
+          "severity": "P1",
+          "file": "cli/cmd/session/ask.go:90-290, cli/cmd/session/delete.go:70-155, cli/cmd/session/list.go:92-250, cli/cmd/session/resume.go:97-160, cli/cmd/session/stop.go:60-125, cli/cmd/session/tool_approval.go:90-235, cli/cmd/session/view.go:76-195",
+          "summary": "session subcommands lacked ValidateResourceID preflight (allowing session resume to write an init frame before failing and destructive gates to run after f.Client()), parseSinceDuration overflowed int64 on large/NaN/Inf <N>d values, and session ask lacked nil-session and terminal-error guards.",
+          "regression_test": "TestW8_Session_ValidatesIDsSinceOverflowConfirmOrderAndResumeCleanStdout",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/skills",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 3,
+      "tracked_files": [
+        "cli/cmd/skills/skills.go",
+        "cli/cmd/skills/skills_test.go",
+        "cli/cmd/skills/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "skills install confines embedded relative paths under the target directory, verifies every subdirectory and target file via os.Lstat to reject symlinks (including dangling symlinks without --force and symlinked files with --force), and writes skill files atomically via temp file + 0644 chmod + rename.",
+        "resolveDir rejects whitespace-only --dir values, expands ~, ~/, and ~\\ prefixes consistently, and initializes installed as an empty slice [] rather than null when all files are skipped."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-SKILLS-001",
+          "severity": "P1",
+          "file": "cli/cmd/skills/skills.go:156-295",
+          "summary": "writeSkills used os.Stat (treating dangling symlinks as non-existent when !force) followed by os.MkdirAll and os.WriteFile, allowing dangling or --force symlinks and symlinked subdirectories to overwrite or create arbitrary files outside --dir.",
+          "regression_test": "TestW8_SkillsInstall_RejectsDanglingSymlinkAndSymlinkSubdir",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)",
+        "bash cli/scripts/check-skill-wire-vocab.sh (exit 0)",
+        "bash cli/scripts/check-secret-tokens.sh (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/build",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "file_count": 2,
+      "tracked_files": [
+        "cli/internal/build/build.go",
+        "cli/internal/build/build_test.go"
+      ],
+      "invariants_checked": [
+        "Build metadata defaults (Version, Commit, Date) are pure ldflags-overridable string vars with deterministic UserAgent formatting and zero external I/O."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/compat",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 7,
+      "tracked_files": [
+        "cli/internal/compat/cache.go",
+        "cli/internal/compat/cache_test.go",
+        "cli/internal/compat/compat.go",
+        "cli/internal/compat/compat_test.go",
+        "cli/internal/compat/version_check.go",
+        "cli/internal/compat/version_check_test.go",
+        "cli/internal/compat/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "Probe guards against (nil, nil) GetSystemInfo responses without panicking; LoadCache reads server-info.yaml via symlink- and size-guarded xdg.ReadSecureFile (64 KiB cap) and rejects future-dated ProbedAt timestamps as stale.",
+        "Compat rejects signed/negative semver segments as unparseable fail-open OK and sanitizes untrusted serverVersion/cliVersion strings before interpolating human hint messages."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-COMPAT-001",
+          "severity": "P2",
+          "file": "cli/internal/compat/version_check.go:30-42, cli/internal/compat/cache.go:14-46, cli/internal/compat/compat.go:47-95",
+          "summary": "compat.Probe panicked on nil SystemInfo responses, LoadCache used unbounded symlink-following os.ReadFile and treated future-dated ProbedAt timestamps as fresh forever, and Compat accepted negative semver numbers and interpolated unsanitized server versions into hints.",
+          "regression_test": "TestW8_Probe_NilResponseDoesNotPanic",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/config",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 3,
+      "tracked_files": [
+        "cli/internal/config/config.go",
+        "cli/internal/config/config_test.go",
+        "cli/internal/config/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "config.Load reads $XDG_CONFIG_HOME/genyee/config.yaml via xdg.ReadSecureFile (1 MiB cap, Lstat symlink/non-regular rejection on parent dir and file, TOCTOU SameFile verification) while preserving zero-value Config on os.ErrNotExist.",
+        "config.Save persists YAML atomically with 0600 file permissions and 0700 directory permissions via xdg.WriteAtomicYAML."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-CONFIG-001",
+          "severity": "P1",
+          "file": "cli/internal/config/config.go:52-75",
+          "summary": "config.Load used raw os.ReadFile without symlink checks, regular-file verification, or size bounds, allowing symlinked config.yaml/genyee dirs or named pipes to leak external files or block CLI startup.",
+          "regression_test": "TestW8_Load_RejectsSymlinkAndOversizedConfig",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/format",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 10,
+      "tracked_files": [
+        "cli/internal/format/bare.go",
+        "cli/internal/format/bare_test.go",
+        "cli/internal/format/dash.go",
+        "cli/internal/format/filter.go",
+        "cli/internal/format/filter_test.go",
+        "cli/internal/format/ndjson.go",
+        "cli/internal/format/ndjson_test.go",
+        "cli/internal/format/references.go",
+        "cli/internal/format/references_test.go",
+        "cli/internal/format/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "DashIfEmpty strips ANSI/OSC/C0/C1/Bidi terminal control sequences via text.SanitizeInline and returns '-' when an input consists solely of stripped escape codes.",
+        "WriteJSON, WriteJSONFiltered (field filters), and writeJQ disable HTML escaping (<, >, &) consistently and terminate JSON lines with '\\n'."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-FORMAT-001",
+          "severity": "P2",
+          "file": "cli/internal/format/dash.go:8-14, cli/internal/format/filter.go:14-48,92-99",
+          "summary": "DashIfEmpty returned unsanitized strings containing terminal escape sequences to human table renderers, and WriteJSONFiltered/writeJQ used json.Marshal (HTML-escaping <, >, & and omitting trailing newline on field-filtered payloads).",
+          "regression_test": "TestW8_DashIfEmpty_SanitizesTerminalEscapes",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/iostreams",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "file_count": 2,
+      "tracked_files": [
+        "cli/internal/iostreams/iostreams.go",
+        "cli/internal/iostreams/iostreams_test.go"
+      ],
+      "invariants_checked": [
+        "IOStreams encapsulates In/Out/Err writers and TTY capability flags cleanly with deterministic SetForTest / SetForTestWithTTY test isolation helpers."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/mcp",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 9,
+      "tracked_files": [
+        "cli/internal/mcp/download_bytes_test.go",
+        "cli/internal/mcp/server.go",
+        "cli/internal/mcp/server_test.go",
+        "cli/internal/mcp/skill_tool_parity_test.go",
+        "cli/internal/mcp/tools.go",
+        "cli/internal/mcp/tools_error_test.go",
+        "cli/internal/mcp/tools_security_test.go",
+        "cli/internal/mcp/tools_test.go",
+        "cli/internal/mcp/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "toolErrorResult redacts Bearer tokens, gy_* API keys, sk-* provider keys, and URL userinfo credentials from upstream error messages and hints before returning MCP CallToolResult payloads.",
+        "chat and session_ask guard against nil/empty CreateSession responses, enforce buffered event/payload caps (4096 events / 4 MiB) in long-lived mcp serve processes, and fail when SSE emits a terminal error frame even if transport returns nil.",
+        "doc_list, search_chunks, and chunk_list reject negative page/page_size/limit values, out-of-[0,1] or NaN/Inf similarity thresholds, invalid doc parse statuses, and inverted start_time > end_time windows."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-MCP-001",
+          "severity": "P1",
+          "file": "cli/internal/mcp/tools.go:25-82,295-350,490-515,570-620,710-760,800-820",
+          "summary": "MCP tools leaked raw Bearer/gy_/sk- tokens in error text, panicked on nil CreateSession responses, buffered unbounded SSE events in chat/session_ask, ignored terminal error frames when streamErr==nil, and accepted negative pagination, invalid statuses, and out-of-range thresholds.",
+          "regression_test": "TestW8_MCP_BoundsValidationTerminalErrorAndRedaction",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/output",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "file_count": 6,
+      "tracked_files": [
+        "cli/internal/output/batch.go",
+        "cli/internal/output/batch_test.go",
+        "cli/internal/output/envelope.go",
+        "cli/internal/output/envelope_test.go",
+        "cli/internal/output/ndjson_stream.go",
+        "cli/internal/output/ndjson_stream_test.go"
+      ],
+      "invariants_checked": [
+        "Envelope, BatchResult, and NDJSON stream writers disable HTML escaping, enforce bare-data vs envelope contracts deterministically, and never mutate or execute untrusted strings."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/projectlink",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 3,
+      "tracked_files": [
+        "cli/internal/projectlink/projectlink.go",
+        "cli/internal/projectlink/projectlink_test.go",
+        "cli/internal/projectlink/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "Discover walks at most 64 parent directories and uses os.Lstat on both .genyee and .genyee/project.yaml so symlinked directories, symlinked files, and FIFOs/devices are never treated as project links.",
+        "Load uses xdg.ReadSecureFile (64 KiB cap), Save uses symlink-safe 0600 xdg.WriteAtomicYAML, and Remove verifies via os.Lstat that neither .genyee nor project.yaml is a symlink before unlinking."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-PROJLINK-001",
+          "severity": "P1",
+          "file": "cli/internal/projectlink/projectlink.go:36-112",
+          "summary": "projectlink.Discover/Load/Remove followed symlinked .genyee directories and project.yaml files (allowing malicious repositories to read or unlink external files on `genyee unlink` or hang on FIFOs).",
+          "regression_test": "TestW8_ProjectLink_RejectsSymlinkDiscoverLoadAndRemove",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/prompt",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "file_count": 3,
+      "tracked_files": [
+        "cli/internal/prompt/prompt.go",
+        "cli/internal/prompt/prompt_test.go",
+        "cli/internal/prompt/tty.go"
+      ],
+      "invariants_checked": [
+        "TTYPrompter bounds line reads via bufio.Scanner and treats EOF as declined confirmation; AgentPrompter deterministically fails interactive prompts in non-TTY contexts."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/sse",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 7,
+      "tracked_files": [
+        "cli/internal/sse/accumulator.go",
+        "cli/internal/sse/accumulator_test.go",
+        "cli/internal/sse/agent_accumulator.go",
+        "cli/internal/sse/agent_accumulator_test.go",
+        "cli/internal/sse/projector.go",
+        "cli/internal/sse/projector_test.go",
+        "cli/internal/sse/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "TextRenderer runs a stateful streaming ANSI/OSC/DCS/CSI/C0/C1/Bidi sanitizer across chunk boundaries so split OSC 52 clipboard-hijack or title-spoof sequences are stripped completely.",
+        "Projector records terminal error frames (TerminalError) alongside lifecycle Done state, and Accumulator / AgentAccumulator bound buffered answer/thinking bytes (16 MiB) and tool events (4096)."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-SSE-001",
+          "severity": "P1",
+          "file": "cli/internal/sse/accumulator.go:18-75, cli/internal/sse/agent_accumulator.go:54-85, cli/internal/sse/projector.go:35-410",
+          "summary": "sse.TextRenderer wrote raw SSE chunks and reference IDs to terminals without stripping split OSC 52/ANSI escape sequences, Projector discarded terminal error frame state, and Accumulator/AgentAccumulator grew without memory bounds.",
+          "regression_test": "TestW8_TextRenderer_StripsSplitOSC52AndControlSequences",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/testutil",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "file_count": 2,
+      "tracked_files": [
+        "cli/internal/testutil/prompter.go",
+        "cli/internal/testutil/xdg.go"
+      ],
+      "invariants_checked": [
+        "Test-only prompter and XDG temp-dir helpers isolate XDG_CONFIG_HOME / XDG_CACHE_HOME / XDG_DATA_HOME cleanly via t.TempDir() without production side effects."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/text",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 14,
+      "tracked_files": [
+        "cli/internal/text/displayname.go",
+        "cli/internal/text/match.go",
+        "cli/internal/text/oneline.go",
+        "cli/internal/text/oneline_test.go",
+        "cli/internal/text/pluralize.go",
+        "cli/internal/text/pluralize_test.go",
+        "cli/internal/text/sanitize.go",
+        "cli/internal/text/timeago.go",
+        "cli/internal/text/timeago_string.go",
+        "cli/internal/text/timeago_string_test.go",
+        "cli/internal/text/timeago_test.go",
+        "cli/internal/text/truncate.go",
+        "cli/internal/text/truncate_test.go",
+        "cli/internal/text/w8_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "SanitizeTerminal and SanitizeInline strip CSI, OSC (including OSC 52 payloads), DCS/SOS/PM/APC, 2-byte/nF escapes, C0/DEL/C1 controls, bare CR line-overwrite spoofing, and Unicode Bidi overrides while preserving valid UTF-8 and display-width truncation in Truncate, OneLine, KnowledgeDisplayName, and FuzzyAgoStr.",
+        "FuzzyAgo handles timestamps >292 years in the past or future via float64 Unix-second fallback instead of overflowing time.Duration at math.MinInt64/MaxInt64."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-TEXT-001",
+          "severity": "P1",
+          "file": "cli/internal/text/sanitize.go:1-171, cli/internal/text/truncate.go:15-24, cli/internal/text/oneline.go:9-11, cli/internal/text/displayname.go:12-20, cli/internal/text/timeago.go:17-33, cli/internal/text/timeago_string.go:20-28",
+          "summary": "text helpers lacked ANSI/OSC 52/C1/Bidi terminal sanitization (allowing untrusted server titles, filenames, and unparseable timestamps to inject terminal escapes) and FuzzyAgo overflowed time.Duration for dates >292 years in the future into 'less than a minute from now'.",
+          "regression_test": "TestW8_SanitizeAndTruncate_StripOSC52CSIC1AndBidi",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/xdg",
+      "wave": "W8",
+      "status": "verified_findings_fixed",
+      "file_count": 3,
+      "tracked_files": [
+        "cli/internal/xdg/w8_audit_regression_test.go",
+        "cli/internal/xdg/xdg.go",
+        "cli/internal/xdg/xdg_test.go"
+      ],
+      "invariants_checked": [
+        "xdg.Path ignores relative XDG_* environment variable values per the XDG Base Directory Specification and falls back to $HOME/<fallbackDir>/genyee.",
+        "xdg.WriteAtomicYAML rejects symlinked parent directories and symlinked/non-regular target files via os.Lstat, tightens permissive parent directory modes to 0700 on Unix, and writes atomically with mode 0600; xdg.ReadSecureFile enforces Lstat + fstat SameFile + maxBytes bounds."
+      ],
+      "findings": [
+        {
+          "id": "W8-CLI-XDG-001",
+          "severity": "P1",
+          "file": "cli/internal/xdg/xdg.go:22-160",
+          "summary": "xdg.Path accepted relative XDG_* paths (violating XDG Base Dir spec and enabling CWD config hijacking), WriteAtomicYAML followed symlinked parent dirs and left permissive parent dir modes unchanged, and xdg lacked a symlink/FIFO/size-guarded ReadSecureFile helper.",
+          "regression_test": "TestW8_Path_IgnoresRelativeXDGEnv",
+          "commit": "95eb3abbb058aad630368cfe1021b0a701624bc0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/skills",
+      "wave": "W8",
+      "status": "verified_no_findings",
+      "file_count": 1,
+      "tracked_files": [
+        "cli/skills/embed.go"
+      ],
+      "invariants_checked": [
+        "cli/skills/embed.go embeds prompts/* read-only, parses frontmatter deterministically, returns sorted skill/file slices, and passes check-skill-wire-vocab.sh and check-secret-tokens.sh."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)",
+        "bash cli/scripts/check-skill-wire-vocab.sh (exit 0)",
+        "bash cli/scripts/check-secret-tokens.sh (exit 0)"
+      ]
+    }
+  ]
+}
