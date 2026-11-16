@@ -1,0 +1,873 @@
+{
+  "wave": "W7",
+  "slice": "w7-cli-sdk-dsh",
+  "units": [
+    {
+      "unit_id": "cli/acceptance/contract",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 17,
+      "tracked_files": [
+        "cli/acceptance/contract/errorcodes_test.go",
+        "cli/acceptance/contract/helpers_test.go",
+        "cli/acceptance/contract/wire_test.go",
+        "cli/acceptance/testdata/wire/auth_status.error_auth_unauthenticated.json",
+        "cli/acceptance/testdata/wire/auth_status.success.json",
+        "cli/acceptance/testdata/wire/doctor.error_network.json",
+        "cli/acceptance/testdata/wire/doctor.success_offline.json",
+        "cli/acceptance/testdata/wire/kb_list.error_auth_forbidden.json",
+        "cli/acceptance/testdata/wire/kb_list.success.json",
+        "cli/acceptance/testdata/wire/kb_list.success_empty.json",
+        "cli/acceptance/testdata/wire/kb_view.error_resource_not_found.json",
+        "cli/acceptance/testdata/wire/kb_view.success.json",
+        "cli/acceptance/testdata/wire/profile_use.success.json",
+        "cli/acceptance/testdata/wire/search.error_input_invalid.json",
+        "cli/acceptance/testdata/wire/search.error_resource_not_found.json",
+        "cli/acceptance/testdata/wire/search.success.json",
+        "cli/acceptance/testdata/wire/version.success.json"
+      ],
+      "invariants_checked": [
+        "Wire-envelope golden fixtures in acceptance/contract verify stdout/stderr separation, exit-code-by-class mapping, and CRLF-independent byte parity.",
+        "AST error-code registration guard (errorcodes_test.go) verifies every cmdutil.NewError, cmdutil.Wrapf, and &cmdutil.Error{Code: ...} composite literal in cli/cmd/** references a code registered in cmdutil.AllCodes() (including CodeLocalUnimplemented).",
+        "In-process contract test harness (helpers_test.go) isolates XDG_CONFIG_HOME, XDG_CACHE_HOME, GENYEE_* environment variables, and .genyee/project.yaml discovery so ambient shell state cannot contaminate golden assertions."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-CONTRACT-01",
+          "severity": "P2",
+          "file": "cli/acceptance/contract/errorcodes_test.go:100-156,208-210, cli/acceptance/contract/helpers_test.go:47-68",
+          "summary": "errorcodes_test.go omitted CodeLocalUnimplemented from identToErrorCode and only scanned cmdutil.NewError/Wrapf call expressions (missing &cmdutil.Error{Code: ...} struct literals used across cli/cmd/**); helpers_test.go did not clear ambient GENYEE_* env vars or set f.IgnoreProjectLink=true.",
+          "regression_test": "TestAllReferencedCodesAreRegistered",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/acceptance/e2e",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "file_count": 1,
+      "tracked_files": [
+        "cli/acceptance/e2e/e2e_test.go"
+      ],
+      "invariants_checked": [
+        "Live-server E2E suite stays gated behind //go:build acceptance_e2e and explicit GENYEE_E2E_BASE_URL / credential env vars so offline unit runs never dial external hosts.",
+        "E2E cleanup hooks delete temporary knowledge bases and sessions on test completion and compile cleanly under -tags acceptance_e2e with zero legacy brand or host-path residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go test -tags acceptance_e2e -c -o /dev/null ./acceptance/e2e/...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/build-and-docs",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 6,
+      "tracked_files": [
+        "cli/.gitignore",
+        "cli/AGENTS.md",
+        "cli/Makefile",
+        "cli/README.md",
+        "cli/go.mod",
+        "cli/go.sum"
+      ],
+      "invariants_checked": [
+        "cli/go.mod and cli/go.sum remain untouched and aligned with the local ../client replace directive; main.go maps signal-cancelled contexts to exit 130 without echoing raw credentials.",
+        "cli/Makefile targets (build, test, test-coverage, lint, tidy, clean, help) expose self-documenting ## descriptions and inject version/commit/date ldflags cleanly.",
+        "cli/AGENTS.md wire contract documentation matches live CLI behavior (--format json buffered projection vs --format ndjson raw event stream, response_type/data.tool_name, GENYEE_API_KEY/GENYEE_TOKEN/GENYEE_HOST env vars, assistant_message_id on agent_query, and update verb names) and passes check-skill-wire-vocab.sh + check-secret-tokens.sh."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-DOCS-01",
+          "severity": "P2",
+          "file": "cli/AGENTS.md:78-92,124-133,470-578, cli/Makefile:26-47",
+          "summary": "cli/AGENTS.md falsely documented --format json on chat/session ask as un-enveloped NDJSON with {\"type\":\"thinking\"}, omitted GENYEE_API_KEY/GENYEE_TOKEN/GENYEE_HOST from the env table, claimed init carried message_id, and referenced removed kb/agent edit verbs; cli/Makefile help produced empty output due to missing ## target comments.",
+          "regression_test": "TestSkillsReferenceLiveCommandsAndFlags",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)",
+        "bash cli/scripts/check-skill-wire-vocab.sh (exit 0)",
+        "bash cli/scripts/check-secret-tokens.sh (exit 0)",
+        "make -C cli help (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 14,
+      "tracked_files": [
+        "cli/cmd/agenthelp_coverage_test.go",
+        "cli/cmd/audit_contract_test.go",
+        "cli/cmd/completion_test.go",
+        "cli/cmd/coverage_helpers_test.go",
+        "cli/cmd/dryrun_coverage_test.go",
+        "cli/cmd/exitcodes.go",
+        "cli/cmd/exitcodes_test.go",
+        "cli/cmd/required_positional_coverage_test.go",
+        "cli/cmd/root.go",
+        "cli/cmd/root_test.go",
+        "cli/cmd/root_unknown_subcommand_test.go",
+        "cli/cmd/schema.go",
+        "cli/cmd/schema_test.go",
+        "cli/cmd/w7_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "Root PersistentPreRunE enforces CheckSafeArgs (non-empty positionals + no C0/ANSI/Bidi/zero-width runes) and validates --profile / GENYEE_PROFILE via ValidateProfileName before SetProfile or subcommand execution.",
+        "genyee schema resolves multi-word quoted paths without panicking on Unicode-only whitespace, rejects unexpected trailing tokens after leaf commands with CodeInputUnknownSubcommand, and enumerates runnable parent commands with AgentHelp (kb config) alongside leaves.",
+        "Agent-help, dry-run, and required-positional drift guards in cli/cmd verify every runnable command (including kb config) exposes complete machine-readable metadata."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-CMD-01",
+          "severity": "P1",
+          "file": "cli/cmd/root.go:156-177, cli/cmd/schema.go:112-146,244-255, cli/cmd/coverage_helpers_test.go:10-35",
+          "summary": "root.go PersistentPreRunE propagated unvalidated --profile / GENYEE_PROFILE values into envelope metadata without ValidateProfileName; resolveSchemaTarget panicked with index-out-of-range on Unicode-whitespace-only args (e.g. U+3000) and ignored trailing tokens after leaf commands; emitSchemaIndex and eachLeafCommand omitted runnable parent command `kb config`.",
+          "regression_test": "TestW7RootRejectsInvalidProfileOverrideAndSchemaHandlesEdgeCases",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/agent",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 19,
+      "tracked_files": [
+        "cli/cmd/agent/agent.go",
+        "cli/cmd/agent/check.go",
+        "cli/cmd/agent/check_test.go",
+        "cli/cmd/agent/create.go",
+        "cli/cmd/agent/create_test.go",
+        "cli/cmd/agent/delete.go",
+        "cli/cmd/agent/delete_test.go",
+        "cli/cmd/agent/edit.go",
+        "cli/cmd/agent/edit_dry_run_test.go",
+        "cli/cmd/agent/edit_test.go",
+        "cli/cmd/agent/list.go",
+        "cli/cmd/agent/list_test.go",
+        "cli/cmd/agent/reasoning_effort_roundtrip_test.go",
+        "cli/cmd/agent/skeleton_audit_test.go",
+        "cli/cmd/agent/status.go",
+        "cli/cmd/agent/status_test.go",
+        "cli/cmd/agent/view.go",
+        "cli/cmd/agent/view_test.go",
+        "cli/cmd/agent/w7_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "All <agent-id> positionals and --from validate single-segment resource identifiers via cmdutil.ValidateResourceID before --dry-run, exit-10 retry_argv construction, or HTTP calls.",
+        "agent create and agent update reject NaN/Inf/out-of-range --temperature values, enforce mutual exclusion on --from + --config-file and dual '-' stdin flags, defer opening --config-file / --system-prompt-file until after --dry-run and ConfirmWrite, close opened file handles, and cap prompt/config reads at 4 MiB.",
+        "agent create --from preserves copied.Description when --description is omitted, and agent update --remove-kb resolves KB names to canonical UUIDs while keeping literal/dangling IDs idempotent."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-AGENT-01",
+          "severity": "P1",
+          "file": "cli/cmd/agent/create.go:109-185,234,272-310, cli/cmd/agent/edit.go:113-155,218-280,366-376, cli/cmd/agent/delete.go:72-76,112-116, cli/cmd/agent/view.go:58-62, cli/cmd/agent/status.go:55-59, cli/cmd/agent/check.go:58-62",
+          "summary": "Agent commands lacked ValidateResourceID on <agent-id>/--from (allowing traversal IDs to report reachable:false or inject unsafe tokens into exit-10 retry_argv), permitted --temperature NaN/Inf via IEEE-754 comparison, clobbered copied.Description on `agent create --from` when --description was unset, ignored KB names in `agent update --remove-kb`, and opened --config-file/--system-prompt-file in PreRunE before --dry-run/ConfirmWrite with unbounded io.ReadAll.",
+          "regression_test": "TestW7AgentResourceIDAndNaNAndCopyPreservationAndRemoveKBName",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/auth",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 20,
+      "tracked_files": [
+        "cli/cmd/auth/auth.go",
+        "cli/cmd/auth/auth_test.go",
+        "cli/cmd/auth/dryrun_validation_test.go",
+        "cli/cmd/auth/error_contract_audit_test.go",
+        "cli/cmd/auth/list.go",
+        "cli/cmd/auth/list_test.go",
+        "cli/cmd/auth/login.go",
+        "cli/cmd/auth/login_test.go",
+        "cli/cmd/auth/logout.go",
+        "cli/cmd/auth/logout_test.go",
+        "cli/cmd/auth/persistence_audit_test.go",
+        "cli/cmd/auth/refresh.go",
+        "cli/cmd/auth/refresh_test.go",
+        "cli/cmd/auth/status.go",
+        "cli/cmd/auth/status_jq_precision_test.go",
+        "cli/cmd/auth/status_test.go",
+        "cli/cmd/auth/token.go",
+        "cli/cmd/auth/token_env_trim_test.go",
+        "cli/cmd/auth/token_test.go",
+        "cli/cmd/auth/w7_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "auth login --with-token bounds stdin at 16 KiB, rejects embedded CR/LF/tab/control characters as CodeInputInvalidArgument, normalizes persisted profile hosts via NormalizeHost, and never echoes raw API keys or JWTs in JSON envelopes or error strings.",
+        "auth token honors external `env:<VAR>` credential references in TokenRef/APIKeyRef without requiring an OS keyring probe when no keyring slot is referenced, and prints a TTY-only scrollback warning on stderr when stdout is interactive.",
+        "auth refresh validates profile names and normalizes profile hosts (surfacing CodeLocalConfigCorrupt on malformed config entries before network calls), and auth logout --all validates and sorts target profile names deterministically."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-AUTH-01",
+          "severity": "P2",
+          "file": "cli/cmd/auth/login.go:167-196,413-442, cli/cmd/auth/token.go:118-158, cli/cmd/auth/refresh.go:64-85,133-156, cli/cmd/auth/logout.go:170-195",
+          "summary": "auth login --with-token read unbounded stdin and let multi-line/control-char tokens fail inside net/http as network.error; auth token ignored `env:<VAR>` profile refs supported by logout/remove; auth refresh skipped NormalizeHost/ValidateProfileName on config entries; auth logout --all iterated map keys in non-deterministic order without validating profile names.",
+          "regression_test": "TestW7AuthLoginWithTokenBoundsAndControlCharsAndEnvRefsAndDeterministicLogout",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/doc",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 29,
+      "tracked_files": [
+        "cli/cmd/doc/audit_regression_test.go",
+        "cli/cmd/doc/create.go",
+        "cli/cmd/doc/create_test.go",
+        "cli/cmd/doc/delete.go",
+        "cli/cmd/doc/delete_test.go",
+        "cli/cmd/doc/doc.go",
+        "cli/cmd/doc/download.go",
+        "cli/cmd/doc/download_interrupted_test.go",
+        "cli/cmd/doc/download_test.go",
+        "cli/cmd/doc/dryrun_validation_test.go",
+        "cli/cmd/doc/fetch.go",
+        "cli/cmd/doc/fetch_test.go",
+        "cli/cmd/doc/list.go",
+        "cli/cmd/doc/list_limit_order_test.go",
+        "cli/cmd/doc/list_test.go",
+        "cli/cmd/doc/reparse.go",
+        "cli/cmd/doc/reparse_test.go",
+        "cli/cmd/doc/update.go",
+        "cli/cmd/doc/update_test.go",
+        "cli/cmd/doc/upload.go",
+        "cli/cmd/doc/upload_recursive.go",
+        "cli/cmd/doc/upload_recursive_test.go",
+        "cli/cmd/doc/upload_test.go",
+        "cli/cmd/doc/view.go",
+        "cli/cmd/doc/view_test.go",
+        "cli/cmd/doc/w7_audit_regression_test.go",
+        "cli/cmd/doc/wait.go",
+        "cli/cmd/doc/wait_jq_validation_test.go",
+        "cli/cmd/doc/wait_test.go"
+      ],
+      "invariants_checked": [
+        "doc download refuses overwriting existing files and dangling symlinks via os.Lstat unless --clobber is set, streams to stdout ONLY when explicit `--output -` is passed, normalizes Windows backslashes and rejects unsafe/reserved server Content-Disposition filenames ('-', '..', control chars), and refuses writing server-suggested filenames through existing CWD symlinks even under --clobber.",
+        "doc upload --recursive classifies sdk.ErrDuplicateFile as resource.already_exists and HTTP errors via cmdutil.WrapHTTP per batch item, while doc upload --dry-run validates --recursive + --name mutual exclusion and --glob syntax identically to live runs.",
+        "doc wait validates positive --interval/--timeout before polling and returns CodeOperationCancelled without emitting a false ok:true stdout envelope when the parent context is cancelled; doc list supports all server parse_status values and validates --start-time/--end-time before KB/auth resolution."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-DOC-01",
+          "severity": "P1",
+          "file": "cli/cmd/doc/download.go:97-195",
+          "summary": "refuseIfExists used os.Stat instead of os.Lstat (allowing dangling symlinks to bypass --clobber=false and create arbitrary target files), server-suggested Content-Disposition filename=\"-\" hijacked stdout, Windows backslashes in server filenames were unnormalized on Unix, and server-suggested filenames followed pre-existing CWD symlinks.",
+          "regression_test": "TestW7DownloadBlocksDanglingSymlinkOverwriteAndServerFilenameTricks",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        },
+        {
+          "id": "W7-CLI-DOC-02",
+          "severity": "P1",
+          "file": "cli/cmd/doc/upload_recursive.go:96-108, cli/cmd/doc/upload.go:247-273, cli/cmd/doc/wait.go:57-69,161-175,287-291, cli/cmd/doc/list.go:53,108,142-154",
+          "summary": "runUploadRecursive returned unwrapped SDK errors from RunBatch (misclassifying duplicates and HTTP errors as internal.error), doc upload --dry-run skipped --recursive+--name and --glob validation, doc wait emitted ok:true on context.Canceled and accepted <=0 --interval/--timeout, and doc list rejected finalizing/cancelled/deleting/draft statuses and checked --start-time/--end-time after auth.",
+          "regression_test": "TestW7UploadRecursiveClassifiesDuplicateAndDryRunValidatesFlags, TestW7DocWaitCancelledContextAndInvalidIntervals, TestW7DocListStatusEnumAndTimeValidationBeforeAuth",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/doctor",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 5,
+      "tracked_files": [
+        "cli/cmd/doctor/cache_audit_test.go",
+        "cli/cmd/doctor/doctor.go",
+        "cli/cmd/doctor/doctor_test.go",
+        "cli/cmd/doctor/output_audit_test.go",
+        "cli/cmd/doctor/w7_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "doctor runs 4 cascade-ordered checks (base_url_reachable, auth_credential, server_version, credential_storage) with 10s PingBaseURL timeout and NormalizeHost validation.",
+        "auth_credential fails closed when GetCurrentUser returns an error, nil response, or nil Data.User (cascading server_version to skip).",
+        "doctor --offline skips buildServices config loading so local credential_storage diagnostics still execute when config.yaml or .genyee/project.yaml is malformed."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-DOCTOR-01",
+          "severity": "P2",
+          "file": "cli/cmd/doctor/doctor.go:109-117,191-204",
+          "summary": "runChecks marked auth_credential StatusOK whenever GetCurrentUser returned err==nil even if resp==nil or resp.Data.User==nil, and doctor --offline aborted early in buildServices when config.yaml was corrupt instead of running local credential_storage checks.",
+          "regression_test": "TestW7DoctorRejectsEmptyAuthUserAndAllowsOfflineWhenConfigBroken",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/cmd/profile",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 12,
+      "tracked_files": [
+        "cli/cmd/profile/add.go",
+        "cli/cmd/profile/add_test.go",
+        "cli/cmd/profile/dryrun_validation_test.go",
+        "cli/cmd/profile/list.go",
+        "cli/cmd/profile/list_test.go",
+        "cli/cmd/profile/profile.go",
+        "cli/cmd/profile/remove.go",
+        "cli/cmd/profile/remove_cleanup_test.go",
+        "cli/cmd/profile/remove_test.go",
+        "cli/cmd/profile/use.go",
+        "cli/cmd/profile/use_test.go",
+        "cli/cmd/profile/w7_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "profile add/use/remove/list map corrupt config.yaml parse errors to CodeLocalConfigCorrupt and filesystem errors to CodeLocalFileIO instead of untyped internal.error.",
+        "profile use --dry-run validates target profile existence in config.yaml before emitting a dry-run plan, matching profile remove --dry-run.",
+        "profileKeys sorts profile names deterministically before computing typo suggestions and available-profile hints."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-PROFILE-01",
+          "severity": "P2",
+          "file": "cli/cmd/profile/profile.go:9-23, cli/cmd/profile/add.go:73,125, cli/cmd/profile/list.go:64, cli/cmd/profile/remove.go:66,107, cli/cmd/profile/use.go:37-95,122-130",
+          "summary": "profile commands called raw config.Load()/Save() without mapping config.ErrCorrupt to CodeLocalConfigCorrupt or I/O errors to CodeLocalFileIO, profile use --dry-run succeeded on nonexistent profiles, and profileKeys iterated map keys in random order.",
+          "regression_test": "TestW7ProfileUseDryRunValidatesAndCorruptConfigMapsTypedCodeAndSortedHints",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/cmdutil",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 47,
+      "tracked_files": [
+        "cli/internal/cmdutil/agentconfig.go",
+        "cli/internal/cmdutil/agentconfig_test.go",
+        "cli/internal/cmdutil/agenthelp.go",
+        "cli/internal/cmdutil/agenthelp_test.go",
+        "cli/internal/cmdutil/authrefresh.go",
+        "cli/internal/cmdutil/authrefresh_http_classification_test.go",
+        "cli/internal/cmdutil/authrefresh_keychain_test.go",
+        "cli/internal/cmdutil/authretry.go",
+        "cli/internal/cmdutil/authretry_test.go",
+        "cli/internal/cmdutil/batch.go",
+        "cli/internal/cmdutil/batch_test.go",
+        "cli/internal/cmdutil/charcheck.go",
+        "cli/internal/cmdutil/charcheck_test.go",
+        "cli/internal/cmdutil/confirm.go",
+        "cli/internal/cmdutil/confirm_test.go",
+        "cli/internal/cmdutil/confirmation_profile_test.go",
+        "cli/internal/cmdutil/dryrun.go",
+        "cli/internal/cmdutil/dryrun_test.go",
+        "cli/internal/cmdutil/errors.go",
+        "cli/internal/cmdutil/errors_codes_test.go",
+        "cli/internal/cmdutil/errors_doc_test.go",
+        "cli/internal/cmdutil/errors_retry_test.go",
+        "cli/internal/cmdutil/errors_test.go",
+        "cli/internal/cmdutil/exit.go",
+        "cli/internal/cmdutil/exit_test.go",
+        "cli/internal/cmdutil/factory.go",
+        "cli/internal/cmdutil/factory_test.go",
+        "cli/internal/cmdutil/format.go",
+        "cli/internal/cmdutil/format_envelope_test.go",
+        "cli/internal/cmdutil/format_test.go",
+        "cli/internal/cmdutil/host.go",
+        "cli/internal/cmdutil/input.go",
+        "cli/internal/cmdutil/input_test.go",
+        "cli/internal/cmdutil/kb.go",
+        "cli/internal/cmdutil/loglevel.go",
+        "cli/internal/cmdutil/loglevel_test.go",
+        "cli/internal/cmdutil/model.go",
+        "cli/internal/cmdutil/model_test.go",
+        "cli/internal/cmdutil/multipart_replay_test.go",
+        "cli/internal/cmdutil/profilename.go",
+        "cli/internal/cmdutil/profilename_test.go",
+        "cli/internal/cmdutil/risk.go",
+        "cli/internal/cmdutil/risk_help_test.go",
+        "cli/internal/cmdutil/risk_test.go",
+        "cli/internal/cmdutil/suggest.go",
+        "cli/internal/cmdutil/suggest_test.go",
+        "cli/internal/cmdutil/w7_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "ValidateProfileName enforces [a-zA-Z0-9._-] with a leading letter or digit (blocking leading '-' CLI flag injection in retry_argv, dotfiles, path separators, and shell metacharacters), and Factory.resolveTransientProfile / ActiveProfile enforce ValidateProfileName on --profile and GENYEE_PROFILE.",
+        "NormalizeHost and ValidateHTTPURL enforce http/https scheme, non-empty hostname (rejecting http://:8080), no URL userinfo credentials (with userinfo redaction in error messages), and no query string or fragment on --host.",
+        "AuthRetryTransport strips Authorization, X-API-Key, X-Tenant-ID, and X-Request-ID whenever ANY hop in the redirect chain crosses origin (blocking 2-hop OriginA -> EvilB -> OriginA boomerang leaks), recognizes path-prefixed /auth/{login,refresh} endpoints without recursing on 401, and bounds drainAndClose at 64 KiB.",
+        "Factory.buildClient and ResolveSecretRef support `env:<VAR>` profile credential references alongside secret-store refs, and LoadAgentConfig bounds YAML/JSON inputs at 4 MiB."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-CMDUTIL-01",
+          "severity": "P1",
+          "file": "cli/internal/cmdutil/profilename.go:25-38, cli/internal/cmdutil/host.go:10-71, cli/internal/cmdutil/authretry.go:40-198, cli/internal/cmdutil/factory.go:95-115,279-309,494-559, cli/internal/cmdutil/agentconfig.go:45-55,147",
+          "summary": "ValidateProfileName allowed leading '-' (injecting flags like `-y` into retry_argv); ValidateHTTPURL/NormalizeHost accepted URL userinfo (echoing raw passwords in errors), empty hostnames (`http://:8080`), and query/fragment suffixes; AuthRetryTransport only compared initial vs final URL (re-attaching Bearer tokens on 2-hop boomerang redirects), missed path-prefixed /auth/refresh, and ran unbounded io.Copy in drainAndClose; buildClient ignored `env:<VAR>` refs.",
+          "regression_test": "TestW7ValidateProfileNameRejectsLeadingDash, TestW7NormalizeHostAndValidateHTTPURLHardening, TestW7AuthRetryTransportBoomerangAndPrefixedAuthAndBoundedDrain, TestW7BuildClientSupportsEnvPrefixedProfileSecretRefs",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/secrets",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 6,
+      "tracked_files": [
+        "cli/internal/secrets/file_store_write_test.go",
+        "cli/internal/secrets/keyring.go",
+        "cli/internal/secrets/keyring_test.go",
+        "cli/internal/secrets/secrets.go",
+        "cli/internal/secrets/secrets_test.go",
+        "cli/internal/secrets/w7_audit_regression_test.go"
+      ],
+      "invariants_checked": [
+        "FileStore enforces validateSecretSegment + filepath.Rel confinement under root, rejects symlinks on <root> and <root>/<profile> across Get/Set/Delete, and tightens pre-existing directory permissions to 0700 on Unix.",
+        "FileStore.Get uses os.Lstat + fd.Stat os.SameFile verification and a 64 KiB LimitReader to refuse symlinked or non-regular credential files while FileStore.Set atomically stages 0600 temp files via os.CreateTemp + os.Rename (safely replacing leaf credential symlinks without overwriting their targets).",
+        "KeyringStore validates profile and key segments via validateSecretSegment before invoking OS keyring backends."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-SECRETS-01",
+          "severity": "P1",
+          "file": "cli/internal/secrets/secrets.go:93-195, cli/internal/secrets/keyring.go:30-75",
+          "summary": "FileStore.Get used os.ReadFile (following symlinks on <root>, <root>/<profile>, and leaf <key> to exfiltrate arbitrary local files via `auth token` or HTTP auth headers), FileStore.Set did not reject symlinked <root>/<profile> directories or repair permissive 0755 directory modes to 0700, and KeyringStore.{Get,Set,Delete} skipped validateSecretSegment.",
+          "regression_test": "TestW7FileStoreRejectsSymlinkReadAndDirSymlinksAndRepairsDirPerms, TestW7KeyringStoreRejectsTraversalSegments",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/internal/skillparity",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 1,
+      "tracked_files": [
+        "cli/internal/skillparity/parity_test.go"
+      ],
+      "invariants_checked": [
+        "TestSkillsReferenceLiveCommandsAndFlags parses fenced code blocks across all cli/skills/**/*.md files (normalizing CRLF -> LF) and verifies every referenced `genyee` subcommand and `--flag` exists in the live cobra command tree."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-SKILLPARITY-01",
+          "severity": "P2",
+          "file": "cli/internal/skillparity/parity_test.go:94-99",
+          "summary": "Removed duplicate dead `strings.Index(line, \"genyee \")` fallback branch left over from rebrand cleanup in TestSkillsReferenceLiveCommandsAndFlags.",
+          "regression_test": "TestSkillsReferenceLiveCommandsAndFlags",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/scripts",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 2,
+      "tracked_files": [
+        "cli/scripts/check-secret-tokens.sh",
+        "cli/scripts/check-skill-wire-vocab.sh"
+      ],
+      "invariants_checked": [
+        "check-secret-tokens.sh scans tracked CLI markdown docs using null-delimited git ls-files -z, detects both `gy_` and `sk-` API keys plus 3-part JWTs, evaluates placeholder markers per matched token rather than skipping whole lines containing `<tag>`, and redacts both keys and JWTs in diagnostic output.",
+        "check-skill-wire-vocab.sh scans skills/ and AGENTS.md with `grep -F --` so leading-dash terms are never parsed as flags and fails closed if grep exits >= 2."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-SCRIPTS-01",
+          "severity": "P2",
+          "file": "cli/scripts/check-secret-tokens.sh:15-65, cli/scripts/check-skill-wire-vocab.sh:42-59",
+          "summary": "check-secret-tokens.sh missed `gy_` GENYEE API keys, skipped entire lines whenever `<[a-z]` appeared anywhere on the same line, word-split git ls-files output, and did not redact JWTs; check-skill-wire-vocab.sh omitted `--` before grep pattern and suppressed grep errors >= 2.",
+          "regression_test": "TestSkillsReferenceLiveCommandsAndFlags",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "bash -n cli/scripts/check-secret-tokens.sh cli/scripts/check-skill-wire-vocab.sh (exit 0)",
+        "bash cli/scripts/check-secret-tokens.sh (exit 0)",
+        "bash cli/scripts/check-skill-wire-vocab.sh (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "cli/skills/prompts",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 4,
+      "tracked_files": [
+        "cli/skills/genyee-rag-search/SKILL.md",
+        "cli/skills/genyee-rag-search/references/chat.md",
+        "cli/skills/genyee-rag-search/references/search-chunks.md",
+        "cli/skills/genyee-shared/SKILL.md"
+      ],
+      "invariants_checked": [
+        "Bundled skill prompts (genyee-shared/SKILL.md and genyee-rag-search/**) match the live CLI command tree, flag defaults, 4-level `--kb` resolution chain (`--kb` > GENYEE_KB_ID > project link), and SSE `tool_call` `data.tool_name` payload shape, with zero banned legacy vocabulary or committed credentials."
+      ],
+      "findings": [
+        {
+          "id": "W7-CLI-SKILLDOCS-01",
+          "severity": "P2",
+          "file": "cli/skills/genyee-shared/SKILL.md:49-55, cli/skills/genyee-rag-search/references/chat.md:15,32, cli/skills/genyee-rag-search/references/search-chunks.md:14",
+          "summary": "genyee-shared/SKILL.md and genyee-rag-search references contradicted live `f.ResolveKB` behavior by claiming `search *` and `chat` always require an explicit `--kb` flag, and chat.md documented `tool_call` SSE events with `tool_calls:[...]` instead of `data:{\"tool_name\":...}`.",
+          "regression_test": "TestSkillsReferenceLiveCommandsAndFlags",
+          "commit": "a52c733d7d1ff894333f03aedaf1ff680423d6d0"
+        }
+      ],
+      "verification_commands": [
+        "(cd cli && GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/skillparity/...) (exit 0)",
+        "bash cli/scripts/check-skill-wire-vocab.sh (exit 0)",
+        "bash cli/scripts/check-secret-tokens.sh (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "client",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 62,
+      "tracked_files": [
+        "client/README.md",
+        "client/README_EN.md",
+        "client/agent.go",
+        "client/agent_config_contract_test.go",
+        "client/agent_manage.go",
+        "client/agent_manage_test.go",
+        "client/auth.go",
+        "client/base_url_test.go",
+        "client/chunk.go",
+        "client/chunk_contract_test.go",
+        "client/client.go",
+        "client/client_security_test.go",
+        "client/continue_stream_event_test.go",
+        "client/download_interrupted_test.go",
+        "client/download_timeout_test.go",
+        "client/env_var.go",
+        "client/evaluation.go",
+        "client/evaluation_test.go",
+        "client/example.go",
+        "client/faq.go",
+        "client/faq_export_contract_test.go",
+        "client/go.mod",
+        "client/go.sum",
+        "client/initialization.go",
+        "client/initialization_contract_test.go",
+        "client/knowledge.go",
+        "client/knowledge_body_close_test.go",
+        "client/knowledge_filter_test.go",
+        "client/knowledge_tags_test.go",
+        "client/knowledgebase.go",
+        "client/knowledgebase_duplicate_test.go",
+        "client/knowledgebase_parser_engine_rules_test.go",
+        "client/knowledgebase_patch_test.go",
+        "client/log.go",
+        "client/log_test.go",
+        "client/mcp_endpoint.go",
+        "client/mcp_service.go",
+        "client/memory.go",
+        "client/message.go",
+        "client/message_suggestion.go",
+        "client/model.go",
+        "client/model_tenant_contract_test.go",
+        "client/organization.go",
+        "client/organization_contract_test.go",
+        "client/resource_urls.go",
+        "client/resource_urls_test.go",
+        "client/response_limit_test.go",
+        "client/retrieval.go",
+        "client/session.go",
+        "client/session_test.go",
+        "client/skill.go",
+        "client/sse.go",
+        "client/sse_line_endings_test.go",
+        "client/stream_errors.go",
+        "client/stream_errors_test.go",
+        "client/stream_incomplete_test.go",
+        "client/streaming_test.go",
+        "client/system.go",
+        "client/tag.go",
+        "client/tenant.go",
+        "client/w7_audit_regression_test.go",
+        "client/web_search.go"
+      ],
+      "invariants_checked": [
+        "Every REST path parameter across knowledge bases, knowledge documents, chunks, tags, FAQ entries, sessions, messages, custom agents, models, tenants, organizations, shares, skills, sandbox configs, memory, evaluation, and datasets is escaped via escapePathSegment (blocking empty, whitespace, '.', '..', '/', and '\\') and checked by validateAPIPath; Client.Raw additionally blocks percent-encoded dot-segments/slashes (%2e, %2f, %5c), scheme-relative '//' paths, and '#' fragments.",
+        "crossOriginRedirectCredentialStripper strips Authorization, X-API-Key, X-Tenant-ID, and X-Request-ID whenever ANY hop in via[] crossed origin (blocking 2-hop OriginA -> EvilB -> OriginA boomerang leaks) and refuses cross-origin 307/308 redirects for non-GET/HEAD requests so request bodies carrying credentials cannot be replayed off-origin.",
+        "All JSON, error, and export HTTP response bodies are bounded by maxResponseBodyBytes (16 MiB) or maxErrorBodyBytes (1 MiB), archive downloads cap stream size at 512 MiB, and SSE streams enforce both 4 MiB per-line AND 4 MiB per-multi-line-event caps while ignoring named non-message SSE events.",
+        "Exported SDK methods preserve full backward compatibility with both root module and cli module consumers, guard against nil request/callback pointers without panicking, redact sensitive auth headers in debug logs, and ship compilable examples in README.md and README_EN.md."
+      ],
+      "findings": [
+        {
+          "id": "W7-SDK-01",
+          "severity": "P1",
+          "file": "client/client.go:175-205",
+          "summary": "crossOriginRedirectCredentialStripper only compared via[0] against req.URL (so a 2-hop boomerang redirect OriginA -> EvilB -> OriginA re-attached Authorization/X-API-Key/X-Tenant-ID on hop 2), omitted X-Request-ID stripping, and allowed cross-origin 307/308 redirects to replay non-GET/HEAD request bodies.",
+          "regression_test": "TestW7RedirectBoomerangRequestIDAndBodyReplayBlocked",
+          "commit": "6f67b65bd181475b728bdaea077008cade2e9cfb"
+        },
+        {
+          "id": "W7-SDK-02",
+          "severity": "P1",
+          "file": "client/faq.go:375-384",
+          "summary": "ExportFAQEntries read the entire CSV export response via unbounded io.ReadAll(resp.Body), bypassing maxResponseBodyBytes (16 MiB) and allowing a rogue/proxied endpoint to exhaust client memory.",
+          "regression_test": "TestW7ExportFAQEntriesCapsResponseBody",
+          "commit": "6f67b65bd181475b728bdaea077008cade2e9cfb"
+        },
+        {
+          "id": "W7-SDK-03",
+          "severity": "P1",
+          "file": "client/sse.go:11-36, client/session.go:339-388,434-475, client/agent.go:135-182",
+          "summary": "SSE stream readers concatenated unbounded multi-line `data:` lines into a single string (O(N^2) allocations bypassing the 4 MiB scanner line cap) and KnowledgeQAStream / processAgentSSEStream attempted to JSON-decode named non-`message` SSE frames (e.g. `event: progress`) as chat payloads instead of ignoring them.",
+          "regression_test": "TestW7SSEMultiLineFrameCapAndNamedEventFiltering",
+          "commit": "6f67b65bd181475b728bdaea077008cade2e9cfb"
+        },
+        {
+          "id": "W7-SDK-04",
+          "severity": "P2",
+          "file": "client/client.go:142-173,215-245,320-335, client/knowledge.go:606, client/session.go:301,399,546, client/agent.go:100,127, client/tenant.go:153, client/README.md, client/README_EN.md",
+          "summary": "validateAPIPath missed `#` fragments after `?`, scheme-relative `//`, and `\\`; Client.Raw allowed percent-encoded `%2e%2e`/`%2f` traversal; buildRequest accepted empty/schemeless baseURL; nil request/callback pointers caused SIGSEGV panics; README.md and README_EN.md contained stale uncompilable snippets and an unmatched code fence.",
+          "regression_test": "TestW7ValidateAPIPathRawAndNilGuards",
+          "commit": "6f67b65bd181475b728bdaea077008cade2e9cfb"
+        }
+      ],
+      "verification_commands": [
+        "(cd client && GOMAXPROCS=2 go vet -p 1 ./...) (exit 0)",
+        "(cd client && GOMAXPROCS=2 go test -race -p 1 -count=1 ./...) (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "packages/dsh-genyee",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 8,
+      "tracked_files": [
+        "packages/dsh-genyee/.gitignore",
+        "packages/dsh-genyee/README.md",
+        "packages/dsh-genyee/README_CN.md",
+        "packages/dsh-genyee/cordis.patch.yml",
+        "packages/dsh-genyee/package-lock.json",
+        "packages/dsh-genyee/package.json",
+        "packages/dsh-genyee/tsconfig.build.json",
+        "packages/dsh-genyee/tsconfig.json"
+      ],
+      "invariants_checked": [
+        "Package metadata (@genyee/dsh-genyee, MIT license, Node >=20.11, strict TypeScript NodeNext config) and README/README_CN documentation contain zero legacy brand or host-path residues.",
+        "cordis.patch.yml splits GENYEE_KNOWLEDGE_BASE_IDS on commas, trims surrounding whitespace on each ID, and filters out empty entries before passing knowledgeBaseIds to resolveConfig."
+      ],
+      "findings": [
+        {
+          "id": "W7-DSH-04A",
+          "severity": "P2",
+          "file": "packages/dsh-genyee/cordis.patch.yml:12",
+          "summary": "cordis.patch.yml split GENYEE_KNOWLEDGE_BASE_IDS with `.split(',').filter(Boolean)` without `.map(s => s.trim())`, retaining padded IDs and failing plugin startup with ConfigError on whitespace-only comma segments.",
+          "regression_test": "W7-DSH-04: cordis.patch.yml trims whitespace around comma-separated GENYEE_KNOWLEDGE_BASE_IDS",
+          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+        }
+      ],
+      "verification_commands": [
+        "(cd packages/dsh-genyee && ln -sfn ../../frontend/node_modules node_modules && npm run typecheck && npm test; rc=$?; rm -rf node_modules dist; exit $rc) (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./packages/dsh-genyee/contract/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "packages/dsh-genyee/contract",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 1,
+      "tracked_files": [
+        "packages/dsh-genyee/contract/contract_test.go"
+      ],
+      "invariants_checked": [
+        "contract_test.go decodes every recorded plugin request body into GENYEE's real Go handler structs with DisallowUnknownFields and verifies required fields on /knowledge-search, /knowledge-chat/:id, and /agent-chat/:id.",
+        "TestResponseFieldsThePluginReadsStillExist verifies every JSON field read by dsh-genyee (including StreamResponse.data carrying agent tool_call metadata) serializes on internal/types structs."
+      ],
+      "findings": [
+        {
+          "id": "W7-DSH-01A",
+          "severity": "P1",
+          "file": "packages/dsh-genyee/contract/contract_test.go:185-194",
+          "summary": "contract_test.go only populated StreamResponse.ToolCalls in its fixture sample and never verified StreamResponse.Data (`data`), allowing drift from internal/handler/session/agent_stream_handler.go which emits tool_call names inside `data.tool_name`.",
+          "regression_test": "TestResponseFieldsThePluginReadsStillExist",
+          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+        }
+      ],
+      "verification_commands": [
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./packages/dsh-genyee/contract/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "packages/dsh-genyee/src",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 6,
+      "tracked_files": [
+        "packages/dsh-genyee/src/client.ts",
+        "packages/dsh-genyee/src/config.ts",
+        "packages/dsh-genyee/src/harness.ts",
+        "packages/dsh-genyee/src/index.ts",
+        "packages/dsh-genyee/src/render.ts",
+        "packages/dsh-genyee/src/tools.ts"
+      ],
+      "invariants_checked": [
+        "encodePathSegment rejects empty/padded strings, '.', '..', '/', '\\', '?', '#', '%', and control characters before network I/O, and fetch calls set redirect:'error' so X-API-Key and X-Tenant-ID never follow redirects.",
+        "resolveConfig and normalizeBaseUrl enforce HTTPS on non-loopback hosts, reject URL userinfo credentials and query/fragment suffixes, reject control characters in apiKey/tenantId, and redact secrets in ConfigError and GenyeeApiError messages.",
+        "readBoundedText caps error bodies at 1 MiB and 2xx JSON responses at 16 MiB; assembleStream parses standard blank-line-delimited SSE frames (supporting multi-line data:, ignoring non-message event: frames, rejecting unterminated trailing frames at EOF) under 4 MiB per-event and 16 MiB per-stream caps, and extracts tool_call names from `event.data.tool_name` (with `event.tool_calls` fallback).",
+        "Concurrent requests on KB-restricted API keys cleanly fall back from `resource_urls=public` to handle mode without racing on `publicModeBlocked`, and `genyee_ask` omits `config.knowledgeBaseIds` when `agentId` is active unless `knowledge_base_ids` was explicitly passed."
+      ],
+      "findings": [
+        {
+          "id": "W7-DSH-01",
+          "severity": "P1",
+          "file": "packages/dsh-genyee/src/client.ts:404-465",
+          "summary": "assembleStream only inspected `event.tool_calls` on `response_type === 'tool_call'`, whereas GENYEE's `/agent-chat/:id` handler emits `{\"response_type\":\"tool_call\",\"data\":{\"tool_name\":\"...\"}}` and leaves `tool_calls` unset, causing `genyee_ask` to always return `tool_calls: []` against real GENYEE servers.",
+          "regression_test": "an agent id routes to agent-chat and reports the server-side tools",
+          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+        },
+        {
+          "id": "W7-DSH-02",
+          "severity": "P1",
+          "file": "packages/dsh-genyee/src/client.ts:63-70,210-226,356-532",
+          "summary": "fetchJsonOnce/ask called unbounded `response.text()` and `assembleStream` accumulated unbounded SSE buffers while parsing each `data:` line individually (dropping valid multi-line SSE frames and accepting unterminated trailing frames without a blank line at EOF).",
+          "regression_test": "W7-DSH-02: rejects oversized JSON responses and handles multi-line SSE frames while rejecting unterminated frames",
+          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+        },
+        {
+          "id": "W7-DSH-03",
+          "severity": "P1",
+          "file": "packages/dsh-genyee/src/config.ts:69-125,186-215, packages/dsh-genyee/src/client.ts:71-79",
+          "summary": "GenyeeApiError and ConfigError never redacted echoed API keys, `gy_...` tokens, `Bearer` tokens, or URL userinfo credentials; normalizeBaseUrl/resolveConfig accepted `https://user:pass@host` URLs; resolveConfig accepted CR/LF control characters in `apiKey` and `tenantId`.",
+          "regression_test": "W7-DSH-03: GenyeeApiError redacts configured API keys and bearer/gy_ tokens echoed by servers, W7-DSH-03: rejects baseUrl credentials without leaking them and rejects control chars in headers",
+          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+        },
+        {
+          "id": "W7-DSH-04",
+          "severity": "P2",
+          "file": "packages/dsh-genyee/src/client.ts:174-203,345-365, packages/dsh-genyee/src/tools.ts:525-527",
+          "summary": "Concurrent `Promise.all([client.search, client.findDocuments])` in `genyee_search` raced on `this.publicModeBlocked` when a KB-restricted key returned HTTP 403 for `resource_urls=public`, failing the second in-flight call; `tools.ts` forwarded `config.knowledgeBaseIds` to `/agent-chat/:id`, overriding the custom agent's server-side KBSelectionMode.",
+          "regression_test": "W7-DSH-04: concurrent search + findDocuments both fall back from public URLs on KB-restricted key, W7-DSH-04: configured knowledgeBaseIds does not override custom agent server-side scope unless explicitly passed",
+          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+        }
+      ],
+      "verification_commands": [
+        "(cd packages/dsh-genyee && ln -sfn ../../frontend/node_modules node_modules && npm run typecheck && npm test; rc=$?; rm -rf node_modules dist; exit $rc) (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./packages/dsh-genyee/contract/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "packages/dsh-genyee/test",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 5,
+      "tracked_files": [
+        "packages/dsh-genyee/test/client.test.mjs",
+        "packages/dsh-genyee/test/config.test.mjs",
+        "packages/dsh-genyee/test/contract.test.mjs",
+        "packages/dsh-genyee/test/fixtures/api-contract.json",
+        "packages/dsh-genyee/test/tools.test.mjs"
+      ],
+      "invariants_checked": [
+        "69 Node test cases across client.test.mjs, config.test.mjs, contract.test.mjs, render.test.mjs, and tools.test.mjs validate HTTP/SSE framing, secret redaction, config validation, schema conformance, and Go-fixture parity.",
+        "api-contract.json declares `data` on `types.StreamResponse` alongside request/response contracts verified against both JS replay and Go handler structs."
+      ],
+      "findings": [
+        {
+          "id": "W7-DSH-01B",
+          "severity": "P2",
+          "file": "packages/dsh-genyee/test/fixtures/api-contract.json:108-116",
+          "summary": "api-contract.json omitted `data` from `responseFieldsRead['types.StreamResponse']`, hiding the `event.data.tool_name` contract mismatch between dsh-genyee and GENYEE's `/agent-chat` handler.",
+          "regression_test": "every stream event the plugin handles is declared in the fixture",
+          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+        }
+      ],
+      "verification_commands": [
+        "(cd packages/dsh-genyee && ln -sfn ../../frontend/node_modules node_modules && npm run typecheck && npm test; rc=$?; rm -rf node_modules dist; exit $rc) (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./packages/dsh-genyee/contract/... (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "packages/dsh-genyee/test/e2e",
+      "wave": "W7",
+      "status": "verified_no_findings",
+      "file_count": 2,
+      "tracked_files": [
+        "packages/dsh-genyee/test/e2e/fake-model.mjs",
+        "packages/dsh-genyee/test/e2e/run-in-dsh.mjs"
+      ],
+      "invariants_checked": [
+        "run-in-dsh.mjs and dsh-genyee.patch.yml run isolated inside a temporary mkdtemp directory cleaned up in `finally`, bind mock servers to 127.0.0.1 ephemeral ports, pass argv arrays to spawn without shell interpolation, and contain zero hardcoded credentials or legacy brand residues."
+      ],
+      "findings": [],
+      "verification_commands": [
+        "node --check packages/dsh-genyee/test/e2e/run-in-dsh.mjs (exit 0)"
+      ]
+    },
+    {
+      "unit_id": "packages/dsh-genyee/test/helpers",
+      "wave": "W7",
+      "status": "verified_findings_fixed",
+      "file_count": 2,
+      "tracked_files": [
+        "packages/dsh-genyee/test/helpers/json-schema.mjs",
+        "packages/dsh-genyee/test/helpers/mock-genyee.mjs"
+      ],
+      "invariants_checked": [
+        "json-schema.mjs enforces lossless JSON and supported tool parameter/output schema subsets; mock-genyee.mjs binds strictly to 127.0.0.1:0 and emits the exact SSE `tool_call` `data: { tool_name, arguments, tool_call_id }` shape produced by GENYEE's real agent_stream_handler.go."
+      ],
+      "findings": [
+        {
+          "id": "W7-DSH-01C",
+          "severity": "P1",
+          "file": "packages/dsh-genyee/test/helpers/mock-genyee.mjs:322-331",
+          "summary": "mock-genyee.mjs emitted `tool_calls: [{ id, function: { name } }]` on `/agent-chat` SSE streams instead of GENYEE's real `data: { tool_name, arguments, tool_call_id }` shape, masking the broken `tool_call` parser in `src/client.ts`.",
+          "regression_test": "an agent id routes to agent-chat and reports the server-side tools",
+          "commit": "c6597d26a045d43b84de5e6971c5b3af42aaa185"
+        }
+      ],
+      "verification_commands": [
+        "(cd packages/dsh-genyee && ln -sfn ../../frontend/node_modules node_modules && npm run typecheck && npm test; rc=$?; rm -rf node_modules dist; exit $rc) (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./packages/dsh-genyee/contract/... (exit 0)"
+      ]
+    }
+  ]
+}
