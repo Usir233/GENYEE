@@ -5,8 +5,9 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { cookieKey } from "../cdp-cookies.mjs";
-import { DAY_MS, isCredential, planSync, siteOf, viewEntry } from "../gy-cookie-plan.mjs";
+import http from "node:http";
+import { connectBrowser, cookieKey, getBrowserVersion, getBrowserWsUrl } from "../cdp-cookies.mjs";
+import { DAY_MS, isCredential, planSync, siteOf, viewEntry, viewOf } from "../gy-cookie-plan.mjs";
 import { BrowserSync, readSeed, ROOT_STATE_FILE, SEED_FILE } from "../gy-browser-sync.mjs";
 import { ReloadBreaker, RELOAD_MAX_PER_WINDOW, RELOAD_QUIET_MS } from "../gy-page-sync.mjs";
 
@@ -406,4 +407,105 @@ test("CLI rejects invalid usage and --once exits with no browsers", (t) => {
   const result = run(["--once"]);
   assert.equal(result.status, 0, result.stderr);
   assert.notEqual(run(["--restore-root", join(dir, "missing.browser")]).status, 0);
+});
+
+test("getBrowserWsUrl rejects non-loopback or mismatched-port debugger URLs and connectBrowser enforces expectedBrowserId", async (t) => {
+  let servedPayload = {};
+  const server = http.createServer((req, res) => {
+    if (req.url === "/json/version") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(servedPayload));
+      return;
+    }
+    res.writeHead(404).end();
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const { port } = server.address();
+
+  for (const badUrl of [
+    "ws://evil.example:9222/devtools/browser/abc",
+    `wss://127.0.0.1:${port}/devtools/browser/abc`,
+    `ws://127.0.0.1:${port + 1}/devtools/browser/abc`,
+    `ws://127.0.0.1:${port}/other/path`,
+    `ws://user:pass@127.0.0.1:${port}/devtools/browser/abc`,
+    `ws://127.0.0.1:${port}/devtools/browser/abc?leak=1`,
+  ]) {
+    servedPayload = { webSocketDebuggerUrl: badUrl, Browser: "Chrome/142.0.7444.59" };
+    await assert.rejects(() => getBrowserWsUrl(port, 1000), /invalid webSocketDebuggerUrl/i);
+  }
+
+  servedPayload = {
+    webSocketDebuggerUrl: `ws://127.0.0.1:${port}/devtools/browser/actual-guid`,
+    Browser: "Chrome/142.0.7444.59",
+  };
+  assert.equal(await getBrowserWsUrl(port, 1000), `ws://127.0.0.1:${port}/devtools/browser/actual-guid`);
+  await assert.rejects(
+    () => connectBrowser(port, undefined, "expected-different-guid"),
+    /browserId mismatch/i,
+  );
+});
+
+test("getBrowserVersion aborts stalled /json/version endpoints", async (t) => {
+  const sockets = new Set();
+  const stalled = http.createServer(() => {
+    // Intentionally never respond.
+  });
+  stalled.on("connection", (sock) => {
+    sockets.add(sock);
+    sock.on("close", () => sockets.delete(sock));
+  });
+  await new Promise((resolve) => stalled.listen(0, "127.0.0.1", resolve));
+  t.after(() => {
+    for (const sock of sockets) sock.destroy();
+    stalled.close();
+  });
+  const { port } = stalled.address();
+  await assert.rejects(() => getBrowserVersion(port, 150));
+});
+
+test("planSync handles Object.prototype domain keys without throwing", () => {
+  for (const protoDomain of ["constructor", "toString", "__proto__"]) {
+    const c1 = site(protoDomain, "sessionid", "tok-1");
+    const c2 = site(protoDomain, "sessionid", "tok-2", { expires: YEAR + 60 });
+    let stateA = { version: 1, browserId: "a", view: null, attempted: {}, blocked: {} };
+    let stateB = { version: 1, browserId: "b", view: null, attempted: {}, blocked: {} };
+    const p1 = planSync({
+      canonical: new Map(),
+      browsers: [
+        { id: "a", browserId: "a", jar: jar([c1]), state: stateA },
+        { id: "b", browserId: "b", jar: jar([]), state: stateB },
+      ],
+      now: NOW,
+    });
+    assert.equal(p1.pushes.get("b").length, 1);
+    stateA = { ...p1.states.get("a"), view: viewOf(jar([c1])) };
+    stateB = { ...p1.states.get("b"), view: viewOf(jar([c1])) };
+
+    // Simulate browser A refreshing cookie while browser B already holds c1
+    const p2 = planSync({
+      canonical: p1.canonical,
+      browsers: [
+        { id: "a", browserId: "a", jar: jar([c2]), state: stateA },
+        { id: "b", browserId: "b", jar: jar([c1]), state: stateB },
+      ],
+      now: NOW,
+    });
+    assert.equal(p2.canonical.get(cookieKey(c2)).value, "tok-2");
+    stateA = { ...p2.states.get("a"), view: viewOf(jar([c2])) };
+    stateB = { ...p2.states.get("b"), view: viewOf(jar([c2])) };
+
+    // Simulate browser B signing out on protoDomain
+    const p3 = planSync({
+      canonical: p2.canonical,
+      browsers: [
+        { id: "a", browserId: "a", jar: jar([c2]), state: stateA },
+        { id: "b", browserId: "b", jar: jar([]), state: stateB },
+      ],
+      now: NOW,
+    });
+    const nextStateB = p3.states.get("b");
+    assert.equal(Object.hasOwn(nextStateB.blocked, siteOf(protoDomain)), true);
+    assert.equal(p3.pushes.get("b") ?? undefined, undefined);
+  }
 });

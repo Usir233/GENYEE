@@ -95,11 +95,12 @@ class GenyeeLiteTest < Formula
       fi
 
       if [ ! -f "\\\$CONFIG_DIR/.env.lite" ]; then
-        cp "#{pkgshare}/.env.lite.example" "\\\$CONFIG_DIR/.env.lite"
+        (umask 077 && cp "#{pkgshare}/.env.lite.example" "\\\$CONFIG_DIR/.env.lite" && chmod 0600 "\\\$CONFIG_DIR/.env.lite")
         ESCAPED_DB_PATH=\\\$(printf '%s\\n' "\\\$DATA_DIR/genyee.db" | sed -e 's/[\\\\\\\\&|]/\\\\\\\\&/g')
         ESCAPED_STORAGE_DIR=\\\$(printf '%s\\n' "\\\$DATA_DIR/files" | sed -e 's/[\\\\\\\\&|]/\\\\\\\\&/g')
-        sed "s|DB_PATH=.*|DB_PATH=\\\$ESCAPED_DB_PATH|" "\\\$CONFIG_DIR/.env.lite" > "\\\$CONFIG_DIR/.env.lite.tmp" && mv "\\\$CONFIG_DIR/.env.lite.tmp" "\\\$CONFIG_DIR/.env.lite"
-        sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=\\\$ESCAPED_STORAGE_DIR|" "\\\$CONFIG_DIR/.env.lite" > "\\\$CONFIG_DIR/.env.lite.tmp" && mv "\\\$CONFIG_DIR/.env.lite.tmp" "\\\$CONFIG_DIR/.env.lite"
+        (umask 077 && sed "s|DB_PATH=.*|DB_PATH=\\\$ESCAPED_DB_PATH|" "\\\$CONFIG_DIR/.env.lite" > "\\\$CONFIG_DIR/.env.lite.tmp" && mv "\\\$CONFIG_DIR/.env.lite.tmp" "\\\$CONFIG_DIR/.env.lite")
+        (umask 077 && sed "s|LOCAL_STORAGE_BASE_DIR=.*|LOCAL_STORAGE_BASE_DIR=\\\$ESCAPED_STORAGE_DIR|" "\\\$CONFIG_DIR/.env.lite" > "\\\$CONFIG_DIR/.env.lite.tmp" && mv "\\\$CONFIG_DIR/.env.lite.tmp" "\\\$CONFIG_DIR/.env.lite")
+        chmod 0600 "\\\$CONFIG_DIR/.env.lite"
         echo ""
         echo "已创建配置文件: \\\$CONFIG_DIR/.env.lite"
         echo ""
@@ -113,6 +114,11 @@ class GenyeeLiteTest < Formula
           *=*)
             key="\\\${line%%=*}"
             val="\\\${line#*=}"
+            key="\\\${key#"\\\${key%%[![:space:]]*}"}"
+            key="\\\${key%"\\\${key##*[![:space:]]}"}"
+            case "\\\$key" in
+              ""|[!A-Za-z_]*|*[!A-Za-z0-9_]*) continue ;;
+            esac
             case "\\\$val" in
               '"'*'"'|"'"*"'") val="\\\${val#?}"; val="\\\${val%?}" ;;
             esac

@@ -138,29 +138,29 @@ clean:
 # Build Docker image
 docker-build-app:
 	@echo "获取版本信息..."
-	@eval $$(./scripts/get_version.sh env); \
+	@eval "$$(./scripts/get_version.sh env)"; \
 	./scripts/get_version.sh info; \
-	docker build --platform $(PLATFORM) \
+	docker build --platform "$(PLATFORM)" \
 		--build-arg VERSION_ARG="$$VERSION" \
 		--build-arg COMMIT_ID_ARG="$$COMMIT_ID" \
 		--build-arg BUILD_TIME_ARG="$$BUILD_TIME" \
-		--build-arg WITH_ANYDOC=$${WITH_ANYDOC:-1} \
-		-f docker/Dockerfile.app -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
+		--build-arg WITH_ANYDOC="$${WITH_ANYDOC:-1}" \
+		-f docker/Dockerfile.app -t "$(DOCKER_IMAGE):$(DOCKER_TAG)" .
 
 # Build docreader Docker image
 docker-build-docreader:
-	@eval $$(./scripts/get_version.sh env); \
-	docker build --platform $(PLATFORM) \
+	@eval "$$(./scripts/get_version.sh env)"; \
+	docker build --platform "$(PLATFORM)" \
 		--build-arg VERSION_ARG="$$VERSION" \
 		--build-arg COMMIT_ID_ARG="$$COMMIT_ID" \
-		-f docker/Dockerfile.docreader -t $(GENYEE_REGISTRY)/genyee-docreader:$(DOCKER_TAG) .
+		-f docker/Dockerfile.docreader -t "$(GENYEE_REGISTRY)/genyee-docreader:$(DOCKER_TAG)" .
 
 # Build frontend Docker image (multi-stage: npm runs inside the builder stage)
 docker-build-frontend:
-	@eval $$(./scripts/get_version.sh env); \
-	docker build --platform $(PLATFORM) \
+	@eval "$$(./scripts/get_version.sh env)"; \
+	docker build --platform "$(PLATFORM)" \
 		--build-arg VITE_FRONTEND_COMMIT="$$COMMIT_ID" \
-		-f frontend/Dockerfile -t $(GENYEE_REGISTRY)/genyee-ui:$(DOCKER_TAG) frontend/
+		-f frontend/Dockerfile -t "$(GENYEE_REGISTRY)/genyee-ui:$(DOCKER_TAG)" frontend/
 
 # Build all Docker images
 docker-build-all: docker-build-app docker-build-docreader docker-build-frontend
@@ -232,7 +232,7 @@ migrate-create:
 		echo "Usage: make migrate-create name=your_migration_name"; \
 		exit 1; \
 	fi
-	./scripts/migrate.sh create $(name)
+	./scripts/migrate.sh create "$(name)"
 
 migrate-force:
 	@if [ -z "$(version)" ]; then \
@@ -240,7 +240,7 @@ migrate-force:
 		echo "Usage: make migrate-force version=4"; \
 		exit 1; \
 	fi
-	./scripts/migrate.sh force $(version)
+	./scripts/migrate.sh force "$(version)"
 
 migrate-goto:
 	@if [ -z "$(version)" ]; then \
@@ -248,7 +248,7 @@ migrate-goto:
 		echo "Usage: make migrate-goto version=3"; \
 		exit 1; \
 	fi
-	./scripts/migrate.sh goto $(version)
+	./scripts/migrate.sh goto "$(version)"
 
 # Generate API documentation (Swagger)
 #

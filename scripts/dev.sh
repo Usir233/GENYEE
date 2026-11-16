@@ -127,16 +127,20 @@ ensure_dev_secrets() {
     fi
     local cr=$'\r'
     local _secret_key _rand_val
-    for _secret_key in "${DEV_AUTO_SECRET_KEYS[@]}"; do
-        if grep -qE "^${_secret_key}=${cr}?$" "$env_file" 2>/dev/null; then
-            _rand_val="$(_gen_dev_secret 32)"
-            sed -i.bak \
-                -e "s|^${_secret_key}=${cr}$|${_secret_key}=${_rand_val}${cr}|" \
-                -e "s|^${_secret_key}=$|${_secret_key}=${_rand_val}|" \
-                "$env_file" && rm -f "${env_file}.bak"
-            log_info "已为 ${env_file} 自动生成初始 ${_secret_key}"
-        fi
-    done
+    (
+        umask 077
+        for _secret_key in "${DEV_AUTO_SECRET_KEYS[@]}"; do
+            if grep -qE "^${_secret_key}=${cr}?$" "$env_file" 2>/dev/null; then
+                _rand_val="$(_gen_dev_secret 32)"
+                sed -i.bak \
+                    -e "s|^${_secret_key}=${cr}$|${_secret_key}=${_rand_val}${cr}|" \
+                    -e "s|^${_secret_key}=$|${_secret_key}=${_rand_val}|" \
+                    "$env_file" && rm -f "${env_file}.bak"
+                log_info "已为 ${env_file} 自动生成初始 ${_secret_key}"
+            fi
+        done
+        chmod 0600 "$env_file" 2>/dev/null || true
+    )
     return 0
 }
 

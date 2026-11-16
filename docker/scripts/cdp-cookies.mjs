@@ -73,17 +73,38 @@ function logUnlessTargetGone(step) {
   };
 }
 
+export function validateBrowserWsUrl(url, port) {
+  if (typeof url !== "string" || url.length === 0) {
+    throw new Error("no webSocketDebuggerUrl");
+  }
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error("invalid webSocketDebuggerUrl");
+  }
+  if (
+    parsed.protocol !== "ws:" ||
+    parsed.hostname !== "127.0.0.1" ||
+    Number(parsed.port) !== Number(port) ||
+    parsed.username !== "" ||
+    parsed.password !== "" ||
+    parsed.search !== "" ||
+    parsed.hash !== "" ||
+    !/^\/devtools\/browser\/[^/?#\s]+$/.test(parsed.pathname)
+  ) {
+    throw new Error("invalid webSocketDebuggerUrl");
+  }
+  return url;
+}
+
 export async function getBrowserWsUrl(port, timeoutMs = WS_OPEN_TIMEOUT_MS) {
   const res = await fetch(`http://127.0.0.1:${port}/json/version`, {
     signal: AbortSignal.timeout(timeoutMs),
   });
   if (!res.ok) throw new Error(`/json/version HTTP ${res.status}`);
   const body = await res.json();
-  const url = body.webSocketDebuggerUrl;
-  if (typeof url !== "string" || url.length === 0) {
-    throw new Error("no webSocketDebuggerUrl");
-  }
-  return url;
+  return validateBrowserWsUrl(body.webSocketDebuggerUrl, port);
 }
 
 // Chrome mints the browser-target GUID in ws://<host>/devtools/browser/<GUID> when its DevTools server starts, once per browser process, so the GUID identifies one Chrome launch even on a reused CDP port (https://chromedevtools.github.io/devtools-protocol/#endpoints, https://chromium.googlesource.com/chromium/src/+/151.0.7922.169/content/browser/devtools/devtools_http_handler.cc).
@@ -98,8 +119,10 @@ export function chromeVersionFromProduct(product) {
   return match != null ? match[1] : "";
 }
 
-export async function getBrowserVersion(port) {
-  const res = await fetch(`http://127.0.0.1:${port}/json/version`);
+export async function getBrowserVersion(port, timeoutMs = WS_OPEN_TIMEOUT_MS) {
+  const res = await fetch(`http://127.0.0.1:${port}/json/version`, {
+    signal: AbortSignal.timeout(timeoutMs),
+  });
   if (!res.ok) throw new Error(`/json/version HTTP ${res.status}`);
   const body = await res.json();
   const version = chromeVersionFromProduct(body.Browser);
@@ -268,9 +291,15 @@ export class CdpBrowser {
 
 export const WS_OPEN_TIMEOUT_MS = 10000;
 
-export async function connectBrowser(port, onDroppedFrame = logDroppedFrame) {
+export async function connectBrowser(port, onDroppedFrame = logDroppedFrame, expectedBrowserId = "") {
   const wsUrl = await getBrowserWsUrl(port);
   const browserId = browserIdFromWsUrl(wsUrl);
+  if (expectedBrowserId && browserId !== expectedBrowserId) {
+    throw new CdpError(
+      CDP_ERROR_CODES.connectionClosed,
+      `CDP browserId mismatch on port ${port}: expected ${expectedBrowserId}, got ${browserId}`,
+    );
+  }
   return await new Promise((resolve, reject) => {
     const ws = new WebSocket(wsUrl);
     const timer = setTimeout(() => {

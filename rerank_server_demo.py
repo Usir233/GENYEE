@@ -18,6 +18,7 @@ import gc
 import hmac
 import logging
 import os
+import re
 from typing import List, Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException
@@ -25,9 +26,23 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
-MAX_RERANK_DOCUMENTS = max(1, int(os.getenv("RERANK_MAX_DOCUMENTS", "128")))
-MAX_QUERY_CHARS = max(1, int(os.getenv("RERANK_MAX_QUERY_CHARS", "8192")))
-MAX_DOCUMENT_CHARS = max(1, int(os.getenv("RERANK_MAX_DOCUMENT_CHARS", "16384")))
+_COMMIT_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+
+
+def _env_positive_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        parsed = int(raw.strip())
+    except ValueError:
+        return default
+    return parsed if parsed > 0 else default
+
+
+MAX_RERANK_DOCUMENTS = _env_positive_int("RERANK_MAX_DOCUMENTS", 128)
+MAX_QUERY_CHARS = _env_positive_int("RERANK_MAX_QUERY_CHARS", 8192)
+MAX_DOCUMENT_CHARS = _env_positive_int("RERANK_MAX_DOCUMENT_CHARS", 16384)
 MIN_API_KEY_LENGTH = 16
 
 
@@ -79,11 +94,15 @@ class _RerankRuntime:
         local_files_only = _env_truthy(
             "RERANK_LOCAL_FILES_ONLY", default=is_local_dir
         )
-        if trust_remote_code and not is_local_dir and not revision:
-            raise RuntimeError(
-                "RERANK_MODEL_REVISION (commit SHA) is required when "
-                "RERANK_TRUST_REMOTE_CODE=true for a remote repository"
-            )
+        if trust_remote_code:
+            if not is_local_dir:
+                if not revision or not _COMMIT_SHA_RE.match(revision):
+                    raise RuntimeError(
+                        "RERANK_MODEL_REVISION must be a 40-char lowercase hex commit SHA "
+                        "when RERANK_TRUST_REMOTE_CODE=true for a remote repository"
+                    )
+            elif not (revision and _COMMIT_SHA_RE.match(revision)):
+                local_files_only = True
 
         import torch
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
@@ -224,7 +243,7 @@ def main() -> None:
     import uvicorn
 
     host = os.getenv("RERANK_HOST", "127.0.0.1").strip() or "127.0.0.1"
-    port = int(os.getenv("RERANK_PORT", "8000"))
+    port = _env_positive_int("RERANK_PORT", 8000)
     api_key = os.getenv("RERANK_API_KEY", "").strip()
     allow_unauth = _env_truthy("RERANK_ALLOW_UNAUTHENTICATED", default=False)
     if not api_key and not allow_unauth:

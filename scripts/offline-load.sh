@@ -80,6 +80,9 @@ if [[ ! -d "$BUNDLE_DIR" ]]; then
     exit 1
 fi
 BUNDLE_DIR="$(cd "$BUNDLE_DIR" && pwd)"
+if [[ -n "$(find "$BUNDLE_DIR" -type l -print -quit 2>/dev/null)" ]]; then
+    fail "Bundle must not contain symlinks"
+fi
 
 [[ -s "${BUNDLE_DIR}/MANIFEST.json" && -s "${BUNDLE_DIR}/IMAGES.tsv" && -s "${BUNDLE_DIR}/COMPOSE_IMAGES.tsv" ]] || fail "Missing bundle manifest/index; rebuild the bundle with offline-bundle.sh"
 require_checksum() {

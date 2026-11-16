@@ -220,7 +220,7 @@ export async function tick(browsers, {
     browsers.delete(root);
     try {
       const chromeVersion = await version(port);
-      const browser = await connect(port);
+      const browser = await connect(port, undefined, browserId);
       browser.chromeVersion = chromeVersion;
       browser.profile = profile;
       browser.root = root;

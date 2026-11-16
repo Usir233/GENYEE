@@ -258,6 +258,13 @@ class HybridSecurityASGIWrapper:
                             {"status": "failure", "errors": ["Invalid Content-Length header"]},
                         )
                         return
+                    if declared_len < 0:
+                        await _send_json(
+                            send,
+                            400,
+                            {"status": "failure", "errors": ["Invalid Content-Length header"]},
+                        )
+                        return
                     if declared_len > max_bytes:
                         await _send_json(
                             send,
@@ -402,7 +409,7 @@ def main(argv: Optional[list[str]] = None) -> None:
     parser.add_argument(
         "--port",
         type=int,
-        default=int(os.getenv("ODL_HYBRID_PORT", str(DEFAULT_PORT))),
+        default=_env_positive_int("ODL_HYBRID_PORT", DEFAULT_PORT),
         help=f"Port to bind to (default: {DEFAULT_PORT})",
     )
     parser.add_argument(

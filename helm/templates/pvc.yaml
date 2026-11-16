@@ -19,7 +19,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.postgresql.persistence.size }}
+      storage: {{ .Values.postgresql.persistence.size | quote }}
   {{- include "genyee.storageClass" . | nindent 2 }}
 ---
 {{- end }}
@@ -38,7 +38,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.redis.persistence.size }}
+      storage: {{ .Values.redis.persistence.size | quote }}
   {{- include "genyee.storageClass" . | nindent 2 }}
 ---
 {{- end }}
@@ -57,7 +57,7 @@ spec:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.neo4j.persistence.size }}
+      storage: {{ .Values.neo4j.persistence.size | quote }}
   {{- include "genyee.storageClass" . | nindent 2 }}
 ---
 {{- end }}
@@ -76,6 +76,6 @@ spec:
     {{- toYaml (.Values.dataFiles.persistence.accessModes | default (list "ReadWriteOnce")) | nindent 4 }}
   resources:
     requests:
-      storage: {{ .Values.dataFiles.persistence.size }}
+      storage: {{ .Values.dataFiles.persistence.size | quote }}
   {{- include "genyee.storageClass" . | nindent 2 }}
 {{- end }}

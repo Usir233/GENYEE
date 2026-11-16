@@ -586,11 +586,25 @@ t_a_failure_without_cgroup_files_is_unchanged() {
   teardown
 }
 
+t_value_taking_global_flags_cannot_bypass_connect_or_eval_guards() {
+  setup_wrapper
+  "$WRAP" --proxy http://127.0.0.1:8080 connect 9222 >/dev/null 2>&1; rc=$?
+  assert_eq "--proxy before connect still exits 64" 64 "$rc"
+  "$WRAP" --download-path /tmp/dl eval 'document.querySelector("input[type=password]").value' >/dev/null 2>&1; rc=$?
+  assert_eq "--download-path before password eval still exits 64" 64 "$rc"
+  assert_eq "neither blocked command reached the CLI" "" "$(grep '^ARGS' "$STUB_LOG")"
+  "$WRAP" -pbrowserbase --user-agent custom-ua snapshot >/dev/null 2>&1; rc=$?
+  assert_eq "attached -p<provider> stripped cleanly" 0 "$rc"
+  assert_not_contains "attached -pprovider dropped" "browserbase" "$(log)"
+  teardown
+}
+
 t_caller_config_cannot_reach_the_cli
 t_a_failure_at_the_process_limit_says_so
 t_a_failure_after_an_oom_kill_says_so
 t_an_ordinary_failure_blames_no_resource
 t_a_failure_without_cgroup_files_is_unchanged
+t_value_taking_global_flags_cannot_bypass_connect_or_eval_guards
 t_agent_navigation_after_a_desktop_click_takes_a_new_tab
 t_a_fresh_browser_forgets_an_old_desktop_click
 t_an_orphaned_browser_is_replaced

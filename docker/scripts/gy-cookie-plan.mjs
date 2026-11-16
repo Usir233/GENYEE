@@ -56,9 +56,21 @@ export function viewEntry(cookie) {
   };
 }
 
+function getOwn(obj, key) {
+  return obj != null && Object.hasOwn(obj, key) ? obj[key] : undefined;
+}
+
+function setOwn(obj, key, value) {
+  if (key === "__proto__") {
+    Object.defineProperty(obj, key, { value, writable: true, enumerable: true, configurable: true });
+  } else {
+    obj[key] = value;
+  }
+}
+
 export function viewOf(jar) {
   const view = {};
-  for (const [key, cookie] of jar) view[key] = viewEntry(cookie);
+  for (const [key, cookie] of jar) setOwn(view, key, viewEntry(cookie));
   return view;
 }
 
@@ -85,7 +97,7 @@ export function emptyRootState() {
 function cloneBlocked(blocked) {
   const copy = {};
   for (const [site, entry] of Object.entries(blocked ?? {})) {
-    copy[site] = { keys: [...entry.keys], reacquired: [...(entry.reacquired ?? [])], at: entry.at ?? 0 };
+    setOwn(copy, site, { keys: [...entry.keys], reacquired: [...(entry.reacquired ?? [])], at: entry.at ?? 0 });
   }
   return copy;
 }
@@ -149,22 +161,22 @@ export function planSync({ canonical, browsers, now }) {
       }
     }
     for (const [site, keys] of signedOut) {
-      const entry = state.blocked[site] ?? { keys: [], reacquired: [], at: now };
+      const entry = getOwn(state.blocked, site) ?? { keys: [], reacquired: [], at: now };
       entry.keys = [...new Set([...entry.keys, ...keys])];
       entry.reacquired = entry.reacquired.filter((key) => !keys.includes(key));
       entry.at = now;
-      state.blocked[site] = entry;
+      setOwn(state.blocked, site, entry);
       events.push({ type: "signed-out", id: browser.id, site });
     }
     for (const [key, before] of dropped) {
-      if (state.blocked[siteOfKey(key)] != null) continue;
+      if (getOwn(state.blocked, siteOfKey(key)) != null) continue;
       const held = next.get(key);
       if (held != null && cookieDigest(held) === before.d) next.delete(key);
     }
 
     for (const [key, cookie] of jar) {
-      if (prev.view[key]?.d === cookieDigest(cookie)) continue;
-      const entry = state.blocked[siteOf(cookie.domain)];
+      if (getOwn(prev.view, key)?.d === cookieDigest(cookie)) continue;
+      const entry = getOwn(state.blocked, siteOf(cookie.domain));
       if (entry != null) {
         if (entry.keys.includes(key) && !entry.reacquired.includes(key)) entry.reacquired.push(key);
         continue;
@@ -189,7 +201,7 @@ export function planSync({ canonical, browsers, now }) {
     const { blocked } = states.get(browser.id);
     const publish = browser.joinMode === "publish";
     for (const [key, cookie] of browser.jar) {
-      if (blocked[siteOf(cookie.domain)] != null) continue;
+      if (getOwn(blocked, siteOf(cookie.domain)) != null) continue;
       if (publish || !next.has(key)) next.set(key, cookie);
     }
   }
@@ -217,15 +229,15 @@ export function planSync({ canonical, browsers, now }) {
     };
     const plan = new Map();
     for (const [key, cookie] of next) {
-      if (state.blocked[siteOf(cookie.domain)] != null || !differs(key, cookie)) continue;
+      if (getOwn(state.blocked, siteOf(cookie.domain)) != null || !differs(key, cookie)) continue;
       if (isRotatingAuthCookie(cookie.name) && browser.jar.has(key)) continue;
-      if (state.attempted[key] === cookieDigest(cookie)) continue;
+      if (getOwn(state.attempted, key) === cookieDigest(cookie)) continue;
       plan.set(key, cookie);
     }
     for (const [id, taken] of forced) {
       if (id === browser.id) continue;
       for (const { site, cookies } of taken) {
-        if (state.blocked[site] != null) continue;
+        if (getOwn(state.blocked, site) != null) continue;
         for (const [key, cookie] of cookies) {
           if (differs(key, cookie)) plan.set(key, cookie);
         }

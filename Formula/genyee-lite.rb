@@ -74,6 +74,17 @@ class GenyeeLite < Formula
           *=*)
             key="${line%%=*}"
             val="${line#*=}"
+            key="${key#"${key%%[![:space:]]*}"}"
+            case "$key" in
+              "export "[[:space:]]*|"export	"*)
+                key="${key#export}"
+                key="${key#"${key%%[![:space:]]*}"}"
+                ;;
+            esac
+            key="${key%"${key##*[![:space:]]}"}"
+            case "$key" in
+              ""|[!A-Za-z_]*|*[!A-Za-z0-9_]*) continue ;;
+            esac
             case "$val" in
               '"'*'"'|"'"*"'") val="${val#?}"; val="${val%?}" ;;
             esac

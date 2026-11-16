@@ -135,6 +135,23 @@ EOF
   teardown
 }
 
+t_session_log_is_written_under_browser_root_not_world_readable_tmp() {
+  setup_gy_chrome
+  cat > "$TMP/bin/agent-browser" <<'EOF'
+#!/bin/sh
+echo "agent-browser-secret-URL-diagnostic" >&2
+exit 0
+EOF
+  chmod 0755 "$TMP/bin/agent-browser"
+  rm -f /tmp/gy-chrome.log
+  DISPLAY=:3 "$GYCHROME" https://x.example
+  assert_eq "/tmp/gy-chrome.log is never created" 1 "$(test -e /tmp/gy-chrome.log; echo $?)"
+  assert_contains "log written inside session browser root" "agent-browser-secret-URL-diagnostic" \
+    "$(cat "$GY_SESSIONS_ROOT/sess-3.browser/.gy-chrome.log")"
+  assert_eq "session log mode is 600" 600 "$(stat -c %a "$GY_SESSIONS_ROOT/sess-3.browser/.gy-chrome.log")"
+  teardown
+}
+
 t_a_seat_with_a_session_opens_the_session_browser
 t_the_recorded_root_wins_over_the_guess
 t_a_failed_click_tells_the_human
@@ -144,4 +161,5 @@ t_free_seat_falls_back_to_chrome_gy
 t_a_seat_before_any_agent_browser_still_opens_the_session_browser
 t_a_single_session_machine_uses_the_single_session_root
 t_an_unsafe_session_id_falls_back_to_chrome_gy
+t_session_log_is_written_under_browser_root_not_world_readable_tmp
 finish

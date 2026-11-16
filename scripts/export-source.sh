@@ -63,7 +63,17 @@ done
 OUTPUT_TAR="${1:-${PROJECT_ROOT}/dist/genyee-source-${VERSION_STR}.tar.gz}"
 GIT_REF="${2:-HEAD}"
 
+if [[ "$GIT_REF" == -* ]]; then
+    echo "[ERROR] 非法 git-ref (不得以 '-' 开头): $GIT_REF" >&2
+    exit 1
+fi
+if ! git -C "$PROJECT_ROOT" rev-parse --verify --quiet "${GIT_REF}^{tree}" >/dev/null; then
+    echo "[ERROR] 无法解析 git-ref: $GIT_REF" >&2
+    exit 1
+fi
+
 mkdir -p -- "$(dirname -- "$OUTPUT_TAR")"
+OUTPUT_TAR="$(cd -- "$(dirname -- "$OUTPUT_TAR")" && pwd)/$(basename -- "$OUTPUT_TAR")"
 
 echo "[INFO] 正在从 ${GIT_REF} 导出客户交付源码包: ${OUTPUT_TAR}"
 git -C "$PROJECT_ROOT" archive \
@@ -71,7 +81,7 @@ git -C "$PROJECT_ROOT" archive \
     --format=tar.gz \
     --prefix="genyee-${VERSION_STR}/" \
     -o "$OUTPUT_TAR" \
-    "$GIT_REF"
+    "$GIT_REF" --
 
 echo "[INFO] 正在校验导出的源码包是否已剔除内部维护文件..."
 FORBIDDEN_PATTERNS=(

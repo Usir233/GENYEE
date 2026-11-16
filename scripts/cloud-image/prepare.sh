@@ -33,9 +33,27 @@ GENYEE_GH_PROXY="${GENYEE_GH_PROXY:-}"
 DOCKER_INSTALL_MIRROR="${DOCKER_INSTALL_MIRROR:-}"
 DOCKER_REGISTRY_MIRROR="${DOCKER_REGISTRY_MIRROR:-}"
 PRUNE_OLD_IMAGES="${PRUNE_OLD_IMAGES:-false}"
+SYSTEMD_UNIT_DIR="${SYSTEMD_UNIT_DIR:-/etc/systemd/system}"
+FIRSTBOOT_BIN="${FIRSTBOOT_BIN:-/usr/local/sbin/genyee-firstboot.sh}"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 
-if [[ "${EUID}" -ne 0 ]]; then
+case "${GENYEE_DIR}" in
+  /*) ;;
+  *)
+    echo "[prepare] GENYEE_DIR 必须为绝对路径: ${GENYEE_DIR}" >&2
+    exit 1
+    ;;
+esac
+case "${GENYEE_DIR}" in
+  *$'\n'*|*$'\r'*|*' '*|*'|'*|*'"'*|*"'"*)
+    echo "[prepare] GENYEE_DIR 包含不支持的特殊字符: ${GENYEE_DIR}" >&2
+    exit 1
+    ;;
+esac
+GENYEE_DIR="${GENYEE_DIR%/}"
+[[ -n "${GENYEE_DIR}" ]] || GENYEE_DIR="/opt/GENYEE"
+
+if [[ "${EUID}" -ne 0 && "${GENYEE_PREPARE_ALLOW_NON_ROOT:-0}" != "1" ]]; then
   echo "[prepare] 请使用 sudo 或 root 运行" >&2
   exit 1
 fi
@@ -120,8 +138,8 @@ EOF
 fi
 
 echo "[prepare] 2/6 拉取 GENYEE 运行时文件 (ref=${GENYEE_REF})"
-# 只下载实际需要的 4 个文件, 不 clone 整个仓库 (~MB 级 -> ~KB 级)
-mkdir -p "${GENYEE_DIR}/config"
+# 只下载实际需要的运行时配置文件, 不 clone 整个仓库 (~MB 级 -> ~KB 级)
+mkdir -p "${GENYEE_DIR}/config" "${GENYEE_DIR}/docker/searxng" "${GENYEE_DIR}/misc"
 
 tmp=$(mktemp -d)
 trap 'rm -rf "${tmp}"' EXIT
@@ -129,12 +147,14 @@ trap 'rm -rf "${tmp}"' EXIT
 tarball_url="${GENYEE_GH_PROXY}${GENYEE_REPO}/archive/${GENYEE_REF}.tar.gz"
 echo "[prepare]   tarball: ${tarball_url}"
 curl -fsSL "${tarball_url}" -o "${tmp}/repo.tar.gz"
-# 仅解压需要的路径, 显著加速且省空间
-tar -xzf "${tmp}/repo.tar.gz" -C "${tmp}" \
+# 仅解压需要的路径, 显著加速且省空间; --no-same-owner 防止保留归档内异构 UID/GID
+tar --no-same-owner --no-same-permissions -xzf "${tmp}/repo.tar.gz" -C "${tmp}" \
   --wildcards \
   '*/docker-compose.yml' \
   '*/.env.example' \
-  '*/config/config.yaml'
+  '*/config/config.yaml' \
+  '*/docker/searxng/settings.yml' \
+  '*/misc/dex-config.yaml'
 src=$(find "${tmp}" -maxdepth 1 -mindepth 1 -type d -name 'GENYEE-*' | head -1)
 if [[ -z "${src}" ]]; then
   echo "[prepare] 解压失败, 未找到 GENYEE-* 目录" >&2
@@ -144,6 +164,12 @@ fi
 cp    "${src}/docker-compose.yml" "${GENYEE_DIR}/"
 cp    "${src}/.env.example"       "${GENYEE_DIR}/"
 cp    "${src}/config/config.yaml" "${GENYEE_DIR}/config/"
+if [[ -f "${src}/docker/searxng/settings.yml" ]]; then
+  cp  "${src}/docker/searxng/settings.yml" "${GENYEE_DIR}/docker/searxng/settings.yml"
+fi
+if [[ -f "${src}/misc/dex-config.yaml" ]]; then
+  cp  "${src}/misc/dex-config.yaml" "${GENYEE_DIR}/misc/dex-config.yaml"
+fi
 
 # 记录元信息, 供 firstboot / 升级时参考
 cat >"${GENYEE_DIR}/.cloud-image-meta" <<EOF
@@ -222,12 +248,21 @@ if [[ -z "${DOCKER_BIN}" ]]; then
 fi
 echo "[prepare]   docker binary: ${DOCKER_BIN}"
 
-install -m 0644 "${SCRIPT_DIR}/systemd/genyee.service"           /etc/systemd/system/genyee.service
-install -m 0644 "${SCRIPT_DIR}/systemd/genyee-firstboot.service" /etc/systemd/system/genyee-firstboot.service
-install -m 0755 "${SCRIPT_DIR}/firstboot.sh"                      /usr/local/sbin/genyee-firstboot.sh
+mkdir -p "${SYSTEMD_UNIT_DIR}" "$(dirname "${FIRSTBOOT_BIN}")"
+install -m 0644 "${SCRIPT_DIR}/systemd/genyee.service"           "${SYSTEMD_UNIT_DIR}/genyee.service"
+install -m 0644 "${SCRIPT_DIR}/systemd/genyee-firstboot.service" "${SYSTEMD_UNIT_DIR}/genyee-firstboot.service"
+install -m 0755 "${SCRIPT_DIR}/firstboot.sh"                      "${FIRSTBOOT_BIN}"
 
-# 把 systemd 单元里的 docker 路径模板替换为实际路径
-sed -i "s|@DOCKER_BIN@|${DOCKER_BIN}|g" /etc/systemd/system/genyee.service
+# 把 systemd 单元里的 docker 路径模板与部署目录替换为实际路径
+sed -i \
+  -e "s|@DOCKER_BIN@|${DOCKER_BIN}|g" \
+  -e "s|/opt/GENYEE|${GENYEE_DIR}|g" \
+  "${SYSTEMD_UNIT_DIR}/genyee.service"
+sed -i \
+  -e "s|/opt/GENYEE|${GENYEE_DIR}|g" \
+  -e "s|/usr/local/sbin/genyee-firstboot.sh|${FIRSTBOOT_BIN}|g" \
+  -e "/^Type=oneshot$/a Environment=GENYEE_DIR=${GENYEE_DIR}" \
+  "${SYSTEMD_UNIT_DIR}/genyee-firstboot.service"
 
 systemctl daemon-reload
 systemctl enable genyee.service

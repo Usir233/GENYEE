@@ -104,15 +104,15 @@ check_platform() {
 # 获取版本信息
 get_version_info() {
     # 从VERSION文件获取版本号
-    if [ -f "VERSION" ]; then
-        VERSION=$(cat VERSION | tr -d '\n\r')
+    if [ -f "$PROJECT_ROOT/VERSION" ]; then
+        VERSION=$(tr -d '\n\r' < "$PROJECT_ROOT/VERSION")
     else
         VERSION="unknown"
     fi
     
     # 获取commit ID
     if command -v git >/dev/null 2>&1; then
-        COMMIT_ID=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+        COMMIT_ID=$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")
     else
         COMMIT_ID="unknown"
     fi
@@ -135,15 +135,15 @@ build_app_image() {
     get_version_info
     
     docker build \
-        --platform $PLATFORM \
-        --build-arg GOPRIVATE_ARG=${GOPRIVATE:-""} \
-        --build-arg GOPROXY_ARG=${GOPROXY:-"https://goproxy.cn,direct"} \
-        --build-arg GOSUMDB_ARG=${GOSUMDB:-"off"} \
-        --build-arg APK_MIRROR_ARG="${APK_MIRROR_ARG:-}" \
-        --build-arg VERSION_ARG="$VERSION" \
-        --build-arg COMMIT_ID_ARG="$COMMIT_ID" \
-        --build-arg BUILD_TIME_ARG="$BUILD_TIME" \
-        --build-arg WITH_ANYDOC=${WITH_ANYDOC:-1} \
+        --platform "$PLATFORM" \
+        --build-arg "GOPRIVATE_ARG=${GOPRIVATE:-}" \
+        --build-arg "GOPROXY_ARG=${GOPROXY:-https://goproxy.cn,direct}" \
+        --build-arg "GOSUMDB_ARG=${GOSUMDB:-sum.golang.org}" \
+        --build-arg "APK_MIRROR_ARG=${APK_MIRROR_ARG:-}" \
+        --build-arg "VERSION_ARG=$VERSION" \
+        --build-arg "COMMIT_ID_ARG=$COMMIT_ID" \
+        --build-arg "BUILD_TIME_ARG=$BUILD_TIME" \
+        --build-arg "WITH_ANYDOC=${WITH_ANYDOC:-1}" \
         -f docker/Dockerfile.app \
         -t "${GENYEE_REGISTRY}/genyee-app:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-app:latest" \
@@ -168,14 +168,14 @@ build_docreader_image() {
     get_version_info
     
     docker build \
-        --platform $PLATFORM \
-        --build-arg PLATFORM=$PLATFORM \
-        --build-arg TARGETARCH=$TARGETARCH \
-        --build-arg APT_MIRROR="${APT_MIRROR:-}" \
-        --build-arg PLAYWRIGHT_DOWNLOAD_HOST="${PLAYWRIGHT_DOWNLOAD_HOST:-}" \
-        --build-arg PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST="${PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST:-}" \
-        --build-arg VERSION_ARG="$VERSION" \
-        --build-arg COMMIT_ID_ARG="$COMMIT_ID" \
+        --platform "$PLATFORM" \
+        --build-arg "PLATFORM=$PLATFORM" \
+        --build-arg "TARGETARCH=$TARGETARCH" \
+        --build-arg "APT_MIRROR=${APT_MIRROR:-}" \
+        --build-arg "PLAYWRIGHT_DOWNLOAD_HOST=${PLAYWRIGHT_DOWNLOAD_HOST:-}" \
+        --build-arg "PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST=${PLAYWRIGHT_WEBKIT_DOWNLOAD_HOST:-}" \
+        --build-arg "VERSION_ARG=$VERSION" \
+        --build-arg "COMMIT_ID_ARG=$COMMIT_ID" \
         -f docker/Dockerfile.docreader \
         -t "${GENYEE_REGISTRY}/genyee-docreader:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-docreader:latest" \
@@ -199,11 +199,18 @@ build_frontend_image() {
     # 获取版本信息（用于注入前端 commit hash）
     get_version_info
 
+    local extra_args=()
+    if [ -n "${NPM_REGISTRY:-}" ]; then
+        extra_args+=(--build-arg "NPM_REGISTRY=$NPM_REGISTRY")
+    fi
+    if [ -n "${NODE_MAX_OLD_SPACE_SIZE:-}" ]; then
+        extra_args+=(--build-arg "NODE_MAX_OLD_SPACE_SIZE=$NODE_MAX_OLD_SPACE_SIZE")
+    fi
+
     docker build \
-        --platform $PLATFORM \
-        --build-arg VITE_FRONTEND_COMMIT="$COMMIT_ID" \
-        ${NPM_REGISTRY:+--build-arg NPM_REGISTRY="$NPM_REGISTRY"} \
-        ${NODE_MAX_OLD_SPACE_SIZE:+--build-arg NODE_MAX_OLD_SPACE_SIZE="$NODE_MAX_OLD_SPACE_SIZE"} \
+        --platform "$PLATFORM" \
+        --build-arg "VITE_FRONTEND_COMMIT=$COMMIT_ID" \
+        "${extra_args[@]}" \
         -f frontend/Dockerfile \
         -t "${GENYEE_REGISTRY}/genyee-ui:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-ui:latest" \
@@ -227,8 +234,8 @@ build_sandbox_image() {
     # 同时打上 latest 与 main：默认镜像跟的是 latest（见 sandbox.go 的 DefaultDockerImage），
     # 而 Docker 后端只在本地缺失时才去拉，本地不打对应标签就等于白构建。
     docker build \
-        --platform $PLATFORM \
-        --build-arg TARGETPLATFORM=$PLATFORM \
+        --platform "$PLATFORM" \
+        --build-arg "TARGETPLATFORM=$PLATFORM" \
         -f docker/Dockerfile.sandbox \
         --target sandbox \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:${IMAGE_TAG}" \
@@ -246,8 +253,8 @@ build_sandbox_image() {
     log_info "构建沙箱镜像 Cube 变体 (${GENYEE_REGISTRY}/genyee-sandbox:latest-cube)..."
 
     docker build \
-        --platform $PLATFORM \
-        --build-arg TARGETPLATFORM=$PLATFORM \
+        --platform "$PLATFORM" \
+        --build-arg "TARGETPLATFORM=$PLATFORM" \
         -f docker/Dockerfile.sandbox \
         --target cube \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:latest-cube" \
@@ -264,8 +271,8 @@ build_sandbox_image() {
     log_info "构建沙箱镜像桌面变体 (${GENYEE_REGISTRY}/genyee-sandbox:desktop)..."
 
     docker build \
-        --platform $PLATFORM \
-        --build-arg TARGETPLATFORM=$PLATFORM \
+        --platform "$PLATFORM" \
+        --build-arg "TARGETPLATFORM=$PLATFORM" \
         -f docker/Dockerfile.sandbox \
         --target desktop \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:desktop" \
@@ -281,8 +288,8 @@ build_sandbox_image() {
     log_info "构建沙箱镜像桌面 Cube 变体 (${GENYEE_REGISTRY}/genyee-sandbox:desktop-cube)..."
 
     docker build \
-        --platform $PLATFORM \
-        --build-arg TARGETPLATFORM=$PLATFORM \
+        --platform "$PLATFORM" \
+        --build-arg "TARGETPLATFORM=$PLATFORM" \
         -f docker/Dockerfile.sandbox \
         --target desktop-cube \
         -t "${GENYEE_REGISTRY}/genyee-sandbox:desktop-cube" \
@@ -306,8 +313,8 @@ build_odl_hybrid_image() {
     cd "$PROJECT_ROOT"
 
     docker build \
-        --platform $PLATFORM \
-        --build-arg PRELOAD_MODELS=${PRELOAD_MODELS:-false} \
+        --platform "$PLATFORM" \
+        --build-arg "PRELOAD_MODELS=${PRELOAD_MODELS:-false}" \
         -f docker/Dockerfile.odl-hybrid \
         -t "${GENYEE_REGISTRY}/genyee-odl-hybrid:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-odl-hybrid:latest" \
@@ -329,7 +336,7 @@ build_mcp_image() {
     cd "$PROJECT_ROOT"
 
     docker build \
-        --platform $PLATFORM \
+        --platform "$PLATFORM" \
         -f mcp-server/Dockerfile \
         -t "${GENYEE_REGISTRY}/genyee-mcp:${IMAGE_TAG}" \
         -t "${GENYEE_REGISTRY}/genyee-mcp:latest" \

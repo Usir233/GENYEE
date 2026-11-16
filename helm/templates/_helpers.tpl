@@ -123,16 +123,21 @@ Usage: include "genyee.formatImage" (dict "repository" .Values.app.image.reposit
 {{- define "genyee.formatImage" -}}
 {{- $registry := "" -}}
 {{- if and .global .global.imageRegistry -}}
-{{- $registry = trimSuffix "/" .global.imageRegistry -}}
+{{- $registry = trimSuffix "/" (toString .global.imageRegistry) -}}
+{{- end -}}
+{{- $rawRepo := toString .repository -}}
+{{- $rawTag := toString .tag -}}
+{{- if or (regexMatch "[[:space:]\"']" $registry) (regexMatch "[[:space:]\"']" $rawRepo) (regexMatch "[[:space:]\"']" $rawTag) -}}
+{{- fail "invalid image reference: registry, repository, and tag must not contain whitespace or quotes" -}}
 {{- end -}}
 {{- if $registry -}}
-{{- $repository := .repository -}}
+{{- $repository := $rawRepo -}}
 {{- if .selfBuilt -}}
 {{- $repository = base $repository -}}
 {{- end -}}
-{{- printf "%s/%s:%s" $registry $repository .tag -}}
+{{- printf "%s/%s:%s" $registry $repository $rawTag -}}
 {{- else -}}
-{{- printf "%s:%s" .repository .tag -}}
+{{- printf "%s:%s" $rawRepo $rawTag -}}
 {{- end -}}
 {{- end }}
 

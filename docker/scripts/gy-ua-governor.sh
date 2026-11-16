@@ -5,7 +5,7 @@ set -u
 umask 077
 LIB="${GY_MERGE_LIB_DIR:-/usr/local/lib/genyee}"
 LOCK_DIR="${GY_GOVERNOR_LOCK_DIR:-/var/lib/genyee/browser/auth}"
-mkdir -p "$LOCK_DIR" || exit 1
+mkdir -p "$LOCK_DIR" && chmod 0700 "$LOCK_DIR" || exit 1
 exec 8>"$LOCK_DIR/.ua-governor.lock"
 flock -n 8 || exit 0
 cd /

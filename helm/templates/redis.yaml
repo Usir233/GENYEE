@@ -27,7 +27,7 @@ spec:
         {{- include "genyee.componentSelectorLabels" (dict "component" "cache" "context" .) | nindent 8 }}
     spec:
       {{- include "genyee.imagePullSecrets" . | nindent 6 }}
-      serviceAccountName: {{ include "genyee.serviceAccountName" . }}
+      serviceAccountName: {{ include "genyee.serviceAccountName" . | quote }}
       {{- with .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -52,12 +52,12 @@ spec:
             - name: REDIS_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "genyee.secretName" . }}
+                  name: {{ include "genyee.secretName" . | quote }}
                   key: REDIS_PASSWORD
             - name: REDISCLI_AUTH
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "genyee.secretName" . }}
+                  name: {{ include "genyee.secretName" . | quote }}
                   key: REDIS_PASSWORD
           ports:
             - containerPort: 6379
@@ -94,7 +94,7 @@ spec:
         - name: redis-data
           {{- if .Values.redis.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ .Values.redis.persistence.existingClaim | default (printf "%s-redis" (include "genyee.fullname" .)) }}
+            claimName: {{ .Values.redis.persistence.existingClaim | default (printf "%s-redis" (include "genyee.fullname" .)) | quote }}
           {{- else }}
           emptyDir: {}
           {{- end }}

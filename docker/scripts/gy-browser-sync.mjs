@@ -158,7 +158,7 @@ export class BrowserSync {
     held?.close();
     this.browsers.delete(endpoint.root);
     try {
-      const browser = await this.connect(endpoint.port);
+      const browser = await this.connect(endpoint.port, undefined, endpoint.browserId);
       this.browsers.set(endpoint.root, browser);
       return browser;
     } catch (error) {

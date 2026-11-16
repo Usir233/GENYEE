@@ -68,8 +68,7 @@ for d in /home/*; do
   rm -f "$d/.ssh/authorized_keys" "$d/.ssh/known_hosts" "$d/.bash_history"
 done
 find / -xdev -type f \( -name 'id_rsa*' -o -name '*.pem' -o -name '*.key' \) \
-  -not -path '/etc/ssl/*' -not -path '/usr/*' -not -path '/var/lib/docker/*' 2>/dev/null \
-  | tee /tmp/cleanup-secrets-found.txt || true
+  -not -path '/etc/ssl/*' -not -path '/usr/*' -not -path '/var/lib/docker/*' 2>/dev/null || true
 echo "[cleanup]   ↑ 上面是疑似遗留的密钥文件，必要时人工再核对"
 
 echo "[cleanup] 6/8 重置 cloud-init / machine-id（让新实例拿到新 ID）"

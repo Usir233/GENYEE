@@ -250,6 +250,9 @@ if [[ ! -f "${PROJECT_ROOT}/.env.offline" ]]; then
     if profile_enabled mcp; then
         set_secret_env MCP_SERVER_AUTH_TOKEN 32
     fi
+    if profile_enabled searxng; then
+        set_secret_env SEARXNG_SECRET 32
+    fi
     if profile_enabled neo4j; then
         set_secret_env NEO4J_PASSWORD 24
     fi

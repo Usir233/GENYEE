@@ -21,12 +21,12 @@ chmod +x start.sh
 ./start.sh
 ```
 
-`start.sh` 会自动创建 `.venv` 并安装依赖。默认监听 `http://127.0.0.1:8010/mcp`，鉴权令牌 `genyee-demo-token`。
+`start.sh` 会自动创建 `.venv`、安装依赖，并在未设置 `MCP_SERVER_AUTH_TOKEN` 时自动生成不少于 32 字符的随机令牌保存到 `.mcp-demo-token`（权限 `0600`，不会打印明文到终端）。默认监听 `http://127.0.0.1:8010/mcp`。
 
-自定义：
+自定义（令牌长度须至少 32 字符）：
 
 ```bash
-export MCP_SERVER_AUTH_TOKEN=my-secret
+export MCP_SERVER_AUTH_TOKEN="$(openssl rand -hex 24)"
 export MCP_PORT=9000
 ./start.sh
 ```
@@ -54,7 +54,7 @@ python test_tools.py
 | 传输 | **HTTP Streamable** |
 | URL | `http://127.0.0.1:8010/mcp` |
 | 认证 | **Bearer** |
-| 令牌 | `genyee-demo-token`（与 `MCP_SERVER_AUTH_TOKEN` 一致） |
+| 令牌 | `cat examples/mcp-demo/.mcp-demo-token` 的值（或自定义的 `MCP_SERVER_AUTH_TOKEN`，须不少于 32 字符） |
 
 3. 保存后点 **测试连接**，应发现 6 个工具。
 4. 在 **智能体** 配置里勾选该 MCP 服务（或选全部工具）。

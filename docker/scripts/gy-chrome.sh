@@ -54,9 +54,11 @@ fi
 export GENYEE_SESSION_ID="$sid" GENYEE_BROWSER_ROOT="$root"
 # GY_DESKTOP_CLICK keeps a click from navigating the page of a running browser.
 export GY_DESKTOP_CLICK=1
+umask 077
+mkdir -p "$root" && chmod 0700 "$root"
 # The wrapper finds the browser, waits for browser sync, and opens the URL on
 # this session's screen. A click has no terminal, so a failure is shown there.
-"$AB" --headed open "$url" >>/tmp/gy-chrome.log 2>&1 && exit 0
+"$AB" --headed open "$url" >>"$root/.gy-chrome.log" 2>&1 && exit 0
 rc=$?
 "${GY_NOTIFY:-xmessage}" -center -timeout 15 \
   "The browser did not open (exit $rc). If the assistant is using it, try again in a moment." \

@@ -34,7 +34,7 @@ spec:
         {{- include "genyee.componentSelectorLabels" (dict "component" "docreader" "context" .) | nindent 8 }}
     spec:
       {{- include "genyee.imagePullSecrets" . | nindent 6 }}
-      serviceAccountName: {{ include "genyee.serviceAccountName" . }}
+      serviceAccountName: {{ include "genyee.serviceAccountName" . | quote }}
       {{- with .Values.docreader.podSecurityContext | default .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -61,7 +61,7 @@ spec:
             - name: GRPC_AUTH_TOKEN
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "genyee.secretName" . }}
+                  name: {{ include "genyee.secretName" . | quote }}
                   key: GRPC_AUTH_TOKEN
             {{- if $tlsEnabled }}
             - name: GRPC_TLS_ENABLED

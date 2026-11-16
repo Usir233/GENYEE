@@ -5,13 +5,33 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
 
-# Load .env file if it exists (for development mode)
+# Preserve explicit caller environment overrides so .env only fills unset defaults.
+for _var in DB_URL DB_HOST DB_PORT DB_USER DB_PASSWORD DB_NAME DB_SSLMODE MIGRATIONS_DIR; do
+    if [ -n "${!_var+x}" ]; then
+        printf -v "_CALLER_SET_${_var}" '%s' "1"
+        printf -v "_CALLER_VAL_${_var}" '%s' "${!_var}"
+    fi
+done
+
+# Load .env file if it exists (for development mode, CRLF-safe)
 if [ -f "$PROJECT_ROOT/.env" ]; then
     echo "Loading .env file from $PROJECT_ROOT/.env"
+    _ENV_TMP="$(mktemp)"
+    tr -d '\r' < "$PROJECT_ROOT/.env" > "$_ENV_TMP"
     set -a
-    source "$PROJECT_ROOT/.env"
+    # shellcheck source=/dev/null
+    source "$_ENV_TMP"
     set +a
+    rm -f "$_ENV_TMP"
 fi
+
+for _var in DB_URL DB_HOST DB_PORT DB_USER DB_PASSWORD DB_NAME DB_SSLMODE MIGRATIONS_DIR; do
+    _flag="_CALLER_SET_${_var}"
+    _saved="_CALLER_VAL_${_var}"
+    if [ "${!_flag:-}" = "1" ]; then
+        export "${_var}=${!_saved}"
+    fi
+done
 
 # Database connection details (can be overridden by environment variables)
 DB_HOST=${DB_HOST:-localhost}
@@ -33,7 +53,7 @@ fi
 
 # Construct the database URL
 # Preserve any explicit sslmode in DB_URL; otherwise default to DB_SSLMODE.
-if [ -n "$DB_URL" ]; then
+if [ -n "${DB_URL:-}" ]; then
     if [[ "$DB_URL" != *"sslmode="* ]]; then
         if [[ "$DB_URL" == *"?"* ]]; then
             DB_URL="${DB_URL}&sslmode=${DB_SSLMODE}"
@@ -42,16 +62,25 @@ if [ -n "$DB_URL" ]; then
         fi
     fi
 else
-    # Pass DB_PASSWORD via environment variable to avoid Python code injection
+    # Pass DB credentials via environment variables to avoid Python code injection
     if command -v python3 &> /dev/null; then
+        ENCODED_USER=$(DB_USER="$DB_USER" python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ.get("DB_USER", ""), safe=""))')
         ENCODED_PASSWORD=$(DB_PASSWORD="$DB_PASSWORD" python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ.get("DB_PASSWORD", ""), safe=""))')
+        ENCODED_DB_NAME=$(DB_NAME="$DB_NAME" python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ.get("DB_NAME", ""), safe=""))')
+        ENCODED_SSLMODE=$(DB_SSLMODE="$DB_SSLMODE" python3 -c 'import os, urllib.parse; print(urllib.parse.quote(os.environ.get("DB_SSLMODE", ""), safe=""))')
     else
+        ENCODED_USER="$DB_USER"
         ENCODED_PASSWORD="$DB_PASSWORD"
+        ENCODED_DB_NAME="$DB_NAME"
+        ENCODED_SSLMODE="$DB_SSLMODE"
     fi
-    DB_URL="postgres://${DB_USER}:${ENCODED_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=${DB_SSLMODE}"
+    DB_URL="postgres://${ENCODED_USER}:${ENCODED_PASSWORD}@${DB_HOST}:${DB_PORT}/${ENCODED_DB_NAME}?sslmode=${ENCODED_SSLMODE}"
 fi
 
-REDACTED_DB_URL=$(printf '%s' "$DB_URL" | sed -E 's|(://[^:@/]+:)[^@/]+@|\1<REDACTED>@|')
+REDACTED_DB_URL=$(printf '%s' "$DB_URL" | sed -E -e 's|(://[^:@/]+:)[^@/]+@|\1<REDACTED>@|' -e 's|([?&]password=)[^&#]*|\1<REDACTED>|Ig')
+if [ "${1:-}" = "version" ]; then
+    echo "Target DB: ${REDACTED_DB_URL}"
+fi
 
 # Execute migration based on command
 case "$1" in
@@ -95,6 +124,10 @@ case "$1" in
             echo "Error: Version number is required"
             echo "Usage: $0 force <version>"
             echo "Note: Use -1 to reset to no version (allows re-running all migrations)"
+            exit 1
+        fi
+        if [[ ! "$2" =~ ^-?[0-9]+$ ]]; then
+            echo "Error: force version must be an integer"
             exit 1
         fi
         VERSION="$2"

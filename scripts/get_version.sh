@@ -2,60 +2,77 @@
 # 统一的版本信息获取脚本
 # 支持本地构建和CI构建环境
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+sanitize_token() {
+    local val
+    val="$(printf '%s' "$1" | tr -cd 'A-Za-z0-9._+-')"
+    printf '%s' "${val:-unknown}"
+}
+
+escape_single_quotes() {
+    printf '%s' "$1" | tr -d '\n\r' | sed "s/'/'\\\\''/g"
+}
+
+json_escape() {
+    local raw
+    raw="$(printf '%s' "$1" | tr -d '\r')"
+    raw="${raw//\\/\\\\}"
+    raw="${raw//\"/\\\"}"
+    raw="${raw//$'\n'/\\n}"
+    raw="${raw//$'\t'/\\t}"
+    printf '%s' "$raw"
+}
+
 # 设置默认值
 VERSION="unknown"
-EDITION="${EDITION:-standard}"
+EDITION="$(sanitize_token "${EDITION:-standard}")"
 COMMIT_ID="unknown"
 BUILD_TIME="unknown"
 GO_VERSION="unknown"
 
 # 获取版本号
-if [ -f "VERSION" ]; then
-    VERSION=$(cat VERSION | tr -d '\n\r')
+if [ -f "$PROJECT_ROOT/VERSION" ]; then
+    VERSION="$(sanitize_token "$(tr -d '\n\r' < "$PROJECT_ROOT/VERSION")")"
 fi
 
 # 获取commit ID
-if [ -n "$GITHUB_SHA" ]; then
+if [ -n "${GITHUB_SHA:-}" ]; then
     # GitHub Actions环境
-    COMMIT_ID="${GITHUB_SHA:0:7}"
+    COMMIT_ID="$(sanitize_token "${GITHUB_SHA:0:7}")"
 elif command -v git >/dev/null 2>&1; then
     # 本地环境
-    COMMIT_ID=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    COMMIT_ID="$(sanitize_token "$(git -C "$PROJECT_ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")")"
 fi
 
 # 获取构建时间
-if [ -n "$GITHUB_ACTIONS" ]; then
-    # GitHub Actions环境，使用标准时间格式
-    BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
-else
-    # 本地环境
-    BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
-fi
+BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
 
 # 获取Go版本
 if command -v go >/dev/null 2>&1; then
-    GO_VERSION=$(go version 2>/dev/null || echo "unknown")
+    GO_VERSION=$(go version 2>/dev/null | tr -d '\n\r' || echo "unknown")
 fi
 
 # 根据参数输出不同格式
 case "${1:-env}" in
     "env")
-        # 输出环境变量格式，对包含空格的值进行转义
-        echo "VERSION=$VERSION"
-        echo "EDITION=$EDITION"
-        echo "COMMIT_ID=$COMMIT_ID"
-        echo "BUILD_TIME=\"$BUILD_TIME\""
-        echo "GO_VERSION=\"$GO_VERSION\""
+        # 输出 shell-safe 环境变量格式，防止 eval 注入或分词
+        printf 'VERSION=%q\n' "$VERSION"
+        printf 'EDITION=%q\n' "$EDITION"
+        printf 'COMMIT_ID=%q\n' "$COMMIT_ID"
+        printf 'BUILD_TIME=%q\n' "$BUILD_TIME"
+        printf 'GO_VERSION=%q\n' "$GO_VERSION"
         ;;
     "json")
         # 输出JSON格式
         cat << EOF
 {
-  "version": "$VERSION",
-  "edition": "$EDITION",
-  "commit_id": "$COMMIT_ID",
-  "build_time": "$BUILD_TIME",
-  "go_version": "$GO_VERSION"
+  "version": "$(json_escape "$VERSION")",
+  "edition": "$(json_escape "$EDITION")",
+  "commit_id": "$(json_escape "$COMMIT_ID")",
+  "build_time": "$(json_escape "$BUILD_TIME")",
+  "go_version": "$(json_escape "$GO_VERSION")"
 }
 EOF
         ;;
@@ -68,7 +85,7 @@ EOF
         ;;
     "ldflags")
         # 输出Go ldflags格式
-        echo "-X 'github.com/Usir233/GENYEE/internal/handler.Version=$VERSION' -X 'github.com/Usir233/GENYEE/internal/handler.Edition=$EDITION' -X 'github.com/Usir233/GENYEE/internal/handler.CommitID=$COMMIT_ID' -X 'github.com/Usir233/GENYEE/internal/handler.BuildTime=$BUILD_TIME' -X 'github.com/Usir233/GENYEE/internal/handler.GoVersion=$GO_VERSION'"
+        echo "-X 'github.com/Usir233/GENYEE/internal/handler.Version=$(escape_single_quotes "$VERSION")' -X 'github.com/Usir233/GENYEE/internal/handler.Edition=$(escape_single_quotes "$EDITION")' -X 'github.com/Usir233/GENYEE/internal/handler.CommitID=$(escape_single_quotes "$COMMIT_ID")' -X 'github.com/Usir233/GENYEE/internal/handler.BuildTime=$(escape_single_quotes "$BUILD_TIME")' -X 'github.com/Usir233/GENYEE/internal/handler.GoVersion=$(escape_single_quotes "$GO_VERSION")'"
         ;;
     "info")
         # 输出信息格式

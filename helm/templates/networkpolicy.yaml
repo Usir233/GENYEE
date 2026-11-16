@@ -121,6 +121,9 @@ spec:
     - Ingress
   ingress:
     - from:
+        - podSelector:
+            matchLabels:
+              {{- include "genyee.componentSelectorLabels" (dict "component" "app" "context" .) | nindent 14 }}
         {{- if .Values.frontend.enabled }}
         - podSelector:
             matchLabels:

@@ -28,7 +28,7 @@ spec:
         {{- include "genyee.componentSelectorLabels" (dict "component" "frontend" "context" .) | nindent 8 }}
     spec:
       {{- include "genyee.imagePullSecrets" . | nindent 6 }}
-      serviceAccountName: {{ include "genyee.serviceAccountName" . }}
+      serviceAccountName: {{ include "genyee.serviceAccountName" . | quote }}
       {{- with .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -49,7 +49,7 @@ spec:
             - name: MAX_FILE_SIZE_MB
               value: {{ .Values.global.maxFileSizeMB | quote }}
             {{- range $key, $value := .Values.frontend.env }}
-            - name: {{ $key }}
+            - name: {{ $key | quote }}
               value: {{ $value | quote }}
             {{- end }}
           ports:

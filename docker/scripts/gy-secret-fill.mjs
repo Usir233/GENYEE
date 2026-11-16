@@ -27,7 +27,7 @@ export const ACTIVE_FIELD = `(() => {
   const el = document.activeElement;
   if (!el || el === document.body) return { kind: "none" };
   if (el.tagName === "IFRAME" || el.tagName === "FRAME") return { kind: "frame" };
-  const type = (el.getAttribute("type") || el.type || "").toLowerCase();
+  const type = el.tagName === "INPUT" ? (el.type || "").toLowerCase() : "textarea";
   const editable = (el.tagName === "INPUT" && !${JSON.stringify(NON_TEXT_INPUTS)}.includes(type)) || el.tagName === "TEXTAREA";
   if (!editable || el.disabled || el.readOnly) return { kind: "other" };
   return { kind: "field", type };
@@ -130,6 +130,9 @@ export async function fillFields({ payload, page, focus }) {
   let stop = null;
   for (const field of payload.fields) {
     if (stop) { result[field.name] = stop; continue; }
+    const preFocus = await page.mainFrame();
+    const preOrigin = originStatus(preFocus.url, payload.domains);
+    if (preOrigin) { result[field.name] = preOrigin; stop = preOrigin; continue; }
     if (!focus(field.ref)) { result[field.name] = STATUS.refNotFound; continue; }
     const before = await page.mainFrame();
     const origin = originStatus(before.url, payload.domains);
@@ -173,7 +176,8 @@ export async function main(argv, {
     let browser;
     try {
       if (!root) return out({ url: null });
-      browser = await connect(endpoint(root).port);
+      const ep = endpoint(root);
+      browser = await connect(ep.port, undefined, ep.browserId);
       const page = await choose(browser);
       if (!page) return out({ url: null });
       const frame = await page.mainFrame();
@@ -202,7 +206,8 @@ export async function main(argv, {
   let browser;
   try {
     if (!root) return out({ error: "no_browser" });
-    browser = await connect(endpoint(root).port);
+    const ep = endpoint(root);
+    browser = await connect(ep.port, undefined, ep.browserId);
     const page = await choose(browser);
     if (!page) {
       return out({ fields: Object.fromEntries(payload.fields.map((f) => [f.name, STATUS.notEditable])) });

@@ -100,9 +100,21 @@ detect_compose_cmd() {
 	return 1
 }
 
-# 检查并创建.env文件
+# CRLF 安全读取 .env 文件
+_source_env_file() {
+    local src="$1"
+    local tmp
+    tmp="$(mktemp)" || return 1
+    tr -d '\r' < "$src" > "$tmp"
+    # shellcheck source=/dev/null
+    source "$tmp"
+    rm -f "$tmp"
+}
+
+# 检查并创建.env文件（对新建和已预复制但密钥留空的 .env 均补齐随机密钥，兼容 CRLF 并保持 0600 权限）
 check_env_file() {
     log_info "检查环境变量配置..."
+    local created_new=false
     if [ ! -f "$PROJECT_ROOT/.env" ]; then
         log_warning ".env 文件不存在，将从模板创建"
         if [ -f "$PROJECT_ROOT/.env.example" ]; then
@@ -111,31 +123,37 @@ check_env_file() {
                 cp "$PROJECT_ROOT/.env.example" "$PROJECT_ROOT/.env"
                 chmod 0600 "$PROJECT_ROOT/.env"
             )
-            local rand_pw rand_aes
-            gen_rand() { LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$1"; }
-            for secret_key in DB_PASSWORD REDIS_PASSWORD JWT_SECRET SYSTEM_SIGNING_KEY GRPC_AUTH_TOKEN ODL_HYBRID_AUTH_TOKEN; do
-                if grep -qE "^${secret_key}=$" "$PROJECT_ROOT/.env"; then
-                    rand_pw="$(gen_rand 32)"
-                    sed -i.bak "s|^${secret_key}=$|${secret_key}=${rand_pw}|" "$PROJECT_ROOT/.env" && rm -f "$PROJECT_ROOT/.env.bak"
-                fi
-            done
-            if grep -qE "^SYSTEM_AES_KEY=$" "$PROJECT_ROOT/.env"; then
-                rand_aes="$(gen_rand 32)"
-                sed -i.bak "s|^SYSTEM_AES_KEY=$|SYSTEM_AES_KEY=${rand_aes}|" "$PROJECT_ROOT/.env" && rm -f "$PROJECT_ROOT/.env.bak"
-            fi
-            chmod 0600 "$PROJECT_ROOT/.env"
-            log_success "已从 .env.example 创建 .env 文件 (权限 0600，已自动生成初始随机密钥)"
+            created_new=true
         else
             log_error "未找到 .env.example 模板文件，无法创建 .env 文件"
             return 1
         fi
     else
-        chmod 0600 "$PROJECT_ROOT/.env" 2>/dev/null || true
         log_info ".env 文件已存在"
+    fi
+
+    local cr=$'\r'
+    local rand_val
+    gen_rand() ( set +o pipefail; LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c "$1" )
+    (
+        umask 077
+        for secret_key in DB_PASSWORD REDIS_PASSWORD JWT_SECRET SYSTEM_AES_KEY SYSTEM_SIGNING_KEY GRPC_AUTH_TOKEN ODL_HYBRID_AUTH_TOKEN; do
+            if grep -qE "^${secret_key}=${cr}?$" "$PROJECT_ROOT/.env" 2>/dev/null; then
+                rand_val="$(gen_rand 32)"
+                sed -i.bak \
+                    -e "s|^${secret_key}=${cr}$|${secret_key}=${rand_val}${cr}|" \
+                    -e "s|^${secret_key}=$|${secret_key}=${rand_val}|" \
+                    "$PROJECT_ROOT/.env" && rm -f "$PROJECT_ROOT/.env.bak"
+            fi
+        done
+        chmod 0600 "$PROJECT_ROOT/.env" 2>/dev/null || true
+    )
+    if [ "$created_new" = true ]; then
+        log_success "已从 .env.example 创建 .env 文件 (权限 0600，已自动生成初始随机密钥)"
     fi
     
     # 检查必要的环境变量是否已设置
-    source "$PROJECT_ROOT/.env"
+    _source_env_file "$PROJECT_ROOT/.env"
     local missing_vars=()
     
     # 检查基础变量
@@ -385,7 +403,7 @@ start_docker() {
     check_env_file
     
     # 读取.env文件
-    source "$PROJECT_ROOT/.env"
+    _source_env_file "$PROJECT_ROOT/.env"
     storage_type=${STORAGE_TYPE:-local}
     
     check_platform
@@ -483,7 +501,7 @@ pull_images() {
     check_env_file
     
     # 读取.env文件
-    source "$PROJECT_ROOT/.env"
+    _source_env_file "$PROJECT_ROOT/.env"
     storage_type=${STORAGE_TYPE:-local}
     
     check_platform
@@ -540,7 +558,7 @@ restart_container() {
     export_build_args
     
     # 检查容器是否存在
-	if ! "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD ps --services | grep -q "^$container_name$"; then
+	if ! "$DOCKER_COMPOSE_BIN" $DOCKER_COMPOSE_SUBCMD ps --services | grep -Fxq -- "$container_name"; then
         log_error "容器 '$container_name' 不存在或未运行"
         echo "可用的容器有:"
         list_containers
@@ -688,7 +706,11 @@ while [ "$1" != "" ]; do
                             START_OLLAMA=true
                             START_DOCKER=true
                             ;;
-        -r | --restart )    RESTART_CONTAINER=true
+        -r | --restart )    if [ $# -lt 2 ] || [ -z "${2:-}" ]; then
+                                log_error "选项 $1 需要指定容器名称"
+                                show_help
+                            fi
+                            RESTART_CONTAINER=true
                             CONTAINER_NAME="$2"
                             shift
                             ;;

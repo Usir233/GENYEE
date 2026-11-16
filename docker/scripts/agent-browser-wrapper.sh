@@ -44,7 +44,7 @@ while [ $# -gt 0 ]; do
       if [ $# -gt 0 ]; then
         case "$1" in --*) ;; *) shift ;; esac
       fi ;;
-    --session=*|--profile=*|--cdp=*|--state=*|--executable-path=*|--provider=*|--auto-connect|--auto-connect=*)
+    --session=*|--profile=*|--cdp=*|--state=*|--executable-path=*|--provider=*|-p?*|--auto-connect|--auto-connect=*)
       shift ;;
     # Values here may themselves start with "--" (--args "--flag,...").
     --namespace|--config|--args|--extension|--init-script)
@@ -52,7 +52,7 @@ while [ $# -gt 0 ]; do
       [ $# -gt 0 ] && shift ;;
     --namespace=*|--config=*|--args=*|--extension=*|--init-script=*)
       shift ;;
-    --engine|--idle-timeout)
+    --engine|--idle-timeout|--proxy|--proxy-bypass|--download-path|--screenshot-dir|--screenshot-format|--screenshot-quality|--color-scheme|--default-timeout|--max-output|--user-agent|--headers)
       CLEAN+=("$1"); shift
       if [ $# -gt 0 ]; then CLEAN+=("$1"); shift; fi ;;
     --headed)

@@ -28,7 +28,7 @@ spec:
         {{- include "genyee.componentSelectorLabels" (dict "component" "graph" "context" .) | nindent 8 }}
     spec:
       {{- include "genyee.imagePullSecrets" . | nindent 6 }}
-      serviceAccountName: {{ include "genyee.serviceAccountName" . }}
+      serviceAccountName: {{ include "genyee.serviceAccountName" . | quote }}
       {{- with .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -53,7 +53,7 @@ spec:
             - name: NEO4J_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "genyee.secretName" . }}
+                  name: {{ include "genyee.secretName" . | quote }}
                   key: NEO4J_PASSWORD
             - name: NEO4J_AUTH
               value: "neo4j/$(NEO4J_PASSWORD)"
@@ -95,7 +95,7 @@ spec:
         - name: neo4j-data
           {{- if .Values.neo4j.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ .Values.neo4j.persistence.existingClaim | default (printf "%s-neo4j" (include "genyee.fullname" .)) }}
+            claimName: {{ .Values.neo4j.persistence.existingClaim | default (printf "%s-neo4j" (include "genyee.fullname" .)) | quote }}
           {{- else }}
           emptyDir: {}
           {{- end }}

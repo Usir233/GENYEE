@@ -351,4 +351,15 @@ t_claim_records_the_sessions_browser_root() {
   teardown_seats
 }
 t_claim_records_the_sessions_browser_root
+
+t_valid_sid_rejects_dot_and_hyphen_prefixed_ids() {
+  setup_seats
+  for bad_sid in "." ".." ".lock" ".hidden" "-flag"; do
+    "$DISP" claim "$bad_sid" 2>/dev/null; assert_eq "claim rejects $bad_sid" 2 "$?"
+    "$DISP" where "$bad_sid" 2>/dev/null; assert_eq "where rejects $bad_sid" 2 "$?"
+    "$DISP" browser-root "$bad_sid" 2>/dev/null; assert_eq "browser-root rejects $bad_sid" 2 "$?"
+  done
+  teardown_seats
+}
+t_valid_sid_rejects_dot_and_hyphen_prefixed_ids
 finish

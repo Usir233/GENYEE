@@ -27,7 +27,7 @@ spec:
         {{- include "genyee.componentSelectorLabels" (dict "component" "database" "context" .) | nindent 8 }}
     spec:
       {{- include "genyee.imagePullSecrets" . | nindent 6 }}
-      serviceAccountName: {{ include "genyee.serviceAccountName" . }}
+      serviceAccountName: {{ include "genyee.serviceAccountName" . | quote }}
       {{- with .Values.global.podSecurityContext }}
       securityContext:
         {{- toYaml . | nindent 8 }}
@@ -48,17 +48,27 @@ spec:
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "genyee.secretName" . }}
+                  name: {{ include "genyee.secretName" . | quote }}
                   key: DB_USER
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "genyee.secretName" . }}
+                  name: {{ include "genyee.secretName" . | quote }}
                   key: DB_PASSWORD
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
-                  name: {{ include "genyee.secretName" . }}
+                  name: {{ include "genyee.secretName" . | quote }}
+                  key: DB_NAME
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "genyee.secretName" . | quote }}
+                  key: DB_USER
+            - name: PGDATABASE
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "genyee.secretName" . | quote }}
                   key: DB_NAME
             - name: PGDATA
               value: /var/lib/postgresql/data/pgdata
@@ -71,8 +81,6 @@ spec:
             exec:
               command:
                 - pg_isready
-                - -U
-                - postgres
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
@@ -81,8 +89,6 @@ spec:
             exec:
               command:
                 - pg_isready
-                - -U
-                - postgres
             initialDelaySeconds: 5
             periodSeconds: 5
             timeoutSeconds: 3
@@ -91,7 +97,7 @@ spec:
         - name: postgres-data
           {{- if .Values.postgresql.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ .Values.postgresql.persistence.existingClaim | default (printf "%s-postgres" (include "genyee.fullname" .)) }}
+            claimName: {{ .Values.postgresql.persistence.existingClaim | default (printf "%s-postgres" (include "genyee.fullname" .)) | quote }}
           {{- else }}
           emptyDir: {}
           {{- end }}

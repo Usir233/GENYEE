@@ -54,7 +54,7 @@ tcp_count() { # tcp_count <port> <state-hex> -> number of sockets whose LOCAL po
 port_open() { [ "$(tcp_count "$1" 0A)" -gt 0 ]; }
 viewers()   { tcp_count "$1" 01; }
 
-valid_sid()  { case "$1" in ""|*[!A-Za-z0-9._-]*) return 1 ;; esac; [ "${#1}" -le 64 ]; }
+valid_sid()  { case "$1" in ""|.*|-*|*[!A-Za-z0-9._-]*) return 1 ;; esac; [ "${#1}" -le 64 ]; }
 valid_seat() { case "$1" in ""|*[!0-9]*) return 1 ;; esac; [ "$1" -ge 1 ] && [ "$1" -le "$SEAT_MAX" ]; }
 
 # Own pid and all ancestors. Scans must skip them: the calling shell may have DISPLAY=:N exported

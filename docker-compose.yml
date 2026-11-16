@@ -105,10 +105,16 @@ services:
       - GENYEE_SANDBOX_DOCKER_ENABLED=${GENYEE_SANDBOX_DOCKER_ENABLED:-false}
       - GENYEE_SANDBOX_DOCKER_IMAGE=${GENYEE_SANDBOX_DOCKER_IMAGE:-}
       - GENYEE_SANDBOX_USER_ALLOCATION=${GENYEE_SANDBOX_USER_ALLOCATION:-}
+      - GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID=${GENYEE_ALLOW_ROOT_DOCKER_SOCK_GID:-}
       # 出站拨号超时（Go duration，默认 5s）：模型、连接器等外部端点在此时间内连不上即失败。留空使用默认值。
       - GENYEE_OUTBOUND_DIAL_TIMEOUT=${GENYEE_OUTBOUND_DIAL_TIMEOUT:-}
       # gin 信任的代理 CIDR（逗号分隔）；显式设为空字符串则禁用代理信任。
       - GENYEE_TRUSTED_PROXIES=${GENYEE_TRUSTED_PROXIES:-}
+      - GENYEE_CORS_ALLOWED_ORIGINS=${GENYEE_CORS_ALLOWED_ORIGINS:-}
+      - DUCKDB_SKIP_EXTENSION_LOAD=${DUCKDB_SKIP_EXTENSION_LOAD:-}
+      - GENYEE_LLM_CHAT_TIMEOUT_SECONDS=${GENYEE_LLM_CHAT_TIMEOUT_SECONDS:-}
+      - GENYEE_LLM_STREAM_TIMEOUT_SECONDS=${GENYEE_LLM_STREAM_TIMEOUT_SECONDS:-}
+      - GENYEE_WEB_FETCH_CHROMIUM_CONCURRENCY=${GENYEE_WEB_FETCH_CHROMIUM_CONCURRENCY:-}
       # 启动时自动执行数据库迁移；设为 false 禁用，默认启用
       - AUTO_MIGRATE=${AUTO_MIGRATE:-true}
       # IM 渠道图片/文件外链的外部可达 URL。
@@ -618,6 +624,7 @@ services:
     environment:
       - ODL_HYBRID_EXTRA_ARGS=${ODL_HYBRID_EXTRA_ARGS:---no-ocr}
       - ODL_HYBRID_AUTH_TOKEN=${ODL_HYBRID_AUTH_TOKEN:-}
+      - ODL_HYBRID_MAX_FILE_SIZE_MB=${ODL_HYBRID_MAX_FILE_SIZE_MB:-}
     networks:
       - GENYEE-network
     restart: unless-stopped
@@ -635,7 +642,7 @@ services:
     networks:
       - GENYEE-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 10s # 增加时间间隔
       timeout: 10s # 增加超时时间
       retries: 3 # 减少重试次数，让失败更快反馈
@@ -660,7 +667,22 @@ services:
   searxng-init:
     image: busybox:1.36
     container_name: GENYEE-searxng-init
-    command: ["sh", "-c", "cp /template/settings.yml /etc/searxng/settings.yml && chmod 0644 /etc/searxng/settings.yml"]
+    environment:
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-}
+    command:
+      - sh
+      - -ec
+      - |
+        cp /template/settings.yml /etc/searxng/settings.yml
+        if [ -z "$$SEARXNG_SECRET" ]; then
+          if [ ! -s /etc/searxng/.autogen_secret ]; then
+            (umask 077 && od -An -N32 -tx1 /dev/urandom | tr -d ' \n' > /etc/searxng/.autogen_secret)
+            chmod 0600 /etc/searxng/.autogen_secret
+          fi
+          SEC=$$(cat /etc/searxng/.autogen_secret)
+          sed -i "s|ultrasecretkey|$$SEC|g" /etc/searxng/settings.yml
+        fi
+        chmod 0644 /etc/searxng/settings.yml
     volumes:
       - ./docker/searxng/settings.yml:/template/settings.yml:ro
       - searxng_config:/etc/searxng
@@ -675,7 +697,7 @@ services:
     image: searxng/searxng:2025.5.18-5286903
     container_name: GENYEE-searxng
     # Bind to loopback by default; override SEARXNG_BIND=0.0.0.0 only after
-    # rotating SEARXNG_SECRET and (optionally) re-enabling limiter in settings.yml.
+    # setting SEARXNG_SECRET and (optionally) re-enabling limiter in settings.yml.
     ports:
       - "${SEARXNG_BIND:-127.0.0.1}:${SEARXNG_PORT:-8888}:8080"
     volumes:
@@ -683,11 +705,10 @@ services:
     environment:
       - SEARXNG_BASE_URL=http://localhost:${SEARXNG_PORT:-8888}/
       - INSTANCE_NAME=genyee-searxng
-      # Default value lets `docker compose --profile searxng up` work zero-config.
-      # Override via .env (e.g. `openssl rand -hex 32`) before exposing the
-      # instance beyond the default 127.0.0.1 bind, since secret_key signs
-      # image-proxy URLs and a shared default would be guessable by anyone.
-      - SEARXNG_SECRET=${SEARXNG_SECRET:-genyee-default-searxng-secret-rotate-before-exposing-publicly}
+      # When unset, searxng-init mints and persists a unique 256-bit random
+      # secret in searxng_config/.autogen_secret so deployments never share a
+      # static repository secret_key.
+      - SEARXNG_SECRET=${SEARXNG_SECRET:-}
     cap_drop:
       - ALL
     cap_add:
@@ -713,7 +734,8 @@ services:
     environment:
       - MINIO_ROOT_USER=${MINIO_ACCESS_KEY_ID:-}
       - MINIO_ROOT_PASSWORD=${MINIO_SECRET_ACCESS_KEY:-}
-    command: server --console-address ":9001" /data
+    entrypoint: sh
+    command: -ec 'test -n "$$MINIO_ROOT_USER" && [ "$${#MINIO_ROOT_USER}" -ge 3 ] && test -n "$$MINIO_ROOT_PASSWORD" && [ "$${#MINIO_ROOT_PASSWORD}" -ge 8 ] || { echo "[minio] MINIO_ACCESS_KEY_ID (>=3 chars) and MINIO_SECRET_ACCESS_KEY (>=8 chars) are required" >&2; exit 1; }; exec minio server --console-address ":9001" /data'
     volumes:
       - minio_data:/data
     healthcheck:
@@ -915,23 +937,29 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      PGUSER: ${DB_USER:-postgres}
       PGPASSWORD: ${DB_PASSWORD}
-    # ${LANGFUSE_DB_NAME:-langfuse} / ${DB_USER} 由 compose 解析成字面量后再传给 shell；
-    # 脚本中需要 shell 自己展开的变量（无）一律用 $$ 转义。
+      LF_DB_NAME: ${LANGFUSE_DB_NAME:-langfuse}
     entrypoint: ["sh", "-c"]
     command:
       - |
         set -e
-        echo "[langfuse-db-init] ensuring database '${LANGFUSE_DB_NAME:-langfuse}' exists in GENYEE-postgres..."
+        case "$$LF_DB_NAME" in
+          ""|*[!A-Za-z0-9_-]*)
+            echo "[langfuse-db-init] invalid LANGFUSE_DB_NAME (only [A-Za-z0-9_-] allowed)" >&2
+            exit 1
+            ;;
+        esac
+        echo "[langfuse-db-init] ensuring database '$$LF_DB_NAME' exists in GENYEE-postgres..."
         # 先刷新现有库的 collation（镜像 ICU 2.36 与宿主 2.41 不匹配时必须做），否则 CREATE DATABASE 会失败
-        psql -h postgres -U ${DB_USER} -d postgres -v ON_ERROR_STOP=0 -c "ALTER DATABASE template1 REFRESH COLLATION VERSION;" >/dev/null 2>&1 || true
-        psql -h postgres -U ${DB_USER} -d postgres -v ON_ERROR_STOP=0 -c "ALTER DATABASE postgres REFRESH COLLATION VERSION;" >/dev/null 2>&1 || true
+        psql -h postgres -d postgres -v ON_ERROR_STOP=0 -c "ALTER DATABASE template1 REFRESH COLLATION VERSION;" >/dev/null 2>&1 || true
+        psql -h postgres -d postgres -v ON_ERROR_STOP=0 -c "ALTER DATABASE postgres REFRESH COLLATION VERSION;" >/dev/null 2>&1 || true
         # 幂等创建：已存在则跳过；不存在则从 template0 克隆（template0 永远不会有 collation 漂移）
-        if psql -h postgres -U ${DB_USER} -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${LANGFUSE_DB_NAME:-langfuse}'" | grep -q 1; then
-          echo "[langfuse-db-init] database '${LANGFUSE_DB_NAME:-langfuse}' already exists, skipping."
+        if psql -h postgres -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$$LF_DB_NAME'" | grep -q 1; then
+          echo "[langfuse-db-init] database '$$LF_DB_NAME' already exists, skipping."
         else
-          psql -h postgres -U ${DB_USER} -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"${LANGFUSE_DB_NAME:-langfuse}\" TEMPLATE template0;"
-          echo "[langfuse-db-init] database '${LANGFUSE_DB_NAME:-langfuse}' created."
+          psql -h postgres -d postgres -v ON_ERROR_STOP=1 -c "CREATE DATABASE \"$$LF_DB_NAME\" TEMPLATE template0;"
+          echo "[langfuse-db-init] database '$$LF_DB_NAME' created."
         fi
         echo "[langfuse-db-init] done."
     networks:

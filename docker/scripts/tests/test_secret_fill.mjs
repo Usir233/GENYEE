@@ -5,6 +5,7 @@ import { createCipheriv, randomBytes } from "node:crypto";
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import vm from "node:vm";
 import {
   ACTIVE_FIELD, CLEAR_FIELD, SELECT_FIELD, STATUS, VALUE_LENGTH,
   decryptPayload, fillFields, main, originStatus, readKeyFile,
@@ -199,4 +200,79 @@ test("main fill decrypts, fills and never prints a value", async () => {
     await main(["--key-file", keyPath, sealed], { out: (o) => bad.push(o) });
     assert.deepEqual(bad, [{ error: "decrypt_failed" }]);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test("ACTIVE_FIELD rejects textarea[type=password] and padded input type spoofing", async () => {
+  const evalActive = (activeElement) =>
+    JSON.parse(JSON.stringify(vm.runInNewContext(ACTIVE_FIELD, { document: { body: {}, activeElement } })));
+
+  const spoofedTextarea = evalActive({
+    tagName: "TEXTAREA",
+    type: "textarea",
+    disabled: false,
+    readOnly: false,
+    getAttribute: (k) => (k === "type" ? "password" : null),
+  });
+  assert.deepEqual(spoofedTextarea, { kind: "field", type: "textarea" });
+
+  // HTML IDL: <input type=" password "> renders cleartext with el.type === "text"
+  const spoofedInput = evalActive({
+    tagName: "INPUT",
+    type: "text",
+    disabled: false,
+    readOnly: false,
+    getAttribute: (k) => (k === "type" ? " password " : null),
+  });
+  assert.deepEqual(spoofedInput, { kind: "field", type: "text" });
+
+  const page = fakePage({ active: spoofedTextarea });
+  assert.deepEqual(
+    await fillFields({
+      payload: payload([{ name: "password", ref: "@e3", type: "password", value: "pw" }]),
+      page,
+      focus: () => true,
+    }),
+    { password: STATUS.notPasswordField },
+  );
+  assert.deepEqual(page.state.typed, []);
+});
+
+test("fillFields checks originStatus before focusing any ref and main forwards expectedBrowserId", async () => {
+  let focused = 0;
+  const untrusted = fakePage({ url: "https://evil.example/login" });
+  assert.deepEqual(
+    await fillFields({
+      payload: payload([
+        { name: "password", ref: "@e3", type: "password", value: "pw" },
+        { name: "otp", ref: "@e4", type: "text", value: "123456" },
+      ]),
+      page: untrusted,
+      focus: () => { focused++; return true; },
+    }),
+    { password: STATUS.hostMismatch, otp: STATUS.hostMismatch },
+  );
+  assert.equal(focused, 0, "focus must never click on a foreign origin");
+
+  const insecure = fakePage({ url: "http://accounts.google.com/signin" });
+  assert.deepEqual(
+    await fillFields({
+      payload: payload([{ name: "password", ref: "@e3", type: "password", value: "pw" }]),
+      page: insecure,
+      focus: () => { focused++; return true; },
+    }),
+    { password: STATUS.insecureOrigin },
+  );
+  assert.equal(focused, 0, "focus must never click on an HTTP origin");
+
+  process.env.GENYEE_BROWSER_ROOT = "/br";
+  const seenConnectArgs = [];
+  await main(["--probe"], {
+    endpoint: () => ({ port: 9222, browserId: "guid-expected" }),
+    connect: async (...args) => { seenConnectArgs.push(args); return { close() {} }; },
+    choose: async () => fakePage({ url: "https://accounts.google.com/x" }),
+    out: () => {},
+  });
+  assert.equal(seenConnectArgs.length, 1);
+  assert.equal(seenConnectArgs[0][0], 9222);
+  assert.equal(seenConnectArgs[0][2], "guid-expected");
 });

@@ -53,4 +53,4 @@ ENV ODL_HYBRID_EXTRA_ARGS="--no-ocr"
 HEALTHCHECK --interval=30s --timeout=10s --retries=5 --start-period=120s \
     CMD curl -f http://localhost:5002/health || exit 1
 
-CMD ["bash", "-c", "exec python -m opendataloader_pdf.hybrid_server --host 0.0.0.0 --port 5002 ${ODL_HYBRID_EXTRA_ARGS}"]
+CMD ["python", "-c", "import os, shlex; from opendataloader_pdf.hybrid_server import main; main(['--host', '0.0.0.0', '--port', '5002', *shlex.split(os.environ.get('ODL_HYBRID_EXTRA_ARGS', ''))])"]
