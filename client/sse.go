@@ -8,6 +8,48 @@ import (
 	"strings"
 )
 
+const maxSSEEventBytes = 4 << 20
+
+var errSSEEventTooLarge = fmt.Errorf("SSE event data exceeds the %d MiB limit", maxSSEEventBytes>>20)
+
+type sseEventBuffer struct {
+	b strings.Builder
+}
+
+func (s *sseEventBuffer) appendLine(line string) error {
+	payload := strings.TrimPrefix(line[5:], " ")
+	if s.b.Len()+len(payload)+1 > maxSSEEventBytes {
+		return errSSEEventTooLarge
+	}
+	s.b.WriteString(payload)
+	s.b.WriteByte('\n')
+	return nil
+}
+
+func (s *sseEventBuffer) complete() string {
+	return completeSSEData(s.b.String())
+}
+
+func (s *sseEventBuffer) reset() {
+	s.b.Reset()
+}
+
+func (s *sseEventBuffer) incompleteError() error {
+	return incompleteSSEDataError(s.b.String())
+}
+
+func parseSSEEventField(line string) (string, bool) {
+	if line == "event" || strings.HasPrefix(line, "event:") {
+		_, value, _ := strings.Cut(line, ":")
+		return strings.TrimPrefix(value, " "), true
+	}
+	return "", false
+}
+
+func isDefaultSSEEvent(eventType string) bool {
+	return eventType == "" || eventType == "message"
+}
+
 func appendSSEDataLine(buffer, line string) string {
 	return buffer + strings.TrimPrefix(line[5:], " ") + "\n"
 }

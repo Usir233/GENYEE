@@ -140,8 +140,8 @@ func escapePathSegment(seg string) string {
 }
 
 func validateAPIPath(path string) error {
-	if path == "" || !strings.HasPrefix(path, "/") {
-		return fmt.Errorf("invalid API path %q: must start with '/'", path)
+	if path == "" || !strings.HasPrefix(path, "/") || strings.HasPrefix(path, "//") {
+		return fmt.Errorf("invalid API path %q: must start with a single '/'", path)
 	}
 	if strings.Contains(path, emptyPathSegmentSentinel) {
 		return fmt.Errorf("invalid API path: path parameter must not be empty")
@@ -151,16 +151,42 @@ func validateAPIPath(path string) error {
 			return fmt.Errorf("invalid API path: contains control character")
 		}
 	}
+	if strings.IndexByte(path, '#') >= 0 {
+		return fmt.Errorf("invalid API path %q: URL fragment is not allowed", path)
+	}
 	rawPath := path
 	if q := strings.IndexByte(rawPath, '?'); q >= 0 {
 		rawPath = rawPath[:q]
 	}
-	if f := strings.IndexByte(rawPath, '#'); f >= 0 {
-		return fmt.Errorf("invalid API path %q: URL fragment is not allowed", path)
+	if strings.IndexByte(rawPath, '\\') >= 0 {
+		return fmt.Errorf("invalid API path %q: backslash is not allowed", path)
 	}
 	for _, seg := range strings.Split(rawPath, "/") {
 		if seg == "." || seg == ".." {
 			return fmt.Errorf("invalid API path %q: dot-segment traversal is not allowed", path)
+		}
+	}
+	return nil
+}
+
+func validateRawAPIPath(path string) error {
+	if err := validateAPIPath(path); err != nil {
+		return err
+	}
+	rawPath := path
+	if q := strings.IndexByte(rawPath, '?'); q >= 0 {
+		rawPath = rawPath[:q]
+	}
+	for _, seg := range strings.Split(rawPath, "/") {
+		if seg == "" {
+			continue
+		}
+		unescaped, err := url.PathUnescape(seg)
+		if err != nil {
+			return fmt.Errorf("invalid API path %q: malformed percent-encoding", path)
+		}
+		if unescaped == "." || unescaped == ".." || strings.ContainsAny(unescaped, `/\`) {
+			return fmt.Errorf("invalid API path %q: encoded path traversal is not allowed", path)
 		}
 	}
 	return nil
@@ -177,10 +203,26 @@ func crossOriginRedirectCredentialStripper(req *http.Request, via []*http.Reques
 	if len(via) >= 10 {
 		return fmt.Errorf("stopped after 10 redirects")
 	}
-	if len(via) > 0 && !isSameSchemeAndHost(via[0].URL, req.URL) {
+	if len(via) == 0 {
+		return nil
+	}
+	leftOrigin := !isSameSchemeAndHost(via[0].URL, req.URL)
+	if !leftOrigin {
+		for _, prev := range via[1:] {
+			if !isSameSchemeAndHost(via[0].URL, prev.URL) {
+				leftOrigin = true
+				break
+			}
+		}
+	}
+	if leftOrigin {
+		if via[0].Method != http.MethodGet && via[0].Method != http.MethodHead {
+			return fmt.Errorf("refusing cross-origin redirect for %s request", via[0].Method)
+		}
 		req.Header.Del("Authorization")
 		req.Header.Del("X-API-Key")
 		req.Header.Del("X-Tenant-ID")
+		req.Header.Del("X-Request-ID")
 	}
 	return nil
 }
@@ -211,6 +253,9 @@ func (c *Client) buildRequest(ctx context.Context,
 	req, err := http.NewRequestWithContext(ctx, method, u, reqBody)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	if req.URL == nil || (req.URL.Scheme != "http" && req.URL.Scheme != "https") || req.URL.Host == "" {
+		return nil, fmt.Errorf("invalid client base URL %q: must include http or https scheme and host", c.baseURL)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -294,6 +339,9 @@ func (c *Client) applyAuthHeaders(ctx context.Context, req *http.Request) {
 // change in any minor version. Prefer typed methods (ListKnowledgeBases,
 // GetKnowledgeBase, etc.) when they exist.
 func (c *Client) Raw(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
+	if err := validateRawAPIPath(path); err != nil {
+		return nil, err
+	}
 	return c.doRequest(ctx, method, path, body, nil)
 }
 

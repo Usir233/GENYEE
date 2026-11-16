@@ -371,10 +371,13 @@ func (c *Client) ExportFAQEntries(ctx context.Context, knowledgeBaseID string) (
 		return nil, newAPIError(resp.StatusCode, readErrorBody(resp.Body))
 	}
 
-	// Read the raw CSV data from response body
-	data, err := io.ReadAll(resp.Body)
+	// Read the raw CSV data from response body, bounded by maxResponseBodyBytes.
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodyBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read export response: %w", err)
+	}
+	if int64(len(data)) > maxResponseBodyBytes {
+		return nil, errResponseBodyTooLarge
 	}
 
 	return data, nil

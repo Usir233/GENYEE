@@ -10,7 +10,7 @@ The client includes the following main functional modules:
 2. **Knowledge Base Management**: Create, retrieve, update, and delete knowledge bases
 3. **Knowledge Management**: Add, retrieve, and delete knowledge content
 4. **Workspace Management**: CRUD operations for workspaces
-5. **Knowledge Q&A**: Supports regular Q&A and streaming Q&A
+5. **Knowledge Q&A**: Supports streaming Q&A backed by knowledge bases
 6. **Chunk Management**: Query, update, and delete knowledge chunks
 7. **Message Management**: Retrieve and delete session messages
 8. **Model Management**: Create, retrieve, update, and delete models
@@ -87,7 +87,7 @@ metadata := map[string]string{
     "source": "local",
     "type":   "document",
 }
-knowledge, err := apiClient.CreateKnowledgeFromFile(context.Background(), kb.ID, "path/to/file.pdf", metadata)
+knowledge, err := apiClient.CreateKnowledgeFromFile(context.Background(), kb.ID, "path/to/file.pdf", metadata, nil, "", "", nil)
 if err != nil {
     // Handle error
 }
@@ -104,31 +104,11 @@ if err != nil {
 ```go
 // Create session
 sessionRequest := &client.CreateSessionRequest{
-    KnowledgeBaseID: knowledgeBaseID,
-    SessionStrategy: &client.SessionStrategy{
-        MaxRounds:        10,
-        EnableRewrite:    true,
-        FallbackStrategy: "fixed_answer",
-        FallbackResponse: "Sorry, I cannot answer this question",
-        EmbeddingTopK:    5,
-        KeywordThreshold: 0.5,
-        VectorThreshold:  0.7,
-        RerankModelID:    "rerank_model_id",
-        RerankTopK:       3,
-        RerankThreshold:  0.8,
-        SummaryModelID:   "summary_model_id",
-    },
+    Title:       "Test Session",
+    Description: "A test session for knowledge Q&A",
 }
 
 session, err := apiClient.CreateSession(context.Background(), sessionRequest)
-if err != nil {
-    // Handle error
-}
-
-// Regular Q&A
-answer, err := apiClient.KnowledgeQA(context.Background(), session.ID, &client.KnowledgeQARequest{
-    Query: "What is artificial intelligence?",
-})
 if err != nil {
     // Handle error
 }
@@ -150,8 +130,8 @@ if err != nil {
 // Create model
 modelRequest := &client.CreateModelRequest{
     Name:        "Test Model",
-    Type:        client.ModelTypeChat,
-    Source:      client.ModelSourceInternal,
+    Type:        client.ModelTypeKnowledgeQA,
+    Source:      client.ModelSourceLocal,
     Description: "This is a test model",
     Parameters: client.ModelParameters{
         "temperature": 0.7,
@@ -180,9 +160,11 @@ if err != nil {
 }
 
 // Update chunk
+updatedContent := "Updated chunk content"
+isEnabled := true
 updateRequest := &client.UpdateChunkRequest{
-    Content:   "Updated chunk content",
-    IsEnabled: true,
+    Content:   &updatedContent,
+    IsEnabled: &isEnabled,
 }
 updatedChunk, err := apiClient.UpdateChunk(context.Background(), knowledgeID, chunkID, updateRequest)
 if err != nil {

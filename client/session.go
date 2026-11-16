@@ -305,6 +305,12 @@ func (c *Client) KnowledgeQAStream(
 	callback func(*StreamResponse) error,
 	opts ...ResourceURLOptions,
 ) error {
+	if request == nil {
+		return fmt.Errorf("knowledge QA request cannot be nil")
+	}
+	if callback == nil {
+		return fmt.Errorf("knowledge QA stream callback cannot be nil")
+	}
 	path := fmt.Sprintf("/api/v1/knowledge-chat/%s", escapePathSegment(sessionID))
 	debugLogger.Debug("knowledge_qa_stream_start", "session_id", sessionID, "query", request.Query)
 
@@ -335,8 +341,8 @@ func (c *Client) KnowledgeQAStream(
 	// references event bundles chunk contents that can reach hundreds of
 	// KiB). Raise the cap so those lines parse instead of erroring with
 	// "bufio.Scanner: token too long".
-	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-	var dataBuffer string
+	scanner.Buffer(make([]byte, 0, 64*1024), maxSSEEventBytes)
+	var dataBuffer sseEventBuffer
 	var eventType string
 	messageCount := 0
 
@@ -348,7 +354,7 @@ func (c *Client) KnowledgeQAStream(
 		if line == "" {
 			// A bare `data:` frame carries no payload; skip it rather than
 			// failing the stream on an empty JSON document.
-			if data := completeSSEData(dataBuffer); data != "" {
+			if data := dataBuffer.complete(); data != "" && isDefaultSSEEvent(eventType) {
 				debugLogger.Debug("sse_data_processing", "data", data, "event_type", eventType)
 				var streamResponse StreamResponse
 				if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
@@ -367,20 +373,22 @@ func (c *Client) KnowledgeQAStream(
 					return NewSSEStreamError(streamResponse.Content)
 				}
 			}
-			dataBuffer = ""
+			dataBuffer.reset()
 			eventType = ""
 			continue
 		}
 
-		// Process lines with event: prefix
-		if strings.HasPrefix(line, "event:") {
-			eventType = line[6:] // Remove "event:" prefix
+		// Process the event field, including an empty colonless field.
+		if ev, ok := parseSSEEventField(line); ok {
+			eventType = ev
 			debugLogger.Debug("sse_event_type_set", "event_type", eventType)
 		}
 
 		// Process lines with data: prefix
 		if strings.HasPrefix(line, "data:") {
-			dataBuffer = appendSSEDataLine(dataBuffer, line)
+			if err := dataBuffer.appendLine(line); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -389,7 +397,7 @@ func (c *Client) KnowledgeQAStream(
 		return fmt.Errorf("failed to read SSE stream: %w", err)
 	}
 
-	if err := incompleteSSEDataError(dataBuffer); err != nil {
+	if err := dataBuffer.incompleteError(); err != nil {
 		return err
 	}
 	debugLogger.Debug("knowledge_qa_stream_completed", "message_count", messageCount)
@@ -406,6 +414,9 @@ func (c *Client) ContinueStream(
 	callback func(*StreamResponse) error,
 	opts ...ResourceURLOptions,
 ) error {
+	if callback == nil {
+		return fmt.Errorf("continue stream callback cannot be nil")
+	}
 	path := fmt.Sprintf("/api/v1/sessions/continue-stream/%s", escapePathSegment(sessionID))
 
 	queryParams := url.Values{}
@@ -429,8 +440,8 @@ func (c *Client) ContinueStream(
 	scanner.Split(newSSELineSplitter())
 	// See KnowledgeQAStream: raise the per-line cap so large SSE data lines
 	// (references event) parse instead of erroring with "token too long".
-	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-	var dataBuffer string
+	scanner.Buffer(make([]byte, 0, 64*1024), maxSSEEventBytes)
+	var dataBuffer sseEventBuffer
 	var eventType string
 
 	for scanner.Scan() {
@@ -439,7 +450,7 @@ func (c *Client) ContinueStream(
 		// Empty line indicates the end of an event
 		if line == "" {
 			// An absent or empty event field defaults to "message" in SSE.
-			if data := completeSSEData(dataBuffer); data != "" && (eventType == "" || eventType == "message") {
+			if data := dataBuffer.complete(); data != "" && isDefaultSSEEvent(eventType) {
 				var streamResponse StreamResponse
 				if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
 					return fmt.Errorf("failed to parse SSE data: %w", err)
@@ -452,20 +463,21 @@ func (c *Client) ContinueStream(
 					return NewSSEStreamError(streamResponse.Content)
 				}
 			}
-			dataBuffer = ""
+			dataBuffer.reset()
 			eventType = ""
 			continue
 		}
 
 		// Process the event field, including an empty colonless field.
-		if line == "event" || strings.HasPrefix(line, "event:") {
-			_, value, _ := strings.Cut(line, ":") // A colonless field has an empty value.
-			eventType = strings.TrimPrefix(value, " ")
+		if ev, ok := parseSSEEventField(line); ok {
+			eventType = ev
 		}
 
 		// Process lines with data: prefix
 		if strings.HasPrefix(line, "data:") {
-			dataBuffer = appendSSEDataLine(dataBuffer, line)
+			if err := dataBuffer.appendLine(line); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -473,7 +485,7 @@ func (c *Client) ContinueStream(
 		return fmt.Errorf("failed to read SSE stream: %w", err)
 	}
 
-	return incompleteSSEDataError(dataBuffer)
+	return dataBuffer.incompleteError()
 }
 
 // StopSession stops the generation for a specific assistant message under a session.
@@ -548,6 +560,9 @@ func (c *Client) SearchKnowledgeDetailed(
 	request *SearchKnowledgeRequest,
 	opts ...ResourceURLOptions,
 ) (*SearchKnowledgeResponse, error) {
+	if request == nil {
+		return nil, fmt.Errorf("search knowledge request cannot be nil")
+	}
 	debugLogger.Debug("search_knowledge_start",
 		"knowledge_base_ids", request.KnowledgeBaseIDs,
 		"knowledge_ids", request.KnowledgeIDs,

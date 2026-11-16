@@ -151,6 +151,9 @@ func (c *Client) GetTenant(ctx context.Context, tenantID uint64) (*Tenant, error
 
 // UpdateTenant updates an existing tenant
 func (c *Client) UpdateTenant(ctx context.Context, tenant *Tenant) (*Tenant, error) {
+	if tenant == nil {
+		return nil, fmt.Errorf("tenant cannot be nil")
+	}
 	path := fmt.Sprintf("/api/v1/tenants/%d", tenant.ID)
 	resp, err := c.doRequest(ctx, http.MethodPut, path, tenant, nil)
 	if err != nil {

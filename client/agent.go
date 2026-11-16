@@ -100,6 +100,9 @@ func (c *Client) AgentQAStreamWithRequest(ctx context.Context,
 	if request == nil {
 		return fmt.Errorf("agent QA request cannot be nil")
 	}
+	if callback == nil {
+		return fmt.Errorf("agent QA stream callback cannot be nil")
+	}
 	if strings.TrimSpace(request.Query) == "" {
 		return fmt.Errorf("agent QA query cannot be empty")
 	}
@@ -125,14 +128,18 @@ func (c *Client) AgentQAStreamWithRequest(ctx context.Context,
 
 // processAgentSSEStream processes the SSE stream and invokes callback for each event
 func (c *Client) processAgentSSEStream(reader io.Reader, callback AgentEventCallback) error {
+	if callback == nil {
+		return fmt.Errorf("agent QA stream callback cannot be nil")
+	}
 	scanner := bufio.NewScanner(reader)
 	scanner.Split(newSSELineSplitter())
 	// Default 64KiB per-line cap truncates large SSE data lines (the
 	// references event bundles chunk contents that can reach hundreds of
 	// KiB). Raise the cap so those lines parse instead of erroring with
 	// "bufio.Scanner: token too long".
-	scanner.Buffer(make([]byte, 0, 64*1024), 4*1024*1024)
-	var dataBuffer string
+	scanner.Buffer(make([]byte, 0, 64*1024), maxSSEEventBytes)
+	var dataBuffer sseEventBuffer
+	var eventType string
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -141,7 +148,7 @@ func (c *Client) processAgentSSEStream(reader io.Reader, callback AgentEventCall
 		if line == "" {
 			// A bare `data:` frame carries no payload; skip it rather than
 			// failing the stream on an empty JSON document.
-			if data := completeSSEData(dataBuffer); data != "" {
+			if data := dataBuffer.complete(); data != "" && isDefaultSSEEvent(eventType) {
 				var streamResponse AgentStreamResponse
 				if err := json.Unmarshal([]byte(data), &streamResponse); err != nil {
 					return fmt.Errorf("failed to parse SSE data: %w", err)
@@ -158,20 +165,22 @@ func (c *Client) processAgentSSEStream(reader io.Reader, callback AgentEventCall
 					return NewSSEStreamError(streamResponse.Content)
 				}
 			}
-			dataBuffer = ""
+			dataBuffer.reset()
+			eventType = ""
 			continue
 		}
 
-		// Process lines with event: prefix (for future use)
-		if strings.HasPrefix(line, "event:") {
-			// Event type is available but not currently used
-			// eventType := strings.TrimSpace(line[6:])
+		// Process the event field, including an empty colonless field.
+		if ev, ok := parseSSEEventField(line); ok {
+			eventType = ev
 			continue
 		}
 
 		// Process lines with data: prefix
 		if strings.HasPrefix(line, "data:") {
-			dataBuffer = appendSSEDataLine(dataBuffer, line)
+			if err := dataBuffer.appendLine(line); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -179,7 +188,7 @@ func (c *Client) processAgentSSEStream(reader io.Reader, callback AgentEventCall
 		return fmt.Errorf("failed to read SSE stream: %w", err)
 	}
 
-	return incompleteSSEDataError(dataBuffer)
+	return dataBuffer.incompleteError()
 }
 
 // AgentSession is a wrapper for agent-based interactions

@@ -604,6 +604,9 @@ func filenameFromContentDisposition(h string) string {
 }
 
 func (c *Client) UpdateKnowledge(ctx context.Context, knowledge *Knowledge) error {
+	if knowledge == nil {
+		return fmt.Errorf("knowledge cannot be nil")
+	}
 	path := fmt.Sprintf("/api/v1/knowledge/%s", escapePathSegment(knowledge.ID))
 
 	resp, err := c.doRequest(ctx, http.MethodPut, path, knowledge, nil)

@@ -10,7 +10,7 @@
 2. **知识库管理**：创建、获取、更新和删除知识库
 3. **知识管理**：添加、获取和删除知识内容
 4. **空间管理**：空间的CRUD操作
-5. **知识问答**：支持普通问答和流式问答
+5. **知识问答**：支持基于知识库的流式问答
 6. **Agent问答**：支持基于Agent的智能问答，包含思考过程、工具调用和反思
 7. **分块管理**：查询、更新和删除知识分块
 8. **消息管理**：获取和删除会话消息
@@ -87,7 +87,7 @@ metadata := map[string]string{
     "source": "local",
     "type":   "document",
 }
-knowledge, err := apiClient.CreateKnowledgeFromFile(context.Background(), kb.ID, "path/to/file.pdf", metadata)
+knowledge, err := apiClient.CreateKnowledgeFromFile(context.Background(), kb.ID, "path/to/file.pdf", metadata, nil, "", "", nil)
 if err != nil {
     // 处理错误
 }
@@ -104,31 +104,11 @@ if err != nil {
 ```go
 // 创建会话
 sessionRequest := &client.CreateSessionRequest{
-    KnowledgeBaseID: knowledgeBaseID,
-    SessionStrategy: &client.SessionStrategy{
-        MaxRounds:        10,
-        EnableRewrite:    true,
-        FallbackStrategy: "fixed_answer",
-        FallbackResponse: "抱歉，我无法回答这个问题",
-        EmbeddingTopK:    5,
-        KeywordThreshold: 0.5,
-        VectorThreshold:  0.7,
-        RerankModelID:    "rerank_model_id",
-        RerankTopK:       3,
-        RerankThreshold:  0.8,
-        SummaryModelID:   "summary_model_id",
-    },
+    Title:       "测试会话",
+    Description: "用于知识问答的测试会话",
 }
 
 session, err := apiClient.CreateSession(context.Background(), sessionRequest)
-if err != nil {
-    // 处理错误
-}
-
-// 普通问答
-answer, err := apiClient.KnowledgeQA(context.Background(), session.ID, &client.KnowledgeQARequest{
-    Query: "什么是人工智能?",
-})
 if err != nil {
     // 处理错误
 }
@@ -234,45 +214,14 @@ err = agentSession.Ask(context.Background(), "什么是深度学习?",
 | `AgentResponseTypeReflection` | 自我反思 | Agent评估自己的回答时 |
 | `AgentResponseTypeError` | 错误 | 发生错误时 |
 
-### Agent问答测试工具
-
-我们提供了一个交互式命令行工具用于测试Agent功能：
-
-```bash
-cd client/cmd/agent_test
-go build -o agent_test
-./agent_test -url http://localhost:8080 -kb <knowledge_base_id>
-```
-
-该工具支持：
-- 创建和管理会话
-- 交互式Agent问答
-- 实时显示所有Agent事件
-- 性能统计和调试信息
-
-详细使用说明请参考 `client/cmd/agent_test/README.md`。
-
-### Agent问答的高级用法
-
-更多高级用法示例，请参考 `agent_example.go` 文件，包括：
-- 基础Agent问答
-- 工具调用跟踪
-- 知识引用捕获
-- 完整事件跟踪
-- 自定义错误处理
-- 流取消控制
-- 多会话管理
-
-```
-
 ### 示例：管理模型
 
 ```go
 // 创建模型
 modelRequest := &client.CreateModelRequest{
     Name:        "测试模型",
-    Type:        client.ModelTypeChat,
-    Source:      client.ModelSourceInternal,
+    Type:        client.ModelTypeKnowledgeQA,
+    Source:      client.ModelSourceLocal,
     Description: "这是一个测试模型",
     Parameters: client.ModelParameters{
         "temperature": 0.7,
@@ -301,9 +250,11 @@ if err != nil {
 }
 
 // 更新分块
+updatedContent := "更新后的分块内容"
+isEnabled := true
 updateRequest := &client.UpdateChunkRequest{
-    Content:   "更新后的分块内容",
-    IsEnabled: true,
+    Content:   &updatedContent,
+    IsEnabled: &isEnabled,
 }
 updatedChunk, err := apiClient.UpdateChunk(context.Background(), knowledgeID, chunkID, updateRequest)
 if err != nil {
