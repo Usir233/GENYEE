@@ -3092,6 +3092,12 @@ func (s *wikiIngestService) isKnowledgeGone(ctx context.Context, kbID, knowledge
 	if kn == nil {
 		return true, nil
 	}
+	if tenantID, ok := types.TenantIDFromContext(ctx); ok && tenantID != 0 && kn.TenantID != 0 && kn.TenantID != tenantID {
+		return true, nil
+	}
+	if kbID != "" && kn.KnowledgeBaseID != "" && kn.KnowledgeBaseID != kbID {
+		return true, nil
+	}
 	switch kn.ParseStatus {
 	case types.ParseStatusDeleting, types.ParseStatusCancelled:
 		return true, nil

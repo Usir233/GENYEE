@@ -1421,6 +1421,9 @@ func (s *wikiIngestService) mapOneDocument(
 	// was in flight, we must NOT proceed to LLM extraction — doing so would
 	// create wiki pages whose source_refs point at a ghost knowledge ID,
 	// permanently unreachable via wiki_read_source_doc.
+	if _, ok := types.TenantIDFromContext(ctx); !ok && payload.TenantID != 0 {
+		ctx = context.WithValue(ctx, types.TenantIDContextKey, payload.TenantID)
+	}
 	gone, err := s.isKnowledgeGone(ctx, payload.KnowledgeBaseID, knowledgeID)
 	if err != nil {
 		failCtx, cancel := wikiIngestCleanupContext(ctx)
@@ -1474,7 +1477,9 @@ func (s *wikiIngestService) mapOneDocument(
 	}
 
 	docTitle := knowledgeID
-	if kn, err := s.knowledgeSvc.GetKnowledgeByIDOnly(ctx, knowledgeID); err == nil && kn != nil && kn.Title != "" {
+	if kn, err := s.knowledgeSvc.GetKnowledgeByIDOnly(ctx, knowledgeID); err == nil && kn != nil && kn.Title != "" &&
+		(payload.TenantID == 0 || kn.TenantID == 0 || kn.TenantID == payload.TenantID) &&
+		(payload.KnowledgeBaseID == "" || kn.KnowledgeBaseID == "" || kn.KnowledgeBaseID == payload.KnowledgeBaseID) {
 		docTitle = kn.Title
 	} else {
 		for _, ch := range chunks {
@@ -1972,6 +1977,9 @@ func (s *wikiIngestService) reduceSlugUpdates(
 	// knowledge no longer exists so we don't resurrect a ghost source_ref.
 	// Retract updates are kept — they actively remove refs, which is what we
 	// want when the doc is gone.
+	if _, ok := types.TenantIDFromContext(ctx); !ok && tenantID != 0 {
+		ctx = context.WithValue(ctx, types.TenantIDContextKey, tenantID)
+	}
 	updates, err = s.filterLiveUpdates(ctx, kbID, updates)
 	if err != nil {
 		return false, "", false, false, err

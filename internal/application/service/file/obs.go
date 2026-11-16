@@ -46,6 +46,35 @@ func obsUsePathStyle(endpoint string) bool {
 	return net.ParseIP(u.Hostname()) != nil
 }
 
+// validateOBSBucketName enforces S3/OBS DNS-compatible bucket label rules so
+// virtual-hosted addressing ({bucket}.{endpointHost}) cannot inject userinfo,
+// ports, path/fragment delimiters, or IP literals into outgoing request hosts.
+func validateOBSBucketName(bucketName string) error {
+	if len(bucketName) == 0 || len(bucketName) > 63 {
+		return fmt.Errorf("invalid OBS bucket name %q", bucketName)
+	}
+	if net.ParseIP(bucketName) != nil {
+		return fmt.Errorf("invalid OBS bucket name %q: must not be an IP address", bucketName)
+	}
+	labels := strings.Split(bucketName, ".")
+	for _, label := range labels {
+		if len(label) == 0 {
+			return fmt.Errorf("invalid OBS bucket name %q", bucketName)
+		}
+		for i := 0; i < len(label); i++ {
+			c := label[i]
+			isAlphaNum := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')
+			if !isAlphaNum && c != '-' {
+				return fmt.Errorf("invalid OBS bucket name %q", bucketName)
+			}
+			if (i == 0 || i == len(label)-1) && c == '-' {
+				return fmt.Errorf("invalid OBS bucket name %q", bucketName)
+			}
+		}
+	}
+	return nil
+}
+
 // obsS3Options builds the S3 client options shared by the file service and the
 // connectivity check.
 func obsS3Options(endpoint, region, accessKey, secretAccessKey string) s3.Options {
@@ -67,6 +96,9 @@ func NewObsFileService(
 ) (interfaces.FileService, error) {
 	if err := utils.ValidateURLForSSRF(endpoint); err != nil {
 		return nil, fmt.Errorf("unsafe OBS endpoint: %w", err)
+	}
+	if err := validateOBSBucketName(bucketName); err != nil {
+		return nil, err
 	}
 
 	client := s3.New(obsS3Options(endpoint, region, accessKeyID, secretAccessKey))
@@ -107,6 +139,9 @@ func NewObsFileService(
 func CheckObsConnectivity(ctx context.Context, endpoint, region, accessKey, secretKey, bucketName string) error {
 	if err := utils.ValidateURLForSSRF(endpoint); err != nil {
 		return fmt.Errorf("unsafe OBS endpoint: %w", err)
+	}
+	if err := validateOBSBucketName(bucketName); err != nil {
+		return err
 	}
 	checkCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -295,6 +330,9 @@ func (s *obsFileService) GetFileURL(ctx context.Context, filePath string) (strin
 	if s.proxyDomain != "" {
 		return s.proxyDomain + "/" + strings.TrimPrefix(objectKey, "/"), nil
 	}
+	if err := validateOBSBucketName(s.bucketName); err != nil {
+		return "", err
+	}
 
 	// Mirror the client addressing so generated URLs stay reachable: OBS
 	// rejects path-style on domain endpoints (issue #3269), so serve
@@ -378,6 +416,9 @@ func (s *obsFileService) SaveBytes(ctx context.Context, data []byte, tenantID ui
 		} else {
 			objectKey = fmt.Sprintf("%d/%s%s", tenantID, uuid.New().String(), ext)
 		}
+	}
+	if err := utils.SafeObjectKey(objectKey); err != nil {
+		return "", fmt.Errorf("invalid OBS object key: %w", err)
 	}
 
 	ctx, cancel := objectStorageTransferContext(ctx)

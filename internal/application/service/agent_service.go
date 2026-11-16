@@ -441,7 +441,7 @@ func (s *agentService) registerMCPTools(
 
 	// Freeze "all" to the services resolved for this turn. A child must not
 	// silently gain services added after its parent started.
-	mcpMode := config.MCPSelectionMode
+	mcpMode := strings.ToLower(strings.TrimSpace(config.MCPSelectionMode))
 	config.MCPSelectionMode = "selected"
 	selectedIDs := append([]string(nil), config.MCPServices...)
 	config.MCPServices = nil
@@ -460,7 +460,8 @@ func (s *agentService) registerMCPTools(
 	var mcpServices []*types.MCPService
 	var err error
 
-	if mcpMode == "selected" {
+	switch mcpMode {
+	case "selected":
 		if len(selectedIDs) == 0 {
 			logger.Infof(ctx, "MCP services disabled by agent config (mode: selected, no services)")
 			return
@@ -471,12 +472,15 @@ func (s *agentService) registerMCPTools(
 			return
 		}
 		logger.Infof(ctx, "Using %d selected MCP services from agent config", len(mcpServices))
-	} else {
+	case "all":
 		mcpServices, err = s.mcpServiceService.ListMCPServices(ctx, tenantID)
 		if err != nil {
 			logger.Warnf(ctx, "Failed to list MCP services: %v", err)
 			return
 		}
+	default:
+		logger.Warnf(ctx, "Unrecognized MCP selection mode %q, failing closed (no MCP services)", mcpMode)
+		return
 	}
 
 	enabledServices := make([]*types.MCPService, 0)

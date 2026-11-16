@@ -802,15 +802,16 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) e
 	if s.tenantRepo != nil && ds.TenantID != 0 {
 		tenant, tErr := s.tenantRepo.GetTenantByID(ctx, ds.TenantID)
 		if errors.Is(tErr, apprepo.ErrTenantNotFound) || (tErr == nil && (tenant == nil || w3aIsWorkspaceInactiveStatus(tenant.Status))) {
-			logger.Warnf(ctx, "workspace unavailable, cancelling sync: tenant=%d ds=%s", ds.TenantID, ds.ID)
 			if s.scheduler != nil {
 				s.scheduler.Remove(ds.ID)
 			}
-			syncLog.Status = types.SyncLogStatusCanceled
-			syncLog.FinishedAt = timePtr(time.Now().UTC())
-			syncLog.ErrorMessage = "workspace is inactive or deleted"
-			_ = s.syncLogRepo.Update(ctx, syncLog)
-			return nil
+			if terminalResult {
+				logger.Infof(ctx, "sync log already finished, skipping replay for unavailable workspace: tenant=%d ds=%s syncLog=%s status=%s",
+					ds.TenantID, ds.ID, payload.SyncLogID, syncLog.Status)
+				return nil
+			}
+			logger.Warnf(ctx, "workspace unavailable, cancelling sync: tenant=%d ds=%s", ds.TenantID, ds.ID)
+			return s.cancelSyncLog(ctx, syncLog, "workspace is inactive or deleted")
 		}
 		if tErr != nil {
 			return fmt.Errorf("read tenant for sync: %w", tErr)
@@ -821,6 +822,11 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) e
 	if kbErr != nil {
 		if !errors.Is(kbErr, apprepo.ErrKnowledgeBaseNotFound) {
 			return fmt.Errorf("read knowledge base for sync: %w", kbErr)
+		}
+		if terminalResult {
+			logger.Infof(ctx, "sync log already finished, skipping replay for deleted knowledge base: kb=%s ds=%s syncLog=%s status=%s",
+				ds.KnowledgeBaseID, payload.DataSourceID, payload.SyncLogID, syncLog.Status)
+			return nil
 		}
 		logger.Warnf(ctx, "knowledge base not found, cancelling sync: kb=%s ds=%s",
 			ds.KnowledgeBaseID, payload.DataSourceID)
