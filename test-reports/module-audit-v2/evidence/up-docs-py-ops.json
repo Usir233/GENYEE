@@ -63,7 +63,7 @@
           "file": ".github/workflows/docreader.yml:55-115",
           "summary": "Start DocReader gRPC server launched python -m docreader.main without GRPC_AUTH_TOKEN, causing immediate fail-closed AuthConfigError (sys.exit(1)) under GENYEE's hardened AuthInterceptor and hanging 30s before failing CI; run: blocks also interpolated ${{ env.PYTHON_VERSION }} directly and wrote the server PID to world-writable /tmp/docreader.pid.",
           "regression_test": "test_up_ops_docreader_workflow_enforces_grpc_auth_and_shell_hygiene",
-          "commit": "44999991c65992a19ff5aa4c59133ecddc25d982"
+          "commit": "44efa0e411f1e8f6f174a6648b1412a81c465854"
         }
       ],
       "verification_commands": [
@@ -89,7 +89,7 @@
           "file": "scripts/build-anydoc-lib.sh:86-120,181-214",
           "summary": "prepare_patched_anydoc did not unlink pre-existing tarball symlinks before curl -o, left mismatched tarballs on disk on SHA-256 failure, and accepted symlinks inside unpacked crate archives; strip_llvm_lto_sections missed dotted .llvm.lto section names and mutated $dest/$lib_name in-place rather than staging via a temporary file.",
           "regression_test": "test_up_ops_build_anydoc_lib_sha256_symlink_and_llvm_strip_safety",
-          "commit": "44999991c65992a19ff5aa4c59133ecddc25d982"
+          "commit": "44efa0e411f1e8f6f174a6648b1412a81c465854"
         }
       ],
       "verification_commands": [
@@ -117,7 +117,7 @@
           "file": "docreader/parser/markdown_parser.py:415-698",
           "summary": "MarkdownImageUtil regexes (b64_pattern, image_pattern, replace_pattern) suffered O(N^3) catastrophic backtracking on unclosed ![alt](data:image/...) and ![alt](...) inputs (>8s at n=400 / 12.8 KB), and an unclosed '![' inside an inline code span caused b64_pattern to span across prose and skip extracting a subsequent real base64 image.",
           "regression_test": "test_up_doc_py_redos_linear_time_and_inline_code_unclosed_opener",
-          "commit": "44999991c65992a19ff5aa4c59133ecddc25d982"
+          "commit": "44efa0e411f1e8f6f174a6648b1412a81c465854"
         },
         {
           "id": "UP-DOC-PY-002",
@@ -125,7 +125,7 @@
           "file": "docreader/parser/markdown_parser.py:34-60,360-388,493-568",
           "summary": "MarkdownImageUtil.extract_base64 lacked pre-decode base64 payload size caps and per-document budgets (allowing oversized inline base64 OOM), omitted Image.MAX_IMAGE_PIXELS = 40_000_000 raster header validation (allowing multi-hundred-megapixel PNG decompression bombs to bypass Go's ResolveDataURIImages checks via result.ImageRefs), and interpolated raw data:image/<subtype> strings into image_path (allowing ../ traversal, SVG/vector MIME types, and spoofed non-raster payloads).",
           "regression_test": "test_up_doc_py_inline_image_size_cap_pixel_bomb_and_raster_mime_allowlist",
-          "commit": "44999991c65992a19ff5aa4c59133ecddc25d982"
+          "commit": "44efa0e411f1e8f6f174a6648b1412a81c465854"
         }
       ],
       "verification_commands": [
@@ -232,7 +232,7 @@
           "file": "website-docs/shared/header.ts:38-49",
           "summary": "sanitizeExternalHttpUrl permitted http:/https: URLs containing embedded username/password userinfo (e.g. https://user:secret@example.com or @-authority phishing URLs https://genyee.com@evil.example) to pass through into external anchor href attributes.",
           "regression_test": "UP-DOCS-WEB-001: sanitizeExternalHttpUrl rejects embedded userinfo credentials and dangerous schemes",
-          "commit": "44999991c65992a19ff5aa4c59133ecddc25d982"
+          "commit": "44efa0e411f1e8f6f174a6648b1412a81c465854"
         }
       ],
       "verification_commands": [

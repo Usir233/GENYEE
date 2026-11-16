@@ -121,7 +121,7 @@
           "file": "frontend/src/embed-main.ts:7, frontend/src/main.ts:11, frontend/src/components/css/chat-hljs-theme.less:1-24",
           "summary": "Upstream moved all --chat-code-* syntax-highlight custom properties from chat-hljs.less into chat-hljs-theme.less and imported it only in main.ts, leaving --chat-code-* undefined in the embedded chat widget entrypoint (embed-main.ts).",
           "regression_test": "both SPA and embed entrypoints load chat-hljs-theme.less and zero files reference deleted chat-hljs-dark.less",
-          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
         }
       ],
       "verification_commands": [
@@ -166,7 +166,7 @@
           "file": "frontend/src/components/manual-knowledge-editor.vue:100-103,808-910,940-963",
           "summary": "Upstream renamed W6's initGeneration token to loadVersion (regressing componentLifecycleRaces.test.ts) and left handleSave() unfenced across async getKnowledgeBaseById, uploadConfirmStore.open, updateManualKnowledge, and createManualKnowledge awaits, allowing an in-flight save from a closed visit to overwrite currentKnowledgeId, unlock saving, or close a newly opened draft.",
           "regression_test": "an old in-flight save success/failure cannot close, unlock, or overwrite a reopened draft",
-          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
         },
         {
           "id": "UP-FE-002",
@@ -174,7 +174,7 @@
           "file": "frontend/src/components/GlobalCommandPalette/useSearch.ts:70-196,251-264,402-437; frontend/src/components/GlobalCommandPalette.vue:220-233,629-706,730-733",
           "summary": "GlobalCommandPalette stays mounted across workspace/user switches while useCmdkSearch permanently cached kbsLoaded/agentsLoaded and kept stale fileGroups/messageGroups and open sourceTarget drawers across effectiveTenantId changes; focusInputWithRetry also left RAF/setTimeout callbacks uncanceled on close/unmount.",
           "regression_test": "workspace switch invalidates cached KBs and drops in-flight cross-workspace search results; workspace or user switch dismisses an open source drawer and closes the palette",
-          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
         },
         {
           "id": "UP-FE-006",
@@ -182,7 +182,7 @@
           "file": "frontend/src/components/ChatReferenceSourceView.vue:66,169-216,333-339,372-395",
           "summary": "ChatReferenceSourceView omitted knowledgeBaseId and knowledgeSource from its target watcher, skipped kbName provenance refresh when knowledgeBaseId hydrated on an already open document, accepted hostless 'https://' URLs via regex, called getKnowledgeDetails('') on empty knowledgeId, and lacked an onBeforeUnmount loadVersion fence.",
           "regression_test": "hydrating knowledgeBaseId on the same document updates provenance and web citations reject hostless URLs",
-          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
         }
       ],
       "verification_commands": [
@@ -247,7 +247,7 @@
           "file": "frontend/src/utils/sessionMarkdown.ts:1,91-113; frontend/src/utils/citationMarkdown.ts:64-153,480-493; frontend/src/utils/markdownTableNormalize.ts:48-112",
           "summary": "sessionMarkdown interpolated raw /^https?:\\/\\//i reference URLs into Markdown links without URL parsing or parenthesis/whitespace encoding (allowing 'https://example.com/p) [Click](javascript:alert(1))' link breakout) and stripped literal <kb/>/<web/> inside code blocks; citationMarkdown prematurely closed 4-backtick fences on inner 3-backtick lines and emitted unencoded spaces/unescaped fallback brackets or HTML in stripCitationTagsForMarkdown; markdownTableNormalize mutated pipe-prefixed lines inside fenced code blocks.",
           "regression_test": "buildSessionMarkdown encodes parentheses and spaces in reference URLs and rejects malformed schemes; buildSessionMarkdown preserves literal <kb/> and <web/> inside inline and fenced code blocks; preserves literal citations inside 4-backtick fences containing 3-backtick lines; stripCitationTagsForMarkdown normalizes URL spaces/quotes and sanitizes fallback bracket labels; pipe-prefixed lines inside CommonMark fenced code blocks are left untouched",
-          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
         }
       ],
       "verification_commands": [
@@ -324,7 +324,7 @@
           "file": "frontend/src/views/knowledge/components/FAQEntryManager.vue:1844-2069",
           "summary": "FAQEntryManager read arbitrarily large import files into memory without a byte cap, rejected uppercase .JSON/.CSV/.XLSX extensions, stored CSV/Excel row columns in plain {} objects susceptible to __proto__ header collisions, and threw unhandled TypeErrors or forwarded unvalidated answer_strategy/tag_id/non-string-array values on malformed JSON imports.",
           "regression_test": "FAQ import rejects oversized files, handles uppercase extensions, sanitizes malformed JSON fields, and isolates __proto__ CSV headers",
-          "commit": "6504dab2897760bf81fb8aef023c145fc3939e90"
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
         }
       ],
       "verification_commands": [

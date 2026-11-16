@@ -379,7 +379,7 @@
           "file": "internal/datasource/connector/notion/connector.go:149-169,471-479,504-516,551-563,1055-1065; internal/datasource/connector/notion/client.go:330-336,485-492,840-846",
           "summary": "queryDataSourceWindow accepted has_more=true with an empty next_cursor as a complete database query, and FetchAll/fetchDatabase/fetchDatabaseIncremental swallowed non-404 errors from GetPage and queryDatabaseRecords. On transient API failures or incomplete pagination during incremental sync, Notion emitted spurious IsDeleted tombstones for previously indexed database records and advanced the database cursor; on full/first sync, API errors returned empty results with nil error.",
           "regression_test": "TestNotionDatabaseQueryFailurePreservesCursorAndSkipsDeletions",
-          "commit": "77585df25cc5b411b13b22b4180834dafa8c9bab"
+          "commit": "fc7c3f7aee06ab3435abcbc92514c607955081f9"
         }
       ],
       "verification_commands": [
@@ -412,7 +412,7 @@
           "file": "internal/datasource/connector/rss/client.go:97-107; internal/datasource/connector/rss/connector.go:42-50,83-114,327-328",
           "summary": "client.fetchWithURL returned raw *url.Error values containing unredacted feed query strings (leaking private feed ?token=/key= credentials into Validate errors, ListResources Resource.Description, PartialFetchError details, and logs), Validate/ListResources/walk logged or wrapped raw feedURL, and ListResources assigned unsanitized feed.Link values (such as javascript: URIs) directly to Resource.URL.",
           "regression_test": "TestRSSQuerySecretRedactedAndUnsafeFeedLinkSanitized",
-          "commit": "b4ce669f9021137d8f646a8c15c45a41f1d8e785"
+          "commit": "ed0af7213fda3bec0695b7173a95696b235394c9"
         }
       ],
       "verification_commands": [
@@ -615,7 +615,7 @@
           "file": "internal/models/api/nimrerank/client.go:109-203",
           "summary": "Unlike sibling rerank clients (pineconerank, teirank), nimrerank.Client failed on nil context.Context, issued outbound HTTP POSTs for empty documents/images slices, lacked NaN/Inf logit guards, and returned unredacted URL userinfo and query-parameter secrets (api_key/token/secret) when pre-request URL/SSRF validation failed.",
           "regression_test": "TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets",
-          "commit": "69690df2a27c89c4df3ed022bd9e5144a56cd9f8"
+          "commit": "9eae47457836d8c0ff364f8ba88b4f81a5e400ff"
         }
       ],
       "verification_commands": [

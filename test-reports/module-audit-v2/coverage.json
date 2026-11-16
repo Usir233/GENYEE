@@ -10,10 +10,10 @@
   "wave0_evidence_file": "test-reports/module-audit-v2/wave0-foundation.json",
   "legacy_ledger": "test-reports/module-audit-20261113/coverage.json",
   "summary": {
-    "total_tracked_files": 6688,
+    "total_tracked_files": 6762,
     "unit_count": 301,
-    "unit_files_total": 6138,
-    "support_files_total": 550,
+    "unit_files_total": 6208,
+    "support_files_total": 554,
     "uncovered_files": 0,
     "duplicate_files": 0,
     "stale_files": 0,
@@ -28,18 +28,18 @@
       "W8": 77
     },
     "files_by_wave": {
-      "W1": 376,
-      "W2": 932,
-      "W3": 1277,
-      "W4": 186,
-      "W5": 899,
-      "W6": 1086,
-      "W7": 871,
-      "W8": 511
+      "W1": 377,
+      "W2": 941,
+      "W3": 1294,
+      "W4": 188,
+      "W5": 920,
+      "W6": 1100,
+      "W7": 875,
+      "W8": 513
     },
     "units_by_status": {
-      "verified_findings_fixed": 234,
-      "verified_no_findings": 67
+      "verified_findings_fixed": 236,
+      "verified_no_findings": 65
     },
     "units_by_legacy_status": {
       "audited": 36,
@@ -53,7 +53,7 @@
     "support_files_by_category": {
       "license_or_notice": 71,
       "historical_changelog_or_spec": 6,
-      "audit_ledger_or_archived_report": 104,
+      "audit_ledger_or_archived_report": 108,
       "static_binary_or_vendor_asset": 369
     }
   },
@@ -726,7 +726,7 @@
       "wave": "W1",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 19,
+      "file_count": 20,
       "tracked_files": [
         "internal/mcpserver/audit_security_test.go",
         "internal/mcpserver/grep_pattern_test.go",
@@ -739,6 +739,7 @@
         "internal/mcpserver/server_test.go",
         "internal/mcpserver/tools_annotations_test.go",
         "internal/mcpserver/tools_ask.go",
+        "internal/mcpserver/tools_ask_error_test.go",
         "internal/mcpserver/tools_ask_image_test.go",
         "internal/mcpserver/tools_ask_progress_test.go",
         "internal/mcpserver/tools_ingest.go",
@@ -752,7 +753,8 @@
         "Every MCP tool call is gated by endpointFromContext, ep.HasTool allowlist, per-endpoint rate limiting, and tenant/KB/document scope resolution strictly derived from the authenticated MCPEndpoint context (never caller-supplied tenant IDs).",
         "Cross-tenant knowledge bases, documents, agents, and wiki pages are rejected unless explicitly shared via organization KB shares, with owner-tenant execution context and Caller/TenantAPIKeyScope preserved.",
         "All mutating document tools (add_document, update_document, delete_document) enforce access.RequireKBWrite(ctx, kb) before invoking KnowledgeService.",
-        "Inbound Streamable HTTP POST request bodies are capped at 4 MiB (returning HTTP 413 without unbounded io.ReadAll buffering), grep regexes and pagination limits are bounded, and spawned QA/touchLastUsed goroutines isolate panics cleanly under -race."
+        "Inbound Streamable HTTP POST request bodies are capped at 4 MiB (returning HTTP 413 without unbounded io.ReadAll buffering), grep regexes and pagination limits are bounded, and spawned QA/touchLastUsed goroutines isolate panics cleanly under -race.",
+        "handleAsk propagates stream/agent execution errors as IsError: true even after partial text chunks were emitted, preventing truncated partial output from being returned as a successful answer or minting public resource URLs."
       ],
       "findings": [
         {
@@ -782,9 +784,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/mcp/... ./internal/mcpserver/... (exit 0)",
-        "GOMAXPROCS=2 go vet -p 1 ./internal/mcp/... ./internal/mcpserver/... (exit 0)"
+        "GOMAXPROCS=2 go vet -p 1 ./internal/mcp/... ./internal/mcpserver/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/mcpserver/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w1-mcp.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w1-mcp.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/sandbox",
@@ -1280,15 +1283,17 @@
       "wave": "W2",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 20,
+      "file_count": 22,
       "tracked_files": [
         "internal/database/im_transport_migration_test.go",
         "internal/database/migration.go",
         "internal/database/migration_auth_token_sessions_test.go",
         "internal/database/migration_feishu_resync_test.go",
+        "internal/database/migration_im_session_mode_test.go",
         "internal/database/migration_parity_test.go",
         "internal/database/migration_postgres_agent_allowed_tools_test.go",
         "internal/database/migration_postgres_audit_actor_test.go",
+        "internal/database/migration_postgres_im_session_mode_test.go",
         "internal/database/migration_postgres_mcp_oauth_test.go",
         "internal/database/migration_postgres_test.go",
         "internal/database/migration_security_test.go",
@@ -1308,7 +1313,8 @@
         "RunMigrationsWithOptions and GetMigrationVersion redact URL userinfo credentials, percent-escaped/quoted secret variants, and password=... parameters before logging, returning errors, or caching currentMigrationError for /api/v1/system/info.",
         "GetMigrationVersion constructs PostgreSQL URLs via net/url.URL + url.UserPassword + net.JoinHostPort so special characters (@, #, ?, /, %, :, newlines) in DB_USER/DB_PASSWORD/DB_NAME are safely percent-encoded rather than misparsed as hostnames or URL escapes.",
         "SQLite migration runner selects file://migrations/sqlite whenever opts.SQLiteDBPath is set (even when dsn is empty), configures SetMaxOpenConns(1) and PRAGMA busy_timeout = 5000 on the migrator connection, closes driver/sqlDB handles on initialization errors, and clears stale cached migration version state on early open failures.",
-        "Zero raw SQL string-interpolation injection vectors in internal/database; full SQLite fresh-install, upgrade, and rollback paths verified under -race with zero weknora/knora/wk_ residues."
+        "Zero raw SQL string-interpolation injection vectors in internal/database; full SQLite fresh-install, upgrade, and rollback paths verified under -race with zero weknora/knora/wk_ residues.",
+        "SQLite and PostgreSQL versioned migration suites verify expectedSQLiteMigrationVersion == 55, upgrade/downgrade idempotency across 000055/000139 im_session_mode_indexes, retention of agent_id on rollback to 54/138, partial unique index enforcement for user/chat vs thread modes, and GENYEE_MIGRATION_TEST_POSTGRES_DSN configuration."
       ],
       "findings": [
         {
@@ -1322,16 +1328,17 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/database/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/handler",
       "wave": "W2",
       "legacy_status": "partially_audited",
       "status": "verified_findings_fixed",
-      "file_count": 236,
+      "file_count": 237,
       "tracked_files": [
         "internal/handler/agent_grant.go",
         "internal/handler/agent_prompt_test.go",
@@ -1354,6 +1361,7 @@
         "internal/handler/chunk.go",
         "internal/handler/chunker_debug.go",
         "internal/handler/chunker_debug_test.go",
+        "internal/handler/chunker_preview_token_budget_test.go",
         "internal/handler/collaboration_prompt_test.go",
         "internal/handler/credential_vault.go",
         "internal/handler/credential_vault_test.go",
@@ -1575,7 +1583,8 @@
         "Secret & credential redaction: verified HTTP responses redact stored secrets across tenant API keys (tenantAPIKeyForResponse), model/MCP/web-search/datasource credential subresources (Configured-only metadata), OAuth client secrets, storage backend credentials, and IM channel CRUD responses (im.SummarizeIMChannel / im.SummarizeIMChannels / ChannelWithAgent).",
         "Input bounds, multipart/JSON body caps, file download headers, & SSRF defense: verified http.MaxBytesReader (limitUploadBody / limitJSONBody / limitSkillUploadBody) runs before multipart/JSON parsing across upload, skill zip, multimodal test, chunker preview, evaluation, and credential endpoints; verified Content-Disposition sanitization and zip path traversal checks; verified pagination clamping and utils.ValidateURLForSSRF on outbound URL import, VLM, model, MCP, datasource, and web-search endpoints.",
         "Concurrency, streaming, & error handling: verified SSE/export/batch handlers honor request context cancellation, avoid raw internal/cross-tenant error leaks, and pass go test -race cleanly.",
-        "GENYEE rebrand & Swagger contract alignment: verified headers (X-API-Key, X-Request-ID), cookies, error envelopes, docs/swagger.json operation spec parity, and zero legacy brand or key-prefix residues across all 236 tracked files."
+        "GENYEE rebrand & Swagger contract alignment: verified headers (X-API-Key, X-Request-ID), cookies, error envelopes, docs/swagger.json operation spec parity, and zero legacy brand or key-prefix residues across all 236 tracked files.",
+        "PreviewChunks enforces a 1 MiB request body cap, 64k rune cap, and 5s timeout while passing chunker.TokenBudgetLanguage(cfg) when TokenLimit > 0; wiki rebuild-links failure handler tests verify safe error mapping."
       ],
       "findings": [
         {
@@ -1631,9 +1640,10 @@
         "GOMAXPROCS=2 go vet -p 1 ./internal/handler/... (exit 0)",
         "GOMAXPROCS=2 go vet -p 1 ./internal/container/... ./internal/router/... (exit 0)",
         "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/handler (exit 0)",
-        "GOMAXPROCS=2 go test -p 1 -count=1 ./internal/agent/operations (exit 0)"
+        "GOMAXPROCS=2 go test -p 1 -count=1 ./internal/agent/operations (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/handler/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w2-handler-core.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-handler-core.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/handler/dto",
@@ -1702,7 +1712,7 @@
       "wave": "W2",
       "legacy_status": "partially_audited",
       "status": "verified_findings_fixed",
-      "file_count": 95,
+      "file_count": 97,
       "tracked_files": [
         "internal/handler/session/agent_stream_approval_test.go",
         "internal/handler/session/agent_stream_handler.go",
@@ -1760,6 +1770,7 @@
         "internal/handler/session/quick_answer_error_test.go",
         "internal/handler/session/quick_answer_timeline.go",
         "internal/handler/session/quick_answer_timeline_test.go",
+        "internal/handler/session/quick_answer_usage_test.go",
         "internal/handler/session/resolve_agent_test.go",
         "internal/handler/session/resource_urls.go",
         "internal/handler/session/resource_urls_test.go",
@@ -1784,6 +1795,7 @@
         "internal/handler/session/steer_order_integration_test.go",
         "internal/handler/session/steer_wiring_test.go",
         "internal/handler/session/stream.go",
+        "internal/handler/session/stream_persistence_error_test.go",
         "internal/handler/session/stream_turn_context_test.go",
         "internal/handler/session/stream_usage_test.go",
         "internal/handler/session/suspended_completion_test.go",
@@ -1806,7 +1818,8 @@
         "Public embed and share link isolation verified: signed X-Embed-Session handles bind session + channel + tenant, public resource URL rewriters mint short-lived scoped tokens without exposing raw storage credentials, and shared-agent runs pin execution tenant without leaking lending-workspace model overrides, parser overrides, or upstream ASR endpoint details.",
         "Bounded request bodies and pre-decode base64 checks enforced via http.MaxBytesReader across chat QA, SearchKnowledge, public embed / authenticated StopSession, SteerMessage, GenerateTitle, CreateSession, UpdateSession, BatchDeleteSessions, ForkSession, RewindSession, SetHostApprovalMode, BrowserSkillConnection/Account, UploadTemporaryDocument, and TranscribeVoiceInput.",
         "SSE, WebSocket (terminal PTY and desktop RFB), and background/HITL lifecycles verified race-free under -race: bounded WS frame sizes (ReadLimit), periodic 60s live token/membership/ownership revalidation with immediate teardown on revocation, Redis/in-process desktop slot takeover & lease renewal without goroutine/timer leaks, and clean turn-lease/disconnect cancellation.",
-        "GENYEE contract consistency, preserved BrowserSkill reserved identifiers per REBRAND_RESERVED.md, and zero weknora/knora/wk_ residues verified across all 95 files."
+        "GENYEE contract consistency, preserved BrowserSkill reserved identifiers per REBRAND_RESERVED.md, and zero weknora/knora/wk_ residues verified across all 95 files.",
+        "registerQuickAnswerCompletionHandler persists non-nil final Usage on quick-answer assistant messages, and SSE stream handlers terminate promptly upon receiving a final message_persistence error event instead of hanging until client timeout."
       ],
       "findings": [
         {
@@ -1853,9 +1866,10 @@
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/handler/... (exit 0)",
         "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/handler/session/... ./internal/handler/dto/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/handler -run 'TestEmbed|TestTenant|TestWebSearchProvider|TestAuth|TestModelCatalog|TestSettings' (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/handler -run 'TestEmbed|TestTenant|TestWebSearchProvider|TestAuth|TestModelCatalog|TestSettings' (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/handler/session/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w2-handler-sess.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-handler-sess.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/logger",
@@ -2096,7 +2110,8 @@
         "Every state-mutating and sensitive route across router.go and routes_*.go sits behind middleware.Auth (or dedicated EmbedAuth / MCPEndpointAuth / presigned HMAC / capability grant / BrowserSkill device-cluster auth), workspace RBAC guards (Viewer/Contributor/Editor/Admin/Owner/SystemAdmin), and APIKeyRouteGate policy assertions (assertAPIKeyPoliciesMatchRoutes + assertOperationRoutesExist).",
         "trustedProxies defaults to loopback (127.0.0.0/8, ::1/128), skips malformed GENYEE_TRUSTED_PROXIES entries, and applyTrustedProxies fails closed to direct peer IP (SetTrustedProxies(nil)) if Gin rejects the list so X-Forwarded-For can never spoof ClientIP() for rate limiters.",
         "buildCORSConfig disables AllowCredentials whenever wildcard '*' or empty allowlists apply, and rejects 'null' or non-http(s) malformed origins so sandboxed iframes cannot obtain credentialed CORS reflection and gin-contrib/cors never panics at startup.",
-        "File proxy surfaces (/files, KB files, message files, /api/v1/files/presigned, /api/v1/files/presigned-preview, /r/:token) enforce tenant path/resource ownership, constant-time HMAC signature verification, attachment Content-Disposition on active browser content, and redact internal storage backend errors."
+        "File proxy surfaces (/files, KB files, message files, /api/v1/files/presigned, /api/v1/files/presigned-preview, /r/:token) enforce tenant path/resource ownership, constant-time HMAC signature verification, attachment Content-Disposition on active browser content, and redact internal storage backend errors.",
+        "Router static/file route tests verify route registration and auth boundaries cleanly."
       ],
       "findings": [
         {
@@ -2118,9 +2133,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/router/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/router/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/router/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/router/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w2-router-mw.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-router-mw.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/utils",
@@ -2211,7 +2227,8 @@
       ],
       "invariants_checked": [
         "MySQL bootstrap script drops all created tables (chunk_revisions, chunks, message_suggestion_events, message_suggestion_sets, messages, sessions, knowledges, knowledge_bases, models, tenants) in child-before-parent foreign-key order so re-execution succeeds cleanly.",
-        "Tenant-scoped tables define tenant_id columns and composite lookup/unique keys with AUTO_INCREMENT=10000 on tenants and zero weknora/knora/wk_ residues across SQL and README."
+        "Tenant-scoped tables define tenant_id columns and composite lookup/unique keys with AUTO_INCREMENT=10000 on tenants and zero weknora/knora/wk_ residues across SQL and README.",
+        "MySQL 00-init-db.sql virtual generated columns and unique indexes match partial IM session mode index semantics with zero brand residues."
       ],
       "findings": [
         {
@@ -2225,9 +2242,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/database/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "migrations/paradedb",
@@ -2241,7 +2259,8 @@
       ],
       "invariants_checked": [
         "ParadeDB bootstrap DDL creates required extensions (uuid-ossp, vector, pg_trgm, pg_search), core tables, BM25 chinese_lindera index, and named IF NOT EXISTS HNSW halfvec indexes (3584, 798, 1024) idempotently.",
-        "tenants_id_seq initialization guards against resetting sequences already >= 10000 on re-execution, matching PostgreSQL 000000_init.up.sql, with zero weknora/knora/wk_ residues."
+        "tenants_id_seq initialization guards against resetting sequences already >= 10000 on re-execution, matching PostgreSQL 000000_init.up.sql, with zero weknora/knora/wk_ residues.",
+        "ParadeDB 00-init-db.sql partial unique indexes idx_im_channel_sessions_user_chat and idx_im_channel_sessions_thread match versioned migration 000139."
       ],
       "findings": [
         {
@@ -2255,16 +2274,17 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/database/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "migrations/sqlite",
       "wave": "W2",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 110,
+      "file_count": 112,
       "tracked_files": [
         "migrations/sqlite/000000_init.down.sql",
         "migrations/sqlite/000000_init.up.sql",
@@ -2375,13 +2395,16 @@
         "migrations/sqlite/000053_auth_token_sessions.down.sql",
         "migrations/sqlite/000053_auth_token_sessions.up.sql",
         "migrations/sqlite/000054_index_parity.down.sql",
-        "migrations/sqlite/000054_index_parity.up.sql"
+        "migrations/sqlite/000054_index_parity.up.sql",
+        "migrations/sqlite/000055_im_session_mode_indexes.down.sql",
+        "migrations/sqlite/000055_im_session_mode_indexes.up.sql"
       ],
       "invariants_checked": [
         "Contiguous SQLite migration sequence 000000..000054 (110 files) with 100% .up.sql/.down.sql pairing, verified end-to-end on fresh SQLite databases, v53->v54 upgrades with pre-existing duplicate rows, and v54->v53->v54 rollbacks/re-applies.",
         "Cumulative SQLite table, column, and partial unique/lookup index state matches cumulative PostgreSQL migrations across im_channel_sessions, tenant_members, organizations, kb_shares, agent_shares, and resources.",
         "Multi-agent IM sessions coexist per (platform, user_id, chat_id, tenant_id, agent_id) and per thread, soft-deleted tenant_members can rejoin workspaces without UNIQUE constraint failures, active invite_code / kb_shares / agent_shares uniqueness is enforced, and EXPLAIN QUERY PLAN uses idx_resources_tenant_content_hash for tenant content-hash deduplication queries.",
-        "Builtin assistant seeds use builtin-genyee-assistant and zero weknora/knora/wk_ residues exist across all 110 SQLite migration files."
+        "Builtin assistant seeds use builtin-genyee-assistant and zero weknora/knora/wk_ residues exist across all 110 SQLite migration files.",
+        "000055_im_session_mode_indexes.{up,down}.sql use IF EXISTS / IF NOT EXISTS idempotently, scope unique active user/chat sessions to thread_id = '' AND deleted_at IS NULL and thread sessions to thread_id != '' AND deleted_at IS NULL, and preserve agent_id on rollback to v54."
       ],
       "findings": [
         {
@@ -2395,16 +2418,17 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/database/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "migrations/versioned",
       "wave": "W2",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 278,
+      "file_count": 280,
       "tracked_files": [
         "migrations/versioned/000000_init.down.sql",
         "migrations/versioned/000000_init.up.sql",
@@ -2683,13 +2707,16 @@
         "migrations/versioned/000137_auth_token_sessions.down.sql",
         "migrations/versioned/000137_auth_token_sessions.up.sql",
         "migrations/versioned/000138_principal_widths_and_org_join_index.down.sql",
-        "migrations/versioned/000138_principal_widths_and_org_join_index.up.sql"
+        "migrations/versioned/000138_principal_widths_and_org_join_index.up.sql",
+        "migrations/versioned/000139_im_session_mode_indexes.down.sql",
+        "migrations/versioned/000139_im_session_mode_indexes.up.sql"
       ],
       "invariants_checked": [
         "Contiguous PostgreSQL migration sequence 000000..000138 (278 files) with 100% .up.sql/.down.sql pairing and zero duplicate version numbers verified via golang-migrate source loader.",
         "Cumulative PostgreSQL table and column state matches GORM models/repositories and cumulative SQLite schema across all application tables (accounting for engine-specific pgvector/ParadeDB embeddings vs sqlite-vec).",
         "All Principal.StorageID() columns (sessions.user_id, mcp_oauth_tokens.principal_id, memory_*.subject_id, tenant_user_env_vars.principal_id, sandbox_user_machines.owner_id, agent_prompts.user_id, agent_prompts.resolved_by, agent_grants.user_id, mcp_metadata.principal) accommodate >=512-char synthetic embed_session / embed_visitor / api_external_user / im_user principals without SQLSTATE 22001 truncation failures.",
-        "Multi-tenant scoping and uniqueness constraints isolate per-tenant resources, pending organization join requests are keyed per (organization_id, tenant_id, request_type) without legacy per-user cross-workspace collisions, organizations.invite_code partial uniqueness ignores empty strings, builtin assistant IDs use builtin-genyee-assistant, and zero weknora/knora/wk_ residues exist."
+        "Multi-tenant scoping and uniqueness constraints isolate per-tenant resources, pending organization join requests are keyed per (organization_id, tenant_id, request_type) without legacy per-user cross-workspace collisions, organizations.invite_code partial uniqueness ignores empty strings, builtin assistant IDs use builtin-genyee-assistant, and zero weknora/knora/wk_ residues exist.",
+        "000139_im_session_mode_indexes.{up,down}.sql match SQLite 000055 and ParadeDB init schema index definitions and support clean idempotent up/down transitions."
       ],
       "findings": [
         {
@@ -2703,9 +2730,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/database/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/database/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/database/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w2-db-migrations.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/application/access",
@@ -2738,7 +2766,8 @@
         "Workspace RBAC, KB owner-workspace checks, organization/share grant resolution, and API-key KB resource scopes fail closed on missing/zero TenantID, invalid required roles, or mismatched caller contexts.",
         "ResolveKB, KBAccess.WithGrant, and KBAccess.Context verify caller identity against both materialized CallerContextKey and unmaterialized TenantIDContextKey / UserID / Principal / Role context values before minting grants or switching execution tenant.",
         "ResolveKBFile, ResolveSessionFile, and ResolveAttachment enforce non-zero caller TenantID, grant-to-KB tenant consistency (KnowledgeBase.TenantID == EffectiveTenantID), stored resource catalog TenantID matching, and binding verification before returning physical storage paths.",
-        "AuthorizeKBAccess and KB search target resolution reject nil/zero-tenant KnowledgeBase records without panicking; zero legacy brand residues present."
+        "AuthorizeKBAccess and KB search target resolution reject nil/zero-tenant KnowledgeBase records without panicking; zero legacy brand residues present.",
+        "Upstream f64dbf002 merge audit: verified message_files.go bounds session message attachment lookups strictly by session_id + tenant_id."
       ],
       "findings": [
         {
@@ -2760,9 +2789,11 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/application/access/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/access (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/access (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/access/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json,test-reports/module-audit-v2/evidence/up-svc-repo.json"
     },
     {
       "unit_id": "internal/application/attachment",
@@ -2793,7 +2824,7 @@
       "wave": "W3",
       "legacy_status": "partially_audited",
       "status": "verified_findings_fixed",
-      "file_count": 143,
+      "file_count": 144,
       "tracked_files": [
         "internal/application/repository/agent_grant_repository.go",
         "internal/application/repository/agent_grant_repository_test.go",
@@ -2833,6 +2864,7 @@
         "internal/application/repository/knowledge_create_test.go",
         "internal/application/repository/knowledge_datasource_external_id_test.go",
         "internal/application/repository/knowledge_duplicate_test.go",
+        "internal/application/repository/knowledge_finalize_attempt_test.go",
         "internal/application/repository/knowledge_finalize_test.go",
         "internal/application/repository/knowledge_folder_move_test.go",
         "internal/application/repository/knowledge_folder_test.go",
@@ -2943,7 +2975,8 @@
         "Row-level tenant isolation (tenant_id scoping) is enforced across Get*, List*, Update*, Delete*, and batch mutation paths including knowledgeTagRepository.Update, chunkRepository.UpdateChunks (both PostgreSQL VALUES join and row-by-row dialects), and chunkRepository.DeleteChunksByTagID.",
         "Dynamic ORDER BY columns use strict allowlists or clause.Column quoting; all LIKE/ILIKE filters escape %, _, and \\ via escapeLikeKeyword/escapeLikePattern paired with explicit ESCAPE clauses across both PostgreSQL and SQLite dialects, including SearchKnowledge/SearchKnowledgeInScopes fileTypes filters and wiki source_refs prefix lookups.",
         "SQLite (Lite build) and PostgreSQL dialect parity holds across wiki_pages.source_refs queries (ListBySourceRef, ListSlugsBySourceRef, ListSummariesByKnowledgeIDs using json_each/json_valid on SQLite and JSONB containment + escaped text LIKE on PostgreSQL) and TenantRepository.AdjustStorageUsed writer-lock/column-scoped updates.",
-        "Empty-slice IN (?) guards, nil query/request struct guards, soft-deleted knowledge_bases join filtering, and integer-overflow-safe pagination offset helpers fail safely without emitting invalid SQL or panicking."
+        "Empty-slice IN (?) guards, nil query/request struct guards, soft-deleted knowledge_bases join filtering, and integer-overflow-safe pagination offset helpers fail safely without emitting invalid SQL or panicking.",
+        "Upstream f64dbf002 merge audit: verified attempt-fenced MarkKnowledgeCompletedIfFinalizing CAS in knowledge.go, datasource_repo.go tenant isolation, and optimistic-lock snapshot fencing (WithWikiPageWriteSnapshot) + table-row loss guards in wiki_page.go."
       ],
       "findings": [
         {
@@ -2981,16 +3014,17 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json,test-reports/module-audit-v2/evidence/up-svc-repo.json"
     },
     {
       "unit_id": "internal/application/service",
       "wave": "W3",
       "legacy_status": "partially_audited",
       "status": "verified_findings_fixed",
-      "file_count": 614,
+      "file_count": 629,
       "tracked_files": [
         "internal/application/service/agent_allowed_tools_test.go",
         "internal/application/service/agent_artifact_files.go",
@@ -3027,6 +3061,7 @@
         "internal/application/service/agent_service.go",
         "internal/application/service/agent_service_background_test.go",
         "internal/application/service/agent_service_install_shell_test.go",
+        "internal/application/service/agent_service_mcp_selection_test.go",
         "internal/application/service/agent_service_scope_test.go",
         "internal/application/service/agent_service_secure_form.go",
         "internal/application/service/agent_service_secure_form_test.go",
@@ -3090,6 +3125,7 @@
         "internal/application/service/dataset_test.go",
         "internal/application/service/dataset_validation_test.go",
         "internal/application/service/datasource_atomic_replace_test.go",
+        "internal/application/service/datasource_cancel_ack_test.go",
         "internal/application/service/datasource_conflict_skip_test.go",
         "internal/application/service/datasource_delete_sqlite_test.go",
         "internal/application/service/datasource_feishu_upgrade_test.go",
@@ -3101,6 +3137,8 @@
         "internal/application/service/datasource_ingest_error.go",
         "internal/application/service/datasource_ingest_rejection_test.go",
         "internal/application/service/datasource_oversized_file_test.go",
+        "internal/application/service/datasource_pause_during_sync_test.go",
+        "internal/application/service/datasource_replay_guard_test.go",
         "internal/application/service/datasource_result_cap_test.go",
         "internal/application/service/datasource_resync_test.go",
         "internal/application/service/datasource_retry_ack_test.go",
@@ -3127,6 +3165,7 @@
         "internal/application/service/embed_webhook.go",
         "internal/application/service/embed_webhook_test.go",
         "internal/application/service/evaluation.go",
+        "internal/application/service/evaluation_cleanup_test.go",
         "internal/application/service/evaluation_lifecycle_test.go",
         "internal/application/service/extract.go",
         "internal/application/service/extract_data_table_orphan_test.go",
@@ -3215,6 +3254,7 @@
         "internal/application/service/knowledge_faq_import_enabled_test.go",
         "internal/application/service/knowledge_faq_import_retry_test.go",
         "internal/application/service/knowledge_faq_sanitize_test.go",
+        "internal/application/service/knowledge_finalizer_attempt_test.go",
         "internal/application/service/knowledge_folder_move_test.go",
         "internal/application/service/knowledge_housekeeping.go",
         "internal/application/service/knowledge_housekeeping_queue_scan_test.go",
@@ -3231,12 +3271,14 @@
         "internal/application/service/knowledge_multimodal_slot_release_test.go",
         "internal/application/service/knowledge_nextcloud_test.go",
         "internal/application/service/knowledge_owner_chain_test.go",
+        "internal/application/service/knowledge_passage_sync_test.go",
         "internal/application/service/knowledge_post_process.go",
         "internal/application/service/knowledge_post_process_graph_chunks_test.go",
         "internal/application/service/knowledge_post_process_summary_test.go",
         "internal/application/service/knowledge_post_process_trace_test.go",
         "internal/application/service/knowledge_post_process_wiki_enqueue_test.go",
         "internal/application/service/knowledge_process.go",
+        "internal/application/service/knowledge_process_base_read_test.go",
         "internal/application/service/knowledge_process_budget_test.go",
         "internal/application/service/knowledge_process_config.go",
         "internal/application/service/knowledge_process_config_test.go",
@@ -3310,9 +3352,11 @@
         "internal/application/service/knowledgebase_search_matchcount_test.go",
         "internal/application/service/knowledgebase_search_partial_test.go",
         "internal/application/service/knowledgebase_search_rerank.go",
+        "internal/application/service/knowledgebase_search_rerank_revision_test.go",
         "internal/application/service/knowledgebase_search_rerank_test.go",
         "internal/application/service/knowledgebase_search_results.go",
         "internal/application/service/knowledgebase_search_results_edit_test.go",
+        "internal/application/service/knowledgebase_search_results_slots_test.go",
         "internal/application/service/knowledgebase_search_shared.go",
         "internal/application/service/knowledgebase_search_storegroup.go",
         "internal/application/service/knowledgebase_storage_update_test.go",
@@ -3359,6 +3403,7 @@
         "internal/application/service/model_copy_test.go",
         "internal/application/service/model_defaults_test.go",
         "internal/application/service/model_delete_test.go",
+        "internal/application/service/multimodal_generation_test.go",
         "internal/application/service/multimodal_pending_counter.go",
         "internal/application/service/multimodal_pending_counter_test.go",
         "internal/application/service/notification.go",
@@ -3439,6 +3484,7 @@
         "internal/application/service/session_user_scope_test.go",
         "internal/application/service/share_management_test.go",
         "internal/application/service/shared_agent_sandbox_tenant_test.go",
+        "internal/application/service/shared_kb_data_analysis_storage_test.go",
         "internal/application/service/shell_job_followup_test.go",
         "internal/application/service/shell_job_index.go",
         "internal/application/service/shell_job_index_test.go",
@@ -3458,6 +3504,7 @@
         "internal/application/service/tag.go",
         "internal/application/service/tag_access.go",
         "internal/application/service/temporary_document.go",
+        "internal/application/service/temporary_document_cleanup_test.go",
         "internal/application/service/temporary_document_csv_limits_test.go",
         "internal/application/service/temporary_document_fork_access_test.go",
         "internal/application/service/temporary_document_parse.go",
@@ -3518,6 +3565,7 @@
         "internal/application/service/tenant_storage_quota.go",
         "internal/application/service/tenant_storage_quota_test.go",
         "internal/application/service/tenant_storagebackend_test.go",
+        "internal/application/service/up_svc_repo_audit_test.go",
         "internal/application/service/user.go",
         "internal/application/service/user_admin_create_test.go",
         "internal/application/service/user_auth_token_test.go",
@@ -3576,6 +3624,7 @@
         "internal/application/service/wiki_ingest_page_retry.go",
         "internal/application/service/wiki_ingest_page_retry_test.go",
         "internal/application/service/wiki_ingest_reduce_row_guard_test.go",
+        "internal/application/service/wiki_ingest_reparse_test.go",
         "internal/application/service/wiki_ingest_retry_test.go",
         "internal/application/service/wiki_ingest_selected_test.go",
         "internal/application/service/wiki_ingest_taxonomy.go",
@@ -3623,7 +3672,11 @@
         "Session, Message, SessionFork, WorkspaceCheckpointer, and WorkspaceReset enforce session/tenant ownership, snapshot session-referenced temporary knowledge IDs prior to message row deletion in ClearSessionMessages, clone mutable Session/Model structs before spawning background title/Ollama goroutines, preserve Session.Kind across shared-machine forks, shell-quote checkpoint commit messages via shellSingleQuote, and refuse destructive git resets unless the runner advertises WorkspaceVersioning on a non-host, non-root layout with GitDir outside Root.",
         "TenantSkill install/stop/remove/reinstall/heartbeat/bundle/progress flows serialize per-skill RMW row updates via process-local locks, fence cross-replica installer ownership via Redis genyee-skill-install-attempt tokens so superseded runs cannot overwrite newer attempts, normalize Windows backslash zip entries, reject Windows drive-prefixed paths and ZIP64 uint64->int64 size wraparound, truncate UTF-8 file previews on rune boundaries, decouple singleflight bundle builds from first-caller cancellation, and release SSE progress slots on subscriber context cancellation.",
         "Wiki page CRUD, lint, ingest, and finalize tasks sanitize client-supplied ID/Version/InLinks/DeletedAt on user page creations, abort RunLint AutoFix on transient knowledge repository errors rather than deleting live pages, require source_ref knowledge documents to match both TenantID and KnowledgeBaseID, verify soft-deleted tenant liveness on kb.TenantID even when legacy task payloads carry TenantID == 0, and release/renew Redis slug and finalize locks exclusively via token-owned redislock scripts.",
-        "Intentional negative security test in internal/application/service/user_jwt_secret_test.go preserved untouched; zero unexcused weknora/wk_ residues in owned production code; all new package-private symbols prefixed with w3b and regression test files named w3b_audit_*_test.go for conflict-free merge with w3-svc-a-kb."
+        "Intentional negative security test in internal/application/service/user_jwt_secret_test.go preserved untouched; zero unexcused weknora/wk_ residues in owned production code; all new package-private symbols prefixed with w3b and regression test files named w3b_audit_*_test.go for conflict-free merge with w3-svc-a-kb.",
+        "Dimension 1 (Multi-Tenant, Cross-Workspace, and API-Key Isolation): Audited all 71 upstream-changed files in internal/application/** line-by-line across both merge and upstream diffs. Verified access/message_files.go bounds session message attachment lookups by session_id + tenant_id; shared-KB data analysis storage resolution (knowledge.go, shared_kb_data_analysis_storage_test.go) resolves the KB owner workspace storage backend; agent_service.go MCP selection normalizes MCPSelectionMode and fails closed on empty, none, or unrecognized modes without enumerating tenant MCP services; datasource_service.go enforces caller tenant/API-key authorization, payload/syncLog/ds tenant & DataSourceID consistency, and suspended/deleted workspace blocking; knowledge finalizer/passage sync/rerank revision/search result slot paths preserve tenant_id and KB read/write grants; wiki_page.go and wiki_ingest*.go scope wiki pages, snapshots, links, backlinks, search, and live-knowledge checks by (tenant_id, knowledge_base_id); neo4j/repository.go scopes Entity/Relation/Chunk/Document graph deletes by Workspace label; and weaviate/repository.go scopes vector queries/deletes by tenant_id filter while preserving source_type/source_id identity.",
+        "Dimension 2 (State Machine and Rollback Correctness): Verified multimodal_pending_counter.go (Redis + Lite in-memory generation-fenced counters), knowledge_finalizer_attempt_test.go / repository/knowledge.go attempt-fenced MarkKnowledgeCompletedIfFinalizing CAS, knowledge_post_process.go / knowledge_process.go subtask slot release on retry/reparse/cancel/failure, datasource_service.go cancel/pause/replay/ingest state transitions (preserving terminal success/partial SyncLog rows on redelivery and returning cancelSyncLog DB errors for Asynq retry), evaluation.go cleanup without stranding tasks, temporary_document*.go storage/SQL/vector rollback on parser error or expiration, session_knowledge_qa.go truncation/fallback stream handling, and chat_pipeline/{chat_completion_stream,citation_sources}.go stream lifecycle and citation source population.",
+        "Dimension 3 (Concurrency Races, Streaming Memory Bounds, and SSRF): Verified mutex/atomic/Redis/Lite-mode concurrency safety under go test -race across all modified packages, bounded reads and objectStorageBoundReader / SafeObjectKey / SSRF endpoint + virtual-hosted bucket authority validation in service/file/obs.go, size-bounded document/image reads in temporary_document_parse.go and image_multimodal.go, bounded sync error slices in datasource_service.go, and optimistic-lock snapshot fencing (WithWikiPageWriteSnapshot) + table-row loss guards in repository/wiki_page.go and service/wiki_ingest_batch.go.",
+        "Dimension 4 (Contracts and GENYEE Alignment): Preserved all exported Go function/method/type signatures across internal/application/**; verified zero legacy upstream brand or key-prefix residues, zero hardcoded host paths, and 4/4 PASS on scripts/verify-commercial-compliance.sh --tier 5."
       ],
       "findings": [
         {
@@ -3817,6 +3870,30 @@
           "summary": "Under -tags desktop -race, localTestProcess.killCount was incremented in Kill() on the watcher goroutine while read unsynchronized in TestLocalStatusAndCancelArePerID, and TestLocalShellJobLargeStdinPreservesResultJSON/escaped-command used a word-boundary '#' comment suffix that MaskCommandAssignments conservatively redacts to '#***' instead of preserving an 8192-byte control-escaped command.",
           "regression_test": "TestLocalStatusAndCancelArePerID, TestLocalShellJobLargeStdinPreservesResultJSON",
           "commit": "7ccf6722d549d5535428d033b3e249902b4bcf80"
+        },
+        {
+          "id": "UP-SVC-AGENT-MCP-001",
+          "severity": "P1",
+          "file": "internal/application/service/agent_service.go",
+          "summary": "registerMCPTools changed empty MCPSelectionMode to default to 'none', but kept an open else branch calling ListMCPServices(ctx, tenantID) for anything other than literal 'none' or 'selected'. Unnormalized ('NONE', ' none ', ' Selected ') or unrecognized ('disabled', 'off', etc. via custom-agent creation or YAML import) MCPSelectionMode values bypassed 'none' and failed open, exposing all enabled workspace MCP tools to the agent.",
+          "regression_test": "TestUpSvcRepoAudit_RegisterMCPToolsFailsClosedOnUnrecognizedOrUnnormalizedMode",
+          "commit": "41c752cf5d19c71cc421b613bb190c8fadb5cde0"
+        },
+        {
+          "id": "UP-SVC-DATASOURCE-001",
+          "severity": "P1",
+          "file": "internal/application/service/datasource_service.go",
+          "summary": "In DataSourceService.ProcessSync, the unavailable/suspended-workspace guard ignored syncLogRepo.Update errors and returned nil (allowing Asynq to acknowledge a SyncLog stuck in 'running' on transient DB failure), and both the unavailable-workspace and deleted-KB branches lacked the terminalResult ('success'/'partial') replay guard used by sourceMissing, overwriting finished SyncLogs to 'canceled' on redelivery.",
+          "regression_test": "TestUpSvcRepoAudit_ProcessSyncWorkspaceAndKBUnavailablePreserveTerminalAndRetryCancelWrite",
+          "commit": "41c752cf5d19c71cc421b613bb190c8fadb5cde0"
+        },
+        {
+          "id": "UP-SVC-WIKI-ISOLATION-001",
+          "severity": "P1",
+          "file": "internal/application/service/wiki_ingest.go, internal/application/service/wiki_ingest_batch.go",
+          "summary": "wikiIngestService.isKnowledgeGone used unscoped GetKnowledgeByIDOnly without checking kn.TenantID or kn.KnowledgeBaseID, and mapOneDocument read kn.Title without tenant/KB verification. A document moved to another KB while wiki ingest was queued or mid-reduce (especially in Lite mode without Redis tombstones) or a foreign-tenant knowledge ID would be treated as live, leaking source titles/updates across KB or tenant boundaries.",
+          "regression_test": "TestUpSvcRepoAudit_WikiIngestRejectsForeignTenantAndMovedKnowledge",
+          "commit": "41c752cf5d19c71cc421b613bb190c8fadb5cde0"
         }
       ],
       "verification_commands": [
@@ -3833,9 +3910,16 @@
         "GOOS=windows GOARCH=amd64 CGO_ENABLED=0 GOMAXPROCS=2 go vet -tags desktop -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/application/service (exit 0)",
         "GOOS=windows GOARCH=amd64 CGO_ENABLED=0 GOMAXPROCS=2 go build -tags desktop -overlay <scratch>/nocgo-overlay.json -p 1 ./internal/application/service (exit 0)",
         "GOMAXPROCS=2 go test -race -tags desktop -p 1 -count=1 ./internal/application/service -run 'TestLocal|TestW3BAudit' (exit 0: 10.052s)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 -timeout 30m ./internal/application/service (exit 0: 922.932s)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 -timeout 30m ./internal/application/service (exit 0: 922.932s)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 -run 'TestUpSvcRepoAudit_' ./internal/application/service/file ./internal/application/service (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/access/... ./internal/application/repository ./internal/application/repository/retriever/neo4j/... ./internal/application/repository/retriever/weaviate/... ./internal/application/service/chat_pipeline/... ./internal/application/service/file/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 -run 'TestUpSvcRepoAudit_|TestRegisterMCPTools|TestProcessSync|TestDataSource|TestEvalDataset|TestChunkExtract|TestConsumeFallbackStream|TestSharedKB|TestKnowledgeQASharedKB|TestDataAnalysisSharedKB|TestCleanupExpired|TestTemporaryDocument' ./internal/application/service (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 -run 'TestMultimodal|TestEnqueueImageMultimodal|TestLiteMultimodal|TestCheckAndFinalizeAllImages|TestImageMultimodal|TestEnqueueWithRetry|TestPostProcess|TestCreateKnowledgeFromPassageSync|TestSettleKnowledgeBaseReadFailure|TestConvert|TestReparseKnowledge|TestReplaceKnowledgeFile|TestFinalizeSubtask|TestReleaseSubtaskSlot|TestProcessSummaryGeneration|TestRegenerateKnowledgeSummary|TestCancelKnowledgeParse|TestTriggerManualProcessing|TestRerankEnrichment|TestSearchResults' ./internal/application/service (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 -run 'TestWiki|TestRebuildLinks|TestUpdatePage|TestPruneEmptyFolderChains|TestStripWikiInlineChunkCitations|TestUpdateWikiPage|TestParseOutLinks|TestRepairContentLinks|TestNormalizeSlug|TestNormalizeWiki|TestComputeGraphSubset|TestFindPagesByNormalizedTitle|TestMovePageIntoTypeLabel|TestSearchPagesAcross|TestIsInvalidWikiSearchQuery|TestW3BAudit|TestAuditW3A' ./internal/application/service (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 bash scripts/verify-commercial-compliance.sh --tier 5 (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-a-kb.json,test-reports/module-audit-v2/evidence/w3-svc-b-platform.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-a-kb.json,test-reports/module-audit-v2/evidence/w3-svc-b-platform.json,test-reports/module-audit-v2/evidence/up-svc-repo.json"
     },
     {
       "unit_id": "internal/application/service/chat_pipeline",
@@ -3916,7 +4000,8 @@
         "getSearchResultFromHistory clones historical KnowledgeReferences so stored ChatManage.History entries are never mutated in place, and filterHistoryResults enforces current-turn SearchTargets / KnowledgeBaseIDs / KnowledgeIDs / WebSearchEnabled scope so revoked KBs, tag-restricted KBs without document proof, and disabled web-search results cannot leak from prior turns.",
         "attachCitationSources requires non-empty ParentChunkID before recording or matching sibling parent links so unrelated top-level chunks (ParentChunkID == '') in the same document are never cross-linked.",
         "Goroutines spawned by RunParallel, PluginSearch, PluginChatCompletionStream, and PluginWebFetch isolate panics via recover(), preventing single-plugin/provider panics from crashing the server process or deadlocking WaitGroups.",
-        "PluginWikiBoost guards nil kbService/entries and restricts score boosting strictly to chunks belonging to wiki-enabled target KBs; LLM/repository nil responses in chat_completion, query_understand, data_analysis, and extract_entity fail safely without nil-pointer dereferences."
+        "PluginWikiBoost guards nil kbService/entries and restricts score boosting strictly to chunks belonging to wiki-enabled target KBs; LLM/repository nil responses in chat_completion, query_understand, data_analysis, and extract_entity fail safely without nil-pointer dereferences.",
+        "Upstream f64dbf002 merge audit: verified chat_completion_stream.go and citation_sources.go stream lifecycle, context-safe emission, and tenant-scoped citation source population."
       ],
       "findings": [
         {
@@ -3954,9 +4039,11 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/chat_pipeline/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/chat_pipeline (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/chat_pipeline (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/chat_pipeline/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json,test-reports/module-audit-v2/evidence/up-svc-repo.json"
     },
     {
       "unit_id": "internal/application/service/credential",
@@ -4010,7 +4097,7 @@
       "wave": "W3",
       "legacy_status": "partially_audited",
       "status": "verified_findings_fixed",
-      "file_count": 33,
+      "file_count": 34,
       "tracked_files": [
         "internal/application/service/file/backend_scoped.go",
         "internal/application/service/file/backend_scoped_test.go",
@@ -4033,6 +4120,7 @@
         "internal/application/service/file/object_storage_http.go",
         "internal/application/service/file/object_storage_http_test.go",
         "internal/application/service/file/obs.go",
+        "internal/application/service/file/obs_security_audit_test.go",
         "internal/application/service/file/obs_test.go",
         "internal/application/service/file/oss.go",
         "internal/application/service/file/oss_test.go",
@@ -4050,7 +4138,8 @@
         "LocalFileService resolves ancestor and leaf components via Lstat + EvalSymlinks containment checks (resolveLocalPathNoSymlinks) across GetFile, DeleteFile, CopyFile, SaveFile, and SaveBytes, preventing symlink reads, writes, copies, or deletions outside baseDir.",
         "All object storage backends (Local, MinIO, S3, COS, TOS, OSS, OBS, KS3) enforce non-zero tenantID, single-segment non-traversal knowledgeID, non-nil multipart FileHeader, SafeObjectKey validation, and SSRF-safe dialer/redirect policies.",
         "COS bucket and region identifiers enforce strict RFC-1123 label validation (isValidCOSLabel) across primary and temp buckets so crafted bucket/region strings cannot break out of <bucket>.cos.<region>.myqcloud.com.",
-        "NewFileServiceFromStorageConfig fails closed when a non-empty Local.PathPrefix is invalid/traversal instead of silently falling back to root baseDir, and ResolveTenantFileServiceWithFallback safely handles nil tenant pointers."
+        "NewFileServiceFromStorageConfig fails closed when a non-empty Local.PathPrefix is invalid/traversal instead of silently falling back to root baseDir, and ResolveTenantFileServiceWithFallback safely handles nil tenant pointers.",
+        "Upstream f64dbf002 merge audit: verified validateOBSBucketName non-IP <=63-char DNS label validation on virtual-hosted S3/OBS addressing across NewObsFileService/CheckObsConnectivity/GetFileURL, utils.SafeObjectKey enforcement across SaveBytes/SaveFile/CopyFile, SSRF endpoint validation, and objectStorageBoundReader bounds."
       ],
       "findings": [
         {
@@ -4076,13 +4165,23 @@
           "summary": "NewFileServiceFromStorageConfig silently ignored invalid/traversal Local.PathPrefix values by falling back to root localBaseDir instead of failing closed, and ResolveTenantFileServiceWithFallback dereferenced nil *types.Tenant pointers in log fields on the fallback branch.",
           "regression_test": "TestNewFileServiceFromStorageConfig_RejectsTraversalLocalPathPrefix, TestResolveTenantFileServiceWithFallback_NilTenantNoPanic",
           "commit": "b2ab376144e86f8bbe1140f6d983dd1171b3cc76"
+        },
+        {
+          "id": "UP-SVC-OBS-001",
+          "severity": "P2",
+          "file": "internal/application/service/file/obs.go",
+          "summary": "Upstream virtual-hosted OBS addressing ({bucket}.{endpointHost}) interpolated bucketName directly into outgoing S3/OBS hostnames and GetFileURL URLs without validating DNS label syntax (allowing userinfo, port, path/fragment delimiters, or IP literals), and obsFileService.SaveBytes omitted utils.SafeObjectKey validation unlike SaveFile and CopyFile.",
+          "regression_test": "TestUpSvcRepoAudit_OBSRejectsBucketAuthorityInjectionAndTraversalObjectKey",
+          "commit": "41c752cf5d19c71cc421b613bb190c8fadb5cde0"
         }
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/application/service/file/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/file (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/file (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 -run 'TestUpSvcRepoAudit_' ./internal/application/service/file ./internal/application/service (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/service/file/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-svc-subpkgs.json,test-reports/module-audit-v2/evidence/up-svc-repo.json"
     },
     {
       "unit_id": "internal/application/service/memory",
@@ -4351,7 +4450,8 @@
       ],
       "invariants_checked": [
         "EventBus.On, Off, Emit, EmitAndWait, Clear, and HasHandlers synchronize handler map access under RWMutex without holding locks across subscriber execution (preventing re-entrant deadlocks) and pass -race under concurrent publish/subscribe churn.",
-        "Both synchronous and asynchronous EventBus emission clone handler slices before releasing RLock, isolate per-handler Event.Metadata maps against concurrent mutation races, ignore nil handler registrations, and recover panicking subscribers so remaining handlers still execute."
+        "Both synchronous and asynchronous EventBus emission clone handler slices before releasing RLock, isolate per-handler Event.Metadata maps against concurrent mutation races, ignore nil handler registrations, and recover panicking subscribers so remaining handlers still execute.",
+        "AgentFinalAnswerData carries internal TokenUsage with json:\"-\" so final token counts reach quick-answer persistence handlers in-process without leaking internal struct fields over external SSE frames."
       ],
       "findings": [
         {
@@ -4365,9 +4465,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/event/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/event/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/event/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/storageurl",
@@ -4636,7 +4737,8 @@
         "All GORM sql.Scanner implementations across internal/types accept both []byte (PostgreSQL JSONB/BYTEA) and string (SQLite TEXT/JSON affinity) values as well as empty inputs without silently dropping data.",
         "AES-GCM encrypted database column types (ModelParameters, MCPAuthConfig, StorageBackendConfig, TenantSandboxConfig, CredentialsConfig, ConnectionConfig, WebSearchProviderParameters) decrypt enc:v1: payloads identically across PostgreSQL and SQLite drivers and redact secrets in Redacted()/MaskSensitive() helpers.",
         "Context extraction and binding helpers (CallerFromContext, PrincipalFromContext, TenantIDFromContext, TenantInfoFromContext, RequestIDFromContext, LanguageFromContext, AgentOperationFromContext, RunModeFromContext, With*) handle nil context.Context safely without panicking, and RenderPromptPlaceholders never mutates caller-supplied extra maps.",
-        "GENYEE brand/API-key/assistant constants (BuiltinGENYEEAssistantID, gy_ prefixes) contain zero legacy brand residues."
+        "GENYEE brand/API-key/assistant constants (BuiltinGENYEEAssistantID, gy_ prefixes) contain zero legacy brand residues.",
+        "SearchResult and Task payload types preserve exported field contracts and backward-compatible JSON serialization."
       ],
       "findings": [
         {
@@ -4658,9 +4760,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/types/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/types/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/types/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/types/interfaces",
@@ -4728,7 +4831,8 @@
       ],
       "invariants_checked": [
         "All 55 service, repository, retriever, sandbox, and storage interface contracts maintain backward-compatible exported signatures across the backend.",
-        "File storage context helpers in internal/types/interfaces/file.go (WithCrossTenantResourceAccess, HasCrossTenantResourceAccess, WithIndependentFileWrites, IndependentFileWrites) handle nil context.Context safely without panicking and scope cross-tenant resource authorization strictly to trimmed non-empty storage references."
+        "File storage context helpers in internal/types/interfaces/file.go (WithCrossTenantResourceAccess, HasCrossTenantResourceAccess, WithIndependentFileWrites, IndependentFileWrites) handle nil context.Context safely without panicking and scope cross-tenant resource authorization strictly to trimmed non-empty storage references.",
+        "Knowledge interface signatures remain backward-compatible across service and handler callers."
       ],
       "findings": [
         {
@@ -4742,9 +4846,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/types/interfaces/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/types/interfaces/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go vet -p 1 ./internal/types/interfaces/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w3-repo-types.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/doris",
@@ -4997,10 +5102,11 @@
       "wave": "W4",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 9,
+      "file_count": 10,
       "tracked_files": [
         "internal/application/repository/retriever/neo4j/audit_regression_test.go",
         "internal/application/repository/retriever/neo4j/be01_adversarial_test.go",
+        "internal/application/repository/retriever/neo4j/graph_delete_test.go",
         "internal/application/repository/retriever/neo4j/graph_search.go",
         "internal/application/repository/retriever/neo4j/graph_search_test.go",
         "internal/application/repository/retriever/neo4j/graph_write_test.go",
@@ -5013,7 +5119,8 @@
         "Every Cypher query across AddGraph, DelGraph, SearchNode, and SearchGraph parameterizes all entity names, attributes, chunk IDs, search terms, and namespace/knowledge_base_id values ($nodes, $relationships, $cypherIterateQuery, $cypherParams, $term, $terms, $maxSeedNodes, $maxNeighborsPerNode, $maxEdges), while all dynamic backticked identifiers (Label and sanitizeCypherIdentifier) strip null bytes and double backticks (` -> ``).",
         "DelGraph passes inner APOC iterate Cypher and inner parameter maps strictly via outer Cypher parameters ($cypherIterateQuery, $cypherParams), uses DETACH DELETE with parallel: false to avoid Neo4j relationship-lock/still-has-relationships failures, consumes APOC result records to reject nonzero failedBatches, and preserves whole-KB deletion when namespace.Knowledge is empty while scoping single-document deletion with {kg: $kg}.",
         "Graph writes, deletions, entity searches, and 1-hop neighbor expansions never cross namespace/knowledge_base_id boundaries: empty KnowledgeBase (and empty Knowledge on AddGraph) fails closed before opening any Neo4j session, and blank search terms return empty GraphData without running unbounded CONTAINS \"\" full-KB scans.",
-        "Neo4j sessions enforce bounded transaction timeouts (WithTxTimeout), preserve retryable error chains via %w wrapping so neo4j.IsRetryable works inside ExecuteWrite/ExecuteRead, bound seed nodes (maxSeedNodes = 25), per-seed neighbors (maxNeighborsPerNode = 30), and total edges (maxTotalEdges = 150), and contain zero legacy brand or host-path residues."
+        "Neo4j sessions enforce bounded transaction timeouts (WithTxTimeout), preserve retryable error chains via %w wrapping so neo4j.IsRetryable works inside ExecuteWrite/ExecuteRead, bound seed nodes (maxSeedNodes = 25), per-seed neighbors (maxNeighborsPerNode = 30), and total edges (maxTotalEdges = 150), and contain zero legacy brand or host-path residues.",
+        "Upstream f64dbf002 merge audit: verified 2-stage APOC relationship+node graph deletion checks failedBatches/failedOperations/wasTerminated while preserving parameterized $iterateQuery, parallel: false, backtick label escaping, Workspace label isolation, and result.Consume(ctx)."
       ],
       "findings": [
         {
@@ -5035,9 +5142,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/neo4j/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/neo4j/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-cloud-graph.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-cloud-graph.json,test-reports/module-audit-v2/evidence/up-svc-repo.json"
     },
     {
       "unit_id": "internal/application/repository/retriever/opensearch",
@@ -5290,7 +5398,7 @@
       "wave": "W4",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 8,
+      "file_count": 9,
       "tracked_files": [
         "internal/application/repository/retriever/weaviate/audit_regression_test.go",
         "internal/application/repository/retriever/weaviate/copy_test.go",
@@ -5299,13 +5407,15 @@
         "internal/application/repository/retriever/weaviate/repository.go",
         "internal/application/repository/retriever/weaviate/repository_test.go",
         "internal/application/repository/retriever/weaviate/score_test.go",
+        "internal/application/repository/retriever/weaviate/source_identity_test.go",
         "internal/application/repository/retriever/weaviate/structs.go"
       ],
       "invariants_checked": [
         "Weaviate class names are sanitized and validated against ^[A-Z][_0-9A-Za-z]*$ before GraphQL interpolation, and matchesCollection requires an exact <base>_<positive_dim> suffix so sibling collection prefixes and malformed schema class names are never queried or mutated.",
         "VectorRetrieve, KeywordsRetrieve, and getBaseFilter fail closed when both KnowledgeBaseIDs and KnowledgeIDs are empty/blank (or when provided KnowledgeBaseIDs, KnowledgeIDs, or TagIDs slices contain only whitespace), preventing cross-KB/cross-tenant data leakage; DeleteBy*, CopyIndices, and MoveKnowledgeIndices validate non-empty targets and positive dimensions.",
         "Multi-value ExcludeKnowledgeIDs and ExcludeChunkIDs emit one scalar filters.NotEqual operand per ID rather than invalid NotEqual array valueText, ExcludeGeneratedQuestionKBIDs filters generated-question vectors across both vector and BM25 retrieval, and GraphQL responses check both transport errors and GraphQL errors arrays without unchecked type assertions.",
-        "Save, BatchSave, and CopyIndices derive deterministic RFC 4122 UUIDs per SourceID (preserving primary chunk UUIDs while preventing generated-question rows from overwriting primary chunk vectors) and surface per-object batch errors; BatchUpdateChunkEnabledStatus and BatchUpdateChunkTagID resolve object UUIDs by chunk_id and apply non-destructive PATCH merges (WithMerge) across all matching dimension collections; default collection prefix is Genyee_embeddings with zero legacy residues."
+        "Save, BatchSave, and CopyIndices derive deterministic RFC 4122 UUIDs per SourceID (preserving primary chunk UUIDs while preventing generated-question rows from overwriting primary chunk vectors) and surface per-object batch errors; BatchUpdateChunkEnabledStatus and BatchUpdateChunkTagID resolve object UUIDs by chunk_id and apply non-destructive PATCH merges (WithMerge) across all matching dimension collections; default collection prefix is Genyee_embeddings with zero legacy residues.",
+        "Upstream f64dbf002 merge audit: verified deterministic indexObjectID and updateChunkProperties source_type/source_id identity updates preserve empty-scope fail-closed guards, tenant_id filter isolation, matchesCollection, and BatchUpdateChunkContent."
       ],
       "findings": [
         {
@@ -5335,9 +5445,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/application/repository/retriever/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/weaviate/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/application/repository/retriever/weaviate/... (exit 0)",
+        "GOMAXPROCS=2 go vet -p 1 ./internal/application/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-cloud-graph.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-vec-cloud-graph.json,test-reports/module-audit-v2/evidence/up-svc-repo.json"
     },
     {
       "unit_id": "internal/infrastructure/chunker",
@@ -5380,7 +5491,8 @@
         "All chunking tiers (heading, heuristic, legacy/recursive, and parent-child) guarantee monotonic forward progress and terminate cleanly when ChunkSize <= 0, ChunkOverlap < 0, ChunkOverlap >= ChunkSize, or a single oversized token/URL/table/code span exceeds ChunkSize.",
         "Heuristic overlap alignment enforces strictly advancing chunk Start offsets and caps overlap so accumulated chunks never exceed ChunkSize.",
         "Markdown code-fence tracking in profiler, heading splitter, and heuristic boundary scanner follows CommonMark rules (backticks and tildes, fence length matching, inline backtick exclusion, <=3 leading space indentation).",
-        "Byte-sampled profiling/language detection slices only at UTF-8 rune boundaries, and all chunker entry points sanitize malformed upstream bytes so Chunk.Content and Chunk.ContextHeader are always valid UTF-8 for PostgreSQL TEXT columns; zero legacy brand residues."
+        "Byte-sampled profiling/language detection slices only at UTF-8 rune boundaries, and all chunker entry points sanitize malformed upstream bytes so Chunk.Content and Chunk.ContextHeader are always valid UTF-8 for PostgreSQL TEXT columns; zero legacy brand residues.",
+        "TokenBudgetLanguage derives token-budget language fallback cleanly across explicit Language, Separators, and Punctuation without unbounded allocations."
       ],
       "findings": [
         {
@@ -5410,9 +5522,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/infrastructure/chunker/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/chunker/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/chunker/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/infrastructure/chunker/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/infrastructure/retriever",
@@ -5492,7 +5605,7 @@
       "unit_id": "internal/models/api/nimrerank",
       "wave": "W4",
       "legacy_status": "audited_findings_fixed",
-      "status": "verified_no_findings",
+      "status": "verified_findings_fixed",
       "file_count": 3,
       "tracked_files": [
         "internal/models/api/nimrerank/client.go",
@@ -5501,14 +5614,26 @@
       ],
       "invariants_checked": [
         "Both Rerank (text) and RerankImages validate rankings presence, non-nil index and logit, strict index bounds (0 <= index < count), and duplicate-index rejection before indexing back into documents.",
-        "All HTTP calls route through api.Endpoint.PostJSON enforcing SSRF pre-check and redirect blocking, 64 MiB ReadResponseCapped response limits, reserved-header protection, and User-Agent GENYEE/1.0 with zero legacy brand residues."
+        "All HTTP calls route through api.Endpoint.PostJSON enforcing SSRF pre-check and redirect blocking, 64 MiB ReadResponseCapped response limits, reserved-header protection, and User-Agent GENYEE/1.0 with zero legacy brand residues.",
+        "Rankings decoder rejects null/missing rankings arrays, null/missing index or logit fields, negative/out-of-range indices, non-finite (NaN/Inf) logits, and duplicate indices.",
+        "Rerank and RerankImages normalize nil contexts, short-circuit empty document/image slices without network calls, and redact embedded URL userinfo and query-string secrets from transport/request errors."
       ],
-      "findings": [],
+      "findings": [
+        {
+          "id": "UP-NIMRERANK-001",
+          "severity": "P2",
+          "file": "internal/models/api/nimrerank/client.go:109-203",
+          "summary": "Unlike sibling rerank clients (pineconerank, teirank), nimrerank.Client failed on nil context.Context, issued outbound HTTP POSTs for empty documents/images slices, lacked NaN/Inf logit guards, and returned unredacted URL userinfo and query-parameter secrets (api_key/token/secret) when pre-request URL/SSRF validation failed.",
+          "regression_test": "TestRerankEmptyShortCircuitsNilContextAndRedactsSecrets",
+          "commit": "9eae47457836d8c0ff364f8ba88b4f81a5e400ff"
+        }
+      ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/nimrerank/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/nimrerank/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/nimrerank/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/models/api/nimrerank/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/models/api/tencentlkeap",
@@ -5668,7 +5793,7 @@
       "wave": "W5",
       "legacy_status": "audited_findings_fixed",
       "status": "verified_findings_fixed",
-      "file_count": 67,
+      "file_count": 70,
       "tracked_files": [
         "internal/agent/act.go",
         "internal/agent/act_order_test.go",
@@ -5694,7 +5819,9 @@
         "internal/agent/engine_test.go",
         "internal/agent/failed_tool_loop_test.go",
         "internal/agent/finalize.go",
+        "internal/agent/finalize_empty_test.go",
         "internal/agent/finalize_test.go",
+        "internal/agent/finalize_truncation_test.go",
         "internal/agent/grounding_prompt.go",
         "internal/agent/grounding_prompt_test.go",
         "internal/agent/knowledge_base_profile_prompt_test.go",
@@ -5715,6 +5842,7 @@
         "internal/agent/prompts_wiki_test.go",
         "internal/agent/protocol_artifact_test.go",
         "internal/agent/resume.go",
+        "internal/agent/resume_background_test.go",
         "internal/agent/resume_mcp_test.go",
         "internal/agent/resume_test.go",
         "internal/agent/retry_delay_test.go",
@@ -5742,7 +5870,10 @@
         "ReAct loop enforces maxIterations, round cancellation checks before and after tool dispatch, UTF-8 safe tool output truncation, and natural-stop continuation draftBoundary placement prior to newly injected background or user messages.",
         "HITL suspend/resume snapshots persist and replay pending tool calls, answered/remaining calls, BackgroundInjected completions, and prior AgentSteps, while ensuring collaboration parent leases (EndParentRun) are always released even on early Resume validation errors.",
         "Streaming and background agent runs propagate caller context cancellation cleanly without marking canceled runs IsComplete, recover tool panics without crashing the process, and isolate session/tenant execution contexts under -race.",
-        "Builtin assistant prompts, headers, and event payloads align with GENYEE branding with zero unexcused legacy brand residues."
+        "Builtin assistant prompts, headers, and event payloads align with GENYEE branding with zero unexcused legacy brand residues.",
+        "finalize.go rejects whitespace-only and think-only synthesis output before emitting a Done: true frame so empty synthesis falls back cleanly without premature stream completion, and records a Truncated: true step in agent history whenever synthesis hits length truncation across all roles.",
+        "prompts_wiki.go gates the primary-source removal notice strictly on HasRetractions && !HasAdditions so mixed add+remove maintenance turns do not falsely suppress synthesis.",
+        "resume.go replays persisted BackgroundInjections at original round boundaries while preserving session/collaboration ownership checks and guaranteed defer End cleanup."
       ],
       "findings": [
         {
@@ -5764,9 +5895,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/agent/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/agent/collaboration",
@@ -6006,7 +6138,7 @@
       "wave": "W5",
       "legacy_status": "partially_audited",
       "status": "verified_findings_fixed",
-      "file_count": 243,
+      "file_count": 247,
       "tracked_files": [
         "internal/agent/tools/allowed.go",
         "internal/agent/tools/allowed_test.go",
@@ -6150,6 +6282,8 @@
         "internal/agent/tools/read_artifact.go",
         "internal/agent/tools/read_artifact_test.go",
         "internal/agent/tools/read_document.go",
+        "internal/agent/tools/read_document_page_budget_test.go",
+        "internal/agent/tools/read_document_resources_test.go",
         "internal/agent/tools/read_document_test.go",
         "internal/agent/tools/read_file.go",
         "internal/agent/tools/read_file_attachment.go",
@@ -6180,6 +6314,7 @@
         "internal/agent/tools/scope_authorization_test.go",
         "internal/agent/tools/search_conversations.go",
         "internal/agent/tools/search_knowledge.go",
+        "internal/agent/tools/search_knowledge_budget_test.go",
         "internal/agent/tools/search_knowledge_images_test.go",
         "internal/agent/tools/search_knowledge_metadata_test.go",
         "internal/agent/tools/search_knowledge_rerank_test.go",
@@ -6190,6 +6325,7 @@
         "internal/agent/tools/secure_form_test.go",
         "internal/agent/tools/sequentialthinking.go",
         "internal/agent/tools/shell_assignment_boundary_test.go",
+        "internal/agent/tools/shell_async_cache_test.go",
         "internal/agent/tools/shell_command_output.go",
         "internal/agent/tools/shell_command_output_test.go",
         "internal/agent/tools/shell_env_extract.go",
@@ -6257,7 +6393,10 @@
         "Knowledge base, knowledge graph, wiki, document list, and data analysis tools strictly enforce tenant ownership, narrowed API-key/mention searchTargets (@kb, @tag, @file), fail-closed empty/whitespace target rejection, and shared-KB owner-tenant storage resolution.",
         "Conversation search requires non-empty authenticated ownerID and wraps historical message snippets in untrusted-data prompt-injection framing.",
         "DataAnalysisTool blocks DuckDB environment/filesystem/introspection functions (getenv, current_setting, read_*, duckdb_*, information_schema), isolates session-scoped SQL-quoted table names, and DatabaseQueryTool fails closed on nil DB or zero tenantID.",
-        "Sandbox and skill file tools enforce absolute base directories, reject symlink targets and symlink/non-directory ancestors via StatSessionFile, serialize per-file mutations with lockSandboxFile, and prevent input map mutation and integer/float overflow panics."
+        "Sandbox and skill file tools enforce absolute base directories, reject symlink targets and symlink/non-directory ancestors via StatSessionFile, serialize per-file mutations with lockSandboxFile, and prevent input map mutation and integer/float overflow panics.",
+        "data_analysis.go enforces authorizeKnowledgeInSearchTargets (tenant + narrowed API-key KB allowlist) before loading tabular documents and resolves shared-KB owner storage context locally without mutating caller ctx.",
+        "read_document.go computes XML-escaped page token budgets (including FAQ metadata lines) after enrichChunkImageInfo and emits compact canonical resource_references; search_knowledge.go binary-searches the largest ranked prefix fitting within the configured token budget.",
+        "host_approval.go truncates command previews UTF-8-safely via common.TruncateUTF8Bytes while masking secret environment variables; param_cast.go rejects overflowing/non-finite exponents before big.Rat.SetString; shell_exec_async.go invalidates sandbox file caches via noteSandboxMutation on inline completion regardless of exit code."
       ],
       "findings": [
         {
@@ -6335,9 +6474,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/tools/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/agent/tools/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/agent/tools/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-agent-core-tools.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/datasource",
@@ -6404,7 +6544,7 @@
       "wave": "W5",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 20,
+      "file_count": 21,
       "tracked_files": [
         "internal/datasource/connector/confluence/asset_resolver.go",
         "internal/datasource/connector/confluence/asset_resolver_test.go",
@@ -6417,6 +6557,7 @@
         "internal/datasource/connector/confluence/client_test.go",
         "internal/datasource/connector/confluence/connector.go",
         "internal/datasource/connector/confluence/connector_stream_test.go",
+        "internal/datasource/connector/confluence/full_sync_failed_page_test.go",
         "internal/datasource/connector/confluence/markdown.go",
         "internal/datasource/connector/confluence/markdown_test.go",
         "internal/datasource/connector/confluence/pat_test.go",
@@ -6431,7 +6572,9 @@
         "Confluence Cloud and Server/DC BaseURL normalization enforces SSRF validation, preserves explicit ports on *.atlassian.net when auto-appending /wiki, rejects embedded userinfo/query/fragment/control characters, and rejects CRLF/control characters in PAT and Basic credentials without echoing secrets.",
         "Resource IDs and upstream space/page/attachment IDs reject dot-segments ('.', '..'), slashes, backslashes, and control characters and apply url.PathEscape across all REST v1/v2 endpoints.",
         "Authenticated REST API redirects are restricted to both same-origin and the configured BaseURL context path prefix (e.g. /wiki) so sibling reverse-proxied apps on the same host cannot receive PAT/Basic credentials, while attachment downloads strip auth headers on cross-origin redirects and bound reads with io.LimitReader.",
-        "CQL/v2 cursor pagination detects repeated cursors and caps page hops, and FetchAll/FetchIncremental fail closed on nil DataSourceConfig."
+        "CQL/v2 cursor pagination detects repeated cursors and caps page hops, and FetchAll/FetchIncremental fail closed on nil DataSourceConfig.",
+        "fetchStream retains deletion-reconciliation ownership for previously indexed pages whose body/markdown fetch fails during a forced full sync (storing an empty version marker so retries still re-fetch the body while later source-side deletions emit IsDeleted tombstones).",
+        "Confluence SSRF base-URL validation, credential fingerprint caching, and mass-deletion safeguards remain intact."
       ],
       "findings": [
         {
@@ -6453,9 +6596,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/confluence"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/confluence",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/confluence/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/datasource/connector/dingtalk",
@@ -6519,7 +6663,7 @@
       "wave": "W5",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 30,
+      "file_count": 31,
       "tracked_files": [
         "internal/datasource/connector/feishu/core/blocks.go",
         "internal/datasource/connector/feishu/core/blocks_test.go",
@@ -6550,13 +6694,16 @@
         "internal/datasource/connector/feishu/core/truncate_utf8_test.go",
         "internal/datasource/connector/feishu/core/types.go",
         "internal/datasource/connector/feishu/core/w5_audit_test.go",
-        "internal/datasource/connector/feishu/core/wiki_shortcuts.go"
+        "internal/datasource/connector/feishu/core/wiki_shortcuts.go",
+        "internal/datasource/connector/feishu/core/wiki_shortcuts_test.go"
       ],
       "invariants_checked": [
         "Feishu/Lark BaseURL configuration trims trailing slashes and whitespace, enforces ValidateConnectorBaseURL SSRF/userinfo/query/fragment checks, synchronizes tenant_access_token refresh under mutex, and redacts app_secret and access tokens.",
         "All wiki, docx, drive, bitable, board, export, and contact API calls validate token/ID segments (rejecting '.', '..', '/', '\\\\', '?', '#', and control characters) and escape both URL path segments (url.PathEscape) and query parameters (url.QueryEscape).",
         "Recursive wiki node walks track visited node tokens to break cyclic parent/child graphs, and paginated list loops across wiki spaces/nodes, drive files, docx blocks, and bitable records enforce repeated page_token detection, empty-page limits, and maxFeishuPaginationHops bounds.",
-        "All API JSON payloads and media/export downloads are bounded via io.LimitReader with GENYEE User-Agent headers and zero legacy brand residues."
+        "All API JSON payloads and media/export downloads are bounded via io.LimitReader with GENYEE User-Agent headers and zero legacy brand residues.",
+        "listDocumentBlocks, readBitableRecords (fields & records), ListWikiSpaces, ListWikiNodes, and ListDriveFilesAllPages fail closed with an explicit error whenever has_more=true is returned with a missing or repeated page_token, preventing silent partial listings and spurious deletion tombstones.",
+        "expandWikiShortcuts distinguishes permanent missing-origin metadata (errWikiShortcutMissingOrigin) from transient listing errors while still detecting and surfacing shortcut cycles."
       ],
       "findings": [
         {
@@ -6578,9 +6725,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/core"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/core",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/core/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/datasource/connector/feishu/drive",
@@ -6602,7 +6750,8 @@
       "invariants_checked": [
         "Drive folder traversal in ResolveResourceAncestors, buildDriveAncestorChain, and recursive file listing tracks visited folder tokens so cyclic parent/child metadata from upstream cannot trigger infinite API recursion.",
         "Compound resource identifiers ('rootFolder:itemToken') fail closed when rootFolderToken is empty (e.g. ':subA') in both ListResources and listDriveFilesForResource instead of listing the tenant root folder.",
-        "Incremental sync cursor tracking, file size limits, and GENYEE metadata contracts pass cleanly under -race."
+        "Incremental sync cursor tracking, file size limits, and GENYEE metadata contracts pass cleanly under -race.",
+        "Drive pagination tests pin repeated-token, missing-token-with-has_more, stale-token-with-has_more-false, and multi-page merge invariants under bounded timeouts."
       ],
       "findings": [
         {
@@ -6616,9 +6765,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/drive"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/drive",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/drive/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/datasource/connector/feishu/wiki",
@@ -6645,7 +6795,8 @@
       "invariants_checked": [
         "ResolveResourceAncestors tracks visited parent_node_token values and enforces a hard depth cap (256) so cyclic ParentNodeID chains from GetWikiNode terminate deterministically.",
         "Compound wiki resource IDs ('spaceID:nodeToken') fail closed when spaceID is empty in ListResources and FetchAll/FetchIncremental.",
-        "Exported document and whiteboard assets obey Feishu core SSRF and io.LimitReader bounds and pass -race."
+        "Exported document and whiteboard assets obey Feishu core SSRF and io.LimitReader bounds and pass -race.",
+        "Wiki pagination and shortcut tests verify URL-encoded continuation page_token preservation, fail-closed rejection on missing/repeated page tokens, and non-destructive partial child-listing handling."
       ],
       "findings": [
         {
@@ -6659,9 +6810,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/wiki"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/wiki",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/feishu/wiki/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/datasource/connector/gitlab",
@@ -6733,7 +6885,9 @@
       "invariants_checked": [
         "IMA OpenAPI BaseURL enforces ValidateConnectorBaseURL SSRF validation, ClientID/APIKey and pre-signed COS download headers reject control characters without echoing secrets, and COS downloads run through a dedicated SSRF-safe HTTP client bounded by io.LimitReader.",
         "Bare web-bookmark items (mediaTypeWeb with empty Content) validate upstream URLInfo.URL via validateIMARemoteURL (enforcing http/https, no embedded userinfo, no control characters, and ValidateURLForSSRF) before populating FetchedItem.URL for downstream CreateKnowledgeFromURL ingestion.",
-        "Knowledge-base folder recursion in listAllKBFiles tracks visited folder IDs and caps folder count (maxFoldersPerKB = 10000), cursor pagination detects repeated cursors, and FetchIncremental fails closed on nil DataSourceConfig."
+        "Knowledge-base folder recursion in listAllKBFiles tracks visited folder IDs and caps folder count (maxFoldersPerKB = 10000), cursor pagination detects repeated cursors, and FetchIncremental fails closed on nil DataSourceConfig.",
+        "listAllKBFiles rejects non-final pages missing next_cursor (is_end=false && next_cursor=='') so incomplete listings never advance the cursor or trigger spurious deletions.",
+        "walk retains the last resolved media_id in KBLogical when a replacement download transiently fails, preserving both replacement retry and subsequent deletion tombstone tracking."
       ],
       "findings": [
         {
@@ -6755,9 +6909,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/ima"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/ima",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/ima/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/datasource/connector/nextcloud",
@@ -6798,7 +6953,7 @@
       "wave": "W5",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 20,
+      "file_count": 21,
       "tracked_files": [
         "internal/datasource/connector/notion/attachment_retry_test.go",
         "internal/datasource/connector/notion/block_retry_test.go",
@@ -6812,6 +6967,7 @@
         "internal/datasource/connector/notion/empty_page_test.go",
         "internal/datasource/connector/notion/markdown.go",
         "internal/datasource/connector/notion/markdown_test.go",
+        "internal/datasource/connector/notion/nested_content_test.go",
         "internal/datasource/connector/notion/pagination_guard_test.go",
         "internal/datasource/connector/notion/query_truncation_test.go",
         "internal/datasource/connector/notion/query_windowing_test.go",
@@ -6824,7 +6980,10 @@
       "invariants_checked": [
         "Notion API BaseURL trims trailing slashes, enforces ValidateConnectorBaseURL SSRF/userinfo/query/fragment checks, rejects control characters in Integration/OAuth tokens without echoing secrets, and strips Authorization headers on cross-origin redirects.",
         "All page, database, data-source, and block IDs are validated via validateNotionID (rejecting empty, dot-segment, slash, query/fragment, and control-character inputs) and escaped with url.PathEscape, and start_cursor query parameters are escaped with url.QueryEscape.",
-        "S3/external file downloads via DownloadFile reject embedded userinfo without leaking credentials, enforce SSRF validation and io.LimitReader caps, and computeExcludedSet breaks cyclic parent relationships deterministically without hanging."
+        "S3/external file downloads via DownloadFile reject embedded userinfo without leaking credentials, enforce SSRF validation and io.LimitReader caps, and computeExcludedSet breaks cyclic parent relationships deterministically without hanging.",
+        "BlocksToMarkdown renders nested children under paragraph and to_do blocks, escapes unbalanced parentheses/backslashes in Markdown link/image destinations without altering attachment URLs, and uses variable-length backtick delimiters for inline and fenced code.",
+        "getBlockChildrenRecursive skips 404 ErrResourceNotFound on unshared cross-page synced_block subtrees while propagating transient/auth failures, and FetchIncremental sorts databases ahead of standalone pages.",
+        "paginatePages, queryDataSourceWindow, and GetBlockChildrenFlat reject has_more=true without next_cursor, and FetchAll/fetchDatabase/fetchDatabaseIncremental propagate non-404 API and query errors so transient failures never emit spurious record deletions or advance cursors."
       ],
       "findings": [
         {
@@ -6842,34 +7001,50 @@
           "summary": "computeExcludedSet walked parentMap chains without a visited-node guard (hanging indefinitely on cyclic parent pointers), and DownloadFile accepted URLs with embedded userinfo and echoed raw parse errors.",
           "regression_test": "TestW5NotionAudit_ComputeExcludedSetBreaksParentCycleAndDownloadRejectsUserinfo",
           "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        },
+        {
+          "id": "UP-NOTION-001",
+          "severity": "P1",
+          "file": "internal/datasource/connector/notion/connector.go:149-169,471-479,504-516,551-563,1055-1065; internal/datasource/connector/notion/client.go:330-336,485-492,840-846",
+          "summary": "queryDataSourceWindow accepted has_more=true with an empty next_cursor as a complete database query, and FetchAll/fetchDatabase/fetchDatabaseIncremental swallowed non-404 errors from GetPage and queryDatabaseRecords. On transient API failures or incomplete pagination during incremental sync, Notion emitted spurious IsDeleted tombstones for previously indexed database records and advanced the database cursor; on full/first sync, API errors returned empty results with nil error.",
+          "regression_test": "TestNotionDatabaseQueryFailurePreservesCursorAndSkipsDeletions",
+          "commit": "fc7c3f7aee06ab3435abcbc92514c607955081f9"
         }
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/notion"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/notion",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/notion/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/datasource/connector/rss",
       "wave": "W5",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 8,
+      "file_count": 12,
       "tracked_files": [
         "internal/datasource/connector/rss/article_retry_test.go",
+        "internal/datasource/connector/rss/cancellation_test.go",
         "internal/datasource/connector/rss/client.go",
         "internal/datasource/connector/rss/client_test.go",
         "internal/datasource/connector/rss/connector.go",
         "internal/datasource/connector/rss/connector_test.go",
         "internal/datasource/connector/rss/item_identity_test.go",
+        "internal/datasource/connector/rss/json_feed.go",
+        "internal/datasource/connector/rss/json_feed_test.go",
+        "internal/datasource/connector/rss/redirect_base_test.go",
         "internal/datasource/connector/rss/types.go",
         "internal/datasource/connector/rss/w5_audit_test.go"
       ],
       "invariants_checked": [
         "RSS/Atom/JSON feed fetches and readability article fetches run through SSRF-safe HTTP clients with 10 MiB / 5 MiB io.LimitReader body caps, custom AuthHeaders are sent exclusively to configured feed URLs (never to article links), and parseConfig/fetch reject embedded userinfo, non-http(s) schemes, and header control characters without echoing secrets.",
         "resolveItem sanitizes item.Link and strips non-http(s), userinfo-bearing, and SSRF-blocked links before populating FetchedItem.URL / Metadata['link'] so empty-summary feed items cannot smuggle internal/metadata URLs into downstream CreateKnowledgeFromURL.",
-        "FetchIncremental guards nil DataSourceConfig with ErrInvalidConfig, and walk propagates outer caller context cancellation immediately across both feed and per-item article loops rather than mistaking cancelled article fetches for transient fallback-to-summary failures."
+        "FetchIncremental guards nil DataSourceConfig with ErrInvalidConfig, and walk propagates outer caller context cancellation immediately across both feed and per-item article loops rather than mistaking cancelled article fetches for transient fallback-to-summary failures.",
+        "jsonFeedTranslator distinguishes plain-text JSON Feed entries from content_html so plainTextToMarkdown escapes Markdown punctuation without interpreting raw HTML tags or entities.",
+        "extractArticle resolves relative links and images against the post-redirect response URL via SSRF-safe HTTP transport without forwarding feed auth headers to article hosts, and walk aborts without checkpointing when ctx is canceled.",
+        "parseHeaders canonicalizes header keys case-insensitively (last value wins), client.fetchWithURL redacts URL query/userinfo secrets in *url.Error values, Validate/ListResources/walk redact feed URLs in errors and logs, and ListResources sanitizes feed.Link via sanitizeRSSItemLink."
       ],
       "findings": [
         {
@@ -6887,13 +7062,22 @@
           "summary": "resolveItem copied raw item.Link into FetchedItem.URL even when extractArticle rejected the URL or feedContent was empty (allowing http://169.254.169.254/..., javascript:..., or userinfo URLs to reach CreateKnowledgeFromURL), and parseConfig/fetch lacked userinfo and control-character validation with secret-redacted errors.",
           "regression_test": "TestW5RSSAudit_BlocksUnsafeItemLinksUserinfoAndHeaderSecretLeak",
           "commit": "68d37ffdbcc59ff54c172359b8f2e67127c286b7"
+        },
+        {
+          "id": "UP-RSS-001",
+          "severity": "P2",
+          "file": "internal/datasource/connector/rss/client.go:97-107; internal/datasource/connector/rss/connector.go:42-50,83-114,327-328",
+          "summary": "client.fetchWithURL returned raw *url.Error values containing unredacted feed query strings (leaking private feed ?token=/key= credentials into Validate errors, ListResources Resource.Description, PartialFetchError details, and logs), Validate/ListResources/walk logged or wrapped raw feedURL, and ListResources assigned unsanitized feed.Link values (such as javascript: URIs) directly to Resource.URL.",
+          "regression_test": "TestRSSQuerySecretRedactedAndUnsafeFeedLinkSanitized",
+          "commit": "ed0af7213fda3bec0695b7173a95696b235394c9"
         }
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/rss"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/rss",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/rss/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/datasource/connector/seafile",
@@ -6944,8 +7128,9 @@
       "wave": "W5",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 10,
+      "file_count": 12,
       "tracked_files": [
+        "internal/datasource/connector/yuque/cancel_sync_test.go",
         "internal/datasource/connector/yuque/client.go",
         "internal/datasource/connector/yuque/client_test.go",
         "internal/datasource/connector/yuque/connector.go",
@@ -6955,12 +7140,15 @@
         "internal/datasource/connector/yuque/truncate_utf8_test.go",
         "internal/datasource/connector/yuque/types.go",
         "internal/datasource/connector/yuque/types_test.go",
+        "internal/datasource/connector/yuque/version_sync_test.go",
         "internal/datasource/connector/yuque/w5_audit_test.go"
       ],
       "invariants_checked": [
         "Yuque public and enterprise BaseURLs enforce ValidateConnectorBaseURL SSRF/userinfo/query/fragment checks, X-Auth-Token values reject control characters without echoing tokens in errors and log only redacted prefixes once per client, and all JSON responses are capped at 16 MiB via readCapped.",
         "User and group logins in ListUserRepos / ListGroupRepos reject empty, untrimmed, dot-segment ('.', '..'), slash/backslash, query/fragment, and control-character inputs and apply url.PathEscape; numeric userID, bookID, and docID parameters use integer formatting.",
-        "Offset pagination in listReposPaginated and ListBookDocs enforces maxPaginationHops (10000) and repeated-first-ID stall detection, buildTOCPaths enforces visited-UUID cycle protection and maxTOCDepth (32), truncate backs off to UTF-8 rune boundaries, and FetchIncremental guards nil DataSourceConfig."
+        "Offset pagination in listReposPaginated and ListBookDocs enforces maxPaginationHops (10000) and repeated-first-ID stall detection, buildTOCPaths enforces visited-UUID cycle protection and maxTOCDepth (32), truncate backs off to UTF-8 rune boundaries, and FetchIncremental guards nil DataSourceConfig.",
+        "ListBookDocs checks repeated first-ID stalls before stopping at meta.total, buildTOCPaths counts untitled ancestors toward maxTOCDepth, and isHTMLPageShell matches <!doctype html / <html tag boundaries without false-positiving on custom Markdown tags like <html-example>.",
+        "walk skips unchanged incremental docs only when ContentUpdatedAt is non-empty, discards partial batches/cursors on context cancellation, and parseRetryAfter honours both integer-second and HTTP-date Retry-After headers."
       ],
       "findings": [
         {
@@ -6974,16 +7162,17 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/datasource/...",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/yuque"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/datasource/connector/yuque",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/datasource/connector/yuque/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-connectors.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/im",
       "wave": "W5",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 55,
+      "file_count": 57,
       "tracked_files": [
         "internal/im/adapter.go",
         "internal/im/audit_w5_test.go",
@@ -7002,6 +7191,7 @@
         "internal/im/command_registry.go",
         "internal/im/content_rewrite_test.go",
         "internal/im/credentials.go",
+        "internal/im/file_ingestion_test.go",
         "internal/im/file_message_test.go",
         "internal/im/full_output_test.go",
         "internal/im/global_resource_storage_test.go",
@@ -7022,6 +7212,7 @@
         "internal/im/service_lifecycle_test.go",
         "internal/im/service_quote_test.go",
         "internal/im/session_not_found_test.go",
+        "internal/im/session_resolution_test.go",
         "internal/im/session_test.go",
         "internal/im/session_title_test.go",
         "internal/im/stream_delivery_test.go",
@@ -7044,7 +7235,9 @@
       "invariants_checked": [
         "IMChannel.computeBotIdentity hashes secret webhook tokens (Mattermost outgoing_token, Yunzhijia yzjtoken, and malformed colon-less Telegram bot_token fallbacks) with SHA-256 so IMChannelSummary responses and plaintext bot_identity DB columns never expose raw credentials, while SYSTEM_AES_KEY AES-256-GCM encrypts stored channel credentials.",
         "HandleMessage deduplication keys are scoped by channelID + messageID across both Redis SetNX (genyee:im:dedup:*, fail-closed on Redis errors) and single-instance sync.Map caches, preventing cross-tenant/cross-channel message ID collisions, and dynamic DB fallback refuses to start disabled channels.",
-        "Multi-tenant session routing (resolveUserSession, resolveThreadSession), per-user sliding-window rate limiting (genyee:im:ratelimit:*), bounded QA worker queues, distributed leader election (Lua-fenced genyee:im:leader:*), inbound webhook/attachment size caps (LimitWebhookBody 1 MiB, ReadIMResponse 10 MiB, ReadIMAttachmentResponse 100 MiB), outbound storageurl tenant scoping (#128), and /info + /search KBSelectionMode enforcement all uphold tenant and agent isolation with zero legacy brand residues."
+        "Multi-tenant session routing (resolveUserSession, resolveThreadSession), per-user sliding-window rate limiting (genyee:im:ratelimit:*), bounded QA worker queues, distributed leader election (Lua-fenced genyee:im:leader:*), inbound webhook/attachment size caps (LimitWebhookBody 1 MiB, ReadIMResponse 10 MiB, ReadIMAttachmentResponse 100 MiB), outbound storageurl tenant scoping (#128), and /info + /search KBSelectionMode enforcement all uphold tenant and agent isolation with zero legacy brand residues.",
+        "resolveUserSession scopes both initial lookup and unique-constraint race fallback to thread_id = '' AND deleted_at IS NULL and deletes orphaned losing sessions on race fallback.",
+        "processDownloadedFileToKnowledgeBase enforces utils.IsSupportedImportExtension and channel.TenantID isolation, and tool_display counts distinct non-web_search knowledge documents accurately."
       ],
       "findings": [
         {
@@ -7074,9 +7267,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/im/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/im/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/im/dingtalk",
@@ -7128,9 +7322,10 @@
       "wave": "W5",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 11,
+      "file_count": 12,
       "tracked_files": [
         "internal/im/feishu/adapter.go",
+        "internal/im/feishu/adapter_decrypt_test.go",
         "internal/im/feishu/adapter_test.go",
         "internal/im/feishu/audit_w5_test.go",
         "internal/im/feishu/content_disposition_test.go",
@@ -7145,7 +7340,8 @@
       "invariants_checked": [
         "VerifyCallback fails closed when verificationToken is empty, validates X-Lark-Request-Timestamp (5-minute skew) and X-Lark-Signature (constant-time SHA-256) prior to AES-CBC decryption whenever present, and requires both headers on all encrypted non-url_verification events.",
         "Adapter.decrypt enforces minimum 2-block length and 16-byte AES block alignment prior to cipher.CBCDecrypter.CryptBlocks and validates PKCS#7 padding in constant time across the final block.",
-        "Feishu/Lark regional endpoints, SSRFSafeHTTPClient media downloads, Content-Disposition RFC 5987 filename decoding, WebSocket long-connection lifecycle, and stream reaper cleanup operate race-free."
+        "Feishu/Lark regional endpoints, SSRFSafeHTTPClient media downloads, Content-Disposition RFC 5987 filename decoding, WebSocket long-connection lifecycle, and stream reaper cleanup operate race-free.",
+        "decryptEvent verifies minimum IV+block length and AES block-size alignment before CBC CryptBlocks (eliminating panics on malformed/truncated ciphertexts), validates PKCS#7 padding in constant time, and verifies X-Lark-Signature prior to decryption."
       ],
       "findings": [
         {
@@ -7159,9 +7355,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/im/feishu/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/feishu (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/im/feishu (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/im/feishu/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-im-channels.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/im/mattermost",
@@ -7721,7 +7918,7 @@
       "wave": "W5",
       "legacy_status": "audited_findings_fixed",
       "status": "verified_findings_fixed",
-      "file_count": 14,
+      "file_count": 16,
       "tracked_files": [
         "internal/models/chat/chat.go",
         "internal/models/chat/concurrency_wrapper.go",
@@ -7735,13 +7932,16 @@
         "internal/models/chat/ollama.go",
         "internal/models/chat/ollama_cancellation_test.go",
         "internal/models/chat/ollama_multicontent_test.go",
+        "internal/models/chat/ollama_native_id_test.go",
         "internal/models/chat/ollama_runtime_notice_test.go",
-        "internal/models/chat/ollama_test.go"
+        "internal/models/chat/ollama_test.go",
+        "internal/models/chat/ollama_tool_frames_test.go"
       ],
       "invariants_checked": [
         "Chat and ChatStream implementations enforce SSRF checks on remote image URLs, reject non-2xx image responses, cap remote image downloads at 20 MiB without silent truncation, and guard nil Config/service pointers.",
         "Streaming goroutines in OllamaChat, langfuseChat, and llmDebugChat exit promptly on ctx.Done() without deadlocking when callers stop draining the returned channel, while recording cancelled stream completion.",
-        "Langfuse generation input construction redacts base64 data: URIs across both top-level Images and MultiContent parts without mutating caller message slices."
+        "Langfuse generation input construction redacts base64 data: URIs across both top-level Images and MultiContent parts without mutating caller message slices.",
+        "Ollama chat streaming accumulates toolCalls across intermediate frames for the terminal snapshot, preserves non-numeric native tool call IDs across multi-turn conversations, and validates remote image URLs via ValidateURLForSSRF + NewSSRFSafeHTTPClient with a 20 MiB cap."
       ],
       "findings": [
         {
@@ -7763,9 +7963,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/models/chat/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/chat/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/chat/... (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/models/chat/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w5-web-models-trace.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/models/embedding",
@@ -7994,7 +8195,10 @@
         "index.html, embed.html, nginx configs, vite.config.ts, and public runtime scripts load zero external CDN <script>/<link> assets and preserve air-gapped offline operation.",
         "public/genyee-widget.js validates embedUrl against http:/https: origins with non-null origin before assigning iframe.src or calling postMessage, enforces safe CSS color values, prevents allow-scripts + allow-same-origin sandbox escape on same-origin embeds, and bounds numeric panel dimensions/refresh TTLs with Number.isFinite.",
         "index.html Lite last-path restore preserves URL search and hash fragments (including #oidc_result / #oidc_error OIDC callbacks and ?cmdk deep links) and rejects control-character or backslash paths; package.json.md5 matches package.json.",
-        "frontend/LICENSE, frontend/THIRD_PARTY_NOTICES.md, and vendored frontend/public/tdesign-icons/** remain untouched."
+        "frontend/LICENSE, frontend/THIRD_PARTY_NOTICES.md, and vendored frontend/public/tdesign-icons/** remain untouched.",
+        "main.ts installs the offline TDesign icon guard prior to app creation, reconciles auth capabilities via genyee_token before router.isReady(), and logs unhandled errors under [GENYEE] without leaking tokens or host paths.",
+        "Both SPA (main.ts) and embedded widget (embed-main.ts) entrypoints import chat-hljs-theme.less, and zero files in frontend/ reference deleted chat-hljs-dark.less.",
+        "frontend/LICENSE, frontend/THIRD_PARTY_NOTICES.md, and frontend/public/tdesign-icons/** remain byte-identical."
       ],
       "findings": [
         {
@@ -8012,12 +8216,21 @@
           "summary": "Inline Lite last-path restore in index.html overwrote window.location via history.replaceState on '/' even when URL hash/search carried #oidc_result/#oidc_error OIDC callback tokens or ?cmdk queries, and package.json.md5 lagged behind package.json.",
           "regression_test": "W6-BR-02: index.html Lite restore preserves URL hash/search (e.g. OIDC callback) and package.json.md5 matches package.json",
           "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "UP-FE-005",
+          "severity": "P2",
+          "file": "frontend/src/embed-main.ts:7, frontend/src/main.ts:11, frontend/src/components/css/chat-hljs-theme.less:1-24",
+          "summary": "Upstream moved all --chat-code-* syntax-highlight custom properties from chat-hljs.less into chat-hljs-theme.less and imported it only in main.ts, leaving --chat-code-* undefined in the embedded chat widget entrypoint (embed-main.ts).",
+          "regression_test": "both SPA and embed entrypoints load chat-hljs-theme.less and zero files reference deleted chat-hljs-dark.less",
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
         }
       ],
       "verification_commands": [
-        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test mcpProxy.test.ts widgetSecurity.test.ts scripts/copy-pdfjs-wasm.test.mjs) (exit 0)"
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test mcpProxy.test.ts widgetSecurity.test.ts scripts/copy-pdfjs-wasm.test.mjs) (exit 0)",
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/components/css/chat-hljs.test.mjs) (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json,test-reports/module-audit-v2/evidence/up-fe.json"
     },
     {
       "unit_id": "frontend/src/api",
@@ -8151,13 +8364,15 @@
       "wave": "W6",
       "legacy_status": "partially_audited",
       "status": "verified_findings_fixed",
-      "file_count": 191,
+      "file_count": 198,
       "tracked_files": [
         "frontend/src/components/AgentAvatar.vue",
         "frontend/src/components/AgentCreateContextualGuide.vue",
         "frontend/src/components/AgentEmbedChannelPanel.vue",
         "frontend/src/components/AgentSelector.vue",
         "frontend/src/components/AgentShareSettings.vue",
+        "frontend/src/components/AttachmentUpload.mounted.test.mjs",
+        "frontend/src/components/AttachmentUpload.session.test.mjs",
         "frontend/src/components/AttachmentUpload.vue",
         "frontend/src/components/ChatActionIcon.vue",
         "frontend/src/components/ChatAttachmentPreviewDrawer.vue",
@@ -8177,6 +8392,7 @@
         "frontend/src/components/EmbedInputField.vue",
         "frontend/src/components/EmptyState.vue",
         "frontend/src/components/FAQTagTooltip.vue",
+        "frontend/src/components/GlobalCommandPalette.keyboard.test.ts",
         "frontend/src/components/GlobalCommandPalette.source.test.ts",
         "frontend/src/components/GlobalCommandPalette.vue",
         "frontend/src/components/GlobalCommandPalette/ResultGroup.vue",
@@ -8185,6 +8401,7 @@
         "frontend/src/components/GlobalCommandPalette/commands.ts",
         "frontend/src/components/GlobalCommandPalette/useHighlight.test.ts",
         "frontend/src/components/GlobalCommandPalette/useHighlight.ts",
+        "frontend/src/components/GlobalCommandPalette/useSearch.feedback.test.ts",
         "frontend/src/components/GlobalCommandPalette/useSearch.ts",
         "frontend/src/components/GlobalCommandPalette/useStartChat.ts",
         "frontend/src/components/GlobalInvitationBell.test.ts",
@@ -8196,6 +8413,7 @@
         "frontend/src/components/Input-field.browser.test.mjs",
         "frontend/src/components/Input-field.focus.test.mjs",
         "frontend/src/components/Input-field.mention-folder.test.ts",
+        "frontend/src/components/Input-field.prefill.test.ts",
         "frontend/src/components/Input-field.reasoning.test.ts",
         "frontend/src/components/Input-field.vue",
         "frontend/src/components/IntegrationsAgentFilter.vue",
@@ -8273,8 +8491,9 @@
         "frontend/src/components/css/assistant-page-fill.less",
         "frontend/src/components/css/channel-panel-list.less",
         "frontend/src/components/css/chat-citations.less",
-        "frontend/src/components/css/chat-hljs-dark.less",
+        "frontend/src/components/css/chat-hljs-theme.less",
         "frontend/src/components/css/chat-hljs.less",
+        "frontend/src/components/css/chat-hljs.test.mjs",
         "frontend/src/components/css/chat-markdown.less",
         "frontend/src/components/css/chat-message-shared.less",
         "frontend/src/components/css/chat-resource-chips.less",
@@ -8306,6 +8525,7 @@
         "frontend/src/components/knowledge-processing-timeline.test.ts",
         "frontend/src/components/knowledge-processing-timeline.vue",
         "frontend/src/components/manual-knowledge-editor.vue",
+        "frontend/src/components/manualKnowledgeLoading.test.ts",
         "frontend/src/components/menu.batch-delete.test.ts",
         "frontend/src/components/menu.vue",
         "frontend/src/components/mermaid-file/MermaidFilePreview.vue",
@@ -8349,7 +8569,12 @@
         "All 189 original component files plus 2 new regression test suites audited line-by-line for DOM XSS across every v-html, v-stable-html, innerHTML, outerHTML, <iframe src/srcdoc>, DOCX/XLSX/PDF/Markdown/Mermaid/SVG previewer, citation popover, and reference drawer.",
         "Every external anchor (<a :href>, target=\"_blank\") and window.open call validates http:/https: URL schemes and enforces rel=\"noopener noreferrer\" / 'noopener,noreferrer'.",
         "Offline/air-gapped safety and GENYEE brand hygiene verified across all components: zero third-party QR or favicon requests (migrated IMChannelPanel WeChat QR to local <t-qrcode> and removed Google s2/favicons leak in ChatReferencesDrawer), local bundled pdfjs worker only, and zero legacy brand residues.",
-        "Secret-preservation and async lifecycle hygiene verified across editors, drawers, selectors, uploaders, and guides: redacted credentials are never overwritten with empty maps or '***' placeholders, ObjectURLs/timers/window listeners/long-polls are cleaned up on close and unmount, and stale async responses are fenced by sequence/generation guards."
+        "Secret-preservation and async lifecycle hygiene verified across editors, drawers, selectors, uploaders, and guides: redacted credentials are never overwritten with empty maps or '***' placeholders, ObjectURLs/timers/window listeners/long-polls are cleaned up on close and unmount, and stale async responses are fenced by sequence/generation guards.",
+        "AttachmentUpload fences upload progress, completion, status polling, and temporary-document deletion with sessionEpoch + disposed + reactive proxy tracking so switching sessions (including A -> B -> A) or unmounting never leaks or revives stale attachments.",
+        "GlobalCommandPalette and useCmdkSearch key KB/agent caches and in-flight discovery/search requests by user:effectiveTenantId, flushing stale results, closing the palette, dismissing any open ChatReferenceSourceView drawer, and cancelling pending focus retry RAF/timers on workspace switch, close, or unmount.",
+        "useStartChat and Input-field deliver prefill queries only after /platform/creatChat navigation succeeds (or duplicates onto the active composer), preserving current drafts on cancelled/redirected navigation and leaving embedded composers untouched.",
+        "manual-knowledge-editor fences initialize, loadKnowledgeBases, loadKnowledgeContent, and handleSave (draft + publish) with initGeneration and disconnects ResizeObserver on unmount so stale loads or saves from closed visits cannot overwrite, unlock, or close a reopened draft.",
+        "ChatReferenceSourceView validates web citation URLs via new URL (http:/https: with non-empty hostname), avoids empty-ID detail requests, refreshes kbName provenance when knowledgeBaseId hydrates on an open document, and increments loadVersion on unmount."
       ],
       "findings": [
         {
@@ -8391,13 +8616,38 @@
           "summary": "Lifecycle cleanup and rapid-switch race hardening across 15 components: PdfSourceViewer reactive props.data reload + loadGeneration cancel, manual-knowledge-editor initGeneration guard, AttachmentUpload session/unmount guard on upload completion, Input-field image ObjectURL revoke on unmount + sharedAgentKbReqSeq, ChatHeader editingSessionId capture + grantsLoadSeq, and timer/listener/request sequence cleanup across guides, selectors, and drawers.",
           "regression_test": "PdfSourceViewer, AttachmentUpload, Input-field, ChatHeader, guides, and selectors clean up timers, blobs, and stale loads",
           "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        },
+        {
+          "id": "UP-FE-001",
+          "severity": "P1",
+          "file": "frontend/src/components/manual-knowledge-editor.vue:100-103,808-910,940-963",
+          "summary": "Upstream renamed W6's initGeneration token to loadVersion (regressing componentLifecycleRaces.test.ts) and left handleSave() unfenced across async getKnowledgeBaseById, uploadConfirmStore.open, updateManualKnowledge, and createManualKnowledge awaits, allowing an in-flight save from a closed visit to overwrite currentKnowledgeId, unlock saving, or close a newly opened draft.",
+          "regression_test": "an old in-flight save success/failure cannot close, unlock, or overwrite a reopened draft",
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
+        },
+        {
+          "id": "UP-FE-002",
+          "severity": "P1",
+          "file": "frontend/src/components/GlobalCommandPalette/useSearch.ts:70-196,251-264,402-437; frontend/src/components/GlobalCommandPalette.vue:220-233,629-706,730-733",
+          "summary": "GlobalCommandPalette stays mounted across workspace/user switches while useCmdkSearch permanently cached kbsLoaded/agentsLoaded and kept stale fileGroups/messageGroups and open sourceTarget drawers across effectiveTenantId changes; focusInputWithRetry also left RAF/setTimeout callbacks uncanceled on close/unmount.",
+          "regression_test": "workspace switch invalidates cached KBs and drops in-flight cross-workspace search results; workspace or user switch dismisses an open source drawer and closes the palette",
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
+        },
+        {
+          "id": "UP-FE-006",
+          "severity": "P2",
+          "file": "frontend/src/components/ChatReferenceSourceView.vue:66,169-216,333-339,372-395",
+          "summary": "ChatReferenceSourceView omitted knowledgeBaseId and knowledgeSource from its target watcher, skipped kbName provenance refresh when knowledgeBaseId hydrated on an already open document, accepted hostless 'https://' URLs via regex, called getKnowledgeDetails('') on empty knowledgeId, and lacked an onBeforeUnmount loadVersion fence.",
+          "regression_test": "hydrating knowledgeBaseId on the same document updates provenance and web citations reject hostless URLs",
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
         }
       ],
       "verification_commands": [
         "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/components/componentSecurityAndOffline.test.ts src/components/componentLifecycleRaces.test.ts) (exit 0)",
-        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/assets/theme/styleGuard.test.mjs src/directives/*.test.* src/hooks/*.test.* src/components/*.test.* src/components/*/*.test.*) (exit 0)"
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/assets/theme/styleGuard.test.mjs src/directives/*.test.* src/hooks/*.test.* src/components/*.test.* src/components/*/*.test.*) (exit 0)",
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/components/AttachmentUpload.mounted.test.mjs src/components/AttachmentUpload.session.test.mjs src/components/ChatReferenceSourceView.test.ts src/components/GlobalCommandPalette.keyboard.test.ts src/components/GlobalCommandPalette.source.test.ts src/components/GlobalCommandPalette/useSearch.feedback.test.ts src/components/Input-field.prefill.test.ts src/components/css/chat-hljs.test.mjs src/components/manualKnowledgeLoading.test.ts src/components/componentLifecycleRaces.test.ts) (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-components-hooks.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-components-hooks.json,test-reports/module-audit-v2/evidence/up-fe.json"
     },
     {
       "unit_id": "frontend/src/composables",
@@ -8667,7 +8917,9 @@
       "invariants_checked": [
         "100% translation key parity, AST structure parity, vue-i18n message compilation, workspace terminology consistency, and 100% {placeholder} token parity across all 6 supported locales (zh-CN, zh-TW, en-US, ru-RU, ko-KR, ja-JP).",
         "Zero legacy brand identifiers, legacy key prefixes, or deprecated mini-program client strings across all 23 i18n locale and audit script files, with clean GENYEE naming throughout.",
-        "Safe locale bootstrap in frontend/src/i18n/index.ts under SSR, Node test runners, and restricted browser storage (validating stored locale values against SUPPORTED_LOCALES before falling back to resolveDefaultLocale), plus Slavic 3-form pluralRules parity between main app i18n and embed i18n."
+        "Safe locale bootstrap in frontend/src/i18n/index.ts under SSR, Node test runners, and restricted browser storage (validating stored locale values against SUPPORTED_LOCALES before falling back to resolveDefaultLocale), plus Slavic 3-form pluralRules parity between main app i18n and embed i18n.",
+        "All 6 locales (en-US, ja-JP, ko-KR, ru-RU, zh-CN, zh-TW) maintain 100% key and interpolation placeholder parity, including new commandPalette.errors.{knowledge,messages} keys and Traditional Chinese terminology normalization ('支援') in zh-TW.ts.",
+        "Zero legacy upstream brand/prefix, mini-program, or host-path residues exist in any locale file."
       ],
       "findings": [
         {
@@ -8688,9 +8940,10 @@
         }
       ],
       "verification_commands": [
-        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/i18n/embedLocale.test.ts src/i18n/indexInitAndParity.test.ts src/i18n/localeKeyAudit.test.ts src/i18n/locales/workspaceTerminology.test.ts src/i18n/memoryKeyReferences.test.ts src/i18n/resolveDefaultLocale.test.ts) (exit 0)"
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/i18n/embedLocale.test.ts src/i18n/indexInitAndParity.test.ts src/i18n/localeKeyAudit.test.ts src/i18n/locales/workspaceTerminology.test.ts src/i18n/memoryKeyReferences.test.ts src/i18n/resolveDefaultLocale.test.ts) (exit 0)",
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/i18n/localeKeyAudit.test.ts src/i18n/indexInitAndParity.test.ts src/i18n/embedLocale.test.ts src/i18n/locales/workspaceTerminology.test.ts) (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-admin-i18n.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-admin-i18n.json,test-reports/module-audit-v2/evidence/up-fe.json"
     },
     {
       "unit_id": "frontend/src/router",
@@ -8878,7 +9131,7 @@
       "wave": "W6",
       "legacy_status": "partially_audited",
       "status": "verified_findings_fixed",
-      "file_count": 278,
+      "file_count": 283,
       "tracked_files": [
         "frontend/src/utils/_repro_gap.mjs",
         "frontend/src/utils/agent-mode.test.mjs",
@@ -8940,6 +9193,7 @@
         "frontend/src/utils/citationChunkCache.test.mjs",
         "frontend/src/utils/citationChunkCache.ts",
         "frontend/src/utils/citationMarkdown.ts",
+        "frontend/src/utils/citationMarkdownMath.test.mjs",
         "frontend/src/utils/clipboard.ts",
         "frontend/src/utils/collaborationDisplay.test.ts",
         "frontend/src/utils/collaborationDisplay.ts",
@@ -9017,10 +9271,12 @@
         "frontend/src/utils/markdownEditing.test.ts",
         "frontend/src/utils/markdownEditing.ts",
         "frontend/src/utils/markdownEnhancements.ts",
+        "frontend/src/utils/markdownPreviewImageFences.test.ts",
         "frontend/src/utils/markdownPreviewImages.test.ts",
         "frontend/src/utils/markdownPreviewImages.ts",
         "frontend/src/utils/markdownSecurity.browser.test.mjs",
         "frontend/src/utils/markdownSourceLocate.ts",
+        "frontend/src/utils/markdownTableNormalize.test.ts",
         "frontend/src/utils/markdownTableNormalize.ts",
         "frontend/src/utils/markdownTitleDedupe.test.ts",
         "frontend/src/utils/markdownTitleDedupe.ts",
@@ -9046,10 +9302,12 @@
         "frontend/src/utils/optionalString.ts",
         "frontend/src/utils/pageActionResponder.ts",
         "frontend/src/utils/pageAwareness.ts",
+        "frontend/src/utils/pageFill.test.ts",
         "frontend/src/utils/pageFill.ts",
         "frontend/src/utils/pageReveal.test.ts",
         "frontend/src/utils/pageReveal.ts",
         "frontend/src/utils/pageSnapshot.ts",
+        "frontend/src/utils/pageText.overlap.test.ts",
         "frontend/src/utils/pageText.test.ts",
         "frontend/src/utils/pageText.ts",
         "frontend/src/utils/passwordPolicy.ts",
@@ -9163,7 +9421,12 @@
         "Markdown, KaTeX, Mermaid, citation, EPUB, and XLSX HTML/SVG pipelines block javascript:/vbscript:/data:text/html and executable data:image/svg+xml / <foreignObject> / external <use> payloads in real browser DOMPurify and headless fallbacks.",
         "Axios request/response interceptors never leak Authorization Bearer tokens, X-Tenant-ID headers, or 401 token-refresh retries to cross-origin URLs or untokened /api/v1/embed/ endpoints.",
         "Protected file blob caches and citation chunk caches enforce userId:tenantId scoping, clearEpoch/scope fencing across async fetches, bounded cache capacity, and complete ObjectURL revocation on logout/switch.",
-        "Page snapshot/text helpers redact camelCase, snake_case, and [data-assistant-redact] secrets; reference/docs/page-link URL helpers enforce http(s) or safe in-app paths with zero external Google favicon requests."
+        "Page snapshot/text helpers redact camelCase, snake_case, and [data-assistant-redact] secrets; reference/docs/page-link URL helpers enforce http(s) or safe in-app paths with zero external Google favicon requests.",
+        "citationMarkdown escapes all HTML attributes/text, blocks javascript:/data:/vbscript: URLs via URL parsing, preserves blank lines after closing $$ display-math and fenced-code delimiters, and leaves literal <kb/>, <web/>, and [[wiki]] inside variable-length CommonMark fences and inline code spans untouched.",
+        "markdownPreviewImages resolves relative sibling images strictly within normalized knowledge-base folder boundaries, caps paginated folder scans at MAX_PREVIEW_IMAGE_LIST_PAGES = 20, validates generated URLs with isSafePreviewImageHref (revoking rejected blob: URLs immediately), and ignores image syntax inside CommonMark fences, HTML comments, inline code, and indented code.",
+        "markdownTableNormalize repairs MarkItDown spurious empty/separator table prefixes and escaped pipes while leaving pipe-prefixed lines inside CommonMark fenced code blocks untouched.",
+        "sessionMarkdown preserves Markdown hard breaks, fenced code whitespace, and literal <kb/>/<web/> inside code while normalizing and percent-encoding reference http(s) URLs so parentheses/spaces/quotes cannot break out of Markdown links.",
+        "pageFill, pageText, automationSchedule, and agent-tool-display reject overlapping ambiguous text anchors in O(N), preserve user edits on undo, reject DST-skipped/invalid wall-clock schedules while retaining exact one-shot instants, and count distinct knowledge documents accurately."
       ],
       "findings": [
         {
@@ -9229,12 +9492,21 @@
           "summary": "Hardened URL/input validation across remaining utils: blocked non-http(s) web reference URLs and removed external google.com/s2/favicons domain leaks in referenceSources, rejected unsafe schemes/control chars in docsUrl and pageLinkReturnPath, sanitized string SVG diagrams + deduplicated click listeners in mermaidViewer, enforced fence boundaries in mermaidStreaming, stripped ANSI escapes before secret-prompt detection in ptyEchoPredictor, escaped CR/LF in embedContext, rejected dotless filenames in fileTypeVerification, and rejected IP/TLD wildcards in embedAllowedOrigins.",
           "regression_test": "W6-UT-08: referenceSources blocks unsafe web URLs and external Google favicon leaks, docsUrl and pageLinkReturnPath reject unsafe targets, and misc utils harden edge cases",
           "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "UP-FE-003",
+          "severity": "P1",
+          "file": "frontend/src/utils/sessionMarkdown.ts:1,91-113; frontend/src/utils/citationMarkdown.ts:64-153,480-493; frontend/src/utils/markdownTableNormalize.ts:48-112",
+          "summary": "sessionMarkdown interpolated raw /^https?:\\/\\//i reference URLs into Markdown links without URL parsing or parenthesis/whitespace encoding (allowing 'https://example.com/p) [Click](javascript:alert(1))' link breakout) and stripped literal <kb/>/<web/> inside code blocks; citationMarkdown prematurely closed 4-backtick fences on inner 3-backtick lines and emitted unencoded spaces/unescaped fallback brackets or HTML in stripCitationTagsForMarkdown; markdownTableNormalize mutated pipe-prefixed lines inside fenced code blocks.",
+          "regression_test": "buildSessionMarkdown encodes parentheses and spaces in reference URLs and rejects malformed schemes; buildSessionMarkdown preserves literal <kb/> and <web/> inside inline and fenced code blocks; preserves literal citations inside 4-backtick fences containing 3-backtick lines; stripCitationTagsForMarkdown normalizes URL spaces/quotes and sanitizes fallback bracket labels; pipe-prefixed lines inside CommonMark fenced code blocks are left untouched",
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
         }
       ],
       "verification_commands": [
-        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/utils/*.test.ts src/utils/*.test.mjs) (exit 0)"
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/utils/*.test.ts src/utils/*.test.mjs) (exit 0)",
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/utils/agent-tool-display.test.mjs src/utils/automationSchedule.test.ts src/utils/citationMarkdownMath.test.mjs src/utils/markdownPreviewImageFences.test.ts src/utils/markdownTableNormalize.test.ts src/utils/pageFill.test.ts src/utils/pageText.overlap.test.ts src/utils/pageText.test.ts src/utils/sessionMarkdown.test.ts src/utils/w6_utils_security.test.ts) (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json,test-reports/module-audit-v2/evidence/up-fe.json"
     },
     {
       "unit_id": "frontend/src/views/agent",
@@ -9253,7 +9525,8 @@
       "invariants_checked": [
         "AgentList enforces active-workspace ownership (effectiveTenantId) in canManageAgent and routes cross-tenant shared deep-links (?edit=<id>) to read-only inspection instead of mutable editor state.",
         "AgentList sequences spaceSelection and fetchList requests so out-of-order responses from earlier workspace filters cannot overwrite active agent cards.",
-        "AgentEditorModal hides share management and dirty-form snapshots in readOnly mode, renders prompt placeholder chips via text bindings instead of v-html, and clears catalog/highlight/popup timers on unmount."
+        "AgentEditorModal hides share management and dirty-form snapshots in readOnly mode, renders prompt placeholder chips via text bindings instead of v-html, and clears catalog/highlight/popup timers on unmount.",
+        "AgentEditorModal requires a Rerank model in smart-reasoning mode only when agentRequiresRerankModel confirms built-in search_knowledge is active alongside knowledge bases, renders prompt actions in non-overlapping footer rows without v-html, and cleans up all popup/catalog/highlight timers on unmount."
       ],
       "findings": [
         {
@@ -9274,9 +9547,10 @@
         }
       ],
       "verification_commands": [
-        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/agent/agentAuditW6.test.ts) (exit 0)"
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/agent/agentAuditW6.test.ts) (exit 0)",
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/views/agent/AgentEditorModal.test.mjs src/views/agent/agentAuditW6.test.ts) (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json,test-reports/module-audit-v2/evidence/up-fe.json"
     },
     {
       "unit_id": "frontend/src/views/artifacts",
@@ -9354,18 +9628,20 @@
       "wave": "W6",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 6,
+      "file_count": 7,
       "tracked_files": [
         "frontend/src/views/automation/AutomationDetail.vue",
         "frontend/src/views/automation/AutomationEditor.vue",
         "frontend/src/views/automation/AutomationList.vue",
         "frontend/src/views/automation/AutomationStatusTag.vue",
+        "frontend/src/views/automation/automationEditorLifecycle.test.ts",
         "frontend/src/views/automation/automationInteractions.test.ts",
         "frontend/src/views/automation/automationLifecycle.test.ts"
       ],
       "invariants_checked": [
         "AutomationDetail fences loadDetail, loadRuns, loadGrants, runNow, toggle, and cancel with detailVersion so late responses after switching automations or closing the drawer cannot mutate active state.",
-        "AutomationEditor declares trigger preview state prior to immediate visibility watchers and cancels debounced validateTrigger timers on close and unmount."
+        "AutomationEditor declares trigger preview state prior to immediate visibility watchers and cancels debounced validateTrigger timers on close and unmount.",
+        "AutomationEditor fences trigger validation previews with previewSeq + clearTimeout(previewTimer) and fences create/update saves with editorVersion so closing, unmounting, or reopening (including A -> B -> A) cancels pending previews and ignores stale save completions."
       ],
       "findings": [
         {
@@ -9386,9 +9662,10 @@
         }
       ],
       "verification_commands": [
-        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/automation/automationLifecycle.test.ts) (exit 0)"
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/automation/automationLifecycle.test.ts) (exit 0)",
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/views/automation/automationEditorLifecycle.test.ts) (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json,test-reports/module-audit-v2/evidence/up-fe.json"
     },
     {
       "unit_id": "frontend/src/views/chat",
@@ -9497,7 +9774,8 @@
         "All citation popovers, web search/fetch cards, document links, and MCP OAuth popups enforce strict http(s): protocol validation and rel=\"noopener noreferrer\" (severing popup.opener), blocking javascript:/data: XSS.",
         "Markdown and knowledge chunk summaries pass through DOMPurify-backed sanitizeHTML / renderMarkdownHtml before v-html binding, and declarative capture click handlers preserve image lightbox behavior across v-if transitions.",
         "HITL approval cards (ToolApprovalCard, HostApprovalCard, AskUserCard, SecureFormCard, PendingPromptDock) reject held-Enter key-repeat auto-submission, prevent duplicate inline submissions, require empty serviceId before displaying built-in GENYEE operation labels, and resume suspended runs on server resolution.",
-        "Session streaming, follow-up suggestion polling, steer continue-stream attachment, suspended-run resume, wiki preview drawers, and artifact drawers fence async callbacks on session/version epochs and clean up timers on route leave and unmount."
+        "Session streaming, follow-up suggestion polling, steer continue-stream attachment, suspended-run resume, wiki preview drawers, and artifact drawers fence async callbacks on session/version epochs and clean up timers on route leave and unmount.",
+        "AgentStreamDisplay computes search result file counts via countSearchResultFiles (coercing numeric count/fileCount values before strong-tag interpolation), sanitizes streamed Markdown and citation HTML, and removes root click/keydown capture listeners on unmount."
       ],
       "findings": [
         {
@@ -9558,9 +9836,10 @@
         }
       ],
       "verification_commands": [
-        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test $(find src/views/chat -name '*.test.*' | sort)) (exit 0)"
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test $(find src/views/chat -name '*.test.*' | sort)) (exit 0)",
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/utils/agent-tool-display.test.mjs) (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json,test-reports/module-audit-v2/evidence/up-fe.json"
     },
     {
       "unit_id": "frontend/src/views/creatChat",
@@ -9722,7 +10001,7 @@
       "wave": "W6",
       "legacy_status": "partially_audited",
       "status": "verified_findings_fixed",
-      "file_count": 97,
+      "file_count": 98,
       "tracked_files": [
         "frontend/src/views/knowledge/ImagePipelineSettings.test.ts",
         "frontend/src/views/knowledge/ImagePipelineSettings.vue",
@@ -9748,6 +10027,7 @@
         "frontend/src/views/knowledge/components/DocumentListView.vue",
         "frontend/src/views/knowledge/components/FAQBatchActions.test.ts",
         "frontend/src/views/knowledge/components/FAQBatchBar.vue",
+        "frontend/src/views/knowledge/components/FAQEntryManager.import.test.ts",
         "frontend/src/views/knowledge/components/FAQEntryManager.vue",
         "frontend/src/views/knowledge/components/FolderPickerMenu.vue",
         "frontend/src/views/knowledge/components/KbFolderTree.test.ts",
@@ -9825,7 +10105,10 @@
       "invariants_checked": [
         "KnowledgeBase, FAQEntryManager, WikiBrowser, WikiRevisionDrawer, DataSourceSettings, DataSourceEditorDialog, DataSourceSyncLogs, KnowledgeBaseActivitySettings, KBShareSettings, KBChunkingDebug, KnowledgeBaseList, UploadConfirmDialog, ImageGallery, and GallerySourcePicker isolate polling timers, debounce timers, unsaved temp data sources, and in-flight async responses across KB switches and component unmount.",
         "Shared-KB and active-workspace RBAC guards (FAQEntryManager canEdit/canManage, KnowledgeBaseEditorModal canShareKB/canViewActivity, WikiBrowser canEdit folder/drag/issue controls) honor effectiveTenantId, CreatorRoleFloor ('contributor'), and organization share permissions so read-only viewers never see write/share controls.",
-        "External URL openings (FAQEntryManager failed_entries_url, KbUploadSourceDropdown URL submission) enforce http(s): schemes and noopener,noreferrer, and WikiBrowser escapes [[slug|display]] and index metadata outside code spans prior to DOMPurify sanitization."
+        "External URL openings (FAQEntryManager failed_entries_url, KbUploadSourceDropdown URL submission) enforce http(s): schemes and noopener,noreferrer, and WikiBrowser escapes [[slug|display]] and index metadata outside code spans prior to DOMPurify sanitization.",
+        "KnowledgeBase fences auto-fill viewport pagination with documentPageGeneration + isCurrentKb(currentKbId) and backs off when a page returns no additional rows, preventing infinite auto-pagination loops or cross-KB state pollution.",
+        "KnowledgeBaseEditorModal places Wiki instruction counters and AssistantActionButton in a non-overlapping footer with kbEditorLoadGeneration async fencing and listener cleanup.",
+        "FAQEntryManager enforces a 20 MiB import file size cap, matches extensions case-insensitively, isolates CSV/Excel header records with Object.create(null) against __proto__ pollution, validates JSON array object items, and sanitizes operational fields (answer_strategy, booleans, positive integer tag_id, string lists) while fencing polling by kbSwitchGen + isFaqUnmounted."
       ],
       "findings": [
         {
@@ -9883,12 +10166,21 @@
           "summary": "Added stale-response sequence/unmount/KB-switch guards across activity, data source, wiki revision, share, chunking debug, KB list, upload dialog, and gallery components, cleared ImageGallery prefsTimer on unmount, and enforced http(s): scheme validation in KbUploadSourceDropdown.",
           "regression_test": "KnowledgeBaseActivitySettings, DataSourceSettings, WikiRevisionDrawer, KBShareSettings, KBChunkingDebug, KnowledgeBaseList, KbUploadSourceDropdown, UploadConfirmDialog, ImageGallery, and GallerySourcePicker guard stale async state and schemes",
           "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "UP-FE-004",
+          "severity": "P2",
+          "file": "frontend/src/views/knowledge/components/FAQEntryManager.vue:1844-2069",
+          "summary": "FAQEntryManager read arbitrarily large import files into memory without a byte cap, rejected uppercase .JSON/.CSV/.XLSX extensions, stored CSV/Excel row columns in plain {} objects susceptible to __proto__ header collisions, and threw unhandled TypeErrors or forwarded unvalidated answer_strategy/tag_id/non-string-array values on malformed JSON imports.",
+          "regression_test": "FAQ import rejects oversized files, handles uppercase extensions, sanitizes malformed JSON fields, and isolates __proto__ CSV headers",
+          "commit": "d5effef1d9e102c91e4e2caee8c9ad38d0712c7a"
         }
       ],
       "verification_commands": [
-        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test $(find src/views/knowledge \\( -name '*.test.ts' -o -name '*.test.mjs' \\) | sort)) (exit 0)"
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test $(find src/views/knowledge \\( -name '*.test.ts' -o -name '*.test.mjs' \\) | sort)) (exit 0)",
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/views/knowledge/KnowledgeBase.test.ts src/views/knowledge/components/FAQEntryManager.import.test.ts) (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json,test-reports/module-audit-v2/evidence/up-fe.json"
     },
     {
       "unit_id": "frontend/src/views/organization",
@@ -10163,7 +10455,7 @@
       "unit_id": ".github/workflows",
       "wave": "W7",
       "legacy_status": "uncovered_in_v1",
-      "status": "verified_no_findings",
+      "status": "verified_findings_fixed",
       "file_count": 19,
       "tracked_files": [
         ".github/ISSUE_TEMPLATE/bug_report.yml",
@@ -10189,13 +10481,26 @@
       "invariants_checked": [
         "All 13 GitHub Actions workflows declare least-privilege top-level permissions (`contents: read` with job-scoped elevation only where required), pin third-party actions to 40-char commit SHAs, and avoid `pull_request_target` privilege escalation.",
         "Zero untrusted GitHub event expressions (`issue.title`, `pull_request.body`, `head_ref`, commit messages) are interpolated directly inside `run:` shell blocks; dynamic inputs pass via `env:` variables.",
-        "All 6 issue/PR templates, dependabot configuration, and CI jobs use lowercase `genyee-*` image/artifact naming with zero legacy brand residues."
+        "All 6 issue/PR templates, dependabot configuration, and CI jobs use lowercase `genyee-*` image/artifact naming with zero legacy brand residues.",
+        "Workflow retains least-privilege top-level permissions (contents: read), 40-char commit SHA action pins, and ubuntu-24.04 runner configuration.",
+        "Zero GitHub Actions ${{ ... }} template expressions are interpolated inside run: shell blocks; runtime variables expand safely via shell environment variables.",
+        "Start DocReader gRPC server provisions an ephemeral 256-bit GRPC_AUTH_TOKEN (masked in logs and exported to GITHUB_ENV for Go client loopback authentication), stores the server PID under RUNNER_TEMP instead of /tmp, and fails fast with kill -0 if the process exits prematurely."
       ],
-      "findings": [],
+      "findings": [
+        {
+          "id": "UP-OPS-WF-001",
+          "severity": "P1",
+          "file": ".github/workflows/docreader.yml:55-115",
+          "summary": "Start DocReader gRPC server launched python -m docreader.main without GRPC_AUTH_TOKEN, causing immediate fail-closed AuthConfigError (sys.exit(1)) under GENYEE's hardened AuthInterceptor and hanging 30s before failing CI; run: blocks also interpolated ${{ env.PYTHON_VERSION }} directly and wrote the server PID to world-writable /tmp/docreader.pid.",
+          "regression_test": "test_up_ops_docreader_workflow_enforces_grpc_auth_and_shell_hygiene",
+          "commit": "44efa0e411f1e8f6f174a6648b1412a81c465854"
+        }
+      ],
       "verification_commands": [
-        "PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh (exit 0)"
+        "PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_markdown_inline_images.py -k workflow (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docker-helm-scripts.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docker-helm-scripts.json,test-reports/module-audit-v2/evidence/up-docs-py-ops.json"
     },
     {
       "unit_id": "cli/acceptance/contract",
@@ -11363,7 +11668,7 @@
       "wave": "W7",
       "legacy_status": "pending",
       "status": "verified_findings_fixed",
-      "file_count": 68,
+      "file_count": 69,
       "tracked_files": [
         "docreader/tests/epub_builder.py",
         "docreader/tests/generate_source_location_browser_fixtures.py",
@@ -11395,6 +11700,7 @@
         "docreader/tests/test_image_preprocess.py",
         "docreader/tests/test_markdown_image_fences.py",
         "docreader/tests/test_markdown_image_titles.py",
+        "docreader/tests/test_markdown_inline_images.py",
         "docreader/tests/test_markdown_table_fences.py",
         "docreader/tests/test_markdown_table_util.py",
         "docreader/tests/test_markitdown_xlsx_budget.py",
@@ -11435,7 +11741,8 @@
         "docreader/tests/test_xmind_parser.py"
       ],
       "invariants_checked": [
-        "All 67 Python test modules parse cleanly, clean up temporary directories/processes/sockets deterministically, expose security regression suites to both pytest and stdlib unittest discovery even without pytest installed, and contain zero unsafe eval/shell sinks or brand/host-path residues."
+        "All 67 Python test modules parse cleanly, clean up temporary directories/processes/sockets deterministically, expose security regression suites to both pytest and stdlib unittest discovery even without pytest installed, and contain zero unsafe eval/shell sinks or brand/host-path residues.",
+        "All upstream inline-code and fenced-code base64 preservation tests plus 4 new GENYEE security regression tests pass deterministically without writing bytecode caches or host paths."
       ],
       "findings": [
         {
@@ -11449,9 +11756,10 @@
       ],
       "verification_commands": [
         "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/tests/*.py (exit 0)",
-        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. pytest -p no:cacheprovider docreader/tests/test_build_scripts.py docreader/tests/test_dependency_security.py docreader/tests/test_security_audit_fixes.py (exit 0)"
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. pytest -p no:cacheprovider docreader/tests/test_build_scripts.py docreader/tests/test_dependency_security.py docreader/tests/test_security_audit_fixes.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_markdown_inline_images.py (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w7-cmd-docparser-anydoc.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w7-cmd-docparser-anydoc.json,test-reports/module-audit-v2/evidence/up-docs-py-ops.json"
     },
     {
       "unit_id": "docreader/tests/fixtures",
@@ -11737,7 +12045,7 @@
       "wave": "W7",
       "legacy_status": "audited_findings_fixed",
       "status": "verified_findings_fixed",
-      "file_count": 66,
+      "file_count": 69,
       "tracked_files": [
         "internal/infrastructure/docparser/anydoc_docx_vector_test.go",
         "internal/infrastructure/docparser/anydoc_pptx_vector_test.go",
@@ -11790,6 +12098,9 @@
         "internal/infrastructure/docparser/mineru_layout.go",
         "internal/infrastructure/docparser/mineru_layout_precision_test.go",
         "internal/infrastructure/docparser/mineru_raw_response_test.go",
+        "internal/infrastructure/docparser/mineru_tasks_client.go",
+        "internal/infrastructure/docparser/mineru_tasks_client_test.go",
+        "internal/infrastructure/docparser/mineru_tasks_edges_test.go",
         "internal/infrastructure/docparser/mineru_timeout_test.go",
         "internal/infrastructure/docparser/mineru_v1_client.go",
         "internal/infrastructure/docparser/mineru_v1_client_test.go",
@@ -11811,7 +12122,8 @@
         "JSON splitter respects context cancellation, caps split recursion depth, and measures chunk payload net of ancestor wrapper overhead; Markdown image target scanner executes in linear O(N) time on unclosed syntax; HTML table normalizer tracks CommonMark line-anchored fenced code blocks accurately.",
         "ImageResolver allowlists stored image extensions, keys filename deduplication by SHA-256 content digest to prevent cross-directory basename collisions, rejects XML/SVG <!DOCTYPE and <!ENTITY directives, and validates remote image magic bytes and pixel budgets regardless of server Content-Type.",
         "Cloud OCR readers (MinerU Cloud, PaddleOCR-VL Cloud) sanitize multipart upload filenames, percent-encode jobID/batchID path segments, infer SourceBlocks fileType from FileName when FileType is empty, and stream split PDF parts from disk under an overall timeout.",
-        "HTTPDocumentReader enforces getMaxFileSize() before base64 encoding, normalizes bare host:port addresses, and permits the exact operator-configured internal DOCREADER_ADDR with same-origin redirect pinning while enforcing full SSRF validation on all other URLs."
+        "HTTPDocumentReader enforces getMaxFileSize() before base64 encoding, normalizes bare host:port addresses, and permits the exact operator-configured internal DOCREADER_ADDR with same-origin redirect pinning while enforcing full SSRF validation on all other URLs.",
+        "MinerU v1 tasks client and converter validate configured endpoints and cloud/remote ZIP download URLs via SSRF-safe HTTP clients, attach Bearer credentials strictly on sameOrigin requests while stripping sensitive headers on cross-origin redirects, cap ZIP downloads (1 GiB) and extracted images, url.PathEscape task IDs, and cancel non-terminal tasks on timeout/cancellation; GENYEE_MINERU_TIMEOUT naming verified."
       ],
       "findings": [
         {
@@ -11857,9 +12169,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/infrastructure/docparser (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/docparser (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/infrastructure/docparser (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/infrastructure/docparser/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w7-cmd-docparser-anydoc.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w7-cmd-docparser-anydoc.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/infrastructure/docparser/anydoc/testdata",
@@ -12179,7 +12492,9 @@
       "invariants_checked": [
         "Preserved all protected license/attribution/historical files and kept `README.md`, `README_CN.md`, `README_JA.md`, and `README_KO.md` 100% byte-identical; audited `go.mod`, `go.sum`, `Makefile`, `Formula/genyee-lite.rb`, `.env.example`, `.env.lite.example`, `rerank_server_demo.py`, `.dockerignore`, `.gitignore`, `.gitattributes`, `.golangci.yml`, `VERSION`, `docreader/pyproject.toml`, and `mcp-server/pyproject.toml`.",
         "`rerank_server_demo.py` safely falls back on empty integer env vars, binds to `127.0.0.1` with fail-closed `hmac.compare_digest` API key auth, requires a 40-char lowercase hex commit SHA on `RERANK_MODEL_REVISION` when `RERANK_TRUST_REMOTE_CODE=true` for remote repos, and forces `local_files_only=True` on unpinned local directories.",
-        "`Makefile` quotes `eval \"$$(./scripts/get_version.sh env)\"` and migration/docker build arguments; `Formula/genyee-lite.rb` validates `.env.lite` variable names against `[A-Za-z_][A-Za-z0-9_]*` before `export`."
+        "`Makefile` quotes `eval \"$$(./scripts/get_version.sh env)\"` and migration/docker build arguments; `Formula/genyee-lite.rb` validates `.env.lite` variable names against `[A-Za-z_][A-Za-z0-9_]*` before `export`.",
+        "misc/pr-assets is marked export-ignore in .gitattributes as defense-in-depth alongside removal of upstream PR screenshot PNGs (misc/pr-assets/adopter-card-layout.png and misc/pr-assets/adopter-navigation.png remain absent from git ls-files).",
+        "test-reports and test-reports/** remain export-ignore so audit evidence JSON files never leak into customer git archive source bundles; all upstream notice byte-preservation attributes remain intact."
       ],
       "findings": [
         {
@@ -12194,9 +12509,10 @@
       "verification_commands": [
         "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s helm/tests -v (exit 0)",
         "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v (exit 0)",
-        "PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh (exit 0)"
+        "PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 bash scripts/verify-commercial-compliance.sh --tier 5 (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docker-helm-scripts.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docker-helm-scripts.json,test-reports/module-audit-v2/evidence/up-docs-py-ops.json"
     },
     {
       "unit_id": "scripts",
@@ -12241,7 +12557,10 @@
       "invariants_checked": [
         "Preserved all negative checks in `scripts/verify-commercial-compliance.sh` (`34/34` passing); verified license bundling (`check-license-bundle.sh`, `copy-licenses.sh`, `generate_npm_notices.mjs`), entrypoint GID checks (`docker-entrypoint.sh`), and air-gapped packaging (`offline-bundle.sh`, `offline-load.sh`, `export-source.sh`).",
         "`scripts/build_images.sh` keeps Go module checksum verification enabled by default (`GOSUMDB_ARG=${GOSUMDB:-sum.golang.org}`), resolves `$PROJECT_ROOT/VERSION`, and quotes all `--platform` / `--build-arg` flags; `scripts/get_version.sh` resolves `PROJECT_ROOT` from `BASH_SOURCE[0]`, sanitizes version tokens, emits `printf '%s=%q\\n'` in `env` mode, and JSON-escapes fields.",
-        "`scripts/start_all.sh`, `scripts/dev.sh`, and `scripts/test-homebrew.sh` populate empty mandatory secrets on both newly created and pre-copied CRLF/LF `.env` files under `umask 077` (`0600` mode); `scripts/migrate.sh` preserves explicit caller env vars over `.env`, URL-encodes `DB_USER`/`DB_PASSWORD`/`DB_NAME`, redacts query-string `password=` in logs, and validates `force` integer versions; `scripts/offline-load.sh` rejects symlinks in bundles; `scripts/offline-bundle.sh` generates `SEARXNG_SECRET` when `searxng` profile is enabled; `scripts/export-source.sh` blocks leading-`-` `git archive` option injection and supports relative output paths from any CWD."
+        "`scripts/start_all.sh`, `scripts/dev.sh`, and `scripts/test-homebrew.sh` populate empty mandatory secrets on both newly created and pre-copied CRLF/LF `.env` files under `umask 077` (`0600` mode); `scripts/migrate.sh` preserves explicit caller env vars over `.env`, URL-encodes `DB_USER`/`DB_PASSWORD`/`DB_NAME`, redacts query-string `password=` in logs, and validates `force` integer versions; `scripts/offline-load.sh` rejects symlinks in bundles; `scripts/offline-bundle.sh` generates `SEARXNG_SECRET` when `searxng` profile is enabled; `scripts/export-source.sh` blocks leading-`-` `git archive` option injection and supports relative output paths from any CWD.",
+        "Crate source download verifies 64-hex SHA-256 digests against licenses/sources/anydoc.tsv (stripping GNU sha256sum leading backslash escapes), removes pre-existing destination symlinks before curl -o, and deletes unverified tarballs immediately on checksum mismatch.",
+        "Unpacked crate trees are scanned with find -type l to reject symlinks before copying into third_party/anydoc-go/patched-anydoc, and archive installation verifies a regular non-symlink artifact and unlinks $dest/$lib_name prior to copy.",
+        "strip_llvm_lto_sections matches dotted/hyphenated LLVM bitcode section names (\\.llvm[a-zA-Z0-9_.-]+, including .llvm.lto) and stages objcopy output via a temporary file so cross-target objcopy failures never corrupt $dest/$lib_name in place."
       ],
       "findings": [
         {
@@ -12267,14 +12586,25 @@
           "summary": "offline-load.sh scanned regular files (-type f) without rejecting symlinks inside the bundle directory, offline-bundle.sh omitted SEARXNG_SECRET generation when the searxng profile was enabled, and export-source.sh passed unvalidated GIT_REF to git archive (allowing leading '-' option injection) and resolved relative OUTPUT_TAR against PROJECT_ROOT instead of caller CWD.",
           "regression_test": "test_offline_load_rejects_symlinks_bundle_sets_searxng_secret_and_export_source_blocks_option_refs",
           "commit": "fc9bf78e6d667e0316a737c933ef3d221db1ae04"
+        },
+        {
+          "id": "UP-OPS-SH-001",
+          "severity": "P2",
+          "file": "scripts/build-anydoc-lib.sh:86-120,181-214",
+          "summary": "prepare_patched_anydoc did not unlink pre-existing tarball symlinks before curl -o, left mismatched tarballs on disk on SHA-256 failure, and accepted symlinks inside unpacked crate archives; strip_llvm_lto_sections missed dotted .llvm.lto section names and mutated $dest/$lib_name in-place rather than staging via a temporary file.",
+          "regression_test": "test_up_ops_build_anydoc_lib_sha256_symlink_and_llvm_strip_safety",
+          "commit": "44efa0e411f1e8f6f174a6648b1412a81c465854"
         }
       ],
       "verification_commands": [
         "bash scripts/docker-entrypoint_test.sh && bash scripts/check-license-bundle.sh && bash scripts/test-license-bundle.sh (exit 0)",
         "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts/tests -v (exit 0)",
-        "PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh (exit 0)"
+        "PYTHONDONTWRITEBYTECODE=1 GOMAXPROCS=2 bash scripts/verify-commercial-compliance.sh (exit 0)",
+        "bash -n scripts/build-anydoc-lib.sh (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m unittest scripts/tests/test_anydoc_build.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_markdown_inline_images.py -k anydoc (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docker-helm-scripts.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docker-helm-scripts.json,test-reports/module-audit-v2/evidence/up-docs-py-ops.json"
     },
     {
       "unit_id": "scripts/cloud-image",
@@ -12833,7 +13163,9 @@
         "website-docs/03-features/28-agent-permissions.md"
       ],
       "invariants_checked": [
-        "All 29 feature guides align with runtime defaults and security contracts: lowercase genyee Elasticsearch index default, 30 built-in model providers, 3 built-in agents including builtin-genyee-assistant, mandatory NEO4J_PASSWORD, embed-session:v2 HMAC signed with SYSTEM_SIGNING_KEY / SYSTEM_AES_KEY, default-off LANGFUSE_HOST, zero discontinued cloud aliases, and non-empty caption attributes on every <Screenshot/> component."
+        "All 29 feature guides align with runtime defaults and security contracts: lowercase genyee Elasticsearch index default, 30 built-in model providers, 3 built-in agents including builtin-genyee-assistant, mandatory NEO4J_PASSWORD, embed-session:v2 HMAC signed with SYSTEM_SIGNING_KEY / SYSTEM_AES_KEY, default-off LANGFUSE_HOST, zero discontinued cloud aliases, and non-empty caption attributes on every <Screenshot/> component.",
+        "MCP Rerank model guidance accurately documents that external MCP services and built-in MCP Server search_knowledge/grep_chunks endpoints do not require Rerank, while smart-reasoning Agents using built-in search_knowledge do.",
+        "All internal links and all 3 Mermaid diagrams in 08-mcp.md parse with 0 errors and 0 legacy upstream brand residues."
       ],
       "findings": [
         {
@@ -12849,7 +13181,7 @@
         "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)",
         "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docs-website.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docs-website.json,test-reports/module-audit-v2/evidence/up-docs-py-ops.json"
     },
     {
       "unit_id": "website-docs/04-api",
@@ -12942,7 +13274,9 @@
         "website-docs/06-development/06-wemm-transformers.md"
       ],
       "invariants_checked": [
-        "All 6 development guides match Go 1.26.10 / frontend 0.9.0, PostgreSQL migrations 000000-000138 and SQLite migrations 000000-000054 in chronological order, WebSearcher/WebFetcher interfaces and deepseek.go provider, and Desktop host sandbox ask/auto approval_mode."
+        "All 6 development guides match Go 1.26.10 / frontend 0.9.0, PostgreSQL migrations 000000-000138 and SQLite migrations 000000-000054 in chronological order, WebSearcher/WebFetcher interfaces and deepseek.go provider, and Desktop host sandbox ask/auto approval_mode.",
+        "PostgreSQL versioned migration inventory (000000-000139, 140 versions / 280 SQL files, ending at 000139_im_session_mode_indexes) and SQLite incremental inventory (000001-000055, ending at 000055_im_session_mode_indexes) match migrations/versioned/ and migrations/sqlite/ on disk.",
+        "Core ER Mermaid diagram and internal links pass validation with 0 errors and 0 legacy upstream brand residues."
       ],
       "findings": [
         {
@@ -12956,9 +13290,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go test -race -p 1 -count=1 ./docs/... ./website-docs/... ./internal/productdocs/... (exit 0)",
-        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)"
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node website-docs/scripts/check-links.mjs (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./website-docs/... ./internal/productdocs/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docs-website.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docs-website.json,test-reports/module-audit-v2/evidence/up-docs-py-ops.json"
     },
     {
       "unit_id": "website-docs/07-releases",
@@ -13055,7 +13390,8 @@
         "website-docs/homepage/tsconfig.json"
       ],
       "invariants_checked": [
-        "Next.js static export config (next.config.ts) uses unoptimized local images with zero external image CDN remotePatterns (removed unused images.unsplash.com) and zero external font/telemetry fetches."
+        "Next.js static export config (next.config.ts) uses unoptimized local images with zero external image CDN remotePatterns (removed unused images.unsplash.com) and zero external font/telemetry fetches.",
+        "BRAND-ASSETS.md and homepage/README.md document only the 6 self-authored MIT enterprise scenario SVGs under public/docs/_home/adopters/ and same-origin /docs/_home/ assets with zero third-party adopter logos or external CDN beacons."
       ],
       "findings": [
         {
@@ -13068,9 +13404,10 @@
         }
       ],
       "verification_commands": [
-        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)"
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/*.test.mjs (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docs-website.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docs-website.json,test-reports/module-audit-v2/evidence/up-docs-py-ops.json"
     },
     {
       "unit_id": "website-docs/homepage/app",
@@ -13099,7 +13436,9 @@
       ],
       "invariants_checked": [
         "Homepage app components (page.tsx, layout.tsx, interactive.tsx, adopter-showcase.tsx, product-gallery.tsx, model-leaderboard.tsx) contain zero false MIT/Open-Source claims, zero retired release-video claims, and accurate v0.9.0 commercial framing.",
-        "External hrefs are sanitized via sanitizeExternalHttpUrl, empty repositoryUrl / adopterIssue links are omitted instead of rendering current-page href='' anchors, all target='_blank' anchors carry rel='noopener noreferrer', and decodeURIComponent in model-leaderboard.tsx catches URIError."
+        "External hrefs are sanitized via sanitizeExternalHttpUrl, empty repositoryUrl / adopterIssue links are omitted instead of rendering current-page href='' anchors, all target='_blank' anchors carry rel='noopener noreferrer', and decodeURIComponent in model-leaderboard.tsx catches URIError.",
+        "AdopterShowcase sanitizes adopterIssue and adopter.link.href via sanitizeExternalHttpUrl, omits empty links, attaches target=\"_blank\" rel=\"noopener noreferrer\" to all external anchors, and loads scenario icons strictly from local ${homeAssets}/adopters/ SVGs.",
+        "adopters.module.css uses --gy-* design tokens exclusively (defined in shared/brand.css) with zero legacy CSS custom property prefixes."
       ],
       "findings": [
         {
@@ -13120,9 +13459,10 @@
         }
       ],
       "verification_commands": [
-        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)"
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/*.test.mjs (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docs-website.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docs-website.json,test-reports/module-audit-v2/evidence/up-docs-py-ops.json"
     },
     {
       "unit_id": "website-docs/homepage/scripts",
@@ -13220,7 +13560,9 @@
         "website-docs/shared/header.ts"
       ],
       "invariants_checked": [
-        "shared/header.ts exposes sanitizeExternalHttpUrl enforcing valid http:/https: URLs free of control characters, shared/adopters.ts contains clean adopter records, and shared/site-header.css contains purely local styling rules."
+        "shared/header.ts exposes sanitizeExternalHttpUrl enforcing valid http:/https: URLs free of control characters, shared/adopters.ts contains clean adopter records, and shared/site-header.css contains purely local styling rules.",
+        "siteNavigation links to '/#adopters' under GENYEE '行业场景' framing and keeps repositoryUrl empty.",
+        "sanitizeExternalHttpUrl enforces http:/https: protocols only, rejects ASCII control characters, and rejects URLs carrying embedded username/password userinfo."
       ],
       "findings": [
         {
@@ -13230,12 +13572,21 @@
           "summary": "shared/header.ts lacked URL scheme/control-character sanitization helper for external repository/community links shared across VitePress and Next.js homepage headers.",
           "regression_test": "W7-SEC-01: external URL sanitization, conditional repo links, noopener, and MermaidZoom SVG hardening",
           "commit": "a58cbb75cd12e756032e15692f167c6afba22d2d"
+        },
+        {
+          "id": "UP-DOCS-WEB-001",
+          "severity": "P2",
+          "file": "website-docs/shared/header.ts:38-49",
+          "summary": "sanitizeExternalHttpUrl permitted http:/https: URLs containing embedded username/password userinfo (e.g. https://user:secret@example.com or @-authority phishing URLs https://genyee.com@evil.example) to pass through into external anchor href attributes.",
+          "regression_test": "UP-DOCS-WEB-001: sanitizeExternalHttpUrl rejects embedded userinfo credentials and dangerous schemes",
+          "commit": "44efa0e411f1e8f6f174a6648b1412a81c465854"
         }
       ],
       "verification_commands": [
-        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)"
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/screenshot-sizes.test.mjs website-docs/scripts/site-security.test.mjs website-docs/homepage/scripts/sync-product-screenshots.test.mjs (exit 0)",
+        "NODE_OPTIONS=\"--max-old-space-size=1024\" node --test website-docs/scripts/*.test.mjs (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docs-website.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w7-docs-website.json,test-reports/module-audit-v2/evidence/up-docs-py-ops.json"
     },
     {
       "unit_id": "cli",
@@ -14286,7 +14637,10 @@
         "All ZIP/OOXML/EPUB/XMind archive admissions enforce entry count, compression ratio, member/cumulative decompressed byte ceilings across STORED, DEFLATED, BZIP2, and LZMA streams (including LZMA dictionary header bounds <= 64 MiB), and XML parsers disable entity resolution and network access (defusedxml / lxml resolve_entities=False, no_network=True).",
         "Pillow Image.MAX_IMAGE_PIXELS=40_000_000 is enforced at package import across in-process and subprocess parsers; ImageMagick delegates are restricted to raster formats with resource caps; LibreOffice conversions run inside clean-env + bwrap --unshare-net sandboxes with symlink and output-size checks.",
         "WebParser routes all Playwright browser traffic through SSRFProxy + route guards with proxy fallback support, and OpenDataLoader hybrid health/forwarder requests enforce SSRF validation, DNS-rebinding IP pinning, ProxyHandler({}), no-redirect handling, and bounded upstream response reads.",
-        "PDFium native operations are serialized under _PDFIUM_LOCK (always acquired after render semaphores), RapidOCR instances are isolated in threading.local(), and ArchiveLimitError / ParserCancelled propagate without triggering fallback parsers or leaking temporary files/directories."
+        "PDFium native operations are serialized under _PDFIUM_LOCK (always acquired after render semaphores), RapidOCR instances are isolated in threading.local(), and ArchiveLimitError / ParserCancelled propagate without triggering fallback parsers or leaking temporary files/directories.",
+        "MarkdownImageUtil scans prose in guaranteed O(N) linear time while preserving fenced code blocks (_transform_outside_fences) and paired inline backtick code spans (_inline_code_spans), preventing O(N^3) ReDoS on unclosed ![...](data:image/...) or ![...](...) inputs and preventing unclosed inline-code image openers from hiding subsequent real images.",
+        "extract_base64 enforces pre-decode base64 character caps (derived from MAX_INLINE_IMAGE_BYTES = 20 MiB) before slicing/decoding, per-document count (1000) and cumulative byte (100 MiB) budgets, strict raster MIME subtype allowlisting (blocking SVG/XML/EMF/WMF/EPS and path-traversal subtypes), and Pillow header verification under Image.MAX_IMAGE_PIXELS = 40_000_000 with DecompressionBombWarning promoted to error.",
+        "MarkdownParser performs zero outbound network fetches on external http/https image URLs, delegating remote image downloads exclusively to Go's SSRF-guarded ImageResolver.ResolveRemoteImages."
       ],
       "findings": [
         {
@@ -14312,13 +14666,31 @@
           "summary": "OpenDataLoader _ping_hybrid inherited ambient proxy env vars and both _ping_hybrid and _local_hybrid_auth_proxy re-resolved DNS on connect after is_ssrf_safe_url (DNS-rebinding TOCTOU), _local_hybrid_auth_proxy called unbounded resp.read() on upstream responses, and StdWebParser ignored CONFIG.external_http_proxy when external_https_proxy was unset.",
           "regression_test": "test_w8_parser_odl_proxy_bounds_upstream_response_and_pins_dns",
           "commit": "c956de1360bfdc5382edadd784ea7d5525a8794b"
+        },
+        {
+          "id": "UP-DOC-PY-001",
+          "severity": "P1",
+          "file": "docreader/parser/markdown_parser.py:415-698",
+          "summary": "MarkdownImageUtil regexes (b64_pattern, image_pattern, replace_pattern) suffered O(N^3) catastrophic backtracking on unclosed ![alt](data:image/...) and ![alt](...) inputs (>8s at n=400 / 12.8 KB), and an unclosed '![' inside an inline code span caused b64_pattern to span across prose and skip extracting a subsequent real base64 image.",
+          "regression_test": "test_up_doc_py_redos_linear_time_and_inline_code_unclosed_opener",
+          "commit": "44efa0e411f1e8f6f174a6648b1412a81c465854"
+        },
+        {
+          "id": "UP-DOC-PY-002",
+          "severity": "P1",
+          "file": "docreader/parser/markdown_parser.py:34-60,360-388,493-568",
+          "summary": "MarkdownImageUtil.extract_base64 lacked pre-decode base64 payload size caps and per-document budgets (allowing oversized inline base64 OOM), omitted Image.MAX_IMAGE_PIXELS = 40_000_000 raster header validation (allowing multi-hundred-megapixel PNG decompression bombs to bypass Go's ResolveDataURIImages checks via result.ImageRefs), and interpolated raw data:image/<subtype> strings into image_path (allowing ../ traversal, SVG/vector MIME types, and spoofed non-raster payloads).",
+          "regression_test": "test_up_doc_py_inline_image_size_cap_pixel_bomb_and_raster_mime_allowlist",
+          "commit": "44efa0e411f1e8f6f174a6648b1412a81c465854"
         }
       ],
       "verification_commands": [
         "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/parser/*.py (exit 0)",
-        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_w8_docreader_reaudit.py docreader/tests/test_security_audit_fixes.py docreader/tests/test_branch_audit_regressions.py (exit 0)"
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests/test_w8_docreader_reaudit.py docreader/tests/test_security_audit_fixes.py docreader/tests/test_branch_audit_regressions.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile docreader/parser/markdown_parser.py (exit 0)",
+        "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=. docreader/.venv/bin/pytest -p no:cacheprovider -q docreader/tests (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w8-docreader-reaudit.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-docreader-reaudit.json,test-reports/module-audit-v2/evidence/up-docs-py-ops.json"
     },
     {
       "unit_id": "docreader/splitter",
@@ -15006,17 +15378,19 @@
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
       "status": "verified_findings_fixed",
-      "file_count": 4,
+      "file_count": 5,
       "tracked_files": [
         "internal/models/api/googlegenai/client.go",
         "internal/models/api/googlegenai/googlegenai_test.go",
+        "internal/models/api/googlegenai/nullable_schema_test.go",
         "internal/models/api/googlegenai/request.go",
         "internal/models/api/googlegenai/w8_audit_test.go"
       ],
       "invariants_checked": [
         "Non-streaming responses read via api.ReadResponseCapped and SSE streams read via bounded api.NewSSEReader; requestURL path-escapes Model after stripping optional models/ prefix.",
         "imagePart restricts non-data fileData.fileUri references to http/https/gs schemes with non-empty host (preventing unresolved resource:///local:///file:// URIs from leaking onto the wire) and caps inline data: payloads at 20 MiB.",
-        "Chat/ChatStream normalize nil context and redact ?key= query secrets and URL userinfo across request-creation and transport errors."
+        "Chat/ChatStream normalize nil context and redact ?key= query secrets and URL userinfo across request-creation and transport errors.",
+        "sanitizeSchema clones and rewrites JSON Schema [T, \"null\"] type unions into scalar type + nullable: true without mutating caller json.RawMessage slices, and imagePart restricts remote URIs to http/https/gs schemes with a 20 MiB inline image cap."
       ],
       "findings": [
         {
@@ -15030,9 +15404,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/googlegenai (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/googlegenai (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/googlegenai (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/models/api/googlegenai/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/models/api/openaichataudio",
@@ -15139,17 +15514,19 @@
       "wave": "W8",
       "legacy_status": "audited_no_actionable_findings",
       "status": "verified_findings_fixed",
-      "file_count": 5,
+      "file_count": 6,
       "tracked_files": [
         "internal/models/api/openairesponses/client.go",
         "internal/models/api/openairesponses/openairesponses_test.go",
         "internal/models/api/openairesponses/refusal_test.go",
         "internal/models/api/openairesponses/request.go",
+        "internal/models/api/openairesponses/terminal_tool_calls_test.go",
         "internal/models/api/openairesponses/w8_audit_test.go"
       ],
       "invariants_checked": [
         "Non-streaming and streaming incomplete responses (status == \"incomplete\") never report finish_reason == \"tool_calls\", even when incomplete_details is null or carries an unknown reason.",
-        "convertMessages extracts text from system messages carrying MultiContent parts, Chat/ChatStream normalize nil context, and URL secrets are redacted from errors."
+        "convertMessages extracts text from system messages carrying MultiContent parts, Chat/ChatStream normalize nil context, and URL secrets are redacted from errors.",
+        "Streaming tool-call assembly correlates deltas by item_id or output_index, recovers terminal-only function_call items without duplicating streamed arguments, maps incomplete terminal status to finish_reason=\"length\", and redacts URL secrets in errors."
       ],
       "findings": [
         {
@@ -15163,9 +15540,10 @@
       ],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/openairesponses (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openairesponses (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/openairesponses (exit 0)",
+        "GOMAXPROCS=2 GOFLAGS=-mod=readonly go test -race -p 1 -count=1 ./internal/models/api/openairesponses/... (exit 0)"
       ],
-      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json"
+      "evidence_file": "test-reports/module-audit-v2/evidence/w8-models-reaudit.json,test-reports/module-audit-v2/evidence/up-agent-conn-im.json"
     },
     {
       "unit_id": "internal/models/api/openaitranscriptions",
@@ -15976,6 +16354,10 @@
       "test-reports/module-audit-20261113/storageurl-transport.json",
       "test-reports/module-audit-20261113/wiki-current-chunks.json",
       "test-reports/module-audit-v2/coverage.json",
+      "test-reports/module-audit-v2/evidence/up-agent-conn-im.json",
+      "test-reports/module-audit-v2/evidence/up-docs-py-ops.json",
+      "test-reports/module-audit-v2/evidence/up-fe.json",
+      "test-reports/module-audit-v2/evidence/up-svc-repo.json",
       "test-reports/module-audit-v2/evidence/w1-agent-sec.json",
       "test-reports/module-audit-v2/evidence/w1-localsandbox.json",
       "test-reports/module-audit-v2/evidence/w1-mcp.json",
