@@ -58,7 +58,7 @@
           "file": "frontend/src/i18n/index.ts:8-42; frontend/src/i18n/embed.ts:1-2, 2784-2792",
           "summary": "frontend/src/i18n/index.ts accessed localStorage, window.__RUNTIME_CONFIG__, and import.meta.env without guards and accepted arbitrary unsupported localStorage.locale strings without validation; frontend/src/i18n/embed.ts omitted pluralRules so Slavic 3-form plurals (ru-RU) degraded in embedded chat.",
           "regression_test": "i18n index imports safely without browser globals and validates stored locale values, embed i18n configures Slavic 3-form pluralRules for ru-RU",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         },
         {
           "id": "W6-I18N-02",
@@ -66,7 +66,7 @@
           "file": "frontend/src/i18n/locales/en-US.ts:3548; frontend/src/i18n/locales/ja-JP.ts:3548; frontend/src/i18n/locales/ru-RU.ts:6262, 6455",
           "summary": "embedPublish.nameDefaultHint in en-US, ja-JP, and ru-RU contained an unpassed {agent} placeholder (rendered literally as '{agent}' by AgentEmbedChannelPanel.vue:117), and ru-RU input.agentNotReadyDetail omitted the {agentName} placeholder passed by callers.",
           "regression_test": "all 6 locales maintain 100% interpolation placeholder parity across every translation key",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         }
       ],
       "verification_commands": [
@@ -97,7 +97,7 @@
           "file": "frontend/src/views/auth/Login.vue:99-125, 384-408, 667-677",
           "summary": "handleOIDCLogin assigned response.authorization_url directly to window.location.href without http:/https: scheme validation, runtime GITHUB_URL/WEBSITE_URL values were bound to :href without protocol filtering, and Login.vue target=\"_blank\" anchors lacked rel=\"noopener noreferrer\".",
           "regression_test": "handleOIDCLogin rejects non-http(s) authorization_url schemes and accepts https URLs, Login runtime GITHUB_URL/WEBSITE_URL reject unsafe schemes and external anchors use noopener noreferrer",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         },
         {
           "id": "W6-AUTH-02",
@@ -105,7 +105,7 @@
           "file": "frontend/src/views/auth/Login.vue:580-587, 831-857",
           "summary": "persistLoginResponse wrote new user credentials atop existing Pinia/localStorage state without calling authStore.logout() or clearing GENYEE_settings (allowing stale refreshToken, memberships, isLiteMode, or settings from a previous account to bleed across logins), and expired sessions on invite ?token= landings were left half-logged-in when refreshFromAuthMe() returned false.",
           "regression_test": "persistLoginResponse clears previous account state before storing new user and autoSetup retains lite mode, expired session on invite ?token= landing calls authStore.logout before showing login/register form",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         }
       ],
       "verification_commands": [
@@ -148,7 +148,7 @@
           "file": "frontend/src/views/integrations/mcpServerIntegration.ts:67-82; frontend/src/views/integrations/CliIntegrationLanding.vue:84-112; frontend/src/views/integrations/ClawSkillLanding.vue:134-140",
           "summary": "buildClaudeCodeCommand interpolated url unquoted and token inside double quotes without escaping shell metacharacters or newlines, CliIntegrationLanding interpolated unvalidated RUNTIME_CONFIG.GITHUB_URL into git clone (and duplicated .git.git when GITHUB_URL ended with .git), and ClawSkillLanding interpolated apiBaseUrlDisplay inside double-quoted export GENYEE_BASE_URL without quoting shell expansions.",
           "regression_test": "buildClaudeCodeCommand quotes shell metacharacters in url and token while keeping clean tokens readable, CliIntegrationLanding validates http(s) GITHUB_URL, avoids .git.git duplication, and quotes clone URL, ClawSkillLanding envExample safely quotes GENYEE_BASE_URL against shell command substitution",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         },
         {
           "id": "W6-INT-02",
@@ -156,7 +156,7 @@
           "file": "frontend/src/views/integrations/ApiIntegrationSettings.vue:1177-1180, 1434-1444",
           "summary": "loadAPIKeys only initialized apiKey when empty, leaving a deleted/revoked API key selected in API snippets and Playground requests after deletion, and openApiDoc opened target=\"_blank\" without noopener,noreferrer or http:/https: scheme validation.",
           "regression_test": "ApiIntegrationSettings rotates or clears apiKey when selected key is revoked and opens docs with noopener,noreferrer",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         }
       ],
       "verification_commands": [
@@ -186,7 +186,7 @@
           "file": "frontend/src/views/organization/OrganizationSettingsModal.vue:1212-1215, 1249-1395, 1871-1931",
           "summary": "OrganizationSettingsModal lacked generation/orgId guards on fetchOrgDetail, fetchMembers, fetchSharedKBs, and fetchJoinRequests (allowing slow responses from Org A or a closed modal to overwrite Org B state), did not reload organization context when props.orgId changed while visible, and interpolated raw inviteCode.value into inviteLink without encodeURIComponent.",
           "regression_test": "OrganizationSettingsModal encodes inviteLink, reloads when orgId changes while visible, and drops stale org responses",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         },
         {
           "id": "W6-ORG-02",
@@ -194,7 +194,7 @@
           "file": "frontend/src/views/organization/OrganizationList.vue:918-928, 1080-1084",
           "summary": "OrganizationList left searchDebounceTimer pending across closeInvitePreview() and onUnmounted(), allowing a 300ms delayed fetchSearchableOrganizations() call to repopulate cleared store state after dialog close or unmount.",
           "regression_test": "OrganizationList clears pending searchDebounceTimer on closeInvitePreview and unmount",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         }
       ],
       "verification_commands": [
@@ -289,7 +289,7 @@
           "file": "frontend/src/views/settings/components/McpServiceDialog.vue:700-725; frontend/src/views/settings/SystemInfo.vue:274-283; frontend/src/views/settings/WebSearchSettings.vue:129-135, 421-430",
           "summary": "McpServiceDialog passed upstream OAuth authorizationUrl directly to window.open without http:/https: scheme validation and left window.opener exposed to the third-party OAuth popup; SystemInfo and WebSearchSettings bound runtime GITHUB_URL and provider docs_url to external links without http:/https: validation.",
           "regression_test": "McpServiceDialog rejects non-http(s) OAuth authorizationUrl and severs window.opener on valid popups, SystemInfo and WebSearchSettings reject non-http(s) external URLs",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         },
         {
           "id": "W6-SET-02",
@@ -297,7 +297,7 @@
           "file": "frontend/src/views/settings/MemoryWorkspaceSettings.vue:202-343",
           "summary": "MemoryWorkspaceSettings flipped isInitializing to false even when getTenantMemoryConfig failed (allowing debouncedSave to overwrite tenant memory config with hardcoded defaults), did not watch authStore.effectiveTenantId to cancel pending saves and reload on workspace switch, and leaked initTimer/saveTimer on unmount.",
           "regression_test": "MemoryWorkspaceSettings blocks autosave when loadConfig fails, reloads on tenant switch, and clears timers on unmount",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         },
         {
           "id": "W6-SET-03",
@@ -305,7 +305,7 @@
           "file": "frontend/src/views/settings/ParserEngineSettings.vue:400, 646-732; frontend/src/views/settings/StorageBackendSettings.vue:328-378; frontend/src/views/settings/OllamaSettings.vue:179, 274-376",
           "summary": "ParserEngineSettings tested the Vue Ref object (!connected, always false) instead of !connected.value in onCheck(), swallowed onSave() results without MessagePlugin toasts, and left its 3s checkMessage timer uncleaned; StorageBackendSettings lacked try/catch in load(), testRaw(), testSaved(), and makeDefault() causing unhandled promise rejections; OllamaSettings leaked its 1s getDownloadProgress setInterval across component unmount.",
           "regression_test": "ParserEngineSettings checks connected.value, surfaces save toast errors, and clears checkMessage timer on unmount, StorageBackendSettings catches load, testRaw, testSaved, and makeDefault rejections without unhandled rejections, OllamaSettings clears download progress polling interval on unmount",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         }
       ],
       "verification_commands": [
@@ -355,7 +355,7 @@
           "file": "frontend/src/views/system/ModelCatalog.vue:151-155, 505-515",
           "summary": "ModelCatalog bound String(selected.model.source) directly to <a :href> without http:/https: scheme validation, allowing javascript:/data: URLs in admin-editable model catalog overlays to execute on click.",
           "regression_test": "ModelCatalog only exposes http(s) model source URLs for external links",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         },
         {
           "id": "W6-SYS-02",
@@ -363,7 +363,7 @@
           "file": "frontend/src/views/system/SystemSettings.vue:171-173, 621-630",
           "summary": "SystemSettings rendered string inputs as cleartext and echoed String(item.value) in DOM placeholder attributes even when item.is_secret was true.",
           "regression_test": "SystemSettings masks secret placeholders and binds password input type when item.is_secret is true",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         }
       ],
       "verification_commands": [
@@ -389,7 +389,7 @@
           "file": "frontend/src/views/dev/MarkdownTestPage.vue:125, 464-485, 522-531",
           "summary": "MarkdownTestPage.vue did not register an onBeforeUnmount hook to clear streamTimer (setInterval) or customMermaidTimer (setTimeout), leaving active timers mutating refs and invoking refreshMermaid after unmount.",
           "regression_test": "MarkdownTestPage clears streamTimer and customMermaidTimer on unmount",
-          "commit": "14b108129744ee8c7d616a8fca42762625467c14"
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
         }
       ],
       "verification_commands": [

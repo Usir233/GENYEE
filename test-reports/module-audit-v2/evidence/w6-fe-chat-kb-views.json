@@ -40,7 +40,7 @@
           "file": "frontend/src/views/agent/AgentList.vue:1079-1145, 1207-1228, 1338-1353",
           "summary": "canManageAgent granted hasRole('admin') without verifying the agent belonged to the active workspace, checkAndOpenEditModal opened mutable AgentEditorModal on cross-tenant shared deep-links, and spaceSelection/fetchList lacked sequence fencing.",
           "regression_test": "AgentList denies canManageAgent on cross-tenant shared agents and routes shared deep-links to read-only detail, AgentList ignores out-of-order spaceSelection and fetchList responses",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-AGENT-02",
@@ -48,7 +48,7 @@
           "file": "frontend/src/views/agent/AgentEditorModal.vue:236, 284, 357, 407, 452, 532, 1822, 2114-2131, 2872, 4243",
           "summary": "Read-only agent inspection exposed the share management tab and dirty formData snapshot, rendered six placeholder token chips via v-html instead of v-text, and left catalogPollTimer/highlight/popup timers active on unmount.",
           "regression_test": "AgentEditorModal hides share management and dirty snapshot in readOnly mode, escapes placeholder tokens without v-html, and clears timers on unmount",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         }
       ],
       "verification_commands": [
@@ -74,7 +74,7 @@
           "file": "frontend/src/views/artifacts/ArtifactLibrary.vue:236, 248, 359-376",
           "summary": "openSession interpolated item.session_id into /platform/chat/${session_id} without encodeURIComponent, and SPA workspace/user switches left stale artifact rows and preview drawers mounted.",
           "regression_test": "ArtifactLibrary URL-encodes session_id in openSession and reloads on workspace or user switch",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         }
       ],
       "verification_commands": [
@@ -104,7 +104,7 @@
           "file": "frontend/src/views/automation/AutomationDetail.vue:373-485",
           "summary": "loadGrants, runNow, toggle, and cancel lacked detailVersion fencing, allowing late responses from a previously viewed automation to overwrite grants and run history on the newly selected automation.",
           "regression_test": "AutomationDetail drops stale loadGrants, runNow, and cancel responses after switching or closing",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-AUTO-02",
@@ -112,7 +112,7 @@
           "file": "frontend/src/views/automation/AutomationEditor.vue:292, 404-449",
           "summary": "Immediate props.visible watcher referenced previewRuns/previewError before initialization (TDZ ReferenceError when mounted visible) and left debounced previewTimer pending across close/unmount.",
           "regression_test": "AutomationEditor clears debounced trigger validation timer on unmount",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         }
       ],
       "verification_commands": [
@@ -233,7 +233,7 @@
           "file": "frontend/src/views/chat/components/AgentStreamDisplay.vue:1119-1138, 2619-2648, 2902-2905",
           "summary": "handleCitationActivate read untrusted data-url attributes from .citation-web nodes without protocol validation and passed them to BrowserOpenURL, window.open, and window.location.assign (javascript:/data: execution), while openWikiDrawer lacked sequence and unmount guards.",
           "regression_test": "AgentStreamDisplay blocks javascript/data URLs in handleCitationActivate and guards openWikiDrawer against stale responses and unmount",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-CHAT-02",
@@ -241,7 +241,7 @@
           "file": "frontend/src/views/chat/components/docInfo.vue:185-194; frontend/src/views/chat/components/tool-results/WebFetchResults.vue:12-52, 200-213; frontend/src/views/chat/components/tool-results/WebSearchResults.vue:21-35, 69-81; frontend/src/views/chat/components/tool-results/KnowledgeChunksList.vue:12-22",
           "summary": "docInfo, WebFetchResults, and WebSearchResults bound untrusted external URLs directly to anchor href attributes without http(s): validation, and KnowledgeChunksList rendered summaryHtml via v-html without sanitizeHTML.",
           "regression_test": "docInfo, WebFetchResults, WebSearchResults, and KnowledgeChunksList block unsafe href protocols and sanitize chunk summary HTML",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-CHAT-03",
@@ -249,7 +249,7 @@
           "file": "frontend/src/views/chat/components/McpOAuthCard.vue:10-17, 104-112, 169-360",
           "summary": "McpOAuthCard opened upstream authorizationUrl without http(s): validation, left popup.opener intact on untrusted OAuth windows, lacked overlap/unmount guards on /oauth/status polling, and disabled Skip while authorizing.",
           "regression_test": "McpOAuthCard validates http(s) popup URL, severs opener, guards poll overlap/unmount, and keeps Skip enabled while authorizing",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-CHAT-04",
@@ -257,7 +257,7 @@
           "file": "frontend/src/views/chat/components/PendingPromptDock.vue:32-37, 156-162; frontend/src/views/chat/components/ToolApprovalCard.vue:107-115, 178-193, 430",
           "summary": "Held-down Enter key auto-repeat approved consecutive queued HITL prompts without review, and ToolApprovalCard checked serviceName === 'GENYEE' without requiring empty serviceId, letting an external MCP server named GENYEE spoof built-in operation prompts.",
           "regression_test": "PendingPromptDock ignores held-Enter auto-repeat and ToolApprovalCard requires empty serviceId for GENYEE operation display",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-CHAT-05",
@@ -265,7 +265,7 @@
           "file": "frontend/src/views/chat/components/HostApprovalCard.vue:2-10, 61-100, 133-233",
           "summary": "HostApprovalCard did not record/check promptSubmission state (permitting duplicate inline approval submissions before SSE resolution) and ignored { resumed } responses instead of invoking resumeSuspendedRun.",
           "regression_test": "HostApprovalCard records submission to prevent double-submit and resumes suspended runs when server reports resumed",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-CHAT-06",
@@ -273,7 +273,7 @@
           "file": "frontend/src/views/chat/index.vue:890-919, 1493-1503, 1830-1864, 2005-2019",
           "summary": "loadFollowUpSuggestions, attachSteerFollowUp, and resumeSuspendedRun ignored chatLoadVersion increments on route leave/unmount (leaking background polling and continue-stream attachments), and clearData/onUnmounted did not clear suggestedDebounceTimer.",
           "regression_test": "chat index cancels loadFollowUpSuggestions, attachSteerFollowUp, and resumeSuspendedRun loops when chatLoadVersion advances on leave/unmount",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-CHAT-07",
@@ -281,7 +281,7 @@
           "file": "frontend/src/views/chat/components/ChatArtifactsDrawer.vue:303-376; frontend/src/views/chat/components/botmsg.vue:48, 548-555",
           "summary": "ChatArtifactsDrawer lacked sequence fencing and [sessionId, messageId] reload watches on listMessageArtifacts, while botmsg attached handleMarkdownImageClick imperatively once in onMounted on a v-if-toggled parentMd container.",
           "regression_test": "ChatArtifactsDrawer guards listMessageArtifacts against out-of-order loads and botmsg binds capture click handler declaratively on parentMd",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         }
       ],
       "verification_commands": [
@@ -307,7 +307,7 @@
           "file": "frontend/src/views/creatChat/creatChat.vue:73, 236-242, 287-303",
           "summary": "debounceTimer for fetchSuggestedQuestions was not cleared on unmount, and navigateToSession interpolated sessionId into /platform/chat/${sessionId} without encodeURIComponent.",
           "regression_test": "creatChat clears debounced suggested-question timer on unmount and URL-encodes sessionId on navigation",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         }
       ],
       "verification_commands": [
@@ -339,7 +339,7 @@
           "file": "frontend/src/views/embed/EmbedBotMessage.vue:26-29, 141-155",
           "summary": "Web citation popover bound citationFloat.url extracted from .citation-web[data-url] directly to <a :href> without http(s): protocol validation, permitting javascript:/data: XSS on click.",
           "regression_test": "EmbedBotMessage blocks unsafe javascript/data schemes in web citation popover href",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-EMBED-02",
@@ -347,7 +347,7 @@
           "file": "frontend/src/views/embed/EmbedChatCore.vue:182-223, 333-351, 413-418; frontend/src/views/embed/EmbedPage.vue:180-208",
           "summary": "Unmounting EmbedChatCore on session reset leaked 120s loadFollowUpSuggestions polling and stale fetchSuggestedQuestions writes, and EmbedPage interpolated config.primary_color into CSS custom properties without stripping CSS injection tokens.",
           "regression_test": "EmbedChatCore stops follow-up suggestion polling and ignores stale starter suggestions after unmount, EmbedPage strips CSS injection tokens from untrusted primary_color",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         }
       ],
       "verification_commands": [
@@ -469,7 +469,7 @@
           "file": "frontend/src/views/knowledge/components/FAQEntryManager.vue:196, 371, 982-1015, 2018-2358, 2575-2615, 2821-2855",
           "summary": "downloadFailedEntries opened failed_entries_url without http(s): validation or noopener,noreferrer; canEdit/canManage ignored my_permission/getKBPermission (exposing edit/manage UI on read-only shared FAQ KBs to local admins) while gating single-entry edit/delete on canManage; and FAQ import polling leaked across kbId switches and unmount.",
           "regression_test": "FAQEntryManager blocks unsafe failed_entries_url schemes, aligns shared-KB RBAC, and isolates import polling across KB switches and unmount",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-KB-02",
@@ -477,7 +477,7 @@
           "file": "frontend/src/views/knowledge/KnowledgeBase.vue:156-209, 1232-1255, 1450-1466, 1803-1818",
           "summary": "fetchWikiStatusOnce could resurrect 5s wikiStatusTimer after unmount or overwrite another KB on late getWikiStats resolution, and switching kbId left drawer, batch selection, move polling, autoOpenRequest, and search debounce state active.",
           "regression_test": "KnowledgeBase prevents wiki status polling resurrection after unmount and resets drawer/move/batch/debounce state on KB switch",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-KB-03",
@@ -485,7 +485,7 @@
           "file": "frontend/src/views/knowledge/KnowledgeBaseEditorModal.vue:569, 647-656, 783-810, 861, 1465-1485, 1938-1955",
           "summary": "canShareKB omitted active effectiveTenantId and contributor role floor checks, canViewActivity compared against home currentTenantId instead of effectiveTenantId, handleGenerateProfile/loadImageAttrSchema lacked generation guards, and resetState left generatedProfile/dsCount stale.",
           "regression_test": "KnowledgeBaseEditorModal enforces active effectiveTenantId and contributor floor on share/activity gates and guards async profile/schema loads",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-KB-04",
@@ -493,7 +493,7 @@
           "file": "frontend/src/views/knowledge/wiki/WikiBrowser.vue:334-371, 735, 1683-1710, 2449-2497, 2845-2855, 3035-3075, 5234-5285",
           "summary": "Read-only viewers saw folder actions, drag-and-drop, and Global Issues write buttons despite !props.canEdit; renderMarkdown expanded [[slug|display]] inside code spans without escaping quotes/angle brackets (and appendIndexDirectoryLines left metadata unescaped); and WikiBrowser lacked knowledgeBaseId reload and post-unmount statsTimer guards.",
           "regression_test": "WikiBrowser enforces canEdit on folder/drag/issue controls, escapes wiki link/index markdown, and resets/stops timers across KB switch and unmount",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-KB-05",
@@ -501,7 +501,7 @@
           "file": "frontend/src/views/knowledge/settings/DataSourceSyncLogs.vue:21-79, 328",
           "summary": "Expanding a partial sync log with error_message: null crashed with TypeError on log.error_message.slice(0, 1000), and switching dataSourceId while open did not reload sync logs.",
           "regression_test": "DataSourceSyncLogs handles null error_message on partial syncs without crashing and reloads when dataSourceId changes",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-KB-06",
@@ -509,7 +509,7 @@
           "file": "frontend/src/views/knowledge/settings/DataSourceEditorDialog.vue:815-835, 926-985, 1074-1095",
           "summary": "Unsaved paused tempDsId drafts leaked on component unmount or Step 0 connector switches, and modifying credentials after tempDsId creation in create mode failed to sync credentials via putDataSourceCredentials before re-listing resources.",
           "regression_test": "DataSourceEditorDialog cleans up unsaved tempDsId on unmount or type switch and syncs replaced credentials before temp resource listing",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         },
         {
           "id": "W6-KB-07",
@@ -517,7 +517,7 @@
           "file": "frontend/src/views/knowledge/settings/KnowledgeBaseActivitySettings.vue:715-745; frontend/src/views/knowledge/settings/DataSourceSettings.vue:38-80, 193-210; frontend/src/views/knowledge/wiki/WikiRevisionDrawer.vue:176-180, 272-278, 321-345, 416-505; frontend/src/views/knowledge/settings/KBShareSettings.vue:239-266; frontend/src/views/knowledge/settings/KBChunkingDebug.vue:302-370; frontend/src/views/knowledge/KnowledgeBaseList.vue:1140-1200; frontend/src/views/knowledge/components/KbUploadSourceDropdown.vue:210-222; frontend/src/views/knowledge/components/UploadConfirmDialog.vue:709-720, 1499-1525; frontend/src/views/knowledge/gallery/ImageGallery.vue:611-616; frontend/src/views/knowledge/gallery/GallerySourcePicker.vue:119-140",
           "summary": "Added stale-response sequence/unmount/KB-switch guards across activity, data source, wiki revision, share, chunking debug, KB list, upload dialog, and gallery components, cleared ImageGallery prefsTimer on unmount, and enforced http(s): scheme validation in KbUploadSourceDropdown.",
           "regression_test": "KnowledgeBaseActivitySettings, DataSourceSettings, WikiRevisionDrawer, KBShareSettings, KBChunkingDebug, KnowledgeBaseList, KbUploadSourceDropdown, UploadConfirmDialog, ImageGallery, and GallerySourcePicker guard stale async state and schemes",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         }
       ],
       "verification_commands": [
@@ -542,7 +542,7 @@
           "file": "frontend/src/views/toolbox/Toolbox.vue:46-59, 119-156",
           "summary": "Summary count badges (counts.skills, counts.mcp) and child panels were not refreshed or re-keyed on active workspace/user switches and lacked epoch/unmount fencing against late responses.",
           "regression_test": "Toolbox refreshes summary badges on workspace switch and ignores late responses after unmount",
-          "commit": "deb17a58e8a4e00e551be04ad940b0186804ecab"
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
         }
       ],
       "verification_commands": [

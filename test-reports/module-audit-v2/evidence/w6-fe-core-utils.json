@@ -67,7 +67,7 @@
           "file": "frontend/public/genyee-widget.js:89-95, 148-165",
           "summary": "createWidget concatenated opts.baseUrl / data-base-url into iframe.src without verifying http:/https: scheme or non-null origin (allowing javascript:/data: iframe execution) and accepted non-finite Infinity/NaN width, height, and expiresIn values.",
           "regression_test": "W6-BR-01: genyee-widget.js rejects javascript:, data:, and protocol-less baseUrl and non-finite dimensions",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-BR-02",
@@ -75,7 +75,7 @@
           "file": "frontend/index.html:59-67, frontend/package.json.md5:1",
           "summary": "Inline Lite last-path restore in index.html overwrote window.location via history.replaceState on '/' even when URL hash/search carried #oidc_result/#oidc_error OIDC callback tokens or ?cmdk queries, and package.json.md5 lagged behind package.json.",
           "regression_test": "W6-BR-02: index.html Lite restore preserves URL hash/search (e.g. OIDC callback) and package.json.md5 matches package.json",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         }
       ],
       "verification_commands": [
@@ -152,7 +152,7 @@
           "file": "frontend/src/api/wiki/index.ts:7-17, 136-363",
           "summary": "encodeSlugPath left '.' and '..' unescaped (and %2e/%2e%2e normalizes under WHATWG URL parsing), allowing crafted wiki slugs to traverse above /wiki/pages/, while kbId, folderId, and issueId path segments were interpolated unencoded.",
           "regression_test": "W6-API-01: wiki encodeSlugPath neutralizes dot-segment path traversal and wiki endpoints URL-encode kbId/folderId/issueId",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-API-02",
@@ -160,7 +160,7 @@
           "file": "frontend/src/api/chat/streame.ts:72-75, 138-145, 310-320",
           "summary": "useStream interpolated params.session_id and GET message_id into SSE request URLs without encodeURIComponent and pushed every parsed SSE event into an unread closure buffer array that grew without bound across turns.",
           "regression_test": "W6-API-02: useStream encodes session_id and message_id in SSE URLs and does not retain unbounded SSE event buffers",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-API-03",
@@ -168,7 +168,7 @@
           "file": "frontend/src/api/embed/index.ts:238-252, 712-724, 782-812",
           "summary": "ensureEmbedMessageSuggestions omitted encodeURIComponent on channelId/sessionId/messageId, safeBaseUrl fell back to window.location.origin instead of resolveEmbedBaseUrl() (ignoring RUNTIME_CONFIG.EMBED_BASE_URL), and single quotes in channelId were unescaped in Node server snippet strings.",
           "regression_test": "W6-API-03: embed API URL-encodes suggestion path segments, honours EMBED_BASE_URL fallback, and escapes single quotes in JS snippets",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-API-04",
@@ -176,7 +176,7 @@
           "file": "frontend/src/api/initialization/index.ts:1, 469-503",
           "summary": "testMultimodalFunction used raw fetch without 401 refresh retry, upload timeout scaling, or backend data.error.message extraction.",
           "regression_test": "W6-API-04: testMultimodalFunction extracts structured backend error.message and routes through authenticated upload client",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         }
       ],
       "verification_commands": [
@@ -213,7 +213,7 @@
           "file": "frontend/src/config/integrations.ts:3-25",
           "summary": "getChromeExtensionUrl and getClawhubSkillUrl returned raw __RUNTIME_CONFIG__ strings without validating http:/https: protocol before window.open / anchor rendering.",
           "regression_test": "W6-CFG-01: getChromeExtensionUrl and getClawhubSkillUrl allow only http(s) URLs",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         }
       ],
       "verification_commands": [
@@ -241,7 +241,7 @@
           "file": "frontend/src/router/index.ts:26-55, 309-325",
           "summary": "hasPendingOIDCCallback matched substring/empty 'oidc_result='/'oidc_error=' in window.location.hash, allowing unauthenticated users to bypass router.beforeEach via '#foo_oidc_error=1' or '#oidc_error=' and mounting protected /platform views on '/' OIDC callbacks.",
           "regression_test": "W6-RT-01: OIDC callback detection rejects substring/empty hash bypasses and sends unauthenticated OIDC callbacks to /login preserving hash",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-RT-02",
@@ -249,7 +249,7 @@
           "file": "frontend/src/router/index.ts:10-13, 204-227, 428-442",
           "summary": "Vue Router resolved /platform/system/* route redirects to /platform/settings?section=... before router.beforeEach ran, leaving to.meta.requiresSystemAdmin undefined and permitting non-system-admins to navigate to SYSTEM_ADMIN_SETTINGS_SECTIONS.",
           "regression_test": "W6-RT-02: router blocks non-system-admins from /platform/system/* redirects and SYSTEM_ADMIN_SETTINGS_SECTIONS",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         }
       ],
       "verification_commands": [
@@ -322,7 +322,7 @@
           "file": "frontend/src/stores/auth.ts:11-36, 216-232, 310-335, 520-530, frontend/src/stores/settings.ts:520-555, frontend/src/stores/browserConnection.ts:118-137, frontend/src/stores/menu.ts:153-185, frontend/src/stores/ui.ts:140-147, frontend/src/stores/assistant.ts:247-260",
           "summary": "logout() and setUser() account switches left tenant-scoped GENYEE_settings (selectedTags, selectedMCPServices, selectedSkills, apiKey, modelConfig) in localStorage and retained stale in-memory settingsStore, modelProviders, browserConnection, sidebar chat menu, UI manualEditor/tag state, pending uploadConfirm promises, and assistant drafts across SPA re-logins.",
           "regression_test": "W6-ST-01: logout and user switch scrub tenant-scoped localStorage and reset in-memory settingsStore, modelProviders, browserConnection, menu, ui, uploadConfirm, and assistant transient state",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-ST-02",
@@ -330,7 +330,7 @@
           "file": "frontend/src/stores/auth.ts:85, 390-405, 668-688",
           "summary": "Cross-tab genyee_token removal left in-memory user/tenant/memberships/isSystemAdmin populated, and fetchPendingInvitationCount lacked a sessionEpoch guard against post-logout writeback.",
           "regression_test": "W6-ST-02: cross-tab token removal clears user/tenant principals and late fetchPendingInvitationCount cannot repopulate logged-out session",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-ST-03",
@@ -338,7 +338,7 @@
           "file": "frontend/src/stores/organization.ts:74-80, 267-293, 374-400, 562-598, 803-825",
           "summary": "In-flight preview, fetchMembers, and fetchSearchableOrganizations requests in useOrganizationStore lacked stateGeneration/request-sequence fencing and could repopulate cleared state after clearState().",
           "regression_test": "W6-ST-03: organizationStore clearState fences in-flight fetchMembers, fetchSearchableOrganizations, and preview against cross-tenant writeback",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-ST-04",
@@ -346,7 +346,7 @@
           "file": "frontend/src/stores/deploymentCapabilities.ts:18-56",
           "summary": "ensureLoaded set loaded.value = true inside finally even when getDeploymentCapabilities threw, preventing subsequent ensureLoaded() calls from retrying after transient failures.",
           "regression_test": "W6-ST-04: deploymentCapabilitiesStore retries after transient load failure instead of latching loaded=true",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         }
       ],
       "verification_commands": [
@@ -686,7 +686,7 @@
           "file": "frontend/src/utils/citationMarkdown.ts:64-100, 192-215, 255-360, 380-405",
           "summary": "preprocessCitationTags and stripCitationTagsForMarkdown allowed javascript:/non-http(s) URLs in <web url=\"...\"/> (persisting into data-url click handlers and saved Markdown), interpolated unescaped domain text into HTML, and mutated [[...]] / <kb/> / <web/> inside fenced and inline code blocks.",
           "regression_test": "W6-UT-01: citationMarkdown blocks javascript:/data: web URLs, escapes domain HTML, and leaves code blocks untouched",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-UT-02",
@@ -694,7 +694,7 @@
           "file": "frontend/src/utils/markdownDomPurify.ts:1-135, frontend/src/utils/security.ts:60-205",
           "summary": "domPurifyAllowedUriRegexp allowed arbitrary data:image/* (including data:image/svg+xml on SVG <use>/<a>/<image>), ALLOWED_TAGS permitted <foreignObject>, hooks missed arbitrary on* attributes and lowercase SVG <a> target/noopener handling, and DOMPurifyConfig stripped EPUB <section data-epub-section> wrappers.",
           "regression_test": "W6-UT-02: DOMPurify configs/hooks block SVG data:image/svg+xml XSS, foreignObject, event attrs, lowercase SVG <a> opener leaks, and preserve EPUB sections in real browser DOMPurify",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-UT-03",
@@ -702,7 +702,7 @@
           "file": "frontend/src/utils/security.ts:328-350, 533-544, 695-703, 890-950",
           "summary": "buildProtectedImageTag interpolated decoded &quot; characters into data-protected-src without escaping (allowing attribute breakout prior to sanitization), createSafeImage escaped only double quotes, hydrateProtectedFileImages lacked active scope re-checks across awaits, and clearProtectedFileCache did not clear citationChunkCache.",
           "regression_test": "W6-UT-03: security.ts escapes decoded quotes in protected image tags, fences hydrateProtectedFileImages on scope change, and clears citationChunkCache on protected cache reset",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-UT-04",
@@ -710,7 +710,7 @@
           "file": "frontend/src/utils/epubPreview.ts:7-45, 98-135, frontend/src/utils/xlsxPreviewImages.ts:1-2, 125-145, 375-385",
           "summary": "renderEpubPreview minted navigable same-origin image/svg+xml blob: URLs for archive .svg entries and passed raw inline data:image/svg+xml through unsanitized, while extractXlsxCellImages embedded raw xl/media/*.svg bytes as base64 data URLs without stripping scripts/event handlers and injectSheetHtmlImages left img.src unescaped.",
           "regression_test": "W6-UT-04: renderEpubPreview and extractXlsxCellImages sanitize embedded SVG media to static data URLs without minting executable SVG blob URLs",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-UT-05",
@@ -718,7 +718,7 @@
           "file": "frontend/src/utils/request.ts:99-175, 240-260",
           "summary": "Axios request and 401 response interceptors attached Bearer JWTs and X-Tenant-ID headers and ran token-refresh retries even on cross-origin URLs and untokened /api/v1/embed/ requests.",
           "regression_test": "W6-UT-05: request.ts never leaks Authorization or X-Tenant-ID headers or 401 refresh retries to cross-origin URLs or untokened embed paths",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-UT-06",
@@ -726,7 +726,7 @@
           "file": "frontend/src/utils/pageText.ts:157-172, frontend/src/utils/pageSnapshot.ts:34-38, 450-492",
           "summary": "isSecretLabel relied on \\b word boundaries that failed to match camelCase and snake_case credential field names/IDs (e.g. openai_api_key, clientSecret, confirmPassword, slack_bot_token), and snapshotPage did not skip non-field [data-assistant-redact] containers/cells.",
           "regression_test": "W6-UT-06: isSecretLabel detects camelCase and snake_case credential field names/ids",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-UT-07",
@@ -734,7 +734,7 @@
           "file": "frontend/src/utils/knowledgeChunksDisplay.ts:25-60, frontend/src/utils/chatMarkdownRenderer.ts:68-86, 520-523, frontend/src/utils/chatMessageShared.ts:23-40, frontend/src/utils/citationChunkCache.ts:3-30",
           "summary": "getKnowledgeChunksSummaryHtml interpolated uncoerced fetched_chunks/total_chunks into v-html strings, replaceIncompleteImageWithPlaceholder truncated settled prose/code containing '![' (such as Rust vec![1]) followed by '(', and citationChunkCache grew without bound.",
           "regression_test": "W6-UT-07: getKnowledgeChunksSummaryHtml escapes/coerces untrusted counts, renderChatMarkdown preserves settled code with ![ and (, and citationChunkCache is bounded",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         },
         {
           "id": "W6-UT-08",
@@ -742,7 +742,7 @@
           "file": "frontend/src/utils/referenceSources.ts:65-98, frontend/src/utils/docsUrl.ts:4-26, frontend/src/utils/assistantPageLink.ts:34-37, frontend/src/utils/mermaidViewer.ts:5-25, 118-123, 240-255, frontend/src/utils/mermaidStreaming.ts:3-55, frontend/src/utils/ptyEchoPredictor.ts:15-75, frontend/src/utils/embedContext.ts:2-20, frontend/src/utils/fileTypeVerification.ts:27-45, frontend/src/utils/embedAllowedOrigins.ts:29-45",
           "summary": "Hardened URL/input validation across remaining utils: blocked non-http(s) web reference URLs and removed external google.com/s2/favicons domain leaks in referenceSources, rejected unsafe schemes/control chars in docsUrl and pageLinkReturnPath, sanitized string SVG diagrams + deduplicated click listeners in mermaidViewer, enforced fence boundaries in mermaidStreaming, stripped ANSI escapes before secret-prompt detection in ptyEchoPredictor, escaped CR/LF in embedContext, rejected dotless filenames in fileTypeVerification, and rejected IP/TLD wildcards in embedAllowedOrigins.",
           "regression_test": "W6-UT-08: referenceSources blocks unsafe web URLs and external Google favicon leaks, docsUrl and pageLinkReturnPath reject unsafe targets, and misc utils harden edge cases",
-          "commit": "a2e264934a1023d3cb8a1f8ce9dca71097b50431"
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
         }
       ],
       "verification_commands": [

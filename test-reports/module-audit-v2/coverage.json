@@ -10,10 +10,10 @@
   "wave0_evidence_file": "test-reports/module-audit-v2/wave0-foundation.json",
   "legacy_ledger": "test-reports/module-audit-20261113/coverage.json",
   "summary": {
-    "total_tracked_files": 6588,
+    "total_tracked_files": 6618,
     "unit_count": 301,
-    "unit_files_total": 6050,
-    "support_files_total": 538,
+    "unit_files_total": 6076,
+    "support_files_total": 542,
     "uncovered_files": 0,
     "duplicate_files": 0,
     "stale_files": 0,
@@ -33,15 +33,15 @@
       "W3": 1277,
       "W4": 186,
       "W5": 899,
-      "W6": 1060,
+      "W6": 1086,
       "W7": 850,
       "W8": 470
     },
     "units_by_status": {
-      "pending": 113,
+      "pending": 83,
       "pending_reaudit": 77,
-      "verified_findings_fixed": 95,
-      "verified_no_findings": 16
+      "verified_findings_fixed": 119,
+      "verified_no_findings": 22
     },
     "units_by_legacy_status": {
       "audited": 36,
@@ -55,7 +55,7 @@
     "support_files_by_category": {
       "license_or_notice": 71,
       "historical_changelog_or_spec": 6,
-      "audit_ledger_or_archived_report": 92,
+      "audit_ledger_or_archived_report": 96,
       "static_binary_or_vendor_asset": 369
     }
   },
@@ -7942,8 +7942,8 @@
       "unit_id": "frontend/build-runtime",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 45,
+      "status": "verified_findings_fixed",
+      "file_count": 46,
       "tracked_files": [
         "frontend/.dockerignore",
         "frontend/.gitignore",
@@ -7989,19 +7989,44 @@
         "frontend/tsconfig.app.json",
         "frontend/tsconfig.json",
         "frontend/tsconfig.node.json",
-        "frontend/vite.config.ts"
+        "frontend/vite.config.ts",
+        "frontend/widgetSecurity.test.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "index.html, embed.html, nginx configs, vite.config.ts, and public runtime scripts load zero external CDN <script>/<link> assets and preserve air-gapped offline operation.",
+        "public/genyee-widget.js validates embedUrl against http:/https: origins with non-null origin before assigning iframe.src or calling postMessage, enforces safe CSS color values, prevents allow-scripts + allow-same-origin sandbox escape on same-origin embeds, and bounds numeric panel dimensions/refresh TTLs with Number.isFinite.",
+        "index.html Lite last-path restore preserves URL search and hash fragments (including #oidc_result / #oidc_error OIDC callbacks and ?cmdk deep links) and rejects control-character or backslash paths; package.json.md5 matches package.json.",
+        "frontend/LICENSE, frontend/THIRD_PARTY_NOTICES.md, and vendored frontend/public/tdesign-icons/** remain untouched."
+      ],
+      "findings": [
+        {
+          "id": "W6-BR-01",
+          "severity": "P1",
+          "file": "frontend/public/genyee-widget.js:89-95, 148-165",
+          "summary": "createWidget concatenated opts.baseUrl / data-base-url into iframe.src without verifying http:/https: scheme or non-null origin (allowing javascript:/data: iframe execution) and accepted non-finite Infinity/NaN width, height, and expiresIn values.",
+          "regression_test": "W6-BR-01: genyee-widget.js rejects javascript:, data:, and protocol-less baseUrl and non-finite dimensions",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-BR-02",
+          "severity": "P2",
+          "file": "frontend/index.html:59-67, frontend/package.json.md5:1",
+          "summary": "Inline Lite last-path restore in index.html overwrote window.location via history.replaceState on '/' even when URL hash/search carried #oidc_result/#oidc_error OIDC callback tokens or ?cmdk queries, and package.json.md5 lagged behind package.json.",
+          "regression_test": "W6-BR-02: index.html Lite restore preserves URL hash/search (e.g. OIDC callback) and package.json.md5 matches package.json",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test mcpProxy.test.ts widgetSecurity.test.ts scripts/copy-pdfjs-wasm.test.mjs) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json"
     },
     {
       "unit_id": "frontend/src/api",
       "wave": "W6",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 50,
+      "status": "verified_findings_fixed",
+      "file_count": 51,
       "tracked_files": [
         "frontend/src/api/agent/index.ts",
         "frontend/src/api/artifacts.ts",
@@ -8052,18 +8077,59 @@
         "frontend/src/api/vector-store.ts",
         "frontend/src/api/web-search-provider.ts",
         "frontend/src/api/web-search.ts",
-        "frontend/src/api/wiki/index.ts"
+        "frontend/src/api/wiki/index.ts",
+        "frontend/src/api/wiki/w6_api_security.test.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All REST and SSE API modules align with backend /api/v1/* endpoints, SSE event contracts, Embed vs Bearer auth separation, and GENYEE localStorage keys with zero legacy brand residues.",
+        "Hierarchical wiki slugs clamp dot-segments (., .., %2e, %2e%2e) within the slug prefix so WHATWG URL normalization cannot escape /api/v1/knowledgebase/{kbId}/wiki/pages/, and dynamic path segments (kbId, folderId, issueId, session_id, message_id, channelId) are URL-encoded.",
+        "useStream bounds per-turn memory without retaining unread SSE event arrays across turns and preserves single-flight 401 refresh + session/tenant context guards.",
+        "Embed snippet builders honour resolveEmbedBaseUrl() when explicit baseUrl is omitted, escape single quotes in generated JS server examples, and route multimodal initialization tests through authenticated postUpload."
+      ],
+      "findings": [
+        {
+          "id": "W6-API-01",
+          "severity": "P1",
+          "file": "frontend/src/api/wiki/index.ts:7-17, 136-363",
+          "summary": "encodeSlugPath left '.' and '..' unescaped (and %2e/%2e%2e normalizes under WHATWG URL parsing), allowing crafted wiki slugs to traverse above /wiki/pages/, while kbId, folderId, and issueId path segments were interpolated unencoded.",
+          "regression_test": "W6-API-01: wiki encodeSlugPath neutralizes dot-segment path traversal and wiki endpoints URL-encode kbId/folderId/issueId",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-API-02",
+          "severity": "P1",
+          "file": "frontend/src/api/chat/streame.ts:72-75, 138-145, 310-320",
+          "summary": "useStream interpolated params.session_id and GET message_id into SSE request URLs without encodeURIComponent and pushed every parsed SSE event into an unread closure buffer array that grew without bound across turns.",
+          "regression_test": "W6-API-02: useStream encodes session_id and message_id in SSE URLs and does not retain unbounded SSE event buffers",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-API-03",
+          "severity": "P1",
+          "file": "frontend/src/api/embed/index.ts:238-252, 712-724, 782-812",
+          "summary": "ensureEmbedMessageSuggestions omitted encodeURIComponent on channelId/sessionId/messageId, safeBaseUrl fell back to window.location.origin instead of resolveEmbedBaseUrl() (ignoring RUNTIME_CONFIG.EMBED_BASE_URL), and single quotes in channelId were unescaped in Node server snippet strings.",
+          "regression_test": "W6-API-03: embed API URL-encodes suggestion path segments, honours EMBED_BASE_URL fallback, and escapes single quotes in JS snippets",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-API-04",
+          "severity": "P2",
+          "file": "frontend/src/api/initialization/index.ts:1, 469-503",
+          "summary": "testMultimodalFunction used raw fetch without 401 refresh retry, upload timeout scaling, or backend data.error.message extraction.",
+          "regression_test": "W6-API-04: testMultimodalFunction extracts structured backend error.message and routes through authenticated upload client",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/api/**/*.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json"
     },
     {
       "unit_id": "frontend/src/assets",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 4,
       "tracked_files": [
         "frontend/src/assets/dropdown-menu.less",
@@ -8071,17 +8137,23 @@
         "frontend/src/assets/theme/tdesign-overrides.less",
         "frontend/src/assets/theme/theme.css"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Zero external CDN @import or url(...) references across base.css, main.css, and theme/tokens.less; all styles are 100% offline/air-gapped safe.",
+        "Zero legacy brand identifiers, class prefixes, or host paths across all 4 stylesheet and style-guard files.",
+        "Design-token and styling ratchet invariants in frontend/src/assets/theme/styleGuard.test.mjs pass 10/10 baseline checks after all Wave 6 component edits."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/assets/theme/styleGuard.test.mjs) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-components-hooks.json"
     },
     {
       "unit_id": "frontend/src/components",
       "wave": "W6",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 189,
+      "status": "verified_findings_fixed",
+      "file_count": 191,
       "tracked_files": [
         "frontend/src/components/AgentAvatar.vue",
         "frontend/src/components/AgentCreateContextualGuide.vue",
@@ -8195,6 +8267,8 @@
         "frontend/src/components/chat/MessageTimestamp.vue",
         "frontend/src/components/chat/SandboxSidePanel.test.mjs",
         "frontend/src/components/chat/SandboxSidePanel.vue",
+        "frontend/src/components/componentLifecycleRaces.test.ts",
+        "frontend/src/components/componentSecurityAndOffline.test.ts",
         "frontend/src/components/credentials/CredentialResource.vue",
         "frontend/src/components/css/artifact-file-icon.less",
         "frontend/src/components/css/artifact-filter-tabs.less",
@@ -8273,17 +8347,66 @@
         "frontend/src/components/upload-tasks/UploadTaskRow.vue",
         "frontend/src/components/upload-tasks/UploadTasksPanel.vue"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All 189 original component files plus 2 new regression test suites audited line-by-line for DOM XSS across every v-html, v-stable-html, innerHTML, outerHTML, <iframe src/srcdoc>, DOCX/XLSX/PDF/Markdown/Mermaid/SVG previewer, citation popover, and reference drawer.",
+        "Every external anchor (<a :href>, target=\"_blank\") and window.open call validates http:/https: URL schemes and enforces rel=\"noopener noreferrer\" / 'noopener,noreferrer'.",
+        "Offline/air-gapped safety and GENYEE brand hygiene verified across all components: zero third-party QR or favicon requests (migrated IMChannelPanel WeChat QR to local <t-qrcode> and removed Google s2/favicons leak in ChatReferencesDrawer), local bundled pdfjs worker only, and zero legacy brand residues.",
+        "Secret-preservation and async lifecycle hygiene verified across editors, drawers, selectors, uploaders, and guides: redacted credentials are never overwritten with empty maps or '***' placeholders, ObjectURLs/timers/window listeners/long-polls are cleaned up on close and unmount, and stale async responses are fenced by sequence/generation guards."
+      ],
+      "findings": [
+        {
+          "id": "W6-CMP-01",
+          "severity": "P0",
+          "file": "frontend/src/components/IMChannelPanel.vue:156, 304, 880-895, 1138-1208, 1296-1356",
+          "summary": "IMChannelPanel exfiltrated live WeChat login QR tokens to external api.qrserver.com (breaking air-gapped deployments and leaking login URLs), wiped stored channel secrets or blocked WeChat/Yunzhijia edits when saving existing channels whose credentials are redacted on GET (credentials_configured: true), and leaked WeChat QR long-polling when the drawer closed via overlay/ESC.",
+          "regression_test": "IMChannelPanel renders WeChat QR locally without api.qrserver.com and preserves stored credentials on edit",
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        },
+        {
+          "id": "W6-CMP-02",
+          "severity": "P0",
+          "file": "frontend/src/components/ChatCitationFloat.vue:46-55, 152-160; frontend/src/components/ChatReferencesDrawer.vue:132-168, 250-290",
+          "summary": "ChatCitationFloat and ChatReferencesDrawer bound unvalidated web citation/reference URLs directly to <a :href>, enabling javascript:/data: URI XSS on click, and ChatReferencesDrawer leaked cited domains to external www.google.com/s2/favicons (failing offline and leaking query context).",
+          "regression_test": "ChatCitationFloat blocks javascript: and data: hrefs while rendering https: links safely; ChatReferencesDrawer blocks unsafe web item hrefs and never loads external Google favicons",
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        },
+        {
+          "id": "W6-CMP-03",
+          "severity": "P1",
+          "file": "frontend/src/components/doc-content.vue:63-74, 240-265, 290-335; frontend/src/components/document-preview.vue:318-395; frontend/src/components/SkillFilesPanel.vue:68-158, 185-235; frontend/src/components/UserMenu.vue:470-545",
+          "summary": "doc-content interpolated unescaped code in Mermaid/code fallback HTML, lacked rel=\"noopener noreferrer\" and http(s): validation on URL source links, and leaked stale audio preview blobs across rapid switches; document-preview inserted unsanitized docx-preview DOM output and unescaped Excel sheet names; SkillFilesPanel rendered unsanitized image/svg+xml data URLs and lacked selectFile/loadFiles race guards; UserMenu opened external docs/GitHub without noopener,noreferrer or scheme checks and leaked tenantSubmenuHideTimer on unmount.",
+          "regression_test": "doc-content escapes HTML in Mermaid/code blocks, adds noopener on source link, and guards audio blob races; document-preview sanitizes rendered DOCX DOM nodes and escapes Excel sheet names; SkillFilesPanel sanitizes SVG data URLs, rejects non-image media_type, and ignores stale file responses; UserMenu enforces noopener,noreferrer and safe URL schemes on openDocs/openGithub and clears submenu timer",
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        },
+        {
+          "id": "W6-CMP-04",
+          "severity": "P1",
+          "file": "frontend/src/components/credentials/CredentialResource.vue:115-210; frontend/src/components/TenantSelector.vue:205-275; frontend/src/components/SandboxConfigEditorDrawer.vue:285-395; frontend/src/components/SandboxSkillsPanel.vue:115-195; frontend/src/components/ModelEditorDialog.vue:1105-1240",
+          "summary": "CredentialResource wiped configured state when parent updated api and meta in the same reactive flush; TenantSelector dropped clearSearch/search updates while loading and polluted setAllTenants with filtered search results; SandboxConfigEditorDrawer allowed renaming masked env keys to submit literal '***' placeholders and lacked drawer-session async guards; SandboxSkillsPanel lacked record-switch guards across async mutations; ModelEditorDialog leaked its 1s Ollama download polling interval across dialog close/unmount and could overwrite modelName across model switches.",
+          "regression_test": "CredentialResource preserves configured state when parent switches api and meta in the same flush; TenantSelector does not drop clearSearch while searchTenants is in flight or overwrite setAllTenants with filtered results; SandboxConfigEditorDrawer, SandboxSkillsPanel, and ModelEditorDialog enforce secret identity and generation guards",
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        },
+        {
+          "id": "W6-CMP-05",
+          "severity": "P2",
+          "file": "frontend/src/components/source-preview/PdfSourceViewer.vue; frontend/src/components/manual-knowledge-editor.vue; frontend/src/components/AttachmentUpload.vue; frontend/src/components/Input-field.vue; frontend/src/components/ChatHeader.vue; frontend/src/components/ModelDebugDrawer.vue; frontend/src/components/AgentShareSettings.vue; frontend/src/components/SpotlightGuide.vue; frontend/src/components/SkillFilesDrawer.vue; frontend/src/components/SessionSourceFilter.vue; frontend/src/components/assistant/AssistantSelectionBubble.vue; frontend/src/components/AgentCreateContextualGuide.vue; frontend/src/components/KbCreateContextualGuide.vue; frontend/src/components/KnowledgeBaseSelector.vue; frontend/src/components/AgentSelector.vue",
+          "summary": "Lifecycle cleanup and rapid-switch race hardening across 15 components: PdfSourceViewer reactive props.data reload + loadGeneration cancel, manual-knowledge-editor initGeneration guard, AttachmentUpload session/unmount guard on upload completion, Input-field image ObjectURL revoke on unmount + sharedAgentKbReqSeq, ChatHeader editingSessionId capture + grantsLoadSeq, and timer/listener/request sequence cleanup across guides, selectors, and drawers.",
+          "regression_test": "PdfSourceViewer, AttachmentUpload, Input-field, ChatHeader, guides, and selectors clean up timers, blobs, and stale loads",
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/components/componentSecurityAndOffline.test.ts src/components/componentLifecycleRaces.test.ts) (exit 0)",
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/assets/theme/styleGuard.test.mjs src/directives/*.test.* src/hooks/*.test.* src/components/*.test.* src/components/*/*.test.*) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-components-hooks.json"
     },
     {
       "unit_id": "frontend/src/composables",
       "wave": "W6",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 76,
+      "status": "verified_findings_fixed",
+      "file_count": 79,
       "tracked_files": [
         "frontend/src/composables/agentQueryBinding.test.mjs",
         "frontend/src/composables/citationPopoverCallers.test.ts",
@@ -8318,6 +8441,7 @@
         "frontend/src/composables/useChildAgentViewer.ts",
         "frontend/src/composables/useCitationPopover.test.ts",
         "frontend/src/composables/useCitationPopover.ts",
+        "frontend/src/composables/useComposableLifecycleSecurity.test.ts",
         "frontend/src/composables/useConfigSkillInstallProgress.test.mjs",
         "frontend/src/composables/useConfigSkillInstallProgress.test.ts",
         "frontend/src/composables/useConfigSkillInstallProgress.ts",
@@ -8326,6 +8450,7 @@
         "frontend/src/composables/useDocumentPictureInPicture.ts",
         "frontend/src/composables/useEmbedBridge.history.test.ts",
         "frontend/src/composables/useEmbedBridge.ts",
+        "frontend/src/composables/useEmbedChatSession.race.test.ts",
         "frontend/src/composables/useEmbedChatSession.test.ts",
         "frontend/src/composables/useEmbedChatSession.ts",
         "frontend/src/composables/useEmbedChatSession.webhook.test.ts",
@@ -8342,6 +8467,7 @@
         "frontend/src/composables/usePromptDock.test.mjs",
         "frontend/src/composables/usePromptDock.ts",
         "frontend/src/composables/useProtectedImageRecovery.ts",
+        "frontend/src/composables/useResourcePins.test.ts",
         "frontend/src/composables/useResourcePins.ts",
         "frontend/src/composables/useRoleLabel.ts",
         "frontend/src/composables/useSandboxDesktop.test.mjs",
@@ -8362,22 +8488,72 @@
         "frontend/src/composables/useVoiceInput.test.ts",
         "frontend/src/composables/useVoiceInput.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All 76 original composable files plus 3 new regression test suites audited line-by-line for SSE streaming, chat session switching, WebSocket/noVNC/xterm sandbox lifecycles, voice input recording/transcription, embed postMessage origin isolation, and singleton pin/favorite caching.",
+        "AbortController cancellation, timer clearing, EventListener removal, and ObjectURL revocation verified on both component unmount/effectScope disposal and rapid session/tenant/user switches.",
+        "Citation popover URL handling enforces strict http:/https: scheme validation before exposing external links to floating citation cards.",
+        "Zero external CDN/API dependencies and zero legacy brand residues across all composables."
+      ],
+      "findings": [
+        {
+          "id": "W6-HOOK-01",
+          "severity": "P1",
+          "file": "frontend/src/composables/useCitationPopover.ts:170-210",
+          "summary": "useCitationPopover.openWeb copied raw data-url attributes into float.value.url without URL scheme validation, propagating javascript:/data: payloads into ChatCitationFloat.",
+          "regression_test": "useCitationPopover blocks javascript: and data: URLs in openWeb while keeping https:",
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        },
+        {
+          "id": "W6-HOOK-02",
+          "severity": "P1",
+          "file": "frontend/src/composables/useResourcePins.ts:55-155",
+          "summary": "Singleton useResourcePins registered its tenant watcher inside the first caller component's effectScope (dying permanently once that component unmounted), ignored authStore.user?.id switches on shared home workspaces, and reused/applied stale in-flight listFavorites responses across tenant switches.",
+          "regression_test": "useResourcePins keeps watching tenant and user switches after the first caller scope disposes; useResourcePins discards stale in-flight listFavorites responses from an earlier tenant",
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        },
+        {
+          "id": "W6-HOOK-03",
+          "severity": "P1",
+          "file": "frontend/src/composables/useEmbedChatSession.ts:285-350, 445-525",
+          "summary": "useEmbedChatSession failed to cancel its 500ms debouncedScrollTop timer on session switch or unmount, cleared historyLoading/historyLoadingMore for a newly selected session when an older session's getmsgList settled, and lacked session-switch/unmount guards across await fileToDataURI in sendMsg.",
+          "regression_test": "stale getmsgList settlement from session-a does not clear session-b historyLoading or cancel debounced scroll missing; sendMsg aborts before pushing message or starting stream when session switches during fileToDataURI",
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        },
+        {
+          "id": "W6-HOOK-04",
+          "severity": "P1",
+          "file": "frontend/src/composables/useSandboxDesktop.ts:150-245; frontend/src/composables/useSandboxTerminal.ts:195-330",
+          "summary": "useSandboxDesktop allowed async disconnect events from a retired noVNC RFB client to clobber active connection status and schedule duplicate reconnects and lacked connectEpoch/sessionId guards across async ticket minting; useSandboxTerminal lacked connectEpoch/sessionId guards across ticket minting and wrote stored PTY IDs to reactive sessionId.value instead of the socket's captured sid.",
+          "regression_test": "useSandboxDesktop ignores async disconnect from retired RFB client and aborts stale sessionId ticket; useSandboxTerminal aborts stale ticket on session switch and scopes stored PTY id to socket sid",
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        },
+        {
+          "id": "W6-HOOK-05",
+          "severity": "P2",
+          "file": "frontend/src/composables/useEmbedBridge.ts:95-145; frontend/src/composables/useVoiceInput.ts:285-340; frontend/src/composables/useConfigSkillInstallProgress.ts:110-155",
+          "summary": "useEmbedBridge re-populated setEmbedAllowedOrigins and called postEmbedReady if bootstrap() resolved after unmount; useVoiceInput invoked onText/onError callbacks if transcribeAudio resolved/rejected after unmount; useConfigSkillInstallProgress lacked onScopeDispose(stopAll) cleanup for openWhenHidden SSE controllers.",
+          "regression_test": "useEmbedBridge does not set allowed origins or post ready if unmounted during bootstrap; useVoiceInput suppresses onText and onError when component unmounts during transcription; useConfigSkillInstallProgress aborts active SSE controllers on effectScope disposal",
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/composables/useCitationPopover.test.ts src/composables/useResourcePins.test.ts src/composables/useEmbedChatSession.race.test.ts src/composables/useComposableLifecycleSecurity.test.ts) (exit 0)",
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/composables/*.test.*) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-components-hooks.json"
     },
     {
       "unit_id": "frontend/src/config",
       "wave": "W6",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 11,
+      "status": "verified_findings_fixed",
+      "file_count": 12,
       "tracked_files": [
         "frontend/src/config/apiKeyCapabilities.ts",
         "frontend/src/config/contextualGuides.ts",
         "frontend/src/config/deploymentCapabilities.test.ts",
         "frontend/src/config/deploymentCapabilities.ts",
+        "frontend/src/config/integrations.test.ts",
         "frontend/src/config/integrations.ts",
         "frontend/src/config/settingsAccess.test.ts",
         "frontend/src/config/settingsAccess.ts",
@@ -8386,31 +8562,61 @@
         "frontend/src/config/toolbox.test.ts",
         "frontend/src/config/toolbox.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Deployment capability gates fail closed on privileged Docker/host/remote/user-allocation sandbox capabilities while preserving standard edition defaults.",
+        "Settings route/section normalization and SYSTEM_ADMIN_SETTINGS_SECTIONS enforce single-source-of-truth RBAC and system-admin section mappings.",
+        "Runtime integration URL getters (getChromeExtensionUrl, getClawhubSkillUrl) accept only well-formed http:/https: URLs."
+      ],
+      "findings": [
+        {
+          "id": "W6-CFG-01",
+          "severity": "P2",
+          "file": "frontend/src/config/integrations.ts:3-25",
+          "summary": "getChromeExtensionUrl and getClawhubSkillUrl returned raw __RUNTIME_CONFIG__ strings without validating http:/https: protocol before window.open / anchor rendering.",
+          "regression_test": "W6-CFG-01: getChromeExtensionUrl and getClawhubSkillUrl allow only http(s) URLs",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/config/*.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json"
     },
     {
       "unit_id": "frontend/src/directives",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_findings_fixed",
       "file_count": 2,
       "tracked_files": [
         "frontend/src/directives/stableHtml.test.ts",
         "frontend/src/directives/stableHtml.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "DOM morphing directive v-stable-html (stableHtml.ts) preserves decoded protected blob images and rendered Mermaid SVGs during streaming tokens while invalidating stale media/diagrams whenever underlying data-protected-src or Mermaid source text changes.",
+        "Defense-in-depth HTML scrubbing in parseIncoming strips <script>, <iframe>, <object>, <embed>, inline on* event handlers, and javascript:/vbscript:/unsafe data: URIs before DOM insertion or morphing.",
+        "Zero legacy brand residues or external network calls in directives."
+      ],
+      "findings": [
+        {
+          "id": "W6-DIR-01",
+          "severity": "P1",
+          "file": "frontend/src/directives/stableHtml.ts:45-195",
+          "summary": "morphImage preserved stale blob src and data-protected-src attributes whenever two protected images shared identical alt text (e.g. default 'image' alt across message switches); morphMermaidCanvas preserved stale rendered SVGs even when the Mermaid diagram source changed; parseIncoming lacked defense-in-depth scrubbing against <script>/<iframe>/<object>/<embed>, inline on* attributes, and javascript:/data: URIs.",
+          "regression_test": "decoded protected image with identical alt updates when data-protected-src changes; mermaid canvas keeps painted svg during streaming ticks but invalidates when source changes; vStableHtml strips dangerous elements, event handlers, and javascript URIs",
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/directives/stableHtml.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-components-hooks.json"
     },
     {
       "unit_id": "frontend/src/hooks",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 4,
       "tracked_files": [
         "frontend/src/hooks/useKnowledgeBase.test.ts",
@@ -8418,17 +8624,22 @@
         "frontend/src/hooks/useKnowledgeBaseCreationNavigation.ts",
         "frontend/src/hooks/useMarqueeSelect.ts"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "useKnowledgeBase.ts revokes blob ObjectURLs immediately after triggering file downloads, validates file upload extensions, and contains zero legacy brand residues.",
+        "useMarqueeSelect.ts removes window pointermove/pointerup/pointercancel listeners both on drag completion (stop) and in onBeforeUnmount, verified by useMarqueeSelect.test.ts (5/5 passing)."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/hooks/useMarqueeSelect.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-components-hooks.json"
     },
     {
       "unit_id": "frontend/src/i18n",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 23,
+      "status": "verified_findings_fixed",
+      "file_count": 24,
       "tracked_files": [
         "frontend/src/i18n/auditActionLabel.ts",
         "frontend/src/i18n/auditActionLocaleDefaults.ts",
@@ -8436,6 +8647,7 @@
         "frontend/src/i18n/embed.ts",
         "frontend/src/i18n/embedLocale.test.ts",
         "frontend/src/i18n/index.ts",
+        "frontend/src/i18n/indexInitAndParity.test.ts",
         "frontend/src/i18n/localeGapScan.ts",
         "frontend/src/i18n/localeKeyAudit.test.ts",
         "frontend/src/i18n/localeKeyAudit.ts",
@@ -8454,32 +8666,79 @@
         "frontend/src/i18n/resolveDefaultLocale.test.ts",
         "frontend/src/i18n/resolveDefaultLocale.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "100% translation key parity, AST structure parity, vue-i18n message compilation, workspace terminology consistency, and 100% {placeholder} token parity across all 6 supported locales (zh-CN, zh-TW, en-US, ru-RU, ko-KR, ja-JP).",
+        "Zero legacy brand identifiers, legacy key prefixes, or deprecated mini-program client strings across all 23 i18n locale and audit script files, with clean GENYEE naming throughout.",
+        "Safe locale bootstrap in frontend/src/i18n/index.ts under SSR, Node test runners, and restricted browser storage (validating stored locale values against SUPPORTED_LOCALES before falling back to resolveDefaultLocale), plus Slavic 3-form pluralRules parity between main app i18n and embed i18n."
+      ],
+      "findings": [
+        {
+          "id": "W6-I18N-01",
+          "severity": "P2",
+          "file": "frontend/src/i18n/index.ts:8-42; frontend/src/i18n/embed.ts:1-2, 2784-2792",
+          "summary": "frontend/src/i18n/index.ts accessed localStorage, window.__RUNTIME_CONFIG__, and import.meta.env without guards and accepted arbitrary unsupported localStorage.locale strings without validation; frontend/src/i18n/embed.ts omitted pluralRules so Slavic 3-form plurals (ru-RU) degraded in embedded chat.",
+          "regression_test": "i18n index imports safely without browser globals and validates stored locale values, embed i18n configures Slavic 3-form pluralRules for ru-RU",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        },
+        {
+          "id": "W6-I18N-02",
+          "severity": "P2",
+          "file": "frontend/src/i18n/locales/en-US.ts:3548; frontend/src/i18n/locales/ja-JP.ts:3548; frontend/src/i18n/locales/ru-RU.ts:6262, 6455",
+          "summary": "embedPublish.nameDefaultHint in en-US, ja-JP, and ru-RU contained an unpassed {agent} placeholder (rendered literally as '{agent}' by AgentEmbedChannelPanel.vue:117), and ru-RU input.agentNotReadyDetail omitted the {agentName} placeholder passed by callers.",
+          "regression_test": "all 6 locales maintain 100% interpolation placeholder parity across every translation key",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/i18n/embedLocale.test.ts src/i18n/indexInitAndParity.test.ts src/i18n/localeKeyAudit.test.ts src/i18n/locales/workspaceTerminology.test.ts src/i18n/memoryKeyReferences.test.ts src/i18n/resolveDefaultLocale.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-admin-i18n.json"
     },
     {
       "unit_id": "frontend/src/router",
       "wave": "W6",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "frontend/src/router/index.ts",
+        "frontend/src/router/routerGuards.test.ts",
         "frontend/src/router/settingsRoute.test.mjs"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Navigation guards enforce authentication, workspace onboarding, deployment capability checks, and system-admin restrictions across both direct routes and redirected /platform/settings sections.",
+        "OIDC hash callback detection parses URLSearchParams for non-empty oidc_result/oidc_error parameters (preventing substring or empty-value auth-guard bypasses) and routes unauthenticated OIDC callbacks to /login#... instead of mounting protected /platform views.",
+        "Lite last-path session restore never overwrites explicit query parameters or URL hashes and rejects unsafe path characters."
+      ],
+      "findings": [
+        {
+          "id": "W6-RT-01",
+          "severity": "P1",
+          "file": "frontend/src/router/index.ts:26-55, 309-325",
+          "summary": "hasPendingOIDCCallback matched substring/empty 'oidc_result='/'oidc_error=' in window.location.hash, allowing unauthenticated users to bypass router.beforeEach via '#foo_oidc_error=1' or '#oidc_error=' and mounting protected /platform views on '/' OIDC callbacks.",
+          "regression_test": "W6-RT-01: OIDC callback detection rejects substring/empty hash bypasses and sends unauthenticated OIDC callbacks to /login preserving hash",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-RT-02",
+          "severity": "P1",
+          "file": "frontend/src/router/index.ts:10-13, 204-227, 428-442",
+          "summary": "Vue Router resolved /platform/system/* route redirects to /platform/settings?section=... before router.beforeEach ran, leaving to.meta.requiresSystemAdmin undefined and permitting non-system-admins to navigate to SYSTEM_ADMIN_SETTINGS_SECTIONS.",
+          "regression_test": "W6-RT-02: router blocks non-system-admins from /platform/system/* redirects and SYSTEM_ADMIN_SETTINGS_SECTIONS",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/router/*.test.mjs src/router/*.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json"
     },
     {
       "unit_id": "frontend/src/stores",
       "wave": "W6",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 47,
+      "status": "verified_findings_fixed",
+      "file_count": 48,
       "tracked_files": [
         "frontend/src/stores/assistant.ts",
         "frontend/src/stores/auth.ts",
@@ -8527,33 +8786,77 @@
         "frontend/src/stores/uploadTasksState.test.ts",
         "frontend/src/stores/uploadTasksState.ts",
         "frontend/src/stores/versionedRequest.test.ts",
-        "frontend/src/stores/versionedRequest.ts"
+        "frontend/src/stores/versionedRequest.ts",
+        "frontend/src/stores/w6_store_isolation.test.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Logout, cross-tab token removal, account switch, and workspace switch atomically scrub tenant-scoped localStorage keys (GENYEE_settings, genyee_last_chat_model_id, genyee_current_kb), revoke protected blob ObjectURLs, and reset in-memory Pinia stores (settings, chatResources, editorResources, organization, modelProviders, browserConnection, menu, ui, uploadConfirm, knowledge, deploymentCapabilities, assistant).",
+        "Async store fetches (auth/me, pendingInvitationCount, organization members/preview/search, modelProviders, browserConnection polling) are fenced by generation/epoch counters so pre-logout or pre-switch responses cannot repopulate state.",
+        "deploymentCapabilitiesStore remains retryable after transient network/auth errors rather than permanently latching loaded=true."
+      ],
+      "findings": [
+        {
+          "id": "W6-ST-01",
+          "severity": "P1",
+          "file": "frontend/src/stores/auth.ts:11-36, 216-232, 310-335, 520-530, frontend/src/stores/settings.ts:520-555, frontend/src/stores/browserConnection.ts:118-137, frontend/src/stores/menu.ts:153-185, frontend/src/stores/ui.ts:140-147, frontend/src/stores/assistant.ts:247-260",
+          "summary": "logout() and setUser() account switches left tenant-scoped GENYEE_settings (selectedTags, selectedMCPServices, selectedSkills, apiKey, modelConfig) in localStorage and retained stale in-memory settingsStore, modelProviders, browserConnection, sidebar chat menu, UI manualEditor/tag state, pending uploadConfirm promises, and assistant drafts across SPA re-logins.",
+          "regression_test": "W6-ST-01: logout and user switch scrub tenant-scoped localStorage and reset in-memory settingsStore, modelProviders, browserConnection, menu, ui, uploadConfirm, and assistant transient state",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-ST-02",
+          "severity": "P1",
+          "file": "frontend/src/stores/auth.ts:85, 390-405, 668-688",
+          "summary": "Cross-tab genyee_token removal left in-memory user/tenant/memberships/isSystemAdmin populated, and fetchPendingInvitationCount lacked a sessionEpoch guard against post-logout writeback.",
+          "regression_test": "W6-ST-02: cross-tab token removal clears user/tenant principals and late fetchPendingInvitationCount cannot repopulate logged-out session",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-ST-03",
+          "severity": "P2",
+          "file": "frontend/src/stores/organization.ts:74-80, 267-293, 374-400, 562-598, 803-825",
+          "summary": "In-flight preview, fetchMembers, and fetchSearchableOrganizations requests in useOrganizationStore lacked stateGeneration/request-sequence fencing and could repopulate cleared state after clearState().",
+          "regression_test": "W6-ST-03: organizationStore clearState fences in-flight fetchMembers, fetchSearchableOrganizations, and preview against cross-tenant writeback",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-ST-04",
+          "severity": "P2",
+          "file": "frontend/src/stores/deploymentCapabilities.ts:18-56",
+          "summary": "ensureLoaded set loaded.value = true inside finally even when getDeploymentCapabilities threw, preventing subsequent ensureLoaded() calls from retrying after transient failures.",
+          "regression_test": "W6-ST-04: deploymentCapabilitiesStore retries after transient load failure instead of latching loaded=true",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/stores/*.test.ts src/stores/*.test.mjs) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json"
     },
     {
       "unit_id": "frontend/src/test-utils",
       "wave": "W6",
       "legacy_status": "partially_audited",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 2,
       "tracked_files": [
         "frontend/src/test-utils/cssRuleMatcher.ts",
         "frontend/src/test-utils/vueFixture.ts"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Test helpers (createStorageStub, flushMicrotasks) touch zero production code paths, isolate per-test Map storage cleanly, and contain zero host paths or legacy brand residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/stores/*.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json"
     },
     {
       "unit_id": "frontend/src/types",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 6,
       "tracked_files": [
         "frontend/src/types/chunker.ts",
@@ -8563,17 +8866,21 @@
         "frontend/src/types/spotlightGuide.ts",
         "frontend/src/types/tool-results.ts"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Type-only ambient and domain declarations (knowledge-base, knowledgeProcess, menu, shims-vue, tool-results, web-search) emit zero runtime executable code, preserve strict contract parity with backend DTOs, and contain zero legacy brand residues."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/utils/*.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json"
     },
     {
       "unit_id": "frontend/src/utils",
       "wave": "W6",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 277,
+      "status": "verified_findings_fixed",
+      "file_count": 278,
       "tracked_files": [
         "frontend/src/utils/_repro_gap.mjs",
         "frontend/src/utils/agent-mode.test.mjs",
@@ -8839,6 +9146,7 @@
         "frontend/src/utils/uploadLimit.ts",
         "frontend/src/utils/voiceHotkey.test.ts",
         "frontend/src/utils/voiceHotkey.ts",
+        "frontend/src/utils/w6_utils_security.test.ts",
         "frontend/src/utils/wavEncoder.test.ts",
         "frontend/src/utils/wavEncoder.ts",
         "frontend/src/utils/widgetBrand.test.ts",
@@ -8853,88 +9161,247 @@
         "frontend/src/utils/xlsxPreviewImages.ts",
         "frontend/src/utils/zoom.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Markdown, KaTeX, Mermaid, citation, EPUB, and XLSX HTML/SVG pipelines block javascript:/vbscript:/data:text/html and executable data:image/svg+xml / <foreignObject> / external <use> payloads in real browser DOMPurify and headless fallbacks.",
+        "Axios request/response interceptors never leak Authorization Bearer tokens, X-Tenant-ID headers, or 401 token-refresh retries to cross-origin URLs or untokened /api/v1/embed/ endpoints.",
+        "Protected file blob caches and citation chunk caches enforce userId:tenantId scoping, clearEpoch/scope fencing across async fetches, bounded cache capacity, and complete ObjectURL revocation on logout/switch.",
+        "Page snapshot/text helpers redact camelCase, snake_case, and [data-assistant-redact] secrets; reference/docs/page-link URL helpers enforce http(s) or safe in-app paths with zero external Google favicon requests."
+      ],
+      "findings": [
+        {
+          "id": "W6-UT-01",
+          "severity": "P0",
+          "file": "frontend/src/utils/citationMarkdown.ts:64-100, 192-215, 255-360, 380-405",
+          "summary": "preprocessCitationTags and stripCitationTagsForMarkdown allowed javascript:/non-http(s) URLs in <web url=\"...\"/> (persisting into data-url click handlers and saved Markdown), interpolated unescaped domain text into HTML, and mutated [[...]] / <kb/> / <web/> inside fenced and inline code blocks.",
+          "regression_test": "W6-UT-01: citationMarkdown blocks javascript:/data: web URLs, escapes domain HTML, and leaves code blocks untouched",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-UT-02",
+          "severity": "P0",
+          "file": "frontend/src/utils/markdownDomPurify.ts:1-135, frontend/src/utils/security.ts:60-205",
+          "summary": "domPurifyAllowedUriRegexp allowed arbitrary data:image/* (including data:image/svg+xml on SVG <use>/<a>/<image>), ALLOWED_TAGS permitted <foreignObject>, hooks missed arbitrary on* attributes and lowercase SVG <a> target/noopener handling, and DOMPurifyConfig stripped EPUB <section data-epub-section> wrappers.",
+          "regression_test": "W6-UT-02: DOMPurify configs/hooks block SVG data:image/svg+xml XSS, foreignObject, event attrs, lowercase SVG <a> opener leaks, and preserve EPUB sections in real browser DOMPurify",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-UT-03",
+          "severity": "P1",
+          "file": "frontend/src/utils/security.ts:328-350, 533-544, 695-703, 890-950",
+          "summary": "buildProtectedImageTag interpolated decoded &quot; characters into data-protected-src without escaping (allowing attribute breakout prior to sanitization), createSafeImage escaped only double quotes, hydrateProtectedFileImages lacked active scope re-checks across awaits, and clearProtectedFileCache did not clear citationChunkCache.",
+          "regression_test": "W6-UT-03: security.ts escapes decoded quotes in protected image tags, fences hydrateProtectedFileImages on scope change, and clears citationChunkCache on protected cache reset",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-UT-04",
+          "severity": "P1",
+          "file": "frontend/src/utils/epubPreview.ts:7-45, 98-135, frontend/src/utils/xlsxPreviewImages.ts:1-2, 125-145, 375-385",
+          "summary": "renderEpubPreview minted navigable same-origin image/svg+xml blob: URLs for archive .svg entries and passed raw inline data:image/svg+xml through unsanitized, while extractXlsxCellImages embedded raw xl/media/*.svg bytes as base64 data URLs without stripping scripts/event handlers and injectSheetHtmlImages left img.src unescaped.",
+          "regression_test": "W6-UT-04: renderEpubPreview and extractXlsxCellImages sanitize embedded SVG media to static data URLs without minting executable SVG blob URLs",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-UT-05",
+          "severity": "P1",
+          "file": "frontend/src/utils/request.ts:99-175, 240-260",
+          "summary": "Axios request and 401 response interceptors attached Bearer JWTs and X-Tenant-ID headers and ran token-refresh retries even on cross-origin URLs and untokened /api/v1/embed/ requests.",
+          "regression_test": "W6-UT-05: request.ts never leaks Authorization or X-Tenant-ID headers or 401 refresh retries to cross-origin URLs or untokened embed paths",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-UT-06",
+          "severity": "P1",
+          "file": "frontend/src/utils/pageText.ts:157-172, frontend/src/utils/pageSnapshot.ts:34-38, 450-492",
+          "summary": "isSecretLabel relied on \\b word boundaries that failed to match camelCase and snake_case credential field names/IDs (e.g. openai_api_key, clientSecret, confirmPassword, slack_bot_token), and snapshotPage did not skip non-field [data-assistant-redact] containers/cells.",
+          "regression_test": "W6-UT-06: isSecretLabel detects camelCase and snake_case credential field names/ids",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-UT-07",
+          "severity": "P1",
+          "file": "frontend/src/utils/knowledgeChunksDisplay.ts:25-60, frontend/src/utils/chatMarkdownRenderer.ts:68-86, 520-523, frontend/src/utils/chatMessageShared.ts:23-40, frontend/src/utils/citationChunkCache.ts:3-30",
+          "summary": "getKnowledgeChunksSummaryHtml interpolated uncoerced fetched_chunks/total_chunks into v-html strings, replaceIncompleteImageWithPlaceholder truncated settled prose/code containing '![' (such as Rust vec![1]) followed by '(', and citationChunkCache grew without bound.",
+          "regression_test": "W6-UT-07: getKnowledgeChunksSummaryHtml escapes/coerces untrusted counts, renderChatMarkdown preserves settled code with ![ and (, and citationChunkCache is bounded",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        },
+        {
+          "id": "W6-UT-08",
+          "severity": "P2",
+          "file": "frontend/src/utils/referenceSources.ts:65-98, frontend/src/utils/docsUrl.ts:4-26, frontend/src/utils/assistantPageLink.ts:34-37, frontend/src/utils/mermaidViewer.ts:5-25, 118-123, 240-255, frontend/src/utils/mermaidStreaming.ts:3-55, frontend/src/utils/ptyEchoPredictor.ts:15-75, frontend/src/utils/embedContext.ts:2-20, frontend/src/utils/fileTypeVerification.ts:27-45, frontend/src/utils/embedAllowedOrigins.ts:29-45",
+          "summary": "Hardened URL/input validation across remaining utils: blocked non-http(s) web reference URLs and removed external google.com/s2/favicons domain leaks in referenceSources, rejected unsafe schemes/control chars in docsUrl and pageLinkReturnPath, sanitized string SVG diagrams + deduplicated click listeners in mermaidViewer, enforced fence boundaries in mermaidStreaming, stripped ANSI escapes before secret-prompt detection in ptyEchoPredictor, escaped CR/LF in embedContext, rejected dotless filenames in fileTypeVerification, and rejected IP/TLD wildcards in embedAllowedOrigins.",
+          "regression_test": "W6-UT-08: referenceSources blocks unsafe web URLs and external Google favicon leaks, docsUrl and pageLinkReturnPath reject unsafe targets, and misc utils harden edge cases",
+          "commit": "fd419865867c263c99f07a56c74647d51261625c"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/utils/*.test.ts src/utils/*.test.mjs) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json"
     },
     {
       "unit_id": "frontend/src/views/agent",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 5,
+      "status": "verified_findings_fixed",
+      "file_count": 6,
       "tracked_files": [
         "frontend/src/views/agent/AgentEditorModal.test.mjs",
         "frontend/src/views/agent/AgentEditorModal.vue",
         "frontend/src/views/agent/AgentList.pageContext.test.ts",
         "frontend/src/views/agent/AgentList.test.ts",
-        "frontend/src/views/agent/AgentList.vue"
+        "frontend/src/views/agent/AgentList.vue",
+        "frontend/src/views/agent/agentAuditW6.test.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "AgentList enforces active-workspace ownership (effectiveTenantId) in canManageAgent and routes cross-tenant shared deep-links (?edit=<id>) to read-only inspection instead of mutable editor state.",
+        "AgentList sequences spaceSelection and fetchList requests so out-of-order responses from earlier workspace filters cannot overwrite active agent cards.",
+        "AgentEditorModal hides share management and dirty-form snapshots in readOnly mode, renders prompt placeholder chips via text bindings instead of v-html, and clears catalog/highlight/popup timers on unmount."
+      ],
+      "findings": [
+        {
+          "id": "W6-AGENT-01",
+          "severity": "P1",
+          "file": "frontend/src/views/agent/AgentList.vue:1079-1145, 1207-1228, 1338-1353",
+          "summary": "canManageAgent granted hasRole('admin') without verifying the agent belonged to the active workspace, checkAndOpenEditModal opened mutable AgentEditorModal on cross-tenant shared deep-links, and spaceSelection/fetchList lacked sequence fencing.",
+          "regression_test": "AgentList denies canManageAgent on cross-tenant shared agents and routes shared deep-links to read-only detail, AgentList ignores out-of-order spaceSelection and fetchList responses",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-AGENT-02",
+          "severity": "P2",
+          "file": "frontend/src/views/agent/AgentEditorModal.vue:236, 284, 357, 407, 452, 532, 1822, 2114-2131, 2872, 4243",
+          "summary": "Read-only agent inspection exposed the share management tab and dirty formData snapshot, rendered six placeholder token chips via v-html instead of v-text, and left catalogPollTimer/highlight/popup timers active on unmount.",
+          "regression_test": "AgentEditorModal hides share management and dirty snapshot in readOnly mode, escapes placeholder tokens without v-html, and clears timers on unmount",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/agent/agentAuditW6.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
     },
     {
       "unit_id": "frontend/src/views/artifacts",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 1,
+      "status": "verified_findings_fixed",
+      "file_count": 2,
       "tracked_files": [
+        "frontend/src/views/artifacts/ArtifactLibrary.test.ts",
         "frontend/src/views/artifacts/ArtifactLibrary.vue"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "ArtifactLibrary encodes session_id path segments with encodeURIComponent before router navigation and closes/reloads artifact state whenever active workspace (effectiveTenantId) or authenticated user changes.",
+        "Artifact preview drawer delegates rendering to sandboxed ArtifactPreview components without direct v-html or unsanitized blob execution."
+      ],
+      "findings": [
+        {
+          "id": "W6-ART-01",
+          "severity": "P2",
+          "file": "frontend/src/views/artifacts/ArtifactLibrary.vue:236, 248, 359-376",
+          "summary": "openSession interpolated item.session_id into /platform/chat/${session_id} without encodeURIComponent, and SPA workspace/user switches left stale artifact rows and preview drawers mounted.",
+          "regression_test": "ArtifactLibrary URL-encodes session_id in openSession and reloads on workspace or user switch",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/artifacts/ArtifactLibrary.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
     },
     {
       "unit_id": "frontend/src/views/auth",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 5,
+      "status": "verified_findings_fixed",
+      "file_count": 6,
       "tracked_files": [
         "frontend/src/views/auth/Login.mobile.test.mjs",
         "frontend/src/views/auth/Login.vue",
         "frontend/src/views/auth/WorkspaceOnboarding.vue",
+        "frontend/src/views/auth/loginSecurity.test.ts",
         "frontend/src/views/auth/registrationPolicy.test.ts",
         "frontend/src/views/auth/registrationPolicy.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "OIDC authorization redirects and runtime-configured external header links (GITHUB_URL, WEBSITE_URL) strictly enforce http:/https: URL schemes and rel=\"noopener noreferrer\" on target=\"_blank\" anchors, blocking javascript:/data: XSS and reverse tabnabbing.",
+        "Cross-account login hygiene: persistLoginResponse purges prior session tokens, refresh tokens, memberships, lite-mode flags, and cached GENYEE_settings via authStore.logout() before persisting new credentials; expired sessions on invite ?token= landings are cleared via authStore.logout(); Lite edition autoSetup preserves isLiteMode=true after session reset.",
+        "Registration policy enforcement (self_serve, invite_register, invite_only, fail-closed on config fetch error), WorkspaceSetup onboarding tenant initialization, and password complexity rules."
+      ],
+      "findings": [
+        {
+          "id": "W6-AUTH-01",
+          "severity": "P1",
+          "file": "frontend/src/views/auth/Login.vue:99-125, 384-408, 667-677",
+          "summary": "handleOIDCLogin assigned response.authorization_url directly to window.location.href without http:/https: scheme validation, runtime GITHUB_URL/WEBSITE_URL values were bound to :href without protocol filtering, and Login.vue target=\"_blank\" anchors lacked rel=\"noopener noreferrer\".",
+          "regression_test": "handleOIDCLogin rejects non-http(s) authorization_url schemes and accepts https URLs, Login runtime GITHUB_URL/WEBSITE_URL reject unsafe schemes and external anchors use noopener noreferrer",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        },
+        {
+          "id": "W6-AUTH-02",
+          "severity": "P1",
+          "file": "frontend/src/views/auth/Login.vue:580-587, 831-857",
+          "summary": "persistLoginResponse wrote new user credentials atop existing Pinia/localStorage state without calling authStore.logout() or clearing GENYEE_settings (allowing stale refreshToken, memberships, isLiteMode, or settings from a previous account to bleed across logins), and expired sessions on invite ?token= landings were left half-logged-in when refreshFromAuthMe() returned false.",
+          "regression_test": "persistLoginResponse clears previous account state before storing new user and autoSetup retains lite mode, expired session on invite ?token= landing calls authStore.logout before showing login/register form",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/auth/Login.mobile.test.mjs src/views/auth/loginSecurity.test.ts src/views/auth/registrationPolicy.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-admin-i18n.json"
     },
     {
       "unit_id": "frontend/src/views/automation",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 5,
+      "status": "verified_findings_fixed",
+      "file_count": 6,
       "tracked_files": [
         "frontend/src/views/automation/AutomationDetail.vue",
         "frontend/src/views/automation/AutomationEditor.vue",
         "frontend/src/views/automation/AutomationList.vue",
         "frontend/src/views/automation/AutomationStatusTag.vue",
-        "frontend/src/views/automation/automationInteractions.test.ts"
+        "frontend/src/views/automation/automationInteractions.test.ts",
+        "frontend/src/views/automation/automationLifecycle.test.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "AutomationDetail fences loadDetail, loadRuns, loadGrants, runNow, toggle, and cancel with detailVersion so late responses after switching automations or closing the drawer cannot mutate active state.",
+        "AutomationEditor declares trigger preview state prior to immediate visibility watchers and cancels debounced validateTrigger timers on close and unmount."
+      ],
+      "findings": [
+        {
+          "id": "W6-AUTO-01",
+          "severity": "P1",
+          "file": "frontend/src/views/automation/AutomationDetail.vue:373-485",
+          "summary": "loadGrants, runNow, toggle, and cancel lacked detailVersion fencing, allowing late responses from a previously viewed automation to overwrite grants and run history on the newly selected automation.",
+          "regression_test": "AutomationDetail drops stale loadGrants, runNow, and cancel responses after switching or closing",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-AUTO-02",
+          "severity": "P2",
+          "file": "frontend/src/views/automation/AutomationEditor.vue:292, 404-449",
+          "summary": "Immediate props.visible watcher referenced previewRuns/previewError before initialization (TDZ ReferenceError when mounted visible) and left debounced previewTimer pending across close/unmount.",
+          "regression_test": "AutomationEditor clears debounced trigger validation timer on unmount",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/automation/automationLifecycle.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
     },
     {
       "unit_id": "frontend/src/views/chat",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 94,
+      "status": "verified_findings_fixed",
+      "file_count": 95,
       "tracked_files": [
         "frontend/src/views/chat/automationConversation.test.ts",
         "frontend/src/views/chat/backgroundWorkPolling.test.ts",
+        "frontend/src/views/chat/chatAuditW6.test.ts",
         "frontend/src/views/chat/components/AgentStreamDisplay.artifacts.test.mjs",
         "frontend/src/views/chat/components/AgentStreamDisplay.progress.test.ts",
         "frontend/src/views/chat/components/AgentStreamDisplay.style.test.mjs",
@@ -9028,65 +9495,182 @@
         "frontend/src/views/chat/steerFollowUp.test.mjs",
         "frontend/src/views/chat/steerInteraction.test.mjs"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "All citation popovers, web search/fetch cards, document links, and MCP OAuth popups enforce strict http(s): protocol validation and rel=\"noopener noreferrer\" (severing popup.opener), blocking javascript:/data: XSS.",
+        "Markdown and knowledge chunk summaries pass through DOMPurify-backed sanitizeHTML / renderMarkdownHtml before v-html binding, and declarative capture click handlers preserve image lightbox behavior across v-if transitions.",
+        "HITL approval cards (ToolApprovalCard, HostApprovalCard, AskUserCard, SecureFormCard, PendingPromptDock) reject held-Enter key-repeat auto-submission, prevent duplicate inline submissions, require empty serviceId before displaying built-in GENYEE operation labels, and resume suspended runs on server resolution.",
+        "Session streaming, follow-up suggestion polling, steer continue-stream attachment, suspended-run resume, wiki preview drawers, and artifact drawers fence async callbacks on session/version epochs and clean up timers on route leave and unmount."
+      ],
+      "findings": [
+        {
+          "id": "W6-CHAT-01",
+          "severity": "P0",
+          "file": "frontend/src/views/chat/components/AgentStreamDisplay.vue:1119-1138, 2619-2648, 2902-2905",
+          "summary": "handleCitationActivate read untrusted data-url attributes from .citation-web nodes without protocol validation and passed them to BrowserOpenURL, window.open, and window.location.assign (javascript:/data: execution), while openWikiDrawer lacked sequence and unmount guards.",
+          "regression_test": "AgentStreamDisplay blocks javascript/data URLs in handleCitationActivate and guards openWikiDrawer against stale responses and unmount",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-CHAT-02",
+          "severity": "P1",
+          "file": "frontend/src/views/chat/components/docInfo.vue:185-194; frontend/src/views/chat/components/tool-results/WebFetchResults.vue:12-52, 200-213; frontend/src/views/chat/components/tool-results/WebSearchResults.vue:21-35, 69-81; frontend/src/views/chat/components/tool-results/KnowledgeChunksList.vue:12-22",
+          "summary": "docInfo, WebFetchResults, and WebSearchResults bound untrusted external URLs directly to anchor href attributes without http(s): validation, and KnowledgeChunksList rendered summaryHtml via v-html without sanitizeHTML.",
+          "regression_test": "docInfo, WebFetchResults, WebSearchResults, and KnowledgeChunksList block unsafe href protocols and sanitize chunk summary HTML",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-CHAT-03",
+          "severity": "P1",
+          "file": "frontend/src/views/chat/components/McpOAuthCard.vue:10-17, 104-112, 169-360",
+          "summary": "McpOAuthCard opened upstream authorizationUrl without http(s): validation, left popup.opener intact on untrusted OAuth windows, lacked overlap/unmount guards on /oauth/status polling, and disabled Skip while authorizing.",
+          "regression_test": "McpOAuthCard validates http(s) popup URL, severs opener, guards poll overlap/unmount, and keeps Skip enabled while authorizing",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-CHAT-04",
+          "severity": "P1",
+          "file": "frontend/src/views/chat/components/PendingPromptDock.vue:32-37, 156-162; frontend/src/views/chat/components/ToolApprovalCard.vue:107-115, 178-193, 430",
+          "summary": "Held-down Enter key auto-repeat approved consecutive queued HITL prompts without review, and ToolApprovalCard checked serviceName === 'GENYEE' without requiring empty serviceId, letting an external MCP server named GENYEE spoof built-in operation prompts.",
+          "regression_test": "PendingPromptDock ignores held-Enter auto-repeat and ToolApprovalCard requires empty serviceId for GENYEE operation display",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-CHAT-05",
+          "severity": "P1",
+          "file": "frontend/src/views/chat/components/HostApprovalCard.vue:2-10, 61-100, 133-233",
+          "summary": "HostApprovalCard did not record/check promptSubmission state (permitting duplicate inline approval submissions before SSE resolution) and ignored { resumed } responses instead of invoking resumeSuspendedRun.",
+          "regression_test": "HostApprovalCard records submission to prevent double-submit and resumes suspended runs when server reports resumed",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-CHAT-06",
+          "severity": "P1",
+          "file": "frontend/src/views/chat/index.vue:890-919, 1493-1503, 1830-1864, 2005-2019",
+          "summary": "loadFollowUpSuggestions, attachSteerFollowUp, and resumeSuspendedRun ignored chatLoadVersion increments on route leave/unmount (leaking background polling and continue-stream attachments), and clearData/onUnmounted did not clear suggestedDebounceTimer.",
+          "regression_test": "chat index cancels loadFollowUpSuggestions, attachSteerFollowUp, and resumeSuspendedRun loops when chatLoadVersion advances on leave/unmount",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-CHAT-07",
+          "severity": "P2",
+          "file": "frontend/src/views/chat/components/ChatArtifactsDrawer.vue:303-376; frontend/src/views/chat/components/botmsg.vue:48, 548-555",
+          "summary": "ChatArtifactsDrawer lacked sequence fencing and [sessionId, messageId] reload watches on listMessageArtifacts, while botmsg attached handleMarkdownImageClick imperatively once in onMounted on a v-if-toggled parentMd container.",
+          "regression_test": "ChatArtifactsDrawer guards listMessageArtifacts against out-of-order loads and botmsg binds capture click handler declaratively on parentMd",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test $(find src/views/chat -name '*.test.*' | sort)) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
     },
     {
       "unit_id": "frontend/src/views/creatChat",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 2,
+      "status": "verified_findings_fixed",
+      "file_count": 3,
       "tracked_files": [
         "frontend/src/views/creatChat/creatChat.test.mjs",
-        "frontend/src/views/creatChat/creatChat.vue"
+        "frontend/src/views/creatChat/creatChat.vue",
+        "frontend/src/views/creatChat/creatChatLifecycle.test.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "creatChat clears debounced suggested-question timers on unmount and URL-encodes newly created session IDs before navigating to /platform/chat/:sessionId."
+      ],
+      "findings": [
+        {
+          "id": "W6-CREATCHAT-01",
+          "severity": "P2",
+          "file": "frontend/src/views/creatChat/creatChat.vue:73, 236-242, 287-303",
+          "summary": "debounceTimer for fetchSuggestedQuestions was not cleared on unmount, and navigateToSession interpolated sessionId into /platform/chat/${sessionId} without encodeURIComponent.",
+          "regression_test": "creatChat clears debounced suggested-question timer on unmount and URL-encodes sessionId on navigation",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/creatChat/creatChatLifecycle.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
     },
     {
       "unit_id": "frontend/src/views/dev",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 1,
+      "status": "verified_findings_fixed",
+      "file_count": 2,
       "tracked_files": [
+        "frontend/src/views/dev/MarkdownTestPage.test.ts",
         "frontend/src/views/dev/MarkdownTestPage.vue"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Every v-html binding in MarkdownTestPage.vue (9/9 bindings) passes rendered HTML through sanitizeMarkdownHTML from @/utils/security before DOM insertion.",
+        "Streaming simulation interval (streamTimer) and custom Mermaid debounce timeout (customMermaidTimer) are cleared in onBeforeUnmount so unmounting during active streaming or typing cannot trigger post-unmount state mutations or DOM enhancements."
+      ],
+      "findings": [
+        {
+          "id": "W6-DEV-01",
+          "severity": "P2",
+          "file": "frontend/src/views/dev/MarkdownTestPage.vue:125, 464-485, 522-531",
+          "summary": "MarkdownTestPage.vue did not register an onBeforeUnmount hook to clear streamTimer (setInterval) or customMermaidTimer (setTimeout), leaving active timers mutating refs and invoking refreshMermaid after unmount.",
+          "regression_test": "MarkdownTestPage clears streamTimer and customMermaidTimer on unmount",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/dev/MarkdownTestPage.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-admin-i18n.json"
     },
     {
       "unit_id": "frontend/src/views/embed",
       "wave": "W6",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 6,
+      "status": "verified_findings_fixed",
+      "file_count": 7,
       "tracked_files": [
         "frontend/src/views/embed/EmbedBotMessage.vue",
         "frontend/src/views/embed/EmbedChatCore.vue",
         "frontend/src/views/embed/EmbedChatView.vue",
         "frontend/src/views/embed/EmbedPage.vue",
         "frontend/src/views/embed/EmbedUserMessage.vue",
-        "frontend/src/views/embed/embedHostContext.test.mjs"
+        "frontend/src/views/embed/embedHostContext.test.mjs",
+        "frontend/src/views/embed/embedSecurityLifecycle.test.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "EmbedPage validates inbound postMessage origins against config.allowed_origins, refuses '*' fallback on outbound parent postMessage when allowed_origins is non-empty, and strips CSS injection tokens from untrusted primary_color.",
+        "EmbedBotMessage enforces http(s): validation on web citation popover links and renders markdown via sanitized renderMarkdownHtml.",
+        "EmbedChatCore cancels 120s follow-up suggestion polling and ignores stale starter suggestion responses when unmounted or re-keyed across embed session resets."
+      ],
+      "findings": [
+        {
+          "id": "W6-EMBED-01",
+          "severity": "P0",
+          "file": "frontend/src/views/embed/EmbedBotMessage.vue:26-29, 141-155",
+          "summary": "Web citation popover bound citationFloat.url extracted from .citation-web[data-url] directly to <a :href> without http(s): protocol validation, permitting javascript:/data: XSS on click.",
+          "regression_test": "EmbedBotMessage blocks unsafe javascript/data schemes in web citation popover href",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-EMBED-02",
+          "severity": "P1",
+          "file": "frontend/src/views/embed/EmbedChatCore.vue:182-223, 333-351, 413-418; frontend/src/views/embed/EmbedPage.vue:180-208",
+          "summary": "Unmounting EmbedChatCore on session reset leaked 120s loadFollowUpSuggestions polling and stale fetchSuggestedQuestions writes, and EmbedPage interpolated config.primary_color into CSS custom properties without stripping CSS injection tokens.",
+          "regression_test": "EmbedChatCore stops follow-up suggestion polling and ignores stale starter suggestions after unmount, EmbedPage strips CSS injection tokens from untrusted primary_color",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test $(find src/views/embed -name '*.test.*' | sort)) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
     },
     {
       "unit_id": "frontend/src/views/integrations",
       "wave": "W6",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 17,
+      "status": "verified_findings_fixed",
+      "file_count": 18,
       "tracked_files": [
         "frontend/src/views/integrations/ApiIntegrationSettings.vue",
         "frontend/src/views/integrations/ChromeExtensionLanding.vue",
@@ -9103,20 +9687,44 @@
         "frontend/src/views/integrations/cliIntegration.test.ts",
         "frontend/src/views/integrations/cliIntegration.ts",
         "frontend/src/views/integrations/integration-landing.less",
+        "frontend/src/views/integrations/integrationSecurity.test.ts",
         "frontend/src/views/integrations/mcpServerIntegration.test.ts",
         "frontend/src/views/integrations/mcpServerIntegration.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Copy-pasteable CLI/shell snippets across MCP Server, CLI, and Claw Skill integration pages safely POSIX-quote shell metacharacters, strip CR/LF injection, validate http:/https: runtime repository URLs, and avoid duplicate .git.git clone suffixes.",
+        "API Integration & Playground secret handling: HMAC secrets are omitted from auto-save payloads unless explicitly edited (never overwriting stored secrets with masked placeholders), Playground AbortController streams cancel cleanly on close/unmount, and deleting/revoking the selected API key immediately rotates or clears apiKey state.",
+        "Connector settings (Notion, Confluence, Feishu, DingTalk, Nextcloud, Seafile), IM channel delegation, and external documentation popups enforce noopener,noreferrer and http:/https: URL validation."
+      ],
+      "findings": [
+        {
+          "id": "W6-INT-01",
+          "severity": "P1",
+          "file": "frontend/src/views/integrations/mcpServerIntegration.ts:67-82; frontend/src/views/integrations/CliIntegrationLanding.vue:84-112; frontend/src/views/integrations/ClawSkillLanding.vue:134-140",
+          "summary": "buildClaudeCodeCommand interpolated url unquoted and token inside double quotes without escaping shell metacharacters or newlines, CliIntegrationLanding interpolated unvalidated RUNTIME_CONFIG.GITHUB_URL into git clone (and duplicated .git.git when GITHUB_URL ended with .git), and ClawSkillLanding interpolated apiBaseUrlDisplay inside double-quoted export GENYEE_BASE_URL without quoting shell expansions.",
+          "regression_test": "buildClaudeCodeCommand quotes shell metacharacters in url and token while keeping clean tokens readable, CliIntegrationLanding validates http(s) GITHUB_URL, avoids .git.git duplication, and quotes clone URL, ClawSkillLanding envExample safely quotes GENYEE_BASE_URL against shell command substitution",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        },
+        {
+          "id": "W6-INT-02",
+          "severity": "P2",
+          "file": "frontend/src/views/integrations/ApiIntegrationSettings.vue:1177-1180, 1434-1444",
+          "summary": "loadAPIKeys only initialized apiKey when empty, leaving a deleted/revoked API key selected in API snippets and Playground requests after deletion, and openApiDoc opened target=\"_blank\" without noopener,noreferrer or http:/https: scheme validation.",
+          "regression_test": "ApiIntegrationSettings rotates or clears apiKey when selected key is revoked and opens docs with noopener,noreferrer",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/integrations/apiKeyScope.test.ts src/views/integrations/apiPlaygroundSSE.test.ts src/views/integrations/cliIntegration.test.ts src/views/integrations/integrationSecurity.test.ts src/views/integrations/mcpServerIntegration.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-admin-i18n.json"
     },
     {
       "unit_id": "frontend/src/views/knowledge",
       "wave": "W6",
       "legacy_status": "partially_audited",
-      "status": "pending",
-      "file_count": 96,
+      "status": "verified_findings_fixed",
+      "file_count": 97,
       "tracked_files": [
         "frontend/src/views/knowledge/ImagePipelineSettings.test.ts",
         "frontend/src/views/knowledge/ImagePipelineSettings.vue",
@@ -9174,6 +9782,7 @@
         "frontend/src/views/knowledge/gallery/galleryImageSrc.ts",
         "frontend/src/views/knowledge/kbListMerge.test.ts",
         "frontend/src/views/knowledge/kbListMerge.ts",
+        "frontend/src/views/knowledge/knowledgeAuditW6.test.ts",
         "frontend/src/views/knowledge/knowledgeDownloadFileName.test.ts",
         "frontend/src/views/knowledge/knowledgeDownloadFileName.ts",
         "frontend/src/views/knowledge/settings/DataSourceEditorDialog.tempDataSource.test.ts",
@@ -9215,34 +9824,120 @@
         "frontend/src/views/knowledge/wikiStatusRefresh.test.ts",
         "frontend/src/views/knowledge/wikiStatusRefresh.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "KnowledgeBase, FAQEntryManager, WikiBrowser, WikiRevisionDrawer, DataSourceSettings, DataSourceEditorDialog, DataSourceSyncLogs, KnowledgeBaseActivitySettings, KBShareSettings, KBChunkingDebug, KnowledgeBaseList, UploadConfirmDialog, ImageGallery, and GallerySourcePicker isolate polling timers, debounce timers, unsaved temp data sources, and in-flight async responses across KB switches and component unmount.",
+        "Shared-KB and active-workspace RBAC guards (FAQEntryManager canEdit/canManage, KnowledgeBaseEditorModal canShareKB/canViewActivity, WikiBrowser canEdit folder/drag/issue controls) honor effectiveTenantId, CreatorRoleFloor ('contributor'), and organization share permissions so read-only viewers never see write/share controls.",
+        "External URL openings (FAQEntryManager failed_entries_url, KbUploadSourceDropdown URL submission) enforce http(s): schemes and noopener,noreferrer, and WikiBrowser escapes [[slug|display]] and index metadata outside code spans prior to DOMPurify sanitization."
+      ],
+      "findings": [
+        {
+          "id": "W6-KB-01",
+          "severity": "P1",
+          "file": "frontend/src/views/knowledge/components/FAQEntryManager.vue:196, 371, 982-1015, 2018-2358, 2575-2615, 2821-2855",
+          "summary": "downloadFailedEntries opened failed_entries_url without http(s): validation or noopener,noreferrer; canEdit/canManage ignored my_permission/getKBPermission (exposing edit/manage UI on read-only shared FAQ KBs to local admins) while gating single-entry edit/delete on canManage; and FAQ import polling leaked across kbId switches and unmount.",
+          "regression_test": "FAQEntryManager blocks unsafe failed_entries_url schemes, aligns shared-KB RBAC, and isolates import polling across KB switches and unmount",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-KB-02",
+          "severity": "P1",
+          "file": "frontend/src/views/knowledge/KnowledgeBase.vue:156-209, 1232-1255, 1450-1466, 1803-1818",
+          "summary": "fetchWikiStatusOnce could resurrect 5s wikiStatusTimer after unmount or overwrite another KB on late getWikiStats resolution, and switching kbId left drawer, batch selection, move polling, autoOpenRequest, and search debounce state active.",
+          "regression_test": "KnowledgeBase prevents wiki status polling resurrection after unmount and resets drawer/move/batch/debounce state on KB switch",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-KB-03",
+          "severity": "P1",
+          "file": "frontend/src/views/knowledge/KnowledgeBaseEditorModal.vue:569, 647-656, 783-810, 861, 1465-1485, 1938-1955",
+          "summary": "canShareKB omitted active effectiveTenantId and contributor role floor checks, canViewActivity compared against home currentTenantId instead of effectiveTenantId, handleGenerateProfile/loadImageAttrSchema lacked generation guards, and resetState left generatedProfile/dsCount stale.",
+          "regression_test": "KnowledgeBaseEditorModal enforces active effectiveTenantId and contributor floor on share/activity gates and guards async profile/schema loads",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-KB-04",
+          "severity": "P1",
+          "file": "frontend/src/views/knowledge/wiki/WikiBrowser.vue:334-371, 735, 1683-1710, 2449-2497, 2845-2855, 3035-3075, 5234-5285",
+          "summary": "Read-only viewers saw folder actions, drag-and-drop, and Global Issues write buttons despite !props.canEdit; renderMarkdown expanded [[slug|display]] inside code spans without escaping quotes/angle brackets (and appendIndexDirectoryLines left metadata unescaped); and WikiBrowser lacked knowledgeBaseId reload and post-unmount statsTimer guards.",
+          "regression_test": "WikiBrowser enforces canEdit on folder/drag/issue controls, escapes wiki link/index markdown, and resets/stops timers across KB switch and unmount",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-KB-05",
+          "severity": "P1",
+          "file": "frontend/src/views/knowledge/settings/DataSourceSyncLogs.vue:21-79, 328",
+          "summary": "Expanding a partial sync log with error_message: null crashed with TypeError on log.error_message.slice(0, 1000), and switching dataSourceId while open did not reload sync logs.",
+          "regression_test": "DataSourceSyncLogs handles null error_message on partial syncs without crashing and reloads when dataSourceId changes",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-KB-06",
+          "severity": "P1",
+          "file": "frontend/src/views/knowledge/settings/DataSourceEditorDialog.vue:815-835, 926-985, 1074-1095",
+          "summary": "Unsaved paused tempDsId drafts leaked on component unmount or Step 0 connector switches, and modifying credentials after tempDsId creation in create mode failed to sync credentials via putDataSourceCredentials before re-listing resources.",
+          "regression_test": "DataSourceEditorDialog cleans up unsaved tempDsId on unmount or type switch and syncs replaced credentials before temp resource listing",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        },
+        {
+          "id": "W6-KB-07",
+          "severity": "P2",
+          "file": "frontend/src/views/knowledge/settings/KnowledgeBaseActivitySettings.vue:715-745; frontend/src/views/knowledge/settings/DataSourceSettings.vue:38-80, 193-210; frontend/src/views/knowledge/wiki/WikiRevisionDrawer.vue:176-180, 272-278, 321-345, 416-505; frontend/src/views/knowledge/settings/KBShareSettings.vue:239-266; frontend/src/views/knowledge/settings/KBChunkingDebug.vue:302-370; frontend/src/views/knowledge/KnowledgeBaseList.vue:1140-1200; frontend/src/views/knowledge/components/KbUploadSourceDropdown.vue:210-222; frontend/src/views/knowledge/components/UploadConfirmDialog.vue:709-720, 1499-1525; frontend/src/views/knowledge/gallery/ImageGallery.vue:611-616; frontend/src/views/knowledge/gallery/GallerySourcePicker.vue:119-140",
+          "summary": "Added stale-response sequence/unmount/KB-switch guards across activity, data source, wiki revision, share, chunking debug, KB list, upload dialog, and gallery components, cleared ImageGallery prefsTimer on unmount, and enforced http(s): scheme validation in KbUploadSourceDropdown.",
+          "regression_test": "KnowledgeBaseActivitySettings, DataSourceSettings, WikiRevisionDrawer, KBShareSettings, KBChunkingDebug, KnowledgeBaseList, KbUploadSourceDropdown, UploadConfirmDialog, ImageGallery, and GallerySourcePicker guard stale async state and schemes",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test $(find src/views/knowledge \\( -name '*.test.ts' -o -name '*.test.mjs' \\) | sort)) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
     },
     {
       "unit_id": "frontend/src/views/organization",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 5,
+      "status": "verified_findings_fixed",
+      "file_count": 6,
       "tracked_files": [
         "frontend/src/views/organization/OrganizationList.vue",
         "frontend/src/views/organization/OrganizationMemberSearch.test.ts",
         "frontend/src/views/organization/OrganizationSettingsModal.test.mjs",
         "frontend/src/views/organization/OrganizationSettingsModal.vue",
-        "frontend/src/views/organization/OrganizationStateSync.test.mjs"
+        "frontend/src/views/organization/OrganizationStateSync.test.mjs",
+        "frontend/src/views/organization/organizationRaceAndCleanup.test.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "OrganizationSettingsModal synchronizes request generation counters across visibility and orgId changes, reloads organization details/members/shares/join-requests when switching orgId while open, discards late responses from previous organizations or closed sessions, and URL-encodes invite codes in inviteLink.",
+        "OrganizationList and useOrganizationMemberSearch cancel pending debounce timers and ResizeObservers on dialog close and component unmount, preventing post-close/post-unmount searchable organization queries."
+      ],
+      "findings": [
+        {
+          "id": "W6-ORG-01",
+          "severity": "P1",
+          "file": "frontend/src/views/organization/OrganizationSettingsModal.vue:1212-1215, 1249-1395, 1871-1931",
+          "summary": "OrganizationSettingsModal lacked generation/orgId guards on fetchOrgDetail, fetchMembers, fetchSharedKBs, and fetchJoinRequests (allowing slow responses from Org A or a closed modal to overwrite Org B state), did not reload organization context when props.orgId changed while visible, and interpolated raw inviteCode.value into inviteLink without encodeURIComponent.",
+          "regression_test": "OrganizationSettingsModal encodes inviteLink, reloads when orgId changes while visible, and drops stale org responses",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        },
+        {
+          "id": "W6-ORG-02",
+          "severity": "P2",
+          "file": "frontend/src/views/organization/OrganizationList.vue:918-928, 1080-1084",
+          "summary": "OrganizationList left searchDebounceTimer pending across closeInvitePreview() and onUnmounted(), allowing a 300ms delayed fetchSearchableOrganizations() call to repopulate cleared store state after dialog close or unmount.",
+          "regression_test": "OrganizationList clears pending searchDebounceTimer on closeInvitePreview and unmount",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/organization/OrganizationMemberSearch.test.ts src/views/organization/OrganizationSettingsModal.test.mjs src/views/organization/OrganizationStateSync.test.mjs src/views/organization/organizationRaceAndCleanup.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-admin-i18n.json"
     },
     {
       "unit_id": "frontend/src/views/platform",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 4,
       "tracked_files": [
         "frontend/src/views/platform/collectDroppedFiles.test.ts",
@@ -9250,17 +9945,21 @@
         "frontend/src/views/platform/fileDrop.test.mjs",
         "frontend/src/views/platform/index.vue"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Platform layout shell, sidebar navigation, tenant/workspace switching, global drag-and-drop file collection (collectDroppedFiles.ts, index.vue), and route-guarded child view rendering maintain tenant isolation, bounded directory traversal, and clean event listener teardown on unmount with zero defects."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/platform/collectDroppedFiles.test.ts src/views/platform/fileDrop.test.mjs) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-admin-i18n.json"
     },
     {
       "unit_id": "frontend/src/views/settings",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 51,
+      "status": "verified_findings_fixed",
+      "file_count": 52,
       "tracked_files": [
         "frontend/src/views/settings/AssistantSettings.test.ts",
         "frontend/src/views/settings/AssistantSettings.vue",
@@ -9312,19 +10011,51 @@
         "frontend/src/views/settings/envVarState.ts",
         "frontend/src/views/settings/modelUsageDetails.test.ts",
         "frontend/src/views/settings/providerLogos.ts",
-        "frontend/src/views/settings/settingsNavigation.test.ts"
+        "frontend/src/views/settings/settingsNavigation.test.ts",
+        "frontend/src/views/settings/settingsSecurityAndLifecycle.test.ts"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "MCP OAuth popup authorization validates http:/https: authorizationUrl schemes before window.open, severs popup.opener to block reverse tabnabbing while retaining popup.closed polling, and cancels polling intervals via generation counters on service switch, close, or unmount.",
+        "Secret credential handling across ModelSettings, McpServiceDialog, WebSearchSettings, VectorStoreSettings, ParserEngineSettings, StorageBackendSettings, and AgentEmbedChannelPanel preserves masked server credentials via CredentialResource / dirty-state tracking and never overwrites stored secrets with literal mask placeholders.",
+        "Workspace-scoped settings (MemoryWorkspaceSettings, RetrievalSettings, DefaultSettings, TenantInfo, TenantMembers) guard autosave against failed initial loads, cancel pending timers and reload cleanly on effectiveTenantId switches, catch rejected API promises with user-visible error toasts, and clear all timers/intervals on unmount."
+      ],
+      "findings": [
+        {
+          "id": "W6-SET-01",
+          "severity": "P1",
+          "file": "frontend/src/views/settings/components/McpServiceDialog.vue:700-725; frontend/src/views/settings/SystemInfo.vue:274-283; frontend/src/views/settings/WebSearchSettings.vue:129-135, 421-430",
+          "summary": "McpServiceDialog passed upstream OAuth authorizationUrl directly to window.open without http:/https: scheme validation and left window.opener exposed to the third-party OAuth popup; SystemInfo and WebSearchSettings bound runtime GITHUB_URL and provider docs_url to external links without http:/https: validation.",
+          "regression_test": "McpServiceDialog rejects non-http(s) OAuth authorizationUrl and severs window.opener on valid popups, SystemInfo and WebSearchSettings reject non-http(s) external URLs",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        },
+        {
+          "id": "W6-SET-02",
+          "severity": "P1",
+          "file": "frontend/src/views/settings/MemoryWorkspaceSettings.vue:202-343",
+          "summary": "MemoryWorkspaceSettings flipped isInitializing to false even when getTenantMemoryConfig failed (allowing debouncedSave to overwrite tenant memory config with hardcoded defaults), did not watch authStore.effectiveTenantId to cancel pending saves and reload on workspace switch, and leaked initTimer/saveTimer on unmount.",
+          "regression_test": "MemoryWorkspaceSettings blocks autosave when loadConfig fails, reloads on tenant switch, and clears timers on unmount",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        },
+        {
+          "id": "W6-SET-03",
+          "severity": "P1",
+          "file": "frontend/src/views/settings/ParserEngineSettings.vue:400, 646-732; frontend/src/views/settings/StorageBackendSettings.vue:328-378; frontend/src/views/settings/OllamaSettings.vue:179, 274-376",
+          "summary": "ParserEngineSettings tested the Vue Ref object (!connected, always false) instead of !connected.value in onCheck(), swallowed onSave() results without MessagePlugin toasts, and left its 3s checkMessage timer uncleaned; StorageBackendSettings lacked try/catch in load(), testRaw(), testSaved(), and makeDefault() causing unhandled promise rejections; OllamaSettings leaked its 1s getDownloadProgress setInterval across component unmount.",
+          "regression_test": "ParserEngineSettings checks connected.value, surfaces save toast errors, and clears checkMessage timer on unmount, StorageBackendSettings catches load, testRaw, testSaved, and makeDefault rejections without unhandled rejections, OllamaSettings clears download progress polling interval on unmount",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/settings/AssistantSettings.test.ts src/views/settings/BrowserSearchPreferences.test.ts src/views/settings/ChatHistorySettings.test.ts src/views/settings/DefaultSettings.test.ts src/views/settings/McpSettings.test.ts src/views/settings/RetrievalSettings.test.ts src/views/settings/RetrievalSettingsAutosave.test.ts src/views/settings/SkillSettings.filters.test.ts src/views/settings/SkillSettings.test.mjs src/views/settings/TenantInfo.test.ts src/views/settings/TenantMembers.test.ts src/views/settings/WebSearchSettings.test.ts src/views/settings/components/McpMetadataPanel.test.ts src/views/settings/components/McpServiceDialog.test.ts src/views/settings/components/McpToolsList.test.ts src/views/settings/defaultSettingsState.test.ts src/views/settings/envVarState.test.ts src/views/settings/modelUsageDetails.test.ts src/views/settings/settingsNavigation.test.ts src/views/settings/settingsSecurityAndLifecycle.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-admin-i18n.json"
     },
     {
       "unit_id": "frontend/src/views/system",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 24,
+      "status": "verified_findings_fixed",
+      "file_count": 25,
       "tracked_files": [
         "frontend/src/views/system/CreateUserDialog.vue",
         "frontend/src/views/system/DocumentProgress.test.ts",
@@ -9347,34 +10078,72 @@
         "frontend/src/views/system/storageQuota.test.ts",
         "frontend/src/views/system/storageQuota.ts",
         "frontend/src/views/system/systemAdminDialog.less",
+        "frontend/src/views/system/systemSecurity.test.ts",
         "frontend/src/views/system/systemSettingsEdit.test.ts",
         "frontend/src/views/system/systemSettingsEdit.ts",
         "frontend/src/views/system/userManagement.less"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "ModelCatalog validates model.source URLs against http:/https: before rendering external anchor links, preventing DOM XSS from custom catalog overlays.",
+        "SystemSettings masks secret setting items (item.is_secret) in both input type (password) and placeholder attributes while preserving dirty-value comparison, high-risk SSRF/registration popconfirm guards, and storage quota bulk-apply confirmation.",
+        "UserManagement, CreateUserDialog, ResetPasswordDialog, AuditLogs, RuntimeTasks, and DocumentProgress enforce one-time password reveal safety, cursor pagination deduplication, and stale response generation guards."
+      ],
+      "findings": [
+        {
+          "id": "W6-SYS-01",
+          "severity": "P1",
+          "file": "frontend/src/views/system/ModelCatalog.vue:151-155, 505-515",
+          "summary": "ModelCatalog bound String(selected.model.source) directly to <a :href> without http:/https: scheme validation, allowing javascript:/data: URLs in admin-editable model catalog overlays to execute on click.",
+          "regression_test": "ModelCatalog only exposes http(s) model source URLs for external links",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        },
+        {
+          "id": "W6-SYS-02",
+          "severity": "P2",
+          "file": "frontend/src/views/system/SystemSettings.vue:171-173, 621-630",
+          "summary": "SystemSettings rendered string inputs as cleartext and echoed String(item.value) in DOM placeholder attributes even when item.is_secret was true.",
+          "regression_test": "SystemSettings masks secret placeholders and binds password input type when item.is_secret is true",
+          "commit": "984c8b5780d3d83770b1e82e815931bb9fdc667f"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/system/DocumentProgress.test.ts src/views/system/ResetPasswordDialog.test.mjs src/views/system/createUserDialogState.test.ts src/views/system/modelCatalogState.test.ts src/views/system/runtimeTaskPagination.test.ts src/views/system/storageQuota.test.ts src/views/system/systemSecurity.test.ts src/views/system/systemSettingsEdit.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-admin-i18n.json"
     },
     {
       "unit_id": "frontend/src/views/toolbox",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
-      "file_count": 1,
+      "status": "verified_findings_fixed",
+      "file_count": 2,
       "tracked_files": [
+        "frontend/src/views/toolbox/Toolbox.test.ts",
         "frontend/src/views/toolbox/Toolbox.vue"
       ],
-      "invariants_checked": [],
-      "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "invariants_checked": [
+        "Toolbox refreshes summary skill/MCP badge counts and re-keys child panels on active workspace (effectiveTenantId) or user switches while ignoring stale responses from earlier epochs or after unmount."
+      ],
+      "findings": [
+        {
+          "id": "W6-TOOLBOX-01",
+          "severity": "P2",
+          "file": "frontend/src/views/toolbox/Toolbox.vue:46-59, 119-156",
+          "summary": "Summary count badges (counts.skills, counts.mcp) and child panels were not refreshed or re-keyed on active workspace/user switches and lacked epoch/unmount fencing against late responses.",
+          "regression_test": "Toolbox refreshes summary badges on workspace switch and ignores late responses after unmount",
+          "commit": "6884c350ed5e8c2655fceb9793208369b44a104d"
+        }
+      ],
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/views/toolbox/Toolbox.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json"
     },
     {
       "unit_id": "frontend/src/wailsjs",
       "wave": "W6",
       "legacy_status": "pending",
-      "status": "pending",
+      "status": "verified_no_findings",
       "file_count": 5,
       "tracked_files": [
         "frontend/src/wailsjs/go/main/App.d.ts",
@@ -9383,10 +10152,14 @@
         "frontend/src/wailsjs/runtime/runtime.d.ts",
         "frontend/src/wailsjs/runtime/runtime.js"
       ],
-      "invariants_checked": [],
+      "invariants_checked": [
+        "Generated Wails desktop IPC bindings (App.js, App.d.ts, models.ts, runtime.js, runtime.d.ts) invoke only local window.go / window.runtime bridges, execute zero dynamic eval/network code, and align with GENYEE desktop models."
+      ],
       "findings": [],
-      "verification_commands": [],
-      "evidence_file": null
+      "verification_commands": [
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test widgetSecurity.test.ts) (exit 0)"
+      ],
+      "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json"
     },
     {
       "unit_id": ".github/workflows",
@@ -12956,6 +13729,10 @@
       "test-reports/module-audit-v2/evidence/w5-connectors.json",
       "test-reports/module-audit-v2/evidence/w5-im-channels.json",
       "test-reports/module-audit-v2/evidence/w5-web-models-trace.json",
+      "test-reports/module-audit-v2/evidence/w6-fe-admin-i18n.json",
+      "test-reports/module-audit-v2/evidence/w6-fe-chat-kb-views.json",
+      "test-reports/module-audit-v2/evidence/w6-fe-components-hooks.json",
+      "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json",
       "test-reports/module-audit-v2/verify_ledger.py",
       "test-reports/module-audit-v2/wave0-foundation.json",
       "test-reports/screenshots/01_login_page.png",

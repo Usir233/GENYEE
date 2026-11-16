@@ -249,7 +249,7 @@
           "file": "frontend/src/components/IMChannelPanel.vue:156, 304, 880-895, 1138-1208, 1296-1356",
           "summary": "IMChannelPanel exfiltrated live WeChat login QR tokens to external api.qrserver.com (breaking air-gapped deployments and leaking login URLs), wiped stored channel secrets or blocked WeChat/Yunzhijia edits when saving existing channels whose credentials are redacted on GET (credentials_configured: true), and leaked WeChat QR long-polling when the drawer closed via overlay/ESC.",
           "regression_test": "IMChannelPanel renders WeChat QR locally without api.qrserver.com and preserves stored credentials on edit",
-          "commit": "495d070974e0318c8090b0dddab28bfb9d5a2f77"
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
         },
         {
           "id": "W6-CMP-02",
@@ -257,7 +257,7 @@
           "file": "frontend/src/components/ChatCitationFloat.vue:46-55, 152-160; frontend/src/components/ChatReferencesDrawer.vue:132-168, 250-290",
           "summary": "ChatCitationFloat and ChatReferencesDrawer bound unvalidated web citation/reference URLs directly to <a :href>, enabling javascript:/data: URI XSS on click, and ChatReferencesDrawer leaked cited domains to external www.google.com/s2/favicons (failing offline and leaking query context).",
           "regression_test": "ChatCitationFloat blocks javascript: and data: hrefs while rendering https: links safely; ChatReferencesDrawer blocks unsafe web item hrefs and never loads external Google favicons",
-          "commit": "495d070974e0318c8090b0dddab28bfb9d5a2f77"
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
         },
         {
           "id": "W6-CMP-03",
@@ -265,7 +265,7 @@
           "file": "frontend/src/components/doc-content.vue:63-74, 240-265, 290-335; frontend/src/components/document-preview.vue:318-395; frontend/src/components/SkillFilesPanel.vue:68-158, 185-235; frontend/src/components/UserMenu.vue:470-545",
           "summary": "doc-content interpolated unescaped code in Mermaid/code fallback HTML, lacked rel=\"noopener noreferrer\" and http(s): validation on URL source links, and leaked stale audio preview blobs across rapid switches; document-preview inserted unsanitized docx-preview DOM output and unescaped Excel sheet names; SkillFilesPanel rendered unsanitized image/svg+xml data URLs and lacked selectFile/loadFiles race guards; UserMenu opened external docs/GitHub without noopener,noreferrer or scheme checks and leaked tenantSubmenuHideTimer on unmount.",
           "regression_test": "doc-content escapes HTML in Mermaid/code blocks, adds noopener on source link, and guards audio blob races; document-preview sanitizes rendered DOCX DOM nodes and escapes Excel sheet names; SkillFilesPanel sanitizes SVG data URLs, rejects non-image media_type, and ignores stale file responses; UserMenu enforces noopener,noreferrer and safe URL schemes on openDocs/openGithub and clears submenu timer",
-          "commit": "495d070974e0318c8090b0dddab28bfb9d5a2f77"
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
         },
         {
           "id": "W6-CMP-04",
@@ -273,7 +273,7 @@
           "file": "frontend/src/components/credentials/CredentialResource.vue:115-210; frontend/src/components/TenantSelector.vue:205-275; frontend/src/components/SandboxConfigEditorDrawer.vue:285-395; frontend/src/components/SandboxSkillsPanel.vue:115-195; frontend/src/components/ModelEditorDialog.vue:1105-1240",
           "summary": "CredentialResource wiped configured state when parent updated api and meta in the same reactive flush; TenantSelector dropped clearSearch/search updates while loading and polluted setAllTenants with filtered search results; SandboxConfigEditorDrawer allowed renaming masked env keys to submit literal '***' placeholders and lacked drawer-session async guards; SandboxSkillsPanel lacked record-switch guards across async mutations; ModelEditorDialog leaked its 1s Ollama download polling interval across dialog close/unmount and could overwrite modelName across model switches.",
           "regression_test": "CredentialResource preserves configured state when parent switches api and meta in the same flush; TenantSelector does not drop clearSearch while searchTenants is in flight or overwrite setAllTenants with filtered results; SandboxConfigEditorDrawer, SandboxSkillsPanel, and ModelEditorDialog enforce secret identity and generation guards",
-          "commit": "495d070974e0318c8090b0dddab28bfb9d5a2f77"
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
         },
         {
           "id": "W6-CMP-05",
@@ -281,7 +281,7 @@
           "file": "frontend/src/components/source-preview/PdfSourceViewer.vue; frontend/src/components/manual-knowledge-editor.vue; frontend/src/components/AttachmentUpload.vue; frontend/src/components/Input-field.vue; frontend/src/components/ChatHeader.vue; frontend/src/components/ModelDebugDrawer.vue; frontend/src/components/AgentShareSettings.vue; frontend/src/components/SpotlightGuide.vue; frontend/src/components/SkillFilesDrawer.vue; frontend/src/components/SessionSourceFilter.vue; frontend/src/components/assistant/AssistantSelectionBubble.vue; frontend/src/components/AgentCreateContextualGuide.vue; frontend/src/components/KbCreateContextualGuide.vue; frontend/src/components/KnowledgeBaseSelector.vue; frontend/src/components/AgentSelector.vue",
           "summary": "Lifecycle cleanup and rapid-switch race hardening across 15 components: PdfSourceViewer reactive props.data reload + loadGeneration cancel, manual-knowledge-editor initGeneration guard, AttachmentUpload session/unmount guard on upload completion, Input-field image ObjectURL revoke on unmount + sharedAgentKbReqSeq, ChatHeader editingSessionId capture + grantsLoadSeq, and timer/listener/request sequence cleanup across guides, selectors, and drawers.",
           "regression_test": "PdfSourceViewer, AttachmentUpload, Input-field, ChatHeader, guides, and selectors clean up timers, blobs, and stale loads",
-          "commit": "495d070974e0318c8090b0dddab28bfb9d5a2f77"
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
         }
       ],
       "verification_commands": [
@@ -388,7 +388,7 @@
           "file": "frontend/src/composables/useCitationPopover.ts:170-210",
           "summary": "useCitationPopover.openWeb copied raw data-url attributes into float.value.url without URL scheme validation, propagating javascript:/data: payloads into ChatCitationFloat.",
           "regression_test": "useCitationPopover blocks javascript: and data: URLs in openWeb while keeping https:",
-          "commit": "495d070974e0318c8090b0dddab28bfb9d5a2f77"
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
         },
         {
           "id": "W6-HOOK-02",
@@ -396,7 +396,7 @@
           "file": "frontend/src/composables/useResourcePins.ts:55-155",
           "summary": "Singleton useResourcePins registered its tenant watcher inside the first caller component's effectScope (dying permanently once that component unmounted), ignored authStore.user?.id switches on shared home workspaces, and reused/applied stale in-flight listFavorites responses across tenant switches.",
           "regression_test": "useResourcePins keeps watching tenant and user switches after the first caller scope disposes; useResourcePins discards stale in-flight listFavorites responses from an earlier tenant",
-          "commit": "495d070974e0318c8090b0dddab28bfb9d5a2f77"
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
         },
         {
           "id": "W6-HOOK-03",
@@ -404,7 +404,7 @@
           "file": "frontend/src/composables/useEmbedChatSession.ts:285-350, 445-525",
           "summary": "useEmbedChatSession failed to cancel its 500ms debouncedScrollTop timer on session switch or unmount, cleared historyLoading/historyLoadingMore for a newly selected session when an older session's getmsgList settled, and lacked session-switch/unmount guards across await fileToDataURI in sendMsg.",
           "regression_test": "stale getmsgList settlement from session-a does not clear session-b historyLoading or cancel debounced scroll missing; sendMsg aborts before pushing message or starting stream when session switches during fileToDataURI",
-          "commit": "495d070974e0318c8090b0dddab28bfb9d5a2f77"
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
         },
         {
           "id": "W6-HOOK-04",
@@ -412,7 +412,7 @@
           "file": "frontend/src/composables/useSandboxDesktop.ts:150-245; frontend/src/composables/useSandboxTerminal.ts:195-330",
           "summary": "useSandboxDesktop allowed async disconnect events from a retired noVNC RFB client to clobber active connection status and schedule duplicate reconnects and lacked connectEpoch/sessionId guards across async ticket minting; useSandboxTerminal lacked connectEpoch/sessionId guards across ticket minting and wrote stored PTY IDs to reactive sessionId.value instead of the socket's captured sid.",
           "regression_test": "useSandboxDesktop ignores async disconnect from retired RFB client and aborts stale sessionId ticket; useSandboxTerminal aborts stale ticket on session switch and scopes stored PTY id to socket sid",
-          "commit": "495d070974e0318c8090b0dddab28bfb9d5a2f77"
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
         },
         {
           "id": "W6-HOOK-05",
@@ -420,7 +420,7 @@
           "file": "frontend/src/composables/useEmbedBridge.ts:95-145; frontend/src/composables/useVoiceInput.ts:285-340; frontend/src/composables/useConfigSkillInstallProgress.ts:110-155",
           "summary": "useEmbedBridge re-populated setEmbedAllowedOrigins and called postEmbedReady if bootstrap() resolved after unmount; useVoiceInput invoked onText/onError callbacks if transcribeAudio resolved/rejected after unmount; useConfigSkillInstallProgress lacked onScopeDispose(stopAll) cleanup for openWhenHidden SSE controllers.",
           "regression_test": "useEmbedBridge does not set allowed origins or post ready if unmounted during bootstrap; useVoiceInput suppresses onText and onError when component unmounts during transcription; useConfigSkillInstallProgress aborts active SSE controllers on effectScope disposal",
-          "commit": "495d070974e0318c8090b0dddab28bfb9d5a2f77"
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
         }
       ],
       "verification_commands": [
@@ -449,7 +449,7 @@
           "file": "frontend/src/directives/stableHtml.ts:45-195",
           "summary": "morphImage preserved stale blob src and data-protected-src attributes whenever two protected images shared identical alt text (e.g. default 'image' alt across message switches); morphMermaidCanvas preserved stale rendered SVGs even when the Mermaid diagram source changed; parseIncoming lacked defense-in-depth scrubbing against <script>/<iframe>/<object>/<embed>, inline on* attributes, and javascript:/data: URIs.",
           "regression_test": "decoded protected image with identical alt updates when data-protected-src changes; mermaid canvas keeps painted svg during streaming ticks but invalidates when source changes; vStableHtml strips dangerous elements, event handlers, and javascript URIs",
-          "commit": "495d070974e0318c8090b0dddab28bfb9d5a2f77"
+          "commit": "3506dcacc28f5d29480afc134599fc041375d993"
         }
       ],
       "verification_commands": [
