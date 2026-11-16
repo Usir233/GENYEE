@@ -687,13 +687,17 @@ const parseManualMetadata = (
   return null
 }
 
-const loadKnowledgeContent = async () => {
-  if (!currentKnowledgeId.value) {
+let initGeneration = 0
+
+const loadKnowledgeContent = async (generation = initGeneration) => {
+  const targetId = currentKnowledgeId.value
+  if (!targetId) {
     return
   }
   contentLoading.value = true
   try {
-    const res: any = await getKnowledgeDetails(currentKnowledgeId.value)
+    const res: any = await getKnowledgeDetails(targetId)
+    if (generation !== initGeneration || currentKnowledgeId.value !== targetId) return
     const data: KnowledgeDetailResponse | undefined = res?.data
     if (!data) {
       MessagePlugin.error(t('manualEditor.error.fetchDetailFailed'))
@@ -721,10 +725,11 @@ const loadKnowledgeContent = async () => {
       })
     }
   } catch (error) {
+    if (generation !== initGeneration) return
     console.error('[ManualEditor] Failed to load manual knowledge:', error)
     MessagePlugin.error(t('manualEditor.error.fetchDetailFailed'))
   } finally {
-    contentLoading.value = false
+    if (generation === initGeneration) contentLoading.value = false
   }
 }
 
@@ -749,11 +754,14 @@ const generateDefaultTitle = () => {
 }
 
 const initialize = async () => {
+  const generation = ++initGeneration
   resetForm()
   await loadKnowledgeBases()
+  if (generation !== initGeneration) return
 
   if (mode.value === 'edit') {
-    await loadKnowledgeContent()
+    await loadKnowledgeContent(generation)
+    if (generation !== initGeneration) return
   } else {
     const presetKbId = uiStore.manualEditorKBId
     if (presetKbId) {

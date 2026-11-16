@@ -6,10 +6,10 @@
       <template v-if="float.type === 'web'">
         <div class="chat-citation-float__header">
           <span class="chat-citation-float__icon chat-citation-float__icon--web" aria-hidden="true" />
-          <div class="chat-citation-float__title">{{ float.title || float.url }}</div>
+          <div class="chat-citation-float__title">{{ float.title || safeUrl }}</div>
         </div>
-        <a v-if="float.url" class="chat-citation-float__link" :href="float.url" target="_blank"
-          rel="noopener noreferrer">{{ float.url }}</a>
+        <a v-if="safeUrl" class="chat-citation-float__link" :href="safeUrl" target="_blank"
+          rel="noopener noreferrer">{{ safeUrl }}</a>
       </template>
       <template v-else>
         <div class="chat-citation-float__header">
@@ -37,6 +37,17 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const loadingText = t('common.loading')
+
+const safeUrl = computed(() => {
+  const raw = String(props.float.url || '').trim()
+  if (!raw || !/^https?:\/\//i.test(raw)) return ''
+  try {
+    const parsed = new URL(raw)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? raw : ''
+  } catch {
+    return ''
+  }
+})
 
 // 预览只放纯文本摘录，去掉 Markdown 标记和多余空行
 const plainContent = computed(() => props.float.content

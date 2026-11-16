@@ -84,12 +84,12 @@
               }"
             >
               <component
-                :is="item.kind === 'web' ? 'a' : 'div'"
+                :is="item.kind === 'web' && safeWebUrl(item.url) ? 'a' : 'div'"
                 class="reference-item__body"
                 :class="{ 'is-expandable': item.kind === 'document' && hasMoreContent(item) }"
-                :href="item.kind === 'web' ? item.url : undefined"
-                :target="item.kind === 'web' ? '_blank' : undefined"
-                :rel="item.kind === 'web' ? 'noopener noreferrer' : undefined"
+                :href="item.kind === 'web' ? safeWebUrl(item.url) || undefined : undefined"
+                :target="item.kind === 'web' && safeWebUrl(item.url) ? '_blank' : undefined"
+                :rel="item.kind === 'web' && safeWebUrl(item.url) ? 'noopener noreferrer' : undefined"
                 :role="item.kind === 'document' && hasMoreContent(item) ? 'button' : undefined"
                 :tabindex="item.kind === 'document' && hasMoreContent(item) ? 0 : undefined"
                 @mousedown="trackContentPointerDown"
@@ -137,13 +137,14 @@
                 <template v-else>
                   <div v-if="item.kind === 'web' && item.domain" class="reference-item__source">
                     <img
-                      v-if="item.faviconUrl"
+                      v-if="safeFaviconUrl(item.faviconUrl)"
                       class="reference-item__source-mark"
-                      :src="item.faviconUrl"
+                      :src="safeFaviconUrl(item.faviconUrl)"
                       alt=""
                       loading="lazy"
                       @error="onFaviconError"
                     />
+                    <t-icon v-else name="internet" class="reference-item__source-mark" />
                     <span class="reference-item__domain">{{ item.domain }}</span>
                   </div>
                   <div v-else-if="item.kind === 'tool' && item.domain" class="reference-item__source">
@@ -334,6 +335,28 @@ function setItemRef(key: string, el: HTMLElement | null) {
     return
   }
   itemElements.set(key, el)
+}
+
+function safeWebUrl(raw?: string): string {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed || !/^https?:\/\//i.test(trimmed)) return ''
+  try {
+    const parsed = new URL(trimmed)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? trimmed : ''
+  } catch {
+    return ''
+  }
+}
+
+function safeFaviconUrl(raw?: string): string {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return ''
+  // Offline / privacy guard: never send cited hostnames to external favicon CDNs (e.g. google.com/s2/favicons).
+  if (/^\/(?!\/)/.test(trimmed)) return trimmed
+  if (/^data:image\/(?:png|jpeg|jpg|gif|webp|x-icon|vnd\.microsoft\.icon);base64,[A-Za-z0-9+/=\s]+$/i.test(trimmed)) {
+    return trimmed
+  }
+  return ''
 }
 
 function onFaviconError(event: Event) {

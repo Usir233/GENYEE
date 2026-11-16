@@ -203,6 +203,7 @@ export function useSandboxDesktop(
   let detachClipboard: (() => void) | null = null
   // 当前这次连接是否带创建意图。只由 connect(..., { provision: true }) 置真。
   let allowProvision = false
+  let connectEpoch = 0
 
   function clearClipboardBridge() {
     if (detachClipboard) {
@@ -234,7 +235,7 @@ export function useSandboxDesktop(
     }, delay)
   }
 
-  function buildUrl(ticket: string): string {
+  function buildUrl(sid: string, ticket: string): string {
     const query = new URLSearchParams({ ticket })
     if (allowProvision) {
       query.set('provision', '1')
@@ -245,7 +246,7 @@ export function useSandboxDesktop(
         query.set('agent_source_tenant_id', String(sourceTenant).trim())
       }
     }
-    return `${resolveWsBase()}/api/v1/sessions/${encodeURIComponent(sessionId.value)}` +
+    return `${resolveWsBase()}/api/v1/sessions/${encodeURIComponent(sid)}` +
       `/sandbox/desktop?${query.toString()}`
   }
 
@@ -253,6 +254,8 @@ export function useSandboxDesktop(
     if (disposed || !wanted || opening || rfb || !target) return
     const sid = sessionId.value
     if (!sid) return
+    const epoch = connectEpoch
+    const isStale = () => disposed || !wanted || !target || epoch !== connectEpoch || sessionId.value !== sid
 
     opening = true
     // 懒启动跑完要 3–8 秒，期间必须有明确反馈，否则用户以为卡死。
@@ -262,17 +265,17 @@ export function useSandboxDesktop(
       // noVNC probes WebCodecs with top-level await. Load it only for an
       // explicit desktop connection so a stalled decoder cannot block chat.
       const { default: RFB } = await import('@novnc/novnc')
-      if (disposed || !wanted || !target) return
+      if (isStale()) return
       const ticket = await mintDesktopTicket(sid)
-      if (disposed || !wanted || !target) return
+      if (isStale()) return
 
-      socket = new WebSocket(buildUrl(ticket), ['binary'])
+      socket = new WebSocket(buildUrl(sid, ticket), ['binary'])
       // 必须用 addEventListener：noVNC Websock.attach 会覆盖 socket.onclose。
       let nativeCloseReason = ''
       socket.addEventListener('close', (event: CloseEvent) => {
         nativeCloseReason = typeof event.reason === 'string' ? event.reason : ''
       }, { once: true })
-      if (disposed || !wanted || !target) {
+      if (isStale()) {
         socket.close()
         return
       }
@@ -299,8 +302,10 @@ export function useSandboxDesktop(
         reconnectAttempt = 0
       })
       client.addEventListener('disconnect', () => {
-        if (rfb === client) rfb = null
-        if (disposed || !wanted) return
+        if (rfb !== client) return
+        rfb = null
+        clearClipboardBridge()
+        if (disposed || !wanted || epoch !== connectEpoch) return
         const mapped = nativeCloseReason ? statusFromCloseReason(nativeCloseReason) : null
         if (mapped) {
           status.value = mapped
@@ -326,8 +331,9 @@ export function useSandboxDesktop(
       ) {
         socket.close()
       }
+      if (epoch !== connectEpoch) return
       rfb = null
-      if (disposed || !wanted) return
+      if (disposed || !wanted || sessionId.value !== sid) return
       const httpStatus = httpStatusFromRejected(err)
       const errorCode = errorCodeFromRejected(err)
       status.value = httpStatus
@@ -335,7 +341,7 @@ export function useSandboxDesktop(
         : 'error'
       if (status.value === 'start_failed') scheduleReconnect()
     } finally {
-      opening = false
+      if (epoch === connectEpoch) opening = false
     }
   }
 
@@ -343,24 +349,25 @@ export function useSandboxDesktop(
     status,
     connect(element, options?: { provision?: boolean }) {
       if (disposed) return
+      connectEpoch += 1
+      opening = false
       wanted = true
       target = element
       allowProvision = options?.provision === true
       reconnectAttempt = 0
       everConnected = false
       clearReconnectTimer()
+      clearClipboardBridge()
       if (rfb) {
         const client = rfb
         rfb = null
-        // Drop wanted so the leftover disconnect cannot scheduleReconnect
-        // or overwrite paused/needs_provision before the new dial starts.
-        wanted = false
         client.disconnect()
-        wanted = true
       }
       void openDesktop()
     },
     disconnect() {
+      connectEpoch += 1
+      opening = false
       wanted = false
       clearReconnectTimer()
       clearClipboardBridge()

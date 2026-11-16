@@ -30,13 +30,19 @@ const position = ref<{ left: number; top: number } | null>(null)
 
 // Where the pointer let go of the selection, to put the bar beside it.
 let lastPointer = { x: 0, y: 0, at: 0 }
+let placeEpoch = 0
+let unmounted = false
 const MARGIN = 8
 
-const hide = () => { position.value = null }
+const hide = () => {
+  placeEpoch += 1
+  position.value = null
+}
 
 async function place() {
   const control = selectedTextControl()
   if (!control) return hide()
+  const epoch = ++placeEpoch
   let x: number
   let y: number
   if (Date.now() - lastPointer.at < 1500) {
@@ -48,6 +54,7 @@ async function place() {
   }
   position.value = { left: x, top: y - 44 }
   await nextTick()
+  if (unmounted || epoch !== placeEpoch) return
   const width = bubble.value?.offsetWidth || 320
   const height = bubble.value?.offsetHeight || 34
   const top = y - height - 10 < MARGIN ? y + 16 : y - height - 10
@@ -88,6 +95,8 @@ onMounted(() => {
   window.addEventListener('resize', hide)
 })
 onUnmounted(() => {
+  unmounted = true
+  placeEpoch += 1
   document.removeEventListener('pointerup', onPointerUp, true)
   document.removeEventListener('pointerdown', onPointerDown, true)
   document.removeEventListener('keydown', onKeyDown, true)

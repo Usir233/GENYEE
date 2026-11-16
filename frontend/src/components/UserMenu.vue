@@ -126,7 +126,7 @@
           <span>{{ $t('settings.navGroups.systemAdministration') }}</span>
         </div>
         <div class="menu-divider"></div>
-        <div v-if="docsUrl('home')" class="menu-item" @click="openDocs">
+        <div v-if="safeDocsUrl" class="menu-item" @click="openDocs">
           <t-icon name="help-circle" class="menu-icon" />
           <span class="menu-text-with-icon">
             <span>{{ $t('general.helpAndDocs') }}</span>
@@ -512,15 +512,30 @@ const reopenGuide = () => {
   openNewUserGuide()
 }
 
-const openDocs = () => {
-  menuVisible.value = false
-  const url = docsUrl('home')
-  if (url) {
-    window.open(url, '_blank')
+const toSafeExternalOrAppUrl = (raw: string, allowRelative = false): string => {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return ''
+  if (allowRelative && /^\/(?!\/)/.test(trimmed)) return trimmed
+  if (!/^https?:\/\//i.test(trimmed)) return ''
+  try {
+    const parsed = new URL(trimmed)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? trimmed : ''
+  } catch {
+    return ''
   }
 }
 
-const githubUrl = computed(() => ((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '').trim())
+const safeDocsUrl = computed(() => toSafeExternalOrAppUrl(docsUrl('home'), true))
+
+const openDocs = () => {
+  menuVisible.value = false
+  const url = safeDocsUrl.value
+  if (url) {
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+}
+
+const githubUrl = computed(() => toSafeExternalOrAppUrl((window as any).__RUNTIME_CONFIG__?.GITHUB_URL || '', false))
 
 // 打开 GitHub
 const openGithub = () => {
@@ -570,6 +585,10 @@ const handleClickOutside = (e: MouseEvent) => {
   // Tenant submenu is teleported to body, so it's not inside menuRef.
   const tenantFloating = document.querySelector('.tenant-submenu-floating')
   if (tenantFloating && tenantFloating.contains(target)) return
+  if (tenantSubmenuHideTimer) {
+    clearTimeout(tenantSubmenuHideTimer)
+    tenantSubmenuHideTimer = null
+  }
   menuVisible.value = false
   tenantSubmenuOpen.value = false
 }
@@ -581,6 +600,10 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  if (tenantSubmenuHideTimer) {
+    clearTimeout(tenantSubmenuHideTimer)
+    tenantSubmenuHideTimer = null
+  }
 })
 </script>
 

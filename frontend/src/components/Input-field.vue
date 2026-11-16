@@ -275,10 +275,13 @@ watch([selectedAgentId, agentKnowledgeBases, agentKBSelectionMode], ([newAgentId
 }, { immediate: true });
 
 // 共享智能体时预取该智能体知识库列表，使已选标签在未打开 @ 时也能显示共享空间角标
+let sharedAgentKbReqSeq = 0;
 watch([selectedAgentId, () => settingsStore.selectedAgentSourceTenantId], async ([agentId, sourceTenantId]) => {
+  const seq = ++sharedAgentKbReqSeq;
   if (sourceTenantId && agentId) {
     try {
       const list = await chatResources.ensureAgentKnowledgeBases(agentId, sourceTenantId);
+      if (seq !== sharedAgentKbReqSeq) return;
       sharedAgentKbList.value = list.map((kb: any) => ({
         id: kb.id,
         name: kb.name,
@@ -287,7 +290,7 @@ watch([selectedAgentId, () => settingsStore.selectedAgentSourceTenantId], async 
         chunk_count: kb.chunk_count
       }));
     } catch {
-      sharedAgentKbList.value = [];
+      if (seq === sharedAgentKbReqSeq) sharedAgentKbList.value = [];
     }
   } else {
     sharedAgentKbList.value = [];
@@ -2211,6 +2214,9 @@ onBeforeUnmount(() => {
 });
 
 onUnmounted(() => {
+  sharedAgentKbReqSeq += 1;
+  uploadedImages.value.forEach(img => URL.revokeObjectURL(img.preview));
+  uploadedImages.value = [];
   window.removeEventListener('keydown', onVoiceKeydown, true);
   window.removeEventListener('keyup', onVoiceKeyup, true);
   window.removeEventListener('blur', onVoiceWindowBlur);

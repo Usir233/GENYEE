@@ -120,7 +120,7 @@ import hljs from 'highlight.js'
 import 'katex/dist/katex.min.css'
 import { copyWithToast } from '@/utils/clipboard'
 import { getFileIcon } from '@/utils/files'
-import { sanitizeMarkdownHTML, safeMarkdownToHTML } from '@/utils/security'
+import { sanitizeMarkdownHTML, safeMarkdownToHTML, sanitizeSvgForDataUrl } from '@/utils/security'
 import {
   createChatMarkdownRenderer,
   renderChatMarkdown,
@@ -216,6 +216,7 @@ function onSplitStart(e: MouseEvent) {
   splitStartWidth = navWidth.value
   document.addEventListener('mousemove', onSplitMove)
   document.addEventListener('mouseup', onSplitEnd)
+  window.addEventListener('blur', cleanupSplit)
   document.body.style.cursor = 'col-resize'
   document.body.style.userSelect = 'none'
 }
@@ -228,6 +229,7 @@ function onSplitMove(e: MouseEvent) {
 function onSplitEnd() {
   document.removeEventListener('mousemove', onSplitMove)
   document.removeEventListener('mouseup', onSplitEnd)
+  window.removeEventListener('blur', cleanupSplit)
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
   splitting.value = false
@@ -237,6 +239,7 @@ function onSplitEnd() {
 function cleanupSplit() {
   document.removeEventListener('mousemove', onSplitMove)
   document.removeEventListener('mouseup', onSplitEnd)
+  window.removeEventListener('blur', cleanupSplit)
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
   splitting.value = false
@@ -255,6 +258,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  unmounted = true
+  treeSeq += 1
+  fileSeq += 1
+  enhanceSeq += 1
   window.removeEventListener('resize', syncSplitHandle)
   splitObserver?.disconnect()
   splitObserver = null
@@ -401,10 +408,37 @@ const canToggleMarkdown = computed(() =>
 )
 const canCopy = computed(() => Boolean(file.value?.content && file.value.encoding === 'utf-8'))
 const showMarkdown = computed(() => canToggleMarkdown.value && markdownMode.value === 'preview')
+const RASTER_IMAGE_MEDIA_RE = /^image\/(?:png|jpe?g|gif|webp|bmp|x-icon|vnd\.microsoft\.icon)$/i
+const BASE64_CONTENT_RE = /^[A-Za-z0-9+/=\s]+$/
+let unmounted = false
+let treeSeq = 0
+let fileSeq = 0
+let enhanceSeq = 0
+
+function decodeBase64Utf8(b64: string): string {
+  const clean = b64.replace(/\s+/g, '')
+  const binary = atob(clean)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i)
+  }
+  return new TextDecoder('utf-8', { fatal: false }).decode(bytes)
+}
+
 const imageSrc = computed(() => {
   const current = file.value
   if (!current || current.encoding !== 'base64' || !current.content || !current.media_type) return ''
-  return `data:${current.media_type};base64,${current.content}`
+  const mediaType = current.media_type.trim().toLowerCase()
+  if (!BASE64_CONTENT_RE.test(current.content)) return ''
+  if (mediaType === 'image/svg+xml') {
+    try {
+      return sanitizeSvgForDataUrl(decodeBase64Utf8(current.content)) || ''
+    } catch {
+      return ''
+    }
+  }
+  if (!RASTER_IMAGE_MEDIA_RE.test(mediaType)) return ''
+  return `data:${mediaType};base64,${current.content.replace(/\s+/g, '')}`
 })
 
 function highlightText(text: string, path: string): string {
@@ -483,13 +517,16 @@ function renderMarkdown(text: string) {
 }
 
 async function enhancePreview() {
-  if (!showMarkdown.value || fileLoading.value || !markdownHtml.value) return
+  if (!showMarkdown.value || fileLoading.value || !markdownHtml.value || unmounted) return
+  const seq = ++enhanceSeq
   await nextTick()
+  if (unmounted || seq !== enhanceSeq || !showMarkdown.value || fileLoading.value) return
   await enhanceMarkdownContainer(markdownEl.value)
 }
 
 async function selectFile(path: string) {
   if (!props.catalogId && (!props.configId || !props.skillId)) return
+  const seq = ++fileSeq
   selectedPath.value = path
   fileLoading.value = true
   fileError.value = ''
@@ -502,6 +539,7 @@ async function selectFile(path: string) {
     const res = props.catalogId
       ? await getCatalogSkillFile(props.catalogId, path)
       : await getConfigSkillFile(props.configId || '', props.skillId || '', path)
+    if (unmounted || seq !== fileSeq) return
     const data = res?.data
     file.value = data || null
     if (!data) {
@@ -513,9 +551,10 @@ async function selectFile(path: string) {
       if (isMarkdown(path)) renderMarkdown(data.content)
     }
   } catch (e: any) {
+    if (unmounted || seq !== fileSeq) return
     fileError.value = e?.message || t('settings.sandbox.skillFilesFileLoadFailed')
   } finally {
-    fileLoading.value = false
+    if (!unmounted && seq === fileSeq) fileLoading.value = false
   }
 }
 
@@ -526,6 +565,9 @@ async function copyContent() {
 }
 
 async function loadFiles() {
+  const seq = ++treeSeq
+  fileSeq += 1
+  fileLoading.value = false
   if (!props.catalogId && (!props.configId || !props.skillId)) return
   listLoading.value = true
   listError.value = ''
@@ -533,10 +575,14 @@ async function loadFiles() {
   selectedPath.value = ''
   file.value = null
   fileError.value = ''
+  markdownHtml.value = ''
+  highlightedHtml.value = ''
+  frontmatterFields.value = []
   try {
     const res = props.catalogId
       ? await listCatalogSkillFiles(props.catalogId)
       : await listConfigSkillFiles(props.configId || '', props.skillId || '')
+    if (unmounted || seq !== treeSeq) return
     const list = res?.data || []
     const tree = buildTree(list)
     nodes.value = tree
@@ -546,9 +592,10 @@ async function loadFiles() {
     const initial = list.some((item) => item.path === 'SKILL.md') ? 'SKILL.md' : list[0]?.path
     if (initial) await selectFile(initial)
   } catch (e: any) {
+    if (unmounted || seq !== treeSeq) return
     listError.value = e?.message || t('settings.sandbox.skillFilesLoadFailed')
   } finally {
-    listLoading.value = false
+    if (!unmounted && seq === treeSeq) listLoading.value = false
   }
 }
 

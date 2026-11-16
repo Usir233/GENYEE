@@ -4,7 +4,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import SpotlightGuide from '@/components/SpotlightGuide.vue'
 import {
   focusAgentEditorSection,
@@ -165,4 +165,11 @@ watch(
   },
   { immediate: true },
 )
+
+onBeforeUnmount(() => {
+  if (openTimer) clearTimeout(openTimer)
+  if (waitGlobalTimer) clearTimeout(waitGlobalTimer)
+  openTimer = null
+  waitGlobalTimer = null
+})
 </script>

@@ -14,7 +14,7 @@
 // audit-log derivation, which is a much smaller migration than starting
 // from scratch.
 
-import { ref, computed, watch, type ComputedRef, type Ref } from 'vue'
+import { ref, computed, watch, effectScope, type ComputedRef, type EffectScope, type Ref } from 'vue'
 import {
   listFavorites,
   addFavorite,
@@ -94,6 +94,20 @@ const favoritesByType: Record<ResourceType, Ref<PinEntry[]>> = {
 }
 const loaded: Record<ResourceType, boolean> = { kb: false, agent: false }
 const inFlight: Record<ResourceType, Promise<void> | null> = { kb: null, agent: null }
+let scopeEpoch = 0
+let lastScopeKey: string | null = null
+let watcherScope: EffectScope | null = null
+
+function currentScopeKey(): string {
+  try {
+    const authStore = useAuthStore()
+    const uid = authStore.user?.id || readUserId()
+    const tid = authStore.effectiveTenantId ?? ''
+    return `${uid}:${tid}`
+  } catch {
+    return `${readUserId()}:`
+  }
+}
 
 // recents revision counter — same bump-to-invalidate pattern as before.
 const recentsRevision = ref(0)
@@ -114,9 +128,12 @@ async function fetchFavorites(type: ResourceType): Promise<void> {
   // Single-flight guard: list views mount in parallel and would otherwise
   // each fire a request. Reuse the in-flight promise instead.
   if (inFlight[type]) return inFlight[type]!
-  inFlight[type] = (async () => {
+  const epoch = scopeEpoch
+  let requestPromise: Promise<void> | null = null
+  requestPromise = (async () => {
     try {
       const res = (await listFavorites(type)) as unknown as { success: boolean; data?: any[] }
+      if (epoch !== scopeEpoch) return
       const data = res?.data || []
       favoritesByType[type].value = data.map((e: any) => ({
         type: e.resource_type as ResourceType,
@@ -125,40 +142,55 @@ async function fetchFavorites(type: ResourceType): Promise<void> {
       }))
       loaded[type] = true
     } catch (err) {
+      if (epoch !== scopeEpoch) return
       console.warn(`[useResourcePins] failed to load ${type} favorites:`, err)
       favoritesByType[type].value = []
     } finally {
-      inFlight[type] = null
+      if (inFlight[type] === requestPromise) {
+        inFlight[type] = null
+      }
     }
   })()
-  return inFlight[type]!
+  inFlight[type] = requestPromise
+  return requestPromise
 }
 
-// Invalidate caches when the active tenant changes — favorites are
-// (user, tenant)-scoped on the server, so a tenant switch means the
-// currently loaded list belongs to the *previous* tenant. We trigger one
-// watcher at module load so any later switch refetches automatically.
-let tenantWatcherInstalled = false
+function resetScopeCacheAndRefetch(): void {
+  scopeEpoch++
+  inFlight.kb = null
+  inFlight.agent = null
+  loaded.kb = false
+  loaded.agent = false
+  favoritesByType.kb.value = []
+  favoritesByType.agent.value = []
+  void fetchFavorites('kb')
+  void fetchFavorites('agent')
+  bumpRecents()
+}
+
+// Invalidate caches when the active user or tenant changes — favorites are
+// (user, tenant)-scoped on the server. Run inside a detached effectScope(true)
+// so unmounting the first calling component never tears down the watcher.
 function installTenantWatcher(): void {
-  if (tenantWatcherInstalled) return
-  tenantWatcherInstalled = true
-  const authStore = useAuthStore()
-  watch(
-    () => authStore.effectiveTenantId,
-    () => {
-      loaded.kb = false
-      loaded.agent = false
-      favoritesByType.kb.value = []
-      favoritesByType.agent.value = []
-      // Eagerly refetch both types so any already-mounted list view sees
-      // fresh data without a manual refresh.
-      void fetchFavorites('kb')
-      void fetchFavorites('agent')
-      // Recents are keyed on the tenant id (see `recentsKey`); bump the
-      // revision so any active computed re-reads against the new key.
-      bumpRecents()
-    }
-  )
+  const keyNow = currentScopeKey()
+  if (lastScopeKey === null) {
+    lastScopeKey = keyNow
+  } else if (lastScopeKey !== keyNow) {
+    lastScopeKey = keyNow
+    resetScopeCacheAndRefetch()
+  }
+  if (watcherScope) return
+  watcherScope = effectScope(true)
+  watcherScope.run(() => {
+    watch(
+      () => currentScopeKey(),
+      (nextKey) => {
+        if (nextKey === lastScopeKey) return
+        lastScopeKey = nextKey
+        resetScopeCacheAndRefetch()
+      }
+    )
+  })
 }
 
 export interface UseResourcePinsResult {
@@ -200,6 +232,7 @@ export function useResourcePins(): UseResourcePinsResult {
   }
 
   const toggleFavorite = async (type: ResourceType, id: string): Promise<boolean> => {
+    const epoch = scopeEpoch
     const list = favoritesByType[type].value
     const idx = list.findIndex((e) => e.id === id)
     // Optimistic update first so the star animation feels instant; on
@@ -214,7 +247,9 @@ export function useResourcePins(): UseResourcePinsResult {
         await removeFavorite(type, id)
         return false
       } catch (err) {
-        favoritesByType[type].value = [removed, ...favoritesByType[type].value]
+        if (epoch === scopeEpoch) {
+          favoritesByType[type].value = [removed, ...favoritesByType[type].value]
+        }
         console.warn('[useResourcePins] removeFavorite failed; reverted:', err)
         return true
       }
@@ -225,7 +260,9 @@ export function useResourcePins(): UseResourcePinsResult {
       await addFavorite(type, id)
       return true
     } catch (err) {
-      favoritesByType[type].value = favoritesByType[type].value.filter((e) => e.id !== id)
+      if (epoch === scopeEpoch) {
+        favoritesByType[type].value = favoritesByType[type].value.filter((e) => e.id !== id)
+      }
       console.warn('[useResourcePins] addFavorite failed; reverted:', err)
       return false
     }

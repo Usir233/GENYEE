@@ -198,6 +198,16 @@ const pendingRemove = reactive<Record<string, boolean>>({})
 type InlineToastKind = 'removed'
 const inlineToast = reactive<Record<string, { kind: InlineToastKind } | null>>({})
 const inlineToastTimers: Record<string, ReturnType<typeof setTimeout> | null> = {}
+let apiEpoch = 0
+
+function clearInlineToastTimers() {
+  for (const k of Object.keys(inlineToastTimers)) {
+    if (inlineToastTimers[k]) {
+      clearTimeout(inlineToastTimers[k]!)
+      inlineToastTimers[k] = null
+    }
+  }
+}
 
 function flashInlineToast(key: string, kind: InlineToastKind, ms = 2400) {
   inlineToast[key] = { kind }
@@ -229,11 +239,17 @@ watch(
 )
 
 // If the parent swaps the api (e.g. user opens a different resource), drop
-// transient state. props.meta will follow and re-init via the watch above.
+// transient state and immediately re-derive from current props.meta so same-flush
+// computed updates never leave configured fields blank.
 watch(() => props.api, () => {
+  apiEpoch += 1
+  clearInlineToastTimers()
   for (const k of Object.keys(states)) delete states[k]
   for (const k of Object.keys(drafts)) delete drafts[k]
   for (const k of Object.keys(pendingRemove)) delete pendingRemove[k]
+  for (const k of Object.keys(busy)) delete busy[k]
+  for (const k of Object.keys(inlineToast)) delete inlineToast[k]
+  deriveStatesFromMeta(props.meta ?? ({} as Record<K, { configured: boolean }>))
 })
 
 function stateOf(key: string): State {
@@ -261,12 +277,15 @@ function cancelEdit(key: string) {
 async function onSave(field: CredentialFieldDef) {
   const value = drafts[field.key]
   if (!value) return
+  const epoch = apiEpoch
+  const api = props.api
   busy[field.key] = 'save'
   try {
     // Apply the save's returned metadata locally so the card flips to
     // 'configured' immediately. Skip the editing-preserve guard since this
     // particular field just finished editing.
-    const updated = await props.api.save({ [field.key]: value } as Partial<Record<K, string>>)
+    const updated = await api.save({ [field.key]: value } as Partial<Record<K, string>>)
+    if (epoch !== apiEpoch) return
     for (const f of props.fields) {
       if (f.key === field.key) continue
       if (states[f.key] === 'editing') continue
@@ -277,9 +296,10 @@ async function onSave(field: CredentialFieldDef) {
     MessagePlugin.success(t('credential.savedToast'))
     emit('changed')
   } catch (err: any) {
+    if (epoch !== apiEpoch) return
     MessagePlugin.error(err?.message || t('credential.saveFailed'))
   } finally {
-    busy[field.key] = null
+    if (epoch === apiEpoch) busy[field.key] = null
   }
 }
 
@@ -300,29 +320,29 @@ function cancelPendingRemove(key: string) {
 }
 
 async function confirmRemove(field: CredentialFieldDef) {
+  const epoch = apiEpoch
+  const api = props.api
   busy[field.key] = 'remove'
   try {
-    await props.api.remove(field.key as K)
+    await api.remove(field.key as K)
+    if (epoch !== apiEpoch) return
     states[field.key] = 'unconfigured'
     pendingRemove[field.key] = false
     flashInlineToast(field.key, 'removed')
     emit('changed')
   } catch (err: any) {
+    if (epoch !== apiEpoch) return
     MessagePlugin.error(err?.message || t('credential.removeFailed'))
   } finally {
-    busy[field.key] = null
+    if (epoch === apiEpoch) busy[field.key] = null
   }
 }
 
 // Cancel pending inline-toast timers when the component unmounts so we
 // don't write to a torn-down reactive object after navigation.
 onBeforeUnmount(() => {
-  for (const k of Object.keys(inlineToastTimers)) {
-    if (inlineToastTimers[k]) {
-      clearTimeout(inlineToastTimers[k]!)
-      inlineToastTimers[k] = null
-    }
-  }
+  apiEpoch += 1
+  clearInlineToastTimers()
 })
 </script>
 

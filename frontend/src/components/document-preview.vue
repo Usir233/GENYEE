@@ -269,6 +269,54 @@ function getHighlightLang(ft: string): string {
   return resolveHighlightLang(ft);
 }
 
+function escapePreviewHtml(raw: string): string {
+  return String(raw || '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[ch] || ch));
+}
+
+function sanitizeRenderedDocxDom(root: HTMLElement): void {
+  const blockedTags = 'script,iframe,object,embed,applet,base,meta,link';
+  if (typeof root.querySelectorAll === 'function') {
+    root.querySelectorAll(blockedTags).forEach((node) => node.remove());
+    root.querySelectorAll('*').forEach((el) => {
+      for (const { name, value } of Array.from(el.attributes || [])) {
+        const lower = name.toLowerCase();
+        if (lower.startsWith('on')) {
+          el.removeAttribute(name);
+          continue;
+        }
+        if (lower === 'href' || lower === 'xlink:href' || lower === 'formaction') {
+          const normalized = value.replace(/[\u0000-\u0020]+/g, '').toLowerCase();
+          if (
+            normalized.startsWith('javascript:')
+            || normalized.startsWith('vbscript:')
+            || normalized.startsWith('data:')
+          ) {
+            el.removeAttribute(name);
+          } else if (el.tagName.toUpperCase() === 'A' && /^https?:\/\//i.test(value.trim())) {
+            el.setAttribute('target', '_blank');
+            el.setAttribute('rel', 'noopener noreferrer');
+          }
+        } else if (lower === 'src') {
+          const normalized = value.replace(/[\u0000-\u0020]+/g, '').toLowerCase();
+          if (
+            normalized.startsWith('javascript:')
+            || normalized.startsWith('vbscript:')
+            || (normalized.startsWith('data:') && !(el.tagName.toUpperCase() === 'IMG' && normalized.startsWith('data:image/')))
+          ) {
+            el.removeAttribute(name);
+          }
+        }
+      }
+    });
+  }
+}
+
 async function renderDocx(blob: Blob, isCurrent: () => boolean) {
   const { renderAsync } = await import('docx-preview');
   if (isCurrent() && docxContainer.value) {
@@ -287,6 +335,7 @@ async function renderDocx(blob: Blob, isCurrent: () => boolean) {
       trimXmlDeclaration: true,
       useBase64URL: true,
     });
+    sanitizeRenderedDocxDom(rendered);
     await indexEmbeddedSourceImages(rendered);
     if (isCurrent() && docxContainer.value) {
       docxContainer.value.replaceChildren(...rendered.childNodes);
@@ -343,7 +392,7 @@ async function renderExcel(blob: Blob, fileType: string, isCurrent: () => boolea
     }
     html += `<div class="excel-sheet">`;
     if (workbook.SheetNames.length > 1) {
-      html += `<div class="excel-sheet-name">${name}</div>`;
+      html += `<div class="excel-sheet-name">${escapePreviewHtml(name)}</div>`;
     }
     html += sheetHtml;
     html += `</div>`;
@@ -866,7 +915,9 @@ function locateEpub(request: SourceLocateRequest): SourceLocateResult {
   if (!locators.length) return locateQuote(box, box, evidenceQuotes(request));
   const ranges: Range[] = [], regions: Element[] = [];
   for (const loc of locators) {
-    const section = box.querySelector(`[data-epub-section="${loc.section}"]`);
+    const wantedSection = String(loc.section);
+    const section = Array.from(box.querySelectorAll('[data-epub-section]'))
+      .find((el) => el.getAttribute('data-epub-section') === wantedSection) || null;
     if (!section) return NOT_FOUND;
     const range = loc.quote ? findQuoteRange(section, [loc.quote]) : null;
     if (range) ranges.push(range); else regions.push(section);

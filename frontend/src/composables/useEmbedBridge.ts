@@ -162,6 +162,7 @@ export function useEmbedBridge(channelId: Ref<string>) {
   let removeLocaleListener: (() => void) | null = null
   let removeTokenListener: (() => void) | null = null
   let bootstrapped = false
+  let disposed = false
   let hostLocalePinned = false
   if (typeof window !== 'undefined') {
     hostLocalePinned = Boolean(readEmbedLocaleFromUrl())
@@ -172,7 +173,8 @@ export function useEmbedBridge(channelId: Ref<string>) {
 
   const bootstrap = async (embedToken: string) => {
     const id = channelId.value
-    if (!id || !embedToken || bootstrapped) return
+    if (disposed || !id || !embedToken || bootstrapped) return
+    const isStale = () => disposed || channelId.value !== id
     bootstrapped = true
     loadError.value = ''
     awaitingToken.value = false
@@ -188,6 +190,7 @@ export function useEmbedBridge(channelId: Ref<string>) {
       if (!isEmbedSessionToken(embedToken)) {
         try {
           const exchangeRes = await exchangeEmbedSession(id, embedToken)
+          if (isStale()) return
           if (exchangeRes?.data?.session_token) {
             apiToken = exchangeRes.data.session_token
           } else if (!import.meta.env.DEV) {
@@ -196,6 +199,7 @@ export function useEmbedBridge(channelId: Ref<string>) {
             throw new Error('embed session exchange returned no token')
           }
         } catch (exchangeErr) {
+          if (isStale()) return
           // In production we refuse to downgrade to the publish token; only the
           // dev build keeps the convenience fallback for local testing.
           if (!import.meta.env.DEV) {
@@ -205,6 +209,7 @@ export function useEmbedBridge(channelId: Ref<string>) {
       }
 
       const res = await getEmbedConfig(id, apiToken)
+      if (isStale()) return
       if (!res?.success || !res.data) {
         loadError.value = t('embedPublish.invalidChannel')
         bootstrapped = false
@@ -227,9 +232,12 @@ export function useEmbedBridge(channelId: Ref<string>) {
       if (stored && agentMatches && (!stored.visitorId || stored.visitorId === visitorId.value)
         && (await isStoredSessionValid(id, apiToken, stored))
         && revisionBeforeValidation === readEmbedHistoryRevision(historyScope())) {
+        if (isStale()) return
         resolved = { ...stored, agentId: configAgentId || stored.agentId }
       } else {
+        if (isStale()) return
         const sessionRes = await createEmbedSession(id, apiToken)
+        if (isStale()) return
         const newId = sessionRes?.data?.id || ''
         if (newId) {
           resolved = { id: newId, sig: sessionRes?.data?.sig || '', agentId: configAgentId }
@@ -249,6 +257,7 @@ export function useEmbedBridge(channelId: Ref<string>) {
       token.value = apiToken
       postEmbedReady(id)
     } catch (e: unknown) {
+      if (isStale()) return
       bootstrapped = false
       const msg = String((e as { message?: string })?.message || '')
       if (msg.includes('disabled')) {
@@ -259,7 +268,7 @@ export function useEmbedBridge(channelId: Ref<string>) {
         loadError.value = msg || t('embedPublish.loadError')
       }
     } finally {
-      bootstrapping.value = false
+      if (!isStale()) bootstrapping.value = false
     }
   }
 
@@ -382,6 +391,7 @@ export function useEmbedBridge(channelId: Ref<string>) {
   })
 
   onUnmounted(() => {
+    disposed = true
     operation++
     window.removeEventListener('storage', onHistoryStorage)
     removeHostListener?.()

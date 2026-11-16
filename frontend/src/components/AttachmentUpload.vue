@@ -140,22 +140,29 @@ const addFiles = async (files: File[]) => {
 const emitFiles = () => emit('update:files', [...attachments.value]);
 
 const uploadAttachment = async (attachment: AttachmentFile) => {
-  if (!props.sessionId) return;
+  const uploadSessionId = props.sessionId;
+  if (!uploadSessionId) return;
+  (attachment as AttachmentFile & { _sessionId?: string })._sessionId = uploadSessionId;
   try {
     const response = await uploadTemporaryAttachment(
-      props.sessionId,
+      uploadSessionId,
       attachment.file,
       props.agentId,
       props.agentSourceTenantId,
       'auto',
       (progress) => {
+        if (disposed || props.sessionId !== uploadSessionId) return;
         attachment.progress = progress;
         emitFiles();
       },
     );
     attachment.documentId = response.data.id;
-    if (disposed || !attachments.value.some(item => item.id === attachment.id)) {
-      await deleteTemporaryAttachment(props.sessionId, response.data.id).catch(() => undefined);
+    if (
+      disposed
+      || props.sessionId !== uploadSessionId
+      || !attachments.value.some(item => item.id === attachment.id)
+    ) {
+      await deleteTemporaryAttachment(uploadSessionId, response.data.id).catch(() => undefined);
       return;
     }
     attachment.status = response.data.status;
@@ -165,6 +172,7 @@ const uploadAttachment = async (attachment: AttachmentFile) => {
       scheduleStatusPoll(attachment);
     }
   } catch (error: any) {
+    if (disposed || props.sessionId !== uploadSessionId) return;
     attachment.status = 'failed';
     attachment.error = error?.message || t('chat.attachmentUploadFailed');
     emitFiles();
@@ -172,19 +180,33 @@ const uploadAttachment = async (attachment: AttachmentFile) => {
 };
 
 const scheduleStatusPoll = (attachment: AttachmentFile) => {
+  if (disposed) return;
   clearPoll(attachment.id);
   pollTimers.set(attachment.id, setTimeout(() => void pollStatus(attachment), 800));
 };
 
 const pollStatus = async (attachment: AttachmentFile) => {
-  if (!props.sessionId || !attachment.documentId || !attachments.value.some(item => item.id === attachment.id)) return;
+  const uploadSessionId = (attachment as AttachmentFile & { _sessionId?: string })._sessionId || props.sessionId;
+  if (
+    disposed
+    || !uploadSessionId
+    || props.sessionId !== uploadSessionId
+    || !attachment.documentId
+    || !attachments.value.some(item => item.id === attachment.id)
+  ) return;
   try {
-    const response = await getTemporaryAttachment(props.sessionId, attachment.documentId);
+    const response = await getTemporaryAttachment(uploadSessionId, attachment.documentId);
+    if (
+      disposed
+      || props.sessionId !== uploadSessionId
+      || !attachments.value.some(item => item.id === attachment.id)
+    ) return;
     attachment.status = response.data.status;
     attachment.error = response.data.error_message;
     emitFiles();
     if (attachment.status !== 'ready' && attachment.status !== 'failed') scheduleStatusPoll(attachment);
   } catch (error: any) {
+    if (disposed || props.sessionId !== uploadSessionId) return;
     attachment.status = 'failed';
     attachment.error = error?.message || t('chat.attachmentParseFailed');
     emitFiles();
@@ -201,12 +223,13 @@ const removeAttachment = (id: string) => {
   const index = attachments.value.findIndex(a => a.id === id);
   if (index !== -1) {
     const attachment = attachments.value[index];
+    const uploadSessionId = (attachment as AttachmentFile & { _sessionId?: string })._sessionId || props.sessionId;
     clearPoll(id);
     attachments.value.splice(index, 1);
     emitFiles();
     emit('remove', id);
-    if (props.sessionId && attachment.documentId) {
-      void deleteTemporaryAttachment(props.sessionId, attachment.documentId).catch(() => undefined);
+    if (uploadSessionId && attachment.documentId) {
+      void deleteTemporaryAttachment(uploadSessionId, attachment.documentId).catch(() => undefined);
     }
   }
 };

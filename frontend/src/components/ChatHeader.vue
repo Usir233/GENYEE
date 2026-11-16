@@ -181,7 +181,22 @@ const menuTrigger = ref<HTMLButtonElement | null>(null)
 const menuMode = ref<MenuMode>('menu')
 const titleEditing = ref(false)
 const titleDraft = ref('')
+const editingSessionId = ref('')
 const titleInputRef = ref<HTMLInputElement | null>(null)
+let grantsLoadSeq = 0
+
+watch(() => props.session?.id, (nextId, prevId) => {
+  if (nextId !== prevId) {
+    grantsLoadSeq += 1
+    menuVisible.value = false
+    menuMode.value = 'menu'
+    titleEditing.value = false
+    titleDraft.value = ''
+    editingSessionId.value = ''
+    grants.value = []
+    grantsLoading.value = false
+  }
+})
 
 const displayTitle = computed(() => props.session?.title?.trim() || t('menu.newSession'))
 const automation = ref<{ id: string; name: string } | null>(null)
@@ -235,15 +250,19 @@ const revokingId = ref('')
 async function enterGrantsMode(): Promise<void> {
   const session = props.session
   if (!session) return
+  const seq = ++grantsLoadSeq
   menuMode.value = 'grants'
   grants.value = []
   grantsLoading.value = true
   try {
-    grants.value = await listAgentGrants(session.id)
+    const loaded = await listAgentGrants(session.id)
+    if (seq !== grantsLoadSeq || props.session?.id !== session.id) return
+    grants.value = loaded
   } catch {
+    if (seq !== grantsLoadSeq) return
     MessagePlugin.error(t('chatHeader.grants.loadFailed'))
   } finally {
-    grantsLoading.value = false
+    if (seq === grantsLoadSeq) grantsLoading.value = false
   }
 }
 
@@ -284,6 +303,7 @@ async function copyText(text: string): Promise<void> {
 function startTitleEdit(): void {
   if (!props.session || busyAction.value) return
   menuVisible.value = false
+  editingSessionId.value = props.session.id
   titleDraft.value = props.session.title || ''
   titleEditing.value = true
   nextTick(() => {
@@ -295,13 +315,15 @@ function startTitleEdit(): void {
 function cancelTitleEdit(): void {
   titleEditing.value = false
   titleDraft.value = ''
+  editingSessionId.value = ''
 }
 
 async function submitTitleEdit(): Promise<void> {
   // Enter 会先触发 form submit，随后 input blur 再进一次；必须同步退出编辑态防重入。
   if (!titleEditing.value || busyAction.value) return
   const session = props.session
-  if (!session) {
+  const startedId = editingSessionId.value
+  if (!session || (startedId && session.id !== startedId)) {
     cancelTitleEdit()
     return
   }
@@ -310,6 +332,7 @@ async function submitTitleEdit(): Promise<void> {
   const currentTitle = normalizeSessionTitleDraft(session.title || '')
   titleEditing.value = false
   titleDraft.value = ''
+  editingSessionId.value = ''
   if (!title || title === currentTitle) return
 
   busyAction.value = 'rename'

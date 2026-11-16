@@ -100,6 +100,9 @@ const pageSize = ref(20)
 const total = ref(0)
 const loading = ref(false)
 const searchTimer = ref<number | null>(null)
+let tenantLoadSeq = 0
+let loadedKeyword = ''
+let tenantSelectorUnmounted = false
 
 const selectedTenantId = computed(() => authStore.selectedTenantId)
 // home 空间 id 来自 user.tenant_id（注册时分配、永不变）。不要读
@@ -137,7 +140,8 @@ const isSelected = (tenantId: number) => {
 const toggleDropdown = () => {
   showDropdown.value = !showDropdown.value
   if (showDropdown.value) {
-    if (tenants.value.length === 0) {
+    if (tenants.value.length === 0 || loadedKeyword !== '') {
+      currentPage.value = 1
       loadTenants()
     }
     nextTick(() => {
@@ -205,7 +209,8 @@ const selectTenant = (tenantId: number) => {
 }
 
 const loadTenants = async (append = false) => {
-  if (loading.value) return
+  if (append && loading.value) return
+  const seq = ++tenantLoadSeq
 
   loading.value = true
   try {
@@ -224,6 +229,7 @@ const loadTenants = async (append = false) => {
       page: currentPage.value,
       page_size: pageSize.value
     })
+    if (tenantSelectorUnmounted || seq !== tenantLoadSeq) return
 
     if (response.success && response.data) {
       if (append) {
@@ -232,15 +238,21 @@ const loadTenants = async (append = false) => {
         tenants.value = response.data.items
       }
       total.value = response.data.total
-      authStore.setAllTenants(tenants.value)
+      loadedKeyword = keyword
+      if (!keyword) {
+        authStore.setAllTenants(tenants.value)
+      }
     } else {
       MessagePlugin.error(response.message || t('tenant.loadTenantsFailed'))
     }
   } catch (error) {
+    if (tenantSelectorUnmounted || seq !== tenantLoadSeq) return
     console.error('Failed to load tenants:', error)
     MessagePlugin.error(t('tenant.loadTenantsFailed'))
   } finally {
-    loading.value = false
+    if (!tenantSelectorUnmounted && seq === tenantLoadSeq) {
+      loading.value = false
+    }
   }
 }
 
@@ -304,6 +316,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  tenantSelectorUnmounted = true
+  tenantLoadSeq += 1
   if (searchTimer.value) {
     clearTimeout(searchTimer.value)
   }

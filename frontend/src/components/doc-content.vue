@@ -661,12 +661,15 @@ watch(() => props.details?.chunkLoading, (val) => {
   }
 });
 onUnmounted(() => {
+  docContentUnmounted = true;
+  audioLoadSeq += 1;
   stopSummaryStatusPolling();
   window.removeEventListener('resize', onTraceDrawerWindowResize);
   cleanupTraceDrawerResize();
   cleanupMainDrawerResize();
   if (audioBlobUrl.value) {
     URL.revokeObjectURL(audioBlobUrl.value);
+    audioBlobUrl.value = '';
   }
 })
 const checkImage = (url) => {
@@ -689,6 +692,9 @@ renderer.image = function ({ href, title, text }) {
             </figure>`;
 };
 
+const escapeCodeHtml = (raw: string): string =>
+  raw.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch] || ch));
+
 // 自定义代码块渲染器，只显示语言标签
 renderer.code = function ({ text, lang }) {
   // 空值校验：防止 text 为 undefined 或 null
@@ -701,7 +707,7 @@ renderer.code = function ({ text, lang }) {
     // 生成唯一ID
     const id = `mermaid-${++mermaidRenderCount}`;
     // 返回带有 mermaid 类的 div，后续由 mermaid.run() 处理
-    return `<div class="mermaid" id="${id}">${text}</div>`;
+    return `<div class="mermaid" id="${id}">${escapeCodeHtml(text)}</div>`;
   }
 
   let detectedLang = lang;
@@ -710,21 +716,23 @@ renderer.code = function ({ text, lang }) {
     try {
       highlighted = hljs.highlight(text, { language: lang }).value;
     } catch (e) {
-      highlighted = hljs.highlightAuto(text).value;
-      detectedLang = hljs.highlightAuto(text).language || lang;
+      const auto = hljs.highlightAuto(text);
+      highlighted = auto.value;
+      detectedLang = auto.language || lang;
     }
   } else {
     const auto = hljs.highlightAuto(text);
     highlighted = auto.value;
     detectedLang = auto.language || lang;
   }
-  const displayLang = detectedLang || 'Code';
+  const displayLang = escapeCodeHtml(String(detectedLang || 'Code'));
+  const safeLangToken = String(detectedLang || '').replace(/[^a-zA-Z0-9_-]/g, '');
   return `
     <div class="code-block-wrapper">
       <div class="code-block-header">
         <span class="code-block-lang">${displayLang}</span>
       </div>
-      <pre class="code-block-pre"><code class="hljs language-${detectedLang || ''}">${highlighted}</code></pre>
+      <pre class="code-block-pre"><code class="hljs language-${safeLangToken}">${highlighted}</code></pre>
     </div>
   `;
 };
@@ -761,6 +769,8 @@ const canPreview = (): boolean => {
 
 // 当文档详情加载完成时，file 类型自动切换到「预览」；音频类型使用 merged + 播放器
 watch(() => props.details?.id, (newId) => {
+  audioLoadSeq += 1;
+  audioLoading.value = false;
   // 清理旧音频
   if (audioBlobUrl.value) {
     URL.revokeObjectURL(audioBlobUrl.value);
@@ -796,17 +806,28 @@ const isAudioFile = (fileType?: string): boolean => {
 };
 const audioBlobUrl = ref('');
 const audioLoading = ref(false);
+let audioLoadSeq = 0;
+let docContentUnmounted = false;
 
 const loadAudioPreview = async () => {
-  if (!props.details?.id || audioBlobUrl.value) return;
+  const targetId = props.details?.id;
+  if (!targetId || audioBlobUrl.value || docContentUnmounted) return;
+  const seq = ++audioLoadSeq;
   audioLoading.value = true;
   try {
-    const blob = await previewKnowledgeFile(props.details.id);
+    const blob = await previewKnowledgeFile(targetId);
+    if (docContentUnmounted || seq !== audioLoadSeq || props.details?.id !== targetId) {
+      return;
+    }
     audioBlobUrl.value = URL.createObjectURL(blob);
   } catch (err) {
-    console.error('Audio preview load failed:', err);
+    if (seq === audioLoadSeq && !docContentUnmounted) {
+      console.error('Audio preview load failed:', err);
+    }
   } finally {
-    audioLoading.value = false;
+    if (seq === audioLoadSeq && !docContentUnmounted) {
+      audioLoading.value = false;
+    }
   }
 };
 const runMarkdownPostRenderPipeline = async () => {
@@ -1757,12 +1778,16 @@ const handleChunkPageChange = (pageInfo: { current: number }) => {
         <section v-if="details.type === 'url'" class="setting-drawer__section">
           <h4 class="setting-drawer__section-title">{{ $t('knowledgeBase.urlSource') }}</h4>
           <div class="url_link_box">
-            <a :href="isValidURL(details.source) ? details.source : 'javascript:void(0)'"
-              :target="isValidURL(details.source) ? '_blank' : undefined" class="url_link">
+            <a v-if="isValidURL(details.source)" :href="details.source" target="_blank" rel="noopener noreferrer"
+              class="url_link">
               <t-icon name="link" size="14px" />
               <span class="url_text">{{ details.source }}</span>
               <t-icon name="jump" size="14px" class="jump-icon" />
             </a>
+            <span v-else class="url_link">
+              <t-icon name="link" size="14px" />
+              <span class="url_text">{{ details.source }}</span>
+            </span>
           </div>
         </section>
 

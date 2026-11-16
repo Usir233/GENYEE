@@ -1504,13 +1504,15 @@ watch(
   { deep: true, flush: 'sync' },
 )
 
-watch(() => props.visible, () => {
+watch(() => props.visible, (open) => {
+  if (!open) stopDownloadPolling()
   invalidateConnectionTest(false)
   saveError.value = ''
 }, { flush: 'sync' })
 
 // 重置表单
 const resetForm = () => {
+  stopDownloadPolling()
   legacyThinkingControlLoaded.value = false
   formData.value = {
     id: generateId(),
@@ -2035,8 +2037,23 @@ watch(() => formData.value.modelName, async (newValue, oldValue) => {
   }
 })
 
+let downloadSeq = 0
+
+function stopDownloadPolling() {
+  downloadSeq += 1
+  if (downloadInterval) {
+    clearInterval(downloadInterval)
+    downloadInterval = null
+  }
+  downloading.value = false
+  downloadProgress.value = 0
+  currentDownloadModel.value = ''
+}
+
 // 开始下载模型
 const startDownload = async (modelName: string) => {
+  stopDownloadPolling()
+  const seq = downloadSeq
   downloading.value = true
   downloadProgress.value = 0
   currentDownloadModel.value = modelName
@@ -2044,42 +2061,37 @@ const startDownload = async (modelName: string) => {
   try {
     // 启动下载
     const result = await downloadOllamaModel(modelName)
+    if (seq !== downloadSeq) return
     const taskId = result.taskId
 
     MessagePlugin.success(t('model.editor.downloadStarted', { name: modelName }))
 
     // 轮询下载进度
     downloadInterval = setInterval(async () => {
+      if (seq !== downloadSeq) return
       try {
         const progress = await getDownloadProgress(taskId)
+        if (seq !== downloadSeq) return
         downloadProgress.value = progress.progress
 
         if (progress.status === 'completed') {
           // 下载完成
-          clearInterval(downloadInterval)
-          downloadInterval = null
-          downloading.value = false
+          stopDownloadPolling()
 
           MessagePlugin.success(t('model.editor.downloadCompleted', { name: modelName }))
 
           // 刷新模型列表
           await loadOllamaModels()
 
-          // 自动选中新下载的模型
-          formData.value.modelName = modelName
-
-          // 重置状态
-          downloadProgress.value = 0
-          currentDownloadModel.value = ''
+          // 自动选中新下载的模型（仅当仍在同一打开会话且来源仍为本地时）
+          if (props.visible && formData.value.source === 'local') {
+            formData.value.modelName = modelName
+          }
 
         } else if (progress.status === 'failed') {
           // 下载失败
-          clearInterval(downloadInterval)
-          downloadInterval = null
-          downloading.value = false
+          stopDownloadPolling()
           MessagePlugin.error(progress.message || t('model.editor.downloadFailed', { name: modelName }))
-          downloadProgress.value = 0
-          currentDownloadModel.value = ''
         }
       } catch (error) {
         console.error('获取下载进度失败:', error)
@@ -2087,9 +2099,8 @@ const startDownload = async (modelName: string) => {
     }, 1000) // 每秒查询一次
 
   } catch (error: any) {
-    downloading.value = false
-    downloadProgress.value = 0
-    currentDownloadModel.value = ''
+    if (seq !== downloadSeq) return
+    stopDownloadPolling()
     console.error('Download start failed:', error)
     MessagePlugin.error(t('model.editor.downloadStartFailed'))
   }
@@ -2104,9 +2115,7 @@ onUnmounted(() => {
     resolveTimer = null
   }
   resolveRevision++
-  if (downloadInterval) {
-    clearInterval(downloadInterval)
-  }
+  stopDownloadPolling()
 })
 
 // 监听来源变化，清理所有状态
@@ -2123,13 +2132,7 @@ watch(() => formData.value.source, () => {
 
   // 清理下载状态
   searchKeyword.value = ''
-  if (downloadInterval) {
-    clearInterval(downloadInterval)
-    downloadInterval = null
-  }
-  downloading.value = false
-  downloadProgress.value = 0
-  currentDownloadModel.value = ''
+  stopDownloadPolling()
 })
 
 // 监听模型名称变化，清理维度检测状态

@@ -108,6 +108,8 @@ const updatePanelPosition = (): void => {
   }
 }
 
+let unmounted = false
+
 const removeListeners = (): void => {
   document.removeEventListener('click', close)
   window.removeEventListener('resize', close)
@@ -127,6 +129,7 @@ const toggleOpen = (): void => {
   updatePanelPosition()
   open.value = true
   nextTick(() => {
+    if (!open.value || unmounted) return
     document.addEventListener('click', close)
     window.addEventListener('resize', close)
     window.addEventListener('scroll', close, true)
@@ -140,6 +143,7 @@ const handleSelect = (value: string): void => {
 }
 
 onBeforeUnmount(() => {
+  unmounted = true
   removeListeners()
 })
 </script>

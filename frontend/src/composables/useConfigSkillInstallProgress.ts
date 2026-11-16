@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { getCurrentScope, onScopeDispose, ref } from 'vue'
 import { fetchEventSource } from '@microsoft/fetch-event-source'
 import {
   configSkillInstallEventsUrl,
@@ -147,6 +147,10 @@ export function useConfigSkillInstallProgress(options?: {
         if (!wanted.has(key)) forgetKey(key)
       }
     }
+  }
+
+  if (getCurrentScope()) {
+    onScopeDispose(stopAll)
   }
 
   return { progressByKey, eventOf, percentOf, follow, sync, stopAll, reset, forget, setEvent }

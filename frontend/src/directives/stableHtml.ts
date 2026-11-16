@@ -1,5 +1,50 @@
 import type { ObjectDirective } from 'vue';
 
+const DANGEROUS_TAGS = new Set(['SCRIPT', 'IFRAME', 'OBJECT', 'EMBED']);
+const HREF_ATTRS = new Set(['href', 'xlink:href', 'formaction']);
+const mermaidSourceByCanvas = new WeakMap<Element, string>();
+
+function normalizeSchemeCheck(raw: string): string {
+  return raw.replace(/[\u0000-\u0020]+/g, '').toLowerCase();
+}
+
+function isUnsafeAttribute(tagName: string, attrName: string, attrValue: string): boolean {
+  const lower = attrName.toLowerCase();
+  if (lower.startsWith('on')) return true;
+  if (HREF_ATTRS.has(lower)) {
+    const v = normalizeSchemeCheck(attrValue);
+    return v.startsWith('javascript:') || v.startsWith('vbscript:') || v.startsWith('data:');
+  }
+  if (lower === 'src') {
+    const v = normalizeSchemeCheck(attrValue);
+    if (v.startsWith('javascript:') || v.startsWith('vbscript:')) return true;
+    if (v.startsWith('data:') && !(tagName === 'IMG' && v.startsWith('data:image/'))) return true;
+  }
+  return false;
+}
+
+function scrubDangerousSubtree(root: ParentNode): void {
+  const children = Array.from(root.childNodes);
+  for (const child of children) {
+    if (child.nodeType !== Node.ELEMENT_NODE) continue;
+    const el = child as Element;
+    const tag = el.tagName.toUpperCase();
+    if (DANGEROUS_TAGS.has(tag)) {
+      root.removeChild(el);
+      continue;
+    }
+    for (const { name, value } of Array.from(el.attributes)) {
+      if (isUnsafeAttribute(tag, name, value)) {
+        el.removeAttribute(name);
+      }
+    }
+    if (isMermaidCanvas(el) && !mermaidCanvasHasSvg(el)) {
+      mermaidSourceByCanvas.set(el, (el.textContent || '').trim());
+    }
+    scrubDangerousSubtree(el);
+  }
+}
+
 function imageIdentity(img: HTMLImageElement): string {
   return (img.getAttribute('data-protected-src') || img.currentSrc || img.src || '').trim();
 }
@@ -22,20 +67,15 @@ function syncAttributes(current: Element, next: Element, preserved: Set<string> 
 }
 
 function morphImage(current: HTMLImageElement, next: HTMLImageElement): void {
+  const currentProtected = current.getAttribute('data-protected-src');
+  const nextProtected = next.getAttribute('data-protected-src');
   const sameProtectedSource = Boolean(
-    current.getAttribute('data-protected-src')
-      && current.getAttribute('data-protected-src') === next.getAttribute('data-protected-src'),
+    currentProtected && currentProtected === nextProtected,
   );
-  const sameIdentity = imageIdentity(current) === imageIdentity(next);
-  const sameProtectedAlt = Boolean(
-    current.getAttribute('data-protected-src')
-      && next.getAttribute('data-protected-src')
-      && current.alt
-      && current.alt === next.alt,
-  );
+  const sameIdentity = !currentProtected && !nextProtected && imageIdentity(current) === imageIdentity(next);
   const keepDecodedImage = current.complete
     && current.naturalWidth > 1
-    && (sameProtectedSource || sameIdentity || sameProtectedAlt);
+    && (sameProtectedSource || sameIdentity);
 
   if (sameProtectedSource && current.hasAttribute('data-protected-hidden')) {
     // The authenticated loader keeps missing images addressable for the final
@@ -60,22 +100,37 @@ function morphImage(current: HTMLImageElement, next: HTMLImageElement): void {
   syncAttributes(current, next);
 }
 
+function hasClass(el: Element, className: string): boolean {
+  if (el.classList && typeof el.classList.contains === 'function') {
+    return el.classList.contains(className);
+  }
+  return (el.getAttribute('class') || '').split(/\s+/).includes(className);
+}
+
 function isMermaidCanvas(el: Element): boolean {
-  return el.classList.contains('chat-mermaid-block__canvas')
-    || (el.tagName === 'PRE' && el.classList.contains('mermaid'));
+  return hasClass(el, 'chat-mermaid-block__canvas')
+    || (el.tagName.toUpperCase() === 'PRE' && hasClass(el, 'mermaid'));
 }
 
 function mermaidCanvasHasSvg(el: Element): boolean {
-  return !!el.querySelector('svg');
+  if (typeof el.querySelector === 'function') return !!el.querySelector('svg');
+  return el.getElementsByTagName('svg').length > 0;
 }
 
 function morphMermaidCanvas(current: Element, next: Element): void {
+  const nextSource = !mermaidCanvasHasSvg(next) ? (next.textContent || '').trim() : undefined;
   // Incoming HTML from marked still has mermaid source. Keep a diagram that
-  // was already painted so typewriter / stream ticks cannot flash it back
-  // into a fenced code block.
-  if (mermaidCanvasHasSvg(current) && !mermaidCanvasHasSvg(next)) {
-    syncAttributes(current, next, new Set(['data-mermaid']));
-    return;
+  // was already painted only when the diagram source has not changed, so
+  // streaming ticks do not flash it back while edits/regenerations re-render.
+  if (mermaidCanvasHasSvg(current) && nextSource !== undefined) {
+    const previousSource = mermaidSourceByCanvas.get(current);
+    if (previousSource !== undefined && previousSource === nextSource) {
+      syncAttributes(current, next, new Set(['data-mermaid']));
+      return;
+    }
+  }
+  if (nextSource !== undefined) {
+    mermaidSourceByCanvas.set(current, nextSource);
   }
   syncAttributes(current, next);
   morphChildren(current, next);
@@ -127,7 +182,15 @@ function morphChildren(currentParent: ParentNode, nextParent: ParentNode): void 
 
     // Insert only the new/mismatched subtree. Existing matching ancestors and
     // their image descendants remain connected throughout streaming updates.
-    currentParent.insertBefore(desired.cloneNode(true), current);
+    const cloned = desired.cloneNode(true);
+    if (cloned.nodeType === Node.ELEMENT_NODE) {
+      const clonedEl = cloned as Element;
+      if (isMermaidCanvas(clonedEl) && !mermaidCanvasHasSvg(clonedEl)) {
+        mermaidSourceByCanvas.set(clonedEl, (clonedEl.textContent || '').trim());
+      }
+      scrubDangerousSubtree(clonedEl);
+    }
+    currentParent.insertBefore(cloned, current);
   }
 
   while (current) {
@@ -147,13 +210,19 @@ function morphChildren(currentParent: ParentNode, nextParent: ParentNode): void 
  */
 export const vStableHtml: ObjectDirective<HTMLElement, string> = {
   beforeMount(el, binding) {
-    el.innerHTML = binding.value || '';
+    const html = binding.value || '';
+    const template = document.createElement('template');
+    template.innerHTML = html;
+    scrubDangerousSubtree(template.content);
+    while (el.firstChild) el.removeChild(el.firstChild);
+    while (template.content.firstChild) el.appendChild(template.content.firstChild);
   },
   updated(el, binding) {
     const html = binding.value || '';
     if (html === binding.oldValue) return;
     const template = document.createElement('template');
     template.innerHTML = html;
+    scrubDangerousSubtree(template.content);
     morphChildren(el, template.content);
   },
 };

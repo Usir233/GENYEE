@@ -463,10 +463,15 @@ const ensureDefaultSelection = () => {
   }
 }
 
+let debugRequestSeq = 0
+
 watch(() => props.visible, visible => {
   if (visible) {
     ensureDefaultSelection()
     void providersStore.ensureLoaded('').catch(() => {})
+  } else {
+    debugRequestSeq += 1
+    running.value = false
   }
 })
 
@@ -484,6 +489,8 @@ watch(() => selectedModel.value?.id, () => {
 })
 
 const resetResult = () => {
+  debugRequestSeq += 1
+  running.value = false
   result.value = null
   history.value = []
   resultTab.value = 'response'
@@ -537,11 +544,13 @@ const historyLabel = (level: ReasoningLevel | null) => {
 }
 
 const runDebug = async () => {
-  if (!selectedModel.value?.id || !canRun.value || running.value) return
+  const modelId = selectedModel.value?.id
+  if (!modelId || !canRun.value || running.value) return
+  const seq = ++debugRequestSeq
   running.value = true
   try {
     const level: ReasoningLevel | null = supportsThinking.value ? reasoningEffort.value : null
-    const nextResult = await debugModel(selectedModel.value.id, {
+    const nextResult = await debugModel(modelId, {
       input: isEmbedding.value && useImageMode.value ? '' : input.value.trim(),
       documents: (selectedModel.value.type === 'Rerank' && !useImageMode.value) || useSimilarityMode.value ? documents.value : [],
       file: showFilePicker.value ? file.value : null,
@@ -554,6 +563,7 @@ const runDebug = async () => {
         ...(level ? { reasoning_effort: level, thinking: levelEnablesThinking(level) } : { thinking: false }),
       } : useSimilarityMode.value ? { similarity: true } : {},
     })
+    if (seq !== debugRequestSeq) return
     result.value = nextResult
     history.value.unshift({
       id: ++runSequence,
@@ -563,9 +573,10 @@ const runDebug = async () => {
     history.value = history.value.slice(0, 6)
     resultTab.value = 'response'
   } catch (error: any) {
+    if (seq !== debugRequestSeq) return
     MessagePlugin.error(error?.message || t('modelSettings.debug.requestFailed'))
   } finally {
-    running.value = false
+    if (seq === debugRequestSeq) running.value = false
   }
 }
 

@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useSettingsStore } from '@/stores/settings'
 import { useChatResourcesStore } from '@/stores/chatResources'
 import { useI18n } from 'vue-i18n'
@@ -307,26 +307,46 @@ const updateDropdownPosition = () => {
 // 事件监听器引用，用于清理
 let resizeHandler: (() => void) | null = null
 let scrollHandler: (() => void) | null = null
+let kbSelectorUnmounted = false
+
+function cleanupDropdownListeners() {
+  if (resizeHandler) {
+    window.removeEventListener('resize', resizeHandler);
+    resizeHandler = null;
+  }
+  if (scrollHandler) {
+    window.removeEventListener('scroll', scrollHandler, { capture: true });
+    scrollHandler = null;
+  }
+}
 
 // 当 visible 变化时处理
 watch(() => props.visible, async (v) => {
   if (v) {
     await loadKnowledgeBases();
+    if (!props.visible || kbSelectorUnmounted) return;
     // 等 DOM 渲染完再计算位置
     await nextTick();
+    if (!props.visible || kbSelectorUnmounted) return;
     // 多次更新位置确保准确
     requestAnimationFrame(() => {
+      if (!props.visible || kbSelectorUnmounted) return;
       updateDropdownPosition();
       requestAnimationFrame(() => {
+        if (!props.visible || kbSelectorUnmounted) return;
         updateDropdownPosition();
         setTimeout(() => {
+          if (!props.visible || kbSelectorUnmounted) return;
           updateDropdownPosition();
         }, 50);
       });
     });
     // 确保 focus
-    nextTick(() => searchInput.value?.focus());
+    nextTick(() => {
+      if (props.visible && !kbSelectorUnmounted) searchInput.value?.focus();
+    });
     // 监听 resize/scroll 做微调（使用 passive 提高性能）
+    cleanupDropdownListeners();
     resizeHandler = () => updateDropdownPosition();
     scrollHandler = () => updateDropdownPosition();
     window.addEventListener('resize', resizeHandler, { passive: true });
@@ -334,16 +354,13 @@ watch(() => props.visible, async (v) => {
   } else {
     searchQuery.value = '';
     highlightedIndex.value = 0;
-    // 清理事件监听器
-    if (resizeHandler) {
-      window.removeEventListener('resize', resizeHandler);
-      resizeHandler = null;
-    }
-    if (scrollHandler) {
-      window.removeEventListener('scroll', scrollHandler, { capture: true });
-      scrollHandler = null;
-    }
+    cleanupDropdownListeners();
   }
+});
+
+onBeforeUnmount(() => {
+  kbSelectorUnmounted = true;
+  cleanupDropdownListeners();
 });
 </script>
 

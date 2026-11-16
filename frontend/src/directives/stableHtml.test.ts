@@ -17,6 +17,13 @@ function parse(html: string): any {
       parentElement: { get: () => el.parentNode?.nodeType === 1 ? el.parentNode : null },
       src: { get: () => el.getAttribute('src'), set: value => el.setAttribute('src', value) },
       alt: { get: () => el.getAttribute('alt') },
+      innerHTML: {
+        set: (value: string) => {
+          while (el.firstChild) el.removeChild(el.firstChild)
+          const parsed = parse(value)
+          while (parsed.firstChild) el.appendChild(parsed.firstChild)
+        },
+      },
     })
     el.complete = true
     el.naturalWidth = 1
@@ -34,6 +41,10 @@ function parse(html: string): any {
         const rest = (el.getAttribute('style') || '').replace(/(?:^|;)\s*display:[^;]*;?/g, '')
         el.setAttribute('style', `${rest}${value ? `;display:${value}` : ''}`)
       },
+    }
+    el.querySelector = (selector: string) => {
+      if (selector === 'svg') return el.getElementsByTagName('svg')[0] ?? null
+      return null
     }
     el.querySelectorAll = (selector: string) => Array.from(el.getElementsByTagName('img'))
       .filter((img: any) => selector.includes('src^=') || img.hasAttribute('data-protected-src'))
@@ -102,4 +113,118 @@ test('missing image and paragraph stay hidden across streaming morphs, then reco
   assert.notEqual(img.style.display, 'none')
   assert.notEqual(paragraph.style.display, 'none')
   assert.equal(img.hasAttribute('data-protected-hidden'), false)
+})
+
+test('decoded protected image with identical alt updates when data-protected-src changes', t => {
+  const previous = {
+    Node: (globalThis as any).Node, HTMLImageElement: (globalThis as any).HTMLImageElement,
+    document: (globalThis as any).document,
+  }
+  Object.assign(globalThis, {
+    Node: { ELEMENT_NODE: 1, TEXT_NODE: 3, COMMENT_NODE: 8 },
+    HTMLImageElement: class { static [Symbol.hasInstance](el: any) { return el?.tagName === 'IMG' } },
+    document: {
+      createElement(tag: string) {
+        assert.equal(tag, 'template')
+        return { content: null, set innerHTML(html: string) { this.content = parse(html) } }
+      },
+    },
+  })
+  t.after(() => Object.assign(globalThis, previous))
+
+  const firstHtml = '<p><img src="local://1/a.png" data-protected-src="local://1/a.png" alt="Chart" /></p>'
+  const root = parse('<p></p>')
+  ;(vStableHtml.beforeMount as Function)(root, { value: firstHtml })
+  // Simulate hydration + decoding on the live image element
+  const img = root.children[0].firstElementChild
+  img.setAttribute('src', 'blob:http://localhost/decoded-a')
+  img.setAttribute('data-auth-hydrated', 'local://1/a.png')
+  img.complete = true
+  img.naturalWidth = 640
+
+  // Streaming patch with SAME source keeps decoded blob
+  const sameSourcePatch = '<p><img src="local://1/a.png" data-protected-src="local://1/a.png" alt="Chart" /><span>more</span></p>'
+  ;(vStableHtml.updated as Function)(root, { value: sameSourcePatch, oldValue: firstHtml })
+  assert.equal(img.getAttribute('src'), 'blob:http://localhost/decoded-a')
+  assert.equal(img.getAttribute('data-protected-src'), 'local://1/a.png')
+
+  // Regenerated / edited HTML with DIFFERENT data-protected-src and SAME alt MUST update!
+  const secondHtml = '<p><img src="local://1/b.png" data-protected-src="local://1/b.png" alt="Chart" /></p>'
+  ;(vStableHtml.updated as Function)(root, { value: secondHtml, oldValue: sameSourcePatch })
+  assert.equal(img.getAttribute('data-protected-src'), 'local://1/b.png')
+  assert.equal(img.getAttribute('src'), 'local://1/b.png')
+  assert.equal(img.hasAttribute('data-auth-hydrated'), false)
+})
+
+test('mermaid canvas keeps painted svg during streaming ticks but invalidates when source changes', t => {
+  const previous = {
+    Node: (globalThis as any).Node, HTMLImageElement: (globalThis as any).HTMLImageElement,
+    document: (globalThis as any).document,
+  }
+  Object.assign(globalThis, {
+    Node: { ELEMENT_NODE: 1, TEXT_NODE: 3, COMMENT_NODE: 8 },
+    HTMLImageElement: class { static [Symbol.hasInstance](el: any) { return el?.tagName === 'IMG' } },
+    document: {
+      createElement(tag: string) {
+        assert.equal(tag, 'template')
+        return { content: null, set innerHTML(html: string) { this.content = parse(html) } }
+      },
+    },
+  })
+  t.after(() => Object.assign(globalThis, previous))
+
+  const htmlA1 = '<div class="chat-mermaid-block__canvas" data-mermaid="false">graph TD; A--&gt;B</div><p>tick1</p>'
+  const root = parse('<div></div>')
+  ;(vStableHtml.beforeMount as Function)(root, { value: htmlA1 })
+
+  // Simulate Mermaid enhancer replacing text with <svg> and setting data-mermaid="true"
+  const canvas = root.children[0]
+  const svgDoc = parse('<svg id="diagram-a"></svg>')
+  while (canvas.firstChild) canvas.removeChild(canvas.firstChild)
+  canvas.appendChild(svgDoc.children[0])
+  canvas.setAttribute('data-mermaid', 'true')
+
+  // Same Mermaid source on subsequent streaming tick keeps painted <svg>
+  const htmlA2 = '<div class="chat-mermaid-block__canvas" data-mermaid="false">graph TD; A--&gt;B</div><p>tick2</p>'
+  ;(vStableHtml.updated as Function)(root, { value: htmlA2, oldValue: htmlA1 })
+  assert.equal(canvas.getAttribute('data-mermaid'), 'true')
+  assert.ok(canvas.querySelector('svg'))
+
+  // Different Mermaid source invalidates stale <svg> so enhancer re-renders new diagram
+  const htmlB = '<div class="chat-mermaid-block__canvas" data-mermaid="false">graph TD; X--&gt;Y</div><p>tick3</p>'
+  ;(vStableHtml.updated as Function)(root, { value: htmlB, oldValue: htmlA2 })
+  assert.equal(canvas.getAttribute('data-mermaid'), 'false')
+  assert.equal(canvas.querySelector('svg'), null)
+  assert.match(canvas.textContent, /X-->Y/)
+})
+
+test('vStableHtml strips dangerous elements, event handlers, and javascript URIs', t => {
+  const previous = {
+    Node: (globalThis as any).Node, HTMLImageElement: (globalThis as any).HTMLImageElement,
+    document: (globalThis as any).document,
+  }
+  Object.assign(globalThis, {
+    Node: { ELEMENT_NODE: 1, TEXT_NODE: 3, COMMENT_NODE: 8 },
+    HTMLImageElement: class { static [Symbol.hasInstance](el: any) { return el?.tagName === 'IMG' } },
+    document: {
+      createElement(tag: string) {
+        assert.equal(tag, 'template')
+        return { content: null, set innerHTML(html: string) { this.content = parse(html) } }
+      },
+    },
+  })
+  t.after(() => Object.assign(globalThis, previous))
+
+  const root = parse('<div></div>')
+  const dirty = '<p onclick="evil()">safe<script>evil()</script><a href="javascript:alert(1)">bad</a></p>'
+  ;(vStableHtml.beforeMount as Function)(root, { value: dirty })
+  assert.equal(root.getElementsByTagName('script').length, 0)
+  assert.equal(root.children[0].hasAttribute('onclick'), false)
+  assert.equal(root.getElementsByTagName('a')[0].hasAttribute('href'), false)
+
+  const dirtyUpdate = '<p onload="evil()">updated<iframe src="https://evil.example"></iframe><a href="data:text/html,boom">bad2</a></p>'
+  ;(vStableHtml.updated as Function)(root, { value: dirtyUpdate, oldValue: dirty })
+  assert.equal(root.getElementsByTagName('iframe').length, 0)
+  assert.equal(root.children[0].hasAttribute('onload'), false)
+  assert.equal(root.getElementsByTagName('a')[0].hasAttribute('href'), false)
 })

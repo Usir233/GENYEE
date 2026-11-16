@@ -120,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useOrganizationStore } from '@/stores/organization'
@@ -212,11 +212,19 @@ async function loadOrganizations() {
   }
 }
 
+let sharesReqSeq = 0
+
 async function loadShares() {
-  if (!props.agentId) return
+  const targetAgentId = props.agentId
+  if (!targetAgentId) {
+    shares.value = []
+    return
+  }
+  const seq = ++sharesReqSeq
   loadingShares.value = true
   try {
-    const result = await listAgentShares(props.agentId)
+    const result = await listAgentShares(targetAgentId)
+    if (seq !== sharesReqSeq || props.agentId !== targetAgentId) return
     if (result.success && result.data) {
       const sharesData = (result.data as { shares?: AgentShareResponse[] }).shares || result.data
       const sharesList = Array.isArray(sharesData) ? sharesData : []
@@ -226,9 +234,9 @@ async function loadShares() {
       }))
     }
   } catch (e) {
-    console.error('Failed to load agent shares:', e)
+    if (seq === sharesReqSeq) console.error('Failed to load agent shares:', e)
   } finally {
-    loadingShares.value = false
+    if (seq === sharesReqSeq) loadingShares.value = false
   }
 }
 
@@ -276,11 +284,13 @@ async function handleUnshare(share: AgentShareResponse) {
 }
 
 watch(() => props.agentId, async (newId) => {
+  sharesReqSeq += 1
   if (newId) await Promise.all([loadOrganizations(), loadShares()])
+  else shares.value = []
 }, { immediate: true })
 
-onMounted(async () => {
-  if (props.agentId) await Promise.all([loadOrganizations(), loadShares()])
+onBeforeUnmount(() => {
+  sharesReqSeq += 1
 })
 
 defineExpose({ loadShares })

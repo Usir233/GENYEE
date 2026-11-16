@@ -709,7 +709,7 @@
           <div v-for="(row, index) in envRows" :key="index" class="env-row">
             <t-input v-model="row.key" :placeholder="$t('settings.sandbox.envKey')" class="env-key" />
             <t-input v-model="row.value" type="password"
-              :placeholder="row.stored ? $t('settings.sandbox.secretKeepHint') : $t('settings.sandbox.envValue')"
+              :placeholder="isStoredEnvRowRecoverable(row) ? $t('settings.sandbox.secretKeepHint') : $t('settings.sandbox.envValue')"
               class="env-value" />
             <t-button variant="text" shape="square" size="small" :aria-label="$t('common.delete')"
               @click="envRows.splice(index, 1)">
@@ -854,7 +854,20 @@ function isStandardTemplateImage(image?: string): boolean {
   return standardDockerRepositories.has(repo) || repo.endsWith('/genyee-sandbox')
 }
 
-const clusterGuideUrl = docsUrl('sandboxDeployment')
+function safeGuideUrl(raw: string): string {
+  const trimmed = String(raw || '').trim()
+  if (!trimmed) return ''
+  if (/^\/(?!\/)/.test(trimmed)) return trimmed
+  if (!/^https?:\/\//i.test(trimmed)) return ''
+  try {
+    const parsed = new URL(trimmed)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? trimmed : ''
+  } catch {
+    return ''
+  }
+}
+
+const clusterGuideUrl = safeGuideUrl(docsUrl('sandboxDeployment'))
 const e2bApiKeysUrl = 'https://e2b.dev/dashboard?tab=keys'
 
 const backendOptions = computed(() => {
@@ -887,7 +900,14 @@ const docker = reactive<SandboxDockerConfig>({})
 // Tracks which secrets the tenant already has stored, so an empty input can
 // mean "keep the saved key" instead of "no key configured".
 const storedSecrets = reactive({ cube: false, e2b: false })
-const envRows = ref<{ key: string; value: string; stored?: boolean }[]>([])
+const envRows = ref<{ key: string; value: string; stored?: boolean; originalKey?: string }[]>([])
+let drawerSessionEpoch = 0
+let templateReqEpoch = 0
+let checkReqEpoch = 0
+
+function isStoredEnvRowRecoverable(row: { key: string; stored?: boolean; originalKey?: string }): boolean {
+  return Boolean(row.stored && row.originalKey && row.originalKey === row.key.trim())
+}
 const skillRollout = ref<'next_turn' | 'new_session'>('next_turn')
 const allocationMode = ref<'session' | 'user'>('session')
 const userAllocationPanelRef = ref<HTMLElement | null>(null)
@@ -1221,7 +1241,7 @@ function reset() {
   if (storedSecrets.cube) cube.api_key = ''
   if (storedSecrets.e2b) e2b.api_key = ''
   envRows.value = Object.entries(cfg.env_vars || {}).map(([key, value]) => (
-    isMaskedSecret(value) ? { key, value: '', stored: true } : { key, value }
+    isMaskedSecret(value) ? { key, value: '', stored: true, originalKey: key.trim() } : { key, value }
   ))
   skillRollout.value = cfg.skill_rollout === 'new_session' ? 'new_session' : 'next_turn'
   allocationMode.value = cfg.allocation_mode === 'user' ? 'user' : 'session'
@@ -1266,6 +1286,12 @@ function reset() {
     })),
   }))
   checkResult.value = null
+  inFlightFromSkills.value = false
+  checking.value = false
+  templatesLoading.value = false
+  drawerSessionEpoch += 1
+  templateReqEpoch += 1
+  checkReqEpoch += 1
   conflict.value = null
   nameError.value = ''
   fieldErrors.value = {}
@@ -1287,26 +1313,33 @@ function selectBackend(value: string) {
 
 async function refreshInFlightSkill() {
   const id = props.record?.id
+  const epoch = drawerSessionEpoch
   if (!id) {
     inFlightFromSkills.value = false
     return
   }
   try {
     const res = await listConfigSkills(id)
+    if (epoch !== drawerSessionEpoch || !props.visible || props.record?.id !== id) return
     inFlightFromSkills.value = (res?.data || []).some(
       (skill) => skill.status === 'installing' || skill.status === 'removing',
     )
   } catch {
-    inFlightFromSkills.value = false
+    if (epoch === drawerSessionEpoch) inFlightFromSkills.value = false
   }
 }
 
-watch(() => props.visible, (open) => {
+watch(() => [props.visible, props.record?.id] as const, ([open]) => {
   if (open) {
     void deploymentCapabilities.ensureLoaded()
     reset()
     void refreshInFlightSkill()
   } else {
+    drawerSessionEpoch += 1
+    templateReqEpoch += 1
+    checkReqEpoch += 1
+    checking.value = false
+    templatesLoading.value = false
     stopTemplatePolling()
     inFlightFromSkills.value = false
   }
@@ -1477,6 +1510,7 @@ async function loadTemplates(opts: {
 } = {}): Promise<boolean> {
   if (!hasImageCatalog.value) return true
   if (!connectionReady()) return false
+  const epoch = ++templateReqEpoch
   if (!opts.silent) templatesLoading.value = true
   templatesError.value = ''
   try {
@@ -1492,6 +1526,7 @@ async function loadTemplates(opts: {
       replace_standard: opts.replaceStandard,
       replace_desktop: opts.replaceDesktop,
     })
+    if (epoch !== templateReqEpoch || !props.visible) return false
     templates.value = res.data?.templates || []
     templatesLoaded.value = true
     const standardID = res.data?.standard_template_id
@@ -1532,10 +1567,11 @@ async function loadTemplates(opts: {
     scheduleTemplatePolling()
     return true
   } catch (e: any) {
+    if (epoch !== templateReqEpoch || !props.visible) return false
     templatesError.value = e?.message || t('settings.sandbox.templateLoadFailed')
     return false
   } finally {
-    if (!opts.silent) templatesLoading.value = false
+    if (!opts.silent && epoch === templateReqEpoch) templatesLoading.value = false
   }
 }
 
@@ -1593,7 +1629,7 @@ function collectPayload(): SandboxConfig {
   for (const row of envRows.value) {
     const key = row.key.trim()
     if (!key) continue
-    envVars[key] = row.stored && row.value === '' ? secretPlaceholder : row.value
+    envVars[key] = isStoredEnvRowRecoverable(row) && row.value === '' ? secretPlaceholder : row.value
   }
   const payload: SandboxConfig = {
     sandbox_type: backend.value,
@@ -1788,6 +1824,7 @@ async function runCheck(deep: boolean): Promise<boolean> {
   // The probe builds a real client, so an incomplete config would come back as
   // a generic client_build failure instead of naming the empty field.
   if (!validateRequiredFields(deep)) return false
+  const epoch = ++checkReqEpoch
   checking.value = true
   checkResult.value = null
   try {
@@ -1798,6 +1835,7 @@ async function runCheck(deep: boolean): Promise<boolean> {
       config_id: effectiveRecord.value?.id,
       deep,
     })
+    if (epoch !== checkReqEpoch || !props.visible) return false
     checkResult.value = res?.data || null
     lastCheckWasDeep.value = deep
     if (checkResult.value) {
@@ -1806,19 +1844,24 @@ async function runCheck(deep: boolean): Promise<boolean> {
     }
     return checkResult.value?.ok === true
   } catch (e: any) {
+    if (epoch !== checkReqEpoch || !props.visible) return false
     MessagePlugin.error(e?.message || t('settings.sandbox.checkFailed'))
     return false
   } finally {
-    checking.value = false
+    if (epoch === checkReqEpoch) checking.value = false
   }
 }
 
 // A result that no longer matches the form is worse than none.
 function invalidateCheck() {
+  checkReqEpoch += 1
+  checking.value = false
   checkResult.value = null
 }
 
 function invalidateConnection() {
+  templateReqEpoch += 1
+  templatesLoading.value = false
   stopTemplatePolling()
   invalidateCheck()
   templates.value = []
@@ -1834,7 +1877,12 @@ function onBackendChange() {
   invalidateConnection()
 }
 
-onUnmounted(stopTemplatePolling)
+onUnmounted(() => {
+  drawerSessionEpoch += 1
+  templateReqEpoch += 1
+  checkReqEpoch += 1
+  stopTemplatePolling()
+})
 </script>
 
 <style lang="less" scoped>

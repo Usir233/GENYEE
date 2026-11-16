@@ -27,11 +27,11 @@
           </p>
           <h3 class="guide__title">{{ stepTitle }}</h3>
           <p class="guide__desc">{{ stepDesc }}</p>
-          <p v-if="step.interact" class="guide__interact-hint">{{ t(`${labelsPrefix}.interactHint`) }}</p>
+          <p v-if="step?.interact" class="guide__interact-hint">{{ t(`${labelsPrefix}.interactHint`) }}</p>
 
           <div class="guide__actions">
             <button type="button" class="guide__skip" @click="dismiss">{{ t(`${labelsPrefix}.skip`) }}</button>
-            <div v-if="!step.interact" class="guide__actions-main">
+            <div v-if="!step?.interact" class="guide__actions-main">
               <t-button v-if="index > 0" size="small" variant="outline" @click="prev">
                 {{ t(`${labelsPrefix}.prev`) }}
               </t-button>
@@ -148,11 +148,12 @@ const rootRef = ref<HTMLElement | null>(null)
 const cardRef = ref<HTMLElement | null>(null)
 
 let retryTimer: ReturnType<typeof setTimeout> | null = null
+let navEpoch = 0
 
 const step = computed(() => props.steps[index.value] ?? props.steps[0])
 const isLast = computed(() => index.value === props.steps.length - 1)
-const stepTitle = computed(() => t(`${props.stepI18nPrefix}.${step.value.key}.title`))
-const stepDesc = computed(() => t(`${props.stepI18nPrefix}.${step.value.key}.desc`))
+const stepTitle = computed(() => (step.value ? t(`${props.stepI18nPrefix}.${step.value.key}.title`) : ''))
+const stepDesc = computed(() => (step.value ? t(`${props.stepI18nPrefix}.${step.value.key}.desc`) : ''))
 
 const hole = computed(() => {
   const el = targetEl.value
@@ -271,11 +272,13 @@ const measureCard = async () => {
   }
 }
 
-const locate = async (retry = 0) => {
+const locate = async (retry = 0, epoch = navEpoch) => {
+  if (!props.active || epoch !== navEpoch) return
   vw.value = window.innerWidth
   vh.value = window.innerHeight
 
   const cur = step.value
+  if (!cur) return
   if (!cur.target) {
     targetEl.value = null
     targetRect.value = null
@@ -287,11 +290,13 @@ const locate = async (retry = 0) => {
   if (!el) {
     if (retry < 12) {
       if (retryTimer) clearTimeout(retryTimer)
-      retryTimer = setTimeout(() => locate(retry + 1), 120)
+      retryTimer = setTimeout(() => {
+        if (props.active && epoch === navEpoch) void locate(retry + 1, epoch)
+      }, 120)
       return
     }
     if (cur.optional) {
-      goTo(index.value + 1)
+      void goTo(index.value + 1)
       return
     }
     targetEl.value = null
@@ -308,20 +313,26 @@ const locate = async (retry = 0) => {
 
 const goTo = async (i: number) => {
   if (i < 0 || i >= props.steps.length) return
+  const epoch = ++navEpoch
   if (retryTimer) {
     clearTimeout(retryTimer)
     retryTimer = null
   }
   const fromKey = props.steps[index.value]?.key
   index.value = i
+  if (!step.value) return
   emit('step-change', { fromKey, toKey: step.value.key, index: i })
   await step.value.before?.()
-  const delay = step.value.before ? props.beforeDelayMs : 0
+  if (!props.active || epoch !== navEpoch) return
+  const delay = step.value?.before ? props.beforeDelayMs : 0
   if (delay > 0) {
     await new Promise((r) => setTimeout(r, delay))
   }
-  await locate()
+  if (!props.active || epoch !== navEpoch) return
+  await locate(0, epoch)
+  if (!props.active || epoch !== navEpoch) return
   await nextTick()
+  if (!props.active || epoch !== navEpoch) return
   rootRef.value?.focus()
 }
 
@@ -329,6 +340,7 @@ const next = () => goTo(index.value + 1)
 const prev = () => goTo(index.value - 1)
 
 const close = () => {
+  navEpoch += 1
   if (retryTimer) {
     clearTimeout(retryTimer)
     retryTimer = null
@@ -366,6 +378,7 @@ watch(
     if (val && !old) {
       open()
     } else if (!val && old) {
+      navEpoch += 1
       if (retryTimer) {
         clearTimeout(retryTimer)
         retryTimer = null
@@ -375,6 +388,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  navEpoch += 1
   window.removeEventListener('resize', onViewportChange)
   window.removeEventListener('scroll', onViewportChange, true)
   if (retryTimer) clearTimeout(retryTimer)

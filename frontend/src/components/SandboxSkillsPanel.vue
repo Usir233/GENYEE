@@ -1281,21 +1281,28 @@ async function uploadFile(file: File) {
     MessagePlugin.error(t('settings.sandbox.skillBundleTooLarge', { size: MAX_SKILL_BUNDLE_SIZE_MB }))
     return
   }
+  const configId = props.record.id
+  const generation = panelGeneration
   uploading.value = true
   uploadPercent.value = 0
   try {
     await persistInstallerModel(installerModelId.value)
-    const res = await uploadConfigSkill(props.record.id, file, (percent) => {
-      uploadPercent.value = percent
+    if (generation !== panelGeneration) return
+    const res = await uploadConfigSkill(configId, file, (percent) => {
+      if (generation === panelGeneration) uploadPercent.value = percent
     })
+    if (generation !== panelGeneration) return
     MessagePlugin.success(t('settings.sandbox.skillUploadAccepted'))
     const skillId = res?.data?.skill_id || ''
     emit('installed', skillId)
   } catch (e: any) {
+    if (generation !== panelGeneration) return
     MessagePlugin.error(skillBundleErrorMessage(e, 'settings.sandbox.skillUploadFailed'))
   } finally {
-    uploading.value = false
-    uploadPercent.value = 0
+    if (generation === panelGeneration) {
+      uploading.value = false
+      uploadPercent.value = 0
+    }
     if (fileInputRef.value) fileInputRef.value.value = ''
   }
 }
@@ -1308,18 +1315,23 @@ async function installFromSource() {
     MessagePlugin.warning(t('settings.sandbox.skillInstallerModelRequired'))
     return
   }
+  const configId = props.record.id
+  const generation = panelGeneration
   installingFromSource.value = true
   try {
     await persistInstallerModel(installerModelId.value)
-    const res = await installConfigSkillFromSource(props.record.id, { source })
+    if (generation !== panelGeneration) return
+    const res = await installConfigSkillFromSource(configId, { source })
+    if (generation !== panelGeneration) return
     MessagePlugin.success(t('settings.sandbox.skillUploadAccepted'))
     sourceInput.value = ''
     const skillId = res?.data?.skill_id || ''
     emit('installed', skillId)
   } catch (e: any) {
+    if (generation !== panelGeneration) return
     MessagePlugin.error(skillBundleErrorMessage(e, 'settings.sandbox.skillSourceFailed'))
   } finally {
-    installingFromSource.value = false
+    if (generation === panelGeneration) installingFromSource.value = false
   }
 }
 
@@ -1337,18 +1349,22 @@ function onFileDrop(event: DragEvent) {
 
 async function toggleEnabled(skill: ConfigSkill, enabled: boolean) {
   if (!props.record) return
+  const configId = props.record.id
+  const generation = panelGeneration
   togglingId.value = skill.id
   try {
-    const res = await patchConfigSkill(props.record.id, skill.id, { enabled })
+    const res = await patchConfigSkill(configId, skill.id, { enabled })
+    if (generation !== panelGeneration) return
     const updated = res?.data
     skills.value = skills.value.map((item) => (item.id === skill.id ? (updated || { ...item, enabled }) : item))
     MessagePlugin.success(
       enabled ? t('settings.sandbox.skillEnabled') : t('settings.sandbox.skillDisabled'),
     )
   } catch (e: any) {
+    if (generation !== panelGeneration) return
     MessagePlugin.error(e?.message || t('settings.sandbox.skillToggleFailed'))
   } finally {
-    togglingId.value = ''
+    if (generation === panelGeneration) togglingId.value = ''
   }
 }
 
@@ -1470,6 +1486,10 @@ watch(
       stopPoll()
       skills.value = []
       loading.value = false
+      uploading.value = false
+      uploadPercent.value = 0
+      installingFromSource.value = false
+      togglingId.value = ''
       retryingId.value = ''
       upgradingId.value = ''
       stoppingId.value = ''

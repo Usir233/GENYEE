@@ -180,7 +180,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, nextTick } from 'vue';
+import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import { Icon as TIcon, Tooltip as TTooltip } from 'tdesign-vue-next';
@@ -603,6 +603,13 @@ watch(() => props.visible, (newVal) => {
 watch(activeDetail, (detail) => {
   if (detail) {
     scheduleDetailPanelPosition();
+  }
+});
+
+onBeforeUnmount(() => {
+  if (detailHideTimer) {
+    clearTimeout(detailHideTimer);
+    detailHideTimer = null;
   }
 });
 </script>

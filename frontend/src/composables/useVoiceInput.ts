@@ -75,6 +75,10 @@ export function useVoiceInput(options: {
   };
 
   const transcribe = async (recording: Blob, durationMs: number) => {
+    if (disposed) {
+      state.value = 'idle';
+      return;
+    }
     const target = options.target();
     if (durationMs < MIN_CLIP_MS || !target) {
       state.value = 'idle';
@@ -86,7 +90,11 @@ export function useVoiceInput(options: {
       clip = await toWav(recording);
     } catch (err) {
       state.value = 'idle';
-      options.onError('decode', err);
+      if (!disposed) options.onError('decode', err);
+      return;
+    }
+    if (disposed) {
+      state.value = 'idle';
       return;
     }
     console.debug('[voice input] speech check', clip.stats);
@@ -97,10 +105,11 @@ export function useVoiceInput(options: {
     }
     try {
       const text = (await options.transcribe(clip.wav, target)).trim();
+      if (disposed) return;
       if (text) options.onText(text);
       else options.onError('empty');
     } catch (err) {
-      options.onError('transcribe', err);
+      if (!disposed) options.onError('transcribe', err);
     } finally {
       state.value = 'idle';
     }

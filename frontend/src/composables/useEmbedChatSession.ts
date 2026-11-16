@@ -102,12 +102,25 @@ export function useEmbedChatSession(options: {
 
   useStickyBottomOnResize(scrollContainer, userHasScrolledUp)
 
+  let sessionEpoch = 0
+  let disposed = false
+
   const debounce = <T extends (...args: never[]) => void>(fn: T, delay: number) => {
-    let timer: ReturnType<typeof setTimeout>
-    return (...args: Parameters<T>) => {
-      clearTimeout(timer)
-      timer = setTimeout(() => fn(...args), delay)
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const run = (...args: Parameters<T>) => {
+      if (timer !== null) clearTimeout(timer)
+      timer = setTimeout(() => {
+        timer = null
+        fn(...args)
+      }, delay)
     }
+    run.cancel = () => {
+      if (timer !== null) {
+        clearTimeout(timer)
+        timer = null
+      }
+    }
+    return run
   }
 
   const notifyEmbedReceived = (content: string) => {
@@ -217,7 +230,9 @@ export function useEmbedChatSession(options: {
     isScrollType = false,
     scrollHeight?: number,
   ) => {
+    const epoch = sessionEpoch
     const sessionSig = options.sessionSig.value
+    const isCurrentRequest = () => !disposed && epoch === sessionEpoch && options.sessionId.value === data.session_id
     if (isScrollType) {
       if (historyLoadingMore.value || !hasMoreHistory.value) return
       historyLoadingMore.value = true
@@ -232,7 +247,7 @@ export function useEmbedChatSession(options: {
       sessionSig,
     )
       .then(async (res) => {
-        if (options.sessionId.value !== data.session_id) return
+        if (!isCurrentRequest()) return
         const batch = res?.data as Record<string, unknown>[] | undefined
         if (!batch?.length) {
           // No (more) server history. Crucially this also covers the initial
@@ -263,6 +278,7 @@ export function useEmbedChatSession(options: {
         await handleMsgList(batch, isScrollType, scrollHeight)
       })
       .catch((err) => {
+        if (!isCurrentRequest()) return
         console.error('Failed to load messages:', err)
         if (isScrollType) {
           hasMoreHistory.value = historyHasMoreAfterAttempt(hasMoreHistory.value, {
@@ -271,6 +287,7 @@ export function useEmbedChatSession(options: {
         }
       })
       .finally(() => {
+        if (!isCurrentRequest()) return
         historyLoading.value = false
         historyLoadingMore.value = false
       })
@@ -311,6 +328,9 @@ export function useEmbedChatSession(options: {
       embedToast(t('error.fileSizeExceeded', { size: MAX_FILE_SIZE_MB }))
       return
     }
+    const sendEpoch = sessionEpoch
+    const targetSessionId = options.sessionId.value
+    const targetSessionSig = options.sessionSig.value
     stopStream()
     prepareForNewOutgoingMessage()
     isReplying.value = true
@@ -323,21 +343,26 @@ export function useEmbedChatSession(options: {
     try {
       for (const file of imageFiles) {
         const dataURI = String(await fileToDataURI(file))
+        if (disposed || sendEpoch !== sessionEpoch || options.sessionId.value !== targetSessionId) return
         imageAttachments.push({ data: dataURI })
         displayImages.push({ url: dataURI })
       }
       for (const file of attachmentFiles) {
         const dataURI = String(await fileToDataURI(file))
+        if (disposed || sendEpoch !== sessionEpoch || options.sessionId.value !== targetSessionId) return
         attachmentUploads.push({ data: dataURI, file_name: file.name, file_size: file.size })
         displayAttachments.push({ file_name: file.name, file_size: file.size })
       }
     } catch (err) {
+      if (disposed || sendEpoch !== sessionEpoch || options.sessionId.value !== targetSessionId) return
       console.error('Failed to read attachment:', err)
       embedToast(t('chat.imageReadFailed'))
       isReplying.value = false
       loading.value = false
       return
     }
+
+    if (disposed || sendEpoch !== sessionEpoch || options.sessionId.value !== targetSessionId) return
 
     messagesList.push({
       content: value,
@@ -349,7 +374,7 @@ export function useEmbedChatSession(options: {
       created_at: new Date().toISOString(),
     })
     opts.onPrepared?.()
-    postEmbedMessageSent(options.channelId, options.sessionId.value, value)
+    postEmbedMessageSent(options.channelId, targetSessionId, value)
     userHasScrolledUp.value = false
     scrollToBottom(true)
 
@@ -361,7 +386,7 @@ export function useEmbedChatSession(options: {
     const suggestionAttribution = pendingSuggestionAttribution
     pendingSuggestionAttribution = null
     await startStream({
-      session_id: options.sessionId.value,
+      session_id: targetSessionId,
       knowledge_base_ids: options.kbIds,
       knowledge_ids: [],
       agent_enabled: agentEnabled,
@@ -377,7 +402,7 @@ export function useEmbedChatSession(options: {
       method: 'POST',
       url: endpoint,
       embed_token: options.token,
-      embed_session_sig: options.sessionSig.value,
+      embed_session_sig: targetSessionSig,
       embed_visitor_id: options.visitorId.value,
     })
   }
@@ -471,6 +496,8 @@ export function useEmbedChatSession(options: {
   })
 
   const resetAndLoad = (sid: string) => {
+    sessionEpoch++
+    debouncedScrollTop.cancel()
     stopResumePoll()
     stopStream()
     messagesList.splice(0)
@@ -503,6 +530,9 @@ export function useEmbedChatSession(options: {
   })
 
   onUnmounted(() => {
+    disposed = true
+    sessionEpoch++
+    debouncedScrollTop.cancel()
     stopResumePoll()
     stopStream()
     fullContent.value = ''

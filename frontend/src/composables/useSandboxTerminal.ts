@@ -142,14 +142,19 @@ export function useSandboxTerminal(
   let pendingGeometry: { cols: number; rows: number } | null = null
   // 刷新 / 关面板会拆掉这个闭包；PID 写在 sessionStorage，重挂时才能带 pty_id。
   let lastPid: number | null = readStoredPtyId(sessionId.value)
+  let lastPidSessionId: string = sessionId.value
   // 当前这次连接是否带创建意图。只由 connect({ provision: true }) 置真。
   let allowProvision = false
+  let connectEpoch = 0
 
   const textEncoder = new TextEncoder()
 
-  function rememberPid(next: number | null) {
-    lastPid = next
-    writeStoredPtyId(sessionId.value, next)
+  function rememberPid(targetSid: string, next: number | null) {
+    if (targetSid === sessionId.value) {
+      lastPid = next
+      lastPidSessionId = targetSid
+    }
+    writeStoredPtyId(targetSid, next)
   }
 
   function clearReconnectTimer() {
@@ -187,13 +192,20 @@ export function useSandboxTerminal(
     if (disposed || opening || ws) return
     const sid = sessionId.value
     if (!sid) return
+    if (lastPidSessionId !== sid) {
+      lastPid = readStoredPtyId(sid)
+      lastPidSessionId = sid
+    }
+    const epoch = ++connectEpoch
+    const isStale = () => disposed || epoch !== connectEpoch || sessionId.value !== sid
 
     opening = true
     readyReceived = false
     status.value = 'connecting'
+    let socket: WebSocket | null = null
     try {
       const ticket = await mintTerminalTicket(sid)
-      if (disposed) return
+      if (isStale()) return
       const query = new URLSearchParams({ ticket })
       if (allowProvision) {
         query.set('provision', '1')
@@ -214,38 +226,40 @@ export function useSandboxTerminal(
         query.set('cols', String(pendingGeometry.cols))
         query.set('rows', String(pendingGeometry.rows))
       }
-      const socket = new WebSocket(
+      socket = new WebSocket(
         `${resolveWsBase()}/api/v1/sessions/${encodeURIComponent(sid)}/sandbox/terminal?${query.toString()}`,
       )
-      if (disposed) {
+      if (isStale()) {
         socket.close()
         return
       }
       ws = socket
     } catch {
       ws = null
-      if (disposed) return
+      if (isStale()) return
       status.value = 'error'
       scheduleReconnect()
       return
     } finally {
-      opening = false
+      if (epoch === connectEpoch) opening = false
     }
-    if (!ws) return
-    ws.binaryType = 'arraybuffer'
+    if (!ws || ws !== socket) return
+    socket.binaryType = 'arraybuffer'
 
-    ws.onopen = () => {
+    socket.onopen = () => {
+      if (ws !== socket) return
       clearPingTimer()
       pingTimer = setInterval(() => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'ping' }))
+        if (ws === socket && socket.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'ping' }))
         }
       }, APP_PING_INTERVAL_MS)
     }
 
-    ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
+      if (ws !== socket) return
       if (typeof event.data === 'string') {
-        handleControlFrame(event.data)
+        handleControlFrame(sid, event.data)
         return
       }
       const data =
@@ -253,10 +267,11 @@ export function useSandboxTerminal(
       deliverOutput(data)
     }
 
-    ws.onclose = (event) => {
+    socket.onclose = (event) => {
+      if (ws !== socket) return
       clearPingTimer()
       ws = null
-      if (disposed) return
+      if (disposed || sessionId.value !== sid) return
       const reason = typeof event.reason === 'string' ? event.reason : ''
       if (
         event.code === 1008
@@ -276,7 +291,7 @@ export function useSandboxTerminal(
         // idle / unauthorized / paused：shell 还在沙箱里，PID 必须留下才能重挂。
         // 沙箱没了或后端不支持：PID 已无效，清掉以免下次 Create 撞上死进程。
         if (status.value !== 'idle' && status.value !== 'unauthorized' && status.value !== 'paused') {
-          rememberPid(null)
+          rememberPid(sid, null)
         }
         return
       }
@@ -295,12 +310,12 @@ export function useSandboxTerminal(
       }
     }
 
-    ws.onerror = () => {
+    socket.onerror = () => {
       // onclose 会随后触发，统一在那里处理。
     }
   }
 
-  function handleControlFrame(raw: string) {
+  function handleControlFrame(sid: string, raw: string) {
     let frame: SandboxTerminalControlFrame
     try {
       frame = JSON.parse(raw)
@@ -312,7 +327,7 @@ export function useSandboxTerminal(
         status.value = 'ready'
         readyReceived = true
         reattachable.value = frame.reattachable !== false
-        rememberPid(typeof frame.pty_id === 'number' ? frame.pty_id : null)
+        rememberPid(sid, typeof frame.pty_id === 'number' ? frame.pty_id : null)
         reconnectAttempt = 0
         // 创建意图到此为止。它只用来解释 SANDBOX_NOT_BOUND：连上之前是"还没
         // 有沙箱，要不要建"，连上之后再收到就一定是"沙箱被回收了"。不复位会
@@ -325,14 +340,14 @@ export function useSandboxTerminal(
         break
       case 'exited': {
         status.value = 'exited'
-        rememberPid(null)
+        rememberPid(sid, null)
         break
       }
       case 'error': {
         sandboxMayBeReclaimed.value = frame.code === 'SANDBOX_STOPPED'
         status.value = statusFromErrorCode(frame.code, allowProvision)
         if (status.value !== 'idle' && status.value !== 'unauthorized' && status.value !== 'paused') {
-          rememberPid(null)
+          rememberPid(sid, null)
         }
         break
       }
@@ -404,6 +419,8 @@ export function useSandboxTerminal(
     resize: sendResize,
     dispose() {
       disposed = true
+      connectEpoch += 1
+      opening = false
       clearReconnectTimer()
       clearPingTimer()
       if (ws) {

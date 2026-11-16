@@ -55,6 +55,8 @@ let observer: IntersectionObserver | null = null
 let resizeObserver: ResizeObserver | null = null
 let containerWidth = 0
 let disposed = false
+let mounted = false
+let loadGeneration = 0
 let locateVersion = 0
 
 const MAX_RENDERED_PAGES = 12
@@ -84,10 +86,29 @@ function setPageRef(page: number, el: unknown) {
   }
 }
 
-async function openDocument(data: ArrayBuffer) {
+function resetDocumentState() {
+  locateVersion++
+  clearMarks()
+  locatedTargets.value = []
+  selectedTarget.value = 0
+  for (const p of [...rendered.keys()]) unrenderPage(p)
+  renderOrder.length = 0
+  pageTexts.clear()
+  for (const k of Object.keys(ratios)) delete ratios[Number(k)]
+  pdf.value = null
+  pageCount.value = 0
+  currentPage.value = 1
+  if (loadingTask) {
+    const prevTask = loadingTask
+    loadingTask = null
+    void prevTask.destroy().catch(() => {})
+  }
+}
+
+async function openDocument(data: ArrayBuffer, generation: number) {
   const lib = await loadPdfJs()
   pdfjs = lib
-  if (disposed) return
+  if (disposed || generation !== loadGeneration) return
   // pdf.js takes ownership of the buffer; keep the caller's copy intact.
   const task = lib.getDocument({
     data: new Uint8Array(data.slice(0)),
@@ -95,13 +116,14 @@ async function openDocument(data: ArrayBuffer) {
   })
   loadingTask = task
   const doc = await task.promise
-  if (disposed) {
-    await task.destroy()
+  if (disposed || generation !== loadGeneration) {
+    await task.destroy().catch(() => {})
     return
   }
   pdf.value = doc
   pageCount.value = doc.numPages
   const first = await doc.getPage(1)
+  if (disposed || generation !== loadGeneration) return
   const vp = first.getViewport({ scale: 1 })
   ratios[1] = vp.height / vp.width
 }
@@ -383,25 +405,41 @@ watch(
 )
 
 async function load() {
+  const generation = ++loadGeneration
+  resetDocumentState()
   error.value = ''
-  if (!props.data) return
+  if (!props.data) {
+    loading.value = false
+    return
+  }
   loading.value = true
   try {
-    await openDocument(props.data)
+    await openDocument(props.data, generation)
+    if (disposed || generation !== loadGeneration) return
     await nextTick()
+    if (disposed || generation !== loadGeneration) return
     containerWidth = scroller.value?.clientWidth ? scroller.value.clientWidth - 24 : 600
     if (props.locate) await applyLocate(props.locate)
   } catch (err) {
+    if (disposed || generation !== loadGeneration) return
     console.error('PDF preview failed:', err)
     error.value = t('preview.loadFailed')
     emit('error', error.value)
     emit('located', { found: false, precise: false, reason: 'unavailable' })
   } finally {
-    loading.value = false
+    if (!disposed && generation === loadGeneration) loading.value = false
   }
 }
 
+watch(
+  () => props.data,
+  () => {
+    if (mounted && !disposed) void load()
+  },
+)
+
 onMounted(() => {
+  mounted = true
   observer = new IntersectionObserver(onIntersect, { root: scroller.value, rootMargin: '600px 0px' })
   for (const el of pageElements.values()) observer.observe(el)
   resizeObserver = new ResizeObserver(() => {
@@ -417,6 +455,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   disposed = true
+  loadGeneration++
   locateVersion++
   observer?.disconnect()
   resizeObserver?.disconnect()

@@ -552,7 +552,7 @@
               <!-- QR code binding flow -->
               <div v-else class="wechat-qr-section">
                 <!-- Initial state: show bind button -->
-                <div v-if="!wechatQRImgUrl" class="wechat-bind-action">
+                <div v-if="!wechatQRContent" class="wechat-bind-action">
                   <t-button theme="default" variant="outline" :loading="wechatLoading" @click="startWeChatBinding">
                     <template #icon><t-icon name="scan" /></template>
                     {{ $t('agentEditor.im.wechatScanBind') }}
@@ -562,7 +562,7 @@
                 <!-- QR code displayed -->
                 <div v-else class="wechat-qr-display">
                   <div class="qr-container">
-                    <img :src="wechatQRImgUrl" alt="WeChat QR Code" class="qr-image" />
+                    <t-qrcode :value="wechatQRContent" :size="200" borderless class="qr-image" />
                     <div v-if="wechatQRStatus === 'expired'" class="qr-expired-overlay" @click="startWeChatBinding">
                       <t-icon name="refresh" class="refresh-icon" />
                       <span>{{ $t('agentEditor.im.wechatQRExpired') }}</span>
@@ -731,13 +731,16 @@ async function handleDrawerConfirm() {
 const knowledgeBases = ref<{ id: string; name: string }[]>([]);
 
 // WeChat QR code binding state
-const wechatQRContent = ref('');  // raw text to encode as QR code
-const wechatQRImgUrl = ref('');   // generated QR image URL
+const wechatQRContent = ref('');  // raw text to encode locally as QR code
 const wechatQRCode = ref('');     // opaque token for polling status
 const wechatQRStatus = ref<string>('');
 const wechatLoading = ref(false);
-let wechatPollActive = false;
+let wechatBindSeq = 0;
+let editChannelSeq = 0;
+let hydratingCredentials = false;
 let wechatPollTimer: ReturnType<typeof setTimeout> | null = null;
+const editingCredentialsConfigured = ref(false);
+const credentialsDirty = ref(false);
 
 const defaultCredentials = (): Record<string, any> => ({});
 
@@ -752,6 +755,16 @@ const formData = ref({
   knowledge_base_id: '',
   credentials: defaultCredentials(),
 });
+
+watch(
+  () => formData.value.credentials,
+  () => {
+    if (!hydratingCredentials) {
+      credentialsDirty.value = true;
+    }
+  },
+  { deep: true, flush: 'sync' },
+);
 
 const channelMenuOptions = (channel: IMChannel | IMChannelOverview) => ([
   {
@@ -820,9 +833,11 @@ watch(
 );
 // Whether WeChat credentials are already bound
 const wechatBound = computed(() => {
-  return formData.value.platform === 'wechat' &&
-    formData.value.credentials.bot_token &&
-    formData.value.credentials.ilink_bot_id;
+  if (formData.value.platform !== 'wechat') return false;
+  if (editingChannel.value && editingCredentialsConfigured.value && !credentialsDirty.value) {
+    return true;
+  }
+  return Boolean(formData.value.credentials.bot_token && formData.value.credentials.ilink_bot_id);
 });
 
 
@@ -831,7 +846,6 @@ function onPlatformChange(val: string | number | boolean) {
   formData.value.credentials = defaultCredentials();
   stopWeChatPolling();
   wechatQRContent.value = '';
-  wechatQRImgUrl.value = '';
   wechatQRCode.value = '';
   wechatQRStatus.value = '';
   // WeChat uses fixed mode/output
@@ -868,40 +882,44 @@ function normalizeYunzhijiaCredentials() {
 
 async function startWeChatBinding() {
   stopWeChatPolling();
+  const seq = ++wechatBindSeq;
+  credentialsDirty.value = true;
   wechatLoading.value = true;
   wechatQRContent.value = '';
-  wechatQRImgUrl.value = '';
   wechatQRStatus.value = '';
 
   try {
     const res = await getWeChatQRCode();
-    // qrcode_url is the text content to encode as QR code (e.g. a weixin:// URL)
+    if (seq !== wechatBindSeq || !showCreateDialog.value || formData.value.platform !== 'wechat') {
+      return;
+    }
+    // qrcode_url is encoded locally via TDesign <t-qrcode> (never sent to external services)
     wechatQRContent.value = res.data.qrcode_url;
     wechatQRCode.value = res.data.qrcode;
     wechatQRStatus.value = 'wait';
 
-    // Generate QR code image via public API (no extra npm dependency needed)
-    wechatQRImgUrl.value = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(res.data.qrcode_url)}`;
-
     // Start long-polling for scan status
-    startStatusPolling();
+    startStatusPolling(seq);
   } catch (e: any) {
-    MessagePlugin.error(e?.message || 'Failed to generate QR code');
+    if (seq === wechatBindSeq) {
+      MessagePlugin.error(e?.message || 'Failed to generate QR code');
+    }
   } finally {
-    wechatLoading.value = false;
+    if (seq === wechatBindSeq) {
+      wechatLoading.value = false;
+    }
   }
 }
 
-function startStatusPolling() {
-  wechatPollActive = true;
-  pollOnce();
+function startStatusPolling(seq: number) {
+  void pollOnce(seq);
 }
 
-async function pollOnce() {
-  if (!wechatPollActive) return;
+async function pollOnce(seq: number) {
+  if (seq !== wechatBindSeq || !showCreateDialog.value || formData.value.platform !== 'wechat') return;
   try {
     const statusRes = await pollWeChatQRCodeStatus(wechatQRCode.value);
-    if (!wechatPollActive) return;
+    if (seq !== wechatBindSeq || !showCreateDialog.value || formData.value.platform !== 'wechat') return;
     wechatQRStatus.value = statusRes.data.status;
 
     if (statusRes.data.status === 'confirmed' && statusRes.data.credentials) {
@@ -910,9 +928,9 @@ async function pollOnce() {
         ilink_bot_id: statusRes.data.credentials.ilink_bot_id,
         ilink_user_id: statusRes.data.credentials.ilink_user_id,
       };
+      credentialsDirty.value = true;
       stopWeChatPolling();
       wechatQRContent.value = '';
-      wechatQRImgUrl.value = '';
       MessagePlugin.success(t('agentEditor.im.wechatBindSuccess'));
       return;
     }
@@ -924,13 +942,13 @@ async function pollOnce() {
     // transient error
   }
   // Schedule next poll with a short delay (the backend already long-polled ~35s)
-  if (wechatPollActive) {
-    wechatPollTimer = setTimeout(pollOnce, 500);
+  if (seq === wechatBindSeq && showCreateDialog.value && formData.value.platform === 'wechat') {
+    wechatPollTimer = setTimeout(() => void pollOnce(seq), 500);
   }
 }
 
 function stopWeChatPolling() {
-  wechatPollActive = false;
+  wechatBindSeq += 1;
   if (wechatPollTimer) {
     clearTimeout(wechatPollTimer);
     wechatPollTimer = null;
@@ -978,13 +996,18 @@ function openDrawer(channel: IMChannel | IMChannelOverview) {
 }
 
 async function editChannel(channel: IMChannel | IMChannelOverview) {
+  const seq = ++editChannelSeq;
+  stopWeChatPolling();
   wizardStep.value = 0;
   let fullChannel: IMChannel | null = null;
+  const overviewConfigured = Boolean((channel as any).credentials_configured);
   if (!('credentials' in channel)) {
     try {
       const res = await listIMChannels(channel.agent_id);
+      if (seq !== editChannelSeq) return;
       fullChannel = (res.data || []).find((item) => item.id === channel.id) || null;
     } catch {
+      if (seq !== editChannelSeq) return;
       fullChannel = null;
     }
   } else {
@@ -996,54 +1019,80 @@ async function editChannel(channel: IMChannel | IMChannelOverview) {
   }
   editingChannel.value = fullChannel;
   editingEnabled.value = fullChannel.enabled;
+  editingCredentialsConfigured.value = Boolean(
+    overviewConfigured
+    || (fullChannel as any).credentials_configured
+    || Object.keys(fullChannel.credentials || {}).length > 0,
+  );
   channelNameTouched.value = true;
-  formData.value = {
-    target_agent_id: fullChannel.agent_id,
-    platform: fullChannel.platform,
-    name: fullChannel.name,
-    mode: fullChannel.mode,
-    output_mode: fullChannel.output_mode,
-    locale: fullChannel.locale || '',
-    session_mode: fullChannel.session_mode || 'user',
-    knowledge_base_id: fullChannel.knowledge_base_id || '',
-    credentials: { ...fullChannel.credentials },
-  };
-  normalizeYunzhijiaCredentials();
+  hydratingCredentials = true;
+  try {
+    formData.value = {
+      target_agent_id: fullChannel.agent_id,
+      platform: fullChannel.platform,
+      name: fullChannel.name,
+      mode: fullChannel.mode,
+      output_mode: fullChannel.output_mode,
+      locale: fullChannel.locale || '',
+      session_mode: fullChannel.session_mode || 'user',
+      knowledge_base_id: fullChannel.knowledge_base_id || '',
+      credentials: { ...(fullChannel.credentials || {}) },
+    };
+    normalizeYunzhijiaCredentials();
+    credentialsDirty.value = false;
+  } finally {
+    hydratingCredentials = false;
+  }
   showCreateDialog.value = true;
 }
 
 function resetForm() {
+  editChannelSeq += 1;
   editingChannel.value = null;
   editingEnabled.value = true;
+  editingCredentialsConfigured.value = false;
+  credentialsDirty.value = false;
   wizardStep.value = 0;
   channelNameTouched.value = false;
   stopWeChatPolling();
   wechatQRContent.value = '';
-  wechatQRImgUrl.value = '';
   wechatQRCode.value = '';
   wechatQRStatus.value = '';
-  formData.value = {
-    target_agent_id: filterAgentId.value || '',
-    platform: 'wecom',
-    name: defaultChannelName('wecom'),
-    mode: 'websocket',
-    output_mode: 'stream',
-    locale: '',
-    session_mode: 'user',
-    knowledge_base_id: '',
-    credentials: defaultCredentials(),
-  };
+  hydratingCredentials = true;
+  try {
+    formData.value = {
+      target_agent_id: filterAgentId.value || '',
+      platform: 'wecom',
+      name: defaultChannelName('wecom'),
+      mode: 'websocket',
+      output_mode: 'stream',
+      locale: '',
+      session_mode: 'user',
+      knowledge_base_id: '',
+      credentials: defaultCredentials(),
+    };
+  } finally {
+    hydratingCredentials = false;
+  }
 }
+
+watch(showCreateDialog, (open) => {
+  if (!open) {
+    resetForm();
+  }
+});
 
 async function handleSave() {
   saving.value = true;
   try {
-    // For WeChat, validate that credentials are bound
-    if (formData.value.platform === 'wechat' && !formData.value.credentials.bot_token) {
+    const shouldSendCredentials =
+      !editingChannel.value || !editingCredentialsConfigured.value || credentialsDirty.value;
+    // For WeChat, validate that credentials are bound when creating or replacing credentials
+    if (shouldSendCredentials && formData.value.platform === 'wechat' && !formData.value.credentials.bot_token) {
       MessagePlugin.warning(t('agentEditor.im.wechatScanBind'));
       return;
     }
-    if (formData.value.platform === 'yunzhijia') {
+    if (shouldSendCredentials && formData.value.platform === 'yunzhijia') {
       // normalize fills in the default allowed host suffix, so only the send URL
       // needs explicit validation here.
       normalizeYunzhijiaCredentials();
@@ -1061,7 +1110,7 @@ async function handleSave() {
         locale: formData.value.locale,
         session_mode: formData.value.session_mode,
         knowledge_base_id: normalizeOptionalString(formData.value.knowledge_base_id),
-        credentials: formData.value.credentials,
+        credentials: shouldSendCredentials ? formData.value.credentials : undefined,
         enabled: editingEnabled.value,
         ...(formData.value.target_agent_id ? { agent_id: formData.value.target_agent_id } : {}),
       });

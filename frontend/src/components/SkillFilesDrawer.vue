@@ -115,6 +115,7 @@ function onResizeStart(e: MouseEvent) {
   resizeStartWidth = drawerWidth.value
   document.addEventListener('mousemove', onResizeMove)
   document.addEventListener('mouseup', onResizeEnd)
+  window.addEventListener('blur', cleanupResize)
   document.body.style.cursor = 'col-resize'
   document.body.style.userSelect = 'none'
 }
@@ -126,6 +127,7 @@ function onResizeMove(e: MouseEvent) {
 function onResizeEnd() {
   document.removeEventListener('mousemove', onResizeMove)
   document.removeEventListener('mouseup', onResizeEnd)
+  window.removeEventListener('blur', cleanupResize)
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
   resizing.value = false
@@ -135,6 +137,7 @@ function onResizeEnd() {
 function cleanupResize() {
   document.removeEventListener('mousemove', onResizeMove)
   document.removeEventListener('mouseup', onResizeEnd)
+  window.removeEventListener('blur', cleanupResize)
   document.body.style.cursor = ''
   document.body.style.userSelect = ''
   resizing.value = false
@@ -152,6 +155,7 @@ watch(
   () => props.visible,
   (open) => {
     if (open) loadWidth()
+    if (!open) cleanupResize()
   },
 )
 

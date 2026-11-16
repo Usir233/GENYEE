@@ -87,9 +87,23 @@ export function useCitationPopover(rootRef: Ref<HTMLElement | null>, options: Ci
     float.value.left = Math.min(rect.left + window.scrollX, window.innerWidth - 320)
   }
 
+  const toSafeHttpUrl = (raw: string): string => {
+    const trimmed = raw.trim()
+    if (!trimmed || !/^https?:\/\//i.test(trimmed)) return ''
+    if (typeof URL === 'function') {
+      try {
+        const parsed = new URL(trimmed)
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? trimmed : ''
+      } catch {
+        return ''
+      }
+    }
+    return trimmed
+  }
+
   const openWeb = (el: HTMLElement) => {
     requestVersion++
-    const url = el.getAttribute('data-url') || ''
+    const url = toSafeHttpUrl(el.getAttribute('data-url') || '')
     float.value.type = 'web'
     float.value.url = url
     float.value.title = el.querySelector('.tip-title')?.textContent || ''
