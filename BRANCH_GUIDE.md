@@ -1,18 +1,18 @@
 # GENYEE 仓库分支架构与维护规范声明 (Branch Guide)
 
 > **重要声明（AI 助手与开发者必读）**：
-> 在对本仓库执行任何拉取、合并、品牌适配或合规维护操作前，**必须先阅读本文档**。自 2026-11-16 主干晋升完成后，本仓库采用精简的 **双层分支架构（`upstream` $\rightarrow$ `main`）**，`main` 即为唯一商业合规、安全加固与 `GENYEE` 品牌统一的默认主干分支。
+> 在对本仓库执行任何拉取、合并、品牌适配或合规维护操作前，**必须先阅读本文档**。本仓库全仓（本地与远端 `origin`）**严格仅保留三条分支**：`main`（唯一默认商业合规主干）、`upstream`（上游纯净只读镜像）与 `archive/legacy-pure-rebrand-main`（旧版纯换皮只读归档快照）；所有历史阶段过渡分支及早期临时审计产物均已退役清理。
 
 ---
 
-## 一、分支拓扑与演进归档
+## 一、分支拓扑与收敛状态
 
 ```text
 [上游官方仓库: Tencent/WeKnora (main)]
         │
         ▼ (1:1 原样快进同步，严禁任何本地修改)
   ┌────────────┐
-  │  upstream  │  <-- 上游纯净镜像分支（只读快进）
+  │  upstream  │  <-- 上游纯净镜像分支（只读快进，已同步至 7d064bc3a）
   └────────────┘
         │
         ▼ (直接合并入主干 + GENYEE 品牌适配 + 迁移重排 + 增量安全审计 + 34/34 合规门禁)
@@ -20,11 +20,12 @@
   │    main    │  <-- 默认主干分支（商业合规、GENYEE 换皮与全仓安全加固统一主干）
   └────────────┘
 
-[历史归档与过渡分支说明]
+[唯一历史只读归档分支]
 - archive/legacy-pure-rebrand-main (74434f7303bade6b9fb90c2f315721f060d6af15)
   └── 早期未裁剪组件的旧版纯换皮 main 快照（永久只读归档保留，不再接收日常合入）
-- chore/commercial-compliance-cleanup & codex/genyee-residue-remediation
-  └── 商业合规改造、上游残留清零与全仓模块安全审计（W0–W8）历史阶段分支，已全量快进合流至 main
+
+[已退役并清理的过渡分支说明]
+- 早期商业合规改造、上游残留清零与全仓模块安全审计（W0–W8）阶段分支已全量合流至 main，并已从本地与远端彻底删除，仓库长期仅维护上述三条分支。
 ```
 
 ---
@@ -52,7 +53,7 @@
   4. **自研镜像参数化与私有化交付规范**：
      - 全部自研镜像统一采用 `${GENYEE_REGISTRY:-genyee}/genyee-*` 参数化命名（详见 [`REBRAND_RESERVED.md`](REBRAND_RESERVED.md)），Helm 锁定第三方基础镜像版本（如 `redis:7.2-alpine`）。
      - 离线镜像交付统一使用 `./scripts/offline-bundle.sh` 与 `./scripts/offline-load.sh`。
-     - **客户源码包导出铁律**：向客户交付源码时，**严禁**直接打包包含 `.git/` 历史与内部维护文档的工作目录，**必须**执行 `./scripts/export-source.sh`（依托 `.gitattributes` `export-ignore` 与门禁校验自动剥离 `.git/`、`BRANCH_GUIDE.md`、`REBRAND_RESERVED.md`、`WEKNORA_RESIDUE_REMEDIATION.md`、`AUDIT_REPORT.md`、`test-reports/`、`tests/{adversarial,e2e,stress}`、`misc/pr-assets/` 等内部文件）。
+     - **客户源码包导出铁律**：向客户交付源码时，**严禁**直接打包包含 `.git/` 历史与内部维护文档的工作目录，**必须**执行 `./scripts/export-source.sh`（依托 `.gitattributes` `export-ignore` 与门禁校验自动剥离 `.git/`、`BRANCH_GUIDE.md`、`REBRAND_RESERVED.md`、`WEKNORA_RESIDUE_REMEDIATION.md`、`test-reports/`、`tests/{adversarial,e2e,stress}`、`misc/pr-assets/` 等内部治理与测试文件）。
 
 ### 3. `archive/legacy-pure-rebrand-main` 分支 —— 旧版纯换皮归档支
 - **定位**：固定指向历史提交 `74434f7303bade6b9fb90c2f315721f060d6af15`（主干晋升前未执行组件裁剪与深度残留清零的旧版纯换皮快照），仅作历史对照归档，**严禁**向其合入新代码或将其重新设为默认分支。

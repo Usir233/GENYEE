@@ -1,7 +1,7 @@
 {
   "wave": "W0",
   "status": "verified_findings_fixed",
-  "branch": "codex/genyee-residue-remediation",
+  "branch": "main",
   "base_commit": "05ed2dd8f8912d882e242f9c8e703d13c52d1efb",
   "commits": [
     {
@@ -135,7 +135,7 @@
     "Personal WeChat and WeCom IM bot channels (internal/im/wechat and internal/im/wecom) remain 100% untouched (0-byte diff).",
     "MIT copyright and third-party attribution files (LICENSE*, THIRD_PARTY_NOTICES.md across all 4 copies, licenses/, OFFLINE_LICENSES/, dataset/README*, third_party/anydoc-go/LICENSE, REBRAND_RESERVED.md) are byte-identical to 05ed2dd8f.",
     "Bottom Attribution & Non-Affiliation Notice sections in README.md, README_CN.md, README_JA.md, and README_KO.md remain 100% intact.",
-    "Historical changelogs and archived audit records (CHANGELOG.md, cli/CHANGELOG.md, mcp-server/CHANGELOG.md, BRANCH_GUIDE.md, WEKNORA_RESIDUE_REMEDIATION.md, AUDIT_REPORT.md, test-reports/module-audit-20261113/*) remain untouched.",
+    "Historical changelogs and governance specs (CHANGELOG.md, cli/CHANGELOG.md, mcp-server/CHANGELOG.md, BRANCH_GUIDE.md, WEKNORA_RESIDUE_REMEDIATION.md) remain untouched during W0.",
     "Intentional negative security and compliance guards (cmd/desktop/webview_js_test.go, internal/utils/crypto*.go, internal/utils/presign_test.go, internal/application/service/user_jwt_secret_test.go, scripts/verify-commercial-compliance.sh, tests/adversarial/*, tests/stress/*) remain intact.",
     "Vendored icon font sprite frontend/public/tdesign-icons/0.4.1/fonts/index.js and misc/dex-config.yaml remain untouched.",
     ".gitattributes and scripts/export-source.sh retain export-ignore exclusion for test-reports, AUDIT_REPORT.md, REBRAND_RESERVED.md, BRANCH_GUIDE.md, docs/poc, and docs/design."
@@ -145,10 +145,8 @@
       "active_product_hits": 0,
       "excused_historical_or_vendor_files": [
         "CHANGELOG.md",
-        "AUDIT_REPORT.md",
         "WEKNORA_RESIDUE_REMEDIATION.md",
         "frontend/public/tdesign-icons/0.4.1/fonts/index.js",
-        "test-reports/module-audit-20261113/coverage.json",
         "test-reports/module-audit-v2/wave0-foundation.json"
       ]
     },

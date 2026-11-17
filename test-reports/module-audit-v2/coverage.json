@@ -9,12 +9,12 @@
     "f481427c1d14602cd9f74d91b7dbb9a8fe093546"
   ],
   "wave0_evidence_file": "test-reports/module-audit-v2/wave0-foundation.json",
-  "legacy_ledger": "test-reports/module-audit-20261113/coverage.json",
+  "legacy_ledger": null,
   "summary": {
-    "total_tracked_files": 6762,
+    "total_tracked_files": 6692,
     "unit_count": 301,
     "unit_files_total": 6208,
-    "support_files_total": 554,
+    "support_files_total": 484,
     "uncovered_files": 0,
     "duplicate_files": 0,
     "stale_files": 0,
@@ -53,8 +53,8 @@
     },
     "support_files_by_category": {
       "license_or_notice": 71,
-      "historical_changelog_or_spec": 6,
-      "audit_ledger_or_archived_report": 108,
+      "historical_changelog_or_spec": 5,
+      "audit_ledger_or_archived_report": 39,
       "static_binary_or_vendor_asset": 369
     }
   },
@@ -5593,12 +5593,14 @@
       ],
       "invariants_checked": [
         "Rerank checks DashScope body error codes on HTTP 200 replies and rejects missing output.results, nil index or relevance_score, out-of-range indices (< 0 or >= len(documents)), and duplicate indices.",
-        "All HTTP calls route through api.Endpoint.PostJSON enforcing SSRF pre-check and redirect blocking, 64 MiB ReadResponseCapped response limits, reserved-header protection, and User-Agent GENYEE/1.0 with zero legacy brand residues."
+        "All HTTP calls route through api.Endpoint.PostJSON enforcing SSRF pre-check and redirect blocking, 64 MiB ReadResponseCapped response limits, reserved-header protection, and User-Agent GENYEE/1.0 with zero legacy brand residues.",
+        "Upstream 7d064bc3a (PR #5577) merged (9b9c6bb9a): DashScope rerank malformed/missing/null/duplicate/out-of-range result rejection aligned with bounded min(len(results), len(documents)) allocation and deterministic SSRF whitelist reset in tests."
       ],
       "findings": [],
       "verification_commands": [
         "GOMAXPROCS=2 go vet -p 1 ./internal/models/api/dashscoperank/... (exit 0)",
-        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/dashscoperank/... (exit 0)"
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/dashscoperank/... (exit 0)",
+        "GOMAXPROCS=2 go test -race -p 1 -count=1 ./internal/models/api/dashscoperank/..."
       ],
       "evidence_file": "test-reports/module-audit-v2/evidence/w4-chunk-rerank.json"
     },
@@ -9427,7 +9429,8 @@
         "markdownPreviewImages resolves relative sibling images strictly within normalized knowledge-base folder boundaries, caps paginated folder scans at MAX_PREVIEW_IMAGE_LIST_PAGES = 20, validates generated URLs with isSafePreviewImageHref (revoking rejected blob: URLs immediately), and ignores image syntax inside CommonMark fences, HTML comments, inline code, and indented code.",
         "markdownTableNormalize repairs MarkItDown spurious empty/separator table prefixes and escaped pipes while leaving pipe-prefixed lines inside CommonMark fenced code blocks untouched.",
         "sessionMarkdown preserves Markdown hard breaks, fenced code whitespace, and literal <kb/>/<web/> inside code while normalizing and percent-encoding reference http(s) URLs so parentheses/spaces/quotes cannot break out of Markdown links.",
-        "pageFill, pageText, automationSchedule, and agent-tool-display reject overlapping ambiguous text anchors in O(N), preserve user edits on undo, reject DST-skipped/invalid wall-clock schedules while retaining exact one-shot instants, and count distinct knowledge documents accurately."
+        "pageFill, pageText, automationSchedule, and agent-tool-display reject overlapping ambiguous text anchors in O(N), preserve user edits on undo, reject DST-skipped/invalid wall-clock schedules while retaining exact one-shot instants, and count distinct knowledge documents accurately.",
+        "Upstream 7d064bc3a (PR #5585) merged (9b9c6bb9a): parenthesized/escaped-parentheses Markdown image href parsing and marked-based list-indented vs code-indented image span resolution audited and rebranded to genyeepreviewimagespan."
       ],
       "findings": [
         {
@@ -9505,7 +9508,8 @@
       ],
       "verification_commands": [
         "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1024\" ./node_modules/.bin/tsx --test src/utils/*.test.ts src/utils/*.test.mjs) (exit 0)",
-        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/utils/agent-tool-display.test.mjs src/utils/automationSchedule.test.ts src/utils/citationMarkdownMath.test.mjs src/utils/markdownPreviewImageFences.test.ts src/utils/markdownTableNormalize.test.ts src/utils/pageFill.test.ts src/utils/pageText.overlap.test.ts src/utils/pageText.test.ts src/utils/sessionMarkdown.test.ts src/utils/w6_utils_security.test.ts) (exit 0)"
+        "(cd frontend && NODE_OPTIONS=\"--max-old-space-size=1536\" ./node_modules/.bin/tsx --test src/utils/agent-tool-display.test.mjs src/utils/automationSchedule.test.ts src/utils/citationMarkdownMath.test.mjs src/utils/markdownPreviewImageFences.test.ts src/utils/markdownTableNormalize.test.ts src/utils/pageFill.test.ts src/utils/pageText.overlap.test.ts src/utils/pageText.test.ts src/utils/sessionMarkdown.test.ts src/utils/w6_utils_security.test.ts) (exit 0)",
+        "(cd frontend && NODE_OPTIONS='--max-old-space-size=1536' ./node_modules/.bin/tsx --test src/utils/markdownPreviewImages.test.ts)"
       ],
       "evidence_file": "test-reports/module-audit-v2/evidence/w6-fe-core-utils.json,test-reports/module-audit-v2/evidence/up-fe.json"
     },
@@ -16283,7 +16287,6 @@
       "website-docs/homepage/public/docs/_home/brands/LOBE-ICONS-LICENSE"
     ],
     "historical_changelog_or_spec": [
-      "AUDIT_REPORT.md",
       "BRANCH_GUIDE.md",
       "CHANGELOG.md",
       "WEKNORA_RESIDUE_REMEDIATION.md",
@@ -16291,69 +16294,6 @@
       "mcp-server/CHANGELOG.md"
     ],
     "audit_ledger_or_archived_report": [
-      "test-reports/challenger_1_summary.json",
-      "test-reports/e2e_report.md",
-      "test-reports/e2e_summary.json",
-      "test-reports/live_api_regression.md",
-      "test-reports/module-audit-20261113/access.json",
-      "test-reports/module-audit-20261113/agent-argument-number.json",
-      "test-reports/module-audit-20261113/agent-cancel-reasoning.json",
-      "test-reports/module-audit-20261113/agent-core.json",
-      "test-reports/module-audit-20261113/agent-image-number.json",
-      "test-reports/module-audit-20261113/asynq-dead-letter.json",
-      "test-reports/module-audit-20261113/auth-cross-tenant-revocation.json",
-      "test-reports/module-audit-20261113/automation-budget.json",
-      "test-reports/module-audit-20261113/automation-lifecycle.json",
-      "test-reports/module-audit-20261113/automation.json",
-      "test-reports/module-audit-20261113/background-tasks.json",
-      "test-reports/module-audit-20261113/cli.json",
-      "test-reports/module-audit-20261113/client-sdk.json",
-      "test-reports/module-audit-20261113/common-ratelimit.json",
-      "test-reports/module-audit-20261113/coverage.json",
-      "test-reports/module-audit-20261113/credential-attachment-policy.json",
-      "test-reports/module-audit-20261113/document-parsing.json",
-      "test-reports/module-audit-20261113/evaluation.json",
-      "test-reports/module-audit-20261113/event-runtime.json",
-      "test-reports/module-audit-20261113/frontend-browser.json",
-      "test-reports/module-audit-20261113/frontend-files.json",
-      "test-reports/module-audit-20261113/frontend-preview.json",
-      "test-reports/module-audit-20261113/frontend.json",
-      "test-reports/module-audit-20261113/knowledge-clone-coordinates.json",
-      "test-reports/module-audit-20261113/logger-truncation.json",
-      "test-reports/module-audit-20261113/modelcontext-json-numbers.json",
-      "test-reports/module-audit-20261113/modelcontext-resource-identity.json",
-      "test-reports/module-audit-20261113/modelcontext-stream-word-boundary.json",
-      "test-reports/module-audit-20261113/models-complete-local.json",
-      "test-reports/module-audit-20261113/models-embedding-cancellation.json",
-      "test-reports/module-audit-20261113/models-image-boundary.json",
-      "test-reports/module-audit-20261113/models-ollama-cancellation.json",
-      "test-reports/module-audit-20261113/models-rerank.json",
-      "test-reports/module-audit-20261113/parser-cloud-cancellation.json",
-      "test-reports/module-audit-20261113/parser-doc-fallback.json",
-      "test-reports/module-audit-20261113/parser-docx-images.json",
-      "test-reports/module-audit-20261113/parser-error-envelope.json",
-      "test-reports/module-audit-20261113/parser-image-filenames.json",
-      "test-reports/module-audit-20261113/parser-stream-allocation.json",
-      "test-reports/module-audit-20261113/parser-xlsx-percent-sparse.json",
-      "test-reports/module-audit-20261113/parser-xlsx-sparse-rows.json",
-      "test-reports/module-audit-20261113/public-auth-rate-limit.json",
-      "test-reports/module-audit-20261113/retriever-clone-tags.json",
-      "test-reports/module-audit-20261113/retriever-estimate.json",
-      "test-reports/module-audit-20261113/scheduler-test-recorder.json",
-      "test-reports/module-audit-20261113/search-stream-text.json",
-      "test-reports/module-audit-20261113/shell-assignment-boundaries.json",
-      "test-reports/module-audit-20261113/sourceloc.json",
-      "test-reports/module-audit-20261113/sql-column-alias-security.json",
-      "test-reports/module-audit-20261113/sql-query-relations.json",
-      "test-reports/module-audit-20261113/sql-tablesample-security.json",
-      "test-reports/module-audit-20261113/ssrf-cache-reload.json",
-      "test-reports/module-audit-20261113/ssrf-dns-cancellation.json",
-      "test-reports/module-audit-20261113/ssrf-redirect-context.json",
-      "test-reports/module-audit-20261113/stop-checkpoint.json",
-      "test-reports/module-audit-20261113/storage-providers.json",
-      "test-reports/module-audit-20261113/storage.json",
-      "test-reports/module-audit-20261113/storageurl-transport.json",
-      "test-reports/module-audit-20261113/wiki-current-chunks.json",
       "test-reports/module-audit-v2/coverage.json",
       "test-reports/module-audit-v2/evidence/up-agent-conn-im.json",
       "test-reports/module-audit-v2/evidence/up-docs-py-ops.json",
@@ -16392,13 +16332,7 @@
       "test-reports/module-audit-v2/evidence/w8-infra-core-reaudit.json",
       "test-reports/module-audit-v2/evidence/w8-models-reaudit.json",
       "test-reports/module-audit-v2/verify_ledger.py",
-      "test-reports/module-audit-v2/wave0-foundation.json",
-      "test-reports/screenshots/01_login_page.png",
-      "test-reports/screenshots/02_auth_success.png",
-      "test-reports/screenshots/03_dashboard_workspace.png",
-      "test-reports/screenshots/04_settings_compliance.png",
-      "test-reports/screenshots/05_chat_interaction.png",
-      "test-reports/screenshots/06_kb_detail_documents.png"
+      "test-reports/module-audit-v2/wave0-foundation.json"
     ],
     "static_binary_or_vendor_asset": [
       "cmd/desktop/build/appicon.png",
