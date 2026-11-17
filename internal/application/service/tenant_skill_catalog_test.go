@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -10,18 +11,14 @@ import (
 	"github.com/Usir233/GENYEE/internal/application/repository"
 	apperrors "github.com/Usir233/GENYEE/internal/errors"
 	"github.com/Usir233/GENYEE/internal/types"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
 
 func TestListCatalogGroupsInstallsByDefinition(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:catalog-list?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(
-		&types.TenantSkillEntity{}, &types.TenantSkillCatalogEntity{},
-		&types.TenantSkillSnapshotEntity{}, &types.TenantUserEnvVar{},
-	))
+	db := openCatalogTestDB(t)
 	repo := repository.NewTenantSkillRepository(db)
 	ctx := context.Background()
 
@@ -46,12 +43,7 @@ func TestListCatalogGroupsInstallsByDefinition(t *testing.T) {
 }
 
 func TestResolveCatalogFindsLegacySkillID(t *testing.T) {
-	db, err := gorm.Open(sqlite.Open("file:catalog-legacy?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(
-		&types.TenantSkillEntity{}, &types.TenantSkillCatalogEntity{},
-		&types.TenantSkillSnapshotEntity{}, &types.TenantUserEnvVar{},
-	))
+	db := openCatalogTestDB(t)
 	repo := repository.NewTenantSkillRepository(db)
 	ctx := context.Background()
 	require.NoError(t, repo.CreateSkill(ctx, &types.TenantSkillEntity{
@@ -68,19 +60,28 @@ func TestResolveCatalogFindsLegacySkillID(t *testing.T) {
 	require.Equal(t, "local://7/tenant-skills/sk-old.zip", cat.BundleRef)
 }
 
-func catalogTestRepo(t *testing.T, dsn string) repository.TenantSkillRepository {
+func openCatalogTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	dsn := fmt.Sprintf("file:catalog-%s?mode=memory&cache=shared", uuid.NewString())
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	require.NoError(t, err)
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = sqlDB.Close() })
 	require.NoError(t, db.AutoMigrate(
 		&types.TenantSkillEntity{}, &types.TenantSkillCatalogEntity{},
 		&types.TenantSkillSnapshotEntity{}, &types.TenantUserEnvVar{},
 	))
-	return repository.NewTenantSkillRepository(db)
+	return db
+}
+
+func catalogTestRepo(t *testing.T) repository.TenantSkillRepository {
+	t.Helper()
+	return repository.NewTenantSkillRepository(openCatalogTestDB(t))
 }
 
 func TestListCatalogShowsInstallsWhoseCatalogWasDeleted(t *testing.T) {
-	repo := catalogTestRepo(t, "file:catalog-orphan?mode=memory&cache=shared")
+	repo := catalogTestRepo(t)
 	ctx := context.Background()
 	require.NoError(t, repo.CreateCatalog(ctx, &types.TenantSkillCatalogEntity{
 		ID: "cat-gone", TenantID: 7, Name: "pdf",
@@ -101,7 +102,7 @@ func TestListCatalogShowsInstallsWhoseCatalogWasDeleted(t *testing.T) {
 }
 
 func TestDeleteCatalogRefusesWhileARemovalIsInFlight(t *testing.T) {
-	repo := catalogTestRepo(t, "file:catalog-removing?mode=memory&cache=shared")
+	repo := catalogTestRepo(t)
 	ctx := context.Background()
 	require.NoError(t, repo.CreateCatalog(ctx, &types.TenantSkillCatalogEntity{
 		ID: "cat-pdf", TenantID: 7, Name: "pdf",
@@ -129,6 +130,7 @@ func TestInstallSkillStoresTheArchiveOnTheCatalog(t *testing.T) {
 
 	id, err := fx.svc.InstallSkill(ctx, 7, "cfg-1", archive)
 	require.NoError(t, err)
+	fx.awaitSkillSettled(t, id)
 
 	cat, err := fx.skillRepo.GetCatalogByName(ctx, 7, "pdf-tools")
 	require.NoError(t, err)
@@ -155,6 +157,7 @@ func TestRemovingLastSandboxInstallKeepsTheCatalogArchive(t *testing.T) {
 	})
 	id, err := fx.svc.InstallSkill(ctx, 7, "cfg-1", archive)
 	require.NoError(t, err)
+	fx.awaitSkillSettled(t, id)
 	skill, err := fx.skillRepo.GetSkill(ctx, 7, "cfg-1", id)
 	require.NoError(t, err)
 	skill.Status = types.SkillStatusRemoving
@@ -215,6 +218,7 @@ func TestInstallCatalogToConfigsReportsPartialFailure(t *testing.T) {
 	require.NotNil(t, result)
 	require.Contains(t, result.Installs, "cfg-1")
 	require.Equal(t, "sandbox config not found", result.Errors["missing"])
+	fx.awaitSkillSettled(t, result.Installs["cfg-1"])
 	require.Equal(t, 1, fx.savedBundles,
 		"installing onto a sandbox must reuse the zip already stored on the catalog")
 }
@@ -318,6 +322,7 @@ func TestRegisterCatalogKeepsTheReplacedZipForInstallsStillOnIt(t *testing.T) {
 	require.NoError(t, err)
 	skillID, err := fx.svc.InstallSkill(ctx, 7, "cfg-1", first)
 	require.NoError(t, err)
+	fx.awaitSkillSettled(t, skillID)
 	installed, err := fx.skillRepo.GetSkill(ctx, 7, "cfg-1", skillID)
 	require.NoError(t, err)
 	require.Empty(t, installed.BundleRef, "a fresh install reads the definition's copy")
@@ -437,6 +442,7 @@ func TestRemovingThePinnedInstallReclaimsTheReplacedZip(t *testing.T) {
 	})
 	skillID, err := fx.svc.InstallSkill(ctx, 7, "cfg-1", first)
 	require.NoError(t, err)
+	fx.awaitSkillSettled(t, skillID)
 	installed, err := fx.skillRepo.GetSkill(ctx, 7, "cfg-1", skillID)
 	require.NoError(t, err)
 	catalogID := installed.CatalogID

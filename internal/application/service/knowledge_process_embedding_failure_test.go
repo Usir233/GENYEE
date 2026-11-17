@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 
 	werrors "github.com/Usir233/GENYEE/internal/errors"
@@ -16,6 +17,7 @@ import (
 
 type embedFailureKnowledgeRepo struct {
 	interfaces.KnowledgeRepository
+	mu        sync.Mutex
 	knowledge *types.Knowledge
 	// stored is what the database starts returning once storedAfterReads
 	// reads have been served. The delay matters: processChunks already
@@ -32,6 +34,8 @@ type embedFailureKnowledgeRepo struct {
 func (r *embedFailureKnowledgeRepo) GetKnowledgeByID(
 	context.Context, uint64, string,
 ) (*types.Knowledge, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.reads++
 	if r.stored != nil && r.reads > r.storedAfterReads {
 		return r.stored, nil
@@ -40,6 +44,8 @@ func (r *embedFailureKnowledgeRepo) GetKnowledgeByID(
 }
 
 func (r *embedFailureKnowledgeRepo) UpdateKnowledge(_ context.Context, k *types.Knowledge) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.updates = append(r.updates, *k)
 	return nil
 }

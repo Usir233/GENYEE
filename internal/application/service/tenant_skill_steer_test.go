@@ -258,7 +258,8 @@ func TestReinstallWithInstructionsDoesNotSkipReadyArchive(t *testing.T) {
 	require.Equal(t, "sk-1", id)
 	require.Eventually(t, func() bool {
 		row, err := fx.svc.GetSkill(context.Background(), 7, "cfg-1", id)
-		return err == nil && row.InstallMessageID != "" && row.Status == types.SkillStatusReady
+		return err == nil && row.InstallMessageID != "" && row.Status == types.SkillStatusReady &&
+			fx.svc.lookupSkillRun(7, "cfg-1", id) == nil
 	}, 5*time.Second, 10*time.Millisecond)
 	require.NotEmpty(t, fx.agentPrompts)
 	require.Contains(t, fx.agentPrompts[0], "Install and verify the CLI")

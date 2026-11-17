@@ -207,6 +207,8 @@ func (fx *installFixture) skillRow(t *testing.T, configID, skillID string) *type
 // snapshotLog returns provider snapshot events. The brief named this
 // fx.snapshotLog(); the fixture records them on events as "create-snapshot".
 func (fx *installFixture) snapshotLog() []string {
+	fx.mu.Lock()
+	defer fx.mu.Unlock()
 	var out []string
 	for _, e := range fx.events {
 		if e == "create-snapshot" {
@@ -234,8 +236,9 @@ func waitHostInstallDone(
 			return false
 		}
 		skill = got
-		return got.Status == types.SkillStatusReady || got.Status == types.SkillStatusFailed
-	}, 2*time.Second, 5*time.Millisecond)
+		return (got.Status == types.SkillStatusReady || got.Status == types.SkillStatusFailed) &&
+			fx.svc.lookupSkillRun(7, sandbox.HostSkillTargetID, skillID) == nil
+	}, 5*time.Second, 5*time.Millisecond)
 	waitHostSkillUnlocked(t, tree)
 	return skill
 }
@@ -355,8 +358,9 @@ func (fx *installFixture) waitRemoveDone(t *testing.T, tree *fakeHostSkillTree, 
 	t.Helper()
 	require.Eventually(t, func() bool {
 		got, err := fx.skillRepo.GetSkill(context.Background(), 7, sandbox.HostSkillTargetID, skillID)
-		return err == nil && got == nil
-	}, 2*time.Second, 5*time.Millisecond)
+		return err == nil && got == nil &&
+			fx.svc.lookupSkillRun(7, sandbox.HostSkillTargetID, skillID) == nil
+	}, 5*time.Second, 5*time.Millisecond)
 	waitHostSkillUnlocked(t, tree)
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,6 +17,7 @@ import (
 // transcriptStreams records what the installer projects onto the replayable
 // stream, in order, so a test can state the shape the console will read.
 type transcriptStreams struct {
+	mu     sync.Mutex
 	events []interfaces.StreamEvent
 	err    error
 }
@@ -23,6 +25,8 @@ type transcriptStreams struct {
 func (s *transcriptStreams) AppendEvent(
 	_ context.Context, _, _ string, evt interfaces.StreamEvent,
 ) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.events = append(s.events, evt)
 	return s.err
 }
@@ -30,7 +34,11 @@ func (s *transcriptStreams) AppendEvent(
 func (s *transcriptStreams) GetEvents(
 	_ context.Context, _, _ string, from int,
 ) ([]interfaces.StreamEvent, int, error) {
-	return s.events[from:], len(s.events), nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := make([]interfaces.StreamEvent, len(s.events[from:]))
+	copy(out, s.events[from:])
+	return out, len(s.events), nil
 }
 
 func (s *transcriptStreams) AppendSteerEvents(
@@ -76,6 +84,8 @@ func (s *transcriptStreams) ClearLiveRun(context.Context, string, string) error 
 func (s *transcriptStreams) ResetEvents(context.Context, string, string) error { return nil }
 
 func (s *transcriptStreams) types() []types.ResponseType {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	out := make([]types.ResponseType, 0, len(s.events))
 	for _, evt := range s.events {
 		out = append(out, evt.Type)
@@ -88,6 +98,7 @@ func (s *transcriptStreams) types() []types.ResponseType {
 // repository surfaces as a test failure rather than a silent nil write.
 type transcriptMessages struct {
 	interfaces.MessageRepository
+	mu      sync.Mutex
 	created []*types.Message
 	updated []*types.Message
 	err     error
@@ -96,11 +107,15 @@ type transcriptMessages struct {
 func (m *transcriptMessages) CreateMessage(
 	_ context.Context, msg *types.Message,
 ) (*types.Message, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.created = append(m.created, msg)
 	return msg, m.err
 }
 
 func (m *transcriptMessages) UpdateMessage(_ context.Context, msg *types.Message) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	m.updated = append(m.updated, msg)
 	return m.err
 }

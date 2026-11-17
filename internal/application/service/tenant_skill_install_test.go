@@ -817,8 +817,9 @@ func waitBackgroundInstallReady(t *testing.T, fx *installFixture, msgAndArgs ...
 			return false
 		}
 		skill = got
-		return got.Status == types.SkillStatusReady && got.InstalledSnapshotID != ""
-	}, 2*time.Second, 5*time.Millisecond, msgAndArgs...)
+		return got.Status == types.SkillStatusReady && got.InstalledSnapshotID != "" &&
+			fx.svc.lookupSkillRun(7, "cfg-1", "sk-1") == nil
+	}, 5*time.Second, 5*time.Millisecond, msgAndArgs...)
 	return skill
 }
 
@@ -868,6 +869,7 @@ func TestReinstallSkillRerunsTheStoredArchive(t *testing.T) {
 	require.Equal(t, "sk-1", id, "a retry upgrades the same row, it does not fork a second one")
 	require.Positive(t, fx.getFileCalls.Load(),
 		"the retry must come from the stored archive, not from a re-upload")
+	fx.awaitSkillSettled(t, id)
 }
 
 // A row that says "installing" while still naming the previous run's session
@@ -1975,6 +1977,7 @@ type staleMark struct {
 }
 
 type installFixture struct {
+	mu         sync.Mutex
 	t          *testing.T
 	svc        *TenantSkillService
 	bundle     *SkillBundle
@@ -2143,12 +2146,22 @@ func newInstallFixture(t *testing.T) *installFixture {
 }
 
 func (f *installFixture) record(event string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.events = append(f.events, event)
+}
+
+func (f *installFixture) hasEvent(needle string) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return containsEvent(f.events, needle)
 }
 
 // nextLoadCheckExit returns the code for this verification pass, repeating the
 // last configured entry once they run out.
 func (f *installFixture) nextLoadCheckExit() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.loadCheckPasses++
 	if len(f.loadCheckExitCodes) == 0 {
 		return 0
@@ -2189,18 +2202,24 @@ func (f *installFixture) seedInstalledSkill(skillID, snapshotID string, generati
 		Trigger: types.SkillSnapshotTriggerInstall, State: types.SkillSnapshotStateActive,
 	}))
 
+	f.configRepo.mu.Lock()
 	f.configRepo.entity.Config.SkillImage = &types.SkillImageConfig{
 		SnapshotID: snapshotID, Generation: generation,
 		BaseTemplateID: "base-template", OwnerFingerprint: f.fingerprint,
 	}
+	f.configRepo.mu.Unlock()
 
+	f.mu.Lock()
 	f.manifest.Skills = append(f.manifest.Skills, skillImageManifestEntry{
 		ID: skillID, Name: skill.Name, Version: skill.Version,
 		SHA256: strings.Repeat("b", 64),
 	})
 	payload, err := json.Marshal(f.manifest)
+	f.mu.Unlock()
 	require.NoError(f.t, err)
+	f.sandboxMgr.mu.Lock()
 	f.sandboxMgr.manifest = payload
+	f.sandboxMgr.mu.Unlock()
 }
 
 // seedReadySkillWithSHA puts the fixture in the state a no-op re-upload starts
@@ -2224,13 +2243,16 @@ func (f *installFixture) seedReadySkillWithSHA(sha256, snapshotID string) {
 		SnapshotID: snapshotID, Generation: 1,
 		Trigger: types.SkillSnapshotTriggerInstall, State: types.SkillSnapshotStateActive,
 	}))
+	f.configRepo.mu.Lock()
 	f.configRepo.entity.Config.SkillImage = &types.SkillImageConfig{
 		SnapshotID: snapshotID, Generation: 1,
 		BaseTemplateID: "base-template", OwnerFingerprint: f.fingerprint,
 	}
+	f.configRepo.mu.Unlock()
 }
 
 type installConfigRepo struct {
+	mu        sync.Mutex
 	fx        *installFixture
 	entity    *types.TenantSandboxConfigEntity
 	saved     *types.TenantSandboxConfigEntity
@@ -2243,6 +2265,34 @@ type installConfigRepo struct {
 	editAfterFirstRead func(*types.TenantSandboxConfigEntity)
 }
 
+func cloneSandboxConfigEntity(src *types.TenantSandboxConfigEntity) *types.TenantSandboxConfigEntity {
+	if src == nil {
+		return nil
+	}
+	cp := *src
+	if src.Config != nil {
+		cfg := *src.Config
+		if src.Config.E2B != nil {
+			e2b := *src.Config.E2B
+			cfg.E2B = &e2b
+		}
+		if src.Config.Cube != nil {
+			cube := *src.Config.Cube
+			cfg.Cube = &cube
+		}
+		if src.Config.Docker != nil {
+			docker := *src.Config.Docker
+			cfg.Docker = &docker
+		}
+		if src.Config.SkillImage != nil {
+			image := *src.Config.SkillImage
+			cfg.SkillImage = &image
+		}
+		cp.Config = &cfg
+	}
+	return &cp
+}
+
 func (r *installConfigRepo) Create(context.Context, *types.TenantSandboxConfigEntity) error {
 	return nil
 }
@@ -2250,34 +2300,40 @@ func (r *installConfigRepo) Create(context.Context, *types.TenantSandboxConfigEn
 func (r *installConfigRepo) GetByID(
 	_ context.Context, tenantID uint64, id string,
 ) (*types.TenantSandboxConfigEntity, error) {
+	r.mu.Lock()
 	if r.entity == nil || r.entity.TenantID != tenantID || r.entity.ID != id {
+		r.mu.Unlock()
 		return nil, nil
 	}
-	cp := *r.entity
-	if r.entity.Config != nil {
-		cfg := *r.entity.Config
-		if r.entity.Config.E2B != nil {
-			e2b := *r.entity.Config.E2B
-			cfg.E2B = &e2b
-		}
-		if r.entity.Config.Cube != nil {
-			cube := *r.entity.Config.Cube
-			cfg.Cube = &cube
-		}
-		if r.entity.Config.SkillImage != nil {
-			image := *r.entity.Config.SkillImage
-			cfg.SkillImage = &image
-		}
-		cp.Config = &cfg
-	}
+	cp := cloneSandboxConfigEntity(r.entity)
 	r.reads++
-	if r.reads == 1 && r.editAfterFirstRead != nil {
-		r.editAfterFirstRead(r.entity)
+	firstRead := r.reads == 1
+	var editFn func(*types.TenantSandboxConfigEntity)
+	var edited *types.TenantSandboxConfigEntity
+	var cancelFn context.CancelFunc
+	if firstRead {
+		editFn = r.editAfterFirstRead
+		if editFn != nil {
+			edited = cloneSandboxConfigEntity(r.entity)
+		}
+		if r.fx != nil {
+			r.fx.mu.Lock()
+			cancelFn = r.fx.cancelDuringConfigRead
+			r.fx.mu.Unlock()
+		}
 	}
-	if r.reads == 1 && r.fx != nil && r.fx.cancelDuringConfigRead != nil {
-		r.fx.cancelDuringConfigRead()
+	r.mu.Unlock()
+
+	if editFn != nil {
+		editFn(edited)
+		r.mu.Lock()
+		r.entity = edited
+		r.mu.Unlock()
 	}
-	return &cp, nil
+	if cancelFn != nil {
+		cancelFn()
+	}
+	return cp, nil
 }
 
 func (r *installConfigRepo) ListByTenant(context.Context, uint64) ([]*types.TenantSandboxConfigEntity, error) {
@@ -2287,11 +2343,12 @@ func (r *installConfigRepo) ListByTenant(context.Context, uint64) ([]*types.Tena
 // ListAll returns the one config this fixture holds, so a housekeeping scan
 // sees the same config the install and removal tests act on.
 func (r *installConfigRepo) ListAll(context.Context) ([]*types.TenantSandboxConfigEntity, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	if r.entity == nil {
 		return nil, nil
 	}
-	cp := *r.entity
-	return []*types.TenantSandboxConfigEntity{&cp}, nil
+	return []*types.TenantSandboxConfigEntity{cloneSandboxConfigEntity(r.entity)}, nil
 }
 
 // Update honours the context because the real gorm repository does: the
@@ -2300,16 +2357,22 @@ func (r *installConfigRepo) Update(ctx context.Context, e *types.TenantSandboxCo
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	r.mu.Lock()
 	if r.updateErr != nil {
-		return r.updateErr
+		err := r.updateErr
+		r.mu.Unlock()
+		return err
 	}
 	r.updates++
-	if r.fx != nil {
-		r.fx.record("switch-pointer")
+	cp := cloneSandboxConfigEntity(e)
+	r.saved = cp
+	r.entity = cloneSandboxConfigEntity(cp)
+	fx := r.fx
+	r.mu.Unlock()
+
+	if fx != nil {
+		fx.record("switch-pointer")
 	}
-	cp := *e
-	r.saved = &cp
-	r.entity = &cp
 	return nil
 }
 
@@ -2829,6 +2892,7 @@ func (r *installSandboxResolver) Resolve(context.Context, uint64, string) (sandb
 }
 
 type installSandboxManager struct {
+	mu            sync.Mutex
 	fx            *installFixture
 	structureSeen bool
 	writes        []string
@@ -2844,7 +2908,9 @@ type installSandboxManager struct {
 }
 
 func (m *installSandboxManager) sortedWrites() []string {
+	m.mu.Lock()
 	out := append([]string(nil), m.writes...)
+	m.mu.Unlock()
 	sort.Strings(out)
 	return out
 }
@@ -2876,6 +2942,8 @@ func (m *installSandboxManager) StatSessionFile(context.Context, string, string)
 func (m *installSandboxManager) ReadSessionFile(
 	_ context.Context, _ string, filePath string,
 ) ([]byte, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if filePath == sandbox.SkillsManifestPath && m.manifest != nil {
 		return m.manifest, nil
 	}
@@ -2914,25 +2982,37 @@ func (m *installSandboxManager) WriteSessionWorkspaceFiles(
 func (m *installSandboxManager) WriteSessionFile(
 	_ context.Context, _ string, filePath string, content []byte,
 ) error {
+	m.mu.Lock()
 	m.writes = append(m.writes, filePath)
 	if m.writeContents == nil {
 		m.writeContents = map[string][]byte{}
 	}
 	m.writeContents[filePath] = content
-	if filePath == sandbox.SkillsManifestPath {
-		m.fx.record("write-manifest")
+	fx := m.fx
+	m.mu.Unlock()
+
+	if fx == nil {
 		return nil
 	}
-	if !containsEvent(m.fx.events, "seed-files") {
-		if m.fx.beforeSeed != nil {
-			m.fx.beforeSeed()
+	if filePath == sandbox.SkillsManifestPath {
+		fx.record("write-manifest")
+		return nil
+	}
+	if !fx.hasEvent("seed-files") {
+		fx.mu.Lock()
+		beforeSeed := fx.beforeSeed
+		fx.mu.Unlock()
+		if beforeSeed != nil {
+			beforeSeed()
 		}
-		m.fx.record("seed-files")
+		fx.record("seed-files")
 	}
 	return nil
 }
 
 func (m *installSandboxManager) extractSeedArchive(command string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	archive, ok := m.writeContents[skillSeedArchivePath]
 	if !ok {
 		return
@@ -3003,57 +3083,79 @@ func (m *installSandboxManager) ExecShellCommand(
 func (m *installSandboxManager) ExecShellCommandWithOptions(
 	_ context.Context, _ string, command string, opts sandbox.ShellExecOptions,
 ) (*sandbox.ExecuteResult, error) {
+	m.fx.mu.Lock()
 	m.fx.commands = append(m.fx.commands, command)
+	depsExitCode := m.fx.depsExitCode
+	loadCheckResult := m.fx.loadCheckResult
+	loadCheckStdout := m.fx.loadCheckStdout
+	loadCheckStderr := m.fx.loadCheckStderr
+	removeDelay := m.fx.removeDelay
+	cancelDuringRemove := m.fx.cancelDuringRemove
+	rmExitCode := m.fx.rmExitCode
+	execResult := m.fx.execResult
+	execResultCommand := m.fx.execResultCommand
+	m.fx.mu.Unlock()
+
 	switch {
 	case command == installPrepareCommand:
 		m.fx.record("prepare-skill-dir")
 	case strings.HasPrefix(command, "tar -xf "):
 		m.extractSeedArchive(command)
 	case command == skillTreeVerifyCommand(installSkillDir, []string{"scripts/extract.py"}):
-		if !m.structureSeen {
-			m.fx.record("verify-structure")
+		m.mu.Lock()
+		firstStructure := !m.structureSeen
+		if firstStructure {
 			m.structureSeen = true
+		}
+		m.mu.Unlock()
+		if firstStructure {
+			m.fx.record("verify-structure")
 		}
 	case strings.HasPrefix(command, "test -x ") || strings.HasPrefix(command, "test -d "):
 		m.fx.record("verify-deps")
-		if m.fx.depsExitCode != 0 {
-			return &sandbox.ExecuteResult{ExitCode: m.fx.depsExitCode, Stderr: "deps missing"}, nil
+		if depsExitCode != 0 {
+			return &sandbox.ExecuteResult{ExitCode: depsExitCode, Stderr: "deps missing"}, nil
 		}
 	case command == installPythonVerifyCommand:
+		m.fx.mu.Lock()
 		m.fx.loadCheckOpts = opts
+		m.fx.mu.Unlock()
 		m.fx.record("verify-python")
-		if m.fx.loadCheckResult != nil {
-			return m.fx.loadCheckResult, nil
+		if loadCheckResult != nil {
+			return loadCheckResult, nil
 		}
 		return &sandbox.ExecuteResult{
 			ExitCode: m.fx.nextLoadCheckExit(),
-			Stdout:   m.fx.loadCheckStdout,
-			Stderr:   m.fx.loadCheckStderr,
+			Stdout:   loadCheckStdout,
+			Stderr:   loadCheckStderr,
 		}, nil
 	case command == removeSkillDirCommand:
 		m.fx.record("remove-skill-dir")
-		if m.fx.removeDelay > 0 {
-			time.Sleep(m.fx.removeDelay)
+		if removeDelay > 0 {
+			time.Sleep(removeDelay)
 		}
-		if m.fx.cancelDuringRemove != nil {
-			m.fx.cancelDuringRemove()
+		if cancelDuringRemove != nil {
+			cancelDuringRemove()
 		}
 		return &sandbox.ExecuteResult{
-			ExitCode: m.fx.rmExitCode, Stderr: "rm: cannot remove",
+			ExitCode: rmExitCode, Stderr: "rm: cannot remove",
 		}, nil
 	case command == cleanImageScratchCommand():
 		m.fx.record("cleanup-workspace")
 	}
-	if m.fx.execResult != nil && command == m.fx.execResultCommand {
-		return m.fx.execResult, nil
+	if execResult != nil && command == execResultCommand {
+		return execResult, nil
 	}
 	return &sandbox.ExecuteResult{ExitCode: 0}, nil
 }
 
 func (m *installSandboxManager) CreateSnapshot(context.Context, string, string) (sandbox.RemoteSnapshotRef, error) {
 	m.fx.record("create-snapshot")
-	if m.fx.cancelDuringSnapshot != nil {
-		m.fx.cancelDuringSnapshot()
+	m.fx.mu.Lock()
+	cancelDuringSnapshot := m.fx.cancelDuringSnapshot
+	m.fx.mu.Unlock()
+	if cancelDuringSnapshot != nil {
+		cancelDuringSnapshot()
 	}
 	return sandbox.RemoteSnapshotRef{ID: "snap-1"}, nil
 }
@@ -3065,7 +3167,9 @@ func (m *installSandboxManager) DeleteSnapshot(ctx context.Context, snapshotID s
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	m.fx.mu.Lock()
 	m.fx.deletedSnapshots = append(m.fx.deletedSnapshots, snapshotID)
+	m.fx.mu.Unlock()
 	return nil
 }
 
@@ -3082,10 +3186,15 @@ func (m *installSandboxManager) InvalidateConfigSandboxes(
 	if err := ctx.Err(); err != nil {
 		return 0, err
 	}
-	if m.fx.invalidateErr != nil {
-		return 0, m.fx.invalidateErr
+	m.fx.mu.Lock()
+	invalidateErr := m.fx.invalidateErr
+	if invalidateErr == nil {
+		m.fx.staleMarks = append(m.fx.staleMarks, staleMark{tenantID: tenantID, configID: configID})
 	}
-	m.fx.staleMarks = append(m.fx.staleMarks, staleMark{tenantID: tenantID, configID: configID})
+	m.fx.mu.Unlock()
+	if invalidateErr != nil {
+		return 0, invalidateErr
+	}
 	m.fx.record("mark-stale")
 	return 1, nil
 }
@@ -3097,7 +3206,9 @@ func (m *installSandboxManager) DestroySession(ctx context.Context, sessionID st
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	m.fx.mu.Lock()
 	m.fx.destroyedSandboxes = append(m.fx.destroyedSandboxes, sessionID)
+	m.fx.mu.Unlock()
 	m.fx.record("destroy-sandbox")
 	return nil
 }
@@ -3133,8 +3244,11 @@ type installCustomAgentService struct {
 func (s *installCustomAgentService) GetAgentByID(
 	context.Context, string,
 ) (*types.CustomAgent, error) {
-	if s.fx.installerRecord != nil {
-		return s.fx.installerRecord, nil
+	s.fx.mu.Lock()
+	rec := s.fx.installerRecord
+	s.fx.mu.Unlock()
+	if rec != nil {
+		return rec, nil
 	}
 	return &types.CustomAgent{
 		ID: types.BuiltinSkillInstallerID,
@@ -3200,8 +3314,10 @@ func (s *installAgentService) CreateAgentEngine(
 	_ string,
 	_ string,
 ) (interfaces.AgentEngine, error) {
+	s.fx.mu.Lock()
 	s.fx.engineConfig = config
 	s.fx.engineModel = chatModel
+	s.fx.mu.Unlock()
 	return &installAgentEngine{fx: s.fx}, nil
 }
 
@@ -3220,10 +3336,19 @@ func (e *installAgentEngine) Execute(
 	_ []chat.Message,
 	_ ...[]string,
 ) (*types.AgentState, error) {
-	if e.fx.beforeExecute != nil {
-		e.fx.beforeExecute()
+	e.fx.mu.Lock()
+	beforeExecute := e.fx.beforeExecute
+	e.fx.mu.Unlock()
+	if beforeExecute != nil {
+		beforeExecute()
 	}
+	e.fx.mu.Lock()
 	e.fx.agentPrompts = append(e.fx.agentPrompts, prompt)
+	afterExecute := e.fx.afterExecute
+	delay := e.fx.agentDelay
+	agentErr := e.fx.agentErr
+	engineConfig := e.fx.engineConfig
+	e.fx.mu.Unlock()
 	e.fx.record("agent-execute")
 	if e.sink != nil {
 		events, _, err := e.sink.PollSteer(context.Background(), "sess-1", e.fx.currentInstallMessageID(), 0)
@@ -3237,22 +3362,24 @@ func (e *installAgentEngine) Execute(
 			)
 		}
 	}
-	if e.fx.afterExecute != nil {
-		e.fx.afterExecute()
+	if afterExecute != nil {
+		afterExecute()
 	}
-	if e.fx.agentDelay > 0 {
-		time.Sleep(e.fx.agentDelay)
+	if delay > 0 {
+		time.Sleep(delay)
 	}
-	if e.fx.agentErr != nil {
-		return nil, e.fx.agentErr
+	if agentErr != nil {
+		return nil, agentErr
 	}
+	reportPath := path.Join(engineConfig.SkillInstallDir(), ".genyee", "install-report.json")
+	e.fx.sandboxMgr.mu.Lock()
 	if e.fx.sandboxMgr.files == nil {
 		e.fx.sandboxMgr.files = map[string][]byte{}
 	}
-	reportPath := path.Join(e.fx.engineConfig.SkillInstallDir(), ".genyee", "install-report.json")
 	if _, exists := e.fx.sandboxMgr.files[reportPath]; !exists {
 		e.fx.sandboxMgr.files[reportPath] = []byte(`{"commands":[],"blockers":[]}`)
 	}
+	e.fx.sandboxMgr.mu.Unlock()
 	return &types.AgentState{IsComplete: true}, nil
 }
 func (e *installAgentEngine) SetMemoryPrompt(string)                               {}
@@ -3275,8 +3402,10 @@ type installSessionService struct {
 
 func (s *installSessionService) CreateSession(_ context.Context, session *types.Session) (*types.Session, error) {
 	s.fx.record("create-session")
+	s.fx.mu.Lock()
 	s.fx.sessionCalls = append(s.fx.sessionCalls, "CreateSession")
 	s.fx.sessionTitles = append(s.fx.sessionTitles, session.Title)
+	s.fx.mu.Unlock()
 	if session.ID == "" {
 		session.ID = "sess-1"
 	}
@@ -3310,7 +3439,9 @@ func (s *installSessionService) GetPagedSessionsByTenant(
 }
 
 func (s *installSessionService) UpdateSession(context.Context, *types.Session) error {
+	s.fx.mu.Lock()
 	s.fx.sessionCalls = append(s.fx.sessionCalls, "UpdateSession")
+	s.fx.mu.Unlock()
 	return nil
 }
 
@@ -3321,17 +3452,23 @@ func (s *installSessionService) UpdateSessionLastRequestState(
 }
 
 func (s *installSessionService) DeleteSession(context.Context, string) error {
+	s.fx.mu.Lock()
 	s.fx.sessionCalls = append(s.fx.sessionCalls, "DeleteSession")
+	s.fx.mu.Unlock()
 	return nil
 }
 
 func (s *installSessionService) BatchDeleteSessions(context.Context, []string) error {
+	s.fx.mu.Lock()
 	s.fx.sessionCalls = append(s.fx.sessionCalls, "BatchDeleteSessions")
+	s.fx.mu.Unlock()
 	return nil
 }
 
 func (s *installSessionService) DeleteAllSessions(context.Context) error {
+	s.fx.mu.Lock()
 	s.fx.sessionCalls = append(s.fx.sessionCalls, "DeleteAllSessions")
+	s.fx.mu.Unlock()
 	return nil
 }
 
@@ -3465,6 +3602,8 @@ func (installFileService) SaveFile(context.Context, *multipart.FileHeader, uint6
 
 func (s installFileService) SaveBytes(_ context.Context, data []byte, _ uint64, _ string, _ bool) (string, error) {
 	if s.fx != nil {
+		s.fx.mu.Lock()
+		defer s.fx.mu.Unlock()
 		s.fx.savedBundles++
 		if s.fx.saveErr != nil {
 			return "", s.fx.saveErr
@@ -3484,7 +3623,10 @@ func (s installFileService) SaveBytes(_ context.Context, data []byte, _ uint64, 
 func (s installFileService) GetFile(_ context.Context, ref string) (io.ReadCloser, error) {
 	if s.fx != nil {
 		s.fx.getFileCalls.Add(1)
-		if data, ok := s.fx.storedBundles[ref]; ok {
+		s.fx.mu.Lock()
+		data, ok := s.fx.storedBundles[ref]
+		s.fx.mu.Unlock()
+		if ok {
 			return io.NopCloser(bytes.NewReader(data)), nil
 		}
 	}
@@ -3493,7 +3635,9 @@ func (s installFileService) GetFile(_ context.Context, ref string) (io.ReadClose
 func (installFileService) GetFileURL(context.Context, string) (string, error) { return "", nil }
 func (s installFileService) DeleteFile(_ context.Context, ref string) error {
 	if s.fx != nil {
+		s.fx.mu.Lock()
 		s.fx.deletedBundles = append(s.fx.deletedBundles, ref)
+		s.fx.mu.Unlock()
 	}
 	return nil
 }
