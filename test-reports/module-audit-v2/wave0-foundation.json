@@ -138,7 +138,7 @@
     "Historical changelogs and governance specs (CHANGELOG.md, cli/CHANGELOG.md, mcp-server/CHANGELOG.md, BRANCH_GUIDE.md) remain untouched during W0.",
     "Intentional negative security and compliance guards (cmd/desktop/webview_js_test.go, internal/utils/crypto*.go, internal/utils/presign_test.go, internal/application/service/user_jwt_secret_test.go, scripts/verify-commercial-compliance.sh, tests/adversarial/*, tests/stress/*) remain intact.",
     "Vendored icon font sprite frontend/public/tdesign-icons/0.4.1/fonts/index.js and misc/dex-config.yaml remain untouched.",
-    ".gitattributes and scripts/export-source.sh retain export-ignore exclusion for test-reports, AUDIT_REPORT.md, REBRAND_RESERVED.md, BRANCH_GUIDE.md, docs/poc, and docs/design."
+    ".gitattributes and scripts/export-source.sh retain export-ignore exclusion for test-reports, REBRAND_RESERVED.md, BRANCH_GUIDE.md, docs/poc, and docs/design."
   ],
   "residue_audit_summary": {
     "retired_client_scan": {

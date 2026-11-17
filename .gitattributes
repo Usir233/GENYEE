@@ -22,11 +22,8 @@ dataset/samples/*.parquet merge=ours
 # Exclude internal compliance audit, rebrand notes, branch maintenance guides,
 # AI assistant workspaces, release PoC notes, and CI/git metadata when exporting
 # customer source archives via `git archive` (see scripts/export-source.sh).
-COMMERCIAL_COMPLIANCE_AUDIT.md export-ignore
-AUDIT_REPORT.md export-ignore
 REBRAND_RESERVED.md export-ignore
 BRANCH_GUIDE.md export-ignore
-WEKNORA_RESIDUE_REMEDIATION.md export-ignore
 test-reports export-ignore
 test-reports/** export-ignore
 tests/adversarial export-ignore
