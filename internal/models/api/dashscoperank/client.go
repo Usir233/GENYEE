@@ -101,20 +101,20 @@ func (c *Client) Rerank(ctx context.Context, query string, documents []string) (
 		return nil, fmt.Errorf("DashScope rerank error %s: %s", decoded.Code, decoded.Message)
 	}
 	if decoded.Output.Results == nil {
-		return nil, fmt.Errorf("decode response: expected an output.results array")
+		return nil, fmt.Errorf("DashScope rerank response is missing a results array")
 	}
-	out := make([]api.RerankResult, 0, len(decoded.Output.Results))
-	seen := make(map[int]bool, len(decoded.Output.Results))
+	out := make([]api.RerankResult, 0, min(len(decoded.Output.Results), len(documents)))
+	seen := make([]bool, len(documents))
 	for _, item := range decoded.Output.Results {
 		if item.Index == nil || item.RelevanceScore == nil {
-			return nil, fmt.Errorf("rerank result is missing index or relevance_score")
+			return nil, fmt.Errorf("DashScope rerank result is missing index or relevance_score")
 		}
 		index := *item.Index
 		if index < 0 || index >= len(documents) {
 			return nil, fmt.Errorf("rerank index %d out of range for %d documents", index, len(documents))
 		}
 		if seen[index] {
-			return nil, fmt.Errorf("rerank index %d returned twice", index)
+			return nil, fmt.Errorf("DashScope rerank returned duplicate index %d", index)
 		}
 		seen[index] = true
 		out = append(out, api.RerankResult{

@@ -13,45 +13,77 @@ import (
 
 // A malformed successful HTTP reply must fail before it can replace retrieval
 // candidates with duplicated indexes or invented zero scores.
-func TestRejectsMalformedRankingEntries(t *testing.T) {
-	for name, payload := range map[string]string{
-		"duplicate index": `{"output":{"results":[{"index":0,"relevance_score":0.9},{"index":0,"relevance_score":0.8}]}}`,
-		"missing index":   `{"output":{"results":[{"relevance_score":0.9}]}}`,
-		"null index":      `{"output":{"results":[{"index":null,"relevance_score":0.9}]}}`,
-		"missing score":   `{"output":{"results":[{"index":0}]}}`,
-		"null score":      `{"output":{"results":[{"index":0,"relevance_score":null}]}}`,
-		"negative index":  `{"output":{"results":[{"index":-1,"relevance_score":0.9}]}}`,
-		"large index":     `{"output":{"results":[{"index":2,"relevance_score":0.9}]}}`,
-		"null entry":      `{"output":{"results":[null]}}`,
-		"null response":   `null`,
-		"missing array":   `{}`,
-		"null array":      `{"output":{"results":null}}`,
-		"error envelope":  `{"error":{"message":"model unavailable"}}`,
-	} {
-		t.Run(name, func(t *testing.T) {
-			c := validationClient(t, payload)
-			got, err := c.Rerank(context.Background(), "query", []string{"first", "second"})
-			require.Error(t, err)
+func TestRejectsMalformedRankings(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload string
+		wantErr string
+	}{
+		{"null response", `null`, "results"},
+		{"empty object", `{}`, "results"},
+		{"error envelope", `{"error":{"message":"model is not loaded"}}`, "results"},
+		{"wrong envelope", `{"results":[]}`, "results"},
+		{"null output", `{"output":null}`, "results"},
+		{"missing results", `{"output":{}}`, "results"},
+		{"null results", `{"output":{"results":null}}`, "results"},
+		{"null row", `{"output":{"results":[null]}}`, "index or relevance_score"},
+		{"empty row", `{"output":{"results":[{}]}}`, "index or relevance_score"},
+		{"missing index", `{"output":{"results":[{"relevance_score":0.5}]}}`, "index or relevance_score"},
+		{"null index", `{"output":{"results":[{"index":null,"relevance_score":0.5}]}}`, "index or relevance_score"},
+		{"missing score", `{"output":{"results":[{"index":0}]}}`, "index or relevance_score"},
+		{"null score", `{"output":{"results":[{"index":0,"relevance_score":null}]}}`, "index or relevance_score"},
+		{"negative index", `{"output":{"results":[{"index":-1,"relevance_score":0.5}]}}`, "out of range"},
+		{"out of range index", `{"output":{"results":[{"index":2,"relevance_score":0.5}]}}`, "out of range"},
+		{
+			"malformed row after valid row",
+			`{"output":{"results":[{"index":1,"relevance_score":0.9},{"index":0}]}}`,
+			"index or relevance_score",
+		},
+		{
+			"duplicate index",
+			`{"output":{"results":[{"index":0,"relevance_score":0.9},{"index":0,"relevance_score":0.5}]}}`,
+			"duplicate index",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := validationClient(t, tt.payload)
+			got, err := c.Rerank(context.Background(), "q", []string{"d0", "d1"})
+			require.ErrorContains(t, err, tt.wantErr)
 			require.Nil(t, got)
 		})
 	}
 }
 
-func TestPreservesValidRankingEntries(t *testing.T) {
-	for name, tc := range map[string]struct {
+func TestAcceptsValidRankings(t *testing.T) {
+	tests := []struct {
+		name    string
 		payload string
 		want    []api.RerankResult
 	}{
-		"empty":          {`{"output":{"results":[]}}`, []api.RerankResult{}},
-		"explicit zeros": {`{"output":{"results":[{"index":0,"relevance_score":0}]}}`, []api.RerankResult{{Index: 0, Score: 0}}},
-		"partial":        {`{"output":{"results":[{"index":1,"relevance_score":0.7}]}}`, []api.RerankResult{{Index: 1, Score: 0.7}}},
-		"reordered":      {`{"output":{"results":[{"index":1,"relevance_score":0.7},{"index":0,"relevance_score":0.1}]}}`, []api.RerankResult{{Index: 1, Score: 0.7}, {Index: 0, Score: 0.1}}},
-	} {
-		t.Run(name, func(t *testing.T) {
-			c := validationClient(t, tc.payload)
-			got, err := c.Rerank(context.Background(), "query", []string{"first", "second"})
+		{"empty results", `{"output":{"results":[]}}`, []api.RerankResult{}},
+		{
+			"explicit zero score",
+			`{"output":{"results":[{"index":0,"relevance_score":0}]}}`,
+			[]api.RerankResult{{Index: 0, Score: 0}},
+		},
+		{
+			"zero index and score reordered",
+			`{"output":{"results":[{"index":1,"relevance_score":0.9},{"index":0,"relevance_score":0}]}}`,
+			[]api.RerankResult{{Index: 1, Score: 0.9}, {Index: 0, Score: 0}},
+		},
+		{
+			"partial ranking with echoed document",
+			`{"output":{"results":[{"index":1,"relevance_score":0.9,"document":{"text":"d1"}}]}}`,
+			[]api.RerankResult{{Index: 1, Score: 0.9, Text: "d1"}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := validationClient(t, tt.payload)
+			got, err := c.Rerank(context.Background(), "q", []string{"d0", "d1"})
 			require.NoError(t, err)
-			require.Equal(t, tc.want, got)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -61,7 +93,7 @@ func validationClient(t *testing.T, payload string) *Client {
 	t.Setenv("SSRF_WHITELIST", "127.0.0.1")
 	secutils.ResetSSRFWhitelistForTest()
 	t.Cleanup(secutils.ResetSSRFWhitelistForTest)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(payload))
 	}))
