@@ -53,7 +53,7 @@
   4. **自研镜像参数化与私有化交付规范**：
      - 全部自研镜像统一采用 `${GENYEE_REGISTRY:-genyee}/genyee-*` 参数化命名（详见 [`REBRAND_RESERVED.md`](REBRAND_RESERVED.md)），Helm 锁定第三方基础镜像版本（如 `redis:7.2-alpine`）。
      - 离线镜像交付统一使用 `./scripts/offline-bundle.sh` 与 `./scripts/offline-load.sh`。
-     - **客户源码包导出铁律**：向客户交付源码时，**严禁**直接打包包含 `.git/` 历史与内部维护文档的工作目录，**必须**执行 `./scripts/export-source.sh`（依托 `.gitattributes` `export-ignore` 与门禁校验自动剥离 `.git/`、`BRANCH_GUIDE.md`、`REBRAND_RESERVED.md`、`WEKNORA_RESIDUE_REMEDIATION.md`、`test-reports/`、`tests/{adversarial,e2e,stress}`、`misc/pr-assets/` 等内部治理与测试文件）。
+     - **客户源码包导出铁律**：向客户交付源码时，**严禁**直接打包包含 `.git/` 历史与内部维护文档的工作目录，**必须**执行 `./scripts/export-source.sh`（依托 `.gitattributes` `export-ignore` 与门禁校验自动剥离 `.git/`、`BRANCH_GUIDE.md`、`REBRAND_RESERVED.md`、`test-reports/`、`tests/{adversarial,e2e,stress}`、`misc/pr-assets/` 等内部治理与测试文件）。
 
 ### 3. `archive/legacy-pure-rebrand-main` 分支 —— 旧版纯换皮归档支
 - **定位**：固定指向历史提交 `74434f7303bade6b9fb90c2f315721f060d6af15`（主干晋升前未执行组件裁剪与深度残留清零的旧版纯换皮快照），仅作历史对照归档，**严禁**向其合入新代码或将其重新设为默认分支。
@@ -79,7 +79,11 @@ git checkout main
 git merge --no-commit --no-ff upstream
 ```
 在提交合并前逐项完成以下对齐：
-1. **品牌与契约替换**：按 [`WEKNORA_RESIDUE_REMEDIATION.md`](WEKNORA_RESIDUE_REMEDIATION.md) 第五节规则，将上游新增/修改文件中的 Go 导入路径（`github.com/Tencent/WeKnora` $\rightarrow$ `github.com/Usir233/GENYEE`）、环境变量（`GENYEE_*`）、存储键/路由/工具标识（`genyee_*`）、前端与文档样式前缀（`--gy-*` / `.gy-*`）统一适配为 `GENYEE` 规范，禁止盲目全局替换破坏受保护许可证文件。
+1. **品牌与契约零向后兼容替换规范**：禁止盲目全局替换破坏受保护许可证文件，对上游新增/修改的业务代码、配置、脚本、迁移与文档统一执行以下映射（不保留旧名回退或双写兼容）：
+   - **Go 模块与仓库路径**：`github.com/Tencent/WeKnora` $\rightarrow$ `github.com/Usir233/GENYEE`；非署名用途的上游官网/文档外链（如 `weknora.weixin.qq.com`）统一改为配置项驱动或自有地址。
+   - **品牌大小写映射**：`WeKnora` / `WEKNORA` $\rightarrow$ `GENYEE`（如 `NewReadGENYEEDocTool`、`GENYEE Lite`、`GENYEECONFLUENCETABLE`）；`Weknora` $\rightarrow$ `Genyee`（如 `X-Genyee-Signature`、`X-Genyee-Desktop-Token`）；`weknora` $\rightarrow$ `genyee`（如 `genyee_embeddings`、`builtin-genyee-assistant`、`search_genyee_docs`、`read_genyee_doc`、`genyee:*` Redis/事件键、`com.genyee.*` Docker 标签、`/genyee/...` 沙箱路径、`~/.genyee/` 本地目录）。
+   - **缩写前缀映射（`wk` $\rightarrow$ `gy`）**：除 Apple 系统框架 `WKWebView` 外，所有上游缩写标识 `wk` / `wk_` / `wk-` / `--wk-` / `__wk` / `x-wk-` 统一替换为 `gy` / `gy_` / `gy-` / `--gy-` / `__gy` / `x-gy-`（如 `gy-display.sh`、`--gy-*` 样式变量）。
+   - **文件名同步重命名**：上游新增文件名若含 `weknora` 或 `wk-` 前缀，必须 `git mv` 改为 `genyee` 或 `gy-` 并同步更新全部引用；API 注释变更后须通过 `swag init` 重新生成 `docs/{docs.go,swagger.json,swagger.yaml}`。
 2. **已移除组件保持删除**：对触及 `miniprogram/`、`WeKnoraCloud` / `GENYEECloud` 或 `misc/pr-assets/` 的上游变更一律保持删除，并确保 `internal/im/{wechat,wecom}` 与 `LANGFUSE_ENABLED=false` 策略不被回退。
 3. **数据库迁移序号重排与初始化脚本对齐**：若上游新增 `migrations/sqlite/*` 或 `migrations/versioned/*` 与本仓已有自研迁移版本号冲突，必须顺延重排上游新增迁移序号，同步对齐 `.down.sql`、`migrations/paradedb/00-init-db.sql`、`migrations/mysql/00-init-db.sql`、`website-docs/06-development/02-database-schema.md` 及 `internal/database/` 迁移测试。
 4. **增量安全审计与台账同步**：对本次上游变更涉及的全部文件逐行开展多租户隔离、SSRF、注入、并发竞态与前端 XSS/生命周期安全审计，修复缺陷并同步更新 `test-reports/module-audit-v2/coverage.json`。

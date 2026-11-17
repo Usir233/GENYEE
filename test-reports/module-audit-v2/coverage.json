@@ -11,10 +11,10 @@
   "wave0_evidence_file": "test-reports/module-audit-v2/wave0-foundation.json",
   "legacy_ledger": null,
   "summary": {
-    "total_tracked_files": 6692,
+    "total_tracked_files": 6691,
     "unit_count": 301,
     "unit_files_total": 6208,
-    "support_files_total": 484,
+    "support_files_total": 483,
     "uncovered_files": 0,
     "duplicate_files": 0,
     "stale_files": 0,
@@ -53,7 +53,7 @@
     },
     "support_files_by_category": {
       "license_or_notice": 71,
-      "historical_changelog_or_spec": 5,
+      "historical_changelog_or_spec": 4,
       "audit_ledger_or_archived_report": 39,
       "static_binary_or_vendor_asset": 369
     }
@@ -16289,7 +16289,6 @@
     "historical_changelog_or_spec": [
       "BRANCH_GUIDE.md",
       "CHANGELOG.md",
-      "WEKNORA_RESIDUE_REMEDIATION.md",
       "cli/CHANGELOG.md",
       "mcp-server/CHANGELOG.md"
     ],

@@ -2,7 +2,7 @@
 
 本文档记录在将项目全量重构为 **GENYEE**（`github.com/Usir233/GENYEE`）过程中，所有自研镜像的统一参数化机制、私有镜像仓库（如阿里云 ACR / 内网 Harbor）覆盖方式，以及保留的浏览器扩展兼容项说明。
 
-> **适用范围与三分支治理状态（2026-11-17 更新）**：商业合规改造、上游残留标识清零（`B0`–`B5`、`R1`–`R2`）、全仓模块安全审计（`W0`–`W8`）及上游 `f64dbf002` / `7d064bc3a` 合并审计已全部完成并正式收敛至仓库默认主分支 `main`；全仓现仅保留 `main`、`upstream` 与 `archive/legacy-pure-rebrand-main` 三条分支（历史阶段分支已全部退役删除）。本文档所有镜像参数化规范与第三方 `BrowserSkill` 保留规则直接适用于 `main` 主干及后续全部上游同步（详见 [BRANCH_GUIDE.md](BRANCH_GUIDE.md) 与 [WEKNORA_RESIDUE_REMEDIATION.md](WEKNORA_RESIDUE_REMEDIATION.md)）。
+> **适用范围与三分支治理状态（2026-11-17 更新）**：商业合规改造、上游残留标识清零、全仓模块安全审计（`W0`–`W8`）及上游 `f64dbf002` / `7d064bc3a` 合并审计已全部完成并正式收敛至仓库默认主分支 `main`；全仓现严格仅保留 `main`、`upstream` 与 `archive/legacy-pure-rebrand-main` 三条分支（历史阶段分支与早期临时整改清单均已退役删除）。本文档所有镜像参数化规范与第三方 `BrowserSkill` 保留规则直接适用于 `main` 主干及后续全部上游同步（详见 [BRANCH_GUIDE.md](BRANCH_GUIDE.md)）。
 
 ---
 
