@@ -3,11 +3,13 @@ package client
 import (
 	"context"
 	"log"
+	"net"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/Usir233/GENYEE/docreader/proto"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/resolver"
 )
 
@@ -55,38 +57,77 @@ func TestClientConfiguresNamespacedFileSizeGuardsEmptyAddrMasksLogsAndIsConcurre
 	<-done
 }
 
-
 func init() {
 	log.SetOutput(os.Stdout)
 	log.SetFlags(log.LstdFlags | log.Lmicroseconds | log.Lshortfile)
 	log.Println("INFO: Initializing DocReader client tests")
 }
 
-func requireLiveDocReaderClient(t *testing.T) *Client {
+type localFallbackDocReaderServer struct {
+	proto.UnimplementedDocReaderServer
+}
+
+func (localFallbackDocReaderServer) ListEngines(
+	_ context.Context, _ *proto.ListEnginesRequest,
+) (*proto.ListEnginesResponse, error) {
+	return &proto.ListEnginesResponse{
+		Engines: []*proto.ParserEngineInfo{{Name: "builtin", Available: true}},
+	}, nil
+}
+
+func (localFallbackDocReaderServer) Read(
+	_ context.Context, req *proto.ReadRequest,
+) (*proto.ReadResponse, error) {
+	if len(req.GetFileContent()) > 0 {
+		return &proto.ReadResponse{MarkdownContent: string(req.GetFileContent())}, nil
+	}
+	if req.GetUrl() != "" {
+		return &proto.ReadResponse{MarkdownContent: "# " + req.GetTitle() + "\n\nFetched " + req.GetUrl()}, nil
+	}
+	return &proto.ReadResponse{Error: "empty request"}, nil
+}
+
+func requireDocReaderClient(t *testing.T) *Client {
 	t.Helper()
 
-	client, err := NewClient("localhost:50051")
+	probe, err := NewClient("localhost:50051")
+	if err == nil {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+		_, probeErr := probe.ListEngines(ctx, &proto.ListEnginesRequest{})
+		cancel()
+		if probeErr == nil {
+			t.Cleanup(func() { _ = probe.Close() })
+			return probe
+		}
+		_ = probe.Close()
+	}
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
+		t.Fatalf("Failed to listen for local fallback DocReader server: %v", err)
 	}
-	t.Cleanup(func() { client.Close() })
+	server := grpc.NewServer()
+	proto.RegisterDocReaderServer(server, localFallbackDocReaderServer{})
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { server.Stop(); _ = listener.Close() })
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	if _, err := client.ListEngines(ctx, &proto.ListEnginesRequest{}); err != nil {
-		t.Skipf("DocReader gRPC server not available at localhost:50051: %v", err)
+	client, err := NewClientWithAuth(listener.Addr().String(), &AuthConfig{})
+	if err != nil {
+		t.Fatalf("Failed to create local fallback client: %v", err)
 	}
-
+	t.Cleanup(func() { _ = client.Close() })
 	return client
 }
 
 func TestReadURL(t *testing.T) {
-	client := requireLiveDocReaderClient(t)
+	client := requireDocReaderClient(t)
 	client.SetDebug(true)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	startTime := time.Now()
 	resp, err := client.Read(
-		context.Background(),
+		ctx,
 		&proto.ReadRequest{
 			Url:   "https://example.com",
 			Title: "test",
@@ -107,7 +148,7 @@ func TestReadURL(t *testing.T) {
 }
 
 func TestReadFile(t *testing.T) {
-	client := requireLiveDocReaderClient(t)
+	client := requireDocReaderClient(t)
 	client.SetDebug(true)
 
 	fileContent, err := os.ReadFile("../testdata/test.md")
@@ -115,9 +156,11 @@ func TestReadFile(t *testing.T) {
 		t.Fatalf("Failed to read test file: %v", err)
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 	startTime := time.Now()
 	resp, err := client.Read(
-		context.Background(),
+		ctx,
 		&proto.ReadRequest{
 			FileContent: fileContent,
 			FileName:    "test.md",

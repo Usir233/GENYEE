@@ -23,7 +23,8 @@ import logging
 import os
 import secrets
 import sys
-from datetime import datetime, timezone
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 from mcp.server import MCPServer
@@ -81,7 +82,9 @@ def require_network_transport_auth(transport: str) -> str:
     return token
 
 
-def build_transport_security_settings(host: str, port: int) -> TransportSecuritySettings:
+def build_transport_security_settings(
+    host: str, port: int
+) -> TransportSecuritySettings:
     allowed_hosts = [
         "127.0.0.1:*",
         "localhost:*",
@@ -105,7 +108,9 @@ def build_transport_security_settings(host: str, port: int) -> TransportSecurity
             if ":" in clean_host and not clean_host.startswith("[")
             else clean_host
         )
-        allowed_hosts.extend([f"{host_bracketed}:{port}", f"{host_bracketed}:*", host_bracketed])
+        allowed_hosts.extend(
+            [f"{host_bracketed}:{port}", f"{host_bracketed}:*", host_bracketed]
+        )
         allowed_origins.extend(
             [f"http://{host_bracketed}:{port}", f"https://{host_bracketed}:{port}"]
         )
@@ -117,9 +122,7 @@ def build_transport_security_settings(host: str, port: int) -> TransportSecurity
                 allowed_hosts.append(f"{entry}:*")
     extra_origins = os.getenv("MCP_ALLOWED_ORIGINS", "").strip()
     if extra_origins:
-        allowed_origins.extend(
-            o.strip() for o in extra_origins.split(",") if o.strip()
-        )
+        allowed_origins.extend(o.strip() for o in extra_origins.split(",") if o.strip())
     return TransportSecuritySettings(
         enable_dns_rebinding_protection=True,
         allowed_hosts=allowed_hosts,
@@ -131,20 +134,28 @@ def _uvicorn_tls_kwargs() -> dict[str, str]:
     certfile = os.getenv("MCP_SSL_CERTFILE", "").strip()
     keyfile = os.getenv("MCP_SSL_KEYFILE", "").strip()
     if bool(certfile) != bool(keyfile):
-        raise ValueError("Both MCP_SSL_CERTFILE and MCP_SSL_KEYFILE must be set together.")
+        raise ValueError(
+            "Both MCP_SSL_CERTFILE and MCP_SSL_KEYFILE must be set together."
+        )
     if certfile and keyfile:
         return {"ssl_certfile": certfile, "ssl_keyfile": keyfile}
     return {}
 
 
+Scope = dict[str, Any]
+Receive = Callable[[], Awaitable[dict[str, Any]]]
+Send = Callable[[dict[str, Any]], Awaitable[None]]
+ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
+
+
 class MCPAuthMiddleware:
     """SSE / HTTP 传输的 Bearer 鉴权中间件。"""
 
-    def __init__(self, app, token: str):
+    def __init__(self, app: ASGIApp, token: str) -> None:
         self.app = app
         self.token = token
 
-    async def __call__(self, scope, receive, send):
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         scope_type = scope.get("type")
         if scope_type == "lifespan":
             await self.app(scope, receive, send)
@@ -163,7 +174,7 @@ class MCPAuthMiddleware:
         if auth.lower().startswith("bearer "):
             provided = auth[7:].strip()
         elif "x-mcp-auth-token" in headers:
-            provided = headers["x-mcp-auth-token"]
+            provided = headers["x-mcp-auth-token"].strip()
 
         if not provided or not secrets.compare_digest(
             provided.encode("utf-8"), self.token.encode("utf-8")
@@ -197,7 +208,7 @@ def add(a: float, b: float) -> dict[str, Any]:
 @mcp.tool()
 def server_time() -> dict[str, str]:
     """返回 MCP Demo 服务器当前 UTC 时间。"""
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     return {
         "iso": now.isoformat(),
         "unix": str(int(now.timestamp())),
@@ -207,7 +218,11 @@ def server_time() -> dict[str, str]:
 @mcp.tool()
 def lookup_policy(topic: str) -> dict[str, Any]:
     """查询演示政策/项目信息。topic 可用 warranty/offline_voice/device_limit/travel_hotel_tier1/travel_meal/poc_owner/poc_deadline/matter_cert，或中文关键词如「保修」「报销」「POC」。"""
-    key = topic.strip().lower().replace(" ", "_")
+    topic_lower = topic.strip().lower()
+    key = topic_lower.replace(" ", "_")
+    if key in DEMO_POLICIES:
+        return {"topic": key, "answer": DEMO_POLICIES[key], "source": "mcp-demo/static"}
+
     aliases = {
         "保修": "warranty",
         "质保": "warranty",
@@ -218,15 +233,17 @@ def lookup_policy(topic: str) -> dict[str, Any]:
         "报销": "travel_hotel_tier1",
         "餐饮": "travel_meal",
         "补贴": "travel_meal",
+        "验收": "poc_deadline",
+        "截止": "poc_deadline",
+        "deadline": "poc_deadline",
         "负责人": "poc_owner",
         "张明": "poc_owner",
         "poc": "poc_owner",
-        "验收": "poc_deadline",
         "matter": "matter_cert",
         "认证": "matter_cert",
     }
     for alias, mapped in aliases.items():
-        if alias in topic:
+        if alias in topic_lower:
             key = mapped
             break
 
@@ -236,11 +253,15 @@ def lookup_policy(topic: str) -> dict[str, Any]:
     matches = {
         k: v
         for k, v in DEMO_POLICIES.items()
-        if key in k or any(ch in k for ch in key if len(key) >= 2)
+        if len(key) >= 2 and (key in k or k in key)
     }
     if len(matches) == 1:
         only_key = next(iter(matches))
-        return {"topic": only_key, "answer": matches[only_key], "source": "mcp-demo/static"}
+        return {
+            "topic": only_key,
+            "answer": matches[only_key],
+            "source": "mcp-demo/static",
+        }
 
     return {
         "topic": topic,
@@ -270,8 +291,19 @@ def send_demo_alert(channel: str, message: str) -> dict[str, Any]:
         "simulated": True,
         "channel": channel,
         "message": message,
-        "sent_at": datetime.now(timezone.utc).isoformat(),
+        "sent_at": datetime.now(UTC).isoformat(),
     }
+
+
+def _build_uvicorn_kwargs(host: str, port: int) -> dict[str, Any]:
+    kwargs: dict[str, Any] = {
+        "host": host,
+        "port": port,
+        "log_level": "info",
+        "timeout_graceful_shutdown": 5,
+    }
+    kwargs.update(_uvicorn_tls_kwargs())
+    return kwargs
 
 
 async def run_http(host: str, port: int) -> None:
@@ -279,7 +311,9 @@ async def run_http(host: str, port: int) -> None:
     try:
         import uvicorn
     except ImportError as e:
-        raise ImportError("HTTP transport requires: pip install starlette uvicorn") from e
+        raise ImportError(
+            "HTTP transport requires: pip install starlette uvicorn"
+        ) from e
 
     starlette_app = MCPAuthMiddleware(
         mcp.streamable_http_app(
@@ -290,13 +324,7 @@ async def run_http(host: str, port: int) -> None:
         auth_token,
     )
     logger.info("Streamable HTTP MCP demo listening on %s:%d/mcp", host, port)
-    config = uvicorn.Config(
-        starlette_app,
-        host=host,
-        port=port,
-        log_level="info",
-        **_uvicorn_tls_kwargs(),
-    )
+    config = uvicorn.Config(starlette_app, **_build_uvicorn_kwargs(host, port))
     server = uvicorn.Server(config)
     await server.serve()
 
@@ -306,7 +334,9 @@ async def run_sse(host: str, port: int) -> None:
     try:
         import uvicorn
     except ImportError as e:
-        raise ImportError("SSE transport requires: pip install starlette uvicorn") from e
+        raise ImportError(
+            "SSE transport requires: pip install starlette uvicorn"
+        ) from e
 
     starlette_app = MCPAuthMiddleware(
         mcp.sse_app(
@@ -317,15 +347,19 @@ async def run_sse(host: str, port: int) -> None:
         auth_token,
     )
     logger.info("SSE MCP demo listening on %s:%d/sse", host, port)
-    config = uvicorn.Config(
-        starlette_app,
-        host=host,
-        port=port,
-        log_level="info",
-        **_uvicorn_tls_kwargs(),
-    )
+    config = uvicorn.Config(starlette_app, **_build_uvicorn_kwargs(host, port))
     server = uvicorn.Server(config)
     await server.serve()
+
+
+def _parse_port(raw: str) -> int:
+    try:
+        port = int(raw.strip())
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid port {raw!r}") from exc
+    if not (1 <= port <= 65535):
+        raise argparse.ArgumentTypeError(f"port {port} out of range (1..65535)")
+    return port
 
 
 def parse_args() -> argparse.Namespace:
@@ -333,11 +367,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--transport",
         choices=["http", "sse"],
-        default=os.getenv("MCP_TRANSPORT", "http"),
+        default=os.getenv("MCP_TRANSPORT", "http").strip().lower(),
         help="Network transport (default: http / Streamable HTTP)",
     )
-    parser.add_argument("--host", default=os.getenv("MCP_HOST", "127.0.0.1"))
-    parser.add_argument("--port", type=int, default=int(os.getenv("MCP_PORT", "8010")))
+    parser.add_argument("--host", default=os.getenv("MCP_HOST", "127.0.0.1").strip())
+    default_port_raw = os.getenv("MCP_PORT", "8010")
+    try:
+        default_port = _parse_port(default_port_raw)
+    except argparse.ArgumentTypeError as exc:
+        parser.error(f"MCP_PORT: {exc}")
+    parser.add_argument("--port", type=_parse_port, default=default_port)
     return parser.parse_args()
 
 

@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"net"
 	"testing"
 	"time"
@@ -9,6 +10,7 @@ import (
 	pb "github.com/Usir233/GENYEE/docreader/proto"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -159,5 +161,38 @@ func TestIsTrustedDocReaderAddrNormalizesSchemesFQDNsAndRejectsUserinfo(t *testi
 	if !IsTrustedDocReaderAddr("dns:///docreader.svc.cluster.local:50051") {
 		t.Fatal("expected FQDN trailing dot before port and dns:/// scheme to normalize identically")
 	}
+
+	t.Setenv("DOCREADER_ADDR", "")
+	for _, smuggled := range []string{
+		"http://127.0.0.1:50051",
+		"https://localhost:50051",
+		"dns:///127.0.0.1:50051?x=1",
+		"dns:///127.0.0.1:50051#frag",
+	} {
+		if IsTrustedDocReaderAddr(smuggled) {
+			t.Fatalf("expected non-gRPC scheme or query/fragment %q to be rejected", smuggled)
+		}
+	}
 }
 
+func TestBuildDialOptionsNilSafetyHeaderGuardAndContextMetadata(t *testing.T) {
+	var nilCfg *AuthConfig
+	opts, err := nilCfg.BuildDialOptions(0)
+	if err != nil || len(opts) == 0 {
+		t.Fatalf("expected nil AuthConfig.BuildDialOptions(0) to succeed, got opts=%d err=%v", len(opts), err)
+	}
+
+	for _, badToken := range []string{"tok\r\ninjected: 1", "tok\nnext", "tok\x00nul"} {
+		cfg := &AuthConfig{AuthToken: badToken}
+		if _, err := cfg.BuildDialOptions(1024); err == nil {
+			t.Fatalf("expected interior control char in token %q to fail BuildDialOptions", badToken)
+		}
+	}
+
+	var creds credentials.PerRPCCredentials = &tokenAuth{token: "valid-token"}
+	cancelledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := creds.GetRequestMetadata(cancelledCtx); !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected cancelled context to fail GetRequestMetadata, got %v", err)
+	}
+}

@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -16,6 +17,14 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
+
+const (
+	defaultMessageEnvelopeSlack = 1 << 20
+	defaultReadRPCTimeout       = 5 * time.Minute
+	defaultControlRPCTimeout    = 30 * time.Second
+)
+
+var errClientNotConnected = status.Error(codes.Unavailable, "docreader client is not connected")
 
 func getMaxFileSize() int {
 	for _, key := range []string{"DOCREADER_GRPC_MAX_FILE_SIZE_MB", "MAX_FILE_SIZE_MB"} {
@@ -42,6 +51,7 @@ func maskAddrForLog(addr string) string {
 	return s
 }
 
+// Logger writes structured diagnostic lines for the standalone DocReader client.
 var Logger = log.New(os.Stdout, "[DocReader] ", log.LstdFlags|log.Lmicroseconds)
 
 // ImageRefInfo represents an image reference from a converted document.
@@ -59,11 +69,15 @@ type Client struct {
 	debug atomic.Bool
 }
 
+// NewClient constructs a DocReader client using TLS and token settings loaded
+// from the process environment.
 func NewClient(addr string) (*Client, error) {
 	authConfig := LoadAuthConfigFromEnv()
 	return NewClientWithAuth(addr, authConfig)
 }
 
+// NewClientWithAuth constructs a DocReader client connected to addr using the
+// provided AuthConfig.
 func NewClientWithAuth(addr string, authConfig *AuthConfig) (*Client, error) {
 	trimmedAddr := strings.TrimSpace(addr)
 	if trimmedAddr == "" {
@@ -73,7 +87,7 @@ func NewClientWithAuth(addr string, authConfig *AuthConfig) (*Client, error) {
 
 	// Reserve the same bounded envelope allowance as the App and Python server.
 	// The raw file cap is checked separately in Read and ReadStream.
-	maxMsgSize := getMaxFileSize() + (1 << 20)
+	maxMsgSize := getMaxFileSize() + defaultMessageEnvelopeSlack
 
 	if authConfig == nil {
 		authConfig = &AuthConfig{}
@@ -86,12 +100,14 @@ func NewClientWithAuth(addr string, authConfig *AuthConfig) (*Client, error) {
 	}
 
 	dialTarget := "dns:///" + trimmedAddr
-	if strings.HasPrefix(trimmedAddr, "dns:///") || strings.HasPrefix(trimmedAddr, "passthrough:///") {
+	if strings.HasPrefix(trimmedAddr, "dns:///") ||
+		strings.HasPrefix(trimmedAddr, "passthrough:///") ||
+		strings.HasPrefix(trimmedAddr, "unix:") {
 		dialTarget = trimmedAddr
 	}
 
 	startTime := time.Now()
-	conn, err := grpc.Dial(dialTarget, opts...)
+	conn, err := grpc.NewClient(dialTarget, opts...)
 	if err != nil {
 		Logger.Printf("ERROR: Failed to connect to DocReader service: %v", err)
 		return nil, err
@@ -104,38 +120,162 @@ func NewClientWithAuth(addr string, authConfig *AuthConfig) (*Client, error) {
 	}, nil
 }
 
-func validateFileContentSize(req *proto.ReadRequest) error {
-	if req == nil {
-		return nil
-	}
+func validatePayloadSize(size int, kind string) error {
 	maxFileSize := getMaxFileSize()
-	if size := len(req.GetFileContent()); size > maxFileSize {
+	if size > maxFileSize {
 		return status.Errorf(codes.ResourceExhausted,
-			"docreader file content size %d exceeds maximum %d", size, maxFileSize)
+			"docreader %s size %d exceeds maximum %d", kind, size, maxFileSize)
 	}
 	return nil
 }
 
-// Read enforces the raw-file limit independently of protobuf framing.
+func validateFileContentSize(req *proto.ReadRequest) error {
+	if req == nil {
+		return nil
+	}
+	return validatePayloadSize(len(req.GetFileContent()), "file content")
+}
+
+func ensureRPCDeadline(ctx context.Context, fallback time.Duration) (context.Context, context.CancelFunc, error) {
+	if ctx == nil {
+		return nil, nil, status.Error(codes.InvalidArgument, "context must not be nil")
+	}
+	if _, ok := ctx.Deadline(); ok {
+		return ctx, func() {}, nil
+	}
+	derived, cancel := context.WithTimeout(ctx, fallback)
+	return derived, cancel, nil
+}
+
+func (c *Client) checkReady() error {
+	if c == nil || c.DocReaderClient == nil {
+		return errClientNotConnected
+	}
+	return nil
+}
+
+// Read enforces the raw-file limit independently of protobuf framing and bounds
+// deadline-less contexts.
 func (c *Client) Read(
 	ctx context.Context, req *proto.ReadRequest, opts ...grpc.CallOption,
 ) (*proto.ReadResponse, error) {
+	if err := c.checkReady(); err != nil {
+		return nil, err
+	}
 	if err := validateFileContentSize(req); err != nil {
 		return nil, err
 	}
-	return c.DocReaderClient.Read(ctx, req, opts...)
+	rpcCtx, cancel, err := ensureRPCDeadline(ctx, defaultReadRPCTimeout)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	return c.DocReaderClient.Read(rpcCtx, req, opts...)
 }
 
-// ReadStream applies the same file budget as Read, including on older servers.
+type managedReadStream struct {
+	grpc.ServerStreamingClient[proto.ReadStreamResponse]
+	cancelOnce sync.Once
+	cancel     context.CancelFunc
+}
+
+func (s *managedReadStream) Recv() (*proto.ReadStreamResponse, error) {
+	frame, err := s.ServerStreamingClient.Recv()
+	if err != nil {
+		s.cancelOnce.Do(s.cancel)
+		return nil, err
+	}
+	return frame, nil
+}
+
+func (s *managedReadStream) Close() error {
+	s.cancelOnce.Do(s.cancel)
+	return nil
+}
+
+// ReadStream applies the same file budget as Read and returns a stream that
+// also implements io.Closer for deterministic early-abort cancellation.
 func (c *Client) ReadStream(
 	ctx context.Context, req *proto.ReadRequest, opts ...grpc.CallOption,
 ) (grpc.ServerStreamingClient[proto.ReadStreamResponse], error) {
+	if err := c.checkReady(); err != nil {
+		return nil, err
+	}
 	if err := validateFileContentSize(req); err != nil {
 		return nil, err
 	}
-	return c.DocReaderClient.ReadStream(ctx, req, opts...)
+	boundedCtx, timeoutCancel, err := ensureRPCDeadline(ctx, defaultReadRPCTimeout)
+	if err != nil {
+		return nil, err
+	}
+	streamCtx, streamCancel := context.WithCancel(boundedCtx)
+	cleanup := func() {
+		streamCancel()
+		timeoutCancel()
+	}
+	stream, err := c.DocReaderClient.ReadStream(streamCtx, req, opts...)
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+	return &managedReadStream{
+		ServerStreamingClient: stream,
+		cancel:                cleanup,
+	}, nil
 }
 
+// ListEngines queries available parser engines with a bounded control deadline.
+func (c *Client) ListEngines(
+	ctx context.Context, req *proto.ListEnginesRequest, opts ...grpc.CallOption,
+) (*proto.ListEnginesResponse, error) {
+	if err := c.checkReady(); err != nil {
+		return nil, err
+	}
+	rpcCtx, cancel, err := ensureRPCDeadline(ctx, defaultControlRPCTimeout)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	return c.DocReaderClient.ListEngines(rpcCtx, req, opts...)
+}
+
+// PreprocessImage straightens and crops a photographed page while enforcing
+// the configured raw-file budget and default RPC deadline.
+func (c *Client) PreprocessImage(
+	ctx context.Context, req *proto.PreprocessImageRequest, opts ...grpc.CallOption,
+) (*proto.PreprocessImageResponse, error) {
+	if err := c.checkReady(); err != nil {
+		return nil, err
+	}
+	if req != nil {
+		if err := validatePayloadSize(len(req.GetImage()), "preprocess image"); err != nil {
+			return nil, err
+		}
+	}
+	rpcCtx, cancel, err := ensureRPCDeadline(ctx, defaultReadRPCTimeout)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	return c.DocReaderClient.PreprocessImage(rpcCtx, req, opts...)
+}
+
+// GetInfo queries the DocReader server version and commit identity.
+func (c *Client) GetInfo(
+	ctx context.Context, req *proto.GetInfoRequest, opts ...grpc.CallOption,
+) (*proto.GetInfoResponse, error) {
+	if err := c.checkReady(); err != nil {
+		return nil, err
+	}
+	rpcCtx, cancel, err := ensureRPCDeadline(ctx, defaultControlRPCTimeout)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	return c.DocReaderClient.GetInfo(rpcCtx, req, opts...)
+}
+
+// Close closes the underlying gRPC client connection.
 func (c *Client) Close() error {
 	Logger.Printf("INFO: Closing DocReader client connection")
 	if c == nil || c.conn == nil {
@@ -144,10 +284,13 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
+// SetDebug toggles verbose DEBUG-level client logging.
 func (c *Client) SetDebug(debug bool) {
 	c.debug.Store(debug)
 }
 
+// Log writes a formatted message to Logger, filtering DEBUG messages unless
+// SetDebug(true) is active.
 func (c *Client) Log(level string, format string, args ...interface{}) {
 	if level == "DEBUG" && !c.debug.Load() {
 		return

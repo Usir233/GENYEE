@@ -17,10 +17,11 @@ skills/
 
 ## 快速开始
 
-### 运行 Demo
+### 运行示例脚本
 
 ```bash
-go run ./cmd/skills-demo/main.go
+python3 examples/skills/pdf-processing/scripts/analyze_form.py sample.pdf
+python3 examples/skills/pdf-processing/scripts/extract_text.py sample.pdf --page 1
 ```
 
 ### 创建新 Skill

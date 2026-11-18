@@ -4,9 +4,13 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
+	"io"
+	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/moby/moby/api/types/container"
 	"github.com/moby/moby/client"
@@ -120,5 +124,122 @@ func TestW7POC01_ArchiveDestValidationAndBoundedTarRead(t *testing.T) {
 
 	if _, err := readTarRegBounded(makeTar(strings.Repeat("x", 128)), 32); err == nil {
 		t.Fatal("readTarRegBounded accepted archive entry exceeding maxBytes")
+	}
+}
+
+type failingReadCloser struct {
+	io.Reader
+	closed   bool
+	closeErr error
+}
+
+func (f *failingReadCloser) Close() error {
+	f.closed = true
+	return f.closeErr
+}
+
+func TestW4POC02_DrainImageBuildResponseBoundedAndChecksStreamErrors(t *testing.T) {
+	okStream := &failingReadCloser{
+		Reader: strings.NewReader(`{"stream":"Step 1/3 : FROM python:3.11-slim\n"}` + "\n" +
+			`{"stream":"Successfully tagged genyee-poc/template:v2\n"}` + "\n"),
+	}
+	if err := drainImageBuildResponse(okStream, 1024); err != nil {
+		t.Fatalf("unexpected error on healthy build stream: %v", err)
+	}
+	if !okStream.closed {
+		t.Fatal("expected build response body to be closed")
+	}
+
+	daemonErrStream := &failingReadCloser{
+		Reader: strings.NewReader(`{"stream":"Step 1/3\n"}` + "\n" +
+			`{"errorDetail":{"message":"apt-get failed"},"error":"apt-get failed"}` + "\n"),
+	}
+	err := drainImageBuildResponse(daemonErrStream, 1024)
+	if err == nil || !strings.Contains(err.Error(), "apt-get failed") {
+		t.Fatalf("expected daemon build error to surface, got %v", err)
+	}
+	if !daemonErrStream.closed {
+		t.Fatal("expected errored build response body to be closed")
+	}
+
+	oversizedStream := &failingReadCloser{
+		Reader: strings.NewReader(`{"stream":"` + strings.Repeat("a", 256) + `"}`),
+	}
+	if err := drainImageBuildResponse(oversizedStream, 64); err == nil {
+		t.Fatal("expected oversized build log stream to fail")
+	}
+
+	closeFailStream := &failingReadCloser{
+		Reader:   strings.NewReader(`{"stream":"done\n"}`),
+		closeErr: errors.New("socket close error"),
+	}
+	err = drainImageBuildResponse(closeFailStream, 1024)
+	if err == nil || !strings.Contains(err.Error(), "socket close error") {
+		t.Fatalf("expected Close error to propagate, got %v", err)
+	}
+}
+
+func writeDockerMuxStdoutFrame(w io.Writer, payload []byte) error {
+	var hdr [8]byte
+	hdr[0] = 1 // stdout stream
+	binary.BigEndian.PutUint32(hdr[4:8], uint32(len(payload)))
+	if _, err := w.Write(hdr[:]); err != nil {
+		return err
+	}
+	_, err := w.Write(payload)
+	return err
+}
+
+func TestW4POC02_CollectExecStreamRaceFreeOnCancelAndBounded(t *testing.T) {
+	serverConn, clientConn := net.Pipe()
+	defer func() { _ = serverConn.Close() }()
+	defer func() { _ = clientConn.Close() }()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	writerDone := make(chan struct{})
+	go func() {
+		defer close(writerDone)
+		for {
+			if err := writeDockerMuxStdoutFrame(serverConn, []byte("chunk-of-output\n")); err != nil {
+				return
+			}
+		}
+	}()
+
+	time.AfterFunc(15*time.Millisecond, cancel)
+	_, _, err := collectExecStream(ctx, clientConn, clientConn.Close, 1<<20)
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled on cancelled exec stream, got %v", err)
+	}
+	_ = serverConn.Close()
+	<-writerDone
+
+	// Verify bounded muxed output enforcement.
+	var muxed bytes.Buffer
+	if werr := writeDockerMuxStdoutFrame(&muxed, []byte(strings.Repeat("z", 128))); werr != nil {
+		t.Fatal(werr)
+	}
+	if _, _, err := collectExecStream(context.Background(), &muxed, func() error { return nil }, 32); err == nil {
+		t.Fatal("expected collectExecStream to reject output exceeding maxBytes")
+	}
+}
+
+func TestW4POC02_ReadTarRegBoundedCapsHeaderFlood(t *testing.T) {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	for i := 0; i < maxTarEntries+5; i++ {
+		if err := tw.WriteHeader(&tar.Header{
+			Name:     "dir/",
+			Mode:     0o755,
+			Typeflag: tar.TypeDir,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readTarRegBounded(&buf, 1024); err == nil || !strings.Contains(err.Error(), "exceeds entry limit") {
+		t.Fatalf("expected header flood error, got %v", err)
 	}
 }

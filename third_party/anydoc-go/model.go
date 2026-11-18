@@ -5,7 +5,10 @@ package anydoc
 */
 import "C"
 
-import "fmt"
+import (
+	"encoding/binary"
+	"fmt"
+)
 
 // Document is a parsed document: its body, its notes, and the bytes of
 // everything it embedded. A Document is self-contained — embedded assets
@@ -150,9 +153,12 @@ type Asset struct {
 // always produces a well-formed buffer, so a short read is a bug or a version
 // skew, not user input, and it must not take the process down.
 
+const maxDecodeDepth = 1024
+
 type decoder struct {
-	buf []byte
-	pos int
+	buf   []byte
+	pos   int
+	depth int
 }
 
 func decodeDocument(raw []byte) (*Document, error) {
@@ -191,12 +197,26 @@ func (d *decoder) capFor(n uint32) int {
 }
 
 func (d *decoder) need(n int) error {
-	// A negative n means a length prefix overflowed int (32-bit builds); it is
-	// as unreadable as a truncated buffer.
-	if n < 0 || d.pos+n > len(d.buf) {
-		return fmt.Errorf("anydoc: truncated document buffer at offset %d (need %d bytes, have %d)", d.pos, n, len(d.buf)-d.pos)
+	// A negative n means a length prefix overflowed int (32-bit builds);
+	// comparing against len(d.buf)-d.pos avoids signed addition overflow.
+	if n < 0 || n > len(d.buf)-d.pos {
+		return fmt.Errorf(
+			"anydoc: truncated document buffer at offset %d (need %d bytes, have %d)",
+			d.pos, n, len(d.buf)-d.pos,
+		)
 	}
 	return nil
+}
+
+func (d *decoder) needU32(n uint32) (int, error) {
+	avail := len(d.buf) - d.pos
+	if avail < 0 || uint64(n) > uint64(avail) {
+		return 0, fmt.Errorf(
+			"anydoc: truncated document buffer at offset %d (need %d bytes, have %d)",
+			d.pos, n, max(avail, 0),
+		)
+	}
+	return int(n), nil
 }
 
 func (d *decoder) u8() (uint8, error) {
@@ -220,7 +240,7 @@ func (d *decoder) u32() (uint32, error) {
 	if err := d.need(4); err != nil {
 		return 0, err
 	}
-	v := uint32(d.buf[d.pos]) | uint32(d.buf[d.pos+1])<<8 | uint32(d.buf[d.pos+2])<<16 | uint32(d.buf[d.pos+3])<<24
+	v := binary.LittleEndian.Uint32(d.buf[d.pos : d.pos+4])
 	d.pos += 4
 	return v, nil
 }
@@ -229,8 +249,7 @@ func (d *decoder) u64() (uint64, error) {
 	if err := d.need(8); err != nil {
 		return 0, err
 	}
-	v := uint64(d.buf[d.pos]) | uint64(d.buf[d.pos+1])<<8 | uint64(d.buf[d.pos+2])<<16 | uint64(d.buf[d.pos+3])<<24 |
-		uint64(d.buf[d.pos+4])<<32 | uint64(d.buf[d.pos+5])<<40 | uint64(d.buf[d.pos+6])<<48 | uint64(d.buf[d.pos+7])<<56
+	v := binary.LittleEndian.Uint64(d.buf[d.pos : d.pos+8])
 	d.pos += 8
 	return v, nil
 }
@@ -264,7 +283,13 @@ func (d *decoder) str() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return d.strN(int(length))
+	n, err := d.needU32(length)
+	if err != nil {
+		return "", err
+	}
+	s := string(d.buf[d.pos : d.pos+n])
+	d.pos += n
+	return s, nil
 }
 
 func (d *decoder) strN(n int) (string, error) {
@@ -281,16 +306,23 @@ func (d *decoder) bytes() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := d.need(int(length)); err != nil {
+	n, err := d.needU32(length)
+	if err != nil {
 		return nil, err
 	}
-	b := make([]byte, length)
-	copy(b, d.buf[d.pos:d.pos+int(length)])
-	d.pos += int(length)
+	b := make([]byte, n)
+	copy(b, d.buf[d.pos:d.pos+n])
+	d.pos += n
 	return b, nil
 }
 
 func (d *decoder) blocks() ([]Block, error) {
+	if d.depth >= maxDecodeDepth {
+		return nil, fmt.Errorf("anydoc: maximum block nesting depth %d exceeded", maxDecodeDepth)
+	}
+	d.depth++
+	defer func() { d.depth-- }()
+
 	n, err := d.u32()
 	if err != nil {
 		return nil, err
@@ -375,6 +407,12 @@ func (d *decoder) block() (Block, error) {
 }
 
 func (d *decoder) inlines() ([]Inline, error) {
+	if d.depth >= maxDecodeDepth {
+		return nil, fmt.Errorf("anydoc: maximum inline nesting depth %d exceeded", maxDecodeDepth)
+	}
+	d.depth++
+	defer func() { d.depth-- }()
+
 	n, err := d.u32()
 	if err != nil {
 		return nil, err
@@ -609,9 +647,14 @@ func (d *decoder) table() (*Table, error) {
 		}
 		grid = append(grid, row)
 	}
-	kind := "data"
-	if kindTag == C.TABLE_LAYOUT {
+	var kind string
+	switch kindTag {
+	case C.TABLE_DATA:
+		kind = "data"
+	case C.TABLE_LAYOUT:
 		kind = "layout"
+	default:
+		return nil, fmt.Errorf("anydoc: unknown table kind tag %d", kindTag)
 	}
 	return &Table{Grid: grid, HeaderRows: headerRows, Kind: kind}, nil
 }
@@ -690,9 +733,14 @@ func (d *decoder) note() (Note, error) {
 	if err != nil {
 		return Note{}, err
 	}
-	kind := "footnote"
-	if kindTag == C.NOTE_ENDNOTE {
+	var kind string
+	switch kindTag {
+	case C.NOTE_FOOTNOTE:
+		kind = "footnote"
+	case C.NOTE_ENDNOTE:
 		kind = "endnote"
+	default:
+		return Note{}, fmt.Errorf("anydoc: unknown note kind tag %d", kindTag)
 	}
 	return Note{ID: id, Kind: kind, Blocks: blocks}, nil
 }

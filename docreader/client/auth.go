@@ -83,7 +83,7 @@ func normalizeDocReaderAddr(raw string) string {
 	}
 	if strings.Contains(s, "://") {
 		u, err := url.Parse(s)
-		if err != nil || u.User != nil {
+		if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
 			return ""
 		}
 		switch strings.ToLower(u.Scheme) {
@@ -94,10 +94,7 @@ func normalizeDocReaderAddr(raw string) string {
 				s = strings.TrimPrefix(u.Path, "/")
 			}
 		default:
-			if u.Host == "" {
-				return ""
-			}
-			s = u.Host
+			return ""
 		}
 	}
 	s = strings.TrimSpace(s)
@@ -145,6 +142,13 @@ func (c *AuthConfig) BuildDialOptionsForAddr(addr string, maxMsgSize int) ([]grp
 // transport credentials and per-RPC token. Callers should append their own
 // per-call options (load balancer, message size, etc.).
 func (c *AuthConfig) BuildDialOptions(maxMsgSize int) ([]grpc.DialOption, error) {
+	if c == nil {
+		c = &AuthConfig{}
+	}
+	if maxMsgSize <= 0 {
+		maxMsgSize = getMaxFileSize() + defaultMessageEnvelopeSlack
+	}
+
 	opts := []grpc.DialOption{
 		grpc.WithDefaultServiceConfig(`{"loadBalancingPolicy":"round_robin"}`),
 		grpc.WithDefaultCallOptions(
@@ -164,12 +168,16 @@ func (c *AuthConfig) BuildDialOptions(maxMsgSize int) ([]grpc.DialOption, error)
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	if c.AuthToken != "" {
+	token := strings.TrimSpace(c.AuthToken)
+	if strings.ContainsAny(token, "\r\n\x00") {
+		return nil, fmt.Errorf("invalid control characters in gRPC auth token")
+	}
+	if token != "" {
 		// Only allow per-RPC tokens to ride a secured channel. This mirrors
 		// gRPC's own oauth2 credentials behaviour and prevents the bearer
 		// token from leaking on plaintext connections.
 		opts = append(opts, grpc.WithPerRPCCredentials(&tokenAuth{
-			token:           c.AuthToken,
+			token:           token,
 			requireTLSGuard: c.TLSEnabled,
 		}))
 		Logger.Printf("INFO: Token authentication enabled for gRPC client (TLS=%v)", c.TLSEnabled)
@@ -221,7 +229,12 @@ type tokenAuth struct {
 	requireTLSGuard bool
 }
 
-func (t *tokenAuth) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (t *tokenAuth) GetRequestMetadata(ctx context.Context, _ ...string) (map[string]string, error) {
+	if ctx != nil {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+	}
 	return map[string]string{
 		"authorization": "Bearer " + t.token,
 	}, nil

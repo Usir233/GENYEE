@@ -6,7 +6,9 @@ package anydoc
 import "C"
 
 import (
+	"runtime"
 	"strings"
+	"unicode/utf8"
 	"unsafe"
 )
 
@@ -108,6 +110,7 @@ func FormatFromBytes(data []byte) (f Format, ok bool) {
 	}
 	var tag C.int
 	code := C.anydoc_format_from_bytes((*C.uint8_t)(unsafe.Pointer(&data[0])), C.uintptr_t(len(data)), &tag)
+	runtime.KeepAlive(data)
 	if code != errOK {
 		return "", false
 	}
@@ -119,6 +122,9 @@ func FormatFromBytes(data []byte) (f Format, ok bool) {
 // anything unrecognized.
 func FormatFromExtension(ext string) (f Format, ok bool) {
 	ext = strings.TrimPrefix(ext, ".")
+	if ext == "" || strings.IndexByte(ext, 0) >= 0 || !utf8.ValidString(ext) {
+		return "", false
+	}
 	cext := C.CString(strings.ToLower(ext))
 	defer C.free(unsafe.Pointer(cext))
 	var tag C.int
@@ -132,6 +138,9 @@ func FormatFromExtension(ext string) (f Format, ok bool) {
 // FormatFromPath returns the format a path's extension names. ok is false
 // when the path has no extension or names nothing recognized.
 func FormatFromPath(path string) (f Format, ok bool) {
+	if path == "" || strings.IndexByte(path, 0) >= 0 || !utf8.ValidString(path) {
+		return "", false
+	}
 	cpath := C.CString(path)
 	defer C.free(unsafe.Pointer(cpath))
 	var tag C.int

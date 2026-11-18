@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"io"
 	"net"
 	"strings"
 	"sync/atomic"
@@ -122,5 +123,102 @@ func TestClientRejectsFileBeyondRawCapBeforeRPC(t *testing.T) {
 	}
 	if remote.calls.Load() != 0 {
 		t.Fatal("oversized file reached the RPC boundary")
+	}
+
+	_, err = client.PreprocessImage(context.Background(), &pb.PreprocessImageRequest{Image: make([]byte, (1<<20)+1)})
+	if status.Code(err) != codes.ResourceExhausted {
+		t.Fatalf("PreprocessImage oversized error=%v", err)
+	}
+	if remote.calls.Load() != 0 {
+		t.Fatal("oversized PreprocessImage reached the RPC boundary")
+	}
+}
+
+type streamCancelProbeServer struct {
+	pb.UnimplementedDocReaderServer
+	hasDeadline   atomic.Bool
+	streamDoneErr chan error
+}
+
+func (s *streamCancelProbeServer) GetInfo(ctx context.Context, _ *pb.GetInfoRequest) (*pb.GetInfoResponse, error) {
+	_, ok := ctx.Deadline()
+	s.hasDeadline.Store(ok)
+	return &pb.GetInfoResponse{Version: "v1"}, nil
+}
+
+func (s *streamCancelProbeServer) ReadStream(
+	_ *pb.ReadRequest, stream grpc.ServerStreamingServer[pb.ReadStreamResponse],
+) error {
+	if err := stream.Send(&pb.ReadStreamResponse{
+		Payload: &pb.ReadStreamResponse_Meta{Meta: &pb.ReadStreamMeta{MarkdownContent: "head"}},
+	}); err != nil {
+		return err
+	}
+	<-stream.Context().Done()
+	err := stream.Context().Err()
+	select {
+	case s.streamDoneErr <- err:
+	default:
+	}
+	return err
+}
+
+func TestClientInjectsDefaultDeadlinesNilGuardsAndClosesStreamEarly(t *testing.T) {
+	var uninit *Client
+	if _, err := uninit.Read(context.Background(), &pb.ReadRequest{}); status.Code(err) != codes.Unavailable {
+		t.Fatalf("expected Unavailable on nil Client.Read, got %v", err)
+	}
+	if _, err := uninit.GetInfo(context.Background(), &pb.GetInfoRequest{}); status.Code(err) != codes.Unavailable {
+		t.Fatalf("expected Unavailable on nil Client.GetInfo, got %v", err)
+	}
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srvImpl := &streamCancelProbeServer{streamDoneErr: make(chan error, 1)}
+	server := grpc.NewServer()
+	pb.RegisterDocReaderServer(server, srvImpl)
+	go func() { _ = server.Serve(listener) }()
+	t.Cleanup(func() { server.Stop(); _ = listener.Close() })
+
+	cli, err := NewClientWithAuth(listener.Addr().String(), &AuthConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = cli.Close() })
+
+	if _, err := cli.GetInfo(context.Background(), &pb.GetInfoRequest{}); err != nil {
+		t.Fatalf("GetInfo failed: %v", err)
+	}
+	if !srvImpl.hasDeadline.Load() {
+		t.Fatal("expected Client.GetInfo(context.Background()) to apply a default RPC deadline")
+	}
+
+	stream, err := cli.ReadStream(context.Background(), &pb.ReadRequest{
+		FileContent: []byte("hello"),
+		FileName:    "hello.txt",
+		FileType:    "txt",
+	})
+	if err != nil {
+		t.Fatalf("ReadStream failed: %v", err)
+	}
+	if _, err := stream.Recv(); err != nil {
+		t.Fatalf("ReadStream first frame failed: %v", err)
+	}
+	closer, ok := stream.(io.Closer)
+	if !ok {
+		t.Fatal("expected ReadStream client to implement io.Closer for deterministic early abort")
+	}
+	if err := closer.Close(); err != nil {
+		t.Fatalf("stream.Close() returned error: %v", err)
+	}
+	select {
+	case doneErr := <-srvImpl.streamDoneErr:
+		if doneErr == nil {
+			t.Fatal("expected server stream context cancellation error after stream.Close()")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("server stream was not cancelled promptly after client stream.Close()")
 	}
 }
