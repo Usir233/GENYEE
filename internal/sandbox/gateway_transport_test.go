@@ -236,8 +236,9 @@ func TestGatewaySplitTransportAppliesGatewayScheme(t *testing.T) {
 	}
 
 	request := httptest.NewRequest(http.MethodGet, "https://49983-sbx.localhost/files", nil)
-	_, err := split.RoundTrip(request)
+	resp, err := split.RoundTrip(request)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 
 	require.Equal(t, "http", recorder.request.URL.Scheme)
 	// The sandbox authority is what the gateway routes on; it must survive.

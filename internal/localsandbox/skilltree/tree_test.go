@@ -45,7 +45,11 @@ func TestNewVersionNumbersPerSkill(t *testing.T) {
 
 func TestInvalidNamesAreRejected(t *testing.T) {
 	tree := newTree(t)
-	for _, name := range []string{"", ".", "..", ".versions", ".locks", ".next-pdf", ".hidden", "a/b", `a\b`, "a\x00b"} {
+	names := []string{
+		"", ".", "..", ".versions", ".locks",
+		".next-pdf", ".hidden", "a/b", `a\b`, "a\x00b",
+	}
+	for _, name := range names {
 		_, err := tree.NewVersion(name)
 		require.ErrorIs(t, err, ErrInvalidName, name)
 	}

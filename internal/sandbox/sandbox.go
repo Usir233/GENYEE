@@ -12,7 +12,7 @@ import (
 )
 
 // SandboxType represents the type of sandbox environment
-type SandboxType string
+type SandboxType string //nolint:revive // exported type name referenced across packages
 
 const (
 	// SandboxTypeDocker runs each session in its own long-lived Docker

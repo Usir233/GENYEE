@@ -704,6 +704,7 @@ func (b *boundedExecBuffer) String() string {
 	return b.buf.String()
 }
 
+// Exec runs command inside the container behind handle.
 func (c *DockerRemoteClient) Exec(
 	ctx context.Context,
 	handle RemoteSandboxHandle,
@@ -807,19 +808,6 @@ func (c *DockerRemoteClient) KeepAlive(ctx context.Context, handle RemoteSandbox
 // instead of surfacing as a transport timeout.
 const dockerExecGrace = 10 * time.Second
 
-// streamExec starts the exec, writes stdin, and demultiplexes the output.
-func (c *DockerRemoteClient) streamExec(
-	ctx context.Context,
-	execID string,
-	stdin string,
-	output ...func(string, []byte),
-) (string, string, error) {
-	stdout, stderr, _, err := c.streamExecBounded(
-		ctx, execID, stdin, defaultDockerMaxExecStreamBytes, false, output...,
-	)
-	return stdout, stderr, err
-}
-
 func (c *DockerRemoteClient) streamExecBounded(
 	ctx context.Context,
 	execID string,
@@ -880,10 +868,13 @@ func (c *DockerRemoteClient) streamExecBounded(
 		return stdout.String(), stderr.String(), stdout.overflowed, nil
 	case <-ctx.Done():
 		closeStream()
+		timer := time.NewTimer(dockerExecDrainGrace)
+		defer timer.Stop()
 		select {
-		case <-done:
+		case copyErr := <-done:
+			_ = copyErr
 			return stdout.String(), stderr.String(), stdout.overflowed, dockerError("Exec", ctx.Err())
-		case <-time.After(dockerExecDrainGrace):
+		case <-timer.C:
 			// StdCopy did not return even with the stream closed, so it still
 			// owns the buffers and the partial output has to be dropped.
 			return "", "", false, dockerError("Exec", ctx.Err())

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/Usir233/GENYEE/internal/logger"
 )
 
 // ErrAsyncCommandRefused is a background command that would need an approval.
@@ -43,8 +45,8 @@ func (s *Service) StartForSession(ctx context.Context, req RunRequest) (Process,
 
 // Start spawns one command under a prepared policy. The returned Process wraps
 // the prepared handle so its resources are released exactly once at Wait; a
-// failed Spawn closes it here. ctx cancellation kills the whole process group
-// (seatbelt watchContext), so callers must pass an application-level ctx.
+// failed Spawn closes it here. ctx cancellation kills the whole process group,
+// so callers must pass an application-level ctx.
 func (s *Service) Start(ctx context.Context, policy Policy, req RunRequest) (Process, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
@@ -76,20 +78,55 @@ func (s *Service) Start(ctx context.Context, policy Policy, req RunRequest) (Pro
 		Argv: argv, Env: BuildCommandEnv(req.Env, bins), Cwd: cwd,
 	})
 	if err != nil {
-		_ = prep.Close()
+		if closeErr := prep.Close(); closeErr != nil {
+			logger.Warnf(ctx, "[LocalSandbox] close prepared sandbox after spawn failure: %v", closeErr)
+		}
 		return nil, fmt.Errorf("spawn sandboxed command: %w", err)
 	}
-	return &preparedProcess{Process: proc, prepared: prep}, nil
+	pp := &preparedProcess{
+		Process:  proc,
+		prepared: prep,
+		done:     make(chan struct{}),
+	}
+	pp.stopStartWatch = context.AfterFunc(ctx, func() {
+		pp.killOnCancel(ctx)
+	})
+	return pp, nil
 }
 
 type preparedProcess struct {
 	Process
-	prepared Prepared
-	once     sync.Once
+	prepared       Prepared
+	done           chan struct{}
+	doneOnce       sync.Once
+	closeOnce      sync.Once
+	closeErr       error
+	stopStartWatch func() bool
+}
+
+func (p *preparedProcess) killOnCancel(ctx context.Context) {
+	select {
+	case <-p.done:
+		return
+	default:
+		if err := p.Kill(); err != nil {
+			logger.Warnf(ctx, "[LocalSandbox] kill async process on cancel: %v", err)
+		}
+	}
 }
 
 func (p *preparedProcess) Wait(ctx context.Context) (ExitStatus, error) {
+	if ctx != nil {
+		stopWait := context.AfterFunc(ctx, func() {
+			p.killOnCancel(ctx)
+		})
+		defer stopWait()
+	}
 	status, err := p.Process.Wait(ctx)
-	p.once.Do(func() { _ = p.prepared.Close() })
-	return status, err
+	p.doneOnce.Do(func() { close(p.done) })
+	if p.stopStartWatch != nil {
+		p.stopStartWatch()
+	}
+	p.closeOnce.Do(func() { p.closeErr = p.prepared.Close() })
+	return status, errors.Join(err, p.closeErr)
 }

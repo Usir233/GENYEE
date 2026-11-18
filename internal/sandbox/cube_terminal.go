@@ -1,4 +1,4 @@
-// Package sandbox: interactive terminal capability for the Cube adapter.
+// Package sandbox provides interactive terminal capability for the Cube adapter.
 //
 // The Cube SDK wraps envd's PTY service (sandbox.Pty) and hands back a
 // PtyHandle with an Output channel, so the adapter's job is mostly

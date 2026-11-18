@@ -24,6 +24,7 @@ type fakeBackend struct {
 	stderr      string
 	exit        ExitStatus
 	spawnErr    error
+	prepClose   error
 	available   error
 	ensureReady error
 	calls       []string
@@ -51,19 +52,20 @@ func (f *fakeBackend) EnsureReady(context.Context) error {
 func (f *fakeBackend) TearDown(context.Context) error { return nil }
 
 type fakePrepared struct {
-	fp     string
-	closed atomic.Bool
+	fp       string
+	closed   atomic.Bool
+	closeErr error
 }
 
 func (p *fakePrepared) Fingerprint() string { return p.fp }
 func (p *fakePrepared) Close() error {
 	p.closed.Store(true)
-	return nil
+	return p.closeErr
 }
 
 func (f *fakeBackend) Prepare(_ context.Context, p Policy) (Prepared, error) {
-	prep := &fakePrepared{fp: p.Fingerprint()}
 	f.mu.Lock()
+	prep := &fakePrepared{fp: p.Fingerprint(), closeErr: f.prepClose}
 	f.calls = append(f.calls, "prepare")
 	f.prepared = append(f.prepared, p.Fingerprint())
 	f.preps = append(f.preps, prep)

@@ -3,6 +3,7 @@
 package core
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -191,4 +192,23 @@ func TestPathGuardRejectsFIFOWithoutBlockingAndCapsOversizeReads(t *testing.T) {
 	require.NoError(t, f.Close())
 	_, err = g.ReadFile(huge)
 	require.Error(t, err)
+}
+
+type failingCloseWriter struct {
+	closeErr error
+	closed   bool
+}
+
+func (w *failingCloseWriter) Write(p []byte) (int, error) { return len(p), nil }
+func (w *failingCloseWriter) Close() error {
+	w.closed = true
+	return w.closeErr
+}
+
+func TestPathGuardWriteOwnedFilePropagatesCloseError(t *testing.T) {
+	flushErr := errors.New("enospc on close flush")
+	w := &failingCloseWriter{closeErr: flushErr}
+	err := writeOwnedFile(w, []byte("payload"))
+	require.True(t, w.closed)
+	require.ErrorIs(t, err, flushErr, "write path must propagate Close flush errors")
 }

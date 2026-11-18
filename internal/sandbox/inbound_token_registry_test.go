@@ -83,15 +83,17 @@ func TestInboundTokenRegistryCrossTenantIsolation(t *testing.T) {
 	require.NoError(t, err)
 	reqB.Host = "49983-sb-shared.e2b.app"
 	reqB.URL.Host = "49983-sb-shared.e2b.app"
-	_, err = pool.RoundTripperFor(tenantBCfg).RoundTrip(reqB)
+	respB, err := pool.RoundTripperFor(tenantBCfg).RoundTrip(reqB)
 	require.NoError(t, err)
+	_ = respB.Body.Close()
 
 	reqA, err := http.NewRequest(http.MethodGet, server.URL, nil)
 	require.NoError(t, err)
 	reqA.Host = "49983-sb-shared.e2b.app"
 	reqA.URL.Host = "49983-sb-shared.e2b.app"
-	_, err = pool.RoundTripperFor(tenantACfg).RoundTrip(reqA)
+	respA, err := pool.RoundTripperFor(tenantACfg).RoundTrip(reqA)
 	require.NoError(t, err)
+	_ = respA.Body.Close()
 
 	require.Equal(t, []string{"", "victim-secret-token"}, seenHeaders)
 }
@@ -205,8 +207,9 @@ func TestGatewayTransportInjectsInboundToken(t *testing.T) {
 	require.NoError(t, err)
 	req.Host = "49983-sb-1.e2b.app"
 	req.URL.Host = "49983-sb-1.e2b.app"
-	_, err = client.Transport.RoundTrip(req)
+	resp, err := client.Transport.RoundTrip(req)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 	require.Equal(t, "token-1", gotToken,
 		"go-e2b never sends this header, so the transport has to")
 }
@@ -221,8 +224,9 @@ func TestGatewayTransportLeavesUnknownSandboxAlone(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "https://49983-sb-unknown.e2b.app/", nil)
 	require.NoError(t, err)
-	_, err = transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 	require.Empty(t, recorder.lastHeader)
 	require.False(t, recorder.lastHeaderPresent)
 }
@@ -238,8 +242,9 @@ func TestGatewayTransportInjectsInboundTokenOnControlPath(t *testing.T) {
 
 	req, err := http.NewRequest(http.MethodGet, "https://49983-sb-1.e2b.app/", nil)
 	require.NoError(t, err)
-	_, err = transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 	require.Equal(t, "token-1", recorder.lastHeader)
 }
 
@@ -257,8 +262,9 @@ func TestGatewayTransportDoesNotOverwriteExistingToken(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "https://49983-sb-1.cube.app/", nil)
 	require.NoError(t, err)
 	req.Header.Set("e2b-traffic-access-token", "sdk-token")
-	_, err = transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 	require.Equal(t, "sdk-token", recorder.lastHeader)
 }
 
@@ -271,8 +277,9 @@ func TestAttachInboundTokenTransportInjectsWithoutPool(t *testing.T) {
 	req, err := http.NewRequest(http.MethodGet, "https://49983-sb-1.e2b.app/envd", nil)
 	require.NoError(t, err)
 
-	_, err = transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 	require.Equal(t, "token-1", recorder.lastHeader,
 		"NewE2BRemoteClient / WithTransport must still inject without a gateway pool")
 }

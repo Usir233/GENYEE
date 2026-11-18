@@ -424,7 +424,7 @@ func (c *fakeRemoteClient) Stat(
 }
 
 func (c *fakeRemoteClient) CreateSnapshot(
-	ctx context.Context, sandboxID string, name string,
+	_ context.Context, sandboxID string, name string,
 ) (RemoteSnapshotRef, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -441,7 +441,7 @@ func (c *fakeRemoteClient) CreateSnapshot(
 	return RemoteSnapshotRef{ID: id, Names: names}, nil
 }
 
-func (c *fakeRemoteClient) DeleteSnapshot(ctx context.Context, snapshotID string) error {
+func (c *fakeRemoteClient) DeleteSnapshot(_ context.Context, snapshotID string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	delete(c.snapshots, snapshotID) // missing snapshot is success
@@ -449,7 +449,7 @@ func (c *fakeRemoteClient) DeleteSnapshot(ctx context.Context, snapshotID string
 }
 
 func (c *fakeRemoteClient) ListSnapshots(
-	ctx context.Context, sandboxID string,
+	_ context.Context, sandboxID string,
 ) ([]RemoteSnapshotRef, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

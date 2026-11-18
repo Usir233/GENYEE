@@ -1,4 +1,4 @@
-// Package sandbox: interactive terminal capability for the E2B adapter.
+// Package sandbox provides interactive terminal capability for the E2B adapter.
 //
 // go-e2b wraps envd's PTY service (sandbox.Pty). Output is delivered through
 // a Wait-driven callback, so the adapter pumps it into a channel from a

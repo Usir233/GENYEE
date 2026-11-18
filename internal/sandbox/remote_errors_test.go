@@ -69,8 +69,11 @@ func TestRemoteBindingDecision(t *testing.T) {
 			preserve: true,
 		},
 		{
-			name:     "wrapped terminal",
-			err:      fmt.Errorf("probe failed: %w", NewRemoteError(SandboxTypeCube, "Get", RemoteErrorKindTerminal, "dead", nil)),
+			name: "wrapped terminal",
+			err: fmt.Errorf(
+				"probe failed: %w",
+				NewRemoteError(SandboxTypeCube, "Get", RemoteErrorKindTerminal, "dead", nil),
+			),
 			replace:  true,
 			preserve: false,
 		},

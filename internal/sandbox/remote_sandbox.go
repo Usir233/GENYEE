@@ -1,4 +1,4 @@
-// Package sandbox: provider-neutral remote Sandbox implementation.
+// Package sandbox provides provider-neutral remote Sandbox implementation.
 //
 // RemoteSandbox is the concrete Sandbox that speaks any RemoteSandboxClient
 // backend. It contains no Cube- or E2B-specific logic; every operation is

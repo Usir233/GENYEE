@@ -1,4 +1,4 @@
-// Package sandbox: envd protocol compatibility for the E2B data plane.
+// Package sandbox provides envd protocol compatibility for the E2B data plane.
 //
 // The sandbox-side daemon (envd) authenticates every data-plane call with HTTP
 // Basic auth carrying the sandbox account name, and accepts file uploads only
@@ -24,6 +24,7 @@ package sandbox
 import (
 	"bytes"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -38,18 +39,30 @@ const envdFilesRoute = "/files"
 // envdUploadFormField is the multipart field name envd reads the payload from.
 const envdUploadFormField = "file"
 
+// DefaultMaxEnvdUploadBytes caps how much raw upload payload the compatibility
+// shim buffers into multipart form memory on a single /files POST.
+const DefaultMaxEnvdUploadBytes int64 = 64 << 20
+
+// ErrEnvdUploadTooLarge reports a /files upload exceeding DefaultMaxEnvdUploadBytes.
+var ErrEnvdUploadTooLarge = errors.New("sandbox: envd upload exceeds maximum allowed size")
+
 // NewEnvdCompatTransport wraps next so E2B data-plane requests satisfy the
 // current envd contract. A blank user leaves authentication untouched.
 func NewEnvdCompatTransport(next http.RoundTripper, user string) http.RoundTripper {
 	if next == nil {
 		next = http.DefaultTransport
 	}
-	return &envdCompatTransport{next: next, user: strings.TrimSpace(user)}
+	return &envdCompatTransport{
+		next:           next,
+		user:           strings.TrimSpace(user),
+		maxUploadBytes: DefaultMaxEnvdUploadBytes,
+	}
 }
 
 type envdCompatTransport struct {
-	next http.RoundTripper
-	user string
+	next           http.RoundTripper
+	user           string
+	maxUploadBytes int64
 }
 
 func (t *envdCompatTransport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -64,7 +77,11 @@ func (t *envdCompatTransport) RoundTrip(req *http.Request) (*http.Response, erro
 		}
 		rewritten.Header.Set("Authorization", basicAuthorizationFor(user))
 	}
-	if err := rewriteEnvdUpload(rewritten); err != nil {
+	limit := t.maxUploadBytes
+	if limit <= 0 {
+		limit = DefaultMaxEnvdUploadBytes
+	}
+	if err := rewriteEnvdUpload(rewritten, limit); err != nil {
 		return nil, err
 	}
 	return t.next.RoundTrip(rewritten)
@@ -100,7 +117,7 @@ func basicAuthorizationFor(user string) string {
 // rewriteEnvdUpload converts a raw-body upload into the multipart form envd
 // expects. Uploads that already are multipart, and every non-upload request,
 // are left alone.
-func rewriteEnvdUpload(req *http.Request) error {
+func rewriteEnvdUpload(req *http.Request, maxUploadBytes int64) error {
 	if req.Method != http.MethodPost || req.URL.Path != envdFilesRoute {
 		return nil
 	}
@@ -110,10 +127,12 @@ func rewriteEnvdUpload(req *http.Request) error {
 	if req.Body == nil {
 		return nil
 	}
-	payload, err := io.ReadAll(req.Body)
-	_ = req.Body.Close()
-	if err != nil {
-		return fmt.Errorf("sandbox: read envd upload body: %w", err)
+	origBody := req.Body
+	defer func() { _ = origBody.Close() }()
+
+	if req.ContentLength > maxUploadBytes {
+		return fmt.Errorf("%w (%d bytes > %d bytes)",
+			ErrEnvdUploadTooLarge, req.ContentLength, maxUploadBytes)
 	}
 
 	filename := path.Base(strings.TrimSpace(req.URL.Query().Get("path")))
@@ -127,8 +146,12 @@ func rewriteEnvdUpload(req *http.Request) error {
 	if err != nil {
 		return fmt.Errorf("sandbox: build envd upload form: %w", err)
 	}
-	if _, err := part.Write(payload); err != nil {
-		return fmt.Errorf("sandbox: write envd upload form: %w", err)
+	written, err := io.Copy(part, io.LimitReader(origBody, maxUploadBytes+1))
+	if err != nil {
+		return fmt.Errorf("sandbox: read envd upload body: %w", err)
+	}
+	if written > maxUploadBytes {
+		return fmt.Errorf("%w (exceeded %d bytes)", ErrEnvdUploadTooLarge, maxUploadBytes)
 	}
 	if err := writer.Close(); err != nil {
 		return fmt.Errorf("sandbox: close envd upload form: %w", err)

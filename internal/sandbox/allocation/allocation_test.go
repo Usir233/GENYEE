@@ -10,7 +10,11 @@ import (
 const sid = "0f8fad5b-d9cb-469f-a165-70867728950e"
 
 func TestParseMode(t *testing.T) {
-	for in, want := range map[string]Mode{"": ModeSession, "session": ModeSession, " user ": ModeUser} {
+	modes := map[string]Mode{
+		"": ModeSession, "session": ModeSession,
+		" user ": ModeUser, //nolint:gocritic // intentional whitespace test key
+	}
+	for in, want := range modes {
 		got, err := ParseMode(in)
 		require.NoError(t, err)
 		require.Equal(t, want, got)

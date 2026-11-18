@@ -1,4 +1,4 @@
-// Package sandbox: per-config sandbox inventory.
+// Package sandbox provides per-config sandbox inventory.
 //
 // Identity changes (provider / endpoint / API key) and config deletion both
 // need one question answered authoritatively: does this config still own live

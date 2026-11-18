@@ -250,7 +250,11 @@ func (s *Service) runPolicy(ctx context.Context, lockRoot string, policy Policy,
 		logger.Errorf(ctx, "[LocalSandbox] prepare session=%s: %v", req.SessionID, err)
 		return nil, fmt.Errorf("prepare sandbox: %w", err)
 	}
-	defer func() { _ = prep.Close() }()
+	defer func() {
+		if closeErr := prep.Close(); closeErr != nil {
+			logger.Warnf(ctx, "[LocalSandbox] close prepared sandbox session=%s: %v", req.SessionID, closeErr)
+		}
+	}()
 
 	argv := append(append([]string(nil), s.shell...), req.Command)
 	var extraPATH []string
@@ -326,7 +330,9 @@ func watchKill(ctx context.Context, done <-chan struct{}, proc Process) {
 	case <-done:
 		return
 	default:
-		_ = proc.Kill()
+		if killErr := proc.Kill(); killErr != nil {
+			logger.Warnf(ctx, "[LocalSandbox] kill process on timeout/cancel: %v", killErr)
+		}
 	}
 	// If an escaped setsid() descendant inherited stdout/stderr and keeps the
 	// write end open after the process group is killed, close the read end

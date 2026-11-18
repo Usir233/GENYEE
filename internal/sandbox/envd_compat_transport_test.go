@@ -46,8 +46,9 @@ func TestEnvdCompatTransportAuthenticatesDataPlaneCalls(t *testing.T) {
 		"https://49983-sbx.example.com/filesystem.Filesystem/MakeDir",
 		strings.NewReader("{}"),
 	)
-	_, err := transport.RoundTrip(request)
+	resp, err := transport.RoundTrip(request)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 
 	require.Equal(t,
 		"Basic "+base64.StdEncoding.EncodeToString([]byte(DefaultSandboxExecUser+":")),
@@ -67,8 +68,9 @@ func TestEnvdCompatTransportKeepsExistingAuthorization(t *testing.T) {
 		nil,
 	)
 	request.Header.Set("Authorization", "Basic preset")
-	_, err := transport.RoundTrip(request)
+	resp, err := transport.RoundTrip(request)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 
 	require.Equal(t, "Basic preset", recorder.request.Header.Get("Authorization"))
 }
@@ -81,8 +83,9 @@ func TestEnvdCompatTransportIgnoresControlPlaneCalls(t *testing.T) {
 	transport := NewEnvdCompatTransport(recorder, "user")
 
 	request := httptest.NewRequest(http.MethodGet, "https://api.e2b.app/v2/sandboxes", nil)
-	_, err := transport.RoundTrip(request)
+	resp, err := transport.RoundTrip(request)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 
 	require.Empty(t, recorder.request.Header.Get("Authorization"))
 }
@@ -98,8 +101,9 @@ func TestEnvdCompatTransportRewritesUploadAsMultipart(t *testing.T) {
 		bytes.NewReader(payload),
 	)
 	request.Header.Set("Content-Type", "application/octet-stream")
-	_, err := transport.RoundTrip(request)
+	resp, err := transport.RoundTrip(request)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 
 	contentType := recorder.request.Header.Get("Content-Type")
 	mediaType, params, err := mime.ParseMediaType(contentType)
@@ -137,8 +141,9 @@ func TestEnvdCompatTransportPreservesMultipartUploads(t *testing.T) {
 		bytes.NewReader(original),
 	)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
-	_, err = transport.RoundTrip(request)
+	resp, err := transport.RoundTrip(request)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 
 	require.Equal(t, writer.FormDataContentType(), recorder.request.Header.Get("Content-Type"))
 	require.Equal(t, original, recorder.body)
@@ -155,9 +160,59 @@ func TestEnvdCompatTransportLeavesDownloadsAlone(t *testing.T) {
 		"https://49983-sbx.example.com/files?path=/workspace/a.txt",
 		nil,
 	)
-	_, err := transport.RoundTrip(request)
+	resp, err := transport.RoundTrip(request)
 	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Empty(t, recorder.request.Header.Get("Content-Type"))
 	require.Empty(t, recorder.body)
+}
+
+type zeroTrackingReadCloser struct {
+	remaining int64
+	readBytes int64
+	closed    bool
+}
+
+func (z *zeroTrackingReadCloser) Read(p []byte) (int, error) {
+	if z.remaining <= 0 {
+		return 0, io.EOF
+	}
+	n := int64(len(p))
+	if n > z.remaining {
+		n = z.remaining
+	}
+	clear(p[:n])
+	z.remaining -= n
+	z.readBytes += n
+	return int(n), nil
+}
+
+func (z *zeroTrackingReadCloser) Close() error {
+	z.closed = true
+	return nil
+}
+
+func TestEnvdCompatTransportRejectsOversizedUploadAndClosesBody(t *testing.T) {
+	recorder := &recordingRoundTripper{}
+	transport := NewEnvdCompatTransport(recorder, "user")
+
+	const overCap = (64 << 20) + (1 << 20)
+	body := &zeroTrackingReadCloser{remaining: overCap}
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"https://49983-sbx.example.com/files?path=/workspace/huge.bin&username=user",
+		body,
+	)
+	request.Header.Set("Content-Type", "application/octet-stream")
+
+	resp, err := transport.RoundTrip(request)
+	if resp != nil && resp.Body != nil {
+		_ = resp.Body.Close()
+	}
+	require.Error(t, err, "oversized upload must be rejected instead of buffered unbounded into RAM")
+	require.Nil(t, recorder.request, "oversized upload must not reach upstream transport")
+	require.True(t, body.closed, "request body must still be closed on oversize rejection")
+	require.LessOrEqual(t, body.readBytes, int64(64<<20)+1,
+		"shim must stop reading immediately past the max upload ceiling")
 }

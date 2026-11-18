@@ -62,15 +62,15 @@ func TestBuildCommandEnvDropsLoaderInjectionFromExplicit(t *testing.T) {
 
 func TestBuildCommandEnvBlocksCaseVariantsAndSmuggledEqualsOrNUL(t *testing.T) {
 	got := BuildCommandEnv(map[string]string{
-		"ld_preload":                                  "/tmp/evil.so",
-		"dyld_insert_libraries":                       "/tmp/evil.dylib",
-		"node_options":                                "--require /tmp/evil.js",
-		"bash_env":                                    "/tmp/evil.sh",
-		"PROMPT_COMMAND=touch /tmp/pwn;":              "1",
+		"ld_preload":                     "/tmp/evil.so",
+		"dyld_insert_libraries":          "/tmp/evil.dylib",
+		"node_options":                   "--require /tmp/evil.js",
+		"bash_env":                       "/tmp/evil.sh",
+		"PROMPT_COMMAND=touch /tmp/pwn;": "1",
 		"NODE_OPTIONS=--require /tmp/evil.js --title": "x",
-		"BAD\x00KEY":                                  "1",
-		"BAD_VAL":                                     "ok\x00evil",
-		"VALID_KEY":                                   "ok",
+		"BAD\x00KEY": "1",
+		"BAD_VAL":    "ok\x00evil",
+		"VALID_KEY":  "ok",
 	}, nil)
 	require.Equal(t, "ok", got["VALID_KEY"])
 	for k, v := range got {

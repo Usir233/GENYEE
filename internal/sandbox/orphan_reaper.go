@@ -1,4 +1,4 @@
-// Package sandbox: orphan sandbox reconciliation.
+// Package sandbox provides orphan sandbox reconciliation.
 //
 // Session sandboxes are created with onTimeout=pause + autoResume (see
 // buildSessionCreateRequest), so the provider TTL PAUSES them rather than

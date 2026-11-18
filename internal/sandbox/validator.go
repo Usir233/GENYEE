@@ -504,7 +504,7 @@ func extractContext(content, match string) string {
 		context = "..." + context
 	}
 	if end < len(content) {
-		context = context + "..."
+		context += "..."
 	}
 
 	return context

@@ -1,4 +1,4 @@
-// Package sandbox: connection pooling and data-plane routing for per-request
+// Package sandbox provides connection pooling and data-plane routing for per-request
 // remote clients.
 //
 // Named configs build a fresh client on every Resolve, so without an
@@ -40,7 +40,7 @@ import (
 // SandboxGatewayTransportPool owns the transports handed to per-request remote
 // clients. One instance lives for the process; clients built from it come and
 // go.
-type SandboxGatewayTransportPool struct {
+type SandboxGatewayTransportPool struct { //nolint:revive // exported type name referenced across packages
 	control       http.RoundTripper
 	policy        OutboundURLPolicy
 	inboundTokens *InboundTokenRegistry
@@ -55,6 +55,7 @@ func NewSandboxGatewayTransportPool(control http.RoundTripper) *SandboxGatewayTr
 	return NewSandboxGatewayTransportPoolWithPolicy(control, DefaultOutboundURLPolicy())
 }
 
+// NewSandboxGatewayTransportPoolWithPolicy returns a transport pool enforcing policy.
 func NewSandboxGatewayTransportPoolWithPolicy(
 	control http.RoundTripper,
 	policy OutboundURLPolicy,

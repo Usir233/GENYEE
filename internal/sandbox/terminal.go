@@ -1,4 +1,4 @@
-// Package sandbox: interactive terminal (PTY) capability.
+// Package sandbox provides interactive terminal (PTY) capability.
 //
 // The terminal is an optional, provider-neutral capability alongside
 // RemoteSnapshotManager. SessionBoundManager surfaces it only when the
@@ -177,7 +177,9 @@ func handleTrafficAccessToken(handle RemoteSandboxHandle) string {
 // (SupportsTerminals) and narrowed with TerminalManagerFrom.
 type RemoteTerminalManager interface {
 	// OpenTerminal opens a new PTY inside the sandbox behind handle.
-	OpenTerminal(ctx context.Context, handle RemoteSandboxHandle, opts RemoteTerminalOptions) (RemoteTerminalSession, error)
+	OpenTerminal(
+		ctx context.Context, handle RemoteSandboxHandle, opts RemoteTerminalOptions,
+	) (RemoteTerminalSession, error)
 }
 
 // TerminalManagerFrom narrows a client to its terminal capability. It

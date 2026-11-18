@@ -26,21 +26,29 @@ func (g *PathGuard) writeRel(root, rel, orig string, data []byte, perm os.FileMo
 		_ = unix.Close(fd)
 		return fmt.Errorf("%w: %q", ErrPathDenied, orig)
 	}
-	_ = unix.SetNonblock(fd, false)
+	if err := unix.SetNonblock(fd, false); err != nil {
+		_ = unix.Close(fd)
+		return err
+	}
 	if err := unix.Ftruncate(fd, 0); err != nil {
 		_ = unix.Close(fd)
 		return err
 	}
 	f := os.NewFile(uintptr(fd), orig)
-	defer func() { _ = f.Close() }()
+	return writeOwnedFile(f, data)
+}
+
+func writeOwnedFile(f io.WriteCloser, data []byte) error {
 	n, err := f.Write(data)
 	if err != nil {
+		_ = f.Close()
 		return err
 	}
 	if n < len(data) {
+		_ = f.Close()
 		return io.ErrShortWrite
 	}
-	return nil
+	return f.Close()
 }
 
 func (g *PathGuard) readRel(root, rel, orig string) ([]byte, error) {
@@ -61,7 +69,10 @@ func (g *PathGuard) readRel(root, rel, orig string) ([]byte, error) {
 		_ = unix.Close(fd)
 		return nil, fmt.Errorf("%w: %q (%d bytes)", ErrFileTooLarge, orig, st.Size)
 	}
-	_ = unix.SetNonblock(fd, false)
+	if err := unix.SetNonblock(fd, false); err != nil {
+		_ = unix.Close(fd)
+		return nil, err
+	}
 	f := os.NewFile(uintptr(fd), orig)
 	defer func() { _ = f.Close() }()
 	data, err := io.ReadAll(io.LimitReader(f, maxGuardReadBytes+1))

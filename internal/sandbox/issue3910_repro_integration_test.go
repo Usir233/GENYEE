@@ -62,8 +62,10 @@ func TestDocker3910KilledMakeDirIntegration(t *testing.T) {
 	// `timeout -s KILL 30 mkdir -p ...` resolves to the sleeper.
 	sabotage, err := docker.Exec(ctx, handle, RemoteExecRequest{
 		Command: "sh",
-		Args: []string{"-c",
-			`printf '#!/bin/sh\nsleep 120\n' > /usr/local/bin/mkdir && chmod +x /usr/local/bin/mkdir`},
+		Args: []string{
+			"-c",
+			`printf '#!/bin/sh\nsleep 120\n' > /usr/local/bin/mkdir && chmod +x /usr/local/bin/mkdir`,
+		},
 		User:    "root",
 		Timeout: 30 * time.Second,
 	})

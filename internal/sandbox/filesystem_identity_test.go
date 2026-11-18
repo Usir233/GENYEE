@@ -26,18 +26,23 @@ func TestCubeFilesystemIdentityIsRequestScoped(t *testing.T) {
 			}
 			req := httptest.NewRequest(http.MethodGet, "https://sandbox.example"+route, nil).WithContext(ctx)
 			req.Header.Set("Authorization", basicAuthorizationFor("root"))
-			_, err := transport.RoundTrip(req)
+			resp, err := transport.RoundTrip(req)
 			require.NoError(t, err)
+			_ = resp.Body.Close()
 			require.Equal(t, basicAuthorizationFor(user), recorder.request.Header.Get("Authorization"))
-			require.Equal(t, basicAuthorizationFor("root"), req.Header.Get("Authorization"), "input request must not be mutated")
+			require.Equal(
+				t, basicAuthorizationFor("root"),
+				req.Header.Get("Authorization"), "input request must not be mutated",
+			)
 		}
 	}
 	for _, route := range []string{"/sandboxes", "/process.Process/Start"} {
 		recorder := &recordingRoundTripper{}
 		req := httptest.NewRequest(http.MethodPost, "https://sandbox.example"+route, nil)
 		req.Header.Set("Authorization", "preserve-me")
-		_, err := (&cubeFilesystemTransport{next: recorder}).RoundTrip(req)
+		resp, err := (&cubeFilesystemTransport{next: recorder}).RoundTrip(req)
 		require.NoError(t, err)
+		_ = resp.Body.Close()
 		require.Equal(t, "preserve-me", recorder.request.Header.Get("Authorization"))
 	}
 }
@@ -47,15 +52,16 @@ func TestEnvdMaintenanceFilesystemIdentity(t *testing.T) {
 	transport := NewEnvdCompatTransport(recorder, DefaultSandboxExecUser)
 	req := httptest.NewRequest(http.MethodGet, "https://sandbox.example/files", nil).
 		WithContext(withMaintenanceFilesystem(context.Background()))
-	_, err := transport.RoundTrip(req)
+	resp, err := transport.RoundTrip(req)
 	require.NoError(t, err)
+	_ = resp.Body.Close()
 	require.Equal(t, basicAuthorizationFor("root"), recorder.request.Header.Get("Authorization"))
 }
 
 func TestWorkspaceBootstrapDoesNotRemoveOrMoveFiles(t *testing.T) {
 	root := t.TempDir()
 	blocked := filepath.Join(root, "existing-file")
-	require.NoError(t, os.WriteFile(blocked, []byte("keep this"), 0600))
+	require.NoError(t, os.WriteFile(blocked, []byte("keep this"), 0o600))
 	cmd := exec.Command("/bin/sh", "-c", workspaceBootstrapCommand(blocked))
 	require.Error(t, cmd.Run())
 	content, err := os.ReadFile(blocked)
@@ -88,8 +94,9 @@ func TestFileTransferSkipsShortHTTPTimeout(t *testing.T) {
 			t.Fatalf("unexpected transport %T", transport)
 		}
 		req := httptest.NewRequest(http.MethodGet, "https://sandbox.example"+route, nil).WithContext(parent)
-		_, err := transport.RoundTrip(req)
+		resp, err := transport.RoundTrip(req)
 		require.NoError(t, err)
+		_ = resp.Body.Close()
 		deadline, ok := recorder.request.Context().Deadline()
 		require.True(t, ok)
 		remaining := time.Until(deadline)

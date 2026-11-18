@@ -1,4 +1,4 @@
-// Package sandbox: tenant sandbox configuration resolution.
+// Package sandbox provides tenant sandbox configuration resolution.
 //
 // ResolveEffectiveConfig turns one stored config into the *Config a manager is
 // built from. A named config is self-contained: provider fields are never

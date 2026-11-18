@@ -269,6 +269,7 @@ func (s *dockerTerminalSession) pump() {
 func (s *dockerTerminalSession) inspectExitCode() int {
 	ctx, cancel := context.WithTimeout(s.inspectCtx, dockerTerminalInspectTimeout)
 	defer cancel()
+	var ticker *time.Ticker
 	for {
 		inspected, err := s.api.ExecInspect(ctx, s.execID, client.ExecInspectOptions{})
 		if err != nil {
@@ -277,10 +278,14 @@ func (s *dockerTerminalSession) inspectExitCode() int {
 		if !inspected.Running {
 			return inspected.ExitCode
 		}
+		if ticker == nil {
+			ticker = time.NewTicker(dockerTerminalInspectPoll)
+			defer ticker.Stop()
+		}
 		select {
 		case <-ctx.Done():
 			return -1
-		case <-time.After(dockerTerminalInspectPoll):
+		case <-ticker.C:
 		}
 	}
 }

@@ -1,4 +1,4 @@
-// Package sandbox: per-config sandbox manager resolution.
+// Package sandbox provides per-config sandbox manager resolution.
 //
 // A manager is built for one (tenant, sandbox config) pair — a workspace holds
 // several named configs and each agent selects one. Managers are built per
@@ -145,6 +145,7 @@ func NewGuardedTransport() *http.Transport {
 	return NewGuardedTransportWithPolicy(DefaultOutboundURLPolicy())
 }
 
+// NewGuardedTransportWithPolicy returns an http.Transport enforcing policy.
 func NewGuardedTransportWithPolicy(policy OutboundURLPolicy) *http.Transport {
 	return &http.Transport{
 		DialContext:         GuardedDialContext(policy),

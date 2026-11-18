@@ -106,6 +106,8 @@ type fakeDockerEngine struct {
 	images       []image.Summary
 	imagePresent map[string]bool
 	pulled       []string
+	pullHook     func(ctx context.Context, ref string) (client.ImagePullResponse, error)
+	mu           sync.Mutex
 
 	committed          []client.ContainerCommitOptions
 	commitID           string
@@ -387,27 +389,41 @@ func (f *fakeDockerEngine) ContainerStatPath(
 func (f *fakeDockerEngine) ImageInspect(
 	_ context.Context, imageID string, _ ...client.ImageInspectOption,
 ) (client.ImageInspectResult, error) {
-	if f.imagePresent[imageID] {
+	f.mu.Lock()
+	present := f.imagePresent[imageID]
+	f.mu.Unlock()
+	if present {
 		return client.ImageInspectResult{}, nil
 	}
 	return client.ImageInspectResult{}, cerrdefs.ErrNotFound.WithMessage("no such image")
 }
 
 func (f *fakeDockerEngine) ImagePull(
-	_ context.Context, ref string, _ client.ImagePullOptions,
+	ctx context.Context, ref string, _ client.ImagePullOptions,
 ) (client.ImagePullResponse, error) {
+	f.mu.Lock()
 	f.pulled = append(f.pulled, ref)
-	f.imagePresent[ref] = true
+	hook := f.pullHook
+	if hook == nil {
+		f.imagePresent[ref] = true
+	}
+	f.mu.Unlock()
+	if hook != nil {
+		return hook(ctx, ref)
+	}
 	return fakePullResponse{ReadCloser: io.NopCloser(strings.NewReader(`{"status":"Downloaded"}`))}, nil
 }
 
 func (f *fakeDockerEngine) ImageList(
 	_ context.Context, _ client.ImageListOptions,
 ) (client.ImageListResult, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if f.listImagesErr != nil {
 		return client.ImageListResult{}, f.listImagesErr
 	}
-	return client.ImageListResult{Items: f.images}, nil
+	items := append([]image.Summary(nil), f.images...)
+	return client.ImageListResult{Items: items}, nil
 }
 
 func (f *fakeDockerEngine) ImageRemove(
@@ -1559,11 +1575,11 @@ func TestDockerListDirKilledIsTimeoutButGenuineFailureStaysInternal(t *testing.T
 // syntheticStdcopyReader streams totalFrames multiplexed frames of chunkLen bytes
 // on demand without pre-allocating the whole stream, stopping immediately if closed.
 type syntheticStdcopyReader struct {
-	closed     <-chan struct{}
-	stream     byte
-	frame      []byte
-	offset     int
-	remaining  int
+	closed    <-chan struct{}
+	stream    byte
+	frame     []byte
+	offset    int
+	remaining int
 }
 
 func newSyntheticStdcopyReader(closed <-chan struct{}, stream byte, chunkLen, totalFrames int) *syntheticStdcopyReader {

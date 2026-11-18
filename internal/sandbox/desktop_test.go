@@ -1,11 +1,16 @@
 package sandbox
 
 import (
+	"bufio"
 	"context"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
@@ -347,8 +352,12 @@ func TestDesktopReadyFastPathDependsOnMode(t *testing.T) {
 	code := shellCode(startDesktopScript(t))
 	require.Contains(t, code, "desktop_ready")
 	// Full mode still refuses 6080-only. proxy-only is 6080 alone.
-	fn := code[strings.Index(code, "desktop_ready()"):]
-	fn = fn[:strings.Index(fn, "\n}\n")]
+	fnStart := strings.Index(code, "desktop_ready()")
+	require.GreaterOrEqual(t, fnStart, 0)
+	fn := code[fnStart:]
+	fnEnd := strings.Index(fn, "\n}\n")
+	require.Greater(t, fnEnd, 0)
+	fn = fn[:fnEnd]
 	require.Contains(t, fn, `port_open 6080 && port_open 5900`)
 	require.Contains(t, fn, `[ "$proxy_only" -eq 1 ]`)
 }
@@ -359,5 +368,54 @@ func TestDesktopSeatIsolated(t *testing.T) {
 	}
 	for _, token := range []string{"", "0", "00", "100", "ab", "-1", "1x"} {
 		require.False(t, DesktopSeatIsolated(token), token)
+	}
+}
+
+func TestDialSandboxDesktopClosesHandshakeErrorBody(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = ln.Close() }()
+
+	peerClosed := make(chan struct{}, 1)
+	go func() {
+		srvConn, acceptErr := ln.Accept()
+		if acceptErr != nil {
+			return
+		}
+		defer func() { _ = srvConn.Close() }()
+		_, _ = http.ReadRequest(bufio.NewReader(srvConn))
+		_, _ = io.WriteString(srvConn,
+			"HTTP/1.1 401 Unauthorized\r\nContent-Length: 6\r\nConnection: keep-alive\r\n\r\ndenied")
+		_ = srvConn.SetReadDeadline(time.Now().Add(time.Second))
+		buf := make([]byte, 1)
+		if _, rerr := srvConn.Read(buf); rerr == io.EOF {
+			peerClosed <- struct{}{}
+		}
+	}()
+
+	cfg := DefaultConfig()
+	cfg.Type = SandboxTypeCube
+	cfg.CubeAPIURL = "http://127.0.0.1:18080"
+	cfg.CubeProxyURL = "http://" + ln.Addr().String()
+	cfg.CubeSandboxDomain = "sandbox.local"
+	pool := NewSandboxGatewayTransportPoolWithPolicy(nil, OutboundURLPolicy{AllowPrivate: true})
+	dialer := pool.WebsocketDialerFor(cfg)
+
+	_, dialErr := dialSandboxDesktop(
+		context.Background(),
+		SandboxTypeCube,
+		dialer,
+		&fakeRemoteHandle{id: "sbx-1", provider: SandboxTypeCube},
+		RemoteDesktopOptions{Token: "1"},
+	)
+	require.Error(t, dialErr)
+	var remoteErr *RemoteError
+	require.ErrorAs(t, dialErr, &remoteErr)
+	require.Equal(t, RemoteErrorKindAuthentication, remoteErr.Kind)
+
+	select {
+	case <-peerClosed:
+	case <-time.After(600 * time.Millisecond):
+		t.Fatal("dialSandboxDesktop leaked open handshake response body / socket on 401 error")
 	}
 }

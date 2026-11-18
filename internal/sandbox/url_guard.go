@@ -1,4 +1,4 @@
-// Package sandbox: outbound URL guard for tenant-supplied endpoints.
+// Package sandbox provides outbound URL guards for tenant-supplied endpoints.
 //
 // Tenants configure their own sandbox control-plane URLs and the server dials
 // them. Without a guard that is a Server-Side Request Forgery primitive: the
@@ -57,6 +57,7 @@ func ValidateOutboundURL(raw string) error {
 	return DefaultOutboundURLPolicy().Validate(raw)
 }
 
+// ValidateOutboundURLWithPolicy checks raw against the supplied policy.
 func ValidateOutboundURLWithPolicy(raw string, policy OutboundURLPolicy) error {
 	return policy.Validate(raw)
 }
@@ -66,10 +67,9 @@ func SafeDialControl(network string, address string, conn syscall.RawConn) error
 	return DefaultOutboundURLPolicy().DialControl(network, address, conn)
 }
 
+// SafeDialControlForPolicy returns a net.Dialer.Control hook enforcing policy.
 func SafeDialControlForPolicy(policy OutboundURLPolicy) func(string, string, syscall.RawConn) error {
-	return func(network string, address string, conn syscall.RawConn) error {
-		return policy.DialControl(network, address, conn)
-	}
+	return policy.DialControl
 }
 
 // Validate reports whether raw is an acceptable tenant-supplied endpoint. It

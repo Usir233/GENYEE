@@ -69,7 +69,8 @@ func inboundGatewayOriginFor(cfg *Config) string {
 	}
 	gatewayURL, controlURL := gatewayEndpointFor(cfg)
 	if host, port, scheme, ok := parseProxyURL(gatewayURL); ok {
-		return fmt.Sprintf("%s://%s", strings.ToLower(scheme), net.JoinHostPort(strings.ToLower(host), strconv.Itoa(port)))
+		hostPort := net.JoinHostPort(strings.ToLower(host), strconv.Itoa(port))
+		return fmt.Sprintf("%s://%s", strings.ToLower(scheme), hostPort)
 	}
 	controlOrigin := canonicalURLOrigin(controlURL)
 	domain := strings.ToLower(strings.TrimSpace(sandboxDomainFor(cfg)))

@@ -35,17 +35,83 @@ import (
 // built by an operator can opt into the catalog by carrying it.
 const dockerTemplateLabel = "com.genyee.sandbox.template"
 
+const (
+	// dockerFailedPullTTL bounds how long a failed pull error stays cached for
+	// UI inspection before expiring automatically.
+	dockerFailedPullTTL = 10 * time.Minute
+	// dockerMaxFailedPullEntries bounds the number of completed failed pull
+	// records retained across distinct endpoints and image names.
+	dockerMaxFailedPullEntries = 256
+)
+
 // dockerImagePulls tracks background pulls per daemon endpoint and image, so a
 // second refresh reports the in-flight pull instead of starting another one.
 var dockerImagePulls = struct {
 	mu    sync.Mutex
 	state map[string]*dockerPullState
-}{state: make(map[string]*dockerPullState)}
+	now   func() time.Time
+}{
+	state: make(map[string]*dockerPullState),
+	now:   time.Now,
+}
 
 type dockerPullState struct {
-	started time.Time
-	done    bool
-	err     error
+	started  time.Time
+	finished time.Time
+	done     bool
+	err      error
+}
+
+func dockerPullClockNow() time.Time {
+	if dockerImagePulls.now != nil {
+		return dockerImagePulls.now()
+	}
+	return time.Now()
+}
+
+// pruneDockerImagePullsLocked evicts expired completed pull failures and caps
+// total retained failed entries so arbitrary image/endpoint typos never leak
+// unbounded memory. In-flight (!done) entries are never evicted.
+func pruneDockerImagePullsLocked(now time.Time) {
+	doneCount := 0
+	for k, st := range dockerImagePulls.state {
+		if !st.done {
+			continue
+		}
+		if !st.finished.IsZero() && now.Sub(st.finished) >= dockerFailedPullTTL {
+			delete(dockerImagePulls.state, k)
+			continue
+		}
+		doneCount++
+	}
+	for doneCount > dockerMaxFailedPullEntries {
+		var oldestKey string
+		var oldestTime time.Time
+		for k, st := range dockerImagePulls.state {
+			if !st.done {
+				continue
+			}
+			if oldestKey == "" || st.finished.Before(oldestTime) {
+				oldestKey = k
+				oldestTime = st.finished
+			}
+		}
+		if oldestKey == "" {
+			break
+		}
+		delete(dockerImagePulls.state, oldestKey)
+		doneCount--
+	}
+}
+
+func (c *DockerRemoteClient) clearCompletedPullState(image string) {
+	key := c.pullKey(image)
+	dockerImagePulls.mu.Lock()
+	defer dockerImagePulls.mu.Unlock()
+	if st, ok := dockerImagePulls.state[key]; ok && st.done {
+		delete(dockerImagePulls.state, key)
+	}
+	pruneDockerImagePullsLocked(dockerPullClockNow())
 }
 
 // ListTemplates reports the sandbox images available on this daemon.
@@ -90,11 +156,15 @@ func (c *DockerRemoteClient) ListTemplates(ctx context.Context) ([]RemoteTemplat
 		}
 	}
 
-	// A configured image the daemon has not pulled yet is still the template
-	// this config will use. Hiding it would tell the admin their own choice
-	// does not exist, when all that is missing is a pull.
-	if configured != "" && !configuredPresent {
-		templates = append(templates, c.pendingTemplate(configured))
+	if configured != "" {
+		if configuredPresent {
+			c.clearCompletedPullState(configured)
+		} else {
+			// A configured image the daemon has not pulled yet is still the template
+			// this config will use. Hiding it would tell the admin their own choice
+			// does not exist, when all that is missing is a pull.
+			templates = append(templates, c.pendingTemplate(configured))
+		}
 	}
 	return templates, nil
 }
@@ -110,6 +180,7 @@ func (c *DockerRemoteClient) pendingTemplate(image string) RemoteTemplate {
 		Standard: isStandardTemplateImage(image),
 	}
 	dockerImagePulls.mu.Lock()
+	pruneDockerImagePullsLocked(dockerPullClockNow())
 	state, ok := dockerImagePulls.state[c.pullKey(image)]
 	dockerImagePulls.mu.Unlock()
 	switch {
@@ -132,6 +203,7 @@ func (c *DockerRemoteClient) EnsureStandardTemplate(ctx context.Context) (*Remot
 		image = EffectiveDefaultDockerImage()
 	}
 	if _, err := c.api.ImageInspect(ctx, image); err == nil {
+		c.clearCompletedPullState(image)
 		return &RemoteTemplate{
 			ID:       image,
 			Name:     image,
@@ -143,19 +215,21 @@ func (c *DockerRemoteClient) EnsureStandardTemplate(ctx context.Context) (*Remot
 
 	key := c.pullKey(image)
 	dockerImagePulls.mu.Lock()
+	now := dockerPullClockNow()
+	pruneDockerImagePullsLocked(now)
 	state, running := dockerImagePulls.state[key]
 	if running && !state.done {
 		dockerImagePulls.mu.Unlock()
 		pending := c.pendingTemplate(image)
 		return &pending, nil
 	}
-	dockerImagePulls.state[key] = &dockerPullState{started: time.Now()}
+	dockerImagePulls.state[key] = &dockerPullState{started: now}
 	dockerImagePulls.mu.Unlock()
 
 	// Detached from the request: a cold pull outlives the HTTP call that
 	// asked for it, and cancelling mid-pull would leave a partial download
 	// that the next refresh restarts from scratch.
-	go c.pullInBackground(context.WithoutCancel(ctx), key, image)
+	go c.pullInBackground(context.WithoutCancel(ctx), key, image, now)
 
 	pending := c.pendingTemplate(image)
 	return &pending, nil
@@ -174,7 +248,7 @@ func (c *DockerRemoteClient) DeleteSupersededStandardTemplates(context.Context, 
 	return nil
 }
 
-func (c *DockerRemoteClient) pullInBackground(ctx context.Context, key, image string) {
+func (c *DockerRemoteClient) pullInBackground(ctx context.Context, key, image string, started time.Time) {
 	pullCtx, cancel := context.WithTimeout(ctx, dockerImagePullBudget)
 	defer cancel()
 
@@ -188,13 +262,21 @@ func (c *DockerRemoteClient) pullInBackground(ctx context.Context, key, image st
 
 	dockerImagePulls.mu.Lock()
 	defer dockerImagePulls.mu.Unlock()
+	now := dockerPullClockNow()
 	if err != nil {
-		dockerImagePulls.state[key] = &dockerPullState{done: true, err: err}
+		dockerImagePulls.state[key] = &dockerPullState{
+			started:  started,
+			finished: now,
+			done:     true,
+			err:      err,
+		}
+		pruneDockerImagePullsLocked(now)
 		return
 	}
 	// A finished pull leaves no state behind: the image is now visible to
 	// ImageInspect, which is a better source of truth than our bookkeeping.
 	delete(dockerImagePulls.state, key)
+	pruneDockerImagePullsLocked(now)
 }
 
 // dockerImagePullBudget bounds a background pull. Sandbox images are large but

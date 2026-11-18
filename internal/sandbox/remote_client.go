@@ -1,4 +1,4 @@
-// Package sandbox: provider-neutral remote sandbox contract.
+// Package sandbox provides provider-neutral remote sandbox contract.
 //
 // This file introduces the RemoteSandboxClient interface and the neutral
 // data-transfer types that SessionBoundManager depends on. Concrete backends
@@ -275,22 +275,22 @@ type RemoteSandboxSummary struct {
 type RemoteSandboxState string
 
 const (
-	// RemoteStateRunning: sandbox is up and reachable.
+	// RemoteStateRunning indicates the sandbox is up and reachable.
 	RemoteStateRunning RemoteSandboxState = "running"
 
-	// RemoteStatePaused: sandbox is paused; resumable.
+	// RemoteStatePaused indicates the sandbox is paused and resumable.
 	RemoteStatePaused RemoteSandboxState = "paused"
 
-	// RemoteStateTransitioning: sandbox is in a transient lifecycle state
+	// RemoteStateTransitioning indicates the sandbox is in a transient lifecycle state
 	// (pausing, resuming, provisioning, ...). Treated as "still owned" by
 	// SessionBoundManager but not immediately usable.
 	RemoteStateTransitioning RemoteSandboxState = "transitioning"
 
-	// RemoteStateTerminal: sandbox is gone. Bindings referencing this state
+	// RemoteStateTerminal indicates the sandbox is gone. Bindings referencing this state
 	// can be replaced.
 	RemoteStateTerminal RemoteSandboxState = "terminal"
 
-	// RemoteStateUnknown: adapter could not classify the raw state. Treated
+	// RemoteStateUnknown indicates the adapter could not classify the raw state. Treated
 	// as transient (do not replace the binding).
 	RemoteStateUnknown RemoteSandboxState = "unknown"
 )
@@ -384,8 +384,10 @@ type RemoteDirEntry struct {
 type RemoteDirEntryType string
 
 const (
+	// RemoteEntryFile represents a regular file.
 	RemoteEntryFile RemoteDirEntryType = "file"
-	RemoteEntryDir  RemoteDirEntryType = "dir"
+	// RemoteEntryDir represents a directory.
+	RemoteEntryDir RemoteDirEntryType = "dir"
 	// RemoteEntryOther covers symlinks, sockets, devices, etc. GENYEE
 	// artifact code treats these as opaque and skips them.
 	RemoteEntryOther RemoteDirEntryType = "other"

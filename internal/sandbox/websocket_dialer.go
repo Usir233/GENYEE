@@ -129,10 +129,7 @@ func (d *WebsocketDialer) Dial(
 
 	authority := fmt.Sprintf("%d-%s.%s", port, sandboxID, d.sandboxDomain)
 	// Split off the query: url.URL.Path would escape a literal "?".
-	var rawQuery string
-	if i := strings.Index(path, "?"); i >= 0 {
-		path, rawQuery = path[:i], path[i+1:]
-	}
+	path, rawQuery, _ := strings.Cut(path, "?")
 	target := &url.URL{
 		Scheme: d.scheme, Host: authority, Path: path, RawQuery: rawQuery,
 	}

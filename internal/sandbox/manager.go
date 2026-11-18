@@ -41,7 +41,7 @@ func NewManager(config *Config) (Manager, error) {
 }
 
 // initializeSandbox creates and configures the sandbox based on configuration
-func (m *DefaultManager) initializeSandbox(ctx context.Context) error {
+func (m *DefaultManager) initializeSandbox(_ context.Context) error {
 	switch m.config.Type {
 	case SandboxTypeDisabled:
 		m.sandbox = &disabledSandbox{}
@@ -81,12 +81,12 @@ func (m *DefaultManager) Execute(ctx context.Context, config *ExecuteConfig) (*E
 
 	effective := config
 	if config != nil && len(m.config.EnvVars) > 0 {
-		copy := *config
-		copy.Env = cloneMetadata(m.config.EnvVars)
+		cloned := *config
+		cloned.Env = cloneMetadata(m.config.EnvVars)
 		for key, value := range config.Env {
-			copy.Env[key] = value
+			cloned.Env[key] = value
 		}
-		effective = &copy
+		effective = &cloned
 	}
 
 	// Perform security validation unless explicitly skipped
@@ -202,11 +202,11 @@ func (m *DefaultManager) GetType() SandboxType {
 // disabledSandbox is a no-op sandbox that rejects all execution requests
 type disabledSandbox struct{}
 
-func (s *disabledSandbox) Execute(ctx context.Context, config *ExecuteConfig) (*ExecuteResult, error) {
+func (s *disabledSandbox) Execute(_ context.Context, _ *ExecuteConfig) (*ExecuteResult, error) {
 	return nil, ErrSandboxDisabled
 }
 
-func (s *disabledSandbox) Cleanup(ctx context.Context) error {
+func (s *disabledSandbox) Cleanup(_ context.Context) error {
 	return nil
 }
 
@@ -214,7 +214,7 @@ func (s *disabledSandbox) Type() SandboxType {
 	return SandboxTypeDisabled
 }
 
-func (s *disabledSandbox) IsAvailable(ctx context.Context) bool {
+func (s *disabledSandbox) IsAvailable(_ context.Context) bool {
 	return false
 }
 

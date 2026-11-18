@@ -98,6 +98,9 @@ func dialSandboxDesktop(
 	}
 	conn, resp, err := dialer.Dial(
 		ctx, handle.ID(), DesktopWebsockifyPort, path, header)
+	if resp != nil && resp.Body != nil {
+		defer func() { _ = resp.Body.Close() }()
+	}
 	if err != nil {
 		kind := RemoteErrorKindUnavailable
 		status := 0

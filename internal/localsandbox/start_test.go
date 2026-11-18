@@ -72,3 +72,38 @@ func TestStartSpawnFailureClosesPrepared(t *testing.T) {
 	require.Len(t, backend.preps, 1)
 	require.True(t, backend.preps[0].closed.Load(), "Start closes the prepared handle when Spawn fails")
 }
+
+func TestStartPreparedProcessPropagatesCloseErrorAndHonorsWaitContext(t *testing.T) {
+	closeBoom := errors.New("prepared close failed")
+	backend := &fakeBackend{stdout: "ok", exit: ExitStatus{Code: 0}, prepClose: closeBoom}
+	svc := serviceFixture(t, backend, ModeAuto)
+	proc, err := svc.StartForSession(context.Background(), RunRequest{SessionID: "s", Command: "true"})
+	require.NoError(t, err)
+	_, err = proc.Wait(context.Background())
+	require.ErrorIs(t, err, closeBoom, "Wait must not silently drop Prepared.Close errors")
+
+	// Also verify Wait(waitCtx) kills a blocking process when waitCtx expires
+	// even if Start's own context has not been cancelled.
+	blocking := newRecordingProcess(ExitStatus{Code: 0})
+	blocking.blockUntilKill = true
+	backend2 := &fakeBackend{proc: blocking}
+	svc2 := serviceFixture(t, backend2, ModeAuto)
+	proc2, err := svc2.StartForSession(context.Background(), RunRequest{SessionID: "s", Command: "sleep 60"})
+	require.NoError(t, err)
+
+	waitCtx, cancel := context.WithTimeout(context.Background(), 60*time.Millisecond)
+	defer cancel()
+	done := make(chan ExitStatus, 1)
+	go func() {
+		st, _ := proc2.Wait(waitCtx)
+		done <- st
+	}()
+	select {
+	case st := <-done:
+		require.True(t, st.Killed)
+		require.GreaterOrEqual(t, blocking.killCount(), 1)
+	case <-time.After(time.Second):
+		_ = proc2.Kill()
+		t.Fatal("preparedProcess.Wait ignored waitCtx timeout")
+	}
+}
