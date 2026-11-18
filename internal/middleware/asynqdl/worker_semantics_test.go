@@ -25,16 +25,47 @@ func TestMiddlewareMatchesWorkerTerminalSemantics(t *testing.T) {
 		dead     bool
 	}{
 		{name: "success", maxRetry: 3, errors: []error{nil}, state: asynq.TaskStateCompleted},
-		{name: "ordinary retry then success", maxRetry: 1, errors: []error{ordinary, nil}, state: asynq.TaskStateCompleted},
-		{name: "ordinary retry exhausted", maxRetry: 1, errors: []error{ordinary, ordinary}, state: asynq.TaskStateArchived, dead: true},
+		{
+			name:     "ordinary retry then success",
+			maxRetry: 1,
+			errors:   []error{ordinary, nil},
+			state:    asynq.TaskStateCompleted,
+		},
+		{
+			name:     "ordinary retry exhausted",
+			maxRetry: 1,
+			errors:   []error{ordinary, ordinary},
+			state:    asynq.TaskStateArchived,
+			dead:     true,
+		},
 		{name: "zero retry budget", errors: []error{ordinary}, state: asynq.TaskStateArchived, dead: true},
-		{name: "skip retry before budget", maxRetry: 5, errors: []error{asynq.SkipRetry}, state: asynq.TaskStateArchived, dead: true},
-		{name: "wrapped skip retry", maxRetry: 5, errors: []error{fmt.Errorf("invalid payload: %w", asynq.SkipRetry)}, state: asynq.TaskStateArchived, dead: true},
+		{
+			name:     "skip retry before budget",
+			maxRetry: 5,
+			errors:   []error{asynq.SkipRetry},
+			state:    asynq.TaskStateArchived,
+			dead:     true,
+		},
+		{
+			name:     "wrapped skip retry",
+			maxRetry: 5,
+			errors:   []error{fmt.Errorf("invalid payload: %w", asynq.SkipRetry)},
+			state:    asynq.TaskStateArchived,
+			dead:     true,
+		},
 		{name: "revoke before budget", maxRetry: 5, errors: []error{asynq.RevokeTask}, deleted: true},
 		{name: "revoke on final attempt", errors: []error{asynq.RevokeTask}, deleted: true},
 		{name: "revoke after ordinary retry", maxRetry: 1, errors: []error{ordinary, asynq.RevokeTask}, deleted: true},
-		{name: "wrapped revoke on final attempt", errors: []error{fmt.Errorf("cancelled: %w", asynq.RevokeTask)}, deleted: true},
-		{name: "revoke takes precedence over skip", errors: []error{errors.Join(asynq.SkipRetry, asynq.RevokeTask)}, deleted: true},
+		{
+			name:    "wrapped revoke on final attempt",
+			errors:  []error{fmt.Errorf("cancelled: %w", asynq.RevokeTask)},
+			deleted: true,
+		},
+		{
+			name:    "revoke takes precedence over skip",
+			errors:  []error{errors.Join(asynq.SkipRetry, asynq.RevokeTask)},
+			deleted: true,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			mr := miniredis.RunT(t)
@@ -62,8 +93,8 @@ func TestMiddlewareMatchesWorkerTerminalSemantics(t *testing.T) {
 				err := wrapped.ProcessTask(ctx, task)
 				id, idOK := asynq.GetTaskID(ctx)
 				retried, retryOK := asynq.GetRetryCount(ctx)
-				max, maxOK := asynq.GetMaxRetry(ctx)
-				observations <- observation{id, retried, max, idOK && retryOK && maxOK, err}
+				maxRetries, maxOK := asynq.GetMaxRetry(ctx)
+				observations <- observation{id, retried, maxRetries, idOK && retryOK && maxOK, err}
 				return err
 			})
 			worker := asynq.NewServer(redis, asynq.Config{

@@ -96,3 +96,10 @@ func TestPublicAuthCleanupRetainsLiveBudgets(t *testing.T) {
 	require.True(t, l.allow(""))
 	require.False(t, l.allow(""), "empty IPs share the unknown-client bucket")
 }
+
+func TestIPRateLimiterCloseStopsCleanupGoroutine(t *testing.T) {
+	l := newIPRateLimiter(time.Minute, 5)
+	require.True(t, l.allow("198.51.100.1"))
+	l.Close()
+	l.Close() // idempotent
+}

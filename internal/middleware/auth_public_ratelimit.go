@@ -45,15 +45,36 @@ type ipBucket struct {
 }
 
 type ipRateLimiter struct {
-	window  time.Duration
-	max     int
-	buckets sync.Map // string (IP) -> *ipBucket
+	window   time.Duration
+	max      int
+	buckets  sync.Map // string (IP) -> *ipBucket
+	stopOnce sync.Once
+	stopCh   chan struct{}
+	doneCh   chan struct{}
 }
 
-func newIPRateLimiter(window time.Duration, max int) *ipRateLimiter {
-	l := &ipRateLimiter{window: window, max: max}
+func newIPRateLimiter(window time.Duration, maxRequests int) *ipRateLimiter {
+	l := &ipRateLimiter{
+		window: window,
+		max:    maxRequests,
+		stopCh: make(chan struct{}),
+		doneCh: make(chan struct{}),
+	}
 	go l.cleanupLoop()
 	return l
+}
+
+// Close terminates the background bucket-eviction ticker goroutine.
+func (l *ipRateLimiter) Close() {
+	if l == nil || l.stopCh == nil {
+		return
+	}
+	l.stopOnce.Do(func() {
+		close(l.stopCh)
+	})
+	if l.doneCh != nil {
+		<-l.doneCh
+	}
 }
 
 // allow returns true if the IP is within budget for the current
@@ -94,10 +115,16 @@ func (l *ipRateLimiter) allow(ip string) bool {
 }
 
 func (l *ipRateLimiter) cleanupLoop() {
+	defer close(l.doneCh)
 	t := time.NewTicker(publicAuthRateLimitCleanupInterval)
 	defer t.Stop()
-	for range t.C {
-		l.cleanupExpired(time.Now().Add(-l.window))
+	for {
+		select {
+		case <-l.stopCh:
+			return
+		case <-t.C:
+			l.cleanupExpired(time.Now().Add(-l.window))
+		}
 	}
 }
 
@@ -133,7 +160,7 @@ func PublicAuthRateLimit() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ip := c.ClientIP()
 		if !publicAuthLimiter.allow(ip) {
-			c.Error(&apperrors.AppError{
+			_ = c.Error(&apperrors.AppError{
 				Code:     apperrors.ErrTooManyRequests,
 				Message:  "too many requests; please retry shortly",
 				HTTPCode: http.StatusTooManyRequests,

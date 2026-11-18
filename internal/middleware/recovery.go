@@ -34,6 +34,10 @@ func Recovery() gin.HandlerFunc {
 					"stacktrace": string(stacktrace),
 				})
 
+				if c.Writer.Written() {
+					c.Abort()
+					return
+				}
 				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
 					"error":   "Internal Server Error",
 					"message": "Internal server error",

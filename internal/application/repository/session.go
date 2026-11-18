@@ -49,7 +49,7 @@ func (r *sessionRepository) Create(ctx context.Context, session *types.Session) 
 }
 
 // Get retrieves a session by ID
-func (r *sessionRepository) Get(ctx context.Context, tenantID uint64, userID string, id string) (*types.Session, error) {
+func (r *sessionRepository) Get(ctx context.Context, tenantID uint64, userID, id string) (*types.Session, error) {
 	var session types.Session
 	err := applySessionUserScope(
 		r.db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id),
@@ -119,7 +119,9 @@ func (r *sessionRepository) GetIMPlatform(
 }
 
 // GetByTenantID retrieves normal sessions for a tenant
-func (r *sessionRepository) GetByTenantID(ctx context.Context, tenantID uint64, userID string) ([]*types.Session, error) {
+func (r *sessionRepository) GetByTenantID(
+	ctx context.Context, tenantID uint64, userID string,
+) ([]*types.Session, error) {
 	var sessions []*types.Session
 	err := applySessionUserScope(
 		r.db.WithContext(ctx).Where("tenant_id = ? AND kind = ''", tenantID),
@@ -173,7 +175,7 @@ func (r *sessionRepository) QueryPaged(
 		return []*types.SessionListItem{}, 0, nil
 	}
 	// Dialect-aware bits so the same query works on Postgres and SQLite (Lite build).
-	isPostgres := r.db.Dialector.Name() == "postgres"
+	isPostgres := r.db.Name() == "postgres"
 	titleLikeExpr := "LOWER(s.title) LIKE LOWER(?) ESCAPE ?"
 	if isPostgres {
 		titleLikeExpr = "s.title ILIKE ? ESCAPE ?"
@@ -362,10 +364,9 @@ func (r *sessionRepository) SetOwnerID(ctx context.Context, tenantID uint64, id,
 	return res.RowsAffected, res.Error
 }
 
-// UpdateLastRequestState writes only the agent_config column (used here to
-// store SessionLastRequestState) and bumps updated_at. We deliberately bypass
-// the regular Update path so the call doesn't perturb title/description and
-// stays cheap (single-row UPDATE by PK).
+// UpdateLastRequestState writes only the last_request_state column and bumps
+// updated_at. We deliberately bypass the regular Update path so the call
+// doesn't perturb title/description and stays cheap (single-row UPDATE by PK).
 func (r *sessionRepository) UpdateLastRequestState(
 	ctx context.Context, tenantID uint64, userID string, sessionID string,
 	state *types.SessionLastRequestState,
@@ -383,8 +384,8 @@ func (r *sessionRepository) UpdateLastRequestState(
 		Model(&types.Session{}).
 		Where("tenant_id = ? AND id = ?", tenantID, sessionID), userID).
 		Updates(map[string]interface{}{
-			"agent_config": stateValue,
-			"updated_at":   now,
+			"last_request_state": stateValue,
+			"updated_at":         now,
 		})
 	return res.RowsAffected, res.Error
 }
@@ -399,7 +400,9 @@ func (r *sessionRepository) Delete(ctx context.Context, tenantID uint64, userID 
 }
 
 // BatchDelete deletes multiple sessions by IDs
-func (r *sessionRepository) BatchDelete(ctx context.Context, tenantID uint64, userID string, ids []string) (int64, error) {
+func (r *sessionRepository) BatchDelete(
+	ctx context.Context, tenantID uint64, userID string, ids []string,
+) (int64, error) {
 	if len(ids) == 0 {
 		return 0, nil
 	}
@@ -531,7 +534,7 @@ func forkBootstrapJSONText(db *gorm.DB, key string) string {
 	if db.Name() == "postgres" {
 		return "fork_bootstrap ->> '" + key + "'"
 	}
-	return "json_extract(fork_bootstrap, '$." + key + "')"
+	return "(CASE WHEN json_valid(fork_bootstrap) THEN json_extract(fork_bootstrap, '$." + key + "') END)"
 }
 
 func (r *sessionRepository) unconsumedForkSnapshotQuery(ctx context.Context, snapshotID string) *gorm.DB {

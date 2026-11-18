@@ -65,7 +65,7 @@ type CreatorLookup func(c *gin.Context) (creatorID string, err error)
 // is missing, TenantRoleFromContext defaults to TenantRoleViewer, which
 // is the safest fail-closed value: anything that requires more than
 // Viewer will reject.
-func RequireRole(min types.TenantRole, cfg *config.Config) gin.HandlerFunc {
+func RequireRole(minRole types.TenantRole, cfg *config.Config) gin.HandlerFunc {
 	warnOnNilConfig(cfg)
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
@@ -77,7 +77,7 @@ func RequireRole(min types.TenantRole, cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 		role := types.CallerFromContext(ctx).Role
-		if role.HasPermission(min) {
+		if role.HasPermission(minRole) {
 			c.Next()
 			return
 		}
@@ -89,20 +89,20 @@ func RequireRole(min types.TenantRole, cfg *config.Config) gin.HandlerFunc {
 		if !rbacEnforcementEnabled(cfg) {
 			logger.Warnf(ctx,
 				"[rbac] role insufficient (logged but not enforced): user=%s have=%s need=%s path=%s",
-				uid, role, min, c.Request.URL.Path)
+				uid, role, minRole, c.Request.URL.Path)
 			c.Next()
 			return
 		}
 		logger.Warnf(ctx,
 			"[rbac] role insufficient: user=%s have=%s need=%s path=%s",
-			uid, role, min, c.Request.URL.Path)
+			uid, role, minRole, c.Request.URL.Path)
 		// Durable audit row for the reject. AuditServiceProvider
 		// injects the service; subject to 1-minute sliding-window
 		// dedup inside the service so probing clients can't fill the
 		// table.
 		if svc := AuditServiceFromContext(c); svc != nil {
 			tenantID := types.CallerFromContext(ctx).TenantID
-			_ = svc.LogDenied(ctx, c, tenantID, uid, string(role), min)
+			_ = svc.LogDenied(ctx, c, tenantID, uid, string(role), minRole)
 		}
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": "Forbidden: insufficient workspace role",
@@ -120,8 +120,8 @@ func RequireRole(min types.TenantRole, cfg *config.Config) gin.HandlerFunc {
 // API-key behavior remains identical to RequireRole: the APIKeyGate is the
 // source of truth for machine principals, so they short-circuit the role
 // check here as well.
-func RequireRoleOrSystemAdmin(min types.TenantRole, cfg *config.Config) gin.HandlerFunc {
-	requireRole := RequireRole(min, cfg)
+func RequireRoleOrSystemAdmin(minRole types.TenantRole, cfg *config.Config) gin.HandlerFunc {
+	requireRole := RequireRole(minRole, cfg)
 	return func(c *gin.Context) {
 		if types.IsSystemAdminFromContext(c.Request.Context()) {
 			c.Next()
@@ -212,7 +212,7 @@ func RequireSystemAdmin(cfg *config.Config) gin.HandlerFunc {
 //  7. lookup returns "" (tenant-owned, no human creator) -> 403 (we
 //     already know role < min from step 1).
 //  8. lookup returns a non-empty creator that is not the caller -> 403.
-func RequireOwnershipOrRole(min types.TenantRole, lookup CreatorLookup, cfg *config.Config) gin.HandlerFunc {
+func RequireOwnershipOrRole(minRole types.TenantRole, lookup CreatorLookup, cfg *config.Config) gin.HandlerFunc {
 	warnOnNilConfig(cfg)
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
@@ -221,8 +221,8 @@ func RequireOwnershipOrRole(min types.TenantRole, lookup CreatorLookup, cfg *con
 		if lookup != nil {
 			resolveCreator = func() (string, error) { return lookup(c) }
 		}
-		decision, err := access.CheckOwnershipOrRole(request, min, resolveCreator)
-		logOwnershipDecision(ctx, request, min, decision, err, c.Request.URL.Path)
+		decision, err := access.CheckOwnershipOrRole(request, minRole, resolveCreator)
+		logOwnershipDecision(ctx, request, minRole, decision, err, c.Request.URL.Path)
 		switch {
 		case err == nil, errors.Is(err, ErrResourceNotFound):
 			// A missing resource remains the handler's responsibility so it
@@ -232,7 +232,7 @@ func RequireOwnershipOrRole(min types.TenantRole, lookup CreatorLookup, cfg *con
 		case errors.Is(err, ErrOwnershipForbidden) && !decision.LookupFailed:
 			if svc := AuditServiceFromContext(c); svc != nil {
 				tenantID := types.CallerFromContext(ctx).TenantID
-				_ = svc.LogDenied(ctx, c, tenantID, request.UserID, string(request.Role), min)
+				_ = svc.LogDenied(ctx, c, tenantID, request.UserID, string(request.Role), minRole)
 			}
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": "Forbidden: must own the resource or have the required role",
@@ -270,12 +270,12 @@ var ErrOwnershipForbidden = access.ErrOwnershipForbidden
 func EvaluateOwnershipOrRole(
 	ctx context.Context,
 	cfg *config.Config,
-	min types.TenantRole,
+	minRole types.TenantRole,
 	lookup func() (string, error),
 ) error {
 	request := ownershipRequestFromContext(ctx, cfg)
-	decision, err := access.CheckOwnershipOrRole(request, min, lookup)
-	logOwnershipDecision(ctx, request, min, decision, err, "")
+	decision, err := access.CheckOwnershipOrRole(request, minRole, lookup)
+	logOwnershipDecision(ctx, request, minRole, decision, err, "")
 	return err
 }
 

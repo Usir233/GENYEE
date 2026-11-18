@@ -13,7 +13,7 @@ func TestRecovery_DoesNotLeakPanicDetailsToClient(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(RequestID(), Recovery())
-	r.GET("/boom", func(c *gin.Context) {
+	r.GET("/boom", func(*gin.Context) {
 		panic("postgres://admin:top-secret-pw@10.0.0.5:5432/prod dial failed")
 	})
 
@@ -29,6 +29,35 @@ func TestRecovery_DoesNotLeakPanicDetailsToClient(t *testing.T) {
 	for _, secret := range []string{"top-secret-pw", "postgres://", "10.0.0.5"} {
 		if strings.Contains(body, secret) {
 			t.Fatalf("Recovery() leaked internal panic detail %q in response body: %s", secret, body)
+		}
+	}
+}
+
+func TestErrorHandlerAndRecoveryDoNotCorruptAlreadyWrittenStream(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(Recovery(), ErrorHandler())
+	r.GET("/sse-err", func(c *gin.Context) {
+		c.Header("Content-Type", "text/event-stream")
+		c.Status(http.StatusOK)
+		_, _ = c.Writer.Write([]byte("data: chunk-1\n\n"))
+		c.Writer.Flush()
+		_ = c.Error(http.ErrAbortHandler)
+	})
+	r.GET("/sse-panic", func(c *gin.Context) {
+		c.Header("Content-Type", "text/event-stream")
+		c.Status(http.StatusOK)
+		_, _ = c.Writer.Write([]byte("data: chunk-1\n\n"))
+		c.Writer.Flush()
+		panic("mid-stream boom")
+	})
+
+	for _, path := range []string{"/sse-err", "/sse-panic"} {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if got := w.Body.String(); got != "data: chunk-1\n\n" {
+			t.Fatalf("%s appended trailing JSON onto already-written stream: %q", path, got)
 		}
 	}
 }

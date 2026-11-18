@@ -76,17 +76,22 @@ func TestPostgresMigrationsServeAgentHistory(t *testing.T) {
 			AND context_checkpoint IS NOT NULL AND deleted_at IS NULL
 			ORDER BY created_at DESC, id DESC LIMIT 1`,
 	} {
-		rows, err := conn.QueryContext(ctx, "EXPLAIN "+query)
-		require.NoError(t, err, name)
-		var plan strings.Builder
-		for rows.Next() {
-			var line string
-			require.NoError(t, rows.Scan(&line), name)
-			plan.WriteString(line + "\n")
-		}
-		require.NoError(t, rows.Close(), name)
-		require.Contains(t, plan.String(), "idx_messages_session_created_id", "%s plan:\n%s", name, plan.String())
-		require.NotContains(t, plan.String(), "Sort", "%s must not sort:\n%s", name, plan.String())
+		func(planName, q string) {
+			rows, err := conn.QueryContext(ctx, "EXPLAIN "+q)
+			require.NoError(t, err, planName)
+			defer func() { require.NoError(t, rows.Close(), planName) }()
+			var plan strings.Builder
+			for rows.Next() {
+				var line string
+				require.NoError(t, rows.Scan(&line), planName)
+				plan.WriteString(line + "\n")
+			}
+			require.NoError(t, rows.Err(), planName)
+			require.Contains(
+				t, plan.String(), "idx_messages_session_created_id", "%s plan:\n%s", planName, plan.String(),
+			)
+			require.NotContains(t, plan.String(), "Sort", "%s must not sort:\n%s", planName, plan.String())
+		}(name, query)
 	}
 }
 

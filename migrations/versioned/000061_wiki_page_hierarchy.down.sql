@@ -1,16 +1,4 @@
 -- Migration: 000061_wiki_page_hierarchy (rollback)
-
-DROP INDEX IF EXISTS idx_wiki_pages_tree;
-DROP INDEX IF EXISTS idx_wiki_pages_parent_slug;
-
-ALTER TABLE wiki_pages DROP COLUMN IF EXISTS sort_order;
-ALTER TABLE wiki_pages DROP COLUMN IF EXISTS depth;
-ALTER TABLE wiki_pages DROP COLUMN IF EXISTS wiki_path;
-ALTER TABLE wiki_pages DROP COLUMN IF EXISTS category_path;
-ALTER TABLE wiki_pages DROP COLUMN IF EXISTS parent_slug;
-
-ALTER TABLE wiki_pages DROP COLUMN IF EXISTS folder_id;
-
-DROP TABLE IF EXISTS wiki_folders;
-
+-- wiki_folders and wiki_pages hierarchy columns were introduced in 000037_wiki_and_indexing;
+-- only drop the standalone folder_id index added by 000061.
 DROP INDEX IF EXISTS idx_wiki_pages_folder_id;

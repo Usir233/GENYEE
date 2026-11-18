@@ -1,14 +1,17 @@
 package router
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/Usir233/GENYEE/internal/types"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/require"
 )
 
@@ -92,7 +95,10 @@ func TestTrustedProxiesSkipsMalformedEntriesAndNeverFailsOpen(t *testing.T) {
 }
 
 func TestBuildCORSConfigRejectsNullAndMalformedOriginsWithoutPanicking(t *testing.T) {
-	t.Setenv("GENYEE_CORS_ALLOWED_ORIGINS", "null, app.example.com, https://valid.example.com/, https://evil.example.com/path")
+	t.Setenv(
+		"GENYEE_CORS_ALLOWED_ORIGINS",
+		"null, app.example.com, https://valid.example.com/, https://evil.example.com/path",
+	)
 	cfg := buildCORSConfig()
 	require.True(t, cfg.AllowCredentials)
 	require.Equal(t, []string{"https://valid.example.com"}, cfg.AllowOrigins)
@@ -107,4 +113,42 @@ func TestBuildCORSConfigRejectsNullAndMalformedOriginsWithoutPanicking(t *testin
 	require.NotPanics(t, func() {
 		_ = cors.New(fallback)
 	})
+}
+
+func TestBuildCORSConfigIgnoresLegacyUnprefixedEnvVar(t *testing.T) {
+	t.Setenv("GENYEE_CORS_ALLOWED_ORIGINS", "")
+	t.Setenv("CORS_ALLOWED_ORIGINS", "https://legacy-ignored.example.com")
+	cfg := buildCORSConfig()
+	require.False(t, cfg.AllowCredentials, "legacy CORS_ALLOWED_ORIGINS must not enable credentials")
+	require.Equal(t, []string{"*"}, cfg.AllowOrigins)
+}
+
+func TestSyncTaskExecutorRejectsNilTaskAndStopsDelayedWorkOnClose(t *testing.T) {
+	exec := NewSyncTaskExecutor()
+
+	_, err := exec.Enqueue(nil)
+	require.Error(t, err)
+
+	called := false
+	exec.RegisterHandler("test:delayed", func(_ context.Context, _ *asynq.Task) error {
+		called = true
+		return nil
+	})
+	_, err = exec.Enqueue(asynq.NewTask("test:delayed", nil), asynq.ProcessIn(10*time.Second))
+	require.NoError(t, err)
+
+	done := make(chan struct{})
+	go func() {
+		exec.Close()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("SyncTaskExecutor.Close blocked instead of cancelling delayed timer")
+	}
+	require.False(t, called)
+
+	_, err = exec.Enqueue(asynq.NewTask("test:delayed", nil))
+	require.Error(t, err)
 }

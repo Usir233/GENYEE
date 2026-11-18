@@ -28,28 +28,6 @@ import (
 	"github.com/hibiken/asynq"
 )
 
-// Middleware returns an asynq.MiddlewareFunc that records dead-lettered
-// tasks. It is safe to install before any other asynq middleware: the
-// inner handler's return value is forwarded verbatim, so every layer
-// (langfuse tracing, business handlers) still sees the original
-// error/result.
-//
-// Behaviour:
-//
-//   - Tasks that succeed (handler returns nil) are passed through with
-//     zero overhead besides the function call.
-//
-//   - Tasks that fail are recorded when their retry budget is exhausted or
-//     their error wraps asynq.SkipRetry, which archives even the first attempt.
-//     Errors wrapping asynq.RevokeTask are excluded: asynq deletes those tasks
-//     without archiving, even if the error also wraps SkipRetry. Ordinary
-//     earlier failures remain eligible for retry and create no dead-letter row.
-//
-//   - Insert is best-effort: a DB error is logged and swallowed. The
-//     middleware never alters the task error returned to the caller.
-//
-// This middleware should be installed once on the asynq mux, BEFORE
-// other middlewares that may transform errors. See router/task.go.
 // OnDeadLetter is an optional callback invoked AFTER the dead-letter row has
 // been recorded. It exists so callers can flip user-visible state alongside
 // the bookkeeping row — e.g. mark a Knowledge as failed when its document
@@ -252,16 +230,16 @@ func inferScope(p payloadProbe) (string, string) {
 // truncateError prevents a single runaway stack trace from inflating
 // the dead-letter table beyond the disk capacity reasonably allotted
 // to it.
-func truncateError(s string, max int) string {
+func truncateError(s string, maxLen int) string {
 	s = strings.ToValidUTF8(s, "\ufffd")
-	if max <= 0 || len(s) <= max {
+	if maxLen <= 0 || len(s) <= maxLen {
 		return s
 	}
 	const suffix = "...(truncated)"
-	if max <= len(suffix) {
-		return cutAtRuneBoundary(s, max)
+	if maxLen <= len(suffix) {
+		return cutAtRuneBoundary(s, maxLen)
 	}
-	return cutAtRuneBoundary(s, max-len(suffix)) + suffix
+	return cutAtRuneBoundary(s, maxLen-len(suffix)) + suffix
 }
 
 // cutAtRuneBoundary returns the longest prefix of s that is at most n bytes

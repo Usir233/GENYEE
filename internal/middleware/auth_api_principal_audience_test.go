@@ -84,7 +84,10 @@ func TestAudienceValidation_AdversarialChallenge(t *testing.T) {
 				}
 			} else {
 				if err == nil {
-					t.Fatalf("expected audience %q to be rejected, but it was accepted with principal %#v", tc.audience, principal)
+					t.Fatalf(
+						"expected audience %q to be rejected, but it was accepted with principal %#v",
+						tc.audience, principal,
+					)
 				}
 				t.Logf("audience %q successfully rejected with error: %v", tc.audience, err)
 			}

@@ -345,3 +345,25 @@ func TestSessionRepositoryQueryPagedHidesMaintenanceSessions(t *testing.T) {
 			"source=%q count must not include the maintenance session", source)
 	}
 }
+
+func TestSessionRepositoryUpdateLastRequestStateUsesCanonicalColumn(t *testing.T) {
+	repo, db := newSessionRepositoryForTest(t)
+	ctx := context.Background()
+	sess := createSessionForTest(t, db, 1, "alice")
+
+	require.True(t, db.Migrator().HasColumn(&types.Session{}, "last_request_state"))
+	require.False(t, db.Migrator().HasColumn(&types.Session{}, "agent_config"))
+
+	rows, err := repo.UpdateLastRequestState(ctx, 1, "alice", sess.ID, &types.SessionLastRequestState{
+		AgentID:      "agent-canonical",
+		AgentEnabled: true,
+	})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, rows)
+
+	got, err := repo.Get(ctx, 1, "alice", sess.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.LastRequestState)
+	require.Equal(t, "agent-canonical", got.LastRequestState.AgentID)
+	require.True(t, got.LastRequestState.AgentEnabled)
+}

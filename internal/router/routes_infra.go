@@ -8,9 +8,8 @@ import (
 	"github.com/Usir233/GENYEE/internal/handler"
 )
 
-// Models are tenant-wide infrastructure (LLM credentials, embeddings,
-// rerankers); Viewer+ for reads, Admin+ for any mutation. Credential
-// subresource writes are also Admin+ since secrets are tenant-scoped.
+// RegisterModelRoutes registers tenant-wide model configuration routes.
+// Viewer+ for reads, Admin+ for any mutation or credential subresource writes.
 func RegisterModelRoutes(
 	r *gin.RouterGroup,
 	handler *handler.ModelHandler,
@@ -48,7 +47,7 @@ func RegisterModelRoutes(
 	}
 }
 
-// Sandbox configs are workspace infrastructure that hold provider credentials.
+// RegisterSandboxConfigRoutes registers workspace sandbox configuration and skill routes.
 // Scoped API keys cannot safely receive partial authority over them yet because
 // mutation can strand remote sandboxes.
 func RegisterSandboxConfigRoutes(
@@ -100,6 +99,7 @@ func RegisterEvaluationRoutes(r *gin.RouterGroup, handler *handler.EvaluationHan
 	}
 }
 
+// RegisterInitializationRoutes registers KB initialization and model probe endpoints.
 func RegisterInitializationRoutes(r *gin.RouterGroup, handler *handler.InitializationHandler, g *rbacGuards) {
 	// 初始化接口
 	// GetCurrentConfigByKB 是只读，Viewer+ 即可（KB 受限 key 可读其范围内的 KB）。
@@ -107,18 +107,53 @@ func RegisterInitializationRoutes(r *gin.RouterGroup, handler *handler.Initializ
 		apiKeyRetrieve(apiKeyFullAccess()), g.Viewer(), g.KBAccessRead("kbId"), handler.GetCurrentConfigByKB)
 	// InitializeByKB / UpdateKBConfig 都是改 KB 的核心模型/storage 配置 —
 	// 跟 PUT /knowledge-bases/:id 同等敏感，挂同款 OwnedKB 矩阵 + KBAccessWrite
-	//（API-key 主体短路 Owned* 守卫，KB allow-list 只能靠 KBAccess 兜底）。
-	g.apiKeyRoute(r, http.MethodPost, "/initialization/initialize/:kbId",
-		apiKeyManageKnowledgeBases(apiKeyFullAccess()), g.OwnedKBOrAdminFromKbIDParam(), g.KBAccessWrite("kbId"), handler.InitializeByKB)
-	g.apiKeyRoute(r, http.MethodPut, "/initialization/config/:kbId",
-		apiKeyManageKnowledgeBases(apiKeyFullAccess()), g.OwnedKBOrAdminFromKbIDParam(), g.KBAccessWrite("kbId"), handler.UpdateKBConfig)
+	// （API-key 主体短路 Owned* 守卫，KB allow-list 只能靠 KBAccess 兜底）。
+	g.apiKeyRoute(
+		r,
+		http.MethodPost,
+		"/initialization/initialize/:kbId",
+		apiKeyManageKnowledgeBases(apiKeyFullAccess()),
+		g.OwnedKBOrAdminFromKbIDParam(),
+		g.KBAccessWrite("kbId"),
+		handler.InitializeByKB,
+	)
+	g.apiKeyRoute(
+		r,
+		http.MethodPut,
+		"/initialization/config/:kbId",
+		apiKeyManageKnowledgeBases(apiKeyFullAccess()),
+		g.OwnedKBOrAdminFromKbIDParam(),
+		g.KBAccessWrite("kbId"),
+		handler.UpdateKBConfig,
+	)
 
 	// Ollama / 远程 API / 抽取等系统级检测/下载操作。这些不绑某个 KB，
 	// 会改空间级模型配置或拉远端模型；JWT 侧只读探测 Viewer+、变更 Admin+。
 	// 对 API key 均为空间级：full-access key 可用，scoped key 需要 manage_models。
-	g.apiKeyRoute(r, http.MethodGet, "/initialization/ollama/status", apiKeyManageModels(apiKeyFullAccess()), g.Viewer(), handler.CheckOllamaStatus)
-	g.apiKeyRoute(r, http.MethodGet, "/initialization/ollama/models", apiKeyManageModels(apiKeyFullAccess()), g.Viewer(), handler.ListOllamaModels)
-	g.apiKeyRoute(r, http.MethodPost, "/initialization/ollama/models/check", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.CheckOllamaModels)
+	g.apiKeyRoute(
+		r,
+		http.MethodGet,
+		"/initialization/ollama/status",
+		apiKeyManageModels(apiKeyFullAccess()),
+		g.Viewer(),
+		handler.CheckOllamaStatus,
+	)
+	g.apiKeyRoute(
+		r,
+		http.MethodGet,
+		"/initialization/ollama/models",
+		apiKeyManageModels(apiKeyFullAccess()),
+		g.Viewer(),
+		handler.ListOllamaModels,
+	)
+	g.apiKeyRoute(
+		r,
+		http.MethodPost,
+		"/initialization/ollama/models/check",
+		apiKeyManageModels(apiKeyFullAccess()),
+		g.Admin(),
+		handler.CheckOllamaModels,
+	)
 	// Shared Ollama model download and global download task inspection mutate/expose
 	// cluster-wide state, so they are restricted to authenticated SystemAdmin users.
 	r.POST("/initialization/ollama/models/download", g.SystemAdmin(), handler.DownloadOllamaModel)
@@ -126,15 +161,71 @@ func RegisterInitializationRoutes(r *gin.RouterGroup, handler *handler.Initializ
 	r.GET("/initialization/ollama/download/tasks", g.SystemAdmin(), handler.ListDownloadTasks)
 
 	// 远程API相关接口
-	g.apiKeyRoute(r, http.MethodPost, "/initialization/remote/check", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.CheckRemoteModel)
-	g.apiKeyRoute(r, http.MethodPost, "/initialization/embedding/test", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.TestEmbeddingModel)
-	g.apiKeyRoute(r, http.MethodPost, "/initialization/rerank/check", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.CheckRerankModel)
-	g.apiKeyRoute(r, http.MethodPost, "/initialization/asr/check", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.CheckASRModel)
-	g.apiKeyRoute(r, http.MethodPost, "/initialization/multimodal/test", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.TestMultimodalFunction)
+	g.apiKeyRoute(
+		r,
+		http.MethodPost,
+		"/initialization/remote/check",
+		apiKeyManageModels(apiKeyFullAccess()),
+		g.Admin(),
+		handler.CheckRemoteModel,
+	)
+	g.apiKeyRoute(
+		r,
+		http.MethodPost,
+		"/initialization/embedding/test",
+		apiKeyManageModels(apiKeyFullAccess()),
+		g.Admin(),
+		handler.TestEmbeddingModel,
+	)
+	g.apiKeyRoute(
+		r,
+		http.MethodPost,
+		"/initialization/rerank/check",
+		apiKeyManageModels(apiKeyFullAccess()),
+		g.Admin(),
+		handler.CheckRerankModel,
+	)
+	g.apiKeyRoute(
+		r,
+		http.MethodPost,
+		"/initialization/asr/check",
+		apiKeyManageModels(apiKeyFullAccess()),
+		g.Admin(),
+		handler.CheckASRModel,
+	)
+	g.apiKeyRoute(
+		r,
+		http.MethodPost,
+		"/initialization/multimodal/test",
+		apiKeyManageModels(apiKeyFullAccess()),
+		g.Admin(),
+		handler.TestMultimodalFunction,
+	)
 
-	g.apiKeyRoute(r, http.MethodPost, "/initialization/extract/text-relation", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.ExtractTextRelations)
-	g.apiKeyRoute(r, http.MethodPost, "/initialization/extract/fabri-tag", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.FabriTag)
-	g.apiKeyRoute(r, http.MethodPost, "/initialization/extract/fabri-text", apiKeyManageModels(apiKeyFullAccess()), g.Admin(), handler.FabriText)
+	g.apiKeyRoute(
+		r,
+		http.MethodPost,
+		"/initialization/extract/text-relation",
+		apiKeyManageModels(apiKeyFullAccess()),
+		g.Admin(),
+		handler.ExtractTextRelations,
+	)
+	g.apiKeyRoute(
+		r,
+		http.MethodPost,
+		"/initialization/extract/fabri-tag",
+		apiKeyManageModels(apiKeyFullAccess()),
+		g.Admin(),
+		handler.FabriTag,
+	)
+	g.apiKeyRoute(
+		r,
+		http.MethodPost,
+		"/initialization/extract/fabri-text",
+		apiKeyManageModels(apiKeyFullAccess()),
+		g.Admin(),
+		handler.FabriText,
+	)
 }
 
 // RegisterMCPServiceRoutes registers MCP service routes.

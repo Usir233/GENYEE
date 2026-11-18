@@ -20,15 +20,15 @@ GENYEE 使用版本化迁移维护数据库结构，PostgreSQL 与 SQLite 分别
 
 ```text
 migrations/
-├── versioned/     # PostgreSQL/ParadeDB 版本化迁移：000000-000139 共 140 版（280 个 .up/.down.sql 文件）
-├── sqlite/        # SQLite 迁移：000000_init（压平的全量 schema）+ 000001-000055 增量版本
+├── versioned/     # PostgreSQL/ParadeDB 版本化迁移：000000-000140 共 141 版（282 个 .up/.down.sql 文件）
+├── sqlite/        # SQLite 迁移：000000_init（压平的全量 schema）+ 000001-000056 增量版本
 └── paradedb/      # ParadeDB 附加脚本：00-init-db.sql、01-migrate-to-paradedb.sql（存量库切换）
 ```
 
-- PostgreSQL 的 `versioned/` 从 `000000_init` 到 `000139_im_session_mode_indexes`；
-- `sqlite/` 以 `000000_init` 作为压平后的全量初始化（JSONB→TEXT、SERIAL→AUTOINCREMENT 等方言差异已适配），其后追加增量版本（当前到 `000055_im_session_mode_indexes`），同样由 golang-migrate 顺序执行；
+- PostgreSQL 的 `versioned/` 从 `000000_init` 到 `000140_schema_audit_v3`；
+- `sqlite/` 以 `000000_init` 作为压平后的全量初始化（JSONB→TEXT、SERIAL→AUTOINCREMENT 等方言差异已适配），其后追加增量版本（当前到 `000056_schema_audit_v3`），同样由 golang-migrate 顺序执行；
 - `uuid-ossp`、`vector`、`pg_trgm`、`pg_search` 等扩展由 `versioned/` 迁移自行创建（000000、000002）；BM25 索引使用中文 Lindera 分词器建在 `embeddings.content` 上；
-- `paradedb/00-init-db.sql` 除扩展外还含一份旧版建表语句，**没有被 compose 或代码引用**。不要把它挂成数据库 initdb 脚本：它先建出的旧表会让 `000000_init` 失败。
+- `paradedb/00-init-db.sql` 仅幂等初始化扩展、`tenants_id_seq` 下限保护与 `embeddings` 表的 BM25 / HNSW 索引；全部业务关系表统一由 `versioned/` 迁移维护。
 
 ### versioned/ 迁移史概览（按主题） {#_2-1-versioned-迁移史概览-按主题}
 
@@ -110,6 +110,7 @@ migrations/
 | 000137 | `auth_tokens.session_id` 关联一次登录及其刷新轮换；撤销无法安全配对的历史令牌，用户需重新登录，账号和业务数据保留 |
 | 000138 | 扩宽主体标识列宽度并补充组织加入申请索引 |
 | 000139 | 区分 IM 渠道 `im_channel_sessions` 的用户模式与线程模式唯一索引 |
+| 000140 | `sessions.agent_config` 重命名为 `last_request_state`、`messages.{attachments,is_fallback}` 非空默认对齐、剩余 `TIMESTAMP` 统一升级为 `TIMESTAMPTZ` 及补充多租户复合索引 |
 
 SQLite 版本号独立演进，不能与 PostgreSQL 数字一一对应：
 
@@ -146,6 +147,7 @@ SQLite 版本号独立演进，不能与 PostgreSQL 数字一一对应：
 | 000053 | `auth_tokens.session_id` 与历史令牌失效处理（对应 PostgreSQL 000137） |
 | 000054 | 主体与组织关联索引对齐（对应 PostgreSQL 000138） |
 | 000055 | 区分 IM 渠道会话用户模式与线程模式唯一索引（对应 PostgreSQL 000139） |
+| 000056 | `sessions.last_request_state` 重命名、`mcp_oauth_tokens` 主体列非空约束与主体宽度扩至 512 及多租户复合/表达式索引对齐（对应 PostgreSQL 000140） |
 
 PostgreSQL 的 000099、000112、000115、000118、000123、000135 没有 SQLite 对应版本。
 
@@ -190,7 +192,7 @@ v0.8.3 新增的 `model_catalog_configs` 保存部署级管理员覆盖（单行
 
 | 表 | 用途 | 关键字段 |
 | --- | --- | --- |
-| `sessions` | 会话（对话上下文与检索参数快照） | `id`、`tenant_id`、`title`、`knowledge_base_id`、`agent_id`（FK→custom_agents）、`user_id`、`max_rounds`、`enable_rewrite`、`fallback_strategy`/`fallback_response`、`keyword_threshold`/`vector_threshold`、`embedding_top_k`/`rerank_top_k`/`rerank_threshold`、`rerank_model_id`/`summary_model_id`、`agent_config`/`context_config`（JSONB）、`sandbox_config_id`/`sandbox_config_tenant_id`（沙箱配置及其所属空间，0 表示会话自身空间，000108）、`parent_session_id`/`forked_from_message_id`/`fork_bootstrap`（会话分叉，000097；不设外键）、`host_workspace_dir`（Lite 桌面版项目目录，000109） |
+| `sessions` | 会话（对话上下文与检索参数快照） | `id`、`tenant_id`、`title`、`knowledge_base_id`、`agent_id`（FK→custom_agents）、`user_id`、`kind`、`owner_auth_source`、`max_rounds`、`enable_rewrite`、`fallback_strategy`/`fallback_response`、`keyword_threshold`/`vector_threshold`、`embedding_top_k`/`rerank_top_k`/`rerank_threshold`、`rerank_model_id`/`summary_model_id`、`last_request_state`/`context_config`（JSONB，`last_request_state` 于 000140 / SQLite 000056 由 `agent_config` 改名）、`sandbox_config_id`/`sandbox_config_tenant_id`（沙箱配置及其所属空间，0 表示会话自身空间，000108）、`parent_session_id`/`forked_from_message_id`/`fork_bootstrap`（会话分叉，000097；不设外键）、`host_workspace_dir`（Lite 桌面版项目目录，000109） |
 | `messages` | 消息 | `id`、`request_id`、`session_id`（FK）、`role`、`content`/`rendered_content`、`knowledge_references`（JSONB 引用）、`agent_steps`（JSONB，Agent 推理轨迹）、`mentioned_items`/`images`（JSONB）、`is_completed`/`is_fallback`、`channel`（web/IM 渠道）、`agent_id`+`agent_tenant_id`、`model_id`、`knowledge_id`、`agent_duration_ms`、`execution_context`、`attachments`、`used_memories`/`usage`（JSONB）、`sandbox_checkpoint`（分叉点的沙箱检查点，000097）、`context_checkpoint`（Agent 上下文压缩摘要，000105）。`artifacts` 列自 000103 起不再读写且已清空（仅为回滚与滚动升级保留），生成文件见 `message_artifacts` |
 | `message_artifacts` | 技能生成的文件，一行一个（000103） | `session_id`、`message_id`、`position`（消息内序号，即下载接口的 index；与 `message_id` 唯一）、`url`（存储或 resource:// 引用，不返回客户端）、`file_name`/`file_type`/`file_size`、`content_hash`、`source_path`（同会话同路径视为同一文件的多个版本）、`mod_time`（RFC 3339 文本，保留纳秒精度供采集器比对）、`created_at`、`deleted_at`（000107，用户删除文件后保留墓碑行，保持 `position` 稳定且不被重新采集）。消息被软删除时其文件一并隐藏 |
 | `message_suggestion_sets` | 建议问题集（000067） | `tenant_id`、`session_id`、`assistant_message_id`、`placement`（starter/follow_up）、`config_hash`+`locale`（缓存键，唯一）、`status`、`questions`（JSONB）、token/延迟统计、`lease_until` |

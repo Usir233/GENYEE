@@ -47,7 +47,9 @@ func testAuthTokenSessionMigration(t *testing.T, db *sql.DB, dialect string) {
 	require.NoError(t, err)
 	var session string
 	var revoked bool
-	require.NoError(t, tx.QueryRow("SELECT session_id, is_revoked FROM auth_tokens WHERE id = 'new-access'").Scan(&session, &revoked))
+	require.NoError(t, tx.QueryRow(
+		"SELECT session_id, is_revoked FROM auth_tokens WHERE id = 'new-access'",
+	).Scan(&session, &revoked))
 	require.Equal(t, "new-session", session)
 	require.False(t, revoked)
 

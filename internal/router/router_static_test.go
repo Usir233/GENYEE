@@ -47,7 +47,7 @@ func TestNewRouterFrontendStaticEditionOptIn(t *testing.T) {
 			handler.Edition = tc.edition
 			t.Cleanup(func() { handler.Edition = previousEdition })
 
-			r := NewRouter(RouterParams{
+			r := NewRouter(Params{
 				Config:             &config.Config{},
 				SystemHandler:      &handler.SystemHandler{},
 				MCPServer:          &mcpserver.Server{},

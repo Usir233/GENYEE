@@ -1,3 +1,17 @@
+DROP TABLE IF EXISTS message_suggestion_events;
+DROP TABLE IF EXISTS message_suggestion_sets;
+DROP TABLE IF EXISTS sync_logs;
+DROP TABLE IF EXISTS data_sources;
+DROP TABLE IF EXISTS mcp_oauth_tokens;
+DROP TABLE IF EXISTS mcp_oauth_clients;
+DROP TABLE IF EXISTS im_channel_sessions;
+DROP TABLE IF EXISTS im_channels;
+DROP TABLE IF EXISTS embed_channels;
+DROP TABLE IF EXISTS chunk_revisions;
+DROP TABLE IF EXISTS tenant_sandbox_configs;
+DROP TABLE IF EXISTS vector_stores;
+DROP TABLE IF EXISTS web_search_providers;
+DROP TABLE IF EXISTS wiki_log_entries;
 DROP TABLE IF EXISTS tenant_invitations;
 DROP TABLE IF EXISTS tenant_api_keys;
 DROP TABLE IF EXISTS wiki_page_revisions;

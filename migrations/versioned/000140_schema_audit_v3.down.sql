@@ -1,0 +1,74 @@
+-- Rollback: 000140_schema_audit_v3
+
+DROP INDEX IF EXISTS idx_org_join_requests_tenant_status;
+DROP INDEX IF EXISTS idx_chunk_images_tenant_kb;
+DROP INDEX IF EXISTS idx_fork_snapshot_leases_tenant;
+DROP INDEX IF EXISTS idx_wiki_page_revisions_tenant_kb_page;
+DROP INDEX IF EXISTS idx_wiki_folders_tenant_kb;
+DROP INDEX IF EXISTS idx_tenant_skill_snapshots_tenant_config_state;
+DROP INDEX IF EXISTS idx_tenant_skills_tenant_config;
+DROP INDEX IF EXISTS idx_automation_runs_tenant_automation_created;
+DROP INDEX IF EXISTS idx_agent_run_suspensions_tenant_session;
+DROP INDEX IF EXISTS idx_agent_prompts_tenant_user_status;
+DROP INDEX IF EXISTS idx_chunks_tenant_type_enabled;
+DROP INDEX IF EXISTS idx_models_tenant_type_status;
+
+ALTER TABLE web_search_providers
+    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE USING created_at AT TIME ZONE 'UTC',
+    ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE USING updated_at AT TIME ZONE 'UTC',
+    ALTER COLUMN deleted_at TYPE TIMESTAMP WITHOUT TIME ZONE USING deleted_at AT TIME ZONE 'UTC';
+
+ALTER TABLE vector_stores
+    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE USING created_at AT TIME ZONE 'UTC',
+    ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE USING updated_at AT TIME ZONE 'UTC',
+    ALTER COLUMN deleted_at TYPE TIMESTAMP WITHOUT TIME ZONE USING deleted_at AT TIME ZONE 'UTC';
+
+ALTER TABLE temporary_documents
+    ALTER COLUMN expires_at TYPE TIMESTAMP WITHOUT TIME ZONE USING expires_at AT TIME ZONE 'UTC',
+    ALTER COLUMN started_at TYPE TIMESTAMP WITHOUT TIME ZONE USING started_at AT TIME ZONE 'UTC',
+    ALTER COLUMN ready_at TYPE TIMESTAMP WITHOUT TIME ZONE USING ready_at AT TIME ZONE 'UTC',
+    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE USING created_at AT TIME ZONE 'UTC',
+    ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE USING updated_at AT TIME ZONE 'UTC',
+    ALTER COLUMN deleted_at TYPE TIMESTAMP WITHOUT TIME ZONE USING deleted_at AT TIME ZONE 'UTC';
+
+ALTER TABLE storage_backends
+    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE USING created_at AT TIME ZONE 'UTC',
+    ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE USING updated_at AT TIME ZONE 'UTC',
+    ALTER COLUMN deleted_at TYPE TIMESTAMP WITHOUT TIME ZONE USING deleted_at AT TIME ZONE 'UTC';
+
+ALTER TABLE resource_bindings
+    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE USING created_at AT TIME ZONE 'UTC';
+
+ALTER TABLE resources
+    ALTER COLUMN expires_at TYPE TIMESTAMP WITHOUT TIME ZONE USING expires_at AT TIME ZONE 'UTC',
+    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE USING created_at AT TIME ZONE 'UTC',
+    ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE USING updated_at AT TIME ZONE 'UTC',
+    ALTER COLUMN deleted_at TYPE TIMESTAMP WITHOUT TIME ZONE USING deleted_at AT TIME ZONE 'UTC';
+
+ALTER TABLE mcp_tool_approvals
+    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE USING created_at AT TIME ZONE 'UTC',
+    ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE USING updated_at AT TIME ZONE 'UTC';
+
+ALTER TABLE mcp_services
+    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE USING created_at AT TIME ZONE 'UTC',
+    ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE USING updated_at AT TIME ZONE 'UTC',
+    ALTER COLUMN deleted_at TYPE TIMESTAMP WITHOUT TIME ZONE USING deleted_at AT TIME ZONE 'UTC';
+
+ALTER TABLE sync_logs
+    ALTER COLUMN started_at TYPE TIMESTAMP WITHOUT TIME ZONE USING started_at AT TIME ZONE 'UTC',
+    ALTER COLUMN finished_at TYPE TIMESTAMP WITHOUT TIME ZONE USING finished_at AT TIME ZONE 'UTC',
+    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE USING created_at AT TIME ZONE 'UTC',
+    ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE USING updated_at AT TIME ZONE 'UTC';
+
+ALTER TABLE data_sources
+    ALTER COLUMN last_sync_at TYPE TIMESTAMP WITHOUT TIME ZONE USING last_sync_at AT TIME ZONE 'UTC',
+    ALTER COLUMN created_at TYPE TIMESTAMP WITHOUT TIME ZONE USING created_at AT TIME ZONE 'UTC',
+    ALTER COLUMN updated_at TYPE TIMESTAMP WITHOUT TIME ZONE USING updated_at AT TIME ZONE 'UTC',
+    ALTER COLUMN deleted_at TYPE TIMESTAMP WITHOUT TIME ZONE USING deleted_at AT TIME ZONE 'UTC';
+
+ALTER TABLE messages
+    ALTER COLUMN is_fallback DROP NOT NULL,
+    ALTER COLUMN attachments DROP NOT NULL;
+
+ALTER TABLE sessions RENAME COLUMN last_request_state TO agent_config;
+COMMENT ON COLUMN sessions.agent_config IS 'Session-level agent configuration in JSON format';

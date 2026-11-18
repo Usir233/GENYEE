@@ -6,7 +6,7 @@ import (
 	"github.com/Usir233/GENYEE/internal/sandbox/allocation"
 )
 
-func deploymentCapabilitiesFromRouter(params RouterParams) handler.DeploymentCapabilitiesData {
+func deploymentCapabilitiesFromRouter(params Params) handler.DeploymentCapabilitiesData {
 	return handler.BuildDeploymentCapabilities(handler.Edition, handler.DeploymentFeatureAvailability{
 		Organizations: params.OrganizationHandler != nil,
 		Agents:        params.CustomAgentHandler != nil,

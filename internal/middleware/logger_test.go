@@ -80,7 +80,8 @@ func TestSanitizeBody(t *testing.T) {
 		},
 		{
 			name: "OAuth authorization response fields",
-			in:   `{"authorization_url":"https://idp.example/authorize?state=secret","authorization_attempt":"secret-state"}`,
+			in: `{"authorization_url":"https://idp.example/authorize?state=secret",` +
+				`"authorization_attempt":"secret-state"}`,
 			want: `{"authorization_url":"***","authorization_attempt":"***"}`,
 		},
 		{
@@ -288,7 +289,8 @@ func TestSkipsBodyLoggingForSecretRoutes(t *testing.T) {
 }
 
 func TestSanitizeQueryRedactsPresignedSigAndQuerySecrets(t *testing.T) {
-	raw := "expires=1700000000&sig=hmac-secret-hex&signature=s3-sig&api_key=gy_123&apikey=k2&client_secret=cs1&secret=sec9&password=pw9&inline=1"
+	raw := "expires=1700000000&sig=hmac-secret-hex&signature=s3-sig" +
+		"&api_key=gy_123&apikey=k2&client_secret=cs1&secret=sec9&password=pw9&inline=1"
 	got := sanitizeQuery(raw)
 	for _, secret := range []string{"hmac-secret-hex", "s3-sig", "gy_123", "k2", "cs1", "sec9", "pw9"} {
 		if strings.Contains(got, secret) {

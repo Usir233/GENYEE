@@ -208,7 +208,7 @@ func (a *asynqTaskInspector) HasQueuedTasksForKnowledge(
 
 // QueuedKnowledgeIDs scans every cancellable state of every queue once and
 // collects the knowledge IDs its tasks reference.
-func (a *asynqTaskInspector) QueuedKnowledgeIDs(_ context.Context) (map[string]struct{}, error) {
+func (a *asynqTaskInspector) QueuedKnowledgeIDs(ctx context.Context) (map[string]struct{}, error) {
 	out := make(map[string]struct{})
 	if a == nil || a.inspector == nil {
 		return out, nil
@@ -216,6 +216,9 @@ func (a *asynqTaskInspector) QueuedKnowledgeIDs(_ context.Context) (map[string]s
 	for _, queue := range queuesScanned {
 		for _, state := range a.cancellableTaskStates() {
 			for page := 1; ; page++ {
+				if err := ctx.Err(); err != nil {
+					return nil, err
+				}
 				tasks, err := state.list(queue, asynq.PageSize(listPageSize), asynq.Page(page))
 				if err != nil {
 					if isAsynqQueueNotFound(err) {
@@ -340,8 +343,8 @@ func runtimeTaskTime(value time.Time) *time.Time {
 	if value.IsZero() {
 		return nil
 	}
-	copy := value
-	return &copy
+	copied := value
+	return &copied
 }
 
 func runtimePayloadTime(value int64) *time.Time {
@@ -351,13 +354,14 @@ func runtimePayloadTime(value int64) *time.Time {
 	// Payload timestamps in this repository are seconds today. Accept the
 	// common higher-precision Unix forms as well for connector-originated jobs.
 	var parsed time.Time
-	if value > 100_000_000_000_000_000 {
+	switch {
+	case value > 100_000_000_000_000_000:
 		parsed = time.Unix(0, value)
-	} else if value > 100_000_000_000_000 {
+	case value > 100_000_000_000_000:
 		parsed = time.UnixMicro(value)
-	} else if value > 10_000_000_000 {
+	case value > 10_000_000_000:
 		parsed = time.UnixMilli(value)
-	} else {
+	default:
 		parsed = time.Unix(value, 0)
 	}
 	return &parsed
@@ -706,7 +710,7 @@ func (a *asynqTaskInspector) ListRuntimeTasks(
 }
 
 func (a *asynqTaskInspector) GetRuntimeTask(
-	ctx context.Context, queue, taskID string,
+	_ context.Context, queue, taskID string,
 ) (*types.RuntimeTaskInfo, bool, error) {
 	if a == nil || a.inspector == nil {
 		return nil, false, nil
@@ -756,7 +760,7 @@ func (a *asynqTaskInspector) DeleteRuntimeTask(ctx context.Context, queue, taskI
 	return true, a.inspector.DeleteTask(queue, taskID)
 }
 
-func (a *asynqTaskInspector) ForceDeleteRuntimeTask(ctx context.Context, queue, taskID string) (bool, error) {
+func (a *asynqTaskInspector) ForceDeleteRuntimeTask(_ context.Context, queue, taskID string) (bool, error) {
 	if a == nil || a.inspector == nil {
 		return false, nil
 	}
@@ -766,7 +770,7 @@ func (a *asynqTaskInspector) ForceDeleteRuntimeTask(ctx context.Context, queue, 
 // PurgeArchivedRuntimeTasks clears the whole archived (dead-letter) set for one
 // queue. asynq's DeleteAllArchivedTasks scopes strictly to the archived list,
 // so pending/active/scheduled/retry work is never at risk.
-func (a *asynqTaskInspector) PurgeArchivedRuntimeTasks(ctx context.Context, queue string) (int, bool, error) {
+func (a *asynqTaskInspector) PurgeArchivedRuntimeTasks(_ context.Context, queue string) (int, bool, error) {
 	if a == nil || a.inspector == nil {
 		return 0, false, nil
 	}
@@ -778,7 +782,7 @@ func (a *asynqTaskInspector) PurgeArchivedRuntimeTasks(ctx context.Context, queu
 }
 
 func (a *asynqTaskInspector) WorkerServerStats(
-	ctx context.Context,
+	context.Context,
 ) ([]types.WorkerServerStat, bool, error) {
 	if a == nil || a.inspector == nil {
 		return nil, false, nil
@@ -948,7 +952,11 @@ func (a *asynqTaskInspector) deleteCancelledTransitions(ctx context.Context, tas
 			case asynq.TaskStatePending, asynq.TaskStateScheduled, asynq.TaskStateRetry:
 				if err := a.inspector.DeleteTask(ref.queue, ref.id); err != nil {
 					if !errors.Is(err, asynq.ErrTaskNotFound) {
-						logger.Warnf(ctx, "[TaskInspector] delete cancelled transition queue=%s id=%s: %v", ref.queue, ref.id, err)
+						logger.Warnf(
+							ctx,
+							"[TaskInspector] delete cancelled transition queue=%s id=%s: %v",
+							ref.queue, ref.id, err,
+						)
 						next = append(next, ref)
 					}
 					continue
@@ -1019,7 +1027,9 @@ func (a *asynqTaskInspector) processQueueStateMatches(
 				continue
 			}
 			if err := action(task); err != nil {
-				logger.Warnf(ctx, "[TaskInspector] %s %s type=%s id=%s: %v", actionName, state.name, task.Type, task.ID, err)
+				logger.Warnf(
+					ctx, "[TaskInspector] %s %s type=%s id=%s: %v", actionName, state.name, task.Type, task.ID, err,
+				)
 				continue
 			}
 			processed++
@@ -1052,6 +1062,9 @@ func (a *asynqTaskInspector) queueStateHasMatch(
 ) bool {
 	page := 1
 	for {
+		if ctx.Err() != nil {
+			return false
+		}
 		tasks, err := list(queue, asynq.PageSize(listPageSize), asynq.Page(page))
 		if err != nil {
 			if !errors.Is(err, asynq.ErrQueueNotFound) {
@@ -1148,7 +1161,7 @@ type noopTaskInspector struct{}
 func NewNoopTaskInspector() interfaces.TaskInspector { return noopTaskInspector{} }
 
 func (noopTaskInspector) CancelTasksForKnowledge(
-	ctx context.Context, knowledgeID string,
+	context.Context, string,
 ) (int, int, error) {
 	return 0, 0, nil
 }
@@ -1157,7 +1170,7 @@ func (noopTaskInspector) CancelTasksForKnowledge(
 // executors never enqueue, so there is no backlog to protect against and
 // the housekeeping sweep's span/updated_at checks stay authoritative.
 func (noopTaskInspector) HasQueuedTasksForKnowledge(
-	ctx context.Context, knowledgeID string,
+	context.Context, string,
 ) (bool, error) {
 	return false, nil
 }
@@ -1171,7 +1184,7 @@ func (noopTaskInspector) QueuedKnowledgeIDs(context.Context) (map[string]struct{
 // deletes also run inline there, so a stale "deleting" row genuinely has
 // no task left and the delete sweep may recover it.
 func (noopTaskInspector) HasQueuedDeleteTasksForKnowledge(
-	ctx context.Context, knowledgeID string,
+	context.Context, string,
 ) (bool, error) {
 	return false, nil
 }
@@ -1180,13 +1193,13 @@ func (noopTaskInspector) HasQueuedDeleteTasksForKnowledge(
 // asynq backend to inspect, so the runtime dashboard renders an
 // "unavailable in this deployment" state instead of an empty table.
 func (noopTaskInspector) QueueStats(
-	ctx context.Context,
+	context.Context,
 ) ([]types.QueueStat, bool, error) {
 	return nil, false, nil
 }
 
 func (noopTaskInspector) WorkerServerStats(
-	ctx context.Context,
+	context.Context,
 ) ([]types.WorkerServerStat, bool, error) {
 	return nil, false, nil
 }

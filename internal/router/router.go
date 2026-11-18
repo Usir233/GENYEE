@@ -29,8 +29,8 @@ import (
 	_ "github.com/Usir233/GENYEE/docs" // swagger docs
 )
 
-// RouterParams 路由参数
-type RouterParams struct {
+// Params aggregates all dependencies injected into NewRouter via Uber Dig.
+type Params struct {
 	dig.In
 
 	Config                       *config.Config
@@ -103,8 +103,8 @@ type RouterParams struct {
 	OperationDispatcher *operations.HandlerDispatcher
 }
 
-// NewRouter 创建新的路由
-func NewRouter(params RouterParams) *gin.Engine {
+// NewRouter builds and configures the root Gin HTTP engine.
+func NewRouter(params Params) *gin.Engine {
 	r := gin.New()
 	r.ContextWithFallback = true
 	// 清理 FormFile/MultipartForm 解析产生的 multipart 临时文件，避免容器 /tmp 持续增长。
@@ -181,7 +181,9 @@ func NewRouter(params RouterParams) *gin.Engine {
 
 	// Short-lived capability URLs for IM and other clients that cannot attach
 	// GENYEE authentication headers.
-	serveResourceGrants(r, params.ResourceCatalog, params.TenantService, params.FileService, params.StorageBackendResolver)
+	serveResourceGrants(
+		r, params.ResourceCatalog, params.TenantService, params.FileService, params.StorageBackendResolver,
+	)
 
 	// Sandbox terminal WebSocket (self-authenticated via a short-lived
 	// query ticket — see RegisterSandboxTerminalRoutes; browsers cannot set
@@ -194,7 +196,13 @@ func NewRouter(params RouterParams) *gin.Engine {
 	r.POST("/api/v1/local-browser/internal", params.SessionHandler.BrowserSkillInternal)
 
 	// 认证中间件
-	r.Use(middleware.Auth(params.TenantService, params.UserService, params.TenantMemberService, params.TenantAPIKeyService, params.Config))
+	r.Use(middleware.Auth(
+		params.TenantService,
+		params.UserService,
+		params.TenantMemberService,
+		params.TenantAPIKeyService,
+		params.Config,
+	))
 
 	// 文件服务：统一代理本地/MinIO/COS/TOS存储后端（需要认证）
 	serveFilesWithResources(r, params.FileService, params.StorageBackendResolver, params.ResourceCatalog)
@@ -246,7 +254,14 @@ func NewRouter(params RouterParams) *gin.Engine {
 		v1.Use(rbacGuards.apiKeyAuthorizer.Middleware())
 
 		RegisterAuthRoutes(v1, params.AuthHandler, rbacGuards, params.RedisClient)
-		RegisterTenantRoutes(v1, params.TenantHandler, params.TenantMemberHandler, params.TenantInvitationHandler, params.AuditLogHandler, rbacGuards)
+		RegisterTenantRoutes(
+			v1,
+			params.TenantHandler,
+			params.TenantMemberHandler,
+			params.TenantInvitationHandler,
+			params.AuditLogHandler,
+			rbacGuards,
+		)
 		RegisterMyInvitationRoutes(v1, params.TenantInvitationHandler)
 		RegisterKnowledgeBaseRoutes(v1, params.KBHandler, rbacGuards)
 		RegisterImageAttrRoutes(v1, params.KBHandler, rbacGuards)
@@ -301,9 +316,13 @@ func NewRouter(params RouterParams) *gin.Engine {
 		params.SystemHandler.BindDeploymentCapabilities(deploymentCapabilitiesFromRouter(params))
 		RegisterSystemRoutes(v1, params.SystemHandler, rbacGuards)
 		RegisterSystemAdminRoutes(v1, params.SystemHandler, params.AuditLogHandler, rbacGuards)
-		RegisterMCPServiceRoutes(v1, params.MCPServiceHandler, params.MCPCredentialsHandler, params.MCPOAuthHandler, rbacGuards)
+		RegisterMCPServiceRoutes(
+			v1, params.MCPServiceHandler, params.MCPCredentialsHandler, params.MCPOAuthHandler, rbacGuards,
+		)
 		RegisterWebSearchRoutes(v1, params.WebSearchHandler, rbacGuards)
-		RegisterWebSearchProviderRoutes(v1, params.WebSearchProviderHandler, params.WebSearchCredentialsHandler, rbacGuards)
+		RegisterWebSearchProviderRoutes(
+			v1, params.WebSearchProviderHandler, params.WebSearchCredentialsHandler, rbacGuards,
+		)
 		RegisterVectorStoreRoutes(v1, params.VectorStoreHandler, rbacGuards)
 		RegisterStorageBackendRoutes(v1, params.StorageBackendHandler, rbacGuards)
 		RegisterCustomAgentRoutes(v1, params.CustomAgentHandler, rbacGuards)
@@ -362,9 +381,6 @@ func normalizeAllowedCORSOrigin(raw string) (string, bool) {
 
 func buildCORSConfig() cors.Config {
 	rawOrigins := strings.TrimSpace(os.Getenv("GENYEE_CORS_ALLOWED_ORIGINS"))
-	if rawOrigins == "" {
-		rawOrigins = strings.TrimSpace(os.Getenv("CORS_ALLOWED_ORIGINS"))
-	}
 	var allowedOrigins []string
 	hasWildcard := false
 	for _, entry := range strings.Split(rawOrigins, ",") {
@@ -403,7 +419,11 @@ func buildCORSConfig() cors.Config {
 
 func applyTrustedProxies(r *gin.Engine) {
 	if err := r.SetTrustedProxies(trustedProxies()); err != nil {
-		logger.Errorf(context.Background(), "[Router] failed to set trusted proxies, failing closed to direct peer IP: %v", err)
+		logger.Errorf(
+			context.Background(),
+			"[Router] failed to set trusted proxies, failing closed to direct peer IP: %v",
+			err,
+		)
 		_ = r.SetTrustedProxies(nil)
 	}
 }

@@ -253,7 +253,9 @@ func authenticateJWTUser(
 ) bool {
 	ctx := c.Request.Context()
 
-	targetTenantID, tenant, crossTenantSwitch, ok := resolveTargetTenant(c, tenantService, memberService, cfg, user, jwtTenantID)
+	targetTenantID, tenant, crossTenantSwitch, ok := resolveTargetTenant(
+		c, tenantService, memberService, cfg, user, jwtTenantID,
+	)
 	if !ok {
 		return false
 	}
@@ -677,7 +679,8 @@ func resolveAPIPrincipal(
 			ID:   strconv.FormatUint(tenantID, 10) + ":" + externalUserID,
 		}, types.AuthSourceAPIDirectHeader, nil
 	case types.APIPrincipalModeSignedToken:
-		externalUserID, err := verifyExternalUserJWT(header.Get(defaultExternalUserTokenHeader), tenantID, cfg.HMACSecret)
+		rawToken := header.Get(defaultExternalUserTokenHeader)
+		externalUserID, err := verifyExternalUserJWT(rawToken, tenantID, cfg.HMACSecret)
 		if err != nil || externalUserID == "" {
 			logger.Warnf(ctx, "invalid external user token for tenant=%d: %v", tenantID, err)
 			return types.Principal{}, "", fmt.Errorf("%w: %w", errInvalidExternalUserToken, err)
@@ -883,18 +886,18 @@ func resolveTenantRole(
 	if isHomeTenant {
 		hasAny, anyErr := memberService.HasAnyMembers(ctx, targetTenantID)
 		if anyErr == nil && !hasAny {
-			if _, e := memberService.AddMember(
+			_, addErr := memberService.AddMember(
 				ctx, user.ID, targetTenantID, types.TenantRoleOwner, nil,
-			); e == nil {
+			)
+			if addErr == nil {
 				logger.Infof(ctx,
 					"[audit] Auto-promoted user %s to Owner of orphan tenant %d (home_tenant=true)",
 					user.ID, targetTenantID,
 				)
 				return types.TenantRoleOwner, true
-			} else {
-				logger.Warnf(ctx, "Failed to auto-promote user %s in tenant %d: %v",
-					user.ID, targetTenantID, e)
 			}
+			logger.Warnf(ctx, "Failed to auto-promote user %s in tenant %d: %v",
+				user.ID, targetTenantID, addErr)
 		}
 	}
 

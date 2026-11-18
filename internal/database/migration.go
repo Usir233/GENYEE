@@ -15,9 +15,9 @@ import (
 
 	"github.com/Usir233/GENYEE/internal/logger"
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres" // register postgres migration driver
 	sqlite3migrate "github.com/golang-migrate/migrate/v4/database/sqlite3"
-	_ "github.com/golang-migrate/migrate/v4/source/file"
+	_ "github.com/golang-migrate/migrate/v4/source/file" // register file:// migration source
 )
 
 var (
@@ -264,7 +264,7 @@ func RunMigrationsWithOptions(dsn string, opts MigrationOptions) error {
 			return wrapped
 		}
 	}
-	defer m.Close()
+	defer func() { _, _ = m.Close() }()
 
 	// Check current version and dirty state before migration
 	oldVersion, oldDirty, versionErr := m.Version()
@@ -333,7 +333,8 @@ func RunMigrationsWithOptions(dsn string, opts MigrationOptions) error {
 				if retryErr := m.Up(); retryErr != nil && retryErr != migrate.ErrNoChange {
 					safeRetryErr := sanitizeMigrationErr(retryErr, secrets...)
 					logger.Errorf(ctx, "Migration failed after recovery attempt: %v", safeRetryErr)
-					return captureMigrationFailure(m, fmt.Errorf("migration failed after recovery attempt: %w", safeRetryErr), secrets...)
+					wrappedErr := fmt.Errorf("migration failed after recovery attempt: %w", safeRetryErr)
+					return captureMigrationFailure(m, wrappedErr, secrets...)
 				}
 			} else {
 				// Calculate the version to force to (usually the previous version)
@@ -424,24 +425,62 @@ func recoverFromDirtyState(ctx context.Context, m *migrate.Migrate, dirtyVersion
 	return nil
 }
 
-// GetMigrationVersion returns the current migration version
+// GetMigrationVersion returns the current migration version for the configured
+// database driver (DB_DRIVER=postgres or DB_DRIVER=sqlite).
 func GetMigrationVersion() (uint, bool, error) {
+	driverName := strings.ToLower(strings.TrimSpace(os.Getenv("DB_DRIVER")))
+	if driverName == "sqlite" || driverName == "sqlite3" {
+		dbPath := strings.TrimSpace(os.Getenv("DB_PATH"))
+		if dbPath == "" {
+			dbPath = "./data/genyee.db"
+		}
+		sqlDB, err := sql.Open("sqlite3", dbPath)
+		if err != nil {
+			return 0, false, fmt.Errorf("failed to open sqlite db for version check: %w", err)
+		}
+		sqlDB.SetMaxOpenConns(1)
+		driver, err := sqlite3migrate.WithInstance(sqlDB, &sqlite3migrate.Config{})
+		if err != nil {
+			_ = sqlDB.Close()
+			return 0, false, fmt.Errorf("failed to create sqlite3 migrate driver: %w", err)
+		}
+		m, err := migrate.NewWithDatabaseInstance("file://migrations/sqlite", "sqlite3", driver)
+		if err != nil {
+			_ = driver.Close()
+			_ = sqlDB.Close()
+			return 0, false, fmt.Errorf("failed to create migrate instance: %w", err)
+		}
+		defer func() { _, _ = m.Close() }()
+
+		version, dirty, err := m.Version()
+		if err != nil {
+			return 0, false, err
+		}
+		return version, dirty, nil
+	}
+
 	dbUser := strings.TrimRight(os.Getenv("DB_USER"), "\r\n")
 	dbPass := os.Getenv("DB_PASSWORD")
 	dbHost := strings.TrimSpace(os.Getenv("DB_HOST"))
 	dbPort := strings.TrimSpace(os.Getenv("DB_PORT"))
 	dbName := strings.TrimSpace(os.Getenv("DB_NAME"))
+	sslMode := strings.TrimSpace(os.Getenv("DB_SSLMODE"))
+	if sslMode == "" {
+		sslMode = "disable"
+	}
 
 	host := dbHost
 	if dbPort != "" {
 		host = net.JoinHostPort(dbHost, dbPort)
 	}
+	query := url.Values{}
+	query.Set("sslmode", sslMode)
 	u := &url.URL{
 		Scheme:   "postgres",
 		User:     url.UserPassword(dbUser, dbPass),
 		Host:     host,
 		Path:     "/" + strings.TrimPrefix(dbName, "/"),
-		RawQuery: "sslmode=disable",
+		RawQuery: query.Encode(),
 	}
 	dbURL := u.String()
 	secrets := extractDSNSecrets(dbURL, dbPass)
@@ -453,7 +492,7 @@ func GetMigrationVersion() (uint, bool, error) {
 		safeErr := sanitizeMigrationErr(err, secrets...)
 		return 0, false, fmt.Errorf("failed to create migrate instance: %w", safeErr)
 	}
-	defer m.Close()
+	defer func() { _, _ = m.Close() }()
 
 	version, dirty, err := m.Version()
 	if err != nil {

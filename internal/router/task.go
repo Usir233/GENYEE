@@ -22,6 +22,7 @@ import (
 	"go.uber.org/dig"
 )
 
+// AsynqTaskParams aggregates worker pools and task handlers for RunAsynqServer.
 type AsynqTaskParams struct {
 	dig.In
 
@@ -93,11 +94,12 @@ func getAsynqRedisClientOpt() *asynq.RedisClientOpt {
 	return opt
 }
 
+// NewAsyncqClient creates and pings an Asynq Redis client.
 func NewAsyncqClient() (*asynq.Client, error) {
 	opt := getAsynqRedisClientOpt()
 	client := asynq.NewClient(opt)
-	err := client.Ping()
-	if err != nil {
+	if err := client.Ping(); err != nil {
+		_ = client.Close()
 		return nil, err
 	}
 	return client, nil
@@ -227,6 +229,7 @@ func NewWikiAsynqServer(svc interfaces.SystemSettingService) *asynq.Server {
 	return newAsynqServer(concurrency, types.QueueWeightsForPool(types.WorkerPoolWiki))
 }
 
+// RunAsynqServer registers all background task handlers and starts every worker pool.
 func RunAsynqServer(params AsynqTaskParams) *asynq.ServeMux {
 	// Create a new mux and register all handlers
 	mux := asynq.NewServeMux()
@@ -323,6 +326,9 @@ func RunAsynqServer(params AsynqTaskParams) *asynq.ServeMux {
 	// Run the same mux on every pool. Shared and dedicated servers intentionally
 	// overlap, but Redis dequeue is atomic, so each task still executes once.
 	runPool := func(name string, srv *asynq.Server) {
+		if srv == nil {
+			return
+		}
 		go func() {
 			if err := srv.Run(mux); err != nil {
 				log.Fatalf("could not run %s asynq server: %v", name, err)
@@ -512,13 +518,23 @@ func markKnowledgeListDeleteFailed(
 			},
 		)
 		if err != nil {
-			logger.Warnf(ctx, "dead-letter callback: failed to mark delete failure for knowledge %s: %v", knowledgeID, err)
+			logger.Warnf(
+				ctx, "dead-letter callback: failed to mark delete failure for knowledge %s: %v", knowledgeID, err,
+			)
 			continue
 		}
 		if !updated {
-			logger.Infof(ctx, "dead-letter callback: skipped marking knowledge %s after delete task exhaustion because it is no longer active deleting", knowledgeID)
+			logger.Infof(
+				ctx,
+				"dead-letter callback: skipped marking knowledge %s after delete task exhaustion (not active deleting)",
+				knowledgeID,
+			)
 			continue
 		}
-		logger.Infof(ctx, "dead-letter callback: marked knowledge %s as failed after delete task exhausted retries", knowledgeID)
+		logger.Infof(
+			ctx,
+			"dead-letter callback: marked knowledge %s as failed after delete task exhausted retries",
+			knowledgeID,
+		)
 	}
 }

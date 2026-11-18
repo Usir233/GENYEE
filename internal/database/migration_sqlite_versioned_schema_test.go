@@ -70,6 +70,7 @@ var versionedSQLiteColumns = map[string][]string{
 		"sandbox_config_tenant_id", // 000027
 		"host_workspace_dir",       // 000029
 		"owner_auth_source",        // 000046
+		"last_request_state",       // 000056
 	},
 	"session_sandbox_assignments": {"released_at", "cleanup_due_at"},    // 000047
 	"tenant_invitations":          {"token", "accepted_count"},          // 000054
@@ -89,7 +90,7 @@ var versionedSQLiteColumns = map[string][]string{
 	}, // 000028
 }
 
-const expectedSQLiteMigrationVersion = 55
+const expectedSQLiteMigrationVersion = 56
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)
@@ -337,19 +338,23 @@ func assertSQLiteAgentHistoryQueriesUseTheIndex(t *testing.T, db *sql.DB) {
 			AND context_checkpoint IS NOT NULL AND deleted_at IS NULL
 			ORDER BY created_at DESC, id DESC LIMIT 1`,
 	} {
-		rows, err := db.Query("EXPLAIN QUERY PLAN " + query)
-		require.NoError(t, err, name)
-		var plan strings.Builder
-		for rows.Next() {
-			var id, parent, unused int
-			var detail string
-			require.NoError(t, rows.Scan(&id, &parent, &unused, &detail), name)
-			plan.WriteString(detail + "\n")
-		}
-		require.NoError(t, rows.Err(), name)
-		require.NoError(t, rows.Close(), name)
-		require.Contains(t, plan.String(), "idx_messages_session_created_id", "%s plan:\n%s", name, plan.String())
-		require.NotContains(t, plan.String(), "TEMP B-TREE", "%s must not sort:\n%s", name, plan.String())
+		func(planName, q string) {
+			rows, err := db.Query("EXPLAIN QUERY PLAN " + q)
+			require.NoError(t, err, planName)
+			defer func() { require.NoError(t, rows.Close(), planName) }()
+			var plan strings.Builder
+			for rows.Next() {
+				var id, parent, unused int
+				var detail string
+				require.NoError(t, rows.Scan(&id, &parent, &unused, &detail), planName)
+				plan.WriteString(detail + "\n")
+			}
+			require.NoError(t, rows.Err(), planName)
+			require.Contains(
+				t, plan.String(), "idx_messages_session_created_id", "%s plan:\n%s", planName, plan.String(),
+			)
+			require.NotContains(t, plan.String(), "TEMP B-TREE", "%s must not sort:\n%s", planName, plan.String())
+		}(name, query)
 	}
 }
 

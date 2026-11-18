@@ -47,9 +47,10 @@ func (p APIKeyRoutePolicy) WithCapability(c types.APIKeyCapability) APIKeyRouteP
 	}
 	// Copy the slice so mutating the returned policy never aliases the
 	// receiver's backing array.
-	next := make([]types.APIKeyCapability, len(p.Capabilities), len(p.Capabilities)+1)
+	next := make([]types.APIKeyCapability, len(p.Capabilities)+1)
 	copy(next, p.Capabilities)
-	p.Capabilities = append(next, c)
+	next[len(p.Capabilities)] = c
+	p.Capabilities = next
 	return p
 }
 
@@ -141,8 +142,8 @@ func (a *APIKeyRouteAuthorizer) authorize(scope types.TenantAPIKeyScope, method,
 	if scope.FullAccess {
 		return nil
 	}
-	for _, cap := range policy.Capabilities {
-		if cap != "" && scope.HasCapability(cap) {
+	for _, capability := range policy.Capabilities {
+		if capability != "" && scope.HasCapability(capability) {
 			return nil
 		}
 	}

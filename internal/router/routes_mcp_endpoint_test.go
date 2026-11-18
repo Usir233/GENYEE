@@ -101,7 +101,7 @@ func TestPublishedMCPRouteProtocolAndAuthorization(t *testing.T) {
 	t.Setenv("LOCAL_STORAGE_BASE_DIR", t.TempDir())
 	srv := mcpserver.NewServer(&protocolKBService{}, nil, nil, &protocolWikiService{}, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil, nil, nil, nil)
-	r := NewRouter(RouterParams{
+	r := NewRouter(Params{
 		Config: &config.Config{Tenant: &config.TenantConfig{}}, SystemHandler: &handler.SystemHandler{},
 		MCPServer: srv, MCPEndpointService: &protocolEndpointService{}, TenantService: &protocolTenantService{},
 	})
@@ -247,7 +247,7 @@ func TestPublishedMCPRouteProtocolAndAuthorization(t *testing.T) {
 func TestMCPModernHeadersPreflight(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("LOCAL_STORAGE_BASE_DIR", t.TempDir())
-	r := NewRouter(RouterParams{
+	r := NewRouter(Params{
 		Config: &config.Config{Tenant: &config.TenantConfig{}}, SystemHandler: &handler.SystemHandler{},
 	})
 	req := httptest.NewRequest(http.MethodOptions, "/mcp/ep-1", nil)
@@ -321,7 +321,7 @@ func TestMCPServerRoutesAreMountedAndReported(t *testing.T) {
 		}
 	}
 
-	params := RouterParams{
+	params := Params{
 		MCPEndpointHandler: handler.NewMCPEndpointHandler(nil),
 		MCPEndpointService: &stubMCPEndpointServiceForRoutes{},
 		MCPServer:          srv,

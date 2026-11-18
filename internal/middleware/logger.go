@@ -702,10 +702,11 @@ func Logger() gin.HandlerFunc {
 		responseBodyStr := ""
 		if responseBody.Len() > 0 {
 			contentType := c.Writer.Header().Get("Content-Type")
-			if strings.Contains(contentType, "text/event-stream") {
+			switch {
+			case strings.Contains(contentType, "text/event-stream"):
 				responseBodyStr = "[SSE流式响应，已跳过]"
-			} else if strings.Contains(contentType, "application/json") ||
-				strings.Contains(contentType, "text/") {
+			case strings.Contains(contentType, "application/json") ||
+				strings.Contains(contentType, "text/"):
 				bodyBytes := responseBody.Bytes()
 				if len(bodyBytes) >= maxBodySize {
 					responseBodyStr = bodyTruncatedMarker
@@ -713,7 +714,7 @@ func Logger() gin.HandlerFunc {
 					responseBodyStr = string(bodyBytes)
 				}
 				responseBodyStr = sanitizeBody(responseBodyStr)
-			} else {
+			default:
 				responseBodyStr = "[非文本类型，已跳过]"
 			}
 		}

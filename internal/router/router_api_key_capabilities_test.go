@@ -70,8 +70,16 @@ func TestPlatformControlPlaneRoutesDeclarePlatformCapabilities(t *testing.T) {
 			http.MethodPost, "/api/v1/system/admin/runtime/documents/wiki-start",
 			types.APIKeyCapabilitySystemRuntimeManage,
 		},
-		{http.MethodPost, "/api/v1/system/admin/runtime/queues/:queue/tasks/:task_id/actions/:action", types.APIKeyCapabilitySystemRuntimeManage},
-		{http.MethodDelete, "/api/v1/system/admin/runtime/queues/:queue/archived", types.APIKeyCapabilitySystemRuntimeManage},
+		{
+			http.MethodPost,
+			"/api/v1/system/admin/runtime/queues/:queue/tasks/:task_id/actions/:action",
+			types.APIKeyCapabilitySystemRuntimeManage,
+		},
+		{
+			http.MethodDelete,
+			"/api/v1/system/admin/runtime/queues/:queue/archived",
+			types.APIKeyCapabilitySystemRuntimeManage,
+		},
 	}
 	for _, tc := range cases {
 		policy := mustLookupAPIKeyPolicy(t, g, tc.method, tc.path)
@@ -351,8 +359,12 @@ func TestTenantInfrastructureRoutesDeclareSpecificCapabilities(t *testing.T) {
 	RegisterModelRoutes(v1, &handler.ModelHandler{}, &handler.ModelCredentialsHandler{}, g)
 	RegisterEvaluationRoutes(v1, &handler.EvaluationHandler{}, g)
 	RegisterSystemRoutes(v1, &handler.SystemHandler{}, g)
-	RegisterMCPServiceRoutes(v1, &handler.MCPServiceHandler{}, &handler.MCPCredentialsHandler{}, &handler.MCPOAuthHandler{}, g)
-	RegisterWebSearchProviderRoutes(v1, &handler.WebSearchProviderHandler{}, &handler.WebSearchProviderCredentialsHandler{}, g)
+	RegisterMCPServiceRoutes(
+		v1, &handler.MCPServiceHandler{}, &handler.MCPCredentialsHandler{}, &handler.MCPOAuthHandler{}, g,
+	)
+	RegisterWebSearchProviderRoutes(
+		v1, &handler.WebSearchProviderHandler{}, &handler.WebSearchProviderCredentialsHandler{}, g,
+	)
 	RegisterVectorStoreRoutes(v1, &handler.VectorStoreHandler{}, g)
 	RegisterStorageBackendRoutes(v1, &handler.StorageBackendHandler{}, g)
 	RegisterSandboxConfigRoutes(v1, &handler.SandboxConfigHandler{}, &handler.SandboxSkillHandler{}, g)
@@ -485,7 +497,9 @@ func TestTenantMemberRoutesDeclareManageMembersCapability(t *testing.T) {
 	g := &rbacGuards{}
 	v1 := gin.New().Group("/api/v1")
 
-	RegisterTenantRoutes(v1, &handler.TenantHandler{}, &handler.TenantMemberHandler{}, &handler.TenantInvitationHandler{}, nil, g)
+	RegisterTenantRoutes(
+		v1, &handler.TenantHandler{}, &handler.TenantMemberHandler{}, &handler.TenantInvitationHandler{}, nil, g,
+	)
 
 	cases := []struct {
 		method string
@@ -728,9 +742,9 @@ func mustLookupAPIKeyPolicy(
 	return policy
 }
 
-func policyHasCapability(policy middleware.APIKeyRoutePolicy, cap types.APIKeyCapability) bool {
+func policyHasCapability(policy middleware.APIKeyRoutePolicy, capability types.APIKeyCapability) bool {
 	for _, got := range policy.Capabilities {
-		if got == cap {
+		if got == capability {
 			return true
 		}
 	}

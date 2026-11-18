@@ -55,7 +55,9 @@ func TestReadRequestBodyRedactsFormUrlencodedSecrets(t *testing.T) {
 
 	// Malformed percent-encoding in form body fails closed.
 	cBad, _ := gin.CreateTestContext(httptest.NewRecorder())
-	cBad.Request = httptest.NewRequest(http.MethodPost, "/api/v1/mcp-services/callback", strings.NewReader("client_secret=%ZZbad"))
+	cBad.Request = httptest.NewRequest(
+		http.MethodPost, "/api/v1/mcp-services/callback", strings.NewReader("client_secret=%ZZbad"),
+	)
 	cBad.Request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if badGot := readRequestBody(cBad); badGot != "[invalid form body omitted]" {
 		t.Fatalf("malformed form body = %q, want [invalid form body omitted]", badGot)

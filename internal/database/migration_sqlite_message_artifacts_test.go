@@ -68,6 +68,7 @@ func TestSQLiteMessageArtifactsBackfillAndRollback(t *testing.T) {
 		 FROM message_artifacts WHERE message_id = 'msg-1' ORDER BY position`,
 	)
 	require.NoError(t, err)
+	defer func() { require.NoError(t, rows.Close()) }()
 	var got []row
 	for rows.Next() {
 		var r row
@@ -75,7 +76,6 @@ func TestSQLiteMessageArtifactsBackfillAndRollback(t *testing.T) {
 		got = append(got, r)
 	}
 	require.NoError(t, rows.Err())
-	require.NoError(t, rows.Close())
 
 	require.Len(t, got, 2)
 	require.Equal(t, 0, got[0].position)

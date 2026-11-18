@@ -1,3 +1,5 @@
+ALTER TABLE messages DROP COLUMN used_memories;
+ALTER TABLE tenants DROP COLUMN memory_config;
 DROP TABLE IF EXISTS memory_item_embeddings;
 DROP INDEX IF EXISTS idx_mem_affinity_scope;
 DROP TABLE IF EXISTS memory_doc_affinity;

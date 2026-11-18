@@ -16,6 +16,9 @@ func ErrorHandler() gin.HandlerFunc {
 
 		// 检查是否有错误
 		if len(c.Errors) > 0 {
+			if c.Writer.Written() {
+				return
+			}
 			// 获取最后一个错误
 			err := c.Errors.Last().Err
 

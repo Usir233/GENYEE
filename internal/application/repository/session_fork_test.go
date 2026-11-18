@@ -386,3 +386,30 @@ func TestForkSnapshotLeaseRoundTripAndStaleListing(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, got)
 }
+
+func TestUnconsumedForkSnapshotQueryToleratesMalformedSQLiteJSON(t *testing.T) {
+	repo, db := newSessionRepositoryForForkTest(t)
+	ctx := context.Background()
+
+	valid := &types.Session{
+		ID: "valid-fork", TenantID: 1, UserID: "u1", Title: "valid",
+		ForkBootstrap: &types.ForkBootstrap{
+			SnapshotID: "snap-safe", CommitSHA: "sha", SourceSandboxID: "sbx",
+			CreatedAt: time.Now().UTC(),
+		},
+	}
+	malformed := &types.Session{ID: "empty-json-fork", TenantID: 1, UserID: "u1", Title: "malformed"}
+	require.NoError(t, repo.CreateForked(ctx, valid, nil))
+	require.NoError(t, repo.CreateForked(ctx, malformed, nil))
+	require.NoError(t, db.Exec(
+		"UPDATE sessions SET fork_bootstrap = '' WHERE id = 'empty-json-fork'",
+	).Error)
+
+	hasOther, err := repo.HasOtherUnconsumedForkSnapshot(ctx, "snap-safe", "empty-json-fork")
+	require.NoError(t, err)
+	require.True(t, hasOther)
+
+	holders, err := repo.UnconsumedForkSnapshotHolders(ctx, "snap-safe")
+	require.NoError(t, err)
+	require.Equal(t, []string{"valid-fork"}, holders)
+}

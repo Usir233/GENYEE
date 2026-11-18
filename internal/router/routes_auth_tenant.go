@@ -81,15 +81,31 @@ func RegisterTenantRoutes(
 		// 创建空间不对 API key 开放（注册在原始 group，默认拒绝）。
 		g.apiKeyRoute(tenantRoutes, http.MethodPost, "",
 			apiKeyPlatform(types.APIKeyCapabilitySystemTenantsManage), handler.CreateTenant)
-		g.apiKeyRoute(tenantRoutes, http.MethodGet, "", apiKeyManageTenantSettings(apiKeyFullAccess()), handler.ListTenants)
+		g.apiKeyRoute(
+			tenantRoutes, http.MethodGet, "", apiKeyManageTenantSettings(apiKeyFullAccess()), handler.ListTenants,
+		)
 
 		// Generic KV configuration management (tenant-level). Tenant ID
 		// is obtained from authentication context; the URL :key is a
 		// config key, not a tenant ID, so these stay outside the
 		// PathTenantMatch group. Tenant-level surface: full-access keys may
 		// call it, and scoped keys need manage_tenant_settings.
-		g.apiKeyRoute(tenantRoutes, http.MethodGet, "/kv/:key", apiKeyManageTenantSettings(apiKeyFullAccess()), g.Viewer(), handler.GetTenantKV)
-		g.apiKeyRoute(tenantRoutes, http.MethodPut, "/kv/:key", apiKeyManageTenantSettings(apiKeyFullAccess()), g.Admin(), handler.UpdateTenantKV)
+		g.apiKeyRoute(
+			tenantRoutes,
+			http.MethodGet,
+			"/kv/:key",
+			apiKeyManageTenantSettings(apiKeyFullAccess()),
+			g.Viewer(),
+			handler.GetTenantKV,
+		)
+		g.apiKeyRoute(
+			tenantRoutes,
+			http.MethodPut,
+			"/kv/:key",
+			apiKeyManageTenantSettings(apiKeyFullAccess()),
+			g.Admin(),
+			handler.UpdateTenantKV,
+		)
 
 		// Per-tenant endpoints share PathTenantMatch at the group level.
 		// Most /tenants/:id/* endpoints stay undeclared for API keys by
@@ -120,10 +136,38 @@ func RegisterTenantRoutes(
 			// their own; the service still rejects when it would leave
 			// the tenant without an Owner.
 			if memberHandler != nil {
-				g.apiKeyRoute(tenantByID, http.MethodGet, "/members", apiKeyManageMembers(apiKeyFullAccess()), g.Viewer(), memberHandler.ListMembers)
-				g.apiKeyRoute(tenantByID, http.MethodPost, "/members", apiKeyManageMembers(apiKeyFullAccess()), g.Owner(), memberHandler.AddMember)
-				g.apiKeyRoute(tenantByID, http.MethodPut, "/members/:user_id", apiKeyManageMembers(apiKeyFullAccess()), g.Owner(), memberHandler.UpdateMemberRole)
-				g.apiKeyRoute(tenantByID, http.MethodDelete, "/members/:user_id", apiKeyManageMembers(apiKeyFullAccess()), g.Owner(), memberHandler.RemoveMember)
+				g.apiKeyRoute(
+					tenantByID,
+					http.MethodGet,
+					"/members",
+					apiKeyManageMembers(apiKeyFullAccess()),
+					g.Viewer(),
+					memberHandler.ListMembers,
+				)
+				g.apiKeyRoute(
+					tenantByID,
+					http.MethodPost,
+					"/members",
+					apiKeyManageMembers(apiKeyFullAccess()),
+					g.Owner(),
+					memberHandler.AddMember,
+				)
+				g.apiKeyRoute(
+					tenantByID,
+					http.MethodPut,
+					"/members/:user_id",
+					apiKeyManageMembers(apiKeyFullAccess()),
+					g.Owner(),
+					memberHandler.UpdateMemberRole,
+				)
+				g.apiKeyRoute(
+					tenantByID,
+					http.MethodDelete,
+					"/members/:user_id",
+					apiKeyManageMembers(apiKeyFullAccess()),
+					g.Owner(),
+					memberHandler.RemoveMember,
+				)
 				tenantByID.POST("/leave", g.Viewer(), memberHandler.LeaveTenant)
 			}
 
@@ -137,14 +181,42 @@ func RegisterTenantRoutes(
 			// mirrors memberHandler above for environments built
 			// without the invitation dependency wired.
 			if invitationHandler != nil {
-				g.apiKeyRoute(tenantByID, http.MethodGet, "/invitations", apiKeyManageMembers(apiKeyFullAccess()), g.Viewer(), invitationHandler.ListTenantInvitations)
-				g.apiKeyRoute(tenantByID, http.MethodPost, "/invitations", apiKeyManageMembers(apiKeyFullAccess()), g.Owner(), invitationHandler.CreateInvitation)
-				g.apiKeyRoute(tenantByID, http.MethodDelete, "/invitations/:inv_id", apiKeyManageMembers(apiKeyFullAccess()), g.Owner(), invitationHandler.RevokeInvitation)
+				g.apiKeyRoute(
+					tenantByID,
+					http.MethodGet,
+					"/invitations",
+					apiKeyManageMembers(apiKeyFullAccess()),
+					g.Viewer(),
+					invitationHandler.ListTenantInvitations,
+				)
+				g.apiKeyRoute(
+					tenantByID,
+					http.MethodPost,
+					"/invitations",
+					apiKeyManageMembers(apiKeyFullAccess()),
+					g.Owner(),
+					invitationHandler.CreateInvitation,
+				)
+				g.apiKeyRoute(
+					tenantByID,
+					http.MethodDelete,
+					"/invitations/:inv_id",
+					apiKeyManageMembers(apiKeyFullAccess()),
+					g.Owner(),
+					invitationHandler.RevokeInvitation,
+				)
 				// Share-link create lives under /invite-links so the URL
 				// reads as "create a link" rather than another flavour
 				// of /invitations; the underlying row still lives in the
 				// tenant_invitations table and shows up in the GET above.
-				g.apiKeyRoute(tenantByID, http.MethodPost, "/invite-links", apiKeyManageMembers(apiKeyFullAccess()), g.Owner(), invitationHandler.CreateInviteLink)
+				g.apiKeyRoute(
+					tenantByID,
+					http.MethodPost,
+					"/invite-links",
+					apiKeyManageMembers(apiKeyFullAccess()),
+					g.Owner(),
+					invitationHandler.CreateInviteLink,
+				)
 			}
 
 			// Audit log feed (PR 6 of #1303). Admin+ so denied-action

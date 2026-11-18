@@ -25,15 +25,29 @@ func TestMatchesKnowledgeBase(t *testing.T) {
 		payload  string
 		want     bool
 	}{
-		{name: "knowledge base id", taskType: types.TypeDocumentProcess, payload: `{"knowledge_base_id":"kb-1"}`, want: true},
+		{
+			name:     "knowledge base id",
+			taskType: types.TypeDocumentProcess,
+			payload:  `{"knowledge_base_id":"kb-1"}`,
+			want:     true,
+		},
 		{name: "legacy kb id", taskType: types.TypeFAQImport, payload: `{"kb_id":"kb-1"}`, want: true},
 		{name: "clone source", taskType: types.TypeKBClone, payload: `{"source_id":"kb-1"}`, want: true},
 		{name: "clone target", taskType: types.TypeKBClone, payload: `{"target_id":"kb-1"}`, want: true},
 		{name: "source id is task specific", taskType: types.TypeDocumentProcess, payload: `{"source_id":"kb-1"}`},
 		{name: "move source", taskType: types.TypeKnowledgeMove, payload: `{"source_kb_id":"kb-1"}`, want: true},
 		{name: "move target", taskType: types.TypeKnowledgeMove, payload: `{"target_kb_id":"kb-1"}`, want: true},
-		{name: "move fields are task specific", taskType: types.TypeDocumentProcess, payload: `{"source_kb_id":"kb-1"}`},
-		{name: "single knowledge", taskType: types.TypeChunkExtract, payload: `{"knowledge_id":"knowledge-1"}`, want: true},
+		{
+			name:     "move fields are task specific",
+			taskType: types.TypeDocumentProcess,
+			payload:  `{"source_kb_id":"kb-1"}`,
+		},
+		{
+			name:     "single knowledge",
+			taskType: types.TypeChunkExtract,
+			payload:  `{"knowledge_id":"knowledge-1"}`,
+			want:     true,
+		},
 		{
 			name:     "knowledge collection",
 			taskType: types.TypeKnowledgeListReparse,
@@ -47,7 +61,11 @@ func TestMatchesKnowledgeBase(t *testing.T) {
 		},
 		{name: "malformed payload", taskType: types.TypeDocumentProcess, payload: `{`},
 		{name: "preserve kb delete by kb", taskType: types.TypeKBDelete, payload: `{"knowledge_base_id":"kb-1"}`},
-		{name: "preserve kb delete by knowledge", taskType: types.TypeKBDelete, payload: `{"knowledge_id":"knowledge-1"}`},
+		{
+			name:     "preserve kb delete by knowledge",
+			taskType: types.TypeKBDelete,
+			payload:  `{"knowledge_id":"knowledge-1"}`,
+		},
 		{name: "preserve index delete by kb", taskType: types.TypeIndexDelete, payload: `{"knowledge_base_id":"kb-1"}`},
 		{
 			name: "preserve index delete by knowledge", taskType: types.TypeIndexDelete,

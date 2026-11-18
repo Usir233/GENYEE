@@ -13,6 +13,7 @@ import (
 // FallbackStrategy represents the fallback strategy type
 type FallbackStrategy string
 
+// FallbackStrategy values enumerate supported fallback behaviors.
 const (
 	FallbackStrategyFixed FallbackStrategy = "fixed" // Fixed response
 	FallbackStrategyModel FallbackStrategy = "model" // Model fallback response
@@ -116,9 +117,8 @@ type Session struct {
 	// session sent a question (agent, model, KB scope, web search, MCPs).
 	// Persisted on every successful POST to /knowledge-chat or /agent-chat so
 	// that reopening the session can restore the original request context to
-	// the chat UI. Stored in the legacy sessions.agent_config JSONB column to
-	// avoid a new migration; the shape used today is `SessionLastRequestState`.
-	LastRequestState *SessionLastRequestState `json:"last_request_state,omitempty" gorm:"column:agent_config;type:jsonb"`
+	// the chat UI.
+	LastRequestState *SessionLastRequestState `json:"last_request_state,omitempty" gorm:"column:last_request_state;type:jsonb"` //nolint:lll // one-line struct tag
 
 	// SandboxConfigID pins which sandbox config this session's CURRENT live
 	// sandbox was created on. Empty means no live sandbox;
@@ -166,23 +166,6 @@ type Session struct {
 	// already provisioned. See types.ForkBootstrap.
 	ForkBootstrap *ForkBootstrap `json:"-" gorm:"type:jsonb;column:fork_bootstrap"`
 
-	// // Strategy configuration
-	// KnowledgeBaseID   string              `json:"knowledge_base_id"`                    // 关联的知识库ID
-	// MaxRounds         int                 `json:"max_rounds"`                           // 多轮保持轮数
-	// EnableRewrite     bool                `json:"enable_rewrite"`                       // 多轮改写开关
-	// FallbackStrategy  FallbackStrategy    `json:"fallback_strategy"`                    // 兜底策略
-	// FallbackResponse  string              `json:"fallback_response"`                    // 固定回复内容
-	// EmbeddingTopK     int                 `json:"embedding_top_k"`                      // 向量召回TopK
-	// KeywordThreshold  float64             `json:"keyword_threshold"`                    // 关键词召回阈值
-	// VectorThreshold   float64             `json:"vector_threshold"`                     // 向量召回阈值
-	// RerankModelID     string              `json:"rerank_model_id"`                      // 排序模型ID
-	// RerankTopK        int                 `json:"rerank_top_k"`                         // 排序TopK
-	// RerankThreshold   float64             `json:"rerank_threshold"`                     // 排序阈值
-	// SummaryModelID    string              `json:"summary_model_id"`                     // 总结模型ID
-	// SummaryParameters *SummaryConfig      `json:"summary_parameters" gorm:"type:json"`  // 总结模型参数
-	// AgentConfig       *SessionAgentConfig `json:"agent_config"       gorm:"type:jsonb"` // Agent 配置（会话级别，仅存储enabled和knowledge_bases）
-	// ContextConfig     *ContextConfig      `json:"context_config"     gorm:"type:jsonb"` // 上下文管理配置（可选）
-
 	CreatedAt time.Time      `json:"created_at" extensions:"x-agent,x-agent-response"`
 	UpdatedAt time.Time      `json:"updated_at" extensions:"x-agent,x-agent-response"`
 	DeletedAt gorm.DeletedAt `json:"deleted_at" gorm:"index"`
@@ -197,7 +180,8 @@ type Session struct {
 	Messages []Message `json:"-" gorm:"foreignKey:SessionID"`
 }
 
-func (s *Session) BeforeCreate(tx *gorm.DB) (err error) {
+// BeforeCreate populates a fresh UUID primary key on a newly created session.
+func (s *Session) BeforeCreate(_ *gorm.DB) (err error) {
 	s.ID = uuid.New().String()
 	return nil
 }

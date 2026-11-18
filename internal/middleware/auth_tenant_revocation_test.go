@@ -43,7 +43,14 @@ func TestAuthRevalidatesForeignTenantClaims(t *testing.T) {
 				if tc.member {
 					members.seedActive("alice", 42, types.TenantRoleViewer)
 				}
-				users := &tenantClaimUserService{user: &types.User{ID: "alice", TenantID: 7, IsActive: true, CanAccessAllTenants: tc.superuser}}
+				users := &tenantClaimUserService{
+					user: &types.User{
+						ID:                  "alice",
+						TenantID:            7,
+						IsActive:            true,
+						CanAccessAllTenants: tc.superuser,
+					},
+				}
 				r := gin.New()
 				r.Use(Auth(&fakeTenantService{tenant: &types.Tenant{ID: 42}}, users, members, nil, cfg))
 				reached := false
@@ -96,7 +103,9 @@ func TestAuthRejectsInactiveWorkspaceWhileAllowingTenantlessEscapeAndSuperuser(t
 			})
 			r.GET("/api/v1/auth/me", func(c *gin.Context) {
 				if _, hasTenant := types.TenantIDFromContext(c.Request.Context()); hasTenant {
-					t.Error("expected tenantless fallback context on /api/v1/auth/me when default workspace is inactive")
+					t.Error(
+						"expected tenantless fallback context on /api/v1/auth/me when default workspace is inactive",
+					)
 				}
 				c.Status(http.StatusOK)
 			})

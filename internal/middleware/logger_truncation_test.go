@@ -20,7 +20,8 @@ func TestLoggerTruncationCannotExposePartialCredentials(t *testing.T) {
 	for _, response := range []bool{false, true} {
 		t.Run(map[bool]string{false: "request", true: "response"}[response], func(t *testing.T) {
 			const secret = "fixture-credential-0123456789abcdef"
-			prefix := `{"name":"` + strings.Repeat("a", maxBodySize-len(`{"name":"","config":{"secret_access_key":"`)-len("fixture-credential")) + `","config":{"secret_access_key":"`
+			padLen := maxBodySize - len(`{"name":"","config":{"secret_access_key":"`) - len("fixture-credential")
+			prefix := `{"name":"` + strings.Repeat("a", padLen) + `","config":{"secret_access_key":"`
 			payload := prefix + secret + `"}}`
 			require.True(t, json.Valid([]byte(payload)))
 			require.Greater(t, len(payload), maxBodySize)
@@ -64,7 +65,8 @@ func TestLoggerTruncationCannotExposePartialCredentials(t *testing.T) {
 			}
 			logged, ok := entry[field].(string)
 			require.True(t, ok)
-			require.NotContains(t, logged, "fixture-credential", "a truncated JSON string has no closing quote for regex fallback to redact")
+			require.NotContains(t, logged, "fixture-credential",
+				"a truncated JSON string has no closing quote for regex fallback to redact")
 			require.Equal(t, "/api/v1/storage-backends", entry["path"])
 		})
 	}

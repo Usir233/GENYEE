@@ -27,7 +27,8 @@ func TestSQLiteCrossDialectIndexParity(t *testing.T) {
 	_, err = db.Exec("INSERT INTO tenants (id, name, business) VALUES (10000, 't1', 'biz')")
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO sessions (id, tenant_id) VALUES ('sess-a', 10000), ('sess-b', 10000), ('sess-ta', 10000), ('sess-tb', 10000)",
+		"INSERT INTO sessions (id, tenant_id) VALUES " +
+			"('sess-a', 10000), ('sess-b', 10000), ('sess-ta', 10000), ('sess-tb', 10000)",
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
@@ -59,17 +60,20 @@ func TestSQLiteCrossDialectIndexParity(t *testing.T) {
 	require.Error(t, err, "duplicate active IM user session for the same agent_id must be rejected")
 
 	_, err = db.Exec(
-		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) " +
+		"INSERT INTO im_channel_sessions " +
+			"(id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) " +
 			"VALUES ('imst-1', 'feishu', 'u2', 'c2', 'th-1', 'sess-ta', 10000, 'agent-a')",
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) " +
+		"INSERT INTO im_channel_sessions " +
+			"(id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) " +
 			"VALUES ('imst-2', 'feishu', 'u3', 'c2', 'th-1', 'sess-tb', 10000, 'agent-b')",
 	)
 	require.NoError(t, err, "multi-agent IM thread sessions must allow distinct agent_id rows")
 	_, err = db.Exec(
-		"INSERT INTO im_channel_sessions (id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) " +
+		"INSERT INTO im_channel_sessions " +
+			"(id, platform, user_id, chat_id, thread_id, session_id, tenant_id, agent_id) " +
 			"VALUES ('imst-dup', 'feishu', 'u4', 'c2', 'th-1', 'sess-ta', 10000, 'agent-a')",
 	)
 	require.Error(t, err, "duplicate active IM thread session for the same agent_id must be rejected")
@@ -154,9 +158,11 @@ func TestSQLiteCrossDialectIndexParity(t *testing.T) {
 	require.True(t, sqliteIndexExists(t, db, "idx_resources_tenant_content_hash"),
 		"SQLite must index resources(tenant_id, content_hash) like Postgres 000123")
 	rows, err := db.Query(
-		"EXPLAIN QUERY PLAN SELECT id FROM resources WHERE tenant_id = 10000 AND content_hash = 'deadbeef' AND content_hash <> '' AND deleted_at IS NULL",
+		"EXPLAIN QUERY PLAN SELECT id FROM resources " +
+			"WHERE tenant_id = 10000 AND content_hash = 'deadbeef' AND content_hash <> '' AND deleted_at IS NULL",
 	)
 	require.NoError(t, err)
+	defer func() { require.NoError(t, rows.Close()) }()
 	var plan strings.Builder
 	for rows.Next() {
 		var id, parent, unused int
@@ -164,7 +170,7 @@ func TestSQLiteCrossDialectIndexParity(t *testing.T) {
 		require.NoError(t, rows.Scan(&id, &parent, &unused, &detail))
 		plan.WriteString(detail + "\n")
 	}
-	require.NoError(t, rows.Close())
+	require.NoError(t, rows.Err())
 	require.Contains(t, plan.String(), "idx_resources_tenant_content_hash")
 }
 
@@ -192,13 +198,15 @@ func TestSQLiteUpgradeFromV53DedupesAndRollsBackCleanly(t *testing.T) {
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO kb_shares (id, knowledge_base_id, organization_id, shared_by_user_id, source_tenant_id, created_at) VALUES " +
+		"INSERT INTO kb_shares " +
+			"(id, knowledge_base_id, organization_id, shared_by_user_id, source_tenant_id, created_at) VALUES " +
 			"('kbs-a', 'kb-u1', 'org-a', 'u1', 10000, '2026-01-01 00:00:00'), " +
 			"('kbs-b', 'kb-u1', 'org-a', 'u1', 10000, '2026-01-02 00:00:00')",
 	)
 	require.NoError(t, err)
 	_, err = db.Exec(
-		"INSERT INTO agent_shares (id, agent_id, organization_id, shared_by_user_id, source_tenant_id, created_at) VALUES " +
+		"INSERT INTO agent_shares " +
+			"(id, agent_id, organization_id, shared_by_user_id, source_tenant_id, created_at) VALUES " +
 			"('ags-a', 'ag-u1', 'org-a', 'u1', 10000, '2026-01-01 00:00:00'), " +
 			"('ags-b', 'ag-u1', 'org-a', 'u1', 10000, '2026-01-02 00:00:00')",
 	)
@@ -213,9 +221,13 @@ func TestSQLiteUpgradeFromV53DedupesAndRollsBackCleanly(t *testing.T) {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 
 	var liveKBShares, liveAgentShares, liveInviteOrgs int
-	require.NoError(t, sqlDB.QueryRow("SELECT COUNT(*) FROM kb_shares WHERE deleted_at IS NULL").Scan(&liveKBShares))
+	require.NoError(t, sqlDB.QueryRow(
+		"SELECT COUNT(*) FROM kb_shares WHERE deleted_at IS NULL",
+	).Scan(&liveKBShares))
 	require.Equal(t, 1, liveKBShares)
-	require.NoError(t, sqlDB.QueryRow("SELECT COUNT(*) FROM agent_shares WHERE deleted_at IS NULL").Scan(&liveAgentShares))
+	require.NoError(t, sqlDB.QueryRow(
+		"SELECT COUNT(*) FROM agent_shares WHERE deleted_at IS NULL",
+	).Scan(&liveAgentShares))
 	require.Equal(t, 1, liveAgentShares)
 	require.NoError(t, sqlDB.QueryRow(
 		"SELECT COUNT(*) FROM organizations WHERE invite_code = 'DUPCODE' AND deleted_at IS NULL",
@@ -281,7 +293,8 @@ func TestPostgresPrincipalWidthsAndOrgJoinRequestIndexMigration(t *testing.T) {
 		require.NoError(t, err)
 		t.Cleanup(func() { _ = pgDB.Close() })
 
-		embedPrincipal := "embed_session:10000:4f659efc-8e27-4dee-b232-b053c369e44f:9a12bc34-56de-4789-8012-3456789abcde"
+		embedPrincipal := "embed_session:10000:" +
+			"4f659efc-8e27-4dee-b232-b053c369e44f:9a12bc34-56de-4789-8012-3456789abcde"
 		longExternalPrincipal := "api_external_user:10000:" + strings.Repeat("ext-principal-", 12)
 
 		_, err = pgDB.Exec(

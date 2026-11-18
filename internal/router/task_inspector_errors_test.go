@@ -26,7 +26,11 @@ func TestIsAsynqQueueNotFound(t *testing.T) {
 		{name: "different code", err: errors.New(`UNKNOWN: queue "default" does not exist`), want: false},
 		{name: "different reason", err: errors.New(`NOT_FOUND: queue "default" is unavailable`), want: false},
 		{name: "empty queue name", err: errors.New(`NOT_FOUND: queue "" does not exist`), want: false},
-		{name: "trailing context", err: errors.New(`NOT_FOUND: queue "default" does not exist: retry later`), want: false},
+		{
+			name: "trailing context",
+			err:  errors.New(`NOT_FOUND: queue "default" does not exist: retry later`),
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {

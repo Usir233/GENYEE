@@ -25,15 +25,56 @@ type SyncTaskExecutor struct {
 	mu         sync.RWMutex
 	handlers   map[string]func(context.Context, *asynq.Task) error
 	pendingIDs map[string]struct{}
+	stopOnce   sync.Once
+	stopCh     chan struct{}
+	wg         sync.WaitGroup
 	// onFinalFailure mirrors the asynq dead-letter callback: it runs once a
 	// task exhausts its retries, so a document whose task gave up is marked
 	// failed instead of spinning until the housekeeping sweep.
 	onFinalFailure func(context.Context, *asynq.Task, error)
 }
 
+// NewSyncTaskExecutor constructs a Lite-mode in-memory task executor.
 func NewSyncTaskExecutor() *SyncTaskExecutor {
 	return &SyncTaskExecutor{
 		handlers: make(map[string]func(context.Context, *asynq.Task) error),
+		stopCh:   make(chan struct{}),
+	}
+}
+
+// Close cancels pending delays/retries and waits for running workers to return.
+func (e *SyncTaskExecutor) Close() {
+	if e == nil {
+		return
+	}
+	e.doneChan()
+	e.stopOnce.Do(func() {
+		close(e.stopCh)
+	})
+	e.wg.Wait()
+}
+
+func (e *SyncTaskExecutor) doneChan() <-chan struct{} {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if e.stopCh == nil {
+		e.stopCh = make(chan struct{})
+	}
+	return e.stopCh
+}
+
+func (e *SyncTaskExecutor) sleepWithCancel(d time.Duration) bool {
+	if d <= 0 {
+		return true
+	}
+	stopCh := e.doneChan()
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-stopCh:
+		return false
+	case <-timer.C:
+		return true
 	}
 }
 
@@ -143,6 +184,15 @@ func (o syncTaskOptions) attemptContext(ctx context.Context) (context.Context, c
 // Supports ProcessIn / ProcessAt (delay), MaxRetry, Timeout, Deadline and TaskID for
 // parity with asynq, whether they were given here or to asynq.NewTask.
 func (e *SyncTaskExecutor) Enqueue(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error) {
+	if task == nil {
+		return nil, errors.New("sync task executor: nil task")
+	}
+	stopCh := e.doneChan()
+	select {
+	case <-stopCh:
+		return nil, errors.New("sync task executor: closed")
+	default:
+	}
 	e.mu.RLock()
 	handler, ok := e.handlers[task.Type()]
 	onFinalFailure := e.onFinalFailure
@@ -179,7 +229,9 @@ func (e *SyncTaskExecutor) Enqueue(task *asynq.Task, opts ...asynq.Option) (*asy
 		Type:  task.Type(),
 	}
 
+	e.wg.Add(1)
 	go func() {
+		defer e.wg.Done()
 		if idKey != "" {
 			defer func() {
 				e.mu.Lock()
@@ -187,8 +239,8 @@ func (e *SyncTaskExecutor) Enqueue(task *asynq.Task, opts ...asynq.Option) (*asy
 				e.mu.Unlock()
 			}()
 		}
-		if options.delay > 0 {
-			time.Sleep(options.delay)
+		if !e.sleepWithCancel(options.delay) {
+			return
 		}
 
 		// Tag as a background worker execution so the per-model concurrency
@@ -208,7 +260,9 @@ func (e *SyncTaskExecutor) Enqueue(task *asynq.Task, opts ...asynq.Option) (*asy
 				}
 				logger.Infof(ctx, "[SyncTask] Retrying task type=%s id=%s attempt=%d/%d backoff=%s",
 					task.Type(), taskID, attempt, maxRetry, backoff)
-				time.Sleep(backoff)
+				if !e.sleepWithCancel(backoff) {
+					return
+				}
 			}
 
 			var cancel context.CancelFunc
@@ -248,6 +302,7 @@ func (e *SyncTaskExecutor) Enqueue(task *asynq.Task, opts ...asynq.Option) (*asy
 	return info, nil
 }
 
+// SyncTaskParams aggregates dependencies injected into RegisterSyncHandlers.
 type SyncTaskParams struct {
 	dig.In
 

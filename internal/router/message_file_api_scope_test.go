@@ -54,18 +54,20 @@ func TestMessageOwnKBFilesRecheckCurrentAPIKeyScope(t *testing.T) {
 		physical       = "local://10006/images/own-kb.jpg"
 	)
 	for _, tc := range []struct {
-		name     string
-		filePath string
-		resource *types.StoredResource
-		bindings *types.MessageFileBindings
+		name      string
+		filePath  string
+		resource  *types.StoredResource
+		bindings  *types.MessageFileBindings
 		artifacts types.MessageArtifacts
-		ids      types.StringArray
-		want     int
+		ids       types.StringArray
+		want      int
 	}{
 		{
 			name:     "tenant-wide key serves same-workspace KB file",
 			filePath: resourceRef,
-			resource: &types.StoredResource{Handle: handle, TenantID: callerTenantID, PhysicalPath: physical, OriginalName: "own-kb.jpg"},
+			resource: &types.StoredResource{
+				Handle: handle, TenantID: callerTenantID, PhysicalPath: physical, OriginalName: "own-kb.jpg",
+			},
 			bindings: &types.MessageFileBindings{KnowledgeBaseIDs: []string{"kb-own-1"}},
 			ids:      nil,
 			want:     http.StatusOK,
@@ -73,7 +75,9 @@ func TestMessageOwnKBFilesRecheckCurrentAPIKeyScope(t *testing.T) {
 		{
 			name:     "KB-restricted key with allowed same-workspace KB serves file",
 			filePath: resourceRef,
-			resource: &types.StoredResource{Handle: handle, TenantID: callerTenantID, PhysicalPath: physical, OriginalName: "own-kb.jpg"},
+			resource: &types.StoredResource{
+				Handle: handle, TenantID: callerTenantID, PhysicalPath: physical, OriginalName: "own-kb.jpg",
+			},
 			bindings: &types.MessageFileBindings{KnowledgeBaseIDs: []string{"kb-own-1"}},
 			ids:      types.StringArray{"kb-own-1"},
 			want:     http.StatusOK,
@@ -81,7 +85,9 @@ func TestMessageOwnKBFilesRecheckCurrentAPIKeyScope(t *testing.T) {
 		{
 			name:     "KB-restricted key after removing same-workspace KB is denied",
 			filePath: resourceRef,
-			resource: &types.StoredResource{Handle: handle, TenantID: callerTenantID, PhysicalPath: physical, OriginalName: "own-kb.jpg"},
+			resource: &types.StoredResource{
+				Handle: handle, TenantID: callerTenantID, PhysicalPath: physical, OriginalName: "own-kb.jpg",
+			},
 			bindings: &types.MessageFileBindings{KnowledgeBaseIDs: []string{"kb-own-1"}},
 			ids:      types.StringArray{"kb-own-2"},
 			want:     http.StatusForbidden,
@@ -95,9 +101,11 @@ func TestMessageOwnKBFilesRecheckCurrentAPIKeyScope(t *testing.T) {
 			want:     http.StatusForbidden,
 		},
 		{
-			name:      "KB-restricted key still serves live MessageArtifact",
-			filePath:  resourceRef,
-			resource:  &types.StoredResource{Handle: handle, TenantID: callerTenantID, PhysicalPath: physical, OriginalName: "report.pdf"},
+			name:     "KB-restricted key still serves live MessageArtifact",
+			filePath: resourceRef,
+			resource: &types.StoredResource{
+				Handle: handle, TenantID: callerTenantID, PhysicalPath: physical, OriginalName: "report.pdf",
+			},
 			bindings:  &types.MessageFileBindings{MessageArtifact: true},
 			artifacts: types.MessageArtifacts{{URL: resourceRef, FileName: "report.pdf"}},
 			ids:       types.StringArray{"kb-own-2"},

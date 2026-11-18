@@ -1,4 +1,5 @@
-// Package middleware: authentication for browser WebSocket upgrades.
+// Package middleware provides authentication and authorization middleware,
+// including session attachment for browser WebSocket upgrades.
 //
 // Browsers cannot attach custom headers (Authorization / X-API-Key) to a
 // WebSocket handshake. The sandbox terminal mints a short-lived ticket over
