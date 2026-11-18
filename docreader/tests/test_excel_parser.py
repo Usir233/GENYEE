@@ -11,12 +11,13 @@ from unittest.mock import MagicMock, patch
 
 import openpyxl
 import pandas as pd
+from openpyxl.chart import BarChart, Reference
+
 from docreader.parser.excel_convert import detect_excel_format, engine_for_format
 from docreader.parser.excel_parser import ExcelParser
 from docreader.parser.markitdown_parser import StdMarkitdownParser
 from docreader.parser.xlsx_merge import fill_merged_cells_xlsx
 from docreader.parser.xlsx_repair import repair_xlsx_bytes, strip_unreadable_ranges_xlsx
-from openpyxl.chart import BarChart, Reference
 
 
 def _xlsx_with_phantom_shared_strings() -> bytes:
@@ -1477,6 +1478,7 @@ class ExcelSourceBlocksTest(unittest.TestCase):
         import io
 
         import openpyxl
+
         from docreader.parser.excel_parser import ExcelParser
 
         wb = openpyxl.Workbook()

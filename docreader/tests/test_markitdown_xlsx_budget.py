@@ -13,6 +13,8 @@ import grpc
 import openpyxl
 import pandas as pd
 import pptx
+from docx import Document as WordDocument
+
 from docreader import config
 from docreader.main import DocReaderServicer
 from docreader.parser import Parser, markitdown_parser, xlsx_rows
@@ -22,7 +24,6 @@ from docreader.parser.markitdown_parser import MarkitdownParser, StdMarkitdownPa
 from docreader.proto import docreader_pb2 as pb
 from docreader.proto import docreader_pb2_grpc as rpc
 from docreader.tests.test_docreader_stream import _NoopPreprocessRunner
-from docx import Document as WordDocument
 
 KEY = "DOCREADER_MARKITDOWN_XLSX_MAX_TABLE_CELLS"
 FIELD = "markitdown_xlsx_max_table_cells"

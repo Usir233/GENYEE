@@ -5,8 +5,6 @@ import unittest
 import zipfile
 from unittest.mock import patch
 
-from docreader.parser import pptx_media
-from docreader.parser.markitdown_parser import MarkitdownParser, StdMarkitdownParser
 from lxml import etree
 from markitdown import MarkItDown
 from PIL import Image
@@ -14,6 +12,9 @@ from pptx import Presentation
 from pptx.opc.constants import RELATIONSHIP_TYPE
 from pptx.oxml.ns import qn
 from pptx.util import Inches
+
+from docreader.parser import pptx_media
+from docreader.parser.markitdown_parser import MarkitdownParser, StdMarkitdownParser
 
 RED = (220, 30, 40)
 BLUE = (30, 80, 220)

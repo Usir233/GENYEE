@@ -17,12 +17,6 @@ from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Any
 
-from docreader.config import CONFIG
-from docreader.models.document import Document as DocumentModel
-from docreader.parser.archive import ArchiveLimitError
-from docreader.parser.base_parser import BaseParser
-from docreader.parser.concurrency import ParserCancelled
-from docreader.utils import endecode
 from docx import Document
 from docx.image.exceptions import (
     InvalidImageStreamError,
@@ -34,6 +28,13 @@ from docx.opc.pkgreader import _SerializedRelationship, _SerializedRelationships
 from docx.oxml.ns import qn
 from docx.table import Table
 from PIL import Image
+
+from docreader.config import CONFIG
+from docreader.models.document import Document as DocumentModel
+from docreader.parser.archive import ArchiveLimitError
+from docreader.parser.base_parser import BaseParser
+from docreader.parser.concurrency import ParserCancelled
+from docreader.utils import endecode
 
 ProcessPoolExecutor = _RealProcessPoolExecutor
 

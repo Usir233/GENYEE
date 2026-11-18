@@ -18,6 +18,7 @@ from unittest.mock import patch
 
 import openpyxl
 import pandas as pd
+
 from docreader.parser import xlsx_repair
 from docreader.parser.excel_parser import _prepare_xlsx_bytes
 from docreader.parser.markitdown_parser import StdMarkitdownParser

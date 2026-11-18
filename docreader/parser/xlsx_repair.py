@@ -10,6 +10,7 @@ from collections.abc import Callable, Iterable
 
 from defusedxml import ElementTree as ET
 from defusedxml.common import DefusedXmlException
+
 from docreader.parser.archive import (
     ArchiveLimitError,
     ZipReadBudget,

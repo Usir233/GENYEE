@@ -3,11 +3,12 @@
 import zipfile
 from io import BytesIO
 
-from docreader.parser.archive import ArchiveLimitError
-from docreader.parser.concurrency import check_cancellation
 from openpyxl import load_workbook
 from openpyxl.utils import column_index_from_string, get_column_letter
 from openpyxl.worksheet._reader import WorkSheetParser
+
+from docreader.parser.archive import ArchiveLimitError
+from docreader.parser.concurrency import check_cancellation
 
 
 def _cell_value(cell):

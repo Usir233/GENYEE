@@ -5,11 +5,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from docx import Document as WordDocument
+
 from docreader.models.document import Document
 from docreader.parser.archive import ArchiveLimitError
 from docreader.parser.concurrency import ParserCancelled
 from docreader.parser.doc_parser import DocParser
-from docx import Document as WordDocument
 
 LEGACY_DOC = (
     Path(__file__).resolve().parents[2]

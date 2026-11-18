@@ -22,6 +22,7 @@ import zipfile
 from xml.etree.ElementTree import Element
 
 from defusedxml import ElementTree as ET
+
 from docreader.parser.archive import (
     ArchiveLimitError,
     safe_read_zip_member,

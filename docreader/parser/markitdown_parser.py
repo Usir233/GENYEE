@@ -4,6 +4,21 @@ import time
 import zipfile
 from typing import BinaryIO
 
+from markitdown import MarkItDown
+from markitdown._stream_info import StreamInfo
+from markitdown.converters import (
+    AudioConverter,
+    BingSerpConverter,
+    EpubConverter,
+    ImageConverter,
+    IpynbConverter,
+    OutlookMsgConverter,
+    RssConverter,
+    WikipediaConverter,
+    YouTubeConverter,
+    ZipConverter,
+)
+
 from docreader.config import CONFIG
 from docreader.models.document import Document
 from docreader.parser.archive import (
@@ -25,20 +40,6 @@ from docreader.parser.xlsx_repair import (
     strip_unreadable_ranges_xlsx,
 )
 from docreader.parser.xlsx_rows import validate_table_expansion
-from markitdown import MarkItDown
-from markitdown._stream_info import StreamInfo
-from markitdown.converters import (
-    AudioConverter,
-    BingSerpConverter,
-    EpubConverter,
-    ImageConverter,
-    IpynbConverter,
-    OutlookMsgConverter,
-    RssConverter,
-    WikipediaConverter,
-    YouTubeConverter,
-    ZipConverter,
-)
 
 logger = logging.getLogger(__name__)
 

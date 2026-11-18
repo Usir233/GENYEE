@@ -5,6 +5,7 @@ import unittest
 from unittest.mock import patch
 
 import openpyxl
+
 from docreader.parser.excel_parser import ExcelParser
 
 

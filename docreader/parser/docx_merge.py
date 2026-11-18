@@ -7,6 +7,8 @@ import io
 import logging
 import zipfile
 
+from lxml import etree
+
 from docreader.parser.archive import (
     ArchiveLimitError,
     ZipReadBudget,
@@ -15,7 +17,6 @@ from docreader.parser.archive import (
 from docreader.parser.archive import (
     validate_zip_archive as _validate_zip_archive,
 )
-from lxml import etree
 
 logger = logging.getLogger(__name__)
 

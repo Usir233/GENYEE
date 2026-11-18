@@ -8,6 +8,7 @@ from xml.etree.ElementTree import Element
 
 from defusedxml import ElementTree
 from defusedxml.common import DefusedXmlException
+
 from docreader.models.document import Document
 from docreader.parser.archive import (
     MAX_ARCHIVE_ENTRIES,

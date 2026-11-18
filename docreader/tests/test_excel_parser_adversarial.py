@@ -20,6 +20,7 @@ import zipfile
 from unittest.mock import Mock, patch
 
 import openpyxl
+
 from docreader.parser.excel_parser import ExcelParser
 from docreader.parser.xlsx_media import XLSXImageExtractor
 

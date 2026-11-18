@@ -22,11 +22,12 @@ import zipfile
 from unittest.mock import patch
 
 import openpyxl
+from openpyxl.worksheet.worksheet import Worksheet
+
 from docreader.parser import xlsx_merge
 from docreader.parser.excel_parser import ExcelParser
 from docreader.parser.parser import Parser
 from docreader.parser.xlsx_merge import _format_percentage, fill_merged_cells_xlsx
-from openpyxl.worksheet.worksheet import Worksheet
 
 PERCENT_ENV = "DOCREADER_XLSX_PERCENT_AS_TEXT"
 ROW_HINT_ENV = "DOCREADER_XLSX_PCT_ROW_HINT_MIN"

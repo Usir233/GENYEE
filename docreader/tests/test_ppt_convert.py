@@ -6,6 +6,11 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
+from lxml import etree
+from PIL import Image
+from pptx import Presentation
+from pptx.util import Inches
+
 from docreader.parser.ppt_convert import (
     convert_ppt_to_pptx_bytes,
     is_ole_compound,
@@ -13,10 +18,6 @@ from docreader.parser.ppt_convert import (
     needs_ppt_to_pptx_conversion,
     normalize_ppt_bytes,
 )
-from lxml import etree
-from PIL import Image
-from pptx import Presentation
-from pptx.util import Inches
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TESTDATA = REPO_ROOT / "testdata" / "rag_test"

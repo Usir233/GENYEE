@@ -6,11 +6,12 @@ from unittest.mock import patch
 
 import openpyxl
 import pandas as pd
+from openpyxl.drawing.image import Image as SheetImage
+from PIL import Image
+
 from docreader.parser import xlsx_rows
 from docreader.parser.concurrency import ParserCancelled
 from docreader.parser.excel_parser import ExcelParser
-from openpyxl.drawing.image import Image as SheetImage
-from PIL import Image
 
 
 def workbook_bytes(build):

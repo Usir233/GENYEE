@@ -16,6 +16,7 @@ from typing import Any
 
 import pandas as pd
 from defusedxml import ElementTree as ET
+
 from docreader.models.document import Chunk, Document
 from docreader.parser.archive import (
     ArchiveLimitError,

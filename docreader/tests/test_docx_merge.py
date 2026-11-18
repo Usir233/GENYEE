@@ -5,11 +5,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from docx import Document as WordDocument
+from lxml import etree
+
 from docreader.parser.docx2_parser import Docx2Parser
 from docreader.parser.docx_merge import fill_vertical_merged_cells_docx
 from docreader.parser.markitdown_parser import StdMarkitdownParser
-from docx import Document as WordDocument
-from lxml import etree
 
 FIXTURE = Path(__file__).with_name("fixtures") / "issue_2634_vertical_merge.docx"
 METHOD_PREFIX = "检测方法：提取外周血基因组 DNA"

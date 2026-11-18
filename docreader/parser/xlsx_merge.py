@@ -10,6 +10,7 @@ from decimal import ROUND_HALF_UP, Decimal, localcontext
 from io import BytesIO
 
 from defusedxml import ElementTree as DefusedET
+
 from docreader.parser.archive import (
     ArchiveLimitError,
     ZipReadBudget,
